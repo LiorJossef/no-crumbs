@@ -101,7 +101,7 @@ exists.
 | 2 | ~~⚠ D8: which Supabase Auth methods to offer~~ — **CLOSED 2026-08-18, see §2.5** | Charter §8 |
 | 3 | ⚠ SSRF design for user-supplied URLs: host allow-list, redirect hop limit and re-validation, private-range blocking, timeouts, response size caps | `04` §8 |
 | 4 | The remaining 7 questions in `04-tiktok-feasibility.md` §8 | social-integration |
-| 5 | The 7 licensing/privacy questions in `06-map-and-places-decision.md` §11 — incl. Apache-2.0 NOTICE sufficiency and whether the OSM alias join contaminates stored data with share-alike obligations (⚠ changes the ingest design) | maps-geospatial |
+| 5 | ~~The 7 licensing/privacy questions in `06-map-and-places-decision.md` §11~~ — **SPLIT 2026-08-18, no longer one item.** Q1 (Apache-2.0 NOTICE sufficiency) **ANSWERED**, repo `NOTICE` shipped, `LICENSES/Apache-2.0.txt` + `/attributions` owed by MS5/MS10. Q2 (ODbL share-alike) **NARROWED** — no MS5 row is ODbL-derived, so it re-opens on the first PR adding an OSM alias or a Nominatim write path, not before MS5. Q3–Q7 remain open and are items 6a–10 in spirit; none can change an Overture-only schema. **Security-Privacy rules, maps-geospatial evidences and implements** — the earlier ownership split between this table and `implementation-plan.md` §4 is why none of them was answered | `06` §11 |
 | 6 | Caption-retention posture: TTL, copyright and personal-data stance on storing creator captions and handles | `07` |
 | 7 | Whether cached `sources` rows must be GC'd after user deletion | `08` §10 |
 | 8 | Whether `places.created_at` predating a save is an acceptable inference channel | `08` §10 |

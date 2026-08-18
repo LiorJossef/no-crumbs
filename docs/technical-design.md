@@ -246,7 +246,9 @@ Two `double precision` columns, WGS84 decimal degrees. Viewport = bounding-box `
 = latitude-corrected bbox pre-filter refined by the immutable `km_between()` Haversine. The selective
 predicate is `user_id`, not geometry: `saved_places_user_recent_idx` reduces the candidate set to a
 few hundred rows before any coordinate is compared, so a GiST index would index the dimension that
-is never doing the work. No extensions are created by this schema.
+is never doing the work. No extensions are created by this schema — D6 is a ruling about geometry
+types. MS5's migration 0010 adds `pg_trgm` for the POI index name prefilter, which is a different
+question and is decided in [`10-poi-index.md`](10-poi-index.md) §5.
 
 ### 4.5 Index plan (summary)
 
@@ -616,7 +618,7 @@ Named here so they cannot be forgotten, with who owns them and what they block.
 | # | Open | Owner | Blocks |
 |---|---|---|---|
 | 1 | The **Vercel-egress oEmbed probe** (`04` §6) — the one untested mechanism risk | DevOps + Social | MS7's exit gate. A laptop-only demo is a project failure |
-| 2 | D2's **security/licensing sign-off** (`06` §11), incl. whether the OSM alias join contaminates stored data with share-alike obligations | Security + Geospatial | MS5's ingest design |
+| 2 | ~~D2's **security/licensing sign-off** (`06` §11)~~ — **CLOSED 2026-08-18** by splitting §11: Q1 answered, Q2 (OSM alias share-alike) narrowed and deferred to the first milestone that writes an ODbL-derived row, which MS5 is not | Security + Geospatial | Nothing. MS5's ingest design is settled in `10` |
 | 3 | The **caption-retention ruling** (`04` §8 Q4) | Security | Only the `sources` column set and TTL. The seams and every rule in §7.4 are unchanged either way |
 | 4 | **D11 rate-limit values and the monthly cost ceiling** | DevOps + Security | The constants in `budgets.ts`, not their shape |
 | 5 | The full **M9 security document** (`security.md` is INTERIM) | Security | MS14; the largest known deliverable gap |

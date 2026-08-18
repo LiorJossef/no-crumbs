@@ -1,6 +1,9 @@
 # D2 — Map rendering + place resolution decision
 
-> Owner: Maps / Geospatial. Status: **recommended, pending Security-Privacy review** (§11).
+> Owner: Maps / Geospatial. Status: **ACCEPTED. Security-Privacy sign-off taken 2026-08-18** by
+> splitting §11 rather than answering it as a block — Q1 answered, Q2 narrowed and deferred to the
+> first milestone that writes an ODbL-derived row, Q3–Q7 open but non-blocking. The schema this
+> decision implies is designed in [`10-poi-index.md`](10-poi-index.md).
 > Evidence: [`evidence/places/`](evidence/places/), [`evidence/licensing/`](evidence/licensing/).
 > Every third-party claim below is labelled VERIFIED / ASSUMED / UNAVAILABLE per Charter §9.
 
@@ -180,7 +183,10 @@ Google basemap. The recommended stack has no such treadmill.
 ## 6. Resolution scoring — from candidate string to ranked shortlist
 
 Input: `{ candidate: string, cityHint?: string, categoryHint?: 'cafe'|'bar'|'restaurant', areaHint?: string }`.
-Output: `{ shortlist: RankedPlace[], confidence: number, action: 'preselect' | 'confirm' | 'no_match' }`.
+Output: `{ shortlist: RankedPlace[], confidence: number, margin: number,
+action: 'preselect' | 'confirm' | 'no_match', region_loaded: boolean }`. `margin` is carried
+because §6.2 bands on it and the UI explains with it; `region_loaded` because §7.3 requires the
+UI to distinguish "not found" from "that city is not loaded".
 
 Implemented and measured in
 [`evidence/places/resolve-overture-scored.py`](evidence/places/resolve-overture-scored.py).
@@ -396,32 +402,79 @@ can be paired with permanent storage of a name and coordinates, so accuracy is m
 
 ---
 
-## 11. Open questions for Security-Privacy
+## 11. Licensing and privacy questions for Security-Privacy
 
-1. **Attribution as a compliance surface.** Is the plan in §3.2 sufficient — specifically, does
-   reproducing the Foursquare NOTICE on an `/attributions` page plus a repo `NOTICE` file satisfy
-   Apache-2.0 §4(d) for a hosted web app that redistributes filtered rows through its own API? We
-   believe yes; we want it confirmed before the ingest script runs.
-2. **ODbL contamination boundary.** The Nominatim fallback writes ODbL-derived rows into the same
-   `places` table as CDLA-Permissive rows. We assume no share-alike obligation arises because we
-   never publicly distribute the database itself, only Produced Works (map views, place cards). We
-   want that assumption reviewed, and a decision on whether ODbL-derived rows should be segregated
-   or marked (we currently mark them via `source_dataset`).
-3. **Data-retention for place rows.** Charter invariant 3 says the source URL survives forever. Does
+**Status — D2 sign-off, split 2026-08-18.** These seven were originally one undifferentiated gate on
+all of D2, which is why they blocked MS5 as a block. They are now carried individually, because only
+two of them ever touched the ingest design, and only one of those applies to what MS5 actually
+ships:
+
+| Q | Subject | Status | Gates MS5? |
+|---|---|---|---|
+| 1 | Apache-2.0 NOTICE sufficiency | **ANSWERED** — see below | was the only real gate; now closed |
+| 2 | ODbL contamination boundary | **NARROWED and DEFERRED** — see below | **No.** No MS5 row is ODbL-derived |
+| 3–7 | Retention, location privacy, consent copy, rate limits, tile keys | OPEN | No — none can change a schema holding only Overture rows |
+
+**Ownership, resolved.** `security.md` §3 item 5 listed the owner as maps-geospatial while
+`implementation-plan.md` §4 listed Security-Privacy, and the effect was that nobody answered them.
+The split is: **Security-Privacy rules**, maps-geospatial supplies the evidence and implements the
+consequence. Both documents now say so.
+
+**These are the project's compliance position, recorded with its reasoning — not legal advice.**
+
+1. **Attribution as a compliance surface. — ANSWERED 2026-08-18.** The question was whether
+   reproducing the Foursquare NOTICE on `/attributions` plus a repo `NOTICE` file satisfies
+   Apache-2.0 §4(d) for a hosted app that redistributes filtered rows through its own API. Answer:
+   **yes, and it is answered by performing the acts rather than by opinion**, because §4 is a list of
+   conditions to *do*, not a standard to argue. Concretely, we owe four things and the first is
+   already delivered:
+   - a repo `NOTICE` file carrying the Foursquare notice verbatim, the CDLA-Permissive-2.0 and
+     Apache-2.0 positions, and an explicit statement that we modified the data (we filter to
+     food-and-drink categories and re-index it) — **delivered 2026-08-18**, ship-blocker §3.2 item 4;
+   - a verbatim copy of the Apache-2.0 licence text at `LICENSES/Apache-2.0.txt` — §4(a). Owed by
+     MS5, and it must be copied from apache.org, never retyped;
+   - the `/attributions` page reproducing all of the above — owed by the milestone that first
+     renders a place (MS10); tracked there, not here;
+   - `source_dataset` on every stored row so a place card can credit its own dataset — owed by
+     migration 0010 in MS5.
+
+   The reason this does not block the ingest: nothing about running the extract changes based on the
+   answer. Attribution obligations attach to *display and redistribution*, and both come later.
+
+2. **ODbL contamination boundary. — NARROWED 2026-08-18; does not gate MS5.** The original question
+   assumed the `places` table would hold ODbL-derived rows from day one. It will not. ODbL can enter
+   this system by exactly two paths, and **neither is in MS5**:
+   - the **OSM alias join** (§7.1a), explicitly out of MS5 scope (see `implementation-plan.md` MS5);
+   - the **Nominatim fallback**, which is MS7 at the earliest.
+
+   What MS5 ingests is the Overture `places` theme only: CDLA-Permissive-2.0 with Apache-2.0 for
+   Foursquare-sourced rows, **no share-alike** (VERIFIED, docs.overturemaps.org/attribution, §3.1).
+   The narrowing is therefore not a promise but an enforceable property, and MS5 enforces it: the
+   POI index constrains `source_dataset` to the Overture value, so an ODbL row cannot be written into
+   it without a migration that changes the constraint — which is the point at which this question has
+   to be answered rather than deferred.
+
+   **Re-opens when:** the first PR that adds an OSM-derived alias, a Nominatim write path, or a
+   second `source_dataset` value. The substantive question is unchanged and still owed then: whether
+   a mixed table plus a public API constitutes distributing a derivative *database* or only Produced
+   Works. Our position remains that it is the latter; it is untested and must be ruled on before the
+   code merges, not after.
+
+3. **Data-retention for place rows.** *(OPEN — does not gate MS5.)* Charter invariant 3 says the source URL survives forever. Does
    "forever" survive a user deletion request — does deleting a user delete shared `places` rows that
    other users also reference? Our position: shared rows survive, the user's link to them does not.
    Confirm against the retention policy and RLS design with the Database agent (D5).
-4. **Location privacy.** Confirm the §9.3 position is sufficient: no `watchPosition`, no server
+4. **Location privacy.** *(OPEN — does not gate MS5.)* Confirm the §9.3 position is sufficient: no `watchPosition`, no server
    transmission of the live fix, no persistence, no coordinates in analytics or logs, and no
    third-party script on the map page that could read them. We also want a ruling on whether the
    accuracy circle radius counts as personal data in a screenshot/support context.
-5. **Consent copy.** The browser permission prompt is not our consent surface. We need approved copy
+5. **Consent copy.** *(OPEN — does not gate MS5.)* The browser permission prompt is not our consent surface. We need approved copy
    for the pre-prompt explaining purpose and scope ("to sort your saved places by distance; your
    location is never stored or sent to us").
-6. **Rate limits (D11).** We propose 8 lookups/import, 30 imports/user/day, 20 searches/min/user,
+6. **Rate limits (D11).** *(OPEN — does not gate MS5.)* We propose 8 lookups/import, 30 imports/user/day, 20 searches/min/user,
    200 Nominatim/day project-wide. Confirm these are enforced server-side with the user id as the
    key, not client-side.
-7. **Public token exposure.** Protomaps/MapTiler-style tile keys are public by design. Confirm the
+7. **Public token exposure.** *(OPEN — does not gate MS5.)* Protomaps/MapTiler-style tile keys are public by design. Confirm the
    referrer-restriction plan and that a leaked tile key is an acceptable, bounded risk given the
    free-tier cap halts rather than bills.
 
