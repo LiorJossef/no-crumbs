@@ -72,18 +72,29 @@ end $$;
 -- P4b: a granted-column UPDATE by the owner must succeed AND fire touch_updated_at. This is the
 -- assertion that 0009's "trigger functions need no EXECUTE grant" claim rests on: if firing a
 -- trigger did require EXECUTE on its function, this is where it would break.
+--
+-- The trap this test fell into first: `now()` is the TRANSACTION timestamp, so comparing updated_at
+-- before and after inside one transaction always shows no change even though the trigger ran. That
+-- is correct behaviour for updated_at — a statement clock would make two rows written by one
+-- confirmImport disagree about when they were saved. So the row is backdated as the privileged role
+-- first, and the assertion is that the trigger dragged it forward to the transaction time.
+reset role;
+update public.saved_places set updated_at = '2000-01-01T00:00:00Z';
+
+select set_config('request.jwt.claims',
+                  '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}', true);
+set local role authenticated;
+
 do $$
-declare v_before timestamptz; v_after timestamptz;
+declare v_after timestamptz;
 begin
-  select updated_at into v_before from public.saved_places limit 1;
-  perform pg_sleep(0.01);
   update public.saved_places set note = 'edited by the owner';
   if not found then raise exception 'FAIL P4b: the owner could not edit their own note'; end if;
   select updated_at into v_after from public.saved_places limit 1;
-  if v_after <= v_before then
-    raise exception 'FAIL P4b: touch_updated_at did not fire (% -> %)', v_before, v_after;
+  if v_after < '2020-01-01T00:00:00Z'::timestamptz then
+    raise exception 'FAIL P4b: touch_updated_at did not fire (updated_at still %)', v_after;
   end if;
-  raise notice 'PASS P4b owner edits their overlay and touch_updated_at fires';
+  raise notice 'PASS P4b owner edits their overlay and touch_updated_at fires (no EXECUTE grant needed)';
 end $$;
 
 -- ── the two exit assertions of MS4, as user B ───────────────────────────────────────────────
