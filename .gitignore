@@ -1,0 +1,19 @@
+node_modules/
+.next/
+out/
+build/
+coverage/
+next-env.d.ts
+*.tsbuildinfo
+
+# env: only .env.example is checked in
+.env
+.env.*
+!.env.example
+
+# tooling output
+playwright-report/
+test-results/
+.vercel/
+.supabase/
+.DS_Store

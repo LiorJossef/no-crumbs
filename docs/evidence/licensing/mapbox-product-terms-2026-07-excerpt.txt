@@ -1,0 +1,83 @@
+                action, without limiting Mapbox’s other rights and remedies, Customer shall pay for all fees that
+                would have otherwise been owed.
+    1.4.​ Attribution and Logo.
+         1.4.1.​Mandatory Attribution. When using any Service Offering, Customer shall include the following
+                attribution, as further described in the Attribution Documentation (i) the Mapbox logo, (ii) “©
+                Mapbox” that links to www.mapbox.com/about/maps, (iii) “© OpenStreetMap” that links to
+                www.openstreetmap.org/about, and (iv) upon reasonable notice, other attribution, similar in size
+                and placement to the notices specified in (ii) and (iii), as may be required by Mapbox’s suppliers and
+                licensors; provided that the requirements in clauses (ii) and (iii) only apply when Customer accesses
+                or uses Licensed Map Content.
+         1.4.2.​Mapbox Map. When displaying a Mapbox Map, Customer shall also include “Improve this map” that
+                links to Mapbox’s map feedback tool at www.mapbox.com/map-feedback (or its successor URL) in
+                the lower right corner of the map.
+         1.4.3.​Form and Format. Customer shall include attribution in a form that is prominent and can be easily
+                viewed by End Users when using the Licensed Application. Without limiting Mapbox’s other rights
+                and remedies, if Mapbox reasonably determines that Customer is obscuring the required attribution
+                or otherwise not complying with the foregoing attribution requirements, Customer shall work with
+
+
+
+Mapbox Product Terms (2026-07)​                            2
+                                              Mapbox Product Terms
+
+                Mapbox in good faith and promptly remedy the non-compliant attribution.
+    1.5.​ No Derived Works, Reverse Engineering, or Competitive Uses. Customer shall not (i) modify, create
+          derived works from, disassemble, decompile or otherwise reverse engineer, or attempt to derive any
+          source code or underlying structure, ideas, or algorithms from the Service Offerings, (ii) use the Service
+         2.7.1.​General. Customer shall not use Geocoding Results (i) to develop a general database of
+                points-of-interest, locations, addresses, areas or boundaries (of any geographic size), (ii) to develop
+                any general purpose printed or digital map (of any geographic size), (iii) to develop or test another
+                geocoding application, dataset, service or API, (iv) in connection with navigation products
+                preinstalled or integrated into vehicles by vehicle manufacturers, vehicle electronic component
+                manufacturers or vehicle system integrators (unless an additional license for vehicle usage is
+                purchased under an active Order), or (v) for in-flight navigation. In addition, Customer shall not (a)
+                resell, re-syndicate or otherwise make available any Geocoding Results to other publishers or third
+                parties or (b) display the latitudes or longitudes directly to End Users or other third parties.
+         2.7.2.​Temporary Geocodes. Customer shall not export, store, or cache Temporary Geocodes. Customer
+                may display Temporary Geocodes (other than the latitudes and longitudes) to its End Users through
+                its Licensed Application(s) and use Temporary Geocodes to position results on a map.
+         2.7.3.​Permanent Geocodes. Customer may permanently store Permanent Geocodes and may query the
+                Geocoding API programmatically for Permanent Geocodes. Customer shall only use Permanent
+                Geocodes for Customer’s own internal business use. Notwithstanding the foregoing sentence,
+                Customer may use Permanent Geocodes in its Licensed Application if all following conditions are
+                fulfilled (i) access to Permanent Geocodes cannot be a primary or significant feature of a Licensed
+                Application but only used to support an ancillary or incidental feature, (ii) a separate API request for
+                a Permanent Geocode shall be made for each End User account that accesses, uses, or relies on
+                such Permanent Geocode in any way, (iii) the Licensed Application shall not allow an End User to
+                sublicense, sell, rent, lease, transfer, assign, disclose, or distribute a Permanent Geocode to any
+                other End User or third party, and (iv) if Permanent Geocodes are displayed in a Licensed
+                Application, latitudes and longitudes may not be made available to End Users.
+         2.7.4.​Studio Points as Permanent Geocodes. Points placed on a map through the places search function
+
+
+
+Mapbox Product Terms (2026-07)​                            6
+                                                Mapbox Product Terms
+
+                of the Studio dataset editor are Permanent Geocodes and are subject to the terms applicable to
+                Permanent Geocodes.
+         2.7.5.​POI Results. Customer shall not use any POI Results (i) except in conjunction with a Mapbox Map,
+                (ii) for lead generation, advertiser targeting or advertising analysis, or (iii) to create or augment user
+                profiles or audience segments based on or derived from points-of-interest results (including, for
+                clarity, calculations or analysis of footfall traffic for any point-of-interest).
+         2.7.6.​Location Details API. Customer may store and use Mapbox Feature IDs included in Geocoding
+                Results for its internal business purposes. At any time without notice, Mapbox may modify or
+                remove a Mapbox Feature ID and/or any data associated with a Mapbox Feature ID.
+         2.7.7.​URL data. URLs provided by a Service Offering grant no license or right to use, reproduce, or display
+                the linked content. Customer is solely responsible for obtaining any rights needed to use it.
+    2.8.​ Mapping APIs.
+         2.8.1.​For Licensed Map Content delivered through a Mapping API, Customer may cache that Licensed
+                Map Content on an End User’s device but caching is limited to thirty (30) days on the same device
+                making the Mapping API request. For clarity, the Licensed Application is required to populate any
+                on-device cache of Licensed Map Content delivered through Mapping APIs directly from the
+                Mapping APIs. On mobile devices, Customer shall only cache up to the limits set in the Mobile SDKs,
+                and Customer shall not circumvent or change those limits. Customer shall not distribute Licensed
+                Map Content, including from a cache, by proxying, or by using a screenshot or other static image
+                instead of accessing Licensed Map Content directly from the Mapping APIs.
+         2.8.2.​Customer shall not use Mapbox’s satellite and/or aerial imagery to improve the accuracy of or
+                otherwise enhance any imagery.
+         2.8.3.​In order to qualify for Seats for Web or Map Loads fees, Customer shall use a Qualified Renderer. In
+                the event that Customer fails to use, or interferes with the information sent by, the Qualified
+                Renderer, without limiting Mapbox’s other rights and remedies, Customer shall pay for its usage
+                based on the number of API requests at the then-current rates listed on the Pricing Page.

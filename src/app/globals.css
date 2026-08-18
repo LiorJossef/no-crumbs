@@ -1,0 +1,15 @@
+/* MS2 placeholder. Real design tokens land in MS4 (design-system-frontend). */
+:root {
+  color-scheme: light dark;
+  --bg: #0b0b0f;
+  --fg: #f4f4f5;
+  --muted: #a1a1aa;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 16px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}

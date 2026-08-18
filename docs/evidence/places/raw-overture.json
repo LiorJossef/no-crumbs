@@ -1,0 +1,2730 @@
+{
+ "TYO-01": {
+  "query_sent": "glitch coffee & roasters",
+  "city_scope": "tyo",
+  "latency_ms": 195,
+  "results": [
+   {
+    "name": "Glitch Coffee and Roasters",
+    "category": "coffee_shop",
+    "lat": 35.69377517700195,
+    "lon": 139.76124572753906,
+    "id": "b9ea7493-cbe3-4a75-87bc-c19a2015c4bf",
+    "city_extract": "tyo",
+    "name_sim": 0.951,
+    "cat_match": 1,
+    "score": 0.961
+   },
+   {
+    "name": "GLITCH COFFEE BREWED",
+    "category": "coffee_shop",
+    "lat": 35.67387008666992,
+    "lon": 139.7352294921875,
+    "id": "ab00aedc-def2-4573-89d0-9795d2f449ce",
+    "city_extract": "tyo",
+    "name_sim": 0.893,
+    "cat_match": 1,
+    "score": 0.903
+   },
+   {
+    "name": "GLITCH COFFEE GINZA",
+    "category": "coffee_shop",
+    "lat": 35.66901397705078,
+    "lon": 139.76873779296875,
+    "id": "81ec0323-40e5-48ca-9b6c-49584df14106",
+    "city_extract": "tyo",
+    "name_sim": 0.883,
+    "cat_match": 1,
+    "score": 0.895
+   },
+   {
+    "name": "Nog Coffee Roasters",
+    "category": "coffee_shop",
+    "lat": 35.622562408447266,
+    "lon": 139.74417114257812,
+    "id": "74fe58be-3613-4c70-8962-80b92073bdaf",
+    "city_extract": "tyo",
+    "name_sim": 0.848,
+    "cat_match": 1,
+    "score": 0.878
+   },
+   {
+    "name": "Grain Coffee Roaster",
+    "category": "coffee_shop",
+    "lat": 35.60344696044922,
+    "lon": 139.6968536376953,
+    "id": "99767e0c-36e4-40ca-965c-21a5ff1be0d8",
+    "city_extract": "tyo",
+    "name_sim": 0.85,
+    "cat_match": 1,
+    "score": 0.869
+   }
+  ]
+ },
+ "TYO-02": {
+  "query_sent": "onibus coffee",
+  "city_scope": "tyo",
+  "latency_ms": 177,
+  "results": [
+   {
+    "name": "Onibus Coffee",
+    "category": "coffee_shop",
+    "lat": 35.643165588378906,
+    "lon": 139.69802856445312,
+    "id": "d44196da-faa5-46ea-8563-edcd5fed7e55",
+    "city_extract": "tyo",
+    "name_sim": 1.0,
+    "cat_match": 1,
+    "score": 1.0
+   },
+   {
+    "name": "Onibus Coffee Yakumo",
+    "category": "coffee_shop",
+    "lat": 35.625972747802734,
+    "lon": 139.67108154296875,
+    "id": "ac968f5a-8f2f-4936-a18c-c3ae8ed68e34",
+    "city_extract": "tyo",
+    "name_sim": 0.93,
+    "cat_match": 1,
+    "score": 0.944
+   },
+   {
+    "name": "Onibus Coffee 自由が丘",
+    "category": "coffee_shop",
+    "lat": 35.608516693115234,
+    "lon": 139.6718292236328,
+    "id": "8aa3dd90-015d-414f-a3e9-dcee120f5ea6",
+    "city_extract": "tyo",
+    "name_sim": 0.9,
+    "cat_match": 1,
+    "score": 0.917
+   },
+   {
+    "name": "Rubin's Coffee",
+    "category": "coffee_shop",
+    "lat": 35.66669464111328,
+    "lon": 139.77008056640625,
+    "id": "ad50bfa1-87cd-43bc-bae1-8441f80edcc0",
+    "city_extract": "tyo",
+    "name_sim": 0.871,
+    "cat_match": 1,
+    "score": 0.894
+   },
+   {
+    "name": "AOI Coffee",
+    "category": "coffee_shop",
+    "lat": 35.600948333740234,
+    "lon": 139.69387817382812,
+    "id": "7c1199bc-ba07-469d-98d1-1c8b219d2c94",
+    "city_extract": "tyo",
+    "name_sim": 0.864,
+    "cat_match": 1,
+    "score": 0.891
+   }
+  ]
+ },
+ "TYO-03": {
+  "query_sent": "fuglen tokyo",
+  "city_scope": "tyo",
+  "latency_ms": 156,
+  "results": [
+   {
+    "name": "Fuglen Tokyo",
+    "category": "coffee_shop",
+    "lat": 35.66665267944336,
+    "lon": 139.69239807128906,
+    "id": "ee498975-1f07-4d78-a5c4-0e7119fd9559",
+    "city_extract": "tyo",
+    "name_sim": 1.0,
+    "cat_match": 1,
+    "score": 1.0
+   },
+   {
+    "name": "GUF TOKYO",
+    "category": "cafe",
+    "lat": 35.70052719116211,
+    "lon": 139.7030487060547,
+    "id": "73f9bfbe-72df-468d-9331-106ef01ba6c9",
+    "city_extract": "tyo",
+    "name_sim": 0.88,
+    "cat_match": 1,
+    "score": 0.9
+   },
+   {
+    "name": "Fuglen Asakusa",
+    "category": "cafe",
+    "lat": 35.714439392089844,
+    "lon": 139.79397583007812,
+    "id": "ba381fc9-e78a-40f4-a439-099979a2b5ee",
+    "city_extract": "tyo",
+    "name_sim": 0.848,
+    "cat_match": 1,
+    "score": 0.878
+   },
+   {
+    "name": "Fuglen Hanegi Park",
+    "category": "cafe",
+    "lat": 35.65680694580078,
+    "lon": 139.65481567382812,
+    "id": "979f715b-d275-408c-ba08-83422d525b10",
+    "city_extract": "tyo",
+    "name_sim": 0.822,
+    "cat_match": 1,
+    "score": 0.858
+   },
+   {
+    "name": "Cafe Tokyo",
+    "category": "cafe",
+    "lat": 35.708702087402344,
+    "lon": 139.81100463867188,
+    "id": "61ac5790-d146-4074-a48b-4ded3ecf0a35",
+    "city_extract": "tyo",
+    "name_sim": 0.822,
+    "cat_match": 1,
+    "score": 0.835
+   }
+  ]
+ },
+ "TYO-04": {
+  "query_sent": "koffee mameya",
+  "city_scope": "tyo",
+  "latency_ms": 180,
+  "results": [
+   {
+    "name": "Koffee Mameya",
+    "category": "coffee_shop",
+    "lat": 35.668357849121094,
+    "lon": 139.71087646484375,
+    "id": "fbcf110e-32ba-4fb0-8d88-cb850b307ba6",
+    "city_extract": "tyo",
+    "name_sim": 1.0,
+    "cat_match": 1,
+    "score": 1.0
+   },
+   {
+    "name": "KOFFEE MAMEYA Kakeru",
+    "category": "coffee_roastery",
+    "lat": 35.676570892333984,
+    "lon": 139.80419921875,
+    "id": "5a5b1c8a-d249-49f2-b1b1-9d1914fbaba9",
+    "city_extract": "tyo",
+    "name_sim": 0.93,
+    "cat_match": 1,
+    "score": 0.932
+   },
+   {
+    "name": "Koffee Mamaya Kakeru",
+    "category": "coffee_shop",
+    "lat": 35.67647171020508,
+    "lon": 139.80421447753906,
+    "id": "f0df6387-da7b-4a62-8a2e-6ab72c590bd6",
+    "city_extract": "tyo",
+    "name_sim": 0.915,
+    "cat_match": 1,
+    "score": 0.924
+   },
+   {
+    "name": "Coffee mafia",
+    "category": "coffee_shop",
+    "lat": 35.693397521972656,
+    "lon": 139.68870544433594,
+    "id": "56dbd780-945c-407a-a933-79ac9656818e",
+    "city_extract": "tyo",
+    "name_sim": 0.814,
+    "cat_match": 1,
+    "score": 0.849
+   },
+   {
+    "name": "coffee mafia",
+    "category": "coffee_shop",
+    "lat": 35.67266845703125,
+    "lon": 139.7647247314453,
+    "id": "a6aee857-b34c-48ff-bf61-96bd85dcb557",
+    "city_extract": "tyo",
+    "name_sim": 0.814,
+    "cat_match": 1,
+    "score": 0.84
+   }
+  ]
+ },
+ "TYO-05": {
+  "query_sent": "bar benfiddich",
+  "city_scope": "tyo",
+  "latency_ms": 180,
+  "results": [
+   {
+    "name": "Bar Benfiddich",
+    "category": "cocktail_bar",
+    "lat": 35.68947219848633,
+    "lon": 139.69654846191406,
+    "id": "c5f25024-adf8-4d46-b1fa-bd5cde8df72f",
+    "city_extract": "tyo",
+    "name_sim": 1.0,
+    "cat_match": 2,
+    "score": 1.0
+   },
+   {
+    "name": "Bar Abend",
+    "category": "bar",
+    "lat": 35.64316940307617,
+    "lon": 139.7481689453125,
+    "id": "5cc7ae95-4166-49a8-9717-cc42dbcc9fbf",
+    "city_extract": "tyo",
+    "name_sim": 0.892,
+    "cat_match": 1,
+    "score": 0.913
+   },
+   {
+    "name": "Bar id",
+    "category": "bar",
+    "lat": 35.665035247802734,
+    "lon": 139.73220825195312,
+    "id": "f77cee91-d72c-4698-ba5e-11be14600a46",
+    "city_extract": "tyo",
+    "name_sim": 0.886,
+    "cat_match": 1,
+    "score": 0.906
+   },
+   {
+    "name": "Bar Dice",
+    "category": "bar",
+    "lat": 35.70903778076172,
+    "lon": 139.7711639404297,
+    "id": "68f4a02c-d4cd-41f1-965f-ba70660a5c47",
+    "city_extract": "tyo",
+    "name_sim": 0.889,
+    "cat_match": 1,
+    "score": 0.901
+   },
+   {
+    "name": "Bar Nico",
+    "category": "bar",
+    "lat": 35.68483352661133,
+    "lon": 139.79864501953125,
+    "id": "0485dace-711c-445b-a077-9ccecfaa3c2b",
+    "city_extract": "tyo",
+    "name_sim": 0.875,
+    "cat_match": 1,
+    "score": 0.9
+   }
+  ]
+ },
+ "TYO-06": {
+  "query_sent": "bar trench",
+  "city_scope": "tyo",
+  "latency_ms": 163,
+  "results": [
+   {
+    "name": "Bar Trench",
+    "category": "cocktail_bar",
+    "lat": 35.648380279541016,
+    "lon": 139.7078399658203,
+    "id": "f7ce816f-f750-4bc5-92bf-f64c898e188f",
+    "city_extract": "tyo",
+    "name_sim": 1.0,
+    "cat_match": 2,
+    "score": 1.0
+   },
+   {
+    "name": "Bar Tres",
+    "category": "bar",
+    "lat": 35.6126823425293,
+    "lon": 139.62588500976562,
+    "id": "a013bb5c-a393-4c97-a8ec-a9a7f86ce55a",
+    "city_extract": "tyo",
+    "name_sim": 0.915,
+    "cat_match": 1,
+    "score": 0.932
+   },
+   {
+    "name": "BAR THREE",
+    "category": "bar",
+    "lat": 35.67091369628906,
+    "lon": 139.79689025878906,
+    "id": "9f9c6036-8dcc-4985-8274-dd48ba684517",
+    "city_extract": "tyo",
+    "name_sim": 0.913,
+    "cat_match": 1,
+    "score": 0.93
+   },
+   {
+    "name": "Bar Strecke",
+    "category": "bar",
+    "lat": 35.69300842285156,
+    "lon": 139.77584838867188,
+    "id": "8b7e088c-c9d8-4d61-a36e-7c7e8d349732",
+    "city_extract": "tyo",
+    "name_sim": 0.905,
+    "cat_match": 1,
+    "score": 0.923
+   },
+   {
+    "name": "Bar C",
+    "category": "bar",
+    "lat": 35.671730041503906,
+    "lon": 139.79522705078125,
+    "id": "6a362746-fbe6-4793-9f9c-9f3667a25912",
+    "city_extract": "tyo",
+    "name_sim": 0.9,
+    "cat_match": 1,
+    "score": 0.918
+   }
+  ]
+ },
+ "TYO-07": {
+  "query_sent": "afuri",
+  "city_scope": "tyo",
+  "latency_ms": 177,
+  "results": [
+   {
+    "name": "AFURI",
+    "category": "japanese_restaurant",
+    "lat": 35.64433670043945,
+    "lon": 139.69960021972656,
+    "id": "7b084cf3-43c1-4185-acb2-fa9d08da687d",
+    "city_extract": "tyo",
+    "name_sim": 1.0,
+    "cat_match": 1,
+    "score": 1.0
+   },
+   {
+    "name": "AFURI",
+    "category": "japanese_restaurant",
+    "lat": 35.681732177734375,
+    "lon": 139.69833374023438,
+    "id": "c24351ca-ec26-45b8-87f1-67c9f5eab103",
+    "city_extract": "tyo",
+    "name_sim": 1.0,
+    "cat_match": 1,
+    "score": 0.999
+   },
+   {
+    "name": "Afuri",
+    "category": "japanese_restaurant",
+    "lat": 35.66182327270508,
+    "lon": 139.73008728027344,
+    "id": "8c88019f-84fc-4eac-8a7b-0c45c9a63e36",
+    "city_extract": "tyo",
+    "name_sim": 1.0,
+    "cat_match": 1,
+    "score": 0.998
+   },
+   {
+    "name": "AFURI",
+    "category": "japanese_restaurant",
+    "lat": 35.66373825073242,
+    "lon": 139.71224975585938,
+    "id": "cf650407-00ff-4736-af85-77f148ba3156",
+    "city_extract": "tyo",
+    "name_sim": 1.0,
+    "cat_match": 1,
+    "score": 0.989
+   },
+   {
+    "name": "Afuri Ebisu",
+    "category": "japanese_restaurant",
+    "lat": 35.64829635620117,
+    "lon": 139.7108612060547,
+    "id": "ea0e36b2-863e-4693-9573-a959125e1f74",
+    "city_extract": "tyo",
+    "name_sim": 0.891,
+    "cat_match": 1,
+    "score": 0.913
+   }
+  ]
+ },
+ "TYO-08": {
+  "query_sent": "ichiran shibuya",
+  "city_scope": "tyo",
+  "latency_ms": 186,
+  "results": [
+   {
+    "name": "Ichiran Shibuya",
+    "category": "japanese_restaurant",
+    "lat": 35.66110610961914,
+    "lon": 139.70091247558594,
+    "id": "4bd56bcf-8f13-433a-813a-e39e4dfb3474",
+    "city_extract": "tyo",
+    "name_sim": 1.0,
+    "cat_match": 1,
+    "score": 0.999
+   },
+   {
+    "name": "Ichiran Shimbashi",
+    "category": "japanese_restaurant",
+    "lat": 35.667476654052734,
+    "lon": 139.75608825683594,
+    "id": "a69243d7-9601-4ea0-a9b2-068e944dd679",
+    "city_extract": "tyo",
+    "name_sim": 0.926,
+    "cat_match": 1,
+    "score": 0.941
+   },
+   {
+    "name": "Ichiran",
+    "category": "japanese_restaurant",
+    "lat": 35.69440841674805,
+    "lon": 139.70150756835938,
+    "id": "429a1c3d-fba4-44e0-aff0-4dc34aa0863e",
+    "city_extract": "tyo",
+    "name_sim": 0.893,
+    "cat_match": 1,
+    "score": 0.91
+   },
+   {
+    "name": "Ichiba Sushi",
+    "category": "sushi_restaurant",
+    "lat": 35.64448547363281,
+    "lon": 139.78445434570312,
+    "id": "05d546cf-30a5-4839-8950-e8b67430e03b",
+    "city_extract": "tyo",
+    "name_sim": 0.88,
+    "cat_match": 1,
+    "score": 0.903
+   },
+   {
+    "name": "Ichiran Asakusa",
+    "category": "japanese_restaurant",
+    "lat": 35.71117401123047,
+    "lon": 139.79766845703125,
+    "id": "50bd5128-5dd5-4584-b315-ef199abdc6ef",
+    "city_extract": "tyo",
+    "name_sim": 0.875,
+    "cat_match": 1,
+    "score": 0.899
+   }
+  ]
+ },
+ "TYO-09": {
+  "query_sent": "猿田彦珈琲",
+  "city_scope": "tyo",
+  "latency_ms": 183,
+  "results": [
+   {
+    "name": "猿田彦珈琲",
+    "category": "coffee_shop",
+    "lat": 35.69116973876953,
+    "lon": 139.70326232910156,
+    "id": "f04d41ba-390f-418d-b8c0-45a523042740",
+    "city_extract": "tyo",
+    "name_sim": 1.0,
+    "cat_match": 1,
+    "score": 0.997
+   },
+   {
+    "name": "猿田彦珈琲",
+    "category": "coffee_shop",
+    "lat": 35.66403579711914,
+    "lon": 139.6981964111328,
+    "id": "de31b6a4-f223-48fc-bc50-b0bf862e9ff0",
+    "city_extract": "tyo",
+    "name_sim": 1.0,
+    "cat_match": 1,
+    "score": 0.997
+   },
+   {
+    "name": "猿田彦珈琲",
+    "category": "coffee_shop",
+    "lat": 35.66012191772461,
+    "lon": 139.69723510742188,
+    "id": "c915c570-4672-4144-a13d-fe0b87e33939",
+    "city_extract": "tyo",
+    "name_sim": 1.0,
+    "cat_match": 1,
+    "score": 0.989
+   },
+   {
+    "name": "猿田彦珈琲",
+    "category": "coffee_shop",
+    "lat": 35.63345718383789,
+    "lon": 139.66162109375,
+    "id": "779fba4d-f53f-45a9-bccb-f4aec1b00360",
+    "city_extract": "tyo",
+    "name_sim": 1.0,
+    "cat_match": 1,
+    "score": 0.989
+   },
+   {
+    "name": "猿田彦珈琲",
+    "category": "coffee_shop",
+    "lat": 35.69955062866211,
+    "lon": 139.76516723632812,
+    "id": "8aec1021-2c35-4097-ba35-0e043e6678ea",
+    "city_extract": "tyo",
+    "name_sim": 1.0,
+    "cat_match": 1,
+    "score": 0.989
+   }
+  ]
+ },
+ "TYO-10": {
+  "query_sent": "むぎとオリーブ",
+  "city_scope": "tyo",
+  "latency_ms": 177,
+  "results": [
+   {
+    "name": "むぎとオリーブ",
+    "category": "japanese_restaurant",
+    "lat": 35.697139739990234,
+    "lon": 139.77029418945312,
+    "id": "69c0f674-853a-493b-978b-eac09195f79e",
+    "city_extract": "tyo",
+    "name_sim": 1.0,
+    "cat_match": 1,
+    "score": 0.963
+   },
+   {
+    "name": "むぎとオリーブ 銀座店",
+    "category": "japanese_restaurant",
+    "lat": 35.63479995727539,
+    "lon": 139.61383056640625,
+    "id": "fa26d37f-ffef-4947-853d-836c5a86bc63",
+    "city_extract": "tyo",
+    "name_sim": 0.935,
+    "cat_match": 1,
+    "score": 0.946
+   },
+   {
+    "name": "むぎとオリーブ 銀座本店",
+    "category": "japanese_restaurant",
+    "lat": 35.66896057128906,
+    "lon": 139.76431274414062,
+    "id": "cba4cfc4-4853-4b83-a01f-acfbc7ff7260",
+    "city_extract": "tyo",
+    "name_sim": 0.924,
+    "cat_match": 1,
+    "score": 0.939
+   },
+   {
+    "name": "むぎとオリーブ 日本橋店",
+    "category": "japanese_restaurant",
+    "lat": 35.68705368041992,
+    "lon": 139.7747802734375,
+    "id": "f1a60314-5302-41d4-b4f6-aa352c0c19b5",
+    "city_extract": "tyo",
+    "name_sim": 0.924,
+    "cat_match": 1,
+    "score": 0.938
+   },
+   {
+    "name": "ザ・オリーブ",
+    "category": "restaurant",
+    "lat": 35.6942253112793,
+    "lon": 139.70132446289062,
+    "id": "7db2e67f-571c-4e19-ab8b-403cb8ce7a38",
+    "city_extract": "tyo",
+    "name_sim": 0.862,
+    "cat_match": 1,
+    "score": 0.874
+   }
+  ]
+ },
+ "TYO-11": {
+  "query_sent": "sarutahiko coffee",
+  "city_scope": "tyo",
+  "latency_ms": 185,
+  "results": [
+   {
+    "name": "Sarutahiko Coffee",
+    "category": "cafe",
+    "lat": 35.64766311645508,
+    "lon": 139.7109375,
+    "id": "c8e1bcf9-c805-43d2-bbdf-797f3119afb1",
+    "city_extract": "tyo",
+    "name_sim": 1.0,
+    "cat_match": 1,
+    "score": 0.999
+   },
+   {
+    "name": "SARUTAHIKO COFFEE Komazawa University Station",
+    "category": "coffee_shop",
+    "lat": 35.63362503051758,
+    "lon": 139.66152954101562,
+    "id": "4bffbce1-d4b7-424b-a181-642d278ba875",
+    "city_extract": "tyo",
+    "name_sim": 0.876,
+    "cat_match": 1,
+    "score": 0.896
+   },
+   {
+    "name": "SANTOS COFFEE",
+    "category": "coffee_shop",
+    "lat": 35.726585388183594,
+    "lon": 139.69285583496094,
+    "id": "0785e35d-8974-44fa-a449-84700a54042e",
+    "city_extract": "tyo",
+    "name_sim": 0.865,
+    "cat_match": 1,
+    "score": 0.88
+   },
+   {
+    "name": "Savatola Coffee",
+    "category": "coffee_shop",
+    "lat": 35.67006301879883,
+    "lon": 139.85887145996094,
+    "id": "eb402a08-4400-495c-aa3a-153f581e3911",
+    "city_extract": "tyo",
+    "name_sim": 0.846,
+    "cat_match": 1,
+    "score": 0.876
+   },
+   {
+    "name": "Sunao coffee",
+    "category": "coffee_shop",
+    "lat": 35.630165100097656,
+    "lon": 139.70098876953125,
+    "id": "8a285adc-db26-4a18-8da5-ace70c1c4e0d",
+    "city_extract": "tyo",
+    "name_sim": 0.842,
+    "cat_match": 1,
+    "score": 0.87
+   }
+  ]
+ },
+ "TYO-12": {
+  "query_sent": "fuglin tokyo",
+  "city_scope": "tyo",
+  "latency_ms": 162,
+  "results": [
+   {
+    "name": "Fuglen Tokyo",
+    "category": "coffee_shop",
+    "lat": 35.66665267944336,
+    "lon": 139.69239807128906,
+    "id": "ee498975-1f07-4d78-a5c4-0e7119fd9559",
+    "city_extract": "tyo",
+    "name_sim": 0.967,
+    "cat_match": 1,
+    "score": 0.973
+   },
+   {
+    "name": "GUF TOKYO",
+    "category": "cafe",
+    "lat": 35.70052719116211,
+    "lon": 139.7030487060547,
+    "id": "73f9bfbe-72df-468d-9331-106ef01ba6c9",
+    "city_extract": "tyo",
+    "name_sim": 0.88,
+    "cat_match": 1,
+    "score": 0.9
+   },
+   {
+    "name": "Liwei Tokyo",
+    "category": "coffee_shop",
+    "lat": 35.67047882080078,
+    "lon": 139.77490234375,
+    "id": "1bbb98fd-05c4-4dee-9c50-1f5b6c5f20b3",
+    "city_extract": "tyo",
+    "name_sim": 0.798,
+    "cat_match": 1,
+    "score": 0.819
+   },
+   {
+    "name": "RIC TOKYO",
+    "category": "coffee_shop",
+    "lat": 35.66416549682617,
+    "lon": 139.7551727294922,
+    "id": "8e8f1b3c-a074-465c-80cd-8e50ec62c868",
+    "city_extract": "tyo",
+    "name_sim": 0.787,
+    "cat_match": 1,
+    "score": 0.818
+   },
+   {
+    "name": "New Tokyo",
+    "category": "cafe",
+    "lat": 35.728458404541016,
+    "lon": 139.77130126953125,
+    "id": "4bbbb611-dec5-4cb0-be80-462513eba0e3",
+    "city_extract": "tyo",
+    "name_sim": 0.787,
+    "cat_match": 1,
+    "score": 0.809
+   }
+  ]
+ },
+ "TYO-13": {
+  "query_sent": "bar benfidich",
+  "city_scope": "tyo",
+  "latency_ms": 178,
+  "results": [
+   {
+    "name": "Bar Benfiddich",
+    "category": "cocktail_bar",
+    "lat": 35.68947219848633,
+    "lon": 139.69654846191406,
+    "id": "c5f25024-adf8-4d46-b1fa-bd5cde8df72f",
+    "city_extract": "tyo",
+    "name_sim": 0.986,
+    "cat_match": 2,
+    "score": 0.989
+   },
+   {
+    "name": "Bar Abend",
+    "category": "bar",
+    "lat": 35.64316940307617,
+    "lon": 139.7481689453125,
+    "id": "5cc7ae95-4166-49a8-9717-cc42dbcc9fbf",
+    "city_extract": "tyo",
+    "name_sim": 0.901,
+    "cat_match": 1,
+    "score": 0.921
+   },
+   {
+    "name": "Bar id",
+    "category": "bar",
+    "lat": 35.665035247802734,
+    "lon": 139.73220825195312,
+    "id": "f77cee91-d72c-4698-ba5e-11be14600a46",
+    "city_extract": "tyo",
+    "name_sim": 0.892,
+    "cat_match": 1,
+    "score": 0.912
+   },
+   {
+    "name": "Bar Dice",
+    "category": "bar",
+    "lat": 35.70903778076172,
+    "lon": 139.7711639404297,
+    "id": "68f4a02c-d4cd-41f1-965f-ba70660a5c47",
+    "city_extract": "tyo",
+    "name_sim": 0.898,
+    "cat_match": 1,
+    "score": 0.908
+   },
+   {
+    "name": "Bar Trench",
+    "category": "cocktail_bar",
+    "lat": 35.648380279541016,
+    "lon": 139.7078399658203,
+    "id": "f7ce816f-f750-4bc5-92bf-f64c898e188f",
+    "city_extract": "tyo",
+    "name_sim": 0.883,
+    "cat_match": 2,
+    "score": 0.906
+   }
+  ]
+ },
+ "TYO-14": {
+  "query_sent": "koffee mameya",
+  "city_scope": "ALL",
+  "latency_ms": 325,
+  "results": [
+   {
+    "name": "Koffee Mameya",
+    "category": "coffee_shop",
+    "lat": 35.668357849121094,
+    "lon": 139.71087646484375,
+    "id": "fbcf110e-32ba-4fb0-8d88-cb850b307ba6",
+    "city_extract": "tyo",
+    "name_sim": 1.0,
+    "cat_match": 1,
+    "score": 1.0
+   },
+   {
+    "name": "KOFFEE MAMEYA Kakeru",
+    "category": "coffee_roastery",
+    "lat": 35.676570892333984,
+    "lon": 139.80419921875,
+    "id": "5a5b1c8a-d249-49f2-b1b1-9d1914fbaba9",
+    "city_extract": "tyo",
+    "name_sim": 0.93,
+    "cat_match": 1,
+    "score": 0.932
+   },
+   {
+    "name": "Koffee Mamaya Kakeru",
+    "category": "coffee_shop",
+    "lat": 35.67647171020508,
+    "lon": 139.80421447753906,
+    "id": "f0df6387-da7b-4a62-8a2e-6ab72c590bd6",
+    "city_extract": "tyo",
+    "name_sim": 0.915,
+    "cat_match": 1,
+    "score": 0.924
+   },
+   {
+    "name": "Kofee",
+    "category": "coffee_shop",
+    "lat": 51.50971984863281,
+    "lon": -0.13626602292060852,
+    "id": "0cc502a6-b6eb-4bff-947f-f24201e857f2",
+    "city_extract": "ldn",
+    "name_sim": 0.856,
+    "cat_match": 1,
+    "score": 0.874
+   },
+   {
+    "name": "Coffee mafia",
+    "category": "coffee_shop",
+    "lat": 35.693397521972656,
+    "lon": 139.68870544433594,
+    "id": "56dbd780-945c-407a-a933-79ac9656818e",
+    "city_extract": "tyo",
+    "name_sim": 0.814,
+    "cat_match": 1,
+    "score": 0.849
+   }
+  ]
+ },
+ "TLV-01": {
+  "query_sent": "port said",
+  "city_scope": "tlv",
+  "latency_ms": 17,
+  "results": [
+   {
+    "name": "Port Said",
+    "category": "bar",
+    "lat": 32.064697265625,
+    "lon": 34.77237319946289,
+    "id": "fdf74fd4-2636-4723-ad34-00d1ddc40706",
+    "city_extract": "tlv",
+    "name_sim": 1.0,
+    "cat_match": 1,
+    "score": 1.0
+   },
+   {
+    "name": "Port tlv",
+    "category": "bar",
+    "lat": 32.09941864013672,
+    "lon": 34.775936126708984,
+    "id": "93560de3-5dec-4671-8b76-8989106c396f",
+    "city_extract": "tlv",
+    "name_sim": 0.836,
+    "cat_match": 1,
+    "score": 0.859
+   },
+   {
+    "name": "Potion Bar",
+    "category": "bar",
+    "lat": 32.073211669921875,
+    "lon": 34.76664733886719,
+    "id": "2e821e02-b528-4e00-8a53-30564de3a2a8",
+    "city_extract": "tlv",
+    "name_sim": 0.76,
+    "cat_match": 1,
+    "score": 0.803
+   },
+   {
+    "name": "Foster Bar",
+    "category": "bar",
+    "lat": 32.07942199707031,
+    "lon": 34.777103424072266,
+    "id": "729ed202-67f1-47d8-8358-b5411af8ca4c",
+    "city_extract": "tlv",
+    "name_sim": 0.7,
+    "cat_match": 1,
+    "score": 0.756
+   },
+   {
+    "name": "The Mossad",
+    "category": "public_and_government_association",
+    "lat": 32.05399703979492,
+    "lon": 34.76967239379883,
+    "id": "e28f1ff9-4f0b-4a5d-a989-b07140fe2eeb",
+    "city_extract": "tlv",
+    "name_sim": 0.7,
+    "cat_match": 1,
+    "score": 0.747
+   }
+  ]
+ },
+ "TLV-02": {
+  "query_sent": "cafe levinsky 41",
+  "city_scope": "tlv",
+  "latency_ms": 19,
+  "results": [
+   {
+    "name": "Cafe Zelik",
+    "category": "cafe",
+    "lat": 32.07473373413086,
+    "lon": 34.809261322021484,
+    "id": "6c61256a-a1f0-4841-afb1-c92cc0d9ee2c",
+    "city_extract": "tlv",
+    "name_sim": 0.87,
+    "cat_match": 1,
+    "score": 0.895
+   },
+   {
+    "name": "Cafe Begin's",
+    "category": "cafe",
+    "lat": 32.07200241088867,
+    "lon": 34.790313720703125,
+    "id": "f0b7d7cd-8d11-417d-a9e6-165879900369",
+    "city_extract": "tlv",
+    "name_sim": 0.863,
+    "cat_match": 1,
+    "score": 0.889
+   },
+   {
+    "name": "Cafelix",
+    "category": "coffee_shop",
+    "lat": 32.05657196044922,
+    "lon": 34.76117706298828,
+    "id": "f7907f2d-f677-4b38-a0ed-322a29687090",
+    "city_extract": "tlv",
+    "name_sim": 0.846,
+    "cat_match": 1,
+    "score": 0.876
+   },
+   {
+    "name": "Cafe Jolie",
+    "category": "coffee_shop",
+    "lat": 32.07440185546875,
+    "lon": 34.79794692993164,
+    "id": "1dce2b15-abe9-4dc6-a379-f07944535509",
+    "city_extract": "tlv",
+    "name_sim": 0.835,
+    "cat_match": 1,
+    "score": 0.867
+   },
+   {
+    "name": "Cafelix",
+    "category": "coffee_shop",
+    "lat": 32.060279846191406,
+    "lon": 34.77213668823242,
+    "id": "10419671-ab26-456d-bcbe-6f9b6c915d12",
+    "city_extract": "tlv",
+    "name_sim": 0.846,
+    "cat_match": 1,
+    "score": 0.866
+   }
+  ]
+ },
+ "TLV-03": {
+  "query_sent": "bellboy",
+  "city_scope": "tlv",
+  "latency_ms": 18,
+  "results": [
+   {
+    "name": "Bellboy",
+    "category": "cocktail_bar",
+    "lat": 32.070945739746094,
+    "lon": 34.78033447265625,
+    "id": "8d9d1ee7-8b0e-430f-a9f1-afa94bd1180a",
+    "city_extract": "tlv",
+    "name_sim": 1.0,
+    "cat_match": 2,
+    "score": 1.0
+   },
+   {
+    "name": "Bello",
+    "category": "bakery",
+    "lat": 32.078243255615234,
+    "lon": 34.78150939941406,
+    "id": "e0a55f04-d89c-4d8f-9e05-511c1efd52ef",
+    "city_extract": "tlv",
+    "name_sim": 0.943,
+    "cat_match": 0,
+    "score": 0.794
+   },
+   {
+    "name": "blue box",
+    "category": "topic_publisher",
+    "lat": 32.11381530761719,
+    "lon": 34.822174072265625,
+    "id": "6e032eed-96fe-4e4f-afed-0baef684597c",
+    "city_extract": "tlv",
+    "name_sim": 0.742,
+    "cat_match": 1,
+    "score": 0.754
+   },
+   {
+    "name": "Polly",
+    "category": "bar",
+    "lat": 32.06446075439453,
+    "lon": 34.776023864746094,
+    "id": "1067ac10-28e7-4331-a786-bd8e917f6664",
+    "city_extract": "tlv",
+    "name_sim": 0.676,
+    "cat_match": 1,
+    "score": 0.741
+   },
+   {
+    "name": "Bell-yoga",
+    "category": "yoga_studio",
+    "lat": 32.074546813964844,
+    "lon": 34.79726028442383,
+    "id": "73e5ecc5-0b4b-4f4d-90cd-a810a1e3dc1f",
+    "city_extract": "tlv",
+    "name_sim": 0.871,
+    "cat_match": 0,
+    "score": 0.731
+   }
+  ]
+ },
+ "TLV-04": {
+  "query_sent": "imperial craft cocktail bar",
+  "city_scope": "tlv",
+  "latency_ms": 22,
+  "results": [
+   {
+    "name": "Imperial Craft Cocktail Bar",
+    "category": "cocktail_bar",
+    "lat": 32.075538635253906,
+    "lon": 34.76676559448242,
+    "id": "edfb2ba6-03e4-4717-a703-02e36cfaba3d",
+    "city_extract": "tlv",
+    "name_sim": 1.0,
+    "cat_match": 2,
+    "score": 0.989
+   },
+   {
+    "name": "Imperial Cocktail Bar",
+    "category": "restaurant",
+    "lat": 32.099586486816406,
+    "lon": 34.79440689086914,
+    "id": "794e7be1-b841-4d78-be24-60e955248043",
+    "city_extract": "tlv",
+    "name_sim": 0.908,
+    "cat_match": 0,
+    "score": 0.764
+   },
+   {
+    "name": "Halo & Pine Cocktail Bar",
+    "category": "cocktail_bar",
+    "lat": 32.06999588012695,
+    "lon": 34.78278350830078,
+    "id": "fab7581d-202d-4078-8739-f31ea363256c",
+    "city_extract": "tlv",
+    "name_sim": 0.709,
+    "cat_match": 2,
+    "score": 0.75
+   },
+   {
+    "name": "Lucie Cocktail Bar",
+    "category": "cocktail_bar",
+    "lat": 32.06814193725586,
+    "lon": 34.76901626586914,
+    "id": "d6c70c24-48a0-4dbd-a0e1-53e8453075c3",
+    "city_extract": "tlv",
+    "name_sim": 0.721,
+    "cat_match": 2,
+    "score": 0.743
+   },
+   {
+    "name": "Signature The Cocktail Bar",
+    "category": "cocktail_bar",
+    "lat": 32.077369689941406,
+    "lon": 34.81409454345703,
+    "id": "6c983829-e53f-4aaf-855a-3a3d0e139d6a",
+    "city_extract": "tlv",
+    "name_sim": 0.671,
+    "cat_match": 2,
+    "score": 0.736
+   }
+  ]
+ },
+ "TLV-05": {
+  "query_sent": "miznon",
+  "city_scope": "tlv",
+  "latency_ms": 29,
+  "results": [
+   {
+    "name": "Miznon",
+    "category": "restaurant",
+    "lat": 32.073848724365234,
+    "lon": 34.781673431396484,
+    "id": "8cb9c17c-e4b0-4577-b1a2-f668253a765b",
+    "city_extract": "tlv",
+    "name_sim": 1.0,
+    "cat_match": 1,
+    "score": 0.998
+   },
+   {
+    "name": "Minimongous",
+    "category": "burger_restaurant",
+    "lat": 32.06387710571289,
+    "lon": 34.7710075378418,
+    "id": "6e18097c-9544-4b58-80d3-21617855e021",
+    "city_extract": "tlv",
+    "name_sim": 0.81,
+    "cat_match": 1,
+    "score": 0.832
+   },
+   {
+    "name": "Mi Cocina",
+    "category": "mexican_restaurant",
+    "lat": 32.07777404785156,
+    "lon": 34.78146743774414,
+    "id": "a865038c-dd63-424b-b891-8fbfcdc68b5c",
+    "city_extract": "tlv",
+    "name_sim": 0.763,
+    "cat_match": 1,
+    "score": 0.803
+   },
+   {
+    "name": "Mitbachon",
+    "category": "restaurant",
+    "lat": 32.06922912597656,
+    "lon": 34.768638610839844,
+    "id": "0a63246d-81ff-4947-a138-2359748b7570",
+    "city_extract": "tlv",
+    "name_sim": 0.763,
+    "cat_match": 1,
+    "score": 0.794
+   },
+   {
+    "name": "Mizo",
+    "category": "clothing_store",
+    "lat": 32.06119155883789,
+    "lon": 34.77525329589844,
+    "id": "e03017f6-ae0c-4553-89e3-6e561015c8d4",
+    "city_extract": "tlv",
+    "name_sim": 0.922,
+    "cat_match": 0,
+    "score": 0.773
+   }
+  ]
+ },
+ "TLV-06": {
+  "query_sent": "hakosem",
+  "city_scope": "tlv",
+  "latency_ms": 17,
+  "results": [
+   {
+    "name": "HaKosem",
+    "category": "middle_eastern_restaurant",
+    "lat": 32.076416015625,
+    "lon": 34.776737213134766,
+    "id": "a2659d56-c47b-435b-a17e-8b6a676da685",
+    "city_extract": "tlv",
+    "name_sim": 1.0,
+    "cat_match": 1,
+    "score": 0.995
+   },
+   {
+    "name": "Omakase",
+    "category": "restaurant",
+    "lat": 32.05339431762695,
+    "lon": 34.75537872314453,
+    "id": "b9c8a24e-6a6c-4ee7-9755-0fd076536616",
+    "city_extract": "tlv",
+    "name_sim": 0.714,
+    "cat_match": 1,
+    "score": 0.766
+   },
+   {
+    "name": "House Number 3",
+    "category": "middle_eastern_restaurant",
+    "lat": 32.05390930175781,
+    "lon": 34.75471115112305,
+    "id": "6b7e2bff-8f6e-43d1-a8a4-02593d24cf74",
+    "city_extract": "tlv",
+    "name_sim": 0.69,
+    "cat_match": 1,
+    "score": 0.75
+   },
+   {
+    "name": "Amore Mio",
+    "category": "italian_restaurant",
+    "lat": 32.0834846496582,
+    "lon": 34.781578063964844,
+    "id": "1508bb44-d5e1-43f7-a01a-1b98e60214b8",
+    "city_extract": "tlv",
+    "name_sim": 0.672,
+    "cat_match": 1,
+    "score": 0.737
+   },
+   {
+    "name": "Moses",
+    "category": "burger_restaurant",
+    "lat": 32.089054107666016,
+    "lon": 34.859012603759766,
+    "id": "924fc368-49bf-4bd1-a735-49453cc3e697",
+    "city_extract": "tlv",
+    "name_sim": 0.676,
+    "cat_match": 1,
+    "score": 0.735
+   }
+  ]
+ },
+ "TLV-07": {
+  "query_sent": "הקוסם",
+  "city_scope": "tlv",
+  "latency_ms": 17,
+  "results": [
+   {
+    "name": "המוסד",
+    "category": "restaurant",
+    "lat": 32.07924270629883,
+    "lon": 34.781105041503906,
+    "id": "97c2fa74-112e-408e-afbb-2d467a2a3cb9",
+    "city_extract": "tlv",
+    "name_sim": 0.907,
+    "cat_match": 1,
+    "score": 0.925
+   },
+   {
+    "name": "הסלון",
+    "category": "restaurant",
+    "lat": 32.07326889038086,
+    "lon": 34.80025863647461,
+    "id": "6c816e2d-e647-456e-9762-0127c6db5242",
+    "city_extract": "tlv",
+    "name_sim": 0.878,
+    "cat_match": 1,
+    "score": 0.901
+   },
+   {
+    "name": "האחים",
+    "category": "mediterranean_restaurant",
+    "lat": 32.0724983215332,
+    "lon": 34.78199768066406,
+    "id": "8225780c-ccf3-4446-8a8f-a746574b3fe6",
+    "city_extract": "tlv",
+    "name_sim": 0.86,
+    "cat_match": 1,
+    "score": 0.888
+   },
+   {
+    "name": "הלובי",
+    "category": "kosher_restaurant",
+    "lat": 32.10366439819336,
+    "lon": 34.83489227294922,
+    "id": "3988eedf-dcc4-49c2-99b0-db0ec8b4402b",
+    "city_extract": "tlv",
+    "name_sim": 0.86,
+    "cat_match": 1,
+    "score": 0.887
+   },
+   {
+    "name": "הקוסם שרונה מרקט",
+    "category": "fast_food_restaurant",
+    "lat": 32.071170806884766,
+    "lon": 34.78655242919922,
+    "id": "3ef19a94-1463-4755-9056-9ba79b40a09a",
+    "city_extract": "tlv",
+    "name_sim": 0.867,
+    "cat_match": 2,
+    "score": 0.886
+   }
+  ]
+ },
+ "TLV-08": {
+  "query_sent": "אורנה ואלה",
+  "city_scope": "tlv",
+  "latency_ms": 20,
+  "results": [
+   {
+    "name": "אוליבר פיצה",
+    "category": "pizza_restaurant",
+    "lat": 32.041648864746094,
+    "lon": 34.77485656738281,
+    "id": "f3056e73-b0c7-46b2-992e-b2dfdce72e60",
+    "city_extract": "tlv",
+    "name_sim": 0.866,
+    "cat_match": 1,
+    "score": 0.884
+   },
+   {
+    "name": "חור בהשכלה",
+    "category": "restaurant",
+    "lat": 32.06496810913086,
+    "lon": 34.79597473144531,
+    "id": "7c0115d5-7626-42fc-87be-176e29f2d4f8",
+    "city_extract": "tlv",
+    "name_sim": 0.854,
+    "cat_match": 1,
+    "score": 0.881
+   },
+   {
+    "name": "אניטה גלידה",
+    "category": "restaurant",
+    "lat": 32.072200775146484,
+    "lon": 34.78801345825195,
+    "id": "9759459d-64a1-432b-ae8e-0d486dd33c5f",
+    "city_extract": "tlv",
+    "name_sim": 0.853,
+    "cat_match": 1,
+    "score": 0.88
+   },
+   {
+    "name": "אורליס רוטיסרי",
+    "category": "restaurant",
+    "lat": 32.079498291015625,
+    "lon": 34.81454849243164,
+    "id": "48949dfd-d37c-4c7e-ad26-e2ec4856978d",
+    "city_extract": "tlv",
+    "name_sim": 0.842,
+    "cat_match": 1,
+    "score": 0.873
+   },
+   {
+    "name": "אולמי קונקורד",
+    "category": "restaurant",
+    "lat": 32.0905647277832,
+    "lon": 34.82563018798828,
+    "id": "d0cf9255-07f5-4fa9-bac1-2382006642e4",
+    "city_extract": "tlv",
+    "name_sim": 0.851,
+    "cat_match": 1,
+    "score": 0.872
+   }
+  ]
+ },
+ "TLV-09": {
+  "query_sent": "cafe xoho",
+  "city_scope": "tlv",
+  "latency_ms": 19,
+  "results": [
+   {
+    "name": "CafeXoho",
+    "category": "cafe",
+    "lat": 32.08089828491211,
+    "lon": 34.77031707763672,
+    "id": "084909fd-cac2-408f-972a-2902c71cb140",
+    "city_extract": "tlv",
+    "name_sim": 0.978,
+    "cat_match": 1,
+    "score": 0.982
+   },
+   {
+    "name": "Cafe Sool",
+    "category": "cafe",
+    "lat": 32.04115676879883,
+    "lon": 34.758846282958984,
+    "id": "e55f3104-1ce3-4b91-a20f-ad601a9c1794",
+    "city_extract": "tlv",
+    "name_sim": 0.911,
+    "cat_match": 1,
+    "score": 0.912
+   },
+   {
+    "name": "Cafe Zohar",
+    "category": "cafe",
+    "lat": 32.05992889404297,
+    "lon": 34.78079605102539,
+    "id": "ff3cafc2-3ea2-4549-b459-2c2f91ce8217",
+    "city_extract": "tlv",
+    "name_sim": 0.896,
+    "cat_match": 1,
+    "score": 0.905
+   },
+   {
+    "name": "Cafe Johnny",
+    "category": "cafe",
+    "lat": 32.07683563232422,
+    "lon": 34.8154296875,
+    "id": "15fc9199-6b4e-433c-8d00-6e2319d33274",
+    "city_extract": "tlv",
+    "name_sim": 0.883,
+    "cat_match": 1,
+    "score": 0.898
+   },
+   {
+    "name": "Cafe Neto",
+    "category": "cafe",
+    "lat": 32.110050201416016,
+    "lon": 34.79851531982422,
+    "id": "ffc37dd8-5314-454a-be20-eb69bf113503",
+    "city_extract": "tlv",
+    "name_sim": 0.867,
+    "cat_match": 1,
+    "score": 0.888
+   }
+  ]
+ },
+ "TLV-10": {
+  "query_sent": "anita gelato",
+  "city_scope": "tlv",
+  "latency_ms": 17,
+  "results": [
+   {
+    "name": "Jinga Cafe",
+    "category": "cafe",
+    "lat": 32.105934143066406,
+    "lon": 34.82418441772461,
+    "id": "c23ebb04-2585-4026-be59-2792abbaf583",
+    "city_extract": "tlv",
+    "name_sim": 0.713,
+    "cat_match": 1,
+    "score": 0.768
+   },
+   {
+    "name": "Anita",
+    "category": "ice_cream_shop",
+    "lat": 32.06269454956055,
+    "lon": 34.76643371582031,
+    "id": "345ec1d0-1c99-4143-8813-d109e745440b",
+    "city_extract": "tlv",
+    "name_sim": 0.883,
+    "cat_match": 0,
+    "score": 0.756
+   },
+   {
+    "name": "Anita",
+    "category": "ice_cream_shop",
+    "lat": 32.05625915527344,
+    "lon": 34.76742935180664,
+    "id": "ec1f0d3d-f080-4e61-b084-e325b7b0df28",
+    "city_extract": "tlv",
+    "name_sim": 0.883,
+    "cat_match": 0,
+    "score": 0.754
+   },
+   {
+    "name": "Anita",
+    "category": "ice_cream_shop",
+    "lat": 32.072181701660156,
+    "lon": 34.78812789916992,
+    "id": "04d4663c-ec16-49ad-b8a0-65e10b24deb0",
+    "city_extract": "tlv",
+    "name_sim": 0.883,
+    "cat_match": 0,
+    "score": 0.75
+   },
+   {
+    "name": "Zucca Cafe & Gelato",
+    "category": "coffee_shop",
+    "lat": 32.10990524291992,
+    "lon": 34.83269119262695,
+    "id": "2dbd9782-a31f-400c-bfde-adb9142d8d9c",
+    "city_extract": "tlv",
+    "name_sim": 0.667,
+    "cat_match": 1,
+    "score": 0.733
+   }
+  ]
+ },
+ "TLV-11": {
+  "query_sent": "port sayid",
+  "city_scope": "tlv",
+  "latency_ms": 17,
+  "results": [
+   {
+    "name": "Port Said",
+    "category": "bar",
+    "lat": 32.064697265625,
+    "lon": 34.77237319946289,
+    "id": "fdf74fd4-2636-4723-ad34-00d1ddc40706",
+    "city_extract": "tlv",
+    "name_sim": 0.98,
+    "cat_match": 1,
+    "score": 0.984
+   },
+   {
+    "name": "Port tlv",
+    "category": "bar",
+    "lat": 32.09941864013672,
+    "lon": 34.775936126708984,
+    "id": "93560de3-5dec-4671-8b76-8989106c396f",
+    "city_extract": "tlv",
+    "name_sim": 0.825,
+    "cat_match": 1,
+    "score": 0.85
+   },
+   {
+    "name": "Oren Busany",
+    "category": "barber",
+    "lat": 32.0809326171875,
+    "lon": 34.803855895996094,
+    "id": "98d00ea7-b970-47b8-bf77-e801e0f7f3e5",
+    "city_extract": "tlv",
+    "name_sim": 0.715,
+    "cat_match": 1,
+    "score": 0.765
+   },
+   {
+    "name": "Foster Bar",
+    "category": "bar",
+    "lat": 32.07942199707031,
+    "lon": 34.777103424072266,
+    "id": "729ed202-67f1-47d8-8358-b5411af8ca4c",
+    "city_extract": "tlv",
+    "name_sim": 0.678,
+    "cat_match": 1,
+    "score": 0.739
+   },
+   {
+    "name": "Port TelAviv",
+    "category": "travel",
+    "lat": 32.09648132324219,
+    "lon": 34.77324676513672,
+    "id": "09024871-0ca4-428f-a0c2-242682f0e01e",
+    "city_extract": "tlv",
+    "name_sim": 0.857,
+    "cat_match": 0,
+    "score": 0.73
+   }
+  ]
+ },
+ "TLV-12": {
+  "query_sent": "belboy tel aviv",
+  "city_scope": "ALL",
+  "latency_ms": 308,
+  "results": [
+   {
+    "name": "Bell & Viv",
+    "category": "cocktail_bar",
+    "lat": 51.53099822998047,
+    "lon": -0.12021074444055557,
+    "id": "cd5e1a13-21eb-44b3-942f-3105b3a64c35",
+    "city_extract": "ldn",
+    "name_sim": 0.857,
+    "cat_match": 2,
+    "score": 0.886
+   },
+   {
+    "name": "BOY Tel Aviv",
+    "category": "gay_bar",
+    "lat": 32.057716369628906,
+    "lon": 34.784236907958984,
+    "id": "9db8e1cd-1e88-4bdd-882d-d9039d2dd159",
+    "city_extract": "tlv",
+    "name_sim": 0.865,
+    "cat_match": 1,
+    "score": 0.865
+   },
+   {
+    "name": "Bellboy",
+    "category": "cocktail_bar",
+    "lat": 32.070945739746094,
+    "lon": 34.78033447265625,
+    "id": "8d9d1ee7-8b0e-430f-a9f1-afa94bd1180a",
+    "city_extract": "tlv",
+    "name_sim": 0.809,
+    "cat_match": 2,
+    "score": 0.847
+   },
+   {
+    "name": "London tel aviv",
+    "category": "bar",
+    "lat": 32.07535934448242,
+    "lon": 34.78202438354492,
+    "id": "3cea396e-560d-496d-8bb4-00b570df6392",
+    "city_extract": "tlv",
+    "name_sim": 0.822,
+    "cat_match": 1,
+    "score": 0.845
+   },
+   {
+    "name": "BeBe",
+    "category": "cocktail_bar",
+    "lat": 35.68288040161133,
+    "lon": 139.69956970214844,
+    "id": "8374cd48-a843-4513-9b6b-fb43598e57d4",
+    "city_extract": "tyo",
+    "name_sim": 0.804,
+    "cat_match": 2,
+    "score": 0.832
+   }
+  ]
+ },
+ "TLV-13": {
+  "query_sent": "oved daniel sabich",
+  "city_scope": "tlv",
+  "latency_ms": 19,
+  "results": [
+   {
+    "name": "River noodle bar",
+    "category": "sushi_restaurant",
+    "lat": 32.08329772949219,
+    "lon": 34.80418395996094,
+    "id": "b72cbb07-15bc-4c45-af8f-a5df4022a05e",
+    "city_extract": "tlv",
+    "name_sim": 0.694,
+    "cat_match": 1,
+    "score": 0.751
+   },
+   {
+    "name": "Dvora by Chef Eyal Shani",
+    "category": "restaurant",
+    "lat": 32.08241271972656,
+    "lon": 34.77107238769531,
+    "id": "c13e7d41-7b65-4669-bc2c-d4792075c74b",
+    "city_extract": "tlv",
+    "name_sim": 0.686,
+    "cat_match": 1,
+    "score": 0.748
+   },
+   {
+    "name": "Blender and Sandwich",
+    "category": "restaurant",
+    "lat": 32.06245803833008,
+    "lon": 34.7754020690918,
+    "id": "74f02e18-93fd-4ccb-902e-8209f7441eb2",
+    "city_extract": "tlv",
+    "name_sim": 0.707,
+    "cat_match": 1,
+    "score": 0.746
+   },
+   {
+    "name": "River Noodles Bar",
+    "category": "asian_restaurant",
+    "lat": 32.08573532104492,
+    "lon": 34.85865020751953,
+    "id": "63c64a58-cbc7-4c50-8356-0e99a58eca09",
+    "city_extract": "tlv",
+    "name_sim": 0.701,
+    "cat_match": 1,
+    "score": 0.746
+   },
+   {
+    "name": "River Noodles Bar",
+    "category": "asian_restaurant",
+    "lat": 32.07481384277344,
+    "lon": 34.781883239746094,
+    "id": "d0a62e26-8518-4bbd-9f9b-c57e6ca3f4a5",
+    "city_extract": "tlv",
+    "name_sim": 0.701,
+    "cat_match": 1,
+    "score": 0.733
+   }
+  ]
+ },
+ "TLV-14": {
+  "query_sent": "bar 51",
+  "city_scope": "tlv",
+  "latency_ms": 18,
+  "results": [
+   {
+    "name": "Bar 101",
+    "category": "bar",
+    "lat": 32.06443786621094,
+    "lon": 34.77274703979492,
+    "id": "c8e4b224-d4ed-4bb5-8b2a-ab07e7a4b51d",
+    "city_extract": "tlv",
+    "name_sim": 0.91,
+    "cat_match": 1,
+    "score": 0.906
+   },
+   {
+    "name": "Bar 911",
+    "category": "bar",
+    "lat": 32.06161880493164,
+    "lon": 34.783599853515625,
+    "id": "25f1a26f-da64-4b8b-a988-e74227698573",
+    "city_extract": "tlv",
+    "name_sim": 0.91,
+    "cat_match": 1,
+    "score": 0.893
+   },
+   {
+    "name": "Bar",
+    "category": "bar",
+    "lat": 32.05888366699219,
+    "lon": 34.77272415161133,
+    "id": "137e36df-a687-4070-ab70-01b8134e86e9",
+    "city_extract": "tlv",
+    "name_sim": 0.883,
+    "cat_match": 1,
+    "score": 0.88
+   },
+   {
+    "name": "Bar",
+    "category": "bar",
+    "lat": 32.06295394897461,
+    "lon": 34.76972961425781,
+    "id": "921d4bae-48c6-4a2c-b392-619eae1a98d2",
+    "city_extract": "tlv",
+    "name_sim": 0.883,
+    "cat_match": 1,
+    "score": 0.877
+   },
+   {
+    "name": "Bar",
+    "category": "bar",
+    "lat": 32.06217956542969,
+    "lon": 34.77457809448242,
+    "id": "762389e6-81a0-499b-b156-5cd3cabe3f25",
+    "city_extract": "tlv",
+    "name_sim": 0.883,
+    "cat_match": 1,
+    "score": 0.867
+   }
+  ]
+ },
+ "LDN-01": {
+  "query_sent": "kiln",
+  "city_scope": "ldn",
+  "latency_ms": 126,
+  "results": [
+   {
+    "name": "Kiln",
+    "category": "thai_restaurant",
+    "lat": 51.511322021484375,
+    "lon": -0.13608618080615997,
+    "id": "90842ba5-a7e6-4ce7-a4ea-a349d5ae4ef3",
+    "city_extract": "ldn",
+    "name_sim": 1.0,
+    "cat_match": 1,
+    "score": 1.0
+   },
+   {
+    "name": "Kin",
+    "category": "asian_restaurant",
+    "lat": 51.521419525146484,
+    "lon": -0.1099577248096466,
+    "id": "5119a280-738f-47fe-aa3a-31e5d7b4a400",
+    "city_extract": "ldn",
+    "name_sim": 0.933,
+    "cat_match": 1,
+    "score": 0.947
+   },
+   {
+    "name": "Kilo",
+    "category": "health_food_store",
+    "lat": 51.559200286865234,
+    "lon": -0.12132616341114044,
+    "id": "e60a69f5-c5f7-4c30-914d-0631d39ff029",
+    "city_extract": "ldn",
+    "name_sim": 0.883,
+    "cat_match": 1,
+    "score": 0.906
+   },
+   {
+    "name": "KiliG",
+    "category": "filipino_restaurant",
+    "lat": 51.47868728637695,
+    "lon": -0.02584345079958439,
+    "id": "5bfd408a-3c9e-4602-a75c-719b09511fb5",
+    "city_extract": "ldn",
+    "name_sim": 0.848,
+    "cat_match": 1,
+    "score": 0.876
+   },
+   {
+    "name": "Kilburn Minicab",
+    "category": "british_restaurant",
+    "lat": 51.59011459350586,
+    "lon": -0.261602520942688,
+    "id": "5d634e2f-8d2f-4088-8a77-a52ac650678b",
+    "city_extract": "ldn",
+    "name_sim": 0.829,
+    "cat_match": 1,
+    "score": 0.861
+   }
+  ]
+ },
+ "LDN-02": {
+  "query_sent": "bar termini",
+  "city_scope": "ldn",
+  "latency_ms": 123,
+  "results": [
+   {
+    "name": "Bar Termini",
+    "category": "bar",
+    "lat": 51.51369857788086,
+    "lon": -0.12983879446983337,
+    "id": "17d2e096-6d2b-46dd-ab44-accd97bfcd38",
+    "city_extract": "ldn",
+    "name_sim": 1.0,
+    "cat_match": 1,
+    "score": 1.0
+   },
+   {
+    "name": "Bar Ten",
+    "category": "bar",
+    "lat": 51.585044860839844,
+    "lon": -0.24775181710720062,
+    "id": "40cd0b60-ee5e-45c5-b9e8-bab2456388de",
+    "city_extract": "ldn",
+    "name_sim": 0.927,
+    "cat_match": 1,
+    "score": 0.924
+   },
+   {
+    "name": "Bar Americain",
+    "category": "cocktail_bar",
+    "lat": 51.5106315612793,
+    "lon": -0.13556665182113647,
+    "id": "9034ae64-afca-4feb-9fe0-6b8077a6d033",
+    "city_extract": "ldn",
+    "name_sim": 0.896,
+    "cat_match": 2,
+    "score": 0.917
+   },
+   {
+    "name": "Bar Termini Centrale",
+    "category": "cocktail_bar",
+    "lat": 51.51512908935547,
+    "lon": -0.15158967673778534,
+    "id": "b1468af0-d72c-4d03-aee8-e6989620e6eb",
+    "city_extract": "ldn",
+    "name_sim": 0.91,
+    "cat_match": 2,
+    "score": 0.917
+   },
+   {
+    "name": "Bar Remo",
+    "category": "bar",
+    "lat": 51.513675689697266,
+    "lon": -0.09323108196258545,
+    "id": "569835af-72e3-469f-bb98-7a9b0fe6b0d8",
+    "city_extract": "ldn",
+    "name_sim": 0.874,
+    "cat_match": 1,
+    "score": 0.897
+   }
+  ]
+ },
+ "LDN-03": {
+  "query_sent": "monmouth coffee",
+  "city_scope": "ldn",
+  "latency_ms": 138,
+  "results": [
+   {
+    "name": "Monmouth Coffee",
+    "category": "cafe",
+    "lat": 51.48678970336914,
+    "lon": -0.06652000546455383,
+    "id": "5975ff2d-35ee-44ee-b650-0b507c80ffaa",
+    "city_extract": "ldn",
+    "name_sim": 1.0,
+    "cat_match": 1,
+    "score": 0.995
+   },
+   {
+    "name": "Monmouth Coffee Company",
+    "category": "coffee_shop",
+    "lat": 51.514381408691406,
+    "lon": -0.12685233354568481,
+    "id": "927545cb-232f-4471-8ccc-6bd19b8456a6",
+    "city_extract": "ldn",
+    "name_sim": 0.93,
+    "cat_match": 1,
+    "score": 0.944
+   },
+   {
+    "name": "Monmouth Coffee Company",
+    "category": "coffee_shop",
+    "lat": 51.50553894042969,
+    "lon": -0.09138437360525131,
+    "id": "457fd3ca-cbdd-436b-9dea-8ac461aaf312",
+    "city_extract": "ldn",
+    "name_sim": 0.93,
+    "cat_match": 1,
+    "score": 0.944
+   },
+   {
+    "name": "Monmouth Coffee Company",
+    "category": "coffee_shop",
+    "lat": 51.4954833984375,
+    "lon": -0.06946907192468643,
+    "id": "6f0e405b-58a6-464b-a863-6ffd030dee0b",
+    "city_extract": "ldn",
+    "name_sim": 0.93,
+    "cat_match": 1,
+    "score": 0.944
+   },
+   {
+    "name": "Monmouth Coffee Company",
+    "category": "coffee_shop",
+    "lat": 51.49306106567383,
+    "lon": -0.06500761210918427,
+    "id": "fdefc965-c1b0-4b52-b609-24c9443d55d9",
+    "city_extract": "ldn",
+    "name_sim": 0.93,
+    "cat_match": 1,
+    "score": 0.937
+   }
+  ]
+ },
+ "LDN-04": {
+  "query_sent": "prufrock coffee",
+  "city_scope": "ldn",
+  "latency_ms": 136,
+  "results": [
+   {
+    "name": "Prufrock Coffee",
+    "category": "coffee_shop",
+    "lat": 51.519920349121094,
+    "lon": -0.10947690159082413,
+    "id": "423297e8-aef5-4add-a097-de51667fa7d5",
+    "city_extract": "ldn",
+    "name_sim": 1.0,
+    "cat_match": 1,
+    "score": 1.0
+   },
+   {
+    "name": "Curators Coffee",
+    "category": "coffee_shop",
+    "lat": 51.504913330078125,
+    "lon": -0.019554000347852707,
+    "id": "2f305b0e-d531-4914-8813-848f2e6d6390",
+    "city_extract": "ldn",
+    "name_sim": 0.839,
+    "cat_match": 1,
+    "score": 0.869
+   },
+   {
+    "name": "Puffrock Cafe",
+    "category": "cafe",
+    "lat": 51.51715850830078,
+    "lon": -0.11015301197767258,
+    "id": "6124ec36-f9e4-4b92-a4fc-6adbfb60e077",
+    "city_extract": "ldn",
+    "name_sim": 0.847,
+    "cat_match": 1,
+    "score": 0.861
+   },
+   {
+    "name": "Focus Coffee",
+    "category": "coffee_shop",
+    "lat": 51.514896392822266,
+    "lon": -0.12358561158180237,
+    "id": "1515cc43-dfc0-4a7e-a2e7-15bb46a55848",
+    "city_extract": "ldn",
+    "name_sim": 0.823,
+    "cat_match": 1,
+    "score": 0.851
+   },
+   {
+    "name": "Fuckoffee",
+    "category": "cafe",
+    "lat": 51.526119232177734,
+    "lon": -0.06790030002593994,
+    "id": "a456405b-faa1-4a1e-ac5b-deabc1b02cdc",
+    "city_extract": "ldn",
+    "name_sim": 0.793,
+    "cat_match": 1,
+    "score": 0.834
+   }
+  ]
+ },
+ "LDN-05": {
+  "query_sent": "brat",
+  "city_scope": "ldn",
+  "latency_ms": 121,
+  "results": [
+   {
+    "name": "BRAT Restaurant",
+    "category": "restaurant",
+    "lat": 51.52425003051758,
+    "lon": -0.07670512050390244,
+    "id": "e3eebc64-eee1-4c07-8eb7-93debf451847",
+    "city_extract": "ldn",
+    "name_sim": 0.853,
+    "cat_match": 1,
+    "score": 0.883
+   },
+   {
+    "name": "Brasa",
+    "category": "brazilian_restaurant",
+    "lat": 51.54895782470703,
+    "lon": 0.024627339094877243,
+    "id": "96ee057c-74ff-4af8-bc12-b6aa81e46113",
+    "city_extract": "ldn",
+    "name_sim": 0.848,
+    "cat_match": 1,
+    "score": 0.875
+   },
+   {
+    "name": "Brasseria Timisoreana",
+    "category": "restaurant",
+    "lat": 51.599403381347656,
+    "lon": -0.2663037180900574,
+    "id": "2ab174fd-475c-40af-b23c-6db34f9373f9",
+    "city_extract": "ldn",
+    "name_sim": 0.811,
+    "cat_match": 1,
+    "score": 0.849
+   },
+   {
+    "name": "Brazza",
+    "category": "african_restaurant",
+    "lat": 51.463497161865234,
+    "lon": -0.11236501485109329,
+    "id": "0472282d-1360-43a6-bad4-564e0ce61d03",
+    "city_extract": "ldn",
+    "name_sim": 0.825,
+    "cat_match": 1,
+    "score": 0.849
+   },
+   {
+    "name": "Brasseria Notting Hill",
+    "category": "italian_restaurant",
+    "lat": 51.51349639892578,
+    "lon": -0.20346477627754211,
+    "id": "ae3d9b41-36ee-42a3-8209-07b9d297ab41",
+    "city_extract": "ldn",
+    "name_sim": 0.809,
+    "cat_match": 1,
+    "score": 0.847
+   }
+  ]
+ },
+ "LDN-06": {
+  "query_sent": "satan's whiskers",
+  "city_scope": "ldn",
+  "latency_ms": 131,
+  "results": [
+   {
+    "name": "Satan's Whiskers",
+    "category": "cocktail_bar",
+    "lat": 51.52946853637695,
+    "lon": -0.056129127740859985,
+    "id": "74aa16a4-49c3-4c8c-b990-9628c0eed2f7",
+    "city_extract": "ldn",
+    "name_sim": 1.0,
+    "cat_match": 2,
+    "score": 0.989
+   },
+   {
+    "name": "Satan's Bar",
+    "category": "bar",
+    "lat": 51.523651123046875,
+    "lon": -0.13728253543376923,
+    "id": "840baa58-0779-462f-b29f-ed12a00aec94",
+    "city_extract": "ldn",
+    "name_sim": 0.876,
+    "cat_match": 1,
+    "score": 0.891
+   },
+   {
+    "name": "Saif's Hairdressers",
+    "category": "barber",
+    "lat": 51.550315856933594,
+    "lon": 0.024830542504787445,
+    "id": "596e9753-2bc9-45ee-b567-dd594c69e3de",
+    "city_extract": "ldn",
+    "name_sim": 0.791,
+    "cat_match": 1,
+    "score": 0.821
+   },
+   {
+    "name": "Costa's Hairdressing",
+    "category": "barber",
+    "lat": 51.52323532104492,
+    "lon": -0.1957583725452423,
+    "id": "48dfb8aa-3a5a-41bb-beed-86a3d3004eb8",
+    "city_extract": "ldn",
+    "name_sim": 0.718,
+    "cat_match": 1,
+    "score": 0.774
+   },
+   {
+    "name": "Amathus Drinks",
+    "category": "wine_bar",
+    "lat": 51.49275588989258,
+    "lon": -0.17698882520198822,
+    "id": "415a97d4-ae6f-47cf-943e-262e3d779aae",
+    "city_extract": "ldn",
+    "name_sim": 0.703,
+    "cat_match": 1,
+    "score": 0.761
+   }
+  ]
+ },
+ "LDN-07": {
+  "query_sent": "padella",
+  "city_scope": "ldn",
+  "latency_ms": 121,
+  "results": [
+   {
+    "name": "Padella",
+    "category": "italian_restaurant",
+    "lat": 51.50514221191406,
+    "lon": -0.0897701233625412,
+    "id": "a65d819e-c29f-46df-b885-6a0a2699adf4",
+    "city_extract": "ldn",
+    "name_sim": 1.0,
+    "cat_match": 1,
+    "score": 1.0
+   },
+   {
+    "name": "Panella",
+    "category": "italian_restaurant",
+    "lat": 51.523597717285156,
+    "lon": -0.20632454752922058,
+    "id": "e2e8dbfa-abe1-40df-8d27-3eb6bb1ff68a",
+    "city_extract": "ldn",
+    "name_sim": 0.924,
+    "cat_match": 1,
+    "score": 0.939
+   },
+   {
+    "name": "Padella Shoreditch",
+    "category": "italian_restaurant",
+    "lat": 51.52336883544922,
+    "lon": -0.08172941207885742,
+    "id": "bba4783f-fdf1-4e1c-b9fd-3054319466d3",
+    "city_extract": "ldn",
+    "name_sim": 0.878,
+    "cat_match": 1,
+    "score": 0.902
+   },
+   {
+    "name": "Padella Soho",
+    "category": "restaurant",
+    "lat": 51.5122184753418,
+    "lon": -0.13861791789531708,
+    "id": "851ac41b-3e1b-4af8-ab7f-afd186535d43",
+    "city_extract": "ldn",
+    "name_sim": 0.917,
+    "cat_match": 1,
+    "score": 0.897
+   },
+   {
+    "name": "Padre",
+    "category": "mexican_restaurant",
+    "lat": 51.50264358520508,
+    "lon": -0.09495794028043747,
+    "id": "584fb474-5f6a-4891-97de-6e0b9ba8407e",
+    "city_extract": "ldn",
+    "name_sim": 0.853,
+    "cat_match": 1,
+    "score": 0.872
+   }
+  ]
+ },
+ "LDN-08": {
+  "query_sent": "dishoom shoreditch",
+  "city_scope": "ldn",
+  "latency_ms": 135,
+  "results": [
+   {
+    "name": "Dishoom Shoreditch",
+    "category": "indian_restaurant",
+    "lat": 51.524505615234375,
+    "lon": -0.07654936611652374,
+    "id": "69f00d91-b881-45ab-94fe-f56912665c10",
+    "city_extract": "ldn",
+    "name_sim": 1.0,
+    "cat_match": 1,
+    "score": 1.0
+   },
+   {
+    "name": "Dishoom",
+    "category": "indian_restaurant",
+    "lat": 51.480281829833984,
+    "lon": -0.1449422836303711,
+    "id": "abee1327-2bca-470a-9e0c-69a8232276ea",
+    "city_extract": "ldn",
+    "name_sim": 0.878,
+    "cat_match": 1,
+    "score": 0.891
+   },
+   {
+    "name": "Dishoom Covent Garden",
+    "category": "asian_fusion_restaurant",
+    "lat": 51.512516021728516,
+    "lon": -0.1268291026353836,
+    "id": "62c11269-1469-4754-826f-3ae2aa830824",
+    "city_extract": "ldn",
+    "name_sim": 0.86,
+    "cat_match": 1,
+    "score": 0.888
+   },
+   {
+    "name": "Dishoom Kensington",
+    "category": "indian_restaurant",
+    "lat": 51.50123977661133,
+    "lon": -0.19119493663311005,
+    "id": "2ad2857c-ea11-40be-9638-481f6239d7c6",
+    "city_extract": "ldn",
+    "name_sim": 0.858,
+    "cat_match": 1,
+    "score": 0.886
+   },
+   {
+    "name": "Dishoom King's Cross",
+    "category": "indian_restaurant",
+    "lat": 51.53619384765625,
+    "lon": -0.1254984438419342,
+    "id": "c66e6680-b8f9-48a6-9047-e5604c75a0fc",
+    "city_extract": "ldn",
+    "name_sim": 0.844,
+    "cat_match": 1,
+    "score": 0.875
+   }
+  ]
+ },
+ "LDN-09": {
+  "query_sent": "bao soho",
+  "city_scope": "ldn",
+  "latency_ms": 123,
+  "results": [
+   {
+    "name": "BAO Soho",
+    "category": "taiwanese_restaurant",
+    "lat": 51.51322937011719,
+    "lon": -0.13650017976760864,
+    "id": "88302492-ea8f-4eca-b496-d185fb6c88a2",
+    "city_extract": "ldn",
+    "name_sim": 1.0,
+    "cat_match": 1,
+    "score": 1.0
+   },
+   {
+    "name": "BAO Borough",
+    "category": "taiwanese_restaurant",
+    "lat": 51.50572967529297,
+    "lon": -0.09161504358053207,
+    "id": "856902e2-bc1f-40f5-80b4-08d52dc2e1d4",
+    "city_extract": "ldn",
+    "name_sim": 0.874,
+    "cat_match": 1,
+    "score": 0.899
+   },
+   {
+    "name": "BAO",
+    "category": "taiwanese_restaurant",
+    "lat": 51.47700881958008,
+    "lon": -0.14965002238750458,
+    "id": "b923df47-bdd2-419d-a7d2-943b5b1bb8f0",
+    "city_extract": "ldn",
+    "name_sim": 0.854,
+    "cat_match": 1,
+    "score": 0.881
+   },
+   {
+    "name": "Bubala Soho",
+    "category": "middle_eastern_restaurant",
+    "lat": 51.51475524902344,
+    "lon": -0.13703085482120514,
+    "id": "ae4a401d-f775-4ca0-a3d9-6c9c06e5d67f",
+    "city_extract": "ldn",
+    "name_sim": 0.853,
+    "cat_match": 1,
+    "score": 0.878
+   },
+   {
+    "name": "Bao",
+    "category": "taiwanese_restaurant",
+    "lat": 51.48175048828125,
+    "lon": -0.1446676254272461,
+    "id": "a9676c4a-237e-44c0-8fb0-9444ca414772",
+    "city_extract": "ldn",
+    "name_sim": 0.854,
+    "cat_match": 1,
+    "score": 0.872
+   }
+  ]
+ },
+ "LDN-10": {
+  "query_sent": "prufrock cofee",
+  "city_scope": "ldn",
+  "latency_ms": 136,
+  "results": [
+   {
+    "name": "Prufrock Coffee",
+    "category": "coffee_shop",
+    "lat": 51.519920349121094,
+    "lon": -0.10947690159082413,
+    "id": "423297e8-aef5-4add-a097-de51667fa7d5",
+    "city_extract": "ldn",
+    "name_sim": 0.987,
+    "cat_match": 1,
+    "score": 0.989
+   },
+   {
+    "name": "Puffrock Cafe",
+    "category": "cafe",
+    "lat": 51.51715850830078,
+    "lon": -0.11015301197767258,
+    "id": "6124ec36-f9e4-4b92-a4fc-6adbfb60e077",
+    "city_extract": "ldn",
+    "name_sim": 0.862,
+    "cat_match": 1,
+    "score": 0.874
+   },
+   {
+    "name": "Arro Coffee",
+    "category": "coffee_shop",
+    "lat": 51.50679397583008,
+    "lon": -0.1465846747159958,
+    "id": "3a428ef6-c315-4ad1-ac22-635adb087e1d",
+    "city_extract": "ldn",
+    "name_sim": 0.808,
+    "cat_match": 1,
+    "score": 0.846
+   },
+   {
+    "name": "Curators Coffee",
+    "category": "coffee_shop",
+    "lat": 51.504913330078125,
+    "lon": -0.019554000347852707,
+    "id": "2f305b0e-d531-4914-8813-848f2e6d6390",
+    "city_extract": "ldn",
+    "name_sim": 0.809,
+    "cat_match": 1,
+    "score": 0.845
+   },
+   {
+    "name": "ROK Coffee",
+    "category": "coffee_shop",
+    "lat": 51.52032470703125,
+    "lon": -0.13548249006271362,
+    "id": "3645107e-8912-4577-88dc-d8e666aa2814",
+    "city_extract": "ldn",
+    "name_sim": 0.805,
+    "cat_match": 1,
+    "score": 0.837
+   }
+  ]
+ },
+ "LDN-11": {
+  "query_sent": "satans wiskers",
+  "city_scope": "ldn",
+  "latency_ms": 132,
+  "results": [
+   {
+    "name": "Satan's Whiskers",
+    "category": "cocktail_bar",
+    "lat": 51.52946853637695,
+    "lon": -0.056129127740859985,
+    "id": "74aa16a4-49c3-4c8c-b990-9628c0eed2f7",
+    "city_extract": "ldn",
+    "name_sim": 0.975,
+    "cat_match": 2,
+    "score": 0.969
+   },
+   {
+    "name": "Satan's Bar",
+    "category": "bar",
+    "lat": 51.523651123046875,
+    "lon": -0.13728253543376923,
+    "id": "840baa58-0779-462f-b29f-ed12a00aec94",
+    "city_extract": "ldn",
+    "name_sim": 0.86,
+    "cat_match": 1,
+    "score": 0.878
+   },
+   {
+    "name": "SAMA Bankside",
+    "category": "bar_and_grill_restaurant",
+    "lat": 51.5068244934082,
+    "lon": -0.10411132127046585,
+    "id": "cd14a4c8-cb7a-4f45-9c2e-7c6a94ace597",
+    "city_extract": "ldn",
+    "name_sim": 0.763,
+    "cat_match": 1,
+    "score": 0.811
+   },
+   {
+    "name": "Saint's Bar",
+    "category": "bar",
+    "lat": 51.5256462097168,
+    "lon": -0.07723700255155563,
+    "id": "39902b66-bcb2-41a5-93ba-d04446240e2d",
+    "city_extract": "ldn",
+    "name_sim": 0.797,
+    "cat_match": 1,
+    "score": 0.806
+   },
+   {
+    "name": "Sirwans Barbers",
+    "category": "barber",
+    "lat": 51.46224594116211,
+    "lon": -0.1114656925201416,
+    "id": "95cd686d-6e1f-4e0e-b4b3-991648105074",
+    "city_extract": "ldn",
+    "name_sim": 0.754,
+    "cat_match": 1,
+    "score": 0.802
+   }
+  ]
+ },
+ "LDN-12": {
+  "query_sent": "padella",
+  "city_scope": "ALL",
+  "latency_ms": 289,
+  "results": [
+   {
+    "name": "Padella",
+    "category": "italian_restaurant",
+    "lat": 51.50514221191406,
+    "lon": -0.0897701233625412,
+    "id": "a65d819e-c29f-46df-b885-6a0a2699adf4",
+    "city_extract": "ldn",
+    "name_sim": 1.0,
+    "cat_match": 1,
+    "score": 1.0
+   },
+   {
+    "name": "Panella",
+    "category": "italian_restaurant",
+    "lat": 51.523597717285156,
+    "lon": -0.20632454752922058,
+    "id": "e2e8dbfa-abe1-40df-8d27-3eb6bb1ff68a",
+    "city_extract": "ldn",
+    "name_sim": 0.924,
+    "cat_match": 1,
+    "score": 0.939
+   },
+   {
+    "name": "Pasela",
+    "category": "restaurant",
+    "lat": 35.694454193115234,
+    "lon": 139.7042999267578,
+    "id": "d1c605a3-0c54-460d-b20b-91e0595c3e95",
+    "city_extract": "tyo",
+    "name_sim": 0.879,
+    "cat_match": 1,
+    "score": 0.903
+   },
+   {
+    "name": "Padella Shoreditch",
+    "category": "italian_restaurant",
+    "lat": 51.52336883544922,
+    "lon": -0.08172941207885742,
+    "id": "bba4783f-fdf1-4e1c-b9fd-3054319466d3",
+    "city_extract": "ldn",
+    "name_sim": 0.878,
+    "cat_match": 1,
+    "score": 0.902
+   },
+   {
+    "name": "Padella Soho",
+    "category": "restaurant",
+    "lat": 51.5122184753418,
+    "lon": -0.13861791789531708,
+    "id": "851ac41b-3e1b-4af8-ab7f-afd186535d43",
+    "city_extract": "ldn",
+    "name_sim": 0.917,
+    "cat_match": 1,
+    "score": 0.897
+   }
+  ]
+ },
+ "LDN-13": {
+  "query_sent": "the dove",
+  "city_scope": "ldn",
+  "latency_ms": 123,
+  "results": [
+   {
+    "name": "The Dove",
+    "category": "pub",
+    "lat": 51.49050521850586,
+    "lon": -0.23497000336647034,
+    "id": "2bcc65c0-afb1-4da9-96fa-47d8f9cfa0e7",
+    "city_extract": "ldn",
+    "name_sim": 1.0,
+    "cat_match": 1,
+    "score": 1.0
+   },
+   {
+    "name": "The Dove",
+    "category": "pub",
+    "lat": 51.53635787963867,
+    "lon": -0.061799757182598114,
+    "id": "973bd993-59d1-4e45-8e89-4dbcb81b9f5c",
+    "city_extract": "ldn",
+    "name_sim": 1.0,
+    "cat_match": 1,
+    "score": 1.0
+   },
+   {
+    "name": "The Dovetail",
+    "category": "beer_bar",
+    "lat": 51.52334213256836,
+    "lon": -0.10401348024606705,
+    "id": "ed2fc42f-a6c7-4de5-bf91-63dee17e7d40",
+    "city_extract": "ldn",
+    "name_sim": 0.933,
+    "cat_match": 1,
+    "score": 0.947
+   },
+   {
+    "name": "The Den",
+    "category": "cocktail_bar",
+    "lat": 51.5135498046875,
+    "lon": -0.13397479057312012,
+    "id": "f133d632-9e70-4c2f-bdbd-72978161f9c9",
+    "city_extract": "ldn",
+    "name_sim": 0.921,
+    "cat_match": 2,
+    "score": 0.937
+   },
+   {
+    "name": "The Grove",
+    "category": "bar",
+    "lat": 51.57927703857422,
+    "lon": -0.1983102709054947,
+    "id": "267f002d-c803-41b2-a6c7-c5497e92541e",
+    "city_extract": "ldn",
+    "name_sim": 0.931,
+    "cat_match": 1,
+    "score": 0.933
+   }
+  ]
+ },
+ "NEG-01": {
+  "query_sent": "this hidden gem in shoreditch",
+  "city_scope": "ldn",
+  "latency_ms": 143,
+  "results": [
+   {
+    "name": "The Fishmongers Kitchen",
+    "category": "seafood_market",
+    "lat": 51.49760437011719,
+    "lon": -0.22235536575317383,
+    "id": "871fcadb-f489-412d-bb2e-f1e72674bedc",
+    "city_extract": "ldn",
+    "name_sim": 0.802,
+    "cat_match": 1,
+    "score": 0.83
+   },
+   {
+    "name": "The Rum Kitchen - Shoreditch",
+    "category": "restaurant",
+    "lat": 51.52375411987305,
+    "lon": -0.07385800033807755,
+    "id": "ca371854-f3fe-4cac-b76b-4fc5c4358300",
+    "city_extract": "ldn",
+    "name_sim": 0.794,
+    "cat_match": 1,
+    "score": 0.823
+   },
+   {
+    "name": "The Dining Room",
+    "category": "restaurant",
+    "lat": 51.537391662597656,
+    "lon": -0.05725237727165222,
+    "id": "537e86dc-7ed3-49d3-98c8-189307117096",
+    "city_extract": "ldn",
+    "name_sim": 0.768,
+    "cat_match": 1,
+    "score": 0.814
+   },
+   {
+    "name": "The Edge Bar Shoreditch",
+    "category": "bar_and_grill_restaurant",
+    "lat": 51.52238082885742,
+    "lon": -0.07783348113298416,
+    "id": "577e89a2-7b8e-49a2-b354-439d0e8783e9",
+    "city_extract": "ldn",
+    "name_sim": 0.763,
+    "cat_match": 1,
+    "score": 0.811
+   },
+   {
+    "name": "The Sindian Grill House",
+    "category": "turkish_restaurant",
+    "lat": 51.52834701538086,
+    "lon": -0.201187402009964,
+    "id": "e82fc88e-6e60-452d-a515-18961802c38e",
+    "city_extract": "ldn",
+    "name_sim": 0.777,
+    "cat_match": 1,
+    "score": 0.81
+   }
+  ]
+ },
+ "NEG-02": {
+  "query_sent": "best coffee ever",
+  "city_scope": "tyo",
+  "latency_ms": 177,
+  "results": [
+   {
+    "name": "Berth Coffee",
+    "category": "coffee_shop",
+    "lat": 35.69152069091797,
+    "lon": 139.78140258789062,
+    "id": "afdafe34-370b-4d88-b13d-9e6fb11baff1",
+    "city_extract": "tyo",
+    "name_sim": 0.856,
+    "cat_match": 1,
+    "score": 0.884
+   },
+   {
+    "name": "Bees Coffee",
+    "category": "coffee_shop",
+    "lat": 35.726932525634766,
+    "lon": 139.74554443359375,
+    "id": "69ff1698-d167-4f70-be9b-209a91777728",
+    "city_extract": "tyo",
+    "name_sim": 0.844,
+    "cat_match": 1,
+    "score": 0.875
+   },
+   {
+    "name": "Bless Coffee",
+    "category": "coffee_shop",
+    "lat": 35.67609405517578,
+    "lon": 139.77041625976562,
+    "id": "f84316b8-574a-496f-8edd-7db18891989f",
+    "city_extract": "tyo",
+    "name_sim": 0.838,
+    "cat_match": 1,
+    "score": 0.87
+   },
+   {
+    "name": "Beck's Coffee Ueno",
+    "category": "coffee_shop",
+    "lat": 35.71290969848633,
+    "lon": 139.77655029296875,
+    "id": "83a428e8-1c74-4022-a099-4211123fbb21",
+    "city_extract": "tyo",
+    "name_sim": 0.822,
+    "cat_match": 1,
+    "score": 0.857
+   },
+   {
+    "name": "Bnei Coffee",
+    "category": "coffee_shop",
+    "lat": 35.70512008666992,
+    "lon": 139.63259887695312,
+    "id": "3223b46e-1d19-4d55-8784-c52424e66734",
+    "city_extract": "tyo",
+    "name_sim": 0.814,
+    "cat_match": 1,
+    "score": 0.851
+   }
+  ]
+ },
+ "NEG-03": {
+  "query_sent": "that little wine bar near the market",
+  "city_scope": "tlv",
+  "latency_ms": 21,
+  "results": [
+   {
+    "name": "A La Bar",
+    "category": "bar",
+    "lat": 32.0774040222168,
+    "lon": 34.77449035644531,
+    "id": "b1dbfc92-d130-4272-a9ba-d2a9c816900a",
+    "city_extract": "tlv",
+    "name_sim": 0.657,
+    "cat_match": 1,
+    "score": 0.726
+   },
+   {
+    "name": "Ittawinebar",
+    "category": "wine_bar",
+    "lat": 32.06351852416992,
+    "lon": 34.768287658691406,
+    "id": "1d9ffd27-3de1-45d0-a08f-52dee479fdb3",
+    "city_extract": "tlv",
+    "name_sim": 0.678,
+    "cat_match": 1,
+    "score": 0.719
+   },
+   {
+    "name": "Signature The Cocktail Bar",
+    "category": "cocktail_bar",
+    "lat": 32.077369689941406,
+    "lon": 34.81409454345703,
+    "id": "6c983829-e53f-4aaf-855a-3a3d0e139d6a",
+    "city_extract": "tlv",
+    "name_sim": 0.642,
+    "cat_match": 2,
+    "score": 0.712
+   },
+   {
+    "name": "ITHL - The Israeli Institute for Hebrew Literature",
+    "category": "topic_publisher",
+    "lat": 32.064849853515625,
+    "lon": 34.788238525390625,
+    "id": "307e3127-7472-4975-98fb-1ba3513a120e",
+    "city_extract": "tlv",
+    "name_sim": 0.656,
+    "cat_match": 1,
+    "score": 0.711
+   },
+   {
+    "name": "Akbar",
+    "category": "bar",
+    "lat": 32.053184509277344,
+    "lon": 34.75597381591797,
+    "id": "6f62009d-fb73-4745-a81b-c5e222eebab2",
+    "city_extract": "tlv",
+    "name_sim": 0.637,
+    "cat_match": 1,
+    "score": 0.709
+   }
+  ]
+ }
+}

@@ -1,0 +1,89 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62.11 87bfad18",
+  "osm3s": {
+    "timestamp_osm_base": "2026-08-18T08:44:17Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+
+{
+  "type": "node",
+  "id": 1857121006,
+  "lat": 32.0768730,
+  "lon": 34.8143082,
+  "tags": {
+    "amenity": "fast_food",
+    "cuisine": "middle_eastern;pita;sabich",
+    "name": "הסביח של עובד",
+    "name:en": "Ovad's Sabich",
+    "outdoor_seating": "yes",
+    "wikidata": "Q25488513"
+  }
+},
+{
+  "type": "node",
+  "id": 5249886425,
+  "lat": 32.0598436,
+  "lon": 34.7716925,
+  "tags": {
+    "amenity": "cafe",
+    "name:en": "Café Levinsky 41"
+  }
+},
+{
+  "type": "way",
+  "id": 81812042,
+  "center": {
+    "lat": 32.0561463,
+    "lon": 34.8245147
+  },
+  "tags": {
+    "alt_name:en": "Ovadia;Ovadiya",
+    "highway": "residential",
+    "name": "עובדיה",
+    "name:ar": "عوڤادياه",
+    "name:en": "Ovadya",
+    "name:he": "עובדיה",
+    "oneway": "yes",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 170856969,
+  "center": {
+    "lat": 32.0799965,
+    "lon": 34.8275952
+  },
+  "tags": {
+    "alt_name:en": "Ovadia;Ovadiya",
+    "highway": "residential",
+    "int_name": "Ovadia",
+    "maxspeed": "50",
+    "name": "עובדיה",
+    "name:ar": "عوڤادياه",
+    "name:en": "Ovadya",
+    "name:he": "עובדיה",
+    "oneway": "yes",
+    "smoothness": "good",
+    "surface": "asphalt"
+  }
+},
+{
+  "type": "way",
+  "id": 1285238360,
+  "center": {
+    "lat": 32.0590573,
+    "lon": 34.8297642
+  },
+  "tags": {
+    "amenity": "place_of_worship",
+    "building": "yes",
+    "name": "חזון עובדיה",
+    "religion": "jewish"
+  }
+}
+
+  ]
+}

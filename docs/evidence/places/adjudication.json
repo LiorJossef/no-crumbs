@@ -1,0 +1,23 @@
+{
+  "adjudicated_by": "maps-geospatial agent, 2026-08-18",
+  "method": "Manual inspection of raw-osm.json, raw-overture.json, raw-overture-scored.json. For multi-branch businesses with no branch hint, any genuine branch counts as top-1 correct (branch_ok). Cases where the intended venue is absent from the underlying dataset are marked ABSENT so coverage failures are separable from ranking failures.",
+  "verdicts": {
+    "nominatim":  {"TYO-01":"OK","TYO-02":"OK","TYO-03":"OK","TYO-04":"OK","TYO-05":"OK","TYO-06":"OK","TYO-07":"OK","TYO-08":"OK","TYO-09":"OK","TYO-10":"OK","TYO-11":"OK","TYO-12":"MISS_ZERO","TYO-13":"MISS_ZERO","TYO-14":"OK","TLV-01":"OK","TLV-02":"OK","TLV-03":"OK","TLV-04":"ABSENT","TLV-05":"OK","TLV-06":"TOP3","TLV-07":"MISS_RANK","TLV-08":"ABSENT","TLV-09":"ABSENT","TLV-10":"OK","TLV-11":"MISS_ZERO","TLV-12":"MISS_ZERO","TLV-13":"MISS_ZERO","TLV-14":"MISS_RANK","LDN-01":"OK","LDN-02":"OK","LDN-03":"OK","LDN-04":"OK","LDN-05":"OK","LDN-06":"OK","LDN-07":"OK","LDN-08":"MISS_ZERO","LDN-09":"OK","LDN-10":"MISS_ZERO","LDN-11":"MISS_ZERO","LDN-12":"MISS_RANK","LDN-13":"OK","NEG-01":"OK","NEG-02":"OK","NEG-03":"OK"},
+    "photon":     {"TYO-01":"OK","TYO-02":"OK","TYO-03":"OK","TYO-04":"OK","TYO-05":"OK","TYO-06":"OK","TYO-07":"OK","TYO-08":"OK","TYO-09":"OK","TYO-10":"OK","TYO-11":"OK","TYO-12":"MISS_RANK","TYO-13":"MISS_RANK","TYO-14":"OK","TLV-01":"OK","TLV-02":"MISS_NONAME","TLV-03":"OK","TLV-04":"ABSENT","TLV-05":"OK","TLV-06":"OK","TLV-07":"TOP3","TLV-08":"ABSENT","TLV-09":"ABSENT","TLV-10":"OK","TLV-11":"MISS_RANK","TLV-12":"MISS_RANK","TLV-13":"OK","TLV-14":"MISS_RANK","LDN-01":"MISS_RANK","LDN-02":"OK","LDN-03":"OK","LDN-04":"OK","LDN-05":"OK","LDN-06":"OK","LDN-07":"OK","LDN-08":"MISS_RANK","LDN-09":"OK","LDN-10":"OK","LDN-11":"OK","LDN-12":"MISS_RANK","LDN-13":"OK","NEG-01":"OK","NEG-02":"FALSE_POSITIVE","NEG-03":"OK"},
+    "overture_scored": {"TYO-01":"OK","TYO-02":"OK","TYO-03":"OK","TYO-04":"OK","TYO-05":"OK","TYO-06":"OK","TYO-07":"OK","TYO-08":"OK","TYO-09":"OK","TYO-10":"OK","TYO-11":"OK","TYO-12":"OK","TYO-13":"OK","TYO-14":"OK","TLV-01":"OK","TLV-02":"ABSENT","TLV-03":"OK","TLV-04":"OK","TLV-05":"OK","TLV-06":"OK","TLV-07":"MISS_RANK","TLV-08":"ABSENT","TLV-09":"OK","TLV-10":"MISS_RANK","TLV-11":"OK","TLV-12":"OK","TLV-13":"MISS_RANK","TLV-14":"MISS_RANK","LDN-01":"OK","LDN-02":"OK","LDN-03":"OK","LDN-04":"OK","LDN-05":"OK","LDN-06":"OK","LDN-07":"OK","LDN-08":"OK","LDN-09":"OK","LDN-10":"OK","LDN-11":"OK","LDN-12":"OK","LDN-13":"OK","NEG-01":"OK","NEG-02":"OK","NEG-03":"OK"}
+  },
+  "verdict_key": {
+    "OK": "top-1 is the intended venue (or a genuine branch of it); for NEG cases, nothing was auto-accepted",
+    "TOP3": "intended venue present in results but not at rank 1",
+    "MISS_RANK": "intended venue exists in the dataset but was not returned in the top 3",
+    "MISS_ZERO": "provider returned zero results",
+    "MISS_NONAME": "correct coordinates returned but with no usable name, so unpresentable",
+    "ABSENT": "intended venue verified absent from the underlying dataset (see overpass-coverage*.json / probe output) - a coverage failure, not a ranking failure",
+    "FALSE_POSITIVE": "a confident but wrong POI returned for a query that names no venue"
+  },
+  "notes": [
+    "overture_scored OK verdicts for NEG-01..03 mean the top candidate scored below the auto-accept band and was therefore routed to the confirm/no-match UI, not silently saved. The raw top-1 names were wrong in all three cases.",
+    "TLV-04 Imperial Craft Cocktail Bar, TLV-08 Orna and Ella, TLV-09 Cafe Xoho: verified ABSENT from OpenStreetMap by Overpass name-regex over any name:* key in a Tel Aviv bbox. TLV-04 and TLV-09 are PRESENT in Overture. TLV-02 Cafe Levinsky 41 is present in OSM (as name:en only, no name tag) and absent from Overture. The datasets have complementary gaps.",
+    "LDN-08 Dishoom Shoreditch is present in OSM as way/276329431 name=Dishoom addr:street=Boundary Street; Nominatim returned zero results for it. That is a search-engine failure, not a data failure."
+  ]
+}

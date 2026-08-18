@@ -1,0 +1,2297 @@
+{
+ "nominatim": {
+  "TYO-01": {
+   "query_sent": "Glitch Coffee & Roasters, Tokyo",
+   "error": null,
+   "latency_ms": 637,
+   "results": [
+    {
+     "name": "Glitch Coffee and Roasters",
+     "display_name": "Glitch Coffee and Roasters, 築地川銀座公園, 築地一丁目, 築地, 中央区, 東京都, 104-0045, 日本",
+     "lat": "35.6688880",
+     "lon": "139.7686729",
+     "category": "amenity:cafe",
+     "id": "node/12508568356",
+     "importance": 8.593499656667457e-05
+    }
+   ]
+  },
+  "TYO-02": {
+   "query_sent": "Onibus Coffee, Tokyo",
+   "error": null,
+   "latency_ms": 373,
+   "results": [
+    {
+     "name": "Onibus Coffee",
+     "display_name": "Onibus Coffee, 1, 上目黒二丁目, 上目黒, 目黒区, 東京都, 153-0051, 日本",
+     "lat": "35.6431844",
+     "lon": "139.6980169",
+     "category": "craft:coffee_roaster",
+     "id": "node/4729979489",
+     "importance": 8.593499656667457e-05
+    },
+    {
+     "name": "Onibus Coffee",
+     "display_name": "Onibus Coffee, 等々力通り, 奥沢五丁目, 奥沢, 世田谷区, 東京都, 158-0083, 日本",
+     "lat": "35.6037374",
+     "lon": "139.6712395",
+     "category": "amenity:cafe",
+     "id": "node/4067639164",
+     "importance": 8.593499656667457e-05
+    }
+   ]
+  },
+  "TYO-03": {
+   "query_sent": "Fuglen Tokyo, Tokyo",
+   "error": null,
+   "latency_ms": 377,
+   "results": [
+    {
+     "name": "Fuglen Tokyo",
+     "display_name": "Fuglen Tokyo, 井ノ頭通り, 神南二丁目, 神南, 渋谷区, 東京都, 150-0041, 日本",
+     "lat": "35.6666440",
+     "lon": "139.6924260",
+     "category": "amenity:cafe",
+     "id": "node/2723034393",
+     "importance": 8.593499656667457e-05
+    }
+   ]
+  },
+  "TYO-04": {
+   "query_sent": "Koffee Mameya, Tokyo",
+   "error": null,
+   "latency_ms": 890,
+   "results": [
+    {
+     "name": "koffee mameya",
+     "display_name": "koffee mameya, 原二本通り, 神宮前四丁目, 神宮前, 渋谷区, 東京都, 150-0001, 日本",
+     "lat": "35.6684763",
+     "lon": "139.7108953",
+     "category": "amenity:cafe",
+     "id": "node/5941077285",
+     "importance": 8.593499656667457e-05
+    }
+   ]
+  },
+  "TYO-05": {
+   "query_sent": "Bar Benfiddich, Tokyo",
+   "error": null,
+   "latency_ms": 480,
+   "results": [
+    {
+     "name": "Bar Benfiddich",
+     "display_name": "Bar Benfiddich, 中央通り, 西新宿一丁目, 西新宿, 新宿区, 東京都, 160-0023, 日本",
+     "lat": "35.6894987",
+     "lon": "139.6965952",
+     "category": "amenity:bar",
+     "id": "node/11327770669",
+     "importance": 0.09078915819201436
+    },
+    {
+     "name": "ベンフィディック",
+     "display_name": "ベンフィディック, 7, 西新宿一丁目, 西新宿, 新宿区, 東京都, 160-0023, 日本",
+     "lat": "35.6894885",
+     "lon": "139.6965995",
+     "category": "amenity:bar",
+     "id": "node/4535635989",
+     "importance": 8.593499656667457e-05
+    }
+   ]
+  },
+  "TYO-06": {
+   "query_sent": "Bar Trench, Tokyo",
+   "error": null,
+   "latency_ms": 414,
+   "results": [
+    {
+     "name": "Bar TRENCH",
+     "display_name": "Bar TRENCH, 恵比寿一番街, 恵比寿西一丁目, 恵比寿西, 渋谷区, 東京都, 150-0021, 日本",
+     "lat": "35.6484240",
+     "lon": "139.7079184",
+     "category": "amenity:bar",
+     "id": "node/4884402822",
+     "importance": 8.593499656667457e-05
+    }
+   ]
+  },
+  "TYO-07": {
+   "query_sent": "Afuri, Tokyo",
+   "error": null,
+   "latency_ms": 373,
+   "results": [
+    {
+     "name": "AFURI",
+     "display_name": "AFURI, THE LINKPILLAR 1 NORTH;2階, 高輪二丁目, 高輪, 港区, 東京都, 108-0074, 日本",
+     "lat": "35.6359236",
+     "lon": "139.7399696",
+     "category": "amenity:restaurant",
+     "id": "node/13663884110",
+     "importance": 8.593499656667457e-05
+    },
+    {
+     "name": "AFURI",
+     "display_name": "AFURI, 麻布トンネル, 六本木ヒルズ, 六本木, 港区, 東京都, 106-0032, 日本",
+     "lat": "35.6614259",
+     "lon": "139.7296788",
+     "category": "amenity:restaurant",
+     "id": "node/4536738591",
+     "importance": 8.593499656667457e-05
+    },
+    {
+     "name": "Afuri",
+     "display_name": "Afuri, 中目黒, 上目黒三丁目, 上目黒, 目黒区, 東京都, 153-0051, 日本",
+     "lat": "35.6444634",
+     "lon": "139.6996875",
+     "category": "amenity:restaurant",
+     "id": "node/5965511536",
+     "importance": 8.593499656667457e-05
+    },
+    {
+     "name": "AFURI",
+     "display_name": "AFURI, 1, 千駄ヶ谷三丁目, 千駄ヶ谷, 渋谷区, 東京都, 151-0051, 日本",
+     "lat": "35.6729920",
+     "lon": "139.7038124",
+     "category": "amenity:restaurant",
+     "id": "node/4455902416",
+     "importance": 8.593499656667457e-05
+    },
+    {
+     "name": "AFURI",
+     "display_name": "AFURI, 京王 新宿駅;地下2階;3番線, 西新宿一丁目, 西新宿, 新宿区, 東京都, 160-0023, 日本",
+     "lat": "35.6893288",
+     "lon": "139.6992356",
+     "category": "amenity:restaurant",
+     "id": "node/11287702869",
+     "importance": 8.593499656667457e-05
+    }
+   ]
+  },
+  "TYO-08": {
+   "query_sent": "Ichiran Shibuya, Tokyo",
+   "error": null,
+   "latency_ms": 370,
+   "results": [
+    {
+     "name": "一蘭",
+     "display_name": "一蘭, スペイン坂, 宇田川町, 渋谷区, 東京都, 150-0042, 日本",
+     "lat": "35.6609597",
+     "lon": "139.6986995",
+     "category": "amenity:restaurant",
+     "id": "node/4536691593",
+     "importance": 8.593499656667457e-05
+    },
+    {
+     "name": "一蘭",
+     "display_name": "一蘭, 7, 神南一丁目, 神南, 渋谷区, 東京都, 150-0041, 日本",
+     "lat": "35.6611293",
+     "lon": "139.7009878",
+     "category": "amenity:restaurant",
+     "id": "node/3047251663",
+     "importance": 8.593499656667457e-05
+    }
+   ]
+  },
+  "TYO-09": {
+   "query_sent": "猿田彦珈琲, Tokyo",
+   "error": null,
+   "latency_ms": 485,
+   "results": [
+    {
+     "name": "猿田彦珈琲",
+     "display_name": "猿田彦珈琲, 6, 外神田一丁目, 外神田, 千代田区, 東京都, 101-0021, 日本",
+     "lat": "35.6984127",
+     "lon": "139.7724866",
+     "category": "amenity:cafe",
+     "id": "node/7202136541",
+     "importance": 8.593499656667457e-05
+    },
+    {
+     "name": "猿田彦珈琲",
+     "display_name": "猿田彦珈琲, 恵比寿通り, 恵比寿一丁目, 恵比寿, 渋谷区, 東京都, 150-0013, 日本",
+     "lat": "35.6476362",
+     "lon": "139.7109040",
+     "category": "amenity:cafe",
+     "id": "node/2843777293",
+     "importance": 8.593499656667457e-05
+    },
+    {
+     "name": "猿田彦珈琲",
+     "display_name": "猿田彦珈琲, 仙川駅(改札口), 仙川町一丁目, 調布市, 東京都, 182-0002, 日本",
+     "lat": "35.6613097",
+     "lon": "139.5855667",
+     "category": "amenity:cafe",
+     "id": "node/3779248999",
+     "importance": 8.593499656667457e-05
+    }
+   ]
+  },
+  "TYO-10": {
+   "query_sent": "むぎとオリーブ, Tokyo",
+   "error": null,
+   "latency_ms": 332,
+   "results": [
+    {
+     "name": "Ginza Noodles むぎとオリーブ Clam Ramen",
+     "display_name": "Ginza Noodles むぎとオリーブ Clam Ramen, 12, 銀座六丁目, 銀座, 中央区, 東京都, 104-0061, 日本",
+     "lat": "35.6689905",
+     "lon": "139.7643405",
+     "category": "amenity:restaurant",
+     "id": "node/6404057088",
+     "importance": 8.593499656667457e-05
+    }
+   ]
+  },
+  "TYO-11": {
+   "query_sent": "Sarutahiko Coffee, Tokyo",
+   "error": null,
+   "latency_ms": 418,
+   "results": [
+    {
+     "name": "Sarutahiko Coffee",
+     "display_name": "Sarutahiko Coffee, 七井橋通り, 吉祥寺南町一丁目, 吉祥寺南町, 武蔵野市, 東京都, 180-0003, 日本",
+     "lat": "35.7008752",
+     "lon": "139.5784581",
+     "category": "shop:coffee",
+     "id": "node/13246909401",
+     "importance": 8.593499656667457e-05
+    },
+    {
+     "name": "Sarutahiko coffee",
+     "display_name": "Sarutahiko coffee, 世田谷区画街路第10号線, 北沢二丁目, 北沢, 世田谷区, 東京都, 155-0031, 日本",
+     "lat": "35.6622922",
+     "lon": "139.6676639",
+     "category": "amenity:cafe",
+     "id": "node/7199500987",
+     "importance": 8.593499656667457e-05
+    },
+    {
+     "name": "sarutahiko coffee",
+     "display_name": "sarutahiko coffee, 恵比寿通り, 恵比寿一丁目, 恵比寿, 渋谷区, 東京都, 150-0013, 日本",
+     "lat": "35.6474864",
+     "lon": "139.7110529",
+     "category": "shop:coffee",
+     "id": "node/7308189194",
+     "importance": 8.593499656667457e-05
+    },
+    {
+     "name": "猿田彦珈琲",
+     "display_name": "猿田彦珈琲, 恵比寿通り, 恵比寿一丁目, 恵比寿, 渋谷区, 東京都, 150-0013, 日本",
+     "lat": "35.6476362",
+     "lon": "139.7109040",
+     "category": "amenity:cafe",
+     "id": "node/2843777293",
+     "importance": 8.593499656667457e-05
+    },
+    {
+     "name": "猿田彦コーヒー",
+     "display_name": "猿田彦コーヒー, 首都高速3号渋谷線, 上馬三丁目, 上馬, 世田谷区, 東京都, 154-0014, 日本",
+     "lat": "35.6334239",
+     "lon": "139.6615901",
+     "category": "amenity:cafe",
+     "id": "node/13607328327",
+     "importance": 8.593499656667457e-05
+    }
+   ]
+  },
+  "TYO-12": {
+   "query_sent": "Fuglin Tokyo, Tokyo",
+   "error": null,
+   "latency_ms": 378,
+   "results": []
+  },
+  "TYO-13": {
+   "query_sent": "Bar Benfidich, Tokyo",
+   "error": null,
+   "latency_ms": 341,
+   "results": []
+  },
+  "TYO-14": {
+   "query_sent": "Koffee Mameya",
+   "error": null,
+   "latency_ms": 349,
+   "results": [
+    {
+     "name": "koffee mameya",
+     "display_name": "koffee mameya, 原二本通り, 神宮前四丁目, 神宮前, 渋谷区, 東京都, 150-0001, 日本",
+     "lat": "35.6684763",
+     "lon": "139.7108953",
+     "category": "amenity:cafe",
+     "id": "node/5941077285",
+     "importance": 8.593499656667457e-05
+    }
+   ]
+  },
+  "TLV-01": {
+   "query_sent": "Port Said, Tel Aviv",
+   "error": null,
+   "latency_ms": 457,
+   "results": [
+    {
+     "name": "פורט סעיד",
+     "display_name": "פורט סעיד, 5, הר סיני, תל־אביב–יפו, לב תל-אביב, תל־אביב–יפו, נפת תל אביב, מחוז תל אביב, 6525216, ישראל",
+     "lat": "32.0647773",
+     "lon": "34.7720826",
+     "category": "amenity:bar",
+     "id": "node/3398878837",
+     "importance": 7.500038147550191e-05
+    }
+   ]
+  },
+  "TLV-02": {
+   "query_sent": "Cafe Levinsky 41, Tel Aviv",
+   "error": null,
+   "latency_ms": 477,
+   "results": [
+    {
+     "name": "Café Levinsky 41",
+     "display_name": "Café Levinsky 41, סמטת השוק, תל־אביב–יפו, פלורנטין, תל־אביב–יפו, נפת תל אביב, מחוז תל אביב, 6610201, ישראל",
+     "lat": "32.0598436",
+     "lon": "34.7716925",
+     "category": "amenity:cafe",
+     "id": "node/5249886425",
+     "importance": 7.500038147550191e-05
+    }
+   ]
+  },
+  "TLV-03": {
+   "query_sent": "Bellboy, Tel Aviv",
+   "error": null,
+   "latency_ms": 828,
+   "results": [
+    {
+     "name": "Bellboy",
+     "display_name": "Bellboy, 14, ברדיצ'בסקי, תל־אביב–יפו, לב תל-אביב, תל־אביב–יפו, נפת תל אביב, מחוז תל אביב, 6527401, ישראל",
+     "lat": "32.0709975",
+     "lon": "34.7802908",
+     "category": "amenity:bar",
+     "id": "node/12102940425",
+     "importance": 7.500038147550191e-05
+    }
+   ]
+  },
+  "TLV-04": {
+   "query_sent": "Imperial Craft Cocktail Bar, Tel Aviv",
+   "error": null,
+   "latency_ms": 404,
+   "results": []
+  },
+  "TLV-05": {
+   "query_sent": "Miznon, Tel Aviv",
+   "error": null,
+   "latency_ms": 869,
+   "results": [
+    {
+     "name": "Miznon",
+     "display_name": "Miznon, 23, אבן גבירול, תל־אביב–יפו, הצפון הישן - החלק הדרומי, תל־אביב–יפו, נפת תל אביב, מחוז תל אביב, 6473702, ישראל",
+     "lat": "32.0738238",
+     "lon": "34.7815808",
+     "category": "amenity:fast_food",
+     "id": "node/9997008817",
+     "importance": 7.500038147550191e-05
+    },
+    {
+     "name": "מזנון",
+     "display_name": "מזנון, 1, הנחושת, תל־אביב–יפו, אזור תעשייה עבר הירקון, תל־אביב–יפו, נפת תל אביב, מחוז תל אביב, 6971001, ישראל",
+     "lat": "32.1088395",
+     "lon": "34.8388122",
+     "category": "amenity:fast_food",
+     "id": "node/5934127582",
+     "importance": 7.500038147550191e-05
+    }
+   ]
+  },
+  "TLV-06": {
+   "query_sent": "HaKosem, Tel Aviv",
+   "error": null,
+   "latency_ms": 359,
+   "results": [
+    {
+     "name": "הקוסם",
+     "display_name": "הקוסם, אוסוולדו ארניה, תל־אביב–יפו, גני שרונה, תל־אביב–יפו, נפת תל אביב, מחוז תל אביב, 6473702, ישראל",
+     "lat": "32.0711626",
+     "lon": "34.7862575",
+     "category": "amenity:restaurant",
+     "id": "node/10812430078",
+     "importance": 7.500038147550191e-05
+    },
+    {
+     "name": "פלאפל הקוסם",
+     "display_name": "פלאפל הקוסם, 1, שלמה המלך, תל־אביב–יפו, הצפון הישן - החלק הדרומי, תל־אביב–יפו, נפת תל אביב, מחוז תל אביב, 6437701, ישראל",
+     "lat": "32.0764281",
+     "lon": "34.7766833",
+     "category": "amenity:fast_food",
+     "id": "node/1791481321",
+     "importance": 7.500038147550191e-05
+    }
+   ]
+  },
+  "TLV-07": {
+   "query_sent": "הקוסם, תל אביב",
+   "error": null,
+   "latency_ms": 396,
+   "results": [
+    {
+     "name": "הקוסם",
+     "display_name": "הקוסם, אוסוולדו ארניה, תל־אביב–יפו, גני שרונה, תל־אביב–יפו, נפת תל אביב, מחוז תל אביב, 6473702, ישראל",
+     "lat": "32.0711626",
+     "lon": "34.7862575",
+     "category": "amenity:restaurant",
+     "id": "node/10812430078",
+     "importance": 7.500038147550191e-05
+    }
+   ]
+  },
+  "TLV-08": {
+   "query_sent": "אורנה ואלה, תל אביב",
+   "error": null,
+   "latency_ms": 374,
+   "results": []
+  },
+  "TLV-09": {
+   "query_sent": "Cafe Xoho, Tel Aviv",
+   "error": null,
+   "latency_ms": 574,
+   "results": []
+  },
+  "TLV-10": {
+   "query_sent": "Anita Gelato, Tel Aviv",
+   "error": null,
+   "latency_ms": 839,
+   "results": [
+    {
+     "name": "Anita Gelato",
+     "display_name": "Anita Gelato, 40, שבזי, תל־אביב–יפו, שבזי, תל־אביב–יפו, נפת תל אביב, מחוז תל אביב, 6811834, ישראל",
+     "lat": "32.0626968",
+     "lon": "34.7664412",
+     "category": "amenity:ice_cream",
+     "id": "node/2079180765",
+     "importance": 7.500038147550191e-05
+    },
+    {
+     "name": "Anita Gelato",
+     "display_name": "Anita Gelato, 3, פלורנטין, תל־אביב–יפו, פלורנטין, תל־אביב–יפו, נפת תל אביב, מחוז תל אביב, 6608928, ישראל",
+     "lat": "32.0563143",
+     "lon": "34.7673371",
+     "category": "amenity:ice_cream",
+     "id": "node/2079008586",
+     "importance": 1e-10
+    }
+   ]
+  },
+  "TLV-11": {
+   "query_sent": "Port Sayid, Tel Aviv",
+   "error": null,
+   "latency_ms": 408,
+   "results": []
+  },
+  "TLV-12": {
+   "query_sent": "Belboy tel aviv",
+   "error": null,
+   "latency_ms": 1015,
+   "results": []
+  },
+  "TLV-13": {
+   "query_sent": "Oved Daniel Sabich, Givatayim",
+   "error": null,
+   "latency_ms": 369,
+   "results": []
+  },
+  "TLV-14": {
+   "query_sent": "Bar 51, Tel Aviv",
+   "error": null,
+   "latency_ms": 1279,
+   "results": [
+    {
+     "name": "51, בר יוחאי, תל־אביב–יפו, אבו כביר, גבעת הרצל, תל־אביב–יפו, נפת תל אביב, מחוז תל אביב, 6655305, ישראל",
+     "display_name": "51, בר יוחאי, תל־אביב–יפו, אבו כביר, גבעת הרצל, תל־אביב–יפו, נפת תל אביב, מחוז תל אביב, 6655305, ישראל",
+     "lat": "32.0524680",
+     "lon": "34.7768870",
+     "category": "place:house",
+     "id": "node/2079192783",
+     "importance": 7.500038147550191e-05
+    },
+    {
+     "name": "51, בר כוכבא, תל־אביב–יפו, הצפון הישן - החלק הדרומי, תל־אביב–יפו, נפת תל אביב, מחוז תל אביב, 6356836, ישראל",
+     "display_name": "51, בר כוכבא, תל־אביב–יפו, הצפון הישן - החלק הדרומי, תל־אביב–יפו, נפת תל אביב, מחוז תל אביב, 6356836, ישראל",
+     "lat": "32.0768160",
+     "lon": "34.7739420",
+     "category": "place:house",
+     "id": "node/2079192785",
+     "importance": 7.500038147550191e-05
+    }
+   ]
+  },
+  "LDN-01": {
+   "query_sent": "Kiln, London",
+   "error": null,
+   "latency_ms": 371,
+   "results": [
+    {
+     "name": "Kiln",
+     "display_name": "Kiln, 58, Brewer Street, Soho, City of Westminster, Greater London, England, W1F 9TL, United Kingdom",
+     "lat": "51.5113507",
+     "lon": "-0.1359965",
+     "category": "amenity:restaurant",
+     "id": "node/466926237",
+     "importance": 9.307927061870783e-05
+    },
+    {
+     "name": "Kiln Theatre",
+     "display_name": "Kiln Theatre, 269, Kilburn High Road, Kilburn, London Borough of Camden, Greater London, England, NW6 7JR, United Kingdom",
+     "lat": "51.5431686",
+     "lon": "-0.2003532",
+     "category": "amenity:theatre",
+     "id": "way/77665068",
+     "importance": 0.4062073640742894
+    },
+    {
+     "name": "Pot Kiln Wood",
+     "display_name": "Pot Kiln Wood, Pot Kilns, London Borough of Havering, Greater London, England, United Kingdom",
+     "lat": "51.5745792",
+     "lon": "0.2669055",
+     "category": "natural:wood",
+     "id": "way/206463434",
+     "importance": 0.10675974593728539
+    },
+    {
+     "name": "Tile Kiln Lane Open Space",
+     "display_name": "Tile Kiln Lane Open Space, Bowes, London Borough of Enfield, Greater London, England, United Kingdom",
+     "lat": "51.6153889",
+     "lon": "-0.0908562",
+     "category": "leisure:park",
+     "id": "way/235053650",
+     "importance": 0.08009307927061872
+    },
+    {
+     "name": "Kiln Place Estate",
+     "display_name": "Kiln Place Estate, Gospel Oak, London Borough of Camden, Greater London, England, United Kingdom",
+     "lat": "51.5535874",
+     "lon": "-0.1503658",
+     "category": "place:neighbourhood",
+     "id": "way/873350615",
+     "importance": 0.08009307927061872
+    }
+   ]
+  },
+  "LDN-02": {
+   "query_sent": "Bar Termini, London",
+   "error": null,
+   "latency_ms": 386,
+   "results": [
+    {
+     "name": "Bar Termini",
+     "display_name": "Bar Termini, 7, Old Compton Street, Soho, City of Westminster, Greater London, England, W1D 4TF, United Kingdom",
+     "lat": "51.5136688",
+     "lon": "-0.1297828",
+     "category": "amenity:bar",
+     "id": "node/4917918321",
+     "importance": 9.307927061870783e-05
+    }
+   ]
+  },
+  "LDN-03": {
+   "query_sent": "Monmouth Coffee, London",
+   "error": null,
+   "latency_ms": 426,
+   "results": [
+    {
+     "name": "Monmouth Coffee Company",
+     "display_name": "Monmouth Coffee Company, 2, Park Street, Borough Market, Bankside, The Borough, London Borough of Southwark, Greater London, England, SE1 9AB, United Kingdom",
+     "lat": "51.5055145",
+     "lon": "-0.0914602",
+     "category": "amenity:cafe",
+     "id": "way/82770825",
+     "importance": 9.307927061870783e-05
+    },
+    {
+     "name": "Monmouth Coffee Company",
+     "display_name": "Monmouth Coffee Company, 27, Monmouth Street, Seven Dials, Bloomsbury, London Borough of Camden, Greater London, England, WC2H 9EU, United Kingdom",
+     "lat": "51.5143659",
+     "lon": "-0.1267997",
+     "category": "amenity:cafe",
+     "id": "node/12920922057",
+     "importance": 9.307927061870783e-05
+    },
+    {
+     "name": "Monmouth Coffee Company",
+     "display_name": "Monmouth Coffee Company, 3-4, Dockley Road, Bermondsey Spa, Bermondsey Village, Bermondsey, London Borough of Southwark, Greater London, England, SE16 3AF, United Kingdom",
+     "lat": "51.4955975",
+     "lon": "-0.0693293",
+     "category": "amenity:cafe",
+     "id": "node/13149861707",
+     "importance": 9.307927061870783e-05
+    },
+    {
+     "name": "Monmouth Coffee Company",
+     "display_name": "Monmouth Coffee Company, 3, Dockley Road, Longfield Estate, Bermondsey Village, Bermondsey, London Borough of Southwark, Greater London, England, SE16 4RA, United Kingdom",
+     "lat": "51.4958026",
+     "lon": "-0.0673310",
+     "category": "amenity:cafe",
+     "id": "node/11684923470",
+     "importance": 9.307927061870783e-05
+    }
+   ]
+  },
+  "LDN-04": {
+   "query_sent": "Prufrock Coffee, London",
+   "error": null,
+   "latency_ms": 381,
+   "results": [
+    {
+     "name": "Prufrock Coffee",
+     "display_name": "Prufrock Coffee, 23-25, Leather Lane, Hatton Garden, Holborn, London Borough of Camden, Greater London, England, EC1N 7TE, United Kingdom",
+     "lat": "51.5199496",
+     "lon": "-0.1095201",
+     "category": "amenity:cafe",
+     "id": "node/4185611903",
+     "importance": 9.307927061870783e-05
+    }
+   ]
+  },
+  "LDN-05": {
+   "query_sent": "Brat, London",
+   "error": null,
+   "latency_ms": 382,
+   "results": [
+    {
+     "name": "Brat",
+     "display_name": "Brat, 4, Redchurch Street, Shoreditch, London Borough of Hackney, Greater London, England, E2 7DD, United Kingdom",
+     "lat": "51.5242656",
+     "lon": "-0.0766909",
+     "category": "amenity:restaurant",
+     "id": "node/11959061648",
+     "importance": 9.307927061870783e-05
+    }
+   ]
+  },
+  "LDN-06": {
+   "query_sent": "Satan's Whiskers, London",
+   "error": null,
+   "latency_ms": 376,
+   "results": [
+    {
+     "name": "Satan's Whiskers",
+     "display_name": "Satan's Whiskers, 343, Cambridge Heath Road, Bethnal Green, London Borough of Tower Hamlets, Greater London, England, E2 9LJ, United Kingdom",
+     "lat": "51.5294869",
+     "lon": "-0.0561601",
+     "category": "amenity:bar",
+     "id": "way/378578236",
+     "importance": 9.307927061870783e-05
+    }
+   ]
+  },
+  "LDN-07": {
+   "query_sent": "Padella, London",
+   "error": null,
+   "latency_ms": 838,
+   "results": [
+    {
+     "name": "Padella",
+     "display_name": "Padella, 6, Southwark Street, Borough Market, Bermondsey Village, The Borough, London Borough of Southwark, Greater London, England, SE1 1TQ, United Kingdom",
+     "lat": "51.5051380",
+     "lon": "-0.0899124",
+     "category": "amenity:restaurant",
+     "id": "way/82770904",
+     "importance": 9.307927061870783e-05
+    },
+    {
+     "name": "Padella",
+     "display_name": "Padella, New North Place, Shoreditch, London Borough of Hackney, Greater London, England, EC2A 4JA, United Kingdom",
+     "lat": "51.5233156",
+     "lon": "-0.0819958",
+     "category": "amenity:restaurant",
+     "id": "node/12147887896",
+     "importance": 9.307927061870783e-05
+    }
+   ]
+  },
+  "LDN-08": {
+   "query_sent": "Dishoom Shoreditch, London",
+   "error": null,
+   "latency_ms": 344,
+   "results": []
+  },
+  "LDN-09": {
+   "query_sent": "Bao Soho, London",
+   "error": null,
+   "latency_ms": 596,
+   "results": [
+    {
+     "name": "Bao",
+     "display_name": "Bao, 53, Lexington Street, Soho, City of Westminster, Greater London, England, W1F 9AS, United Kingdom",
+     "lat": "51.5132163",
+     "lon": "-0.1365297",
+     "category": "amenity:restaurant",
+     "id": "node/13577345322",
+     "importance": 9.307927061870783e-05
+    }
+   ]
+  },
+  "LDN-10": {
+   "query_sent": "Prufrock Cofee, London",
+   "error": null,
+   "latency_ms": 460,
+   "results": []
+  },
+  "LDN-11": {
+   "query_sent": "Satans Wiskers, London",
+   "error": null,
+   "latency_ms": 404,
+   "results": []
+  },
+  "LDN-12": {
+   "query_sent": "Padella",
+   "error": null,
+   "latency_ms": 433,
+   "results": [
+    {
+     "name": "Padella",
+     "display_name": "Padella, Orvieto, Terni, Umbria, 05018, Italia",
+     "lat": "42.7568826",
+     "lon": "12.1609956",
+     "category": "place:hamlet",
+     "id": "node/317003799",
+     "importance": 0.13339632791638054
+    },
+    {
+     "name": "Padella",
+     "display_name": "Padella, Pellaro, Reggio di Calabria, Reggio Calabria, Calabria, 89134, Italia",
+     "lat": "38.0355082",
+     "lon": "15.6925962",
+     "category": "place:hamlet",
+     "id": "node/1208990868",
+     "importance": 0.13339166323338672
+    },
+    {
+     "name": "Padella",
+     "display_name": "Padella, Melo, Abetone Cutigliano, Unione di comuni montani Appennino Pistoiese, Pistoia, Toscana, 51024, Italia",
+     "lat": "44.1203683",
+     "lon": "10.7511253",
+     "category": "place:locality",
+     "id": "node/3652920591",
+     "importance": 0.06671918593118181
+    },
+    {
+     "name": "Padella",
+     "display_name": "Padella, Serravalle, Circolo di Malvaglia, Distretto di Blenio, Ticino, Schweiz/Suisse/Svizzera/Svizra",
+     "lat": "46.3986843",
+     "lon": "9.0644653",
+     "category": "place:locality",
+     "id": "node/11250792331",
+     "importance": 0.06671666819256886
+    },
+    {
+     "name": "Padella",
+     "display_name": "Padella, 6, Southwark Street, Borough Market, Bermondsey Village, The Borough, London Borough of Southwark, Greater London, England, SE1 1TQ, United Kingdom",
+     "lat": "51.5051380",
+     "lon": "-0.0899124",
+     "category": "amenity:restaurant",
+     "id": "way/82770904",
+     "importance": 9.307927061870783e-05
+    }
+   ]
+  },
+  "LDN-13": {
+   "query_sent": "The Dove, London",
+   "error": null,
+   "latency_ms": 565,
+   "results": [
+    {
+     "name": "The Dove",
+     "display_name": "The Dove, 19, Upper Mall, Hammersmith, London Borough of Hammersmith and Fulham, Greater London, England, W6 9TA, United Kingdom",
+     "lat": "51.4905085",
+     "lon": "-0.2348574",
+     "category": "amenity:pub",
+     "id": "way/174088755",
+     "importance": 0.3984771165675444
+    },
+    {
+     "name": "The Dove",
+     "display_name": "The Dove, 24-28, Broadway Market, Haggerston, London Borough of Hackney, Greater London, England, E8 4QJ, United Kingdom",
+     "lat": "51.5363557",
+     "lon": "-0.0616953",
+     "category": "amenity:pub",
+     "id": "way/366327440",
+     "importance": 9.307927061870783e-05
+    }
+   ]
+  },
+  "NEG-01": {
+   "query_sent": "this hidden gem in Shoreditch, London",
+   "error": null,
+   "latency_ms": 468,
+   "results": []
+  },
+  "NEG-02": {
+   "query_sent": "best coffee ever, Tokyo",
+   "error": null,
+   "latency_ms": 410,
+   "results": []
+  },
+  "NEG-03": {
+   "query_sent": "that little wine bar near the market, Tel Aviv",
+   "error": null,
+   "latency_ms": 473,
+   "results": []
+  }
+ },
+ "photon": {
+  "TYO-01": {
+   "query_sent": "Glitch Coffee & Roasters, Tokyo",
+   "error": null,
+   "latency_ms": 461,
+   "results": [
+    {
+     "name": "Glitch Coffee and Roasters",
+     "display_name": "Glitch Coffee and Roasters, 築地川銀座公園, 中央区, 東京都, 日本",
+     "lat": 35.668888,
+     "lon": 139.7686729,
+     "category": "amenity:cafe",
+     "id": "N/12508568356",
+     "importance": null
+    }
+   ]
+  },
+  "TYO-02": {
+   "query_sent": "Onibus Coffee, Tokyo",
+   "error": null,
+   "latency_ms": 402,
+   "results": [
+    {
+     "name": "Onibus Coffee",
+     "display_name": "Onibus Coffee, 14, 目黒区, 目黒区, 日本",
+     "lat": 35.6431844,
+     "lon": 139.6980169,
+     "category": "craft:coffee_roaster",
+     "id": "N/4729979489",
+     "importance": null
+    },
+    {
+     "name": "Onibus Coffee",
+     "display_name": "Onibus Coffee, 14, 目黒区, 目黒区, 日本",
+     "lat": 35.6431844,
+     "lon": 139.6980169,
+     "category": "amenity:cafe",
+     "id": "N/4729979489",
+     "importance": null
+    },
+    {
+     "name": "Onibus Coffee",
+     "display_name": "Onibus Coffee, 等々力通り, 世田谷区, 東京都, 日本",
+     "lat": 35.6037374,
+     "lon": 139.6712395,
+     "category": "amenity:cafe",
+     "id": "N/4067639164",
+     "importance": null
+    }
+   ]
+  },
+  "TYO-03": {
+   "query_sent": "Fuglen Tokyo, Tokyo",
+   "error": null,
+   "latency_ms": 506,
+   "results": [
+    {
+     "name": "Fuglen Tokyo",
+     "display_name": "Fuglen Tokyo, 井ノ頭通り, 渋谷区, 東京都, 日本",
+     "lat": 35.666644,
+     "lon": 139.692426,
+     "category": "amenity:cafe",
+     "id": "N/2723034393",
+     "importance": null
+    },
+    {
+     "name": "Fuglen",
+     "display_name": "Fuglen, ホッピー通り, 台東区, 東京都, 日本",
+     "lat": 35.7144093,
+     "lon": 139.7939098,
+     "category": "amenity:cafe",
+     "id": "W/99172466",
+     "importance": null
+    },
+    {
+     "name": null,
+     "display_name": "ホッピー通り, 台東区, 東京都, 日本",
+     "lat": 35.7142897,
+     "lon": 139.7939704,
+     "category": "amenity:cafe",
+     "id": "N/10295098509",
+     "importance": null
+    }
+   ]
+  },
+  "TYO-04": {
+   "query_sent": "Koffee Mameya, Tokyo",
+   "error": null,
+   "latency_ms": 536,
+   "results": [
+    {
+     "name": "KOFFEE MAMEYA Kakeru",
+     "display_name": "KOFFEE MAMEYA Kakeru, 16, 江東区, 江東区, 日本",
+     "lat": 35.6764586,
+     "lon": 139.8042714,
+     "category": "amenity:cafe",
+     "id": "N/13457858172",
+     "importance": null
+    },
+    {
+     "name": null,
+     "display_name": "原二本通り, 渋谷区, 東京都, 日本",
+     "lat": 35.6684763,
+     "lon": 139.7108953,
+     "category": "amenity:cafe",
+     "id": "N/5941077285",
+     "importance": null
+    }
+   ]
+  },
+  "TYO-05": {
+   "query_sent": "Bar Benfiddich, Tokyo",
+   "error": null,
+   "latency_ms": 413,
+   "results": [
+    {
+     "name": "ベンフィディック",
+     "display_name": "ベンフィディック, 13, 新宿区, 新宿区, 日本",
+     "lat": 35.6894885,
+     "lon": 139.6965995,
+     "category": "amenity:bar",
+     "id": "N/4535635989",
+     "importance": null
+    }
+   ]
+  },
+  "TYO-06": {
+   "query_sent": "Bar Trench, Tokyo",
+   "error": null,
+   "latency_ms": 428,
+   "results": [
+    {
+     "name": "Bar TRENCH",
+     "display_name": "Bar TRENCH, 恵比寿一番街, 渋谷区, 東京都, 日本",
+     "lat": 35.648424,
+     "lon": 139.7079184,
+     "category": "amenity:bar",
+     "id": "N/4884402822",
+     "importance": null
+    },
+    {
+     "name": "Bar TRENCH Annex",
+     "display_name": "Bar TRENCH Annex, 恵比寿一番街, 渋谷区, 東京都, 日本",
+     "lat": 35.648466,
+     "lon": 139.7080328,
+     "category": "amenity:bar",
+     "id": "N/12531775574",
+     "importance": null
+    }
+   ]
+  },
+  "TYO-07": {
+   "query_sent": "Afuri, Tokyo",
+   "error": null,
+   "latency_ms": 380,
+   "results": [
+    {
+     "name": "AFURI",
+     "display_name": "AFURI, 京王 新宿駅;地下2階;3番線, 新宿区, 東京都, 日本",
+     "lat": 35.6893288,
+     "lon": 139.6992356,
+     "category": "amenity:restaurant",
+     "id": "N/11287702869",
+     "importance": null
+    },
+    {
+     "name": "AFURI",
+     "display_name": "AFURI, 9, 港区, 港区, 日本",
+     "lat": 35.663646,
+     "lon": 139.7326262,
+     "category": "amenity:restaurant",
+     "id": "N/1509876356",
+     "importance": null
+    },
+    {
+     "name": "Afuri",
+     "display_name": "Afuri, 中目黒, 目黒区, 東京都, 日本",
+     "lat": 35.6444634,
+     "lon": 139.6996875,
+     "category": "amenity:restaurant",
+     "id": "N/5965511536",
+     "importance": null
+    },
+    {
+     "name": "AFURI",
+     "display_name": "AFURI, 環状三号線, 港区, 東京都, 日本",
+     "lat": 35.655864,
+     "lon": 139.7354802,
+     "category": "amenity:restaurant",
+     "id": "N/11393623132",
+     "importance": null
+    },
+    {
+     "name": "Afuri",
+     "display_name": "Afuri, 玉川通り, 世田谷区, 東京都, 日本",
+     "lat": 35.6423899,
+     "lon": 139.6697959,
+     "category": "amenity:restaurant",
+     "id": "N/11715869779",
+     "importance": null
+    }
+   ]
+  },
+  "TYO-08": {
+   "query_sent": "Ichiran Shibuya, Tokyo",
+   "error": null,
+   "latency_ms": 358,
+   "results": [
+    {
+     "name": "一蘭",
+     "display_name": "一蘭, 22, 渋谷区, 渋谷区, 日本",
+     "lat": 35.6611293,
+     "lon": 139.7009878,
+     "category": "amenity:restaurant",
+     "id": "N/3047251663",
+     "importance": null
+    },
+    {
+     "name": "一蘭 原宿",
+     "display_name": "一蘭 原宿, 明治通り, 渋谷区, 東京都, 日本",
+     "lat": 35.6679219,
+     "lon": 139.7052087,
+     "category": "amenity:restaurant",
+     "id": "N/4706410299",
+     "importance": null
+    },
+    {
+     "name": "一蘭",
+     "display_name": "一蘭, スペイン坂, 渋谷区, 東京都, 日本",
+     "lat": 35.6609597,
+     "lon": 139.6986995,
+     "category": "amenity:restaurant",
+     "id": "N/4536691593",
+     "importance": null
+    }
+   ]
+  },
+  "TYO-09": {
+   "query_sent": "猿田彦珈琲, Tokyo",
+   "error": null,
+   "latency_ms": 387,
+   "results": [
+    {
+     "name": "猿田彦珈琲",
+     "display_name": "猿田彦珈琲, 仙川駅(改札口), 調布市, 東京都, 日本",
+     "lat": 35.6613097,
+     "lon": 139.5855667,
+     "category": "amenity:cafe",
+     "id": "N/3779248999",
+     "importance": null
+    },
+    {
+     "name": "猿田彦珈琲",
+     "display_name": "猿田彦珈琲, 17, 千代田区, 千代田区, 日本",
+     "lat": 35.6984127,
+     "lon": 139.7724866,
+     "category": "amenity:cafe",
+     "id": "N/7202136541",
+     "importance": null
+    },
+    {
+     "name": "猿田彦珈琲",
+     "display_name": "猿田彦珈琲, 恵比寿通り, 渋谷区, 東京都, 日本",
+     "lat": 35.6476362,
+     "lon": 139.710904,
+     "category": "amenity:cafe",
+     "id": "N/2843777293",
+     "importance": null
+    }
+   ]
+  },
+  "TYO-10": {
+   "query_sent": "むぎとオリーブ, Tokyo",
+   "error": null,
+   "latency_ms": 307,
+   "results": [
+    {
+     "name": "Ginza Noodles むぎとオリーブ Clam Ramen",
+     "display_name": "Ginza Noodles むぎとオリーブ Clam Ramen, 12, 中央区, 中央区, 日本",
+     "lat": 35.6689905,
+     "lon": 139.7643405,
+     "category": "amenity:restaurant",
+     "id": "N/6404057088",
+     "importance": null
+    }
+   ]
+  },
+  "TYO-11": {
+   "query_sent": "Sarutahiko Coffee, Tokyo",
+   "error": null,
+   "latency_ms": 330,
+   "results": [
+    {
+     "name": "sarutahiko coffee",
+     "display_name": "sarutahiko coffee, 恵比寿通り, 渋谷区, 東京都, 日本",
+     "lat": 35.6474864,
+     "lon": 139.7110529,
+     "category": "shop:coffee",
+     "id": "N/7308189194",
+     "importance": null
+    },
+    {
+     "name": "Sarutahiko Coffee Ikebukuro",
+     "display_name": "Sarutahiko Coffee Ikebukuro, 補助第172号線, 豊島区, 東京都, 日本",
+     "lat": 35.7266845,
+     "lon": 139.7108351,
+     "category": "amenity:cafe",
+     "id": "N/10610429405",
+     "importance": null
+    },
+    {
+     "name": "猿田彦コーヒー",
+     "display_name": "猿田彦コーヒー, 首都高速3号渋谷線, 世田谷区, 東京都, 日本",
+     "lat": 35.6334239,
+     "lon": 139.6615901,
+     "category": "amenity:cafe",
+     "id": "N/13607328327",
+     "importance": null
+    },
+    {
+     "name": "猿田彦珈琲",
+     "display_name": "猿田彦珈琲, 仙川駅(改札口), 調布市, 東京都, 日本",
+     "lat": 35.6613097,
+     "lon": 139.5855667,
+     "category": "amenity:cafe",
+     "id": "N/3779248999",
+     "importance": null
+    },
+    {
+     "name": null,
+     "display_name": "七井橋通り, 武蔵野市, 東京都, 日本",
+     "lat": 35.7008752,
+     "lon": 139.5784581,
+     "category": "shop:coffee",
+     "id": "N/13246909401",
+     "importance": null
+    }
+   ]
+  },
+  "TYO-12": {
+   "query_sent": "Fuglin Tokyo, Tokyo",
+   "error": null,
+   "latency_ms": 565,
+   "results": [
+    {
+     "name": "東京都",
+     "display_name": "東京都, 日本",
+     "lat": 35.6768601,
+     "lon": 139.7638947,
+     "category": "place:province",
+     "id": "R/1543125",
+     "importance": null
+    },
+    {
+     "name": "東京湾",
+     "display_name": "東京湾, 日本",
+     "lat": 35.4700117,
+     "lon": 139.8477024,
+     "category": "natural:bay",
+     "id": "R/13904308",
+     "importance": null
+    },
+    {
+     "name": "東京湾",
+     "display_name": "東京湾, 川崎区, 川崎市, 日本",
+     "lat": 35.4169,
+     "lon": 139.771,
+     "category": "natural:bay",
+     "id": "N/4803731381",
+     "importance": null
+    },
+    {
+     "name": "国立国会図書館・東京本館",
+     "display_name": "国立国会図書館・東京本館, 首都高速4号新宿線, 千代田区, 東京都, 日本",
+     "lat": 35.6786024,
+     "lon": 139.7442643,
+     "category": "amenity:library",
+     "id": "W/193000544",
+     "importance": null
+    },
+    {
+     "name": "東京",
+     "display_name": "東京, 9, 千代田区, 千代田区, 日本",
+     "lat": 35.6812546,
+     "lon": 139.766706,
+     "category": "railway:station",
+     "id": "N/2149761647",
+     "importance": null
+    }
+   ]
+  },
+  "TYO-13": {
+   "query_sent": "Bar Benfidich, Tokyo",
+   "error": null,
+   "latency_ms": 674,
+   "results": [
+    {
+     "name": "東京湾",
+     "display_name": "東京湾, 日本",
+     "lat": 35.4700117,
+     "lon": 139.8477024,
+     "category": "natural:bay",
+     "id": "R/13904308",
+     "importance": null
+    },
+    {
+     "name": "東京湾",
+     "display_name": "東京湾, 川崎区, 川崎市, 日本",
+     "lat": 35.4169,
+     "lon": 139.771,
+     "category": "natural:bay",
+     "id": "N/4803731381",
+     "importance": null
+    },
+    {
+     "name": "東京メトロ半蔵門線",
+     "display_name": "東京メトロ半蔵門線, 番町中央通り, 千代田区, 東京都, 日本",
+     "lat": 35.6925822,
+     "lon": 139.7439792,
+     "category": "railway:subway",
+     "id": "W/862004555",
+     "importance": null
+    },
+    {
+     "name": "Tokyo-Sushi-Bar",
+     "display_name": "Tokyo-Sushi-Bar, Q4, Innenstadt, Mannheim, Deutschland",
+     "lat": 49.4876356,
+     "lon": 8.4704509,
+     "category": "amenity:restaurant",
+     "id": "N/2066149222",
+     "importance": null
+    },
+    {
+     "name": "ベンフィディック",
+     "display_name": "ベンフィディック, 13, 新宿区, 新宿区, 日本",
+     "lat": 35.6894885,
+     "lon": 139.6965995,
+     "category": "amenity:bar",
+     "id": "N/4535635989",
+     "importance": null
+    }
+   ]
+  },
+  "TYO-14": {
+   "query_sent": "Koffee Mameya",
+   "error": null,
+   "latency_ms": 356,
+   "results": [
+    {
+     "name": "KOFFEE MAMEYA Kakeru",
+     "display_name": "KOFFEE MAMEYA Kakeru, 16, 江東区, 江東区, 日本",
+     "lat": 35.6764586,
+     "lon": 139.8042714,
+     "category": "amenity:cafe",
+     "id": "N/13457858172",
+     "importance": null
+    },
+    {
+     "name": null,
+     "display_name": "原二本通り, 渋谷区, 東京都, 日本",
+     "lat": 35.6684763,
+     "lon": 139.7108953,
+     "category": "amenity:cafe",
+     "id": "N/5941077285",
+     "importance": null
+    }
+   ]
+  },
+  "TLV-01": {
+   "query_sent": "Port Said, Tel Aviv",
+   "error": null,
+   "latency_ms": 352,
+   "results": [
+    {
+     "name": "פורט סעיד",
+     "display_name": "פורט סעיד, הר סיני, לב תל-אביב, תל אביב-יפו, ישראל",
+     "lat": 32.0647773,
+     "lon": 34.7720826,
+     "category": "amenity:bar",
+     "id": "N/3398878837",
+     "importance": null
+    }
+   ]
+  },
+  "TLV-02": {
+   "query_sent": "Cafe Levinsky 41, Tel Aviv",
+   "error": null,
+   "latency_ms": 344,
+   "results": [
+    {
+     "name": null,
+     "display_name": "סמטת השוק, פלורנטין, תל אביב–יפו, ישראל",
+     "lat": 32.0598436,
+     "lon": 34.7716925,
+     "category": "amenity:cafe",
+     "id": "N/5249886425",
+     "importance": null
+    }
+   ]
+  },
+  "TLV-03": {
+   "query_sent": "Bellboy, Tel Aviv",
+   "error": null,
+   "latency_ms": 368,
+   "results": [
+    {
+     "name": "Bellboy",
+     "display_name": "Bellboy, ברדיצ'בסקי, לב תל-אביב, תל אביב-יפו, ישראל",
+     "lat": 32.0709975,
+     "lon": 34.7802908,
+     "category": "amenity:bar",
+     "id": "N/12102940425",
+     "importance": null
+    }
+   ]
+  },
+  "TLV-04": {
+   "query_sent": "Imperial Craft Cocktail Bar, Tel Aviv",
+   "error": null,
+   "latency_ms": 408,
+   "results": []
+  },
+  "TLV-05": {
+   "query_sent": "Miznon, Tel Aviv",
+   "error": null,
+   "latency_ms": 304,
+   "results": [
+    {
+     "name": "Miznon",
+     "display_name": "Miznon, אבן גבירול, הצפון הישן - החלק הדרומי, תל אביב–יפו, ישראל",
+     "lat": 32.0738238,
+     "lon": 34.7815808,
+     "category": "amenity:fast_food",
+     "id": "N/9997008817",
+     "importance": null
+    },
+    {
+     "name": "מזנון",
+     "display_name": "מזנון, הנחושת, אזור תעשייה עבר הירקון, תל אביב–יפו, ישראל",
+     "lat": 32.1088395,
+     "lon": 34.8388122,
+     "category": "amenity:fast_food",
+     "id": "N/5934127582",
+     "importance": null
+    }
+   ]
+  },
+  "TLV-06": {
+   "query_sent": "HaKosem, Tel Aviv",
+   "error": null,
+   "latency_ms": 396,
+   "results": [
+    {
+     "name": "פלאפל הקוסם",
+     "display_name": "פלאפל הקוסם, Shlomo Hamelech Street, הצפון הישן - החלק הדרומי, תל אביב–יפו, ישראל",
+     "lat": 32.0764281,
+     "lon": 34.7766833,
+     "category": "amenity:fast_food",
+     "id": "N/1791481321",
+     "importance": null
+    },
+    {
+     "name": "הקוסם",
+     "display_name": "הקוסם, אלוף קלמן מגן, גני שרונה, תל אביב-יפו, ישראל",
+     "lat": 32.0711626,
+     "lon": 34.7862575,
+     "category": "amenity:restaurant",
+     "id": "N/10812430078",
+     "importance": null
+    }
+   ]
+  },
+  "TLV-07": {
+   "query_sent": "הקוסם, תל אביב",
+   "error": null,
+   "latency_ms": 396,
+   "results": [
+    {
+     "name": "הקוסם",
+     "display_name": "הקוסם, אלוף קלמן מגן, גני שרונה, תל אביב-יפו, ישראל",
+     "lat": 32.0711626,
+     "lon": 34.7862575,
+     "category": "amenity:restaurant",
+     "id": "N/10812430078",
+     "importance": null
+    },
+    {
+     "name": "פלאפל הקוסם",
+     "display_name": "פלאפל הקוסם, Shlomo Hamelech Street, הצפון הישן - החלק הדרומי, תל אביב–יפו, ישראל",
+     "lat": 32.0764281,
+     "lon": 34.7766833,
+     "category": "amenity:fast_food",
+     "id": "N/1791481321",
+     "importance": null
+    }
+   ]
+  },
+  "TLV-08": {
+   "query_sent": "אורנה ואלה, תל אביב",
+   "error": null,
+   "latency_ms": 489,
+   "results": [
+    {
+     "name": "אורנה פורת",
+     "display_name": "אורנה פורת, נווה רמז, חולון, ישראל",
+     "lat": 32.0112281,
+     "lon": 34.7754382,
+     "category": "highway:residential",
+     "id": "W/861275127",
+     "importance": null
+    },
+    {
+     "name": "אופנהיימר",
+     "display_name": "אופנהיימר, נוה אביבים וסביבתה, תל אביב–יפו, ישראל",
+     "lat": 32.1205968,
+     "lon": 34.8004053,
+     "category": "highway:tertiary",
+     "id": "W/409445729",
+     "importance": null
+    },
+    {
+     "name": "אופנהיימר",
+     "display_name": "אופנהיימר, נוה אביבים וסביבתה, תל אביב–יפו, ישראל",
+     "lat": 32.1209061,
+     "lon": 34.8004629,
+     "category": "highway:residential",
+     "id": "W/35417370",
+     "importance": null
+    },
+    {
+     "name": "כימיה - אורנשטיין",
+     "display_name": "כימיה - אורנשטיין, כיכר היובל ע\"ש אביבה ואורספלבר, אוניברסיטת ת\"א, תל אביב–יפו, ישראל",
+     "lat": 32.1115634,
+     "lon": 34.8064139,
+     "category": "building:university",
+     "id": "W/103513137",
+     "importance": null
+    },
+    {
+     "name": "אלכסנדר אוריה בוסקוביץ'",
+     "display_name": "אלכסנדר אוריה בוסקוביץ', צמרות איילון, תל אביב–יפו, ישראל",
+     "lat": 32.0870233,
+     "lon": 34.7956846,
+     "category": "highway:residential",
+     "id": "W/405770424",
+     "importance": null
+    }
+   ]
+  },
+  "TLV-09": {
+   "query_sent": "Cafe Xoho, Tel Aviv",
+   "error": null,
+   "latency_ms": 462,
+   "results": [
+    {
+     "name": "Tel Aviv Cafe",
+     "display_name": "Tel Aviv Cafe, Kazinczy utca, Erzsébetváros, Budapest, Magyarország",
+     "lat": 47.4981037,
+     "lon": 19.0626017,
+     "category": "amenity:cafe",
+     "id": "N/417031639",
+     "importance": null
+    },
+    {
+     "name": "Tel Aviv Cafe",
+     "display_name": "Tel Aviv Cafe, Coney Island Avenue, Brooklyn, Brooklyn, United States",
+     "lat": 40.6107939,
+     "lon": -73.9622536,
+     "category": "amenity:hookah_lounge",
+     "id": "N/11968404014",
+     "importance": null
+    },
+    {
+     "name": "קפה ברזילי",
+     "display_name": "קפה ברזילי, Mikve Israel St, לב תל-אביב, Tel Aviv-Yafo, ישראל",
+     "lat": 32.0623776,
+     "lon": 34.7752236,
+     "category": "amenity:cafe",
+     "id": "N/5604815954",
+     "importance": null
+    },
+    {
+     "name": "Papua Cafe",
+     "display_name": "Papua Cafe, גאולה, כרם התימנים, תל אביב–יפו, ישראל",
+     "lat": 32.0715881,
+     "lon": 34.7674978,
+     "category": "amenity:cafe",
+     "id": "N/6005386185",
+     "importance": null
+    },
+    {
+     "name": "Cafe Sheleg",
+     "display_name": "Cafe Sheleg, גאולה, כרם התימנים, תל אביב–יפו, ישראל",
+     "lat": 32.0710014,
+     "lon": 34.7695661,
+     "category": "amenity:cafe",
+     "id": "N/6005408786",
+     "importance": null
+    }
+   ]
+  },
+  "TLV-10": {
+   "query_sent": "Anita Gelato, Tel Aviv",
+   "error": null,
+   "latency_ms": 377,
+   "results": [
+    {
+     "name": "Anita Gelato",
+     "display_name": "Anita Gelato, שבזי, נוה צדק, תל אביב-יפו, ישראל",
+     "lat": 32.0626968,
+     "lon": 34.7664412,
+     "category": "amenity:ice_cream",
+     "id": "N/2079180765",
+     "importance": null
+    },
+    {
+     "name": "Anita Gelato",
+     "display_name": "Anita Gelato, פלורנטין, פלורנטין, תל אביב-יפו, ישראל",
+     "lat": 32.0563143,
+     "lon": 34.7673371,
+     "category": "amenity:ice_cream",
+     "id": "N/2079008586",
+     "importance": null
+    },
+    {
+     "name": "anita la mamma del gelato",
+     "display_name": "anita la mamma del gelato, שבזי, נוה צדק, תל אביב–יפו, ישראל",
+     "lat": 32.0623666,
+     "lon": 34.7651206,
+     "category": "amenity:ice_cream",
+     "id": "N/6005587385",
+     "importance": null
+    }
+   ]
+  },
+  "TLV-11": {
+   "query_sent": "Port Sayid, Tel Aviv",
+   "error": null,
+   "latency_ms": 546,
+   "results": [
+    {
+     "name": "תל אביב סבידור מרכז",
+     "display_name": "תל אביב סבידור מרכז, איילון דרום, צמרות איילון, תל אביב–יפו, ישראל",
+     "lat": 32.0842437,
+     "lon": 34.7983117,
+     "category": "railway:station",
+     "id": "N/2930618402",
+     "importance": null
+    },
+    {
+     "name": "Jaffa Port",
+     "display_name": "Jaffa Port, רציף העלייה השנייה, יפו העתיקה,נמל יפו, תל אביב–יפו, ישראל",
+     "lat": 32.053985,
+     "lon": 34.750271,
+     "category": "amenity:ferry_terminal",
+     "id": "N/1147284797",
+     "importance": null
+    },
+    {
+     "name": "סטאי תל אביב",
+     "display_name": "סטאי תל אביב, רוסלאן, יפו העתיקה,נמל יפו, תל אביב–יפו, ישראל",
+     "lat": 32.0554233,
+     "lon": 34.755636,
+     "category": "tourism:hotel",
+     "id": "W/1186644530",
+     "importance": null
+    },
+    {
+     "name": "נמל תל-אביב",
+     "display_name": "נמל תל-אביב, תל אביב–יפו, ישראל",
+     "lat": 32.0986505,
+     "lon": 34.775517,
+     "category": "place:suburb",
+     "id": "W/803404214",
+     "importance": null
+    },
+    {
+     "name": "יפו העתיקה,נמל יפו",
+     "display_name": "יפו העתיקה,נמל יפו, תל אביב–יפו, ישראל",
+     "lat": 32.0520672,
+     "lon": 34.7517993,
+     "category": "place:suburb",
+     "id": "W/819836745",
+     "importance": null
+    }
+   ]
+  },
+  "TLV-12": {
+   "query_sent": "Belboy tel aviv",
+   "error": null,
+   "latency_ms": 507,
+   "results": [
+    {
+     "name": "תל אביב–יפו",
+     "display_name": "תל אביב–יפו, ישראל",
+     "lat": 32.0852997,
+     "lon": 34.7818064,
+     "category": "place:city",
+     "id": "R/1382494",
+     "importance": null
+    },
+    {
+     "name": "אוניברסיטת תל אביב",
+     "display_name": "אוניברסיטת תל אביב, מניה וישראל שוחט, אפקה, תל אביב–יפו, ישראל",
+     "lat": 32.1123577,
+     "lon": 34.8050129,
+     "category": "amenity:university",
+     "id": "R/17483735",
+     "importance": null
+    },
+    {
+     "name": "מחוז תל אביב",
+     "display_name": "מחוז תל אביב, ישראל",
+     "lat": 32.0956658,
+     "lon": 34.8062579,
+     "category": "boundary:administrative",
+     "id": "R/1400916",
+     "importance": null
+    },
+    {
+     "name": "הבורסה לניירות ערך בתל אביב",
+     "display_name": "הבורסה לניירות ערך בתל אביב, אחוזת בית, לב תל-אביב, תל אביב-יפו, ישראל",
+     "lat": 32.0644448,
+     "lon": 34.7703178,
+     "category": "building:commercial",
+     "id": "W/284982827",
+     "importance": null
+    },
+    {
+     "name": "מוזיאון תל אביב לאומנות",
+     "display_name": "מוזיאון תל אביב לאומנות, שאול המלך, הצפון החדש - החלק הדרומי, תל אביב-יפו, ישראל",
+     "lat": 32.0775956,
+     "lon": 34.7866422,
+     "category": "tourism:museum",
+     "id": "R/15690216",
+     "importance": null
+    }
+   ]
+  },
+  "TLV-13": {
+   "query_sent": "Oved Daniel Sabich, Givatayim",
+   "error": null,
+   "latency_ms": 407,
+   "results": [
+    {
+     "name": "הסביח של עובד",
+     "display_name": "הסביח של עובד, סירקין, פועלי הרכבת, גבעתיים, ישראל",
+     "lat": 32.076873,
+     "lon": 34.8143082,
+     "category": "amenity:fast_food",
+     "id": "N/1857121006",
+     "importance": null
+    }
+   ]
+  },
+  "TLV-14": {
+   "query_sent": "Bar 51, Tel Aviv",
+   "error": null,
+   "latency_ms": 346,
+   "results": [
+    {
+     "name": "מוזנר",
+     "display_name": "מוזנר, אחד העם, לב תל-אביב, Tel Aviv, ישראל",
+     "lat": 32.0663526,
+     "lon": 34.7764236,
+     "category": "amenity:bar",
+     "id": "N/2639708153",
+     "importance": null
+    },
+    {
+     "name": null,
+     "display_name": "בר יוחאי, גבעת הרצל, תל אביב–יפו, ישראל",
+     "lat": 32.052468,
+     "lon": 34.776887,
+     "category": "place:house",
+     "id": "N/2079192783",
+     "importance": null
+    },
+    {
+     "name": null,
+     "display_name": "בר כוכבא, הצפון הישן - החלק הדרומי, תל אביב–יפו, ישראל",
+     "lat": 32.076816,
+     "lon": 34.773942,
+     "category": "place:house",
+     "id": "N/2079192785",
+     "importance": null
+    },
+    {
+     "name": "בר אילן",
+     "display_name": "בר אילן, פרדס כץ, בני ברק, ישראל",
+     "lat": 32.0887999,
+     "lon": 34.8399751,
+     "category": "highway:residential",
+     "id": "W/106941914",
+     "importance": null
+    },
+    {
+     "name": "בר כוכבא",
+     "display_name": "בר כוכבא, תל גיבורים, בני ברק, ישראל",
+     "lat": 32.0912568,
+     "lon": 34.8239647,
+     "category": "highway:residential",
+     "id": "W/1133268296",
+     "importance": null
+    }
+   ]
+  },
+  "LDN-01": {
+   "query_sent": "Kiln, London",
+   "error": null,
+   "latency_ms": 384,
+   "results": [
+    {
+     "name": "Kiln Theatre",
+     "display_name": "Kiln Theatre, Kilburn High Road, Kilburn, London, United Kingdom",
+     "lat": 51.5431686,
+     "lon": -0.2003532,
+     "category": "amenity:theatre",
+     "id": "W/77665068",
+     "importance": null
+    },
+    {
+     "name": "Pot Kiln Wood",
+     "display_name": "Pot Kiln Wood, Pot Kilns, London, United Kingdom",
+     "lat": 51.5745792,
+     "lon": 0.2669055,
+     "category": "natural:wood",
+     "id": "W/206463434",
+     "importance": null
+    },
+    {
+     "name": "Kiln Pond",
+     "display_name": "Kiln Pond, London Borough of Hillingdon, London, United Kingdom",
+     "lat": 51.6002613,
+     "lon": -0.4660856,
+     "category": "water:pond",
+     "id": "W/1332868985",
+     "importance": null
+    },
+    {
+     "name": "Kiln Place Estate",
+     "display_name": "Kiln Place Estate, Gospel Oak, London, United Kingdom",
+     "lat": 51.5535874,
+     "lon": -0.1503658,
+     "category": "place:neighbourhood",
+     "id": "W/873350615",
+     "importance": null
+    },
+    {
+     "name": "Tile Kiln Lane Open Space",
+     "display_name": "Tile Kiln Lane Open Space, Bowes, London, United Kingdom",
+     "lat": 51.6153889,
+     "lon": -0.0908562,
+     "category": "leisure:park",
+     "id": "W/235053650",
+     "importance": null
+    }
+   ]
+  },
+  "LDN-02": {
+   "query_sent": "Bar Termini, London",
+   "error": null,
+   "latency_ms": 464,
+   "results": [
+    {
+     "name": "Bar Termini",
+     "display_name": "Bar Termini, Old Compton Street, Soho, London, United Kingdom",
+     "lat": 51.5136688,
+     "lon": -0.1297828,
+     "category": "amenity:bar",
+     "id": "N/4917918321",
+     "importance": null
+    }
+   ]
+  },
+  "LDN-03": {
+   "query_sent": "Monmouth Coffee, London",
+   "error": null,
+   "latency_ms": 318,
+   "results": [
+    {
+     "name": "Monmouth Coffee Company",
+     "display_name": "Monmouth Coffee Company, Monmouth Street, Bloomsbury, London, United Kingdom",
+     "lat": 51.5143659,
+     "lon": -0.1267997,
+     "category": "amenity:cafe",
+     "id": "N/12920922057",
+     "importance": null
+    },
+    {
+     "name": "Monmouth Coffee Company",
+     "display_name": "Monmouth Coffee Company, Dockley Road, Bermondsey, London, United Kingdom",
+     "lat": 51.4955975,
+     "lon": -0.0693293,
+     "category": "amenity:cafe",
+     "id": "N/13149861707",
+     "importance": null
+    },
+    {
+     "name": "Monmouth Coffee Company",
+     "display_name": "Monmouth Coffee Company, Discovery Estate, St James Road, Bermondsey, London, United Kingdom",
+     "lat": 51.4958026,
+     "lon": -0.067331,
+     "category": "amenity:cafe",
+     "id": "N/11684923470",
+     "importance": null
+    },
+    {
+     "name": "Monmouth Coffee Company",
+     "display_name": "Monmouth Coffee Company, Monmouth Street, Bloomsbury, London, United Kingdom",
+     "lat": 51.5143659,
+     "lon": -0.1267997,
+     "category": "shop:deli",
+     "id": "N/12920922057",
+     "importance": null
+    },
+    {
+     "name": "Monmouth Coffee Company",
+     "display_name": "Monmouth Coffee Company, Park Street, The Borough, London, United Kingdom",
+     "lat": 51.5055145,
+     "lon": -0.0914602,
+     "category": "amenity:cafe",
+     "id": "W/82770825",
+     "importance": null
+    }
+   ]
+  },
+  "LDN-04": {
+   "query_sent": "Prufrock Coffee, London",
+   "error": null,
+   "latency_ms": 404,
+   "results": [
+    {
+     "name": "Prufrock Coffee",
+     "display_name": "Prufrock Coffee, Leather Lane, Holborn, London, United Kingdom",
+     "lat": 51.5199496,
+     "lon": -0.1095201,
+     "category": "amenity:cafe",
+     "id": "N/4185611903",
+     "importance": null
+    }
+   ]
+  },
+  "LDN-05": {
+   "query_sent": "Brat, London",
+   "error": null,
+   "latency_ms": 426,
+   "results": [
+    {
+     "name": "Brat",
+     "display_name": "Brat, Redchurch Street, Shoreditch, London, United Kingdom",
+     "lat": 51.5242656,
+     "lon": -0.0766909,
+     "category": "amenity:restaurant",
+     "id": "N/11959061648",
+     "importance": null
+    },
+    {
+     "name": "CraftedLondon",
+     "display_name": "CraftedLondon, Brathway Road, Earlsfield, London, United Kingdom",
+     "lat": 51.4496481,
+     "lon": -0.1991126,
+     "category": "amenity:kindergarten",
+     "id": "W/1088189227",
+     "importance": null
+    },
+    {
+     "name": "LONDON KIDS",
+     "display_name": "LONDON KIDS, Športová, Rohožník, Rohožník, Slovensko",
+     "lat": 48.4566205,
+     "lon": 17.1648427,
+     "category": "shop:second_hand",
+     "id": "N/3223669762",
+     "importance": null
+    },
+    {
+     "name": "London Salon",
+     "display_name": "London Salon, Dvořákovo nábrežie, Staré Mesto, Slovensko",
+     "lat": 48.1410382,
+     "lon": 17.0910555,
+     "category": "shop:beauty",
+     "id": "N/10846759709",
+     "importance": null
+    }
+   ]
+  },
+  "LDN-06": {
+   "query_sent": "Satan's Whiskers, London",
+   "error": null,
+   "latency_ms": 353,
+   "results": [
+    {
+     "name": "Satan's Whiskers",
+     "display_name": "Satan's Whiskers, Cambridge Heath Road, Bethnal Green, London, United Kingdom",
+     "lat": 51.5294869,
+     "lon": -0.0561601,
+     "category": "amenity:bar",
+     "id": "W/378578236",
+     "importance": null
+    }
+   ]
+  },
+  "LDN-07": {
+   "query_sent": "Padella, London",
+   "error": null,
+   "latency_ms": 322,
+   "results": [
+    {
+     "name": "Padella",
+     "display_name": "Padella, New North Place, Shoreditch, London, United Kingdom",
+     "lat": 51.5233156,
+     "lon": -0.0819958,
+     "category": "amenity:restaurant",
+     "id": "N/12147887896",
+     "importance": null
+    },
+    {
+     "name": "Padella",
+     "display_name": "Padella, Southwark Street, The Borough, London, United Kingdom",
+     "lat": 51.505138,
+     "lon": -0.0899124,
+     "category": "amenity:restaurant",
+     "id": "W/82770904",
+     "importance": null
+    }
+   ]
+  },
+  "LDN-08": {
+   "query_sent": "Dishoom Shoreditch, London",
+   "error": null,
+   "latency_ms": 468,
+   "results": [
+    {
+     "name": "Shoreditch",
+     "display_name": "Shoreditch, London, United Kingdom",
+     "lat": 51.5266694,
+     "lon": -0.0798926,
+     "category": "place:suburb",
+     "id": "N/27365029",
+     "importance": null
+    },
+    {
+     "name": "Shoreditch High Street",
+     "display_name": "Shoreditch High Street, Bethnal Green Road, Shoreditch, London, United Kingdom",
+     "lat": 51.5232497,
+     "lon": -0.0760735,
+     "category": "railway:stop",
+     "id": "N/1812313823",
+     "importance": null
+    },
+    {
+     "name": "Shoreditch High Street",
+     "display_name": "Shoreditch High Street, Braithwaite Street, Whitechapel, London, United Kingdom",
+     "lat": 51.5232534,
+     "lon": -0.0744674,
+     "category": "railway:station",
+     "id": "N/6991130547",
+     "importance": null
+    },
+    {
+     "name": "Old Shoreditch Station",
+     "display_name": "Old Shoreditch Station, Pedley Street, Whitechapel, London, United Kingdom",
+     "lat": 51.5227101,
+     "lon": -0.0709002,
+     "category": "building:yes",
+     "id": "W/139759153",
+     "importance": null
+    },
+    {
+     "name": "Shoreditch Town Hall",
+     "display_name": "Shoreditch Town Hall, Rivington Place, Shoreditch, London, United Kingdom",
+     "lat": 51.5269414,
+     "lon": -0.0791521,
+     "category": "building:yes",
+     "id": "W/163829206",
+     "importance": null
+    }
+   ]
+  },
+  "LDN-09": {
+   "query_sent": "Bao Soho, London",
+   "error": null,
+   "latency_ms": 500,
+   "results": [
+    {
+     "name": "Bao",
+     "display_name": "Bao, Lexington Street, Soho, London, United Kingdom",
+     "lat": 51.5132163,
+     "lon": -0.1365297,
+     "category": "amenity:restaurant",
+     "id": "N/13577345322",
+     "importance": null
+    }
+   ]
+  },
+  "LDN-10": {
+   "query_sent": "Prufrock Cofee, London",
+   "error": null,
+   "latency_ms": 607,
+   "results": [
+    {
+     "name": "Prufrock Coffee",
+     "display_name": "Prufrock Coffee, Leather Lane, Holborn, London, United Kingdom",
+     "lat": 51.5199496,
+     "lon": -0.1095201,
+     "category": "amenity:cafe",
+     "id": "N/4185611903",
+     "importance": null
+    },
+    {
+     "name": "Prufrock Coffee Company",
+     "display_name": "Prufrock Coffee Company, North College Avenue, Meridian Kessler, Indianapolis, United States",
+     "lat": 39.8467223,
+     "lon": -86.1460168,
+     "category": "amenity:cafe",
+     "id": "N/12645974819",
+     "importance": null
+    },
+    {
+     "name": "Embassy of South Korea",
+     "display_name": "Embassy of South Korea, Spenser Street, Victoria, London, United Kingdom",
+     "lat": 51.4980913,
+     "lon": -0.1361935,
+     "category": "office:diplomatic",
+     "id": "W/537702227",
+     "importance": null
+    },
+    {
+     "name": "Official Residence of the Ambassador of the Republic of Korea",
+     "display_name": "Official Residence of the Ambassador of the Republic of Korea, Palace Gate, South Kensington, London, United Kingdom",
+     "lat": 51.5005269,
+     "lon": -0.1836647,
+     "category": "office:diplomatic",
+     "id": "W/758781539",
+     "importance": null
+    },
+    {
+     "name": "Embassy of the Democratic People's Republic of Korea",
+     "display_name": "Embassy of the Democratic People's Republic of Korea, Gunnersbury Avenue, London Borough of Ealing, London, United Kingdom",
+     "lat": 51.503139,
+     "lon": -0.2892386,
+     "category": "office:diplomatic",
+     "id": "W/219057085",
+     "importance": null
+    }
+   ]
+  },
+  "LDN-11": {
+   "query_sent": "Satans Wiskers, London",
+   "error": null,
+   "latency_ms": 945,
+   "results": [
+    {
+     "name": "Satan's Whiskers",
+     "display_name": "Satan's Whiskers, Cambridge Heath Road, Bethnal Green, London, United Kingdom",
+     "lat": 51.5294869,
+     "lon": -0.0561601,
+     "category": "amenity:bar",
+     "id": "W/378578236",
+     "importance": null
+    },
+    {
+     "name": "Wickersley Road",
+     "display_name": "Wickersley Road, Clapham Junction, London, United Kingdom",
+     "lat": 51.469448,
+     "lon": -0.1542008,
+     "category": "highway:residential",
+     "id": "W/546651222",
+     "importance": null
+    },
+    {
+     "name": "Wickerson Road",
+     "display_name": "Wickerson Road, London, Canada",
+     "lat": 42.947396,
+     "lon": -81.3500125,
+     "category": "highway:residential",
+     "id": "W/1012785400",
+     "importance": null
+    },
+    {
+     "name": "Wickerson Road",
+     "display_name": "Wickerson Road, London, Canada",
+     "lat": 42.9404052,
+     "lon": -81.3482687,
+     "category": "highway:residential",
+     "id": "W/367745320",
+     "importance": null
+    },
+    {
+     "name": "Satanita Close",
+     "display_name": "Satanita Close, Silvertown, London, United Kingdom",
+     "lat": 51.5142946,
+     "lon": 0.0401901,
+     "category": "highway:residential",
+     "id": "W/41151626",
+     "importance": null
+    }
+   ]
+  },
+  "LDN-12": {
+   "query_sent": "Padella",
+   "error": null,
+   "latency_ms": 357,
+   "results": [
+    {
+     "name": "Padella",
+     "display_name": "Padella, Orvieto, Italia",
+     "lat": 42.7568826,
+     "lon": 12.1609956,
+     "category": "place:hamlet",
+     "id": "N/317003799",
+     "importance": null
+    },
+    {
+     "name": "Padella",
+     "display_name": "Padella, Reggio Calabria, Italia",
+     "lat": 38.0355082,
+     "lon": 15.6925962,
+     "category": "place:hamlet",
+     "id": "N/1208990868",
+     "importance": null
+    },
+    {
+     "name": "Padella",
+     "display_name": "Padella, Melo, Abetone Cutigliano, Italia",
+     "lat": 44.1203683,
+     "lon": 10.7511253,
+     "category": "place:locality",
+     "id": "N/3652920591",
+     "importance": null
+    },
+    {
+     "name": "Padella",
+     "display_name": "Padella, Serravalle, Schweiz/Suisse/Svizzera/Svizra",
+     "lat": 46.3986843,
+     "lon": 9.0644653,
+     "category": "place:locality",
+     "id": "N/11250792331",
+     "importance": null
+    },
+    {
+     "name": "Padella",
+     "display_name": "Padella, Wasser Terrace, McNair, United States",
+     "lat": 38.955897,
+     "lon": -77.4282508,
+     "category": "amenity:restaurant",
+     "id": "N/7733804810",
+     "importance": null
+    }
+   ]
+  },
+  "LDN-13": {
+   "query_sent": "The Dove, London",
+   "error": null,
+   "latency_ms": 495,
+   "results": [
+    {
+     "name": "The Dove",
+     "display_name": "The Dove, Upper Mall, Hammersmith, London, United Kingdom",
+     "lat": 51.4905085,
+     "lon": -0.2348574,
+     "category": "amenity:pub",
+     "id": "W/174088755",
+     "importance": null
+    },
+    {
+     "name": "The Dove",
+     "display_name": "The Dove, Broadway Market, Haggerston, London, United Kingdom",
+     "lat": 51.5363557,
+     "lon": -0.0616953,
+     "category": "amenity:pub",
+     "id": "W/366327440",
+     "importance": null
+    },
+    {
+     "name": "The Dove Centre",
+     "display_name": "The Dove Centre, Bartholomew Road, Kentish Town, London, United Kingdom",
+     "lat": 51.5497297,
+     "lon": -0.1344744,
+     "category": "landuse:commercial",
+     "id": "W/1241029358",
+     "importance": null
+    },
+    {
+     "name": "The Dove Pier",
+     "display_name": "The Dove Pier, Lower Mall, Hammersmith, London, United Kingdom",
+     "lat": 51.4900964,
+     "lon": -0.2344244,
+     "category": "man_made:pier",
+     "id": "W/509266377",
+     "importance": null
+    },
+    {
+     "name": "The Roebuck",
+     "display_name": "The Roebuck, Great Dover Street, The Borough, London, United Kingdom",
+     "lat": 51.4980908,
+     "lon": -0.0906246,
+     "category": "amenity:pub",
+     "id": "W/100275592",
+     "importance": null
+    }
+   ]
+  },
+  "NEG-01": {
+   "query_sent": "this hidden gem in Shoreditch, London",
+   "error": null,
+   "latency_ms": 745,
+   "results": []
+  },
+  "NEG-02": {
+   "query_sent": "best coffee ever, Tokyo",
+   "error": null,
+   "latency_ms": 597,
+   "results": [
+    {
+     "name": "ever green",
+     "display_name": "ever green, 早稲田通り, 新宿区, 東京都, 日本",
+     "lat": 35.7058554,
+     "lon": 139.7218019,
+     "category": "shop:florist",
+     "id": "N/10014988382",
+     "importance": null
+    },
+    {
+     "name": "Beasty Coffee [ cafe laboratory ]",
+     "display_name": "Beasty Coffee [ cafe laboratory ], 富ヶ谷1丁目通り, 渋谷区, 東京都, 日本",
+     "lat": 35.6660671,
+     "lon": 139.6919658,
+     "category": "amenity:cafe",
+     "id": "N/12387750201",
+     "importance": null
+    },
+    {
+     "name": "Berth Coffee",
+     "display_name": "Berth Coffee, 15, 中央区, 中央区, 日本",
+     "lat": 35.6915265,
+     "lon": 139.7814298,
+     "category": "amenity:cafe",
+     "id": "N/9937069033",
+     "importance": null
+    },
+    {
+     "name": "Evergreen Coffee Company",
+     "display_name": "Evergreen Coffee Company, West 10th Avenue, Highlands, Kennewick, United States",
+     "lat": 46.1988681,
+     "lon": -119.1595857,
+     "category": "amenity:cafe",
+     "id": "N/10235768584",
+     "importance": null
+    }
+   ]
+  },
+  "NEG-03": {
+   "query_sent": "that little wine bar near the market, Tel Aviv",
+   "error": null,
+   "latency_ms": 410,
+   "results": []
+  }
+ }
+}
