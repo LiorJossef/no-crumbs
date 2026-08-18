@@ -10,6 +10,18 @@
 -- Run:  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/inventory.sql
 -- Design: docs/08-place-identity.md §3, §5.1; technical-design.md §4.3 and §14 R7/R8/R10/R11.
 
+-- ── identity: which database did this actually examine? ─────────────────────────────────────
+-- Not decoration. The output of this script is the evidence that a given environment is correctly
+-- locked down, and two environments of the same project produce byte-identical PASS lines. Without
+-- this header, a run against staging is indistinguishable from a run against production — which is
+-- exactly how a production database ends up recorded as verified when nobody checked it.
+-- Via the session pooler the username carries the project ref (postgres.<ref>), so \conninfo names
+-- the project even though the server-side current_user does not.
+\echo '--- inventory.sql target ---'
+\conninfo
+select current_database() as db, current_user as role,
+       inet_server_addr() as server_addr, substring(version() from 'PostgreSQL [0-9.]+') as pg;
+
 begin;
 set transaction read only;
 
