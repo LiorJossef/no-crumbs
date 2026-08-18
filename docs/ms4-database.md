@@ -1,12 +1,15 @@
 # MS4 — the schema, and what the review changed on the way in
 
-**Date:** 2026-08-18 · **Milestone:** MS4 · **Status:** written and parse-checked; **not yet applied
-to any environment** (see §5 — this is what stands between here and the milestone's exit)
+**Date:** 2026-08-18 · **Milestone:** MS4 · **Status:** schema applied from zero and the
+authorisation proof green in CI (run
+[32164006925](https://github.com/LiorJossef/P-002/actions/runs/32164006925)); **not yet applied to
+either hosted environment** — that is all that stands between here and the milestone's exit (§5)
 
 MS4 was started with a review of the design rather than a transcription of it. `08` §3 carried the
 DDL, `07` §3 carried a competing version of two of its tables, and `technical-design.md` §14 had
 already ruled on seven differences between them. The review found five more differences and one
-defect. All are recorded as R8–R12 in §14 of the design; this file is the implementation record.
+defect. The reconciliations are recorded as R8–R12 in §14 of the design. Executing the schema then found a
+second defect, in the same class as the first and worse — §2. This file is the implementation record.
 
 ## 1. What exists now
 
@@ -28,7 +31,9 @@ entities in `public` are **not** auto-exposed to `anon`/`authenticated` any more
 auto-grant is deprecated and removed on 2026-10-30). Every privilege this schema has is one it
 granted explicitly, which is the posture `08` §2.2 assumed but could not previously rely on.
 
-## 2. The defect the review found
+## 2. The two defects
+
+### 2.1 `resolve_place()`, found by reading (before any execution)
 
 `resolve_place()` as designed in `08` §3.7 could abort the caller's transaction. Two callers
 resolving the same new provider id concurrently both reach step 3; the loser has already inserted its
@@ -52,6 +57,36 @@ the orphan when the returned `place_id` is not the one just inserted:
 The near-duplicate branch (step 2) was also split out to return early, so the alias insert is not
 shared between "existing place" and "new place" paths that need different `is_primary` logic and
 different failure handling.
+
+### 2.2 Both constraint trigger functions, found by executing (CI run 32163531344)
+
+`assert_saved_place_provenance()` chose its subject id with a `CASE` over both records:
+
+```sql
+  v_saved_place_id := case tg_table_name
+    when 'saved_places'        then coalesce(new.id, old.id)
+    when 'saved_place_sources' then coalesce(new.saved_place_id, old.saved_place_id)
+  end;
+```
+
+plpgsql materialises **every** branch's record as a parameter before the `CASE` selects one, so the
+record that does not exist for the trigger that fired raises `record "new" has no field
+"saved_place_id"`. `COALESCE` does not help — the record has to exist to be passed at all. The
+function now branches on `TG_TABLE_NAME` and touches only the record that exists (`saved_places`
+fires on INSERT / UPDATE OF origin, so NEW; `saved_place_sources` fires on DELETE, so OLD).
+
+`assert_place_has_alias()` had the identical shape — `coalesce(new.id, old.id)` on an `AFTER INSERT`
+trigger, where OLD is unassigned — and this is the serious one: **it would have raised at COMMIT after
+every single `places` insert, so `resolve_place()` could never have worked in production.** The
+product's entire import path would have failed on its first real write.
+
+Why neither the design review nor the first CI run caught the second one: the policy tests end in
+`ROLLBACK`, and a `DEFERRABLE INITIALLY DEFERRED` trigger never fires in a transaction that never
+commits. Both deferred invariants — the whole reason those triggers exist — were untested while the
+suite reported green on everything around them. Hence **P7b**: after the fixtures and P7,
+`set constraints all immediate` flushes every queued event, so the happy path actually runs the
+triggers. Any deferred constraint added later must stay inside that checkpoint's reach or it inherits
+the same blind spot.
 
 ## 3. The five reconciliations, in one line each
 
@@ -82,31 +117,36 @@ the policies and not the client:
 | P5 | `content_text` unreadable; no INSERT on `imports`; `saved_places.user_id` not updatable; no write to global tables; `resolve_place`/`start_import`/`merge_places` not executable — seven separate `insufficient_privilege` expectations |
 | P6 | `anon` holds no grant on any of the nine tables |
 | P7 | two provider ids for one physical place resolve to one place with two aliases (the 75 m guard) |
+| P7b | every deferred constraint trigger queued by the fixtures and P7 executes cleanly — the checkpoint that closes the ROLLBACK blind spot of §2.2 |
 | P8 | the last provenance link of an `origin='import'` save cannot be detached |
 
-P8 needs `set constraints all immediate` to be observable: the trigger is `DEFERRABLE INITIALLY
-DEFERRED`, so its event is queued to the transaction rather than to the plpgsql subtransaction, and
-without forcing the check the test would pass while asserting nothing.
+P7b is what makes P8 observable at all: the provenance trigger is `DEFERRABLE INITIALLY DEFERRED`, so
+its event is queued to the transaction rather than to the plpgsql subtransaction, and without forcing
+the check the test would pass while asserting nothing. P7b must come **after** P7 — `resolve_place()`
+inserts a place and its alias in two statements, which is exactly what the deferral exists to permit,
+so flushing earlier would fail the happy path.
 
-## 5. What is NOT verified, and why
+## 5. Verification status
 
-Every statement in `supabase/migrations/` parses — SQL and plpgsql bodies both, via `libpg_query`
-(the parser Postgres itself uses), which catches syntax and plpgsql structure but **not** a single
-semantic or authorisation claim. **Nothing here has been executed**, because this machine has
-neither Docker nor a local Postgres, so `supabase db reset` cannot run.
+**VERIFIED** (CI run [32164006925](https://github.com/LiorJossef/P-002/actions/runs/32164006925), a
+fresh `supabase db reset` from `0001` on Postgres 17, then the policy tests):
 
-Under the house rules that makes the whole of §4 **ASSUMED**, not VERIFIED. Three specific claims are
-the ones most likely to be wrong on first execution:
+- The migration set applies from zero, in order, with no manual step. That reproducibility is `08`
+  §9's acceptance test for the migrations.
+- All of P0, setup, P1–P4, P5a–P5g, P6, P7, P7b and P8 pass — 17 assertions, including both halves of
+  MS4's exit gate: **user B's select of user A's `saved_places` returns zero rows**, and **`places`
+  and `place_provider_refs` are invisible to a user who has not saved them**.
+- The three risks §5 previously flagged as most likely to break are all closed by that run:
+  `create trigger on_auth_user_created on auth.users` was accepted (P0 proves it fired), the
+  two-column `insert into auth.users` fixture is sufficient, and the migrations apply cleanly with
+  `FORCE ROW LEVEL SECURITY` set — so `08` §9's fallback of dropping `FORCE` is not needed.
 
-1. **`create trigger on_auth_user_created on auth.users`** may be rejected for want of rights on the
-   `auth` schema. `0002` says what to do if it is: delete the trigger and create the profile from the
-   server on first authenticated request. Do not weaken the `profiles` policies instead.
-2. **`insert into auth.users (id, email)`** in the test fixtures may need more columns than the two
-   supplied, depending on the GoTrue schema version in the local image.
-3. **`FORCE ROW LEVEL SECURITY`** is `08` §9's own flagged risk: if the migration role turns out to
-   lack `BYPASSRLS`, drop `FORCE` and keep `ENABLE` rather than adding owner-shaped policies.
+**Still ASSUMED:**
 
-The first execution is therefore the `database` job on this branch's pull request, which is also the
-first evidence that the CI job itself is correct. **MS4's exit is not met until that job is green and
-both environments have the migrations applied**; applying them to the hosted projects needs
-credentials this session does not have.
+- Everything above is Postgres 17 in the local Docker image. The hosted projects are a different
+  build and a different set of Supabase-managed roles; the auth-schema trigger is the statement most
+  likely to behave differently there. `0002` carries its own fallback.
+- Nothing here has been applied to staging or production. **MS4's exit is not met until it has.**
+  That needs credentials, and it is the one remaining task in this milestone.
+- No performance claim has been tested. The index plan is reasoned (`08` §8, `technical-design.md`
+  §4.5), not measured, and the row counts that would make it measurable arrive in MS5.

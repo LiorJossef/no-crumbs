@@ -671,9 +671,11 @@ a thing a reviewer might expect to see.
 - **2026-08-18** — MS4 pre-flight review. Five further reconciliations (R8–R12) recorded above:
   the caption is withheld by column grant, `profiles` wins the `user_id` reference and gains a
   signup trigger, `imports` becomes server-created only, `place_lookups` gets a home, and the policy
-  tests move out of `migrations/`. One design-level defect fixed while transcribing: `resolve_place`'s
+  tests move out of `migrations/`. Two defects in `08` §3's SQL fixed: `resolve_place`'s
   concurrent-insert path left an aliasless `places` row that the deferred `places_alias_required`
-  trigger would have aborted the transaction over at COMMIT. Record: [`ms4-database.md`](ms4-database.md).
+  trigger would have aborted the transaction over at COMMIT, and both constraint trigger functions
+  referenced a record that does not exist for the trigger that fires — which would have made *every*
+  `places` insert fail at COMMIT. Record: [`ms4-database.md`](ms4-database.md).
 - **2026-08-18** — First version. Assembles `04`, `06`, `07`, `08`, `09`, `ux-architecture` and
   `product-specification` into one design; rules on the seven reconciliations in §14; records the
   seven open items in §15. Written before MS4 writes any application code, per `03` gap 3.
