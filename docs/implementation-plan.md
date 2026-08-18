@@ -107,7 +107,7 @@ Nothing else may open a new decision. New ideas go to §21, per Charter §4.
 |---|---|---|---|---|
 | MS0 | TikTok feasibility spike | — | **DONE.** Evidence in `docs/evidence/tiktok/` | — |
 | MS1 | Close D7 / D4-extraction / D8 / D10; write `09` and `05` | M (2) | **DONE** — nothing is built on an open decision | No |
-| MS2 | Repo, toolchain, layering enforcement, both cloud projects, first preview deploy | M (2) | M5/M10 (course) mechanically work on day one | No |
+| MS2 | Repo, toolchain, layering enforcement, both cloud projects, first preview deploy | M (2) | **DONE** — M5/M10 (course) mechanically work on day one | No |
 | MS3 | `technical-design.md` — the pre-implementation design document | M (2) | M4 (course), and that the build order below is real | No |
 | MS4 | Database: migrations 0001–0008, RLS forced, policy fixtures | L (3) | The data model of `08` exists and denies by default | No |
 | MS5 | Places index: Overture city extracts ingested; resolver + scorer ported from the benchmark | L (3) | `06` §6 scoring reproduces its 44-case results in TypeScript | No |
@@ -247,18 +247,19 @@ prompt contract, the injection posture, and the evaluation bars that feed MS15);
 **Exit met:** the §3 ledger shows no OPEN row. The one remaining item is D2's security sign-off, which
 is a review of an existing recommendation rather than an open decision, and it gates MS5 (§4).
 
-### MS2 — Repo, toolchain, cloud projects, first deploy · M (2 hd) · **LOCAL HALF DONE 2026-08-18**
+### MS2 — Repo, toolchain, cloud projects, first deploy · M (2 hd) · **DONE 2026-08-18**
 Next.js + TypeScript strict, the four-layer folder skeleton with the `no-restricted-imports` zones
 active, Vitest + Playwright configured, Supabase project, Vercel project, env-var matrix, and a
 trivial page deployed to a preview URL and to production.
 **Exit:** a public URL renders; CI fails a deliberate `domain/` → `next/*` import.
 **Overrun:** nothing to cut; this is the floor.
-**Status:** repo, Next 16 + React 19 + TS strict, the four-layer skeleton with the
-`no-restricted-imports` zones active, Vitest + Playwright (both green), CI workflow, env-var matrix
-(`README.md`) and `/healthz` are built and verified locally — `npm run verify` passes and
-`npm run check:layers` proves ESLint rejects a `domain/` → `next/server` import. The two Supabase
-projects, the Vercel project and the first preview/production deploy need owner account access:
-steps are in [`ms2-cloud-setup.md`](ms2-cloud-setup.md). MS3 is not blocked by them.
+**Exit met:** production renders at **https://p-002-zeta.vercel.app**, `/healthz` returns
+`{"ok":true,"stage":"production","commit":"0962d64"}` from `fra1`, and `npm run check:layers` proves
+ESLint rejects a `domain/` → `next/server` import. Delivered: Next 16 + React 19 + TS strict, the
+four-layer skeleton with the `no-restricted-imports` zones active, Vitest + Playwright (4/4 green
+against the deployment itself), CI workflow, the env-var matrix in `README.md`, and two Supabase
+projects in `eu-central-1` co-located with the Vercel function region. Setup record and reproduction
+steps: [`ms2-cloud-setup.md`](ms2-cloud-setup.md). No schema yet — that is MS5.
 
 ### MS3 — `technical-design.md` · M (2 hd)
 The graded pre-implementation design (course M4): folder tree, component structure, schema DDL, the

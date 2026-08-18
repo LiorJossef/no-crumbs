@@ -1,9 +1,9 @@
-# MS2 — cloud project setup (owner action required)
+# MS2 — cloud project setup
 
-> Status: **owed.** The local half of MS2 is complete and verified; the two cloud projects and the
-> first deploy need account access this repo does not have. These are the exact steps, in order.
-> Once done, MS2's exit criterion "a public URL renders" is met and this file folds into
-> `deployment.md` (MS16).
+> Status: **COMPLETE 2026-08-18.** Both Supabase projects exist in `eu-central-1`, the Vercel project
+> is live at **https://p-002-zeta.vercel.app** serving from `fra1`, and MS2's exit criterion
+> "a public URL renders" is verified below. This file folds into `deployment.md` (MS16); the steps are
+> kept because they are the reproduction instructions that document owes.
 
 ## 1. Supabase — two projects · **DONE 2026-08-18**
 
@@ -27,7 +27,7 @@ No schema yet — migrations `0001`–`0008` land in MS5 (`docs/08-place-identit
 
 From each project's API settings, record: project URL, `anon` key, `service_role` key.
 
-## 2. Vercel — one project, two environments · **NEXT**
+## 2. Vercel — one project, two environments · **DONE 2026-08-18**
 
 1. Import `github.com/LiorJossef/P-002` as a Vercel project. Framework preset: Next.js. Root: repo root.
 2. Production branch: `main`. Every other branch gets a preview URL automatically.
@@ -50,7 +50,20 @@ From each project's API settings, record: project URL, `anon` key, `service_role
 before MS5 and the Anthropic/Protomaps keys before MS7 — each one when the code that reads it exists,
 which keeps an unused secret from sitting in the env store.
 
-## 3. Prove the deploy
+## 3. Prove the deploy · **DONE 2026-08-18**
+
+Recorded result, production, commit `0962d64`:
+
+```
+$ curl -s https://p-002-zeta.vercel.app/healthz
+{"ok":true,"stage":"production","commit":"0962d64"}
+```
+
+`x-vercel-id: fra1::fra1::…` on that response is the evidence the function region is Frankfurt and
+therefore co-located with Postgres, which is the §1 decision actually holding. The smoke suite passes
+against the deployment (4/4, mobile + desktop) with no local server started.
+
+The reproduction commands:
 
 ```bash
 curl -s https://<preview-url>/healthz   # -> {"ok":true,"stage":"preview","commit":"<sha>"}
