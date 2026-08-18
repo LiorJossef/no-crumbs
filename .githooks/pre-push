@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Local stand-in for GitHub branch protection on main.
+# GitHub rulesets are Pro/Team-only for private repos (403 "Upgrade to GitHub Pro"),
+# so main is protected here instead. See docs/ms3-branch-protection.md.
+#
+# Blocks: any push to main, force-pushes to main, deletion of main.
+# Escape hatch (documented, deliberate): ALLOW_MAIN_PUSH=1 git push
+set -euo pipefail
+
+protected="refs/heads/main"
+zero="0000000000000000000000000000000000000000"
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$remote_ref" = "$protected" ] || continue
+
+  if [ "${ALLOW_MAIN_PUSH:-}" = "1" ]; then
+    echo "pre-push: ALLOW_MAIN_PUSH=1 — allowing push to main." >&2
+    continue
+  fi
+
+  if [ "$local_sha" = "$zero" ]; then
+    echo "pre-push: refusing to delete main." >&2
+  elif [ "$remote_sha" != "$zero" ] && ! git merge-base --is-ancestor "$remote_sha" "$local_sha"; then
+    echo "pre-push: refusing non-fast-forward (force) push to main." >&2
+  else
+    echo "pre-push: refusing direct push to main." >&2
+  fi
+
+  cat >&2 <<'MSG'
+
+  main is protected. Land work through a pull request:
+
+    git switch -c <branch>
+    git push -u origin <branch>
+    gh pr create --fill        # CI must be green before merging
+
+  Override (rare, and say why in the commit): ALLOW_MAIN_PUSH=1 git push
+MSG
+  exit 1
+done

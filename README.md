@@ -42,6 +42,16 @@ That runs, in order: `lint` → `typecheck` → `check:layers` → `test`. Playw
 (`npm run test:e2e`); it builds and starts the app itself, or targets a deployment when
 `PLAYWRIGHT_BASE_URL` is set — which is how a preview URL is smoke-tested.
 
+## Branching — main is protected by a hook
+
+All work lands on a branch, through a pull request, with CI green. `npm install` points
+`core.hooksPath` at `.githooks`, and `.githooks/pre-push` refuses any push to `main` (direct,
+force, or delete).
+
+GitHub-side branch protection is unavailable: rulesets are a Pro/Team feature on private
+repositories, so the hook stands in for them. It is a speed bump, not a guarantee — the trade-off
+and its limits are recorded in [`docs/ms3-branch-protection.md`](docs/ms3-branch-protection.md).
+
 ## Layering — a checked property, not a convention
 
 ```
