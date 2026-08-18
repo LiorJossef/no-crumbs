@@ -513,4 +513,5 @@ measured non-Latin-script resolution gap (`06` §7).
 | 2026-08-18 | **MS1 complete.** D7, D4, D1b, D8 and D10 closed (`09`, `05`, `security.md` §2.5, §13). Only D2's security sign-off remains, and it gates MS5 rather than MS2 |
 | 2026-08-18 | **MS2 complete.** Repo, toolchain, layer enforcement, both cloud projects, production deploy verified |
 | 2026-08-18 | **MS3 complete.** `technical-design.md` written before any application code (`03` gap 3 satisfied). Seven schema/design reconciliations recorded in its §14 are now MS4 input |
+| 2026-08-18 | **MS4 started with a review.** Five further reconciliations (R8–R12) and one defect in `resolve_place`'s concurrency path found before transcription; migrations 0001–0007 + the policy tests written and parse-checked, unexecuted (no Docker locally). Record: [`ms4-database.md`](ms4-database.md) |
 | 2026-08-18 | §20 submission checklist audited against reality: artefacts 2 (repo, ⚠ private) closed; 1 and 9 annotated with what already exists and what still gates them |
