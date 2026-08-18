@@ -13,6 +13,26 @@
 begin;
 set transaction read only;
 
+-- ── 0. no default privilege hands new entities to a browser-reachable role ──────────────────
+-- This is the check that caught the staging/local divergence of 0008: a hosted project created
+-- before Supabase's always-revoked default carries ALTER DEFAULT PRIVILEGES granting ALL on new
+-- tables in `public` to anon and authenticated. Every future migration would silently re-open what
+-- 0008 closed, so this is asserted first and hard.
+do $$
+declare v text;
+begin
+  select string_agg(distinct format('%s: %s on %s owned by %s',
+                                    a.grantee::regrole, a.privilege_type, d.defaclobjtype,
+                                    d.defaclrole::regrole), ', ') into v
+    from pg_default_acl d, aclexplode(d.defaclacl) a
+   where d.defaclnamespace = 'public'::regnamespace
+     and a.grantee::regrole::text in ('anon', 'authenticated');
+  if v is not null then
+    raise exception 'FAIL 0: default privileges still expose new entities to browser roles: %', v;
+  end if;
+  raise notice 'PASS 0  no default privilege grants anything in public to anon or authenticated';
+end $$;
+
 -- ── 1. RLS is enabled AND forced on all nine tables ─────────────────────────────────────────
 do $$
 declare v text;
