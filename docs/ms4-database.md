@@ -1,9 +1,9 @@
 # MS4 — the schema, and what the review changed on the way in
 
-**Date:** 2026-08-18 · **Milestone:** MS4 · **Status:** schema applied from zero and the
-authorisation proof green in CI (run
-[32164006925](https://github.com/LiorJossef/P-002/actions/runs/32164006925)); **not yet applied to
-either hosted environment** — that is all that stands between here and the milestone's exit (§5)
+**Date:** 2026-08-18 · **Milestone:** MS4 · **Status:** nine migrations; CI green
+([32168400182](https://github.com/LiorJossef/P-002/actions/runs/32168400182)); **staging applied and
+verified clean**; **production not yet touched** — that is all that stands between here and the
+milestone's exit (§5). Four defects found and fixed along the way (§2)
 
 MS4 was started with a review of the design rather than a transcription of it. `08` §3 carried the
 DDL, `07` §3 carried a competing version of two of its tables, and `technical-design.md` §14 had
@@ -209,13 +209,18 @@ fresh `supabase db reset` from `0001` on Postgres 17, then the policy tests):
 - Everything above is Postgres 17 in the local Docker image. The hosted projects are a different
   build and a different set of Supabase-managed roles; the auth-schema trigger is the statement most
   likely to behave differently there. `0002` carries its own fallback.
-- **Staging has the schema.** Applied 2026-08-18 to `p-002-staging` (`jfuqjzubphfhfleqnkno`,
-  `eu-central-1`, Postgres 17.6.1.155) with `supabase db push`; `supabase migration list --linked`
-  reports `0001`–`0007` local == remote, and `supabase inspect db index-stats` confirms all nine
-  tables with every named index, including `imports_open_one_per_source` (R5) and the `place_lookups`
-  pair (R11). What that does **not** prove is that RLS is forced, the grants survived, or the
-  `auth.users` trigger exists on the hosted build — `inventory.sql` is what proves those, and it has
-  not yet been run against staging.
+- **Staging is applied and independently verified.** Migrations `0001`–`0009` pushed to
+  `p-002-staging` (`jfuqjzubphfhfleqnkno`, `eu-central-1`, Postgres 17.6.1.155) on 2026-08-18;
+  `supabase migration list --linked` reports local == remote. `inventory.sql`, run against staging
+  over the session-mode pooler, returns **`PASS 1`–`PASS 8`** with only the expected `NOTE 0`: nine
+  tables with RLS enabled and forced, the exact sixteen policies, `anon` holding nothing anywhere,
+  the table and column grant matrices matching the design (caption withheld, overlay-only UPDATE, no
+  INSERT on `imports`), only `save_place` and `km_between` reachable by a browser role, all nine
+  invariant triggers present and enabled, and no extension beyond the Supabase baseline.
+- The behavioural suite (`0008_policy_tests.sql`, 19 assertions) is green in CI against a fresh
+  `supabase db reset`. It has **not** been run against staging itself; the structural inventory has.
+  Running it there is optional and safe (it rolls back), but it creates fixture `auth.users` rows, so
+  it must never be pointed at production.
 - **Production (`vtboskegexinvhasghri`) has nothing.** MS4's exit is not met until it does.
 - No performance claim has been tested. The index plan is reasoned (`08` §8, `technical-design.md`
   §4.5), not measured, and the row counts that would make it measurable arrive in MS5.
