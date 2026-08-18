@@ -60,7 +60,10 @@ create or replace function public.assert_place_has_alias() returns trigger
 language plpgsql
 set search_path = public, pg_temp
 as $fn$
-declare v_place_id uuid := coalesce(new.id, old.id);
+-- `new.id`, not coalesce(new.id, old.id): this trigger is AFTER INSERT only, so OLD is unassigned,
+-- and plpgsql raises `record "old" has no field "id"` when an unassigned record is referenced —
+-- COALESCE does not save it, because the record still has to be materialised as a parameter.
+declare v_place_id uuid := new.id;
 begin
   if not exists (select 1 from public.places where id = v_place_id) then
     return null;                                    -- place is gone; nothing to assert

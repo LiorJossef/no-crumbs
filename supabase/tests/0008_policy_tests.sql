@@ -202,14 +202,26 @@ begin
   if v_places <> 1 then raise exception 'FAIL P7: near-duplicate guard created % places', v_places; end if;
   if v_aliases <> 2 then raise exception 'FAIL P7: expected 2 aliases, found %', v_aliases; end if;
   raise notice 'PASS P7  two provider ids for one physical place resolve to one place, two aliases';
+end $$;
 
+-- P7b: fire every deferred constraint trigger queued so far — the alias invariant from each
+-- resolve_place() and the provenance invariant from A's save. This checkpoint is not optional
+-- decoration: without it the rollback at the end of this script means the DEFERRABLE INITIALLY
+-- DEFERRED triggers never execute at all, and a trigger that raises on the happy path would ship
+-- looking tested. It found exactly that bug once (see docs/ms4-database.md §2).
+-- After this point constraints are IMMEDIATE for the rest of the transaction, which is what makes
+-- P8's violation observable at the statement rather than at a COMMIT that never comes.
+do $$
+begin
+  set constraints all immediate;
+  raise notice 'PASS P7b deferred invariants execute cleanly on the happy path';
+end $$;
+
+do $$
+begin
   -- P8: provenance is permanent — the last source of an origin='import' save cannot be removed.
   begin
     delete from public.saved_place_sources;
-    -- The trigger is DEFERRABLE INITIALLY DEFERRED, so its event is queued to the transaction, not
-    -- to this subtransaction. SET CONSTRAINTS ALL IMMEDIATE runs every pending check now, which is
-    -- the only way to observe a deferred violation without committing.
-    set constraints all immediate;
     raise exception 'sentinel-ok';
   exception
     when check_violation then

@@ -58,10 +58,16 @@ declare
   v_saved_place_id uuid;
   v_origin text;
 begin
-  v_saved_place_id := case tg_table_name
-    when 'saved_places'        then coalesce(new.id, old.id)
-    when 'saved_place_sources' then coalesce(new.saved_place_id, old.saved_place_id)
-  end;
+  -- Reference only the record that exists for the trigger that fired. A CASE over both records
+  -- does not work: plpgsql materialises every branch's record as a parameter, so the unassigned one
+  -- raises `record "new" has no field "saved_place_id"` before the CASE ever chooses a branch.
+  -- saved_places fires on INSERT / UPDATE OF origin (NEW always present); saved_place_sources fires
+  -- on DELETE (OLD only).
+  if tg_table_name = 'saved_places' then
+    v_saved_place_id := new.id;
+  else
+    v_saved_place_id := old.saved_place_id;
+  end if;
 
   select origin into v_origin from public.saved_places where id = v_saved_place_id;
   if v_origin is null or v_origin = 'manual' then
