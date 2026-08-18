@@ -54,7 +54,7 @@ possible; milestones are always `MS9`.
 | D6 | PostGIS vs plain lat/lng | **CLOSED** — no PostGIS. Two `double precision` columns, bbox `BETWEEN`, Haversine refine. No extensions | `08` |
 | D7 | LLM provider, model, abstraction shape | **CLOSED** — Anthropic `claude-haiku-4-5` in structured-output mode, one adapter behind the existing port; ~$0.003/import measured against a real caption, closing assumption B6. Escalation to `claude-sonnet-5` is one constant | `09` §2 |
 | D8 | Auth methods offered | **CLOSED** — Supabase Auth email + password only, judged on live-demo reliability; magic link rejected, OAuth deferred. One role, no RLS impact | `security.md` §2.5 |
-| D9 | Visual direction, map style, tokens | **PARTIALLY CLOSED** — UX architecture, screens, states, copy deck and five motion moments are specified; the token values and the forked Protomaps style are not authored | `technical-design.md` (owed) |
+| D9 | Visual direction, map style, tokens | **PARTIALLY CLOSED** — UX architecture, screens, states, copy deck and five motion moments are specified; the token values and the forked Protomaps style are not authored | `technical-design.md` (written MS3; token values still owed) |
 | D10 | Test strategy depth | **CLOSED (sized)** — four tiers and a 3 hd time-box, §13. The graded document is still written in MS13 | §13 → `test-specification.md` |
 | D11 | Rate limits and cost ceilings | **HALF-CLOSED** — provider-call ceilings exist (`06` §6.4: 8 lookups/import, 30 imports/user/day, Nominatim ≤1 rps / ≤200 day). The per-user limiter implementation and the monthly ceiling are not written up | `scale.md` (owed) |
 | D12 | Map shell and route topology | **CLOSED** — persistent `(map)` route-group layout owns one map instance; plain nested routes; no parallel/intercepting routes | `07` §11 |
@@ -98,7 +98,7 @@ Nothing else may open a new decision. New ideas go to §21, per Charter §4.
    *order* and the *cut lines* are the commitments.
 6. **Documents are milestones, not homework.** The five graded documents have reserved slots in the
    ladder (§12). `03` gap 3 is binding: `technical-design.md` must be complete and dated **before**
-   MS3 code lands.
+   MS4 code lands — satisfied 2026-08-18.
 7. **A milestone that runs 50% over its size triggers the cut list (§16) — not overtime.**
 
 ## 6. The milestone ladder
@@ -108,7 +108,7 @@ Nothing else may open a new decision. New ideas go to §21, per Charter §4.
 | MS0 | TikTok feasibility spike | — | **DONE.** Evidence in `docs/evidence/tiktok/` | — |
 | MS1 | Close D7 / D4-extraction / D8 / D10; write `09` and `05` | M (2) | **DONE** — nothing is built on an open decision | No |
 | MS2 | Repo, toolchain, layering enforcement, both cloud projects, first preview deploy | M (2) | **DONE** — M5/M10 (course) mechanically work on day one | No |
-| MS3 | `technical-design.md` — the pre-implementation design document | M (2) | M4 (course), and that the build order below is real | No |
+| MS3 | `technical-design.md` — the pre-implementation design document | M (2) | **DONE** — M4 (course), and that the build order below is real | No |
 | MS4 | Database: migrations 0001–0008, RLS forced, policy fixtures | L (3) | The data model of `08` exists and denies by default | No |
 | MS5 | Places index: Overture city extracts ingested; resolver + scorer ported from the benchmark | L (3) | `06` §6 scoring reproduces its 44-case results in TypeScript | No |
 | MS6 | Import domain: canonicaliser, ports, `runImport`, events, error taxonomy — with unit tests | L (3) | The central business logic exists as pure, testable code | No |
@@ -261,12 +261,23 @@ against the deployment itself), CI workflow, the env-var matrix in `README.md`, 
 projects in `eu-central-1` co-located with the Vercel function region. Setup record and reproduction
 steps: [`ms2-cloud-setup.md`](ms2-cloud-setup.md). No schema yet — that is MS5.
 
-### MS3 — `technical-design.md` · M (2 hd)
+### MS3 — `technical-design.md` · M (2 hd) · **DONE 2026-08-18**
 The graded pre-implementation design (course M4): folder tree, component structure, schema DDL, the
 CRUD matrix, the route/action inventory, the pipeline as central business logic, state strategy, the
 error taxonomy, Zod validation points, and the core UX flows. Mostly assembly — `07`, `08`, `06` and
 `ux-architecture` already contain the content; this is the document that makes them one design.
 **Exit:** the file is complete and dated **before MS4 writes code** (`03` gap 3).
+**Exit met:** [`technical-design.md`](technical-design.md) is written and dated 2026-08-18, with no
+application code beyond the MS2 skeleton. Beyond assembly it did two things the milestone did not
+anticipate: §14 records **seven reconciliations** where `07` and `08` disagreed (id naming, the
+import status set — now six values including a distinct `no_places`, the observability columns on
+`imports`, `source_id NOT NULL` resolved by inserting the pending `sources` row at canonicalisation
+time, the idempotency index, the `place_lookups` cache, and revoking the user's
+`UPDATE (candidates)` grant), each a small delta **MS4 must apply when it writes the migrations**;
+and §15 names the seven open items with their owners, none of which blocks MS4.
+Also landed under MS3: `main` is protected by a local pre-push hook rather than a GitHub ruleset —
+rulesets are Pro/Team-only on a private repo — and CI now runs Playwright in its own container
+image. Trade-off and limits: [`ms3-branch-protection.md`](ms3-branch-protection.md).
 
 ### MS4 — Database · L (3 hd)
 The eight migrations, applied to both environments. Policy fixtures from `0008` seeded.
@@ -354,7 +365,7 @@ moments, the README with local-run instructions and the env-var explanation, and
 |---|---|---|
 | `05-secondary-platforms.md` | MS1 ✅ | — |
 | `09-extraction-and-resolution.md` | MS1 ✅ | — |
-| `technical-design.md` | MS3 (before code) | **M4** |
+| `technical-design.md` | MS3 ✅ | **M4** |
 | `test-specification.md` | MS13 | **M6** |
 | `security.md` (full) | MS14, ⚠ items earlier | **M9** |
 | `10-pipeline-evaluation.md` | MS15 | — |
@@ -473,15 +484,15 @@ The R1/R2 pivot branches from `02` are closed by MS0's evidence. What remains is
 
 | # | Artefact | Produced by | Status |
 |---|---|---|---|
-| 1 | Link to the live app | MS16 (URL exists from MS2) | pending |
-| 2 | Link to the GitHub repository | MS2 | pending |
+| 1 | Link to the live app | MS16 (URL exists from MS2) | pending — **https://p-002-zeta.vercel.app** is live and production-verified since MS2; the artefact is a link to the *finished* product, so this closes at MS16 |
+| 2 | Link to the GitHub repository | MS2 | ✅ `github.com/LiorJossef/P-002` — ⚠ **private**, so the link is not yet openable by an examiner. Making it public (or adding the grader as a collaborator) is a submission-day action, tracked in `ms3-branch-protection.md` |
 | 3 | Product specification | done | ✅ `product-specification.md` |
-| 4 | Technical design document | MS3 | pending |
+| 4 | Technical design document | MS3 | ✅ `technical-design.md` |
 | 5 | Test specification | MS13 | pending |
 | 6 | Test code | MS13 | pending |
 | 7 | Scale document | MS16 | pending |
 | 8 | Security document | MS14 | pending (interim file exists) |
-| 9 | Local run instructions | MS2 draft, MS16 final | pending |
+| 9 | Local run instructions | MS2 draft, MS16 final | pending — the MS2 draft exists (`README.md` §Local setup + the env-var matrix); MS16 owns the final pass |
 | 10 | 10–15 minute presentation deck | MS16 | pending |
 
 ## 21. Post-V1 backlog
@@ -500,3 +511,6 @@ measured non-Latin-script resolution gap (`06` §7).
 |---|---|
 | 2026-08-18 | Created. Ledger reflects D1/D3/D5/D6/D12 closed, D2 pending security sign-off, D4/D7/D8/D10/D11 open or half-open |
 | 2026-08-18 | **MS1 complete.** D7, D4, D1b, D8 and D10 closed (`09`, `05`, `security.md` §2.5, §13). Only D2's security sign-off remains, and it gates MS5 rather than MS2 |
+| 2026-08-18 | **MS2 complete.** Repo, toolchain, layer enforcement, both cloud projects, production deploy verified |
+| 2026-08-18 | **MS3 complete.** `technical-design.md` written before any application code (`03` gap 3 satisfied). Seven schema/design reconciliations recorded in its §14 are now MS4 input |
+| 2026-08-18 | §20 submission checklist audited against reality: artefacts 2 (repo, ⚠ private) closed; 1 and 9 annotated with what already exists and what still gates them |
