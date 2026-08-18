@@ -72,7 +72,12 @@ third category — a secret in a `NEXT_PUBLIC_` name is a published secret.
 | `ANTHROPIC_API_KEY` | **secret** | dev key | dev key | prod key | `integrations/llm/*` only, Node runtime |
 | `NEXT_PUBLIC_PROTOMAPS_API_KEY` | public by design | dev key | dev key | prod key, domain-restricted | map tile requests |
 | `NEXT_PUBLIC_STAGE` | public | `local` | `preview` | `production` | `domain/build-info.ts`, `/healthz` |
-| `NEXT_PUBLIC_COMMIT_SHA` | public | `dev` | Vercel-provided | Vercel-provided | `/healthz`, so a deploy is identifiable |
+| `NEXT_PUBLIC_COMMIT_SHA` | public | `dev` | commit sha | commit sha | `/healthz`, so a deploy is identifiable |
+
+The last two need **no entry in Vercel's env store**: `next.config.ts` derives them from the
+`VERCEL_ENV` and `VERCEL_GIT_COMMIT_SHA` system variables Vercel sets on every build, so preview and
+production label themselves correctly without two hand-scoped values that can drift. Setting either
+`NEXT_PUBLIC_*` explicitly still overrides the derived value.
 
 Rules that hold across environments:
 
