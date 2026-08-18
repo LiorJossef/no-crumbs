@@ -57,7 +57,7 @@ begin
   end if;
 end $$;
 
--- ── 1. RLS is enabled AND forced on all nine tables ─────────────────────────────────────────
+-- ── 1. RLS is enabled AND forced on all eleven tables ───────────────────────────────────────
 do $$
 declare v text;
 begin
@@ -69,13 +69,15 @@ begin
   if v is not null then
     raise exception 'FAIL 1: RLS not enabled+forced on: %', v;
   end if;
+  -- 9 through 0009; 11 from 0010 (poi_regions, poi_index). The count is asserted, not just the
+  -- flags: a table nobody designed is exactly the thing this check exists to notice.
   if (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace
-       where n.nspname = 'public' and c.relkind = 'r') <> 9 then
-    raise exception 'FAIL 1: expected 9 tables in public, found %',
+       where n.nspname = 'public' and c.relkind = 'r') <> 11 then
+    raise exception 'FAIL 1: expected 11 tables in public, found %',
       (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace
         where n.nspname = 'public' and c.relkind = 'r');
   end if;
-  raise notice 'PASS 1  nine tables, RLS enabled and forced on every one';
+  raise notice 'PASS 1  eleven tables, RLS enabled and forced on every one';
 end $$;
 
 -- ── 2. the policy set is exactly the designed one, in both directions ───────────────────────
@@ -105,7 +107,7 @@ begin
       left join actual a on a.t = e.t and a.p = e.p where a.t is null
   ) d;
   if v is not null then raise exception 'FAIL 2: policy drift: %', v; end if;
-  raise notice 'PASS 2  sixteen policies, exactly as designed (place_lookups deliberately has none)';
+  raise notice 'PASS 2  sixteen policies, exactly as designed (place_lookups, poi_regions and poi_index deliberately have none)';
 end $$;
 
 -- ── 3. anon holds nothing at all (08 §5.1) ──────────────────────────────────────────────────
@@ -138,7 +140,11 @@ begin
     ('saved_place_sources','DELETE')
     -- deliberately absent: every write on sources/extractions/places/place_provider_refs (global
     -- tables are server-written); INSERT and DELETE on imports (R10, start_import only); anything
-    -- at all on place_lookups (R11); table-level SELECT on sources (R8 — columns only, below)
+    -- at all on place_lookups (R11); table-level SELECT on sources (R8 — columns only, below);
+    -- anything at all on poi_regions/poi_index (10 §12 Q2 — the index is server-side only, because
+    -- a browser that can query it directly sits in front of no rate limiter). Those two need no
+    -- entry here to be checked: this comparison is exhaustive in both directions, so a leaked
+    -- grant on a new table appears as UNEXPECTED without anyone remembering to add it.
   )
   select string_agg(format('%s %s.%s', kind, t, p), ', ' order by t, p) into v from (
     select 'UNEXPECTED' kind, a.t, a.p from actual a
@@ -205,6 +211,9 @@ begin
   ), expected(n, role) as (values
     ('save_place','authenticated'),      -- the user-facing write, SECURITY INVOKER
     ('km_between','authenticated')       -- the near-me query runs as the user
+    -- pg_trgm's ~10 functions are absent because 0010 installs it into `extensions`, not `public`.
+    -- In `public` each would arrive EXECUTE-able by PUBLIC and this check would fail a dozen times
+    -- over — which is the reason for the schema choice, not a happy accident of it.
     -- anon: nothing, ever (08 §5.1)
     -- resolve_place / merge_places / start_import: service_role only
     -- place_name_key: service_role only
@@ -244,17 +253,30 @@ begin
   raise notice 'PASS 7  all nine invariant/touch triggers exist and are enabled';
 end $$;
 
--- ── 8. no extension was created by this schema (D6: no PostGIS, no geohash) ─────────────────
+-- ── 8. only the allow-listed extensions exist (D6: no PostGIS, no geohash) ──────────────────
+-- Was a NOTE until 2026-08-18: "beyond the baseline" was reported for a human to adjudicate, which
+-- is not a check. It is now an allow-list and a FAIL, because MS5 deliberately creates exactly one
+-- extension and the whole value of saying so is that a *second* one is caught.
+--   baseline  = what a hosted Supabase project ships with; not ours, not our business.
+--   permitted = ours, one entry, justified: pg_trgm backs the POI index name prefilter (10 §5).
+-- D6 is unaffected: it ruled on geometry types (no PostGIS), not on the extension mechanism.
 do $$
 declare v text;
 begin
-  select string_agg(extname, ', ') into v from pg_extension
-   where extname not in ('plpgsql', 'pg_stat_statements', 'pgcrypto', 'pg_graphql',
-                         'pgjwt', 'uuid-ossp', 'supabase_vault', 'pg_net', 'pgsodium');
+  select string_agg(extname, ', ' order by extname) into v from pg_extension
+   where extname not in (
+     -- Supabase baseline
+     'plpgsql', 'pg_stat_statements', 'pgcrypto', 'pg_graphql',
+     'pgjwt', 'uuid-ossp', 'supabase_vault', 'pg_net', 'pgsodium',
+     -- ours, deliberately
+     'pg_trgm');
   if v is not null then
-    raise notice 'NOTE 8  extensions present beyond the Supabase baseline: % — confirm none is ours (D6)', v;
+    raise exception 'FAIL 8: unexpected extension(s): %. Ours is pg_trgm and nothing else (D6, 10 §5)', v;
+  end if;
+  if exists (select 1 from pg_extension where extname = 'pg_trgm') then
+    raise notice 'PASS 8  only pg_trgm beyond the Supabase baseline, as designed; D6 holds';
   else
-    raise notice 'PASS 8  no extension beyond the Supabase baseline; D6 holds';
+    raise notice 'PASS 8  no extension beyond the Supabase baseline (pre-0010); D6 holds';
   end if;
 end $$;
 

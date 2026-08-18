@@ -9,6 +9,7 @@
 > [`06-map-and-places-decision.md`](06-map-and-places-decision.md) (D2) ·
 > [`07-import-execution-model.md`](07-import-execution-model.md) (D3, D12) ·
 > [`08-place-identity.md`](08-place-identity.md) (D5, D6) ·
+> [`10-poi-index.md`](10-poi-index.md) (the POI index schema, MS5) ·
 > [`product-specification.md`](product-specification.md) (M2, acceptance criteria, cut order) ·
 > [`ux-architecture.md`](ux-architecture.md) (screens, states, motion) ·
 > [`security.md`](security.md) (interim; 12 owed items).
@@ -47,11 +48,11 @@ possible; milestones are always `MS9`.
 |----|----------|--------|-------------|
 | D1 | TikTok capability level and supported-content boundary | **CLOSED** — mechanism Level A (oEmbed, VERIFIED), product outcome **LEVEL B**: ~27% of genuine recommendations name a resolvable venue in caption text | `04` |
 | D1b | Instagram / YouTube status | **CLOSED** — both Deferred post-V1, with re-entry conditions recorded; no investigation performed, by design | `05` |
-| D2 | Map + places provider pair | **RECOMMENDED, pending Security review** — MapLibre GL v5 + Protomaps (CC0 style) + our own resolver over Overture Maps places, Nominatim capped fallback | `06` §11 |
+| D2 | Map + places provider pair | **CLOSED** — MapLibre GL v5 + Protomaps (CC0 style) + our own resolver over Overture Maps places, Nominatim capped fallback. Security sign-off taken 2026-08-18 by splitting `06` §11 rather than answering it as a block: Q1 answered, Q2 narrowed to the milestone that first writes an ODbL-derived row, Q3–Q7 open but incapable of changing an Overture-only schema | `06` §11 |
 | D3 | Import execution model | **CLOSED** — one `POST /api/imports` Node Route Handler streaming NDJSON. No queue, no worker, no Realtime | `07` |
 | D4 | Confidence model | **CLOSED** — resolution evidence is the only gate (`06` §6.2). Extraction contributes no confidence signal; `modelConfidence` is stored for measurement only, plus one pre-resolution plausibility filter | `09` §5 |
 | D5 | Place identity and dedup | **CLOSED** — our own uuid; `(provider, provider_place_id)` as aliases; 75 m + normalised-name + country secondary merge guard | `08` |
-| D6 | PostGIS vs plain lat/lng | **CLOSED** — no PostGIS. Two `double precision` columns, bbox `BETWEEN`, Haversine refine. No extensions | `08` |
+| D6 | PostGIS vs plain lat/lng | **CLOSED** — no PostGIS. Two `double precision` columns, bbox `BETWEEN`, Haversine refine. Scope clarified 2026-08-18: D6 is the *geometry* question. `pg_trgm` is permitted for the POI index's name prefilter (`10` §5) — it is not a geometry type, and `06` §5's cost model always assumed it | `08`, `10` |
 | D7 | LLM provider, model, abstraction shape | **CLOSED** — Anthropic `claude-haiku-4-5` in structured-output mode, one adapter behind the existing port; ~$0.003/import measured against a real caption, closing assumption B6. Escalation to `claude-sonnet-5` is one constant | `09` §2 |
 | D8 | Auth methods offered | **CLOSED** — Supabase Auth email + password only, judged on live-demo reliability; magic link rejected, OAuth deferred. One role, no RLS impact | `security.md` §2.5 |
 | D9 | Visual direction, map style, tokens | **PARTIALLY CLOSED** — UX architecture, screens, states, copy deck and five motion moments are specified; the token values and the forked Protomaps style are not authored | `technical-design.md` (written MS3; token values still owed) |
@@ -60,11 +61,12 @@ possible; milestones are always `MS9`.
 | D12 | Map shell and route topology | **CLOSED** — persistent `(map)` route-group layout owns one map instance; plain nested routes; no parallel/intercepting routes | `07` §11 |
 
 **Reading of the ledger:** every decision that would be expensive to reverse *after* code exists is
-now closed. MS1 shut the last five in one sitting (§4). What remains is D2's security sign-off — a
-review of an existing recommendation, not an open choice — and it gates MS5's places ingest, so MS2
-through MS4 can start against a settled design.
+now closed. MS1 shut five in one sitting, and the last one — D2's security sign-off — closed on
+2026-08-18 (§4). **The ledger has no open row.** Every milestone from MS5 onward builds on settled
+design; the next decision this project makes will be one it deliberately re-opens, not one it
+discovers.
 
-## 4. What MS1 closed, and the one decision still open
+## 4. What MS1 closed, and how the last open decision was closed
 
 **MS1 is complete (2026-08-18).** Five decisions closed in one sitting, exactly as §5 rule 6 intends —
 before the code they govern exists:
@@ -77,11 +79,14 @@ before the code they govern exists:
 | D8 auth methods | Email + password only, chosen on demo reliability | `security.md` §2.5 |
 | D10 test depth | Four tiers, 3 hd time-box | §13 below |
 
-**Still open, and it blocks MS5, not MS2:**
+**The last one, closed 2026-08-18 — and the manner of closing is the reusable part.** D2's
+sign-off had been sitting as a single gate over seven heterogeneous questions, so it could only be
+paid off in full or not at all, and it was not being paid off at all. The move was to ask a smaller
+question — *which of these can actually change the artefact MS5 produces?* — and answer that one:
 
-| Decision | Owner | Closes by | Blocking |
+| Decision | Owner | Closed by | Still blocking |
 |---|---|---|---|
-| D2 sign-off | Security-Privacy | Answering the 7 questions in `06` §11 — one of them (whether the OSM alias join contaminates stored data with share-alike obligations) changes the ingest design, so it is answered **before MS5** | MS5 places ingest |
+| D2 sign-off | Security-Privacy | **CLOSED 2026-08-18.** Not by answering all seven questions, but by establishing which of them can actually change the ingest: Q1 answered (and its first deliverable, the repo `NOTICE`, shipped), Q2 narrowed — the OSM alias join and the Nominatim fallback are both out of MS5, so no MS5 row is ODbL-derived and the POI index constrains `source_dataset` to make that enforceable rather than promised. Q2 re-opens on the first PR that adds an OSM alias, a Nominatim write, or a second dataset | Nothing. MS5 is unblocked |
 
 Nothing else may open a new decision. New ideas go to §21, per Charter §4.
 
@@ -110,7 +115,7 @@ Nothing else may open a new decision. New ideas go to §21, per Charter §4.
 | MS2 | Repo, toolchain, layering enforcement, both cloud projects, first preview deploy | M (2) | **DONE** — M5/M10 (course) mechanically work on day one | No |
 | MS3 | `technical-design.md` — the pre-implementation design document | M (2) | **DONE** — M4 (course), and that the build order below is real | No |
 | MS4 | Database: migrations 0001–0008, RLS forced, policy fixtures | L (3) | The data model of `08` exists and denies by default | No |
-| MS5 | Places index: Overture city extracts ingested; resolver + scorer ported from the benchmark | L (3) | `06` §6 scoring reproduces its 44-case results in TypeScript | No |
+| MS5 | Places index: the POI index schema + migration 0010, Overture city extracts ingested, resolver + scorer ported from the benchmark | L (5) | `06` §6 scoring reproduces its 44-case results in TypeScript | No |
 | MS6 | Import domain: canonicaliser, ports, `runImport`, events, error taxonomy — with unit tests | L (3) | The central business logic exists as pure, testable code | No |
 | MS7 | Integrations + the streaming route + **the Vercel re-proof** | L (3) | A real TikTok URL becomes real candidates **from a preview deployment** | No |
 | MS8 | Auth, app shell, design tokens, the persistent map layout (D12) | M (2) | One role, RLS-backed; the map object survives navigation | No |
@@ -195,7 +200,11 @@ Migrations are checked in, ordered, and applied in this sequence (`08` §3): `00
 
 - RLS `ENABLE` **and** `FORCE` on every table in the same migration that creates it. A table without
   a policy is a table nobody can read — that is the intended failure direction.
-- No extensions. D6 is "no PostGIS", and nothing else needs one.
+- **One extension, and only one: `pg_trgm`**, created by MS5's migration for the POI index name
+  prefilter (`10` §5). D6 is "no PostGIS" — a ruling about geometry types, not a ban on the
+  extension mechanism — and `06` §5 sized POI storage "with a trigram index" from the start. The
+  earlier absolute ("nothing else needs one") was written before the POI index was designed and is
+  withdrawn. `inventory.sql` check 8 enforces the allow-list, so a *second* extension is a FAIL.
 - `save_place()` is `SECURITY INVOKER` so the product's most important write stays governed by RLS;
   `resolve_place()` / `merge_places()` are `SECURITY DEFINER` and granted to `service_role` **only**.
   That grant list is load-bearing (`security.md` §1) and is a code-review checklist item, not a
@@ -244,8 +253,9 @@ overruns.
 Delivered: `09-extraction-and-resolution.md` (D7 + the D4 extraction half, with the output schema, the
 prompt contract, the injection posture, and the evaluation bars that feed MS15);
 `05-secondary-platforms.md` (D1b); the D8 ruling in `security.md` §2.5; the D10 sizing in §13.
-**Exit met:** the §3 ledger shows no OPEN row. The one remaining item is D2's security sign-off, which
-is a review of an existing recommendation rather than an open decision, and it gates MS5 (§4).
+**Exit met:** the §3 ledger shows no OPEN row. The one remaining item was D2's security sign-off, a
+review of an existing recommendation rather than an open decision; it gated MS5 and was closed
+2026-08-18 (§4).
 
 ### MS2 — Repo, toolchain, cloud projects, first deploy · M (2 hd) · **DONE 2026-08-18**
 Next.js + TypeScript strict, the four-layer folder skeleton with the `no-restricted-imports` zones
@@ -259,7 +269,7 @@ ESLint rejects a `domain/` → `next/server` import. Delivered: Next 16 + React 
 four-layer skeleton with the `no-restricted-imports` zones active, Vitest + Playwright (4/4 green
 against the deployment itself), CI workflow, the env-var matrix in `README.md`, and two Supabase
 projects in `eu-central-1` co-located with the Vercel function region. Setup record and reproduction
-steps: [`ms2-cloud-setup.md`](ms2-cloud-setup.md). No schema yet — that is MS5.
+steps: [`ms2-cloud-setup.md`](ms2-cloud-setup.md). No schema yet — that is MS4.
 
 ### MS3 — `technical-design.md` · M (2 hd) · **DONE 2026-08-18**
 The graded pre-implementation design (course M4): folder tree, component structure, schema DDL, the
@@ -302,14 +312,51 @@ locally, executing against a hosted project, and making a check exhaustive. Full
 what could **not** be fixed (the `supabase_admin` default privileges, and the static guard that
 compensates): [`ms4-database.md`](ms4-database.md).
 
-### MS5 — Places index and resolver · L (3 hd)
-Ingest Overture per-city extracts (Tel Aviv, Tokyo, London — the benchmark cities) into Postgres with
-the region scoping from `06` §6.1 step 2. Port the scorer from
-`evidence/places/resolve-overture-scored.py` to TypeScript, weights and thresholds in **one exported
-constant object**, with the 44-case benchmark as its regression test.
-**Exit:** the TypeScript scorer reproduces `06` §6.3 — 29/29 preselect correct, zero false
-auto-accepts. **Blocked by:** the OSM/share-alike answer in `06` §11 (see §4). **Overrun:** cut to
-two cities, never to zero scoping — the Padella result shows unscoped search is actively wrong.
+### MS5 — Places index and resolver · L (5 hd)
+Re-sized 3 → 5 hd and re-scoped on 2026-08-18 after review; the sizing came from the reserve (§15).
+
+**In scope, in this order:**
+1. **The POI index schema** — designed in [`10-poi-index.md`](10-poi-index.md), which is written and
+   reviewed *before* the migration, exactly as `technical-design.md` was written before MS4's SQL.
+   `technical-design.md` §130 named "our Postgres POI index" and nothing ever designed it; the whole
+   milestone rested on a table that did not exist.
+2. **Migration 0010** — `poi_regions` + `poi_index` + `pg_trgm`, plus the four columns `06` §0/§7.5
+   promised and MS4 did not ship: `places.source_dataset`, `source_dataset_id`, `resolution_score`,
+   `last_verified_at`. `inventory.sql` is extended so MS4's proof does not silently stop covering the
+   schema. **Written and executed 2026-08-18** against a throwaway `supabase/postgres:17.6.1.064`
+   container: `0001`–`0010` clean, `inventory.sql` `PASS 1`–`8`, the 19 MS4 policy assertions green,
+   independently re-run by a second session. Not yet run via `supabase db reset`, in CI, or on either
+   hosted project.
+3. **Ingest** of the Overture per-city extracts (Tel Aviv, Tokyo, London — the benchmark cities) with
+   the region scoping from `06` §6.1 step 2, against a **pinned** Overture release.
+4. **Port the scorer** from `evidence/places/resolve-overture-scored.py` to TypeScript, weights and
+   thresholds in **one exported constant object**, with the 44-case benchmark as its regression test.
+
+**Explicitly out of scope, and why:**
+- **The OSM alias join** (`06` §7.1a). It is the fix for Tel Aviv's 8/14, it is not optional
+  *eventually*, and it is not MS5 — it is the one thing that would drag ODbL into the schema and
+  re-open `06` §11 Q2, and it is a second dataset with its own proximity-join tuning. **MS5 therefore
+  ships Tel Aviv at its measured 8/14, knowingly.** Scheduled as its own milestone before MS15's
+  threshold re-fit, or cut to the Future list if the reserve is gone by then.
+- **The resolution cache** (`06` §6.4). Belongs with the code that makes provider calls — MS7.
+  Recorded here because it previously belonged to no milestone at all.
+
+**Exit — all four, checkable by someone else:**
+1. `inventory.sql` returns PASS 1–8 on both hosted projects with the new tables in the matrix, and
+   `pg_trgm` as the *only* extension beyond the Supabase baseline.
+2. The TypeScript scorer reproduces `06` §6.3 **band-for-band on all 44 cases** — 29 preselect / 12
+   confirm / 3 no_match, the same case in each band, and zero false auto-accepts. A case that drifts
+   preselect → confirm is a **failure**, not a pass with a smaller number: the bands are the contract.
+3. The per-case scores are golden-filed against `raw-overture-scored.json`, not just the band labels,
+   because the benchmark's numbers come from DuckDB's `jaro_winkler_similarity` and a TS
+   implementation differing in prefix scale by a few thousandths crosses the `margin ≥ 0.05` gate that
+   the zero-false-accept result rests on.
+4. The ingest is reproducible: same pinned release in, same row counts out, recorded.
+
+**Blocked by:** nothing. D2 sign-off closed 2026-08-18 (§4).
+**Overrun:** cut to two cities, never to zero scoping — the Padella result shows unscoped search is
+actively wrong. Do not cut the golden-file test to save time; it is the only thing standing between a
+ported scorer and a silently different one.
 
 ### MS6 — Import domain · L (3 hd)
 Items 1–4 of §9, against fake ports. No network, no database, no React.
@@ -422,7 +469,9 @@ visual appearance, and the LLM's output quality — that is measured by the gold
 The 12 owed items in `security.md` §3 are not one lump. They split three ways:
 
 - **Answer before the code they govern** (already scheduled): D8 → MS1; SSRF design → MS6 (the
-  canonicaliser *is* the boundary); the OSM alias share-alike question → before MS5 ingest.
+  canonicaliser *is* the boundary); the OSM alias share-alike question → **not** before MS5, which
+  ingests no ODbL data, but before the first PR that adds an OSM alias or a Nominatim write path
+  (`06` §11 Q2).
 - **Answer with the code**: caption-retention TTL, cached-source GC on user deletion, the
   `imports.candidates` grant, the tile-key posture, concrete rate limits — MS7 and MS11.
 - **Collect and write up**: the M9 document and QA's pre-submission checklist — MS14.
@@ -432,17 +481,26 @@ complete while it holds an unanswered ⚠.
 
 ## 15. Effort budget and reserve
 
-42 hd of estimated work against 38 hd of capacity does not fit, and pretending otherwise would be
-the most dangerous sentence in this document. The reserve is therefore taken from scope, not from
-time:
+**44 hd** of estimated work against 38 hd of capacity does not fit, and pretending otherwise would
+be the most dangerous sentence in this document. (42 hd until 2026-08-18, when MS5 was re-sized 3 → 5
+on review.) The reserve is therefore taken from scope, not from time:
 
-- **MS11, MS12 and MS15 (5 hd combined) are the declared reserve.** If MS5, MS7 or MS9 overrun, they
+- **MS11, MS12 and MS15 (5 hd combined) are the declared reserve.** If MS7 or MS9 overrun, they
   are consumed in the cut order of §16 before anything in the never-cut list is touched.
+  **2 hd of it is already spent:** MS5 was re-sized 3 → 5 hd on 2026-08-18, when the review found
+  it had been scoped as "port a scorer" while actually being "design a schema, migrate, ingest,
+  port a scorer" — the POI index table was named in `technical-design.md` §130 and never designed.
+  Spending the reserve deliberately at the point the estimate was found wrong is the intended use;
+  discovering it mid-milestone is not. **3 hd of reserve remains.**
 - **MS16's polish component (2 hd of the 4) is the second reserve.** The documents inside MS16 are
   graded; the motion is not.
-- That is **7 hd of recoverable scope**, which turns 42 hd into 35 hd against 38 available. The plan
-  fits only once at least the first 4 hd of it are actually cut — so the cut decisions are made when
-  a milestone overruns, not at the end when there is nothing left to trade.
+- That was **7 hd of recoverable scope**, of which **5 hd remains** after MS5's re-size. 44 hd less
+  5 hd is **39 hd against 38 available** — so the plan no longer fits even after cutting everything
+  currently declared cuttable, by roughly one half-day. This is recorded rather than smoothed over,
+  because it is the whole point of keeping the budget honest: **the next overrun of any size forces
+  a new cut decision, not a new reserve.** The candidate is MS10's near-me feature or MS9's third
+  failure-state recovery; neither is chosen yet, and neither is chosen until something actually
+  slips.
 
 ## 16. Cut lines, mapped onto milestones
 
@@ -532,4 +590,7 @@ measured non-Latin-script resolution gap (`06` §7).
 | 2026-08-18 | **MS3 complete.** `technical-design.md` written before any application code (`03` gap 3 satisfied). Seven schema/design reconciliations recorded in its §14 are now MS4 input |
 | 2026-08-18 | **MS4 started with a review.** Five further reconciliations (R8–R12) and one defect in `resolve_place`'s concurrency path found before transcription. Executing the schema then found a second, worse defect: both constraint trigger functions referenced a record the firing trigger does not have, which would have failed *every* `places` insert at COMMIT — invisible until the tests stopped rolling back without firing their deferred triggers (P7b). Migration set + 17-assertion authorisation proof green in CI. Staging then exposed a third defect that no local run could have found: the hosted default privileges had granted `authenticated` UPDATE/DELETE/**TRUNCATE** on three tables — TRUNCATE ignores RLS, so it was a path to wiping every user's rows. Closed by `0008` plus a static CI guard, since the defaults themselves are owned by `supabase_admin` and cannot be removed. A fourth defect followed from the same inventory: EXECUTE defaults to `PUBLIC`, so `0007`'s revoke-from-anon left `save_place` callable by `anon` (`0009`). Nine migrations; CI green; **staging applied and verified clean by `inventory.sql` (PASS 1–8); production still untouched, so MS4 is not closed**. Record: [`ms4-database.md`](ms4-database.md) |
 | 2026-08-18 | **MS4 complete.** Nine migrations applied to staging and production and verified there by `inventory.sql` (`PASS 1`–`8` on both, each run naming its own target); exit criteria P1/P2 green in CI. Five schema defects found and fixed: the `resolve_place` concurrency race (by review), two trigger functions referencing an unassigned record (by executing locally — one would have failed *every* `places` insert at COMMIT), `authenticated` holding UPDATE/DELETE/**TRUNCATE** on three tables from hosted default privileges (by executing against a hosted project — TRUNCATE ignores RLS, so it was a path to wiping every user's rows), and `anon`-callable `save_place` (EXECUTE defaults to `PUBLIC`). Two controls added beyond the milestone: `scripts/check-migration-grants.sh` in CI, and `inventory.sql` as the read-only check that may be pointed at production |
+| 2026-08-18 | **MS5 reviewed before it started, and unblocked.** The review found three blockers and four porting risks. (a) D2's sign-off was gating MS5 as an undifferentiated block of seven questions; it is closed by splitting it — Q1 answered and its `NOTICE` shipped, Q2 narrowed to the first PR that writes an ODbL-derived row, which MS5 is not, and made enforceable by a `source_dataset` constraint rather than a promise. (b) The POI index table was named in `technical-design.md` §130 and never designed, so MS5 began with a schema decision disguised as an implementation task; design first, in `10-poi-index.md`. (c) `06` §5 sized POI storage "with a trigram index" while §11 of this plan said "No extensions" and `inventory.sql` check 8 enforced it — decided in favour of `pg_trgm`, D6 scoped to the geometry question it actually answered, and check 8 turned from a soft NOTE into an allow-list FAIL. Also found: four columns `06` promised that MS4 never shipped, the resolution cache belonging to no milestone, and `region_loaded` missing from the §6 output type it appears in. MS5 re-sized 3 → 5 hd from the reserve; §15's arithmetic restated honestly — the plan is now ~1 hd over even after every declared cut |
+| 2026-08-18 | **MS5 step 1: the POI index designed and migration 0010 written.** [`10-poi-index.md`](10-poi-index.md) approved with all four of its §12 questions ruled as recommended. `0010_poi_index.sql` delivers `poi_regions` + `poi_index`, `pg_trgm`, the three seed regions, the four `places` columns `06` promised, and a **dropped-and-recreated** `resolve_place` — dropped rather than replaced because adding defaulted parameters creates an overload, and every existing 12-argument call would then fail as *not unique* at run time in the import path. Three decisions were made during implementation and are recorded in `10`: `pg_trgm` installs into `extensions`, not `public`, because in `public` its ~10 functions would each arrive `EXECUTE`-able by `PUBLIC` and break inventory check 6 a dozen times over; `norm_version` moved to `poi_regions`; and the seed rows must be inserted **before** `FORCE ROW LEVEL SECURITY`, which applies to the owner too on a table with no policy. One review claim was wrong and is corrected: the resolution cache table already existed as `place_lookups` (0007). **The migration has not been executed** — Docker unavailable locally, so no `supabase db reset`; CI's `database` job is the first real test |
+| 2026-08-18 | **0010 owned, corrected and executed by `supabase-database`** — the first task routed to a specialist rather than implemented centrally, which is now the standing rule. It found Docker running (the coordinating session had wrongly concluded otherwise from a timed-out `docker info`) and executed everything: seven defects, five of them findable only by running it. The two that mattered: **`service_role` had no explicit grant on either new table** — reaching them only through the `supabase_admin` default privileges that are deprecated and removed 2026-10-30, because BYPASSRLS skips the policy check and not the privilege check, which would have failed in the import path on a hosted project at run time; and **`name_norm` capped at 300** would reject legal Korean and Japanese names, since NFKD *decomposes* (a 300-character Hangul string measures 900 after normalisation) and one such row would take a whole 35 k-row COPY down. Also: `create schema if not exists` is not a safe no-op (Postgres checks CREATE on the database first), the seed-before-FORCE justification was false though the ordering stays, and a latent lng-before-lat column order in the seed. Verified independently from a clean container: `PASS 1`–`8`, 19/19 policy assertions. One claim was **not** confirmed on re-run — the combined prefilter's plan flipped between `Seq Scan` and `BitmapOr` on identical data, so index use is a cost decision to be re-measured on the real extract, not a property to write down |
 | 2026-08-18 | §20 submission checklist audited against reality: artefacts 2 (repo, ⚠ private) closed; 1 and 9 annotated with what already exists and what still gates them |
