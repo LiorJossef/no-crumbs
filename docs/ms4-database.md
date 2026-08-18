@@ -24,6 +24,7 @@ second defect, in the same class as the first and worse — §2. This file is th
 | `supabase/migrations/0007_functions.sql` | `place_lookups` (R11), `start_import()` (R10), `resolve_place()`, `save_place()`, `merge_places()` |
 | `supabase/tests/0008_policy_tests.sql` | The authorisation proof (acceptance P3), run in a rolled-back transaction (R12). Creates fixture users, so: local and staging only |
 | `supabase/tests/inventory.sql` | **Read-only** structural assertions — RLS forced, the exact policy set, the grant matrix down to the column, function grants, invariant triggers, no extensions. Writes nothing, `set transaction read only`, rolls back. The only check in the repo that may be pointed at production |
+| `scripts/check-migration-grants.sh` | Static guard over the migration set: RLS enabled+forced in the table's own file, and ALL revoked from both browser roles. The compensating control for §2.3 |
 | `.github/workflows/ci.yml` → `database` job | `supabase db reset` from zero, then the policy tests, then the inventory. A policy regression fails the build — and running the inventory here too is what keeps *its* expected matrix from drifting away from the migrations, since otherwise the check that guards production would itself be unguarded |
 | `package.json` | `supabase` CLI pinned to 2.115.0; `db:reset`, `db:test`, `db:verify` |
 
@@ -88,6 +89,40 @@ suite reported green on everything around them. Hence **P7b**: after the fixture
 `set constraints all immediate` flushes every queued event, so the happy path actually runs the
 triggers. Any deferred constraint added later must stay inside that checkpoint's reach or it inherits
 the same blind spot.
+
+### 2.3 The hosted default privileges, found by pointing the inventory at staging
+
+`inventory.sql` check 4, run against `p-002-staging`, found `authenticated` holding **UPDATE (every
+column), DELETE, TRUNCATE, REFERENCES and TRIGGER** on `profiles`, `saved_places` and
+`saved_place_sources` — the three tables where `08` §3 revoked only `from anon`. `sources` and
+`imports` said `from anon, authenticated` and were clean, which is what made the cause obvious.
+
+The hosted projects carry `ALTER DEFAULT PRIVILEGES` granting ALL on new entities in `public` to
+`anon` and `authenticated`. Locally the CLI's `auto_expose_new_tables` default is off, so a new table
+starts with no grants and the asymmetry is invisible: **the local CI run was green and would have
+stayed green forever.**
+
+The severe part is `TRUNCATE`. RLS is never consulted for it, so that grant was a path for any
+authenticated user to delete every user's `saved_places` — no policy, no row scoping, and no
+point-in-time recovery on a free-tier project. The wide `UPDATE` is the other half: it defeats the
+column-level grants that were supposed to make `user_id`, `place_id` and `origin` unexpressible
+rather than merely policy-checked (`08` §2.2 rule 3).
+
+`0008_revoke_hosted_defaults.sql` revokes everything from both browser roles on every table and
+sequence and re-grants the designed matrix verbatim in one readable block.
+
+**What could not be fixed:** those defaults are owned by **`supabase_admin`**, and the migration role
+cannot alter them. `0008` attempts it for both `postgres` and `supabase_admin` and reports what it
+could not do. So the condition is permanent: **every table a future migration creates in `public`
+arrives with ALL granted to both browser roles**, and only an explicit REVOKE closes it.
+
+Because a local `supabase db reset` looks correct either way, the guarantee cannot live in a test. It
+lives in `scripts/check-migration-grants.sh`, run in CI: for every `create table public.x`, it
+requires RLS enabled **and** forced in the same migration, and ALL revoked from **both** `anon` and
+`authenticated` by that migration or a later one. Verified non-vacuous by removing `0008` and
+confirming it names exactly the three tables that were actually open. `inventory.sql` check 0 now
+records the environment fact instead of failing on it; checks 4 and 5 remain the proof that the
+revokes took effect on a given database.
 
 ## 3. The five reconciliations, in one line each
 

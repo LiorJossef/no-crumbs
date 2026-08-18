@@ -13,24 +13,30 @@
 begin;
 set transaction read only;
 
--- ── 0. no default privilege hands new entities to a browser-reachable role ──────────────────
--- This is the check that caught the staging/local divergence of 0008: a hosted project created
--- before Supabase's always-revoked default carries ALTER DEFAULT PRIVILEGES granting ALL on new
--- tables in `public` to anon and authenticated. Every future migration would silently re-open what
--- 0008 closed, so this is asserted first and hard.
+-- ── 0. record what the default privileges do on THIS database ───────────────────────────────
+-- Not a failure, because it cannot be fixed from a migration. The hosted projects carry
+-- ALTER DEFAULT PRIVILEGES granting ALL on new tables/sequences/functions in `public` to `anon` and
+-- `authenticated`, and those defaults are owned by **supabase_admin**, which the migration role
+-- cannot alter (measured on p-002-staging 2026-08-18; 0008 tries and reports that it cannot).
+--
+-- The consequence is permanent and must be designed around: **every table a future migration creates
+-- in `public` arrives with ALL granted to both browser roles**, and only an explicit REVOKE closes
+-- it. Locally those defaults are absent, so a fresh `supabase db reset` looks correct either way —
+-- which is why the guarantee lives in `scripts/check-migration-grants.sh` (a static check over the
+-- migrations, run in CI) rather than in a test that would pass locally regardless. Checks 4 and 5
+-- below are what prove the revokes actually took effect on this database.
 do $$
 declare v text;
 begin
-  select string_agg(distinct format('%s: %s on %s owned by %s',
-                                    a.grantee::regrole, a.privilege_type, d.defaclobjtype,
-                                    d.defaclrole::regrole), ', ') into v
+  select string_agg(distinct format('%s→%s', a.grantee::regrole, d.defaclobjtype), ', ') into v
     from pg_default_acl d, aclexplode(d.defaclacl) a
    where d.defaclnamespace = 'public'::regnamespace
      and a.grantee::regrole::text in ('anon', 'authenticated');
-  if v is not null then
-    raise exception 'FAIL 0: default privileges still expose new entities to browser roles: %', v;
+  if v is null then
+    raise notice 'PASS 0  no default privilege grants anything in public to anon or authenticated';
+  else
+    raise notice 'NOTE 0  default privileges still expose NEW entities to browser roles (%). Not fixable from a migration: every future table MUST revoke explicitly — enforced by scripts/check-migration-grants.sh', v;
   end if;
-  raise notice 'PASS 0  no default privilege grants anything in public to anon or authenticated';
 end $$;
 
 -- ── 1. RLS is enabled AND forced on all nine tables ─────────────────────────────────────────
