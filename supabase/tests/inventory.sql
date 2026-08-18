@@ -15,9 +15,12 @@
 -- locked down, and two environments of the same project produce byte-identical PASS lines. Without
 -- this header, a run against staging is indistinguishable from a run against production — which is
 -- exactly how a production database ends up recorded as verified when nobody checked it.
--- Via the session pooler the username carries the project ref (postgres.<ref>), so \conninfo names
+-- Via the session pooler the username carries the project ref (postgres.<ref>), so the conninfo
 -- the project even though the server-side current_user does not.
--- pager off: interactive psql paginates \conninfo's table and stops the script at a `:` prompt.
+-- pager off: interactive psql paginates the conninfo table and parks the script at a prompt.
+-- NOTE: never write a backslash inside a comment in a psql script — psql executes backslash
+-- sequences even in `--` comments, so the word above (unescaped) would run the command again and
+-- leave the rest of the line to be parsed as SQL. That is exactly what broke this file once.
 -- Harmless in CI (non-tty), confusing for a human running it against production.
 \pset pager off
 \echo '--- inventory.sql target ---'
