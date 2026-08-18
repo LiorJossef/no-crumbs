@@ -1,9 +1,9 @@
 # MS4 — the schema, and what the review changed on the way in
 
 **Date:** 2026-08-18 · **Milestone:** MS4 · **Status:** nine migrations; CI green
-([32168400182](https://github.com/LiorJossef/P-002/actions/runs/32168400182)); **staging applied and
-verified clean**; **production not yet touched** — that is all that stands between here and the
-milestone's exit (§5). Four defects found and fixed along the way (§2)
+([32168400182](https://github.com/LiorJossef/P-002/actions/runs/32168400182)); **staging and production
+both applied and verified clean** (§5). **MS4 exit met.** Five defects found and fixed along the way,
+each by a different method (§2)
 
 MS4 was started with a review of the design rather than a transcription of it. `08` §3 carried the
 DDL, `07` §3 carried a competing version of two of its tables, and `technical-design.md` §14 had
@@ -221,6 +221,12 @@ fresh `supabase db reset` from `0001` on Postgres 17, then the policy tests):
   `supabase db reset`. It has **not** been run against staging itself; the structural inventory has.
   Running it there is optional and safe (it rolls back), but it creates fixture `auth.users` rows, so
   it must never be pointed at production.
-- **Production (`vtboskegexinvhasghri`) has nothing.** MS4's exit is not met until it does.
+- **Production is applied and independently verified.** Migrations `0001`–`0009` pushed to
+  `p-002-prod` (`vtboskegexinvhasghri`) on 2026-08-18; ledger local == remote; `inventory.sql`
+  returns `NOTE 0` + `PASS 1`–`PASS 8`, with the run's own header confirming the target
+  (`postgres.vtboskegexinvhasghri`, server `2a05:d014:415:502:…` — a different address from
+  staging's `:500`, so the two runs are demonstrably different databases).
+  The behavioural suite is **not** run against production and must not be: it creates fixture
+  `auth.users` rows. Production's proof is structural; the behavioural proof is CI's.
 - No performance claim has been tested. The index plan is reasoned (`08` §8, `technical-design.md`
   §4.5), not measured, and the row counts that would make it measurable arrive in MS5.
