@@ -601,6 +601,11 @@ applied when MS4 writes the migrations.
 | R5 | `07`'s idempotency index is on `(user_id, external_id)` | Restated as a partial unique index on `imports (user_id, source_id) where status in ('processing','review','no_places','failed')` |
 | R6 | `07` defers a `place_lookups` cache to D2; `06` §6.4 rules that open-data hits may be cached permanently and Nominatim hits for 90 days | The cache **exists**, behind `PlaceResolver`, keyed on `sha256(normalised_candidate + region_id + category_hint)`. The domain does not know whether it exists |
 | R7 | `08` grants the user `UPDATE (candidates)` on `imports`; `security.md` §3 item 9 asks whether that should be revoked | **Revoked in this design.** `candidates` is written only by the server that produced it; the user's only legitimate import writes are `status` (cancel) and `completed_at`. Nothing in the UI needs more, and a user-writable review payload is a needless forgery surface |
+| R8 | `07` says `sources` has **no** user-facing select policy at all; `08`/§4.3 give it a membership-gated SELECT including `content_text` | The **policy stands** — place detail and the rail's stage fact need `canonical_url`, `author_handle`, `author_name`, `thumbnail_url` — but **`content_text` is not in the grant to `authenticated`**. `07`'s objection was about the caption specifically, and no surface in the product displays post text (`ux-architecture` §12, `product-specification` V5/T5); its only consumer is `ContentExtractor` under the service role. RLS is row-level, so a column-level `GRANT` is the only mechanism that can withhold it — the same pattern `saved_places` already uses for UPDATE |
+| R9 | `07` has `imports.user_id → auth.users`; `08` has `→ profiles` | **`profiles`.** Which makes a profile row a hard precondition of the first import, and nothing in `08` created one: `handle_new_user()` on `auth.users` is added to `0002`. The user's own INSERT grant on `profiles` stays as the fallback if that trigger cannot be created on a hosted project |
+| R10 | `08` grants the user `INSERT` and `DELETE` on `imports`, and `imports_insert_own` checks only `user_id` — so a user could insert an import naming any `source_id` and thereby gain read access to that source row | **Both grants revoked; the INSERT policy is gone.** An import is created only by `start_import()` (`0007`), `SECURITY DEFINER`, `service_role` only, which inserts the pending `sources` row (R4) and the `imports` row in one transaction and returns the existing open import instead of a duplicate (R5). The forgery vector stops being a policy question. DELETE goes with it: `imports` is the audit and observability record of §7.5, `cancelled` is a status, and expiry belongs to the service role |
+| R11 | R6 rules that `place_lookups` exists, but `08` §3 gives it no DDL and MS4 is scoped to eight migrations | Created in **`0007`**, beside the resolver it serves. RLS enabled and forced, no grant and no policy to any browser-reachable role — it is a server-side cache. `expires_at` is nullable: null means cache permanently (open data), set means a TTL (`06` §6.4's 90 days for Nominatim). The caller decides, so the schema assumes no provider mix |
+| R12 | `08` §3.8 puts the policy tests in `supabase/migrations/0008_policy_tests.sql` | Moved to **`supabase/tests/0008_policy_tests.sql`**. A migration is applied to every environment and this file creates two fixture users in `auth.users`; those must never reach production. CI runs it against a fresh `supabase db reset`, inside a transaction that is rolled back, so acceptance **P3** is still a build gate |
 
 ---
 
@@ -663,6 +668,14 @@ a thing a reviewer might expect to see.
 
 ## Change log
 
+- **2026-08-18** — MS4 pre-flight review. Five further reconciliations (R8–R12) recorded above:
+  the caption is withheld by column grant, `profiles` wins the `user_id` reference and gains a
+  signup trigger, `imports` becomes server-created only, `place_lookups` gets a home, and the policy
+  tests move out of `migrations/`. Two defects in `08` §3's SQL fixed: `resolve_place`'s
+  concurrent-insert path left an aliasless `places` row that the deferred `places_alias_required`
+  trigger would have aborted the transaction over at COMMIT, and both constraint trigger functions
+  referenced a record that does not exist for the trigger that fires — which would have made *every*
+  `places` insert fail at COMMIT. Record: [`ms4-database.md`](ms4-database.md).
 - **2026-08-18** — First version. Assembles `04`, `06`, `07`, `08`, `09`, `ux-architecture` and
   `product-specification` into one design; rules on the seven reconciliations in §14; records the
   seven open items in §15. Written before MS4 writes any application code, per `03` gap 3.

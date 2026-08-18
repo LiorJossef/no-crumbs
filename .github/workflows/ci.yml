@@ -24,6 +24,10 @@ jobs:
       - run: npm run typecheck
       # MS2 exit criterion: the four-layer boundary is enforced, not aspirational.
       - run: npm run check:layers
+      # Every table created in public must revoke from both browser roles: the hosted projects grant
+      # ALL on new tables to anon and authenticated by default and the migration role cannot stop
+      # them, so a local `db reset` proves nothing here. See docs/ms4-database.md §2.3.
+      - run: npm run check:migrations
       - run: npm run test
 
   build:
@@ -75,3 +79,34 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  database:
+    name: migrations · RLS policy tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # The whole schema is rebuilt from zero on every run: that reproducibility IS the acceptance
+      # test for the migration set (08 §9). Only the services the policy tests need are started —
+      # the db and auth (auth.users is the fixtures' root). Studio, realtime, storage and the edge
+      # runtime would add minutes and prove nothing here.
+      - name: start local supabase (db + auth only)
+        run: npx supabase start -x realtime,storage-api,imgproxy,studio,edge-runtime,logflare,vector,supavisor,mailpit,postgres-meta
+      - name: rebuild the schema from migration 0001
+        run: npm run db:reset
+      # MS4's exit gate: user B's select of user A's saved_places returns zero rows, and a place is
+      # invisible to a user who has not saved it. A policy regression fails the build, not the exam.
+      - name: RLS policy tests (acceptance P3)
+        run: npm run db:test
+      # The same read-only inventory that gets pointed at staging and production. Running it here
+      # too means its expected grant/policy matrix cannot drift away from the migrations unnoticed —
+      # otherwise the check that guards production is itself unguarded.
+      - name: schema inventory (read-only)
+        run: npm run db:inventory
+      - name: stop
+        if: always()
+        run: npx supabase stop --no-backup

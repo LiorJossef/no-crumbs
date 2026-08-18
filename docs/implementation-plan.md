@@ -279,11 +279,28 @@ Also landed under MS3: `main` is protected by a local pre-push hook rather than 
 rulesets are Pro/Team-only on a private repo — and CI now runs Playwright in its own container
 image. Trade-off and limits: [`ms3-branch-protection.md`](ms3-branch-protection.md).
 
-### MS4 — Database · L (3 hd)
-The eight migrations, applied to both environments. Policy fixtures from `0008` seeded.
+### MS4 — Database · L (3 hd) · **DONE 2026-08-18**
+The migrations, applied to both environments. Policy fixtures from `0008` seeded.
 **Exit:** a SQL test proves user B's select of user A's `saved_places` returns zero rows, and that
 `places` is invisible to a user who has not saved it. **Overrun:** never cut — this is the graded
 core and the whole authorisation story.
+**Exit met:** `0008_policy_tests.sql` asserts both, as `authenticated` with `request.jwt.claims` set,
+green in CI against a fresh `supabase db reset`
+([32168400182](https://github.com/LiorJossef/P-002/actions/runs/32168400182)) — **P1** B reads zero
+rows of A's `saved_places`, **P2** `places` and `place_provider_refs` are invisible to a non-saver,
+plus 17 further assertions.
+Delivered **nine** migrations, not eight: `0008_revoke_hosted_defaults.sql` and
+`0009_function_grants.sql` were added for defects only a real deployment exposed, and the policy
+tests moved to `supabase/tests/` (R12) so fixture users can never reach production.
+Applied and **independently verified on both hosted projects** — `inventory.sql` returns `PASS 1`–`8`
+against `p-002-staging` and `p-002-prod`, each run identifying its own target: RLS enabled and forced
+on all nine tables, the exact sixteen policies, `anon` holding nothing, both grant matrices matching
+the design, only `save_place`/`km_between` reachable by a browser role, nine triggers enabled, no
+extension beyond baseline (D6 holds).
+Five defects in `08` §3's SQL were found and fixed, each by a different method — reading, executing
+locally, executing against a hosted project, and making a check exhaustive. Full record, including
+what could **not** be fixed (the `supabase_admin` default privileges, and the static guard that
+compensates): [`ms4-database.md`](ms4-database.md).
 
 ### MS5 — Places index and resolver · L (3 hd)
 Ingest Overture per-city extracts (Tel Aviv, Tokyo, London — the benchmark cities) into Postgres with
@@ -513,4 +530,6 @@ measured non-Latin-script resolution gap (`06` §7).
 | 2026-08-18 | **MS1 complete.** D7, D4, D1b, D8 and D10 closed (`09`, `05`, `security.md` §2.5, §13). Only D2's security sign-off remains, and it gates MS5 rather than MS2 |
 | 2026-08-18 | **MS2 complete.** Repo, toolchain, layer enforcement, both cloud projects, production deploy verified |
 | 2026-08-18 | **MS3 complete.** `technical-design.md` written before any application code (`03` gap 3 satisfied). Seven schema/design reconciliations recorded in its §14 are now MS4 input |
+| 2026-08-18 | **MS4 started with a review.** Five further reconciliations (R8–R12) and one defect in `resolve_place`'s concurrency path found before transcription. Executing the schema then found a second, worse defect: both constraint trigger functions referenced a record the firing trigger does not have, which would have failed *every* `places` insert at COMMIT — invisible until the tests stopped rolling back without firing their deferred triggers (P7b). Migration set + 17-assertion authorisation proof green in CI. Staging then exposed a third defect that no local run could have found: the hosted default privileges had granted `authenticated` UPDATE/DELETE/**TRUNCATE** on three tables — TRUNCATE ignores RLS, so it was a path to wiping every user's rows. Closed by `0008` plus a static CI guard, since the defaults themselves are owned by `supabase_admin` and cannot be removed. A fourth defect followed from the same inventory: EXECUTE defaults to `PUBLIC`, so `0007`'s revoke-from-anon left `save_place` callable by `anon` (`0009`). Nine migrations; CI green; **staging applied and verified clean by `inventory.sql` (PASS 1–8); production still untouched, so MS4 is not closed**. Record: [`ms4-database.md`](ms4-database.md) |
+| 2026-08-18 | **MS4 complete.** Nine migrations applied to staging and production and verified there by `inventory.sql` (`PASS 1`–`8` on both, each run naming its own target); exit criteria P1/P2 green in CI. Five schema defects found and fixed: the `resolve_place` concurrency race (by review), two trigger functions referencing an unassigned record (by executing locally — one would have failed *every* `places` insert at COMMIT), `authenticated` holding UPDATE/DELETE/**TRUNCATE** on three tables from hosted default privileges (by executing against a hosted project — TRUNCATE ignores RLS, so it was a path to wiping every user's rows), and `anon`-callable `save_place` (EXECUTE defaults to `PUBLIC`). Two controls added beyond the milestone: `scripts/check-migration-grants.sh` in CI, and `inventory.sql` as the read-only check that may be pointed at production |
 | 2026-08-18 | §20 submission checklist audited against reality: artefacts 2 (repo, ⚠ private) closed; 1 and 9 annotated with what already exists and what still gates them |
