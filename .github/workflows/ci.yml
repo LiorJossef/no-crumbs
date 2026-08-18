@@ -42,9 +42,12 @@ jobs:
     name: playwright
     runs-on: ubuntu-latest
     # Playwright's own image ships the browsers and their ~40 system libraries.
-    # `playwright install --with-deps` on a bare runner spent 6+ min in apt-get
-    # on every single run; this removes that step entirely. `--user 1001` is
-    # Playwright's documented CI pattern — Chromium's sandbox refuses to run as root.
+    # `playwright install --with-deps` on a bare runner is dominated by apt-get and
+    # its latency is wildly unstable — measured 2026-08-18 across four runs of this
+    # repo: 24s, 203s, and one still going at 6min+. The image pull replaces it at a
+    # steady 35-38s, so this is a smaller median and a far tighter spread.
+    # `--user 1001` is Playwright's documented CI pattern — Chromium's sandbox
+    # refuses to run as root.
     container:
       image: mcr.microsoft.com/playwright:v1.62.1-noble
       options: --user 1001
