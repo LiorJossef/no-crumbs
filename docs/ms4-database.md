@@ -90,17 +90,20 @@ suite reported green on everything around them. Hence **P7b**: after the fixture
 triggers. Any deferred constraint added later must stay inside that checkpoint's reach or it inherits
 the same blind spot.
 
-### 2.3 The hosted default privileges, found by pointing the inventory at staging
+### 2.3 Wide default privileges on three tables, found by the first inventory run
 
 `inventory.sql` check 4, run against `p-002-staging`, found `authenticated` holding **UPDATE (every
 column), DELETE, TRUNCATE, REFERENCES and TRIGGER** on `profiles`, `saved_places` and
 `saved_place_sources` — the three tables where `08` §3 revoked only `from anon`. `sources` and
 `imports` said `from anon, authenticated` and were clean, which is what made the cause obvious.
 
-The hosted projects carry `ALTER DEFAULT PRIVILEGES` granting ALL on new entities in `public` to
-`anon` and `authenticated`. Locally the CLI's `auto_expose_new_tables` default is off, so a new table
-starts with no grants and the asymmetry is invisible: **the local CI run was green and would have
-stayed green forever.**
+Both the hosted projects **and the local container** carry `ALTER DEFAULT PRIVILEGES` granting ALL on
+new entities in `public` to `anon` and `authenticated` (proven by check 0 failing in CI as well as on
+staging — an earlier draft of this file claimed the local database was clean, which was wrong). So the
+wide grants existed everywhere. What was missing was any check that looked: the policy tests prove
+behaviour under RLS and never inspect a grant, and `inventory.sql` did not exist until after the
+green runs. The lesson is not "staging differs from local", it is **"RLS passing is not the same as
+the privilege surface being right"**.
 
 The severe part is `TRUNCATE`. RLS is never consulted for it, so that grant was a path for any
 authenticated user to delete every user's `saved_places` — no policy, no row scoping, and no
@@ -123,6 +126,29 @@ requires RLS enabled **and** forced in the same migration, and ALL revoked from 
 confirming it names exactly the three tables that were actually open. `inventory.sql` check 0 now
 records the environment fact instead of failing on it; checks 4 and 5 remain the proof that the
 revokes took effect on a given database.
+
+### 2.4 `anon` could call `save_place`, found by inventory check 6
+
+Postgres grants EXECUTE on every newly created function to the pseudo-role `PUBLIC`. `0007` said
+`revoke all on function public.save_place(...) from anon`, which does nothing about a privilege held
+through `PUBLIC` — so `anon` retained EXECUTE. The three `SECURITY DEFINER` functions were fine
+precisely because `0007` revoked them `from public, anon, authenticated`; the inconsistency between
+those two lines is the whole bug.
+
+Impact was limited by `save_place` being `SECURITY INVOKER` with an `auth.uid() is null` guard, so an
+anon caller got an exception, not a write. It is still a callable entry point on the product's most
+important write, and `08` §5.1 says `anon` holds nothing.
+
+`0009_function_grants.sql` revokes EXECUTE on every function in `public` from `PUBLIC`, `anon` and
+`authenticated`, then grants back exactly two things to `authenticated` (`save_place`, `km_between`)
+and two to `service_role`. Inventory check 6 is now exhaustive in both directions, because with
+EXECUTE defaulting to `PUBLIC` an omission from that list is a grant to everyone rather than to
+nobody — the opposite of how table grants fail.
+
+One assumption is load-bearing there: trigger functions need no EXECUTE grant, because
+`CREATE TRIGGER` checks it at creation and firing does not re-check. Rather than leave that in a
+comment, the policy tests gained **P4b** — the owner updates their own overlay, which fires
+`touch_updated_at`. If the assumption is wrong, that test says so.
 
 ## 3. The five reconciliations, in one line each
 
@@ -153,6 +179,7 @@ the policies and not the client:
 | P5 | `content_text` unreadable; no INSERT on `imports`; `saved_places.user_id` not updatable; no write to global tables; `resolve_place`/`start_import`/`merge_places` not executable — seven separate `insufficient_privilege` expectations |
 | P6 | `anon` holds no grant on any of the nine tables |
 | P7 | two provider ids for one physical place resolve to one place with two aliases (the 75 m guard) |
+| P4b | the owner's granted-column UPDATE succeeds and fires `touch_updated_at` (the assumption 0009 rests on) |
 | P7b | every deferred constraint trigger queued by the fixtures and P7 executes cleanly — the checkpoint that closes the ROLLBACK blind spot of §2.2 |
 | P8 | the last provenance link of an `origin='import'` save cannot be detached |
 

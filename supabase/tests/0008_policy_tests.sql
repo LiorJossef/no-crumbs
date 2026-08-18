@@ -69,6 +69,23 @@ begin
   raise notice 'PASS setup  A saved the shared place with provenance, under RLS';
 end $$;
 
+-- P4b: a granted-column UPDATE by the owner must succeed AND fire touch_updated_at. This is the
+-- assertion that 0009's "trigger functions need no EXECUTE grant" claim rests on: if firing a
+-- trigger did require EXECUTE on its function, this is where it would break.
+do $$
+declare v_before timestamptz; v_after timestamptz;
+begin
+  select updated_at into v_before from public.saved_places limit 1;
+  perform pg_sleep(0.01);
+  update public.saved_places set note = 'edited by the owner';
+  if not found then raise exception 'FAIL P4b: the owner could not edit their own note'; end if;
+  select updated_at into v_after from public.saved_places limit 1;
+  if v_after <= v_before then
+    raise exception 'FAIL P4b: touch_updated_at did not fire (% -> %)', v_before, v_after;
+  end if;
+  raise notice 'PASS P4b owner edits their overlay and touch_updated_at fires';
+end $$;
+
 -- ── the two exit assertions of MS4, as user B ───────────────────────────────────────────────
 reset role;
 select set_config('request.jwt.claims',

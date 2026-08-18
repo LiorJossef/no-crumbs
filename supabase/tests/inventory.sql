@@ -170,28 +170,37 @@ begin
 end $$;
 
 -- ── 6. function execute privileges — the load-bearing grant list (security.md §1) ───────────
+-- Exhaustive, both directions: EXECUTE defaults to PUBLIC on every new function, so an omission
+-- here is a grant to everyone rather than a grant to nobody. That is how anon ended up able to call
+-- save_place (0009). has_function_privilege accounts for privileges held via PUBLIC.
 do $$
-declare
-  r record;
-  v text := '';
+declare v text;
 begin
-  for r in
-    select p.oid, p.proname::text n,
-           has_function_privilege('authenticated', p.oid, 'EXECUTE') auth_can,
-           has_function_privilege('anon', p.oid, 'EXECUTE') anon_can
+  with fns as (
+    select p.oid, p.proname::text n
       from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
      where ns.nspname = 'public'
-       and p.proname in ('resolve_place','merge_places','start_import','save_place')
-  loop
-    if r.n = 'save_place' then
-      if not r.auth_can then v := v || 'save_place not executable by authenticated; '; end if;
-    elsif r.auth_can then
-      v := v || r.n || ' executable by authenticated; ';
-    end if;
-    if r.anon_can then v := v || r.n || ' executable by anon; '; end if;
-  end loop;
-  if v <> '' then raise exception 'FAIL 6: function grant drift: %', v; end if;
-  raise notice 'PASS 6  resolve_place/merge_places/start_import are service_role only; save_place is the user path';
+  ), actual as (
+    select n, 'anon' role from fns where has_function_privilege('anon', oid, 'EXECUTE')
+    union all
+    select n, 'authenticated' from fns where has_function_privilege('authenticated', oid, 'EXECUTE')
+  ), expected(n, role) as (values
+    ('save_place','authenticated'),      -- the user-facing write, SECURITY INVOKER
+    ('km_between','authenticated')       -- the near-me query runs as the user
+    -- anon: nothing, ever (08 §5.1)
+    -- resolve_place / merge_places / start_import: service_role only
+    -- place_name_key: service_role only
+    -- touch_updated_at / assert_* / handle_new_user: nobody
+  )
+  select string_agg(format('%s %s→%s', kind, role, n), ', ' order by role, n) into v from (
+    select 'UNEXPECTED' kind, a.n, a.role from actual a
+      left join expected e on e.n = a.n and e.role = a.role where e.n is null
+    union all
+    select 'MISSING' kind, e.n, e.role from expected e
+      left join actual a on a.n = e.n and a.role = e.role where a.n is null
+  ) d;
+  if v is not null then raise exception 'FAIL 6: function grant drift: %', v; end if;
+  raise notice 'PASS 6  only save_place and km_between are reachable by a browser role; anon has nothing';
 end $$;
 
 -- ── 7. the triggers that carry invariants actually exist and are enabled ────────────────────
