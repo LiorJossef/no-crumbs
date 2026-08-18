@@ -15,7 +15,8 @@
     "check:layers": "bash scripts/check-layer-guard.sh",
     "db:reset": "supabase db reset",
     "db:test": "psql \"${DATABASE_URL:-postgresql://postgres:postgres@127.0.0.1:54322/postgres}\" -v ON_ERROR_STOP=1 -f supabase/tests/0008_policy_tests.sql",
-    "db:verify": "npm run db:reset && npm run db:test",
+    "db:inventory": "psql \"${DATABASE_URL:-postgresql://postgres:postgres@127.0.0.1:54322/postgres}\" -v ON_ERROR_STOP=1 -f supabase/tests/inventory.sql",
+    "db:verify": "npm run db:reset && npm run db:test && npm run db:inventory",
     "prepare": "git config core.hooksPath .githooks || true"
   },
   "dependencies": {

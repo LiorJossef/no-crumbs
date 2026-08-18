@@ -98,6 +98,11 @@ jobs:
       # invisible to a user who has not saved it. A policy regression fails the build, not the exam.
       - name: RLS policy tests (acceptance P3)
         run: npm run db:test
+      # The same read-only inventory that gets pointed at staging and production. Running it here
+      # too means its expected grant/policy matrix cannot drift away from the migrations unnoticed —
+      # otherwise the check that guards production is itself unguarded.
+      - name: schema inventory (read-only)
+        run: npm run db:inventory
       - name: stop
         if: always()
         run: npx supabase stop --no-backup

@@ -22,8 +22,9 @@ second defect, in the same class as the first and worse — §2. This file is th
 | `supabase/migrations/0005_places.sql` | `places`, `place_provider_refs`, the alias invariant trigger; RLS forced with **no policy yet** — deliberately deny-all until 0006 |
 | `supabase/migrations/0006_saved_places.sql` | `saved_places`, `saved_place_sources`, and the three cross-table membership policies that could not be written earlier |
 | `supabase/migrations/0007_functions.sql` | `place_lookups` (R11), `start_import()` (R10), `resolve_place()`, `save_place()`, `merge_places()` |
-| `supabase/tests/0008_policy_tests.sql` | The authorisation proof (acceptance P3), run in a rolled-back transaction (R12) |
-| `.github/workflows/ci.yml` → `database` job | `supabase db reset` from zero, then the policy tests. A policy regression fails the build |
+| `supabase/tests/0008_policy_tests.sql` | The authorisation proof (acceptance P3), run in a rolled-back transaction (R12). Creates fixture users, so: local and staging only |
+| `supabase/tests/inventory.sql` | **Read-only** structural assertions — RLS forced, the exact policy set, the grant matrix down to the column, function grants, invariant triggers, no extensions. Writes nothing, `set transaction read only`, rolls back. The only check in the repo that may be pointed at production |
+| `.github/workflows/ci.yml` → `database` job | `supabase db reset` from zero, then the policy tests, then the inventory. A policy regression fails the build — and running the inventory here too is what keeps *its* expected matrix from drifting away from the migrations, since otherwise the check that guards production would itself be unguarded |
 | `package.json` | `supabase` CLI pinned to 2.115.0; `db:reset`, `db:test`, `db:verify` |
 
 `supabase/config.toml` is the CLI default for Postgres 17, with one property worth knowing: new
@@ -146,7 +147,13 @@ fresh `supabase db reset` from `0001` on Postgres 17, then the policy tests):
 - Everything above is Postgres 17 in the local Docker image. The hosted projects are a different
   build and a different set of Supabase-managed roles; the auth-schema trigger is the statement most
   likely to behave differently there. `0002` carries its own fallback.
-- Nothing here has been applied to staging or production. **MS4's exit is not met until it has.**
-  That needs credentials, and it is the one remaining task in this milestone.
+- **Staging has the schema.** Applied 2026-08-18 to `p-002-staging` (`jfuqjzubphfhfleqnkno`,
+  `eu-central-1`, Postgres 17.6.1.155) with `supabase db push`; `supabase migration list --linked`
+  reports `0001`–`0007` local == remote, and `supabase inspect db index-stats` confirms all nine
+  tables with every named index, including `imports_open_one_per_source` (R5) and the `place_lookups`
+  pair (R11). What that does **not** prove is that RLS is forced, the grants survived, or the
+  `auth.users` trigger exists on the hosted build — `inventory.sql` is what proves those, and it has
+  not yet been run against staging.
+- **Production (`vtboskegexinvhasghri`) has nothing.** MS4's exit is not met until it does.
 - No performance claim has been tested. The index plan is reasoned (`08` §8, `technical-design.md`
   §4.5), not measured, and the row counts that would make it measurable arrive in MS5.
