@@ -17,6 +17,9 @@
 -- exactly how a production database ends up recorded as verified when nobody checked it.
 -- Via the session pooler the username carries the project ref (postgres.<ref>), so \conninfo names
 -- the project even though the server-side current_user does not.
+-- pager off: interactive psql paginates \conninfo's table and stops the script at a `:` prompt.
+-- Harmless in CI (non-tty), confusing for a human running it against production.
+\pset pager off
 \echo '--- inventory.sql target ---'
 \conninfo
 select current_database() as db, current_user as role,
