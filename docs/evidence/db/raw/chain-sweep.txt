@@ -1,0 +1,15 @@
+$ for a in 0 10000 90000 400000; do docker exec p002bench psql -U postgres -q -v add=$a -f /chain.sql; done
+# base table: 5,000,000 places. The bare integer is count(places where name_key=starbucks and country_code=IL).
+
+        10008
+ DEDUP-CHAIN bbox+haversine |   200 |  0.265 |  0.294 |  0.416 |      0.2
+ DEDUP-CHAIN postgis |   200 |  0.106 |  0.150 |  0.171 |      0.2
+        20008
+ DEDUP-CHAIN bbox+haversine |   200 |  0.274 |  0.317 |  0.359 |      0.4
+ DEDUP-CHAIN postgis |   200 |  0.116 |  0.251 |  0.343 |      0.4
+       110008
+ DEDUP-CHAIN bbox+haversine |   200 |  0.376 |  0.449 |  0.557 |      0.9
+ DEDUP-CHAIN postgis |   200 |  0.110 |  0.130 |  0.156 |      0.9
+       510008
+ DEDUP-CHAIN bbox+haversine |   200 |  0.496 |  0.665 |  1.030 |      1.0
+ DEDUP-CHAIN postgis |   200 |  0.167 |  0.287 |  0.351 |      1.0

@@ -1,0 +1,12 @@
+$ docker exec p002bench psql -U postgres -q -f /knn.sql      # 5,000,000 places, GiST present
+             label                | iters | p50_ms  | p95_ms  | max_ms  | avg_rows
+----------------------------------+-------+---------+---------+---------+----------
+ KNN-20 global, gist <-> operator |    50 |   0.070 |   0.708 |   0.875 |     20.0
+ KNN-20 global, haversine sort    |    50 | 338.778 | 344.210 | 348.628 |     20.0
+   (no usable index)
+
+$ docker exec p002bench psql -U postgres -q -f /knn2.sql     # haversine sort vs row count
+NOTICE:  rows=50000  : 8.538    (p95 ms)
+NOTICE:  rows=370000 : 25.222
+NOTICE:  rows=500000 : 32.284
+NOTICE:  rows=1000000 : 62.240
