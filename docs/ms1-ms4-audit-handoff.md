@@ -2,7 +2,8 @@
 
 > Written 2026-08-19. Status: **in progress, nothing committed.**
 > Branch `audit/ms1-ms4-fixes`, based on `main` at `21c4d17`. `ms5-design` @ `34a88f0` is untouched
-> and must stay that way. Tasks 1–5 done; resuming at task 6.
+> and must stay that way. Tasks 1–10 and 12 are done; **11 and 14 remain**, and the staging push of
+> `0011`–`0013` is the one open operational step.
 
 ## Why this branch exists
 
@@ -53,7 +54,8 @@ cross-user read does exist under FORCE RLS.
 | 9 | Tier 2 architecture: `@/app/_lib/*` out of the `ui` zone + `server-only`; declare `ImportStore` and `Clock`; canonicalise `runImport`, segment names, candidate cap 7, confidence enum | `nextjs-architect` | **done** |
 | 10 | Tier 2: commit `docs/evidence/db/01-bbox-vs-postgis.md` so no-PostGIS stops being ASSUMED | `supabase-database` | **done** → `b42b5d2` — measured in Docker at 50k/500k/5M: bbox wins every per-user query, the GiST index *is* chosen and loses (1.3 vs 158 ms p95 at 5M); D6 stands, A4 now VERIFIED |
 | 11 | Tier 2: write the twelve ADRs into `docs/adr/` | `product-lead` | **NOT STARTED** — next |
-| 12 | Fix the three `0011` defects task 4+5 logged (see below) — needs its own migration, `0013` | `supabase-database` | **NOT STARTED** |
+| 12 | Fix the three `0011` defects task 4+5 logged — needs its own migration, `0013` | `supabase-database` | **done** → `0013` + `0008_policy_tests.sql` P19c/P19d; executed in Docker |
+| 13 | Push `0011`–`0013` to staging and prove them there | coordinator + `devops-vercel` | **IN PROGRESS** — owner approved 2026-08-19; blocked only on `STAGING_DATABASE_URL` |
 | 14 | Tier 3 doc sync, `main`-resident files only (minus the `DATABASE_URL` entry, done by task 7) | `devops-vercel` + `qa-reliability` | **NOT STARTED** |
 
 **One task per session, from here on** — the owner's instruction as of 2026-08-19. Each row above is a
@@ -64,6 +66,7 @@ session's worth of work: read this file, do the one task, commit, update this le
 Working tree is **clean**; everything below is committed, nothing is pushed.
 
 ```
+8c90bd8  0013: give the second alias trigger the tombstone branch          (task 12)
 b42b5d2  Measure D6: bbox beats PostGIS on every query this schema issues  (task 10)
 f40cd85  Rest the ui boundary on server-only; declare the last two ports   (task 9)
 1f98fc4  0012: narrow the places grant, own the service_role matrix        (task 8)
@@ -78,8 +81,27 @@ bf81517  Grant guard: catch views, unparseable CREATEs, revoke ordering    (task
 
 Task 1's `inventory.sql` comment fix rode along in `9d7260a` rather than being split out of the file.
 
-`npm run verify` and `npm run check:migrations` are green. Migrations `0011` and `0012` are
-**local-only** — staging is at `0001`–`0009` and production has never seen either.
+`npm run verify` and `npm run check:migrations` are green. Migrations `0011`, `0012` and `0013` are
+**local-only** — staging is at `0001`–`0009` (re-read 2026-08-19, read-only `migration list`) and
+production has never seen any of the three. See "Staging push" below for the state of that step.
+
+## Staging push (task 13) — approved, part-executed
+
+The owner approved pushing `0011`–`0013` to staging **and** verifying them there, 2026-08-19. State as
+of that session:
+
+- Read-only `supabase migration list --project-ref jfuqjzubphfhfleqnkno`: remote holds `0001`–`0009`,
+  local `0011`/`0012`/`0013` pending. The pinned CLI is authenticated and can reach the project.
+- `DB_PUSH_DRY_RUN=1 npm run db:push:staging` ran **all guards green** and wrote nothing: the static
+  grant guard passed (9 relations, all revoked from both browser roles, RLS enabled+forced), the link
+  state already equals the staging ref, and `db push --dry-run` reports exactly the three expected
+  files.
+- **Blocked on one secret.** `STAGING_DATABASE_URL` is unset, and `db-push.sh` step 2b refuses to start
+  a push it cannot prove afterwards (an empty value would fall back to the local container and "prove"
+  a database never contacted). It is the session-mode pooler URI, password included, from the project's
+  Connect dialog. Put it in `.env.local` (gitignored via `.env.*`) and the push runs:
+  `set -a; . .env.local; set +a; DB_PUSH_CONFIRM=jfuqjzubphfhfleqnkno npm run db:push:staging`
+- Production is **not** in scope of that approval and must stay at `0001`–`0009` until staging is proven.
 
 ## Owner rulings already taken — do not re-litigate
 
@@ -97,7 +119,16 @@ Task 1's `inventory.sql` comment fix rode along in `9d7260a` rather than being s
 ## Next action
 
 **Task 11** — the twelve ADRs into `docs/adr/`, owner `product-lead`. One task per session:
-read this file, do task 11 only, commit, flip its ledger row, stop. Then 12, then 14.
+read this file, do task 11 only, commit, flip its ledger row, stop. Then 14.
+
+Task 12 is done (`8c90bd8`). Task 13, the staging push, is approved and half-executed — finish it
+before or alongside task 11; it does not conflict with the ADRs.
+
+**Sequencing ruling (2026-08-19, owner):** task 12 and the staging push were pulled forward ahead of
+task 11 because both are schema-resident, and MS5's first deferred item (`0010` re-creating
+`resolve_place` wholesale) will silently revert tasks 2, 3 and 12 unless they are in the tree and
+applied first. Task 11 is a record of decisions already documented in `06`–`09`; nothing in MS5 is
+blocked on `docs/adr/` existing, so it is the row that may slip.
 
 ### Tasks 4 + 5 outcome (2026-08-19, second session)
 
@@ -217,20 +248,62 @@ only the label and pointer in `02-risks-and-unknowns.md`, so `08-place-identity.
 and it is `ms5-design`-adjacent, the same reason §1.2's serialisation note was held back. Both edits
 should go together.
 
-## Task 12 — the three `0011` defects, awaiting a migration
+## Task 12 outcome (2026-08-19) — `8c90bd8`
 
-Logged by task 4+5, none fixed, all need a `0013`:
+All three `0011` defects are fixed. `supabase/migrations/0013_alias_invariant_tombstone_branch.sql`,
+plus comment-only edits inside `0011` and two new tests.
 
-1. **The tombstone exemption reached only one of the two alias triggers.** `0005:76`–`100`'s
-   `places_alias_required` / `assert_place_has_alias` has no tombstone branch, so a transaction that
-   creates a place and merges it away aborts at COMMIT with `place % has no provider ref`. Low
-   severity (merge is an operator path, normally its own transaction) but `0011`'s header claims a
-   scope that is not true. Fix: the same `merged_into_place_id is not null → return null` branch.
-2. **`0011:317`–`318`'s `::bigint` uncertainty can be closed** — the one-argument
-   `pg_advisory_xact_lock` has only the `bigint` overload. Comment-only.
-3. **`0011:70`–`72`'s comment is wrong** — `assert_place_alias_retained` fires only on alias DELETE /
-   UPDATE OF `place_id`, so nothing "complains" when a cyclic chain hands back a tombstone. The walk
-   is bounded; the loud half does not exist. Comment-only.
+1. **The tombstone exemption now reaches both alias triggers.** `0013` does
+   `create or replace function public.assert_place_has_alias()` with the same three branches its
+   `0011` twin has — place gone → `return null`; `merged_into_place_id is not null` → `return null`;
+   otherwise live and must hold ≥1 provider ref, keeping `0005`'s message and `errcode 23514`
+   verbatim so P17/P18's `'no provider ref'` match still discriminates between the two triggers. One
+   `select … into` + `if not found`, so "gone" and "tombstone" come from one snapshot. `create or
+   replace` keeps the oid, so `places_alias_required` stays the DEFERRABLE INITIALLY DEFERRED
+   constraint trigger inventory check 7b asserts. No table, column, policy, grant or trigger was
+   created or altered. `0011`'s documented scope is now true.
+2. **`0011:317`–`318`'s `::bigint` note corrected** — one-argument `pg_advisory_xact_lock` has exactly
+   one overload, `bigint` (the `(int,int)` form takes two), so `hashtext`'s integer widens
+   unambiguously and no cast is needed. Cross-referenced to P22, which reads the key back out of
+   `pg_locks`.
+3. **`0011:70`–`72`'s comment corrected** — a cyclic chain is now described as **bounded but silent**.
+   Verified rather than taken on trust: `resolve_place` step 1 returns `place_survivor_id(...)`
+   straight to the caller and neither deletes an alias nor updates `place_id`, so a pre-existing cycle
+   would be saved as a tombstone with no error. What prevents *new* cycles is `merge_places` rejecting
+   an already-merged winner or loser. This is what the two staging audit queries below are for.
+
+**Ruling: defects 2 and 3 were edited in `0011` in place, not restated in `0013`.** `0011` had never
+been applied anywhere, so the forward-only rule (`08` §9) had no applied artefact to protect, and the
+`::bigint` comment sits *inside* `resolve_place`'s body where a later file could not correct it without
+recreating the function. `0013` carries a block recording both edits and that no behaviour changed.
+
+**Verification.** Throwaway `supabase/postgres:17.6.1.064` container, `0001`–`0009` + `0011` + `0012`
++ `0013`, `auth.uid()` shim installed as `supabase_auth_admin`. Staging and production untouched.
+
+- `0008_policy_tests.sql`: **53 PASS + 1 UNPROVEN (P23), 0 errors** (was 51 + 1). New P19d: a
+  transaction that creates a place and merges it away in the *same* transaction now COMMITs cleanly.
+  New P19c: a live place with no provider ref is still rejected at the checkpoint.
+- `inventory.sql`: **15 PASS, 0 errors**. Correction to an earlier entry in this file: it emits 15 PASS
+  lines, not 11 — 0, 1, 2, 3, 4, 4b, 4c, 5, 6, 7, 7b, 8, 9, 9b, 9c.
+- Failing direction, both mutations: restoring `0005`'s body reproduces
+  `place <uuid> has no provider ref (identity invariant, 08 §1.6)` at P19d while P19c still passes;
+  gutting the check to `begin return null; end` fails P19c. P19c exists because the way to make P19d
+  pass by accident is to weaken the loud half.
+- `npm run verify` and `npm run check:migrations` green.
+
+**Deferred out of task 12, needing an owner:**
+
+1. **`0011`'s header §2 is still overstated** — "the invariant … is now enforced as one" was only half
+   true until `0013`. Left alone: the task authorised comment edits for defects 2 and 3 only, and
+   `0013`'s own header states the correction. One sentence in `0011` closes it. **Cosmetic; deferred
+   to task 14.**
+2. **`inventory.sql` check 1 says "nine tables"** while the audit prose and check 8's conditional say
+   eleven. It passes; the count may simply describe a nine-table local shape. Almost certainly the
+   same finding as the already-deferred "check 1's 11-table count needs the conditional check 8 has"
+   row — **folded into that `ms5-design` row, one fix, not two.**
+3. **`0008` cannot alter `supabase_admin`'s default privileges in the bare image** (three NOTICEs on
+   apply, by design). Confirms the container does not carry the hosted defaults, so
+   `check-migration-grants.sh` remains the only control that proves the revokes. No action.
 
 Also still open, from task 8: `place_provider_refs` is granted table-wide (`0005:98`) and
 `first_seen_at` carries the same row-age signal that `0012` removed from `places` — ruled acceptable,
