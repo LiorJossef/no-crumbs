@@ -447,6 +447,52 @@ begin
   raise notice 'PASS 6  only save_place and km_between are reachable by a browser role; anon has nothing';
 end $$;
 
+-- ── 6b. no function in `public` is overloaded, and resolve_place's argument list is the designed one ──
+-- WHY THIS EXISTS, and it is not hypothetical. 0010 as first written dropped the twelve-argument
+-- `resolve_place` and created a fifteen-argument one, while 0011 — a HIGHER-numbered file — did
+-- `create or replace` on the twelve-argument signature. In numeric order both signatures ended up
+-- present, and every twelve-argument call then failed at run time with
+-- `function public.resolve_place(...) is not unique` (42725) — in the import path, not in CI.
+-- MEASURED on supabase/postgres:17.6.1.064 with 0001–0013 applied in order; fixed by 0014.
+--
+-- Neither check 6 nor check 9c could see it: both match by proname, so a second overload merely adds
+-- a row that satisfies the same expectation. Overloading is therefore banned outright in `public`
+-- rather than enumerated — nothing in this design has a reason to overload, adding parameters with
+-- defaults is how the collision gets created by accident, and "one name, one function" is the
+-- property every by-name check in this file silently assumes.
+--
+-- The argument list is asserted too, positionally. `resolve_place` is the one function whose
+-- signature is a contract with the server-side caller (and with save_place's callers by proxy): a
+-- migration that reorders two `text` parameters would keep every other check in this file green and
+-- silently swap `locality` for `region` at every call site.
+do $$
+declare v text;
+begin
+  select string_agg(format('%s (%s overloads)', proname, n), ', ' order by proname) into v from (
+    select p.proname::text, count(*) n
+      from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
+     where ns.nspname = 'public'
+     group by 1 having count(*) > 1
+  ) d;
+  if v is not null then
+    raise exception 'FAIL 6b: overloaded function(s) in public: %. One name, one function — every by-name check in this file assumes it, and an accidental overload makes existing calls ambiguous at run time (0010/0011, fixed in 0014)', v;
+  end if;
+
+  select pg_get_function_identity_arguments(p.oid) into v
+    from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
+   where ns.nspname = 'public' and p.proname = 'resolve_place';
+  -- Names as well as types, because pg_get_function_identity_arguments prints both and the names are
+  -- part of the contract: Supabase's RPC layer and every named-argument call site bind by name.
+  if v is distinct from
+       'p_provider text, p_provider_place_id text, p_name text, p_lat double precision, '
+       'p_lng double precision, p_category text, p_provider_category text, p_address_line text, '
+       'p_locality text, p_region text, p_country_code character, p_provider_payload jsonb, '
+       'p_source_dataset text, p_source_dataset_id text, p_resolution_score real' then
+    raise exception 'FAIL 6b: resolve_place argument list is %, expected the fifteen-argument form 0014 installs (…, jsonb, text, text, real)', coalesce(v, '<no such function>');
+  end if;
+  raise notice 'PASS 6b no function in public is overloaded; resolve_place takes the designed fifteen arguments';
+end $$;
+
 -- ── 7. the triggers that carry invariants actually exist and are enabled ────────────────────
 do $$
 declare v text;
@@ -549,9 +595,19 @@ end $$;
 --   * `is_grantable` must be false everywhere. WITH GRANT OPTION would let the server role hand
 --     `authenticated` a privilege the design withholds — provider_payload on `places`, for instance —
 --     from inside application code, with no migration and nothing for check 4 to catch until after.
--- Relations, not just tables: the expected set names the nine tables, so a view or matview granted to
--- service_role shows up as UNEXPECTED. Any table a later migration adds must be named here, which is
--- the same discipline check 4 already imposes.
+-- Relations, not just tables: the expected set names every designed table, so a view or matview
+-- granted to service_role shows up as UNEXPECTED. Any table a later migration adds must be named
+-- here, which is the same discipline check 4 already imposes.
+--
+-- 0010's two POI tables are named in a SECOND set, with a different rule, and the difference is
+-- deliberate. 0010 grants them `select, insert, update, delete` and no TRUNCATE on purpose (a region
+-- reload is a scoped DELETE inside the load transaction, 10 §7), so the "exact ALL" rule above would
+-- report four MISSING verbs on a database where the hosted ALTER DEFAULT PRIVILEGES had stopped
+-- seeding — i.e. it would fail for doing the right thing. For these two the four verbs the loader
+-- needs are REQUIRED and the rest are TOLERATED, because on every real environment the hosted
+-- default hands service_role all eight and no migration role can take them back (0008, ms4-database
+-- §2.3). Tolerating excess for service_role on a rebuildable search index is not a boundary
+-- decision: these tables have no policy and zero grants to browser roles, which is checks 3 and 4.
 do $$
 declare v text;
 begin
@@ -564,8 +620,16 @@ begin
     -- service_role's boundary is key placement plus "a service-role query never filters by user_id",
     -- not privilege — a role with rolbypassrls cannot be fenced off these tables by grants.
     ('profiles'), ('imports'), ('saved_places'), ('saved_place_sources')
+  ), designed_crud(t) as (values
+    -- 0010: required four verbs, excess tolerated. See the note above.
+    ('poi_regions'), ('poi_index')
   ), expected as (
     select d.t, ap.p from designed d cross join all_privs ap
+    union all
+    select d.t, v.p from designed_crud d
+      cross join (values ('SELECT'), ('INSERT'), ('UPDATE'), ('DELETE')) v(p)
+  ), tolerated as (
+    select d.t, ap.p from designed_crud d cross join all_privs ap
   ), actual as (
     select c.relname::text t, a.privilege_type::text p, a.is_grantable g
       from pg_class c
@@ -577,7 +641,9 @@ begin
   )
   select string_agg(format('%s %s.%s', kind, t, p), ', ' order by t, p) into v from (
     select 'UNEXPECTED' kind, a.t, a.p from actual a
-      left join expected e on e.t = a.t and e.p = a.p where e.t is null
+      left join expected e on e.t = a.t and e.p = a.p
+      left join tolerated tl on tl.t = a.t and tl.p = a.p
+     where e.t is null and tl.t is null
     union all
     select 'MISSING' kind, e.t, e.p from expected e
       left join actual a on a.t = e.t and a.p = e.p where a.t is null
@@ -601,7 +667,7 @@ begin
     raise exception 'FAIL 9: service_role holds column-level grants (expected table-level ALL only): %', v;
   end if;
 
-  raise notice 'PASS 9  service_role holds ALL on exactly the nine designed tables, without grant option, and no column-level grant';
+  raise notice 'PASS 9  service_role holds ALL on exactly the nine designed tables and at least CRUD on the two POI tables, without grant option, and no column-level grant';
 end $$;
 
 -- ── 9b. the role attributes the whole model rests on, none of which is a grant ────────────────

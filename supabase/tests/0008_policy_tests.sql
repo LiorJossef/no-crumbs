@@ -1192,6 +1192,103 @@ begin
   raise notice 'PASS P22 resolve_place step 2 holds a transaction-scoped advisory lock keyed on (name_key, country_code)';
 end $$;
 
+-- ── P24: the three provenance parameters 0014 adds (06 §0, 0010's `places` columns) ──────────
+-- Without this the only new behaviour in 0014 is untested: the migration would be proven to APPLY
+-- and proven not to have lost 0011's fixes, and its actual purpose would rest on reading the body.
+-- Four claims, one per branch that can touch a provenance column:
+--   (a) step 3 (new place) persists all three;
+--   (b) step 2 (existing place, new provider alias) writes NO column of `places` — so an ODbL-marked
+--       row is not silently re-attributed to the provider that merely recognised it (06 §11 Q2);
+--   (c) step 1's refresh branch coalesces: a null from a caller never clobbers a known dataset, and
+--       resolution_score does move, because it describes the most recent resolution;
+--   (d) step 1's enrichment branch fills a missing dataset without writing the row when there is
+--       nothing to fill — the same ctid discipline P20 uses, for the same reason.
+do $$
+declare
+  v_a uuid; v_b uuid;
+  v_ds text; v_dsid text; v_score real; v_name text;
+  v_ctid_before tid; v_ctid_after tid;
+begin
+  set constraints all deferred;
+  -- (a) a genuinely new place, resolved with provenance
+  v_a := public.resolve_place('overture','prov-1','Provenance Cafe', 61.0, 61.0,
+                              'restaurant', null, null, null, null, 'IL', null,
+                              'overture-places', 'prov-gers-1', 0.91);
+  set constraints all immediate;
+  select source_dataset, source_dataset_id, resolution_score
+    into v_ds, v_dsid, v_score from public.places where id = v_a;
+  if v_ds is distinct from 'overture-places' or v_dsid is distinct from 'prov-gers-1'
+     or v_score is distinct from 0.91::real then
+    raise exception 'FAIL P24a: step 3 did not persist provenance (%, %, %)', v_ds, v_dsid, v_score;
+  end if;
+
+  -- (b) second provider, same venue inside the 75 m guard: alias only, no column of `places` written
+  select ctid into v_ctid_before from public.places where id = v_a;
+  set constraints all deferred;
+  v_b := public.resolve_place('osm','prov-2','Provenance Cafe', 61.0002, 61.0002,
+                              null, null, null, null, null, 'IL', null,
+                              'osm-nominatim', 'osm-node-2', 0.55);
+  set constraints all immediate;
+  if v_b <> v_a then
+    raise exception 'FAIL P24b: the 75 m guard did not recognise the same venue (% vs %)', v_b, v_a;
+  end if;
+  select ctid, source_dataset, source_dataset_id, resolution_score
+    into v_ctid_after, v_ds, v_dsid, v_score from public.places where id = v_a;
+  if v_ctid_after <> v_ctid_before then
+    raise exception 'FAIL P24b: the alias branch wrote the shared row (ctid moved)';
+  end if;
+  if v_ds <> 'overture-places' or v_dsid <> 'prov-gers-1' then
+    raise exception 'FAIL P24b: an alias-only match re-attributed the row to % / %', v_ds, v_dsid;
+  end if;
+
+  -- (c) refresh branch: force staleness, then resolve with a null dataset and a new score
+  update public.places set provider_fetched_at = now() - interval '400 days' where id = v_a;
+  perform public.resolve_place('overture','prov-1','Provenance Cafe Refreshed', 61.0, 61.0,
+                               null, null, null, null, null, 'IL', null,
+                               null, null, 0.42);
+  select name, source_dataset, source_dataset_id, resolution_score
+    into v_name, v_ds, v_dsid, v_score from public.places where id = v_a;
+  if v_name <> 'Provenance Cafe Refreshed' then
+    raise exception 'FAIL P24c: the stale copy was not refreshed (name=%)', v_name;
+  end if;
+  if v_ds <> 'overture-places' or v_dsid <> 'prov-gers-1' then
+    raise exception 'FAIL P24c: a null dataset argument clobbered a known one (% / %)', v_ds, v_dsid;
+  end if;
+  if v_score is distinct from 0.42::real then
+    raise exception 'FAIL P24c: resolution_score did not follow the most recent resolution (%)', v_score;
+  end if;
+
+  -- (d) enrichment branch: fresh copy, dataset missing → filled; nothing missing → no write at all
+  update public.places
+     set provider_fetched_at = now(), source_dataset = null, source_dataset_id = null
+   where id = v_a;
+  perform public.resolve_place('overture','prov-1','IGNORED BY A FRESH COPY', 61.0, 61.0,
+                               null, null, null, null, null, 'IL', null,
+                               'overture-places', 'prov-gers-1', 0.10);
+  select name, source_dataset, source_dataset_id, resolution_score
+    into v_name, v_ds, v_dsid, v_score from public.places where id = v_a;
+  if v_ds is distinct from 'overture-places' or v_dsid is distinct from 'prov-gers-1' then
+    raise exception 'FAIL P24d: a missing dataset was not enriched (% / %)', v_ds, v_dsid;
+  end if;
+  if v_name <> 'Provenance Cafe Refreshed' then
+    raise exception 'FAIL P24d: enrichment overwrote the name from a fresh copy (%)', v_name;
+  end if;
+  if v_score is distinct from 0.42::real then
+    raise exception 'FAIL P24d: enrichment moved resolution_score to %; that column is deliberately '
+      'absent from the enrichment branch so a repeat import does not write the shared row', v_score;
+  end if;
+  select ctid into v_ctid_before from public.places where id = v_a;
+  perform public.resolve_place('overture','prov-1','IGNORED AGAIN', 61.0, 61.0,
+                               null, null, null, null, null, 'IL', null,
+                               'overture-places', 'prov-gers-1', 0.99);
+  select ctid into v_ctid_after from public.places where id = v_a;
+  if v_ctid_after <> v_ctid_before then
+    raise exception 'FAIL P24d: a repeat resolve with nothing missing wrote the shared row anyway';
+  end if;
+
+  raise notice 'PASS P24 provenance: written on insert, never written by an alias-only match, coalesced on refresh, filled but not re-written on enrichment';
+end $$;
+
 -- ── P23: DELIBERATELY UNPROVEN — mutual exclusion under real concurrency ─────────────────────
 -- The invariant: two transactions resolving the SAME venue under two DIFFERENT provider ids must
 -- end with ONE places row. `08` §4 claims it as prevented ("unique (provider, provider_place_id) +
