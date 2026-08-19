@@ -8,7 +8,19 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 
 FIXTURE="src/domain/__layer_guard_violation__.ts"
-cleanup() { rm -f "$FIXTURE"; }
+UI_FIXTURE_DIR="src/ui/__layer_guard__/deep"
+UI_FIXTURE="$UI_FIXTURE_DIR/violation.tsx"
+INT_FIXTURE_DIR="src/integrations/__layer_guard__/deep"
+INT_FIXTURE="$INT_FIXTURE_DIR/violation.tsx"
+LIB_FIXTURE_DIR="src/app/_lib"
+LIB_FIXTURE="$LIB_FIXTURE_DIR/__layer_guard_violation__.ts"
+cleanup() {
+  rm -f "$FIXTURE" "$LIB_FIXTURE"
+  rm -rf src/ui/__layer_guard__ src/integrations/__layer_guard__
+  # Only remove _lib if the fixture created it; a real _lib has other files.
+  [ -d "$LIB_FIXTURE_DIR" ] && rmdir "$LIB_FIXTURE_DIR" 2>/dev/null
+  return 0
+}
 trap cleanup EXIT
 
 # --- Half 1: ESLint must reject each violation class. ---------------------------------
@@ -20,6 +32,26 @@ expect_eslint_rejects() {
     exit 1
   fi
   echo "OK: ESLint rejects $what."
+}
+
+# Same assertion, for a fixture outside domain/.
+expect_file_rejected() {
+  local file="$1" what="$2"
+  if npx eslint "$file" >/dev/null 2>&1; then
+    echo "FAIL: ESLint accepted $what. The layer guard is not enforcing." >&2
+    exit 1
+  fi
+  echo "OK: ESLint rejects $what."
+}
+
+expect_file_accepted() {
+  local file="$1" what="$2"
+  if ! npx eslint "$file" >/dev/null 2>&1; then
+    echo "FAIL: ESLint rejected $what, which is legal. The zone patterns are too broad." >&2
+    npx eslint "$file" >&2
+    exit 1
+  fi
+  echo "OK: ESLint allows $what."
 }
 
 cat > "$FIXTURE" <<'TS'
@@ -99,3 +131,102 @@ if scan_for_io src/domain; then
   exit 1
 fi
 echo "OK: src/domain contains no I/O."
+
+# --- Half 3: the ui/ and integrations/ zones, incl. the deep-relative escape. ----------
+# The earlier '../x/*', '../../x/*' enumerations missed a bare '@/integrations' and a
+# '../../../integrations/*' from a nested folder. These fixtures sit two levels deep on
+# purpose, so a regression to the enumerated form fails here rather than in review.
+mkdir -p "$UI_FIXTURE_DIR" "$INT_FIXTURE_DIR"
+
+cat > "$UI_FIXTURE" <<'TS'
+import x from '@/integrations';
+export const violation = x;
+TS
+expect_file_rejected "$UI_FIXTURE" "a ui/ -> bare '@/integrations' import"
+
+cat > "$UI_FIXTURE" <<'TS'
+import x from '../../../integrations/places/overture.place-resolver';
+export const violation = x;
+TS
+expect_file_rejected "$UI_FIXTURE" "a ui/ -> ../../../integrations/* import from a nested folder"
+
+cat > "$UI_FIXTURE" <<'TS'
+import { serviceClient } from '@/app/_lib/supabase-service';
+export const violation = serviceClient;
+TS
+expect_file_rejected "$UI_FIXTURE" "a ui/ -> @/app/_lib/* import (the server-only surface)"
+
+cat > "$UI_FIXTURE" <<'TS'
+import { serviceClient } from '../../../app/_lib/supabase-service';
+export const violation = serviceClient;
+TS
+expect_file_rejected "$UI_FIXTURE" "a ui/ -> ../../../app/_lib/* import from a nested folder"
+
+# The zone must not be so broad that it forbids the one legal ui/ -> app/ edge: a client
+# component importing a Server Action. If this fails the rule is over-reaching.
+cat > "$UI_FIXTURE" <<'TS'
+import { confirmImport } from '@/app/actions/confirm-import';
+export const legal = confirmImport;
+TS
+expect_file_accepted "$UI_FIXTURE" "a ui/ -> @/app/actions/* Server Action import"
+
+cat > "$INT_FIXTURE" <<'TS'
+import x from '@/ui';
+export const violation = x;
+TS
+expect_file_rejected "$INT_FIXTURE" "an integrations/ -> bare '@/ui' import"
+
+# Also proves integrationsZone covers *.tsx, not only *.ts.
+cat > "$INT_FIXTURE" <<'TS'
+import x from '../../../app/_lib/ports';
+export const violation = x;
+TS
+expect_file_rejected "$INT_FIXTURE" "an integrations/*.tsx -> ../../../app/* import"
+
+rm -rf src/ui/__layer_guard__ src/integrations/__layer_guard__
+
+# --- Half 4: server-only is the real client-bundle boundary, not lint. ----------------
+# `server-only` makes the *build* fail if a module reaches a client bundle. ESLint above is
+# the fast signal; this is the mechanism. Two things must hold: the dependency exists, and
+# every module in app/_lib declares it.
+if ! node -e "process.exit(require('./package.json').dependencies['server-only'] ? 0 : 1)"; then
+  echo "FAIL: 'server-only' is not a declared dependency. app/_lib's boundary rests on it (07 §10)." >&2
+  exit 1
+fi
+echo "OK: 'server-only' is a declared dependency."
+
+assert_lib_declares_server_only() {
+  local missing=0 f
+  [ -d "$LIB_FIXTURE_DIR" ] || return 0
+  while IFS= read -r f; do
+    if ! grep -q "['\"]server-only['\"]" "$f"; then
+      echo "  $f does not import 'server-only'." >&2
+      missing=$((missing + 1))
+    fi
+  done < <(find "$LIB_FIXTURE_DIR" -type f \( -name '*.ts' -o -name '*.tsx' \))
+  [ "$missing" -eq 0 ]
+}
+
+mkdir -p "$LIB_FIXTURE_DIR"
+cat > "$LIB_FIXTURE" <<'TS'
+export const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+TS
+if assert_lib_declares_server_only; then
+  echo "FAIL: a app/_lib module without 'server-only' was accepted. The check is decoration." >&2
+  exit 1
+fi
+echo "OK: an app/_lib module missing 'server-only' is flagged."
+printf "import 'server-only';\n%s\n" "export const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;" > "$LIB_FIXTURE"
+if ! assert_lib_declares_server_only; then
+  echo "FAIL: a correct app/_lib module was flagged. The check is wrong." >&2
+  exit 1
+fi
+echo "OK: an app/_lib module that imports 'server-only' passes."
+cleanup
+
+# The real tree must satisfy it too.
+if ! assert_lib_declares_server_only; then
+  echo "FAIL: some app/_lib module does not import 'server-only'. A secret can reach the browser." >&2
+  exit 1
+fi
+echo "OK: every app/_lib module (if any) imports 'server-only'."

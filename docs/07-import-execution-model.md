@@ -178,7 +178,7 @@ BROWSER                          ROUTE HANDLER (app layer)                DOMAIN
   |                                       | getOrCreateImport(user, videoId) |                              |
   |<--200 application/x-ndjson------------|  (idempotency, §6)               |                              |
   |<--{"t":"accepted","importId":...}-----|                                  |                              |
-  |                                       |--runImport(ports, deps)--------->|                              |
+  |                                       |--runImport(ports, input, ctx)--->|                              |
   |<--{"t":"stage","stage":"source",...}--|<---------emit--------------------| A. SourceAdapter.fetch ----->| cache? -> oEmbed
   |   rail: Reading the TikTok…           |                                  | ContentExtractor.extract     |
   |<--{"t":"stage",...,"status":"done",   |                                  |                              |
@@ -215,6 +215,14 @@ Notes on the diagram:
 ## 6. Decision D3b — persistence, idempotency, caching, resumption
 
 Two tables. Neither is a queue: **no process ever selects rows to work on.**
+
+> **Naming note (added by the MS1–MS4 audit).** The sketch below is the original D3 proposal. The
+> shipped schema reconciles it: the post id is `platform_source_id` in SQL / `Source.externalId` in
+> TypeScript (technical-design §14 R1), the six statuses are
+> `processing · review · no_places · completed · failed · cancelled` (R2), `source_id` is `NOT NULL`
+> with a pending row written at canonicalisation time (R4), and the idempotency index is on
+> `(user_id, source_id)` (R5). Where this section and `0003_sources.sql` differ, **the migration is
+> authoritative**; the rules in this section are unaffected by the rename.
 
 ```sql
 -- global, cross-user, one row per TikTok post
@@ -440,11 +448,11 @@ src/
   app/                                  # APP LAYER — Next.js only. Auth, rate limit, HTTP, streaming, redirects.
     (map)/layout.tsx                    #   owns the map instance (§11)
     (map)/map/page.tsx
-    (map)/place/[id]/page.tsx
+    (map)/place/[placeId]/page.tsx
     (map)/import/page.tsx
     (map)/import/[importId]/page.tsx    #   refresh-safe review (reads the imports row)
     api/imports/route.ts                #   POST → NDJSON stream. maxDuration=60, runtime='nodejs'
-    api/imports/[id]/route.ts           #   GET  → ImportOutcome (resume / reconnect)
+    api/imports/[importId]/route.ts      #   GET  → ImportOutcome (resume / reconnect)
     actions/confirm-import.ts           #   Server Action: the transactional save
     actions/add-place.ts                #   Server Action: manual place addition (capability 13)
   domain/                               # DOMAIN — pure TypeScript. No next/*, no vendor SDK, no fetch.
@@ -469,10 +477,34 @@ src/
     review/CandidateRow.tsx
 ```
 
-**Enforcement, not aspiration.** ESLint `no-restricted-imports` zones: `domain/**` may not import
-`next/*`, `react`, `@supabase/*`, `../app/**`, `../ui/**`, `../integrations/**`. One rule, checked in
-CI, quotable in the exam. Adapters are injected: `runImport(ports, input, signal)` takes its
-dependencies as an argument. **No DI container** — a function parameter is a dependency injection
+This is the seam-relevant subset; **`technical-design.md` §2 holds the complete tree** (it adds
+`signin/`, `account/`, `add-place/`, `_lib/`, `schemas.ts`, `budgets.ts`, the scorer and the rest).
+The dynamic segment names are canonical here and there: **`[placeId]` and `[importId]`**, never
+`[id]` — the segment name is the `params` key, so a shorthand in prose becomes a wrong property
+access in code.
+
+**Enforcement, not aspiration.** ESLint `no-restricted-imports` zones (`eslint.config.mjs`), each
+proved against a deliberate violating fixture by `npm run check:layers`:
+
+| Zone | May not import | Also enforced by |
+|---|---|---|
+| `domain/**` | `next/*`, `react`, `@supabase/*`, `@anthropic-ai/*`, `maplibre-gl`, `node:*`/`fs`/`http(s)`/`undici`/`axios`, the `fetch`/`XMLHttpRequest`/`navigator` globals, and any outer layer | a second, ESLint-independent grep over `src/domain` in `check-layer-guard.sh` |
+| `ui/**` | `integrations/**` — and `app/_lib/**`, which is the server-only surface (service-role client, secrets, rate limiter, composition root). The one legal `ui/ → app/` edge is importing a Server Action from `app/actions/*` | **`server-only`**: every module in `app/_lib/` imports it, so pulling one into a client bundle fails the *build*, not just the lint. `check-layers` asserts both the dependency and the per-file import |
+| `integrations/**` | `app/**`, `ui/**` | — |
+
+Each zone names four forms per forbidden layer — the `@/x` alias, the `@/x/**` subtree, the relative
+escape and its subtree at any depth — because an enumerated `'../x/*'`, `'../../x/*'` list lets a bare
+`@/x` and a `../../../x/*` from a deeper folder through.
+
+**Adapters are injected.** The canonical signature, declared once here and restated in
+`technical-design.md` §7:
+
+```ts
+runImport(ports: Ports, input: { userId: UserId; rawInput: string }, ctx: OpCtx): AsyncGenerator<ImportEvent>
+```
+
+`ctx` carries the `AbortSignal` (§7's 25 s deadline), the `importId` and the `Logger` — it is not a
+separate `signal` parameter. **No DI container** — a function parameter is a dependency injection
 framework that needs no explanation.
 
 ### Shared type vocabulary (one definition each, owned by `domain/types.ts`)
@@ -521,7 +553,11 @@ export interface SavedRecommendation {
 }
 ```
 
-### The four ports
+### The six ports
+
+Four vendor-facing ports (A–D) plus the two the orchestrator needs to be pure: a store and a
+clock. `domain/ports.ts` has always listed six; E and F are declared here so MS6 does not invent
+them.
 
 ```ts
 /** A. Acquire raw source material for one post. One adapter per platform. */
@@ -566,14 +602,69 @@ export interface PlaceResolver {
   search(query: string, hints: ResolveHints, ctx: OpCtx): Promise<ResolvedPlace[]>;  // the manual search sheet + capability 13
 }
 
+/** E. The import's record. Four methods — this is the whole persistence story (§6), and it is
+ *  deliberately NOT a repository base class or a Supabase client wrapper. Nothing here claims
+ *  work: `imports` is a record, not a queue. Every read Zod-parses the `candidates` jsonb.
+ *  The confirmation-time save (`resolve_place`/`save_place`) is NOT on this port — it belongs to
+ *  the Server Action's own store, because a place only exists after the user taps Save. */
+export interface ImportStore {
+  /** Idempotency (§6): returns the open import for (userId, externalId) or creates one. The
+   *  pending `sources` row is created in the same transaction (technical-design §14 R4). */
+  getOrCreateImport(userId: UserId, externalId: string, ctx: OpCtx): Promise<ImportRecord>;
+  /** Everything already computed for this import, so resumption is re-execution over cached
+   *  stage outputs: the `sources` row if fetched and fresh (30 days, §6), and the stored
+   *  extraction only when both versions match. Cache reads, never a work claim. */
+  loadCached(r: ImportRecord, v: ExtractorVersions, ctx: OpCtx): Promise<CachedStages>;
+  /** One stage's output plus its elapsed ms, written BEFORE the next stage starts (§6). */
+  recordStage(importId: ImportId, stage: ImportStage, out: StageOutput, ctx: OpCtx): Promise<void>;
+  /** The terminal write: status, `error_code`/`degraded_code`, final candidates, timings. */
+  finish(importId: ImportId, outcome: ImportOutcome, ctx: OpCtx): Promise<void>;
+}
+
+/** F. The only source of time in `domain/`. It exists so budgets and stage timings are
+ *  testable without a real clock: the 25 s global deadline, the per-attempt timeouts and the
+ *  jittered oEmbed backoff (§7) all go through it. `Date.now()`, `new Date()`, `setTimeout`
+ *  and `Math.random` in `domain/` are a bug, not a shortcut. */
+export interface Clock {
+  now(): Date;                                        // wall clock: `fetchedAt`, `expiresAt`
+  monotonicMs(): number;                              // stage timings; never wall-clock arithmetic
+  sleep(ms: number, signal: AbortSignal): Promise<void>;   // retry backoff, abortable
+  jitterMs(ms: number): number;                       // the ± spread on that backoff
+}
+
 export interface OpCtx { signal: AbortSignal; importId: ImportId; log: Logger }
+export interface Ports {
+  source: SourceAdapter; content: ContentExtractor[]; extractor: PlaceExtractor;
+  resolver: PlaceResolver; store: ImportStore; clock: Clock;
+}
 
 // Supporting shapes declared alongside, deliberately thin:
 // RawText   = { kind: 'caption'; text: string }
 // MediaRef  = { kind: 'video' | 'image'; url: string; expiresAt: Date | null }   // V1 emits none
 // ResolveHints = { cityHint: string | null; countryHint: string | null; near?: { lat: number; lng: number } }
 // SourceView   = Pick<Source,'externalId'|'canonicalUrl'|'authorHandle'|'thumbnailUrl'>  // what the UI may see
-// Confidence   = { level: 'confident' | 'ambiguous'; score: number }   // DERIVED from resolution evidence (D4)
+// ConfidenceBand = 'preselect' | 'confirm' | 'no_match'
+//                 — THE confidence enum. One vocabulary, thresholds owned by 06 §6.2:
+//                   preselect = score >= 0.92 AND margin >= 0.05 · confirm = score >= 0.80
+//                   · no_match = below. It maps 1:1 onto CandidateResolution's three statuses
+//                   (preselect -> resolved, confirm -> ambiguous, no_match -> unresolved), so
+//                   'confident'/'shortlist' are UI prose for a band, never type names.
+// Confidence   = { band: ConfidenceBand; score: number; margin: number }  // DERIVED from
+//                 resolution evidence (D4); the model's own confidence never gates anything
+// ImportStage  = 'source' | 'extract' | 'resolve' | 'done'      // the `imports.stage` column
+// ImportStatus = 'processing' | 'review' | 'no_places' | 'completed' | 'failed' | 'cancelled'
+//                 — canonical six, per technical-design §14 R2 and the shipped 0003 CHECK.
+//                   §6's SQL sketch above predates that ruling; the migration wins.
+// ImportRecord = { importId: ImportId; userId: UserId; externalId: string; sourceId: string;
+//                  status: ImportStatus; stage: ImportStage; attemptCount: number;
+//                  isIdempotent: boolean }   // sourceId is NOT NULL (R4: the pending row exists
+//                 before stage A); isIdempotent is what `start_import` (0007) returns and what the
+//                 `accepted` event's `idempotent` field carries
+// ExtractorVersions = { extractorVersion: string; promptVersion: string }
+// CachedStages = { source: Source | null; extraction: Extraction | null }
+// StageOutput  = { ms: number } & ( { stage: 'source'; source: Source }
+//                | { stage: 'extract'; extraction: Extraction }
+//                | { stage: 'resolve'; candidates: Candidate[]; degraded?: 'PLACE_PROVIDER_UNAVAILABLE' } )
 // Logger       = { event(name: string, fields: Record<string, string | number | boolean>): void }
 //                 — structured only; video ids yes, captions never (04 §8 Q8)
 ```
@@ -616,7 +707,7 @@ candidates before our own 7-cap applies (charter R10).
 
 ## 11. Decision D12 — map shell and route topology (answers UX question 2)
 
-**The risk, stated precisely.** UX wants `/place/[id]`, `/import`, `/import/[importId]` to be
+**The risk, stated precisely.** UX wants `/place/[placeId]`, `/import`, `/import/[importId]` to be
 deep-linkable and refresh-safe, *and* a map camera moved by exactly four things. In the App Router
 these fight only if the component holding the map instance **unmounts** on navigation — because a
 MapLibre/Mapbox `Map` object destroyed and re-created loses its camera, and a camera reset mid-demo
@@ -629,7 +720,7 @@ The mechanism, and why it works:
 
 1. `app/(map)/layout.tsx` renders `<MapCanvas />` (a client component that creates the map exactly
    once in a `useRef` on mount) **and** `{children}`.
-2. `/map`, `/place/[id]`, `/import`, `/import/[importId]` are all **plain nested routes inside that
+2. `/map`, `/place/[placeId]`, `/import`, `/import/[importId]` are all **plain nested routes inside that
    group**. In the App Router, navigating between siblings of a shared layout re-renders `children`
    and **preserves the layout's React tree and its client state**. `MapCanvas` therefore does not
    remount, and the map object survives every sheet open, sheet close, and back navigation.
@@ -638,7 +729,7 @@ The mechanism, and why it works:
    written down, because `{isOpen && <Map/>}` is the natural mistake and it is unrecoverable.
 4. The camera is written by exactly the four authorised movers, dispatched through a tiny
    `useMapCamera()` API on a context provided by the layout. **The route is not one of the movers.**
-   A leaf route may *request* a camera move on first mount (deep-linking to `/place/[id]` cold should
+   A leaf route may *request* a camera move on first mount (deep-linking to `/place/[placeId]` cold should
    frame that place — that is mover #1, "user selected a place"), but a re-render must not.
    Implementation: the request is keyed by `placeId` and guarded so it fires once per key.
 5. Belt and braces, ~10 lines: the map instance and its last camera live in a **module-scope
@@ -650,7 +741,7 @@ The mechanism, and why it works:
 **Cost:** essentially zero. One route group, one context, one `useRef`, one guarded effect. No
 `@slot` folders, no `default.tsx` puzzles, no intercepting-route matcher rules.
 
-**Why not parallel + intercepting routes** (`(.)place/[id]` into an `@sheet` slot), which is the
+**Why not parallel + intercepting routes** (`(.)place/[placeId]` into an `@sheet` slot), which is the
 canonical Next.js answer to "modal with a URL": they are the most bug-prone corner of the App Router,
 their `default.tsx` and hard-refresh-vs-soft-navigation semantics are genuinely hard to explain, and
 they solve a problem we do not have — we are not overlaying a modal on a *different page's* content,
@@ -661,7 +752,7 @@ without losing the list's scroll), intercepting routes become the right tool for
 and can be added for that route alone.
 
 **We do not need UX's pre-authorised cut.** Deep links survive. Record this as an ADR
-(`docs/adr/`) and as an acceptance test: *navigate `/map` → `/place/[id]` → back → `/import` → back;
+(`docs/adr/`) and as an acceptance test: *navigate `/map` → `/place/[placeId]` → back → `/import` → back;
 assert the map's `getCenter()`/`getZoom()` are unchanged and the map object identity is stable.* That
 Playwright assertion is the guard rail; without it this decision degrades silently the first time
 someone restructures a layout.

@@ -33,8 +33,16 @@ const layerZones = {
           { group: ['@supabase/*'], message: 'Vendor SDKs die in integrations/. Depend on a port instead.' },
           { group: ['@anthropic-ai/*'], message: 'Vendor SDKs die in integrations/. Depend on a port instead.' },
           { group: ['maplibre-gl', '@vis.gl/*'], message: 'Map rendering is UI-local. Not a domain concern.' },
-          { group: ['@/app/*', '@/ui/*', '@/integrations/*'], message: 'domain/ must not depend on an outer layer.' },
-          { group: ['../app/*', '../ui/*', '../integrations/*', '../../app/*', '../../ui/*', '../../integrations/*'], message: 'domain/ must not depend on an outer layer.' },
+          {
+            // Same four forms per layer as the ui/integrations zones below: alias, alias
+            // subtree, relative escape, relative subtree at any depth.
+            group: [
+              '@/app', '@/app/**', '../**/app', '../**/app/**',
+              '@/ui', '@/ui/**', '../**/ui', '../**/ui/**',
+              '@/integrations', '@/integrations/**', '../**/integrations', '../**/integrations/**',
+            ],
+            message: 'domain/ must not depend on an outer layer.',
+          },
         ],
       },
     ],
@@ -49,6 +57,14 @@ const layerZones = {
   },
 };
 
+/**
+ * Path-group note. `no-restricted-imports` matches `group` entries with gitignore
+ * semantics, so `x/**` covers every depth below `x` and `../ ** /x` covers a relative
+ * escape from any folder depth. The earlier `'../x/*'`, `'../../x/*'` enumerations let a
+ * bare `@/integrations` and a `../../../integrations/*` from a deeper folder through;
+ * each group below therefore names four forms: the alias, the alias subtree, the relative
+ * escape, and the relative subtree.
+ */
 const uiZone = {
   files: ['src/ui/**/*.ts', 'src/ui/**/*.tsx'],
   rules: {
@@ -56,7 +72,17 @@ const uiZone = {
       'error',
       {
         patterns: [
-          { group: ['@/integrations/*', '../integrations/*', '../../integrations/*'], message: 'ui/ talks to domain types, never to an adapter. Adapters are injected in app/.' },
+          {
+            group: ['@/integrations', '@/integrations/**', '../**/integrations', '../**/integrations/**'],
+            message: 'ui/ talks to domain types, never to an adapter. Adapters are injected in app/.',
+          },
+          {
+            // app/_lib holds the service-role client, the LLM key path, the rate limiter and the
+            // composition root. ESLint is the fast signal; `server-only` (07 §10) is the real
+            // mechanism — it fails the build if one of these modules reaches a client bundle.
+            group: ['@/app/_lib', '@/app/_lib/**', '../**/app/_lib', '../**/app/_lib/**'],
+            message: 'app/_lib is server-only (service-role client, secrets, rate limiter, composition root). ui/ may import a Server Action from app/actions/*, and nothing else from app/.',
+          },
         ],
       },
     ],
@@ -64,13 +90,21 @@ const uiZone = {
 };
 
 const integrationsZone = {
-  files: ['src/integrations/**/*.ts'],
+  // `.tsx` included deliberately: an adapter has no reason to contain JSX, and if one ever
+  // does the guard must still apply. Symmetric with the domain and ui zones.
+  files: ['src/integrations/**/*.ts', 'src/integrations/**/*.tsx'],
   rules: {
     'no-restricted-imports': [
       'error',
       {
         patterns: [
-          { group: ['@/app/*', '@/ui/*', '../app/*', '../ui/*', '../../app/*', '../../ui/*'], message: 'An adapter implements a domain port. It knows nothing about app/ or ui/.' },
+          {
+            group: [
+              '@/app', '@/app/**', '../**/app', '../**/app/**',
+              '@/ui', '@/ui/**', '../**/ui', '../**/ui/**',
+            ],
+            message: 'An adapter implements a domain port. It knows nothing about app/ or ui/.',
+          },
         ],
       },
     ],
