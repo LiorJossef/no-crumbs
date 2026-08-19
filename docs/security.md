@@ -185,7 +185,7 @@ exists.
 | 6 | Caption-retention posture: TTL, copyright and personal-data stance on storing creator captions and handles | `07` |
 | 7 | Whether cached `sources` rows must be GC'd after user deletion | `08` §10 |
 | 8 | ~~Whether `places.created_at` predating a save is an acceptable inference channel~~ — **CLOSED 2026-08-19, see §2.6**: acceptable; the grant is narrowed to a column list anyway, for `provider_payload` | `08` §10 |
-| 9 | Whether the user-writable `imports.candidates` grant should be revoked | `08` §10 |
+| 9 | ~~Whether the user-writable `imports.candidates` grant should be revoked~~ — **CLOSED.** Ruled in `technical-design.md` §14 (the seventh reconciliation) and applied in MS4's migrations: `authenticated` holds no `UPDATE (candidates)` grant. The row was stale, not open | `08` §10 |
 | 10 | Public tile-key posture: URL restriction, and what happens if it is scraped | `06` §11 |
 | 11 | Concrete per-user rate limits and the monthly cost ceiling | Charter §8 D11 |
 | 12 | The pre-submission security checklist for QA to execute | course M9 |
