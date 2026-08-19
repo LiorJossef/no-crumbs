@@ -8,7 +8,9 @@
 -- someone reaches for the dashboard.
 --
 -- Run:  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/inventory.sql
--- Design: docs/08-place-identity.md §3, §5.1; technical-design.md §4.3 and §14 R7/R8/R10/R11.
+-- Design: docs/08-place-identity.md §3, §5, §5.1; technical-design.md §4.3 and §14 R7/R8/R10/R11;
+-- docs/security.md §2.6 for the `places` column list (check 5) and the `service_role` matrix and role
+-- attributes (checks 9/9b/9c).
 
 -- ── identity: which database did this actually examine? ─────────────────────────────────────
 -- Not decoration. The output of this script is the evidence that a given environment is correctly
@@ -39,9 +41,12 @@ set transaction read only;
 --
 -- The consequence is permanent and must be designed around: **every table a future migration creates
 -- in `public` arrives with ALL granted to both browser roles**, and only an explicit REVOKE closes
--- it. Locally those defaults are absent, so a fresh `supabase db reset` looks correct either way —
--- which is why the guarantee lives in `scripts/check-migration-grants.sh` (a static check over the
--- migrations, run in CI) rather than in a test that would pass locally regardless. Checks 4 and 5
+-- it. The local container carries the same defaults — they are present everywhere (an earlier draft
+-- of docs/ms4-database.md claimed local was clean; that was wrong, see §2.3). A local
+-- `supabase db reset` therefore proves nothing about the revoke, because RLS passes with or without
+-- it and nothing in the policy tests inspects a grant. That is why the guarantee lives in
+-- `scripts/check-migration-grants.sh` (a static check over the migrations, run in CI) rather than
+-- in a test that would pass locally regardless. Checks 4 and 5
 -- below are what prove the revokes actually took effect on this database.
 do $$
 declare v text;
@@ -81,70 +86,188 @@ begin
 end $$;
 
 -- ── 2. the policy set is exactly the designed one, in both directions ───────────────────────
+-- Names AND predicates. The name set alone under-asserts badly: `drop policy
+-- saved_places_select_own; create policy saved_places_select_own on saved_places for select to
+-- authenticated using (true);` passes a name-only check and hands every user every other user's
+-- library. So `cmd`, `roles`, `qual` and `with_check` are all compared, in both directions.
+--
+-- The expressions are compared as pg_policies renders them (the deparsed form), normalised for
+-- cosmetic drift only: lowercased, whitespace collapsed, the space Postgres prints after `(`
+-- removed, the `AS uid` alias it invents for `(select auth.uid())` removed, and double quotes
+-- stripped. Nothing semantic is normalised away — `= (select auth.uid())` and `= true` do not
+-- normalise to the same string, which is the entire point.
+--
+-- If a future Postgres version deparses these predicates differently the check fails loudly with
+-- both strings printed side by side. That is the intended failure mode: a reviewer reads the two
+-- and updates the expected text, having actually looked at it. Silence would be worse.
+-- A missing predicate is stored as '' (not null) on both sides, so INSERT policies (no qual) and
+-- SELECT policies (no with_check) are asserted to have nothing rather than to have anything.
 do $$
 declare v text;
 begin
   with actual as (
-    select tablename::text t, policyname::text p from pg_policies where schemaname = 'public'
-  ), expected(t, p) as (values
-    ('profiles','profiles_select_own'), ('profiles','profiles_insert_own'),
-    ('profiles','profiles_update_own'),
-    ('sources','sources_select_via_membership'),
-    ('imports','imports_select_own'), ('imports','imports_update_own'),
-    ('extractions','extractions_select_via_source_membership'),
-    ('places','places_select_if_saved'),
-    ('place_provider_refs','ppr_select_if_place_saved'),
-    ('saved_places','saved_places_select_own'), ('saved_places','saved_places_insert_own'),
-    ('saved_places','saved_places_update_own'), ('saved_places','saved_places_delete_own'),
-    ('saved_place_sources','sps_select_own'), ('saved_place_sources','sps_insert_own'),
-    ('saved_place_sources','sps_delete_own')
+    select p.tablename::text t, p.policyname::text pol, p.cmd::text cmd,
+           array_to_string(p.roles, ',') roles,
+           btrim(regexp_replace(regexp_replace(replace(replace(lower(coalesce(p.qual, '')),
+                 ' as uid', ''), '"', ''), '\s+', ' ', 'g'), '\(\s+', '(', 'g')) q,
+           btrim(regexp_replace(regexp_replace(replace(replace(lower(coalesce(p.with_check, '')),
+                 ' as uid', ''), '"', ''), '\s+', ' ', 'g'), '\(\s+', '(', 'g')) w
+      from pg_policies p where p.schemaname = 'public'
+  ), expected(t, pol, cmd, roles, q, w) as (values
+    -- profiles: own row only, and a user may not create or rename someone else's profile
+    ('profiles','profiles_select_own','SELECT','authenticated',
+       '(id = (select auth.uid()))',''),
+    ('profiles','profiles_insert_own','INSERT','authenticated',
+       '','(id = (select auth.uid()))'),
+    ('profiles','profiles_update_own','UPDATE','authenticated',
+       '(id = (select auth.uid()))','(id = (select auth.uid()))'),
+    -- sources: the shared post cache, readable only via an import OR a save (08 §2.2 rule 1)
+    ('sources','sources_select_via_membership','SELECT','authenticated',
+       '((exists (select 1 from imports i where ((i.source_id = sources.id) and (i.user_id = (select auth.uid()))))) or (exists (select 1 from saved_place_sources sps where ((sps.source_id = sources.id) and (sps.user_id = (select auth.uid()))))))',''),
+    -- imports: own only. The UPDATE with_check is what stops a user re-parenting their import.
+    ('imports','imports_select_own','SELECT','authenticated',
+       '(user_id = (select auth.uid()))',''),
+    ('imports','imports_update_own','UPDATE','authenticated',
+       '(user_id = (select auth.uid()))','(user_id = (select auth.uid()))'),
+    -- extractions: the same two membership branches as sources (0011 added the second)
+    ('extractions','extractions_select_via_source_membership','SELECT','authenticated',
+       '((exists (select 1 from imports i where ((i.source_id = extractions.source_id) and (i.user_id = (select auth.uid()))))) or (exists (select 1 from saved_place_sources sps where ((sps.source_id = extractions.source_id) and (sps.user_id = (select auth.uid()))))))',''),
+    -- the two global tables: visible only to a user who saved the place
+    ('places','places_select_if_saved','SELECT','authenticated',
+       '(exists (select 1 from saved_places sp where ((sp.place_id = places.id) and (sp.user_id = (select auth.uid())))))',''),
+    ('place_provider_refs','ppr_select_if_place_saved','SELECT','authenticated',
+       '(exists (select 1 from saved_places sp where ((sp.place_id = place_provider_refs.place_id) and (sp.user_id = (select auth.uid())))))',''),
+    -- the library
+    ('saved_places','saved_places_select_own','SELECT','authenticated',
+       '(user_id = (select auth.uid()))',''),
+    ('saved_places','saved_places_insert_own','INSERT','authenticated',
+       '','(user_id = (select auth.uid()))'),
+    ('saved_places','saved_places_update_own','UPDATE','authenticated',
+       '(user_id = (select auth.uid()))','(user_id = (select auth.uid()))'),
+    ('saved_places','saved_places_delete_own','DELETE','authenticated',
+       '(user_id = (select auth.uid()))',''),
+    -- provenance. sps_insert_own's second conjunct is the no-borrowed-provenance rule: the source
+    -- must be one this user actually imported. Losing it would let a user attach any source id.
+    ('saved_place_sources','sps_select_own','SELECT','authenticated',
+       '(user_id = (select auth.uid()))',''),
+    ('saved_place_sources','sps_insert_own','INSERT','authenticated',
+       '','((user_id = (select auth.uid())) and (exists (select 1 from imports i where ((i.source_id = saved_place_sources.source_id) and (i.user_id = (select auth.uid()))))))'),
+    ('saved_place_sources','sps_delete_own','DELETE','authenticated',
+       '(user_id = (select auth.uid()))','')
+    -- place_lookups deliberately has no policy at all: deny-all server-side cache (R11)
   )
-  select string_agg(format('%s %s.%s', kind, t, p), ', ' order by t, p) into v from (
-    select 'UNEXPECTED' kind, a.t, a.p from actual a
-      left join expected e on e.t = a.t and e.p = a.p where e.t is null
+  select string_agg(msg, '; ' order by msg) into v from (
+    select format('UNEXPECTED %s.%s', a.t, a.pol) msg from actual a
+      left join expected e on e.t = a.t and e.pol = a.pol where e.t is null
     union all
-    select 'MISSING' kind, e.t, e.p from expected e
-      left join actual a on a.t = e.t and a.p = e.p where a.t is null
+    select format('MISSING %s.%s', e.t, e.pol) from expected e
+      left join actual a on a.t = e.t and a.pol = e.pol where a.t is null
+    union all
+    select format('DRIFT %s.%s: cmd %s vs %s, roles %s vs %s, qual [%s] vs [%s], with_check [%s] vs [%s]',
+                  e.t, e.pol, a.cmd, e.cmd, a.roles, e.roles, a.q, e.q, a.w, e.w)
+      from expected e join actual a on a.t = e.t and a.pol = e.pol
+     where a.cmd <> e.cmd or a.roles <> e.roles or a.q <> e.q or a.w <> e.w
   ) d;
   if v is not null then raise exception 'FAIL 2: policy drift: %', v; end if;
-  raise notice 'PASS 2  sixteen policies, exactly as designed (place_lookups, poi_regions and poi_index deliberately have none)';
+  raise notice 'PASS 2  sixteen policies, exact name/command/role/qual/with_check match (place_lookups, poi_regions and poi_index deliberately have none)';
 end $$;
 
 -- ── 3. anon holds nothing at all (08 §5.1) ──────────────────────────────────────────────────
+-- Three independent sweeps, because no single view sees everything:
+--   3a information_schema.role_table_grants — TABLE-level grants actually held, which is the level
+--      08 §5.1 is written at and the level a `grant select on <table> to anon` lands at. The
+--      previous version of this check consulted role_column_grants only; that view does expand a
+--      table grant per column, but it is the wrong instrument for a table-level claim and it says
+--      nothing at all about a relation with no columns visible to it.
+--   3b information_schema.role_column_grants — the column-level half (`grant select (col)`).
+--   3c pg_class + aclexplode — the catalogue itself. Two reasons it is not redundant: the
+--      information_schema `role_*` views only show rows whose grantor or grantee is a *currently
+--      enabled* role, so if the role running this script is not a member of `anon` both 3a and 3b
+--      can come back empty while the grant exists; and information_schema omits MATERIALIZED VIEWS
+--      entirely, so a matview granted to anon is invisible to 3a/3b by construction. 3c also
+--      catches a grant made to PUBLIC, which `anon` holds by virtue of being a role.
 do $$
 declare v text;
 begin
   select string_agg(distinct format('%s:%s', table_name, privilege_type), ', ') into v
+    from information_schema.role_table_grants
+   where grantee = 'anon' and table_schema = 'public';
+  if v is not null then raise exception 'FAIL 3a: anon holds table-level privileges: %', v; end if;
+
+  select string_agg(distinct format('%s.%s:%s', table_name, column_name, privilege_type), ', ')
+    into v
     from information_schema.role_column_grants
    where grantee = 'anon' and table_schema = 'public';
-  if v is not null then raise exception 'FAIL 3: anon holds privileges: %', v; end if;
-  raise notice 'PASS 3  anon holds no privilege on any table or column in public';
+  if v is not null then raise exception 'FAIL 3b: anon holds column-level privileges: %', v; end if;
+
+  select string_agg(distinct format('%s %s:%s(%s)', c.relkind, c.relname, a.privilege_type,
+                                    case when a.grantee = 0 then 'PUBLIC' else 'anon' end), ', ')
+    into v
+    from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace
+    cross join lateral aclexplode(c.relacl) a
+   where n.nspname = 'public'
+     and c.relkind in ('r', 'p', 'v', 'm', 'f')
+     and a.grantee in ('anon'::regrole, 0)          -- 0 = PUBLIC, which anon is a member of
+  ;
+  if v is not null then raise exception 'FAIL 3c: anon (or PUBLIC) holds relation privileges: %', v; end if;
+
+  select string_agg(distinct format('%s.%s:%s(%s)', c.relname, att.attname, a.privilege_type,
+                                    case when a.grantee = 0 then 'PUBLIC' else 'anon' end), ', ')
+    into v
+    from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace
+    join pg_attribute att on att.attrelid = c.oid and att.attnum > 0 and not att.attisdropped
+    cross join lateral aclexplode(att.attacl) a
+   where n.nspname = 'public'
+     and c.relkind in ('r', 'p', 'v', 'm', 'f')
+     and a.grantee in ('anon'::regrole, 0)
+  ;
+  if v is not null then raise exception 'FAIL 3d: anon (or PUBLIC) holds column privileges: %', v; end if;
+
+  raise notice 'PASS 3  anon holds nothing: no table, view, matview or column privilege in public, and none via PUBLIC';
 end $$;
 
--- ── 4. the table-level grant matrix for `authenticated` ─────────────────────────────────────
+-- ── 4. the relation-level grant matrix for `authenticated` ──────────────────────────────────
+-- Source changed from information_schema.role_table_grants to pg_class + aclexplode, on purpose:
+--   * information_schema does not list MATERIALIZED VIEWS at all, and its `role_*` views are
+--     limited to currently enabled roles;
+--   * the previous form filtered nothing by relkind but could only ever see tables and views,
+--     so `create materialized view public.m as select * from saved_places` — which runs with the
+--     owner's rights and therefore bypasses RLS entirely — was invisible to the runtime proof.
+-- This is the runtime half of the hole that scripts/check-migration-grants.sh now catches
+-- statically. `p` (partitioned), `f` (foreign) and `v`/`m` are all included: the expected set below
+-- contains only ordinary tables, so ANY grant on a view, matview, partitioned or foreign table
+-- shows up as UNEXPECTED and fails. 4b names the same condition separately, because "a view in
+-- public is readable by a browser role" deserves its own message rather than a drift entry.
 do $$
 declare v text;
 begin
   with actual as (
-    select table_name::text t, privilege_type::text p
-      from information_schema.role_table_grants
-     where grantee = 'authenticated' and table_schema = 'public'
+    select c.relname::text t, a.privilege_type::text p
+      from pg_class c
+      join pg_namespace n on n.oid = c.relnamespace
+      cross join lateral aclexplode(c.relacl) a
+     where n.nspname = 'public'
+       and c.relkind in ('r', 'p', 'v', 'm', 'f')
+       and a.grantee = 'authenticated'::regrole
   ), expected(t, p) as (values
     ('profiles','SELECT'), ('profiles','INSERT'),
     ('imports','SELECT'),
     ('extractions','SELECT'),
-    ('places','SELECT'),
     ('place_provider_refs','SELECT'),
     ('saved_places','SELECT'), ('saved_places','INSERT'), ('saved_places','DELETE'),
     ('saved_place_sources','SELECT'), ('saved_place_sources','INSERT'),
     ('saved_place_sources','DELETE')
     -- deliberately absent: every write on sources/extractions/places/place_provider_refs (global
     -- tables are server-written); INSERT and DELETE on imports (R10, start_import only); anything
-    -- at all on place_lookups (R11); table-level SELECT on sources (R8 — columns only, below);
-    -- anything at all on poi_regions/poi_index (10 §12 Q2 — the index is server-side only, because
-    -- a browser that can query it directly sits in front of no rate limiter). Those two need no
-    -- entry here to be checked: this comparison is exhaustive in both directions, so a leaked
-    -- grant on a new table appears as UNEXPECTED without anyone remembering to add it.
+    -- at all on place_lookups (R11); table-level SELECT on sources (R8 — columns only, below) and,
+    -- since 0012, table-level SELECT on `places` either (provider_payload is the raw provider
+    -- response and must not reach a browser — security.md §2.6; columns only, check 5); anything at
+    -- all on poi_regions/poi_index (10 §12 Q2 — the index is server-side only, because a browser
+    -- that can query it directly sits in front of no rate limiter). Those last two need no entry
+    -- here to be checked: this comparison is exhaustive in both directions, so a leaked grant on a
+    -- new table appears as UNEXPECTED without anyone remembering to add it.
   )
   select string_agg(format('%s %s.%s', kind, t, p), ', ' order by t, p) into v from (
     select 'UNEXPECTED' kind, a.t, a.p from actual a
@@ -154,18 +277,105 @@ begin
       left join actual a on a.t = e.t and a.p = e.p where a.t is null
   ) d;
   if v is not null then raise exception 'FAIL 4: table grant drift for authenticated: %', v; end if;
-  raise notice 'PASS 4  table-level grants for authenticated match the design';
+  raise notice 'PASS 4  relation-level grants for authenticated match the design (tables, views and matviews all inspected)';
 end $$;
 
--- ── 5. the column-level grants: R7/R8/R10 and the overlay-only UPDATE ───────────────────────
+-- ── 4b. views and matviews in `public`: the RLS-bypass surface ───────────────────────────────
+-- A view reads its underlying tables with its OWNER's privileges and, unless it was created WITH
+-- (security_invoker = true), is NOT subject to their RLS policies. One
+-- `create view public.v as select * from saved_places` is therefore a complete cross-user read of
+-- every user's library — and it needs no grant of its own if the hosted default privileges are
+-- still handing new relations to `authenticated`. A materialized view is worse: it cannot be
+-- security_invoker at all, so its contents are a permanent RLS-free copy of whatever it selected.
+--
+-- Two assertions, because a grant check alone is not enough. A view with no grant today is one
+-- dashboard `grant` away from being the hole, and the grant is the easy half to notice.
+--   4b-i  any view in public that is not security_invoker fails, whether or not it is granted;
+--   4b-ii any view or matview granted to anon, authenticated or PUBLIC fails.
+-- The V1 schema contains no view and no matview, so both pass trivially today and start failing the
+-- moment one appears. That is intended: a view is a deliberate decision that has to be argued for
+-- and then written into this check, not something that arrives quietly with a migration.
+-- This is the runtime half of the same hole scripts/check-migration-grants.sh now catches statically.
+do $$
+declare v text;
+begin
+  select string_agg(format('view %s (reloptions=%s)', c.relname,
+                           coalesce(array_to_string(c.reloptions, ','), 'none')), ', ') into v
+    from pg_class c join pg_namespace n on n.oid = c.relnamespace
+   where n.nspname = 'public' and c.relkind = 'v'
+     and not coalesce('security_invoker=true' = any (
+           select lower(replace(o, ' ', '')) from unnest(coalesce(c.reloptions, '{}')) o), false);
+  if v is not null then
+    raise exception 'FAIL 4b: view(s) in public run with owner rights and bypass RLS — create them WITH (security_invoker = true) or drop them: %', v;
+  end if;
+
+  select string_agg(distinct format('%s %s→%s(%s)',
+           case c.relkind when 'v' then 'view' else 'matview' end,
+           c.relname,
+           case when a.grantee = 0 then 'PUBLIC' else a.grantee::regrole::text end,
+           a.privilege_type), ', ') into v
+    from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace
+    cross join lateral aclexplode(c.relacl) a
+   where n.nspname = 'public'
+     and c.relkind in ('v', 'm')
+     and a.grantee in ('anon'::regrole, 'authenticated'::regrole, 0);
+  if v is not null then
+    raise exception 'FAIL 4b: view/matview reachable by a browser role (owner rights, RLS bypassed): %', v;
+  end if;
+
+  select string_agg(c.relname, ', ') into v
+    from pg_class c join pg_namespace n on n.oid = c.relnamespace
+   where n.nspname = 'public' and c.relkind = 'm';
+  if v is not null then
+    raise notice 'NOTE 4b materialized view(s) exist in public (%) — a matview cannot be security_invoker, so it must never be granted to a browser role', v;
+  end if;
+  raise notice 'PASS 4b no view bypasses RLS and no view or matview is granted to anon, authenticated or PUBLIC';
+end $$;
+
+-- ── 4c. nothing in `public` is granted to PUBLIC ─────────────────────────────────────────────
+-- Separate from 3c and 4 because a grant to PUBLIC is held by every role that exists now and every
+-- role created later, including `anon`, and it is not visible as an `anon` grant in
+-- information_schema. No migration in this repo grants a relation privilege to PUBLIC; the
+-- assertion is therefore absolute, and it is the check that would catch a dashboard-issued
+-- `grant select on <table> to public`.
+do $$
+declare v text;
+begin
+  select string_agg(distinct format('%s:%s', c.relname, a.privilege_type), ', ') into v
+    from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace
+    cross join lateral aclexplode(c.relacl) a
+   where n.nspname = 'public'
+     and c.relkind in ('r', 'p', 'v', 'm', 'f')
+     and a.grantee = 0;
+  if v is not null then raise exception 'FAIL 4c: relation privileges granted to PUBLIC: %', v; end if;
+  raise notice 'PASS 4c no relation privilege in public is granted to PUBLIC';
+end $$;
+
+-- ── 5. the column-level grants: R7/R8/R10, the overlay-only UPDATE, and the places read list ──
+-- Also moved off information_schema, for the same two reasons as check 4 (matviews absent, enabled
+-- roles only) and one more: pg_attribute.attacl holds ONLY real column grants, whereas
+-- role_column_grants also expands table-level grants per column. Every row in the expected set
+-- below is a genuine column grant — `authenticated` holds no table-level UPDATE anywhere and no
+-- table-level SELECT on `sources` or `places` — so the two sources agree on this schema, and the
+-- catalogue form keeps agreeing if a view or matview ever appears. A table-level UPDATE appearing by
+-- accident is caught by check 4, not here; both are needed — and that division matters for `places`:
+-- a `grant select on public.places to authenticated` re-exposes provider_payload while leaving the
+-- column grants below intact, so this check would still pass. Check 4 is the one that catches it.
 do $$
 declare v text;
 begin
   with actual as (
-    select table_name::text t, column_name::text c, privilege_type::text p
-      from information_schema.role_column_grants
-     where grantee = 'authenticated' and table_schema = 'public'
-       and (privilege_type = 'UPDATE' or table_name = 'sources')
+    select cl.relname::text t, att.attname::text c, a.privilege_type::text p
+      from pg_class cl
+      join pg_namespace n on n.oid = cl.relnamespace
+      join pg_attribute att on att.attrelid = cl.oid and att.attnum > 0 and not att.attisdropped
+      cross join lateral aclexplode(att.attacl) a
+     where n.nspname = 'public'
+       and cl.relkind in ('r', 'p', 'v', 'm', 'f')
+       and a.grantee = 'authenticated'::regrole
+       and (a.privilege_type = 'UPDATE' or cl.relname in ('sources', 'places'))
   ), expected(t, c, p) as (values
     -- profiles: display name only
     ('profiles','display_name','UPDATE'),
@@ -180,7 +390,14 @@ begin
     ('sources','platform_source_id','SELECT'), ('sources','canonical_url','SELECT'),
     ('sources','author_handle','SELECT'), ('sources','author_name','SELECT'),
     ('sources','thumbnail_url','SELECT'), ('sources','fetch_status','SELECT'),
-    ('sources','fetch_error_code','SELECT'), ('sources','fetched_at','SELECT')
+    ('sources','fetch_error_code','SELECT'), ('sources','fetched_at','SELECT'),
+    -- places: our own normalised columns only (0012). provider_payload — the raw provider response —
+    -- is the one that matters: table-wide SELECT shipped it to every co-saver's browser. Also
+    -- withheld: name_key, provider_fetched_at, merged_into_place_id, created_at, updated_at.
+    ('places','id','SELECT'), ('places','name','SELECT'), ('places','category','SELECT'),
+    ('places','provider_category','SELECT'), ('places','address_line','SELECT'),
+    ('places','locality','SELECT'), ('places','region','SELECT'),
+    ('places','country_code','SELECT'), ('places','lat','SELECT'), ('places','lng','SELECT')
   )
   select string_agg(format('%s %s.%s(%s)', kind, t, c, p), ', ' order by t, c, p) into v from (
     select 'UNEXPECTED' kind, a.t, a.c, a.p from actual a
@@ -190,7 +407,7 @@ begin
       left join actual a on a.t = e.t and a.c = e.c and a.p = e.p where a.t is null
   ) d;
   if v is not null then raise exception 'FAIL 5: column grant drift for authenticated: %', v; end if;
-  raise notice 'PASS 5  column grants match: caption withheld, overlay-only UPDATE, no forged review payload';
+  raise notice 'PASS 5  column grants match: caption and provider_payload withheld, overlay-only UPDATE, no forged review payload';
 end $$;
 
 -- ── 6. function execute privileges — the load-bearing grant list (security.md §1) ───────────
@@ -216,7 +433,7 @@ begin
     -- over — which is the reason for the schema choice, not a happy accident of it.
     -- anon: nothing, ever (08 §5.1)
     -- resolve_place / merge_places / start_import: service_role only
-    -- place_name_key: service_role only
+    -- place_name_key / place_survivor_id (0011): service_role only
     -- touch_updated_at / assert_* / handle_new_user: nobody
   )
   select string_agg(format('%s %s→%s', kind, role, n), ', ' order by role, n) into v from (
@@ -237,6 +454,11 @@ begin
   with expected(tbl, trg) as (values
     ('auth.users','on_auth_user_created'),               -- R9: the profile precondition
     ('public.places','places_alias_required'),           -- 08 §1.6: every place has an alias
+    -- 0011: the same invariant from the alias side. Deleting or re-pointing every alias of a LIVE
+    -- place left it with no provider identity at all; places_alias_required is AFTER INSERT ON
+    -- places and never saw it. Tombstones are exempt by ruling (08 §1.4/§1.6).
+    ('public.place_provider_refs','ppr_alias_retained_on_delete'),
+    ('public.place_provider_refs','ppr_alias_retained_on_move'),
     ('public.saved_places','saved_places_provenance_required'),
     ('public.saved_place_sources','sps_provenance_preserved'),
     ('public.profiles','profiles_touch'), ('public.sources','sources_touch'),
@@ -250,7 +472,37 @@ begin
       where t.tgname = e.trg and not t.tgisinternal
         and t.tgrelid = e.tbl::regclass and t.tgenabled = 'O');
   if v is not null then raise exception 'FAIL 7: missing or disabled trigger(s): %', v; end if;
-  raise notice 'PASS 7  all nine invariant/touch triggers exist and are enabled';
+  raise notice 'PASS 7  all eleven invariant/touch triggers exist and are enabled';
+end $$;
+
+-- ── 7b. the four invariant triggers are CONSTRAINT triggers, deferred to COMMIT ──────────────
+-- Not cosmetic. Each of these invariants is only true at the END of a legitimate multi-statement
+-- operation: resolve_place inserts the place before its alias, save_place the saved place before
+-- its source row, and an alias replacement is a delete followed by an insert. Recreated as a plain
+-- (immediate) trigger, every one of those correct sequences starts failing mid-transaction — and
+-- the failure would look like a bug in the caller, not like trigger drift. tgconstraint <> 0 is
+-- what makes it a constraint trigger; tgdeferrable + tginitdeferred are what make it fire at
+-- COMMIT and, with it, what make `set constraints all immediate` in the policy tests meaningful.
+do $$
+declare v text;
+begin
+  with expected(tbl, trg) as (values
+    ('public.places','places_alias_required'),
+    ('public.place_provider_refs','ppr_alias_retained_on_delete'),
+    ('public.place_provider_refs','ppr_alias_retained_on_move'),
+    ('public.saved_places','saved_places_provenance_required'),
+    ('public.saved_place_sources','sps_provenance_preserved')
+  )
+  select string_agg(format('%s on %s (constraint=%s deferrable=%s initdeferred=%s)',
+                           e.trg, e.tbl, t.tgconstraint <> 0, t.tgdeferrable, t.tginitdeferred),
+                    ', ') into v
+    from expected e
+    join pg_trigger t on t.tgname = e.trg and t.tgrelid = e.tbl::regclass and not t.tgisinternal
+   where not (t.tgconstraint <> 0 and t.tgdeferrable and t.tginitdeferred);
+  if v is not null then
+    raise exception 'FAIL 7b: invariant trigger(s) not DEFERRABLE INITIALLY DEFERRED constraint triggers: %', v;
+  end if;
+  raise notice 'PASS 7b all five invariant triggers are constraint triggers deferred to COMMIT';
 end $$;
 
 -- ── 8. only the allow-listed extensions exist (D6: no PostGIS, no geohash) ──────────────────
@@ -278,6 +530,144 @@ begin
   else
     raise notice 'PASS 8  no extension beyond the Supabase baseline (pre-0010); D6 holds';
   end if;
+end $$;
+
+-- ── 9. the `service_role` relation matrix — the trusted server path, asserted not assumed ────────
+-- Until 0012 nothing in this repo granted `service_role` a single table privilege. Every server-side
+-- read and write in `08` §5 ran on Supabase's ALTER DEFAULT PRIVILEGES (`service_role=arwdDxtm` on new
+-- tables in `public`, owned by postgres and supabase_admin), which no migration states and no check
+-- looked at. That fails closed, so it was never an exposure — but it was unproven in both directions:
+-- if the defaults ever stop being seeded the server path breaks at runtime with CI green, and if
+-- someone hand-narrowed it in the dashboard nothing would say so.
+--
+-- 0012 grants the matrix explicitly, so this check can be exact in both directions on every
+-- environment. Two deliberate choices:
+--   * the expected privilege SET is not hard-coded, it is `acldefault('r', ...)` — the full set of
+--     privileges Postgres considers applicable to a table on THIS server version. PG17 added
+--     MAINTAIN, so a literal seven-verb list would have been wrong on 17 and a literal eight-verb
+--     list wrong on 15. The design statement is "ALL", and this is how you write ALL as a set.
+--   * `is_grantable` must be false everywhere. WITH GRANT OPTION would let the server role hand
+--     `authenticated` a privilege the design withholds — provider_payload on `places`, for instance —
+--     from inside application code, with no migration and nothing for check 4 to catch until after.
+-- Relations, not just tables: the expected set names the nine tables, so a view or matview granted to
+-- service_role shows up as UNEXPECTED. Any table a later migration adds must be named here, which is
+-- the same discipline check 4 already imposes.
+do $$
+declare v text;
+begin
+  with all_privs(p) as (
+    select a.privilege_type::text from aclexplode(acldefault('r', 'service_role'::regrole)) a
+  ), designed(t) as (values
+    -- the global cache and the provider cache: `08` §5's whole justification for elevation
+    ('sources'), ('extractions'), ('places'), ('place_provider_refs'), ('place_lookups'),
+    -- user-owned. Held by hosted default, kept by ruling (0012 header part 2, security.md §2.6):
+    -- service_role's boundary is key placement plus "a service-role query never filters by user_id",
+    -- not privilege — a role with rolbypassrls cannot be fenced off these tables by grants.
+    ('profiles'), ('imports'), ('saved_places'), ('saved_place_sources')
+  ), expected as (
+    select d.t, ap.p from designed d cross join all_privs ap
+  ), actual as (
+    select c.relname::text t, a.privilege_type::text p, a.is_grantable g
+      from pg_class c
+      join pg_namespace n on n.oid = c.relnamespace
+      cross join lateral aclexplode(c.relacl) a
+     where n.nspname = 'public'
+       and c.relkind in ('r', 'p', 'v', 'm', 'f')
+       and a.grantee = 'service_role'::regrole
+  )
+  select string_agg(format('%s %s.%s', kind, t, p), ', ' order by t, p) into v from (
+    select 'UNEXPECTED' kind, a.t, a.p from actual a
+      left join expected e on e.t = a.t and e.p = a.p where e.t is null
+    union all
+    select 'MISSING' kind, e.t, e.p from expected e
+      left join actual a on a.t = e.t and a.p = e.p where a.t is null
+    union all
+    select 'GRANTABLE' kind, a.t, a.p from actual a where a.g
+  ) d;
+  if v is not null then raise exception 'FAIL 9: service_role relation grant drift: %', v; end if;
+
+  -- No column-level grant. service_role's grants are table-level ALL; a column grant would mean
+  -- someone narrowed it by hand and this file no longer describes the database.
+  select string_agg(distinct format('%s.%s:%s', c.relname, att.attname, a.privilege_type), ', ')
+    into v
+    from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace
+    join pg_attribute att on att.attrelid = c.oid and att.attnum > 0 and not att.attisdropped
+    cross join lateral aclexplode(att.attacl) a
+   where n.nspname = 'public'
+     and c.relkind in ('r', 'p', 'v', 'm', 'f')
+     and a.grantee = 'service_role'::regrole;
+  if v is not null then
+    raise exception 'FAIL 9: service_role holds column-level grants (expected table-level ALL only): %', v;
+  end if;
+
+  raise notice 'PASS 9  service_role holds ALL on exactly the nine designed tables, without grant option, and no column-level grant';
+end $$;
+
+-- ── 9b. the role attributes the whole model rests on, none of which is a grant ────────────────
+-- Grants are only half of it. `service_role` reads the global tables through **rolbypassrls**, not
+-- through a policy — not one policy names it (check 2's expected set is `authenticated` throughout).
+-- If that attribute were ever missing, RLS would be enforced against service_role, no policy would
+-- match, and every trusted-server read would return zero rows: a silent, total server-path failure
+-- that the grant matrix above cannot see. The mirror image is the exposure: BYPASSRLS on `anon` or
+-- `authenticated` would defeat every policy in this schema at once, and the login-capability check is
+-- what keeps the browser roles reachable only by PostgREST assuming them, never by direct connection.
+-- Not settable from a migration (it needs superuser), which is exactly why it is asserted rather than
+-- granted: this check is the only thing in the repo that would notice.
+do $$
+declare v text;
+begin
+  select string_agg(format('%s (bypassrls=%s login=%s super=%s)',
+                           rolname, rolbypassrls, rolcanlogin, rolsuper), ', ' order by rolname)
+    into v
+    from pg_roles
+   where (rolname = 'service_role'  and not rolbypassrls)
+      or (rolname in ('anon', 'authenticated') and (rolbypassrls or rolcanlogin or rolsuper));
+  if v is not null then
+    raise exception 'FAIL 9b: role attributes wrong — service_role must have BYPASSRLS; anon and authenticated must have none of BYPASSRLS/LOGIN/SUPERUSER: %', v;
+  end if;
+  raise notice 'PASS 9b service_role bypasses RLS; anon and authenticated cannot bypass it, cannot log in and are not superusers';
+end $$;
+
+-- ── 9c. the trusted server can still call the functions it needs ─────────────────────────────
+-- Check 6 is exhaustive about what a BROWSER role may execute, which is the direction that leaks.
+-- This is the other direction, and it is the one that breaks the product silently: 0007/0009/0011
+-- revoke EXECUTE from PUBLIC on every one of these, so if a future migration recreates one of them
+-- and forgets the service_role grant, the whole import pipeline stops with a privilege error at
+-- runtime and nothing in CI says a word.
+--
+-- Deliberately one-directional. An exhaustive expected set for service_role would fail here on every
+-- Supabase project, because the same default privileges give it EXECUTE on every new function in
+-- `public` (including the trigger functions granted "to nobody" in 0009's comment). Asserting that
+-- excess absent would require revoking it, and EXECUTE on `touch_updated_at` held by the role that
+-- already bypasses RLS is not a privilege boundary. The boundary that matters — those functions being
+-- unreachable by `anon` and `authenticated` — is check 6, and it is exhaustive.
+do $$
+declare v text;
+begin
+  -- Matched by name, like check 6, rather than by a written-out signature: `resolve_place` takes
+  -- twelve arguments and 0011 recreates it, so a literal signature here would be a maintenance trap
+  -- that fails for the wrong reason. A name that resolves to no function fails as MISSING, which is
+  -- the other regression worth catching.
+  with expected(n) as (values
+    ('resolve_place'), ('merge_places'), ('start_import'),
+    ('place_survivor_id'), ('place_name_key'), ('km_between')
+  ), actual as (
+    select p.proname::text n, p.oid
+      from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
+     where ns.nspname = 'public'
+  )
+  select string_agg(msg, ', ' order by msg) into v from (
+    select format('MISSING %s', e.n) msg from expected e
+      left join actual a on a.n = e.n where a.n is null
+    union all
+    select format('NO EXECUTE %s', a.n) from expected e join actual a on a.n = e.n
+     where not has_function_privilege('service_role', a.oid, 'EXECUTE')
+  ) d;
+  if v is not null then
+    raise exception 'FAIL 9c: service_role cannot execute the trusted-server function(s): %', v;
+  end if;
+  raise notice 'PASS 9c service_role can execute all six server-side functions the pipeline and the repair path need';
 end $$;
 
 rollback;

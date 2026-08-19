@@ -36,11 +36,11 @@ is created once and never unmounts — reading the user's own rows through row-l
 │  React 19 / Next.js 16 App Router                           │
 │  (map) layout ── owns ONE MapLibre instance + camera ctx    │
 │    ├── /map          pins, clusters, sheet, list, search    │
-│    ├── /place/[id]   detail sheet   ├── /import      paste  │
-│    └── /add-place    POI search     └── /import/[id] review │
+│    ├── /place/[placeId]  sheet  ├── /import          paste  │
+│    └── /add-place    POI search └── /import/[importId] rev. │
 └───────┬──────────────────────────────────────┬──────────────┘
         │ POST /api/imports (NDJSON stream)     │ Server Actions
-        │ GET  /api/imports/[id] (resume)       │ confirmImport · addPlace · edits
+        │ GET  /api/imports/[importId] (resume) │ confirmImport · addPlace · edits
 ┌───────▼──────────────────────────────────────▼──────────────┐
 │ app/   Next.js only: auth · rate limit · HTTP · streaming    │
 ├──────────────────────────────────────────────────────────────┤
@@ -70,7 +70,7 @@ active since MS2 — `npm run check:layers` proves a `domain/ → next/server` i
 
 | Layer | May import | May **not** import | Rule in one line |
 |---|---|---|---|
-| `ui/` | `domain/` types, React, design tokens | `integrations/**` | Components render domain types; adapters are injected in `app/` |
+| `ui/` | `domain/` types, React, design tokens, Server Actions from `app/actions/*` | `integrations/**`, `app/_lib/**` | Components render domain types; adapters are injected in `app/`, and the server-only surface is unreachable from a client island |
 | `app/` | everything | — | Next.js lives here and only here: auth, HTTP, streaming, redirects, wiring |
 | `domain/` | nothing but itself | `next/*`, `react`, `@supabase/*`, `@anthropic-ai/*`, `maplibre-gl`, any outer layer | Pure TypeScript. No network, no framework, no vendor |
 | `integrations/` | `domain/` ports + one vendor SDK each | `app/**`, `ui/**` | An adapter implements a port and knows nothing about the app |
@@ -107,8 +107,9 @@ src/
   domain/
     types.ts                            # the shared vocabulary (07 §10)
     errors.ts                           # DomainError — closed union of 14 codes (§10)
-    ports.ts                            # SourceAdapter · ContentExtractor · PlaceExtractor
-                                        #  · PlaceResolver · ImportStore · Clock
+    ports.ts                            # the six ports, declared in 07 §10: SourceAdapter ·
+                                        #  ContentExtractor · PlaceExtractor · PlaceResolver ·
+                                        #  ImportStore (4 methods) · Clock (the only time source)
     schemas.ts                          # Zod objects shared by adapter, API and jsonb reads
     import/
       pipeline.ts                       # runImport(ports, input, ctx) — the orchestrator
@@ -118,7 +119,7 @@ src/
       canonicalise-tiktok-url.ts        # pure; the SSRF allow-list; heaviest unit-test target
     place/
       plausibility.ts                   # the one gate extraction owns (09 §5.2)
-      confidence.ts                     # preselect / confirm / no_match banding (06 §6.2)
+      confidence.ts                     # the ConfidenceBand enum: preselect / confirm / no_match (06 §6.2)
       scoring.ts                        # name_score, margin — ported from the 44-case benchmark
       dedup.ts                          # the client-side view of place identity (08 §1)
     build-info.ts                       # already shipped (MS2)
@@ -151,7 +152,9 @@ docs/                                   # this design and its sources
 ```
 
 **Why `_lib` and not `lib`:** the underscore keeps it out of App Router routing while sitting beside
-the routes that use it. **Why a composition root (`app/_lib/ports.ts`):** `runImport` takes its
+the routes that use it. **Every module in `_lib` imports `server-only`**, and the `ui/` ESLint zone
+forbids importing `app/_lib/**` at all — so a service-role client or an API key reaching a client
+bundle is a failed *build*, not a review comment. `npm run check:layers` asserts both halves. **Why a composition root (`app/_lib/ports.ts`):** `runImport` takes its
 dependencies as a function argument. That is the entire dependency-injection story — no container,
 no decorators, nothing to explain to an examiner beyond "the function is given what it needs".
 
@@ -332,7 +335,7 @@ ends with the narrowest `revalidatePath` that is correct.
 
 ### 6.4 Reads that are not an API
 
-`/map`, `/place/[id]`, `/account` read Supabase directly in the Server Component under the user's
+`/map`, `/place/[placeId]`, `/account` read Supabase directly in the Server Component under the user's
 JWT. There is no REST layer over our own database, because RLS already is the authorisation layer
 and a hand-written CRUD API would only be a second place for the same rules to drift.
 
@@ -340,15 +343,18 @@ and a hand-written CRUD API would only be a second place for the same rules to d
 
 ## 7. Central business logic — the import pipeline
 
-`domain/import/pipeline.ts`, one exported function:
+`domain/import/pipeline.ts`, one exported function. **The canonical signature and the six port
+declarations live in `07` §10**; this is a restatement, not a second definition:
 
 ```ts
-runImport(ports: Ports, input: { userId, rawInput }, ctx: OpCtx): AsyncGenerator<ImportEvent>
+runImport(ports: Ports, input: { userId: UserId; rawInput: string }, ctx: OpCtx): AsyncGenerator<ImportEvent>
 ```
 
 Pure orchestration: no `fetch`, no SQL, no React. Everything it touches is a port
-(`SourceAdapter`, `ContentExtractor[]`, `PlaceExtractor`, `PlaceResolver`, `ImportStore`, `Clock`),
-which is why it is fully testable against fakes before a single adapter exists (MS6).
+(`SourceAdapter`, `ContentExtractor[]`, `PlaceExtractor`, `PlaceResolver`, `ImportStore`, `Clock` —
+all six declared in `07` §10, incl. `ImportStore`'s four methods and `Clock`'s four), which is why it
+is fully testable against fakes before a single adapter exists (MS6). `ctx` carries the `AbortSignal`,
+the `importId` and the `Logger`; there is no separate `signal` parameter.
 
 ### 7.1 The stages
 
@@ -358,7 +364,7 @@ which is why it is fully testable against fakes before a single adapter exists (
 | A | **Source** | `sources` cache hit, else TikTok oEmbed. Rebuild the canonical URL from `author_unique_id`, never from user input | **Only stage that can fail the import outright** — with no content there is nothing to show |
 | B(pre) | **Content** | `ContentExtractor[]` → `ContentPart[]`. V1: exactly one, `kind:'caption'`. The seam a future ASR implementation plugs into with no other signature change | Empty text → `NO_CAPTION` |
 | B | **Extract** | Anthropic `claude-haiku-4-5`, structured output constrained by `ExtractionResultSchema`; then the pure plausibility gate drops hashtags, bare city names, all-generic strings, fabricated `evidence`, and normalised duplicates | Failure is an error state; a *zero-candidate* result is **not** a failure |
-| C | **Resolve** | ≤7 candidates, concurrency 4, 3 s each, against our Overture index (Nominatim only out of region). Score `0.72·name + 0.18·category + 0.10·dataset_confidence`; band by `score ≥ 0.92 ∧ margin ≥ 0.05` → preselect, `≥ 0.80` → shortlist, else no-match | **Never fails the import.** It degrades to unresolved rows |
+| C | **Resolve** | ≤7 candidates, concurrency 4, 3 s each, against our Overture index (Nominatim only out of region). Score `0.72·name + 0.18·category + 0.10·dataset_confidence`; band by `score ≥ 0.92 ∧ margin ≥ 0.05` → `preselect`, `≥ 0.80` → `confirm`, else `no_match` (the `ConfidenceBand` enum, `07` §10) | **Never fails the import.** It degrades to unresolved rows |
 
 The asymmetry is the design. It is what makes partial success structural rather than exceptional.
 
@@ -502,7 +508,7 @@ design-level commitments:
 ### 11.1 Surfaces
 
 Ten, of which four are the product. `/` (marketing) · `/signin` · `/map` (**the shell**, with the
-saved-places list as its sheet, not a page) · `/place/[id]` · `/import` · `/import/[importId]` ·
+saved-places list as its sheet, not a page) · `/place/[placeId]` · `/import` · `/import/[importId]` ·
 `/add-place` · `/account`, plus first-run as a *state* of `/map`. No tab bar, no dashboard, no
 import-history page: a completed import's artefact is pins.
 
@@ -583,7 +589,7 @@ i.e. the ones whose absence would let the design degrade silently:
 4. **Cross-user RLS denial** as SQL: user B selecting user A's `saved_places`, `places` and `sources`
    returns **zero rows**. The failing attempt is committed as a test — the strongest permission
    evidence we can show.
-5. **Map camera stability** in Playwright: `/map` → `/place/[id]` → back → `/import` → back, assert
+5. **Map camera stability** in Playwright: `/map` → `/place/[placeId]` → back → `/import` → back, assert
    `getCenter()`/`getZoom()` unchanged and the map object identity stable.
 6. **The golden path** end-to-end against a deployment, not a laptop.
 

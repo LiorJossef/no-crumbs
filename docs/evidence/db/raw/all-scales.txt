@@ -1,0 +1,602 @@
+############################## SCALE: 100 users x 500 places
+psql:/reset.sql:3: NOTICE:  index "places_geog_gix" does not exist, skipping
+psql:/reset.sql:4: NOTICE:  truncate cascades to table "imports"
+psql:/reset.sql:4: NOTICE:  truncate cascades to table "saved_places"
+psql:/reset.sql:4: NOTICE:  truncate cascades to table "saved_place_sources"
+psql:/reset.sql:6: NOTICE:  truncate cascades to table "imports"
+psql:/reset.sql:6: NOTICE:  truncate cascades to table "extractions"
+psql:/reset.sql:6: NOTICE:  truncate cascades to table "saved_place_sources"
+psql:/reset.sql:7: NOTICE:  truncate cascades to table "place_provider_refs"
+psql:/reset.sql:7: NOTICE:  truncate cascades to table "saved_places"
+psql:/reset.sql:7: NOTICE:  truncate cascades to table "saved_place_sources"
+ places | saved_places | users 
+--------+--------------+-------
+  50000 |        50000 |   100
+(1 row)
+
+ places | saved |  heap   | btree_latlng | gist_geog 
+--------+-------+---------+--------------+-----------
+  50000 | 50000 | 7888 kB | 2160 kB      | 3488 kB
+(1 row)
+
+--- warm p50/p95 over 200 randomised parameter sets, planner free to choose
+ Q-VIEWPORT bbox |   200 |  0.231 |  0.304 |  0.373 |      4.0
+ Q-VIEWPORT postgis |   200 |  0.347 |  0.620 |  0.978 |      4.3
+ Q-NEAR bbox+haversine |   200 |  0.458 |  0.547 |  0.576 |      3.8
+ Q-NEAR postgis |   200 |  0.512 |  0.655 |  0.834 |      3.8
+ Q-DEDUP bbox+haversine |   200 |  0.063 |  0.076 |  0.081 |      1.0
+ Q-DEDUP postgis |   200 |  0.032 |  0.039 |  0.053 |      1.0
+ Q-DEDUP-CHAIN bbox+haversine |   200 |  0.064 |  0.075 |  0.091 |      0.0
+ Q-DEDUP-CHAIN postgis |   200 |  0.038 |  0.044 |  0.052 |      0.0
+ Q-GLOBAL-VIEWPORT bbox |   200 |  0.146 |  0.167 |  0.209 |    304.0
+ Q-GLOBAL-VIEWPORT postgis |   200 |  0.114 |  0.146 |  0.173 |    340.2
+--- EXPLAIN (ANALYZE, BUFFERS), warm (second execution)
+=== Q-VIEWPORT bbox
+                                                                                                              QUERY PLAN                                                                                                               
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Hash Join (actual rows=6 loops=1)
+   Hash Cond: (sp.place_id = p.id)
+   Buffers: shared hit=285
+   ->  Index Scan using saved_places_user_recent_idx on saved_places sp (actual rows=500 loops=1)
+         Index Cond: (user_id = '9e079ed7-ef17-4b60-99c4-6f9c53995c02'::uuid)
+         Buffers: shared hit=11
+   ->  Hash (actual rows=290 loops=1)
+         Buckets: 1024  Batches: 1  Memory Usage: 33kB
+         Buffers: shared hit=274
+         ->  Bitmap Heap Scan on places p (actual rows=290 loops=1)
+               Recheck Cond: ((lat >= '32.1360453653734'::double precision) AND (lat <= '32.1660453653734'::double precision) AND (lng >= '34.8249796339282'::double precision) AND (lng <= '34.8749796339282'::double precision))
+               Heap Blocks: exact=259
+               Buffers: shared hit=274
+               ->  Bitmap Index Scan on places_lat_lng_idx (actual rows=290 loops=1)
+                     Index Cond: ((lat >= '32.1360453653734'::double precision) AND (lat <= '32.1660453653734'::double precision) AND (lng >= '34.8249796339282'::double precision) AND (lng <= '34.8749796339282'::double precision))
+                     Buffers: shared hit=15
+ Planning:
+   Buffers: shared hit=55
+ Planning Time: 0.144 ms
+ Execution Time: 0.522 ms
+(20 rows)
+
+=== Q-VIEWPORT postgis
+                                                                                                                  QUERY PLAN                                                                                                                   
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Nested Loop (actual rows=6 loops=1)
+   Buffers: shared hit=1452
+   ->  Index Scan using places_geog_gix on places p (actual rows=355 loops=1)
+         Index Cond: (geog && '0103000020E6100000010000000500000039CBC1EE986941408B863DEF6911404039CBC1EE986941402FF77AF9401540409F312855FF6F41402FF77AF9401540409F312855FF6F41408B863DEF6911404039CBC1EE986941408B863DEF69114040'::geography)
+         Buffers: shared hit=381
+   ->  Index Scan using saved_places_place_user_idx on saved_places sp (actual rows=0 loops=355)
+         Index Cond: ((place_id = p.id) AND (user_id = '9e079ed7-ef17-4b60-99c4-6f9c53995c02'::uuid))
+         Buffers: shared hit=1071
+ Planning:
+   Buffers: shared hit=56
+ Planning Time: 10.881 ms
+ Execution Time: 0.863 ms
+(12 rows)
+
+=== Q-NEAR bbox+haversine (2 km)
+                                                                                                                                                                                                   QUERY PLAN                                                                                                                                                                                                    
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual rows=4 loops=1)
+   Buffers: shared hit=983
+   ->  Sort (actual rows=4 loops=1)
+         Sort Key: (('12742.0176'::double precision * asin(sqrt((power(sin((radians(('32.1510453653734'::double precision - p.lat)) / '2'::double precision)), '2'::double precision) + ((cos(radians(p.lat)) * '0.846648157110263'::double precision) * power(sin((radians(('34.8499796339282'::double precision - p.lng)) / '2'::double precision)), '2'::double precision)))))))
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=983
+         ->  Nested Loop (actual rows=4 loops=1)
+               Buffers: shared hit=980
+               ->  Bitmap Heap Scan on places p (actual rows=233 loops=1)
+                     Recheck Cond: ((lat >= '32.1330346489972'::double precision) AND (lat <= '32.1690560817496'::double precision) AND (lng >= '34.8287066692085'::double precision) AND (lng <= '34.8712525986479'::double precision))
+                     Filter: (('12742.0176'::double precision * asin(sqrt((power(sin((radians(('32.1510453653734'::double precision - lat)) / '2'::double precision)), '2'::double precision) + ((cos(radians(lat)) * '0.846648157110263'::double precision) * power(sin((radians(('34.8499796339282'::double precision - lng)) / '2'::double precision)), '2'::double precision)))))) <= '2'::double precision)
+                     Rows Removed by Filter: 64
+                     Heap Blocks: exact=260
+                     Buffers: shared hit=277
+                     ->  Bitmap Index Scan on places_lat_lng_idx (actual rows=297 loops=1)
+                           Index Cond: ((lat >= '32.1330346489972'::double precision) AND (lat <= '32.1690560817496'::double precision) AND (lng >= '34.8287066692085'::double precision) AND (lng <= '34.8712525986479'::double precision))
+                           Buffers: shared hit=17
+               ->  Index Scan using saved_places_place_user_idx on saved_places sp (actual rows=0 loops=233)
+                     Index Cond: ((place_id = p.id) AND (user_id = '9e079ed7-ef17-4b60-99c4-6f9c53995c02'::uuid))
+                     Buffers: shared hit=703
+ Planning:
+   Buffers: shared hit=84
+ Planning Time: 0.257 ms
+ Execution Time: 0.472 ms
+(24 rows)
+
+=== Q-NEAR postgis (2 km)
+                                                                   QUERY PLAN                                                                    
+-------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual rows=4 loops=1)
+   Buffers: shared hit=1185
+   ->  Sort (actual rows=4 loops=1)
+         Sort Key: ((st_distance(p.geog, '0101000020E61000006CFEF421CC6C4140DD3E5C7455134040'::geography, true) / '1000'::double precision))
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=1185
+         ->  Nested Loop (actual rows=4 loops=1)
+               Buffers: shared hit=1185
+               ->  Index Scan using places_geog_gix on places p (actual rows=233 loops=1)
+                     Index Cond: (geog && _st_expand('0101000020E61000006CFEF421CC6C4140DD3E5C7455134040'::geography, '2000'::double precision))
+                     Filter: st_dwithin(geog, '0101000020E61000006CFEF421CC6C4140DD3E5C7455134040'::geography, '2000'::double precision, true)
+                     Rows Removed by Filter: 177
+                     Buffers: shared hit=482
+               ->  Index Scan using saved_places_place_user_idx on saved_places sp (actual rows=0 loops=233)
+                     Index Cond: ((place_id = p.id) AND (user_id = '9e079ed7-ef17-4b60-99c4-6f9c53995c02'::uuid))
+                     Buffers: shared hit=703
+ Planning:
+   Buffers: shared hit=64
+ Planning Time: 0.192 ms
+ Execution Time: 4.714 ms
+(20 rows)
+
+=== Q-DEDUP bbox+haversine (75 m, resolve_place step 2)
+                                                                                                                                                                                                                                                                                                                                                    QUERY PLAN                                                                                                                                                                                                                                                                                                                                                     
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual rows=1 loops=1)
+   Buffers: shared hit=3
+   ->  Sort (actual rows=1 loops=1)
+         Sort Key: (('12742.0176'::double precision * asin(sqrt((power(sin((radians(('32.1510453653734'::double precision - lat)) / '2'::double precision)), '2'::double precision) + ((cos(radians(lat)) * '0.846648157110263'::double precision) * power(sin((radians(('34.8499796339282'::double precision - lng)) / '2'::double precision)), '2'::double precision)))))))
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=3
+         ->  Index Scan using places_name_key_idx on places pl (actual rows=1 loops=1)
+               Index Cond: (name_key = 'place1'::text)
+               Filter: ((merged_into_place_id IS NULL) AND (NOT (country_code IS DISTINCT FROM 'IL'::bpchar)) AND (lat >= '32.1503699635093'::double precision) AND (lat <= '32.1517207672375'::double precision) AND (lng >= '34.8491818977512'::double precision) AND (lng <= '34.8507773701052'::double precision) AND (('12742.0176'::double precision * asin(sqrt((power(sin((radians(('32.1510453653734'::double precision - lat)) / '2'::double precision)), '2'::double precision) + ((cos(radians(lat)) * '0.846648157110263'::double precision) * power(sin((radians(('34.8499796339282'::double precision - lng)) / '2'::double precision)), '2'::double precision)))))) <= '0.075'::double precision))
+               Buffers: shared hit=3
+ Planning:
+   Buffers: shared hit=15
+ Planning Time: 0.131 ms
+ Execution Time: 0.024 ms
+(14 rows)
+
+=== Q-DEDUP postgis (75 m)
+                                                                                                            QUERY PLAN                                                                                                             
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual rows=1 loops=1)
+   Buffers: shared hit=3
+   ->  Sort (actual rows=1 loops=1)
+         Sort Key: (st_distance(geog, '0101000020E61000006CFEF421CC6C4140DD3E5C7455134040'::geography, true))
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=3
+         ->  Index Scan using places_name_key_idx on places pl (actual rows=1 loops=1)
+               Index Cond: (name_key = 'place1'::text)
+               Filter: ((merged_into_place_id IS NULL) AND (NOT (country_code IS DISTINCT FROM 'IL'::bpchar)) AND st_dwithin(geog, '0101000020E61000006CFEF421CC6C4140DD3E5C7455134040'::geography, '75'::double precision, true))
+               Buffers: shared hit=3
+ Planning Time: 0.044 ms
+ Execution Time: 0.013 ms
+(12 rows)
+
+=== Q-GLOBAL-VIEWPORT bbox (no user filter)
+                                                                                                           QUERY PLAN                                                                                                            
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual rows=290 loops=1)
+   Buffers: shared hit=274
+   ->  Bitmap Heap Scan on places p (actual rows=290 loops=1)
+         Recheck Cond: ((lat >= '32.1360453653734'::double precision) AND (lat <= '32.1660453653734'::double precision) AND (lng >= '34.8249796339282'::double precision) AND (lng <= '34.8749796339282'::double precision))
+         Filter: (merged_into_place_id IS NULL)
+         Heap Blocks: exact=259
+         Buffers: shared hit=274
+         ->  Bitmap Index Scan on places_lat_lng_idx (actual rows=290 loops=1)
+               Index Cond: ((lat >= '32.1360453653734'::double precision) AND (lat <= '32.1660453653734'::double precision) AND (lng >= '34.8249796339282'::double precision) AND (lng <= '34.8749796339282'::double precision))
+               Buffers: shared hit=15
+ Planning Time: 0.020 ms
+ Execution Time: 0.167 ms
+(12 rows)
+
+=== Q-GLOBAL-VIEWPORT postgis (no user filter)
+                                                                                                                  QUERY PLAN                                                                                                                   
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual rows=355 loops=1)
+   Buffers: shared hit=357
+   ->  Index Scan using places_geog_gix on places p (actual rows=355 loops=1)
+         Index Cond: (geog && '0103000020E6100000010000000500000039CBC1EE986941408B863DEF6911404039CBC1EE986941402FF77AF9401540409F312855FF6F41402FF77AF9401540409F312855FF6F41408B863DEF6911404039CBC1EE986941408B863DEF69114040'::geography)
+         Filter: (merged_into_place_id IS NULL)
+         Buffers: shared hit=357
+ Planning Time: 0.024 ms
+ Execution Time: 0.136 ms
+(8 rows)
+
+--- PostGIS with the GiST index dropped (ST_DWithin as a filter on the user's rows)
+ Q-VIEWPORT postgis, NO gist |   200 |  7.485 |  8.162 | 10.164 |      4.4
+ Q-NEAR postgis, NO gist |   200 |  0.626 |  0.675 |  0.704 |      3.7
+ Q-VIEWPORT bbox (same run) |   200 |  0.230 |  0.320 |  0.373 |      4.0
+ Q-NEAR bbox+haversine (same run) |   200 |  0.463 |  0.591 |  0.672 |      3.8
+############################## SCALE: 1000 users x 500 places
+psql:/reset.sql:4: NOTICE:  truncate cascades to table "imports"
+psql:/reset.sql:4: NOTICE:  truncate cascades to table "saved_places"
+psql:/reset.sql:4: NOTICE:  truncate cascades to table "saved_place_sources"
+psql:/reset.sql:6: NOTICE:  truncate cascades to table "imports"
+psql:/reset.sql:6: NOTICE:  truncate cascades to table "extractions"
+psql:/reset.sql:6: NOTICE:  truncate cascades to table "saved_place_sources"
+psql:/reset.sql:7: NOTICE:  truncate cascades to table "place_provider_refs"
+psql:/reset.sql:7: NOTICE:  truncate cascades to table "saved_places"
+psql:/reset.sql:7: NOTICE:  truncate cascades to table "saved_place_sources"
+ places | saved_places | users 
+--------+--------------+-------
+ 500000 |       500000 |  1000
+(1 row)
+
+ places | saved  | heap  | btree_latlng | gist_geog 
+--------+--------+-------+--------------+-----------
+ 500000 | 500000 | 78 MB | 19 MB        | 34 MB
+(1 row)
+
+--- warm p50/p95 over 200 randomised parameter sets, planner free to choose
+ Q-VIEWPORT bbox |   200 |  1.944 |  2.307 |  2.643 |      4.2
+ Q-VIEWPORT postgis |   200 |  6.022 |  8.304 | 16.946 |      4.6
+ Q-NEAR bbox+haversine |   200 |  0.652 |  2.901 |  3.515 |      3.9
+ Q-NEAR postgis |   200 |  8.170 | 13.772 | 21.615 |      3.9
+ Q-DEDUP bbox+haversine |   200 |  0.067 |  0.082 |  0.101 |      1.0
+ Q-DEDUP postgis |   200 |  0.059 |  0.079 |  0.157 |      1.0
+ Q-DEDUP-CHAIN bbox+haversine |   200 |  0.093 |  0.111 |  0.255 |      0.0
+ Q-DEDUP-CHAIN postgis |   200 |  0.061 |  0.073 |  0.083 |      0.0
+ Q-GLOBAL-VIEWPORT bbox |   200 |  0.936 |  1.157 |  1.297 |    500.0
+ Q-GLOBAL-VIEWPORT postgis |   200 |  0.637 |  0.836 |  1.034 |    500.0
+--- EXPLAIN (ANALYZE, BUFFERS), warm (second execution)
+=== Q-VIEWPORT bbox
+                                                                                                           QUERY PLAN                                                                                                            
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Hash Join (actual rows=1 loops=1)
+   Hash Cond: (p.id = sp.place_id)
+   Buffers: shared hit=2967
+   ->  Bitmap Heap Scan on places p (actual rows=3320 loops=1)
+         Recheck Cond: ((lat >= '32.0609683247973'::double precision) AND (lat <= '32.0909683247973'::double precision) AND (lng >= '34.6520539675207'::double precision) AND (lng <= '34.7020539675207'::double precision))
+         Heap Blocks: exact=2842
+         Buffers: shared hit=2954
+         ->  Bitmap Index Scan on places_lat_lng_idx (actual rows=3320 loops=1)
+               Index Cond: ((lat >= '32.0609683247973'::double precision) AND (lat <= '32.0909683247973'::double precision) AND (lng >= '34.6520539675207'::double precision) AND (lng <= '34.7020539675207'::double precision))
+               Buffers: shared hit=112
+   ->  Hash (actual rows=500 loops=1)
+         Buckets: 1024  Batches: 1  Memory Usage: 45kB
+         Buffers: shared hit=13
+         ->  Index Scan using saved_places_user_place_unique on saved_places sp (actual rows=500 loops=1)
+               Index Cond: (user_id = '3a7e1a33-b19d-440e-9c27-a6a9753288d7'::uuid)
+               Buffers: shared hit=13
+ Planning:
+   Buffers: shared hit=57
+ Planning Time: 0.133 ms
+ Execution Time: 3.928 ms
+(20 rows)
+
+=== Q-VIEWPORT postgis
+                                                                                                                     QUERY PLAN                                                                                                                      
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Nested Loop (actual rows=1 loops=1)
+   Buffers: shared hit=14942 read=112
+   ->  Bitmap Heap Scan on places p (actual rows=3913 loops=1)
+         Recheck Cond: (geog && '0103000020E610000001000000050000003EDD208176534140548C60CFCD0740403EDD208176534140F8FC9DD9A40B4040A44387E7DC594140F8FC9DD9A40B4040A44387E7DC594140548C60CFCD0740403EDD208176534140548C60CFCD074040'::geography)
+         Heap Blocks: exact=3257
+         Buffers: shared hit=3313 read=1
+         ->  Bitmap Index Scan on places_geog_gix (actual rows=3913 loops=1)
+               Index Cond: (geog && '0103000020E610000001000000050000003EDD208176534140548C60CFCD0740403EDD208176534140F8FC9DD9A40B4040A44387E7DC594140F8FC9DD9A40B4040A44387E7DC594140548C60CFCD0740403EDD208176534140548C60CFCD074040'::geography)
+               Buffers: shared hit=57
+   ->  Index Scan using saved_places_place_user_idx on saved_places sp (actual rows=0 loops=3913)
+         Index Cond: ((place_id = p.id) AND (user_id = '3a7e1a33-b19d-440e-9c27-a6a9753288d7'::uuid))
+         Buffers: shared hit=11629 read=111
+ Planning:
+   Buffers: shared hit=28 read=4
+ Planning Time: 11.961 ms
+ Execution Time: 8.009 ms
+(16 rows)
+
+=== Q-NEAR bbox+haversine (2 km)
+                                                                                                                                                                                                                                                                                                        QUERY PLAN                                                                                                                                                                                                                                                                                                         
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual rows=1 loops=1)
+   Buffers: shared hit=2016
+   ->  Sort (actual rows=1 loops=1)
+         Sort Key: (('12742.0176'::double precision * asin(sqrt((power(sin((radians(('32.0759683247973'::double precision - p.lat)) / '2'::double precision)), '2'::double precision) + ((cos(radians(p.lat)) * '0.847344732354498'::double precision) * power(sin((radians(('34.6770539675207'::double precision - p.lng)) / '2'::double precision)), '2'::double precision)))))))
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=2016
+         ->  Nested Loop (actual rows=1 loops=1)
+               Buffers: shared hit=2013
+               ->  Index Scan using saved_places_user_place_unique on saved_places sp (actual rows=500 loops=1)
+                     Index Cond: (user_id = '3a7e1a33-b19d-440e-9c27-a6a9753288d7'::uuid)
+                     Buffers: shared hit=13
+               ->  Index Scan using places_pkey on places p (actual rows=0 loops=500)
+                     Index Cond: (id = sp.place_id)
+                     Filter: ((lat >= '32.0579576084211'::double precision) AND (lat <= '32.0939790411735'::double precision) AND (lng >= '34.6557984906309'::double precision) AND (lng <= '34.6983094444105'::double precision) AND (('12742.0176'::double precision * asin(sqrt((power(sin((radians(('32.0759683247973'::double precision - lat)) / '2'::double precision)), '2'::double precision) + ((cos(radians(lat)) * '0.847344732354498'::double precision) * power(sin((radians(('34.6770539675207'::double precision - lng)) / '2'::double precision)), '2'::double precision)))))) <= '2'::double precision))
+                     Rows Removed by Filter: 1
+                     Buffers: shared hit=2000
+ Planning:
+   Buffers: shared hit=86
+ Planning Time: 0.226 ms
+ Execution Time: 0.532 ms
+(20 rows)
+
+=== Q-NEAR postgis (2 km)
+                                                                   QUERY PLAN                                                                    
+-------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual rows=1 loops=1)
+   Buffers: shared hit=12513
+   ->  Sort (actual rows=1 loops=1)
+         Sort Key: ((st_distance(p.geog, '0101000020E6100000711054B4A9564140A6447F54B9094040'::geography, true) / '1000'::double precision))
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=12513
+         ->  Nested Loop (actual rows=1 loops=1)
+               Buffers: shared hit=12513
+               ->  Index Scan using places_geog_gix on places p (actual rows=2643 loops=1)
+                     Index Cond: (geog && _st_expand('0101000020E6100000711054B4A9564140A6447F54B9094040'::geography, '2000'::double precision))
+                     Filter: st_dwithin(geog, '0101000020E6100000711054B4A9564140A6447F54B9094040'::geography, '2000'::double precision, true)
+                     Rows Removed by Filter: 1816
+                     Buffers: shared hit=4583
+               ->  Index Scan using saved_places_place_user_idx on saved_places sp (actual rows=0 loops=2643)
+                     Index Cond: ((place_id = p.id) AND (user_id = '3a7e1a33-b19d-440e-9c27-a6a9753288d7'::uuid))
+                     Buffers: shared hit=7930
+ Planning:
+   Buffers: shared hit=66
+ Planning Time: 0.303 ms
+ Execution Time: 15.860 ms
+(20 rows)
+
+=== Q-DEDUP bbox+haversine (75 m, resolve_place step 2)
+                                                                                                                                                                                                                                                                                                                                                    QUERY PLAN                                                                                                                                                                                                                                                                                                                                                     
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual rows=1 loops=1)
+   Buffers: shared hit=4
+   ->  Sort (actual rows=1 loops=1)
+         Sort Key: (('12742.0176'::double precision * asin(sqrt((power(sin((radians(('32.0759683247973'::double precision - lat)) / '2'::double precision)), '2'::double precision) + ((cos(radians(lat)) * '0.847344732354498'::double precision) * power(sin((radians(('34.6770539675207'::double precision - lng)) / '2'::double precision)), '2'::double precision)))))))
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=4
+         ->  Index Scan using places_name_key_idx on places pl (actual rows=1 loops=1)
+               Index Cond: (name_key = 'place1'::text)
+               Filter: ((merged_into_place_id IS NULL) AND (NOT (country_code IS DISTINCT FROM 'IL'::bpchar)) AND (lat >= '32.0752929229332'::double precision) AND (lat <= '32.0766437266614'::double precision) AND (lng >= '34.6762568871373'::double precision) AND (lng <= '34.6778510479041'::double precision) AND (('12742.0176'::double precision * asin(sqrt((power(sin((radians(('32.0759683247973'::double precision - lat)) / '2'::double precision)), '2'::double precision) + ((cos(radians(lat)) * '0.847344732354498'::double precision) * power(sin((radians(('34.6770539675207'::double precision - lng)) / '2'::double precision)), '2'::double precision)))))) <= '0.075'::double precision))
+               Buffers: shared hit=4
+ Planning:
+   Buffers: shared hit=15
+ Planning Time: 0.172 ms
+ Execution Time: 0.031 ms
+(14 rows)
+
+=== Q-DEDUP postgis (75 m)
+                                                                                                                            QUERY PLAN                                                                                                                             
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual rows=1 loops=1)
+   Buffers: shared hit=9
+   ->  Sort (actual rows=1 loops=1)
+         Sort Key: (st_distance(geog, '0101000020E6100000711054B4A9564140A6447F54B9094040'::geography, true))
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=9
+         ->  Index Scan using places_geog_gix on places pl (actual rows=1 loops=1)
+               Index Cond: (geog && _st_expand('0101000020E6100000711054B4A9564140A6447F54B9094040'::geography, '75'::double precision))
+               Filter: ((merged_into_place_id IS NULL) AND (NOT (country_code IS DISTINCT FROM 'IL'::bpchar)) AND (name_key = 'place1'::text) AND st_dwithin(geog, '0101000020E6100000711054B4A9564140A6447F54B9094040'::geography, '75'::double precision, true))
+               Rows Removed by Filter: 4
+               Buffers: shared hit=9
+ Planning Time: 0.100 ms
+ Execution Time: 0.028 ms
+(13 rows)
+
+=== Q-GLOBAL-VIEWPORT bbox (no user filter)
+                                                                                                           QUERY PLAN                                                                                                            
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual rows=500 loops=1)
+   Buffers: shared hit=547
+   ->  Bitmap Heap Scan on places p (actual rows=500 loops=1)
+         Recheck Cond: ((lat >= '32.0609683247973'::double precision) AND (lat <= '32.0909683247973'::double precision) AND (lng >= '34.6520539675207'::double precision) AND (lng <= '34.7020539675207'::double precision))
+         Filter: (merged_into_place_id IS NULL)
+         Heap Blocks: exact=435
+         Buffers: shared hit=547
+         ->  Bitmap Index Scan on places_lat_lng_idx (actual rows=3320 loops=1)
+               Index Cond: ((lat >= '32.0609683247973'::double precision) AND (lat <= '32.0909683247973'::double precision) AND (lng >= '34.6520539675207'::double precision) AND (lng <= '34.7020539675207'::double precision))
+               Buffers: shared hit=112
+ Planning Time: 0.019 ms
+ Execution Time: 0.893 ms
+(12 rows)
+
+=== Q-GLOBAL-VIEWPORT postgis (no user filter)
+                                                                                                                     QUERY PLAN                                                                                                                      
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual rows=500 loops=1)
+   Buffers: shared hit=479
+   ->  Bitmap Heap Scan on places p (actual rows=500 loops=1)
+         Recheck Cond: (geog && '0103000020E610000001000000050000003EDD208176534140548C60CFCD0740403EDD208176534140F8FC9DD9A40B4040A44387E7DC594140F8FC9DD9A40B4040A44387E7DC594140548C60CFCD0740403EDD208176534140548C60CFCD074040'::geography)
+         Filter: (merged_into_place_id IS NULL)
+         Heap Blocks: exact=422
+         Buffers: shared hit=479
+         ->  Bitmap Index Scan on places_geog_gix (actual rows=3913 loops=1)
+               Index Cond: (geog && '0103000020E610000001000000050000003EDD208176534140548C60CFCD0740403EDD208176534140F8FC9DD9A40B4040A44387E7DC594140F8FC9DD9A40B4040A44387E7DC594140548C60CFCD0740403EDD208176534140548C60CFCD074040'::geography)
+               Buffers: shared hit=57
+ Planning Time: 0.047 ms
+ Execution Time: 0.659 ms
+(12 rows)
+
+--- PostGIS with the GiST index dropped (ST_DWithin as a filter on the user's rows)
+ Q-VIEWPORT postgis, NO gist |   200 |  0.593 |  0.817 |  0.990 |      4.3
+ Q-NEAR postgis, NO gist |   200 |  0.898 |  1.533 | 17.558 |      3.7
+ Q-VIEWPORT bbox (same run) |   200 |  1.909 |  2.619 |  3.850 |      3.9
+ Q-NEAR bbox+haversine (same run) |   200 |  0.593 |  2.551 |  3.298 |      3.7
+############################## SCALE: 10000 users x 500 places
+psql:/reset.sql:4: NOTICE:  truncate cascades to table "imports"
+psql:/reset.sql:4: NOTICE:  truncate cascades to table "saved_places"
+psql:/reset.sql:4: NOTICE:  truncate cascades to table "saved_place_sources"
+psql:/reset.sql:6: NOTICE:  truncate cascades to table "imports"
+psql:/reset.sql:6: NOTICE:  truncate cascades to table "extractions"
+psql:/reset.sql:6: NOTICE:  truncate cascades to table "saved_place_sources"
+psql:/reset.sql:7: NOTICE:  truncate cascades to table "place_provider_refs"
+psql:/reset.sql:7: NOTICE:  truncate cascades to table "saved_places"
+psql:/reset.sql:7: NOTICE:  truncate cascades to table "saved_place_sources"
+ places  | saved_places | users 
+---------+--------------+-------
+ 5000000 |      5000000 | 10000
+(1 row)
+
+ places  |  saved  |  heap  | btree_latlng | gist_geog 
+---------+---------+--------+--------------+-----------
+ 5000000 | 5000000 | 793 MB | 190 MB       | 348 MB
+(1 row)
+
+--- warm p50/p95 over 200 randomised parameter sets, planner free to choose
+ Q-VIEWPORT bbox |   200 |  1.109 |  1.311 |  6.213 |      3.9
+ Q-VIEWPORT postgis |   200 | 133.180 | 158.446 | 238.004 |      4.2
+ Q-NEAR bbox+haversine |   200 |  1.155 |  1.379 | 15.330 |      3.6
+ Q-NEAR postgis |   200 | 80.825 | 113.950 | 131.623 |      3.6
+ Q-DEDUP bbox+haversine |   200 |  0.073 |  0.173 |  0.340 |      1.0
+ Q-DEDUP postgis |   200 |  0.120 |  0.183 |  0.250 |      1.0
+ Q-DEDUP-CHAIN bbox+haversine |   200 |  0.355 |  0.417 |  0.542 |      0.2
+ Q-DEDUP-CHAIN postgis |   200 |  0.162 |  0.253 |  0.372 |      0.2
+ Q-GLOBAL-VIEWPORT bbox |   200 |  0.948 |  1.179 |  1.833 |    500.0
+ Q-GLOBAL-VIEWPORT postgis |   200 |  5.492 |  6.708 |  9.270 |    500.0
+--- EXPLAIN (ANALYZE, BUFFERS), warm (second execution)
+=== Q-VIEWPORT bbox
+                                                                                                      QUERY PLAN                                                                                                       
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Nested Loop (actual rows=9 loops=1)
+   Buffers: shared hit=1581 read=431
+   ->  Index Scan using saved_places_user_recent_idx on saved_places sp (actual rows=500 loops=1)
+         Index Cond: (user_id = '4d2513a8-d11a-425e-8db1-ba2acdd63f68'::uuid)
+         Buffers: shared read=12
+   ->  Index Scan using places_pkey on places p (actual rows=0 loops=500)
+         Index Cond: (id = sp.place_id)
+         Filter: ((lat >= '32.0181202818754'::double precision) AND (lat <= '32.0481202818754'::double precision) AND (lng >= '34.8445228104299'::double precision) AND (lng <= '34.8945228104299'::double precision))
+         Rows Removed by Filter: 1
+         Buffers: shared hit=1581 read=419
+ Planning:
+   Buffers: shared hit=54 read=3
+ Planning Time: 0.121 ms
+ Execution Time: 1.555 ms
+(14 rows)
+
+=== Q-VIEWPORT postgis
+                                                                                                                     QUERY PLAN                                                                                                                      
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Nested Loop (actual rows=11 loops=1)
+   Buffers: shared hit=87683 read=59699 written=1
+   ->  Bitmap Heap Scan on places p (actual rows=38247 loops=1)
+         Recheck Cond: (geog && '0103000020E61000000100000005000000DFC2CD52196C41404A06F1C351024040DFC2CD52196C4140EE762ECE28064040452934B97F724140EE762ECE28064040452934B97F7241404A06F1C351024040DFC2CD52196C41404A06F1C351024040'::geography)
+         Heap Blocks: exact=32191
+         Buffers: shared hit=2098 read=30532 written=1
+         ->  Bitmap Index Scan on places_geog_gix (actual rows=38247 loops=1)
+               Index Cond: (geog && '0103000020E61000000100000005000000DFC2CD52196C41404A06F1C351024040DFC2CD52196C4140EE762ECE28064040452934B97F724140EE762ECE28064040452934B97F7241404A06F1C351024040DFC2CD52196C41404A06F1C351024040'::geography)
+               Buffers: shared hit=439
+   ->  Index Scan using saved_places_place_user_idx on saved_places sp (actual rows=0 loops=38247)
+         Index Cond: ((place_id = p.id) AND (user_id = '4d2513a8-d11a-425e-8db1-ba2acdd63f68'::uuid))
+         Buffers: shared hit=85585 read=29167
+ Planning:
+   Buffers: shared hit=27 read=5
+ Planning Time: 10.614 ms
+ Execution Time: 159.375 ms
+(16 rows)
+
+=== Q-NEAR bbox+haversine (2 km)
+                                                                                                                                                                                                                                                                                                        QUERY PLAN                                                                                                                                                                                                                                                                                                         
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual rows=6 loops=1)
+   Buffers: shared hit=1539 read=476
+   ->  Sort (actual rows=6 loops=1)
+         Sort Key: (('12742.0176'::double precision * asin(sqrt((power(sin((radians(('32.0331202818754'::double precision - p.lat)) / '2'::double precision)), '2'::double precision) + ((cos(radians(p.lat)) * '0.847741630432383'::double precision) * power(sin((radians(('34.8695228104299'::double precision - p.lng)) / '2'::double precision)), '2'::double precision)))))))
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=1539 read=476
+         ->  Nested Loop (actual rows=6 loops=1)
+               Buffers: shared hit=1536 read=476
+               ->  Index Scan using saved_places_user_recent_idx on saved_places sp (actual rows=500 loops=1)
+                     Index Cond: (user_id = '4d2513a8-d11a-425e-8db1-ba2acdd63f68'::uuid)
+                     Buffers: shared hit=2 read=10
+               ->  Index Scan using places_pkey on places p (actual rows=0 loops=500)
+                     Index Cond: (id = sp.place_id)
+                     Filter: ((lat >= '32.0151095654992'::double precision) AND (lat <= '32.0511309982516'::double precision) AND (lng >= '34.8482772849895'::double precision) AND (lng <= '34.8907683358703'::double precision) AND (('12742.0176'::double precision * asin(sqrt((power(sin((radians(('32.0331202818754'::double precision - lat)) / '2'::double precision)), '2'::double precision) + ((cos(radians(lat)) * '0.847741630432383'::double precision) * power(sin((radians(('34.8695228104299'::double precision - lng)) / '2'::double precision)), '2'::double precision)))))) <= '2'::double precision))
+                     Rows Removed by Filter: 1
+                     Buffers: shared hit=1534 read=466
+ Planning:
+   Buffers: shared hit=59 read=27
+ Planning Time: 0.292 ms
+ Execution Time: 1.123 ms
+(20 rows)
+
+=== Q-NEAR postgis (2 km)
+                                                                   QUERY PLAN                                                                    
+-------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual rows=6 loops=1)
+   Buffers: shared hit=7096 read=37262
+   ->  Sort (actual rows=6 loops=1)
+         Sort Key: ((st_distance(p.geog, '0101000020E610000012F600864C6F41409CBE0F493D044040'::geography, true) / '1000'::double precision))
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=7096 read=37262
+         ->  Hash Join (actual rows=6 loops=1)
+               Hash Cond: (p.id = sp.place_id)
+               Buffers: shared hit=7096 read=37262
+               ->  Index Scan using places_geog_gix on places p (actual rows=26163 loops=1)
+                     Index Cond: (geog && _st_expand('0101000020E610000012F600864C6F41409CBE0F493D044040'::geography, '2000'::double precision))
+                     Filter: st_dwithin(geog, '0101000020E610000012F600864C6F41409CBE0F493D044040'::geography, '2000'::double precision, true)
+                     Rows Removed by Filter: 17640
+                     Buffers: shared hit=7084 read=37262
+               ->  Hash (actual rows=500 loops=1)
+                     Buckets: 1024  Batches: 1  Memory Usage: 40kB
+                     Buffers: shared hit=12
+                     ->  Index Scan using saved_places_user_recent_idx on saved_places sp (actual rows=500 loops=1)
+                           Index Cond: (user_id = '4d2513a8-d11a-425e-8db1-ba2acdd63f68'::uuid)
+                           Buffers: shared hit=12
+ Planning:
+   Buffers: shared hit=43 read=23
+ Planning Time: 0.269 ms
+ Execution Time: 94.990 ms
+(24 rows)
+
+=== Q-DEDUP bbox+haversine (75 m, resolve_place step 2)
+                                                                                                                                                                                                                                                                                                                                                    QUERY PLAN                                                                                                                                                                                                                                                                                                                                                     
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual rows=1 loops=1)
+   Buffers: shared read=4
+   ->  Sort (actual rows=1 loops=1)
+         Sort Key: (('12742.0176'::double precision * asin(sqrt((power(sin((radians(('32.0331202818754'::double precision - lat)) / '2'::double precision)), '2'::double precision) + ((cos(radians(lat)) * '0.847741630432383'::double precision) * power(sin((radians(('34.8695228104299'::double precision - lng)) / '2'::double precision)), '2'::double precision)))))))
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared read=4
+         ->  Index Scan using places_name_key_idx on places pl (actual rows=1 loops=1)
+               Index Cond: (name_key = 'place1'::text)
+               Filter: ((merged_into_place_id IS NULL) AND (NOT (country_code IS DISTINCT FROM 'IL'::bpchar)) AND (lat >= '32.0324448800113'::double precision) AND (lat <= '32.0337956837395'::double precision) AND (lng >= '34.8687261032259'::double precision) AND (lng <= '34.8703195176339'::double precision) AND (('12742.0176'::double precision * asin(sqrt((power(sin((radians(('32.0331202818754'::double precision - lat)) / '2'::double precision)), '2'::double precision) + ((cos(radians(lat)) * '0.847741630432383'::double precision) * power(sin((radians(('34.8695228104299'::double precision - lng)) / '2'::double precision)), '2'::double precision)))))) <= '0.075'::double precision))
+               Buffers: shared read=4
+ Planning:
+   Buffers: shared hit=6 read=9
+ Planning Time: 0.172 ms
+ Execution Time: 0.039 ms
+(14 rows)
+
+=== Q-DEDUP postgis (75 m)
+                                                                                                                            QUERY PLAN                                                                                                                             
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual rows=1 loops=1)
+   Buffers: shared hit=16 read=51
+   ->  Sort (actual rows=1 loops=1)
+         Sort Key: (st_distance(geog, '0101000020E610000012F600864C6F41409CBE0F493D044040'::geography, true))
+         Sort Method: quicksort  Memory: 25kB
+         Buffers: shared hit=16 read=51
+         ->  Index Scan using places_geog_gix on places pl (actual rows=1 loops=1)
+               Index Cond: (geog && _st_expand('0101000020E610000012F600864C6F41409CBE0F493D044040'::geography, '75'::double precision))
+               Filter: ((merged_into_place_id IS NULL) AND (NOT (country_code IS DISTINCT FROM 'IL'::bpchar)) AND (name_key = 'place1'::text) AND st_dwithin(geog, '0101000020E610000012F600864C6F41409CBE0F493D044040'::geography, '75'::double precision, true))
+               Rows Removed by Filter: 51
+               Buffers: shared hit=16 read=51
+ Planning Time: 0.113 ms
+ Execution Time: 0.222 ms
+(13 rows)
+
+=== Q-GLOBAL-VIEWPORT bbox (no user filter)
+                                                                                                        QUERY PLAN                                                                                                         
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual rows=500 loops=1)
+   Buffers: shared hit=165 read=355
+   ->  Index Scan using places_lat_lng_idx on places p (actual rows=500 loops=1)
+         Index Cond: ((lat >= '32.0181202818754'::double precision) AND (lat <= '32.0481202818754'::double precision) AND (lng >= '34.8445228104299'::double precision) AND (lng <= '34.8945228104299'::double precision))
+         Filter: (merged_into_place_id IS NULL)
+         Buffers: shared hit=165 read=355
+ Planning Time: 0.026 ms
+ Execution Time: 0.896 ms
+(8 rows)
+
+=== Q-GLOBAL-VIEWPORT postgis (no user filter)
+                                                                                                                     QUERY PLAN                                                                                                                      
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit (actual rows=500 loops=1)
+   Buffers: shared hit=310 read=554
+   ->  Bitmap Heap Scan on places p (actual rows=500 loops=1)
+         Recheck Cond: (geog && '0103000020E61000000100000005000000DFC2CD52196C41404A06F1C351024040DFC2CD52196C4140EE762ECE28064040452934B97F724140EE762ECE28064040452934B97F7241404A06F1C351024040DFC2CD52196C41404A06F1C351024040'::geography)
+         Filter: (merged_into_place_id IS NULL)
+         Heap Blocks: exact=425
+         Buffers: shared hit=310 read=554
+         ->  Bitmap Index Scan on places_geog_gix (actual rows=38247 loops=1)
+               Index Cond: (geog && '0103000020E61000000100000005000000DFC2CD52196C41404A06F1C351024040DFC2CD52196C4140EE762ECE28064040452934B97F724140EE762ECE28064040452934B97F7241404A06F1C351024040DFC2CD52196C41404A06F1C351024040'::geography)
+               Buffers: shared hit=150 read=289
+ Planning Time: 0.062 ms
+ Execution Time: 7.656 ms
+(12 rows)
+
+--- PostGIS with the GiST index dropped (ST_DWithin as a filter on the user's rows)
+ Q-VIEWPORT postgis, NO gist |   200 |  1.189 |  1.710 | 14.059 |      4.8
+ Q-NEAR postgis, NO gist |   200 |  1.345 |  1.425 | 13.484 |      3.9
+ Q-VIEWPORT bbox (same run) |   200 |  1.033 |  1.165 | 13.578 |      4.4
+ Q-NEAR bbox+haversine (same run) |   200 |  1.114 |  1.192 | 13.964 |      3.9

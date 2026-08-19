@@ -1,0 +1,64 @@
+=== C1: km_between (sphere) vs ST_Distance (WGS84 ellipsoid), 20k random pairs 0-200 m apart
+ pairs | min_ratio | max_ratio | max_abs_diff_m 
+-------+-----------+-----------+----------------
+ 17902 |   0.99564 |   1.00561 |          1.105
+(1 row)
+
+=== C1b: how many of those pairs does the 75 m guard classify differently from ST_DWithin(75)?
+ probes | disagreements |  pct  | band_lo_m | band_hi_m 
+--------+---------------+-------+-----------+-----------
+  50000 |          3949 | 7.898 |    74.589 |    75.319
+(1 row)
+
+=== C2: does the bbox pre-filter ever exclude a pair that km_between accepts? (latitude sweep)
+  lat  |  dlng_deg  | dlng_metres_ew | box_contains_74m_pair 
+-------+------------+----------------+-----------------------
+     0 | 0.00067540 |           75.2 | t
+    15 | 0.00069923 |           75.2 | t
+    30 | 0.00077989 |           75.2 | t
+    45 | 0.00095516 |           75.2 | t
+  51.5 | 0.00108496 |           75.2 | t
+    60 | 0.00135080 |           75.2 | t
+    70 | 0.00197474 |           75.2 | t
+    80 | 0.00388948 |           75.2 | t
+    85 | 0.00774937 |           75.2 | t
+    89 | 0.03869964 |           75.2 | t
+  89.4 | 0.06449731 |           75.2 | t
+ 89.43 | 0.06754019 |           74.8 | t
+  89.5 | 0.06754019 |           65.6 | f
+  89.9 | 0.06754019 |           13.1 | f
+(14 rows)
+
+=== C2b: north-south pair at 74.99 m, does the dlat window contain it? (dlat is latitude-independent)
+  dlat_deg  | metres_at_equator_wgs84 | metres_at_pole_wgs84 | metres_on_km_between_sphere 
+------------+-------------------------+----------------------+-----------------------------
+ 0.00067540 |                   74.68 |                75.44 |                       75.10
+(1 row)
+
+=== C3: antimeridian, real rows. Two places 22 m apart across lng=180
+ haversine_m | postgis_m 
+-------------+-----------
+       21.21 |     21.24
+(1 row)
+
+       variant        | found 
+----------------------+-------
+ bbox+haversine guard |     0
+ postgis ST_DWithin   |     1
+(2 rows)
+
+=== C4: viewport rectangle semantics -- lat/lng BETWEEN vs three PostGIS spellings
+            variant            | count 
+-------------------------------+-------
+ lat/lng BETWEEN               | 42341
+ geog && envelope::geography   | 49778
+ ST_Intersects(geog, envelope) | 42342
+ geog::geometry && envelope    | 42360
+(4 rows)
+
+=== C4b: the rows geog && envelope adds that are OUTSIDE the requested rectangle
+ extra_rows |  min_lat  |  max_lat  | max_metres_north_of_edge 
+------------+-----------+-----------+--------------------------
+       7437 | 31.999992 | 32.030009 |                      1.0
+(1 row)
+

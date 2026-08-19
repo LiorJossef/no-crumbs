@@ -13,6 +13,32 @@
 -- `set role authenticated` with request.jwt.claims set, exactly as PostgREST would run it.
 -- FORCE ROW LEVEL SECURITY is why this works — the owner is subject to its own policies too, and
 -- only the BYPASSRLS roles (postgres, service_role) are exempt.
+--
+-- SHAPE OF THE FILE
+--   P0 / P0b / P0c / setup  the fixture, and the POSITIVE half: the owner can read their own rows.
+--                           Without it, every "B sees zero" assertion is also satisfied by a schema
+--                           that denies everyone everything.
+--   P1–P4, P4c, P9          the cross-user denials, one per policy. P4c performs the provenance
+--                           forgery; P9 covers the seven policies that previously had no test.
+--   P5, P6                  grants: what must not be reachable at all, as `authenticated` and `anon`.
+--   P7, P7b, P8             the invariants of MS4 (dedup guard, deferred triggers, provenance).
+--   P10–P23                 migration 0011: merge chains, the alias invariant's real scope, the
+--                           staleness gate, and serialisation. Every one of these paths was
+--                           uncovered before; merge_places had no test of any kind, which is why
+--                           MS4 shipped a resolver that could hand save_place a tombstone.
+--   P19c, P19d              migration 0013: the tombstone exemption reaching the OTHER alias
+--                           trigger (0005's INSERT-side places_alias_required), which 0011 missed.
+--                           Numbered topically, next to P19's exemption test, not chronologically.
+--
+-- WHAT THIS FILE DOES NOT PROVE. P23 records one invariant as DELIBERATELY UNPROVEN: two-session
+-- mutual exclusion in resolve_place step 2, which `08` §4 claims as prevented. A psql script is one
+-- session; the comment at P23 names the two-connection harness that would prove it. Read it before
+-- treating this suite as a complete proof of `08` §4.
+--
+-- Failure-first: every assertion below was checked in both directions against a throwaway database —
+-- the fix reverted, the test seen to fail, the fix restored. Two of them passed at first with the
+-- trigger they were supposed to be testing dropped (see the note at P17); that is the bug class this
+-- file exists to catch, so it is written down where it happened rather than in a report.
 
 begin;
 
@@ -43,6 +69,24 @@ update public.sources
        author_handle = 'who'
  where platform_source_id = '7300000000000000001';
 
+select id as source_id from public.sources
+ where platform_source_id = '7300000000000000001' \gset
+
+-- An extraction over that source. Not decoration: without a row here, every "B sees zero
+-- extractions" assertion below is vacuously true — it passes identically if the policy is
+-- `using (true)` — and that is exactly the shape the audit found. The count is asserted from the
+-- privileged role first, so the zero B reads is a zero produced by the policy.
+insert into public.extractions (source_id, model, prompt_version, status, candidates, candidate_count)
+values (:'source_id', 'test-model', 'v1', 'ok', '[{"name":"Abu Hassan"}]'::jsonb, 1);
+
+do $$
+begin
+  if (select count(*) from public.extractions) <> 1 then
+    raise exception 'FAIL setup: the extraction fixture was not created; every extractions assertion below would be vacuous';
+  end if;
+  raise notice 'PASS setup  one extraction row exists, so the extractions assertions are not vacuous';
+end $$;
+
 select public.resolve_place('overture', 'ovt-abu-hassan', 'Abu Hassan',
                             32.0530, 34.7515, 'restaurant', 'restaurant',
                             '1 HaDolfin St', 'Tel Aviv-Yafo', 'Tel Aviv', 'IL', '{}'::jsonb)
@@ -67,6 +111,58 @@ begin
     raise exception 'FAIL setup: provenance link was not created';
   end if;
   raise notice 'PASS setup  A saved the shared place with provenance, under RLS';
+end $$;
+
+-- ── P0b: the positive half of every read policy, as the owner A ──────────────────────────────
+-- Every assertion below this point is "B sees zero". On its own that is satisfiable by a schema in
+-- which nobody can read anything — a policy set that denies everything passes P1–P3 perfectly. So
+-- the owner's read is asserted first: each of the six membership-gated tables returns exactly the
+-- rows A is entitled to. A deny-all regression now fails here rather than shipping green.
+do $$
+declare n integer;
+begin
+  select count(*) into n from public.saved_places;
+  if n <> 1 then raise exception 'FAIL P0b: A sees % of their own saved_places (expected 1)', n; end if;
+  select count(*) into n from public.saved_place_sources;
+  if n <> 1 then raise exception 'FAIL P0b: A sees % of their own provenance rows (expected 1)', n; end if;
+  select count(*) into n from public.places;
+  if n <> 1 then raise exception 'FAIL P0b: A sees % places they saved (expected 1)', n; end if;
+  select count(*) into n from public.place_provider_refs;
+  if n <> 1 then raise exception 'FAIL P0b: A sees % provider refs for the place they saved (expected 1)', n; end if;
+  select count(*) into n from public.imports;
+  if n <> 1 then raise exception 'FAIL P0b: A sees % of their own imports (expected 1)', n; end if;
+  -- sources: table-level SELECT is not granted (R8), so name the columns, as the data layer must
+  select count(*) into n from (select id from public.sources) s;
+  if n <> 1 then raise exception 'FAIL P0b: A sees % sources they imported (expected 1)', n; end if;
+  select count(*) into n from public.extractions;
+  if n <> 1 then raise exception 'FAIL P0b: A sees % extractions for their own import (expected 1)', n; end if;
+  select count(*) into n from public.profiles;
+  if n <> 1 then raise exception 'FAIL P0b: A sees % profiles (expected only their own)', n; end if;
+  raise notice 'PASS P0b the owner can read exactly their own rows through all six membership gates';
+end $$;
+
+-- Fixture ids as transaction-local GUCs. psql does NOT interpolate :vars inside a dollar-quoted
+-- body, and half the assertions below have to name A's rows from inside a do block while running as
+-- B — who cannot select them. A GUC is readable by any role, dies with the transaction, and needs
+-- no grant, so it is the harness channel. Nothing in the application does this.
+select set_config('qa.saved_place_id', (select id::text from public.saved_places), true),
+       set_config('qa.a_uid', '11111111-1111-1111-1111-111111111111', true),
+       set_config('qa.b_uid', '22222222-2222-2222-2222-222222222222', true),
+       set_config('qa.source_id', (select source_id::text from public.imports), true),
+       set_config('qa.place_id', (select place_id::text from public.saved_places), true);
+
+-- ── P0c: imports_update_own, the positive half (R7: the user's own cancel) ───────────────────
+-- The only import write a user is allowed to make. Asserted as the owner here and as a non-owner in
+-- P9c. status='cancelled' is deliberately outside imports_open_one_per_source, so nothing later in
+-- this script depends on the value.
+do $$
+begin
+  update public.imports set status = 'cancelled', completed_at = now();
+  if not found then raise exception 'FAIL P0c: A could not cancel their own import'; end if;
+  if (select count(*) from public.imports where status = 'cancelled') <> 1 then
+    raise exception 'FAIL P0c: the cancel did not persist';
+  end if;
+  raise notice 'PASS P0c imports_update_own lets the owner cancel their own import';
 end $$;
 
 -- P4b: a granted-column UPDATE by the owner must succeed AND fire touch_updated_at. This is the
@@ -97,7 +193,11 @@ begin
   raise notice 'PASS P4b owner edits their overlay and touch_updated_at fires (no EXECUTE grant needed)';
 end $$;
 
--- ── the two exit assertions of MS4, as user B ───────────────────────────────────────────────
+-- ── the cross-user denial assertions, as user B ─────────────────────────────────────────────
+-- Four blocks, not two: P1 and P2 are the two milestone exit criteria from the plan; P3 and P4
+-- were added with them and are asserted just as hard. The old heading said "the two exit
+-- assertions" over a block containing four, which is the kind of drift that makes a reader trust
+-- the label instead of the code.
 reset role;
 select set_config('request.jwt.claims',
                   '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}', true);
@@ -135,6 +235,135 @@ begin
   delete from public.saved_places;
   if found then raise exception 'FAIL P4: B deleted a row from A''s library'; end if;
   raise notice 'PASS P4  B''s writes against A''s library affect zero rows';
+end $$;
+
+-- ── P4c: the provenance forgery, actually attempted ─────────────────────────────────────────
+-- P4's notice used to claim B "cannot forge provenance" while attempting nothing of the kind. Three
+-- attempts, all of which must fail. Provenance is the answer to "which TikTok made me save this",
+-- and a user who can write another user's provenance row can both read that user's source (the
+-- sources membership gate has a saved_place_sources branch) and corrupt their history.
+--   i   attach A's source to A's saved place, as A            → sps_select/insert with_check
+--   ii  attach A's source to A's saved place, but claim it as B → composite FK + with_check
+--   iii launder A's source into B's OWN library               → the no-borrowed-provenance conjunct
+-- (iii) is the one that matters most: it is the only one a real attacker would try, because it needs
+-- nothing of A's except a source id, and success would grant B read access to A's post.
+do $$
+declare
+  v_a_saved uuid := current_setting('qa.saved_place_id')::uuid;
+  v_a_uid   uuid := current_setting('qa.a_uid')::uuid;
+  v_b_uid   uuid := current_setting('qa.b_uid')::uuid;
+  v_source  uuid := current_setting('qa.source_id')::uuid;
+  v_place   uuid := current_setting('qa.place_id')::uuid;
+begin
+  begin
+    insert into public.saved_place_sources (saved_place_id, user_id, source_id)
+    values (v_a_saved, v_a_uid, v_source);
+    raise exception 'FAIL P4c-i: B wrote a provenance row owned by A';
+  exception when insufficient_privilege then
+    raise notice 'PASS P4c-i B cannot write a provenance row carrying A''s user_id';
+  end;
+
+  begin
+    insert into public.saved_place_sources (saved_place_id, user_id, source_id)
+    values (v_a_saved, v_b_uid, v_source);
+    raise exception 'FAIL P4c-ii: B attached provenance to A''s saved place';
+  exception when insufficient_privilege or foreign_key_violation then
+    raise notice 'PASS P4c-ii B cannot attach provenance to a saved place they do not own';
+  end;
+
+  begin
+    -- save_place is atomic: the sps insert failing takes the saved_places insert with it.
+    perform public.save_place(v_place, v_source, 'laundered');
+    raise exception 'FAIL P4c-iii: B borrowed A''s source as provenance for their own save';
+  exception when insufficient_privilege then
+    raise notice 'PASS P4c-iii B cannot claim a source they never imported (no borrowed provenance)';
+  end;
+  if (select count(*) from public.saved_places) <> 0 then
+    raise exception 'FAIL P4c-iii: the failed save left a row behind in B''s library';
+  end if;
+end $$;
+
+-- ── P9: the policies that had no behavioural assertion at all ───────────────────────────────
+-- profiles_insert_own, profiles_update_own, imports_update_own, saved_places_insert_own,
+-- saved_places_delete_own, sps_select_own and sps_delete_own were in inventory.sql's name list and
+-- in no test. A policy nobody exercises is a comment.
+-- Each is asserted in the direction that would be a defect: B acting on A's rows. Where a positive
+-- path is needed to show the policy is not simply deny-all, it is taken on B's OWN row and undone.
+do $$
+declare
+  v_a_uid uuid := current_setting('qa.a_uid')::uuid;
+  v_b_uid uuid := current_setting('qa.b_uid')::uuid;
+  v_place uuid := current_setting('qa.place_id')::uuid;
+  v_new   uuid;
+  n integer;
+begin
+  -- P9a profiles_insert_own: the with_check is the whole policy; a missing one lets B create a
+  -- profile row for any uuid, which is the FK target every per-user table points at.
+  begin
+    insert into public.profiles (id, display_name) values (v_a_uid, 'forged');
+    raise exception 'FAIL P9a: B inserted a profile row for A';
+  exception when insufficient_privilege then
+    raise notice 'PASS P9a profiles_insert_own rejects a profile row for another user';
+  end;
+  begin
+    -- own id: the policy must PERMIT this and the primary key must be what stops it. That
+    -- distinguishes "the policy allows my own row" from "the policy allows nothing".
+    insert into public.profiles (id, display_name) values (v_b_uid, 'mine');
+    raise exception 'FAIL P9a: inserting a duplicate profile succeeded (no primary key?)';
+  exception
+    when unique_violation then
+      raise notice 'PASS P9a profiles_insert_own permits B''s own id (blocked by the PK, not the policy)';
+    when insufficient_privilege then
+      raise exception 'FAIL P9a: profiles_insert_own rejected B''s OWN profile row';
+  end;
+
+  -- P9b profiles_update_own
+  update public.profiles set display_name = 'renamed by B' where id = v_a_uid;
+  if found then raise exception 'FAIL P9b: B renamed A''s profile'; end if;
+  update public.profiles set display_name = 'renamed by B' where id = v_b_uid;
+  if not found then raise exception 'FAIL P9b: B could not rename their own profile'; end if;
+  raise notice 'PASS P9b profiles_update_own: B renames only their own profile';
+
+  -- P9c imports_update_own, negative half (the positive half is P0c). Two parts: the column grant
+  -- (R7 — error_code and every observability column are server-written, so even the owner cannot
+  -- write them) and then the policy, with a column the grant does allow.
+  begin
+    update public.imports set error_code = 'forged';
+    raise exception 'FAIL P9c: authenticated could write imports.error_code (R7)';
+  exception when insufficient_privilege then
+    raise notice 'PASS P9c-i imports.error_code is not in the UPDATE grant (R7)';
+  end;
+  update public.imports set status = 'failed';
+  if found then raise exception 'FAIL P9c: B updated A''s import'; end if;
+  raise notice 'PASS P9c-ii imports_update_own: B''s update of A''s import affects zero rows';
+
+  -- P9d saved_places_insert_own: user_id is not in the UPDATE grant (P5c) but IS in the INSERT
+  -- column list, so the with_check is the only thing standing between B and a row in A''s library.
+  begin
+    insert into public.saved_places (user_id, place_id, origin)
+    values (v_a_uid, v_place, 'manual');
+    raise exception 'FAIL P9d: B inserted a saved_places row owned by A';
+  exception when insufficient_privilege then
+    raise notice 'PASS P9d saved_places_insert_own rejects a row carrying A''s user_id';
+  end;
+  -- positive, on B's own row, then undone — which also asserts saved_places_delete_own
+  insert into public.saved_places (user_id, place_id, origin)
+  values (v_b_uid, v_place, 'manual') returning id into v_new;
+  if v_new is null then raise exception 'FAIL P9d: B could not insert their own saved place'; end if;
+  delete from public.saved_places where id = v_new;
+  if not found then raise exception 'FAIL P9d: saved_places_delete_own did not let B delete their own row'; end if;
+  if (select count(*) from public.saved_places) <> 0 then
+    raise exception 'FAIL P9d: B''s library is not back to empty';
+  end if;
+  raise notice 'PASS P9d saved_places_insert_own/delete_own: own row yes, A''s row no';
+
+  -- P9e sps_select_own and sps_delete_own. A has exactly one provenance row; B must neither see
+  -- nor delete it. The DELETE is the dangerous one: it would break A''s provenance invariant.
+  select count(*) into n from public.saved_place_sources;
+  if n <> 0 then raise exception 'FAIL P9e: B sees % of A''s provenance rows', n; end if;
+  delete from public.saved_place_sources;
+  if found then raise exception 'FAIL P9e: B deleted a provenance row of A''s'; end if;
+  raise notice 'PASS P9e sps_select_own/sps_delete_own: A''s provenance is neither visible nor deletable';
 end $$;
 
 -- P5: the columns and tables that must not be reachable at all, as B.
@@ -260,5 +489,743 @@ begin
       else raise; end if;
   end;
 end $$;
+
+
+-- ═════════════════════════════════════════════════════════════════════════════════════════════
+-- 0011: merge chains, the alias invariant's real scope, the staleness gate, and serialisation.
+--
+-- Everything from here down covers migration 0011. Not one of these paths had a test before it:
+-- `merge_places` was uncovered entirely, which is why MS4 shipped a resolver that could hand
+-- `save_place` a tombstone. These run as the privileged role (RLS bypassed) because every function
+-- involved is service_role-only; they are invariant tests, not authorisation tests.
+--
+-- State on entry: one live place, two aliases, A's saved place, one provenance row. The places
+-- created below are deliberately far apart (whole degrees) and differently named, so the 75 m
+-- near-duplicate guard never merges two of them behind the test's back.
+--
+-- CONSTRAINT TIMING. P7b left constraints IMMEDIATE for the rest of the transaction. Each block
+-- below states which mode it needs. `set constraints all deferred` then `... all immediate` is the
+-- only way to prove a DEFERRABLE INITIALLY DEFERRED trigger inside a transaction that must never
+-- commit: the operation succeeding under `deferred` proves the check is genuinely deferred, and the
+-- exception arriving at `immediate` proves it fires and would have aborted the COMMIT.
+-- ═════════════════════════════════════════════════════════════════════════════════════════════
+
+-- ── P10: place_survivor_id, the base cases ──────────────────────────────────────────────────
+do $$
+declare v_live uuid; v_r uuid;
+begin
+  select id into v_live from public.places where merged_into_place_id is null limit 1;
+
+  v_r := public.place_survivor_id(v_live);
+  if v_r is distinct from v_live then
+    raise exception 'FAIL P10: survivor of a LIVE place should be itself, got %', v_r;
+  end if;
+
+  -- Unknown id must be null, not an error and not the input: resolve_place's callers test the
+  -- result with `is not null` and would treat any non-null value as a hit.
+  v_r := public.place_survivor_id(gen_random_uuid());
+  if v_r is not null then
+    raise exception 'FAIL P10: survivor of an unknown id should be null, got %', v_r;
+  end if;
+
+  v_r := public.place_survivor_id(null);
+  if v_r is not null then
+    raise exception 'FAIL P10: survivor of null should be null, got %', v_r;
+  end if;
+  raise notice 'PASS P10 place_survivor_id: live row returns itself, unknown and null return null';
+end $$;
+
+-- ── P11: a 3-deep merge chain resolves to the terminal row ───────────────────────────────────
+-- THE defect. merge(A,B) then merge(B,C) then merge(C,D) — the shape an operator produces repairing
+-- provider churn, and the shape that already exists on staging/production if it ever happened
+-- there, because 0011 fixes resolution over old chains but does not retro-fit them. The old one-hop
+-- expression `coalesce(merged_into_place_id, id)` returned B: a row that has itself been merged
+-- away. save_place would then attach a live library row to a tombstone.
+-- The chain is built by hand, exactly as the pre-0011 merge_places built it (one hop per call, no
+-- re-pointing), because the new merge_places refuses to create it — see P13/P14.
+do $$
+declare pa uuid; pb uuid; pc uuid; pd uuid; v_one_hop uuid; v_r uuid;
+begin
+  -- resolve_place inserts a place and THEN its alias, so places_alias_required must be deferred for
+  -- the call to be legal at all. P7b left constraints immediate; every block below that creates a
+  -- place says so explicitly rather than inheriting a mode from the block above it.
+  set constraints all deferred;
+  pa := public.resolve_place('overture','chain-a','Chain Alpha', 10.0, 10.0,
+                             null,null,null,null,null,'IL');
+  pb := public.resolve_place('overture','chain-b','Chain Bravo', 11.0, 11.0,
+                             null,null,null,null,null,'IL');
+  pc := public.resolve_place('overture','chain-c','Chain Charlie', 12.0, 12.0,
+                             null,null,null,null,null,'IL');
+  pd := public.resolve_place('overture','chain-d','Chain Delta', 13.0, 13.0,
+                             null,null,null,null,null,'IL');
+
+  update public.places set merged_into_place_id = pb where id = pa;
+  update public.places set merged_into_place_id = pc where id = pb;
+  update public.places set merged_into_place_id = pd where id = pc;
+
+  -- the regression witness: what the code used to compute, kept so the test says why it exists
+  select coalesce(pl.merged_into_place_id, pl.id) into v_one_hop
+    from public.places pl where pl.id = pa;
+  if v_one_hop <> pb then
+    raise exception 'FAIL P11: test fixture is wrong, one hop from A should be B';
+  end if;
+  if (select merged_into_place_id from public.places where id = v_one_hop) is null then
+    raise exception 'FAIL P11: test fixture is wrong, B should itself be a tombstone';
+  end if;
+
+  if public.place_survivor_id(pa) <> pd then
+    raise exception 'FAIL P11: survivor of a 3-deep chain is %, expected the terminal row %',
+      public.place_survivor_id(pa), pd;
+  end if;
+  if public.place_survivor_id(pb) <> pd or public.place_survivor_id(pc) <> pd then
+    raise exception 'FAIL P11: survivor from the middle of the chain is not the terminal row';
+  end if;
+
+  -- and the whole point of the fix: resolving A's alias returns the row that is still ALIVE
+  v_r := public.resolve_place('overture','chain-a','Chain Alpha', 10.0, 10.0,
+                              null,null,null,null,null,'IL');
+  if v_r <> pd then
+    raise exception 'FAIL P11: resolve_place returned % for an alias on a 3-deep chain, expected %',
+      v_r, pd;
+  end if;
+  if (select merged_into_place_id from public.places where id = v_r) is not null then
+    raise exception 'FAIL P11: resolve_place returned a tombstone — save_place would attach to a dead row';
+  end if;
+  set constraints all immediate;   -- the chain fixture itself must satisfy every invariant
+  raise notice 'PASS P11 a 3-deep chain resolves to its terminal live row, through place_survivor_id and through resolve_place';
+end $$;
+
+-- ── P12: a hand-crafted cycle terminates ────────────────────────────────────────────────────
+-- places_no_self_merge blocks a 1-cycle and merge_places blocks creating a longer one, but
+-- place_survivor_id is a READ path over data that may predate both, and a recursive CTE over a
+-- cyclic graph does not terminate on its own. Two belts are claimed: the `seen` array and depth<32.
+-- The statement_timeout is the actual assertion — an unbounded walk must fail the suite rather than
+-- hang CI. The documented behaviour on a cycle is "returns the deepest row reached, wrong but
+-- bounded and loud": that row is a tombstone, so no caller can mistake it for a live place.
+--
+-- statement_timeout is set HERE, outside the do block, and not with set_config inside it. Postgres
+-- arms the timer when the top-level statement begins, so a timeout raised from inside the running
+-- DO never arms and the bound is silently inert. (Measured: a 6-second pg_sleep inside a DO that
+-- sets statement_timeout='2s' itself runs the full 6 seconds.)
+set local statement_timeout = '10s';
+
+do $$
+declare px uuid; py uuid; v_r uuid;
+begin
+  set constraints all deferred;
+  px := public.resolve_place('overture','cycle-x','Cycle Xray', 20.0, 20.0,
+                             null,null,null,null,null,'IL');
+  py := public.resolve_place('overture','cycle-y','Cycle Yankee', 21.0, 21.0,
+                             null,null,null,null,null,'IL');
+  set constraints all immediate;
+  update public.places set merged_into_place_id = py where id = px;
+  update public.places set merged_into_place_id = px where id = py;
+
+  v_r := public.place_survivor_id(px);
+  if v_r is null or v_r not in (px, py) then
+    raise exception 'FAIL P12: cycle walk returned %, expected one of the two rows on the cycle', v_r;
+  end if;
+  if (select merged_into_place_id from public.places where id = v_r) is null then
+    raise exception 'FAIL P12: cycle walk returned a row that looks LIVE (%) — a caller would save against it', v_r;
+  end if;
+  -- and from the other end, so the result does not depend on where the walk starts
+  if public.place_survivor_id(py) is null then
+    raise exception 'FAIL P12: cycle walk from the other end returned null';
+  end if;
+  raise notice 'PASS P12 place_survivor_id terminates on a 2-cycle and returns a bounded, visibly-dead row';
+end $$;
+
+reset statement_timeout;
+
+-- ── P13/P14/P15: merge_places rejects every input it cannot merge safely ─────────────────────
+-- All four rejections are ruled behaviour, not defensiveness: an operator naming a tombstone is
+-- working from a stale picture, and following it silently would move data into a row nobody named.
+do $$
+declare v_live uuid; v_tomb uuid; v_terminal uuid; v_err text;
+begin
+  set constraints all deferred;
+  v_live := public.resolve_place('overture','guard-live','Guard Live', 30.0, 30.0,
+                                 null,null,null,null,null,'IL');
+  -- an existing tombstone from P11's chain, and its terminal survivor
+  select id into v_tomb from public.places
+   where merged_into_place_id is not null and name = 'Chain Alpha';
+  v_terminal := public.place_survivor_id(v_tomb);
+
+  -- P13: winner already merged
+  begin
+    perform public.merge_places(v_live, v_tomb);
+    raise exception 'FAIL P13: merge_places accepted a tombstone as the winner';
+  exception when check_violation then
+    v_err := sqlerrm;
+    if position('merge into survivor' in v_err) = 0 then
+      raise exception 'FAIL P13: rejected, but the error does not name the survivor to retry with: %', v_err;
+    end if;
+    if position(v_terminal::text in v_err) = 0 then
+      raise exception 'FAIL P13: the error names the wrong survivor (expected %): %', v_terminal, v_err;
+    end if;
+    raise notice 'PASS P13 merge_places rejects an already-merged winner and names the survivor to retry with';
+  end;
+
+  -- P14: loser already merged
+  begin
+    perform public.merge_places(v_tomb, v_live);
+    raise exception 'FAIL P14: merge_places accepted an already-merged loser';
+  exception when check_violation then
+    if position('already merged into' in sqlerrm) = 0 then
+      raise exception 'FAIL P14: rejected for the wrong reason: %', sqlerrm;
+    end if;
+    raise notice 'PASS P14 merge_places rejects an already-merged loser rather than re-parenting a decided tombstone';
+  end;
+
+  -- P15: the existence and argument guards. Without them an unknown loser makes every statement in
+  -- merge_places a no-op and the repair reports success having done nothing.
+  begin
+    perform public.merge_places(gen_random_uuid(), v_live);
+    raise exception 'FAIL P15: merge_places accepted a loser that does not exist';
+  exception when foreign_key_violation then
+    raise notice 'PASS P15a merge_places rejects a non-existent loser';
+  end;
+  begin
+    perform public.merge_places(v_live, gen_random_uuid());
+    raise exception 'FAIL P15: merge_places accepted a winner that does not exist';
+  exception when foreign_key_violation then
+    raise notice 'PASS P15b merge_places rejects a non-existent winner';
+  end;
+  begin
+    perform public.merge_places(null, v_live);
+    raise exception 'FAIL P15: merge_places accepted a null loser';
+  exception when null_value_not_allowed then
+    raise notice 'PASS P15c merge_places rejects a null argument';
+  end;
+  begin
+    perform public.merge_places(v_live, v_live);
+    raise exception 'FAIL P15: merge_places merged a place into itself';
+  exception when raise_exception then
+    raise notice 'PASS P15d merge_places rejects a self-merge';
+  end;
+end $$;
+
+-- ── P16: a real merge — tombstone re-pointing, alias movement, library de-duplication ────────
+-- The happy path, which had no test at all. Five claims:
+--   * every alias of the loser moves to the winner, and none of them arrives primary;
+--   * a tombstone that pointed AT the loser is re-pointed at the winner, so no chain grows;
+--   * a user who had saved both places keeps exactly one library entry;
+--   * both tombstones resolve to the winner afterwards;
+--   * ppr_alias_retained_on_move accepts the merge, because the loser is a tombstone by the time
+--     the deferred check runs — the ruling that tombstones are exempt (08 §1.4/§1.6).
+--
+-- Two blocks, and the split is not cosmetic. `places_alias_required` (0005) is queued by the INSERT
+-- of each place and, unlike 0011's alias triggers, it has NO tombstone exemption. If the fixture
+-- places were created and merged inside one deferred window, that queued INSERT check would fire at
+-- the checkpoint against a loser that legitimately has no aliases left, and fail. So block 1 builds
+-- the fixture and discharges its checks; block 2 merges. In production the two are always separate
+-- transactions (merge_places is an operator repair path), so this ordering is also the realistic one.
+--
+-- Block 2 runs with constraints DEFERRED, which is how production runs: merge_places empties the
+-- loser's aliases before marking it a tombstone, so an IMMEDIATE ppr_alias_retained_on_move would
+-- reject the merge at that statement. That is exactly why inventory.sql check 7b asserts these
+-- triggers are DEFERRABLE INITIALLY DEFERRED and not plain triggers.
+do $$
+declare
+  v_loser uuid; v_winner uuid; v_old_tomb uuid; v_a uuid := current_setting('qa.a_uid')::uuid;
+begin
+  set constraints all deferred;
+  v_loser  := public.resolve_place('overture','merge-loser','Merge Loser', 40.0, 40.0,
+                                   null,null,null,null,null,'IL');
+  -- a second alias on the loser, so alias movement is observable as more than one row
+  perform public.resolve_place('osm','merge-loser-2','Merge Loser', 40.0001, 40.0001,
+                               null,null,null,null,null,'IL');
+  v_winner := public.resolve_place('overture','merge-winner','Merge Winner', 41.0, 41.0,
+                                   null,null,null,null,null,'IL');
+  v_old_tomb := public.resolve_place('overture','merge-oldtomb','Merge Old Tombstone', 42.0, 42.0,
+                                     null,null,null,null,null,'IL');
+  -- a pre-existing tombstone pointing at the loser: the chain the old merge_places left behind
+  update public.places set merged_into_place_id = v_loser where id = v_old_tomb;
+
+  -- A had saved both places (origin manual, so neither needs a provenance row)
+  insert into public.saved_places (user_id, place_id, origin) values (v_a, v_loser, 'manual');
+  insert into public.saved_places (user_id, place_id, origin) values (v_a, v_winner, 'manual');
+
+  if (select count(*) from public.place_provider_refs where place_id = v_loser) <> 2 then
+    raise exception 'FAIL P16: fixture is wrong — the loser should carry two aliases';
+  end if;
+  set constraints all immediate;         -- discharge the fixture's own invariants
+  perform set_config('qa.merge_loser', v_loser::text, true);
+  perform set_config('qa.merge_winner', v_winner::text, true);
+  perform set_config('qa.merge_old_tomb', v_old_tomb::text, true);
+  raise notice 'PASS P16a the merge fixture satisfies every invariant before the merge';
+end $$;
+
+do $$
+declare
+  v_loser    uuid := current_setting('qa.merge_loser')::uuid;
+  v_winner   uuid := current_setting('qa.merge_winner')::uuid;
+  v_old_tomb uuid := current_setting('qa.merge_old_tomb')::uuid;
+  v_a        uuid := current_setting('qa.a_uid')::uuid;
+  n integer;
+begin
+  set constraints all deferred;
+  perform public.merge_places(v_loser, v_winner);
+
+  if (select merged_into_place_id from public.places where id = v_loser) <> v_winner then
+    raise exception 'FAIL P16: the loser is not a tombstone pointing at the winner';
+  end if;
+  if (select merged_into_place_id from public.places where id = v_old_tomb) <> v_winner then
+    raise exception 'FAIL P16: the pre-existing tombstone was not re-pointed at the winner (chain > 1 hop)';
+  end if;
+  select count(*) into n from public.place_provider_refs where place_id = v_loser;
+  if n <> 0 then raise exception 'FAIL P16: % aliases left on the loser', n; end if;
+  select count(*) into n from public.place_provider_refs where place_id = v_winner;
+  if n <> 3 then raise exception 'FAIL P16: winner has % aliases, expected 3', n; end if;
+  select count(*) into n from public.place_provider_refs
+   where place_id = v_winner and is_primary;
+  if n <> 1 then raise exception 'FAIL P16: winner has % primary aliases, expected exactly 1', n; end if;
+  select count(*) into n from public.saved_places where user_id = v_a and place_id = v_winner;
+  if n <> 1 then raise exception 'FAIL P16: A has % library entries for the winner, expected 1', n; end if;
+  select count(*) into n from public.saved_places where place_id = v_loser;
+  if n <> 0 then raise exception 'FAIL P16: % library entries still point at the loser', n; end if;
+  if public.place_survivor_id(v_old_tomb) <> v_winner
+     or public.place_survivor_id(v_loser) <> v_winner then
+    raise exception 'FAIL P16: resolution does not reach the winner from both tombstones';
+  end if;
+
+  -- the checkpoint: every deferred invariant queued by the merge — ppr_alias_retained_on_move once
+  -- per moved alias, and the provenance trigger — executes here and must accept the merge
+  set constraints all immediate;
+  raise notice 'PASS P16 merge_places moves aliases and saves, re-points tombstones, and passes ppr_alias_retained_on_move at the checkpoint';
+
+  -- leave the library as it was, so later counts stay readable
+  delete from public.saved_places where user_id = v_a and place_id = v_winner;
+end $$;
+
+-- ── P17: ppr_alias_retained_on_delete fires, at the deferred checkpoint ──────────────────────
+-- The hole 0005 left: places_alias_required is AFTER INSERT ON places, so deleting the last alias
+-- of a LIVE place left it with no provider identity — unresolvable, unrefreshable, and in breach of
+-- an invariant `08` §1.6 calls total.
+--
+-- TWO BLOCKS, and this one is a trap worth naming: if the place is created inside the SAME deferred
+-- window as the alias delete, the queued places_alias_required check from the INSERT fails at the
+-- checkpoint with the identical errcode and an almost identical message, so the test passes with the
+-- new trigger DROPPED. (Verified by dropping it.) Block 1 therefore discharges the fixture's own
+-- checks, and block 2 opens a fresh deferred window in which the only trigger that can fire is
+-- ppr_alias_retained_on_delete.
+do $$
+declare v_p uuid;
+begin
+  set constraints all deferred;
+  v_p := public.resolve_place('overture','orphan-1','Orphan Candidate', 50.0, 50.0,
+                              null,null,null,null,null,'IL');
+  set constraints all immediate;                 -- discharge the INSERT-side check
+  perform set_config('qa.orphan_place', v_p::text, true);
+end $$;
+
+do $$
+declare v_p uuid := current_setting('qa.orphan_place')::uuid;
+begin
+  set constraints all deferred;
+  begin
+    delete from public.place_provider_refs where place_id = v_p;
+    -- must NOT have raised yet: the check is deferred, so a legitimate delete-then-insert
+    -- replacement of an alias is judged on the state at COMMIT, not mid-transaction
+    set constraints all immediate;               -- stands in for COMMIT
+    raise exception 'FAIL P17: a live place was left with no provider ref';
+  exception when check_violation then
+    if position('no provider ref' in sqlerrm) = 0 then
+      raise exception 'FAIL P17: something else raised: %', sqlerrm;
+    end if;
+    raise notice 'PASS P17 ppr_alias_retained_on_delete is deferred and fires at the COMMIT checkpoint';
+  end;
+end $$;
+
+-- ── P17b: the legitimate delete-then-insert replacement still passes ─────────────────────────
+-- The reason the trigger is deferred rather than immediate. If this fails, every alias replacement
+-- in the system fails, and it would look like a bug in the caller.
+do $$
+declare v_p uuid; n integer;
+begin
+  set constraints all deferred;
+  v_p := public.resolve_place('overture','swap-1','Alias Swap', 51.0, 51.0,
+                              null,null,null,null,null,'IL');
+  set constraints all immediate;
+  set constraints all deferred;
+  delete from public.place_provider_refs where place_id = v_p;
+  insert into public.place_provider_refs (place_id, provider, provider_place_id, is_primary)
+  values (v_p, 'osm', 'swap-1-replacement', true);
+  set constraints all immediate;
+  select count(*) into n from public.place_provider_refs where place_id = v_p;
+  if n <> 1 then raise exception 'FAIL P17b: expected exactly one alias after the swap, found %', n; end if;
+  raise notice 'PASS P17b an alias may be replaced within one transaction (deferral is load-bearing)';
+end $$;
+
+-- ── P18: ppr_alias_retained_on_move fires ───────────────────────────────────────────────────
+-- The same hole reached by moving instead of deleting. `update place_provider_refs set place_id` is
+-- how merge_places empties a loser; nothing stopped an operator emptying a LIVE place the same way.
+-- is_primary is cleared in the same statement because ppr_one_primary_idx would otherwise raise
+-- first and the test would prove nothing about the trigger.
+-- Split into two blocks for the reason given in P17: otherwise the queued INSERT-side check masks
+-- the trigger under test and the assertion passes with the trigger dropped.
+do $$
+declare v_from uuid; v_to uuid;
+begin
+  set constraints all deferred;
+  v_from := public.resolve_place('overture','move-from','Move Source', 52.0, 52.0,
+                                 null,null,null,null,null,'IL');
+  v_to   := public.resolve_place('overture','move-to','Move Target', 53.0, 53.0,
+                                 null,null,null,null,null,'IL');
+  set constraints all immediate;                 -- discharge the INSERT-side checks
+  perform set_config('qa.move_from', v_from::text, true);
+  perform set_config('qa.move_to', v_to::text, true);
+end $$;
+
+do $$
+declare
+  v_from uuid := current_setting('qa.move_from')::uuid;
+  v_to   uuid := current_setting('qa.move_to')::uuid;
+begin
+  set constraints all deferred;
+  begin
+    update public.place_provider_refs set place_id = v_to, is_primary = false
+     where place_id = v_from;
+    set constraints all immediate;               -- stands in for COMMIT
+    raise exception 'FAIL P18: a live place had its last alias moved away';
+  exception when check_violation then
+    if position('no provider ref' in sqlerrm) = 0 then
+      raise exception 'FAIL P18: something else raised: %', sqlerrm;
+    end if;
+    raise notice 'PASS P18 ppr_alias_retained_on_move is deferred and fires at the COMMIT checkpoint';
+  end;
+end $$;
+
+-- ── P19: the tombstone exemption, the state merge_places actually leaves behind ──────────────
+-- Ruled by the project owner: the invariant is about LIVE rows. `08` §1.4 moves ALL of a loser's
+-- aliases to the winner, so a tombstone with zero aliases is the intended end state. If this failed,
+-- merge_places itself would abort at COMMIT — which is why it is asserted and not assumed.
+--
+-- Split into two blocks for the same reason as P16: `places_alias_required` (0005) is queued by the
+-- place's INSERT and has no tombstone exemption, so the fixture's own checks are discharged before
+-- the row becomes a tombstone. That asymmetry between the two triggers is reported as a defect
+-- against 0011; this test asserts the exemption that WAS specified, not the one that was missed.
+do $$
+declare v_tomb uuid; v_winner uuid;
+begin
+  set constraints all deferred;
+  v_winner := public.resolve_place('overture','exempt-win','Exempt Winner', 54.0, 54.0,
+                                   null,null,null,null,null,'IL');
+  v_tomb   := public.resolve_place('overture','exempt-tomb','Exempt Tombstone', 55.0, 55.0,
+                                   null,null,null,null,null,'IL');
+  set constraints all immediate;                   -- discharge the fixture's INSERT-side checks
+  perform set_config('qa.exempt_tomb', v_tomb::text, true);
+  perform set_config('qa.exempt_winner', v_winner::text, true);
+end $$;
+
+do $$
+declare
+  v_tomb   uuid := current_setting('qa.exempt_tomb')::uuid;
+  v_winner uuid := current_setting('qa.exempt_winner')::uuid;
+  n integer;
+begin
+  set constraints all deferred;
+  update public.places set merged_into_place_id = v_winner where id = v_tomb;
+  delete from public.place_provider_refs where place_id = v_tomb;
+  set constraints all immediate;                   -- must NOT raise: the row is a tombstone
+  select count(*) into n from public.place_provider_refs where place_id = v_tomb;
+  if n <> 0 then raise exception 'FAIL P19: the tombstone still has aliases'; end if;
+  raise notice 'PASS P19 a tombstone may hold zero aliases (the exemption 08 §1.4 requires)';
+end $$;
+
+-- ── P19b: a place that no longer exists is not asserted about ───────────────────────────────
+-- resolve_place step 3 deletes its own aliasless orphan, and ON DELETE CASCADE from places fires
+-- this trigger once per alias of a place that is going away. Both would raise if the trigger did
+-- not check that the place still exists first.
+do $$
+declare v_p uuid; n integer;
+begin
+  set constraints all deferred;
+  v_p := public.resolve_place('overture','cascade-1','Cascade Victim', 56.0, 56.0,
+                              null,null,null,null,null,'IL');
+  set constraints all deferred;
+  delete from public.places where id = v_p;         -- cascades to its alias, firing the trigger
+  set constraints all immediate;
+  select count(*) into n from public.places where id = v_p;
+  if n <> 0 then raise exception 'FAIL P19b: the place was not deleted'; end if;
+  raise notice 'PASS P19b deleting a place cascades to its aliases without tripping the invariant';
+end $$;
+
+-- ── P19c: the INSERT-side invariant is still LOUD for a live aliasless place (0005 + 0013) ───
+-- The half of the invariant that must NOT be relaxed by 0013's tombstone branch. A place inserted
+-- directly, with no alias and no merge, is a live row with no provider identity: unresolvable,
+-- unrefreshable, and exactly what `places_alias_required` exists to reject. Asserted deliberately
+-- before P19d, because the way to make P19d pass by accident is to weaken this.
+-- The message match distinguishes the two triggers: 0005/0013 raise 'place % has no provider ref',
+-- 0011 raises 'live place % would be left with no provider ref'.
+do $$
+declare v_p uuid;
+begin
+  set constraints all deferred;
+  begin
+    insert into public.places (name, lat, lng, country_code)
+    values ('Aliasless Live Place', 57.0, 57.0, 'IL') returning id into v_p;
+    set constraints all immediate;              -- stands in for COMMIT
+    raise exception 'FAIL P19c: a live place with no provider ref was accepted at the checkpoint';
+  exception when check_violation then
+    if position('has no provider ref' in sqlerrm) = 0 then
+      raise exception 'FAIL P19c: something else raised: %', sqlerrm;
+    end if;
+    raise notice 'PASS P19c places_alias_required still rejects a LIVE place with no provider ref';
+  end;
+  set constraints all immediate;               -- the caught failure rolled the mode back with it
+end $$;
+
+-- ── P19d: create a place and merge it away in ONE transaction (0013) ────────────────────────
+-- The defect 0013 fixes. `places_alias_required` is DEFERRABLE INITIALLY DEFERRED, so the check
+-- queued by the loser's INSERT is evaluated at COMMIT — by which time merge_places has moved every
+-- one of its aliases to the winner and tombstoned it. Before 0013 the trigger had no tombstone
+-- branch and this whole transaction aborted at COMMIT with 'place % has no provider ref', losing the
+-- repair; `08` §1.4/§1.6 and 0011's own header say a tombstone with zero aliases is the intended end
+-- state. Note what is NOT split here: unlike P16 and P19, everything happens inside ONE deferred
+-- window on purpose — the single window IS the test.
+--
+-- Reverting 0013 (restoring 0005's body) makes this block fail at `set constraints all immediate`
+-- with errcode 23514; verified in both directions.
+do $$
+declare v_loser uuid; v_winner uuid; n_alias integer; n_live integer; v_survivor uuid;
+begin
+  set constraints all deferred;
+  v_winner := public.resolve_place('overture','one-txn-win','One Txn Winner', 58.0, 58.0,
+                                   null,null,null,null,null,'IL');
+  v_loser  := public.resolve_place('overture','one-txn-lose','One Txn Loser', 59.0, 59.0,
+                                   null,null,null,null,null,'IL');
+  perform public.merge_places(v_loser, v_winner);
+  set constraints all immediate;               -- stands in for COMMIT; must NOT raise
+
+  select count(*) into n_alias from public.place_provider_refs where place_id = v_loser;
+  if n_alias <> 0 then
+    raise exception 'FAIL P19d: the loser kept % alias(es); the merge did not move them', n_alias;
+  end if;
+  select count(*) into n_alias from public.place_provider_refs where place_id = v_winner;
+  if n_alias <> 2 then
+    raise exception 'FAIL P19d: the winner holds % alias(es), expected 2', n_alias;
+  end if;
+  select count(*) into n_live from public.places
+   where id = v_loser and merged_into_place_id = v_winner;
+  if n_live <> 1 then raise exception 'FAIL P19d: the loser is not a tombstone pointing at the winner'; end if;
+  v_survivor := public.place_survivor_id(v_loser);
+  if v_survivor <> v_winner then
+    raise exception 'FAIL P19d: the loser resolves to % rather than the winner %', v_survivor, v_winner;
+  end if;
+  raise notice 'PASS P19d a place created and merged away in the SAME transaction survives the deferred checkpoint (0013)';
+end $$;
+
+-- ── P20: step 1's staleness gate and the enrichment branch ──────────────────────────────────
+-- Before 0011 every repeat import rewrote name/lat/lng on the shared row unconditionally, which let
+-- a 90-day-old cached Nominatim response overwrite a newer copy and bumped updated_at for no new
+-- information. `08` §1.2 says refresh "if our copy is older".
+--
+-- ctid, not updated_at, is what proves "no write happened": now() is the TRANSACTION timestamp, so
+-- neither updated_at nor provider_fetched_at can distinguish "not written" from "written again in
+-- this transaction" (the trap P4b documents). Any UPDATE writes a new row version and moves ctid.
+-- For the same reason provider_fetched_at is asserted by EQUALITY to the value captured before the
+-- call, never by comparison with now().
+do $$
+declare
+  v_p uuid;
+  v_name text; v_lat double precision; v_cat text; v_locality text;
+  v_fetched_before timestamptz; v_fetched_after timestamptz;
+  v_ctid_before tid; v_ctid_after tid;
+begin
+  set constraints all deferred;
+  v_p := public.resolve_place('overture','stale-1','Stale Cafe', 60.0, 60.0,
+                              'restaurant', null, null, null, null, 'IL');
+  set constraints all immediate;
+
+  -- (a) FRESH copy, nothing missing: the shared row is not written at all
+  select ctid, provider_fetched_at into v_ctid_before, v_fetched_before
+    from public.places where id = v_p;
+  perform public.resolve_place('overture','stale-1','RENAMED BY A STALE CACHE', 60.9, 60.9,
+                               'restaurant', null, null, null, null, 'IL');
+  select ctid, name, lat into v_ctid_after, v_name, v_lat from public.places where id = v_p;
+  if v_name <> 'Stale Cafe' or v_lat <> 60.0 then
+    raise exception 'FAIL P20a: a fresh copy was overwritten (name=%, lat=%)', v_name, v_lat;
+  end if;
+  if v_ctid_after <> v_ctid_before then
+    raise exception 'FAIL P20a: the shared row was written even though nothing was stale or missing';
+  end if;
+
+  -- (b) FRESH copy with a column we do not have: enrichment fills it, overwrites nothing, and does
+  --     NOT bump the staleness clock (bumping it without taking the new name/coordinates would push
+  --     the real refresh out forever). country_code and locality feed the near-duplicate guard, so
+  --     leaving them null for 30 days would degrade dedup — which is why this branch exists.
+  perform public.resolve_place('overture','stale-1','RENAMED BY A STALE CACHE', 60.9, 60.9,
+                               'cafe', null, null, 'Tel Aviv-Yafo', null, 'IL');
+  select ctid, name, lat, category, locality, provider_fetched_at
+    into v_ctid_after, v_name, v_lat, v_cat, v_locality, v_fetched_after
+    from public.places where id = v_p;
+  if v_locality is distinct from 'Tel Aviv-Yafo' then
+    raise exception 'FAIL P20b: the missing locality was not enriched (got %)', v_locality;
+  end if;
+  if v_cat <> 'restaurant' then
+    raise exception 'FAIL P20b: enrichment OVERWROTE an existing category with %', v_cat;
+  end if;
+  if v_name <> 'Stale Cafe' or v_lat <> 60.0 then
+    raise exception 'FAIL P20b: enrichment moved name/coordinates (name=%, lat=%)', v_name, v_lat;
+  end if;
+  if v_fetched_after <> v_fetched_before then
+    raise exception 'FAIL P20b: an enrichment-only write bumped provider_fetched_at (% -> %)',
+      v_fetched_before, v_fetched_after;
+  end if;
+  if v_ctid_after = v_ctid_before then
+    raise exception 'FAIL P20b: the enrichment did not write the row at all';
+  end if;
+
+  -- (c) STALE copy: the refresh happens, takes the new name and coordinates, and bumps the clock
+  update public.places set provider_fetched_at = now() - interval '40 days' where id = v_p;
+  select provider_fetched_at into v_fetched_before from public.places where id = v_p;
+  perform public.resolve_place('overture','stale-1','Stale Cafe Renamed', 60.5, 60.5,
+                               null, null, null, null, null, 'IL');
+  select name, lat, provider_fetched_at into v_name, v_lat, v_fetched_after
+    from public.places where id = v_p;
+  if v_name <> 'Stale Cafe Renamed' or v_lat <> 60.5 then
+    raise exception 'FAIL P20c: a stale copy was NOT refreshed (name=%, lat=%)', v_name, v_lat;
+  end if;
+  if v_fetched_after <= v_fetched_before then
+    raise exception 'FAIL P20c: provider_fetched_at was not bumped by a real refresh';
+  end if;
+
+  -- (d) a never-fetched copy (provider_fetched_at null) counts as stale
+  update public.places set provider_fetched_at = null, name = 'Never Fetched' where id = v_p;
+  perform public.resolve_place('overture','stale-1','Fetched Now', 60.7, 60.7,
+                               null, null, null, null, null, 'IL');
+  select name, provider_fetched_at into v_name, v_fetched_after from public.places where id = v_p;
+  if v_name <> 'Fetched Now' then
+    raise exception 'FAIL P20d: a null provider_fetched_at was not treated as stale (name=%)', v_name;
+  end if;
+  if v_fetched_after is null then
+    raise exception 'FAIL P20d: the refresh did not set provider_fetched_at';
+  end if;
+  set constraints all immediate;
+  raise notice 'PASS P20 the staleness gate refreshes only an old copy, enriches without overwriting or bumping the clock, and treats null as stale';
+end $$;
+
+-- ── P21: extractions is readable via saved_place_sources, not only via imports ───────────────
+-- 0004 gated extractions on `imports` alone while `08` §2.2 rule 1 and technical-design §4.3 both
+-- say imports OR saved_place_sources — which is what `sources` actually got in 0006. A user who
+-- saved a place from an import and then cancelled or aged out the import row could read the source
+-- and not the extraction derived from it. B here has NO import at all: the only membership B holds
+-- is a provenance row, so a pass proves the second branch and nothing else.
+savepoint before_p21;
+do $$
+declare v_saved uuid; v_b uuid := current_setting('qa.b_uid')::uuid;
+begin
+  -- deferred: the provenance invariant is only satisfied once the sps row below exists
+  set constraints all deferred;
+  insert into public.saved_places (user_id, place_id, origin)
+  values (v_b, current_setting('qa.place_id')::uuid, 'import') returning id into v_saved;
+  insert into public.saved_place_sources (saved_place_id, user_id, source_id)
+  values (v_saved, v_b, current_setting('qa.source_id')::uuid);
+  if (select count(*) from public.imports where user_id = v_b) <> 0 then
+    raise exception 'FAIL P21: fixture is wrong — B must hold no import for this to prove the second branch';
+  end if;
+  set constraints all immediate;      -- the fixture is a legal state, not a deferred violation
+end $$;
+
+select set_config('request.jwt.claims',
+                  '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}', true);
+set local role authenticated;
+
+do $$
+declare n integer;
+begin
+  select count(*) into n from public.extractions;
+  if n <> 1 then
+    raise exception 'FAIL P21: B holds a provenance row for the source and sees % extractions (expected 1)', n;
+  end if;
+  select count(*) into n from (select id from public.sources) s;
+  if n <> 1 then
+    raise exception 'FAIL P21: B holds a provenance row for the source and sees % sources (expected 1)', n;
+  end if;
+  raise notice 'PASS P21 the saved_place_sources branch makes the extraction readable without an import row';
+end $$;
+
+reset role;
+rollback to savepoint before_p21;
+
+-- ── P22: step 2 really does take the advisory lock, on the key the guard decides on ──────────
+-- The observable half of the concurrency fix in one session. pg_locks is consulted rather than the
+-- source of the function: the lock must actually be held by THIS transaction after a call that
+-- reached step 2, and its key must be hashtext(name_key || country_code) — the same pair the
+-- near-duplicate guard compares on. If the lock key and the guard key ever drift apart, the lock
+-- serialises the wrong callers and the guard is advisory again.
+-- This also settles, at runtime, that `pg_advisory_xact_lock(hashtext(...))` resolves to the bigint
+-- overload with no ambiguity against the (int, int) form: an ambiguous call would fail to parse and
+-- resolve_place would not exist to be called.
+do $$
+declare
+  v_key    bigint;
+  v_before integer;
+  v_after  integer;
+begin
+  set constraints all deferred;
+  select count(*) into v_before from pg_locks
+   where locktype = 'advisory' and pid = pg_backend_pid();
+
+  perform public.resolve_place('overture','lock-1','Lock Probe Cafe', 70.0, 70.0,
+                               null,null,null,null,null,'IL');
+
+  v_key := hashtext(coalesce(public.place_name_key('Lock Probe Cafe'), '') || coalesce('IL', ''));
+  select count(*) into v_after from pg_locks
+   where locktype = 'advisory' and pid = pg_backend_pid()
+     and objsubid = 1
+     and ((classid::bigint << 32) | objid::bigint) = v_key;
+  if v_after <> 1 then
+    raise exception 'FAIL P22: step 2 did not hold an advisory lock on key % (found % matching, % advisory locks total before)',
+      v_key, v_after, v_before;
+  end if;
+
+  -- and it is transaction-scoped, so nothing has to remember to release it
+  if exists (select 1 from pg_locks
+              where locktype = 'advisory' and pid = pg_backend_pid()
+                and ((classid::bigint << 32) | objid::bigint) = v_key
+                and not granted) then
+    raise exception 'FAIL P22: the lock is recorded as not granted';
+  end if;
+  set constraints all immediate;
+  raise notice 'PASS P22 resolve_place step 2 holds a transaction-scoped advisory lock keyed on (name_key, country_code)';
+end $$;
+
+-- ── P23: DELIBERATELY UNPROVEN — mutual exclusion under real concurrency ─────────────────────
+-- The invariant: two transactions resolving the SAME venue under two DIFFERENT provider ids must
+-- end with ONE places row. `08` §4 claims it as prevented ("unique (provider, provider_place_id) +
+-- the 75 m/name guard, both inside resolve_place"), and that claim was only ever true
+-- single-threaded: the two provider pairs differ by construction, so the unique constraint cannot
+-- fire, and under READ COMMITTED neither guard probe can see the other's uncommitted row.
+--
+-- P22 proves the lock is taken and keyed correctly. It does NOT prove mutual exclusion, and this
+-- file cannot: a psql script is ONE session, and proving exclusion needs two sessions plus a
+-- barrier — session 1 inside resolve_place and not yet committed while session 2 enters it. There is
+-- no in-transaction way to open a second connection here (dblink/pg_background would be a new
+-- extension, which D6 forbids).
+--
+-- WHAT WOULD PROVE IT (kept concrete so it can be built rather than re-argued):
+--   a two-connection harness — a shell script or a pgbench file driving two psql processes over
+--   FIFOs — doing:
+--     S1: begin; select resolve_place('overture','conc-1','Barrier Cafe',32.1,34.8,...,'IL');
+--     S2: begin; set statement_timeout='20s';
+--         select resolve_place('osm','conc-2','Barrier Cafe',32.1001,34.8001,...,'IL');
+--     assert, while S1 is still open, that S2 is blocked:
+--         select count(*) from pg_locks where locktype='advisory' and not granted  -- must be 1
+--     S1: commit;  S2: commit;
+--     assert: exactly ONE row in places, TWO rows in place_provider_refs, and both calls returned
+--             the same uuid.
+--   Run the same script against 0007's resolve_place to see it produce TWO places — otherwise the
+--   harness proves the lock is harmless rather than that it is necessary.
+--
+-- Until that harness exists in the repo and runs in CI, this invariant is UNPROVEN BY THIS SUITE.
+-- It is recorded here rather than dropped, because `08` §4 asserts it and a reader of this file is
+-- entitled to know which of its claims are tested.
+do $$
+begin
+  raise notice 'UNPROVEN P23 two-session mutual exclusion is NOT asserted by this suite (single-session harness); see the comment above for the two-connection test that would assert it';
+end $$;
+
 
 rollback;

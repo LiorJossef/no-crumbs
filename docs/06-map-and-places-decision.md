@@ -215,6 +215,9 @@ Implemented and measured in
 
 ### 6.2 The confidence bands, and the threshold at which we must ask
 
+These three band names are the `ConfidenceBand` enum (`07` §10 owns the type, this section owns the
+thresholds). `confident` and `shortlist` appear in UI prose elsewhere; they are not band names.
+
 | Band | Rule | UI behaviour |
 |---|---|---|
 | **preselect** | `score ≥ 0.92` **AND** `margin ≥ 0.05` | Row is pre-ticked in the review sheet with the match shown. Still requires the user's Save tap — Charter invariant 2 is absolute |
@@ -251,12 +254,12 @@ They live in one exported constant object with the benchmark as their regression
 
 | Ceiling | Value | Why |
 |---|---|---|
-| Resolution lookups per import | **8** | Matches the LLM's 8-candidate cap; assumption B4 says 3–7 places per post is normal |
+| Resolution lookups per import | **7** | `MAX_CANDIDATES = 7`, one search per candidate — the single cap, declared in `07` §7 and applied in `09` §5.3 (the 8 written here predates it; the LLM's *schema* cap is 12, `09` §4.2). Assumption B4 says 3–7 places per post is normal. Candidates past 7 are kept as `capped`, never dropped |
 | Imports per user per day | **30** | R7 |
 | Manual-search requests | debounce 300 ms, min 2 characters, one in flight, ≤20/min/user | Autocomplete is the easiest accidental cost amplifier |
 | Nominatim fallback | ≤1 req/s globally (policy), ≤200/day project-wide, sequential queue | VERIFIED policy limit |
 | Resolution cache | keyed on `sha256(normalised_candidate + region_id + category_hint)`. Open-data hits cached **permanently** (licence permits it); Nominatim hits cached 90 days | Repeat imports of the same venue cost nothing |
-| Idempotency | Same URL re-pasted → same job row, no new lookups | A3 |
+| Idempotency | Same URL re-pasted → the same `imports` row, no new lookups (there is no job row: `07` §0 has no queue) | A3 |
 
 ---
 
@@ -471,7 +474,7 @@ consequence. Both documents now say so.
 5. **Consent copy.** *(OPEN — does not gate MS5.)* The browser permission prompt is not our consent surface. We need approved copy
    for the pre-prompt explaining purpose and scope ("to sort your saved places by distance; your
    location is never stored or sent to us").
-6. **Rate limits (D11).** *(OPEN — does not gate MS5.)* We propose 8 lookups/import, 30 imports/user/day, 20 searches/min/user,
+6. **Rate limits (D11).** *(OPEN — does not gate MS5.)* We propose 7 lookups/import (`MAX_CANDIDATES = 7`), 30 imports/user/day, 20 searches/min/user,
    200 Nominatim/day project-wide. Confirm these are enforced server-side with the user id as the
    key, not client-side.
 7. **Public token exposure.** *(OPEN — does not gate MS5.)* Protomaps/MapTiler-style tile keys are public by design. Confirm the

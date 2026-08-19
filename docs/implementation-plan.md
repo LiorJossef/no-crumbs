@@ -57,7 +57,7 @@ possible; milestones are always `MS9`.
 | D8 | Auth methods offered | **CLOSED** — Supabase Auth email + password only, judged on live-demo reliability; magic link rejected, OAuth deferred. One role, no RLS impact | `security.md` §2.5 |
 | D9 | Visual direction, map style, tokens | **PARTIALLY CLOSED** — UX architecture, screens, states, copy deck and five motion moments are specified; the token values and the forked Protomaps style are not authored | `technical-design.md` (written MS3; token values still owed) |
 | D10 | Test strategy depth | **CLOSED (sized)** — four tiers and a 3 hd time-box, §13. The graded document is still written in MS13 | §13 → `test-specification.md` |
-| D11 | Rate limits and cost ceilings | **HALF-CLOSED** — provider-call ceilings exist (`06` §6.4: 8 lookups/import, 30 imports/user/day, Nominatim ≤1 rps / ≤200 day). The per-user limiter implementation and the monthly ceiling are not written up | `scale.md` (owed) |
+| D11 | Rate limits and cost ceilings | **HALF-CLOSED** — provider-call ceilings exist (`06` §6.4: 7 lookups/import, 30 imports/user/day, Nominatim ≤1 rps / ≤200 day). The per-user limiter implementation and the monthly ceiling are not written up | `scale.md` (owed) |
 | D12 | Map shell and route topology | **CLOSED** — persistent `(map)` route-group layout owns one map instance; plain nested routes; no parallel/intercepting routes | `07` §11 |
 
 **Reading of the ledger:** every decision that would be expensive to reverse *after* code exists is
@@ -167,9 +167,9 @@ record of one import run, holding pre-confirmation candidates as `jsonb`).
 - Everything else is a server-component read through Supabase under the user's JWT.
 
 **How data flows.** Browser posts a URL → route handler authenticates and rate-limits → domain
-`runImport(ports, input, signal)` orchestrates: canonicalise (also the SSRF gate) → `SourceAdapter`
+`runImport(ports, input, ctx)` orchestrates: canonicalise (also the SSRF gate) → `SourceAdapter`
 (TikTok oEmbed) → `ContentExtractor` (caption) → `PlaceExtractor` (LLM, schema-constrained) →
-`PlaceResolver` (our Overture index, ≤8 lookups) → confidence banding → events streamed to the
+`PlaceResolver` (our Overture index, ≤7 lookups — `MAX_CANDIDATES = 7`) → confidence banding → events streamed to the
 client, rows written to `sources` / `extractions` / `imports` as they are produced → the user
 confirms in the review sheet → server action writes `places` (dedup) + `saved_places` → the map reads
 its own rows through RLS.
@@ -220,7 +220,7 @@ without a network, a browser or a database:
    union (`07` §9, 14 codes). Nothing else may cross into the app layer.
 2. `domain/source/canonicalise-tiktok-url.ts` — pure, table-driven, and simultaneously the SSRF
    boundary (`04` §2). Heaviest unit-test target in the codebase.
-3. `domain/import/pipeline.ts` — `runImport(ports, input, signal)`, emitting `ImportEvent`s and
+3. `domain/import/pipeline.ts` — `runImport(ports, input, ctx)`, emitting `ImportEvent`s and
    enforcing the budgets. Tested against fake ports before a single real adapter exists.
 4. `domain/place/confidence.ts` and `domain/place/dedup.ts` — the two rulings from `06` §6.2 and
    `08` §1, as pure functions with the benchmark as their regression test.
