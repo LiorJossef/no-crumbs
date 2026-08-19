@@ -49,21 +49,36 @@ cross-user read does exist under FORCE RLS.
 | 5 | `0008_policy_tests.sql`: assertions for the five unasserted policies; fix the vacuous `extractions` assertion; perform P4's provenance-forgery attempt; settle one assertion count; add the eleven tests 0011 needs | `qa-reliability` | **done** — executed in Docker |
 | 6 | ESLint `domain` zone: ban `fetch`/`XMLHttpRequest` globals and `node:*`/`fs`/`http(s)`/`undici`/`axios`; extend `check-layer-guard.sh` | `nextjs-architect` | **done** |
 | 7 | `db:push:staging` / `db:push:prod` bound to explicit project refs, + `migration list --linked` and inventory post-check, + rollback posture | `devops-vercel` | **done** — `scripts/db-env.sh` + `db-push.sh` + `db-inventory-remote.sh`, `docs/db-migration-runbook.md`; every refusal path executed locally; **one read-only `migration list` call did reach staging** (no write) — it revealed staging is at `0001`–`0009` with `0011` still local-only |
-| 8–13 | Tier 2 (see below) | various | **NOT STARTED** |
-| 14 | Tier 3 doc sync, `main`-resident files only | `devops-vercel` + `qa-reliability` | **NOT STARTED** |
+| 8 | Tier 2 security: `service_role` grant matrix asserted; `places` grant narrowed or `security.md` item 8 answered | `security-privacy` | **done** → `0012` + `inventory.sql` checks 9/9b/9c + `security.md` §2.6 |
+| 9 | Tier 2 architecture: `@/app/_lib/*` out of the `ui` zone + `server-only`; declare `ImportStore` and `Clock`; canonicalise `runImport`, segment names, candidate cap 7, confidence enum | `nextjs-architect` | **done** |
+| 10 | Tier 2: commit `docs/evidence/db/01-bbox-vs-postgis.md` so no-PostGIS stops being ASSUMED | `supabase-database` | **NOT STARTED** — next |
+| 11 | Tier 2: write the twelve ADRs into `docs/adr/` | `product-lead` | **NOT STARTED** |
+| 12 | Fix the three `0011` defects task 4+5 logged (see below) — needs its own migration, `0013` | `supabase-database` | **NOT STARTED** |
+| 14 | Tier 3 doc sync, `main`-resident files only (minus the `DATABASE_URL` entry, done by task 7) | `devops-vercel` + `qa-reliability` | **NOT STARTED** |
 
-## Working tree right now — all uncommitted
+**One task per session, from here on** — the owner's instruction as of 2026-08-19. Each row above is a
+session's worth of work: read this file, do the one task, commit, update this ledger, stop.
+
+## Commit history on this branch
+
+Working tree is **clean**; everything below is committed, nothing is pushed.
 
 ```
- M docs/08-place-identity.md                              # §1.6 amendment only (tombstone exemption)
- M scripts/check-migration-grants.sh                      # tasks 1 + 1b
- M supabase/tests/inventory.sql                           # task 1 comment fix + task 4
- M supabase/tests/0008_policy_tests.sql                   # task 5
-?? supabase/migrations/0011_merge_chains_and_invariant_scope.sql   # tasks 2 + 3
-?? docs/ms1-ms4-audit-handoff.md                          # this file
+f40cd85  Rest the ui boundary on server-only; declare the last two ports   (task 9)
+1f98fc4  0012: narrow the places grant, own the service_role matrix        (task 8)
+19ae905  Handoff: record tasks 4-7, correct two wrong premises
+2abd2d3  Bind schema pushes to a named project, and prove what lands       (task 7)
+85f3fd5  Enforce that domain/ does no I/O                                  (task 6)
+9d7260a  Prove the schema: broaden inventory checks, assert the policies   (tasks 4+5)
+c9466b0  0011: follow merge chains, scope the alias invariant to live rows (tasks 2+3)
+bf81517  Grant guard: catch views, unparseable CREATEs, revoke ordering    (tasks 1+1b)
+21c4d17  (main) Merge pull request #3 from LiorJossef/ms4-database
 ```
 
-`npm run check:migrations` is green: 9 relations, all revoked, every table RLS enabled+forced.
+Task 1's `inventory.sql` comment fix rode along in `9d7260a` rather than being split out of the file.
+
+`npm run verify` and `npm run check:migrations` are green. Migrations `0011` and `0012` are
+**local-only** — staging is at `0001`–`0009` and production has never seen either.
 
 ## Owner rulings already taken — do not re-litigate
 
@@ -80,8 +95,8 @@ cross-user read does exist under FORCE RLS.
 
 ## Next action
 
-Tasks 4 and 5 are done. Next: task 6 (`nextjs-architect`), then task 7 (`devops-vercel`), then
-Tier 2 and Tier 3 — sequentially, per the owner's instruction.
+**Task 10** — the bbox-vs-PostGIS evidence file, owner `supabase-database`. One task per session:
+read this file, do task 10 only, commit, flip its ledger row, stop. Then 11, then 12, then 14.
 
 ### Tasks 4 + 5 outcome (2026-08-19, second session)
 
@@ -166,15 +181,41 @@ hosted form, so `supabase db reset` should need no shim — **unverified.**
 
 ## Tier 2 — on this branch, not blocking
 
-`service_role` grant matrix asserted in `inventory.sql` (nothing ever grants it a table privilege;
-the whole trusted-server path leans on hosted defaults, unverified either way — fails closed, so not
-an exposure) · `places` grant narrowed to a column list, or answer `security.md` owed item 8
-(`resolution_score` / `last_verified_at` readable by any co-saver) · `@/app/_lib/*` restricted from
-the `ui` zone + `server-only` dep · declare `ImportStore` and `Clock` before MS6 · canonicalise
-`runImport`'s signature, segment names, candidate cap **7**, the confidence enum · commit
-`docs/evidence/db/01-bbox-vs-postgis.md` so no-PostGIS stops being ASSUMED against the CLAUDE.md
-VERIFIED rule · write the twelve ADRs into `docs/adr/` (graded R1, referenced by charter §10, `03`
-and `07` §663, and it does not exist).
+**Tasks 8 and 9 are done** (see the ledger and the session log below). Two remain:
+
+- **Task 10 — `docs/evidence/db/01-bbox-vs-postgis.md`.** The delivered schema does geographic work
+  with bbox + Haversine and no PostGIS, labelled ASSUMED. CLAUDE.md forbids design resting on
+  anything but VERIFIED, so this either gets measured evidence or the design is out of contract.
+  Measure, do not argue: the real queries (the 75 m dedup guard, `08`'s viewport query) at a realistic
+  row count, bbox+Haversine vs PostGIS on the same data with the index each can actually use;
+  correctness as well as speed (poles, antimeridian, latitude-dependent longitude degree) and whether
+  any disagreement can occur in this product's domain; and the flip-point stated as a number.
+  Docker is available and the `supabase/postgres` image has PostGIS. **A finding that contradicts the
+  design is a legitimate outcome — record it, do not rig the benchmark.** Only the label plus its
+  evidence pointer in `02-risks-and-unknowns.md` may change alongside.
+- **Task 11 — the twelve ADRs into `docs/adr/`.** Graded R1, referenced by charter §10, `03`, and
+  `07` §663. The directory does not exist.
+
+## Task 12 — the three `0011` defects, awaiting a migration
+
+Logged by task 4+5, none fixed, all need a `0013`:
+
+1. **The tombstone exemption reached only one of the two alias triggers.** `0005:76`–`100`'s
+   `places_alias_required` / `assert_place_has_alias` has no tombstone branch, so a transaction that
+   creates a place and merges it away aborts at COMMIT with `place % has no provider ref`. Low
+   severity (merge is an operator path, normally its own transaction) but `0011`'s header claims a
+   scope that is not true. Fix: the same `merged_into_place_id is not null → return null` branch.
+2. **`0011:317`–`318`'s `::bigint` uncertainty can be closed** — the one-argument
+   `pg_advisory_xact_lock` has only the `bigint` overload. Comment-only.
+3. **`0011:70`–`72`'s comment is wrong** — `assert_place_alias_retained` fires only on alias DELETE /
+   UPDATE OF `place_id`, so nothing "complains" when a cyclic chain hands back a tombstone. The walk
+   is bounded; the loud half does not exist. Comment-only.
+
+Also still open, from task 8: `place_provider_refs` is granted table-wide (`0005:98`) and
+`first_seen_at` carries the same row-age signal that `0012` removed from `places` — ruled acceptable,
+a disclosed residual. And `extractions` is granted table-wide (`0004:33`) and may need no grant at
+all; not touched because it would invalidate three `0008_policy_tests.sql` assertions that currently
+prove the membership gate works.
 
 ## Tier 3 — mechanical doc sync, `main`-resident files only
 
