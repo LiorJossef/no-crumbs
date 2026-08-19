@@ -192,8 +192,13 @@ The design is therefore:
    to the Python `norm()` for all 44 benchmark queries plus a 1 000-row sample of ingested names.
    **Half done 2026-08-19:** all 44 queries plus 18 adversarial cases pass byte-for-byte against
    pinned output from the unmodified prototype
-   ([`tests/unit/places/normalise.test.ts`](../tests/unit/places/normalise.test.ts)). The 1 000-row
-   name sample needs an ingest and belongs to tasks 4/5. One bounded divergence is recorded in the
+   ([`tests/unit/places/normalise.test.ts`](../tests/unit/places/normalise.test.ts)). **Closed
+   2026-08-19 (MS5 task 5):** the 1 000-row sample of *ingested* names is pinned from the same
+   unmodified prototype and passes 1 000/1 000
+   ([`tests/unit/places/normalise-sample.test.ts`](../tests/unit/places/normalise-sample.test.ts),
+   data in [`evidence/places/normalise-name-sample-tlv.json`](evidence/places/normalise-name-sample-tlv.json));
+   613 of the 1 000 names are non-ASCII and 590 are Hebrew, which is where the `\w` porting trap
+   below would have shown up. One bounded divergence is recorded in the
    function's header: `unicodedata.combining(ch)` has no JavaScript equivalent, so the strip is
    `\p{Mn}`, which differs from Python only on non-spacing marks of combining class 0 (Thai, Lao,
    Khmer, some Indic) — none of which occurs in a Tel Aviv, Tokyo or London extract.

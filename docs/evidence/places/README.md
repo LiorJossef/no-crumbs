@@ -14,8 +14,9 @@ Run date: 2026-08-18. Owner: maps-geospatial.
 | `probe-overture-coverage.py` | Direct dataset probes used to classify ABSENT vs MISS_RANK. |
 | `measure-extract-size.py` | Row counts and food-and-drink share per city extract, for the storage cost model. |
 | `measure-jaro-winkler.py` / `jaro-winkler-duckdb.json` | **Added 2026-08-19 (MS5 task 3).** DuckDB 1.5.5's `jaro_winkler_similarity` and `jaro_similarity` pinned at full precision for 2 153 pairs: every whole-string and token pair the 44 cases actually evaluated, 30 adversarial pairs (empty string, single char, no common prefix, >4-char prefix, transpositions, Hebrew, CJK), and 1 500 seeded fuzz pairs. This is the reference the TypeScript port (`src/domain/places/jaro-winkler.ts`) is tested against — `tests/unit/places/jaro-winkler.test.ts` replays the whole table with `===`, and it matches bit for bit. |
-| `ingest-tlv-row-counts.json` | **Added 2026-08-19 (MS5 task 5).** The recorded row counts for MS5 exit criterion 4 (raw 35 430 → food-and-drink 4 997 → loaded 4 997), the extract and loader manifests verbatim, the guards exercised, and two measured findings: the category filter admits 377 non-food rows via its `%bar%`/`%pub%` patterns and drops real food categories (`sandwich_shop`, `delicatessen`, `lounge`, …), and `06` §7.4's "43% lawyers and estate agents" is **not reproducible** — those categories are 10.3% of the raw extract. |
 | `measure-dataset-confidence.py` / `dataset-confidence-tlv.json` | **Added 2026-08-19 (MS5 task 5).** The per-`overture_id` Overture `confidence` for the Tel Aviv bbox of the pinned release `2026-07-22.0`, i.e. the missing input to the prototype's `0.10 · (conf or 0.5)` term. `raw-overture-scored.json` never recorded it, which is why task 4 could replay `name_score`/`token_cov`/`cat_match` but not `score`. It also re-derives each benchmark row's `score` from the measured confidence: **71/71 rows in the Tel Aviv bbox agree** (max residual 0.0083 in confidence, inside the 0.0086 the 3-dp rounding of the recorded inputs allows), and 55/71 land on the recorded `score` exactly at 3 dp from the *rounded* `name_score` alone. `conf = 0.5` reproduces none of them. |
+| `measure-normalise-name-sample.py` / `normalise-name-sample-tlv.json` | **Added 2026-08-19 (MS5 task 5).** The prototype's unmodified `norm()` pinned over a deterministic 1 000-name stride sample of the ingested Tel Aviv extract (613 non-ASCII, 590 Hebrew) — the second half of `10` §4.3's porting test, which needed a real ingest. Replayed with `===` by [`tests/unit/places/normalise-sample.test.ts`](../../../tests/unit/places/normalise-sample.test.ts): **1 000/1 000 byte-identical.** |
+| `ingest-tlv-row-counts.json` | **Added 2026-08-19 (MS5 task 5).** The recorded row counts for MS5 exit criterion 4 (raw 35 430 → food-and-drink 4 997 → loaded 4 997), the extract and loader manifests verbatim, the guards exercised, and two measured findings: the category filter admits 377 non-food rows via its `%bar%`/`%pub%` patterns and drops real food categories (`sandwich_shop`, `delicatessen`, `lounge`, …), and `06` §7.4's "43% lawyers and estate agents" is **not reproducible** — those categories are 10.3% of the raw extract. |
 | `adjudication.json` | Hand verdicts per provider per case, plus the verdict key and notes. Source of every accuracy number in `docs/06-map-and-places-decision.md`. |
 
 ## Not covered here, and why
@@ -36,10 +37,13 @@ python3 run-benchmark-osm.py .                    # ~90 s, respects Nominatim 1 
 ./venv/bin/python measure-jaro-winkler.py > jaro-winkler-duckdb.json   # ~2 s, needs no parquet
 ./venv/bin/python measure-dataset-confidence.py    # ~15 s, reads S3 directly, needs no parquet
 
-# the ingest proper (MS5 task 5) lives in scripts/:
+# the ingest proper (MS5 task 5) lives in scripts/, and the name sample is taken from its output:
 DATABASE_URL=... ../../../scripts/ingest-poi-region.sh tlv --work-dir /tmp/p002-poi
+./venv/bin/python measure-normalise-name-sample.py /tmp/p002-poi/tlv-extract.csv
 ```
 
 `measure-jaro-winkler.py` needs no city extract at all: it reads `raw-overture-scored.json` and
 `benchmark-spec.json` for its pair list. Re-run it if DuckDB's version changes, and expect the
-TypeScript test to tell you if the values moved.
+TypeScript test to tell you if the values moved. `measure-dataset-confidence.py` needs no local
+parquet either — it reads the pinned release from S3 itself, and takes the release and the Tel Aviv
+bbox from `scripts/poi-ingest.config.json` rather than repeating them.

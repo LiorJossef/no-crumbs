@@ -1,0 +1,4014 @@
+{
+ "measured_on": "2026-08-19",
+ "python_version": "3.14.4",
+ "unicodedata_unidata_version": "16.0.0",
+ "source_csv": "tlv-extract.csv",
+ "source_rows": 4997,
+ "sample_size": 1000,
+ "stride": 4,
+ "names_with_non_ascii": 613,
+ "names_with_hebrew": 590,
+ "names_norm_differs_from_lowercase": 279,
+ "pairs": [
+  {
+   "name": "הבוטקה",
+   "norm": "הבוטקה"
+  },
+  {
+   "name": "תחנת לחם",
+   "norm": "תחנת לחם"
+  },
+  {
+   "name": "Gan-Sipur Cafe",
+   "norm": "gan sipur cafe"
+  },
+  {
+   "name": "אסיף",
+   "norm": "אסיף"
+  },
+  {
+   "name": "בראשית- מסעדת בשרים ואירועים",
+   "norm": "בראשית מסעדת בשרים ואירועים"
+  },
+  {
+   "name": "Meatento",
+   "norm": "meatento"
+  },
+  {
+   "name": "הלו תימן - בית שמש",
+   "norm": "הלו תימן בית שמש"
+  },
+  {
+   "name": "Jimmy Who?",
+   "norm": "jimmy who"
+  },
+  {
+   "name": "Yapani יפני",
+   "norm": "yapani יפני"
+  },
+  {
+   "name": "שחר קור",
+   "norm": "שחר קור"
+  },
+  {
+   "name": "סביח פרישמן",
+   "norm": "סביח פרישמן"
+  },
+  {
+   "name": "ג'חנון בקעת אונו",
+   "norm": "ג חנון בקעת אונו"
+  },
+  {
+   "name": "לוקנטה",
+   "norm": "לוקנטה"
+  },
+  {
+   "name": "לשכת סוכני המכס והמשלחים הבינלאומיים -תל אביב",
+   "norm": "לשכת סוכני המכס והמשלחים הבינלאומיים תל אביב"
+  },
+  {
+   "name": "היפים והמיצים",
+   "norm": "היפים והמיצים"
+  },
+  {
+   "name": "NO.2 TLV",
+   "norm": "no 2 tlv"
+  },
+  {
+   "name": "Sheinkin 8",
+   "norm": "sheinkin 8"
+  },
+  {
+   "name": "La Catrina Tlv",
+   "norm": "la catrina tlv"
+  },
+  {
+   "name": "מול-ים",
+   "norm": "מול ים"
+  },
+  {
+   "name": "China Court",
+   "norm": "china court"
+  },
+  {
+   "name": "Donattelo",
+   "norm": "donattelo"
+  },
+  {
+   "name": "בית העלמין פונוביז'",
+   "norm": "בית העלמין פונוביז"
+  },
+  {
+   "name": "צלילי האש",
+   "norm": "צלילי האש"
+  },
+  {
+   "name": "Gentleman's Barber Shop",
+   "norm": "gentleman s barber shop"
+  },
+  {
+   "name": "קונדיטוריית נאמן",
+   "norm": "קונדיטוריית נאמן"
+  },
+  {
+   "name": "אתנחתא",
+   "norm": "אתנחתא"
+  },
+  {
+   "name": "Tabby's",
+   "norm": "tabby s"
+  },
+  {
+   "name": "רימון - מסעדה ומעדנייה",
+   "norm": "רימון מסעדה ומעדנייה"
+  },
+  {
+   "name": "קיוסק אנד קו",
+   "norm": "קיוסק אנד קו"
+  },
+  {
+   "name": "Paradiso Sarona Cafe",
+   "norm": "paradiso sarona cafe"
+  },
+  {
+   "name": "DNA TLV",
+   "norm": "dna tlv"
+  },
+  {
+   "name": "Gordon cafe",
+   "norm": "gordon cafe"
+  },
+  {
+   "name": "Kai Fresh Sushi",
+   "norm": "kai fresh sushi"
+  },
+  {
+   "name": "קפה 10",
+   "norm": "קפה 10"
+  },
+  {
+   "name": "הדוכן שלוש עשרה",
+   "norm": "הדוכן שלוש עשרה"
+  },
+  {
+   "name": "Must & Mayo",
+   "norm": "must mayo"
+  },
+  {
+   "name": "פיקולה פסטה",
+   "norm": "פיקולה פסטה"
+  },
+  {
+   "name": "פיצה עגבניה רמת גן",
+   "norm": "פיצה עגבניה רמת גן"
+  },
+  {
+   "name": "Balik",
+   "norm": "balik"
+  },
+  {
+   "name": "מינימלטס ישראל",
+   "norm": "מינימלטס ישראל"
+  },
+  {
+   "name": "בולונז'רי 96",
+   "norm": "בולונז רי 96"
+  },
+  {
+   "name": "Издательский дом Helen Limonova",
+   "norm": "издательскии дом helen limonova"
+  },
+  {
+   "name": "סביח השרון בורסה",
+   "norm": "סביח השרון בורסה"
+  },
+  {
+   "name": "יוסי ממן",
+   "norm": "יוסי ממן"
+  },
+  {
+   "name": "Pizza Lila",
+   "norm": "pizza lila"
+  },
+  {
+   "name": "Eyal Haliva Hairdresser",
+   "norm": "eyal haliva hairdresser"
+  },
+  {
+   "name": "Main Bazaar",
+   "norm": "main bazaar"
+  },
+  {
+   "name": "דפוס רפי",
+   "norm": "דפוס רפי"
+  },
+  {
+   "name": "Amnezia",
+   "norm": "amnezia"
+  },
+  {
+   "name": "Alma",
+   "norm": "alma"
+  },
+  {
+   "name": "אלינה קיבק גביש",
+   "norm": "אלינה קיבק גביש"
+  },
+  {
+   "name": "Stay cafe",
+   "norm": "stay cafe"
+  },
+  {
+   "name": "Urban Food",
+   "norm": "urban food"
+  },
+  {
+   "name": "פיצה אוליב",
+   "norm": "פיצה אוליב"
+  },
+  {
+   "name": "Arcaffe",
+   "norm": "arcaffe"
+  },
+  {
+   "name": "McDonald's",
+   "norm": "mcdonald s"
+  },
+  {
+   "name": "Pinoy Hotspot",
+   "norm": "pinoy hotspot"
+  },
+  {
+   "name": "גריל פוינט",
+   "norm": "גריל פוינט"
+  },
+  {
+   "name": "Pizza Margarita",
+   "norm": "pizza margarita"
+  },
+  {
+   "name": "Jango Burger",
+   "norm": "jango burger"
+  },
+  {
+   "name": "Ice cream",
+   "norm": "ice cream"
+  },
+  {
+   "name": "Red elephant",
+   "norm": "red elephant"
+  },
+  {
+   "name": "מכבי חיפה כדורסל מחלקת הנוער",
+   "norm": "מכבי חיפה כדורסל מחלקת הנוער"
+  },
+  {
+   "name": "תשרי - חוויית שתייה ישראלית",
+   "norm": "תשרי חוויית שתייה ישראלית"
+  },
+  {
+   "name": "Tori Bakes by Tori Blake",
+   "norm": "tori bakes by tori blake"
+  },
+  {
+   "name": "המאפיה",
+   "norm": "המאפיה"
+  },
+  {
+   "name": "Super pizza",
+   "norm": "super pizza"
+  },
+  {
+   "name": "Bon Appetit (cafe boulangerie)",
+   "norm": "bon appetit cafe boulangerie"
+  },
+  {
+   "name": "רישוי עסקים והיתרי בניה-זירוז הליכים וייעוץ מונציפאלי",
+   "norm": "רישוי עסקים והיתרי בניה זירוז הליכים וייעוץ מונציפאלי"
+  },
+  {
+   "name": "Brunch&Co Tlv",
+   "norm": "brunch co tlv"
+  },
+  {
+   "name": "Bartov old Jaffa - Bar Beer",
+   "norm": "bartov old jaffa bar beer"
+  },
+  {
+   "name": "Otello",
+   "norm": "otello"
+  },
+  {
+   "name": "שמונים וחמש",
+   "norm": "שמונים וחמש"
+  },
+  {
+   "name": "Brodstein Burger",
+   "norm": "brodstein burger"
+  },
+  {
+   "name": "190",
+   "norm": "190"
+  },
+  {
+   "name": "Goomba",
+   "norm": "goomba"
+  },
+  {
+   "name": "באבא סולימן ג׳חנון, בורקס, אוכל מוכן פתוח רק בשישי שבת",
+   "norm": "באבא סולימן ג׳חנון בורקס אוכל מוכן פתוח רק בשישי שבת"
+  },
+  {
+   "name": "Joe and Go",
+   "norm": "joe and go"
+  },
+  {
+   "name": "הבוטיק",
+   "norm": "הבוטיק"
+  },
+  {
+   "name": "דים סאם נווה שאנן",
+   "norm": "דים סאם נווה שאנן"
+  },
+  {
+   "name": "Nadneda café",
+   "norm": "nadneda cafe"
+  },
+  {
+   "name": "מסעדת בוגי",
+   "norm": "מסעדת בוגי"
+  },
+  {
+   "name": "מסעדת לודוויג",
+   "norm": "מסעדת לודוויג"
+  },
+  {
+   "name": "Goodness",
+   "norm": "goodness"
+  },
+  {
+   "name": "Paradiso del gelato",
+   "norm": "paradiso del gelato"
+  },
+  {
+   "name": "Waah",
+   "norm": "waah"
+  },
+  {
+   "name": "קיורטוש",
+   "norm": "קיורטוש"
+  },
+  {
+   "name": "עראיס פלורנטין",
+   "norm": "עראיס פלורנטין"
+  },
+  {
+   "name": "Kapara mio",
+   "norm": "kapara mio"
+  },
+  {
+   "name": "Tel-Abib",
+   "norm": "tel abib"
+  },
+  {
+   "name": "Noema",
+   "norm": "noema"
+  },
+  {
+   "name": "מאמא פסטה",
+   "norm": "מאמא פסטה"
+  },
+  {
+   "name": "Hachi - שמונה ביפנית.",
+   "norm": "hachi שמונה ביפנית"
+  },
+  {
+   "name": "פלאפל יד אליהו",
+   "norm": "פלאפל יד אליהו"
+  },
+  {
+   "name": "בית הנוטריונים",
+   "norm": "בית הנוטריונים"
+  },
+  {
+   "name": "אליעזר פיצה Eliezer Pizza - Kosher",
+   "norm": "אליעזר פיצה eliezer pizza kosher"
+  },
+  {
+   "name": "Ресторан «Пинат ха-Шлоша»",
+   "norm": "ресторан пинат ха шлоша"
+  },
+  {
+   "name": "רד מיט דיזינגוף",
+   "norm": "רד מיט דיזינגוף"
+  },
+  {
+   "name": "יגאל אלון 33 תל אביב",
+   "norm": "יגאל אלון 33 תל אביב"
+  },
+  {
+   "name": "דודי סינדי",
+   "norm": "דודי סינדי"
+  },
+  {
+   "name": "בהדונס",
+   "norm": "בהדונס"
+  },
+  {
+   "name": "אבו סוסו - ابو سوسو",
+   "norm": "אבו סוסו ابو سوسو"
+  },
+  {
+   "name": "סודוך המסגר",
+   "norm": "סודוך המסגר"
+  },
+  {
+   "name": "הנקניק של גליה",
+   "norm": "הנקניק של גליה"
+  },
+  {
+   "name": "Well Green",
+   "norm": "well green"
+  },
+  {
+   "name": "Arte Glideria",
+   "norm": "arte glideria"
+  },
+  {
+   "name": "סחבק",
+   "norm": "סחבק"
+  },
+  {
+   "name": "תולעת ספרים",
+   "norm": "תולעת ספרים"
+  },
+  {
+   "name": "Michelangelo Café",
+   "norm": "michelangelo cafe"
+  },
+  {
+   "name": "עודד מזרחי",
+   "norm": "עודד מזרחי"
+  },
+  {
+   "name": "המקדש",
+   "norm": "המקדש"
+  },
+  {
+   "name": "Captain Hook",
+   "norm": "captain hook"
+  },
+  {
+   "name": "בורגרס בר",
+   "norm": "בורגרס בר"
+  },
+  {
+   "name": "מקדונלד'ס",
+   "norm": "מקדונלד ס"
+  },
+  {
+   "name": "Roni Bar",
+   "norm": "roni bar"
+  },
+  {
+   "name": "רפואה סינית",
+   "norm": "רפואה סינית"
+  },
+  {
+   "name": "רעמסס ביי דה בוקס",
+   "norm": "רעמסס ביי דה בוקס"
+  },
+  {
+   "name": "פלאפל מבורך",
+   "norm": "פלאפל מבורך"
+  },
+  {
+   "name": "משרד עורכי דין ביטון",
+   "norm": "משרד עורכי דין ביטון"
+  },
+  {
+   "name": "סולטנה | Sultana",
+   "norm": "סולטנה sultana"
+  },
+  {
+   "name": "Contento",
+   "norm": "contento"
+  },
+  {
+   "name": "פלאפל סביח | חומוס בר – גבעת שמואל",
+   "norm": "פלאפל סביח חומוס בר גבעת שמואל"
+  },
+  {
+   "name": "Italian Trade Agency Tel Aviv",
+   "norm": "italian trade agency tel aviv"
+  },
+  {
+   "name": "Natural Point",
+   "norm": "natural point"
+  },
+  {
+   "name": "Chunty TLV",
+   "norm": "chunty tlv"
+  },
+  {
+   "name": "Ittawinebar",
+   "norm": "ittawinebar"
+  },
+  {
+   "name": "Cafe Jolie",
+   "norm": "cafe jolie"
+  },
+  {
+   "name": "אידלסון 10",
+   "norm": "אידלסון 10"
+  },
+  {
+   "name": "קלואליס הילטון - Chloelys Hilton",
+   "norm": "קלואליס הילטון chloelys hilton"
+  },
+  {
+   "name": "יודה",
+   "norm": "יודה"
+  },
+  {
+   "name": "גווידו",
+   "norm": "גווידו"
+  },
+  {
+   "name": "אלבה Alba",
+   "norm": "אלבה alba"
+  },
+  {
+   "name": "פינת הקבב",
+   "norm": "פינת הקבב"
+  },
+  {
+   "name": "Drink Point (דרינק פוינט)",
+   "norm": "drink point דרינק פוינט"
+  },
+  {
+   "name": "קקאו - הפארק הלאומי ר״ג",
+   "norm": "קקאו הפארק הלאומי ר״ג"
+  },
+  {
+   "name": "Flytrex",
+   "norm": "flytrex"
+  },
+  {
+   "name": "Grand Menu (גרנד מניו)",
+   "norm": "grand menu גרנד מניו"
+  },
+  {
+   "name": "Boutique Central",
+   "norm": "boutique central"
+  },
+  {
+   "name": "אלוף הפיצה",
+   "norm": "אלוף הפיצה"
+  },
+  {
+   "name": "Roll 'n' Roll",
+   "norm": "roll n roll"
+  },
+  {
+   "name": "אוריוס",
+   "norm": "אוריוס"
+  },
+  {
+   "name": "הבוריטו של קובי",
+   "norm": "הבוריטו של קובי"
+  },
+  {
+   "name": "Bereshit",
+   "norm": "bereshit"
+  },
+  {
+   "name": "Cafe Alle Levontin",
+   "norm": "cafe alle levontin"
+  },
+  {
+   "name": "אגמי מרקט",
+   "norm": "אגמי מרקט"
+  },
+  {
+   "name": "Latinos Bar Salame 108",
+   "norm": "latinos bar salame 108"
+  },
+  {
+   "name": "שווארמה בר",
+   "norm": "שווארמה בר"
+  },
+  {
+   "name": "Ahronson 32",
+   "norm": "ahronson 32"
+  },
+  {
+   "name": "Papagaio (פאפאגאיו)",
+   "norm": "papagaio פאפאגאיו"
+  },
+  {
+   "name": "Natflat Supper Club",
+   "norm": "natflat supper club"
+  },
+  {
+   "name": "שוארמה ויקטור",
+   "norm": "שוארמה ויקטור"
+  },
+  {
+   "name": "Ramesses Restaurant",
+   "norm": "ramesses restaurant"
+  },
+  {
+   "name": "Bayern Market",
+   "norm": "bayern market"
+  },
+  {
+   "name": "ארומה אספרסו בר",
+   "norm": "ארומה אספרסו בר"
+  },
+  {
+   "name": "פיצה בזזו-Bezzo Pizza",
+   "norm": "פיצה בזזו bezzo pizza"
+  },
+  {
+   "name": "מסעדה צרפתית תל אביב - מסעדת לה מיאל | Le Miel TLV",
+   "norm": "מסעדה צרפתית תל אביב מסעדת לה מיאל le miel tlv"
+  },
+  {
+   "name": "Beny A-Dayag Tel-Aviv",
+   "norm": "beny a dayag tel aviv"
+  },
+  {
+   "name": "קסטלו נמל תל אביב",
+   "norm": "קסטלו נמל תל אביב"
+  },
+  {
+   "name": "Cartola",
+   "norm": "cartola"
+  },
+  {
+   "name": "קפה משולש",
+   "norm": "קפה משולש"
+  },
+  {
+   "name": "Pizza Pazza",
+   "norm": "pizza pazza"
+  },
+  {
+   "name": "Ресторан Бакинский Дворик",
+   "norm": "ресторан бакинскии дворик"
+  },
+  {
+   "name": "Joy Garden",
+   "norm": "joy garden"
+  },
+  {
+   "name": "Sushi Time",
+   "norm": "sushi time"
+  },
+  {
+   "name": "Twenty Two - טוונטי טו",
+   "norm": "twenty two טוונטי טו"
+  },
+  {
+   "name": "Ор Ехуда",
+   "norm": "ор ехуда"
+  },
+  {
+   "name": "חומוס דיזנגוף",
+   "norm": "חומוס דיזנגוף"
+  },
+  {
+   "name": "מור סמדג'ה עיצוב שיער",
+   "norm": "מור סמדג ה עיצוב שיער"
+  },
+  {
+   "name": "מאפה התנור רמת גן",
+   "norm": "מאפה התנור רמת גן"
+  },
+  {
+   "name": "הסביח_והכריך",
+   "norm": "הסביח_והכריך"
+  },
+  {
+   "name": "Stefan Austrian bakery&Artisanal Gelato",
+   "norm": "stefan austrian bakery artisanal gelato"
+  },
+  {
+   "name": "Hananiah Bar Florentin - חנניא בר פלורנטין",
+   "norm": "hananiah bar florentin חנניא בר פלורנטין"
+  },
+  {
+   "name": "Burger Ranch (בורגראנץ')",
+   "norm": "burger ranch בורגראנץ"
+  },
+  {
+   "name": "דים סאם נמל תל אביב",
+   "norm": "דים סאם נמל תל אביב"
+  },
+  {
+   "name": "Suf",
+   "norm": "suf"
+  },
+  {
+   "name": "CRUST",
+   "norm": "crust"
+  },
+  {
+   "name": "NOW Courier",
+   "norm": "now courier"
+  },
+  {
+   "name": "Tapeo  - טפאו",
+   "norm": "tapeo טפאו"
+  },
+  {
+   "name": "Doctor humus",
+   "norm": "doctor humus"
+  },
+  {
+   "name": "MIMI מימי",
+   "norm": "mimi מימי"
+  },
+  {
+   "name": "דליקטסן יהודה הלוי",
+   "norm": "דליקטסן יהודה הלוי"
+  },
+  {
+   "name": "Casita- קאסיטה",
+   "norm": "casita קאסיטה"
+  },
+  {
+   "name": "Crème fraîche",
+   "norm": "creme fraiche"
+  },
+  {
+   "name": "נהוראי-Italy מותגים",
+   "norm": "נהוראי italy מותגים"
+  },
+  {
+   "name": "טוסט מונטנה תל אביב",
+   "norm": "טוסט מונטנה תל אביב"
+  },
+  {
+   "name": "בוטיק סנטרל - פרישמן",
+   "norm": "בוטיק סנטרל פרישמן"
+  },
+  {
+   "name": "יוסי אזולאי",
+   "norm": "יוסי אזולאי"
+  },
+  {
+   "name": "Beer Garden Paulaner Sarona - בירגארדן פאולנר שרונה",
+   "norm": "beer garden paulaner sarona בירגארדן פאולנר שרונה"
+  },
+  {
+   "name": "Fleamarket bistro",
+   "norm": "fleamarket bistro"
+  },
+  {
+   "name": "עזרא",
+   "norm": "עזרא"
+  },
+  {
+   "name": "מאפיית מרציפן",
+   "norm": "מאפיית מרציפן"
+  },
+  {
+   "name": "Biergarten 1040",
+   "norm": "biergarten 1040"
+  },
+  {
+   "name": "משרד הכלכלה והמסחר",
+   "norm": "משרד הכלכלה והמסחר"
+  },
+  {
+   "name": "Dineroll meat concept - דינרול",
+   "norm": "dineroll meat concept דינרול"
+  },
+  {
+   "name": "קרביץ רמת אביב",
+   "norm": "קרביץ רמת אביב"
+  },
+  {
+   "name": "Kaido Sushi , קאידו",
+   "norm": "kaido sushi קאידו"
+  },
+  {
+   "name": "Nitsan -the- Barber",
+   "norm": "nitsan the barber"
+  },
+  {
+   "name": "Kikar Dizengoff",
+   "norm": "kikar dizengoff"
+  },
+  {
+   "name": "Potion Bar",
+   "norm": "potion bar"
+  },
+  {
+   "name": "Urban Pause Cafe",
+   "norm": "urban pause cafe"
+  },
+  {
+   "name": "פיצה פיאצה",
+   "norm": "פיצה פיאצה"
+  },
+  {
+   "name": "מאפיית מן הארץ",
+   "norm": "מאפיית מן הארץ"
+  },
+  {
+   "name": "פסאדור - Passador",
+   "norm": "פסאדור passador"
+  },
+  {
+   "name": "Boutique Central",
+   "norm": "boutique central"
+  },
+  {
+   "name": "שיפודי ציפורה רמת החייל כשר",
+   "norm": "שיפודי ציפורה רמת החייל כשר"
+  },
+  {
+   "name": "Burgeranch",
+   "norm": "burgeranch"
+  },
+  {
+   "name": "Zappa",
+   "norm": "zappa"
+  },
+  {
+   "name": "ITHL - The Israeli Institute for Hebrew Literature",
+   "norm": "ithl the israeli institute for hebrew literature"
+  },
+  {
+   "name": "Restaurant",
+   "norm": "restaurant"
+  },
+  {
+   "name": "סנט ג'ורג'",
+   "norm": "סנט ג ורג"
+  },
+  {
+   "name": "Bleeker Bakery",
+   "norm": "bleeker bakery"
+  },
+  {
+   "name": "The peppers-דה פפרס אמסטרדם",
+   "norm": "the peppers דה פפרס אמסטרדם"
+  },
+  {
+   "name": "מאפיית האחים",
+   "norm": "מאפיית האחים"
+  },
+  {
+   "name": "מסעדת פפר",
+   "norm": "מסעדת פפר"
+  },
+  {
+   "name": "בית הדין הצבאי לערעורים",
+   "norm": "בית הדין הצבאי לערעורים"
+  },
+  {
+   "name": "סושיאל קלאב",
+   "norm": "סושיאל קלאב"
+  },
+  {
+   "name": "Jiovani's",
+   "norm": "jiovani s"
+  },
+  {
+   "name": "Taqueria",
+   "norm": "taqueria"
+  },
+  {
+   "name": "Lucy Bar  - לוסי בר",
+   "norm": "lucy bar לוסי בר"
+  },
+  {
+   "name": "Pirate Bar",
+   "norm": "pirate bar"
+  },
+  {
+   "name": "ריבר - River",
+   "norm": "ריבר river"
+  },
+  {
+   "name": "Jamilla -ג'מילה",
+   "norm": "jamilla ג מילה"
+  },
+  {
+   "name": "416",
+   "norm": "416"
+  },
+  {
+   "name": "Anita",
+   "norm": "anita"
+  },
+  {
+   "name": "SWING Bar",
+   "norm": "swing bar"
+  },
+  {
+   "name": "Soda Bar-סודה-בר",
+   "norm": "soda bar סודה בר"
+  },
+  {
+   "name": "Fuego Grill Tabun",
+   "norm": "fuego grill tabun"
+  },
+  {
+   "name": "ארומה אספרסו בר",
+   "norm": "ארומה אספרסו בר"
+  },
+  {
+   "name": "Kirsh Café",
+   "norm": "kirsh cafe"
+  },
+  {
+   "name": "אקסודוס בר",
+   "norm": "אקסודוס בר"
+  },
+  {
+   "name": "גן השקמים - Wlyt",
+   "norm": "גן השקמים wlyt"
+  },
+  {
+   "name": "שוקא",
+   "norm": "שוקא"
+  },
+  {
+   "name": "אדון בשר",
+   "norm": "אדון בשר"
+  },
+  {
+   "name": "Tel Aviv Municipality, Rabin Sq.",
+   "norm": "tel aviv municipality rabin sq"
+  },
+  {
+   "name": "וילונור - וילונות לסלון, לבית ולמשרד",
+   "norm": "וילונור וילונות לסלון לבית ולמשרד"
+  },
+  {
+   "name": "Red Sea Bar",
+   "norm": "red sea bar"
+  },
+  {
+   "name": "Bakery (בייקרי)",
+   "norm": "bakery בייקרי"
+  },
+  {
+   "name": "מאפיית השכונה",
+   "norm": "מאפיית השכונה"
+  },
+  {
+   "name": "אמנון עיצוב שיער.",
+   "norm": "אמנון עיצוב שיער"
+  },
+  {
+   "name": "ברוך סטייל",
+   "norm": "ברוך סטייל"
+  },
+  {
+   "name": "Rostoker Barber Shop",
+   "norm": "rostoker barber shop"
+  },
+  {
+   "name": "הגלריה למכונות קפה",
+   "norm": "הגלריה למכונות קפה"
+  },
+  {
+   "name": "אלירן הרוש מספרה",
+   "norm": "אלירן הרוש מספרה"
+  },
+  {
+   "name": "רמת החייל מסעדת ג'ירף",
+   "norm": "רמת החייל מסעדת ג ירף"
+  },
+  {
+   "name": "מלגו ומלבר",
+   "norm": "מלגו ומלבר"
+  },
+  {
+   "name": "הלובי",
+   "norm": "הלובי"
+  },
+  {
+   "name": "כריך השף",
+   "norm": "כריך השף"
+  },
+  {
+   "name": "Маникюр",
+   "norm": "маникюр"
+  },
+  {
+   "name": "הספסל",
+   "norm": "הספסל"
+  },
+  {
+   "name": "Brothers pizz",
+   "norm": "brothers pizz"
+  },
+  {
+   "name": "פיצה יהלום",
+   "norm": "פיצה יהלום"
+  },
+  {
+   "name": "Port 19",
+   "norm": "port 19"
+  },
+  {
+   "name": "נונו בר מסעדה",
+   "norm": "נונו בר מסעדה"
+  },
+  {
+   "name": "הסביח של עובד דיזינגוף",
+   "norm": "הסביח של עובד דיזינגוף"
+  },
+  {
+   "name": "המשרד לשיתוף פעולה אזורי",
+   "norm": "המשרד לשיתוף פעולה אזורי"
+  },
+  {
+   "name": "הקובה של דרור - Dror's Kuba",
+   "norm": "הקובה של דרור dror s kuba"
+  },
+  {
+   "name": "יבנה מונטיפיורי",
+   "norm": "יבנה מונטיפיורי"
+  },
+  {
+   "name": "איסמי סלמה",
+   "norm": "איסמי סלמה"
+  },
+  {
+   "name": "אירועים על גג העולם - קומה 49",
+   "norm": "אירועים על גג העולם קומה 49"
+  },
+  {
+   "name": "ביפר בר",
+   "norm": "ביפר בר"
+  },
+  {
+   "name": "Yo-Mama",
+   "norm": "yo mama"
+  },
+  {
+   "name": "Aroma Espresso Bar",
+   "norm": "aroma espresso bar"
+  },
+  {
+   "name": "Ministry of Defense (Israel)",
+   "norm": "ministry of defense israel"
+  },
+  {
+   "name": "The Cook Store",
+   "norm": "the cook store"
+  },
+  {
+   "name": "קונטיינרס",
+   "norm": "קונטיינרס"
+  },
+  {
+   "name": "המאפיה",
+   "norm": "המאפיה"
+  },
+  {
+   "name": "ספידי רול",
+   "norm": "ספידי רול"
+  },
+  {
+   "name": "INFINITY - משרדים שאסור לפרסם",
+   "norm": "infinity משרדים שאסור לפרסם"
+  },
+  {
+   "name": "חומוס מנחם",
+   "norm": "חומוס מנחם"
+  },
+  {
+   "name": "קפה קפה",
+   "norm": "קפה קפה"
+  },
+  {
+   "name": "מסעדת עבדאללה",
+   "norm": "מסעדת עבדאללה"
+  },
+  {
+   "name": "Cote",
+   "norm": "cote"
+  },
+  {
+   "name": "Tewodros Ethio restorant - מסעדת תאדרוס",
+   "norm": "tewodros ethio restorant מסעדת תאדרוס"
+  },
+  {
+   "name": "Loveat",
+   "norm": "loveat"
+  },
+  {
+   "name": "פיצה זיתים",
+   "norm": "פיצה זיתים"
+  },
+  {
+   "name": "אגדה של קבב",
+   "norm": "אגדה של קבב"
+  },
+  {
+   "name": "פלאפל בלגי קינג ג'ורג' תל אביב",
+   "norm": "פלאפל בלגי קינג ג ורג תל אביב"
+  },
+  {
+   "name": "צ'יינה טאון",
+   "norm": "צ יינה טאון"
+  },
+  {
+   "name": "ג'רמיה",
+   "norm": "ג רמיה"
+  },
+  {
+   "name": "בימ\"ש מחוזי תל-אביב",
+   "norm": "בימ ש מחוזי תל אביב"
+  },
+  {
+   "name": "דליקטס-שף",
+   "norm": "דליקטס שף"
+  },
+  {
+   "name": "Summerlove",
+   "norm": "summerlove"
+  },
+  {
+   "name": "Zomer Bakery",
+   "norm": "zomer bakery"
+  },
+  {
+   "name": "Cinematheque Square (רחבת הסינמטק)",
+   "norm": "cinematheque square רחבת הסינמטק"
+  },
+  {
+   "name": "יש מאין",
+   "norm": "יש מאין"
+  },
+  {
+   "name": "Allenby 40 Hookah bar",
+   "norm": "allenby 40 hookah bar"
+  },
+  {
+   "name": "תירס",
+   "norm": "תירס"
+  },
+  {
+   "name": "MooShoo",
+   "norm": "mooshoo"
+  },
+  {
+   "name": "Baker Saloon",
+   "norm": "baker saloon"
+  },
+  {
+   "name": "השניצליה",
+   "norm": "השניצליה"
+  },
+  {
+   "name": "סנדר בפיתה",
+   "norm": "סנדר בפיתה"
+  },
+  {
+   "name": "אלפרדו - מסעדה איטלקית כשרה",
+   "norm": "אלפרדו מסעדה איטלקית כשרה"
+  },
+  {
+   "name": "Monapizza",
+   "norm": "monapizza"
+  },
+  {
+   "name": "Rolla Tortilla Bar",
+   "norm": "rolla tortilla bar"
+  },
+  {
+   "name": "Yalta",
+   "norm": "yalta"
+  },
+  {
+   "name": "קופי ביס",
+   "norm": "קופי ביס"
+  },
+  {
+   "name": "פיצה דונאטלו",
+   "norm": "פיצה דונאטלו"
+  },
+  {
+   "name": "Café Albert",
+   "norm": "cafe albert"
+  },
+  {
+   "name": "השניצל של צידון",
+   "norm": "השניצל של צידון"
+  },
+  {
+   "name": "בישולים במרומים",
+   "norm": "בישולים במרומים"
+  },
+  {
+   "name": "Lokal Burger",
+   "norm": "lokal burger"
+  },
+  {
+   "name": "Mae Cafe",
+   "norm": "mae cafe"
+  },
+  {
+   "name": "Timothy Café",
+   "norm": "timothy cafe"
+  },
+  {
+   "name": "ספייסי טורטיה בר spicy tortilla bar",
+   "norm": "ספייסי טורטיה בר spicy tortilla bar"
+  },
+  {
+   "name": "Cafe Ivri",
+   "norm": "cafe ivri"
+  },
+  {
+   "name": "מסעדת שער אחד",
+   "norm": "מסעדת שער אחד"
+  },
+  {
+   "name": "Calabria Trattoria del Sud",
+   "norm": "calabria trattoria del sud"
+  },
+  {
+   "name": "פרי 101",
+   "norm": "פרי 101"
+  },
+  {
+   "name": "Meat Bar Burger",
+   "norm": "meat bar burger"
+  },
+  {
+   "name": "Barbershop cut&shave by I.G.H since 2015",
+   "norm": "barbershop cut shave by i g h since 2015"
+  },
+  {
+   "name": "J17 Vegan",
+   "norm": "j17 vegan"
+  },
+  {
+   "name": "כיכר ביאליק",
+   "norm": "כיכר ביאליק"
+  },
+  {
+   "name": "The Blue Fox - Board Game bar",
+   "norm": "the blue fox board game bar"
+  },
+  {
+   "name": "CW Chocolate & Wine Shop",
+   "norm": "cw chocolate wine shop"
+  },
+  {
+   "name": "גדרה 26",
+   "norm": "גדרה 26"
+  },
+  {
+   "name": "Hooligan Barbershop",
+   "norm": "hooligan barbershop"
+  },
+  {
+   "name": "אופא",
+   "norm": "אופא"
+  },
+  {
+   "name": "הרציף",
+   "norm": "הרציף"
+  },
+  {
+   "name": "Niso",
+   "norm": "niso"
+  },
+  {
+   "name": "זיינב דגי ים התיכון",
+   "norm": "זיינב דגי ים התיכון"
+  },
+  {
+   "name": "נגיסה רמת גן - Nagia",
+   "norm": "נגיסה רמת גן nagia"
+  },
+  {
+   "name": "Fat Cow",
+   "norm": "fat cow"
+  },
+  {
+   "name": "הראל מורדי - תקשורת שיווקית משולבת בעמ",
+   "norm": "הראל מורדי תקשורת שיווקית משולבת בעמ"
+  },
+  {
+   "name": "ביגה איילון - Biga",
+   "norm": "ביגה איילון biga"
+  },
+  {
+   "name": "גלידות פלדמן גבעת שמואל",
+   "norm": "גלידות פלדמן גבעת שמואל"
+  },
+  {
+   "name": "ZETZ TLV",
+   "norm": "zetz tlv"
+  },
+  {
+   "name": "Deda",
+   "norm": "deda"
+  },
+  {
+   "name": "גסטרו לוי - ציוד מטבח תעשייתי למסעדות, בתי קפה, מזון מהיר, פיצריות",
+   "norm": "גסטרו לוי ציוד מטבח תעשייתי למסעדות בתי קפה מזון מהיר פיצריות"
+  },
+  {
+   "name": "WolfNights",
+   "norm": "wolfnights"
+  },
+  {
+   "name": "street39levinsky",
+   "norm": "street39levinsky"
+  },
+  {
+   "name": "Aduda caffe - עדודה קפה",
+   "norm": "aduda caffe עדודה קפה"
+  },
+  {
+   "name": "Re:Bar",
+   "norm": "re bar"
+  },
+  {
+   "name": "פלאים מתוקים",
+   "norm": "פלאים מתוקים"
+  },
+  {
+   "name": "מאפית שאשא בייקרי",
+   "norm": "מאפית שאשא בייקרי"
+  },
+  {
+   "name": "יוסי חן",
+   "norm": "יוסי חן"
+  },
+  {
+   "name": "צ'יינה טאון",
+   "norm": "צ יינה טאון"
+  },
+  {
+   "name": "פיצה טיים",
+   "norm": "פיצה טיים"
+  },
+  {
+   "name": "siti boulangerie",
+   "norm": "siti boulangerie"
+  },
+  {
+   "name": "מנדלימוס",
+   "norm": "מנדלימוס"
+  },
+  {
+   "name": "מאפיית הגבול",
+   "norm": "מאפיית הגבול"
+  },
+  {
+   "name": "מסעדת בציר",
+   "norm": "מסעדת בציר"
+  },
+  {
+   "name": "פיצה חצי + חצי",
+   "norm": "פיצה חצי חצי"
+  },
+  {
+   "name": "Terra",
+   "norm": "terra"
+  },
+  {
+   "name": "Par Derriere",
+   "norm": "par derriere"
+  },
+  {
+   "name": "рыбацкая бухта",
+   "norm": "рыбацкая бухта"
+  },
+  {
+   "name": "Pôr do Sol",
+   "norm": "por do sol"
+  },
+  {
+   "name": "קובה התרנגול",
+   "norm": "קובה התרנגול"
+  },
+  {
+   "name": "Hinnawi's Pitta הפיתה של חינאווי",
+   "norm": "hinnawi s pitta הפיתה של חינאווי"
+  },
+  {
+   "name": "Jhonson Barber Shop",
+   "norm": "jhonson barber shop"
+  },
+  {
+   "name": "הסולטן -שווארמה טורקית כיד המלך",
+   "norm": "הסולטן שווארמה טורקית כיד המלך"
+  },
+  {
+   "name": "Botte",
+   "norm": "botte"
+  },
+  {
+   "name": "אמריליס בוטיק פרחים",
+   "norm": "אמריליס בוטיק פרחים"
+  },
+  {
+   "name": "הרמוניה",
+   "norm": "הרמוניה"
+  },
+  {
+   "name": "ג׳מס פתח תקווה החדש - Jem’s Petah Tikva",
+   "norm": "ג׳מס פתח תקווה החדש jem s petah tikva"
+  },
+  {
+   "name": "Kiosk baskin",
+   "norm": "kiosk baskin"
+  },
+  {
+   "name": "נלסון 33",
+   "norm": "נלסון 33"
+  },
+  {
+   "name": "קוקיות - קונדיטוריה חברתית",
+   "norm": "קוקיות קונדיטוריה חברתית"
+  },
+  {
+   "name": "Micha's hummus",
+   "norm": "micha s hummus"
+  },
+  {
+   "name": "Monka Restaurant",
+   "norm": "monka restaurant"
+  },
+  {
+   "name": "גן האירועים litzman ליצמן",
+   "norm": "גן האירועים litzman ליצמן"
+  },
+  {
+   "name": "הסוכה הלבנה [The White Pergola]",
+   "norm": "הסוכה הלבנה the white pergola"
+  },
+  {
+   "name": "Moshiko Hair Design",
+   "norm": "moshiko hair design"
+  },
+  {
+   "name": "אלף לילה ולילה",
+   "norm": "אלף לילה ולילה"
+  },
+  {
+   "name": "חשק Heshek",
+   "norm": "חשק heshek"
+  },
+  {
+   "name": "Cocktail Factory",
+   "norm": "cocktail factory"
+  },
+  {
+   "name": "Frank",
+   "norm": "frank"
+  },
+  {
+   "name": "גלידה אמריקנה",
+   "norm": "גלידה אמריקנה"
+  },
+  {
+   "name": "Bakinskiy Dvorik",
+   "norm": "bakinskiy dvorik"
+  },
+  {
+   "name": "Pizza level will act",
+   "norm": "pizza level will act"
+  },
+  {
+   "name": "Vega Wine Bar",
+   "norm": "vega wine bar"
+  },
+  {
+   "name": "אליה קפה - eliya caffe",
+   "norm": "אליה קפה eliya caffe"
+  },
+  {
+   "name": "Domino's Pizza",
+   "norm": "domino s pizza"
+  },
+  {
+   "name": "Chicken Station",
+   "norm": "chicken station"
+  },
+  {
+   "name": "Plancho Villa",
+   "norm": "plancho villa"
+  },
+  {
+   "name": "צ׳יצ׳ו - גריל ישראלי",
+   "norm": "צ׳יצ׳ו גריל ישראלי"
+  },
+  {
+   "name": "Coco Thai",
+   "norm": "coco thai"
+  },
+  {
+   "name": "Sabra",
+   "norm": "sabra"
+  },
+  {
+   "name": "Protect the community 999",
+   "norm": "protect the community 999"
+  },
+  {
+   "name": "המסעדה של בני",
+   "norm": "המסעדה של בני"
+  },
+  {
+   "name": "Shimon the Soup King",
+   "norm": "shimon the soup king"
+  },
+  {
+   "name": "Arcaffe",
+   "norm": "arcaffe"
+  },
+  {
+   "name": "חוף לה מר",
+   "norm": "חוף לה מר"
+  },
+  {
+   "name": "מקדונלד'ס",
+   "norm": "מקדונלד ס"
+  },
+  {
+   "name": "China Doll - צ'יינה דול - Better Asian",
+   "norm": "china doll צ יינה דול better asian"
+  },
+  {
+   "name": "מרכז הדרכה ארצי שב״ס",
+   "norm": "מרכז הדרכה ארצי שב״ס"
+  },
+  {
+   "name": "Cheers Rock Bar",
+   "norm": "cheers rock bar"
+  },
+  {
+   "name": "פיצרייה בן גוריון",
+   "norm": "פיצרייה בן גוריון"
+  },
+  {
+   "name": "Marla Singer",
+   "norm": "marla singer"
+  },
+  {
+   "name": "Music Fans O",
+   "norm": "music fans o"
+  },
+  {
+   "name": "Nina Sushi",
+   "norm": "nina sushi"
+  },
+  {
+   "name": "מיץ מרק גבעתיים",
+   "norm": "מיץ מרק גבעתיים"
+  },
+  {
+   "name": "Шмулик Коэн",
+   "norm": "шмулик коэн"
+  },
+  {
+   "name": "מספרת תומר ובתו",
+   "norm": "מספרת תומר ובתו"
+  },
+  {
+   "name": "לחם ארז",
+   "norm": "לחם ארז"
+  },
+  {
+   "name": "בית קפה דוד",
+   "norm": "בית קפה דוד"
+  },
+  {
+   "name": "מטבח - חומוס ירושלמי ותבשילי בית",
+   "norm": "מטבח חומוס ירושלמי ותבשילי בית"
+  },
+  {
+   "name": "מזנון רמת החייל",
+   "norm": "מזנון רמת החייל"
+  },
+  {
+   "name": "טניה ינ",
+   "norm": "טניה ינ"
+  },
+  {
+   "name": "Lauter",
+   "norm": "lauter"
+  },
+  {
+   "name": "Fifi's Asian Food",
+   "norm": "fifi s asian food"
+  },
+  {
+   "name": "The Fairies of Souk HaCarmel",
+   "norm": "the fairies of souk hacarmel"
+  },
+  {
+   "name": "הגאראז' אספרסו בר איטלקי",
+   "norm": "הגאראז אספרסו בר איטלקי"
+  },
+  {
+   "name": "סו בינג - אבן גבירול",
+   "norm": "סו בינג אבן גבירול"
+  },
+  {
+   "name": "living_being_tlv",
+   "norm": "living_being_tlv"
+  },
+  {
+   "name": "פיתה כלא",
+   "norm": "פיתה כלא"
+  },
+  {
+   "name": "Zuppa (זופה)",
+   "norm": "zuppa זופה"
+  },
+  {
+   "name": "Bo’u",
+   "norm": "bo u"
+  },
+  {
+   "name": "לחם וחברים",
+   "norm": "לחם וחברים"
+  },
+  {
+   "name": "עמיתה בית מאפה",
+   "norm": "עמיתה בית מאפה"
+  },
+  {
+   "name": "Green Garden",
+   "norm": "green garden"
+  },
+  {
+   "name": "Salon Liya",
+   "norm": "salon liya"
+  },
+  {
+   "name": "חומוס יוסף פתח תקווה",
+   "norm": "חומוס יוסף פתח תקווה"
+  },
+  {
+   "name": "פרסטו",
+   "norm": "פרסטו"
+  },
+  {
+   "name": "איטלקיה בפשפשים",
+   "norm": "איטלקיה בפשפשים"
+  },
+  {
+   "name": "לה גופרה",
+   "norm": "לה גופרה"
+  },
+  {
+   "name": "Cake Art - Patisserie & Café - קייק ארט",
+   "norm": "cake art patisserie cafe קייק ארט"
+  },
+  {
+   "name": "קפה אתרים",
+   "norm": "קפה אתרים"
+  },
+  {
+   "name": "זליגר שומרון תקשורת",
+   "norm": "זליגר שומרון תקשורת"
+  },
+  {
+   "name": "Rouge",
+   "norm": "rouge"
+  },
+  {
+   "name": "Executive Lounge-david Intercontinental",
+   "norm": "executive lounge david intercontinental"
+  },
+  {
+   "name": "ארקפה מגדלי אלון",
+   "norm": "ארקפה מגדלי אלון"
+  },
+  {
+   "name": "מקס ברנר יכין סנטר",
+   "norm": "מקס ברנר יכין סנטר"
+  },
+  {
+   "name": "Café Café @ Neve Tzedek",
+   "norm": "cafe cafe neve tzedek"
+  },
+  {
+   "name": "שוליקה",
+   "norm": "שוליקה"
+  },
+  {
+   "name": "Wine Bar Weizmann 2 - ויצמן 2",
+   "norm": "wine bar weizmann 2 ויצמן 2"
+  },
+  {
+   "name": "Tabernacle Winery יקב טברנקל",
+   "norm": "tabernacle winery יקב טברנקל"
+  },
+  {
+   "name": "רן חפץ",
+   "norm": "רן חפץ"
+  },
+  {
+   "name": "כנאפה ג'אן",
+   "norm": "כנאפה ג אן"
+  },
+  {
+   "name": "Hummus Joseff",
+   "norm": "hummus joseff"
+  },
+  {
+   "name": "חבשוק",
+   "norm": "חבשוק"
+  },
+  {
+   "name": "Hess 4",
+   "norm": "hess 4"
+  },
+  {
+   "name": "שווארמה שמש",
+   "norm": "שווארמה שמש"
+  },
+  {
+   "name": "BuXa",
+   "norm": "buxa"
+  },
+  {
+   "name": "Meat Street",
+   "norm": "meat street"
+  },
+  {
+   "name": "Kshkol teva shop",
+   "norm": "kshkol teva shop"
+  },
+  {
+   "name": "שווארמה",
+   "norm": "שווארמה"
+  },
+  {
+   "name": "סמרקנד",
+   "norm": "סמרקנד"
+  },
+  {
+   "name": "BISU Paraiso",
+   "norm": "bisu paraiso"
+  },
+  {
+   "name": "עורך דין ונוטריון עדי ספקטור",
+   "norm": "עורך דין ונוטריון עדי ספקטור"
+  },
+  {
+   "name": "קפה פאסז' - Cafe passage",
+   "norm": "קפה פאסז cafe passage"
+  },
+  {
+   "name": "Benedict בנדיקט",
+   "norm": "benedict בנדיקט"
+  },
+  {
+   "name": "Frame",
+   "norm": "frame"
+  },
+  {
+   "name": "Go Asian Canteen",
+   "norm": "go asian canteen"
+  },
+  {
+   "name": "Wood Art - Yuval Yonayoff",
+   "norm": "wood art yuval yonayoff"
+  },
+  {
+   "name": "Peppertelaviv",
+   "norm": "peppertelaviv"
+  },
+  {
+   "name": "מחלבות טרה",
+   "norm": "מחלבות טרה"
+  },
+  {
+   "name": "קאנו - אוכל רחוב אסייתי- ויאטנמי | Kanu - Asian-Vietnamese street food",
+   "norm": "קאנו אוכל רחוב אסייתי ויאטנמי kanu asian vietnamese street food"
+  },
+  {
+   "name": "מילניום - Millennium",
+   "norm": "מילניום millennium"
+  },
+  {
+   "name": "לחם ארז - כיכר מסריק 1",
+   "norm": "לחם ארז כיכר מסריק 1"
+  },
+  {
+   "name": "Tasting Room",
+   "norm": "tasting room"
+  },
+  {
+   "name": "שטיפת הוריקן wash",
+   "norm": "שטיפת הוריקן wash"
+  },
+  {
+   "name": "לחמנינה",
+   "norm": "לחמנינה"
+  },
+  {
+   "name": "Beer Garden",
+   "norm": "beer garden"
+  },
+  {
+   "name": "ניר גבאי עיצוב שיער",
+   "norm": "ניר גבאי עיצוב שיער"
+  },
+  {
+   "name": "Judy Wine Bar",
+   "norm": "judy wine bar"
+  },
+  {
+   "name": "חומוס אליהו - שוק הפשפשים",
+   "norm": "חומוס אליהו שוק הפשפשים"
+  },
+  {
+   "name": "חומוס אליהו בורסה רמת גן",
+   "norm": "חומוס אליהו בורסה רמת גן"
+  },
+  {
+   "name": "McDonald's",
+   "norm": "mcdonald s"
+  },
+  {
+   "name": "הפינה של דודי",
+   "norm": "הפינה של דודי"
+  },
+  {
+   "name": "עיריית בני ברק",
+   "norm": "עיריית בני ברק"
+  },
+  {
+   "name": "Kabakeh",
+   "norm": "kabakeh"
+  },
+  {
+   "name": "ביסטרו התחנה",
+   "norm": "ביסטרו התחנה"
+  },
+  {
+   "name": "התיאטרון פיצה",
+   "norm": "התיאטרון פיצה"
+  },
+  {
+   "name": "חומוס אליהו - בני ברק",
+   "norm": "חומוס אליהו בני ברק"
+  },
+  {
+   "name": "Montifiori Café (מונטיפיורי קפה)",
+   "norm": "montifiori cafe מונטיפיורי קפה"
+  },
+  {
+   "name": "ויקי כריסטינה",
+   "norm": "ויקי כריסטינה"
+  },
+  {
+   "name": "Tony Vespa",
+   "norm": "tony vespa"
+  },
+  {
+   "name": "Mifgash HaSteak",
+   "norm": "mifgash hasteak"
+  },
+  {
+   "name": "7EVEN Rooftop",
+   "norm": "7even rooftop"
+  },
+  {
+   "name": "איבני Ibni",
+   "norm": "איבני ibni"
+  },
+  {
+   "name": "פיס אוף קייק - Piece of Cake",
+   "norm": "פיס אוף קייק piece of cake"
+  },
+  {
+   "name": "Frenchy Barbershop",
+   "norm": "frenchy barbershop"
+  },
+  {
+   "name": "ל׳אפוק מאת רובושון מסעדת שף בתל אביב | L’Epoque by Robuchon Tel Aviv",
+   "norm": "ל׳אפוק מאת רובושון מסעדת שף בתל אביב l epoque by robuchon tel aviv"
+  },
+  {
+   "name": "STAY קפה",
+   "norm": "stay קפה"
+  },
+  {
+   "name": "שיבולת השרון - אור יהודה",
+   "norm": "שיבולת השרון אור יהודה"
+  },
+  {
+   "name": "BUCKE 57",
+   "norm": "bucke 57"
+  },
+  {
+   "name": "דסקלידס - Daskalides Israel",
+   "norm": "דסקלידס daskalides israel"
+  },
+  {
+   "name": "Dalida דלידה",
+   "norm": "dalida דלידה"
+  },
+  {
+   "name": "Arcaffé (ארקפה)",
+   "norm": "arcaffe ארקפה"
+  },
+  {
+   "name": "לאופר גלאון",
+   "norm": "לאופר גלאון"
+  },
+  {
+   "name": "רגע",
+   "norm": "רגע"
+  },
+  {
+   "name": "Oban Koban",
+   "norm": "oban koban"
+  },
+  {
+   "name": "Pop N Roll",
+   "norm": "pop n roll"
+  },
+  {
+   "name": "Luciano",
+   "norm": "luciano"
+  },
+  {
+   "name": "בית הקברות טרומפלדור",
+   "norm": "בית הקברות טרומפלדור"
+  },
+  {
+   "name": "Wok Bar - ווק בר",
+   "norm": "wok bar ווק בר"
+  },
+  {
+   "name": "Bubush_tlv",
+   "norm": "bubush_tlv"
+  },
+  {
+   "name": "מסעדת חסונה",
+   "norm": "מסעדת חסונה"
+  },
+  {
+   "name": "Men Tenten Ramen Bar",
+   "norm": "men tenten ramen bar"
+  },
+  {
+   "name": "Le Relais",
+   "norm": "le relais"
+  },
+  {
+   "name": "Chaser",
+   "norm": "chaser"
+  },
+  {
+   "name": "הוצאת סדן",
+   "norm": "הוצאת סדן"
+  },
+  {
+   "name": "Baker",
+   "norm": "baker"
+  },
+  {
+   "name": "ספאגוס",
+   "norm": "ספאגוס"
+  },
+  {
+   "name": "קפה עליזה Café Aliza",
+   "norm": "קפה עליזה cafe aliza"
+  },
+  {
+   "name": "TLAB",
+   "norm": "tlab"
+  },
+  {
+   "name": "McDonald's",
+   "norm": "mcdonald s"
+  },
+  {
+   "name": "מאפיית המשפחה",
+   "norm": "מאפיית המשפחה"
+  },
+  {
+   "name": "קרנף רמת השרון",
+   "norm": "קרנף רמת השרון"
+  },
+  {
+   "name": "Pazza Pizza Bar",
+   "norm": "pazza pizza bar"
+  },
+  {
+   "name": "בית השייק",
+   "norm": "בית השייק"
+  },
+  {
+   "name": "קפה שלוש",
+   "norm": "קפה שלוש"
+  },
+  {
+   "name": "סיטבון",
+   "norm": "סיטבון"
+  },
+  {
+   "name": "Sipuroshelgarger",
+   "norm": "sipuroshelgarger"
+  },
+  {
+   "name": "בליקמח",
+   "norm": "בליקמח"
+  },
+  {
+   "name": "ג'פניקה קניון אילון כשר | Japanika Aylon Mall Kosher",
+   "norm": "ג פניקה קניון אילון כשר japanika aylon mall kosher"
+  },
+  {
+   "name": "מסעדת סיקיליה - Sicilia Rest",
+   "norm": "מסעדת סיקיליה sicilia rest"
+  },
+  {
+   "name": "רד מיט תל אביב",
+   "norm": "רד מיט תל אביב"
+  },
+  {
+   "name": "אבו גוש מטעמים ביתיים",
+   "norm": "אבו גוש מטעמים ביתיים"
+  },
+  {
+   "name": "מאפיית השומרון",
+   "norm": "מאפיית השומרון"
+  },
+  {
+   "name": "Kooper & Pako",
+   "norm": "kooper pako"
+  },
+  {
+   "name": "WOLF PR",
+   "norm": "wolf pr"
+  },
+  {
+   "name": "רשת חומוס יוסף - חומוס גלילי חם",
+   "norm": "רשת חומוס יוסף חומוס גלילי חם"
+  },
+  {
+   "name": "Benjamina",
+   "norm": "benjamina"
+  },
+  {
+   "name": "Gluteria",
+   "norm": "gluteria"
+  },
+  {
+   "name": "Allenby 75",
+   "norm": "allenby 75"
+  },
+  {
+   "name": "מאפיית בני ברק",
+   "norm": "מאפיית בני ברק"
+  },
+  {
+   "name": "Masala",
+   "norm": "masala"
+  },
+  {
+   "name": "Anati",
+   "norm": "anati"
+  },
+  {
+   "name": "הכוסית ורמוטריה מקומית",
+   "norm": "הכוסית ורמוטריה מקומית"
+  },
+  {
+   "name": "Freshmen Barber & Co.",
+   "norm": "freshmen barber co"
+  },
+  {
+   "name": "פיצה סטורי רמת גן",
+   "norm": "פיצה סטורי רמת גן"
+  },
+  {
+   "name": "LA BOHÈME",
+   "norm": "la boheme"
+  },
+  {
+   "name": "Lychee Media AI",
+   "norm": "lychee media ai"
+  },
+  {
+   "name": "BeerBazaar TLV",
+   "norm": "beerbazaar tlv"
+  },
+  {
+   "name": "ג'וני בר | johnny-bar",
+   "norm": "ג וני בר johnny bar"
+  },
+  {
+   "name": "Place des Moshavot",
+   "norm": "place des moshavot"
+  },
+  {
+   "name": "Arcaffe - ארקפה",
+   "norm": "arcaffe ארקפה"
+  },
+  {
+   "name": "מיסטר קאפקייק",
+   "norm": "מיסטר קאפקייק"
+  },
+  {
+   "name": "Cafe Cafe",
+   "norm": "cafe cafe"
+  },
+  {
+   "name": "ארומה קפה",
+   "norm": "ארומה קפה"
+  },
+  {
+   "name": "טרסא חצר ארועים",
+   "norm": "טרסא חצר ארועים"
+  },
+  {
+   "name": "שווארמה שוקולד סניף גוש חלב",
+   "norm": "שווארמה שוקולד סניף גוש חלב"
+  },
+  {
+   "name": "כנאפה חג׳ בק גבעתיים - حلويات الحاج بيك جفعتايم",
+   "norm": "כנאפה חג׳ בק גבעתיים حلويات الحاج بيك جفعتايم"
+  },
+  {
+   "name": "זוהר בייקרי - Zohar Bakery",
+   "norm": "זוהר בייקרי zohar bakery"
+  },
+  {
+   "name": "דוניס - מסעדת דגים ויין",
+   "norm": "דוניס מסעדת דגים ויין"
+  },
+  {
+   "name": "מאפיית אפעל",
+   "norm": "מאפיית אפעל"
+  },
+  {
+   "name": "המוציא לחם",
+   "norm": "המוציא לחם"
+  },
+  {
+   "name": "Junky Burger",
+   "norm": "junky burger"
+  },
+  {
+   "name": "Bar Vermini - בר ורמיני",
+   "norm": "bar vermini בר ורמיני"
+  },
+  {
+   "name": "נקניקייה שכזאת",
+   "norm": "נקניקייה שכזאת"
+  },
+  {
+   "name": "מעוף רמת גן",
+   "norm": "מעוף רמת גן"
+  },
+  {
+   "name": "באבי",
+   "norm": "באבי"
+  },
+  {
+   "name": "קנסאי תל אביב",
+   "norm": "קנסאי תל אביב"
+  },
+  {
+   "name": "Almahdi Sweets Tel Aviv",
+   "norm": "almahdi sweets tel aviv"
+  },
+  {
+   "name": "החציל",
+   "norm": "החציל"
+  },
+  {
+   "name": "קפה גן סיפור- קרית אונו פארק רייספלד",
+   "norm": "קפה גן סיפור קרית אונו פארק רייספלד"
+  },
+  {
+   "name": "קפה ברסאו",
+   "norm": "קפה ברסאו"
+  },
+  {
+   "name": "Cafe Shneor",
+   "norm": "cafe shneor"
+  },
+  {
+   "name": "בכור את שושי - סניף הבית, בני ברק",
+   "norm": "בכור את שושי סניף הבית בני ברק"
+  },
+  {
+   "name": "קפה אקלייר נגבה 40 ר\"ג",
+   "norm": "קפה אקלייר נגבה 40 ר ג"
+  },
+  {
+   "name": "Mash Sports Bar",
+   "norm": "mash sports bar"
+  },
+  {
+   "name": "ארומה אספרסו בר",
+   "norm": "ארומה אספרסו בר"
+  },
+  {
+   "name": "קופי טופי",
+   "norm": "קופי טופי"
+  },
+  {
+   "name": "HookahPlace - Shisha Bar Tel-Aviv, Israel",
+   "norm": "hookahplace shisha bar tel aviv israel"
+  },
+  {
+   "name": "Grill Hill - גריל היל",
+   "norm": "grill hill גריל היל"
+  },
+  {
+   "name": "Imperial Cocktail Bar",
+   "norm": "imperial cocktail bar"
+  },
+  {
+   "name": "מטעמי שלמה",
+   "norm": "מטעמי שלמה"
+  },
+  {
+   "name": "ארץ לחם",
+   "norm": "ארץ לחם"
+  },
+  {
+   "name": "הסביח של עובדיה",
+   "norm": "הסביח של עובדיה"
+  },
+  {
+   "name": "Bazaar32",
+   "norm": "bazaar32"
+  },
+  {
+   "name": "Dizengoff Square",
+   "norm": "dizengoff square"
+  },
+  {
+   "name": "Mrt Asian Bar",
+   "norm": "mrt asian bar"
+  },
+  {
+   "name": "פאנץ' ליין",
+   "norm": "פאנץ ליין"
+  },
+  {
+   "name": "מאמא ציפורה",
+   "norm": "מאמא ציפורה"
+  },
+  {
+   "name": "Pure 6a",
+   "norm": "pure 6a"
+  },
+  {
+   "name": "אלימלך",
+   "norm": "אלימלך"
+  },
+  {
+   "name": "גלידה אנדרי",
+   "norm": "גלידה אנדרי"
+  },
+  {
+   "name": "Golda",
+   "norm": "golda"
+  },
+  {
+   "name": "המלקטים",
+   "norm": "המלקטים"
+  },
+  {
+   "name": "ארנולד",
+   "norm": "ארנולד"
+  },
+  {
+   "name": "Musthair",
+   "norm": "musthair"
+  },
+  {
+   "name": "McDonald's",
+   "norm": "mcdonald s"
+  },
+  {
+   "name": "גלידות פלדמן - צביקה מהגלידות",
+   "norm": "גלידות פלדמן צביקה מהגלידות"
+  },
+  {
+   "name": "Go Develop",
+   "norm": "go develop"
+  },
+  {
+   "name": "גלבי | המקום של ענת",
+   "norm": "גלבי המקום של ענת"
+  },
+  {
+   "name": "Castel",
+   "norm": "castel"
+  },
+  {
+   "name": "בית ספר יחד",
+   "norm": "בית ספר יחד"
+  },
+  {
+   "name": "מסעדת קפה ג'וני",
+   "norm": "מסעדת קפה ג וני"
+  },
+  {
+   "name": "רניז",
+   "norm": "רניז"
+  },
+  {
+   "name": "שפר",
+   "norm": "שפר"
+  },
+  {
+   "name": "Punto Pizza",
+   "norm": "punto pizza"
+  },
+  {
+   "name": "Walter Cigar Lounge",
+   "norm": "walter cigar lounge"
+  },
+  {
+   "name": "Black Sheep Hair Studio",
+   "norm": "black sheep hair studio"
+  },
+  {
+   "name": "Deli-Cream",
+   "norm": "deli cream"
+  },
+  {
+   "name": "באשי - מסעדת בשרים גריל רמת גן משלוחים 03-6124411",
+   "norm": "באשי מסעדת בשרים גריל רמת גן משלוחים 03 6124411"
+  },
+  {
+   "name": "אשרא - החברה הישראלית לביטוח סיכוני סחר חוץ בע\"מ  Ashra",
+   "norm": "אשרא החברה הישראלית לביטוח סיכוני סחר חוץ בע מ ashra"
+  },
+  {
+   "name": "נייברס - Neighbors",
+   "norm": "נייברס neighbors"
+  },
+  {
+   "name": "Sapore",
+   "norm": "sapore"
+  },
+  {
+   "name": "boubaetgouido",
+   "norm": "boubaetgouido"
+  },
+  {
+   "name": "דודא לפיצה",
+   "norm": "דודא לפיצה"
+  },
+  {
+   "name": "Arkadi & Marina Beauty Saloon",
+   "norm": "arkadi marina beauty saloon"
+  },
+  {
+   "name": "Lilush",
+   "norm": "lilush"
+  },
+  {
+   "name": "ארומה כפיר מרכז כפיר",
+   "norm": "ארומה כפיר מרכז כפיר"
+  },
+  {
+   "name": "בית משפחת גדרון",
+   "norm": "בית משפחת גדרון"
+  },
+  {
+   "name": "Port 19",
+   "norm": "port 19"
+  },
+  {
+   "name": "קפה בבלי",
+   "norm": "קפה בבלי"
+  },
+  {
+   "name": "קפה נחת",
+   "norm": "קפה נחת"
+  },
+  {
+   "name": "ג׳חנון מול הים",
+   "norm": "ג׳חנון מול הים"
+  },
+  {
+   "name": "Burgus Burger Bar BBB (בורגוס בורגר בר)",
+   "norm": "burgus burger bar bbb בורגוס בורגר בר"
+  },
+  {
+   "name": "אגסי",
+   "norm": "אגסי"
+  },
+  {
+   "name": "קפה פנקס",
+   "norm": "קפה פנקס"
+  },
+  {
+   "name": "השניצליה יהודה הלוי",
+   "norm": "השניצליה יהודה הלוי"
+  },
+  {
+   "name": "רשת קפה לנדוור",
+   "norm": "רשת קפה לנדוור"
+  },
+  {
+   "name": "9 Bar / Quiksilver Boardriders Club",
+   "norm": "9 bar quiksilver boardriders club"
+  },
+  {
+   "name": "אבאל'ה",
+   "norm": "אבאל ה"
+  },
+  {
+   "name": "St. George Restaurant",
+   "norm": "st george restaurant"
+  },
+  {
+   "name": "Loveat",
+   "norm": "loveat"
+  },
+  {
+   "name": "אגאדיר פתח תקווה",
+   "norm": "אגאדיר פתח תקווה"
+  },
+  {
+   "name": "House of Katerina - קתרינה שרונה",
+   "norm": "house of katerina קתרינה שרונה"
+  },
+  {
+   "name": "Eight TLV by Chef Moshik Rot",
+   "norm": "eight tlv by chef moshik rot"
+  },
+  {
+   "name": "Olio Italian Bugrashuv",
+   "norm": "olio italian bugrashuv"
+  },
+  {
+   "name": "Barbershop Snir & Meir",
+   "norm": "barbershop snir meir"
+  },
+  {
+   "name": "Bakery",
+   "norm": "bakery"
+  },
+  {
+   "name": "ארלוזורוב בר",
+   "norm": "ארלוזורוב בר"
+  },
+  {
+   "name": "Monica TLV",
+   "norm": "monica tlv"
+  },
+  {
+   "name": "Tea Wei",
+   "norm": "tea wei"
+  },
+  {
+   "name": "מאפה צרפתי גבעתיים",
+   "norm": "מאפה צרפתי גבעתיים"
+  },
+  {
+   "name": "Benz Brothers",
+   "norm": "benz brothers"
+  },
+  {
+   "name": "Roladin",
+   "norm": "roladin"
+  },
+  {
+   "name": "Oasis & SCANDAL wine bar",
+   "norm": "oasis scandal wine bar"
+  },
+  {
+   "name": "חומוס פלאפל חלים",
+   "norm": "חומוס פלאפל חלים"
+  },
+  {
+   "name": "הפנתרה בבשר",
+   "norm": "הפנתרה בבשר"
+  },
+  {
+   "name": "פאשיין בר חמישי",
+   "norm": "פאשיין בר חמישי"
+  },
+  {
+   "name": "Cafe Fleur Restaurent",
+   "norm": "cafe fleur restaurent"
+  },
+  {
+   "name": "Sprinkles - ספרינקלס",
+   "norm": "sprinkles ספרינקלס"
+  },
+  {
+   "name": "La Jaffa לה ג'אפה מסעדה",
+   "norm": "la jaffa לה ג אפה מסעדה"
+  },
+  {
+   "name": "sheinkin17",
+   "norm": "sheinkin17"
+  },
+  {
+   "name": "H&H Brewing Company",
+   "norm": "h h brewing company"
+  },
+  {
+   "name": "עיריית גבעתיים",
+   "norm": "עיריית גבעתיים"
+  },
+  {
+   "name": "התימני",
+   "norm": "התימני"
+  },
+  {
+   "name": "Ruben",
+   "norm": "ruben"
+  },
+  {
+   "name": "סושידו - Sushido",
+   "norm": "סושידו sushido"
+  },
+  {
+   "name": "קפה ג'ו",
+   "norm": "קפה ג ו"
+  },
+  {
+   "name": "Опять 25",
+   "norm": "опять 25"
+  },
+  {
+   "name": "Tambayan DISCO BAR Israel",
+   "norm": "tambayan disco bar israel"
+  },
+  {
+   "name": "Fresh barשדרות ירושלים 44ת\"א יפו מספר להזמנות0775314019",
+   "norm": "fresh barשדרות ירושלים 44ת א יפו מספר להזמנות0775314019"
+  },
+  {
+   "name": "קפה וניס",
+   "norm": "קפה וניס"
+  },
+  {
+   "name": "Cafe Mayer",
+   "norm": "cafe mayer"
+  },
+  {
+   "name": "Voodoo bar",
+   "norm": "voodoo bar"
+  },
+  {
+   "name": "הפינה של צחי",
+   "norm": "הפינה של צחי"
+  },
+  {
+   "name": "Whiskey Bar & Museum",
+   "norm": "whiskey bar museum"
+  },
+  {
+   "name": "מקדונלד'ס",
+   "norm": "מקדונלד ס"
+  },
+  {
+   "name": "קפה הלל",
+   "norm": "קפה הלל"
+  },
+  {
+   "name": "קפה עלית",
+   "norm": "קפה עלית"
+  },
+  {
+   "name": "Miznon",
+   "norm": "miznon"
+  },
+  {
+   "name": "The Chinese Wall",
+   "norm": "the chinese wall"
+  },
+  {
+   "name": "Banh Mi 13",
+   "norm": "banh mi 13"
+  },
+  {
+   "name": "Ragazzi La Pizza - רגאצי",
+   "norm": "ragazzi la pizza רגאצי"
+  },
+  {
+   "name": "Wingz Israel - ווינגס ישראל גבעת שמואל",
+   "norm": "wingz israel ווינגס ישראל גבעת שמואל"
+  },
+  {
+   "name": "Mata'm Sammy מטע'ם סמי",
+   "norm": "mata m sammy מטע ם סמי"
+  },
+  {
+   "name": "Bellboy",
+   "norm": "bellboy"
+  },
+  {
+   "name": "Cafe Orby",
+   "norm": "cafe orby"
+  },
+  {
+   "name": "מספרת טל",
+   "norm": "מספרת טל"
+  },
+  {
+   "name": "יוסי חן סטייל עיצוב שיער",
+   "norm": "יוסי חן סטייל עיצוב שיער"
+  },
+  {
+   "name": "לחם תושיה",
+   "norm": "לחם תושיה"
+  },
+  {
+   "name": "פיתה רחוב. דיזנגוף 128",
+   "norm": "פיתה רחוב דיזנגוף 128"
+  },
+  {
+   "name": "כיכר נח",
+   "norm": "כיכר נח"
+  },
+  {
+   "name": "נאפולי הקטנה",
+   "norm": "נאפולי הקטנה"
+  },
+  {
+   "name": "ג'אפן גבעת שמואל",
+   "norm": "ג אפן גבעת שמואל"
+  },
+  {
+   "name": "Huskey - Premium blends",
+   "norm": "huskey premium blends"
+  },
+  {
+   "name": "ReBlonde",
+   "norm": "reblonde"
+  },
+  {
+   "name": "Cheers Florentine",
+   "norm": "cheers florentine"
+  },
+  {
+   "name": "ארטיקים טבעיים פריZ",
+   "norm": "ארטיקים טבעיים פריz"
+  },
+  {
+   "name": "Meat Night",
+   "norm": "meat night"
+  },
+  {
+   "name": "Cuckoo's Nest",
+   "norm": "cuckoo s nest"
+  },
+  {
+   "name": "Train Toast",
+   "norm": "train toast"
+  },
+  {
+   "name": "Turk Lahmajoun",
+   "norm": "turk lahmajoun"
+  },
+  {
+   "name": "Jburger Vegan",
+   "norm": "jburger vegan"
+  },
+  {
+   "name": "Aroma (ארומה)",
+   "norm": "aroma ארומה"
+  },
+  {
+   "name": "פונדק הרצל שווארמה כיד המלך",
+   "norm": "פונדק הרצל שווארמה כיד המלך"
+  },
+  {
+   "name": "לחם בית - מטבח טריפולטאי לובי",
+   "norm": "לחם בית מטבח טריפולטאי לובי"
+  },
+  {
+   "name": "ארומה , תל אביב",
+   "norm": "ארומה תל אביב"
+  },
+  {
+   "name": "גוני קבורת חיות",
+   "norm": "גוני קבורת חיות"
+  },
+  {
+   "name": "הבוקרים",
+   "norm": "הבוקרים"
+  },
+  {
+   "name": "קוקון - Cocoon Lounge Bar",
+   "norm": "קוקון cocoon lounge bar"
+  },
+  {
+   "name": "זהבה ואבי",
+   "norm": "זהבה ואבי"
+  },
+  {
+   "name": "סטודיו שף ארז שטרן",
+   "norm": "סטודיו שף ארז שטרן"
+  },
+  {
+   "name": "לייבוביץ' בית מלאכה לעוגות",
+   "norm": "לייבוביץ בית מלאכה לעוגות"
+  },
+  {
+   "name": "רופטופ 98 - Rooftop 98",
+   "norm": "רופטופ 98 rooftop 98"
+  },
+  {
+   "name": "Shula BaHatzer",
+   "norm": "shula bahatzer"
+  },
+  {
+   "name": "Port tlv",
+   "norm": "port tlv"
+  },
+  {
+   "name": "Grill Night",
+   "norm": "grill night"
+  },
+  {
+   "name": "Aroma",
+   "norm": "aroma"
+  },
+  {
+   "name": "המשביר Mashbir",
+   "norm": "המשביר mashbir"
+  },
+  {
+   "name": "New York Barbershop",
+   "norm": "new york barbershop"
+  },
+  {
+   "name": "Cappella",
+   "norm": "cappella"
+  },
+  {
+   "name": "Wave Hair Design",
+   "norm": "wave hair design"
+  },
+  {
+   "name": "שערי ניקנור יפו",
+   "norm": "שערי ניקנור יפו"
+  },
+  {
+   "name": "יאשקה",
+   "norm": "יאשקה"
+  },
+  {
+   "name": "Roll & Soul  סושי בר",
+   "norm": "roll soul סושי בר"
+  },
+  {
+   "name": "Haplancha",
+   "norm": "haplancha"
+  },
+  {
+   "name": "Kitto Katto",
+   "norm": "kitto katto"
+  },
+  {
+   "name": "Pizza Hut",
+   "norm": "pizza hut"
+  },
+  {
+   "name": "שחר כינר - לצאת מהתבנית",
+   "norm": "שחר כינר לצאת מהתבנית"
+  },
+  {
+   "name": "ארומה אספרסו בר",
+   "norm": "ארומה אספרסו בר"
+  },
+  {
+   "name": "Josepha Bistro & Bar (ג'וזפה ביסטרו & בר)",
+   "norm": "josepha bistro bar ג וזפה ביסטרו בר"
+  },
+  {
+   "name": "Café De La Mer Tlv",
+   "norm": "cafe de la mer tlv"
+  },
+  {
+   "name": "Cafe Allenby קפה אלנבי",
+   "norm": "cafe allenby קפה אלנבי"
+  },
+  {
+   "name": "כרמליס בייגל",
+   "norm": "כרמליס בייגל"
+  },
+  {
+   "name": "מקדונלד'ס",
+   "norm": "מקדונלד ס"
+  },
+  {
+   "name": "Tony Vespa טוני וספה",
+   "norm": "tony vespa טוני וספה"
+  },
+  {
+   "name": "קינג' ג'ורג' 26 - תל אביב",
+   "norm": "קינג ג ורג 26 תל אביב"
+  },
+  {
+   "name": "Oren Busany",
+   "norm": "oren busany"
+  },
+  {
+   "name": "Penn Publishing פן הוצאה לאור",
+   "norm": "penn publishing פן הוצאה לאור"
+  },
+  {
+   "name": "a - By Yuval Ben Neriah",
+   "norm": "a by yuval ben neriah"
+  },
+  {
+   "name": "Percepto",
+   "norm": "percepto"
+  },
+  {
+   "name": "מפגש בלומפילד",
+   "norm": "מפגש בלומפילד"
+  },
+  {
+   "name": "Tel Aviv Stars",
+   "norm": "tel aviv stars"
+  },
+  {
+   "name": "ארקפה אפקה",
+   "norm": "ארקפה אפקה"
+  },
+  {
+   "name": "Ofir Visual - מספרת אופיר ויזואל",
+   "norm": "ofir visual מספרת אופיר ויזואל"
+  },
+  {
+   "name": "Burgers Bar",
+   "norm": "burgers bar"
+  },
+  {
+   "name": "מקדונלד'ס",
+   "norm": "מקדונלד ס"
+  },
+  {
+   "name": "San Mai Gyoza Bar",
+   "norm": "san mai gyoza bar"
+  },
+  {
+   "name": "Aroma (ארומה)",
+   "norm": "aroma ארומה"
+  },
+  {
+   "name": "Johnny's Drinks  ג'וניס משקאות",
+   "norm": "johnny s drinks ג וניס משקאות"
+  },
+  {
+   "name": "מאפיית ההגנה",
+   "norm": "מאפיית ההגנה"
+  },
+  {
+   "name": "קימל",
+   "norm": "קימל"
+  },
+  {
+   "name": "Tango Cafe",
+   "norm": "tango cafe"
+  },
+  {
+   "name": "טרב",
+   "norm": "טרב"
+  },
+  {
+   "name": "New Deli",
+   "norm": "new deli"
+  },
+  {
+   "name": "בורגרים רמת אביב",
+   "norm": "בורגרים רמת אביב"
+  },
+  {
+   "name": "משרד עוד בן חמו",
+   "norm": "משרד עוד בן חמו"
+  },
+  {
+   "name": "אולמי נאות ירושלים",
+   "norm": "אולמי נאות ירושלים"
+  },
+  {
+   "name": "טוסט נקניק מיסטר בין",
+   "norm": "טוסט נקניק מיסטר בין"
+  },
+  {
+   "name": "הופה OPA",
+   "norm": "הופה opa"
+  },
+  {
+   "name": "HAZIK",
+   "norm": "hazik"
+  },
+  {
+   "name": "Don Vito - דון ויטו מסעדה איטלקית כשרה",
+   "norm": "don vito דון ויטו מסעדה איטלקית כשרה"
+  },
+  {
+   "name": "חומוס קלבוני יפו",
+   "norm": "חומוס קלבוני יפו"
+  },
+  {
+   "name": "בובע - Bobe",
+   "norm": "בובע bobe"
+  },
+  {
+   "name": "פיצה כמעט חינם קונספט",
+   "norm": "פיצה כמעט חינם קונספט"
+  },
+  {
+   "name": "Velo Restaurant Tel Aviv",
+   "norm": "velo restaurant tel aviv"
+  },
+  {
+   "name": "טריולה Triola",
+   "norm": "טריולה triola"
+  },
+  {
+   "name": "דרך התה | Cha Dao | 茶道",
+   "norm": "דרך התה cha dao 茶道"
+  },
+  {
+   "name": "Guest Room",
+   "norm": "guest room"
+  },
+  {
+   "name": "נספרסו",
+   "norm": "נספרסו"
+  },
+  {
+   "name": "Mezcal",
+   "norm": "mezcal"
+  },
+  {
+   "name": "קיוסק סוף הדרך",
+   "norm": "קיוסק סוף הדרך"
+  },
+  {
+   "name": "טוסטבורגר",
+   "norm": "טוסטבורגר"
+  },
+  {
+   "name": "Cofix",
+   "norm": "cofix"
+  },
+  {
+   "name": "מיטש - mitch",
+   "norm": "מיטש mitch"
+  },
+  {
+   "name": "Anicca אניצ׳ה",
+   "norm": "anicca אניצ׳ה"
+  },
+  {
+   "name": "הפריקסה של חיימיקו",
+   "norm": "הפריקסה של חיימיקו"
+  },
+  {
+   "name": "I Love Cupcakes",
+   "norm": "i love cupcakes"
+  },
+  {
+   "name": "דון אסאדו",
+   "norm": "דון אסאדו"
+  },
+  {
+   "name": "Soft Cookies",
+   "norm": "soft cookies"
+  },
+  {
+   "name": "לחם הארץ",
+   "norm": "לחם הארץ"
+  },
+  {
+   "name": "Dabush",
+   "norm": "dabush"
+  },
+  {
+   "name": "KARBASI Rugs Since 1947",
+   "norm": "karbasi rugs since 1947"
+  },
+  {
+   "name": "HaKosem",
+   "norm": "hakosem"
+  },
+  {
+   "name": "Lala Land",
+   "norm": "lala land"
+  },
+  {
+   "name": "פורטו",
+   "norm": "פורטו"
+  },
+  {
+   "name": "كريات أونو",
+   "norm": "كريات اونو"
+  },
+  {
+   "name": "Tedros",
+   "norm": "tedros"
+  },
+  {
+   "name": "קפה וושינגטון Washington cafe",
+   "norm": "קפה וושינגטון washington cafe"
+  },
+  {
+   "name": "Benedict",
+   "norm": "benedict"
+  },
+  {
+   "name": "נוודים ספרות לאור",
+   "norm": "נוודים ספרות לאור"
+  },
+  {
+   "name": "Milis",
+   "norm": "milis"
+  },
+  {
+   "name": "Tech it Forward",
+   "norm": "tech it forward"
+  },
+  {
+   "name": "פלאפל נטו",
+   "norm": "פלאפל נטו"
+  },
+  {
+   "name": "המרכז להחזרי מס",
+   "norm": "המרכז להחזרי מס"
+  },
+  {
+   "name": "בורקס ליאון",
+   "norm": "בורקס ליאון"
+  },
+  {
+   "name": "Mami קפה•מגשים•טעמים",
+   "norm": "mami קפה מגשים טעמים"
+  },
+  {
+   "name": "Speedo Bar",
+   "norm": "speedo bar"
+  },
+  {
+   "name": "Azuly Bar",
+   "norm": "azuly bar"
+  },
+  {
+   "name": "גלידות פלדמן",
+   "norm": "גלידות פלדמן"
+  },
+  {
+   "name": "חומוס בהדונס יד חרוצים",
+   "norm": "חומוס בהדונס יד חרוצים"
+  },
+  {
+   "name": "צ'יצ'וMoroccan Food Bar",
+   "norm": "צ יצ וmoroccan food bar"
+  },
+  {
+   "name": "Sapir Rozen Professional Grooming Salon",
+   "norm": "sapir rozen professional grooming salon"
+  },
+  {
+   "name": "פנקס הקטן",
+   "norm": "פנקס הקטן"
+  },
+  {
+   "name": "רביבה וסיליה Pizzeria",
+   "norm": "רביבה וסיליה pizzeria"
+  },
+  {
+   "name": "קפה ארלוזורוב",
+   "norm": "קפה ארלוזורוב"
+  },
+  {
+   "name": "TRE",
+   "norm": "tre"
+  },
+  {
+   "name": "רמת החייל - Pure",
+   "norm": "רמת החייל pure"
+  },
+  {
+   "name": "דלי-קרים גלידה",
+   "norm": "דלי קרים גלידה"
+  },
+  {
+   "name": "פורטר אנד סאנס",
+   "norm": "פורטר אנד סאנס"
+  },
+  {
+   "name": "BABU - Bar. People. Shows",
+   "norm": "babu bar people shows"
+  },
+  {
+   "name": "קסטלו • נמל תל אביב",
+   "norm": "קסטלו נמל תל אביב"
+  },
+  {
+   "name": "קפה בראלי",
+   "norm": "קפה בראלי"
+  },
+  {
+   "name": "Olive",
+   "norm": "olive"
+  },
+  {
+   "name": "Kindergarten",
+   "norm": "kindergarten"
+  },
+  {
+   "name": "סולט בורגר יפו",
+   "norm": "סולט בורגר יפו"
+  },
+  {
+   "name": "Goomba תל אביב",
+   "norm": "goomba תל אביב"
+  },
+  {
+   "name": "בייקרי דיזנגוף - Bakery",
+   "norm": "בייקרי דיזנגוף bakery"
+  },
+  {
+   "name": "בר גוריון",
+   "norm": "בר גוריון"
+  },
+  {
+   "name": "פיצה אנד טורטיה",
+   "norm": "פיצה אנד טורטיה"
+  },
+  {
+   "name": "שיפודי הפינה",
+   "norm": "שיפודי הפינה"
+  },
+  {
+   "name": "Baba Yaga",
+   "norm": "baba yaga"
+  },
+  {
+   "name": "סעדיה",
+   "norm": "סעדיה"
+  },
+  {
+   "name": "אלנבי 99",
+   "norm": "אלנבי 99"
+  },
+  {
+   "name": "Magazzino",
+   "norm": "magazzino"
+  },
+  {
+   "name": "מסעדת מיטל",
+   "norm": "מסעדת מיטל"
+  },
+  {
+   "name": "אקסטרא ברוט",
+   "norm": "אקסטרא ברוט"
+  },
+  {
+   "name": "&Moshik",
+   "norm": "moshik"
+  },
+  {
+   "name": "סמרקנד",
+   "norm": "סמרקנד"
+  },
+  {
+   "name": "Goshen",
+   "norm": "goshen"
+  },
+  {
+   "name": "מסעדת רקפת",
+   "norm": "מסעדת רקפת"
+  },
+  {
+   "name": "Indira",
+   "norm": "indira"
+  },
+  {
+   "name": "Denim Drinks First",
+   "norm": "denim drinks first"
+  },
+  {
+   "name": "Foodtoura Food Tours פודטורה סיורי אוכל",
+   "norm": "foodtoura food tours פודטורה סיורי אוכל"
+  },
+  {
+   "name": "ריץ' רץ' - Richrach",
+   "norm": "ריץ רץ richrach"
+  },
+  {
+   "name": "לנדוור - דיזנגוף - הרשמי",
+   "norm": "לנדוור דיזנגוף הרשמי"
+  },
+  {
+   "name": "Little Bits",
+   "norm": "little bits"
+  },
+  {
+   "name": "BreadClub - גבירול",
+   "norm": "breadclub גבירול"
+  },
+  {
+   "name": "המספריים של ברוך",
+   "norm": "המספריים של ברוך"
+  },
+  {
+   "name": "Ketzef",
+   "norm": "ketzef"
+  },
+  {
+   "name": "Hahoog Hatzfoni - החוג הצפוני",
+   "norm": "hahoog hatzfoni החוג הצפוני"
+  },
+  {
+   "name": "המרכז לשיקום השיער",
+   "norm": "המרכז לשיקום השיער"
+  },
+  {
+   "name": "Vinny Wine Bar",
+   "norm": "vinny wine bar"
+  },
+  {
+   "name": "Holstein Burger",
+   "norm": "holstein burger"
+  },
+  {
+   "name": "בני הדייג נמל ת\"א",
+   "norm": "בני הדייג נמל ת א"
+  },
+  {
+   "name": "בהדונס החומוס והפול",
+   "norm": "בהדונס החומוס והפול"
+  },
+  {
+   "name": "Asimi - אסימי",
+   "norm": "asimi אסימי"
+  },
+  {
+   "name": "Eden Teva Market (עדן טבע מרקט)",
+   "norm": "eden teva market עדן טבע מרקט"
+  },
+  {
+   "name": "Bendod",
+   "norm": "bendod"
+  },
+  {
+   "name": "7to1 Lab",
+   "norm": "7to1 lab"
+  },
+  {
+   "name": "Pinoli Gelato",
+   "norm": "pinoli gelato"
+  },
+  {
+   "name": "Lebowski Café",
+   "norm": "lebowski cafe"
+  },
+  {
+   "name": "Justbeef",
+   "norm": "justbeef"
+  },
+  {
+   "name": "Mae Cafe",
+   "norm": "mae cafe"
+  },
+  {
+   "name": "קפה זליג",
+   "norm": "קפה זליג"
+  },
+  {
+   "name": "Babi cafe באבי קפה",
+   "norm": "babi cafe באבי קפה"
+  },
+  {
+   "name": "Souk hatikva",
+   "norm": "souk hatikva"
+  },
+  {
+   "name": "Alpaca vegan bar",
+   "norm": "alpaca vegan bar"
+  },
+  {
+   "name": "גרינגו עוף על האש",
+   "norm": "גרינגו עוף על האש"
+  },
+  {
+   "name": "Zvulon 10",
+   "norm": "zvulon 10"
+  },
+  {
+   "name": "Pago Pago (פאגו פאגו)",
+   "norm": "pago pago פאגו פאגו"
+  },
+  {
+   "name": "ג׳ון ג׳ון",
+   "norm": "ג׳ון ג׳ון"
+  },
+  {
+   "name": "Poizdes",
+   "norm": "poizdes"
+  },
+  {
+   "name": "Emmet Brown",
+   "norm": "emmet brown"
+  },
+  {
+   "name": "Afloka אפלוקה - מסעדת דגים ביפו",
+   "norm": "afloka אפלוקה מסעדת דגים ביפו"
+  },
+  {
+   "name": "הבית של עידן, אופיר ובני",
+   "norm": "הבית של עידן אופיר ובני"
+  },
+  {
+   "name": "\"\"טרומפל-נט\"\"",
+   "norm": "טרומפל נט"
+  },
+  {
+   "name": "אגאדיר בורגר",
+   "norm": "אגאדיר בורגר"
+  },
+  {
+   "name": "wow london",
+   "norm": "wow london"
+  },
+  {
+   "name": "פלאפל שרעבי",
+   "norm": "פלאפל שרעבי"
+  },
+  {
+   "name": "Tutto Bene",
+   "norm": "tutto bene"
+  },
+  {
+   "name": "פיצה עגבניה דיזינגוף, Pizza Agvania",
+   "norm": "פיצה עגבניה דיזינגוף pizza agvania"
+  },
+  {
+   "name": "Sonc'ino 15",
+   "norm": "sonc ino 15"
+  },
+  {
+   "name": "Studio 55 BarberShop By Aviel Amir",
+   "norm": "studio 55 barbershop by aviel amir"
+  },
+  {
+   "name": "Lehaim chupitos",
+   "norm": "lehaim chupitos"
+  },
+  {
+   "name": "אידלסון 10",
+   "norm": "אידלסון 10"
+  },
+  {
+   "name": "Lioroooosh Studio",
+   "norm": "lioroooosh studio"
+  },
+  {
+   "name": "בָּרשֶׁל",
+   "norm": "ברשל"
+  },
+  {
+   "name": "pizzot",
+   "norm": "pizzot"
+  },
+  {
+   "name": "איינשטיין בורגר",
+   "norm": "איינשטיין בורגר"
+  },
+  {
+   "name": "פיס אוף קייק יפו",
+   "norm": "פיס אוף קייק יפו"
+  },
+  {
+   "name": "Milgo Milbar",
+   "norm": "milgo milbar"
+  },
+  {
+   "name": "בנון - Benon",
+   "norm": "בנון benon"
+  },
+  {
+   "name": "Breadly",
+   "norm": "breadly"
+  },
+  {
+   "name": "ארקפה בייקרי כיכר רבין",
+   "norm": "ארקפה בייקרי כיכר רבין"
+  },
+  {
+   "name": "Ami Bakehouse",
+   "norm": "ami bakehouse"
+  },
+  {
+   "name": "Fifty",
+   "norm": "fifty"
+  },
+  {
+   "name": "River noodle bar",
+   "norm": "river noodle bar"
+  },
+  {
+   "name": "Casa de Coco",
+   "norm": "casa de coco"
+  },
+  {
+   "name": "נורדאו - קפה בשדרה",
+   "norm": "נורדאו קפה בשדרה"
+  },
+  {
+   "name": "סבור",
+   "norm": "סבור"
+  },
+  {
+   "name": "בר סטייל",
+   "norm": "בר סטייל"
+  },
+  {
+   "name": "מסעדת מפגשים",
+   "norm": "מסעדת מפגשים"
+  },
+  {
+   "name": "פינת השלושה",
+   "norm": "פינת השלושה"
+  },
+  {
+   "name": "מאפית עטיה",
+   "norm": "מאפית עטיה"
+  },
+  {
+   "name": "שניצלאנו",
+   "norm": "שניצלאנו"
+  },
+  {
+   "name": "Bayern Market",
+   "norm": "bayern market"
+  },
+  {
+   "name": "1244124143112",
+   "norm": "1244124143112"
+  },
+  {
+   "name": "מסעדת ״בוכרה היפה״- Boutique events",
+   "norm": "מסעדת ״בוכרה היפה״ boutique events"
+  },
+  {
+   "name": "רותיז",
+   "norm": "רותיז"
+  },
+  {
+   "name": "קליית שפע טבע - רמת גן",
+   "norm": "קליית שפע טבע רמת גן"
+  },
+  {
+   "name": "Omakase",
+   "norm": "omakase"
+  },
+  {
+   "name": "La Pizzaria",
+   "norm": "la pizzaria"
+  },
+  {
+   "name": "Abulafia",
+   "norm": "abulafia"
+  },
+  {
+   "name": "Tampopo Sushi Bar - טמפופו סושי בר",
+   "norm": "tampopo sushi bar טמפופו סושי בר"
+  },
+  {
+   "name": "Rivareno Gelato",
+   "norm": "rivareno gelato"
+  },
+  {
+   "name": "חביב קובות",
+   "norm": "חביב קובות"
+  },
+  {
+   "name": "ג'ירף - Giraffe",
+   "norm": "ג ירף giraffe"
+  },
+  {
+   "name": "ארומה אספרסו-בר",
+   "norm": "ארומה אספרסו בר"
+  },
+  {
+   "name": "Meringue Bakery",
+   "norm": "meringue bakery"
+  },
+  {
+   "name": "Dok Restaurant",
+   "norm": "dok restaurant"
+  },
+  {
+   "name": "נוף הכפר",
+   "norm": "נוף הכפר"
+  },
+  {
+   "name": "Humus Tlv",
+   "norm": "humus tlv"
+  },
+  {
+   "name": "Bocadillo",
+   "norm": "bocadillo"
+  },
+  {
+   "name": "My Café",
+   "norm": "my cafe"
+  },
+  {
+   "name": "\"\"גרציה\"\"",
+   "norm": "גרציה"
+  },
+  {
+   "name": "The Mezeg",
+   "norm": "the mezeg"
+  },
+  {
+   "name": "קימונו תל אביב",
+   "norm": "קימונו תל אביב"
+  },
+  {
+   "name": "Rooftop 360",
+   "norm": "rooftop 360"
+  },
+  {
+   "name": "סילון בר",
+   "norm": "סילון בר"
+  },
+  {
+   "name": "Concierge",
+   "norm": "concierge"
+  },
+  {
+   "name": "הרשל'ה",
+   "norm": "הרשל ה"
+  },
+  {
+   "name": "בזיליקום פיצה",
+   "norm": "בזיליקום פיצה"
+  },
+  {
+   "name": "רול מי - Roll me",
+   "norm": "רול מי roll me"
+  },
+  {
+   "name": "פיצה 180",
+   "norm": "פיצה 180"
+  },
+  {
+   "name": "Sunshine.net.cafe",
+   "norm": "sunshine net cafe"
+  },
+  {
+   "name": "Ilans cafe",
+   "norm": "ilans cafe"
+  },
+  {
+   "name": "סלטוסט",
+   "norm": "סלטוסט"
+  },
+  {
+   "name": "טיפיקו",
+   "norm": "טיפיקו"
+  },
+  {
+   "name": "חלהוולה",
+   "norm": "חלהוולה"
+  },
+  {
+   "name": "צ'יקן סטיישן בני ברק - מגדלי בסר",
+   "norm": "צ יקן סטיישן בני ברק מגדלי בסר"
+  },
+  {
+   "name": "Aroma / ארומה",
+   "norm": "aroma ארומה"
+  },
+  {
+   "name": "בר גוריון - אבן גבירול",
+   "norm": "בר גוריון אבן גבירול"
+  },
+  {
+   "name": "חשמונאים קפה",
+   "norm": "חשמונאים קפה"
+  },
+  {
+   "name": "Pizza for the People",
+   "norm": "pizza for the people"
+  },
+  {
+   "name": "HIBA Restaurant",
+   "norm": "hiba restaurant"
+  },
+  {
+   "name": "דניאלה ביסטרו בשכונה",
+   "norm": "דניאלה ביסטרו בשכונה"
+  },
+  {
+   "name": "מספרת גברים- רפאל המספרה Rafael Barber Shop",
+   "norm": "מספרת גברים רפאל המספרה rafael barber shop"
+  },
+  {
+   "name": "Trattoria- טרטוריה",
+   "norm": "trattoria טרטוריה"
+  },
+  {
+   "name": "JunkYard - גאנקיארד",
+   "norm": "junkyard גאנקיארד"
+  },
+  {
+   "name": "Oshpalao אוש פלאו",
+   "norm": "oshpalao אוש פלאו"
+  },
+  {
+   "name": "חומוס אור יהודה",
+   "norm": "חומוס אור יהודה"
+  },
+  {
+   "name": "לוינסקי 53 - Levinsky 53",
+   "norm": "לוינסקי 53 levinsky 53"
+  },
+  {
+   "name": "העוגיות של חמדה",
+   "norm": "העוגיות של חמדה"
+  },
+  {
+   "name": "לא רק בורקס",
+   "norm": "לא רק בורקס"
+  },
+  {
+   "name": "Shubeli Nargila bar",
+   "norm": "shubeli nargila bar"
+  },
+  {
+   "name": "המזנון",
+   "norm": "המזנון"
+  },
+  {
+   "name": "התפנוקיה",
+   "norm": "התפנוקיה"
+  },
+  {
+   "name": "Barbur Grill & Bar",
+   "norm": "barbur grill bar"
+  },
+  {
+   "name": "Boston Deli",
+   "norm": "boston deli"
+  },
+  {
+   "name": "בר-בריא bar bari",
+   "norm": "בר בריא bar bari"
+  },
+  {
+   "name": "Abu Hassan",
+   "norm": "abu hassan"
+  },
+  {
+   "name": "קפה דיזנגוף - Dizengoff Cafe",
+   "norm": "קפה דיזנגוף dizengoff cafe"
+  },
+  {
+   "name": "באבא סולימן - בורקס וג'חנון",
+   "norm": "באבא סולימן בורקס וג חנון"
+  },
+  {
+   "name": "DOT Restaurant",
+   "norm": "dot restaurant"
+  },
+  {
+   "name": "פיצה התחנה הישראלית",
+   "norm": "פיצה התחנה הישראלית"
+  },
+  {
+   "name": "Sumsum Bar Bri'ut",
+   "norm": "sumsum bar bri ut"
+  },
+  {
+   "name": "Palapa",
+   "norm": "palapa"
+  },
+  {
+   "name": "Amiram Pub",
+   "norm": "amiram pub"
+  },
+  {
+   "name": "פלאפל ג'ינה",
+   "norm": "פלאפל ג ינה"
+  },
+  {
+   "name": "Dallal Bakery",
+   "norm": "dallal bakery"
+  },
+  {
+   "name": "הבטום מסעדה אריתראית",
+   "norm": "הבטום מסעדה אריתראית"
+  },
+  {
+   "name": "שמינית - Shminit",
+   "norm": "שמינית shminit"
+  },
+  {
+   "name": "Poké Israel",
+   "norm": "poke israel"
+  },
+  {
+   "name": "Paris Texas",
+   "norm": "paris texas"
+  },
+  {
+   "name": "יוסי של פלאפל",
+   "norm": "יוסי של פלאפל"
+  },
+  {
+   "name": "Shasha",
+   "norm": "shasha"
+  },
+  {
+   "name": "קפה עלמה גן מאיר",
+   "norm": "קפה עלמה גן מאיר"
+  },
+  {
+   "name": "הפיתות של סעדה",
+   "norm": "הפיתות של סעדה"
+  },
+  {
+   "name": "מפגש אלאדין תל אביב",
+   "norm": "מפגש אלאדין תל אביב"
+  },
+  {
+   "name": "Xoho (זוהו)",
+   "norm": "xoho זוהו"
+  },
+  {
+   "name": "קפה ג'ו במגדל המאה",
+   "norm": "קפה ג ו במגדל המאה"
+  },
+  {
+   "name": "לחם חם",
+   "norm": "לחם חם"
+  },
+  {
+   "name": "נתיב יין בעמ",
+   "norm": "נתיב יין בעמ"
+  },
+  {
+   "name": "Bucurest",
+   "norm": "bucurest"
+  },
+  {
+   "name": "מני רול  Meni Roll",
+   "norm": "מני רול meni roll"
+  },
+  {
+   "name": "ארוחות פרטיות בחצר",
+   "norm": "ארוחות פרטיות בחצר"
+  },
+  {
+   "name": "רויטל מרסיק",
+   "norm": "רויטל מרסיק"
+  },
+  {
+   "name": "בית השואבה",
+   "norm": "בית השואבה"
+  },
+  {
+   "name": "Giuseppe Pizza",
+   "norm": "giuseppe pizza"
+  },
+  {
+   "name": "Curly Hair TLV",
+   "norm": "curly hair tlv"
+  },
+  {
+   "name": "דובי",
+   "norm": "דובי"
+  },
+  {
+   "name": "Dom Taverna Kvartira 13",
+   "norm": "dom taverna kvartira 13"
+  },
+  {
+   "name": "ארקפה רמת החייל",
+   "norm": "ארקפה רמת החייל"
+  },
+  {
+   "name": "International Relations Tel Aviv - Yafo",
+   "norm": "international relations tel aviv yafo"
+  },
+  {
+   "name": "Bake Bakery Lounge",
+   "norm": "bake bakery lounge"
+  },
+  {
+   "name": "Manila Kamayan",
+   "norm": "manila kamayan"
+  },
+  {
+   "name": "סוזי קופי בר",
+   "norm": "סוזי קופי בר"
+  },
+  {
+   "name": "דומינוס פיצה",
+   "norm": "דומינוס פיצה"
+  },
+  {
+   "name": "הסנדוויץ' של Abba- סניף ביאליק",
+   "norm": "הסנדוויץ של abba סניף ביאליק"
+  },
+  {
+   "name": "Magreb - מגרב",
+   "norm": "magreb מגרב"
+  },
+  {
+   "name": "החלונות הגבוהים",
+   "norm": "החלונות הגבוהים"
+  },
+  {
+   "name": "גלידה גולדה תל השומר",
+   "norm": "גלידה גולדה תל השומר"
+  },
+  {
+   "name": "המסעדה היהודית",
+   "norm": "המסעדה היהודית"
+  },
+  {
+   "name": "Ning Thai Food",
+   "norm": "ning thai food"
+  },
+  {
+   "name": "Cafe Geva",
+   "norm": "cafe geva"
+  },
+  {
+   "name": "ענבל דרור - שמלות כלה",
+   "norm": "ענבל דרור שמלות כלה"
+  },
+  {
+   "name": "באביה החומוס והפול",
+   "norm": "באביה החומוס והפול"
+  },
+  {
+   "name": "Freenergy - פרינרג'י",
+   "norm": "freenergy פרינרג י"
+  },
+  {
+   "name": "Flame Bar",
+   "norm": "flame bar"
+  },
+  {
+   "name": "פיצה תדר",
+   "norm": "פיצה תדר"
+  },
+  {
+   "name": "Casa Veranda - קאסה ורנדה",
+   "norm": "casa veranda קאסה ורנדה"
+  },
+  {
+   "name": "לחם קפה וחברים",
+   "norm": "לחם קפה וחברים"
+  },
+  {
+   "name": "ג'לידו - Gelido Artisinal Ice Cream",
+   "norm": "ג לידו gelido artisinal ice cream"
+  },
+  {
+   "name": "Batya בתיה",
+   "norm": "batya בתיה"
+  },
+  {
+   "name": "China Town",
+   "norm": "china town"
+  },
+  {
+   "name": "Herzl",
+   "norm": "herzl"
+  },
+  {
+   "name": "בר בשר",
+   "norm": "בר בשר"
+  },
+  {
+   "name": "Amarena Icecream",
+   "norm": "amarena icecream"
+  },
+  {
+   "name": "גרג גן העיר-תל אביב",
+   "norm": "גרג גן העיר תל אביב"
+  },
+  {
+   "name": "שבע קוביות - בואו נצא להרפתקה",
+   "norm": "שבע קוביות בואו נצא להרפתקה"
+  },
+  {
+   "name": "קפה בוקה Bucke Cafe",
+   "norm": "קפה בוקה bucke cafe"
+  },
+  {
+   "name": "McDonald's",
+   "norm": "mcdonald s"
+  },
+  {
+   "name": "מאמא לולו - Mama Lulu",
+   "norm": "מאמא לולו mama lulu"
+  },
+  {
+   "name": "ד”ר שקשוקה הפי האוור",
+   "norm": "ד ר שקשוקה הפי האוור"
+  },
+  {
+   "name": "Go Noodles & Sushi Bar (גו נודלס)",
+   "norm": "go noodles sushi bar גו נודלס"
+  },
+  {
+   "name": "HaMezeg (המזג)",
+   "norm": "hamezeg המזג"
+  },
+  {
+   "name": "קיוסק אחים מנסור",
+   "norm": "קיוסק אחים מנסור"
+  },
+  {
+   "name": "Jera",
+   "norm": "jera"
+  },
+  {
+   "name": "מיתוס",
+   "norm": "מיתוס"
+  },
+  {
+   "name": "Japanika TLV (ג'פניקה)",
+   "norm": "japanika tlv ג פניקה"
+  },
+  {
+   "name": "Cafe Coffie",
+   "norm": "cafe coffie"
+  },
+  {
+   "name": "Sushi Bar Bazel",
+   "norm": "sushi bar bazel"
+  },
+  {
+   "name": "פאב אירי",
+   "norm": "פאב אירי"
+  },
+  {
+   "name": "Golden delights",
+   "norm": "golden delights"
+  },
+  {
+   "name": "בורגרים סניף הבורסה רמת גן",
+   "norm": "בורגרים סניף הבורסה רמת גן"
+  },
+  {
+   "name": "פאשה תל אביב Tlv",
+   "norm": "פאשה תל אביב tlv"
+  },
+  {
+   "name": "CutTom - כָּתוֹם",
+   "norm": "cuttom כתום"
+  },
+  {
+   "name": "Oshi Oshi Port TLV",
+   "norm": "oshi oshi port tlv"
+  },
+  {
+   "name": "PIzza Yoav",
+   "norm": "pizza yoav"
+  },
+  {
+   "name": "שניצליין",
+   "norm": "שניצליין"
+  },
+  {
+   "name": "אוניגירי-יה",
+   "norm": "אוניגירי יה"
+  },
+  {
+   "name": "בורגרים גבעת שמואל",
+   "norm": "בורגרים גבעת שמואל"
+  },
+  {
+   "name": "בית החומוס והפול",
+   "norm": "בית החומוס והפול"
+  }
+ ]
+}
