@@ -51,8 +51,8 @@ cross-user read does exist under FORCE RLS.
 | 7 | `db:push:staging` / `db:push:prod` bound to explicit project refs, + `migration list --linked` and inventory post-check, + rollback posture | `devops-vercel` | **done** — `scripts/db-env.sh` + `db-push.sh` + `db-inventory-remote.sh`, `docs/db-migration-runbook.md`; every refusal path executed locally; **one read-only `migration list` call did reach staging** (no write) — it revealed staging is at `0001`–`0009` with `0011` still local-only |
 | 8 | Tier 2 security: `service_role` grant matrix asserted; `places` grant narrowed or `security.md` item 8 answered | `security-privacy` | **done** → `0012` + `inventory.sql` checks 9/9b/9c + `security.md` §2.6 |
 | 9 | Tier 2 architecture: `@/app/_lib/*` out of the `ui` zone + `server-only`; declare `ImportStore` and `Clock`; canonicalise `runImport`, segment names, candidate cap 7, confidence enum | `nextjs-architect` | **done** |
-| 10 | Tier 2: commit `docs/evidence/db/01-bbox-vs-postgis.md` so no-PostGIS stops being ASSUMED | `supabase-database` | **NOT STARTED** — next |
-| 11 | Tier 2: write the twelve ADRs into `docs/adr/` | `product-lead` | **NOT STARTED** |
+| 10 | Tier 2: commit `docs/evidence/db/01-bbox-vs-postgis.md` so no-PostGIS stops being ASSUMED | `supabase-database` | **done** → `b42b5d2` — measured in Docker at 50k/500k/5M: bbox wins every per-user query, the GiST index *is* chosen and loses (1.3 vs 158 ms p95 at 5M); D6 stands, A4 now VERIFIED |
+| 11 | Tier 2: write the twelve ADRs into `docs/adr/` | `product-lead` | **NOT STARTED** — next |
 | 12 | Fix the three `0011` defects task 4+5 logged (see below) — needs its own migration, `0013` | `supabase-database` | **NOT STARTED** |
 | 14 | Tier 3 doc sync, `main`-resident files only (minus the `DATABASE_URL` entry, done by task 7) | `devops-vercel` + `qa-reliability` | **NOT STARTED** |
 
@@ -64,6 +64,7 @@ session's worth of work: read this file, do the one task, commit, update this le
 Working tree is **clean**; everything below is committed, nothing is pushed.
 
 ```
+b42b5d2  Measure D6: bbox beats PostGIS on every query this schema issues  (task 10)
 f40cd85  Rest the ui boundary on server-only; declare the last two ports   (task 9)
 1f98fc4  0012: narrow the places grant, own the service_role matrix        (task 8)
 19ae905  Handoff: record tasks 4-7, correct two wrong premises
@@ -95,8 +96,8 @@ Task 1's `inventory.sql` comment fix rode along in `9d7260a` rather than being s
 
 ## Next action
 
-**Task 10** — the bbox-vs-PostGIS evidence file, owner `supabase-database`. One task per session:
-read this file, do task 10 only, commit, flip its ledger row, stop. Then 11, then 12, then 14.
+**Task 11** — the twelve ADRs into `docs/adr/`, owner `product-lead`. One task per session:
+read this file, do task 11 only, commit, flip its ledger row, stop. Then 12, then 14.
 
 ### Tasks 4 + 5 outcome (2026-08-19, second session)
 
@@ -181,20 +182,40 @@ hosted form, so `supabase db reset` should need no shim — **unverified.**
 
 ## Tier 2 — on this branch, not blocking
 
-**Tasks 8 and 9 are done** (see the ledger and the session log below). Two remain:
+**Tasks 8, 9 and 10 are done** (see the ledger and the session logs below). One remains:
 
-- **Task 10 — `docs/evidence/db/01-bbox-vs-postgis.md`.** The delivered schema does geographic work
-  with bbox + Haversine and no PostGIS, labelled ASSUMED. CLAUDE.md forbids design resting on
-  anything but VERIFIED, so this either gets measured evidence or the design is out of contract.
-  Measure, do not argue: the real queries (the 75 m dedup guard, `08`'s viewport query) at a realistic
-  row count, bbox+Haversine vs PostGIS on the same data with the index each can actually use;
-  correctness as well as speed (poles, antimeridian, latitude-dependent longitude degree) and whether
-  any disagreement can occur in this product's domain; and the flip-point stated as a number.
-  Docker is available and the `supabase/postgres` image has PostGIS. **A finding that contradicts the
-  design is a legitimate outcome — record it, do not rig the benchmark.** Only the label plus its
-  evidence pointer in `02-risks-and-unknowns.md` may change alongside.
+- **Task 10 is done** (`b42b5d2`). See "Task 10 outcome" below.
 - **Task 11 — the twelve ADRs into `docs/adr/`.** Graded R1, referenced by charter §10, `03`, and
   `07` §663. The directory does not exist.
+
+### Task 10 outcome (2026-08-19, bbox vs PostGIS)
+
+`docs/evidence/db/01-bbox-vs-postgis.md`, with `bench/` (11 scripts) and `raw/` (4 logs) beside it.
+Throwaway `supabase/postgres:17.6.1.064` container, migrations `0001`–`0009` + `0011` + `0012`
+applied, PostGIS 3.3.7 installed alongside; 500 places per user at 100 / 1,000 / 10,000 users
+(50k / 500k / 5M rows); 200 randomised warm executions per query shape. Staging and production
+untouched.
+
+- **D6 stands.** Q-VIEWPORT / Q-NEAR p95 at 10× design scale: **2.31 / 2.90 ms** against `08` §6.4's
+  25 ms fail line. PostGIS is 1.5× slower at 50k, 3–5× at 500k, **100× at 5M**.
+- **`08` §6.2's "the GiST index is never chosen" is false.** It is chosen, and it loses: at 5M the
+  PostGIS plan scans 38,247 places and probes `saved_places` 38,247 times (159 ms) where the shipped
+  plan drives from `saved_places(user_id)` and probes `places` by PK 500 times (1.56 ms). Drop the
+  GiST index and `ST_DWithin` is competitive again — the library is fine, the index is the liability.
+- **Flip-point: 370,000 places, global KNN only** (`08` §6.4 trigger 4), where the haversine sort
+  first crosses 25 ms p95 and GiST `<->` is 486× faster at 5M. Trigger 2 (viewport with no `user_id`)
+  **did not reproduce** — PostGIS wins it at 50k/500k and loses it at 5M.
+- **Correctness:** the guard's effective radius is 74.59–75.42 m (sphere vs ellipsoid); disagreement
+  with `ST_DWithin` is confined to a ±0.42 m shell. The polar clamp narrows the longitude window
+  above **|lat| 89.4266°** and the antimeridian is a demonstrated miss — both dedup-guard false
+  negatives, i.e. a duplicate pin, and neither reachable in this product's domain. In the other
+  direction, `geog && envelope::geography` over-selects the viewport by **17.6%**.
+
+**Not done, deliberately, and needing an owner:** three `08` §6 statements are now measurably wrong
+or mis-aimed (§6.2's GiST row, §6.2's correctness row, §6.4's trigger 2). The task's scope allowed
+only the label and pointer in `02-risks-and-unknowns.md`, so `08-place-identity.md` is untouched —
+and it is `ms5-design`-adjacent, the same reason §1.2's serialisation note was held back. Both edits
+should go together.
 
 ## Task 12 — the three `0011` defects, awaiting a migration
 
