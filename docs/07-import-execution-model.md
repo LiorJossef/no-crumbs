@@ -373,6 +373,10 @@ Partial success is a **shape in the success payload**, not a separate outcome ki
 one place in the type system where "some worked, some didn't" is expressed: `Candidate.resolution`.
 
 ```ts
+// Derived from the resolver's `ResolveResult`, not returned by the port: `preselect -> resolved`,
+// `confirm -> ambiguous`, `no_match -> unresolved` (§10's 1:1 mapping). `lookup_failed`,
+// `timed_out` and `capped` come from the pipeline, which is why the mapping is the pipeline's
+// (MS6) and not the adapter's. `11-resolver-vocabulary.md` §2 ruling 5.
 export type CandidateResolution =
   | { status: 'resolved';   place: ResolvedPlace; alternates: ResolvedPlace[]; confidence: Confidence }
   | { status: 'ambiguous';  options: ResolvedPlace[] }                    // 2..3, none confident enough
@@ -459,11 +463,14 @@ src/
     types.ts                            #   the shared vocabulary (below)
     errors.ts                           #   the closed union (§9)
     ports.ts                            #   SourceAdapter · ContentExtractor · PlaceExtractor · PlaceResolver · ImportStore · Clock
+                                        #   (PlaceResolver + OpCtx shipped MS5 task 2; the other five land with MS6)
     import/pipeline.ts                  #   runImport(): the orchestrator. Emits events, enforces budgets.
     import/events.ts                    #   ImportEvent union
     source/canonicalise-tiktok-url.ts   #   pure; the SSRF allow-list; heavily unit-tested
-    place/confidence.ts                 #   derived confidence (D4)
-    place/dedup.ts                      #   place identity (D5)
+    places/normalise.ts                 #   the ONE normalisation (10 §4). Shipped MS5 task 2.
+    places/resolve-result.ts            #   regionLoaded() / topMatch() over a ResolveResult
+    places/confidence.ts                #   derived confidence (D4)
+    places/dedup.ts                     #   place identity (D5)
   integrations/                         # INTEGRATIONS — one adapter per port. Vendor types die here.
     tiktok/oembed.source-adapter.ts     #   + Zod schema for the oEmbed payload
     tiktok/caption.content-extractor.ts
@@ -536,7 +543,12 @@ export interface PlaceCandidate {
   modelConfidence: number | null;  // kept, never trusted (02 §D3)
 }
 
-/** A real POI from the places provider. */
+/** A real POI from the places provider. Field-for-field the `poi_index` columns that leave the
+ *  integration layer (0010), because a second shape for the same row is how a nullability
+ *  disagreement becomes a runtime crash. Shipped 2026-08-19 in `domain/types.ts`; the block below
+ *  is the pre-MS5 sketch, kept only to show what changed. `providerId` is `providerPlaceId`,
+ *  `provider` is closed, `address`/`category` are `addressLine`/`providerCategory`, and
+ *  `sourceDataset`, `regionId`, `altNames`, `locality`, `datasetConfidence` were missing. */
 export interface ResolvedPlace {
   providerId: string; provider: string; name: string;
   lat: number; lng: number; address: string | null; category: string | null;
@@ -595,11 +607,21 @@ export interface PlaceExtractor {
   extract(parts: ContentPart[], ctx: OpCtx): Promise<{ candidates: PlaceCandidate[]; cityHint: string | null }>;
 }
 
-/** D. One candidate -> a resolution. Never throws for "no match"; that is a return value. */
+/** D. A candidate string -> a ranked shortlist. Never throws for "no match"; that is a return value.
+ *  SUPERSEDED 2026-08-19 by the shipped declaration in `src/domain/ports.ts`; rulings in
+ *  `11-resolver-vocabulary.md` §2. Four changes from what this block said:
+ *    - `provider: string` -> `provider: 'overture' | 'nominatim'`. Closed, and NOT `06` §8's
+ *      'overture-local', which `place_provider_refs.provider`'s CHECK (0005) forbids.
+ *    - `resolve` takes a `ResolveQuery`, not a `PlaceCandidate`. The resolver has no business
+ *      seeing `evidence` or `modelConfidence`, and manual search has no PlaceCandidate at all.
+ *    - it returns `ResolveResult` (shortlist + Confidence + regionsSearched), not
+ *      `CandidateResolution`. The latter is DERIVED from it in the pipeline (§8 below), which is
+ *      the lossy direction and therefore the late one.
+ *    - `search()` is gone. With one input and one output type its signature was identical to
+ *      `resolve`'s; the manual sheet builds a different ResolveQuery, not a second method. */
 export interface PlaceResolver {
-  readonly provider: string;
-  resolve(c: PlaceCandidate, hints: ResolveHints, ctx: OpCtx): Promise<CandidateResolution>;
-  search(query: string, hints: ResolveHints, ctx: OpCtx): Promise<ResolvedPlace[]>;  // the manual search sheet + capability 13
+  readonly provider: PlaceProvider;
+  resolve(query: ResolveQuery, ctx: OpCtx): Promise<ResolveResult>;
 }
 
 /** E. The import's record. Four methods — this is the whole persistence story (§6), and it is
@@ -632,7 +654,9 @@ export interface Clock {
   jitterMs(ms: number): number;                       // the ± spread on that backoff
 }
 
-export interface OpCtx { signal: AbortSignal; importId: ImportId; log: Logger }
+// `importId` is `ImportId | null` as shipped (2026-08-19): manual place addition (capability 13)
+// resolves with no import, and a synthetic id would put a lie in the log line §7.1 groups by.
+export interface OpCtx { signal: AbortSignal; importId: ImportId | null; log: Logger }
 export interface Ports {
   source: SourceAdapter; content: ContentExtractor[]; extractor: PlaceExtractor;
   resolver: PlaceResolver; store: ImportStore; clock: Clock;
@@ -649,8 +673,11 @@ export interface Ports {
 //                   · no_match = below. It maps 1:1 onto CandidateResolution's three statuses
 //                   (preselect -> resolved, confirm -> ambiguous, no_match -> unresolved), so
 //                   'confident'/'shortlist' are UI prose for a band, never type names.
-// Confidence   = { band: ConfidenceBand; score: number; margin: number }  // DERIVED from
-//                 resolution evidence (D4); the model's own confidence never gates anything
+// Confidence   = { band: ConfidenceBand; score: number; margin: number | null }  // DERIVED from
+//                 resolution evidence (D4); the model's own confidence never gates anything.
+//                 `margin: number | null` as shipped: null = fewer than two candidates, i.e.
+//                 UNMEASURED margin, which is `10` §8's inherited defect made impossible to
+//                 reproduce by accident. A null margin can only reach `confirm` (`10` §12 Q3).
 // ImportStage  = 'source' | 'extract' | 'resolve' | 'done'      // the `imports.stage` column
 // ImportStatus = 'processing' | 'review' | 'no_places' | 'completed' | 'failed' | 'cancelled'
 //                 — canonical six, per technical-design §14 R2 and the shipped 0003 CHECK.
