@@ -147,7 +147,12 @@ scorer does not read these columns; the UI cannot work without them.
 
 **`dataset_confidence` defaults to 0.5** because the scorer's `0.10·dataset_confidence` term already
 does `conf or 0.5` ([resolve-overture-scored.py:76](evidence/places/resolve-overture-scored.py)), and
-a default in the column is one fewer null-coalesce in the port.
+a default in the column is one fewer null-coalesce in the port. **[implementation, 2026-08-19] The
+default must never be what a loaded row actually holds** — `conf = 0.5` reproduces 0 of the 220
+benchmark rows, so a region loaded at the default cannot prove MS5 exit criterion 3's `score`
+column. The loader writes the measured Overture value for every row and counts any it had to default
+(`confidence_defaulted_to_0_5` in its manifest; **0** for Tel Aviv, where Overture has no null
+confidences at all). §7.1.
 
 ### 3.1 What is deliberately absent
 
