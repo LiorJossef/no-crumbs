@@ -107,7 +107,7 @@ src/
   domain/
     types.ts                            # the shared vocabulary (07 §10)
     errors.ts                           # DomainError — closed union of 14 codes (§10)
-    ports.ts                            # the six ports, declared in 07 §10: SourceAdapter ·
+    ports.ts                            # the six ports, declared in 07 §10 and 11 §2: SourceAdapter ·
                                         #  ContentExtractor · PlaceExtractor · PlaceResolver ·
                                         #  ImportStore (4 methods) · Clock (the only time source)
     schemas.ts                          # Zod objects shared by adapter, API and jsonb reads
@@ -117,7 +117,9 @@ src/
       budgets.ts                        # timeouts, caps, MAX_* constants — one exported object
     source/
       canonicalise-tiktok-url.ts        # pure; the SSRF allow-list; heaviest unit-test target
-    place/
+    places/                             # plural, ruled 2026-08-19 (11 §4); was `place/` here and in 07 §10
+      normalise.ts                      # the ONE normalisation, loader + resolver (10 §4). MS5 task 2
+      resolve-result.ts                 # regionLoaded() / topMatch() over a ResolveResult. MS5 task 2
       plausibility.ts                   # the one gate extraction owns (09 §5.2)
       confidence.ts                     # the ConfidenceBand enum: preselect / confirm / no_match (06 §6.2)
       scoring.ts                        # name_score, margin — ported from the 44-case benchmark
@@ -328,7 +330,7 @@ the user's own `imports` row under RLS and Zod-parses `candidates` out of jsonb 
 | `addPlace` | `{ providerRef or manualPin, note? }` | Manual addition (capability 13); `origin='manual'`, no source link | `{ placeId }` |
 | `updateSavedPlace` | `{ savedPlaceId, patch }` — only overlay fields | Rename / recategorise / note / visit state | `{ ok }` |
 | `deleteSavedPlace` | `{ savedPlaceId }` | Deletes the library entry; the shared place survives | `{ ok }` |
-| `searchPlaces` | `{ q, near?, cityHint? }` | `PlaceResolver.search` for the review-correction sheet and S8 | `RankedPlace[]` |
+| `searchPlaces` | `{ q, near?, cityHint? }` | `PlaceResolver.resolve` over a manually-built `ResolveQuery`, for the review-correction sheet and S8. **Corrected 2026-08-19:** there is no `PlaceResolver.search` — one method, `11` §2 ruling 3 | `ResolveResult` (the action returns the whole result, not a bare array: the sheet needs `regionLoaded()` to say *"we don't have Lisbon yet"*) |
 
 Every action begins with `requireUser()` and a Zod parse of its input, and every action that mutates
 ends with the narrowest `revalidatePath` that is correct.
