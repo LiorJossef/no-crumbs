@@ -179,8 +179,24 @@ the operator types.
   `0001`–`0011` applied: `NOTE 0` + `PASS 1`–`PASS 8` and exit 0 on a good schema, and the
   `inventory FAILED` banner with exit 1 against an empty database. Both directions.
 
-**NOT verified, deliberately:** no `db push`, no `link`, and no write of any kind against
-`p-002-staging` or `p-002-prod`. The pre-check (`migration list --project-ref`) was observed once
+**Superseded in part on 2026-08-19 by audit task 13** ([`ms1-ms4-audit-handoff.md`](ms1-ms4-audit-handoff.md)
+§"Staging push"): `0011`–`0013` were pushed to `p-002-staging` and proven there, ledger local ==
+remote, `inventory.sql` 15/15 PASS. The paragraph below therefore describes the state *before* that
+push, and the container range `0001`–`0011` above is simply the range that existed when it was run.
+
+**Authoritative applied state, as of 2026-08-19 — read this before MS5 task 8:**
+
+| Project | Applied through | Proven by |
+|---|---|---|
+| `p-002-staging` (`jfuqjzubphfhfleqnkno`) | `0013` | audit task 13, `inventory.sql` 15/15 PASS |
+| `p-002-prod` (`vtboskegexinvhasghri`) | `0009` | MS4; held at `0009` deliberately until MS5 settles the POI index |
+
+`0010` and `0014` are applied **nowhere**. That is what makes MS5 task 1's in-place edit of `0010`
+legal under `08` §9, and it is why task 8 must run `npm run db:status:staging` and reconcile against
+this table before pushing rather than trusting any prose in this file.
+
+**NOT verified as of the entry below, i.e. before task 13:** no `db push`, no `link`, and no write of
+any kind against `p-002-staging` or `p-002-prod`. The pre-check (`migration list --project-ref`) was observed once
 against staging read-only and reported `0011` local-only, which is expected; that call also printed
 `Initialising login role…`, i.e. the CLI provisions its own login role when given `--project-ref`.
 The push path itself, the confirmation prompt against a real target, and the whole of §4's recovery
