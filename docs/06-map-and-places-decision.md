@@ -249,7 +249,7 @@ branch**", which is precisely the case a human must settle and a machine must no
 |---|---|---|---|
 | preselect | 29 | **29** | **0** |
 | confirm | 12 | 9 | 3 |
-| no_match | 3 | — | 3 misses (2 absent from the dataset, 1 mis-ranked) |
+| no_match | 3 | — | 3 misses (1 absent from the dataset, 2 mis-ranked) |
 
 **Zero false auto-accepts in 44 cases.** All three no-name captions (`this hidden gem in
 Shoreditch`, `best coffee ever`, `that little wine bar near the market`) scored 0.813–0.894 — high
