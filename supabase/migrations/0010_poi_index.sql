@@ -9,8 +9,9 @@
 --       recorded here because the schema is what makes the candidate set observable
 --   Q4  alt_names ships now, empty, so the OSM alias join is not a 165k-row reload later
 --
--- Forward-only (08 s9): nothing above 0009 is edited, including resolve_place, which is dropped
--- and recreated below rather than amended in place.
+-- Forward-only (08 s9): nothing above 0009 is edited. resolve_place is NOT changed by this file --
+-- see section 7 below for what was removed from it, why, and why removing it in place was the
+-- correct move rather than a further migration. The provenance parameters live in 0014.
 --
 -- EXECUTED 2026-08-18 against public.ecr.aws/supabase/postgres:17.6.1.064 — the image the hosted
 -- projects are built from, with the same roles, the same supabase_admin-owned default privileges
@@ -247,140 +248,35 @@ comment on column public.places.resolution_score is
   'Score of the most recent resolution that wrote this row. DIAGNOSTIC ONLY, and knowingly imperfect: the score is a property of one user''s candidate string, not of the place, so two users resolving the same venue overwrite each other. It is here because 06 s0 specifies it; the per-user score belongs on saved_places and is revisited in MS9 when the review flow makes it meaningful.';
 
 -- ---------------------------------------------------------------------------------------------
--- 7. resolve_place gains the provenance parameters.
+-- 7. resolve_place is NOT touched here. It moved to 0014.
 --
--- DROP, not CREATE OR REPLACE. Adding parameters with defaults creates an OVERLOAD rather than
--- replacing the function, and every existing 12-argument call would then match both candidates and
--- fail with "function is not unique" — at run time, in the import path, not here. Dropping the old
--- signature explicitly is what makes the change total. Grants do not survive a drop, so the
--- revoke/grant pair below is re-stated in full (security.md s1: that list is load-bearing).
+-- This file originally dropped the twelve-argument resolve_place and recreated it with the three
+-- provenance parameters. That was written before the MS1-MS4 audit branch existed, and it collided
+-- with it in both directions:
+--   * in numeric order, 0011 (create or replace, twelve arguments) runs AFTER this file's drop and
+--     puts the old signature back, so BOTH overloads exist and every twelve-argument call fails
+--     with `function public.resolve_place(...) is not unique` at run time, in the import path --
+--     exactly the failure the old section 7's own comment said it existed to prevent. MEASURED on
+--     supabase/postgres:17.6.1.064 with 0001..0013 applied in order: two rows in pg_proc, and
+--     `select public.resolve_place('overture','x1','Cafe Levinsky',32.06,34.77)` raised 42725.
+--   * OUT-OF-ORDER ARRIVAL. If 0011-0013 are ever applied to an environment before this file --
+--     which is the order the MS5 ledger row believes staging is already in, while
+--     db-migration-runbook.md s6 and 0013's header both record staging at 0001-0009; the
+--     contradiction is flagged for task 8 and is not resolved here -- then applying this file next
+--     would drop the AUDITED function and install a body that never received the audit's fixes.
+--     That is a hazard in the file regardless of which reading of staging is true. MEASURED, same
+--     image, applying 0001-0009 + 0011 + 0012 + 0013 + this file's original: one resolve_place,
+--     zero occurrences of place_survivor_id and zero of pg_advisory_xact_lock in its body -- i.e.
+--     merge chains back to one hop (defect 1 of 0011) and the step-2 guard unserialised (defect 5).
+-- The two bodies genuinely differ and 0011's is the correct one, so the provenance parameters are
+-- added by carrying 0011's body forward in 0014_resolve_place_provenance.sql. Nothing else in this
+-- file changed: the extension, the two POI tables, the four `places` columns, the seed rows and the
+-- grant/RLS surface are byte-for-byte what the 2026-08-18 run above proved.
+--
+-- Why this is an edit to 0010 rather than a further migration: `08` s9's forward-only rule protects
+-- files that have been APPLIED, and this one has not -- staging and production are at 0001-0009, and
+-- this file reached the MS5 branch only on 2026-08-19 (merge e57a898). There is no applied artefact
+-- for the rule to protect, and a resolve_place that a later file must un-drop cannot be corrected
+-- from a later file at all without recreating the function -- which is 0014. Same reasoning, and
+-- the same ruling, as 0013's in-place comment edits to 0011.
 -- ---------------------------------------------------------------------------------------------
-drop function public.resolve_place(text, text, text, double precision, double precision,
-  text, text, text, text, text, char, jsonb);
-
-create function public.resolve_place(
-  p_provider           text,
-  p_provider_place_id  text,
-  p_name               text,
-  p_lat                double precision,
-  p_lng                double precision,
-  p_category           text default null,
-  p_provider_category  text default null,
-  p_address_line       text default null,
-  p_locality           text default null,
-  p_region             text default null,
-  p_country_code       char(2) default null,
-  p_provider_payload   jsonb default null,
-  p_source_dataset     text default null,
-  p_source_dataset_id  text default null,
-  p_resolution_score   real default null
-) returns uuid
-language plpgsql security definer set search_path = public, pg_temp
-as $fn$
-declare
-  c_merge_radius_km constant double precision := 0.075;   -- 08 s1.2
-  v_place_id     uuid;
-  v_new_place_id uuid;
-  v_dlat double precision;
-  v_dlng double precision;
-begin
-  -- 1. exact alias match, following any merge tombstone
-  select coalesce(pl.merged_into_place_id, pl.id)
-    into v_place_id
-    from place_provider_refs r
-    join places pl on pl.id = r.place_id
-   where r.provider = p_provider and r.provider_place_id = p_provider_place_id;
-
-  if v_place_id is not null then
-    update place_provider_refs
-       set last_seen_at = now(), retired_at = null
-     where provider = p_provider and provider_place_id = p_provider_place_id;
-    update places
-       set name = p_name, lat = p_lat, lng = p_lng,
-           category          = coalesce(p_category, category),
-           provider_category = coalesce(p_provider_category, provider_category),
-           address_line      = coalesce(p_address_line, address_line),
-           locality          = coalesce(p_locality, locality),
-           region            = coalesce(p_region, region),
-           country_code      = coalesce(p_country_code, country_code),
-           provider_payload  = coalesce(p_provider_payload, provider_payload),
-           -- provenance: coalesce, never clobber a known dataset with a null from a caller that
-           -- did not pass one. resolution_score is the exception and is overwritten deliberately —
-           -- it describes the most recent resolution, per the column comment.
-           source_dataset    = coalesce(p_source_dataset, source_dataset),
-           source_dataset_id = coalesce(p_source_dataset_id, source_dataset_id),
-           resolution_score  = coalesce(p_resolution_score, resolution_score),
-           provider_fetched_at = now()
-     where id = v_place_id;
-    return v_place_id;
-  end if;
-
-  -- 2. near-duplicate guard: same normalised name, same country, within c_merge_radius_km
-  v_dlat := c_merge_radius_km / 111.045;
-  v_dlng := c_merge_radius_km / (111.045 * greatest(cos(radians(p_lat)), 0.01));
-
-  select pl.id into v_place_id
-    from places pl
-   where pl.merged_into_place_id is null
-     and pl.name_key = public.place_name_key(p_name)
-     and pl.country_code is not distinct from p_country_code
-     and pl.lat between p_lat - v_dlat and p_lat + v_dlat
-     and pl.lng between p_lng - v_dlng and p_lng + v_dlng
-     and public.km_between(pl.lat, pl.lng, p_lat, p_lng) <= c_merge_radius_km
-   order by public.km_between(pl.lat, pl.lng, p_lat, p_lng)
-   limit 1;
-
-  if v_place_id is not null then
-    -- Existing physical place, new provider alias for it. Note what is deliberately NOT done here:
-    -- no column of `places` is written, including the three provenance columns. This branch copies
-    -- nothing from the provider into the row, so a Nominatim candidate that lands on an existing
-    -- Overture place adds an alias and leaves source_dataset = 'overture-places'. That is correct
-    -- for 06 s11 Q2: the ODbL mark tracks where the row's DATA came from, and on this path none of
-    -- it came from the second provider. The alias in place_provider_refs is the record that the
-    -- second provider recognised this place.
-    insert into place_provider_refs (place_id, provider, provider_place_id, is_primary)
-    values (v_place_id, p_provider, p_provider_place_id,
-            not exists (select 1 from place_provider_refs where place_id = v_place_id))
-    on conflict (provider, provider_place_id)
-      do update set last_seen_at = now(), retired_at = null
-    returning place_id into v_place_id;         -- concurrent-insert loser re-reads the winner
-    return v_place_id;
-  end if;
-
-  -- 3. a genuinely new place.
-  --    B3: the alias insert may lose a race with a concurrent caller resolving the same provider
-  --    id. DO UPDATE (not DO NOTHING) is what makes that safe: it blocks until the winner commits
-  --    and then returns the winner's place_id — a DO NOTHING would return no row and the winner's
-  --    row might still be invisible under READ COMMITTED. If we lost, the places row we just
-  --    inserted has no alias and would abort the whole transaction at COMMIT via
-  --    places_alias_required, so it is deleted here rather than left as an orphan.
-  insert into places (name, category, provider_category, address_line, locality, region,
-                      country_code, lat, lng, provider_payload, provider_fetched_at,
-                      source_dataset, source_dataset_id, resolution_score)
-  values (p_name, p_category, p_provider_category, p_address_line, p_locality, p_region,
-          p_country_code, p_lat, p_lng, p_provider_payload, now(),
-          p_source_dataset, p_source_dataset_id, p_resolution_score)
-  returning id into v_new_place_id;
-
-  insert into place_provider_refs (place_id, provider, provider_place_id, is_primary)
-  values (v_new_place_id, p_provider, p_provider_place_id, true)
-  on conflict (provider, provider_place_id)
-    do update set last_seen_at = now(), retired_at = null
-  returning place_id into v_place_id;
-
-  if v_place_id is distinct from v_new_place_id then
-    delete from places where id = v_new_place_id;   -- our aliasless orphan; nothing references it
-    select coalesce(pl.merged_into_place_id, pl.id) into v_place_id
-      from places pl where pl.id = v_place_id;      -- follow a tombstone if the winner lost a merge
-  end if;
-
-  return v_place_id;
-end;
-$fn$;
-
--- The grant list, re-stated in full because the drop above took the old one with it. `from public`
--- first: EXECUTE defaults to PUBLIC on every new function, which is the defect 0009 exists to fix.
-revoke all on function public.resolve_place(text, text, text, double precision, double precision,
-  text, text, text, text, text, char, jsonb, text, text, real) from public, anon, authenticated;
-grant execute on function public.resolve_place(text, text, text, double precision, double precision,
-  text, text, text, text, text, char, jsonb, text, text, real) to service_role;
