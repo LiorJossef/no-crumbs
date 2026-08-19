@@ -182,7 +182,17 @@ Google basemap. The recommended stack has no such treadmill.
 
 ## 6. Resolution scoring — from candidate string to ranked shortlist
 
-Input: `{ candidate: string, cityHint?: string, categoryHint?: 'cafe'|'bar'|'restaurant', areaHint?: string }`.
+> **Superseded as a type declaration, 2026-08-19 (MS5 task 2).** The input and output below are
+> the *scoring* contract and are still correct as such, but they are no longer where the names
+> live: `ResolveQuery` / `RankedPlace` / `ResolveResult` are declared once in `src/domain/types.ts`
+> and the port in `src/domain/ports.ts`, per [`11-resolver-vocabulary.md`](11-resolver-vocabulary.md).
+> Four differences in that declaration, each ruled there: `areaHint` is **dropped** (no producer —
+> `09`'s `PlaceCandidate` never emits it, and the scorer never reads it); `confidence: number` and
+> `margin` collapse into `Confidence = { band, score, margin }`; `action` is named `band`; and
+> `region_loaded` is not a field but `regionLoaded(result)`, the negation of `regionsSearched`
+> being empty.
+
+Input: `{ candidate: string, cityHint?: string, categoryHint?: 'cafe'|'bar'|'restaurant' }`.
 Output: `{ shortlist: RankedPlace[], confidence: number, margin: number,
 action: 'preselect' | 'confirm' | 'no_match', region_loaded: boolean }`. `margin` is carried
 because §6.2 bands on it and the UI explains with it; `region_loaded` because §7.3 requires the
@@ -279,8 +289,10 @@ They live in one exported constant object with the benchmark as their regression
    handful of demo cities. A candidate whose city is outside every loaded region falls through to
    Nominatim, then to manual search. Ingest is a committed offline script, measured at 7–24 s per
    city bbox straight from the public Overture S3 release, so adding a city is a one-command change,
-   not an engineering task. This is an honest, explainable limit — and it is the reason
-   `resolveOne` returns a `region_loaded: boolean` so the UI can say *why* it failed.
+   not an engineering task. This is an honest, explainable limit — and it is the reason the
+   resolver reports which regions it searched, so the UI can say *why* it failed. **Corrected
+   2026-08-19:** there is no `resolveOne` — the method is `PlaceResolver.resolve`, and
+   `region_loaded` is not a field but `regionLoaded(result)` (`11` §2, `domain/places/resolve-result.ts`).
 4. **Dataset noise.** Overture places is business-registry-grade: the Tel Aviv extract is 43%
    lawyers, estate agents and "professional services". We filter to food-and-drink categories at
    ingest, which is also what keeps the extract at 14–35% of raw size.
@@ -306,12 +318,14 @@ interface MapHandle {
   destroy(): void;
 }
 
-// integrations/places — the resolution seam
-interface PlaceResolver {
-  readonly id: 'overture-local' | 'nominatim';
-  resolve(input: ResolveInput): Promise<ResolveResult>;   // ranked shortlist + confidence + action
-  search(q: string, near?: LngLat): Promise<RankedPlace[]>;  // manual place addition
-}
+// domain/ports.ts — the resolution seam. SUPERSEDED 2026-08-19; see 11 §2.
+// The live declaration is:
+//   interface PlaceResolver {
+//     readonly provider: 'overture' | 'nominatim';       // NOT 'overture-local': place_provider_refs
+//     resolve(query: ResolveQuery, ctx: OpCtx): Promise<ResolveResult>;   // .provider forbids the hyphen
+//   }
+// One method, not two: with one input type and one output type, `search` and `resolve` had
+// identical signatures. Manual place addition builds a different ResolveQuery, not a second method.
 ```
 
 `domain` sees only these. Zod-parse every provider response at the boundary (Charter §5). Nothing
