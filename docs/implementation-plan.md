@@ -55,7 +55,7 @@ possible; milestones are always `MS9`.
 | D6 | PostGIS vs plain lat/lng | **CLOSED** — no PostGIS. Two `double precision` columns, bbox `BETWEEN`, Haversine refine. Scope clarified 2026-08-18: D6 is the *geometry* question. `pg_trgm` is permitted for the POI index's name prefilter (`10` §5) — it is not a geometry type, and `06` §5's cost model always assumed it | `08`, `10` |
 | D7 | LLM provider, model, abstraction shape | **CLOSED** — Anthropic `claude-haiku-4-5` in structured-output mode, one adapter behind the existing port; ~$0.003/import measured against a real caption, closing assumption B6. Escalation to `claude-sonnet-5` is one constant | `09` §2 |
 | D8 | Auth methods offered | **CLOSED** — Supabase Auth email + password only, judged on live-demo reliability; magic link rejected, OAuth deferred. One role, no RLS impact | `security.md` §2.5 |
-| D9 | Visual direction, map style, tokens | **PARTIALLY CLOSED** — UX architecture, screens, states, copy deck and five motion moments are specified; the token values and the forked Protomaps style are not authored | `technical-design.md` (written MS3; token values still owed) |
+| D9 | Visual direction, map style, tokens | **PARTIALLY CLOSED, and split 2026-08-19 into D9a + D9b** because the two halves were sized as one and scheduled in two places. **D9a — the token values** (type, space, radius, elevation, motion, surfaces): not authored, owned by MS8. **D9b — the forked Protomaps style**: not authored, owned by the new MS8b. UX architecture, screens, states, copy deck and the five motion moments are specified and are not part of either | `technical-design.md` (written MS3; both halves still owed) |
 | D10 | Test strategy depth | **CLOSED (sized)** — four tiers and a 3 hd time-box, §13. The graded document is still written in MS13 | §13 → `test-specification.md` |
 | D11 | Rate limits and cost ceilings | **HALF-CLOSED** — provider-call ceilings exist (`06` §6.4: 7 lookups/import, 30 imports/user/day, Nominatim ≤1 rps / ≤200 day). The per-user limiter implementation and the monthly ceiling are not written up | `scale.md` (owed) |
 | D12 | Map shell and route topology | **CLOSED** — persistent `(map)` route-group layout owns one map instance; plain nested routes; no parallel/intercepting routes | `07` §11 |
@@ -118,9 +118,10 @@ Nothing else may open a new decision. New ideas go to §21, per Charter §4.
 | MS5 | Places index: the POI index schema + migration 0010, Overture city extracts ingested, resolver + scorer ported from the benchmark | L (5) | `06` §6 scoring reproduces its 44-case results in TypeScript | No |
 | MS6 | Import domain: canonicaliser, ports, `runImport`, events, error taxonomy — with unit tests | L (3) | The central business logic exists as pure, testable code | No |
 | MS7 | Integrations + the streaming route + **the Vercel re-proof** | L (3) | A real TikTok URL becomes real candidates **from a preview deployment** | No |
-| MS8 | Auth, app shell, design tokens, the persistent map layout (D12) | M (2) | One role, RLS-backed; the map object survives navigation | No |
+| MS8 | Auth, app shell, design tokens (D9a), the persistent map layout (D12) | M (2) | One role, RLS-backed; the map object survives navigation | No |
+| MS8b | The forked Protomaps style (D9b) — the brand surface | M (2) | Charter §6's premise: the map style *is* the brand, and it is ours | Partly (§16) |
 | MS9 | Import UI: paste → stage rail → review/disambiguation → confirm | L (4) | The flagship process, end to end, in the browser | No |
-| MS10 | Map: style, pins, clustering, camera rules, place detail, near-me | L (4) | Retrieval — the half of the product that pays the loop back | No |
+| MS10 | Map: pins, clustering, camera rules, place detail, near-me | L (4) | Retrieval — the half of the product that pays the loop back | No |
 | MS11 | List view + search, manual place add/delete (capability 13 = course CRUD) | M (2) | M3/M4 (course) CRUD, and the map's independent recovery path | Partly (§16) |
 | MS12 | Onboarding and empty states | S (1) | R5 — a new user's map is never bare | Partly |
 | MS13 | `test-specification.md` + the implemented suite | L (3) | M6/M7 (course); RLS denial proven by a failing cross-user read | No |
@@ -128,7 +129,7 @@ Nothing else may open a new decision. New ideas go to §21, per Charter §4.
 | MS15 | Pipeline evaluation on the 50-post golden set; threshold re-fit | M (2) | The §7.1 honesty bar in `product-specification.md` | Partly |
 | MS16 | `scale.md`, `deployment.md`, `how-the-system-works.md`, presentation, motion polish, submission | L (4) | M8/M10/M11/M12 (course) | Polish only |
 
-**Sum: 42 half-days of estimated work against 38 available.** That is a 4 hd deficit stated on
+**Sum: 46 half-days of estimated work against 38 available.** That is a 4 hd deficit stated on
 purpose: the plan does not fit, and the mechanism that makes it fit is the cut list (§16), not
 optimism. §15 does the arithmetic.
 
@@ -236,8 +237,12 @@ wrong.
 Tokens → primitives → screens → motion. In that order, because `02` R6 says the premium bar is the
 thing most likely to eat the remaining days.
 
-1. **Tokens locked first** (type, space, radius, elevation, motion, surfaces) and the forked
-   Protomaps style authored against the same palette. Radix/shadcn supply behaviour only.
+1. **Tokens locked first** (D9a: type, space, radius, elevation, motion, surfaces) in MS8.
+   Radix/shadcn supply behaviour only.
+1b. **The forked Protomaps style authored against those tokens** (D9b) in MS8b — after the palette
+   exists, not alongside it. `ux-architecture` §13.1 Q2 asked which of the two lands first precisely
+   because they constrain each other; the answer is tokens, and the style is then a dependent
+   deliverable rather than a simultaneous one.
 2. **The shell**: `(map)` layout owning one `MapCanvas` created once in a `useRef`; the sheet is a
    *sibling* that covers the map with CSS and never unmounts it. This rule is written down because
    `{isOpen && <Map/>}` is the natural mistake and it is unrecoverable mid-demo.
@@ -455,10 +460,34 @@ deployment**, returns real resolved candidates, with the measured stage latencie
 `02` R2/A7 with production infrastructure rather than a laptop.
 **Overrun:** nothing here is cuttable; if it slips, MS11/MS12 pay for it.
 
-### MS8 — Auth, shell, tokens, the persistent map layout · M (2 hd)
-Supabase Auth per D8; the `(map)` route group; tokens locked; the module-scope map singleton and the
-`sessionStorage` camera mirror from `07` §11 step 5.
-**Exit:** `/map` → `/place/[id]` → back → `/import` → back leaves `getCenter()`/`getZoom()` unchanged.
+### MS8 — Auth, shell, tokens (D9a), the persistent map layout · M (2 hd)
+Supabase Auth per D8; the `(map)` route group; **the token values authored (D9a)**; the module-scope
+map singleton and the `sessionStorage` camera mirror from `07` §11 step 5.
+**Exit — both:**
+1. `/map` → `/place/[id]` → back → `/import` → back leaves `getCenter()`/`getZoom()` unchanged.
+2. Every token named in `ux-architecture` §10 (motion durations and easings) and §11.6 (the accent,
+   against the contrast constraint) has a value, in one file, referenced by nothing hard-coded.
+**Also settled here, at no cost in size:** the **product name**. It has never been decided, the
+project is called `P-002`, and MS8 is the first milestone that puts a word in a shell header — and
+MS16's deck and the §20 submission link both need the product to be called something. A name, not an
+identity system: no wordmark, no logo, no icon set. Those stay out of scope per Charter §4.
+**Overrun:** the shell and the singleton are never cut; the token set narrows to the tokens the MS9
+screens actually consume.
+
+### MS8b — The forked Protomaps style (D9b) · M (2 hd)
+Charter §6 rests on *the map style is the brand*, and `06` chose Protomaps' CC0 style specifically so
+the fork would be ours to own. That fork was named in two places and sized in neither — §10 item 1
+put it beside the tokens in MS8, and MS10's detail listed it as MS10 work. It is now its own slot,
+positioned after MS8 because it is authored **against** the tokens, and before MS10 because MS10's
+pins and clustering are judged on top of it.
+**Exit — both:**
+1. The forked style renders at the three zoom bands the camera rules use, on the MS2 production URL,
+   with one attribution string and no vendor logo.
+2. A pin at the §11.6 accent passes the contrast constraint **on top of the fork**, measured, not
+   asserted — this is the check the two-in-one-milestone version could never have run, because the
+   accent and the surface it sits on were being authored at the same time.
+**Overrun:** ship the upstream Protomaps style unforked with only the palette swapped, and record the
+gap. This is a **new cut candidate**, added to §16 at order 2b.
 
 ### MS9 — Import UI · L (4 hd)
 Paste screen, the three-stage rail consuming `ImportEvent`s with minimum-dwell pacing, the review and
@@ -470,9 +499,10 @@ lands on F10 without the word "error" anywhere on screen.
 **Overrun:** the disambiguation sheet is never simplified; the rail's motion is.
 
 ### MS10 — Map and retrieval · L (4 hd)
-Forked Protomaps style, custom pins, `cluster:true` GeoJSON source, the four authorised camera
+Custom pins, `cluster:true` GeoJSON source, the four authorised camera
 movers, place detail with the link back to the source TikTok, geolocation and "what did I save near
-me" over the bbox + Haversine query.
+me" over the bbox + Haversine query. The style itself is **MS8b**, not here; the size stays L (4)
+because the fork was never costed inside it.
 **Exit:** ~200 pins at 60 fps on a mid-range Android; near-me returns correct rows with no coordinate
 in any URL or log. **Overrun:** cut clustering sophistication to plain pins (cut line #6).
 
@@ -576,13 +606,19 @@ on review.) The reserve is therefore taken from scope, not from time:
   discovering it mid-milestone is not. **3 hd of reserve remains.**
 - **MS16's polish component (2 hd of the 4) is the second reserve.** The documents inside MS16 are
   graded; the motion is not.
-- That was **7 hd of recoverable scope**, of which **5 hd remains** after MS5's re-size. 44 hd less
-  5 hd is **39 hd against 38 available** — so the plan no longer fits even after cutting everything
-  currently declared cuttable, by roughly one half-day. This is recorded rather than smoothed over,
-  because it is the whole point of keeping the budget honest: **the next overrun of any size forces
-  a new cut decision, not a new reserve.** The candidate is MS10's near-me feature or MS9's third
-  failure-state recovery; neither is chosen yet, and neither is chosen until something actually
-  slips.
+- That was **7 hd of recoverable scope**, of which **5 hd remains** after MS5's re-size. 46 hd less
+  5 hd is **41 hd against 38 available** — so the plan does not fit even after cutting everything
+  currently declared cuttable, by **roughly three half-days**. This is recorded rather than smoothed
+  over, because it is the whole point of keeping the budget honest: **the next overrun of any size
+  forces a new cut decision, not a new reserve.**
+- **That decision is now due, and this edit is what made it due.** On 2026-08-19 D9 was split and the
+  Protomaps fork given its own 2 hd slot (MS8b), taking the estimate 44 → 46 hd. The 2 hd is not new
+  work — it is work that existed in two milestones' prose and in neither milestone's size — but
+  naming it moves the deficit from ~1 hd to ~3 hd, and a deficit that large is no longer absorbable
+  by rounding. The candidates, in the order §16 would take them: **MS8b's own overrun clause** (ship
+  the unforked style with a palette swap, 2b), **MS10's near-me feature**, **MS9's third
+  failure-state recovery**. None is chosen here — choosing is the owner's call, and it is owed before
+  MS8 starts rather than when MS10 is already late.
 
 ## 16. Cut lines, mapped onto milestones
 
@@ -592,6 +628,7 @@ Applied strictly top-down, from `product-specification.md` §8.1:
 |---|---|---|
 | 1 | Any second source platform | already Deferred (MS1 records it) |
 | 2 | Motion moments 3, 4, 5 | MS16 polish |
+| 2b | The Protomaps **fork** → upstream style with the palette swapped | MS8b |
 | 3 | Category filter on the list | MS11 |
 | 4 | List-view polish and sorting | MS11 |
 | 5 | Manual place *editing* (add + delete survive) | MS11 |
@@ -677,4 +714,5 @@ measured non-Latin-script resolution gap (`06` §7).
 | 2026-08-18 | **0010 owned, corrected and executed by `supabase-database`** — the first task routed to a specialist rather than implemented centrally, which is now the standing rule. It found Docker running (the coordinating session had wrongly concluded otherwise from a timed-out `docker info`) and executed everything: seven defects, five of them findable only by running it. The two that mattered: **`service_role` had no explicit grant on either new table** — reaching them only through the `supabase_admin` default privileges that are deprecated and removed 2026-10-30, because BYPASSRLS skips the policy check and not the privilege check, which would have failed in the import path on a hosted project at run time; and **`name_norm` capped at 300** would reject legal Korean and Japanese names, since NFKD *decomposes* (a 300-character Hangul string measures 900 after normalisation) and one such row would take a whole 35 k-row COPY down. Also: `create schema if not exists` is not a safe no-op (Postgres checks CREATE on the database first), the seed-before-FORCE justification was false though the ordering stays, and a latent lng-before-lat column order in the seed. Verified independently from a clean container: `PASS 1`–`8`, 19/19 policy assertions. One claim was **not** confirmed on re-run — the combined prefilter's plan flipped between `Seq Scan` and `BitmapOr` on identical data, so index use is a cost decision to be re-measured on the real extract, not a property to write down |
 | 2026-08-18 | §20 submission checklist audited against reality: artefacts 2 (repo, ⚠ private) closed; 1 and 9 annotated with what already exists and what still gates them |
 | 2026-08-19 | **MS5 task 1: the `0010` vs `0011`–`0013` collision untangled.** `0010` dropped and recreated `resolve_place` with the provenance parameters while `0011`/`0013` altered the pre-`0010` signature: broken in numeric order, and on staging — where `0011`–`0013` are already applied — `0010` would have reverted them. `0010` is now reduced to its non-function work and `0014_resolve_place_provenance.sql` adds the three parameters on **`0011`'s audited body**, `place_survivor_id()` intact; the body `0010` carried had inlined a single-hop `coalesce(merged_into_place_id, id)` and applying it would have restored `0011` defect 1. Both failure modes were **measured, not argued**: numeric order gives `42725 function … is not unique`; out-of-order arrival gives a silently reverted body that `inventory.sql` passed and only policy test P11 caught. Proven `0001`→`0014` on a throwaway `17.6.1.064` container: inventory 15 PASS, policy 54 PASS + 1 UNPROVEN (P23), exactly one `resolve_place` in `pg_proc`. Riders taken: inventory **check 6b** (no overloads in `public`, `resolve_place`'s arguments asserted positionally — checks 6 and 9c matched on `proname` alone and were blind to the overload state), policy test **P24**, `0011`'s overstated header §2, and a live `FAIL 9` the merge had introduced. [`db-migration-runbook.md`](db-migration-runbook.md) now carries the authoritative applied state — staging `0013`, production `0009`, `0010`/`0014` nowhere |
+| 2026-08-19 | **D9 split, and the map style given a milestone of its own.** The visual half of the product was scheduled in a way that could not have been executed as written: §10 item 1 put the forked Protomaps style beside the tokens in MS8's 2 hd, MS10's detail listed the same fork as MS10 work, and `ux-architecture` §13.1 Q2 had asked outright which of tokens and style lands first — the question the double-booking answered by ignoring. D9 is now **D9a** (token values, MS8) and **D9b** (the fork, the new **MS8b**), ordered tokens → style because the style is authored against the palette, and MS8b's second exit criterion is the contrast check that the simultaneous version could never have run: an accent measured *on top of* the surface it sits on. MS10 loses the style from its prose and keeps L (4), because the fork was never costed inside it. **The honest consequence is in §15:** the estimate goes 44 → 46 hd and the deficit-after-every-declared-cut goes ~1 hd → ~3 hd, which fires §15's own rule that the next overrun forces a cut decision. Candidates named, none chosen — that is the owner's call and it is owed before MS8 starts. One new cut line at order 2b (ship upstream Protomaps with a palette swap). Also settled into MS8 at no cost in size: **the product name**, which no milestone had ever owned while MS16's deck and the §20 submission link both assume one. A name only — wordmark, logo and icon set stay out of scope per Charter §4. Unchanged and deliberately so: UX (IA, the eleven flow states, failure states, accessibility) and product voice (the §12 copy deck) were complete before MS4 and are not milestones; what remains open there is `ux-architecture`'s own review chain, whose §13 questions are now partly answered by D3, D12 and MS4 and have never been written back |
 | 2026-08-19 | **MS5 task 2: the resolver vocabulary declared once, in code.** `06` §8, `07` §10 and `technical-design.md` §6.3 each declared a `PlaceResolver` and no two agreed; `RankedPlace`/`ResolveResult` were used in three documents and defined in none. Now one port and one vocabulary in `src/domain/`, with [`11-resolver-vocabulary.md`](11-resolver-vocabulary.md) holding all ten conflicts and their rulings. Three were defects, not naming: `06`'s `'overture-local'` violates `place_provider_refs.provider`'s CHECK and could never have been inserted; `09`'s seven-value `categoryHint` enum against `06`'s three-key `CAT_TOKENS`, indexed directly, is a `KeyError` on four of seven — a literal port of the prototype would crash or silently score 0; and `resolveOne`, the method `06` §7.3 and `10` §2 hang `region_loaded` on, exists in no interface in the repository. `region_loaded` itself — the omission the 2026-08-18 review found and nothing had closed — is now `regionsSearched` + a `regionLoaded()` function, and `Confidence.margin: number \| null` makes `10` §8's single-candidate margin defect impossible to reproduce silently. `normalise()` moved from `integrations/` to `domain/places/`: `10` §4.1 as written was an ESLint error, measured in both import forms, and its port is byte-identical to the prototype on all 44 benchmark queries plus 18 adversarial cases. `search()` is gone — with one input and one output type it was `resolve()`'s signature twice. Deliberately not done: the scorer (task 3), Zod (MS7's adapter boundary), and five of the six ports (MS6) |
