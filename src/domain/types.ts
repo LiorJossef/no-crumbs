@@ -213,6 +213,12 @@ export interface ResolveResult {
    * inside the prefilter's output") and the `limit 500` cap are only auditable if this is
    * reported; it is also the number that tells `margin === null` apart from a shortlist truncated
    * by `maxResults`.
+   *
+   * MS5 task 3 sharpened what it disambiguates: the scorer computes `margin` **and** the band from
+   * the full ranking, before `maxResults` truncates the shortlist, so `margin === null` means
+   * *there was no second candidate at all* — never *the shortlist was cut to one*. This field is
+   * therefore an audit trail rather than the way to tell those two apart. At the default cap of 5
+   * the two readings coincide, which is why the 44-case benchmark is unaffected.
    */
   readonly candidatesPrefiltered: number;
 }

@@ -215,7 +215,12 @@ Implemented and measured in
    - `cov` = mean over the query's **distinctive** tokens (generic words like *cafe, coffee, bar,
      restaurant, the, tokyo, london* removed) of the best per-token similarity against the
      candidate's tokens, with substring containment credited at 0.97 so agglutinated names
-     (`CafeXoho`) and prefixed names (`פלאפל הקוסם`) still match.
+     (`CafeXoho`) still match. **Corrected 2026-08-19 (MS5 task 3):** this line also claimed the
+     credit for prefixed names such as `פלאפל הקוסם`, and it does not earn it there — that name
+     tokenises on the space, so `הקוסם` is an *exact token* match at 1.0 and the 0.97 credit is
+     never reached. (TLV-07's query is `הקוסם` alone, and the falafel row is in any case one of
+     §6.3's three absent-from-dataset misses.) The rule stands on the agglutinated case only;
+     pinned as a test in `src/domain/places/`.
    - `extra` penalty = 0.04 per surplus distinctive token in the candidate, capped at 0.15. This is
      what stops "The Fishmongers Kitchen" from claiming "this hidden gem in Shoreditch".
    - `name_score = 0.45·whole + 0.55·cov − extra`

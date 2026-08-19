@@ -13,6 +13,7 @@ Run date: 2026-08-18. Owner: maps-geospatial.
 | `resolve-overture-scored.py` / `raw-overture-scored.json` | The proposed scoring function (whole-string + distinctive-token coverage + extra-token penalty + category agreement), with per-candidate score, name_score, token_cov and top1-top2 margin. |
 | `probe-overture-coverage.py` | Direct dataset probes used to classify ABSENT vs MISS_RANK. |
 | `measure-extract-size.py` | Row counts and food-and-drink share per city extract, for the storage cost model. |
+| `measure-jaro-winkler.py` / `jaro-winkler-duckdb.json` | **Added 2026-08-19 (MS5 task 3).** DuckDB 1.5.5's `jaro_winkler_similarity` and `jaro_similarity` pinned at full precision for 2 153 pairs: every whole-string and token pair the 44 cases actually evaluated, 30 adversarial pairs (empty string, single char, no common prefix, >4-char prefix, transpositions, Hebrew, CJK), and 1 500 seeded fuzz pairs. This is the reference the TypeScript port (`src/domain/places/jaro-winkler.ts`) is tested against — `tests/unit/places/jaro-winkler.test.ts` replays the whole table with `===`, and it matches bit for bit. |
 | `adjudication.json` | Hand verdicts per provider per case, plus the verdict key and notes. Source of every accuracy number in `docs/06-map-and-places-decision.md`. |
 
 ## Not covered here, and why
@@ -30,4 +31,9 @@ python3 -m venv venv && ./venv/bin/pip install duckdb
 python3 run-benchmark-osm.py .                    # ~90 s, respects Nominatim 1 req/s
 ./venv/bin/python ingest-overture-city-extract.py  # ~1 min, ~50 MB of parquet
 ./venv/bin/python resolve-overture-scored.py
+./venv/bin/python measure-jaro-winkler.py > jaro-winkler-duckdb.json   # ~2 s, needs no parquet
 ```
+
+`measure-jaro-winkler.py` is the only script here that runs without the city extracts: it reads
+`raw-overture-scored.json` and `benchmark-spec.json` for its pair list. Re-run it if DuckDB's
+version changes, and expect the TypeScript test to tell you if the values moved.

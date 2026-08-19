@@ -2,7 +2,10 @@
 
 Under construction against an ordered plan. Repo, toolchain and deploy (MS2), the technical design
 (MS3) and the database (MS4, nine migrations applied and verified on both hosted projects) are
-done. MS5 — the POI index and resolver — is next, and its schema design is under review.
+done. **MS5 — the POI index and resolver — is in progress:** its task ledger in
+`docs/implementation-plan.md` is the running state, and tasks 1–3 (the `0010`/`0014` migration chain,
+the resolver vocabulary in `src/domain/`, the ported scorer) are closed. Task 4, the 44-case golden
+file, is next.
 `docs/implementation-plan.md` is the plan of record and its change log is the current state.
 
 **Read before doing anything in this repo:**
