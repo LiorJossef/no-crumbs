@@ -367,7 +367,7 @@ exists to make possible. Tasks are sized so one session closes one row.
 
 | # | Task | Owner | Why now |
 |---|---|---|---|
-| 1 | **Untangle `0010` vs `0011`–`0013`.** `0010:258` drops `resolve_place` and recreates it with the provenance parameters, while `0011`/`0013` alter the pre-`0010` signature. In numeric order that is broken; on staging, where `0011`–`0013` are already applied, `0010` would revert them. Split it: `0010` keeps `pg_trgm` + the two POI tables + the four `places` columns, and the function change moves to a new `0014` that carries `0011`'s and `0013`'s bodies forward. Prove `0001`→`0014` clean on a throwaway container, `inventory.sql` + the 53 policy assertions green | `supabase-database` | Nothing else in MS5 can be applied anywhere until the migration chain applies at all. This is the one infrastructure task that is a genuine blocker |
+| 1 | ✅ **done 2026-08-19.** **Untangle `0010` vs `0011`–`0013`.** `0010:258` drops `resolve_place` and recreates it with the provenance parameters, while `0011`/`0013` alter the pre-`0010` signature. In numeric order that is broken; on staging, where `0011`–`0013` are already applied, `0010` would revert them. Split it: `0010` keeps `pg_trgm` + the two POI tables + the four `places` columns, and the function change moves to a new `0014` that carries `0011`'s and `0013`'s bodies forward. Prove `0001`→`0014` clean on a throwaway container, `inventory.sql` + the 53 policy assertions green | `supabase-database` | Nothing else in MS5 can be applied anywhere until the migration chain applies at all. This is the one infrastructure task that is a genuine blocker |
 | 2 | **Declare the resolver vocabulary once.** One `PlaceResolver` port with `RankedPlace` / `ResolveResult` in `domain/`, replacing the three incompatible interfaces in `06`/`07`/`technical-design`; and give `normalise()` a legal home in `domain/` (`10` §155 puts it in `integrations/`, which the scorer cannot import — that is an ESLint error, not a preference) | `nextjs-architect` | Tasks 4 and 7 both write against these names, and MS7's adapters implement the port. Deciding it after the scorer exists means rewriting the scorer |
 | 3 | **Port the scorer to TypeScript** — `evidence/places/resolve-overture-scored.py` → `src/domain/places/`, weights and thresholds in **one exported constant object**. No database, no network, no React | `maps-geospatial` | The milestone's functional core |
 | 4 | **Golden-file the 44 cases.** Per-case scores against `raw-overture-scored.json`, not only band labels, plus band-for-band 29/12/3. Exit criteria 2 and 3 | `qa-reliability` | The Jaro-Winkler prefix-scale risk in the exit criteria is real; the test is what makes the port trustworthy rather than plausible |
@@ -375,6 +375,24 @@ exists to make possible. Tasks are sized so one session closes one row.
 | 6 | **Ingest Tokyo and London**, same pinned release, same recorded counts | `maps-geospatial` | Cuttable per `Overrun` above |
 | 7 | **The end-to-end resolve.** A thin server-side query (region scope + `pg_trgm` prefilter) feeding the ported scorer, callable from a script: candidate string in → ranked `RankedPlace[]` out, against the ingested Tel Aviv rows. Reproduce the benchmark's Tel Aviv 8/14 through the real index | `maps-geospatial` | **The MS5 exit that was named nowhere.** Schema, scorer and ingest can each pass their own test while the seam between them does not work; nothing before MS7 would have caught it |
 | 8 | **Apply to staging, then production**, `inventory.sql` PASS on both with the new tables in the matrix and `pg_trgm` as the only extension beyond baseline. Exit criterion 1 | `devops-vercel` + `supabase-database` | Infrastructure, deliberately last: it is required by MS7's preview-deployment gate, not by anything in tasks 1–7, and applying a schema that task 7 has not yet exercised is how a hosted project acquires a shape we then have to migrate off |
+
+**Task 1 closed, 2026-08-19.** `0010` reduced to its non-function work; `0014_resolve_place_provenance.sql`
+adds the three provenance parameters on **`0011`'s audited body**, `place_survivor_id()` intact — the
+body `0010` carried had inlined a single-hop `coalesce(merged_into_place_id, id)`, so applying it would
+have restored `0011` defect 1. Proven on a throwaway `17.6.1.064` container, `0001`→`0014`:
+`inventory.sql` 15 PASS, `0008_policy_tests.sql` 54 PASS + 1 UNPROVEN (P23), exactly one
+`resolve_place` in `pg_proc`. Both failure modes were **measured, not argued** — numeric order gives
+`42725 function … is not unique`, out-of-order arrival gives a silently reverted body that inventory
+passed and policy test P11 caught.
+Two riders taken in the same session: inventory **check 6b** (no overloads in `public`, plus
+`resolve_place`'s argument list asserted positionally — checks 6 and 9c match on `proname` alone and
+were blind to the overload state), policy test **P24** (provenance written on insert, not on an
+alias-only match, coalesced on refresh), and `0011`'s overstated header §2. `inventory.sql` check 9 also
+had a live `FAIL 9` introduced by the merge, not by `0014`; fixed.
+Also corrected out of this task: [`db-migration-runbook.md`](db-migration-runbook.md) now carries the
+**authoritative applied state** — staging `0013`, production `0009`, `0010`/`0014` nowhere. Its
+"no `db push` has ever run" block was true when written and stale after audit task 13; task 8 is told
+to trust `db:status:staging` over prose.
 
 **Deferred past MS5, from the `ms5-design` row list in [`ms1-ms4-audit-handoff.md`](ms1-ms4-audit-handoff.md).** None of them block the vertical slice, and each is recorded so it is not lost:
 
