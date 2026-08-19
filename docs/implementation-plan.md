@@ -358,6 +358,40 @@ Re-sized 3 → 5 hd and re-scoped on 2026-08-18 after review; the sizing came fr
 actively wrong. Do not cut the golden-file test to save time; it is the only thing standing between a
 ported scorer and a silently different one.
 
+#### MS5 task ledger — one task per session, in this order
+
+Written 2026-08-19 when MS5 resumed. The ordering rule for this ledger: **the vertical slice comes
+first, and infrastructure earns its place only by blocking it.** Task 7 is the milestone's real
+proof — a candidate string resolving against ingested rows — and it is the thing every earlier task
+exists to make possible. Tasks are sized so one session closes one row.
+
+| # | Task | Owner | Why now |
+|---|---|---|---|
+| 1 | **Untangle `0010` vs `0011`–`0013`.** `0010:258` drops `resolve_place` and recreates it with the provenance parameters, while `0011`/`0013` alter the pre-`0010` signature. In numeric order that is broken; on staging, where `0011`–`0013` are already applied, `0010` would revert them. Split it: `0010` keeps `pg_trgm` + the two POI tables + the four `places` columns, and the function change moves to a new `0014` that carries `0011`'s and `0013`'s bodies forward. Prove `0001`→`0014` clean on a throwaway container, `inventory.sql` + the 53 policy assertions green | `supabase-database` | Nothing else in MS5 can be applied anywhere until the migration chain applies at all. This is the one infrastructure task that is a genuine blocker |
+| 2 | **Declare the resolver vocabulary once.** One `PlaceResolver` port with `RankedPlace` / `ResolveResult` in `domain/`, replacing the three incompatible interfaces in `06`/`07`/`technical-design`; and give `normalise()` a legal home in `domain/` (`10` §155 puts it in `integrations/`, which the scorer cannot import — that is an ESLint error, not a preference) | `nextjs-architect` | Tasks 4 and 7 both write against these names, and MS7's adapters implement the port. Deciding it after the scorer exists means rewriting the scorer |
+| 3 | **Port the scorer to TypeScript** — `evidence/places/resolve-overture-scored.py` → `src/domain/places/`, weights and thresholds in **one exported constant object**. No database, no network, no React | `maps-geospatial` | The milestone's functional core |
+| 4 | **Golden-file the 44 cases.** Per-case scores against `raw-overture-scored.json`, not only band labels, plus band-for-band 29/12/3. Exit criteria 2 and 3 | `qa-reliability` | The Jaro-Winkler prefix-scale risk in the exit criteria is real; the test is what makes the port trustworthy rather than plausible |
+| 5 | **Ingest Tel Aviv only**, against a pinned Overture release, with the region scoping from `06` §6.1 step 2. Record the row counts | `maps-geospatial` | One city is enough to prove the pipeline end to end. Tokyo and London are task 6, and are the first thing to cut |
+| 6 | **Ingest Tokyo and London**, same pinned release, same recorded counts | `maps-geospatial` | Cuttable per `Overrun` above |
+| 7 | **The end-to-end resolve.** A thin server-side query (region scope + `pg_trgm` prefilter) feeding the ported scorer, callable from a script: candidate string in → ranked `RankedPlace[]` out, against the ingested Tel Aviv rows. Reproduce the benchmark's Tel Aviv 8/14 through the real index | `maps-geospatial` | **The MS5 exit that was named nowhere.** Schema, scorer and ingest can each pass their own test while the seam between them does not work; nothing before MS7 would have caught it |
+| 8 | **Apply to staging, then production**, `inventory.sql` PASS on both with the new tables in the matrix and `pg_trgm` as the only extension beyond baseline. Exit criterion 1 | `devops-vercel` + `supabase-database` | Infrastructure, deliberately last: it is required by MS7's preview-deployment gate, not by anything in tasks 1–7, and applying a schema that task 7 has not yet exercised is how a hosted project acquires a shape we then have to migrate off |
+
+**Deferred past MS5, from the `ms5-design` row list in [`ms1-ms4-audit-handoff.md`](ms1-ms4-audit-handoff.md).** None of them block the vertical slice, and each is recorded so it is not lost:
+
+- `inventory.sql` check 1's table count, and `0011`'s overstated header §2 → the next session that
+  touches `inventory.sql`, i.e. task 1 or task 8, as a rider.
+- The `pg_trgm`-in-`extensions` rationale being factually wrong (`0010:22`, `inventory.sql:214`) —
+  no exposure, the PASS merely overstates its scope → **MS14**, with the security document.
+- `06` §8's vanished `MapSurface` seam and its unenforced `maplibre-gl` import rule → **MS10**, the
+  milestone that first imports a map library.
+- The `technical-design` §16 trigram contradiction, the plan's own arithmetic (§6 vs §15), the
+  "ledger has no open row" contradiction (§65), the `0001–0008` migration lists (§117, §198) and the
+  six-vs-nine table count in §7 → one documentation-sync session, taken **between MS6 and MS7**,
+  because §7 is M3-graded and must be right before the MS7 gate is written up.
+- The streaming/`maxDuration = 60` duration probe → **MS7**, whose exit criterion rests on it.
+- The `10-` number collision (`10-poi-index.md` vs MS15's reserved `10-pipeline-evaluation.md`) →
+  renamed when MS15's document is created, not before; renaming now invalidates live cross-references.
+
 ### MS6 — Import domain · L (3 hd)
 Items 1–4 of §9, against fake ports. No network, no database, no React.
 **Exit:** `runImport` produces the full event sequence and every one of the 14 error codes is

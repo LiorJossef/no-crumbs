@@ -360,6 +360,11 @@ moot in the delivered schema.
 
 ## Deferred to `ms5-design` — apply when MS5 resumes
 
+**Consumed 2026-08-19.** MS5 resumed; every row below is now assigned in the **MS5 task ledger**
+([`implementation-plan.md`](implementation-plan.md) §11, under MS5). Row 1 became ledger task 1; the
+`PlaceResolver` and `normalise()` rows became ledger task 2; the rest are listed there as deferred,
+each with the milestone that takes it. This table is kept as the record of where they came from.
+
 | Finding | Where | Owner |
 |---|---|---|
 | **`0010` re-creates `resolve_place` wholesale, so it will silently revert tasks 2 and 3** — do this first | `0010:288,298` | `supabase-database` |
