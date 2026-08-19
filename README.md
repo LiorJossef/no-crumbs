@@ -89,6 +89,14 @@ The last two need **no entry in Vercel's env store**: `next.config.ts` derives t
 production label themselves correctly without two hand-scoped values that can drift. Setting either
 `NEXT_PUBLIC_*` explicitly still overrides the derived value.
 
+### Operator-only variables (not application config)
+
+Applying migrations needs a second, smaller set that **never** goes near Vercel — see the table in
+[`docs/db-migration-runbook.md`](docs/db-migration-runbook.md) §2: `STAGING_DATABASE_URL`,
+`PROD_DATABASE_URL`, `DATABASE_URL`, `SUPABASE_PROJECT_REF_STAGING`, `SUPABASE_PROJECT_REF_PROD`,
+`SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`. Nothing in `src/` reads any of them, and Vercel builds
+never run migrations. Names and sources are in `.env.example`.
+
 Rules that hold across environments:
 
 1. **Preview never points at production data.** Preview and local share one staging Supabase
@@ -98,6 +106,12 @@ Rules that hold across environments:
 3. Rotating a key is an env-store edit plus a redeploy — no code change references a literal value.
 
 ## Deployment
+
+**Migrations** are a separate, deliberate, human act: `npm run db:push:staging` /
+`npm run db:push:prod`, each bound to its own project ref, each preceded by a `migration list`
+drift check and followed by the read-only inventory proof. Rollback posture is **forward-fix only**.
+The runbook, including the recovery path for a destructive migration, is
+[`docs/db-migration-runbook.md`](docs/db-migration-runbook.md).
 
 Preview: every branch push builds a preview URL. Production: `main`.
 `/healthz` returns `{ ok, stage, commit }` and is the deploy smoke check.

@@ -18,6 +18,12 @@
     "db:test": "psql \"${DATABASE_URL:-postgresql://postgres:postgres@127.0.0.1:54322/postgres}\" -v ON_ERROR_STOP=1 -f supabase/tests/0008_policy_tests.sql",
     "db:inventory": "psql \"${DATABASE_URL:-postgresql://postgres:postgres@127.0.0.1:54322/postgres}\" -v ON_ERROR_STOP=1 -f supabase/tests/inventory.sql",
     "db:verify": "npm run db:reset && npm run db:test && npm run db:inventory",
+    "db:push:staging": "bash scripts/db-push.sh staging",
+    "db:push:prod": "bash scripts/db-push.sh prod",
+    "db:status:staging": "supabase migration list --project-ref \"${SUPABASE_PROJECT_REF_STAGING:-jfuqjzubphfhfleqnkno}\"",
+    "db:status:prod": "supabase migration list --project-ref \"${SUPABASE_PROJECT_REF_PROD:-vtboskegexinvhasghri}\"",
+    "db:inventory:staging": "bash scripts/db-inventory-remote.sh staging",
+    "db:inventory:prod": "bash scripts/db-inventory-remote.sh prod",
     "prepare": "git config core.hooksPath .githooks || true"
   },
   "dependencies": {
