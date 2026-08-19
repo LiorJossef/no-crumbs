@@ -59,8 +59,11 @@ affect a single saved place. That property is the point.
 
 ## 2. `poi_regions` — what is loaded, and what therefore cannot be found
 
-This is the table that lets `resolveOne` return `region_loaded: boolean` (`06` §7.3) instead of a
-bare "not found", which is the difference between an honest failure and a broken one.
+This is the table that lets the resolver answer `regionLoaded()` (`06` §7.3) instead of a
+bare "not found", which is the difference between an honest failure and a broken one. (**Corrected
+2026-08-19:** `resolveOne` was a method name that existed in no interface; the port is
+`PlaceResolver.resolve`, and `region_loaded` is derived from `ResolveResult.regionsSearched` rather
+than stored beside it — `11` §2.)
 
 ```sql
 create table public.poi_regions (
@@ -166,8 +169,15 @@ and the normalisation must live in application code.
 
 The design is therefore:
 
-1. **One implementation**, exported from `integrations/places/normalise.ts`, used by both the loader
-   and the resolver. The loader is TypeScript for this reason alone.
+1. **One implementation**, exported from **`src/domain/places/normalise.ts`**, used by both the
+   loader and the resolver. The loader is TypeScript for this reason alone.
+   **Corrected 2026-08-19 (MS5 task 2): this said `integrations/places/normalise.ts`, which was
+   not a preference but an ESLint error.** The scorer is `domain/places/` and `domain/` may not
+   import `integrations/` — `no-restricted-imports` in `eslint.config.mjs`, measured against both
+   the `@/integrations/...` and the `../../integrations/...` form. It is also the right layer on
+   its own merits: the function is pure, has no vendor in it, and defines a domain concept. The
+   ingest loader in `scripts/` imports it from `domain/`; `scripts/` has no lint zone, so the
+   "one implementation" property survives the move intact. `11` §3.
 2. **`norm_version` on `poi_regions`**, bumped whenever that function changes. The resolver asserts
    the version it compiles with matches the version of every loaded region, and **refuses to serve**
    on a mismatch rather than serving degraded results. A normalisation change means a reload; this
@@ -175,6 +185,13 @@ The design is therefore:
    region is loaded in one transaction, so the version describes the load.
 3. **A porting test**, not just a unit test: the TS `normalise()` must produce byte-identical output
    to the Python `norm()` for all 44 benchmark queries plus a 1 000-row sample of ingested names.
+   **Half done 2026-08-19:** all 44 queries plus 18 adversarial cases pass byte-for-byte against
+   pinned output from the unmodified prototype
+   ([`tests/unit/places/normalise.test.ts`](../tests/unit/places/normalise.test.ts)). The 1 000-row
+   name sample needs an ingest and belongs to tasks 4/5. One bounded divergence is recorded in the
+   function's header: `unicodedata.combining(ch)` has no JavaScript equivalent, so the strip is
+   `\p{Mn}`, which differs from Python only on non-spacing marks of combining class 0 (Thai, Lao,
+   Khmer, some Indic) — none of which occurs in a Tel Aviv, Tokyo or London extract.
 
 **The known porting trap, recorded so the port does not fall into it:** Python's `\w` is
 Unicode-aware, JavaScript's is ASCII-only unless the `u` flag and `\p{L}\p{N}` are used. A literal
@@ -344,7 +361,7 @@ rests on.
 
 ## 8. What resolution looks like end to end
 
-1. Normalise the candidate (`normalise()`, §4).
+1. Normalise the candidate (`normalise()`, §4 — `src/domain/places/normalise.ts`).
 2. Map `cityHint` → `region_id` via `poi_regions`. No hint → all `is_loaded` regions.
    **`region_loaded` in the result is false when the hint mapped to nothing** — this is what lets the
    UI say *"we don't have Lisbon yet"* rather than *"not found"*.
@@ -358,7 +375,9 @@ the prefilter returns exactly one row
 query therefore sails through the `margin ≥ 0.05` gate on score alone — the margin gate, the idea
 `06` §12 tells the examiner is worth defending, is inert in exactly that case. The port should treat
 a single candidate as **unmeasured margin**, not perfect margin, and the decision on what that means
-for the band is §12 Q3 below.
+for the band is §12 Q3 below. **Made structural 2026-08-19:** `Confidence.margin` is typed
+`number | null`, so the port cannot reproduce the defect without deciding what `null` means, and
+§12 Q3's ruling (`confirm`) is the only band a null margin can reach. `11` §2.
 
 ## 9. Size
 
