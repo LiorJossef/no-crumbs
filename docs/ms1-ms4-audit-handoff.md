@@ -2,8 +2,8 @@
 
 > Written 2026-08-19. Status: **in progress, nothing committed.**
 > Branch `audit/ms1-ms4-fixes`, based on `main` at `21c4d17`. `ms5-design` @ `34a88f0` is untouched
-> and must stay that way. Tasks 1–10 and 12 are done; **11 and 14 remain**, and the staging push of
-> `0011`–`0013` is the one open operational step.
+> and must stay that way. Tasks 1–10, 12 and 13 are done; **11 and 14 remain**. Staging now runs
+> `0001`–`0013`, proven; production is still at `0001`–`0009`.
 
 ## Why this branch exists
 
@@ -55,7 +55,7 @@ cross-user read does exist under FORCE RLS.
 | 10 | Tier 2: commit `docs/evidence/db/01-bbox-vs-postgis.md` so no-PostGIS stops being ASSUMED | `supabase-database` | **done** → `b42b5d2` — measured in Docker at 50k/500k/5M: bbox wins every per-user query, the GiST index *is* chosen and loses (1.3 vs 158 ms p95 at 5M); D6 stands, A4 now VERIFIED |
 | 11 | Tier 2: write the twelve ADRs into `docs/adr/` | `product-lead` | **NOT STARTED** — next |
 | 12 | Fix the three `0011` defects task 4+5 logged — needs its own migration, `0013` | `supabase-database` | **done** → `0013` + `0008_policy_tests.sql` P19c/P19d; executed in Docker |
-| 13 | Push `0011`–`0013` to staging and prove them there | coordinator + `devops-vercel` | **IN PROGRESS** — owner approved 2026-08-19; blocked only on `STAGING_DATABASE_URL` |
+| 13 | Push `0011`–`0013` to staging and prove them there | coordinator + `devops-vercel` | **done** — applied 2026-08-19; ledger local == remote, inventory 15/15 PASS |
 | 14 | Tier 3 doc sync, `main`-resident files only (minus the `DATABASE_URL` entry, done by task 7) | `devops-vercel` + `qa-reliability` | **NOT STARTED** |
 
 **One task per session, from here on** — the owner's instruction as of 2026-08-19. Each row above is a
@@ -81,27 +81,53 @@ bf81517  Grant guard: catch views, unparseable CREATEs, revoke ordering    (task
 
 Task 1's `inventory.sql` comment fix rode along in `9d7260a` rather than being split out of the file.
 
-`npm run verify` and `npm run check:migrations` are green. Migrations `0011`, `0012` and `0013` are
-**local-only** — staging is at `0001`–`0009` (re-read 2026-08-19, read-only `migration list`) and
-production has never seen any of the three. See "Staging push" below for the state of that step.
+`npm run verify` and `npm run check:migrations` are green. **Staging is at `0001`–`0013`** as of
+2026-08-19; **production is still at `0001`–`0009`** and has seen none of the three. See "Staging push"
+below.
 
-## Staging push (task 13) — approved, part-executed
+## Staging push (task 13) — done, 2026-08-19
 
-The owner approved pushing `0011`–`0013` to staging **and** verifying them there, 2026-08-19. State as
-of that session:
+`0011`, `0012` and `0013` are applied to `p-002-staging` (`jfuqjzubphfhfleqnkno`) and proven there.
+Owner approved the push and the verification; **production was explicitly out of scope and is
+untouched at `0001`–`0009`** (confirmed by a read-only `migration list` after the push).
 
-- Read-only `supabase migration list --project-ref jfuqjzubphfhfleqnkno`: remote holds `0001`–`0009`,
-  local `0011`/`0012`/`0013` pending. The pinned CLI is authenticated and can reach the project.
-- `DB_PUSH_DRY_RUN=1 npm run db:push:staging` ran **all guards green** and wrote nothing: the static
-  grant guard passed (9 relations, all revoked from both browser roles, RLS enabled+forced), the link
-  state already equals the staging ref, and `db push --dry-run` reports exactly the three expected
-  files.
-- **Blocked on one secret.** `STAGING_DATABASE_URL` is unset, and `db-push.sh` step 2b refuses to start
-  a push it cannot prove afterwards (an empty value would fall back to the local container and "prove"
-  a database never contacted). It is the session-mode pooler URI, password included, from the project's
-  Connect dialog. Put it in `.env.local` (gitignored via `.env.*`) and the push runs:
-  `set -a; . .env.local; set +a; DB_PUSH_CONFIRM=jfuqjzubphfhfleqnkno npm run db:push:staging`
-- Production is **not** in scope of that approval and must stay at `0001`–`0009` until staging is proven.
+How it went, in the order `db-push.sh` enforces:
+
+- **Dry run first.** `DB_PUSH_DRY_RUN=1 npm run db:push:staging`: static grant guard green (9 relations,
+  all revoked from both browser roles, RLS enabled+forced), link state already equal to the staging ref,
+  `db push --dry-run` naming exactly the three files. Nothing written.
+- **Pre-push inventory failed, as designed.** The read-only proof against `0001`–`0009` raised
+  `FAIL 2: policy drift` on `extractions_select_via_source_membership` — staging's policy lacked
+  `0011`'s `saved_place_sources` branch. That FAIL was the *expected* shape of a database missing the
+  push, and it is the evidence that check 2 compares `qual` for real rather than counting policies.
+- **Push:** three migrations applied, no errors.
+- **Post-check ledger:** local == remote for all twelve rows, `0001`–`0013`.
+- **Post-check inventory: 15/15 PASS, 0 FAIL** against the live staging schema — including check 2's
+  sixteen-policy exact `cmd`/`roles`/`qual`/`with_check` match (the pre-push failure now clean), 4b (no
+  view bypasses RLS, none granted to a browser role), 7b (all five invariant triggers are constraint
+  triggers deferred to COMMIT) and 9/9b/9c (the `service_role` matrix from `0012`).
+
+Two things this closed that Docker could not:
+
+1. **`inventory.sql` check 2's deparse text is version-sensitive by design** and was flagged as
+   unproven against a hosted project. Staging runs **PostgreSQL 17.6** and the strings match, so the
+   check is now known-good on the hosted major version, not just the container.
+2. **`0011`–`0013` are no longer local-only code.** The handoff's standing caveat is retired for
+   staging. It still stands for production.
+
+`STAGING_DATABASE_URL` (session-mode pooler URI, password included) now lives in the untracked
+`.env.local`. The push command, for the record — the confirmation step needs a TTY or this variable:
+
+```
+set -a; . ./.env.local; set +a; DB_PUSH_CONFIRM=jfuqjzubphfhfleqnkno npm run db:push:staging
+```
+
+Note for the next operator: in zsh, `. .env.local` searches `$PATH`, not the cwd — it must be
+`. ./.env.local`.
+
+**Production push is NOT approved and is not scheduled.** It should wait until MS5 has dealt with the
+first deferred row below (`0010` re-creating `resolve_place` wholesale, which would revert tasks 2, 3
+and 12), so that production takes one coherent schema rather than a state MS5 immediately rewrites.
 
 ## Owner rulings already taken — do not re-litigate
 
