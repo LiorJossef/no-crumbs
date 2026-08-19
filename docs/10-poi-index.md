@@ -341,7 +341,8 @@ It is promoted from evidence to `scripts/`, with three changes:
    to load a region whose release differs from the constant without an explicit `--allow-release-change`.
    Without this the "reproduces the benchmark" exit criterion is not reproducible.
 2. **The food-and-drink category filter moves into the extract** (`06` §7.4 — the Tel Aviv extract is
-   43% lawyers and estate agents; the filter is what keeps it at 14–35% of raw size).
+   85.9% not food and drink — the "43% lawyers and estate agents" in that section is corrected in
+   §7.1; the filter is what keeps the extract at 14–35% of raw size).
 3. **The load half is TypeScript**, because it must call the same `normalise()` the resolver uses
    (§4). Split: Python/DuckDB writes parquet or CSV, a TS loader normalises and `COPY`s into
    Postgres. Both halves are committed; neither runs in the request path or in CI.
@@ -358,6 +359,65 @@ commit;
 
 Adding a city stays a one-command change (`06` §7.3), which is the claim the honest-limit argument
 rests on.
+
+### 7.1 [implementation] Executed for Tel Aviv, 2026-08-19 (MS5 task 5)
+
+Three files, one config: [`scripts/poi-ingest.config.json`](../scripts/poi-ingest.config.json) holds
+the release pin, the region bboxes and the food-and-drink lists;
+[`scripts/ingest-overture-extract.py`](../scripts/ingest-overture-extract.py) extracts and filters;
+[`scripts/load-poi-region.ts`](../scripts/load-poi-region.ts) normalises with `normalise()` and
+writes a COPY body; [`scripts/ingest-poi-region.sh`](../scripts/ingest-poi-region.sh) runs the one
+transaction. `norm_version` comes from `NORM_VERSION` in `src/domain/places/normalise.ts` — read by
+the loader, never re-typed, so the loader and the resolver cannot disagree about it.
+
+**Row counts, for exit criterion 4** (release `2026-07-22.0`, recorded in full in
+[`evidence/places/ingest-tlv-row-counts.json`](evidence/places/ingest-tlv-row-counts.json)):
+
+| | Rows |
+|---|---|
+| Raw Tel Aviv bbox extract | **35 430** (16–18 s, 840 KB CSV after filtering) |
+| After the food-and-drink filter | **4 997** (14.1% of raw) |
+| Rejected by the loader (no name, name > 300 chars) | **0** |
+| Loaded into `poi_index` for `tlv` | **4 997**, `norm_version = 1`, `is_loaded = true` |
+
+Reloading is idempotent (`DELETE 4997` / `COPY 4997`), and both guards were exercised in both
+directions: a `dataset_release` of `2026-08-19.0` is refused unless `--allow-release-change` is
+passed, and a bbox that disagrees with `poi_regions` is refused outright.
+
+**`dataset_confidence` is loaded from the dataset, and the `default 0.5` is now dead weight for
+`tlv`:** 0 of 4 997 rows sit at 0.5, the values span 0.043–0.9996 across 4 757 distinct values, and
+the measured confidences reproduce the benchmark's `score` column for **71/71** result rows in the
+Tel Aviv bbox (`evidence/places/measure-dataset-confidence.py`). One precision note: the column is
+`real` and Overture's `confidence` is a double, so the stored value differs from the measured one by
+up to 2.98 × 10⁻⁸ — 3 × 10⁻⁹ of `score`, which cannot move a 3-dp comparison or a band.
+
+**§4.3's owed half is closed.** `normalise()` is byte-identical to the prototype's `norm()` on a
+1 000-name sample of the *ingested* extract (613 non-ASCII, 590 Hebrew) —
+`tests/unit/places/normalise-sample.test.ts`, 1 000/1 000.
+
+**Three things the measurement contradicts, none of them papered over:**
+
+1. **`06` §7.4's "the Tel Aviv extract is 43% lawyers, estate agents and professional services" is
+   not reproducible**, and this document repeats it above. On the pinned release those categories are
+   `lawyer` 1 509 + `professional_services` 986 + `real_estate` 927 + `real_estate_agent` 237 =
+   **3 659 of 35 430 = 10.3%**; a deliberately generous professional-services grouping reaches 16.8%.
+   The defensible number is that **85.9% of the raw extract is not food and drink** (30 433 of
+   35 430), which is the point the 43% was making. `06` §7.4 corrected in the same commit.
+2. **The filter is wrong at both margins.** Its substring patterns admit **377 non-food rows** (7.5%
+   of the load) — `%bar%` catches `barber` (168) and `%pub%` catches `public_and_government_association`,
+   `public_relations`, `public_plaza`, `public_toilet` — while dropping real food-and-drink
+   categories: `delicatessen` 96, `butcher_shop` 86, `lounge` 36, `candy_store` 30, `sandwich_shop`
+   27, `chocolatier` 18, `gelato` 8. Two of those are named in the scorer's own `CAT_TOKENS`
+   (`deli`, `lounge`), so those tokens can never fire on loaded data. **Left exactly as measured in
+   `evidence/places/measure-extract-size.py`**, deliberately: `06` §3.1's 165 685-row storage model
+   was measured with this predicate, and re-cutting the list is a calibration change that should be
+   ruled on, not smuggled into an ingest task.
+3. **Consequence for task 7, stated up front:** the benchmark scored the *unfiltered* extract, so 13
+   of the 66 Tel Aviv `overture_id`s in `raw-overture-scored.json` are not in the loaded index (14 of
+   its 71 result rows). Twelve are correctly-dropped non-food rows; the thirteenth is **TLV-13's
+   rank-1 row, `I Love Sandwich` (`sandwich_shop`)**. TLV-01/03/05/06/11/13/14 therefore cannot have
+   their full top-5 replayed verbatim, and TLV-13's top-1 will change. The `score` column is
+   replayable for the 57 rows that survive.
 
 ## 8. What resolution looks like end to end
 

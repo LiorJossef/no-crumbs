@@ -298,9 +298,23 @@ They live in one exported constant object with the benchmark as their regression
    resolver reports which regions it searched, so the UI can say *why* it failed. **Corrected
    2026-08-19:** there is no `resolveOne` — the method is `PlaceResolver.resolve`, and
    `region_loaded` is not a field but `regionLoaded(result)` (`11` §2, `domain/places/resolve-result.ts`).
-4. **Dataset noise.** Overture places is business-registry-grade: the Tel Aviv extract is 43%
-   lawyers, estate agents and "professional services". We filter to food-and-drink categories at
-   ingest, which is also what keeps the extract at 14–35% of raw size.
+4. **Dataset noise.** Overture places is business-registry-grade: **85.9% of the raw Tel Aviv
+   extract is not food and drink** (30 433 of 35 430 rows). We filter to food-and-drink categories at
+   ingest, which is also what keeps the extract at 14–35% of raw size — Tel Aviv lands at 14.1%
+   (4 997 rows).
+   **Corrected 2026-08-19 (MS5 task 5), by measuring the pinned release.** This said "the Tel Aviv
+   extract is 43% lawyers, estate agents and 'professional services'", and that number is not
+   reproducible: on `2026-07-22.0` those categories are `lawyer` 1 509 + `professional_services` 986
+   + `real_estate` 927 + `real_estate_agent` 237 = **3 659 = 10.3%**, and a deliberately generous
+   grouping (legal, real estate, insurance, finance, accounting, marketing, consulting, software,
+   agencies) reaches only 16.8%. The 85.9% above is the honest form of the same point.
+   Two flaws in the filter itself, measured on the same run and left in place rather than re-cut in
+   an ingest task (`10` §7.1, [`evidence/places/ingest-tlv-row-counts.json`](evidence/places/ingest-tlv-row-counts.json)):
+   its substring patterns **admit 377 non-food rows** (`%bar%` → `barber`, `%pub%` → `public_plaza`,
+   `public_relations`, …) and **drop real food categories** (`delicatessen` 96, `butcher_shop` 86,
+   `lounge` 36, `candy_store` 30, `sandwich_shop` 27, `chocolatier` 18, `gelato` 8) — including the
+   row the benchmark ranked first for TLV-13. Re-cutting the list moves §3.1's storage model and the
+   §6.3 numbers, so it needs a ruling of its own.
 5. **Freshness.** Closed venues persist. Out of scope for V1; a `last_verified_at` column is added
    now so a future check costs a migration, not a rewrite.
 
