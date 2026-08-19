@@ -5,8 +5,8 @@
 ## What was attempted
 
 A GitHub branch ruleset on `main`: block deletion, block force-push, require a pull request, and
-require the three CI jobs (`lint · typecheck · layer guard · unit`, `next build`, `playwright`) to
-pass with the branch up to date. No bypass actors.
+require the four CI jobs (`lint · typecheck · layer guard · unit`, `next build`, `playwright`,
+`migrations · RLS policy tests`) to pass with the branch up to date. No bypass actors.
 
 ## Why it is not in place
 

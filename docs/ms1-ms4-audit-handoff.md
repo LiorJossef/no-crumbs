@@ -53,10 +53,10 @@ cross-user read does exist under FORCE RLS.
 | 8 | Tier 2 security: `service_role` grant matrix asserted; `places` grant narrowed or `security.md` item 8 answered | `security-privacy` | **done** → `0012` + `inventory.sql` checks 9/9b/9c + `security.md` §2.6 |
 | 9 | Tier 2 architecture: `@/app/_lib/*` out of the `ui` zone + `server-only`; declare `ImportStore` and `Clock`; canonicalise `runImport`, segment names, candidate cap 7, confidence enum | `nextjs-architect` | **done** |
 | 10 | Tier 2: commit `docs/evidence/db/01-bbox-vs-postgis.md` so no-PostGIS stops being ASSUMED | `supabase-database` | **done** → `b42b5d2` — measured in Docker at 50k/500k/5M: bbox wins every per-user query, the GiST index *is* chosen and loses (1.3 vs 158 ms p95 at 5M); D6 stands, A4 now VERIFIED |
-| 11 | Tier 2: write the twelve ADRs into `docs/adr/` | `product-lead` | **NOT STARTED** — next |
+| 11 | Tier 2: write the twelve ADRs into `docs/adr/` | `product-lead` | **DEFERRED past MS5** — not blocking; see below |
 | 12 | Fix the three `0011` defects task 4+5 logged — needs its own migration, `0013` | `supabase-database` | **done** → `0013` + `0008_policy_tests.sql` P19c/P19d; executed in Docker |
 | 13 | Push `0011`–`0013` to staging and prove them there | coordinator + `devops-vercel` | **done** — applied 2026-08-19; ledger local == remote, inventory 15/15 PASS |
-| 14 | Tier 3 doc sync, `main`-resident files only (minus the `DATABASE_URL` entry, done by task 7) | `devops-vercel` + `qa-reliability` | **NOT STARTED** |
+| 14 | Tier 3 doc sync, `main`-resident files only (minus the `DATABASE_URL` entry, done by task 7) | `devops-vercel` + `qa-reliability` | **DEFERRED past MS5** — cosmetic; one line pulled forward, see below |
 
 **One task per session, from here on** — the owner's instruction as of 2026-08-19. Each row above is a
 session's worth of work: read this file, do the one task, commit, update this ledger, stop.
@@ -144,17 +144,29 @@ and 12), so that production takes one coherent schema rather than a state MS5 im
 
 ## Next action
 
-**Task 11** — the twelve ADRs into `docs/adr/`, owner `product-lead`. One task per session:
-read this file, do task 11 only, commit, flip its ledger row, stop. Then 14.
+**Return to MS5.** The audit branch's blocking scope is closed: tasks 12 and 13 were the only rows that
+had to land before MS5, and both are done. Start MS5 with the first row of the "Deferred to
+`ms5-design`" table below — **`0010` re-creates `resolve_place` wholesale and will silently revert tasks
+2, 3 and 12** — because every later MS5 change sits on top of it.
 
-Task 12 is done (`8c90bd8`). Task 13, the staging push, is approved and half-executed — finish it
-before or alongside task 11; it does not conflict with the ADRs.
+**Tasks 11 and 14 are deferred past MS5** (owner agreed, 2026-08-19). Neither blocks anything:
 
-**Sequencing ruling (2026-08-19, owner):** task 12 and the staging push were pulled forward ahead of
-task 11 because both are schema-resident, and MS5's first deferred item (`0010` re-creating
-`resolve_place` wholesale) will silently revert tasks 2, 3 and 12 unless they are in the tree and
-applied first. Task 11 is a record of decisions already documented in `06`–`09`; nothing in MS5 is
-blocked on `docs/adr/` existing, so it is the row that may slip.
+- **Task 11, the twelve ADRs.** A record of decisions already made and already documented in `06`–`09`.
+  Graded R1, so it cannot be dropped, but nothing in MS5 depends on `docs/adr/` existing. Do it when the
+  design work needs a decision log, or before the grading milestone — not now.
+- **Task 14, Tier 3 doc sync.** Cosmetic throughout. The one item that looked like a live control gap —
+  `ms3-branch-protection.md:8` omitting the `database` job from the required checks — **is not one.**
+  Verified 2026-08-19: rulesets and classic protection are Pro/Team-only for this private repo (the 403
+  is recorded in that doc), so there are no required checks on GitHub at all, `main` rests on the
+  client-side `.githooks/pre-push`, and the doc already states that CI cannot be a merge gate. The
+  sentence was simply stale — it said "three CI jobs" when the workflow has four. **Corrected in place**
+  as the only piece of task 14 pulled forward, since it is a false claim about a control and the next
+  session reads that file cold. Everything else in task 14 waits.
+  Also folded into task 14: the `0011` header §2 sentence from task 12's deferral list.
+
+Sequencing rationale, for the record: schema work went first because MS5 rewrites `resolve_place`;
+documentation went last because MS5 rewrites the documents. `08-place-identity.md`'s three known-wrong
+§6 statements and the §1.2 serialisation note are held for the same reason and are listed below.
 
 ### Tasks 4 + 5 outcome (2026-08-19, second session)
 
