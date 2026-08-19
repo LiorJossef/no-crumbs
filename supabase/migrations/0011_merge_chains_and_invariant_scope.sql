@@ -67,9 +67,16 @@
 -- that may predate both, and a recursive CTE over a cyclic graph does not terminate:
 --   * `seen` array: never re-visit an id already on this path;
 --   * depth < 32: bounded work even if a future writer finds a way around the array.
--- On a cyclic chain it returns the deepest row reached rather than looping forever — wrong, but
--- bounded and loud, because the caller's place will not be a live row and the alias invariant
--- trigger below will complain about it.
+-- On a cyclic chain it returns the deepest row reached rather than looping forever — wrong, and
+-- BOUNDED BUT SILENT. It is worth being exact about that, because an earlier version of this
+-- comment claimed the alias invariant trigger below would "complain" about the tombstone handed
+-- back: it will not. `assert_place_alias_retained` fires only on alias DELETE and UPDATE OF
+-- place_id, and resolution performs neither, so nothing raises on a read. What does stop a cyclic
+-- chain reaching a user's library is `merge_places` refusing an already-merged winner or loser
+-- (below), which makes a cycle uncreatable from here on, plus the `is not null` checks in the
+-- caller. A cycle that predates this migration would resolve to a tombstone and be saved as one,
+-- with no error: the two staging audit queries in the MS1–MS4 handoff exist to find out whether any
+-- such chain is actually there.
 --
 -- Returns null for an unknown id (the caller's `is not null` checks already treat that as a miss),
 -- and p_place_id itself for a live row.
@@ -302,8 +309,13 @@ begin
   -- — so the lock is never held across an external wait, only across two local statements.
   --
   -- Key: hashtext of the SAME (name_key, country_code) pair the guard decides on, so callers that
-  -- could possibly collide in the guard are exactly the callers that queue. hashtext returns
-  -- integer and widens to bigint implicitly. place_name_key is IMMUTABLE (0001), so calling it here
+  -- could possibly collide in the guard are exactly the callers that queue. No `::bigint` cast is
+  -- needed and none is wanted: hashtext returns integer, the ONE-argument pg_advisory_xact_lock has
+  -- exactly one overload (bigint) — the (int, int) form takes two — so there is nothing for the
+  -- integer to be ambiguous against and it widens by the implicit int4→int8 cast. Confirmed at
+  -- runtime by P22 in supabase/tests/0008_policy_tests.sql, which reads the held lock's key back out
+  -- of pg_locks: an unresolvable call would not have parsed and resolve_place would not exist.
+  -- place_name_key is IMMUTABLE (0001), so calling it here
   -- is free of side effects and returns byte-identical results to the generated places.name_key
   -- column the guard compares against — the lock key and the guard key cannot drift apart.
   -- coalesce(..., '') on both parts because pg_advisory_xact_lock is STRICT: a NULL argument would

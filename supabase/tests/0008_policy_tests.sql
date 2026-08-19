@@ -26,6 +26,9 @@
 --                           staleness gate, and serialisation. Every one of these paths was
 --                           uncovered before; merge_places had no test of any kind, which is why
 --                           MS4 shipped a resolver that could hand save_place a tombstone.
+--   P19c, P19d              migration 0013: the tombstone exemption reaching the OTHER alias
+--                           trigger (0005's INSERT-side places_alias_required), which 0011 missed.
+--                           Numbered topically, next to P19's exemption test, not chronologically.
 --
 -- WHAT THIS FILE DOES NOT PROVE. P23 records one invariant as DELIBERATELY UNPROVEN: two-session
 -- mutual exclusion in resolve_place step 2, which `08` §4 claims as prevented. A psql script is one
@@ -946,6 +949,71 @@ begin
   select count(*) into n from public.places where id = v_p;
   if n <> 0 then raise exception 'FAIL P19b: the place was not deleted'; end if;
   raise notice 'PASS P19b deleting a place cascades to its aliases without tripping the invariant';
+end $$;
+
+-- ── P19c: the INSERT-side invariant is still LOUD for a live aliasless place (0005 + 0013) ───
+-- The half of the invariant that must NOT be relaxed by 0013's tombstone branch. A place inserted
+-- directly, with no alias and no merge, is a live row with no provider identity: unresolvable,
+-- unrefreshable, and exactly what `places_alias_required` exists to reject. Asserted deliberately
+-- before P19d, because the way to make P19d pass by accident is to weaken this.
+-- The message match distinguishes the two triggers: 0005/0013 raise 'place % has no provider ref',
+-- 0011 raises 'live place % would be left with no provider ref'.
+do $$
+declare v_p uuid;
+begin
+  set constraints all deferred;
+  begin
+    insert into public.places (name, lat, lng, country_code)
+    values ('Aliasless Live Place', 57.0, 57.0, 'IL') returning id into v_p;
+    set constraints all immediate;              -- stands in for COMMIT
+    raise exception 'FAIL P19c: a live place with no provider ref was accepted at the checkpoint';
+  exception when check_violation then
+    if position('has no provider ref' in sqlerrm) = 0 then
+      raise exception 'FAIL P19c: something else raised: %', sqlerrm;
+    end if;
+    raise notice 'PASS P19c places_alias_required still rejects a LIVE place with no provider ref';
+  end;
+  set constraints all immediate;               -- the caught failure rolled the mode back with it
+end $$;
+
+-- ── P19d: create a place and merge it away in ONE transaction (0013) ────────────────────────
+-- The defect 0013 fixes. `places_alias_required` is DEFERRABLE INITIALLY DEFERRED, so the check
+-- queued by the loser's INSERT is evaluated at COMMIT — by which time merge_places has moved every
+-- one of its aliases to the winner and tombstoned it. Before 0013 the trigger had no tombstone
+-- branch and this whole transaction aborted at COMMIT with 'place % has no provider ref', losing the
+-- repair; `08` §1.4/§1.6 and 0011's own header say a tombstone with zero aliases is the intended end
+-- state. Note what is NOT split here: unlike P16 and P19, everything happens inside ONE deferred
+-- window on purpose — the single window IS the test.
+--
+-- Reverting 0013 (restoring 0005's body) makes this block fail at `set constraints all immediate`
+-- with errcode 23514; verified in both directions.
+do $$
+declare v_loser uuid; v_winner uuid; n_alias integer; n_live integer; v_survivor uuid;
+begin
+  set constraints all deferred;
+  v_winner := public.resolve_place('overture','one-txn-win','One Txn Winner', 58.0, 58.0,
+                                   null,null,null,null,null,'IL');
+  v_loser  := public.resolve_place('overture','one-txn-lose','One Txn Loser', 59.0, 59.0,
+                                   null,null,null,null,null,'IL');
+  perform public.merge_places(v_loser, v_winner);
+  set constraints all immediate;               -- stands in for COMMIT; must NOT raise
+
+  select count(*) into n_alias from public.place_provider_refs where place_id = v_loser;
+  if n_alias <> 0 then
+    raise exception 'FAIL P19d: the loser kept % alias(es); the merge did not move them', n_alias;
+  end if;
+  select count(*) into n_alias from public.place_provider_refs where place_id = v_winner;
+  if n_alias <> 2 then
+    raise exception 'FAIL P19d: the winner holds % alias(es), expected 2', n_alias;
+  end if;
+  select count(*) into n_live from public.places
+   where id = v_loser and merged_into_place_id = v_winner;
+  if n_live <> 1 then raise exception 'FAIL P19d: the loser is not a tombstone pointing at the winner'; end if;
+  v_survivor := public.place_survivor_id(v_loser);
+  if v_survivor <> v_winner then
+    raise exception 'FAIL P19d: the loser resolves to % rather than the winner %', v_survivor, v_winner;
+  end if;
+  raise notice 'PASS P19d a place created and merged away in the SAME transaction survives the deferred checkpoint (0013)';
 end $$;
 
 -- ── P20: step 1's staleness gate and the enrichment branch ──────────────────────────────────
