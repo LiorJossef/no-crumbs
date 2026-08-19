@@ -23,7 +23,12 @@
 --    of a live place left it with no provider identity at all — the invariant `08` §1.6 calls
 --    "total". Scope ruled by the project owner: **tombstones are exempt**, because `08` §1.4
 --    deliberately moves *all* of the loser's aliases to the winner, so a tombstone is expected to
---    have none. The invariant is therefore a statement about LIVE rows and is now enforced as one.
+--    have none. The invariant is therefore a statement about LIVE rows and is now enforced as one
+--    on the ALIAS side (`assert_place_alias_retained`, below). The INSERT-side twin from 0005,
+--    `assert_place_has_alias`, did not get the tombstone branch here and was left claiming more
+--    than it did until 0013 gave it the same three branches. Corrected in place, comment only:
+--    this file has never been applied anywhere, so `08` §9 has no applied artefact to protect --
+--    the ruling 0013's header already recorded for its two other in-place edits.
 --
 -- 3. `extractions_select_via_source_membership` (0004) gated on `imports` alone, while `08` §2.2
 --    rule 1 and `technical-design.md` §4.3 both say `imports` OR `saved_place_sources` — which is
