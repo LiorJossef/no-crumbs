@@ -9,6 +9,24 @@
 -- Run:  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/0008_policy_tests.sql
 -- It must be run by a role that can insert into auth.users (postgres locally / in CI).
 --
+-- ONE HARNESS PREREQUISITE ON A THROWAWAY CONTAINER, measured 2026-08-19 (MS5 task 5) and recorded
+-- here because it cost a session's debugging twice. In the bare
+-- public.ecr.aws/supabase/postgres:17.6.1.064 image, auth.uid() is
+--   select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
+-- i.e. the LEGACY singular GUC, while this file sets the modern `request.jwt.claims` JSON (as
+-- PostgREST does, and as the hosted projects' auth.uid() reads). The suite therefore aborts at the
+-- first save_place() call with `ERROR: not authenticated`, and every later assertion reports
+-- `current transaction is aborted` — which looks like a policy failure and is not one. Before
+-- running against such a container, as supabase_admin (postgres cannot write to auth):
+--   create or replace function auth.uid() returns uuid language sql stable as $fn$
+--     select coalesce(nullif(current_setting('request.jwt.claim.sub', true), '')::uuid,
+--                     (nullif(current_setting('request.jwt.claims', true), '')::jsonb->>'sub')::uuid)
+--   $fn$;
+-- With that in place the suite is 54 PASS + 1 UNPROVEN (P23). VERIFIED: the bare image ships the
+-- singular form and our migrations do not define auth.uid() at all, so this is a property of the
+-- image. ASSUMED, and deliberately not claimed as more: that the hosted projects and `supabase db
+-- reset` ship the claims-reading form. No credentialed run was made from this session.
+--
 -- It tests the POLICIES, not the client code: every read and write below happens under
 -- `set role authenticated` with request.jwt.claims set, exactly as PostgREST would run it.
 -- FORCE ROW LEVEL SECURITY is why this works — the owner is subject to its own policies too, and
