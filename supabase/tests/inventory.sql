@@ -8,7 +8,9 @@
 -- someone reaches for the dashboard.
 --
 -- Run:  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/inventory.sql
--- Design: docs/08-place-identity.md §3, §5.1; technical-design.md §4.3 and §14 R7/R8/R10/R11.
+-- Design: docs/08-place-identity.md §3, §5, §5.1; technical-design.md §4.3 and §14 R7/R8/R10/R11;
+-- docs/security.md §2.6 for the `places` column list (check 5) and the `service_role` matrix and role
+-- attributes (checks 9/9b/9c).
 
 -- ── identity: which database did this actually examine? ─────────────────────────────────────
 -- Not decoration. The output of this script is the evidence that a given environment is correctly
@@ -251,14 +253,15 @@ begin
     ('profiles','SELECT'), ('profiles','INSERT'),
     ('imports','SELECT'),
     ('extractions','SELECT'),
-    ('places','SELECT'),
     ('place_provider_refs','SELECT'),
     ('saved_places','SELECT'), ('saved_places','INSERT'), ('saved_places','DELETE'),
     ('saved_place_sources','SELECT'), ('saved_place_sources','INSERT'),
     ('saved_place_sources','DELETE')
     -- deliberately absent: every write on sources/extractions/places/place_provider_refs (global
     -- tables are server-written); INSERT and DELETE on imports (R10, start_import only); anything
-    -- at all on place_lookups (R11); table-level SELECT on sources (R8 — columns only, below)
+    -- at all on place_lookups (R11); table-level SELECT on sources (R8 — columns only, below) and,
+    -- since 0012, table-level SELECT on `places` either (provider_payload is the raw provider
+    -- response and must not reach a browser — security.md §2.6; columns only, check 5)
   )
   select string_agg(format('%s %s.%s', kind, t, p), ', ' order by t, p) into v from (
     select 'UNEXPECTED' kind, a.t, a.p from actual a
@@ -344,14 +347,16 @@ begin
   raise notice 'PASS 4c no relation privilege in public is granted to PUBLIC';
 end $$;
 
--- ── 5. the column-level grants: R7/R8/R10 and the overlay-only UPDATE ───────────────────────
+-- ── 5. the column-level grants: R7/R8/R10, the overlay-only UPDATE, and the places read list ──
 -- Also moved off information_schema, for the same two reasons as check 4 (matviews absent, enabled
 -- roles only) and one more: pg_attribute.attacl holds ONLY real column grants, whereas
 -- role_column_grants also expands table-level grants per column. Every row in the expected set
 -- below is a genuine column grant — `authenticated` holds no table-level UPDATE anywhere and no
--- table-level SELECT on `sources` — so the two sources agree on this schema, and the catalogue form
--- keeps agreeing if a view or matview ever appears. A table-level UPDATE appearing by accident is
--- caught by check 4, not here; both are needed.
+-- table-level SELECT on `sources` or `places` — so the two sources agree on this schema, and the
+-- catalogue form keeps agreeing if a view or matview ever appears. A table-level UPDATE appearing by
+-- accident is caught by check 4, not here; both are needed — and that division matters for `places`:
+-- a `grant select on public.places to authenticated` re-exposes provider_payload while leaving the
+-- column grants below intact, so this check would still pass. Check 4 is the one that catches it.
 do $$
 declare v text;
 begin
@@ -364,7 +369,7 @@ begin
      where n.nspname = 'public'
        and cl.relkind in ('r', 'p', 'v', 'm', 'f')
        and a.grantee = 'authenticated'::regrole
-       and (a.privilege_type = 'UPDATE' or cl.relname = 'sources')
+       and (a.privilege_type = 'UPDATE' or cl.relname in ('sources', 'places'))
   ), expected(t, c, p) as (values
     -- profiles: display name only
     ('profiles','display_name','UPDATE'),
@@ -379,7 +384,14 @@ begin
     ('sources','platform_source_id','SELECT'), ('sources','canonical_url','SELECT'),
     ('sources','author_handle','SELECT'), ('sources','author_name','SELECT'),
     ('sources','thumbnail_url','SELECT'), ('sources','fetch_status','SELECT'),
-    ('sources','fetch_error_code','SELECT'), ('sources','fetched_at','SELECT')
+    ('sources','fetch_error_code','SELECT'), ('sources','fetched_at','SELECT'),
+    -- places: our own normalised columns only (0012). provider_payload — the raw provider response —
+    -- is the one that matters: table-wide SELECT shipped it to every co-saver's browser. Also
+    -- withheld: name_key, provider_fetched_at, merged_into_place_id, created_at, updated_at.
+    ('places','id','SELECT'), ('places','name','SELECT'), ('places','category','SELECT'),
+    ('places','provider_category','SELECT'), ('places','address_line','SELECT'),
+    ('places','locality','SELECT'), ('places','region','SELECT'),
+    ('places','country_code','SELECT'), ('places','lat','SELECT'), ('places','lng','SELECT')
   )
   select string_agg(format('%s %s.%s(%s)', kind, t, c, p), ', ' order by t, c, p) into v from (
     select 'UNEXPECTED' kind, a.t, a.c, a.p from actual a
@@ -389,7 +401,7 @@ begin
       left join actual a on a.t = e.t and a.c = e.c and a.p = e.p where a.t is null
   ) d;
   if v is not null then raise exception 'FAIL 5: column grant drift for authenticated: %', v; end if;
-  raise notice 'PASS 5  column grants match: caption withheld, overlay-only UPDATE, no forged review payload';
+  raise notice 'PASS 5  column grants match: caption and provider_payload withheld, overlay-only UPDATE, no forged review payload';
 end $$;
 
 -- ── 6. function execute privileges — the load-bearing grant list (security.md §1) ───────────
@@ -496,6 +508,144 @@ begin
   else
     raise notice 'PASS 8  no extension beyond the Supabase baseline; D6 holds';
   end if;
+end $$;
+
+-- ── 9. the `service_role` relation matrix — the trusted server path, asserted not assumed ────────
+-- Until 0012 nothing in this repo granted `service_role` a single table privilege. Every server-side
+-- read and write in `08` §5 ran on Supabase's ALTER DEFAULT PRIVILEGES (`service_role=arwdDxtm` on new
+-- tables in `public`, owned by postgres and supabase_admin), which no migration states and no check
+-- looked at. That fails closed, so it was never an exposure — but it was unproven in both directions:
+-- if the defaults ever stop being seeded the server path breaks at runtime with CI green, and if
+-- someone hand-narrowed it in the dashboard nothing would say so.
+--
+-- 0012 grants the matrix explicitly, so this check can be exact in both directions on every
+-- environment. Two deliberate choices:
+--   * the expected privilege SET is not hard-coded, it is `acldefault('r', ...)` — the full set of
+--     privileges Postgres considers applicable to a table on THIS server version. PG17 added
+--     MAINTAIN, so a literal seven-verb list would have been wrong on 17 and a literal eight-verb
+--     list wrong on 15. The design statement is "ALL", and this is how you write ALL as a set.
+--   * `is_grantable` must be false everywhere. WITH GRANT OPTION would let the server role hand
+--     `authenticated` a privilege the design withholds — provider_payload on `places`, for instance —
+--     from inside application code, with no migration and nothing for check 4 to catch until after.
+-- Relations, not just tables: the expected set names the nine tables, so a view or matview granted to
+-- service_role shows up as UNEXPECTED. Any table a later migration adds must be named here, which is
+-- the same discipline check 4 already imposes.
+do $$
+declare v text;
+begin
+  with all_privs(p) as (
+    select a.privilege_type::text from aclexplode(acldefault('r', 'service_role'::regrole)) a
+  ), designed(t) as (values
+    -- the global cache and the provider cache: `08` §5's whole justification for elevation
+    ('sources'), ('extractions'), ('places'), ('place_provider_refs'), ('place_lookups'),
+    -- user-owned. Held by hosted default, kept by ruling (0012 header part 2, security.md §2.6):
+    -- service_role's boundary is key placement plus "a service-role query never filters by user_id",
+    -- not privilege — a role with rolbypassrls cannot be fenced off these tables by grants.
+    ('profiles'), ('imports'), ('saved_places'), ('saved_place_sources')
+  ), expected as (
+    select d.t, ap.p from designed d cross join all_privs ap
+  ), actual as (
+    select c.relname::text t, a.privilege_type::text p, a.is_grantable g
+      from pg_class c
+      join pg_namespace n on n.oid = c.relnamespace
+      cross join lateral aclexplode(c.relacl) a
+     where n.nspname = 'public'
+       and c.relkind in ('r', 'p', 'v', 'm', 'f')
+       and a.grantee = 'service_role'::regrole
+  )
+  select string_agg(format('%s %s.%s', kind, t, p), ', ' order by t, p) into v from (
+    select 'UNEXPECTED' kind, a.t, a.p from actual a
+      left join expected e on e.t = a.t and e.p = a.p where e.t is null
+    union all
+    select 'MISSING' kind, e.t, e.p from expected e
+      left join actual a on a.t = e.t and a.p = e.p where a.t is null
+    union all
+    select 'GRANTABLE' kind, a.t, a.p from actual a where a.g
+  ) d;
+  if v is not null then raise exception 'FAIL 9: service_role relation grant drift: %', v; end if;
+
+  -- No column-level grant. service_role's grants are table-level ALL; a column grant would mean
+  -- someone narrowed it by hand and this file no longer describes the database.
+  select string_agg(distinct format('%s.%s:%s', c.relname, att.attname, a.privilege_type), ', ')
+    into v
+    from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace
+    join pg_attribute att on att.attrelid = c.oid and att.attnum > 0 and not att.attisdropped
+    cross join lateral aclexplode(att.attacl) a
+   where n.nspname = 'public'
+     and c.relkind in ('r', 'p', 'v', 'm', 'f')
+     and a.grantee = 'service_role'::regrole;
+  if v is not null then
+    raise exception 'FAIL 9: service_role holds column-level grants (expected table-level ALL only): %', v;
+  end if;
+
+  raise notice 'PASS 9  service_role holds ALL on exactly the nine designed tables, without grant option, and no column-level grant';
+end $$;
+
+-- ── 9b. the role attributes the whole model rests on, none of which is a grant ────────────────
+-- Grants are only half of it. `service_role` reads the global tables through **rolbypassrls**, not
+-- through a policy — not one policy names it (check 2's expected set is `authenticated` throughout).
+-- If that attribute were ever missing, RLS would be enforced against service_role, no policy would
+-- match, and every trusted-server read would return zero rows: a silent, total server-path failure
+-- that the grant matrix above cannot see. The mirror image is the exposure: BYPASSRLS on `anon` or
+-- `authenticated` would defeat every policy in this schema at once, and the login-capability check is
+-- what keeps the browser roles reachable only by PostgREST assuming them, never by direct connection.
+-- Not settable from a migration (it needs superuser), which is exactly why it is asserted rather than
+-- granted: this check is the only thing in the repo that would notice.
+do $$
+declare v text;
+begin
+  select string_agg(format('%s (bypassrls=%s login=%s super=%s)',
+                           rolname, rolbypassrls, rolcanlogin, rolsuper), ', ' order by rolname)
+    into v
+    from pg_roles
+   where (rolname = 'service_role'  and not rolbypassrls)
+      or (rolname in ('anon', 'authenticated') and (rolbypassrls or rolcanlogin or rolsuper));
+  if v is not null then
+    raise exception 'FAIL 9b: role attributes wrong — service_role must have BYPASSRLS; anon and authenticated must have none of BYPASSRLS/LOGIN/SUPERUSER: %', v;
+  end if;
+  raise notice 'PASS 9b service_role bypasses RLS; anon and authenticated cannot bypass it, cannot log in and are not superusers';
+end $$;
+
+-- ── 9c. the trusted server can still call the functions it needs ─────────────────────────────
+-- Check 6 is exhaustive about what a BROWSER role may execute, which is the direction that leaks.
+-- This is the other direction, and it is the one that breaks the product silently: 0007/0009/0011
+-- revoke EXECUTE from PUBLIC on every one of these, so if a future migration recreates one of them
+-- and forgets the service_role grant, the whole import pipeline stops with a privilege error at
+-- runtime and nothing in CI says a word.
+--
+-- Deliberately one-directional. An exhaustive expected set for service_role would fail here on every
+-- Supabase project, because the same default privileges give it EXECUTE on every new function in
+-- `public` (including the trigger functions granted "to nobody" in 0009's comment). Asserting that
+-- excess absent would require revoking it, and EXECUTE on `touch_updated_at` held by the role that
+-- already bypasses RLS is not a privilege boundary. The boundary that matters — those functions being
+-- unreachable by `anon` and `authenticated` — is check 6, and it is exhaustive.
+do $$
+declare v text;
+begin
+  -- Matched by name, like check 6, rather than by a written-out signature: `resolve_place` takes
+  -- twelve arguments and 0011 recreates it, so a literal signature here would be a maintenance trap
+  -- that fails for the wrong reason. A name that resolves to no function fails as MISSING, which is
+  -- the other regression worth catching.
+  with expected(n) as (values
+    ('resolve_place'), ('merge_places'), ('start_import'),
+    ('place_survivor_id'), ('place_name_key'), ('km_between')
+  ), actual as (
+    select p.proname::text n, p.oid
+      from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
+     where ns.nspname = 'public'
+  )
+  select string_agg(msg, ', ' order by msg) into v from (
+    select format('MISSING %s', e.n) msg from expected e
+      left join actual a on a.n = e.n where a.n is null
+    union all
+    select format('NO EXECUTE %s', a.n) from expected e join actual a on a.n = e.n
+     where not has_function_privilege('service_role', a.oid, 'EXECUTE')
+  ) d;
+  if v is not null then
+    raise exception 'FAIL 9c: service_role cannot execute the trusted-server function(s): %', v;
+  end if;
+  raise notice 'PASS 9c service_role can execute all six server-side functions the pipeline and the repair path need';
 end $$;
 
 rollback;
