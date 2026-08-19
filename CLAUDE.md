@@ -3,9 +3,11 @@
 Under construction against an ordered plan. Repo, toolchain and deploy (MS2), the technical design
 (MS3) and the database (MS4, nine migrations applied and verified on both hosted projects) are
 done. **MS5 — the POI index and resolver — is in progress:** its task ledger in
-`docs/implementation-plan.md` is the running state, and tasks 1–3 (the `0010`/`0014` migration chain,
-the resolver vocabulary in `src/domain/`, the ported scorer) are closed. Task 4, the 44-case golden
-file, is next.
+`docs/implementation-plan.md` is the running state, and tasks 1–4 (the `0010`/`0014` migration chain,
+the resolver vocabulary in `src/domain/`, the ported scorer, the 44-case golden file) are closed.
+Task 5, the Tel Aviv ingest against a pinned Overture release, is next — and it carries task 4's
+rider to record the per-row Overture `confidence`, without which the `score` column of MS5 exit
+criterion 3 cannot be proved.
 `docs/implementation-plan.md` is the plan of record and its change log is the current state.
 
 **Read before doing anything in this repo:**
