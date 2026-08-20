@@ -1,0 +1,1772 @@
+{
+ "measured_on": "2026-08-19",
+ "overture_release": "2026-07-22.0",
+ "region_id": "tlv",
+ "bbox": {
+  "displayName": "Tel Aviv",
+  "minLat": 32.03,
+  "maxLat": 32.12,
+  "minLng": 34.74,
+  "maxLng": 34.86
+ },
+ "source": "s3://overturemaps-us-west-2/release/2026-07-22.0/theme=places/type=place/*.parquet",
+ "duckdb_version": "1.5.5",
+ "extract_seconds": 10.9,
+ "extract_rows": 35430,
+ "confidence_distribution": {
+  "min": 0.030790256336331367,
+  "max": 1.0,
+  "mean": 0.612815,
+  "median": 0.630734920501709,
+  "nulls": 0
+ },
+ "benchmark_rows_total": 220,
+ "benchmark_rows_in_region": 71,
+ "benchmark_rows_not_in_region": 149,
+ "score_replay": {
+  "tolerance_on_confidence": 0.01,
+  "within_tolerance": 71,
+  "outside_tolerance": 0,
+  "recomputed_score_equals_recorded_at_3dp": 55
+ },
+ "confidence_by_overture_id": {
+  "06c273d4-ef0b-4547-8e27-45a6022c3c52": 0.9609180688858032,
+  "084909fd-cac2-408f-972a-2902c71cb140": 0.991163998246193,
+  "09024871-0ca4-428f-a0c2-242682f0e01e": 0.8869472742080688,
+  "0a63246d-81ff-4947-a138-2359748b7570": 0.6810603141784668,
+  "134300bb-da16-40a9-b403-e9c104db6d36": 0.9740686416625977,
+  "17a61e46-888e-46c2-acdc-fc59f43eb2bd": 0.9774284958839417,
+  "194ce902-8f07-45a3-9a42-27d39924a324": 0.8201345801353455,
+  "1ce25b55-22f6-40d6-a191-e9f3fb98f2ee": 0.9090428948402405,
+  "1dce2b15-abe9-4dc6-a379-f07944535509": 0.976251482963562,
+  "25f1a26f-da64-4b8b-a988-e74227698573": 0.3086572289466858,
+  "27c95c62-3ac9-4e39-a78d-e584f6ffbb90": 0.9618895715475082,
+  "2dbd9782-a31f-400c-bfde-adb9142d8d9c": 0.9865440726280212,
+  "2e821e02-b528-4e00-8a53-30564de3a2a8": 0.9037460684776306,
+  "328fceb0-4dfc-4804-8bb1-3f6957dcbd67": 0.7279245257377625,
+  "3988eedf-dcc4-49c2-99b0-db0ec8b4402b": 0.9757668375968933,
+  "3ef19a94-1463-4755-9056-9ba79b40a09a": 0.8600382208824158,
+  "46286891-bd2a-42d5-b85e-0aa21b3a8622": 0.9685161709785461,
+  "48949dfd-d37c-4c7e-ad26-e2ec4856978d": 0.9797711968421936,
+  "53308ab4-c786-477f-8bf2-ae7876ee046b": 0.9028149247169495,
+  "5ab4d120-8550-421a-a5e6-4435d8555e02": 0.5912715792655945,
+  "682619b0-1c19-44e8-b3fc-baf24daba78c": 0.889679491519928,
+  "6c61256a-a1f0-4841-afb1-c92cc0d9ee2c": 0.9657098090648651,
+  "6c816e2d-e647-456e-9762-0127c6db5242": 0.9885341465473175,
+  "6c983829-e53f-4aaf-855a-3a3d0e139d6a": 0.9736791253089905,
+  "6e18097c-9544-4b58-80d3-21617855e021": 0.6737784743309021,
+  "7004266e-de94-451a-a0a5-6e9d681f7ebb": 0.9728965759277344,
+  "73e5ecc5-0b4b-4f4d-90cd-a810a1e3dc1f": 0.6724607944488525,
+  "777d56dd-30ad-4a2a-af11-e86bbdfb281b": 0.9915001392364502,
+  "781c4227-3e81-4430-9a6f-e39592833637": 0.3905351758003235,
+  "8225780c-ccf3-4446-8a8f-a746574b3fe6": 0.9967492920160294,
+  "864bcb8b-8f7e-4248-aa73-e9da6adfe607": 0.950111985206604,
+  "8cb9c17c-e4b0-4577-b1a2-f668253a765b": 0.9646225839853286,
+  "8d9d1ee7-8b0e-430f-a9f1-afa94bd1180a": 0.9958769977092743,
+  "90d9d4b2-83e3-4177-868e-d38045cd7faf": 0.9856390357017517,
+  "92cd13de-bfb8-4c2d-a3f3-39ac964aef68": 0.6130224466323853,
+  "9355ec04-0539-4202-beee-b305e85e6539": 0.7903106808662415,
+  "93560de3-5dec-4671-8b76-8989106c396f": 0.8038274049758911,
+  "9759459d-64a1-432b-ae8e-0d486dd33c5f": 0.9513079524040222,
+  "97c2fa74-112e-408e-afbb-2d467a2a3cb9": 0.9857907295227051,
+  "99565e0f-51e2-4509-a3af-1f0e47b00bfc": 0.77,
+  "9d77515b-bc52-45e3-b545-a38b9b7afdff": 0.6880130171775818,
+  "a166845a-95c2-4160-9a17-509c06e89627": 0.77,
+  "a2659d56-c47b-435b-a17e-8b6a676da685": 0.9086712598800659,
+  "a335a303-edff-4e38-831e-e9f6d9576438": 0.9943538790941239,
+  "a865038c-dd63-424b-b891-8fbfcdc68b5c": 0.85,
+  "ada10a5e-3703-47f2-a171-0ef39a89853b": 0.9978148430585861,
+  "ade19d0d-08f7-4eb1-a8cd-5511cf526b80": 0.9751446843147278,
+  "baa32ae4-c790-4211-877f-f4258e30c14e": 0.77,
+  "d0cf9255-07f5-4fa9-bac1-2382006642e4": 0.8132150173187256,
+  "d6c70c24-48a0-4dbd-a0e1-53e8453075c3": 0.3244311213493347,
+  "e03017f6-ae0c-4553-89e3-6e561015c8d4": 0.7040898203849792,
+  "e0a55f04-d89c-4d8f-9e05-511c1efd52ef": 0.7843765616416931,
+  "e1b35427-6c82-4963-a020-4453549b6ca7": 0.773912250995636,
+  "e55f3104-1ce3-4b91-a20f-ad601a9c1794": 0.6527593731880188,
+  "eb04345c-2e42-4951-ae6b-99e6e987eeeb": 0.9845960736274719,
+  "eb2a008f-2eae-439a-bbf7-73ffb253e799": 0.8164588809013367,
+  "edfb2ba6-03e4-4717-a703-02e36cfaba3d": 0.77,
+  "f0b7d7cd-8d11-417d-a9e6-165879900369": 0.9857573509216309,
+  "f231db0a-48ee-48f8-b841-05f52322ee71": 0.6624066829681396,
+  "f3056e73-b0c7-46b2-992e-b2dfdce72e60": 0.8146034479141235,
+  "f5e738c7-876e-4392-b0d8-482021ab0d60": 0.7095413208007812,
+  "f7907f2d-f677-4b38-a0ed-322a29687090": 0.9814339047670364,
+  "fab7581d-202d-4078-8739-f31ea363256c": 0.6606606245040894,
+  "fc3c1c68-77ef-41f9-97a5-aff5689ceb1b": 0.77,
+  "fdf74fd4-2636-4723-ad34-00d1ddc40706": 0.9934246784448624,
+  "ff3cafc2-3ea2-4549-b459-2c2f91ce8217": 0.774763286113739
+ },
+ "checks": [
+  {
+   "case": "TLV-01",
+   "rank": 1,
+   "overture_id": "fdf74fd4-2636-4723-ad34-00d1ddc40706",
+   "name": "Port Said",
+   "recorded_score": 0.999,
+   "recorded_name_score": 1.0,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.9934246784448624,
+   "implied_confidence": 0.99,
+   "abs_residual_confidence": 0.003425,
+   "recomputed_score": 0.999
+  },
+  {
+   "case": "TLV-01",
+   "rank": 2,
+   "overture_id": "2e821e02-b528-4e00-8a53-30564de3a2a8",
+   "name": "Potion Bar",
+   "recorded_score": 0.78,
+   "recorded_name_score": 0.707,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.9037460684776306,
+   "implied_confidence": 0.9096,
+   "abs_residual_confidence": 0.005854,
+   "recomputed_score": 0.779
+  },
+  {
+   "case": "TLV-01",
+   "rank": 3,
+   "overture_id": "93560de3-5dec-4671-8b76-8989106c396f",
+   "name": "Port tlv",
+   "recorded_score": 0.729,
+   "recorded_name_score": 0.651,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.8038274049758911,
+   "implied_confidence": 0.8028,
+   "abs_residual_confidence": 0.001027,
+   "recomputed_score": 0.729
+  },
+  {
+   "case": "TLV-01",
+   "rank": 4,
+   "overture_id": "781c4227-3e81-4430-9a6f-e39592833637",
+   "name": "Mash Sports Bar",
+   "recorded_score": 0.712,
+   "recorded_name_score": 0.684,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.3905351758003235,
+   "implied_confidence": 0.3952,
+   "abs_residual_confidence": 0.004665,
+   "recomputed_score": 0.712
+  },
+  {
+   "case": "TLV-01",
+   "rank": 5,
+   "overture_id": "134300bb-da16-40a9-b403-e9c104db6d36",
+   "name": "Port Tel Aviv Residence",
+   "recorded_score": 0.707,
+   "recorded_name_score": 0.847,
+   "recorded_cat_match": 0.0,
+   "measured_confidence": 0.9740686416625977,
+   "implied_confidence": 0.9716,
+   "abs_residual_confidence": 0.002469,
+   "recomputed_score": 0.707
+  },
+  {
+   "case": "TLV-02",
+   "rank": 1,
+   "overture_id": "6c61256a-a1f0-4841-afb1-c92cc0d9ee2c",
+   "name": "Cafe Zelik",
+   "recorded_score": 0.694,
+   "recorded_name_score": 0.58,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.9657098090648651,
+   "implied_confidence": 0.964,
+   "abs_residual_confidence": 0.00171,
+   "recomputed_score": 0.694
+  },
+  {
+   "case": "TLV-02",
+   "rank": 2,
+   "overture_id": "f0b7d7cd-8d11-417d-a9e6-165879900369",
+   "name": "Cafe Begin's",
+   "recorded_score": 0.691,
+   "recorded_name_score": 0.573,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.9857573509216309,
+   "implied_confidence": 0.9844,
+   "abs_residual_confidence": 0.001357,
+   "recomputed_score": 0.691
+  },
+  {
+   "case": "TLV-02",
+   "rank": 3,
+   "overture_id": "a335a303-edff-4e38-831e-e9f6d9576438",
+   "name": "Cafetish",
+   "recorded_score": 0.662,
+   "recorded_name_score": 0.532,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.9943538790941239,
+   "implied_confidence": 0.9896,
+   "abs_residual_confidence": 0.004754,
+   "recomputed_score": 0.662
+  },
+  {
+   "case": "TLV-02",
+   "rank": 4,
+   "overture_id": "1dce2b15-abe9-4dc6-a379-f07944535509",
+   "name": "Cafe Jolie",
+   "recorded_score": 0.657,
+   "recorded_name_score": 0.526,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.976251482963562,
+   "implied_confidence": 0.9828,
+   "abs_residual_confidence": 0.006549,
+   "recomputed_score": 0.656
+  },
+  {
+   "case": "TLV-02",
+   "rank": 5,
+   "overture_id": "f7907f2d-f677-4b38-a0ed-322a29687090",
+   "name": "Cafelix",
+   "recorded_score": 0.654,
+   "recorded_name_score": 0.522,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.9814339047670364,
+   "implied_confidence": 0.9816,
+   "abs_residual_confidence": 0.000166,
+   "recomputed_score": 0.654
+  },
+  {
+   "case": "TLV-03",
+   "rank": 1,
+   "overture_id": "8d9d1ee7-8b0e-430f-a9f1-afa94bd1180a",
+   "name": "Bellboy",
+   "recorded_score": 1.0,
+   "recorded_name_score": 1.0,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.9958769977092743,
+   "implied_confidence": 1.0,
+   "abs_residual_confidence": 0.004123,
+   "recomputed_score": 1.0
+  },
+  {
+   "case": "TLV-03",
+   "rank": 2,
+   "overture_id": "e0a55f04-d89c-4d8f-9e05-511c1efd52ef",
+   "name": "Bello",
+   "recorded_score": 0.757,
+   "recorded_name_score": 0.943,
+   "recorded_cat_match": 0.0,
+   "measured_confidence": 0.7843765616416931,
+   "implied_confidence": 0.7804,
+   "abs_residual_confidence": 0.003977,
+   "recomputed_score": 0.757
+  },
+  {
+   "case": "TLV-03",
+   "rank": 3,
+   "overture_id": "73e5ecc5-0b4b-4f4d-90cd-a810a1e3dc1f",
+   "name": "Bell-yoga",
+   "recorded_score": 0.683,
+   "recorded_name_score": 0.855,
+   "recorded_cat_match": 0.0,
+   "measured_confidence": 0.6724607944488525,
+   "implied_confidence": 0.674,
+   "abs_residual_confidence": 0.001539,
+   "recomputed_score": 0.683
+  },
+  {
+   "case": "TLV-03",
+   "rank": 4,
+   "overture_id": "90d9d4b2-83e3-4177-868e-d38045cd7faf",
+   "name": "Bell Boutique Hotel",
+   "recorded_score": 0.673,
+   "recorded_name_score": 0.798,
+   "recorded_cat_match": 0.0,
+   "measured_confidence": 0.9856390357017517,
+   "implied_confidence": 0.9844,
+   "abs_residual_confidence": 0.001239,
+   "recomputed_score": 0.673
+  },
+  {
+   "case": "TLV-03",
+   "rank": 5,
+   "overture_id": "328fceb0-4dfc-4804-8bb1-3f6957dcbd67",
+   "name": "Ballenby",
+   "recorded_score": 0.672,
+   "recorded_name_score": 0.832,
+   "recorded_cat_match": 0.0,
+   "measured_confidence": 0.7279245257377625,
+   "implied_confidence": 0.7296,
+   "abs_residual_confidence": 0.001675,
+   "recomputed_score": 0.672
+  },
+  {
+   "case": "TLV-04",
+   "rank": 1,
+   "overture_id": "edfb2ba6-03e4-4717-a703-02e36cfaba3d",
+   "name": "Imperial Craft Cocktail Bar",
+   "recorded_score": 0.977,
+   "recorded_name_score": 1.0,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.77,
+   "implied_confidence": 0.77,
+   "abs_residual_confidence": 0.0,
+   "recomputed_score": 0.977
+  },
+  {
+   "case": "TLV-04",
+   "rank": 2,
+   "overture_id": "6c983829-e53f-4aaf-855a-3a3d0e139d6a",
+   "name": "Signature The Cocktail Bar",
+   "recorded_score": 0.763,
+   "recorded_name_score": 0.675,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.9736791253089905,
+   "implied_confidence": 0.97,
+   "abs_residual_confidence": 0.003679,
+   "recomputed_score": 0.763
+  },
+  {
+   "case": "TLV-04",
+   "rank": 3,
+   "overture_id": "fab7581d-202d-4078-8739-f31ea363256c",
+   "name": "Halo & Pine Cocktail Bar",
+   "recorded_score": 0.761,
+   "recorded_name_score": 0.715,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.6606606245040894,
+   "implied_confidence": 0.662,
+   "abs_residual_confidence": 0.001339,
+   "recomputed_score": 0.761
+  },
+  {
+   "case": "TLV-04",
+   "rank": 4,
+   "overture_id": "9d77515b-bc52-45e3-b545-a38b9b7afdff",
+   "name": "Vespa cocktails bar",
+   "recorded_score": 0.743,
+   "recorded_name_score": 0.686,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.6880130171775818,
+   "implied_confidence": 0.6908,
+   "abs_residual_confidence": 0.002787,
+   "recomputed_score": 0.743
+  },
+  {
+   "case": "TLV-04",
+   "rank": 5,
+   "overture_id": "d6c70c24-48a0-4dbd-a0e1-53e8453075c3",
+   "name": "Lucie Cocktail Bar",
+   "recorded_score": 0.723,
+   "recorded_name_score": 0.709,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.3244311213493347,
+   "implied_confidence": 0.3252,
+   "abs_residual_confidence": 0.000769,
+   "recomputed_score": 0.723
+  },
+  {
+   "case": "TLV-05",
+   "rank": 1,
+   "overture_id": "8cb9c17c-e4b0-4577-b1a2-f668253a765b",
+   "name": "Miznon",
+   "recorded_score": 0.996,
+   "recorded_name_score": 1.0,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.9646225839853286,
+   "implied_confidence": 0.96,
+   "abs_residual_confidence": 0.004623,
+   "recomputed_score": 0.996
+  },
+  {
+   "case": "TLV-05",
+   "rank": 2,
+   "overture_id": "6e18097c-9544-4b58-80d3-21617855e021",
+   "name": "Minimongous",
+   "recorded_score": 0.831,
+   "recorded_name_score": 0.81,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.6737784743309021,
+   "implied_confidence": 0.678,
+   "abs_residual_confidence": 0.004222,
+   "recomputed_score": 0.831
+  },
+  {
+   "case": "TLV-05",
+   "rank": 3,
+   "overture_id": "a865038c-dd63-424b-b891-8fbfcdc68b5c",
+   "name": "Mi Cocina",
+   "recorded_score": 0.809,
+   "recorded_name_score": 0.756,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.85,
+   "implied_confidence": 0.8468,
+   "abs_residual_confidence": 0.0032,
+   "recomputed_score": 0.809
+  },
+  {
+   "case": "TLV-05",
+   "rank": 4,
+   "overture_id": "0a63246d-81ff-4947-a138-2359748b7570",
+   "name": "Mitbachon",
+   "recorded_score": 0.797,
+   "recorded_name_score": 0.763,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.6810603141784668,
+   "implied_confidence": 0.6764,
+   "abs_residual_confidence": 0.00466,
+   "recomputed_score": 0.797
+  },
+  {
+   "case": "TLV-05",
+   "rank": 5,
+   "overture_id": "e03017f6-ae0c-4553-89e3-6e561015c8d4",
+   "name": "Mizo",
+   "recorded_score": 0.734,
+   "recorded_name_score": 0.922,
+   "recorded_cat_match": 0.0,
+   "measured_confidence": 0.7040898203849792,
+   "implied_confidence": 0.7016,
+   "abs_residual_confidence": 0.00249,
+   "recomputed_score": 0.734
+  },
+  {
+   "case": "TLV-06",
+   "rank": 1,
+   "overture_id": "a2659d56-c47b-435b-a17e-8b6a676da685",
+   "name": "HaKosem",
+   "recorded_score": 0.991,
+   "recorded_name_score": 1.0,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.9086712598800659,
+   "implied_confidence": 0.91,
+   "abs_residual_confidence": 0.001329,
+   "recomputed_score": 0.991
+  },
+  {
+   "case": "TLV-06",
+   "rank": 2,
+   "overture_id": "eb2a008f-2eae-439a-bbf7-73ffb253e799",
+   "name": "HaKovshim Garden",
+   "recorded_score": 0.685,
+   "recorded_name_score": 0.839,
+   "recorded_cat_match": 0.0,
+   "measured_confidence": 0.8164588809013367,
+   "implied_confidence": 0.8092,
+   "abs_residual_confidence": 0.007259,
+   "recomputed_score": 0.686
+  },
+  {
+   "case": "TLV-06",
+   "rank": 3,
+   "overture_id": "f5e738c7-876e-4392-b0d8-482021ab0d60",
+   "name": "Kesem",
+   "recorded_score": 0.64,
+   "recorded_name_score": 0.79,
+   "recorded_cat_match": 0.0,
+   "measured_confidence": 0.7095413208007812,
+   "implied_confidence": 0.712,
+   "abs_residual_confidence": 0.002459,
+   "recomputed_score": 0.64
+  },
+  {
+   "case": "TLV-06",
+   "rank": 4,
+   "overture_id": "f231db0a-48ee-48f8-b841-05f52322ee71",
+   "name": "Makom",
+   "recorded_score": 0.635,
+   "recorded_name_score": 0.79,
+   "recorded_cat_match": 0.0,
+   "measured_confidence": 0.6624066829681396,
+   "implied_confidence": 0.662,
+   "abs_residual_confidence": 0.000407,
+   "recomputed_score": 0.635
+  },
+  {
+   "case": "TLV-06",
+   "rank": 5,
+   "overture_id": "92cd13de-bfb8-4c2d-a3f3-39ac964aef68",
+   "name": "Hamakhbessa",
+   "recorded_score": 0.635,
+   "recorded_name_score": 0.796,
+   "recorded_cat_match": 0.0,
+   "measured_confidence": 0.6130224466323853,
+   "implied_confidence": 0.6188,
+   "abs_residual_confidence": 0.005778,
+   "recomputed_score": 0.634
+  },
+  {
+   "case": "TLV-07",
+   "rank": 1,
+   "overture_id": "97c2fa74-112e-408e-afbb-2d467a2a3cb9",
+   "name": "המוסד",
+   "recorded_score": 0.931,
+   "recorded_name_score": 0.907,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.9857907295227051,
+   "implied_confidence": 0.9796,
+   "abs_residual_confidence": 0.006191,
+   "recomputed_score": 0.932
+  },
+  {
+   "case": "TLV-07",
+   "rank": 2,
+   "overture_id": "6c816e2d-e647-456e-9762-0127c6db5242",
+   "name": "הסלון",
+   "recorded_score": 0.911,
+   "recorded_name_score": 0.878,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.9885341465473175,
+   "implied_confidence": 0.9884,
+   "abs_residual_confidence": 0.000134,
+   "recomputed_score": 0.911
+  },
+  {
+   "case": "TLV-07",
+   "rank": 3,
+   "overture_id": "8225780c-ccf3-4446-8a8f-a746574b3fe6",
+   "name": "האחים",
+   "recorded_score": 0.899,
+   "recorded_name_score": 0.86,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.9967492920160294,
+   "implied_confidence": 0.998,
+   "abs_residual_confidence": 0.001251,
+   "recomputed_score": 0.899
+  },
+  {
+   "case": "TLV-07",
+   "rank": 4,
+   "overture_id": "3988eedf-dcc4-49c2-99b0-db0ec8b4402b",
+   "name": "הלובי",
+   "recorded_score": 0.897,
+   "recorded_name_score": 0.86,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.9757668375968933,
+   "implied_confidence": 0.978,
+   "abs_residual_confidence": 0.002233,
+   "recomputed_score": 0.897
+  },
+  {
+   "case": "TLV-07",
+   "rank": 5,
+   "overture_id": "3ef19a94-1463-4755-9056-9ba79b40a09a",
+   "name": "הקוסם שרונה מרקט",
+   "recorded_score": 0.885,
+   "recorded_name_score": 0.86,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.8600382208824158,
+   "implied_confidence": 0.858,
+   "abs_residual_confidence": 0.002038,
+   "recomputed_score": 0.885
+  },
+  {
+   "case": "TLV-08",
+   "rank": 1,
+   "overture_id": "48949dfd-d37c-4c7e-ad26-e2ec4856978d",
+   "name": "אורליס רוטיסרי",
+   "recorded_score": 0.877,
+   "recorded_name_score": 0.831,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.9797711968421936,
+   "implied_confidence": 0.9868,
+   "abs_residual_confidence": 0.007029,
+   "recomputed_score": 0.876
+  },
+  {
+   "case": "TLV-08",
+   "rank": 2,
+   "overture_id": "d0cf9255-07f5-4fa9-bac1-2382006642e4",
+   "name": "אולמי קונקורד",
+   "recorded_score": 0.876,
+   "recorded_name_score": 0.853,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.8132150173187256,
+   "implied_confidence": 0.8184,
+   "abs_residual_confidence": 0.005185,
+   "recomputed_score": 0.875
+  },
+  {
+   "case": "TLV-08",
+   "rank": 3,
+   "overture_id": "9759459d-64a1-432b-ae8e-0d486dd33c5f",
+   "name": "אניטה גלידה",
+   "recorded_score": 0.875,
+   "recorded_name_score": 0.833,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.9513079524040222,
+   "implied_confidence": 0.9524,
+   "abs_residual_confidence": 0.001092,
+   "recomputed_score": 0.875
+  },
+  {
+   "case": "TLV-08",
+   "rank": 4,
+   "overture_id": "194ce902-8f07-45a3-9a42-27d39924a324",
+   "name": "מסעדת אווה",
+   "recorded_score": 0.873,
+   "recorded_name_score": 0.849,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.8201345801353455,
+   "implied_confidence": 0.8172,
+   "abs_residual_confidence": 0.002935,
+   "recomputed_score": 0.873
+  },
+  {
+   "case": "TLV-08",
+   "rank": 5,
+   "overture_id": "f3056e73-b0c7-46b2-992e-b2dfdce72e60",
+   "name": "אוליבר פיצה",
+   "recorded_score": 0.869,
+   "recorded_name_score": 0.844,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.8146034479141235,
+   "implied_confidence": 0.8132,
+   "abs_residual_confidence": 0.001403,
+   "recomputed_score": 0.869
+  },
+  {
+   "case": "TLV-09",
+   "rank": 1,
+   "overture_id": "084909fd-cac2-408f-972a-2902c71cb140",
+   "name": "CafeXoho",
+   "recorded_score": 0.98,
+   "recorded_name_score": 0.974,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.991163998246193,
+   "implied_confidence": 0.9872,
+   "abs_residual_confidence": 0.003964,
+   "recomputed_score": 0.98
+  },
+  {
+   "case": "TLV-09",
+   "rank": 2,
+   "overture_id": "e1b35427-6c82-4963-a020-4453549b6ca7",
+   "name": "Cafe 'O' Joe",
+   "recorded_score": 0.845,
+   "recorded_name_score": 0.816,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.773912250995636,
+   "implied_confidence": 0.7748,
+   "abs_residual_confidence": 0.000888,
+   "recomputed_score": 0.845
+  },
+  {
+   "case": "TLV-09",
+   "rank": 3,
+   "overture_id": "e55f3104-1ce3-4b91-a20f-ad601a9c1794",
+   "name": "Cafe Sool",
+   "recorded_score": 0.804,
+   "recorded_name_score": 0.777,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.6527593731880188,
+   "implied_confidence": 0.6456,
+   "abs_residual_confidence": 0.007159,
+   "recomputed_score": 0.805
+  },
+  {
+   "case": "TLV-09",
+   "rank": 4,
+   "overture_id": "ff3cafc2-3ea2-4549-b459-2c2f91ce8217",
+   "name": "Cafe Zohar",
+   "recorded_score": 0.798,
+   "recorded_name_score": 0.751,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.774763286113739,
+   "implied_confidence": 0.7728,
+   "abs_residual_confidence": 0.001963,
+   "recomputed_score": 0.798
+  },
+  {
+   "case": "TLV-09",
+   "rank": 5,
+   "overture_id": "777d56dd-30ad-4a2a-af11-e86bbdfb281b",
+   "name": "Cafe Shneor",
+   "recorded_score": 0.798,
+   "recorded_name_score": 0.721,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.9915001392364502,
+   "implied_confidence": 0.9888,
+   "abs_residual_confidence": 0.0027,
+   "recomputed_score": 0.798
+  },
+  {
+   "case": "TLV-10",
+   "rank": 1,
+   "overture_id": "2dbd9782-a31f-400c-bfde-adb9142d8d9c",
+   "name": "Zucca Cafe & Gelato",
+   "recorded_score": 0.795,
+   "recorded_name_score": 0.716,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.9865440726280212,
+   "implied_confidence": 0.9948,
+   "abs_residual_confidence": 0.008256,
+   "recomputed_score": 0.794
+  },
+  {
+   "case": "TLV-10",
+   "rank": 2,
+   "overture_id": "682619b0-1c19-44e8-b3fc-baf24daba78c",
+   "name": "Torta Della Nonna",
+   "recorded_score": 0.732,
+   "recorded_name_score": 0.643,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.889679491519928,
+   "implied_confidence": 0.8904,
+   "abs_residual_confidence": 0.000721,
+   "recomputed_score": 0.732
+  },
+  {
+   "case": "TLV-10",
+   "rank": 3,
+   "overture_id": "5ab4d120-8550-421a-a5e6-4435d8555e02",
+   "name": "PLAZO Cafe&Gelato ",
+   "recorded_score": 0.731,
+   "recorded_name_score": 0.683,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.5912715792655945,
+   "implied_confidence": 0.5924,
+   "abs_residual_confidence": 0.001128,
+   "recomputed_score": 0.731
+  },
+  {
+   "case": "TLV-10",
+   "rank": 4,
+   "overture_id": "27c95c62-3ac9-4e39-a78d-e584f6ffbb90",
+   "name": "Stefan Austrian bakery&Artisanal Gelato",
+   "recorded_score": 0.689,
+   "recorded_name_score": 0.573,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.9618895715475082,
+   "implied_confidence": 0.9644,
+   "abs_residual_confidence": 0.00251,
+   "recomputed_score": 0.689
+  },
+  {
+   "case": "TLV-10",
+   "rank": 5,
+   "overture_id": "99565e0f-51e2-4509-a3af-1f0e47b00bfc",
+   "name": "Anita Sarona",
+   "recorded_score": 0.666,
+   "recorded_name_score": 0.818,
+   "recorded_cat_match": 0.0,
+   "measured_confidence": 0.77,
+   "implied_confidence": 0.7704,
+   "abs_residual_confidence": 0.0004,
+   "recomputed_score": 0.666
+  },
+  {
+   "case": "TLV-11",
+   "rank": 1,
+   "overture_id": "fdf74fd4-2636-4723-ad34-00d1ddc40706",
+   "name": "Port Said",
+   "recorded_score": 0.982,
+   "recorded_name_score": 0.976,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.9934246784448624,
+   "implied_confidence": 0.9928,
+   "abs_residual_confidence": 0.000625,
+   "recomputed_score": 0.982
+  },
+  {
+   "case": "TLV-11",
+   "rank": 2,
+   "overture_id": "93560de3-5dec-4671-8b76-8989106c396f",
+   "name": "Port tlv",
+   "recorded_score": 0.726,
+   "recorded_name_score": 0.646,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.8038274049758911,
+   "implied_confidence": 0.8088,
+   "abs_residual_confidence": 0.004973,
+   "recomputed_score": 0.726
+  },
+  {
+   "case": "TLV-11",
+   "rank": 3,
+   "overture_id": "781c4227-3e81-4430-9a6f-e39592833637",
+   "name": "Mash Sports Bar",
+   "recorded_score": 0.7,
+   "recorded_name_score": 0.668,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.3905351758003235,
+   "implied_confidence": 0.3904,
+   "abs_residual_confidence": 0.000135,
+   "recomputed_score": 0.7
+  },
+  {
+   "case": "TLV-11",
+   "rank": 4,
+   "overture_id": "134300bb-da16-40a9-b403-e9c104db6d36",
+   "name": "Port Tel Aviv Residence",
+   "recorded_score": 0.692,
+   "recorded_name_score": 0.826,
+   "recorded_cat_match": 0.0,
+   "measured_confidence": 0.9740686416625977,
+   "implied_confidence": 0.9728,
+   "abs_residual_confidence": 0.001269,
+   "recomputed_score": 0.692
+  },
+  {
+   "case": "TLV-11",
+   "rank": 5,
+   "overture_id": "09024871-0ca4-428f-a0c2-242682f0e01e",
+   "name": "Port TelAviv",
+   "recorded_score": 0.676,
+   "recorded_name_score": 0.815,
+   "recorded_cat_match": 0.0,
+   "measured_confidence": 0.8869472742080688,
+   "implied_confidence": 0.892,
+   "abs_residual_confidence": 0.005053,
+   "recomputed_score": 0.675
+  },
+  {
+   "case": "TLV-12",
+   "rank": 1,
+   "overture_id": "8d9d1ee7-8b0e-430f-a9f1-afa94bd1180a",
+   "name": "Bellboy",
+   "recorded_score": 0.924,
+   "recorded_name_score": 0.896,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.9958769977092743,
+   "implied_confidence": 0.9888,
+   "abs_residual_confidence": 0.007077,
+   "recomputed_score": 0.925
+  },
+  {
+   "case": "TLV-13",
+   "rank": 1,
+   "overture_id": "46286891-bd2a-42d5-b85e-0aa21b3a8622",
+   "name": "I Love Sandwich",
+   "recorded_score": 0.658,
+   "recorded_name_score": 0.78,
+   "recorded_cat_match": 0.0,
+   "measured_confidence": 0.9685161709785461,
+   "implied_confidence": 0.964,
+   "abs_residual_confidence": 0.004516,
+   "recomputed_score": 0.658
+  },
+  {
+   "case": "TLV-13",
+   "rank": 2,
+   "overture_id": "baa32ae4-c790-4211-877f-f4258e30c14e",
+   "name": "Sabich Frishman",
+   "recorded_score": 0.635,
+   "recorded_name_score": 0.526,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.77,
+   "implied_confidence": 0.7628,
+   "abs_residual_confidence": 0.0072,
+   "recomputed_score": 0.636
+  },
+  {
+   "case": "TLV-13",
+   "rank": 3,
+   "overture_id": "a166845a-95c2-4160-9a17-509c06e89627",
+   "name": "Sabich Malka - סביח מלכה",
+   "recorded_score": 0.594,
+   "recorded_name_score": 0.469,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.77,
+   "implied_confidence": 0.7632,
+   "abs_residual_confidence": 0.0068,
+   "recomputed_score": 0.595
+  },
+  {
+   "case": "TLV-13",
+   "rank": 4,
+   "overture_id": "1ce25b55-22f6-40d6-a191-e9f3fb98f2ee",
+   "name": "Magen David Square",
+   "recorded_score": 0.585,
+   "recorded_name_score": 0.686,
+   "recorded_cat_match": 0.0,
+   "measured_confidence": 0.9090428948402405,
+   "implied_confidence": 0.9108,
+   "abs_residual_confidence": 0.001757,
+   "recomputed_score": 0.585
+  },
+  {
+   "case": "TLV-13",
+   "rank": 5,
+   "overture_id": "06c273d4-ef0b-4547-8e27-45a6022c3c52",
+   "name": "Daniel Cohen - Hair Design",
+   "recorded_score": 0.579,
+   "recorded_name_score": 0.67,
+   "recorded_cat_match": 0.0,
+   "measured_confidence": 0.9609180688858032,
+   "implied_confidence": 0.966,
+   "abs_residual_confidence": 0.005082,
+   "recomputed_score": 0.578
+  },
+  {
+   "case": "TLV-14",
+   "rank": 1,
+   "overture_id": "fc3c1c68-77ef-41f9-97a5-aff5689ceb1b",
+   "name": "Hostel 51",
+   "recorded_score": 0.822,
+   "recorded_name_score": 0.785,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.77,
+   "implied_confidence": 0.768,
+   "abs_residual_confidence": 0.002,
+   "recomputed_score": 0.822
+  },
+  {
+   "case": "TLV-14",
+   "rank": 2,
+   "overture_id": "ada10a5e-3703-47f2-a171-0ef39a89853b",
+   "name": "Bar 51",
+   "recorded_score": 0.82,
+   "recorded_name_score": 1.0,
+   "recorded_cat_match": 0.0,
+   "measured_confidence": 0.9978148430585861,
+   "implied_confidence": 1.0,
+   "abs_residual_confidence": 0.002185,
+   "recomputed_score": 0.82
+  },
+  {
+   "case": "TLV-14",
+   "rank": 3,
+   "overture_id": "25f1a26f-da64-4b8b-a988-e74227698573",
+   "name": "Bar 911",
+   "recorded_score": 0.748,
+   "recorded_name_score": 0.745,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.3086572289466858,
+   "implied_confidence": 0.316,
+   "abs_residual_confidence": 0.007343,
+   "recomputed_score": 0.747
+  },
+  {
+   "case": "TLV-14",
+   "rank": 4,
+   "overture_id": "864bcb8b-8f7e-4248-aa73-e9da6adfe607",
+   "name": "Studio 51",
+   "recorded_score": 0.66,
+   "recorded_name_score": 0.785,
+   "recorded_cat_match": 0.0,
+   "measured_confidence": 0.950111985206604,
+   "implied_confidence": 0.948,
+   "abs_residual_confidence": 0.002112,
+   "recomputed_score": 0.66
+  },
+  {
+   "case": "TLV-14",
+   "rank": 5,
+   "overture_id": "eb04345c-2e42-4951-ae6b-99e6e987eeeb",
+   "name": "Coffee Shop 51",
+   "recorded_score": 0.628,
+   "recorded_name_score": 0.736,
+   "recorded_cat_match": 0.0,
+   "measured_confidence": 0.9845960736274719,
+   "implied_confidence": 0.9808,
+   "abs_residual_confidence": 0.003796,
+   "recomputed_score": 0.628
+  },
+  {
+   "case": "NEG-03",
+   "rank": 1,
+   "overture_id": "17a61e46-888e-46c2-acdc-fc59f43eb2bd",
+   "name": "Tirza wine bar",
+   "recorded_score": 0.813,
+   "recorded_name_score": 0.744,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.9774284958839417,
+   "implied_confidence": 0.9732,
+   "abs_residual_confidence": 0.004228,
+   "recomputed_score": 0.813
+  },
+  {
+   "case": "NEG-03",
+   "rank": 2,
+   "overture_id": "7004266e-de94-451a-a0a5-6e9d681f7ebb",
+   "name": "Wine Bakerem",
+   "recorded_score": 0.802,
+   "recorded_name_score": 0.729,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.9728965759277344,
+   "implied_confidence": 0.9712,
+   "abs_residual_confidence": 0.001697,
+   "recomputed_score": 0.802
+  },
+  {
+   "case": "NEG-03",
+   "rank": 3,
+   "overture_id": "53308ab4-c786-477f-8bf2-ae7876ee046b",
+   "name": "Vega Wine Bar",
+   "recorded_score": 0.793,
+   "recorded_name_score": 0.727,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.9028149247169495,
+   "implied_confidence": 0.8956,
+   "abs_residual_confidence": 0.007215,
+   "recomputed_score": 0.794
+  },
+  {
+   "case": "NEG-03",
+   "rank": 4,
+   "overture_id": "ade19d0d-08f7-4eb1-a8cd-5511cf526b80",
+   "name": "Vinny Wine Bar",
+   "recorded_score": 0.784,
+   "recorded_name_score": 0.704,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.9751446843147278,
+   "implied_confidence": 0.9712,
+   "abs_residual_confidence": 0.003945,
+   "recomputed_score": 0.784
+  },
+  {
+   "case": "NEG-03",
+   "rank": 5,
+   "overture_id": "9355ec04-0539-4202-beee-b305e85e6539",
+   "name": "WineinthecityB.S.R",
+   "recorded_score": 0.782,
+   "recorded_name_score": 0.726,
+   "recorded_cat_match": 1.0,
+   "measured_confidence": 0.7903106808662415,
+   "implied_confidence": 0.7928,
+   "abs_residual_confidence": 0.002489,
+   "recomputed_score": 0.782
+  }
+ ],
+ "not_in_region": [
+  {
+   "case": "TYO-01",
+   "rank": 1,
+   "overture_id": "b9ea7493-cbe3-4a75-87bc-c19a2015c4bf"
+  },
+  {
+   "case": "TYO-01",
+   "rank": 2,
+   "overture_id": "ab00aedc-def2-4573-89d0-9795d2f449ce"
+  },
+  {
+   "case": "TYO-01",
+   "rank": 3,
+   "overture_id": "81ec0323-40e5-48ca-9b6c-49584df14106"
+  },
+  {
+   "case": "TYO-01",
+   "rank": 4,
+   "overture_id": "e5ebc7d0-741d-4ed3-ba8d-f3cfc26469d2"
+  },
+  {
+   "case": "TYO-01",
+   "rank": 5,
+   "overture_id": "7dd72cad-d891-4d6b-9b94-2ca3fa3dd76b"
+  },
+  {
+   "case": "TYO-02",
+   "rank": 1,
+   "overture_id": "d44196da-faa5-46ea-8563-edcd5fed7e55"
+  },
+  {
+   "case": "TYO-02",
+   "rank": 2,
+   "overture_id": "ac968f5a-8f2f-4936-a18c-c3ae8ed68e34"
+  },
+  {
+   "case": "TYO-02",
+   "rank": 3,
+   "overture_id": "8aa3dd90-015d-414f-a3e9-dcee120f5ea6"
+  },
+  {
+   "case": "TYO-02",
+   "rank": 4,
+   "overture_id": "1fbf1902-922f-46db-99da-4795302052c5"
+  },
+  {
+   "case": "TYO-02",
+   "rank": 5,
+   "overture_id": "596d3205-eee6-4ad5-9eb1-1fc32528b61e"
+  },
+  {
+   "case": "TYO-03",
+   "rank": 1,
+   "overture_id": "ee498975-1f07-4d78-a5c4-0e7119fd9559"
+  },
+  {
+   "case": "TYO-03",
+   "rank": 2,
+   "overture_id": "ba381fc9-e78a-40f4-a439-099979a2b5ee"
+  },
+  {
+   "case": "TYO-03",
+   "rank": 3,
+   "overture_id": "979f715b-d275-408c-ba08-83422d525b10"
+  },
+  {
+   "case": "TYO-03",
+   "rank": 4,
+   "overture_id": "73f9bfbe-72df-468d-9331-106ef01ba6c9"
+  },
+  {
+   "case": "TYO-03",
+   "rank": 5,
+   "overture_id": "2b9dd0df-0e07-43b2-b2c2-29fb027e4d89"
+  },
+  {
+   "case": "TYO-04",
+   "rank": 1,
+   "overture_id": "fbcf110e-32ba-4fb0-8d88-cb850b307ba6"
+  },
+  {
+   "case": "TYO-04",
+   "rank": 2,
+   "overture_id": "5a5b1c8a-d249-49f2-b1b1-9d1914fbaba9"
+  },
+  {
+   "case": "TYO-04",
+   "rank": 3,
+   "overture_id": "f0df6387-da7b-4a62-8a2e-6ab72c590bd6"
+  },
+  {
+   "case": "TYO-04",
+   "rank": 4,
+   "overture_id": "56dbd780-945c-407a-a933-79ac9656818e"
+  },
+  {
+   "case": "TYO-04",
+   "rank": 5,
+   "overture_id": "a6aee857-b34c-48ff-bf61-96bd85dcb557"
+  },
+  {
+   "case": "TYO-05",
+   "rank": 1,
+   "overture_id": "c5f25024-adf8-4d46-b1fa-bd5cde8df72f"
+  },
+  {
+   "case": "TYO-05",
+   "rank": 2,
+   "overture_id": "5cc7ae95-4166-49a8-9717-cc42dbcc9fbf"
+  },
+  {
+   "case": "TYO-05",
+   "rank": 3,
+   "overture_id": "f77cee91-d72c-4698-ba5e-11be14600a46"
+  },
+  {
+   "case": "TYO-05",
+   "rank": 4,
+   "overture_id": "446801c8-54f4-4453-b2b2-54519a2ea134"
+  },
+  {
+   "case": "TYO-05",
+   "rank": 5,
+   "overture_id": "38b3008b-aaf9-4b11-ab27-451fced8cd33"
+  },
+  {
+   "case": "TYO-06",
+   "rank": 1,
+   "overture_id": "f7ce816f-f750-4bc5-92bf-f64c898e188f"
+  },
+  {
+   "case": "TYO-06",
+   "rank": 2,
+   "overture_id": "a013bb5c-a393-4c97-a8ec-a9a7f86ce55a"
+  },
+  {
+   "case": "TYO-06",
+   "rank": 3,
+   "overture_id": "3e3395b9-ad2e-471e-8886-e667173c418b"
+  },
+  {
+   "case": "TYO-06",
+   "rank": 4,
+   "overture_id": "67af68d6-cd45-4e0e-aebc-1722aceca527"
+  },
+  {
+   "case": "TYO-06",
+   "rank": 5,
+   "overture_id": "8b7e088c-c9d8-4d61-a36e-7c7e8d349732"
+  },
+  {
+   "case": "TYO-07",
+   "rank": 1,
+   "overture_id": "7b084cf3-43c1-4185-acb2-fa9d08da687d"
+  },
+  {
+   "case": "TYO-07",
+   "rank": 2,
+   "overture_id": "c24351ca-ec26-45b8-87f1-67c9f5eab103"
+  },
+  {
+   "case": "TYO-07",
+   "rank": 3,
+   "overture_id": "8c88019f-84fc-4eac-8a7b-0c45c9a63e36"
+  },
+  {
+   "case": "TYO-07",
+   "rank": 4,
+   "overture_id": "cf650407-00ff-4736-af85-77f148ba3156"
+  },
+  {
+   "case": "TYO-07",
+   "rank": 5,
+   "overture_id": "ea0e36b2-863e-4693-9573-a959125e1f74"
+  },
+  {
+   "case": "TYO-08",
+   "rank": 1,
+   "overture_id": "4bd56bcf-8f13-433a-813a-e39e4dfb3474"
+  },
+  {
+   "case": "TYO-08",
+   "rank": 2,
+   "overture_id": "a69243d7-9601-4ea0-a9b2-068e944dd679"
+  },
+  {
+   "case": "TYO-08",
+   "rank": 3,
+   "overture_id": "50bd5128-5dd5-4584-b315-ef199abdc6ef"
+  },
+  {
+   "case": "TYO-08",
+   "rank": 4,
+   "overture_id": "4fada1c3-f998-4b26-832d-c248116b4a11"
+  },
+  {
+   "case": "TYO-08",
+   "rank": 5,
+   "overture_id": "05d546cf-30a5-4839-8950-e8b67430e03b"
+  },
+  {
+   "case": "TYO-09",
+   "rank": 1,
+   "overture_id": "f04d41ba-390f-418d-b8c0-45a523042740"
+  },
+  {
+   "case": "TYO-09",
+   "rank": 2,
+   "overture_id": "de31b6a4-f223-48fc-bc50-b0bf862e9ff0"
+  },
+  {
+   "case": "TYO-09",
+   "rank": 3,
+   "overture_id": "8aec1021-2c35-4097-ba35-0e043e6678ea"
+  },
+  {
+   "case": "TYO-09",
+   "rank": 4,
+   "overture_id": "c915c570-4672-4144-a13d-fe0b87e33939"
+  },
+  {
+   "case": "TYO-09",
+   "rank": 5,
+   "overture_id": "779fba4d-f53f-45a9-bccb-f4aec1b00360"
+  },
+  {
+   "case": "TYO-10",
+   "rank": 1,
+   "overture_id": "cba4cfc4-4853-4b83-a01f-acfbc7ff7260"
+  },
+  {
+   "case": "TYO-10",
+   "rank": 2,
+   "overture_id": "fa26d37f-ffef-4947-853d-836c5a86bc63"
+  },
+  {
+   "case": "TYO-10",
+   "rank": 3,
+   "overture_id": "f1a60314-5302-41d4-b4f6-aa352c0c19b5"
+  },
+  {
+   "case": "TYO-10",
+   "rank": 4,
+   "overture_id": "69c0f674-853a-493b-978b-eac09195f79e"
+  },
+  {
+   "case": "TYO-10",
+   "rank": 5,
+   "overture_id": "c08cd082-20b8-4676-9bb6-19dcfbdcef6f"
+  },
+  {
+   "case": "TYO-11",
+   "rank": 1,
+   "overture_id": "c8e1bcf9-c805-43d2-bbdf-797f3119afb1"
+  },
+  {
+   "case": "TYO-11",
+   "rank": 2,
+   "overture_id": "2c4b04b3-4e59-41f7-ac50-58f4bd6eb2d8"
+  },
+  {
+   "case": "TYO-11",
+   "rank": 3,
+   "overture_id": "4bffbce1-d4b7-424b-a181-642d278ba875"
+  },
+  {
+   "case": "TYO-11",
+   "rank": 4,
+   "overture_id": "9b2fb318-a98a-4945-a8f7-1eefb7ceaa83"
+  },
+  {
+   "case": "TYO-11",
+   "rank": 5,
+   "overture_id": "18539313-eee4-4dab-8790-fe285c0dbed2"
+  },
+  {
+   "case": "TYO-12",
+   "rank": 1,
+   "overture_id": "ee498975-1f07-4d78-a5c4-0e7119fd9559"
+  },
+  {
+   "case": "TYO-12",
+   "rank": 2,
+   "overture_id": "73f9bfbe-72df-468d-9331-106ef01ba6c9"
+  },
+  {
+   "case": "TYO-12",
+   "rank": 3,
+   "overture_id": "c00950c4-a791-4bd3-a2ce-cd9cfc30b1db"
+  },
+  {
+   "case": "TYO-12",
+   "rank": 4,
+   "overture_id": "2e2f0f20-1dbb-4cef-ae1d-3057735f107a"
+  },
+  {
+   "case": "TYO-12",
+   "rank": 5,
+   "overture_id": "ff8416a9-813d-42b5-8842-5fd555af8cd1"
+  },
+  {
+   "case": "TYO-13",
+   "rank": 1,
+   "overture_id": "c5f25024-adf8-4d46-b1fa-bd5cde8df72f"
+  },
+  {
+   "case": "TYO-13",
+   "rank": 2,
+   "overture_id": "5cc7ae95-4166-49a8-9717-cc42dbcc9fbf"
+  },
+  {
+   "case": "TYO-13",
+   "rank": 3,
+   "overture_id": "446801c8-54f4-4453-b2b2-54519a2ea134"
+  },
+  {
+   "case": "TYO-13",
+   "rank": 4,
+   "overture_id": "38b3008b-aaf9-4b11-ab27-451fced8cd33"
+  },
+  {
+   "case": "TYO-13",
+   "rank": 5,
+   "overture_id": "8d47a2c8-8b7d-458e-9d28-7f4d50fb79f5"
+  },
+  {
+   "case": "TYO-14",
+   "rank": 1,
+   "overture_id": "fbcf110e-32ba-4fb0-8d88-cb850b307ba6"
+  },
+  {
+   "case": "TYO-14",
+   "rank": 2,
+   "overture_id": "5a5b1c8a-d249-49f2-b1b1-9d1914fbaba9"
+  },
+  {
+   "case": "TYO-14",
+   "rank": 3,
+   "overture_id": "f0df6387-da7b-4a62-8a2e-6ab72c590bd6"
+  },
+  {
+   "case": "TYO-14",
+   "rank": 4,
+   "overture_id": "56dbd780-945c-407a-a933-79ac9656818e"
+  },
+  {
+   "case": "TYO-14",
+   "rank": 5,
+   "overture_id": "a6aee857-b34c-48ff-bf61-96bd85dcb557"
+  },
+  {
+   "case": "TLV-12",
+   "rank": 2,
+   "overture_id": "8374cd48-a843-4513-9b6b-fb43598e57d4"
+  },
+  {
+   "case": "TLV-12",
+   "rank": 3,
+   "overture_id": "e6752acc-d8bd-4a96-aa8c-e6826753b9a8"
+  },
+  {
+   "case": "TLV-12",
+   "rank": 4,
+   "overture_id": "911ee508-1b63-4ca0-820c-7e864a83c1dd"
+  },
+  {
+   "case": "TLV-12",
+   "rank": 5,
+   "overture_id": "cd5e1a13-21eb-44b3-942f-3105b3a64c35"
+  },
+  {
+   "case": "LDN-01",
+   "rank": 1,
+   "overture_id": "90842ba5-a7e6-4ce7-a4ea-a349d5ae4ef3"
+  },
+  {
+   "case": "LDN-01",
+   "rank": 2,
+   "overture_id": "5119a280-738f-47fe-aa3a-31e5d7b4a400"
+  },
+  {
+   "case": "LDN-01",
+   "rank": 3,
+   "overture_id": "e60a69f5-c5f7-4c30-914d-0631d39ff029"
+  },
+  {
+   "case": "LDN-01",
+   "rank": 4,
+   "overture_id": "f2bbeeb5-03ea-40a5-801e-fd4e220e04f4"
+  },
+  {
+   "case": "LDN-01",
+   "rank": 5,
+   "overture_id": "5bfd408a-3c9e-4602-a75c-719b09511fb5"
+  },
+  {
+   "case": "LDN-02",
+   "rank": 1,
+   "overture_id": "17d2e096-6d2b-46dd-ab44-accd97bfcd38"
+  },
+  {
+   "case": "LDN-02",
+   "rank": 2,
+   "overture_id": "b1468af0-d72c-4d03-aee8-e6989620e6eb"
+  },
+  {
+   "case": "LDN-02",
+   "rank": 3,
+   "overture_id": "9034ae64-afca-4feb-9fe0-6b8077a6d033"
+  },
+  {
+   "case": "LDN-02",
+   "rank": 4,
+   "overture_id": "918455ad-8b4c-424b-9d17-0ede59e21d20"
+  },
+  {
+   "case": "LDN-02",
+   "rank": 5,
+   "overture_id": "569835af-72e3-469f-bb98-7a9b0fe6b0d8"
+  },
+  {
+   "case": "LDN-03",
+   "rank": 1,
+   "overture_id": "5975ff2d-35ee-44ee-b650-0b507c80ffaa"
+  },
+  {
+   "case": "LDN-03",
+   "rank": 2,
+   "overture_id": "927545cb-232f-4471-8ccc-6bd19b8456a6"
+  },
+  {
+   "case": "LDN-03",
+   "rank": 3,
+   "overture_id": "457fd3ca-cbdd-436b-9dea-8ac461aaf312"
+  },
+  {
+   "case": "LDN-03",
+   "rank": 4,
+   "overture_id": "6f0e405b-58a6-464b-a863-6ffd030dee0b"
+  },
+  {
+   "case": "LDN-03",
+   "rank": 5,
+   "overture_id": "fdefc965-c1b0-4b52-b609-24c9443d55d9"
+  },
+  {
+   "case": "LDN-04",
+   "rank": 1,
+   "overture_id": "423297e8-aef5-4add-a097-de51667fa7d5"
+  },
+  {
+   "case": "LDN-04",
+   "rank": 2,
+   "overture_id": "6124ec36-f9e4-4b92-a4fc-6adbfb60e077"
+  },
+  {
+   "case": "LDN-04",
+   "rank": 3,
+   "overture_id": "3a428ef6-c315-4ad1-ac22-635adb087e1d"
+  },
+  {
+   "case": "LDN-04",
+   "rank": 4,
+   "overture_id": "0a4931e1-2b53-4fec-aa7c-fe52e2d9367a"
+  },
+  {
+   "case": "LDN-04",
+   "rank": 5,
+   "overture_id": "d98eef63-e6f7-4e88-871a-5360e0c14cf8"
+  },
+  {
+   "case": "LDN-05",
+   "rank": 1,
+   "overture_id": "e3eebc64-eee1-4c07-8eb7-93debf451847"
+  },
+  {
+   "case": "LDN-05",
+   "rank": 2,
+   "overture_id": "96ee057c-74ff-4af8-bc12-b6aa81e46113"
+  },
+  {
+   "case": "LDN-05",
+   "rank": 3,
+   "overture_id": "92426e9f-5ff8-4bf2-b16c-9dba51a3ce18"
+  },
+  {
+   "case": "LDN-05",
+   "rank": 4,
+   "overture_id": "6beab54a-852a-4e02-945b-ef655537d7e0"
+  },
+  {
+   "case": "LDN-05",
+   "rank": 5,
+   "overture_id": "b7d62a97-932b-4306-8c78-109de306df2f"
+  },
+  {
+   "case": "LDN-06",
+   "rank": 1,
+   "overture_id": "74aa16a4-49c3-4c8c-b990-9628c0eed2f7"
+  },
+  {
+   "case": "LDN-06",
+   "rank": 2,
+   "overture_id": "840baa58-0779-462f-b29f-ed12a00aec94"
+  },
+  {
+   "case": "LDN-06",
+   "rank": 3,
+   "overture_id": "c7da5a2e-1e4f-4a15-b50a-4c8471ff1430"
+  },
+  {
+   "case": "LDN-06",
+   "rank": 4,
+   "overture_id": "070f8017-ef38-40ca-b14e-74fda3e989fd"
+  },
+  {
+   "case": "LDN-06",
+   "rank": 5,
+   "overture_id": "415a97d4-ae6f-47cf-943e-262e3d779aae"
+  },
+  {
+   "case": "LDN-07",
+   "rank": 1,
+   "overture_id": "a65d819e-c29f-46df-b885-6a0a2699adf4"
+  },
+  {
+   "case": "LDN-07",
+   "rank": 2,
+   "overture_id": "e2e8dbfa-abe1-40df-8d27-3eb6bb1ff68a"
+  },
+  {
+   "case": "LDN-07",
+   "rank": 3,
+   "overture_id": "bba4783f-fdf1-4e1c-b9fd-3054319466d3"
+  },
+  {
+   "case": "LDN-07",
+   "rank": 4,
+   "overture_id": "f3a1a6b5-bf9c-46a9-a34b-48ab08d804fb"
+  },
+  {
+   "case": "LDN-07",
+   "rank": 5,
+   "overture_id": "adbf8bdb-4e97-40e4-85b6-3a922c07cc00"
+  },
+  {
+   "case": "LDN-08",
+   "rank": 1,
+   "overture_id": "69f00d91-b881-45ab-94fe-f56912665c10"
+  },
+  {
+   "case": "LDN-08",
+   "rank": 2,
+   "overture_id": "2ad2857c-ea11-40be-9638-481f6239d7c6"
+  },
+  {
+   "case": "LDN-08",
+   "rank": 3,
+   "overture_id": "c66e6680-b8f9-48a6-9047-e5604c75a0fc"
+  },
+  {
+   "case": "LDN-08",
+   "rank": 4,
+   "overture_id": "80093fb4-d559-4fe4-91d6-b48c535bf897"
+  },
+  {
+   "case": "LDN-08",
+   "rank": 5,
+   "overture_id": "abee1327-2bca-470a-9e0c-69a8232276ea"
+  },
+  {
+   "case": "LDN-09",
+   "rank": 1,
+   "overture_id": "88302492-ea8f-4eca-b496-d185fb6c88a2"
+  },
+  {
+   "case": "LDN-09",
+   "rank": 2,
+   "overture_id": "ee7d9ae3-1ac8-4660-be53-93a52479f8ff"
+  },
+  {
+   "case": "LDN-09",
+   "rank": 3,
+   "overture_id": "e0d30c91-e4dc-4b20-b16c-f296f39e94da"
+  },
+  {
+   "case": "LDN-09",
+   "rank": 4,
+   "overture_id": "856902e2-bc1f-40f5-80b4-08d52dc2e1d4"
+  },
+  {
+   "case": "LDN-09",
+   "rank": 5,
+   "overture_id": "ae4a401d-f775-4ca0-a3d9-6c9c06e5d67f"
+  },
+  {
+   "case": "LDN-10",
+   "rank": 1,
+   "overture_id": "423297e8-aef5-4add-a097-de51667fa7d5"
+  },
+  {
+   "case": "LDN-10",
+   "rank": 2,
+   "overture_id": "3a428ef6-c315-4ad1-ac22-635adb087e1d"
+  },
+  {
+   "case": "LDN-10",
+   "rank": 3,
+   "overture_id": "b70d50ee-6be1-4725-a80c-dd405b6870ed"
+  },
+  {
+   "case": "LDN-10",
+   "rank": 4,
+   "overture_id": "6124ec36-f9e4-4b92-a4fc-6adbfb60e077"
+  },
+  {
+   "case": "LDN-10",
+   "rank": 5,
+   "overture_id": "d98eef63-e6f7-4e88-871a-5360e0c14cf8"
+  },
+  {
+   "case": "LDN-11",
+   "rank": 1,
+   "overture_id": "74aa16a4-49c3-4c8c-b990-9628c0eed2f7"
+  },
+  {
+   "case": "LDN-11",
+   "rank": 2,
+   "overture_id": "840baa58-0779-462f-b29f-ed12a00aec94"
+  },
+  {
+   "case": "LDN-11",
+   "rank": 3,
+   "overture_id": "cd14a4c8-cb7a-4f45-9c2e-7c6a94ace597"
+  },
+  {
+   "case": "LDN-11",
+   "rank": 4,
+   "overture_id": "39902b66-bcb2-41a5-93ba-d04446240e2d"
+  },
+  {
+   "case": "LDN-11",
+   "rank": 5,
+   "overture_id": "c7da5a2e-1e4f-4a15-b50a-4c8471ff1430"
+  },
+  {
+   "case": "LDN-12",
+   "rank": 1,
+   "overture_id": "a65d819e-c29f-46df-b885-6a0a2699adf4"
+  },
+  {
+   "case": "LDN-12",
+   "rank": 2,
+   "overture_id": "e2e8dbfa-abe1-40df-8d27-3eb6bb1ff68a"
+  },
+  {
+   "case": "LDN-12",
+   "rank": 3,
+   "overture_id": "bba4783f-fdf1-4e1c-b9fd-3054319466d3"
+  },
+  {
+   "case": "LDN-12",
+   "rank": 4,
+   "overture_id": "d1c605a3-0c54-460d-b20b-91e0595c3e95"
+  },
+  {
+   "case": "LDN-12",
+   "rank": 5,
+   "overture_id": "df0e1f0c-38ca-4e33-ade5-42a9c18cef2e"
+  },
+  {
+   "case": "LDN-13",
+   "rank": 1,
+   "overture_id": "2bcc65c0-afb1-4da9-96fa-47d8f9cfa0e7"
+  },
+  {
+   "case": "LDN-13",
+   "rank": 2,
+   "overture_id": "973bd993-59d1-4e45-8e89-4dbcb81b9f5c"
+  },
+  {
+   "case": "LDN-13",
+   "rank": 3,
+   "overture_id": "ed2fc42f-a6c7-4de5-bf91-63dee17e7d40"
+  },
+  {
+   "case": "LDN-13",
+   "rank": 4,
+   "overture_id": "9f9965cb-dc61-4e67-bd2c-04fdc61834b1"
+  },
+  {
+   "case": "LDN-13",
+   "rank": 5,
+   "overture_id": "0a02a993-fe90-46ba-9383-96c9a7b538ac"
+  },
+  {
+   "case": "NEG-01",
+   "rank": 1,
+   "overture_id": "577e89a2-7b8e-49a2-b354-439d0e8783e9"
+  },
+  {
+   "case": "NEG-01",
+   "rank": 2,
+   "overture_id": "ca371854-f3fe-4cac-b76b-4fc5c4358300"
+  },
+  {
+   "case": "NEG-01",
+   "rank": 3,
+   "overture_id": "f007712f-b2e4-4c9e-913a-8a2ea56c9488"
+  },
+  {
+   "case": "NEG-01",
+   "rank": 4,
+   "overture_id": "69f00d91-b881-45ab-94fe-f56912665c10"
+  },
+  {
+   "case": "NEG-01",
+   "rank": 5,
+   "overture_id": "5dc698a8-f200-4ea3-b709-1f36affaa840"
+  },
+  {
+   "case": "NEG-02",
+   "rank": 1,
+   "overture_id": "69ff1698-d167-4f70-be9b-209a91777728"
+  },
+  {
+   "case": "NEG-02",
+   "rank": 2,
+   "overture_id": "afdafe34-370b-4d88-b13d-9e6fb11baff1"
+  },
+  {
+   "case": "NEG-02",
+   "rank": 3,
+   "overture_id": "107442d1-f5b2-40eb-9747-208380d49402"
+  },
+  {
+   "case": "NEG-02",
+   "rank": 4,
+   "overture_id": "f179979c-8df3-4cd2-9b54-905714b0687d"
+  },
+  {
+   "case": "NEG-02",
+   "rank": 5,
+   "overture_id": "f84316b8-574a-496f-8edd-7db18891989f"
+  }
+ ]
+}

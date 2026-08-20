@@ -1,0 +1,97 @@
+{
+  "_comment": [
+    "The one source of truth for the POI ingest (docs/10-poi-index.md §7). Read by all three halves:",
+    "scripts/ingest-overture-extract.py (extract), scripts/load-poi-region.ts (normalise + COPY body)",
+    "and scripts/ingest-poi-region.sh (the transaction). Three literals in three languages is exactly",
+    "how a pinned release stops being pinned.",
+    "",
+    "overtureRelease is the PIN. 2026-07-22.0 is the release the 44-case benchmark in",
+    "docs/evidence/places/ was measured on (docs/06 §6.3). Changing it re-measures every number in",
+    "that section, so the loader refuses a region whose poi_regions.dataset_release differs from this",
+    "value unless --allow-release-change is passed.",
+    "",
+    "Region bboxes are duplicated from migration 0010's poi_regions seed on purpose and the loader",
+    "ASSERTS they are equal before it writes anything: the database is authoritative (10 §2), this",
+    "file is what the extract can actually read, and a silent disagreement between the two would load",
+    "rows outside the region a query scopes to."
+  ],
+  "overtureRelease": "2026-07-22.0",
+  "sourceDataset": "overture-places",
+  "regions": {
+    "tlv": {
+      "displayName": "Tel Aviv",
+      "minLat": 32.03,
+      "maxLat": 32.12,
+      "minLng": 34.74,
+      "maxLng": 34.86
+    },
+    "tyo": {
+      "displayName": "Tokyo",
+      "minLat": 35.58,
+      "maxLat": 35.8,
+      "minLng": 139.6,
+      "maxLng": 139.9
+    },
+    "ldn": {
+      "displayName": "London",
+      "minLat": 51.42,
+      "maxLat": 51.6,
+      "minLng": -0.3,
+      "maxLng": 0.05
+    }
+  },
+  "_foodAndDrinkComment": [
+    "docs/06 §7.4: 85.9% of the raw Tel Aviv extract is not food and drink, and this filter is what",
+    "keeps the loaded extract at 14-35% of raw size (Tel Aviv: 14.1%). Copied VERBATIM from",
+    "docs/evidence/places/measure-extract-size.py, which is where 06 §3.1's storage model was measured",
+    "- an 'improved' list here would silently invalidate it.",
+    "",
+    "It is wrong at both margins and that is recorded rather than fixed here (10 §7.1): the substring",
+    "patterns admit 377 non-food Tel Aviv rows (%bar% -> barber, %pub% -> public_plaza) and the list",
+    "misses real food categories (delicatessen, butcher_shop, lounge, candy_store, sandwich_shop,",
+    "chocolatier, gelato). Re-cutting it moves 06 §3.1 and 06 §6.3, so it needs its own ruling."
+  ],
+  "foodAndDrinkCategories": [
+    "restaurant",
+    "cafe",
+    "bar",
+    "coffee_shop",
+    "pub",
+    "fast_food_restaurant",
+    "bakery",
+    "ice_cream_shop",
+    "wine_bar",
+    "beer_bar",
+    "cocktail_bar",
+    "nightclub",
+    "dessert_shop",
+    "tea_room",
+    "food_and_beverage_retail",
+    "bagel_shop",
+    "juice_bar",
+    "buffet_restaurant",
+    "kosher_restaurant",
+    "israeli_restaurant",
+    "ramen_restaurant",
+    "sushi_restaurant",
+    "izakaya"
+  ],
+  "foodAndDrinkPatterns": [
+    "restaurant",
+    "cafe",
+    "bar",
+    "coffee",
+    "bakery",
+    "pub",
+    "food",
+    "dessert",
+    "ice_cream",
+    "tea",
+    "juice",
+    "nightclub",
+    "brewery",
+    "winery",
+    "diner",
+    "bistro"
+  ]
+}

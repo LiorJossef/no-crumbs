@@ -67,9 +67,13 @@ mechanism that reliably fits — a job system must be *earned* by evidence, not 
 prior draft. Under decision in [`07-import-execution-model.md`](07-import-execution-model.md).
 
 ### A4. Geospatial querying in Supabase
-Unknown: whether PostGIS earns its place at our scale (realistically a few thousand rows total) or
-whether a plain lat/lng bounding-box query with a composite index is sufficient and easier to
-explain. Prefer the simpler option unless a measured product benefit appears. Under decision in
+**VERIFIED (2026-08-19) — no PostGIS.** Was: whether PostGIS earns its place at our scale
+(realistically a few thousand rows total) or whether a plain lat/lng bounding-box query with a
+composite index is sufficient and easier to explain. Measured head-to-head on identical data at 50k,
+500k and 5M places: plain `lat`/`lng` + Haversine wins every per-user query at every scale, and the
+GiST index is *chosen* by the planner and loses (1.3 ms vs 158 ms p95 at 5M). Flip-point, as a
+number: 370k places, and only for a global KNN query, which charter §4 excludes. Evidence:
+[`evidence/db/01-bbox-vs-postgis.md`](evidence/db/01-bbox-vs-postgis.md). Decided in
 [`08-place-identity.md`](08-place-identity.md).
 
 ### A5. Extraction reliability

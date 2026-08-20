@@ -1,0 +1,64 @@
+P-002 — personal geographic recommendation map
+Copyright (c) 2026 the P-002 project.
+
+This product includes and redistributes data from third parties. The notices below are
+reproduced as a condition of the licences those datasets are offered under; they are not
+optional, and this file is a ship blocker (docs/06-map-and-places-decision.md §3.2 item 4).
+
+--------------------------------------------------------------------------------
+1. Overture Maps Foundation — `places` theme
+--------------------------------------------------------------------------------
+Source:  https://docs.overturemaps.org/attribution
+Licence: CDLA-Permissive-2.0, with Apache-2.0 applying to Foursquare-sourced records.
+
+Records in the Overture `places` theme are derived from the Foursquare Open Source
+Places dataset. The following notice is reproduced verbatim, as Apache-2.0 §4(d)
+requires:
+
+    Copyright 2024 Foursquare Labs, Inc. All rights reserved.
+
+MODIFICATIONS (Apache-2.0 §4(b)). This product does not redistribute the Overture
+`places` theme unchanged. We modify it as follows:
+
+  * we extract only bounding boxes covering the cities we support, not the global set;
+  * we filter to food-and-drink categories, discarding the substantial majority of rows;
+  * we retain a subset of the fields (identifier, name, category, coordinates, dataset
+    confidence) and drop the rest;
+  * we add our own derived fields, including a normalised form of the name used for
+    matching, and a region identifier of our own devising;
+  * we re-index the result for our own search, and expose individual matched records
+    through our own API rather than serving the dataset.
+
+Verbatim copies of both licence texts are owed at LICENSES/Apache-2.0.txt
+(https://www.apache.org/licenses/LICENSE-2.0.txt) and LICENSES/CDLA-Permissive-2.0.txt
+(https://cdla.dev/permissive-2-0/), and at /attributions in the running application.
+They must be copied from those sources, never retyped. Both land in MS5, before any
+ingested row is served -- which is the point at which Apache-2.0 s4(a) and the
+CDLA's make-the-text-available condition actually attach.
+
+--------------------------------------------------------------------------------
+2. OpenStreetMap
+--------------------------------------------------------------------------------
+Source:  https://www.openstreetmap.org/copyright
+Licence: Open Database License (ODbL) 1.0
+
+    (c) OpenStreetMap contributors
+
+Basemap tiles rendered by this product are derived from OpenStreetMap data. Where a
+stored place record originates from an OpenStreetMap-derived service rather than from
+Overture, that record carries `source_dataset` identifying it as such, and is credited
+individually in the application.
+
+--------------------------------------------------------------------------------
+3. Protomaps
+--------------------------------------------------------------------------------
+Basemap tiles and the basemap style are provided by Protomaps
+(https://protomaps.com). The Protomaps basemap styles are released under CC0; our
+style is a fork of them. This credit is given voluntarily, not as a licence condition.
+
+--------------------------------------------------------------------------------
+4. Software dependencies
+--------------------------------------------------------------------------------
+Licences of bundled software dependencies, including MapLibre GL JS (BSD-3-Clause),
+are those declared by each package. This file concerns redistributed *data*, which is
+where our obligations are non-obvious and easy to breach.

@@ -1,6 +1,9 @@
 # D2 — Map rendering + place resolution decision
 
-> Owner: Maps / Geospatial. Status: **recommended, pending Security-Privacy review** (§11).
+> Owner: Maps / Geospatial. Status: **ACCEPTED. Security-Privacy sign-off taken 2026-08-18** by
+> splitting §11 rather than answering it as a block — Q1 answered, Q2 narrowed and deferred to the
+> first milestone that writes an ODbL-derived row, Q3–Q7 open but non-blocking. The schema this
+> decision implies is designed in [`10-poi-index.md`](10-poi-index.md).
 > Evidence: [`evidence/places/`](evidence/places/), [`evidence/licensing/`](evidence/licensing/).
 > Every third-party claim below is labelled VERIFIED / ASSUMED / UNAVAILABLE per Charter §9.
 
@@ -179,8 +182,21 @@ Google basemap. The recommended stack has no such treadmill.
 
 ## 6. Resolution scoring — from candidate string to ranked shortlist
 
-Input: `{ candidate: string, cityHint?: string, categoryHint?: 'cafe'|'bar'|'restaurant', areaHint?: string }`.
-Output: `{ shortlist: RankedPlace[], confidence: number, action: 'preselect' | 'confirm' | 'no_match' }`.
+> **Superseded as a type declaration, 2026-08-19 (MS5 task 2).** The input and output below are
+> the *scoring* contract and are still correct as such, but they are no longer where the names
+> live: `ResolveQuery` / `RankedPlace` / `ResolveResult` are declared once in `src/domain/types.ts`
+> and the port in `src/domain/ports.ts`, per [`11-resolver-vocabulary.md`](11-resolver-vocabulary.md).
+> Four differences in that declaration, each ruled there: `areaHint` is **dropped** (no producer —
+> `09`'s `PlaceCandidate` never emits it, and the scorer never reads it); `confidence: number` and
+> `margin` collapse into `Confidence = { band, score, margin }`; `action` is named `band`; and
+> `region_loaded` is not a field but `regionLoaded(result)`, the negation of `regionsSearched`
+> being empty.
+
+Input: `{ candidate: string, cityHint?: string, categoryHint?: 'cafe'|'bar'|'restaurant' }`.
+Output: `{ shortlist: RankedPlace[], confidence: number, margin: number,
+action: 'preselect' | 'confirm' | 'no_match', region_loaded: boolean }`. `margin` is carried
+because §6.2 bands on it and the UI explains with it; `region_loaded` because §7.3 requires the
+UI to distinguish "not found" from "that city is not loaded".
 
 Implemented and measured in
 [`evidence/places/resolve-overture-scored.py`](evidence/places/resolve-overture-scored.py).
@@ -199,7 +215,12 @@ Implemented and measured in
    - `cov` = mean over the query's **distinctive** tokens (generic words like *cafe, coffee, bar,
      restaurant, the, tokyo, london* removed) of the best per-token similarity against the
      candidate's tokens, with substring containment credited at 0.97 so agglutinated names
-     (`CafeXoho`) and prefixed names (`פלאפל הקוסם`) still match.
+     (`CafeXoho`) still match. **Corrected 2026-08-19 (MS5 task 3):** this line also claimed the
+     credit for prefixed names such as `פלאפל הקוסם`, and it does not earn it there — that name
+     tokenises on the space, so `הקוסם` is an *exact token* match at 1.0 and the 0.97 credit is
+     never reached. (TLV-07's query is `הקוסם` alone, and the falafel row is in any case one of
+     §6.3's three absent-from-dataset misses.) The rule stands on the agglutinated case only;
+     pinned as a test in `src/domain/places/`.
    - `extra` penalty = 0.04 per surplus distinctive token in the candidate, capped at 0.15. This is
      what stops "The Fishmongers Kitchen" from claiming "this hidden gem in Shoreditch".
    - `name_score = 0.45·whole + 0.55·cov − extra`
@@ -208,6 +229,9 @@ Implemented and measured in
 5. **Rank**, take top 5, compute **`margin = score(top1) − score(top2)`**.
 
 ### 6.2 The confidence bands, and the threshold at which we must ask
+
+These three band names are the `ConfidenceBand` enum (`07` §10 owns the type, this section owns the
+thresholds). `confident` and `shortlist` appear in UI prose elsewhere; they are not band names.
 
 | Band | Rule | UI behaviour |
 |---|---|---|
@@ -225,7 +249,7 @@ branch**", which is precisely the case a human must settle and a machine must no
 |---|---|---|---|
 | preselect | 29 | **29** | **0** |
 | confirm | 12 | 9 | 3 |
-| no_match | 3 | — | 3 misses (2 absent from the dataset, 1 mis-ranked) |
+| no_match | 3 | — | 3 misses (1 absent from the dataset, 2 mis-ranked) |
 
 **Zero false auto-accepts in 44 cases.** All three no-name captions (`this hidden gem in
 Shoreditch`, `best coffee ever`, `that little wine bar near the market`) scored 0.813–0.894 — high
@@ -245,12 +269,12 @@ They live in one exported constant object with the benchmark as their regression
 
 | Ceiling | Value | Why |
 |---|---|---|
-| Resolution lookups per import | **8** | Matches the LLM's 8-candidate cap; assumption B4 says 3–7 places per post is normal |
+| Resolution lookups per import | **7** | `MAX_CANDIDATES = 7`, one search per candidate — the single cap, declared in `07` §7 and applied in `09` §5.3 (the 8 written here predates it; the LLM's *schema* cap is 12, `09` §4.2). Assumption B4 says 3–7 places per post is normal. Candidates past 7 are kept as `capped`, never dropped |
 | Imports per user per day | **30** | R7 |
 | Manual-search requests | debounce 300 ms, min 2 characters, one in flight, ≤20/min/user | Autocomplete is the easiest accidental cost amplifier |
 | Nominatim fallback | ≤1 req/s globally (policy), ≤200/day project-wide, sequential queue | VERIFIED policy limit |
 | Resolution cache | keyed on `sha256(normalised_candidate + region_id + category_hint)`. Open-data hits cached **permanently** (licence permits it); Nominatim hits cached 90 days | Repeat imports of the same venue cost nothing |
-| Idempotency | Same URL re-pasted → same job row, no new lookups | A3 |
+| Idempotency | Same URL re-pasted → the same `imports` row, no new lookups (there is no job row: `07` §0 has no queue) | A3 |
 
 ---
 
@@ -270,11 +294,27 @@ They live in one exported constant object with the benchmark as their regression
    handful of demo cities. A candidate whose city is outside every loaded region falls through to
    Nominatim, then to manual search. Ingest is a committed offline script, measured at 7–24 s per
    city bbox straight from the public Overture S3 release, so adding a city is a one-command change,
-   not an engineering task. This is an honest, explainable limit — and it is the reason
-   `resolveOne` returns a `region_loaded: boolean` so the UI can say *why* it failed.
-4. **Dataset noise.** Overture places is business-registry-grade: the Tel Aviv extract is 43%
-   lawyers, estate agents and "professional services". We filter to food-and-drink categories at
-   ingest, which is also what keeps the extract at 14–35% of raw size.
+   not an engineering task. This is an honest, explainable limit — and it is the reason the
+   resolver reports which regions it searched, so the UI can say *why* it failed. **Corrected
+   2026-08-19:** there is no `resolveOne` — the method is `PlaceResolver.resolve`, and
+   `region_loaded` is not a field but `regionLoaded(result)` (`11` §2, `domain/places/resolve-result.ts`).
+4. **Dataset noise.** Overture places is business-registry-grade: **85.9% of the raw Tel Aviv
+   extract is not food and drink** (30 433 of 35 430 rows). We filter to food-and-drink categories at
+   ingest, which is also what keeps the extract at 14–35% of raw size — Tel Aviv lands at 14.1%
+   (4 997 rows).
+   **Corrected 2026-08-19 (MS5 task 5), by measuring the pinned release.** This said "the Tel Aviv
+   extract is 43% lawyers, estate agents and 'professional services'", and that number is not
+   reproducible: on `2026-07-22.0` those categories are `lawyer` 1 509 + `professional_services` 986
+   + `real_estate` 927 + `real_estate_agent` 237 = **3 659 = 10.3%**, and a deliberately generous
+   grouping (legal, real estate, insurance, finance, accounting, marketing, consulting, software,
+   agencies) reaches only 16.8%. The 85.9% above is the honest form of the same point.
+   Two flaws in the filter itself, measured on the same run and left in place rather than re-cut in
+   an ingest task (`10` §7.1, [`evidence/places/ingest-tlv-row-counts.json`](evidence/places/ingest-tlv-row-counts.json)):
+   its substring patterns **admit 377 non-food rows** (`%bar%` → `barber`, `%pub%` → `public_plaza`,
+   `public_relations`, …) and **drop real food categories** (`delicatessen` 96, `butcher_shop` 86,
+   `lounge` 36, `candy_store` 30, `sandwich_shop` 27, `chocolatier` 18, `gelato` 8) — including the
+   row the benchmark ranked first for TLV-13. Re-cutting the list moves §3.1's storage model and the
+   §6.3 numbers, so it needs a ruling of its own.
 5. **Freshness.** Closed venues persist. Out of scope for V1; a `last_verified_at` column is added
    now so a future check costs a migration, not a rewrite.
 
@@ -297,12 +337,14 @@ interface MapHandle {
   destroy(): void;
 }
 
-// integrations/places — the resolution seam
-interface PlaceResolver {
-  readonly id: 'overture-local' | 'nominatim';
-  resolve(input: ResolveInput): Promise<ResolveResult>;   // ranked shortlist + confidence + action
-  search(q: string, near?: LngLat): Promise<RankedPlace[]>;  // manual place addition
-}
+// domain/ports.ts — the resolution seam. SUPERSEDED 2026-08-19; see 11 §2.
+// The live declaration is:
+//   interface PlaceResolver {
+//     readonly provider: 'overture' | 'nominatim';       // NOT 'overture-local': place_provider_refs
+//     resolve(query: ResolveQuery, ctx: OpCtx): Promise<ResolveResult>;   // .provider forbids the hyphen
+//   }
+// One method, not two: with one input type and one output type, `search` and `resolve` had
+// identical signatures. Manual place addition builds a different ResolveQuery, not a second method.
 ```
 
 `domain` sees only these. Zod-parse every provider response at the boundary (Charter §5). Nothing
@@ -396,32 +438,79 @@ can be paired with permanent storage of a name and coordinates, so accuracy is m
 
 ---
 
-## 11. Open questions for Security-Privacy
+## 11. Licensing and privacy questions for Security-Privacy
 
-1. **Attribution as a compliance surface.** Is the plan in §3.2 sufficient — specifically, does
-   reproducing the Foursquare NOTICE on an `/attributions` page plus a repo `NOTICE` file satisfy
-   Apache-2.0 §4(d) for a hosted web app that redistributes filtered rows through its own API? We
-   believe yes; we want it confirmed before the ingest script runs.
-2. **ODbL contamination boundary.** The Nominatim fallback writes ODbL-derived rows into the same
-   `places` table as CDLA-Permissive rows. We assume no share-alike obligation arises because we
-   never publicly distribute the database itself, only Produced Works (map views, place cards). We
-   want that assumption reviewed, and a decision on whether ODbL-derived rows should be segregated
-   or marked (we currently mark them via `source_dataset`).
-3. **Data-retention for place rows.** Charter invariant 3 says the source URL survives forever. Does
+**Status — D2 sign-off, split 2026-08-18.** These seven were originally one undifferentiated gate on
+all of D2, which is why they blocked MS5 as a block. They are now carried individually, because only
+two of them ever touched the ingest design, and only one of those applies to what MS5 actually
+ships:
+
+| Q | Subject | Status | Gates MS5? |
+|---|---|---|---|
+| 1 | Apache-2.0 NOTICE sufficiency | **ANSWERED** — see below | was the only real gate; now closed |
+| 2 | ODbL contamination boundary | **NARROWED and DEFERRED** — see below | **No.** No MS5 row is ODbL-derived |
+| 3–7 | Retention, location privacy, consent copy, rate limits, tile keys | OPEN | No — none can change a schema holding only Overture rows |
+
+**Ownership, resolved.** `security.md` §3 item 5 listed the owner as maps-geospatial while
+`implementation-plan.md` §4 listed Security-Privacy, and the effect was that nobody answered them.
+The split is: **Security-Privacy rules**, maps-geospatial supplies the evidence and implements the
+consequence. Both documents now say so.
+
+**These are the project's compliance position, recorded with its reasoning — not legal advice.**
+
+1. **Attribution as a compliance surface. — ANSWERED 2026-08-18.** The question was whether
+   reproducing the Foursquare NOTICE on `/attributions` plus a repo `NOTICE` file satisfies
+   Apache-2.0 §4(d) for a hosted app that redistributes filtered rows through its own API. Answer:
+   **yes, and it is answered by performing the acts rather than by opinion**, because §4 is a list of
+   conditions to *do*, not a standard to argue. Concretely, we owe four things and the first is
+   already delivered:
+   - a repo `NOTICE` file carrying the Foursquare notice verbatim, the CDLA-Permissive-2.0 and
+     Apache-2.0 positions, and an explicit statement that we modified the data (we filter to
+     food-and-drink categories and re-index it) — **delivered 2026-08-18**, ship-blocker §3.2 item 4;
+   - a verbatim copy of the Apache-2.0 licence text at `LICENSES/Apache-2.0.txt` — §4(a). Owed by
+     MS5, and it must be copied from apache.org, never retyped;
+   - the `/attributions` page reproducing all of the above — owed by the milestone that first
+     renders a place (MS10); tracked there, not here;
+   - `source_dataset` on every stored row so a place card can credit its own dataset — owed by
+     migration 0010 in MS5.
+
+   The reason this does not block the ingest: nothing about running the extract changes based on the
+   answer. Attribution obligations attach to *display and redistribution*, and both come later.
+
+2. **ODbL contamination boundary. — NARROWED 2026-08-18; does not gate MS5.** The original question
+   assumed the `places` table would hold ODbL-derived rows from day one. It will not. ODbL can enter
+   this system by exactly two paths, and **neither is in MS5**:
+   - the **OSM alias join** (§7.1a), explicitly out of MS5 scope (see `implementation-plan.md` MS5);
+   - the **Nominatim fallback**, which is MS7 at the earliest.
+
+   What MS5 ingests is the Overture `places` theme only: CDLA-Permissive-2.0 with Apache-2.0 for
+   Foursquare-sourced rows, **no share-alike** (VERIFIED, docs.overturemaps.org/attribution, §3.1).
+   The narrowing is therefore not a promise but an enforceable property, and MS5 enforces it: the
+   POI index constrains `source_dataset` to the Overture value, so an ODbL row cannot be written into
+   it without a migration that changes the constraint — which is the point at which this question has
+   to be answered rather than deferred.
+
+   **Re-opens when:** the first PR that adds an OSM-derived alias, a Nominatim write path, or a
+   second `source_dataset` value. The substantive question is unchanged and still owed then: whether
+   a mixed table plus a public API constitutes distributing a derivative *database* or only Produced
+   Works. Our position remains that it is the latter; it is untested and must be ruled on before the
+   code merges, not after.
+
+3. **Data-retention for place rows.** *(OPEN — does not gate MS5.)* Charter invariant 3 says the source URL survives forever. Does
    "forever" survive a user deletion request — does deleting a user delete shared `places` rows that
    other users also reference? Our position: shared rows survive, the user's link to them does not.
    Confirm against the retention policy and RLS design with the Database agent (D5).
-4. **Location privacy.** Confirm the §9.3 position is sufficient: no `watchPosition`, no server
+4. **Location privacy.** *(OPEN — does not gate MS5.)* Confirm the §9.3 position is sufficient: no `watchPosition`, no server
    transmission of the live fix, no persistence, no coordinates in analytics or logs, and no
    third-party script on the map page that could read them. We also want a ruling on whether the
    accuracy circle radius counts as personal data in a screenshot/support context.
-5. **Consent copy.** The browser permission prompt is not our consent surface. We need approved copy
+5. **Consent copy.** *(OPEN — does not gate MS5.)* The browser permission prompt is not our consent surface. We need approved copy
    for the pre-prompt explaining purpose and scope ("to sort your saved places by distance; your
    location is never stored or sent to us").
-6. **Rate limits (D11).** We propose 8 lookups/import, 30 imports/user/day, 20 searches/min/user,
+6. **Rate limits (D11).** *(OPEN — does not gate MS5.)* We propose 7 lookups/import (`MAX_CANDIDATES = 7`), 30 imports/user/day, 20 searches/min/user,
    200 Nominatim/day project-wide. Confirm these are enforced server-side with the user id as the
    key, not client-side.
-7. **Public token exposure.** Protomaps/MapTiler-style tile keys are public by design. Confirm the
+7. **Public token exposure.** *(OPEN — does not gate MS5.)* Protomaps/MapTiler-style tile keys are public by design. Confirm the
    referrer-restriction plan and that a leaked tile key is an acceptable, bounded risk given the
    free-tier cap halts rather than bills.
 

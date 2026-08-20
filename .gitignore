@@ -11,6 +11,14 @@ next-env.d.ts
 .env.*
 !.env.example
 
+# ingest tooling: the DuckDB venv the Overture extract needs (docs/evidence/places/README.md's
+# Reproduce block), and its outputs. The extract is ~50 MB of parquet / ~1 MB of CSV per city and is
+# reproducible from the pinned release, so none of it belongs in the repo.
+venv/
+*.parquet
+*-extract.csv
+*-copy.csv
+
 # tooling output
 playwright-report/
 test-results/

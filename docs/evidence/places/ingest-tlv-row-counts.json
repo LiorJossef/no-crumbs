@@ -1,0 +1,474 @@
+{
+ "_what": "MS5 task 5, Tel Aviv ingest. Exit criterion 4 is 'same pinned release in, same row counts out, recorded' — these are the recorded counts. Extract manifest and loader manifest verbatim as the two scripts emitted them, plus what the database held afterwards.",
+ "measured_on": "2026-08-19",
+ "database": "throwaway public.ecr.aws/supabase/postgres:17.6.1.064 container, migrations 0001-0014 applied in order; inventory.sql 15 PASS and 0008_policy_tests.sql 54 PASS + 1 UNPROVEN (P23) both before and after the load",
+ "commands": [
+  "./venv/bin/python scripts/ingest-overture-extract.py tlv --out-dir <work>",
+  "node scripts/load-poi-region.ts tlv --in <work>/tlv-extract.csv --out <work>/tlv-copy.csv",
+  "DATABASE_URL=... scripts/ingest-poi-region.sh tlv --work-dir <work>"
+ ],
+ "extract_manifest": {
+  "region_id": "tlv",
+  "display_name": "Tel Aviv",
+  "overture_release": "2026-07-22.0",
+  "source": "s3://overturemaps-us-west-2/release/2026-07-22.0/theme=places/type=place/*.parquet",
+  "bbox": {
+   "minLat": 32.03,
+   "maxLat": 32.12,
+   "minLng": 34.74,
+   "maxLng": 34.86
+  },
+  "raw_rows": 35430,
+  "food_and_drink_rows": 4997,
+  "food_and_drink_share": 0.141,
+  "dropped_nameless": 0,
+  "dropped_name_over_300_chars": 0,
+  "csv_rows": 4997,
+  "extract_seconds": 16.0,
+  "duckdb_version": "1.5.5",
+  "csv_columns": [
+   "dataset_place_id",
+   "name",
+   "provider_category",
+   "address_line",
+   "locality",
+   "lat",
+   "lng",
+   "dataset_confidence"
+  ],
+  "csv_bytes": 840199,
+  "included_categories_top_30": [
+   {
+    "category": "restaurant",
+    "rows": 984
+   },
+   {
+    "category": "bar",
+    "rows": 465
+   },
+   {
+    "category": "coffee_shop",
+    "rows": 452
+   },
+   {
+    "category": "cafe",
+    "rows": 306
+   },
+   {
+    "category": "bakery",
+    "rows": 290
+   },
+   {
+    "category": "pizza_restaurant",
+    "rows": 194
+   },
+   {
+    "category": "barber",
+    "rows": 168
+   },
+   {
+    "category": "fast_food_restaurant",
+    "rows": 168
+   },
+   {
+    "category": "middle_eastern_restaurant",
+    "rows": 125
+   },
+   {
+    "category": "burger_restaurant",
+    "rows": 103
+   },
+   {
+    "category": "italian_restaurant",
+    "rows": 102
+   },
+   {
+    "category": "ice_cream_shop",
+    "rows": 101
+   },
+   {
+    "category": "public_and_government_association",
+    "rows": 69
+   },
+   {
+    "category": "sushi_restaurant",
+    "rows": 66
+   },
+   {
+    "category": "asian_restaurant",
+    "rows": 63
+   },
+   {
+    "category": "wine_bar",
+    "rows": 62
+   },
+   {
+    "category": "cocktail_bar",
+    "rows": 56
+   },
+   {
+    "category": "pub",
+    "rows": 53
+   },
+   {
+    "category": "kosher_restaurant",
+    "rows": 52
+   },
+   {
+    "category": "smoothie_juice_bar",
+    "rows": 52
+   },
+   {
+    "category": "public_relations",
+    "rows": 51
+   },
+   {
+    "category": "seafood_restaurant",
+    "rows": 48
+   },
+   {
+    "category": "desserts",
+    "rows": 45
+   },
+   {
+    "category": "public_plaza",
+    "rows": 44
+   },
+   {
+    "category": "vegetarian_restaurant",
+    "rows": 42
+   },
+   {
+    "category": "health_food_store",
+    "rows": 39
+   },
+   {
+    "category": "mediterranean_restaurant",
+    "rows": 39
+   },
+   {
+    "category": "japanese_restaurant",
+    "rows": 37
+   },
+   {
+    "category": "bar_and_grill_restaurant",
+    "rows": 34
+   },
+   {
+    "category": "public_service_and_government",
+    "rows": 33
+   }
+  ],
+  "excluded_categories_top_50": [
+   {
+    "category": "lawyer",
+    "rows": 1509
+   },
+   {
+    "category": "(null)",
+    "rows": 1252
+   },
+   {
+    "category": "professional_services",
+    "rows": 986
+   },
+   {
+    "category": "real_estate",
+    "rows": 927
+   },
+   {
+    "category": "beauty_salon",
+    "rows": 915
+   },
+   {
+    "category": "jewelry_store",
+    "rows": 603
+   },
+   {
+    "category": "clothing_store",
+    "rows": 539
+   },
+   {
+    "category": "event_planning",
+    "rows": 539
+   },
+   {
+    "category": "community_services_non_profits",
+    "rows": 535
+   },
+   {
+    "category": "shopping",
+    "rows": 482
+   },
+   {
+    "category": "hotel",
+    "rows": 388
+   },
+   {
+    "category": "hospital",
+    "rows": 341
+   },
+   {
+    "category": "beauty_and_spa",
+    "rows": 331
+   },
+   {
+    "category": "art_gallery",
+    "rows": 321
+   },
+   {
+    "category": "dentist",
+    "rows": 308
+   },
+   {
+    "category": "financial_service",
+    "rows": 299
+   },
+   {
+    "category": "software_development",
+    "rows": 299
+   },
+   {
+    "category": "insurance_agency",
+    "rows": 294
+   },
+   {
+    "category": "gym",
+    "rows": 286
+   },
+   {
+    "category": "college_university",
+    "rows": 278
+   },
+   {
+    "category": "furniture_store",
+    "rows": 273
+   },
+   {
+    "category": "naturopathic_holistic",
+    "rows": 268
+   },
+   {
+    "category": "school",
+    "rows": 264
+   },
+   {
+    "category": "health_and_medical",
+    "rows": 262
+   },
+   {
+    "category": "pharmacy",
+    "rows": 252
+   },
+   {
+    "category": "real_estate_agent",
+    "rows": 237
+   },
+   {
+    "category": "automotive_repair",
+    "rows": 229
+   },
+   {
+    "category": "preschool",
+    "rows": 229
+   },
+   {
+    "category": "womens_clothing_store",
+    "rows": 229
+   },
+   {
+    "category": "flowers_and_gifts_shop",
+    "rows": 225
+   },
+   {
+    "category": "dance_club",
+    "rows": 223
+   },
+   {
+    "category": "park",
+    "rows": 215
+   },
+   {
+    "category": "landmark_and_historical_building",
+    "rows": 214
+   },
+   {
+    "category": "grocery_store",
+    "rows": 208
+   },
+   {
+    "category": "arts_and_entertainment",
+    "rows": 204
+   },
+   {
+    "category": "education",
+    "rows": 199
+   },
+   {
+    "category": "advertising_agency",
+    "rows": 186
+   },
+   {
+    "category": "hair_salon",
+    "rows": 182
+   },
+   {
+    "category": "interior_design",
+    "rows": 182
+   },
+   {
+    "category": "shoe_store",
+    "rows": 176
+   },
+   {
+    "category": "accountant",
+    "rows": 170
+   },
+   {
+    "category": "fashion",
+    "rows": 168
+   },
+   {
+    "category": "pilates_studio",
+    "rows": 164
+   },
+   {
+    "category": "marketing_agency",
+    "rows": 155
+   },
+   {
+    "category": "topic_concert_venue",
+    "rows": 155
+   },
+   {
+    "category": "music_production",
+    "rows": 151
+   },
+   {
+    "category": "yoga_studio",
+    "rows": 150
+   },
+   {
+    "category": "active_life",
+    "rows": 149
+   },
+   {
+    "category": "synagogue",
+    "rows": 148
+   },
+   {
+    "category": "supermarket",
+    "rows": 143
+   }
+  ]
+ },
+ "loader_manifest": {
+  "region_id": "tlv",
+  "overture_release": "2026-07-22.0",
+  "source_dataset": "overture-places",
+  "norm_version": 1,
+  "row_count": 4997,
+  "confidence_defaulted_to_0_5": 0,
+  "longest_name_norm": 75,
+  "copy_columns": [
+   "source_dataset",
+   "dataset_place_id",
+   "region_id",
+   "name",
+   "name_norm",
+   "provider_category",
+   "address_line",
+   "locality",
+   "lat",
+   "lng",
+   "dataset_confidence"
+  ],
+  "copy_csv": "/private/tmp/claude-501/-Users-lioryossef-Projects-P-002/293afb72-1718-43c9-96b7-bc0311c1e067/scratchpad/poi/tlv-copy.csv",
+  "copy_csv_bytes": 1129367
+ },
+ "database_after_load": {
+  "poi_index_rows_tlv": 4997,
+  "poi_regions_tlv": {
+   "dataset_release": "2026-07-22.0",
+   "norm_version": 1,
+   "row_count": 4997,
+   "is_loaded": true
+  },
+  "dataset_confidence": {
+   "rows_left_at_the_column_default_0_5": 0,
+   "min": 0.043,
+   "max": 0.9996,
+   "mean": 0.7166,
+   "distinct_values": 4757,
+   "note": "the column is `real`; the measured Overture values are doubles, so the stored value differs from the measured one by at most 2.98e-08 (measured over the 66 benchmark ids), which is 3e-09 of score and cannot move a 3-dp comparison or a band"
+  },
+  "address_line_not_null": 4843,
+  "locality_not_null": 4968,
+  "max_length_name_norm": 75,
+  "reload_is_idempotent": "second run: DELETE 4997, COPY 4997, row_count 4997"
+ },
+ "guards_exercised": {
+  "release_pin": "poi_regions.dataset_release set to 2026-08-19.0 -> load refused with 'release pin mismatch'; nothing written. Same load with --allow-release-change -> COPY 4997",
+  "bbox": "poi_regions.min_lat set to 32.02 -> load refused with 'bbox mismatch for tlv'; nothing written"
+ },
+ "filter_findings": {
+  "_what": "the food-and-drink filter (06 §7.4) is a hand-written list and this is what it actually did to the pinned Tel Aviv extract. Both directions are wrong at the margins, and both are load-bearing for task 7's benchmark replay",
+  "non_food_admitted_by_substring_patterns": {
+   "rows": 377,
+   "share_of_loaded": 0.0754,
+   "cause": "the '%bar%' and '%pub%' patterns",
+   "examples": {
+    "barber": 168,
+    "public_and_government_association": 69,
+    "public_relations": 51,
+    "public_plaza": 44,
+    "public_service_and_government": 33,
+    "public_toilet": 4
+   }
+  },
+  "food_and_drink_categories_the_filter_drops": {
+   "delicatessen": 96,
+   "butcher_shop": 86,
+   "lounge": 36,
+   "candy_store": 30,
+   "sandwich_shop": 27,
+   "chocolatier": 18,
+   "gelato": 8,
+   "frozen_yoghurt_shop": 4,
+   "beer_garden": 4,
+   "beer_wine_and_spirits": 2,
+   "donuts": 1,
+   "japanese_confectionery_shop": 1,
+   "night_market": 1,
+   "_arguable": {
+    "supermarket": 143,
+    "liquor_store": 76,
+    "farmers_market": 29,
+    "dance_club": 223
+   }
+  },
+  "scorer_disagreement": "SCORING.CAT_TOKENS credits 'deli', 'lounge' and 'nightlife' for a category hint, and the ingest filter drops delicatessen (96 rows) and lounge (36 rows) entirely, so those tokens can never fire on loaded data",
+  "benchmark_ids_lost": {
+   "unique_tlv_overture_ids_in_raw-overture-scored.json": 66,
+   "present_in_loaded_poi_index": 53,
+   "absent_because_the_category_filter_dropped_them": 13,
+   "note": "the benchmark scored the UNFILTERED extract. 12 of the 13 are genuinely non-food (real_estate, yoga_studio, hotel, karaoke, park, gym, beauty_salon, ...) and losing them is correct; the 13th is TLV-13's rank-1 row 'I Love Sandwich' (sandwich_shop, score 0.658), which the filter drops because neither 'sandwich_shop' nor a 'sandwich' pattern is in the list. Task 7 therefore cannot replay TLV-01/03/05/06/11/13/14's full top-5 verbatim",
+   "cases_affected": [
+    "TLV-01",
+    "TLV-03",
+    "TLV-05",
+    "TLV-06",
+    "TLV-11",
+    "TLV-13",
+    "TLV-14"
+   ],
+   "benchmark_result_rows_in_the_tlv_bbox": 71,
+   "result_rows_replayable_against_the_loaded_index": 57,
+   "result_rows_lost_to_the_category_filter": 14
+  }
+ },
+ "documented_numbers_this_run_contradicts": {
+  "06 §7.4 / 10 §7 'the Tel Aviv extract is 43% lawyers, estate agents and professional services'": "NOT REPRODUCIBLE on 2026-07-22.0. lawyer 1509 + professional_services 986 + real_estate 927 + real_estate_agent 237 = 3659 of 35430 = 10.3%. A deliberately generous grouping (legal, real estate, insurance, finance, accounting, marketing, consulting, software, agencies) reaches 5964 = 16.8%. What IS 43%-shaped is nothing in this extract; the defensible sentence is that 85.9% of the raw extract (30433 of 35430 rows) is not food and drink",
+  "06 §7.4 'the filter keeps the extract at 14-35% of raw size'": "HOLDS: Tel Aviv is 14.1%"
+ }
+}

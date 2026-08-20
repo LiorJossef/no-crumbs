@@ -139,6 +139,13 @@ a re-derivation, not a re-fetch.
 `internal` — a place we created without a provider (a future "drop a pin" feature), whose
 `provider_place_id` is the place's own uuid, so the "every place has ≥ 1 alias" invariant is total.
 
+That invariant is scoped to **live** rows. A merge tombstone (`merged_into_place_id is not null`) is
+exempt, because §1.4 moves *all* of the loser's aliases to the winner: a tombstone with no provider
+identity of its own is the intended end state of a merge, and resolution touches it only to follow
+the chain to the survivor. Enforcement matches that scope — `places_alias_required` on insert, plus
+`ppr_alias_retained_on_delete` / `ppr_alias_retained_on_move` on `place_provider_refs`, which raise
+only when the place still exists and is not a tombstone (`0011_merge_chains_and_invariant_scope.sql`).
+
 ---
 
 ## 2. Global vs per-user places — and the RLS consequence (graded, M9)

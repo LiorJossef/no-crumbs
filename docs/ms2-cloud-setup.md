@@ -23,7 +23,8 @@ the database is co-located with the functions, and the function region is the cl
 Overture ingest pushes ~150–180 MB from a local machine, and an EU region is the simpler answer to
 "where does location data live". Both projects share one region so preview timings predict production.
 
-No schema yet — migrations `0001`–`0008` land in MS5 (`docs/08-place-identity.md` §3).
+No schema yet — migrations `0001`–`0009` landed in MS4 (`docs/ms4-database.md`); MS5 adds `0010`
+(`docs/10-poi-index.md` §10).
 
 From each project's API settings, record: project URL, `anon` key, `service_role` key.
 
