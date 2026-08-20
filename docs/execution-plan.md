@@ -64,6 +64,22 @@ The feature that makes the MVP global. Carries the only gate outside its owner's
 | T2 | LLM `PlaceExtractor` — structured output, versioned prompt | Schema-valid candidates from a real caption; a caption naming no place returns **zero** candidates cleanly; per-import cost logged against the ~$0.003 estimate |
 | T3 | Import store + `confirmImport` — the transactional save | Rows written to `imports`/`extractions` as they are produced, and confirmed candidates land in `places` + `saved_places` through `save_place()` under the user's JWT; a second import of the same post creates no duplicate place |
 
+**Deviation, 2026-08-20 (owner request):** `L0-F3` (global resolver) and `L0-F4` (real source/
+extraction adapters) are **paused after L0-F1**, not cut. Owner wants the core product loop — real
+UI, a real map, add/save/display a place — proven end-to-end before spending more sessions on real
+TikTok extraction and global resolution. `L0-F5` (schema live) is **not paused**: it only depends on
+`F2`, not on `F3`/`F4`, so it proceeds. `L0-F6` (the streaming route) stays paused with `F3`/`F4`
+since its exit criterion needs both.
+
+In their place, a **pre-L1 vertical slice** (not on the L0/L1 ladder, no cut flag, own commits/PR):
+one small app shell, MapLibre + Protomaps rendering saved pins, and manual add/save/delete against
+**directly-entered or fixture place data** — no `PlaceResolver` search, no TikTok import. This
+reuses `L1-F1`'s and `L1-F5`'s surfaces where convenient but is explicitly not those features: no
+design tokens, no auth beyond the minimum Supabase session needed for `saved_places` RLS to mean
+anything, no camera-mover discipline yet. It gets rebuilt/absorbed into `L1-F1`, `L1-F5` and `L1-F7`
+once those are actually scheduled. Real TikTok extraction (`L0-F3`/`L0-F4`) resumes after this slice
+proves the loop.
+
 ### L0-F5 — Schema live · `supabase-database` + `devops-vercel` · depends: F2 · cut: never
 Was MS5 task 8. Deliberately after F2, so we do not apply a schema no code has exercised.
 
