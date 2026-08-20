@@ -1,24 +1,48 @@
 # P-002 — Personal geographic recommendation map
 
-Under construction against an ordered plan. Repo, toolchain and deploy (MS2), the technical design
-(MS3) and the database (MS4, nine migrations applied and verified on both hosted projects) are
-done. **MS5 — the POI index and resolver — is in progress:** its task ledger in
-`docs/implementation-plan.md` is the running state, and tasks 1–4 (the `0010`/`0014` migration chain,
-the resolver vocabulary in `src/domain/`, the ported scorer, the 44-case golden file) are closed.
-Task 5, the Tel Aviv ingest against a pinned Overture release, is next — and it carries task 4's
-rider to record the per-row Overture `confidence`, without which the `score` column of MS5 exit
-criterion 3 cannot be proved.
-`docs/implementation-plan.md` is the plan of record and its change log is the current state.
+Under construction against an ordered plan, **re-planned by product level on 2026-08-20**.
+[`docs/mvp-plan.md`](docs/mvp-plan.md) is the plan of record: four levels — **L0** walking skeleton,
+**L1** the course MVP and the submission target, **L2** product-grade, **L3** post-course — every one
+of them submittable, climbed one at a time. `docs/implementation-plan.md` keeps the decision ledger,
+the M3 architecture answer, the migration order and the build orders; its milestone ladder and its
+half-day budget are retired.
+
+Done: repo, toolchain and deploy (was MS2), the technical design (MS3), the database (MS4, nine
+migrations on both hosted projects), and the POI index chain `0010`/`0014` plus the resolver
+vocabulary, the ported scorer, the 44-case golden file and the Tel Aviv ingest with measured Overture
+confidences (was MS5 tasks 1–5). **No application code exists yet** — no auth, no UI, no map, no
+pipeline.
+
+**L0 is in progress.** Its six steps and their exit criteria are in `mvp-plan.md` §5: the import
+domain, the local resolve seam (was MS5 task 7 — a candidate string resolving against the ingested rows,
+including the `score` column on the 57 of 71 replayable benchmark rows), **the global resolver
+(step 2b, D2b)**, the adapters, the migrations
+applied to staging and production (was MS5 task 8), and the streaming route proven from a preview
+deployment. MS5 task 6 (Tokyo, London) has moved to L2, where it is now an
+accuracy accelerator rather than the product's coverage boundary.
+
+The MVP boundary, and it is three decisions rather than a feature list: one link in one field;
+**TikTok only** — the sole VERIFIED access mechanism, so an Instagram or YouTube link is a recognised
+redirect to manual add, never a failure; and "info" fixed at name · category · coordinates · source
+link · user note, which is exactly what open data lets us store forever. At LEVEL B's ~27% hit rate,
+**"no places found" is the modal import outcome**, so its screen is a core surface, not an error path.
 
 **Read before doing anything in this repo:**
-1. `docs/00-project-charter.md` — product definition, V1 boundary, engineering principles, open decisions
-2. `docs/implementation-plan.md` — the milestone ladder, the decision ledger, and the change log
-3. `docs/02-risks-and-unknowns.md` — unknowns, assumptions, risks
-4. `docs/01-agent-roster.md` — the eleven expert roles and who owns what
+1. `docs/mvp-plan.md` — **the plan of record**: the MVP boundary, the four levels, the exit criteria
+1b. `docs/execution-plan.md` — **the ladder and the running status**: Level → Feature → Task
+1c. `docs/brand-and-product-foundation.md` — positioning, user, tone, visual direction, the eight
+   surfaces, the main flow. The product **name is still open** (owed at L1-F1-T1)
+2. `docs/00-project-charter.md` — product definition, V1 boundary, engineering principles, open decisions
+3. `docs/implementation-plan.md` — the decision ledger, the M3 architecture answer, the change log
+4. `docs/02-risks-and-unknowns.md` — unknowns, assumptions, risks
+5. `docs/01-agent-roster.md` — the eleven expert roles and who owns what
 
 Stack: Next.js + TypeScript + Supabase + Vercel. **D2 is closed** — MapLibre GL v5 + Protomaps
-tiles + our own resolver over Overture `places` extracts, Nominatim as a capped fallback
-(`docs/06-map-and-places-decision.md`, schema in `docs/10-poi-index.md`).
+tiles + our own resolver over Overture `places` extracts (`docs/06-map-and-places-decision.md`,
+schema in `docs/10-poi-index.md`). **D2b, 2026-08-20: the MVP resolves globally** — two sources
+behind one `PlaceResolver` port, the Overture index where a region is loaded (85% top-1) and
+Nominatim everywhere else (63%), routed on the extraction's `cityHint`. Nominatim's ODbL write path
+re-opens `06` §11 Q2; that sign-off is owed **before** the adapter merges.
 
 Specialist subagents live in `.claude/agents/` and are invocable by `subagent_type`, e.g.
 `social-integration`, `maps-geospatial`, `ai-extraction`.

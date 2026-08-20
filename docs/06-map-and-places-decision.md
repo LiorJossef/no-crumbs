@@ -14,7 +14,7 @@
 | Map rendering | **MapLibre GL JS v5** (BSD-3), wrapped by `@vis.gl/react-maplibre` |
 | Basemap tiles | **Protomaps hosted tile API**, style forked from the CC0 Protomaps basemap styles; escape hatch = self-hosted `.pmtiles` on object storage |
 | Place resolution | **Our own resolver over an openly-licensed POI dataset** — Overture Maps `places` theme (CDLA-Permissive-2.0 / Apache-2.0, Foursquare-sourced rows), loaded as per-city extracts into Postgres |
-| Out-of-region fallback | **Nominatim**, hard-capped and cached, ODbL-attributed |
+| Out-of-region fallback | **Nominatim**, hard-capped and cached, ODbL-attributed. **Promoted 2026-08-20 (D2b, [`mvp-plan.md`](mvp-plan.md) §11) from a late fallback to the MVP's global resolution path** — two sources behind one port, routed on the candidate's city hint; measured 85% top-1 inside a loaded region, 63% outside. Escape hatch if the ≤1 rps / ~200-per-day policy ceiling bites: a hosted OSM geocoder (LocationIQ / Geoapify — same data, same ODbL storage rights, a real ToS), reachable by changing one env var |
 | Terminal recovery | Manual search over the same index, then manual pin-drop |
 | Persisted per place | `name`, `lat`, `lon`, `category`, `source_dataset`, `source_dataset_id`, `resolution_score` |
 
@@ -495,6 +495,17 @@ consequence. Both documents now say so.
    a mixed table plus a public API constitutes distributing a derivative *database* or only Produced
    Works. Our position remains that it is the latter; it is untested and must be ruled on before the
    code merges, not after.
+
+   **RE-OPENED 2026-08-20, exactly as written above.** D2b ([`mvp-plan.md`](mvp-plan.md) §11) makes
+   the Nominatim write path part of the MVP core rather than an MS7 fallback, so the second of the two
+   named paths is now imminent: `mvp-plan.md` L0 **step 2b** is the PR this clause was waiting for. The
+   sign-off is owed **before that step merges**, and it is owed as an answer to the substantive
+   question, not as a restatement of the position. What has already been built in anticipation and
+   should be read as evidence rather than argument: `places.source_dataset` / `source_dataset_id` carry
+   per-row provenance and `resolve_place()` writes them (`0014`), so a mixed table is *auditable* row
+   by row; `poi_index.source_dataset` still constrains to the Overture value, so ODbL cannot enter the
+   *index* without a visible migration; and attribution is already mandatory and already shipped for
+   the basemap. Owner: `security-privacy`.
 
 3. **Data-retention for place rows.** *(OPEN — does not gate MS5.)* Charter invariant 3 says the source URL survives forever. Does
    "forever" survive a user deletion request — does deleting a user delete shared `places` rows that
