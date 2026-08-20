@@ -1,0 +1,175 @@
+# Product & Brand Foundation — the MVP
+
+> Owner: Product Lead + UX. Date: **2026-08-20**. Status: **decided in session with the owner**,
+> except §3 (the name), which is deliberately open with a deadline.
+>
+> Scope: lean and MVP-sized. This document decides positioning, user, personality, visual direction,
+> navigation and the main flow — and nothing else. It does **not** contain a design system, a logo
+> system, an illustration style, a marketing site, or a component inventory. Those are not MVP.
+>
+> Inputs: [`mvp-plan.md`](mvp-plan.md) (the four levels, the MVP boundary),
+> [`00-project-charter.md`](00-project-charter.md) §6 (quality bar),
+> [`product-specification.md`](product-specification.md) §2 (user profiles),
+> [`ux-architecture.md`](ux-architecture.md) (IA, flow states, copy deck — ratified and pruned here).
+
+---
+
+## 1. Positioning
+
+> **Turn the places you discover on social media into a map you can actually use.**
+
+The long form, for the spec and the deck:
+
+*For people who find restaurants, cafés and bars on social media and then can't find them again,
+**[name]** turns a pasted link into a pin on their own private map. Retrieval takes seconds instead
+of scrolling. Unlike a saves folder, it is organised by **where**, not by **when**.*
+
+The last clause is the product in six words and is the answer to "what is this, in one sentence".
+
+**The boundary, stated as a product fact rather than hidden.** The positioning says *social media*;
+the MVP reads **TikTok**. That is a deliberate consequence of `04`'s VERIFIED access mechanism, and
+it is honest in the product rather than in a footnote: a pasted Instagram or YouTube link is
+**recognised by name** and answered with the manual-add path, never with a failure. The positioning
+is written for the product, not for the current adapter count — and D2b's global resolution is what
+makes "a map you can actually use" true anywhere in the world rather than in one city.
+
+## 2. The user
+
+**One profile, two retrieval questions.** The person saves places they find while scrolling — some in
+the city they live in, some banked for a trip they have not taken yet.
+
+| | Everyday | Trips |
+|---|---|---|
+| The question | "What did I save around here?" | "What do I already have in this city?" |
+| Served by the MVP | **Partly** — city-level retrieval works; *near me* is L2 | **Fully** — map, list and global resolution, no location permission needed |
+
+**The consequence, and it is a schedule decision, not a note:** because the everyday half of our own
+primary user depends on it, **near-me is promoted to the first L2 item**, ahead of pre-loading more
+cities. Recorded in `mvp-plan.md` §8.
+
+Anti-users are unchanged and still testable: `product-specification.md` §2.1 — this recommends
+nothing, has no social graph, and is not an itinerary planner.
+
+## 3. The name — OPEN, with a deadline
+
+**Not decided.** The brief, captured so the next session does not re-derive it:
+
+- **Direction:** short, modern, memorable, consumer-app-like, and connected to the **product action**.
+  Reference points for register only: *MapIt*, *Spotted*.
+- **Avoid:** poetic, travel-brochure or outdoorsy names (*Cairn*, *Amble*, *Yonder* were explored and
+  rejected as a direction, not individually).
+- **Avoid also:** TikTok-derived names (trademark, and the product outgrows the platform), the `-It`
+  construction (dates immediately, and it is crowded), and implementation vocabulary — the house rule
+  in `ux-architecture` §12 bans it in user-facing language, and the name is the most user-facing
+  string there is.
+- **Explored, kept on the table:** *Pinned* (names the artifact; needs no explanation; free success
+  copy; Pinterest adjacency), *Mapt* (most ownable; a coined spelling), *Placed* (cleanest; quietest),
+  *Dropp* (punchy; trend-styled).
+- **Owed before it blocks:** the name is needed at **L1 step 1**, which is the first thing that puts a
+  word in the shell header, and again for the deck. It does not block L0 at all.
+- **Not owed with it:** a logo, a wordmark treatment, an icon set. Charter §4 keeps those out.
+- **Not verified for any candidate:** trademark and domain. Owed before public use; not before a
+  course submission.
+
+## 4. Personality and tone
+
+**Modern, sleek, effortless, with a sense of discovery. Clean and confident — never cold or
+corporate.**
+
+Four rules that make that operable rather than decorative:
+
+1. **State, don't perform.** The product reports what happened and stops. Confidence reads as brevity,
+   not as enthusiasm. *"3 places found"* — not *"Great news! We found 3 amazing places!"*
+2. **Concrete over technical, always.** This is where "not corporate" is actually won. The banned list
+   in `ux-architecture` §12 stands verbatim: no *metadata, LLM, AI, model, geocode, extraction,
+   pipeline, parse, API, payload, confidence score, job, worker*, no *"oops"*, no *"something went
+   wrong"*.
+3. **Effortless means the product carries the work.** We never ask the user for something we could
+   get ourselves — which is the same rule that killed manual caption entry in Charter §2, expressed as
+   a voice.
+4. **Discovery is the user's, not ours.** They found the place; we kept it. Copy never congratulates
+   itself on the find, and never editorialises about the place ("a hidden gem" is not ours to say).
+
+**The failure state is the tone test, not the success state.** At LEVEL B the modal outcome is *no
+places in this post* (~73%), so the voice is judged on how that screen reads. It must be matter-of-fact
+and offer the next move — never apologetic, never cute, never blaming the post. `ux-architecture` §12.4
+holds those strings and is ratified as written.
+
+## 5. Visual direction
+
+**Warm minimal, light only, dark-ready in architecture.**
+
+| Element | Decision |
+|---|---|
+| Surfaces | Warm off-white "paper" neutrals — warmth is what keeps *clean* from reading *cold* |
+| Text | Near-black ink; §11.6's contrast intent is a constraint on the palette, not a check afterwards |
+| Accent | **One** warm accent (clay/amber family), used for the primary action, the pin and the focus ring — and nothing else |
+| Map | **Upstream Protomaps light style with a palette swap.** Authoring our own fork stays L2 (D9b) |
+| Dark mode | **Architecture only.** Tokens are defined as semantic roles (`surface`, `surface-raised`, `ink`, `ink-muted`, `accent`, `edge`) so a dark theme is later a *value swap*, not a refactor. **No dark values are authored, there is no toggle, and there is no dark map in the MVP** |
+| Typography | **Display + text pairing.** One distinctive display face, allowed in exactly **three placements** — the wordmark, the first-run screen, the import stage headline. A neutral variable sans everywhere else. Any fourth placement is a change to this document |
+| Discipline | **Every colour is a token.** A hard-coded colour anywhere is a review failure — this is what keeps the dark theme and the L2 map fork cheap |
+
+## 6. Navigation and screens — eight surfaces
+
+The IA principle is ratified as written in `ux-architecture` §1.1 and is the strongest structural
+decision in the product: **the map is the application shell, not a page inside it.** No tab bar. One
+persistent destination (`/map`), one primary action (add a link). Everything else is a layer over the
+map or a full-screen task that returns to it.
+
+| # | Route | Surface | Layer |
+|---|---|---|---|
+| S1 | `/` | Minimal sign-in landing — one line of what this is, one CTA. **Pruned from a marketing page** | full |
+| S2 | `/signin` | Auth, email + password (D8) | full |
+| S3 | `/map` | **Map home** — the product. Full-bleed map, pins, collapsed sheet, Add action | shell |
+| S4 | `/map` + sheet | **Saved places list** — search over saved places. Not a page: the sheet at full height | layer |
+| S5 | `/place/[id]` | **Place detail** — what it is, and which post made you save it | layer |
+| S6 | `/import` | **Add a link** — the flagship entry | layer |
+| S7 | `/import/[id]` | **Review & confirm** — the disambiguation surface | full |
+| S8 | `/add-place` | **Add a place you know** — manual add + delete. Never cut: CRUD evidence *and* the no-places recovery | layer |
+| — | — | **First run** — the state of S3 at zero saved places, not a route | state |
+
+**Pruned from `ux-architecture` §1.2:** the account screen (S9) becomes a **popover** — sign out,
+delete my data, location-permission state — and S1 loses its marketing content. Two fewer screens to
+design and keep consistent, with nothing lost that the MVP needs.
+
+**Also out, and named so nobody re-proposes them:** settings pages, onboarding carousel,
+notifications, activity log, import history, profile, collections, share. A finished import has no
+artifact of its own — its output is pins.
+
+## 7. The main mobile flow
+
+Ratified from `ux-architecture` §2, unchanged in spine: **paste → accepted → reading → finding →
+matching → review → confirm → pins land** (F0→F8).
+
+| Stage | What the user sees |
+|---|---|
+| Paste | One field, in the thumb zone. The only instruction in the product: *"Copy the link in TikTok — Share → Copy link."* |
+| Accepted | Instant acknowledgement, before any work completes — this is what makes the wait feel effortless |
+| Progress | **A three-stage rail driven by real streamed events** — *Reading the TikTok… · Finding the places… · Matching locations…* No percentage, because we do not have one. Reassurance ladder **cut from four messages to two** |
+| Review | Every candidate confirmed by a human. **Never bypassed, never simplified** — Charter §3 invariant 2 |
+| Pins land | Post-confirm camera flight to the new pins — the signature moment, and nearly free with MapLibre |
+
+Two properties of this flow are load-bearing and must not be traded for polish:
+
+1. **Each stage is a real event**, not a timed animation. The rail is honest by construction because
+   the streaming route (L0 step 5) emits the stages the rail renders.
+2. **Nothing reaches the map without confirmation**, and the no-places screen is a *designed
+   destination* of this flow, not an error branch off it.
+
+## 8. What this changes elsewhere
+
+1. `mvp-plan.md` — §6 step 1 carries the name, the tokens and the eight surfaces; §8 promotes
+   **near-me to the first L2 item** (ahead of more cities), because it serves the everyday half of the
+   primary user.
+2. `product-specification.md` — §1/§2 take the positioning line and the single merged user profile;
+   its own accuracy bar in §7.1 is unaffected.
+3. `ux-architecture.md` — §1.2's surface inventory is pruned from ten to eight here; its flow states,
+   copy deck and accessibility intent are ratified as written and are **not** re-litigated.
+4. Nothing in this document changes the decision ledger. No new external service, no new dependency,
+   no schema impact.
+
+## Change log
+
+| Date | Change |
+|---|---|
+| 2026-08-20 | Created in session with the owner. Decided: the positioning line and its long form; **one merged user profile** with two retrieval questions, which promoted **near-me to the first L2 item** because the everyday half of our own primary user depends on it; the personality (modern, sleek, effortless, discovery — clean and confident, not cold or corporate) with four operable rules and the ruling that **the failure screen, not the success screen, is the tone test** at a ~73% no-places rate; the visual direction as **warm minimal, light only, dark-ready in architecture** (semantic token roles, no dark values, no toggle, no dark map — and every colour a token, which is what keeps both the dark theme and the L2 map fork cheap); **display + text typography restricted to three placements**; the surface set **pruned from ten to eight** (account → popover, landing → minimal sign-in); and the flagship flow ratified with a **three-stage rail on real streamed events** and the reassurance ladder cut from four messages to two. Two things were deliberately not decided: the **name**, which is open with its brief, its rejected directions, its live shortlist and a deadline (L1 step 1, the first surface with a header — it does not block L0), and anything resembling a design system, logo or component inventory, which Charter §4 keeps out of the MVP. One honesty item recorded rather than smoothed: the positioning says *social media* while the MVP reads *TikTok*, so the platform boundary is carried **in the product** as a recognised redirect to manual add rather than as a footnote |
