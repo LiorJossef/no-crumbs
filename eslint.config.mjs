@@ -112,7 +112,7 @@ const integrationsZone = {
 };
 
 export default tseslint.config(
-  { ignores: ['.next/**', 'node_modules/**', 'coverage/**', 'playwright-report/**', 'test-results/**', 'next-env.d.ts', 'docs/evidence/**'] },
+  { ignores: ['.next/**', 'node_modules/**', 'coverage/**', 'playwright-report/**', 'test-results/**', 'next-env.d.ts', 'docs/evidence/**', 'supabase/.temp/**', 'supabase/.branches/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   ...next,
