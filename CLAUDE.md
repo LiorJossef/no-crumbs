@@ -22,6 +22,7 @@ kebab-case, prefixed branch per feature (`feat/global-place-resolution`, `fix/re
 decompose the feature into subtasks from the plan before writing code; commit each coherent subtask
 once its tests and checks pass, staged intentionally and reviewed as a diff first; Conventional
 Commit subjects (`feat(resolver): add Nominatim provider`) with the *why* in the body. Uncommitted
-changes in the tree are user-owned — never reset, cleaned, or swept into a commit. No push, merge,
-rebase, force-push or PR without explicit authorisation; landing still goes branch → PR → green CI
-per `docs/ms3-branch-protection.md`.
+changes in the tree are user-owned — never reset, cleaned, or swept into a commit. **A finished
+feature whose checks pass is pushed and PR'd automatically; merging into `main` always needs explicit
+approval** — as do force-push, history rewrites and branch deletion. Landing goes branch → PR → green
+CI → approval → merge, per `docs/ms3-branch-protection.md`.

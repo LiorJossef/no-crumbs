@@ -117,19 +117,38 @@ broader verification suite, inspect the full branch diff against its base, confi
 matches the plan/spec, confirm the docs are current, and confirm the branch is a clean sequence of
 meaningful commits. Do not squash or rewrite useful history to tidy it up unless asked.
 
-## 9. Push, PR and review boundary
+## 9. Push, PR and the merge boundary
 
-Local commits at stable checkpoints are encouraged. Do **not** push, merge, force-push, rebase shared
-history, delete branches, or open a PR without explicit authorisation for that action. Never
-force-push without approval.
+**Standing authorisation, granted 2026-08-20 — push and PR are automatic; merging is not.**
 
-When work does land, it lands the way `docs/ms3-branch-protection.md` already establishes: on a
-branch, through a PR, with CI green. `.githooks/pre-push` refuses direct pushes to `main`; that hook
-and its `ALLOW_MAIN_PUSH=1` escape hatch stand unchanged. Authorisation is per-action and does not
-generalise to the next one.
+Once a feature's exit criteria (§8) are met and its checks pass, push the branch and open its pull
+request against `main` without asking. Local commits at stable checkpoints remain encouraged; the
+push is what makes a finished feature reviewable, and waiting for permission to do it was friction
+with no safety value.
 
-When a feature is ready for review, report: branch name · feature completed · exit-criteria status ·
-checks and tests run · commits created · known limitations and follow-up work. Then stop.
+**Merging into `main` always requires explicit approval.** Never merge, never enable auto-merge,
+never merge with admin override, and never take a green PR as licence to land it. A green PR is
+ready for review, not approved. This is the boundary the standing authorisation above does *not*
+cross.
+
+Still off-limits without a specific instruction each time:
+
+- force-push, in any form, to any branch;
+- rebasing or otherwise rewriting shared history;
+- deleting branches, local or remote;
+- pushing directly to `main`.
+
+`.githooks/pre-push` refuses direct pushes to `main`; that hook and its documented
+`ALLOW_MAIN_PUSH=1` escape hatch stand unchanged, and the escape hatch is not to be used to work
+around the merge boundary. Landing still follows `docs/ms3-branch-protection.md`: branch → PR → CI
+green → **your approval** → merge.
+
+When the PR is open, report: branch name · feature completed · exit-criteria status · checks and
+tests run · commits created · PR link and CI status · known limitations and follow-up work. Then
+stop at the merge boundary.
+
+If checks fail, do not open the PR as though the feature were done — fix the failure, or report the
+blocker.
 
 ## 10. Process is not the product
 
