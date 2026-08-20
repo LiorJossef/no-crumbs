@@ -27,6 +27,12 @@ discard, reset or accidentally carry along pre-existing user changes.
 `audit/ms1-ms4-fixes` are milestone-era names from before this ruling; they are not renamed. The
 prefix scheme applies to branches created from now on.
 
+**Docs/plan updates ride with the slice they belong to, not a separate branch.** If a vertical
+slice or feature needs an `execution-plan.md`/`mvp-plan.md` update (a deviation note, a task closed,
+a re-scope) to make sense on its own, that update is a commit on the *same* feature branch, in the
+same PR — not a standalone `docs/*` branch split off from the code it explains. A `docs/*` prefix
+stays for genuine docs-only work with no accompanying code (e.g. a standalone decision-doc rewrite).
+
 ## 2. Decompose before implementing
 
 Before starting a feature, derive its concrete subtasks from `docs/mvp-plan.md` (the plan of record)
