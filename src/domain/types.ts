@@ -222,3 +222,138 @@ export interface ResolveResult {
    */
   readonly candidatesPrefiltered: number;
 }
+
+/* ------------------------------------------------------------------------------------------- *
+ * Import pipeline (07 §8, §10) — the slice needed to type `ImportEvent`'s terminal outcome.
+ * `Extraction` and `SavedRecommendation` are not declared yet: nothing in `domain/errors.ts` or
+ * `domain/import/events.ts` (L0-F1-T1) needs them, and they land with the task that does.
+ * ------------------------------------------------------------------------------------------- */
+
+/** A name the LLM thinks is a place. Not yet a place (07 §10). */
+export interface PlaceCandidate {
+  /** Exactly as the caption wrote it — shown verbatim in the review/search UI. */
+  readonly rawName: string;
+  readonly cityHint: string | null;
+  readonly countryHint: string | null;
+  readonly categoryHint: CategoryHint | null;
+  /** The caption fragment the name came from, for our own debugging only. */
+  readonly evidence: string | null;
+  /** Kept, never trusted (`02` §D3): nothing gates on the model's own confidence. */
+  readonly modelConfidence: number | null;
+}
+
+/**
+ * What one candidate resolved to. **Derived** from `ResolveResult` by the pipeline, never
+ * returned by `PlaceResolver` itself (`07` §8, `11` §2 ruling 5): `preselect → resolved`,
+ * `confirm → ambiguous`, `no_match → unresolved`. `lookup_failed`, `timed_out` and `capped` have
+ * no `ConfidenceBand` counterpart — they are pipeline-level outcomes, which is why this type is
+ * declared in the pipeline's vocabulary and not derived mechanically from `Confidence` alone.
+ */
+export type CandidateResolution =
+  | {
+      readonly status: 'resolved';
+      readonly place: ResolvedPlace;
+      readonly alternates: readonly ResolvedPlace[];
+      readonly confidence: Confidence;
+    }
+  | { readonly status: 'ambiguous'; readonly options: readonly ResolvedPlace[] }
+  | { readonly status: 'unresolved'; readonly reason: 'no_match' | 'lookup_failed' | 'timed_out' | 'capped' };
+
+/** A candidate plus what resolution made of it. This is what the review UI renders (07 §10). */
+export interface Candidate {
+  readonly candidate: PlaceCandidate;
+  readonly resolution: CandidateResolution;
+}
+
+/* ------------------------------------------------------------------------------------------- *
+ * Import pipeline (continued) — raw source material and stage bookkeeping, landing with L0-F1-T3
+ * (`runImport`). `Extraction` was the one piece of 07 §10's vocabulary this file's header said was
+ * "still to come" — it lands here now, alongside the shapes `SourceAdapter`, `ContentExtractor`
+ * and `ImportStore` need (`ports.ts`).
+ * ------------------------------------------------------------------------------------------- */
+
+/** One piece of raw text pulled off a source post. V1 emits exactly one, `kind: 'caption'` — the
+ *  verbatim oEmbed `title` (07 §10, 09 §1). */
+export interface RawText {
+  readonly kind: 'caption';
+  readonly text: string;
+}
+
+/** V1 always emits `media: []` on every `RawSource` — this type exists so a future ASR/OCR
+ *  analyser is a second `ContentExtractor` implementation, not a signature change anywhere
+ *  (07 §10, §12's stage-B trigger). */
+export interface MediaRef {
+  readonly kind: 'video' | 'image';
+  readonly url: string;
+  readonly expiresAt: Date | null;
+}
+
+/** What `SourceAdapter.fetch` returns: a post's raw material, before any `ContentExtractor` or
+ *  `PlaceExtractor` has touched it (07 §10). */
+export interface RawSource {
+  readonly externalId: string;
+  readonly authorHandle: string | null;
+  readonly authorName: string | null;
+  readonly canonicalUrl: string;
+  readonly thumbnailUrl: string | null;
+  readonly texts: readonly RawText[];
+  readonly media: readonly MediaRef[];
+}
+
+/** One `ContentExtractor`'s output: text plus its provenance, so extraction quality stays
+ *  attributable per source kind (07 §10). The orchestrator concatenates every extractor's parts
+ *  before calling `PlaceExtractor`; V1's array length is 1. */
+export interface ContentPart {
+  readonly kind: 'caption' | 'transcript' | 'onscreen-text';
+  readonly text: string;
+  readonly origin: string;
+}
+
+/** What stage B produced from a source's text, for one `(extractorVersion, promptVersion)` —
+ *  the extraction cache's key (07 §10, `09` §7). Not yet read back from `jsonb` by anything in
+ *  this task: the cache itself is `ImportStore`'s job, and L0-F1-T3 does not implement
+ *  `loadCached`/`getOrCreateImport` (see `ports.ts`'s note on `ImportStore`). */
+export interface Extraction {
+  readonly sourceId: string;
+  readonly extractorVersion: string;
+  readonly promptVersion: string;
+  readonly candidates: readonly PlaceCandidate[];
+  readonly cityHint: string | null;
+  readonly producedAt: Date;
+}
+
+/**
+ * One stage's output plus its elapsed ms, recorded by `ImportStore.recordStage` before the next
+ * stage starts (07 §6). A discriminated union on `stage` rather than 07 §10's sketch of a
+ * separate `stage: ImportStage` parameter alongside an already-discriminated `StageOutput`: two
+ * values that must always agree are one bug waiting for a call site to pass them out of step, so
+ * this file collapses them into the single value that already carries the truth.
+ */
+export type StageOutput =
+  | { readonly stage: 'source'; readonly ms: number; readonly source: Source }
+  | { readonly stage: 'extract'; readonly ms: number; readonly extraction: Extraction }
+  | {
+      readonly stage: 'resolve';
+      readonly ms: number;
+      readonly candidates: readonly Candidate[];
+      /** Set only when every attempted lookup failed with a transport error (07 §8 rule 3). */
+      readonly degraded: 'PLACE_PROVIDER_UNAVAILABLE' | null;
+    };
+
+/** The post. Global, one row per platform post, shared across users (07 §10). */
+export interface Source {
+  readonly id: string;
+  readonly platform: 'tiktok';
+  /** The numeric video id — the identity (`04` §6). */
+  readonly externalId: string;
+  /** Rebuilt from `author_unique_id`, never from user input. */
+  readonly canonicalUrl: string;
+  readonly authorHandle: string | null;
+  readonly authorName: string | null;
+  /** Signed, ~6 month expiry: never treated as a permanent reference. */
+  readonly thumbnailUrl: string | null;
+  readonly fetchedAt: Date;
+}
+
+/** What the UI may see of a `Source` (07 §10) — the caption never crosses this seam. */
+export type SourceView = Pick<Source, 'externalId' | 'canonicalUrl' | 'authorHandle' | 'thumbnailUrl'>;

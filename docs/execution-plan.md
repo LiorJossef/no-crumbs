@@ -82,6 +82,14 @@ Was MS5 task 8. Deliberately after F2, so we do not apply a schema no code has e
 **L0 exit:** a stranger's TikTok about a venue anywhere in the world, sent to a deployed URL, produces
 correct candidates and a saved row.
 
+**Deviation, 2026-08-20 (owner request, not a ladder change):** immediately after `L0-F6-T1` lands,
+before any L1 work starts, build one throwaway, unstyled test page — a text input, a submit button,
+raw output — that calls the real `POST /api/imports` route. Its purpose is a visible, real-data demo
+of the walking skeleton, nothing else: it is not `L1-F1`'s shell, not `L1-F2`'s paste screen, carries
+none of their design tokens or motion, and does not count toward closing either feature. It is deleted
+or fully rebuilt when `L1-F1`/`L1-F2` land. No task ID, no exit criterion beyond "a human can paste a
+real link and see real candidates come back."
+
 ---
 
 ## L1 — The course MVP
