@@ -13,11 +13,13 @@ vocabulary, the ported scorer, the 44-case golden file and the Tel Aviv ingest w
 confidences (was MS5 tasks 1–5). **No application code exists yet** — no auth, no UI, no map, no
 pipeline.
 
-**L0 is in progress.** Its five steps and their exit criteria are in `mvp-plan.md` §5: the import
-domain, the resolve seam (was MS5 task 7 — a candidate string resolving against the ingested rows,
-including the `score` column on the 57 of 71 replayable benchmark rows), the adapters, the migrations
+**L0 is in progress.** Its six steps and their exit criteria are in `mvp-plan.md` §5: the import
+domain, the local resolve seam (was MS5 task 7 — a candidate string resolving against the ingested rows,
+including the `score` column on the 57 of 71 replayable benchmark rows), **the global resolver
+(step 2b, D2b)**, the adapters, the migrations
 applied to staging and production (was MS5 task 8), and the streaming route proven from a preview
-deployment. MS5 task 6 (Tokyo, London) has moved to L2.
+deployment. MS5 task 6 (Tokyo, London) has moved to L2, where it is now an
+accuracy accelerator rather than the product's coverage boundary.
 
 The MVP boundary, and it is three decisions rather than a feature list: one link in one field;
 **TikTok only** — the sole VERIFIED access mechanism, so an Instagram or YouTube link is a recognised
@@ -34,7 +36,10 @@ link · user note, which is exactly what open data lets us store forever. At LEV
 
 Stack: Next.js + TypeScript + Supabase + Vercel. **D2 is closed** — MapLibre GL v5 + Protomaps
 tiles + our own resolver over Overture `places` extracts (`docs/06-map-and-places-decision.md`,
-schema in `docs/10-poi-index.md`).
+schema in `docs/10-poi-index.md`). **D2b, 2026-08-20: the MVP resolves globally** — two sources
+behind one `PlaceResolver` port, the Overture index where a region is loaded (85% top-1) and
+Nominatim everywhere else (63%), routed on the extraction's `cityHint`. Nominatim's ODbL write path
+re-opens `06` §11 Q2; that sign-off is owed **before** the adapter merges.
 
 Specialist subagents live in `.claude/agents/` and are invocable by `subagent_type`, e.g.
 `social-integration`, `maps-geospatial`, `ai-extraction`.

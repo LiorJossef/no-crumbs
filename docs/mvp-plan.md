@@ -56,6 +56,17 @@ consequence is a **product decision, not an error path**: a pasted Instagram or 
 recognised, named, and answered with "we only read TikTok links today — you can add this place by
 name instead", which lands the user on the manual-add path rather than on a failure.
 
+**"anywhere"** — the MVP resolves places **globally**, decided 2026-08-20. This is not a new
+architecture: `06` §0 already chose "out-of-region fallback: **Nominatim**, hard-capped and cached,
+ODbL-attributed", and `src/domain/types.ts` already declares `PlaceProvider = 'overture' |
+'nominatim'` and `SourceDataset = 'overture-places' | 'osm-nominatim'`. What changes is *when* —
+that fallback moves from "MS7 at the earliest" into the MVP core, and the resolver becomes
+**two sources behind one port**: the Overture index where a region is loaded (measured 85% top-1),
+Nominatim everywhere else (measured 63%). The candidate's `cityHint` / `countryHint`, which the
+extraction contract already emits (`09` §3), is what scopes the global query — and scoping is a
+*correctness* requirement, not a performance one: `06` §209 measured that an unscoped lookup ranks
+confidently wrong answers. Recorded as **D2b** in §11 below.
+
 **"with info"** — a saved place carries: its real name, its category, its coordinates, the link back
 to the post that recommended it, and the user's own note. Nothing else. Opening hours, photos,
 ratings, price level and reviews are not in the MVP and are not in V1 — we hold open data
@@ -82,6 +93,7 @@ and none of it is wasted by re-levelling.
 | Migrations `0010` + `0014` (POI index, `pg_trgm`, provenance columns) | written, proven on a container, **not applied to either hosted project** | L0 step 4 |
 | Resolver vocabulary, ported scorer, 44-case golden file (136 tests green) | **done** (MS5 tasks 2–4) | L0 step 2 |
 | Tel Aviv POI index — 4 997 food-and-drink rows, pinned release `2026-07-22.0`, per-row confidences measured | **done** (MS5 task 5), loadable by script | L0 step 2 |
+| The global resolution path — provider chosen (`06` §0), provider/dataset enums declared in `domain/types.ts`, `places` provenance columns and `resolve_place()` writes, `cityHint`/`countryHint` in the extraction contract | **designed, not built.** No adapter exists | L0 step 3 |
 | TikTok caption access | **VERIFIED** with committed evidence | L0 step 1 |
 | Product spec, technical design, UX architecture, copy deck, five decided-and-recorded provider decisions | **done** | L1 documents |
 | Application code — auth, UI, map, pipeline | **none exists** | L0, L1 |
@@ -115,13 +127,14 @@ failure is legible.
 | # | Step | Exit criterion — checkable by someone else |
 |---|---|---|
 | 1 | **The import domain**, pure: canonicaliser (also the SSRF gate), ports, `runImport`, the event sequence, the closed 14-code error union | `runImport` runs against fake ports; every error code is reachable in a test; the canonicaliser passes the whole table in `04` §2 including `tiktok.com.evil.io` failing closed |
-| 2 | **The resolve seam** (MS5 task 7): region scope + `pg_trgm` prefilter feeding the ported scorer | A candidate string in → ranked places out, against the ingested Tel Aviv rows. Tel Aviv's benchmark 8/14 reproduced *through the index*, and the `score` column asserted on the 57 of 71 replayable rows with the 14 accounted for by name |
-| 3 | **The adapters**: TikTok oEmbed source, caption extractor, LLM place extractor (schema-constrained), the resolver adapter, the import store | One script, one real public TikTok URL, one printed `ImportOutcome` with real candidates and per-stage latencies |
+| 2 | **The local resolve seam** (MS5 task 7): region scope + `pg_trgm` prefilter feeding the ported scorer | A candidate string in → ranked places out, against the ingested Tel Aviv rows. Tel Aviv's benchmark 8/14 reproduced *through the index*, and the `score` column asserted on the 57 of 71 replayable rows with the 14 accounted for by name |
+| 2b | **The global resolver** (D2b): a Nominatim adapter behind the same `PlaceResolver` port, scoped by `cityHint`/`countryHint`, writing `source_dataset = 'osm-nominatim'`; the routing rule (loaded region → index, otherwise → global); the permanent cache for open-data hits and 90-day for Nominatim; the ≤1 rps sequential queue and the daily ceiling | Three, and the third is the one that matters: (a) a candidate in a city we have **not** ingested resolves to correct coordinates; (b) the ≤1 rps cap and the daily ceiling are enforced **server-side** and provable by a test that trips them; (c) the confidence bands are **re-checked on the global path** and still produce **zero false auto-accepts** over the 41 adjudicated benchmark cases. The base URL is one env var, so the hosted-geocoder escape hatch in §9 is a config change |
+| 3 | **The adapters**: TikTok oEmbed source, caption extractor, LLM place extractor (schema-constrained), the import store | One script, one real public TikTok URL, one printed `ImportOutcome` with real candidates and per-stage latencies |
 | 4 | **Migrations `0010`/`0014` applied to staging and production**, Tel Aviv loaded on both (MS5 task 8) | `inventory.sql` PASS on both hosted projects, `pg_trgm` the only extension beyond baseline, row counts recorded and reproducible from the pinned release |
 | 5 | **The streaming route**: `POST /api/imports`, Node runtime, `maxDuration` in code, per-user rate limit, `GET /api/imports/[id]` | **The gate that matters:** a real TikTok URL, `curl`ed against a *preview deployment*, streams NDJSON stage events and returns real candidates. This closes `02` R2 with production infrastructure, not a laptop |
 
-**L0 exit, as one sentence:** a stranger's TikTok URL, sent to a deployed URL, produces correct
-candidate places and a saved row — and a post that names no place produces `NO_PLACES_FOUND` as an
+**L0 exit, as one sentence:** a stranger's TikTok URL about a venue **anywhere in the world**, sent
+to a deployed URL, produces correct candidate places and a saved row — and a post that names no place produces `NO_PLACES_FOUND` as an
 *outcome*, not an exception.
 
 **Nothing in L0 is cuttable.** It is the product.
@@ -139,7 +152,7 @@ absent is visible:
 | 2 | Paste a link; validate and canonicalise it | **yes** — TikTok resolved, other platforms recognised and redirected to manual add |
 | 3 | Acquire post content with no user text entry | **yes** (oEmbed caption) |
 | 4 | LLM extraction of 0..N candidates, schema-validated | **yes** |
-| 5 | Resolve candidates to real POIs with coordinates | **yes**, Tel Aviv index |
+| 5 | Resolve candidates to real POIs with coordinates | **yes, globally** — Overture index where a region is loaded, Nominatim elsewhere (D2b) |
 | 6 | Review: confirm / correct / reject before anything is saved | **yes — never cut.** Charter §3 invariant 2 |
 | 7 | Designed failure state: retry · open the original · add a known place | **yes** — and it is the *modal* path, not the edge |
 | 8 | Persist confirmed places, deduplicated, linked to the source | **yes** |
@@ -214,9 +227,10 @@ sit late in the order — that is the L1 tension to watch.
 Absent from L1, with its destination, so that nothing is silently dropped:
 
 **→ L2:** near-me and geolocation · the forked Protomaps style and the premium bar · clustering ·
-category filter · onboarding and empty-state seeding · Tokyo and London in the index (the ingest is
-already a parameterised script — this is the cheapest L2 item and the first one to take if L1 closes
-early) · the five motion moments · the 50-post pipeline evaluation and threshold re-fit · the OSM
+category filter · onboarding and empty-state seeding · more cities in the Overture index — which after D2b is an **accuracy
+accelerator, not a coverage requirement**: the product already works everywhere, and each ingested
+region moves that city from 63% to 85%. The ingest is a parameterised script, so this stays the
+cheapest L2 item and the first to take if L1 closes early · the five motion moments · the 50-post pipeline evaluation and threshold re-fit · the OSM
 alias join that would fix Tel Aviv's 8/14.
 
 **→ L3:** Instagram · YouTube · audio transcription behind the `ContentExtractor` seam · collections
@@ -230,7 +244,9 @@ apps, PWA share-target.
 
 | Risk | Why it is live at MVP level | What we do |
 |---|---|---|
-| **One city.** Tel Aviv is the only loaded region, so any demo post about another city resolves to nothing | The demo is the graded artefact | Demo posts are Tel Aviv posts, stated openly as a data-loading boundary rather than hidden; Tokyo/London is the first L2 item |
+| **63% outside loaded regions**, and Nominatim returned *zero* results on all five benchmark misspellings | It is the accuracy the product has almost everywhere in the world | Stated as the honest claim in the spec and the deck, per §2. The manual-add path (capability 13, never-cut) is the designed recovery, and it now carries more weight than it did at one-city scope |
+| **The Nominatim rate ceiling.** Policy is ≤1 request/second and `06` §275 sets ≤200/day project-wide, against a theoretical 30 imports × 7 lookups = 210 for a *single* user | A live demo that trips the ceiling looks like a broken product | Three defences, in order: the permanent resolution cache (`06` §276), the Overture index absorbing every loaded region, and the **escape hatch** — the provider base URL is one env var, so a hosted OSM geocoder (LocationIQ / Geoapify: same data, same ODbL storage rights, real ToS, ~5 k/day) is a config change. Chosen 2026-08-20: build on Nominatim, keep the swap ready |
+| **ODbL provenance enters the database.** L0 step 2b is precisely the PR `06` §11 Q2 was deferred to | An unsigned licensing question in a graded security document is worse than a hard one answered | Sign-off owed **before** step 2b merges, not after: attribution shipped (already required by the basemap), per-row provenance in `places.source_dataset`, and the position that share-alike binds distribution of a derived database — which we do not do. Owner: `security-privacy` |
 | **~27% hit rate.** Most posts name no resolvable place | It looks like a broken product to anyone who does not know the measurement | The no-places screen is a *designed* outcome (L1 step 3), and the honest number goes in the spec and the deck. `product-specification.md` §7.1 already holds this bar |
 | **TikTok oEmbed is one undocumented dependency** | If it gates, the product's input disappears | Accepted risk, recorded in `02` §D1; the cached `sources` table keeps already-imported posts working, and the demo can run on cached rows |
 | **M9 security document is the largest gap and lands late** | A late graded document with 12 owed items is the classic way to lose marks that the code already earned | It is on the never-cut list; if L1 step 7 is threatened, cut list items 1–5 pay for it first |
@@ -245,11 +261,48 @@ apps, PWA share-target.
    MS11's filter, MS12 and MS15 move to L2.
 2. `product-specification.md` needs one revision pass so its capability list matches §6 above and
    its platform boundary matches §2 — the graded spec must describe the product that exists.
-3. `CLAUDE.md`'s "MS5 in progress" framing becomes "L0 in progress", with this file as the plan of
+3. [`06-map-and-places-decision.md`](06-map-and-places-decision.md) records **D2b** as an amendment,
+   not a reversal: §0's "out-of-region fallback" line is unchanged in substance and promoted in time,
+   and §11 **Q2 is re-opened** by L0 step 2b exactly as its own re-entry condition said it would be
+   ("the first PR that adds an OSM-derived alias, a Nominatim write path, or a second dataset").
+4. `CLAUDE.md`'s "MS5 in progress" framing becomes "L0 in progress", with this file as the plan of
    record and `implementation-plan.md` as the design-decision archive.
+
+## 11. D2b — global place resolution (decided 2026-08-20)
+
+**The decision.** The MVP resolves places worldwide, through **two sources behind the one
+`PlaceResolver` port**: the Overture POI index for any loaded region, Nominatim for everywhere else,
+routed on the candidate's `cityHint` / `countryHint`. Nominatim is built now; a hosted OSM geocoder
+with the same data and the same ODbL storage rights is the escape hatch behind one env var.
+
+**Why this and not the alternatives.** Two were considered and both lose on their own terms:
+
+- *Ingest Overture globally.* ~8–12 M filtered rows ≈ 2–3 GB plus a trigram index over all of it,
+  hours of ingest — and it **still does not remove the dependency**, because a global lookup needs a
+  place-name → bounding-box gazetteer to be correct at all (`06` §209), and the cheapest gazetteer
+  available to us is the same OSM service. It pays gigabytes to keep the dependency.
+- *A credentialed places API.* Already rejected in `06` §3 on grounds that have not changed: Google,
+  Mapbox and Foursquare all forbid storing a name and coordinates beyond 30 days, and two of the
+  three require their own basemap. Charter §1 needs a row that lives forever.
+
+**What it costs, recorded so nothing is discovered later.** Accuracy outside loaded regions is a
+measured **63%** against 85% inside them; the five benchmark misspellings return nothing at all; the
+rate ceiling and the ODbL sign-off are §9 rows with named owners. And one small ruling is owed inside
+step 2b: the scorer's `0.10 · confidence` term reads Overture's per-row confidence, which Nominatim
+rows do not have. Its analogue (`importance`, or a documented constant) must be **chosen by
+re-running the 41 adjudicated cases** and keeping zero false auto-accepts — not picked by argument.
+Until that is done, the 44-case bands are proven for the local path only, and saying otherwise would
+be the kind of claim Charter §9 exists to prevent.
+
+**Presentation (decided the same day).** Silent — the user sees the same confidence bands either way
+and no dataset vocabulary anywhere in the UI. The 85% / 63% split is stated in
+`product-specification.md` §7.1, `scale.md` and the deck. This is a decision about *vocabulary*, not
+about attribution: ODbL attribution remains mandatory and is already carried by the basemap's
+"© OpenStreetMap" plus `/attributions` (`06` §3.2).
 
 ## Change log
 
 | Date | Change |
 |---|---|
 | 2026-08-20 | Created at the owner's instruction: re-plan the course MVP around "links from social media → a map with info", sized by **product level rather than half-days**. Four levels declared (L0 walking skeleton · L1 the course MVP and the submission target · L2 product-grade · L3 post-course), each submittable, climbed in order. The MVP boundary is stated as three decisions rather than a feature list: one link in one field, **TikTok only** (the only VERIFIED access mechanism — other platforms become a recognised, named redirect to manual add rather than a failure), and "info" fixed at name · category · coordinates · source link · user note, because that is exactly what open data lets us store forever. Charter §4's fourteen capabilities are mapped one by one, with capabilities 10 and the category filter half of 11 moved to L2 and the rest kept; capability 6 (review before save) and 13 (manual add + delete) are named never-cut — 13 because it is simultaneously the course's CRUD evidence and capability 7's recovery path. The previous plan's 46-hd ladder is retired as the ordering authority and its content reallocated in §10 with nothing dropped silently. Two facts recorded that the effort-budget framing had obscured: the design work is complete while **no application code exists**, and the ~27% LEVEL B hit rate makes "no places found" the modal import outcome, which makes the no-places screen a core surface rather than an error path |
+| 2026-08-20 | **D2b: the MVP goes global, and it does so by promoting a decision rather than taking a new one.** The owner ruled that one-city resolution is not an acceptable MVP boundary. The change is contained because the global path was already designed and merely scheduled late: `06` §0 had chosen Nominatim as the out-of-region fallback, `domain/types.ts` already declares both providers and both datasets, `places` already carries the provenance columns `resolve_place()` writes, and the extraction contract already emits `cityHint`/`countryHint` — so what was owed was an adapter, not an architecture. Two alternatives were rejected on measured grounds: a global Overture ingest (2–3 GB, hours, and it *still* needs an OSM gazetteer to be correct, so it buys nothing it does not also keep paying for) and a credentialed API (all three forbid storing name + coordinates forever, which Charter §1 requires). L0 gains step **2b** with three exit criteria, and the third is the honest one — the confidence bands must be **re-measured on the global path** and keep zero false auto-accepts, because the 44-case benchmark was fit on Overture rows and the scorer's confidence term has no Nominatim input yet. Three costs are now §9 rows with owners rather than discoveries waiting to happen: **63%** top-1 outside loaded regions against 85% inside (with all five misspellings returning nothing), the **≤1 rps / ~200-per-day ceiling** against a theoretical 210 lookups for one user — defended by the permanent cache, the local index, and a one-env-var swap to a hosted OSM geocoder — and the **ODbL sign-off**, owed *before* step 2b merges because this is exactly the PR `06` §11 Q2 deferred itself to. Pre-loading cities is reclassified from a coverage requirement to an accuracy accelerator in L2. Presentation ruled silent: same bands, no dataset vocabulary in the UI, the split stated in the spec, `scale.md` and the deck — which changes nothing about the mandatory OSM attribution the basemap already carries |
