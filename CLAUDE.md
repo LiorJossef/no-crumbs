@@ -29,6 +29,9 @@ link · user note, which is exactly what open data lets us store forever. At LEV
 
 **Read before doing anything in this repo:**
 1. `docs/mvp-plan.md` — **the plan of record**: the MVP boundary, the four levels, the exit criteria
+1b. `docs/execution-plan.md` — **the ladder and the running status**: Level → Feature → Task
+1c. `docs/brand-and-product-foundation.md` — positioning, user, tone, visual direction, the eight
+   surfaces, the main flow. The product **name is still open** (owed at L1-F1-T1)
 2. `docs/00-project-charter.md` — product definition, V1 boundary, engineering principles, open decisions
 3. `docs/implementation-plan.md` — the decision ledger, the M3 architecture answer, the change log
 4. `docs/02-risks-and-unknowns.md` — unknowns, assumptions, risks
