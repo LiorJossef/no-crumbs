@@ -29,5 +29,7 @@ Populated per `docs/07-import-execution-model.md` §10 and `docs/11-resolver-voc
   an outer layer. `scoring-constants.ts` holds **every** weight and threshold (`06` §6.3 requires
   one object, because they will be re-fit); `jaro-winkler.ts` is a measured port of DuckDB's, which
   is what the benchmark was run with; `score.ts` is the scorer itself — `06` §6.1 steps 4–5 and
-  §6.2's bands, pure, taking prefiltered rows and returning a `ResolveResult`.
+  §6.2's bands, pure, taking prefiltered rows and returning a `ResolveResult`. `fixtures.ts` is the
+  pre-L1 vertical slice's mock `MockSavedPlace[]` — map-rendering scaffolding, not the vocabulary;
+  it is not `SavedRecommendation` and is expected to be deleted once that type lands.
 - Still to come: `schemas.ts`, `source/` (the short-link and other future source-side helpers).
