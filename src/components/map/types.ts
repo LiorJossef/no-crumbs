@@ -68,12 +68,15 @@ export interface MapSurfaceProps {
    *  surface with no `places` and no hint is free to pick its own default view. */
   readonly initialBounds?: LatLngBoundsHint;
   /**
-   * Whether the caller's `lg+` right detail panel (`PlaceDesktopPanel`'s `selected` branch) is
-   * currently showing. The map surface owns fitting its camera around its own visible area, but it
-   * has no way to know the right panel exists — the persistent left list panel is always present
-   * at `lg+` and needs no signal, this one is conditional on selection state the surface doesn't
-   * hold. Optional and defaults to "closed" so callers with no desktop panel at all (tests, other
-   * surfaces) never have to pass it.
+   * The currently-selected place, lifted by the caller (`map-page-client.tsx`). At `lg+` the map
+   * surface uses this to anchor a pin-attached popup with the place's detail directly on the map
+   * (Google Maps-style info card) — the desktop composition no longer has a right-hand detail
+   * panel for the surface to avoid, see the retired `rightPanelOpen` prop this replaced. Below
+   * `lg`, the mobile `PlaceSheet` is the only detail surface; a surface may still receive this
+   * prop there but must not render its own popup under the `lg` breakpoint.
    */
-  readonly rightPanelOpen?: boolean;
+  readonly selected?: MapPlace | null;
+  /** Called when the surface's own popup close affordance is used. Optional: a surface with no
+   *  popup (or no handler) simply never calls it. */
+  readonly onDeselect?: () => void;
 }

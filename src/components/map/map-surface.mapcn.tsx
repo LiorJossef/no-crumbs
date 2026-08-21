@@ -68,7 +68,8 @@
 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { Map as MapLibreMap } from 'maplibre-gl';
-import { Map as MapcnMap, MapControls, MapClusterLayer } from '@/components/ui/map';
+import { Map as MapcnMap, MapControls, MapClusterLayer, MapPopup } from '@/components/ui/map';
+import { PlaceDetail } from '@/components/sheet/place-sheet';
 import type { LatLngBoundsHint, MapPlace, MapSurfaceProps } from './types';
 
 type PlaceProperties = {
@@ -152,38 +153,36 @@ const FIT_BOUNDS_MAX_ZOOM = 15;
 // so `fitBounds` padding stays the old uniform value there.
 const LG_BREAKPOINT_PX = 1024;
 
-// Mirrors of `PlaceDesktopPanel`'s panel widths (`src/components/sheet/place-desktop-panel.tsx`):
-// the persistent left list panel is `clamp(320px, 26vw, 392px)`, the right detail panel (only
-// rendered while `selected`) is `clamp(340px, 28vw, 428px)`. `fitBounds`'s `padding` option takes
-// plain pixels, not CSS, so there is no way to hand it a `clamp()` — these two functions recompute
-// the same clamp in JS against the current viewport width instead. If either panel's Tailwind
-// class ever changes, these must change with it; that coupling is the price of two DOM overlays
-// sharing one camera-fit budget, and is called out again in `PlaceDesktopPanel`'s own comment.
+// Mirrors `PlaceDesktopPanel`'s panel width (`src/components/sheet/place-desktop-panel.tsx`):
+// the persistent left list panel is `clamp(320px, 26vw, 392px)`. `fitBounds`'s `padding` option
+// takes plain pixels, not CSS, so there is no way to hand it a `clamp()` — this function
+// recomputes the same clamp in JS against the current viewport width instead. If the panel's
+// Tailwind class ever changes, this must change with it; that coupling is the price of a DOM
+// overlay sharing the camera-fit budget, and is called out again in `PlaceDesktopPanel`'s own
+// comment. There used to be a matching `rightPanelWidthPx` for a right-hand detail panel — that
+// panel is gone (detail now lives in a pin-anchored map popover, not a second panel), so the
+// padding this function returns is never widened on selection anymore.
 function leftPanelWidthPx(viewportWidth: number): number {
   return Math.min(392, Math.max(320, viewportWidth * 0.26));
-}
-function rightPanelWidthPx(viewportWidth: number): number {
-  return Math.min(428, Math.max(340, viewportWidth * 0.28));
 }
 
 /**
  * The base 48 px `fitBounds` padding treats the whole viewport as available map space. At `lg+`
- * that's wrong: `PlaceDesktopPanel`'s left list panel is a permanent opaque overlay, and its right
- * detail panel joins it once a place is selected, so any bounding box that would otherwise fit
- * *underneath* either one needs to be pushed clear of it instead — otherwise a fitted pin renders
- * in the DOM/GL layer but sits under an opaque panel, unclickable. Below `lg` (no panels, only the
- * bottom sheet, which is `PlaceSheet`'s own concern) this collapses back to the old uniform value.
+ * that's wrong: `PlaceDesktopPanel`'s left list panel is a permanent opaque overlay, so any
+ * bounding box that would otherwise fit *underneath* it needs to be pushed clear of it instead —
+ * otherwise a fitted pin renders in the DOM/GL layer but sits under an opaque panel, unclickable.
+ * Below `lg` (no panel, only the bottom sheet, which is `PlaceSheet`'s own concern) this collapses
+ * back to the old uniform value.
  */
 function fitBoundsPadding(
-  viewportWidth: number,
-  rightPanelOpen: boolean
+  viewportWidth: number
 ): number | { top: number; bottom: number; left: number; right: number } {
   if (viewportWidth < LG_BREAKPOINT_PX) return FIT_BOUNDS_PADDING;
   return {
     top: FIT_BOUNDS_PADDING,
     bottom: FIT_BOUNDS_PADDING,
     left: FIT_BOUNDS_PADDING + leftPanelWidthPx(viewportWidth),
-    right: FIT_BOUNDS_PADDING + (rightPanelOpen ? rightPanelWidthPx(viewportWidth) : 0),
+    right: FIT_BOUNDS_PADDING,
   };
 }
 
@@ -191,7 +190,8 @@ export function MapSurfaceMapcn({
   places,
   onPlaceClick,
   initialBounds,
-  rightPanelOpen = false,
+  selected = null,
+  onDeselect,
 }: MapSurfaceProps) {
   const data = useMemo(() => toFeatureCollection(places), [places]);
   const bounds = useMemo(() => boundsFor(places, initialBounds), [places, initialBounds]);
@@ -205,19 +205,11 @@ export function MapSurfaceMapcn({
     latestBounds.current = bounds;
   }, [bounds]);
 
-  // Same "read the latest value from an imperative callback" problem as `latestBounds` above, for
-  // the right-panel-open flag: `attachMapRef`'s `once('load', ...)` closure is created once on
-  // mount and must see whether the panel is open *at fit time*, not at mount time.
-  const latestRightPanelOpen = useRef(rightPanelOpen);
-  useEffect(() => {
-    latestRightPanelOpen.current = rightPanelOpen;
-  }, [rightPanelOpen]);
-
   const fitToBounds = useCallback((map: MapLibreMap) => {
     const target = latestBounds.current;
     if (!target) return;
     const viewportWidth = typeof window === 'undefined' ? 0 : window.innerWidth;
-    const padding = fitBoundsPadding(viewportWidth, latestRightPanelOpen.current);
+    const padding = fitBoundsPadding(viewportWidth);
     map.fitBounds(target, { padding, maxZoom: FIT_BOUNDS_MAX_ZOOM, duration: 0 });
   }, []);
 
@@ -246,13 +238,12 @@ export function MapSurfaceMapcn({
   }, [bounds, fitToBounds]);
 
   // Re-fit when the viewport crosses the `lg` breakpoint or is resized while at `lg+` (the panel
-  // widths are viewport-relative `clamp()`s, not fixed pixels) — otherwise a fit computed at one
-  // width goes stale after a resize/orientation change and pins can drift back under a panel.
-  // Deliberately not fired by `rightPanelOpen` toggling alone: re-centering the whole camera every
-  // time a place is selected/deselected would be a jarring, unrequested camera move on every tap
-  // (`06-map-and-places-decision.md` §9.2 scopes camera-mover choreography to later work) — the
-  // right-panel padding taking effect on the *next* natural refit is enough to keep newly fitted
-  // pins clear of it.
+  // width is a viewport-relative `clamp()`, not a fixed pixel value) — otherwise a fit computed at
+  // one width goes stale after a resize/orientation change and pins can drift back under the
+  // panel. Deliberately not fired by `selected` changing at all: re-centering the whole camera
+  // every time a place is selected/deselected would be a jarring, unrequested camera move on every
+  // tap (`06-map-and-places-decision.md` §9.2 scopes camera-mover choreography to later work) —
+  // selection only opens a popover now, which needs no padding/camera change of its own.
   useEffect(() => {
     const handleResize = () => {
       const instance = mapRef.current;
@@ -280,11 +271,32 @@ export function MapSurfaceMapcn({
         onPointClick={(feature) => {
           const id = feature.properties?.id;
           const place = places.find((candidate) => candidate.id === id) ?? null;
-          // Selection now lives entirely with the caller (an external bottom sheet replaces this
-          // component's old inline `MapPopup`) — this surface only reports the click.
+          // Selection lives with the caller (`map-page-client.tsx`'s `selected` state) — this
+          // surface only reports the click; the `MapPopup` below reacts to `selected` the same way
+          // any other consumer of it does.
           if (place && onPlaceClick) onPlaceClick(place);
         }}
       />
+      {selected && (
+        // Anchored at the selected place's own lng/lat — mapcn's `MapPopup` keeps a MapLibre
+        // `Popup` instance pinned to that point and repositions it on every pan/zoom, so this
+        // reads as a Google Maps-style info card stuck to the pin rather than a fixed-position
+        // overlay. `lg+`-only via a Tailwind class on `MapPopup`'s own `className` (its *shell*,
+        // not just its content) — matching `PlaceSheet`/`PlaceDesktopPanel`'s own `hidden lg:block`
+        // convention — so below `lg` no popup DOM (not even an empty padded shell) mounts over the
+        // map; the mobile `PlaceSheet` remains the only detail surface there. Keyed on
+        // `selected.id` so switching between two pins remounts the popup at the new anchor instead
+        // of animating the old DOM node across the map.
+        <MapPopup
+          key={selected.id}
+          longitude={selected.lng}
+          latitude={selected.lat}
+          onClose={() => onDeselect?.()}
+          className="hidden max-w-none p-0 lg:block"
+        >
+          <PlaceDetail place={selected} onClose={() => onDeselect?.()} variant="popover" />
+        </MapPopup>
+      )}
     </MapcnMap>
   );
 }

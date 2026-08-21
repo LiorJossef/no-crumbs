@@ -261,10 +261,15 @@ export function PlaceDetail({
 }: {
   place: MapPlace;
   onClose: () => void;
-  /** `'sheet'` (default, mobile): an X that fully deselects. `'panel'` (desktop): the same
-   *  `onClose` call instead reads as "back to the list" — there is no second panel to close into,
-   *  so a back chevron is the honest affordance for what actually happens. */
-  variant?: 'sheet' | 'panel';
+  /** `'sheet'` (default, mobile): an X that fully deselects. `'panel'` (desktop, retired — no
+   *  caller renders this anymore now that detail lives entirely in the map popover, kept only so
+   *  the variant union documents where it used to apply): the same `onClose` call instead read as
+   *  "back to the list" — there was no second panel to close into, so a back chevron was the
+   *  honest affordance for what actually happened. `'popover'` (desktop, `lg+`): a compact shell
+   *  for `MapSurfaceMapcn`'s pin-anchored `MapPopup` — narrower than `panel`, a plain "×" close
+   *  button (there is no list to return to, the left list panel is untouched by selection), and
+   *  its own scroll/max-height so a long detail can't blow off the edge of the map. */
+  variant?: 'sheet' | 'panel' | 'popover';
 }) {
   const detail = place.detail;
   const note = detail?.note;
@@ -283,13 +288,25 @@ export function PlaceDetail({
     `${place.name}, ${place.lat},${place.lng}`,
   )}`;
 
+  const isPopover = variant === 'popover';
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-3.5">
+    <div
+      className={cn(
+        'flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-3.5',
+        isPopover && 'max-h-[min(70vh,26rem)] w-72 gap-4 px-0 pb-0 pt-0'
+      )}
+    >
       {source?.media && <SourceMediaThumbnail media={source.media} />}
 
-      <div className="flex items-start justify-between gap-3">
+      <div className={cn('flex items-start justify-between gap-3', isPopover && 'px-4 pt-3.5')}>
         <div className="flex min-w-0 flex-col gap-1">
-          <h2 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">
+          <h2
+            className={cn(
+              'font-heading text-2xl font-extrabold tracking-tight text-foreground',
+              isPopover && 'text-lg'
+            )}
+          >
             {place.name}
           </h2>
           <p className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">
@@ -312,61 +329,63 @@ export function PlaceDetail({
         </Button>
       </div>
 
-      {reason && (
-        <div className="flex flex-col gap-1">
-          <p className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">
-            From the post
-          </p>
-          <p className="text-sm leading-relaxed text-foreground">{reason}</p>
-        </div>
-      )}
-
-      {note && (
-        <div className="flex flex-col gap-1">
-          <p className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">
-            Your note
-          </p>
-          <p className="text-sm leading-relaxed text-foreground">{note}</p>
-        </div>
-      )}
-
-      {/* Two external actions, presented as plain text links — same weight as `reason`/`note`
-          above, no border/fill box. The panel (or sheet) is already the container; a bordered
-          chip pair inside it was a box nested inside a box. `authorLabel` (if any) is a caption
-          above the pair, not squeezed into either action itself. */}
-      <div className="flex flex-col gap-2">
-        {authorLabel && (
-          <p className="text-xs font-medium text-muted-foreground">Saved from {authorLabel}</p>
+      <div className={cn('flex flex-col gap-5', isPopover && 'gap-4 px-4 pb-4')}>
+        {reason && (
+          <div className="flex flex-col gap-1">
+            <p className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">
+              From the post
+            </p>
+            <p className="text-sm leading-relaxed text-foreground">{reason}</p>
+          </div>
         )}
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-          <a
-            href={source?.canonicalUrl ?? place.sourceUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-1.5 text-sm font-bold text-[var(--mint-700)] underline-offset-4 hover:underline"
-          >
-            Open TikTok
-            <ExternalLink className="size-3.5" aria-hidden />
-          </a>
-          <a
-            href={googleMapsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 text-sm font-bold text-[var(--mint-700)] underline-offset-4 hover:underline"
-          >
-            Google Maps
-            <ExternalLink className="size-3.5" aria-hidden />
-          </a>
-        </div>
-      </div>
 
-      {provenance && (
-        <p className="text-[11px] font-medium text-muted-foreground/70">
-          Matched via {provenance.sourceDataset}
-          {typeof provenance.resolutionScore === 'number' &&
-            ` · ${Math.round(provenance.resolutionScore * 100)}% confidence`}
-        </p>
-      )}
+        {note && (
+          <div className="flex flex-col gap-1">
+            <p className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">
+              Your note
+            </p>
+            <p className="text-sm leading-relaxed text-foreground">{note}</p>
+          </div>
+        )}
+
+        {/* Two external actions, presented as plain text links — same weight as `reason`/`note`
+            above, no border/fill box. The panel (or sheet) is already the container; a bordered
+            chip pair inside it was a box nested inside a box. `authorLabel` (if any) is a caption
+            above the pair, not squeezed into either action itself. */}
+        <div className="flex flex-col gap-2">
+          {authorLabel && (
+            <p className="text-xs font-medium text-muted-foreground">Saved from {authorLabel}</p>
+          )}
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+            <a
+              href={source?.canonicalUrl ?? place.sourceUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1.5 text-sm font-bold text-[var(--mint-700)] underline-offset-4 hover:underline"
+            >
+              Open TikTok
+              <ExternalLink className="size-3.5" aria-hidden />
+            </a>
+            <a
+              href={googleMapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-sm font-bold text-[var(--mint-700)] underline-offset-4 hover:underline"
+            >
+              Google Maps
+              <ExternalLink className="size-3.5" aria-hidden />
+            </a>
+          </div>
+        </div>
+
+        {provenance && (
+          <p className="text-[11px] font-medium text-muted-foreground/70">
+            Matched via {provenance.sourceDataset}
+            {typeof provenance.resolutionScore === 'number' &&
+              ` · ${Math.round(provenance.resolutionScore * 100)}% confidence`}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
