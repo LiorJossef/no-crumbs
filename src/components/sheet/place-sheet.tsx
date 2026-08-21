@@ -31,12 +31,14 @@
  */
 
 import { Drawer } from 'vaul';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Plus, MapPin, ExternalLink, X, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import type { MapPlace } from '@/components/map/types';
+import type { MediaRef } from '@/domain/types';
 
 /** Fixed peek height. `env(safe-area-inset-bottom)` is added via CSS `calc()` inside the snap
  *  point's own element (vaul only takes a bare px number for the snap point itself), so the sheet's
@@ -164,6 +166,7 @@ function PlaceList({
   stop: SheetStop;
   onExpand: () => void;
 }) {
+  const router = useRouter();
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3.5 px-5 pt-3.5">
       {stop === 'peek' ? (
@@ -175,10 +178,7 @@ function PlaceList({
           <Button
             type="button"
             className="h-12 gap-1.5 rounded-lg px-4 text-sm font-bold"
-            onClick={() => {
-              // Real add flow is later work (S6/L1) — this slice only proves the sheet system.
-              console.log('add a tiktok: not yet implemented');
-            }}
+            onClick={() => router.push('/import')}
           >
             <Plus className="size-4" aria-hidden />
             Add a TikTok
@@ -255,8 +255,27 @@ export function PlaceSearchField({ className }: { className?: string }) {
 }
 
 export function PlaceDetail({ place, onClose }: { place: MapPlace; onClose: () => void }) {
+  const detail = place.detail;
+  const note = detail?.note;
+  const reason = detail?.reason;
+  const source = detail?.source;
+  const provenance = detail?.provenance;
+  const authorLabel = source?.authorHandle
+    ? `@${source.authorHandle}`
+    : source?.authorName ?? null;
+  // Name + coordinates, not coordinates alone: a bare lat/lng drops a pin with no label, but
+  // Google's search endpoint treats the whole `query` as free text, so leading with the name
+  // gives a labelled result while the trailing coordinates still anchor it to the right spot
+  // (disambiguating venues that share a name). No API key, no new dependency: `/maps/search/?api=1`
+  // is a documented URL, not an API call, and every `MapPlace` always carries `lat`/`lng`.
+  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    `${place.name}, ${place.lat},${place.lng}`,
+  )}`;
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-3.5">
+      {source?.media && <SourceMediaThumbnail media={source.media} />}
+
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-1">
           <h2 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">
@@ -278,25 +297,90 @@ export function PlaceDetail({ place, onClose }: { place: MapPlace; onClose: () =
         </Button>
       </div>
 
-      {place.note && <p className="text-sm leading-relaxed text-foreground">{place.note}</p>}
+      {reason && (
+        <div className="flex flex-col gap-1">
+          <p className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">
+            From the post
+          </p>
+          <p className="text-sm leading-relaxed text-foreground">{reason}</p>
+        </div>
+      )}
 
-      {/* The source block: the answer to "which TikTok made me save this?" (charter invariant 3).
-          A quiet, bordered slot rather than a plain inline link, so it reads as a distinct fact
-          about the place rather than a footer link. */}
-      <a
-        href={place.sourceUrl}
-        target="_blank"
-        rel="noreferrer"
-        className="flex items-center gap-3 rounded-[var(--radius)] border border-border bg-muted/40 px-4 py-3 transition-colors hover:bg-muted/70"
-      >
-        <span className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">
-          Saved from
-        </span>
-        <span className="ml-auto flex items-center gap-1.5 text-sm font-bold text-[var(--mint-700)]">
-          Open TikTok
-          <ExternalLink className="size-3.5" aria-hidden />
-        </span>
-      </a>
+      {note && (
+        <div className="flex flex-col gap-1">
+          <p className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">
+            Your note
+          </p>
+          <p className="text-sm leading-relaxed text-foreground">{note}</p>
+        </div>
+      )}
+
+      {/* Two external actions, presented as one evenly-weighted pair rather than a bordered
+          "info on the left, button on the right" block plus a separate floating link below it —
+          that split-block layout read as two disconnected UI fragments. `authorLabel` (if any) is
+          a caption above the pair, not squeezed into either action itself. */}
+      <div className="flex flex-col gap-2">
+        {authorLabel && (
+          <p className="text-xs font-medium text-muted-foreground">Saved from {authorLabel}</p>
+        )}
+        <div className="grid grid-cols-2 gap-2">
+          <a
+            href={source?.canonicalUrl ?? place.sourceUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center justify-center gap-1.5 rounded-[var(--radius)] border border-border bg-muted/40 px-3 py-2.5 text-sm font-bold text-foreground transition-colors hover:bg-muted/70"
+          >
+            Open TikTok
+            <ExternalLink className="size-3.5" aria-hidden />
+          </a>
+          <a
+            href={googleMapsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-1.5 rounded-[var(--radius)] border border-border bg-muted/40 px-3 py-2.5 text-sm font-bold text-foreground transition-colors hover:bg-muted/70"
+          >
+            Google Maps
+            <ExternalLink className="size-3.5" aria-hidden />
+          </a>
+        </div>
+      </div>
+
+      {provenance && (
+        <p className="text-[11px] font-medium text-muted-foreground/70">
+          Matched via {provenance.sourceDataset}
+          {typeof provenance.resolutionScore === 'number' &&
+            ` · ${Math.round(provenance.resolutionScore * 100)}% confidence`}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The source post's thumbnail, at the top of the detail view. `referrerPolicy="no-referrer"` is
+ * load-bearing, not decorative: without it the browser sends a `Referer` header to TikTok's CDN
+ * on every image request, which would let TikTok correlate its own signed URLs with which of our
+ * users' devices requested them — a privacy leak of "which posts this person saved," not just an
+ * unnecessary header.
+ *
+ * The URL is a signed TikTok CDN link with a known-but-unstored expiry (`SpotSource.media`'s own
+ * comment, ~6 months out) — `onError` swaps to an empty state permanently for this mount (`failed`
+ * state, not retried) rather than leaving a broken-image icon on screen.
+ */
+function SourceMediaThumbnail({ media }: { media: MediaRef }) {
+  const [failed, setFailed] = useState(false);
+
+  if (failed) return null;
+
+  return (
+    <div className="overflow-hidden rounded-[var(--radius)] bg-muted">
+      <img
+        src={media.url}
+        alt=""
+        referrerPolicy="no-referrer"
+        onError={() => setFailed(true)}
+        className="h-40 w-full object-cover"
+      />
     </div>
   );
 }
