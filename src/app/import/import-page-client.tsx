@@ -40,6 +40,24 @@ import type { ImportEvent, PipelineStage } from '@/domain/import/events';
 import type { Candidate } from '@/domain/types';
 
 /* ------------------------------------------------------------------------------------------- *
+ * `/api/imports/probe` — the throwaway route wired in ahead of the real streaming route
+ * (L0-F6-T1). Proves the real oEmbed fetch + caption extraction reach this screen: no LLM, no
+ * candidates, no `runImport`. See `src/app/api/imports/probe/route.ts`'s header.
+ * ------------------------------------------------------------------------------------------- */
+
+interface ProbeSuccess {
+  readonly authorHandle: string | null;
+  readonly authorName: string | null;
+  readonly canonicalUrl: string;
+  readonly thumbnailUrl: string | null;
+  readonly caption: string | null;
+}
+
+interface ProbeErrorBody {
+  readonly error: { readonly code: string; readonly retryable: boolean };
+}
+
+/* ------------------------------------------------------------------------------------------- *
  * Local state — modelled after the real event vocabulary so the eventual stream consumer is a
  * drop-in swap.
  * ------------------------------------------------------------------------------------------- */
@@ -71,7 +89,14 @@ type Screen =
   | { readonly kind: 'redirect'; readonly reason: 'UNSUPPORTED_HOST' | 'PHOTO_POST' | 'UNSUPPORTED_URL' }
   | { readonly kind: 'rail'; readonly rail: RailState }
   | { readonly kind: 'no_places'; readonly authorHandle: string | null }
-  | { readonly kind: 'results'; readonly authorHandle: string | null; readonly candidates: readonly Candidate[] };
+  | { readonly kind: 'results'; readonly authorHandle: string | null; readonly candidates: readonly Candidate[] }
+  /** The real-fetch slice's landing screen (this task): no LLM has run, so this is deliberately
+   *  not `no_places` or `results` — both of those imply extraction happened. Shows the raw
+   *  caption plainly, once the real `SourceAdapter` + `ContentExtractor` have run. */
+  | { readonly kind: 'caption_preview'; readonly probe: ProbeSuccess }
+  /** A thrown `DomainError` from the probe route — minimal-fidelity, honest, non-broken. Not the
+   *  real error taxonomy's full copy deck (07 §9); that lands with L0-F6. */
+  | { readonly kind: 'probe_error'; readonly code: string; readonly retryable: boolean };
 
 /* ------------------------------------------------------------------------------------------- *
  * Demo fixtures — stand in for a real ImportOutcome until the streaming route exists. Shaped
@@ -244,7 +269,7 @@ export function ImportPageClient() {
     setScriptIndex(0);
   }
 
-  function submit() {
+  async function submit() {
     setTouched(true);
     if (!validation.ok) {
       // UNSUPPORTED_HOST/PHOTO_POST/UNSUPPORTED_URL are all "a recognised link, not a failure" —
@@ -257,11 +282,41 @@ export function ImportPageClient() {
       }
       return;
     }
-    // A real TikTok link: hand off to the rail, driven by the (demo, scripted) event stream.
-    const events = scriptFor('results');
-    setScript(events);
-    setScriptIndex(0);
-    setScreen({ kind: 'rail', rail: RAIL_IDLE });
+
+    // A real TikTok link: drive the rail's `source` stage off the real `/api/imports/probe`
+    // fetch. `extract`/`resolve` stay pending — no LLM has run yet (that's L0-F4-T2/L0-F6, not
+    // this task) — and `caption_preview` is the honest landing screen once the source stage
+    // is done, rather than faking `extract`/`resolve` completion.
+    setScreen({ kind: 'rail', rail: { ...RAIL_IDLE, source: 'active' } });
+
+    try {
+      const res = await fetch('/api/imports/probe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      const body = (await res.json()) as ProbeSuccess | ProbeErrorBody;
+
+      if (!res.ok || 'error' in body) {
+        const code = 'error' in body ? body.error.code : 'INTERNAL';
+        const retryable = 'error' in body ? body.error.retryable : true;
+        setScreen({ kind: 'probe_error', code, retryable });
+        return;
+      }
+
+      setScreen({
+        kind: 'rail',
+        rail: {
+          ...RAIL_IDLE,
+          source: 'done',
+          sourceFact: body.authorHandle ? `Read @${body.authorHandle}'s TikTok` : 'Read the TikTok',
+          extract: 'active',
+        },
+      });
+      setScreen({ kind: 'caption_preview', probe: body });
+    } catch {
+      setScreen({ kind: 'probe_error', code: 'INTERNAL', retryable: true });
+    }
   }
 
   function stepDemo() {
@@ -353,6 +408,12 @@ export function ImportPageClient() {
 
         {screen.kind === 'results' && (
           <ResultsScreen authorHandle={screen.authorHandle} candidates={screen.candidates} onDone={reset} />
+        )}
+
+        {screen.kind === 'caption_preview' && <CaptionPreviewScreen probe={screen.probe} onDone={reset} />}
+
+        {screen.kind === 'probe_error' && (
+          <ProbeErrorScreen code={screen.code} retryable={screen.retryable} onRetry={reset} />
         )}
       </div>
 
@@ -784,6 +845,108 @@ function CandidateRow({ candidate }: { candidate: Candidate }) {
         {band.label}
       </span>
     </li>
+  );
+}
+
+/* ------------------------------------------------------------------------------------------- *
+ * Caption preview — this task's real landing screen. No LLM has run: this shows exactly what
+ * the real `SourceAdapter` + `ContentExtractor` produced, plainly, with no candidate rows.
+ * ------------------------------------------------------------------------------------------- */
+
+function CaptionPreviewScreen({ probe, onDone }: { probe: ProbeSuccess; onDone: () => void }) {
+  return (
+    <div className="flex flex-1 flex-col">
+      <div className="flex flex-col gap-1 pb-6">
+        <ScreenKicker icon={<SearchCheck className="size-3.5" aria-hidden />} label="Read from TikTok" />
+        <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">
+          Here&rsquo;s what we read
+        </h1>
+        {probe.authorHandle && (
+          <p className="text-sm font-medium text-muted-foreground">From @{probe.authorHandle}&rsquo;s TikTok</p>
+        )}
+      </div>
+
+      <div className="flex flex-1 flex-col gap-4 overflow-y-auto pb-4">
+        <div className="flex items-start gap-3 rounded-xl border border-border/70 bg-card px-4 py-3.5">
+          {probe.thumbnailUrl && (
+            // A signed, ~6-month-expiry remote thumbnail; not worth a next/image
+            // remotePatterns entry for a throwaway route.
+            <img
+              src={probe.thumbnailUrl}
+              alt=""
+              className="size-14 shrink-0 rounded-lg object-cover"
+            />
+          )}
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <p className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">Caption</p>
+            <p className="text-sm font-medium text-foreground">
+              {probe.caption ?? <span className="text-muted-foreground">No caption text.</span>}
+            </p>
+          </div>
+        </div>
+
+        <a
+          href={probe.canonicalUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="flex h-11 items-center justify-center gap-1.5 rounded-lg text-sm font-bold text-[var(--mint-700)]"
+        >
+          Open the original TikTok
+          <ArrowUpRight className="size-4" aria-hidden />
+        </a>
+      </div>
+
+      <div className="flex flex-col gap-2 pt-4">
+        <Button type="button" onClick={onDone} className="h-12 w-full rounded-lg text-base font-bold">
+          Done
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------------------------------- *
+ * Probe error — a thrown `DomainError` from the throwaway `/api/imports/probe` route. Minimal
+ * fidelity: one honest sentence and a way back, not the full `07` §9 copy deck.
+ * ------------------------------------------------------------------------------------------- */
+
+function ProbeErrorScreen({
+  code,
+  retryable,
+  onRetry,
+}: {
+  code: string;
+  retryable: boolean;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col items-center justify-center gap-5 text-center">
+        <span className="flex size-14 items-center justify-center rounded-full bg-accent text-[var(--mint-700)]">
+          <X className="size-6" aria-hidden />
+        </span>
+        <div className="flex flex-col items-center gap-1.5">
+          <p className="text-[11px] font-bold tracking-[0.14em] text-[var(--mint-700)] uppercase">
+            Couldn&rsquo;t read that TikTok
+          </p>
+          <h1 className="font-heading text-xl font-extrabold tracking-tight text-foreground">
+            Something went wrong
+          </h1>
+          <p className="max-w-xs text-sm font-medium text-muted-foreground">
+            {retryable
+              ? "We couldn't read this post. Give it another try."
+              : "We couldn't read this post."}
+          </p>
+          <p className="text-[11px] font-medium text-muted-foreground/70">{code}</p>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2 pt-8">
+        <Button type="button" onClick={onRetry} className="h-12 w-full rounded-lg text-base font-bold">
+          Try another link
+        </Button>
+      </div>
+    </div>
   );
 }
 
