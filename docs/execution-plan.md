@@ -80,6 +80,19 @@ anything, no camera-mover discipline yet. It gets rebuilt/absorbed into `L1-F1`,
 once those are actually scheduled. Real TikTok extraction (`L0-F3`/`L0-F4`) resumes after this slice
 proves the loop.
 
+Within this slice, the first pass is map-rendering-first: pins come from a static fixture
+(`domain/places/fixtures.ts`'s `mockSavedPlaces`), not `saved_places`, so persistence, manual add
+and delete against the real table are deferred to a later pass in this same slice rather than
+built alongside the map.
+
+**Further deviation, 2026-08-21:** live MapLibre + Protomaps rendering is itself paused within
+this slice — no Protomaps API key is set up yet. A provider-agnostic port (`MapPlace`,
+`MapSurfaceProps`; `src/components/map/types.ts`) now sits between product logic and the map
+renderer, and a temporary static mock visual stands in behind that port
+(`src/components/map/map-surface.tsx` is the swap point) until a tile provider key is available,
+at which point `map-surface.live.tsx`'s real MapLibre implementation is swapped back in with no
+change to any caller.
+
 ### L0-F5 — Schema live · `supabase-database` + `devops-vercel` · depends: F2 · cut: never
 Was MS5 task 8. Deliberately after F2, so we do not apply a schema no code has exercised.
 
