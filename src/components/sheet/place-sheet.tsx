@@ -33,7 +33,7 @@
 import { Drawer } from 'vaul';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { Plus, MapPin, ExternalLink, X, Search } from 'lucide-react';
+import { Plus, MapPin, ExternalLink, X, ChevronLeft, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -254,7 +254,18 @@ export function PlaceSearchField({ className }: { className?: string }) {
   );
 }
 
-export function PlaceDetail({ place, onClose }: { place: MapPlace; onClose: () => void }) {
+export function PlaceDetail({
+  place,
+  onClose,
+  variant = 'sheet',
+}: {
+  place: MapPlace;
+  onClose: () => void;
+  /** `'sheet'` (default, mobile): an X that fully deselects. `'panel'` (desktop): the same
+   *  `onClose` call instead reads as "back to the list" — there is no second panel to close into,
+   *  so a back chevron is the honest affordance for what actually happens. */
+  variant?: 'sheet' | 'panel';
+}) {
   const detail = place.detail;
   const note = detail?.note;
   const reason = detail?.reason;
@@ -289,11 +300,15 @@ export function PlaceDetail({ place, onClose }: { place: MapPlace; onClose: () =
           type="button"
           variant="ghost"
           size="icon"
-          aria-label="Close place detail"
+          aria-label={variant === 'panel' ? 'Back to your places' : 'Close place detail'}
           onClick={onClose}
           className="shrink-0 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
         >
-          <X className="size-5" aria-hidden />
+          {variant === 'panel' ? (
+            <ChevronLeft className="size-5" aria-hidden />
+          ) : (
+            <X className="size-5" aria-hidden />
+          )}
         </Button>
       </div>
 
@@ -315,20 +330,20 @@ export function PlaceDetail({ place, onClose }: { place: MapPlace; onClose: () =
         </div>
       )}
 
-      {/* Two external actions, presented as one evenly-weighted pair rather than a bordered
-          "info on the left, button on the right" block plus a separate floating link below it —
-          that split-block layout read as two disconnected UI fragments. `authorLabel` (if any) is
-          a caption above the pair, not squeezed into either action itself. */}
+      {/* Two external actions, presented as plain text links — same weight as `reason`/`note`
+          above, no border/fill box. The panel (or sheet) is already the container; a bordered
+          chip pair inside it was a box nested inside a box. `authorLabel` (if any) is a caption
+          above the pair, not squeezed into either action itself. */}
       <div className="flex flex-col gap-2">
         {authorLabel && (
           <p className="text-xs font-medium text-muted-foreground">Saved from {authorLabel}</p>
         )}
-        <div className="grid grid-cols-2 gap-2">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
           <a
             href={source?.canonicalUrl ?? place.sourceUrl}
             target="_blank"
             rel="noreferrer"
-            className="flex items-center justify-center gap-1.5 rounded-[var(--radius)] border border-border bg-muted/40 px-3 py-2.5 text-sm font-bold text-foreground transition-colors hover:bg-muted/70"
+            className="flex items-center gap-1.5 text-sm font-bold text-[var(--mint-700)] underline-offset-4 hover:underline"
           >
             Open TikTok
             <ExternalLink className="size-3.5" aria-hidden />
@@ -337,7 +352,7 @@ export function PlaceDetail({ place, onClose }: { place: MapPlace; onClose: () =
             href={googleMapsUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-1.5 rounded-[var(--radius)] border border-border bg-muted/40 px-3 py-2.5 text-sm font-bold text-foreground transition-colors hover:bg-muted/70"
+            className="flex items-center gap-1.5 text-sm font-bold text-[var(--mint-700)] underline-offset-4 hover:underline"
           >
             Google Maps
             <ExternalLink className="size-3.5" aria-hidden />
