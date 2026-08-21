@@ -4,6 +4,8 @@
 > splitting §11 rather than answering it as a block — Q1 answered, Q2 narrowed and deferred to the
 > first milestone that writes an ODbL-derived row, Q3–Q7 open but non-blocking. The schema this
 > decision implies is designed in [`10-poi-index.md`](10-poi-index.md).
+> **The basemap-tiles half of §2(A) was reopened 2026-08-21**: the product owner ruled out
+> Protomaps outright; CARTO was evaluated as the replacement and adopted. See §2.1.
 > Evidence: [`evidence/places/`](evidence/places/), [`evidence/licensing/`](evidence/licensing/).
 > Every third-party claim below is labelled VERIFIED / ASSUMED / UNAVAILABLE per Charter §9.
 
@@ -11,8 +13,8 @@
 
 | Layer | Choice |
 |---|---|
-| Map rendering | **MapLibre GL JS v5** (BSD-3), wrapped by `@vis.gl/react-maplibre` |
-| Basemap tiles | **Protomaps hosted tile API**, style forked from the CC0 Protomaps basemap styles; escape hatch = self-hosted `.pmtiles` on object storage |
+| Map rendering | **MapLibre GL JS** (BSD-3), via the `mapcn` shadcn-registry component (`src/components/ui/map.tsx`) |
+| Basemap tiles | **CARTO's free vector basemap** (Positron/Dark Matter, `basemaps.cartocdn.com`), keyless. Superseded Protomaps on 2026-08-21 — see §2.1 |
 | Place resolution | **Our own resolver over an openly-licensed POI dataset** — Overture Maps `places` theme (CDLA-Permissive-2.0 / Apache-2.0, Foursquare-sourced rows), loaded as per-city extracts into Postgres |
 | Out-of-region fallback | **Nominatim**, hard-capped and cached, ODbL-attributed. **Promoted 2026-08-20 (D2b, [`mvp-plan.md`](mvp-plan.md) §11) from a late fallback to the MVP's global resolution path** — two sources behind one port, routed on the candidate's city hint; measured 85% top-1 inside a loaded region, 63% outside. Escape hatch if the ≤1 rps / ~200-per-day policy ceiling bites: a hosted OSM geocoder (LocationIQ / Geoapify — same data, same ODbL storage rights, a real ToS), reachable by changing one env var |
 | Terminal recovery | Manual search over the same index, then manual pin-drop |
@@ -60,6 +62,37 @@ tiles plus an OSM attribution.
 **Runner-up: Mapbox GL JS v3.** It renders better out of the box and `react-map-gl` is more
 battle-tested. We would switch if, and only if, the map style we author on MapLibre cannot reach
 the quality bar within the schedule — the renderer swap is contained behind `MapSurface` (§8).
+
+### 2.1 Reopened 2026-08-21: Protomaps ruled out, CARTO adopted
+
+The product owner has explicitly ruled out Protomaps as the basemap-tile provider (reason: owner
+call, not a licensing failure — Protomaps' terms above still stand as accurate). This reopens only
+the *basemap-tiles* row of §2(A); the renderer (MapLibre GL), the place-resolution decision (§3),
+and everything below is unaffected.
+
+CARTO was evaluated as the replacement, using the CARTO basemap styles that the `mapcn` shadcn
+component (already installed at `src/components/ui/map.tsx`, see `map-surface.mapcn.tsx`) defaults
+to out of the box. Full findings, each labelled VERIFIED/ASSUMED/UNAVAILABLE with sources:
+[`evidence/licensing/carto-basemap-terms-2026-08-21.md`](evidence/licensing/carto-basemap-terms-2026-08-21.md).
+
+Summary:
+
+| Question | Finding |
+|---|---|
+| API key required? | **No** — VERIFIED. The vector styles (Positron/Dark Matter/Voyager) served from `basemaps.cartocdn.com` work keyless today; only CARTO's separate raster endpoints carry the "no key" watermark |
+| Free-tier ceiling | **VERIFIED** — 5,000,000 tile requests/calendar month, no account required, no upfront commercial/non-commercial declaration |
+| Behaviour past the ceiling | **VERIFIED** (FAQ) — CARTO says it reaches out rather than cutting service off; paid plan only becomes necessary at sustained volume far beyond a course MVP |
+| Commercial use on the free tier | **ASSUMED** — CARTO's FAQ (fetched directly) does not gate commercial use behind a paid plan under the fair-use ceiling, contradicting a lower-confidence secondary summary that said commercial use needs Enterprise. Treated as acceptable at our scale; revisit if traffic approaches the ceiling |
+| Attribution requirement | **VERIFIED** in substance ("CARTO and OpenStreetMap must be credited on every map"); **ASSUMED** for the exact string, since CARTO's attribution page doesn't spell out the literal basemap text. We render `© CARTO © OpenStreetMap contributors`, linking to `carto.com/attributions` and `osm.org/copyright` |
+| Does the style JSON self-attribute? | **VERIFIED, no** — inspected the live `positron-gl-style/style.json`; its source carries no `attribution` field, so `customAttribution` must be set explicitly on MapLibre's `AttributionControl` (done in `map-surface.mapcn.tsx`) rather than relying on the style to supply it |
+
+**Decision (A, revised): MapLibre GL JS + CARTO's free vector basemap**, via `mapcn`'s default
+style URLs — no `NEXT_PUBLIC_*` key needed, unlike the Protomaps path this replaces. This is now
+the **active** `MapSurface` implementation (`src/components/map/map-surface.tsx`), superseding the
+mock. `map-surface.live.tsx` (hand-rolled MapLibre + Protomaps) is left in place for reference only
+and should not be wired back in. The place-resolution pairing analysis in §3.1 is unaffected: CARTO
+carries no place-data restrictions of its own, so the "any map + Overture/FSQ-OS dataset" row in
+§3.1 still reads YES.
 
 ---
 

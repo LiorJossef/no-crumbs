@@ -256,7 +256,7 @@ begin
     ('imports','SELECT'),
     ('extractions','SELECT'),
     ('place_provider_refs','SELECT'),
-    ('saved_places','SELECT'), ('saved_places','INSERT'), ('saved_places','DELETE'),
+    ('saved_places','SELECT'), ('saved_places','DELETE'),
     ('saved_place_sources','SELECT'), ('saved_place_sources','INSERT'),
     ('saved_place_sources','DELETE')
     -- deliberately absent: every write on sources/extractions/places/place_provider_refs (global
@@ -267,7 +267,10 @@ begin
     -- all on poi_regions/poi_index (10 §12 Q2 — the index is server-side only, because a browser
     -- that can query it directly sits in front of no rate limiter). Those last two need no entry
     -- here to be checked: this comparison is exhaustive in both directions, so a leaked grant on a
-    -- new table appears as UNEXPECTED without anyone remembering to add it.
+    -- new table appears as UNEXPECTED without anyone remembering to add it. Also deliberately
+    -- absent since 0015: table-level INSERT on `saved_places` — replaced with a closed column-level
+    -- grant (check 5), because a table-wide INSERT would have made the new `extracted_reason`
+    -- column client-writable at row-creation time with no way to exclude it.
   )
   select string_agg(format('%s %s.%s', kind, t, p), ', ' order by t, p) into v from (
     select 'UNEXPECTED' kind, a.t, a.p from actual a
@@ -358,9 +361,11 @@ end $$;
 -- roles only) and one more: pg_attribute.attacl holds ONLY real column grants, whereas
 -- role_column_grants also expands table-level grants per column. Every row in the expected set
 -- below is a genuine column grant — `authenticated` holds no table-level UPDATE anywhere and no
--- table-level SELECT on `sources` or `places` — so the two sources agree on this schema, and the
--- catalogue form keeps agreeing if a view or matview ever appears. A table-level UPDATE appearing by
--- accident is caught by check 4, not here; both are needed — and that division matters for `places`:
+-- table-level SELECT on `sources` or `places`, and since 0015 no table-level INSERT on
+-- `saved_places` either — so the two sources agree on this schema, and the catalogue form keeps
+-- agreeing if a view or matview ever appears. A table-level UPDATE (or, for `saved_places`, INSERT)
+-- appearing by accident is caught by check 4, not here; both are needed — and that division matters
+-- for `places`:
 -- a `grant select on public.places to authenticated` re-exposes provider_payload while leaving the
 -- column grants below intact, so this check would still pass. Check 4 is the one that catches it.
 do $$
@@ -375,7 +380,7 @@ begin
      where n.nspname = 'public'
        and cl.relkind in ('r', 'p', 'v', 'm', 'f')
        and a.grantee = 'authenticated'::regrole
-       and (a.privilege_type = 'UPDATE' or cl.relname in ('sources', 'places'))
+       and (a.privilege_type = 'UPDATE' or cl.relname in ('sources', 'places', 'saved_places'))
   ), expected(t, c, p) as (values
     -- profiles: display name only
     ('profiles','display_name','UPDATE'),
@@ -385,6 +390,12 @@ begin
     ('saved_places','display_name','UPDATE'), ('saved_places','category_override','UPDATE'),
     ('saved_places','note','UPDATE'), ('saved_places','visit_state','UPDATE'),
     ('saved_places','visited_at','UPDATE'),
+    -- saved_places: 0015's closed INSERT column list — everything a client legitimately creates a
+    -- row with, `extracted_reason` deliberately left out so it stays system-derived only
+    ('saved_places','user_id','INSERT'), ('saved_places','place_id','INSERT'),
+    ('saved_places','display_name','INSERT'), ('saved_places','category_override','INSERT'),
+    ('saved_places','note','INSERT'), ('saved_places','visit_state','INSERT'),
+    ('saved_places','visited_at','INSERT'), ('saved_places','origin','INSERT'),
     -- sources: display fields only. content_text, created_at and updated_at are withheld (R8)
     ('sources','id','SELECT'), ('sources','platform','SELECT'),
     ('sources','platform_source_id','SELECT'), ('sources','canonical_url','SELECT'),
@@ -397,7 +408,11 @@ begin
     ('places','id','SELECT'), ('places','name','SELECT'), ('places','category','SELECT'),
     ('places','provider_category','SELECT'), ('places','address_line','SELECT'),
     ('places','locality','SELECT'), ('places','region','SELECT'),
-    ('places','country_code','SELECT'), ('places','lat','SELECT'), ('places','lng','SELECT')
+    ('places','country_code','SELECT'), ('places','lat','SELECT'), ('places','lng','SELECT'),
+    -- 0015: attribution + freshness for the Spot card. source_dataset_id stays withheld (0015's
+    -- own header) — it is an internal join key, same class as name_key.
+    ('places','source_dataset','SELECT'), ('places','resolution_score','SELECT'),
+    ('places','last_verified_at','SELECT')
   )
   select string_agg(format('%s %s.%s(%s)', kind, t, c, p), ', ' order by t, c, p) into v from (
     select 'UNEXPECTED' kind, a.t, a.c, a.p from actual a
