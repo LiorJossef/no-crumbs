@@ -12,6 +12,7 @@
  */
 
 import type { ExtractedCategoryHint } from '@/domain/places/category-hint';
+import type { Spot } from '@/domain/places/spot';
 
 /**
  * One pin's worth of data, provider-agnostic. Deliberately flat (`lat`/`lng` rather than a nested
@@ -31,6 +32,17 @@ export interface MapPlace {
   readonly lng: number;
   readonly note: string;
   readonly sourceUrl: string;
+  /**
+   * The full `Spot` this pin was built from, for the sheet/panel detail view
+   * (`components/sheet/place-sheet.tsx`, `place-desktop-panel.tsx`). Optional and carried
+   * end-to-end without being read: neither `MapSurface` (this port's real consumer) nor its three
+   * implementations reference it, so the map-surface layer never has to know `Spot` exists — this
+   * field only rides along on the same object so the sheet/panel's *next* edit (reading
+   * `place.detail?.reason`, `.source?.media`, `.provenance`, etc.) is a one-line addition rather
+   * than a rewire of `map-page-client.tsx`'s prop plumbing. Absent for any `MapPlace` not built
+   * from a real `Spot` (tests, a future mock surface).
+   */
+  readonly detail?: Spot;
 }
 
 /** Lng-first is deliberately not used anywhere in this file; a bounding box is two `MapPlace`-style
