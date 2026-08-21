@@ -13,12 +13,47 @@ import type { FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'motion/react';
 import { Loader2 } from 'lucide-react';
+import type { AuthError } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 type Mode = 'sign-in' | 'sign-up';
+
+// Supabase's own error copy assumes a product that offers phone auth too (e.g. "Missing email
+// or phone", `email_exists`/`phone_exists` split) — this product never does, so raw
+// `error.message` must never reach the UI verbatim. Known codes get product-accurate copy; the
+// `/phone/i` fallback is a backstop for whichever future code still slips a phone mention through.
+function authErrorMessage(error: AuthError, mode: Mode): string {
+  switch (error.code) {
+    case 'invalid_credentials':
+      return "That email or password doesn't match an account.";
+    case 'user_already_exists':
+    case 'email_exists':
+    case 'identity_already_exists':
+      return 'An account with this email already exists — try signing in instead.';
+    case 'email_not_confirmed':
+      return 'Check your email to confirm your account, then sign in.';
+    case 'email_address_invalid':
+      return 'Enter a valid email address.';
+    case 'weak_password':
+      return 'Choose a password with at least 6 characters.';
+    case 'over_email_send_rate_limit':
+    case 'over_request_rate_limit':
+      return "You've tried this a few times. Give it a few minutes.";
+    case 'user_not_found':
+      return mode === 'sign-up'
+        ? 'Something went wrong creating your account. Try again.'
+        : "That email or password doesn't match an account.";
+    case 'validation_failed':
+      // Supabase's message here is "Missing email or phone" (submitting with an empty field
+      // bypasses HTML5 validation because the form uses `noValidate`) — never surface that verbatim.
+      return 'Enter your email and password.';
+    default:
+      return /phone/i.test(error.message) ? 'Enter your email and password.' : error.message;
+  }
+}
 
 function PinMark({ className }: { className?: string }) {
   return (
@@ -55,7 +90,7 @@ export default function SignInPage() {
     setPending(false);
 
     if (error) {
-      setMessage(error.message);
+      setMessage(authErrorMessage(error, mode));
       return;
     }
 
