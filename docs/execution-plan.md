@@ -94,7 +94,7 @@ correct candidates and a saved row.
 | Task | What | Exit criterion |
 |---|---|---|
 | T1 | **The product name** decided; the wordmark string only | A name exists in one constant and in the deck outline. No logo, no icon set (Charter §4) |
-| T2 | Token values — semantic roles, **light values only**, type scale, the display face in its three placements | Every token named in `ux-architecture` §10 and §11.6 has a value in one file; the accent passes contrast **measured on the surface it sits on**; a hard-coded colour anywhere fails review |
+| T2 | Token values — semantic roles, **light values only**, type scale. **Partially pre-empted 2026-08-21:** the mint accent, radius scale and Manrope-only typography (`brand-and-product-foundation.md` §5) were decided and approved against the sign-in screen ahead of this task; closing T2 is now about carrying those same tokens through the rest of the surfaces and running the contrast check, not choosing values from scratch | Every token named in `ux-architecture` §10 and §11.6 has a value in one file; the accent passes contrast **measured on the surface it sits on**; a hard-coded colour anywhere fails review; dark mode's stale placeholder values are reworked or explicitly left disabled, not silently inconsistent |
 | T3 | Supabase Auth email + password; S1 minimal landing, S2 sign-in; authenticated visitors redirected server-side | A second browser profile cannot see the first user's rows, proven by attempt, not by assertion |
 | T4 | The `(map)` route group: one map instance in a module-scope singleton + the `sessionStorage` camera mirror | `/map` → `/place/[id]` → back → `/import` → back leaves `getCenter()`/`getZoom()` unchanged |
 

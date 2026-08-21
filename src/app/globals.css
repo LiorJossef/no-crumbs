@@ -5,7 +5,7 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-    --font-heading: var(--font-sans);
+    --font-heading: var(--font-heading);
     --font-sans: var(--font-sans);
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
@@ -38,82 +38,116 @@
     --color-card: var(--card);
     --color-foreground: var(--foreground);
     --color-background: var(--background);
-    --radius-sm: calc(var(--radius) * 0.6);
-    --radius-md: calc(var(--radius) * 0.8);
+    --radius-sm: var(--radius-sm);
     --radius-lg: var(--radius);
-    --radius-xl: calc(var(--radius) * 1.4);
-    --radius-2xl: calc(var(--radius) * 1.8);
-    --radius-3xl: calc(var(--radius) * 2.2);
-    --radius-4xl: calc(var(--radius) * 2.6);
+    --radius-xl: var(--radius-xl);
 }
 
+/*
+ * Finalized design tokens (L1-F1-T2, signed off): pale mint #A8ECE2 as the primary, developed
+ * into a full ramp (--mint-100..900) plus a dedicated dark-ink-on-mint foreground so primary
+ * surfaces never carry white text. Warm near-white background, near-black ink, hairline borders,
+ * no default card shadow. The selected/saved check-circle stays mint rather than a separate
+ * ink-only status color — an explicit product decision, not an oversight.
+ */
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
+    --background: #FAF9F6;
+    --foreground: #1B1B1A;
+    --card: #FFFFFF;
+    --card-foreground: #1B1B1A;
+    --popover: #FFFFFF;
+    --popover-foreground: #1B1B1A;
+    --border: #E7E3DC;
+    --input: #E7E3DC;
+    --muted: #FAF9F6;
+    --muted-foreground: #75716A;
+
+    --mint-100: #F1FBF9;
+    --mint-200: #DAF5EF;
+    --mint-300: #C0EFE5;
+    --mint-400: #A8ECE2;
+    --mint-600: #469B8E;
+    --mint-700: #2E7A70;
+    --mint-900: #215F56;
+    --ink-on-mint: #123B35;
+
+    --primary: var(--mint-400);
+    --primary-foreground: var(--ink-on-mint);
+    --secondary: var(--mint-200);
+    --secondary-foreground: #1B1B1A;
+    --accent: var(--mint-100);
+    --accent-foreground: #1B1B1A;
+    --ring: var(--mint-700);
     --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
+
+    --pin: var(--mint-700);
+    --pin-selected: var(--mint-900);
+    --pin-halo: #FFFFFF;
+
+    --wash-from: var(--mint-200);
+    --wash-to: transparent;
+    --row-selected-from: var(--mint-200);
+    --row-selected-to: transparent;
+
+    --shadow-elevated: 0 14px 28px -18px rgba(0, 0, 0, 0.18);
+
+    --radius-sm: 0.75rem;
+    --radius: 1rem;
+    --radius-xl: 1.5rem;
+
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);
     --chart-4: oklch(0.371 0 0);
     --chart-5: oklch(0.269 0 0);
-    --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
+
+    --sidebar: #FFFFFF;
+    --sidebar-foreground: #1B1B1A;
+    --sidebar-primary: var(--mint-400);
+    --sidebar-primary-foreground: var(--ink-on-mint);
+    --sidebar-accent: var(--mint-100);
+    --sidebar-accent-foreground: #1B1B1A;
+    --sidebar-border: #E7E3DC;
+    --sidebar-ring: var(--mint-700);
 }
 
+/*
+ * Stale relative to the finalized light tokens above (still "Pale Sky" light-blue values) —
+ * not yet reworked against the mint ramp. Not safe to toggle on until it gets its own pass;
+ * first pass, not signed off.
+ */
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
+    --background: #14181D;
+    --foreground: #F2F5F7;
+    --card: #1C232B;
+    --card-foreground: #F2F5F7;
+    --popover: #1C232B;
+    --popover-foreground: #F2F5F7;
+    --primary: #6FBEEF;
+    --primary-foreground: #0B2233;
+    --secondary: #232A32;
+    --secondary-foreground: #F2F5F7;
+    --muted: #232A32;
+    --muted-foreground: #8B95A3;
+    --accent: #1E3A4A;
+    --accent-foreground: #F2F5F7;
     --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
+    --border: #2A323B;
+    --input: #2A323B;
+    --ring: #6FBEEF;
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);
     --chart-4: oklch(0.371 0 0);
     --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
+    --sidebar: #1C232B;
+    --sidebar-foreground: #F2F5F7;
+    --sidebar-primary: #6FBEEF;
+    --sidebar-primary-foreground: #0B2233;
+    --sidebar-accent: #1E3A4A;
+    --sidebar-accent-foreground: #F2F5F7;
+    --sidebar-border: #2A323B;
+    --sidebar-ring: #6FBEEF;
 }
 
 @layer base {
