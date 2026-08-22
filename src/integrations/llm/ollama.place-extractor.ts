@@ -7,28 +7,32 @@
  *
  * ## Capability call — read before trusting this file
  *
- * **UNAVAILABLE to verify in this session.** Ollama is not installed in this sandbox (`which
- * ollama` → not found; no `brew` formula installed; `curl localhost:11434` unreachable), and
- * installing it plus pulling an instruct model (hundreds of MB to a few GB) is outside this task's
- * time/network budget. No real local run was made against this prompt and schema.
+ * **VERIFIED, 2026-08-22, real run against a live daemon.** Ollama installed and running locally
+ * (`brew services start ollama`, reachable at `http://127.0.0.1:11434`), model `gemma4:e4b` (8B,
+ * Q4_K_M, ~9.6GB) pulled and used directly — a deliberate deviation from this file's coded
+ * `OLLAMA_MODEL` default of `llama3.2:3b`, not an error. Eight real oEmbed captions run through
+ * this exact adapter end to end (ad-hoc probe script, not checked in): the model's `/api/chat`
+ * response, constrained by `format: EXTRACTION_JSON_SCHEMA`, parsed as valid JSON and passed
+ * `ExtractionResultSchema.safeParse` on the first try every single time — zero retries, zero
+ * `EXTRACTOR_INVALID_OUTPUT` throws across all eight calls. Output was well-behaved on both ends
+ * of the task: five generic/no-venue captions (hashtag soup, a meme, a question with no venue)
+ * correctly returned zero kept candidates; three venue-naming captions (one with an explicit "📍",
+ * one plain-prose "X, placed on Y street in Z") correctly surfaced the named cafe with a sane
+ * `cityHint`/`categoryHint`/verbatim `evidence`. The one open miss: on a caption with no real venue
+ * but many hashtags, the model treated several hashtag fragments (`#tsukijifishmarket`,
+ * `#studioghibli`) as place names — schema-valid but wrong; `filterPlausible`'s
+ * `hashtag_or_handle` rule did not catch these because the model stripped the leading `#` from
+ * `rawName` while still quoting `evidence` with the `#` on it, which is exactly the loophole in
+ * that rule's current implementation (it checks `rawName`'s own leading character, not
+ * `evidence`'s). Latency ranged ~7–34s per call on this laptop (CPU-only, no GPU) — free but slow,
+ * an interactive-import-latency concern for `LLM_PROVIDER=ollama`, not a schema-compliance one.
+ * Real cost, logged via `logExtractionCost`: $0 on every call, `costModel: 'zero-cost-local'`, as
+ * this file's own comment below already states.
  *
- * **ASSUMED, from Ollama's own published docs (not independently measured here):** Ollama's
- * `/api/chat` endpoint accepts a `format` field that is either the literal string `"json"` or a
- * full JSON Schema object, and constrains decoding to match it — this is the mechanism this file
- * uses. Whether a *small* instruct model (the class of model that makes "free to iterate" true —
- * e.g. a 1–3B model) reliably produces schema-valid, non-hallucinated output for *this* task's
- * prompt is unmeasured. Larger local models (7B+) are more likely to comply but erode the "costs
- * nothing to iterate" premise on a laptop without a GPU.
- *
- * **Consequence, stated rather than hidden:** this adapter is real, typed, and wired behind the
- * same `PlaceExtractor` port as the hosted one, so switching `LLM_PROVIDER=ollama` in `.env.local`
- * costs zero code changes elsewhere — but its practical usefulness is an open item, not a shipped
- * fact. **Flagged decision, not silently made:** until someone runs it against a real Ollama
- * install and checks it against the golden set (`09` §8), the pragmatic dev-tier stand-in is the
- * hosted adapter itself, pointed at the cheapest available hosted model with a low personal rate
- * limit — not a code fork, the same `anthropicPlaceExtractor` with a different `model` string. That
- * substitution, if the owner wants it, is a one-line default in whatever composes `Ports`
- * (L0-F6, not yet built), not a change to this file.
+ * **Still open:** this was eight hand-picked captions, not the 50-post golden set (`09` §8) — a
+ * real precision/recall number against golden-set ground truth, and a check of whether the
+ * hashtag-as-place leak above recurs at scale, are both still outstanding before any claim that
+ * `gemma4:e4b` is *accurate*, only that it is *schema-compliant*.
  *
  * The Zod parse below is not weakened for this adapter: a local model that returns a shape Zod
  * rejects is `EXTRACTOR_INVALID_OUTPUT`, exactly like the hosted adapter — "no tools, no side
