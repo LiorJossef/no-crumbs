@@ -1009,10 +1009,13 @@ function CaptionPreviewScreen({ probe, onDone }: { probe: ProbeSuccess; onDone: 
 /** A Google Maps search URL for a raw `PlaceCandidate` — the documented `maps/search/` URL
  *  scheme (`https://developers.google.com/maps/documentation/urls/get-started#search-action`),
  *  never a place-details or embed URL, since this candidate has no place ID yet (pre-resolver).
- *  Only the fields present are joined, so a candidate with no city/country still gets a sane
- *  query rather than a trailing ", , ". */
-function googleMapsSearchUrl(candidate: PlaceCandidate): string {
-  const query = [candidate.rawName, candidate.cityHint, candidate.countryHint]
+ *  `categoryHint` is included (after the name, before city/country) so Maps favors the right
+ *  category of venue rather than an unrelated same-name business — e.g. "Paradiso, cafe, Prague"
+ *  rather than "Paradiso, Prague", which can surface an unrelated venue that happens to share the
+ *  name. Only the fields present are joined, so a candidate with no category/city/country still
+ *  gets a sane query rather than a trailing/doubled ", , ". */
+export function googleMapsSearchUrl(candidate: PlaceCandidate): string {
+  const query = [candidate.rawName, candidate.categoryHint, candidate.cityHint, candidate.countryHint]
     .filter((part): part is string => part !== null && part.trim().length > 0)
     .join(', ');
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
