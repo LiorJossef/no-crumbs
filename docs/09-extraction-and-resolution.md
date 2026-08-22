@@ -90,8 +90,17 @@ cost risk in this product lives in unbounded *retries*, not in per-call price �
 | `claude-sonnet-5` as the V1 default | Three times the input price and slower, for a task that is short-text extraction. Kept as the **documented escalation** if §8's evaluation fails — the decision is one constant and a version bump, which is exactly what the port exists for |
 | A larger frontier model | Nothing in this task rewards it. Under M11/R1, unjustified capability costs marks the same way unjustified infrastructure does |
 | A second provider "for redundancy" | Rejected by `07` §10: a multi-LLM abstraction layer is the kind of framework the charter forbids. If Anthropic is down, stage B returns `EXTRACTOR_UNAVAILABLE`, the source is already cached, and Retry is cheap |
-| Local / self-hosted model | Nothing about Vercel's runtime makes this cheap, and it converts a five-minute integration into a deployment problem in a 19-day schedule |
+| Local / self-hosted model **in production** | Nothing about Vercel's runtime makes this cheap, and it converts a five-minute integration into a deployment problem in a 19-day schedule. This rejection is about the deployed path only — see below for the dev-only exception added at L0-F4-T2 |
 | Regex / heuristic extraction over the caption | Charter §5 forbids it outright ("we never regex prose"), and `04` §5 category H exists precisely because `#tokyofood` is not a venue |
+
+**Dev-only addendum (L0-F4-T2, 2026-08-22).** The rejection above is about production. Development now
+has a second, config-selected adapter, `integrations/llm/ollama.place-extractor.ts`, calling a local
+Ollama model so iteration during the build costs nothing per run. `LLM_PROVIDER` picks Ollama in dev and
+`integrations/llm/anthropic.place-extractor.ts` in production; both sit behind the one `PlaceExtractor`
+port in §2.4, so "a second model is a second file, never a framework" still holds. **This local path is
+ASSUMED, not VERIFIED**: it was built and wired without an actual local Ollama install/run in the
+building session (Ollama wasn't available in that sandbox), so end-to-end behaviour on real hardware is
+unconfirmed. Treat it as dev tooling only until someone runs it and upgrades the label.
 
 ### 2.4 The shape of the abstraction
 
@@ -287,3 +296,4 @@ Restating `07` §7 so this document is self-contained on cost:
 | Date | Change |
 |---|---|
 | 2026-08-18 | Created. D7 decided (`claude-haiku-4-5`, structured output, one adapter). D4's extraction half decided (no model-derived gating; plausibility filter only). Cost verified at ~$0.003/import, closing assumption B6 |
+| 2026-08-22 | §2.3 reconciled with L0-F4-T2: the "local model" rejection was about production only. Documented the dev-only local Ollama adapter (config-selected via `LLM_PROVIDER`, same `PlaceExtractor` port as the hosted Anthropic adapter) and flagged it ASSUMED, not VERIFIED — built without an actual local run |
