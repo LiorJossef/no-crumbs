@@ -23,7 +23,9 @@ const EXTRACTED_CATEGORY_HINTS = ['restaurant', 'cafe', 'bar', 'bakery', 'attrac
 export const ExtractedCategoryHintSchema = z.enum(EXTRACTED_CATEGORY_HINTS);
 
 /** One candidate as the model must emit it — verbatim `rawName`, no confidence trusted (`02` §D3),
- *  `evidence` a caption fragment so a fabrication is a substring check, not a judgement call. */
+ *  `evidence` a caption fragment so a fabrication is a substring check, not a judgement call.
+ *  `identifiedName` is the one exception to the verbatim discipline (`06` §3.4): the model's own
+ *  real-world guess at the full venue, nullable when it has none beyond the raw fragment. */
 export const RawPlaceCandidateSchema = z.object({
   rawName: z.string().min(2).max(120),
   cityHint: z.string().max(80).nullable(),
@@ -31,6 +33,7 @@ export const RawPlaceCandidateSchema = z.object({
   categoryHint: ExtractedCategoryHintSchema.nullable(),
   evidence: z.string().max(240).nullable(),
   modelConfidence: z.number().min(0).max(1).nullable(),
+  identifiedName: z.string().min(2).max(120).nullable(),
 });
 
 export type RawPlaceCandidate = z.infer<typeof RawPlaceCandidateSchema>;
@@ -57,5 +60,6 @@ export function toPlaceCandidate(raw: RawPlaceCandidate): PlaceCandidate {
     categoryHint: categoryHintFor(raw.categoryHint as ExtractedCategoryHint | null),
     evidence: raw.evidence,
     modelConfidence: raw.modelConfidence,
+    identifiedName: raw.identifiedName,
   };
 }

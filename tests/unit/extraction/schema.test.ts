@@ -13,6 +13,7 @@ describe('ExtractionResultSchema', () => {
           categoryHint: 'cafe',
           evidence: "haven't stopped thinking about Cafe Fiori",
           modelConfidence: 0.9,
+          identifiedName: null,
         },
       ],
       cityHint: 'Tel Aviv',
@@ -33,6 +34,7 @@ describe('ExtractionResultSchema', () => {
       categoryHint: null,
       evidence: null,
       modelConfidence: null,
+      identifiedName: null,
     }));
     const parsed = ExtractionResultSchema.safeParse({ candidates: many, cityHint: null });
     expect(parsed.success).toBe(false);
@@ -48,6 +50,42 @@ describe('ExtractionResultSchema', () => {
           categoryHint: 'nightclub',
           evidence: null,
           modelConfidence: null,
+          identifiedName: null,
+        },
+      ],
+      cityHint: null,
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it('accepts a candidate whose identifiedName differs from rawName (`06` §3.4)', () => {
+    const parsed = ExtractionResultSchema.safeParse({
+      candidates: [
+        {
+          rawName: 'Paradiso',
+          cityHint: 'Prague',
+          countryHint: null,
+          categoryHint: 'cafe',
+          evidence: 'Paradiso was so cute',
+          modelConfidence: 0.8,
+          identifiedName: 'Paradiso Matcha Bar',
+        },
+      ],
+      cityHint: 'Prague',
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it('requires identifiedName to be present, even when null — no optional properties', () => {
+    const parsed = ExtractionResultSchema.safeParse({
+      candidates: [
+        {
+          rawName: 'Cafe Fiori',
+          cityHint: null,
+          countryHint: null,
+          categoryHint: null,
+          evidence: null,
+          modelConfidence: null,
         },
       ],
       cityHint: null,
@@ -58,7 +96,15 @@ describe('ExtractionResultSchema', () => {
   it('rejects a rawName below the minimum length', () => {
     const parsed = ExtractionResultSchema.safeParse({
       candidates: [
-        { rawName: 'A', cityHint: null, countryHint: null, categoryHint: null, evidence: null, modelConfidence: null },
+        {
+          rawName: 'A',
+          cityHint: null,
+          countryHint: null,
+          categoryHint: null,
+          evidence: null,
+          modelConfidence: null,
+          identifiedName: null,
+        },
       ],
       cityHint: null,
     });
@@ -75,6 +121,7 @@ describe('toPlaceCandidate', () => {
       categoryHint: 'cafe',
       evidence: 'evidence text',
       modelConfidence: 0.7,
+      identifiedName: null,
     });
     expect(candidate).toEqual({
       rawName: 'Cafe Fiori',
@@ -83,7 +130,22 @@ describe('toPlaceCandidate', () => {
       categoryHint: 'cafe',
       evidence: 'evidence text',
       modelConfidence: 0.7,
+      identifiedName: null,
     });
+  });
+
+  it('passes identifiedName through unchanged, distinct from rawName', () => {
+    const candidate = toPlaceCandidate({
+      rawName: 'Paradiso',
+      cityHint: 'Prague',
+      countryHint: null,
+      categoryHint: 'cafe',
+      evidence: 'Paradiso was so cute',
+      modelConfidence: 0.8,
+      identifiedName: 'Paradiso Matcha Bar',
+    });
+    expect(candidate.identifiedName).toBe('Paradiso Matcha Bar');
+    expect(candidate.rawName).toBe('Paradiso');
   });
 
   it('maps "bakery" onto the scoreable "cafe" hint (09 §4.2)', () => {
@@ -94,6 +156,7 @@ describe('toPlaceCandidate', () => {
       categoryHint: 'bakery',
       evidence: null,
       modelConfidence: null,
+      identifiedName: null,
     });
     expect(candidate.categoryHint).toBe('cafe');
   });
@@ -106,6 +169,7 @@ describe('toPlaceCandidate', () => {
       categoryHint: 'attraction',
       evidence: null,
       modelConfidence: null,
+      identifiedName: null,
     });
     expect(candidate.categoryHint).toBeNull();
   });

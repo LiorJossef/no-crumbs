@@ -27,7 +27,15 @@ export const EXTRACTION_JSON_SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['rawName', 'cityHint', 'countryHint', 'categoryHint', 'evidence', 'modelConfidence'],
+        required: [
+          'rawName',
+          'cityHint',
+          'countryHint',
+          'categoryHint',
+          'evidence',
+          'modelConfidence',
+          'identifiedName',
+        ],
         properties: {
           rawName: { type: 'string', minLength: 2, maxLength: 120 },
           cityHint: { type: ['string', 'null'], maxLength: 80 },
@@ -38,6 +46,8 @@ export const EXTRACTION_JSON_SCHEMA = {
           },
           evidence: { type: ['string', 'null'], maxLength: 240 },
           modelConfidence: { type: ['number', 'null'], minimum: 0, maximum: 1 },
+          /** `06` §3.4: the model's own best real-world identification, inference allowed. */
+          identifiedName: { type: ['string', 'null'], minLength: 2, maxLength: 120 },
         },
       },
     },

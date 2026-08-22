@@ -38,6 +38,7 @@ describe('ollamaPlaceExtractor', () => {
             categoryHint: null,
             evidence: 'Cafe Fiori was great',
             modelConfidence: null,
+            identifiedName: null,
           },
         ],
         cityHint: null,

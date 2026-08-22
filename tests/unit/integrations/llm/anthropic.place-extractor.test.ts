@@ -40,6 +40,7 @@ describe('anthropicPlaceExtractor', () => {
             categoryHint: 'cafe',
             evidence: 'Cafe Fiori was unreal',
             modelConfidence: 0.85,
+            identifiedName: null,
           },
         ],
         cityHint: 'Tel Aviv',
@@ -60,6 +61,7 @@ describe('anthropicPlaceExtractor', () => {
         categoryHint: 'cafe',
         evidence: 'Cafe Fiori was unreal',
         modelConfidence: 0.85,
+        identifiedName: null,
       },
     ]);
     expect(result.cityHint).toBe('Tel Aviv');
@@ -91,6 +93,7 @@ describe('anthropicPlaceExtractor', () => {
             categoryHint: null,
             evidence: 'a quote that never appears',
             modelConfidence: 0.4,
+            identifiedName: null,
           },
         ],
         cityHint: null,
@@ -145,6 +148,6 @@ describe('anthropicPlaceExtractor', () => {
   it('carries a stable version and the current prompt version', () => {
     const extractor = anthropicPlaceExtractor({ apiKey: 'test-key' });
     expect(extractor.version).toBe('2026-08-anthropic-haiku-4-5');
-    expect(extractor.promptVersion).toBe('p1');
+    expect(extractor.promptVersion).toBe('p2');
   });
 });

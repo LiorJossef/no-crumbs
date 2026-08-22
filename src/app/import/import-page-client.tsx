@@ -37,6 +37,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { canonicaliseTikTokUrl } from '@/domain/source/canonicalise-tiktok-url';
 import type { ImportEvent, PipelineStage } from '@/domain/import/events';
+import { googleMapsSearchUrl } from '@/domain/places/google-maps-search-url';
 import type { Candidate, PlaceCandidate } from '@/domain/types';
 
 /* ------------------------------------------------------------------------------------------- *
@@ -118,6 +119,7 @@ const DEMO_CANDIDATES: readonly Candidate[] = [
       categoryHint: 'cafe',
       evidence: 'grab the sourdough at anat bakery',
       modelConfidence: 0.81,
+      identifiedName: null,
     },
     resolution: {
       status: 'resolved',
@@ -147,6 +149,7 @@ const DEMO_CANDIDATES: readonly Candidate[] = [
       categoryHint: 'bar',
       evidence: 'ended the night at container',
       modelConfidence: 0.64,
+      identifiedName: null,
     },
     resolution: {
       status: 'ambiguous',
@@ -176,6 +179,7 @@ const DEMO_CANDIDATES: readonly Candidate[] = [
       categoryHint: null,
       evidence: 'a little place near the port, no name mentioned',
       modelConfidence: 0.3,
+      identifiedName: null,
     },
     resolution: { status: 'unresolved', reason: 'no_match' },
   },
@@ -1006,21 +1010,6 @@ function CaptionPreviewScreen({ probe, onDone }: { probe: ProbeSuccess; onDone: 
   );
 }
 
-/** A Google Maps search URL for a raw `PlaceCandidate` — the documented `maps/search/` URL
- *  scheme (`https://developers.google.com/maps/documentation/urls/get-started#search-action`),
- *  never a place-details or embed URL, since this candidate has no place ID yet (pre-resolver).
- *  `categoryHint` is included (after the name, before city/country) so Maps favors the right
- *  category of venue rather than an unrelated same-name business — e.g. "Paradiso, cafe, Prague"
- *  rather than "Paradiso, Prague", which can surface an unrelated venue that happens to share the
- *  name. Only the fields present are joined, so a candidate with no category/city/country still
- *  gets a sane query rather than a trailing/doubled ", , ". */
-export function googleMapsSearchUrl(candidate: PlaceCandidate): string {
-  const query = [candidate.rawName, candidate.categoryHint, candidate.cityHint, candidate.countryHint]
-    .filter((part): part is string => part !== null && part.trim().length > 0)
-    .join(', ');
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
-}
-
 /** One surviving `PlaceCandidate`, every field the schema carries, laid out with the same
  *  rounded-card/mint-badge language as `CandidateRow` above — this is a pre-resolver row (no
  *  `CandidateResolution`, so no confidence-band pill), built for a manual tester to read every
@@ -1042,6 +1031,13 @@ function ExtractedCandidateRow({ candidate }: { candidate: PlaceCandidate }) {
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <p className="truncate font-heading text-sm font-bold text-foreground">{candidate.rawName}</p>
+          {candidate.identifiedName && candidate.identifiedName !== candidate.rawName && (
+            // The model's own real-world guess (`06` §3.4) — never auto-accepted, shown only as a
+            // hint for the human who is about to click through to Google Maps to verify it.
+            <p className="truncate text-xs font-semibold text-[var(--mint-700)]">
+              Likely: {candidate.identifiedName}
+            </p>
+          )}
           <p className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">
             {[candidate.cityHint, candidate.countryHint].filter(Boolean).join(', ') || 'Location unknown'}
             {candidate.categoryHint ? ` · ${candidate.categoryHint}` : ''}

@@ -74,6 +74,7 @@ describe('POST /api/imports/probe — extraction branch', () => {
       categoryHint: 'cafe',
       evidence: 'at Cafe Fiori',
       modelConfidence: 0.8,
+      identifiedName: null,
     };
     extractMock.mockResolvedValueOnce({ candidates: [candidate], cityHint: 'Tel Aviv' });
 
@@ -93,6 +94,7 @@ describe('POST /api/imports/probe — extraction branch', () => {
       categoryHint: null,
       evidence: 'this text is not in the caption',
       modelConfidence: 0.9,
+      identifiedName: null,
     };
     extractMock.mockResolvedValueOnce({ candidates: [candidate], cityHint: null });
 

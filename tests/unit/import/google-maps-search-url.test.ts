@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { googleMapsSearchUrl } from '@/app/import/import-page-client';
+import { googleMapsSearchUrl } from '@/domain/places/google-maps-search-url';
 import type { PlaceCandidate } from '@/domain/types';
 
 function candidate(overrides: Partial<PlaceCandidate> = {}): PlaceCandidate {
@@ -11,6 +11,7 @@ function candidate(overrides: Partial<PlaceCandidate> = {}): PlaceCandidate {
     categoryHint: null,
     evidence: null,
     modelConfidence: null,
+    identifiedName: null,
     ...overrides,
   };
 }
@@ -37,5 +38,28 @@ describe('googleMapsSearchUrl', () => {
     const query = decodeURIComponent(new URL(url).searchParams.get('query') ?? '');
 
     expect(query).toBe('Paradiso');
+  });
+
+  it('prefers identifiedName over rawName when the model identified a real venue', () => {
+    const url = googleMapsSearchUrl(
+      candidate({ identifiedName: 'Paradiso Matcha Bar', categoryHint: 'cafe' }),
+    );
+    const query = decodeURIComponent(new URL(url).searchParams.get('query') ?? '');
+
+    expect(query).toBe('Paradiso Matcha Bar, cafe, Prague');
+  });
+
+  it('falls back to rawName when identifiedName is null', () => {
+    const url = googleMapsSearchUrl(candidate({ identifiedName: null }));
+    const query = decodeURIComponent(new URL(url).searchParams.get('query') ?? '');
+
+    expect(query).toBe('Paradiso, Prague');
+  });
+
+  it('includes countryHint alongside cityHint when both are present', () => {
+    const url = googleMapsSearchUrl(candidate({ countryHint: 'Czech Republic' }));
+    const query = decodeURIComponent(new URL(url).searchParams.get('query') ?? '');
+
+    expect(query).toBe('Paradiso, Prague, Czech Republic');
   });
 });
