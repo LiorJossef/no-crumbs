@@ -91,6 +91,31 @@ describe('filterPlausible', () => {
     expect(result.dropped.duplicate).toBe(1);
   });
 
+  it('keeps a non-Latin-script candidate (Hebrew) instead of dropping it as empty-after-normalisation', () => {
+    // Regression: `normaliseForComparison` used to strip every non-ASCII character, so a Hebrew
+    // rawName normalised to '' and was wrongly caught by `isCityOrCountryOnly`'s
+    // `norm.length === 0` check, as if it were a bare city/country with nothing else to it.
+    const caption = 'פתוח ראשון-שבת 8:00-15:00 #נומיכפרמונש';
+    const result = filterPlausible(
+      [candidate({ rawName: '#נומיכפרמונש', evidence: '#נומיכפרמונש', modelConfidence: 0.8 })],
+      caption,
+    );
+    expect(result.kept).toHaveLength(1);
+    expect(result.dropped.city_or_country_only).toBe(0);
+    // still a hashtag, so still capped like any other hashtag-sourced candidate.
+    expect(result.kept[0]?.modelConfidence).toBe(0.5);
+  });
+
+  it('keeps a real venue-shaped Hebrew hashtag but the plausibility gate alone cannot reject a Hebrew generic-descriptor hashtag — that discrimination is the prompt\'s job', () => {
+    // `isGenericWordsOnly`'s stop-word list is English-only and a hashtag has no spaces to split
+    // on, so a Hebrew "bakery in the center"-style hashtag is not caught here either; this layer
+    // only guards structure (handle/URL, duplicate, verbatim evidence), not language-specific
+    // genericness. Documented, not a bug to fix in this file.
+    const result = filterPlausible([candidate({ rawName: '#ביקריבמרכז', evidence: '#ביקריבמרכז' })], 'anything #ביקריבמרכז');
+    expect(result.dropped.generic_words_only).toBe(0);
+    expect(result.kept).toHaveLength(1);
+  });
+
   it('keeps multiple distinct plausible candidates from a list-style post', () => {
     const caption = 'Three spots: Cafe Fiori, Bar Kaymak, and Anzu Bakery were all incredible';
     const result = filterPlausible(

@@ -46,12 +46,20 @@ export interface PlausibilityResult {
   readonly dropped: Readonly<Record<PlausibilityDropReason, number>>;
 }
 
+/**
+ * Was `[^a-z0-9\s]` — ASCII-only, which silently stripped every non-Latin character (Hebrew,
+ * Japanese, Cyrillic, Arabic...) down to an empty string, so any candidate written in one of those
+ * scripts normalised to `''` and was then dropped by `isCityOrCountryOnly`'s `norm.length === 0`
+ * check as if it were a bare city/country — a real venue in Hebrew never had a chance to survive
+ * this gate regardless of what the model or the prompt did. `\p{L}\p{N}` (Unicode letter/number
+ * classes, `u` flag) keeps any script's letters and digits instead of only `a-z0-9`.
+ */
 function normaliseForComparison(s: string): string {
   return s
     .toLowerCase()
     .normalize('NFKD')
     .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
