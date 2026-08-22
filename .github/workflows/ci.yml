@@ -96,8 +96,13 @@ jobs:
       # runtime would add minutes and prove nothing here.
       - name: start local supabase (db + auth only)
         run: npx supabase start -x realtime,storage-api,imgproxy,studio,edge-runtime,logflare,vector,supavisor,mailpit,postgres-meta
+      # --no-seed: this job's acceptance test is the migrated schema itself (08 §9) plus the
+      # policy tests below, which assert exact row counts (P7's near-duplicate guard expects
+      # to be the only place in the table) — supabase/seed.sql's fixtures are local-dev-only
+      # convenience data and must not be present here. `npm run db:reset` (no flag) is what
+      # local dev runs, and does seed, per config.toml's [db.seed].
       - name: rebuild the schema from migration 0001
-        run: npm run db:reset
+        run: npm run db:reset -- --no-seed
       # MS4's exit gate: user B's select of user A's saved_places returns zero rows, and a place is
       # invisible to a user who has not saved it. A policy regression fails the build, not the exam.
       - name: RLS policy tests (acceptance P3)
