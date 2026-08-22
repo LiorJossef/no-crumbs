@@ -849,17 +849,21 @@ function CandidateRow({ candidate }: { candidate: Candidate }) {
 }
 
 /* ------------------------------------------------------------------------------------------- *
- * Caption preview — this task's real landing screen. No LLM has run: this shows exactly what
- * the real `SourceAdapter` + `ContentExtractor` produced, plainly, with no candidate rows.
+ * Caption preview — this task's real landing screen. No LLM has run yet, so this is honest about
+ * two things at once: it shows exactly what the real `SourceAdapter` + `ContentExtractor`
+ * produced (the caption, plainly), and it reads as the *start* of the review-and-confirm flow
+ * (S7 in `docs/brand-and-product-foundation.md` §6) rather than a dead-end viewer — a pending
+ * affordance sits where the candidate rows will land once extraction exists, and it settles into
+ * a plain "not wired up yet" note instead of faking a result.
  * ------------------------------------------------------------------------------------------- */
 
 function CaptionPreviewScreen({ probe, onDone }: { probe: ProbeSuccess; onDone: () => void }) {
   return (
     <div className="flex flex-1 flex-col">
       <div className="flex flex-col gap-1 pb-6">
-        <ScreenKicker icon={<SearchCheck className="size-3.5" aria-hidden />} label="Read from TikTok" />
+        <ScreenKicker icon={<SearchCheck className="size-3.5" aria-hidden />} label="Review & confirm" />
         <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">
-          Here&rsquo;s what we read
+          Looking for places
         </h1>
         {probe.authorHandle && (
           <p className="text-sm font-medium text-muted-foreground">From @{probe.authorHandle}&rsquo;s TikTok</p>
@@ -894,12 +898,43 @@ function CaptionPreviewScreen({ probe, onDone }: { probe: ProbeSuccess; onDone: 
           Open the original TikTok
           <ArrowUpRight className="size-4" aria-hidden />
         </a>
+
+        {/* The pending affordance this task adds: where the candidate rows (`CandidateRow`,
+            above) will render once extraction is wired up. `role="status"` carries the honest
+            state to a screen reader once, rather than a silent shimmering list. */}
+        <div className="flex flex-col gap-2" role="status">
+          <p className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">Places</p>
+          <SkeletonCandidateRow />
+          <SkeletonCandidateRow />
+          <p className="pt-1 text-sm font-medium text-muted-foreground">
+            Finding places in a post isn&rsquo;t built yet — this is where they&rsquo;ll show up.
+          </p>
+        </div>
       </div>
 
       <div className="flex flex-col gap-2 pt-4">
         <Button type="button" onClick={onDone} className="h-12 w-full rounded-lg text-base font-bold">
           Done
         </Button>
+      </div>
+    </div>
+  );
+}
+
+/** A `CandidateRow`-shaped skeleton — same size, radius and rhythm as the real review row, so the
+ *  eye reads it as "a place card is about to be here" rather than a generic loading bar. The
+ *  pulse is the only motion; `motion-reduce` collapses it to a static tinted block, which still
+ *  reads as pending without implying progress to a user who has asked for less motion. */
+function SkeletonCandidateRow() {
+  return (
+    <div
+      aria-hidden
+      className="flex items-center gap-3 rounded-xl border border-border/70 bg-card px-4 py-3.5"
+    >
+      <span className="size-8 shrink-0 rounded-full bg-muted motion-safe:animate-pulse" />
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <span className="h-3.5 w-2/3 rounded-full bg-muted motion-safe:animate-pulse" />
+        <span className="h-2.5 w-1/3 rounded-full bg-muted motion-safe:animate-pulse" />
       </div>
     </div>
   );
