@@ -28,15 +28,39 @@ describe('filterPlausible', () => {
     expect(result.kept).toHaveLength(1);
   });
 
-  it('drops a hashtag masquerading as a place name', () => {
-    const result = filterPlausible([candidate({ rawName: '#tokyofood' })], 'anything');
-    expect(result.kept).toHaveLength(0);
-    expect(result.dropped.hashtag_or_handle).toBe(1);
-  });
-
   it('drops a handle', () => {
     const result = filterPlausible([candidate({ rawName: '@someuser' })], 'anything');
     expect(result.dropped.hashtag_or_handle).toBe(1);
+  });
+
+  it('drops a URL', () => {
+    const result = filterPlausible([candidate({ rawName: 'https://example.com/x' })], 'anything');
+    expect(result.dropped.hashtag_or_handle).toBe(1);
+  });
+
+  it('drops a hashtag-shaped bare city/country against a spaced cityHint (#telaviv vs "Tel Aviv")', () => {
+    const result = filterPlausible([candidate({ rawName: '#telaviv', cityHint: 'Tel Aviv' })], 'anything');
+    expect(result.kept).toHaveLength(0);
+    expect(result.dropped.city_or_country_only).toBe(1);
+  });
+
+  it('drops a hashtag-shaped generic word', () => {
+    const result = filterPlausible([candidate({ rawName: '#coffee' })], 'anything');
+    expect(result.dropped.generic_words_only).toBe(1);
+  });
+
+  it('keeps a hashtag-shaped plausible venue name, capping confidence even when the model reported higher', () => {
+    const result = filterPlausible([candidate({ rawName: '#aroma', modelConfidence: 0.9 })], 'anything');
+    expect(result.kept).toHaveLength(1);
+    expect(result.kept[0]?.modelConfidence).toBe(0.5);
+  });
+
+  it('leaves a non-hashtag candidate confidence unchanged', () => {
+    const result = filterPlausible(
+      [candidate({ rawName: 'Cafe Fiori', evidence: 'Cafe Fiori', modelConfidence: 0.9 })],
+      'Cafe Fiori was great',
+    );
+    expect(result.kept[0]?.modelConfidence).toBe(0.9);
   });
 
   it('drops a bare city name equal to its own cityHint', () => {

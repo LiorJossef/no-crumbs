@@ -27,6 +27,18 @@ export type PlausibilityDropReason =
   | 'evidence_not_in_caption'
   | 'duplicate';
 
+/**
+ * A `#`-prefixed candidate that survives the other rules is kept, not dropped — a real venue can
+ * appear only as a hashtag in a caption (`#aroma` for the Aroma cafe chain) and there is no way to
+ * tell that apart from a fake one (`#tsukijifishmarket`) from caption text alone (measured against
+ * `gemma4:e4b`). Instead its confidence is capped here so nothing downstream — today just the
+ * stored row, once the resolver's confidence bands exist — can treat an uncorroborated hashtag as
+ * more trustworthy than this. Deliberately not the full corroboration/near-duplicate design (a
+ * `#cafefiori` that also appears as prose "Cafe Fiori" gets no credit for that yet); this is the
+ * narrow interim rule only.
+ */
+const HASHTAG_ONLY_CONFIDENCE_CEILING = 0.5;
+
 export interface PlausibilityResult {
   readonly kept: readonly PlaceCandidate[];
   /** Count only, never the text (`07` §7.1) — a rising drop rate is the earliest signal that the
@@ -44,20 +56,31 @@ function normaliseForComparison(s: string): string {
     .trim();
 }
 
-function isHashtagOrHandleOrUrl(rawName: string): boolean {
+/** `@handle`s and URLs are never venues regardless of context — always rejected. `#hashtag`s are
+ *  handled separately below: they now survive to the other checks instead of being blanket-dropped
+ *  here (see `HASHTAG_ONLY_CONFIDENCE_CEILING`). */
+function isHandleOrUrl(rawName: string): boolean {
   const trimmed = rawName.trim();
-  if (trimmed.startsWith('#') || trimmed.startsWith('@')) return true;
+  if (trimmed.startsWith('@')) return true;
   if (/^https?:\/\//i.test(trimmed)) return true;
-  // A single token with no spaces, made only of hashtag-style words concatenated with '#', is
-  // still caught by the leading-character check above; nothing further to special-case here.
   return false;
+}
+
+function isHashtagOnly(rawName: string): boolean {
+  return rawName.trim().startsWith('#');
 }
 
 function isCityOrCountryOnly(rawName: string, cityHint: string | null, countryHint: string | null): boolean {
   const norm = normaliseForComparison(rawName);
   if (norm.length === 0) return true;
   const hints = [cityHint, countryHint].filter((h): h is string => h !== null).map(normaliseForComparison);
-  return hints.includes(norm);
+  // Compare with internal spaces removed too: a hashtag never contains a space (`#telaviv`), so
+  // without this a hint of "Tel Aviv" (normalises to "tel aviv") would never match the hashtag's
+  // "telaviv". Small, targeted fix — not a general fuzzy-match, just closing this exact gap now
+  // that hashtags reach this check instead of being dropped earlier.
+  if (hints.includes(norm)) return true;
+  const tight = norm.replace(/\s+/g, '');
+  return hints.some((h) => h.replace(/\s+/g, '') === tight);
 }
 
 function isGenericWordsOnly(rawName: string): boolean {
@@ -83,7 +106,7 @@ export function filterPlausible(candidates: readonly PlaceCandidate[], caption: 
   const seen = new Set<string>();
 
   for (const candidate of candidates) {
-    if (isHashtagOrHandleOrUrl(candidate.rawName)) {
+    if (isHandleOrUrl(candidate.rawName)) {
       dropped.hashtag_or_handle += 1;
       continue;
     }
@@ -105,6 +128,10 @@ export function filterPlausible(candidates: readonly PlaceCandidate[], caption: 
       continue;
     }
     seen.add(key);
+    if (isHashtagOnly(candidate.rawName) && candidate.modelConfidence !== null && candidate.modelConfidence > HASHTAG_ONLY_CONFIDENCE_CEILING) {
+      kept.push({ ...candidate, modelConfidence: HASHTAG_ONLY_CONFIDENCE_CEILING });
+      continue;
+    }
     kept.push(candidate);
   }
 

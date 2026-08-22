@@ -200,7 +200,8 @@ dropped when any of these hold:
 
 | Rule | Why |
 |---|---|
-| `rawName` is only a hashtag, handle, or URL fragment | `04` §5 category H — hashtag salad must not produce phantom places |
+| `rawName` is a handle or URL fragment | `04` §5 category H — a `@handle` or `https?://` link is never a venue regardless of context |
+| `rawName` is a `#hashtag` that also fails one of the other rules below (city/country-only, generic-words-only) | Same phantom-place risk as above, but a hashtag-only name that passes the other checks (`#aroma`) is kept, not dropped — there is no way to tell it from a fake (`#tsukijifishmarket`) from caption text alone. It survives with `modelConfidence` capped at `HASHTAG_ONLY_CONFIDENCE_CEILING = 0.5`, never higher, regardless of what the model reported |
 | `rawName`, normalised, equals a known city / neighbourhood / country in the loaded region index | "Tokyo" is a scope, not a venue |
 | `rawName` consists solely of generic words (`cafe`, `coffee`, `bar`, `restaurant`, `food`, `spot`, `place`, `gem`) after the `06` §6.1 stop-word list is applied | Catches "this hidden gem", which `06` §6.3 shows scores dangerously high — 0.813–0.894 — against a naive 0.80 cut |
 | `evidence` is non-null and does not occur in the caption | A fabricated citation is a fabricated candidate |
