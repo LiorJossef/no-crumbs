@@ -27,6 +27,16 @@ discard, reset or accidentally carry along pre-existing user changes.
 `audit/ms1-ms4-fixes` are milestone-era names from before this ruling; they are not renamed. The
 prefix scheme applies to branches created from now on.
 
+**Syncing a long-lived branch with `main`, added 2026-08-22 after an incident:** a branch's history
+was once found to contain a commit titled "Merge branch 'main' into ..." that was actually a
+single-parent commit — the result of a squash (`git merge --squash`, or an equivalent flattening)
+committed under a merge-sounding message, which broke git's ability to relate that branch's files
+to `main`'s real history and caused false "add/add" conflicts on a later real merge. To bring a
+feature branch up to date with `main`, always run a real merge (`git merge origin/main`) or rebase
+deliberately (never squash), and verify the result actually has two parents before pushing:
+`git log --format='%P' -1` on the resulting commit should print two hashes. If it prints one, the
+sync did not do what its message claims — fix it before continuing, don't push it.
+
 **Docs/plan updates ride with the slice they belong to, not a separate branch.** If a vertical
 slice or feature needs an `execution-plan.md`/`mvp-plan.md` update (a deviation note, a task closed,
 a re-scope) to make sense on its own, that update is a commit on the *same* feature branch, in the
