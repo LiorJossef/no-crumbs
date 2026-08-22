@@ -6,6 +6,11 @@
 > decision implies is designed in [`10-poi-index.md`](10-poi-index.md).
 > **The basemap-tiles half of §2(A) was reopened 2026-08-21**: the product owner ruled out
 > Protomaps outright; CARTO was evaluated as the replacement and adopted. See §2.1.
+> **The place-resolution half of §3 was re-asked 2026-08-22** — owner wanted Google-sourced
+> coordinates as "a real option." A first ruling rejected this on the premise that the renderer
+> stays MapLibre+CARTO and coordinates must persist forever; the owner then clarified the map
+> itself may move to Google Maps and periodic refresh is acceptable, which changes the analysis.
+> **Re-evaluation in progress under the corrected premise — see §3.3.**
 > Evidence: [`evidence/places/`](evidence/places/), [`evidence/licensing/`](evidence/licensing/).
 > Every third-party claim below is labelled VERIFIED / ASSUMED / UNAVAILABLE per Charter §9.
 
@@ -133,6 +138,20 @@ Small, always-visible, never inside a collapsed menu:
 3. `/attributions` also carries the CDLA-Permissive-2.0 text (the licence only requires that the text be made available) and the ODbL text.
 4. A ship-blocking requirement: a `NOTICE` file in the repo, and the Foursquare notice reproduced in our developer docs, as the Apache-2.0 NOTICE terms require for API-shaped redistribution.
 5. Our HTTP client sends `User-Agent: p-002/<version> (<contact email>)` on every Nominatim call.
+
+### 3.3 Re-asked 2026-08-22 — Google as a coordinate source (owner re-ask, under revision)
+
+The owner asked this session whether coordinates could be sourced from Google Maps going forward.
+A first pass evaluated this against the *current* architecture (renderer fixed at MapLibre+CARTO,
+coordinates persisted forever) and found it legally blocked: Google's Service Specific Terms
+§3.3 (Geocoding) / §5.3 (Places) forbid using Google Maps Content "in conjunction with a
+non-Google map," independent of the 30-day cache limit in §3.4/§5.4 above.
+
+**The owner then corrected the premise**, same session: the map renderer itself may move to
+Google Maps (§2.1's CARTO choice is not fixed either), and permanent storage is not a hard
+requirement — a periodic refresh against Google's terms is acceptable. Both objections above were
+keyed to the premise the owner just lifted, so the ruling is being redone rather than reused. This
+section is a placeholder pending that re-evaluation; do not cite the rejection above as current.
 
 ---
 
