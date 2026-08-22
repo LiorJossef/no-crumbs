@@ -170,6 +170,38 @@ refreshed on Google's schedule, is exactly what their terms permit) — **but th
   only clears once both move together — a Google resolver adapter without the Google renderer, or
   vice versa, re-creates the forbidden pairing.
 
+### 3.4 Re-opened 2026-08-22, same day — L0-F2/L0-F3 paused; AI-based resolution for now
+
+Hours after §3.3 above was written, the owner reopened it further, this time concretely: **do not
+build the Overture/pg_trgm local index resolver (L0-F2) or the Nominatim adapter (L0-F3) right now.**
+Reasoning given: the product is planning to move to Google Maps as the map provider anyway, so
+building and then discarding an Overture-based resolver is wasted effort. Instead, for the current
+build increment, the LLM `PlaceExtractor` itself is asked to identify the most likely real-world
+venue from the TikTok caption's full context (name + city/category hints + its own world knowledge),
+and the app links out to a Google Maps search for that identification — a human (the tester, later
+the end user) clicks through and judges the result, nothing is auto-accepted or stored.
+
+**Why this does not trigger §3.3's non-Google-map prohibition, and why it still isn't nothing:**
+§3.3/§5.3 forbid using Google Maps *Content* — Place data pulled via Google's API — "in conjunction
+with a non-Google map." A hyperlink to `google.com/maps/search` that a human clicks is not
+Google Maps Content reaching our own MapLibre+CARTO map at all; no Google Place data is fetched,
+cached or rendered by us. That pairing is what was blocked, and it doesn't exist here. What *is*
+real, and unresolved, is the accuracy risk already flagged in `docs/evidence` sessions this same
+day: an LLM's identification of "the real venue" is unverified recall, not a database match — it
+can be wrong (wrong branch, wrong city, a plausible venue that doesn't exist) with no way to check
+it the way a real gazetteer/POI match can be checked. The mitigation for now is that a human is
+always the one clicking and judging the link, matching the low-confidence, no-auto-accept posture
+`domain/extraction/plausibility.ts` already applies to hashtag-only candidates.
+
+**Consequence for the ladder:** `L0-F2` (local resolve seam) and `L0-F3` (global resolver, D2b) are
+**paused, not cut** — `docs/execution-plan.md`'s L0-F2/L0-F3 rows are marked accordingly. They
+resume, in whatever form, at the eventual Google renderer+resolver switch §3.3 already named as its
+own future task — or sooner, if AI-based resolution proves too inaccurate to be useful and a real
+resolver turns out to still be needed even after the Google Maps move. This is a live, admittedly
+unresolved tension: whether "the LLM identifies the place, a human clicks a Maps link" is sufficient
+all the way through the real product (not just this manual-test screen) is not decided here — only
+that it's the approach for the current build increment.
+
 ---
 
 ## 4. The benchmark: spec and real results
