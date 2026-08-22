@@ -7,10 +7,9 @@
 > **The basemap-tiles half of §2(A) was reopened 2026-08-21**: the product owner ruled out
 > Protomaps outright; CARTO was evaluated as the replacement and adopted. See §2.1.
 > **The place-resolution half of §3 was re-asked 2026-08-22** — owner wanted Google-sourced
-> coordinates as "a real option." A first ruling rejected this on the premise that the renderer
-> stays MapLibre+CARTO and coordinates must persist forever; the owner then clarified the map
-> itself may move to Google Maps and periodic refresh is acceptable, which changes the analysis.
-> **Re-evaluation in progress under the corrected premise — see §3.3.**
+> coordinates as "a real option." Resolved as an **incremental move**: MapLibre+CARTO (§2) and the
+> Overture/Nominatim resolver (§3) are unchanged for now; the eventual switch to Google for both
+> renderer and coordinates is a separate, explicitly-requested future task. See §3.3.
 > Evidence: [`evidence/places/`](evidence/places/), [`evidence/licensing/`](evidence/licensing/).
 > Every third-party claim below is labelled VERIFIED / ASSUMED / UNAVAILABLE per Charter §9.
 
@@ -139,7 +138,7 @@ Small, always-visible, never inside a collapsed menu:
 4. A ship-blocking requirement: a `NOTICE` file in the repo, and the Foursquare notice reproduced in our developer docs, as the Apache-2.0 NOTICE terms require for API-shaped redistribution.
 5. Our HTTP client sends `User-Agent: p-002/<version> (<contact email>)` on every Nominatim call.
 
-### 3.3 Re-asked 2026-08-22 — Google as a coordinate source (owner re-ask, under revision)
+### 3.3 Re-asked 2026-08-22 — Google as a coordinate source (owner re-ask, resolved: incremental)
 
 The owner asked this session whether coordinates could be sourced from Google Maps going forward.
 A first pass evaluated this against the *current* architecture (renderer fixed at MapLibre+CARTO,
@@ -147,11 +146,29 @@ coordinates persisted forever) and found it legally blocked: Google's Service Sp
 §3.3 (Geocoding) / §5.3 (Places) forbid using Google Maps Content "in conjunction with a
 non-Google map," independent of the 30-day cache limit in §3.4/§5.4 above.
 
-**The owner then corrected the premise**, same session: the map renderer itself may move to
-Google Maps (§2.1's CARTO choice is not fixed either), and permanent storage is not a hard
-requirement — a periodic refresh against Google's terms is acceptable. Both objections above were
-keyed to the premise the owner just lifted, so the ruling is being redone rather than reused. This
-section is a placeholder pending that re-evaluation; do not cite the rejection above as current.
+The owner then corrected the premise: the map renderer itself may move to Google Maps eventually,
+and permanent storage is not a hard requirement — periodic refresh against Google's terms is
+acceptable. Under that premise the ToS blocker likely dissolves (Google content on a Google map,
+refreshed on Google's schedule, is exactly what their terms permit) — **but the owner's decision,
+2026-08-22, is to move incrementally, not switch now**:
+
+- **§2's renderer stays MapLibre+CARTO for now.** No renderer swap in the current or next scheduled
+  task; that is its own future task, started only when the owner explicitly asks for it.
+- **§3's resolver work (L0-F2/L0-F3, Overture + Nominatim) proceeds unchanged.** No Google adapter
+  is built or wired live yet — doing so now would re-trigger the exact §3.3/§5.3 non-Google-map
+  prohibition above, since the renderer hasn't moved.
+- **Forward-looking constraint on L0-F3's port design:** when `maps-geospatial` builds the
+  `PlaceResolver` port (L0-F3-T2), it should not assume exactly two providers forever — the
+  `provider` union and its DB check constraint (`11-resolver-vocabulary.md` §1, ruling 1) should be
+  written so widening it to add a `'google'` provider later is a small migration, not a redesign
+  (this is already `maps-geospatial`'s finding from this session's feasibility check: the port
+  shape itself needs no rework, only the union and a migration). No Google-specific code is owed
+  now — only not architecting the two current providers as if they were the only ones that will
+  ever exist.
+- **The eventual switch is a separate, explicitly-requested task.** When it happens, it is a D2
+  reopen covering *both* §2 (renderer) and §3 (resolver) together, since the ToS analysis above
+  only clears once both move together — a Google resolver adapter without the Google renderer, or
+  vice versa, re-creates the forbidden pairing.
 
 ---
 
