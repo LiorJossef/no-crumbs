@@ -19,7 +19,7 @@
 
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   ArrowUpRight,
   Check,
@@ -38,6 +38,24 @@ import { cn } from '@/lib/utils';
 import { canonicaliseTikTokUrl } from '@/domain/source/canonicalise-tiktok-url';
 import type { ImportEvent, PipelineStage } from '@/domain/import/events';
 import type { Candidate } from '@/domain/types';
+
+/* ------------------------------------------------------------------------------------------- *
+ * `/api/imports/probe` — the throwaway route wired in ahead of the real streaming route
+ * (L0-F6-T1). Proves the real oEmbed fetch + caption extraction reach this screen: no LLM, no
+ * candidates, no `runImport`. See `src/app/api/imports/probe/route.ts`'s header.
+ * ------------------------------------------------------------------------------------------- */
+
+interface ProbeSuccess {
+  readonly authorHandle: string | null;
+  readonly authorName: string | null;
+  readonly canonicalUrl: string;
+  readonly thumbnailUrl: string | null;
+  readonly caption: string | null;
+}
+
+interface ProbeErrorBody {
+  readonly error: { readonly code: string; readonly retryable: boolean };
+}
 
 /* ------------------------------------------------------------------------------------------- *
  * Local state — modelled after the real event vocabulary so the eventual stream consumer is a
@@ -71,7 +89,14 @@ type Screen =
   | { readonly kind: 'redirect'; readonly reason: 'UNSUPPORTED_HOST' | 'PHOTO_POST' | 'UNSUPPORTED_URL' }
   | { readonly kind: 'rail'; readonly rail: RailState }
   | { readonly kind: 'no_places'; readonly authorHandle: string | null }
-  | { readonly kind: 'results'; readonly authorHandle: string | null; readonly candidates: readonly Candidate[] };
+  | { readonly kind: 'results'; readonly authorHandle: string | null; readonly candidates: readonly Candidate[] }
+  /** The real-fetch slice's landing screen (this task): no LLM has run, so this is deliberately
+   *  not `no_places` or `results` — both of those imply extraction happened. Shows the raw
+   *  caption plainly, once the real `SourceAdapter` + `ContentExtractor` have run. */
+  | { readonly kind: 'caption_preview'; readonly probe: ProbeSuccess }
+  /** A thrown `DomainError` from the probe route — minimal-fidelity, honest, non-broken. Not the
+   *  real error taxonomy's full copy deck (07 §9); that lands with L0-F6. */
+  | { readonly kind: 'probe_error'; readonly code: string; readonly retryable: boolean };
 
 /* ------------------------------------------------------------------------------------------- *
  * Demo fixtures — stand in for a real ImportOutcome until the streaming route exists. Shaped
@@ -224,8 +249,18 @@ function applyEvent(rail: RailState, event: ImportEvent): RailState {
  * Component
  * ------------------------------------------------------------------------------------------- */
 
-export function ImportPageClient() {
-  const router = useRouter();
+export interface ImportPageClientProps {
+  /** Set when this component is rendered as an overlay on top of the persistent map
+   *  (`map-page-client.tsx`'s "Add a TikTok" flow) rather than mounted at the standalone `/import`
+   *  route. Swaps the full-viewport (`min-h-dvh`) shell for one that fills its (absolutely
+   *  positioned) overlay container instead, and swaps the close affordance from a real navigation
+   *  (`<Link href="/map">`, which would unmount the map) to a plain state-closer. Omitting this
+   *  prop preserves the standalone route's exact behaviour — direct navigation and a mid-import
+   *  refresh still land on this same component via `/import`'s page. */
+  readonly onClose?: () => void;
+}
+
+export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
   const [screen, setScreen] = useState<Screen>({ kind: 'paste' });
   const [url, setUrl] = useState('');
   const [touched, setTouched] = useState(false);
@@ -244,7 +279,7 @@ export function ImportPageClient() {
     setScriptIndex(0);
   }
 
-  function submit() {
+  async function submit() {
     setTouched(true);
     if (!validation.ok) {
       // UNSUPPORTED_HOST/PHOTO_POST/UNSUPPORTED_URL are all "a recognised link, not a failure" —
@@ -257,11 +292,41 @@ export function ImportPageClient() {
       }
       return;
     }
-    // A real TikTok link: hand off to the rail, driven by the (demo, scripted) event stream.
-    const events = scriptFor('results');
-    setScript(events);
-    setScriptIndex(0);
-    setScreen({ kind: 'rail', rail: RAIL_IDLE });
+
+    // A real TikTok link: drive the rail's `source` stage off the real `/api/imports/probe`
+    // fetch. `extract`/`resolve` stay pending — no LLM has run yet (that's L0-F4-T2/L0-F6, not
+    // this task) — and `caption_preview` is the honest landing screen once the source stage
+    // is done, rather than faking `extract`/`resolve` completion.
+    setScreen({ kind: 'rail', rail: { ...RAIL_IDLE, source: 'active' } });
+
+    try {
+      const res = await fetch('/api/imports/probe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      const body = (await res.json()) as ProbeSuccess | ProbeErrorBody;
+
+      if (!res.ok || 'error' in body) {
+        const code = 'error' in body ? body.error.code : 'INTERNAL';
+        const retryable = 'error' in body ? body.error.retryable : true;
+        setScreen({ kind: 'probe_error', code, retryable });
+        return;
+      }
+
+      setScreen({
+        kind: 'rail',
+        rail: {
+          ...RAIL_IDLE,
+          source: 'done',
+          sourceFact: body.authorHandle ? `Read @${body.authorHandle}'s TikTok` : 'Read the TikTok',
+          extract: 'active',
+        },
+      });
+      setScreen({ kind: 'caption_preview', probe: body });
+    } catch {
+      setScreen({ kind: 'probe_error', code: 'INTERNAL', retryable: true });
+    }
   }
 
   function stepDemo() {
@@ -296,34 +361,77 @@ export function ImportPageClient() {
 
   return (
     <main
-      className="relative flex min-h-dvh w-full flex-col overflow-hidden"
-      style={{
-        background:
-          'radial-gradient(130% 110% at 115% -15%, rgba(192,239,229,0.42) 0%, rgba(192,239,229,0) 58%),' +
-          'radial-gradient(120% 130% at -15% 118%, rgba(218,245,239,0.28) 0%, rgba(218,245,239,0) 62%),' +
-          'radial-gradient(90% 90% at 45% 40%, rgba(241,251,249,0.5) 0%, rgba(241,251,249,0) 70%),' +
-          'var(--background)',
-      }}
+      className={cn(
+        'relative flex w-full flex-col overflow-hidden',
+        // z-50: above `PlaceSheet`'s vaul-portaled drawer (`z-40`, appended to `document.body`
+        // after this tree, so it would otherwise paint on top of an equal z-index regardless of
+        // JSX order) and above `PlaceDesktopPanel` (`z-20`) — the overlay must win the stack on
+        // both surfaces, not just the one that happens to share DOM order with it.
+        onClose ? 'absolute inset-0 z-50 h-full' : 'min-h-dvh',
+        // Desktop (`lg+`) in overlay mode: this is no longer a right-docked full-height panel —
+        // it is a dimming scrim over the *whole* viewport (map + the always-visible places list
+        // both read as backgrounded context) with a single centred, capped-height card floating
+        // on top. `<main>` itself becomes the flex-centring context and the scrim; the inner div
+        // below is the card. Mobile is untouched — these are all `lg:` additions.
+        onClose && 'lg:flex lg:items-center lg:justify-center lg:overflow-y-auto lg:bg-foreground/35 lg:p-10 lg:backdrop-blur-[2px]',
+      )}
     >
+      {/* The gradient backdrop, split out from `<main>` itself: at `lg+` in overlay mode
+          (`onClose` set), this must NOT paint over the whole viewport, or it hides the live map
+          this screen is supposed to float over. Hidden at `lg:` only when `onClose` (overlay) —
+          `<main>` supplies its own dim scrim above instead. The mobile takeover and the standalone
+          `/import` route (no map behind it, `onClose` unset) keep the full-bleed gradient. */}
+      <div
+        aria-hidden
+        className={cn('absolute inset-0 -z-10', onClose && 'lg:hidden')}
+        style={{
+          background:
+            'radial-gradient(130% 110% at 115% -15%, rgba(192,239,229,0.42) 0%, rgba(192,239,229,0) 58%),' +
+            'radial-gradient(120% 130% at -15% 118%, rgba(218,245,239,0.28) 0%, rgba(218,245,239,0) 62%),' +
+            'radial-gradient(90% 90% at 45% 40%, rgba(241,251,249,0.5) 0%, rgba(241,251,249,0) 70%),' +
+            'var(--background)',
+        }}
+      />
       <div
         className={cn(
           // Mobile: full-bleed thumb-zone column, unchanged.
           'relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col px-5 pt-[calc(env(safe-area-inset-top)+2rem)] pb-[calc(env(safe-area-inset-bottom)+1.5rem)]',
-          // Desktop (`lg+`): the same flush right-panel materials as `place-desktop-panel.tsx`'s
-          // detail panel — fixed width, full-height, hairline border, card surface + elevation —
-          // rather than the mobile column stretched across the viewport.
-          'lg:absolute lg:inset-y-0 lg:left-auto lg:right-0 lg:mx-0 lg:w-[clamp(400px,32vw,480px)] lg:max-w-none lg:flex-none lg:justify-center lg:border-l lg:border-border/70 lg:bg-card lg:px-8 lg:py-10 lg:shadow-[var(--shadow-elevated)]',
+          // Desktop (`lg+`), overlay mode only (`onClose` set — the map's "Add a TikTok" flow): a
+          // floating card centred over the dimmed map + list, not a docked panel — fixed width,
+          // capped height with its own scroll (so a future 3-stage rail grows the card rather than
+          // forcing full-viewport height), rounded corners on all sides, hairline border + elevation.
+          onClose &&
+            'lg:relative lg:mx-0 lg:my-0 lg:w-[clamp(420px,34vw,480px)] lg:max-w-none lg:flex-none lg:max-h-[min(44rem,calc(100vh-5rem))] lg:justify-start lg:overflow-y-auto lg:rounded-2xl lg:border lg:border-border/70 lg:bg-card lg:px-8 lg:py-10 lg:shadow-[var(--shadow-elevated)]',
+          // Desktop (`lg+`), standalone `/import` route (`onClose` unset — no map behind it, no
+          // scrim on `<main>` to centre against): the original flush right-docked, full-height
+          // panel, unchanged from before the centred-card overlay treatment existed.
+          !onClose &&
+            'lg:absolute lg:inset-y-0 lg:left-auto lg:right-0 lg:mx-0 lg:w-[clamp(400px,32vw,480px)] lg:max-w-none lg:flex-none lg:justify-center lg:border-l lg:border-border/70 lg:bg-card lg:px-8 lg:py-10 lg:shadow-[var(--shadow-elevated)]',
         )}
       >
-        <button
-          type="button"
-          onClick={() => router.push('/map')}
-          aria-label="Close and return to map"
-          className="absolute left-5 top-[calc(env(safe-area-inset-top)+2rem)] z-20 flex size-9 items-center justify-center rounded-full bg-[var(--mint-100)] text-[var(--mint-700)] transition-colors hover:bg-[var(--mint-100)]/80 lg:left-6 lg:top-6"
-        >
-          <X className="size-4" aria-hidden />
-        </button>
-        <div className="h-9 shrink-0" aria-hidden />
+        {onClose ? (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close and return to map"
+            className="absolute left-5 top-[calc(env(safe-area-inset-top)+2rem)] z-20 flex size-9 items-center justify-center rounded-full bg-[var(--mint-100)] text-[var(--mint-700)] transition-colors hover:bg-[var(--mint-100)]/80 lg:left-6 lg:top-6"
+          >
+            <X className="size-4" aria-hidden />
+          </button>
+        ) : (
+          <Link
+            href="/map"
+            aria-label="Close and return to map"
+            className="absolute left-5 top-[calc(env(safe-area-inset-top)+2rem)] z-20 flex size-9 items-center justify-center rounded-full bg-[var(--mint-100)] text-[var(--mint-700)] transition-colors hover:bg-[var(--mint-100)]/80 lg:left-6 lg:top-6"
+          >
+            <X className="size-4" aria-hidden />
+          </Link>
+        )}
+        {/* Clearance below the close button, not just a same-height spacer: at `h-9` (36px) this
+            div was exactly the button's own height (`size-9`), so the heading that follows sat
+            flush against the button's bottom edge with zero gap. `h-14` (56px) leaves ~20px of
+            breathing room between the button and the kicker/heading below it, on both widths. */}
+        <div className="h-14 shrink-0" aria-hidden />
 
         {screen.kind === 'paste' && (
           <PasteScreen
@@ -353,6 +461,12 @@ export function ImportPageClient() {
 
         {screen.kind === 'results' && (
           <ResultsScreen authorHandle={screen.authorHandle} candidates={screen.candidates} onDone={reset} />
+        )}
+
+        {screen.kind === 'caption_preview' && <CaptionPreviewScreen probe={screen.probe} onDone={reset} />}
+
+        {screen.kind === 'probe_error' && (
+          <ProbeErrorScreen code={screen.code} retryable={screen.retryable} onRetry={reset} />
         )}
       </div>
 
@@ -784,6 +898,143 @@ function CandidateRow({ candidate }: { candidate: Candidate }) {
         {band.label}
       </span>
     </li>
+  );
+}
+
+/* ------------------------------------------------------------------------------------------- *
+ * Caption preview — this task's real landing screen. No LLM has run yet, so this is honest about
+ * two things at once: it shows exactly what the real `SourceAdapter` + `ContentExtractor`
+ * produced (the caption, plainly), and it reads as the *start* of the review-and-confirm flow
+ * (S7 in `docs/brand-and-product-foundation.md` §6) rather than a dead-end viewer — a pending
+ * affordance sits where the candidate rows will land once extraction exists, and it settles into
+ * a plain "not wired up yet" note instead of faking a result.
+ * ------------------------------------------------------------------------------------------- */
+
+function CaptionPreviewScreen({ probe, onDone }: { probe: ProbeSuccess; onDone: () => void }) {
+  return (
+    <div className="flex flex-1 flex-col">
+      <div className="flex flex-col gap-1 pb-6">
+        <ScreenKicker icon={<SearchCheck className="size-3.5" aria-hidden />} label="Review & confirm" />
+        <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">
+          Looking for places
+        </h1>
+        {probe.authorHandle && (
+          <p className="text-sm font-medium text-muted-foreground">From @{probe.authorHandle}&rsquo;s TikTok</p>
+        )}
+      </div>
+
+      <div className="flex flex-1 flex-col gap-4 overflow-y-auto pb-4">
+        <div className="flex items-start gap-3 rounded-xl border border-border/70 bg-card px-4 py-3.5">
+          {probe.thumbnailUrl && (
+            // A signed, ~6-month-expiry remote thumbnail; not worth a next/image
+            // remotePatterns entry for a throwaway route.
+            <img
+              src={probe.thumbnailUrl}
+              alt=""
+              className="size-14 shrink-0 rounded-lg object-cover"
+            />
+          )}
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <p className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">Caption</p>
+            <p className="text-sm font-medium text-foreground">
+              {probe.caption ?? <span className="text-muted-foreground">No caption text.</span>}
+            </p>
+          </div>
+        </div>
+
+        <a
+          href={probe.canonicalUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="flex h-11 items-center justify-center gap-1.5 rounded-lg text-sm font-bold text-[var(--mint-700)]"
+        >
+          Open the original TikTok
+          <ArrowUpRight className="size-4" aria-hidden />
+        </a>
+
+        {/* The pending affordance this task adds: where the candidate rows (`CandidateRow`,
+            above) will render once extraction is wired up. `role="status"` carries the honest
+            state to a screen reader once, rather than a silent shimmering list. */}
+        <div className="flex flex-col gap-2" role="status">
+          <p className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">Places</p>
+          <SkeletonCandidateRow />
+          <SkeletonCandidateRow />
+          <p className="pt-1 text-sm font-medium text-muted-foreground">
+            Finding places in a post isn&rsquo;t built yet — this is where they&rsquo;ll show up.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2 pt-4">
+        <Button type="button" onClick={onDone} className="h-12 w-full rounded-lg text-base font-bold">
+          Done
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** A `CandidateRow`-shaped skeleton — same size, radius and rhythm as the real review row, so the
+ *  eye reads it as "a place card is about to be here" rather than a generic loading bar. The
+ *  pulse is the only motion; `motion-reduce` collapses it to a static tinted block, which still
+ *  reads as pending without implying progress to a user who has asked for less motion. */
+function SkeletonCandidateRow() {
+  return (
+    <div
+      aria-hidden
+      className="flex items-center gap-3 rounded-xl border border-border/70 bg-card px-4 py-3.5"
+    >
+      <span className="size-8 shrink-0 rounded-full bg-muted motion-safe:animate-pulse" />
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <span className="h-3.5 w-2/3 rounded-full bg-muted motion-safe:animate-pulse" />
+        <span className="h-2.5 w-1/3 rounded-full bg-muted motion-safe:animate-pulse" />
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------------------------------- *
+ * Probe error — a thrown `DomainError` from the throwaway `/api/imports/probe` route. Minimal
+ * fidelity: one honest sentence and a way back, not the full `07` §9 copy deck.
+ * ------------------------------------------------------------------------------------------- */
+
+function ProbeErrorScreen({
+  code,
+  retryable,
+  onRetry,
+}: {
+  code: string;
+  retryable: boolean;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col items-center justify-center gap-5 text-center">
+        <span className="flex size-14 items-center justify-center rounded-full bg-accent text-[var(--mint-700)]">
+          <X className="size-6" aria-hidden />
+        </span>
+        <div className="flex flex-col items-center gap-1.5">
+          <p className="text-[11px] font-bold tracking-[0.14em] text-[var(--mint-700)] uppercase">
+            Couldn&rsquo;t read that TikTok
+          </p>
+          <h1 className="font-heading text-xl font-extrabold tracking-tight text-foreground">
+            Something went wrong
+          </h1>
+          <p className="max-w-xs text-sm font-medium text-muted-foreground">
+            {retryable
+              ? "We couldn't read this post. Give it another try."
+              : "We couldn't read this post."}
+          </p>
+          <p className="text-[11px] font-medium text-muted-foreground/70">{code}</p>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2 pt-8">
+        <Button type="button" onClick={onRetry} className="h-12 w-full rounded-lg text-base font-bold">
+          Try another link
+        </Button>
+      </div>
+    </div>
   );
 }
 

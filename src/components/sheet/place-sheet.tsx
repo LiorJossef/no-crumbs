@@ -31,7 +31,6 @@
  */
 
 import { Drawer } from 'vaul';
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Plus, MapPin, ExternalLink, X, ChevronLeft, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -69,6 +68,9 @@ export interface PlaceSheetProps {
   readonly places: readonly MapPlace[];
   readonly selected: MapPlace | null;
   readonly onDeselect: () => void;
+  /** Opens the import overlay in `map-page-client.tsx` (client state) rather than navigating to
+   *  the standalone `/import` route, so the map underneath this sheet stays mounted. */
+  readonly onAddTikTok: () => void;
 }
 
 interface SheetState {
@@ -81,7 +83,7 @@ interface SheetState {
   readonly lastSelectedId: string | null;
 }
 
-export function PlaceSheet({ places, selected, onDeselect }: PlaceSheetProps) {
+export function PlaceSheet({ places, selected, onDeselect, onAddTikTok }: PlaceSheetProps) {
   const [sheet, setSheet] = useState<SheetState>({
     snap: STOP_TO_SNAP.peek,
     previousStop: 'peek',
@@ -148,6 +150,7 @@ export function PlaceSheet({ places, selected, onDeselect }: PlaceSheetProps) {
                 places={places}
                 stop={currentStop}
                 onExpand={() => setActiveSnap(STOP_TO_SNAP.full)}
+                onAddTikTok={onAddTikTok}
               />
             )}
           </Drawer.Content>
@@ -161,12 +164,13 @@ function PlaceList({
   places,
   stop,
   onExpand,
+  onAddTikTok,
 }: {
   places: readonly MapPlace[];
   stop: SheetStop;
   onExpand: () => void;
+  onAddTikTok: () => void;
 }) {
-  const router = useRouter();
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3.5 px-5 pt-3.5">
       {stop === 'peek' ? (
@@ -178,7 +182,7 @@ function PlaceList({
           <Button
             type="button"
             className="h-12 gap-1.5 rounded-lg px-4 text-sm font-bold"
-            onClick={() => router.push('/import')}
+            onClick={onAddTikTok}
           >
             <Plus className="size-4" aria-hidden />
             Add a TikTok
