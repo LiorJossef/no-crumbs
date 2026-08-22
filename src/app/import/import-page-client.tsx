@@ -19,7 +19,7 @@
 
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   ArrowUpRight,
   Check,
@@ -249,8 +249,18 @@ function applyEvent(rail: RailState, event: ImportEvent): RailState {
  * Component
  * ------------------------------------------------------------------------------------------- */
 
-export function ImportPageClient() {
-  const router = useRouter();
+export interface ImportPageClientProps {
+  /** Set when this component is rendered as an overlay on top of the persistent map
+   *  (`map-page-client.tsx`'s "Add a TikTok" flow) rather than mounted at the standalone `/import`
+   *  route. Swaps the full-viewport (`min-h-dvh`) shell for one that fills its (absolutely
+   *  positioned) overlay container instead, and swaps the close affordance from a real navigation
+   *  (`<Link href="/map">`, which would unmount the map) to a plain state-closer. Omitting this
+   *  prop preserves the standalone route's exact behaviour — direct navigation and a mid-import
+   *  refresh still land on this same component via `/import`'s page. */
+  readonly onClose?: () => void;
+}
+
+export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
   const [screen, setScreen] = useState<Screen>({ kind: 'paste' });
   const [url, setUrl] = useState('');
   const [touched, setTouched] = useState(false);
@@ -351,34 +361,77 @@ export function ImportPageClient() {
 
   return (
     <main
-      className="relative flex min-h-dvh w-full flex-col overflow-hidden"
-      style={{
-        background:
-          'radial-gradient(130% 110% at 115% -15%, rgba(192,239,229,0.42) 0%, rgba(192,239,229,0) 58%),' +
-          'radial-gradient(120% 130% at -15% 118%, rgba(218,245,239,0.28) 0%, rgba(218,245,239,0) 62%),' +
-          'radial-gradient(90% 90% at 45% 40%, rgba(241,251,249,0.5) 0%, rgba(241,251,249,0) 70%),' +
-          'var(--background)',
-      }}
+      className={cn(
+        'relative flex w-full flex-col overflow-hidden',
+        // z-50: above `PlaceSheet`'s vaul-portaled drawer (`z-40`, appended to `document.body`
+        // after this tree, so it would otherwise paint on top of an equal z-index regardless of
+        // JSX order) and above `PlaceDesktopPanel` (`z-20`) — the overlay must win the stack on
+        // both surfaces, not just the one that happens to share DOM order with it.
+        onClose ? 'absolute inset-0 z-50 h-full' : 'min-h-dvh',
+        // Desktop (`lg+`) in overlay mode: this is no longer a right-docked full-height panel —
+        // it is a dimming scrim over the *whole* viewport (map + the always-visible places list
+        // both read as backgrounded context) with a single centred, capped-height card floating
+        // on top. `<main>` itself becomes the flex-centring context and the scrim; the inner div
+        // below is the card. Mobile is untouched — these are all `lg:` additions.
+        onClose && 'lg:flex lg:items-center lg:justify-center lg:overflow-y-auto lg:bg-foreground/35 lg:p-10 lg:backdrop-blur-[2px]',
+      )}
     >
+      {/* The gradient backdrop, split out from `<main>` itself: at `lg+` in overlay mode
+          (`onClose` set), this must NOT paint over the whole viewport, or it hides the live map
+          this screen is supposed to float over. Hidden at `lg:` only when `onClose` (overlay) —
+          `<main>` supplies its own dim scrim above instead. The mobile takeover and the standalone
+          `/import` route (no map behind it, `onClose` unset) keep the full-bleed gradient. */}
+      <div
+        aria-hidden
+        className={cn('absolute inset-0 -z-10', onClose && 'lg:hidden')}
+        style={{
+          background:
+            'radial-gradient(130% 110% at 115% -15%, rgba(192,239,229,0.42) 0%, rgba(192,239,229,0) 58%),' +
+            'radial-gradient(120% 130% at -15% 118%, rgba(218,245,239,0.28) 0%, rgba(218,245,239,0) 62%),' +
+            'radial-gradient(90% 90% at 45% 40%, rgba(241,251,249,0.5) 0%, rgba(241,251,249,0) 70%),' +
+            'var(--background)',
+        }}
+      />
       <div
         className={cn(
           // Mobile: full-bleed thumb-zone column, unchanged.
           'relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col px-5 pt-[calc(env(safe-area-inset-top)+2rem)] pb-[calc(env(safe-area-inset-bottom)+1.5rem)]',
-          // Desktop (`lg+`): the same flush right-panel materials as `place-desktop-panel.tsx`'s
-          // detail panel — fixed width, full-height, hairline border, card surface + elevation —
-          // rather than the mobile column stretched across the viewport.
-          'lg:absolute lg:inset-y-0 lg:left-auto lg:right-0 lg:mx-0 lg:w-[clamp(400px,32vw,480px)] lg:max-w-none lg:flex-none lg:justify-center lg:border-l lg:border-border/70 lg:bg-card lg:px-8 lg:py-10 lg:shadow-[var(--shadow-elevated)]',
+          // Desktop (`lg+`), overlay mode only (`onClose` set — the map's "Add a TikTok" flow): a
+          // floating card centred over the dimmed map + list, not a docked panel — fixed width,
+          // capped height with its own scroll (so a future 3-stage rail grows the card rather than
+          // forcing full-viewport height), rounded corners on all sides, hairline border + elevation.
+          onClose &&
+            'lg:relative lg:mx-0 lg:my-0 lg:w-[clamp(420px,34vw,480px)] lg:max-w-none lg:flex-none lg:max-h-[min(44rem,calc(100vh-5rem))] lg:justify-start lg:overflow-y-auto lg:rounded-2xl lg:border lg:border-border/70 lg:bg-card lg:px-8 lg:py-10 lg:shadow-[var(--shadow-elevated)]',
+          // Desktop (`lg+`), standalone `/import` route (`onClose` unset — no map behind it, no
+          // scrim on `<main>` to centre against): the original flush right-docked, full-height
+          // panel, unchanged from before the centred-card overlay treatment existed.
+          !onClose &&
+            'lg:absolute lg:inset-y-0 lg:left-auto lg:right-0 lg:mx-0 lg:w-[clamp(400px,32vw,480px)] lg:max-w-none lg:flex-none lg:justify-center lg:border-l lg:border-border/70 lg:bg-card lg:px-8 lg:py-10 lg:shadow-[var(--shadow-elevated)]',
         )}
       >
-        <button
-          type="button"
-          onClick={() => router.push('/map')}
-          aria-label="Close and return to map"
-          className="absolute left-5 top-[calc(env(safe-area-inset-top)+2rem)] z-20 flex size-9 items-center justify-center rounded-full bg-[var(--mint-100)] text-[var(--mint-700)] transition-colors hover:bg-[var(--mint-100)]/80 lg:left-6 lg:top-6"
-        >
-          <X className="size-4" aria-hidden />
-        </button>
-        <div className="h-9 shrink-0" aria-hidden />
+        {onClose ? (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close and return to map"
+            className="absolute left-5 top-[calc(env(safe-area-inset-top)+2rem)] z-20 flex size-9 items-center justify-center rounded-full bg-[var(--mint-100)] text-[var(--mint-700)] transition-colors hover:bg-[var(--mint-100)]/80 lg:left-6 lg:top-6"
+          >
+            <X className="size-4" aria-hidden />
+          </button>
+        ) : (
+          <Link
+            href="/map"
+            aria-label="Close and return to map"
+            className="absolute left-5 top-[calc(env(safe-area-inset-top)+2rem)] z-20 flex size-9 items-center justify-center rounded-full bg-[var(--mint-100)] text-[var(--mint-700)] transition-colors hover:bg-[var(--mint-100)]/80 lg:left-6 lg:top-6"
+          >
+            <X className="size-4" aria-hidden />
+          </Link>
+        )}
+        {/* Clearance below the close button, not just a same-height spacer: at `h-9` (36px) this
+            div was exactly the button's own height (`size-9`), so the heading that follows sat
+            flush against the button's bottom edge with zero gap. `h-14` (56px) leaves ~20px of
+            breathing room between the button and the kicker/heading below it, on both widths. */}
+        <div className="h-14 shrink-0" aria-hidden />
 
         {screen.kind === 'paste' && (
           <PasteScreen

@@ -26,9 +26,12 @@ import type { MapPlace } from '@/components/map/types';
 
 export interface PlaceDesktopPanelProps {
   readonly places: readonly MapPlace[];
+  /** Opens the import overlay in `map-page-client.tsx` (client state) rather than navigating to
+   *  the standalone `/import` route, so the map underneath this panel stays mounted. */
+  readonly onAddTikTok: () => void;
 }
 
-export function PlaceDesktopPanel({ places }: PlaceDesktopPanelProps) {
+export function PlaceDesktopPanel({ places, onAddTikTok }: PlaceDesktopPanelProps) {
   return (
     <div className="pointer-events-none absolute inset-0 z-20 hidden lg:block">
       <div className="pointer-events-auto absolute inset-y-0 left-0 flex w-[clamp(320px,26vw,392px)] flex-col border-r border-border/70 bg-card/85 backdrop-blur-md">
@@ -44,10 +47,7 @@ export function PlaceDesktopPanel({ places }: PlaceDesktopPanelProps) {
           <Button
             type="button"
             className="h-12 w-full gap-1.5 rounded-lg text-sm font-bold"
-            onClick={() => {
-              // Real add flow is later work (S6/L1) — this slice only proves the panel system.
-              console.log('add a tiktok: not yet implemented');
-            }}
+            onClick={onAddTikTok}
           >
             <Plus className="size-4" aria-hidden />
             Add a TikTok

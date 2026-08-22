@@ -15,15 +15,26 @@
  * `hidden lg:block`) rather than a JS media-query hook, so there is no hydration-mismatch risk and
  * no behavioural branching here — below `lg` only `PlaceSheet` shows detail; at `lg+` only the
  * map's own popover does, and `PlaceDesktopPanel` never reacts to `selected` at all.
+ *
+ * `showImport` is the same pattern one level up: "Add a TikTok" (in both `PlaceSheet` and
+ * `PlaceDesktopPanel`) used to be a `router.push('/import')` — a real route change that unmounts
+ * the map entirely, which is glaring at desktop widths where `/import` has no map behind it to
+ * float over. `ImportPageClient` now renders as an overlay sibling here instead, so the map stays
+ * mounted (and its camera untouched, L1-F1-T4) exactly like place detail already does. The real
+ * `/import` route (`src/app/import/page.tsx`) is untouched and still renders the same component
+ * directly for a mid-import refresh or direct navigation (L1-F2-T3's resume requirement) — this is
+ * a second entry point onto the same client component, not a replacement for the route.
  */
 
 import { useState } from 'react';
 import { MapSurface, type MapPlace } from '@/components/map/map-surface';
 import { PlaceSheet } from '@/components/sheet/place-sheet';
 import { PlaceDesktopPanel } from '@/components/sheet/place-desktop-panel';
+import { ImportPageClient } from '@/app/import/import-page-client';
 
 export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
   const [selected, setSelected] = useState<MapPlace | null>(null);
+  const [showImport, setShowImport] = useState(false);
 
   return (
     <div className="relative h-full w-full">
@@ -33,8 +44,26 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
         selected={selected}
         onDeselect={() => setSelected(null)}
       />
-      <PlaceSheet places={places} selected={selected} onDeselect={() => setSelected(null)} />
-      <PlaceDesktopPanel places={places} />
+      {/* `PlaceSheet` is mobile-only (its content is `lg:hidden`) and rendered through a vaul
+          portal, which appends to `document.body` *after* this component's own subtree — so at
+          matched z-indices it paints on top of anything rendered here, regardless of DOM/JSX
+          order. That's invisible normally (the sheet coexists with the map fine), but it means
+          the sheet cannot simply share a z-index with the import overlay below: unmounting it
+          while the overlay is open is the only way to guarantee mobile gets the same opaque,
+          edge-to-edge takeover the standalone `/import` route always had, with no "Your places"
+          list bleeding through behind/around it. Desktop is unaffected — `PlaceDesktopPanel`
+          below is a plain (non-portaled) sibling that the overlay's higher z-index already
+          paints over correctly. */}
+      {!showImport && (
+        <PlaceSheet
+          places={places}
+          selected={selected}
+          onDeselect={() => setSelected(null)}
+          onAddTikTok={() => setShowImport(true)}
+        />
+      )}
+      <PlaceDesktopPanel places={places} onAddTikTok={() => setShowImport(true)} />
+      {showImport && <ImportPageClient onClose={() => setShowImport(false)} />}
     </div>
   );
 }
