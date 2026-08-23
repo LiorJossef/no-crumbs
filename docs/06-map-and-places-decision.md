@@ -6,6 +6,10 @@
 > decision implies is designed in [`10-poi-index.md`](10-poi-index.md).
 > **The basemap-tiles half of §2(A) was reopened 2026-08-21**: the product owner ruled out
 > Protomaps outright; CARTO was evaluated as the replacement and adopted. See §2.1.
+> **The place-resolution half of §3 was re-asked 2026-08-22** — owner wanted Google-sourced
+> coordinates as "a real option." Resolved as an **incremental move**: MapLibre+CARTO (§2) and the
+> Overture/Nominatim resolver (§3) are unchanged for now; the eventual switch to Google for both
+> renderer and coordinates is a separate, explicitly-requested future task. See §3.3.
 > Evidence: [`evidence/places/`](evidence/places/), [`evidence/licensing/`](evidence/licensing/).
 > Every third-party claim below is labelled VERIFIED / ASSUMED / UNAVAILABLE per Charter §9.
 
@@ -133,6 +137,70 @@ Small, always-visible, never inside a collapsed menu:
 3. `/attributions` also carries the CDLA-Permissive-2.0 text (the licence only requires that the text be made available) and the ODbL text.
 4. A ship-blocking requirement: a `NOTICE` file in the repo, and the Foursquare notice reproduced in our developer docs, as the Apache-2.0 NOTICE terms require for API-shaped redistribution.
 5. Our HTTP client sends `User-Agent: p-002/<version> (<contact email>)` on every Nominatim call.
+
+### 3.3 Re-asked 2026-08-22 — Google as a coordinate source (owner re-ask, resolved: incremental)
+
+The owner asked this session whether coordinates could be sourced from Google Maps going forward.
+A first pass evaluated this against the *current* architecture (renderer fixed at MapLibre+CARTO,
+coordinates persisted forever) and found it legally blocked: Google's Service Specific Terms
+§3.3 (Geocoding) / §5.3 (Places) forbid using Google Maps Content "in conjunction with a
+non-Google map," independent of the 30-day cache limit in §3.4/§5.4 above.
+
+The owner then corrected the premise: the map renderer itself may move to Google Maps eventually,
+and permanent storage is not a hard requirement — periodic refresh against Google's terms is
+acceptable. Under that premise the ToS blocker likely dissolves (Google content on a Google map,
+refreshed on Google's schedule, is exactly what their terms permit) — **but the owner's decision,
+2026-08-22, is to move incrementally, not switch now**:
+
+- **§2's renderer stays MapLibre+CARTO for now.** No renderer swap in the current or next scheduled
+  task; that is its own future task, started only when the owner explicitly asks for it.
+- **§3's resolver work (L0-F2/L0-F3, Overture + Nominatim) proceeds unchanged.** No Google adapter
+  is built or wired live yet — doing so now would re-trigger the exact §3.3/§5.3 non-Google-map
+  prohibition above, since the renderer hasn't moved.
+- **Forward-looking constraint on L0-F3's port design:** when `maps-geospatial` builds the
+  `PlaceResolver` port (L0-F3-T2), it should not assume exactly two providers forever — the
+  `provider` union and its DB check constraint (`11-resolver-vocabulary.md` §1, ruling 1) should be
+  written so widening it to add a `'google'` provider later is a small migration, not a redesign
+  (this is already `maps-geospatial`'s finding from this session's feasibility check: the port
+  shape itself needs no rework, only the union and a migration). No Google-specific code is owed
+  now — only not architecting the two current providers as if they were the only ones that will
+  ever exist.
+- **The eventual switch is a separate, explicitly-requested task.** When it happens, it is a D2
+  reopen covering *both* §2 (renderer) and §3 (resolver) together, since the ToS analysis above
+  only clears once both move together — a Google resolver adapter without the Google renderer, or
+  vice versa, re-creates the forbidden pairing.
+
+### 3.4 Re-opened 2026-08-22, same day — L0-F2/L0-F3 paused; AI-based resolution for now
+
+Hours after §3.3 above was written, the owner reopened it further, this time concretely: **do not
+build the Overture/pg_trgm local index resolver (L0-F2) or the Nominatim adapter (L0-F3) right now.**
+Reasoning given: the product is planning to move to Google Maps as the map provider anyway, so
+building and then discarding an Overture-based resolver is wasted effort. Instead, for the current
+build increment, the LLM `PlaceExtractor` itself is asked to identify the most likely real-world
+venue from the TikTok caption's full context (name + city/category hints + its own world knowledge),
+and the app links out to a Google Maps search for that identification — a human (the tester, later
+the end user) clicks through and judges the result, nothing is auto-accepted or stored.
+
+**Why this does not trigger §3.3's non-Google-map prohibition, and why it still isn't nothing:**
+§3.3/§5.3 forbid using Google Maps *Content* — Place data pulled via Google's API — "in conjunction
+with a non-Google map." A hyperlink to `google.com/maps/search` that a human clicks is not
+Google Maps Content reaching our own MapLibre+CARTO map at all; no Google Place data is fetched,
+cached or rendered by us. That pairing is what was blocked, and it doesn't exist here. What *is*
+real, and unresolved, is the accuracy risk already flagged in `docs/evidence` sessions this same
+day: an LLM's identification of "the real venue" is unverified recall, not a database match — it
+can be wrong (wrong branch, wrong city, a plausible venue that doesn't exist) with no way to check
+it the way a real gazetteer/POI match can be checked. The mitigation for now is that a human is
+always the one clicking and judging the link, matching the low-confidence, no-auto-accept posture
+`domain/extraction/plausibility.ts` already applies to hashtag-only candidates.
+
+**Consequence for the ladder:** `L0-F2` (local resolve seam) and `L0-F3` (global resolver, D2b) are
+**paused, not cut** — `docs/execution-plan.md`'s L0-F2/L0-F3 rows are marked accordingly. They
+resume, in whatever form, at the eventual Google renderer+resolver switch §3.3 already named as its
+own future task — or sooner, if AI-based resolution proves too inaccurate to be useful and a real
+resolver turns out to still be needed even after the Google Maps move. This is a live, admittedly
+unresolved tension: whether "the LLM identifies the place, a human clicks a Maps link" is sufficient
+all the way through the real product (not just this manual-test screen) is not decided here — only
+that it's the approach for the current build increment.
 
 ---
 

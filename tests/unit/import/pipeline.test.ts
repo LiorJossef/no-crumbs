@@ -103,6 +103,7 @@ const oneCandidate: PlaceCandidate = {
   categoryHint: 'restaurant',
   evidence: 'best ramen at afuri',
   modelConfidence: 0.9,
+  identifiedName: null,
 };
 
 function resolvedPlaceFixture(providerPlaceId: string): ResolvedPlace {

@@ -25,7 +25,9 @@ import type {
   ContentPart,
   ImportId,
   PlaceCandidate,
+  PlaceId,
   RawSource,
+  ResolvedPlace,
   ResolveQuery,
   ResolveResult,
   PlaceProvider,
@@ -140,6 +142,58 @@ export interface ImportStore {
   recordStage(importId: ImportId, out: StageOutput, ctx: OpCtx): Promise<void>;
   /** The terminal write: status, `error_code`/`degraded_code`, final candidates, timings. */
   finish(importId: ImportId, outcome: ImportOutcome, ctx: OpCtx): Promise<void>;
+}
+
+/**
+ * G. The confirm/save seam (L0-F4-T3, `docs/execution-plan.md`'s entry for this task): find-or-
+ * create a `places` row by identity, then persist the user's save. Two RPCs sit behind this one
+ * method — `resolve_place` (`08` §3.7, service-role only: the ONLY way a `places` row is created,
+ * and it must not be reachable with user-forgeable provider data) and `save_place` (`security
+ * invoker`: RLS-scoped, may only ever write the caller's own library row). They sit on opposite
+ * sides of a privilege line, so composing them is the adapter's job, not a second port — `domain/`
+ * only ever sees one call, and it never learns that two clients or two grants were involved.
+ *
+ * `ConfirmPlaceInput` is a `ResolvedPlace` plus our own category, never a caption-shaped type.
+ * Constraint 3 of this task's scope ruling: a future flow that combines several sources' content
+ * into one place before saving must not force a rename or a reshape here — it hands this same
+ * method a `ResolvedPlace` assembled from more evidence than one caption gives today.
+ *
+ * **Idempotent**, and deliberately not a re-implementation of that idempotency: replaying the same
+ * `place` identity (the same `provider`/`providerPlaceId`, or the same name/near-duplicate-radius
+ * per `resolve_place`'s guard) with the same `sourceId` produces no duplicate `places` row and no
+ * duplicate `saved_place_sources` link — this task's exit criterion, delivered by the two RPCs'
+ * own `on conflict`/alias logic, not by anything this method adds.
+ */
+export interface ConfirmPlaceInput {
+  readonly place: ResolvedPlace;
+  /** Our own normalised category — `places/category-hint.ts`'s seven-value `ExtractedCategoryHint`
+   *  vocabulary, per this task's scope ruling (constraint 2). `null` when extraction produced no
+   *  category, or produced one the plausibility gate could not carry through as a hint. */
+  readonly category: string | null;
+  /** ISO-3166-1 alpha-2, or `null`. `resolve_place`'s near-duplicate guard keys on this alongside
+   *  `name_key`, so a value the caller has not already validated must not reach this port as
+   *  anything but `null` — never an unvalidated string. */
+  readonly countryCode: string | null;
+  /** `Confidence.score` for this resolution, or `null` for a manually-added place that never went
+   *  through `PlaceResolver`. Written to `places.resolution_score` (`10` §0) only on a genuinely
+   *  new row or a stale-refresh; see `resolve_place`'s own comment on why the enrichment path
+   *  never writes it. */
+  readonly resolutionScore: number | null;
+}
+
+/** What `confirmPlace` needs beyond place identity: who gets the save and why. `sourceId: null` is
+ *  a manual save (`save_place`'s own `origin` rule) — this task does not add a second flag for it. */
+export interface ConfirmPlaceSave {
+  readonly sourceId: string | null;
+  readonly note: string | null;
+}
+
+export interface PlaceStore {
+  confirmPlace(
+    input: ConfirmPlaceInput,
+    save: ConfirmPlaceSave,
+    ctx: OpCtx,
+  ): Promise<{ readonly placeId: PlaceId; readonly savedPlaceId: string }>;
 }
 
 /**

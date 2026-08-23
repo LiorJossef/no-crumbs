@@ -37,7 +37,8 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { canonicaliseTikTokUrl } from '@/domain/source/canonicalise-tiktok-url';
 import type { ImportEvent, PipelineStage } from '@/domain/import/events';
-import type { Candidate } from '@/domain/types';
+import { googleMapsSearchUrl } from '@/domain/places/google-maps-search-url';
+import type { Candidate, PlaceCandidate } from '@/domain/types';
 
 /* ------------------------------------------------------------------------------------------- *
  * `/api/imports/probe` — the throwaway route wired in ahead of the real streaming route
@@ -51,6 +52,11 @@ interface ProbeSuccess {
   readonly canonicalUrl: string;
   readonly thumbnailUrl: string | null;
   readonly caption: string | null;
+  /** The real, plausibility-filtered candidates from the real `PlaceExtractor` — pre-resolver, so
+   *  no `CandidateResolution` exists yet (that's `Candidate`, not `PlaceCandidate`). Empty when
+   *  `caption` was null (no LLM call on nothing) or when nothing survived the gate — both are
+   *  valid, expected outcomes, not errors. */
+  readonly candidates: readonly PlaceCandidate[];
 }
 
 interface ProbeErrorBody {
@@ -113,6 +119,7 @@ const DEMO_CANDIDATES: readonly Candidate[] = [
       categoryHint: 'cafe',
       evidence: 'grab the sourdough at anat bakery',
       modelConfidence: 0.81,
+      identifiedName: null,
     },
     resolution: {
       status: 'resolved',
@@ -142,6 +149,7 @@ const DEMO_CANDIDATES: readonly Candidate[] = [
       categoryHint: 'bar',
       evidence: 'ended the night at container',
       modelConfidence: 0.64,
+      identifiedName: null,
     },
     resolution: {
       status: 'ambiguous',
@@ -171,6 +179,7 @@ const DEMO_CANDIDATES: readonly Candidate[] = [
       categoryHint: null,
       evidence: 'a little place near the port, no name mentioned',
       modelConfidence: 0.3,
+      identifiedName: null,
     },
     resolution: { status: 'unresolved', reason: 'no_match' },
   },
@@ -293,18 +302,30 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
       return;
     }
 
-    // A real TikTok link: drive the rail's `source` stage off the real `/api/imports/probe`
-    // fetch. `extract`/`resolve` stay pending — no LLM has run yet (that's L0-F4-T2/L0-F6, not
-    // this task) — and `caption_preview` is the honest landing screen once the source stage
-    // is done, rather than faking `extract`/`resolve` completion.
+    // A real TikTok link: `/api/imports/probe` is one round trip that now runs the real oEmbed
+    // fetch, the real caption extraction *and* the real `PlaceExtractor` call before it responds
+    // (`route.ts`'s header) — there is no server-sent boundary between "source done" and
+    // "extraction started". oEmbed + caption parsing is sub-second next to a real local-model
+    // call (7-34s measured), so the honest approximation is: show `source` active for the
+    // request's very first tick, then flip to `source: done, extract: active` right after the
+    // fetch is *issued* (not after it resolves) — the rail's `extract` step then genuinely spans
+    // the real, multi-second wall-clock time the request is in flight, rather than flashing for
+    // 0ms after the response already arrived.
     setScreen({ kind: 'rail', rail: { ...RAIL_IDLE, source: 'active' } });
 
     try {
-      const res = await fetch('/api/imports/probe', {
+      const fetchPromise = fetch('/api/imports/probe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url }),
       });
+
+      setScreen({
+        kind: 'rail',
+        rail: { ...RAIL_IDLE, source: 'done', sourceFact: 'Read the TikTok', extract: 'active' },
+      });
+
+      const res = await fetchPromise;
       const body = (await res.json()) as ProbeSuccess | ProbeErrorBody;
 
       if (!res.ok || 'error' in body) {
@@ -314,13 +335,15 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
         return;
       }
 
+      const n = body.candidates.length;
       setScreen({
         kind: 'rail',
         rail: {
           ...RAIL_IDLE,
           source: 'done',
           sourceFact: body.authorHandle ? `Read @${body.authorHandle}'s TikTok` : 'Read the TikTok',
-          extract: 'active',
+          extract: 'done',
+          extractFact: n === 0 ? 'No places named' : n === 1 ? '1 place found' : `${n} places found`,
         },
       });
       setScreen({ kind: 'caption_preview', probe: body });
@@ -351,6 +374,60 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
 
     setScreen({ kind: 'rail', rail: applyEvent(screen.rail, event) });
     setScriptIndex((i) => i + 1);
+  }
+
+  /**
+   * The real save path (`POST /api/imports/confirm`, L0-F4-T3) wired onto the demo `ResultsScreen`'s
+   * "Save →" button. Only `status: 'resolved'` candidates have a single `ResolvedPlace` to confirm
+   * — `ambiguous` (pick one of several options) and `unresolved` (nothing to save) are not this
+   * task's scope and are silently skipped here, matching `ConfirmImportRequestSchema`'s own
+   * comment that a candidate with no single place never reaches this endpoint.
+   *
+   * `sourceId: null`: this screen is still fed by `DEMO_CANDIDATES`/`scriptFor`'s scripted events,
+   * not a real `POST /api/imports` response, so there is no real `sources.id` row to link yet
+   * (`DEMO_SOURCE` carries no `id` at all). Passing `null` is the honest state of the data
+   * available here — `save_place` treats it as a manual save — rather than inventing a fake uuid
+   * that would fail the `sources` foreign key. Real provenance linking arrives with L0-F6-T1, when
+   * this screen's candidates come from an actual import.
+   */
+  async function saveConfirmedCandidates(candidates: readonly Candidate[]) {
+    const items = candidates
+      .filter((c) => c.resolution.status === 'resolved')
+      .map((c) => {
+        const { place, confidence } = c.resolution as Extract<Candidate['resolution'], { status: 'resolved' }>;
+        const countryHint = c.candidate.countryHint;
+        return {
+          provider: place.provider,
+          providerPlaceId: place.providerPlaceId,
+          sourceDataset: place.sourceDataset,
+          name: place.name,
+          category: c.candidate.categoryHint,
+          providerCategory: place.providerCategory,
+          addressLine: place.addressLine,
+          locality: place.locality,
+          countryCode: countryHint && /^[A-Z]{2}$/.test(countryHint) ? countryHint : null,
+          lat: place.lat,
+          lng: place.lng,
+          resolutionScore: confidence.score,
+          note: null,
+        };
+      });
+
+    if (items.length === 0) return;
+
+    try {
+      await fetch('/api/imports/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourceId: null, items }),
+      });
+    } catch {
+      // Best-effort for this demo-fed screen: no dedicated error UI exists here yet (the same
+      // minimal-fidelity gap `ProbeErrorScreen`'s header notes for the real flow). A failed save
+      // is not silently claimed as a success anywhere else in this file, but this dev-only script
+      // stepper has no "confirm failed" state to route into either — that is a follow-up, once
+      // this screen is fed by the real streaming route (L0-F6-T1) instead of `scriptFor`.
+    }
   }
 
   function jumpToNoPlaces() {
@@ -460,7 +537,15 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
         )}
 
         {screen.kind === 'results' && (
-          <ResultsScreen authorHandle={screen.authorHandle} candidates={screen.candidates} onDone={reset} />
+          <ResultsScreen
+            authorHandle={screen.authorHandle}
+            candidates={screen.candidates}
+            onSave={async () => {
+              await saveConfirmedCandidates(screen.candidates);
+              reset();
+            }}
+            onCancel={reset}
+          />
         )}
 
         {screen.kind === 'caption_preview' && <CaptionPreviewScreen probe={screen.probe} onDone={reset} />}
@@ -820,11 +905,13 @@ function NoPlacesScreen({
 function ResultsScreen({
   authorHandle,
   candidates,
-  onDone,
+  onSave,
+  onCancel,
 }: {
   authorHandle: string | null;
   candidates: readonly Candidate[];
-  onDone: () => void;
+  onSave: () => void;
+  onCancel: () => void;
 }) {
   const n = candidates.length;
 
@@ -847,10 +934,10 @@ function ResultsScreen({
       </ul>
 
       <div className="flex flex-col gap-2 pt-4">
-        <Button type="button" onClick={onDone} className="h-12 w-full rounded-lg text-base font-bold">
+        <Button type="button" onClick={onSave} className="h-12 w-full rounded-lg text-base font-bold">
           Save →
         </Button>
-        <Button type="button" variant="ghost" onClick={onDone} className="h-11 w-full rounded-lg text-sm font-bold">
+        <Button type="button" variant="ghost" onClick={onCancel} className="h-11 w-full rounded-lg text-sm font-bold">
           Cancel
         </Button>
       </div>
@@ -902,21 +989,29 @@ function CandidateRow({ candidate }: { candidate: Candidate }) {
 }
 
 /* ------------------------------------------------------------------------------------------- *
- * Caption preview — this task's real landing screen. No LLM has run yet, so this is honest about
- * two things at once: it shows exactly what the real `SourceAdapter` + `ContentExtractor`
- * produced (the caption, plainly), and it reads as the *start* of the review-and-confirm flow
- * (S7 in `docs/brand-and-product-foundation.md` §6) rather than a dead-end viewer — a pending
- * affordance sits where the candidate rows will land once extraction exists, and it settles into
- * a plain "not wired up yet" note instead of faking a result.
+ * Caption preview — this task's real landing screen. Shows exactly what the real
+ * `SourceAdapter` + `ContentExtractor` + `PlaceExtractor` + plausibility gate produced: the
+ * caption, plainly, and every surviving `PlaceCandidate` with every field the schema carries
+ * (`domain/extraction/schema.ts`) — pre-resolver, so there is no `CandidateResolution` yet and no
+ * confidence band styling, just the raw candidate as a manual tester needs to see it to verify it
+ * by hand against Google Maps.
  * ------------------------------------------------------------------------------------------- */
 
 function CaptionPreviewScreen({ probe, onDone }: { probe: ProbeSuccess; onDone: () => void }) {
+  const n = probe.candidates.length;
+
   return (
     <div className="flex flex-1 flex-col">
       <div className="flex flex-col gap-1 pb-6">
         <ScreenKicker icon={<SearchCheck className="size-3.5" aria-hidden />} label="Review & confirm" />
         <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">
-          Looking for places
+          {probe.caption === null
+            ? 'No caption to search'
+            : n === 0
+              ? 'No places named'
+              : n === 1
+                ? '1 place found'
+                : `${n} places found`}
         </h1>
         {probe.authorHandle && (
           <p className="text-sm font-medium text-muted-foreground">From @{probe.authorHandle}&rsquo;s TikTok</p>
@@ -952,16 +1047,21 @@ function CaptionPreviewScreen({ probe, onDone }: { probe: ProbeSuccess; onDone: 
           <ArrowUpRight className="size-4" aria-hidden />
         </a>
 
-        {/* The pending affordance this task adds: where the candidate rows (`CandidateRow`,
-            above) will render once extraction is wired up. `role="status"` carries the honest
-            state to a screen reader once, rather than a silent shimmering list. */}
         <div className="flex flex-col gap-2" role="status">
           <p className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">Places</p>
-          <SkeletonCandidateRow />
-          <SkeletonCandidateRow />
-          <p className="pt-1 text-sm font-medium text-muted-foreground">
-            Finding places in a post isn&rsquo;t built yet — this is where they&rsquo;ll show up.
-          </p>
+          {n === 0 ? (
+            <p className="pt-1 text-sm font-medium text-muted-foreground">
+              {probe.caption === null
+                ? "This TikTok didn't have a caption to search."
+                : "This TikTok didn't call out a specific spot by name. That happens a lot."}
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {probe.candidates.map((c, i) => (
+                <ExtractedCandidateRow key={i} candidate={c} />
+              ))}
+            </ul>
+          )}
         </div>
       </div>
 
@@ -974,22 +1074,66 @@ function CaptionPreviewScreen({ probe, onDone }: { probe: ProbeSuccess; onDone: 
   );
 }
 
-/** A `CandidateRow`-shaped skeleton — same size, radius and rhythm as the real review row, so the
- *  eye reads it as "a place card is about to be here" rather than a generic loading bar. The
- *  pulse is the only motion; `motion-reduce` collapses it to a static tinted block, which still
- *  reads as pending without implying progress to a user who has asked for less motion. */
-function SkeletonCandidateRow() {
+/** One surviving `PlaceCandidate`, every field the schema carries, laid out with the same
+ *  rounded-card/mint-badge language as `CandidateRow` above — this is a pre-resolver row (no
+ *  `CandidateResolution`, so no confidence-band pill), built for a manual tester to read every
+ *  field at a glance and jump to Google Maps to verify it by hand. */
+function ExtractedCandidateRow({ candidate }: { candidate: PlaceCandidate }) {
+  // `filterPlausible` caps a hashtag-only candidate's confidence at 0.5 rather than dropping it
+  // (`domain/extraction/plausibility.ts`'s `HASHTAG_ONLY_CONFIDENCE_CEILING`) — surfaced here as a
+  // calm, informational cue, not a warning: this is a real, if less certain, candidate.
+  const isHashtagSourced = candidate.rawName.trim().startsWith('#');
+
   return (
-    <div
-      aria-hidden
-      className="flex items-center gap-3 rounded-xl border border-border/70 bg-card px-4 py-3.5"
-    >
-      <span className="size-8 shrink-0 rounded-full bg-muted motion-safe:animate-pulse" />
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <span className="h-3.5 w-2/3 rounded-full bg-muted motion-safe:animate-pulse" />
-        <span className="h-2.5 w-1/3 rounded-full bg-muted motion-safe:animate-pulse" />
+    <li className="flex flex-col gap-2 rounded-xl border border-border/70 bg-card px-4 py-3.5">
+      <div className="flex items-start gap-3">
+        <span
+          aria-hidden
+          className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-[var(--mint-700)]/15 text-[var(--mint-700)]"
+        >
+          <MapPin className="size-4" />
+        </span>
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <p className="truncate font-heading text-sm font-bold text-foreground">{candidate.rawName}</p>
+          {candidate.identifiedName && candidate.identifiedName !== candidate.rawName && (
+            // The model's own real-world guess (`06` §3.4) — never auto-accepted, shown only as a
+            // hint for the human who is about to click through to Google Maps to verify it.
+            <p className="truncate text-xs font-semibold text-[var(--mint-700)]">
+              Likely: {candidate.identifiedName}
+            </p>
+          )}
+          <p className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">
+            {[candidate.cityHint, candidate.countryHint].filter(Boolean).join(', ') || 'Location unknown'}
+            {candidate.categoryHint ? ` · ${candidate.categoryHint}` : ''}
+          </p>
+        </div>
+        <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-bold text-foreground">
+          {candidate.modelConfidence === null ? 'n/a' : `${Math.round(candidate.modelConfidence * 100)}%`}
+        </span>
       </div>
-    </div>
+
+      {candidate.evidence && (
+        <p className="rounded-lg bg-muted/60 px-2.5 py-1.5 text-xs font-medium text-muted-foreground">
+          &ldquo;{candidate.evidence}&rdquo;
+        </p>
+      )}
+
+      {isHashtagSourced && (
+        <p className="text-xs font-medium text-[var(--mint-700)]">
+          Only mentioned as a hashtag — confidence capped since there&rsquo;s no other corroboration.
+        </p>
+      )}
+
+      <a
+        href={googleMapsSearchUrl(candidate)}
+        target="_blank"
+        rel="noreferrer"
+        className="flex h-8 items-center gap-1.5 self-start text-xs font-bold text-[var(--mint-700)]"
+      >
+        Check on Google Maps
+        <ArrowUpRight className="size-3.5" aria-hidden />
+      </a>
+    </li>
   );
 }
 

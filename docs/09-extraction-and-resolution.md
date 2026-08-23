@@ -90,8 +90,20 @@ cost risk in this product lives in unbounded *retries*, not in per-call price �
 | `claude-sonnet-5` as the V1 default | Three times the input price and slower, for a task that is short-text extraction. Kept as the **documented escalation** if §8's evaluation fails — the decision is one constant and a version bump, which is exactly what the port exists for |
 | A larger frontier model | Nothing in this task rewards it. Under M11/R1, unjustified capability costs marks the same way unjustified infrastructure does |
 | A second provider "for redundancy" | Rejected by `07` §10: a multi-LLM abstraction layer is the kind of framework the charter forbids. If Anthropic is down, stage B returns `EXTRACTOR_UNAVAILABLE`, the source is already cached, and Retry is cheap |
-| Local / self-hosted model | Nothing about Vercel's runtime makes this cheap, and it converts a five-minute integration into a deployment problem in a 19-day schedule |
+| Local / self-hosted model **in production** | Nothing about Vercel's runtime makes this cheap, and it converts a five-minute integration into a deployment problem in a 19-day schedule. This rejection is about the deployed path only — see below for the dev-only exception added at L0-F4-T2 |
 | Regex / heuristic extraction over the caption | Charter §5 forbids it outright ("we never regex prose"), and `04` §5 category H exists precisely because `#tokyofood` is not a venue |
+
+**Dev-only addendum (L0-F4-T2, 2026-08-22).** The rejection above is about production. Development now
+has a second, config-selected adapter calling a local model so iteration during the build costs
+nothing per run. `LLM_PROVIDER` picks the dev adapter in dev and `integrations/llm/anthropic.place-extractor.ts`
+in production; both sit behind the one `PlaceExtractor` port in §2.4, so "a second model is a second
+file, never a framework" still holds.
+
+**Superseded, 2026-08-23.** The local Ollama adapter (`integrations/llm/ollama.place-extractor.ts`)
+was removed. `integrations/llm/gemini.place-extractor.ts` (Google's hosted Gemini API, VERIFIED
+working end-to-end against a real TikTok URL this session) is now the second config-selected adapter
+alongside Anthropic — `LLM_PROVIDER=gemini` or `anthropic`, no local daemon involved. The "second
+model is a second file" shape is unchanged; only the two files are Anthropic and Gemini now.
 
 ### 2.4 The shape of the abstraction
 
@@ -191,7 +203,8 @@ dropped when any of these hold:
 
 | Rule | Why |
 |---|---|
-| `rawName` is only a hashtag, handle, or URL fragment | `04` §5 category H — hashtag salad must not produce phantom places |
+| `rawName` is a handle or URL fragment | `04` §5 category H — a `@handle` or `https?://` link is never a venue regardless of context |
+| `rawName` is a `#hashtag` that also fails one of the other rules below (city/country-only, generic-words-only) | Same phantom-place risk as above, but a hashtag-only name that passes the other checks (`#aroma`) is kept, not dropped — there is no way to tell it from a fake (`#tsukijifishmarket`) from caption text alone. It survives with `modelConfidence` capped at `HASHTAG_ONLY_CONFIDENCE_CEILING = 0.5`, never higher, regardless of what the model reported |
 | `rawName`, normalised, equals a known city / neighbourhood / country in the loaded region index | "Tokyo" is a scope, not a venue |
 | `rawName` consists solely of generic words (`cafe`, `coffee`, `bar`, `restaurant`, `food`, `spot`, `place`, `gem`) after the `06` §6.1 stop-word list is applied | Catches "this hidden gem", which `06` §6.3 shows scores dangerously high — 0.813–0.894 — against a naive 0.80 cut |
 | `evidence` is non-null and does not occur in the caption | A fabricated citation is a fabricated candidate |
@@ -287,3 +300,4 @@ Restating `07` §7 so this document is self-contained on cost:
 | Date | Change |
 |---|---|
 | 2026-08-18 | Created. D7 decided (`claude-haiku-4-5`, structured output, one adapter). D4's extraction half decided (no model-derived gating; plausibility filter only). Cost verified at ~$0.003/import, closing assumption B6 |
+| 2026-08-22 | §2.3 reconciled with L0-F4-T2: the "local model" rejection was about production only. Documented the dev-only local Ollama adapter (config-selected via `LLM_PROVIDER`, same `PlaceExtractor` port as the hosted Anthropic adapter) and flagged it ASSUMED, not VERIFIED — built without an actual local run |

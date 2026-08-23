@@ -240,6 +240,19 @@ export interface PlaceCandidate {
   readonly evidence: string | null;
   /** Kept, never trusted (`02` §D3): nothing gates on the model's own confidence. */
   readonly modelConfidence: number | null;
+  /**
+   * The model's best real-world identification of `rawName`, using its own world knowledge —
+   * e.g. raw `"Paradiso"` (Prague, cafe) identified as `"Paradiso Matcha Bar"` (`06` §3.4,
+   * L0-F2/L0-F3 paused 2026-08-22 in favour of this). Unlike `rawName`/`evidence`, this field is
+   * explicitly allowed — expected — to be inference rather than a caption-verbatim copy.
+   *
+   * `null` when the model cannot go beyond the raw fragment (the caption gives no disambiguating
+   * context and the model has no confident guess) — a null here means "search the raw name
+   * as-is," not a failure. Nothing auto-accepts this value; it only ever feeds a Google Maps
+   * search link a human clicks through and judges (`06` §3.4's stated mitigation, since this is
+   * unverified recall, not a database match).
+   */
+  readonly identifiedName: string | null;
 }
 
 /**
