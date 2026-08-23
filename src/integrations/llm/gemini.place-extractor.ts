@@ -114,7 +114,7 @@ export function geminiPlaceExtractor(config: {
   readonly model?: string;
   readonly fetchImpl?: typeof fetch;
 }): PlaceExtractor {
-  const model = config.model ?? 'gemma-4-26b-a4b-it';
+  const model = config.model ?? 'gemini-2.5-flash';
   const doFetch = config.fetchImpl ?? fetch;
   const version = geminiExtractorVersion(model);
   const geminiSchema = toGeminiSchema(EXTRACTION_JSON_SCHEMA);

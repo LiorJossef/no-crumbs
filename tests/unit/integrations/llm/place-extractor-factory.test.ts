@@ -15,7 +15,7 @@ describe('createPlaceExtractor', () => {
 
   it('selects the Gemini hosted adapter when LLM_PROVIDER=gemini', () => {
     const extractor = createPlaceExtractor({ LLM_PROVIDER: 'gemini', GEMINI_API_KEY: 'test-key' });
-    expect(extractor.version).toBe('2026-08-gemini-gemma-4-26b-a4b-it');
+    expect(extractor.version).toBe('2026-08-gemini-gemini-2.5-flash');
   });
 
   it('honours GEMINI_MODEL when LLM_PROVIDER=gemini', () => {

@@ -61,7 +61,7 @@ describe('geminiPlaceExtractor', () => {
     expect(result.candidates).toHaveLength(1);
     expect(result.candidates[0]?.rawName).toBe('Cafe Fiori');
     expect(capturedUrl).toBe(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemma-4-26b-a4b-it:generateContent',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
     );
     expect((capturedInit?.headers as Record<string, string>)?.['x-goog-api-key']).toBe('test-key');
     const body = JSON.parse(capturedInit?.body as string);
@@ -149,8 +149,8 @@ describe('geminiPlaceExtractor', () => {
 
   it('versions itself per hosted model, defaulting to the hosted Gemma model', () => {
     const extractor = geminiPlaceExtractor({ apiKey: 'test-key' });
-    expect(extractor.version).toBe('2026-08-gemini-gemma-4-26b-a4b-it');
-    expect(geminiExtractorVersion('gemma-4-26b-a4b-it')).toBe('2026-08-gemini-gemma-4-26b-a4b-it');
-    expect(geminiExtractorVersion('other-model')).not.toBe(geminiExtractorVersion('gemma-4-26b-a4b-it'));
+    expect(extractor.version).toBe('2026-08-gemini-gemini-2.5-flash');
+    expect(geminiExtractorVersion('gemini-2.5-flash')).toBe('2026-08-gemini-gemini-2.5-flash');
+    expect(geminiExtractorVersion('other-model')).not.toBe(geminiExtractorVersion('gemini-2.5-flash'));
   });
 });
