@@ -6,7 +6,7 @@
  * text below changes, so old rows survive for the `09` §8 A/B comparison instead of being
  * silently overwritten.
  *
- * Every adapter (`anthropic.place-extractor.ts`, `ollama.place-extractor.ts`) imports this file and
+ * Every adapter (`anthropic.place-extractor.ts`, `gemini.place-extractor.ts`) imports this file and
  * this file alone for prompt text — one prompt, many models, per `07` §10's "a second model is a
  * second file, never a framework".
  */

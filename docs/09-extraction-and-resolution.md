@@ -94,13 +94,16 @@ cost risk in this product lives in unbounded *retries*, not in per-call price �
 | Regex / heuristic extraction over the caption | Charter §5 forbids it outright ("we never regex prose"), and `04` §5 category H exists precisely because `#tokyofood` is not a venue |
 
 **Dev-only addendum (L0-F4-T2, 2026-08-22).** The rejection above is about production. Development now
-has a second, config-selected adapter, `integrations/llm/ollama.place-extractor.ts`, calling a local
-Ollama model so iteration during the build costs nothing per run. `LLM_PROVIDER` picks Ollama in dev and
-`integrations/llm/anthropic.place-extractor.ts` in production; both sit behind the one `PlaceExtractor`
-port in §2.4, so "a second model is a second file, never a framework" still holds. **This local path is
-ASSUMED, not VERIFIED**: it was built and wired without an actual local Ollama install/run in the
-building session (Ollama wasn't available in that sandbox), so end-to-end behaviour on real hardware is
-unconfirmed. Treat it as dev tooling only until someone runs it and upgrades the label.
+has a second, config-selected adapter calling a local model so iteration during the build costs
+nothing per run. `LLM_PROVIDER` picks the dev adapter in dev and `integrations/llm/anthropic.place-extractor.ts`
+in production; both sit behind the one `PlaceExtractor` port in §2.4, so "a second model is a second
+file, never a framework" still holds.
+
+**Superseded, 2026-08-23.** The local Ollama adapter (`integrations/llm/ollama.place-extractor.ts`)
+was removed. `integrations/llm/gemini.place-extractor.ts` (Google's hosted Gemini API, VERIFIED
+working end-to-end against a real TikTok URL this session) is now the second config-selected adapter
+alongside Anthropic — `LLM_PROVIDER=gemini` or `anthropic`, no local daemon involved. The "second
+model is a second file" shape is unchanged; only the two files are Anthropic and Gemini now.
 
 ### 2.4 The shape of the abstraction
 

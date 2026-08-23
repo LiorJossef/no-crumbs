@@ -2,7 +2,7 @@
  * Unit coverage for `POST /api/imports/probe`'s extraction branch added alongside the real
  * `PlaceExtractor` + `filterPlausible` wiring (`route.ts`'s header). Every vendor-facing seam is
  * mocked — auth, the service-role client, the oEmbed adapter, the caption extractor and the LLM
- * factory — so this test never depends on a running Ollama daemon or a real Supabase project; the
+ * factory — so this test never depends on a live hosted-model call or a real Supabase project; the
  * owner's own manual, real-model pass against a live TikTok URL is the other half of this task's
  * verification, not something an automated test can stand in for.
  */
@@ -106,7 +106,7 @@ describe('POST /api/imports/probe — extraction branch', () => {
   });
 
   it('maps a thrown DomainError from the extractor to the existing toView() error shape', async () => {
-    extractMock.mockRejectedValueOnce(extractorUnavailable('ollama unreachable'));
+    extractMock.mockRejectedValueOnce(extractorUnavailable('extractor unreachable'));
 
     const res = await postProbe();
     const body = (await res.json()) as { error: { code: string; retryable: boolean } };

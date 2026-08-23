@@ -112,8 +112,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         ...(process.env.LLM_PROVIDER !== undefined ? { LLM_PROVIDER: process.env.LLM_PROVIDER } : {}),
         ...(process.env.ANTHROPIC_API_KEY !== undefined ? { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY } : {}),
         ...(process.env.ANTHROPIC_MODEL !== undefined ? { ANTHROPIC_MODEL: process.env.ANTHROPIC_MODEL } : {}),
-        ...(process.env.OLLAMA_HOST !== undefined ? { OLLAMA_HOST: process.env.OLLAMA_HOST } : {}),
-        ...(process.env.OLLAMA_MODEL !== undefined ? { OLLAMA_MODEL: process.env.OLLAMA_MODEL } : {}),
+        ...(process.env.GEMINI_API_KEY !== undefined ? { GEMINI_API_KEY: process.env.GEMINI_API_KEY } : {}),
+        ...(process.env.GEMINI_MODEL !== undefined ? { GEMINI_MODEL: process.env.GEMINI_MODEL } : {}),
       });
       const extracted = await extractor.extract(parts, ctx);
       candidates = filterPlausible(extracted.candidates, caption).kept;

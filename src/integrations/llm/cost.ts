@@ -31,7 +31,10 @@ export function logExtractionCost(
     readonly inputTokens: number;
     readonly outputTokens: number;
     readonly costUsd: number;
-    readonly costModel: 'measured' | 'zero-cost-local';
+    /** `'unmeasured'`: a hosted call with no verified per-token price on record yet (token counts
+     *  are still logged so a real price can be applied retroactively once found) — distinct from
+     *  `'measured'` (a real billed price) and `'zero-cost-local'` (genuinely free). */
+    readonly costModel: 'measured' | 'zero-cost-local' | 'unmeasured';
     readonly elapsedMs: number;
   },
 ): void {

@@ -1,9 +1,8 @@
 /**
- * Selects the `PlaceExtractor` adapter by config — the owner's constraint added 2026-08-22: a local
- * model in development (no per-run cost) and a stronger hosted model in production, chosen by env,
- * never a code fork or an `if (NODE_ENV === ...)` scattered through extraction logic. Mirrors how
- * `PlaceResolver` already splits Overture/Nominatim behind one port, routed on config (`06` §11
- * D2b) — one factory, at the composition root, is the only place that branches.
+ * Selects the `PlaceExtractor` adapter by config — hosted models only (Anthropic, Gemini), chosen
+ * by env, never a code fork or an `if (NODE_ENV === ...)` scattered through extraction logic.
+ * Mirrors how `PlaceResolver` already splits Overture/Nominatim behind one port, routed on config
+ * (`06` §11 D2b) — one factory, at the composition root, is the only place that branches.
  *
  * This file is the composition root's concern (it reads `process.env`), so it lives in
  * `integrations/`, never `domain/` — same reasoning as every other adapter in this directory.
@@ -11,22 +10,22 @@
 import type { PlaceExtractor } from '@/domain/ports';
 
 import { anthropicPlaceExtractor } from './anthropic.place-extractor';
-import { ollamaPlaceExtractor } from './ollama.place-extractor';
+import { geminiPlaceExtractor } from './gemini.place-extractor';
 
-export type LlmProvider = 'anthropic' | 'ollama';
+export type LlmProvider = 'anthropic' | 'gemini';
 
 export interface PlaceExtractorEnv {
   readonly LLM_PROVIDER?: string;
   readonly ANTHROPIC_API_KEY?: string;
   readonly ANTHROPIC_MODEL?: string;
-  readonly OLLAMA_HOST?: string;
-  readonly OLLAMA_MODEL?: string;
+  readonly GEMINI_API_KEY?: string;
+  readonly GEMINI_MODEL?: string;
 }
 
 function parseProvider(raw: string | undefined): LlmProvider {
-  if (raw === 'ollama') return 'ollama';
+  if (raw === 'gemini') return 'gemini';
   if (raw === 'anthropic' || raw === undefined || raw === '') return 'anthropic';
-  throw new Error(`Unknown LLM_PROVIDER "${raw}". Expected "anthropic" or "ollama".`);
+  throw new Error(`Unknown LLM_PROVIDER "${raw}". Expected "anthropic" or "gemini".`);
 }
 
 /**
@@ -41,10 +40,13 @@ function parseProvider(raw: string | undefined): LlmProvider {
 export function createPlaceExtractor(env: PlaceExtractorEnv): PlaceExtractor {
   const provider = parseProvider(env.LLM_PROVIDER);
 
-  if (provider === 'ollama') {
-    return ollamaPlaceExtractor({
-      model: env.OLLAMA_MODEL ?? 'llama3.2:3b',
-      ...(env.OLLAMA_HOST !== undefined ? { host: env.OLLAMA_HOST } : {}),
+  if (provider === 'gemini') {
+    if (env.GEMINI_API_KEY === undefined || env.GEMINI_API_KEY === '') {
+      throw new Error('GEMINI_API_KEY is required when LLM_PROVIDER=gemini.');
+    }
+    return geminiPlaceExtractor({
+      apiKey: env.GEMINI_API_KEY,
+      ...(env.GEMINI_MODEL !== undefined ? { model: env.GEMINI_MODEL } : {}),
     });
   }
 
