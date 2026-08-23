@@ -376,6 +376,60 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
     setScriptIndex((i) => i + 1);
   }
 
+  /**
+   * The real save path (`POST /api/imports/confirm`, L0-F4-T3) wired onto the demo `ResultsScreen`'s
+   * "Save →" button. Only `status: 'resolved'` candidates have a single `ResolvedPlace` to confirm
+   * — `ambiguous` (pick one of several options) and `unresolved` (nothing to save) are not this
+   * task's scope and are silently skipped here, matching `ConfirmImportRequestSchema`'s own
+   * comment that a candidate with no single place never reaches this endpoint.
+   *
+   * `sourceId: null`: this screen is still fed by `DEMO_CANDIDATES`/`scriptFor`'s scripted events,
+   * not a real `POST /api/imports` response, so there is no real `sources.id` row to link yet
+   * (`DEMO_SOURCE` carries no `id` at all). Passing `null` is the honest state of the data
+   * available here — `save_place` treats it as a manual save — rather than inventing a fake uuid
+   * that would fail the `sources` foreign key. Real provenance linking arrives with L0-F6-T1, when
+   * this screen's candidates come from an actual import.
+   */
+  async function saveConfirmedCandidates(candidates: readonly Candidate[]) {
+    const items = candidates
+      .filter((c) => c.resolution.status === 'resolved')
+      .map((c) => {
+        const { place, confidence } = c.resolution as Extract<Candidate['resolution'], { status: 'resolved' }>;
+        const countryHint = c.candidate.countryHint;
+        return {
+          provider: place.provider,
+          providerPlaceId: place.providerPlaceId,
+          sourceDataset: place.sourceDataset,
+          name: place.name,
+          category: c.candidate.categoryHint,
+          providerCategory: place.providerCategory,
+          addressLine: place.addressLine,
+          locality: place.locality,
+          countryCode: countryHint && /^[A-Z]{2}$/.test(countryHint) ? countryHint : null,
+          lat: place.lat,
+          lng: place.lng,
+          resolutionScore: confidence.score,
+          note: null,
+        };
+      });
+
+    if (items.length === 0) return;
+
+    try {
+      await fetch('/api/imports/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourceId: null, items }),
+      });
+    } catch {
+      // Best-effort for this demo-fed screen: no dedicated error UI exists here yet (the same
+      // minimal-fidelity gap `ProbeErrorScreen`'s header notes for the real flow). A failed save
+      // is not silently claimed as a success anywhere else in this file, but this dev-only script
+      // stepper has no "confirm failed" state to route into either — that is a follow-up, once
+      // this screen is fed by the real streaming route (L0-F6-T1) instead of `scriptFor`.
+    }
+  }
+
   function jumpToNoPlaces() {
     setScript(scriptFor('no_places'));
     setScriptIndex(0);
@@ -483,7 +537,15 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
         )}
 
         {screen.kind === 'results' && (
-          <ResultsScreen authorHandle={screen.authorHandle} candidates={screen.candidates} onDone={reset} />
+          <ResultsScreen
+            authorHandle={screen.authorHandle}
+            candidates={screen.candidates}
+            onSave={async () => {
+              await saveConfirmedCandidates(screen.candidates);
+              reset();
+            }}
+            onCancel={reset}
+          />
         )}
 
         {screen.kind === 'caption_preview' && <CaptionPreviewScreen probe={screen.probe} onDone={reset} />}
@@ -843,11 +905,13 @@ function NoPlacesScreen({
 function ResultsScreen({
   authorHandle,
   candidates,
-  onDone,
+  onSave,
+  onCancel,
 }: {
   authorHandle: string | null;
   candidates: readonly Candidate[];
-  onDone: () => void;
+  onSave: () => void;
+  onCancel: () => void;
 }) {
   const n = candidates.length;
 
@@ -870,10 +934,10 @@ function ResultsScreen({
       </ul>
 
       <div className="flex flex-col gap-2 pt-4">
-        <Button type="button" onClick={onDone} className="h-12 w-full rounded-lg text-base font-bold">
+        <Button type="button" onClick={onSave} className="h-12 w-full rounded-lg text-base font-bold">
           Save →
         </Button>
-        <Button type="button" variant="ghost" onClick={onDone} className="h-11 w-full rounded-lg text-sm font-bold">
+        <Button type="button" variant="ghost" onClick={onCancel} className="h-11 w-full rounded-lg text-sm font-bold">
           Cancel
         </Button>
       </div>
