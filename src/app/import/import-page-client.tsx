@@ -50,6 +50,9 @@ import type { Candidate, PlaceCandidate } from '@/domain/types';
  * ------------------------------------------------------------------------------------------- */
 
 interface ProbeSuccess {
+  /** The real `sources.id` row this probe fetched/cached — carried through so a later save (even
+   *  with zero candidates) links this source instead of silently sending `sourceId: null`. */
+  readonly sourceId: string;
   readonly authorHandle: string | null;
   readonly authorName: string | null;
   readonly canonicalUrl: string;
@@ -468,9 +471,16 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
    * `resolutionScore: null`: `places.resolution_score` free-text-documents a genuine
    * `PlaceResolver` score (`ports.ts`); a save with no resolution at all leaves it unset rather
    * than inventing a number that would misread as resolver confidence later.
+   *
+   * `sourceId`: the real `sources.id` this screen's probe fetched (`ProbeSuccess.sourceId`) — a
+   * TikTok link was pasted and actually fetched, so even a zero-candidate ("no places found")
+   * manual save still links back to that source. `null` stays reserved for a true no-source
+   * manual entry, which this screen never produces (`saveConfirmedCandidates` above is the
+   * still-demo-fed path without a real source yet).
    */
   async function saveExtractedCandidates(
     candidates: readonly PlaceCandidate[],
+    sourceId: string,
   ): Promise<{ readonly saved: number; readonly skipped: number; readonly failed: number }> {
     const withCoordinates = candidates.filter((c) => c.coordinates !== null);
     const skipped = candidates.length - withCoordinates.length;
@@ -499,7 +509,7 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
     const res = await fetch('/api/imports/confirm', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sourceId: null, items }),
+      body: JSON.stringify({ sourceId, items }),
     });
 
     if (!res.ok) {
@@ -536,10 +546,10 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
    * explicit next step, mirroring the same on-screen-with-a-message pattern `hard_failure` (and,
    * before this fix, only `hard_failure`) already used.
    */
-  async function finishCaptionPreview(candidates: readonly PlaceCandidate[]) {
+  async function finishCaptionPreview(candidates: readonly PlaceCandidate[], sourceId: string) {
     setCaptionSave({ saving: true, error: null, partialNotice: null });
     try {
-      const result = await saveExtractedCandidates(candidates);
+      const result = await saveExtractedCandidates(candidates, sourceId);
       const outcome = decideCaptionSaveOutcome(result);
       switch (outcome.kind) {
         case 'proceed':
@@ -691,7 +701,7 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
             saving={captionSave.saving}
             error={captionSave.error}
             partialNotice={captionSave.partialNotice}
-            onDone={() => finishCaptionPreview(screen.probe.candidates)}
+            onDone={() => finishCaptionPreview(screen.probe.candidates, screen.probe.sourceId)}
             onContinue={continueAfterPartialSave}
           />
         )}

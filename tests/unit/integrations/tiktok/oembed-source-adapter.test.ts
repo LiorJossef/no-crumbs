@@ -54,6 +54,11 @@ function makeFakeDb() {
               const row = id !== undefined ? rows.get(id) ?? null : null;
               return { data: row, error: null };
             },
+            async single() {
+              const id = eqs.find(([c]) => c === 'platform_source_id')?.[1] as string | undefined;
+              const row = id !== undefined ? rows.get(id) ?? null : null;
+              return { data: row, error: row === null ? new Error('not found') : null };
+            },
           };
           return builder;
         },

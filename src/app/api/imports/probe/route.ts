@@ -120,6 +120,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     return NextResponse.json({
+      sourceId: raw.id,
       authorHandle: raw.authorHandle,
       authorName: raw.authorName,
       canonicalUrl: raw.canonicalUrl,

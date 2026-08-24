@@ -78,6 +78,17 @@ export interface Spot {
   /** `saved_places.note` — the user's own words. Deliberately never merged with `reason`: `0015`'s
    *  column comment is explicit that the two answer different questions. */
   readonly note?: string;
+  /** `saved_places.source_url` (migration `0016`) — the denormalized copy of the first linked
+   *  source's `canonical_url`, cheap to read without the `sources` join `source.canonicalUrl`
+   *  requires. Prefer this for "open the TikTok" links; `source?.canonicalUrl` remains the
+   *  fallback for a save made before `0016` shipped (never backfilled) or a `sources` row without
+   *  this cache populated for any other reason. Absent for a manual save, same as `source` itself. */
+  readonly sourceUrl?: string;
+  /** `saved_places.source_thumbnail_url` (migration `0016`), same first-source-only/denormalized
+   *  relationship to `source?.media` that `sourceUrl` has to `source?.canonicalUrl` — a signed,
+   *  expiring TikTok CDN URL (`0016`'s column comment on `sources.thumbnail_url`) captured once at
+   *  save time and never refreshed here. */
+  readonly sourceThumbnailUrl?: string;
   readonly visitState: VisitState;
   readonly visitedAt?: Date;
 }

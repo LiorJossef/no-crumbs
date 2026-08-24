@@ -442,7 +442,12 @@ begin
     select n, 'authenticated' from fns where has_function_privilege('authenticated', oid, 'EXECUTE')
   ), expected(n, role) as (values
     ('save_place','authenticated'),      -- the user-facing write, SECURITY INVOKER
-    ('km_between','authenticated')       -- the near-me query runs as the user
+    ('km_between','authenticated'),      -- the near-me query runs as the user
+    ('apply_saved_place_source_link','authenticated')
+    -- SECURITY DEFINER (0016), called by save_place and safe to expose directly: it only ever
+    -- writes source_url/source_thumbnail_url derived from a (saved_place, source) pair that its own
+    -- WHERE clause requires the caller to already own via saved_place_sources, and only fills a
+    -- currently-null value (coalesce), so a stray or repeated call is a no-op, never a forgery path.
     -- pg_trgm's ~10 functions are absent because 0010 installs it into `extensions`, not `public`.
     -- In `public` each would arrive EXECUTE-able by PUBLIC and this check would fail a dozen times
     -- over — which is the reason for the schema choice, not a happy accident of it.
@@ -459,7 +464,7 @@ begin
       left join actual a on a.n = e.n and a.role = e.role where a.n is null
   ) d;
   if v is not null then raise exception 'FAIL 6: function grant drift: %', v; end if;
-  raise notice 'PASS 6  only save_place and km_between are reachable by a browser role; anon has nothing';
+  raise notice 'PASS 6  only save_place, km_between and apply_saved_place_source_link are reachable by a browser role; anon has nothing';
 end $$;
 
 -- ── 6b. no function in `public` is overloaded, and resolve_place's argument list is the designed one ──

@@ -31,7 +31,7 @@ export interface MapPlace {
   readonly lat: number;
   readonly lng: number;
   readonly note: string;
-  readonly sourceUrl: string;
+  readonly sourceUrl: string | undefined;
   /**
    * The full `Spot` this pin was built from, for the sheet/panel detail view
    * (`components/sheet/place-sheet.tsx`, `place-desktop-panel.tsx`). Optional and carried

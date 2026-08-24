@@ -37,7 +37,7 @@ function toMapPlace(spot: Spot): MapPlace {
     lat: spot.lat,
     lng: spot.lng,
     note: spot.note ?? '',
-    sourceUrl: spot.source?.canonicalUrl ?? '',
+    sourceUrl: spot.sourceUrl ?? spot.source?.canonicalUrl,
     detail: spot,
   };
 }
