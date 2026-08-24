@@ -250,6 +250,16 @@ export interface PlaceCandidate {
   readonly cityHint: string | null;
   readonly countryHint: string | null;
   readonly categoryHint: CategoryHint | null;
+  /**
+   * A street address the caption gives verbatim (e.g. "דרך רמתיים 24", "12 Main St") — a number
+   * plus a street name, commonly but not always sitting near a "📍" marker. Distinct from
+   * `cityHint`: this is the street-level line, not the city/neighbourhood/country. `null` when the
+   * caption gives no address. Load-bearing for the Google Maps link (a separate task), since a
+   * name+address+city text search is far more reliable than the model's own guessed
+   * `coordinates` below — captured explicitly here rather than left to ride along inside
+   * `evidence` by incidental luck.
+   */
+  readonly addressHint: string | null;
   /** The caption fragment the name came from, for our own debugging only. */
   readonly evidence: string | null;
   /** Kept, never trusted (`02` §D3): nothing gates on the model's own confidence. */

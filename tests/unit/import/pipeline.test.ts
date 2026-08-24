@@ -104,6 +104,7 @@ const oneCandidate: PlaceCandidate = {
   categoryHint: 'restaurant',
   evidence: 'best ramen at afuri',
   modelConfidence: 0.9,
+  addressHint: null,
   identifiedName: null,
   coordinates: null,
 };

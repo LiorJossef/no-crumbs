@@ -32,6 +32,7 @@ export const EXTRACTION_JSON_SCHEMA = {
           'cityHint',
           'countryHint',
           'categoryHint',
+          'addressHint',
           'evidence',
           'modelConfidence',
           'identifiedName',
@@ -45,6 +46,9 @@ export const EXTRACTION_JSON_SCHEMA = {
             type: ['string', 'null'],
             enum: ['restaurant', 'cafe', 'bar', 'bakery', 'attraction', 'shop', 'other', null],
           },
+          /** A verbatim street address near a "📍" marker (or elsewhere in the caption), separate
+           *  from `cityHint`/`countryHint`/`rawName` — load-bearing for the Google Maps link. */
+          addressHint: { type: ['string', 'null'], maxLength: 160 },
           evidence: { type: ['string', 'null'], maxLength: 240 },
           modelConfidence: { type: ['number', 'null'], minimum: 0, maximum: 1 },
           /** `06` §3.4: the model's own best real-world identification, inference allowed. */

@@ -74,6 +74,7 @@ describe('ImportOutcome — partial success is a shape, not a separate kind (07 
             categoryHint: 'restaurant',
             evidence: 'best ramen at afuri',
             modelConfidence: 0.9,
+            addressHint: null,
             identifiedName: null,
             coordinates: null,
           },
