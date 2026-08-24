@@ -64,4 +64,29 @@ describe('googleMapsSearchUrl', () => {
 
     expect(query).toBe('Paradiso, Prague, Czech Republic');
   });
+
+  it('prefers addressHint over categoryHint when both are present', () => {
+    const url = googleMapsSearchUrl(
+      candidate({ addressHint: '12 Rothschild Blvd', categoryHint: 'restaurant' }),
+    );
+    const query = decodeURIComponent(new URL(url).searchParams.get('query') ?? '');
+
+    // The bug this guards against: "Ragazzi, restaurant, Tel Aviv" can surface an unrelated
+    // same-named pizzeria also in Tel Aviv. The explicit street address is the stronger signal.
+    expect(query).toBe('Paradiso, 12 Rothschild Blvd, Prague');
+  });
+
+  it('falls back to categoryHint when addressHint is null', () => {
+    const url = googleMapsSearchUrl(candidate({ addressHint: null, categoryHint: 'cafe' }));
+    const query = decodeURIComponent(new URL(url).searchParams.get('query') ?? '');
+
+    expect(query).toBe('Paradiso, cafe, Prague');
+  });
+
+  it('falls back to categoryHint when addressHint is blank', () => {
+    const url = googleMapsSearchUrl(candidate({ addressHint: '   ', categoryHint: 'cafe' }));
+    const query = decodeURIComponent(new URL(url).searchParams.get('query') ?? '');
+
+    expect(query).toBe('Paradiso, cafe, Prague');
+  });
 });

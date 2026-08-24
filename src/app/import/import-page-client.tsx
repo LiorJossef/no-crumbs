@@ -499,7 +499,7 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
       name: c.identifiedName ?? c.rawName,
       category: c.categoryHint,
       providerCategory: null,
-      addressLine: null,
+      addressLine: c.addressHint,
       locality: c.cityHint,
       countryCode: c.countryHint && /^[A-Z]{2}$/.test(c.countryHint) ? c.countryHint : null,
       // Guarded by the `withCoordinates` filter above — non-null by construction.
