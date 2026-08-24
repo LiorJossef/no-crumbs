@@ -42,10 +42,13 @@ function readCookies(): { name: string; value: string }[] {
 
 function writeCookie(name: string, value: string, options: CookieOptions, persistent: boolean) {
   const segments = [`${encodeURIComponent(name)}=${encodeURIComponent(value)}`];
-  // maxAge === 0 is the library deleting a cookie (e.g. on sign-out) — always honour that
-  // regardless of "remember me". Any other maxAge is the 400-day default, which we only keep
-  // when the user opted in; dropping it entirely makes the cookie session-only (cleared when the
-  // browser closes it, per the HTTP cookie spec — see the risk note in the summary).
+  // maxAge === 0 is the library deleting a cookie — always honour that regardless of "remember
+  // me" (this app's own sign-out goes through the server client's separate cookie path today, so
+  // this branch isn't exercised there, but createBrowserClient can still request a deletion, e.g.
+  // on an invalid/expired session, and that must not get skipped when "remember me" was off). Any
+  // other maxAge is the 400-day default, which we only keep when the user opted in; dropping it
+  // entirely makes the cookie session-only (cleared when the browser closes, per the HTTP cookie
+  // spec — session-restore features can outlive that, see the sign-in page copy).
   if (typeof options.maxAge === 'number' && (persistent || options.maxAge === 0)) {
     segments.push(`Max-Age=${options.maxAge}`);
   }
