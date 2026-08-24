@@ -33,6 +33,8 @@ const SAVED_PLACES_SELECT = `
   extracted_reason,
   display_name,
   category_override,
+  source_url,
+  source_thumbnail_url,
   place:places (
     name,
     category,
@@ -69,6 +71,14 @@ interface SavedPlaceRow {
   readonly extracted_reason: string | null;
   readonly display_name: string | null;
   readonly category_override: string | null;
+  /** `saved_places.source_url` (migration `0016`) — the denormalized copy of the first linked
+   *  source's `canonical_url`, so the common "TikTok link" read never needs the
+   *  `saved_place_sources` → `sources` join below. Null for `origin = 'manual'` saves. */
+  readonly source_url: string | null;
+  /** `saved_places.source_thumbnail_url` (migration `0016`) — same first-source-only semantics as
+   *  `source_url`. A signed, expiring TikTok CDN URL (`0016`'s column comment); this read path
+   *  does not refresh it, it only passes through whatever was captured at save time. */
+  readonly source_thumbnail_url: string | null;
   readonly place: {
     readonly name: string;
     readonly category: string | null;
@@ -146,6 +156,8 @@ function toSpot(row: SavedPlaceRow): Spot {
     ...(source ? { source } : {}),
     ...(row.extracted_reason ? { reason: row.extracted_reason } : {}),
     ...(row.note ? { note: row.note } : {}),
+    ...(row.source_url ? { sourceUrl: row.source_url } : {}),
+    ...(row.source_thumbnail_url ? { sourceThumbnailUrl: row.source_thumbnail_url } : {}),
     visitState: row.visit_state,
     ...(row.visited_at ? { visitedAt: new Date(row.visited_at) } : {}),
   };

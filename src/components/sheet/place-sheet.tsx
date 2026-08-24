@@ -37,7 +37,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import type { MapPlace } from '@/components/map/types';
-import type { MediaRef } from '@/domain/types';
 
 /** Fixed peek height. `env(safe-area-inset-bottom)` is added via CSS `calc()` inside the snap
  *  point's own element (vaul only takes a bare px number for the snap point itself), so the sheet's
@@ -280,6 +279,13 @@ export function PlaceDetail({
   const reason = detail?.reason;
   const source = detail?.source;
   const provenance = detail?.provenance;
+  // `sourceUrl`/`sourceThumbnailUrl` (Spot's denormalized `saved_places.source_url` /
+  // `source_thumbnail_url`, migration `0016`) are preferred over the joined `source.canonicalUrl`
+  // / `source.media` — same value for the common case, but present even when the
+  // `saved_place_sources` → `sources` join above didn't resolve one for any reason. `source`'s
+  // fields remain the fallback for a save made before 0016 shipped.
+  const tiktokUrl = detail?.sourceUrl ?? source?.canonicalUrl ?? place.sourceUrl;
+  const thumbnailUrl = detail?.sourceThumbnailUrl ?? source?.media?.url;
   const authorLabel = source?.authorHandle
     ? `@${source.authorHandle}`
     : source?.authorName ?? null;
@@ -301,7 +307,7 @@ export function PlaceDetail({
         isPopover && 'max-h-[min(70vh,26rem)] w-72 gap-4 px-0 pb-0 pt-0'
       )}
     >
-      {source?.media && <SourceMediaThumbnail media={source.media} />}
+      {thumbnailUrl && <SourceMediaThumbnail url={thumbnailUrl} />}
 
       <div className={cn('flex items-start justify-between gap-3', isPopover && 'px-4 pt-3.5')}>
         <div className="flex min-w-0 flex-col gap-1">
@@ -361,15 +367,17 @@ export function PlaceDetail({
             <p className="text-xs font-medium text-muted-foreground">Saved from {authorLabel}</p>
           )}
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-            <a
-              href={source?.canonicalUrl ?? place.sourceUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-1.5 text-sm font-bold text-[var(--mint-700)] underline-offset-4 hover:underline"
-            >
-              Open TikTok
-              <ExternalLink className="size-3.5" aria-hidden />
-            </a>
+            {tiktokUrl && (
+              <a
+                href={tiktokUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1.5 text-sm font-bold text-[var(--mint-700)] underline-offset-4 hover:underline"
+              >
+                Open TikTok
+                <ExternalLink className="size-3.5" aria-hidden />
+              </a>
+            )}
             <a
               href={googleMapsUrl}
               target="_blank"
@@ -402,10 +410,11 @@ export function PlaceDetail({
  * unnecessary header.
  *
  * The URL is a signed TikTok CDN link with a known-but-unstored expiry (`SpotSource.media`'s own
- * comment, ~6 months out) — `onError` swaps to an empty state permanently for this mount (`failed`
- * state, not retried) rather than leaving a broken-image icon on screen.
+ * comment, and `Spot.sourceThumbnailUrl`'s — the two describe the same ~6-month expiry) —
+ * `onError` swaps to an empty state permanently for this mount (`failed` state, not retried)
+ * rather than leaving a broken-image icon on screen.
  */
-function SourceMediaThumbnail({ media }: { media: MediaRef }) {
+function SourceMediaThumbnail({ url }: { url: string }) {
   const [failed, setFailed] = useState(false);
 
   if (failed) return null;
@@ -413,7 +422,7 @@ function SourceMediaThumbnail({ media }: { media: MediaRef }) {
   return (
     <div className="overflow-hidden rounded-[var(--radius)] bg-muted">
       <img
-        src={media.url}
+        src={url}
         alt=""
         referrerPolicy="no-referrer"
         onError={() => setFailed(true)}
