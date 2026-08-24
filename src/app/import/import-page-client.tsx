@@ -621,8 +621,12 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
       />
       <div
         className={cn(
-          // Mobile: full-bleed thumb-zone column, unchanged.
-          'relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col px-5 pt-[calc(env(safe-area-inset-top)+2rem)] pb-[calc(env(safe-area-inset-bottom)+1.5rem)]',
+          // Mobile: full-bleed thumb-zone column, unchanged. The extra 3rem in the bottom padding
+          // reserves space for `DevControls` below, a `fixed bottom-0` bar that would otherwise
+          // paint over (and swallow clicks on) whatever sits at the bottom of this flex column —
+          // e.g. the "Done" button on the caption-preview screen. Remove the extra 3rem alongside
+          // `DevControls` itself once the streaming route lands (L0-F6-T1).
+          'relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col px-5 pt-[calc(env(safe-area-inset-top)+2rem)] pb-[calc(env(safe-area-inset-bottom)+1.5rem+3rem)]',
           // Desktop (`lg+`), overlay mode only (`onClose` set — the map's "Add a TikTok" flow): a
           // floating card centred over the dimmed map + list, not a docked panel — fixed width,
           // capped height with its own scroll (so a future 3-stage rail grows the card rather than
