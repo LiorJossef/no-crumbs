@@ -52,9 +52,26 @@ export interface LoadedRegion {
 }
 
 /**
+ * A small, deliberately non-exhaustive stopgap for names `poi_regions.display_name` doesn't carry
+ * — that column holds one English string per region, but a real caption naming Tel Aviv is at
+ * least as likely to say so in Hebrew (measured live, 2026-08-24: a real Hebrew-caption TikTok
+ * about a real, loaded venue produced `cityHint: "תל אביב"`, which matched nothing and silently
+ * fell through to the LLM-guess fallback despite a 0.82-confidence database match existing).
+ *
+ * This is not a gazetteer and is not trying to be one — it is the handful of real variants for the
+ * one region we've actually loaded. Extend it, or replace it with a real `poi_regions` alias
+ * column, before a second loaded region makes one flat map ambiguous.
+ */
+const REGION_NAME_ALIASES: Readonly<Record<string, readonly string[]>> = {
+  tlv: ['תל אביב', 'תל אביב יפו'],
+};
+
+/**
  * `query.cityHint` → the loaded regions it plausibly names. Both sides are run through the same
- * `normalise()` the scorer and the loader use, so `"Tel Aviv"`, `"tel aviv"` and `"תל אביב"` (once
- * a Hebrew `display_name` exists) all line up without a hand-maintained alias table.
+ * `normalise()` the scorer and the loader use, so `"Tel Aviv"` and `"tel aviv"` line up without a
+ * hand-maintained alias table — but a different script (Hebrew, for a Tel Aviv caption) needs one,
+ * since `poi_regions.display_name` only ever holds one English string. `REGION_NAME_ALIASES` above
+ * is that alias table, kept intentionally small.
  *
  * A `null`/empty hint defaults to the single loaded region **only when there is exactly one** —
  * the honest reading of "Tel Aviv is currently the only loaded region" (this file's header): with
@@ -73,7 +90,13 @@ export function regionIdsForCityHint(
   return loadedRegions
     .filter((r) => {
       const name = normalise(r.displayName);
-      return hint === r.id || hint.includes(name) || name.includes(hint);
+      const aliases = (REGION_NAME_ALIASES[r.id] ?? []).map((a) => normalise(a));
+      return (
+        hint === r.id ||
+        hint.includes(name) ||
+        name.includes(hint) ||
+        aliases.some((a) => hint === a || hint.includes(a) || a.includes(hint))
+      );
     })
     .map((r) => r.id);
 }

@@ -139,6 +139,14 @@ describe('regionIdsForCityHint', () => {
     expect(regionIdsForCityHint('tel aviv', loaded)).toEqual(['tlv']);
   });
 
+  it('matches a Hebrew city hint via the alias stopgap, since display_name is English-only', () => {
+    // Regression: a real Hebrew-caption TikTok produced cityHint "תל אביב", which matched nothing
+    // before this alias existed and silently fell through to the LLM-guess fallback despite a real,
+    // high-confidence database match (measured live, 2026-08-24).
+    expect(regionIdsForCityHint('תל אביב', loaded)).toEqual(['tlv']);
+    expect(regionIdsForCityHint('תל אביב - יפו', loaded)).toEqual(['tlv']);
+  });
+
   it('defaults a null/empty hint to the single loaded region', () => {
     expect(regionIdsForCityHint(null, loaded)).toEqual(['tlv']);
     expect(regionIdsForCityHint('', loaded)).toEqual(['tlv']);
