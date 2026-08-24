@@ -41,7 +41,7 @@ interface SourceRow {
   readonly fetch_error_code: string | null;
 }
 
-function canonicalUrlFor(externalId: string): string {
+export function canonicalUrlFor(externalId: string): string {
   // Rebuilt, never taken from user input (0003's own rule) — a placeholder handle is fine because
   // the real one is filled in from oEmbed's `author_unique_id` once a fetch succeeds, and nothing
   // reads this field's handle segment as identity (04 §6: the video id is identity, not the URL).

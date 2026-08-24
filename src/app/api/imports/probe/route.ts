@@ -38,7 +38,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/app/_lib/supabase/server';
 import { serviceRoleClient } from '@/integrations/supabase/service-role-client';
-import { oembedSourceAdapter } from '@/integrations/tiktok/oembed-source-adapter';
+import { oembedSourceAdapter, canonicalUrlFor } from '@/integrations/tiktok/oembed-source-adapter';
 import { captionContentExtractor } from '@/integrations/tiktok/caption-content-extractor';
 import { createPlaceExtractor } from '@/integrations/llm/place-extractor-factory';
 import { canonicaliseTikTokUrl } from '@/domain/source/canonicalise-tiktok-url';
@@ -100,6 +100,24 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       canonicalised.value.kind === 'video'
         ? canonicalised.value.externalId
         : (await source.resolveShortLink(canonicalised.value, ctx)).externalId;
+
+    // `save_place`'s own RLS boundary (`sps_insert_own`, 0006) requires a matching `imports` row
+    // before it will let this user's session attach a source to a saved place — "the source must
+    // be one this user actually imported: no borrowing provenance". `start_import` (0007, B7) is
+    // the only way such a row is created. The real streaming route (L0-F6-T1) will call it as
+    // stage A; this throwaway probe route stops after extraction and never did, so every real
+    // save through `/api/imports/confirm` with a non-null `sourceId` unconditionally failed
+    // `sps_insert_own`'s WITH CHECK with a masked `INTERNAL` — this call is what makes the probe
+    // path's provenance real instead of borrowed, matching what the finished pipeline will do.
+    const { error: startImportError } = await db.rpc('start_import', {
+      p_user_id: user.id,
+      p_platform: 'tiktok',
+      p_platform_source_id: externalId,
+      p_canonical_url: canonicalUrlFor(externalId),
+    });
+    if (startImportError) {
+      throw internal('start_import failed', startImportError);
+    }
 
     const raw = await source.fetch(externalId, ctx);
     const parts = await captionContentExtractor.extract(raw, ctx);

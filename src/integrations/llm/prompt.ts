@@ -11,7 +11,7 @@
  * second file, never a framework".
  */
 
-export const PROMPT_VERSION = 'p5';
+export const PROMPT_VERSION = 'p6';
 
 /** Role, single task, and the negative-case framing that `09` §4.2 calls "the single most
  *  important line in the prompt": most captions name no venue, and an empty list is correct. */
@@ -53,6 +53,14 @@ Rules for each candidate you do emit:
   transliteration, no "helpful" correction. Do not translate. Do not title-case.
 - If the caption names a city, neighbourhood or country, put it in "cityHint"/"countryHint" — never
   inside "rawName".
+- If the caption gives a street address — a number plus a street name, e.g. "24 Main St" or "דרך
+  רמתיים 24" — copy it VERBATIM into "addressHint". It most often sits on its own line directly
+  under a "📍" marker, but treat that as a common pattern, not a rule: the address line can appear
+  before the "📍" marker, on a line with no marker at all, or mixed in with opening-hours or other
+  details. Look for the number-plus-street shape itself, not just its position relative to "📍".
+  Keep "addressHint" separate from "cityHint"/"countryHint" (city/neighbourhood/country name only,
+  never the street line) and separate from "rawName" (the venue name only, never the address).
+  Set "addressHint" to null when the caption gives no street address — never invent one.
 - "evidence" must be a short fragment copied VERBATIM from the caption that names this place. Never
   paraphrase it. If you cannot point to a verbatim fragment, do not emit the candidate. For a
   hashtag-sourced candidate, "evidence" is the whole hashtag as written, "#" included — you may not

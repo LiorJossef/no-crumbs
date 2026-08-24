@@ -6,15 +6,17 @@
  * (L0-F1-T1/T2/T3) and `docs/execution-plan.md` L1-F2-T1/T2 spec this surface; copy strings are
  * `docs/ux-architecture.md` §12.1's deck (C01–C22), quoted verbatim.
  *
- * **UI-only slice.** Nothing here calls `runImport`, `POST /api/imports` or the network — the
- * screen is driven by a local reducer over the *real* `ImportEvent`/`ImportOutcome` vocabulary
- * (`domain/import/events.ts`) fed by a scripted demo sequence, so wiring in the real NDJSON stream
- * later means replacing `demoDispatch`'s source with a `fetch` body reader, not touching this
- * component's render logic or its state shape.
+ * The real flow: `submit()` calls `POST /api/imports/probe` (real oEmbed fetch + caption
+ * extraction + `PlaceExtractor`, no resolver yet — see that route's header) and lands on
+ * `caption_preview`; "Done" there calls `POST /api/imports/confirm` via `saveExtractedCandidates`.
+ * The `no_places`/`results` `Screen` kinds and their `NoPlacesScreen`/`ResultsScreen` components
+ * predate this real wiring and are currently unreachable from this file (no code path sets them);
+ * they are kept as the shape L0-F6-T1's real streaming route is expected to drive, rather than
+ * deleted ahead of that work.
  *
- * The one piece of real domain logic wired up live is `canonicaliseTikTokUrl` (`domain/source/
- * canonicalise-tiktok-url.ts`) against the pasted string, so the paste screen's validation and the
- * non-TikTok redirect are the real classification, not a stub.
+ * The one piece of real domain logic wired up live beyond the above is `canonicaliseTikTokUrl`
+ * (`domain/source/canonicalise-tiktok-url.ts`) against the pasted string, so the paste screen's
+ * validation and the non-TikTok redirect are the real classification, not a stub.
  */
 
 import { useMemo, useState } from 'react';
@@ -30,14 +32,13 @@ import {
   Pencil,
   RotateCcw,
   SearchCheck,
-  Wand2,
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { canonicaliseTikTokUrl } from '@/domain/source/canonicalise-tiktok-url';
-import type { ImportEvent, PipelineStage } from '@/domain/import/events';
+import type { PipelineStage } from '@/domain/import/events';
 import { googleMapsSearchUrl } from '@/domain/places/google-maps-search-url';
 import { llmGuessProviderPlaceId } from '@/domain/import/llm-guess-place-id';
 import { decideCaptionSaveOutcome } from '@/domain/import/caption-save-outcome';
@@ -111,159 +112,6 @@ type Screen =
   | { readonly kind: 'probe_error'; readonly code: string; readonly retryable: boolean };
 
 /* ------------------------------------------------------------------------------------------- *
- * Demo fixtures — stand in for a real ImportOutcome until the streaming route exists. Shaped
- * exactly like the real `Candidate`/`CandidateResolution` union (`domain/types.ts`) so the review
- * rows below are the real render path, not a parallel mock shape.
- * ------------------------------------------------------------------------------------------- */
-
-const DEMO_CANDIDATES: readonly Candidate[] = [
-  {
-    candidate: {
-      rawName: 'Anat Bakery',
-      cityHint: 'Tel Aviv',
-      countryHint: 'IL',
-      categoryHint: 'cafe',
-      evidence: 'grab the sourdough at anat bakery',
-      modelConfidence: 0.81,
-      identifiedName: null,
-      coordinates: null,
-    },
-    resolution: {
-      status: 'resolved',
-      confidence: { band: 'preselect', score: 0.91, margin: 0.22 },
-      alternates: [],
-      place: {
-        provider: 'overture',
-        providerPlaceId: 'demo-1',
-        sourceDataset: 'overture-places',
-        regionId: 'tlv',
-        name: 'Anat Bakery',
-        altNames: [],
-        providerCategory: 'bakery',
-        addressLine: '3 Shabazi St',
-        locality: 'Tel Aviv-Yafo',
-        lat: 32.0596,
-        lng: 34.7654,
-        datasetConfidence: 0.8,
-      },
-    },
-  },
-  {
-    candidate: {
-      rawName: 'Container',
-      cityHint: 'Tel Aviv',
-      countryHint: 'IL',
-      categoryHint: 'bar',
-      evidence: 'ended the night at container',
-      modelConfidence: 0.64,
-      identifiedName: null,
-      coordinates: null,
-    },
-    resolution: {
-      status: 'ambiguous',
-      options: [
-        {
-          provider: 'overture',
-          providerPlaceId: 'demo-2a',
-          sourceDataset: 'overture-places',
-          regionId: 'tlv',
-          name: 'Container',
-          altNames: [],
-          providerCategory: 'bar',
-          addressLine: '43 Retzif Ha’Aliya Hashniya St',
-          locality: 'Tel Aviv-Yafo',
-          lat: 32.0524,
-          lng: 34.7498,
-          datasetConfidence: 0.6,
-        },
-      ],
-    },
-  },
-  {
-    candidate: {
-      rawName: 'a little place near the port',
-      cityHint: 'Tel Aviv',
-      countryHint: null,
-      categoryHint: null,
-      evidence: 'a little place near the port, no name mentioned',
-      modelConfidence: 0.3,
-      identifiedName: null,
-      coordinates: null,
-    },
-    resolution: { status: 'unresolved', reason: 'no_match' },
-  },
-];
-
-/** One scripted `ImportEvent` sequence per demo scenario — the shape a real NDJSON reader would
- *  hand this page one line at a time. Kept here only for the dev stepper below. */
-function scriptFor(scenario: 'results' | 'no_places'): readonly ImportEvent[] {
-  const base: ImportEvent[] = [
-    { t: 'accepted', importId: 'demo' as never, idempotent: false },
-    { t: 'stage', stage: 'source', status: 'started' },
-    { t: 'stage', stage: 'source', status: 'done', fact: { authorHandle: 'tlv.eats' } },
-    { t: 'stage', stage: 'extract', status: 'started' },
-  ];
-  if (scenario === 'no_places') {
-    return [
-      ...base,
-      { t: 'stage', stage: 'extract', status: 'done', fact: { candidateCount: 0 } },
-      {
-        t: 'done',
-        outcome: { kind: 'no_places', importId: 'demo' as never, source: DEMO_SOURCE },
-      },
-    ];
-  }
-  return [
-    ...base,
-    { t: 'stage', stage: 'extract', status: 'done', fact: { candidateCount: DEMO_CANDIDATES.length } },
-    { t: 'stage', stage: 'resolve', status: 'started' },
-    { t: 'candidate', index: 1, total: DEMO_CANDIDATES.length },
-    { t: 'candidate', index: 2, total: DEMO_CANDIDATES.length },
-    { t: 'candidate', index: 3, total: DEMO_CANDIDATES.length },
-    {
-      t: 'done',
-      outcome: {
-        kind: 'ready',
-        importId: 'demo' as never,
-        source: DEMO_SOURCE,
-        candidates: DEMO_CANDIDATES,
-        degraded: null,
-      },
-    },
-  ];
-}
-
-const DEMO_SOURCE = {
-  externalId: '7000000000000000000',
-  canonicalUrl: 'https://www.tiktok.com/@tlv.eats/video/7000000000000000000',
-  authorHandle: 'tlv.eats',
-  thumbnailUrl: null,
-};
-
-/** One `ImportEvent` folded into `RailState` — the reducer a real stream consumer reuses verbatim. */
-function applyEvent(rail: RailState, event: ImportEvent): RailState {
-  switch (event.t) {
-    case 'stage': {
-      const status: StageStatus = event.status === 'started' ? 'active' : 'done';
-      const next: RailState = { ...rail, [event.stage]: status };
-      if (event.status === 'done' && event.stage === 'source') {
-        const handle = event.fact.authorHandle;
-        return { ...next, sourceFact: handle ? `Read @${handle}'s TikTok` : 'Read the TikTok' };
-      }
-      if (event.status === 'done' && event.stage === 'extract') {
-        const n = event.fact.candidateCount;
-        return { ...next, extractFact: n === 0 ? 'No places named' : n === 1 ? '1 place found' : `${n} places found` };
-      }
-      return next;
-    }
-    case 'candidate':
-      return { ...rail, candidateProgress: { index: event.index, total: event.total } };
-    default:
-      return rail;
-  }
-}
-
-/* ------------------------------------------------------------------------------------------- *
  * Component
  * ------------------------------------------------------------------------------------------- */
 
@@ -283,8 +131,6 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
   const [screen, setScreen] = useState<Screen>({ kind: 'paste' });
   const [url, setUrl] = useState('');
   const [touched, setTouched] = useState(false);
-  const [script, setScript] = useState<readonly ImportEvent[] | null>(null);
-  const [scriptIndex, setScriptIndex] = useState(0);
   /** The caption-preview screen's own save-in-flight state (the real "Done" path, this task).
    *  Kept out of `Screen` itself: a save failure re-shows the *same* `caption_preview` screen with
    *  an inline error, never a screen transition — `Screen`'s union is about which layout renders,
@@ -310,8 +156,6 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
     setScreen({ kind: 'paste' });
     setUrl('');
     setTouched(false);
-    setScript(null);
-    setScriptIndex(0);
     setCaptionSave({ saving: false, error: null, partialNotice: null });
   }
 
@@ -379,43 +223,20 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
     }
   }
 
-  function stepDemo() {
-    if (!script) return;
-    const event = script[scriptIndex];
-    if (!event) return;
-    if (screen.kind !== 'rail') return;
-
-    if (event.t === 'done') {
-      if (event.outcome.kind === 'no_places') {
-        setScreen({ kind: 'no_places', authorHandle: event.outcome.source.authorHandle });
-      } else if (event.outcome.kind === 'ready') {
-        setScreen({
-          kind: 'results',
-          authorHandle: event.outcome.source.authorHandle,
-          candidates: event.outcome.candidates,
-        });
-      }
-      setScriptIndex((i) => i + 1);
-      return;
-    }
-
-    setScreen({ kind: 'rail', rail: applyEvent(screen.rail, event) });
-    setScriptIndex((i) => i + 1);
-  }
-
   /**
-   * The real save path (`POST /api/imports/confirm`, L0-F4-T3) wired onto the demo `ResultsScreen`'s
-   * "Save →" button. Only `status: 'resolved'` candidates have a single `ResolvedPlace` to confirm
+   * The real save path (`POST /api/imports/confirm`, L0-F4-T3) wired onto `ResultsScreen`'s
+   * "Save →" button — currently unreachable, see this file's header. Only `status: 'resolved'`
+   * candidates have a single `ResolvedPlace` to confirm
    * — `ambiguous` (pick one of several options) and `unresolved` (nothing to save) are not this
    * task's scope and are silently skipped here, matching `ConfirmImportRequestSchema`'s own
    * comment that a candidate with no single place never reaches this endpoint.
    *
-   * `sourceId: null`: this screen is still fed by `DEMO_CANDIDATES`/`scriptFor`'s scripted events,
-   * not a real `POST /api/imports` response, so there is no real `sources.id` row to link yet
-   * (`DEMO_SOURCE` carries no `id` at all). Passing `null` is the honest state of the data
-   * available here — `save_place` treats it as a manual save — rather than inventing a fake uuid
-   * that would fail the `sources` foreign key. Real provenance linking arrives with L0-F6-T1, when
-   * this screen's candidates come from an actual import.
+   * `sourceId: null`: this path (and the `results`/`no_places` screens it serves) predates the real
+   * streaming route and currently has no live caller in this file — there is no real `sources.id`
+   * row to link. Passing `null` is the honest state of the data available here — `save_place`
+   * treats it as a manual save — rather than inventing a fake uuid that would fail the `sources`
+   * foreign key. Real provenance linking arrives with L0-F6-T1, when this screen's candidates come
+   * from an actual import.
    */
   async function saveConfirmedCandidates(candidates: readonly Candidate[]) {
     const items = candidates
@@ -449,11 +270,11 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
         body: JSON.stringify({ sourceId: null, items }),
       });
     } catch {
-      // Best-effort for this demo-fed screen: no dedicated error UI exists here yet (the same
+      // Best-effort for this not-yet-live path: no dedicated error UI exists here yet (the same
       // minimal-fidelity gap `ProbeErrorScreen`'s header notes for the real flow). A failed save
-      // is not silently claimed as a success anywhere else in this file, but this dev-only script
-      // stepper has no "confirm failed" state to route into either — that is a follow-up, once
-      // this screen is fed by the real streaming route (L0-F6-T1) instead of `scriptFor`.
+      // is not silently claimed as a success anywhere else in this file, but there is no "confirm
+      // failed" state wired up here either — a follow-up, once this path is fed by the real
+      // streaming route (L0-F6-T1) instead of sitting unreachable.
     }
   }
 
@@ -476,7 +297,7 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
    * TikTok link was pasted and actually fetched, so even a zero-candidate ("no places found")
    * manual save still links back to that source. `null` stays reserved for a true no-source
    * manual entry, which this screen never produces (`saveConfirmedCandidates` above is the
-   * still-demo-fed path without a real source yet).
+   * currently-unreachable path without a real source yet).
    */
   async function saveExtractedCandidates(
     candidates: readonly PlaceCandidate[],
@@ -496,7 +317,7 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
       name: c.identifiedName ?? c.rawName,
       category: c.categoryHint,
       providerCategory: null,
-      addressLine: null,
+      addressLine: c.addressHint,
       locality: c.cityHint,
       countryCode: c.countryHint && /^[A-Z]{2}$/.test(c.countryHint) ? c.countryHint : null,
       // Guarded by the `withCoordinates` filter above — non-null by construction.
@@ -575,12 +396,6 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
   function continueAfterPartialSave() {
     backToMapWithFreshData();
     reset();
-  }
-
-  function jumpToNoPlaces() {
-    setScript(scriptFor('no_places'));
-    setScriptIndex(0);
-    setScreen({ kind: 'rail', rail: RAIL_IDLE });
   }
 
   return (
@@ -671,12 +486,7 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
         {screen.kind === 'redirect' && <RedirectScreen reason={screen.reason} url={url} onBack={reset} />}
 
         {screen.kind === 'rail' && (
-          <RailScreen
-            rail={screen.rail}
-            onCancel={reset}
-            devNext={stepDemo}
-            devHasNext={script !== null && scriptIndex < script.length}
-          />
+          <RailScreen rail={screen.rail} onCancel={reset} />
         )}
 
         {screen.kind === 'no_places' && (
@@ -710,10 +520,6 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
           <ProbeErrorScreen code={screen.code} retryable={screen.retryable} onRetry={reset} />
         )}
       </div>
-
-      {/* Dev-only demo control — temporary, not part of the shipped surface. Lets a reviewer walk
-          every state without a real backend. Remove once the streaming route lands (L0-F6-T1). */}
-      <DevControls screen={screen} onNoPlaces={jumpToNoPlaces} onReset={reset} />
     </main>
   );
 }
@@ -872,13 +678,9 @@ const STAGE_LABEL: Record<PipelineStage, string> = {
 function RailScreen({
   rail,
   onCancel,
-  devNext,
-  devHasNext,
 }: {
   rail: RailState;
   onCancel: () => void;
-  devNext: () => void;
-  devHasNext: boolean;
 }) {
   const stages: readonly PipelineStage[] = ['source', 'extract', 'resolve'];
 
@@ -910,17 +712,6 @@ function RailScreen({
       </ol>
 
       <div className="mt-auto flex flex-col gap-2 pt-10">
-        {/* Dev-only: steps the scripted demo event one at a time. Not shipped UI. */}
-        <Button
-          type="button"
-          variant="outline"
-          disabled={!devHasNext}
-          onClick={devNext}
-          className="h-11 w-full gap-1.5 rounded-lg text-sm font-bold"
-        >
-          <Wand2 className="size-4" aria-hidden />
-          Dev: next event
-        </Button>
         <Button type="button" variant="ghost" onClick={onCancel} className="h-11 w-full rounded-lg text-sm font-bold">
           Cancel
         </Button>
@@ -1376,36 +1167,6 @@ function ProbeErrorScreen({
         <Button type="button" onClick={onRetry} className="h-12 w-full rounded-lg text-base font-bold">
           Try another link
         </Button>
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------------------------------- *
- * Dev-only demo control — a state jump list so a reviewer can see every screen without stepping
- * through the whole rail. Clearly separated, easy to delete once the real stream lands.
- * ------------------------------------------------------------------------------------------- */
-
-function DevControls({
-  screen,
-  onNoPlaces,
-  onReset,
-}: {
-  screen: Screen;
-  onNoPlaces: () => void;
-  onReset: () => void;
-}) {
-  return (
-    <div className="fixed inset-x-0 bottom-0 z-50 flex items-center gap-2 border-t border-dashed border-amber-500/50 bg-amber-50/95 px-3 py-2 text-xs font-semibold text-amber-900 backdrop-blur">
-      <span className="rounded bg-amber-200 px-1.5 py-0.5 uppercase tracking-wide">dev</span>
-      <span className="truncate">screen: {screen.kind}</span>
-      <div className="ml-auto flex gap-1.5">
-        <button type="button" onClick={onNoPlaces} className="rounded border border-amber-500/50 px-2 py-1 hover:bg-amber-100">
-          jump: no places
-        </button>
-        <button type="button" onClick={onReset} className="rounded border border-amber-500/50 px-2 py-1 hover:bg-amber-100">
-          reset
-        </button>
       </div>
     </div>
   );

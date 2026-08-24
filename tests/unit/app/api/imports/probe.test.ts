@@ -30,7 +30,12 @@ vi.mock('@/app/_lib/supabase/server', () => ({
 }));
 
 vi.mock('@/integrations/supabase/service-role-client', () => ({
-  serviceRoleClient: () => ({}),
+  serviceRoleClient: () => ({
+    // `start_import` (0007, B7) — the route's pre-fetch call that makes save_place's `imports`
+    // provenance check pass for real. Fine to stub as a no-op success here: this suite covers
+    // the extraction branch only, not `start_import` itself.
+    rpc: async () => ({ data: null, error: null }),
+  }),
 }));
 
 vi.mock('@/integrations/tiktok/oembed-source-adapter', () => ({
@@ -38,6 +43,7 @@ vi.mock('@/integrations/tiktok/oembed-source-adapter', () => ({
     resolveShortLink: async () => ({ externalId: FAKE_RAW_SOURCE.externalId }),
     fetch: async () => FAKE_RAW_SOURCE,
   }),
+  canonicalUrlFor: (externalId: string) => `https://www.tiktok.com/@_/video/${externalId}`,
 }));
 
 const captionExtractMock = vi.fn(async () => [
@@ -74,6 +80,7 @@ describe('POST /api/imports/probe — extraction branch', () => {
       categoryHint: 'cafe',
       evidence: 'at Cafe Fiori',
       modelConfidence: 0.8,
+      addressHint: null,
       identifiedName: null,
       coordinates: null,
     };
@@ -95,6 +102,7 @@ describe('POST /api/imports/probe — extraction branch', () => {
       categoryHint: null,
       evidence: 'this text is not in the caption',
       modelConfidence: 0.9,
+      addressHint: null,
       identifiedName: null,
       coordinates: null,
     };

@@ -38,6 +38,12 @@ export const RawPlaceCandidateSchema = z.object({
   cityHint: z.string().max(80).nullable(),
   countryHint: z.string().max(80).nullable(),
   categoryHint: ExtractedCategoryHintSchema.nullable(),
+  /** A street address given verbatim in the caption — a number plus a street name, commonly (but
+   *  not always) sitting near a "📍" marker, and separate from `cityHint`/`countryHint` and from
+   *  `rawName`. `null` when the caption gives no address. Load-bearing for the Google Maps link:
+   *  captured explicitly so it generalizes across caption formats instead of riding along inside
+   *  `evidence` by incidental luck. */
+  addressHint: z.string().max(160).nullable(),
   evidence: z.string().max(240).nullable(),
   modelConfidence: z.number().min(0).max(1).nullable(),
   identifiedName: z.string().min(2).max(120).nullable(),
@@ -71,6 +77,7 @@ export function toPlaceCandidate(raw: RawPlaceCandidate): PlaceCandidate {
     cityHint: raw.cityHint,
     countryHint: raw.countryHint,
     categoryHint: categoryHintFor(raw.categoryHint as ExtractedCategoryHint | null),
+    addressHint: raw.addressHint,
     evidence: raw.evidence,
     modelConfidence: raw.modelConfidence,
     identifiedName: raw.identifiedName,

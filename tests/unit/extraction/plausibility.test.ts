@@ -11,6 +11,7 @@ function candidate(overrides: Partial<PlaceCandidate>): PlaceCandidate {
     categoryHint: null,
     evidence: null,
     modelConfidence: null,
+    addressHint: null,
     identifiedName: null,
     coordinates: null,
     ...overrides,

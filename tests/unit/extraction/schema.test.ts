@@ -13,6 +13,7 @@ describe('ExtractionResultSchema', () => {
           categoryHint: 'cafe',
           evidence: "haven't stopped thinking about Cafe Fiori",
           modelConfidence: 0.9,
+          addressHint: null,
           identifiedName: null,
           coordinates: null,
         },
@@ -35,6 +36,7 @@ describe('ExtractionResultSchema', () => {
       categoryHint: null,
       evidence: null,
       modelConfidence: null,
+      addressHint: null,
       identifiedName: null,
     }));
     const parsed = ExtractionResultSchema.safeParse({ candidates: many, cityHint: null });
@@ -51,6 +53,7 @@ describe('ExtractionResultSchema', () => {
           categoryHint: 'nightclub',
           evidence: null,
           modelConfidence: null,
+          addressHint: null,
           identifiedName: null,
         },
       ],
@@ -69,6 +72,7 @@ describe('ExtractionResultSchema', () => {
           categoryHint: 'cafe',
           evidence: 'Paradiso was so cute',
           modelConfidence: 0.8,
+          addressHint: null,
           identifiedName: 'Paradiso Matcha Bar',
           coordinates: { lat: 50.0755, lng: 14.4378 },
         },
@@ -105,6 +109,7 @@ describe('ExtractionResultSchema', () => {
           categoryHint: null,
           evidence: null,
           modelConfidence: null,
+          addressHint: null,
           identifiedName: null,
           coordinates: null,
         },
@@ -124,6 +129,7 @@ describe('ExtractionResultSchema', () => {
           categoryHint: null,
           evidence: null,
           modelConfidence: null,
+          addressHint: null,
           identifiedName: null,
           coordinates: { lat: 132, lng: 34.7654 },
         },
@@ -143,6 +149,7 @@ describe('ExtractionResultSchema', () => {
           categoryHint: null,
           evidence: null,
           modelConfidence: null,
+          addressHint: null,
           identifiedName: null,
         },
       ],
@@ -161,6 +168,7 @@ describe('ExtractionResultSchema', () => {
           categoryHint: null,
           evidence: null,
           modelConfidence: null,
+          addressHint: null,
           identifiedName: null,
         },
       ],
@@ -179,6 +187,7 @@ describe('toPlaceCandidate', () => {
       categoryHint: 'cafe',
       evidence: 'evidence text',
       modelConfidence: 0.7,
+      addressHint: null,
       identifiedName: null,
       coordinates: null,
     });
@@ -189,6 +198,7 @@ describe('toPlaceCandidate', () => {
       categoryHint: 'cafe',
       evidence: 'evidence text',
       modelConfidence: 0.7,
+      addressHint: null,
       identifiedName: null,
       coordinates: null,
     });
@@ -202,6 +212,7 @@ describe('toPlaceCandidate', () => {
       categoryHint: 'cafe',
       evidence: 'Paradiso was so cute',
       modelConfidence: 0.8,
+      addressHint: null,
       identifiedName: 'Paradiso Matcha Bar',
       coordinates: null,
     });
@@ -217,6 +228,7 @@ describe('toPlaceCandidate', () => {
       categoryHint: 'bakery',
       evidence: null,
       modelConfidence: null,
+      addressHint: null,
       identifiedName: null,
       coordinates: null,
     });
@@ -231,6 +243,7 @@ describe('toPlaceCandidate', () => {
       categoryHint: 'attraction',
       evidence: null,
       modelConfidence: null,
+      addressHint: null,
       identifiedName: null,
       coordinates: null,
     });

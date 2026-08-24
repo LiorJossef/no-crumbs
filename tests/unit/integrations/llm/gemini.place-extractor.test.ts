@@ -43,6 +43,7 @@ describe('geminiPlaceExtractor', () => {
             cityHint: null,
             countryHint: null,
             categoryHint: null,
+            addressHint: null,
             evidence: 'Cafe Fiori was great',
             modelConfidence: null,
             identifiedName: null,

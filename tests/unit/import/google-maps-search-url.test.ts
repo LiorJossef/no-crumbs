@@ -11,6 +11,7 @@ function candidate(overrides: Partial<PlaceCandidate> = {}): PlaceCandidate {
     categoryHint: null,
     evidence: null,
     modelConfidence: null,
+    addressHint: null,
     identifiedName: null,
     coordinates: null,
     ...overrides,
@@ -62,5 +63,55 @@ describe('googleMapsSearchUrl', () => {
     const query = decodeURIComponent(new URL(url).searchParams.get('query') ?? '');
 
     expect(query).toBe('Paradiso, Prague, Czech Republic');
+  });
+
+  it('prefers addressHint over categoryHint when both are present', () => {
+    const url = googleMapsSearchUrl(
+      candidate({ addressHint: '12 Rothschild Blvd', categoryHint: 'restaurant' }),
+    );
+    const query = decodeURIComponent(new URL(url).searchParams.get('query') ?? '');
+
+    // The bug this guards against: "Ragazzi, restaurant, Tel Aviv" can surface an unrelated
+    // same-named pizzeria also in Tel Aviv. The explicit street address is the stronger signal.
+    expect(query).toBe('Paradiso, 12 Rothschild Blvd, Prague');
+  });
+
+  it('falls back to categoryHint when addressHint is null', () => {
+    const url = googleMapsSearchUrl(candidate({ addressHint: null, categoryHint: 'cafe' }));
+    const query = decodeURIComponent(new URL(url).searchParams.get('query') ?? '');
+
+    expect(query).toBe('Paradiso, cafe, Prague');
+  });
+
+  it('falls back to categoryHint when addressHint is blank', () => {
+    const url = googleMapsSearchUrl(candidate({ addressHint: '   ', categoryHint: 'cafe' }));
+    const query = decodeURIComponent(new URL(url).searchParams.get('query') ?? '');
+
+    expect(query).toBe('Paradiso, cafe, Prague');
+  });
+
+  it('does not duplicate the city when addressHint already ends with it', () => {
+    // Regression: caption "📍חצר השוק 6, רעננה" produced addressHint "חצר השוק 6, רעננה" and
+    // cityHint "רעננה", which previously yielded "..., חצר השוק 6, רעננה, רעננה, ...".
+    const url = googleMapsSearchUrl(
+      candidate({
+        rawName: 'Deli Kazan',
+        addressHint: 'חצר השוק 6, רעננה',
+        cityHint: 'רעננה',
+        countryHint: 'ישראל',
+      }),
+    );
+    const query = decodeURIComponent(new URL(url).searchParams.get('query') ?? '');
+
+    expect(query).toBe('Deli Kazan, חצר השוק 6, רעננה, ישראל');
+  });
+
+  it('still appends cityHint when addressHint does not already contain it', () => {
+    const url = googleMapsSearchUrl(
+      candidate({ addressHint: '12 Rothschild Blvd', cityHint: 'Prague' }),
+    );
+    const query = decodeURIComponent(new URL(url).searchParams.get('query') ?? '');
+
+    expect(query).toBe('Paradiso, 12 Rothschild Blvd, Prague');
   });
 });

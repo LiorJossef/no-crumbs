@@ -289,13 +289,21 @@ export function PlaceDetail({
   const authorLabel = source?.authorHandle
     ? `@${source.authorHandle}`
     : source?.authorName ?? null;
-  // Name + coordinates, not coordinates alone: a bare lat/lng drops a pin with no label, but
-  // Google's search endpoint treats the whole `query` as free text, so leading with the name
-  // gives a labelled result while the trailing coordinates still anchor it to the right spot
-  // (disambiguating venues that share a name). No API key, no new dependency: `/maps/search/?api=1`
-  // is a documented URL, not an API call, and every `MapPlace` always carries `lat`/`lng`.
+  // Name + address + city, not coordinates: the model's/extraction's lat/lng is only a
+  // provisional pin position for our own map (never a resolution source, see
+  // `domain/places/google-maps-search-url.ts`'s header), so it is not trustworthy as the basis
+  // for sending a user to Google's own maps — a name+address text search resolves more reliably
+  // there and avoids collisions with an unrelated same-named venue elsewhere (or, worse, wherever
+  // the guessed coordinates happen to land). Falls back to name+lat/lng when this saved place has
+  // no stored address (a save made before addresses were captured, or a manual add with none
+  // given) — better than nothing, and the previous behavior for those rows.
+  const addressLine = place.detail?.addressLine;
+  const locality = place.detail?.locality;
+  const queryParts = addressLine
+    ? [place.name, addressLine, locality].filter((part): part is string => Boolean(part))
+    : [place.name, `${place.lat},${place.lng}`];
   const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-    `${place.name}, ${place.lat},${place.lng}`,
+    queryParts.join(', '),
   )}`;
 
   const isPopover = variant === 'popover';
