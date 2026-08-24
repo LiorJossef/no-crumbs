@@ -46,6 +46,7 @@ describe('geminiPlaceExtractor', () => {
             evidence: 'Cafe Fiori was great',
             modelConfidence: null,
             identifiedName: null,
+            coordinates: null,
           },
         ],
         cityHint: null,
@@ -61,7 +62,7 @@ describe('geminiPlaceExtractor', () => {
     expect(result.candidates).toHaveLength(1);
     expect(result.candidates[0]?.rawName).toBe('Cafe Fiori');
     expect(capturedUrl).toBe(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemma-4-26b-a4b-it:generateContent',
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent',
     );
     expect((capturedInit?.headers as Record<string, string>)?.['x-goog-api-key']).toBe('test-key');
     const body = JSON.parse(capturedInit?.body as string);
@@ -81,7 +82,7 @@ describe('geminiPlaceExtractor', () => {
     expect(result.candidates).toEqual([]);
   });
 
-  it('logs unmeasured cost — no published price sheet for hosted Gemma', async () => {
+  it('logs unmeasured cost — no published price sheet for the hosted model yet', async () => {
     const events: { name: string; fields: Record<string, unknown> }[] = [];
     const fetchImpl = async () =>
       generateContentResponse(
@@ -147,10 +148,10 @@ describe('geminiPlaceExtractor', () => {
     ).rejects.toMatchObject({ code: 'EXTRACTOR_INVALID_OUTPUT' });
   });
 
-  it('versions itself per hosted model, defaulting to the hosted Gemma model', () => {
+  it('versions itself per hosted model, defaulting to the hosted flash-lite model', () => {
     const extractor = geminiPlaceExtractor({ apiKey: 'test-key' });
-    expect(extractor.version).toBe('2026-08-gemini-gemma-4-26b-a4b-it');
-    expect(geminiExtractorVersion('gemma-4-26b-a4b-it')).toBe('2026-08-gemini-gemma-4-26b-a4b-it');
-    expect(geminiExtractorVersion('other-model')).not.toBe(geminiExtractorVersion('gemma-4-26b-a4b-it'));
+    expect(extractor.version).toBe('2026-08-gemini-gemini-3.5-flash-lite');
+    expect(geminiExtractorVersion('gemini-3.5-flash-lite')).toBe('2026-08-gemini-gemini-3.5-flash-lite');
+    expect(geminiExtractorVersion('other-model')).not.toBe(geminiExtractorVersion('gemini-3.5-flash-lite'));
   });
 });
