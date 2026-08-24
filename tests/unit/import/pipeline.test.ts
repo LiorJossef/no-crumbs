@@ -78,6 +78,7 @@ function makeQuietClock(): Clock {
 
 function rawSourceFixture(externalId: string, texts: RawSource['texts'] = [{ kind: 'caption', text: 'best ramen at afuri' }]): RawSource {
   return {
+    id: `source-${externalId}`,
     externalId,
     authorHandle: '@someone',
     authorName: 'Someone',

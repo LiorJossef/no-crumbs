@@ -5,6 +5,7 @@ import { captionContentExtractor } from '@/integrations/tiktok/caption-content-e
 
 function rawWith(caption: string | null): RawSource {
   return {
+    id: 'source-1',
     externalId: '1',
     authorHandle: 'x',
     authorName: 'X',

@@ -327,6 +327,10 @@ export interface MediaRef {
 /** What `SourceAdapter.fetch` returns: a post's raw material, before any `ContentExtractor` or
  *  `PlaceExtractor` has touched it (07 §10). */
 export interface RawSource {
+  /** `sources.id` — the row this raw material was cached to/from. Threaded through so a later
+   *  save (even one with zero resolved candidates) can still link the real source row instead of
+   *  silently discarding it as a `sourceId: null` manual save. */
+  readonly id: string;
   readonly externalId: string;
   readonly authorHandle: string | null;
   readonly authorName: string | null;

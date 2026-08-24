@@ -69,6 +69,7 @@ async function readCachedRow(db: SupabaseClient, externalId: string): Promise<So
 
 function rowToRawSource(row: SourceRow): RawSource {
   return {
+    id: row.id,
     externalId: row.platform_source_id,
     authorHandle: row.author_handle,
     authorName: row.author_name,
@@ -117,20 +118,36 @@ async function writeFailure(db: SupabaseClient, externalId: string, code: string
     .neq('fetch_status', 'ok');
 }
 
-async function ensurePendingRow(db: SupabaseClient, externalId: string): Promise<void> {
+async function ensurePendingRow(db: SupabaseClient, externalId: string): Promise<string> {
   // `start_import()` (0007) already inserts this row before `runImport` is ever called (R4). This
   // upsert exists only so the adapter is safe to exercise standalone (tests, the probe route,
   // future callers) without depending on that RPC having run first — `on conflict do nothing`
   // means it is a true no-op on the real pipeline's path.
+  //
+  // `ignoreDuplicates: true` makes this an `ON CONFLICT DO NOTHING`, which never `RETURNING`s an
+  // already-existing row — so the id always needs a follow-up read regardless of whether this
+  // upsert inserted a fresh row or a real one already existed.
   await db
     .from('sources')
     .upsert(
       { platform: 'tiktok', platform_source_id: externalId, canonical_url: canonicalUrlFor(externalId) },
       { onConflict: 'platform,platform_source_id', ignoreDuplicates: true },
     );
+
+  const { data, error } = await db
+    .from('sources')
+    .select('id')
+    .eq('platform', 'tiktok')
+    .eq('platform_source_id', externalId)
+    .single();
+
+  if (error || data === null) {
+    throw internal(`sources row missing for ${externalId} immediately after upsert`, error);
+  }
+  return (data as { id: string }).id;
 }
 
-async function fetchLive(externalId: string, ctx: OpCtx): Promise<RawSource> {
+async function fetchLive(id: string, externalId: string, ctx: OpCtx): Promise<RawSource> {
   const url = `${OEMBED_ENDPOINT}?url=${encodeURIComponent(canonicalUrlFor(externalId))}`;
 
   let response: Response;
@@ -169,6 +186,7 @@ async function fetchLive(externalId: string, ctx: OpCtx): Promise<RawSource> {
 
   const payload = parsed.data;
   return {
+    id,
     externalId: payload.embed_product_id,
     authorHandle: payload.author_unique_id,
     authorName: payload.author_name,
@@ -210,10 +228,10 @@ export function oembedSourceAdapter(db: SupabaseClient): SourceAdapter {
         return rowToRawSource(cached);
       }
 
-      await ensurePendingRow(db, externalId);
+      const id = await ensurePendingRow(db, externalId);
 
       try {
-        const raw = await fetchLive(externalId, ctx);
+        const raw = await fetchLive(id, externalId, ctx);
         await writeSuccess(db, externalId, raw);
         return raw;
       } catch (e) {
