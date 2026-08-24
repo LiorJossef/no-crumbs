@@ -72,6 +72,7 @@ export default function SignInPage() {
   const [mode, setMode] = useState<Mode>('sign-in');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -82,7 +83,9 @@ export default function SignInPage() {
     setPending(true);
     setMessage(null);
 
-    const supabase = createClient();
+    // "Remember me" only makes sense for sign-in (a fresh signUp always starts a new session);
+    // the browser client's cookie lifetime is fixed at construction time, hence passing it here.
+    const supabase = createClient({ rememberMe: isSignUp ? true : rememberMe });
     const { error } = isSignUp
       ? await supabase.auth.signUp({ email, password })
       : await supabase.auth.signInWithPassword({ email, password });
@@ -193,6 +196,29 @@ export default function SignInPage() {
                   className="h-12 rounded-lg border-border bg-card px-4 text-sm font-medium text-foreground placeholder:font-normal placeholder:text-muted-foreground/55 lg:h-13 lg:px-4.5 lg:text-[15px]"
                 />
               </div>
+
+              {!isSignUp && (
+                <label className="flex items-start gap-2 text-sm font-medium text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="mt-0.5 size-4 shrink-0 rounded border-border accent-[var(--mint-700)]"
+                  />
+                  <span>
+                    Remember me
+                    {!rememberMe && (
+                      <>
+                        {' '}
+                        <span className="text-xs font-normal text-muted-foreground/80">
+                          (signed out when you close your browser — unless it restores your last
+                          session)
+                        </span>
+                      </>
+                    )}
+                  </span>
+                </label>
+              )}
 
               <AnimatePresence mode="wait" initial={false}>
                 {message && (
