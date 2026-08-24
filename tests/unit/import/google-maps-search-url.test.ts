@@ -12,6 +12,7 @@ function candidate(overrides: Partial<PlaceCandidate> = {}): PlaceCandidate {
     evidence: null,
     modelConfidence: null,
     identifiedName: null,
+    coordinates: null,
     ...overrides,
   };
 }

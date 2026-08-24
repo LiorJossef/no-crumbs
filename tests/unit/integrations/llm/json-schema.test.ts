@@ -11,7 +11,16 @@ describe('EXTRACTION_JSON_SCHEMA vs ExtractionResultSchema', () => {
   it('every field EXTRACTION_JSON_SCHEMA requires is also required by the Zod schema', () => {
     const candidateProps = Object.keys(EXTRACTION_JSON_SCHEMA.properties.candidates.items.properties);
     expect(candidateProps.sort()).toEqual(
-      ['rawName', 'cityHint', 'countryHint', 'categoryHint', 'evidence', 'modelConfidence', 'identifiedName'].sort(),
+      [
+        'rawName',
+        'cityHint',
+        'countryHint',
+        'categoryHint',
+        'evidence',
+        'modelConfidence',
+        'identifiedName',
+        'coordinates',
+      ].sort(),
     );
   });
 
@@ -26,6 +35,7 @@ describe('EXTRACTION_JSON_SCHEMA vs ExtractionResultSchema', () => {
           evidence: 'evidence text',
           modelConfidence: 0.5,
           identifiedName: null,
+          coordinates: { lat: 32.0596, lng: 34.7654 },
         },
       ],
       cityHint: 'Tel Aviv',

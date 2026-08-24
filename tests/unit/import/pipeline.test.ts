@@ -104,6 +104,7 @@ const oneCandidate: PlaceCandidate = {
   evidence: 'best ramen at afuri',
   modelConfidence: 0.9,
   identifiedName: null,
+  coordinates: null,
 };
 
 function resolvedPlaceFixture(providerPlaceId: string): ResolvedPlace {

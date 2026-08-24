@@ -26,6 +26,13 @@ export const ExtractedCategoryHintSchema = z.enum(EXTRACTED_CATEGORY_HINTS);
  *  `evidence` a caption fragment so a fabrication is a substring check, not a judgement call.
  *  `identifiedName` is the one exception to the verbatim discipline (`06` §3.4): the model's own
  *  real-world guess at the full venue, nullable when it has none beyond the raw fragment. */
+export const CoordinatesSchema = z.object({
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+});
+
+export type Coordinates = z.infer<typeof CoordinatesSchema>;
+
 export const RawPlaceCandidateSchema = z.object({
   rawName: z.string().min(2).max(120),
   cityHint: z.string().max(80).nullable(),
@@ -34,6 +41,12 @@ export const RawPlaceCandidateSchema = z.object({
   evidence: z.string().max(240).nullable(),
   modelConfidence: z.number().min(0).max(1).nullable(),
   identifiedName: z.string().min(2).max(120).nullable(),
+  /** The model's own best-guess coordinates for `identifiedName`/`rawName`, inferred from
+   *  whatever context the caption gives (name, address, city/neighbourhood, business type) — not
+   *  a database lookup. `null` when the model has no real basis for a guess; never a fabrication
+   *  forced just to fill the field. Unresolved, unvalidated pending human confirmation, exactly
+   *  like `identifiedName` (`06` §3.4). */
+  coordinates: CoordinatesSchema.nullable(),
 });
 
 export type RawPlaceCandidate = z.infer<typeof RawPlaceCandidateSchema>;
@@ -61,5 +74,6 @@ export function toPlaceCandidate(raw: RawPlaceCandidate): PlaceCandidate {
     evidence: raw.evidence,
     modelConfidence: raw.modelConfidence,
     identifiedName: raw.identifiedName,
+    coordinates: raw.coordinates,
   };
 }

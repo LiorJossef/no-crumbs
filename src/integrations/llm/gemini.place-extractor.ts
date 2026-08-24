@@ -1,5 +1,5 @@
 /**
- * The hosted-Gemma `PlaceExtractor` (`09` §2, `domain/ports.ts`) — Google's Gemini API
+ * The hosted-Gemini `PlaceExtractor` (`09` §2, `domain/ports.ts`) — Google's Gemini API
  * `generateContent` endpoint over plain `fetch`, no `@google/genai` SDK dependency, mirroring
  * `anthropic.place-extractor.ts`'s "vendor surface is one HTTP call and one response shape, both
  * private to this file" shape (`07` §10). This is the dev-facing hosted adapter, config-selected
@@ -13,6 +13,17 @@
  *
  * No tools, no function calling, no network access initiated by the model — the caption can at
  * worst produce a response that fails `ExtractionResultSchema` (charter R10, `09` §6).
+ *
+ * Model default is `gemini-3.5-flash-lite`, not a Gemma variant. `gemma-4-26b-a4b-it` was tried
+ * first (free/unmeasured tier) but live-tested against real venues (Pate & Puff/Herzliya,
+ * Container/Jaffa, the Western Wall) it produced a specific, repeatable failure on the
+ * `coordinates` field: latitude consistently correct, longitude wrong by 15-40°, landing in Iran,
+ * India or Egypt instead of Israel — reproduced with the full extraction prompt, an
+ * instructions-hardened version of it (explicit "verify against cityHint/countryHint before
+ * returning, else return null"), and even a bare single-fact prompt asking only for that one
+ * venue's coordinates. Same failure every form, never a `null`, so it is a genuine gap in the
+ * small model's geographic recall, not something prompt wording can fix. `gemini-3.5-flash-lite`
+ * on the exact same prompt/schema got every one of those venues right, repeatably.
  */
 import { extractorInvalidOutput, extractorUnavailable } from '@/domain/errors';
 import { filterPlausible } from '@/domain/extraction/plausibility';
@@ -34,15 +45,14 @@ const GEMINI_ENDPOINT_BASE = 'https://generativelanguage.googleapis.com/v1beta/m
  * pure structural conversion applied at call time so the shared schema stays untouched for the
  * adapters that already work against it.
  *
- * Also caps `candidates`'s `maxItems`: live-tested against `gemma-4-26b-a4b-it`, a
- * `responseSchema` with this item shape (7 properties) starts returning HTTP 400
- * ("Request contains an invalid argument") once `maxItems` reaches 8 — a schema-complexity
- * ceiling on this hosted model, not anything wrong with the shape itself (7 items with the same
- * schema, or 12 items with fewer properties, both succeed). `GEMINI_MAX_CANDIDATES` below caps at
- * 7, the top of the "3–7 places in one post" range this product already designs for (`01`), so the
- * cap costs nothing in practice while keeping the request inside what this model accepts.
+ * Also caps `candidates`'s `maxItems`. The `gemma-4-26b-a4b-it` model this adapter previously
+ * defaulted to had a real schema-complexity ceiling here (see this file's header) — the full
+ * 8-property item shape needed `maxItems` capped at 5 or it 400'd. `gemini-3.5-flash-lite`
+ * live-tested clean at `maxItems = 12` (the shared schema's own cap) with the same item shape, so
+ * `GEMINI_MAX_CANDIDATES` is the shared schema's own ceiling, not a narrower model-specific one.
+ * Re-verify against the real endpoint if the default model changes again.
  */
-const GEMINI_MAX_CANDIDATES = 7;
+const GEMINI_MAX_CANDIDATES = 12;
 
 function toGeminiSchema(node: unknown): unknown {
   if (Array.isArray(node)) {
@@ -79,11 +89,11 @@ function toGeminiSchema(node: unknown): unknown {
   return converted;
 }
 
-/** Google has not published per-token pricing for hosted Gemma models as of this writing — unlike
- *  `ANTHROPIC_HAIKU_4_5_PRICE_PER_1M`, this is `undefined` until a real price sheet is found, so
- *  cost is logged as `costModel: 'unmeasured'` rather than a guessed number (charter: "report
- *  actual cost, not an assumption"). */
-const GEMINI_GEMMA_PRICE_PER_1M: { input: number; output: number } | undefined = undefined;
+/** No verified per-token price for `gemini-3.5-flash-lite` is on record in this codebase yet —
+ *  unlike `ANTHROPIC_HAIKU_4_5_PRICE_PER_1M`, this is `undefined` until one is found and confirmed
+ *  against Google's published pricing, so cost is logged as `costModel: 'unmeasured'` rather than
+ *  a guessed number (charter: "report actual cost, not an assumption"). */
+const GEMINI_FLASH_LITE_PRICE_PER_1M: { input: number; output: number } | undefined = undefined;
 
 /** `09` §2.4: `version` names the model, `promptVersion` names the prompt — both are cache keys
  *  on `extractions` (`08` §3.4). Bump either when the model or the prompt text changes. */
@@ -114,7 +124,7 @@ export function geminiPlaceExtractor(config: {
   readonly model?: string;
   readonly fetchImpl?: typeof fetch;
 }): PlaceExtractor {
-  const model = config.model ?? 'gemma-4-26b-a4b-it';
+  const model = config.model ?? 'gemini-3.5-flash-lite';
   const doFetch = config.fetchImpl ?? fetch;
   const version = geminiExtractorVersion(model);
   const geminiSchema = toGeminiSchema(EXTRACTION_JSON_SCHEMA);
@@ -189,8 +199,8 @@ export function geminiPlaceExtractor(config: {
         promptVersion: PROMPT_VERSION,
         inputTokens: usage.inputTokens,
         outputTokens: usage.outputTokens,
-        costUsd: GEMINI_GEMMA_PRICE_PER_1M === undefined ? 0 : costUsd(usage, GEMINI_GEMMA_PRICE_PER_1M),
-        costModel: GEMINI_GEMMA_PRICE_PER_1M === undefined ? 'unmeasured' : 'measured',
+        costUsd: GEMINI_FLASH_LITE_PRICE_PER_1M === undefined ? 0 : costUsd(usage, GEMINI_FLASH_LITE_PRICE_PER_1M),
+        costModel: GEMINI_FLASH_LITE_PRICE_PER_1M === undefined ? 'unmeasured' : 'measured',
         elapsedMs,
       });
 

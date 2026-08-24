@@ -14,6 +14,7 @@ describe('ExtractionResultSchema', () => {
           evidence: "haven't stopped thinking about Cafe Fiori",
           modelConfidence: 0.9,
           identifiedName: null,
+          coordinates: null,
         },
       ],
       cityHint: 'Tel Aviv',
@@ -69,6 +70,7 @@ describe('ExtractionResultSchema', () => {
           evidence: 'Paradiso was so cute',
           modelConfidence: 0.8,
           identifiedName: 'Paradiso Matcha Bar',
+          coordinates: { lat: 50.0755, lng: 14.4378 },
         },
       ],
       cityHint: 'Prague',
@@ -86,6 +88,62 @@ describe('ExtractionResultSchema', () => {
           categoryHint: null,
           evidence: null,
           modelConfidence: null,
+        },
+      ],
+      cityHint: null,
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it('accepts null coordinates — the honest "no basis for a guess" case', () => {
+    const parsed = ExtractionResultSchema.safeParse({
+      candidates: [
+        {
+          rawName: 'Cafe Fiori',
+          cityHint: null,
+          countryHint: null,
+          categoryHint: null,
+          evidence: null,
+          modelConfidence: null,
+          identifiedName: null,
+          coordinates: null,
+        },
+      ],
+      cityHint: null,
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it('rejects an out-of-range latitude', () => {
+    const parsed = ExtractionResultSchema.safeParse({
+      candidates: [
+        {
+          rawName: 'Cafe Fiori',
+          cityHint: null,
+          countryHint: null,
+          categoryHint: null,
+          evidence: null,
+          modelConfidence: null,
+          identifiedName: null,
+          coordinates: { lat: 132, lng: 34.7654 },
+        },
+      ],
+      cityHint: null,
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it('requires coordinates to be present, even when null — no optional properties', () => {
+    const parsed = ExtractionResultSchema.safeParse({
+      candidates: [
+        {
+          rawName: 'Cafe Fiori',
+          cityHint: null,
+          countryHint: null,
+          categoryHint: null,
+          evidence: null,
+          modelConfidence: null,
+          identifiedName: null,
         },
       ],
       cityHint: null,
@@ -122,6 +180,7 @@ describe('toPlaceCandidate', () => {
       evidence: 'evidence text',
       modelConfidence: 0.7,
       identifiedName: null,
+      coordinates: null,
     });
     expect(candidate).toEqual({
       rawName: 'Cafe Fiori',
@@ -131,6 +190,7 @@ describe('toPlaceCandidate', () => {
       evidence: 'evidence text',
       modelConfidence: 0.7,
       identifiedName: null,
+      coordinates: null,
     });
   });
 
@@ -143,6 +203,7 @@ describe('toPlaceCandidate', () => {
       evidence: 'Paradiso was so cute',
       modelConfidence: 0.8,
       identifiedName: 'Paradiso Matcha Bar',
+      coordinates: null,
     });
     expect(candidate.identifiedName).toBe('Paradiso Matcha Bar');
     expect(candidate.rawName).toBe('Paradiso');
@@ -157,6 +218,7 @@ describe('toPlaceCandidate', () => {
       evidence: null,
       modelConfidence: null,
       identifiedName: null,
+      coordinates: null,
     });
     expect(candidate.categoryHint).toBe('cafe');
   });
@@ -170,6 +232,7 @@ describe('toPlaceCandidate', () => {
       evidence: null,
       modelConfidence: null,
       identifiedName: null,
+      coordinates: null,
     });
     expect(candidate.categoryHint).toBeNull();
   });
