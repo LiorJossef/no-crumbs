@@ -56,8 +56,16 @@ export interface LatLng {
  * `'overture'`, not `06` §8's `'overture-local'`: `place_provider_refs.provider` is
  * `check (provider ~ '^[a-z][a-z0-9_]{1,31}$')` (migration 0005), which forbids the hyphen. The
  * documented spelling could not have been inserted.
+ *
+ * `'llm_guess'` (underscore, per that same CHECK): the confirm/save seam's fallback provenance for
+ * a candidate saved straight off `PlaceCandidate.coordinates` — the model's own best-guess point —
+ * with no `PlaceResolver` match behind it at all (the caption-preview screen, L0-F4-T3 follow-up,
+ * 2026-08-23). Never returned by `PlaceResolver` itself; this is the confirm route's own
+ * provenance mark for a save that skipped resolution entirely, kept in the same closed union so a
+ * `ResolvedPlace`/`ConfirmItem`'s `provider` field can never silently drift out of sync with what
+ * `resolve_place` actually accepts.
  */
-export type PlaceProvider = 'overture' | 'nominatim';
+export type PlaceProvider = 'overture' | 'nominatim' | 'llm_guess';
 
 /**
  * Which dataset the row's *data* came from — the licensing/attribution mark, written to
@@ -67,8 +75,14 @@ export type PlaceProvider = 'overture' | 'nominatim';
  * `'osm-nominatim'` is named here so MS7's Nominatim adapter does not invent a second spelling.
  * Note that `places.source_dataset` carries no CHECK today: this union is the only thing keeping
  * the vocabulary closed, and it is a TypeScript-only guarantee.
+ *
+ * `'llm-guess'` pairs with `PlaceProvider`'s `'llm_guess'` above: an LLM-guessed coordinate is not
+ * data from either open dataset, so it gets its own honest mark rather than borrowing one of the
+ * two real providers' licensing labels. `poi_index`'s CHECK (migration 0010, `06` §11 Q2) still
+ * only ever admits `'overture-places'` — that constraint is about what may be *cached for
+ * resolving*, not what `places.source_dataset` may record, so this addition does not touch it.
  */
-export type SourceDataset = 'overture-places' | 'osm-nominatim';
+export type SourceDataset = 'overture-places' | 'osm-nominatim' | 'llm-guess';
 
 /* ------------------------------------------------------------------------------------------- *
  * Resolution input

@@ -20,6 +20,7 @@
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   ArrowUpRight,
   Check,
@@ -38,6 +39,8 @@ import { cn } from '@/lib/utils';
 import { canonicaliseTikTokUrl } from '@/domain/source/canonicalise-tiktok-url';
 import type { ImportEvent, PipelineStage } from '@/domain/import/events';
 import { googleMapsSearchUrl } from '@/domain/places/google-maps-search-url';
+import { llmGuessProviderPlaceId } from '@/domain/import/llm-guess-place-id';
+import { decideCaptionSaveOutcome } from '@/domain/import/caption-save-outcome';
 import type { Candidate, PlaceCandidate } from '@/domain/types';
 
 /* ------------------------------------------------------------------------------------------- *
@@ -120,6 +123,7 @@ const DEMO_CANDIDATES: readonly Candidate[] = [
       evidence: 'grab the sourdough at anat bakery',
       modelConfidence: 0.81,
       identifiedName: null,
+      coordinates: null,
     },
     resolution: {
       status: 'resolved',
@@ -150,6 +154,7 @@ const DEMO_CANDIDATES: readonly Candidate[] = [
       evidence: 'ended the night at container',
       modelConfidence: 0.64,
       identifiedName: null,
+      coordinates: null,
     },
     resolution: {
       status: 'ambiguous',
@@ -180,6 +185,7 @@ const DEMO_CANDIDATES: readonly Candidate[] = [
       evidence: 'a little place near the port, no name mentioned',
       modelConfidence: 0.3,
       identifiedName: null,
+      coordinates: null,
     },
     resolution: { status: 'unresolved', reason: 'no_match' },
   },
@@ -270,11 +276,28 @@ export interface ImportPageClientProps {
 }
 
 export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
+  const router = useRouter();
   const [screen, setScreen] = useState<Screen>({ kind: 'paste' });
   const [url, setUrl] = useState('');
   const [touched, setTouched] = useState(false);
   const [script, setScript] = useState<readonly ImportEvent[] | null>(null);
   const [scriptIndex, setScriptIndex] = useState(0);
+  /** The caption-preview screen's own save-in-flight state (the real "Done" path, this task).
+   *  Kept out of `Screen` itself: a save failure re-shows the *same* `caption_preview` screen with
+   *  an inline error, never a screen transition — `Screen`'s union is about which layout renders,
+   *  not this one screen's transient network state. */
+  const [captionSave, setCaptionSave] = useState<{
+    readonly saving: boolean;
+    readonly error: string | null;
+    /** Set only for `partial_failure` (some candidates saved, some didn't) — the screen stays put
+     *  with this notice and an explicit "Continue to map" action rather than auto-navigating, so
+     *  the which/how-many-failed message is never lost to an immediate unmount. */
+    readonly partialNotice: string | null;
+  }>({
+    saving: false,
+    error: null,
+    partialNotice: null,
+  });
 
   const validation = useMemo(() => canonicaliseTikTokUrl(url), [url]);
   const showInvalid = touched && url.trim().length > 0 && !validation.ok;
@@ -286,6 +309,7 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
     setTouched(false);
     setScript(null);
     setScriptIndex(0);
+    setCaptionSave({ saving: false, error: null, partialNotice: null });
   }
 
   async function submit() {
@@ -430,6 +454,119 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
     }
   }
 
+  /**
+   * The real caption-preview screen's "Done" save (this task, L0-F4-T3 follow-up). Unlike
+   * `saveConfirmedCandidates` above, these `PlaceCandidate`s never went through `PlaceResolver` —
+   * `/api/imports/probe` stops after extraction (this file's header) — so there is no
+   * `CandidateResolution`/`ResolvedPlace` to confirm. The only coordinate available here is the
+   * model's own best guess, `PlaceCandidate.coordinates` (`domain/types.ts`'s doc comment on that
+   * field): used as-is, marked with the `llm_guess`/`llm-guess` provenance pair so it is never
+   * confused with a real Overture/Nominatim match, and never silently dropped — a candidate with
+   * no coordinates at all is not sent to `save_place` (which requires a `lat`/`lng`), and is
+   * counted as `skipped` rather than pretended-saved.
+   *
+   * `resolutionScore: null`: `places.resolution_score` free-text-documents a genuine
+   * `PlaceResolver` score (`ports.ts`); a save with no resolution at all leaves it unset rather
+   * than inventing a number that would misread as resolver confidence later.
+   */
+  async function saveExtractedCandidates(
+    candidates: readonly PlaceCandidate[],
+  ): Promise<{ readonly saved: number; readonly skipped: number; readonly failed: number }> {
+    const withCoordinates = candidates.filter((c) => c.coordinates !== null);
+    const skipped = candidates.length - withCoordinates.length;
+
+    if (withCoordinates.length === 0) {
+      return { saved: 0, skipped, failed: 0 };
+    }
+
+    const items = withCoordinates.map((c) => ({
+      provider: 'llm_guess' as const,
+      providerPlaceId: llmGuessProviderPlaceId(c),
+      sourceDataset: 'llm-guess' as const,
+      name: c.identifiedName ?? c.rawName,
+      category: c.categoryHint,
+      providerCategory: null,
+      addressLine: null,
+      locality: c.cityHint,
+      countryCode: c.countryHint && /^[A-Z]{2}$/.test(c.countryHint) ? c.countryHint : null,
+      // Guarded by the `withCoordinates` filter above — non-null by construction.
+      lat: c.coordinates!.lat,
+      lng: c.coordinates!.lng,
+      resolutionScore: null,
+      note: null,
+    }));
+
+    const res = await fetch('/api/imports/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sourceId: null, items }),
+    });
+
+    if (!res.ok) {
+      return { saved: 0, skipped, failed: items.length };
+    }
+
+    const body = (await res.json()) as { results: readonly { status: 'saved' | 'failed' }[] };
+    const failed = body.results.filter((r) => r.status === 'failed').length;
+    return { saved: body.results.length - failed, skipped, failed };
+  }
+
+  /** After a successful (or nothing-to-save) "Done": land on/near the map with the save visible.
+   *  `router.refresh()` re-runs `MapPage`'s server component and its `getSpots()` query — the
+   *  overlay case (`onClose` set) is already mounted on `/map`, so refreshing *is* how the newly
+   *  saved place reaches `MapPageClient`'s props; the standalone `/import` route case additionally
+   *  needs the navigation itself. Doing both, in both cases, is cheap and avoids depending on
+   *  which one this render happens to be. */
+  function backToMapWithFreshData() {
+    if (onClose) {
+      router.refresh();
+      onClose();
+    } else {
+      router.push('/map');
+      router.refresh();
+    }
+  }
+
+  /**
+   * `decideCaptionSaveOutcome` (`domain/import/caption-save-outcome.ts`) turns the raw
+   * `{ saved, skipped, failed }` counts into exactly one disposition — see that module's header
+   * for why all four cases exist and what each one covers. `partial_failure` deliberately does
+   * *not* navigate here: some of the save is real, persisted data, and the failed count would be
+   * lost the instant this screen unmounts, so it stays put with `continueAfterPartialSave` as the
+   * explicit next step, mirroring the same on-screen-with-a-message pattern `hard_failure` (and,
+   * before this fix, only `hard_failure`) already used.
+   */
+  async function finishCaptionPreview(candidates: readonly PlaceCandidate[]) {
+    setCaptionSave({ saving: true, error: null, partialNotice: null });
+    try {
+      const result = await saveExtractedCandidates(candidates);
+      const outcome = decideCaptionSaveOutcome(result);
+      switch (outcome.kind) {
+        case 'proceed':
+          backToMapWithFreshData();
+          reset();
+          return;
+        case 'skip_only':
+        case 'hard_failure':
+          setCaptionSave({ saving: false, error: outcome.message, partialNotice: null });
+          return;
+        case 'partial_failure':
+          setCaptionSave({ saving: false, error: null, partialNotice: outcome.message });
+          return;
+      }
+    } catch {
+      setCaptionSave({ saving: false, error: "Couldn't save that place — try again.", partialNotice: null });
+    }
+  }
+
+  /** The explicit "Continue to map" action shown only after a `partial_failure` — the successful
+   *  saves are real, so this proceeds exactly like a clean success once the user has seen the
+   *  which/how-many-failed message. */
+  function continueAfterPartialSave() {
+    backToMapWithFreshData();
+    reset();
+  }
+
   function jumpToNoPlaces() {
     setScript(scriptFor('no_places'));
     setScriptIndex(0);
@@ -548,7 +685,16 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
           />
         )}
 
-        {screen.kind === 'caption_preview' && <CaptionPreviewScreen probe={screen.probe} onDone={reset} />}
+        {screen.kind === 'caption_preview' && (
+          <CaptionPreviewScreen
+            probe={screen.probe}
+            saving={captionSave.saving}
+            error={captionSave.error}
+            partialNotice={captionSave.partialNotice}
+            onDone={() => finishCaptionPreview(screen.probe.candidates)}
+            onContinue={continueAfterPartialSave}
+          />
+        )}
 
         {screen.kind === 'probe_error' && (
           <ProbeErrorScreen code={screen.code} retryable={screen.retryable} onRetry={reset} />
@@ -997,7 +1143,24 @@ function CandidateRow({ candidate }: { candidate: Candidate }) {
  * by hand against Google Maps.
  * ------------------------------------------------------------------------------------------- */
 
-function CaptionPreviewScreen({ probe, onDone }: { probe: ProbeSuccess; onDone: () => void }) {
+function CaptionPreviewScreen({
+  probe,
+  saving,
+  error,
+  partialNotice,
+  onDone,
+  onContinue,
+}: {
+  probe: ProbeSuccess;
+  saving: boolean;
+  error: string | null;
+  /** Set only for a `partial_failure` save outcome — some candidates saved, some didn't. Swaps
+   *  the primary action from "Done" (retry the save) to "Continue to map" (the saved ones are
+   *  real; there is nothing left to retry here). */
+  partialNotice: string | null;
+  onDone: () => void;
+  onContinue: () => void;
+}) {
   const n = probe.candidates.length;
 
   return (
@@ -1066,9 +1229,35 @@ function CaptionPreviewScreen({ probe, onDone }: { probe: ProbeSuccess; onDone: 
       </div>
 
       <div className="flex flex-col gap-2 pt-4">
-        <Button type="button" onClick={onDone} className="h-12 w-full rounded-lg text-base font-bold">
-          Done
-        </Button>
+        {error && (
+          <p role="alert" className="text-center text-sm font-semibold text-destructive">
+            {error}
+          </p>
+        )}
+        {partialNotice && (
+          <p role="status" className="text-center text-sm font-semibold text-[var(--mint-700)]">
+            {partialNotice}
+          </p>
+        )}
+        {partialNotice ? (
+          <Button
+            type="button"
+            onClick={onContinue}
+            className="h-12 w-full gap-1.5 rounded-lg text-base font-bold"
+          >
+            Continue to map →
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            onClick={onDone}
+            disabled={saving}
+            className="h-12 w-full gap-1.5 rounded-lg text-base font-bold"
+          >
+            {saving && <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />}
+            {saving ? 'Saving…' : 'Done'}
+          </Button>
+        )}
       </div>
     </div>
   );

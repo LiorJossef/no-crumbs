@@ -21,9 +21,11 @@ import { z } from 'zod';
  *  an `ambiguous` or `unresolved` candidate has no single place to confirm, so it never reaches
  *  this endpoint at all — the client filters before it ever serialises a request body. */
 const ConfirmItemSchema = z.object({
-  provider: z.enum(['overture', 'nominatim']),
+  // `'llm_guess'`/`'llm-guess'`: the caption-preview screen's fallback save, no `PlaceResolver`
+  // match — see `domain/types.ts`'s `PlaceProvider`/`SourceDataset` doc comments.
+  provider: z.enum(['overture', 'nominatim', 'llm_guess']),
   providerPlaceId: z.string().min(1).max(200),
-  sourceDataset: z.enum(['overture-places', 'osm-nominatim']),
+  sourceDataset: z.enum(['overture-places', 'osm-nominatim', 'llm-guess']),
   name: z.string().min(1).max(200),
   /** The seven-value extraction vocabulary (`places/category-hint.ts`'s `ExtractedCategoryHint`)
    *  — this task's scope ruling, constraint 2. `null` when extraction carried no category hint. */
