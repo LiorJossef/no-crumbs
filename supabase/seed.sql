@@ -20,6 +20,7 @@
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password,
   email_confirmed_at, confirmation_token, recovery_token,
+  email_change, email_change_token_new,
   raw_app_meta_data, raw_user_meta_data,
   created_at, updated_at
 ) values (
@@ -29,6 +30,10 @@ insert into auth.users (
   'demo@example.com',
   crypt('local-dev-preview-1234', gen_salt('bf')),
   now(), '', '',
+  -- Unlike confirmation_token/recovery_token, these two have no column default (NULL), and
+  -- GoTrue's Go driver fails password sign-in with "converting NULL to string is unsupported"
+  -- when scanning a NULL here — must be set explicitly to '' rather than left to insert defaults.
+  '', '',
   '{"provider":"email","providers":["email"]}',
   '{"email_verified":true}',
   now(), now()
@@ -60,6 +65,7 @@ declare
   v_import_id uuid;
   v_place_id uuid;
   v_saved_id uuid;
+  v_canonical_url text;
 
   -- `platform_source_id` must be 17-20 digits (0003's CHECK) and globally unique per post.
   -- `caption` stands in for `content_text` — the real column a fetch would populate from the
@@ -118,12 +124,22 @@ declare
 begin
   select id into v_user_id from auth.users where email = 'demo@example.com';
 
+  -- Idempotency guard: this block has no per-statement conflict handling (the `pid` literals
+  -- above are fixed, so a bare re-run would hit `sources_platform_identity`'s unique constraint
+  -- and abort with a half-seeded DB). Running `psql -f seed.sql` twice against the same database
+  -- — not just `supabase db reset`, which starts from empty — must be a true no-op once the demo
+  -- user already has its saved places, so skip the whole loop in that case.
+  if exists (select 1 from public.saved_places where user_id = v_user_id) then
+    return;
+  end if;
+
   for v_spot in select * from jsonb_array_elements(v_spots)
   loop
+    v_canonical_url := 'https://www.tiktok.com/@' || (v_spot->>'handle') || '/video/' || (v_spot->>'pid');
+
     insert into public.sources (platform, platform_source_id, canonical_url, author_handle,
                                  author_name, content_text, thumbnail_url, fetch_status, fetched_at)
-    values ('tiktok', v_spot->>'pid',
-            'https://www.tiktok.com/@' || (v_spot->>'handle') || '/video/' || (v_spot->>'pid'),
+    values ('tiktok', v_spot->>'pid', v_canonical_url,
             v_spot->>'handle', v_spot->>'author', v_spot->>'caption', v_spot->>'thumb',
             'ok', now())
     returning id into v_source_id;
@@ -142,8 +158,17 @@ begin
     insert into public.place_provider_refs (place_id, provider, provider_place_id, is_primary)
     values (v_place_id, 'overture', v_spot->>'ppid', true);
 
-    insert into public.saved_places (user_id, place_id, origin, visit_state)
-    values (v_user_id, v_place_id, 'import', 'want_to_go')
+    -- source_url/source_thumbnail_url set directly here rather than via
+    -- apply_saved_place_source_link() (0016): that helper is SECURITY DEFINER but still requires
+    -- auth.uid() = saved_places.user_id, and this script runs as postgres with no auth session —
+    -- so it would raise 'not authenticated'. Seed.sql already writes directly to every other
+    -- privileged table in this chain, so setting the two denormalized columns to exactly what the
+    -- helper would derive (this loop's single source is each place's first and only one) keeps the
+    -- same first-source-only semantics without needing an auth context.
+    insert into public.saved_places (user_id, place_id, origin, visit_state,
+                                      source_url, source_thumbnail_url)
+    values (v_user_id, v_place_id, 'import', 'want_to_go',
+            v_canonical_url, v_spot->>'thumb')
     returning id into v_saved_id;
 
     insert into public.saved_place_sources (saved_place_id, source_id, user_id)
