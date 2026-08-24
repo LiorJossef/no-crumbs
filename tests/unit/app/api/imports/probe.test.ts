@@ -31,10 +31,17 @@ vi.mock('@/app/_lib/supabase/server', () => ({
 
 vi.mock('@/integrations/supabase/service-role-client', () => ({
   serviceRoleClient: () => ({
-    // `start_import` (0007, B7) — the route's pre-fetch call that makes save_place's `imports`
-    // provenance check pass for real. Fine to stub as a no-op success here: this suite covers
-    // the extraction branch only, not `start_import` itself.
+    // `start_import` (0007, B7) and `search_poi_index` (the DB-first resolver check, L0-F2b) are
+    // both reached through this one `rpc()` — this suite covers the extraction branch only, so
+    // both are stubbed as a no-op ("no row", not an error).
     rpc: async () => ({ data: null, error: null }),
+    // `poiIndexPlaceResolver`'s `poi_regions` read: no region reports `is_loaded`, so every
+    // candidate's DB check comes back a clean, honest "not loaded" (`dbMatches[i] === null`) —
+    // exactly the fallback path this suite's assertions already exercise.
+    from: (table: string) => {
+      if (table !== 'poi_regions') throw new Error(`unexpected table ${table}`);
+      return { select: () => ({ eq: async () => ({ data: [], error: null }) }) };
+    },
   }),
 }));
 

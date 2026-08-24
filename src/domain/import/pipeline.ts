@@ -79,7 +79,13 @@ function toSourceView(source: Source): SourceView {
   };
 }
 
-function buildResolveQuery(candidate: PlaceCandidate, extractionCityHint: string | null): ResolveQuery {
+/**
+ * Candidate + extraction-level city hint -> the one `ResolveQuery` shape every `PlaceResolver`
+ * call in this pipeline builds. Exported so `/api/imports/probe` (the DB-first resolution check
+ * ahead of the LLM-guess fallback, L0-F2b) can build the exact same query a real `runImport` would
+ * — this is not a second construction to keep in sync, it is the one this file already had.
+ */
+export function buildResolveQuery(candidate: PlaceCandidate, extractionCityHint: string | null): ResolveQuery {
   return {
     text: candidate.rawName,
     cityHint: candidate.cityHint ?? extractionCityHint,
