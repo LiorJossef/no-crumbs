@@ -30,8 +30,11 @@ The last clause is the product in six words and is the answer to "what is this, 
 the MVP reads **TikTok**. That is a deliberate consequence of `04`'s VERIFIED access mechanism, and
 it is honest in the product rather than in a footnote: a pasted Instagram or YouTube link is
 **recognised by name** and answered with the manual-add path, never with a failure. The positioning
-is written for the product, not for the current adapter count — and D2b's global resolution is what
-makes "a map you can actually use" true anywhere in the world rather than in one city.
+is written for the product, not for the current adapter count. **Narrowed 2026-08-24 (see change
+log):** the product is claimed and demoed as **a Tel Aviv product**, with other cities named as
+future expansion, not a present capability — D2b's global resolver stays deferred, and "a map you
+can actually use" is a claim this MVP backs with a real, measured dataset in one city rather than an
+unverified guess everywhere.
 
 ## 2. The user
 
@@ -41,7 +44,7 @@ the city they live in, some banked for a trip they have not taken yet.
 | | Everyday | Trips |
 |---|---|---|
 | The question | "What did I save around here?" | "What do I already have in this city?" |
-| Served by the MVP | **Partly** — city-level retrieval works; *near me* is L2 | **Fully** — map, list and global resolution, no location permission needed |
+| Served by the MVP | **Partly** — city-level retrieval works; *near me* is L2 | **For Tel Aviv** — map, list and a real matched dataset; elsewhere the app still links out via an AI guess + Google Maps, but that's not a claimed capability (narrowed 2026-08-24) |
 
 **The consequence, and it is a schedule decision, not a note:** because the everyday half of our own
 primary user depends on it, **near-me is promoted to the first L2 item**, ahead of pre-loading more
@@ -182,6 +185,7 @@ Two properties of this flow are load-bearing and must not be traded for polish:
 
 | Date | Change |
 |---|---|
+| 2026-08-24 | **Positioning narrowed to Tel Aviv; a claim change, not a code change.** After discussion with the owner, the product is now positioned and demoed as a Tel Aviv product, with other cities named as future expansion. Nothing in the running import/resolve mechanism changes — the AI-guess-plus-Google-Maps-link fallback keeps working everywhere exactly as before — but the product no longer claims that as "a map you can actually use anywhere in the world," because only Tel Aviv has a real, measured, matched dataset behind it. Full reasoning and the D2b status (deferred, not reversed) recorded in `mvp-plan.md`'s 2026-08-24 change-log entry |
 | 2026-08-20 | Created in session with the owner. Decided: the positioning line and its long form; **one merged user profile** with two retrieval questions, which promoted **near-me to the first L2 item** because the everyday half of our own primary user depends on it; the personality (modern, sleek, effortless, discovery — clean and confident, not cold or corporate) with four operable rules and the ruling that **the failure screen, not the success screen, is the tone test** at a ~73% no-places rate; the visual direction as **warm minimal, light only, dark-ready in architecture** (semantic token roles, no dark values, no toggle, no dark map — and every colour a token, which is what keeps both the dark theme and the L2 map fork cheap); **display + text typography restricted to three placements**; the surface set **pruned from ten to eight** (account → popover, landing → minimal sign-in); and the flagship flow ratified with a **three-stage rail on real streamed events** and the reassurance ladder cut from four messages to two. Two things were deliberately not decided: the **name**, which is open with its brief, its rejected directions, its live shortlist and a deadline (L1 step 1, the first surface with a header — it does not block L0), and anything resembling a design system, logo or component inventory, which Charter §4 keeps out of the MVP. One honesty item recorded rather than smoothed: the positioning says *social media* while the MVP reads *TikTok*, so the platform boundary is carried **in the product** as a recognised redirect to manual add rather than as a footnote |
 | 2026-08-20 | Owner decision, same day: **the component stack** (shadcn/ui + Tailwind + Lucide + Manrope, Motion for subtle interaction only) is fixed now, ahead of the name/tokens, precisely so no UI from here on is a hand-rolled primitive or a bare unstyled placeholder — shadcn's copy-in-source model keeps restyling cheap once §5's tokens land. This narrows, not reverses, the earlier "no component inventory" ruling: a library choice isn't a designed system §5 still owns |
 | 2026-08-21 | Owner approved the sign-in screen's design exploration, superseding §5's placeholder values (**not** an append — the table above was rewritten, not extended). **Mint replaces clay/amber** as the one accent family; **typography drops the two-face display/text pairing for Manrope alone** at two weights/roles, retiring the "three placements" rule along with it; **radius becomes one explicit value per size** instead of a multiplier scale off a single base, after the owner rejected the first exploration's radius ("not a fan of the border radius!"); and a **mobile/desktop composition pattern** (full-bleed atmosphere + top hero + thumb-zone form on mobile, genuine two-panel editorial/frosted-form split on desktop) is recorded as the reusable pattern for future full-screen surfaces, not a one-off. Dark mode's values are now explicitly flagged stale rather than silently left inconsistent — they still reflect the rejected light-blue exploration and need their own pass before enabling. One tension noted, not resolved here: the approved hero copy reads warmer than `ux-architecture.md` §1's "no marketing" description of S2 |

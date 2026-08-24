@@ -62,16 +62,29 @@ consequence is a **product decision, not an error path**: a pasted Instagram or 
 recognised, named, and answered with "we only read TikTok links today — you can add this place by
 name instead", which lands the user on the manual-add path rather than on a failure.
 
-**"anywhere"** — the MVP resolves places **globally**, decided 2026-08-20. This is not a new
-architecture: `06` §0 already chose "out-of-region fallback: **Nominatim**, hard-capped and cached,
-ODbL-attributed", and `src/domain/types.ts` already declares `PlaceProvider = 'overture' |
-'nominatim'` and `SourceDataset = 'overture-places' | 'osm-nominatim'`. What changes is *when* —
-that fallback moves from "MS7 at the earliest" into the MVP core, and the resolver becomes
-**two sources behind one port**: the Overture index where a region is loaded (measured 85% top-1),
-Nominatim everywhere else (measured 63%). The candidate's `cityHint` / `countryHint`, which the
-extraction contract already emits (`09` §3), is what scopes the global query — and scoping is a
-*correctness* requirement, not a performance one: `06` §209 measured that an unscoped lookup ranks
-confidently wrong answers. Recorded as **D2b** in §11 below.
+**"anywhere"** — **superseded 2026-08-24; see the change log entry below.** The product is now
+**positioned and claimed as a Tel Aviv product**, with more cities named as future work, not as a
+present capability. This is a claim change, not a code change: the mechanism already running today
+— the LLM guesses the likely venue from caption context, and the app hands the user a Google Maps
+search link to verify it — keeps working exactly as it does now, everywhere in the world, and stays
+in place unmodified as an unadvertised bonus. What stops is *telling people it works everywhere*: the
+only place with a real, measured, matched dataset behind it (the 4 997-row Tel Aviv index) is Tel
+Aviv, and claiming a global capability on the strength of one AI guess plus a link the user has to
+verify themselves overstates what's actually backed by evidence. The paragraph below (originally
+"the MVP resolves places globally, decided 2026-08-20") is kept for the record, since D2b's
+*architecture* — Nominatim behind the `PlaceResolver` port — is not reversed, only deferred, and
+remains available to build later as the mechanism that would actually earn a global claim:
+
+> The MVP resolves places **globally**, decided 2026-08-20. This is not a new
+> architecture: `06` §0 already chose "out-of-region fallback: **Nominatim**, hard-capped and cached,
+> ODbL-attributed", and `src/domain/types.ts` already declares `PlaceProvider = 'overture' |
+> 'nominatim'` and `SourceDataset = 'overture-places' | 'osm-nominatim'`. What changes is *when* —
+> that fallback moves from "MS7 at the earliest" into the MVP core, and the resolver becomes
+> **two sources behind one port**: the Overture index where a region is loaded (measured 85% top-1),
+> Nominatim everywhere else (measured 63%). The candidate's `cityHint` / `countryHint`, which the
+> extraction contract already emits (`09` §3), is what scopes the global query — and scoping is a
+> *correctness* requirement, not a performance one: `06` §209 measured that an unscoped lookup ranks
+> confidently wrong answers. Recorded as **D2b** in §11 below.
 
 **"with info"** — a saved place carries: its real name, its category, its coordinates, the link back
 to the post that recommended it, and the user's own note. Nothing else. Opening hours, photos,
@@ -313,6 +326,7 @@ about attribution: ODbL attribution remains mandatory and is already carried by 
 
 | Date | Change |
 |---|---|
+| 2026-08-24 | **The "anywhere" claim is narrowed to Tel Aviv; this is a positioning decision, not a code change.** Owner decided, after discussion, that the product is claimed and demoed as a **Tel Aviv product**, with other cities named as future expansion rather than a present capability. Nothing in the running mechanism changes: the LLM-guess-plus-Google-Maps-link fallback keeps working everywhere in the world exactly as it does today, unmodified — it simply stops being the thing the product claims to deliver globally. The reasoning: only Tel Aviv has a real, measured, matched dataset behind it (the 4 997-row index, 85% top-1); everywhere else, "it works" currently means "the AI took a guess and a human has to go verify it on Google Maps," which is a materially weaker guarantee than the "anywhere" language in §2 implied. Overselling that as global capability is a risk for a graded submission specifically because an examiner can pick an arbitrary city and test the claim directly. **D2b's architecture is not reversed** — the Nominatim-behind-`PlaceResolver` plan in §11 remains the eventual way to actually earn a global claim with real backing, and stays deferred exactly as recorded in the entries above and in `execution-plan.md`. Only the marketed scope of L1's target changes: L1's exit is now "the product for Tel Aviv," not "the product for anywhere in the world" |
 | 2026-08-24 | **Status sync against actual code, no boundary change.** §3's asset table corrected: migrations `0010`/`0014` are applied (L0 step 4 closed), and six further migrations `0011`–`0016` exist beyond the original nine (auth/session, source-link + thumbnail denormalization) feeding L1 work already underway — auth, the map surface's live/mapcn/mock swap, and a real import paste screen wired to `/api/imports`. **D2b (the global resolver) remains explicitly deferred**, unchanged from the 2026-08-22 pause recorded in `execution-plan.md`: no Nominatim adapter exists, and the interim LLM-guess + Google-Maps-search-link path stays the product's answer to global resolution until the owner revisits it. This entry records drift between the plan and the build, not a re-plan — the levels, the boundary and the cut lines in §2/§6 are unchanged |
 | 2026-08-20 | Created at the owner's instruction: re-plan the course MVP around "links from social media → a map with info", sized by **product level rather than half-days**. Four levels declared (L0 walking skeleton · L1 the course MVP and the submission target · L2 product-grade · L3 post-course), each submittable, climbed in order. The MVP boundary is stated as three decisions rather than a feature list: one link in one field, **TikTok only** (the only VERIFIED access mechanism — other platforms become a recognised, named redirect to manual add rather than a failure), and "info" fixed at name · category · coordinates · source link · user note, because that is exactly what open data lets us store forever. Charter §4's fourteen capabilities are mapped one by one, with capabilities 10 and the category filter half of 11 moved to L2 and the rest kept; capability 6 (review before save) and 13 (manual add + delete) are named never-cut — 13 because it is simultaneously the course's CRUD evidence and capability 7's recovery path. The previous plan's 46-hd ladder is retired as the ordering authority and its content reallocated in §10 with nothing dropped silently. Two facts recorded that the effort-budget framing had obscured: the design work is complete while **no application code exists**, and the ~27% LEVEL B hit rate makes "no places found" the modal import outcome, which makes the no-places screen a core surface rather than an error path |
 | 2026-08-20 | **D2b: the MVP goes global, and it does so by promoting a decision rather than taking a new one.** The owner ruled that one-city resolution is not an acceptable MVP boundary. The change is contained because the global path was already designed and merely scheduled late: `06` §0 had chosen Nominatim as the out-of-region fallback, `domain/types.ts` already declares both providers and both datasets, `places` already carries the provenance columns `resolve_place()` writes, and the extraction contract already emits `cityHint`/`countryHint` — so what was owed was an adapter, not an architecture. Two alternatives were rejected on measured grounds: a global Overture ingest (2–3 GB, hours, and it *still* needs an OSM gazetteer to be correct, so it buys nothing it does not also keep paying for) and a credentialed API (all three forbid storing name + coordinates forever, which Charter §1 requires). L0 gains step **2b** with three exit criteria, and the third is the honest one — the confidence bands must be **re-measured on the global path** and keep zero false auto-accepts, because the 44-case benchmark was fit on Overture rows and the scorer's confidence term has no Nominatim input yet. Three costs are now §9 rows with owners rather than discoveries waiting to happen: **63%** top-1 outside loaded regions against 85% inside (with all five misspellings returning nothing), the **≤1 rps / ~200-per-day ceiling** against a theoretical 210 lookups for one user — defended by the permanent cache, the local index, and a one-env-var swap to a hosted OSM geocoder — and the **ODbL sign-off**, owed *before* step 2b merges because this is exactly the PR `06` §11 Q2 deferred itself to. Pre-loading cities is reclassified from a coverage requirement to an accuracy accelerator in L2. Presentation ruled silent: same bands, no dataset vocabulary in the UI, the split stated in the spec, `scale.md` and the deck — which changes nothing about the mandatory OSM attribution the basemap already carries |
