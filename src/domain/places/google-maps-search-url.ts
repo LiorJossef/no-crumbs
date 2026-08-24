@@ -33,14 +33,29 @@ const GOOGLE_MAPS_SEARCH_BASE = 'https://www.google.com/maps/search/?api=1&query
  *
  * Only the fields present are joined, so a candidate with no address/category/city/country still
  * gets a sane query rather than a trailing/doubled ", , ".
+ *
+ * A caption-given `addressHint` sometimes already ends with the city itself (e.g. a Hebrew caption
+ * "חצר השוק 6, רעננה" yields `addressHint: "חצר השוק 6, רעננה"` with `cityHint: "רעננה"`) — in that
+ * case appending `cityHint` again would duplicate the city token ("..., רעננה, רעננה, ..."). When
+ * the address already contains the city (case/whitespace-insensitive), `cityHint` is dropped from
+ * the joined parts; `countryHint` is unaffected.
  */
+function addressAlreadyHasCity(addressHint: string, cityHint: string): boolean {
+  return addressHint.trim().toLowerCase().includes(cityHint.trim().toLowerCase());
+}
+
 function buildQueryText(candidate: PlaceCandidate): string {
   const name = candidate.identifiedName ?? candidate.rawName;
   const hasAddress = candidate.addressHint !== null && candidate.addressHint.trim().length > 0;
+  const cityAlreadyInAddress =
+    hasAddress &&
+    candidate.cityHint !== null &&
+    candidate.cityHint.trim().length > 0 &&
+    addressAlreadyHasCity(candidate.addressHint as string, candidate.cityHint);
   const parts = [
     name,
     hasAddress ? candidate.addressHint : candidate.categoryHint,
-    candidate.cityHint,
+    cityAlreadyInAddress ? null : candidate.cityHint,
     candidate.countryHint,
   ].filter((part): part is string => part !== null && part.trim().length > 0);
   return parts.join(', ');

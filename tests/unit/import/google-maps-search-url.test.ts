@@ -89,4 +89,29 @@ describe('googleMapsSearchUrl', () => {
 
     expect(query).toBe('Paradiso, cafe, Prague');
   });
+
+  it('does not duplicate the city when addressHint already ends with it', () => {
+    // Regression: caption "📍חצר השוק 6, רעננה" produced addressHint "חצר השוק 6, רעננה" and
+    // cityHint "רעננה", which previously yielded "..., חצר השוק 6, רעננה, רעננה, ...".
+    const url = googleMapsSearchUrl(
+      candidate({
+        rawName: 'Deli Kazan',
+        addressHint: 'חצר השוק 6, רעננה',
+        cityHint: 'רעננה',
+        countryHint: 'ישראל',
+      }),
+    );
+    const query = decodeURIComponent(new URL(url).searchParams.get('query') ?? '');
+
+    expect(query).toBe('Deli Kazan, חצר השוק 6, רעננה, ישראל');
+  });
+
+  it('still appends cityHint when addressHint does not already contain it', () => {
+    const url = googleMapsSearchUrl(
+      candidate({ addressHint: '12 Rothschild Blvd', cityHint: 'Prague' }),
+    );
+    const query = decodeURIComponent(new URL(url).searchParams.get('query') ?? '');
+
+    expect(query).toBe('Paradiso, 12 Rothschild Blvd, Prague');
+  });
 });
