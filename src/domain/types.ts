@@ -253,6 +253,15 @@ export interface PlaceCandidate {
    * unverified recall, not a database match).
    */
   readonly identifiedName: string | null;
+  /**
+   * The model's own best-guess coordinates for the place, inferred from whatever context the
+   * caption gives (name, address, city/neighbourhood, business type) — not a database lookup, and
+   * not gated on `modelConfidence`. `null` when the model has no real basis for a guess. Like
+   * `identifiedName`, this is unresolved, unvalidated recall pending human confirmation — no code
+   * path may treat it as an authoritative coordinate (`06` §3.3's ODbL/ToS reasoning for why we
+   * do not call a credentialed places API here).
+   */
+  readonly coordinates: { readonly lat: number; readonly lng: number } | null;
 }
 
 /**

@@ -35,6 +35,7 @@ export const EXTRACTION_JSON_SCHEMA = {
           'evidence',
           'modelConfidence',
           'identifiedName',
+          'coordinates',
         ],
         properties: {
           rawName: { type: 'string', minLength: 2, maxLength: 120 },
@@ -48,6 +49,16 @@ export const EXTRACTION_JSON_SCHEMA = {
           modelConfidence: { type: ['number', 'null'], minimum: 0, maximum: 1 },
           /** `06` §3.4: the model's own best real-world identification, inference allowed. */
           identifiedName: { type: ['string', 'null'], minLength: 2, maxLength: 120 },
+          /** The model's own best-guess coordinates, inference allowed, null when no real basis. */
+          coordinates: {
+            type: ['object', 'null'],
+            additionalProperties: false,
+            required: ['lat', 'lng'],
+            properties: {
+              lat: { type: 'number', minimum: -90, maximum: 90 },
+              lng: { type: 'number', minimum: -180, maximum: 180 },
+            },
+          },
         },
       },
     },
