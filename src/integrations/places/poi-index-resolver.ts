@@ -78,7 +78,7 @@ export function regionIdsForCityHint(
     .map((r) => r.id);
 }
 
-/** One row of `search_poi_index`'s result set — field-for-field what the RPC (migration 0017)
+/** One row of `search_poi_index`'s result set — field-for-field what the RPC (migration 0020)
  *  returns, snake_case as Postgres hands it back over `supabase-js`. */
 interface PoiIndexRow {
   readonly dataset_place_id: string;
@@ -119,7 +119,7 @@ interface PoiRegionRow {
 /**
  * The `PlaceResolver` over the loaded `poi_index` extract(s). `db` must be a service-role Supabase
  * client — `poi_regions`/`poi_index` grant nothing to `anon`/`authenticated` and `search_poi_index`
- * (migration 0017) grants `EXECUTE` to `service_role` only (`10` §5's "manual search goes through a
+ * (migration 0020) grants `EXECUTE` to `service_role` only (`10` §5's "manual search goes through a
  * server route" ruling) — this adapter must never be constructed with a browser-reachable client.
  */
 export function poiIndexPlaceResolver(db: SupabaseClient): PlaceResolver {

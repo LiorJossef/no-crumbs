@@ -1,4 +1,4 @@
--- 0017_search_poi_index.sql — the pg_trgm prefilter (docs/10-poi-index.md §5) as a callable RPC,
+-- 0020_search_poi_index.sql — the pg_trgm prefilter (docs/10-poi-index.md §5) as a callable RPC,
 -- so the DB-first `PlaceResolver` (L0-F2b, 2026-08-24: "check the real Tel Aviv database first,
 -- fall back to the LLM-guess + Google Maps link only when there's no confident match") can run it
 -- over `supabase-js` instead of a raw libpq connection this project does not otherwise need.
