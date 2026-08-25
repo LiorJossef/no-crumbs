@@ -28,12 +28,14 @@
  */
 
 import { DomainError, internal, noCaption } from '../errors';
-import type { OpCtx, Ports } from '../ports';
+import type { OpCtx, Ports, PlaceResolver } from '../ports';
+import { normalise } from '../places/normalise';
 import { canonicaliseTikTokUrl } from '../source/canonicalise-tiktok-url';
 import type { ImportEvent, ImportOutcome } from './events';
 import type {
   Candidate,
   CandidateResolution,
+  ConfidenceBand,
   PlaceCandidate,
   RankedPlace,
   ResolveQuery,
@@ -94,6 +96,63 @@ export function buildResolveQuery(candidate: PlaceCandidate, extractionCityHint:
     near: null,
     maxResults: null,
   };
+}
+
+/** `preselect` > `confirm` > `no_match` — used only to compare two `ResolveResult`s against each
+ *  other, never to make a save/no-save decision on its own (that stays `deriveResolution`'s job). */
+function bandRank(band: ConfidenceBand): number {
+  return band === 'preselect' ? 2 : band === 'confirm' ? 1 : 0;
+}
+
+/**
+ * Between two `ResolveResult`s for the *same candidate* (one query text against another — see
+ * `resolveCandidateBestEffort` below), which one to trust. Found live, 2026-08-24: a Hebrew query
+ * text ("קפה נואר") landed in `confirm` band at a near-zero margin (~0.0004) between its top pick
+ * and four other, unrelated, generically-named real places — `confirmScore`'s threshold does not
+ * itself require separation the way `preselectMargin` does, so a `confirm`-band pick can be a
+ * coin-flip and still call itself a match.
+ *
+ * A higher band wins outright; within the same band, the larger margin wins — a `null` margin
+ * (only one candidate at all) is treated as the strongest possible signal of no ambiguity, not as
+ * "unknown", since there is nothing else it could be confused with.
+ */
+export function preferResolveResult(a: ResolveResult, b: ResolveResult): ResolveResult {
+  const rankA = bandRank(a.confidence.band);
+  const rankB = bandRank(b.confidence.band);
+  if (rankA !== rankB) return rankA > rankB ? a : b;
+  const marginA = a.confidence.margin ?? Infinity;
+  const marginB = b.confidence.margin ?? Infinity;
+  return marginA >= marginB ? a : b;
+}
+
+/**
+ * Resolves a candidate against the database using its raw caption text, and — when the model's
+ * own "identifiedName" (`06` §3.4's real-world guess, e.g. the Latin "Cafe Noir" for a raw Hebrew
+ * "קפה נואר") differs from the raw text — a second attempt using that name too, keeping whichever
+ * result is actually unambiguous rather than whichever ran first. This does not let the model's
+ * guess *invent* a match: both attempts still go through the same real `PlaceResolver` against the
+ * same real database, so the saved result is always a real, found row, never the model's guess
+ * standing in for one — only *which query text* to trust is decided by the model here.
+ *
+ * Skips the second attempt entirely when there is no `identifiedName`, or it normalises the same
+ * as `rawName` (asking the same question twice would only double the provider call for nothing).
+ */
+export async function resolveCandidateBestEffort(
+  resolver: PlaceResolver,
+  candidate: PlaceCandidate,
+  extractionCityHint: string | null,
+  ctx: OpCtx,
+): Promise<ResolveResult> {
+  const primaryQuery = buildResolveQuery(candidate, extractionCityHint);
+  const primary = await resolver.resolve(primaryQuery, ctx);
+
+  const identifiedName = candidate.identifiedName;
+  if (identifiedName === null || normalise(identifiedName) === normalise(candidate.rawName)) {
+    return primary;
+  }
+
+  const alt = await resolver.resolve({ ...primaryQuery, text: identifiedName }, ctx);
+  return preferResolveResult(primary, alt);
 }
 
 /**

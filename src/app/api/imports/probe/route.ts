@@ -63,7 +63,7 @@ import { createPlaceExtractor } from '@/integrations/llm/place-extractor-factory
 import { canonicaliseTikTokUrl } from '@/domain/source/canonicalise-tiktok-url';
 import { filterPlausible } from '@/domain/extraction/plausibility';
 import { DomainError, internal, notAuthenticated } from '@/domain/errors';
-import { buildResolveQuery, MAX_CANDIDATES } from '@/domain/import/pipeline';
+import { resolveCandidateBestEffort, MAX_CANDIDATES } from '@/domain/import/pipeline';
 import { poiIndexPlaceResolver } from '@/integrations/places/poi-index-resolver';
 import type { OpCtx } from '@/domain/ports';
 import type { PlaceCandidate } from '@/domain/types';
@@ -190,7 +190,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         continue;
       }
       try {
-        const result = await resolver.resolve(buildResolveQuery(candidate, cityHint), ctx);
+        const result = await resolveCandidateBestEffort(resolver, candidate, cityHint, ctx);
         const top = result.shortlist[0];
         // `'no_match'` covers both "nothing scored well enough" and "that city isn't loaded"
         // (`regionsSearched: []`) — both are a clean miss, not a reason to fail the probe.
