@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "verify": "npm run lint && npm run typecheck && npm run check:layers && npm run check:migrations && npm run test",
+    "check:schema": "bash scripts/check-schema.sh",
+    "verify": "npm run lint && npm run typecheck && npm run check:layers && npm run check:migrations && npm run check:schema && npm run test",
     "check:layers": "bash scripts/check-layer-guard.sh",
     "check:migrations": "bash scripts/check-migration-grants.sh",
     "db:reset": "supabase db reset",
@@ -24,7 +25,8 @@
     "db:status:prod": "supabase migration list --project-ref \"${SUPABASE_PROJECT_REF_PROD:-vtboskegexinvhasghri}\"",
     "db:inventory:staging": "bash scripts/db-inventory-remote.sh staging",
     "db:inventory:prod": "bash scripts/db-inventory-remote.sh prod",
-    "prepare": "git config core.hooksPath .githooks || true"
+    "prepare": "git config core.hooksPath .githooks || true",
+    "merge:pr": "bash scripts/merge-pr.sh"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
