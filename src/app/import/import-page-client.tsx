@@ -19,16 +19,19 @@
  * validation and the non-TikTok redirect are the real classification, not a stub.
  */
 
-import { useMemo, useRef, useState } from 'react';
+import { useId, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ArrowUpRight,
   Check,
+  ChevronDown,
+  Crosshair,
   Link2,
   Loader2,
   MapPin,
+  MapPinOff,
   Pencil,
   RotateCcw,
   SearchCheck,
@@ -41,6 +44,18 @@ import { canonicaliseTikTokUrl } from '@/domain/source/canonicalise-tiktok-url';
 import type { PipelineStage } from '@/domain/import/events';
 import { googleMapsSearchUrl } from '@/domain/places/google-maps-search-url';
 import { decideCaptionSaveOutcome, type CaptionSaveResult } from '@/domain/import/caption-save-outcome';
+import {
+  LOCATION_CAVEAT,
+  candidateMeta,
+  candidateProvenance,
+  candidateTitle,
+  isHashtagOnly,
+  isSaveable,
+  locationLine,
+  saveButtonLabel,
+  showsEvidence,
+  skippedNotice,
+} from '@/domain/import/candidate-presentation';
 import type { Candidate, PlaceCandidate } from '@/domain/types';
 
 /* ------------------------------------------------------------------------------------------- *
@@ -141,6 +156,11 @@ export interface SaveOutcomeDetail extends CaptionSaveResult {
    * happened the first time this shipped.
    */
   readonly savedPlaceIds: readonly string[];
+  /** What became of each confirmed candidate, keyed by its index in `probe.candidates`. Only read
+   *  on a partial failure, where the user stays on the review screen and every card has to say
+   *  what happened to it — the response has always carried `candidateIndex`; the client used to
+   *  throw it away and count. */
+  readonly statusByIndex: ReadonlyMap<number, ItemStatus>;
 }
 
 export interface ImportPageClientProps {
@@ -173,10 +193,14 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
      *  with this notice and an explicit "Continue to map" action rather than auto-navigating, so
      *  the which/how-many-failed message is never lost to an immediate unmount. */
     readonly partialNotice: string | null;
+    /** Set alongside `partialNotice`: which card ended up where, so "2 couldn't be saved" can be
+     *  read off the list instead of leaving the user to guess which two. */
+    readonly statusByIndex: ReadonlyMap<number, ItemStatus> | null;
   }>({
     saving: false,
     error: null,
     partialNotice: null,
+    statusByIndex: null,
   });
 
   /** The last save's detail, kept so `continueAfterPartialSave` — which runs on a *later* click,
@@ -191,7 +215,7 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
     setScreen({ kind: 'paste' });
     setUrl('');
     setTouched(false);
-    setCaptionSave({ saving: false, error: null, partialNotice: null });
+    setCaptionSave({ saving: false, error: null, partialNotice: null, statusByIndex: null });
   }
 
   async function submit() {
@@ -335,25 +359,33 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
    * currently-unreachable path without a real source yet).
    */
   async function saveExtractedCandidates(
-    candidates: readonly PlaceCandidate[],
+    candidateIndices: readonly number[],
     extractionId: string | null,
   ): Promise<SaveOutcomeDetail> {
-    if (candidates.length === 0) {
-      return { saved: 0, skipped: 0, failed: 0, alreadySaved: 0, savedPlaceIds: [] };
-    }
+    const empty: SaveOutcomeDetail = {
+      saved: 0,
+      skipped: 0,
+      failed: 0,
+      alreadySaved: 0,
+      savedPlaceIds: [],
+      statusByIndex: new Map(),
+    };
+
+    if (candidateIndices.length === 0) return empty;
 
     // No persisted extraction means there is nothing the server can derive a save from, and no
     // request this client could send that would be authorised. Reported as failed rather than
-    // silently swallowed: the user pressed Done and nothing was saved.
+    // silently swallowed: the user pressed Save and nothing was saved.
     if (extractionId === null) {
-      return { saved: 0, skipped: 0, failed: candidates.length, alreadySaved: 0, savedPlaceIds: [] };
+      return { ...empty, failed: candidateIndices.length };
     }
 
-    // The request carries positions, not facts. Which candidate to save is the user's call; what
-    // that candidate *is* comes from the extraction row the probe route wrote. The indices line up
-    // because the probe route persisted exactly the array it returned — the same
-    // plausibility-filtered candidates, in the same order.
-    const items = candidates.map((_, candidateIndex) => ({ candidateIndex, note: null }));
+    // The request carries positions, not facts. Which candidates to save is the user's call — and
+    // now genuinely so: this is the selection, not every candidate on screen. What each one *is*
+    // comes from the extraction row the probe route wrote. The indices line up because the probe
+    // route persisted exactly the array it returned — the same plausibility-filtered candidates,
+    // in the same order.
+    const items = candidateIndices.map((candidateIndex) => ({ candidateIndex, note: null }));
 
     const res = await fetch('/api/imports/confirm', {
       method: 'POST',
@@ -362,12 +394,13 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
     });
 
     if (!res.ok) {
-      return { saved: 0, skipped: 0, failed: items.length, alreadySaved: 0, savedPlaceIds: [] };
+      return { ...empty, failed: items.length };
     }
 
     const body = (await res.json()) as {
       results: readonly {
-        status: 'saved' | 'already_saved' | 'skipped' | 'failed';
+        status: ItemStatus;
+        candidateIndex: number;
         savedPlaceId?: string;
       }[];
     };
@@ -382,7 +415,9 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
     let failed = 0;
     let alreadySaved = 0;
     const savedPlaceIds: string[] = [];
+    const statusByIndex = new Map<number, ItemStatus>();
     for (const result of body.results) {
+      statusByIndex.set(result.candidateIndex, result.status);
       if (result.status === 'saved' || result.status === 'already_saved') {
         saved += 1;
         if (result.status === 'already_saved') alreadySaved += 1;
@@ -392,7 +427,7 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
       } else if (result.status === 'skipped') skipped += 1;
       else failed += 1;
     }
-    return { saved, skipped, failed, alreadySaved, savedPlaceIds };
+    return { saved, skipped, failed, alreadySaved, savedPlaceIds, statusByIndex };
   }
 
   /** After a successful (or nothing-to-save) "Done": land on/near the map with the save visible.
@@ -425,12 +460,12 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
    * before this fix, only `hard_failure`) already used.
    */
   async function finishCaptionPreview(
-    candidates: readonly PlaceCandidate[],
+    candidateIndices: readonly number[],
     extractionId: string | null,
   ) {
-    setCaptionSave({ saving: true, error: null, partialNotice: null });
+    setCaptionSave({ saving: true, error: null, partialNotice: null, statusByIndex: null });
     try {
-      const result = await saveExtractedCandidates(candidates, extractionId);
+      const result = await saveExtractedCandidates(candidateIndices, extractionId);
       lastSaveDetail.current = result;
       const outcome = decideCaptionSaveOutcome(result);
       switch (outcome.kind) {
@@ -440,14 +475,24 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
           return;
         case 'skip_only':
         case 'hard_failure':
-          setCaptionSave({ saving: false, error: outcome.message, partialNotice: null });
+          setCaptionSave({ saving: false, error: outcome.message, partialNotice: null, statusByIndex: null });
           return;
         case 'partial_failure':
-          setCaptionSave({ saving: false, error: null, partialNotice: outcome.message });
+          setCaptionSave({
+            saving: false,
+            error: null,
+            partialNotice: outcome.message,
+            statusByIndex: result.statusByIndex,
+          });
           return;
       }
     } catch {
-      setCaptionSave({ saving: false, error: "Couldn't save that place — try again.", partialNotice: null });
+      setCaptionSave({
+        saving: false,
+        error: "Couldn't save that place — try again.",
+        partialNotice: null,
+        statusByIndex: null,
+      });
     }
   }
 
@@ -467,7 +512,11 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
         // after this tree, so it would otherwise paint on top of an equal z-index regardless of
         // JSX order) and above `PlaceDesktopPanel` (`z-20`) — the overlay must win the stack on
         // both surfaces, not just the one that happens to share DOM order with it.
-        onClose ? 'absolute inset-0 z-50 h-full' : 'min-h-dvh',
+        // `h-dvh`, not `min-h-dvh`, on the standalone route too: the review screen keeps its
+        // primary action in a footer pinned to the bottom of this column, and a column that grows
+        // with its content pushes that action off the bottom of a phone. A bounded height makes
+        // the candidate list the only scrolling region, which is the whole point of the layout.
+        onClose ? 'absolute inset-0 z-50 h-full' : 'h-dvh',
         // Desktop (`lg+`) in overlay mode: this is no longer a right-docked full-height panel —
         // it is a dimming scrim over the *whole* viewport (map + the always-visible places list
         // both read as backgrounded context) with a single centred, capped-height card floating
@@ -495,13 +544,16 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
       <div
         className={cn(
           // Mobile: full-bleed thumb-zone column, unchanged.
-          'relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col px-5 pt-[calc(env(safe-area-inset-top)+2rem)] pb-[calc(env(safe-area-inset-bottom)+1.5rem)]',
+          // `min-h-0` is load-bearing: without it this flex child refuses to shrink below its
+          // content, so the inner `overflow-y-auto` list never scrolls and the footer is pushed
+          // off the bottom of the viewport instead.
+          'relative z-10 mx-auto flex w-full min-h-0 max-w-md flex-1 flex-col px-5 pt-[calc(env(safe-area-inset-top)+2rem)] pb-[calc(env(safe-area-inset-bottom)+1.5rem)]',
           // Desktop (`lg+`), overlay mode only (`onClose` set — the map's "Add a TikTok" flow): a
           // floating card centred over the dimmed map + list, not a docked panel — fixed width,
           // capped height with its own scroll (so a future 3-stage rail grows the card rather than
           // forcing full-viewport height), rounded corners on all sides, hairline border + elevation.
           onClose &&
-            'lg:relative lg:mx-0 lg:my-0 lg:w-[clamp(420px,34vw,480px)] lg:max-w-none lg:flex-none lg:max-h-[min(44rem,calc(100vh-5rem))] lg:justify-start lg:overflow-y-auto lg:rounded-2xl lg:border lg:border-border/70 lg:bg-card lg:px-8 lg:py-10 lg:shadow-[var(--shadow-elevated)]',
+            'lg:relative lg:mx-0 lg:my-0 lg:w-[clamp(420px,34vw,480px)] lg:max-w-none lg:flex-none lg:max-h-[min(52rem,calc(100vh-4rem))] lg:justify-start lg:overflow-hidden lg:rounded-2xl lg:border lg:border-border/70 lg:bg-card lg:px-8 lg:py-10 lg:shadow-[var(--shadow-elevated)]',
           // Desktop (`lg+`), standalone `/import` route (`onClose` unset — no map behind it, no
           // scrim on `<main>` to centre against): the original flush right-docked, full-height
           // panel, unchanged from before the centred-card overlay treatment existed.
@@ -572,7 +624,9 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
             saving={captionSave.saving}
             error={captionSave.error}
             partialNotice={captionSave.partialNotice}
-            onDone={() => finishCaptionPreview(screen.probe.candidates, screen.probe.extractionId)}
+            statusByIndex={captionSave.statusByIndex}
+            onSave={(indices) => finishCaptionPreview(indices, screen.probe.extractionId)}
+            onRetry={reset}
             onContinue={continueAfterPartialSave}
           />
         )}
@@ -1005,31 +1059,77 @@ function CandidateRow({ candidate }: { candidate: Candidate }) {
  * by hand against Google Maps.
  * ------------------------------------------------------------------------------------------- */
 
+/** Per-candidate outcome after a save that did not fully succeed, keyed by `candidateIndex`. Only
+ *  populated for a partial failure — the one case where the user stays on this screen and needs to
+ *  see which card is which. */
+export type ItemStatus = 'saved' | 'already_saved' | 'skipped' | 'failed';
+
 function CaptionPreviewScreen({
   probe,
   saving,
   error,
   partialNotice,
-  onDone,
+  statusByIndex,
+  onSave,
   onContinue,
+  onRetry,
 }: {
   probe: ProbeSuccess;
   saving: boolean;
   error: string | null;
   /** Set only for a `partial_failure` save outcome — some candidates saved, some didn't. Swaps
-   *  the primary action from "Done" (retry the save) to "Continue to map" (the saved ones are
-   *  real; there is nothing left to retry here). */
+   *  the primary action to "Continue to map" (the saved ones are real; there is nothing left to
+   *  retry here) and freezes the list, with each card carrying its own outcome. */
   partialNotice: string | null;
-  onDone: () => void;
+  statusByIndex: ReadonlyMap<number, ItemStatus> | null;
+  onSave: (indices: readonly number[]) => void;
   onContinue: () => void;
+  /** Back to an empty paste field. The primary action when nothing was found — which is the
+   *  *modal* import outcome at this hit rate, so "try another link" is the main path through this
+   *  screen, not an error recovery. */
+  onRetry: () => void;
 }) {
   const n = probe.candidates.length;
+  const captionId = useId();
+  const headingId = useId();
+  const [captionOpen, setCaptionOpen] = useState(false);
+
+  /**
+   * Which candidates the user wants. Indices, because that is literally what the confirm request
+   * takes (`ConfirmImportRequestSchema`'s `items: [{ candidateIndex, note }]`) — the endpoint has
+   * always accepted a subset, the screen simply never offered one, and "Done" saved all eight
+   * whether you wanted them or not.
+   *
+   * Preselected rather than empty: the primary path is "save what this TikTok gave me", and an
+   * empty selection greets the user with a dead button that reads like a validation error. A
+   * candidate the model could not place can never enter the set — not added-then-filtered — so
+   * the count on the button is always the number of places that will actually be written.
+   */
+  const saveableIndices = useMemo(
+    () => probe.candidates.map((c, i) => (isSaveable(c) ? i : -1)).filter((i) => i >= 0),
+    [probe.candidates],
+  );
+  const [selected, setSelected] = useState<ReadonlySet<number>>(() => new Set(saveableIndices));
+
+  const selectedCount = selected.size;
+  const unsaveableCount = n - saveableIndices.length;
+  const allSelected = selectedCount === saveableIndices.length && saveableIndices.length > 0;
+  const frozen = statusByIndex !== null || saving;
+
+  function toggle(index: number) {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  }
 
   return (
-    <div className="flex flex-1 flex-col">
-      <div className="flex flex-col gap-1 pb-6">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex shrink-0 flex-col gap-1 pb-4">
         <ScreenKicker icon={<SearchCheck className="size-3.5" aria-hidden />} label="Review & confirm" />
-        <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">
+        <h1 id={headingId} className="font-heading text-2xl font-extrabold tracking-tight text-foreground">
           {probe.caption === null
             ? 'No caption to search'
             : n === 0
@@ -1038,152 +1138,329 @@ function CaptionPreviewScreen({
                 ? '1 place found'
                 : `${n} places found`}
         </h1>
-        {probe.authorHandle && (
-          <p className="text-sm font-medium text-muted-foreground">From @{probe.authorHandle}&rsquo;s TikTok</p>
+      </div>
+
+      {/* The source row. The thumbnail slot never collapses — its presence is the provenance
+          promise, and an empty square reads better than a row that changes shape per post. */}
+      <div className="flex shrink-0 items-center gap-3 pb-3">
+        {probe.thumbnailUrl ? (
+          // A signed, ~6-month-expiry remote TikTok CDN URL; not worth a next/image
+          // remotePatterns entry.
+          <img src={probe.thumbnailUrl} alt="" className="size-12 shrink-0 rounded-lg object-cover" />
+        ) : (
+          <span
+            aria-hidden
+            className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"
+          >
+            <Link2 className="size-4" />
+          </span>
+        )}
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <a
+            href={probe.canonicalUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1 truncate text-sm font-semibold text-[var(--mint-700)]"
+          >
+            {probe.authorHandle ? `@${probe.authorHandle}’s TikTok` : 'This TikTok'}
+            <ArrowUpRight className="size-3.5 shrink-0" aria-hidden />
+          </a>
+          {probe.caption !== null && (
+            <button
+              type="button"
+              aria-expanded={captionOpen}
+              aria-controls={captionId}
+              onClick={() => setCaptionOpen((open) => !open)}
+              className="flex h-6 items-center gap-1 text-[13px] font-medium text-muted-foreground"
+            >
+              {captionOpen ? 'Hide the caption' : 'Show the caption'}
+              <ChevronDown
+                className={cn(
+                  'size-3.5 transition-transform motion-reduce:transition-none',
+                  captionOpen && 'rotate-180',
+                )}
+                aria-hidden
+              />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Collapsed by default, and hard-capped when open. The caption is screen-level evidence for
+          a rarer question ("what did this post actually say?") than the one each card already
+          answers with its own verbatim fragment. Left expanded and uncapped — which is what this
+          screen used to do — a thousand characters of ad copy, promo code included, pushed every
+          place below the fold. The cap means an expanded caption can never do that again. */}
+      {probe.caption !== null && captionOpen && (
+        <div
+          id={captionId}
+          className="mb-3 max-h-38 shrink-0 overflow-y-auto overscroll-contain rounded-lg bg-muted/50 p-3 text-[13px] leading-relaxed font-medium text-muted-foreground"
+        >
+          {probe.caption}
+        </div>
+      )}
+
+      <div className="flex min-h-0 flex-1 flex-col gap-3">
+        {n === 0 ? (
+          <p className="pt-1 text-sm font-medium text-muted-foreground">
+            {probe.caption === null
+              ? "This TikTok didn't have a caption to search."
+              : "This TikTok didn't call out a specific spot by name. That happens a lot."}
+          </p>
+        ) : (
+          <>
+            {n >= 2 && statusByIndex === null && (
+              <div className="flex shrink-0 items-center justify-between">
+                <p className="text-[13px] font-medium text-muted-foreground">
+                  {selectedCount} of {saveableIndices.length} selected
+                </p>
+                <button
+                  type="button"
+                  disabled={frozen}
+                  onClick={() => setSelected(allSelected ? new Set() : new Set(saveableIndices))}
+                  className="flex h-11 items-center text-[13px] font-bold text-[var(--mint-700)] disabled:opacity-50"
+                >
+                  {allSelected ? 'Deselect all' : 'Select all'}
+                </button>
+              </div>
+            )}
+
+            {/* Said once, at screen level, because our honest position is the same on every
+                candidate. This is what replaced the per-card "95%": a percentage the model
+                assigns to itself, measured against reality as 65-470 m of error. */}
+            <p className="shrink-0 text-xs font-medium text-muted-foreground">{LOCATION_CAVEAT}</p>
+
+            <ul
+              aria-labelledby={headingId}
+              className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain pb-1"
+            >
+              {probe.candidates.map((c, i) => (
+                <ExtractedCandidateRow
+                  key={i}
+                  candidate={c}
+                  selected={selected.has(i)}
+                  frozen={frozen}
+                  status={statusByIndex?.get(i) ?? null}
+                  onToggle={() => toggle(i)}
+                />
+              ))}
+            </ul>
+          </>
         )}
       </div>
 
-      <div className="flex flex-1 flex-col gap-4 overflow-y-auto pb-4">
-        <div className="flex items-start gap-3 rounded-xl border border-border/70 bg-card px-4 py-3.5">
-          {probe.thumbnailUrl && (
-            // A signed, ~6-month-expiry remote thumbnail; not worth a next/image
-            // remotePatterns entry for a throwaway route.
-            <img
-              src={probe.thumbnailUrl}
-              alt=""
-              className="size-14 shrink-0 rounded-lg object-cover"
-            />
-          )}
-          <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <p className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">Caption</p>
-            <p className="text-sm font-medium text-foreground">
-              {probe.caption ?? <span className="text-muted-foreground">No caption text.</span>}
-            </p>
-          </div>
-        </div>
-
-        <a
-          href={probe.canonicalUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="flex h-11 items-center justify-center gap-1.5 rounded-lg text-sm font-bold text-[var(--mint-700)]"
-        >
-          Open the original TikTok
-          <ArrowUpRight className="size-4" aria-hidden />
-        </a>
-
-        <div className="flex flex-col gap-2" role="status">
-          <p className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">Places</p>
-          {n === 0 ? (
-            <p className="pt-1 text-sm font-medium text-muted-foreground">
-              {probe.caption === null
-                ? "This TikTok didn't have a caption to search."
-                : "This TikTok didn't call out a specific spot by name. That happens a lot."}
-            </p>
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {probe.candidates.map((c, i) => (
-                <ExtractedCandidateRow key={i} candidate={c} />
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-2 pt-4">
+      <div className="mt-auto flex shrink-0 flex-col gap-2 border-t border-border/70 pt-4">
         {error && (
           <p role="alert" className="text-center text-sm font-semibold text-destructive">
             {error}
           </p>
         )}
         {partialNotice && (
-          <p role="status" className="text-center text-sm font-semibold text-[var(--mint-700)]">
+          <p role="status" className="text-center text-sm font-semibold text-foreground">
             {partialNotice}
           </p>
         )}
+        {!partialNotice && skippedNotice(unsaveableCount) !== null && (
+          <p className="text-center text-xs font-medium text-muted-foreground">
+            {skippedNotice(unsaveableCount)}
+          </p>
+        )}
+
         {partialNotice ? (
           <Button
             type="button"
             onClick={onContinue}
-            className="h-12 w-full gap-1.5 rounded-lg text-base font-bold"
+            className="h-14 w-full gap-1.5 rounded-lg text-base font-bold"
           >
             Continue to map →
           </Button>
+        ) : n === 0 || saveableIndices.length === 0 ? (
+          <>
+            <Button
+              type="button"
+              onClick={onRetry}
+              className="h-14 w-full gap-1.5 rounded-lg text-base font-bold"
+            >
+              Try another link →
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onContinue}
+              className="h-11 w-full rounded-lg text-sm font-bold"
+            >
+              Back to the map
+            </Button>
+          </>
         ) : (
-          <Button
-            type="button"
-            onClick={onDone}
-            disabled={saving}
-            className="h-12 w-full gap-1.5 rounded-lg text-base font-bold"
-          >
-            {saving && <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />}
-            {saving ? 'Saving…' : 'Done'}
-          </Button>
+          <>
+            <Button
+              type="button"
+              onClick={() => onSave([...selected].sort((a, b) => a - b))}
+              disabled={saving || selectedCount === 0}
+              className="h-14 w-full gap-1.5 rounded-lg text-base font-bold"
+            >
+              {saving && <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />}
+              {saving ? 'Saving…' : saveButtonLabel(selectedCount)}
+            </Button>
+            {selectedCount === 0 && (
+              // The only state with a dead primary is the one state that most needs a
+              // thumb-reachable way out — the ✕ is a 36px target in the top-left corner.
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={onContinue}
+                className="h-11 w-full rounded-lg text-sm font-bold"
+              >
+                Back to the map
+              </Button>
+            )}
+            <p className="text-center text-xs font-medium text-muted-foreground">
+              Nothing is saved until you tap Save.
+            </p>
+          </>
         )}
       </div>
     </div>
   );
 }
 
-/** One surviving `PlaceCandidate`, every field the schema carries, laid out with the same
- *  rounded-card/mint-badge language as `CandidateRow` above — this is a pre-resolver row (no
- *  `CandidateResolution`, so no confidence-band pill), built for a manual tester to read every
- *  field at a glance and jump to Google Maps to verify it by hand. */
-function ExtractedCandidateRow({ candidate }: { candidate: PlaceCandidate }) {
-  // `filterPlausible` caps a hashtag-only candidate's confidence at 0.5 rather than dropping it
-  // (`domain/extraction/plausibility.ts`'s `HASHTAG_ONLY_CONFIDENCE_CEILING`) — surfaced here as a
-  // calm, informational cue, not a warning: this is a real, if less certain, candidate.
-  const isHashtagSourced = candidate.rawName.trim().startsWith('#');
+/** Post-save outcome chips. Shown only after a partial failure, when the user stays on this screen
+ *  and every card has to say what became of it — including `already_saved`, which a re-import used
+ *  to report as a fresh save it had not made. */
+const STATUS_CHIP: Record<ItemStatus, { readonly label: string; readonly className: string }> = {
+  saved: { label: 'Saved', className: 'bg-[var(--mint-100)] text-[var(--mint-700)]' },
+  already_saved: { label: 'Already on your map', className: 'bg-muted text-muted-foreground' },
+  skipped: { label: 'No location', className: 'bg-muted text-muted-foreground' },
+  failed: { label: 'Couldn’t save', className: 'bg-destructive/10 text-destructive' },
+};
 
-  return (
-    <li className="flex flex-col gap-2 rounded-xl border border-border/70 bg-card px-4 py-3.5">
-      <div className="flex items-start gap-3">
-        <span
-          aria-hidden
-          className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-[var(--mint-700)]/15 text-[var(--mint-700)]"
-        >
-          <MapPin className="size-4" />
-        </span>
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <p className="truncate font-heading text-sm font-bold text-foreground">{candidate.rawName}</p>
-          {candidate.identifiedName && candidate.identifiedName !== candidate.rawName && (
-            // The model's own real-world guess (`06` §3.4) — never auto-accepted, shown only as a
-            // hint for the human who is about to click through to Google Maps to verify it.
-            <p className="truncate text-xs font-semibold text-[var(--mint-700)]">
-              Likely: {candidate.identifiedName}
-            </p>
-          )}
-          <p className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">
-            {[candidate.cityHint, candidate.countryHint].filter(Boolean).join(', ') || 'Location unknown'}
-            {candidate.categoryHint ? ` · ${candidate.categoryHint}` : ''}
-          </p>
-        </div>
-        <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-bold text-foreground">
-          {candidate.modelConfidence === null ? 'n/a' : `${Math.round(candidate.modelConfidence * 100)}%`}
-        </span>
+/**
+ * One candidate, as a decision rather than a readout.
+ *
+ * Two zones separated by a hairline: above it, what we believe this place is; below it, how sure
+ * we are about *where* it is and the one tap that settles it. That structure is the
+ * extracted-versus-inferred story without a legend to learn.
+ *
+ * The Google Maps link is a sibling of the toggle, not a child — an `<a>` inside a `<button>` is
+ * invalid and needs event-propagation tricks to behave. This shape needs none.
+ */
+function ExtractedCandidateRow({
+  candidate,
+  selected,
+  frozen,
+  status,
+  onToggle,
+}: {
+  candidate: PlaceCandidate;
+  selected: boolean;
+  frozen: boolean;
+  status: ItemStatus | null;
+  onToggle: () => void;
+}) {
+  const title = candidateTitle(candidate);
+  const saveable = isSaveable(candidate);
+  const chip = status === null ? null : STATUS_CHIP[status];
+
+  const body = (
+    <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
+      <div className="flex items-baseline gap-2">
+        <p className="truncate font-heading text-[15px] font-bold text-foreground">{title}</p>
+        {chip && (
+          <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold', chip.className)}>
+            {chip.label}
+          </span>
+        )}
       </div>
-
-      {candidate.evidence && (
-        <p className="rounded-lg bg-muted/60 px-2.5 py-1.5 text-xs font-medium text-muted-foreground">
+      <p className="truncate text-xs font-medium text-muted-foreground">
+        {candidateProvenance(candidate)}
+      </p>
+      <p className="truncate text-[13px] font-medium text-muted-foreground">
+        {candidateMeta(candidate)}
+      </p>
+      {showsEvidence(candidate) && (
+        <p className="mt-1 border-l-2 border-border pl-2.5 text-xs font-medium text-muted-foreground">
           &ldquo;{candidate.evidence}&rdquo;
         </p>
       )}
+      {isHashtagOnly(candidate) && (
+        <p className="mt-1 text-xs font-medium text-muted-foreground">Only mentioned in a hashtag.</p>
+      )}
+    </div>
+  );
 
-      {isHashtagSourced && (
-        <p className="text-xs font-medium text-[var(--mint-700)]">
-          Only mentioned as a hashtag — confidence capped since there&rsquo;s no other corroboration.
-        </p>
+  return (
+    <li
+      className={cn(
+        'flex shrink-0 flex-col rounded-xl border',
+        !saveable
+          ? 'border-dashed border-border/70 bg-muted/40'
+          : selected
+            ? 'border-border/70 bg-card'
+            : 'border-border/50 bg-muted/50',
+        status === 'failed' && 'border-destructive/40 bg-card',
+      )}
+    >
+      {saveable && status === null ? (
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={selected}
+          disabled={frozen}
+          onClick={onToggle}
+          className="flex w-full items-start gap-3 rounded-t-xl px-4 py-3.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:-ring-offset-2 disabled:cursor-default"
+        >
+          <span
+            aria-hidden
+            className={cn(
+              'mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md border-2 transition-colors motion-reduce:transition-none',
+              selected
+                ? 'border-[var(--mint-700)] bg-[var(--mint-700)] text-white'
+                : 'border-border bg-transparent',
+            )}
+          >
+            {selected && <Check className="size-3.5" strokeWidth={3} />}
+          </span>
+          {body}
+        </button>
+      ) : (
+        <div className="flex w-full items-start gap-3 px-4 py-3.5">
+          {/* Not a disabled checkbox: a control that cannot be operated is worse than no control.
+              The text stays at full contrast — this is a stated outcome, not a degraded one. */}
+          <span
+            aria-hidden
+            className="mt-0.5 flex size-6 shrink-0 items-center justify-center text-muted-foreground"
+          >
+            {status === 'saved' || status === 'already_saved' ? (
+              <Check className="size-4" />
+            ) : (
+              <MapPinOff className="size-4" />
+            )}
+          </span>
+          {body}
+        </div>
       )}
 
-      <a
-        href={googleMapsSearchUrl(candidate)}
-        target="_blank"
-        rel="noreferrer"
-        className="flex h-8 items-center gap-1.5 self-start text-xs font-bold text-[var(--mint-700)]"
-      >
-        Check on Google Maps
-        <ArrowUpRight className="size-3.5" aria-hidden />
-      </a>
+      <div className="flex items-center justify-between gap-2 border-t border-border/60 px-4 py-1.5">
+        <span className="flex items-center gap-1.5 truncate text-xs font-medium text-muted-foreground">
+          <Crosshair className="size-3.5 shrink-0" aria-hidden />
+          {locationLine(candidate)}
+        </span>
+        <a
+          href={googleMapsSearchUrl(candidate)}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={
+            saveable
+              ? `Check “${title}” on Google Maps`
+              : `Find “${title}” on Google Maps`
+          }
+          className="flex h-11 shrink-0 items-center gap-1 text-xs font-bold text-[var(--mint-700)]"
+        >
+          {saveable ? 'Check on Google Maps' : 'Find on Google Maps'}
+          <ArrowUpRight className="size-3.5" aria-hidden />
+        </a>
+      </div>
     </li>
   );
 }
