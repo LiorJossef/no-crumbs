@@ -53,7 +53,13 @@ describe('filterPlausible', () => {
   });
 
   it('keeps a hashtag-shaped plausible venue name, capping confidence even when the model reported higher', () => {
-    const result = filterPlausible([candidate({ rawName: '#aroma', modelConfidence: 0.9 })], 'anything');
+    // Per the prompt's own contract, a hashtag-sourced candidate's evidence is "the whole hashtag
+    // as written" — never null — so the fixture supplies it here rather than relying on the
+    // (now-rejected) default null evidence.
+    const result = filterPlausible(
+      [candidate({ rawName: '#aroma', evidence: '#aroma', modelConfidence: 0.9 })],
+      'anything #aroma',
+    );
     expect(result.kept).toHaveLength(1);
     expect(result.kept[0]?.modelConfidence).toBe(0.5);
   });
@@ -86,11 +92,26 @@ describe('filterPlausible', () => {
 
   it('drops a duplicate after normalisation, keeping the first occurrence', () => {
     const result = filterPlausible(
-      [candidate({ rawName: 'Cafe Fiori' }), candidate({ rawName: 'CAFE   fiori' })],
-      'anything',
+      [
+        candidate({ rawName: 'Cafe Fiori', evidence: 'Cafe Fiori' }),
+        candidate({ rawName: 'CAFE   fiori', evidence: 'Cafe Fiori' }),
+      ],
+      'Cafe Fiori was great',
     );
     expect(result.kept).toHaveLength(1);
     expect(result.dropped.duplicate).toBe(1);
+  });
+
+  it('drops a candidate with no evidence at all, per the prompt\'s own "do not emit" contract', () => {
+    // Regression, found live 2026-08-24: a real end-to-end test produced a second candidate with
+    // no basis anywhere in the caption and evidence: null, which the old `!== null` guard let
+    // through unfiltered because it only checked evidence when one was actually provided.
+    const result = filterPlausible(
+      [candidate({ rawName: 'ביגה שרונה תל-אביב', evidence: null })],
+      'CAFE\' NOIR קפה נואר ביסטרו תל אביב, לא לוותר על שניצל נואר',
+    );
+    expect(result.kept).toHaveLength(0);
+    expect(result.dropped.evidence_not_in_caption).toBe(1);
   });
 
   it('keeps a non-Latin-script candidate (Hebrew) instead of dropping it as empty-after-normalisation', () => {

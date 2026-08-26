@@ -50,6 +50,23 @@ import type { Candidate, PlaceCandidate } from '@/domain/types';
  * candidates, no `runImport`. See `src/app/api/imports/probe/route.ts`'s header.
  * ------------------------------------------------------------------------------------------- */
 
+/** The DB-first match `/api/imports/probe` offers for one candidate (L0-F2b) — a real
+ *  `poi_index` row, already scored, already cleared the `'no_match'` band. Mirrors
+ *  `ProbeDbMatch` in `app/api/imports/probe/route.ts` field-for-field (the wire shape, not a
+ *  re-declared import: this file has no reason to import a route module). */
+interface ProbeDbMatch {
+  readonly provider: 'overture';
+  readonly providerPlaceId: string;
+  readonly sourceDataset: 'overture-places';
+  readonly name: string;
+  readonly providerCategory: string | null;
+  readonly addressLine: string | null;
+  readonly locality: string | null;
+  readonly lat: number;
+  readonly lng: number;
+  readonly resolutionScore: number;
+}
+
 interface ProbeSuccess {
   /** The real `sources.id` row this probe fetched/cached — carried through so a later save (even
    *  with zero candidates) links this source instead of silently sending `sourceId: null`. */
@@ -64,6 +81,10 @@ interface ProbeSuccess {
    *  `caption` was null (no LLM call on nothing) or when nothing survived the gate — both are
    *  valid, expected outcomes, not errors. */
   readonly candidates: readonly PlaceCandidate[];
+  /** Aligned to `candidates` by index (L0-F2b) — `dbMatches[i]` is the real Tel Aviv `poi_index`
+   *  row for `candidates[i]`, or `null` when the database had no confident match, in which case
+   *  that candidate keeps the existing LLM-guess + Google Maps link path unchanged. */
+  readonly dbMatches: readonly (ProbeDbMatch | null)[];
 }
 
 interface ProbeErrorBody {
@@ -301,31 +322,79 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
    */
   async function saveExtractedCandidates(
     candidates: readonly PlaceCandidate[],
+    dbMatches: readonly (ProbeDbMatch | null)[],
     sourceId: string,
   ): Promise<{ readonly saved: number; readonly skipped: number; readonly failed: number }> {
-    const withCoordinates = candidates.filter((c) => c.coordinates !== null);
-    const skipped = candidates.length - withCoordinates.length;
+    // The DB-first check (L0-F2b): a candidate with a real `poi_index` match (`dbMatches[i]`) is
+    // saved with real `overture`/`overture-places` provenance and its own `resolutionScore` —
+    // never the `llm_guess` fallback, and never gated on `PlaceCandidate.coordinates` at all, since
+    // the database's own `lat`/`lng` is the coordinate now. Only a candidate with *no* database
+    // match falls back to exactly the LLM-guess behaviour this screen had before this task.
+    // One draft item shape for both branches — `ConfirmItemSchema`'s wire fields, client-side —
+    // so the two branches' object literals don't infer two incompatible `provider` literal unions.
+    interface ConfirmItemDraft {
+      readonly provider: 'overture' | 'llm_guess';
+      readonly providerPlaceId: string;
+      readonly sourceDataset: 'overture-places' | 'llm-guess';
+      readonly name: string;
+      readonly category: PlaceCandidate['categoryHint'];
+      readonly providerCategory: string | null;
+      readonly addressLine: string | null;
+      readonly locality: string | null;
+      readonly countryCode: string | null;
+      readonly lat: number;
+      readonly lng: number;
+      readonly resolutionScore: number | null;
+      readonly note: null;
+    }
+    let skipped = 0;
+    const items: ConfirmItemDraft[] = candidates.flatMap((c, i): ConfirmItemDraft[] => {
+      const dbMatch = dbMatches[i] ?? null;
+      if (dbMatch !== null) {
+        return [
+          {
+            provider: dbMatch.provider,
+            providerPlaceId: dbMatch.providerPlaceId,
+            sourceDataset: dbMatch.sourceDataset,
+            name: dbMatch.name,
+            category: c.categoryHint,
+            providerCategory: dbMatch.providerCategory,
+            addressLine: dbMatch.addressLine,
+            locality: dbMatch.locality,
+            countryCode: c.countryHint && /^[A-Z]{2}$/.test(c.countryHint) ? c.countryHint : null,
+            lat: dbMatch.lat,
+            lng: dbMatch.lng,
+            resolutionScore: dbMatch.resolutionScore,
+            note: null,
+          },
+        ];
+      }
+      if (c.coordinates === null) {
+        skipped += 1;
+        return [];
+      }
+      return [
+        {
+          provider: 'llm_guess' as const,
+          providerPlaceId: llmGuessProviderPlaceId(c),
+          sourceDataset: 'llm-guess' as const,
+          name: c.identifiedName ?? c.rawName,
+          category: c.categoryHint,
+          providerCategory: null,
+          addressLine: c.addressHint,
+          locality: c.cityHint,
+          countryCode: c.countryHint && /^[A-Z]{2}$/.test(c.countryHint) ? c.countryHint : null,
+          lat: c.coordinates.lat,
+          lng: c.coordinates.lng,
+          resolutionScore: null,
+          note: null,
+        },
+      ];
+    });
 
-    if (withCoordinates.length === 0) {
+    if (items.length === 0) {
       return { saved: 0, skipped, failed: 0 };
     }
-
-    const items = withCoordinates.map((c) => ({
-      provider: 'llm_guess' as const,
-      providerPlaceId: llmGuessProviderPlaceId(c),
-      sourceDataset: 'llm-guess' as const,
-      name: c.identifiedName ?? c.rawName,
-      category: c.categoryHint,
-      providerCategory: null,
-      addressLine: c.addressHint,
-      locality: c.cityHint,
-      countryCode: c.countryHint && /^[A-Z]{2}$/.test(c.countryHint) ? c.countryHint : null,
-      // Guarded by the `withCoordinates` filter above — non-null by construction.
-      lat: c.coordinates!.lat,
-      lng: c.coordinates!.lng,
-      resolutionScore: null,
-      note: null,
-    }));
 
     const res = await fetch('/api/imports/confirm', {
       method: 'POST',
@@ -367,10 +436,14 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
    * explicit next step, mirroring the same on-screen-with-a-message pattern `hard_failure` (and,
    * before this fix, only `hard_failure`) already used.
    */
-  async function finishCaptionPreview(candidates: readonly PlaceCandidate[], sourceId: string) {
+  async function finishCaptionPreview(
+    candidates: readonly PlaceCandidate[],
+    dbMatches: readonly (ProbeDbMatch | null)[],
+    sourceId: string,
+  ) {
     setCaptionSave({ saving: true, error: null, partialNotice: null });
     try {
-      const result = await saveExtractedCandidates(candidates, sourceId);
+      const result = await saveExtractedCandidates(candidates, dbMatches, sourceId);
       const outcome = decideCaptionSaveOutcome(result);
       switch (outcome.kind) {
         case 'proceed':
@@ -511,7 +584,9 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
             saving={captionSave.saving}
             error={captionSave.error}
             partialNotice={captionSave.partialNotice}
-            onDone={() => finishCaptionPreview(screen.probe.candidates, screen.probe.sourceId)}
+            onDone={() =>
+              finishCaptionPreview(screen.probe.candidates, screen.probe.dbMatches, screen.probe.sourceId)
+            }
             onContinue={continueAfterPartialSave}
           />
         )}
@@ -1022,7 +1097,7 @@ function CaptionPreviewScreen({
           ) : (
             <ul className="flex flex-col gap-2">
               {probe.candidates.map((c, i) => (
-                <ExtractedCandidateRow key={i} candidate={c} />
+                <ExtractedCandidateRow key={i} candidate={c} dbMatch={probe.dbMatches[i] ?? null} />
               ))}
             </ul>
           )}
@@ -1067,12 +1142,25 @@ function CaptionPreviewScreen({
 /** One surviving `PlaceCandidate`, every field the schema carries, laid out with the same
  *  rounded-card/mint-badge language as `CandidateRow` above — this is a pre-resolver row (no
  *  `CandidateResolution`, so no confidence-band pill), built for a manual tester to read every
- *  field at a glance and jump to Google Maps to verify it by hand. */
-function ExtractedCandidateRow({ candidate }: { candidate: PlaceCandidate }) {
+ *  field at a glance and jump to Google Maps to verify it by hand.
+ *
+ * `dbMatch` (L0-F2b): when the DB-first check found a real `poi_index` row for this candidate,
+ * this row short-circuits straight to it — the matched name/address in place of the model's own
+ * guess, and a "Matched" badge (`CandidateRow`'s `tone === 'confident'` mint language, reused
+ * rather than invented) in place of the raw model-confidence percentage. "Check on Google Maps"
+ * only ever appears when there is no database match to show instead. */
+function ExtractedCandidateRow({
+  candidate,
+  dbMatch,
+}: {
+  candidate: PlaceCandidate;
+  dbMatch: ProbeDbMatch | null;
+}) {
   // `filterPlausible` caps a hashtag-only candidate's confidence at 0.5 rather than dropping it
   // (`domain/extraction/plausibility.ts`'s `HASHTAG_ONLY_CONFIDENCE_CEILING`) — surfaced here as a
-  // calm, informational cue, not a warning: this is a real, if less certain, candidate.
-  const isHashtagSourced = candidate.rawName.trim().startsWith('#');
+  // calm, informational cue, not a warning: this is a real, if less certain, candidate. Only
+  // relevant to the LLM-guess path — a database match needs no such caveat.
+  const isHashtagSourced = dbMatch === null && candidate.rawName.trim().startsWith('#');
 
   return (
     <li className="flex flex-col gap-2 rounded-xl border border-border/70 bg-card px-4 py-3.5">
@@ -1081,11 +1169,13 @@ function ExtractedCandidateRow({ candidate }: { candidate: PlaceCandidate }) {
           aria-hidden
           className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-[var(--mint-700)]/15 text-[var(--mint-700)]"
         >
-          <MapPin className="size-4" />
+          {dbMatch ? <Check className="size-4" /> : <MapPin className="size-4" />}
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <p className="truncate font-heading text-sm font-bold text-foreground">{candidate.rawName}</p>
-          {candidate.identifiedName && candidate.identifiedName !== candidate.rawName && (
+          <p className="truncate font-heading text-sm font-bold text-foreground">
+            {dbMatch ? dbMatch.name : candidate.rawName}
+          </p>
+          {dbMatch === null && candidate.identifiedName && candidate.identifiedName !== candidate.rawName && (
             // The model's own real-world guess (`06` §3.4) — never auto-accepted, shown only as a
             // hint for the human who is about to click through to Google Maps to verify it.
             <p className="truncate text-xs font-semibold text-[var(--mint-700)]">
@@ -1093,16 +1183,27 @@ function ExtractedCandidateRow({ candidate }: { candidate: PlaceCandidate }) {
             </p>
           )}
           <p className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">
-            {[candidate.cityHint, candidate.countryHint].filter(Boolean).join(', ') || 'Location unknown'}
+            {dbMatch
+              ? [dbMatch.addressLine, dbMatch.locality].filter(Boolean).join(', ') || 'Tel Aviv'
+              : [candidate.cityHint, candidate.countryHint].filter(Boolean).join(', ') || 'Location unknown'}
             {candidate.categoryHint ? ` · ${candidate.categoryHint}` : ''}
           </p>
         </div>
-        <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-bold text-foreground">
-          {candidate.modelConfidence === null ? 'n/a' : `${Math.round(candidate.modelConfidence * 100)}%`}
+        <span
+          className={cn(
+            'shrink-0 rounded-full px-2.5 py-1 text-xs font-bold',
+            dbMatch ? 'bg-[var(--mint-700)]/15 text-[var(--mint-700)]' : 'bg-muted text-foreground',
+          )}
+        >
+          {dbMatch
+            ? 'Matched'
+            : candidate.modelConfidence === null
+              ? 'n/a'
+              : `${Math.round(candidate.modelConfidence * 100)}%`}
         </span>
       </div>
 
-      {candidate.evidence && (
+      {dbMatch === null && candidate.evidence && (
         <p className="rounded-lg bg-muted/60 px-2.5 py-1.5 text-xs font-medium text-muted-foreground">
           &ldquo;{candidate.evidence}&rdquo;
         </p>
@@ -1114,15 +1215,17 @@ function ExtractedCandidateRow({ candidate }: { candidate: PlaceCandidate }) {
         </p>
       )}
 
-      <a
-        href={googleMapsSearchUrl(candidate)}
-        target="_blank"
-        rel="noreferrer"
-        className="flex h-8 items-center gap-1.5 self-start text-xs font-bold text-[var(--mint-700)]"
-      >
-        Check on Google Maps
-        <ArrowUpRight className="size-3.5" aria-hidden />
-      </a>
+      {dbMatch === null && (
+        <a
+          href={googleMapsSearchUrl(candidate)}
+          target="_blank"
+          rel="noreferrer"
+          className="flex h-8 items-center gap-1.5 self-start text-xs font-bold text-[var(--mint-700)]"
+        >
+          Check on Google Maps
+          <ArrowUpRight className="size-3.5" aria-hidden />
+        </a>
+      )}
     </li>
   );
 }

@@ -363,7 +363,9 @@ describe('SCORING', () => {
       confirmScore: 0.8,
     });
     expect(SCORING.defaultMaxResults).toBe(5);
-    expect(SCORING.generic.size).toBe(31);
+    // 31 English entries (unchanged) + 8 Hebrew counterparts added 2026-08-26 (see
+    // `scoring-constants.ts`'s `generic` doc comment) = 39.
+    expect(SCORING.generic.size).toBe(39);
     expect(Object.keys(SCORING.categoryTokens)).toEqual(['cafe', 'bar', 'restaurant']);
   });
 });

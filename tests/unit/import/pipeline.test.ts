@@ -12,7 +12,13 @@ import {
   upstreamTimeout,
   type DomainErrorCode,
 } from '@/domain/errors';
-import { MAX_CANDIDATES, runImport, type ImportInput } from '@/domain/import/pipeline';
+import {
+  MAX_CANDIDATES,
+  preferResolveResult,
+  resolveCandidateBestEffort,
+  runImport,
+  type ImportInput,
+} from '@/domain/import/pipeline';
 import type { ImportEvent, ImportOutcome } from '@/domain/import/events';
 import type {
   Clock,
@@ -20,6 +26,7 @@ import type {
   ImportStore,
   OpCtx,
   PlaceExtractor,
+  PlaceResolver,
   Ports,
   SourceAdapter,
 } from '@/domain/ports';
@@ -568,5 +575,115 @@ describe('runImport — no raw error object ever crosses the generator boundary 
     const events = await collect(failingPorts, makeInput());
     expect(terminalOutcome(events).kind).toBe('failed');
     expect(events[events.length - 1]?.t).toBe('done');
+  });
+});
+
+describe('preferResolveResult', () => {
+  function result(band: 'preselect' | 'confirm' | 'no_match', margin: number | null, score = 0.9): ReturnType<typeof preselectResult> {
+    return {
+      shortlist: band === 'no_match' ? [] : [{ place: resolvedPlaceFixture('p1'), score, nameScore: score, tokenCoverage: 1, categoryScore: 1 }],
+      confidence: { band, score: band === 'no_match' ? 0 : score, margin },
+      regionsSearched: ['tlv'],
+      candidatesPrefiltered: band === 'no_match' ? 0 : 1,
+    };
+  }
+
+  it('prefers a higher band outright, regardless of margin', () => {
+    const preselect = result('preselect', 0.01);
+    const confirm = result('confirm', 0.5);
+    expect(preferResolveResult(preselect, confirm)).toBe(preselect);
+    expect(preferResolveResult(confirm, preselect)).toBe(preselect);
+  });
+
+  it('within the same band, prefers the larger margin — the real regression case: a near-zero-margin confirm loses to a clearly-separated one', () => {
+    const ambiguous = result('confirm', 0.00037); // e.g. rawName "קפה נואר" against five near-tied "קפה X" rows
+    const clear = result('confirm', 0.1086); // e.g. identifiedName "Cafe Noir" against the real row
+    expect(preferResolveResult(ambiguous, clear)).toBe(clear);
+    expect(preferResolveResult(clear, ambiguous)).toBe(clear);
+  });
+
+  it('treats a null margin (only one candidate at all) as the strongest possible signal, not as unknown', () => {
+    const onlyCandidate = result('confirm', null);
+    const ambiguous = result('confirm', 0.1);
+    expect(preferResolveResult(onlyCandidate, ambiguous)).toBe(onlyCandidate);
+  });
+});
+
+describe('resolveCandidateBestEffort', () => {
+  const hebrewCandidate: PlaceCandidate = {
+    ...oneCandidate,
+    rawName: 'קפה נואר',
+    identifiedName: 'Cafe Noir',
+    cityHint: 'תל אביב',
+  };
+
+  it('skips the second attempt when there is no identifiedName', async () => {
+    let calls = 0;
+    const resolver: PlaceResolver = {
+      provider: 'overture',
+      resolve: async () => {
+        calls += 1;
+        return preselectResult();
+      },
+    };
+    await resolveCandidateBestEffort(resolver, oneCandidate, null, makeCtx());
+    expect(calls).toBe(1);
+  });
+
+  it('skips the second attempt when identifiedName normalises the same as rawName', async () => {
+    let calls = 0;
+    const resolver: PlaceResolver = {
+      provider: 'overture',
+      resolve: async () => {
+        calls += 1;
+        return preselectResult();
+      },
+    };
+    const candidate = { ...oneCandidate, identifiedName: 'AFURI' }; // same as rawName 'Afuri', case differs only
+    await resolveCandidateBestEffort(resolver, candidate, null, makeCtx());
+    expect(calls).toBe(1);
+  });
+
+  it('tries identifiedName too when it differs, and picks whichever result is actually unambiguous — the real Cafe Noir regression', async () => {
+    const ambiguousRawNameResult: ResolveResult = {
+      shortlist: [{ place: resolvedPlaceFixture('wrong-place'), score: 0.9085, nameScore: 0.88, tokenCoverage: 0.83, categoryScore: 1 }],
+      confidence: { band: 'confirm', score: 0.9085, margin: 0.00037 },
+      regionsSearched: ['tlv'],
+      candidatesPrefiltered: 5,
+    };
+    const clearIdentifiedNameResult: ResolveResult = {
+      shortlist: [{ place: resolvedPlaceFixture('cafe-noir'), score: 0.8198, nameScore: 1, tokenCoverage: 1, categoryScore: 0 }],
+      confidence: { band: 'confirm', score: 0.8198, margin: 0.1086 },
+      regionsSearched: ['tlv'],
+      candidatesPrefiltered: 3,
+    };
+    const resolver: PlaceResolver = {
+      provider: 'overture',
+      resolve: async (query) => (query.text === 'קפה נואר' ? ambiguousRawNameResult : clearIdentifiedNameResult),
+    };
+    const chosen = await resolveCandidateBestEffort(resolver, hebrewCandidate, 'Tel Aviv', makeCtx());
+    expect(chosen).toBe(clearIdentifiedNameResult);
+    expect(chosen.shortlist[0]?.place.providerPlaceId).toBe('cafe-noir');
+  });
+
+  it('keeps the rawName result when it is already the clearer one', async () => {
+    const clearRawNameResult: ResolveResult = {
+      shortlist: [{ place: resolvedPlaceFixture('p1'), score: 0.95, nameScore: 0.95, tokenCoverage: 1, categoryScore: 1 }],
+      confidence: { band: 'preselect', score: 0.95, margin: 0.2 },
+      regionsSearched: ['tlv'],
+      candidatesPrefiltered: 1,
+    };
+    const worseIdentifiedNameResult: ResolveResult = {
+      shortlist: [],
+      confidence: { band: 'no_match', score: 0, margin: null },
+      regionsSearched: ['tlv'],
+      candidatesPrefiltered: 0,
+    };
+    const resolver: PlaceResolver = {
+      provider: 'overture',
+      resolve: async (query) => (query.text === hebrewCandidate.rawName ? clearRawNameResult : worseIdentifiedNameResult),
+    };
+    const chosen = await resolveCandidateBestEffort(resolver, hebrewCandidate, 'Tel Aviv', makeCtx());
+    expect(chosen).toBe(clearRawNameResult);
   });
 });
