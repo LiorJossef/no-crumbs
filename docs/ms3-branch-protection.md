@@ -47,3 +47,38 @@ A client-side hook is **advisory**, not a server-side guarantee:
 The working rule for the rest of the build is therefore a convention backed by a speed bump: all
 MS4+ work lands on a branch, through a PR, with CI green. If the repo is ever made public, or the
 account upgraded, apply the ruleset described above and delete the hook.
+
+## Update 2026-08-26 — the convention now needs teeth
+
+**Re-confirmed today, unchanged:** `GET /repos/LiorJossef/P-002/rulesets` still returns
+`403 Upgrade to GitHub Pro`. The repo is still private on a free plan. Nothing above has improved.
+
+What changed is on the other side. The owner removed the approval requirement for routine merges
+(`git-workflow.md` §9): verified work with green checks now lands without a human in the loop. Until
+today, "CI cannot be made a merge gate" was survivable precisely *because* a person read the check
+status before every merge. That person is gone, and the honest limits above were suddenly load-
+bearing rather than theoretical.
+
+The same day, a branch was found sitting with a **red required check** for several commits while
+every local check was green, and had been reported as finished on that basis. Under the old rule
+that PR would have stopped at a human. Under the new one, nothing would have stopped it.
+
+**What replaces the approval: `scripts/merge-pr.sh`** (`npm run merge:pr -- <n>`). It is a
+client-side re-implementation of the ruleset this file could not create — same intent, same six
+conditions, enforced before `gh pr merge` is ever called:
+
+| The ruleset we cannot have | What the script does instead |
+|---|---|
+| Require a pull request | Refuses anything that is not an `OPEN`, non-draft PR targeting `main` |
+| Require the four CI jobs to pass | Reads `gh pr checks`; refuses on any state that is not `SUCCESS`/`NEUTRAL`/`SKIPPED`, **pending included** |
+| — | Refuses an empty check list; "no checks reported" is not a pass |
+| Require branches to be up to date | `git merge-base --is-ancestor origin/main origin/<head>` — a green run against a stale base proves nothing |
+| No bypass actors | Never passes `--admin`, never enables `--auto` |
+| Block force-push / deletion of `main` | Unchanged: `.githooks/pre-push`, and both remain instruction-only per `git-workflow.md` §9.3 |
+
+**The same honest limits still apply, and are worth restating plainly.** This is a script, not a
+server-side guarantee: it is bypassable by anyone who types `gh pr merge` directly, it is invisible
+to a grader inspecting GitHub settings, and it protects only the path that goes through it. It is a
+better speed bump, not a gate. The real fix remains the one named above — make the repo public or
+upgrade the account, apply the ruleset, and then delete both the hook and the script's reason for
+existing.

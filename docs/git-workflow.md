@@ -1,7 +1,9 @@
 # Git workflow — how the history tells the build story
 
-**Adopted 2026-08-20.** Binding on all implementation work from this date forward. Nothing already
-committed is rewritten to match it.
+**Adopted 2026-08-20. Amended 2026-08-26** (§5, §9, §10, §11 — the owner removed the approval
+requirement for routine merges; the gate moved from a person to CI plus `scripts/merge-pr.sh`).
+Binding on all implementation work from this date forward. Nothing already committed is rewritten to
+match it.
 
 The history is a narrative of how the product was built, structured as:
 
@@ -99,8 +101,11 @@ left exactly as it is. Conventional Commits start with the next commit.
 
 1. `git status`.
 2. Read the diff that will actually be committed (`git diff --staged`).
-3. Run the relevant tests/checks — `npm run verify` for app code, `npm run db:verify` for migrations,
-   or the narrower script when that is what the change touches.
+3. Run the relevant tests/checks — `npm run verify` for app code, `npm run db:verify` for migrations
+   (a full reset, so it wipes local dev data), or the narrower script when that is what the change
+   touches. `verify` now includes `check:schema`, a read-only inventory against whatever local
+   database is running; it **skips with a printed notice** when there is none, and a skip is a gap,
+   not a pass. See §9's "CI is the gate" for why that distinction is written down.
 4. Confirm every staged file belongs to the same logical change.
 5. Confirm no secrets, credentials, generated junk, debugging artifacts or unrelated user changes are
    staged.
@@ -133,44 +138,114 @@ broader verification suite, inspect the full branch diff against its base, confi
 matches the plan/spec, confirm the docs are current, and confirm the branch is a clean sequence of
 meaningful commits. Do not squash or rewrite useful history to tidy it up unless asked.
 
-## 9. Push, PR and the merge boundary
+## 9. Push, PR, merge — and the boundaries that remain
 
-**Standing authorisation, granted 2026-08-20 — push and PR are automatic; merging is not.**
+**Standing authorisation, granted 2026-08-20, extended 2026-08-26: push, PR *and merge* are
+automatic.** Once a feature's exit criteria (§8) are met and the merge preconditions below hold,
+push the branch, open its pull request, and land it — without asking. The owner's 2026-08-26 ruling:
+*"routine merges to main no longer require my approval; when work is verified and required checks
+are green, merge and verify main yourself."*
 
-Once a feature's exit criteria (§8) are met and its checks pass, push the branch and open its pull
-request against `main` without asking. Local commits at stable checkpoints remain encouraged; the
-push is what makes a finished feature reviewable, and waiting for permission to do it was friction
-with no safety value.
+What was removed was a **person reading the CI status before anything reached `main`**. Nothing on
+GitHub's side replaces them, and that is not a detail: `docs/ms3-branch-protection.md` records — and
+2026-08-26 re-confirmed with a fresh `403` — that branch protection and rulesets are Pro/Team-only
+for a private repo. **CI is not a merge gate.** A red PR can be merged with one command and GitHub
+will not object.
 
-**Merging into `main` always requires explicit approval.** Never merge, never enable auto-merge,
-never merge with admin override, and never take a green PR as licence to land it. A green PR is
-ready for review, not approved. This is the boundary the standing authorisation above does *not*
-cross.
+So the gate is a script, and using it is not optional.
 
-Still off-limits without a specific instruction each time:
+### 9.1 Merging
+
+```bash
+npm run merge:pr -- <pr-number>            # add --dry-run to check without landing
+```
+
+`scripts/merge-pr.sh` refuses unless **all six** hold, each one something a branch ruleset would
+have enforced server-side:
+
+1. the PR is `OPEN` and not a draft;
+2. it targets `main` — a stacked PR lands its parent first and is then re-targeted with
+   `gh pr edit <n> --base main`, rather than being force-landed out of order. GitHub re-targets by
+   itself only when the base branch is *deleted*, and deleting branches needs its own instruction
+   (§9.3), so this is a deliberate step;
+3. **every check is passing, and none is pending.** Pending is not green. This is the distinction
+   that gets eyeballed away at the end of a long session;
+4. at least one check was reported — an empty list reads as green in a terminal and is not;
+5. GitHub reports the PR cleanly `MERGEABLE`;
+6. the head branch **contains current `main`**. "Require branches to be up to date" is part of the
+   ruleset we cannot have, so it is computed locally: if `main` moved after the last CI run, that
+   green run says nothing about the combination that would actually land.
+
+It merges with `--merge`, never `--squash`: §3 and §8 treat the atomic commits as the build's
+narrative, so they arrive on `main` intact. It never passes `--admin` and never enables auto-merge —
+both mean "land it without the checks", which is the one thing the script exists to prevent. It does
+not delete the branch.
+
+**Do not merge by hand** (`gh pr merge`, the GitHub UI, a local merge and push). Not because the
+script is sacred, but because every precondition above is one that has to be *checked*, and the
+failure mode is silent. If the script is wrong, fix the script.
+
+### 9.2 CI is the gate; local `verify` is the filter
+
+**Learned the hard way, 2026-08-26.** A branch sat with a **red required check** for several commits
+while `npm run verify` was green, and was reported as finished on that basis. The red job was
+`migrations · RLS policy tests`; the failing step was `db:inventory`, which `verify` did not run.
+Two real defects were hiding behind it — a grant matrix drifted from migration `0017`, and `anon`
+holding `EXECUTE` on `save_place` again (`0009`'s bug, reintroduced by a signature change). Neither
+was exotic. Nothing local was looking.
+
+Two consequences, and both are rules:
+
+- **`npm run verify` covers one of CI's four jobs.** It is a fast filter, not a proxy for CI.
+  `check:schema` was added to it so today's specific failure class cannot recur silently, but
+  `next build`, `playwright` and the from-scratch migration rebuild still only happen in CI.
+- **Never report a branch as finished, and never merge, on the strength of a local run.** The
+  authority is `gh pr checks <pr>`. "It passed locally" is not a status; it is a hope.
+
+When a check is red, fix the failure. Do not re-run it hoping, do not merge around it, and do not
+describe the PR as ready while it is red.
+
+### 9.3 Still off-limits without a specific instruction each time
+
+The merge boundary moved. These did not, and the list grew where the new autonomy made it matter:
 
 - force-push, in any form, to any branch;
 - rebasing or otherwise rewriting shared history;
 - deleting branches, local or remote;
-- pushing directly to `main`.
+- pushing directly to `main`, including via `ALLOW_MAIN_PUSH=1`;
+- `gh pr merge --admin`, `--auto`, or anything else that lands work without its checks;
+- merging a PR whose checks are red, pending, or absent — no matter how confident the reasoning;
+- reverting or rewriting anything already on `main`;
+- destructive database operations on staging or production (`db:push:*` is a deliberate, announced
+  step, not a routine one), and `db:reset` against a local database holding data worth keeping;
+- anything the owner has flagged as needing a decision (`working-agreement.md` §7) — merging is now
+  routine, but the *product* judgement inside a PR is not automatically routine with it.
 
-`.githooks/pre-push` refuses direct pushes to `main`; that hook and its documented
-`ALLOW_MAIN_PUSH=1` escape hatch stand unchanged, and the escape hatch is not to be used to work
-around the merge boundary. Landing still follows `docs/ms3-branch-protection.md`: branch → PR → CI
-green → **your approval** → merge.
+`.githooks/pre-push` still refuses direct pushes to `main`; the hook and its documented
+`ALLOW_MAIN_PUSH=1` escape hatch stand unchanged, and the escape hatch is not a shortcut past §9.1.
 
-When the PR is open, report: branch name · feature completed · exit-criteria status · checks and
-tests run · commits created · PR link and CI status · known limitations and follow-up work. Then
-stop at the merge boundary.
+Landing is now: branch → PR → **CI green** → `npm run merge:pr` → **verify `main`** (§11).
 
-If checks fail, do not open the PR as though the feature were done — fix the failure, or report the
-blocker.
+### 9.4 Reporting
+
+When a PR is opened, report: branch name · feature completed · exit-criteria status · checks and
+tests actually run · commits created · PR link and **CI status read from `gh pr checks`** · known
+limitations and follow-up work.
+
+After landing, report what §11 found. A merge is not the end of the task; a verified `main` is.
 
 ## 10. Process is not the product
 
 This is hygiene, not bureaucracy. The priority stays shipping the smallest correct increment defined
-by the current MVP plan. Session discipline is unchanged: one ledger task per session, handoff doc
-kept cold-start-ready, implementation routed through the specialist agents in `.claude/agents/`.
+by the current MVP plan.
+
+**Corrected 2026-08-26.** This section used to say session discipline was "one ledger task per
+session … implementation routed through the specialist agents in `.claude/agents/`". Both halves are
+superseded by [`working-agreement.md`](working-agreement.md), which is the operating model: the loop
+is *inspect → identify → prioritise → implement → test → use → critique → improve → continue*, not
+one task and stop; and specialists are used where their expertise genuinely helps, not as a
+mandatory routing layer in front of every change. What survives unchanged is the handoff standard —
+`docs/current-state.md` stays cold-start-ready (`working-agreement.md` §9).
 
 A good history looks like:
 
@@ -186,3 +261,22 @@ feat/global-place-resolution
 ```
 
 The real commits follow the real implementation, not this example mechanically.
+
+## 11. After the merge
+
+A merge is not the end of the task. Nothing on GitHub re-runs the checks against the merged result,
+and `main` is what deploys — so the merged combination gets verified once, deliberately:
+
+```bash
+git checkout main && git pull
+npm run verify                       # the merged tree, not the branch's copy of it
+gh run list --branch main --limit 1  # CI on main itself
+```
+
+Then look at the deployed product. Vercel builds `main`; a green CI job is not a working page. Open
+the deployment, sign in, and exercise the thing that changed — the same standard
+`working-agreement.md` §2 sets for a feature branch, applied to what users would actually get.
+
+If `main` is broken, fixing it forward is the first priority, ahead of whatever came next. Reverting
+anything already on `main` needs a specific instruction (§9.3) — report the breakage and the
+proposed fix rather than rewriting published history.

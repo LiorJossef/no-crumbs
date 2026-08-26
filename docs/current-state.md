@@ -5,18 +5,26 @@
 
 ## 1. Where the work is
 
-Branch **`feat/saved-places-search`**, branched off `fix/import-server-owned-confirm` (which is now
-pushed and open as **PR #23**). Working tree clean, all checks green (`npm run verify` — 371 unit
-tests, lint, typecheck, layer guard, migration guard). Both branches need the owner's explicit
-approval to merge (`git-workflow.md` §9); push and PR are automatic, merging is not.
+**`main` now carries everything below.** PRs [#23](https://github.com/LiorJossef/P-002/pull/23) (the
+import loop made real, and the confirm-endpoint exploit closed) and
+[#24](https://github.com/LiorJossef/P-002/pull/24) (`L1-F6-T2`, search over saved places) both
+landed on 2026-08-26, through `npm run merge:pr` with all six checks green.
 
-It also carries three fixes made after CI went red on PR #23 — `migrations · RLS policy tests` had
-been failing since `0017` landed, and `npm run verify` does not run `db:inventory`, so nothing local
-said so. See §3.4 and §5.
+Open branch: **`chore/merge-autonomy-and-the-ci-gap`** — the workflow review described in §6b, in a
+PR of its own.
 
-**`feat/saved-places-search` — `L1-F6-T2`, three commits.** The search field on `/map` had been
-decorative since the day it was built: a bare `<Input>` with no state behind it. It now filters, and
-it filters the **pins** as well as the list.
+**The merge rule changed on 2026-08-26 and this is the one thing not to get wrong.** Routine merges
+no longer need the owner's approval: verified work with green required checks lands without asking.
+But **GitHub branch protection is unavailable on this plan** (private repo, free tier — `403`,
+re-confirmed today), so CI is *not* a merge gate and a red PR can be merged with one command.
+`scripts/merge-pr.sh` is what replaces the human who used to read the check status. Merge only
+through it. `git-workflow.md` §9 is the full rule, including the list of things that still need a
+specific instruction each time (force-push, history rewrites, branch deletion, `--admin`/`--auto`,
+merging anything red or pending, reverting what is on `main`, destructive database operations).
+
+**What landed in #24 — `L1-F6-T2`.** The search field on `/map` had been decorative since the day it
+was built: a bare `<Input>` with no state behind it. It now filters, and it filters the **pins** as
+well as the list.
 
 | Commit | What |
 |---|---|
@@ -24,7 +32,7 @@ it filters the **pins** as well as the list.
 | `feat(search)` | The wiring: `query` lifted to `map-page-client.tsx`, both surfaces, the empty states |
 | `feat(search)` | The camera flies to the results once the typing settles |
 
-**PR #23 (`fix/import-server-owned-confirm`) — the import loop made real.** In order:
+**What landed in #23 — the import loop made real.** In order:
 
 | Commit | What |
 |---|---|
@@ -36,6 +44,7 @@ it filters the **pins** as well as the list.
 | `perf(import)` | The extraction cache is **read**, not only written |
 | `fix(a11y)` | The map sheet was hiding the entire page from screen readers |
 | `feat(import)` | The review screen: places first, per-candidate selection, no fake confidence |
+| `fix(db)` ×2 | The inventory realigned with `0017`, and migration `0018` — `anon` could call `save_place` again |
 
 ## 2. What is actually verified, and how
 
@@ -178,10 +187,41 @@ Local database at the time of writing: 20 `places`, 20 `saved_places`, 4 `extrac
 Nothing has been applied to staging or production. **`0018` was added** (it takes EXECUTE on
 `save_place` back from PUBLIC, which `0017` reopened) and is applied locally only.
 
-**`npm run verify` does not run `npm run db:inventory`.** That is why `migrations · RLS policy
-tests` sat red on PR #23 for several commits while every local check was green. Run the inventory
-after touching a migration, a grant or a function signature — it is the only thing that checks the
-schema against its own spec.
+**`npm run verify` now runs the schema inventory** (`check:schema`) against whatever local database
+is up, and **skips with a printed notice** when there is none — a skip is a gap, not a pass. It was
+added because `migrations · RLS policy tests` sat red on PR #23 for several commits while every
+local check was green.
+
+It narrows the gap; it does not close it. `verify` still covers **one of CI's four jobs** —
+`next build`, `playwright` and the from-scratch migration rebuild happen only in CI. So: never
+report a branch finished, and never merge, on a local run. `gh pr checks <pr>` is the authority.
+
+## 6b. The workflow review of 2026-08-26
+
+Prompted by the owner's ruling on merges, and by the red-CI incident the same day. What changed:
+
+- **`npm run verify` gained `check:schema`** — the read-only inventory, the specific check that was
+  missing when a red build was reported as green. Skips loudly without a database.
+- **`scripts/merge-pr.sh` / `npm run merge:pr`** — the six-condition gate that replaces owner
+  approval, because GitHub cannot enforce any of it on this plan.
+- **`git-workflow.md` §9 rewritten** into §9.1 (procedure), §9.2 (CI is the gate, local verify is a
+  filter), §9.3 (what still needs a specific instruction), §9.4 (reporting); **§11 added** — a merge
+  is not the end of the task, `main` and the deployment get verified after it.
+- **Two stale things found by reading rather than being told:** §10 still described session
+  discipline as "one ledger task per session … routed through the specialist agents", superseded by
+  `working-agreement.md` in August; and `ms3-branch-protection.md` concluded with a convention that
+  silently depended on a human approving every merge.
+- `CLAUDE.md` and `working-agreement.md` §7 carry the same rule in their own voice.
+
+**Kept deliberately, not revisited:** the branch naming and prefix scheme, the decompose-first rule,
+atomic commits, Conventional Commits, the never-squash sync rule (§1, from the August incident), the
+working-tree safety rule, and the `.githooks/pre-push` protection of `main`. All still correct; the
+review was not an excuse to redesign them.
+
+**Known residual risk, stated plainly:** `merge-pr.sh` is a client-side speed bump, not a gate. It
+is bypassable by typing `gh pr merge`, and invisible to anyone inspecting GitHub settings. The real
+fix is to make the repo public or upgrade the account, apply the ruleset in
+`ms3-branch-protection.md`, and delete both the hook and this script's reason for existing.
 
 ## 6. The next highest-impact step
 
