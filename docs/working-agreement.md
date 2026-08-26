@@ -137,8 +137,16 @@ Two standing constraints from the owner that this interacts with:
 
 - **No new spend and no new payment method** without asking. An existing key that works at $0 today
   is usable; enabling billing, adding a card, or introducing meaningful recurring cost is not.
-- **Merging to `main` always needs explicit approval** (`git-workflow.md`), as do force-push,
-  history rewrites and branch deletion.
+- **Merging to `main` is routine and needs no approval** (owner ruling, 2026-08-26): verified work
+  with green required checks lands via `npm run merge:pr`, and `main` plus the deployment get
+  verified afterwards. What still needs a specific instruction each time is the destructive and the
+  irreversible — force-push, history rewrites, branch deletion, direct pushes to `main`, any merge
+  that bypasses checks (`--admin`, `--auto`, red or pending), reverting what is already on `main`,
+  and destructive database operations. `git-workflow.md` §9.3 is the list.
+
+  The autonomy is about *landing* work, not about *what* to build: a PR full of decisions from the
+  list above is still a PR to bring here first. And "verified" keeps its §2 meaning — CI green is
+  the gate for merging, not a substitute for having used the thing.
 
 ## 8. Communication
 

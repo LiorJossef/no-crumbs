@@ -76,10 +76,17 @@ kebab-case, prefixed branch per feature (`feat/global-place-resolution`, `fix/re
 decompose the feature into subtasks from the plan before writing code; commit each coherent subtask
 once its tests and checks pass, staged intentionally and reviewed as a diff first; Conventional
 Commit subjects (`feat(resolver): add Nominatim provider`) with the *why* in the body. Uncommitted
-changes in the tree are user-owned — never reset, cleaned, or swept into a commit. **A finished
-feature whose checks pass is pushed and PR'd automatically; merging into `main` always needs explicit
-approval** — as do force-push, history rewrites and branch deletion. Landing goes branch → PR → green
-CI → approval → merge, per `docs/ms3-branch-protection.md`.
+changes in the tree are user-owned — never reset, cleaned, or swept into a commit.
+
+**Push, PR and merge are all automatic (owner ruling, 2026-08-26).** Landing goes branch → PR → **CI
+green** → `npm run merge:pr -- <n>` → **verify `main` and the deployment** (§11). Merge only through
+that script: GitHub branch protection is unavailable on this plan, so `scripts/merge-pr.sh` *is* the
+gate — it refuses a draft, a non-`main` base, any check that is failing **or pending**, an empty
+check list, a non-mergeable PR, or a branch that does not contain current `main`. **CI is the
+authority, not `npm run verify`** — verify covers one of CI's four jobs, so read `gh pr checks`
+before claiming anything is green. Still needing a specific instruction each time: force-push,
+history rewrites, branch deletion, direct pushes to `main`, `--admin`/`--auto` merges, merging
+anything not green, reverting what is already on `main`, and destructive database operations.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
