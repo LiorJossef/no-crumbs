@@ -19,7 +19,7 @@
  * validation and the non-TikTok redirect are the real classification, not a stub.
  */
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -40,7 +40,7 @@ import { cn } from '@/lib/utils';
 import { canonicaliseTikTokUrl } from '@/domain/source/canonicalise-tiktok-url';
 import type { PipelineStage } from '@/domain/import/events';
 import { googleMapsSearchUrl } from '@/domain/places/google-maps-search-url';
-import { decideCaptionSaveOutcome } from '@/domain/import/caption-save-outcome';
+import { decideCaptionSaveOutcome, type CaptionSaveResult } from '@/domain/import/caption-save-outcome';
 import type { Candidate, PlaceCandidate } from '@/domain/types';
 
 /* ------------------------------------------------------------------------------------------- *
@@ -124,6 +124,25 @@ type Screen =
  * Component
  * ------------------------------------------------------------------------------------------- */
 
+/**
+ * What one "Done" actually put in the library, handed to the caller so the map can respond to it.
+ *
+ * `savedPlaceIds` is the point: without it, a successful import is silent — the pins exist, the
+ * camera never moves, and the only feedback is a list the user has to go looking through.
+ * `alreadySaved` is carried separately from `saved` so a re-import can say "already in your
+ * library" instead of claiming a fresh save it did not make.
+ */
+export interface SaveOutcomeDetail extends CaptionSaveResult {
+  readonly alreadySaved: number;
+  /**
+   * `saved_places.id` values — the id the map keys pins on (`Spot.id` → `MapPlace.id`), **not**
+   * `places.id`. The confirm response carries both and they are both uuids, so picking the wrong
+   * one fails silently: the camera simply matches nothing and never moves, which is exactly what
+   * happened the first time this shipped.
+   */
+  readonly savedPlaceIds: readonly string[];
+}
+
 export interface ImportPageClientProps {
   /** Set when this component is rendered as an overlay on top of the persistent map
    *  (`map-page-client.tsx`'s "Add a TikTok" flow) rather than mounted at the standalone `/import`
@@ -133,9 +152,12 @@ export interface ImportPageClientProps {
    *  prop preserves the standalone route's exact behaviour — direct navigation and a mid-import
    *  refresh still land on this same component via `/import`'s page. */
   readonly onClose?: () => void;
+  /** Called once, just before this overlay closes, when a "Done" actually saved something. The
+   *  map owner (`map-page-client.tsx`) uses it to frame the new pins and confirm the save. */
+  readonly onSaved?: (detail: SaveOutcomeDetail) => void;
 }
 
-export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
+export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {}) {
   const router = useRouter();
   const [screen, setScreen] = useState<Screen>({ kind: 'paste' });
   const [url, setUrl] = useState('');
@@ -156,6 +178,10 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
     error: null,
     partialNotice: null,
   });
+
+  /** The last save's detail, kept so `continueAfterPartialSave` — which runs on a *later* click,
+   *  after the message has been read — can still tell the map what landed. */
+  const lastSaveDetail = useRef<SaveOutcomeDetail | null>(null);
 
   const validation = useMemo(() => canonicaliseTikTokUrl(url), [url]);
   const showInvalid = touched && url.trim().length > 0 && !validation.ok;
@@ -311,16 +337,16 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
   async function saveExtractedCandidates(
     candidates: readonly PlaceCandidate[],
     extractionId: string | null,
-  ): Promise<{ readonly saved: number; readonly skipped: number; readonly failed: number }> {
+  ): Promise<SaveOutcomeDetail> {
     if (candidates.length === 0) {
-      return { saved: 0, skipped: 0, failed: 0 };
+      return { saved: 0, skipped: 0, failed: 0, alreadySaved: 0, savedPlaceIds: [] };
     }
 
     // No persisted extraction means there is nothing the server can derive a save from, and no
     // request this client could send that would be authorised. Reported as failed rather than
     // silently swallowed: the user pressed Done and nothing was saved.
     if (extractionId === null) {
-      return { saved: 0, skipped: 0, failed: candidates.length };
+      return { saved: 0, skipped: 0, failed: candidates.length, alreadySaved: 0, savedPlaceIds: [] };
     }
 
     // The request carries positions, not facts. Which candidate to save is the user's call; what
@@ -336,25 +362,37 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
     });
 
     if (!res.ok) {
-      return { saved: 0, skipped: 0, failed: items.length };
+      return { saved: 0, skipped: 0, failed: items.length, alreadySaved: 0, savedPlaceIds: [] };
     }
 
     const body = (await res.json()) as {
-      results: readonly { status: 'saved' | 'already_saved' | 'skipped' | 'failed' }[];
+      results: readonly {
+        status: 'saved' | 'already_saved' | 'skipped' | 'failed';
+        savedPlaceId?: string;
+      }[];
     };
 
     // `skipped` is now the server's verdict (the model gave this candidate no coordinates), not a
     // client-side filter. `already_saved` counts as saved: the place is in the library either way,
-    // and `decideCaptionSaveOutcome` is about whether the save succeeded, not about novelty.
+    // and `decideCaptionSaveOutcome` is about whether the save succeeded, not about novelty. It is
+    // still counted separately, because "3 saved, 5 were already there" is the honest sentence for
+    // a re-import and "8 saved" is not.
     let saved = 0;
     let skipped = 0;
     let failed = 0;
+    let alreadySaved = 0;
+    const savedPlaceIds: string[] = [];
     for (const result of body.results) {
-      if (result.status === 'saved' || result.status === 'already_saved') saved += 1;
-      else if (result.status === 'skipped') skipped += 1;
+      if (result.status === 'saved' || result.status === 'already_saved') {
+        saved += 1;
+        if (result.status === 'already_saved') alreadySaved += 1;
+        // Collected so the map can fly to exactly what this import put in the library —
+        // including the already-saved ones, which are just as much "the places from this TikTok".
+        if (result.savedPlaceId) savedPlaceIds.push(result.savedPlaceId);
+      } else if (result.status === 'skipped') skipped += 1;
       else failed += 1;
     }
-    return { saved, skipped, failed };
+    return { saved, skipped, failed, alreadySaved, savedPlaceIds };
   }
 
   /** After a successful (or nothing-to-save) "Done": land on/near the map with the save visible.
@@ -363,7 +401,11 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
    *  saved place reaches `MapPageClient`'s props; the standalone `/import` route case additionally
    *  needs the navigation itself. Doing both, in both cases, is cheap and avoids depending on
    *  which one this render happens to be. */
-  function backToMapWithFreshData() {
+  function backToMapWithFreshData(detail: SaveOutcomeDetail | null) {
+    // Handed up *before* the overlay unmounts, so the map can frame the new pins and say what
+    // landed. Without this the import was invisible: eight London places saved into a Tel Aviv
+    // library left the camera untouched and nothing on screen to say the save had happened.
+    if (detail && detail.saved > 0) onSaved?.(detail);
     if (onClose) {
       router.refresh();
       onClose();
@@ -389,10 +431,11 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
     setCaptionSave({ saving: true, error: null, partialNotice: null });
     try {
       const result = await saveExtractedCandidates(candidates, extractionId);
+      lastSaveDetail.current = result;
       const outcome = decideCaptionSaveOutcome(result);
       switch (outcome.kind) {
         case 'proceed':
-          backToMapWithFreshData();
+          backToMapWithFreshData(result);
           reset();
           return;
         case 'skip_only':
@@ -412,7 +455,7 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
    *  saves are real, so this proceeds exactly like a clean success once the user has seen the
    *  which/how-many-failed message. */
   function continueAfterPartialSave() {
-    backToMapWithFreshData();
+    backToMapWithFreshData(lastSaveDetail.current);
     reset();
   }
 

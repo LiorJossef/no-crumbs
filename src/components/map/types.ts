@@ -79,4 +79,21 @@ export interface MapSurfaceProps {
   /** Called when the surface's own popup close affordance is used. Optional: a surface with no
    *  popup (or no handler) simply never calls it. */
   readonly onDeselect?: () => void;
+  /**
+   * "Frame exactly these places, now" — the one *explicit* camera mover this port exposes.
+   *
+   * It exists because of what an import used to look like: you paste a London TikTok, eight
+   * places save correctly, and the map stays exactly where it was (Tel Aviv), with nothing on
+   * screen saying anything happened. The saved rows were real and completely invisible.
+   *
+   * Passing a **new array identity** requests one camera flight to the bounding box of the
+   * matching places. Ids that are not (yet) in `places` are ignored, so a caller may set this in
+   * the same tick as a data refresh — the flight happens once the places actually arrive.
+   *
+   * Deliberately not "fit whatever `places` currently is": that is what the surface used to do on
+   * every data change, and after an import it framed Tel Aviv *and* London together, which is a
+   * view of the Mediterranean. The initial framing is still automatic; every later camera move is
+   * requested through this prop.
+   */
+  readonly focusPlaceIds?: readonly string[];
 }
