@@ -98,25 +98,75 @@ sheet.
 
 ## 3. Unresolved — in impact order
 
-0. **The deployed product is broken for every signed-in user, and has been for a while.**
-   `https://p-002-zeta.vercel.app/map` and `/import` both return **500**; `/`, `/sign-in` and
-   `/healthz` are fine, and `/healthz` correctly reports `main`'s head commit, so Vercel is
-   deploying the right code. The cause is the database, not the build: **production has migrations
-   `0001`–`0009` and nothing since**, while `get-spots.ts` selects `extracted_reason`, `source_url`,
-   `address_line`, `source_dataset` and `resolution_score` — columns added in `0015`/`0016`.
-   PostgREST cannot resolve them, the query throws, the page 500s. **Staging is behind too**:
-   `0001`–`0015` applied, missing `0016`, `0017`, `0018`.
+0. **Production is down, and the recorded cause was wrong.** `https://p-002-zeta.vercel.app/map`
+   and `/import` both return **500**; `/`, `/sign-in` and `/healthz` are fine, and `/healthz`
+   reports `main`'s head commit, so Vercel is deploying the right code.
 
-   **This is not new and was not caused by today's merges** — verified rather than assumed: the last
-   `main` commit before today (`9ee40c1`, PR #20) already selected all five columns, so production
-   has been returning 500 on `/map` since that merge. Nobody noticed because nobody looked. It was
-   found on the very first run of `git-workflow.md` §11 ("after the merge, look at the deployed
-   product"), which is the argument for that section existing.
+   This file used to blame the missing migrations. **It is not the missing migrations** — measured
+   2026-08-26. `/import` also 500s, and `/import` never queries `saved_places`; it only builds a
+   server-side Supabase client and calls `getUser()`. The two 500ing pages are precisely the two
+   that construct a server-side Supabase client.
 
-   **Not fixed here, deliberately.** Applying nine migrations to production — including
-   `0012`/`0015`'s grant changes and `0017`'s function replacement — is a deliberate, announced step
-   that needs the owner's instruction (`git-workflow.md` §9.3, and `db-migration-runbook.md` is the
-   procedure). Staging goes first. The runbook, not improvisation.
+   **The actual cause: the Vercel project has no environment variables at all.**
+
+   ```bash
+   npx vercel env ls production --project p-002   # → No Environment Variables found
+   ```
+
+   The same for `preview` and `development`. Confirmed independently of the CLI: the whole ~1 MB
+   production JS bundle contains no Supabase project URL and no anon key, only the bare
+   `.supabase.co` string the library ships — so `NEXT_PUBLIC_SUPABASE_URL` was undefined at build
+   time. `createServerClient(undefined, undefined)` throws before any query runs, which is why the
+   response is a bare `Internal Server Error` rather than a rendered Next error page, and why
+   `/map` never even reaches its `redirect('/sign-in')`.
+
+   **Both problems are real; the env store is the first one.** Restoring the variables alone would
+   move `/map` from throwing at client construction to throwing at query time, because production
+   genuinely is still on `0009` while `get-spots.ts` selects `extracted_reason`, `source_url`,
+   `address_line`, `source_dataset` and `resolution_score` from `0015`/`0016`. That second half is
+   **inference from the ledger**, not measurement — prod's schema cannot be read without
+   `PROD_DATABASE_URL`.
+
+   **Restoring the variables is the owner's job** (entering credentials into a third party), and
+   `docs/vercel-env-restore.md` is the checklist. `.env.vercel.preview` on disk is *not* a usable
+   recovery source: its publishable key is live, but `SUPABASE_SERVICE_ROLE_KEY` in it is the
+   literal string `PASTE_STAGING_...` and every production value is absent entirely.
+
+   **Staging is done.** It was migrated to `0018` on 2026-08-26 and verified — see §3a. Production
+   was deferred by the owner in the same session, pending `PROD_DATABASE_URL`.
+
+3a. **Staging: `0018`, proven, 2026-08-26.** Recorded here because the next session should not
+   re-derive it. Getting there was not a plain push: staging carried `0016`'s content under version
+   `0019`, a remote-only `0020`, and an out-of-band transcription feature (a table, five functions
+   and a storage bucket) with no ledger row at all — from the paused
+   `codex/cloudflare-audio-transcription` experiment, whose migrations existed only inside
+   `git stash@{3}`. All of it is preserved and replay-proved in `docs/evidence/db/orphans/`
+   (PR #27) before anything was dropped; that directory's §5 is the full record.
+
+   What was verified against staging, by running things rather than reasoning about them:
+
+   | Check | Result |
+   |---|---|
+   | ledger | `0001`–`0018`, local == remote, **no remote-only row** |
+   | `inventory.sql` | **15/15 PASS** |
+   | `0008_policy_tests.sql` (rolled back) | **22 assertions PASS** under real `request.jwt.claims` |
+   | the `/map` read query, as `authenticated` | real rows, every `0015`/`0016` column populated, RLS scoping 7 of 13 |
+   | `save_place/4` (`0017`) | reason persists · provenance row written · `UPDATE` of `extracted_reason` refused `42501` · `0016` denormalised `source_url` applied · deferred constraint triggers fire clean |
+   | `0018` | `EXECUTE` on `save_place` held by `authenticated`/`postgres`/`service_role`, **not `PUBLIC`** |
+   | the real app, signed in | `/map` **307** when unauthenticated, and renders empty *and* populated at 390×844 and 1440×900 |
+
+   **Not verified against staging, and why:** the TikTok import pipeline. It runs as `service_role`,
+   and the only staging service-role key on disk is that `PASTE_STAGING_...` placeholder, so
+   `/api/imports/probe` returns **502**. Nothing about staging's schema is implicated — the same
+   flow is verified locally. It needs a real key, which only the owner can supply.
+
+   One thing that fell out of that 502: the masked-error problem (§3.5) cost real diagnosis time.
+   The screen said `COULDN'T READ THAT TIKTOK / Something went wrong / INTERNAL`, which pointed at
+   TikTok, at the model, and at the network — none of which was the cause.
+
+   Residual drift, stated rather than hidden: the empty `transcription-audio` bucket is still in
+   `storage.buckets` on staging. Supabase refuses a direct `delete` on storage tables, so removing
+   it needs the Storage API. It is outside `public` and no check in this repo looks at it.
 
 1. **Coordinates are still the model's guess, and they are wrong by 65–470 m.** Measured across
    re-runs of the same caption. The screen is now honest about it ("Pin is approximate", a
@@ -204,10 +254,9 @@ on port 3000 — reuse it rather than starting a second. Sign in at `/sign-in` a
 Local database at the time of writing: 20 `places`, 20 `saved_places`, 4 `extractions`, 22
 `imports`, 10 `sources`. One `places` row has a NULL `country_code` (issue 3.2).
 
-**The hosted databases are far behind `main`** — production is on `0009`, staging on `0015`, local
-on `0018`. That is issue §3.0, and it is why the deployed product 500s on `/map`. **`0018` was
-added** (it takes EXECUTE on
-`save_place` back from PUBLIC, which `0017` reopened) and is applied locally only.
+**Migration state, 2026-08-26:** local `0018`, **staging `0018`** (pushed and proven — §3a),
+production still `0009`. Production's push is deferred pending `PROD_DATABASE_URL`; and note that
+migrating production will not by itself bring it back, because the Vercel env store is empty (§3.0).
 
 **`npm run verify` now runs the schema inventory** (`check:schema`) against whatever local database
 is up, and **skips with a printed notice** when there is none — a skip is a gap, not a pass. It was
@@ -247,7 +296,13 @@ fix is to make the repo public or upgrade the account, apply the ruleset in
 
 ## 6. The next highest-impact step
 
-**Delete, and editing your own note — `L1-F7-T2`.**
+**First, and it is not a feature: restore the Vercel environment variables** (§3.0,
+`docs/vercel-env-restore.md`). It is the owner's five-minute job and it is worth more than any
+amount of product work, because until it is done every deployed surface that needs a signed-in user
+is a 500 and no shipped change can be seen by anyone. Production's migration push follows it, once
+`PROD_DATABASE_URL` is set.
+
+**Then the product work: delete, and editing your own note — `L1-F7-T2`.**
 
 The app can create and read. It cannot update or delete **anything**: `src/app/actions/` holds one
 file (`sign-out.ts`) and `src/app/api/` holds only `imports`. A place you save is a place you are
