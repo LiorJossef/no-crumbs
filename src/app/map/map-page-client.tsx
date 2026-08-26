@@ -47,6 +47,11 @@ import { ImportPageClient, type SaveOutcomeDetail } from '@/app/import/import-pa
  *  silence — the user cannot hear the field they are typing into. */
 const ANNOUNCE_AFTER_MS = 500;
 
+/** How long the typing has to settle before the camera flies to the results. Long enough that
+ *  every keystroke of `restaurant` is not a separate flight; short enough that the move still
+ *  reads as the answer to what was typed. */
+const FLY_AFTER_MS = 450;
+
 export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
   const [selected, setSelected] = useState<MapPlace | null>(null);
   const [showImport, setShowImport] = useState(false);
@@ -58,6 +63,20 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
    * so a stale "8 places added" can never sit over a fresh run.
    */
   const [lastImport, setLastImport] = useState<SaveOutcomeDetail | null>(null);
+  /**
+   * The one thing that moves the camera after the initial framing: "frame exactly these places".
+   * A single piece of state rather than one per caller, because the map keys the flight on the
+   * array's *identity* — so whoever wrote last wins, and a re-render that changes nothing cannot
+   * re-fly. It is deliberately never cleared: dismissing the post-import confirmation used to
+   * switch this prop back to something else, which the map reads as a brand-new request and
+   * answers by throwing the camera across the world.
+   *
+   * Two writers today — a finished import, and a settled search (`useSearchFlight`). `L1-F5-T2`
+   * owns the authorised-camera-mover list and has to reconcile the second one; the alternative
+   * while it waits is a search that says "8 places" over a map showing none of them, which is the
+   * list and the map disagreeing about the same library.
+   */
+  const [focusPlaceIds, setFocusPlaceIds] = useState<readonly string[] | null>(null);
 
   const visiblePlaces = useMemo(() => filterPlaces(places, query), [places, query]);
 
@@ -71,6 +90,7 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
   }
 
   const announcement = useResultAnnouncement(query, visiblePlaces.length, places.length);
+  useSearchFlight(query, places, visiblePlaces, setFocusPlaceIds);
 
   function openImport() {
     setLastImport(null);
@@ -88,7 +108,7 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
         onPlaceClick={setSelected}
         selected={selected}
         onDeselect={() => setSelected(null)}
-        {...(lastImport ? { focusPlaceIds: lastImport.savedPlaceIds } : {})}
+        {...(focusPlaceIds ? { focusPlaceIds } : {})}
       />
 
       {/* The list and the pins both change silently as the user types, so the one thing a screen
@@ -135,7 +155,13 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
         onAddTikTok={openImport}
       />
       {showImport && (
-        <ImportPageClient onClose={() => setShowImport(false)} onSaved={setLastImport} />
+        <ImportPageClient
+          onClose={() => setShowImport(false)}
+          onSaved={(outcome) => {
+            setLastImport(outcome);
+            setFocusPlaceIds(outcome.savedPlaceIds);
+          }}
+        />
       )}
     </div>
   );
@@ -169,4 +195,51 @@ function useResultAnnouncement(query: string, matchCount: number, totalCount: nu
   }, [trimmed, matchCount, totalCount]);
 
   return announced.query === trimmed ? announced.message : '';
+}
+
+/**
+ * Flies the camera to the search results once the typing settles.
+ *
+ * It exists because of what searching actually looked like without it: with the map framed on
+ * London, typing `tel aviv` filtered the list to eight places and the map to zero pins — the list
+ * and the map answering the same question differently, which is the exact failure the lifted
+ * `query` was meant to prevent. Even inside one city it showed: `kiaans` left its two pins clipped
+ * against the bottom edge.
+ *
+ * Three rules, and the second and third are what stop it being annoying:
+ *
+ *  - **Only after the typing stops.** Every keystroke of a long word would otherwise be its own
+ *    flight.
+ *  - **Never on mount.** `searched === null` means the user has not typed anything yet, so the
+ *    automatic whole-library framing is left entirely alone. This hook must not be the thing that
+ *    frames the map on first load.
+ *  - **Never for a query that matches nothing.** There is no such thing as a bounding box of no
+ *    places; the camera stays where it is, and the "Nothing matches …" copy carries the message.
+ *
+ * Clearing the field is a real decision too, not the absence of one: it frames the whole library
+ * again, which is `ux-architecture.md` §9.3's `Show all places`. Without it, clearing a search that
+ * had zoomed into one street leaves the user on that street with nineteen pins off screen.
+ */
+function useSearchFlight(
+  query: string,
+  places: readonly MapPlace[],
+  matches: readonly MapPlace[],
+  requestFlight: (ids: readonly string[]) => void,
+): void {
+  // The query the camera was last moved for. `null` until the user has searched at all — which is
+  // not the same as `''`, and the difference is the whole "never on mount" rule.
+  const [searched, setSearched] = useState<string | null>(null);
+  const trimmed = query.trim();
+
+  useEffect(() => {
+    if (searched === null && trimmed === '') return;
+    if (searched === trimmed) return;
+
+    const timer = setTimeout(() => {
+      const target = trimmed === '' ? places : matches;
+      setSearched(trimmed);
+      if (target.length > 0) requestFlight(target.map((place) => place.id));
+    }, FLY_AFTER_MS);
+    return () => clearTimeout(timer);
+  }, [trimmed, searched, places, matches, requestFlight]);
 }
