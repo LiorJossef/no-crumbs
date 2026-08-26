@@ -28,8 +28,32 @@
  * no request timeout, so no config change is needed to let a slow local call simply take as long
  * as it takes.
  *
- * Output: either the caption/author/canonical-url/thumbnail/candidates this task needs, or a
- * `DomainErrorView` (`domain/errors.ts`'s `toView()`) — never a raw exception, stack trace or
+ * Resolution (L0-F2b, 2026-08-24; tightened 2026-08-26): still not the full `runImport` stage C —
+ * no `ImportStore` stage recording, no `07` §5 candidate-progress events — but every surviving
+ * candidate now gets one real lookup against the loaded `poi_index` extract
+ * (`poiIndexPlaceResolver`, `integrations/places/poi-index-resolver.ts`) before this route
+ * responds. Only `confidence.band === 'preselect'` is treated as a database hit. A `'confirm'`-band
+ * result is a plausible-but-unconfirmed guess — `06` §6.2's own semantics, and exactly what
+ * `deriveResolution` in `domain/import/pipeline.ts` already encodes as `status: 'ambiguous'` rather
+ * than `'resolved'` — so it is *not* shown as a "Matched" row here; it falls through to the same
+ * LLM-guess + Google Maps fallback path as a `'no_match'`. A confirmed false-positive (Tel Aviv
+ * "סברה" resolving to an unrelated cafe ~2.3km away at a `confirm`-band 0.864) is what this
+ * tightening fixes: the caption-preview screen's "Done" button is not itself the disambiguation
+ * step `confirm` band requires, so treating a `confirm` hit as an unqualified match let a coin-flip
+ * guess through as if it were a confident lookup. `'no_match'` — including "that city isn't
+ * loaded" (`ResolveResult.regionsSearched: []`) — is a clean, honest miss: `dbMatches[i]` is
+ * `null` and the client's existing LLM-guess + Google Maps link path runs exactly as it did before
+ * this task, unchanged. A resolver lookup failure (a thrown `DomainError`) degrades the same way —
+ * logged, not surfaced — because one database hiccup must never take down the whole probe
+ * response when the fallback already exists and is not itself at fault.
+ *
+ * Bounded exactly like `runImport` bounds it: `MAX_CANDIDATES` (`domain/import/pipeline.ts`) caps
+ * how many candidates ever reach a resolver call — the same ceiling, not a second one invented
+ * here — so a caption with many named places cannot turn one import into an unbounded number of
+ * database round trips.
+ *
+ * Output: either the caption/author/canonical-url/thumbnail/candidates/dbMatches this task needs,
+ * or a `DomainErrorView` (`domain/errors.ts`'s `toView()`) — never a raw exception, stack trace or
  * vendor error string. `INTERNAL` is the floor for anything unmapped. A thrown `DomainError` from
  * the extractor itself (`EXTRACTOR_UNAVAILABLE`, `EXTRACTOR_INVALID_OUTPUT`) is handled by the
  * exact same catch block as a source-adapter failure — one error shape, one honest path, whatever
@@ -44,8 +68,27 @@ import { createPlaceExtractor } from '@/integrations/llm/place-extractor-factory
 import { canonicaliseTikTokUrl } from '@/domain/source/canonicalise-tiktok-url';
 import { filterPlausible } from '@/domain/extraction/plausibility';
 import { DomainError, internal, notAuthenticated } from '@/domain/errors';
+import { resolveCandidateBestEffort, MAX_CANDIDATES } from '@/domain/import/pipeline';
+import { poiIndexPlaceResolver } from '@/integrations/places/poi-index-resolver';
 import type { OpCtx } from '@/domain/ports';
 import type { PlaceCandidate } from '@/domain/types';
+
+/** The DB-first match this route offers ahead of the LLM-guess + Google Maps fallback (L0-F2b) —
+ *  only the fields the caption-preview screen needs to show a matched place and, on "Done", save
+ *  it with real `overture`/`overture-places` provenance instead of an `llm_guess` one. */
+export interface ProbeDbMatch {
+  readonly provider: 'overture';
+  readonly providerPlaceId: string;
+  readonly sourceDataset: 'overture-places';
+  readonly name: string;
+  readonly providerCategory: string | null;
+  readonly addressLine: string | null;
+  readonly locality: string | null;
+  readonly lat: number;
+  readonly lng: number;
+  /** `Confidence.score` for the top shortlist entry — `places.resolution_score`-shaped, 0..1. */
+  readonly resolutionScore: number;
+}
 
 function noopCtx(signal: AbortSignal): OpCtx {
   return {
@@ -125,6 +168,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     // No caption at all: never call the LLM on nothing (07 §5.2's "no caption" pre-check).
     let candidates: readonly PlaceCandidate[] = [];
+    let cityHint: string | null = null;
     if (caption !== null) {
       const extractor = createPlaceExtractor({
         ...(process.env.LLM_PROVIDER !== undefined ? { LLM_PROVIDER: process.env.LLM_PROVIDER } : {}),
@@ -135,6 +179,52 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       });
       const extracted = await extractor.extract(parts, ctx);
       candidates = filterPlausible(extracted.candidates, caption).kept;
+      cityHint = extracted.cityHint;
+    }
+
+    // The DB-first check (L0-F2b): one `poiIndexPlaceResolver.resolve()` per surviving candidate,
+    // capped at `MAX_CANDIDATES` exactly like `runImport` caps stage C, before this route ever
+    // offers the LLM-guess + Google Maps fallback. `dbMatches[i]` stays aligned to `candidates[i]`
+    // by index — including `null` for a candidate past the cap — so the client never has to guess
+    // which candidate a match belongs to.
+    const resolver = poiIndexPlaceResolver(db);
+    const dbMatches: (ProbeDbMatch | null)[] = [];
+    for (const [index, candidate] of candidates.entries()) {
+      if (index >= MAX_CANDIDATES) {
+        dbMatches.push(null);
+        continue;
+      }
+      try {
+        const result = await resolveCandidateBestEffort(resolver, candidate, cityHint, ctx);
+        const top = result.shortlist[0];
+        // Only `'preselect'` is a confident enough database hit to show as "Matched" (see the file
+        // header). `'confirm'` — a plausible but unconfirmed guess — and `'no_match'` both fall
+        // through to the LLM-guess + Google Maps fallback exactly the same way.
+        dbMatches.push(
+          result.confidence.band !== 'preselect' || top === undefined
+            ? null
+            : {
+                provider: 'overture',
+                providerPlaceId: top.place.providerPlaceId,
+                sourceDataset: 'overture-places',
+                name: top.place.name,
+                providerCategory: top.place.providerCategory,
+                addressLine: top.place.addressLine,
+                locality: top.place.locality,
+                lat: top.place.lat,
+                lng: top.place.lng,
+                resolutionScore: result.confidence.score,
+              },
+        );
+      } catch (resolverError) {
+        // One database hiccup must never take the whole probe down when the LLM-guess fallback
+        // already exists and is not itself at fault — logged, degraded to "no match", not thrown.
+        ctx.log.event('poi_index_resolve_failed', {
+          rawName: candidate.rawName,
+          error: resolverError instanceof Error ? resolverError.message : String(resolverError),
+        });
+        dbMatches.push(null);
+      }
     }
 
     return NextResponse.json({
@@ -145,6 +235,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       thumbnailUrl: raw.thumbnailUrl,
       caption,
       candidates,
+      dbMatches,
     });
   } catch (e) {
     const domainError = e instanceof DomainError ? e : internal(String(e), e);

@@ -97,6 +97,15 @@ export interface ScoringConstants {
    * `'a'`, which `minDistinctiveTokenLength` has already removed. City words are in here
    * (`tokyo`, `london`, `tel`, `aviv`) because *"café in Tokyo"* must not match *"Tokyo Coffee"* on
    * the city name.
+   *
+   * Extended 2026-08-26 with the direct Hebrew counterparts of entries already above — `קפה`
+   * (cafe), `בר` (bar), `מסעדה` (restaurant), `מטבח` (kitchen), `בית` (house), `חנות` (shop), and
+   * `תל`/`אביב` mirroring the existing `tel`/`aviv` city-word entries — nothing more. Found live,
+   * 2026-08-26: a Hebrew `identifiedName` retry ("סברה בר קפה קר") scored a false-positive
+   * `confirm`-band match against an unrelated cafe ~2.3km away because its category word `קפה`
+   * ("cafe") was wrongly counted as identity-bearing when the wrong candidate's name also happened
+   * to contain it ("נורדאו - קפה בשדרה"). This is a mirror of the existing English list, not a
+   * general Hebrew stopword pass — see this file's header on what a re-fit here must look like.
    */
   readonly generic: ReadonlySet<string>;
   /**
@@ -122,6 +131,8 @@ export const SCORING: ScoringConstants = Object.freeze({
       'cafe', 'café', 'coffee', 'bar', 'restaurant', 'kitchen', 'the', 'and', 'a', 'of', 'de', 'co',
       'company', 'roasters', 'roastery', 'house', 'shop', 'tokyo', 'london', 'tel', 'aviv', 'hidden',
       'gem', 'best', 'ever', 'this', 'that', 'little', 'near', 'in', 'at',
+      // Hebrew counterparts (2026-08-26) — see the doc comment above.
+      'קפה', 'בר', 'מסעדה', 'מטבח', 'בית', 'חנות', 'תל', 'אביב',
     ]),
   ),
   categoryTokens: Object.freeze({

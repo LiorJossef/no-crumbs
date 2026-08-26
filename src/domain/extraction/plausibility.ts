@@ -126,7 +126,12 @@ export function filterPlausible(candidates: readonly PlaceCandidate[], caption: 
       dropped.generic_words_only += 1;
       continue;
     }
-    if (candidate.evidence !== null && !caption.includes(candidate.evidence)) {
+    // The prompt's own contract (`integrations/llm/prompt.ts`): "If you cannot point to a verbatim
+    // fragment, do not emit the candidate." A `null` evidence is therefore never a legitimately
+    // ungrounded-but-real candidate — it is exactly the case the model was told to drop itself, so
+    // this gate must drop it too rather than let a `null` skip the check entirely (found live,
+    // 2026-08-24: an ungrounded second candidate with no caption basis reached the review screen).
+    if (candidate.evidence === null || !caption.includes(candidate.evidence)) {
       dropped.evidence_not_in_caption += 1;
       continue;
     }
