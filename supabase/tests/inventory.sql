@@ -257,7 +257,6 @@ begin
     ('extractions','SELECT'),
     ('place_provider_refs','SELECT'),
     ('saved_places','SELECT'), ('saved_places','DELETE'),
-    ('saved_place_sources','SELECT'), ('saved_place_sources','INSERT'),
     ('saved_place_sources','DELETE')
     -- deliberately absent: every write on sources/extractions/places/place_provider_refs (global
     -- tables are server-written); INSERT and DELETE on imports (R10, start_import only); anything
@@ -270,7 +269,10 @@ begin
     -- new table appears as UNEXPECTED without anyone remembering to add it. Also deliberately
     -- absent since 0015: table-level INSERT on `saved_places` — replaced with a closed column-level
     -- grant (check 5), because a table-wide INSERT would have made the new `extracted_reason`
-    -- column client-writable at row-creation time with no way to exclude it.
+    -- column client-writable at row-creation time with no way to exclude it. And, since 0017,
+    -- table-level SELECT **and** INSERT on `saved_place_sources` for the same reason: a table-wide
+    -- grant on a link table is a standing licence over whatever columns it grows next, and the
+    -- closed lists that replaced them are asserted in check 5 instead.
   )
   select string_agg(format('%s %s.%s', kind, t, p), ', ' order by t, p) into v from (
     select 'UNEXPECTED' kind, a.t, a.p from actual a
@@ -361,8 +363,9 @@ end $$;
 -- roles only) and one more: pg_attribute.attacl holds ONLY real column grants, whereas
 -- role_column_grants also expands table-level grants per column. Every row in the expected set
 -- below is a genuine column grant — `authenticated` holds no table-level UPDATE anywhere and no
--- table-level SELECT on `sources` or `places`, and since 0015 no table-level INSERT on
--- `saved_places` either — so the two sources agree on this schema, and the catalogue form keeps
+-- table-level SELECT on `sources` or `places`, since 0015 no table-level INSERT on `saved_places`,
+-- and since 0017 neither SELECT nor INSERT at table level on `saved_place_sources` — so the two
+-- sources agree on this schema, and the catalogue form keeps
 -- agreeing if a view or matview ever appears. A table-level UPDATE (or, for `saved_places`, INSERT)
 -- appearing by accident is caught by check 4, not here; both are needed — and that division matters
 -- for `places`:
@@ -380,7 +383,8 @@ begin
      where n.nspname = 'public'
        and cl.relkind in ('r', 'p', 'v', 'm', 'f')
        and a.grantee = 'authenticated'::regrole
-       and (a.privilege_type = 'UPDATE' or cl.relname in ('sources', 'places', 'saved_places'))
+       and (a.privilege_type = 'UPDATE'
+            or cl.relname in ('sources', 'places', 'saved_places', 'saved_place_sources'))
   ), expected(t, c, p) as (values
     -- profiles: display name only
     ('profiles','display_name','UPDATE'),
@@ -391,11 +395,30 @@ begin
     ('saved_places','note','UPDATE'), ('saved_places','visit_state','UPDATE'),
     ('saved_places','visited_at','UPDATE'),
     -- saved_places: 0015's closed INSERT column list — everything a client legitimately creates a
-    -- row with, `extracted_reason` deliberately left out so it stays system-derived only
+    -- row with. `extracted_reason` was deliberately left out of it so the column would stay
+    -- system-derived; **0017 grants it back**, because `save_place` is `security invoker` and so
+    -- runs with the caller's privileges — without the column grant the function's own INSERT is
+    -- rejected. The consequence is measured, not assumed: an authenticated client can POST straight
+    -- to `/saved_places` with any `extracted_reason` it likes and it lands verbatim, bypassing
+    -- `save_place` entirely. RLS confines that to the caller's **own** row (`saved_places_insert_own`
+    -- checks `user_id = auth.uid()`), so it is a user lying to themselves about their own
+    -- provenance, not a cross-user write — and UPDATE is still refused (42501), because the column
+    -- is not in the UPDATE grant, so a reason cannot be rewritten after the fact. Closing it
+    -- properly means making `save_place` `security definer` (with a pinned `search_path`) and
+    -- revoking this grant; that is a security change owed its own review, tracked in
+    -- `docs/current-state.md` §3, not something to slip in beside an unrelated migration.
+    ('saved_places','extracted_reason','INSERT'),
     ('saved_places','user_id','INSERT'), ('saved_places','place_id','INSERT'),
     ('saved_places','display_name','INSERT'), ('saved_places','category_override','INSERT'),
     ('saved_places','note','INSERT'), ('saved_places','visit_state','INSERT'),
     ('saved_places','visited_at','INSERT'), ('saved_places','origin','INSERT'),
+    -- saved_place_sources: 0017's narrowing of the provenance link table from table-level grants to
+    -- closed column lists. `added_at` is readable but not insertable — it is the row's own record of
+    -- when the link was made, and a client that could write it could backdate provenance.
+    ('saved_place_sources','saved_place_id','INSERT'), ('saved_place_sources','source_id','INSERT'),
+    ('saved_place_sources','user_id','INSERT'),
+    ('saved_place_sources','saved_place_id','SELECT'), ('saved_place_sources','source_id','SELECT'),
+    ('saved_place_sources','user_id','SELECT'), ('saved_place_sources','added_at','SELECT'),
     -- sources: display fields only. content_text, created_at and updated_at are withheld (R8)
     ('sources','id','SELECT'), ('sources','platform','SELECT'),
     ('sources','platform_source_id','SELECT'), ('sources','canonical_url','SELECT'),

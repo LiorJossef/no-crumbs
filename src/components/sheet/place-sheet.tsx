@@ -31,6 +31,8 @@
  */
 
 import { Drawer } from 'vaul';
+
+import { useNonModalBackground } from './use-non-modal-background';
 import { useState } from 'react';
 import { Plus, MapPin, ExternalLink, X, ChevronLeft, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -83,6 +85,10 @@ interface SheetState {
 }
 
 export function PlaceSheet({ places, selected, onDeselect, onAddTikTok }: PlaceSheetProps) {
+  // `modal={false}` below does not reach Radix through vaul 1.1.2, so the dialog hides the whole
+  // page from assistive technology. See `use-non-modal-background.ts` for the measurement.
+  useNonModalBackground(true);
+
   const [sheet, setSheet] = useState<SheetState>({
     snap: STOP_TO_SNAP.peek,
     previousStop: 'peek',

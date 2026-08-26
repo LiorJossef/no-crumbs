@@ -1,51 +1,43 @@
 /**
- * `POST /api/imports/confirm`'s request body — the boundary Zod schema ("Zod at every boundary",
- * `07` §10 rule 2). Untrusted JSON from the browser in, a typed, validated shape out; the route
- * never hands the raw body to `PlaceStore.confirmPlace` (`domain/ports.ts`).
+ * The `/api/imports/confirm` request contract.
  *
- * One `sourceId` for the whole batch, not one per item: every candidate in a single confirm
- * request came from the same import (the same post), so `save_place`'s per-user
- * `saved_place_sources` link is the same source row for every item. A future flow that lets one
- * place absorb more than one source's evidence (constraint 3 of this task's scope ruling,
- * `docs/execution-plan.md` L0-F4-T3) is a second confirm request, not a second field here.
+ * This schema used to carry the place itself — `provider`, `providerPlaceId`, `name`, `lat`, `lng`,
+ * `category`, `countryCode` — and the route passed those values to `resolve_place` on a
+ * service-role client. That made the browser the authority on shared `places` rows and was
+ * exploitable: see `candidate-place.ts`'s header for the confirmed attack and the reasoning.
  *
- * `zod` is not a vendor SDK (`eslint.config.mjs`'s domain zone only forbids `@supabase/*`,
- * `@anthropic-ai/*` and the map/HTTP libraries) — `domain/extraction/schema.ts` already parses
- * untrusted LLM output the same way, so this file is not a new pattern.
+ * The contract is now a **reference plus the user's own contribution**, and nothing else:
+ *
+ *  - `extractionId` — the `extractions` row the server wrote during the probe. The route
+ *    authorises it by requiring the caller to own an `imports` row for that extraction's source,
+ *    which is checked through the *user's* client so RLS enforces it rather than application code.
+ *  - `candidateIndex` — a position in that row's stored `candidates` array. Every place fact is
+ *    derived from `candidates[candidateIndex]` by `derivePlaceSave`.
+ *  - `note` — genuinely the user's, the one field they author.
+ *
+ * A malicious body can now do exactly two things: name an extraction it does not own (rejected),
+ * or name an index that does not exist (rejected per item). Neither can write a fact.
+ *
+ * The 20-item cap is unchanged and stays below `ExtractionResultSchema`'s own 12-candidate ceiling,
+ * so it can never be the binding limit — it is there to bound the request, not the extraction.
  */
+
 import { z } from 'zod';
 
-/** One candidate the review screen confirmed, already carrying a `ResolvedPlace`'s identity —
- *  the shape `Candidate.resolution` produces for `status: 'resolved'` (`domain/types.ts`),
- *  flattened for the wire rather than round-tripped through the full `CandidateResolution` union:
- *  an `ambiguous` or `unresolved` candidate has no single place to confirm, so it never reaches
- *  this endpoint at all — the client filters before it ever serialises a request body. */
 const ConfirmItemSchema = z.object({
-  // `'llm_guess'`/`'llm-guess'`: the caption-preview screen's fallback save, no `PlaceResolver`
-  // match — see `domain/types.ts`'s `PlaceProvider`/`SourceDataset` doc comments.
-  provider: z.enum(['overture', 'nominatim', 'llm_guess']),
-  providerPlaceId: z.string().min(1).max(200),
-  sourceDataset: z.enum(['overture-places', 'osm-nominatim', 'llm-guess']),
-  name: z.string().min(1).max(200),
-  /** The seven-value extraction vocabulary (`places/category-hint.ts`'s `ExtractedCategoryHint`)
-   *  — this task's scope ruling, constraint 2. `null` when extraction carried no category hint. */
-  category: z.enum(['restaurant', 'cafe', 'bar', 'bakery', 'attraction', 'shop', 'other']).nullable(),
-  providerCategory: z.string().max(200).nullable(),
-  addressLine: z.string().max(500).nullable(),
-  locality: z.string().max(200).nullable(),
-  countryCode: z
-    .string()
-    .regex(/^[A-Z]{2}$/, 'countryCode must be ISO-3166-1 alpha-2')
-    .nullable(),
-  lat: z.number().min(-90).max(90),
-  lng: z.number().min(-180).max(180),
-  resolutionScore: z.number().min(0).max(1).nullable(),
+  /**
+   * Index into the stored extraction's `candidates` array. The upper bound mirrors
+   * `ExtractionResultSchema`'s `max(12)` — an index of 12 or more cannot address a stored
+   * candidate under any extraction this system can produce, so it is a schema error rather than a
+   * per-item failure.
+   */
+  candidateIndex: z.number().int().min(0).max(11),
+  /** The user's own note. The only field in this request the user authors. */
   note: z.string().max(2000).nullable(),
 });
 
 export const ConfirmImportRequestSchema = z.object({
-  /** `null` = manual add; a uuid = the `sources.id` row this candidate came from. */
-  sourceId: z.string().uuid().nullable(),
+  extractionId: z.string().uuid(),
   items: z.array(ConfirmItemSchema).min(1).max(20),
 });
 

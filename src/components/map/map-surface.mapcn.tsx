@@ -135,17 +135,43 @@ const PIN_INK_ON_MINT = '#123B35'; // --ink-on-mint, darkest cluster tier
 // unclustered-point layers — this happens to already equal `--pin-halo` (`#FFFFFF`), so no
 // override was needed there.
 
-// CARTO's style JSON carries no `attribution` field on its source (verified by inspecting the
-// fetched style.json), so MapLibre's built-in AttributionControl has nothing to render unless we
-// supply it explicitly. Required per the evidence note: CARTO + OpenStreetMap credited on every map.
-const CARTO_ATTRIBUTION =
-  '© <a href="https://carto.com/attributions" target="_blank" rel="noopener noreferrer">CARTO</a> ' +
-  '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a>';
+// Attribution is **not** set explicitly here, and that is a correction rather than an omission.
+//
+// This file used to pass a hand-written `customAttribution`, on the stated grounds that "CARTO's
+// style JSON carries no attribution field on its source". That was checked against `style.json`,
+// which is the wrong file: the style's source is a TileJSON URL, and *that* document carries the
+// attribution. Verified 2026-08-26 —
+// `GET https://tiles.basemaps.cartocdn.com/vector/carto.streets/v1/tiles.json` returns
+// `"attribution": "© CARTO, © OpenStreetMap contributors"` with both links.
+//
+// MapLibre's AttributionControl dedups only on exact string equality, so our near-identical line
+// rendered *next to* CARTO's rather than instead of it, and every map carried
+// "© CARTO, © OpenStreetMap contributors | © CARTO © OpenStreetMap contributors".
+//
+// The licence obligation from `docs/evidence/licensing/carto-basemap-terms-2026-08-21.md` (CARTO
+// + OpenStreetMap credited on every map) is therefore already discharged by the tiles we load. If
+// CARTO ever stops shipping it, this is where the explicit line goes back.
 
 // Padding (px) and zoom ceiling for the initial fit-to-bounds fly-in. A ceiling stops a
 // single-place import (a zero-area bounding box) from zooming in absurdly tight.
 const FIT_BOUNDS_PADDING = 48;
 const FIT_BOUNDS_MAX_ZOOM = 15;
+
+// Extra top padding for the floating chrome that overlays the map's top edge on every breakpoint:
+// the account chip (`map/page.tsx`, a 44px pill at `top: safe-area + 0.75rem`) and the post-import
+// confirmation (`import-confirmation.tsx`, same band). Without it a fitted pin lands *underneath*
+// them — visible in the first working version of the post-import flight, where the northernmost
+// London cluster sat half-hidden behind the "8 already saved" strip.
+// Below `lg` the confirmation drops to a second row under the account chip (see
+// `import-confirmation.tsx`), so the band it has to clear is that much deeper.
+const FLOATING_TOP_CHROME_PX = 56;
+const FLOATING_TOP_CHROME_MOBILE_PX = 100;
+
+// The post-import flight is animated rather than instantaneous, because its job is to *tell the
+// user something moved*: an instant jump to a different city reads as a bug, a flight reads as an
+// answer to "where did my eight places go". MapLibre honours `prefers-reduced-motion` for
+// `fitBounds` internally (it drops the animation), so no separate branch is needed here.
+const FOCUS_FLIGHT_MS = 1200;
 
 // Tailwind's default `lg` breakpoint (unmodified in this project — no `tailwind.config`/`@theme`
 // override), the same one `PlaceDesktopPanel` switches on (`hidden lg:block`). Below this width
@@ -171,19 +197,40 @@ function leftPanelWidthPx(viewportWidth: number): number {
  * that's wrong: `PlaceDesktopPanel`'s left list panel is a permanent opaque overlay, so any
  * bounding box that would otherwise fit *underneath* it needs to be pushed clear of it instead —
  * otherwise a fitted pin renders in the DOM/GL layer but sits under an opaque panel, unclickable.
- * Below `lg` (no panel, only the bottom sheet, which is `PlaceSheet`'s own concern) this collapses
- * back to the old uniform value.
+ * Below `lg` (no panel, only the bottom sheet, which is `PlaceSheet`'s own concern) only the left
+ * inset collapses; the top still clears the floating chrome, which is present at every width.
  */
 function fitBoundsPadding(
   viewportWidth: number
-): number | { top: number; bottom: number; left: number; right: number } {
-  if (viewportWidth < LG_BREAKPOINT_PX) return FIT_BOUNDS_PADDING;
+): { top: number; bottom: number; left: number; right: number } {
+  if (viewportWidth < LG_BREAKPOINT_PX) {
+    return {
+      top: FIT_BOUNDS_PADDING + FLOATING_TOP_CHROME_MOBILE_PX,
+      bottom: FIT_BOUNDS_PADDING,
+      left: FIT_BOUNDS_PADDING,
+      right: FIT_BOUNDS_PADDING,
+    };
+  }
   return {
-    top: FIT_BOUNDS_PADDING,
+    top: FIT_BOUNDS_PADDING + FLOATING_TOP_CHROME_PX,
     bottom: FIT_BOUNDS_PADDING,
     left: FIT_BOUNDS_PADDING + leftPanelWidthPx(viewportWidth),
     right: FIT_BOUNDS_PADDING,
   };
+}
+
+/**
+ * Run `action` as soon as the map can accept a camera command, and never later than that.
+ *
+ * `map.loaded()` is the wrong test for this and cost us a working feature once already: it reports
+ * false while *tiles* are in flight, which is most of the second after any camera move, so a
+ * camera command guarded on it is routinely dropped and — because the effect that issued it has no
+ * reason to re-run — never retried. `isStyleLoaded()` is the actual precondition for `fitBounds`;
+ * before that, MapLibre's own `load` event is the earliest safe moment.
+ */
+function whenReady(map: MapLibreMap, action: () => void): void {
+  if (map.isStyleLoaded()) action();
+  else map.once('load', action);
 }
 
 export function MapSurfaceMapcn({
@@ -192,6 +239,7 @@ export function MapSurfaceMapcn({
   initialBounds,
   selected = null,
   onDeselect,
+  focusPlaceIds,
 }: MapSurfaceProps) {
   const data = useMemo(() => toFeatureCollection(places), [places]);
   const bounds = useMemo(() => boundsFor(places, initialBounds), [places, initialBounds]);
@@ -205,37 +253,85 @@ export function MapSurfaceMapcn({
     latestBounds.current = bounds;
   }, [bounds]);
 
-  const fitToBounds = useCallback((map: MapLibreMap) => {
-    const target = latestBounds.current;
-    if (!target) return;
-    const viewportWidth = typeof window === 'undefined' ? 0 : window.innerWidth;
-    const padding = fitBoundsPadding(viewportWidth);
-    map.fitBounds(target, { padding, maxZoom: FIT_BOUNDS_MAX_ZOOM, duration: 0 });
-  }, []);
+  /** The last box the camera was actually framed to. A resize re-fits *this*, not whatever the
+   *  full `places` bounding box happens to be now — otherwise a resize silently undoes a focus
+   *  flight and throws the camera back across the world. */
+  const framedTo = useRef<[[number, number], [number, number]] | null>(null);
+  /** Set by the first real fit, wherever it comes from. Guards the automatic whole-library
+   *  framing so it happens once, on arrival, and never again as a side effect of data changing. */
+  const hasFramedOnce = useRef(false);
+
+  const fitTo = useCallback(
+    (map: MapLibreMap, target: [[number, number], [number, number]], animate: boolean) => {
+      const viewportWidth = typeof window === 'undefined' ? 0 : window.innerWidth;
+      const padding = fitBoundsPadding(viewportWidth);
+      framedTo.current = target;
+      hasFramedOnce.current = true;
+      map.fitBounds(target, {
+        padding,
+        maxZoom: FIT_BOUNDS_MAX_ZOOM,
+        duration: animate ? FOCUS_FLIGHT_MS : 0,
+      });
+    },
+    []
+  );
+
+  const fitToBounds = useCallback(
+    (map: MapLibreMap) => {
+      const target = latestBounds.current;
+      if (!target) return;
+      fitTo(map, target, false);
+    },
+    [fitTo]
+  );
 
   const attachMapRef = useCallback(
     (instance: MapLibreMap | null) => {
       mapRef.current = instance;
       if (!instance) return;
-      if (instance.loaded()) fitToBounds(instance);
-      else instance.once('load', () => fitToBounds(instance));
+      whenReady(instance, () => fitToBounds(instance));
     },
     [fitToBounds]
   );
 
-  // Re-fit whenever `places`/`initialBounds` change (e.g. a fresh import lands more pins, or the
-  // fixture/initial data simply arrives after the map's own `load` event already fired and found
-  // `bounds` still null) so every pin stays in view. This intentionally is not skipped on mount:
-  // `attachMapRef`'s `once('load', ...)` races against `places` arriving, and when the map loads
-  // before the first non-null `bounds` is computed, this effect is the only thing that ever frames
-  // the camera. Calling `fitToBounds` twice for the same bounds (once from `load`, once from here)
-  // is harmless — `fitBounds` is idempotent for an unchanged target.
+  // The **initial** framing, and only that. `attachMapRef`'s `once('load', ...)` races against
+  // `places` arriving; when the map loads before the first non-null `bounds` exists, this effect
+  // is the only thing that ever frames the camera, so it cannot simply be skipped on mount.
+  //
+  // What it deliberately no longer does is re-fit on every later `places` change. That behaviour
+  // was actively wrong once imports started landing places in a second city: saving eight London
+  // venues into a Tel Aviv library re-fitted the camera to a box containing both, i.e. a view of
+  // the Mediterranean with no visible pins. Post-import framing is now an explicit request
+  // (`focusPlaceIds`), which is also the only honest reading of "the four authorised camera
+  // movers" in `06` §9.2 — data arriving is not a camera mover.
   useEffect(() => {
+    if (hasFramedOnce.current) return;
     const instance = mapRef.current;
     if (!instance || !bounds) return;
-    if (!instance.loaded()) return; // `attachMapRef`'s `once('load', ...)` will pick this up.
-    fitToBounds(instance);
+    whenReady(instance, () => fitToBounds(instance));
   }, [bounds, fitToBounds]);
+
+  // The explicit post-import camera mover. Keyed on the `focusPlaceIds` array identity so the same
+  // import cannot re-trigger a flight on an unrelated re-render, and guarded on the ids actually
+  // being present in `places` — the caller sets them in the same tick as the data refresh that
+  // brings the new places in, so the first pass through here usually finds nothing to fit and the
+  // second one does.
+  const flownFor = useRef<readonly string[] | null>(null);
+  useEffect(() => {
+    if (!focusPlaceIds || focusPlaceIds.length === 0) return;
+    if (flownFor.current === focusPlaceIds) return;
+    const instance = mapRef.current;
+    if (!instance) return;
+    const wanted = new Set(focusPlaceIds);
+    const target = boundsFor(places.filter((p) => wanted.has(p.id)), undefined);
+    if (!target) return; // The refreshed places have not arrived yet; a later render will fit.
+    flownFor.current = focusPlaceIds;
+    // Not gated on `loaded()`. That gate is what made this silently do nothing the first time it
+    // shipped: the automatic framing immediately before it kicks off a round of tile requests, so
+    // `loaded()` is false for a second or two afterwards — and since neither `focusPlaceIds` nor
+    // `places` changes again, the effect never got a second chance and the camera stayed put.
+    whenReady(instance, () => fitTo(instance, target, true));
+  }, [focusPlaceIds, places, fitTo]);
 
   // Re-fit when the viewport crosses the `lg` breakpoint or is resized while at `lg+` (the panel
   // width is a viewport-relative `clamp()`, not a fixed pixel value) — otherwise a fit computed at
@@ -247,19 +343,20 @@ export function MapSurfaceMapcn({
   useEffect(() => {
     const handleResize = () => {
       const instance = mapRef.current;
-      if (!instance || !bounds || !instance.loaded()) return;
-      fitToBounds(instance);
+      const target = framedTo.current;
+      if (!instance || !target) return;
+      fitTo(instance, target, false);
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [bounds, fitToBounds]);
+  }, [fitTo]);
 
   return (
     <MapcnMap
       ref={attachMapRef}
       className="h-full w-full"
       styles={{ light: CARTO_LIGHT_STYLE, dark: CARTO_LIGHT_STYLE }}
-      attributionControl={{ compact: true, customAttribution: CARTO_ATTRIBUTION }}
+      attributionControl={{ compact: true }}
     >
       <MapControls showZoom showCompass showLocate showFullscreen />
       <MapClusterLayer<PlaceProperties>

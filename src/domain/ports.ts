@@ -186,6 +186,13 @@ export interface ConfirmPlaceInput {
 export interface ConfirmPlaceSave {
   readonly sourceId: string | null;
   readonly note: string | null;
+  /**
+   * The extractor's verbatim caption fragment for this candidate, written to
+   * `saved_places.extracted_reason` (migration 0017 made that column writable; before it the
+   * reason was extracted, rendered in `place-sheet.tsx`, and dropped on every import). Null for a
+   * manual save, which has no extraction behind it.
+   */
+  readonly extractedReason: string | null;
 }
 
 export interface PlaceStore {
@@ -193,7 +200,17 @@ export interface PlaceStore {
     input: ConfirmPlaceInput,
     save: ConfirmPlaceSave,
     ctx: OpCtx,
-  ): Promise<{ readonly placeId: PlaceId; readonly savedPlaceId: string }>;
+  ): Promise<{
+    readonly placeId: PlaceId;
+    readonly savedPlaceId: string;
+    /**
+     * True when this user already had this place in their library before the call. `save_place` is
+     * idempotent (`on conflict (user_id, place_id) do update`), so it cannot report this itself —
+     * the adapter checks first. The review screen needs it to say "already in your library"
+     * instead of claiming a fresh save, which is what it did for every re-import before this.
+     */
+    readonly alreadySaved: boolean;
+  }>;
 }
 
 /**

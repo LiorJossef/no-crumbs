@@ -7,11 +7,17 @@ of them submittable, climbed one at a time. `docs/implementation-plan.md` keeps 
 the M3 architecture answer, the migration order and the build orders; its milestone ladder and its
 half-day budget are retired.
 
-Done: repo, toolchain and deploy (was MS2), the technical design (MS3), the database (MS4, nine
-migrations on both hosted projects), and the POI index chain `0010`/`0014` plus the resolver
-vocabulary, the ported scorer, the 44-case golden file and the Tel Aviv ingest with measured Overture
-confidences (was MS5 tasks 1–5). **No application code exists yet** — no auth, no UI, no map, no
-pipeline.
+Done: repo, toolchain and deploy (was MS2), the technical design (MS3), the database (MS4; 17
+migrations locally, nine on both hosted projects), and the POI index chain `0010`/`0014` plus the
+resolver vocabulary, the ported scorer, the 44-case golden file and the Tel Aviv ingest with
+measured Overture confidences (was MS5 tasks 1–5).
+
+**Application code exists and the core loop runs end to end**: auth, the map (MapLibre + CARTO),
+the saved-places list and sheet, and a real TikTok import — oEmbed → caption → LLM extraction →
+review and confirm → `places`/`saved_places`. Verified against real TikToks, not only tests. What
+it is *not* yet: there is no `PlaceResolver`, so every coordinate is the model's own guess and is
+measurably 65–470 m out; the streaming route (`L0-F6`) does not exist and `/api/imports/probe` is
+still the request/response stand-in.
 
 **L0 is in progress.** Its six steps and their exit criteria are in `mvp-plan.md` §5: the import
 domain, the local resolve seam (was MS5 task 7 — a candidate string resolving against the ingested rows,
@@ -26,6 +32,19 @@ The MVP boundary, and it is three decisions rather than a feature list: one link
 redirect to manual add, never a failure; and "info" fixed at name · category · coordinates · source
 link · user note, which is exactly what open data lets us store forever. At LEVEL B's ~27% hit rate,
 **"no places found" is the modal import outcome**, so its screen is a core surface, not an error path.
+
+**How this project is built — [`docs/working-agreement.md`](docs/working-agreement.md), binding
+from 2026-08-26.** The owner is the product owner, not your QA engineer, UX reviewer or task
+dispatcher. The default loop is *inspect → identify → prioritise → implement → test → use →
+critique → improve → continue*, not *await instruction → implement narrowly → report done → wait*.
+Find a bug, fix it. Weak UX, improve it. Half-finished, finish it. **Implemented is not done**: run
+the app, use the feature, inspect the persisted rows, check desktop and mobile, then say what you
+verified and how. Never convert uncertainty into certainty — preserve source, provenance, evidence
+and the extracted-vs-inferred distinction; an uncertain result beats a confidently wrong place. Ask
+only for decisions that are genuinely the owner's (§7), and don't stop unrelated work while waiting.
+
+**[`docs/current-state.md`](docs/current-state.md) is the cold-start document** — what is working,
+what is verified and how, what is unresolved, and the next highest-impact step. Read it first.
 
 **Read before doing anything in this repo:**
 1. `docs/mvp-plan.md` — **the plan of record**: the MVP boundary, the four levels, the exit criteria

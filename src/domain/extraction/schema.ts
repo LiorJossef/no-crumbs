@@ -4,16 +4,17 @@
  * inside each adapter, and to parse a cached `extractions.candidates` `jsonb` column back out on
  * read (`07` §"Validation", boundary 3) — never trusted twice, parsed twice.
  *
- * `categoryHint` here is the **raw**, seven-value vocabulary the model may emit
- * (`places/category-hint.ts`'s `ExtractedCategoryHint`), not the three-value `CategoryHint` the
- * resolver scores against. `toPlaceCandidate` below is the one place that narrows it, via
- * `categoryHintFor` — reusing that existing, already-tested mapping rather than inventing a second
- * one at this seam.
+ * `categoryHint` is the **raw**, seven-value vocabulary the model may emit
+ * (`places/category-hint.ts`'s `ExtractedCategoryHint`), and it stays that way all the way to
+ * storage and to the review screen. `toPlaceCandidate` used to narrow it here with
+ * `categoryHintFor`, which was the wrong seam: the scorer is the only consumer that needs three
+ * values, so narrowing before storage silently saved every bakery as a cafe and threw
+ * `attraction`/`shop`/`other` away entirely. The narrowing now happens where `ResolveQuery` is
+ * built (`domain/import/pipeline.ts`), which is the only place it is actually required.
  */
 
 import { z } from 'zod';
 
-import { categoryHintFor, type ExtractedCategoryHint } from '../places/category-hint';
 import type { PlaceCandidate } from '../types';
 
 const EXTRACTED_CATEGORY_HINTS = ['restaurant', 'cafe', 'bar', 'bakery', 'attraction', 'shop', 'other'] as const;
@@ -76,7 +77,7 @@ export function toPlaceCandidate(raw: RawPlaceCandidate): PlaceCandidate {
     rawName: raw.rawName,
     cityHint: raw.cityHint,
     countryHint: raw.countryHint,
-    categoryHint: categoryHintFor(raw.categoryHint as ExtractedCategoryHint | null),
+    categoryHint: raw.categoryHint,
     addressHint: raw.addressHint,
     evidence: raw.evidence,
     modelConfidence: raw.modelConfidence,

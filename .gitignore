@@ -25,3 +25,4 @@ test-results/
 .vercel/
 .supabase/
 .DS_Store
+tests/manual/.shots/

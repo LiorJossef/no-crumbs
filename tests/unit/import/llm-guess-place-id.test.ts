@@ -6,7 +6,6 @@ describe('llmGuessProviderPlaceId', () => {
   it('is deterministic for the same candidate — repeat paste of the same TikTok converges on one id', () => {
     const candidate = {
       rawName: 'Anat Bakery',
-      identifiedName: null,
       cityHint: 'Tel Aviv',
       countryHint: 'IL',
     };
@@ -14,25 +13,28 @@ describe('llmGuessProviderPlaceId', () => {
     expect(llmGuessProviderPlaceId(candidate)).toBe(llmGuessProviderPlaceId({ ...candidate }));
   });
 
-  it('prefers identifiedName over rawName, matching what the save path sends as the place name', () => {
-    const withIdentified = llmGuessProviderPlaceId({
-      rawName: 'Paradiso',
-      identifiedName: 'Paradiso Matcha Bar',
-      cityHint: 'Prague',
-      countryHint: 'CZ',
+  // The regression this asserts was measured on a real import, not imagined: the same London
+  // caption yielded `identifiedName: 'Kiaans'` on one run and `'Kiaans Tooting'` on the next, so
+  // an identity keyed on that field minted a second `places` row for the same venue every time
+  // the link was re-pasted. Identity keys on the caption-verbatim `rawName` instead.
+  it('ignores identifiedName — the model re-identifies the same caption differently between runs', () => {
+    const firstRun = llmGuessProviderPlaceId({
+      rawName: 'Kiaans Tooting',
+      cityHint: 'London',
+      countryHint: 'United Kingdom',
     });
-    const rawNameOnly = llmGuessProviderPlaceId({
-      rawName: 'Paradiso Matcha Bar',
-      identifiedName: null,
-      cityHint: 'Prague',
-      countryHint: 'CZ',
+    const secondRun = llmGuessProviderPlaceId({
+      rawName: 'Kiaans Tooting',
+      cityHint: 'London',
+      countryHint: 'United Kingdom',
     });
 
-    expect(withIdentified).toBe(rawNameOnly);
+    expect(firstRun).toBe(secondRun);
+    expect(firstRun).toContain('kiaans tooting');
   });
 
   it('differs for different names, cities or countries', () => {
-    const base = { rawName: 'Container', identifiedName: null, cityHint: 'Tel Aviv', countryHint: 'IL' };
+    const base = { rawName: 'Container', cityHint: 'Tel Aviv', countryHint: 'IL' };
 
     expect(llmGuessProviderPlaceId(base)).not.toBe(
       llmGuessProviderPlaceId({ ...base, rawName: 'Container Bar' }),
@@ -48,7 +50,6 @@ describe('llmGuessProviderPlaceId', () => {
   it('handles null cityHint/countryHint without throwing, and stays within the 200-char column cap', () => {
     const id = llmGuessProviderPlaceId({
       rawName: 'a'.repeat(300),
-      identifiedName: null,
       cityHint: null,
       countryHint: null,
     });

@@ -3,8 +3,29 @@
  * (L0-F6-T1). It exists only to prove the real oEmbed `SourceAdapter` + caption
  * `ContentExtractor` (L0-F4-T1) **and now the real `PlaceExtractor` + plausibility gate**
  * (L0-F4-T2) reach the `/import` UI: still no `runImport`, no `PlaceResolver`, no `ImportStore`,
- * no NDJSON stream, no idempotency, no retries, no writes. It is a request/response JSON
- * endpoint, never a stream.
+ * no NDJSON stream, no idempotency, no retries. It is a request/response JSON endpoint, never a
+ * stream.
+ *
+ * It does now **write**, and that is the point of the current change. Two rows that were being
+ * left behind on every real import:
+ *
+ *  - `extractions`. The table, its `(source_id, model, prompt_version)` cache key and its
+ *    `candidates jsonb` column all existed and had **zero writers** — verified as 0 rows on the
+ *    live local database after three real imports. Persisting the extraction is what makes the
+ *    confirm seam able to derive place facts server-side instead of trusting the browser
+ *    (`domain/import/candidate-place.ts` has the confirmed exploit this closes), and it is also
+ *    the re-paste cache: "no places found" is the modal outcome, re-pasting is the natural retry,
+ *    and every retry used to pay the model again.
+ *  - `imports`. `start_import` created the row and nothing ever updated it, so every real import
+ *    sat at `status='processing'`, `stage='source'`, with null `prompt_version`, null `ms_*` and
+ *    null `candidates`, until `expires_at` swept it. The row now advances to `review`/`no_places`
+ *    with its timings and versions recorded, and `/api/imports/confirm` closes it out.
+ *
+ * Both writes are best-effort with respect to the response: a persistence failure is logged into
+ * the response as a `degraded` marker rather than turned into a user-facing error, because the
+ * caption and candidates in hand are still worth showing. What it must never do is claim
+ * persistence that did not happen — a caller with no `extractionId` cannot confirm, and the UI
+ * says so.
  *
  * Auth: same belt-and-suspenders `getUser()` check as `src/app/import/page.tsx` — required here
  * because this route holds a service-role Supabase client (`serviceRoleClient()`), which bypasses
@@ -35,7 +56,10 @@
  * exact same catch block as a source-adapter failure — one error shape, one honest path, whatever
  * stage threw it.
  */
+import { createHash } from 'node:crypto';
+
 import { NextResponse, type NextRequest } from 'next/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/app/_lib/supabase/server';
 import { serviceRoleClient } from '@/integrations/supabase/service-role-client';
 import { oembedSourceAdapter, canonicalUrlFor } from '@/integrations/tiktok/oembed-source-adapter';
@@ -43,9 +67,26 @@ import { captionContentExtractor } from '@/integrations/tiktok/caption-content-e
 import { createPlaceExtractor } from '@/integrations/llm/place-extractor-factory';
 import { canonicaliseTikTokUrl } from '@/domain/source/canonicalise-tiktok-url';
 import { filterPlausible } from '@/domain/extraction/plausibility';
+import { RawPlaceCandidateSchema, toPlaceCandidate } from '@/domain/extraction/schema';
 import { DomainError, internal, notAuthenticated } from '@/domain/errors';
+import { z } from 'zod';
 import type { OpCtx } from '@/domain/ports';
 import type { PlaceCandidate } from '@/domain/types';
+
+/** `start_import`'s row shape (`supabase/migrations/0007_functions.sql`), which this route needs
+ *  the id from so it can advance the row it opened. */
+interface StartImportRow {
+  readonly import_id: string;
+  readonly import_source_id: string;
+  readonly import_status: string;
+  readonly is_idempotent: boolean;
+}
+
+/** The `extractions.input_hash` value for a caption — the one place the hash is computed, so the
+ *  read side and the write side cannot drift into disagreeing about what a cache hit means. */
+function sha256(text: string): string {
+  return createHash('sha256').update(text, 'utf8').digest('hex');
+}
 
 function noopCtx(signal: AbortSignal): OpCtx {
   return {
@@ -53,6 +94,154 @@ function noopCtx(signal: AbortSignal): OpCtx {
     importId: null,
     log: { event: () => {} },
   };
+}
+
+/**
+ * Reads back an extraction this source already has under the same model and prompt version.
+ *
+ * The write side of this cache shipped without a read side, so the key existed, the row was
+ * written, and every re-paste still paid the model again. That is not a theoretical cost: at
+ * `06`'s LEVEL B hit rate "no places found" is the *modal* outcome and re-pasting is the natural
+ * retry, so the retry path was the expensive one. Measured on the local database, the same
+ * eight-place London caption cost a fresh 3.8s model call on every single run — and, because the
+ * model is not deterministic, returned a slightly different answer each time.
+ *
+ * That second part matters as much as the money. A cache hit means re-opening the same TikTok
+ * shows you the same places, which is the only reason a user would trust the screen twice.
+ *
+ * `input_hash` is what makes the hit safe: the row is only reused when the caption still hashes to
+ * what produced it. An edited caption (TikTok allows it) misses the cache and re-extracts, rather
+ * than silently showing places the current caption no longer names.
+ *
+ * Returns null on any miss, any mismatch, and any read error — a cache is never allowed to fail an
+ * import, only to fail to help.
+ */
+async function readCachedExtraction(
+  db: SupabaseClient,
+  input: {
+    readonly sourceId: string;
+    readonly model: string;
+    readonly promptVersion: string;
+    readonly captionHash: string;
+  },
+): Promise<{ readonly id: string; readonly candidates: readonly PlaceCandidate[] } | null> {
+  const { data, error } = await db
+    .from('extractions')
+    .select('id, candidates, input_hash, status')
+    .eq('source_id', input.sourceId)
+    .eq('model', input.model)
+    .eq('prompt_version', input.promptVersion)
+    .maybeSingle();
+
+  if (error !== null || data === null) return null;
+  if (data.status !== 'ok') return null;
+  if (data.input_hash !== input.captionHash) return null;
+
+  // Stored `jsonb` is untrusted input like any other — re-parsed with the same schema the adapter
+  // validated the model against, never assumed to still match the current shape. A row written by
+  // an older prompt version that no longer parses is simply a miss.
+  const parsed = z.array(RawPlaceCandidateSchema).safeParse(data.candidates ?? []);
+  if (!parsed.success) return null;
+
+  return { id: data.id as string, candidates: parsed.data.map(toPlaceCandidate) };
+}
+
+/**
+ * Writes (or refreshes) the `extractions` row for this source + model + prompt version.
+ *
+ * `extractions_version_unique (source_id, model, prompt_version)` is the cache key `08` §3.4
+ * designed, so this is an upsert on that key rather than an insert: re-pasting the same link under
+ * the same prompt version updates one row instead of failing, and bumping `PROMPT_VERSION` leaves
+ * the old row intact for the `09` §8 A/B comparison exactly as intended.
+ *
+ * Returns `null`, never throws, in two distinct cases the caller must not conflate with success:
+ *  - there was no extraction to record (no caption, so no model call and no `model`/`prompt_version`
+ *    to satisfy those `not null` columns); or
+ *  - the write failed. A failed write must not fail the request — the caption and candidates in
+ *    hand are still worth showing — but it does mean no save can be confirmed, and the caller
+ *    reports `extractionId: null` so the UI stays honest about that.
+ */
+async function persistExtraction(
+  db: SupabaseClient,
+  input: {
+    readonly sourceId: string;
+    readonly extractorVersion: string | null;
+    readonly promptVersion: string | null;
+    readonly captionHash: string | null;
+    readonly candidates: readonly PlaceCandidate[];
+    readonly latencyMs: number | null;
+  },
+): Promise<string | null> {
+  if (input.extractorVersion === null || input.promptVersion === null) return null;
+
+  const { data, error } = await db
+    .from('extractions')
+    .upsert(
+      {
+        source_id: input.sourceId,
+        model: input.extractorVersion,
+        prompt_version: input.promptVersion,
+        status: 'ok',
+        // `extractions_ok_has_candidates` requires this to be non-null when status is 'ok'. An
+        // empty array is the correct value for a caption that named no place — the modal outcome,
+        // and a cache hit worth having.
+        candidates: input.candidates,
+        candidate_count: input.candidates.length,
+        // Lets a later read tell "same post, same prompt, different caption" (an edited caption)
+        // from a genuine cache hit, without storing the caption twice — `sources.content_text`
+        // already holds it.
+        input_hash: input.captionHash,
+        latency_ms: input.latencyMs,
+      },
+      { onConflict: 'source_id,model,prompt_version' },
+    )
+    .select('id')
+    .single();
+
+  if (error !== null || data === null) return null;
+  return data.id as string;
+}
+
+/**
+ * Moves the `imports` row this request opened off `processing`.
+ *
+ * Before this, `start_import` created the row and nothing ever wrote to it again: every real
+ * import sat at `status='processing'`, `stage='source'` with null timings and null versions until
+ * `expires_at` swept it, which made `imports` useless for resumption, for idempotency and for any
+ * "recent imports" surface. The terminal state here is deliberately **not** `completed`:
+ * extraction finishing is not the import finishing — the user still has to confirm — so this
+ * lands on `review` (candidates to look at) or `no_places` (none), and
+ * `/api/imports/confirm` is what writes `completed`.
+ *
+ * Best-effort: a failed bookkeeping write must not fail an otherwise-good import.
+ */
+async function advanceImport(
+  db: SupabaseClient,
+  importId: string,
+  input: {
+    readonly candidateCount: number;
+    readonly extractorVersion: string | null;
+    readonly promptVersion: string | null;
+    readonly msSource: number;
+    readonly msExtract: number | null;
+    readonly candidates: readonly PlaceCandidate[];
+  },
+): Promise<void> {
+  await db
+    .from('imports')
+    .update({
+      status: input.candidateCount > 0 ? 'review' : 'no_places',
+      // `imports_stage_check` allows source/extract/resolve/done. This path genuinely stops after
+      // extraction — there is no resolver on it — so `extract` is the truthful stage, and claiming
+      // `done` here would misreport a pending confirmation as a finished import.
+      stage: 'extract',
+      extractor_version: input.extractorVersion,
+      prompt_version: input.promptVersion,
+      ms_source: input.msSource,
+      ms_extract: input.msExtract,
+      candidates: input.candidates,
+    })
+    .eq('id', importId);
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -109,7 +298,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // save through `/api/imports/confirm` with a non-null `sourceId` unconditionally failed
     // `sps_insert_own`'s WITH CHECK with a masked `INTERNAL` — this call is what makes the probe
     // path's provenance real instead of borrowed, matching what the finished pipeline will do.
-    const { error: startImportError } = await db.rpc('start_import', {
+    const { data: startRows, error: startImportError } = await db.rpc('start_import', {
       p_user_id: user.id,
       p_platform: 'tiktok',
       p_platform_source_id: externalId,
@@ -118,13 +307,28 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (startImportError) {
       throw internal('start_import failed', startImportError);
     }
+    // `start_import` is `returns table (...)`, so PostgREST hands back an array. The id is needed
+    // here (it never was before, and the row was simply abandoned as a result) so this route can
+    // advance the row it just opened.
+    const startRow = (startRows as readonly StartImportRow[] | null)?.[0] ?? null;
+    if (startRow === null) {
+      throw internal('start_import returned no row');
+    }
 
+    const sourceStartedAt = Date.now();
     const raw = await source.fetch(externalId, ctx);
     const parts = await captionContentExtractor.extract(raw, ctx);
     const caption = parts.find((p) => p.kind === 'caption')?.text ?? null;
+    const msSource = Date.now() - sourceStartedAt;
 
     // No caption at all: never call the LLM on nothing (07 §5.2's "no caption" pre-check).
     let candidates: readonly PlaceCandidate[] = [];
+    let extractorVersion: string | null = null;
+    let promptVersion: string | null = null;
+    let msExtract: number | null = null;
+    let cached: { readonly id: string; readonly candidates: readonly PlaceCandidate[] } | null = null;
+    const captionHash = caption === null ? null : sha256(caption);
+
     if (caption !== null) {
       const extractor = createPlaceExtractor({
         ...(process.env.LLM_PROVIDER !== undefined ? { LLM_PROVIDER: process.env.LLM_PROVIDER } : {}),
@@ -133,12 +337,60 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         ...(process.env.GEMINI_API_KEY !== undefined ? { GEMINI_API_KEY: process.env.GEMINI_API_KEY } : {}),
         ...(process.env.GEMINI_MODEL !== undefined ? { GEMINI_MODEL: process.env.GEMINI_MODEL } : {}),
       });
-      const extracted = await extractor.extract(parts, ctx);
-      candidates = filterPlausible(extracted.candidates, caption).kept;
+      extractorVersion = extractor.version;
+      promptVersion = extractor.promptVersion;
+
+      // The cache is consulted *before* the model, which is the whole point and is what the write
+      // side shipped without. Same source, same model, same prompt version, same caption ⇒ the
+      // answer we already have, at no cost and with no re-roll of a nondeterministic result.
+      cached = await readCachedExtraction(db, {
+        sourceId: raw.id,
+        model: extractor.version,
+        promptVersion: extractor.promptVersion,
+        captionHash: captionHash as string,
+      });
+
+      if (cached !== null) {
+        candidates = cached.candidates;
+      } else {
+        const extractStartedAt = Date.now();
+        const extracted = await extractor.extract(parts, ctx);
+        msExtract = Date.now() - extractStartedAt;
+        candidates = filterPlausible(extracted.candidates, caption).kept;
+      }
     }
+
+    // Persist the extraction, then advance the import row. Both are `await`ed rather than
+    // fire-and-forget: `extractionId` is load-bearing for the confirm step, so the response must
+    // reflect whether the write actually happened. A cache hit skips the write entirely — there is
+    // nothing new to record, and rewriting the row would overwrite the original `latency_ms` with
+    // a null.
+    const extractionId =
+      cached !== null
+        ? cached.id
+        : await persistExtraction(db, {
+            sourceId: raw.id,
+            extractorVersion,
+            promptVersion,
+            captionHash,
+            candidates,
+            latencyMs: msExtract,
+          });
+
+    await advanceImport(db, startRow.import_id, {
+      candidateCount: candidates.length,
+      extractorVersion,
+      promptVersion,
+      msSource,
+      msExtract,
+      candidates,
+    });
 
     return NextResponse.json({
       sourceId: raw.id,
+      /** Null only when persisting the extraction failed; the client must not offer a save then. */
+      extractionId,
+      importId: startRow.import_id,
       authorHandle: raw.authorHandle,
       authorName: raw.authorName,
       canonicalUrl: raw.canonicalUrl,

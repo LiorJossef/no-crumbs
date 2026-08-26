@@ -28,13 +28,26 @@
 
 import { useState } from 'react';
 import { MapSurface, type MapPlace } from '@/components/map/map-surface';
+import { ImportConfirmation } from '@/components/map/import-confirmation';
 import { PlaceSheet } from '@/components/sheet/place-sheet';
 import { PlaceDesktopPanel } from '@/components/sheet/place-desktop-panel';
-import { ImportPageClient } from '@/app/import/import-page-client';
+import { ImportPageClient, type SaveOutcomeDetail } from '@/app/import/import-page-client';
 
 export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
   const [selected, setSelected] = useState<MapPlace | null>(null);
   const [showImport, setShowImport] = useState(false);
+  /**
+   * What the last import saved. Two jobs, both of which the flow was missing entirely: it frames
+   * the camera on the places that were just added (`focusPlaceIds`), and it is the only thing on
+   * screen that says the import worked. Cleared on dismissal, and also when a new import starts,
+   * so a stale "8 places added" can never sit over a fresh run.
+   */
+  const [lastImport, setLastImport] = useState<SaveOutcomeDetail | null>(null);
+
+  function openImport() {
+    setLastImport(null);
+    setShowImport(true);
+  }
 
   return (
     <div className="relative h-full w-full">
@@ -43,7 +56,16 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
         onPlaceClick={setSelected}
         selected={selected}
         onDeselect={() => setSelected(null)}
+        {...(lastImport ? { focusPlaceIds: lastImport.savedPlaceIds } : {})}
       />
+      {lastImport && (
+        <ImportConfirmation
+          saved={lastImport.saved}
+          alreadySaved={lastImport.alreadySaved}
+          skipped={lastImport.skipped}
+          onDismiss={() => setLastImport(null)}
+        />
+      )}
       {/* `PlaceSheet` is mobile-only (its content is `lg:hidden`) and rendered through a vaul
           portal, which appends to `document.body` *after* this component's own subtree — so at
           matched z-indices it paints on top of anything rendered here, regardless of DOM/JSX
@@ -59,11 +81,13 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
           places={places}
           selected={selected}
           onDeselect={() => setSelected(null)}
-          onAddTikTok={() => setShowImport(true)}
+          onAddTikTok={openImport}
         />
       )}
-      <PlaceDesktopPanel places={places} onAddTikTok={() => setShowImport(true)} />
-      {showImport && <ImportPageClient onClose={() => setShowImport(false)} />}
+      <PlaceDesktopPanel places={places} onAddTikTok={openImport} />
+      {showImport && (
+        <ImportPageClient onClose={() => setShowImport(false)} onSaved={setLastImport} />
+      )}
     </div>
   );
 }
