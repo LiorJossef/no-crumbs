@@ -24,8 +24,21 @@
 --   $fn$;
 -- With that in place the suite is 54 PASS + 1 UNPROVEN (P23). VERIFIED: the bare image ships the
 -- singular form and our migrations do not define auth.uid() at all, so this is a property of the
--- image. ASSUMED, and deliberately not claimed as more: that the hosted projects and `supabase db
--- reset` ship the claims-reading form. No credentialed run was made from this session.
+-- image.
+--
+-- The hosted half is no longer ASSUMED. VERIFIED 2026-08-26 against p-002-staging: this file was
+-- run through the session pooler and reached PASS P0b / P4b, both of which read and write under a
+-- `request.jwt.claims` setting. Had the hosted project shipped the legacy singular GUC, the run
+-- would have aborted at the first save_place() with `ERROR: not authenticated`, as the paragraph
+-- above describes. So the hosted projects DO ship the claims-reading auth.uid(). `supabase db
+-- reset` remains ASSUMED — that one was not exercised.
+--
+-- That run also found a limit of this file worth knowing before pointing it at a populated
+-- database: it stops at `FAIL P7: near-duplicate guard created 14 places`. P7 asserts the count of
+-- ALL rows in public.places, which only holds on an empty one; staging had 13 rows before the run.
+-- It is an assumption about the fixture, not a policy failure — the 22 assertions before it all
+-- passed. The whole file is one transaction that rolls back, and nothing survived the run
+-- (auth.users back to 2, places 13, zero fixture rows left).
 --
 -- It tests the POLICIES, not the client code: every read and write below happens under
 -- `set role authenticated` with request.jwt.claims set, exactly as PostgREST would run it.
