@@ -34,6 +34,9 @@ export interface PlaceDesktopPanelProps {
   /** Opens the import overlay in `map-page-client.tsx` (client state) rather than navigating to
    *  the standalone `/import` route, so the map underneath this panel stays mounted. */
   readonly onAddTikTok: () => void;
+  /** Selecting from the list. On desktop the detail then opens in the map's own pin-anchored
+   *  popover — this panel is not a detail surface (§1.4) and does not become one. */
+  readonly onSelect: (place: MapPlace) => void;
 }
 
 export function PlaceDesktopPanel({
@@ -42,6 +45,7 @@ export function PlaceDesktopPanel({
   query,
   onQueryChange,
   onAddTikTok,
+  onSelect,
 }: PlaceDesktopPanelProps) {
   const filtering = isSearchActive(query);
 
@@ -80,7 +84,7 @@ export function PlaceDesktopPanel({
         ) : (
           <ul className="mt-4 min-h-0 flex-1 overflow-y-auto px-6 pb-6">
             {places.map((place) => (
-              <PlaceRow key={place.id} place={place} />
+              <PlaceRow key={place.id} place={place} onSelect={onSelect} />
             ))}
           </ul>
         )}
