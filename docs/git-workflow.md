@@ -164,8 +164,10 @@ npm run merge:pr -- <pr-number>            # add --dry-run to check without land
 have enforced server-side:
 
 1. the PR is `OPEN` and not a draft;
-2. it targets `main` — a stacked PR lands its parent first (GitHub then re-targets it), rather than
-   being force-landed out of order;
+2. it targets `main` — a stacked PR lands its parent first and is then re-targeted with
+   `gh pr edit <n> --base main`, rather than being force-landed out of order. GitHub re-targets by
+   itself only when the base branch is *deleted*, and deleting branches needs its own instruction
+   (§9.3), so this is a deliberate step;
 3. **every check is passing, and none is pending.** Pending is not green. This is the distinction
    that gets eyeballed away at the end of a long session;
 4. at least one check was reported — an empty list reads as green in a terminal and is not;

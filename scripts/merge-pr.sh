@@ -15,8 +15,8 @@
 #
 # WHAT IT REFUSES, and each one is a real way to land something broken:
 #   1. a PR that is not OPEN, or is a draft;
-#   2. a PR not targeting `main` — a stacked PR must have its parent landed first, which also
-#      re-targets it, rather than being force-landed out of order;
+#   2. a PR not targeting `main` — a stacked PR must have its parent landed and then be re-targeted
+#      (`gh pr edit <n> --base main`), rather than being force-landed out of order;
 #   3. any check not passing: a failure, or a run still pending (a pending check is not a green one,
 #      and this is the distinction that gets eyeballed away at the end of a long session);
 #   4. zero checks reported — "no news" reads as green in a terminal and is not;
@@ -69,8 +69,11 @@ echo "   branch     $head → $base"
 # 2. base must be main. A stacked PR lands its parent first; GitHub then re-targets this one.
 [ "$base" = "main" ] || fail \
   "PR #$PR targets '$base', not 'main'." \
-  "This is a stacked PR. Land '$base' first — GitHub re-targets this one automatically," \
-  "and its checks then re-run against the base it will actually merge into."
+  "This is a stacked PR. Land '$base' first, then re-target this one:" \
+  "    gh pr edit $PR --base main" \
+  "GitHub only re-targets by itself when the base branch is deleted, and deleting branches" \
+  "needs its own instruction — so this is a deliberate step, and CI then re-runs against the" \
+  "base the PR will actually merge into."
 
 # 3 + 4. every check green, none pending, and at least one reported.
 # `gh pr checks` exits non-zero when anything is pending or failing *and still prints valid JSON*,
