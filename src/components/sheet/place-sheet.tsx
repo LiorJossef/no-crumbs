@@ -24,10 +24,20 @@
  * came from so deselecting (sheet's own close, drag-down-to-dismiss-the-detail, or a tap on the
  * map) restores it rather than always falling back to peek.
  *
- * Deliberately not built here (lean pre-L1 slice, see the task brief): real text search filtering
- * (the field renders at `full` but is decorative) and the map-background-tap-collapses-sheet rule
- * at `full` is approximated with a transparent tap-catcher rather than wiring into the map's own
- * gesture surface.
+ * Search (`L1-F6-T2`) is **not** owned here. `query` is lifted to `map-page-client.tsx` because it
+ * filters the pins as well as this list, and a filter that narrowed the list while the map kept
+ * showing every pin would be worse than no filter at all. This file renders the field and the
+ * result states; `domain/places/search.ts` decides what matches.
+ *
+ * One deliberate deviation from `ux-architecture.md` §1.3, which puts the field at `full` only and
+ * a `Search` shortcut elsewhere: the field renders at **both** `half` and `full`. The `Search`
+ * text-link that used to sit at `half` did nothing but expand the sheet — an indirection to reach a
+ * text field, where the text field itself fits. It also means an active query can never be
+ * invisible while it is filtering the map. The spec's actual shortcut (top-left of the map) is a
+ * separate control that does not exist yet.
+ *
+ * Still not built here: the map-background-tap-collapses-sheet rule at `full` is approximated with
+ * a transparent tap-catcher rather than wiring into the map's own gesture surface.
  */
 
 import { Drawer } from 'vaul';
@@ -38,6 +48,7 @@ import { Plus, MapPin, ExternalLink, X, ChevronLeft, Search } from 'lucide-react
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { isSearchActive } from '@/domain/places/search';
 import type { MapPlace } from '@/components/map/types';
 
 /** Fixed peek height. `env(safe-area-inset-bottom)` is added via CSS `calc()` inside the snap
@@ -66,7 +77,14 @@ function snapToStop(snap: number | string | null): SheetStop {
 }
 
 export interface PlaceSheetProps {
+  /** Already filtered by `query` — this list and the map's pins are the same set, by construction
+   *  (`map-page-client.tsx` filters once and hands the result to both). */
   readonly places: readonly MapPlace[];
+  /** How many the user has saved in total, so a filtered list can say `3 of 20` rather than
+   *  claiming they have three places. */
+  readonly totalCount: number;
+  readonly query: string;
+  readonly onQueryChange: (query: string) => void;
   readonly selected: MapPlace | null;
   readonly onDeselect: () => void;
   /** Opens the import overlay in `map-page-client.tsx` (client state) rather than navigating to
@@ -84,7 +102,15 @@ interface SheetState {
   readonly lastSelectedId: string | null;
 }
 
-export function PlaceSheet({ places, selected, onDeselect, onAddTikTok }: PlaceSheetProps) {
+export function PlaceSheet({
+  places,
+  totalCount,
+  query,
+  onQueryChange,
+  selected,
+  onDeselect,
+  onAddTikTok,
+}: PlaceSheetProps) {
   // `modal={false}` below does not reach Radix through vaul 1.1.2, so the dialog hides the whole
   // page from assistive technology. See `use-non-modal-background.ts` for the measurement.
   useNonModalBackground(true);
@@ -153,6 +179,9 @@ export function PlaceSheet({ places, selected, onDeselect, onAddTikTok }: PlaceS
             ) : (
               <PlaceList
                 places={places}
+                totalCount={totalCount}
+                query={query}
+                onQueryChange={onQueryChange}
                 stop={currentStop}
                 onExpand={() => setActiveSnap(STOP_TO_SNAP.full)}
                 onAddTikTok={onAddTikTok}
@@ -167,23 +196,46 @@ export function PlaceSheet({ places, selected, onDeselect, onAddTikTok }: PlaceS
 
 function PlaceList({
   places,
+  totalCount,
+  query,
+  onQueryChange,
   stop,
   onExpand,
   onAddTikTok,
 }: {
   places: readonly MapPlace[];
+  totalCount: number;
+  query: string;
+  onQueryChange: (query: string) => void;
   stop: SheetStop;
   onExpand: () => void;
   onAddTikTok: () => void;
 }) {
+  const filtering = isSearchActive(query);
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3.5 px-5 pt-3.5">
       {stop === 'peek' ? (
         <div className="flex items-center justify-between gap-3 pb-[calc(env(safe-area-inset-bottom)+0.875rem)]">
-          <p className="text-sm font-medium text-muted-foreground">
-            <span className="font-heading font-extrabold text-foreground">{places.length}</span>{' '}
-            places saved
-          </p>
+          {/* At `peek` the field is off screen, but the query is still filtering the pins the user
+              can see. So the count says so, and — since the only way to change or clear it is the
+              field — the line itself opens the sheet to where that field is. Unfiltered, it stays
+              exactly the plain sentence it was. */}
+          {filtering ? (
+            <button
+              type="button"
+              onClick={onExpand}
+              className="-mx-1 rounded-lg px-1 text-left text-sm font-medium text-muted-foreground underline-offset-4 hover:underline"
+            >
+              <span className="font-heading font-extrabold text-foreground">{places.length}</span>{' '}
+              of {totalCount} places
+            </button>
+          ) : (
+            <p className="text-sm font-medium text-muted-foreground">
+              <span className="font-heading font-extrabold text-foreground">{totalCount}</span>{' '}
+              places saved
+            </p>
+          )}
           <Button
             type="button"
             className="h-12 gap-1.5 rounded-lg px-4 text-sm font-bold"
@@ -197,26 +249,33 @@ function PlaceList({
         <>
           <div className="flex items-center justify-between gap-2">
             <h2 className="font-heading text-xl font-extrabold tracking-tight text-foreground">
-              {stop === 'full' ? 'Your places' : `${places.length} places saved`}
+              {stop === 'full' ? 'Your places' : `${totalCount} places saved`}
             </h2>
-            {stop === 'half' && (
-              <button
-                type="button"
-                onClick={onExpand}
-                className="text-sm font-bold text-[var(--mint-700)] underline-offset-4 hover:underline"
-              >
-                Search
-              </button>
+            {filtering && (
+              <p className="shrink-0 text-sm font-medium text-muted-foreground">
+                {places.length} of {totalCount}
+              </p>
             )}
           </div>
 
-          {stop === 'full' && <PlaceSearchField />}
+          <PlaceSearchField value={query} onChange={onQueryChange} />
 
-          <ul data-vaul-no-drag className="min-h-0 flex-1 overflow-y-auto pb-[calc(env(safe-area-inset-bottom)+1rem)]">
-            {places.map((place) => (
-              <PlaceRow key={place.id} place={place} />
-            ))}
-          </ul>
+          {places.length === 0 ? (
+            filtering ? (
+              <NoSearchMatches query={query} onClear={() => onQueryChange('')} />
+            ) : (
+              <NoPlacesYet />
+            )
+          ) : (
+            <ul
+              data-vaul-no-drag
+              className="min-h-0 flex-1 overflow-y-auto pb-[calc(env(safe-area-inset-bottom)+1rem)]"
+            >
+              {places.map((place) => (
+                <PlaceRow key={place.id} place={place} />
+              ))}
+            </ul>
+          )}
         </>
       )}
     </div>
@@ -228,6 +287,8 @@ function PlaceList({
  *  list has never been an entry point to selection (only the map pin is), and this redesign keeps
  *  that interaction model exactly as it was. */
 export function PlaceRow({ place }: { place: MapPlace }) {
+  const locality = place.detail?.locality;
+
   return (
     <li className="flex min-h-16 items-start gap-3 border-b border-border/70 py-3.5 last:border-b-0">
       <span
@@ -238,8 +299,12 @@ export function PlaceRow({ place }: { place: MapPlace }) {
       </span>
       <div className="flex min-w-0 flex-col gap-0.5 pt-0.5">
         <p className="truncate font-heading text-sm font-bold text-foreground">{place.name}</p>
-        <p className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">
+        {/* The city sits next to the category rather than being left off: it is the second thing
+            you know about a saved place ("the London one"), and it is searchable — showing it keeps
+            the rule that every match is explainable from the row you can see. */}
+        <p className="truncate text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">
           {place.category}
+          {locality && <span className="text-muted-foreground/70"> · {locality}</span>}
         </p>
         {place.note && (
           <p className="line-clamp-1 text-sm font-medium text-muted-foreground">{place.note}</p>
@@ -249,17 +314,107 @@ export function PlaceRow({ place }: { place: MapPlace }) {
   );
 }
 
-/** Visual-only in this slice — real filtering is a stretch goal, not required. Shared markup so
- *  the mobile `full` stop and the desktop list panel present the identical field. */
-export function PlaceSearchField({ className }: { className?: string }) {
+/**
+ * The one search field, shared by the mobile sheet and the desktop panel so both present (and
+ * write to) the identical control. Controlled by the caller — the query lives in
+ * `map-page-client.tsx` because it filters the map's pins too, not only this list.
+ *
+ * `data-vaul-no-drag` matters here: without it a drag that starts on the field is a sheet drag, so
+ * selecting text inside the input would haul the whole sheet up and down.
+ *
+ * `type="search"` for the mobile keyboard's search affordance, but the browser's own clear "×" is
+ * suppressed (`[&::-webkit-search-cancel-button]:hidden`) in favour of the button below: the native
+ * one is a 12px grey glyph that fails a touch target on every phone, and it is invisible in dark
+ * mode on WebKit. `Escape` clears too, which is what a keyboard user reaches for first.
+ */
+export function PlaceSearchField({
+  value,
+  onChange,
+  className,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  className?: string;
+}) {
+  const filtering = isSearchActive(value);
+
   return (
-    <div className={cn('relative', className)}>
+    <div data-vaul-no-drag className={cn('relative', className)}>
       <Search
         className="absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
         aria-hidden
       />
-      <Input placeholder="Search your places" className="h-12 rounded-lg pl-10 text-sm font-medium" />
+      <Input
+        type="search"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape' && value !== '') {
+            // Stop it here: at `full` the sheet is a dialog, and Escape would otherwise be read as
+            // "close", throwing the user out of the list they are searching.
+            event.preventDefault();
+            event.stopPropagation();
+            onChange('');
+          }
+        }}
+        aria-label="Search your places"
+        placeholder="Search your places"
+        className={cn(
+          'h-12 rounded-lg pl-10 text-sm font-medium [&::-webkit-search-cancel-button]:hidden',
+          filtering && 'pr-12',
+        )}
+      />
+      {filtering && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label="Clear search"
+          onClick={() => onChange('')}
+          className="absolute right-1.5 top-1/2 size-9 -translate-y-1/2 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <X className="size-4" aria-hidden />
+        </Button>
+      )}
     </div>
+  );
+}
+
+/**
+ * `ux-architecture.md` §9.3, verbatim: name the query back to the user (so a typo is obvious
+ * without looking up at the field) and give them the one-tap way out. Shared by both surfaces.
+ */
+export function NoSearchMatches({
+  query,
+  onClear,
+}: {
+  query: string;
+  onClear: () => void;
+}) {
+  return (
+    <div className="flex flex-1 flex-col items-start gap-3 py-6">
+      <p className="text-sm font-medium text-muted-foreground">
+        Nothing matches <span className="font-bold text-foreground">“{query.trim()}”</span>.
+      </p>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={onClear}
+        className="h-10 rounded-lg px-4 text-sm font-bold"
+      >
+        Clear search
+      </Button>
+    </div>
+  );
+}
+
+/** A library with nothing in it. `L1-F8-T1` owns the real first-run experience (§9.2's coach line);
+ *  this is only here so a brand-new account sees a sentence rather than a blank panel. */
+export function NoPlacesYet() {
+  return (
+    <p className="py-6 text-sm font-medium text-muted-foreground">
+      Nothing saved yet. Add a TikTok and the places it names land here.
+    </p>
   );
 }
 

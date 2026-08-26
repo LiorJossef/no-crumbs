@@ -16,6 +16,14 @@
  * no behavioural branching here — below `lg` only `PlaceSheet` shows detail; at `lg+` only the
  * map's own popover does, and `PlaceDesktopPanel` never reacts to `selected` at all.
  *
+ * `query` (L1-F6-T2) is lifted here for the same reason and a sharper one: it filters the **pins**
+ * as well as the list. A search that narrowed the sheet while the map went on showing all twenty
+ * pins would be worse than no search at all — the two surfaces would be answering different
+ * questions about the same library. So the filter is applied exactly once, here, and the result is
+ * the `places` all three surfaces receive; `totalCount` rides alongside so a filtered list can say
+ * `3 of 20` instead of claiming the user has three places. `domain/places/search.ts` owns what
+ * matches.
+ *
  * `showImport` is the same pattern one level up: "Add a TikTok" (in both `PlaceSheet` and
  * `PlaceDesktopPanel`) used to be a `router.push('/import')` — a real route change that unmounts
  * the map entirely, which is glaring at desktop widths where `/import` has no map behind it to
@@ -26,16 +34,23 @@
  * a second entry point onto the same client component, not a replacement for the route.
  */
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { MapSurface, type MapPlace } from '@/components/map/map-surface';
 import { ImportConfirmation } from '@/components/map/import-confirmation';
 import { PlaceSheet } from '@/components/sheet/place-sheet';
 import { PlaceDesktopPanel } from '@/components/sheet/place-desktop-panel';
+import { filterPlaces } from '@/components/map/filter-places';
 import { ImportPageClient, type SaveOutcomeDetail } from '@/app/import/import-page-client';
+
+/** How long the typing has to settle before the result count is announced to a screen reader.
+ *  Without it a `polite` live region reads a new count on every keystroke, which is worse than
+ *  silence — the user cannot hear the field they are typing into. */
+const ANNOUNCE_AFTER_MS = 500;
 
 export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
   const [selected, setSelected] = useState<MapPlace | null>(null);
   const [showImport, setShowImport] = useState(false);
+  const [query, setQuery] = useState('');
   /**
    * What the last import saved. Two jobs, both of which the flow was missing entirely: it frames
    * the camera on the places that were just added (`focusPlaceIds`), and it is the only thing on
@@ -44,20 +59,45 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
    */
   const [lastImport, setLastImport] = useState<SaveOutcomeDetail | null>(null);
 
+  const visiblePlaces = useMemo(() => filterPlaces(places, query), [places, query]);
+
+  // A place filtered out of the list must not stay open in the detail view: the pin is gone from
+  // the map, so the sheet (or the map's popover) would be showing detail for something the user can
+  // no longer see or dismiss by tapping. Adjusted during render rather than in an effect — React's
+  // own pattern for "a prop/derived value invalidated some state" — and it converges immediately,
+  // because after the reset the guard is false.
+  if (selected && !visiblePlaces.some((place) => place.id === selected.id)) {
+    setSelected(null);
+  }
+
+  const announcement = useResultAnnouncement(query, visiblePlaces.length, places.length);
+
   function openImport() {
     setLastImport(null);
+    // An import that lands places the current query excludes would save them into an invisible
+    // list and fly the camera at pins that are filtered out. Starting an import is the user leaving
+    // the search behind, so the search goes with it.
+    setQuery('');
     setShowImport(true);
   }
 
   return (
     <div className="relative h-full w-full">
       <MapSurface
-        places={places}
+        places={visiblePlaces}
         onPlaceClick={setSelected}
         selected={selected}
         onDeselect={() => setSelected(null)}
         {...(lastImport ? { focusPlaceIds: lastImport.savedPlaceIds } : {})}
       />
+
+      {/* The list and the pins both change silently as the user types, so the one thing a screen
+          reader user has no way to perceive is how many places are left. Rendered here, once, rather
+          than inside each surface: only one of the two is ever in the accessibility tree (the other
+          is `display: none` behind a breakpoint), but a single region cannot double-announce. */}
+      <p role="status" aria-live="polite" className="sr-only">
+        {announcement}
+      </p>
       {lastImport && (
         <ImportConfirmation
           saved={lastImport.saved}
@@ -78,16 +118,55 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
           paints over correctly. */}
       {!showImport && (
         <PlaceSheet
-          places={places}
+          places={visiblePlaces}
+          totalCount={places.length}
+          query={query}
+          onQueryChange={setQuery}
           selected={selected}
           onDeselect={() => setSelected(null)}
           onAddTikTok={openImport}
         />
       )}
-      <PlaceDesktopPanel places={places} onAddTikTok={openImport} />
+      <PlaceDesktopPanel
+        places={visiblePlaces}
+        totalCount={places.length}
+        query={query}
+        onQueryChange={setQuery}
+        onAddTikTok={openImport}
+      />
       {showImport && (
         <ImportPageClient onClose={() => setShowImport(false)} onSaved={setLastImport} />
       )}
     </div>
   );
+}
+
+/**
+ * The filtered result count, as a sentence, delayed until the typing stops. Returns `''` while the
+ * field is empty so the region says nothing at all on first load and says nothing again the moment
+ * the search is cleared.
+ */
+function useResultAnnouncement(query: string, matchCount: number, totalCount: number): string {
+  // The query the stored sentence describes is kept with it, and the sentence is only returned
+  // while the two still agree. That is what stops the previous search's result being read out
+  // during the first half-second of the next one: clearing the field and typing again leaves a
+  // perfectly formed, entirely stale sentence in state, and a live region would happily announce it.
+  const [announced, setAnnounced] = useState({ query: '', message: '' });
+  const trimmed = query.trim();
+
+  useEffect(() => {
+    if (trimmed === '') return;
+    const timer = setTimeout(() => {
+      setAnnounced({
+        query: trimmed,
+        message:
+          matchCount === 0
+            ? `No places match ${trimmed}.`
+            : `${matchCount} of ${totalCount} places match ${trimmed}.`,
+      });
+    }, ANNOUNCE_AFTER_MS);
+    return () => clearTimeout(timer);
+  }, [trimmed, matchCount, totalCount]);
+
+  return announced.query === trimmed ? announced.message : '';
 }
