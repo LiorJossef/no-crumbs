@@ -47,9 +47,18 @@ const persisted = {
   importUpdates: [] as Record<string, unknown>[],
 };
 
+/**
+ * What a cache read finds, if anything. The route consults `extractions` for the same
+ * (source, model, prompt version) *before* calling the model — the read side that was missing when
+ * the write side first shipped, which meant every re-paste re-paid for an answer we already had.
+ * Default `null` = a miss, which is what most tests here want.
+ */
+let cachedExtractionRow: Record<string, unknown> | null = null;
+
 function resetPersisted() {
   persisted.extractions.length = 0;
   persisted.importUpdates.length = 0;
+  cachedExtractionRow = null;
 }
 
 vi.mock('@/integrations/supabase/service-role-client', () => ({
@@ -69,7 +78,13 @@ vi.mock('@/integrations/supabase/service-role-client', () => ({
     }),
     from: (table: string) => {
       if (table === 'extractions') {
+        // `select(...).eq().eq().eq().maybeSingle()` is the cache read; `upsert(...)` is the write.
+        const eqChain = {
+          eq: () => eqChain,
+          maybeSingle: async () => ({ data: cachedExtractionRow, error: null }),
+        };
         return {
+          select: () => eqChain,
           upsert: (row: Record<string, unknown>) => {
             persisted.extractions.push(row);
             return {
@@ -278,5 +293,90 @@ describe('POST /api/imports/probe — extraction branch', () => {
     // confirm route would reject anyway.
     expect(body.extractionId).toBeNull();
     expect(persisted.extractions).toHaveLength(0);
+  });
+
+  /**
+   * The cache read. The write side of this shipped alone, so the row was stored under
+   * `(source_id, model, prompt_version)` and never consulted — every re-paste re-paid the model
+   * for an answer already on disk, and got a *different* answer back, because the model is not
+   * deterministic. These three cases pin the read side's contract.
+   */
+  describe('the extraction cache', () => {
+    // sha256 of the caption `captionExtractMock` returns, which is what the route hashes.
+    const CAPTION_HASH = '0e14a376f9f0a5c0077ff671c337ab4edbfb69bf8ae876a5e5145127a6793153';
+
+    const storedCandidate = {
+      rawName: 'Cafe Fiori',
+      cityHint: null,
+      countryHint: null,
+      categoryHint: null,
+      evidence: 'Cafe Fiori',
+      modelConfidence: 0.8,
+      addressHint: null,
+      identifiedName: null,
+      coordinates: null,
+    };
+
+    it('serves a stored extraction without calling the model again', async () => {
+      cachedExtractionRow = {
+        id: 'ext-cached',
+        status: 'ok',
+        input_hash: CAPTION_HASH,
+        candidates: [storedCandidate],
+      };
+      extractMock.mockClear();
+
+      const res = await postProbe();
+      const body = (await res.json()) as {
+        extractionId: string | null;
+        candidates: PlaceCandidate[];
+      };
+
+      expect(res.status).toBe(200);
+      expect(extractMock).not.toHaveBeenCalled();
+      expect(body.extractionId).toBe('ext-cached');
+      expect(body.candidates).toHaveLength(1);
+      expect(body.candidates[0]?.rawName).toBe('Cafe Fiori');
+      // A hit writes nothing: there is no new answer to record, and re-upserting would overwrite
+      // the original row's `latency_ms` with a null.
+      expect(persisted.extractions).toHaveLength(0);
+    });
+
+    it('re-extracts when the caption changed under the same source and prompt version', async () => {
+      // TikTok lets a caption be edited. Reusing the old row would show places the current caption
+      // no longer names, which is the exact "confidently wrong" failure this product cannot have.
+      cachedExtractionRow = {
+        id: 'ext-cached',
+        status: 'ok',
+        input_hash: 'a-hash-from-some-earlier-caption',
+        candidates: [storedCandidate],
+      };
+      extractMock.mockClear();
+      extractMock.mockResolvedValueOnce({ candidates: [], cityHint: null });
+
+      const res = await postProbe();
+      const body = (await res.json()) as { extractionId: string | null };
+
+      expect(res.status).toBe(200);
+      expect(extractMock).toHaveBeenCalledTimes(1);
+      expect(body.extractionId).toBe('ext-1');
+      expect(persisted.extractions).toHaveLength(1);
+    });
+
+    it('re-extracts when the stored row is not a successful extraction', async () => {
+      cachedExtractionRow = {
+        id: 'ext-cached',
+        status: 'failed',
+        input_hash: CAPTION_HASH,
+        candidates: null,
+      };
+      extractMock.mockClear();
+      extractMock.mockResolvedValueOnce({ candidates: [], cityHint: null });
+
+      const res = await postProbe();
+
+      expect(res.status).toBe(200);
+      expect(extractMock).toHaveBeenCalledTimes(1);
+    });
   });
 });

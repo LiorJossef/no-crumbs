@@ -67,7 +67,9 @@ import { captionContentExtractor } from '@/integrations/tiktok/caption-content-e
 import { createPlaceExtractor } from '@/integrations/llm/place-extractor-factory';
 import { canonicaliseTikTokUrl } from '@/domain/source/canonicalise-tiktok-url';
 import { filterPlausible } from '@/domain/extraction/plausibility';
+import { RawPlaceCandidateSchema, toPlaceCandidate } from '@/domain/extraction/schema';
 import { DomainError, internal, notAuthenticated } from '@/domain/errors';
+import { z } from 'zod';
 import type { OpCtx } from '@/domain/ports';
 import type { PlaceCandidate } from '@/domain/types';
 
@@ -80,12 +82,68 @@ interface StartImportRow {
   readonly is_idempotent: boolean;
 }
 
+/** The `extractions.input_hash` value for a caption — the one place the hash is computed, so the
+ *  read side and the write side cannot drift into disagreeing about what a cache hit means. */
+function sha256(text: string): string {
+  return createHash('sha256').update(text, 'utf8').digest('hex');
+}
+
 function noopCtx(signal: AbortSignal): OpCtx {
   return {
     signal,
     importId: null,
     log: { event: () => {} },
   };
+}
+
+/**
+ * Reads back an extraction this source already has under the same model and prompt version.
+ *
+ * The write side of this cache shipped without a read side, so the key existed, the row was
+ * written, and every re-paste still paid the model again. That is not a theoretical cost: at
+ * `06`'s LEVEL B hit rate "no places found" is the *modal* outcome and re-pasting is the natural
+ * retry, so the retry path was the expensive one. Measured on the local database, the same
+ * eight-place London caption cost a fresh 3.8s model call on every single run — and, because the
+ * model is not deterministic, returned a slightly different answer each time.
+ *
+ * That second part matters as much as the money. A cache hit means re-opening the same TikTok
+ * shows you the same places, which is the only reason a user would trust the screen twice.
+ *
+ * `input_hash` is what makes the hit safe: the row is only reused when the caption still hashes to
+ * what produced it. An edited caption (TikTok allows it) misses the cache and re-extracts, rather
+ * than silently showing places the current caption no longer names.
+ *
+ * Returns null on any miss, any mismatch, and any read error — a cache is never allowed to fail an
+ * import, only to fail to help.
+ */
+async function readCachedExtraction(
+  db: SupabaseClient,
+  input: {
+    readonly sourceId: string;
+    readonly model: string;
+    readonly promptVersion: string;
+    readonly captionHash: string;
+  },
+): Promise<{ readonly id: string; readonly candidates: readonly PlaceCandidate[] } | null> {
+  const { data, error } = await db
+    .from('extractions')
+    .select('id, candidates, input_hash, status')
+    .eq('source_id', input.sourceId)
+    .eq('model', input.model)
+    .eq('prompt_version', input.promptVersion)
+    .maybeSingle();
+
+  if (error !== null || data === null) return null;
+  if (data.status !== 'ok') return null;
+  if (data.input_hash !== input.captionHash) return null;
+
+  // Stored `jsonb` is untrusted input like any other — re-parsed with the same schema the adapter
+  // validated the model against, never assumed to still match the current shape. A row written by
+  // an older prompt version that no longer parses is simply a miss.
+  const parsed = z.array(RawPlaceCandidateSchema).safeParse(data.candidates ?? []);
+  if (!parsed.success) return null;
+
+  return { id: data.id as string, candidates: parsed.data.map(toPlaceCandidate) };
 }
 
 /**
@@ -109,7 +167,7 @@ async function persistExtraction(
     readonly sourceId: string;
     readonly extractorVersion: string | null;
     readonly promptVersion: string | null;
-    readonly caption: string | null;
+    readonly captionHash: string | null;
     readonly candidates: readonly PlaceCandidate[];
     readonly latencyMs: number | null;
   },
@@ -132,10 +190,7 @@ async function persistExtraction(
         // Lets a later read tell "same post, same prompt, different caption" (an edited caption)
         // from a genuine cache hit, without storing the caption twice — `sources.content_text`
         // already holds it.
-        input_hash:
-          input.caption === null
-            ? null
-            : createHash('sha256').update(input.caption, 'utf8').digest('hex'),
+        input_hash: input.captionHash,
         latency_ms: input.latencyMs,
       },
       { onConflict: 'source_id,model,prompt_version' },
@@ -271,6 +326,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     let extractorVersion: string | null = null;
     let promptVersion: string | null = null;
     let msExtract: number | null = null;
+    let cached: { readonly id: string; readonly candidates: readonly PlaceCandidate[] } | null = null;
+    const captionHash = caption === null ? null : sha256(caption);
 
     if (caption !== null) {
       const extractor = createPlaceExtractor({
@@ -283,23 +340,42 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       extractorVersion = extractor.version;
       promptVersion = extractor.promptVersion;
 
-      const extractStartedAt = Date.now();
-      const extracted = await extractor.extract(parts, ctx);
-      msExtract = Date.now() - extractStartedAt;
-      candidates = filterPlausible(extracted.candidates, caption).kept;
+      // The cache is consulted *before* the model, which is the whole point and is what the write
+      // side shipped without. Same source, same model, same prompt version, same caption ⇒ the
+      // answer we already have, at no cost and with no re-roll of a nondeterministic result.
+      cached = await readCachedExtraction(db, {
+        sourceId: raw.id,
+        model: extractor.version,
+        promptVersion: extractor.promptVersion,
+        captionHash: captionHash as string,
+      });
+
+      if (cached !== null) {
+        candidates = cached.candidates;
+      } else {
+        const extractStartedAt = Date.now();
+        const extracted = await extractor.extract(parts, ctx);
+        msExtract = Date.now() - extractStartedAt;
+        candidates = filterPlausible(extracted.candidates, caption).kept;
+      }
     }
 
     // Persist the extraction, then advance the import row. Both are `await`ed rather than
     // fire-and-forget: `extractionId` is load-bearing for the confirm step, so the response must
-    // reflect whether the write actually happened.
-    const extractionId = await persistExtraction(db, {
-      sourceId: raw.id,
-      extractorVersion,
-      promptVersion,
-      caption,
-      candidates,
-      latencyMs: msExtract,
-    });
+    // reflect whether the write actually happened. A cache hit skips the write entirely — there is
+    // nothing new to record, and rewriting the row would overwrite the original `latency_ms` with
+    // a null.
+    const extractionId =
+      cached !== null
+        ? cached.id
+        : await persistExtraction(db, {
+            sourceId: raw.id,
+            extractorVersion,
+            promptVersion,
+            captionHash,
+            candidates,
+            latencyMs: msExtract,
+          });
 
     await advanceImport(db, startRow.import_id, {
       candidateCount: candidates.length,
