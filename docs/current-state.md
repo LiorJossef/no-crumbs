@@ -354,6 +354,16 @@ The cheaper things that are now unblocked and genuinely worth doing:
   that says the fixture was not created when it was. That makes the suite unrunnable locally without
   a reset, and a reset discards cached `extractions` that cost real model calls.
 - **Un-masking API errors** (§3.5). This one cost real time twice today.
+- **CI cost and duration — owner-raised 2026-08-26, deliberately not investigated yet.** CI takes
+  disproportionately long, most visibly on docs-only branches where the full four-job suite runs to
+  approve a Markdown edit, and the whole suite is then paid **again** on `main` after the merge.
+  Worth evaluating path-aware checks and other safe savings. **Two hard constraints on any such
+  change, and they are the point of writing this down rather than just "make CI faster":** it must
+  not weaken the merge gate — `scripts/merge-pr.sh` refuses an *empty* check list precisely so that
+  skipping jobs cannot become a way to merge unverified work, and a "skipped" job must therefore
+  still report success rather than vanish; and it must not weaken post-merge verification, which is
+  what caught the production outage in the first place (`git-workflow.md` §11). A scoping note, not
+  a design.
 
 **Not chosen, and why.** Coordinate accuracy (issue 3.1) is still the biggest single quality problem
 and is still blocked on an owner decision about Google spend. The fifth camera mover (issue 3.8) is a
