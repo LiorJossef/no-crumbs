@@ -180,10 +180,11 @@ describe('poiIndexPlaceResolver', () => {
     expect(result.shortlist[0]?.place.sourceDataset).toBe('overture-places');
     // A single prefiltered row has no second candidate to measure a margin against, so `06` §6.2's
     // rule (`10` §12 Q3, `score.ts`'s file header divergence 1) puts it in `confirm`, never
-    // `preselect` — "unmeasured margin is not perfect margin". `confirm` is still a real database
-    // match: it is what the caption-preview screen's own "Done" review step already asks for, and
-    // is exactly what makes this a "real match" rather than a guess (see the route/UI wiring's
-    // comment on why `confirm` and `preselect` are both treated as a database hit).
+    // `preselect` — "unmeasured margin is not perfect margin". This resolver's own job stops at
+    // reporting that band honestly; whether a `confirm`-band result is confident enough to show as
+    // an unqualified database hit is the *caller's* decision (`/api/imports/probe`, tightened
+    // 2026-08-26 to require `preselect` after a `confirm`-band false positive — see that route's
+    // header), not something this adapter should bake in by only returning bands it approves of.
     expect(result.confidence.band).toBe('confirm');
     expect(result.confidence.score).toBeGreaterThanOrEqual(0.8);
   });

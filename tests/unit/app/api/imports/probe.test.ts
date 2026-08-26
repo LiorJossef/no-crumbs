@@ -10,7 +10,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
 import { extractorUnavailable } from '@/domain/errors';
-import type { PlaceCandidate } from '@/domain/types';
+import type { PlaceCandidate, ResolveResult } from '@/domain/types';
 
 const VIDEO_URL = 'https://www.tiktok.com/@tlv.eats/video/7123456789012345678';
 
@@ -68,6 +68,39 @@ const extractMock = vi.fn();
 vi.mock('@/integrations/llm/place-extractor-factory', () => ({
   createPlaceExtractor: () => ({ version: 'fake', promptVersion: 'fake', extract: extractMock }),
 }));
+
+// The DB-first resolve step (L0-F2b) — stubbed directly against the resolver's own port rather
+// than through fake `poi_regions`/`search_poi_index` rows, so this suite can control exactly which
+// `Confidence.band` comes back for the "only a `preselect`-band result is a `dbMatch`" assertions
+// below (the 2026-08-26 fix for the confirmed false positive on "סברה", see `route.ts`'s header).
+const resolveMock = vi.fn<() => Promise<ResolveResult>>();
+vi.mock('@/integrations/places/poi-index-resolver', () => ({
+  poiIndexPlaceResolver: () => ({ provider: 'overture', resolve: resolveMock }),
+}));
+
+const RESOLVED_PLACE = {
+  provider: 'overture' as const,
+  providerPlaceId: 'p1',
+  sourceDataset: 'overture-places' as const,
+  regionId: 'tlv',
+  name: 'Nordau - Cafe BaSdera',
+  altNames: [],
+  providerCategory: 'cafe',
+  addressLine: 'Nordau 51',
+  locality: 'Tel Aviv',
+  lat: 32.08,
+  lng: 34.77,
+  datasetConfidence: 0.5,
+};
+
+function rankedResult(score: number, margin: number | null, band: 'preselect' | 'confirm' | 'no_match'): ResolveResult {
+  return {
+    shortlist: band === 'no_match' ? [] : [{ place: RESOLVED_PLACE, score, nameScore: score, tokenCoverage: 1, categoryScore: 1 }],
+    confidence: { band, score: band === 'no_match' ? 0 : score, margin },
+    regionsSearched: ['tlv'],
+    candidatesPrefiltered: band === 'no_match' ? 0 : 1,
+  };
+}
 
 function postProbe(): Promise<Response> {
   const req = new NextRequest('http://localhost/api/imports/probe', {
@@ -143,5 +176,65 @@ describe('POST /api/imports/probe — extraction branch', () => {
     expect(body.caption).toBeNull();
     expect(body.candidates).toHaveLength(0);
     expect(extractMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /api/imports/probe — dbMatch band gating (fix for the "סברה" false positive)', () => {
+  const CANDIDATE: PlaceCandidate = {
+    rawName: 'סברה',
+    cityHint: 'תל אביב',
+    countryHint: 'IL',
+    categoryHint: 'cafe',
+    evidence: 'סברה בבוגרשוב',
+    modelConfidence: 0.8,
+    addressHint: 'בוגרשוב 41',
+    identifiedName: 'סברה בר קפה קר',
+    coordinates: null,
+  };
+
+  it('does not surface a confirm-band resolver result as a dbMatch — a confirm hit is a plausible guess, not a confident match', async () => {
+    captionExtractMock.mockResolvedValueOnce([
+      { kind: 'caption', text: 'סברה בבוגרשוב 41', origin: 'tiktok-oembed-title' },
+    ]);
+    extractMock.mockResolvedValueOnce({ candidates: [CANDIDATE], cityHint: 'תל אביב' });
+    resolveMock.mockResolvedValueOnce(rankedResult(0.864, 0.02, 'confirm'));
+    resolveMock.mockResolvedValueOnce(rankedResult(0.864, 0.02, 'confirm'));
+
+    const res = await postProbe();
+    const body = (await res.json()) as { dbMatches: unknown[] };
+
+    expect(res.status).toBe(200);
+    expect(body.dbMatches).toEqual([null]);
+  });
+
+  it('surfaces a preselect-band resolver result as a dbMatch', async () => {
+    captionExtractMock.mockResolvedValueOnce([
+      { kind: 'caption', text: 'סברה בבוגרשוב 41', origin: 'tiktok-oembed-title' },
+    ]);
+    extractMock.mockResolvedValueOnce({ candidates: [CANDIDATE], cityHint: 'תל אביב' });
+    resolveMock.mockResolvedValueOnce(rankedResult(0.97, 0.2, 'preselect'));
+    resolveMock.mockResolvedValueOnce(rankedResult(0.97, 0.2, 'preselect'));
+
+    const res = await postProbe();
+    const body = (await res.json()) as { dbMatches: ({ resolutionScore: number } | null)[] };
+
+    expect(res.status).toBe(200);
+    expect(body.dbMatches).toHaveLength(1);
+    expect(body.dbMatches[0]?.resolutionScore).toBeCloseTo(0.97);
+  });
+
+  it('treats a no_match resolver result the same as confirm — no dbMatch', async () => {
+    captionExtractMock.mockResolvedValueOnce([
+      { kind: 'caption', text: 'סברה בבוגרשוב 41', origin: 'tiktok-oembed-title' },
+    ]);
+    extractMock.mockResolvedValueOnce({ candidates: [CANDIDATE], cityHint: 'תל אביב' });
+    resolveMock.mockResolvedValueOnce(rankedResult(0, null, 'no_match'));
+    resolveMock.mockResolvedValueOnce(rankedResult(0, null, 'no_match'));
+
+    const res = await postProbe();
+    const body = (await res.json()) as { dbMatches: unknown[] };
+
+    expect(res.status).toBe(200);
+    expect(body.dbMatches).toEqual([null]);
   });
 });

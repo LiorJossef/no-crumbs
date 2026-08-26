@@ -28,14 +28,19 @@
  * no request timeout, so no config change is needed to let a slow local call simply take as long
  * as it takes.
  *
- * Resolution (L0-F2b, 2026-08-24): still not the full `runImport` stage C — no `ImportStore`
- * stage recording, no `07` §5 candidate-progress events — but every surviving candidate now gets
- * one real lookup against the loaded `poi_index` extract (`poiIndexPlaceResolver`,
- * `integrations/places/poi-index-resolver.ts`) before this route responds. `confidence.band !==
- * 'no_match'` (i.e. `'preselect'` OR `'confirm'`) is treated as a database hit, not `'preselect'`
- * alone: the caption-preview screen's own "Done" step already is the human confirmation
- * `'confirm'`-band results ask for (`06` §6.2), so gating harder here would only re-litigate a
- * decision the UI's existing review step already makes. `'no_match'` — including "that city isn't
+ * Resolution (L0-F2b, 2026-08-24; tightened 2026-08-26): still not the full `runImport` stage C —
+ * no `ImportStore` stage recording, no `07` §5 candidate-progress events — but every surviving
+ * candidate now gets one real lookup against the loaded `poi_index` extract
+ * (`poiIndexPlaceResolver`, `integrations/places/poi-index-resolver.ts`) before this route
+ * responds. Only `confidence.band === 'preselect'` is treated as a database hit. A `'confirm'`-band
+ * result is a plausible-but-unconfirmed guess — `06` §6.2's own semantics, and exactly what
+ * `deriveResolution` in `domain/import/pipeline.ts` already encodes as `status: 'ambiguous'` rather
+ * than `'resolved'` — so it is *not* shown as a "Matched" row here; it falls through to the same
+ * LLM-guess + Google Maps fallback path as a `'no_match'`. A confirmed false-positive (Tel Aviv
+ * "סברה" resolving to an unrelated cafe ~2.3km away at a `confirm`-band 0.864) is what this
+ * tightening fixes: the caption-preview screen's "Done" button is not itself the disambiguation
+ * step `confirm` band requires, so treating a `confirm` hit as an unqualified match let a coin-flip
+ * guess through as if it were a confident lookup. `'no_match'` — including "that city isn't
  * loaded" (`ResolveResult.regionsSearched: []`) — is a clean, honest miss: `dbMatches[i]` is
  * `null` and the client's existing LLM-guess + Google Maps link path runs exactly as it did before
  * this task, unchanged. A resolver lookup failure (a thrown `DomainError`) degrades the same way —
@@ -192,10 +197,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       try {
         const result = await resolveCandidateBestEffort(resolver, candidate, cityHint, ctx);
         const top = result.shortlist[0];
-        // `'no_match'` covers both "nothing scored well enough" and "that city isn't loaded"
-        // (`regionsSearched: []`) — both are a clean miss, not a reason to fail the probe.
+        // Only `'preselect'` is a confident enough database hit to show as "Matched" (see the file
+        // header). `'confirm'` — a plausible but unconfirmed guess — and `'no_match'` both fall
+        // through to the LLM-guess + Google Maps fallback exactly the same way.
         dbMatches.push(
-          result.confidence.band === 'no_match' || top === undefined
+          result.confidence.band !== 'preselect' || top === undefined
             ? null
             : {
                 provider: 'overture',
