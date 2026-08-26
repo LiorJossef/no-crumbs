@@ -98,6 +98,26 @@ sheet.
 
 ## 3. Unresolved — in impact order
 
+0. **The deployed product is broken for every signed-in user, and has been for a while.**
+   `https://p-002-zeta.vercel.app/map` and `/import` both return **500**; `/`, `/sign-in` and
+   `/healthz` are fine, and `/healthz` correctly reports `main`'s head commit, so Vercel is
+   deploying the right code. The cause is the database, not the build: **production has migrations
+   `0001`–`0009` and nothing since**, while `get-spots.ts` selects `extracted_reason`, `source_url`,
+   `address_line`, `source_dataset` and `resolution_score` — columns added in `0015`/`0016`.
+   PostgREST cannot resolve them, the query throws, the page 500s. **Staging is behind too**:
+   `0001`–`0015` applied, missing `0016`, `0017`, `0018`.
+
+   **This is not new and was not caused by today's merges** — verified rather than assumed: the last
+   `main` commit before today (`9ee40c1`, PR #20) already selected all five columns, so production
+   has been returning 500 on `/map` since that merge. Nobody noticed because nobody looked. It was
+   found on the very first run of `git-workflow.md` §11 ("after the merge, look at the deployed
+   product"), which is the argument for that section existing.
+
+   **Not fixed here, deliberately.** Applying nine migrations to production — including
+   `0012`/`0015`'s grant changes and `0017`'s function replacement — is a deliberate, announced step
+   that needs the owner's instruction (`git-workflow.md` §9.3, and `db-migration-runbook.md` is the
+   procedure). Staging goes first. The runbook, not improvisation.
+
 1. **Coordinates are still the model's guess, and they are wrong by 65–470 m.** Measured across
    re-runs of the same caption. The screen is now honest about it ("Pin is approximate", a
    verify-on-Google-Maps link per card), but the underlying accuracy is unchanged. The owner has an
@@ -184,7 +204,9 @@ on port 3000 — reuse it rather than starting a second. Sign in at `/sign-in` a
 Local database at the time of writing: 20 `places`, 20 `saved_places`, 4 `extractions`, 22
 `imports`, 10 `sources`. One `places` row has a NULL `country_code` (issue 3.2).
 
-Nothing has been applied to staging or production. **`0018` was added** (it takes EXECUTE on
+**The hosted databases are far behind `main`** — production is on `0009`, staging on `0015`, local
+on `0018`. That is issue §3.0, and it is why the deployed product 500s on `/map`. **`0018` was
+added** (it takes EXECUTE on
 `save_place` back from PUBLIC, which `0017` reopened) and is applied locally only.
 
 **`npm run verify` now runs the schema inventory** (`check:schema`) against whatever local database
