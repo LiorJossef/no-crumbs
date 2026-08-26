@@ -5,12 +5,22 @@
 
 ## 1. Where the work is
 
-Branch **`fix/import-server-owned-confirm`**, 9 commits ahead of `main`, working tree clean, all
-checks green (`npm run verify` — 348 unit tests, lint, typecheck, layer guard, migration guard).
-**Not yet pushed and not yet PR'd** — merging to `main` needs the owner's explicit approval
-(`git-workflow.md`).
+Branch **`feat/saved-places-search`**, branched off `fix/import-server-owned-confirm` (which is now
+pushed and open as **PR #23**). Working tree clean, all checks green (`npm run verify` — 371 unit
+tests, lint, typecheck, layer guard, migration guard). Both branches need the owner's explicit
+approval to merge (`git-workflow.md` §9); push and PR are automatic, merging is not.
 
-The branch started as a security fix and grew into the whole import loop being made real. In order:
+**`feat/saved-places-search` — `L1-F6-T2`, three commits.** The search field on `/map` had been
+decorative since the day it was built: a bare `<Input>` with no state behind it. It now filters, and
+it filters the **pins** as well as the list.
+
+| Commit | What |
+|---|---|
+| `feat(search)` | The matching rule — `domain/places/search.ts`, plus 23 tests |
+| `feat(search)` | The wiring: `query` lifted to `map-page-client.tsx`, both surfaces, the empty states |
+| `feat(search)` | The camera flies to the results once the typing settles |
+
+**PR #23 (`fix/import-server-owned-confirm`) — the import loop made real.** In order:
 
 | Commit | What |
 |---|---|
@@ -54,6 +64,25 @@ shape (`provider`/`name`/`lat`/`lng`) is rejected 400; a forged `extractionId` i
 out-of-range `candidateIndex` fails that item only. The Tel Aviv café the original attack renamed
 and moved to the Eiffel Tower is unchanged.
 
+**Search (`L1-F6-T2`), exercised by hand against the real 20-place library at 1440×900 and
+390×844** — not by tests alone:
+
+| Typed | What happened |
+|---|---|
+| `cafe` | 4 of 20, including **`Café Florentin`** and `Nordoy Café`. Accents fold, and the category matches too |
+| `café` | The same four. It folds in both directions, which is the half people forget |
+| `london` | 12 of 20; the camera flew to London |
+| `tel aviv` | 8 of 20, matching **both** `Tel Aviv` and `Tel Aviv-Yafo`; the camera flew to Tel Aviv |
+| `kiaans` | 2 of 20, and exactly one two-pin cluster left on the map — every other pin gone |
+| `sushi` | 0 of 20, `Nothing matches "sushi".` + `Clear search`, and the camera **did not move** |
+| `...` | Same empty state. A query the normaliser reduces to nothing matches nothing, rather than silently showing the whole library back |
+| (cleared) | 20 saved, full list, camera framed on both cities again |
+
+Also checked by use: the mobile sheet at all three stops (`peek` says `4 of 20 places` and expands
+the sheet when tapped; the field is present at `half` and `full`); a place open in the detail
+popover **closes** when a search excludes it; and `Escape` clears the field without closing the
+sheet.
+
 ## 3. Unresolved — in impact order
 
 1. **Coordinates are still the model's guess, and they are wrong by 65–470 m.** Measured across
@@ -77,8 +106,21 @@ and moved to the Eiffel Tower is unchanged.
    as messy existing state; say the word and they go.
 6. Two `imports` rows are stuck at `status='processing'` from before the probe route wrote terminal
    states. Historical only — the current code cannot produce them.
-7. `docs/ux-import-review-screen.md` §8 (motion) and the debounced live-region announcement are
-   specified but not implemented. Deliberate: ornament before correctness.
+7. `docs/ux-import-review-screen.md` §8 (motion) is specified but not implemented. Deliberate:
+   ornament before correctness. (The debounced live-region announcement it also lists now exists on
+   `/map`'s search — `useResultAnnouncement` in `map-page-client.tsx` — but not on the review
+   screen.)
+8. **Search added a fifth camera mover, and `06` §9.2 lists four.** A settled search flies to its
+   results; clearing frames the whole library. It is there because searching `tel aviv` from a
+   London view otherwise showed eight places in the list and zero pins on the map. `L1-F5-T2` has to
+   adopt it or replace it — this is a real loose end, recorded in `execution-plan.md`, not a
+   finished decision.
+9. **Search is client-side, over the places `/map` already loaded.** That is what makes the list and
+   the pins narrow in the same frame with no request and no flicker, and it is right for the
+   hundreds of places this product realistically reaches. A library past that needs a server-side
+   query *and* a different interaction (debounce, pending state) — a real change, not a tuning knob.
+10. **No category-filter chips.** `ux-architecture.md` §1.4 draws `[All][Food]`; one text field that
+   also searches category and city covers most of that need, and chips are an L2 call.
 
 ## 4. Decisions and constraints a new session must not rediscover
 
@@ -95,6 +137,16 @@ and moved to the Eiffel Tower is unchanged.
 - **Map identity is `saved_places.id`** (`Spot.id` → `MapPlace.id`), not `places.id`. Both are
   uuids, so mixing them fails silently.
 - 500 Gemini 3.5 Flash calls/day. Prefer cached extractions and the four TikToks above when testing.
+- **`normalise()` is the only answer to "are these the same text?"** The resolver uses it, and so
+  does search (`domain/places/search.ts`). A second, quietly different normalisation is how `café`
+  stops finding `Café Florentin`.
+- **Searchable is exactly what a row shows** — name, category, locality, note. The model's `reason`
+  and the address would both find real matches and neither is on screen, so both produce rows that
+  look like bugs. Widening the search means widening the row first.
+- **`focusPlaceIds` is one piece of state with two writers** (a finished import, a settled search),
+  most recent wins, never cleared. The map keys the flight on the array's *identity*, so deriving
+  the prop from `lastImport` meant dismissing the confirmation banner read as a brand-new request
+  and threw the camera across the world.
 
 ## 5. Environment
 
@@ -111,17 +163,31 @@ Nothing has been applied to staging or production on this branch. **No migration
 
 ## 6. The next highest-impact step
 
-**Make the saved library worth coming back to: search and filtering over saved places.**
+**Delete, and editing your own note — `L1-F7-T2`.**
 
-The import loop now works end to end and is honest about what it does not know. The library is
-still a flat, recency-ordered list — the map already holds 20 places across two countries, the
-search field on `/map` exists but was reported broken for accented text, and there is no way to
-filter by category or city. That is where the product stops being "a TikTok made a pin" and starts
-being useful, which is `working-agreement.md` §5's stated direction and `L1-F6` on the ladder.
+The app can create and read. It cannot update or delete **anything**: `src/app/actions/` holds one
+file (`sign-out.ts`) and `src/app/api/` holds only `imports`. A place you save is a place you are
+stuck with. That is the gap now, for three reasons at once:
 
-Start by using the existing search field against the current 20 rows and finding out what it
-actually does with "Café Florentin", then decide whether it needs fixing or replacing.
+1. It is the honest end of the loop. Import is good enough that the library fills up; search now
+   makes a full library navigable; neither helps if a wrong place — and the model's coordinates are
+   65–470 m out — can never be removed.
+2. The demo library has **four duplicates** (issue 3.5) sitting there because there is no way to
+   remove them. That is not a data problem to be fixed with `psql`; it is a missing feature the user
+   can see.
+3. It is mandatory graded evidence. `L1-F9-T1`'s test specification needs create / read / update /
+   delete each demonstrable in the UI, and `execution-plan.md`'s critical path says F7 is early, not
+   late — `L1-F4`'s recovery from the modal "no places found" outcome **is** manual add, F7's other
+   half.
 
-The two alternatives, deliberately not chosen: coordinate accuracy (issue 3.1) is blocked on an
-owner decision about Google; richer tags/cuisines (the deferred L0-F4-T3 item) is a schema change
-that should wait until the library surfaces make the need concrete.
+Start with delete, because it is the one the current library actively needs, and it is where the
+ownership question lives: `L1-F7-T3` wants a cross-user write to fail **at the database**, not in
+the UI, so write the RLS test alongside rather than after. `saved_places` is the row to remove;
+`places` is shared and must not be touched by a user deleting their own save. Then the note, which
+is the only user-writable field on a saved place (`0015` — `extracted_reason` is system-derived and
+must stay that way).
+
+**Not chosen, and why.** Coordinate accuracy (issue 3.1) is still the biggest single quality problem
+and is still blocked on an owner decision about Google spend. The fifth camera mover (issue 3.8) is a
+loose end but `L1-F5-T2` owns it and nothing is broken meanwhile. Error masking (issue 3.4) is real
+but costs the user nothing today.
