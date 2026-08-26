@@ -184,16 +184,29 @@ the operator types.
 remote, `inventory.sql` 15/15 PASS. The paragraph below therefore describes the state *before* that
 push, and the container range `0001`–`0011` above is simply the range that existed when it was run.
 
-**Authoritative applied state, as of 2026-08-19 — read this before MS5 task 8:**
+**Authoritative applied state, as of 2026-08-26 — supersedes the 2026-08-19 table below:**
 
 | Project | Applied through | Proven by |
 |---|---|---|
-| `p-002-staging` (`jfuqjzubphfhfleqnkno`) | `0013` | audit task 13, `inventory.sql` 15/15 PASS |
-| `p-002-prod` (`vtboskegexinvhasghri`) | `0009` | MS4; held at `0009` deliberately until MS5 settles the POI index |
+| `p-002-staging` (`jfuqjzubphfhfleqnkno`) | **`0018`** | 2026-08-26 push, ledger local == remote with no remote-only row, `inventory.sql` **15/15 PASS**, plus 22 behavioural assertions from `0008_policy_tests.sql` and a signed-in run of `/map` at both breakpoints |
+| `p-002-prod` (`vtboskegexinvhasghri`) | `0009` | MS4. **Still `0009`** — the push was deferred by the owner on 2026-08-26 because `PROD_DATABASE_URL` is unset, and `db-push.sh` will not start a push it cannot prove |
 
-`0010` and `0014` are applied **nowhere**. That is what makes MS5 task 1's in-place edit of `0010`
-legal under `08` §9, and it is why task 8 must run `npm run db:status:staging` and reconcile against
-this table before pushing rather than trusting any prose in this file.
+**Staging had drifted, and the drift is worth reading before the next push.** On 2026-08-26 the
+ledger carried `0016` under version **`0019`** (the tel-aviv branch renumbered the same file, so the
+schema was right and the version number was wrong), a remote-only `0020`, and — with no ledger row at
+all — an entire out-of-band transcription feature. `supabase db push` refuses to run in that state
+(`LegacyDbPushMissingLocalError`) and `inventory.sql` failed its first check on the table count. The
+repair was `migration repair --status applied 0016` + `--status reverted 0019 0020`, then the orphan
+objects dropped once they were preserved and replay-proved
+(`docs/evidence/db/orphans/README.md`), then the normal push.
+
+**The lesson, and it is the reason §"Two things never to do" exists:** the out-of-band objects were
+invisible to the ledger, so `db:status` alone would never have found them. `db:inventory:<env>` did,
+on its first check. Run the inventory, not just the status.
+
+**The 2026-08-19 table, kept for the history it explains:** staging `0013`, prod `0009`. `0010` and
+`0014` were applied **nowhere**, which is what made MS5 task 1's in-place edit of `0010` legal under
+`08` §9.
 
 **NOT verified as of the entry below, i.e. before task 13:** no `db push`, no `link`, and no write of
 any kind against `p-002-staging` or `p-002-prod`. The pre-check (`migration list --project-ref`) was observed once

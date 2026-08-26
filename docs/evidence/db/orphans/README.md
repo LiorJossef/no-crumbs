@@ -112,18 +112,29 @@ The local container was returned to `main`'s schema afterwards (`drop` of the si
 3. `npm run db:verify` locally, then `npm run db:push:staging` through the runbook. Never re-apply
    them out of band; that is what produced this document.
 
-## 5. The staging repair this unblocks
+## 5. What was actually done to staging — 2026-08-26
 
-Written before execution, so the next session can tell plan from record. **Not yet performed at the
-time of writing — the drop is the owner's call, and §3 exists to inform it.**
+Performed after the owner approved the drop on the strength of §3, and after PR #27 put this
+directory on `main` so the definitions were on the default branch before anything left the database.
 
-- `supabase migration repair --status applied 0016` — the content genuinely is applied, under the
-  wrong version number
-- `supabase migration repair --status reverted 0019 0020` — neither version exists in this repo, and
-  `supabase db push` refuses to run at all while they sit in the ledger
-  (`LegacyDbPushMissingLocalError`)
-- `npm run db:push:staging` — applies `0017` and `0018`
-- the orphan objects dropped, so `inventory.sql` proves staging against the designed surface again
+1. **Safety dump first**, per §4 of the runbook, even though both object sets were empty:
+   `pg_dump -Fc` → `~/p-002-backups/staging-pre-orphan-drop-20260826T134615Z.dump` (822 KB, 788 TOC
+   entries, verified with `pg_restore --list` to contain every orphan object *and* all the data).
+   That dump is a third independent copy, after the branch file and this directory.
+2. **Dropped**, in one transaction: `search_poi_index`, the five `*_transcription_job` functions and
+   `public.transcription_jobs`. Public-schema table count went 12 → 11.
+3. **The `transcription-audio` storage bucket was NOT dropped.** The first attempt included it and
+   Supabase refused — `Direct deletion from storage tables is not allowed`, from
+   `storage.protect_delete()` — which rolled the whole transaction back, so the drops were re-run
+   without it. Removing it needs the Storage API and a service-role key. It is empty (0 objects),
+   lives outside `public`, and no check in this repo inspects `storage.buckets`, so it is recorded
+   here as known residual drift rather than left silent.
+4. **Ledger repaired:** `migration repair --status applied 0016`, then
+   `--status reverted 0019 0020`. Bookkeeping only — no schema changed.
+5. **Pushed** `0017` and `0018` through `npm run db:push:staging`. The dry run named exactly those
+   two files and nothing else.
+6. **Proven:** ledger local == remote for `0001`–`0018` with no remote-only row, and `inventory.sql`
+   **15/15 PASS**.
 
-The drop is reversible from this directory. The data loss is nil, and was nil before the drop: both
-object sets were empty.
+The drop is reversible from this directory. No data was lost, and none was at risk: both object sets
+were empty before the drop.
