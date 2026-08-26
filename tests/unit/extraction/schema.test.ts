@@ -220,7 +220,7 @@ describe('toPlaceCandidate', () => {
     expect(candidate.rawName).toBe('Paradiso');
   });
 
-  it('maps "bakery" onto the scoreable "cafe" hint (09 §4.2)', () => {
+  it('keeps "bakery" as "bakery" rather than collapsing it onto "cafe"', () => {
     const candidate = toPlaceCandidate({
       rawName: 'Lehamim Bakery',
       cityHint: null,
@@ -232,10 +232,10 @@ describe('toPlaceCandidate', () => {
       identifiedName: null,
       coordinates: null,
     });
-    expect(candidate.categoryHint).toBe('cafe');
+    expect(candidate.categoryHint).toBe('bakery');
   });
 
-  it('drops an unscoreable category hint to null', () => {
+  it('keeps a category the scorer cannot score, rather than dropping it to null', () => {
     const candidate = toPlaceCandidate({
       rawName: 'The Grand Museum',
       cityHint: null,
@@ -247,6 +247,9 @@ describe('toPlaceCandidate', () => {
       identifiedName: null,
       coordinates: null,
     });
-    expect(candidate.categoryHint).toBeNull();
+    // `attraction` has no scoreable equivalent, but the candidate is not the seam that decides
+    // that — `categoryHintFor` is, at the `ResolveQuery` boundary. Storage and the review screen
+    // both keep the real value.
+    expect(candidate.categoryHint).toBe('attraction');
   });
 });

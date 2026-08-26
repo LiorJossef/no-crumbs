@@ -19,6 +19,8 @@
  * Identity
  * ------------------------------------------------------------------------------------------- */
 
+import type { ExtractedCategoryHint } from './places/category-hint';
+
 export type UserId = string & { readonly __brand: 'UserId' };
 export type ImportId = string & { readonly __brand: 'ImportId' };
 export type PlaceId = string & { readonly __brand: 'PlaceId' };
@@ -249,7 +251,16 @@ export interface PlaceCandidate {
   readonly rawName: string;
   readonly cityHint: string | null;
   readonly countryHint: string | null;
-  readonly categoryHint: CategoryHint | null;
+  /**
+   * The full seven-value vocabulary the model may emit (`places/category-hint.ts`'s
+   * `ExtractedCategoryHint`), **not** the three the scorer can score. A candidate is the
+   * wrong place to narrow: `bakery` collapsing to `cafe` and `attraction`/`shop`/`other`
+   * collapsing to `null` used to happen inside `toPlaceCandidate`, before the value had
+   * reached storage or the UI, so a bakery was saved and shown as a cafe and three of the
+   * seven categories were unrecoverable. `categoryHintFor()` is now applied at the one seam
+   * that genuinely needs three values — `ResolveQuery` below — and nowhere else.
+   */
+  readonly categoryHint: ExtractedCategoryHint | null;
   /**
    * A street address the caption gives verbatim (e.g. "דרך רמתיים 24", "12 Main St") — a number
    * plus a street name, commonly but not always sitting near a "📍" marker. Distinct from

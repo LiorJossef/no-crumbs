@@ -27,6 +27,7 @@
  *    candidate.
  */
 
+import { categoryHintFor } from '../places/category-hint';
 import { DomainError, internal, noCaption } from '../errors';
 import type { OpCtx, Ports } from '../ports';
 import { canonicaliseTikTokUrl } from '../source/canonicalise-tiktok-url';
@@ -84,7 +85,10 @@ function buildResolveQuery(candidate: PlaceCandidate, extractionCityHint: string
     text: candidate.rawName,
     cityHint: candidate.cityHint ?? extractionCityHint,
     countryHint: candidate.countryHint,
-    categoryHint: candidate.categoryHint,
+    // `ResolveQuery` speaks the scorer's three-value vocabulary; a candidate carries all seven
+    // (`domain/types.ts`). This is the one seam that narrows, and the only caller of
+    // `categoryHintFor` on the import path.
+    categoryHint: categoryHintFor(candidate.categoryHint),
     near: null,
     maxResults: null,
   };
