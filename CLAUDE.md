@@ -64,7 +64,11 @@ Nominatim everywhere else (63%), routed on the extraction's `cityHint`. Nominati
 re-opens `06` §11 Q2; that sign-off is owed **before** the adapter merges.
 
 Specialist subagents live in `.claude/agents/` and are invocable by `subagent_type`, e.g.
-`social-integration`, `maps-geospatial`, `ai-extraction`.
+`social-integration`, `maps-geospatial`, `ai-extraction`. **When you use one, say so** (owner
+ruling, 2026-08-26, `working-agreement.md` §1.1): what you delegated, which agent, whether it wrote
+code or only investigated, and how its output changed the result — including where you disagreed
+with it. Transparency, not a quota: never delegate performatively, and a session that used no
+specialists just says that.
 
 House rules: claims about third-party capabilities are labelled VERIFIED / ASSUMED / UNAVAILABLE,
 with evidence in `docs/evidence/`; design may only depend on VERIFIED. Charter §4 is the scope

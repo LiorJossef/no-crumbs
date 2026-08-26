@@ -35,6 +35,33 @@ Use the specialists in `.claude/agents/` where their expertise genuinely helps. 
 investigation and review, synthesise the findings, then **continue executing**. Specialists exist to
 move the product, not to produce reports.
 
+### 1.1 Delegation must be observable — owner ruling, 2026-08-26
+
+A subagent's work reaches the owner as your work. That is fine, but it must not be *invisible*: a
+finding, a design call or a diff that came from a specialist reads exactly like one you produced
+yourself, and the owner cannot weigh it — or go back to the right specialist — if he cannot see
+where it came from.
+
+So whenever a specialist is used, the report says four things:
+
+1. **what was delegated** — the actual question or task, not "some investigation";
+2. **which agent** handled it, by its `subagent_type` (`maps-geospatial`, `security-privacy`, …);
+3. **whether it wrote code or only investigated/reviewed** — these are different kinds of
+   contribution and get read differently;
+4. **how its output changed the result** — what you did because of it, including where you
+   *disagreed with it and why*. "Confirmed my approach" is a real answer; so is "I rejected its
+   recommendation because …". A specialist's output is input to your judgement, not a verdict.
+
+The same applies to a specialist's commits: they land under the normal rules (one logical change per
+commit, `git-workflow.md`), and a big one gets split before the task closes rather than merged as a
+single opaque lump.
+
+**This is transparency, not a quota.** Do not delegate to have something to disclose, and do not
+push work into an agent that you would do better yourself — a specialist that only needs to *think*
+about a problem should not be made to write code to justify the call. Judgement about what to
+delegate stays yours; only the visibility of it is now fixed. **A session that used no specialists
+says so if the subject comes up, and that is a perfectly good answer.**
+
 ## 2. Definition of done
 
 Implemented ≠ done. Tests passing ≠ working.
