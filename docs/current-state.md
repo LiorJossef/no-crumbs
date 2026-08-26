@@ -10,6 +10,10 @@ pushed and open as **PR #23**). Working tree clean, all checks green (`npm run v
 tests, lint, typecheck, layer guard, migration guard). Both branches need the owner's explicit
 approval to merge (`git-workflow.md` §9); push and PR are automatic, merging is not.
 
+It also carries three fixes made after CI went red on PR #23 — `migrations · RLS policy tests` had
+been failing since `0017` landed, and `npm run verify` does not run `db:inventory`, so nothing local
+said so. See §3.4 and §5.
+
 **`feat/saved-places-search` — `L1-F6-T2`, three commits.** The search field on `/map` had been
 decorative since the day it was built: a bare `<Input>` with no state behind it. It now filters, and
 it filters the **pins** as well as the list.
@@ -99,27 +103,40 @@ sheet.
 3. **`/api/imports/probe` has no rate limit.** It is authenticated but spends a model call per
    request, against a hard ceiling of **500 Gemini 3.5 Flash calls/day**. The cache removes the
    repeat-paste cost; it does not stop a loop. `L0-F6-T1` owns the real limiter.
-4. **Every API error is masked as `INTERNAL, retryable: true`,** including a 400 for a malformed
+4. **`saved_places.extracted_reason` can be forged at row-creation time.** Measured, not reasoned
+   about: an authenticated client POSTs straight to `/saved_places` with any `extracted_reason` it
+   likes and it lands verbatim, bypassing `save_place`. `0015` deliberately excluded the column from
+   the INSERT grant to keep it system-derived; `0017` grants it back because `save_place` is
+   `security invoker` and the function's own INSERT is otherwise refused. **Bounded:** RLS
+   (`saved_places_insert_own`) confines it to the caller's own row, and UPDATE is still refused
+   (42501, verified), so a reason cannot be rewritten after the fact — a user can lie to themselves
+   about their own provenance and to nobody else. It still contradicts this branch's own rule that
+   the browser may never send a place fact. **The fix:** make `save_place` `security definer` with a
+   pinned `search_path` and revoke the column grant. That is a security change owed its own review —
+   a mis-scoped definer function is a classic escalation — so it is written down here rather than
+   slipped in beside an unrelated migration. Recorded in `inventory.sql` check 5 with the same
+   measurement.
+5. **Every API error is masked as `INTERNAL, retryable: true`,** including a 400 for a malformed
    body. Honest about not leaking internals, dishonest about retryability, and hard to diagnose.
-5. **The demo library has four duplicate places** ("Kiaans"/"Kiaans Tooting", two "Tokii", two
+6. **The demo library has four duplicate places** ("Kiaans"/"Kiaans Tooting", two "Tokii", two
    "Sycamore …", two "HaKosem") created by my own testing before the identity fix landed. Harmless
    as messy existing state; say the word and they go.
-6. Two `imports` rows are stuck at `status='processing'` from before the probe route wrote terminal
+7. Two `imports` rows are stuck at `status='processing'` from before the probe route wrote terminal
    states. Historical only — the current code cannot produce them.
-7. `docs/ux-import-review-screen.md` §8 (motion) is specified but not implemented. Deliberate:
+8. `docs/ux-import-review-screen.md` §8 (motion) is specified but not implemented. Deliberate:
    ornament before correctness. (The debounced live-region announcement it also lists now exists on
    `/map`'s search — `useResultAnnouncement` in `map-page-client.tsx` — but not on the review
    screen.)
-8. **Search added a fifth camera mover, and `06` §9.2 lists four.** A settled search flies to its
+9. **Search added a fifth camera mover, and `06` §9.2 lists four.** A settled search flies to its
    results; clearing frames the whole library. It is there because searching `tel aviv` from a
    London view otherwise showed eight places in the list and zero pins on the map. `L1-F5-T2` has to
    adopt it or replace it — this is a real loose end, recorded in `execution-plan.md`, not a
    finished decision.
-9. **Search is client-side, over the places `/map` already loaded.** That is what makes the list and
-   the pins narrow in the same frame with no request and no flicker, and it is right for the
+10. **Search is client-side, over the places `/map` already loaded.** That is what makes the list
+   and the pins narrow in the same frame with no request and no flicker, and it is right for the
    hundreds of places this product realistically reaches. A library past that needs a server-side
    query *and* a different interaction (debounce, pending state) — a real change, not a tuning knob.
-10. **No category-filter chips.** `ux-architecture.md` §1.4 draws `[All][Food]`; one text field that
+11. **No category-filter chips.** `ux-architecture.md` §1.4 draws `[All][Food]`; one text field that
    also searches category and city covers most of that need, and chips are an L2 call.
 
 ## 4. Decisions and constraints a new session must not rediscover
@@ -158,8 +175,13 @@ on port 3000 — reuse it rather than starting a second. Sign in at `/sign-in` a
 Local database at the time of writing: 20 `places`, 20 `saved_places`, 4 `extractions`, 22
 `imports`, 10 `sources`. One `places` row has a NULL `country_code` (issue 3.2).
 
-Nothing has been applied to staging or production on this branch. **No migrations were added** —
-`0017` was already on the branch when this session started.
+Nothing has been applied to staging or production. **`0018` was added** (it takes EXECUTE on
+`save_place` back from PUBLIC, which `0017` reopened) and is applied locally only.
+
+**`npm run verify` does not run `npm run db:inventory`.** That is why `migrations · RLS policy
+tests` sat red on PR #23 for several commits while every local check was green. Run the inventory
+after touching a migration, a grant or a function signature — it is the only thing that checks the
+schema against its own spec.
 
 ## 6. The next highest-impact step
 
