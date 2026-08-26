@@ -49,6 +49,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { isSearchActive } from '@/domain/places/search';
+import { NoteEditor, RemoveSavedPlace } from './saved-place-edits';
 import type { MapPlace } from '@/components/map/types';
 
 /** Fixed peek height. `env(safe-area-inset-bottom)` is added via CSS `calc()` inside the snap
@@ -586,14 +587,11 @@ export function PlaceDetail({
           </div>
         )}
 
-        {note && (
-          <div className="flex flex-col gap-1">
-            <p className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">
-              Your note
-            </p>
-            <p className="text-sm leading-relaxed text-foreground">{note}</p>
-          </div>
-        )}
+        {/* `L1-F7-T2`. The note used to render read-only, and a place you saved was a place you
+            were stuck with. `key` on the saved place's id is what resets a half-typed draft when
+            the selection changes — the editor deliberately does not sync from props in an effect,
+            which would discard typing every time the server revalidated. */}
+        <NoteEditor key={place.id} savedPlaceId={place.id} note={note} />
 
         {/* Two external actions, presented as plain text links — same weight as `reason`/`note`
             above, no border/fill box. The panel (or sheet) is already the container; a bordered
@@ -634,6 +632,13 @@ export function PlaceDetail({
               ` · ${Math.round(provenance.resolutionScore * 100)}% confidence`}
           </p>
         )}
+
+        {/* Last, and quiet. The destructive action belongs below everything the user might have
+            opened this detail to read, not competing with it. `onClose` is the deselect the
+            caller already passes — the map page's own render-time guard would drop the selection
+            once the revalidated list arrives, but that would leave the detail open over a place
+            that is already gone for the length of the round trip. */}
+        <RemoveSavedPlace savedPlaceId={place.id} placeName={place.name} onRemoved={onClose} />
       </div>
     </div>
   );
