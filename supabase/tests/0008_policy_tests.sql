@@ -33,12 +33,21 @@
 -- above describes. So the hosted projects DO ship the claims-reading auth.uid(). `supabase db
 -- reset` remains ASSUMED — that one was not exercised.
 --
--- That run also found a limit of this file worth knowing before pointing it at a populated
--- database: it stops at `FAIL P7: near-duplicate guard created 14 places`. P7 asserts the count of
--- ALL rows in public.places, which only holds on an empty one; staging had 13 rows before the run.
--- It is an assumption about the fixture, not a policy failure — the 22 assertions before it all
--- passed. The whole file is one transaction that rolls back, and nothing survived the run
--- (auth.users back to 2, places 13, zero fixture rows left).
+-- LIMIT WORTH KNOWING BEFORE YOU RUN THIS: **it requires an empty database**, and says so badly.
+-- Several assertions count ALL rows in a table rather than the rows this file created, so on any
+-- database with data in it they fail for a reason that has nothing to do with policies:
+--   * the `extractions` setup guard fails as `FAIL setup: the extraction fixture was not created`
+--     when the database already holds an extraction — measured on a working local container, where
+--     the message is actively misleading (the fixture WAS created; it was simply not the only row);
+--   * `FAIL P7: near-duplicate guard created 14 places` — measured against p-002-staging, which
+--     had 13 places before the run.
+-- In CI this never bites, because CI runs it against a fresh `supabase db reset`. It does mean
+-- `npm run db:test` cannot be run against a local database you are actually developing against
+-- without resetting it first — and a reset throws away the cached `extractions` rows, which cost
+-- real model calls against a 500/day ceiling. Scoping these counts to the fixture rows would fix
+-- it; that is a change to this file's assertions and is deliberately not being made in passing.
+--
+-- Nothing survived the staging run: auth.users back to 2, places 13, zero fixture rows left.
 --
 -- It tests the POLICIES, not the client code: every read and write below happens under
 -- `set role authenticated` with request.jwt.claims set, exactly as PostgREST would run it.
@@ -421,6 +430,39 @@ begin
     raise exception 'FAIL P5: authenticated could UPDATE saved_places.user_id';
   exception when insufficient_privilege then
     raise notice 'PASS P5c saved_places.user_id is not in the UPDATE grant';
+  end;
+
+  -- P5c-ii / P5c-iii: the other two columns L1-F7-T3 names. `user_id` alone was asserted, which
+  -- covers "whose row is this" and nothing else. `place_id` decides WHICH place a save points at
+  -- and `origin` decides whether the row claims to have come from an import — a user who can
+  -- rewrite either can silently repoint a save at a different venue, or launder a manual add into
+  -- something that looks like it came from a TikTok. Both are absent from the UPDATE grant by
+  -- design (0006/0015); this is the behavioural proof that they still are, next to the structural
+  -- one in inventory.sql check 5.
+  begin
+    update public.saved_places set place_id = current_setting('qa.place_id')::uuid;
+    raise exception 'FAIL P5: authenticated could UPDATE saved_places.place_id';
+  exception when insufficient_privilege then
+    raise notice 'PASS P5c-ii saved_places.place_id is not in the UPDATE grant';
+  end;
+
+  begin
+    update public.saved_places set origin = 'import';
+    raise exception 'FAIL P5: authenticated could UPDATE saved_places.origin';
+  exception when insufficient_privilege then
+    raise notice 'PASS P5c-iii saved_places.origin is not in the UPDATE grant';
+  end;
+
+  -- P5c-iv: the note IS writable, and that must be asserted too. A test suite that only proves
+  -- what is forbidden passes just as happily against a table nobody can write at all — which is
+  -- exactly what would ship if `note` were dropped from the UPDATE grant by accident. `L1-F7-T2`'s
+  -- whole feature is this one column. Zero rows affected (B's library is empty here); what is
+  -- being proven is that the statement is permitted, not that it matched.
+  begin
+    update public.saved_places set note = 'a note B is allowed to write on their own row';
+    raise notice 'PASS P5c-iv saved_places.note IS in the UPDATE grant — the one user-writable column';
+  exception when insufficient_privilege then
+    raise exception 'FAIL P5c-iv: note is not writable, so nobody can edit their own note';
   end;
 
   begin

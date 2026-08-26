@@ -92,6 +92,31 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
   const announcement = useResultAnnouncement(query, visiblePlaces.length, places.length);
   useSearchFlight(query, places, visiblePlaces, setFocusPlaceIds);
 
+  /**
+   * Selecting a place from the list — the entry point `PlaceRow` gained at `L1-F7-T2`, because the
+   * map's pins are painted into a canvas and were therefore unreachable by keyboard.
+   *
+   * It moves the camera, and that is not incidental. On desktop the detail opens in the map's own
+   * pin-anchored popover, so selecting a place outside the current viewport produced a popover
+   * clamped to the edge of the map pointing at nothing — observed at 1440×900 with the camera over
+   * Europe and the selected place in Tel Aviv. The list is the only way to reach a place you cannot
+   * currently see, so it has to bring that place into view.
+   *
+   * **This is a sixth camera mover, and `06` §9.2 lists four.** The fifth (a settled search) is
+   * already recorded as a loose end in `current-state.md` §3.9 for `L1-F5-T2` to adopt or replace;
+   * this one goes in the same list rather than being slipped in quietly. It is also the most
+   * defensible of the three additions: the user asked to look at exactly this place.
+   *
+   * It reuses `focusPlaceIds` rather than growing a second mechanism, so the existing guards apply
+   * unchanged — the flight is keyed on array identity (a fresh array per selection, so re-selecting
+   * the same place does fly again), it is capped by `FIT_BOUNDS_MAX_ZOOM` so a single point cannot
+   * zoom to the rooftops, and a resize re-fits what was framed rather than the whole library.
+   */
+  function selectPlace(place: MapPlace) {
+    setSelected(place);
+    setFocusPlaceIds([place.id]);
+  }
+
   function openImport() {
     setLastImport(null);
     // An import that lands places the current query excludes would save them into an invisible
@@ -145,6 +170,7 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
           selected={selected}
           onDeselect={() => setSelected(null)}
           onAddTikTok={openImport}
+          onSelect={selectPlace}
         />
       )}
       <PlaceDesktopPanel
@@ -153,6 +179,7 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
         query={query}
         onQueryChange={setQuery}
         onAddTikTok={openImport}
+        onSelect={selectPlace}
       />
       {showImport && (
         <ImportPageClient

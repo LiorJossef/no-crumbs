@@ -49,6 +49,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { isSearchActive } from '@/domain/places/search';
+import { NoteEditor, RemoveSavedPlace } from './saved-place-edits';
 import type { MapPlace } from '@/components/map/types';
 
 /** Fixed peek height. `env(safe-area-inset-bottom)` is added via CSS `calc()` inside the snap
@@ -90,6 +91,9 @@ export interface PlaceSheetProps {
   /** Opens the import overlay in `map-page-client.tsx` (client state) rather than navigating to
    *  the standalone `/import` route, so the map underneath this sheet stays mounted. */
   readonly onAddTikTok: () => void;
+  /** Selecting from the list, which the map's canvas-drawn pins cannot offer to a keyboard user —
+   *  see `PlaceRow`'s header for why this stopped being optional at `L1-F7-T2`. */
+  readonly onSelect: (place: MapPlace) => void;
 }
 
 interface SheetState {
@@ -110,6 +114,7 @@ export function PlaceSheet({
   selected,
   onDeselect,
   onAddTikTok,
+  onSelect,
 }: PlaceSheetProps) {
   // `modal={false}` below does not reach Radix through vaul 1.1.2, so the dialog hides the whole
   // page from assistive technology. See `use-non-modal-background.ts` for the measurement.
@@ -185,6 +190,7 @@ export function PlaceSheet({
                 stop={currentStop}
                 onExpand={() => setActiveSnap(STOP_TO_SNAP.full)}
                 onAddTikTok={onAddTikTok}
+                onSelect={onSelect}
               />
             )}
           </Drawer.Content>
@@ -202,6 +208,7 @@ function PlaceList({
   stop,
   onExpand,
   onAddTikTok,
+  onSelect,
 }: {
   places: readonly MapPlace[];
   totalCount: number;
@@ -210,6 +217,7 @@ function PlaceList({
   stop: SheetStop;
   onExpand: () => void;
   onAddTikTok: () => void;
+  onSelect?: (place: MapPlace) => void;
 }) {
   const filtering = isSearchActive(query);
 
@@ -217,25 +225,35 @@ function PlaceList({
     <div className="flex min-h-0 flex-1 flex-col gap-3.5 px-5 pt-3.5">
       {stop === 'peek' ? (
         <div className="flex items-center justify-between gap-3 pb-[calc(env(safe-area-inset-bottom)+0.875rem)]">
-          {/* At `peek` the field is off screen, but the query is still filtering the pins the user
-              can see. So the count says so, and — since the only way to change or clear it is the
-              field — the line itself opens the sheet to where that field is. Unfiltered, it stays
-              exactly the plain sentence it was. */}
-          {filtering ? (
-            <button
-              type="button"
-              onClick={onExpand}
-              className="-mx-1 rounded-lg px-1 text-left text-sm font-medium text-muted-foreground underline-offset-4 hover:underline"
-            >
-              <span className="font-heading font-extrabold text-foreground">{places.length}</span>{' '}
-              of {totalCount} places
-            </button>
-          ) : (
-            <p className="text-sm font-medium text-muted-foreground">
-              <span className="font-heading font-extrabold text-foreground">{totalCount}</span>{' '}
-              places saved
-            </p>
-          )}
+          {/* At `peek` the list and the field are both off screen, so this line is the tap target
+              that brings them back. It used to be a button only while filtering — the argument
+              being that a filtered count needs a way to reach the field that set it, and an
+              unfiltered one is just a sentence.
+
+              That stopped holding at `L1-F7-T2`. The list is now the entry point to place detail,
+              and therefore the only route to editing a note or removing a place; the map's pins
+              are canvas-painted and cannot be tapped by anything but a pointer landing exactly on
+              them. Leaving the unfiltered case inert put the whole feature behind a drag gesture
+              with no affordance saying it was there. Making it always a button also deletes a
+              special case rather than adding one. */}
+          <button
+            type="button"
+            onClick={onExpand}
+            aria-label="Show your places"
+            className="-mx-1 rounded-lg px-1 text-left text-sm font-medium text-muted-foreground underline-offset-4 hover:underline"
+          >
+            {filtering ? (
+              <>
+                <span className="font-heading font-extrabold text-foreground">{places.length}</span>{' '}
+                of {totalCount} places
+              </>
+            ) : (
+              <>
+                <span className="font-heading font-extrabold text-foreground">{totalCount}</span>{' '}
+                places saved
+              </>
+            )}
+          </button>
           <Button
             type="button"
             className="h-12 gap-1.5 rounded-lg px-4 text-sm font-bold"
@@ -272,7 +290,7 @@ function PlaceList({
               className="min-h-0 flex-1 overflow-y-auto pb-[calc(env(safe-area-inset-bottom)+1rem)]"
             >
               {places.map((place) => (
-                <PlaceRow key={place.id} place={place} />
+                <PlaceRow key={place.id} place={place} {...(onSelect ? { onSelect } : {})} />
               ))}
             </ul>
           )}
@@ -282,22 +300,47 @@ function PlaceList({
   );
 }
 
-/** Shared with `PlaceDesktopPanel` so the two presentations of "a saved place, in a list" never
- *  drift into two visual languages. Deliberately not a `<button>`/`onClick` in this slice: the
- *  list has never been an entry point to selection (only the map pin is), and this redesign keeps
- *  that interaction model exactly as it was. */
-export function PlaceRow({ place }: { place: MapPlace }) {
+/**
+ * Shared with `PlaceDesktopPanel` so the two presentations of "a saved place, in a list" never
+ * drift into two visual languages.
+ *
+ * **The row is now the list's entry point to selection**, which it deliberately was not before.
+ * That earlier choice ("only the map pin selects") stopped being tenable the moment `L1-F7-T2` put
+ * delete and note-editing inside `PlaceDetail`, because the pins are drawn by MapLibre into a
+ * `<canvas>`. Three consequences, and the third is the one that settles it:
+ *
+ *  1. **Keyboard users could not reach place detail at all.** A canvas-painted pin has no DOM node
+ *     to tab to, so every action inside the detail view — now including deleting a place — was
+ *     mouse-only. That is an accessibility defect, not a preference.
+ *  2. **The duplicates are the hard case.** `current-state.md` §3.6 lists four duplicate places
+ *     sitting in the library precisely because nothing could remove them; a duplicate is by
+ *     definition a second pin at almost the same coordinates, i.e. inside a cluster, i.e. the
+ *     single hardest thing to hit on a map and the easiest to pick out of a list.
+ *  3. **A canvas pin cannot be driven by Playwright** without hard-coding pixel coordinates that
+ *     any camera change invalidates. `L1-F9-T4` has to exercise the golden path against a
+ *     deployment; a flow whose only entry point is a canvas click is a flow that cannot be tested.
+ *
+ * `onSelect` is optional so the row stays a pure presentational element for any caller that wants
+ * one; without it the row renders exactly as it did before, as a non-interactive `<li>`.
+ */
+export function PlaceRow({
+  place,
+  onSelect,
+}: {
+  place: MapPlace;
+  onSelect?: (place: MapPlace) => void;
+}) {
   const locality = place.detail?.locality;
 
-  return (
-    <li className="flex min-h-16 items-start gap-3 border-b border-border/70 py-3.5 last:border-b-0">
+  const body = (
+    <>
       <span
         aria-hidden
         className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"
       >
         <MapPin className="size-4" />
       </span>
-      <div className="flex min-w-0 flex-col gap-0.5 pt-0.5">
+      <div className="flex min-w-0 flex-col gap-0.5 pt-0.5 text-left">
         <p className="truncate font-heading text-sm font-bold text-foreground">{place.name}</p>
         {/* The city sits next to the category rather than being left off: it is the second thing
             you know about a saved place ("the London one"), and it is searchable — showing it keeps
@@ -310,6 +353,32 @@ export function PlaceRow({ place }: { place: MapPlace }) {
           <p className="line-clamp-1 text-sm font-medium text-muted-foreground">{place.note}</p>
         )}
       </div>
+    </>
+  );
+
+  if (!onSelect) {
+    return (
+      <li className="flex min-h-16 items-start gap-3 border-b border-border/70 py-3.5 last:border-b-0">
+        {body}
+      </li>
+    );
+  }
+
+  return (
+    <li className="border-b border-border/70 last:border-b-0">
+      <button
+        type="button"
+        onClick={() => onSelect(place)}
+        // The accessible name says what happens, not what the row contains — a screen reader user
+        // hears the name twice otherwise (once as the button label, once as its content).
+        aria-label={`Open ${place.name}`}
+        // `data-vaul-no-drag`: inside the mobile sheet, a press that begins on this row would
+        // otherwise be read as the start of a sheet drag, and the tap would be swallowed.
+        data-vaul-no-drag
+        className="flex min-h-16 w-full items-start gap-3 rounded-lg py-3.5 text-left transition-colors outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        {body}
+      </button>
     </li>
   );
 }
@@ -518,14 +587,11 @@ export function PlaceDetail({
           </div>
         )}
 
-        {note && (
-          <div className="flex flex-col gap-1">
-            <p className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">
-              Your note
-            </p>
-            <p className="text-sm leading-relaxed text-foreground">{note}</p>
-          </div>
-        )}
+        {/* `L1-F7-T2`. The note used to render read-only, and a place you saved was a place you
+            were stuck with. `key` on the saved place's id is what resets a half-typed draft when
+            the selection changes — the editor deliberately does not sync from props in an effect,
+            which would discard typing every time the server revalidated. */}
+        <NoteEditor key={place.id} savedPlaceId={place.id} note={note} />
 
         {/* Two external actions, presented as plain text links — same weight as `reason`/`note`
             above, no border/fill box. The panel (or sheet) is already the container; a bordered
@@ -566,6 +632,13 @@ export function PlaceDetail({
               ` · ${Math.round(provenance.resolutionScore * 100)}% confidence`}
           </p>
         )}
+
+        {/* Last, and quiet. The destructive action belongs below everything the user might have
+            opened this detail to read, not competing with it. `onClose` is the deselect the
+            caller already passes — the map page's own render-time guard would drop the selection
+            once the revalidated list arrives, but that would leave the detail open over a place
+            that is already gone for the length of the round trip. */}
+        <RemoveSavedPlace savedPlaceId={place.id} placeName={place.name} onRemoved={onClose} />
       </div>
     </div>
   );
