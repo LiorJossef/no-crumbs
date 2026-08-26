@@ -16,6 +16,11 @@
  *
  *   psql "$DATABASE_URL" -c "select save_place('<place-uuid>', null, 'throwaway', null)"
  *
+ * It leaves one `places` row behind per run, and that is correct rather than a leak: deleting a
+ * saved place deliberately never touches `places`, which is shared across users. Clean up the
+ * seeded one yourself if you care —
+ * `delete from places where name = '<seeded name>' and id not in (select place_id from saved_places)`.
+ *
  * Screenshots land in `tests/manual/.shots/` (git-ignored).
  */
 import { chromium } from '@playwright/test';
