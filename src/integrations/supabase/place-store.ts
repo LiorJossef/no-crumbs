@@ -58,17 +58,33 @@ export function supabasePlaceStore(service: SupabaseClient, user: SupabaseClient
         throw internal('resolve_place failed', resolveError ?? placeId);
       }
 
+      // Asked before the save, because `save_place` is idempotent and so cannot distinguish a
+      // first save from a repeat afterwards. Read through the *user's* client so RLS scopes it to
+      // this user's own rows — a service-role read would report another user's save as ours.
+      const { data: existing, error: existingError } = await user
+        .from('saved_places')
+        .select('id')
+        .eq('place_id', placeId)
+        .maybeSingle();
+
+      if (existingError) {
+        throw internal('saved_places lookup failed', existingError);
+      }
+
+      const alreadySaved = existing !== null;
+
       const { data: savedPlaceId, error: saveError } = await user.rpc('save_place', {
         p_place_id: placeId,
         p_source_id: save.sourceId,
         p_note: save.note,
+        p_extracted_reason: save.extractedReason,
       });
 
       if (saveError || typeof savedPlaceId !== 'string') {
         throw internal('save_place failed', saveError ?? savedPlaceId);
       }
 
-      return { placeId: placeId as PlaceId, savedPlaceId };
+      return { placeId: placeId as PlaceId, savedPlaceId, alreadySaved };
     },
   };
 }

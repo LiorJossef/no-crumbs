@@ -40,7 +40,6 @@ import { cn } from '@/lib/utils';
 import { canonicaliseTikTokUrl } from '@/domain/source/canonicalise-tiktok-url';
 import type { PipelineStage } from '@/domain/import/events';
 import { googleMapsSearchUrl } from '@/domain/places/google-maps-search-url';
-import { llmGuessProviderPlaceId } from '@/domain/import/llm-guess-place-id';
 import { decideCaptionSaveOutcome } from '@/domain/import/caption-save-outcome';
 import type { Candidate, PlaceCandidate } from '@/domain/types';
 
@@ -54,6 +53,16 @@ interface ProbeSuccess {
   /** The real `sources.id` row this probe fetched/cached — carried through so a later save (even
    *  with zero candidates) links this source instead of silently sending `sourceId: null`. */
   readonly sourceId: string;
+  /**
+   * The `extractions` row the probe route persisted for this source. Every place fact a save
+   * writes is derived server-side from that row, so this id — not a payload of names and
+   * coordinates — is what "Done" sends (`src/app/api/imports/confirm/route.ts`).
+   *
+   * `null` when the extraction could not be persisted (or there was no caption to extract from).
+   * A save is impossible then, and the screen must say so rather than post a request that cannot
+   * be authorised.
+   */
+  readonly extractionId: string | null;
   readonly authorHandle: string | null;
   readonly authorName: string | null;
   readonly canonicalUrl: string;
@@ -301,45 +310,51 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
    */
   async function saveExtractedCandidates(
     candidates: readonly PlaceCandidate[],
-    sourceId: string,
+    extractionId: string | null,
   ): Promise<{ readonly saved: number; readonly skipped: number; readonly failed: number }> {
-    const withCoordinates = candidates.filter((c) => c.coordinates !== null);
-    const skipped = candidates.length - withCoordinates.length;
-
-    if (withCoordinates.length === 0) {
-      return { saved: 0, skipped, failed: 0 };
+    if (candidates.length === 0) {
+      return { saved: 0, skipped: 0, failed: 0 };
     }
 
-    const items = withCoordinates.map((c) => ({
-      provider: 'llm_guess' as const,
-      providerPlaceId: llmGuessProviderPlaceId(c),
-      sourceDataset: 'llm-guess' as const,
-      name: c.identifiedName ?? c.rawName,
-      category: c.categoryHint,
-      providerCategory: null,
-      addressLine: c.addressHint,
-      locality: c.cityHint,
-      countryCode: c.countryHint && /^[A-Z]{2}$/.test(c.countryHint) ? c.countryHint : null,
-      // Guarded by the `withCoordinates` filter above — non-null by construction.
-      lat: c.coordinates!.lat,
-      lng: c.coordinates!.lng,
-      resolutionScore: null,
-      note: null,
-    }));
+    // No persisted extraction means there is nothing the server can derive a save from, and no
+    // request this client could send that would be authorised. Reported as failed rather than
+    // silently swallowed: the user pressed Done and nothing was saved.
+    if (extractionId === null) {
+      return { saved: 0, skipped: 0, failed: candidates.length };
+    }
+
+    // The request carries positions, not facts. Which candidate to save is the user's call; what
+    // that candidate *is* comes from the extraction row the probe route wrote. The indices line up
+    // because the probe route persisted exactly the array it returned — the same
+    // plausibility-filtered candidates, in the same order.
+    const items = candidates.map((_, candidateIndex) => ({ candidateIndex, note: null }));
 
     const res = await fetch('/api/imports/confirm', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sourceId, items }),
+      body: JSON.stringify({ extractionId, items }),
     });
 
     if (!res.ok) {
-      return { saved: 0, skipped, failed: items.length };
+      return { saved: 0, skipped: 0, failed: items.length };
     }
 
-    const body = (await res.json()) as { results: readonly { status: 'saved' | 'failed' }[] };
-    const failed = body.results.filter((r) => r.status === 'failed').length;
-    return { saved: body.results.length - failed, skipped, failed };
+    const body = (await res.json()) as {
+      results: readonly { status: 'saved' | 'already_saved' | 'skipped' | 'failed' }[];
+    };
+
+    // `skipped` is now the server's verdict (the model gave this candidate no coordinates), not a
+    // client-side filter. `already_saved` counts as saved: the place is in the library either way,
+    // and `decideCaptionSaveOutcome` is about whether the save succeeded, not about novelty.
+    let saved = 0;
+    let skipped = 0;
+    let failed = 0;
+    for (const result of body.results) {
+      if (result.status === 'saved' || result.status === 'already_saved') saved += 1;
+      else if (result.status === 'skipped') skipped += 1;
+      else failed += 1;
+    }
+    return { saved, skipped, failed };
   }
 
   /** After a successful (or nothing-to-save) "Done": land on/near the map with the save visible.
@@ -367,10 +382,13 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
    * explicit next step, mirroring the same on-screen-with-a-message pattern `hard_failure` (and,
    * before this fix, only `hard_failure`) already used.
    */
-  async function finishCaptionPreview(candidates: readonly PlaceCandidate[], sourceId: string) {
+  async function finishCaptionPreview(
+    candidates: readonly PlaceCandidate[],
+    extractionId: string | null,
+  ) {
     setCaptionSave({ saving: true, error: null, partialNotice: null });
     try {
-      const result = await saveExtractedCandidates(candidates, sourceId);
+      const result = await saveExtractedCandidates(candidates, extractionId);
       const outcome = decideCaptionSaveOutcome(result);
       switch (outcome.kind) {
         case 'proceed':
@@ -511,7 +529,7 @@ export function ImportPageClient({ onClose }: ImportPageClientProps = {}) {
             saving={captionSave.saving}
             error={captionSave.error}
             partialNotice={captionSave.partialNotice}
-            onDone={() => finishCaptionPreview(screen.probe.candidates, screen.probe.sourceId)}
+            onDone={() => finishCaptionPreview(screen.probe.candidates, screen.probe.extractionId)}
             onContinue={continueAfterPartialSave}
           />
         )}
