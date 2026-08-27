@@ -69,11 +69,31 @@ commit bodies** — so a secret quoted in a reply becomes a permanent repo secre
 17. Never edit, renumber, or delete a migration already committed to `main`; nine are applied to
     hosted projects. Forward-fix with a new higher number only. In-place edits make local and hosted
     diverge silently — CI rebuilds from `0001` and stays green while production drifts.
-18. Never write a migration that grants anything to `anon`, grants `EXECUTE` on a `SECURITY DEFINER`
-    function to `anon` / `authenticated`, restores table-wide `SELECT` on `places`, or drops the
-    import-ownership predicate in `sps_insert_own`. These are the named invariants in
-    [`security.md`](security.md) §1 and §2.6, and `0009`'s `anon EXECUTE on save_place` bug has
-    already regressed once.
+18. Never write a migration that grants anything to `anon`, restores table-wide `SELECT` on
+    `places`, or drops the import-ownership predicate in `sps_insert_own` — the named invariants in
+    [`security.md`](security.md) §1 and §2.6. `revoke ... from public` as well as from the role:
+    `EXECUTE` defaults to `PUBLIC` on every new function and a privilege held through `PUBLIC`
+    survives `revoke ... from anon`. That is `0009`'s `anon EXECUTE on save_place` bug, and then
+    `0018`'s — it has regressed **twice**, so the assertion that catches it belongs in
+    `inventory.sql` check 6 in the same migration.
+
+    On `SECURITY DEFINER`, quote [`security.md`](security.md) §1 invariant 1 rather than
+    compressing it. Never `GRANT EXECUTE` a `SECURITY DEFINER` function to `anon` / `authenticated`
+    where the function **returns or reads global rows** (`places`, `place_provider_refs`,
+    `sources`, `extractions`), **writes a column the caller holds no grant on**, or **derives the
+    row it acts on from a caller-supplied id rather than `auth.uid()`**. Any one of those three and
+    the definer is an escalation; none of them and it may be reviewable.
+
+    **This rule was written as a blanket ban until 2026-08-27, and the blanket version was false.**
+    `apply_saved_place_source_link` (`0016`) is `SECURITY DEFINER`, granted to `authenticated`, on
+    `main`, blessed by `inventory.sql` check 6, and correct: it reads `auth.uid()` itself rather
+    than taking a user id, writes a fixed two-column list, and requires the caller to already own
+    the `saved_place_sources` link. It is the **one reviewed exception**; a second one goes to
+    `security-privacy` before it is written, not after. The over-broad wording came from dropping
+    "returning global rows" when §1 invariant 1 was compressed into this list, and it cost a real
+    migration author a real contradiction to resolve mid-task (`0019`'s header, RICH-EXT-SEC). A
+    guardrail that forbids something the repo already does correctly trains people to ignore
+    guardrails, so the qualifier is load-bearing — do not compress it again.
 19. Never create a table without `ENABLE ROW LEVEL SECURITY`, `FORCE`, an explicit `REVOKE` of the
     hosted default grants, and its policies **in the same migration**.
 20. Never self-approve a migration that touches RLS, grants, or policies. It goes to
