@@ -177,7 +177,7 @@ Depends on F7 because manual add **is** its main recovery. This is the modal out
 | Task | What | Exit criterion |
 |---|---|---|
 | T1 | Saved pins as a GeoJSON source, upstream Protomaps style with the palette swapped | Pins carry their own opaque surface, so pin-on-tile contrast holds against the worst background the style produces |
-| T2 | The four authorised camera movers, including the **post-confirm flight to new pins** | No code path moves the camera outside those four; the flight reads as one motion, not a jump |
+| T2 · **IN PROGRESS 2026-08-27** | The authorised camera movers, **the anchor-cluster home camera, and binding the list to the viewport** — "the map is the query" | No code path moves the camera outside the enumerated list; the flight reads as one motion, not a jump; every non-empty library settles with at least one *individual* pin and one readable place *name* on screen; panning changes the sheet |
 | T3 | S5 place detail as a sheet over the map, with the link back to the source post | Refresh-safe and deep-linkable; the source link opens the original post |
 | T4 | Sheet gesture arbitration and the performance pass | ~200 pins pan and zoom smoothly on a mid-range Android; sheet drag never fights map pan |
 
@@ -206,10 +206,19 @@ in the same frame"; a library big enough to need a server-side query needs a dif
    eight places and the map to zero pins — the list and the map disagreeing about one library.
    `L1-F5-T2` has to either adopt it as authorised or replace it.
 
-**Still open on this feature:** the category-filter chips of S4/§1.4 (`[All][Food]`) are not built —
-searching `cafe` or `london` covers much of that need through the one field, and chips are an L2
-call. `L1-F6-T1`'s snap-point behaviour is unverified against `ux-architecture` §6.5 by a test; it
-was exercised by hand this session, not by Playwright.
+**Extended 2026-08-27 (`feat/map-is-the-query`): tags and dishes are searchable.** The searchable
+rule moved from *anything the row shows you* to *the labels a place carries* — name, category,
+locality, note, plus `tags` and `dishes`. Measured on the live library: nine saved places carry tags
+and three carry dishes, and `natural wine`, `hidden gem`, `late night` and `momos` matched nothing
+before. Prose (`reason`, `why_go`) stays out, and the line is now drawn between labels and sentences
+rather than between on-row and off-row: prose matches on incidental words, so it widens results
+without making anything findable.
+
+**Still open on this feature:** the category-filter chips of S4/§1.4 (`[All][Food]`) are not built,
+and the *tag* chips on a row are still inert labels — making a chip pressable is the remaining half
+of `mvp-plan`/`current-state` §9.1.1's "make the chips do what they look like they do"; the search
+half is done. `L1-F6-T1`'s snap-point behaviour is unverified against `ux-architecture` §6.5 by a
+test; it was exercised by hand, not by Playwright.
 
 ### L1-F7 — Manual add and delete (CRUD) · `nextjs-architect` + `supabase-database` · depends: F1, L0-F3 · cut: never
 The course's CRUD evidence **and** F4's recovery. One feature, two jobs.
@@ -220,12 +229,41 @@ The course's CRUD evidence **and** F4's recovery. One feature, two jobs.
 | T2 · **DONE 2026-08-26** | Delete, and update of the user's note | Create / read / update / delete each demonstrable in the UI on a saved place — verified at 390×844 and 1440×900 by `tests/manual/crud-e2e.manual.mjs` |
 | T3 · **DONE 2026-08-26** | Ownership verification | The column grants on `saved_places` still exclude `user_id`/`place_id`/`origin`, and a cross-user write attempt fails at the database, not in the UI — P4 (cross-user UPDATE and DELETE affect zero rows) and P5c/P5c-ii/P5c-iii, plus P5c-iv asserting `note` *is* writable |
 
-**T1's block, restated 2026-08-27 — it must not wait.**
-"An un-ingested city" is the `PlaceResolver` of `L0-F2b`/D2b, which is **parked indefinitely**.
-Waiting for it means waiting forever, so T1 **ships against what exists with the boundary stated on
-screen**. It is now urgent rather than blocked: manual add is the recovery for the modal import
-outcome, and it is the missing destination for three failure screens plus `NoPlacesScreen`'s
+**T1 — owner ruling, 2026-08-27. In scope, and deliberately not started yet.**
+The scope question this task was blocked on is answered: **manual add as *place search* falls inside
+Charter §2.** Charter §2 forbids asking the user for caption text; typing a name and picking a
+resolved place is a different object with the same resolver and the same provenance fields, and the
+old wording forbade something wider than intended.
+
+What the owner did **not** authorise is starting it now, and the reason is a quality bar rather than
+a priority: *"I only want it if we can make it a proper place-search experience, not a basic
+manual-entry form."* A name field and a Save button would technically close the task and would be
+the wrong thing to ship. So T1 stays unstarted until the current work closes, and its implementation
+is a decision to take then, not now.
+
+The pressure behind it is unchanged and worth restating: manual add is the recovery for the modal
+import outcome, and the missing destination for three failure screens plus `NoPlacesScreen`'s
 `Add manually →`, which currently calls `reset()` and returns the user to an empty paste field.
+"An un-ingested city" in the exit criterion means the `PlaceResolver` of `L0-F2b`/D2b, still parked.
+
+### L1-F11 — Near me · `maps-geospatial` + `design-system-frontend` · depends: F5-T2 · cut: never
+**Promoted from L2 to L1 by owner ruling, 2026-08-27.** Numbered F11 rather than inserted mid-ladder
+so no existing task id moves.
+
+Three reasons, and the third is why it is cheap: nobody in the category has it (two of the closest
+competitor's reviewers ask for it by name and do not get it); it is the everyday half of the single
+primary user in `brand-and-product-foundation.md` §2, the half L1 otherwise does not serve; and once
+`L1-F5-T2` binds the list to the viewport, **near-me is a control that sets the viewport**, not a
+second retrieval system. It inherits that feature's nearest-first sort with no special case.
+
+| Task | What | Exit criterion |
+|---|---|---|
+| T1 | A near-me control that requests location once and moves the camera to it | The permission prompt appears only on an explicit tap, never on load; a denial is a designed state with a working alternative, not an error |
+| T2 | Distance, shown only where it is a fact about the world | Distance is displayed only against a real user location, never against a map centre; refusing the permission removes the distances rather than showing wrong ones |
+
+**Not in scope and named so it is not absorbed:** background location, any location stored on the
+server or in the database, a location-derived default camera on load, and geofencing or arrival
+notifications. The permission is requested on a tap and the result never leaves the browser.
 
 ### L1-F8 — Account popover and first run · spec `ux-interaction` / build `design-system-frontend` · depends: F1 · cut: —
 
@@ -262,8 +300,7 @@ an unforked map style.
 
 No task breakdown until L1 closes, by design.
 
-**L2, in order:** near-me and geolocation (**first**, per `brand-and-product-foundation.md` §2) ·
-the forked Protomaps style (D9b) · clustering sophistication · category filter · onboarding that lands
+**L2, in order:** the forked Protomaps style (D9b) · clustering sophistication · category filter · onboarding that lands
 the first places · more ingested cities (an accuracy accelerator now, not a coverage requirement) ·
 the five motion moments · the 50-post pipeline evaluation and threshold re-fit · the OSM alias join.
 
@@ -306,3 +343,5 @@ Three consequences worth holding in mind while executing:
 | 2026-08-27 | **Rich place extraction shipped** (`feat/rich-place-extraction`), chosen after the owner twice redirected the workstream — first from hardening toward visible product value, then away from `PlaceResolver` infrastructure toward the core TikTok→extraction→useful-and-organised chain. The choice was made by **measuring the product rather than reading the plan**: 7 of 20 saved places had no `extracted_reason` at all, 2 more echoed the place's own name, the rest were verbatim caption substrings (emoji included), and `category` held **4 distinct values across 20 places, 14 of them `restaurant`**. The captions already said "seasonal Italian", "Nepalese kitchen", "pan-Asian inside Tooting Market" — the extractor was paying for that intelligence and discarding it. Schema v2 (same oEmbed, same single model call) adds `tags`, `whyGo`, `dishes` and `areaHint`: measured v1→v2 on four real captions, usable tags **0/9 → 9/9**, a real `whyGo` **0/9 → 8/9**, verbatim-slice `whyGo` **0/8** checked mechanically, and location words welded into the venue name **3/8 → 0/8**. Stored on `saved_places` **not** `places` — `places_select_if_saved` lets any user who saved the same venue read it, so shared tags would ship one user's caption-derived model output into another's browser; it is also the reversible direction. All three columns are SELECT-only for `authenticated` and the writer is `service_role`-only, **proven by attack from a real signed-in session** (nine forged-write shapes, all 42501) rather than by reading DDL. **Deliberately not built: tag filtering** (next branch; the chips are built and inert) and **no backfill** (20 existing rows stay empty; re-extracting is a data decision and spends model calls). **`L1-F7-T1` reclassified from blocked to urgent** — its exit criterion names the parked resolver, so it ships against what exists with the boundary stated |
 | 2026-08-27 | **`L0-F2`/`L0-F3` reopened, measured and parked again the same day — parked, explicitly not rejected.** Reopened under `06` §3.4's own exit clause ("or sooner, if AI-based resolution proves too inaccurate"), measured, then the owner chose visible product capability over resolver infrastructure and declined to make a provider decision. **The measurement changed two things and is preserved so this resumes cold** (`docs/evidence/places/resolver-future-direction.md`): the repo's flat "65–470 m" is not the real shape — on single-location venues the model is 35–200 m out, but on **multi-branch venues it emits a point that is no branch at all** (516 m and 1140 m from the nearest, at 0.90–0.99 confidence), which is invisible to the user and not fixable by prompting; and **`importance` is unusable** as the confidence analogue `L0-F3-T3`'s exit criterion assumes, being a country-level constant. Also measured: a gazetteer hit is ~10 m against the model's ~150 m; **Tel Aviv is a data hole** with three target venues verified absent from OSM, which argues *for* D2b's two-source design; and a shortlist-shaped provider yields **zero `preselect` bands**, so the recommendation is to keep `preselect` for the Overture index rather than re-fit it. A **draft, non-adopted** ODbL sign-off is in `docs/evidence/licensing/` — its two useful facts are that the OSMF's Geocoding Guideline treats individual results as *insubstantial extracts* (so the "store forever" premise holds) and that Nominatim's policy **requires** caching while carrying a clause obliging the *application developer* to take deliberate responsibility, which is an owner decision that has not been taken |
 | 2026-08-27 | **Hebrew ↔ English place identity: found, scoped, designed, deferred.** A live defect, not a future concern — `places.name` stores whichever script the model chose and there is no alias anywhere, so the same Tel Aviv venue saved from a Hebrew caption and an English one is **two `places` rows nothing will ever merge**, quietly breaking charter invariant 4 today. Verified rather than assumed: `normalise()` folds accents (`Café Levinsky` == `Cafe Levinsky`) but **cannot bridge scripts** (`הקוסם` ≠ `hakosem`), and no change to it could. **Owner ruling: Hebrew ↔ English is the supported scope**; other scripts stay best-effort, and this must not become a generic internationalisation or entity-resolution project. **Deferred out of the current branch by the owner** once it became clear that implementing it properly would expand scope — the design is written up ready to implement (`docs/evidence/places/place-alias-design.md`), ruling aliases onto `places` (the opposite answer from tags, deliberately), withdrawing its own first idea of a `place_names` table, and ruling that the dedup guard consult aliases **only on exact key equality, never a similarity threshold**, because merging two distinct venues is worse than failing to merge one |
+| 2026-08-27 | **Four owner rulings, taken as a batch at the start of the session** — the seven questions `current-state.md` §9.2 carried forward, answered rather than resolved in passing. (a) **Manual add as *place search* is inside Charter §2** — typing a name and picking a resolved place is a different object from the caption entry §2 forbids, with the same resolver and the same provenance fields. But it is **deliberately not started**: the owner wants it only as a proper place-search experience, not a basic manual-entry form, and the current work finishes first. The scope block is lifted; the quality bar replaces it. (b) **Near-me promoted from L2 to L1** — new feature `L1-F11`, two tasks, depending on `L1-F5-T2`, because binding the list to the viewport turns near-me into a control that *sets* the viewport rather than a second retrieval system. (c) **The five duplicate pairs in the demo library stay** as the most realistic messy-state fixture; delete them from the UI before a demo instead. No backfill, no merge path, and the 75 m radius is untouched. (d) **~27% is not accepted as a permanent product position, and media ingestion is not reopened either** — the priority is making the caption-based pipeline excellent and reliable end to end first; transcription, OCR and other inputs are revisited after that foundation is solid, which leaves `04` M9 closed for now and means the no-places copy should not yet be rewritten to defend the rate as a stated position |
+| 2026-08-27 | **`L1-F5-T2` reopened as "the map is the query"** — the plan-of-record's own next highest-impact step (`current-state.md` §9.1.1), and the first work in a while that changes what the product *feels* like rather than what it can survive. Three parts, one idea: the camera anchors on **one cluster** instead of fitting all of them (12 London + 8 Tel Aviv fitted to one box is a continental view with two bubbles and no individual pins); the list is bound to the **viewport**, so the sheet is always exactly what is on the map and its header names the area (`12 places in London`, not `20 places saved`); and the extraction v2 vocabulary becomes **findable** (`momos`, `natural wine`, `hidden gem` matched nothing before). Costs no model calls, no provider decision, no ODbL gate and no schema change. Specified in full in `docs/ux-map-is-the-query.md`, which also rules that `ux-architecture` §6.6.2's `Search this area` pill should **never be built** — its entire job was binding the list to the viewport on demand, and that binding is now permanent |
