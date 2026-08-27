@@ -15,8 +15,9 @@
 ---
 > **Session of 2026-08-27 (third) — read this first.** `L1-F5-T2` "the map is the query" **shipped**
 > ([PR #37](https://github.com/LiorJossef/P-002/pull/37), six checks green, `main` verified). The
-> owner answered four of §9.2's seven questions. §9.1's build order below is now partly done — see
-> §0 for what changed and what is next. A new product direction is parked in §0.4.
+> owner answered four of §9.2's seven questions. **The shipped interaction was then reviewed by the
+> owner and is explicitly NOT the settled product direction — see §0.1b before building on it.** A
+> related product direction is parked in §0.4.
 
 ---
 
@@ -57,6 +58,37 @@ declining to name an area beats picking a spelling. Asserted in `tests/unit/ui/v
 Specified in full in **`docs/ux-map-is-the-query.md`**, which also rules that `ux-architecture`
 §6.6.2's `Search this area` pill should **never be built** — its whole job was binding the list to
 the viewport on demand, and that binding is now permanent.
+
+### 0.1b Owner review of the shipped interaction — **it is not the settled direction**
+
+Read this with §0.1, not after it. The owner used the finished interaction and **does not think the
+current map behaviour works.** Recorded as given, before anyone treats §0.1 as a closed question:
+
+1. **Typing should not move the map.** *Choosing* London and being taken to London is good; typing
+   `London` **should not move the camera before anything has been selected.** That is the settled-
+   search camera mover (movers 3 and 5 in `map-page-client.tsx`'s enumerated list — `useSearchFlight`,
+   and the clear-search return to the nearest cluster). Both were inherited rather than invented by
+   this work, and both are now suspect.
+2. **The clustering experience is disliked.** Stated about the *experience*, not the 50 km domain
+   grouping in `domain/places/clusters.ts` — the on-map cluster bubbles are `MapClusterLayer`
+   (`clusterRadius={50}`, `clusterMaxZoom={13}` in `map-surface.mapcn.tsx`).
+3. **The load-bearing objection: library scope must not continuously track the exact viewport.**
+   Selecting a pin, zooming or panning should **not** turn `8 places in Tel Aviv` into 4 or 1 and
+   make the rest vanish from the list. It may make sense for the list to change when the user
+   **intentionally changes city or context** — it must not change continuously with the visible map
+   bounds.
+
+**So the interaction model needs a rethink, and the owner asked that it not be opened yet.** There
+are useful pieces in what shipped — the coordinate clustering, the area label and its honesty about
+two spellings, tags and dishes being searchable, the two real map bugs fixed, and the nearest-first
+sort — and none of those depend on scope tracking the viewport.
+
+**This and §0.4 are the same conversation.** "Intentionally changes city or context" is what a
+city/collection scope *is*; §0.4's automatic geographic grouping is a candidate answer to exactly
+this objection, with `clusters.ts` already the primitive. Whoever takes the rethink should read them
+together, and should treat `ux-map-is-the-query.md` as a **superseded-in-part** spec rather than a
+binding one: its §1 (the query rect) and §4 (panning settles the list) are the parts under review,
+while its string matrix, empty states and accessibility rules are unaffected.
 
 ### 0.2 Owner rulings, 2026-08-27 (four of §9.2's seven)
 
@@ -569,10 +601,11 @@ chips are still inert. Steps 2 and 3 are re-ordered by the owner's rulings in §
 is now `L1-F11` in L1, and manual add (step 2) is in scope but deliberately not started until it can
 be a real place-search experience.
 
-**The next highest-impact step is now one of:** finishing §9.3's untested library shapes and the
-pressable tag chip (small, closes step 1 properly); `L1-F11` near-me (cheap now that the viewport
-binding exists, and the category-wide open goal); or the caption pipeline's reliability, which §0.2.4
-makes the standing priority. Production is still down and still owner-only (§5.1).
+**§0.1b changes what to do next.** Do not extend the viewport-scoped model, and do not start the
+rethink either — the owner asked for it to be preserved, not opened. Work that is unaffected by
+§0.1b: the caption pipeline's reliability, which §0.2.4 makes the standing priority; `L1-F11`
+near-me, though note it was justified partly *by* the viewport binding, so its shape may move with
+the rethink; and the pressable tag chip. Production is still down and still owner-only (§5.1).
 
 1. ~~**The map is the query.**~~ **DONE.** The product's own shell is its weakest screen. The camera does
    `fitBounds` over *all* saved places, so London (12) + Tel Aviv (8) opens on a continental view of
