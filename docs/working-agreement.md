@@ -31,11 +31,67 @@ Concretely, without being asked:
 production-quality change that materially improves the product; ownership is not a licence to
 over-engineer.
 
-Use the specialists in `.claude/agents/` where their expertise genuinely helps. Delegate
-investigation and review, synthesise the findings, then **continue executing**. Specialists exist to
-move the product, not to produce reports.
+Use the specialists in `.claude/agents/` where their expertise genuinely helps. They are a delivery
+team, not a review panel: **Build** agents write production code and its tests, **Probe** agents
+produce evidence, **Advise** agents rule and specify (`01-agent-roster.md`). Delegate the work,
+integrate it, verify it, then **continue executing**. Specialists exist to move the product, not to
+produce reports.
 
-### 1.1 Delegation must be observable — owner ruling, 2026-08-26
+### 1.1 Check for a specialist before doing the work yourself — owner ruling, 2026-08-27
+
+**Before starting meaningful work, check whether a local specialist in `.claude/agents/` covers the
+domain. Where there is a genuine match, use the specialist rather than defaulting to doing it
+yourself.** Doing it yourself is no longer the automatic path; it is a choice you make when no agent
+fits, and one you should be able to justify.
+
+"Meaningful" is the filter, and it cuts both ways:
+
+- **Delegate** a feature, a migration, an investigation with a real question, a UI surface, an
+  adversarial verification, a benchmark — anything where a specialist's mandate and paths match the
+  work.
+- **Do not delegate** a one-line fix, a rename, reading a file to answer a question, a command you
+  are about to run anyway, or anything where the round-trip costs more than the work. Do not
+  delegate to have something to disclose, and do not push work into an agent that you would
+  genuinely do better yourself — consistency across many files is a common case of this.
+
+**You remain responsible for orchestration, integration, judgement and final verification.** A
+specialist's output is input to your judgement, never a verdict, and never a substitute for the §2
+bar. You decide what evidence a task needs, ensure that evidence is independent, inspect it, and
+make the done/not-done call. Delegating the work never delegates the accountability.
+
+When no specialist fits and you do the work yourself, **say that you checked** — the same sentence
+that would have disclosed a delegation. Silence should mean "no domain match", not "did not look".
+
+### 1.2 Keep process proportional to risk — owner ruling, 2026-08-27
+
+**The workflow is a safety mechanism, not an objective.** Choose the lightest process that still
+gives appropriate confidence and recoverability, and be able to explain why it is sufficient.
+
+Scale the process to what the change can actually break:
+
+| The change touches | Proportionate process |
+|---|---|
+| Docs only, comments, a typo | Commit it. Read the diff, check any cross-reference you moved. No app run, no breakpoint sweep, no row inspection. |
+| Code with no runtime effect — types, tests, a rename | The relevant checks (`lint`, `typecheck`, the tests for what you touched). Not the full §2 bar. |
+| Runtime behaviour, UI, data, security, deployment, migrations, **or the verification machinery itself** | The full §2 bar: run it, use it, inspect the persisted rows, check both breakpoints. No shortcuts. |
+
+The heaviest column is not negotiable, and note what is in it: **a change to the checks, the guard
+scripts, CI, or the agent guardrails gets the deep process even though it ships no product code**,
+because a weakened gate is invisible until something else fails.
+
+Two hard limits on this principle:
+
+- **It does not relax `git-workflow.md` §9.3.** Force-pushes, history rewrites, branch deletion,
+  direct pushes to `main`, `--admin`/`--auto` merges, merging anything not green, reverting what is
+  on `main`, and destructive database operations still need a specific instruction each time.
+  "It was a small change" is not that instruction.
+- **It is not a licence to skip verification you simply did not want to do.** The test is whether
+  you can state, in one sentence, why the lighter process was sufficient. If you cannot, it was not.
+
+Being over-heavy has a real cost too: ceremony spent on a typo is time not spent on the product, and
+a process performed rather than reasoned about stops being a safety mechanism.
+
+### 1.3 Delegation must be observable — owner ruling, 2026-08-26
 
 A subagent's work reaches the owner as your work. That is fine, but it must not be *invisible*: a
 finding, a design call or a diff that came from a specialist reads exactly like one you produced
