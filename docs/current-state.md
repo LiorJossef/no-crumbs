@@ -1,7 +1,15 @@
 # Current state — cold-start document
 
 ---
-> ## ⚠ Session of 2026-08-27 (fifth) — read this before the handoff
+> ## ⚠ 2026-08-28 — read [`handoff-2026-08-28-recognition-corpus.md`](handoff-2026-08-28-recognition-corpus.md) FIRST
+>
+> It carries the current priorities and supersedes the 2026-08-27 handoff's ordered steps. Headline:
+> the real auto-match rate is **4/16 (25%)**, the address signal is shipped in both the scorer and
+> the prefilter, and **the next step is bilingual query expansion** — every venue we cannot find is
+> in the index under its Latin name while the caption gave the Hebrew one. Measured, not theorised.
+
+---
+> ## Session of 2026-08-27 (fifth)
 >
 > **The resolver work is committed and on `main`** ([PR #40](https://github.com/LiorJossef/P-002/pull/40),
 > six checks green). The fourth session's whole change set was uncommitted; it is now five atomic
