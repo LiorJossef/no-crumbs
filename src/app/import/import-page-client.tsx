@@ -19,7 +19,7 @@
  * validation and the non-TikTok redirect are the real classification, not a stub.
  */
 
-import { useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -27,12 +27,17 @@ import {
   ArrowUpRight,
   Check,
   ChevronDown,
+  Clock,
   Crosshair,
+  EyeOff,
+  ImageOff,
   Link2,
+  Link2Off,
   Loader2,
+  LockKeyhole,
   MapPin,
   MapPinOff,
-  Pencil,
+  MessageSquareOff,
   RotateCcw,
   SearchCheck,
   X,
@@ -57,6 +62,17 @@ import {
   skippedNotice,
 } from '@/domain/import/candidate-presentation';
 import type { Candidate, PlaceCandidate } from '@/domain/types';
+import type { DomainErrorCode } from '@/domain/errors';
+import {
+  COPY_LINK_INSTRUCTION,
+  IMPORT_ERROR_ACTION_LABEL,
+  IMPORT_ERROR_COPY,
+  importErrorActions,
+  toDomainErrorCode,
+  type ImportErrorAction,
+  type ImportErrorIcon,
+  type PreSubmitErrorCode,
+} from '@/ui/import/import-error-copy';
 
 /* ------------------------------------------------------------------------------------------- *
  * `/api/imports/probe` — the throwaway route wired in ahead of the real streaming route
@@ -123,7 +139,13 @@ const RAIL_IDLE: RailState = {
  *  field (C06) — that is copy, not a screen change. */
 type Screen =
   | { readonly kind: 'paste' }
-  | { readonly kind: 'redirect'; readonly reason: 'UNSUPPORTED_HOST' | 'PHOTO_POST' | 'UNSUPPORTED_URL' }
+  /**
+   * The pre-submit verdict: `canonicaliseTikTokUrl` rejected the pasted string on the client, so
+   * no request was made. Three of the taxonomy's codes, and they render the **same** copy the
+   * server's version of that verdict would (`ui/import/import-error-copy.ts`) — see
+   * `PRE_SUBMIT_ERROR_CODES` for why that was not true before.
+   */
+  | { readonly kind: 'redirect'; readonly reason: PreSubmitErrorCode }
   | { readonly kind: 'rail'; readonly rail: RailState }
   | { readonly kind: 'no_places'; readonly authorHandle: string | null }
   | { readonly kind: 'results'; readonly authorHandle: string | null; readonly candidates: readonly Candidate[] }
@@ -131,9 +153,22 @@ type Screen =
    *  not `no_places` or `results` — both of those imply extraction happened. Shows the raw
    *  caption plainly, once the real `SourceAdapter` + `ContentExtractor` have run. */
   | { readonly kind: 'caption_preview'; readonly probe: ProbeSuccess }
-  /** A thrown `DomainError` from the probe route — minimal-fidelity, honest, non-broken. Not the
-   *  real error taxonomy's full copy deck (07 §9); that lands with L0-F6. */
-  | { readonly kind: 'probe_error'; readonly code: string; readonly retryable: boolean };
+  /**
+   * A thrown `DomainError` from the probe route, rendered from the one client-side copy map
+   * (`ui/import/import-error-copy.ts`) that `07` §9 specifies.
+   *
+   * `code` is a `DomainErrorCode`, not a `string`, and that is the whole point: it is narrowed
+   * once at the fetch seam by `toDomainErrorCode`, so the screen's copy lookup is total by the
+   * type system rather than by a default branch. `rawCode` keeps whatever the server actually
+   * sent, purely so a support conversation can quote it — the two are identical for all 14 real
+   * codes, and differ only when something outside the taxonomy answered.
+   */
+  | {
+      readonly kind: 'probe_error';
+      readonly code: DomainErrorCode;
+      readonly rawCode: string;
+      readonly retryable: boolean;
+    };
 
 /* ------------------------------------------------------------------------------------------- *
  * Component
@@ -208,10 +243,62 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
   const lastSaveDetail = useRef<SaveOutcomeDetail | null>(null);
 
   const validation = useMemo(() => canonicaliseTikTokUrl(url), [url]);
-  const showInvalid = touched && url.trim().length > 0 && !validation.ok;
-  const canSubmit = url.trim().length > 0 && validation.ok;
+  /**
+   * Which of the canonicaliser's four verdicts the pasted string got, or `null` if it is valid.
+   *
+   * `07` §9 splits these two ways and the screen must too: **`MALFORMED_URL` alone** is F1 inline
+   * field copy (C06, "That doesn't look like a TikTok link."); `UNSUPPORTED_HOST`,
+   * `UNSUPPORTED_URL` and `PHOTO_POST` each get their own screen, because they are *recognised*
+   * links carrying different news.
+   *
+   * This used to be one boolean, and it produced two bugs at once. `canSubmit` required
+   * `validation.ok`, so the `Add →` button was **disabled** for all four verdicts — which made
+   * `submit()`'s entire redirect branch dead code, and with it the three pre-submit screens. And
+   * `showInvalid` fired on all four, so pasting an Instagram link, a TikTok profile link or a
+   * photo post put "That doesn't look like a TikTok link." under the field. An Instagram URL does
+   * look like a link, and a TikTok profile URL is unambiguously a TikTok link; C06 is the one
+   * sentence that is false for every one of those three.
+   */
+  const invalidCode = validation.ok ? null : validation.error.code;
+  const showInvalid = touched && url.trim().length > 0 && invalidCode === 'MALFORMED_URL';
+  // Anything non-empty may be submitted. `submit()` already routes all four verdicts correctly —
+  // inline for `MALFORMED_URL`, a screen for the other three, the network for a valid link.
+  const canSubmit = url.trim().length > 0;
+
+  /**
+   * The probe request currently in flight, or `null`. A ref rather than state, and it does three
+   * jobs that all turned out to be the same bug:
+   *
+   *  - **`Cancel` actually cancels.** `RailScreen`'s `Cancel` was `reset()`, which cleared the
+   *    field and went back to paste while the request carried on running. It then resolved and
+   *    took the screen — a `1 place found` review for an import the user had already abandoned,
+   *    or a failure screen for one they no longer cared about.
+   *  - **A response that lost its race is not news.** Every `setScreen` below is now gated on this
+   *    ref still pointing at *this* request. Cancel, then paste an Instagram link: the correct
+   *    "That link isn't a TikTok." screen used to be replaced a second later by the previous
+   *    TikTok's results.
+   *  - **One paste costs at most one request.** Set synchronously, before the first `await`, so a
+   *    burst of clicks dispatched inside a single task — which `Add →` and `Retry` were both
+   *    reachable by — finds it non-null and returns. A rendering accident (the paste screen
+   *    unmounting) was the only thing stopping a second fire before, and this route spends a model
+   *    call against a hard 500/day ceiling.
+   *
+   * Deliberately a guard that *refuses* a concurrent submit rather than one that aborts the
+   * previous and starts a new one: five clicks would still dispatch five requests that way, four
+   * of them cancelled server-side too late to matter.
+   */
+  const inFlightProbe = useRef<AbortController | null>(null);
+
+  /** Cancels the probe request, if any, and gives up ownership of the screen for it. Both halves
+   *  matter: the abort stops the work, and clearing the ref is what makes the in-flight handlers
+   *  below fall through without setting state. */
+  function abortInFlightProbe() {
+    inFlightProbe.current?.abort();
+    inFlightProbe.current = null;
+  }
 
   function reset() {
+    abortInFlightProbe();
     setScreen({ kind: 'paste' });
     setUrl('');
     setTouched(false);
@@ -222,12 +309,11 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
     setTouched(true);
     if (!validation.ok) {
       // UNSUPPORTED_HOST/PHOTO_POST/UNSUPPORTED_URL are all "a recognised link, not a failure" —
-      // the non-TikTok redirect, never the inline-invalid state (which is MALFORMED_URL only).
+      // their own screen, sharing the server's copy for the same verdict. MALFORMED_URL stays on
+      // the paste screen: `setTouched(true)` above is what reveals C06 under the field, which is
+      // `07` §9's F1-inline treatment and the only code that gets it.
       if (validation.error.code !== 'MALFORMED_URL') {
-        setScreen({
-          kind: 'redirect',
-          reason: validation.error.code as 'UNSUPPORTED_HOST' | 'PHOTO_POST' | 'UNSUPPORTED_URL',
-        });
+        setScreen({ kind: 'redirect', reason: validation.error.code as PreSubmitErrorCode });
       }
       return;
     }
@@ -241,6 +327,17 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
     // fetch is *issued* (not after it resolves) — the rail's `extract` step then genuinely spans
     // the real, multi-second wall-clock time the request is in flight, rather than flashing for
     // 0ms after the response already arrived.
+    // The in-flight guard. Synchronous, and ahead of every `await` in this function, so a second
+    // call dispatched in the same task sees it — see `inFlightProbe`.
+    if (inFlightProbe.current !== null) return;
+    const probe = new AbortController();
+    inFlightProbe.current = probe;
+
+    /** Is this call still the one that owns the screen? False after a `Cancel` (which aborts and
+     *  clears the ref) and after any later submit took over. A response that lost its race must
+     *  set no state at all — not a screen, not an error. */
+    const stillCurrent = () => inFlightProbe.current === probe;
+
     setScreen({ kind: 'rail', rail: { ...RAIL_IDLE, source: 'active' } });
 
     try {
@@ -248,6 +345,7 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url }),
+        signal: probe.signal,
       });
 
       setScreen({
@@ -257,11 +355,12 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
 
       const res = await fetchPromise;
       const body = (await res.json()) as ProbeSuccess | ProbeErrorBody;
+      if (!stillCurrent()) return;
 
       if (!res.ok || 'error' in body) {
-        const code = 'error' in body ? body.error.code : 'INTERNAL';
+        const rawCode = 'error' in body ? body.error.code : 'INTERNAL';
         const retryable = 'error' in body ? body.error.retryable : true;
-        setScreen({ kind: 'probe_error', code, retryable });
+        setScreen({ kind: 'probe_error', code: toDomainErrorCode(rawCode), rawCode, retryable });
         return;
       }
 
@@ -278,7 +377,17 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
       });
       setScreen({ kind: 'caption_preview', probe: body });
     } catch {
-      setScreen({ kind: 'probe_error', code: 'INTERNAL', retryable: true });
+      // A user pressing Cancel is not an internal error. An abort lands here as a DOMException,
+      // and so does any response that arrived after this call stopped owning the screen — both
+      // are `!stillCurrent()`, and both must leave the screen exactly as the user left it.
+      if (!stillCurrent()) return;
+      // The network layer failed before any `DomainError` existed — no code came off the wire, so
+      // `INTERNAL` is ours to assert (`07` §9's floor), not a fallback for an unrecognised code.
+      setScreen({ kind: 'probe_error', code: 'INTERNAL', rawCode: 'INTERNAL', retryable: true });
+    } finally {
+      // Only if we still own it: a `Cancel` or a later submit has already replaced the ref, and
+      // clearing it here would unlock a guard that is legitimately held by someone else.
+      if (stillCurrent()) inFlightProbe.current = null;
     }
   }
 
@@ -450,6 +559,25 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
     }
   }
 
+  /** Leaving the flow with nothing to save — the failure screens' way out. Same two cases as
+   *  `backToMapWithFreshData` (overlay closes in place, standalone route navigates), without the
+   *  `router.refresh()`: no save happened, so there is no new server data to pull. */
+  function backToMap() {
+    leaveImport();
+  }
+
+  /**
+   * Every way out of this flow that is not `reset()`: the overlay's ✕ and the failure screens'
+   * `Back to the map`. It aborts first, for the same reason `Cancel` does — the ✕ is reachable
+   * during the rail, and an overlay that unmounts while its request is still running leaves that
+   * request to resolve into a component that is no longer on screen.
+   */
+  function leaveImport() {
+    abortInFlightProbe();
+    if (onClose) onClose();
+    else router.push('/map');
+  }
+
   /**
    * `decideCaptionSaveOutcome` (`domain/import/caption-save-outcome.ts`) turns the raw
    * `{ saved, skipped, failed }` counts into exactly one disposition — see that module's header
@@ -541,6 +669,20 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
             'var(--background)',
         }}
       />
+      {/* Failure replaces the whole screen with news the user did not ask for. Announced the way
+          `/map` already announces its filtered result count (`useResultAnnouncement` → one
+          `sr-only` polite region): rendered here, once, and always mounted — a live region created
+          in the same commit as its first message is not reliably announced. It carries the body
+          sentence only; the headline is read by the focus move onto it inside
+          `ImportFailureScreen`, so nothing is said twice.
+
+          Both failure screens, not just the async one: the pre-submit redirect swaps the page just
+          as completely, and a screen-reader user got nothing at all from it before. */}
+      <p role="status" aria-live="polite" className="sr-only">
+        {screen.kind === 'probe_error' || screen.kind === 'redirect'
+          ? IMPORT_ERROR_COPY[screen.kind === 'probe_error' ? screen.code : screen.reason].body
+          : ''}
+      </p>
       <div
         className={cn(
           // Mobile: full-bleed thumb-zone column, unchanged.
@@ -564,7 +706,7 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
         {onClose ? (
           <button
             type="button"
-            onClick={onClose}
+            onClick={leaveImport}
             aria-label="Close and return to map"
             className="absolute left-5 top-[calc(env(safe-area-inset-top)+2rem)] z-20 flex size-9 items-center justify-center rounded-full bg-[var(--mint-100)] text-[var(--mint-700)] transition-colors hover:bg-[var(--mint-100)]/80 lg:left-6 lg:top-6"
           >
@@ -596,7 +738,21 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
           />
         )}
 
-        {screen.kind === 'redirect' && <RedirectScreen reason={screen.reason} url={url} onBack={reset} />}
+        {screen.kind === 'redirect' && (
+          // Same component, same words, one difference that is real: nothing was sent, so there is
+          // no server-side record for a `Reference:` line to point at, and there is nothing to
+          // retry (`importErrorActions` withholds `retry` on all three of these codes anyway).
+          <ImportFailureScreen
+            code={screen.reason}
+            rawCode={null}
+            retryable={false}
+            url={url}
+            onRetrySameUrl={() => void submit()}
+            onTryAnother={reset}
+            onBackToMap={backToMap}
+            onSignIn={() => router.push('/sign-in')}
+          />
+        )}
 
         {screen.kind === 'rail' && (
           <RailScreen rail={screen.rail} onCancel={reset} />
@@ -632,7 +788,16 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
         )}
 
         {screen.kind === 'probe_error' && (
-          <ProbeErrorScreen code={screen.code} retryable={screen.retryable} onRetry={reset} />
+          <ImportFailureScreen
+            code={screen.code}
+            rawCode={screen.rawCode}
+            retryable={screen.retryable}
+            url={url}
+            onRetrySameUrl={() => void submit()}
+            onTryAnother={reset}
+            onBackToMap={backToMap}
+            onSignIn={() => router.push('/sign-in')}
+          />
         )}
       </div>
     </main>
@@ -682,9 +847,9 @@ function PasteScreen({
         <h1 className="font-heading text-3xl font-extrabold tracking-tight text-foreground">
           Add a TikTok
         </h1>
-        <p className="text-sm font-medium text-muted-foreground">
-          Copy the link in TikTok — Share → Copy link.
-        </p>
+        {/* C03, from the same module the failure copy comes from — `MALFORMED_URL`'s body is
+            this exact sentence, and one of the two would eventually be edited alone. */}
+        <p className="text-sm font-medium text-muted-foreground">{COPY_LINK_INSTRUCTION}</p>
       </div>
 
       <div className="flex flex-col gap-2">
@@ -718,62 +883,6 @@ function PasteScreen({
           className="h-12 w-full rounded-lg text-base font-bold"
         >
           Add →
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------------------------------- *
- * Non-TikTok redirect — a recognised link, not a failure (04 §2, brand-and-product-foundation §1).
- * ------------------------------------------------------------------------------------------- */
-
-function RedirectScreen({
-  reason,
-  url,
-  onBack,
-}: {
-  reason: 'UNSUPPORTED_HOST' | 'PHOTO_POST' | 'UNSUPPORTED_URL';
-  url: string;
-  onBack: () => void;
-}) {
-  const copy =
-    reason === 'PHOTO_POST'
-      ? 'This kind of TikTok post isn’t supported yet.'
-      : 'We support TikTok links. Instagram and YouTube aren’t supported yet.';
-
-  return (
-    <div className="flex flex-1 flex-col">
-      <div className="flex flex-1 flex-col items-center justify-center gap-5 text-center">
-        <span className="flex size-14 items-center justify-center rounded-full bg-[var(--mint-100)] text-[var(--mint-700)]">
-          <Pencil className="size-6" aria-hidden />
-        </span>
-        <div className="flex flex-col items-center gap-1.5">
-          <p className="text-[11px] font-bold tracking-[0.14em] text-[var(--mint-700)] uppercase">Not TikTok</p>
-          <h1 className="font-heading text-xl font-extrabold tracking-tight text-foreground">
-            Add it by hand instead
-          </h1>
-          <p className="max-w-xs text-sm font-medium text-muted-foreground">{copy}</p>
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-2 pt-8">
-        <Button type="button" onClick={onBack} className="h-12 w-full rounded-lg text-base font-bold">
-          Add manually →
-        </Button>
-        {url && (
-          <a
-            href={url}
-            target="_blank"
-            rel="noreferrer"
-            className="flex h-11 w-full items-center justify-center gap-1.5 rounded-lg text-sm font-bold text-[var(--mint-700)]"
-          >
-            Open the original link
-            <ArrowUpRight className="size-4" aria-hidden />
-          </a>
-        )}
-        <Button type="button" variant="ghost" onClick={onBack} className="h-11 w-full rounded-lg text-sm font-bold">
-          Cancel
         </Button>
       </div>
     </div>
@@ -1289,7 +1398,7 @@ function CaptionPreviewScreen({
               onClick={onContinue}
               className="h-11 w-full rounded-lg text-sm font-bold"
             >
-              Back to the map
+              {IMPORT_ERROR_ACTION_LABEL.back_to_map}
             </Button>
           </>
         ) : (
@@ -1312,7 +1421,7 @@ function CaptionPreviewScreen({
                 onClick={onContinue}
                 className="h-11 w-full rounded-lg text-sm font-bold"
               >
-                Back to the map
+                {IMPORT_ERROR_ACTION_LABEL.back_to_map}
               </Button>
             )}
             <p className="text-center text-xs font-medium text-muted-foreground">
@@ -1466,45 +1575,212 @@ function ExtractedCandidateRow({
 }
 
 /* ------------------------------------------------------------------------------------------- *
- * Probe error — a thrown `DomainError` from the throwaway `/api/imports/probe` route. Minimal
- * fidelity: one honest sentence and a way back, not the full `07` §9 copy deck.
+ * The one failure screen — every `DomainErrorCode`, rendered from `07` §9's one client-side copy
+ * map. Used for both moments a failure can arrive in:
+ *
+ *   - **pre-submit** (`kind: 'redirect'`), where `canonicaliseTikTokUrl` rejected the pasted
+ *     string on the client and nothing was sent;
+ *   - **post-attempt** (`kind: 'probe_error'`), where the route threw a `DomainError`.
+ *
+ * They were two components with two sets of words. That is how the drift happened: the pre-submit
+ * screen said "This kind of TikTok **post** isn't supported yet" and collapsed `UNSUPPORTED_HOST`
+ * and `UNSUPPORTED_URL` — an Instagram link and a TikTok profile link — into one sentence, while
+ * the copy map said something else and never rendered for those three codes at all.
+ *
+ * They are one component because the layout was already identical and, more importantly, because
+ * the three pre-submit codes say nothing about an attempt: "That link isn't a TikTok", "That's a
+ * TikTok link, but not a post", "This kind of TikTok isn't supported yet" are all true whether or
+ * not we tried. The codes whose copy *does* claim an attempt ("We couldn't read this TikTok yet")
+ * are exactly the ones the client can never reach pre-submit. A test pins that property.
+ *
+ * The two real differences are props, not forks: `rawCode` is `null` pre-submit (nothing was sent,
+ * so there is no server-side record for a support reference to point at), and `retryable` is
+ * `false` there for the same reason.
+ *
+ * What this replaced on the post-attempt side: one screen for all fourteen codes, headed
+ * "Couldn't read that TikTok / Something went wrong" with the raw code in 11px grey and one
+ * action, "Try another link". Everything the user reads now comes from
+ * `ui/import/import-error-copy.ts`; this component owns only the layout, the mark, the wiring of
+ * each action, and the accessibility behaviour.
+ *
+ * One thing deliberately gone with it: the pre-submit screen's primary action read `Add manually →`
+ * under the headline `Add it by hand instead`, and it called `reset()` — back to an empty paste
+ * field. S8 manual add is `L1-F7-T1` and does not exist, so that button named a destination it
+ * could not reach. The action it actually performs is `Try another TikTok`, and that is now what it
+ * says.
  * ------------------------------------------------------------------------------------------- */
 
-function ProbeErrorScreen({
+/** The mark for each `ImportErrorIcon` key. Kept here rather than in the copy map so that module
+ *  stays React-free and testable as plain data. */
+const IMPORT_ERROR_ICON: Record<ImportErrorIcon, typeof Link2Off> = {
+  'link-off': Link2Off,
+  'post-unavailable': EyeOff,
+  photo: ImageOff,
+  waiting: Clock,
+  'no-caption': MessageSquareOff,
+  'our-side': RotateCcw,
+  locked: LockKeyhole,
+};
+
+function ImportFailureScreen({
   code,
+  rawCode,
   retryable,
-  onRetry,
+  url,
+  onRetrySameUrl,
+  onTryAnother,
+  onBackToMap,
+  onSignIn,
 }: {
-  code: string;
+  code: DomainErrorCode;
+  /** What the server actually sent. Equal to `code` for all 14 real codes; shown small, for a
+   *  support conversation, never as the user's explanation. `null` when no request was made — a
+   *  reference to nothing helps nobody. */
+  rawCode: string | null;
   retryable: boolean;
-  onRetry: () => void;
+  /** The URL the user pasted — still in state, which is what makes `Retry` (same link) and
+   *  `Open the TikTok` (here is your thing back, §5.1) possible without asking the server. */
+  url: string;
+  onRetrySameUrl: () => void;
+  onTryAnother: () => void;
+  onBackToMap: () => void;
+  onSignIn: () => void;
 }) {
+  const copy = IMPORT_ERROR_COPY[code];
+  const Icon = IMPORT_ERROR_ICON[copy.icon];
+  /**
+   * Already in render order, and already reconciled with the server's `retryable` — see
+   * `importErrorActions`. This component picks no actions of its own; the one thing it contributes
+   * is a precondition the copy map cannot see.
+   *
+   * **`Retry` re-runs the pasted URL, so with no pasted URL there is nothing to re-run.** That is
+   * the same sentence `retryable` already means, which is why it folds in here rather than
+   * becoming a third parameter. An action whose precondition is unmet should not render: the
+   * alternative is a mint primary button that does nothing when pressed, which is exactly the dead
+   * end this screen exists to remove. `Open the TikTok` / `Open the original link` drop themselves
+   * on the same condition further down.
+   *
+   * With the abort in `submit()` this is now belt-and-braces — `reset()` is the only thing that
+   * empties `url` and it cancels the request that could otherwise land here — but it is one line
+   * and it holds regardless of how a future caller reaches this screen.
+   */
+  const actions = importErrorActions(code, retryable && url.trim().length > 0);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+
+  // The button that submitted has just unmounted, so keyboard focus would otherwise fall back to
+  // `<body>` and a screen-reader user would be told nothing about why the screen changed. Moving
+  // it to the headline both restores a sensible tab position and reads the headline; the page's
+  // polite live region carries the sentence under it.
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, [code]);
+
+  function run(action: ImportErrorAction) {
+    switch (action) {
+      case 'retry':
+        onRetrySameUrl();
+        return;
+      case 'another_tiktok':
+        onTryAnother();
+        return;
+      case 'back_to_map':
+        onBackToMap();
+        return;
+      case 'sign_in':
+        onSignIn();
+        return;
+      case 'open_tiktok':
+      case 'open_link':
+        return; // rendered as an anchor, never routed through here
+    }
+  }
+
   return (
     <div className="flex flex-1 flex-col">
       <div className="flex flex-1 flex-col items-center justify-center gap-5 text-center">
-        <span className="flex size-14 items-center justify-center rounded-full bg-accent text-[var(--mint-700)]">
-          <X className="size-6" aria-hidden />
+        <span className="flex size-14 items-center justify-center rounded-full bg-[var(--mint-100)] text-[var(--mint-700)]">
+          <Icon className="size-6" aria-hidden />
         </span>
         <div className="flex flex-col items-center gap-1.5">
           <p className="text-[11px] font-bold tracking-[0.14em] text-[var(--mint-700)] uppercase">
-            Couldn&rsquo;t read that TikTok
+            {copy.kicker}
           </p>
-          <h1 className="font-heading text-xl font-extrabold tracking-tight text-foreground">
-            Something went wrong
+          <h1
+            ref={headingRef}
+            tabIndex={-1}
+            className="font-heading text-xl font-extrabold tracking-tight text-foreground outline-none"
+          >
+            {copy.headline}
           </h1>
-          <p className="max-w-xs text-sm font-medium text-muted-foreground">
-            {retryable
-              ? "We couldn't read this post. Give it another try."
-              : "We couldn't read this post."}
-          </p>
-          <p className="text-[11px] font-medium text-muted-foreground/70">{code}</p>
+          <p className="max-w-xs text-sm font-medium text-muted-foreground">{copy.body}</p>
         </div>
       </div>
 
       <div className="flex flex-col gap-2 pt-8">
-        <Button type="button" onClick={onRetry} className="h-12 w-full rounded-lg text-base font-bold">
-          Try another link
-        </Button>
+        {actions.map((action) => {
+          const label = IMPORT_ERROR_ACTION_LABEL[action];
+          // `Open the TikTok` is a real navigation to a third-party page, so it is an anchor with
+          // the same affordance as everywhere else in this flow, not a button that calls
+          // `window.open`. When the field is somehow empty there is nothing to open, and the
+          // action is dropped rather than rendered dead.
+          //
+          // Two weights, because the two specs ask for two: §5.1 makes it the second 44px
+          // secondary on F9 (bordered, in the button rhythm), §5.3 makes it the tertiary text
+          // link on F10. "Is it last?" is exactly that distinction on this screen.
+          if (action === 'open_tiktok' || action === 'open_link') {
+            if (!url) return null;
+            const tertiary = action === actions[actions.length - 1];
+            return (
+              <a
+                key={action}
+                href={url}
+                target="_blank"
+                rel="noreferrer"
+                className={cn(
+                  'flex h-11 w-full items-center justify-center gap-1.5 rounded-lg text-sm font-bold',
+                  tertiary
+                    ? 'text-[var(--mint-700)]'
+                    : 'border border-input bg-background text-foreground',
+                )}
+              >
+                {label}
+                <ArrowUpRight className="size-4" aria-hidden />
+              </a>
+            );
+          }
+          // §5.1's 56px primary / 44px secondary hierarchy, expressed in this flow's existing
+          // h-12 / h-11 sizes.
+          return action === actions[0] ? (
+            <Button
+              key={action}
+              type="button"
+              onClick={() => run(action)}
+              className="h-12 w-full gap-1.5 rounded-lg text-base font-bold"
+            >
+              {action === 'retry' && <RotateCcw className="size-4" aria-hidden />}
+              {label}
+            </Button>
+          ) : (
+            <Button
+              key={action}
+              type="button"
+              variant={action === 'back_to_map' ? 'ghost' : 'outline'}
+              onClick={() => run(action)}
+              className="h-11 w-full gap-1.5 rounded-lg text-sm font-bold"
+            >
+              {label}
+            </Button>
+          );
+        })}
+        {/* Support handle, not an explanation. Small, muted, last, and never the thing that tells
+            the user what happened — which is exactly what it was before this screen had copy.
+            Omitted pre-submit: no request was made, so there is nothing on the other end to look
+            up, and a code with no record behind it is noise. */}
+        {rawCode !== null && (
+          <p className="pt-1 text-center text-[11px] font-medium text-muted-foreground/70">
+            Reference: {rawCode}
+          </p>
+        )}
       </div>
     </div>
   );
