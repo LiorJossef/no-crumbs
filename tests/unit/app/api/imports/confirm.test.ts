@@ -124,13 +124,19 @@ interface ConfirmResultBody {
     readonly candidateIndex: number;
     readonly savedPlaceId?: string;
     readonly enrichment?: string;
+    readonly provider?: string;
+    readonly resolutionScore?: number | null;
+    readonly reason?: string;
   }[];
 }
 
-async function postConfirm(): Promise<ConfirmResultBody> {
+async function postConfirm(item: Record<string, unknown> = {}): Promise<ConfirmResultBody> {
   const req = new NextRequest('http://localhost/api/imports/confirm', {
     method: 'POST',
-    body: JSON.stringify({ extractionId: EXTRACTION_ID, items: [{ candidateIndex: 0, note: null }] }),
+    body: JSON.stringify({
+      extractionId: EXTRACTION_ID,
+      items: [{ candidateIndex: 0, note: null, ...item }],
+    }),
     headers: { 'Content-Type': 'application/json' },
   });
   const { POST } = await import('@/app/api/imports/confirm/route');
@@ -279,5 +285,182 @@ describe('confirm — the enrichment write is never allowed to lose the save', (
     expect(body.results[0]?.status).toBe('saved');
     expect(body.results[0]?.enrichment).toBe('failed');
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('ECONNRESET'));
+  });
+});
+
+/**
+ * TLV-RESOLVE-T3 — where the coordinate comes from.
+ *
+ * The measured gap this covers: for the caption mention "HaKosem" the Overture row is 11 m from the
+ * real venue, while the model's own guess for the same caption was 555 m and 483 m out on two runs
+ * and 541 m from itself. These tests pin which of the two ends up in `resolve_place`, and — the part
+ * that is a security property rather than an accuracy one — that the deciding facts came off the
+ * stored row and never off the request.
+ */
+describe('confirm — resolved vs guessed provenance', () => {
+  function overtureResolution(band: 'preselect' | 'confirm', extra: readonly string[] = []) {
+    const entry = (name: string, lat: number, lng: number, score: number) => ({
+      place: {
+        provider: 'overture',
+        providerPlaceId: `gers-${name}`,
+        sourceDataset: 'overture-places',
+        regionId: 'tlv',
+        name,
+        altNames: [],
+        providerCategory: 'falafel_shop',
+        addressLine: '1 HaKosem Street',
+        locality: 'Tel Aviv',
+        lat,
+        lng,
+        datasetConfidence: 0.87,
+      },
+      score,
+      nameScore: 0.95,
+      tokenCoverage: 1,
+      categoryScore: 1,
+    });
+    return {
+      kind: 'answered',
+      result: {
+        shortlist: [
+          entry('HaKosem Falafel', 32.07515, 34.77291, 0.93),
+          ...extra.map((n, i) => entry(n, 32.06 + i / 1000, 34.76 + i / 1000, 0.9)),
+        ],
+        confidence: { band, score: 0.93, margin: band === 'preselect' ? 0.4 : 0.01 },
+        regionsSearched: ['tlv'],
+        candidatesPrefiltered: 21,
+      },
+    };
+  }
+
+  it('writes the Overture row’s own facts and a real resolution score for a preselect band', async () => {
+    storedCandidates = [{ ...V2_CANDIDATE, resolution: overtureResolution('preselect') }];
+
+    const body = await postConfirm();
+
+    expect(body.results[0]?.status).toBe('saved');
+    expect(body.results[0]?.provider).toBe('overture');
+    expect(callTo('resolve_place')).toMatchObject({
+      p_provider: 'overture',
+      p_source_dataset: 'overture-places',
+      p_provider_place_id: 'gers-HaKosem Falafel',
+      p_source_dataset_id: 'gers-HaKosem Falafel',
+      p_name: 'HaKosem Falafel',
+      p_lat: 32.07515,
+      p_lng: 34.77291,
+      p_provider_category: 'falafel_shop',
+      p_address_line: '1 HaKosem Street',
+      p_locality: 'Tel Aviv',
+      // The real scorer output, not `modelConfidence` and not an invented default. This field was
+      // deliberately null until a real `PlaceResolver` existed; it does now.
+      p_resolution_score: 0.93,
+    });
+    // Our own taxonomy still comes from the extraction, never from Overture's category string.
+    expect(callTo('resolve_place')?.p_category).toBe('restaurant');
+    // Not the model's guess, which is 32.0708/34.7726 in this fixture and ~500 m away.
+    expect(callTo('resolve_place')?.p_lat).not.toBe(32.0708);
+  });
+
+  it('does not auto-accept a confirm-band shortlist', async () => {
+    // The band exists because the scorer cannot separate the entries. Taking the top one silently
+    // is the uncertainty-into-certainty move this product cannot afford — so the save falls back to
+    // the model's own point, honestly marked.
+    storedCandidates = [{ ...V2_CANDIDATE, resolution: overtureResolution('confirm', ['HaKosem Jaffa']) }];
+
+    const body = await postConfirm();
+
+    expect(body.results[0]?.provider).toBe('llm_guess');
+    expect(callTo('resolve_place')).toMatchObject({
+      p_provider: 'llm_guess',
+      p_source_dataset: 'llm-guess',
+      p_lat: 32.0708,
+      p_resolution_score: null,
+    });
+  });
+
+  it('honours an explicit optionIndex into the stored shortlist', async () => {
+    storedCandidates = [{ ...V2_CANDIDATE, resolution: overtureResolution('confirm', ['HaKosem Jaffa']) }];
+
+    const body = await postConfirm({ optionIndex: 1 });
+
+    expect(body.results[0]?.provider).toBe('overture');
+    // The picked entry's facts, off the stored row — the request carried the number 1 and nothing
+    // else. There is no field of this request through which a name or a coordinate can arrive.
+    expect(callTo('resolve_place')).toMatchObject({
+      p_provider_place_id: 'gers-HaKosem Jaffa',
+      p_name: 'HaKosem Jaffa',
+      p_lat: 32.06,
+    });
+  });
+
+  it('fails just that item when optionIndex addresses no stored option', async () => {
+    storedCandidates = [{ ...V2_CANDIDATE, resolution: overtureResolution('preselect') }];
+
+    const body = await postConfirm({ optionIndex: 4 });
+
+    expect(body.results[0]?.status).toBe('failed');
+    // Never a clamp to the top entry: that would save a different place than the user picked.
+    expect(callTo('resolve_place')).toBeUndefined();
+  });
+
+  it('keeps the llm_guess path byte-identical for a row with no resolution at all', async () => {
+    // The six pre-resolver rows on the local database. "Never asked" is not "asked and found
+    // nothing", and neither is a reason to lose the save.
+    storedCandidates = [V2_CANDIDATE];
+
+    const body = await postConfirm();
+
+    expect(body.results[0]?.provider).toBe('llm_guess');
+    expect(body.results[0]?.resolutionScore).toBeNull();
+    expect(callTo('resolve_place')).toMatchObject({ p_name: 'HaKosem', p_lat: 32.0708 });
+  });
+
+  it('saves a resolved candidate the model gave no coordinate of its own', async () => {
+    // Previously an automatic `skipped`. The resolver has a real coordinate for it, so the skip
+    // would now be throwing away the better answer.
+    storedCandidates = [
+      { ...V2_CANDIDATE, coordinates: null, resolution: overtureResolution('preselect') },
+    ];
+
+    const body = await postConfirm();
+
+    expect(body.results[0]?.status).toBe('saved');
+    expect(callTo('resolve_place')).toMatchObject({ p_lat: 32.07515, p_provider: 'overture' });
+  });
+
+  it('still skips a candidate neither the model nor the resolver could place', async () => {
+    storedCandidates = [
+      {
+        ...V2_CANDIDATE,
+        coordinates: null,
+        resolution: {
+          kind: 'answered',
+          result: {
+            shortlist: [],
+            confidence: { band: 'no_match', score: 0, margin: null },
+            regionsSearched: ['tlv'],
+            candidatesPrefiltered: 4,
+          },
+        },
+      },
+    ];
+
+    const body = await postConfirm();
+
+    expect(body.results[0]?.status).toBe('skipped');
+    expect(body.results[0]?.reason).toBe('no_coordinates');
+    expect(callTo('resolve_place')).toBeUndefined();
+  });
+
+  it('ignores a request that tries to smuggle place facts alongside the index', async () => {
+    // The confirmed 2026 exploit: `name`/`lat`/`lng` in the body reaching `resolve_place` on a
+    // service-role client, renaming and relocating a place other users had saved. The contract is a
+    // reference plus a note, and an unknown key is stripped rather than honoured.
+    storedCandidates = [{ ...V2_CANDIDATE, resolution: overtureResolution('preselect') }];
+
+    await postConfirm({ name: 'ATTACKER RENAMED THIS', lat: 48.8584, lng: 2.2945, provider: 'overture' });
+
+    expect(callTo('resolve_place')).toMatchObject({ p_name: 'HaKosem Falafel', p_lat: 32.07515 });
+    expect(JSON.stringify(rpcCalls)).not.toContain('ATTACKER');
   });
 });

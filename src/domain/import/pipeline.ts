@@ -80,7 +80,13 @@ function toSourceView(source: Source): SourceView {
   };
 }
 
-function buildResolveQuery(candidate: PlaceCandidate, extractionCityHint: string | null): ResolveQuery {
+/**
+ * Exported since TLV-RESOLVE-T3 so `/api/imports/probe` builds the *same* `ResolveQuery` this
+ * pipeline does. A second copy of this mapping at the route would be the classic way for the
+ * streamed pipeline and the request/response probe to start resolving the same caption
+ * differently — same candidate, two answers, and no way to tell which one a saved row came from.
+ */
+export function buildResolveQuery(candidate: PlaceCandidate, extractionCityHint: string | null): ResolveQuery {
   return {
     text: candidate.rawName,
     cityHint: candidate.cityHint ?? extractionCityHint,
@@ -101,7 +107,7 @@ function buildResolveQuery(candidate: PlaceCandidate, extractionCityHint: string
  * a fake test port is not obliged to respect that invariant, so it is handled here rather than
  * asserted away.
  */
-function deriveResolution(result: ResolveResult): CandidateResolution {
+export function deriveResolution(result: ResolveResult): CandidateResolution {
   const top: RankedPlace | undefined = result.shortlist[0];
   if (result.confidence.band === 'preselect' && top !== undefined) {
     return {

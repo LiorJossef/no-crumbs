@@ -1,10 +1,22 @@
 /**
  * `POST /api/imports/probe` — a throwaway demo route, **not** the real `POST /api/imports`
  * (L0-F6-T1). It exists only to prove the real oEmbed `SourceAdapter` + caption
- * `ContentExtractor` (L0-F4-T1) **and now the real `PlaceExtractor` + plausibility gate**
- * (L0-F4-T2) reach the `/import` UI: still no `runImport`, no `PlaceResolver`, no `ImportStore`,
- * no NDJSON stream, no idempotency, no retries. It is a request/response JSON endpoint, never a
- * stream.
+ * `ContentExtractor` (L0-F4-T1), the real `PlaceExtractor` + plausibility gate (L0-F4-T2)
+ * **and now the real `PlaceResolver`** (TLV-RESOLVE-T3) reach the `/import` UI: still no
+ * `runImport`, no `ImportStore`, no NDJSON stream, no idempotency, no retries. It is a
+ * request/response JSON endpoint, never a stream.
+ *
+ * **Resolution is the current change, and it is the difference between a product and a demo.**
+ * Until now every coordinate this route led to was the model's own guess — measured 65–470 m out,
+ * and 541 m apart between two runs of the same caption. Each in-budget candidate is now put to
+ * `overturePlaceResolver` over the loaded `poi_index` rows, and the shortlist is written into the
+ * same `extractions.candidates` array the confirm step already reads. Measured for the mention
+ * "HaKosem": 11 m from the real venue.
+ *
+ * The shortlist is stored rather than returned-and-resent for the reason
+ * `domain/import/candidate-place.ts`'s header gives at length: the browser may say *which*
+ * candidate and *which* option, never *what* they are. `authenticated` holds `SELECT` and nothing
+ * else on `extractions`, so a resolution record in that column can only have been written here.
  *
  * It does now **write**, and that is the point of the current change. Two rows that were being
  * left behind on every real import:
@@ -85,9 +97,12 @@ import { serviceRoleClient } from '@/integrations/supabase/service-role-client';
 import { oembedSourceAdapter, canonicalUrlFor } from '@/integrations/tiktok/oembed-source-adapter';
 import { captionContentExtractor } from '@/integrations/tiktok/caption-content-extractor';
 import { createPlaceExtractor } from '@/integrations/llm/place-extractor-factory';
+import { overturePlaceResolver, supabasePoiIndexGateway } from '@/integrations/supabase/place-resolver';
 import { canonicaliseTikTokUrl } from '@/domain/source/canonicalise-tiktok-url';
+import { resolveCandidates } from '@/domain/import/resolve-candidates';
+import type { StoredResolution } from '@/domain/import/resolution-record';
+import { parseStoredCandidates } from '@/domain/import/stored-candidates';
 import { filterPlausible } from '@/domain/extraction/plausibility';
-import { RawPlaceCandidateSchema, toPlaceCandidate } from '@/domain/extraction/schema';
 import {
   DomainError,
   internal,
@@ -103,7 +118,6 @@ import {
   logSeverityFor,
   type ImportFailureStage,
 } from '@/app/api/imports/_lib/error-reporting';
-import { z } from 'zod';
 import type { OpCtx } from '@/domain/ports';
 import type { PlaceCandidate } from '@/domain/types';
 
@@ -122,11 +136,22 @@ function sha256(text: string): string {
   return createHash('sha256').update(text, 'utf8').digest('hex');
 }
 
-function noopCtx(signal: AbortSignal): OpCtx {
+/**
+ * The request's `OpCtx`. No longer a no-op logger: the resolver emits one `poi.resolve` line per
+ * candidate — hint kind, scope reason, regions searched, prefiltered row count, band, shortlist
+ * size — and that line is the only way to tell "we have no data for that city" apart from "we
+ * searched and found nothing", which are the same blank screen to a user. Codes and counts only;
+ * `place-resolver.ts` puts no caption, name or coordinate in these fields (charter R9).
+ */
+function routeCtx(signal: AbortSignal): OpCtx {
   return {
     signal,
     importId: null,
-    log: { event: () => {} },
+    log: {
+      event: (name, fields) => {
+        console.info(JSON.stringify({ event: name, ...fields }));
+      },
+    },
   };
 }
 
@@ -150,6 +175,17 @@ function noopCtx(signal: AbortSignal): OpCtx {
  * Returns null on any miss, any mismatch, and any read error — a cache is never allowed to fail an
  * import, only to fail to help.
  */
+interface CachedExtraction {
+  readonly id: string;
+  readonly candidates: readonly PlaceCandidate[];
+  /**
+   * Index-aligned with `candidates`. `null` for a row written before the resolver was wired in —
+   * six such rows exist on the local database — which the caller re-resolves and writes back rather
+   * than serving a cached answer that predates the feature.
+   */
+  readonly resolutions: readonly (StoredResolution | null)[];
+}
+
 async function readCachedExtraction(
   db: SupabaseClient,
   input: {
@@ -158,7 +194,7 @@ async function readCachedExtraction(
     readonly promptVersion: string;
     readonly captionHash: string;
   },
-): Promise<{ readonly id: string; readonly candidates: readonly PlaceCandidate[] } | null> {
+): Promise<CachedExtraction | null> {
   const { data, error } = await db
     .from('extractions')
     .select('id, candidates, input_hash, status')
@@ -171,13 +207,58 @@ async function readCachedExtraction(
   if (data.status !== 'ok') return null;
   if (data.input_hash !== input.captionHash) return null;
 
-  // Stored `jsonb` is untrusted input like any other — re-parsed with the same schema the adapter
-  // validated the model against, never assumed to still match the current shape. A row written by
-  // an older prompt version that no longer parses is simply a miss.
-  const parsed = z.array(RawPlaceCandidateSchema).safeParse(data.candidates ?? []);
-  if (!parsed.success) return null;
+  // Stored `jsonb` is untrusted input like any other — re-parsed, never assumed to still match the
+  // current shape. Through `parseStoredCandidates`, the same reader `/api/imports/confirm` uses, so
+  // the two sides of the cache cannot disagree about what a stored row means; it is also what reads
+  // the resolution sibling back. A row written by an older prompt version that no longer parses is
+  // simply a miss.
+  const parsed = parseStoredCandidates(data.candidates ?? []);
+  if (parsed.kind === 'invalid') return null;
+  // The cache key pins `prompt_version`, so a v1 row can never be served under a v2 key. Asserted
+  // rather than trusted: a v1 candidate reaching this path would silently lose its enrichment.
+  if (parsed.candidates.some((c) => c.schemaVersion !== 2)) return null;
 
-  return { id: data.id as string, candidates: parsed.data.map(toPlaceCandidate) };
+  return {
+    id: data.id as string,
+    candidates: parsed.candidates.map((c) => c.candidate),
+    resolutions: parsed.candidates.map((c) => c.resolution),
+  };
+}
+
+/**
+ * A candidate as it is stored and returned: the extracted `PlaceCandidate` plus the resolver's
+ * answer for it, as one object.
+ *
+ * One array rather than two parallel ones, deliberately. `ConfirmItem.candidateIndex` addresses
+ * this array, and a separate `resolutions` column would be a single off-by-one away from saving a
+ * different place than the user picked. It is also additive on the wire: `import-page-client.tsx`
+ * types the response's candidates as `PlaceCandidate[]` and ignores the extra key, so no UI change
+ * is needed for this to land — and `z.object`'s key-stripping means both stored candidate schemas
+ * still parse these rows unchanged (`domain/import/stored-candidates.ts`).
+ */
+type StoredCandidateRow = PlaceCandidate & { readonly resolution: StoredResolution | null };
+
+/**
+ * Writes resolutions onto an extraction row that already existed without them.
+ *
+ * Only reachable on a cache hit against a row written before the resolver was wired in. It updates
+ * `candidates` **and nothing else** — a full upsert would overwrite the original `latency_ms` with
+ * a null and rewrite `created_at`'s neighbours for a row whose extraction did not re-run.
+ *
+ * Best-effort: the resolutions are already in the response and in the `imports` row, so a failed
+ * backfill costs the next re-paste a second resolve, not the user anything.
+ */
+async function backfillResolutions(
+  db: SupabaseClient,
+  extractionId: string,
+  candidates: readonly StoredCandidateRow[],
+): Promise<void> {
+  const { error } = await db.from('extractions').update({ candidates }).eq('id', extractionId);
+  if (error !== null) {
+    console.warn(
+      JSON.stringify({ event: 'import.bookkeeping', outcome: 'resolution_backfill_failed', cause: describeCause(error) }),
+    );
+  }
 }
 
 /**
@@ -202,7 +283,8 @@ async function persistExtraction(
     readonly extractorVersion: string | null;
     readonly promptVersion: string | null;
     readonly captionHash: string | null;
-    readonly candidates: readonly PlaceCandidate[];
+    /** Candidate objects with their `resolution` sibling already attached — see `StoredCandidateRow`. */
+    readonly candidates: readonly StoredCandidateRow[];
     readonly latencyMs: number | null;
   },
 ): Promise<string | null> {
@@ -258,7 +340,9 @@ async function advanceImport(
     readonly promptVersion: string | null;
     readonly msSource: number;
     readonly msExtract: number | null;
-    readonly candidates: readonly PlaceCandidate[];
+    readonly msResolve: number | null;
+    readonly degraded: 'PLACE_PROVIDER_UNAVAILABLE' | null;
+    readonly candidates: readonly StoredCandidateRow[];
   },
 ): Promise<void> {
   await db
@@ -270,14 +354,19 @@ async function advanceImport(
       // and a row reading `status='review'` beside a stale `error_code` would misreport a
       // succeeded import as a failed one in every audit query.
       error_code: null,
-      // `imports_stage_check` allows source/extract/resolve/done. This path genuinely stops after
-      // extraction — there is no resolver on it — so `extract` is the truthful stage, and claiming
-      // `done` here would misreport a pending confirmation as a finished import.
-      stage: 'extract',
+      // `imports_stage_check` allows source/extract/resolve/done. This path used to stop after
+      // extraction and said so; it now runs the real `PlaceResolver`, so `resolve` is the truthful
+      // stage. `done` would still be a lie — the user has not confirmed yet, and
+      // `/api/imports/confirm` is what writes it.
+      stage: 'resolve',
+      // Null when nothing was resolved (an extraction with no candidates, or a cache hit whose
+      // stored resolutions were reused): the column stays honest about what this request measured.
+      degraded_code: input.degraded,
       extractor_version: input.extractorVersion,
       prompt_version: input.promptVersion,
       ms_source: input.msSource,
       ms_extract: input.msExtract,
+      ms_resolve: input.msResolve,
       candidates: input.candidates,
     })
     .eq('id', importId);
@@ -419,7 +508,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return fail(canonicalised.error);
   }
 
-  const ctx = noopCtx(req.signal);
+  const ctx = routeCtx(req.signal);
   const db = serviceRoleClient();
   const source = oembedSourceAdapter(db);
 
@@ -467,10 +556,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     // No caption at all: never call the LLM on nothing (07 §5.2's "no caption" pre-check).
     let candidates: readonly PlaceCandidate[] = [];
+    let resolutions: readonly (StoredResolution | null)[] = [];
     let extractorVersion: string | null = null;
     let promptVersion: string | null = null;
     let msExtract: number | null = null;
-    let cached: { readonly id: string; readonly candidates: readonly PlaceCandidate[] } | null = null;
+    let cached: CachedExtraction | null = null;
+    /**
+     * The extraction-level city hint, used as the fallback when a candidate carries none of its own
+     * (`buildResolveQuery`). It is `null` on a cache-hit re-resolve because the column does not
+     * store it — only the candidates are persisted. That is a real, small loss of recall on exactly
+     * one path (an old row, re-pasted, whose candidates have no `cityHint`), recorded rather than
+     * papered over; persisting it is a schema change and this task owns no migration.
+     */
+    let extractionCityHint: string | null = null;
     const captionHash = caption === null ? null : sha256(caption);
 
     if (caption !== null) {
@@ -497,30 +595,76 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
       if (cached !== null) {
         candidates = cached.candidates;
+        resolutions = cached.resolutions;
       } else {
         const extractStartedAt = Date.now();
         const extracted = await extractor.extract(parts, ctx);
         msExtract = Date.now() - extractStartedAt;
         candidates = filterPlausible(extracted.candidates, caption).kept;
+        extractionCityHint = extracted.cityHint;
       }
     }
+
+    // Stage C — resolve. The change this task is for: until now the only coordinate downstream of
+    // this route was the model's own guess.
+    //
+    // Two properties carried over from `runImport`'s stage C rather than reinvented, both inside
+    // `resolveCandidates`: resolution never fails the import (a dead lookup degrades one candidate),
+    // and candidates past `MAX_CANDIDATES` are kept and marked `capped` rather than dropped.
+    //
+    // Skipped entirely when the cache already holds a complete set of resolutions — that is the
+    // whole point of the cache, and re-resolving would re-roll an answer the user has already seen.
+    // A *partial* set re-resolves everything: the only way to get one is a row from before this
+    // change, and mixing a fresh answer with a stale one in a single shortlist would leave no way
+    // to say which is which.
+    const cachedResolutionsComplete =
+      resolutions.length === candidates.length && resolutions.every((r) => r !== null);
+    let msResolve: number | null = null;
+    let degraded: 'PLACE_PROVIDER_UNAVAILABLE' | null = null;
+    let resolutionsAreNew = false;
+
+    if (candidates.length > 0 && !cachedResolutionsComplete) {
+      const resolveStartedAt = Date.now();
+      const outcome = await resolveCandidates(
+        overturePlaceResolver(supabasePoiIndexGateway(db)),
+        candidates,
+        extractionCityHint,
+        ctx,
+      );
+      msResolve = Date.now() - resolveStartedAt;
+      resolutions = outcome.resolutions;
+      degraded = outcome.degraded;
+      resolutionsAreNew = true;
+    }
+
+    const storedCandidates: readonly StoredCandidateRow[] = candidates.map((candidate, i) => ({
+      ...candidate,
+      resolution: resolutions[i] ?? null,
+    }));
 
     // Persist the extraction, then advance the import row. Both are `await`ed rather than
     // fire-and-forget: `extractionId` is load-bearing for the confirm step, so the response must
     // reflect whether the write actually happened. A cache hit skips the write entirely — there is
     // nothing new to record, and rewriting the row would overwrite the original `latency_ms` with
     // a null.
-    const extractionId =
-      cached !== null
-        ? cached.id
-        : await persistExtraction(db, {
-            sourceId: raw.id,
-            extractorVersion,
-            promptVersion,
-            captionHash,
-            candidates,
-            latencyMs: msExtract,
-          });
+    let extractionId: string | null;
+    if (cached !== null) {
+      extractionId = cached.id;
+      // A pre-resolver row that we have just resolved: write the shortlists back so the confirm
+      // step — which reads this row, not this response — can derive an Overture save from them.
+      // Without this the resolution would exist only in the response, and the browser is exactly
+      // the place it must not have to come back from.
+      if (resolutionsAreNew) await backfillResolutions(db, cached.id, storedCandidates);
+    } else {
+      extractionId = await persistExtraction(db, {
+        sourceId: raw.id,
+        extractorVersion,
+        promptVersion,
+        captionHash,
+        candidates: storedCandidates,
+        latencyMs: msExtract,
+      });
+    }
 
     await advanceImport(db, startRow.import_id, {
       candidateCount: candidates.length,
@@ -528,7 +672,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       promptVersion,
       msSource,
       msExtract,
-      candidates,
+      msResolve,
+      degraded,
+      candidates: storedCandidates,
     });
 
     return NextResponse.json({
@@ -541,7 +687,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       canonicalUrl: raw.canonicalUrl,
       thumbnailUrl: raw.thumbnailUrl,
       caption,
-      candidates,
+      /**
+       * Each candidate with its `resolution` attached. Additive: the client types these as
+       * `PlaceCandidate[]` and ignores the extra key, so this response stays backwards compatible
+       * while carrying everything a review screen needs to show what was matched and what was not.
+       */
+      candidates: storedCandidates,
     });
   } catch (e) {
     // `String(e)` as the message was the old shape; the cause is kept as a real `cause` now and

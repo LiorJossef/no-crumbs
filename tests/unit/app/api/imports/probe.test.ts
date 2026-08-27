@@ -9,8 +9,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
-import { extractorUnavailable, noCaption } from '@/domain/errors';
-import type { PlaceCandidate } from '@/domain/types';
+import { extractorUnavailable, internal, noCaption, upstreamTimeout } from '@/domain/errors';
+import type { PlaceCandidate, ResolveResult } from '@/domain/types';
+
+/**
+ * `place-resolver.ts` opens with `import 'server-only'`, which throws unless it is resolved under
+ * React's `react-server` condition — Vitest resolves the node entry, so importing the route (which
+ * now imports the resolver) fails without this. Safe here for the same reason it is safe in
+ * `confirm.test.ts`: what `server-only` protects is the bundler boundary, and `npm run check:layers`
+ * is what actually enforces that.
+ */
+vi.mock('server-only', () => ({}));
 
 const VIDEO_URL = 'https://www.tiktok.com/@tlv.eats/video/7123456789012345678';
 
@@ -45,6 +54,8 @@ vi.mock('@/app/_lib/supabase/server', () => ({
 const persisted = {
   extractions: [] as Record<string, unknown>[],
   importUpdates: [] as Record<string, unknown>[],
+  /** Narrow `update`s to an existing extraction row — the resolution backfill on a cache hit. */
+  extractionUpdates: [] as Record<string, unknown>[],
 };
 
 /**
@@ -58,7 +69,12 @@ let cachedExtractionRow: Record<string, unknown> | null = null;
 function resetPersisted() {
   persisted.extractions.length = 0;
   persisted.importUpdates.length = 0;
+  persisted.extractionUpdates.length = 0;
   cachedExtractionRow = null;
+  resolveMock.mockReset();
+  // Default: every candidate resolves to nothing. Tests that care set their own answers, and a
+  // test that forgets gets the conservative outcome rather than a silent auto-accept.
+  resolveMock.mockResolvedValue(NO_MATCH_RESULT);
 }
 
 vi.mock('@/integrations/supabase/service-role-client', () => ({
@@ -90,6 +106,10 @@ vi.mock('@/integrations/supabase/service-role-client', () => ({
             return {
               select: () => ({ single: async () => ({ data: { id: 'ext-1' }, error: null }) }),
             };
+          },
+          update: (row: Record<string, unknown>) => {
+            persisted.extractionUpdates.push(row);
+            return { eq: async () => ({ error: null }) };
           },
         };
       }
@@ -129,6 +149,58 @@ const extractMock = vi.fn();
 vi.mock('@/integrations/llm/place-extractor-factory', () => ({
   createPlaceExtractor: () => ({ version: 'fake', promptVersion: 'fake', extract: extractMock }),
 }));
+
+/**
+ * The `PlaceResolver` seam. Faked at the *adapter factory*, not at the gateway, because what this
+ * file is responsible for is the route's stage C — that a lookup is issued per in-budget candidate,
+ * that the answer is stored index-aligned, and that a failed lookup degrades one candidate instead
+ * of the request. Whether the Overture SQL is right is `place-resolver`'s own test's job, and the
+ * owner's measured Tel Aviv pass is the other half.
+ */
+const resolveMock = vi.fn();
+vi.mock('@/integrations/supabase/place-resolver', () => ({
+  supabasePoiIndexGateway: () => ({ loadedRegions: async () => [], prefilter: async () => [] }),
+  overturePlaceResolver: () => ({ provider: 'overture', resolve: resolveMock }),
+}));
+
+/** A `preselect` result — the band the confirm step is allowed to auto-accept. */
+function preselectResult(name: string, lat: number, lng: number): ResolveResult {
+  return {
+    shortlist: [
+      {
+        place: {
+          provider: 'overture',
+          providerPlaceId: `gers-${name}`,
+          sourceDataset: 'overture-places',
+          regionId: 'tlv',
+          name,
+          altNames: [],
+          providerCategory: 'cafe',
+          addressLine: '1 Some Street',
+          locality: 'Tel Aviv',
+          lat,
+          lng,
+          datasetConfidence: 0.9,
+        },
+        score: 0.91,
+        nameScore: 0.95,
+        tokenCoverage: 1,
+        categoryScore: 1,
+      },
+    ],
+    confidence: { band: 'preselect', score: 0.91, margin: 0.4 },
+    regionsSearched: ['tlv'],
+    candidatesPrefiltered: 12,
+  };
+}
+
+/** The honest empty answer: we searched and matched nothing. */
+const NO_MATCH_RESULT: ResolveResult = {
+  shortlist: [],
+  confidence: { band: 'no_match', score: 0, margin: null },
+  regionsSearched: ['tlv'],
+  candidatesPrefiltered: 3,
+};
 
 function postProbe(rawBody?: string): Promise<Response> {
   const req = new NextRequest('http://localhost/api/imports/probe', {
@@ -234,11 +306,14 @@ describe('POST /api/imports/probe — extraction branch', () => {
     // Not `completed`: extraction finishing is not the import finishing — the user still has to
     // confirm, and `/api/imports/confirm` is what writes `completed`/`done`.
     expect(update.status).toBe('review');
-    expect(update.stage).toBe('extract');
+    // `resolve`, not `extract`: the route genuinely runs the resolver now. `done` would still be a
+    // lie — the user has not confirmed.
+    expect(update.stage).toBe('resolve');
     expect(update.prompt_version).toBe('fake');
     expect(update.extractor_version).toBe('fake');
     expect(typeof update.ms_source).toBe('number');
     expect(typeof update.ms_extract).toBe('number');
+    expect(typeof update.ms_resolve).toBe('number');
   });
 
   it('advances the import row to no_places when the caption named none', async () => {
@@ -309,6 +384,158 @@ describe('POST /api/imports/probe — extraction branch', () => {
     // confirm route would reject anyway.
     expect(body.extractionId).toBeNull();
     expect(persisted.extractions).toHaveLength(0);
+  });
+
+  /**
+   * Stage C — the `PlaceResolver` wiring (TLV-RESOLVE-T3).
+   *
+   * The property that matters here is not "the resolver was called". It is that the shortlist ends
+   * up **on the server**, in the row `/api/imports/confirm` already reads, index-aligned with the
+   * candidates. `confirm` derives every place fact from that row; if the resolution only existed in
+   * this response, the browser would have to send it back and the whole authority model
+   * (`domain/import/candidate-place.ts`'s header) would be undone.
+   */
+  describe('resolution', () => {
+    function candidateNamed(rawName: string, evidence: string): PlaceCandidate {
+      return {
+        rawName,
+        cityHint: 'Tel Aviv',
+        countryHint: 'Israel',
+        categoryHint: 'cafe',
+        evidence,
+        modelConfidence: 0.8,
+        addressHint: null,
+        identifiedName: null,
+        coordinates: null,
+        areaHint: null,
+        tags: [],
+        dishes: [],
+        whyGo: null,
+      };
+    }
+
+    it('stores the resolver shortlist on the extraction row, index-aligned with the candidates', async () => {
+      extractMock.mockResolvedValueOnce({
+        candidates: [candidateNamed('Cafe Fiori', 'at Cafe Fiori')],
+        cityHint: 'Tel Aviv',
+      });
+      resolveMock.mockResolvedValueOnce(preselectResult('Cafe Fiori', 32.0701, 34.7801));
+
+      const res = await postProbe();
+      const body = (await res.json()) as {
+        candidates: (PlaceCandidate & { resolution: unknown })[];
+      };
+
+      expect(res.status).toBe(200);
+      expect(resolveMock).toHaveBeenCalledTimes(1);
+
+      const stored = persisted.extractions[0]?.candidates as { resolution: unknown }[];
+      expect(stored).toHaveLength(1);
+      expect(stored[0]?.resolution).toMatchObject({
+        kind: 'answered',
+        result: { confidence: { band: 'preselect' } },
+      });
+      // The persisted array and the returned array are the same objects in the same order. The
+      // confirm route addresses candidates by index into the *stored* one.
+      expect(stored).toEqual(body.candidates);
+    });
+
+    it('asks the resolver the query the streamed pipeline would ask', async () => {
+      extractMock.mockResolvedValueOnce({
+        candidates: [{ ...candidateNamed('Cafe Fiori', 'at Cafe Fiori'), cityHint: null }],
+        cityHint: 'Tel Aviv',
+      });
+
+      await postProbe();
+
+      // `buildResolveQuery` is imported from `domain/import/pipeline.ts` rather than restated here,
+      // so a candidate with no city of its own falls back to the extraction's — the behaviour a
+      // second, hand-rolled copy at this route would have been free to get wrong.
+      expect(resolveMock.mock.calls[0]?.[0]).toMatchObject({
+        text: 'Cafe Fiori',
+        cityHint: 'Tel Aviv',
+        countryHint: 'Israel',
+        categoryHint: 'cafe',
+      });
+    });
+
+    it('records a no-match honestly rather than leaving the candidate unasked', async () => {
+      extractMock.mockResolvedValueOnce({
+        candidates: [candidateNamed('Cafe Fiori', 'at Cafe Fiori')],
+        cityHint: 'Tel Aviv',
+      });
+      resolveMock.mockResolvedValueOnce(NO_MATCH_RESULT);
+
+      await postProbe();
+
+      const stored = persisted.extractions[0]?.candidates as { resolution: unknown }[];
+      // Not `null`. `null` means "never asked"; this means "asked, found nothing", and the confirm
+      // route treats them the same way but the audit trail must not conflate them.
+      expect(stored[0]?.resolution).toMatchObject({
+        kind: 'answered',
+        result: { confidence: { band: 'no_match' }, shortlist: [] },
+      });
+    });
+
+    it('degrades one candidate when its lookup fails, and still returns the import', async () => {
+      extractMock.mockResolvedValueOnce({
+        candidates: [
+          candidateNamed('Cafe Fiori', 'at Cafe Fiori'),
+          candidateNamed('Bread Bar', 'the Bread Bar'),
+        ],
+        cityHint: 'Tel Aviv',
+      });
+      captionExtractMock.mockResolvedValueOnce([
+        { kind: 'caption', text: 'at Cafe Fiori and the Bread Bar', origin: 'tiktok-oembed-title' },
+      ]);
+      resolveMock.mockRejectedValueOnce(internal('poi_index prefilter failed'));
+      resolveMock.mockResolvedValueOnce(preselectResult('Bread Bar', 32.06, 34.77));
+
+      const res = await postProbe();
+
+      // `07` §7's asymmetry: resolution never fails the import.
+      expect(res.status).toBe(200);
+      const stored = persisted.extractions[0]?.candidates as { resolution: unknown }[];
+      expect(stored[0]?.resolution).toEqual({ kind: 'failed', reason: 'lookup_failed' });
+      expect(stored[1]?.resolution).toMatchObject({ kind: 'answered' });
+      // Not every lookup failed, so the import is not degraded.
+      expect(persisted.importUpdates[0]?.degraded_code).toBeNull();
+    });
+
+    it('marks the import degraded only when every attempted lookup failed in transport', async () => {
+      extractMock.mockResolvedValueOnce({
+        candidates: [candidateNamed('Cafe Fiori', 'at Cafe Fiori')],
+        cityHint: 'Tel Aviv',
+      });
+      resolveMock.mockRejectedValueOnce(upstreamTimeout('poi_index timed out'));
+
+      await postProbe();
+
+      const stored = persisted.extractions[0]?.candidates as { resolution: unknown }[];
+      expect(stored[0]?.resolution).toEqual({ kind: 'failed', reason: 'timed_out' });
+      expect(persisted.importUpdates[0]?.degraded_code).toBe('PLACE_PROVIDER_UNAVAILABLE');
+    });
+
+    it('issues at most MAX_CANDIDATES lookups and keeps the rest, marked capped', async () => {
+      const names = Array.from({ length: 9 }, (_, i) => `Place ${i}`);
+      captionExtractMock.mockResolvedValueOnce([
+        { kind: 'caption', text: names.join(' and '), origin: 'tiktok-oembed-title' },
+      ]);
+      extractMock.mockResolvedValueOnce({
+        candidates: names.map((n) => candidateNamed(n, n)),
+        cityHint: 'Tel Aviv',
+      });
+
+      await postProbe();
+
+      // `07` §7's `MAX_PROVIDER_REQUESTS_PER_IMPORT` is the same 7 as `MAX_CANDIDATES`.
+      expect(resolveMock).toHaveBeenCalledTimes(7);
+      const stored = persisted.extractions[0]?.candidates as { resolution: unknown }[];
+      expect(stored).toHaveLength(9);
+      // Kept and visible, never silently dropped.
+      expect(stored[7]?.resolution).toEqual({ kind: 'capped' });
+      expect(stored[8]?.resolution).toEqual({ kind: 'capped' });
+    });
   });
 
   /**
@@ -385,6 +612,59 @@ describe('POST /api/imports/probe — extraction branch', () => {
       expect(extractMock).toHaveBeenCalledTimes(1);
       expect(body.extractionId).toBe('ext-1');
       expect(persisted.extractions).toHaveLength(1);
+    });
+
+    it('backfills resolutions onto a cached row written before the resolver existed', async () => {
+      // The six rows on the local database are exactly this shape: candidates, no `resolution`.
+      // Serving them unchanged would mean a re-paste of an old TikTok still saves a model guess.
+      cachedExtractionRow = {
+        id: 'ext-cached',
+        status: 'ok',
+        input_hash: CAPTION_HASH,
+        candidates: [storedCandidate],
+      };
+      extractMock.mockClear();
+      resolveMock.mockResolvedValueOnce(preselectResult('Cafe Fiori', 32.0701, 34.7801));
+
+      const res = await postProbe();
+
+      expect(res.status).toBe(200);
+      // Still a cache hit: no second model call, and no upsert that would clobber `latency_ms`.
+      expect(extractMock).not.toHaveBeenCalled();
+      expect(persisted.extractions).toHaveLength(0);
+      // But the resolution is written back, because confirm reads the row and not this response.
+      expect(resolveMock).toHaveBeenCalledTimes(1);
+      expect(persisted.extractionUpdates).toHaveLength(1);
+      const written = persisted.extractionUpdates[0]?.candidates as { resolution: unknown }[];
+      expect(written[0]?.resolution).toMatchObject({ kind: 'answered' });
+    });
+
+    it('reuses a stored resolution instead of re-resolving', async () => {
+      // The same reason the extraction cache exists: re-opening the same TikTok must show the same
+      // places. A re-resolve would be cheap but is not guaranteed identical — the region set and the
+      // index can move underneath it.
+      cachedExtractionRow = {
+        id: 'ext-cached',
+        status: 'ok',
+        input_hash: CAPTION_HASH,
+        candidates: [
+          { ...storedCandidate, resolution: { kind: 'answered', result: preselectResult('Cafe Fiori', 32.07, 34.78) } },
+        ],
+      };
+      extractMock.mockClear();
+
+      const res = await postProbe();
+      const body = (await res.json()) as { candidates: { resolution: unknown }[] };
+
+      expect(res.status).toBe(200);
+      expect(resolveMock).not.toHaveBeenCalled();
+      expect(persisted.extractionUpdates).toHaveLength(0);
+      expect(body.candidates[0]?.resolution).toMatchObject({
+        kind: 'answered',
+        result: { shortlist: [{ place: { providerPlaceId: 'gers-Cafe Fiori' } }] },
+      });
+      // Nothing was resolved in this request, so the column must not claim a measurement.
+      expect(persisted.importUpdates[0]?.ms_resolve).toBeNull();
     });
 
     it('re-extracts when the stored row is not a successful extraction', async () => {
