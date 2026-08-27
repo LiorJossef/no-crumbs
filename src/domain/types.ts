@@ -141,14 +141,15 @@ export interface ResolveQuery {
    *
    * **Optional for the same reason `addressHint` is**: every existing construction site — the
    * Supabase adapter, the probe route, both manual harnesses — keeps compiling untouched, and an
-   * absent field and an empty array mean the same thing (*no variants offered*).
+   * absent field, an explicit `null` and an empty array all mean the same thing (*no variants
+   * offered*), and `rankPlaces` collapses them with `?? null` so they cannot diverge.
    *
    * A variant is a **retrieval and scoring** input only. It never reaches storage, never becomes a
    * place's name, and the auto-accept gates are unchanged — widening the query must not widen what
    * we are willing to accept without a human. The zero-false-auto-accept property is asserted on
    * both harnesses and is the constraint this field is most likely to threaten.
    */
-  readonly textVariants?: readonly string[];
+  readonly textVariants?: readonly string[] | null;
   /**
    * Bias point for manual "search near me" (MS11), which is what `poi_index_lat_lng_idx`
    * exists for. **The scorer has no distance term** — this is a prefilter input only, and a
