@@ -50,6 +50,8 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { isSearchActive } from '@/domain/places/search';
 import { NoteEditor, RemoveSavedPlace } from './saved-place-edits';
+import { DishLine, TagChipList, TagChipRow, WhyGoLine } from './place-enrichment';
+import { enrichmentOf, rowAccessibleName, whyGoEarnsItsPlace } from '@/ui/place/enrichment';
 import type { MapPlace } from '@/components/map/types';
 
 /** Fixed peek height. `env(safe-area-inset-bottom)` is added via CSS `calc()` inside the snap
@@ -331,6 +333,7 @@ export function PlaceRow({
   onSelect?: (place: MapPlace) => void;
 }) {
   const locality = place.detail?.locality;
+  const { tags } = enrichmentOf(place.detail);
 
   const body = (
     <>
@@ -349,6 +352,11 @@ export function PlaceRow({
           {place.category}
           {locality && <span className="text-muted-foreground/70"> · {locality}</span>}
         </p>
+        {/* Above the note, below the category, and rendered only when there are any — a row with no
+            tags is the normal case (nothing was backfilled, so it is every row saved before
+            extraction v2) and must look like a finished row, not a row missing a line. There is
+            deliberately no placeholder, no skeleton and no "no tags yet". */}
+        {tags.length > 0 && <TagChipRow tags={tags} />}
         {place.note && (
           <p className="line-clamp-1 text-sm font-medium text-muted-foreground">{place.note}</p>
         )}
@@ -371,7 +379,14 @@ export function PlaceRow({
         onClick={() => onSelect(place)}
         // The accessible name says what happens, not what the row contains — a screen reader user
         // hears the name twice otherwise (once as the button label, once as its content).
-        aria-label={`Open ${place.name}`}
+        //
+        // The tags are the one exception, and they have to be: `aria-label` *replaces* the button's
+        // content in the accessibility tree, so chips rendered inside it are announced nowhere at
+        // all. A sighted user scanning the list gets "Nepalese, Market Stall" as the reason to open
+        // this row rather than the one below it; without this, a screen reader user gets twenty
+        // rows that differ only by name. Only the chips actually on screen are named, and the
+        // overflow is a count, so the label stays a phrase rather than becoming a paragraph.
+        aria-label={rowAccessibleName(place.name, tags)}
         // `data-vaul-no-drag`: inside the mobile sheet, a press that begins on this row would
         // otherwise be read as the start of a sheet drag, and the tap would be swallowed.
         data-vaul-no-drag
@@ -509,6 +524,12 @@ export function PlaceDetail({
   const reason = detail?.reason;
   const source = detail?.source;
   const provenance = detail?.provenance;
+  // Extraction v2 (`0019`): tags, the model's one-sentence summary, and the dishes the post named.
+  // All three are empty on every place saved before v2 — no backfill ran, and re-extracting twenty
+  // rows would spend model calls against a hard daily ceiling — so "absent" is the majority state
+  // here and each block below simply does not render. No placeholders, no skeletons, no
+  // "not available yet": a detail view with no tags is a complete detail view.
+  const { tags, whyGo, dishes } = enrichmentOf(detail);
   // `sourceUrl`/`sourceThumbnailUrl` (Spot's denormalized `saved_places.source_url` /
   // `source_thumbnail_url`, migration `0016`) are preferred over the joined `source.canonicalUrl`
   // / `source.media` — same value for the common case, but present even when the
@@ -538,6 +559,14 @@ export function PlaceDetail({
 
   const isPopover = variant === 'popover';
 
+  // Resolved here rather than inline so the JSX below carries no cast: `whyGoEarnsItsPlace` already
+  // rejects null/blank, but TypeScript cannot see that through a boolean.
+  const shownWhyGo =
+    whyGo !== null &&
+    whyGoEarnsItsPlace(whyGo, { reason, tags, dishes, name: place.name, locality })
+      ? whyGo
+      : null;
+
   return (
     <div
       className={cn(
@@ -560,6 +589,16 @@ export function PlaceDetail({
           <p className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">
             {place.category}
           </p>
+          {/* Directly under the identity block, and above every prose block below — this is the
+              most prominent of the three new fields, deliberately.
+
+              `places.category` holds four distinct values across the twenty saved rows, fourteen of
+              them `restaurant`: the line immediately above this one tells you almost nothing. Tags
+              are what actually distinguishes one saved place from another, they are the only new
+              field that is scannable rather than read, and they are the same object the list row
+              shows — so putting them here makes the row and the detail agree about what a place
+              *is* before either says anything about why it was saved. */}
+          {tags.length > 0 && <TagChipList tags={tags} />}
         </div>
         <Button
           type="button"
@@ -583,9 +622,33 @@ export function PlaceDetail({
             <p className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">
               From the post
             </p>
-            <p className="text-sm leading-relaxed text-foreground">{reason}</p>
+            {/* `dir="auto"` because this is a verbatim caption substring: a Hebrew caption quote
+                rendered left-to-right puts its punctuation on the wrong end of the sentence. */}
+            <p dir="auto" className="text-sm leading-relaxed text-foreground">
+              {reason}
+            </p>
           </div>
         )}
+
+        {/* The dishes the post named, immediately under the quote they came out of: both are the
+            creator's own words, and they belong together above anything the model wrote. */}
+        <DishLine dishes={dishes} />
+
+        {/* And *then*, quieter, the model's own sentence — never above the quote, never at the same
+            weight, and only when it says something the quote and the tags do not.
+
+            This is a judgement call, and it is one `if` to remove. `why_go` is generated prose;
+            `extracted_reason` is a verbatim substring of the caption. Keeping that difference
+            legible is this codebase's central invariant, and printing a paraphrase directly beside
+            the thing it paraphrases is the fastest way to destroy it — the two read as one claim
+            made twice, and the user cannot tell which half the creator actually wrote. Measured on
+            the London caption: the model's "Discover a Nepalese kitchen tucked away in the market."
+            sat above tags reading `nepalese, market stall` and a quote reading "…Nepalese kitchen
+            tucked away in Market Peckham". It contributes exactly one word those two do not, so it
+            is not rendered. A sentence that carries something new — a dish that sells out, an
+            opening time, who it is for — clears the bar and is shown. See
+            `ui/place/enrichment.ts`'s `whyGoEarnsItsPlace` for the rule and the threshold. */}
+        {shownWhyGo !== null && <WhyGoLine whyGo={shownWhyGo} />}
 
         {/* `L1-F7-T2`. The note used to render read-only, and a place you saved was a place you
             were stuck with. `key` on the saved place's id is what resets a half-typed draft when

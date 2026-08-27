@@ -84,6 +84,15 @@
     --pin-selected: var(--mint-900);
     --pin-halo: #FFFFFF;
 
+    /*
+     * A tag chip: a label, never an action. `mint-200` rather than `mint-100` because a chip sits
+     * on `--card` (#FFFFFF) as often as on `--background`, and `mint-100` is invisible against
+     * white. Semantic role rather than a raw ramp reference at the call site, so the chip is
+     * re-themeable (and dark-mode-able, below) without editing a component.
+     */
+    --tag: var(--mint-200);
+    --tag-foreground: var(--mint-900);
+
     --wash-from: var(--mint-200);
     --wash-to: transparent;
     --row-selected-from: var(--mint-200);
@@ -131,6 +140,11 @@
     --muted-foreground: #8B95A3;
     --accent: #1E3A4A;
     --accent-foreground: #F2F5F7;
+    /* Mapped onto this theme's own accent pair rather than given new values: the dark palette is
+     * explicitly a first pass and not signed off (see the block comment above), so inventing a
+     * dark tag colour here would be a fifth unreviewed value rather than a decision. */
+    --tag: var(--accent);
+    --tag-foreground: var(--accent-foreground);
     --destructive: oklch(0.704 0.191 22.216);
     --border: #2A323B;
     --input: #2A323B;
