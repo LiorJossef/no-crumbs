@@ -31,6 +31,7 @@ import type {
   ResolveQuery,
   ResolveResult,
   PlaceProvider,
+  SavedPlaceEnrichment,
   StageOutput,
 } from './types';
 import type { ImportOutcome } from './import/events';
@@ -187,12 +188,34 @@ export interface ConfirmPlaceSave {
   readonly sourceId: string | null;
   readonly note: string | null;
   /**
-   * The extractor's verbatim caption fragment for this candidate, written to
+   * The verbatim caption words that license this recommendation, written to
    * `saved_places.extracted_reason` (migration 0017 made that column writable; before it the
-   * reason was extracted, rendered in `place-sheet.tsx`, and dropped on every import). Null for a
-   * manual save, which has no extraction behind it.
+   * reason was extracted, rendered in `place-sheet.tsx`, and dropped on every import). Under
+   * extraction schema v2 this is `whyGo.groundedIn` — see `import/candidate-place.ts` for why it
+   * is no longer `evidence`. Null for a manual save, which has no extraction behind it, and null
+   * whenever the model earned no grounded reason.
    */
   readonly extractedReason: string | null;
+  /**
+   * Whose save this is. Required even though `save_place` runs under the caller's own JWT and does
+   * not need it, because `apply_saved_place_extraction` (migration `0019`) does: it runs as
+   * `service_role`, which **bypasses RLS**, so its ownership predicate is a `WHERE user_id =
+   * p_user_id` in the function body and there is no policy behind it. Passing the id explicitly is
+   * what makes that predicate meaningful; an adapter that guessed it would be the whole protection.
+   *
+   * Must be the id of the session the `user` client is authenticated as. A mismatch updates zero
+   * rows — the function fails closed and quietly, by design.
+   */
+  readonly userId: string;
+  /**
+   * The `0019` columns for this save, or `null` for "nothing to write" — a manual save, or an
+   * extraction whose caption supported no tags, no dishes and no reason.
+   *
+   * **Never lets a save fail.** The adapter writes the place, writes the save, and only then tries
+   * this; a failure here is reported through `enrichmentApplied` below and swallowed. See
+   * `PlaceStore.confirmPlace`.
+   */
+  readonly enrichment: SavedPlaceEnrichment | null;
 }
 
 export interface PlaceStore {
@@ -210,6 +233,18 @@ export interface PlaceStore {
      * instead of claiming a fresh save, which is what it did for every re-import before this.
      */
     readonly alreadySaved: boolean;
+    /**
+     * Whether `apply_saved_place_extraction` ran without error. `false` when `save.enrichment` was
+     * `null` (nothing to write) **and** when the write was attempted and failed — the caller knows
+     * which by looking at what it passed in, and the two are reported differently to the user.
+     *
+     * Deliberately not "the columns now hold these values". `apply_saved_place_extraction` is
+     * first-writer-wins per column and returns `void`, so on a place this user had already saved
+     * with enrichment the call succeeds and changes nothing. `true` means the write ran, which is
+     * the strongest claim the function's own contract supports; asserting more would mean a
+     * read-back, and inventing certainty is worse than reporting the weaker true thing.
+     */
+    readonly enrichmentApplied: boolean;
   }>;
 }
 

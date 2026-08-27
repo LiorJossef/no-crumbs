@@ -107,6 +107,10 @@ const oneCandidate: PlaceCandidate = {
   addressHint: null,
   identifiedName: null,
   coordinates: null,
+  areaHint: null,
+  tags: [],
+  dishes: [],
+  whyGo: null,
 };
 
 function resolvedPlaceFixture(providerPlaceId: string): ResolvedPlace {

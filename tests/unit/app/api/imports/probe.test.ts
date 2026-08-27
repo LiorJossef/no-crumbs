@@ -153,6 +153,10 @@ describe('POST /api/imports/probe — extraction branch', () => {
       addressHint: null,
       identifiedName: null,
       coordinates: null,
+      areaHint: null,
+      tags: [],
+      dishes: [],
+      whyGo: null,
     };
     extractMock.mockResolvedValueOnce({ candidates: [candidate], cityHint: 'Tel Aviv' });
 
@@ -175,6 +179,10 @@ describe('POST /api/imports/probe — extraction branch', () => {
       addressHint: null,
       identifiedName: 'Cafe Fiori Tel Aviv',
       coordinates: { lat: 32.07, lng: 34.78 },
+      areaHint: null,
+      tags: [],
+      dishes: [],
+      whyGo: null,
     };
     extractMock.mockResolvedValueOnce({ candidates: [candidate], cityHint: 'Tel Aviv' });
 
@@ -212,6 +220,10 @@ describe('POST /api/imports/probe — extraction branch', () => {
       addressHint: null,
       identifiedName: null,
       coordinates: { lat: 32.07, lng: 34.78 },
+      areaHint: null,
+      tags: [],
+      dishes: [],
+      whyGo: null,
     };
     extractMock.mockResolvedValueOnce({ candidates: [candidate], cityHint: 'Tel Aviv' });
 
@@ -253,6 +265,10 @@ describe('POST /api/imports/probe — extraction branch', () => {
       addressHint: null,
       identifiedName: null,
       coordinates: null,
+      areaHint: null,
+      tags: [],
+      dishes: [],
+      whyGo: null,
     };
     extractMock.mockResolvedValueOnce({ candidates: [candidate], cityHint: null });
 
@@ -305,15 +321,23 @@ describe('POST /api/imports/probe — extraction branch', () => {
     // sha256 of the caption `captionExtractMock` returns, which is what the route hashes.
     const CAPTION_HASH = '0e14a376f9f0a5c0077ff671c337ab4edbfb69bf8ae876a5e5145127a6793153';
 
+    // Shaped as schema v2 writes it (`domain/extraction/schema.ts`). A v1-shaped row — one with no
+    // `tags`/`dishes`/`whyGo`/`areaHint` — would fail `RawPlaceCandidateSchema` here and be treated
+    // as a cache miss, which is the designed behaviour and is why `PROMPT_VERSION` carries the
+    // schema version: rows written by v1 are never looked up under a v2 key in the first place.
     const storedCandidate = {
       rawName: 'Cafe Fiori',
       cityHint: null,
       countryHint: null,
+      areaHint: null,
       categoryHint: null,
       evidence: 'Cafe Fiori',
       modelConfidence: 0.8,
       addressHint: null,
       identifiedName: null,
+      tags: [],
+      dishes: [],
+      whyGo: null,
       coordinates: null,
     };
 
