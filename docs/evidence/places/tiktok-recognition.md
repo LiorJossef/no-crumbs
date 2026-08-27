@@ -4,7 +4,7 @@
 > edit the harness or the corpus, not this file. The machine record is
 > `tiktok-recognition-run.json`.
 
-Run at **2026-08-27T20:53:50.898Z** against `http://127.0.0.1:54321`, region `tlv`, 10462 rows, release `2026-07-22.0`.
+Run at **2026-08-27T21:12:29.008Z** against `http://127.0.0.1:54321`, region `tlv`, 10462 rows, release `2026-07-22.0`.
 Extractor: `2026-08-gemini-gemini-3.5-flash-lite` / prompt `p7-s2`.
 
 ## Auto-match rate: **4 / 16** (25%)
@@ -20,8 +20,8 @@ are the right venue — i.e. the share the user never had to touch the picker fo
 | Corpus cases | 13 (ok: 13) |
 | Adjudicated candidates | 16 |
 | Auto-matched | 4 |
-| Correct but not auto-accepted | 2 |
-| Wrong | 9 |
+| Correct but not auto-accepted | 3 |
+| Wrong | 8 |
 | — of which extraction never named the venue | 1 |
 | **False auto-accepts** (preselect AND wrong) | **0** |
 | Unadjudicated (counted in neither direction) | 2 |
@@ -34,9 +34,9 @@ are the right venue — i.e. the share the user never had to touch the picker fo
 | `extraction_miss` | 1 | The caption names the venue; the model produced no candidate string for it. Prompt/extraction work. |
 | `no_region_searched` | 0 | `cityHint` mapped to no loaded region, so the database was never queried. Region inference. |
 | `absent_from_index` | 2 | No row for this venue in `poi_index`, in either script. Coverage — a different dataset or a wider ingest. |
-| `unreachable_in_index` | 6 | The row IS there; the prefilter cannot reach it from these tokens. The Hebrew/Latin alias gap. |
-| `ranking` | 1 | The right row was prefiltered and ranked below something else. Scorer weights. |
-| `not_auto_accepted` | 2 | Top-1 was right but the band was not `preselect`, so the picker was needed. Band policy. |
+| `unreachable_in_index` | 4 | The row IS there; the prefilter cannot reach it from these tokens. The Hebrew/Latin alias gap. |
+| `ranking` | 2 | The right row was prefiltered and ranked below something else. Scorer weights. |
+| `not_auto_accepted` | 3 | Top-1 was right but the band was not `preselect`, so the picker was needed. Band policy. |
 | `resolver_failed` | 0 | The lookup errored in transport. |
 | `capped` | 0 | Past MAX_CANDIDATES (7); kept and visible, never resolved. |
 
@@ -69,20 +69,20 @@ are the right venue — i.e. the share the user never had to touch the picker fo
 ── https://vt.tiktok.com/ZSVphhEg6/  [cafes]
    @paz_farchi1  caption(cache): ⁨	⁨	⁨	בית קפה חדש בסגנון יפני נפתח בתל אביב 🇯🇵✨ 📍קוהי, בן יהודה 155 תל אביב  הוקם ע”י סרבר גולומוב, שחי את התרבות היפנית כבר שנים והחליט להביא את זה לידי ביטוי בבית קפה מדוייק. מהתפריט תמצאו כאן שילוב מושלם בין קפה איכותי לבין אוכל יפני-אירופי עדין. יש כריך טמאגו על בריוש רך,  מוזלי עם אוכמניות ומנגו, סלט ירקות טבעוני וסלט קינואה הדרים למי שמחפש משהו קליל. והקינוחים? ואוו.  פנקייק יפני אוורירי בשתי גרסאות, פרנץ’ טוסט בריוש, עוגיות שוקולד ומאצ׳ה, רולדת מאצ׳ה ועוגת לימון מפוצצת הדרים. 🍰 ולמי שמגיע בשביל הקפה- זה לגמרי המקום!  קוהי מגישים קפה ספיישליטי שמגיע מבתי קלייה ברחבי העולם: יפן, הולנד, ארה״ב, בריטניה וגם מישראל. המחירים הוגנים לגמרי: אספרסו 13 ש״ח, פלאט וויט 17 ש״ח, קפוצ’ינו 18 ש״ח 💰 חשוב לדעת:  🔸אין תעודת כשרות כי פתוח בשבת 🔸שעות פתיחה:⁩ ראשון- שבת 07:30-18:30⁩⁩#המלצות #המלצפז #תלאביב #בתיקפה #בתיקפהתלאביב 
    extraction(cache): cityHint=תל אביב  raw=[קוהי]  dropped=none
-   • "קוהי" → MISS (unreachable_in_index)
-       query: text="קוהי" cityHint=תל אביב cat=cafe  regionsSearched=[tlv]  prefiltered=0
-       band=no_match  score=0.000  margin=null
-       top1: —
-       top3: —
+   • "קוהי" → CORRECT-BUT-NOT-AUTO (not_auto_accepted)
+       query: text="קוהי" cityHint=תל אביב cat=cafe  regionsSearched=[tlv]  prefiltered=2
+       band=no_match  score=0.304  margin=0.025
+       top1: Kohi Coffee Shop @ בן יהודה 155, תל אביב - יפו  (32.088284, 34.773300)  cat=coffee_shop conf=0.30
+       top3: Kohi Coffee Shop (0.304)  |  NIKO by Sharon Cohen (0.278)
        expected: קוהי (Kohi) — בן יהודה 155, תל אביב
-       poi_index probe: Kohi Coffee Shop @ בן יהודה 155, תל אביב - יפו
-       note: the row exists in poi_index but the prefilter can never return it from these tokens
+       rank of the right row in the full prefilter: 1
+       note: top-1 is right, band no_match, margin 0.025
 
 ── https://vt.tiktok.com/ZSVprTkwJ/  [brunch]
    @liran.rozen  caption(cache): בראנץ׳ צרפתי כשר וחדש בתל אביב🥂 (פירוט👇🏻) #לירןרוזן #אוכלים_עם_לירן #בראנץ #5אננסים #מדדלירן  שעבר ללב תל אביב 🇫🇷 כתובת: לבונטין 19, תל אביב📍 כשר: כן! (רבנות תל אביב) ✅ סיקרתי אותו כבר פעמיים: בראסרי 18 נפתחה ממש לאחר פרוץ המלחמה בנובמבר 2023 ולאחרונה עבר מרמת אביב  ללב העיר בלבונטין 19 🙌🏻 שף המסעדה הוא שלמה שריקי, בחור צעיר ומוכשר שנכנס לכובע השף תוך כדי המלחמה ושירות מילואים! התפריט מציע קלאסיקות כמו פרנץ׳ טוסט, מילפיי,  אגז בנדיקט, סלט קיסר, טרטר טונה, סטייק טונה ועוד! הבראסרי פתוח כל היום! כמיטב המסורת  עם שלושה תפריטים שונים: בראנץ׳, עסקית צהריים וערב. בראנץ׳: שני עד חמישי: 9:00 עד 11:30 שישי: 9:00 עד 14:00 עסקיות צהריים: ראשון עד חמישי: 12:15 עד 15:30 ערב: ראשון עד חמישי 19:30 עד 22:00 האפי האוור (20% הנחה על הכל) ראשון עד חמישי: 17:30 עד 19:30 5 אננסים במדד לירן! (5/5) 🍍🍍🍍🍍🍍 (שירות, ניקיון, עיצוב, טעם ומחיר) כן דירגתי כי הם לא באמת חדשים. רק עברו מיקום. המסעדה מבוססת כבר. חייבת להגיע שוב בערב גם ❤️🙌🏻 ספרו לי מה אתם חשבתם👇🏻
    extraction(cache): cityHint=תל אביב  raw=[בראסרי 18]  dropped=none
    • "בראסרי 18" → MISS (ranking)
-       query: text="בראסרי 18" cityHint=תל אביב cat=restaurant  regionsSearched=[tlv]  prefiltered=12
+       query: text="בראסרי 18" cityHint=תל אביב cat=restaurant  regionsSearched=[tlv]  prefiltered=14
        band=no_match  score=0.697  margin=0.026
        top1: טוסט נקניק - Sudjuk 1870 @ Ali Ben Abu Taleb, כפר קאסם  (32.113857, 34.968361)  cat=fast_food_restaurant conf=0.77
        top3: טוסט נקניק - Sudjuk 1870 (0.697)  |  Brasserie 18 (0.671)  |  פיצה 180 (0.610)
@@ -135,7 +135,7 @@ are the right venue — i.e. the share the user never had to touch the picker fo
    @shirazooooo  caption(cache): זה המקום המושלם מבחינתי בתל אביב,  מראשון עד שישי מגישים ב׳אחים׳ בוקר חלומי שכולל בעיקר כמויות בלתי נתפסות של מאפים בכל הסוגים והגדלים. בוחרים כמה שאוהבים (כל אחד במחיר שונה) ומתיישבים בחצר ענקית ומהממת.  אני כל כך נהנתי היה לי בוקר מושלם ואין לי ספק שאחזור שוב בקרוב שמרו לכם  📍האחים, אבן גבירול 26 #בוקרבתלאביב #ארוחתבוקר 
    extraction(cache): cityHint=תל אביב  raw=[האחים]  dropped=none
    • "האחים" → AUTO-MATCH
-       query: text="האחים" cityHint=תל אביב cat=restaurant  regionsSearched=[tlv]  prefiltered=19
+       query: text="האחים" cityHint=תל אביב cat=restaurant  regionsSearched=[tlv]  prefiltered=20
        band=preselect  score=1.000  margin=0.196
        top1: האחים @ אבן גבירול 26, תל אביב - יפו  (32.072498, 34.781998)  cat=mediterranean_restaurant conf=1.00
        top3: האחים (1.000)  |  פלאפל האחים (0.804)  |  מסעדת האחים חירק (0.649)
@@ -145,7 +145,7 @@ are the right venue — i.e. the share the user never had to touch the picker fo
    @sapir_rahmany  caption(cache): ⸻ ארוחת בוקר חדשה בקונספט קצת אחר באחד המקומות הוותיקים והטובים בעיר הקונדיטורית טולי נווה (יוצאת בייקרי נומי) חברה לאחים ויחד נולד מקום שמחבר בין פטיסרי מושקע לבראנץ׳ איך זה עובד? בוחרים מהמגוון עם מגש ומשלמים בקופה – שירות עצמי אבל עם מלא מקומות ישיבה בפנים ובחוץ אין תפריט קבוע יש מאפים מלוחים ומתוקים, קינוחי פטיסרי, שקשוקה תרד, בייגלה מיוחדים, מלאווח בעבודת יד והרוגעלך הכי מדובר בת״א טווח מחירים קצת גבוה אבל אין תשלום על שירות וחומרי הגלם ברמה מאוד גבוהה לדוגמה: מאפה רוברב היביסקוס עם חמאה מותססת רולדת תות עם זוטא לבנה ותלתלי תות של המדגסקר שקשוקה מעלי חובזה ותרד ראשון עד שישי 08:00–12:00 האחים, אבן גבירול 26 📍 #ארוחתבוקר #תלאביב #בראנץ #בייקרי
    extraction(cache): cityHint=תל אביב  raw=[האחים]  dropped=none
    • "האחים" → AUTO-MATCH
-       query: text="האחים" cityHint=תל אביב cat=restaurant  regionsSearched=[tlv]  prefiltered=19
+       query: text="האחים" cityHint=תל אביב cat=restaurant  regionsSearched=[tlv]  prefiltered=20
        band=preselect  score=1.000  margin=0.196
        top1: האחים @ אבן גבירול 26, תל אביב - יפו  (32.072498, 34.781998)  cat=mediterranean_restaurant conf=1.00
        top3: האחים (1.000)  |  פלאפל האחים (0.804)  |  מסעדת האחים חירק (0.649)
@@ -166,19 +166,20 @@ are the right venue — i.e. the share the user never had to touch the picker fo
 ── https://vt.tiktok.com/ZSVph2Q9n/  [talked_about_restaurants]
    @sapir_magal  caption(cache): זאת אחת המסעדות האיטלקיות הכי ותיקות ומוכרות בתל אביב באווירה איטלקית קלאסית ועכשיו יש להם תפריט חדש ומפתיע! תכירו את מסעדת רוסטיקו 🍽️ במקום תמצאו תפריט מגוון הכולל ראשונות, פסטות, פיצות, דגים, פירות ים ובשרים והכל נעשה במקום מחומרי גלם טריים ואיכותיים! אופציה לצמחוני, טבעוני וללא גלוטן 🌱 יש גם בר אלכוהול שמציע מגוון יינות, בירות וקוקטיילים מעולים 🍹 יש גם האפי האוור של 20% הנחה על כל האלכוהול בין הימים א׳-ה׳ בין השעות 17:00-19:0 🍺 שעות פתיחה: 🕐 ב׳-שבת- 12:00-22:30 א׳- 18:00-22:30 כתובת: בזל 42, תל אביב 📍 ויש מסעדה נוספת ברוטשילד 15, תל אביב 📍 (יש חניון ממול)  מומלץ להזמין מקומות מראש דרך אונטופו 📲 יש משלוחים דרך וולט ותן ביס 🏍️ ויש אופציה לסגור אירועים בחדר אירועים (עד 24 מקומות) בקיצור תשלחו למישהו שחייב לקחת אתכם לשם 😜 בשיתוף רוסטיקו #ספירממליצה #פודטוק #מסעדהאיטלקית 
    extraction(cache): cityHint=תל אביב  raw=[מסעדת רוסטיקו | רוסטיקו]  dropped=none
-   • "מסעדת רוסטיקו" → MISS (unreachable_in_index)
-       query: text="מסעדת רוסטיקו" cityHint=תל אביב cat=restaurant  regionsSearched=[tlv]  prefiltered=289
+   • "מסעדת רוסטיקו" → MISS (ranking)
+       query: text="מסעדת רוסטיקו" cityHint=תל אביב cat=restaurant  regionsSearched=[tlv]  prefiltered=290
        band=confirm  score=0.893  margin=0.004
        top1: מסעדת 24 רופי @ Шокен 14, תל אביב - יפו  (32.052967, 34.771999)  cat=indian_restaurant conf=0.86
        top3: מסעדת 24 רופי (0.893)  |  מסעדת רוברס (0.890)  |  מסעדת טורטיה סאיד (0.882)
        expected: רוסטיקו — בזל 42 / רוטשילד 15, תל אביב
+       rank of the right row in the full prefilter: 290
        poi_index probe: Pizza Rustico פיצה רוסטיקו @ אלוף מגן קלמן 3, תל אביב - יפו ; Rustico @ בזל 42, תל אביב - יפו ; Rustico Rothschild @ Rothschild Boulevard 15, תל אביב - יפו
-       note: the row exists in poi_index but the prefilter can never return it from these tokens
+       note: the right row IS in the prefilter output, at rank 290
    • "רוסטיקו" → UNADJUDICATED
-       query: text="רוסטיקו" cityHint=תל אביב cat=restaurant  regionsSearched=[tlv]  prefiltered=2
-       band=no_match  score=0.699  margin=0.086
-       top1: רוסטר בכפר @ הראשונים 2, הרצליה  (32.168228, 34.842358)  cat=italian_restaurant conf=0.92
-       top3: רוסטר בכפר (0.699)  |  Pizza Rustico פיצה רוסטיקו (0.613)
+       query: text="רוסטיקו" cityHint=תל אביב cat=restaurant  regionsSearched=[tlv]  prefiltered=5
+       band=no_match  score=0.751  margin=0.052
+       top1: סושידו - Sushido @ שדרות רוטשילד 15, תל אביב - יפו  (32.063236, 34.770817)  cat=sushi_restaurant conf=0.51
+       top3: סושידו - Sushido (0.751)  |  רוסטר בכפר (0.699)  |  VONG וונג (0.688)
        note: no corpus expectation matched this candidate — rule from the top-3 below and add one
 
 ── https://vt.tiktok.com/ZSVphDRbd/  [desserts]
@@ -202,7 +203,7 @@ are the right venue — i.e. the share the user never had to touch the picker fo
    @nadavbornstein  caption(cache): בר השניצל הראשון בישראל  ‏📍Oscar’s נחלת בנימין 68 בנחלת בנימין ת״א נפתח בר שניצלים זה אומר שבתפריט יש רק שניצלים: תירס, עוף, סינטה ולבן לתוספות: פירה, פתיתים וצ׳יפס - ויש ריפיל חינם לפירה! (לא תמיד, כזה מתי שמתחשק פה) השף: טל רשבסקי (מי שמכונה ׳נוכל הפסטה׳) ורק פתחו אז סבלנות בתפריט  שניצל עוף 88  שניצל תירס 88  שניצל סינטה 108  שניצל לבן 108 * כל השניצלים מגיעים עם פירה, סלט עלים בויניגרט הדרים, ריבת שזיפים ואיולי. השניצל תירס מגיע עם רוטב קטשופ עגבניות מגי מונזל  תוספות  צ'יפס-פירה רג'יאנו 3 שנים 42  פתיתים עם חמאת מרווה ולימון 37  פירה 28  סלט מלפפונים מוחמצים עם שמיר וזרעי חרדל 18  סלט עלים בויניגרט הדרים 18 קינוח  עוגת גבינה קרמל מלוח 28
    extraction(cache): cityHint=ת״א  raw=[Oscar’s]  dropped=none
    • "Oscar’s" → MISS (unreachable_in_index)
-       query: text="Oscar’s" cityHint=ת״א cat=restaurant  regionsSearched=[tlv]  prefiltered=3
+       query: text="Oscar’s" cityHint=ת״א cat=restaurant  regionsSearched=[tlv]  prefiltered=4
        band=no_match  score=0.710  margin=0.181
        top1: Oscar Wilde Irish Pub | אוסקר ווילד @ Шахам 36, פתח תקווה  (32.085758, 34.858574)  cat=irish_pub conf=0.90
        top3: Oscar Wilde Irish Pub | אוסקר ווילד (0.710)  |  Oscar Wilde / ирландский паб (0.529)  |  אוסקר ווילד | Oscar Wilde (0.507)

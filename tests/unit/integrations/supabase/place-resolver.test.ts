@@ -106,6 +106,7 @@ interface FakeGateway extends PoiIndexGateway {
     regionIds: readonly string[];
     tokens: readonly string[];
     queryNorm: string;
+    addressHint: string | null;
     limit: number;
   }[];
 }
@@ -460,6 +461,69 @@ describe('overturePlaceResolver — caching', () => {
   });
 });
 
+describe('overturePlaceResolver — the address hint (0022, the third prefilter arm)', () => {
+  it('passes ResolveQuery.addressHint through verbatim, unparsed and unnormalised', async () => {
+    // The one property that matters here. `score.ts` parses the address and compares it against the
+    // `address_line` the same call returns; if this file normalised, split or trimmed it, there
+    // would be two parsers and `0022` §1's "precision is the scorer's job" would stop being true.
+    const gateway = fakeGateway([region({ id: 'tlv' })], [row({ name: 'Rustico' })]);
+    const { ctx } = ctxWith();
+
+    await overturePlaceResolver(gateway).resolve(
+      query({ text: 'מסעדת רוסטיקו', addressHint: 'בזל 42, תל אביב' }),
+      ctx,
+    );
+
+    expect(gateway.prefilterCalls[0]?.addressHint).toBe('בזל 42, תל אביב');
+  });
+
+  it('collapses an absent hint to null, so absent and null cannot diverge', async () => {
+    // `addressHint` is the one optional field on `ResolveQuery`. `rankPlaces` collapses it with
+    // `?? null`; this does the same, so the RPC argument and the cache key agree with the scorer.
+    const gateway = fakeGateway([region({ id: 'tlv' })], []);
+    const { ctx } = ctxWith();
+
+    await overturePlaceResolver(gateway).resolve(query({ text: 'HaKosem' }), ctx);
+    await overturePlaceResolver(gateway).resolve(
+      query({ text: 'HaKosem', addressHint: null }),
+      ctx,
+    );
+
+    expect(gateway.prefilterCalls.map((call) => call.addressHint)).toEqual([null, null]);
+  });
+
+  it('does not let two candidates with the same tokens share a cache entry across addresses', async () => {
+    // The defect this is here to prevent, and it is not hypothetical: two candidates in one caption
+    // very often share a name token and carry different addresses. Keyed on tokens alone, the
+    // second would silently be served the FIRST one's address arm — the wrong rows, from a cache,
+    // with nothing in the logs to show it.
+    const gateway = fakeGateway([region({ id: 'tlv' })], [row({ name: 'האחים' })]);
+    const resolver = overturePlaceResolver(gateway);
+    const { ctx } = ctxWith();
+
+    await resolver.resolve(query({ text: 'האחים', addressHint: 'אבן גבירול 26' }), ctx);
+    await resolver.resolve(query({ text: 'האחים', addressHint: 'לבונטין 19' }), ctx);
+    // ...and the same address really does still hit the cache, or the key would be useless.
+    await resolver.resolve(query({ text: 'האחים', addressHint: 'אבן גבירול 26' }), ctx);
+
+    expect(gateway.prefilterCalls.map((call) => call.addressHint)).toEqual([
+      'אבן גבירול 26',
+      'לבונטין 19',
+    ]);
+  });
+
+  it('keeps a null-address query out of an addressed query\'s cache entry', async () => {
+    const gateway = fakeGateway([region({ id: 'tlv' })], []);
+    const resolver = overturePlaceResolver(gateway);
+    const { ctx } = ctxWith();
+
+    await resolver.resolve(query({ text: 'WOW', addressHint: null }), ctx);
+    await resolver.resolve(query({ text: 'WOW', addressHint: 'בית אשל 15' }), ctx);
+
+    expect(gateway.prefilterCalls).toHaveLength(2);
+  });
+});
+
 describe('overturePlaceResolver — the error contract', () => {
   let ctx: OpCtx;
   beforeEach(() => {
@@ -601,12 +665,18 @@ describe('supabasePoiIndexGateway', () => {
     } as unknown as SupabaseClient;
   }
 
-  it('calls poi_prefilter with the four argument names migration 0021 declares', async () => {
+  it('calls poi_prefilter with the five argument names migration 0022 declares', async () => {
     const calls: RpcCall[] = [];
     const gateway = supabasePoiIndexGateway(stubClient([row({ name: 'Bellboy' })], calls));
 
     const out = await gateway.prefilter(
-      { regionIds: ['tlv'], tokens: ['belboy'], queryNorm: 'belboy tel aviv', limit: 500 },
+      {
+        regionIds: ['tlv'],
+        tokens: ['belboy'],
+        queryNorm: 'belboy tel aviv',
+        addressHint: null,
+        limit: 500,
+      },
       new AbortController().signal,
     );
 
@@ -615,6 +685,7 @@ describe('supabasePoiIndexGateway', () => {
     // Named exactly, not `toMatchObject`: a SURPLUS argument is a 404 from PostgREST, because it
     // resolves an RPC by its full named-argument set. Both directions have to be right.
     expect(Object.keys(calls[0]?.args ?? {}).sort()).toEqual([
+      'p_address_hint',
       'p_limit',
       'p_query_norm',
       'p_region_ids',
@@ -624,6 +695,7 @@ describe('supabasePoiIndexGateway', () => {
       p_region_ids: ['tlv'],
       p_tokens: ['belboy'],
       p_query_norm: 'belboy tel aviv',
+      p_address_hint: null,
       p_limit: 500,
     });
     expect(out).toHaveLength(1);
@@ -635,7 +707,7 @@ describe('supabasePoiIndexGateway', () => {
     const regionIds: readonly string[] = ['tlv', 'tyo'];
 
     await gateway.prefilter(
-      { regionIds, tokens: ['a'], queryNorm: 'a', limit: 1 },
+      { regionIds, tokens: ['a'], queryNorm: 'a', addressHint: null, limit: 1 },
       new AbortController().signal,
     );
 

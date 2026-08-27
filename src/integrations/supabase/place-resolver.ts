@@ -31,7 +31,7 @@ import 'server-only';
  * benchmark case TLV-12, `'Belboy tel aviv'`, returned **0 prefiltered rows** against an index that
  * holds `Bellboy`, because `belboy` cannot substring-match `bellboy`.
  *
- * `0021` adds `public.poi_prefilter(text[], text[], text, integer)` — both arms, region-scoped,
+ * `0021` adds `public.poi_prefilter` — both arms, region-scoped,
  * capped, ordered — and this adapter calls it. Three consequences worth knowing here:
  *
  *  - **The token → pattern rule moved into SQL.** This file sends `queryTokens()`'s output and the
@@ -48,6 +48,25 @@ import 'server-only';
  *    exclude the true match" in its worst form. The function orders by best per-token match before
  *    it truncates. That order is a RECALL order and nothing downstream reads it: `scoreCandidates`
  *    is still the only ranker.
+ *
+ * ## The third arm: the street address (`0022`)
+ *
+ * Neither name arm can reach a row whose name shares nothing with the caption. Measured on the 13
+ * real TikToks in `tests/manual/tiktok-recognition-corpus.json`: **6 of 9 misses were
+ * `unreachable_in_index`** — the row is there and no scoring change can see it. The canonical one
+ * is `קוהי`, which prefiltered **zero** rows while `Kohi Coffee Shop` sat in the index at
+ * `בן יהודה 155` — an address the extractor had already put in `addressHint`.
+ *
+ * `0022` adds an address arm, and this file's only job in it is to pass `ResolveQuery.addressHint`
+ * through **verbatim**. Not normalised, not parsed, not split: `score.ts` owns every decision about
+ * how an address is compared, and the SQL arm is deliberately imprecise (it will happily return
+ * `רוטשילד 150` for `רוטשילד 15`, which `addressScore`'s house-number branch then rejects
+ * outright). One parser, one answer.
+ *
+ * It is **recall only and can never be a filter** — 8 of 17 real candidates carry no address at
+ * all, so a null hint has to leave the result byte-identical. `0022`'s own post-condition proves
+ * that against a recomputation of `0021`'s two arms, for `null`, `''`, whitespace, punctuation and
+ * a bare house number.
  *
  * `10` §5's recall gate — *the eventual winner is inside the prefilter's output* — is exercised by
  * `tests/manual/tlv-resolve-benchmark.manual.ts` against the loaded `tlv` index, not here.
@@ -153,18 +172,23 @@ export interface PoiIndexGateway {
    *  absent one by construction — `poi_regions_loaded_is_complete`, migration 0010. */
   loadedRegions(signal: AbortSignal): Promise<readonly PoiRegionRow[]>;
   /**
-   * `10` §5's two-arm prefilter, via `public.poi_prefilter` (migration `0021`).
+   * `10` §5's prefilter, all three arms, via `public.poi_prefilter(text[], text[], text, text,
+   * integer)` (migrations `0021` and `0022`).
    *
-   * `tokens` is `queryTokens()`'s output verbatim — **not** patterns. Both arms are built from it
-   * on the SQL side, which is what keeps the substring arm, the trigram arm and `score.ts`'s
+   * `tokens` is `queryTokens()`'s output verbatim — **not** patterns. Both name arms are built from
+   * it on the SQL side, which is what keeps the substring arm, the trigram arm and `score.ts`'s
    * `tokenCoverage` asking one question rather than three. `queryNorm` is the normalised whole
-   * query and is used only to order the rows before the cap; nothing ranks on it.
+   * query and is used only to order the rows before the cap; nothing ranks on it. `addressHint` is
+   * the caption's address, raw, and drives the third arm (`0022`).
    */
   prefilter(
     input: {
       readonly regionIds: readonly string[];
       readonly tokens: readonly string[];
       readonly queryNorm: string;
+      /** `ResolveQuery.addressHint`, verbatim. `null` when the caption gave no address, which is
+       *  the majority case and must cost nothing — see the header. */
+      readonly addressHint: string | null;
       readonly limit: number;
     },
     signal: AbortSignal,
@@ -213,7 +237,7 @@ export function prefilterTokens(text: string): readonly string[] {
 
 const REGION_COLUMNS = 'id, country_code, norm_version, min_lat, max_lat, min_lng, max_lng';
 
-/** Migration `0021`. Named once so a rename shows up as one broken constant, not as an empty
+/** Migrations `0021`/`0022`. Named once so a rename shows up as one broken constant, not as an empty
  *  prefilter that looks like bad data. */
 const PREFILTER_RPC = 'poi_prefilter';
 
@@ -239,12 +263,13 @@ export function supabasePoiIndexGateway(service: SupabaseClient): PoiIndexGatewa
      * again by `inventory.sql` check 6): calling this with the anon key is a 42501 at the database,
      * not a policy decision made in this file.
      */
-    async prefilter({ regionIds, tokens, queryNorm, limit }, signal) {
+    async prefilter({ regionIds, tokens, queryNorm, addressHint, limit }, signal) {
       const { data, error } = await service
         .rpc(PREFILTER_RPC, {
           p_region_ids: [...regionIds],
           p_tokens: [...tokens],
           p_query_norm: queryNorm,
+          p_address_hint: addressHint,
           p_limit: limit,
         })
         .abortSignal(signal);
@@ -369,7 +394,16 @@ export function overturePlaceResolver(
         return scoreCandidates(query, [], regions);
       }
 
-      const rows = await prefilterRows(regions, tokens, normalise(query.text), ctx);
+      // `?? null` for the same reason `score.ts`'s `rankPlaces` does it: `addressHint` is optional
+      // on `ResolveQuery`, and absent and null mean the same thing. Collapsing them here means the
+      // cache key and the RPC argument cannot disagree about which one arrived.
+      const rows = await prefilterRows(
+        regions,
+        tokens,
+        normalise(query.text),
+        query.addressHint ?? null,
+        ctx,
+      );
       const candidates = rows.map(toResolvedPlace);
       const result = scoreCandidates(query, candidates, regions);
 
@@ -392,6 +426,7 @@ export function overturePlaceResolver(
     regions: readonly RegionId[],
     tokens: readonly string[],
     queryNorm: string,
+    addressHint: string | null,
     ctx: OpCtx,
   ): Promise<readonly PoiIndexRow[]> {
     // `\u0000` cannot appear in a region id (`^[a-z][a-z0-9_]{1,15}$`) or in a token built from
@@ -400,7 +435,13 @@ export function overturePlaceResolver(
     // queries with the same tokens differ in that order by at most which of >500 rows survive —
     // which, on this index, no benchmark case has ever reached. Keying on it would halve the hit
     // rate of the one cache that saves eight round trips per import for no observable gain.
-    const key = `${[...regions].sort().join(',')}\u0000${tokens.join('\u0000')}`;
+    //
+    // `addressHint` IS in the key, and that is not symmetry — it changes which ROWS come back, not
+    // their order (`0022`'s third arm). Two candidates in one caption very often share a name token
+    // and carry different addresses; without this they would share a cache entry and the second
+    // would silently get the first one's address arm. `\u0001` separates it from the tokens so an
+    // address cannot be forged to look like one.
+    const key = `${[...regions].sort().join(',')}\u0000${tokens.join('\u0000')}\u0001${addressHint ?? ''}`;
     const hit = rowCache.get(key);
     if (hit !== undefined && hit.expiresAt > now()) return hit.value;
     if (hit !== undefined) rowCache.delete(key);
@@ -408,7 +449,7 @@ export function overturePlaceResolver(
     let rows: readonly PoiIndexRow[];
     try {
       rows = await gateway.prefilter(
-        { regionIds: regions, tokens, queryNorm, limit: MAX_PREFILTER_ROWS },
+        { regionIds: regions, tokens, queryNorm, addressHint, limit: MAX_PREFILTER_ROWS },
         ctx.signal,
       );
     } catch (cause) {

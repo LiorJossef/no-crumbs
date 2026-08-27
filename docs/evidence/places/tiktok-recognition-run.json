@@ -1,6 +1,6 @@
 {
   "_comment": "Machine record of a tests/manual/tiktok-recognition.manual.ts run — real TikTok URLs through the real oEmbed → caption → extraction → resolve flow. Regenerated on every run; see tiktok-recognition.md for the human reading. Corpus: tests/manual/tiktok-recognition-corpus.json.",
-  "run_at": "2026-08-27T20:53:50.896Z",
+  "run_at": "2026-08-27T21:12:29.006Z",
   "supabase_url": "http://127.0.0.1:54321",
   "overture_release": "2026-07-22.0",
   "region": {
@@ -28,8 +28,8 @@
     "auto_match": 4,
     "adjudicated": 16,
     "auto_match_rate": 0.25,
-    "correct_not_auto_accepted": 2,
-    "wrong": 9,
+    "correct_not_auto_accepted": 3,
+    "wrong": 8,
     "extraction_misses": 1,
     "false_auto_accepts": 0,
     "unadjudicated": 2,
@@ -38,10 +38,10 @@
       "ok": 13
     },
     "failure_buckets": {
-      "unreachable_in_index": 6,
-      "ranking": 1,
+      "unreachable_in_index": 4,
+      "not_auto_accepted": 3,
+      "ranking": 2,
       "absent_from_index": 2,
-      "not_auto_accepted": 2,
       "extraction_miss": 1
     }
   },
@@ -209,20 +209,29 @@
           "regionsSearched": [
             "tlv"
           ],
-          "candidatesPrefiltered": 0,
+          "candidatesPrefiltered": 2,
           "band": "no_match",
-          "score": 0,
-          "margin": null,
-          "top1": null,
-          "top3": [],
-          "resolutionKind": "answered",
-          "verdict": "wrong",
-          "failure": "unreachable_in_index",
-          "acceptedRank": null,
-          "indexProbeHits": [
-            "Kohi Coffee Shop @ בן יהודה 155, תל אביב - יפו"
+          "score": 0.30363496,
+          "margin": 0.025218960000000012,
+          "top1": {
+            "name": "Kohi Coffee Shop",
+            "address": "בן יהודה 155",
+            "locality": "תל אביב - יפו",
+            "lat": 32.0882835388184,
+            "lng": 34.7733001708984,
+            "providerCategory": "coffee_shop",
+            "datasetConfidence": 0.295437
+          },
+          "top3": [
+            "Kohi Coffee Shop (0.304)",
+            "NIKO by Sharon Cohen (0.278)"
           ],
-          "note": "the row exists in poi_index but the prefilter can never return it from these tokens"
+          "resolutionKind": "answered",
+          "verdict": "correct_not_auto_accepted",
+          "failure": "not_auto_accepted",
+          "acceptedRank": 1,
+          "indexProbeHits": null,
+          "note": "top-1 is right, band no_match, margin 0.025"
         }
       ],
       "extractionMisses": []
@@ -262,7 +271,7 @@
           "regionsSearched": [
             "tlv"
           ],
-          "candidatesPrefiltered": 12,
+          "candidatesPrefiltered": 14,
           "band": "no_match",
           "score": 0.6969062411208863,
           "margin": 0.025666561120886278,
@@ -554,7 +563,7 @@
           "regionsSearched": [
             "tlv"
           ],
-          "candidatesPrefiltered": 19,
+          "candidatesPrefiltered": 20,
           "band": "preselect",
           "score": 0.9997399200000001,
           "margin": 0.19599760571428582,
@@ -617,7 +626,7 @@
           "regionsSearched": [
             "tlv"
           ],
-          "candidatesPrefiltered": 19,
+          "candidatesPrefiltered": 20,
           "band": "preselect",
           "score": 0.9997399200000001,
           "margin": 0.19599760571428582,
@@ -746,7 +755,7 @@
           "regionsSearched": [
             "tlv"
           ],
-          "candidatesPrefiltered": 289,
+          "candidatesPrefiltered": 290,
           "band": "confirm",
           "score": 0.8933490909090909,
           "margin": 0.003501450307587084,
@@ -766,14 +775,14 @@
           ],
           "resolutionKind": "answered",
           "verdict": "wrong",
-          "failure": "unreachable_in_index",
-          "acceptedRank": null,
+          "failure": "ranking",
+          "acceptedRank": 290,
           "indexProbeHits": [
             "Pizza Rustico פיצה רוסטיקו @ אלוף מגן קלמן 3, תל אביב - יפו",
             "Rustico @ בזל 42, תל אביב - יפו",
             "Rustico Rothschild @ Rothschild Boulevard 15, תל אביב - יפו"
           ],
-          "note": "the row exists in poi_index but the prefilter can never return it from these tokens"
+          "note": "the right row IS in the prefilter output, at rank 290"
         },
         {
           "rawName": "רוסטיקו",
@@ -788,22 +797,23 @@
           "regionsSearched": [
             "tlv"
           ],
-          "candidatesPrefiltered": 2,
+          "candidatesPrefiltered": 5,
           "band": "no_match",
-          "score": 0.6994092541353384,
-          "margin": 0.08595591040303463,
+          "score": 0.7514327200000002,
+          "margin": 0.05202346586466178,
           "top1": {
-            "name": "רוסטר בכפר",
-            "address": "הראשונים 2",
-            "locality": "הרצליה",
-            "lat": 32.1682281494141,
-            "lng": 34.842357635498,
-            "providerCategory": "italian_restaurant",
-            "datasetConfidence": 0.922345
+            "name": "סושידו - Sushido",
+            "address": "שדרות רוטשילד 15",
+            "locality": "תל אביב - יפו",
+            "lat": 32.0632362365723,
+            "lng": 34.7708168029785,
+            "providerCategory": "sushi_restaurant",
+            "datasetConfidence": 0.508909
           },
           "top3": [
+            "סושידו - Sushido (0.751)",
             "רוסטר בכפר (0.699)",
-            "Pizza Rustico פיצה רוסטיקו (0.613)"
+            "VONG וונג (0.688)"
           ],
           "resolutionKind": "answered",
           "verdict": "unadjudicated",
@@ -937,7 +947,7 @@
           "regionsSearched": [
             "tlv"
           ],
-          "candidatesPrefiltered": 3,
+          "candidatesPrefiltered": 4,
           "band": "no_match",
           "score": 0.7101988302325581,
           "margin": 0.18145892517761297,
