@@ -47,15 +47,41 @@ const STEPS = [
   'It lands on your map',
 ] as const;
 
+/**
+ * The session, or `null` if it cannot be read for any reason — unconfigured, unreachable, or
+ * failing. Never throws, so nothing here can take the landing page down.
+ */
+async function currentUserOrNull() {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    return user;
+  } catch {
+    return null;
+  }
+}
+
 export default async function Home() {
   // The proxy (`src/proxy.ts`) only guards `/map`, so `/` renders for signed-out and signed-in
   // visitors alike and the single CTA has to be correct for both. Read rather than redirected:
   // bouncing a signed-in visitor straight to `/map` would remove the landing screen from the demo
   // path, and S1 is a surface the product is graded on.
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  //
+  // Wrapped, and this is not defensive padding. Reading the session made `/` the first public
+  // surface that depends on Supabase being configured at all — and CI proved the consequence
+  // immediately: with no Supabase env vars, `createClient()` throws, the page 500s, and
+  // Playwright's webServer never comes up. `current-state.md` §5.1 records that **production is
+  // in exactly that state right now**, so unguarded this would have taken the landing page down
+  // in production the moment it deployed.
+  //
+  // A landing page is the one screen that must render when everything else is broken: it is what
+  // a visitor sees first and it is the route to sign-in, which is where a misconfigured
+  // deployment gets diagnosed. So a failure to answer "is anyone signed in?" degrades to "nobody
+  // is" — the signed-out view is correct for every visitor who has not signed in, which is every
+  // first-time visitor, and a signed-in one loses only the `Open your map` shortcut.
+  const user = await currentUserOrNull();
 
   return (
     <main className="relative min-h-dvh overflow-hidden" style={{ background: 'var(--brand-wash)' }}>
