@@ -71,6 +71,24 @@ import 'server-only';
  * `10` §5's recall gate — *the eventual winner is inside the prefilter's output* — is exercised by
  * `tests/manual/tlv-resolve-benchmark.manual.ts` against the loaded `tlv` index, not here.
  *
+ * ## Query forms: the same three arms, asked in both scripts (TLV-BILING-B)
+ *
+ * The address arm bought recall the ranking could not spend: it returns `Kohi Coffee Shop` for
+ * `קוהי` and the cross-script name then scores ~0, so the blend lands below a wrong-venue row that
+ * merely shares a script (`handoff-2026-08-28` §5). The fix is on the query side, not the weights.
+ *
+ * `ResolveQuery.textVariants` carries alternate-script forms of the same name, and this file's job
+ * is one line: the prefilter's token list is built from **every** form (`queryForms`), not just
+ * `text`. That needs no new migration and no second round trip — `poi_prefilter`'s two name arms
+ * are per-token disjunctions, so one call with the union of the forms' tokens returns exactly the
+ * union of the rows. `score.ts` then takes the best name score across the forms and records which
+ * one won.
+ *
+ * Two ceilings, both stated because they are the ones that bound the widening: at most
+ * `MAX_QUERY_VARIANTS` (3) variants are ever considered, and the twelve-token prefilter budget is
+ * shared round-robin across the forms rather than being multiplied by them. The number of database
+ * round trips per candidate is unchanged at one.
+ *
  * ## Errors
  *
  * `PlaceResolver` never throws for "no match" and never leaks a provider error. Both halves are
@@ -87,7 +105,7 @@ import { internal } from '@/domain/errors';
 import type { OpCtx, PlaceResolver } from '@/domain/ports';
 import { NORM_VERSION, normalise } from '@/domain/places/normalise';
 import { regionHintFor } from '@/domain/places/region-hint';
-import { queryTokens, scoreCandidates } from '@/domain/places/score';
+import { queryForms, queryTokens, scoreCandidates } from '@/domain/places/score';
 import type { RegionId, ResolveQuery, ResolveResult, ResolvedPlace } from '@/domain/types';
 
 /* ------------------------------------------------------------------------------------------- *
@@ -100,7 +118,8 @@ import type { RegionId, ResolveQuery, ResolveResult, ResolvedPlace } from '@/dom
 export const MAX_PREFILTER_ROWS = 500;
 
 /**
- * Most tokens either arm of the prefilter may ask about, longest first.
+ * Most tokens either name arm of the prefilter may ask about, longest first, **shared across the
+ * query forms**.
  *
  * Not in `10` §5, which assumed a caption-length candidate name. The original reason was PostgREST's
  * URL length; that reason is gone with the `or=(...)` filter, and the cap stays for a better one:
@@ -110,6 +129,13 @@ export const MAX_PREFILTER_ROWS = 500;
  * the most selective, and the count is logged when it bites so a real case can be seen rather than
  * guessed at. `0021` repeats the same cap and the same ordering server-side, so the two agree on
  * which twelve even if this file is bypassed.
+ *
+ * With `textVariants` in play the twelve are a shared budget and they are allocated **round-robin**
+ * across the forms rather than globally longest-first (TLV-BILING-B). Longest-first across a merged
+ * list would let one wordy form eat the whole budget and leave a variant with no token at all in
+ * the prefilter — which is the exact failure the variant exists to fix, reintroduced by a sort
+ * order. Round-robin guarantees every form at least `12 / forms` tokens, and with a single form it
+ * degenerates to the previous ordering exactly.
  */
 export const MAX_PREFILTER_TOKENS = 12;
 
@@ -224,11 +250,34 @@ export interface PoiIndexGateway {
  * short tokens here would mean the two sides of the prefilter no longer ask the same question,
  * which is the one property the recall gate depends on.
  */
-export function prefilterTokens(text: string): readonly string[] {
-  return [...queryTokens(text)]
-    .filter((token) => token !== '')
-    .sort((a, b) => b.length - a.length || (a < b ? -1 : a > b ? 1 : 0))
-    .slice(0, MAX_PREFILTER_TOKENS);
+export function prefilterTokens(
+  text: string,
+  textVariants: readonly string[] | null = null,
+): readonly string[] {
+  const perForm = queryForms(text, textVariants).map((form) =>
+    [...queryTokens(form)]
+      .filter((token) => token !== '')
+      .sort((a, b) => b.length - a.length || (a < b ? -1 : a > b ? 1 : 0)),
+  );
+
+  // Round-robin, longest-first within each form. With a single form this is exactly the old
+  // `sort().slice()` — same order, same twelve — which is why no existing assertion moves.
+  const tokens: string[] = [];
+  const seen = new Set<string>();
+  for (let rank = 0; tokens.length < MAX_PREFILTER_TOKENS; rank += 1) {
+    let anyLeft = false;
+    for (const form of perForm) {
+      const token = form[rank];
+      if (token === undefined) continue;
+      anyLeft = true;
+      if (seen.has(token)) continue;
+      seen.add(token);
+      tokens.push(token);
+      if (tokens.length >= MAX_PREFILTER_TOKENS) break;
+    }
+    if (!anyLeft) break;
+  }
+  return tokens;
 }
 
 /* ------------------------------------------------------------------------------------------- *
@@ -378,7 +427,12 @@ export function overturePlaceResolver(
       }
       // `unknown` searches nothing, on purpose — see `region-hint.ts`.
 
-      const tokens = prefilterTokens(query.text);
+      // The variants ride into the SAME call, not a second one. Both name arms of `poi_prefilter`
+      // are per-token disjunctions (arm 1 `name_norm like any(patterns)`, arm 2 a join on any
+      // token), so one call with the union of the forms' tokens returns exactly the union of the
+      // rows each form would have returned on its own — no extra round trip, no extra cache entry,
+      // and no migration. The address arm depends only on `p_address_hint`, so it is unaffected.
+      const tokens = prefilterTokens(query.text, query.textVariants ?? null);
 
       if (regions.length === 0 || tokens.length === 0) {
         ctx.log.event('poi.resolve', {
@@ -435,6 +489,10 @@ export function overturePlaceResolver(
     // queries with the same tokens differ in that order by at most which of >500 rows survive —
     // which, on this index, no benchmark case has ever reached. Keying on it would halve the hit
     // rate of the one cache that saves eight round trips per import for no observable gain.
+    //
+    // The variants need no separate key component: they enter only through `tokens`, which is
+    // already the whole of what the two name arms select on. Two queries whose forms produce the
+    // same token set genuinely do get the same rows.
     //
     // `addressHint` IS in the key, and that is not symmetry — it changes which ROWS come back, not
     // their order (`0022`'s third arm). Two candidates in one caption very often share a name token

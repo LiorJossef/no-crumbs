@@ -76,6 +76,7 @@ describe('ImportOutcome — partial success is a shape, not a separate kind (07 
             modelConfidence: 0.9,
             addressHint: null,
             identifiedName: null,
+            nameVariants: [],
             coordinates: null,
             areaHint: null,
             tags: [],

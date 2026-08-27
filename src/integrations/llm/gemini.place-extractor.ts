@@ -166,6 +166,21 @@ export function geminiPlaceExtractor(config: {
             generationConfig: {
               responseMimeType: 'application/json',
               responseSchema: geminiSchema,
+              // Every extraction was one sample from the model's default distribution, and it cost
+              // us a false diagnosis: three corpus captions returned zero candidates under `p8-s3`
+              // that had returned a candidate under `p7-s2`, which read exactly like a prompt
+              // regression. It was not. Re-running the *unchanged* `p8` prompt on those captions
+              // returned the candidate every time — the empty draws were dice, not the prompt.
+              //
+              // So this is a measurement floor before it is a quality setting. Without it we
+              // cannot tell a prompt change from a sampling artefact, which makes every prompt
+              // evaluation we run unreliable, and prompt evaluation is how recognition improves.
+              //
+              // It damps the variance rather than removing it: two runs pinned here still differed
+              // from each other. Do not read `temperature: 0` as "deterministic" — read it as
+              // "the same caption should usually give the same places", which is also what a user
+              // re-importing a link they already tried would expect.
+              temperature: 0,
             },
           }),
         });

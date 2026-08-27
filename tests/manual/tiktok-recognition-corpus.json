@@ -93,7 +93,7 @@
           "name": "מתחת לעץ",
           "area": "נתן אלתרמן 13 / לבונטין 13 / בן יהודה 202, תל אביב",
           "candidatePattern": "מתחת לעץ",
-          "namePattern": "מתחת לעץ",
+          "namePattern": "מתחת לעץ|under the tree",
           "indexProbe": [
             "מתחת לעץ",
             "mitachat",
@@ -226,7 +226,7 @@
           "area": "איינשטיין 69, תל אביב",
           "candidatePattern": "טרטוריה אונה",
           "namePattern": "טרטוריה אונה|trattoria una",
-          "addressPattern": "איינשטיין",
+          "addressPattern": "אי?ינשטיין",
           "indexProbe": [
             "טרטוריה אונה",
             "trattoria una"

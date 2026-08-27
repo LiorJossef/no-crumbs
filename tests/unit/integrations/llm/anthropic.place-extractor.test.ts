@@ -42,6 +42,7 @@ describe('anthropicPlaceExtractor', () => {
             evidence: 'Cafe Fiori was unreal',
             modelConfidence: 0.85,
             identifiedName: null,
+            nameVariants: [],
             areaHint: null,
             tags: [],
             dishes: [],
@@ -69,6 +70,7 @@ describe('anthropicPlaceExtractor', () => {
         evidence: 'Cafe Fiori was unreal',
         modelConfidence: 0.85,
         identifiedName: null,
+        nameVariants: [],
         areaHint: null,
         tags: [],
         dishes: [],
@@ -107,6 +109,7 @@ describe('anthropicPlaceExtractor', () => {
             evidence: 'a quote that never appears',
             modelConfidence: 0.4,
             identifiedName: null,
+            nameVariants: [],
             areaHint: null,
             tags: [],
             dishes: [],
@@ -166,6 +169,6 @@ describe('anthropicPlaceExtractor', () => {
   it('carries a stable version and the current prompt version', () => {
     const extractor = anthropicPlaceExtractor({ apiKey: 'test-key' });
     expect(extractor.version).toBe('2026-08-anthropic-haiku-4-5');
-    expect(extractor.promptVersion).toBe('p7-s2');
+    expect(extractor.promptVersion).toBe('p8-s3');
   });
 });

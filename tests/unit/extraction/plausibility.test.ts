@@ -13,6 +13,7 @@ function candidate(overrides: Partial<PlaceCandidate>): PlaceCandidate {
     modelConfidence: null,
     addressHint: null,
     identifiedName: null,
+    nameVariants: [],
     coordinates: null,
     areaHint: null,
     tags: [],

@@ -21,6 +21,7 @@ const base: PlaceCandidate = {
   modelConfidence: 0.95,
   addressHint: 'Market Row, Brixton',
   identifiedName: 'La Nonna Brixton',
+  nameVariants: [],
   coordinates: { lat: 51.4619, lng: -0.1145 },
   areaHint: null,
   tags: [],
