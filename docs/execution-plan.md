@@ -39,7 +39,7 @@ Pure TypeScript. No network, no database, no React.
 | T2 | `canonicalise-tiktok-url.ts` — pure, table-driven, and the SSRF boundary | The whole table in `04` §2 passes, including `tiktok.com.evil.io` and `nottiktok.com` failing **closed**; and a non-TikTok URL is classified as *recognised platform* vs *not a link we read*, which is what the manual-add redirect in `brand-and-product-foundation.md` §1 needs |
 | T3 | `runImport(ports, input, ctx)` against fake ports | The full event sequence is emitted in order; all 14 codes are reachable in tests; the `MAX_CANDIDATES = 7` budget is enforced; partial success is a first-class result |
 
-### L0-F2 — Local resolve seam · `maps-geospatial` · depends: — · cut: never
+### L0-F2 — Local resolve seam · `maps-geospatial` · depends: — · cut: never · **PAUSED 2026-08-22**
 Was MS5 task 7. **Paused 2026-08-22 — see `06` §3.4.** Not started; superseded for the current
 build increment by AI-based resolution (a new, not-yet-numbered task under `L0-F4`/adjacent — the
 LLM `PlaceExtractor` identifies the likely real venue and the app links out to a Google Maps
@@ -51,7 +51,7 @@ already named as its own future task, or sooner if AI-based resolution proves to
 | T1 | The server-side query: region scope + `pg_trgm` prefilter → candidate rows | A TLV candidate string returns rows; the query plan is **measured** on the real 4 997-row extract and recorded, since `0010`'s plan flipped between `Seq Scan` and `BitmapOr` on identical data |
 | T2 | Wire the query to the ported scorer and assert the benchmark through the index | Tel Aviv's 8/14 reproduced *through the index*; the `score` column asserted on the **57 of 71** replayable rows; the other 14 accounted for by name; TLV-13's promoted `Sabich Frishman` reported rather than absorbed |
 
-### L0-F3 — Global resolver (D2b) · `maps-geospatial` + `security-privacy` · depends: F2 · cut: never
+### L0-F3 — Global resolver (D2b) · `maps-geospatial` + `security-privacy` · depends: F2 · cut: never · **PAUSED 2026-08-22**
 The feature that makes the MVP global. Carries the only gate outside its owner's control.
 **Paused 2026-08-22, same reason as F2 — see `06` §3.4.**
 
@@ -140,7 +140,7 @@ real link and see real candidates come back."
 | T3 | Supabase Auth email + password; S1 minimal landing, S2 sign-in; authenticated visitors redirected server-side | A second browser profile cannot see the first user's rows, proven by attempt, not by assertion |
 | T4 | The `(map)` route group: one map instance in a module-scope singleton + the `sessionStorage` camera mirror | `/map` → `/place/[id]` → back → `/import` → back leaves `getCenter()`/`getZoom()` unchanged |
 
-### L1-F2 — Import: paste and the rail · `ux-interaction` + `design-system-frontend` · depends: F1, L0-F6 · cut: rail motion = 5
+### L1-F2 — Import: paste and the rail · spec `ux-interaction` / build `design-system-frontend` · depends: F1, L0-F6 · cut: rail motion = 5
 
 | Task | What | Exit criterion |
 |---|---|---|
@@ -148,7 +148,7 @@ real link and see real candidates come back."
 | T2 | The three-stage rail consuming real `ImportEvent`s, reassurance ladder cut to **two** messages | Each stage advances on a genuine event, never on a timer; the copy matches the deck; `prefers-reduced-motion` honoured |
 | T3 | Refresh-safety, cancel and timeout | A mid-import refresh resumes from `GET /api/imports/[id]`; cancel leaves no partial write the user can see |
 
-### L1-F3 — Review and confirm · `ux-interaction` · depends: F2 · cut: never
+### L1-F3 — Review and confirm · spec `ux-interaction` / build `design-system-frontend` · depends: F2 · cut: never
 
 | Task | What | Exit criterion |
 |---|---|---|
@@ -156,7 +156,7 @@ real link and see real candidates come back."
 | T2 | The four interactions of `ux-architecture` §4.2 — accept, choose an alternative, reject, and correct | Nothing is saved without an explicit human confirm; a rejected candidate cannot be resurrected by a refresh |
 | T3 | `confirmImport` wired, including partial success | The right rows are saved; 2-of-3 resolution is a success screen, not an error; a re-import of the same post adds no duplicate |
 
-### L1-F4 — No-places and the recoveries · `ux-interaction` · depends: F3, F7 · cut: never
+### L1-F4 — No-places and the recoveries · spec `ux-interaction` / build `design-system-frontend` · depends: F3, F7 · cut: never
 Depends on F7 because manual add **is** its main recovery. This is the modal outcome (~73%), not an edge.
 
 | Task | What | Exit criterion |
@@ -216,7 +216,7 @@ The course's CRUD evidence **and** F4's recovery. One feature, two jobs.
 does not exist. It either waits behind the resolver or ships against one source with the boundary
 stated — an owner call, not a silent one.
 
-### L1-F8 — Account popover and first run · `ux-interaction` · depends: F1 · cut: —
+### L1-F8 — Account popover and first run · spec `ux-interaction` / build `design-system-frontend` · depends: F1 · cut: —
 
 | Task | What | Exit criterion |
 |---|---|---|
@@ -228,7 +228,7 @@ The schedule's pressure point: the mandatory permission tests sit behind every U
 | Task | What | Exit criterion |
 |---|---|---|
 | T1 | `test-specification.md` (course M6) | Covers core features, invalid inputs, central processes, permissions, database, edge cases, basic UI |
-| T2 | Unit tier: canonicalisation, scoring, dedup, confidence | The existing 136 tests still green, plus the new seams; no test asserts a number the code derives from the same constant |
+| T2 | **Verification of** the unit tier: canonicalisation, scoring, dedup, confidence. The feature agents author these tests; `qa-reliability` verifies coverage and adversarially re-checks them (roster, 2026-08-27) | The existing 136 tests still green, plus the new seams; no test asserts a number the code derives from the same constant |
 | T3 | **RLS policy tests** — mandatory, not optional (`03` gap 2) | A cross-user read **fails**, and that failing test is the evidence artefact for M6/M7 |
 | T4 | Playwright: the golden path, double-paste idempotency, camera stability | The golden path passes against a **deployment**, not only locally |
 

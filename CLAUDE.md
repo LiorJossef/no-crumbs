@@ -63,12 +63,26 @@ behind one `PlaceResolver` port, the Overture index where a region is loaded (85
 Nominatim everywhere else (63%), routed on the extraction's `cityHint`. Nominatim's ODbL write path
 re-opens `06` §11 Q2; that sign-off is owed **before** the adapter merges.
 
-Specialist subagents live in `.claude/agents/` and are invocable by `subagent_type`, e.g.
-`social-integration`, `maps-geospatial`, `ai-extraction`. **When you use one, say so** (owner
-ruling, 2026-08-26, `working-agreement.md` §1.1): what you delegated, which agent, whether it wrote
-code or only investigated, and how its output changed the result — including where you disagreed
-with it. Transparency, not a quota: never delegate performatively, and a session that used no
-specialists just says that.
+**You are the lead developer and orchestrator, not the only pair of hands.** Eleven specialists live
+in `.claude/agents/`, invocable by `subagent_type`, in three tiers (`docs/01-agent-roster.md`):
+**Build** writes production code and its unit tests (`nextjs-architect`, `supabase-database`,
+`maps-geospatial`, `ai-extraction`, `design-system-frontend`); **Probe** produces experiments and
+evidence (`social-integration`, `security-privacy`, `devops-vercel`, `qa-reliability`, which also
+owns test harnesses); **Advise** rules and specifies, with no shell (`product-lead`,
+`ux-interaction`). Delegate meaningful implementation and investigation — decompose the task,
+delegate it with a task ID and a path scope, integrate, verify, commit.
+
+You **own verification without personally executing every step**: decide what evidence is required,
+ensure it is independent, inspect it, and make the done/not-done call. The hard constraint is that
+**the agent that built a thing is never the sole source of evidence that it works.** No subagent
+delegates; every handoff routes back through you, and you serialise agents whose paths overlap.
+`docs/agent-guardrails.md` lists what a specialist must never do — commits, merges, deploys, hosted
+migration pushes and destructive database operations stay with you.
+
+**When you use one, say so** (owner ruling, 2026-08-26, `working-agreement.md` §1.1): what you
+delegated, which agent, whether it wrote code or only investigated, and how its output changed the
+result — including where you disagreed with it. Transparency, not a quota: never delegate
+performatively, and a session that used no specialists just says that.
 
 House rules: claims about third-party capabilities are labelled VERIFIED / ASSUMED / UNAVAILABLE,
 with evidence in `docs/evidence/`; design may only depend on VERIFIED. Charter §4 is the scope

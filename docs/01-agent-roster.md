@@ -1,25 +1,58 @@
 # Expert Agent Roster
 
 Eleven specialists, each defined as a real invocable subagent in
-[`.claude/agents/`](../.claude/agents/) so the next phase can call them by name. Every agent loads
-[`00-project-charter.md`](00-project-charter.md) and
-[`02-risks-and-unknowns.md`](02-risks-and-unknowns.md) as shared context.
+[`.claude/agents/`](../.claude/agents/), callable by `subagent_type`.
 
-| # | Agent | `subagent_type` | Owns (single-sentence mandate) |
-|---|-------|-----------------|-------------------------------|
-| 1 | Product Lead | `product-lead` | Scope, the V1 contract, acceptance criteria, and tie-breaking on priority |
-| 2 | UX / Interaction Designer | `ux-interaction` | Information architecture, mobile interaction, motion concept, accessibility |
-| 3 | Design System / Frontend | `design-system-frontend` | Tokens, component architecture, animation implementation, frontend performance |
-| 4 | Next.js / TypeScript Architect | `nextjs-architect` | App structure, server/client boundaries, data flow, types, error handling |
-| 5 | Supabase / Database Engineer | `supabase-database` | Schema, migrations, indexes, RLS, query design, data integrity |
-| 6 | Maps / Geospatial Engineer | `maps-geospatial` | Provider evaluation, map UX mechanics, clustering, geolocation, POI resolution |
-| 7 | AI / Extraction Engineer | `ai-extraction` | Extraction schema, prompts, provider abstraction, confidence, evals |
-| 8 | Social Platform Integration | `social-integration` | What each platform *actually* permits, verified by experiment |
-| 9 | Security / Privacy Engineer | `security-privacy` | Auth boundaries, RLS review, secrets, abuse, untrusted input, location privacy |
-| 10 | QA / Reliability Engineer | `qa-reliability` | Test strategy, edge cases, failure behaviour, acceptance verification |
-| 11 | DevOps / Vercel Engineer | `devops-vercel` | Environments, deploys, env vars, migrations, observability, production readiness |
+**Restructured 2026-08-27 into three tiers.** Until then every definition was written in an
+advisory voice — 45 advisory verbs against 9 implementation verbs across the eleven files, and the
+word "implement" appearing only as a noun or as a pointer to another agent. That made the roster a
+review panel. It is now a delivery team with an orchestrator.
 
-Orchestration (this session) owns synthesis, conflict resolution, and the decision log.
+| Tier | What it produces | `Bash` |
+|---|---|---|
+| **Build** | Production code, plus the unit tests for it | yes |
+| **Probe** | Experiments, evidence, findings; throwaway scripts only | yes |
+| **Advise** | Rulings, specs, review; `docs/**` only | no |
+
+| # | Agent | `subagent_type` | Tier | Owns (single-sentence mandate) |
+|---|-------|-----------------|------|-------------------------------|
+| 1 | Product Lead | `product-lead` | Advise | Scope, the V1 contract, acceptance criteria, and tie-breaking on priority |
+| 2 | UX / Interaction Designer | `ux-interaction` | Advise | Information architecture, mobile interaction, motion concept, accessibility |
+| 3 | Design System / Frontend | `design-system-frontend` | Build | Tokens, components, motion, responsive — **the single build owner of production UI** |
+| 4 | Next.js / TypeScript Architect | `nextjs-architect` | Build | App structure, server/client boundaries, data flow, types, error handling |
+| 5 | Supabase / Database Engineer | `supabase-database` | Build | Schema, migrations, indexes, RLS, query design, data integrity |
+| 6 | Maps / Geospatial Engineer | `maps-geospatial` | Build | Map mechanics, clustering, camera, geolocation; the resolver *decision* |
+| 7 | AI / Extraction Engineer | `ai-extraction` | Build | Extraction schema, prompts, provider abstraction, confidence, evals |
+| 8 | Social Platform Integration | `social-integration` | Probe | What each platform *actually* permits, verified by experiment |
+| 9 | Security / Privacy Engineer | `security-privacy` | Probe | Auth boundaries, RLS review, secrets, abuse, untrusted input, location privacy |
+| 10 | QA / Reliability Engineer | `qa-reliability` | Probe | Independent verification, regression hunting, harnesses and test infrastructure |
+| 11 | DevOps / Vercel Engineer | `devops-vercel` | Probe | Environments, deploy diagnosis, env vars, observability, production readiness |
+
+Every agent loads [`current-state.md`](current-state.md),
+[`working-agreement.md`](working-agreement.md) §2 and §7, and its own rows in
+[`execution-plan.md`](execution-plan.md). Build and Probe agents are additionally bound by
+[`agent-guardrails.md`](agent-guardrails.md). `00-project-charter.md` and
+`02-risks-and-unknowns.md` are consult-as-needed rather than always-loaded — they are founding
+documents, and `current-state.md` carries more decision-relevant signal per token today.
+
+## The orchestrator
+
+The main session is the **lead developer**, not a router. It owns the overall context, decomposes
+work into tasks, delegates meaningful implementation and investigation to the specialists,
+integrates what comes back, verifies it, and commits.
+
+It **owns verification without personally executing every step.** It decides what evidence a task
+requires, ensures that evidence is independent, inspects it, and makes the done / not-done call.
+Producing the evidence is delegable — `qa-reliability` driving a harness is exactly that. The one
+hard constraint is independence: **the agent that built a thing is never the sole source of evidence
+that it works.** A self-report is input, not proof.
+
+It also holds every action a specialist must not take: commits, PRs, merges, deploys, hosted
+migration pushes, and destructive database operations. See
+[`agent-guardrails.md`](agent-guardrails.md).
+
+**No subagent delegates.** Every handoff routes back through the orchestrator, which serialises
+agents whose file scopes overlap.
 
 ## Ownership in detail
 
@@ -98,17 +131,28 @@ Defines what "production ready" means for this project and confirms it before la
 
 ## How the agents work together
 
-Proposals move through a fixed challenge path so that no single perspective ships unopposed:
+Work moves through the orchestrator at every hop — no subagent calls another. The challenge path
+below is a *sequence the orchestrator runs*, not a chain the agents walk themselves:
 
 ```
-UX proposes an interaction
-   → Frontend judges feasibility and frame cost
-   → Geospatial judges whether the map provider supports it efficiently
-   → Architect judges where the logic lives and what it costs in complexity
-   → Security judges data exposure and privacy
-   → Product decides whether it belongs in V1 at all
-   → QA defines how it will be verified
+orchestrator picks the task from execution-plan.md (task ID + path scope)
+   → ux-interaction specs the surface                        [Advise]
+   → design-system-frontend builds it, with its unit tests    [Build]
+   → orchestrator integrates and decides what evidence is needed
+   → qa-reliability verifies it independently                 [Probe]
+   → security-privacy reviews any data path or migration diff [Probe, veto]
+   → orchestrator rules done / not-done, then commits
+   → PR → CI green → npm run merge:pr → verify main and the deployment
 ```
+
+The branch belongs to the **feature**, not the delegation: one feature branch, many delegated
+subtasks committing onto it, exactly as `git-workflow.md` already describes. Delegation adds no new
+git ceremony.
+
+Agents whose path scopes overlap are **serialised, not parallelised** — `maps-geospatial` and
+`design-system-frontend` both touch `src/components/map/**`, so they never run concurrently. At
+L0's one-feature-at-a-time scale this is the whole collision story; worktree isolation is a
+solution to a throughput problem this project does not yet have.
 
 Rules: claims about third parties need evidence; disagreements end in a recorded decision, not a
 compromise that keeps both designs; the Product Lead breaks scope ties, the Architect breaks
