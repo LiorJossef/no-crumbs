@@ -67,6 +67,25 @@
 
 ## 0. What this session did
 
+### 0.0 The overnight session, 2026-08-28 — five PRs, all merged
+
+Read `handoff-2026-08-28-overnight.md` for the full account. In landing order:
+
+| PR | what |
+|---|---|
+| #44 | `perf(ci)` — stopped pulling two Supabase images CI never boots, dropped the `stop` step. The `migrations` job went **2m52s → 1m40s**. |
+| #45 | `feat(recognition)` — bilingual query expansion. **Real-TikTok auto-match 4/16 (25%) → ~43%**, zero false auto-accepts. Three production bugs fixed on the way. |
+| #46 | `feat(import)` — three real TikToks a first-time user can tap, and the no-places screen stopped promising a manual-add that does not exist. |
+| #47 | `feat(landing)` — `/` was still the MS2 deploy placeholder with two paragraphs rendering at contrast ratio **1.00** (invisible). Also made saved places actually visible on the map, and selection finally changes the pin. |
+| #48 | `feat(map)` — tag chips filter the library. Camera provably still: pixel diff 0.00%. |
+
+**The headline for a reader in a hurry:** recognition went from finding one venue in four to finding
+closer to one in two, and the product's first screen stopped being a build artefact.
+
+**What is in flight and not yet landed:** the map-list rebuild of §0.1c — the owner's own request,
+and the largest outstanding product item.
+
+
 ### 0.1 Shipped: the map is the query (`L1-F5-T2`)
 
 The camera opens on **one cluster** instead of fitting all of them; the sheet and the desktop panel
@@ -213,7 +232,11 @@ Still open, carried in §9.2: the grounding line, export, the TikTok data export
 
 ### 0.3 Left undone, deliberately
 
-- **Tag chips are still inert labels.** Only the search half of "make the chips do what they look
+- ~~**Tag chips are still inert labels.**~~ **DONE 2026-08-28** (PR #48): a chip in a place's
+  detail is now the library's filter. Row chips are deliberately still labels — 20px tall inside
+  the row's own 64px target, so every near-miss does the wrong one of two things; giving the chip
+  line its own 44px row is list-density work (L1-F1-T2). Original note kept below for context.
+- Only the search half of "make the chips do what they look
   like they do" is built. Making a chip pressable is the remaining half.
 - **The empty-library screen exists but the import overlay does not auto-open over it**
   (`ux-map-is-the-query.md` §5 item 2). Untested at 0 and 1 saved places — §9.3 asks for those
@@ -702,7 +725,7 @@ third party.
 
 **Step 1 shipped on 2026-08-27 — see §0.1.** It is kept below because its acceptance criteria (§9.3)
 are only *partly* discharged: the 0-place and 1-place library shapes were never exercised, and tag
-chips are still inert. Steps 2 and 3 are re-ordered by the owner's rulings in §0.2 — near-me (step 3)
+chips **were** inert and are now pressable (PR #48, 2026-08-28). Steps 2 and 3 are re-ordered by the owner's rulings in §0.2 — near-me (step 3)
 is now `L1-F11` in L1, and manual add (step 2) is in scope but deliberately not started until it can
 be a real place-search experience.
 
@@ -725,7 +748,7 @@ the rethink; and the pressable tag chip. Production is still down and still owne
      control wired to nothing, which is why it reads as decoration. This is also the correct
      substrate for near-me later: near-me becomes "set the viewport to where I am", not a second
      retrieval system.
-   - **Make the chips do what they look like they do.** They are built and inert, and
+   - ~~**Make the chips do what they look like they do.**~~ **DONE 2026-08-28, PR #48.** They were built and inert, and
      `filterPlaces` covers name, category, locality and note but **not tags and not dishes** — so
      "natural wine", "hidden gem", "late night" and "momos" are extracted, rendered, and
      unfindable. mio's reviewers volunteer type-filtering as *the* retrieval feature.
