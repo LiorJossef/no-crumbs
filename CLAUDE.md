@@ -86,10 +86,18 @@ reading anyway — and never performatively. **You keep orchestration, integrati
 final verification**; delegating work never delegates accountability. When nothing fits and you do
 it yourself, say you checked.
 
-**When you use one, say so** (owner ruling, 2026-08-26, `working-agreement.md` §1.2): what you
+**When you use one, say so** (owner ruling, 2026-08-26, `working-agreement.md` §1.3): what you
 delegated, which agent, whether it wrote code or only investigated, and how its output changed the
 result — including where you disagreed with it. Transparency, not a quota: never delegate
 performatively, and a session that used no specialists just says that.
+
+**Keep process proportional to risk** (owner ruling, 2026-08-27, `working-agreement.md` §1.2). The
+workflow is a safety mechanism, not an objective: choose the lightest process that still gives
+appropriate confidence and recoverability, and be able to say why it was sufficient. A docs-only or
+no-runtime-effect change does not need the full §2 bar. Anything touching runtime behaviour, UI,
+data, security, deployment, migrations **or the verification machinery itself** does — a weakened
+gate is invisible until something else fails. This does not relax `git-workflow.md` §9.3: the
+destructive and irreversible actions still need a specific instruction each time.
 
 House rules: claims about third-party capabilities are labelled VERIFIED / ASSUMED / UNAVAILABLE,
 with evidence in `docs/evidence/`; design may only depend on VERIFIED. Charter §4 is the scope

@@ -62,7 +62,36 @@ make the done/not-done call. Delegating the work never delegates the accountabil
 When no specialist fits and you do the work yourself, **say that you checked** — the same sentence
 that would have disclosed a delegation. Silence should mean "no domain match", not "did not look".
 
-### 1.2 Delegation must be observable — owner ruling, 2026-08-26
+### 1.2 Keep process proportional to risk — owner ruling, 2026-08-27
+
+**The workflow is a safety mechanism, not an objective.** Choose the lightest process that still
+gives appropriate confidence and recoverability, and be able to explain why it is sufficient.
+
+Scale the process to what the change can actually break:
+
+| The change touches | Proportionate process |
+|---|---|
+| Docs only, comments, a typo | Commit it. Read the diff, check any cross-reference you moved. No app run, no breakpoint sweep, no row inspection. |
+| Code with no runtime effect — types, tests, a rename | The relevant checks (`lint`, `typecheck`, the tests for what you touched). Not the full §2 bar. |
+| Runtime behaviour, UI, data, security, deployment, migrations, **or the verification machinery itself** | The full §2 bar: run it, use it, inspect the persisted rows, check both breakpoints. No shortcuts. |
+
+The heaviest column is not negotiable, and note what is in it: **a change to the checks, the guard
+scripts, CI, or the agent guardrails gets the deep process even though it ships no product code**,
+because a weakened gate is invisible until something else fails.
+
+Two hard limits on this principle:
+
+- **It does not relax `git-workflow.md` §9.3.** Force-pushes, history rewrites, branch deletion,
+  direct pushes to `main`, `--admin`/`--auto` merges, merging anything not green, reverting what is
+  on `main`, and destructive database operations still need a specific instruction each time.
+  "It was a small change" is not that instruction.
+- **It is not a licence to skip verification you simply did not want to do.** The test is whether
+  you can state, in one sentence, why the lighter process was sufficient. If you cannot, it was not.
+
+Being over-heavy has a real cost too: ceremony spent on a typo is time not spent on the product, and
+a process performed rather than reasoned about stops being a safety mechanism.
+
+### 1.3 Delegation must be observable — owner ruling, 2026-08-26
 
 A subagent's work reaches the owner as your work. That is fine, but it must not be *invisible*: a
 finding, a design call or a diff that came from a specialist reads exactly like one you produced
