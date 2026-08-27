@@ -85,9 +85,12 @@
  * `docs/evidence/.local/tiktok-recognition-cache/` on first sight and reused afterwards, so a
  * re-run of a 30-URL corpus costs **zero** LLM calls and zero network. The directory is gitignored
  * (`docs/evidence/.local/`) because it holds third-party caption text, which is working material
- * rather than a project artefact. The extraction cache stores the model's raw output **before**
- * `filterPlausible`, so the plausibility gate and everything downstream of it can be re-measured
- * for free.
+ * rather than a project artefact. The extraction cache was documented as storing the model's raw output **before**
+ * `filterPlausible` — **this is wrong, and it cost real time.** The Gemini adapter calls
+ * `postProcessCandidates` *inside* `extract()`, so what lands in this cache is already
+ * post-filter. The plausibility gate cannot be re-measured from it, and "did the model decline,
+ * or did our own filter drop it?" is unanswerable from a cache entry — you have to spend a live
+ * call to find out, which is exactly what happened on 2026-08-28.
  *
  * Set `RECOGNITION_REFRESH=1` to bypass the cache. **That spends one LLM call per corpus case** —
  * do it deliberately, after a prompt or model change, never as a habit.
