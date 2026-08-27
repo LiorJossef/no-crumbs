@@ -27,31 +27,66 @@ library: `9 places in Tel Aviv-Yafo`, all nine rows in library order, `Elsewhere
 **Not verified by hand:** the pan-across-boundary switch, and mobile at 375×812. The browser pane
 went unresponsive before I reached them. The rules are unit-tested; the *gesture* is not.
 
-## What did NOT happen — the map visual overhaul
+## OUTSTANDING — the map experience. This is the live task, not a footnote.
 
-This was the larger half of the request and I did not start it. The session window ran out
-finishing the branch. What I learned while reading the code, so the next session starts warm:
+**Not started.** The session window ran out finishing the branch above. The brief below is the
+owner's, recorded so it survives the handoff intact and does not get quietly re-scoped.
+
+### The brief, as given (2026-08-28)
+
+> "I want you to improve the map experience significantly. Right now I don't like how it looks or
+> feels: the basemap/pins feel generic, the clusters aren't working for me, and it's hard to
+> understand at a glance whether a place is a café, restaurant, bakery, bar, etc. I want the map to
+> feel polished, visual, intuitive and fun — like a product people in their 20s would actually want
+> to use."
+
+Three named complaints, all still true of `main`:
+
+1. **The basemap and pins feel generic.**
+2. **The clusters aren't working.**
+3. **You cannot tell a café from a restaurant from a bakery from a bar at a glance.**
+
+The instruction on how to approach it, also verbatim:
+
+> "First see how much better you can make the current MapLibre/mapcn experience. Don't assume
+> today's implementation is the limit. You have freedom to rethink markers, clusters, categories,
+> icons/emoji, labels, interactions, styling, etc. I'm intentionally not prescribing the solution."
+
+> "Keep Google Maps in mind if you discover the current foundation is materially holding the
+> product back. Don't build both or migrate just because Google is familiar — but don't let sunk
+> cost stop you either. Optimize for the best product."
+
+**Google Maps remains a live option.** D2 (MapLibre + CARTO) is not to be treated as settled if the
+foundation turns out to be the thing limiting the product. There is a `vis.gl/react-google-maps`
+demo surface already sitting in `git stash@{2}` from an earlier session.
+
+### What I learned reading the code, so the next session starts warm
 
 - **Pins carry no category signal at all.** Every saved place is an identical mint circle
   (`src/components/map/pin-paint.ts`). `MapPlace.category` is already `ExtractedCategoryHint`
-  (`restaurant | cafe | bar | bakery | attraction | shop | other`) and is already carried to the
-  surface and written into the GeoJSON feature properties — **the data is there and simply is not
-  rendered.** Café vs. bar vs. bakery is unreadable on the map today.
-- **The blocker is mapcn's `MapClusterLayer`.** It exposes only `clusterColors` /
-  `clusterThresholds` / `pointColor`; it takes no icon, no marker slot, no radius prop. The
-  existing `applyPinPaint` already reaches past it with `setPaintProperty` after mount. The honest
-  next step is to **stop using `MapClusterLayer` and add our own MapLibre source + layers**
-  (`addSource` with `cluster: true`, a `symbol` layer with `icon-image: ['get','category']`). That
-  is not a fork and not a migration — it is ~150 lines against the MapLibre API we already depend
-  on, and it unlocks per-category icons, real cluster design and label collision.
-- **Icons: draw them, don't font them.** MapLibre glyph fonts do not carry colour emoji, so
+  (`restaurant | cafe | bar | bakery | attraction | shop | other`), already carried to the surface,
+  and already written into the GeoJSON feature properties — **the data is there and simply is not
+  rendered.** Complaint 3 is a rendering gap, not a data gap.
+- **The blocker is mapcn's `MapClusterLayer`, not MapLibre.** It exposes only `clusterColors` /
+  `clusterThresholds` / `pointColor`; no icon, no marker slot, no radius prop. `applyPinPaint`
+  already reaches past it with `setPaintProperty` after mount, which is a workaround, not a fix.
+  The honest next step is to **stop using `MapClusterLayer` and add our own MapLibre source and
+  layers** (`addSource` with `cluster: true`, a `symbol` layer with `icon-image: ['get','category']`).
+  That is not a fork and not a migration — roughly 150 lines against an API we already depend on —
+  and it unlocks per-category icons, real cluster design and label collision in one move.
+- **Icons: draw them, don't font them.** MapLibre glyph fonts carry no colour emoji, so
   `text-field: '☕'` will not work. Render each category's marker once into a `<canvas>` and
   `map.addImage()` it — ~7 categories × 2 states (normal, selected) = 14 images, cheap and fully
-  controllable (teardrop, white ring, category tint, emoji or glyph inside).
-- **I did not evaluate Google Maps.** On what I read, the current foundation is *not* what is
-  holding the product back — the limitation is one wrapper component, not MapLibre. I would spend
-  the next session on custom layers before considering a provider change. That is a read, not a
-  measurement.
+  controllable (teardrop shape, white ring, category tint, emoji or drawn glyph inside).
+- **On Google Maps, I have a read and not a measurement.** From the code alone, the limitation
+  looks like one wrapper component rather than MapLibre itself, so I would spend the next session
+  on custom layers first and re-ask the question with something real to compare. That is explicitly
+  a provisional read — it should not be quoted back as a decision, and it does not close the option.
+- **Untouched by this session:** the basemap itself (complaint 1). CARTO Positron was chosen to
+  keep the map quiet so the mint pins are the only colour; the owner now calls the result generic.
+  Positron vs. Voyager vs. a custom style vs. Google is an open question, and the previous rejection
+  of Voyager ("cartoon POI glyphs, reads as a generic consumer maps app") was made under a brand
+  brief that predates "fun, for people in their 20s".
 
 ## Needs your decision
 
