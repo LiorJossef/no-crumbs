@@ -14,6 +14,10 @@ function candidate(overrides: Partial<PlaceCandidate>): PlaceCandidate {
     addressHint: null,
     identifiedName: null,
     coordinates: null,
+    areaHint: null,
+    tags: [],
+    dishes: [],
+    whyGo: null,
     ...overrides,
   };
 }

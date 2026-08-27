@@ -466,7 +466,25 @@ begin
   ), expected(n, role) as (values
     ('save_place','authenticated'),      -- the user-facing write, SECURITY INVOKER
     ('km_between','authenticated'),      -- the near-me query runs as the user
-    ('apply_saved_place_source_link','authenticated')
+    ('apply_saved_place_source_link','authenticated'),
+    -- 0019's four normalisers. Pure, IMMUTABLE, SECURITY INVOKER, no table access — the same class
+    -- as km_between, and they are on this list for a MEASURED reason rather than a cautious one: a
+    -- CHECK constraint's function call IS permission-checked against the writing role (an insert
+    -- without the grant fails 42501 `permission denied for function`), and Postgres re-evaluates
+    -- every check constraint of a row on UPDATE. Without these four grants, a user editing the
+    -- `note` on a saved place that happens to carry tags would have the edit refused — a silent
+    -- break of L1-F7-T3. The trigger function `normalize_saved_place_enrichment` is deliberately
+    -- NOT here: a trigger function is not permission-checked when the trigger fires (also measured),
+    -- so granting it would be reachable surface with no purpose.
+    ('normalize_tag','authenticated'),
+    ('normalize_tag_list','authenticated'),
+    ('normalize_sentence','authenticated'),
+    ('tag_list_within','authenticated')
+    -- apply_saved_place_extraction (0019) is NOT here, and that is the whole point of it: it is the
+    -- only writer of saved_places.tags / why_go / dishes, and it is granted to service_role alone.
+    -- Those three columns carry no column grant either, so check 5 above proves the other half —
+    -- a browser cannot write a place fact into them at all. That pair of absences is what keeps
+    -- 0015/0017's `extracted_reason` hole (recorded in check 5) from being repeated three more times.
     -- SECURITY DEFINER (0016), called by save_place and safe to expose directly: it only ever
     -- writes source_url/source_thumbnail_url derived from a (saved_place, source) pair that its own
     -- WHERE clause requires the caller to already own via saved_place_sources, and only fills a
@@ -487,7 +505,7 @@ begin
       left join actual a on a.n = e.n and a.role = e.role where a.n is null
   ) d;
   if v is not null then raise exception 'FAIL 6: function grant drift: %', v; end if;
-  raise notice 'PASS 6  only save_place, km_between and apply_saved_place_source_link are reachable by a browser role; anon has nothing';
+  raise notice 'PASS 6  only save_place, km_between, apply_saved_place_source_link and 0019''s four pure normalisers are reachable by a browser role; apply_saved_place_extraction is service_role only; anon has nothing';
 end $$;
 
 -- ── 6b. no function in `public` is overloaded, and resolve_place's argument list is the designed one ──

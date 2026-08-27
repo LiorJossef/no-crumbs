@@ -31,17 +31,23 @@ export const EXTRACTION_JSON_SCHEMA = {
           'rawName',
           'cityHint',
           'countryHint',
+          'areaHint',
           'categoryHint',
           'addressHint',
           'evidence',
           'modelConfidence',
           'identifiedName',
+          'tags',
+          'dishes',
+          'whyGo',
           'coordinates',
         ],
         properties: {
           rawName: { type: 'string', minLength: 2, maxLength: 120 },
           cityHint: { type: ['string', 'null'], maxLength: 80 },
           countryHint: { type: ['string', 'null'], maxLength: 80 },
+          /** v2: the neighbourhood/market/building, so it stops being written into the name. */
+          areaHint: { type: ['string', 'null'], maxLength: 80 },
           categoryHint: {
             type: ['string', 'null'],
             enum: ['restaurant', 'cafe', 'bar', 'bakery', 'attraction', 'shop', 'other', null],
@@ -53,6 +59,34 @@ export const EXTRACTION_JSON_SCHEMA = {
           modelConfidence: { type: ['number', 'null'], minimum: 0, maximum: 1 },
           /** `06` §3.4: the model's own best real-world identification, inference allowed. */
           identifiedName: { type: ['string', 'null'], minLength: 2, maxLength: 120 },
+          /**
+           * v2: free-form library labels. Open vocabulary by design — canonicalised, capped and
+           * de-duplicated in `domain/extraction/tags.ts`, not constrained to a list here.
+           *
+           * `maxItems: 5` is a **measured Gemini limit, not a product choice.** Bisected against
+           * the live `gemini-3.5-flash-lite` `responseSchema` validator on 2026-08-27: this exact
+           * schema with `tags.maxItems` at 5 is accepted (HTTP 200) and at 8 or 10 is rejected
+           * (HTTP 400 `INVALID_ARGUMENT`, with no field named in the response body). Renaming the
+           * property changed nothing, and removing `minLength`/`maxLength` changed nothing, so it
+           * is the nested array's own item cap. The root `candidates` array's `maxItems: 12` is
+           * unaffected — the limit only bites on arrays nested inside it. `dishes` sits at 5 for
+           * the same reason. Re-measure before raising either.
+           */
+          tags: { type: 'array', maxItems: 5, items: { type: 'string', minLength: 2, maxLength: 28 } },
+          /** v2: named dishes/drinks the caption itself names. Verbatim-class — `grounding.ts`
+           *  drops any item that is not findable in the caption. */
+          dishes: { type: 'array', maxItems: 5, items: { type: 'string', minLength: 2, maxLength: 60 } },
+          /** v2: the model's own sentence, plus the verbatim caption fragment licensing it. Null
+           *  whenever the caption says nothing beyond the name — see `schema.ts`'s `WhyGoSchema`. */
+          whyGo: {
+            type: ['object', 'null'],
+            additionalProperties: false,
+            required: ['text', 'groundedIn'],
+            properties: {
+              text: { type: 'string', minLength: 8, maxLength: 200 },
+              groundedIn: { type: 'string', minLength: 3, maxLength: 240 },
+            },
+          },
           /** The model's own best-guess coordinates, inference allowed, null when no real basis. */
           coordinates: {
             type: ['object', 'null'],

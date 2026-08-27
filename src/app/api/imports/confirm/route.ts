@@ -25,7 +25,25 @@
  *
  * Candidates are re-parsed out of `jsonb` with the same Zod schema the adapter validated the model
  * against (`07` §"Validation", boundary 3: never trusted twice, parsed twice). A row written by an
- * older prompt version is data like any other and gets no special standing.
+ * older prompt version is data like any other and gets no special standing — see
+ * `domain/import/stored-candidates.ts`, which reads both schema versions and reports which it
+ * found rather than flattening them.
+ *
+ * ## The three columns migration `0019` added
+ *
+ * `saved_places.tags`, `.why_go` and `.dishes` are written here too, and they are **place facts by
+ * the same definition as `lat`**: they come out of the stored extraction, derived by
+ * `domain/import/saved-place-enrichment.ts`, and there is no field of the request through which a
+ * client could reach them. That invariant is not merely observed — it is enforced one layer down,
+ * because those columns carry no `INSERT` or `UPDATE` grant for `authenticated` and their sole
+ * writer runs as `service_role`.
+ *
+ * That writer takes the row's owner as an *argument* (it has no `auth.uid()` to read), so this
+ * route is where its security property actually lives. See `confirmOne`'s `userId` parameter.
+ *
+ * The enrichment write happens **after** the save and can never fail it (`place-store.ts`), and
+ * each item reports what became of it — `applied`, `empty`, `unavailable_v1` or `failed` — rather
+ * than letting "no tags" mean four different things.
  */
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -35,28 +53,30 @@ import { serviceRoleClient } from '@/integrations/supabase/service-role-client';
 import { supabasePlaceStore } from '@/integrations/supabase/place-store';
 import { ConfirmImportRequestSchema, type ConfirmItem } from '@/domain/import/confirm';
 import { derivePlaceSave } from '@/domain/import/candidate-place';
-import { RawPlaceCandidateSchema } from '@/domain/extraction/schema';
-import { toPlaceCandidate } from '@/domain/extraction/schema';
+import { deriveSavedPlaceEnrichment } from '@/domain/import/saved-place-enrichment';
+import { parseStoredCandidates, type StoredCandidate } from '@/domain/import/stored-candidates';
 import { DomainError, internal, notAuthenticated, type DomainErrorView } from '@/domain/errors';
 import type { OpCtx } from '@/domain/ports';
-import type { PlaceCandidate } from '@/domain/types';
-import { z } from 'zod';
 
-function noopCtx(signal: AbortSignal): OpCtx {
+/**
+ * A real logger, not the no-op this route used to build.
+ *
+ * The enrichment write is the first thing on this path that can fail **without failing the
+ * request** (`integrations/supabase/place-store.ts`), and a non-fatal failure nobody can see is
+ * just a bug with better manners. One structured line, `07` §7.1's shape, on stderr — codes and
+ * ids only, never a tag, a caption or a coordinate.
+ */
+function routeCtx(signal: AbortSignal): OpCtx {
   return {
     signal,
     importId: null,
-    log: { event: () => {} },
+    log: {
+      event: (name, fields) => {
+        console.warn(JSON.stringify({ event: name, ...fields }));
+      },
+    },
   };
 }
-
-/**
- * `extractions.candidates` holds `PlaceCandidate[]`, which is field-for-field
- * `RawPlaceCandidateSchema` now that the category is no longer narrowed on the way in
- * (`domain/extraction/schema.ts`). Reusing that schema is deliberate: a second, parallel schema
- * for "the same shape, read back" is the thing that drifts.
- */
-const StoredCandidatesSchema = z.array(RawPlaceCandidateSchema);
 
 /**
  * One item's result. `already_saved` is reported separately from `saved` because the two are
@@ -70,19 +90,58 @@ type ItemResult =
       readonly placeId: string;
       readonly savedPlaceId: string;
       readonly name: string;
+      readonly enrichment: EnrichmentOutcome;
     }
   | { readonly status: 'skipped'; readonly candidateIndex: number; readonly reason: 'no_coordinates' }
   | { readonly status: 'failed'; readonly candidateIndex: number; readonly error: DomainErrorView };
 
+/**
+ * What became of `saved_places.tags` / `why_go` / `dishes` for one save. Four states, and the
+ * reason there are four rather than a boolean is that three of them are *not* failures and the UI
+ * must not be forced to guess which:
+ *
+ *  - `applied` — the writer ran. (Not "the columns now hold these values": it is first-writer-wins
+ *    per column, so on a place already saved with enrichment it changed nothing.)
+ *  - `empty` — a schema-v2 extraction whose caption supported no tags, no dishes and no reason.
+ *    A real, measured answer. The writer was not called, because a call with three nulls is a
+ *    no-op update.
+ *  - `unavailable_v1` — the stored extraction predates schema v2, so there is no enrichment to
+ *    write and none was ever computed. Distinct from `empty` on purpose: reporting "we looked and
+ *    found nothing" for "we could not look" is exactly the uncertainty-into-certainty move the
+ *    working agreement forbids, and it would make a stale extraction id indistinguishable from a
+ *    bare caption.
+ *  - `failed` — the writer errored. **The place is still saved**; this is the only state where
+ *    something went wrong, and it went wrong after the save it does not invalidate.
+ *
+ * Additive on the wire: `import-page-client.tsx` reads `status`/`candidateIndex`/`savedPlaceId`
+ * and ignores the rest, so nothing in the UI has to change to keep working.
+ */
+type EnrichmentOutcome = 'applied' | 'empty' | 'unavailable_v1' | 'failed';
+
 async function confirmOne(
   store: ReturnType<typeof supabasePlaceStore>,
   item: ConfirmItem,
-  candidates: readonly PlaceCandidate[],
+  candidates: readonly StoredCandidate[],
   sourceId: string,
+  /**
+   * **The authenticated session's user id, and nothing else may ever be passed here.**
+   *
+   * It reaches `apply_saved_place_extraction(p_user_id)`, which runs as `service_role` and
+   * therefore has no `auth.uid()` to read and no RLS policy filtering it — its
+   * `where sp.user_id = p_user_id` is the *only* thing standing between this call and writing model
+   * output onto a stranger's saved place, and that clause is only as good as this argument.
+   *
+   * So: this value comes from `supabase.auth.getUser()` in `POST` below — a server-side, verified
+   * session lookup — never from the request body, never from the extraction row, never from a
+   * `saved_places` read. The same rule binds `savedPlaceId` inside the store adapter: it is
+   * `save_place`'s own return value from this same request, never a client-supplied id. Break
+   * either and anyone who learns a victim's `saved_place_id` can write to their row.
+   */
+  userId: string,
   ctx: OpCtx,
 ): Promise<ItemResult> {
-  const candidate = candidates[item.candidateIndex];
-  if (candidate === undefined) {
+  const stored = candidates[item.candidateIndex];
+  if (stored === undefined) {
     return {
       status: 'failed',
       candidateIndex: item.candidateIndex,
@@ -90,6 +149,7 @@ async function confirmOne(
     };
   }
 
+  const { candidate, schemaVersion } = stored;
   const derived = derivePlaceSave(candidate);
   if (derived.kind === 'skipped') {
     // The model could not place this venue. Saying so is the whole point — a city-centre or
@@ -99,8 +159,13 @@ async function confirmOne(
 
   const { place } = derived;
 
+  // Derived from the server's own copy of the extraction, exactly like every fact in `place` above.
+  // There is no field of the request that can reach these columns — the browser sends an index and
+  // a note. A v1 extraction has no enrichment to derive and none is invented for it.
+  const enrichment = schemaVersion === 1 ? null : deriveSavedPlaceEnrichment(candidate);
+
   try {
-    const { placeId, savedPlaceId, alreadySaved } = await store.confirmPlace(
+    const { placeId, savedPlaceId, alreadySaved, enrichmentApplied } = await store.confirmPlace(
       {
         place: {
           provider: place.provider,
@@ -124,7 +189,7 @@ async function confirmOne(
         countryCode: place.countryCode,
         resolutionScore: place.resolutionScore,
       },
-      { sourceId, note: item.note, extractedReason: place.extractedReason },
+      { sourceId, note: item.note, extractedReason: place.extractedReason, userId, enrichment },
       ctx,
     );
 
@@ -134,11 +199,25 @@ async function confirmOne(
       placeId,
       savedPlaceId,
       name: place.name,
+      enrichment: enrichmentOutcome(schemaVersion, enrichment !== null, enrichmentApplied),
     };
   } catch (e) {
     const domainError = e instanceof DomainError ? e : internal(String(e), e);
     return { status: 'failed', candidateIndex: item.candidateIndex, error: domainError.toView() };
   }
+}
+
+/** The four states, from the three facts that determine them. A separate function so the mapping
+ *  is testable without a database and cannot be re-derived slightly differently at a second call
+ *  site. */
+function enrichmentOutcome(
+  schemaVersion: StoredCandidate['schemaVersion'],
+  hadEnrichment: boolean,
+  applied: boolean,
+): EnrichmentOutcome {
+  if (schemaVersion === 1) return 'unavailable_v1';
+  if (!hadEnrichment) return 'empty';
+  return applied ? 'applied' : 'failed';
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -167,7 +246,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const { extractionId, items } = parsed.data;
-  const ctx = noopCtx(req.signal);
+  const ctx = routeCtx(req.signal);
   const service = serviceRoleClient();
 
   // Read the extraction with the service-role client (RLS on `extractions` grants `authenticated`
@@ -212,20 +291,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
   if (ownImport === null) return forbidden;
 
-  const candidatesParsed = StoredCandidatesSchema.safeParse(extraction.candidates ?? []);
-  if (!candidatesParsed.success) {
+  // Version-aware on purpose: `PROMPT_VERSION` moved to `p7-s2` and there are pre-v2 rows in this
+  // table, which this route can still be handed by id (see `import/stored-candidates.ts`). A strict
+  // v2-only parse would answer 500 for every one of them and lose the user's whole batch.
+  const candidatesParsed = parseStoredCandidates(extraction.candidates);
+  if (candidatesParsed.kind === 'invalid') {
     return NextResponse.json(
-      { error: internal('stored extraction candidates failed validation', candidatesParsed.error).toView() },
+      { error: internal('stored extraction candidates failed validation', candidatesParsed.cause).toView() },
       { status: 500 },
     );
   }
-  const candidates = candidatesParsed.data.map(toPlaceCandidate);
+  const candidates = candidatesParsed.candidates;
 
   const store = supabasePlaceStore(service, supabase);
 
   const results: ItemResult[] = [];
   for (const item of items) {
-    results.push(await confirmOne(store, item, candidates, extraction.source_id as string, ctx));
+    results.push(
+      await confirmOne(store, item, candidates, extraction.source_id as string, user.id, ctx),
+    );
   }
 
   // Close the import out. Only once nothing is left pending review: a partial confirmation (some

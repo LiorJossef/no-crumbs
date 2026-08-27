@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import type { OpCtx } from '@/domain/ports';
+import type { PlaceCandidate } from '@/domain/types';
+import { EXTRACTION_JSON_SCHEMA } from '@/integrations/llm/json-schema';
 import { geminiPlaceExtractor, geminiExtractorVersion } from '@/integrations/llm/gemini.place-extractor';
 
 function ctx(events: { name: string; fields: Record<string, unknown> }[] = []): OpCtx {
@@ -47,6 +49,10 @@ describe('geminiPlaceExtractor', () => {
             evidence: 'Cafe Fiori was great',
             modelConfidence: null,
             identifiedName: null,
+            areaHint: null,
+            tags: [],
+            dishes: [],
+            whyGo: null,
             coordinates: null,
           },
         ],
@@ -69,6 +75,71 @@ describe('geminiPlaceExtractor', () => {
     const body = JSON.parse(capturedInit?.body as string);
     expect(body.generationConfig.responseMimeType).toBe('application/json');
     expect(body.generationConfig.responseSchema).toBeDefined();
+  });
+
+  it('caps the candidates array at the measured Gemini schema limit', () => {
+    // Not a product decision. The endpoint answers `400 INVALID_ARGUMENT` with no detail when it
+    // considers the schema too large, and with the v2 thirteen-property item it does so at
+    // `maxItems` 9 and above (bisected live, 2026-08-27; see the adapter's `GEMINI_MAX_CANDIDATES`
+    // comment). This assertion is the reminder to re-measure rather than nudge the number.
+    let capturedInit: RequestInit | undefined;
+    const fetchImpl = async (_url: string, init?: RequestInit) => {
+      capturedInit = init;
+      return generateContentResponse({ candidates: [], cityHint: null });
+    };
+    const extractor = geminiPlaceExtractor({ apiKey: 'test-key', fetchImpl: fetchImpl as unknown as typeof fetch });
+    return extractor
+      .extract([{ kind: 'caption', text: 'nothing here', origin: 'tiktok-oembed-title' }], ctx())
+      .then(() => {
+        const body = JSON.parse(capturedInit?.body as string);
+        expect(body.generationConfig.responseSchema.properties.candidates.maxItems).toBe(8);
+        // The shared schema is untouched — the cap is applied at call time, for this vendor only.
+        expect(EXTRACTION_JSON_SCHEMA.properties.candidates.maxItems).toBe(12);
+      });
+  });
+
+  it('carries the v2 enrichment fields through to the caller', async () => {
+    const fetchImpl = async () =>
+      generateContentResponse({
+        candidates: [
+          {
+            rawName: 'La Nonna',
+            cityHint: 'London',
+            countryHint: null,
+            areaHint: 'Market Row, Brixton',
+            categoryHint: 'restaurant',
+            addressHint: null,
+            evidence: 'La Nonna in Market Row, Brixton',
+            modelConfidence: 0.9,
+            identifiedName: 'La Nonna',
+            tags: ['italian', 'Italian', 'restaurant'],
+            dishes: ['artisan pasta', 'a twelve-course tasting menu'],
+            whyGo: { text: 'Artisan pasta in a Brixton market hall.', groundedIn: 'delicious artisan pasta' },
+            coordinates: null,
+          },
+        ],
+        cityHint: 'London',
+      });
+    const extractor = geminiPlaceExtractor({ apiKey: 'test-key', fetchImpl: fetchImpl as typeof fetch });
+
+    const result = await extractor.extract(
+      [
+        {
+          kind: 'caption',
+          text: 'La Nonna in Market Row, Brixton for delicious artisan pasta',
+          origin: 'tiktok-oembed-title',
+        },
+      ],
+      ctx(),
+    );
+
+    const candidate = result.candidates[0] as unknown as PlaceCandidate;
+    expect(candidate.areaHint).toBe('Market Row, Brixton');
+    // Canonicalised and de-duplicated on the way through, and the category echo dropped.
+    expect(candidate.tags).toEqual(['italian']);
+    // The dish the caption does not name is gone; the one it names survives.
+    expect(candidate.dishes).toEqual(['artisan pasta']);
+    expect(candidate.whyGo?.text).toBe('Artisan pasta in a Brixton market hall.');
   });
 
   it('returns zero candidates cleanly for a caption naming no place', async () => {

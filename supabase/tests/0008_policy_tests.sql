@@ -66,6 +66,17 @@
 --                           staleness gate, and serialisation. Every one of these paths was
 --                           uncovered before; merge_places had no test of any kind, which is why
 --                           MS4 shipped a resolver that could hand save_place a tombstone.
+--   P25                     migration 0019: the enrichment columns (tags / why_go / dishes).
+--                           P25a is the one that matters — it is the assertion that 0015/0017's
+--                           `extracted_reason` grant hole (current-state.md §3.4) was not
+--                           reopened for three more system-derived columns. Unlike the older
+--                           sections, P25 names its rows by id and counts nothing, so it runs
+--                           against a database that already has data in it.
+--                           P25a-vi/vii were split apart on 2026-08-27 after an independent
+--                           sabotage pass (RICH-EXT-SEC) found the single combined assertion
+--                           reporting PASS with the EXECUTE grant it names actually applied. The
+--                           reasoning is at the assertion; the short version is that a policy test
+--                           which cannot fail is worse than no policy test.
 --   P19c, P19d              migration 0013: the tombstone exemption reaching the OTHER alias
 --                           trigger (0005's INSERT-side places_alias_required), which 0011 missed.
 --                           Numbered topically, next to P19's exemption test, not chronologically.
@@ -1361,6 +1372,305 @@ begin
 
   raise notice 'PASS P24 provenance: written on insert, never written by an alias-only match, coalesced on refresh, filled but not re-written on enrichment';
 end $$;
+
+-- ── P25: 0019's enrichment columns — tags / why_go / dishes ──────────────────────────────────
+-- WHY THIS SECTION EXISTS, and why it is written the way it is. `current-state.md` §3.4 records a
+-- measured hole: `saved_places.extracted_reason` was designed to be system-derived, 0015 kept it out
+-- of the INSERT grant to make that true, and 0017 had to grant it back because `save_place` is
+-- SECURITY INVOKER — so an authenticated client can POST a forged reason straight to
+-- `/saved_places`. 0019 adds three more system-derived columns. The assertions below are the proof
+-- that the same hole was NOT reopened for them: `authenticated` holds no INSERT and no UPDATE on any
+-- of the three, and the only writer is a service_role function.
+--
+-- (`extracted_reason`'s own INSERT grant is deliberately NOT asserted here in either direction. It
+-- is a known defect awaiting its own review, and a test that pinned it as correct would make fixing
+-- it look like a regression. `inventory.sql` check 5 carries the measurement instead.)
+--
+-- SCOPED TO ITS OWN FIXTURE ROWS, deliberately. This file's older sections count whole tables and
+-- therefore cannot run against a database with data in it (see the LIMIT note in the header). These
+-- assertions name rows by id and never count a table, so they do not make that worse.
+reset role;
+
+-- CONSTRAINT TIMING, and it is load-bearing rather than ceremonial. Per the P10 header, the mode is
+-- transaction-wide and each block declares what it needs; P24 ends with `all immediate`, so without
+-- this line the fixture's very first resolve_place aborts the whole suite. Not a policy failure and
+-- not a defect in resolve_place: step 3 inserts the `places` row and its `place_provider_refs` alias
+-- as two consecutive statements, which is legal precisely because `places_alias_required` is
+-- DEFERRABLE INITIALLY DEFERRED and the pair is atomic at COMMIT. Under IMMEDIATE the check fires
+-- between them and reports `has no provider ref` against a row that is one statement away from
+-- having one. Measured in CI on 2026-08-27 (run 33077424041): `ERROR: place ... has no provider ref
+-- (identity invariant, 08 §1.6)`, raised from assert_place_has_alias() through resolve_place line
+-- 155. The fixture's own invariants are then discharged at `all immediate` below, so deferring here
+-- buys the fixture nothing it has not proved.
+set constraints all deferred;
+
+insert into auth.users (id, email)
+values ('33333333-3333-3333-3333-333333333333', 'c@example.test');
+
+select public.resolve_place('overture', 'ovt-p25-tagged', 'Tagged Fixture Cafe',
+                            32.0600, 34.7700, 'cafe', 'cafe',
+                            '1 Test St', 'Tel Aviv-Yafo', 'Tel Aviv', 'IL', '{}'::jsonb,
+                            'overture-places', 'ovt-p25-tagged', 0.9) as p25_place \gset
+
+-- TWO MORE PLACES, SAVED BY NOBODY, for P25a-iv/v alone. Aimed at `p25_place`, those two INSERTs
+-- are refused by `saved_places_user_place_unique` before the column grant is ever consulted — so
+-- with the INSERT grant widened they abort on a duplicate key instead of raising their own FAIL.
+-- The suite still goes red, but for a reason that names the wrong thing, and "fails by luck" is
+-- only fine until the luck changes (found by security-privacy under RICH-EXT-SEC, 2026-08-27,
+-- by granting insert (tags, why_go, dishes) inside a rolled-back transaction and watching the
+-- diagnostic). Deliberately far from the tagged fixture and differently named, so `resolve_place`'s
+-- near-duplicate guard treats them as three distinct venues rather than merging them. `origin` is
+-- 'manual' in both inserts, which `assert_saved_place_provenance` returns early on, so under a
+-- widened grant these genuinely succeed and the designed FAIL is what fires.
+select public.resolve_place('overture', 'ovt-p25-unsaved-a', 'Unsaved Fixture Alpha',
+                            31.7683, 35.2137, 'cafe', 'cafe',
+                            '2 Test St', 'Jerusalem', 'Jerusalem', 'IL', '{}'::jsonb,
+                            'overture-places', 'ovt-p25-unsaved-a', 0.9) as p25_place2 \gset
+select public.resolve_place('overture', 'ovt-p25-unsaved-b', 'Unsaved Fixture Beta',
+                            32.7940, 34.9896, 'cafe', 'cafe',
+                            '3 Test St', 'Haifa', 'Haifa', 'IL', '{}'::jsonb,
+                            'overture-places', 'ovt-p25-unsaved-b', 0.9) as p25_place3 \gset
+
+select set_config('request.jwt.claims',
+                  '{"sub":"33333333-3333-3333-3333-333333333333","role":"authenticated"}', true);
+set local role authenticated;
+select public.save_place(:'p25_place', null, 'C''s note') as p25_saved \gset
+reset role;
+-- Stands in for COMMIT: the three places, their aliases and C's saved row must be a legal state
+-- before a single grant assertion runs, so that a later FAIL names a grant and never a fixture that
+-- was quietly invalid. Every assertion below refuses a statement outright, so the mode this leaves
+-- behind is immaterial to them — and P25 is the last section that touches the database.
+set constraints all immediate;
+select set_config('qa.p25_saved', :'p25_saved', true),
+       set_config('qa.p25_place2', :'p25_place2', true),
+       set_config('qa.p25_place3', :'p25_place3', true),
+       set_config('qa.c_uid', '33333333-3333-3333-3333-333333333333', true);
+
+-- P25a: the write grants that must not exist. As C, on C's OWN row — so nothing but the column
+-- grant can be what refuses the statement. RLS would let this row through; the grant does not.
+select set_config('request.jwt.claims',
+                  '{"sub":"33333333-3333-3333-3333-333333333333","role":"authenticated"}', true);
+set local role authenticated;
+do $$
+declare v_saved  uuid := current_setting('qa.p25_saved')::uuid;
+        v_place2 uuid := current_setting('qa.p25_place2')::uuid;
+        v_place3 uuid := current_setting('qa.p25_place3')::uuid;
+        v_uid    uuid := current_setting('qa.c_uid')::uuid;
+        v_fn     text := 'public.apply_saved_place_extraction(uuid,uuid,text[],text,text[])';
+begin
+  begin
+    update public.saved_places set tags = array['forged'] where id = v_saved;
+    raise exception 'FAIL P25a: authenticated could UPDATE saved_places.tags on their own row';
+  exception when insufficient_privilege then
+    raise notice 'PASS P25a-i  saved_places.tags is not in the UPDATE grant';
+  end;
+  begin
+    update public.saved_places set why_go = 'forged' where id = v_saved;
+    raise exception 'FAIL P25a: authenticated could UPDATE saved_places.why_go';
+  exception when insufficient_privilege then
+    raise notice 'PASS P25a-ii saved_places.why_go is not in the UPDATE grant';
+  end;
+  begin
+    update public.saved_places set dishes = array['forged'] where id = v_saved;
+    raise exception 'FAIL P25a: authenticated could UPDATE saved_places.dishes';
+  exception when insufficient_privilege then
+    raise notice 'PASS P25a-iii saved_places.dishes is not in the UPDATE grant';
+  end;
+  -- The INSERT half. This is the shape of the §3.4 exploit: a direct row create, bypassing
+  -- save_place, carrying a place fact the browser invented.
+  begin
+    insert into public.saved_places (user_id, place_id, origin, tags)
+    values (v_uid, v_place2, 'manual', array['forged']);
+    raise exception 'FAIL P25a: authenticated could INSERT a saved_places row carrying its own tags';
+  exception when insufficient_privilege then
+    raise notice 'PASS P25a-iv saved_places.tags is not in the INSERT grant — the §3.4 shape is refused';
+  end;
+  begin
+    insert into public.saved_places (user_id, place_id, origin, why_go, dishes)
+    values (v_uid, v_place3, 'manual', 'forged', array['forged']);
+    raise exception 'FAIL P25a: authenticated could INSERT why_go/dishes directly';
+  exception when insufficient_privilege then
+    raise notice 'PASS P25a-v  saved_places.why_go and .dishes are not in the INSERT grant';
+  end;
+  -- P25a-vi: the writer function carries no EXECUTE grant for either browser role.
+  --
+  -- ASK THE CATALOGUE, NOT THE ERROR CODE. This assertion was rewritten after being caught passing
+  -- when it should not (security-privacy, RICH-EXT-SEC, 2026-08-27). Written as a call wrapped in
+  -- `exception when insufficient_privilege`, it PASSED with
+  --   grant execute on function public.apply_saved_place_extraction(...) to authenticated;
+  -- applied inside a rolled-back transaction — all fifteen P25 assertions stayed green. The reason
+  -- is that the function is SECURITY INVOKER: the grant lets the CALL through, the UPDATE inside it
+  -- is then refused by the column grants, and that raises insufficient_privilege too. One handler,
+  -- two very different causes, and it printed 'not executable by authenticated' while exactly that
+  -- grant was in place.
+  --
+  -- That is the precise regression this assertion exists for, and it is not hypothetical: an
+  -- `EXECUTE` grant to a browser role has already shipped twice in this repo (0009's
+  -- `anon EXECUTE on save_place`, then 0018). A tripwire that reports PASS on the bare grant is
+  -- worse than no tripwire, because it makes the next regression look covered. So this asks the
+  -- catalogue the exact question instead, for `anon` as well as `authenticated` —
+  -- `has_function_privilege` answers about a named role regardless of the role running the query,
+  -- which is why it works from inside this `authenticated` block.
+  if has_function_privilege('authenticated', v_fn, 'EXECUTE') then
+    raise exception 'FAIL P25a-vi: apply_saved_place_extraction is EXECUTE-able by authenticated';
+  end if;
+  if has_function_privilege('anon', v_fn, 'EXECUTE') then
+    raise exception 'FAIL P25a-vi: apply_saved_place_extraction is EXECUTE-able by anon';
+  end if;
+  raise notice 'PASS P25a-vi apply_saved_place_extraction carries no EXECUTE grant for authenticated or anon';
+
+  -- P25a-vii: and the call is refused in fact, not only on paper. KEPT, but demoted to its own
+  -- assertion with an honest name, because it proves something P25a-vi cannot: that SECURITY
+  -- INVOKER means the column grants refuse the write even if the EXECUTE grant were restored, so
+  -- the two controls fail independently. What it must never again be asked to prove is the grant
+  -- itself — it cannot tell you WHICH privilege refused it, and P25a-vi is now the thing that can.
+  begin
+    perform public.apply_saved_place_extraction(v_saved, v_uid, array['forged']);
+    raise exception 'FAIL P25a-vii: authenticated reached apply_saved_place_extraction and it wrote';
+  exception when insufficient_privilege then
+    raise notice 'PASS P25a-vii the call is refused as well (grant and column privilege fail independently)';
+  end;
+end $$;
+reset role;
+
+-- P25b: the ownership predicate inside the writer, tested FIRST and on a row whose columns are
+-- still NULL. Order is load-bearing here, and this is not theoretical: written the other way round
+-- this assertion passed with the ownership predicate deleted, because `coalesce` makes the write a
+-- no-op once the row already carries tags — the test proved first-writer-wins twice and ownership
+-- never. That is the exact failure mode this file's header records at P17.
+--
+-- service_role has BYPASSRLS, so no policy protects this row: the function's own WHERE clause is
+-- the entire control, and this is the only arrangement in which it can be seen to fail open.
+do $$
+declare v_saved uuid := current_setting('qa.p25_saved')::uuid;
+        v_after text[];
+begin
+  if (select tags from public.saved_places where id = v_saved) is not null then
+    raise exception 'FAIL P25b setup: the fixture row already carries tags, so this assertion would be vacuous';
+  end if;
+  perform public.apply_saved_place_extraction(v_saved, '11111111-1111-1111-1111-111111111111',
+                                              array['not','mine']);
+  select tags into v_after from public.saved_places where id = v_saved;
+  if v_after is not null then
+    raise exception 'FAIL P25b: the writer updated a row belonging to another user (tags now %)', v_after;
+  end if;
+  begin
+    perform public.apply_saved_place_extraction(v_saved, null, array['x']);
+    raise exception 'FAIL P25b: the writer accepted a NULL user id';
+  exception when null_value_not_allowed then
+    raise notice 'PASS P25b ownership is enforced by the function itself: another user cannot write this row, and a NULL user id is refused';
+  end;
+end $$;
+
+-- P25c: the service_role writer works, normalises, and is the ONLY thing that made it work.
+-- Run as the privileged role, which is what service_role is standing in for here.
+do $$
+declare v_saved uuid := current_setting('qa.p25_saved')::uuid;
+        v_uid   uuid := current_setting('qa.c_uid')::uuid;
+        v_tags text[]; v_dishes text[]; v_why text;
+begin
+  perform public.apply_saved_place_extraction(
+    v_saved, v_uid,
+    array['  Matcha ', 'matcha', '...', 'ＲＡＭＥＮ', null],
+    E'  Go  for the\tmatcha. ',
+    array['Burnt Basque Cheesecake']);
+  select tags, dishes, why_go into v_tags, v_dishes, v_why
+    from public.saved_places where id = v_saved;
+
+  if v_tags is distinct from array['matcha','ramen'] then
+    raise exception 'FAIL P25c: tags landed as %, expected {matcha,ramen} (lowercased, deduped, NFKC-folded, empty and no-alphanumeric elements dropped, first-seen order kept)', v_tags;
+  end if;
+  if v_dishes is distinct from array['burnt basque cheesecake'] then
+    raise exception 'FAIL P25c: dishes landed as %', v_dishes;
+  end if;
+  if v_why is distinct from 'Go for the matcha.' then
+    raise exception 'FAIL P25c: why_go landed as %, expected whitespace collapsed and case PRESERVED', v_why;
+  end if;
+  raise notice 'PASS P25c apply_saved_place_extraction writes all three columns through the normaliser';
+end $$;
+
+-- P25d: first writer wins, per column — the same posture as extracted_reason (0017) and source_url
+-- (0016). A second import of the same venue must not silently rewrite the first one's record.
+do $$
+declare v_saved uuid := current_setting('qa.p25_saved')::uuid;
+        v_uid   uuid := current_setting('qa.c_uid')::uuid;
+        v_tags text[];
+begin
+  perform public.apply_saved_place_extraction(v_saved, v_uid, array['overwritten'], 'overwritten', array['overwritten']);
+  select tags into v_tags from public.saved_places where id = v_saved;
+  if v_tags is distinct from array['matcha','ramen'] then
+    raise exception 'FAIL P25d: a second call overwrote the first extraction''s tags (now %)', v_tags;
+  end if;
+  raise notice 'PASS P25d a second apply_saved_place_extraction does not overwrite what the first recorded';
+end $$;
+
+-- P25e: the bounds REFUSE rather than truncate. Nine tags is model output we cannot silently
+-- discard three of; the write fails and the caller finds out.
+do $$
+declare v_saved uuid := current_setting('qa.p25_saved')::uuid;
+        v_uid   uuid := current_setting('qa.c_uid')::uuid;
+begin
+  begin
+    update public.saved_places
+       set tags = array['a1','b2','c3','d4','e5','f6','g7','h8','i9'] where id = v_saved;
+    raise exception 'FAIL P25e: nine tags were accepted';
+  exception when check_violation then
+    raise notice 'PASS P25e-i  more than eight tags is refused, not truncated';
+  end;
+  begin
+    update public.saved_places set tags = array[repeat('x', 33)] where id = v_saved;
+    raise exception 'FAIL P25e: a 33-character tag was accepted';
+  exception when check_violation then
+    raise notice 'PASS P25e-ii a tag longer than 32 characters is refused';
+  end;
+  begin
+    update public.saved_places set why_go = repeat('w', 281) where id = v_saved;
+    raise exception 'FAIL P25e: a 281-character why_go was accepted';
+  exception when check_violation then
+    raise notice 'PASS P25e-iii a why_go longer than 280 characters is refused';
+  end;
+  -- ONE empty state, not two: '{}' is not storable, it becomes NULL.
+  update public.saved_places set tags = '{}'::text[] where id = v_saved;
+  if (select tags from public.saved_places where id = v_saved) is not null then
+    raise exception 'FAIL P25e: an empty array was stored as {} rather than normalised to NULL';
+  end if;
+  raise notice 'PASS P25e-iv an empty tag array is stored as NULL — one empty representation, not two';
+  perform public.apply_saved_place_extraction(v_saved, v_uid, array['matcha','ramen']);
+end $$;
+
+-- P25f: the read side. The positive half first — without it a schema that denies everyone
+-- everything satisfies P25g just as well.
+select set_config('request.jwt.claims',
+                  '{"sub":"33333333-3333-3333-3333-333333333333","role":"authenticated"}', true);
+set local role authenticated;
+do $$
+declare v_saved uuid := current_setting('qa.p25_saved')::uuid; v_tags text[];
+begin
+  select tags into v_tags from public.saved_places where id = v_saved;
+  if v_tags is distinct from array['matcha','ramen'] then
+    raise exception 'FAIL P25f: the owner cannot read their own tags (got %)', v_tags;
+  end if;
+  raise notice 'PASS P25f the owner reads their own tags/why_go/dishes through saved_places_select_own';
+end $$;
+
+-- P25g: and another user does not, naming the row by id so this is a policy result and not an
+-- empty table. tags is the new payload; the row-level policy is what keeps it private, and that is
+-- the whole basis of 0019's ruling that tags belong on saved_places rather than on the shared
+-- `places` row.
+reset role;
+select set_config('request.jwt.claims',
+                  '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}', true);
+set local role authenticated;
+do $$
+declare v_saved uuid := current_setting('qa.p25_saved')::uuid; n integer;
+begin
+  select count(*) into n from public.saved_places where id = v_saved;
+  if n <> 0 then
+    raise exception 'FAIL P25g: B can see C''s tagged saved_places row (% rows)', n;
+  end if;
+  raise notice 'PASS P25g another user cannot read C''s tags: the row itself is invisible to them';
+end $$;
+reset role;
 
 -- ── P23: DELIBERATELY UNPROVEN — mutual exclusion under real concurrency ─────────────────────
 -- The invariant: two transactions resolving the SAME venue under two DIFFERENT provider ids must

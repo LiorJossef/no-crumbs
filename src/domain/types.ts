@@ -271,6 +271,35 @@ export interface PlaceCandidate {
    * `evidence` by incidental luck.
    */
   readonly addressHint: string | null;
+  /**
+   * The neighbourhood, district, market or building the caption puts the venue in — "Brixton",
+   * "Market Row", "Tooting Market", "Middle Eighty Hotel", "Shibuya". `null` when the caption
+   * names none.
+   *
+   * **Deliberately distinct from `addressHint` above, and from `cityHint`.** `addressHint` is the
+   * street line (a number plus a street name); `cityHint` is the city; this is everything in
+   * between, and the three are separate fields because they are separately true and separately
+   * useful. Collapsing them would be lossy in the one direction that matters: "La Nonna" in
+   * "Market Row" in "London" is three facts, and a Google Maps query wants a different subset of
+   * them than a heading on a card does.
+   *
+   * It exists because the model was writing these words into the **name** — `"La Nonna Brixton"`,
+   * `"MBER London"`, `"Kiaan's Tooting Market"` — while `cityHint` sat alongside holding
+   * `"London"`. Both facts are worth keeping; the name field is the wrong place for the second.
+   * Measured over four real captions, welding the area into the name went 3/8 → 0/8 once this
+   * field existed to receive it. The qualifier is an asset, not noise: a measured run (n=20)
+   * found `"La Nonna Brixton, London"` beats the plain name against a free-form geocoder, so
+   * `venueQueryString()` (`extraction/grounding.ts`) re-composes it for a *query* while the
+   * display path keeps `"La Nonna"` under a `Brixton` heading.
+   *
+   * **No `places` or `saved_places` column holds this today** (migration `0019` added `tags`,
+   * `why_go` and `dishes`, not an area). It therefore survives only inside
+   * `extractions.candidates`, which is enough for the review screen and for a maps query built at
+   * confirm time, and not enough for one built from a saved row later. Stated here rather than
+   * papered over by writing it into `places.address_line`, which would be a different fact under a
+   * name that already means something else.
+   */
+  readonly areaHint: string | null;
   /** The caption fragment the name came from, for our own debugging only. */
   readonly evidence: string | null;
   /** Kept, never trusted (`02` §D3): nothing gates on the model's own confidence. */
@@ -297,6 +326,56 @@ export interface PlaceCandidate {
    * do not call a credentialed places API here).
    */
   readonly coordinates: { readonly lat: number; readonly lng: number } | null;
+  /**
+   * Short free-form labels for organising a library — cuisine, style, setting, occasion
+   * (`italian`, `matcha`, `hotel restaurant`). At most five, already de-duplicated and stored in
+   * `normalise()`'s form by `extraction/tags.ts`, because there must be exactly one answer in this
+   * codebase to "are these the same text?" and `normalise()` is it. `tagDisplayLabel()` is the
+   * render path; nothing downstream may title-case before storing. Empty array, never `null`, when
+   * the caption supports none — an absent list and an empty list would be two spellings of the
+   * same state, which `domain/types.ts`'s no-optional-properties rule exists to avoid.
+   *
+   * `caption_inference`, not `caption_verbatim` (`extraction/schema.ts`'s
+   * `CANDIDATE_FIELD_PROVENANCE`), and **the only v2 field with no code gate behind it**: a tag
+   * cannot be substring-checked without killing the useful ones. The prompt is doing that work
+   * alone, and it has been observed to leak world knowledge (`falafel` on a caption that never
+   * mentions food). Treat a tag as a useful hint, never as something the source said.
+   *
+   * Persisted per save to `saved_places.tags` (migration `0019`), not to `places`: a label derived
+   * from one creator's caption is a claim about one recommendation, not a provider fact about a
+   * venue other users also saved.
+   */
+  readonly tags: readonly string[];
+  /**
+   * Named food or drink items the caption itself names — "the sabich", "pistachio croissant",
+   * "cortado". At most five. Verbatim-class: `extraction/grounding.ts` drops any item that is not
+   * findable in the caption, so this cannot become a menu the model imagined. Stored **unfolded**,
+   * unlike `tags` — a dish name is prose to read, not a key to match on, and `normalise()` would
+   * cost `crème brûlée` its accents for no gain. `saved_places.dishes`' own trigger lowercases and
+   * NFKC-folds it on write (migration `0019`), which is hygiene rather than identity.
+   *
+   * Empty array when the caption names none, which is most captions.
+   */
+  readonly dishes: readonly string[];
+  /**
+   * The model's one-sentence answer to "why would I go here?", **plus the verbatim caption
+   * fragment that licenses it**. The pairing is the whole design, and it is why this is not a bare
+   * string: `text` is synthesis — allowed, expected, to use words the caption never used, which is
+   * exactly what makes it worth reading months later and exactly what makes it dangerous —
+   * while `groundedIn` is the quote that paid for it. `extraction/grounding.ts` nulls the whole
+   * object when that fragment is not in the caption, and again when the fragment quotes only the
+   * venue's own name (a citation that licenses nothing).
+   *
+   * `null` is the correct and common answer: a caption that gives a name and nothing else must
+   * produce `null` here rather than a plausible-sounding reason. An invented reason is worse than
+   * an absent one.
+   *
+   * The two halves land in **two differently-named columns** at save time
+   * (`import/candidate-place.ts`): `text` → `saved_places.why_go`, `groundedIn` →
+   * `saved_places.extracted_reason`. The extracted-vs-inferred distinction becomes schema rather
+   * than a convention someone has to remember.
+   */
+  readonly whyGo: { readonly text: string; readonly groundedIn: string } | null;
 }
 
 /**
@@ -315,6 +394,28 @@ export type CandidateResolution =
     }
   | { readonly status: 'ambiguous'; readonly options: readonly ResolvedPlace[] }
   | { readonly status: 'unresolved'; readonly reason: 'no_match' | 'lookup_failed' | 'timed_out' | 'capped' };
+
+/**
+ * The three per-save enrichment columns migration `0019` added to `saved_places`, in the shape
+ * `apply_saved_place_extraction(p_tags, p_why_go, p_dishes)` takes them.
+ *
+ * `null` per field, not `[]`/`''`, because the database has exactly one empty state: the
+ * normalising trigger collapses an empty array to `NULL`, and `0019`'s header calls two spellings
+ * of "no labels" out by name as the bug it is avoiding. This type therefore matches the column, not
+ * the candidate — `PlaceCandidate.tags` is `readonly string[]` and empty-means-empty, and the
+ * conversion happens once, in `import/saved-place-enrichment.ts`.
+ *
+ * Not on `places`. These are claims one creator made in one video that one user chose to import,
+ * not provider facts about a venue other people also saved (`0019`'s header, reasons 1-4).
+ */
+export interface SavedPlaceEnrichment {
+  /** `saved_places.tags` — at most 5 from the extractor, stored in `normalise()`'s form. */
+  readonly tags: readonly string[] | null;
+  /** `saved_places.why_go` — `PlaceCandidate.whyGo.text`, the model's own sentence. */
+  readonly whyGo: string | null;
+  /** `saved_places.dishes` — verbatim item names the caption itself gave. */
+  readonly dishes: readonly string[] | null;
+}
 
 /** A candidate plus what resolution made of it. This is what the review UI renders (07 §10). */
 export interface Candidate {

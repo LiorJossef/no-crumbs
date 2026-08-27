@@ -26,13 +26,13 @@
  * on the exact same prompt/schema got every one of those venues right, repeatably.
  */
 import { extractorInvalidOutput, extractorUnavailable } from '@/domain/errors';
-import { filterPlausible } from '@/domain/extraction/plausibility';
 import { ExtractionResultSchema, toPlaceCandidate } from '@/domain/extraction/schema';
 import type { OpCtx, PlaceExtractor } from '@/domain/ports';
 import type { ContentPart } from '@/domain/types';
 
 import { costUsd, logExtractionCost } from './cost';
 import { EXTRACTION_JSON_SCHEMA } from './json-schema';
+import { postProcessCandidates } from './post-process';
 import { buildUserPrompt, generateDelimiter, PROMPT_VERSION, SYSTEM_PROMPT } from './prompt';
 
 const GEMINI_ENDPOINT_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
@@ -45,14 +45,27 @@ const GEMINI_ENDPOINT_BASE = 'https://generativelanguage.googleapis.com/v1beta/m
  * pure structural conversion applied at call time so the shared schema stays untouched for the
  * adapters that already work against it.
  *
- * Also caps `candidates`'s `maxItems`. The `gemma-4-26b-a4b-it` model this adapter previously
- * defaulted to had a real schema-complexity ceiling here (see this file's header) — the full
- * 8-property item shape needed `maxItems` capped at 5 or it 400'd. `gemini-3.5-flash-lite`
- * live-tested clean at `maxItems = 12` (the shared schema's own cap) with the same item shape, so
- * `GEMINI_MAX_CANDIDATES` is the shared schema's own ceiling, not a narrower model-specific one.
- * Re-verify against the real endpoint if the default model changes again.
+ * Also caps `candidates`'s `maxItems`, and that cap is a **measured model limit, not a product
+ * choice** — the endpoint rejects a schema it considers too large with a bare
+ * `400 INVALID_ARGUMENT` and no indication of which part it disliked, so the number has to be
+ * found by bisection and re-found whenever the item shape or the model changes.
+ *
+ * History, because the shape of the limit is what makes it predictable: `gemma-4-26b-a4b-it` (the
+ * previous default) needed `maxItems <= 5` against the v1 nine-property item. `gemini-3.5-flash-lite`
+ * then took the same item at `maxItems = 12`. Schema v2 grew the item to thirteen properties
+ * including two nested arrays, and 12 started failing again. Bisected live on 2026-08-27 with the
+ * v2 item: **12, 11, 10 and 9 all return 400; 8 returns 200.** Nothing else moved it — removing
+ * the nested arrays' `maxItems`, flattening `whyGo` into two sibling strings, and stripping every
+ * `minLength`/`maxLength`/`minimum`/`maximum` in the schema each still 400'd at 12. So the limit
+ * behaves like a budget over (root array length x item complexity), and the root cap is the only
+ * lever that moves it.
+ *
+ * Dropping 12 -> 8 costs nothing real: `domain/import/pipeline.ts` enforces `MAX_CANDIDATES = 7`
+ * (`07` §7) before any of these candidates is resolved, so a ninth candidate would have been
+ * discarded a step later anyway. The shared `EXTRACTION_JSON_SCHEMA` keeps its own 12 for the
+ * Anthropic adapter, which has no such limit.
  */
-const GEMINI_MAX_CANDIDATES = 12;
+const GEMINI_MAX_CANDIDATES = 8;
 
 function toGeminiSchema(node: unknown): unknown {
   if (Array.isArray(node)) {
@@ -204,14 +217,9 @@ export function geminiPlaceExtractor(config: {
         elapsedMs,
       });
 
-      const candidates = parsed.data.candidates.map(toPlaceCandidate);
-      const { kept, dropped } = filterPlausible(candidates, caption);
-      const droppedTotal = Object.values(dropped).reduce((a, b) => a + b, 0);
-      if (droppedTotal > 0) {
-        ctx.log.event('extraction.plausibility_dropped', { ...dropped, total: droppedTotal });
-      }
+      const candidates = postProcessCandidates(parsed.data.candidates.map(toPlaceCandidate), caption, ctx);
 
-      return { candidates: kept, cityHint: parsed.data.cityHint };
+      return { candidates, cityHint: parsed.data.cityHint };
     },
   };
 }

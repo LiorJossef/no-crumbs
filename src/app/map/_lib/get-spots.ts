@@ -22,7 +22,8 @@ import 'server-only';
  */
 
 import { createClient } from '@/app/_lib/supabase/server';
-import type { Spot, SpotProvenance, SpotSource } from '@/domain/places/spot';
+import type { SpotProvenance, SpotSource } from '@/domain/places/spot';
+import type { EnrichedSpot } from '@/ui/place/enrichment';
 import type { SourceDataset } from '@/domain/types';
 
 const SAVED_PLACES_SELECT = `
@@ -35,6 +36,9 @@ const SAVED_PLACES_SELECT = `
   category_override,
   source_url,
   source_thumbnail_url,
+  tags,
+  why_go,
+  dishes,
   place:places (
     name,
     category,
@@ -79,6 +83,19 @@ interface SavedPlaceRow {
    *  `source_url`. A signed, expiring TikTok CDN URL (`0016`'s column comment); this read path
    *  does not refresh it, it only passes through whatever was captured at save time. */
   readonly source_thumbnail_url: string | null;
+  /** `saved_places.tags` (migration `0019`) — short free-form labels derived from the source post,
+   *  stored already-normalised and lowercase. NULL is the only empty representation the column
+   *  allows (`normalize_tag_list` collapses `'{}'` to NULL), which is why the mapping below turns
+   *  it into `[]` once, here, rather than leaving every renderer to handle two empties. */
+  readonly tags: readonly string[] | null;
+  /** `saved_places.why_go` (migration `0019`) — the model's own one-sentence summary. Distinct
+   *  from `extracted_reason` above, which is a verbatim caption substring: prose versus quote, and
+   *  the UI keeps them apart. NULL whenever the caption said nothing worth paraphrasing, which is
+   *  a normal outcome and the majority state today (nothing was backfilled). */
+  readonly why_go: string | null;
+  /** `saved_places.dishes` (migration `0019`) — items the post named, normalised for storage the
+   *  same way tags are. */
+  readonly dishes: readonly string[] | null;
   readonly place: {
     readonly name: string;
     readonly category: string | null;
@@ -135,7 +152,7 @@ function provenanceFor(row: SavedPlaceRow): SpotProvenance | undefined {
   };
 }
 
-function toSpot(row: SavedPlaceRow): Spot {
+function toSpot(row: SavedPlaceRow): EnrichedSpot {
   // The provenance invariant (`0006`) guarantees a place row exists for every saved place; `place`
   // is typed nullable above only because the join itself can't express that at the type level, not
   // because a null is expected here. Falling back to the row's own id keeps a broken row visible
@@ -160,12 +177,19 @@ function toSpot(row: SavedPlaceRow): Spot {
     ...(row.source_thumbnail_url ? { sourceThumbnailUrl: row.source_thumbnail_url } : {}),
     visitState: row.visit_state,
     ...(row.visited_at ? { visitedAt: new Date(row.visited_at) } : {}),
+    // Extraction v2 (`0019`). Present unconditionally rather than spread-when-truthy like the
+    // fields above: `[]`/`null` are the honest, common answers here (no backfill ran, so every row
+    // saved before v2 has all three empty), and an absent key would make "this place has no tags"
+    // indistinguishable from "this object came from somewhere that doesn't know about tags".
+    tags: row.tags ?? [],
+    whyGo: row.why_go,
+    dishes: row.dishes ?? [],
   };
 }
 
 /** The current user's saved places, per `saved_places.created_at desc` (most recently saved
  *  first — the map's own camera-fit doesn't care about order, but the sheet/panel list does). */
-export async function getSpots(): Promise<readonly Spot[]> {
+export async function getSpots(): Promise<readonly EnrichedSpot[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('saved_places')

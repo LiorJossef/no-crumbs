@@ -15,13 +15,13 @@
  * `ExtractionResultSchema` (charter R10, `09` §6).
  */
 import { extractorInvalidOutput, extractorUnavailable } from '@/domain/errors';
-import { filterPlausible } from '@/domain/extraction/plausibility';
 import { ExtractionResultSchema, toPlaceCandidate } from '@/domain/extraction/schema';
 import type { OpCtx, PlaceExtractor } from '@/domain/ports';
 import type { ContentPart } from '@/domain/types';
 
 import { ANTHROPIC_HAIKU_4_5_PRICE_PER_1M, costUsd, logExtractionCost } from './cost';
 import { EXTRACTION_JSON_SCHEMA } from './json-schema';
+import { postProcessCandidates } from './post-process';
 import { buildUserPrompt, generateDelimiter, PROMPT_VERSION, SYSTEM_PROMPT } from './prompt';
 
 const ANTHROPIC_ENDPOINT = 'https://api.anthropic.com/v1/messages';
@@ -140,14 +140,9 @@ export function anthropicPlaceExtractor(config: {
         elapsedMs,
       });
 
-      const candidates = parsed.data.candidates.map(toPlaceCandidate);
-      const { kept, dropped } = filterPlausible(candidates, caption);
-      const droppedTotal = Object.values(dropped).reduce((a, b) => a + b, 0);
-      if (droppedTotal > 0) {
-        ctx.log.event('extraction.plausibility_dropped', { ...dropped, total: droppedTotal });
-      }
+      const candidates = postProcessCandidates(parsed.data.candidates.map(toPlaceCandidate), caption, ctx);
 
-      return { candidates: kept, cityHint: parsed.data.cityHint };
+      return { candidates, cityHint: parsed.data.cityHint };
     },
   };
 }

@@ -1,469 +1,399 @@
 # Current state — cold-start document
 
-> Updated **2026-08-26**. Read this after `CLAUDE.md` and `working-agreement.md`, before anything
+> Updated **2026-08-27**. Read this after `CLAUDE.md` and `working-agreement.md`, before anything
 > else. It is the running state, not a diary: when something here stops being true, change it.
+>
+> This session rewrote the file rather than appending to it. Everything still true was kept;
+> narrative that had stopped earning its place was dropped. The previous version is in git history.
 
-## 1. Where the work is
+---
 
-**`main` now carries everything below.** PRs [#23](https://github.com/LiorJossef/P-002/pull/23) (the
-import loop made real, and the confirm-endpoint exploit closed) and
-[#24](https://github.com/LiorJossef/P-002/pull/24) (`L1-F6-T2`, search over saved places) both
-landed on 2026-08-26, through `npm run merge:pr` with all six checks green.
+## 1. What the product does today
 
-Also landed 2026-08-26, later the same day: [#27](https://github.com/LiorJossef/P-002/pull/27)
-(preserving the staging orphan objects), [#28](https://github.com/LiorJossef/P-002/pull/28) (staging
-migrated to `0018`, and the corrected production diagnosis) and
-[#29](https://github.com/LiorJossef/P-002/pull/29) (`L1-F7-T2`/`T3` — delete a saved place and edit
-your own note). All three through `npm run merge:pr` with six green checks.
+The core loop runs end to end, against real TikToks, on real data:
 
-**What #29 changed, beyond the obvious.** The feature itself is small; making it *reachable* was
-not. The only route into a place's detail was clicking its pin, and MapLibre paints pins into a
-`<canvas>` — so delete and note-editing would have been mouse-only, unreachable by keyboard, and
-impossible to drive from Playwright without pixel coordinates that any camera move invalidates
-(`L1-F9-T4` needs exactly that). The list is now a selection entry point; `PlaceRow` takes an
-optional `onSelect` and renders as before without it.
+**paste a TikTok link → oEmbed → caption → LLM extraction → review and confirm → saved place on a
+map**, with a saved-places list, text search, place detail, delete, and note editing.
 
-| Commit | What |
+As of this session the extraction also captures **what a place actually is** — free-form tags, named
+dishes, and a one-line reason — and the map surfaces them. See §3.2.
+
+**What it still is not.** There is no `PlaceResolver`: every coordinate is the model's own guess.
+The streaming route (`L0-F6`) does not exist and `/api/imports/probe` is still the request/response
+stand-in. Manual add (`L1-F7-T1`, surface S8) does not exist, so three failure screens and the
+no-places screen have a recovery they cannot offer.
+
+**The MVP boundary** — three decisions, not a feature list: one link in one field; **TikTok only**,
+so an Instagram or YouTube link is a recognised redirect, never a failure; and "info" fixed at
+name · category · coordinates · source link · user note, plus (new) tags · why-go · dishes.
+
+---
+
+## 2. Where the work is
+
+`main` carries everything below. Two PRs this session, both through `npm run merge:pr` with all six
+checks green:
+
+| PR | What | State |
+|---|---|---|
+| [#34](https://github.com/LiorJossef/P-002/pull/34) | Honest import failures — real codes, real statuses, a real audit row | **merged**, `main` verified |
+| [#35](https://github.com/LiorJossef/P-002/pull/35) | Rich extraction and the surfaces that show it — see §3.2 | **open, not merged** |
+
+### 2.1 Exactly where PR #35 was left, 2026-08-27
+
+**The first thing to do in a fresh session**, before any new work.
+
+- Branch `feat/rich-place-extraction`, head **`84b7e97`**, pushed, **9 commits** ahead of `main`.
+- Working tree **clean**. `npm run verify` green locally: **592 tests, 41 files**, plus lint,
+  typecheck, layer guard, migration grants, schema inventory and the agent consistency check.
+- PR #35 is `OPEN`, `mergeable=MERGEABLE`, and the branch contains current `main`.
+- **CI was still running when the session ended and was deliberately not waited out.** At that
+  moment: `Vercel` pass, `Vercel Preview Comments` pass; `lint · typecheck · layer guard · unit`,
+  `migrations · RLS policy tests`, `next build` and `playwright` all **pending**. The final commit
+  (`84b7e97`, the manual harness) restarted the run, so any earlier green result belongs to an
+  older head and **must not be treated as this commit's**.
+
+**So: `gh pr checks 35` first.** If all six are green, merge with `npm run merge:pr -- 35`, then
+verify `main` and the deployment (`git-workflow.md` §11). If anything is red, fix it before
+anything else — nothing in §9 should start on top of a red branch. The merge gate refuses a
+pending or failing check, so it will not let a half-finished run through, but read the checks
+yourself rather than trusting the script to be the only reader.
+
+Nothing else was left mid-flight: no agents running, no uncommitted work, no local database
+changes pending.
+
+**The merge rule.** Routine merges need no approval, but **GitHub branch protection is unavailable
+on this plan**, so CI is not a gate and a red PR can be merged with one command.
+`scripts/merge-pr.sh` *is* the gate — merge only through it. **CI is the authority, not
+`npm run verify`**: verify covers one of CI's four jobs, so read `gh pr checks` before claiming
+anything is green. `git-workflow.md` §9.3 lists what still needs a specific instruction each time.
+
+---
+
+## 3. What landed this session, and how it was verified
+
+### 3.1 Honest import failures (PR #34)
+
+Every `/api/imports/probe` failure used to answer **HTTP 502** whatever happened; a malformed body
+was reported as `INTERNAL, retryable: true`; the real cause was built into a message that `toView()`
+correctly strips and **nothing ever logged**; and the `imports` row was never stamped —
+`imports_failed_implies_code` had required `status='failed'` + `error_code` since `0003` with **no
+writer across all 22 imports**. On screen, one apologetic template served all fourteen codes.
+
+Now each code carries its own status (a 500 is reachable **only** through `INTERNAL`, which is what
+makes `07` §7.1's "page a human" mean anything), one structured redacted log line, a real audit row,
+and a per-code copy map with recoveries that work.
+
+**Two defects found while integrating, both bigger than the ticket:**
+
+- **`RedirectScreen` was unreachable dead code.** `canSubmit` was gated on `validation.ok` and
+  `submit()` was its only caller, so an Instagram link, a TikTok profile link and a photo post *all*
+  rendered `MALFORMED_URL`'s inline "That doesn't look like a TikTok link." That contradicted the
+  MVP boundary in `CLAUDE.md`. Fixed; the three now render as distinct, honest news with **zero**
+  requests to the server.
+- **A real M6/R9 coordinate leak into logs.** V8's `JSON.parse` `SyntaxError` **echoes its input** —
+  short inputs whole, and a mid-payload window on a trailing comma, the most common LLM JSON defect.
+  `JSON.parse('(32.0578, 34.7702)')` reports the pair verbatim. Live from
+  `gemini.place-extractor.ts:184`. Closed by redacting between the first and last quote while
+  keeping the parser's complaint, so failures stay diagnosable.
+
+**A regression this branch introduced and then fixed:** `Cancel` cleared the URL without aborting
+the fetch, so the doomed request returned and left `Retry` a **dead primary button**. There is now a
+real `AbortController`, a race gate on every `setScreen`, and an in-flight guard (five scripted
+clicks previously fired five model calls). A caller abort writes **no** `error_code` — three
+measured aborts had each written `UPSTREAM_TIMEOUT`, filing a user's Cancel as a TikTok outage.
+
+**Verified against the live database and a real browser:** a nonexistent video id returns 422
+`POST_UNAVAILABLE` and lands `failed`/`source`/`POST_UNAVAILABLE` — the first `failed` row this
+database has ever held; 18 hostile paste inputs reached the server **zero** times; 17 wire cases
+carry the honest status.
+
+### 3.2 Rich place extraction
+
+**The measurement that motivated it**, taken on the live database before any code was written:
+
+| | |
 |---|---|
-| `feat(places)` | `domain/places/note.ts` — one tested rule the action and the UI both use |
-| `feat(places)` | The two Server Actions. No migration: the grants were already right |
-| `feat(map)` | The list becomes an entry point to place detail |
-| `feat(map)` | Delete + note editing inside `PlaceDetail`, which serves both surfaces |
-| `test(db)` | `place_id`/`origin` unwritable, and `note` writable — the direction nobody asserts |
+| saved places with no `extracted_reason` at all | **7 of 20** |
+| reasons that were the place's own name echoed back | 2 of 20 |
+| the rest | verbatim caption substrings, emoji included |
+| distinct `category` values across the library | **4** (14 of 20 = `restaurant`) |
 
-Open branch: **`chore/merge-autonomy-and-the-ci-gap`** — the workflow review described in §6b, in a
-PR of its own.
+The captions already said "seasonal Italian", "Nepalese kitchen", "pan-Asian inside Tooting Market".
+The extractor was paying for that intelligence and throwing it away.
 
-**The merge rule changed on 2026-08-26 and this is the one thing not to get wrong.** Routine merges
-no longer need the owner's approval: verified work with green required checks lands without asking.
-But **GitHub branch protection is unavailable on this plan** (private repo, free tier — `403`,
-re-confirmed today), so CI is *not* a merge gate and a red PR can be merged with one command.
-`scripts/merge-pr.sh` is what replaces the human who used to read the check status. Merge only
-through it. `git-workflow.md` §9 is the full rule, including the list of things that still need a
-specific instruction each time (force-push, history rewrites, branch deletion, `--admin`/`--auto`,
-merging anything red or pending, reverting what is on `main`, destructive database operations).
+**Schema v2** — same oEmbed, same single model call — adds `tags` (open vocabulary, ≤5), `whyGo`
+(`{text, groundedIn}`), `dishes` (≤5, verbatim) and `areaHint`. Measured v1 → v2 on four real
+cached captions:
 
-**What landed in #24 — `L1-F6-T2`.** The search field on `/map` had been decorative since the day it
-was built: a bare `<Input>` with no state behind it. It now filters, and it filters the **pins** as
-well as the list.
+| | v1 | v2 |
+|---|---|---|
+| candidates with usable tags | 0/9 | **9/9** |
+| candidates with a real `whyGo` | 0/9 | **8/9** (ninth correctly null) |
+| `whyGo` that is a verbatim caption slice | n/a | **0/8**, checked mechanically |
+| location words welded into the venue name | 3/8 | **0/8** across three runs |
 
-| Commit | What |
-|---|---|
-| `feat(search)` | The matching rule — `domain/places/search.ts`, plus 23 tests |
-| `feat(search)` | The wiring: `query` lifted to `map-page-client.tsx`, both surfaces, the empty states |
-| `feat(search)` | The camera flies to the results once the typing settles |
+No candidate regression; the two zero-place captions still return zero.
 
-**What landed in #23 — the import loop made real.** In order:
+**Storage: `saved_places`, not `places`** — the decisive reason is privacy. `places` is not
+world-readable, but `places_select_if_saved` lets *any user who saved the same venue* read it, so
+tags there would ship one user's caption-derived model output into another's browser. It is also the
+reversible direction. All three columns are **SELECT-only for `authenticated`**; the writer's
+EXECUTE is `service_role` only. Verified by attack from a real signed-in session — nine forged-write
+shapes including the §5.5 POST shape, `on_conflict` upserts, `PUT` and the writer RPC: all `42501`.
 
-| Commit | What |
-|---|---|
-| `feat(places)` | Country **names** → ISO-3166-1 alpha-2. `places.country_code` was NULL on every imported row |
-| `fix(import)` | The probe route persists the `extractions` row and advances the `imports` row. Both tables had no writer |
-| `fix(security)` | **The exploit.** Confirm derives every place fact server-side from the stored extraction |
-| `feat(map)` | A finished import now moves the camera to what it saved and says what landed |
-| `fix(import)` | Place identity keys on the caption name, not the model's re-identification |
-| `perf(import)` | The extraction cache is **read**, not only written |
-| `fix(a11y)` | The map sheet was hiding the entire page from screen readers |
-| `feat(import)` | The review screen: places first, per-candidate selection, no fake confidence |
-| `fix(db)` ×2 | The inventory realigned with `0017`, and migration `0018` — `anon` could call `save_place` again |
+**Verified by using the product**, independently of the agents that built it, at 390×844 and
+1440×900: tags render title-cased from the normalised stored form; Hebrew tags render RTL beside
+Latin ones with `dir="auto"`; the accessible name carries them ("Open Anat Bakery, tagged בורקס,
+מאפייה, Hidden Gem"); a 5-tag row wraps in detail and shows 3 + "+2" in the list; a place with no
+tags goes straight from category to the note with no gap or placeholder; and a `why_go` that the
+gate rejects is genuinely absent from the DOM, not merely hidden.
 
-## 2. What is actually verified, and how
+---
 
-Everything below was checked by running the product and reading the database, not by reasoning
-about the code. The driver is `tests/manual/import-e2e.manual.mjs` (a real browser against the
-local dev server, local Supabase, live TikTok oEmbed, real model on a cache miss).
+## 4. The finding to carry forward: Hebrew ↔ English place identity
 
-**Real TikToks exercised** — all four are cached in `sources` on the local database:
+**This is a live defect, not a future concern.**
 
-| Post | Outcome |
-|---|---|
-| `@exploringlondon/video/7346702347491446049` | 8 London restaurants. Multi-place, the main test case |
-| `@joelleuzyel/video/7259010845558983978` | 1 place (Ha Kosem). Single-place |
-| `@wheretofindme/video/7466857830218239264` | **No places** — genuinely names none in the caption |
-| `@telaviv_city/video/7441621690783730945` | **No places** — same |
+`places.name` stores whichever script the model happened to choose and there is **no alias anywhere**.
+Two users saving the same Tel Aviv venue — one from a Hebrew caption, one from an English one — get
+**two `places` rows that nothing will ever merge**. Charter invariant 4 (one physical place, many
+people, many TikToks) is quietly broken today, and it worsens as Tel Aviv and Tokyo content lands.
 
-Scenarios covered: first import · re-import of the same post (duplicates) · saving a **subset**
-(the confirm request carried exactly the two selected indices) · a post naming no place · a place
-already in the library · desktop 1440×900 and mobile 390×844 · loading, empty, populated and
-success states.
+**Verified, so nobody goes looking for a normalisation fix that cannot exist:**
 
-**Confirmed by `psql`, not by the response body:** all eight London rows carry the right name,
-`category='restaurant'`, `locality='London'`, `country_code='GB'` and a verbatim
-`saved_places.extracted_reason`; the `imports` row advances `processing → review → completed`; the
-`extractions` row upserts on `(source_id, model, prompt_version)` and is **reused** on a re-paste
-(no model call, `latency_ms` untouched); `saved_place_sources` links provenance.
+```
+normalise('הקוסם')            = 'הקוסם'             normalise('HaKosem') = 'hakosem'  → not equal
+normalise('Café Levinsky 41') = 'cafe levinsky 41'  == normalise('Cafe Levinsky 41')  → equal
+```
 
-**The exploit is closed, re-tested by me from an authenticated browser session:** the old body
-shape (`provider`/`name`/`lat`/`lng`) is rejected 400; a forged `extractionId` is 403; an
-out-of-range `candidateIndex` fails that item only. The Tel Aviv café the original attack renamed
-and moved to the Eiffel Tower is unchanged.
+`normalise()` folds accents correctly and deliberately preserves Hebrew and Japanese (a documented
+porting-trap comment explains why it must not strip them). It cannot bridge scripts. Carrying the
+other name form is the only route. Related: `place_name_key` does not fold accents either, so
+`Café Florentin` and `Cafe Florentin` are already two dedup keys today.
 
-**Search (`L1-F6-T2`), exercised by hand against the real 20-place library at 1440×900 and
-390×844** — not by tests alone:
+**Owner ruling, 2026-08-27: Hebrew ↔ English is the supported scope.** Other scripts stay
+best-effort or unsupported. This must not become a generic internationalisation or entity-resolution
+project — no language-tagged alias tables, no locale negotiation, no ICU dependency, no per-script
+branching. The hard part is not script handling: Hebrew omits most vowels, so `HaKosem` / `Hakosem` /
+`Ha Kosem` are one venue and the model is not consistent between runs. Stay conservative — **merging
+two distinct venues is worse than failing to merge one**.
 
-| Typed | What happened |
-|---|---|
-| `cafe` | 4 of 20, including **`Café Florentin`** and `Nordoy Café`. Accents fold, and the category matches too |
-| `café` | The same four. It folds in both directions, which is the half people forget |
-| `london` | 12 of 20; the camera flew to London |
-| `tel aviv` | 8 of 20, matching **both** `Tel Aviv` and `Tel Aviv-Yafo`; the camera flew to Tel Aviv |
-| `kiaans` | 2 of 20, and exactly one two-pin cluster left on the map — every other pin gone |
-| `sushi` | 0 of 20, `Nothing matches "sushi".` + `Clear search`, and the camera **did not move** |
-| `...` | Same empty state. A query the normaliser reduces to nothing matches nothing, rather than silently showing the whole library back |
-| (cleared) | 20 saved, full list, camera framed on both cities again |
+**The design is written up and ready to implement:**
+`docs/evidence/places/place-alias-design.md`. It rules aliases onto `places` (the opposite answer
+from tags, deliberately), withdraws its own first idea of a `place_names` table in favour of
+`alt_names text[]` + a generated `match_keys text[]` + GIN, and rules that the dedup guard should
+consult aliases **only on exact key equality — never a similarity threshold**. It names the two
+traps in changing `resolve_place` and what to verify first, including a deliberately-constructed
+false-positive case. `place-alias-extraction-notes.md` is the extraction half, and is honest that
+**no model call was ever made with an alias field in the schema** — there is zero evidence yet about
+how the model behaves.
 
-Also checked by use: the mobile sheet at all three stops (`peek` says `4 of 20 places` and expands
-the sheet when tapped; the field is present at `half` and `full`); a place open in the detail
-popover **closes** when a search excludes it; and `Escape` clears the field without closing the
-sheet.
+---
 
-## 2b. Honest import failures — `fix/honest-import-errors`, 2026-08-27
+## 5. Unresolved, in impact order
 
-The fix for §3.5, and it turned out to be two defects, not one. Verified by running the product and
-reading rows, not by reasoning about the code.
+1. **Production is down, and it is the owner's to fix.** `/map` and `/import` both return **500**;
+   `/`, `/sign-in` and `/healthz` are fine and `/healthz` reports `main`'s head commit, so Vercel is
+   deploying the right code. **The Vercel project has no environment variables in any environment**
+   (`npx vercel env ls production --project p-002` → none; independently confirmed by grepping the
+   deployed bundle for a Supabase URL that is not there), so `createServerClient(undefined,
+   undefined)` throws before any query runs. Restoring them means entering credentials into a third
+   party — the owner's job; `docs/vercel-env-restore.md` is the checklist, and
+   `.env.vercel.preview` on disk is **not** a usable recovery source. Production is also still on
+   migration `0009` while the code selects `0015`/`0016` columns, so the env restore alone moves the
+   failure rather than removing it; the migration push follows, once `PROD_DATABASE_URL` is set.
+2. **Coordinates are the model's guess**, and the failure mode is worse and more specific than
+   previously recorded — see §6.
+3. **Model-assigned tags have no delete path.** ~5 model-chosen labels per save, system-derived, now
+   **visible on screen**, none removable. Not an exposure (the row is the user's own) but it *is*
+   inferred personal data with no rectification or erasure route — `why_go` especially, being a
+   sentence in the model's voice about why *you* saved somewhere. Cheapest fix: a
+   `clear_saved_place_extraction(saved_place_id, user_id)` `service_role` function setting all three
+   to NULL — no grant change, and NULL is already the normal renderable state. Pairs with the
+   `user_tags` column `0019`'s header reserves.
+4. **Tags can carry world knowledge the caption does not support.** A food-free caption produced
+   `falafel` and `middle eastern`. Tags cannot be substring-gated without killing the useful ones
+   (`hotel restaurant` is a legitimate *reading* of "inside Middle Eighty Hotel"). Prompt tightening
+   closed it at **n=1, with no gate behind it**. The most likely place for v2 to embarrass the
+   product.
+5. **`extracted_reason` is still forgeable.** An authenticated client can POST straight to
+   `/saved_places` with any value and it lands verbatim; RLS confines it to the caller's own row and
+   UPDATE is refused, so a user can lie to themselves and to nobody else. **Severity is unchanged by
+   this session** — a review argued it had escalated, then withdrew that argument itself, because it
+   was entirely contingent on a `groundedIn` mapping that was reversed (§7). The fix is now *cheaper*
+   than `0019`'s header suggests: move `extracted_reason` out of `save_place`'s INSERT and write it
+   from the `service_role` enrichment writer that now exists, then revoke the grant. No
+   `SECURITY DEFINER` needed. Do it **before any share, export or public-list surface exists**.
+6. **`areaHint` has nowhere to live after a save.** It is on the type and in `extractions.candidates`
+   but `0019` added no column. `venueQueryString()` and the Maps link handle it at confirm time, but
+   anything rebuilding a query *from a saved row* has less than it did. Deliberately not smuggled
+   into `places.address_line`.
+7. **`/api/imports/probe` has no rate limit.** `rateLimitedLocal` has **zero production call sites**
+   (verified by grep), so the honest-status work advertises a 429 the route can never send — against
+   a hard 500 Gemini calls/day. `L0-F6-T1` owns the real limiter. The client-side in-flight guard
+   added this session stops accidental double-fires, not a determined loop.
+8. **Pre-existing NULL `country_code` rows defeat dedup** — same class as the alias problem.
+   Importing Ha Kosem from a second TikTok created a *second* `places` row because `resolve_place`'s
+   guard compares `country_code is not distinct from`. New rows are fine. A backfill is a data
+   decision — ask.
+9. **The demo library has duplicate places** from earlier testing, removable from the UI. Left
+   deliberately: the most realistic messy-state fixture the library has.
+10. **Low severity, recorded not fixed.** A crafted caption can mint a **blank permanent chip**
+    (`U+3164` HANGUL FILLER and friends are zero-width in a browser but pass the database's
+    `[[:alnum:]]` guard) — layout survives it, verified. `/api/imports/probe` has no request-body
+    bound. Four normaliser functions are now PostgREST-exposed RPCs with unbounded CPU (200k
+    elements ≈ 4.5 s). `docs/ux-import-review-screen.md` §8 (motion) remains unimplemented.
+11. **`npm run db:test` cannot run against a database with data in it.** Its `extractions` setup
+    guard counts the whole table without RLS, so the policy suite is unrunnable locally without a
+    reset — and a reset destroys cached `extractions` that cost real model calls. CI is currently the
+    only place the whole file runs.
+12. **`playwright.config.ts` defaults `baseURL` to `127.0.0.1`.** Against `next dev` on this Next
+    version that origin **403s every `/_next/static/**` request**, the page never hydrates, and a form
+    silently falls back to a native GET — it looks exactly like a failed login, and it has now cost
+    two people time. Use `PLAYWRIGHT_BASE_URL=http://localhost:3000` locally. CI builds and runs
+    `next start`, so CI is unaffected; retargeting the default is a CI-affecting change.
 
-**What was wrong.** Every `/api/imports/probe` failure answered **HTTP 502** whatever happened, a
-malformed body was reported as `INTERNAL, retryable: true` (our bug, and a promise that an identical
-retry might work), the real cause was built into a `DomainError` message that `toView()` correctly
-strips and **nothing ever logged**, and the `imports` row was never stamped — `status='failed'` +
-`error_code` had been required by `imports_failed_implies_code` since `0003` with **no writer, across
-all 22 imports**. On screen, one apologetic template served all fourteen codes.
+---
 
-**The second defect, found while integrating.** `RedirectScreen` was **unreachable dead code**:
-`canSubmit` was gated on `validation.ok`, and `submit()` — the only caller — could only be reached
-through that button. So an Instagram link, a TikTok profile link and a photo post all rendered
-`MALFORMED_URL`'s inline "That doesn't look like a TikTok link.", which is false for all three. That
-contradicted the MVP boundary in `CLAUDE.md`: *an Instagram or YouTube link is a recognised redirect
-to manual add, never a failure.* Confirmed against `main` before changing anything.
+## 6. Coordinate accuracy — parked, with the evidence preserved
 
-**Proven by use, signed in, at 390×844 and 1440×900:**
+The owner **parked the `PlaceResolver` direction rather than rejecting it**, and declined to make a
+provider decision. Full write-up: `docs/evidence/places/resolver-future-direction.md`. **Do not
+re-run these measurements** — they cost real API calls and real time.
 
-| Check | Result |
-|---|---|
-| nonexistent video id | **422** `POST_UNAVAILABLE` (was 502), screen reads C60/C61/C62 |
-| the `imports` row for it | `status='failed'`, `stage='source'`, `error_code='POST_UNAVAILABLE'` — the **first `failed` row this database has ever held**, against the live constraints |
-| the server log line | `07` §7.1's shape verbatim, one parseable record, `cause` redacted, no caption, no coordinates |
-| a real Instagram reel | "That link isn't a TikTok" + `Open the original link`, and **zero** requests to the route |
-| a TikTok profile URL | "That's a TikTok link, but not a post" — distinct news, which `main` collapsed |
-| 18 hostile paste inputs | **zero** reached the server; `MALFORMED_URL` is the only one that still shows the inline sentence |
-| 17 wire cases | every status and code honest; payload still exactly `{code, retryable}` |
-| the extraction cache | still **4 rows**, `latency_ms` untouched — roughly a dozen imports, **zero** Gemini calls |
-| re-paste after a failure | adopts the same row (`c_open` counts `failed` as open) and clears `error_code` to NULL |
+**The repo's "65–470 m" figure is not what was measured.** The real shape:
 
-**A real data leak was found and closed.** `describeCause` reduces a cause to something loggable.
-The first version passed an `Error`'s `.message` through — and V8's `JSON.parse` `SyntaxError`
-**echoes its input**: short inputs whole (`"(32.0578, 34.7702)"`), and on a trailing comma — the most
-common LLM JSON defect — a ~20-char window from the middle of the payload carrying a full longitude.
-Both reach that branch from `gemini.place-extractor.ts:184`. That is a straight **M6/R9 violation**
-(no coordinate in any log line), not a wording problem, and the first severity call on it was wrong.
-Closed by redacting everything between the first and last quote, keeping the parser's complaint so
-failures stay diagnosable. `describeCause` is also now total — it cannot throw, because it runs
-inside the route's own catch and a throw there turns an honest 4xx into Next's 500.
+- On **single-location** venues the model is 35–200 m out.
+- On **multi-branch** venues it emits a point that is **no branch at all** — 516 m and 1140 m from
+  the nearest real one, at `modelConfidence` 0.90–0.99. Invisible to the user and not fixable by
+  prompting; it is what averaging over recall produces.
+- A gazetteer hit is **~10 m** against the model's ~150 m — one to two orders of magnitude, when it
+  hits.
 
-**Two things this deliberately does not do.** It never widens the payload — honesty is choosing the
-right *code* and writing the detail to the *server log*. And it adds no fifteenth error code: the set
-is closed and owned by `07` §9. A malformed request envelope is reported as `MALFORMED_URL`, which is
-true about the user-visible effect but not literally what happened; see §3.12.
+Findings that would otherwise be rediscovered: Nominatim's `importance` is **unusable** as a
+confidence analogue (a country-level constant — `L0-F3-T3`'s exit criterion assumes otherwise and
+would send someone down a dead end); **Tel Aviv is a data hole**, three target venues verified absent
+from OSM entirely, which argues *for* D2b's two-source design rather than against it; and a
+shortlist-shaped provider yields **zero `preselect` bands**, so re-banding would convert "unmeasured"
+into "certain" — keep `preselect` for the Overture index and instead surface a disagreement when a
+single result contradicts the caption's area.
 
-**Also fixed, from the QA pass:** `Cancel` on the rail cleared the URL without aborting the fetch, so
-the doomed request came back and took the screen — leaving `Retry` as a dead primary button, and
-letting a stale response overwrite a correct screen. There is a real `AbortController` now, plus an
-in-flight guard (five scripted clicks previously fired five model calls). A caller abort is recorded
-as `outcome: 'aborted'` and **no** `error_code`: three measured aborts had each written
-`UPSTREAM_TIMEOUT`, filing a user's `Cancel` as a TikTok outage. The row stays `processing` for
-`expires_at` to sweep — tidier would be to write *a* code; none of them would be true.
+The ODbL analysis is drafted in `docs/evidence/licensing/` and is **not adopted policy** — a draft
+sign-off pending a provider decision that has not been made. Two useful facts from it: the OSMF's
+board-endorsed Geocoding Guideline treats individual results as *insubstantial extracts* (so `places`
+is neither a Derivative Database nor a Produced Work), and storing them permanently is explicitly
+allowed, so the charter's "store forever" premise holds. Nominatim's usage policy **requires**
+caching, and carries a clause aimed squarely at LLM-generated integrations requiring the
+*application developer* to make a deliberate, informed decision and be directly responsible. That is
+an owner decision and it has not been taken.
 
-## 3. Unresolved — in impact order
+---
 
-0. **Production is down, and the recorded cause was wrong.** `https://p-002-zeta.vercel.app/map`
-   and `/import` both return **500**; `/`, `/sign-in` and `/healthz` are fine, and `/healthz`
-   reports `main`'s head commit, so Vercel is deploying the right code.
+## 7. Decisions a new session must not rediscover
 
-   This file used to blame the missing migrations. **It is not the missing migrations** — measured
-   2026-08-26. `/import` also 500s, and `/import` never queries `saved_places`; it only builds a
-   server-side Supabase client and calls `getUser()`. The two 500ing pages are precisely the two
-   that construct a server-side Supabase client.
-
-   **The actual cause: the Vercel project has no environment variables at all.**
-
-   ```bash
-   npx vercel env ls production --project p-002   # → No Environment Variables found
-   ```
-
-   The same for `preview` and `development`. Confirmed independently of the CLI: the whole ~1 MB
-   production JS bundle contains no Supabase project URL and no anon key, only the bare
-   `.supabase.co` string the library ships — so `NEXT_PUBLIC_SUPABASE_URL` was undefined at build
-   time. `createServerClient(undefined, undefined)` throws before any query runs, which is why the
-   response is a bare `Internal Server Error` rather than a rendered Next error page, and why
-   `/map` never even reaches its `redirect('/sign-in')`.
-
-   **Both problems are real; the env store is the first one.** Restoring the variables alone would
-   move `/map` from throwing at client construction to throwing at query time, because production
-   genuinely is still on `0009` while `get-spots.ts` selects `extracted_reason`, `source_url`,
-   `address_line`, `source_dataset` and `resolution_score` from `0015`/`0016`. That second half is
-   **inference from the ledger**, not measurement — prod's schema cannot be read without
-   `PROD_DATABASE_URL`.
-
-   **Restoring the variables is the owner's job** (entering credentials into a third party), and
-   `docs/vercel-env-restore.md` is the checklist. `.env.vercel.preview` on disk is *not* a usable
-   recovery source: its publishable key is live, but `SUPABASE_SERVICE_ROLE_KEY` in it is the
-   literal string `PASTE_STAGING_...` and every production value is absent entirely.
-
-   **Staging is done.** It was migrated to `0018` on 2026-08-26 and verified — see §3a. Production
-   was deferred by the owner in the same session, pending `PROD_DATABASE_URL`.
-
-3a. **Staging: `0018`, proven, 2026-08-26.** Recorded here because the next session should not
-   re-derive it. Getting there was not a plain push: staging carried `0016`'s content under version
-   `0019`, a remote-only `0020`, and an out-of-band transcription feature (a table, five functions
-   and a storage bucket) with no ledger row at all — from the paused
-   `codex/cloudflare-audio-transcription` experiment, whose migrations existed only inside
-   `git stash@{3}`. All of it is preserved and replay-proved in `docs/evidence/db/orphans/`
-   (PR #27) before anything was dropped; that directory's §5 is the full record.
-
-   What was verified against staging, by running things rather than reasoning about them:
-
-   | Check | Result |
-   |---|---|
-   | ledger | `0001`–`0018`, local == remote, **no remote-only row** |
-   | `inventory.sql` | **15/15 PASS** |
-   | `0008_policy_tests.sql` (rolled back) | **22 assertions PASS** under real `request.jwt.claims` |
-   | the `/map` read query, as `authenticated` | real rows, every `0015`/`0016` column populated, RLS scoping 7 of 13 |
-   | `save_place/4` (`0017`) | reason persists · provenance row written · `UPDATE` of `extracted_reason` refused `42501` · `0016` denormalised `source_url` applied · deferred constraint triggers fire clean |
-   | `0018` | `EXECUTE` on `save_place` held by `authenticated`/`postgres`/`service_role`, **not `PUBLIC`** |
-   | the real app, signed in | `/map` **307** when unauthenticated, and renders empty *and* populated at 390×844 and 1440×900 |
-
-   **Not verified against staging, and why:** the TikTok import pipeline. It runs as `service_role`,
-   and the only staging service-role key on disk is that `PASTE_STAGING_...` placeholder, so
-   `/api/imports/probe` returns **502**. Nothing about staging's schema is implicated — the same
-   flow is verified locally. It needs a real key, which only the owner can supply.
-
-   One thing that fell out of that 502: the masked-error problem (§3.5) cost real diagnosis time.
-   The screen said `COULDN'T READ THAT TIKTOK / Something went wrong / INTERNAL`, which pointed at
-   TikTok, at the model, and at the network — none of which was the cause.
-
-   Residual drift, stated rather than hidden: the empty `transcription-audio` bucket is still in
-   `storage.buckets` on staging. Supabase refuses a direct `delete` on storage tables, so removing
-   it needs the Storage API. It is outside `public` and no check in this repo looks at it.
-
-1. **Coordinates are still the model's guess, and they are wrong by 65–470 m.** Measured across
-   re-runs of the same caption. The screen is now honest about it ("Pin is approximate", a
-   verify-on-Google-Maps link per card), but the underlying accuracy is unchanged. The owner has an
-   existing Google key that made successful Places calls and **does not want to start paying or add
-   a payment method now**; verify the real billing/quota/licensing position before proposing
-   anything, keep resolution replaceable, and do not enable billing or add cost without asking.
-   `06` §3.3/§3.4 is the standing decision this would reopen.
-2. **Pre-existing NULL `country_code` rows still defeat dedup.** Confirmed live: importing Ha Kosem
-   from a second TikTok created a *second* `places` row, because `resolve_place`'s near-duplicate
-   guard compares `country_code is not distinct from p_country_code` and the older row's is NULL.
-   New rows are fine. A backfill is a real data decision, not a code fix — ask.
-3. **`/api/imports/probe` has no rate limit.** It is authenticated but spends a model call per
-   request, against a hard ceiling of **500 Gemini 3.5 Flash calls/day**. The cache removes the
-   repeat-paste cost; it does not stop a loop. `L0-F6-T1` owns the real limiter.
-4. **`saved_places.extracted_reason` can be forged at row-creation time.** Measured, not reasoned
-   about: an authenticated client POSTs straight to `/saved_places` with any `extracted_reason` it
-   likes and it lands verbatim, bypassing `save_place`. `0015` deliberately excluded the column from
-   the INSERT grant to keep it system-derived; `0017` grants it back because `save_place` is
-   `security invoker` and the function's own INSERT is otherwise refused. **Bounded:** RLS
-   (`saved_places_insert_own`) confines it to the caller's own row, and UPDATE is still refused
-   (42501, verified), so a reason cannot be rewritten after the fact — a user can lie to themselves
-   about their own provenance and to nobody else. It still contradicts this branch's own rule that
-   the browser may never send a place fact. **The fix:** make `save_place` `security definer` with a
-   pinned `search_path` and revoke the column grant. That is a security change owed its own review —
-   a mis-scoped definer function is a classic escalation — so it is written down here rather than
-   slipped in beside an unrelated migration. Recorded in `inventory.sql` check 5 with the same
-   measurement.
-5. ~~**Every API error is masked as `INTERNAL, retryable: true`.**~~ **Fixed 2026-08-27** on
-   `fix/honest-import-errors`. A malformed body is `MALFORMED_URL` (not retryable, and not our bug);
-   each of the 14 codes carries its own HTTP status, so a 500 is now reachable only through
-   `INTERNAL` and `07` §7.1's "page a human" means something again; the real cause is written to one
-   structured server log line instead of being discarded; and the `imports` row is stamped
-   `status='failed'` with its `error_code`, which `imports_failed_implies_code` (`0003`) had required
-   since the schema was written with nothing ever writing it. The user-facing half is a per-code copy
-   map — see §2b.
-6. **The demo library has four duplicate places** ("Kiaans"/"Kiaans Tooting", two "Tokii", two
-   "Sycamore …", two "HaKosem") created by my own testing before the identity fix landed. **They can
-   now be removed from the UI** (`L1-F7-T2`, #29) — open one from the list and use "Remove from your
-   places". Deliberately not done for you: they are your rows, and they are also the most realistic
-   messy-state fixture the library has.
-7. ~~Two `imports` rows are stuck at `status='processing'`.~~ **Not true any more** — measured
-   2026-08-27, every one of the 22 rows is terminal. The note was stale.
-8. `docs/ux-import-review-screen.md` §8 (motion) is specified but not implemented. Deliberate:
-   ornament before correctness. (The debounced live-region announcement it also lists now exists on
-   `/map`'s search — `useResultAnnouncement` in `map-page-client.tsx` — but not on the review
-   screen.)
-9. **There are now six camera movers, and `06` §9.2 lists four.** The fifth is a settled search
-   (flies to its results; clearing frames the whole library) — there because searching `tel aviv`
-   from a London view otherwise showed eight places in the list and zero pins on the map. The sixth
-   is **selecting a place from the list** (#29): on desktop the detail opens in the map's
-   pin-anchored popover, so selecting a place outside the viewport produced a popover clamped to the
-   edge of the map pointing at nothing — measured at 1440×900 with the camera over Europe and the
-   place in Tel Aviv. Both reuse `focusPlaceIds`, so the existing guards (array-identity keying,
-   `FIT_BOUNDS_MAX_ZOOM`, resize re-fitting what was framed) apply unchanged. `L1-F5-T2` has to adopt
-   or replace both — a real loose end, not a finished decision.
-10. **Search is client-side, over the places `/map` already loaded.** That is what makes the list
-   and the pins narrow in the same frame with no request and no flicker, and it is right for the
-   hundreds of places this product realistically reaches. A library past that needs a server-side
-   query *and* a different interaction (debounce, pending state) — a real change, not a tuning knob.
-11. **No category-filter chips.** `ux-architecture.md` §1.4 draws `[All][Food]`; one text field that
-   also searches category and city covers most of that need, and chips are an L2 call.
-
-12. **The error taxonomy has no client-protocol fault.** `07` §9's 14 codes were designed for
-   *link* failures; there is no member for "your request envelope was wrong" — a body that is not
-   JSON, a body with no `url` key. `fix/honest-import-errors` reports those as `MALFORMED_URL`,
-   which is honest about the user-visible effect (no usable link arrived) and carries the correct
-   `retryable: false`, but is not literally what happened. Today the only caller is our own UI, so
-   the distinction is invisible in the product and a 15th code would be dead weight. If `L0-F6`'s
-   real route ever has a second caller, **`07` §9 decides** whether a `BAD_REQUEST` member is
-   warranted — not a call site.
-13. **Low-severity leftovers from the 2026-08-27 adversarial pass**, none reachable by an ordinary
-   user, all recorded rather than fixed (owner steer: hardening is not the default next branch).
-   - `/api/imports/probe` has no request-body bound: a 5 MB `url` string returns 200 in ~111 ms
-     locally. Vercel's 4.5 MB platform limit bounds it in production; `next dev` does not.
-   - `redactEchoedSource` keeps the single offending character by design, and that character can be
-     a bidi control — a crafted body logs a line that visually reverses in a terminal viewer.
-   - **`playwright.config.ts` defaults `baseURL` to `127.0.0.1`.** Against `next dev` on this Next
-     version that origin 403s on every `/_next/static/chunks/*`, the page never hydrates, and forms
-     submit natively. Every e2e spec needs `PLAYWRIGHT_BASE_URL=http://localhost:3000` locally. CI
-     builds and runs `next start`, so CI is unaffected — retargeting the default is a CI-affecting
-     change and was not made blind.
-   - `NoPlacesScreen`'s `Add manually →` calls `reset()` — it returns you to an empty paste field
-     while naming a surface (S8) that does not exist. Unreachable today; **becomes reachable at
-     `L0-F6`**, and is one of the dead ends `L1-F7-T1` closes.
-   - Seven copy strings in `ui/import/import-error-copy.ts` are marked `NEW`: compositions in the
-     existing vocabulary that `ux-architecture` §12.4 has no `C##` id for. §12 says strings not in
-     the deck do not ship, so `ux-interaction` owes ids or rewrites.
-
-## 4. Decisions and constraints a new session must not rediscover
-
-- **`rawName` decides identity; `identifiedName` decides display.** The model re-identifies the
-  same caption differently between runs ("Kiaans" → "Kiaans Tooting" → …). Anything keyed on the
-  inference mints duplicate rows. See `domain/import/llm-guess-place-id.ts`.
-- **`modelConfidence` is never rendered** — not as a number, a bar, or a derived band. It reports
-  95% on coordinates that are hundreds of metres out.
+- **`rawName` decides identity; `identifiedName` decides display.** The model re-identifies the same
+  caption differently between runs. Anything keyed on the inference mints duplicate rows.
+- **Branch and area qualifiers are NOT a defect.** An earlier finding said the model inflating
+  `La Nonna` → `La Nonna Brixton` broke geocoding; a larger run (n=20) **retracted it** — querying
+  with the plain name was *worse* (4/9 vs 6/9), and a short area qualifier disambiguates while
+  breaking nothing. What *is* a defect is location words in the **name field** when `areaHint` exists
+  for them. Keep the information; fix the field.
+- **`whyGo.groundedIn` is not persisted, deliberately.** Mapping it onto `extracted_reason` was
+  proposed and **reversed**: that column is browser-forgeable, so a verbatim quote there could be
+  forged and attributed to a named creator beside a real source link — and it would invert which
+  column is protected, locking the model's soft synthesis behind `service_role` while leaving the
+  evidence writable. Its value is as an extraction-time gate, which it already delivers.
+- **`modelConfidence` is never rendered** — not as a number, a bar, or a band. It reports 95% on
+  coordinates hundreds of metres out.
 - **The browser may never send a place fact.** It sends `extractionId` + `candidateIndex` + its own
-  note. Everything else is derived server-side. This is the shape of the security fix; do not widen
-  the confirm contract.
-- **vaul 1.1.2 does not forward `modal={false}` to Radix.** `useNonModalBackground` exists for that;
-  a vaul upgrade may make it unnecessary — the Playwright spec will say.
-- **Map identity is `saved_places.id`** (`Spot.id` → `MapPlace.id`), not `places.id`. Both are
-  uuids, so mixing them fails silently.
-- 500 Gemini 3.5 Flash calls/day. Prefer cached extractions and the four TikToks above when testing.
-- **`normalise()` is the only answer to "are these the same text?"** The resolver uses it, and so
-  does search (`domain/places/search.ts`). A second, quietly different normalisation is how `café`
-  stops finding `Café Florentin`.
-- **Searchable is exactly what a row shows** — name, category, locality, note. The model's `reason`
-  and the address would both find real matches and neither is on screen, so both produce rows that
-  look like bugs. Widening the search means widening the row first.
-- **`focusPlaceIds` is one piece of state with two writers** (a finished import, a settled search),
-  most recent wins, never cleared. The map keys the flight on the array's *identity*, so deriving
-  the prop from `lastImport` meant dismissing the confirmation banner read as a brand-new request
-  and threw the camera across the world.
+  note; everything else is derived server-side. Do not widen the confirm contract.
+- **The enrichment writer's two arguments are the control, not its WHERE clause.** It bypasses RLS:
+  `p_user_id` comes from the server-side session, `p_saved_place_id` from `save_place`'s own return
+  value in the same request — never from a request body or a client-supplied id.
+- **`normalise()` is the only answer to "are these the same text?"** — resolver, search and tags.
+  Tags additionally append an **NFKC** pass: `normalise()` is NFK**D**-based while the database is
+  NFK**C**, differing for **11,209 code points** (every Hangul syllable), so the app would hold six
+  characters where the column holds two. The pass is appended in `tags.ts` rather than folded into
+  `normalise()`, because changing that function moves `poi_index.name_norm` and forces a
+  `NORM_VERSION` bump and a full reload.
+- **Tags are stored normalised and title-cased at render.** The database's `normalize_tag()`
+  lowercases but does **not** fold accents or punctuation, so storing a display label would make
+  `Pan-Asian`/`pan asian` and `café`/`cafe` two chips each.
+- **App-side bounds must measure the NFKC form**, because the database does and NFKC *expands* — a
+  59-character dish normalises to 67 against a 64 bound and is refused.
+- **Map identity is `saved_places.id`**, not `places.id`. Both are uuids, so mixing them fails
+  silently.
+- **`focusPlaceIds` is one piece of state with two writers**, keyed on array identity.
+- **500 Gemini calls/day, and the ceiling is per *call*, not per token.** The extraction cache is the
+  only lever that matters. Dollar figures anywhere in this repo are Anthropic-priced **projections**
+  for the production adapter — the running provider is Gemini, whose price is `undefined` in code and
+  logs `costModel: 'unmeasured'`. `09` §2.2's `$0.0032` estimate is stale on the same basis.
+- **Six camera movers exist and `06` §9.2 lists four.** `L1-F5-T2` must adopt or replace the other
+  two (a settled search; selecting a place from the list).
 
-## 5. Environment
+---
 
-Local Supabase container (`npx supabase status`) with all 17 migrations applied; `.env.local`
-points at `127.0.0.1:54321`; `LLM_PROVIDER=gemini`. A `next dev` server is usually already running
-on port 3000 — reuse it rather than starting a second. Sign in at `/sign-in` as
+## 8. Environment
+
+Local Supabase (`npx supabase status`) at migration **`0019`**; `.env.local` points at
+`127.0.0.1:54321`; `LLM_PROVIDER=gemini`. A `next dev` server is usually already running on port
+3000 — **reuse it**, and reach it on `localhost`, not `127.0.0.1` (§5.12). Sign in at `/sign-in` as
 `demo@example.com` / `local-dev-preview-1234` (local only).
 
-Local database at the time of writing: 20 `places`, 20 `saved_places`, 4 `extractions`, 22
-`imports`, 10 `sources`. One `places` row has a NULL `country_code` (issue 3.2). Keep those four
-`extractions` — they are the cache that stands between this project and its 500/day model ceiling,
-and `npm run db:reset` throws them away.
+**Migration state:** local `0019`, **staging `0018`**, production `0009`. Staging was pushed and
+proven on 2026-08-26 (15/15 inventory, 22 behavioural assertions, a signed-in run at both
+breakpoints); the orphan-object recovery that preceded it is in `docs/evidence/db/orphans/`.
+**`0019` exists only locally.** Note `0018`'s ledger row was missing locally and was re-applied
+idempotently this session.
 
-**Migration state, 2026-08-26:** local `0018`, **staging `0018`** (pushed and proven — §3a),
-production still `0009`. Production's push is deferred pending `PROD_DATABASE_URL`; and note that
-migrating production will not by itself bring it back, because the Vercel env store is empty (§3.0).
+**Local database right now:** `places=20`, `saved_places=20` (**10 carrying enrichment**),
+`extractions=6`, `sources=17`, `imports=42` (7 `failed`). Keep those `extractions` — they are the
+cache standing between this project and its 500/day ceiling, and `npm run db:reset` throws them away.
 
-**`npm run verify` now runs the schema inventory** (`check:schema`) against whatever local database
-is up, and **skips with a printed notice** when there is none — a skip is a gap, not a pass. It was
-added because `migrations · RLS policy tests` sat red on PR #23 for several commits while every
-local check was green.
+**The 10 enriched rows are a mix, and the difference matters.** Five are **genuine v2 model output**
+from a real import: Jones Family Kitchen, La Nonna Brixton, MBER London, The Life Goddess, Tokii.
+Five are **hand-written fixtures** seeded to exercise the UI: Kiaans Tooting (5 tags, the maximum),
+The Laughing Yak, Sycamore Vino Cucina, Anat Bakery (Hebrew tags and dishes), Container (tags with a
+NULL `why_go`). Do not read the fixtures as evidence of model quality. The writer is
+first-writer-wins per column, so the fixtures were not overwritten by the later import.
 
-It narrows the gap; it does not close it. `verify` still covers **one of CI's four jobs** —
-`next build`, `playwright` and the from-scratch migration rebuild happen only in CI. So: never
-report a branch finished, and never merge, on a local run. `gh pr checks <pr>` is the authority.
+---
 
-## 6b. The workflow review of 2026-08-26
+## 9. The next highest-impact step
 
-Prompted by the owner's ruling on merges, and by the red-CI incident the same day. What changed:
+**Owner steer, 2026-08-27:** bias toward **visible product progress and completed MVP journeys** —
+capability, useful intelligence, reduced user effort. Fix reliability when it materially blocks the
+core experience, but hardening must not become the default workstream.
 
-- **`npm run verify` gained `check:schema`** — the read-only inventory, the specific check that was
-  missing when a red build was reported as green. Skips loudly without a database.
-- **`scripts/merge-pr.sh` / `npm run merge:pr`** — the six-condition gate that replaces owner
-  approval, because GitHub cannot enforce any of it on this plan.
-- **`git-workflow.md` §9 rewritten** into §9.1 (procedure), §9.2 (CI is the gate, local verify is a
-  filter), §9.3 (what still needs a specific instruction), §9.4 (reporting); **§11 added** — a merge
-  is not the end of the task, `main` and the deployment get verified after it.
-- **Two stale things found by reading rather than being told:** §10 still described session
-  discipline as "one ledger task per session … routed through the specialist agents", superseded by
-  `working-agreement.md` in August; and `ms3-branch-protection.md` concluded with a convention that
-  silently depended on a human approving every merge.
-- `CLAUDE.md` and `working-agreement.md` §7 carry the same rule in their own voice.
+**First, and not a feature: restore the Vercel environment variables** (§5.1). No amount of product
+work substitutes for it — until it is done, nothing anyone builds can be seen by anyone.
 
-**Kept deliberately, not revisited:** the branch naming and prefix scheme, the decompose-first rule,
-atomic commits, Conventional Commits, the never-squash sync rule (§1, from the August incident), the
-working-tree safety rule, and the `.githooks/pre-push` protection of `main`. All still correct; the
-review was not an excuse to redesign them.
+**Then, in recommended order:**
 
-**Known residual risk, stated plainly:** `merge-pr.sh` is a client-side speed bump, not a gate. It
-is bypassable by typing `gh pr merge`, and invisible to anyone inspecting GitHub settings. The real
-fix is to make the repo public or upgrade the account, apply the ruleset in
-`ms3-branch-protection.md`, and delete both the hook and this script's reason for existing.
+1. **Make `whyGo` worth showing, or cut it.** The sharpest finding from shipping it. The render gate
+   hides any sentence adding nothing over the tags, the quote and the name — and on genuine model
+   output it hides **six of six**. "Experience beautiful Greek dishes." next to a `Greek` tag is
+   filler; "Go on a weeknight — the counter is six seats" is not. Every sentence that passes carries a
+   **specific**: a time, a price, what to order, why now. So the prompt should target specifics and
+   return null otherwise. The measurement method is already in the constant's doc comment. Cheap,
+   pure product value, and the field currently costs a model call for output the user rarely sees.
+2. **A tag / `why_go` clear path** (§5.3) — small, and it closes the only place the product tells a
+   user something about themselves that they cannot unsay.
+3. **Tag filtering** — the "organized" half this branch deliberately left out. The chips are built
+   and inert, the query shapes are recorded in `0019`'s header, and `TagChipList`/`TagChipRow` are
+   the only components needing interactivity.
+4. **`L1-F7-T1` — manual add.** The recovery for the **modal** import outcome and the missing
+   destination for three failure screens; `NoPlacesScreen`'s `Add manually →` currently calls
+   `reset()`. Its exit criterion names an un-ingested city, which is the parked resolver — so it
+   ships against what exists with the boundary stated, rather than being deferred again.
+5. **Hebrew ↔ English aliases** (§4) — designed, scoped, ready to implement.
 
-## 6. The next highest-impact step
+**Cheaper things worth doing when a session has room:** a real deploy health check (`/healthz`
+returns `ok:true` with no environment variables set at all, which is why production has been down
+since PR #20 with nothing noticing); scoping the policy suite's counts to its own fixtures (§5.11);
+and `Spot` owning the three enrichment fields, which deletes the one documented cast in
+`src/ui/place/enrichment.ts`.
 
-**Owner steer, 2026-08-27: bias the next workstream toward visible product progress and a completed
-MVP journey.** Reliability, security and correctness work still happens when it genuinely blocks or
-compromises the core experience — but incremental hardening and out-of-scope edge cases must not be
-the default next branch. The product itself should become noticeably more capable, not only the
-engineering underneath it.
-
-**Still first, and still not a feature: restore the Vercel environment variables** (§3.0,
-`docs/vercel-env-restore.md`). It is the owner's five-minute job and no amount of product work
-substitutes for it, because until it is done every deployed surface that needs a signed-in user is a
-500 and nothing anyone builds can be seen. Production's migration push follows it, once
-`PROD_DATABASE_URL` is set.
-
-**Then: `L1-F7-T1` — manual add.** This is the chosen next branch, and the "blocked in spirit" note
-that has sat on it since 2026-08-26 is hereby resolved rather than escalated again. The block was
-that its exit criterion names "a place in an un-ingested city", which is the `PlaceResolver` of
-`L0-F2b`/D2b — and that resolver was **paused indefinitely** on 2026-08-22 (`06` §3.4) in favour of
-LLM identification plus a Google Maps link-out. Waiting for it means waiting forever, so manual add
-ships against what exists, with the boundary stated on screen rather than hidden.
-
-Why it is the highest-leverage product work available, in order:
-
-1. **It is the recovery for the modal outcome.** At LEVEL B's ~27% hit rate, "no places found" is
-   what most imports do, and `NoPlacesScreen`'s `Add manually →` currently calls `reset()` — it
-   returns you to an empty paste field. The most common path through the product ends in a button
-   that pretends to do something.
-2. **Three failure screens now have a missing recovery.** `ux-architecture` §5.1 and §5.3 both list
-   `Add a place you know`; it was deliberately omitted from all of them on
-   `fix/honest-import-errors` because S8 does not exist and linking to a 404 is worse than the
-   failure being reported. `ui/import/import-error-copy.ts`'s `actions` arrays are the single place
-   it gets added.
-3. **It closes `L1-F7`** — the course's CRUD evidence — and unblocks **`L1-F4`**, which depends on
-   F7 precisely because manual add is its recovery.
-4. **It reuses machinery already proven**: the extraction schema and its plausibility gate, the
-   server-owned confirm pattern (the browser sends no place fact), and `save_place`.
-
-**Not chosen, and why.** Coordinate accuracy (§3.1) is still the biggest single quality problem and
-is still blocked on an owner decision about Google spend. The remaining findings from
-`fix/honest-import-errors`' QA pass (§2b) are all low severity, none of them reachable by an ordinary
-user, and per the steer above they go on this list rather than into the next branch. The fifth and
-sixth camera movers (§3.9) stay a loose end that `L1-F5-T2` owns; nothing is broken meanwhile.
-
-**Cheaper things now unblocked, if a session has room after the feature:**
-
-- **A real deploy health check.** `/healthz` returns `ok:true` with no environment variables set at
-  all, because it deliberately reads no configuration. Production has been down since PR #20 and
-  nothing noticed. A check that fetched `/map` and asserted `307` would have caught it that day.
-- **Scoping the policy suite's counts to its own fixtures.** `npm run db:test` cannot run against a
-  database with data in it — the `extractions` setup guard counts the whole table without RLS, so it
-  fails claiming the fixture was not created. That makes the suite unrunnable locally without a
-  reset, and a reset discards cached `extractions` that cost real model calls.
-- **An in-flight guard already exists on the client after `fix/honest-import-errors`; a real
-  server-side rate limit still does not.** `rateLimitedLocal` has **zero production call sites**
-  (verified by grep, 2026-08-27), so the honest-status work now advertises a 429 the route can never
-  send. `L0-F6-T1` owns the real limiter.
+**Not chosen, deliberately:** coordinate accuracy (§6) is still the biggest single quality problem,
+parked by owner decision with its evidence preserved so it can resume cold.
