@@ -29,6 +29,7 @@ import {
   PlaceRow,
   PlaceSearchField,
 } from './place-sheet';
+import { ActiveTagFilter } from './place-enrichment';
 import { isSearchActive } from '@/domain/places/search';
 import type { ViewportHeading } from '@/ui/place/viewport';
 import type { MapPlace } from '@/components/map/types';
@@ -51,6 +52,10 @@ export interface PlaceDesktopPanelProps {
   readonly onShowAllMatches: () => void;
   readonly query: string;
   readonly onQueryChange: (query: string) => void;
+  /** The tag currently narrowing the library, or `null`. Same prop, same pill and same behaviour as
+   *  the mobile sheet — the two surfaces present one filter, not two. */
+  readonly activeTag: string | null;
+  readonly onClearTag: () => void;
   /** Opens the import overlay in `map-page-client.tsx` (client state) rather than navigating to
    *  the standalone `/import` route, so the map underneath this panel stays mounted. */
   readonly onAddTikTok: () => void;
@@ -68,10 +73,15 @@ export function PlaceDesktopPanel({
   onShowAllMatches,
   query,
   onQueryChange,
+  activeTag,
+  onClearTag,
   onAddTikTok,
   onSelect,
 }: PlaceDesktopPanelProps) {
-  const filtering = isSearchActive(query);
+  const searchActive = isSearchActive(query);
+  // See `PlaceList` in `place-sheet.tsx`: either narrowing makes the empty viewport a "your matches
+  // are elsewhere" state rather than a "your library does not reach here" one.
+  const filtering = searchActive || activeTag !== null;
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   /**
@@ -119,12 +129,16 @@ export function PlaceDesktopPanel({
           {/* Hidden while the library is empty: there is nothing to search, and an inert field is a
               false affordance. The heading and the one line above it are the whole screen. */}
           {!libraryIsEmpty && <PlaceSearchField value={query} onChange={onQueryChange} />}
+          {/* Inside the header block, under the field and above whatever the list turns out to be,
+              so the control that undoes the filter is present in the empty state too. */}
+          {activeTag !== null && <ActiveTagFilter tag={activeTag} onClear={onClearTag} />}
         </div>
 
         {libraryIsEmpty ? null : heading.empty ? (
           <div className="mt-4 px-6">
             <EmptyViewport
-              searching={filtering}
+              filtering={filtering}
+              searchActive={searchActive}
               hasMatchesElsewhere={hasMatchesElsewhere}
               onShowNearest={showNearest}
               onShowAllMatches={showAllMatches}
