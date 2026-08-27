@@ -1391,6 +1391,19 @@ end $$;
 -- assertions name rows by id and never count a table, so they do not make that worse.
 reset role;
 
+-- CONSTRAINT TIMING, and it is load-bearing rather than ceremonial. Per the P10 header, the mode is
+-- transaction-wide and each block declares what it needs; P24 ends with `all immediate`, so without
+-- this line the fixture's very first resolve_place aborts the whole suite. Not a policy failure and
+-- not a defect in resolve_place: step 3 inserts the `places` row and its `place_provider_refs` alias
+-- as two consecutive statements, which is legal precisely because `places_alias_required` is
+-- DEFERRABLE INITIALLY DEFERRED and the pair is atomic at COMMIT. Under IMMEDIATE the check fires
+-- between them and reports `has no provider ref` against a row that is one statement away from
+-- having one. Measured in CI on 2026-08-27 (run 33077424041): `ERROR: place ... has no provider ref
+-- (identity invariant, 08 §1.6)`, raised from assert_place_has_alias() through resolve_place line
+-- 155. The fixture's own invariants are then discharged at `all immediate` below, so deferring here
+-- buys the fixture nothing it has not proved.
+set constraints all deferred;
+
 insert into auth.users (id, email)
 values ('33333333-3333-3333-3333-333333333333', 'c@example.test');
 
@@ -1423,6 +1436,11 @@ select set_config('request.jwt.claims',
 set local role authenticated;
 select public.save_place(:'p25_place', null, 'C''s note') as p25_saved \gset
 reset role;
+-- Stands in for COMMIT: the three places, their aliases and C's saved row must be a legal state
+-- before a single grant assertion runs, so that a later FAIL names a grant and never a fixture that
+-- was quietly invalid. Every assertion below refuses a statement outright, so the mode this leaves
+-- behind is immaterial to them — and P25 is the last section that touches the database.
+set constraints all immediate;
 select set_config('qa.p25_saved', :'p25_saved', true),
        set_config('qa.p25_place2', :'p25_place2', true),
        set_config('qa.p25_place3', :'p25_place3', true),
