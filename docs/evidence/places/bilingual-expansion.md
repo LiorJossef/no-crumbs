@@ -3,7 +3,9 @@
 > Run 2026-08-28 by the lead session, against the real local `poi_index`
 > (region `tlv`, 10 462 rows, Overture release `2026-07-22.0`) and the **shipped** domain scorer
 > (`src/domain/places/score.ts`) at the weights on `main`.
-> Probe script: `bilingual-expansion-probe.ts` in this directory.
+> The probe is reproduced at the end of this file. It is quoted rather than committed as a
+> `.ts` file on purpose: `tsc` and `next build` cover the whole repo, so a throwaway script under
+> `docs/` breaks CI (it did — that is why this note exists).
 
 ## The question
 
@@ -58,3 +60,66 @@ either nothing or the wrong venue. Three clear the 0.92 `preselect` score gate o
   `רוטשילד 15`. That is correct for that candidate, and it is a different row from the `בזל 42`
   one the sibling candidate wants — a reminder that multi-branch resolution is decided by the
   address, not the name.
+
+
+---
+
+## Reproducing it
+
+Rows first — the prefilter, at the signature `0022` ships:
+
+```sql
+select coalesce(json_agg(row_to_json(t)),'[]') from (
+  select v.q as query, v.addr as addr, p.name, p.address_line, p.locality, p.lat, p.lng,
+         p.provider_category, p.dataset_confidence
+  from (values
+   ('Kohi','בן יהודה 155'),('Trattoria Una','איינשטיין 69'),('Cafe Europa',null),
+   ('Under the Tree',null),('Rustico','רוטשילד 15'),('Gelalucci','מסריק 1')
+  ) v(q, addr)
+  join lateral (
+    select * from public.poi_prefilter(
+      array['tlv'], string_to_array(lower(v.q),' '), lower(v.q), v.addr, 200)
+  ) p on true
+) t;
+```
+
+Then score them with the shipped scorer. Save as a `.ts` file **outside the repo** (a scratch
+directory), and run it with `npx tsx <path> <rows.json>`:
+
+```ts
+import { readFileSync } from 'node:fs';
+import { rankPlaces } from '<repo>/src/domain/places/score.ts';
+
+const rows = JSON.parse(readFileSync(process.argv[2], 'utf8')) as any[];
+const CAT: Record<string, 'cafe' | 'bar' | 'restaurant' | null> = {
+  Kohi: 'cafe', 'Trattoria Una': 'restaurant', 'Cafe Europa': 'cafe',
+  'Under the Tree': 'cafe', Rustico: 'restaurant', Gelalucci: 'cafe',
+};
+
+const byQuery = new Map<string, any[]>();
+for (const r of rows) {
+  if (!byQuery.has(r.query)) byQuery.set(r.query, []);
+  byQuery.get(r.query)!.push(r);
+}
+
+for (const [q, rs] of byQuery) {
+  const places = rs.map((r) => ({
+    provider: 'overture' as const, providerPlaceId: 'x',
+    sourceDataset: 'overture-places' as const, regionId: 'tlv',
+    name: r.name, altNames: [], addressLine: r.address_line, locality: r.locality,
+    countryCode: 'IL', lat: r.lat, lng: r.lng,
+    providerCategory: r.provider_category, datasetConfidence: r.dataset_confidence,
+  }));
+  const ranked = rankPlaces(
+    { text: q, cityHint: 'תל אביב', countryHint: 'IL', categoryHint: CAT[q] ?? null,
+      addressHint: rs[0].addr, near: null, maxResults: 5 },
+    places,
+  );
+  const t = ranked[0];
+  console.log(`${q}  rows=${rs.length}  score=${(t?.score ?? 0).toFixed(3)}  ` +
+              `top1=${t?.place.name ?? '—'} @ ${t?.place.addressLine ?? '—'}`);
+}
+```
+
+`rankPlaces` returns the ranked array directly; `confidenceOf` is what turns it into a band, and
+this probe deliberately does not call it — see the limits above.
