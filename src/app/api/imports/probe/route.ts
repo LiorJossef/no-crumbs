@@ -101,6 +101,7 @@ import { overturePlaceResolver, supabasePoiIndexGateway } from '@/integrations/s
 import { canonicaliseTikTokUrl } from '@/domain/source/canonicalise-tiktok-url';
 import { resolveCandidates } from '@/domain/import/resolve-candidates';
 import type { StoredResolution } from '@/domain/import/resolution-record';
+import { EXTRACTION_SCHEMA_VERSION } from '@/domain/extraction/schema';
 import { parseStoredCandidates } from '@/domain/import/stored-candidates';
 import { filterPlausible } from '@/domain/extraction/plausibility';
 import {
@@ -214,9 +215,15 @@ async function readCachedExtraction(
   // simply a miss.
   const parsed = parseStoredCandidates(data.candidates ?? []);
   if (parsed.kind === 'invalid') return null;
-  // The cache key pins `prompt_version`, so a v1 row can never be served under a v2 key. Asserted
-  // rather than trusted: a v1 candidate reaching this path would silently lose its enrichment.
-  if (parsed.candidates.some((c) => c.schemaVersion !== 2)) return null;
+  // The cache key pins `prompt_version`, so an older row can never be served under the current
+  // key. Asserted rather than trusted: an older candidate reaching this path would silently lose
+  // whatever the newer schema added.
+  //
+  // Compared against `EXTRACTION_SCHEMA_VERSION` rather than a literal, because a literal here
+  // rots on every schema bump and does so *silently in the direction of a 500*. This read `!== 2`
+  // when v3 landed: every cached row then parsed as v3, failed this gate, and took the caller
+  // down a path that threw — a 500 on the cache-hit path, which is the common path, in production.
+  if (parsed.candidates.some((c) => c.schemaVersion !== EXTRACTION_SCHEMA_VERSION)) return null;
 
   return {
     id: data.id as string,
