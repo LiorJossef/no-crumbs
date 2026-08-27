@@ -14,6 +14,10 @@ function candidate(overrides: Partial<PlaceCandidate> = {}): PlaceCandidate {
     addressHint: null,
     identifiedName: null,
     coordinates: null,
+    areaHint: null,
+    tags: [],
+    dishes: [],
+    whyGo: null,
     ...overrides,
   };
 }
@@ -113,5 +117,58 @@ describe('googleMapsSearchUrl', () => {
     const query = decodeURIComponent(new URL(url).searchParams.get('query') ?? '');
 
     expect(query).toBe('Paradiso, 12 Rothschild Blvd, Prague');
+  });
+});
+
+/**
+ * Extraction v2 moved locational detail **out of the venue name on purpose** — v1 emitted
+ * `identifiedName: "La Nonna Brixton"` and this query inherited the area for free. Measured on the
+ * real stored v2 extraction: `addressHint` is null on all eight London candidates and every
+ * locational detail lives in `areaHint`. Without `areaHint` in the query, the field-discipline fix
+ * would have made this link strictly worse than before — and it is currently the product's only
+ * mitigation for a model-guessed coordinate.
+ */
+describe('googleMapsSearchUrl — areaHint (schema v2)', () => {
+  const base = {
+    rawName: 'La Nonna',
+    identifiedName: 'La Nonna',
+    cityHint: 'London',
+    countryHint: 'GB',
+    categoryHint: 'restaurant',
+    addressHint: null,
+    areaHint: 'Market Row, Brixton',
+    evidence: null,
+    coordinates: null,
+    modelConfidence: 0,
+    tags: [],
+    dishes: [],
+    whyGo: null,
+  } as unknown as PlaceCandidate;
+
+  const queryOf = (c: PlaceCandidate) =>
+    decodeURIComponent(googleMapsSearchUrl(c).split('query=')[1] as string);
+
+  it('carries the area the caption named, which v1 got via the welded name', () => {
+    expect(queryOf(base)).toBe('La Nonna, restaurant, Market Row, Brixton, London, GB');
+  });
+
+  it('does not repeat an area the name already contains', () => {
+    const c = { ...base, rawName: 'Kiaans Tooting', identifiedName: 'Kiaans Tooting', areaHint: 'Tooting' };
+    expect(queryOf(c as PlaceCandidate)).not.toContain('Tooting, Tooting');
+  });
+
+  it('prefers a street address and does not stack a redundant area behind it', () => {
+    const c = { ...base, addressHint: '12 Market Row, Brixton', areaHint: 'Market Row, Brixton' };
+    expect(queryOf(c as PlaceCandidate)).toBe('La Nonna, 12 Market Row, Brixton, London, GB');
+  });
+
+  it('drops the city when the area already names it', () => {
+    const c = { ...base, areaHint: 'Soho, London' };
+    expect(queryOf(c as PlaceCandidate)).toBe('La Nonna, restaurant, Soho, London, GB');
+  });
+
+  it('is unchanged for a candidate with no area', () => {
+    const c = { ...base, areaHint: null };
+    expect(queryOf(c as PlaceCandidate)).toBe('La Nonna, restaurant, London, GB');
   });
 });

@@ -44,6 +44,14 @@ function addressAlreadyHasCity(addressHint: string, cityHint: string): boolean {
   return addressHint.trim().toLowerCase().includes(cityHint.trim().toLowerCase());
 }
 
+/**
+ * Whether a locality token is already present in a string we are about to join alongside it.
+ * Case- and whitespace-insensitive, the same test `addressAlreadyHasCity` applies to the address.
+ */
+function alreadyContains(haystack: string, needle: string): boolean {
+  return haystack.trim().toLowerCase().includes(needle.trim().toLowerCase());
+}
+
 function buildQueryText(candidate: PlaceCandidate): string {
   const name = candidate.identifiedName ?? candidate.rawName;
   const hasAddress = candidate.addressHint !== null && candidate.addressHint.trim().length > 0;
@@ -52,10 +60,38 @@ function buildQueryText(candidate: PlaceCandidate): string {
     candidate.cityHint !== null &&
     candidate.cityHint.trim().length > 0 &&
     addressAlreadyHasCity(candidate.addressHint as string, candidate.cityHint);
+
+  // `areaHint` (extraction schema v2) is the neighbourhood / market / building the caption named —
+  // "Market Row, Brixton", "Tooting Market", "Pudding Lane". It is included here because v2
+  // **moved this information out of the venue name on purpose**: v1 emitted
+  // `identifiedName: "La Nonna Brixton"` and this query inherited the area for free, whereas v2
+  // correctly emits `"La Nonna"` + `areaHint: "Market Row, Brixton"`. Measured on the real stored
+  // v2 extraction: `addressHint` is null on all eight London candidates and every locational
+  // detail lives in `areaHint`, so without this line the field-discipline fix would have made this
+  // link strictly worse than before — and this link is currently the product's only mitigation for
+  // a model-guessed coordinate (`06` §3.4). A street address is still preferred when present; the
+  // area is the weaker signal and sits after it.
+  const areaHint = candidate.areaHint;
+  const hasArea =
+    areaHint !== null &&
+    areaHint.trim().length > 0 &&
+    // Skip it when the name already carries it (a v1-shaped `identifiedName`, or a caption whose
+    // venue name genuinely contains the area) — "Kiaans Tooting, Tooting Market" helps nobody.
+    !alreadyContains(name, areaHint) &&
+    // ...or when the address already says it, since the address is the stronger of the two.
+    !(hasAddress && alreadyContains(candidate.addressHint as string, areaHint));
+
+  const cityAlreadyInArea =
+    hasArea &&
+    candidate.cityHint !== null &&
+    candidate.cityHint.trim().length > 0 &&
+    alreadyContains(areaHint as string, candidate.cityHint);
+
   const parts = [
     name,
     hasAddress ? candidate.addressHint : candidate.categoryHint,
-    cityAlreadyInAddress ? null : candidate.cityHint,
+    hasArea ? areaHint : null,
+    cityAlreadyInAddress || cityAlreadyInArea ? null : candidate.cityHint,
     candidate.countryHint,
   ].filter((part): part is string => part !== null && part.trim().length > 0);
   return parts.join(', ');
