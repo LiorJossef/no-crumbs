@@ -528,6 +528,74 @@ begin
   raise notice 'PASS P6  anon holds no grant on any table';
 end $$;
 
+-- ── P6b: the POI index and its prefilter RPC are unreachable from a browser role ─────────────
+-- Two halves of one boundary, and the second half is new with migration 0021.
+--
+--   * `poi_regions` / `poi_index` carry ENABLE + FORCE RLS, NO POLICY AT ALL, and an explicit
+--     REVOKE from both browser roles (0010, `10` §6, §12 ruling 2). Zero browser grants is a
+--     DECISION, not an oversight: `06` §11 Q6 requires the per-user rate limit to be enforced
+--     server-side, and a client that can query `poi_index` with the anon key has no rate limit.
+--   * `public.poi_prefilter` (0021) is the function that reads them. A function is the obvious way
+--     to re-open a table you closed — it is reachable over PostgREST as `/rpc/poi_prefilter`, it
+--     returns GLOBAL rows rather than the caller's own, and EXECUTE defaults to PUBLIC on every new
+--     function, so "we revoked the table" would have been worth nothing on its own. This asserts
+--     the revoke actually took, from anon AND from authenticated, for the privilege held through
+--     PUBLIC as well as directly (`has_function_privilege` accounts for PUBLIC).
+--
+-- Asserted BEHAVIOURALLY — the call is attempted and must fail 42501 — rather than by reading a
+-- catalog, because that is the thing an attacker would actually do.
+do $$
+declare n integer;
+begin
+  begin
+    select count(*) into n
+      from public.poi_prefilter(array['tlv'], array['bellboy'], 'bellboy', 5);
+    raise exception 'FAIL P6b: anon can execute poi_prefilter and read the global POI index (% rows)', n;
+  exception when insufficient_privilege then
+    null;
+  end;
+  begin
+    execute 'select 1 from public.poi_index limit 1';
+    raise exception 'FAIL P6b: anon holds a grant on poi_index';
+  exception when insufficient_privilege then
+    null;
+  end;
+  begin
+    execute 'select 1 from public.poi_regions limit 1';
+    raise exception 'FAIL P6b: anon holds a grant on poi_regions';
+  exception when insufficient_privilege then
+    null;
+  end;
+  raise notice 'PASS P6b anon can reach neither the POI index nor poi_prefilter';
+end $$;
+
+reset role;
+select set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', '11111111-1111-1111-1111-111111111111'), true);
+set local role authenticated;
+
+do $$
+declare n integer;
+begin
+  begin
+    select count(*) into n
+      from public.poi_prefilter(array['tlv'], array['bellboy'], 'bellboy', 5);
+    raise exception 'FAIL P6c: authenticated can execute poi_prefilter and read the global POI index (% rows)', n;
+  exception when insufficient_privilege then
+    null;
+  end;
+  begin
+    execute 'select 1 from public.poi_index limit 1';
+    raise exception 'FAIL P6c: authenticated holds a grant on poi_index';
+  exception when insufficient_privilege then
+    null;
+  end;
+  raise notice 'PASS P6c authenticated can reach neither the POI index nor poi_prefilter';
+end $$;
+
+reset role;
+select set_config('request.jwt.claims', '{"role":"anon"}', true);
+set local role anon;
+
 -- ── invariants that are not authorisation but must not regress ──────────────────────────────
 reset role;
 

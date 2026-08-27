@@ -23,32 +23,34 @@ import 'server-only';
  * is satisfied trivially here: neither table has a user column. These are global, rebuildable index
  * rows, not user data (`10` §1).
  *
- * ## The prefilter, and the one piece of `10` §5 that is not implementable from here
+ * ## The prefilter is both of `10` §5's arms now, and it lives in SQL
  *
- * `10` §5's proposed SQL has two OR-ed arms: a whole-string trigram similarity arm
- * (`name_norm operator(extensions.%) $2`) and a token-substring arm (`name_norm like any($3)`).
- * **Only the second is expressible through PostgREST.** `%` is a custom operator; PostgREST's
- * filter grammar has no syntax for one, and reaching the first arm needs a `SECURITY DEFINER` SQL
- * function granted to `service_role` — a migration, which this task is explicitly scoped out of.
+ * `10` §5's prefilter has two OR-ed arms: a per-token substring match and a trigram similarity
+ * match. Until migration `0021` only the substring arm shipped, because `%` is a custom operator
+ * and PostgREST's filter grammar has no syntax for one. The cost was measured, not theorised:
+ * benchmark case TLV-12, `'Belboy tel aviv'`, returned **0 prefiltered rows** against an index that
+ * holds `Bellboy`, because `belboy` cannot substring-match `bellboy`.
  *
- * So the token arm ships and the similarity arm does not, and the gap is written down rather than
- * papered over:
+ * `0021` adds `public.poi_prefilter(text[], text[], text, integer)` — both arms, region-scoped,
+ * capped, ordered — and this adapter calls it. Three consequences worth knowing here:
  *
- *  - **What ships is still `pg_trgm`-backed.** `poi_index_name_trgm_idx` is a GIN index with
- *    `gin_trgm_ops`, and that index serves `LIKE '%token%'` — trigram extraction from the pattern is
- *    what `gin_trgm_ops` is for. This is not a fallback to a sequential scan by another name.
- *  - **What is lost is recall on a query whose tokens are all misspelt**, since a substring match is
- *    exact per token. `'Falafel HaKosem'` typed `'Falafal HaKosem'` loses the first token entirely
- *    and survives only on the second. The similarity arm is what covers that case, and it is owed.
- *  - **Tokens shorter than three characters cannot use the trigram index** — there is no full
- *    trigram to extract — so a query that falls back to all-generic tokens (`queryTokens`'s
- *    `strong(toks(q)) or toks(q)` rule) can force a scan. Kept anyway: dropping short tokens here
- *    would mean the two sides of the prefilter no longer ask the same question, which is the one
- *    property `10` §5's recall gate depends on.
+ *  - **The token → pattern rule moved into SQL.** This file sends `queryTokens()`'s output and the
+ *    function builds the `LIKE` patterns, so there is one answer to "what does this token match"
+ *    instead of two that can drift. The old `*token*` PostgREST spelling, and the paragraph of
+ *    unverifiable reasoning about whether `*` is still a wildcard inside a quoted value, are both
+ *    gone: a bound `text[]` parameter has no URL grammar to escape against.
+ *  - **The trigram metric is per-token `strict_word_similarity`, not `10` §5's literal whole-string
+ *    `similarity`.** Measured on the loaded index, the whole-string form scores `bellboy` against
+ *    `'belboy tel aviv'` at 0.333 — barely over pg_trgm's default and gone entirely if the caption
+ *    carries one more word. `0021`'s header carries the numbers.
+ *  - **The 500-row cap is now ordered.** `.limit(500)` through PostgREST had no `ORDER BY` at all,
+ *    so which 500 rows survived was whatever the plan emitted — `10` §5's "a cap can silently
+ *    exclude the true match" in its worst form. The function orders by best per-token match before
+ *    it truncates. That order is a RECALL order and nothing downstream reads it: `scoreCandidates`
+ *    is still the only ranker.
  *
- * The `10` §5 recall gate — *for all 44 benchmark cases the eventual winner is inside the
- * prefilter's output* — is **not verified by this file and cannot be**: `poi_index` holds 0 rows and
- * all three `poi_regions` are `is_loaded = false`. It runs when a region is loaded.
+ * `10` §5's recall gate — *the eventual winner is inside the prefilter's output* — is exercised by
+ * `tests/manual/tlv-resolve-benchmark.manual.ts` against the loaded `tlv` index, not here.
  *
  * ## Errors
  *
@@ -64,7 +66,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { internal } from '@/domain/errors';
 import type { OpCtx, PlaceResolver } from '@/domain/ports';
-import { NORM_VERSION } from '@/domain/places/normalise';
+import { NORM_VERSION, normalise } from '@/domain/places/normalise';
 import { regionHintFor } from '@/domain/places/region-hint';
 import { queryTokens, scoreCandidates } from '@/domain/places/score';
 import type { RegionId, ResolveQuery, ResolveResult, ResolvedPlace } from '@/domain/types';
@@ -79,15 +81,16 @@ import type { RegionId, ResolveQuery, ResolveResult, ResolvedPlace } from '@/dom
 export const MAX_PREFILTER_ROWS = 500;
 
 /**
- * Most tokens that may enter the `OR` disjunction, longest first.
+ * Most tokens either arm of the prefilter may ask about, longest first.
  *
- * Not in `10` §5, which assumed a caption-length candidate name. It is here because the disjunction
- * is a URL query string: PostgREST takes `or=(...)` as one parameter, and a pathological candidate
- * name — a whole caption arriving as `ResolveQuery.text` — would build a filter long enough to be
- * rejected by the gateway's header limit, turning a bad extraction into a 5xx. Twelve distinctive
- * tokens is far more than any real business name; the longest tokens are kept because they are the
- * most selective, and the count is logged when it bites so a real case can be seen rather than
- * guessed at.
+ * Not in `10` §5, which assumed a caption-length candidate name. The original reason was PostgREST's
+ * URL length; that reason is gone with the `or=(...)` filter, and the cap stays for a better one:
+ * **each token is one GIN index probe in both arms**, so a pathological candidate — a whole caption
+ * arriving as `ResolveQuery.text` — would turn one import into hundreds of probes. Twelve
+ * distinctive tokens is far more than any real business name; the longest are kept because they are
+ * the most selective, and the count is logged when it bites so a real case can be seen rather than
+ * guessed at. `0021` repeats the same cap and the same ordering server-side, so the two agree on
+ * which twelve even if this file is bypassed.
  */
 export const MAX_PREFILTER_TOKENS = 12;
 
@@ -96,7 +99,7 @@ export const MAX_PREFILTER_TOKENS = 12;
  *  becomes visible within a minute rather than at the next deploy. */
 export const REGION_CACHE_TTL_MS = 60_000;
 
-/** Prefiltered rows, keyed by region set plus pattern set. Two candidates in one caption often
+/** Prefiltered rows, keyed by region set plus token set. Two candidates in one caption often
  *  share tokens, and a re-import repeats the whole set. Bounded hard: this holds up to 500 rows per
  *  entry, so the entry count is the memory ceiling and it is deliberately small. */
 export const RESOLUTION_CACHE_MAX_ENTRIES = 64;
@@ -149,11 +152,19 @@ export interface PoiIndexGateway {
   /** Loaded regions only (`is_loaded = true`). A half-loaded region is indistinguishable from an
    *  absent one by construction — `poi_regions_loaded_is_complete`, migration 0010. */
   loadedRegions(signal: AbortSignal): Promise<readonly PoiRegionRow[]>;
+  /**
+   * `10` §5's two-arm prefilter, via `public.poi_prefilter` (migration `0021`).
+   *
+   * `tokens` is `queryTokens()`'s output verbatim — **not** patterns. Both arms are built from it
+   * on the SQL side, which is what keeps the substring arm, the trigram arm and `score.ts`'s
+   * `tokenCoverage` asking one question rather than three. `queryNorm` is the normalised whole
+   * query and is used only to order the rows before the cap; nothing ranks on it.
+   */
   prefilter(
     input: {
       readonly regionIds: readonly string[];
-      /** Already-escaped PostgREST `like` values, from `namePrefilterPatterns`. */
-      readonly likePatterns: readonly string[];
+      readonly tokens: readonly string[];
+      readonly queryNorm: string;
       readonly limit: number;
     },
     signal: AbortSignal,
@@ -161,12 +172,12 @@ export interface PoiIndexGateway {
 }
 
 /* ------------------------------------------------------------------------------------------- *
- * Pattern building — pure, exported, and tested, because it is the part that is easy to get
+ * Token selection — pure, exported, and tested, because it is the part that is easy to get
  * subtly wrong and impossible to notice.
  * ------------------------------------------------------------------------------------------- */
 
 /**
- * `queryTokens()` → PostgREST `like` values, longest first and capped.
+ * `queryTokens()` → the token list both prefilter arms ask about, longest first and capped.
  *
  * **Exactly `queryTokens`, no other token source.** `10` §5's recall gate only means anything if
  * both sides of the prefilter ask the same question: the scorer averages per-token similarity over
@@ -174,48 +185,26 @@ export interface PoiIndexGateway {
  * rows the gate never contemplated — or, worse, withhold rows the scorer would have ranked first,
  * which reads as "the scorer regressed" and sends the debugging in the wrong direction.
  *
- * `*` is PostgREST's spelling of `%`, so `*token*` on the wire is `LIKE '%token%'` in Postgres.
+ * ## Why there is no escaping here, which used to be the interesting part
  *
- * ## Why there is no escaping here, which is the interesting part
+ * There was a whole paragraph here about `_`, PostgREST's `*`-for-`%` alias, and whether `*` is
+ * still translated inside a quoted value — a question PostgREST does not document and that could
+ * not be settled by experiment. **The question no longer exists.** `poi_prefilter` takes a bound
+ * `text[]`, so there is no URL grammar and nothing to quote, and the `LIKE` pattern is built in SQL
+ * (`0021`) where `_` is widened and the backslash is escaped explicitly. This function returns the
+ * tokens themselves.
  *
- * The first version of this function escaped `_` (LIKE's single-character wildcard, which
- * `normalise()` keeps because Python's `\w` does) as `\_`, then double-quoted the value per
- * PostgREST's rule for values containing reserved characters. **That was thrown away as
- * unverifiable.** PostgREST documents `*` as an alias for `%` and documents double quotes for
- * reserved characters, but does **not** state whether `*` is still translated inside a quoted
- * value — and with `poi_index` empty there is no way to settle it by experiment right now. Shipping
- * a filter whose meaning depends on undocumented behaviour is how a prefilter silently returns
- * nothing and the resolver looks like it has bad data.
- *
- * So the escape is replaced by a widening: **`_` becomes `*`**, i.e. the token `cafe_bar` is
- * prefiltered as `LIKE '%cafe%bar%'`. That is a superset of the exact match, so it cannot lose the
- * true row — and the prefilter is allowed to be generous, because the scorer, not this function,
- * decides what is a match. What it buys is that a pattern contains **only** characters
- * `normalise()` can emit plus `*`, none of which are reserved in a PostgREST filter, so no quoting
- * is needed and nothing here depends on an unspecified rule. `namePrefilterPatterns` is asserted to
- * emit no reserved character in its own test.
- *
- * Two known costs, recorded rather than hidden:
- *
- *  - A `_` in a real place name matches more rows than it should. `_` appears in essentially no
- *    business name; if that ever changes, the fix is the SQL-function prefilter that `10` §5 wants
- *    anyway, not more string surgery here.
- *  - Tokens shorter than three characters cannot use the trigram index (no full trigram to
- *    extract), so an all-generic query can force a scan. Kept anyway — dropping short tokens would
- *    break the "both sides ask the same question" property the recall gate rests on.
+ * The one cost that remains is real and unchanged: a token shorter than three characters has no
+ * full trigram, so it cannot use the GIN index in either arm and an all-generic query
+ * (`queryTokens`'s `strong(toks(q)) or toks(q)` fallback) can force a scan. Kept anyway — dropping
+ * short tokens here would mean the two sides of the prefilter no longer ask the same question,
+ * which is the one property the recall gate depends on.
  */
-export function namePrefilterPatterns(text: string): readonly string[] {
-  const tokens = [...queryTokens(text)]
+export function prefilterTokens(text: string): readonly string[] {
+  return [...queryTokens(text)]
     .filter((token) => token !== '')
     .sort((a, b) => b.length - a.length || (a < b ? -1 : a > b ? 1 : 0))
     .slice(0, MAX_PREFILTER_TOKENS);
-
-  return tokens.map((token) => `*${token.replace(/[_%]/gu, '*')}*`);
-}
-
-/** The `or=(...)` argument for `supabase-js`. Split out so a test can assert the whole string. */
-export function namePrefilterFilter(patterns: readonly string[]): string {
-  return patterns.map((pattern) => `name_norm.like.${pattern}`).join(',');
 }
 
 /* ------------------------------------------------------------------------------------------- *
@@ -223,8 +212,10 @@ export function namePrefilterFilter(patterns: readonly string[]): string {
  * ------------------------------------------------------------------------------------------- */
 
 const REGION_COLUMNS = 'id, country_code, norm_version, min_lat, max_lat, min_lng, max_lng';
-const POI_COLUMNS =
-  'dataset_place_id, region_id, name, alt_names, provider_category, address_line, locality, lat, lng, dataset_confidence';
+
+/** Migration `0021`. Named once so a rename shows up as one broken constant, not as an empty
+ *  prefilter that looks like bad data. */
+const PREFILTER_RPC = 'poi_prefilter';
 
 export function supabasePoiIndexGateway(service: SupabaseClient): PoiIndexGateway {
   return {
@@ -239,13 +230,23 @@ export function supabasePoiIndexGateway(service: SupabaseClient): PoiIndexGatewa
       return (data ?? []) as unknown as readonly PoiRegionRow[];
     },
 
-    async prefilter({ regionIds, likePatterns, limit }, signal) {
+    /**
+     * One RPC, four bound parameters, no filter string. The function returns exactly the ten
+     * columns `PoiIndexRow` declares, in that order, so there is no `select()` list here to fall
+     * out of step with the row type — and `name_norm` is deliberately not among them (`0021`).
+     *
+     * `service_role` is the only role holding EXECUTE on it (`0021`, asserted in that migration and
+     * again by `inventory.sql` check 6): calling this with the anon key is a 42501 at the database,
+     * not a policy decision made in this file.
+     */
+    async prefilter({ regionIds, tokens, queryNorm, limit }, signal) {
       const { data, error } = await service
-        .from('poi_index')
-        .select(POI_COLUMNS)
-        .in('region_id', [...regionIds])
-        .or(namePrefilterFilter(likePatterns))
-        .limit(limit)
+        .rpc(PREFILTER_RPC, {
+          p_region_ids: [...regionIds],
+          p_tokens: [...tokens],
+          p_query_norm: queryNorm,
+          p_limit: limit,
+        })
         .abortSignal(signal);
 
       if (error) throw internal('poi_index prefilter failed', error);
@@ -352,9 +353,9 @@ export function overturePlaceResolver(
       }
       // `unknown` searches nothing, on purpose — see `region-hint.ts`.
 
-      const patterns = namePrefilterPatterns(query.text);
+      const tokens = prefilterTokens(query.text);
 
-      if (regions.length === 0 || patterns.length === 0) {
+      if (regions.length === 0 || tokens.length === 0) {
         ctx.log.event('poi.resolve', {
           hint: hint.kind,
           scope: scopeReason,
@@ -368,7 +369,7 @@ export function overturePlaceResolver(
         return scoreCandidates(query, [], regions);
       }
 
-      const rows = await prefilterRows(regions, patterns, ctx);
+      const rows = await prefilterRows(regions, tokens, normalise(query.text), ctx);
       const candidates = rows.map(toResolvedPlace);
       const result = scoreCandidates(query, candidates, regions);
 
@@ -378,7 +379,7 @@ export function overturePlaceResolver(
         regions: regions.join(','),
         prefiltered: result.candidatesPrefiltered,
         capped: result.candidatesPrefiltered >= MAX_PREFILTER_ROWS,
-        tokens: patterns.length,
+        tokens: tokens.length,
         band: result.confidence.band,
         shortlist: result.shortlist.length,
       });
@@ -389,12 +390,17 @@ export function overturePlaceResolver(
 
   async function prefilterRows(
     regions: readonly RegionId[],
-    patterns: readonly string[],
+    tokens: readonly string[],
+    queryNorm: string,
     ctx: OpCtx,
   ): Promise<readonly PoiIndexRow[]> {
-    // `\u0000` cannot appear in a region id (`^[a-z][a-z0-9_]{1,15}$`) or in a pattern built from
+    // `\u0000` cannot appear in a region id (`^[a-z][a-z0-9_]{1,15}$`) or in a token built from
     // `normalise()`d text, so it is a separator that cannot be forged into a cache collision.
-    const key = `${[...regions].sort().join(',')}\u0000${patterns.join('\u0000')}`;
+    // `queryNorm` is NOT in the key, deliberately: it only orders the rows below the cap, and two
+    // queries with the same tokens differ in that order by at most which of >500 rows survive —
+    // which, on this index, no benchmark case has ever reached. Keying on it would halve the hit
+    // rate of the one cache that saves eight round trips per import for no observable gain.
+    const key = `${[...regions].sort().join(',')}\u0000${tokens.join('\u0000')}`;
     const hit = rowCache.get(key);
     if (hit !== undefined && hit.expiresAt > now()) return hit.value;
     if (hit !== undefined) rowCache.delete(key);
@@ -402,7 +408,7 @@ export function overturePlaceResolver(
     let rows: readonly PoiIndexRow[];
     try {
       rows = await gateway.prefilter(
-        { regionIds: regions, likePatterns: patterns, limit: MAX_PREFILTER_ROWS },
+        { regionIds: regions, tokens, queryNorm, limit: MAX_PREFILTER_ROWS },
         ctx.signal,
       );
     } catch (cause) {
