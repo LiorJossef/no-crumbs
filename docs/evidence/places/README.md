@@ -18,6 +18,7 @@ Run date: 2026-08-18. Owner: maps-geospatial.
 | `measure-normalise-name-sample.py` / `normalise-name-sample-tlv.json` | **Added 2026-08-19 (MS5 task 5).** The prototype's unmodified `norm()` pinned over a deterministic 1 000-name stride sample of the ingested Tel Aviv extract (613 non-ASCII, 590 Hebrew) — the second half of `10` §4.3's porting test, which needed a real ingest. Replayed with `===` by [`tests/unit/places/normalise-sample.test.ts`](../../../tests/unit/places/normalise-sample.test.ts): **1 000/1 000 byte-identical.** |
 | `ingest-tlv-row-counts.json` | **Added 2026-08-19 (MS5 task 5).** The recorded row counts for MS5 exit criterion 4 (raw 35 430 → food-and-drink 4 997 → loaded 4 997), the extract and loader manifests verbatim, the guards exercised, and two measured findings: the category filter admits 377 non-food rows via its `%bar%`/`%pub%` patterns and drops real food categories (`sandwich_shop`, `delicatessen`, `lounge`, …), and `06` §7.4's "43% lawyers and estate agents" is **not reproducible** — those categories are 10.3% of the raw extract. |
 | `adjudication.json` | Hand verdicts per provider per case, plus the verdict key and notes. Source of every accuracy number in `docs/06-map-and-places-decision.md`. |
+| `tlv-resolve-benchmark.md` / `tlv-resolve-benchmark-run.json` | **Added 2026-08-27 (TLV-RESOLVE-T4, `qa-reliability`).** The 14 `TLV-*` cases plus `NEG-03` run through the **shipped** resolver (`overturePlaceResolver(supabasePoiIndexGateway(...))`) against the **loaded** local `poi_index` — 10 462 rows, region `tlv`, release `2026-07-22.0`, bbox 31.95–32.40 / 34.70–35.00. The first run of any benchmark case against a real index rather than a recorded candidate list. Measured: **7/14 top-1 correct, and zero false auto-accepts** — all five `preselect` results are the right venue. The `.md` is the human reading, including which failures are absence, which are recall and which are ranking; the `.json` is the machine record, rewritten on every run. Harness: [`tests/manual/tlv-resolve-benchmark.manual.ts`](../../../tests/manual/tlv-resolve-benchmark.manual.ts), not in CI, skips with a reason when the local index is absent. |
 
 ## Not covered here, and why
 
@@ -40,6 +41,16 @@ python3 run-benchmark-osm.py .                    # ~90 s, respects Nominatim 1 
 # the ingest proper (MS5 task 5) lives in scripts/, and the name sample is taken from its output:
 DATABASE_URL=... ../../../scripts/ingest-poi-region.sh tlv --work-dir /tmp/p002-poi
 ./venv/bin/python measure-normalise-name-sample.py /tmp/p002-poi/tlv-extract.csv
+```
+
+The one runner that is not Python, and the only one that exercises product code rather than a
+prototype — needs the local container up and region `tlv` loaded, and skips with a printed reason
+when it is not:
+
+```
+SUPABASE_SERVICE_ROLE_KEY=<local key from `npx supabase status`> \
+  npx vitest run tests/manual/tlv-resolve-benchmark.manual.ts \
+    --config tests/manual/vitest.manual.config.ts --disable-console-intercept
 ```
 
 `measure-jaro-winkler.py` needs no city extract at all: it reads `raw-overture-scored.json` and
