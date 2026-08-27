@@ -155,3 +155,105 @@ also established that no migration was needed and corrected two points of my fra
 Done by the lead: the type seam and the `buildResolveQuery` composition, both 500-bugs, the
 `temperature` fix, the corpus adjudication correction, all measurement and adjudication, the
 product review in the running app, and every commit and merge.
+
+---
+
+# 9. Session end — actual state, verified against the repo
+
+Written after re-checking `git`, the worktrees and the type checker, not from memory.
+
+## 9.1 What merged (all on `main`, all green)
+
+`main` is at `74bf47e`, working tree clean, and the last four pushes to `main` all passed CI.
+
+| PR | branch | what landed |
+|---|---|---|
+| #44 | `perf/ci-startup` | Stopped pulling two Supabase images CI never boots; deleted the `stop` step. |
+| #45 | `feat/bilingual-query-expansion` | Bilingual query expansion — the headline recognition work (§1). |
+| #46 | `feat/import-cold-start` | Three tappable real TikToks in the import overlay; no-places screen made honest. |
+| #47 | `feat/landing-and-pins` | Real landing page (was the MS2 placeholder with invisible text); pin legibility; landing-page resilience to missing Supabase config. |
+| #48 | `feat/tag-chip-filter` | Tag chips filter the library, camera provably still. |
+
+**Measured CI effect of #44:** the `migrations` job went 2m52s → 1m40s, and whole runs on `main`
+now complete in **117–130s against a previous flat 2m55s**. Measured on the three most recent
+`main` runs, not projected.
+
+## 9.2 UNFINISHED AND UNCOMMITTED — the area-list rebuild
+
+**Branch `feat/stable-area-list`, worktree
+`…/scratchpad/wt-arealist`, based on `74bf47e`. Nothing is committed. It does not compile.**
+
+This is the owner's own directive (§0.1c of `current-state.md`) and the largest outstanding item.
+It was stopped part-way through a refactor, in the worst possible place: **the domain layer was
+rewritten and its consumers were not.**
+
+State on disk:
+
+```
+?? src/ui/place/active-area.ts          NEW, 376 lines — looks complete
+ M src/ui/place/viewport.ts             GUTTED: 220 lines removed, 3 helpers left
+ M src/components/map/map-surface.mapcn.tsx
+ M src/components/map/types.ts
+```
+
+`npx tsc --noEmit` reports **16 errors** in four files, all of the same kind — they still import
+exports that `viewport.ts` no longer has (`areaLabel`, `viewportHeading`,
+`sortByDistanceFromCentre`, `ViewportHeading`):
+
+- `src/app/map/map-page-client.tsx`
+- `src/components/sheet/place-desktop-panel.tsx`
+- `src/components/sheet/place-sheet.tsx`
+- `tests/unit/ui/viewport.test.ts`
+
+**What already exists and is worth keeping.** `active-area.ts` is the whole pure logic layer of the
+spec, and it is the hard half:
+
+| export | role in the spec |
+|---|---|
+| `buildAreas`, `resolveArea`, `anchorFor` | cluster the library; resolve the initial anchor |
+| `dominantArea` | most pin anchors in the rect, else nearest centroid, ties prefer current |
+| `areaAfterCameraSettled` | **the four-writer rule** — the specific fix for 21 → 9 |
+| `elsewhereRows`, `areaRowCountText`, `areaRowAccessibleName` | the `Elsewhere` section |
+| `areaHeading`, `areaHeadingSentence`, `mapAccessibleName` | the header copy table and a11y |
+| `UNNAMED_AREA_LABEL = 'this area'` | the ambiguous-label fallback |
+
+`viewport.ts` is deliberately reduced to three pure geometry helpers (`ViewportBounds`,
+`withinBounds`, `boundsCentre`). That reduction looks right; it is simply not finished.
+
+**There are no tests for `active-area.ts`.** `tests/unit/ui/viewport.test.ts` still tests the
+deleted exports and is one of the four failing files.
+
+## 9.3 Also uncommitted: the docs branch
+
+`docs/overnight-2026-08-28` holds **six commits** (this file, the temperature-0 evidence, the
+§0.1c unparking plus the Plotline ruling, the execution-plan ownership corrections, the §0.0
+landing table, and this section). It was pushed at session end but **no PR was opened and nothing
+was merged.**
+
+## 9.4 The exact next steps, in order
+
+1. **Decide whether to finish or reset the area-list work.** It is one decision and it should be
+   taken before anything else touches those files. Finishing is the better option — the hard half
+   is written — but a `git checkout -- src/ui/place/viewport.ts` plus deleting `active-area.ts`
+   returns to a clean `main` in seconds if the priority has changed.
+2. **If finishing:** rewire the four consumers above to `active-area.ts`, holding `activeAreaId`
+   in `map-page-client.tsx` with exactly the four writers. Then write the unit tests
+   `active-area.ts` does not have — `dominantArea` and `areaAfterCameraSettled` are pure and are
+   where the whole behaviour lives. Replace `tests/unit/ui/viewport.test.ts` rather than patching
+   it.
+3. **The acceptance test is a feel test, and it is one gesture:** open `/map`, pan hard several
+   times inside Tel Aviv, and confirm the header string and the row list are byte-identical before
+   and after. Then reload and confirm the header does not change as the map settles. That second
+   one is the reported bug and it reproduces every time today.
+4. **Open the PR for `docs/overnight-2026-08-28`** and land it. It carries the corrections that
+   stop the next session re-deriving tonight's findings.
+5. Then the open owner decisions in §6 — the GitHub Actions billing question is the only one with
+   a cost attached.
+
+## 9.5 One thing observed that is not yet written anywhere else
+
+While clicking a row on `/map` to test something unrelated, the list re-scoped from
+`21 places in this area` to `9 places in this area` **between the screenshot and the click**, so
+the click landed on Anat Bakery when it was aimed at La Nonna Brixton. The owner's complaint is not
+a matter of taste and it is not intermittent: the map settling after load is enough to take a row
+out from under a pointer. That is the bug §9.2 exists to fix, and it reproduces on every load.
