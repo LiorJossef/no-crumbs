@@ -4,7 +4,7 @@
 > edit the harness or the corpus, not this file. The machine record is
 > `tiktok-recognition-run.json`.
 
-Run at **2026-08-27T20:36:27.294Z** against `http://127.0.0.1:54321`, region `tlv`, 10462 rows, release `2026-07-22.0`.
+Run at **2026-08-27T20:53:50.898Z** against `http://127.0.0.1:54321`, region `tlv`, 10462 rows, release `2026-07-22.0`.
 Extractor: `2026-08-gemini-gemini-3.5-flash-lite` / prompt `p7-s2`.
 
 ## Auto-match rate: **4 / 16** (25%)
@@ -83,13 +83,13 @@ are the right venue — i.e. the share the user never had to touch the picker fo
    extraction(cache): cityHint=תל אביב  raw=[בראסרי 18]  dropped=none
    • "בראסרי 18" → MISS (ranking)
        query: text="בראסרי 18" cityHint=תל אביב cat=restaurant  regionsSearched=[tlv]  prefiltered=12
-       band=no_match  score=0.762  margin=0.020
-       top1: פיצה 180 @ יונה הנביא 2, תל אביב - יפו  (32.072899, 34.765038)  cat=restaurant conf=0.69
-       top3: פיצה 180 (0.762)  |  ברגמן 18 - bergman18 (0.742)  |  בראסרי Margaux (0.719)
+       band=no_match  score=0.697  margin=0.026
+       top1: טוסט נקניק - Sudjuk 1870 @ Ali Ben Abu Taleb, כפר קאסם  (32.113857, 34.968361)  cat=fast_food_restaurant conf=0.77
+       top3: טוסט נקניק - Sudjuk 1870 (0.697)  |  Brasserie 18 (0.671)  |  פיצה 180 (0.610)
        expected: בראסרי 18 — לבונטין 19, תל אביב
-       rank of the right row in the full prefilter: 8
+       rank of the right row in the full prefilter: 2
        poi_index probe: עמק בראסרי @ מתחם דור אלון, משמר השרון ; בראסרי Margaux @ שחם 22, פתח תקווה ; קפה ללוש בראסרי בת ים - Cafe La Lush Bat Yam @ דרך בן גוריון 133, בת ים ; קפה ללוש בראסרי חולון Cafe La Lush @ צבי תדמור 12, חולון ; דליקטסן בראסרי @ אבן גבירול 70, תל אביב - יפו ; Brasserie Kazan @ אחוזה 71, רעננה ; Brasserie 18 @ לבונטין 19, תל אביב - יפו
-       note: the right row IS in the prefilter output, at rank 8
+       note: the right row IS in the prefilter output, at rank 2
 
 ── https://vt.tiktok.com/ZSVphdqUs/  [brunch]
    @nadavbornstein  caption(cache): הבראנ׳צים הכי שווים היום בתל אביב    הבראנץ׳ קונטיננטל של קפה אירופה עם הדיספליי המרהיב - המון קינוחים, מלא מאפים מתוקים מלוחים 📍קפה אירופה   שישי ושבת, החל מ-11:00 זה של מיכל אפשטיין בeats עם הסקונס הפנומנליים שלה אגז בנדיקט הגרילד צ׳יז שטובלים במרק עגבניות שרופות ואיך אני אוהב פרנץ’ טוסט, כאן מקורמל ובפנים קרם וניל 📍eats בית חנה  שישי ושבת, 09:00-15:00 זה עם הבופה-מאפים, פחמימות פשוט נפלאות - החושחש והרוגעלך שווים הגעה במיוחד - שמים על המגש ומתיישבים בחממה של האחים 📍האחים  ראשון-שישי, 08:00-12:00 שישי כל שבועיים, 12:30-16:00 עלות כרטיס: 290 ש״ח ארוחת הבוקר של בל עמי - עם הפנקייק שכל בוקר אני מפנטז עליו, והפרנץ טוסט כמו קרפ סוזט רק להזמין מקום חודש מראש 📍בל עמי   הבראנץ׳-מסיבה בפלט - עם הבר שעמוס מנות ביס ומאפים. קונים כרטיס - והכל כולל האלכוהול ללא הגבלה (אבל לא זול הכרטיס) 📍Palette Bistro  יאללה שיהיה בוקר טוב 🌅
@@ -136,9 +136,9 @@ are the right venue — i.e. the share the user never had to touch the picker fo
    extraction(cache): cityHint=תל אביב  raw=[האחים]  dropped=none
    • "האחים" → AUTO-MATCH
        query: text="האחים" cityHint=תל אביב cat=restaurant  regionsSearched=[tlv]  prefiltered=19
-       band=preselect  score=1.000  margin=0.188
+       band=preselect  score=1.000  margin=0.196
        top1: האחים @ אבן גבירול 26, תל אביב - יפו  (32.072498, 34.781998)  cat=mediterranean_restaurant conf=1.00
-       top3: האחים (1.000)  |  מסעדת האחים חירק (0.812)  |  פלאפל האחים (0.804)
+       top3: האחים (1.000)  |  פלאפל האחים (0.804)  |  מסעדת האחים חירק (0.649)
        expected: האחים — אבן גבירול 26, תל אביב
 
 ── https://vt.tiktok.com/ZSVph2SnR/  [bakeries]
@@ -146,9 +146,9 @@ are the right venue — i.e. the share the user never had to touch the picker fo
    extraction(cache): cityHint=תל אביב  raw=[האחים]  dropped=none
    • "האחים" → AUTO-MATCH
        query: text="האחים" cityHint=תל אביב cat=restaurant  regionsSearched=[tlv]  prefiltered=19
-       band=preselect  score=1.000  margin=0.188
+       band=preselect  score=1.000  margin=0.196
        top1: האחים @ אבן גבירול 26, תל אביב - יפו  (32.072498, 34.781998)  cat=mediterranean_restaurant conf=1.00
-       top3: האחים (1.000)  |  מסעדת האחים חירק (0.812)  |  פלאפל האחים (0.804)
+       top3: האחים (1.000)  |  פלאפל האחים (0.804)  |  מסעדת האחים חירק (0.649)
        expected: האחים — אבן גבירול 26, תל אביב
 
 ── https://vt.tiktok.com/ZSVphFPMC/  [talked_about_restaurants]
@@ -156,9 +156,9 @@ are the right venue — i.e. the share the user never had to touch the picker fo
    extraction(cache): cityHint=תל אביב  raw=[טרטוריה אונה]  dropped=none
    • "טרטוריה אונה" → MISS (unreachable_in_index)
        query: text="טרטוריה אונה" cityHint=תל אביב cat=restaurant  regionsSearched=[tlv]  prefiltered=36
-       band=confirm  score=0.815  margin=0.002
-       top1: פיצה אונו @ נוף הרים 4, כוכב יאיר צור יגאל  (32.210419, 34.985821)  cat=restaurant conf=0.87
-       top3: פיצה אונו (0.815)  |  פיצה אונו (0.813)  |  טומי רול קרית אונו (0.811)
+       band=no_match  score=0.667  margin=0.016
+       top1: עיריית קריית אונו @ Ицхак Рабин 41, קרית אונו  (32.064171, 34.862907)  cat=public_and_government_association conf=0.92
+       top3: עיריית קריית אונו (0.667)  |  פיצה אונו (0.652)  |  פיצה אונו (0.650)
        expected: טרטוריה אונה — איינשטיין 69, תל אביב
        poi_index probe: Trattoria Una @ אינשטיין 69, תל אביב - יפו
        note: the row exists in poi_index but the prefilter can never return it from these tokens
@@ -168,17 +168,17 @@ are the right venue — i.e. the share the user never had to touch the picker fo
    extraction(cache): cityHint=תל אביב  raw=[מסעדת רוסטיקו | רוסטיקו]  dropped=none
    • "מסעדת רוסטיקו" → MISS (unreachable_in_index)
        query: text="מסעדת רוסטיקו" cityHint=תל אביב cat=restaurant  regionsSearched=[tlv]  prefiltered=289
-       band=confirm  score=0.917  margin=0.003
-       top1: מסעדת קיסר @ אצ"ל 43, תל אביב - יפו  (32.051662, 34.791611)  cat=restaurant conf=0.96
-       top3: מסעדת קיסר (0.917)  |  מסעדה רומנית (0.913)  |  מסעדת בוגי (0.910)
+       band=confirm  score=0.893  margin=0.004
+       top1: מסעדת 24 רופי @ Шокен 14, תל אביב - יפו  (32.052967, 34.771999)  cat=indian_restaurant conf=0.86
+       top3: מסעדת 24 רופי (0.893)  |  מסעדת רוברס (0.890)  |  מסעדת טורטיה סאיד (0.882)
        expected: רוסטיקו — בזל 42 / רוטשילד 15, תל אביב
        poi_index probe: Pizza Rustico פיצה רוסטיקו @ אלוף מגן קלמן 3, תל אביב - יפו ; Rustico @ בזל 42, תל אביב - יפו ; Rustico Rothschild @ Rothschild Boulevard 15, תל אביב - יפו
        note: the row exists in poi_index but the prefilter can never return it from these tokens
    • "רוסטיקו" → UNADJUDICATED
        query: text="רוסטיקו" cityHint=תל אביב cat=restaurant  regionsSearched=[tlv]  prefiltered=2
-       band=confirm  score=0.874  margin=0.107
+       band=no_match  score=0.699  margin=0.086
        top1: רוסטר בכפר @ הראשונים 2, הרצליה  (32.168228, 34.842358)  cat=italian_restaurant conf=0.92
-       top3: רוסטר בכפר (0.874)  |  Pizza Rustico פיצה רוסטיקו (0.767)
+       top3: רוסטר בכפר (0.699)  |  Pizza Rustico פיצה רוסטיקו (0.613)
        note: no corpus expectation matched this candidate — rule from the top-3 below and add one
 
 ── https://vt.tiktok.com/ZSVphDRbd/  [desserts]
@@ -191,9 +191,9 @@ are the right venue — i.e. the share the user never had to touch the picker fo
    extraction(cache): cityHint=תל אביב  raw=[דיזנגוף 99]  dropped=none
    • "דיזנגוף 99" → MISS (absent_from_index)
        query: text="דיזנגוף 99" cityHint=תל אביב cat=restaurant  regionsSearched=[tlv]  prefiltered=21
-       band=no_match  score=0.667  margin=0.073
+       band=no_match  score=0.667  margin=0.106
        top1: אלנבי 99 @ , תל אביב - יפו  (32.064808, 34.772766)  cat=bar conf=0.38
-       top3: אלנבי 99 (0.667)  |  חומוס דיזנגוף (0.594)  |  קפה דיזנגוף - Dizengoff Cafe (0.562)
+       top3: אלנבי 99 (0.667)  |  קפה דיזנגוף - Dizengoff Cafe (0.562)  |  Hayarkon 99 Restaurant (0.555)
        expected: דיזנגוף 99 — דיזנגוף 99, תל אביב
        poi_index probe: NO ROWS
        note: no row in poi_index matches the expected name in either script
@@ -203,9 +203,9 @@ are the right venue — i.e. the share the user never had to touch the picker fo
    extraction(cache): cityHint=ת״א  raw=[Oscar’s]  dropped=none
    • "Oscar’s" → MISS (unreachable_in_index)
        query: text="Oscar’s" cityHint=ת״א cat=restaurant  regionsSearched=[tlv]  prefiltered=3
-       band=no_match  score=0.710  margin=0.049
+       band=no_match  score=0.710  margin=0.181
        top1: Oscar Wilde Irish Pub | אוסקר ווילד @ Шахам 36, פתח תקווה  (32.085758, 34.858574)  cat=irish_pub conf=0.90
-       top3: Oscar Wilde Irish Pub | אוסקר ווילד (0.710)  |  Oscar Wilde / ирландский паб (0.661)  |  אוסקר ווילד | Oscar Wilde (0.633)
+       top3: Oscar Wilde Irish Pub | אוסקר ווילד (0.710)  |  Oscar Wilde / ирландский паб (0.529)  |  אוסקר ווילד | Oscar Wilde (0.507)
        expected: Oscar's — נחלת בנימין 68, תל אביב
        poi_index probe: אוסקר ווילד | Oscar Wilde @ הרוקמים 26, חולון ; Oscar Wilde / ирландский паб @ הרוקמים 26, חולון ; Oscar Wilde Irish Pub | אוסקר ווילד @ Шахам 36, פתח תקווה ; קפה אוסקר @ דניאל 31, בת ים ; אוסקר ווילד פתח תקוה @ השחם, פתח תקווה ; פונדק השובבים @ נחלת בנימין 68, תל אביב - יפו
        note: the row exists in poi_index but the prefilter can never return it from these tokens
@@ -215,9 +215,9 @@ are the right venue — i.e. the share the user never had to touch the picker fo
    extraction(cache): cityHint=תל אביב  raw=[WOW]  dropped=none
    • "WOW" → CORRECT-BUT-NOT-AUTO (not_auto_accepted)
        query: text="WOW" cityHint=תל אביב cat=bakery  regionsSearched=[tlv]  prefiltered=1
-       band=no_match  score=0.776  margin=null
+       band=confirm  score=0.821  margin=null
        top1: wow london @ בית אשל 15, תל אביב - יפו  (32.053303, 34.757385)  cat=desserts conf=0.35
-       top3: wow london (0.776)
+       top3: wow london (0.821)
        expected: WOW — בית אשל 15, שוק הפשפשים, יפו
        rank of the right row in the full prefilter: 1
        note: top-1 is right but margin is null (1 prefiltered) — the lone-candidate policy question, handoff §3.1

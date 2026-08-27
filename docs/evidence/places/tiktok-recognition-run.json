@@ -1,6 +1,6 @@
 {
   "_comment": "Machine record of a tests/manual/tiktok-recognition.manual.ts run — real TikTok URLs through the real oEmbed → caption → extraction → resolve flow. Regenerated on every run; see tiktok-recognition.md for the human reading. Corpus: tests/manual/tiktok-recognition-corpus.json.",
-  "run_at": "2026-08-27T20:36:27.293Z",
+  "run_at": "2026-08-27T20:53:50.896Z",
   "supabase_url": "http://127.0.0.1:54321",
   "overture_release": "2026-07-22.0",
   "region": {
@@ -264,26 +264,26 @@
           ],
           "candidatesPrefiltered": 12,
           "band": "no_match",
-          "score": 0.7623921444444445,
-          "margin": 0.020499029951690728,
+          "score": 0.6969062411208863,
+          "margin": 0.025666561120886278,
           "top1": {
-            "name": "פיצה 180",
-            "address": "יונה הנביא 2",
-            "locality": "תל אביב - יפו",
-            "lat": 32.0728988647461,
-            "lng": 34.7650375366211,
-            "providerCategory": "restaurant",
-            "datasetConfidence": 0.685477
+            "name": "טוסט נקניק - Sudjuk 1870",
+            "address": "Ali Ben Abu Taleb",
+            "locality": "כפר קאסם",
+            "lat": 32.1138572692871,
+            "lng": 34.9683609008789,
+            "providerCategory": "fast_food_restaurant",
+            "datasetConfidence": 0.76966
           },
           "top3": [
-            "פיצה 180 (0.762)",
-            "ברגמן 18 - bergman18 (0.742)",
-            "בראסרי Margaux (0.719)"
+            "טוסט נקניק - Sudjuk 1870 (0.697)",
+            "Brasserie 18 (0.671)",
+            "פיצה 180 (0.610)"
           ],
           "resolutionKind": "answered",
           "verdict": "wrong",
           "failure": "ranking",
-          "acceptedRank": 8,
+          "acceptedRank": 2,
           "indexProbeHits": [
             "עמק בראסרי @ מתחם דור אלון, משמר השרון",
             "בראסרי Margaux @ שחם 22, פתח תקווה",
@@ -293,7 +293,7 @@
             "Brasserie Kazan @ אחוזה 71, רעננה",
             "Brasserie 18 @ לבונטין 19, תל אביב - יפו"
           ],
-          "note": "the right row IS in the prefilter output, at rank 8"
+          "note": "the right row IS in the prefilter output, at rank 2"
         }
       ],
       "extractionMisses": []
@@ -556,8 +556,8 @@
           ],
           "candidatesPrefiltered": 19,
           "band": "preselect",
-          "score": 0.9996749,
-          "margin": 0.18783539999999999,
+          "score": 0.9997399200000001,
+          "margin": 0.19599760571428582,
           "top1": {
             "name": "האחים",
             "address": "אבן גבירול 26",
@@ -569,8 +569,8 @@
           },
           "top3": [
             "האחים (1.000)",
-            "מסעדת האחים חירק (0.812)",
-            "פלאפל האחים (0.804)"
+            "פלאפל האחים (0.804)",
+            "מסעדת האחים חירק (0.649)"
           ],
           "resolutionKind": "answered",
           "verdict": "auto_match",
@@ -619,8 +619,8 @@
           ],
           "candidatesPrefiltered": 19,
           "band": "preselect",
-          "score": 0.9996749,
-          "margin": 0.18783539999999999,
+          "score": 0.9997399200000001,
+          "margin": 0.19599760571428582,
           "top1": {
             "name": "האחים",
             "address": "אבן גבירול 26",
@@ -632,8 +632,8 @@
           },
           "top3": [
             "האחים (1.000)",
-            "מסעדת האחים חירק (0.812)",
-            "פלאפל האחים (0.804)"
+            "פלאפל האחים (0.804)",
+            "מסעדת האחים חירק (0.649)"
           ],
           "resolutionKind": "answered",
           "verdict": "auto_match",
@@ -681,22 +681,22 @@
             "tlv"
           ],
           "candidatesPrefiltered": 36,
-          "band": "confirm",
-          "score": 0.8147168431128974,
-          "margin": 0.001991500000000035,
+          "band": "no_match",
+          "score": 0.6674844530020705,
+          "margin": 0.015710978511752516,
           "top1": {
-            "name": "פיצה אונו",
-            "address": "נוף הרים 4",
-            "locality": "כוכב יאיר צור יגאל",
-            "lat": 32.2104187011719,
-            "lng": 34.9858207702637,
-            "providerCategory": "restaurant",
-            "datasetConfidence": 0.866308
+            "name": "עיריית קריית אונו",
+            "address": "Ицхак Рабин 41",
+            "locality": "קרית אונו",
+            "lat": 32.0641708374023,
+            "lng": 34.862907409668,
+            "providerCategory": "public_and_government_association",
+            "datasetConfidence": 0.915476
           },
           "top3": [
-            "פיצה אונו (0.815)",
-            "פיצה אונו (0.813)",
-            "טומי רול קרית אונו (0.811)"
+            "עיריית קריית אונו (0.667)",
+            "פיצה אונו (0.652)",
+            "פיצה אונו (0.650)"
           ],
           "resolutionKind": "answered",
           "verdict": "wrong",
@@ -748,21 +748,21 @@
           ],
           "candidatesPrefiltered": 289,
           "band": "confirm",
-          "score": 0.9166697075187971,
-          "margin": 0.0033828323635174407,
+          "score": 0.8933490909090909,
+          "margin": 0.003501450307587084,
           "top1": {
-            "name": "מסעדת קיסר",
-            "address": "אצ\"ל 43",
+            "name": "מסעדת 24 רופי",
+            "address": "Шокен 14",
             "locality": "תל אביב - יפו",
-            "lat": 32.0516624450684,
-            "lng": 34.7916107177734,
-            "providerCategory": "restaurant",
-            "datasetConfidence": 0.959967
+            "lat": 32.0529670715332,
+            "lng": 34.7719993591309,
+            "providerCategory": "indian_restaurant",
+            "datasetConfidence": 0.861
           },
           "top3": [
-            "מסעדת קיסר (0.917)",
-            "מסעדה רומנית (0.913)",
-            "מסעדת בוגי (0.910)"
+            "מסעדת 24 רופי (0.893)",
+            "מסעדת רוברס (0.890)",
+            "מסעדת טורטיה סאיד (0.882)"
           ],
           "resolutionKind": "answered",
           "verdict": "wrong",
@@ -789,9 +789,9 @@
             "tlv"
           ],
           "candidatesPrefiltered": 2,
-          "band": "confirm",
-          "score": 0.874261567669173,
-          "margin": 0.10744488800379326,
+          "band": "no_match",
+          "score": 0.6994092541353384,
+          "margin": 0.08595591040303463,
           "top1": {
             "name": "רוסטר בכפר",
             "address": "הראשונים 2",
@@ -802,8 +802,8 @@
             "datasetConfidence": 0.922345
           },
           "top3": [
-            "רוסטר בכפר (0.874)",
-            "Pizza Rustico פיצה רוסטיקו (0.767)"
+            "רוסטר בכפר (0.699)",
+            "Pizza Rustico פיצה רוסטיקו (0.613)"
           ],
           "resolutionKind": "answered",
           "verdict": "unadjudicated",
@@ -877,7 +877,7 @@
           "candidatesPrefiltered": 21,
           "band": "no_match",
           "score": 0.6673733872225814,
-          "margin": 0.07341753428140496,
+          "margin": 0.10570473428140492,
           "top1": {
             "name": "אלנבי 99",
             "address": "",
@@ -889,8 +889,8 @@
           },
           "top3": [
             "אלנבי 99 (0.667)",
-            "חומוס דיזנגוף (0.594)",
-            "קפה דיזנגוף - Dizengoff Cafe (0.562)"
+            "קפה דיזנגוף - Dizengoff Cafe (0.562)",
+            "Hayarkon 99 Restaurant (0.555)"
           ],
           "resolutionKind": "answered",
           "verdict": "wrong",
@@ -940,7 +940,7 @@
           "candidatesPrefiltered": 3,
           "band": "no_match",
           "score": 0.7101988302325581,
-          "margin": 0.04927394891387671,
+          "margin": 0.18145892517761297,
           "top1": {
             "name": "Oscar Wilde Irish Pub | אוסקר ווילד",
             "address": "Шахам 36",
@@ -952,8 +952,8 @@
           },
           "top3": [
             "Oscar Wilde Irish Pub | אוסקר ווילד (0.710)",
-            "Oscar Wilde / ирландский паб (0.661)",
-            "אוסקר ווילד | Oscar Wilde (0.633)"
+            "Oscar Wilde / ирландский паб (0.529)",
+            "אוסקר ווילד | Oscar Wilde (0.507)"
           ],
           "resolutionKind": "answered",
           "verdict": "wrong",
@@ -1008,8 +1008,8 @@
             "tlv"
           ],
           "candidatesPrefiltered": 1,
-          "band": "no_match",
-          "score": 0.7759484000000001,
+          "band": "confirm",
+          "score": 0.8207587200000002,
           "margin": null,
           "top1": {
             "name": "wow london",
@@ -1021,7 +1021,7 @@
             "datasetConfidence": 0.347484
           },
           "top3": [
-            "wow london (0.776)"
+            "wow london (0.821)"
           ],
           "resolutionKind": "answered",
           "verdict": "correct_not_auto_accepted",

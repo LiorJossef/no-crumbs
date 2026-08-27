@@ -95,6 +95,10 @@ export function buildResolveQuery(candidate: PlaceCandidate, extractionCityHint:
     // (`domain/types.ts`). This is the one seam that narrows, and the only caller of
     // `categoryHintFor` on the import path.
     categoryHint: categoryHintFor(candidate.categoryHint),
+    // The street address the caption gave, verbatim (TLV-ADDR-1). Passed through untouched:
+    // `places/score.ts` owns every decision about how an address is parsed and compared, and a
+    // second opinion here is exactly what this function's header exists to prevent.
+    addressHint: candidate.addressHint,
     near: null,
     maxResults: null,
   };

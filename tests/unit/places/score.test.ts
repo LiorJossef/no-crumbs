@@ -28,6 +28,8 @@ import {
   rankPlaces,
   scoreCandidates,
   scorePlace,
+  addressScore,
+  parseAddress,
 } from '@/domain/places/score';
 import { SCORING } from '@/domain/places/scoring-constants';
 
@@ -380,6 +382,28 @@ describe('SCORING', () => {
       .toBeLessThan(SCORING.bands.preselectScore);
     expect(SCORING.generic.size).toBe(53);
   });
+
+  it('holds the TLV-ADDR-1 address constants', () => {
+    // Pinned for the same reason as the weights: the address term is a free parameter fitted on
+    // 13 real captions and 19 hand-checked address pairs, and a change to it has to be a
+    // deliberate two-file diff. `streetMatch` sits between the two measurements it separates —
+    // 0.953 for a spelling variant of one street, 0.800 for two different streets sharing a house
+    // number — and moving it without re-running those pairs is how this term goes quietly wrong.
+    expect(SCORING.address).toEqual({
+      weight: 0.2,
+      streetMatch: 0.9,
+      streetOnly: 0.5,
+      minStreetTokenLength: 3,
+    });
+    // The address takes its share from the base weights proportionally, so the total is still
+    // exactly 1.00 for a row where the address applies — `resolution_score`'s CHECK, unclamped.
+    const base = SCORING.total.name + SCORING.total.category + SCORING.total.datasetConfidence;
+    expect((1 - SCORING.address.weight) * base + SCORING.address.weight).toBeCloseTo(1, 10);
+    // `generic` is for place names and `addressNoise` is for addresses, and they must not be
+    // merged: `בית` is generic in a name and is the first word of the street `בית אשל 15`.
+    expect(SCORING.generic.has('בית')).toBe(true);
+    expect(SCORING.addressNoise.has('בית')).toBe(false);
+  });
 });
 
 /**
@@ -519,5 +543,259 @@ describe('scorePlace with aliases', () => {
     const expected = nameScore('Falafel HaKosem', 'Falafel HaKosem');
     expect(scored.nameScore).toBe(expected.nameScore);
     expect(scored.tokenCoverage).toBe(expected.tokenCoverage);
+  });
+});
+
+/* ------------------------------------------------------------------------------------------- *
+ * TLV-ADDR-1 — the street-address term
+ * ------------------------------------------------------------------------------------------- */
+
+describe('parseAddress', () => {
+  it('splits a house number off the street words', () => {
+    expect(parseAddress('לבונטין 19')).toEqual({ houseNumber: '19', streetTokens: ['לבונטין'] });
+    expect(parseAddress('Rothschild Boulevard 15')).toEqual({
+      houseNumber: '15',
+      // `boulevard` is address noise; `rothschild` is the street.
+      streetTokens: ['rothschild'],
+    });
+  });
+
+  it('strips the city words a caption appends and address_line does not carry', () => {
+    // The real extracted hint for Rustico. Without this, `תל` and `אביב` would be street words
+    // that the candidate's `בזל 42` fails to contain, and an exact match would score as a miss.
+    expect(parseAddress('בזל 42, תל אביב')).toEqual({ houseNumber: '42', streetTokens: ['בזל'] });
+  });
+
+  it('never mistakes a postal code for a house number', () => {
+    // A real `address_line` from the index. `7575603` must not become the number — a match would
+    // be a spectacular false positive and a mismatch would veto a true one.
+    //
+    // `ראשון לציון` survives as a street token and that is **deliberate**: `addressNoise` stops at
+    // Tel Aviv's own names rather than listing every locality, because `ראשון לציון 10` is a real
+    // street in Petah Tikva in this very index. The same words are a city on one row and a street
+    // on another, and only one of those two mistakes is recoverable. Harmless here — only the
+    // *query's* tokens have to be found, so extra words on the candidate side cost nothing.
+    expect(parseAddress('מורשת ישראל 15, 7575603 ראשון לציון, ישראל')).toEqual({
+      houseNumber: '15',
+      streetTokens: ['מורשת', 'ראשון', 'לציון'],
+    });
+  });
+
+  it('keeps the first number when the address carries several', () => {
+    expect(parseAddress('דיזנגוף סנטר, מאיר דיזנגוף 50')?.houseNumber).toBe('50');
+  });
+
+  it('is null when there is nothing to compare, not an empty match', () => {
+    expect(parseAddress(null)).toBeNull();
+    expect(parseAddress(undefined)).toBeNull();
+    expect(parseAddress('')).toBeNull();
+    expect(parseAddress('   ')).toBeNull();
+    // Numbers alone are not an address: no street, nothing to compare.
+    expect(parseAddress('19')).toBeNull();
+    // Every word is noise.
+    expect(parseAddress('תל אביב, ישראל')).toBeNull();
+  });
+});
+
+describe('addressScore — the three-valued contract', () => {
+  it('is null, not zero, when either side has no address', () => {
+    // The property the whole design rests on: 8 of the 17 real candidates carry no `addressHint`,
+    // and 7% of index rows carry no address. `null` is "we did not look"; 0 is "it is elsewhere".
+    expect(addressScore(null, 'לבונטין 19')).toBeNull();
+    expect(addressScore('לבונטין 19', null)).toBeNull();
+    expect(addressScore(null, null)).toBeNull();
+    expect(addressScore('לבונטין 19', '')).toBeNull();
+  });
+
+  it('is null when the two addresses share no writing system', () => {
+    // `רוטשילד 15` and `Rothschild Boulevard 15` are the same address and we cannot tell. Scoring
+    // that 0 would demote a row for being transliterated — 15% of the index's addresses are Latin
+    // or Cyrillic while 83% are Hebrew.
+    expect(addressScore('רוטשילד 15, תל אביב', 'Rothschild Boulevard 15')).toBeNull();
+    expect(addressScore('בן יהודה 155', 'Шахам 36')).toBeNull();
+  });
+
+  it('scores the real matched pairs from the corpus at or near 1', () => {
+    // Every one of these is a real `addressHint` from the 13-caption corpus against the real
+    // `address_line` of the venue it should have matched. These are the measurement, not examples.
+    const pairs: readonly [string, string][] = [
+      ['בן יהודה 155', 'בן יהודה 155'], // Kohi Coffee Shop — a Latin name behind a Hebrew address
+      ['לבונטין 19', 'לבונטין 19'], // Brasserie 18
+      ['אבן גבירול 26', 'אבן גבירול 26'], // האחים
+      ['בית אשל 15', 'בית אשל 15'], // wow london
+      ['בזל 42, תל אביב', 'בזל 42'], // Rustico — hint carries the city, address_line does not
+      ['איינשטיין 69', 'אינשטיין 69'], // Trattoria Una — one yod apart
+      ['דיזנגוף 50', 'דיזנגוף סנטר, מאיר דיזנגוף 50'], // address_line more verbose than the caption
+    ];
+    for (const [hint, line] of pairs) {
+      expect(addressScore(hint, line), `${hint} ~ ${line}`).toBeGreaterThanOrEqual(0.95);
+    }
+  });
+
+  it('scores a different house number 0, however similar the street', () => {
+    // The house number is the discriminating part and a different one is conclusive. Whole-string
+    // Jaro-Winkler scores these 0.94, 0.96 and 0.95 — higher than it scores a true match — which
+    // is why this term does not use it.
+    expect(addressScore('דיזנגוף 99', 'דיזנגוף 163')).toBe(0);
+    expect(addressScore('אבן גבירול 26', 'אבן גבירול 70')).toBe(0);
+    expect(addressScore('בן יהודה 155', 'בן יהודה 48')).toBe(0);
+  });
+
+  it('scores a different street 0 even when the house numbers agree', () => {
+    // Two real Tel Aviv streets sharing a number. A mean over street tokens scores this 0.90,
+    // because `המלך` matches itself; the minimum-over-required-tokens rule scores it 0.80, under
+    // the 0.90 gate, and the gate takes it to 0.
+    expect(addressScore('שלמה המלך 1', "המלך ג'ורג' 1")).toBe(0);
+    expect(addressScore('בית אשל 15', 'בית הלל 15')).toBe(0);
+    expect(addressScore('בן יהודה 155', 'בן גוריון 155')).toBe(0);
+    expect(addressScore('בזל 42', 'הרצל 42')).toBe(0);
+  });
+
+  it('halves a street that no house number confirms', () => {
+    // 9% of the index's addresses carry no digits at all. One street holds hundreds of venues, so
+    // this is real evidence and weak evidence at the same time.
+    const both = addressScore('דיזנגוף 99', 'דיזנגוף 99');
+    const streetOnly = addressScore('דיזנגוף 99', 'דיזנגוף');
+    expect(both).toBe(1);
+    expect(streetOnly).toBeCloseTo(SCORING.address.streetOnly, 10);
+  });
+
+  it('never returns anything outside [0,1]', () => {
+    for (const [h, l] of [
+      ['לבונטין 19', 'לבונטין 19'],
+      ['לבונטין 19', 'יונה הנביא 2'],
+      ['דיזנגוף', 'דיזנגוף'],
+    ] as const) {
+      const value = addressScore(h, l);
+      expect(value).not.toBeNull();
+      expect(value!).toBeGreaterThanOrEqual(0);
+      expect(value!).toBeLessThanOrEqual(1);
+    }
+  });
+});
+
+describe('scorePlace with an address — the sign of every outcome', () => {
+  const kohi = place({
+    name: 'Kohi Coffee Shop',
+    addressLine: 'בן יהודה 155',
+    providerCategory: 'coffee_shop',
+    datasetConfidence: 0.8,
+  });
+
+  it('changes nothing at all when the query carries no address', () => {
+    // **The invariant.** A candidate with an address, a query without one: byte-identical to the
+    // score before this term existed. Not "close" — identical, and asserted on the whole object.
+    const withoutArgument = scorePlace(kohi, 'cafe', 'Kohi');
+    const withExplicitNull = scorePlace(kohi, 'cafe', 'Kohi', null);
+    expect(withExplicitNull).toEqual(withoutArgument);
+
+    // And the same row with no address at all scores the same as one with an address nobody asked
+    // about, so the term cannot leak in through the candidate side either.
+    const addressless = scorePlace({ ...kohi, addressLine: null }, 'cafe', 'Kohi');
+    expect(addressless.score).toBe(withoutArgument.score);
+  });
+
+  it('lifts a row whose address is confirmed, and never above 1', () => {
+    const base = scorePlace(kohi, 'cafe', 'Kohi').score;
+    const confirmed = scorePlace(kohi, 'cafe', 'Kohi', 'בן יהודה 155').score;
+    expect(confirmed).toBeGreaterThan(base);
+    expect(confirmed).toBeLessThanOrEqual(1);
+
+    // A perfect everything is still exactly 1.00, which is what keeps `resolution_score`'s CHECK
+    // satisfied without a clamp: `(1 − w)·1 + w·1 = 1`.
+    const perfect = scorePlace(
+      place({ name: 'האחים', addressLine: 'אבן גבירול 26', providerCategory: 'restaurant', datasetConfidence: 1 }),
+      'restaurant',
+      'האחים',
+      'אבן גבירול 26',
+    );
+    expect(perfect.score).toBeCloseTo(1, 10);
+  });
+
+  it('drops a row we can place somewhere else', () => {
+    const base = scorePlace(kohi, 'cafe', 'Kohi').score;
+    const elsewhere = scorePlace(kohi, 'cafe', 'Kohi', 'לבונטין 19').score;
+    expect(elsewhere).toBeLessThan(base);
+    expect(elsewhere).toBeCloseTo((1 - SCORING.address.weight) * base, 10);
+  });
+
+  it('leaves a row we cannot place exactly where it was', () => {
+    // The ordering this produces is the intended one: a row of unknown location outranks a row
+    // known to be elsewhere, because the second has evidence against it and the first has none.
+    const unreadable = place({ ...kohi, addressLine: 'Ali Ben Abu Taleb' });
+    expect(scorePlace(unreadable, 'cafe', 'Kohi', 'בן יהודה 155').score).toBe(
+      scorePlace(unreadable, 'cafe', 'Kohi').score,
+    );
+    expect(scorePlace(unreadable, 'cafe', 'Kohi', 'בן יהודה 155').score).toBeGreaterThan(
+      scorePlace(kohi, 'cafe', 'Kohi', 'לבונטין 19').score,
+    );
+  });
+
+  it('does not report an address component on RankedPlace', () => {
+    // Deliberate: `RankedPlace` is persisted through `extractions.candidates` and its zod schema
+    // (`domain/import/resolution-record.ts`), and is constructed by a dozen call sites outside this
+    // module. The address changes `score` and nothing else; `addressScore` is exported for anyone
+    // who needs to explain a number.
+    const ranked = scorePlace(kohi, 'cafe', 'Kohi', 'בן יהודה 155');
+    expect(Object.keys(ranked).sort()).toEqual(
+      ['categoryScore', 'nameScore', 'place', 'score', 'tokenCoverage'].sort(),
+    );
+  });
+});
+
+describe('the address term cannot manufacture an auto-accept', () => {
+  it('states the carry-over bound in terms of the constants', () => {
+    // The lift a perfect address can give is `w·(1 − base)`, so the lowest base score it can carry
+    // to the `preselect` gate is `(preselectScore − w) / (1 − w)`. Below that, no address makes a
+    // row auto-acceptable. This matters because an address is not unique: `לבונטין 19` holds three
+    // venues in the loaded index and `בן יהודה 155` holds two.
+    const w = SCORING.address.weight;
+    const lowestCarryable = (SCORING.bands.preselectScore - w) / (1 - w);
+    expect(lowestCarryable).toBeGreaterThan(0.89);
+
+    const justBelow = lowestCarryable - 0.001;
+    expect((1 - w) * justBelow + w * 1).toBeLessThan(SCORING.bands.preselectScore);
+  });
+
+  it('leaves a mediocre name mediocre however right the address is', () => {
+    // A wrong venue at the right address — the real case is `פונדק השובבים` at `נחלת בנימין 68`,
+    // where the caption named Oscar's and Oscar's is not in the index. The address is perfect and
+    // the row still cannot come close to the gate.
+    const wrongVenueRightAddress = place({
+      name: 'פונדק השובבים',
+      addressLine: 'נחלת בנימין 68',
+      providerCategory: 'restaurant',
+      datasetConfidence: 0.9,
+    });
+    const ranked = scorePlace(wrongVenueRightAddress, 'restaurant', "Oscar's", 'נחלת בנימין 68');
+    expect(ranked.score).toBeLessThan(SCORING.bands.confirmScore);
+  });
+});
+
+describe('rankPlaces reads the address off the query', () => {
+  it('treats an absent addressHint and an explicit null as the same thing', () => {
+    const candidates = [
+      place({ name: 'Brasserie 18', addressLine: 'לבונטין 19' }),
+      place({ name: 'Super pizza', addressLine: 'לבונטין 19' }),
+    ];
+    const absent = rankPlaces(query({ text: 'Brasserie' }), candidates);
+    const explicit = rankPlaces(query({ text: 'Brasserie', addressHint: null }), candidates);
+    expect(explicit).toEqual(absent);
+  });
+
+  it('cannot pick between two venues at the same address on the address alone', () => {
+    // `לבונטין 19` holds Hiro, Brasserie 18 and Super pizza. The address ties them, so the name
+    // still decides — which is exactly why the term is not allowed to outweigh the name.
+    const ranked = rankPlaces(
+      query({ text: 'Brasserie 18', addressHint: 'לבונטין 19' }),
+      [
+        place({ name: 'Super pizza', addressLine: 'לבונטין 19' }),
+        place({ name: 'Brasserie 18', addressLine: 'לבונטין 19' }),
+        place({ name: 'Hiro', addressLine: 'לבונטין 19' }),
+      ],
+    );
+    expect(ranked[0]!.place.name).toBe('Brasserie 18');
+    // All three got the same address credit, so the gap between them is entirely the name.
+    expect(ranked[0]!.nameScore).toBeGreaterThan(ranked[1]!.nameScore);
   });
 });

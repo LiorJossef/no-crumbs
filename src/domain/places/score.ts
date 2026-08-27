@@ -197,6 +197,150 @@ export function bestNameScore(
   return best;
 }
 
+/* ------------------------------------------------------------------------------------------- *
+ * The address term (TLV-ADDR-1)
+ * ------------------------------------------------------------------------------------------- */
+
+/** A street address split into the two parts that carry different amounts of evidence. */
+interface ParsedAddress {
+  /** The house number, as written. `null` when the address has none — 9% of the index. */
+  readonly houseNumber: string | null;
+  /** Street words, noise-stripped and normalised. Empty means there is nothing to compare. */
+  readonly streetTokens: readonly string[];
+}
+
+/** A token of 1–4 digits. Five or more is a postal code (`מורשת ישראל 15, 7575603 ראשון לציון`). */
+const HOUSE_NUMBER = /^\d{1,4}$/u;
+const ALL_DIGITS = /^\d+$/u;
+
+/**
+ * `'בזל 42, תל אביב'` → `{ houseNumber: '42', streetTokens: ['בזל'] }`.
+ *
+ * The **first** 1–4 digit token is the house number, because Israeli addresses put it last but a
+ * caption may write anything; taking the first and ignoring later ones is what makes
+ * `'דיזנגוף סנטר, מאיר דיזנגוף 50'` parse the same as `'דיזנגוף 50'`. Longer digit runs are
+ * dropped outright rather than treated as a number: a postal code that matched would be a
+ * spectacular false positive, and one that mismatched would veto a true match.
+ *
+ * Returns `null` when there is nothing usable — no street words at all — which the caller turns
+ * into "no comparison possible", never into "does not match".
+ */
+export function parseAddress(input: string | null | undefined): ParsedAddress | null {
+  if (input === null || input === undefined) return null;
+  let houseNumber: string | null = null;
+  const streetTokens: string[] = [];
+  for (const token of tokenise(input)) {
+    if (ALL_DIGITS.test(token)) {
+      if (houseNumber === null && HOUSE_NUMBER.test(token)) houseNumber = token;
+      continue;
+    }
+    if (SCORING.addressNoise.has(token)) continue;
+    streetTokens.push(token);
+  }
+  return streetTokens.length === 0 ? null : { houseNumber, streetTokens };
+}
+
+/**
+ * Which writing systems a set of tokens is in, by first letter. Coarse on purpose: the question is
+ * only ever "could these two strings be compared at all", and three ranges answer it for this
+ * index (83% Hebrew `address_line`, 10% Latin, 5% Cyrillic).
+ */
+function scriptsOf(tokens: readonly string[]): ReadonlySet<string> {
+  const scripts = new Set<string>();
+  for (const token of tokens) {
+    const first = Array.from(token)[0];
+    if (first === undefined) continue;
+    if (/\p{Script=Hebrew}/u.test(first)) scripts.add('hebrew');
+    else if (/\p{Script=Cyrillic}/u.test(first)) scripts.add('cyrillic');
+    else if (/\p{Script=Latin}/u.test(first)) scripts.add('latin');
+    else scripts.add('other');
+  }
+  return scripts;
+}
+
+/**
+ * How well the query's street words are found in the candidate's.
+ *
+ * **A minimum, not a mean**, and that is the whole design. A mean lets one matching word carry a
+ * wrong street: `שלמה המלך 1` against `המלך ג'ורג' 1` — two real Tel Aviv streets — averages to
+ * 0.90 because `המלך` matches itself. Requiring *every* substantial query word to be found drops
+ * that pair to 0.80, under the gate, while leaving genuine variants (`איינשטיין`/`אינשטיין`,
+ * 0.953) above it.
+ *
+ * Only the query's words must be found, not the candidate's, so `address_line` is free to be more
+ * verbose than the caption — `'דיזנגוף סנטר, מאיר דיזנגוף 50'` still matches `'דיזנגוף 50'` at
+ * 1.000. The asymmetry is deliberate and it is the direction the data actually varies in.
+ *
+ * Tokens shorter than `minStreetTokenLength` are not *required* to match (they can still satisfy
+ * another token's search), because two-letter Hebrew particles are mutually similar enough to
+ * carry a wrong street. If every token is short, they are all required — a two-letter street name
+ * is still a street name, and dropping the requirement entirely would compare nothing.
+ */
+function streetSimilarity(
+  queryStreet: readonly string[],
+  candidateStreet: readonly string[],
+): number {
+  if (queryStreet.length === 0 || candidateStreet.length === 0) return 0;
+  const substantial = queryStreet.filter(
+    (token) => Array.from(token).length >= SCORING.address.minStreetTokenLength,
+  );
+  const required = substantial.length > 0 ? substantial : queryStreet;
+
+  let worst = 1;
+  for (const token of required) {
+    let best = 0;
+    for (const candidateToken of candidateStreet) {
+      const similarity = jaroWinklerSimilarity(token, candidateToken);
+      if (similarity > best) best = similarity;
+    }
+    if (best < worst) worst = best;
+  }
+  return worst;
+}
+
+/**
+ * How much a candidate's `address_line` corroborates the caption's `addressHint`.
+ *
+ * **Three-valued, and the third value is the point.** `null` is *"no comparison was possible"* and
+ * is not the same as 0, *"this is somewhere else"*. Eight of the seventeen real candidates carry no
+ * `addressHint` at all, 7% of index rows carry no address, and 5% carry one in a script the caption
+ * cannot be compared against; if any of those were scored 0 the term would quietly become a penalty
+ * on the majority of the corpus in order to reward a minority. `scorePlace` gives a `null` row its
+ * unmodified score, so a missing address costs exactly nothing.
+ *
+ * The comparison itself, in order:
+ *
+ *  1. Either side unparseable → `null`.
+ *  2. No writing system in common → `null`. `'רוטשילד 15'` against `'Rothschild Boulevard 15'` is
+ *     the same address and we cannot tell; reporting 0 would demote a row for being transliterated.
+ *     Transliterating street names is a different project (`06` §7.1) and this is the honest
+ *     placeholder for it.
+ *  3. Street below `streetMatch` → **0**. Different street, whatever the numbers say.
+ *  4. Both house numbers present → equal gives the street score, different gives **0**. A different
+ *     house number is not weak evidence, it is conclusive: `דיזנגוף 99` is not `דיזנגוף 163`.
+ *  5. A number missing on either side → the street score, halved.
+ */
+export function addressScore(
+  addressHint: string | null | undefined,
+  candidateAddress: string | null | undefined,
+): number | null {
+  const query = parseAddress(addressHint);
+  const candidate = parseAddress(candidateAddress);
+  if (query === null || candidate === null) return null;
+
+  const queryScripts = scriptsOf(query.streetTokens);
+  const candidateScripts = scriptsOf(candidate.streetTokens);
+  if (![...queryScripts].some((script) => candidateScripts.has(script))) return null;
+
+  const street = streetSimilarity(query.streetTokens, candidate.streetTokens);
+  if (street < SCORING.address.streetMatch) return 0;
+
+  if (query.houseNumber !== null && candidate.houseNumber !== null) {
+    return query.houseNumber === candidate.houseNumber ? street : 0;
+  }
+  return street * SCORING.address.streetOnly;
+}
+
 /**
  * 1 if the candidate's provider category agrees with the hint, else 0. No hint, or no category on
  * the row, is 0 — never a fraction and never a penalty.
@@ -218,25 +362,61 @@ export function categoryScore(
 }
 
 /**
- * One candidate's four score components: `0.80·nameScore + 0.10·categoryScore +
- * 0.10·datasetConfidence`. The three weights sum to 1.00, which is what keeps `score` in `[0,1]`
- * — `places.resolution_score`'s CHECK — without a clamp.
+ * One candidate's score: `0.80·nameScore + 0.10·categoryScore + 0.10·datasetConfidence`, and then
+ * the address term when — and only when — there is an address on both sides to compare.
  *
- * The category weight was 0.18 until TLV-RANK-1, where a category bonus was measured outranking a
- * 1.000 name match (TLV-14). Why 0.10, and why the difference went to `name` rather than to
- * `datasetConfidence`, is argued once in `scoring-constants.ts` and not repeated here.
+ * The three base weights sum to 1.00, which is what keeps `score` in `[0,1]` — `resolution_score`'s
+ * CHECK — without a clamp. The category weight was 0.18 until TLV-RANK-1, where a category bonus
+ * was measured outranking a 1.000 name match (TLV-14). Why 0.10, and why the difference went to
+ * `name` rather than to `datasetConfidence`, is argued once in `scoring-constants.ts`.
+ *
+ * ## The address term, and the one property it has to have (TLV-ADDR-1)
+ *
+ * `score = (1 − w)·base + w·addressScore` **for a row where the addresses could be compared**, and
+ * `score = base` for every other row. Written that way, and not as a fourth weight taken out of the
+ * other three, because of a measured fact: **8 of the 17 real candidates carry no `addressHint`.**
+ * A term that is always present would have quietly re-weighted every one of those downward to pay
+ * for the minority that has an address — trading eight losses for four wins. Here, `addressScore`
+ * returning `null` (`06`'s "no comparison possible") makes the row's arithmetic **bit-for-bit what
+ * it was before this function learned about addresses**, and `tests/unit/places/score.test.ts`
+ * asserts exactly that rather than describing it.
+ *
+ * The three outcomes, and each is the right sign:
+ *
+ *  - **matched** → `(1−w)·base + w·a ≥ base` whenever `a ≥ base`, so corroboration lifts a row and
+ *    a perfect everything is still exactly 1.00. The weights still sum to 1.00: `(1−w)·1 + w = 1`.
+ *  - **contradicted** (`a` small, or 0 from a different house number) → the row falls. That is the
+ *    intended reading: we know where this venue is and this candidate is not there.
+ *  - **unknown** (`null`) → nothing happens at all.
+ *
+ * A row we cannot place therefore outranks a row we can place *elsewhere*, which is the correct
+ * ordering: the second has evidence against it and the first has none either way.
+ *
+ * **The safety bound, and it is arithmetic rather than hope.** The lift a perfect address can give
+ * is `w·(1 − base)`, so the lowest score that can be carried to the `preselect` gate is
+ * `(preselectScore − w) / (1 − w)` — 0.90 at today's constants. Nothing scoring below that today
+ * can be auto-accepted by adding an address, so the address cannot manufacture an auto-accept for a
+ * row whose *name* does not already almost match. That matters because an address is not unique:
+ * `לבונטין 19` holds three venues and `בן יהודה 155` holds two, so the address ties them and the
+ * name still has to break the tie. `score.test.ts` pins the bound to the constants.
  */
 export function scorePlace(
   place: ResolvedPlace,
   categoryHint: CategoryHint | null,
   queryText: string,
+  addressHint: string | null = null,
 ): RankedPlace {
   const name = bestNameScore(queryText, place.name, place.altNames);
   const category = categoryScore(categoryHint, place.providerCategory);
-  const score =
+  const base =
     SCORING.total.name * name.nameScore +
     SCORING.total.category * category +
     SCORING.total.datasetConfidence * place.datasetConfidence;
+  const address = addressScore(addressHint, place.addressLine);
+  const score =
+    address === null
+      ? base
+      : (1 - SCORING.address.weight) * base + SCORING.address.weight * address;
   return {
     place,
     score,
@@ -279,8 +459,12 @@ export function rankPlaces(
   query: ResolveQuery,
   candidates: readonly ResolvedPlace[],
 ): readonly RankedPlace[] {
+  // `?? null` rather than a non-null default in the signature: `addressHint` is optional on
+  // `ResolveQuery` so that every existing construction site — the adapter, the probe route, the
+  // benchmark harnesses — keeps compiling untouched, and an absent field and an explicit `null`
+  // have to mean the same thing or the two would resolve the same caption differently.
   return candidates
-    .map((place) => scorePlace(place, query.categoryHint, query.text))
+    .map((place) => scorePlace(place, query.categoryHint, query.text, query.addressHint ?? null))
     .sort(byRank);
 }
 
