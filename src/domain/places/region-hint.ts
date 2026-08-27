@@ -66,7 +66,18 @@ import { toCountryCode } from './country-code';
  * get scored against Tel Aviv — the exact confidently-wrong outcome this file exists to prevent.
  */
 export type RegionHint =
-  | { readonly kind: 'city'; readonly regionId: RegionId; readonly point: LatLng }
+  | {
+      readonly kind: 'city';
+      readonly regionId: RegionId;
+      readonly point: LatLng;
+      /**
+       * Where the city came from. `'hint'` is the extractor's own `cityHint` field; `'text'` is a
+       * city name found inside the candidate string itself. Recorded rather than flattened because
+       * the two deserve different trust in a log: a `'text'` scope is a guess made from prose, and
+       * when it is wrong it is wrong in the interesting direction.
+       */
+      readonly via: 'hint' | 'text';
+    }
   | { readonly kind: 'country'; readonly countryCode: string }
   | { readonly kind: 'unknown' };
 
@@ -206,12 +217,18 @@ export const REGION_ALIASES: readonly string[] = Object.keys(ALIASES);
 export function regionHintFor(
   cityHint: string | null | undefined,
   countryHint: string | null | undefined,
+  text?: string | null | undefined,
 ): RegionHint {
   const key = normalise(cityHint);
   const entry = key === '' ? undefined : NORMALISED.get(key);
 
   if (entry !== undefined) {
-    return { kind: 'city', regionId: entry.regionId, point: entry.point };
+    return { kind: 'city', regionId: entry.regionId, point: entry.point, via: 'hint' };
+  }
+
+  const fromText = cityInText(text);
+  if (fromText !== undefined) {
+    return { kind: 'city', regionId: fromText.regionId, point: fromText.point, via: 'text' };
   }
 
   const countryCode = toCountryCode(countryHint);
@@ -220,4 +237,58 @@ export function regionHintFor(
   }
 
   return { kind: 'unknown' };
+}
+
+/** Longest alias in the table, in tokens — the widest window `cityInText()` has to try. */
+const MAX_ALIAS_TOKENS = Math.max(
+  ...[...NORMALISED.keys()].map((alias) => alias.split(' ').length),
+);
+
+/**
+ * Scan a candidate string for a city we hold a region for. This is the TLV-12 fix, and TLV-12 is
+ * the whole argument for it: the query was `'Belboy tel aviv'` with a null `cityHint`, so
+ * `regionHintFor()` returned `unknown`, `regionsSearched` was `[]`, and **the database was never
+ * queried at all**. Not a ranking loss and not a coverage gap — a venue that is sitting in the
+ * index, never looked for. The extractor does not always split the city out of the name, and a
+ * caption is under no obligation to help it.
+ *
+ * **Longest window first, so `'tel aviv'` is one alias rather than two misses.** Windows of
+ * `MAX_ALIAS_TOKENS` tokens down to one are matched against the same normalised table the
+ * `cityHint` path uses, so the two paths cannot disagree about what a city is called.
+ *
+ * **Two cities in one string is `undefined`, not a coin flip.** `'best coffee in tel aviv and
+ * tokyo'` names two regions with equal warrant, and picking either would report
+ * `regionsSearched: ['tlv']` for a query that said no such thing. Aliases of the *same* region are
+ * not a conflict — `'jaffa tel aviv'` is one place twice — so the test is on the region id, not on
+ * the match count. The first match wins the `point`, and any alias of a region is enough to decide
+ * whether that region's bbox is the right one to search.
+ *
+ * ## The risk, and why it is worth taking
+ *
+ * A place can be named after a city — a `'Jaffa'` café in London — so this can scope to the wrong
+ * region. That is a real cost and it is bounded: a wrong region returns rows that then have to
+ * survive scoring against the query, so the usual outcome is `no_match`, which is exactly what the
+ * unscoped query returned anyway. What it buys is every case where the city is only in the prose,
+ * which today fails silently and completely. The `via: 'text'` marker keeps the two
+ * distinguishable wherever it matters.
+ *
+ * A text match is a `city` hint of full standing, so it does **not** fall through to the country
+ * rule when the region turns out not to cover the point — same reasoning as the header's, and for
+ * the same reason: "somewhere in IL" scored against Tel Aviv is the confidently-wrong answer.
+ */
+function cityInText(text: string | null | undefined): AliasEntry | undefined {
+  const tokens = normalise(text).split(' ').filter((token) => token !== '');
+  if (tokens.length === 0) return undefined;
+
+  let found: AliasEntry | undefined;
+  for (let width = Math.min(MAX_ALIAS_TOKENS, tokens.length); width >= 1; width -= 1) {
+    for (let start = 0; start + width <= tokens.length; start += 1) {
+      const entry = NORMALISED.get(tokens.slice(start, start + width).join(' '));
+      if (entry === undefined) continue;
+      // A second region named in the same string is a genuine ambiguity: refuse both.
+      if (found !== undefined && found.regionId !== entry.regionId) return undefined;
+      found ??= entry;
+    }
+  }
+  return found;
 }

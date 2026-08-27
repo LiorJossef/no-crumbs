@@ -326,7 +326,10 @@ export function overturePlaceResolver(
     async resolve(query: ResolveQuery, ctx: OpCtx): Promise<ResolveResult> {
       // Region scoping. Nothing about this step touches the network except the region list itself,
       // so an unloaded city costs one cached read and no prefilter.
-      const hint = regionHintFor(query.cityHint, query.countryHint);
+      // `query.text` is the third argument on purpose: when the extractor gives no `cityHint`,
+      // the city is often still sitting in the candidate string (`'Belboy tel aviv'`). Without it
+      // that query scoped to nothing and the index was never read — see `region-hint.ts`.
+      const hint = regionHintFor(query.cityHint, query.countryHint, query.text);
 
       let regions: readonly RegionId[] = [];
       let scopeReason = 'none';
@@ -338,7 +341,10 @@ export function overturePlaceResolver(
         // otherwise reporting `regionsSearched: ['tlv']` would claim we looked in the right place
         // and return the best-scoring Tel Aviv namesake for a Netanya café.
         regions = named.filter((row) => covers(row, hint.point)).map((row) => row.id);
-        scopeReason = regions.length > 0 ? 'city' : named.length > 0 ? 'outside_extent' : 'not_loaded';
+        // `city_text` rather than `city` when the city came out of the candidate string: it is the
+        // same scope with weaker warrant, and a log that conflates them cannot show which.
+        const scoped = hint.via === 'text' ? 'city_text' : 'city';
+        scopeReason = regions.length > 0 ? scoped : named.length > 0 ? 'outside_extent' : 'not_loaded';
       } else if (hint.kind === 'country') {
         const loaded = usableRegions(await loadedRegions(ctx), ctx);
         regions = loaded.filter((row) => row.country_code === hint.countryCode).map((row) => row.id);
