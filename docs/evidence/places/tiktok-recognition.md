@@ -4,7 +4,7 @@
 > edit the harness or the corpus, not this file. The machine record is
 > `tiktok-recognition-run.json`.
 
-Run at **2026-08-27T20:32:55.360Z** against `http://127.0.0.1:54321`, region `tlv`, 10462 rows, release `2026-07-22.0`.
+Run at **2026-08-27T20:36:27.294Z** against `http://127.0.0.1:54321`, region `tlv`, 10462 rows, release `2026-07-22.0`.
 Extractor: `2026-08-gemini-gemini-3.5-flash-lite` / prompt `p7-s2`.
 
 ## Auto-match rate: **4 / 16** (25%)

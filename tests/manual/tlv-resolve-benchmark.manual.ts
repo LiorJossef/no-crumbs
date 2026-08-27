@@ -94,8 +94,20 @@ const CASES: readonly SpecCase[] = (benchmarkSpec.cases as readonly SpecCase[]).
 
 /** The regression floor. Measured 2026-08-27 on release 2026-07-22.0, `tlv` at 31.95–32.40 /
  *  34.70–35.00, 10 462 rows — see `docs/evidence/places/tlv-resolve-benchmark.md`. It is a floor,
- *  not a target: raise it when a change earns more, and never lower it to make a run pass. */
-const BASELINE_TOP1_CORRECT = 7;
+ *  not a target: raise it when a change earns more, and never lower it to make a run pass.
+ *
+ *  Raised 7 → 11 on 2026-08-27 after two changes each earned two cases: the scoring re-fit
+ *  (`gelato` and friends into the generic set; category weight 0.18 → 0.10, which stopped a
+ *  category bonus outranking a 1.000 name match) and the trigram prefilter arm (`0021`), which
+ *  recovered TLV-12 from zero prefiltered rows.
+ *
+ *  **Read this number with its limits.** These fifteen queries were written by hand and are
+ *  script-matched to the index by construction — a Latin query for a Latin-named row — so they
+ *  systematically flatter the resolver. On real captions the same code scores 4/16.
+ *  `tests/manual/tiktok-recognition.manual.ts` is the harness that measures the product; this one
+ *  measures the scorer and the prefilter against a fixed substrate. Both are worth having. Only
+ *  one of them is the product's accuracy, and it is not this one. */
+const BASELINE_TOP1_CORRECT = 11;
 
 /* ------------------------------------------------------------------------------------------- *
  * Adjudication rules — see the header for how these were derived.

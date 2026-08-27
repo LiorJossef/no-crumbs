@@ -1,6 +1,6 @@
 {
   "_comment": "Machine record of a tests/manual/tiktok-recognition.manual.ts run — real TikTok URLs through the real oEmbed → caption → extraction → resolve flow. Regenerated on every run; see tiktok-recognition.md for the human reading. Corpus: tests/manual/tiktok-recognition-corpus.json.",
-  "run_at": "2026-08-27T20:32:55.358Z",
+  "run_at": "2026-08-27T20:36:27.293Z",
   "supabase_url": "http://127.0.0.1:54321",
   "overture_release": "2026-07-22.0",
   "region": {
