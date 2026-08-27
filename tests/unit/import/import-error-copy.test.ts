@@ -384,9 +384,11 @@ describe('the pre-submit codes are the same map, not a second one', () => {
     // destination that does not exist. The button called `reset()`.
     expect(CLIENT_SOURCE).not.toContain('Add it by hand instead');
     expect(CLIENT_SOURCE).not.toContain('Add it by hand');
-    // NOTE: `NoPlacesScreen` still carries its own `Add manually →` button wired to `reset()` —
-    // the same defect, in a screen this task does not own and which no code path currently
-    // reaches (see this file's header). Reported to the orchestrator rather than rewritten here,
-    // because §5.3 genuinely wants a manual-add action there once S8 exists.
+    // `NoPlacesScreen` carried the identical defect — an `Add manually →` primary wired to
+    // `reset()` — and has now lost it too. §5.3 does want a manual-add action on that screen, but
+    // only once S8 (`L1-F7-T1`) exists to receive it; until then no screen in this flow may name
+    // it. This is the whole-file version of that rule.
+    expect(CLIENT_SOURCE).not.toContain('Add manually');
+    expect(CLIENT_SOURCE).not.toContain('add it yourself');
   });
 });
