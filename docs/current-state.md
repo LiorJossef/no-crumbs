@@ -134,6 +134,67 @@ together, and should treat `ux-map-is-the-query.md` as a **superseded-in-part** 
 binding one: its §1 (the query rect) and §4 (panning settles the list) are the parts under review,
 while its string matrix, empty states and accessibility rules are unaffected.
 
+### 0.1c **§0.1b is UNPARKED by the owner, 2026-08-28.** The list must stop dissolving
+
+The owner, in their own words during the overnight session:
+
+> "I really don't like that the places list keeps changing automatically as I move/pan the map. It
+> feels unstable and makes the browsing experience worse because I lose the list I was looking at
+> just from exploring the map. Investigate better interaction patterns and use your judgment on
+> the right solution."
+
+§0.1b asked for the shipped model to be **preserved, not opened**. That instruction is now
+superseded: it is open, and the implementation is delegated to the lead's judgment. Any sentence
+elsewhere in this file or in `ux-map-is-the-query.md` saying "do not start the rethink" is stale as
+of 2026-08-28 and should be read against this section.
+
+**The ruling, from `ux-interaction`, and it is specified to build:** the active area becomes a
+**place cluster**, not a pixel rectangle. `domain/places/clusters.ts` already does ~50 km
+coordinate clustering. Pan and zoom freely inside an area and *nothing changes at all*; cross into
+another of your own areas and the list switches, which is the only moment it may. The cluster
+boundary is the hysteresis — data-shaped rather than screen-shaped, with no constant to tune.
+An `Elsewhere` section lists the other areas as one tappable row each.
+
+The single enforcement mechanism: `activeAreaId` has exactly four writers (initial anchor, an area
+tap, post-import, and a *settled user gesture* that crossed a boundary) and is **never re-derived
+from settled bounds**. In the `moveend` handler, only consider the fourth when `e.originalEvent`
+is present — a programmatic camera move has none, so it structurally cannot rewrite the list.
+That is the specific fix for the observed "21 places" → "9 places" with nobody touching anything.
+
+**One correction to this document's own record**, which is what makes the change safe: §9.1 credits
+the list binding with fixing the continental-view failure. §0.1 disproves that — the causes were a
+MapLibre container-measurement bug and anchoring the camera on one cluster instead of `fitBounds`
+over all of them. **Unbinding list membership does not reintroduce the continental view**, provided
+the anchor rule stays.
+
+`L1-F11` (near-me) keeps its place but its justification is replaced: near-me becomes the single
+mode in which the list is *ordered by distance* and distances are shown, because distance-from-you
+is a fact about the world while distance-from-map-centre never was.
+
+Explicitly **not** being built: a "Search this area" pill (it solves a data-volume problem we do
+not have at 21 rows, adds a tap, and still destroys the set), a latch/pin control (a mode with an
+invisible off-state), any pixel or percentage hysteresis threshold, dimming of off-screen rows, a
+city-switcher screen, and grouping on the `locality` string.
+
+### 0.1d The Plotline competitive read, 2026-08-28 — mostly a rejection
+
+Plotline (iOS, travel map + planner, share-sheet intake, multi-place extraction) was reviewed as a
+product reference. **It is a weaker reference than mio**, for a reason worth keeping: its job is
+trip *planning* and ours is *retrieval*, so most of its surface area sits downstream of the save
+and inside Charter §4's exclusions. Its published material is also silent on the confirm step,
+failure states and first-run onboarding — the three things we most needed a reference for.
+
+Accepted and built this session: seeding the import screen with real TikToks a first-time user can
+tap, and making tag chips filter. Accepted and already held: the creator's handle on the pin, and
+`N places found` as the review headline — both already shipped, so no work.
+
+Rejected outright, and this list matters more than the accepted one because it is what stops
+feature-parity scope creep later: itineraries, routing, day plans, collaborators, shared
+collections, the community/trending layer, multi-platform intake (Instagram oEmbed is UNAVAILABLE
+on committed evidence), share-sheet intake (impossible for a web app), photos/opening
+hours/ratings/popularity filters (they break the five-field info contract), any paywall, and
+silent auto-save — we beat them on the confirm step and will not copy its absence.
+
 ### 0.2 Owner rulings, 2026-08-27 (four of §9.2's seven)
 
 1. **Manual add as *place search* is inside Charter §2** — same resolver, same provenance fields, not
