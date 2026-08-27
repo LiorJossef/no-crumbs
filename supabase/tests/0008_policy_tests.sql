@@ -535,7 +535,8 @@ end $$;
 --     REVOKE from both browser roles (0010, `10` §6, §12 ruling 2). Zero browser grants is a
 --     DECISION, not an oversight: `06` §11 Q6 requires the per-user rate limit to be enforced
 --     server-side, and a client that can query `poi_index` with the anon key has no rate limit.
---   * `public.poi_prefilter` (0021) is the function that reads them. A function is the obvious way
+--   * `public.poi_prefilter` (0021, five arguments since 0022) is the function that reads them. A
+--     function is the obvious way
 --     to re-open a table you closed — it is reachable over PostgREST as `/rpc/poi_prefilter`, it
 --     returns GLOBAL rows rather than the caller's own, and EXECUTE defaults to PUBLIC on every new
 --     function, so "we revoked the table" would have been worth nothing on its own. This asserts
@@ -543,13 +544,16 @@ end $$;
 --     PUBLIC as well as directly (`has_function_privilege` accounts for PUBLIC).
 --
 -- Asserted BEHAVIOURALLY — the call is attempted and must fail 42501 — rather than by reading a
--- catalog, because that is the thing an attacker would actually do.
+-- catalog, because that is the thing an attacker would actually do. The call passes a real address
+-- (0022's third arm) as well as a name token, so this covers the widest form of the function: if a
+-- future signature change left an older, differently-granted overload behind, the call would fail
+-- 42883 `does not exist` rather than 42501, and this would go red instead of quietly passing.
 do $$
 declare n integer;
 begin
   begin
     select count(*) into n
-      from public.poi_prefilter(array['tlv'], array['bellboy'], 'bellboy', 5);
+      from public.poi_prefilter(array['tlv'], array['bellboy'], 'bellboy', 'בן יהודה 155', 5);
     raise exception 'FAIL P6b: anon can execute poi_prefilter and read the global POI index (% rows)', n;
   exception when insufficient_privilege then
     null;
@@ -578,7 +582,7 @@ declare n integer;
 begin
   begin
     select count(*) into n
-      from public.poi_prefilter(array['tlv'], array['bellboy'], 'bellboy', 5);
+      from public.poi_prefilter(array['tlv'], array['bellboy'], 'bellboy', 'בן יהודה 155', 5);
     raise exception 'FAIL P6c: authenticated can execute poi_prefilter and read the global POI index (% rows)', n;
   exception when insufficient_privilege then
     null;

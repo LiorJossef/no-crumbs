@@ -117,6 +117,23 @@ export interface ResolveQuery {
   readonly countryHint: string | null;
   readonly categoryHint: CategoryHint | null;
   /**
+   * The street address as the caption wrote it, verbatim — `PlaceCandidate.addressHint` carried
+   * through (`'בזל 42, תל אביב'`, `'לבונטין 19'`). Compared against `poi_index.address_line` by
+   * `places/score.ts`, which owns every decision about how (TLV-ADDR-1).
+   *
+   * **Optional, and it is the one field here that is.** Every other field is required because a
+   * caller that forgets one is a bug; this one is optional so that adding it did not have to touch
+   * the Supabase adapter, the probe route, or the two manual harnesses in the same change. Absent
+   * and `null` mean the same thing — *no address was extracted* — and `rankPlaces` collapses them
+   * with `?? null` so the two can never diverge.
+   *
+   * It is a **scoring** input, not a prefilter input. Nothing here promises the address was used to
+   * *find* candidate rows; the prefilter still selects on name tokens alone, so a venue whose name
+   * cannot be matched is still unreachable no matter how good its address is. An address arm in the
+   * prefilter is the other half of this and it is not in this field's gift.
+   */
+  readonly addressHint?: string | null;
+  /**
    * Bias point for manual "search near me" (MS11), which is what `poi_index_lat_lng_idx`
    * exists for. **The scorer has no distance term** — this is a prefilter input only, and a
    * resolver that ignores it is not wrong.

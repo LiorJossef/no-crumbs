@@ -142,6 +142,73 @@ export interface ScoringConstants {
     readonly preselectMargin: number;
     readonly confirmScore: number;
   };
+  /**
+   * The street-address term (TLV-ADDR-1). Everything about how a caption's `addressHint` is
+   * compared to `poi_index.address_line`, and what a match is worth.
+   *
+   * ## Why the address is not just another similarity
+   *
+   * `06` §6.1 has no address term and the resolver never saw one, which is the dominant real
+   * failure: on 13 real TikTok captions the auto-match rate is 4/16 while the synthetic benchmark
+   * says 11/15, and the gap is almost entirely venues whose *name* cannot be matched — a Hebrew
+   * caption against a Latin-named row. The address bridges that, because **83% of `address_line`
+   * values in the loaded index are Hebrew even where the name is not**: `Kohi Coffee Shop` sits at
+   * `בן יהודה 155`, `Brasserie 18` at `לבונטין 19`, `Rustico` at `בזל 42`.
+   *
+   * ## Measured: Jaro-Winkler on the whole address string is worse than useless
+   *
+   * Run over 9 true pairs and 10 false pairs from the real corpus and the real index, whole-string
+   * Jaro-Winkler scores **0.351 for a true match and 0.964 for a false one** — `אבן גבירול 26` vs
+   * `אבן גבירול 70` is a different building on the same street and scores higher than every true
+   * cross-script pair. There is no threshold. The ordering is inverted, so the similarity function
+   * that works for names is not merely weaker here, it is *backwards*.
+   *
+   * What separates the same data perfectly is a **house-number gate**: parse both sides into a
+   * house number and street tokens, and treat a different number as conclusive evidence of a
+   * different place. All 10 false pairs go to exactly 0 on the number alone.
+   *
+   * ## `streetMatch`, and why the street is a gate rather than a gradient
+   *
+   * A street name is or is not the same street; "60% the same street" is noise, not evidence.
+   * Measured on the same pairs, spelling variants of one street (`איינשטיין` vs `אינשטיין`) score
+   * **0.953**, while distinct streets sharing a house number top out at **0.800**
+   * (`שלמה המלך 1` vs `המלך ג'ורג' 1` — two real Tel Aviv streets). `streetMatch` sits at 0.90,
+   * between those two measurements with room on both sides, and anything below it scores 0.
+   *
+   * ## `streetOnly`, and the missing house number
+   *
+   * 9% of the index's addresses carry no digits at all. A street agreeing with no number to
+   * confirm it is real but weak evidence — one street holds hundreds of venues — so it is halved
+   * rather than either trusted or discarded.
+   */
+  readonly address: {
+    /**
+     * The share of the total score the address takes **when, and only when, a comparison was
+     * actually possible** — see `addressScore`'s three-valued return in `score.ts`. The base
+     * weights are scaled by `1 - weight` for that row, so the three still sum to 1.00 and a
+     * perfect everything is still exactly 1.00.
+     */
+    readonly weight: number;
+    /** Below this, street similarity is 0. Not a soft floor: distinct streets score 0. */
+    readonly streetMatch: number;
+    /** Multiplier when one side has no house number to confirm the street with. */
+    readonly streetOnly: number;
+    /**
+     * Street tokens shorter than this are not required to match. Hebrew street names are full of
+     * two-letter particles (`בן`, `אל`) whose Jaro-Winkler similarity to each other is high enough
+     * to carry a wrong street over the gate.
+     */
+    readonly minStreetTokenLength: number;
+  };
+  /**
+   * Words dropped from an address before comparison: street-type nouns and the city and country
+   * words a caption appends but `address_line` does not carry.
+   *
+   * **Deliberately not `generic`.** That set is for *place names* and it contains `בית` — which is
+   * the first word of the real street `בית אשל 15`. Reusing it here would delete half of a street
+   * name. Two vocabularies that look similar and must not be shared.
+   */
+  readonly addressNoise: ReadonlySet<string>;
   /** `ResolveQuery.maxResults === null` → this. `06` §6.1 step 5's top 5. */
   readonly defaultMaxResults: number;
   /**
@@ -245,6 +312,21 @@ export const SCORING: ScoringConstants = Object.freeze({
   minDistinctiveTokenLength: 2,
   bands: Object.freeze({ preselectScore: 0.92, preselectMargin: 0.05, confirmScore: 0.8 }),
   defaultMaxResults: 5,
+  address: Object.freeze({
+    weight: 0.2,
+    streetMatch: 0.9,
+    streetOnly: 0.5,
+    minStreetTokenLength: 3,
+  }),
+  addressNoise: Object.freeze(
+    new Set([
+      // Street-type nouns, Hebrew and English.
+      'רחוב', 'רח', 'שדרות', 'שד', 'דרך', 'סמטה', 'סמטת', 'כביש', 'מתחם',
+      'st', 'street', 'rd', 'road', 'ave', 'avenue', 'blvd', 'boulevard', 'square',
+      // City and country words a caption appends and `address_line` usually does not.
+      'תל', 'אביב', 'יפו', 'ישראל', 'israel', 'telaviv', 'tel', 'aviv', 'jaffa',
+    ]),
+  ),
   generic: Object.freeze(
     new Set([
       // The prototype's list, unchanged.
