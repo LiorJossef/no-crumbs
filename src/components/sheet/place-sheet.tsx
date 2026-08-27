@@ -44,7 +44,7 @@ import { Drawer } from 'vaul';
 
 import { useNonModalBackground } from './use-non-modal-background';
 import { useRef, useState } from 'react';
-import { Plus, MapPin, ExternalLink, X, ChevronLeft, Search } from 'lucide-react';
+import { Plus, MapPin, ExternalLink, X, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -52,7 +52,12 @@ import { isSearchActive } from '@/domain/places/search';
 import { NoteEditor, RemoveSavedPlace } from './saved-place-edits';
 import { ActiveTagFilter, DishLine, TagChipList, TagChipRow, WhyGoLine } from './place-enrichment';
 import { enrichmentOf, rowAccessibleName, whyGoEarnsItsPlace } from '@/ui/place/enrichment';
-import type { ViewportHeading } from '@/ui/place/viewport';
+import {
+  areaRowAccessibleName,
+  areaRowCountText,
+  type AreaHeading,
+  type AreaRow,
+} from '@/ui/place/active-area';
 import type { MapPlace } from '@/components/map/types';
 
 /** Fixed peek height. `env(safe-area-inset-bottom)` is added via CSS `calc()` inside the snap
@@ -82,25 +87,20 @@ function snapToStop(snap: number | string | null): SheetStop {
 
 export interface PlaceSheetProps {
   /** **What is inside the map's current viewport**, already narrowed by `query` and already sorted
-   *  nearest-the-centre-first by `map-page-client.tsx` (`ux-map-is-the-query.md` §1, §6). Render it
-   *  in the order given: the top of the list is the pins the user's eye is already on, and
-   *  re-sorting here would break the one thing that makes the list and the map read as one object. */
+   *  ordered by `map-page-client.tsx`. Render it in the order given — re-sorting here would put
+   *  the instability the area binding exists to remove back into the list. */
   readonly places: readonly MapPlace[];
-  /** What this list says about itself — `12 places in London`, `No matches in this area`. Computed
-   *  once in `map-page-client.tsx` so the sheet and the desktop panel can never disagree, and
-   *  rendered verbatim: no surface re-derives a string from counts. `count`/`rest` exist only so
-   *  the peek row can emphasise the number without parsing `text`. */
-  readonly heading: ViewportHeading;
-  /** Nothing saved, ever — a different screen (§5), not a different string. Deliberately distinct
-   *  from `heading.empty`, which only means the *viewport* is empty and is recoverable by panning. */
+  /** What this list says about itself — `12 places in London`. Rendered verbatim; no surface
+   *  re-derives a string from counts. */
+  readonly heading: AreaHeading;
+  /** The user's other areas, with their own match counts. Empty renders no section. */
+  readonly otherAreas: readonly AreaRow[];
+  readonly onSelectArea: (areaId: string) => void;
+  /** Nothing saved, ever — a different screen, not a different string. */
   readonly libraryIsEmpty: boolean;
-  /** A search is active and matches exist somewhere in the library, just not in view. Gates
-   *  `Show all matches`, which would otherwise be a button that flies the camera nowhere. */
-  readonly hasMatchesElsewhere: boolean;
-  /** Fit the cluster nearest the current viewport centre — the escape from an empty viewport. */
-  readonly onShowNearest: () => void;
-  /** Fit every library-wide match for the current query. */
-  readonly onShowAllMatches: () => void;
+  /** Whether the search box or a tag chip is narrowing the library, which decides the noun on the
+   *  area rows so they never disagree with the header above them. */
+  readonly filtering: boolean;
   readonly query: string;
   readonly onQueryChange: (query: string) => void;
   /** The tag currently narrowing the library, as stored — `null` when no chip is active. A second
@@ -133,10 +133,10 @@ interface SheetState {
 export function PlaceSheet({
   places,
   heading,
+  otherAreas,
+  onSelectArea,
   libraryIsEmpty,
-  hasMatchesElsewhere,
-  onShowNearest,
-  onShowAllMatches,
+  filtering,
   query,
   onQueryChange,
   activeTag,
@@ -215,10 +215,10 @@ export function PlaceSheet({
               <PlaceList
                 places={places}
                 heading={heading}
+                otherAreas={otherAreas}
+                onSelectArea={onSelectArea}
                 libraryIsEmpty={libraryIsEmpty}
-                hasMatchesElsewhere={hasMatchesElsewhere}
-                onShowNearest={onShowNearest}
-                onShowAllMatches={onShowAllMatches}
+                filtering={filtering}
                 query={query}
                 onQueryChange={onQueryChange}
                 activeTag={activeTag}
@@ -239,10 +239,10 @@ export function PlaceSheet({
 function PlaceList({
   places,
   heading,
+  otherAreas,
+  onSelectArea,
   libraryIsEmpty,
-  hasMatchesElsewhere,
-  onShowNearest,
-  onShowAllMatches,
+  filtering,
   query,
   onQueryChange,
   activeTag,
@@ -253,11 +253,11 @@ function PlaceList({
   onSelect,
 }: {
   places: readonly MapPlace[];
-  heading: ViewportHeading;
+  heading: AreaHeading;
+  otherAreas: readonly AreaRow[];
+  onSelectArea: (areaId: string) => void;
   libraryIsEmpty: boolean;
-  hasMatchesElsewhere: boolean;
-  onShowNearest: () => void;
-  onShowAllMatches: () => void;
+  filtering: boolean;
   query: string;
   onQueryChange: (query: string) => void;
   activeTag: string | null;
@@ -267,37 +267,16 @@ function PlaceList({
   onAddTikTok: () => void;
   onSelect?: (place: MapPlace) => void;
 }) {
-  const searchActive = isSearchActive(query);
-  // Either narrowing counts as "the list is filtered": it decides whether the empty state offers
-  // `Show all matches` (go to the results wherever they are) or `Show my places` (the library does
-  // not reach here at all). A tag filter that produced the second would send the user back to a
-  // viewport with nothing in it and no explanation.
-  const filtering = searchActive || activeTag !== null;
   const headingRef = useRef<HTMLHeadingElement>(null);
 
-  /**
-   * Where focus goes after an escape (`ux-map-is-the-query.md` §7.2). Both escapes move the camera,
-   * which replaces every row beneath them and removes the button that was pressed — leaving focus on
-   * a node that is about to unmount strands a keyboard or screen-reader user at the document root.
-   * The heading is the right landing point because it is the one thing that now describes the new
-   * answer. `preventScroll` because the sheet is already where it needs to be and scrolling it to
-   * satisfy focus would move the list out from under the user's thumb.
-   */
-  const returnFocusToHeading = () => headingRef.current?.focus({ preventScroll: true });
-
-  const showNearest = () => {
-    onShowNearest();
-    returnFocusToHeading();
+  /** Switching area replaces every row and unmounts the button that was pressed, so focus lands on
+   *  the heading — the one thing that describes the new answer. */
+  const selectArea = (areaId: string) => {
+    onSelectArea(areaId);
+    headingRef.current?.focus({ preventScroll: true });
   };
 
-  const showAllMatches = () => {
-    onShowAllMatches();
-    returnFocusToHeading();
-  };
-
-  // An empty library is a different screen, not a different count, so it overrides the viewport
-  // heading entirely — `Nothing saved in this area` would blame the camera for something panning
-  // cannot fix.
+  // An empty library is a different screen, not a different count.
   const headingText = libraryIsEmpty ? EMPTY_LIBRARY_HEADING : heading.text;
 
   return (
@@ -370,24 +349,23 @@ function PlaceList({
 
           {libraryIsEmpty ? (
             <NoPlacesYet onAddTikTok={onAddTikTok} />
-          ) : heading.empty ? (
-            <EmptyViewport
-              filtering={filtering}
-              searchActive={searchActive}
-              hasMatchesElsewhere={hasMatchesElsewhere}
-              onShowNearest={showNearest}
-              onShowAllMatches={showAllMatches}
-              onClearSearch={() => onQueryChange('')}
-            />
           ) : (
-            <ul
+            <div
               data-vaul-no-drag
               className="min-h-0 flex-1 overflow-y-auto pb-[calc(env(safe-area-inset-bottom)+1rem)]"
             >
-              {places.map((place) => (
-                <PlaceRow key={place.id} place={place} {...(onSelect ? { onSelect } : {})} />
-              ))}
-            </ul>
+              {heading.escape === 'clear-search' && (
+                <ClearSearchEscape onClearSearch={() => onQueryChange('')} />
+              )}
+              {!heading.empty && (
+                <ul>
+                  {places.map((place) => (
+                    <PlaceRow key={place.id} place={place} {...(onSelect ? { onSelect } : {})} />
+                  ))}
+                </ul>
+              )}
+              <ElsewhereSection rows={otherAreas} filtering={filtering} onSelectArea={selectArea} />
+            </div>
           )}
         </>
       )}
@@ -557,84 +535,60 @@ export function PlaceSearchField({
   );
 }
 
-/**
- * The escape hatch for an empty **viewport** — `ux-map-is-the-query.md` §2.3. Shared by both
- * surfaces, and rendered where the old `NoSearchMatches` / `NoPlacesYet` block used to sit.
- *
- * It carries no line of text of its own, and that is deliberate. The header immediately above it
- * already reads `No matches in this area` or `Nothing saved in this area`; the state is stated once,
- * in the one place the spec makes the single source of truth, and a second sentence restating it
- * would be the surface disagreeing with itself in the only state where the user is already stuck.
- * The query is still visible verbatim in the field between the two, so a typo remains obvious
- * without naming it back a third time.
- *
- * No illustration, no icon, no bordered card: text-weight buttons in the flow of the list, exactly
- * as the search-empty state has always looked. `h-11` rather than the old `h-10` because these are
- * the primary (and sometimes only) way out of the state, and 44px is the floor for a thumb.
- */
-export function EmptyViewport({
-  filtering,
-  searchActive,
-  hasMatchesElsewhere,
-  onShowNearest,
-  onShowAllMatches,
-  onClearSearch,
-}: {
-  /** Whether **any** narrowing is on — the search box, a tag chip, or both. It decides which of the
-   *  two escapes this state even is: a filtered empty viewport is "your matches are elsewhere", an
-   *  unfiltered one is "your library does not reach here". */
-  filtering: boolean;
-  /** Whether the *search box* specifically holds something, which is the only thing `Clear search`
-   *  can clear. A tag filter is cleared from its own pill directly above this block, so a second
-   *  button here would be two controls for one state. */
-  searchActive: boolean;
-  /** Whether the current filters match anything anywhere in the library. `Show all matches` is
-   *  hidden without it, because it would fly the camera to nothing and read as a broken button. */
-  hasMatchesElsewhere: boolean;
-  onShowNearest: () => void;
-  onShowAllMatches: () => void;
-  onClearSearch: () => void;
-}) {
+/** The one control that undoes a search matching nothing anywhere. A tag filter is undone by its
+ *  own pill above the list, so it gets no second control here. */
+export function ClearSearchEscape({ onClearSearch }: { onClearSearch: () => void }) {
   return (
-    <div className="flex flex-1 flex-col items-start gap-3 py-6">
-      {filtering ? (
-        <>
-          {hasMatchesElsewhere && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onShowAllMatches}
-              className="h-11 rounded-lg px-4 text-sm font-bold"
-            >
-              Show all matches
-            </Button>
-          )}
-          {searchActive && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClearSearch}
-              className="h-11 rounded-lg px-4 text-sm font-bold"
-            >
-              Clear search
-            </Button>
-          )}
-        </>
-      ) : (
-        /* Nearest cluster, not the whole library — see `showNearestCluster` in
-           `map-page-client.tsx`. Fitting everything is the continental two-bubbles-and-no-pins view
-           this feature exists to remove, and it is also not what the user meant: they panned into
-           empty ocean and want to be back at their places, closest first. */
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onShowNearest}
-          className="h-11 rounded-lg px-4 text-sm font-bold"
-        >
-          Show my places
-        </Button>
-      )}
+    <div className="flex flex-col items-start py-6">
+      <Button
+        type="button"
+        variant="outline"
+        onClick={onClearSearch}
+        className="h-11 rounded-lg px-4 text-sm font-bold"
+      >
+        Clear search
+      </Button>
     </div>
+  );
+}
+
+/** The user's other areas, one tappable row each. This is what replaces `Show all matches`: the
+ *  rows name where the matches are, with counts, one tap away. */
+export function ElsewhereSection({
+  rows,
+  filtering,
+  onSelectArea,
+}: {
+  rows: readonly AreaRow[];
+  filtering: boolean;
+  onSelectArea: (areaId: string) => void;
+}) {
+  if (rows.length === 0) return null;
+
+  return (
+    <section className="mt-2 border-t border-border/70 pt-3">
+      <h3 className="px-1 pb-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+        Elsewhere
+      </h3>
+      <ul>
+        {rows.map((row) => (
+          <li key={row.id}>
+            <button
+              type="button"
+              onClick={() => onSelectArea(row.id)}
+              aria-label={areaRowAccessibleName(row, filtering)}
+              className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-1 py-2.5 text-left transition-colors hover:bg-muted/60"
+            >
+              <span className="font-heading text-sm font-bold text-foreground">{row.label}</span>
+              <span className="flex items-center gap-1 text-sm font-medium text-muted-foreground">
+                {areaRowCountText(row.count, filtering)}
+                <ChevronRight className="size-4" aria-hidden />
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

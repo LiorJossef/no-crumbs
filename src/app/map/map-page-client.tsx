@@ -24,37 +24,47 @@
  *
  * `activeTag` is lifted here for exactly that reason and no other. It is a **second filter
  * dimension**, not text written into `query`; `src/ui/place/tag-filter.ts` carries the argument,
- * and the short version is that setting the query would fire `useSearchFlight` and move a camera
- * the owner has asked nobody to touch (`current-state.md` §0.1b). Composition is AND, applied in
- * one expression: tag first, then search, then the viewport for the list only. **Tapping a chip is
- * not a camera mover** — the enumerated list below stays at seven.
+ * and the short version is that a tag is a second dimension, not text. Composition is AND: tag
+ * first, then search, then the active area for the list only. Tapping a chip is not a camera
+ * mover.
  *
- * ## The map is the query (L1-F5-T2, `docs/ux-map-is-the-query.md`)
+ * ## The list is an area, not a rectangle (`docs/ux-stable-area-list.md`)
  *
- * This file now owns a second, prior narrowing: **the list is exactly what is inside the map's
- * viewport.** Before, the sheet listed the whole library however the camera was pointed and its
- * header read `20 places saved` — a number, about nowhere, that did not move when the map did.
- * That is what made the map read as decoration: it was a scoping control wired to nothing.
+ * This file owns a second, prior narrowing, and 2026-08-28 changed what it narrows *by*. The list
+ * used to be "every saved place whose pin is inside the map's query rect". The owner used that and
+ * rejected it: `21 places in this area` became `9 places in this area` with nobody touching the
+ * map, because the camera moves for reasons the user never asked for — inertia, a `ResizeObserver`
+ * re-fit, a `fitBounds` once the container finally measures, a flight to a pin. A row that left was
+ * gone, and the only way back was to reproduce a camera position by hand.
+ *
+ * The coupling was right; the granularity was wrong. **The unit of scope is now a place, not a
+ * rectangle**: an *area* is a ~50 km coordinate cluster of the user's own saves, and the map says
+ * which of your areas you are in. Pan and zoom freely inside one and nothing changes at all. Cross
+ * into another of your areas with a real gesture and the list switches, which is the only moment it
+ * may. `ui/place/active-area.ts` owns every rule; this file owns the state and the wiring.
+ *
+ * **The one rule: narrowing never navigates.** The search box and the tag chip narrow what is
+ * listed and can never move the camera or change the active area. That is why the settled-search
+ * camera flight is gone from this file: searching `tel aviv` from London now reads
+ * `No matches in London` with `Tel Aviv-Yafo · 8 matches ›` directly beneath it, one tap away,
+ * instead of throwing the camera across the Mediterranean on a 450 ms timer.
  *
  * There are therefore three derived lists here and they are deliberately not the same one:
  *
  *  - **`matches`** — the library narrowed by the filters the user set (the tag chip, then the
- *    search box). This is what the **pins** show. Narrowing the pins by the viewport would be
- *    circular: the viewport is *defined* by where the pins are, and a pin cannot disappear for
- *    being off screen when being off screen is exactly what panning back would fix.
- *  - **`inView`** — `matches` whose pin anchor is inside the query rect the surface reports.
- *    This is what the **list** shows, sorted nearest-to-centre first so the top of the list is the
- *    pins the eye is already on.
- *  - **`places`** — the whole library, used for the initial camera anchor, for the escapes
- *    (`Show my places`), and for nothing else. Its count is displayed nowhere.
+ *    search box). This is what the **pins** show, everywhere, so a pin never disappears for being
+ *    off screen when being off screen is exactly what panning back would fix.
+ *  - **`inArea`** — `matches` that belong to the active area, in library order (most recently saved
+ *    first). This is what the **list** shows, and its order never changes on pan, zoom or resize.
+ *  - **`places`** — the whole library, used to build the areas and for the initial camera anchor.
+ *    Its count is displayed nowhere.
  *
- * **The initial camera anchors on one cluster, never all of them.** Fitting every saved place put
- * 12 London and 8 Tel Aviv places into one box, which is a continental view of Europe and North
+ * **The initial camera anchors on one area, never all of them.** Fitting every saved place put 12
+ * London and 9 Tel Aviv places into one box, which is a continental view of Europe and North
  * Africa: two cluster bubbles, no individual pins, no readable name. `domain/places/clusters.ts`
- * groups on coordinates (never on the `locality` string — the library holds three spellings for two
+ * groups on coordinates (never on the `locality` string — the library holds four spellings for two
  * cities) and picks the anchor: the cluster holding the most recently saved place, else the largest.
- * `getSpots` already returns `created_at desc`, so `places[0]` is that most recent save and no new
- * query was needed for it.
+ * `getSpots` already returns `created_at desc`, so `places[0]` is that most recent save.
  *
  * `showImport` is the same pattern one level up: "Add a TikTok" (in both `PlaceSheet` and
  * `PlaceDesktopPanel`) used to be a `router.push('/import')` — a real route change that unmounts
@@ -68,7 +78,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { MapSurface, type MapPlace } from '@/components/map/map-surface';
-import type { LatLngBoundsHint } from '@/components/map/types';
+import type { LatLngBoundsHint, ViewportChangeMeta } from '@/components/map/types';
 import { ImportConfirmation } from '@/components/map/import-confirmation';
 import { PlaceSheet } from '@/components/sheet/place-sheet';
 import { PlaceDesktopPanel } from '@/components/sheet/place-desktop-panel';
@@ -76,30 +86,23 @@ import { filterByTag, filterPlaces } from '@/components/map/filter-places';
 import { isSearchActive } from '@/domain/places/search';
 import { tagDisplayLabel } from '@/domain/extraction/tags';
 import { TagFilterContext, isSameTag, type TagFilter } from '@/ui/place/tag-filter';
+import { clusterByProximity, pickAnchorCluster } from '@/domain/places/clusters';
 import {
-  clusterByProximity,
-  haversineKm,
-  pickAnchorCluster,
-  type GeoCluster,
-} from '@/domain/places/clusters';
-import {
-  areaLabel,
-  boundsCentre,
-  sortByDistanceFromCentre,
-  viewportHeading,
-  withinBounds,
-} from '@/ui/place/viewport';
+  anchorFor,
+  areaAfterCameraSettled,
+  areaHeading,
+  buildAreas,
+  elsewhereRows,
+  resolveArea,
+  type Area,
+  type AreaRow,
+} from '@/ui/place/active-area';
 import { ImportPageClient, type SaveOutcomeDetail } from '@/app/import/import-page-client';
 
 /** How long the typing has to settle before the result count is announced to a screen reader.
  *  Without it a `polite` live region reads a new count on every keystroke, which is worse than
  *  silence — the user cannot hear the field they are typing into. */
 const ANNOUNCE_AFTER_MS = 500;
-
-/** How long the typing has to settle before the camera flies to the results. Long enough that
- *  every keystroke of `restaurant` is not a separate flight; short enough that the move still
- *  reads as the answer to what was typed. */
-const FLY_AFTER_MS = 450;
 
 export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
   const [selected, setSelected] = useState<MapPlace | null>(null);
@@ -124,38 +127,49 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
    * switch this prop back to something else, which the map reads as a brand-new request and
    * answers by throwing the camera across the world.
    *
-   * **The authorised camera movers, enumerated here because `06` §9.2 lists four and there are
-   * now seven.** `L1-F5-T2` owed this reconciliation and this comment is it. In the order they were
-   * added:
+   * **The authorised camera movers, and there are now exactly four.** `06` §9.2 listed four, this
+   * file grew to seven, and `docs/ux-stable-area-list.md` cut it back — the reconciliation `06`
+   * §9.2 was owed is this comment. In the order they run:
    *
-   *  1. The initial framing — now the *anchor cluster*, not the whole library (see the header).
+   *  1. The initial framing — the *anchor area*, not the whole library (see the header).
    *  2. A finished import flies to the places it saved.
-   *  3. A settled search flies to its matches.
-   *  4. Selecting a place from the list flies to that place.
-   *  5. Clearing the search returns to the nearest cluster (not the whole library — that is the
-   *     continental view this feature exists to kill).
-   *  6. `Show my places`, from an empty viewport, fits the cluster nearest the current centre.
-   *  7. `Show all matches`, from an empty viewport during a search, fits the library-wide matches.
+   *  3. Selecting a place from the list flies to that place, and **holds** the active area.
+   *  4. Tapping an `Elsewhere` row flies to that area, and is the one gesture that sets it by hand.
    *
-   * Movers 5–7 are new here. All of them go through this one piece of state rather than growing a
-   * mechanism each, so the existing guards apply unchanged. What is *not* a camera mover, and must
-   * never become one: panning (the user is already moving it), and the list changing under a pan.
+   * Three are gone, all of them for the same reason — narrowing must never navigate. A settled
+   * search no longer flies to its matches, clearing the search no longer returns to a cluster, and
+   * `Show my places` / `Show all matches` no longer exist: the state they escaped (a viewport with
+   * nothing in it) cannot occur when the list is an area rather than a rectangle. What is *not* a
+   * camera mover, and must never become one: panning, zooming, typing, and tapping a tag chip.
    */
   const [focusPlaceIds, setFocusPlaceIds] = useState<readonly string[] | null>(null);
   /**
-   * The map's query rect — what is on screen, inset by the chrome that permanently covers it. The
-   * surface reports this on a debounced `moveend` (`ux-map-is-the-query.md` §4: the list settles,
-   * it never tracks a moving thumb), and `null` until the map has settled once.
+   * **Which of the user's areas the list is showing**, held as the id of a place inside it rather
+   * than a cluster index — clusters are rebuilt on every library change and carry no id of their
+   * own, so an anchor place survives an import landing in the area and a deletion from it.
    *
-   * `null` deliberately means "show everything" rather than "show nothing". A list that starts
-   * empty for the few hundred milliseconds before the map loads reads exactly like a broken
-   * feature, and on a slow connection it reads like one for a lot longer.
+   * `null` means "not chosen yet", and the anchor area below fills in. It has exactly four writers,
+   * enumerated on `focusPlaceIds` above: the initial resolution, an `Elsewhere` row tap, a finished
+   * import, and a settled *user pan* that crossed a boundary. It is never re-derived from settled
+   * bounds, which is what stops the camera rewriting the list on its own.
    */
-  const [viewport, setViewport] = useState<LatLngBoundsHint | null>(null);
+  const [activeAreaAnchor, setActiveAreaAnchor] = useState<string | null>(null);
 
-  /** Every cluster in the library, for the initial camera anchor and for the escapes. Keyed on
-   *  `places`, so an import re-clusters once rather than on every render. */
+  /** Every cluster in the library. Keyed on `places`, so an import re-clusters once rather than on
+   *  every render. */
   const clusters = useMemo(() => clusterByProximity(places, (place) => place), [places]);
+
+  /** The clusters as *areas* — labelled, indexed by member id, memoised once per library so the
+   *  header's city name is stable for the session rather than recomputed per render. */
+  const areas = useMemo(
+    () =>
+      buildAreas(clusters, {
+        toId: (place: MapPlace) => place.id,
+        toPoint: (place: MapPlace) => place,
+        toLocality: (place: MapPlace) => place.detail?.locality ?? null,
+      }),
+    [clusters],
+  );
 
   /**
    * Where the camera opens. The cluster holding the most recently saved place, else the largest —
@@ -167,14 +181,31 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
    * separate decision about storing a user's location in their browser, and it is not this task's
    * to take quietly.
    */
-  const initialBounds = useMemo(() => {
+  const anchorCluster = useMemo(() => {
     const recentId = places[0]?.id;
-    const anchor = pickAnchorCluster(clusters, {
+    return pickAnchorCluster(clusters, {
       ...(recentId ? { recentItemId: recentId } : {}),
-      toId: (place) => place.id,
+      toId: (place: MapPlace) => place.id,
     });
-    return anchor?.bounds;
   }, [clusters, places]);
+
+  const initialBounds = anchorCluster?.bounds;
+
+  /**
+   * **Writer 1 of `activeAreaAnchor`**: the area the camera opened on, resolved once the library
+   * arrives, and again if the anchored place is ever deleted out from under it.
+   *
+   * Derived during render rather than in an effect — `resolveArea` returning `null` is exactly
+   * React's "a prop invalidated some state" case, and it converges immediately because after the
+   * write the lookup succeeds. Doing it in an effect would paint one frame of the wrong list.
+   */
+  const resolved = resolveArea(areas, activeAreaAnchor);
+  const activeArea: Area<MapPlace> | null =
+    resolved ??
+    (anchorCluster ? (areas.find((area) => area.memberIds.has(anchorCluster.members[0]?.id ?? '')) ?? null) : null);
+  if (resolved === null && activeArea !== null && activeAreaAnchor !== activeArea.id) {
+    setActiveAreaAnchor(anchorFor(activeArea));
+  }
 
   /** The library narrowed by the active tag chip, before the search box sees it. Its own `useMemo`
    *  rather than one fused expression so that typing does not re-run the tag pass and tapping a
@@ -186,13 +217,29 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
    *  viewport below, so the pins and the rows can never disagree about what the filters did. */
   const matches = useMemo(() => filterPlaces(tagMatches, query), [tagMatches, query]);
 
-  /** What the **list** shows: the matches inside the query rect, nearest the centre of the map
-   *  first. Falls back to every match while the map has not reported a rect yet. */
-  const inView = useMemo(() => {
-    if (!viewport) return matches;
-    const inside = matches.filter((place) => withinBounds(place, viewport));
-    return sortByDistanceFromCentre(inside, boundsCentre(viewport), (place) => place);
-  }, [matches, viewport]);
+  /**
+   * What the **list** shows: the matches that belong to the active area, in library order — most
+   * recently saved first.
+   *
+   * The order is the library's and never the camera's. The nearest-the-centre sort this replaced
+   * was a child of the viewport binding: distance from a map centre is not a fact about the world,
+   * and re-ordering rows under a pan is the same instability as removing them, one row at a time.
+   * Distance belongs to near-me (`L1-F11`), where it is distance from *you*.
+   *
+   * Falls back to every match while there is no area yet — the single frame before the library
+   * resolves, and the empty-library case.
+   */
+  const inArea = useMemo(
+    () => (activeArea ? matches.filter((place) => activeArea.memberIds.has(place.id)) : matches),
+    [matches, activeArea],
+  );
+
+  /** The other areas, with what the current filters left in each. Empty when the user has one area,
+   *  which is the common case and renders no section at all. */
+  const otherAreas: readonly AreaRow[] = useMemo(
+    () => elsewhereRows(areas, activeArea?.id ?? null, new Set(matches.map((place) => place.id))),
+    [areas, activeArea, matches],
+  );
 
   // Both narrowings feed the header's noun, so a tag-filtered list reads `3 matches in London`
   // rather than `3 places in London`. `ux-map-is-the-query.md` §2.2's string matrix says the noun
@@ -200,8 +247,15 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
   // is invented for it.
   const filtering = isSearchActive(query) || activeTag !== null;
   const heading = useMemo(
-    () => viewportHeading(inView.length, areaLabel(inView.map(toViewportPlace)), filtering),
-    [inView, filtering],
+    () =>
+      areaHeading({
+        countInArea: inArea.length,
+        area: activeArea?.label ?? null,
+        searchQuery: query.trim(),
+        tagLabel: activeTag === null ? null : tagDisplayLabel(activeTag),
+        matchesAnywhere: matches.length,
+      }),
+    [inArea, activeArea, query, activeTag, matches],
   );
 
   // A place filtered out by a **filter** must not stay open in the detail view: its pin is gone
@@ -210,9 +264,9 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
   // React's own pattern for "a prop/derived value invalidated some state" — and it converges
   // immediately, because after the reset the guard is false.
   //
-  // Deliberately guarded on `matches` and NOT on `inView`: panning a selected place off the
-  // edge of the screen would otherwise slam its detail shut mid-gesture, which is the map taking
-  // something away from the user for looking somewhere else.
+  // Deliberately guarded on `matches` and NOT on `inArea`: crossing into another area would
+  // otherwise slam the open detail shut mid-gesture, which is the map taking something away from
+  // the user for looking somewhere else.
   //
   // A tag chip never reaches this guard, because `toggleTag` deselects first and the place the chip
   // came from carries the tag anyway. It stays written against the general case rather than the
@@ -223,59 +277,43 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
   }
 
   const announcement = useResultAnnouncement(query, activeTag, matches.length);
-  useSearchFlight(query, matches, clusters, viewport, setFocusPlaceIds);
 
-  /**
-   * Fit the cluster nearest the centre of the current viewport — the escape from an empty viewport
-   * (`Show my places`), and where clearing a search lands.
-   *
-   * Nearest cluster rather than the whole library, and that is the whole point: fitting every
-   * cluster reproduces the continental two-bubbles-no-pins view this feature exists to remove. A
-   * button labelled `Show my places` that produced it would undo the feature it ships beside.
-   */
-  const showNearestCluster = useCallback(() => {
-    if (clusters.length === 0) return;
-    const from = viewport ? boundsCentre(viewport) : null;
-    const nearest = from
-      ? clusters.reduce((best, cluster) =>
-          haversineKm(boundsCentre(cluster.bounds), from) <
-          haversineKm(boundsCentre(best.bounds), from)
-            ? cluster
-            : best,
-        )
-      : clusters[0];
-    if (nearest) setFocusPlaceIds(nearest.members.map((place) => place.id));
-  }, [clusters, viewport]);
-
-  /** The escape from `No matches in this area`: go to the matches wherever they are. */
-  const showAllMatches = useCallback(() => {
-    if (matches.length > 0) setFocusPlaceIds(matches.map((place) => place.id));
-  }, [matches]);
-
-  /**
-   * Selecting a place from the list — the entry point `PlaceRow` gained at `L1-F7-T2`, because the
-   * map's pins are painted into a canvas and were therefore unreachable by keyboard.
-   *
-   * It moves the camera, and that is not incidental. On desktop the detail opens in the map's own
-   * pin-anchored popover, so selecting a place outside the current viewport produced a popover
-   * clamped to the edge of the map pointing at nothing — observed at 1440×900 with the camera over
-   * Europe and the selected place in Tel Aviv. The list is the only way to reach a place you cannot
-   * currently see, so it has to bring that place into view.
-   *
-   * **This is a sixth camera mover, and `06` §9.2 lists four.** The fifth (a settled search) is
-   * already recorded as a loose end in `current-state.md` §3.9 for `L1-F5-T2` to adopt or replace;
-   * this one goes in the same list rather than being slipped in quietly. It is also the most
-   * defensible of the three additions: the user asked to look at exactly this place.
-   *
-   * It reuses `focusPlaceIds` rather than growing a second mechanism, so the existing guards apply
-   * unchanged — the flight is keyed on array identity (a fresh array per selection, so re-selecting
-   * the same place does fly again), it is capped by `FIT_BOUNDS_MAX_ZOOM` so a single point cannot
-   * zoom to the rooftops, and a resize re-fits what was framed rather than the whole library.
-   */
+  /** Camera mover 3. A fresh array each time, because the flight is keyed on array identity — so
+   *  re-selecting the same place does fly again. The active area is deliberately not touched. */
   function selectPlace(place: MapPlace) {
     setSelected(place);
     setFocusPlaceIds([place.id]);
   }
+
+  /** Writer 2 and camera mover 4: the only gesture that picks an area by hand. */
+  const selectArea = useCallback(
+    (areaId: string) => {
+      const area = areas.find((candidate) => candidate.id === areaId);
+      if (!area) return;
+      setActiveAreaAnchor(area.id);
+      setSelected(null);
+      setFocusPlaceIds(area.members.map((place) => place.id));
+    },
+    [areas],
+  );
+
+  /**
+   * Writer 4. `userInitiated` is the whole guard: every programmatic camera move reports `false`,
+   * so a re-fit, the initial framing or a flight to a pin structurally cannot rewrite the list.
+   */
+  const handleViewportChange = useCallback(
+    (bounds: LatLngBoundsHint, meta: ViewportChangeMeta) => {
+      setActiveAreaAnchor((current) =>
+        areaAfterCameraSettled({
+          areas,
+          currentId: resolveArea(areas, current)?.id ?? current,
+          rect: bounds,
+          userInitiated: meta.userInitiated,
+        }),
+      );
+    },
+    [areas],
+  );
 
   /**
    * A chip tap. The active tag turns the filter off, any other tag replaces it — one tap either
@@ -323,7 +361,7 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
           onPlaceClick={setSelected}
           selected={selected}
           onDeselect={() => setSelected(null)}
-          onViewportChange={setViewport}
+          onViewportChange={handleViewportChange}
           {...(initialBounds ? { initialBounds } : {})}
           {...(focusPlaceIds ? { focusPlaceIds } : {})}
         />
@@ -355,12 +393,12 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
             paints over correctly. */}
         {!showImport && (
           <PlaceSheet
-            places={inView}
+            places={inArea}
             heading={heading}
+            otherAreas={otherAreas}
+            onSelectArea={selectArea}
             libraryIsEmpty={places.length === 0}
-            hasMatchesElsewhere={matches.length > 0}
-            onShowNearest={showNearestCluster}
-            onShowAllMatches={showAllMatches}
+            filtering={filtering}
             query={query}
             onQueryChange={setQuery}
             activeTag={activeTag}
@@ -372,12 +410,12 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
           />
         )}
         <PlaceDesktopPanel
-          places={inView}
+          places={inArea}
           heading={heading}
+          otherAreas={otherAreas}
+          onSelectArea={selectArea}
           libraryIsEmpty={places.length === 0}
-          hasMatchesElsewhere={matches.length > 0}
-          onShowNearest={showNearestCluster}
-          onShowAllMatches={showAllMatches}
+          filtering={filtering}
           query={query}
           onQueryChange={setQuery}
           activeTag={activeTag}
@@ -391,6 +429,10 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
             onSaved={(outcome) => {
               setLastImport(outcome);
               setFocusPlaceIds(outcome.savedPlaceIds);
+              // Writer 3. Resolves itself once the refreshed rows arrive, so this does not wait
+              // on the data.
+              const first = outcome.savedPlaceIds[0];
+              if (first) setActiveAreaAnchor(first);
             }}
           />
         )}
@@ -459,76 +501,4 @@ function filterSentence(query: string, activeTag: string | null, count: number):
   return count === 0
     ? `No places tagged ${label} match ${query}.`
     : `${count} ${noun} tagged ${label} ${count === 1 ? 'matches' : 'match'} ${query}.`;
-}
-
-/**
- * Flies the camera to the search results once the typing settles.
- *
- * It exists because of what searching actually looked like without it: with the map framed on
- * London, typing `tel aviv` filtered the list to eight places and the map to zero pins — the list
- * and the map answering the same question differently, which is the exact failure the lifted
- * `query` was meant to prevent. Even inside one city it showed: `kiaans` left its two pins clipped
- * against the bottom edge.
- *
- * Three rules, and the second and third are what stop it being annoying:
- *
- *  - **Only after the typing stops.** Every keystroke of a long word would otherwise be its own
- *    flight.
- *  - **Never on mount.** `searched === null` means the user has not typed anything yet, so the
- *    automatic whole-library framing is left entirely alone. This hook must not be the thing that
- *    frames the map on first load.
- *  - **Never for a query that matches nothing.** There is no such thing as a bounding box of no
- *    places; the camera stays where it is, and the "Nothing matches …" copy carries the message.
- *
- * Clearing the field is a real decision too, not the absence of one: it returns to the cluster
- * nearest where the camera is now. Without it, clearing a search that had zoomed into one street
- * leaves the user on that street with nineteen pins off screen. It used to frame the *whole
- * library*, which since `L1-F5-T2` is exactly the continental view the anchor-cluster camera exists
- * to remove — so clearing a search would have undone the framing rule on every use.
- */
-function useSearchFlight(
-  query: string,
-  matches: readonly MapPlace[],
-  clusters: readonly GeoCluster<MapPlace>[],
-  viewport: LatLngBoundsHint | null,
-  requestFlight: (ids: readonly string[]) => void,
-): void {
-  // The query the camera was last moved for. `null` until the user has searched at all — which is
-  // not the same as `''`, and the difference is the whole "never on mount" rule.
-  const [searched, setSearched] = useState<string | null>(null);
-  const trimmed = query.trim();
-
-  useEffect(() => {
-    if (searched === null && trimmed === '') return;
-    if (searched === trimmed) return;
-
-    const timer = setTimeout(() => {
-      setSearched(trimmed);
-      const target = trimmed === '' ? nearestClusterMembers(clusters, viewport) : matches;
-      if (target.length > 0) requestFlight(target.map((place) => place.id));
-    }, FLY_AFTER_MS);
-    return () => clearTimeout(timer);
-  }, [trimmed, searched, matches, clusters, viewport, requestFlight]);
-}
-
-/** The members of the cluster nearest the centre of the current viewport, or the first cluster when
- *  the map has not reported one yet. Empty when there are no places at all. */
-function nearestClusterMembers(
-  clusters: readonly GeoCluster<MapPlace>[],
-  viewport: LatLngBoundsHint | null,
-): readonly MapPlace[] {
-  if (clusters.length === 0) return [];
-  const from = viewport ? boundsCentre(viewport) : null;
-  if (!from) return clusters[0]?.members ?? [];
-  const nearest = clusters.reduce((best, cluster) =>
-    haversineKm(boundsCentre(cluster.bounds), from) < haversineKm(boundsCentre(best.bounds), from)
-      ? cluster
-      : best,
-  );
-  return nearest.members;
-}
-
-/** A pin projected onto what the header needs: the city name, off the `Spot` the pin carries. */
-function toViewportPlace(place: MapPlace): { locality: string | null } {
-  return { locality: place.detail?.locality ?? null };
 }
