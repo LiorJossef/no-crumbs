@@ -71,6 +71,7 @@ import type { Map as MapLibreMap } from 'maplibre-gl';
 import { Map as MapcnMap, MapControls, MapClusterLayer, MapPopup } from '@/components/ui/map';
 import { PlaceDetail } from '@/components/sheet/place-sheet';
 import type { LatLngBoundsHint, MapPlace, MapSurfaceProps } from './types';
+import { LG_BREAKPOINT_PX, mapOcclusionInsets, queryRectFrom } from './query-rect';
 
 type PlaceProperties = {
   id: string;
@@ -173,51 +174,45 @@ const FLOATING_TOP_CHROME_MOBILE_PX = 100;
 // `fitBounds` internally (it drops the animation), so no separate branch is needed here.
 const FOCUS_FLIGHT_MS = 1200;
 
-// Tailwind's default `lg` breakpoint (unmodified in this project — no `tailwind.config`/`@theme`
-// override), the same one `PlaceDesktopPanel` switches on (`hidden lg:block`). Below this width
-// there is no persistent left/right panel at all — the sheet (`PlaceSheet`) owns mobile instead —
-// so `fitBounds` padding stays the old uniform value there.
-const LG_BREAKPOINT_PX = 1024;
-
-// Mirrors `PlaceDesktopPanel`'s panel width (`src/components/sheet/place-desktop-panel.tsx`):
-// the persistent left list panel is `clamp(320px, 26vw, 392px)`. `fitBounds`'s `padding` option
-// takes plain pixels, not CSS, so there is no way to hand it a `clamp()` — this function
-// recomputes the same clamp in JS against the current viewport width instead. If the panel's
-// Tailwind class ever changes, this must change with it; that coupling is the price of a DOM
-// overlay sharing the camera-fit budget, and is called out again in `PlaceDesktopPanel`'s own
-// comment. There used to be a matching `rightPanelWidthPx` for a right-hand detail panel — that
-// panel is gone (detail now lives in a pin-anchored map popover, not a second panel), so the
-// padding this function returns is never widened on selection anymore.
-function leftPanelWidthPx(viewportWidth: number): number {
-  return Math.min(392, Math.max(320, viewportWidth * 0.26));
-}
-
 /**
- * The base 48 px `fitBounds` padding treats the whole viewport as available map space. At `lg+`
- * that's wrong: `PlaceDesktopPanel`'s left list panel is a permanent opaque overlay, so any
- * bounding box that would otherwise fit *underneath* it needs to be pushed clear of it instead —
- * otherwise a fitted pin renders in the DOM/GL layer but sits under an opaque panel, unclickable.
- * Below `lg` (no panel, only the bottom sheet, which is `PlaceSheet`'s own concern) only the left
- * inset collapses; the top still clears the floating chrome, which is present at every width.
+ * The base 48 px `fitBounds` padding treats the whole viewport as available map space. That is
+ * wrong wherever chrome is sitting on top of the map: at `lg+` `PlaceDesktopPanel`'s left list
+ * panel is a permanent opaque overlay, and below `lg` the sheet's peek strip is, so a bounding box
+ * that would otherwise fit *underneath* either of them has to be pushed clear instead — a fitted
+ * pin that renders in the GL layer under an opaque panel is invisible and unclickable.
+ *
+ * So the padding is the occlusion above **plus** the cosmetic 48 px **plus** the floating top
+ * chrome (present at every width; below `lg` the post-import confirmation drops to a second row, so
+ * the band is deeper). Only the first of those three is shared with the query rect — see
+ * `mapOcclusionInsets` for why the other two are camera-only.
  */
 function fitBoundsPadding(
   viewportWidth: number
 ): { top: number; bottom: number; left: number; right: number } {
-  if (viewportWidth < LG_BREAKPOINT_PX) {
-    return {
-      top: FIT_BOUNDS_PADDING + FLOATING_TOP_CHROME_MOBILE_PX,
-      bottom: FIT_BOUNDS_PADDING,
-      left: FIT_BOUNDS_PADDING,
-      right: FIT_BOUNDS_PADDING,
-    };
-  }
+  const occlusion = mapOcclusionInsets(viewportWidth);
+  const topChrome =
+    viewportWidth < LG_BREAKPOINT_PX ? FLOATING_TOP_CHROME_MOBILE_PX : FLOATING_TOP_CHROME_PX;
   return {
-    top: FIT_BOUNDS_PADDING + FLOATING_TOP_CHROME_PX,
-    bottom: FIT_BOUNDS_PADDING,
-    left: FIT_BOUNDS_PADDING + leftPanelWidthPx(viewportWidth),
-    right: FIT_BOUNDS_PADDING,
+    top: FIT_BOUNDS_PADDING + topChrome + occlusion.top,
+    bottom: FIT_BOUNDS_PADDING + occlusion.bottom,
+    left: FIT_BOUNDS_PADDING + occlusion.left,
+    right: FIT_BOUNDS_PADDING + occlusion.right,
   };
 }
+
+/**
+ * Container-size observers, keyed by map instance. A module-level `WeakMap` rather than a `useRef`
+ * because the React Compiler forbids assigning to a ref that an effect also reads, and the observer
+ * has to be created where the instance first arrives (the ref callback), not at mount — the instance
+ * does not exist yet at mount. Weak, so an unmounted map's observer is collectable even if the
+ * unmount path is ever missed.
+ */
+const observers = new WeakMap<MapLibreMap, ResizeObserver>();
+
+/** How long after the camera stops before the list is allowed to change (`§4`). Long enough to
+ *  coalesce the several `moveend` events one pinch or inertial flick emits, short enough that the
+ *  list is correct before the thumb is off the glass. */
+const VIEWPORT_DEBOUNCE_MS = 120;
 
 /**
  * Run `action` as soon as the map can accept a camera command, and never later than that.
@@ -229,8 +224,30 @@ function fitBoundsPadding(
  * before that, MapLibre's own `load` event is the earliest safe moment.
  */
 function whenReady(map: MapLibreMap, action: () => void): void {
-  if (map.isStyleLoaded()) action();
-  else map.once('load', action);
+  if (map.isStyleLoaded()) {
+    action();
+    return;
+  }
+  // `load` alone is not enough, and this was measured rather than reasoned. `load` fires after the
+  // style *and* a first complete render; if the map was created before its container had a size
+  // (see `useContainerSize` below) it can finish its style, fetch tiles, and still never fire
+  // `load`. Observed live: `isStyleLoaded() === true`, `areTilesLoaded() === true`, `loaded() ===
+  // false`, camera stranded at zoom 0 over (0, 0) — so the initial `fitBounds` never ran and the map
+  // sat on a world view with two cluster bubbles and no pins.
+  //
+  // `styledata` fires whenever the style finishes loading, which is the actual precondition for a
+  // camera command. Both are registered and whichever arrives first wins; `done` makes the action
+  // idempotent so the camera cannot be framed twice.
+  let done = false;
+  const run = () => {
+    if (done) return;
+    done = true;
+    map.off('load', run);
+    map.off('styledata', run);
+    action();
+  };
+  map.once('load', run);
+  map.on('styledata', run);
 }
 
 export function MapSurfaceMapcn({
@@ -240,6 +257,7 @@ export function MapSurfaceMapcn({
   selected = null,
   onDeselect,
   focusPlaceIds,
+  onViewportChange,
 }: MapSurfaceProps) {
   const data = useMemo(() => toFeatureCollection(places), [places]);
   const bounds = useMemo(() => boundsFor(places, initialBounds), [places, initialBounds]);
@@ -285,13 +303,154 @@ export function MapSurfaceMapcn({
     [fitTo]
   );
 
+  // The viewport reporter, held in a ref so attaching the MapLibre listeners does not depend on the
+  // caller's handler identity — a caller that re-creates its callback every render must not cause a
+  // detach/attach cycle on the map.
+  const onViewportChangeRef = useRef(onViewportChange);
+  useEffect(() => {
+    onViewportChangeRef.current = onViewportChange;
+  }, [onViewportChange]);
+
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /** Report the current query rect, now. Reads the breakpoint from `window.innerWidth` (the same
+   *  width `PlaceDesktopPanel` switches on) but measures the rect in *canvas* pixels, which is what
+   *  `unproject` speaks. */
+  const reportViewport = useCallback(() => {
+    const instance = mapRef.current;
+    const handler = onViewportChangeRef.current;
+    if (!instance || !handler) return;
+    // The **container**, not `getCanvas()`. `unproject` takes container-relative CSS pixels, and the
+    // canvas's own CSS size can be stale — MapLibre only updates it on `resize()`, so a map built
+    // before layout settled reports 400×300 while the container is 1280×720. Measured: that stale
+    // size put the query rect over a 400 px sliver of a 1280 px map and the list showed 1 place
+    // where 12 were plainly on screen. `observeContainerSize` keeps the two in step; reading the
+    // container here means a missed frame reports a correct rect rather than a confident wrong one.
+    const container = instance.getContainer();
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    if (width === 0 || height === 0) return; // Not laid out yet; a later event will report.
+    const viewportWidth = typeof window === 'undefined' ? width : window.innerWidth;
+    const rect = queryRectFrom(
+      (point) => instance.unproject(point),
+      width,
+      height,
+      mapOcclusionInsets(viewportWidth)
+    );
+    if (rect) handler(rect);
+  }, []);
+
+  /** Trailing debounce (§4). One pinch or inertial flick emits several `moveend`s; the list must
+   *  settle once, after the camera has, and never reflow under a moving thumb. */
+  const scheduleViewportReport = useCallback(() => {
+    if (debounceTimer.current !== null) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      debounceTimer.current = null;
+      reportViewport();
+    }, VIEWPORT_DEBOUNCE_MS);
+  }, [reportViewport]);
+
+  // Cleared on unmount below; a debounce that fires into an unmounted tree is a `setState` on a
+  // dead component, and the map instance it would read is already destroyed.
+  useEffect(
+    () => () => {
+      if (debounceTimer.current !== null) clearTimeout(debounceTimer.current);
+      debounceTimer.current = null;
+    },
+    []
+  );
+
+  /**
+   * Keep the map's canvas the size of its container.
+   *
+   * MapLibre measures its container once, at construction, and falls back to 400×300 if that
+   * measurement comes back empty — then never measures again unless something calls `resize()`.
+   * A React tree that mounts the map before layout settles therefore gets a 400×300 map painted in
+   * the corner of a full-bleed container, with no error anywhere. Measured on this app at
+   * 1280×720: container 1280×720, canvas stuck at 400×300, no vector tiles requested, `loaded()`
+   * false. One `resize()` call fixed all three at once.
+   *
+   * That bug is invisible until something depends on the canvas's real size — which "the map is the
+   * query" now does, twice over: `unproject` takes container-relative CSS pixels, so a stale canvas
+   * size silently reports the wrong query rect and the list quietly lists the wrong places.
+   *
+   * A `ResizeObserver` rather than the `window` resize listener further down: the container is
+   * `h-full w-full` inside a flex layout, so it changes size in cases the window never fires for —
+   * including the first layout pass, which is the one that matters here.
+   */
   const attachMapRef = useCallback(
     (instance: MapLibreMap | null) => {
+      const previous = mapRef.current;
+      if (previous && previous !== instance) {
+        previous.off('moveend', scheduleViewportReport);
+        previous.off('resize', scheduleViewportReport);
+        observers.get(previous)?.disconnect();
+        observers.delete(previous);
+      }
       mapRef.current = instance;
       if (!instance) return;
+      // Measure the container *now*, before anything reads the canvas.
+      //
+      // MapLibre sizes its canvas once, at construction, and falls back to 400×300 when that
+      // measurement comes back empty — then never measures again unless something calls `resize()`.
+      // A tree that mounts the map before layout settles therefore gets a 400×300 map painted in
+      // the corner of a full-bleed container, with no error anywhere. Measured on this app at
+      // 1280×720: container 1280×720, canvas stuck at 400×300, zero vector tiles requested and
+      // `loaded()` permanently false, so the initial `fitBounds` never ran either and the map sat on
+      // a world view at zoom 0. One `resize()` call fixed all three.
+      //
+      // It stayed invisible until something depended on the canvas's real size, which "the map is
+      // the query" does: `unproject` takes container-relative CSS pixels, so a stale size reports a
+      // query rect over a 400 px sliver of a 1280 px map — the list showed 1 place with 12 plainly
+      // on screen.
+      //
+      // A single `resize()` here is not enough and that was measured too: the instance arrives via
+      // mapcn's `useImperativeHandle`, which can commit before the flex layout has given the
+      // container its height, so an immediate measurement reads zero and MapLibre keeps the
+      // fallback. A `ResizeObserver` fires once on `observe()` with the current size and again on
+      // every later change, so it catches both the settled-late case and a genuine resize.
+      const container = instance.getContainer();
+      const observer = new ResizeObserver(() => {
+        const canvas = instance.getCanvas();
+        if (
+          canvas.clientWidth === container.clientWidth &&
+          canvas.clientHeight === container.clientHeight
+        ) {
+          return;
+        }
+        instance.resize();
+        // Re-frame, and this is the half that actually makes the map usable rather than merely
+        // correctly sized. The observer fires *after* the first paint, so `whenReady` has already
+        // run the initial `fitBounds` against the 400×300 fallback — where the desktop padding
+        // (48 + a ~374 px panel on the left alone) exceeds the canvas width, so the fit is
+        // impossible, silently does nothing, and leaves `hasFramedOnce` set. The camera then sits at
+        // zoom 0 over (0, 0) for the life of the page: a world map with two cluster bubbles and no
+        // pins, which is exactly the symptom `current-state.md` §9.1 attributed to fitting all
+        // places at once.
+        //
+        // Re-fit whatever was last framed, so a resize never undoes a focus flight; fall back to the
+        // initial bounds when nothing has been framed yet.
+        const framed = framedTo.current;
+        if (framed) fitTo(instance, framed, false);
+        else fitToBounds(instance);
+        // The rect moved with the canvas, and neither `resize()` nor an instant `fitBounds` is
+        // guaranteed to leave a `moveend` behind.
+        scheduleViewportReport();
+      });
+      observer.observe(container);
+      observers.set(instance, observer);
       whenReady(instance, () => fitToBounds(instance));
+      // `moveend` only — no `move`, no `render`, no rAF. `resize` too, because the insets are
+      // viewport-dependent: crossing `lg` changes which edge the chrome covers.
+      instance.on('moveend', scheduleViewportReport);
+      instance.on('resize', scheduleViewportReport);
+      // The first settle. Without this the caller holds no rect until the user touches the map,
+      // and an empty list on arrival reads as the whole feature being broken. Scheduled through the
+      // same debounce so the initial `fitBounds` issued just above coalesces into one report
+      // instead of producing a pre-fit rect and then a post-fit one.
+      whenReady(instance, scheduleViewportReport);
     },
-    [fitToBounds]
+    [fitToBounds, fitTo, scheduleViewportReport]
   );
 
   // The **initial** framing, and only that. `attachMapRef`'s `once('load', ...)` races against

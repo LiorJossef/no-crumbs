@@ -112,6 +112,50 @@ export function areaLabel(places: readonly ViewportPlace[]): string | null {
   return label;
 }
 
+/**
+ * The rectangle the map reports as "what is on screen" — field-for-field the `LatLngBoundsHint` the
+ * map surface speaks, redeclared here so this file never imports from `components/`.
+ */
+export interface ViewportBounds {
+  readonly north: number;
+  readonly south: number;
+  readonly east: number;
+  readonly west: number;
+}
+
+/**
+ * Whether a place's pin anchor is inside the query rect.
+ *
+ * The **anchor point**, not the icon's bounding box and not its label: the anchor is the only thing
+ * stable across zoom levels, so it is the only rule that gives the same answer twice
+ * (`ux-map-is-the-query.md` §1 rule 1).
+ *
+ * Longitude is compared with a wrap branch rather than a plain `>=`/`<=` pair. The surface reports
+ * unwrapped longitudes, so a viewport straddling the antimeridian arrives with `east < west`; the
+ * plain comparison would then match nothing and the list would go empty. Crossing 180° is not a
+ * supported *feature* — no saved place is anywhere near it — but it must not silently empty the
+ * list, which is the difference between an unsupported case and a bug.
+ *
+ * This lives here rather than using MapLibre's own `LngLatBounds.contains()` because the page client
+ * is on the product side of the map port and must not import a vendor SDK.
+ */
+export function withinBounds(point: GeoPoint, bounds: ViewportBounds): boolean {
+  if (point.lat < bounds.south || point.lat > bounds.north) return false;
+  return bounds.west <= bounds.east
+    ? point.lng >= bounds.west && point.lng <= bounds.east
+    : point.lng >= bounds.west || point.lng <= bounds.east;
+}
+
+/** The centre of a rect, for the nearest-first sort. Longitude is averaged through the same wrap
+ *  branch as `withinBounds`, so a straddling viewport does not put its centre on the far side of
+ *  the globe. */
+export function boundsCentre(bounds: ViewportBounds): GeoPoint {
+  const lat = (bounds.north + bounds.south) / 2;
+  if (bounds.west <= bounds.east) return { lat, lng: (bounds.west + bounds.east) / 2 };
+  const lng = (bounds.west + bounds.east + 360) / 2;
+  return { lat, lng: lng > 180 ? lng - 360 : lng };
+}
+
 /** Everything the header needs to say what it is looking at. */
 export interface ViewportHeading {
   /** The whole line, e.g. `12 places in London`. */

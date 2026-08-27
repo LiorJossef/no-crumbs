@@ -11,6 +11,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   areaLabel,
+  boundsCentre,
+  withinBounds,
   sortByDistanceFromCentre,
   viewportHeading,
   viewportHeadingSentence,
@@ -212,5 +214,47 @@ describe('sortByDistanceFromCentre', () => {
 
   it('sorts an empty list without complaint', () => {
     expect(sortByDistanceFromCentre([], SOHO, (p: { lat: number; lng: number }) => p)).toEqual([]);
+  });
+});
+
+describe('withinBounds', () => {
+  // The real London cluster's box, as `clusterByProximity` reports it.
+  const LONDON = { north: 51.518, south: 51.4277, east: -0.0682, west: -0.1706 };
+
+  it('includes a place inside the box and excludes one outside it', () => {
+    expect(withinBounds({ lat: 51.5152, lng: -0.1219 }, LONDON)).toBe(true); // Sycamore
+    expect(withinBounds({ lat: 32.0524, lng: 34.7498 }, LONDON)).toBe(false); // Container, Tel Aviv
+  });
+
+  it('includes a place exactly on the edge', () => {
+    // The forgiving direction: a pin drawn on the boundary is visible, so it belongs in the list.
+    expect(withinBounds({ lat: 51.518, lng: -0.0682 }, LONDON)).toBe(true);
+    expect(withinBounds({ lat: 51.4277, lng: -0.1706 }, LONDON)).toBe(true);
+  });
+
+  it('does not empty the list for a viewport crossing the antimeridian', () => {
+    // Unwrapped longitudes arrive with east < west. A plain comparison matches nothing here, and an
+    // empty list is indistinguishable on screen from the feature being broken.
+    const straddling = { north: 10, south: -10, east: -170, west: 170 };
+    expect(withinBounds({ lat: 0, lng: 179 }, straddling)).toBe(true);
+    expect(withinBounds({ lat: 0, lng: -179 }, straddling)).toBe(true);
+    expect(withinBounds({ lat: 0, lng: 0 }, straddling)).toBe(false);
+  });
+
+  it('rejects on latitude regardless of longitude', () => {
+    expect(withinBounds({ lat: 60, lng: -0.1219 }, LONDON)).toBe(false);
+  });
+});
+
+describe('boundsCentre', () => {
+  it('is the middle of an ordinary box', () => {
+    expect(boundsCentre({ north: 52, south: 50, east: 1, west: -1 })).toEqual({ lat: 51, lng: 0 });
+  });
+
+  it('does not put a straddling viewport’s centre on the far side of the globe', () => {
+    expect(boundsCentre({ north: 10, south: -10, east: -170, west: 170 })).toEqual({
+      lat: 0,
+      lng: 180,
+    });
   });
 });

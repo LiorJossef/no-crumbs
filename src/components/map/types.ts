@@ -96,4 +96,26 @@ export interface MapSurfaceProps {
    * requested through this prop.
    */
   readonly focusPlaceIds?: readonly string[];
+  /**
+   * "This is what is on screen now" — the surface reporting its **query rect** so the caller can
+   * make the map the query (`docs/ux-map-is-the-query.md` §1). Optional: a surface with no handler
+   * simply never calls it, and a surface that cannot compute one (the mock) never implements it.
+   *
+   * What is reported is the *query rect*, not the raw canvas bounds: the visible map inset by the
+   * chrome that permanently covers it at rest — the sheet's peek height below `lg`, the list
+   * panel's width at `lg+`. A place whose pin sits under the sheet is not "in view", and reporting
+   * the whole canvas would put rows in the list that the user cannot see.
+   *
+   * **When it fires:** once when the map first settles (so the caller has a rect before the user
+   * touches anything — a list that starts empty reads as a broken feature), on every `moveend`
+   * with a 120 ms trailing debounce (§4: the list settles, it never tracks a moving thumb), and on
+   * resize, because the insets are viewport-dependent. Deliberately **not** on `move`, on `render`,
+   * or per frame. Dragging the sheet emits no camera event and therefore reports nothing, which is
+   * §1 rule 2: looking at the list must never change the list.
+   *
+   * The reported longitudes are whatever the camera unprojects to and are **not wrapped** into
+   * [-180, 180]. Callers should test containment with MapLibre's `LngLatBounds.contains()` rather
+   * than comparing raw numbers, per §1's antimeridian note.
+   */
+  readonly onViewportChange?: (bounds: LatLngBoundsHint) => void;
 }
