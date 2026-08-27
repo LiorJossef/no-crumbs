@@ -289,18 +289,20 @@
     },
     {
       "url": "https://vt.tiktok.com/ZSVphmY3a/",
-      "notes": "Owner-supplied, first real corpus batch, 2026-08-27. Category and expected venues deliberately left blank until the caption has been read — filling them in from a guess would be adjudicating against our own output.",
+      "notes": "Owner-supplied, first real corpus batch, 2026-08-27. Category and expected venues deliberately left blank until the caption has been read — filling them in from a guess would be adjudicating against our own output. Adjudication tightened by the lead after the first run: a bare /oscar/ matched 'Oscar Wilde Irish Pub' in Petah Tikva and scored a miss as a pass. The venue is a new opening at נחלת בנימין 68, where the index holds only 'פונדק השובבים' — so this is genuinely absent, and the address constraint is what makes it say so.",
       "category": "talked_about_restaurants",
       "expected": [
         {
           "name": "Oscar's",
           "area": "נחלת בנימין 68, תל אביב",
           "candidatePattern": "oscar",
-          "namePattern": "oscar",
+          "namePattern": "^oscar.?s$|אוסקרס",
           "indexProbe": [
             "oscar",
-            "אוסקר"
-          ]
+            "אוסקר",
+            "פונדק השובבים"
+          ],
+          "addressPattern": "נחלת בנימין"
         }
       ]
     },

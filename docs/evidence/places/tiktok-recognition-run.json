@@ -1,6 +1,6 @@
 {
   "_comment": "Machine record of a tests/manual/tiktok-recognition.manual.ts run — real TikTok URLs through the real oEmbed → caption → extraction → resolve flow. Regenerated on every run; see tiktok-recognition.md for the human reading. Corpus: tests/manual/tiktok-recognition-corpus.json.",
-  "run_at": "2026-08-27T20:25:56.693Z",
+  "run_at": "2026-08-27T20:32:55.358Z",
   "supabase_url": "http://127.0.0.1:54321",
   "overture_release": "2026-07-22.0",
   "region": {
@@ -38,12 +38,11 @@
       "ok": 13
     },
     "failure_buckets": {
-      "unreachable_in_index": 5,
+      "unreachable_in_index": 6,
       "ranking": 1,
       "absent_from_index": 2,
       "not_auto_accepted": 2,
-      "extraction_miss": 1,
-      "no_region_searched": 1
+      "extraction_miss": 1
     }
   },
   "cases": [
@@ -935,25 +934,40 @@
           "queryCityHint": "ת״א",
           "expectedName": "Oscar's",
           "expectedArea": "נחלת בנימין 68, תל אביב",
-          "regionsSearched": [],
-          "candidatesPrefiltered": 0,
+          "regionsSearched": [
+            "tlv"
+          ],
+          "candidatesPrefiltered": 3,
           "band": "no_match",
-          "score": 0,
-          "margin": null,
-          "top1": null,
-          "top3": [],
+          "score": 0.7101988302325581,
+          "margin": 0.04927394891387671,
+          "top1": {
+            "name": "Oscar Wilde Irish Pub | אוסקר ווילד",
+            "address": "Шахам 36",
+            "locality": "פתח תקווה",
+            "lat": 32.0857582092285,
+            "lng": 34.8585739135742,
+            "providerCategory": "irish_pub",
+            "datasetConfidence": 0.904779
+          },
+          "top3": [
+            "Oscar Wilde Irish Pub | אוסקר ווילד (0.710)",
+            "Oscar Wilde / ирландский паб (0.661)",
+            "אוסקר ווילד | Oscar Wilde (0.633)"
+          ],
           "resolutionKind": "answered",
           "verdict": "wrong",
-          "failure": "no_region_searched",
+          "failure": "unreachable_in_index",
           "acceptedRank": null,
           "indexProbeHits": [
             "אוסקר ווילד | Oscar Wilde @ הרוקמים 26, חולון",
             "Oscar Wilde / ирландский паб @ הרוקמים 26, חולון",
             "Oscar Wilde Irish Pub | אוסקר ווילד @ Шахам 36, פתח תקווה",
             "קפה אוסקר @ דניאל 31, בת ים",
-            "אוסקר ווילד פתח תקוה @ השחם, פתח תקווה"
+            "אוסקר ווילד פתח תקוה @ השחם, פתח תקווה",
+            "פונדק השובבים @ נחלת בנימין 68, תל אביב - יפו"
           ],
-          "note": "cityHint resolved to no loaded region — the database was never queried at all"
+          "note": "the row exists in poi_index but the prefilter can never return it from these tokens"
         }
       ],
       "extractionMisses": []

@@ -261,3 +261,37 @@ describe('regionHintFor — the city inside the candidate string (TLV-12)', () =
     expect(regionHintFor(null, null, null)).toEqual({ kind: 'unknown' });
   });
 });
+
+describe('regionHintFor — Hebrew abbreviations, which is how captions write towns', () => {
+  // Observed, not invented: `ת״א` came off a real TikTok caption (Oscar's, נחלת בנימין 68),
+  // matched nothing, and the index was never queried.
+  it.each([
+    ['ת״א', 'tlv'],
+    ['ת"א', 'tlv'],
+    ['ר״ג', 'tlv'],
+    ['פ״ת', 'tlv'],
+    ['כ״ס', 'tlv'],
+    ['רמה״ש', 'tlv'],
+    ['הוה״ש', 'tlv'],
+    ['ראשל״צ', 'tlv'],
+  ])('%s resolves to %s', (alias, regionId) => {
+    expect(regionHintFor(alias, null)).toMatchObject({ kind: 'city', regionId });
+  });
+
+  it('holds both spellings, because normalise() treats them differently', () => {
+    // The Hebrew gershayim U+05F4 is inside the block normalise() keeps, so it survives; an
+    // ASCII double quote is punctuation and becomes a space. Two different keys, same city.
+    expect(normalise('ת״א')).toBe('ת״א');
+    expect(normalise('ת"א')).toBe('ת א');
+    expect(regionHintFor('ת״א', null)).toMatchObject({ regionId: 'tlv' });
+    expect(regionHintFor('ת"א', null)).toMatchObject({ regionId: 'tlv' });
+  });
+
+  it('finds an abbreviation inside caption prose too', () => {
+    expect(regionHintFor(null, null, 'בר השניצל נחלת בנימין 68 ת״א')).toMatchObject({
+      kind: 'city',
+      regionId: 'tlv',
+      via: 'text',
+    });
+  });
+});

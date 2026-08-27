@@ -128,6 +128,31 @@ const ALIASES: Readonly<Record<string, AliasEntry>> = Object.freeze({
   'Bnei Brak': at('tlv', 32.081, 34.833),
   'בני ברק': at('tlv', 32.081, 34.833),
 
+  // Hebrew abbreviations, which is how captions actually write these towns. Observed, not
+  // guessed: `ת״א` arrived from a real TikTok caption (Oscar's, נחלת בנימין 68), matched
+  // nothing, scoped to no region, and the index was never queried — the same silent failure
+  // `cityInText()` fixes for a missing hint, reached by a different route.
+  //
+  // Both spellings of every abbreviation, because they are genuinely different strings after
+  // `normalise()`: the Hebrew gershayim (U+05F4) is inside the U+0590–U+05FF block the
+  // normaliser keeps, so `'ת״א'` survives intact, while an ASCII double quote is punctuation and
+  // is dropped to a space, so `'ת"א'` becomes `'ת א'`. A table holding only one of them silently
+  // misses half the captions.
+  'ת״א': at('tlv', 32.077, 34.774),
+  'ת"א': at('tlv', 32.077, 34.774),
+  'ר״ג': at('tlv', 32.07, 34.824),
+  'ר"ג': at('tlv', 32.07, 34.824),
+  'פ״ת': at('tlv', 32.087, 34.887),
+  'פ"ת': at('tlv', 32.087, 34.887),
+  'כ״ס': at('tlv', 32.175, 34.907),
+  'כ"ס': at('tlv', 32.175, 34.907),
+  'רמה״ש': at('tlv', 32.146, 34.839),
+  'רמה"ש': at('tlv', 32.146, 34.839),
+  'הוה״ש': at('tlv', 32.15, 34.888),
+  'הוה"ש': at('tlv', 32.15, 34.888),
+  'ראשל״צ': at('tlv', 31.971, 34.789),
+  'ראשל"צ': at('tlv', 31.971, 34.789),
+
   // The Hasharon and the southern ring. Outside 0010's `tlv` bbox, inside 0020's launch area —
   // which is exactly why the decision is a bbox test and not a flag in this file.
   Herzliya: at('tlv', 32.166, 34.843),

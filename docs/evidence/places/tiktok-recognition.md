@@ -4,7 +4,7 @@
 > edit the harness or the corpus, not this file. The machine record is
 > `tiktok-recognition-run.json`.
 
-Run at **2026-08-27T20:25:56.695Z** against `http://127.0.0.1:54321`, region `tlv`, 10462 rows, release `2026-07-22.0`.
+Run at **2026-08-27T20:32:55.360Z** against `http://127.0.0.1:54321`, region `tlv`, 10462 rows, release `2026-07-22.0`.
 Extractor: `2026-08-gemini-gemini-3.5-flash-lite` / prompt `p7-s2`.
 
 ## Auto-match rate: **4 / 16** (25%)
@@ -32,9 +32,9 @@ are the right venue — i.e. the share the user never had to touch the picker fo
 | Bucket | n | What it means, and what fixes it |
 |---|---|---|
 | `extraction_miss` | 1 | The caption names the venue; the model produced no candidate string for it. Prompt/extraction work. |
-| `no_region_searched` | 1 | `cityHint` mapped to no loaded region, so the database was never queried. Region inference. |
+| `no_region_searched` | 0 | `cityHint` mapped to no loaded region, so the database was never queried. Region inference. |
 | `absent_from_index` | 2 | No row for this venue in `poi_index`, in either script. Coverage — a different dataset or a wider ingest. |
-| `unreachable_in_index` | 5 | The row IS there; the prefilter cannot reach it from these tokens. The Hebrew/Latin alias gap. |
+| `unreachable_in_index` | 6 | The row IS there; the prefilter cannot reach it from these tokens. The Hebrew/Latin alias gap. |
 | `ranking` | 1 | The right row was prefiltered and ranked below something else. Scorer weights. |
 | `not_auto_accepted` | 2 | Top-1 was right but the band was not `preselect`, so the picker was needed. Band policy. |
 | `resolver_failed` | 0 | The lookup errored in transport. |
@@ -201,14 +201,14 @@ are the right venue — i.e. the share the user never had to touch the picker fo
 ── https://vt.tiktok.com/ZSVphmY3a/  [talked_about_restaurants]
    @nadavbornstein  caption(cache): בר השניצל הראשון בישראל  ‏📍Oscar’s נחלת בנימין 68 בנחלת בנימין ת״א נפתח בר שניצלים זה אומר שבתפריט יש רק שניצלים: תירס, עוף, סינטה ולבן לתוספות: פירה, פתיתים וצ׳יפס - ויש ריפיל חינם לפירה! (לא תמיד, כזה מתי שמתחשק פה) השף: טל רשבסקי (מי שמכונה ׳נוכל הפסטה׳) ורק פתחו אז סבלנות בתפריט  שניצל עוף 88  שניצל תירס 88  שניצל סינטה 108  שניצל לבן 108 * כל השניצלים מגיעים עם פירה, סלט עלים בויניגרט הדרים, ריבת שזיפים ואיולי. השניצל תירס מגיע עם רוטב קטשופ עגבניות מגי מונזל  תוספות  צ'יפס-פירה רג'יאנו 3 שנים 42  פתיתים עם חמאת מרווה ולימון 37  פירה 28  סלט מלפפונים מוחמצים עם שמיר וזרעי חרדל 18  סלט עלים בויניגרט הדרים 18 קינוח  עוגת גבינה קרמל מלוח 28
    extraction(cache): cityHint=ת״א  raw=[Oscar’s]  dropped=none
-   • "Oscar’s" → MISS (no_region_searched)
-       query: text="Oscar’s" cityHint=ת״א cat=restaurant  regionsSearched=[—]  prefiltered=0
-       band=no_match  score=0.000  margin=null
-       top1: —
-       top3: —
+   • "Oscar’s" → MISS (unreachable_in_index)
+       query: text="Oscar’s" cityHint=ת״א cat=restaurant  regionsSearched=[tlv]  prefiltered=3
+       band=no_match  score=0.710  margin=0.049
+       top1: Oscar Wilde Irish Pub | אוסקר ווילד @ Шахам 36, פתח תקווה  (32.085758, 34.858574)  cat=irish_pub conf=0.90
+       top3: Oscar Wilde Irish Pub | אוסקר ווילד (0.710)  |  Oscar Wilde / ирландский паб (0.661)  |  אוסקר ווילד | Oscar Wilde (0.633)
        expected: Oscar's — נחלת בנימין 68, תל אביב
-       poi_index probe: אוסקר ווילד | Oscar Wilde @ הרוקמים 26, חולון ; Oscar Wilde / ирландский паб @ הרוקמים 26, חולון ; Oscar Wilde Irish Pub | אוסקר ווילד @ Шахам 36, פתח תקווה ; קפה אוסקר @ דניאל 31, בת ים ; אוסקר ווילד פתח תקוה @ השחם, פתח תקווה
-       note: cityHint resolved to no loaded region — the database was never queried at all
+       poi_index probe: אוסקר ווילד | Oscar Wilde @ הרוקמים 26, חולון ; Oscar Wilde / ирландский паб @ הרוקמים 26, חולון ; Oscar Wilde Irish Pub | אוסקר ווילד @ Шахам 36, פתח תקווה ; קפה אוסקר @ דניאל 31, בת ים ; אוסקר ווילד פתח תקוה @ השחם, פתח תקווה ; פונדק השובבים @ נחלת בנימין 68, תל אביב - יפו
+       note: the row exists in poi_index but the prefilter can never return it from these tokens
 
 ── https://vt.tiktok.com/ZSVphtyLT/  [desserts]
    @onelastbite_il  caption(cache): לראשונה בישראל: בצק עוגיות עננים (הטרנד של לונדון עכשיו בתל אביב) למי שלא מכיר את הקונספט של Scooped Cookie Dough – תשכחו מכל מה שידעתם על עוגיות שוקולד צ'יפס רגילות. זה לא בצק נא וזו לא עוגייה יבשה מהמדף. מדובר בתבניות ענק של בצק עוגיות שנאפות בטמפרטורה מדויקת כדי להישאר רכות בטירוף מבפנים. שמים סקופים של עוגיות רכות וחמימות ישר לתוך הכלי, ועליהם מוסיפים שוקולד מומס וגלידה מעל. השילוב של הבצק החם עם הגלידה הקרירה והשוקולד המומס, הוא בדיוק השילוב שהופך את הקינוח הזה לאחד מהפייבוריטים שלי. פשוט ומעולה. חוץ מזה, יש להם עוד לא מעט קינוחים מעניינים👌🏽 הפוסט הזה לא ממומן! 📍 WOW – בית אשל 15, שוק הפשפשים, יפו. . . . . . #בצקעוגיותעננים  #שוקהפשפשים  #מקומותחדשים #קינוחים  #תלאביב 
