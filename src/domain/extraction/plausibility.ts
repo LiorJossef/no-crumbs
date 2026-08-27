@@ -39,8 +39,14 @@ export type PlausibilityDropReason =
  */
 const HASHTAG_ONLY_CONFIDENCE_CEILING = 0.5;
 
-export interface PlausibilityResult {
-  readonly kept: readonly PlaceCandidate[];
+/**
+ * Generic over the candidate shape so the v2 enrichment fields (`extraction/schema.ts`'s
+ * `PlaceCandidate`) survive this gate with their types intact. This filter reads only the
+ * `PlaceCandidate` fields and never constructs a candidate of its own, so widening it costs
+ * nothing and stops every caller having to re-widen afterwards.
+ */
+export interface PlausibilityResult<T extends PlaceCandidate = PlaceCandidate> {
+  readonly kept: readonly T[];
   /** Count only, never the text (`07` §7.1) — a rising drop rate is the earliest signal that the
    *  prompt or the model has drifted. */
   readonly dropped: Readonly<Record<PlausibilityDropReason, number>>;
@@ -102,7 +108,10 @@ function isGenericWordsOnly(rawName: string): boolean {
  * `caption` is the verbatim text the extractor read — needed only to check that `evidence` is a
  * real substring of it, never inspected any other way.
  */
-export function filterPlausible(candidates: readonly PlaceCandidate[], caption: string): PlausibilityResult {
+export function filterPlausible<T extends PlaceCandidate>(
+  candidates: readonly T[],
+  caption: string,
+): PlausibilityResult<T> {
   const dropped: Record<PlausibilityDropReason, number> = {
     hashtag_or_handle: 0,
     city_or_country_only: 0,
@@ -110,7 +119,7 @@ export function filterPlausible(candidates: readonly PlaceCandidate[], caption: 
     evidence_not_in_caption: 0,
     duplicate: 0,
   };
-  const kept: PlaceCandidate[] = [];
+  const kept: T[] = [];
   const seen = new Set<string>();
 
   for (const candidate of candidates) {
@@ -137,7 +146,11 @@ export function filterPlausible(candidates: readonly PlaceCandidate[], caption: 
     }
     seen.add(key);
     if (isHashtagOnly(candidate.rawName) && candidate.modelConfidence !== null && candidate.modelConfidence > HASHTAG_ONLY_CONFIDENCE_CEILING) {
-      kept.push({ ...candidate, modelConfidence: HASHTAG_ONLY_CONFIDENCE_CEILING });
+      // `{ ...candidate, modelConfidence }` is a `T` at runtime — every other property is copied
+      // — but TypeScript cannot prove a spread-plus-override of a generic is still that generic,
+      // so the assertion states what the spread guarantees. The only alternative is dropping the
+      // generic, which loses the v2 fields' types for every caller.
+      kept.push({ ...candidate, modelConfidence: HASHTAG_ONLY_CONFIDENCE_CEILING } as T);
       continue;
     }
     kept.push(candidate);

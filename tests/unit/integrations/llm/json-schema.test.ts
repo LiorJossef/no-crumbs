@@ -21,6 +21,10 @@ describe('EXTRACTION_JSON_SCHEMA vs ExtractionResultSchema', () => {
         'modelConfidence',
         'identifiedName',
         'coordinates',
+        'areaHint',
+        'tags',
+        'dishes',
+        'whyGo',
       ].sort(),
     );
   });
@@ -37,6 +41,10 @@ describe('EXTRACTION_JSON_SCHEMA vs ExtractionResultSchema', () => {
           evidence: 'evidence text',
           modelConfidence: 0.5,
           identifiedName: null,
+          areaHint: 'Florentin',
+          tags: ['Italian', 'Hidden Gem'],
+          dishes: ['sabich'],
+          whyGo: { text: 'A small place worth queueing for.', groundedIn: 'worth the queue' },
           coordinates: { lat: 32.0596, lng: 34.7654 },
         },
       ],

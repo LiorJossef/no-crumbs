@@ -11,7 +11,21 @@
  * second file, never a framework".
  */
 
-export const PROMPT_VERSION = 'p6';
+import { EXTRACTION_SCHEMA_VERSION } from '@/domain/extraction/schema';
+
+/**
+ * The cache key on `extractions (source_id, model, prompt_version)`, and therefore the **only**
+ * thing standing between a v1 cached row and code that expects v2 — nothing else in that unique
+ * constraint moves when the candidate shape changes.
+ *
+ * The `-s<n>` suffix is `domain/extraction/schema.ts`'s `EXTRACTION_SCHEMA_VERSION`, welded on so a
+ * schema change cannot ship without moving the cache key;
+ * `tests/unit/extraction/schema.test.ts` fails if the two drift apart.
+ *
+ * `extractions_prompt_version_check` is `^[a-z0-9][a-z0-9._-]{0,31}$`, so hyphens and digits are
+ * legal here and `p7-s2` is storable.
+ */
+export const PROMPT_VERSION = `p7-s${EXTRACTION_SCHEMA_VERSION}`;
 
 /** Role, single task, and the negative-case framing that `09` §4.2 calls "the single most
  *  important line in the prompt": most captions name no venue, and an empty list is correct. */
@@ -51,8 +65,17 @@ signal that what follows is a place name.
 Rules for each candidate you do emit:
 - "rawName" is copied EXACTLY as the caption writes it — same script, same casing, no
   transliteration, no "helpful" correction. Do not translate. Do not title-case.
-- If the caption names a city, neighbourhood or country, put it in "cityHint"/"countryHint" — never
-  inside "rawName".
+- Put location words in the location fields, never in a name field. The venue's name is "La Nonna";
+  "Brixton" is where it is. Concretely:
+  - "cityHint" is the city or town ("London", "Tel Aviv", "Tokyo").
+  - "areaHint" is the neighbourhood, district, market, yard or building the caption puts it in
+    ("Brixton", "Market Peckham", "Tooting Market", "Middle Eighty Hotel", "Eccleston Yards",
+    "Shibuya"). Set it to null when the caption names none.
+  - "countryHint" is the country.
+  So "La Nonna in Market Row, Brixton" is rawName "La Nonna", areaHint "Market Row, Brixton",
+  cityHint "London"; and "Kiaans Tooting pan-Asian inside Tooting Market" is rawName "Kiaans
+  Tooting" (that is what the caption wrote — copy it) with areaHint "Tooting Market". Nothing is
+  lost by separating them: we re-join name, area and city ourselves when we search for the venue.
 - If the caption gives a street address — a number plus a street name, e.g. "24 Main St" or "דרך
   רמתיים 24" — copy it VERBATIM into "addressHint". It most often sits on its own line directly
   under a "📍" marker, but treat that as a common pattern, not a rule: the address line can appear
@@ -84,11 +107,60 @@ real-world knowledge:
   is not a plausible real place just to fill this field.
 - Never let this inference leak into "rawName" or "evidence": those two stay verbatim from the
   caption no matter what you conclude here.
+- "identifiedName" is a NAME. Do not append the neighbourhood, market, city or country to it —
+  "MBER London" should be identifiedName "MBER" with cityHint "London"; "Kiaan's Tooting Market"
+  should be identifiedName "Kiaan's" with areaHint "Tooting Market". If a branch qualifier is
+  genuinely part of the venue's own registered trading name, keep it; if it is just where the
+  place is, it belongs in "areaHint"/"cityHint". We compose the two back together when we search,
+  so putting the area in its own field costs nothing and makes the name usable on its own.
 - For a hashtag-sourced candidate, "identifiedName" is also where the run-together text becomes
   readable: segment it into its words (adding the spaces "rawName" and "evidence" may not have) and,
   if you can, go further to the real venue it names — e.g. raw "#נומיכפרמונש" identifies as "נומי
   כפר מונש" or the fuller real-world name if you know it. Set it to null if you cannot confidently
   segment or identify it beyond the raw hashtag.
+
+Three fields describe what the caption SAYS about the place. They come from the caption, never from
+your own knowledge of the venue, and every one of them may be empty:
+
+"tags" — up to 5 short labels for organising a saved-places library: cuisine, style, setting or
+vibe. Good tags: "Italian", "Matcha", "Pan-Asian", "Nepalese", "Hidden gem", "Rooftop", "Market
+stall", "Hotel restaurant", "Natural wine", "Greek".
+- One or two words each. No "#", no sentences, no venue name, no city or neighbourhood name.
+- Do not tag a restaurant "Restaurant" — a tag that only repeats "categoryHint" is wasted.
+- Every tag must be supported by something the caption actually says. "seasonal Italian plates
+  inside Middle Eighty Hotel" supports "Italian" and "Hotel restaurant"; it does not support
+  "Rooftop" or "Romantic". Do not add tags from what you know about the venue.
+- Prefer the plain, reusable word a person would filter by: "Italian", not "Seasonal Italian small
+  plates". The same concept must get the same tag in every caption you ever read.
+- Return [] when the caption says nothing about the place beyond its name.
+
+"dishes" — up to 5 specific menu items the caption itself names: "sabich", "pistachio croissant",
+"cortado", "birria tacos", "matcha latte". A dish is something you could point at on a menu and
+order by name.
+- Copy the item words from the caption. You may drop a leading "the"; change nothing else.
+- These are NOT dishes, and must not appear here: a cuisine ("Italian", "Greek dishes",
+  "Nepalese"), a serving style ("sharing plates", "small plates", "seasonal Italian plates"), a
+  category ("coffee", "pasta", "food", "brunch"), or any phrase that names a kind of food rather
+  than one particular item. If you find yourself writing an adjective plus a cuisine plus a generic
+  noun, it is not a dish — leave it out and let "tags" carry it instead.
+- Return [] when the caption names no particular item, which is most captions. An empty list here
+  is the normal answer, not a gap to fill.
+
+"whyGo" — one short sentence, in YOUR OWN WORDS, saying why someone would go, or null.
+- "text": at most 25 words, plain and factual. No marketing language, no adjectives the caption did
+  not earn, no invented detail. Write what the caption supports, in your own phrasing rather than
+  by copying a caption sentence.
+- Vary how you start. These sentences end up in a list next to each other, so do not open every one
+  with the same word or template ("Go for...", "Visit this...") — write each one as it reads best.
+- "groundedIn": the exact caption fragment your sentence is based on, copied VERBATIM, character
+  for character, the same discipline as "evidence". If you cannot point at one, "whyGo" is null.
+- "groundedIn" must say something. Quoting only the place's own name does not count: a caption that
+  reads "Resturants in Tel Aviv 📍Ha Kosem" tells you the name and the city and nothing else, so
+  "whyGo" there is null. You may know a great deal about that venue — none of it belongs in this
+  field, because the caption did not say it and we cannot check it.
+- Set "whyGo" to null whenever the caption gives nothing beyond the name, the city and the
+  category. Null is the right answer more often than not. An invented reason is far worse than no
+  reason — we would rather show nothing than show something we made up.
 
 "coordinates" is another field where you SHOULD use your own real-world knowledge, independent of
 "modelConfidence" — but only for the exact venue, never a rough area:
