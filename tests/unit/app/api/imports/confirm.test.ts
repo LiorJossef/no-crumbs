@@ -39,6 +39,7 @@ const V1_CANDIDATE = {
   evidence: 'Ha Kosem',
   modelConfidence: 0.9,
   identifiedName: 'HaKosem',
+  nameVariants: [],
   coordinates: { lat: 32.0708, lng: 34.7726 },
 };
 

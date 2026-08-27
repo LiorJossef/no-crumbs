@@ -34,7 +34,10 @@
  *  - **`caption_inference`** — the model's reading of what the caption says. Not copyable, but it
  *    may not go beyond the caption either (`categoryHint`, `tags`, `whyGo.text`).
  *  - **`world_knowledge`** — unverified model recall about the real world, mitigated only by a
- *    human clicking through to Google Maps (`06` §3.4): `identifiedName` and `coordinates`.
+ *    human clicking through to Google Maps (`06` §3.4): `identifiedName`, `coordinates` and
+ *    `nameVariants`. The last of these is recall we deliberately *cannot* check — a translated
+ *    name is not a caption substring by construction — so it is confined to the query side (see
+ *    `RawPlaceCandidateSchema.nameVariants`).
  *  - **`model_self_report`** — `modelConfidence`, kept to be measured, never to be trusted or
  *    rendered (`02` §D3).
  *
@@ -47,8 +50,8 @@
  *
  * `EXTRACTION_SCHEMA_VERSION` is load-bearing. `extractions` is keyed on
  * `(source_id, model, prompt_version)` and nothing else, so a schema change that did **not** move
- * `prompt_version` would let a v1 row be read back and treated as v2. `PROMPT_VERSION` therefore
- * embeds the schema version (`p7-s2`), and `tests/unit/extraction/schema.test.ts` fails if the two
+ * `prompt_version` would let a v2 row be read back and treated as v3. `PROMPT_VERSION` therefore
+ * embeds the schema version (`p8-s3`), and `tests/unit/extraction/schema.test.ts` fails if the two
  * ever drift apart.
  */
 
@@ -63,16 +66,33 @@ import type { PlaceCandidate } from '../types';
  * cache key we control from application code.
  *
  * v1 → v2 (2026-08-27): added `areaHint`, `tags`, `dishes`, `whyGo`.
+ * v2 → v3 (2026-08-28): added `nameVariants` (TLV-BILING-A).
+ *
+ * ## v3, and why it is not the `nameAliases` the owner cut from v2
  *
  * A `nameAliases` field (the venue's name in Hebrew and English, so the same venue saved from two
  * captions can be recognised as one place) was designed and then **cut from v2 by the owner**: it
- * reaches place identity, `resolve_place` and the dedup guard, which is a different problem from
- * "make what we extract useful", and the storage half was cut in parallel. It is a workstream, not
- * a field. Deliberately not left in as an unused optional — a field nothing writes and nothing
- * reads misleads the next reader about what v2 guarantees, and re-adding it later costs one
- * version bump and four re-extractions.
+ * reached place identity, `resolve_place` and the dedup guard, which is a different problem from
+ * "make what we extract useful".
+ *
+ * `nameVariants` is **not that field wearing a new name**, and the difference is the entire reason
+ * it is allowed in. `nameAliases` was an *identity* claim: it would have decided that two saved
+ * rows are one venue, on the strength of model recall, with the merge already done by the time a
+ * human saw it. `nameVariants` is a *query* term and nothing else. It widens what we look for in
+ * `poi_index`; it is never written to `places.name`, never compared for dedup, and never displayed
+ * as what the venue is called. Whatever we find, we find as a real indexed row, and that row —
+ * not the variant — supplies the name, the coordinates and the identity. A wrong variant costs a
+ * failed lookup or a candidate a human declines; a wrong alias silently merged two places.
+ *
+ * It earns its place by measurement, not by argument: `docs/evidence/places/bilingual-expansion.md`
+ * fed the Latin form of six Hebrew-captioned venues to the shipped scorer by hand and all six came
+ * back correct at rank 1 (0.867–0.997), where the Hebrew form returned nothing or the wrong venue.
+ * The index holds those venues under `Kohi Coffee Shop`, `Trattoria Una`, `Cafe Europa`, `Under the
+ * Tree`. Note that the last of those is a **translation**, not a transliteration — the
+ * deterministic transliterator measured on 2026-08-27 reached 47% recall and failed on exactly that
+ * class, which is why this is the model's job and not a function's.
  */
-export const EXTRACTION_SCHEMA_VERSION = 2;
+export const EXTRACTION_SCHEMA_VERSION = 3;
 
 const EXTRACTED_CATEGORY_HINTS = ['restaurant', 'cafe', 'bar', 'bakery', 'attraction', 'shop', 'other'] as const;
 
@@ -222,6 +242,29 @@ export const RawPlaceCandidateSchema = z.object({
   modelConfidence: z.number().min(0).max(1).nullable(),
   identifiedName: boundedText(120, 2).nullable(),
   /**
+   * The **same** venue's name in the other script — the Latin form when the caption gave Hebrew,
+   * the Hebrew form when it gave Latin — plus a common alternate spelling of it. Never `rawName`
+   * itself. `[]` is legal, common and correct: a Latin caption naming a Latin-only venue has no
+   * variant to give, and neither does a name the model does not recognise.
+   *
+   * **A search hint, never an identity.** `world_knowledge` in `CANDIDATE_FIELD_PROVENANCE`
+   * below, and unlike every `caption_verbatim` field there is no gate that can check it: `מתחת
+   * לעץ` -> `Under the Tree` is a translation, so it is *by construction* not a caption substring.
+   * The mitigation is therefore not a test, it is confinement — the value may widen a `poi_index`
+   * query (`ResolveQuery.textVariants`) and may do nothing else. It is never stored as a place's
+   * name, never used for dedup, never shown to a user as what the venue is called; the matched
+   * index row supplies all of that. A wrong variant costs a missed lookup or a candidate a human
+   * declines, and must never widen what auto-accepts.
+   *
+   * The cap is deliberately low. Three is enough for "the other script, plus one spelling of it",
+   * and a model listing eight renderings of one name is producing noise that costs retrieval work
+   * and raises the chance one of them names something else. It also sits under the measured
+   * `maxItems: 5` ceiling the Gemini `responseSchema` validator imposes on nested arrays
+   * (`integrations/llm/json-schema.ts`). The per-item bound matches `rawName`'s, because a variant
+   * is the same kind of string.
+   */
+  nameVariants: z.array(boundedText(120, 2)).max(3),
+  /**
    * Free-form labels for organising a library — cuisine, style, setting, vibe. The open
    * vocabulary the owner asked for on 2026-08-23 in place of one fixed category.
    *
@@ -317,6 +360,7 @@ export function toPlaceCandidate(raw: RawPlaceCandidate): PlaceCandidate {
     evidence: raw.evidence,
     modelConfidence: raw.modelConfidence,
     identifiedName: raw.identifiedName,
+    nameVariants: raw.nameVariants,
     tags: raw.tags,
     dishes: raw.dishes,
     whyGo: raw.whyGo,
@@ -358,5 +402,8 @@ export const CANDIDATE_FIELD_PROVENANCE: Readonly<Record<keyof RawPlaceCandidate
   whyGo: 'caption_inference',
   identifiedName: 'world_knowledge',
   coordinates: 'world_knowledge',
+  /** Recall that *cannot* be gated — a translated name is not a caption substring — so it is
+   *  confined to the query side instead. See `RawPlaceCandidateSchema.nameVariants`. */
+  nameVariants: 'world_knowledge',
   modelConfidence: 'model_self_report',
 };

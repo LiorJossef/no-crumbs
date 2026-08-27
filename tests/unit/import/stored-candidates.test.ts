@@ -24,6 +24,9 @@ const V1_ROW = {
   coordinates: { lat: 32.0708, lng: 34.7726 },
 };
 
+/** v3 added `nameVariants`. As with V1_ROW, V2_ROW's *absence* of that key is the test. */
+const V3_ROW_EXTRA = { nameVariants: ['Kohi'] };
+
 const V2_ROW = {
   ...V1_ROW,
   areaHint: 'Market Row',
@@ -33,6 +36,31 @@ const V2_ROW = {
 };
 
 describe('parseStoredCandidates', () => {
+  it('reads a v3 row as v3, keeping its name variants', () => {
+    const result = parseStoredCandidates([{ ...V2_ROW, ...V3_ROW_EXTRA }]);
+
+    expect(result.kind).toBe('ok');
+    if (result.kind !== 'ok') return;
+    expect(result.candidates[0]?.schemaVersion).toBe(3);
+    expect(result.candidates[0]?.candidate.nameVariants).toEqual(['Kohi']);
+  });
+
+  // REGRESSION (TLV-BILING, 2026-08-28). Adding a required `nameVariants` to the candidate schema
+  // made every row already in `extractions` unparseable. The probe path was safe — `PROMPT_VERSION`
+  // moved, so it misses the cache and re-extracts — but **confirm** looks a row up by an id the
+  // client is already holding, so a user mid-import got a 500 on the one screen where their work
+  // was about to be saved. The version ladder is the whole defence; this test is the proof it holds
+  // for the shape that was actually in the database when the field landed.
+  it('reads a real p7-s2 row — v2 fields present, no nameVariants key — as v2, not as invalid', () => {
+    const result = parseStoredCandidates([V2_ROW]);
+
+    expect(result.kind).toBe('ok');
+    if (result.kind !== 'ok') return;
+    expect(result.candidates[0]?.schemaVersion).toBe(2);
+    // Absent, therefore empty — and `schemaVersion: 2` beside it is what stops that being a lie.
+    expect(result.candidates[0]?.candidate.nameVariants).toEqual([]);
+  });
+
   it('reads a v2 row as v2, with its enrichment intact', () => {
     const result = parseStoredCandidates([V2_ROW]);
 

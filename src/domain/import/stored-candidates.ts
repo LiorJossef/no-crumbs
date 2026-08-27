@@ -1,5 +1,5 @@
 /**
- * Reading `extractions.candidates` back out of `jsonb`, across two schema versions.
+ * Reading `extractions.candidates` back out of `jsonb`, across three schema versions.
  *
  * ## Why this is not one `z.array(RawPlaceCandidateSchema).safeParse(...)`
  *
@@ -49,7 +49,7 @@ import type { PlaceCandidate } from '../types';
  * coincidence — it is the same number, and when v3 lands this union gains a member and every
  * `switch` on it that forgot to grows a compile error.
  */
-export type StoredSchemaVersion = 1 | 2;
+export type StoredSchemaVersion = 1 | 2 | 3;
 
 /** One stored candidate plus the schema it was written under. The pairing is the point: see this
  *  file's header for why the version cannot be inferred from the candidate's own fields. */
@@ -77,7 +77,12 @@ export interface StoredCandidate {
  * enum, or the coordinate ranges to drift. A hand-written v1 schema would be a frozen fork of a
  * file that is still moving.
  */
+const V2RawCandidateSchema = RawPlaceCandidateSchema.omit({
+  nameVariants: true,
+});
+
 const V1RawCandidateSchema = RawPlaceCandidateSchema.omit({
+  nameVariants: true,
   areaHint: true,
   tags: true,
   dishes: true,
@@ -108,9 +113,19 @@ export function parseStoredCandidates(raw: unknown): StoredCandidatesOutcome {
   for (const element of asArray.data) {
     const resolution = parseResolution(element);
 
-    const v2 = RawPlaceCandidateSchema.safeParse(element);
+    const v3 = RawPlaceCandidateSchema.safeParse(element);
+    if (v3.success) {
+      candidates.push({ candidate: toPlaceCandidate(v3.data), schemaVersion: 3, resolution });
+      continue;
+    }
+
+    const v2 = V2RawCandidateSchema.safeParse(element);
     if (v2.success) {
-      candidates.push({ candidate: toPlaceCandidate(v2.data), schemaVersion: 2, resolution });
+      candidates.push({
+        candidate: toPlaceCandidate({ ...v2.data, nameVariants: [] }),
+        schemaVersion: 2,
+        resolution,
+      });
       continue;
     }
 
@@ -120,16 +135,23 @@ export function parseStoredCandidates(raw: unknown): StoredCandidatesOutcome {
         // Through the same `toPlaceCandidate` every other read path uses: the four v2 fields are
         // filled with their empty values *here*, at the one seam that knows they are absent rather
         // than measured, and `schemaVersion: 1` beside them is what stops that being a lie.
-        candidate: toPlaceCandidate({ ...v1.data, areaHint: null, tags: [], dishes: [], whyGo: null }),
+        candidate: toPlaceCandidate({
+          ...v1.data,
+          areaHint: null,
+          tags: [],
+          dishes: [],
+          whyGo: null,
+          nameVariants: [],
+        }),
         schemaVersion: 1,
         resolution,
       });
       continue;
     }
 
-    // Report the *v2* failure. It is the one a developer needs: "this row is not v2 either" is
-    // noise once we already know it is not v1.
-    return { kind: 'invalid', cause: v2.error };
+    // Report the *v3* failure. It is the one a developer needs: "this row is not v1/v2 either" is
+    // noise once we already know it is not the current shape.
+    return { kind: 'invalid', cause: v3.error };
   }
 
   return { kind: 'ok', candidates };

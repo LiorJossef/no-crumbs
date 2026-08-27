@@ -23,6 +23,7 @@ function candidate(overrides: Partial<PlaceCandidate> = {}): PlaceCandidate {
     evidence: 'La Nonna',
     modelConfidence: 0.8,
     identifiedName: null,
+    nameVariants: [],
     tags: [],
     dishes: [],
     whyGo: null,

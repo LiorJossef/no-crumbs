@@ -29,7 +29,7 @@ import {
 } from '@/integrations/supabase/place-resolver';
 import { DomainError } from '@/domain/errors';
 import { NORM_VERSION } from '@/domain/places/normalise';
-import { queryTokens } from '@/domain/places/score';
+import { MAX_QUERY_VARIANTS, matchedTextOf, queryTokens } from '@/domain/places/score';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { OpCtx } from '@/domain/ports';
@@ -168,6 +168,50 @@ describe('prefilterTokens', () => {
   it('is empty for text with no tokens at all', () => {
     expect(prefilterTokens('   ')).toEqual([]);
     expect(prefilterTokens('!!!')).toEqual([]);
+  });
+
+  /* --- TLV-BILING-B: the variants ride into the same call ----------------------------------- */
+
+  it('is unchanged by an absent, null or empty variant list', () => {
+    expect(prefilterTokens('Falafel HaKosem', null)).toEqual(prefilterTokens('Falafel HaKosem'));
+    expect(prefilterTokens('Falafel HaKosem', [])).toEqual(prefilterTokens('Falafel HaKosem'));
+  });
+
+  it('asks about the variants too, so a Latin-named row is reachable from a Hebrew caption', () => {
+    // The whole retrieval half of the change. Neither name arm of `poi_prefilter` can reach
+    // `Kohi Coffee Shop` from `קוהי` — they share no substring and no trigram — so the token has
+    // to be in the list.
+    const tokens = prefilterTokens('קוהי', ['Kohi']);
+    expect(tokens).toContain('קוהי');
+    expect(tokens).toContain('kohi');
+  });
+
+  it('does not send a token twice when two forms share one', () => {
+    // `coffee` would be the obvious second word and it is in `SCORING.generic`, so it never
+    // reaches the prefilter at all — hence a real second identity word.
+    expect(prefilterTokens('Kohi Basel', ['Kohi'])).toEqual(['basel', 'kohi']);
+  });
+
+  it('splits the token budget round-robin rather than longest-first across the forms', () => {
+    // A wordy first form must not be able to starve a variant out of the prefilter entirely —
+    // that would reintroduce the exact unreachability the variant exists to fix, via a sort order.
+    const wordy = Array.from({ length: 20 }, (_, i) => `verylongtoken${'x'.repeat(i)}`).join(' ');
+    const tokens = prefilterTokens(wordy, ['kohi']);
+    expect(tokens).toHaveLength(MAX_PREFILTER_TOKENS);
+    expect(tokens).toContain('kohi');
+  });
+
+  it('never asks about more tokens than the cap, however many variants arrive', () => {
+    const variants = ['alpha beta gamma', 'delta epsilon zeta', 'eta theta iota', 'kappa lambda'];
+    const tokens = prefilterTokens('one two three four five', variants);
+    expect(tokens.length).toBeLessThanOrEqual(MAX_PREFILTER_TOKENS);
+    // ...and past MAX_QUERY_VARIANTS the extra forms are simply not asked about.
+    expect(tokens).not.toContain('kappa');
+    expect(MAX_QUERY_VARIANTS).toBe(3);
+  });
+
+  it('ignores a variant with no distinctive token, so the prefilter is not widened by a category', () => {
+    expect(prefilterTokens('קוהי', ['Coffee Shop'])).toEqual(prefilterTokens('קוהי'));
   });
 });
 
@@ -520,6 +564,77 @@ describe('overturePlaceResolver — the address hint (0022, the third prefilter 
     await resolver.resolve(query({ text: 'WOW', addressHint: null }), ctx);
     await resolver.resolve(query({ text: 'WOW', addressHint: 'בית אשל 15' }), ctx);
 
+    expect(gateway.prefilterCalls).toHaveLength(2);
+  });
+});
+
+describe('overturePlaceResolver — textVariants (TLV-BILING-B)', () => {
+  it('sends the variants tokens in the SAME prefilter call, not a second one', () => {
+    // One round trip per candidate, unchanged. Both name arms of `poi_prefilter` are per-token
+    // disjunctions, so the union of the forms tokens returns the union of the rows.
+    const gateway = fakeGateway([region({ id: 'tlv' })], []);
+    const { ctx } = ctxWith();
+    return overturePlaceResolver(gateway)
+      .resolve(query({ text: 'קוהי', textVariants: ['Kohi'] }), ctx)
+      .then(() => {
+        expect(gateway.prefilterCalls).toHaveLength(1);
+        expect(gateway.prefilterCalls[0]!.tokens).toContain('kohi');
+        expect(gateway.prefilterCalls[0]!.tokens).toContain('קוהי');
+      });
+  });
+
+  it('collapses an absent variant list to the same call an explicit empty one makes', async () => {
+    const absent = fakeGateway([region({ id: 'tlv' })], []);
+    const empty = fakeGateway([region({ id: 'tlv' })], []);
+    const { ctx } = ctxWith();
+    await overturePlaceResolver(absent).resolve(query({ text: 'Kohi' }), ctx);
+    await overturePlaceResolver(empty).resolve(query({ text: 'Kohi', textVariants: [] }), ctx);
+    expect(empty.prefilterCalls).toEqual(absent.prefilterCalls);
+  });
+
+  it('keeps queryNorm as the primary text, because it only orders rows below the cap', () => {
+    const gateway = fakeGateway([region({ id: 'tlv' })], []);
+    const { ctx } = ctxWith();
+    return overturePlaceResolver(gateway)
+      .resolve(query({ text: 'קוהי', textVariants: ['Kohi'] }), ctx)
+      .then(() => {
+        expect(gateway.prefilterCalls[0]!.queryNorm).toBe('קוהי');
+      });
+  });
+
+  it('retrieves a Latin-named row from a Hebrew caption and scores it through the variant', async () => {
+    // The end-to-end shape of the fix, at the adapter: the row comes back from the prefilter and
+    // the scorer can finally see it, with provenance saying which form matched.
+    const gateway = fakeGateway(
+      [region({ id: 'tlv' })],
+      [row({ name: 'Kohi Coffee Shop', address_line: 'בן יהודה 155', provider_category: 'coffee_shop' })],
+    );
+    const { ctx } = ctxWith();
+    const result = await overturePlaceResolver(gateway).resolve(
+      query({
+        text: 'קוהי',
+        categoryHint: 'cafe',
+        addressHint: 'בן יהודה 155',
+        textVariants: ['Kohi'],
+      }),
+      ctx,
+    );
+    expect(result.shortlist[0]!.place.name).toBe('Kohi Coffee Shop');
+    expect(matchedTextOf(result.shortlist[0]!)).toBe('Kohi');
+    // A lone candidate still has an unmeasured margin, so it is `confirm`, not an auto-accept.
+    expect(result.confidence.band).toBe('confirm');
+  });
+
+  it('does not let two candidates with different variants share a cache entry', async () => {
+    // The variants enter the cache key through `tokens`, which is the whole of what the name arms
+    // select on — so different variants genuinely are different queries.
+    const gateway = fakeGateway([region({ id: 'tlv' })], []);
+    const resolver = overturePlaceResolver(gateway);
+    const { ctx } = ctxWith();
+    await resolver.resolve(query({ text: 'קוהי', textVariants: ['Kohi'] }), ctx);
+    await resolver.resolve(query({ text: 'קוהי', textVariants: ['Kohee'] }), ctx);
+    expect(gateway.prefilterCalls).toHaveLength(2);
+    await resolver.resolve(query({ text: 'קוהי', textVariants: ['Kohi'] }), ctx);
     expect(gateway.prefilterCalls).toHaveLength(2);
   });
 });
