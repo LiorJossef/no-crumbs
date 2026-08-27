@@ -1,0 +1,327 @@
+{
+  "_readme": [
+    "TLV-CORPUS-1 — the real-TikTok recognition corpus. Data only; the harness that runs it is",
+    "tests/manual/tiktok-recognition.manual.ts. Nothing in this file is code, and adding a URL",
+    "never requires touching the harness.",
+    "",
+    "WHY THIS FILE EXISTS. Every recognition number we have (7/14 top-1) comes from",
+    "docs/evidence/places/benchmark-spec.json, whose queries were written by hand and are",
+    "script-matched to the index by construction: a Latin query for a Latin-named row. Real captions",
+    "are not. 64% of the loaded index is Hebrew-named with zero aliases, so the synthetic benchmark",
+    "systematically understates the dominant failure mode. This corpus is measured on the hard case.",
+    "",
+    "WHAT TO PUT IN IT. 20-30 real TikToks representative of our users — people in their 20s in Tel",
+    "Aviv and Hasharon looking for trendy places. The six target categories, and a corpus should",
+    "cover all six:",
+    "  1. cafes",
+    "  2. brunch",
+    "  3. bars_and_wine_bars",
+    "  4. bakeries",
+    "  5. desserts",
+    "  6. talked_about_restaurants",
+    "Mix scripts on purpose: Hebrew captions, English captions, and captions that mix the two. A",
+    "corpus of Latin-only captions would reproduce exactly the blind spot this file exists to close.",
+    "",
+    "HOW TO ADD ONE. Append an object to `cases`. Only `url` and `category` are required:",
+    "",
+    "  { \"url\": \"https://www.tiktok.com/@handle/video/1234\", \"category\": \"cafes\" }",
+    "",
+    "A case with no `expected` still runs, still prints its caption, its extracted candidates, and",
+    "the resolver's top-3 with names, addresses and coordinates — but it is reported as",
+    "UNADJUDICATED and counts toward neither the numerator nor the denominator of the auto-match",
+    "rate. That is deliberate: a verdict needs a rule, not a vibe. Read the run record, decide what",
+    "the caption should have resolved to, then come back and fill in `expected`.",
+    "",
+    "`expected` is a LIST, because one caption can name several venues. Each entry:",
+    "  name             required. The venue as a human would name it. Prose, for the report.",
+    "  area             required. Street/neighbourhood, for the report. Not matched on unless you",
+    "                   also give addressPattern.",
+    "  candidatePattern optional regex, applied to normalise(candidate.rawName). It answers 'which",
+    "                   extracted candidate is this expectation about?'. Defaults to a literal",
+    "                   match on normalise(name). An expectation that matches no candidate is an",
+    "                   EXTRACTION miss, and is counted as one.",
+    "  namePattern      optional regex, applied to normalise(top1.name). It answers 'did the",
+    "                   resolver return the right venue?'. Defaults to candidatePattern.",
+    "  addressPattern   optional regex, applied to `address_line + ' ' + locality` raw (not",
+    "                   normalised). Add it ONLY when the index really holds several distinct venues",
+    "                   of this name and the branch matters — otherwise a legitimate second branch",
+    "                   scores as a failure. Same rule as the synthetic benchmark's TLV-06/TLV-07.",
+    "  indexProbe       optional list of strings ILIKE-searched against poi_index.name_norm. This is",
+    "                   what separates 'absent from the index' from 'present but unreachable across",
+    "                   scripts' — the TLV-13 failure. Give BOTH scripts where you know them.",
+    "",
+    "Regexes are matched case-insensitively after normalise(), which lowercases, strips punctuation",
+    "and diacritics, and keeps Hebrew. Write them lowercase.",
+    "",
+    "COST. Every oEmbed response and every extraction is cached to",
+    "docs/evidence/.local/tiktok-recognition-cache/ (gitignored) on first run and reused after. A",
+    "re-run of a 30-URL corpus costs ZERO LLM calls. Adding a URL costs exactly one."
+  ],
+  "categories": [
+    "cafes",
+    "brunch",
+    "bars_and_wine_bars",
+    "bakeries",
+    "desserts",
+    "talked_about_restaurants"
+  ],
+  "cases": [
+    {
+      "url": "https://www.tiktok.com/@joelleuzyel/video/7259010845558983978",
+      "category": "talked_about_restaurants",
+      "notes": "The only real Tel Aviv TikTok with cached evidence in the repo as of 2026-08-27. Caption recorded in docs/handoff-2026-08-27-place-recognition.md §2.2 as 'Resturants in Tel Aviv 📍Ha Kosem' — note the misspelled 'Resturants' and the space in 'Ha Kosem', both of which are exactly the kind of thing the synthetic benchmark never contains. Imported by hand in a browser at 1280x720 and 375x812; the saved row was read back in psql and sat 11 m from the venue against 555 m and 483 m for the two model guesses.",
+      "expected": [
+        {
+          "name": "HaKosem",
+          "area": "שלמה המלך 1, Tel Aviv",
+          "candidatePattern": "ha ?kosem|הקוסם",
+          "namePattern": "ha ?kosem|הקוסם",
+          "addressPattern": "שלמה המלך|king george",
+          "indexProbe": [
+            "hakosem",
+            "הקוסם"
+          ]
+        }
+      ]
+    },
+    {
+      "url": "https://vt.tiktok.com/ZSVprT9Ag/",
+      "notes": "Owner-supplied, first real corpus batch, 2026-08-27. Category and expected venues deliberately left blank until the caption has been read — filling them in from a guess would be adjudicating against our own output.",
+      "category": "cafes",
+      "expected": [
+        {
+          "name": "מתחת לעץ",
+          "area": "נתן אלתרמן 13 / לבונטין 13 / בן יהודה 202, תל אביב",
+          "candidatePattern": "מתחת לעץ",
+          "namePattern": "מתחת לעץ",
+          "indexProbe": [
+            "מתחת לעץ",
+            "mitachat",
+            "under the tree"
+          ]
+        }
+      ]
+    },
+    {
+      "url": "https://vt.tiktok.com/ZSVphhEg6/",
+      "notes": "Owner-supplied, first real corpus batch, 2026-08-27. Category and expected venues deliberately left blank until the caption has been read — filling them in from a guess would be adjudicating against our own output.",
+      "category": "cafes",
+      "expected": [
+        {
+          "name": "קוהי (Kohi)",
+          "area": "בן יהודה 155, תל אביב",
+          "candidatePattern": "קוהי",
+          "namePattern": "קוהי|kohi",
+          "indexProbe": [
+            "קוהי",
+            "kohi"
+          ]
+        }
+      ]
+    },
+    {
+      "url": "https://vt.tiktok.com/ZSVprTkwJ/",
+      "notes": "Owner-supplied, first real corpus batch, 2026-08-27. Category and expected venues deliberately left blank until the caption has been read — filling them in from a guess would be adjudicating against our own output.",
+      "category": "brunch",
+      "expected": [
+        {
+          "name": "בראסרי 18",
+          "area": "לבונטין 19, תל אביב",
+          "candidatePattern": "בראסרי 18",
+          "namePattern": "בראסרי ?18|brasserie ?18",
+          "indexProbe": [
+            "בראסרי",
+            "brasserie"
+          ]
+        }
+      ]
+    },
+    {
+      "url": "https://vt.tiktok.com/ZSVphdqUs/",
+      "notes": "Owner-supplied, first real corpus batch, 2026-08-27. Category and expected venues deliberately left blank until the caption has been read — filling them in from a guess would be adjudicating against our own output. Five venues in one caption. 'eats' is deliberately left OUT of `expected`: the caption says 'eats בית חנה' and the index's two `Eats Cafeteria` rows are at אד\"ם הכהן 1, which may or may not be the same business. Adjudicating it either way would be guessing, so it stays UNADJUDICATED and is reported as such.",
+      "category": "brunch",
+      "expected": [
+        {
+          "name": "קפה אירופה",
+          "area": "תל אביב",
+          "candidatePattern": "קפה אירופה",
+          "namePattern": "קפה אירופה|cafe europa",
+          "indexProbe": [
+            "קפה אירופה",
+            "europa"
+          ]
+        },
+        {
+          "name": "האחים",
+          "area": "אבן גבירול 26, תל אביב",
+          "candidatePattern": "^האחים$",
+          "namePattern": "^האחים$",
+          "addressPattern": "אבן גבירול",
+          "indexProbe": [
+            "האחים"
+          ]
+        },
+        {
+          "name": "בל עמי",
+          "area": "תל אביב",
+          "candidatePattern": "בל עמי",
+          "namePattern": "בל ?עמי|bel ?ami",
+          "indexProbe": [
+            "בל עמי",
+            "bel ami"
+          ]
+        },
+        {
+          "name": "Palette Bistro",
+          "area": "תל אביב",
+          "candidatePattern": "palette bistro",
+          "namePattern": "palette bistro",
+          "indexProbe": [
+            "palette"
+          ]
+        }
+      ]
+    },
+    {
+      "url": "https://vt.tiktok.com/ZSVprwmjy/",
+      "notes": "Owner-supplied, first real corpus batch, 2026-08-27. Category and expected venues deliberately left blank until the caption has been read — filling them in from a guess would be adjudicating against our own output.",
+      "category": "brunch",
+      "expected": [
+        {
+          "name": "האחים",
+          "area": "אבן גבירול 26, תל אביב",
+          "candidatePattern": "^האחים$",
+          "namePattern": "^האחים$",
+          "addressPattern": "אבן גבירול",
+          "indexProbe": [
+            "האחים"
+          ]
+        }
+      ]
+    },
+    {
+      "url": "https://vt.tiktok.com/ZSVph2SnR/",
+      "notes": "Owner-supplied, first real corpus batch, 2026-08-27. Category and expected venues deliberately left blank until the caption has been read — filling them in from a guess would be adjudicating against our own output.",
+      "category": "bakeries",
+      "expected": [
+        {
+          "name": "האחים",
+          "area": "אבן גבירול 26, תל אביב",
+          "candidatePattern": "^האחים$",
+          "namePattern": "^האחים$",
+          "addressPattern": "אבן גבירול",
+          "indexProbe": [
+            "האחים"
+          ]
+        }
+      ]
+    },
+    {
+      "url": "https://vt.tiktok.com/ZSVphFPMC/",
+      "notes": "Owner-supplied, first real corpus batch, 2026-08-27. Category and expected venues deliberately left blank until the caption has been read — filling them in from a guess would be adjudicating against our own output.",
+      "category": "talked_about_restaurants",
+      "expected": [
+        {
+          "name": "טרטוריה אונה",
+          "area": "איינשטיין 69, תל אביב",
+          "candidatePattern": "טרטוריה אונה",
+          "namePattern": "טרטוריה אונה|trattoria una",
+          "addressPattern": "איינשטיין",
+          "indexProbe": [
+            "טרטוריה אונה",
+            "trattoria una"
+          ]
+        }
+      ]
+    },
+    {
+      "url": "https://vt.tiktok.com/ZSVph2Q9n/",
+      "notes": "Owner-supplied, first real corpus batch, 2026-08-27. Category and expected venues deliberately left blank until the caption has been read — filling them in from a guess would be adjudicating against our own output.",
+      "category": "talked_about_restaurants",
+      "expected": [
+        {
+          "name": "רוסטיקו",
+          "area": "בזל 42 / רוטשילד 15, תל אביב",
+          "candidatePattern": "רוסטיקו",
+          "namePattern": "רוסטיקו|rustico",
+          "addressPattern": "בזל|רוטשילד",
+          "indexProbe": [
+            "רוסטיקו",
+            "rustico"
+          ]
+        }
+      ]
+    },
+    {
+      "url": "https://vt.tiktok.com/ZSVphDRbd/",
+      "notes": "Owner-supplied, first real corpus batch, 2026-08-27. Category and expected venues deliberately left blank until the caption has been read — filling them in from a guess would be adjudicating against our own output.",
+      "category": "desserts",
+      "expected": [
+        {
+          "name": "Gelalucci",
+          "area": "מסריק 1, תל אביב",
+          "candidatePattern": "gelalucci|ג.לאלוצ.י",
+          "namePattern": "gelalucci",
+          "indexProbe": [
+            "gelalucci",
+            "ג'לאלוצ'י"
+          ]
+        }
+      ]
+    },
+    {
+      "url": "https://vt.tiktok.com/ZSVph5Xor/",
+      "notes": "Owner-supplied, first real corpus batch, 2026-08-27. Category and expected venues deliberately left blank until the caption has been read — filling them in from a guess would be adjudicating against our own output.",
+      "category": "brunch",
+      "expected": [
+        {
+          "name": "דיזנגוף 99",
+          "area": "דיזנגוף 99, תל אביב",
+          "candidatePattern": "דיזנגוף 99",
+          "namePattern": "דיזנגוף ?99|dizengoff ?99",
+          "addressPattern": "דיזנגוף",
+          "indexProbe": [
+            "דיזנגוף 99",
+            "dizengoff 99"
+          ]
+        }
+      ]
+    },
+    {
+      "url": "https://vt.tiktok.com/ZSVphmY3a/",
+      "notes": "Owner-supplied, first real corpus batch, 2026-08-27. Category and expected venues deliberately left blank until the caption has been read — filling them in from a guess would be adjudicating against our own output. Adjudication tightened by the lead after the first run: a bare /oscar/ matched 'Oscar Wilde Irish Pub' in Petah Tikva and scored a miss as a pass. The venue is a new opening at נחלת בנימין 68, where the index holds only 'פונדק השובבים' — so this is genuinely absent, and the address constraint is what makes it say so.",
+      "category": "talked_about_restaurants",
+      "expected": [
+        {
+          "name": "Oscar's",
+          "area": "נחלת בנימין 68, תל אביב",
+          "candidatePattern": "oscar",
+          "namePattern": "^oscar.?s$|אוסקרס",
+          "indexProbe": [
+            "oscar",
+            "אוסקר",
+            "פונדק השובבים"
+          ],
+          "addressPattern": "נחלת בנימין"
+        }
+      ]
+    },
+    {
+      "url": "https://vt.tiktok.com/ZSVphtyLT/",
+      "notes": "Owner-supplied, first real corpus batch, 2026-08-27. Category and expected venues deliberately left blank until the caption has been read — filling them in from a guess would be adjudicating against our own output.",
+      "category": "desserts",
+      "expected": [
+        {
+          "name": "WOW",
+          "area": "בית אשל 15, שוק הפשפשים, יפו",
+          "candidatePattern": "^wow$",
+          "namePattern": "wow",
+          "addressPattern": "בית אשל",
+          "indexProbe": [
+            "wow"
+          ]
+        }
+      ]
+    }
+  ]
+}

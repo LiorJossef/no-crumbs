@@ -42,6 +42,32 @@
  *    gate and no margin is within 0.0005 of the 0.05 gate, and the bands are identical under both
  *    readings of the margin (the file's `round(top1 − top2, 3)` and the difference of the two
  *    rounded scores, which differ by up to 0.001).
+ *
+ * ## The re-fit, and why this file now does two jobs (TLV-RANK-1, 2026-08-27)
+ *
+ * The evidence file is a **record of a run**, not a specification. When `SCORING` is re-fit — as
+ * `06` §6.3 always said it would be, and as TLV-RANK-1 did for `total` and `generic` — the file
+ * does not change, so a test that says "the port reproduces the file exactly" stops being a
+ * fidelity check and starts being a veto on ever improving the scorer. Neither extreme is right:
+ * dropping the replay loses the only proof the port is faithful, and regenerating the file loses
+ * the only measurement that predates our code.
+ *
+ * So the file is split in two, and the split is the point:
+ *
+ *  - **Replay** uses `RECORDED_WEIGHTS` — the weights the evidence was measured at, 0.72/0.18/0.10
+ *    — and `REFIT_DIVERGENCE`, which names every row whose `name_score` moved and by how much.
+ *    215 of the 220 rows must still reproduce **exactly**; the five that moved are pinned by value.
+ *    A sixth row drifting fails, and so does one of the five drifting further.
+ *  - **Simulation** re-scores all 44 cases under whatever `SCORING.total` currently is, recovering
+ *    each row's unrecorded Overture confidence from the recorded score (which is exact: `conf`
+ *    appears linearly and every other term is recorded). It asserts the band table under the
+ *    current weights, case by case, and re-asserts zero false auto-accepts there. This is the test
+ *    that would have caught a re-fit that fixed two cases and broke three.
+ *
+ * The simulation is honest about its one limit: the file records each case's **top 5**, so a row
+ * that was sixth under the old weights and would be first under the new ones is invisible to it.
+ * That is why the live harness (`tests/manual/tlv-resolve-benchmark.manual.ts`) exists, and why a
+ * re-fit is not signed off on this file alone.
  */
 
 import { readFileSync } from 'node:fs';
@@ -50,7 +76,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { ConfidenceBand, RankedPlace, ResolvedPlace } from '@/domain/types';
 import { categoryHintFor, type ExtractedCategoryHint } from '@/domain/places/category-hint';
-import { categoryScore, confidenceOf, nameScore } from '@/domain/places/score';
+import { categoryScore, confidenceOf, nameScore, rankPlaces } from '@/domain/places/score';
 import { SCORING } from '@/domain/places/scoring-constants';
 
 /* ------------------------------------------------------------------------------------------- *
@@ -101,6 +127,92 @@ const caseIds = Object.keys(golden);
 const rowCount = caseIds.reduce((n, id) => n + golden[id]!.results.length, 0);
 
 const round3 = (value: number): number => Number(value.toFixed(3));
+
+/* ------------------------------------------------------------------------------------------- *
+ * The weights the evidence was recorded at
+ * ------------------------------------------------------------------------------------------- */
+
+/**
+ * `resolve-overture-scored.py`'s weights, as literals.
+ *
+ * Every `score` in the evidence file was produced with these, so every statement this file makes
+ * *about the file* — the implied confidence, the same-POI score difference — has to use them.
+ * Reading them from `SCORING.total` instead was correct only while the two happened to be equal,
+ * and it silently turned four assertions about a 2026-07 measurement into assertions about
+ * whatever the scorer weighs today. TLV-RANK-1 is where they stopped being equal.
+ *
+ * These are a transcription of the prototype and must never be "updated". The current weights are
+ * pinned separately, in `CURRENT_WEIGHTS` below, and the gap between the two is the re-fit.
+ */
+const RECORDED_WEIGHTS = { name: 0.72, category: 0.18, datasetConfidence: 0.1 } as const;
+
+/**
+ * `SCORING.total` as it stands, pinned so a re-fit is always a deliberate two-file diff.
+ *
+ * Not a duplicate of the constant: the point is that changing `scoring-constants.ts` alone turns
+ * this red, which forces whoever changes it to come here and re-run the enumerations below —
+ * exactly the "the benchmark is their regression test" clause of `06` §6.3, made mechanical.
+ */
+const CURRENT_WEIGHTS = { name: 0.8, category: 0.1, datasetConfidence: 0.1 } as const;
+
+/**
+ * Every row whose replayed `name_score` no longer equals the recorded one, and why.
+ *
+ * All five are TLV-10, *"Anita Gelato"*, and all five moved for one reason: TLV-RANK-1 added
+ * `gelato` (and `bakery`) to `SCORING.generic`, so `gelato` stopped counting as an identity token.
+ * Four rows that had been matching the query on the word `gelato` fall; `Anita Sarona`, which
+ * matches on the only word that identifies anything, rises from 0.818 to 0.900 and takes rank 1.
+ * That is the defect the change was made for, and this table is the receipt.
+ *
+ * Pinned to 12 decimal places, not to a tolerance. A tolerance here would quietly absorb the next
+ * change to the generic list, which is the thing this table exists to make loud.
+ */
+const REFIT_DIVERGENCE: readonly {
+  readonly caseId: string;
+  readonly name: string;
+  readonly recordedNameScore: number;
+  readonly nameScoreNow: number;
+  readonly tokenCoverageNow: number;
+}[] = [
+  {
+    caseId: 'TLV-10',
+    name: 'Zucca Cafe & Gelato',
+    recordedNameScore: 0.716,
+    nameScoreNow: 0.574411764706,
+    tokenCoverageNow: 0.483333333333,
+  },
+  {
+    caseId: 'TLV-10',
+    name: 'Torta Della Nonna',
+    recordedNameScore: 0.643,
+    nameScoreNow: 0.575245098039,
+    tokenCoverageNow: 0.6,
+  },
+  {
+    caseId: 'TLV-10',
+    name: 'PLAZO Cafe&Gelato ',
+    recordedNameScore: 0.683,
+    nameScoreNow: 0.541078431373,
+    tokenCoverageNow: 0.483333333333,
+  },
+  {
+    caseId: 'TLV-10',
+    name: 'Stefan Austrian bakery&Artisanal Gelato',
+    recordedNameScore: 0.573,
+    nameScoreNow: 0.526282051282,
+    tokenCoverageNow: 0.683333333333,
+  },
+  {
+    caseId: 'TLV-10',
+    name: 'Anita Sarona',
+    recordedNameScore: 0.818,
+    nameScoreNow: 0.9,
+    tokenCoverageNow: 1,
+  },
+];
+
+const isRefitDivergence = (r: ReplayedRow): boolean =>
+  REFIT_DIVERGENCE.some((d) => d.caseId === r.caseId && d.name === r.row.name);
 
 /* ------------------------------------------------------------------------------------------- *
  * Expectations that are judgements rather than data
@@ -222,8 +334,9 @@ describe('the evidence file is the shape this test assumes', () => {
 });
 
 describe('exit 3 — every recorded row replays through the port', () => {
-  it('reproduces name_score, token_cov and cat_match on all 220 rows', () => {
+  it('reproduces name_score, token_cov and cat_match on the 215 rows the re-fit did not touch', () => {
     const divergent = replayed
+      .filter((r) => !isRefitDivergence(r))
       .filter(
         (r) =>
           round3(r.nameScore) !== r.row.name_score ||
@@ -239,6 +352,27 @@ describe('exit 3 — every recorded row replays through the port', () => {
       );
     expect(divergent).toEqual([]);
     expect(replayed.length).toBe(220);
+    // The exemption is five named rows and no more. A wider `REFIT_DIVERGENCE` is how a real
+    // regression would get through this file, so its size is asserted, not implied.
+    expect(replayed.filter(isRefitDivergence).length).toBe(5);
+    expect(REFIT_DIVERGENCE.length).toBe(5);
+  });
+
+  it('moves exactly the five rows the generic-list re-fit was expected to move', () => {
+    // The other half of the test above: not just "these are allowed to differ" but "these differ
+    // by exactly this much". Pinned to 12 decimals — a tolerance would swallow the next edit to
+    // `SCORING.generic`, which is precisely the edit this is here to expose.
+    for (const pinned of REFIT_DIVERGENCE) {
+      const row = replayed.find((r) => r.caseId === pinned.caseId && r.row.name === pinned.name);
+      expect(row, `${pinned.caseId} ${pinned.name} is not in the evidence file`).toBeDefined();
+      expect(row!.row.name_score, `${pinned.name} recorded`).toBe(pinned.recordedNameScore);
+      expect(Number(row!.nameScore.toFixed(12)), `${pinned.name} now`).toBe(pinned.nameScoreNow);
+      expect(Number(row!.tokenCoverage.toFixed(12)), `${pinned.name} coverage now`).toBe(
+        pinned.tokenCoverageNow,
+      );
+      // `cat_match` is unaffected: the re-fit touched the name path only.
+      expect(row!.categoryScore, `${pinned.name} category`).toBe(row!.row.cat_match);
+    }
   });
 
   it('rounds with toFixed, and Math.round would break exactly these five rows', () => {
@@ -249,20 +383,38 @@ describe('exit 3 — every recorded row replays through the port', () => {
       expect(Number(row!.nameScore.toFixed(3))).toBe(pinned.recorded);
       expect(Math.round(row!.nameScore * 1000) / 1000).not.toBe(pinned.recorded);
     }
+    // Over the rows that still replay. The five re-fit rows differ from the file under *either*
+    // rounding rule, so counting them here would say nothing about rounding.
     const wouldBreak = replayed.filter(
       (r) =>
-        Math.round(r.nameScore * 1000) / 1000 !== r.row.name_score ||
-        Math.round(r.tokenCoverage * 1000) / 1000 !== r.row.token_cov,
+        !isRefitDivergence(r) &&
+        (Math.round(r.nameScore * 1000) / 1000 !== r.row.name_score ||
+          Math.round(r.tokenCoverage * 1000) / 1000 !== r.row.token_cov),
     );
     expect(wouldBreak.length).toBe(ROUNDING_BOUNDARY_ROWS.length);
   });
 });
 
 describe('exit 3 — the score column, and the confidence the file does not record', () => {
-  /** `score = 0.72·name_score + 0.18·cat_match + 0.10·conf`, solved for `conf`. */
+  /**
+   * `score = 0.72·name_score + 0.18·cat_match + 0.10·conf`, solved for `conf`.
+   *
+   * `RECORDED_WEIGHTS`, not `SCORING.total`: this inverts a number that was *written down in 2026-07*
+   * and the only weights that can invert it are the ones that produced it. Using the live constants
+   * here made every assertion in this block silently depend on the current re-fit — with 0.80/0.10
+   * they imply confidences above 1.2 for 124 rows, which says nothing about the data and everything
+   * about mixing two different runs' arithmetic.
+   *
+   * The rows are the port's own `nameScore`, so a porting error still shows up here. The five
+   * re-fit rows are excluded where that matters and named in `REFIT_DIVERGENCE`.
+   */
   const impliedConfidence = (r: ReplayedRow): number =>
-    (r.row.score - SCORING.total.name * r.nameScore - SCORING.total.category * r.categoryScore) /
-    SCORING.total.datasetConfidence;
+    (r.row.score -
+      RECORDED_WEIGHTS.name * r.nameScore -
+      RECORDED_WEIGHTS.category * r.categoryScore) /
+    RECORDED_WEIGHTS.datasetConfidence;
+
+  const replayedExactly = replayed.filter((r) => !isRefitDivergence(r));
 
   it('shows the prototype used a per-row Overture confidence, not 0.5', () => {
     // The reason `score` is not replayable row by row, stated as an assertion rather than as
@@ -272,24 +424,28 @@ describe('exit 3 — the score column, and the confidence the file does not reco
     const reproducedAtHalf = replayed.filter(
       (r) =>
         round3(
-          SCORING.total.name * r.nameScore +
-            SCORING.total.category * r.categoryScore +
-            SCORING.total.datasetConfidence * 0.5,
+          RECORDED_WEIGHTS.name * r.nameScore +
+            RECORDED_WEIGHTS.category * r.categoryScore +
+            RECORDED_WEIGHTS.datasetConfidence * 0.5,
         ) === r.row.score,
     );
     expect(reproducedAtHalf).toEqual([]);
 
-    const implied = replayed.map(impliedConfidence);
+    const implied = replayedExactly.map(impliedConfidence);
     expect(Math.min(...implied)).toBeLessThan(0.3);
     expect(Math.max(...implied)).toBeGreaterThan(0.99);
   });
 
-  it('implies a confidence inside [0,1] for every row', () => {
+  it('implies a confidence inside [0,1] for every row that replays exactly', () => {
     // Weak, but not nothing: a wrong weight or a wrong `name_score` would push rows outside the
     // range the column can hold. The ±0.0005 is the recorded score's own rounding, divided by the
     // 0.10 weight.
-    const slack = 0.0005 / SCORING.total.datasetConfidence;
-    const outside = replayed
+    //
+    // Over `replayedExactly`. For a re-fit row the inversion mixes the file's `score` with a
+    // `name_score` the file never saw, so a value outside [0,1] there is arithmetic, not evidence —
+    // those five are pinned by value instead.
+    const slack = 0.0005 / RECORDED_WEIGHTS.datasetConfidence;
+    const outside = replayedExactly
       .map((r) => ({ r, conf: impliedConfidence(r) }))
       .filter(({ conf }) => conf < -slack || conf > 1 + slack)
       .map(({ r, conf }) => `${r.caseId} ${r.row.name}: implied confidence ${conf}`);
@@ -301,8 +457,12 @@ describe('exit 3 — the score column, and the confidence the file does not reco
     // (unrecorded) confidence in both cases, so it cancels out of the difference and
     // `Δscore = 0.72·Δname_score + 0.18·Δcat_match` is exact up to the 2 × 0.0005 rounding of the
     // two recorded scores. This is the strongest statement the evidence supports about `score`.
+    //
+    // `RECORDED_WEIGHTS` for the same reason as above, and over `replayedExactly` so that the five
+    // re-fit rows cannot enter a pair. As it happens none of them would — TLV-10's rows appear in
+    // no other case — and the pair count below is what proves that rather than a comment.
     const byPlace = new Map<string, ReplayedRow[]>();
-    for (const r of replayed) {
+    for (const r of replayedExactly) {
       const rows = byPlace.get(r.row.overture_id);
       if (rows === undefined) byPlace.set(r.row.overture_id, [r]);
       else rows.push(r);
@@ -320,8 +480,8 @@ describe('exit 3 — the score column, and the confidence the file does not reco
           pairs += 1;
           if (a.nameScore !== b.nameScore || a.categoryScore !== b.categoryScore) informative += 1;
           const predicted =
-            SCORING.total.name * (a.nameScore - b.nameScore) +
-            SCORING.total.category * (a.categoryScore - b.categoryScore);
+            RECORDED_WEIGHTS.name * (a.nameScore - b.nameScore) +
+            RECORDED_WEIGHTS.category * (a.categoryScore - b.categoryScore);
           const deviation = Math.abs(a.row.score - b.row.score - predicted);
           worst = Math.max(worst, deviation);
           if (deviation > 0.001) {
@@ -468,6 +628,210 @@ describe('exit 2 — zero false auto-accepts', () => {
       expect(confidence.band, caseId).toBe('confirm');
       expect(confidence.score).toBeGreaterThanOrEqual(0.813);
       expect(confidence.score).toBeLessThanOrEqual(0.894);
+    }
+  });
+});
+
+/* ------------------------------------------------------------------------------------------- *
+ * The re-fit — the 44 cases re-scored under the weights the product actually ships (TLV-RANK-1)
+ * ------------------------------------------------------------------------------------------- */
+
+/**
+ * Every row's unrecorded Overture confidence, recovered exactly.
+ *
+ * `score = 0.72·name_score + 0.18·cat_match + 0.10·conf` with three of the four terms recorded, so
+ * this is algebra, not estimation — and it is the **recorded** `name_score`, never the port's, for
+ * the five re-fit rows: the prototype computed its score from the number it wrote down.
+ *
+ * The recovered value carries the recorded score's own ±0.005 rounding (0.0005 divided by the 0.10
+ * weight), which is far below any band gate and cannot move a verdict here.
+ */
+const recoveredConfidence = (row: GoldenResult): number =>
+  (row.score - RECORDED_WEIGHTS.name * row.name_score - RECORDED_WEIGHTS.category * row.cat_match) /
+  RECORDED_WEIGHTS.datasetConfidence;
+
+/**
+ * The recorded top-5 of one case, put back through the **production** path: `rankPlaces` re-scores
+ * with the current `SCORING`, re-sorts with the real comparator, and `confidenceOf` bands it.
+ *
+ * Nothing about the scoring is reimplemented here, which is the whole point — a re-fit that moved a
+ * band only in this file's private arithmetic would prove nothing.
+ */
+function resimulated(caseId: string): readonly RankedPlace[] {
+  const goldenCase = golden[caseId]!;
+  const specCase = specById.get(caseId)!;
+  const candidates: ResolvedPlace[] = goldenCase.results.map((row) => ({
+    provider: 'overture',
+    providerPlaceId: row.overture_id,
+    sourceDataset: 'overture-places',
+    regionId: goldenCase.city_scope === 'ALL' ? null : goldenCase.city_scope,
+    name: row.name,
+    altNames: [],
+    providerCategory: row.category,
+    addressLine: null,
+    locality: null,
+    lat: row.lat,
+    lng: row.lon,
+    datasetConfidence: recoveredConfidence(row),
+  }));
+  return rankPlaces(
+    {
+      text: goldenCase.query,
+      cityHint: specCase.city_hint,
+      countryHint: null,
+      categoryHint: categoryHintFor(specCase.category_hint),
+      near: null,
+      maxResults: null,
+    },
+    candidates,
+  );
+}
+
+/**
+ * Every case the re-fit moves, and in which direction. Six entries, and each one had to be argued
+ * before it was written down — this list is the review record, not a snapshot.
+ *
+ * `verdict` is the *recorded* adjudication, which was made against the **old** top-1. Where the
+ * re-fit changes the top-1 the verdict is therefore stale and pessimistic (TLV-10 and TLV-14 are
+ * filed `MISS_RANK` and are now ranking the right venue first). Left stale on purpose: re-labelling
+ * adjudication from inside the test that the adjudication grades is how a benchmark stops meaning
+ * anything. The live harness re-adjudicates against the real index; this file only reports.
+ */
+const REFIT_CASE_MOVES: readonly {
+  readonly caseId: string;
+  readonly from: ConfidenceBand;
+  readonly to: ConfidenceBand;
+  readonly top1Was: string;
+  readonly top1Now: string;
+  readonly why: string;
+}[] = [
+  {
+    caseId: 'TLV-08',
+    from: 'confirm',
+    to: 'confirm',
+    top1Was: 'אורליס רוטיסרי',
+    top1Now: 'אולמי קונקורד',
+    why: 'Orna and Ella is absent from Overture, so both are wrong. Two near-tied wrong rows swap ' +
+      'at margin 0.0006; no verdict changes and the band does not move.',
+  },
+  {
+    caseId: 'TLV-10',
+    from: 'no_match',
+    to: 'no_match',
+    top1Was: 'Zucca Cafe & Gelato',
+    top1Now: 'Anita Sarona',
+    why: 'The generic-list fix. A real Anita branch now ranks first instead of fourth. Still ' +
+      'no_match on this recorded top-5 (0.797) — the live index scores it 0.856, i.e. confirm.',
+  },
+  {
+    caseId: 'TLV-12',
+    from: 'preselect',
+    to: 'confirm',
+    top1Was: 'Bellboy',
+    top1Now: 'Bellboy',
+    why: 'The cost of the re-fit, stated plainly: a correct case loses auto-accept at 0.9154, ' +
+      'just under the 0.92 gate. The top-1 is unchanged and right; the user now confirms it. ' +
+      'It falls because its top row matched the category, and category is worth less than it was. ' +
+      'This one is not simulation-only — the live index reproduces it at 0.916.',
+  },
+  {
+    caseId: 'TLV-14',
+    from: 'confirm',
+    to: 'confirm',
+    top1Was: 'Hostel 51',
+    top1Now: 'Bar 51',
+    why: 'The defect this re-fit was made for. A 1.000 name match now outranks a category bonus. ' +
+      'Band unchanged, so the user sees the same screen with the right venue first.',
+  },
+  {
+    caseId: 'LDN-01',
+    from: 'confirm',
+    to: 'preselect',
+    top1Was: 'Kiln',
+    top1Now: 'Kiln',
+    why: 'The one case that gains auto-accept, at margin 0.0521 against a 0.05 gate. Adjudicated ' +
+      'OK, so it is not a false accept — but it is a hair over the line and it is the single ' +
+      'place where this re-fit auto-accepts something it did not before. Worth watching.',
+  },
+  {
+    caseId: 'NEG-03',
+    from: 'confirm',
+    to: 'no_match',
+    top1Was: 'Tirza wine bar',
+    top1Now: 'Tirza wine bar',
+    why: 'A negative case gets safer: a caption naming no venue drops from 0.813 to 0.7926, under ' +
+      'the confirm gate. This is the direction a no-name caption should move.',
+  },
+];
+
+describe('the re-fit — 44 cases under the current SCORING.total', () => {
+  it('ships the weights this file was reasoned about with', () => {
+    // The two-file diff. If `scoring-constants.ts` changes and this does not, every enumeration
+    // below is stale and this is the assertion that says so.
+    expect({ ...SCORING.total }).toEqual({ ...CURRENT_WEIGHTS });
+    expect(
+      SCORING.total.name + SCORING.total.category + SCORING.total.datasetConfidence,
+      'the weights must sum to 1.00 or `resolution_score`’s CHECK needs a clamp',
+    ).toBeCloseTo(1, 10);
+  });
+
+  it('cannot reach preselect on a category match alone', () => {
+    // The structural safety property the re-fit preserves: a perfect name and a perfect dataset
+    // confidence still cannot auto-accept without the category agreeing, because
+    // `0.80 + 0.10 = 0.90 < 0.92`. This is also the reason 0.82 was rejected — there the same sum
+    // is exactly the gate, and the band would turn on floating-point rounding.
+    const withoutCategory = SCORING.total.name + SCORING.total.datasetConfidence;
+    expect(withoutCategory).toBeLessThan(SCORING.bands.preselectScore);
+    expect(SCORING.bands.preselectScore - withoutCategory).toBeGreaterThan(0.005);
+  });
+
+  it('moves exactly the six enumerated cases, in the enumerated directions', () => {
+    const moved: string[] = [];
+    for (const caseId of caseIds) {
+      const before = bandOf(caseId, 'recorded');
+      const ranked = resimulated(caseId);
+      const after = confidenceOf(ranked).band;
+      const top1Was = golden[caseId]!.results[0]!.name;
+      const top1Now = ranked[0]!.place.name;
+      if (before !== after || top1Was !== top1Now) {
+        moved.push(`${caseId} ${before}->${after} top1 ${JSON.stringify(top1Was)}->${JSON.stringify(top1Now)}`);
+      }
+    }
+    expect(moved).toEqual(
+      REFIT_CASE_MOVES.map(
+        (m) =>
+          `${m.caseId} ${m.from}->${m.to} top1 ${JSON.stringify(m.top1Was)}->${JSON.stringify(m.top1Now)}`,
+      ),
+    );
+  });
+
+  it('tallies 29 preselect / 11 confirm / 4 no_match under the current weights', () => {
+    // Recorded was 29/12/3. The preselect count is unchanged — TLV-12 leaves it and LDN-01 enters —
+    // and the case that left `confirm` went *down*, to `no_match`, on a caption that names no venue.
+    const tally = { preselect: 0, confirm: 0, no_match: 0 };
+    for (const caseId of caseIds) tally[confidenceOf(resimulated(caseId)).band] += 1;
+    expect(tally).toEqual({ preselect: 29, confirm: 11, no_match: 4 });
+  });
+
+  it('still auto-accepts nothing the adjudication did not call correct', () => {
+    // The invariant. Not "no more false auto-accepts than before" — none, under the shipped
+    // weights, judged by the same six non-OK verdicts as the recorded run. Two of those six now
+    // rank the right venue first and are still counted against us here; see `REFIT_CASE_MOVES`.
+    const verdicts = adjudication.verdicts.overture_scored!;
+    const autoAccepted = caseIds.filter(
+      (id) => confidenceOf(resimulated(id)).band === 'preselect',
+    );
+    expect(autoAccepted.length).toBe(29);
+    expect(autoAccepted.filter((id) => verdicts[id] !== 'OK')).toEqual([]);
+  });
+
+  it('keeps the three no-name captions out of auto-accept', () => {
+    // `06` §6.3's negatives, re-checked under the re-fit rather than assumed to have survived it.
+    // All three still fail the 0.92 gate, and NEG-03 now fails the 0.80 gate as well.
+    for (const caseId of ['NEG-01', 'NEG-02', 'NEG-03']) {
+      const confidence = confidenceOf(resimulated(caseId));
+      expect(confidence.band, caseId).not.toBe('preselect');
+      expect(confidence.score, caseId).toBeLessThan(SCORING.bands.preselectScore);
     }
   });
 });

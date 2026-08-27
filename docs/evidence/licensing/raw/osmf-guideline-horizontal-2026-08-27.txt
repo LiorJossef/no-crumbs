@@ -1,0 +1,41 @@
+# Fetched 2026-08-27 from https://osmfoundation.org/wiki/Licence/Community_Guidelines/ — plain-text extraction of the wiki body.
+
+Status: Endorsed by the OSMF board 2014-06-06
+
+### Background: What is the problem?
+
+This primarily relates to making and publicly publishing visual 2D maps, (a "Produced Work" within the terms of our ODbL license ), and which are constructed using different layers of data, at least one of which is OpenStreetMap data.
+
+If you make maps, you may want to use more than one layer to make your map, one of them being OpenStreetMap layer.
+
+We believe that ODbL is unequivocal about this in clause 4.5(b) "Using this Database, a Derivative Database, or this Database as part of a Collective Database to create a Produced Work does not create a Derivative Database for purposes of Section 4.4;" but it can be hard to spot so we provide our own practical interpretation.
+
+### The Guideline
+
+For all features of a given type ("Feature Types") (e.g. streets, restaurants, parks, cemeteries), if all data for that Feature Type is from non-OpenStreetMap sources, then the ODbl share-alike conditions do not apply to that Feature Type, even if OpenStreetMap data is used for other Feature Types. This applies to Feature Types within a single layer or split between multiple layers.
+
+If you use OpenStreetMap data along with non-OpenStreetMap data for a given Feature Type, then the share-alike condition would apply regardless of whether some data for that Feature Type is in a different layer than the other data for that Feature Type.
+
+For example, if there are restaurants in the OpenStreetMap layer and you add additional restaurants in another layer, but you include only those restaurants not present in the OpenStreetMap layer so that the restaurant layers will complement each other, then the layers for this feature are interacting and the restaurants added in your non-OpenStreetMap layer must be shared.
+
+### Examples
+
+The following examples will demonstrate this further.
+
+### Examples of where you DO NOT need to share your non-OpenStreetMap data
+
+- You use OpenStreetMap as a base topographical map for orientation and then plot your own unrelated data over the top. An simple example of this might be scientific or highly specialist data such as bird migration paths, tree species distribution or geological outcrops.
+
+- You use OpenStreetMap as a base topographical map and make your best reasonable efforts to exclude ALL restaurants. You then add a layer of your own restaurant data.
+
+### Examples of where you DO need to share your non-OpenStreetMap data
+
+- If you improve data used in the OpenStreetMap layer, such as additions or factual corrections, then you need to share those improvements.
+
+- You add restaurants in one area from non-OpenStreetMap data based on comparison with OpenStreetMap data in other layers.
+
+- You add a non-OpenStreetMap cemetery layer that is defined as "all cemeteries not found in the OpenStreetMap data layers".
+
+### Open Issues, Use Cases, Discussion
+
+Continuing discussion and greater detail can be found here on the OpenStreetMap community website. Any text there is NOT part of the formal guideline!

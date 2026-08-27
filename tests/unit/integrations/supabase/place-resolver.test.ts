@@ -20,9 +20,9 @@ import {
   MAX_PREFILTER_TOKENS,
   REGION_CACHE_TTL_MS,
   RESOLUTION_CACHE_TTL_MS,
-  namePrefilterFilter,
-  namePrefilterPatterns,
+  prefilterTokens,
   overturePlaceResolver,
+  supabasePoiIndexGateway,
   type PoiIndexGateway,
   type PoiIndexRow,
   type PoiRegionRow,
@@ -30,6 +30,8 @@ import {
 import { DomainError } from '@/domain/errors';
 import { NORM_VERSION } from '@/domain/places/normalise';
 import { queryTokens } from '@/domain/places/score';
+import type { SupabaseClient } from '@supabase/supabase-js';
+
 import type { OpCtx } from '@/domain/ports';
 import type { ResolveQuery } from '@/domain/types';
 
@@ -102,7 +104,8 @@ interface FakeGateway extends PoiIndexGateway {
   readonly regionCalls: number[];
   readonly prefilterCalls: {
     regionIds: readonly string[];
-    likePatterns: readonly string[];
+    tokens: readonly string[];
+    queryNorm: string;
     limit: number;
   }[];
 }
@@ -126,68 +129,44 @@ function fakeGateway(regions: readonly PoiRegionRow[], rows: readonly PoiIndexRo
 
 /* ------------------------------------------------------------------------------------------- */
 
-describe('namePrefilterPatterns', () => {
-  it('is built from exactly queryTokens, so both sides of the prefilter ask one question', () => {
+describe('prefilterTokens', () => {
+  it('is exactly queryTokens, so both arms of the prefilter ask one question', () => {
+    // The property `10` §5's recall gate rests on, and the reason this is not its own tokeniser:
+    // the substring arm, the trigram arm and score.ts's tokenCoverage must all be looking at the
+    // same list. Asserted as set equality, not as a hand-written expectation, so it keeps holding
+    // when SCORING.generic changes underneath it.
     const text = 'Falafel HaKosem';
-    const tokens = queryTokens(text);
-    const patterns = namePrefilterPatterns(text);
-    expect(patterns).toHaveLength(tokens.length);
-    for (const token of tokens) {
-      expect(patterns.some((pattern) => pattern.includes(token))).toBe(true);
-    }
+    expect([...prefilterTokens(text)].sort()).toEqual([...queryTokens(text)].sort());
   });
 
-  it('wraps each token as an unquoted PostgREST like value', () => {
-    expect(namePrefilterPatterns('Falafel HaKosem')).toEqual(['*falafel*', '*hakosem*']);
+  it('sends the tokens themselves, not LIKE patterns', () => {
+    // Migration 0021 builds both arms from these, so a wildcard here would be a second, quietly
+    // different answer to "what does this token match" — the exact drift `10` §4 is about.
+    expect(prefilterTokens('Falafel HaKosem')).toEqual(['falafel', 'hakosem']);
   });
 
   it('keeps Hebrew tokens intact', () => {
-    expect(namePrefilterPatterns('פלאפל הקוסם')).toEqual(['*הקוסם*', '*פלאפל*']);
+    expect(prefilterTokens('פלאפל הקוסם')).toEqual(['הקוסם', 'פלאפל']);
   });
 
-  it('widens the LIKE wildcard normalise() lets through instead of escaping it', () => {
+  it('leaves the LIKE wildcard normalise() lets through for SQL to handle', () => {
     // `_` survives normalise() (Python's \w includes it) and is LIKE's single-character wildcard.
-    // Escaping it would need a quoted value, and PostgREST does not document whether `*` is still
-    // read as `%` inside quotes. Widening to `*` is a superset, so it cannot lose the true row.
-    expect(namePrefilterPatterns('cafe_bar')).toEqual(['*cafe*bar*']);
+    // It used to be rewritten to `*` here because the pattern was a URL fragment. It is not one any
+    // more: `0021` widens `_` to `%` and escapes the backslash, in SQL, once.
+    expect(prefilterTokens('cafe_bar')).toEqual(['cafe_bar']);
   });
 
-  it('never emits a character that is reserved in a PostgREST filter', () => {
-    // This is the property that lets the filter go unquoted. `normalise()` emits letters, digits,
-    // `_` and the Hebrew/CJK punctuation ranges, none of which are reserved; `_` is gone by the
-    // time it gets here. If normalise() ever widens, this test is the thing that notices.
-    const samples = [
-      'Falafel HaKosem',
-      'פלאפל הקוסם',
-      '東京 ラーメン',
-      'cafe_bar',
-      'A.B, C:D (E) "F" \\G/ H%I',
-      "Ra'anana café — Bar & Grill",
-    ];
-    for (const sample of samples) {
-      for (const pattern of namePrefilterPatterns(sample)) {
-        expect(pattern, sample).not.toMatch(/[,.:()"\\%]/u);
-      }
-    }
-  });
-
-  it('orders longest first and caps the disjunction', () => {
+  it('orders longest first and caps the token list', () => {
     const text = Array.from({ length: 30 }, (_, i) => `token${'x'.repeat(i)}`).join(' ');
-    const patterns = namePrefilterPatterns(text);
-    expect(patterns).toHaveLength(MAX_PREFILTER_TOKENS);
-    const lengths = patterns.map((pattern) => pattern.length);
+    const tokens = prefilterTokens(text);
+    expect(tokens).toHaveLength(MAX_PREFILTER_TOKENS);
+    const lengths = tokens.map((token) => token.length);
     expect([...lengths].sort((a, b) => b - a)).toEqual(lengths);
   });
 
   it('is empty for text with no tokens at all', () => {
-    expect(namePrefilterPatterns('   ')).toEqual([]);
-    expect(namePrefilterPatterns('!!!')).toEqual([]);
-  });
-
-  it('joins into an or= filter', () => {
-    expect(namePrefilterFilter(namePrefilterPatterns('Falafel HaKosem'))).toBe(
-      'name_norm.like.*falafel*,name_norm.like.*hakosem*',
-    );
+    expect(prefilterTokens('   ')).toEqual([]);
+    expect(prefilterTokens('!!!')).toEqual([]);
   });
 });
 
@@ -595,5 +574,80 @@ describe('overturePlaceResolver — logging', () => {
     expect(serialised).not.toContain('Falafel');
     expect(serialised).not.toContain('32.07');
     expect(serialised).not.toContain('34.77');
+  });
+});
+
+/* ------------------------------------------------------------------------------------------- *
+ * The Supabase gateway — the only part of this file that knows an RPC name and four argument
+ * names. None of it is type-checked against the database, so a rename lands as an empty prefilter
+ * that reads exactly like bad data. That is what these two tests are for.
+ * ------------------------------------------------------------------------------------------- */
+
+describe('supabasePoiIndexGateway', () => {
+  interface RpcCall {
+    readonly fn: string;
+    readonly args: Record<string, unknown>;
+  }
+
+  function stubClient(rows: readonly PoiIndexRow[], calls: RpcCall[]): SupabaseClient {
+    const builder = {
+      abortSignal: () => Promise.resolve({ data: rows, error: null }),
+    };
+    return {
+      rpc: (fn: string, args: Record<string, unknown>) => {
+        calls.push({ fn, args });
+        return builder;
+      },
+    } as unknown as SupabaseClient;
+  }
+
+  it('calls poi_prefilter with the four argument names migration 0021 declares', async () => {
+    const calls: RpcCall[] = [];
+    const gateway = supabasePoiIndexGateway(stubClient([row({ name: 'Bellboy' })], calls));
+
+    const out = await gateway.prefilter(
+      { regionIds: ['tlv'], tokens: ['belboy'], queryNorm: 'belboy tel aviv', limit: 500 },
+      new AbortController().signal,
+    );
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.fn).toBe('poi_prefilter');
+    // Named exactly, not `toMatchObject`: a SURPLUS argument is a 404 from PostgREST, because it
+    // resolves an RPC by its full named-argument set. Both directions have to be right.
+    expect(Object.keys(calls[0]?.args ?? {}).sort()).toEqual([
+      'p_limit',
+      'p_query_norm',
+      'p_region_ids',
+      'p_tokens',
+    ]);
+    expect(calls[0]?.args).toEqual({
+      p_region_ids: ['tlv'],
+      p_tokens: ['belboy'],
+      p_query_norm: 'belboy tel aviv',
+      p_limit: 500,
+    });
+    expect(out).toHaveLength(1);
+  });
+
+  it('sends a plain array, not a readonly view the driver would serialise oddly', async () => {
+    const calls: RpcCall[] = [];
+    const gateway = supabasePoiIndexGateway(stubClient([], calls));
+    const regionIds: readonly string[] = ['tlv', 'tyo'];
+
+    await gateway.prefilter(
+      { regionIds, tokens: ['a'], queryNorm: 'a', limit: 1 },
+      new AbortController().signal,
+    );
+
+    expect(Array.isArray(calls[0]?.args.p_region_ids)).toBe(true);
+    expect(calls[0]?.args.p_region_ids).not.toBe(regionIds);
+  });
+
+  it('caps at the number migration 0021 also enforces server-side', () => {
+    // Two ceilings, one number. `0021` clamps `p_limit` into [1, 500] itself — the cap is what
+    // stands between eight candidates per import and a timeout, so it does not live only here.
+    // If this constant ever moves, the migration has to move with it.
+    expect(MAX_PREFILTER_ROWS).toBe(500);
+    expect(MAX_PREFILTER_TOKENS).toBe(12);
   });
 });

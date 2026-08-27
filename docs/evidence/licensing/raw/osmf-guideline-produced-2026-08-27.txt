@@ -1,0 +1,29 @@
+# Fetched 2026-08-27 from https://osmfoundation.org/wiki/Licence/Community_Guidelines/ — plain-text extraction of the wiki body.
+
+### When is my project a Produced Work?
+
+Status: Endorsed by the OSMF board 2014-06-06
+
+### Background
+
+The ODbL license has a concept called "Produced Work" - a work (such as an image, audiovisual material, text, or sounds) resulting from using the whole or a Substantial part of the Contents (via a search or other query) from this Database, a Derivative Database, or this Database as part of a Collective Database.
+
+The basic idea means that you can release your map under any license that you like and also add other separate distinct layers to your map from sources with incompatible licensing terms.
+
+Assigning the result of your project to one or the other is usually but not always obvious, so what do you do about the non-obvious cases? This guideline is intended to help you decide whether is a "Produced Work" and when it is Derived Database and must published only under ODbL.
+
+### The Guideline
+
+The published result of your project is either a Produced Worked or a Derivative Database within the meaning of the ODbL. If the published result of your project is intended for the extraction of the original data, then it is a database and not a Produced Work. Otherwise it is a Produced Work. However, if you publish a produced work, the underlying database has to be published as well (or alternations to the original database as is the case of derived databases), according to section 4.6 of ODbL.
+
+We can clearly define things that are USUALLY Produced Works: .PNG, JPG, .PDF, SVG images and any raster image; a map in a physically printed work. 
+
+Database dumps are usually not Produced Works, e.g a Planet dump.
+
+### Examples
+
+None
+
+### Open Issues, Use Cases, Discussion
+
+Continuing discussion and greater detail can be found here on the OpenStreetMap community website. Any text there is NOT part of the formal guideline!

@@ -66,7 +66,18 @@ import { toCountryCode } from './country-code';
  * get scored against Tel Aviv — the exact confidently-wrong outcome this file exists to prevent.
  */
 export type RegionHint =
-  | { readonly kind: 'city'; readonly regionId: RegionId; readonly point: LatLng }
+  | {
+      readonly kind: 'city';
+      readonly regionId: RegionId;
+      readonly point: LatLng;
+      /**
+       * Where the city came from. `'hint'` is the extractor's own `cityHint` field; `'text'` is a
+       * city name found inside the candidate string itself. Recorded rather than flattened because
+       * the two deserve different trust in a log: a `'text'` scope is a guess made from prose, and
+       * when it is wrong it is wrong in the interesting direction.
+       */
+      readonly via: 'hint' | 'text';
+    }
   | { readonly kind: 'country'; readonly countryCode: string }
   | { readonly kind: 'unknown' };
 
@@ -116,6 +127,31 @@ const ALIASES: Readonly<Record<string, AliasEntry>> = Object.freeze({
   גבעתיים: at('tlv', 32.072, 34.812),
   'Bnei Brak': at('tlv', 32.081, 34.833),
   'בני ברק': at('tlv', 32.081, 34.833),
+
+  // Hebrew abbreviations, which is how captions actually write these towns. Observed, not
+  // guessed: `ת״א` arrived from a real TikTok caption (Oscar's, נחלת בנימין 68), matched
+  // nothing, scoped to no region, and the index was never queried — the same silent failure
+  // `cityInText()` fixes for a missing hint, reached by a different route.
+  //
+  // Both spellings of every abbreviation, because they are genuinely different strings after
+  // `normalise()`: the Hebrew gershayim (U+05F4) is inside the U+0590–U+05FF block the
+  // normaliser keeps, so `'ת״א'` survives intact, while an ASCII double quote is punctuation and
+  // is dropped to a space, so `'ת"א'` becomes `'ת א'`. A table holding only one of them silently
+  // misses half the captions.
+  'ת״א': at('tlv', 32.077, 34.774),
+  'ת"א': at('tlv', 32.077, 34.774),
+  'ר״ג': at('tlv', 32.07, 34.824),
+  'ר"ג': at('tlv', 32.07, 34.824),
+  'פ״ת': at('tlv', 32.087, 34.887),
+  'פ"ת': at('tlv', 32.087, 34.887),
+  'כ״ס': at('tlv', 32.175, 34.907),
+  'כ"ס': at('tlv', 32.175, 34.907),
+  'רמה״ש': at('tlv', 32.146, 34.839),
+  'רמה"ש': at('tlv', 32.146, 34.839),
+  'הוה״ש': at('tlv', 32.15, 34.888),
+  'הוה"ש': at('tlv', 32.15, 34.888),
+  'ראשל״צ': at('tlv', 31.971, 34.789),
+  'ראשל"צ': at('tlv', 31.971, 34.789),
 
   // The Hasharon and the southern ring. Outside 0010's `tlv` bbox, inside 0020's launch area —
   // which is exactly why the decision is a bbox test and not a flag in this file.
@@ -206,12 +242,18 @@ export const REGION_ALIASES: readonly string[] = Object.keys(ALIASES);
 export function regionHintFor(
   cityHint: string | null | undefined,
   countryHint: string | null | undefined,
+  text?: string | null | undefined,
 ): RegionHint {
   const key = normalise(cityHint);
   const entry = key === '' ? undefined : NORMALISED.get(key);
 
   if (entry !== undefined) {
-    return { kind: 'city', regionId: entry.regionId, point: entry.point };
+    return { kind: 'city', regionId: entry.regionId, point: entry.point, via: 'hint' };
+  }
+
+  const fromText = cityInText(text);
+  if (fromText !== undefined) {
+    return { kind: 'city', regionId: fromText.regionId, point: fromText.point, via: 'text' };
   }
 
   const countryCode = toCountryCode(countryHint);
@@ -220,4 +262,58 @@ export function regionHintFor(
   }
 
   return { kind: 'unknown' };
+}
+
+/** Longest alias in the table, in tokens — the widest window `cityInText()` has to try. */
+const MAX_ALIAS_TOKENS = Math.max(
+  ...[...NORMALISED.keys()].map((alias) => alias.split(' ').length),
+);
+
+/**
+ * Scan a candidate string for a city we hold a region for. This is the TLV-12 fix, and TLV-12 is
+ * the whole argument for it: the query was `'Belboy tel aviv'` with a null `cityHint`, so
+ * `regionHintFor()` returned `unknown`, `regionsSearched` was `[]`, and **the database was never
+ * queried at all**. Not a ranking loss and not a coverage gap — a venue that is sitting in the
+ * index, never looked for. The extractor does not always split the city out of the name, and a
+ * caption is under no obligation to help it.
+ *
+ * **Longest window first, so `'tel aviv'` is one alias rather than two misses.** Windows of
+ * `MAX_ALIAS_TOKENS` tokens down to one are matched against the same normalised table the
+ * `cityHint` path uses, so the two paths cannot disagree about what a city is called.
+ *
+ * **Two cities in one string is `undefined`, not a coin flip.** `'best coffee in tel aviv and
+ * tokyo'` names two regions with equal warrant, and picking either would report
+ * `regionsSearched: ['tlv']` for a query that said no such thing. Aliases of the *same* region are
+ * not a conflict — `'jaffa tel aviv'` is one place twice — so the test is on the region id, not on
+ * the match count. The first match wins the `point`, and any alias of a region is enough to decide
+ * whether that region's bbox is the right one to search.
+ *
+ * ## The risk, and why it is worth taking
+ *
+ * A place can be named after a city — a `'Jaffa'` café in London — so this can scope to the wrong
+ * region. That is a real cost and it is bounded: a wrong region returns rows that then have to
+ * survive scoring against the query, so the usual outcome is `no_match`, which is exactly what the
+ * unscoped query returned anyway. What it buys is every case where the city is only in the prose,
+ * which today fails silently and completely. The `via: 'text'` marker keeps the two
+ * distinguishable wherever it matters.
+ *
+ * A text match is a `city` hint of full standing, so it does **not** fall through to the country
+ * rule when the region turns out not to cover the point — same reasoning as the header's, and for
+ * the same reason: "somewhere in IL" scored against Tel Aviv is the confidently-wrong answer.
+ */
+function cityInText(text: string | null | undefined): AliasEntry | undefined {
+  const tokens = normalise(text).split(' ').filter((token) => token !== '');
+  if (tokens.length === 0) return undefined;
+
+  let found: AliasEntry | undefined;
+  for (let width = Math.min(MAX_ALIAS_TOKENS, tokens.length); width >= 1; width -= 1) {
+    for (let start = 0; start + width <= tokens.length; start += 1) {
+      const entry = NORMALISED.get(tokens.slice(start, start + width).join(' '));
+      if (entry === undefined) continue;
+      // A second region named in the same string is a genuine ambiguity: refuse both.
+      if (found !== undefined && found.regionId !== entry.regionId) return undefined;
+      found ??= entry;
+    }
+  }
+  return found;
 }

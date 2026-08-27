@@ -1,20 +1,39 @@
 # Current state — cold-start document
 
 ---
-> ## ⚠ Session of 2026-08-27 (fourth) — read [`handoff-2026-08-27-place-recognition.md`](handoff-2026-08-27-place-recognition.md) FIRST
+> ## ⚠ Session of 2026-08-27 (fifth) — read this before the handoff
 >
-> **The product has a working place resolver for the first time**, and two claims made repeatedly
-> below are now false: there *is* a `PlaceResolver` on the live import path, and `poi_index` is no
-> longer empty — it holds **10,462 Overture rows for Tel Aviv + Hasharon** (lat 31.95–32.40, lng
-> 34.70–35.00), loaded locally for the first time in this project's history. Measured: the resolver
-> puts a real caption's venue **11 m** from truth where the model's own guesses were **555 m** and
-> **483 m** out. **None of it is committed** — the whole change set is in the working tree.
+> **The resolver work is committed and on `main`** ([PR #40](https://github.com/LiorJossef/P-002/pull/40),
+> six checks green). The fourth session's whole change set was uncommitted; it is now five atomic
+> commits. `poi_index` holds **10,462 Overture rows for Tel Aviv + Hasharon** (lat 31.95–32.40, lng
+> 34.70–35.00), loaded locally. On a real caption the resolver lands **11 m** from truth where the
+> model's own guesses were **555 m** and **483 m** out.
 >
-> **The owner's stated priority for the next session** is improving *automatic* recognition in Tel
-> Aviv + Hasharon, measured on **20–30 real TikToks** for a 20s audience (cafés, brunch, bars and
-> wine bars, bakeries, desserts, talked-about restaurants). The shortlist picker shipped this
-> session is a fallback and should rarely be needed — **do not over-invest in fallback UX while core
-> recognition still needs work.** The handoff carries the failure taxonomy and the ordered next steps.
+> **The headline number changed, and the old one was the instrument.** The owner supplied 13 real
+> TikToks. Measured through the shipped flow (oEmbed → caption → extraction → resolve), the
+> **auto-match rate is 4/16 (25%)**. The synthetic benchmark says 11/15. Every number this project
+> quoted before today came from hand-written queries that are *script-matched to the index by
+> construction* — a Latin query for a Latin-named row — which is exactly what a real caption is not.
+> **Quote the corpus number, not the benchmark number.** Harness:
+> `tests/manual/tiktok-recognition.manual.ts`; corpus: `tests/manual/tiktok-recognition-corpus.json`;
+> record: `docs/evidence/places/tiktok-recognition-run.json`. Re-running costs zero LLM calls.
+>
+> **The dominant failure is that we throw away the street address.** The extractor already
+> populates `addressHint` for 9 of 17 candidates; `poi_index.address_line` holds the same strings;
+> `ResolveQuery` has no address field at all. Exact address matches sit in the index for four
+> venues we currently get wrong (Kohi @ בן יהודה 155, Brasserie 18 @ לבונטין 19, Rustico @ בזל 42,
+> wow london @ בית אשל 15). The address is also **script-neutral** — `קוהי` reaches
+> `Kohi Coffee Shop` on the address where no name match can.
+>
+> **The handoff's priority #2 (OSM `alt_names`) is deprioritised on evidence — see §0.5.**
+>
+> Two silent-failure fixes landed: a city named only in the candidate text now scopes the query
+> (TLV-12 went from `regionsSearched: []` to `['tlv']`), and Hebrew abbreviations (`ת״א`, `ר״ג`,
+> `פ״ת`…) are recognised. `no_region_searched` on the real corpus is now **0**.
+>
+> Still true from the fourth session, and still worth reading its handoff for: the failure taxonomy,
+> the measured facts about Overture and OSM coverage, and the environment traps in its §7.
+
 ---
 
 > Updated **2026-08-27**. Read this after `CLAUDE.md` and `working-agreement.md`, before anything

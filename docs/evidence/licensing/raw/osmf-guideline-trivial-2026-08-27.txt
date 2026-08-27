@@ -1,0 +1,62 @@
+# Fetched 2026-08-27 from https://osmfoundation.org/wiki/Licence/Community_Guidelines/ — plain-text extraction of the wiki body.
+
+### Background: What's the problem?
+
+We feel there are situations where you may be manipulating OpenStreetMap data but are not actually adding to or enhancing the core contributions made by our contributors. Therefore we feel there is no common good to be served by forcing you to publish the result of those manipulations.
+
+In legal terms, the ODbL relies on language from the EU Database Directive, which isn't perfectly clear about when a database is derivative and when it isn't. This is because the laws are relatively new and untested in court. Therefore it is important that we can provide guidelines about what we consider to be derivative and what isn't. 
+
+ODbL clause 4.6b, states (in part):
+
+If You Publicly Use a Derivative Database or a Produced Work from a Derivative Database, You must also offer to recipients of the Derivative Database or Produced Work a copy in a machine readable form of:
+
+a. The entire Derivative Database; or
+b. A file containing all of the alterations made to the Database or the method of making the alterations to the Database (such as an algorithm), including any additional Contents, that make up all the differences between the Database and the Derivative Database.
+
+We therefore define a term "trivial transformation", (for want of a better phrase!) which covers alterations of OpenStreetMap data which are not considered interesting or useful enough to warrant the conditions of a derivative database. The word "trivial" should not be interpreted as technically trivial, but is intended to be "trivial" in the sense of modifications or additions to the data. For example, adding or correcting data would not ever be considered "trivial".
+
+### The Guideline
+
+This is at the proposal stage in our process - it may change after discussion by the OpenStreetMap community
+
+Loading the OpenStreetMap data into a database without use of any external sources of data does not add any information that needs to be shared.
+
+Transforming OpenStreetMap data into other formats without use of any external sources of data does not add any information that needs to be shared.
+
+OpenStreetMap considers Open Data to be a set of intelligently collected or machine-made physical observations only. Purely algorithmic augmentation of data and re-casting of data to use, store or transmit it in different manners is a "trivial transformation" and not, in OpenStreetMap’s view, a useful part of the data IP provided that the original data is publicly available in an open readable format and change is not done deliberately with the prime motive of preventing access. Loading OpenStreetMap data into a database or transforming into other formats does not add any information that needs to be shared provided that no other source of data is involved.
+
+### Examples
+
+You take a set of unmodified OpenStreetMap data. 
+
+You may optionally change or augment the data in any way you want provided that you publish the result under ODbL in a format that can be read by the public. 
+
+If you have not changed or augmented the data, you clearly inform the users of your product or project where they can get the equivalent OpenStreetMap data from. You can make this available yourself, or you can point them back to where they can get the data directly from OpenStreetMap or one of its mirrors. The OpenStreetMap Foundation provides this long-lasting URL that you can use: http://www.osmfoundation.org/wiki/How_To_Get_OpenStreetMap_Data.
+
+You then run the data through a computer program that reads the OpenStreetMap data. Without reading any other observation data (important!), the computer program is able to change the format of the data according to an open source or proprietary algorithm. You then either write the result back to disk or use the result in your computer application. Such use might be:
+
+- Faster access for rendering the data into a map.
+
+- Faster access for a game.
+
+- In a format required for routing.
+
+- In a compact or easier to use form for mobile or low capacity devices.
+
+- You have changed the OpenStreetMap latitude/longitude values into a different coordinate system.
+
+- You took a partial extract from OpenStreetMap data based on a filter, such as latitude/longitude bounding box or "everything with a building tag".
+
+- You took an extract or planet dump in OpenStreetMap's XML or PBF format and saved it in JSON or to a MySQL database format or a Postgres database or ... substitute your own favourite file or database format.
+
+- Various forms of algorithm-driven generalizations: simplifications of roads and polygons, merging of polygons with same or similar landuse, elimination of polygons that are too small for given map scale (like buildings), amalgamation...
+
+- Transformation of multi-polygons (polygons with holes) into weakly simple polygons (certain platforms don't know how to render polygons with holes).
+
+- Algorithm-driven automated label and icon placement.
+
+- Other applications of geometric and graph algorithms on OSM data (Voronoi diagrams, travelling distances etc.) if they are driven by OSM data only.
+
+### Open Issues, Use Cases, Discussion
+
+Continuing discussion and greater detail can be found here on the OpenStreetMap community website. Any text there is NOT part of the formal guideline!

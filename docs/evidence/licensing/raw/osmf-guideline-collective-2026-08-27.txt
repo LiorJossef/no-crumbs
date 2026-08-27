@@ -1,0 +1,46 @@
+# Fetched 2026-08-27 from https://osmfoundation.org/wiki/Licence/Community_Guidelines/ — plain-text extraction of the wiki body.
+
+Status: Endorsed by the OSMF board 2016-06-17
+
+### Background
+
+Many users of OSM data are seeking clarity about the share-alike implications of the ODbL when using OSM data together with non-OSM data. The ODbL defines two ways in which non-OSM data can be used with OSM data in a database: Derivative Databases, which can trigger share-alike with respect to the non-OSM data if the Derivative Database is Publicly Used; and Collective Databases, where share-alike only applies to the parts containing or derived from OSM-data. 
+
+A Collective Database is defined by the ODbL as a database consisting of a collection of “independent” databases. This Guideline clarifies that so long as a particular data type within a database consists entirely of non-OSM data within a regional cut, the OSM and non-OSM datasets will be considered “independent” and thus, the combination will be considered a Collective Database rather than a Derivative Database. 
+
+This does not imply, as with all community guidelines, that the situations described are the only ways in which data can be combined without invoking share-alike, just that these are approaches we consider to be in line with the goals of the project.
+
+You may also wish to consult the Regional Cuts - Guideline and Horizontal Layers - Guideline, which also help clarify the scope of the share-alike obligation.
+
+### The Guideline
+
+An OSM dataset and a non-OSM dataset combined in a single database will be considered independent (and thus form a Collective Database rather than a Derivative Database) so long as the data used for a particular data type is either all OSM or all non-OSM within the same regional cut. 
+
+Thus, an OSM dataset used in combination with a non-OSM dataset will be considered a Collective Database, and will not trigger share-alike when:
+
+- the non-OSM and OSM datasets do not reference each other; or
+
+- non-OSM data completely replaces a particular type of geometry or data for a primary feature within a regional cut (e.g., non-OSM highway data replaces all OSM highway=motorway feature data in a regional cut); or
+
+- the non-OSM data adds a particular type of geometry or data for a primary feature that was not already present within a regional cut, and the added feature data includes no OSM data; or
+
+- a non-OSM database replaces or adds a property of a primary feature, and uses either all OSM data or no OSM data for that property of that primary feature within the same regional cut (e.g., the URL property of the amenity=cafe primary feature is replaced by reference, using either all OSM data or no OSM data for the replacement URLs); or
+
+- a combination of the above.
+For the purpose of this guideline
+
+- Technically a reference between non-OSM and OSM data can be by a database key or any other method of identifying a specific OSM or non-OSM element that may be used with a database join.
+
+- Technical implementations that are functionally equivalent to a reference but facilitate performance improvements -- for example joining two databases together by a key for purposes of a production database -- are equivalent to a reference.
+
+- “Primary feature” means data from a key value pair, or combination thereof, but not inclusive of properties (e.g. colour, brand, operator, or width). For purposes of illustration, you may reference http://wiki.openstreetmap.org/wiki/Map_Features#Primary_features.
+
+- Two data sets need not be physically separated to qualify as “independent” for purposes of the definition of a Collective Database.
+
+### Examples
+
+- You collect restaurant names and associated phone numbers. This data is linked to OSM data by references that associate the OSM restaurant names to your phone numbers so that your restaurant phone numbers will appear on an OSM-based map. All the restaurant phone numbers for the regional cut are provided by you (i.e., the restaurant phone numbers include no OSM data). Your phone numbers are not subject to share-alike.
+
+- You generate traffic data from in-car GPS information and store and use the location information from your traffic data in a database that also contains OSM data. You use your location and traffic information to categorize roads to optimize routes produced in your routing application. Your location and traffic information is not subject to share-alike.
+
+- You have a proprietary list of restaurants for a country. You would like to complement your list with the corresponding data from OpenStreetMap removing any duplicate objects in the process. The resulting, combined database would not be covered by this guideline and you would, if the dataset is publicly used, have to consider that your proprietary data may be subject to the ODbL share-alike terms.

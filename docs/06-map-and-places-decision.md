@@ -549,7 +549,7 @@ ships:
 | Q | Subject | Status | Gates MS5? |
 |---|---|---|---|
 | 1 | Apache-2.0 NOTICE sufficiency | **ANSWERED** — see below | was the only real gate; now closed |
-| 2 | ODbL contamination boundary | **NARROWED and DEFERRED** — see below | **No.** No MS5 row is ODbL-derived |
+| 2 | ODbL contamination boundary | **ANSWERED 2026-08-27 for the bulk OSM alias-ingest path** (see below); the Nominatim query path is drafted and awaits the owner's own act | **No.** No MS5 row is ODbL-derived |
 | 3–7 | Retention, location privacy, consent copy, rate limits, tile keys | OPEN | No — none can change a schema holding only Overture rows |
 
 **Ownership, resolved.** `security.md` §3 item 5 listed the owner as maps-geospatial while
@@ -578,7 +578,7 @@ consequence. Both documents now say so.
    The reason this does not block the ingest: nothing about running the extract changes based on the
    answer. Attribution obligations attach to *display and redistribution*, and both come later.
 
-2. **ODbL contamination boundary. — NARROWED 2026-08-18; does not gate MS5.** The original question
+2. **ODbL contamination boundary. — NARROWED 2026-08-18; ANSWERED 2026-08-27 for the alias-ingest path (see the ruling at the end of this item). Does not gate MS5.** The original question
    assumed the `places` table would hold ODbL-derived rows from day one. It will not. ODbL can enter
    this system by exactly two paths, and **neither is in MS5**:
    - the **OSM alias join** (§7.1a), explicitly out of MS5 scope (see `implementation-plan.md` MS5);
@@ -607,6 +607,96 @@ consequence. Both documents now say so.
    by row; `poi_index.source_dataset` still constrains to the Overture value, so ODbL cannot enter the
    *index* without a visible migration; and attribution is already mandatory and already shipped for
    the basemap. Owner: `security-privacy`.
+
+   ---
+
+   **ANSWERED 2026-08-27, for the path that was actually about to be built — task `OSM-ODBL-1`.**
+   Full sign-off, with every quotation fetched rather than recalled and the raw captures alongside
+   it: [`evidence/licensing/odbl-osm-alias-ingest-2026-08-27.md`](evidence/licensing/odbl-osm-alias-ingest-2026-08-27.md).
+   The Nominatim *query* path is a separate question with a different answer, drafted in
+   [`evidence/licensing/odbl-06-q2-draft-answer.md`](evidence/licensing/odbl-06-q2-draft-answer.md)
+   and still owing the owner's own deliberate-decision act; that draft **must not** be cited as
+   clearing the ingest path.
+
+   **Verdict: permitted, but only if we publish the joined index — and not recommended at the
+   benefit it currently buys.** Joining OSM `name:en` / `name:he` into `poi_index.alt_names` makes
+   `poi_index` a **Derivative Database** under ODbL 1.0 §4.4. It is not a Collective Database and it
+   is not a Produced Work.
+
+   **The reasoning, in four lines, each from a board-endorsed OSMF guideline rather than a summary.**
+   The extract is Substantial: the *Substantial - Guideline* names "the systematic extraction of all
+   eating places within an area" as its own example of systematic, and the plan is 2,742 named
+   food-and-drink POIs over a metro bbox. The *Collective Database Guideline*'s final worked example
+   is our plan almost verbatim — "complement your list with the corresponding data from
+   OpenStreetMap … would not be covered by this guideline" — and warns that *our* data in the
+   combined database is what becomes exposed. The *Horizontal Map Layers - Guideline* lists "you add
+   restaurants … based on comparison with OpenStreetMap data" under **do** need to share. And the
+   *Trivial Transformations - Guideline*'s carve-out is conditioned on "no other source of data is
+   involved" — Overture is involved by construction.
+
+   **This retires §11's own long-held position, which was wrong in its framing.** The argument that
+   a public API is not distribution is true and irrelevant: ODbL's "Convey" does exclude "interaction
+   with a user through a computer network", but share-alike's trigger is **Publicly Use**, and
+   §4.4(c) says in terms that "a Derivative Database is Publicly Used … if a Produced Work created
+   from the Derivative Database is Publicly Used". Serving the map to one signed-up stranger is the
+   trigger. §4.5(c) is what saves local and owner-only use: internal use is not public, so the join
+   can be **built and measured** before anything is owed.
+
+   **Scope, since the deferral asked exactly this.** Share-alike reaches **`poi_index`, every row of
+   every joined region** — the Overture rows too, not only the alias column, because once the
+   "eating places" Feature Type in a regional cut draws on both sources the Horizontal Layers rule
+   applies to the whole Feature Type. It does **not** reach `places`, `saved_places`, `sources` or
+   `imports`, but only because `confirm/route.ts` writes `altNames: []`; that line stops being an
+   optimisation and becomes a licence boundary needing a test. Publishing the Overture half is
+   possible — CDLA-Permissive-2.0 §2.1 permits sharing modified Data with the agreement text
+   attached — so the obligation is ~10,462 rows of public data, a README and a stable URL.
+
+   **The enforcement this section relied on does not work, and that is measured, not argued.**
+   `0010`'s comment calls the `source_dataset` CHECK "the enforcement of `06` §11 Q2", on the
+   reasoning that "an ODbL-derived row cannot enter without a migration that changes this
+   constraint". Verified by attack on the local container, 2026-08-27, inside a rolled-back
+   transaction: `update poi_index set alt_names = array[…] where source_dataset='overture-places'`
+   returns **UPDATE 1** with no error. The alias join adds ODbL *content* without adding an ODbL
+   *row*, so the tripwire never fires. `NOTICE` §2 rests on the same false assumption. Both need
+   fixing in the same migration as any alias work — condition C3.
+
+   **Seven merge-blocking conditions if it goes ahead**, stated in full in the sign-off §6: publish
+   the joined index under ODbL free over the internet (C1); carry the CDLA/Apache/Foursquare texts
+   with it (C2); per-row alias provenance plus an `inventory.sql` assertion (C3); containment — no
+   OSM string outside `poi_index`, which also means dropping `altNames` from
+   `StoredResolvedPlaceSchema` and the probe response, since today it is cached per user in
+   `extractions.candidates` and returned to the browser (C4); attribution on our own surfaces, with
+   literal strings in the sign-off §7 (C5); a whitelisted ingest that never uses Overpass `out meta`
+   — measured, it returns contributor `uid`/`user`, which is third-party personal data we have no
+   basis to hold (C6); and no change to `poi_index`'s authority, which stays `service_role`-only
+   (C7).
+
+   **Why "not recommended" is separate from "not permitted".** The headline "OSM is 81%
+   Latin-reachable against Overture's 38%" is a fact about OSM's own 2,742 rows. The number that
+   governs the decision is the one measured on the join itself: **43% join rate, 423 Hebrew-only rows
+   gained**, against **6,699** Hebrew-named rows in the index. A permanent obligation over the whole
+   index for 4% of the gap is the wrong trade while a licence-free option addresses the other 96%.
+   Recommended order: **bilingual query expansion first** (the extractor emits both script forms;
+   the measured 47% transliteration recall fails mostly on *translations*, which is what an LLM is
+   good at, and it folds into the existing call so it costs nothing against the 500/day ceiling),
+   then **lazy per-miss alias caching** from individual geocoding results — clean under the Geocoding
+   Guideline's insubstantial-extract safe harbour so long as it stays user-driven and non-systematic
+   — and the bulk join only if both are measured and found wanting.
+
+   **What is the owner's, not `security-privacy`'s.** Condition C1 is a commitment, not a task:
+   becoming an ODbL data publisher in the owner's name, for as long as the product is public.
+   `working-agreement.md` §7 makes that an owner decision. It is ordinary and it is cheap; it is
+   still not an agent's to make.
+
+   **Nothing is in breach today.** `alt_names` is empty in every environment (verified: 0 of 10,462
+   rows), no OSM string has ever entered `poi_index`, the committed Overpass captures are 5 and 11
+   elements with no contributor metadata, and §4.5(c) means the private measurements already taken
+   owed nothing when they were taken.
+
+   **Re-opens when:** the join is re-proposed with a materially better join rate; any code writes an
+   OSM-derived string outside `poi_index`; `poi_index` gains a policy, a browser-role grant or a
+   `SECURITY DEFINER` reader; a bilingual autocomplete over `poi_index` is proposed; or a CC0 alias
+   source (Wikidata) is measured.
 
 3. **Data-retention for place rows.** *(OPEN — does not gate MS5.)* Charter invariant 3 says the source URL survives forever. Does
    "forever" survive a user deletion request — does deleting a user delete shared `places` rows that

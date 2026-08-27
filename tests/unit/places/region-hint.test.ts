@@ -51,7 +51,12 @@ describe('regionHintFor — cities we have a region for', () => {
     const hint = regionHintFor('Herzliya', null);
     // Deliberately still `city`: whether the loaded `tlv` extract reaches 32.166 is a fact about
     // `poi_regions`, not about the word "Herzliya", so this file does not pretend to know it.
-    expect(hint).toEqual({ kind: 'city', regionId: 'tlv', point: { lat: 32.166, lng: 34.843 } });
+    expect(hint).toEqual({
+      kind: 'city',
+      regionId: 'tlv',
+      point: { lat: 32.166, lng: 34.843 },
+      via: 'hint',
+    });
   });
 });
 
@@ -182,5 +187,111 @@ describe('the alias table itself', () => {
     for (const ambiguous of ['Soho', 'Camden']) {
       expect(regionHintFor(ambiguous, null)).toEqual({ kind: 'unknown' });
     }
+  });
+});
+
+describe('regionHintFor — the city inside the candidate string (TLV-12)', () => {
+  // The failure this fixes is not a bad answer, it is no question: `'Belboy tel aviv'` arrived with
+  // a null `cityHint`, scoped to no region, and the index was never read. The venue was in it.
+  it('finds the city TLV-12 carried in its query text', () => {
+    expect(regionHintFor(null, null, 'Belboy tel aviv')).toMatchObject({
+      kind: 'city',
+      regionId: 'tlv',
+      via: 'text',
+    });
+  });
+
+  it('marks a text-derived scope as such, so a log can tell the two apart', () => {
+    expect(regionHintFor('Tel Aviv', null)).toMatchObject({ via: 'hint' });
+    expect(regionHintFor(null, null, 'cafe in Tel Aviv')).toMatchObject({ via: 'text' });
+  });
+
+  it('matches the longest alias, so a multi-word city is one city', () => {
+    const hint = regionHintFor(null, null, 'brunch at Kfar Saba');
+    expect(hint).toMatchObject({ kind: 'city', regionId: 'tlv', via: 'text' });
+  });
+
+  it('reads Hebrew city names out of the text, which is most of our captions', () => {
+    expect(regionHintFor(null, null, 'הסביח של עובד גבעתיים')).toMatchObject({
+      kind: 'city',
+      regionId: 'tlv',
+      via: 'text',
+    });
+  });
+
+  it('an explicit city hint still wins — the text is a fallback, not a competitor', () => {
+    expect(regionHintFor('London', null, 'Dishoom tel aviv')).toMatchObject({
+      kind: 'city',
+      regionId: 'ldn',
+      via: 'hint',
+    });
+  });
+
+  it('beats the country rule, because a city is the more specific answer', () => {
+    expect(regionHintFor(null, 'Israel', 'Bellboy tel aviv')).toMatchObject({
+      kind: 'city',
+      regionId: 'tlv',
+      via: 'text',
+    });
+  });
+
+  it('refuses to choose when the text names two different regions', () => {
+    // Picking either would report `regionsSearched: ['tlv']` for a query that said no such thing.
+    expect(regionHintFor(null, null, 'best coffee in tel aviv and tokyo')).toEqual({
+      kind: 'unknown',
+    });
+    // ...but it still falls back to the country, which is not in conflict with itself.
+    expect(regionHintFor(null, 'Israel', 'tel aviv vs tokyo')).toEqual({
+      kind: 'country',
+      countryCode: 'IL',
+    });
+  });
+
+  it('treats two aliases of the same region as one city, not as a conflict', () => {
+    expect(regionHintFor(null, null, 'sabich in jaffa, tel aviv')).toMatchObject({
+      kind: 'city',
+      regionId: 'tlv',
+      via: 'text',
+    });
+  });
+
+  it('is unchanged when the text names no city we hold', () => {
+    expect(regionHintFor(null, null, 'best croissant in Lisbon')).toEqual({ kind: 'unknown' });
+    expect(regionHintFor(null, null, '')).toEqual({ kind: 'unknown' });
+    expect(regionHintFor(null, null, null)).toEqual({ kind: 'unknown' });
+  });
+});
+
+describe('regionHintFor — Hebrew abbreviations, which is how captions write towns', () => {
+  // Observed, not invented: `ת״א` came off a real TikTok caption (Oscar's, נחלת בנימין 68),
+  // matched nothing, and the index was never queried.
+  it.each([
+    ['ת״א', 'tlv'],
+    ['ת"א', 'tlv'],
+    ['ר״ג', 'tlv'],
+    ['פ״ת', 'tlv'],
+    ['כ״ס', 'tlv'],
+    ['רמה״ש', 'tlv'],
+    ['הוה״ש', 'tlv'],
+    ['ראשל״צ', 'tlv'],
+  ])('%s resolves to %s', (alias, regionId) => {
+    expect(regionHintFor(alias, null)).toMatchObject({ kind: 'city', regionId });
+  });
+
+  it('holds both spellings, because normalise() treats them differently', () => {
+    // The Hebrew gershayim U+05F4 is inside the block normalise() keeps, so it survives; an
+    // ASCII double quote is punctuation and becomes a space. Two different keys, same city.
+    expect(normalise('ת״א')).toBe('ת״א');
+    expect(normalise('ת"א')).toBe('ת א');
+    expect(regionHintFor('ת״א', null)).toMatchObject({ regionId: 'tlv' });
+    expect(regionHintFor('ת"א', null)).toMatchObject({ regionId: 'tlv' });
+  });
+
+  it('finds an abbreviation inside caption prose too', () => {
+    expect(regionHintFor(null, null, 'בר השניצל נחלת בנימין 68 ת״א')).toMatchObject({
+      kind: 'city',
+      regionId: 'tlv',
+      via: 'text',
+    });
   });
 });

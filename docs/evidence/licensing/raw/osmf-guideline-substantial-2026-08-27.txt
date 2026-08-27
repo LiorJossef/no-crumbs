@@ -1,0 +1,42 @@
+# Fetched 2026-08-27 from https://osmfoundation.org/wiki/Licence/Community_Guidelines/ — plain-text extraction of the wiki body.
+
+Status: Endorsed by the OSMF board 2014-06-06
+
+### Background
+
+The Open Database License defines a term 'Substantial' which is then used in the License to define a threshold about when certain clauses come into effect.
+
+The definition of Substantial led to a lot of questions and uncertainty within the community and it was felt that specific OpenStreetMap guidance was needed. Question were raised in the What constitutes a Substantial extract section of the Use Cases article.
+
+In ODBL 1.0 the definition of Substantial is: "Means substantial in terms of quantity or quality or a combination of both. The repeated and systematic Extraction or Re-utilisation of insubstantial parts of the Contents may amount to the Extraction or Re-utilisation of a Substantial part of the Contents.
+
+What we would like to do is encourage as much as possible the worry-free use of our data for personal projects, local community and local educational projects, for commercial projects where our data is either a very small adjunct to the main thrust of the product/service or where the commerciality is clearly cottage-industry. 
+
+What we don't want to see is folks taking large extractions of our data and using some arbitrary definition of Substantial in order to avoid attributing us or contributing back map data improvements. That would make us very unhappy!
+
+So, we have focused on what "insubstantial" rather than "substantial" means. We've set the boundary we are happy with at basically: village map OK, town map not OK. If you intended use is obviously larger than our guideline, well, you'll have to consult your lawyer. Or better still, just attribute us and contribute back any data improvements ... then everyone is happy!
+
+### The Guideline: What is Insubstantial
+
+In the text below a "Feature" is a street, restaurant, park, cemetery, bus stop, mountain top etc. A restaurant might have more information with it such as what type of food it serves and opening hours, but it is just one Feature. 
+
+The OpenStreetMap community regards the following as being not Substantial within the meaning of our license provided that the extraction is one-off and not repeated over time for the same or a similar project.
+
+- Less than 100 Features.
+
+- More that 100 Features only if the extraction is non-systematic and clearly based on your own qualitative criteria for example an extract of all the the locations of restaurants you have visited for a personal map to share with friends or use the locations of a selection of historic buildings as an adjunct in a book you are writing, we would regard that as non Substantial. The systematic extraction of all eating places within an area or at all castles within an area would be considered to be systematic.
+
+- The features relating to an area of up to 1,000 inhabitants which can be a small densely populated area such as a European village or can be a large sparsely-populated area for example a section of the Australian bush with few Features.
+Note also that we regard repeated small extractions as one big extraction!
+
+### Examples
+
+In OpenStreetMap jargon, a Feature is defined as being a Way (such as part a road with the same characteristics) or an independent node such as a Point Of Interest for an eating place. A node within a Way is not considered to be a feature. An area feature, such as the outline of a wood is considered to be a feature. A section of coastline is considered to be a feature - the whole coastline of a large landmass is made up of many linked features.
+
+So supposing you take a village by the sea. It has 1 coastline, 1 beach, 2 local hill tops, 20 different street names, 1 traffic lights, 2 bus stops, 2 shops, 1 church ... and if this is the UK, 1 pub. You do not include any building outlines as there are lots. Add that all up 1+1+2+20+ ... and the gives 31 Features. It is insubstantial.
+
+If you are interested in more background on this topic, this paper on geospatial databases in the UK has an a good discussion on Substantial, starting on page 28 and this legal-talk mailing has a discussion in the context of OpenStreetMap.
+
+### Open Issues, Use Cases, Discussion
+
+Continuing discussion and greater detail can be found here on the OpenStreetMap community website. Any text there is NOT part of the formal guideline!
