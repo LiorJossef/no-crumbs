@@ -99,9 +99,44 @@ export function buildResolveQuery(candidate: PlaceCandidate, extractionCityHint:
     // `places/score.ts` owns every decision about how an address is parsed and compared, and a
     // second opinion here is exactly what this function's header exists to prevent.
     addressHint: candidate.addressHint,
+    // The bilingual query terms (TLV-BILING-1). Composed *here* rather than in the extractor,
+    // because this is the one function both the streamed pipeline and the probe route go through:
+    // a second copy of this composition is exactly how the two paths would start resolving the
+    // same caption differently.
+    //
+    // `identifiedName` joins `nameVariants` because it is the same epistemic class
+    // (`world_knowledge`) and the same kind of term — the model's own name for the venue rather
+    // than the caption's. It is usually just `rawName` again, which `dedupeVariants` drops.
+    textVariants: dedupeVariants(candidate.rawName, [candidate.identifiedName, ...candidate.nameVariants]),
     near: null,
     maxResults: null,
   };
+}
+
+/**
+ * The variant list `ResolveQuery.textVariants` wants: no blanks, no duplicates, and never `text`
+ * itself — the scorer already scores `text`, and a variant that repeats it would only spend a
+ * prefilter arm re-fetching rows it already had.
+ *
+ * Compared case-insensitively on the trimmed string. Deliberately **not** `normalise()`: that
+ * function is the resolver's, it strips punctuation and folds accents, and two variants that
+ * differ only by an apostrophe (`Oscar's` / `Oscars`) are worth keeping as separate retrieval
+ * terms even though they normalise together. Over-keeping costs one extra prefilter arm;
+ * over-dropping costs a venue we can no longer reach.
+ */
+function dedupeVariants(text: string, raw: readonly (string | null)[]): readonly string[] {
+  const seen = new Set<string>([text.trim().toLowerCase()]);
+  const out: string[] = [];
+  for (const v of raw) {
+    if (v === null) continue;
+    const trimmed = v.trim();
+    if (trimmed === '') continue;
+    const key = trimmed.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(trimmed);
+  }
+  return out;
 }
 
 /**
