@@ -94,11 +94,87 @@ describe('what it searches', () => {
     expect(namesMatching('dana')).toEqual(['The Laughing Yak']);
   });
 
-  it('does not search anything the row does not display', () => {
-    // `reason` (the model's sentence about the post) is carried on the read model but is not in the
-    // searchable projection, on purpose: a row that matched on it would look like a bug on screen.
-    const withReason = { name: 'Somewhere', reason: 'the best hummus in the city' };
-    expect(toSearchHaystack(withReason)).toBe('somewhere');
+  it('does not search the model’s prose about a place', () => {
+    // `reason` and `why_go` are sentences *about* the place, not labels for it. They are carried on
+    // the read model and deliberately kept out of the searchable projection: prose matches on
+    // incidental words, so it widens results without making anything findable.
+    const withProse = {
+      name: 'Somewhere',
+      reason: 'the best hummus in the city',
+      whyGo: 'worth the queue if you go early',
+    };
+    expect(toSearchHaystack(withProse)).toBe('somewhere');
+  });
+});
+
+describe('tags and dishes — the retrieval vocabulary', () => {
+  // These are the words someone reaches for when they cannot remember a place's name, which is the
+  // whole job. Before this they were extracted, stored, rendered on screen — and unfindable.
+  const ENRICHED: readonly Row[] = [
+    {
+      name: 'The Laughing Yak',
+      category: 'restaurant',
+      locality: 'London',
+      note: 'go with Dana',
+      tags: ['nepalese', 'hidden gem'],
+      dishes: ['momos'],
+    },
+    {
+      name: 'Container',
+      category: 'bar',
+      locality: 'Tel Aviv-Yafo',
+      note: null,
+      tags: ['natural wine', 'late night'],
+      dishes: [],
+    },
+    {
+      name: 'Anat Bakery',
+      category: 'bakery',
+      locality: 'Tel Aviv-Yafo',
+      note: null,
+      tags: ['בורקס', 'מאפייה'],
+      dishes: [],
+    },
+    { name: 'HaKosem', category: 'restaurant', locality: 'Tel Aviv', note: null },
+  ];
+
+  const enrichedMatching = (query: string): readonly string[] =>
+    filterBySearch(ENRICHED, query, (row) => row).map((row) => row.name);
+
+  it('finds a place by a dish it serves', () => {
+    expect(enrichedMatching('momos')).toEqual(['The Laughing Yak']);
+  });
+
+  it('finds a place by a multi-word tag', () => {
+    expect(enrichedMatching('natural wine')).toEqual(['Container']);
+  });
+
+  it('finds a place by a Hebrew tag', () => {
+    // Hebrew↔English is the supported language scope, and `normalise()` deliberately preserves
+    // Hebrew rather than stripping it.
+    expect(enrichedMatching('בורקס')).toEqual(['Anat Bakery']);
+  });
+
+  it('leaves a place with no tags or dishes findable exactly as before', () => {
+    expect(enrichedMatching('hakosem')).toEqual(['HaKosem']);
+    expect(toSearchHaystack(ENRICHED[3]!)).toBe('hakosem restaurant tel aviv');
+  });
+
+  it('cannot match a token across the boundary between two tags', () => {
+    // `late night` and `natural wine` are two separate tags; `nightnatural` is not a thing.
+    expect(enrichedMatching('nightnatural')).toEqual([]);
+  });
+
+  it('folds accents on a stored tag, which the database’s own normalisation does not', () => {
+    // `normalize_tag()` lowercases but does not fold accents, so a stored `café` would be
+    // unreachable by a search for `cafe` without this file’s own `normalise()` pass.
+    const row: SearchablePlace = { name: 'Somewhere', tags: ['café culture'] };
+    expect(toSearchHaystack(row)).toBe('somewhere cafe culture');
+    expect(matchesSearchTokens(row, toSearchTokens('cafe'))).toBe(true);
+  });
+
+  it('treats a null tag list the same as an absent one', () => {
+    expect(toSearchHaystack({ name: 'X', tags: null, dishes: null })).toBe('x');
   });
 });
 

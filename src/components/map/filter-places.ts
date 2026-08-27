@@ -10,14 +10,22 @@
  */
 
 import { filterBySearch, type SearchablePlace } from '@/domain/places/search';
+import { enrichmentOf } from '@/ui/place/enrichment';
 import type { MapPlace } from './types';
 
 export function toSearchablePlace(place: MapPlace): SearchablePlace {
+  // `tags` and `dishes` come off `detail` for the same reason `locality` does, and are read through
+  // `enrichmentOf` rather than off the spot directly: that function is the single place that knows
+  // `getSpots` populates three columns `Spot` does not yet declare, and it collapses a missing
+  // field to `[]` so nothing downstream has to know there were two ways to say "nothing here".
+  const enrichment = enrichmentOf(place.detail);
   return {
     name: place.name,
     category: place.category,
     locality: place.detail?.locality ?? null,
     note: place.note,
+    tags: enrichment.tags,
+    dishes: enrichment.dishes,
   };
 }
 
