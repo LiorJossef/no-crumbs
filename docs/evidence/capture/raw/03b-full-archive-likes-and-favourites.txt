@@ -1,0 +1,126 @@
+Provides access to the user's direct message history on TikTok.
+Category
+Fields
+Chat History
+Date
+From
+Content
+# Full Archive
+The full data archive contains further categories of data. TikTok may launch new features from time to time, and we'll do our best to keep this documentation up to date.
+Not all features are available in all regions. If a feature isn't live for a user, or a user doesn't have data, then the relevant file may be empty or missing from the archive.
+Data category
+Category
+Field
+Profile and Settings
+Follower
+Date
+Username
+Autofill
+Phone Number
+Email
+Post/Zip Code
+First Name
+Last Name
+Address
+City
+Province/State
+Country
+Profile Information
+Profile Photo
+Profile Video
+Username
+Nickname
+Telephone Number
+Email Address
+Account Region
+Bio Description
+Birthdate
+Follower Count
+Following Count
+Self Declared Gender
+Like(s) Received
+Lemon8 Link (if applicable)
+AI Self
+Block List
+Date
+Username
+Following
+Date
+Username
+Settings
+Suggest your account to contacts
+Suggest your account to Facebook friends
+Suggest your account to people who open or send links to you: enabled
+Private Account
+Personalized Ads
+Who Can Post Comments
+Who can reuse content
+Who Can Send Me Message
+Who Can View Videos I Liked
+Allow Download
+Filter Comments
+Push Notification
+New Fans
+New Likes on My Video
+New Comments on My Video
+Desktop notification
+Language
+App Language
+Web Language
+Content Preferences
+Video Languages Preferences
+Interests
+Keyword filters for videos in For You feed
+Keyword filters for videos in Following feed
+Direct Messages
+Direct Messages
+Date
+From
+Content
+Likes and Favourites
+Favorite Hashtags
+Date
+Hashtag landing page link
+Favorite Effects
+Date
+Effect landing page link
+Like List
+Date
+Video landing page link
+Favorite Sounds
+Date
+Sounds landing page link
+Favourite Videos
+Date
+Video landing page link
+Your Activity
+Ad Interests
+Ad Interest Categories
+Hashtag
+Hashtag Name
+Hashtag landing page Link
+Login History
+Date
+IP address
+Device Model
+Device System
+Network Type
+Carrier
+Off-TikTok Activity
+Date
+Source
+Event
+Purchases
+Send Gifts History (Date, Price)
+Buy Gifts History (Date, Price)
+Searches
+Date
+Search Term
+Share History
+Date
+Shared Content
+Link
+Method
+Status
+Screen Resolution
+App Version

@@ -1,0 +1,39 @@
+# TikTok export-link form -> VERIFIED path
+# Run: 2026-08-27, server-side curl from the owner's laptop (Node/global fetch equivalent).
+# Video id 7245648559981350186 is from docs/evidence/tiktok/urls-set1.txt (known public).
+
+## A. Redirect chain for the export link host www.tiktokv.com
+$ curl -sS -o /dev/null -D - -L --max-redirs 5 "https://www.tiktokv.com/share/video/7245648559981350186/"
+HTTP/1.1 301 Moved Permanently
+Location: https://www.tiktok.com/share/video/7245648559981350186/
+HTTP/2 301 
+location: https://www.tiktok.com/@/video/7245648559981350186/
+HTTP/2 200 
+
+## B. oEmbed REJECTS the www.tiktokv.com host
+$ curl "https://www.tiktok.com/oembed?url=https%3A%2F%2Fwww.tiktokv.com%2Fshare%2Fvideo%2F7245648559981350186%2F"
+{"message":"Something went wrong","code":400}
+[HTTP 400 in 0.301172s]
+
+## C. oEmbed ACCEPTS www.tiktok.com/share/video/<id>/ and returns the full caption
+$ curl "https://www.tiktok.com/oembed?url=https%3A%2F%2Fwww.tiktok.com%2Fshare%2Fvideo%2F7245648559981350186%2F"
+{"version":"1.0","type":"video","title":"6 Must try spots in Tokyo Japan! Tokyo food scene was amazing and stay tuned for me to drop my top bites of Kyoto! #japanesefood #japantravel #travelfoodie #streetfood #udon #pizza #pancakes #travelfood ","author_url":"https://www.tiktok.com/@briancantstopeating","author_name":"Brian Lindo","width":"100%","height":"100%","html":"<blockquote class=\"tiktok-embed\" cite=\"https://www.tiktok.com/@briancantstopeating/video/7245648559981350186\" data-video-id=\"7245648559981350186\" data-embed-from=\"oembed\" style=\"max-width:605px; min-width:325px;\"> <section> <a target=\"_blank\" title=\"@briancantstopeating\" href=\"https://www.tiktok.com/@briancantstopeating?refer=embed\">@briancantstopeating</a> <p>6 Must try spots in Tokyo Japan! Tokyo food scene was amazing and stay tuned for me to drop my top bites of Kyoto! <a title=\"japanesefood\" target=\"_blank\" href=\"https://www.tiktok.com/tag/japanesefood?refer=embed\">#japanesefood</a> <a title=\"japantravel\" target=\"_blank\" href=\"https://www.tiktok.com/tag/japantravel?refer=embed\">#japantravel</a> <a title=\"travelfoodie\" target=\"_blank\" href=\"https://www.tiktok.com/tag/travelfoodie?refer=embed\">#travelfoodie</a> <a title=\"streetfood\" target=\"_blank\" href=\"https://www.tiktok.com/tag/streetfood?refer=embed\">#streetfood</a> <a title=\"udon\" target=\"_blank\" href=\"https://www.tiktok.com/tag/udon?refer=embed\">#udon</a> <a title=\"pizza\" target=\"_blank\" href=\"https://www.tiktok.com/tag/pizza?refer=embed\">#pizza</a> <a title=\"pancakes\" target=\"_blank\" href=\"https://www.tiktok.com/tag/pancakes?refer=embed\">#pancakes</a> <a title=\"travelfood\" target=\"_blank\" href=\"https://www.tiktok.com/tag/travelfood?refer=embed\">#travelfood</a> </p> <a target=\"_blank\" title=\"♬ Nasty (Instrumental) - Russ\" href=\"https://www.tiktok.com/music/Nasty-Instrumental-7226064679645513730?refer=embed\">♬ Nasty (Instrumental) - Russ</a> </section> </blockquote> <script async src=\"https://www.tiktok.com/embed.js\"></script>","thumbnail_width":576,"thumbnail_height":1024,"thumbnail_url":"https://p19-common-sign.tiktokcdn.com/tos-useast5-p-0068-tx/b8fd5250ee2846e0a8c19e0208caa2ea~tplv-tiktokx-origin.image?dr=14575&x-expires=1788012000&x-signature=Nd30vvJYRXhd8hnRvIEHTNmLFY8%3D&t=4d5b0474&ps=13740610&shp=81f88b70&shcp=43f4a2f9&idc=my","provider_url":"https://www.tiktok.com","provider_name":"TikTok","author_unique_id":"briancantstopeating","embed_product_id":"7245648559981350186","embed_type":"video"}
+[HTTP 200 in 0.492446s]
+
+## D. What our own canonicaliser does with these three forms TODAY
+# Run against src/domain/source/canonicalise-tiktok-url.ts via a throwaway vitest probe,
+# 2026-08-27. The probe file was deleted after the run; the output is the artefact.
+
+https://www.tiktokv.com/share/video/7245648559981350186/
+  => {"ok":false,"error":{"code":"UNSUPPORTED_HOST"}}
+     User sees: "We support TikTok links. Instagram and YouTube aren't supported yet."
+     ^ WRONG. This IS a TikTok link, emitted by TikTok's own data export.
+
+https://www.tiktok.com/share/video/7245648559981350186/
+  => {"ok":false,"error":{"code":"UNSUPPORTED_URL"}}
+     User sees: "That's a profile, not a post. Open the specific video and copy its link."
+     ^ WRONG. It is a post, on the tiktok.com host, and oEmbed returns its full caption (see C).
+
+https://www.tiktok.com/@/video/7245648559981350186/
+  => {"ok":true,"value":{"kind":"video","externalId":"7245648559981350186"}}
+     ^ correct — this is the form the redirect chain in A eventually lands on.

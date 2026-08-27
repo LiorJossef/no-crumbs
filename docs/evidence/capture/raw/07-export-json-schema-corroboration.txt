@@ -1,0 +1,145 @@
+# TikTok consumer export JSON — schema corroborated by independent parsers (2026-08-27)
+# No real export file was available to this investigation. This is CORROBORATION, not
+# a first-party specimen: 7 unrelated open-source tools that parse a real export agree.
+# GitHub code search: "Favorite Videos" "FavoriteVideoList" -> 152 files; "FavoriteVideoList" -> 484.
+
+## abrignoni/RLEAPP (DFIR forensics tool) scripts/artifacts/tikTokArchiveJson.py
+# Every artifact in this module reads the same TikTok "Download My Data" JSON
+# export. Both the old (user_data.json) and new (user_data_tiktok.json)
+# filenames are supported.
+_PATHS = ('*/user_data.json', '*/user_data_tiktok.json')
+_FILENAMES = ('user_data.json', 'user_data_tiktok.json')
+
+__artifacts_v2__ = {}
+    '''Return the frequently used top-level containers (new schema names with
+    fallbacks to the old names).'''
+    return {
+        'activity': data.get('Your Activity', data.get('Activity', {})),
+        'app_settings': data.get('App Settings', {}),
+        'comment': data.get('Comment', {}),
+        'video': data.get('Post', data.get('Video', {})),
+        'profile': data.get('Profile', {}),
+
+def _x_favorite_videos(data):
+    rows = []
+    for video in _roots(data)['activity'].get('Favorite Videos', {}).get('FavoriteVideoList', []):
+        rows.append((video.get('Link', ''), _tt_ts(video.get('Date', ''))))
+    return rows
+
+
+def _x_followers(data):
+    rows = []
+    activity = _roots(data)['activity']
+    section = activity.get('Follower', activity.get('Follower List', {}))
+    for follower in section.get('FansList', []):
+        rows.append((follower.get('UserName', ''), _tt_ts(follower.get('Date', ''))))
+    return rows
+
+
+def _x_following(data):
+    rows = []
+    activity = _roots(data)['activity']
+    section = activity.get('Following', activity.get('Following List', {}))
+    for user in section.get('Following', []):
+        rows.append((user.get('UserName', ''), _tt_ts(user.get('Date', ''))))
+    return rows
+
+
+def _x_hashtags_used(data):
+    rows = []
+    for hashtag in _roots(data)['activity'].get('Hashtag', {}).get('HashtagList', []):
+        rows.append((hashtag.get('HashtagName', ''), hashtag.get('HashtagLink', '')))
+    return rows
+
+
+def _x_liked_videos(data):
+    rows = []
+    activity = _roots(data)['activity']
+    if 'Like List' in activity:
+        for item in activity['Like List'].get('ItemFavoriteList', []):
+            link_val = item.get('link', item.get('Link', ''))
+            date_val = item.get('date', item.get('Date', ''))
+            rows.append((link_val, _tt_ts(date_val)))
+    return rows
+
+
+## davidkeipert/tikfav index.js
+    program.error(chalk.red('Couldn\'t read user data file, does it exist?'));
+  }
+  try {
+    const info = JSON.parse(data);
+    var list = [];
+    if (category === 'favorites') {
+      list = info['Activity']['Favorite Videos']['FavoriteVideoList'];
+    } else if (category === 'liked') {
+      list = info['Activity']['Like List']['ItemFavoriteList'];
+    } else if (category === 'sounds') {
+      list = info['Activity']['Favorite Sounds']['FavoriteSoundList'];
+    } else if (category === 'shared') {
+      let rawList = info['Activity']['Share History']['ShareHistoryList'];
+      list = rawList.filter((value, index, array) => {
+        return value.SharedContent == 'video';
+      });
+    } else if (category === 'history') {
+      list = info['Activity']['Video Browsing History']['VideoList'];
+    } else if (category === 'messages') {
+      //get list of chat history, append each item from each chat to LIST and make sure it specifies the folder to save to
+
+## joeycato/tiktok-favesave FaveSave.py
+    """
+    Get activity data from JSON with fallback logic.
+    First tries 'Your Activity' node, then falls back to 'Likes and Favorites' node.
+    """
+    # Try 'Your Activity' first
+    your_activity = data.get('Your Activity', {})
+    if your_activity:
+        if log_callback:
+            log_callback("📊 Using 'Your Activity' node for data parsing")
+        return your_activity
+    
+    # Fall back to 'Likes and Favorites'
+    likes_and_favorites = data.get('Likes and Favorites', {})
+    if likes_and_favorites:
+        if log_callback:
+            log_callback("📊 'Your Activity' node not found, falling back to 'Likes and Favorites' node")
+        return likes_and_favorites
+    
+    # If neither exists, return empty dict
+    if log_callback:
+        log_callback("⚠️ Neither 'Your Activity' nor 'Likes and Favorites' nodes found in JSON")
+    return {}
+
+
+    # Process favorite videos if selected
+    if download_faves:
+        favorite_videos = activity_data.get('Favorite Videos', {}).get('FavoriteVideoList', [])
+        for video in favorite_videos:
+            # Check if video date is after earliest date filter
+            video_date = video.get('Date', '')
+            if is_date_after_earliest(video_date, earliest_date):
+                # Format date for filename prefix
+                date = video_date.replace(':', '').replace(' ', '-').replace('/', '-')
+                video_links.append((video['Link'], f"faved_{date}_" if date else "faved_"))
+
+    # Process liked videos if selected
+    if download_likes:
+        liked_videos = activity_data.get('Like List', {}).get('ItemFavoriteList', [])
+        for video in liked_videos:
+            # Check if video date is after earliest date filter
+            video_date = video.get('date', '')
+            if is_date_after_earliest(video_date, earliest_date):
+                # Format date for filename prefix
+                date = video_date.replace(':', '').replace(' ', '-').replace('/', '-')
+
+## yt-dlp/yt_dlp/extractor/tiktok.py — proves the share-link URL forms are real
+    _VALID_URL = r'https?://www\.tiktokv?\.com/(?:embed|(?:share|@(?P<user_id>[\w\.-]+)?)/video)/(?P<id>\d+)'
+    _EMBED_REGEX = [rf'<(?:script|iframe)[^>]+\bsrc=(["\'])(?P<url>{_VALID_URL})']
+        'only_matching': True,
+    }, {
+        'url': 'https://www.tiktokv.com/share/video/7668090902816017671/',
+        'only_matching': True,
+    }, {
+        'url': 'https://www.tiktok.com/share/video/7668090902816017671/',
+        'only_matching': True,
+    }, {
+        'url': 'https://www.tiktok.com/@/video/7668090902816017671/',

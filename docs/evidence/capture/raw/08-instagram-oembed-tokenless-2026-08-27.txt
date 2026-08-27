@@ -1,0 +1,111 @@
+MIO-CAPTURE raw 07 — Instagram oEmbed, re-probed live because MIO-CAPTURE turned up a claim that
+Meta dropped the token requirement on 2026-06-15. This SUPERSEDES the Instagram line in
+docs/evidence/capture/raw/06-youtube-instagram-oembed.txt.
+
+Run:      2026-08-27, Node (server-side, no browser), plain global fetch, NO credentials of any
+          kind — no app id, no app secret, no access token, no cookie, no custom User-Agent.
+Node:     see version line below.
+Test URL: https://www.instagram.com/p/DXdMrMbjcmA/  (a real public Instagram post)
+Control:  https://www.instagram.com/p/ZZZZZZZZZZZ/  (a shortcode that does not exist)
+
+--- SCRIPT (verbatim) -------------------------------------------------------
+const target = 'https://www.instagram.com/p/DXdMrMbjcmA/';
+const urls = [
+  ['graph v23 instagram_oembed, NO token', `https://graph.facebook.com/v23.0/instagram_oembed?url=${encodeURIComponent(target)}&omitscript=true`],
+  ['graph (unversioned) instagram_oembed, NO token', `https://graph.facebook.com/instagram_oembed?url=${encodeURIComponent(target)}`],
+  ['legacy api.instagram.com/oembed', `https://api.instagram.com/oembed/?url=${encodeURIComponent(target)}`],
+];
+for (const [label, u] of urls) {
+  const t0 = Date.now();
+  try {
+    const r = await fetch(u, { redirect: 'manual', headers: { 'user-agent': 'node' } });
+    const body = await r.text();
+    console.log('\n=== ' + label + ' ===');
+    console.log('url:', u);
+    console.log('status:', r.status, r.statusText, '| ms:', Date.now() - t0);
+    console.log('location:', r.headers.get('location') || '(none)');
+    console.log('content-type:', r.headers.get('content-type'));
+    console.log('body:', body.slice(0, 1400));
+  } catch (e) { console.log('\n=== ' + label + ' ===\nERROR', e.message); }
+}
+--- OUTPUT -------------------------------------------------------------------
+
+=== graph v23 instagram_oembed, NO token ===
+url: https://graph.facebook.com/v23.0/instagram_oembed?url=https%3A%2F%2Fwww.instagram.com%2Fp%2FDXdMrMbjcmA%2F&omitscript=true
+status: 200 OK | ms: 1845
+location: (none)
+content-type: application/json; charset=UTF-8
+body: {"version":"1.0","provider_name":"Instagram","provider_url":"https:\/\/www.instagram.com\/","type":"rich","width":658,"html":"\u003Cblockquote class=\"instagram-media\" data-instgrm-captioned data-instgrm-permalink=\"https:\/\/www.instagram.com\/p\/DXdMrMbjcmA\/?utm_source=ig_embed&amp;utm_campaign=loading\" data-instgrm-version=\"14\" style=\" background:#FFF; border:0; border-radius:3px; box-shadow:0 0 1px 0 rgba(0,0,0,0.5),0 1px 10px 0 rgba(0,0,0,0.15); margin: 1px; max-width:658px; min-width:326px; padding:0; width:99.375\u0025; width:-webkit-calc(100\u0025 - 2px); width:calc(100\u0025 - 2px);\">\u003Cdiv style=\"padding:16px;\"> \u003Ca href=\"https:\/\/www.instagram.com\/p\/DXdMrMbjcmA\/?utm_source=ig_embed&amp;utm_campaign=loading\" style=\" background:#FFFFFF; line-height:0; padding:0 0; text-align:center; text-decoration:none; width:100\u0025;\" target=\"_blank\"> \u003Cdiv style=\" display: flex; flex-direction: row; align-items: center;\"> \u003Cdiv style=\"background-color: #F4F4F4; border-radius: 50\u0025; flex-grow: 0; height: 40px; margin-right: 14px; width: 40px;\">\u003C\/div> \u003Cdiv style=\"display: flex; flex-direction: column; flex-grow: 1; justify-content: center;\"> \u003Cdiv style=\" background-color: #F4F4F4; border-radius: 4px; flex-grow: 0; height: 14px; margin-bottom: 6px; width: 100px;\">\u003C\/div> \u003Cdiv style=\" background-color: #F4F4F4; b
+
+=== graph (unversioned) instagram_oembed, NO token ===
+url: https://graph.facebook.com/instagram_oembed?url=https%3A%2F%2Fwww.instagram.com%2Fp%2FDXdMrMbjcmA%2F
+status: 200 OK | ms: 169
+location: (none)
+content-type: application/json; charset=UTF-8
+body: {"version":"1.0","provider_name":"Instagram","provider_url":"https:\/\/www.instagram.com\/","type":"rich","width":658,"html":"\u003Cblockquote class=\"instagram-media\" data-instgrm-captioned data-instgrm-permalink=\"https:\/\/www.instagram.com\/p\/DXdMrMbjcmA\/?utm_source=ig_embed&amp;utm_campaign=loading\" data-instgrm-version=\"14\" style=\" background:#FFF; border:0; border-radius:3px; box-shadow:0 0 1px 0 rgba(0,0,0,0.5),0 1px 10px 0 rgba(0,0,0,0.15); margin: 1px; max-width:658px; min-width:326px; padding:0; width:99.375\u0025; width:-webkit-calc(100\u0025 - 2px); width:calc(100\u0025 - 2px);\">\u003Cdiv style=\"padding:16px;\"> \u003Ca href=\"https:\/\/www.instagram.com\/p\/DXdMrMbjcmA\/?utm_source=ig_embed&amp;utm_campaign=loading\" style=\" background:#FFFFFF; line-height:0; padding:0 0; text-align:center; text-decoration:none; width:100\u0025;\" target=\"_blank\"> \u003Cdiv style=\" display: flex; flex-direction: row; align-items: center;\"> \u003Cdiv style=\"background-color: #F4F4F4; border-radius: 50\u0025; flex-grow: 0; height: 40px; margin-right: 14px; width: 40px;\">\u003C\/div> \u003Cdiv style=\"display: flex; flex-direction: column; flex-grow: 1; justify-content: center;\"> \u003Cdiv style=\" background-color: #F4F4F4; border-radius: 4px; flex-grow: 0; height: 14px; margin-bottom: 6px; width: 100px;\">\u003C\/div> \u003Cdiv style=\" background-color: #F4F4F4; b
+
+=== legacy api.instagram.com/oembed ===
+url: https://api.instagram.com/oembed/?url=https%3A%2F%2Fwww.instagram.com%2Fp%2FDXdMrMbjcmA%2F
+status: 302 Found | ms: 465
+location: https://www.instagram.com/oembed/?url=https://www.instagram.com/p/DXdMrMbjcmA/
+content-type: text/html; charset=utf-8
+body: 
+=== bogus shortcode, no token ===
+status: 400 
+body: {"error":{"message":"The requested resource does not exist","type":"OAuthException","code":24,"error_subcode":2207045,"is_transient":false,"error_user_title":"Media Not Found","error_user_msg":"The requested media could not be embedded either because it does not exist or you don't have permission to embed it.","fbtrace_id":"A-5-PS2r4FSOc7lbbtZv6mm"}}
+
+--- FIELD-LEVEL INSPECTION OF THE 200 RESPONSE -------------------------------
+KEYS: version, provider_name, provider_url, type, width, html
+version = 1.0
+provider_name = Instagram
+provider_url = https://www.instagram.com/
+type = rich
+width = 658
+
+html length: 6435
+VISIBLE TEXT IN EMBED HTML: >>>View this post on Instagram<<<
+
+has author_name? false | has title? false | has thumbnail_url? false
+
+--- WHAT THIS PROVES ---------------------------------------------------------
+
+VERIFIED, 2026-08-27:
+  GET https://graph.facebook.com/instagram_oembed?url=<public IG post>
+  returns HTTP 200 with no access token, no Meta app, and no App Review.
+  The versioned form (/v23.0/) behaves identically.
+  The control (bogus shortcode) fails with
+      {"error":{"message":"The requested resource does not exist","type":"OAuthException",
+        "code":24,"error_subcode":2207045,"error_user_title":"Media Not Found",
+        "error_user_msg":"The requested media could not be embedded either because it does not
+        exist or you don't have permission to embed it."}}
+  i.e. the failure is about the MEDIA, not about AUTH. Authentication is genuinely not the gate
+  any more. Our previous claim -- "legacy oEmbed 301s to Graph oEmbed, which needs an app token
+  plus App Review" -- is now FACTUALLY WRONG on the second half. The 301 is still real
+  (api.instagram.com/oembed -> 302 -> www.instagram.com/oembed/), but the destination is open.
+
+AND YET, UNAVAILABLE as a content source:
+  the entire response body is
+
+      version        1.0
+      provider_name  Instagram
+      provider_url   https://www.instagram.com/
+      type           rich
+      width          658
+      html           <6,435-byte grey skeleton blockquote>
+
+  There is NO `title`. NO `author_name`. NO `thumbnail_url`. NO caption anywhere.
+  Stripping every tag from the 6,435-byte `html` leaves exactly five words of visible text:
+
+      "View this post on Instagram"
+
+  The `data-instgrm-captioned` attribute on the blockquote is an instruction to Instagram's own
+  embed.js to fetch and render the caption client-side from Instagram's servers. The caption is
+  not in the payload we receive.
+
+  Contrast TikTok oEmbed (docs/04-tiktok-feasibility.md M1, VERIFIED), whose `title` field carries
+  the full caption. That asymmetry -- not authentication -- is the reason Instagram stays out.
+
+CONSEQUENCE FOR OUR DOCS: the LABEL does not move (Instagram is still UNAVAILABLE to us), but the
+REASON must be rewritten, and one re-entry condition in docs/05-secondary-platforms.md is now
+closed rather than open. See the findings doc.
+Node: v22.22.3
