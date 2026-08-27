@@ -51,8 +51,11 @@
  *     unchanged and still passes — verified, and it is the regression test for the day the column
  *     stops being empty.
  *
- * Everything else is the prototype byte for byte, including the tie-break order and the odd
- * corners of `GENERIC` (`scoring-constants.ts`).
+ * Everything else in this file is the prototype byte for byte, including the tie-break order. The
+ * *constants* are no longer: TLV-RANK-1 re-fit `SCORING.total` and extended `SCORING.generic`
+ * against the first evidence from a loaded index. This file's arithmetic did not change and its
+ * divergence list did not grow — a re-fit is a diff to `scoring-constants.ts`, which is the whole
+ * reason the free parameters live there.
  */
 
 import type {
@@ -215,9 +218,13 @@ export function categoryScore(
 }
 
 /**
- * One candidate's four score components: `0.72·nameScore + 0.18·categoryScore +
+ * One candidate's four score components: `0.80·nameScore + 0.10·categoryScore +
  * 0.10·datasetConfidence`. The three weights sum to 1.00, which is what keeps `score` in `[0,1]`
  * — `places.resolution_score`'s CHECK — without a clamp.
+ *
+ * The category weight was 0.18 until TLV-RANK-1, where a category bonus was measured outranking a
+ * 1.000 name match (TLV-14). Why 0.10, and why the difference went to `name` rather than to
+ * `datasetConfidence`, is argued once in `scoring-constants.ts` and not repeated here.
  */
 export function scorePlace(
   place: ResolvedPlace,

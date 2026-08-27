@@ -350,12 +350,8 @@ describe('SCORING', () => {
     expect(Object.isFrozen(SCORING.categoryTokens.cafe)).toBe(true);
   });
 
-  it('holds the prototypes values, which are what 06 §6.3 measured', () => {
+  it('holds the prototypes values everywhere TLV-RANK-1 did not re-fit', () => {
     expect(SCORING.name).toEqual({ whole: 0.45, tokenCoverage: 0.55 });
-    expect(SCORING.total).toEqual({ name: 0.72, category: 0.18, datasetConfidence: 0.1 });
-    // 0.9999999999999999 in binary, which is the safe side of `resolution_score`s CHECK.
-    expect(SCORING.total.name + SCORING.total.category + SCORING.total.datasetConfidence)
-      .toBeCloseTo(1, 15);
     expect(SCORING.extraTokenPenalty).toEqual({ perToken: 0.04, max: 0.15 });
     expect(SCORING.substringCredit).toBe(0.97);
     expect(SCORING.bands).toEqual({
@@ -364,8 +360,101 @@ describe('SCORING', () => {
       confirmScore: 0.8,
     });
     expect(SCORING.defaultMaxResults).toBe(5);
-    expect(SCORING.generic.size).toBe(31);
     expect(Object.keys(SCORING.categoryTokens)).toEqual(['cafe', 'bar', 'restaurant']);
+  });
+
+  it('holds the TLV-RANK-1 re-fit of the two values that moved', () => {
+    // `total` and `generic`. Both were the prototype's until 2026-08-27, when the first evidence
+    // from a loaded index said they were wrong: a category bonus outranking a 1.000 name match
+    // (TLV-14) and `gelato` scored as identity (TLV-10). The argument is in
+    // `scoring-constants.ts`; the band-by-band consequences are enumerated in
+    // `benchmark-golden.test.ts`. This is just the pin.
+    expect(SCORING.total).toEqual({ name: 0.8, category: 0.1, datasetConfidence: 0.1 });
+    // 0.9999999999999999 in binary, which is the safe side of `resolution_score`s CHECK.
+    expect(SCORING.total.name + SCORING.total.category + SCORING.total.datasetConfidence)
+      .toBeCloseTo(1, 15);
+    // The safety property the weights carry: no candidate can auto-accept without its category
+    // agreeing, because name + confidence alone cannot reach the 0.92 gate. That was true at
+    // 0.72/0.18 and it is still true at 0.80/0.10 — the re-fit changed ranking, not the gate.
+    expect(SCORING.total.name + SCORING.total.datasetConfidence)
+      .toBeLessThan(SCORING.bands.preselectScore);
+    expect(SCORING.generic.size).toBe(53);
+  });
+});
+
+/**
+ * TLV-RANK-1 — the two measured ranking defects, as unit tests.
+ *
+ * Both are *observations from the real index* reduced to the smallest thing that reproduces them,
+ * so that the live harness is not the only place they are caught. The live numbers they came from
+ * are in the task record; the numbers here are the arithmetic, and they are what a future re-fit
+ * has to keep true.
+ */
+describe('TLV-RANK-1 — the ranking defects the re-fit closed', () => {
+  it('TLV-10: a plain Anita beats a Zucca Cafe & Gelato for the query "Anita Gelato"', () => {
+    // The whole defect in one comparison. With `gelato` scored as identity, the query had two
+    // distinctive tokens and the row that matched the *category* word matched two of two.
+    const anita = nameScore('Anita Gelato', 'Anita');
+    const zucca = nameScore('Anita Gelato', 'Zucca Cafe & Gelato');
+    expect(anita.nameScore).toBeGreaterThan(zucca.nameScore);
+    expect(distinctiveTokens('Anita Gelato')).toEqual(['anita']);
+  });
+
+  it('TLV-10 in Hebrew: the same query fails the same way without גלידה', () => {
+    // 64% of the loaded index is Hebrew-named, so an English-only generic list is generic for a
+    // third of the data. This is why the Hebrew block exists, and it is the case that justifies it.
+    expect(distinctiveTokens('גלידה אניטה')).toEqual(['אניטה']);
+    const anita = nameScore('גלידה אניטה', 'אניטה');
+    const other = nameScore('גלידה אניטה', 'זוקה קפה וגלידה');
+    expect(anita.nameScore).toBeGreaterThan(other.nameScore);
+  });
+
+  it('keeps the Hebrew and English lists saying the same thing', () => {
+    // Every Hebrew entry is the translation of an entry that was already generic in English, so
+    // this is a symmetry check rather than a list of new judgements. A word added on one side only
+    // is the bug this catches.
+    for (const [he, en] of [
+      ['קפה', 'cafe'],
+      ['בר', 'bar'],
+      ['מסעדה', 'restaurant'],
+      ['בית', 'house'],
+      ['תל', 'tel'],
+      ['אביב', 'aviv'],
+      ['גלידה', 'gelato'],
+      ['פיצה', 'pizza'],
+      ['סושי', 'sushi'],
+      ['מאפייה', 'bakery'],
+    ] as const) {
+      expect(SCORING.generic.has(he), `${he} (${en}) is generic in English only`).toBe(true);
+      expect(SCORING.generic.has(en), `${en} is not generic`).toBe(true);
+    }
+    // Both current yod spellings, because `normalise()` does not unify them.
+    expect(SCORING.generic.has('מאפיה')).toBe(true);
+  });
+
+  it('keeps out the words that are somebodys whole identity', () => {
+    // `מזנון` is the Hebrew common noun for a canteen and it is also Miznon (TLV-05) — the exact
+    // case the admission rule refuses. `wine` is category vocabulary and still excluded, because
+    // NEG-03 ("that little wine bar near the market") would be left pointing at Sarona Market.
+    for (const word of ['מזנון', 'wine', 'falafel', 'פלאפל', 'חומוס']) {
+      expect(SCORING.generic.has(word), `${word} must not be generic`).toBe(false);
+    }
+    expect(distinctiveTokens('that little wine bar near the market')).toEqual(['wine', 'market']);
+  });
+
+  it('TLV-14: a 1.000 name match cannot be lost to a category bonus alone', () => {
+    // `Hostel 51` is filed `bar`; the real `Bar 51` is filed `restaurant`. The name scores are the
+    // measured ones from the live index. At 0.18 the bonus reversed them by 0.002; at 0.10 it
+    // cannot reverse a gap this size, and the general statement is the ceiling below.
+    const exact = SCORING.total.name * 1 + SCORING.total.category * 0 + SCORING.total.datasetConfidence * 1;
+    const bonus =
+      SCORING.total.name * 0.785 + SCORING.total.category * 1 + SCORING.total.datasetConfidence * 0.768;
+    expect(exact).toBeGreaterThan(bonus);
+
+    // The general form: a category agreement is worth this much name score, and no more.
+    const ceiling = SCORING.total.category / SCORING.total.name;
+    expect(ceiling).toBeLessThan(0.13);
+    expect(1 - 0.785).toBeGreaterThan(ceiling);
   });
 });
 
