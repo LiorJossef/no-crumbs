@@ -13,6 +13,92 @@
 > passing. Start there.
 
 ---
+> **Session of 2026-08-27 (third) — read this first.** `L1-F5-T2` "the map is the query" **shipped**
+> ([PR #37](https://github.com/LiorJossef/P-002/pull/37), six checks green, `main` verified). The
+> owner answered four of §9.2's seven questions. §9.1's build order below is now partly done — see
+> §0 for what changed and what is next. A new product direction is parked in §0.4.
+
+---
+
+## 0. What this session did
+
+### 0.1 Shipped: the map is the query (`L1-F5-T2`)
+
+The camera opens on **one cluster** instead of fitting all of them; the sheet and the desktop panel
+list **exactly what is in the viewport**, sorted nearest the centre first, under a header that names
+the area (`12 places in London`); and **tags and dishes are searchable** — `momos`, `natural wine`
+and `hidden gem` matched nothing before.
+
+`3 of 20` is retired everywhere and **the library total is displayed nowhere on `/map`**: with the
+viewport and the search both narrowing, a denominator is ambiguous, so the noun carries the meaning
+(`3 matches in London`).
+
+**Two pre-existing bugs surfaced, and the first one rewrites §9.1's diagnosis.** MapLibre measures
+its container once at construction, falls back to 400×300 when that measurement is empty, and never
+measures again. Measured live at 1280×720: container 1280×720, canvas 400×300, **zero vector tiles
+requested**, `loaded()` permanently false. The desktop `fitBounds` padding then exceeds the canvas
+width, so the initial fit is impossible, silently does nothing, and leaves `hasFramedOnce` set — the
+camera sits at zoom 0 over (0, 0) for the life of the page. **That is the world-map-with-two-bubbles
+symptom this document blamed on fitting all places at once.** Both causes were real; only one was
+recorded. Fixed with a `ResizeObserver` attached where the instance arrives (not at mount — mapcn
+hands the map over asynchronously) plus a re-fit. Second bug: `whenReady` waited on `load`, which
+never fires in that state; it now also listens for `styledata`.
+
+**Verified by using the product** at 1280×720 and 375×812 against the live library: camera opens on
+Tel Aviv with 6 individual pins and a cluster, `8 places in Tel Aviv-Yafo`; a real drag re-sorts the
+list; a pan gives `6 places in this area`; `momos` finds The Laughing Yak and settles on
+`1 match in London`; the mobile peek row reads correctly with pins clear of the sheet.
+
+`6 places in this area` is **correct, not a defect**: those six are 4 `Tel Aviv-Yafo` and 2
+`Tel Aviv` — 67%, under the 70% naming bar. `normalise()` cannot bridge those two spellings (they
+differ by a real word, not by formatting), so the threshold is what protects the label, and
+declining to name an area beats picking a spelling. Asserted in `tests/unit/ui/viewport.test.ts`.
+
+Specified in full in **`docs/ux-map-is-the-query.md`**, which also rules that `ux-architecture`
+§6.6.2's `Search this area` pill should **never be built** — its whole job was binding the list to
+the viewport on demand, and that binding is now permanent.
+
+### 0.2 Owner rulings, 2026-08-27 (four of §9.2's seven)
+
+1. **Manual add as *place search* is inside Charter §2** — same resolver, same provenance fields, not
+   the caption entry §2 forbids. **Deliberately not started**: only worth building as a real
+   place-search experience, not a name field and a Save button. `L1-F7-T1` is *in scope, not
+   started* — a different state from *blocked*, and it should not decay back into one.
+2. **Near-me promoted L2 → L1**, now `L1-F11` in `execution-plan.md`, depending on `L1-F5-T2`.
+3. **The five duplicate pairs stay** as the messy-state fixture. No backfill, no merge path, and the
+   75 m radius untouched.
+4. **~27% is not a permanent product position, and media ingestion is not reopened either.** The
+   priority is the caption pipeline being excellent and reliable end to end first. So `04` M9 stays
+   closed **and** the no-places copy must not be rewritten to defend ~27% — that would adopt the
+   position the owner declined.
+
+Still open, carried in §9.2: the grounding line, export, the TikTok data export.
+
+### 0.3 Left undone, deliberately
+
+- **Tag chips are still inert labels.** Only the search half of "make the chips do what they look
+  like they do" is built. Making a chip pressable is the remaining half.
+- **The empty-library screen exists but the import overlay does not auto-open over it**
+  (`ux-map-is-the-query.md` §5 item 2). Untested at 0 and 1 saved places — §9.3 asks for those
+  library shapes and this session only exercised 20.
+- **A brief flash of `No matches in this area`** while a search flight is in the air, before the
+  camera lands. Cosmetic, one debounce away.
+
+### 0.4 A product direction to consider — not a decision, not a workstream
+
+Owner, 2026-08-27, after seeing the viewport binding: **the map should not necessarily be the only
+way to scope and retrieve places.** The direction worth thinking about is places also being
+organised **automatically by geography** — saving a London place makes it part of a London
+view/collection — alongside **the user's own collections** and eventually **shared collections**,
+with search working *within* a city or collection as well as across the whole library.
+
+Recorded as a direction, not scheduled. Two things already in the repo bear on it: the coordinate
+clustering shipped this session is exactly the "automatic geography" primitive such a model needs
+(and it deliberately avoids the `locality` string, which is where a naive city grouping would break
+on `Tel Aviv` / `Tel Aviv-Yafo`); and Charter §1's no-social-graph stance is what shared collections
+would have to be weighed against. `mvp-plan.md` §8 currently files collections and sharing at L3.
+
+---
 
 ## 1. What the product does today
 
@@ -477,7 +563,18 @@ third party.
 
 ### 9.1 The build order
 
-1. **The map is the query.** The product's own shell is its weakest screen. The camera does
+**Step 1 shipped on 2026-08-27 — see §0.1.** It is kept below because its acceptance criteria (§9.3)
+are only *partly* discharged: the 0-place and 1-place library shapes were never exercised, and tag
+chips are still inert. Steps 2 and 3 are re-ordered by the owner's rulings in §0.2 — near-me (step 3)
+is now `L1-F11` in L1, and manual add (step 2) is in scope but deliberately not started until it can
+be a real place-search experience.
+
+**The next highest-impact step is now one of:** finishing §9.3's untested library shapes and the
+pressable tag chip (small, closes step 1 properly); `L1-F11` near-me (cheap now that the viewport
+binding exists, and the category-wide open goal); or the caption pipeline's reliability, which §0.2.4
+makes the standing priority. Production is still down and still owner-only (§5.1).
+
+1. ~~**The map is the query.**~~ **DONE.** The product's own shell is its weakest screen. The camera does
    `fitBounds` over *all* saved places, so London (12) + Tel Aviv (8) opens on a continental view of
    Europe and North Africa with **two cluster bubbles and no individual pins**; the collapsed sheet
    reads `20 places saved`. At zero places the fallback is `center: [0,20], zoom: 1` — a bare world
