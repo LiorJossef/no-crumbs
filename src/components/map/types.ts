@@ -117,5 +117,28 @@ export interface MapSurfaceProps {
    * [-180, 180]. Callers should test containment with MapLibre's `LngLatBounds.contains()` rather
    * than comparing raw numbers, per §1's antimeridian note.
    */
-  readonly onViewportChange?: (bounds: LatLngBoundsHint) => void;
+  readonly onViewportChange?: (bounds: LatLngBoundsHint, meta: ViewportChangeMeta) => void;
+}
+
+/**
+ * How the camera came to be where it is, reported alongside the rect.
+ *
+ * This exists because the caller must be able to tell a camera the *user* moved from one that moved
+ * itself, and there is no way to recover that after the fact. A `ResizeObserver` re-fit, the initial
+ * `fitBounds`, a flight to a selected pin and the post-import flight all emit exactly the same
+ * `moveend` as a drag does. Binding anything destructive to the undifferentiated event is what let
+ * `21 places in this area` become `9 places in this area` with nobody touching the map
+ * (`ui/place/active-area.ts`).
+ */
+export interface ViewportChangeMeta {
+  /**
+   * True only when the settled camera was **panned by the user** — a drag (pointer or touch,
+   * including its inertia) or a keyboard pan.
+   *
+   * Deliberately false for a zoom of any kind (wheel, pinch without a pan, double-click, the map's
+   * own zoom buttons) as well as for every programmatic move: zooming out until a second city is on
+   * screen must not hand the list to that city, which is a rule about meaning rather than about
+   * plumbing, so the surface answers it rather than leaving each caller to guess.
+   */
+  readonly userInitiated: boolean;
 }

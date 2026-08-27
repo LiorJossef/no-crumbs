@@ -316,6 +316,21 @@ export function MapSurfaceMapcn({
 
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  /**
+   * Whether a **user pan** has happened since the last report — the whole of `ViewportChangeMeta`.
+   *
+   * Set by `dragend`, which MapLibre fires only from its drag handlers and therefore only from a
+   * pointer, a touch or the keyboard's pan keys; no programmatic camera command produces one. That
+   * is what makes the guard structural rather than a rule someone has to remember: a
+   * `ResizeObserver` re-fit, the initial `fitBounds`, a flight to a pin and the post-import flight
+   * all emit `moveend`, and none of them emits `dragend`.
+   *
+   * Sticky across the debounce window on purpose: one flick emits `dragend` and then several
+   * `moveend`s as the inertia decays, and the single coalesced report has to still know a hand was
+   * on the glass.
+   */
+  const pannedSinceReport = useRef(false);
+
   /** Report the current query rect, now. Reads the breakpoint from `window.innerWidth` (the same
    *  width `PlaceDesktopPanel` switches on) but measures the rect in *canvas* pixels, which is what
    *  `unproject` speaks. */
@@ -340,7 +355,22 @@ export function MapSurfaceMapcn({
       height,
       mapOcclusionInsets(viewportWidth)
     );
-    if (rect) handler(rect);
+    // Consumed, not merely read: the flag describes the move being reported, and leaving it set
+    // would let the next programmatic re-fit inherit a gesture that already had its answer.
+    const userInitiated = pannedSinceReport.current;
+    pannedSinceReport.current = false;
+    if (rect) handler(rect, { userInitiated });
+  }, []);
+
+  /**
+   * A pan by the user, and the only thing in this file that may say so.
+   *
+   * `dragend` covers pointer drags, touch drags and their inertia; MapLibre's keyboard handler pans
+   * through the same drag machinery, so arrow keys arrive here too. A wheel or pinch **zoom** does
+   * not, which is deliberate — see `ViewportChangeMeta`.
+   */
+  const handleDragEnd = useCallback(() => {
+    pannedSinceReport.current = true;
   }, []);
 
   /** Trailing debounce (§4). One pinch or inertial flick emits several `moveend`s; the list must
@@ -385,6 +415,7 @@ export function MapSurfaceMapcn({
     (instance: MapLibreMap | null) => {
       const previous = mapRef.current;
       if (previous && previous !== instance) {
+        previous.off('dragend', handleDragEnd);
         previous.off('moveend', scheduleViewportReport);
         previous.off('resize', scheduleViewportReport);
         if (repaintPins.current) previous.off('styledata', repaintPins.current);
@@ -455,7 +486,9 @@ export function MapSurfaceMapcn({
       repaint();
       whenReady(instance, () => fitToBounds(instance));
       // `moveend` only — no `move`, no `render`, no rAF. `resize` too, because the insets are
-      // viewport-dependent: crossing `lg` changes which edge the chrome covers.
+      // viewport-dependent: crossing `lg` changes which edge the chrome covers. `dragend` carries
+      // no rect of its own; it only records that the move about to be reported was the user's.
+      instance.on('dragend', handleDragEnd);
       instance.on('moveend', scheduleViewportReport);
       instance.on('resize', scheduleViewportReport);
       // The first settle. Without this the caller holds no rect until the user touches the map,
@@ -464,7 +497,7 @@ export function MapSurfaceMapcn({
       // instead of producing a pre-fit rect and then a post-fit one.
       whenReady(instance, scheduleViewportReport);
     },
-    [fitToBounds, fitTo, scheduleViewportReport]
+    [fitToBounds, fitTo, scheduleViewportReport, handleDragEnd]
   );
 
   // Selection is a paint change on the map surface, not only a sheet/popover open: the selected

@@ -23,33 +23,26 @@ import { useRef } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
+  ClearSearchEscape,
+  ElsewhereSection,
   EMPTY_LIBRARY_HEADING,
   EmptyLibraryLine,
-  EmptyViewport,
   PlaceRow,
   PlaceSearchField,
 } from './place-sheet';
 import { ActiveTagFilter } from './place-enrichment';
-import { isSearchActive } from '@/domain/places/search';
-import type { ViewportHeading } from '@/ui/place/viewport';
+import type { AreaHeading, AreaRow } from '@/ui/place/active-area';
 import type { MapPlace } from '@/components/map/types';
 
 export interface PlaceDesktopPanelProps {
-  /** **What is inside the map's current viewport**, already narrowed by `query` and already sorted
-   *  nearest-the-centre-first by `map-page-client.tsx`. Rendered in the order given. */
+  /** The active area's places, already narrowed and ordered by `map-page-client.tsx`. */
   readonly places: readonly MapPlace[];
-  /** What this list says about itself — `12 places in London`. The same object the mobile sheet
-   *  gets, computed once upstream, so the two presentations can never disagree about the area or
-   *  the count. Rendered verbatim; this panel derives no string of its own. */
-  readonly heading: ViewportHeading;
-  /** Nothing saved, ever (§5) — a different screen, not a different string. */
+  /** The same object the mobile sheet gets, so the two presentations cannot disagree. */
+  readonly heading: AreaHeading;
+  readonly otherAreas: readonly AreaRow[];
+  readonly onSelectArea: (areaId: string) => void;
   readonly libraryIsEmpty: boolean;
-  /** A search is active and matches exist somewhere in the library, just not in view. */
-  readonly hasMatchesElsewhere: boolean;
-  /** Fit the cluster nearest the current viewport centre. */
-  readonly onShowNearest: () => void;
-  /** Fit every library-wide match for the current query. */
-  readonly onShowAllMatches: () => void;
+  readonly filtering: boolean;
   readonly query: string;
   readonly onQueryChange: (query: string) => void;
   /** The tag currently narrowing the library, or `null`. Same prop, same pill and same behaviour as
@@ -67,10 +60,10 @@ export interface PlaceDesktopPanelProps {
 export function PlaceDesktopPanel({
   places,
   heading,
+  otherAreas,
+  onSelectArea,
   libraryIsEmpty,
-  hasMatchesElsewhere,
-  onShowNearest,
-  onShowAllMatches,
+  filtering,
   query,
   onQueryChange,
   activeTag,
@@ -78,28 +71,12 @@ export function PlaceDesktopPanel({
   onAddTikTok,
   onSelect,
 }: PlaceDesktopPanelProps) {
-  const searchActive = isSearchActive(query);
-  // See `PlaceList` in `place-sheet.tsx`: either narrowing makes the empty viewport a "your matches
-  // are elsewhere" state rather than a "your library does not reach here" one.
-  const filtering = searchActive || activeTag !== null;
   const headingRef = useRef<HTMLHeadingElement>(null);
 
-  /**
-   * Focus lands on the heading after either escape (§7.2). Both move the camera, which replaces
-   * every row and unmounts the button that was just pressed; without this the user is left at the
-   * document root in front of a list they never asked for. `preventScroll` because the panel is
-   * already in view and a scroll here would only shift the list under the pointer.
-   */
-  const returnFocusToHeading = () => headingRef.current?.focus({ preventScroll: true });
-
-  const showNearest = () => {
-    onShowNearest();
-    returnFocusToHeading();
-  };
-
-  const showAllMatches = () => {
-    onShowAllMatches();
-    returnFocusToHeading();
+  /** Switching area replaces every row and unmounts the button that was pressed. */
+  const selectArea = (areaId: string) => {
+    onSelectArea(areaId);
+    headingRef.current?.focus({ preventScroll: true });
   };
 
   return (
@@ -134,23 +111,20 @@ export function PlaceDesktopPanel({
           {activeTag !== null && <ActiveTagFilter tag={activeTag} onClear={onClearTag} />}
         </div>
 
-        {libraryIsEmpty ? null : heading.empty ? (
-          <div className="mt-4 px-6">
-            <EmptyViewport
-              filtering={filtering}
-              searchActive={searchActive}
-              hasMatchesElsewhere={hasMatchesElsewhere}
-              onShowNearest={showNearest}
-              onShowAllMatches={showAllMatches}
-              onClearSearch={() => onQueryChange('')}
-            />
+        {libraryIsEmpty ? null : (
+          <div className="mt-4 min-h-0 flex-1 overflow-y-auto px-6 pb-6">
+            {heading.escape === 'clear-search' && (
+              <ClearSearchEscape onClearSearch={() => onQueryChange('')} />
+            )}
+            {!heading.empty && (
+              <ul>
+                {places.map((place) => (
+                  <PlaceRow key={place.id} place={place} onSelect={onSelect} />
+                ))}
+              </ul>
+            )}
+            <ElsewhereSection rows={otherAreas} filtering={filtering} onSelectArea={selectArea} />
           </div>
-        ) : (
-          <ul className="mt-4 min-h-0 flex-1 overflow-y-auto px-6 pb-6">
-            {places.map((place) => (
-              <PlaceRow key={place.id} place={place} onSelect={onSelect} />
-            ))}
-          </ul>
         )}
       </div>
     </div>
