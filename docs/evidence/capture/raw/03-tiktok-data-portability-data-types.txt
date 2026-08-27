@@ -1,0 +1,512 @@
+Data Types | TikTok for Developers
+Products
+Docs Support Blog Get started
+Developer Docs
+Login & Identity / ... / Data Types
+Search ⌘ K
+Login & Identity
+Overview
+Login Kit
+Data Portability API Get Started
+Data Portability FAQ
+Data Portability Application Guidelines
+API Reference Add Data Request
+Cancel Data Request
+Check Status of Data Request
+Download
+Data Types
+Login & Identity / Data Portability API / API Reference / Data Types Login & Identity / Data Portability API / API Reference / Data Types Last updated August 4, 2026
+Overview
+Categories of Data Posts and Profile
+Activity
+Direct Messages
+Full Archive
+On this page
+Data Types
+# Overview
+TikTok's Data Portability API allows users to designate your app to receive one-time or ongoing transfers of their data. Your app can request transfers of a user's full data archive to enable backup and synchronizing use cases, or request specific categories of data. This page will document the data types included in the exports, including an overview of the fields included in a full export.
+If you have any feedback on the categories of data provided by the Data Portability API, you can contact support .
+# Categories of Data
+Your app can request permission to transfer specific categories of data, or export the user's full data archive.
+# Posts and Profile
+Provides access to:
+A user's profile information, including their follower and following list
+The posts they've made on TikTok
+For Posts, we offer a URL that your app can access to download .mp4 or .jpg files, depending on the format of the post.
+Data included:
+Posts
+Category
+Fields
+Posts
+Date
+Posted Video Download Link
+Received Likes num
+Title
+Who can view
+Allow comments
+Allow stitches
+Allow duets
+Allow stickers
+Allow sharing to story
+Content disclosure
+AI-generated content
+Location
+Sound
+Add yours text
+Alternate text
+Number of Collections (only for photo post)
+Recently deleted posts
+Date
+Date Deleted
+Link
+Cover Image
+Like(s)
+Sound
+Title
+Add yours text
+Alternate text
+Profile and settings
+Category
+Fields
+Follower
+Date
+Username
+Autofill
+Phone Number
+Email
+Post/Zip Code
+First Name
+Last Name
+Address
+City
+Province/State
+Country
+Profile Information
+Profile Photo
+Profile Video
+Username
+Nickname
+Telephone Number
+Email Address
+Account Region
+Bio Description
+Birthdate
+Follower Count
+Following Count
+Self Declared Gender
+Like(s) Received
+Lemon8 Link (if applicable)
+AI Self
+Block List
+Date
+Username
+Following
+Date
+Username
+Settings
+Suggest your account to contacts
+Suggest your account to Facebook friends
+Suggest your account to people who open or send links to you: enabled
+Private Account
+Personalized Ads
+Who Can Post Comments
+Who can reuse content
+Who Can Send Me Message
+Who Can View Videos I Liked
+Allow Download
+Filter Comments
+Push Notification
+New Fans
+New Likes on My Video
+New Comments on My Video
+Desktop notification
+Language
+App Language
+Web Language
+Content Preferences
+Video Languages Preferences
+Interests
+Keyword filters for videos in For You feed
+Keyword filters for videos in Following feed
+# Activity
+Provides access to data about a user's activity on TikTok.
+Note : If data is not present for a given user, then that file or section will be empty or not present.
+Category
+Fields
+Ad Interests
+Ad Interest Categories
+Hashtag
+Hashtag Name
+Hashtag landing page Link
+Login History
+Date
+IP address
+Device Model
+Device System
+Network Type
+Carrier
+Off-TikTok Activity
+Date
+Source
+Event
+Purchases
+Send Gifts History (Date, Price)
+Buy Gifts History (Date, Price)
+Searches
+Date
+Search Term
+Share History
+Date
+Shared Content
+Link
+Method
+Status
+Screen Resolution
+App Version
+IDFA
+GAID
+Android ID
+IDFV
+Web ID
+Watch History
+Date
+Video landing page link
+# Direct Messages
+Provides access to the user's direct message history on TikTok.
+Category
+Fields
+Chat History
+Date
+From
+Content
+# Full Archive
+The full data archive contains further categories of data. TikTok may launch new features from time to time, and we'll do our best to keep this documentation up to date.
+Not all features are available in all regions. If a feature isn't live for a user, or a user doesn't have data, then the relevant file may be empty or missing from the archive.
+Data category
+Category
+Field
+Profile and Settings
+Follower
+Date
+Username
+Autofill
+Phone Number
+Email
+Post/Zip Code
+First Name
+Last Name
+Address
+City
+Province/State
+Country
+Profile Information
+Profile Photo
+Profile Video
+Username
+Nickname
+Telephone Number
+Email Address
+Account Region
+Bio Description
+Birthdate
+Follower Count
+Following Count
+Self Declared Gender
+Like(s) Received
+Lemon8 Link (if applicable)
+AI Self
+Block List
+Date
+Username
+Following
+Date
+Username
+Settings
+Suggest your account to contacts
+Suggest your account to Facebook friends
+Suggest your account to people who open or send links to you: enabled
+Private Account
+Personalized Ads
+Who Can Post Comments
+Who can reuse content
+Who Can Send Me Message
+Who Can View Videos I Liked
+Allow Download
+Filter Comments
+Push Notification
+New Fans
+New Likes on My Video
+New Comments on My Video
+Desktop notification
+Language
+App Language
+Web Language
+Content Preferences
+Video Languages Preferences
+Interests
+Keyword filters for videos in For You feed
+Keyword filters for videos in Following feed
+Direct Messages
+Direct Messages
+Date
+From
+Content
+Likes and Favourites
+Favorite Hashtags
+Date
+Hashtag landing page link
+Favorite Effects
+Date
+Effect landing page link
+Like List
+Date
+Video landing page link
+Favorite Sounds
+Date
+Sounds landing page link
+Favourite Videos
+Date
+Video landing page link
+Your Activity
+Ad Interests
+Ad Interest Categories
+Hashtag
+Hashtag Name
+Hashtag landing page Link
+Login History
+Date
+IP address
+Device Model
+Device System
+Network Type
+Carrier
+Off-TikTok Activity
+Date
+Source
+Event
+Purchases
+Send Gifts History (Date, Price)
+Buy Gifts History (Date, Price)
+Searches
+Date
+Search Term
+Share History
+Date
+Shared Content
+Link
+Method
+Status
+Screen Resolution
+App Version
+IDFA
+GAID
+Android ID
+IDFV
+Web ID
+Watch History
+Date
+Video landing page link
+Posts
+Posts
+Date
+Posted Video Download Link
+Received Likes num
+Title
+Who can view
+Allow comments
+Allow stitches
+Allow duets
+Allow stickers
+Allow sharing to story
+Content disclosure
+AI-generated content
+Location
+Sound
+Add yours text
+Alternate text
+Number of Collections (only for photo post)
+Recently Deleted Posts
+Date
+Date Deleted
+Link
+Cover Image
+Like(s)
+Sound
+Title
+Add yours text
+Alternate text
+Location Reviews
+Location Reviews
+Location name
+Date and time of review created
+Review content
+Review status
+Review interactions
+Comments
+Comments
+Date
+Comment content
+TikTok Shop
+Communication with shops
+Shop name
+{[ConversationTimestamp] Speaker: Detailed Content}
+Current payment information
+Linked credit card
+Linked date
+Card number (last 4 digits)
+Card type (card association)
+Expiry date
+Cardholder's name
+Customer support history
+Request date
+Request number
+Topic
+Description
+Attachment download links
+Order Dispute history
+Request date
+Request number
+Order number
+Issue type
+Description
+Attachment download links
+Order History
+Order date
+Order number
+Product information: {Name(title, parameter)/Quantity}
+Total price (including shipping fee)
+Customer note
+Order status
+Receiver's name
+Receiver's phone number (partially masked)
+Receiver's address
+Fulfillment logistics provider
+Fulfillment logistics tracking number
+Product Browsing History
+Browsing date
+Product name
+Shop name
+Product Reviews
+Post date
+Order number
+Product information: {Name(title, parameter)}
+Shop name
+Reviews
+Returns and refunds history (Refunds and Return&Refund)
+For Request Type = only refund :
+Request date
+Request number
+Order number
+Request type: Only refund
+Reasons
+Customer Note
+Customer note attachment (Download link)
+Refund amount
+Refund method: Card Association type (last 4-digit)
+Request status
+For Request Type = Return and Refund :
+Request date
+Request number
+Order number
+Request type: Return and Refund
+Returns logistics provider
+Returns logistics tracking number
+Reasons
+Customer note
+Customer note attachment (Download link)
+Refund amount
+Refund method: Card Association type (last 4-digits)
+Request status
+Saved address information
+Name
+Phone number (partially masked)
+Address
+Shopping cart list
+Creation date
+Product information: {Name(title)/Quantity}
+Shop name
+Vouchers
+Date received
+Voucher ID
+Voucher name
+Discount details
+Voucher status
+TikTok LIVE
+Go LIVE History
+(different ROOM ID is separated by dash)
+(Only Hosts will have this file)
+LIVE Duration: start time - end time (duration mins)
+Room ID
+LIVE Cover
+LIVE Title
+Video Quality Settings
+Replay Videos (download link)
+Total Views
+Total Gifters
+Total Earnings
+Total Likes Received
+Fully Muted Accounts in this LIVE: Mute Time/Username
+GO LIVE settings
+LIVE Moderators
+LIVE Gifts Settings
+Rankings Settings
+LIVE Comments Settings
+Filter Spam or Offensive Comments Settings
+Comment Keyword Filter
+Q&A Settings
+Allow Co-host Invites Settings
+Allow Invites from Suggested LIVE Hosts
+Allow Guest Request Settings
+Agency Invitation Settings
+Watch LIVE History
+Watch LIVE History (inc. LIVE list, comments list, Q&A list)
+Watch LIVE settings
+LIVE video quality web settings
+LIVE video quality app settings
+LiveStream Comment
+First Watch Time
+Comment Time
+Comment
+Room ID
+Income and Wallet
+Transaction History
+Transaction_type: Earnings
+Date& Time: 2024-06-01 12:31:34
+Currency: USD
+Amount: 100
+Status: complete
+Transaction_ID: 742923750213754930357
+others e.g.: {"source":"creator fund", "cash out type":"paypal"}
+Was this document helpful?
+On this page
+Overview
+Categories of Data Posts and Profile
+Activity
+Direct Messages
+Full Archive
+Overview
+Products
+Share Kit
+Login Kit
+Content Posting API
+Research API
+Display API
+Embed Videos
+Data Portability API
+Green Screen Kit
+Commercial Content API
+Other platforms
+TikTok Embeds
+TikTok for Business
+Advertise on TikTok
+TikTok Creative Center
+TikTok.com
+Policy Center
+Company
+About TikTok
+Newsroom
+Contact
+Careers
+ByteDance
+Transparency Center
+© 2026 TikTok Terms of Service Privacy Policy Resources & Legal

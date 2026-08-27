@@ -26,3 +26,9 @@ test-results/
 .supabase/
 .DS_Store
 tests/manual/.shots/
+
+# competitor research kept out of the repository by owner ruling (2026-08-27). The raw crawl of a
+# competitor's site, bundle and store listings is working material, not a project artefact, and one
+# of the sites' robots.txt asks agents not to fetch it — so it stays on the machine that gathered
+# it. The FINDINGS that survived review live in docs/current-state.md; only the raw material is here.
+docs/evidence/.local/

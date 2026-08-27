@@ -1,0 +1,92 @@
+# Web Share Target support — machine-readable sources, fetched 2026-08-27
+
+## A. MDN browser-compat-data, manifests/webapp/share_target.json
+# https://raw.githubusercontent.com/mdn/browser-compat-data/main/manifests/webapp/share_target.json
+# repo HEAD at fetch time: b6e8a03804 (2026-08-27T13:07:30Z)
+{
+  "manifests": {
+    "webapp": {
+      "share_target": {
+        "__compat": {
+          "mdn_url": "https://developer.mozilla.org/docs/Web/Progressive_web_apps/Manifest/Reference/share_target",
+          "spec_url": "https://w3c.github.io/web-share-target/#share_target-member",
+          "tags": [
+            "web-features:app-share-targets"
+          ],
+          "support": {
+            "chrome": {
+              "version_added": "89"
+            },
+            "chrome_android": {
+              "version_added": "76"
+            },
+            "edge": "mirror",
+            "firefox": {
+              "version_added": false,
+              "impl_url": "https://bugzil.la/1476515"
+            },
+            "firefox_android": {
+              "version_added": false,
+              "notes": "The property parses, but has no effect."
+            },
+            "oculus": "mirror",
+            "opera": {
+              "version_added": "76"
+            },
+            "opera_android": {
+              "version_added": "63"
+            },
+            "safari": {
+              "version_added": false,
+              "impl_url": "https://webkit.org/b/194593"
+            },
+            "safari_ios": "mirror",
+            "samsunginternet_android": "mirror",
+            "webview_android": {
+              "version_added": false
+            },
+            "webview_ios": "mirror"
+          },
+          "status": {
+            "experimental": true,
+            "standard_track": true,
+            "deprecated": false
+          }
+        }
+      }
+    }
+  }
+}
+
+## B. WebKit's own manifest parser, main branch, 2026-08-27
+# https://raw.githubusercontent.com/WebKit/WebKit/main/Source/WebCore/Modules/applicationmanifest/ApplicationManifestParser.cpp
+$ grep -ic share ApplicationManifestParser.cpp
+0
+# Manifest members WebKit actually parses:
+parseCategories( parseColor( parseDescription( parseDir( parseDisplay( parseGenericString( parseIcons( parseId( parseJSON( parseLang( parseManifest( parseName( parseOrientation( parseScope( parseShortName( parseShortcuts( parseStartURL( parseWithValidation( 
+
+## C. WebKit standards-positions summary.json, entry for Web Share Target API
+{
+  "id": "https://github.com/WebKit/standards-positions/issues/11",
+  "position": "neutral",
+  "venues": [
+    "Other"
+  ],
+  "concerns": [
+    "security",
+    "integration"
+  ],
+  "topics": [
+    "web apis",
+    "app-like capabilities"
+  ],
+  "title": "Web Share Target API",
+  "url": "https://w3c.github.io/web-share-target/",
+  "github": "https://github.com/w3c/web-share-target",
+  "issues": null,
+  "explainer": null,
+  "tag": null,
+  "mozilla": "https://github.com/mozilla/standards-positions/issues/176",
+  "bugzilla": "https://bugs.webkit.org/show_bug.cgi?id=194593",
+  "radar": null
+}
