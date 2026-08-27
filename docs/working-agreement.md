@@ -31,11 +31,38 @@ Concretely, without being asked:
 production-quality change that materially improves the product; ownership is not a licence to
 over-engineer.
 
-Use the specialists in `.claude/agents/` where their expertise genuinely helps. Delegate
-investigation and review, synthesise the findings, then **continue executing**. Specialists exist to
-move the product, not to produce reports.
+Use the specialists in `.claude/agents/` where their expertise genuinely helps. They are a delivery
+team, not a review panel: **Build** agents write production code and its tests, **Probe** agents
+produce evidence, **Advise** agents rule and specify (`01-agent-roster.md`). Delegate the work,
+integrate it, verify it, then **continue executing**. Specialists exist to move the product, not to
+produce reports.
 
-### 1.1 Delegation must be observable — owner ruling, 2026-08-26
+### 1.1 Check for a specialist before doing the work yourself — owner ruling, 2026-08-27
+
+**Before starting meaningful work, check whether a local specialist in `.claude/agents/` covers the
+domain. Where there is a genuine match, use the specialist rather than defaulting to doing it
+yourself.** Doing it yourself is no longer the automatic path; it is a choice you make when no agent
+fits, and one you should be able to justify.
+
+"Meaningful" is the filter, and it cuts both ways:
+
+- **Delegate** a feature, a migration, an investigation with a real question, a UI surface, an
+  adversarial verification, a benchmark — anything where a specialist's mandate and paths match the
+  work.
+- **Do not delegate** a one-line fix, a rename, reading a file to answer a question, a command you
+  are about to run anyway, or anything where the round-trip costs more than the work. Do not
+  delegate to have something to disclose, and do not push work into an agent that you would
+  genuinely do better yourself — consistency across many files is a common case of this.
+
+**You remain responsible for orchestration, integration, judgement and final verification.** A
+specialist's output is input to your judgement, never a verdict, and never a substitute for the §2
+bar. You decide what evidence a task needs, ensure that evidence is independent, inspect it, and
+make the done/not-done call. Delegating the work never delegates the accountability.
+
+When no specialist fits and you do the work yourself, **say that you checked** — the same sentence
+that would have disclosed a delegation. Silence should mean "no domain match", not "did not look".
+
+### 1.2 Delegation must be observable — owner ruling, 2026-08-26
 
 A subagent's work reaches the owner as your work. That is fine, but it must not be *invisible*: a
 finding, a design call or a diff that came from a specialist reads exactly like one you produced

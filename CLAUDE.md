@@ -79,7 +79,14 @@ delegates; every handoff routes back through you, and you serialise agents whose
 `docs/agent-guardrails.md` lists what a specialist must never do — commits, merges, deploys, hosted
 migration pushes and destructive database operations stay with you.
 
-**When you use one, say so** (owner ruling, 2026-08-26, `working-agreement.md` §1.1): what you
+**Check for a specialist before doing meaningful work yourself** (owner ruling, 2026-08-27,
+`working-agreement.md` §1.1). Where a local agent genuinely matches the domain, use it rather than
+defaulting to doing the work yourself. Not for trivia — a one-line fix, a rename, a file you are
+reading anyway — and never performatively. **You keep orchestration, integration, judgement and
+final verification**; delegating work never delegates accountability. When nothing fits and you do
+it yourself, say you checked.
+
+**When you use one, say so** (owner ruling, 2026-08-26, `working-agreement.md` §1.2): what you
 delegated, which agent, whether it wrote code or only investigated, and how its output changed the
 result — including where you disagreed with it. Transparency, not a quota: never delegate
 performatively, and a session that used no specialists just says that.
