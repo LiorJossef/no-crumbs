@@ -55,6 +55,26 @@
  * the extractor itself (`EXTRACTOR_UNAVAILABLE`, `EXTRACTOR_INVALID_OUTPUT`) is handled by the
  * exact same catch block as a source-adapter failure — one error shape, one honest path, whatever
  * stage threw it.
+ *
+ * Failure handling (`current-state.md` §3.5, fixed here). What the payload carries is unchanged —
+ * a code and two booleans — but three things around it were dishonest and are not any more:
+ *
+ *  - **The code.** A malformed body and a missing `url` were reported as `INTERNAL,
+ *    retryable: true`: our bug, and a promise that retrying the identical bad request might work.
+ *    They are `MALFORMED_URL` now, which is not retryable, because they are not retryable.
+ *  - **The status.** Every failure was HTTP 502 — "the upstream is broken" — including a
+ *    `NO_CAPTION`, which means we read the post perfectly and it has no caption.
+ *    `_lib/error-reporting.ts` maps each of the 14 codes to a status that says whose fault it was,
+ *    and a 500 is now reachable only through `INTERNAL`.
+ *  - **The cause.** `internal(String(e), e)` built a message and a `cause` that `toView()`
+ *    correctly strips and that nothing ever logged, so the one thing that could answer "why?" was
+ *    discarded on every failure. There is one structured `console.error` line per failure now
+ *    (`07` §7.1's shape), carrying the code, our own message and a sanitised cause — and never a
+ *    caption or a coordinate (charter R9).
+ *
+ * The `imports` row is also stamped `status='failed'` with its `error_code` when the request had
+ * opened one, which is what `imports_failed_implies_code` (0003) was written for and what nothing
+ * had ever written. Best-effort: a failed bookkeeping write never changes the response.
  */
 import { createHash } from 'node:crypto';
 
@@ -68,7 +88,21 @@ import { createPlaceExtractor } from '@/integrations/llm/place-extractor-factory
 import { canonicaliseTikTokUrl } from '@/domain/source/canonicalise-tiktok-url';
 import { filterPlausible } from '@/domain/extraction/plausibility';
 import { RawPlaceCandidateSchema, toPlaceCandidate } from '@/domain/extraction/schema';
-import { DomainError, internal, notAuthenticated } from '@/domain/errors';
+import {
+  DomainError,
+  internal,
+  malformedUrl,
+  notAuthenticated,
+  type DomainErrorCode,
+} from '@/domain/errors';
+import {
+  describeCause,
+  httpStatusFor,
+  importFailureLogLine,
+  importRowStage,
+  logSeverityFor,
+  type ImportFailureStage,
+} from '@/app/api/imports/_lib/error-reporting';
 import { z } from 'zod';
 import type { OpCtx } from '@/domain/ports';
 import type { PlaceCandidate } from '@/domain/types';
@@ -231,6 +265,11 @@ async function advanceImport(
     .from('imports')
     .update({
       status: input.candidateCount > 0 ? 'review' : 'no_places',
+      // Cleared, not left alone. `start_import` counts `failed` as an *open* import (0007's
+      // `c_open`), so a re-paste after a failure adopts the very row the failure handler stamped —
+      // and a row reading `status='review'` beside a stale `error_code` would misreport a
+      // succeeded import as a failed one in every audit query.
+      error_code: null,
       // `imports_stage_check` allows source/extract/resolve/done. This path genuinely stops after
       // extraction — there is no resolver on it — so `extract` is the truthful stage, and claiming
       // `done` here would misreport a pending confirmation as a finished import.
@@ -244,21 +283,122 @@ async function advanceImport(
     .eq('id', importId);
 }
 
+/**
+ * Moves the `imports` row this request opened to its terminal failure state.
+ *
+ * `imports_failed_implies_code` (migration `0003`) has required `error_code` on a `failed` row
+ * since the schema was written, and until now nothing on this route ever wrote one: a failed
+ * import was left sitting at `status='processing'` until `expires_at` swept it, so the audit
+ * record `07` §7.1 calls for was missing exactly the rows it was designed for.
+ *
+ * Best-effort in the strong sense — wrapped in its own `try`, because this runs *inside* the
+ * route's catch block and a throw here would replace an honest error response with an unhandled
+ * exception. A failed bookkeeping write is logged and otherwise invisible to the caller.
+ */
+async function failImport(
+  db: SupabaseClient,
+  importId: string,
+  input: { readonly code: DomainErrorCode; readonly stage: ImportFailureStage },
+): Promise<void> {
+  try {
+    const { error } = await db
+      .from('imports')
+      .update({ status: 'failed', error_code: input.code, stage: importRowStage(input.stage) })
+      .eq('id', importId);
+    if (error !== null) {
+      console.error(
+        JSON.stringify({
+          event: 'import.bookkeeping',
+          outcome: 'failed',
+          importId,
+          cause: describeCause(error),
+        }),
+      );
+    }
+  } catch (e) {
+    console.error(
+      JSON.stringify({
+        event: 'import.bookkeeping',
+        outcome: 'failed',
+        importId,
+        cause: describeCause(e),
+      }),
+    );
+  }
+}
+
+/**
+ * The one place this route turns a failure into a response, and the fix for
+ * `current-state.md` §3.5.
+ *
+ * Three things happen here and they are deliberately separate:
+ *
+ *  1. **The client gets a code and two booleans** (`toView()`), never a message, a cause, a vendor
+ *     string or a stack. That invariant (`07` §9) is unchanged — making an error honest means
+ *     choosing the right *code*, never widening the payload.
+ *  2. **The server log gets everything else**, in `07` §7.1's shape. `internal(String(e), e)` used
+ *     to build a message and a `cause` that `toView()` then correctly discarded and nobody ever
+ *     read; on 2026-08-26 that turned a service-role misconfiguration into an on-screen
+ *     "COULDN'T READ THAT TIKTOK / INTERNAL" pointing at TikTok, the model and the network, none of
+ *     which were the cause.
+ *  3. **The status stops lying.** Every failure used to be HTTP 502 — "the upstream is broken" —
+ *     including a malformed request body and a post that simply has no caption.
+ */
+function failureResponse(input: {
+  readonly error: DomainError;
+  readonly importId: string | null;
+  readonly videoId: string | null;
+  readonly stage: ImportFailureStage;
+  readonly ms: number;
+  readonly aborted?: boolean;
+}): NextResponse {
+  // One line, `JSON.stringify`d rather than passed as an object, so a log drain sees a single
+  // parseable record and groups it by `importId` (`07` §7.1) instead of a multi-line dump.
+  //
+  // Severity is the code's own, not a blanket `error`: `07` §7.1 reserves "page a human" for
+  // `INTERNAL`, and that reservation is worthless if a mistyped link and a logged-out request land
+  // in the same Vercel bucket as a service-role misconfiguration. 5xx (ours, or a dependency's) is
+  // an error; 4xx (the caller's request) is a warning. Neither is silenced.
+  const line = JSON.stringify(importFailureLogLine(input));
+  // An abort is never an alarm, whatever code the aborted work happened to raise on its way out.
+  if (input.aborted !== true && logSeverityFor(input.error.code) === 'error') console.error(line);
+  else console.warn(line);
+  // `toView()` with no argument. `DomainErrorView` does have an optional `importId`, but its type
+  // is the branded `ImportId` and what this route holds is a raw PostgREST uuid string — casting
+  // one into the other would defeat the brand for a field the current UI does not read. The
+  // correlation id lives in the log line above, which is where `07` §7.1 puts it.
+  return NextResponse.json({ error: input.error.toView() }, { status: httpStatusFor(input.error.code) });
+}
+
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  const startedAt = Date.now();
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
+  /** Everything a failure needs to describe itself, filled in as the request learns it. Declared
+   *  here so the catch block below can report *where* it got to rather than guessing. */
+  let importId: string | null = null;
+  let videoId: string | null = null;
+  let stage: ImportFailureStage = 'request';
+
+  const fail = (error: DomainError, aborted = false): NextResponse =>
+    failureResponse({ error, importId, videoId, stage, ms: Date.now() - startedAt, aborted });
+
   if (!user) {
-    return NextResponse.json({ error: notAuthenticated().toView() }, { status: 401 });
+    return fail(notAuthenticated());
   }
 
   let body: unknown;
   try {
     body = await req.json();
   } catch (e) {
-    return NextResponse.json({ error: internal('Invalid JSON body', e).toView() }, { status: 400 });
+    // Not `INTERNAL`: a body we cannot parse is the caller's mistake, not our bug, and re-sending
+    // the identical bytes fails identically — so `retryable: true` was a straight lie. The closed
+    // 14-code set (`07` §9) has no "bad request envelope" member; `MALFORMED_URL` is the honest
+    // one, because from the caller's side what happened is that no usable link arrived.
+    return fail(malformedUrl('request body was not valid JSON', e));
   }
 
   const url =
@@ -267,17 +407,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       : null;
 
   if (url === null) {
-    return NextResponse.json({ error: internal('Missing url').toView() }, { status: 400 });
+    return fail(malformedUrl('request body had no "url" string'));
   }
 
   // Server-side re-validation — the SSRF-relevant allow-list check (04 §2/§7). Never trust the
   // client's own canonicalisation for the network hop this route is about to make.
   const canonicalised = canonicaliseTikTokUrl(url);
   if (!canonicalised.ok) {
-    return NextResponse.json(
-      { error: canonicalised.error.toView() },
-      { status: 422 },
-    );
+    // Was a blanket 422 for all four canonicaliser codes; now each gets its own status from the
+    // one map, so `MALFORMED_URL` is a 400 and the rest stay 422.
+    return fail(canonicalised.error);
   }
 
   const ctx = noopCtx(req.signal);
@@ -285,10 +424,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const source = oembedSourceAdapter(db);
 
   try {
+    stage = 'source';
     const externalId =
       canonicalised.value.kind === 'video'
         ? canonicalised.value.externalId
         : (await source.resolveShortLink(canonicalised.value, ctx)).externalId;
+    videoId = externalId;
 
     // `save_place`'s own RLS boundary (`sps_insert_own`, 0006) requires a matching `imports` row
     // before it will let this user's session attach a source to a saved place — "the source must
@@ -314,6 +455,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (startRow === null) {
       throw internal('start_import returned no row');
     }
+    // From here on a failure has a row to stamp. Before it, there is genuinely nothing to write —
+    // `failImport` is skipped rather than fabricating an import that never opened.
+    importId = startRow.import_id;
 
     const sourceStartedAt = Date.now();
     const raw = await source.fetch(externalId, ctx);
@@ -330,6 +474,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const captionHash = caption === null ? null : sha256(caption);
 
     if (caption !== null) {
+      stage = 'extract';
       const extractor = createPlaceExtractor({
         ...(process.env.LLM_PROVIDER !== undefined ? { LLM_PROVIDER: process.env.LLM_PROVIDER } : {}),
         ...(process.env.ANTHROPIC_API_KEY !== undefined ? { ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY } : {}),
@@ -399,7 +544,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       candidates,
     });
   } catch (e) {
-    const domainError = e instanceof DomainError ? e : internal(String(e), e);
-    return NextResponse.json({ error: domainError.toView() }, { status: 502 });
+    // `String(e)` as the message was the old shape; the cause is kept as a real `cause` now and
+    // sanitised on the way into the log rather than flattened at the throw site.
+    const domainError = e instanceof DomainError ? e : internal('unhandled exception in probe route', e);
+
+    // The caller went away. Whatever the aborted work threw on its way out describes the abort's
+    // side effect, not a fault: an aborted `fetch` surfaces as `UPSTREAM_TIMEOUT`, so stamping the
+    // row with it would file every user `Cancel` as a TikTok outage — a lie of exactly the kind
+    // this route was just fixed to stop telling, written into the audit record rather than the
+    // response. The closed 14-code set (`07` §9) has no member for "the caller left", and a call
+    // site does not get to invent one, so the honest move is to record nothing: the row stays
+    // `processing` and `expires_at` sweeps it, which is already what an abandoned tab does. Tidier
+    // would be to write *a* code; none of them would be true.
+    const aborted = req.signal.aborted;
+    if (importId !== null && !aborted) {
+      await failImport(db, importId, { code: domainError.code, stage });
+    }
+    return fail(domainError, aborted);
   }
 }

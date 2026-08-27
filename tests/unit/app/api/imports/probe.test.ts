@@ -9,7 +9,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
-import { extractorUnavailable } from '@/domain/errors';
+import { extractorUnavailable, noCaption } from '@/domain/errors';
 import type { PlaceCandidate } from '@/domain/types';
 
 const VIDEO_URL = 'https://www.tiktok.com/@tlv.eats/video/7123456789012345678';
@@ -130,10 +130,10 @@ vi.mock('@/integrations/llm/place-extractor-factory', () => ({
   createPlaceExtractor: () => ({ version: 'fake', promptVersion: 'fake', extract: extractMock }),
 }));
 
-function postProbe(): Promise<Response> {
+function postProbe(rawBody?: string): Promise<Response> {
   const req = new NextRequest('http://localhost/api/imports/probe', {
     method: 'POST',
-    body: JSON.stringify({ url: VIDEO_URL }),
+    body: rawBody ?? JSON.stringify({ url: VIDEO_URL }),
     headers: { 'Content-Type': 'application/json' },
   });
   return import('@/app/api/imports/probe/route').then(({ POST }) => POST(req));
@@ -378,5 +378,133 @@ describe('POST /api/imports/probe — extraction branch', () => {
       expect(res.status).toBe(200);
       expect(extractMock).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+/**
+ * FIX-ERR-T1 — the request-boundary and failure-path half of `current-state.md` §3.5.
+ *
+ * Before this, *every* failure this route could produce came back as `INTERNAL, retryable: true`
+ * with HTTP 502, and the actual cause was put into a `DomainError` message and `cause` that
+ * `toView()` strips and nothing logged. On 2026-08-26 that presented a service-role
+ * misconfiguration on screen as "COULDN'T READ THAT TIKTOK / INTERNAL", pointing at TikTok, the
+ * model and the network — none of which were the cause.
+ */
+describe('POST /api/imports/probe — honest failures', () => {
+  beforeEach(resetPersisted);
+
+  it('reports a malformed body as the caller’s fault, and not as retryable', async () => {
+    const res = await postProbe('{ not json');
+    const body = (await res.json()) as { error: { code: string; retryable: boolean } };
+
+    expect(res.status).toBe(400);
+    expect(body.error.code).toBe('MALFORMED_URL');
+    // The old `retryable: true` was a straight lie: re-sending the identical bytes fails
+    // identically.
+    expect(body.error.retryable).toBe(false);
+  });
+
+  it('reports a body with no url the same way', async () => {
+    const res = await postProbe(JSON.stringify({ notUrl: 1 }));
+    const body = (await res.json()) as { error: { code: string; retryable: boolean } };
+
+    expect(res.status).toBe(400);
+    expect(body.error.code).toBe('MALFORMED_URL');
+    expect(body.error.retryable).toBe(false);
+  });
+
+  it('keeps the canonicaliser’s own codes and gives each its own status', async () => {
+    const res = await postProbe(JSON.stringify({ url: 'https://example.com/video/1' }));
+    const body = (await res.json()) as { error: { code: string } };
+
+    expect(res.status).toBe(422);
+    expect(body.error.code).toBe('UNSUPPORTED_HOST');
+  });
+
+  it('does not report a caption-less post as a broken upstream', async () => {
+    // NO_CAPTION used to come back as 502 — "the upstream is broken" — when in fact we read the
+    // post perfectly and it simply has no caption. Thrown from the content extractor, which is
+    // where `07` §9 says this code originates (the A/B seam).
+    captionExtractMock.mockRejectedValueOnce(noCaption());
+
+    const res = await postProbe();
+    const body = (await res.json()) as { error: { code: string; retryable: boolean } };
+
+    expect(res.status).toBe(422);
+    expect(body.error.code).toBe('NO_CAPTION');
+    expect(body.error.retryable).toBe(false);
+  });
+
+  it('stamps the imports row it opened as failed, with the error code', async () => {
+    extractMock.mockRejectedValueOnce(extractorUnavailable('extractor unreachable'));
+
+    await postProbe();
+
+    // `imports_failed_implies_code` (0003) has required this pairing since the schema was written
+    // and nothing had ever written it: a failed import used to sit at `processing` until
+    // `expires_at` swept it.
+    expect(persisted.importUpdates).toHaveLength(1);
+    const update = persisted.importUpdates[0]!;
+    expect(update.status).toBe('failed');
+    expect(update.error_code).toBe('EXTRACTOR_UNAVAILABLE');
+    // `imports_stage_check` allows source/extract/resolve/done — never 'request'.
+    expect(['source', 'extract']).toContain(update.stage);
+  });
+
+  it('clears a stale error_code when a later attempt succeeds', async () => {
+    // `start_import` treats `failed` as an *open* import, so a re-paste after a failure adopts the
+    // stamped row. Leaving the old code on it would misreport a succeeded import in every audit
+    // query.
+    extractMock.mockResolvedValueOnce({ candidates: [], cityHint: null });
+
+    await postProbe();
+
+    expect(persisted.importUpdates[0]?.status).toBe('no_places');
+    expect(persisted.importUpdates[0]?.error_code).toBeNull();
+  });
+
+  it('logs the real cause server-side, and never puts it in the response', async () => {
+    const logged: string[] = [];
+    const spy = vi.spyOn(console, 'error').mockImplementation((line: unknown) => {
+      logged.push(String(line));
+    });
+    try {
+      extractMock.mockRejectedValueOnce(new Error('ANTHROPIC_API_KEY is not set'));
+
+      const res = await postProbe();
+      const body = (await res.json()) as Record<string, unknown>;
+
+      expect(res.status).toBe(500);
+      // The wire format stays a code and two booleans — no message, no detail, no env var name.
+      expect(body).toEqual({ error: { code: 'INTERNAL', retryable: true } });
+      expect(JSON.stringify(body)).not.toContain('ANTHROPIC');
+
+      const failureLine = logged
+        .map((line) => {
+          try {
+            return JSON.parse(line) as Record<string, unknown>;
+          } catch {
+            return null;
+          }
+        })
+        .find((parsed) => parsed?.event === 'import.stage');
+
+      expect(failureLine).toBeDefined();
+      expect(failureLine).toMatchObject({
+        outcome: 'failed',
+        code: 'INTERNAL',
+        status: 500,
+        importId: 'imp-1',
+        videoId: FAKE_RAW_SOURCE.externalId,
+        stage: 'extract',
+      });
+      // The one thing that would have answered "why?" on 2026-08-26, and which the response is
+      // not allowed to carry.
+      expect(String(failureLine?.cause)).toContain('ANTHROPIC_API_KEY is not set');
+      // Never the caption (charter R9) — the fixture caption is the canary.
+      expect(JSON.stringify(failureLine)).not.toContain('sourdough');
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
