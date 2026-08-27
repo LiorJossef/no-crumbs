@@ -5,6 +5,12 @@
 >
 > This session rewrote the file rather than appending to it. Everything still true was kept;
 > narrative that had stopped earning its place was dropped. The previous version is in git history.
+>
+> **Session of 2026-08-27 (second half) added:** §2.1 (PR #35 landed, and the constraint-mode trap
+> that nearly stopped it), §5.8 (a quarter of the library is phantom, measured), §5b (the mio travel
+> competitive read, and one corrected platform label), and a rewritten §9 — a build order, and
+> **§9.2, seven open questions the owner asked to be carried forward** rather than answered in
+> passing. Start there.
 
 ---
 
@@ -37,38 +43,34 @@ checks green:
 | PR | What | State |
 |---|---|---|
 | [#34](https://github.com/LiorJossef/P-002/pull/34) | Honest import failures — real codes, real statuses, a real audit row | **merged**, `main` verified |
-| [#35](https://github.com/LiorJossef/P-002/pull/35) | Rich extraction and the surfaces that show it — see §3.2 | **open, not merged** |
+| [#35](https://github.com/LiorJossef/P-002/pull/35) | Rich extraction and the surfaces that show it — see §3.2 | **merged**, `main` verified |
 
-### 2.1 Exactly where PR #35 was left, 2026-08-27
+### 2.1 PR #35 landed, and the one thing that nearly stopped it
 
-**The first thing to do in a fresh session**, before any new work.
+Merged 2026-08-27 through `npm run merge:pr -- 35`, all six checks green, `main` verified after
+(`npm run verify` clean — 592 tests in 41 files — and `main`'s own CI run concluded `success`).
+`main` is now `455749d`.
 
-- Branch `feat/rich-place-extraction`, head **`84b7e97`**, pushed, **9 commits** ahead of `main`.
-- Working tree **clean**. `npm run verify` green locally: **592 tests, 41 files**, plus lint,
-  typecheck, layer guard, migration grants, schema inventory and the agent consistency check.
-- PR #35 is `OPEN`, `mergeable=MERGEABLE`, and the branch contains current `main`.
-- **CI was still running when the session ended and was deliberately not waited out.** At that
-  moment: `Vercel` pass, `Vercel Preview Comments` pass; `lint · typecheck · layer guard · unit`,
-  `migrations · RLS policy tests`, `next build` and `playwright` all **pending**. The final commit
-  (`84b7e97`, the manual harness) restarted the run, so any earlier green result belongs to an
-  older head and **must not be treated as this commit's**.
+**Read this before you touch `supabase/tests/0008_policy_tests.sql`.** The branch went red on
+`migrations · RLS policy tests` and the cause is a trap the file will set again:
 
-**So: `gh pr checks 35` first.** If all six are green, merge with `npm run merge:pr -- 35`, then
-verify `main` and the deployment (`git-workflow.md` §11). If anything is red, fix it before
-anything else — nothing in §9 should start on top of a red branch. The merge gate refuses a
-pending or failing check, so it will not let a half-finished run through, but read the checks
-yourself rather than trusting the script to be the only reader.
+- The suite runs as **one transaction**, and `set constraints` is **transaction-wide**. P24 ends
+  with `all immediate`. P25 was added without declaring what it needed, inherited that mode, and
+  its first fixture `resolve_place` aborted the whole run with
+  `ERROR: place ... has no provider ref (identity invariant, 08 §1.6)`.
+- Nothing was wrong with the policies or with `resolve_place`. Step 3 writes the `places` row and
+  its `place_provider_refs` alias as **two consecutive statements**, which is legal only because
+  `places_alias_required` is DEFERRABLE INITIALLY DEFERRED. Under IMMEDIATE the check fires between
+  them, against a row that is one statement away from being valid.
+- Fixed in `c794c4a`: P25 declares `all deferred` for its fixture and flips to `all immediate` once
+  the fixture is built, so the fixture's own invariants are discharged before any grant assertion
+  runs. Every block in that file must declare its mode — the P10 header says so, and P25 is the
+  proof of what happens when one doesn't.
 
-Nothing else was left mid-flight: no agents running, no uncommitted work, no local database
-changes pending.
-
-**The merge rule.** Routine merges need no approval, but **GitHub branch protection is unavailable
-on this plan**, so CI is not a gate and a red PR can be merged with one command.
-`scripts/merge-pr.sh` *is* the gate — merge only through it. **CI is the authority, not
-`npm run verify`**: verify covers one of CI's four jobs, so read `gh pr checks` before claiming
-anything is green. `git-workflow.md` §9.3 lists what still needs a specific instruction each time.
-
----
+**Only CI could see it**, and that is the durable lesson: `npm run verify` does not run the policy
+suite, and the suite needs an empty database, which a development one is not (§5.11). Verified
+locally without a reset by replaying just the P25 section from exactly the state P24 leaves behind
+— 16/16 PASS, rolled back, 20 places and the 6 cached `extractions` untouched.
 
 ## 3. What landed this session, and how it was verified
 
@@ -233,12 +235,37 @@ how the model behaves.
    (verified by grep), so the honest-status work advertises a 429 the route can never send — against
    a hard 500 Gemini calls/day. `L0-F6-T1` owns the real limiter. The client-side in-flight guard
    added this session stops accidental double-fires, not a determined loop.
-8. **Pre-existing NULL `country_code` rows defeat dedup** — same class as the alias problem.
-   Importing Ha Kosem from a second TikTok created a *second* `places` row because `resolve_place`'s
-   guard compares `country_code is not distinct from`. New rows are fine. A backfill is a data
-   decision — ask.
-9. **The demo library has duplicate places** from earlier testing, removable from the UI. Left
-   deliberately: the most realistic messy-state fixture the library has.
+8. **A quarter of the library is phantom, and the cause is not what this document used to say.**
+   Measured 2026-08-27 on the live local database: **20 saved rows are 15 real places.** Five
+   duplicate pairs, and `km_between` was used rather than arithmetic, so these are exact:
+
+   | Pair | Same `name_key`? | Apart | Why the guard missed it |
+   |---|---|---|---|
+   | La Nonna Brixton ×2 | yes | **91 m** | merge radius is **75 m** |
+   | Tokii ×2 | yes | **85 m** | merge radius is **75 m** |
+   | HaKosem ×2 | yes | 568 m | that, **and** one row's `country_code` is NULL |
+   | Kiaans / Kiaans Tooting | **no** | 18 m | model named one venue two ways |
+   | Sycamore Vino Cucina / Sycamore Cucina &amp; Bar | **no** | 26 m | model named one venue two ways |
+
+   `resolve_place`'s near-duplicate guard requires **name-key equality AND ≤75 m**. The model
+   supplies neither reliably: re-importing the *same venue from the same caption* moves its guessed
+   point 85–91 m, which is 10–16 m outside the radius, and it re-identifies names between runs
+   (§7's first bullet, now with a measured consequence). **This supersedes the previous entry here**,
+   which blamed NULL `country_code` alone — that explains one pair of five. §4's Hebrew↔English
+   alias problem explains none of the four Latin-script ones.
+
+   Two things follow. **The duplicates are visible on the main list** — the same restaurant twice,
+   and because the enrichment writer is first-writer-wins per column, the twin is usually the bare
+   one, so the product shows the user *less* about a place it is already showing twice. And
+   **coordinate accuracy is an identity problem, not a polish problem**: a resolver's stable
+   provider place id makes identity exact no matter what the model names a venue or where it guesses
+   it. That is a materially better argument for §6 than "the pin is 150 m off", which is invisible at
+   demo zoom. Widening the 75 m radius is **not** the fix — it merges genuinely different venues on
+   the same street. Do not do it without measuring against a deliberately-constructed
+   false-positive case.
+9. **The demo library's duplicates are no longer only a fixture.** Item 8 explains them. Left in
+   place because they are the most realistic messy-state fixture available — but delete them from the
+   UI before any demo, which takes about a minute and is worth more than the fixture.
 10. **Low severity, recorded not fixed.** A crafted caption can mint a **blank permanent chip**
     (`U+3164` HANGUL FILLER and friends are zero-width in a browser but pass the database's
     `[[:alnum:]]` guard) — layout survives it, verified. `/api/imports/probe` has no request-body
@@ -255,6 +282,75 @@ how the model behaves.
     `next start`, so CI is unaffected; retargeting the default is a CI-affecting change.
 
 ---
+
+## 5b. The competitive read: mio travel, 2026-08-27
+
+The owner asked for a close look at **mio travel** (App Store `6754081668`, iOS-first, also Android
+and a view-only desktop web app; 4.9★, ~908 ratings worldwide, first released 2025-11-03). It is a
+near-exact conceptual competitor: share a TikTok or Instagram post → extracted place → pin on your
+own map. **The raw research is deliberately not in this repo** — see `docs/evidence/README.md`.
+What follows is what survived review.
+
+**Their positioning is a different job from ours.** *"checking off your bucketlist, one scroll at a
+time"* — collect, tick off, then plan a trip. Ours is retrieval: find it again when you are standing
+there. Their map home renders **flag-badged country clusters with counts** (UK 352, Germany 245) and
+their library screen offers `Your collections (12)` · `Countries (8)` · `All saves (10333)` ·
+`Favs (30)`. They ship dated trips with days, times, collaborators, route generation and an AI
+planner. Charter §1's "not an itinerary planner" and the no-social-graph stance are the fork, and
+they survive contact with the competitor — but they are a **choice about which job to do**, not a
+claim to be better at theirs.
+
+**Five findings that change how we should think, not just what we should build.**
+
+1. **Our confirmation step is the category's open wound, and we already hold it.** mio launched
+   saving **silently**; a picker arrived four months later, after users asked for it. Their most
+   damaging reviews are silent partial loss — places reported saved that are not there. One reviewer:
+   *"I'm afraid to remove the TikToks from my saved folder in case it didn't save on mio."* That
+   sentence means **mio has not replaced the TikTok saves folder; it sits alongside it.** Charter §3
+   invariant 2 is not overhead. It is the moat, and it is already built. The design target is a
+   confirm step fast enough to read as a *receipt* — reassurance, not ceremony.
+2. **The native share sheet is not an access advantage.** Their own privacy policy states the intake
+   verbatim: *"Links to videos you share into the app (e.g., TikTok or Instagram)"* — the same string
+   our paste field receives. Being a web app costs us **one app-switch, not one byte of content**.
+   That is a materially different world from "we are locked out", and it means a clipboard-aware
+   import screen recovers most of the gap for nearly nothing.
+3. **They do hold a capability we declined on purpose.** Their founder describes transcribing the
+   audio and OCR-ing on-screen text. Both require holding the media file, and no official route hands
+   a third party another creator's media — it is the `04` M9 class we ruled out. So part of the
+   distance between our ~27% and their (user-reported, ASSUMED) 50–80% is **the price of our
+   compliance posture, not a tooling failure.** Their headline **99.3% is conditional** — *"videos
+   containing identifiable locations"* — while ours is unconditional over everything pasted. **Those
+   two numbers must never appear in the same sentence.**
+4. **A large part of the rest is the resolver, not the extractor.** They cross-check pins against a
+   commercial index; we use the model's guess. Combined with §5.8, that is two independent arguments
+   pointing at `L0-F2b`/D2b. Their own weakest reviewed surface is branch disambiguation — *"it adds
+   something with the same name somewhere else no matter how many times i press on the one i want"* —
+   which is precisely the multi-branch failure §6 measured in ours.
+5. **Near-me is an open goal for the whole category.** Nobody has it. Two mio reviewers ask for it by
+   name and do not get it. It is the everyday half of our own single primary user
+   (`brand-and-product-foundation` §2), and it is currently filed at L2.
+
+**Where we are clearly behind, stated without flinching:** capture friction; per-place richness
+(they carry opening hours, real photos, a *tldr*, "local recs" and "pro tips" — repeatedly named in
+5★ reviews); organisation (collections, auto country grouping, favourites); type filtering on the
+map; manual add; platform breadth; and a backlog-import path. Several of ours are **gaps wearing a
+principle's clothes** — inert tag chips are not restraint, and "TikTok only, Instagram is a designed
+redirect" is not a boundary while the redirect's destination does not exist.
+
+**Where they are weak, which is where the opportunity is:** silent partial import loss; a *report and
+wait* correction path rather than a fix-it-yourself one; no near-me and no distance; no list export
+(*"a way to transfer saves to google maps"* is an unmet request); English-only summarisation, which
+our Hebrew↔English scope makes an actual differentiator; and stability — 15 of their 25 releases in
+148 days are pure bug fixes.
+
+**One label of ours is wrong in its reason.** Instagram oEmbed is reachable **with no token and no
+App Review** (Meta opened it around 2026-06-15; re-verified independently 2026-08-27 — a bogus
+shortcode answers HTTP 400 `Media Not Found`, not an auth error, with no credentials sent). The
+label stays **UNAVAILABLE** for a better reason: the payload carries no `title`, no `author_name`
+and no `thumbnail_url`, and the returned `html` reduces to five visible words. **The blocker is
+payload, not authentication**, so no amount of platform paperwork fixes it and `05`'s re-entry
+condition should be **closed rather than left open** — the spike has been run and the answer is no.
+Evidence: `docs/evidence/capture/raw/08-instagram-oembed-tokenless-2026-08-27.txt`.
 
 ## 6. Coordinate accuracy — parked, with the evidence preserved
 
@@ -350,6 +446,12 @@ idempotently this session.
 **Local database right now:** `places=20`, `saved_places=20` (**10 carrying enrichment**),
 `extractions=6`, `sources=17`, `imports=42` (7 `failed`). Keep those `extractions` — they are the
 cache standing between this project and its 500/day ceiling, and `npm run db:reset` throws them away.
+Re-pasting a **cached** TikTok URL costs **zero** model calls (the cache is read before the model),
+which is how the import flow can be exercised end to end for free — worth knowing before spending
+against the ceiling to see a screen.
+
+**Those 20 saved rows are 15 distinct venues** (§5.8). Any count you read off this database — "20
+places saved" on the map, `places=20` here — is inflated by five duplicate pairs.
 
 **The 10 enriched rows are a mix, and the difference matters.** Five are **genuine v2 model output**
 from a real import: Jones Family Kitchen, La Nonna Brixton, MBER London, The Life Goddess, Tokii.
@@ -362,38 +464,150 @@ first-writer-wins per column, so the fixtures were not overwritten by the later 
 
 ## 9. The next highest-impact step
 
-**Owner steer, 2026-08-27:** bias toward **visible product progress and completed MVP journeys** —
-capability, useful intelligence, reduced user effort. Fix reliability when it materially blocks the
-core experience, but hardening must not become the default workstream.
+**Owner steer, 2026-08-27, and it superseded the previous one twice in a day.** First: bias toward
+**visible product progress and completed MVP journeys**, not continued hardening. Then, after the
+mio comparison: the priority for the next few days is a **strong, demo-ready MVP that feels
+noticeably useful and complete — not continued extraction tuning by default.**
 
-**First, and not a feature: restore the Vercel environment variables** (§5.1). No amount of product
-work substitutes for it — until it is done, nothing anyone builds can be seen by anyone.
+**First, and not a feature: restore the Vercel environment variables** (§5.1), then push the
+migrations behind them. Production is on `0009` while the code selects `0015`/`0016` columns, so the
+env restore *moves* the failure rather than removing it. Until both are done nothing anyone builds
+can be seen by anyone, from a phone or otherwise. Owner-only: it means entering credentials into a
+third party.
 
-**Then, in recommended order:**
+### 9.1 The build order
 
-1. **Make `whyGo` worth showing, or cut it.** The sharpest finding from shipping it. The render gate
-   hides any sentence adding nothing over the tags, the quote and the name — and on genuine model
-   output it hides **six of six**. "Experience beautiful Greek dishes." next to a `Greek` tag is
-   filler; "Go on a weeknight — the counter is six seats" is not. Every sentence that passes carries a
-   **specific**: a time, a price, what to order, why now. So the prompt should target specifics and
-   return null otherwise. The measurement method is already in the constant's doc comment. Cheap,
-   pure product value, and the field currently costs a model call for output the user rarely sees.
-2. **A tag / `why_go` clear path** (§5.3) — small, and it closes the only place the product tells a
-   user something about themselves that they cannot unsay.
-3. **Tag filtering** — the "organized" half this branch deliberately left out. The chips are built
-   and inert, the query shapes are recorded in `0019`'s header, and `TagChipList`/`TagChipRow` are
-   the only components needing interactivity.
-4. **`L1-F7-T1` — manual add.** The recovery for the **modal** import outcome and the missing
-   destination for three failure screens; `NoPlacesScreen`'s `Add manually →` currently calls
-   `reset()`. Its exit criterion names an un-ingested city, which is the parked resolver — so it
-   ships against what exists with the boundary stated, rather than being deferred again.
-5. **Hebrew ↔ English aliases** (§4) — designed, scoped, ready to implement.
+1. **The map is the query.** The product's own shell is its weakest screen. The camera does
+   `fitBounds` over *all* saved places, so London (12) + Tel Aviv (8) opens on a continental view of
+   Europe and North Africa with **two cluster bubbles and no individual pins**; the collapsed sheet
+   reads `20 places saved`. At zero places the fallback is `center: [0,20], zoom: 1` — a bare world
+   map. Three parts, one idea:
+   - **Anchor the camera on one cluster, never all of them.** Resolution order: a valid last camera
+     (recent, and containing at least one saved place), else the cluster holding the most recently
+     saved place, else the largest cluster. Fit to that cluster, capped around z13.
+   - **Bind the sheet to the viewport.** The list is always exactly what is on the map and the header
+     names the area — `12 places in London`, not `20 places saved`. Today the map is a scoping
+     control wired to nothing, which is why it reads as decoration. This is also the correct
+     substrate for near-me later: near-me becomes "set the viewport to where I am", not a second
+     retrieval system.
+   - **Make the chips do what they look like they do.** They are built and inert, and
+     `filterPlaces` covers name, category, locality and note but **not tags and not dishes** — so
+     "natural wine", "hidden gem", "late night" and "momos" are extracted, rendered, and
+     unfindable. mio's reviewers volunteer type-filtering as *the* retrieval feature.
 
-**Cheaper things worth doing when a session has room:** a real deploy health check (`/healthz`
-returns `ok:true` with no environment variables set at all, which is why production has been down
-since PR #20 with nothing noticing); scoping the policy suite's counts to its own fixtures (§5.11);
-and `Spot` owning the three enrichment fields, which deletes the one documented cast in
-`src/ui/place/enrichment.ts`.
+   **Cluster on coordinates (~50 km), not on the `locality` string.** The library already holds
+   `London`, `Tel Aviv-Yafo`, `Tel Aviv` and `Tel Aviv` — three spellings for two cities — so a
+   city-grouped UI built on the string ships that defect to the user as duplicate rows. Label the
+   cluster with the most common spelling inside it; if ambiguous, say `12 places in this area`.
 
-**Not chosen, deliberately:** coordinate accuracy (§6) is still the biggest single quality problem,
-parked by owner decision with its evidence preserved so it can resume cold.
+   Costs no model calls, no provider decision, no ODbL gate, no schema change. It is unclosed L1
+   work (`L1-F5-T2`'s camera movers, `L1-F8-T1`'s empty state, `L1-F6-T1`'s snap states), not new
+   scope. Acceptance criteria are in §9.3.
+
+2. **`L1-F7-T1` — manual add, reclassified again: load-bearing, not CRUD.** It is the floor under
+   three failure screens, under the no-places screen (the **modal** import outcome, whose copy
+   promises *"add it yourself in a few seconds"* while its primary button calls `reset()`), and
+   under the entire Instagram story. Our "designed failure" advantage over mio is real and is
+   currently **a beautifully written cul-de-sac**. Note mio's manual add is **place search** — type a
+   name, pick the resolved place, save — which is a different object from the caption entry Charter
+   §2 forbids; see the open question in §9.2.
+
+3. **Near-me.** The category-wide open goal, the everyday half of the single primary user, and
+   cheap once step 1 exists because it is a control that sets the viewport. Currently L2; §9.2 asks
+   whether it should be.
+
+**Explicitly demoted, with reasons:** `whyGo` prompt tuning — it is extraction tuning by the owner's
+own exclusion, and its output is hidden **6 of 6** on real model output, so tuning it changes what a
+user sees in zero observed cases. Hebrew↔English aliases (§4) — real, designed, and invisible in a
+demo. The tag/`why_go` clear path (§5.3) — deferred **unless** `security-privacy` rules it a
+rectification obligation rather than a nicety, which would beat this ordering; that question has not
+been put to them.
+
+**Not started but no longer "polish":** the resolver (§6). Two new arguments arrived this session —
+it is the actual cause of §5.8's phantom library, and it is a large share of the hit-rate gap
+against mio. It remains parked by owner decision and is a workstream rather than a few days, but the
+justification is now much stronger than "the pin is approximate".
+
+### 9.2 Open questions for the owner — to be worked through at the start of the next session
+
+The owner asked, 2026-08-27, that these be carried forward as explicit questions rather than
+resolved in passing. **None of them is blocked on more investigation; each is a judgement call.**
+
+1. **Do we accept a lower hit rate as the price of staying inside official APIs?** mio transcribes
+   audio and OCRs on-screen text, which needs the media file and has no official route (§5b.3). If
+   the answer is yes — and the recommendation is yes — then ~27% is a *stated product position*, not
+   a defect, and the no-places screen should say so in the product's own voice rather than
+   apologising. If the answer is no, that reopens `04` M9 and is a compliance decision, not an
+   engineering one.
+2. **Does manual-add-as-place-search fall inside or outside Charter §2?** `mvp-plan.md` §8 files
+   manual entry under "Not anywhere" on the grounds that asking the user for caption text defeats the
+   product. Place search is a different object with the same resolver and the same provenance
+   fields. The current wording may forbid something wider than intended, and it is blocking the
+   `L1-F7-T1` in §9.1 step 2.
+3. **Do we hold the grounding line, or find a way to be rich *and* honest?** mio's place detail
+   carries opening hours, real photos, a *tldr*, "local recs" and "pro tips", much of it plainly
+   world knowledge rather than anything the caption said — and it is what their 5★ reviews name. Our
+   rule is the opposite: `groundedIn` gates, "an uncertain result beats a confidently wrong place".
+   Holding the line is defensible and is currently costing us the richest screen in the product.
+   A middle path exists — clearly attributing model knowledge as model knowledge, separately from
+   the caption quote — but it is a real change to the extracted-vs-inferred contract and needs a
+   ruling, not a drift.
+4. **Is near-me still L2?** `brand-and-product-foundation` §2 already promoted it once and called
+   that a schedule decision. Nobody in the category has it. It may belong in L1.
+5. **Should export exist?** mio has none and their users ask for it. "Your places are yours, take
+   them to Google Maps whenever you like" costs little, differentiates on the same axis as our
+   privacy posture, and gives the course submission a clean data-portability story. Charter §4 never
+   considered it — so this is a scope addition, and Charter §4 says new ideas go to a Future list
+   unless the owner rules otherwise.
+6. **Backfill the phantom duplicates?** §5.8 measures 20 saved rows over 15 real places. Merging
+   them is a data decision on real rows and needs a specific instruction; so does any change to the
+   75 m radius, which must not be widened without a false-positive test.
+7. **The TikTok data-export experiment** (`docs/evidence/capture/01-tiktok-data-export.md`). Their
+   docs list *Favourite Videos* with a link per row — the user's whole back-catalogue in one action,
+   captions still via oEmbed, so it stays inside Charter §2. **No real export file has been
+   inspected**, and the unknown that could kill it is how long an export takes to arrive. It costs
+   the owner one request against their own account, not a build.
+
+### 9.3 Acceptance criteria for §9.1 step 1
+
+Verifiable without asking anyone, at **390×844 and 1440×900**, signed in, across library shapes
+**0 · 1 · 8-in-one-city · 20-across-two-cities (the current library) · 20-across-four-cities**:
+
+- **No empty view, ever.** Every non-zero shape settles with at least one **individual** pin on
+  screen. A view of nothing but cluster bubbles is a fail.
+- **A name is readable with zero interaction.** At least one place *name* is on screen as text once
+  the map settles — not a count, not a number in a bubble.
+- **Panning changes the sheet.** Count and rows track the viewport; `Nothing saved in this area` is
+  a designed state with a `Show all places` escape. No pan is ever a no-op.
+- **One place** is shown with surrounding context, not zoomed to maximum on a blank tile.
+- **Zero places** shows no bare world map: a plausible regional view, the paste field as the primary
+  control, and one line saying what the product does. No permission prompt.
+- **Camera movers reconciled.** §7 records six movers against four documented; the home default is a
+  seventh. Enumerate them in one place and make the list match. This closes `L1-F5-T2`'s owed
+  reconciliation.
+- **No regression.** `/map` → detail → back → `/import` → back leaves `getCenter()`/`getZoom()`
+  unchanged, and the post-confirm flight to new pins still overrides the home default — verified with
+  a real TikTok, not a fixture.
+- **Tags filter and are searchable**, including a Hebrew tag, at both breakpoints.
+
+**Deliberately out of scope, so it is not absorbed:** near-me and geolocation, clustering
+sophistication, pin restyling, the Protomaps fork, motion moments, any extraction or resolver work.
+Scope creep to refuse now: colouring pins by tag, a cities list or city switcher UI, an onboarding
+carousel, and "add near-me while we're in the camera code".
+
+### 9.4 Cheaper things worth doing when a session has room
+
+- **`canonicaliseTikTokUrl` rejects real TikTok links, with false copy.** Verified 2026-08-27:
+  `www.tiktok.com/share/video/<id>/` → `UNSUPPORTED_URL` → *"That's a profile, not a post."* and
+  `www.tiktokv.com/share/video/<id>/` → `UNSUPPORTED_HOST` → *"Instagram and YouTube aren't
+  supported yet."* Both messages are false; both forms are what TikTok's own share sheet and its
+  **data export** emit. oEmbed returns the **full caption** for the `tiktok.com/share/video/<id>/`
+  form (HTTP 200, independently confirmed), and the id is already in the path, so the fix costs no
+  extra network call. Same class as the Instagram-redirect boundary: a real TikTok link being told it
+  is not one. This gets more important, not less, if the export path in §9.2.7 ever lands.
+- A **clipboard-aware import screen** — if a TikTok URL is already on the clipboard, the primary
+  action becomes one tap. This is the cheapest recovery of the share-sheet gap (§5b.2).
+- A **real deploy health check**: `/healthz` returns `ok:true` with no environment variables set at
+  all, which is why production has been down since PR #20 with nothing noticing.
+- Scoping the policy suite's counts to its own fixtures (§5.11), and `Spot` owning the three
+  enrichment fields, which deletes the one documented cast in `src/ui/place/enrichment.ts`.
