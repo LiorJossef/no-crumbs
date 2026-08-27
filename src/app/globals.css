@@ -85,13 +85,32 @@
     --pin-halo: #FFFFFF;
 
     /*
-     * A tag chip: a label, never an action. `mint-200` rather than `mint-100` because a chip sits
-     * on `--card` (#FFFFFF) as often as on `--background`, and `mint-100` is invisible against
-     * white. Semantic role rather than a raw ramp reference at the call site, so the chip is
-     * re-themeable (and dark-mode-able, below) without editing a component.
+     * A tag chip. `mint-200` rather than `mint-100` because a chip sits on `--card` (#FFFFFF) as
+     * often as on `--background`, and `mint-100` is invisible against white. Semantic role rather
+     * than a raw ramp reference at the call site, so the chip is re-themeable (and dark-mode-able,
+     * below) without editing a component.
+     *
+     * This pair used to be documented as "a label, never an action", and that stopped being true
+     * when tag chips became the library's filter control: a chip in a detail view is a toggle, and
+     * the same pair still paints its resting state.
      */
     --tag: var(--mint-200);
     --tag-foreground: var(--mint-900);
+
+    /*
+     * The same chip while it is the active filter, and the pill that says so above the list.
+     *
+     * `mint-700` rather than the `mint-400` this first used, measured on screen rather than
+     * reasoned: a `mint-400` chip sitting between two `mint-200` ones is a shade apart from its
+     * neighbours, and "which of these five is switched on" has to be answerable at a glance from
+     * across a phone. Inverting it — dark mint, white ink, ~5.5:1 — makes the pressed chip the one
+     * unambiguous object in the block.
+     *
+     * It is also `--pin`'s value, and that is the useful accident worth keeping: the tag that is
+     * filtering is painted the colour of the pins it left on the map.
+     */
+    --tag-selected: var(--mint-700);
+    --tag-selected-foreground: #FFFFFF;
 
     --wash-from: var(--mint-200);
     --wash-to: transparent;
@@ -156,9 +175,12 @@
     --accent-foreground: #F2F5F7;
     /* Mapped onto this theme's own accent pair rather than given new values: the dark palette is
      * explicitly a first pass and not signed off (see the block comment above), so inventing a
-     * dark tag colour here would be a fifth unreviewed value rather than a decision. */
+     * dark tag colour here would be a fifth unreviewed value rather than a decision. The selected
+     * state borrows the dark theme's `--primary` pair for exactly the same reason. */
     --tag: var(--accent);
     --tag-foreground: var(--accent-foreground);
+    --tag-selected: var(--primary);
+    --tag-selected-foreground: var(--primary-foreground);
     --destructive: oklch(0.704 0.191 22.216);
     --border: #2A323B;
     --input: #2A323B;

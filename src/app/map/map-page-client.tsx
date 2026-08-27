@@ -22,6 +22,13 @@
  * questions about the same library. So the filter is applied exactly once, here.
  * `domain/places/search.ts` owns what matches.
  *
+ * `activeTag` is lifted here for exactly that reason and no other. It is a **second filter
+ * dimension**, not text written into `query`; `src/ui/place/tag-filter.ts` carries the argument,
+ * and the short version is that setting the query would fire `useSearchFlight` and move a camera
+ * the owner has asked nobody to touch (`current-state.md` §0.1b). Composition is AND, applied in
+ * one expression: tag first, then search, then the viewport for the list only. **Tapping a chip is
+ * not a camera mover** — the enumerated list below stays at seven.
+ *
  * ## The map is the query (L1-F5-T2, `docs/ux-map-is-the-query.md`)
  *
  * This file now owns a second, prior narrowing: **the list is exactly what is inside the map's
@@ -31,11 +38,11 @@
  *
  * There are therefore three derived lists here and they are deliberately not the same one:
  *
- *  - **`searchMatches`** — the library narrowed by the search box. This is what the **pins** show.
- *    Narrowing the pins by the viewport would be circular: the viewport is *defined* by where the
- *    pins are, and a pin cannot disappear for being off screen when being off screen is exactly
- *    what panning back would fix.
- *  - **`inView`** — `searchMatches` whose pin anchor is inside the query rect the surface reports.
+ *  - **`matches`** — the library narrowed by the filters the user set (the tag chip, then the
+ *    search box). This is what the **pins** show. Narrowing the pins by the viewport would be
+ *    circular: the viewport is *defined* by where the pins are, and a pin cannot disappear for
+ *    being off screen when being off screen is exactly what panning back would fix.
+ *  - **`inView`** — `matches` whose pin anchor is inside the query rect the surface reports.
  *    This is what the **list** shows, sorted nearest-to-centre first so the top of the list is the
  *    pins the eye is already on.
  *  - **`places`** — the whole library, used for the initial camera anchor, for the escapes
@@ -65,8 +72,10 @@ import type { LatLngBoundsHint } from '@/components/map/types';
 import { ImportConfirmation } from '@/components/map/import-confirmation';
 import { PlaceSheet } from '@/components/sheet/place-sheet';
 import { PlaceDesktopPanel } from '@/components/sheet/place-desktop-panel';
-import { filterPlaces } from '@/components/map/filter-places';
+import { filterByTag, filterPlaces } from '@/components/map/filter-places';
 import { isSearchActive } from '@/domain/places/search';
+import { tagDisplayLabel } from '@/domain/extraction/tags';
+import { TagFilterContext, isSameTag, type TagFilter } from '@/ui/place/tag-filter';
 import {
   clusterByProximity,
   haversineKm,
@@ -96,6 +105,10 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
   const [selected, setSelected] = useState<MapPlace | null>(null);
   const [showImport, setShowImport] = useState(false);
   const [query, setQuery] = useState('');
+  /** The one tag narrowing the library, as stored (lowercase, normalised), or `null`. Set by a chip
+   *  in any place's detail view through `TagFilterContext`, cleared by the pill above the list, by
+   *  tapping the same chip again, or by starting an import. */
+  const [activeTag, setActiveTag] = useState<string | null>(null);
   /**
    * What the last import saved. Two jobs, both of which the flow was missing entirely: it frames
    * the camera on the places that were just added (`focusPlaceIds`), and it is the only thing on
@@ -163,39 +176,54 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
     return anchor?.bounds;
   }, [clusters, places]);
 
-  /** The library narrowed by the search box. This is what the **pins** show — never narrowed by the
-   *  viewport, which would be circular. */
-  const searchMatches = useMemo(() => filterPlaces(places, query), [places, query]);
+  /** The library narrowed by the active tag chip, before the search box sees it. Its own `useMemo`
+   *  rather than one fused expression so that typing does not re-run the tag pass and tapping a
+   *  chip does not re-run it per keystroke. */
+  const tagMatches = useMemo(() => filterByTag(places, activeTag), [places, activeTag]);
+
+  /** The library narrowed by **both** filters. This is what the **pins** show — never narrowed by
+   *  the viewport, which would be circular. The list is this same array narrowed again by the
+   *  viewport below, so the pins and the rows can never disagree about what the filters did. */
+  const matches = useMemo(() => filterPlaces(tagMatches, query), [tagMatches, query]);
 
   /** What the **list** shows: the matches inside the query rect, nearest the centre of the map
    *  first. Falls back to every match while the map has not reported a rect yet. */
   const inView = useMemo(() => {
-    if (!viewport) return searchMatches;
-    const inside = searchMatches.filter((place) => withinBounds(place, viewport));
+    if (!viewport) return matches;
+    const inside = matches.filter((place) => withinBounds(place, viewport));
     return sortByDistanceFromCentre(inside, boundsCentre(viewport), (place) => place);
-  }, [searchMatches, viewport]);
+  }, [matches, viewport]);
 
-  const searching = isSearchActive(query);
+  // Both narrowings feed the header's noun, so a tag-filtered list reads `3 matches in London`
+  // rather than `3 places in London`. `ux-map-is-the-query.md` §2.2's string matrix says the noun
+  // changes "exactly when a second filter is applied"; a chip is a second filter, and no new string
+  // is invented for it.
+  const filtering = isSearchActive(query) || activeTag !== null;
   const heading = useMemo(
-    () => viewportHeading(inView.length, areaLabel(inView.map(toViewportPlace)), searching),
-    [inView, searching],
+    () => viewportHeading(inView.length, areaLabel(inView.map(toViewportPlace)), filtering),
+    [inView, filtering],
   );
 
-  // A place filtered out by the **search** must not stay open in the detail view: its pin is gone
+  // A place filtered out by a **filter** must not stay open in the detail view: its pin is gone
   // from the map, so the sheet (or the map's popover) would be showing detail for something the user
   // can no longer see or dismiss by tapping. Adjusted during render rather than in an effect —
   // React's own pattern for "a prop/derived value invalidated some state" — and it converges
   // immediately, because after the reset the guard is false.
   //
-  // Deliberately guarded on `searchMatches` and NOT on `inView`: panning a selected place off the
+  // Deliberately guarded on `matches` and NOT on `inView`: panning a selected place off the
   // edge of the screen would otherwise slam its detail shut mid-gesture, which is the map taking
   // something away from the user for looking somewhere else.
-  if (selected && !searchMatches.some((place) => place.id === selected.id)) {
+  //
+  // A tag chip never reaches this guard, because `toggleTag` deselects first and the place the chip
+  // came from carries the tag anyway. It stays written against the general case rather than the
+  // search case: two filters feed `matches` now, and a guard that only names one of them is a
+  // guard someone will later assume does not apply.
+  if (selected && !matches.some((place) => place.id === selected.id)) {
     setSelected(null);
   }
 
-  const announcement = useResultAnnouncement(query, searchMatches.length);
-  useSearchFlight(query, searchMatches, clusters, viewport, setFocusPlaceIds);
+  const announcement = useResultAnnouncement(query, activeTag, matches.length);
+  useSearchFlight(query, matches, clusters, viewport, setFocusPlaceIds);
 
   /**
    * Fit the cluster nearest the centre of the current viewport — the escape from an empty viewport
@@ -221,8 +249,8 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
 
   /** The escape from `No matches in this area`: go to the matches wherever they are. */
   const showAllMatches = useCallback(() => {
-    if (searchMatches.length > 0) setFocusPlaceIds(searchMatches.map((place) => place.id));
-  }, [searchMatches]);
+    if (matches.length > 0) setFocusPlaceIds(matches.map((place) => place.id));
+  }, [matches]);
 
   /**
    * Selecting a place from the list — the entry point `PlaceRow` gained at `L1-F7-T2`, because the
@@ -249,90 +277,125 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
     setFocusPlaceIds([place.id]);
   }
 
+  /**
+   * A chip tap. The active tag turns the filter off, any other tag replaces it — one tap either
+   * way, which is the whole interaction.
+   *
+   * **It deselects, and that is the point.** The chip lives in a place's detail view, so without
+   * this the user taps `Hidden Gem` and keeps looking at the one place they already had open while
+   * the answer to what they just asked sits behind it. Deselecting drops them onto the filtered
+   * list on mobile and closes the map popover on desktop. It is a state change, not a camera
+   * change: `setSelected(null)` touches no camera mover, and neither does `setActiveTag`.
+   */
+  const toggleTag = useCallback((tag: string) => {
+    setActiveTag((current) => (current !== null && isSameTag(current, tag) ? null : tag));
+    setSelected(null);
+  }, []);
+
+  const clearTag = useCallback(() => setActiveTag(null), []);
+
+  /** Memoised so every chip in the tree does not re-render on an unrelated state change — the
+   *  context value is the only thing standing between this page's state and a leaf in the map's
+   *  own popover. */
+  const tagFilter = useMemo<TagFilter>(
+    () => ({ activeTag, onToggleTag: toggleTag }),
+    [activeTag, toggleTag],
+  );
+
   function openImport() {
     setLastImport(null);
-    // An import that lands places the current query excludes would save them into an invisible
+    // An import that lands places the current filters exclude would save them into an invisible
     // list and fly the camera at pins that are filtered out. Starting an import is the user leaving
-    // the search behind, so the search goes with it.
+    // the current narrowing behind, so both dimensions go with it.
     setQuery('');
+    setActiveTag(null);
     setShowImport(true);
   }
 
   return (
-    <div className="relative h-full w-full">
-      <MapSurface
-        places={searchMatches}
-        onPlaceClick={setSelected}
-        selected={selected}
-        onDeselect={() => setSelected(null)}
-        onViewportChange={setViewport}
-        {...(initialBounds ? { initialBounds } : {})}
-        {...(focusPlaceIds ? { focusPlaceIds } : {})}
-      />
-
-      {/* The list and the pins both change silently as the user types, so the one thing a screen
-          reader user has no way to perceive is how many places are left. Rendered here, once, rather
-          than inside each surface: only one of the two is ever in the accessibility tree (the other
-          is `display: none` behind a breakpoint), but a single region cannot double-announce. */}
-      <p role="status" aria-live="polite" className="sr-only">
-        {announcement}
-      </p>
-      {lastImport && (
-        <ImportConfirmation
-          saved={lastImport.saved}
-          alreadySaved={lastImport.alreadySaved}
-          skipped={lastImport.skipped}
-          onDismiss={() => setLastImport(null)}
+    // Every chip in every tree below reads its state from here — the sheet's detail, and the map's
+    // own pin-anchored popover, which is rendered inside `components/map/**` and would otherwise
+    // need a filter prop threaded through a surface whose job is cameras and pins.
+    <TagFilterContext value={tagFilter}>
+      <div className="relative h-full w-full">
+        <MapSurface
+          places={matches}
+          onPlaceClick={setSelected}
+          selected={selected}
+          onDeselect={() => setSelected(null)}
+          onViewportChange={setViewport}
+          {...(initialBounds ? { initialBounds } : {})}
+          {...(focusPlaceIds ? { focusPlaceIds } : {})}
         />
-      )}
-      {/* `PlaceSheet` is mobile-only (its content is `lg:hidden`) and rendered through a vaul
-          portal, which appends to `document.body` *after* this component's own subtree — so at
-          matched z-indices it paints on top of anything rendered here, regardless of DOM/JSX
-          order. That's invisible normally (the sheet coexists with the map fine), but it means
-          the sheet cannot simply share a z-index with the import overlay below: unmounting it
-          while the overlay is open is the only way to guarantee mobile gets the same opaque,
-          edge-to-edge takeover the standalone `/import` route always had, with no "Your places"
-          list bleeding through behind/around it. Desktop is unaffected — `PlaceDesktopPanel`
-          below is a plain (non-portaled) sibling that the overlay's higher z-index already
-          paints over correctly. */}
-      {!showImport && (
-        <PlaceSheet
+
+        {/* The list and the pins both change silently as the user types, so the one thing a screen
+            reader user has no way to perceive is how many places are left. Rendered here, once, rather
+            than inside each surface: only one of the two is ever in the accessibility tree (the other
+            is `display: none` behind a breakpoint), but a single region cannot double-announce. */}
+        <p role="status" aria-live="polite" className="sr-only">
+          {announcement}
+        </p>
+        {lastImport && (
+          <ImportConfirmation
+            saved={lastImport.saved}
+            alreadySaved={lastImport.alreadySaved}
+            skipped={lastImport.skipped}
+            onDismiss={() => setLastImport(null)}
+          />
+        )}
+        {/* `PlaceSheet` is mobile-only (its content is `lg:hidden`) and rendered through a vaul
+            portal, which appends to `document.body` *after* this component's own subtree — so at
+            matched z-indices it paints on top of anything rendered here, regardless of DOM/JSX
+            order. That's invisible normally (the sheet coexists with the map fine), but it means
+            the sheet cannot simply share a z-index with the import overlay below: unmounting it
+            while the overlay is open is the only way to guarantee mobile gets the same opaque,
+            edge-to-edge takeover the standalone `/import` route always had, with no "Your places"
+            list bleeding through behind/around it. Desktop is unaffected — `PlaceDesktopPanel`
+            below is a plain (non-portaled) sibling that the overlay's higher z-index already
+            paints over correctly. */}
+        {!showImport && (
+          <PlaceSheet
+            places={inView}
+            heading={heading}
+            libraryIsEmpty={places.length === 0}
+            hasMatchesElsewhere={matches.length > 0}
+            onShowNearest={showNearestCluster}
+            onShowAllMatches={showAllMatches}
+            query={query}
+            onQueryChange={setQuery}
+            activeTag={activeTag}
+            onClearTag={clearTag}
+            selected={selected}
+            onDeselect={() => setSelected(null)}
+            onAddTikTok={openImport}
+            onSelect={selectPlace}
+          />
+        )}
+        <PlaceDesktopPanel
           places={inView}
           heading={heading}
           libraryIsEmpty={places.length === 0}
-          hasMatchesElsewhere={searchMatches.length > 0}
+          hasMatchesElsewhere={matches.length > 0}
           onShowNearest={showNearestCluster}
           onShowAllMatches={showAllMatches}
           query={query}
           onQueryChange={setQuery}
-          selected={selected}
-          onDeselect={() => setSelected(null)}
+          activeTag={activeTag}
+          onClearTag={clearTag}
           onAddTikTok={openImport}
           onSelect={selectPlace}
         />
-      )}
-      <PlaceDesktopPanel
-        places={inView}
-        heading={heading}
-        libraryIsEmpty={places.length === 0}
-        hasMatchesElsewhere={searchMatches.length > 0}
-        onShowNearest={showNearestCluster}
-        onShowAllMatches={showAllMatches}
-        query={query}
-        onQueryChange={setQuery}
-        onAddTikTok={openImport}
-        onSelect={selectPlace}
-      />
-      {showImport && (
-        <ImportPageClient
-          onClose={() => setShowImport(false)}
-          onSaved={(outcome) => {
-            setLastImport(outcome);
-            setFocusPlaceIds(outcome.savedPlaceIds);
-          }}
-        />
-      )}
-    </div>
+        {showImport && (
+          <ImportPageClient
+            onClose={() => setShowImport(false)}
+            onSaved={(outcome) => {
+              setLastImport(outcome);
+              setFocusPlaceIds(outcome.savedPlaceIds);
+            }}
+          />
+        )}
+      </div>
+    </TagFilterContext>
   );
 }
 
@@ -347,31 +410,55 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
  * to make the page unusable with a screen reader on. The library-wide number is also the fact the
  * *typing* produced, and it does not churn as the camera moves afterwards.
  */
-function useResultAnnouncement(query: string, matchCount: number): string {
+function useResultAnnouncement(
+  query: string,
+  activeTag: string | null,
+  matchCount: number,
+): string {
   // The query the stored sentence describes is kept with it, and the sentence is only returned
   // while the two still agree. That is what stops the previous search's result being read out
   // during the first half-second of the next one: clearing the field and typing again leaves a
   // perfectly formed, entirely stale sentence in state, and a live region would happily announce it.
-  const [announced, setAnnounced] = useState({ query: '', message: '' });
+  const [announced, setAnnounced] = useState({ filter: '', message: '' });
   const trimmed = query.trim();
+  // One key for both dimensions, so a stale sentence about the previous *tag* is discarded on the
+  // same rule that already discards a stale one about the previous query. `\u0000` because it is the
+  // one character neither a query nor a stored tag can contain.
+  const filter = `${activeTag ?? ''}\u0000${trimmed}`;
 
   useEffect(() => {
-    if (trimmed === '') return;
+    if (activeTag === null && trimmed === '') return;
     const timer = setTimeout(() => {
-      setAnnounced({
-        query: trimmed,
-        message:
-          matchCount === 0
-            ? `No places match ${trimmed}.`
-            : matchCount === 1
-              ? `1 place matches ${trimmed}.`
-              : `${matchCount} places match ${trimmed}.`,
-      });
+      setAnnounced({ filter, message: filterSentence(trimmed, activeTag, matchCount) });
     }, ANNOUNCE_AFTER_MS);
     return () => clearTimeout(timer);
-  }, [trimmed, matchCount]);
+  }, [filter, trimmed, activeTag, matchCount]);
 
-  return announced.query === trimmed ? announced.message : '';
+  return announced.filter === filter ? announced.message : '';
+}
+
+/**
+ * The library-wide result of whatever is currently narrowing it, as one sentence.
+ *
+ * A chip tap changes the list and the pins silently, exactly as typing does, so it earns the same
+ * announcement. The tag is named with `tagDisplayLabel` rather than its stored form: `hidden gem`
+ * read aloud as the sentence's own words would be indistinguishable from the rest of it, and the
+ * user tapped something that said `Hidden Gem`.
+ */
+function filterSentence(query: string, activeTag: string | null, count: number): string {
+  const noun = count === 1 ? 'place' : 'places';
+  if (activeTag === null) {
+    return count === 0
+      ? `No places match ${query}.`
+      : `${count} ${noun} ${count === 1 ? 'matches' : 'match'} ${query}.`;
+  }
+  const label = tagDisplayLabel(activeTag);
+  if (query === '') {
+    return count === 0 ? `No places tagged ${label}.` : `${count} ${noun} tagged ${label}.`;
+  }
+  return count === 0
+    ? `No places tagged ${label} match ${query}.`
+    : `${count} ${noun} tagged ${label} ${count === 1 ? 'matches' : 'match'} ${query}.`;
 }
 
 /**

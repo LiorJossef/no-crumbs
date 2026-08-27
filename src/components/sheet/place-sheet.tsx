@@ -50,7 +50,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { isSearchActive } from '@/domain/places/search';
 import { NoteEditor, RemoveSavedPlace } from './saved-place-edits';
-import { DishLine, TagChipList, TagChipRow, WhyGoLine } from './place-enrichment';
+import { ActiveTagFilter, DishLine, TagChipList, TagChipRow, WhyGoLine } from './place-enrichment';
 import { enrichmentOf, rowAccessibleName, whyGoEarnsItsPlace } from '@/ui/place/enrichment';
 import type { ViewportHeading } from '@/ui/place/viewport';
 import type { MapPlace } from '@/components/map/types';
@@ -103,6 +103,13 @@ export interface PlaceSheetProps {
   readonly onShowAllMatches: () => void;
   readonly query: string;
   readonly onQueryChange: (query: string) => void;
+  /** The tag currently narrowing the library, as stored — `null` when no chip is active. A second
+   *  filter dimension rather than text written into `query`; `src/ui/place/tag-filter.ts` says why.
+   *  Rendered here as the dismissible pill above the list, and applied upstream so the pins are
+   *  narrowed by the same predicate in the same frame. */
+  readonly activeTag: string | null;
+  /** One tap to clear, from the pill. Chips themselves toggle through the `TagFilterContext`. */
+  readonly onClearTag: () => void;
   readonly selected: MapPlace | null;
   readonly onDeselect: () => void;
   /** Opens the import overlay in `map-page-client.tsx` (client state) rather than navigating to
@@ -132,6 +139,8 @@ export function PlaceSheet({
   onShowAllMatches,
   query,
   onQueryChange,
+  activeTag,
+  onClearTag,
   selected,
   onDeselect,
   onAddTikTok,
@@ -212,6 +221,8 @@ export function PlaceSheet({
                 onShowAllMatches={onShowAllMatches}
                 query={query}
                 onQueryChange={onQueryChange}
+                activeTag={activeTag}
+                onClearTag={onClearTag}
                 stop={currentStop}
                 onExpand={() => setActiveSnap(STOP_TO_SNAP.full)}
                 onAddTikTok={onAddTikTok}
@@ -234,6 +245,8 @@ function PlaceList({
   onShowAllMatches,
   query,
   onQueryChange,
+  activeTag,
+  onClearTag,
   stop,
   onExpand,
   onAddTikTok,
@@ -247,12 +260,19 @@ function PlaceList({
   onShowAllMatches: () => void;
   query: string;
   onQueryChange: (query: string) => void;
+  activeTag: string | null;
+  onClearTag: () => void;
   stop: SheetStop;
   onExpand: () => void;
   onAddTikTok: () => void;
   onSelect?: (place: MapPlace) => void;
 }) {
-  const filtering = isSearchActive(query);
+  const searchActive = isSearchActive(query);
+  // Either narrowing counts as "the list is filtered": it decides whether the empty state offers
+  // `Show all matches` (go to the results wherever they are) or `Show my places` (the library does
+  // not reach here at all). A tag filter that produced the second would send the user back to a
+  // viewport with nothing in it and no explanation.
+  const filtering = searchActive || activeTag !== null;
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   /**
@@ -344,11 +364,16 @@ function PlaceList({
               false affordance offering work that cannot produce a result. */}
           {!libraryIsEmpty && <PlaceSearchField value={query} onChange={onQueryChange} />}
 
+          {/* Above the list *and* above the empty state, so the one control that undoes a tag
+              filter is on screen in the state where the filter has left nothing to look at. */}
+          {activeTag !== null && <ActiveTagFilter tag={activeTag} onClear={onClearTag} />}
+
           {libraryIsEmpty ? (
             <NoPlacesYet onAddTikTok={onAddTikTok} />
           ) : heading.empty ? (
             <EmptyViewport
-              searching={filtering}
+              filtering={filtering}
+              searchActive={searchActive}
               hasMatchesElsewhere={hasMatchesElsewhere}
               onShowNearest={showNearest}
               onShowAllMatches={showAllMatches}
@@ -548,15 +573,23 @@ export function PlaceSearchField({
  * the primary (and sometimes only) way out of the state, and 44px is the floor for a thumb.
  */
 export function EmptyViewport({
-  searching,
+  filtering,
+  searchActive,
   hasMatchesElsewhere,
   onShowNearest,
   onShowAllMatches,
   onClearSearch,
 }: {
-  searching: boolean;
-  /** Whether the query matches anything anywhere in the library. `Show all matches` is hidden
-   *  without it, because it would fly the camera to nothing and read as a broken button. */
+  /** Whether **any** narrowing is on — the search box, a tag chip, or both. It decides which of the
+   *  two escapes this state even is: a filtered empty viewport is "your matches are elsewhere", an
+   *  unfiltered one is "your library does not reach here". */
+  filtering: boolean;
+  /** Whether the *search box* specifically holds something, which is the only thing `Clear search`
+   *  can clear. A tag filter is cleared from its own pill directly above this block, so a second
+   *  button here would be two controls for one state. */
+  searchActive: boolean;
+  /** Whether the current filters match anything anywhere in the library. `Show all matches` is
+   *  hidden without it, because it would fly the camera to nothing and read as a broken button. */
   hasMatchesElsewhere: boolean;
   onShowNearest: () => void;
   onShowAllMatches: () => void;
@@ -564,7 +597,7 @@ export function EmptyViewport({
 }) {
   return (
     <div className="flex flex-1 flex-col items-start gap-3 py-6">
-      {searching ? (
+      {filtering ? (
         <>
           {hasMatchesElsewhere && (
             <Button
@@ -576,14 +609,16 @@ export function EmptyViewport({
               Show all matches
             </Button>
           )}
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onClearSearch}
-            className="h-11 rounded-lg px-4 text-sm font-bold"
-          >
-            Clear search
-          </Button>
+          {searchActive && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClearSearch}
+              className="h-11 rounded-lg px-4 text-sm font-bold"
+            >
+              Clear search
+            </Button>
+          )}
         </>
       ) : (
         /* Nearest cluster, not the whole library — see `showNearestCluster` in
