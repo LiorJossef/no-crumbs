@@ -117,6 +117,62 @@ the sheet when tapped; the field is present at `half` and `full`); a place open 
 popover **closes** when a search excludes it; and `Escape` clears the field without closing the
 sheet.
 
+## 2b. Honest import failures — `fix/honest-import-errors`, 2026-08-27
+
+The fix for §3.5, and it turned out to be two defects, not one. Verified by running the product and
+reading rows, not by reasoning about the code.
+
+**What was wrong.** Every `/api/imports/probe` failure answered **HTTP 502** whatever happened, a
+malformed body was reported as `INTERNAL, retryable: true` (our bug, and a promise that an identical
+retry might work), the real cause was built into a `DomainError` message that `toView()` correctly
+strips and **nothing ever logged**, and the `imports` row was never stamped — `status='failed'` +
+`error_code` had been required by `imports_failed_implies_code` since `0003` with **no writer, across
+all 22 imports**. On screen, one apologetic template served all fourteen codes.
+
+**The second defect, found while integrating.** `RedirectScreen` was **unreachable dead code**:
+`canSubmit` was gated on `validation.ok`, and `submit()` — the only caller — could only be reached
+through that button. So an Instagram link, a TikTok profile link and a photo post all rendered
+`MALFORMED_URL`'s inline "That doesn't look like a TikTok link.", which is false for all three. That
+contradicted the MVP boundary in `CLAUDE.md`: *an Instagram or YouTube link is a recognised redirect
+to manual add, never a failure.* Confirmed against `main` before changing anything.
+
+**Proven by use, signed in, at 390×844 and 1440×900:**
+
+| Check | Result |
+|---|---|
+| nonexistent video id | **422** `POST_UNAVAILABLE` (was 502), screen reads C60/C61/C62 |
+| the `imports` row for it | `status='failed'`, `stage='source'`, `error_code='POST_UNAVAILABLE'` — the **first `failed` row this database has ever held**, against the live constraints |
+| the server log line | `07` §7.1's shape verbatim, one parseable record, `cause` redacted, no caption, no coordinates |
+| a real Instagram reel | "That link isn't a TikTok" + `Open the original link`, and **zero** requests to the route |
+| a TikTok profile URL | "That's a TikTok link, but not a post" — distinct news, which `main` collapsed |
+| 18 hostile paste inputs | **zero** reached the server; `MALFORMED_URL` is the only one that still shows the inline sentence |
+| 17 wire cases | every status and code honest; payload still exactly `{code, retryable}` |
+| the extraction cache | still **4 rows**, `latency_ms` untouched — roughly a dozen imports, **zero** Gemini calls |
+| re-paste after a failure | adopts the same row (`c_open` counts `failed` as open) and clears `error_code` to NULL |
+
+**A real data leak was found and closed.** `describeCause` reduces a cause to something loggable.
+The first version passed an `Error`'s `.message` through — and V8's `JSON.parse` `SyntaxError`
+**echoes its input**: short inputs whole (`"(32.0578, 34.7702)"`), and on a trailing comma — the most
+common LLM JSON defect — a ~20-char window from the middle of the payload carrying a full longitude.
+Both reach that branch from `gemini.place-extractor.ts:184`. That is a straight **M6/R9 violation**
+(no coordinate in any log line), not a wording problem, and the first severity call on it was wrong.
+Closed by redacting everything between the first and last quote, keeping the parser's complaint so
+failures stay diagnosable. `describeCause` is also now total — it cannot throw, because it runs
+inside the route's own catch and a throw there turns an honest 4xx into Next's 500.
+
+**Two things this deliberately does not do.** It never widens the payload — honesty is choosing the
+right *code* and writing the detail to the *server log*. And it adds no fifteenth error code: the set
+is closed and owned by `07` §9. A malformed request envelope is reported as `MALFORMED_URL`, which is
+true about the user-visible effect but not literally what happened; see §3.12.
+
+**Also fixed, from the QA pass:** `Cancel` on the rail cleared the URL without aborting the fetch, so
+the doomed request came back and took the screen — leaving `Retry` as a dead primary button, and
+letting a stale response overwrite a correct screen. There is a real `AbortController` now, plus an
+in-flight guard (five scripted clicks previously fired five model calls). A caller abort is recorded
+as `outcome: 'aborted'` and **no** `error_code`: three measured aborts had each written
+`UPSTREAM_TIMEOUT`, filing a user's `Cancel` as a TikTok outage. The row stays `processing` for
+`expires_at` to sweep — tidier would be to write *a* code; none of them would be true.
+
 ## 3. Unresolved — in impact order
 
 0. **Production is down, and the recorded cause was wrong.** `https://p-002-zeta.vercel.app/map`
@@ -216,15 +272,21 @@ sheet.
    a mis-scoped definer function is a classic escalation — so it is written down here rather than
    slipped in beside an unrelated migration. Recorded in `inventory.sql` check 5 with the same
    measurement.
-5. **Every API error is masked as `INTERNAL, retryable: true`,** including a 400 for a malformed
-   body. Honest about not leaking internals, dishonest about retryability, and hard to diagnose.
+5. ~~**Every API error is masked as `INTERNAL, retryable: true`.**~~ **Fixed 2026-08-27** on
+   `fix/honest-import-errors`. A malformed body is `MALFORMED_URL` (not retryable, and not our bug);
+   each of the 14 codes carries its own HTTP status, so a 500 is now reachable only through
+   `INTERNAL` and `07` §7.1's "page a human" means something again; the real cause is written to one
+   structured server log line instead of being discarded; and the `imports` row is stamped
+   `status='failed'` with its `error_code`, which `imports_failed_implies_code` (`0003`) had required
+   since the schema was written with nothing ever writing it. The user-facing half is a per-code copy
+   map — see §2b.
 6. **The demo library has four duplicate places** ("Kiaans"/"Kiaans Tooting", two "Tokii", two
    "Sycamore …", two "HaKosem") created by my own testing before the identity fix landed. **They can
    now be removed from the UI** (`L1-F7-T2`, #29) — open one from the list and use "Remove from your
    places". Deliberately not done for you: they are your rows, and they are also the most realistic
    messy-state fixture the library has.
-7. Two `imports` rows are stuck at `status='processing'` from before the probe route wrote terminal
-   states. Historical only — the current code cannot produce them.
+7. ~~Two `imports` rows are stuck at `status='processing'`.~~ **Not true any more** — measured
+   2026-08-27, every one of the 22 rows is terminal. The note was stale.
 8. `docs/ux-import-review-screen.md` §8 (motion) is specified but not implemented. Deliberate:
    ornament before correctness. (The debounced live-region announcement it also lists now exists on
    `/map`'s search — `useResultAnnouncement` in `map-page-client.tsx` — but not on the review
@@ -244,6 +306,32 @@ sheet.
    query *and* a different interaction (debounce, pending state) — a real change, not a tuning knob.
 11. **No category-filter chips.** `ux-architecture.md` §1.4 draws `[All][Food]`; one text field that
    also searches category and city covers most of that need, and chips are an L2 call.
+
+12. **The error taxonomy has no client-protocol fault.** `07` §9's 14 codes were designed for
+   *link* failures; there is no member for "your request envelope was wrong" — a body that is not
+   JSON, a body with no `url` key. `fix/honest-import-errors` reports those as `MALFORMED_URL`,
+   which is honest about the user-visible effect (no usable link arrived) and carries the correct
+   `retryable: false`, but is not literally what happened. Today the only caller is our own UI, so
+   the distinction is invisible in the product and a 15th code would be dead weight. If `L0-F6`'s
+   real route ever has a second caller, **`07` §9 decides** whether a `BAD_REQUEST` member is
+   warranted — not a call site.
+13. **Low-severity leftovers from the 2026-08-27 adversarial pass**, none reachable by an ordinary
+   user, all recorded rather than fixed (owner steer: hardening is not the default next branch).
+   - `/api/imports/probe` has no request-body bound: a 5 MB `url` string returns 200 in ~111 ms
+     locally. Vercel's 4.5 MB platform limit bounds it in production; `next dev` does not.
+   - `redactEchoedSource` keeps the single offending character by design, and that character can be
+     a bidi control — a crafted body logs a line that visually reverses in a terminal viewer.
+   - **`playwright.config.ts` defaults `baseURL` to `127.0.0.1`.** Against `next dev` on this Next
+     version that origin 403s on every `/_next/static/chunks/*`, the page never hydrates, and forms
+     submit natively. Every e2e spec needs `PLAYWRIGHT_BASE_URL=http://localhost:3000` locally. CI
+     builds and runs `next start`, so CI is unaffected — retargeting the default is a CI-affecting
+     change and was not made blind.
+   - `NoPlacesScreen`'s `Add manually →` calls `reset()` — it returns you to an empty paste field
+     while naming a surface (S8) that does not exist. Unreachable today; **becomes reachable at
+     `L0-F6`**, and is one of the dead ends `L1-F7-T1` closes.
+   - Seven copy strings in `ui/import/import-error-copy.ts` are marked `NEW`: compositions in the
+     existing vocabulary that `ux-architecture` §12.4 has no `C##` id for. §12 says strings not in
+     the deck do not ship, so `ux-interaction` owes ids or rewrites.
 
 ## 4. Decisions and constraints a new session must not rediscover
 
@@ -325,37 +413,57 @@ fix is to make the repo public or upgrade the account, apply the ruleset in
 
 ## 6. The next highest-impact step
 
-**First, and it is not a feature: restore the Vercel environment variables** (§3.0,
-`docs/vercel-env-restore.md`). It is the owner's five-minute job and it is worth more than any
-amount of product work, because until it is done every deployed surface that needs a signed-in user
-is a 500 and no shipped change can be seen by anyone. Production's migration push follows it, once
+**Owner steer, 2026-08-27: bias the next workstream toward visible product progress and a completed
+MVP journey.** Reliability, security and correctness work still happens when it genuinely blocks or
+compromises the core experience — but incremental hardening and out-of-scope edge cases must not be
+the default next branch. The product itself should become noticeably more capable, not only the
+engineering underneath it.
+
+**Still first, and still not a feature: restore the Vercel environment variables** (§3.0,
+`docs/vercel-env-restore.md`). It is the owner's five-minute job and no amount of product work
+substitutes for it, because until it is done every deployed surface that needs a signed-in user is a
+500 and nothing anyone builds can be seen. Production's migration push follows it, once
 `PROD_DATABASE_URL` is set.
 
-**Then the product work.** `L1-F7-T2` is **done** (#29): delete and note-editing are in the UI at
-both breakpoints, and `L1-F7-T3`'s ownership assertions are in `0008_policy_tests.sql`. What is left
-of F7 is **`L1-F7-T1` — manual add**: POI search over the resolver, select, save. It is the other
-half of the same feature and it is also `L1-F4`'s recovery path, because at LEVEL B's ~27% hit rate
-"no places found" is the *modal* import outcome and manual add is the only thing a user can do next.
+**Then: `L1-F7-T1` — manual add.** This is the chosen next branch, and the "blocked in spirit" note
+that has sat on it since 2026-08-26 is hereby resolved rather than escalated again. The block was
+that its exit criterion names "a place in an un-ingested city", which is the `PlaceResolver` of
+`L0-F2b`/D2b — and that resolver was **paused indefinitely** on 2026-08-22 (`06` §3.4) in favour of
+LLM identification plus a Google Maps link-out. Waiting for it means waiting forever, so manual add
+ships against what exists, with the boundary stated on screen rather than hidden.
 
-It is not a free run, and the next session should know why before starting: **T1 wants "a place in
-an un-ingested city can be found and saved by name", which is the `PlaceResolver` that does not
-exist yet** (`L0-F2b`/D2b — the Overture index where a region is loaded, Nominatim everywhere else).
-So F7-T1 either waits behind the resolver or ships against one source and is honest about the
-boundary. That is a scope call for the owner, not something to decide silently.
+Why it is the highest-leverage product work available, in order:
 
-The cheaper things that are now unblocked and genuinely worth doing:
+1. **It is the recovery for the modal outcome.** At LEVEL B's ~27% hit rate, "no places found" is
+   what most imports do, and `NoPlacesScreen`'s `Add manually →` currently calls `reset()` — it
+   returns you to an empty paste field. The most common path through the product ends in a button
+   that pretends to do something.
+2. **Three failure screens now have a missing recovery.** `ux-architecture` §5.1 and §5.3 both list
+   `Add a place you know`; it was deliberately omitted from all of them on
+   `fix/honest-import-errors` because S8 does not exist and linking to a 404 is worse than the
+   failure being reported. `ui/import/import-error-copy.ts`'s `actions` arrays are the single place
+   it gets added.
+3. **It closes `L1-F7`** — the course's CRUD evidence — and unblocks **`L1-F4`**, which depends on
+   F7 precisely because manual add is its recovery.
+4. **It reuses machinery already proven**: the extraction schema and its plausibility gate, the
+   server-owned confirm pattern (the browser sends no place fact), and `save_place`.
 
-- **A real deploy health check** (§3.0's closing note). `/healthz` returns `ok:true` with no
-  environment variables set at all, because it deliberately reads no configuration. Production has
-  been down since PR #20 and nothing noticed. A check that fetched `/map` and asserted `307` would
-  have caught it the day it happened.
-- **Scoping the policy suite's counts to its own fixtures.** `npm run db:test` currently cannot run
-  against any database with data in it — it fails on the `extractions` setup guard with a message
-  that says the fixture was not created when it was. That makes the suite unrunnable locally without
-  a reset, and a reset discards cached `extractions` that cost real model calls.
-- **Un-masking API errors** (§3.5). This one cost real time twice today.
+**Not chosen, and why.** Coordinate accuracy (§3.1) is still the biggest single quality problem and
+is still blocked on an owner decision about Google spend. The remaining findings from
+`fix/honest-import-errors`' QA pass (§2b) are all low severity, none of them reachable by an ordinary
+user, and per the steer above they go on this list rather than into the next branch. The fifth and
+sixth camera movers (§3.9) stay a loose end that `L1-F5-T2` owns; nothing is broken meanwhile.
 
-**Not chosen, and why.** Coordinate accuracy (issue 3.1) is still the biggest single quality problem
-and is still blocked on an owner decision about Google spend. The fifth camera mover (issue 3.8) is a
-loose end but `L1-F5-T2` owns it and nothing is broken meanwhile. Error masking (issue 3.4) is real
-but costs the user nothing today.
+**Cheaper things now unblocked, if a session has room after the feature:**
+
+- **A real deploy health check.** `/healthz` returns `ok:true` with no environment variables set at
+  all, because it deliberately reads no configuration. Production has been down since PR #20 and
+  nothing noticed. A check that fetched `/map` and asserted `307` would have caught it that day.
+- **Scoping the policy suite's counts to its own fixtures.** `npm run db:test` cannot run against a
+  database with data in it — the `extractions` setup guard counts the whole table without RLS, so it
+  fails claiming the fixture was not created. That makes the suite unrunnable locally without a
+  reset, and a reset discards cached `extractions` that cost real model calls.
+- **An in-flight guard already exists on the client after `fix/honest-import-errors`; a real
+  server-side rate limit still does not.** `rateLimitedLocal` has **zero production call sites**
+  (verified by grep, 2026-08-27), so the honest-status work now advertises a 429 the route can never
+  send. `L0-F6-T1` owns the real limiter.
