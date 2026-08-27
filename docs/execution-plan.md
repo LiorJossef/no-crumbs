@@ -361,3 +361,37 @@ Three consequences worth holding in mind while executing:
 | 2026-08-27 | **Four owner rulings, taken as a batch at the start of the session** — the seven questions `current-state.md` §9.2 carried forward, answered rather than resolved in passing. (a) **Manual add as *place search* is inside Charter §2** — typing a name and picking a resolved place is a different object from the caption entry §2 forbids, with the same resolver and the same provenance fields. But it is **deliberately not started**: the owner wants it only as a proper place-search experience, not a basic manual-entry form, and the current work finishes first. The scope block is lifted; the quality bar replaces it. (b) **Near-me promoted from L2 to L1** — new feature `L1-F11`, two tasks, depending on `L1-F5-T2`, because binding the list to the viewport turns near-me into a control that *sets* the viewport rather than a second retrieval system. (c) **The five duplicate pairs in the demo library stay** as the most realistic messy-state fixture; delete them from the UI before a demo instead. No backfill, no merge path, and the 75 m radius is untouched. (d) **~27% is not accepted as a permanent product position, and media ingestion is not reopened either** — the priority is making the caption-based pipeline excellent and reliable end to end first; transcription, OCR and other inputs are revisited after that foundation is solid, which leaves `04` M9 closed for now and means the no-places copy should not yet be rewritten to defend the rate as a stated position |
 | 2026-08-27 | **`L1-F5-T2` reopened as "the map is the query"** — the plan-of-record's own next highest-impact step (`current-state.md` §9.1.1), and the first work in a while that changes what the product *feels* like rather than what it can survive. Three parts, one idea: the camera anchors on **one cluster** instead of fitting all of them (12 London + 8 Tel Aviv fitted to one box is a continental view with two bubbles and no individual pins); the list is bound to the **viewport**, so the sheet is always exactly what is on the map and its header names the area (`12 places in London`, not `20 places saved`); and the extraction v2 vocabulary becomes **findable** (`momos`, `natural wine`, `hidden gem` matched nothing before). Costs no model calls, no provider decision, no ODbL gate and no schema change. Specified in full in `docs/ux-map-is-the-query.md`, which also rules that `ux-architecture` §6.6.2's `Search this area` pill should **never be built** — its entire job was binding the list to the viewport on demand, and that binding is now permanent |
 | 2026-08-27 | **The resolver is real, and measuring it on real captions reordered the work.** `L0-F2` is delivered ([#40](https://github.com/LiorJossef/P-002/pull/40), [#41](https://github.com/LiorJossef/P-002/pull/41)); `L0-F3-T1` (the ODbL sign-off) is closed. **The number that matters changed by more than any fix did.** The owner supplied 13 real TikToks; through the shipped flow the **auto-match rate is 4/16 (25%)** where the synthetic benchmark says 11/15 — because `benchmark-spec.json`'s queries are script-matched to the index by construction, so half the old number was the measuring instrument. `tests/manual/tiktok-recognition.manual.ts` is now the harness of record for product accuracy; the synthetic one measures the scorer against a fixed substrate and its floor is raised 7 → 11 with that caveat written on the file. **Three ordering consequences, each from the corpus rather than from argument.** (a) **The address signal is promoted to the top of the resolver work.** The extractor already populates `addressHint` for 9 of 17 candidates and `ResolveQuery` has no address field at all; exact `address_line` matches sit in the index for four venues we get wrong, and `קוהי` → `Kohi Coffee Shop` shows the address is **script-neutral evidence** — it bridges Hebrew↔Latin where no name match can. (b) **The OSM `alt_names` join is deprioritised on evidence, not only on licence cost.** The handoff ranked it second on the theory that Latin captions cannot reach Hebrew rows; 11 of the owner's 12 captions are Hebrew and the index is 64% Hebrew, so they match in script already (`האחים` scores 1.000). The dominant failures are address blindness and Hebrew generic tokens. (c) **The scoring and prefilter fixes that moved the synthetic benchmark 7/15 → 11/15 moved the real number by exactly zero** — not a criticism of either, but the clearest evidence available that a benchmark can be improved without improving a product. **Two defects recorded for whoever touches this next**: the `source_dataset` CHECK that `0010` calls "the enforcement of `06` §11 Q2" does not fire (proven with a rolled-back UPDATE), and `alt_names` currently flows from `place-resolver.ts` through the stored resolution record and out to the browser in `probe/route.ts` |
+
+
+---
+
+## Ownership corrections, 2026-08-28 (overnight session)
+
+Four rows in this file read as staffed or in-flight when they are not. Recorded here rather than
+silently rewritten, so the ladder's history stays legible.
+
+1. **`L1-F5-T2` is marked `IN PROGRESS 2026-08-27`. It shipped**, in PR #37. The owner has since
+   rejected the interaction model it shipped (`current-state.md` §0.1b) and, on 2026-08-28,
+   reopened it for rebuild (§0.1c). The honest status is **DONE, partly superseded, rebuild
+   authorised** — not in progress.
+
+2. **`L1-F7-T1` (manual add) is the most misleading row in the file.** It names `nextjs-architect`
+   and `supabase-database` as owners; no work has been done and none is planned, because the owner
+   has ruled it in scope but deliberately not started behind a quality bar. Worse, its exit
+   criterion — "a place in an un-ingested city can be found and saved by name" — requires the
+   `PlaceResolver` of `L0-F2b`, which is parked. Two named owners, an unreachable exit criterion,
+   and no work, sitting under three failure screens and the modal import outcome. It should read
+   **BLOCKED on `L0-F2b`, unstaffed, owner-gated**.
+
+3. **`L1-F11` (near-me) depends on `F5-T2`**, whose model was under owner review and is now being
+   rebuilt. Its justification has actually been *replaced* rather than invalidated — see §0.1c:
+   near-me becomes the one mode where the list is ordered by distance and distances are shown.
+   The dependency should be marked provisional until the rebuild lands.
+
+4. **L0 and L1 are running in parallel**, against `mvp-plan.md` §1's "levels are climbed in order
+   and never in parallel". Line 96 notes L0 features paused after `L0-F1` while L1 work proceeds.
+   That is a live, knowing exception and should be written as an owner exception with a re-entry
+   condition — otherwise the plan's own ordering rule quietly stops meaning anything.
+
+**Not fixed in this pass**, because renumbering or re-statusing the ladder is the owner's call and
+would bury the more important content of this session. These four are the outstanding items.
