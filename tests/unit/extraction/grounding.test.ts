@@ -18,6 +18,7 @@ function candidate(overrides: Partial<PlaceCandidate> = {}): PlaceCandidate {
     evidence: 'Sycamore Restaurant',
     modelConfidence: 0.8,
     identifiedName: 'Sycamore Restaurant',
+    nameVariants: [],
     tags: [],
     dishes: [],
     whyGo: null,
@@ -96,6 +97,7 @@ describe('applyGrounding — whyGo', () => {
         candidate({
           rawName: 'Ha Kosem',
           identifiedName: 'HaKosem',
+          nameVariants: [],
           areaHint: null,
           cityHint: 'Tel Aviv',
           evidence: 'Ha Kosem',
@@ -176,6 +178,59 @@ describe('applyGrounding — tags', () => {
     // exists that does not.
     const { candidates } = applyGrounding([candidate({ tags: ['Hotel Restaurant'] })], CAPTION);
     expect(candidates[0]?.tags).toEqual(['hotel restaurant']);
+  });
+});
+
+/**
+ * `nameVariants` (v3) is the only field here whose reference is not the caption, because a
+ * translation cannot be a caption substring — `מתחת לעץ` -> `Under the Tree` is the case the
+ * whole field exists for, and any containment test would kill it. What is testable is the hygiene:
+ * the contract says a variant is the name in the *other* form, so `rawName` returned to us is not
+ * one, and two spellings of one variant are not two.
+ */
+describe('applyGrounding — nameVariants', () => {
+  it('keeps a translated variant that appears nowhere in the caption', () => {
+    // The money case, from `docs/evidence/places/bilingual-expansion.md`: the caption says
+    // `מתחת לעץ`, the index row says `Under the Tree`, and no gate in this file may object.
+    const { candidates, counters } = applyGrounding(
+      [
+        candidate({
+          rawName: 'מתחת לעץ',
+          identifiedName: 'מתחת לעץ',
+          nameVariants: ['Under the Tree'],
+          evidence: 'מתחת לעץ',
+          areaHint: null,
+          whyGo: null,
+        }),
+      ],
+      'בית קפה חדש בבן יהודה — מתחת לעץ',
+    );
+    expect(candidates[0]?.nameVariants).toEqual(['Under the Tree']);
+    expect(counters.name_variant_dropped).toBe(0);
+  });
+
+  it('drops a variant that is just rawName again', () => {
+    const { candidates, counters } = applyGrounding(
+      [candidate({ rawName: 'קוהי', nameVariants: ['  קוהי  ', 'Kohi'] })],
+      'קוהי, בן יהודה 155',
+    );
+    expect(candidates[0]?.nameVariants).toEqual(['Kohi']);
+    expect(counters.name_variant_dropped).toBe(1);
+  });
+
+  it('folds case, accents and blanks rather than searching twice for one name', () => {
+    const { candidates, counters } = applyGrounding(
+      [candidate({ rawName: 'קפה אירופה', nameVariants: ['Cafe Europa', 'café europa', '   '] })],
+      'קפה אירופה ברוטשילד',
+    );
+    expect(candidates[0]?.nameVariants).toEqual(['Cafe Europa']);
+    expect(counters.name_variant_dropped).toBe(2);
+  });
+
+  it('leaves an empty list empty — the correct answer for a Latin-only venue', () => {
+    const { candidates, counters } = applyGrounding([candidate()], CAPTION);
+    expect(candidates[0]?.nameVariants).toEqual([]);
+    expect(counters.name_variant_dropped).toBe(0);
   });
 });
 

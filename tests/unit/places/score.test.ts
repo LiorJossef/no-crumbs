@@ -20,10 +20,14 @@ import { jaroWinklerSimilarity } from '@/domain/places/jaro-winkler';
 import { normalise } from '@/domain/places/normalise';
 import {
   bestNameScore,
+  bestNameScoreAcrossForms,
   categoryScore,
   confidenceOf,
   distinctiveTokens,
+  MAX_QUERY_VARIANTS,
+  matchedTextOf,
   nameScore,
+  queryForms,
   queryTokens,
   rankPlaces,
   scoreCandidates,
@@ -736,9 +740,16 @@ describe('scorePlace with an address — the sign of every outcome', () => {
     // (`domain/import/resolution-record.ts`), and is constructed by a dozen call sites outside this
     // module. The address changes `score` and nothing else; `addressScore` is exported for anyone
     // who needs to explain a number.
+    //
+    // **`matchedText` was added to this list by TLV-BILING-B and the rest of it did not move.**
+    // The original assertion was written to stop the address term leaking a field; it now also
+    // states the one field that was deliberately allowed to. `matchedText` is query provenance —
+    // which of `queryForms()`'s strings produced `nameScore` — and it is NOT in
+    // `StoredRankedPlaceSchema`, so zod strips it on the way back out of `jsonb` and nothing
+    // downstream can ever read it as an input. See the round-trip assertion below.
     const ranked = scorePlace(kohi, 'cafe', 'Kohi', 'בן יהודה 155');
     expect(Object.keys(ranked).sort()).toEqual(
-      ['categoryScore', 'nameScore', 'place', 'score', 'tokenCoverage'].sort(),
+      ['categoryScore', 'matchedText', 'nameScore', 'place', 'score', 'tokenCoverage'].sort(),
     );
   });
 });
@@ -797,5 +808,257 @@ describe('rankPlaces reads the address off the query', () => {
     expect(ranked[0]!.place.name).toBe('Brasserie 18');
     // All three got the same address credit, so the gap between them is entirely the name.
     expect(ranked[0]!.nameScore).toBeGreaterThan(ranked[1]!.nameScore);
+  });
+});
+
+/* ------------------------------------------------------------------------------------------- *
+ * TLV-BILING-B — divergence 6: the name term is the best over every query FORM.
+ *
+ * The measured problem this closes (`handoff-2026-08-28` §5): the address arm retrieves
+ * `Kohi Coffee Shop` for a caption that says `קוהי`, the cross-script name scores ~0, and the
+ * blend lands the right row *below* a wrong-venue row that merely shares a script. The fix is on
+ * the query side — not `SCORING.address.weight`, which would make `Oscar's` the first false
+ * auto-accept.
+ * ------------------------------------------------------------------------------------------- */
+
+describe('queryForms — which strings are allowed to be the query', () => {
+  it('is exactly [text] when no variants are offered, however they are spelled', () => {
+    expect(queryForms('קוהי')).toEqual(['קוהי']);
+    expect(queryForms('קוהי', null)).toEqual(['קוהי']);
+    expect(queryForms('קוהי', [])).toEqual(['קוהי']);
+    expect(queryForms('קוהי', undefined)).toEqual(['קוהי']);
+  });
+
+  it('puts text first and verbatim, so the tie-break always favours what the caption said', () => {
+    expect(queryForms('קוהי', ['Kohi'])[0]).toBe('קוהי');
+  });
+
+  it('drops a variant that normalises to nothing', () => {
+    expect(queryForms('Kohi', ['', '   ', '!!!', '—'])).toEqual(['Kohi']);
+  });
+
+  it('drops a variant that is the query again under a different spelling', () => {
+    // `normalise()` is the project's one answer to "are these the same name", so it is the one
+    // used here. A duplicate would cost a token-budget slot and buy nothing.
+    expect(queryForms('Café Europa', ['cafe europa!', 'Cafe  Europa'])).toEqual(['Café Europa']);
+    expect(queryForms('Kohi', ['Kohi Coffee'])).toEqual(['Kohi', 'Kohi Coffee']);
+  });
+
+  it('drops a variant with no distinctive token at all — the admission rule', () => {
+    // A "variant" made only of generic words is not a name, it is a category. `queryTokens`'s
+    // all-generic fallback exists for a CAPTION the model could not read; applying it to a model's
+    // claim that this is the same venue would make every coffee shop in the index reachable from
+    // the word `coffee`.
+    expect(queryForms('קוהי', ['Coffee Shop'])).toEqual(['קוהי']);
+    expect(queryForms('קוהי', ['בר', 'מסעדה'])).toEqual(['קוהי']);
+    // ...while a real name that happens to contain a generic word is admitted on the rest of it.
+    expect(queryForms('קוהי', ['Kohi Coffee Shop'])).toEqual(['קוהי', 'Kohi Coffee Shop']);
+  });
+
+  it('caps the number of variants it will consider', () => {
+    const many = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon'];
+    const forms = queryForms('Zeta', many);
+    expect(forms).toHaveLength(MAX_QUERY_VARIANTS + 1);
+    expect(forms[0]).toBe('Zeta');
+  });
+
+  it('keeps text even when text itself is unusable, so absent variants never change the shape', () => {
+    expect(queryForms('!!!', ['Kohi'])).toEqual(['!!!', 'Kohi']);
+  });
+});
+
+describe('bestNameScoreAcrossForms', () => {
+  it('is exactly bestNameScore for a single form', () => {
+    expect(bestNameScoreAcrossForms(['Kohi'], 'Kohi Coffee Shop', [])).toEqual({
+      ...bestNameScore('Kohi', 'Kohi Coffee Shop', []),
+      matchedText: 'Kohi',
+    });
+  });
+
+  it('reaches a Latin-named row from a Hebrew caption, which is the whole point', () => {
+    const hebrewOnly = bestNameScoreAcrossForms(['קוהי'], 'Kohi Coffee Shop', []);
+    const withLatin = bestNameScoreAcrossForms(['קוהי', 'Kohi'], 'Kohi Coffee Shop', []);
+    expect(hebrewOnly.nameScore).toBe(0);
+    expect(withLatin.nameScore).toBeGreaterThan(0.8);
+    expect(withLatin.matchedText).toBe('Kohi');
+  });
+
+  it('takes the strictly greater form, so text wins every tie', () => {
+    const tied = bestNameScoreAcrossForms(['Kohi', 'kohi!'], 'Kohi', []);
+    expect(tied.matchedText).toBe('Kohi');
+    expect(tied).toEqual({ ...bestNameScore('Kohi', 'Kohi', []), matchedText: 'Kohi' });
+  });
+
+  it('carries tokenCoverage from the form that won, not from text', () => {
+    const best = bestNameScoreAcrossForms(['קוהי', 'Kohi'], 'Kohi Coffee Shop', []);
+    expect(best.tokenCoverage).toBe(nameScore('Kohi', 'Kohi Coffee Shop').tokenCoverage);
+  });
+
+  it('crosses with altNames rather than replacing them (divergence 5 still applies)', () => {
+    const viaAlias = bestNameScoreAcrossForms(['קוהי', 'Kohi'], 'משהו אחר', ['Kohi Coffee Shop']);
+    expect(viaAlias.nameScore).toBe(nameScore('Kohi', 'Kohi Coffee Shop').nameScore);
+    expect(viaAlias.matchedText).toBe('Kohi');
+  });
+
+  it('never lowers a score — more forms can only ever raise one', () => {
+    const rows = ['Kohi Coffee Shop', 'NIKO by Sharon Cohen', 'Miznon', 'קוהי בן יהודה'];
+    for (const row of rows) {
+      const before = bestNameScoreAcrossForms(['קוהי'], row, []).nameScore;
+      const after = bestNameScoreAcrossForms(['קוהי', 'Kohi', 'Kohi Coffee'], row, []).nameScore;
+      expect(after).toBeGreaterThanOrEqual(before);
+    }
+  });
+});
+
+describe('scorePlace and rankPlaces with textVariants', () => {
+  const kohi = place({
+    name: 'Kohi Coffee Shop',
+    addressLine: 'בן יהודה 155',
+    providerCategory: 'coffee_shop',
+    datasetConfidence: 0.5,
+  });
+  const niko = place({
+    name: 'NIKO by Sharon Cohen',
+    addressLine: 'בן יהודה 155',
+    providerCategory: 'coffee_shop',
+    datasetConfidence: 0.9,
+  });
+
+  it('treats absent, null and empty variants as the same thing', () => {
+    const candidates = [kohi, niko];
+    const absent = rankPlaces(query({ text: 'קוהי', addressHint: 'בן יהודה 155' }), candidates);
+    const nulled = rankPlaces(
+      query({ text: 'קוהי', addressHint: 'בן יהודה 155', textVariants: null }),
+      candidates,
+    );
+    const empty = rankPlaces(
+      query({ text: 'קוהי', addressHint: 'בן יהודה 155', textVariants: [] }),
+      candidates,
+    );
+    expect(nulled).toEqual(absent);
+    expect(empty).toEqual(absent);
+  });
+
+  it('is the §5 blocker, and the Latin variant is what unblocks it', () => {
+    // Before: the address arm delivers Kohi and the blend throws it away — a wrong-venue row that
+    // merely shares a script outranks it, both far below any band.
+    const before = rankPlaces(
+      query({ text: 'קוהי', addressHint: 'בן יהודה 155', categoryHint: 'cafe' }),
+      [kohi, niko],
+    );
+    expect(before[0]!.place.name).toBe('NIKO by Sharon Cohen');
+    expect(before[0]!.nameScore).toBe(0);
+
+    // After: the name is matchable, so the address confirms rather than carries.
+    const after = rankPlaces(
+      query({
+        text: 'קוהי',
+        addressHint: 'בן יהודה 155',
+        categoryHint: 'cafe',
+        textVariants: ['Kohi'],
+      }),
+      [kohi, niko],
+    );
+    expect(after[0]!.place.name).toBe('Kohi Coffee Shop');
+    expect(after[0]!.score).toBeGreaterThan(SCORING.bands.confirmScore);
+
+    // **The wrong row rises too, and that is the honest shape of this change.** `Kohi` scores
+    // 0.483 against `NIKO by Sharon Cohen` on Jaro-Winkler alone (`niko`/`kohi` share three
+    // letters), so NIKO goes 0.352 → 0.661. A variant does not lift only the row it names; it
+    // lifts every row it is fuzzily similar to. What saves this case is that the right row rises
+    // further, and the margin gate is what would catch it if it did not.
+    const nikoBefore = before.find((r) => r.place.name === niko.name)!;
+    const nikoAfter = after.find((r) => r.place.name === niko.name)!;
+    expect(nikoAfter.score).toBeGreaterThan(nikoBefore.score);
+    expect(after[0]!.score - nikoAfter.score).toBeGreaterThan(SCORING.bands.preselectMargin);
+  });
+
+  it('does not auto-accept the case it rescues — it moves it from no_match to confirm', () => {
+    // Measured, not assumed: `קוהי` + `Kohi` + `בן יהודה 155` lands at 0.917, three thousandths
+    // under the 0.92 gate, with a 0.255 margin. The venue is now OFFERED where it was previously
+    // not even in the shortlist. Pinned so that a later change which turns it into an auto-accept
+    // has to say so out loud.
+    const before = confidenceOf(
+      rankPlaces(query({ text: 'קוהי', addressHint: 'בן יהודה 155', categoryHint: 'cafe' }), [
+        kohi,
+        niko,
+      ]),
+    );
+    const after = confidenceOf(
+      rankPlaces(
+        query({
+          text: 'קוהי',
+          addressHint: 'בן יהודה 155',
+          categoryHint: 'cafe',
+          textVariants: ['Kohi'],
+        }),
+        [kohi, niko],
+      ),
+    );
+    expect(before.band).toBe('no_match');
+    expect(after.band).toBe('confirm');
+    expect(round3(after.score)).toBe(0.917);
+  });
+
+  it('records which form matched, on every row, including the ones text matched', () => {
+    const ranked = rankPlaces(
+      query({ text: 'קוהי', addressHint: 'בן יהודה 155', textVariants: ['Kohi'] }),
+      [kohi, place({ name: 'קוהי בן יהודה', addressLine: 'בן יהודה 155' })],
+    );
+    expect(matchedTextOf(ranked.find((r) => r.place.name === 'Kohi Coffee Shop')!)).toBe('Kohi');
+    expect(matchedTextOf(ranked.find((r) => r.place.name === 'קוהי בן יהודה')!)).toBe('קוהי');
+  });
+
+  it('reports null provenance for a RankedPlace that did not come from scorePlace', () => {
+    expect(matchedTextOf(ranked(0.5))).toBeNull();
+  });
+
+  it('cannot lower any row’s score, which is why the risk is entirely in the margin', () => {
+    // The property the false-auto-accept analysis rests on, asserted rather than argued: adding a
+    // form is a `max` over more terms, so no row can fall. Widening therefore never demotes the
+    // right venue — it can only promote some other one, which the margin gate is there to catch.
+    const candidates = [kohi, niko, place({ name: 'Miznon' }), place({ name: 'קוהי' })];
+    const before = rankPlaces(query({ text: 'קוהי' }), candidates);
+    const after = rankPlaces(
+      query({ text: 'קוהי', textVariants: ['Kohi', 'Kohi Coffee'] }),
+      candidates,
+    );
+    for (const row of before) {
+      const same = after.find((r) => r.place.providerPlaceId === row.place.providerPlaceId)!;
+      expect(same.score).toBeGreaterThanOrEqual(row.score);
+    }
+  });
+
+  it('does not move the auto-accept gates: a variant still needs both of them', () => {
+    // One perfect variant match against a lone candidate is still `confirm`, because the margin is
+    // unmeasured (divergence 1). Widening the query does not widen what we accept without a human.
+    const alone = scoreCandidates(
+      query({ text: 'קוהי', categoryHint: 'cafe', textVariants: ['Kohi Coffee Shop'] }),
+      [kohi],
+      ['tlv'],
+    );
+    expect(alone.confidence.score).toBeGreaterThan(SCORING.bands.preselectScore);
+    expect(alone.confidence.margin).toBeNull();
+    expect(alone.confidence.band).toBe('confirm');
+  });
+
+  it('leaves a variant that names a DIFFERENT venue below the auto-accept gate on its own', () => {
+    // The Oscar's shape, restated for variants: the model offers a Latin form, the index holds a
+    // different venue at that address, and the name does not actually match. Nothing here reaches
+    // `preselect`; the row is offered for a human to reject.
+    const pundak = place({
+      name: 'פונדק השובבים',
+      addressLine: 'נחלת בנימין 68',
+      providerCategory: 'restaurant',
+      datasetConfidence: 0.9,
+    });
+    const ranked = scorePlace(
+      pundak,
+      'restaurant',
+      "Oscar's",
+      'נחלת בנימין 68',
+      ['אוסקר'],
+    );
+    expect(ranked.score).toBeLessThan(SCORING.bands.confirmScore);
   });
 });

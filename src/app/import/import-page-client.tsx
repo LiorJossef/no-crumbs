@@ -20,6 +20,11 @@
  * The one piece of real domain logic wired up live beyond the above is `canonicaliseTikTokUrl`
  * (`domain/source/canonicalise-tiktok-url.ts`) against the pasted string, so the paste screen's
  * validation and the non-TikTok redirect are the real classification, not a stub.
+ *
+ * The paste screen also offers two or three tappable seed links (`ui/import/seed-links.ts`) for a
+ * user who has nothing to paste. A seed is not a demo path: `submitSeed` fills the field and calls
+ * the same `submit`, so it runs the same route, the same model call and the same review-and-confirm
+ * step, and a dead seed lands on the ordinary failure screen. Nothing fires without a tap.
  */
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
@@ -79,6 +84,7 @@ import {
 } from '@/ui/import/candidate-resolution-view';
 import type { Candidate, PlaceCandidate } from '@/domain/types';
 import type { DomainErrorCode } from '@/domain/errors';
+import { IMPORT_SEED_LINKS } from '@/ui/import/seed-links';
 import {
   COPY_LINK_INSTRUCTION,
   IMPORT_ERROR_ACTION_LABEL,
@@ -332,15 +338,31 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
     setCaptionSave({ saving: false, error: null, partialNotice: null, statusByIndex: null });
   }
 
-  async function submit() {
+  /**
+   * Run the import for `target`, defaulting to whatever is in the field.
+   *
+   * The parameter exists for exactly one caller — `submitSeed` below — and it is a parameter
+   * rather than a second function because a seed must not get its own code path. `setUrl(seed)`
+   * lands a render too late to be read out of state here, so the URL is passed in; everything
+   * downstream (validation, the request body, the rail, the review screen, every failure screen,
+   * `Retry`, `Open the TikTok`) is the same code reading the same state a paste produces.
+   *
+   * Deliberately **not** bound straight to a button's `onClick`: with a defaulted first parameter
+   * that would pass a `MouseEvent` as `target`, and TypeScript would not catch it through a
+   * `() => void` prop. Call sites pass nothing explicitly or go through `submitSeed`.
+   */
+  async function submit(target: string = url) {
     setTouched(true);
-    if (!validation.ok) {
+    // Re-derived from `target` rather than read off the `validation` memo, which is bound to the
+    // field's current value — one render behind on a seed tap.
+    const verdict = canonicaliseTikTokUrl(target);
+    if (!verdict.ok) {
       // UNSUPPORTED_HOST/PHOTO_POST/UNSUPPORTED_URL are all "a recognised link, not a failure" —
       // their own screen, sharing the server's copy for the same verdict. MALFORMED_URL stays on
       // the paste screen: `setTouched(true)` above is what reveals C06 under the field, which is
       // `07` §9's F1-inline treatment and the only code that gets it.
-      if (validation.error.code !== 'MALFORMED_URL') {
-        setScreen({ kind: 'redirect', reason: validation.error.code as PreSubmitErrorCode });
+      if (verdict.error.code !== 'MALFORMED_URL') {
+        setScreen({ kind: 'redirect', reason: verdict.error.code as PreSubmitErrorCode });
       }
       return;
     }
@@ -371,7 +393,7 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
       const fetchPromise = fetch('/api/imports/probe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ url: target }),
         signal: probe.signal,
       });
 
@@ -416,6 +438,25 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
       // clearing it here would unlock a guard that is legitimately held by someone else.
       if (stillCurrent()) inFlightProbe.current = null;
     }
+  }
+
+  /**
+   * A tap on one of the paste screen's seed suggestions (`ui/import/seed-links.ts`).
+   *
+   * Three lines, and all three matter. `setUrl` puts the seed in the field so every screen after
+   * this one behaves as if it had been pasted — `Retry` re-runs it, `Open the TikTok` opens it,
+   * the review screen's source row points at it. `setTouched` matches what a real paste-and-submit
+   * leaves behind. Then the ordinary `submit`: same route, same model call, same review-and-confirm
+   * step. **A seed never writes a place without the user confirming**, because there is no seed
+   * branch in which it could.
+   *
+   * Fires on the gesture and only on the gesture — no prefetch, no warm-up, nothing on mount. Each
+   * uncached tap is one Gemini call against a hard 500/day budget.
+   */
+  function submitSeed(seedUrl: string) {
+    setUrl(seedUrl);
+    setTouched(true);
+    void submit(seedUrl);
   }
 
   /**
@@ -695,13 +736,10 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
       <div
         aria-hidden
         className={cn('absolute inset-0 -z-10', onClose && 'lg:hidden')}
-        style={{
-          background:
-            'radial-gradient(130% 110% at 115% -15%, rgba(192,239,229,0.42) 0%, rgba(192,239,229,0) 58%),' +
-            'radial-gradient(120% 130% at -15% 118%, rgba(218,245,239,0.28) 0%, rgba(218,245,239,0) 62%),' +
-            'radial-gradient(90% 90% at 45% 40%, rgba(241,251,249,0.5) 0%, rgba(241,251,249,0) 70%),' +
-            'var(--background)',
-        }}
+        // `--brand-wash` (globals.css) rather than the gradient literal that used to be inlined
+        // here. It was byte-identical to sign-in's and to the landing page's; three copies of one
+        // surface decision is three places to miss when the dark-mode repass lands.
+        style={{ background: 'var(--brand-wash)' }}
       />
       {/* Failure replaces the whole screen with news the user did not ask for. Announced the way
           `/map` already announces its filtered result count (`useResultAnnouncement` → one
@@ -768,7 +806,11 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
             setTouched={setTouched}
             showInvalid={showInvalid}
             canSubmit={canSubmit}
-            onSubmit={submit}
+            // Wrapped, never `onSubmit={submit}`: `submit`'s first parameter is the URL, and a
+            // bare handler would receive React's `MouseEvent` as it. The `() => void` prop type
+            // hides that from the compiler, so the wrapper is the guard.
+            onSubmit={() => void submit()}
+            onSeed={submitSeed}
           />
         )}
 
@@ -793,7 +835,7 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
         )}
 
         {screen.kind === 'no_places' && (
-          <NoPlacesScreen authorHandle={screen.authorHandle} url={url} onRetry={reset} onAddManually={reset} />
+          <NoPlacesScreen authorHandle={screen.authorHandle} url={url} onRetry={reset} />
         )}
 
         {screen.kind === 'results' && (
@@ -866,6 +908,7 @@ function PasteScreen({
   showInvalid,
   canSubmit,
   onSubmit,
+  onSeed,
 }: {
   url: string;
   setUrl: (v: string) => void;
@@ -873,7 +916,10 @@ function PasteScreen({
   showInvalid: boolean;
   canSubmit: boolean;
   onSubmit: () => void;
+  /** Runs one of `IMPORT_SEED_LINKS` through the ordinary submit path. */
+  onSeed: (url: string) => void;
 }) {
+  const seedsLabelId = useId();
   return (
     <div className="flex flex-1 flex-col">
       <div className="flex flex-col gap-2 pb-8">
@@ -907,13 +953,48 @@ function PasteScreen({
         )}
       </div>
 
+      {/*
+        Cold start. With no places saved, this screen is a heading, an empty field and a disabled
+        button, and the user has to leave the product to find something to paste. These are real
+        TikToks (`ui/import/seed-links.ts`) that run the real pipeline — tapping one is a paste, not
+        a demo, and it still stops at review-and-confirm before anything is saved.
+
+        Deliberately quiet and skippable: no card, no arrow, muted chips under the field rather than
+        beside it, and the field keeps focus (`autoFocus` above) so a user with a link in their
+        clipboard never has to look at this row. One tap costs one model call, so nothing here runs
+        without one.
+      */}
+      {IMPORT_SEED_LINKS.length > 0 && (
+        <div className="flex flex-col gap-2.5 pt-6">
+          <p
+            id={seedsLabelId}
+            className="text-[11px] font-bold tracking-[0.14em] text-muted-foreground uppercase"
+          >
+            Or try one of these
+          </p>
+          <ul aria-labelledby={seedsLabelId} className="flex flex-wrap gap-2">
+            {IMPORT_SEED_LINKS.map((seed) => (
+              <li key={seed.url}>
+                <button
+                  type="button"
+                  onClick={() => onSeed(seed.url)}
+                  className="flex h-11 items-center rounded-full border border-input bg-background px-4 text-[13px] font-semibold text-muted-foreground transition-colors hover:border-[var(--mint-700)] hover:text-[var(--mint-700)] motion-reduce:transition-none"
+                >
+                  {seed.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* Sticky thumb-zone primary action — bottom of the flex column, not fixed, so it sits above
           the home indicator on a short viewport without extra plumbing at this fidelity. */}
       <div className="mt-auto flex flex-col gap-2 pt-10">
         <Button
           type="button"
           disabled={!canSubmit}
-          onClick={onSubmit}
+          onClick={() => onSubmit()}
           className="h-12 w-full rounded-lg text-base font-bold"
         >
           Add →
@@ -1043,18 +1124,32 @@ function RailStep({
 
 /* ------------------------------------------------------------------------------------------- *
  * "No places found" — the modal outcome (~73% at LEVEL B), a success screen, never an error.
+ *
+ * `ux-architecture` §5.3 gives this screen three actions in order: `Try another TikTok` (primary,
+ * "forward, not retry"), `Add a place you know` → S8 manual add, and `Open the TikTok` as a
+ * tertiary text link. **S8 does not exist — it is `L1-F7-T1`** — so the manual-add action is not
+ * rendered here, for the same reason `ui/import/import-error-copy.ts` withholds it from every
+ * failure screen: a recovery must point somewhere that works.
+ *
+ * This screen used to promise it anyway. Its primary read `Add manually →` under "That happens a
+ * lot — add it yourself in a few seconds", and it called `reset()` — an empty paste field. On the
+ * *modal* import outcome, the biggest button in the product named a destination we do not have.
+ * `ImportFailureScreen` had the identical defect and lost it (see that component's header note);
+ * this is the last place it lived.
+ *
+ * **When S8 lands (`L1-F7-T1`), restore it here**: `Add a place you know` becomes the promoted
+ * primary (§5.3's real hierarchy), `Try another TikTok` drops back to the 44px secondary it is
+ * below, and the body sentence can offer the manual route again — by then truthfully.
  * ------------------------------------------------------------------------------------------- */
 
 function NoPlacesScreen({
   authorHandle,
   url,
   onRetry,
-  onAddManually,
 }: {
   authorHandle: string | null;
   url: string;
   onRetry: () => void;
-  onAddManually: () => void;
 }) {
   return (
     <div className="flex flex-1 flex-col">
@@ -1067,17 +1162,31 @@ function NoPlacesScreen({
           <h1 className="font-heading text-xl font-extrabold tracking-tight text-foreground">
             No places named
           </h1>
+          {/* C70, `ux-architecture` §12.4, with the handle kept from this screen's own wording.
+              The second sentence is the capability boundary said in human — at LEVEL B it is the
+              product's main capability disclosure — and it is what replaced the manual-add
+              promise. Still no blame: we read it, it simply had no name in it. */}
           <p className="max-w-xs text-sm font-medium text-muted-foreground">
-            {authorHandle ? `@${authorHandle}'s TikTok` : 'This TikTok'} didn&rsquo;t call out a specific
-            spot by name. That happens a lot — add it yourself in a few seconds.
+            We read {authorHandle ? `@${authorHandle}’s TikTok` : 'this one'}, but it doesn&rsquo;t name
+            a place we can put on a map. Some TikToks only show the place on screen.
           </p>
         </div>
       </div>
 
       <div className="flex flex-col gap-2 pt-8">
-        <Button type="button" onClick={onAddManually} className="h-12 w-full rounded-lg text-base font-bold">
-          Add manually →
+        {/* Promoted from the 44px outline it used to be. It is the only action on this screen that
+            does what its label says, so it is the primary — and §5.3 wants the primary forward
+            rather than a retry, which is exactly what it is. The label comes from the shared map
+            so it cannot drift from the identical action on the failure screens. */}
+        <Button
+          type="button"
+          onClick={onRetry}
+          className="h-12 w-full gap-1.5 rounded-lg text-base font-bold"
+        >
+          {IMPORT_ERROR_ACTION_LABEL.another_tiktok}
         </Button>
+        {/* §5.1's "honesty move" — we found nothing, here is your thing back. Tertiary text link,
+            the weight §5.3 gives it, and dropped entirely when there is no URL to open. */}
         {url && (
           <a
             href={url}
@@ -1089,15 +1198,6 @@ function NoPlacesScreen({
             <ArrowUpRight className="size-4" aria-hidden />
           </a>
         )}
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onRetry}
-          className="h-11 w-full gap-1.5 rounded-lg text-sm font-bold"
-        >
-          <RotateCcw className="size-4" aria-hidden />
-          Try another link
-        </Button>
       </div>
     </div>
   );

@@ -13,6 +13,7 @@ function candidate(overrides: Partial<PlaceCandidate> = {}): PlaceCandidate {
     modelConfidence: null,
     addressHint: null,
     identifiedName: null,
+    nameVariants: [],
     coordinates: null,
     areaHint: null,
     tags: [],
@@ -132,6 +133,7 @@ describe('googleMapsSearchUrl — areaHint (schema v2)', () => {
   const base = {
     rawName: 'La Nonna',
     identifiedName: 'La Nonna',
+    nameVariants: [],
     cityHint: 'London',
     countryHint: 'GB',
     categoryHint: 'restaurant',

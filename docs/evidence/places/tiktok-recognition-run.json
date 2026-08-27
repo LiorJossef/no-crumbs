@@ -1,6 +1,6 @@
 {
   "_comment": "Machine record of a tests/manual/tiktok-recognition.manual.ts run — real TikTok URLs through the real oEmbed → caption → extraction → resolve flow. Regenerated on every run; see tiktok-recognition.md for the human reading. Corpus: tests/manual/tiktok-recognition-corpus.json.",
-  "run_at": "2026-08-27T21:12:29.006Z",
+  "run_at": "2026-08-27T21:56:35.622Z",
   "supabase_url": "http://127.0.0.1:54321",
   "overture_release": "2026-07-22.0",
   "region": {
@@ -17,7 +17,7 @@
   "poi_index_rows_tlv": 10462,
   "extractor": {
     "version": "2026-08-gemini-gemini-3.5-flash-lite",
-    "promptVersion": "p7-s2"
+    "promptVersion": "p8-s3"
   },
   "cache_bypassed": false,
   "network_this_run": {
@@ -25,24 +25,23 @@
     "llm_calls": 0
   },
   "summary": {
-    "auto_match": 4,
+    "auto_match": 7,
     "adjudicated": 16,
-    "auto_match_rate": 0.25,
-    "correct_not_auto_accepted": 3,
-    "wrong": 8,
-    "extraction_misses": 1,
+    "auto_match_rate": 0.4375,
+    "correct_not_auto_accepted": 4,
+    "wrong": 2,
+    "extraction_misses": 3,
     "false_auto_accepts": 0,
-    "unadjudicated": 2,
+    "unadjudicated": 1,
     "cases": 13,
     "case_statuses": {
       "ok": 13
     },
     "failure_buckets": {
-      "unreachable_in_index": 4,
-      "not_auto_accepted": 3,
-      "ranking": 2,
-      "absent_from_index": 2,
-      "extraction_miss": 1
+      "not_auto_accepted": 4,
+      "extraction_miss": 3,
+      "absent_from_index": 1,
+      "unreachable_in_index": 1
     }
   },
   "cases": [
@@ -81,10 +80,10 @@
           "regionsSearched": [
             "tlv"
           ],
-          "candidatesPrefiltered": 397,
+          "candidatesPrefiltered": 402,
           "band": "preselect",
-          "score": 0.9656670999999999,
-          "margin": 0.20019617142857138,
+          "score": 0.9908671,
+          "margin": 0.13463380000000003,
           "top1": {
             "name": "HaKosem",
             "address": "שלמה המלך 1",
@@ -95,9 +94,9 @@
             "datasetConfidence": 0.908671
           },
           "top3": [
-            "HaKosem (0.966)",
-            "Shawarma Doner (0.765)",
-            "Gorkha Kitchen (0.755)"
+            "HaKosem (0.991)",
+            "הקטן - HaKatan (0.856)",
+            "הקוסם שרונה מרקט (0.832)"
           ],
           "resolutionKind": "answered",
           "verdict": "auto_match",
@@ -144,32 +143,30 @@
           "regionsSearched": [
             "tlv"
           ],
-          "candidatesPrefiltered": 12,
-          "band": "no_match",
-          "score": 0.7583628285714287,
-          "margin": 0.07314869523809531,
+          "candidatesPrefiltered": 35,
+          "band": "preselect",
+          "score": 0.9972810000000001,
+          "margin": 0.2389181714285714,
           "top1": {
-            "name": "קפה גרג מתחם ג'י",
-            "address": "וייצמן 207",
-            "locality": "כפר סבא",
-            "lat": 32.171802520752,
-            "lng": 34.928638458252,
+            "name": "Under the Tree",
+            "address": "בן יהודה 202",
+            "locality": "תל אביב - יפו",
+            "lat": 32.0901641845703,
+            "lng": 34.7740707397461,
             "providerCategory": "cafe",
-            "datasetConfidence": 0.987914
+            "datasetConfidence": 0.97281
           },
           "top3": [
+            "Under the Tree (0.997)",
             "קפה גרג מתחם ג'י (0.758)",
-            "מתחם שרונה- Fauchon (0.685)",
-            "Boutique central - מתחם זרובבל (0.648)"
+            "The Streets (0.755)"
           ],
           "resolutionKind": "answered",
-          "verdict": "wrong",
-          "failure": "unreachable_in_index",
+          "verdict": "auto_match",
+          "failure": null,
           "acceptedRank": null,
-          "indexProbeHits": [
-            "Under the Tree @ בן יהודה 202, תל אביב - יפו"
-          ],
-          "note": "the row exists in poi_index but the prefilter can never return it from these tokens"
+          "indexProbeHits": null,
+          "note": null
         }
       ],
       "extractionMisses": []
@@ -210,9 +207,9 @@
             "tlv"
           ],
           "candidatesPrefiltered": 2,
-          "band": "no_match",
-          "score": 0.30363496,
-          "margin": 0.025218960000000012,
+          "band": "confirm",
+          "score": 0.9004349600000001,
+          "margin": 0.31268562666666677,
           "top1": {
             "name": "Kohi Coffee Shop",
             "address": "בן יהודה 155",
@@ -223,15 +220,15 @@
             "datasetConfidence": 0.295437
           },
           "top3": [
-            "Kohi Coffee Shop (0.304)",
-            "NIKO by Sharon Cohen (0.278)"
+            "Kohi Coffee Shop (0.900)",
+            "NIKO by Sharon Cohen (0.588)"
           ],
           "resolutionKind": "answered",
           "verdict": "correct_not_auto_accepted",
           "failure": "not_auto_accepted",
           "acceptedRank": 1,
           "indexProbeHits": null,
-          "note": "top-1 is right, band no_match, margin 0.025"
+          "note": "top-1 is right, band confirm, margin 0.313"
         }
       ],
       "extractionMisses": []
@@ -247,9 +244,7 @@
       "captionSource": "cache",
       "extractionSource": "cache",
       "extractionCityHint": "תל אביב",
-      "rawCandidateNames": [
-        "בראסרי 18"
-      ],
+      "rawCandidateNames": [],
       "droppedByPlausibility": {
         "hashtag_or_handle": 0,
         "city_or_country_only": 0,
@@ -257,55 +252,10 @@
         "evidence_not_in_caption": 0,
         "duplicate": 0
       },
-      "candidates": [
-        {
-          "rawName": "בראסרי 18",
-          "cityHint": "תל אביב",
-          "countryHint": "ישראל",
-          "categoryHint": "restaurant",
-          "addressHint": "לבונטין 19",
-          "queryText": "בראסרי 18",
-          "queryCityHint": "תל אביב",
-          "expectedName": "בראסרי 18",
-          "expectedArea": "לבונטין 19, תל אביב",
-          "regionsSearched": [
-            "tlv"
-          ],
-          "candidatesPrefiltered": 14,
-          "band": "no_match",
-          "score": 0.6969062411208863,
-          "margin": 0.025666561120886278,
-          "top1": {
-            "name": "טוסט נקניק - Sudjuk 1870",
-            "address": "Ali Ben Abu Taleb",
-            "locality": "כפר קאסם",
-            "lat": 32.1138572692871,
-            "lng": 34.9683609008789,
-            "providerCategory": "fast_food_restaurant",
-            "datasetConfidence": 0.76966
-          },
-          "top3": [
-            "טוסט נקניק - Sudjuk 1870 (0.697)",
-            "Brasserie 18 (0.671)",
-            "פיצה 180 (0.610)"
-          ],
-          "resolutionKind": "answered",
-          "verdict": "wrong",
-          "failure": "ranking",
-          "acceptedRank": 2,
-          "indexProbeHits": [
-            "עמק בראסרי @ מתחם דור אלון, משמר השרון",
-            "בראסרי Margaux @ שחם 22, פתח תקווה",
-            "קפה ללוש בראסרי בת ים - Cafe La Lush Bat Yam @ דרך בן גוריון 133, בת ים",
-            "קפה ללוש בראסרי חולון Cafe La Lush @ צבי תדמור 12, חולון",
-            "דליקטסן בראסרי @ אבן גבירול 70, תל אביב - יפו",
-            "Brasserie Kazan @ אחוזה 71, רעננה",
-            "Brasserie 18 @ לבונטין 19, תל אביב - יפו"
-          ],
-          "note": "the right row IS in the prefilter output, at rank 2"
-        }
-      ],
-      "extractionMisses": []
+      "candidates": [],
+      "extractionMisses": [
+        "בראסרי 18"
+      ]
     },
     {
       "url": "https://vt.tiktok.com/ZSVphdqUs/",
@@ -320,7 +270,7 @@
       "extractionCityHint": "תל אביב",
       "rawCandidateNames": [
         "קפה אירופה",
-        "eats",
+        "eats בית חנה",
         "האחים",
         "בל עמי",
         "Palette Bistro"
@@ -346,47 +296,45 @@
           "regionsSearched": [
             "tlv"
           ],
-          "candidatesPrefiltered": 9,
-          "band": "no_match",
-          "score": 0.7750755600215374,
-          "margin": 0.07921502643757761,
+          "candidatesPrefiltered": 11,
+          "band": "confirm",
+          "score": 0.899745,
+          "margin": 0.12466943997846258,
           "top1": {
-            "name": "גלידה אירופה",
-            "address": "",
+            "name": "Cafe Europa",
+            "address": "Rothschild Boulevard 9",
             "locality": "תל אביב - יפו",
-            "lat": 32.063060760498,
-            "lng": 34.7701797485352,
-            "providerCategory": "ice_cream_shop",
-            "datasetConfidence": 0.463826
+            "lat": 32.0631637573242,
+            "lng": 34.7702522277832,
+            "providerCategory": "restaurant",
+            "datasetConfidence": 0.99745
           },
           "top3": [
+            "Cafe Europa (0.900)",
             "גלידה אירופה (0.775)",
-            "חנות לחם - מגשי אירוח וקייטרינג חלבי (0.696)",
-            "Colisei - אירועי בוטיק (0.663)"
+            "חנות לחם - מגשי אירוח וקייטרינג חלבי (0.696)"
           ],
           "resolutionKind": "answered",
-          "verdict": "wrong",
-          "failure": "unreachable_in_index",
-          "acceptedRank": null,
-          "indexProbeHits": [
-            "Cafe Europa @ Rothschild Boulevard 9, תל אביב - יפו"
-          ],
-          "note": "the row exists in poi_index but the prefilter can never return it from these tokens"
+          "verdict": "correct_not_auto_accepted",
+          "failure": "not_auto_accepted",
+          "acceptedRank": 1,
+          "indexProbeHits": null,
+          "note": "top-1 is right, band confirm, margin 0.125"
         },
         {
-          "rawName": "eats",
+          "rawName": "eats בית חנה",
           "cityHint": "תל אביב",
           "countryHint": "ישראל",
           "categoryHint": "cafe",
           "addressHint": null,
-          "queryText": "eats",
+          "queryText": "eats בית חנה",
           "queryCityHint": "תל אביב",
           "expectedName": null,
           "expectedArea": null,
           "regionsSearched": [
             "tlv"
           ],
-          "candidatesPrefiltered": 9,
+          "candidatesPrefiltered": 38,
           "band": "confirm",
           "score": 0.9155810285714286,
           "margin": 0.004846699999999982,
@@ -402,7 +350,7 @@
           "top3": [
             "Eats Cafeteria (0.916)",
             "Eats Cafeteria (0.911)",
-            "Eat Me (0.736)"
+            "איטלקיה בתחנה (0.752)"
           ],
           "resolutionKind": "answered",
           "verdict": "unadjudicated",
@@ -424,10 +372,10 @@
           "regionsSearched": [
             "tlv"
           ],
-          "candidatesPrefiltered": 19,
+          "candidatesPrefiltered": 26,
           "band": "preselect",
           "score": 0.9996749,
-          "margin": 0.18783539999999999,
+          "margin": 0.09352550769230761,
           "top1": {
             "name": "האחים",
             "address": "אבן גבירול 26",
@@ -439,8 +387,8 @@
           },
           "top3": [
             "האחים (1.000)",
-            "מסעדת האחים חירק (0.812)",
-            "פלאפל האחים (0.804)"
+            "Benz Brothers (0.906)",
+            "Benz Brothers (0.906)"
           ],
           "resolutionKind": "answered",
           "verdict": "auto_match",
@@ -462,7 +410,7 @@
           "regionsSearched": [
             "tlv"
           ],
-          "candidatesPrefiltered": 148,
+          "candidatesPrefiltered": 215,
           "band": "confirm",
           "score": 0.8522196818181818,
           "margin": 0.009834712121212119,
@@ -500,10 +448,10 @@
           "regionsSearched": [
             "tlv"
           ],
-          "candidatesPrefiltered": 32,
+          "candidatesPrefiltered": 58,
           "band": "confirm",
           "score": 0.8913629000000001,
-          "margin": 0.18582815574229694,
+          "margin": 0.1269490000000001,
           "top1": {
             "name": "Palette Bistro",
             "address": "проспект Иерушалаим 22",
@@ -515,15 +463,15 @@
           },
           "top3": [
             "Palette Bistro (0.891)",
-            "Fleamarket bistro (0.706)",
-            "Le Bistro Bar (0.682)"
+            "אליפלט (0.764)",
+            "ביסטרו בר - קבסה זק (0.759)"
           ],
           "resolutionKind": "answered",
           "verdict": "correct_not_auto_accepted",
           "failure": "not_auto_accepted",
           "acceptedRank": 1,
           "indexProbeHits": null,
-          "note": "top-1 is right, band confirm, margin 0.186"
+          "note": "top-1 is right, band confirm, margin 0.127"
         }
       ],
       "extractionMisses": []
@@ -563,7 +511,7 @@
           "regionsSearched": [
             "tlv"
           ],
-          "candidatesPrefiltered": 20,
+          "candidatesPrefiltered": 21,
           "band": "preselect",
           "score": 0.9997399200000001,
           "margin": 0.19599760571428582,
@@ -689,32 +637,30 @@
           "regionsSearched": [
             "tlv"
           ],
-          "candidatesPrefiltered": 36,
-          "band": "no_match",
-          "score": 0.6674844530020705,
-          "margin": 0.015710978511752516,
+          "candidatesPrefiltered": 45,
+          "band": "preselect",
+          "score": 0.9341577155555556,
+          "margin": 0.2635556206950026,
           "top1": {
-            "name": "עיריית קריית אונו",
-            "address": "Ицхак Рабин 41",
-            "locality": "קרית אונו",
-            "lat": 32.0641708374023,
-            "lng": 34.862907409668,
-            "providerCategory": "public_and_government_association",
-            "datasetConfidence": 0.915476
+            "name": "Trattoria Una",
+            "address": "אינשטיין 69",
+            "locality": "תל אביב - יפו",
+            "lat": 32.1135177612305,
+            "lng": 34.7994194030762,
+            "providerCategory": "italian_restaurant",
+            "datasetConfidence": 0.295027
           },
           "top3": [
-            "עיריית קריית אונו (0.667)",
-            "פיצה אונו (0.652)",
-            "פיצה אונו (0.650)"
+            "Trattoria Una (0.934)",
+            "ג'ונאם Junam (0.671)",
+            "עיריית קריית אונו (0.667)"
           ],
           "resolutionKind": "answered",
-          "verdict": "wrong",
-          "failure": "unreachable_in_index",
+          "verdict": "auto_match",
+          "failure": null,
           "acceptedRank": null,
-          "indexProbeHits": [
-            "Trattoria Una @ אינשטיין 69, תל אביב - יפו"
-          ],
-          "note": "the row exists in poi_index but the prefilter can never return it from these tokens"
+          "indexProbeHits": null,
+          "note": null
         }
       ],
       "extractionMisses": []
@@ -731,7 +677,6 @@
       "extractionSource": "cache",
       "extractionCityHint": "תל אביב",
       "rawCandidateNames": [
-        "מסעדת רוסטיקו",
         "רוסטיקו"
       ],
       "droppedByPlausibility": {
@@ -743,84 +688,42 @@
       },
       "candidates": [
         {
-          "rawName": "מסעדת רוסטיקו",
+          "rawName": "רוסטיקו",
           "cityHint": "תל אביב",
           "countryHint": "ישראל",
           "categoryHint": "restaurant",
-          "addressHint": "בזל 42, תל אביב",
-          "queryText": "מסעדת רוסטיקו",
+          "addressHint": "בזל 42",
+          "queryText": "רוסטיקו",
           "queryCityHint": "תל אביב",
           "expectedName": "רוסטיקו",
           "expectedArea": "בזל 42 / רוטשילד 15, תל אביב",
           "regionsSearched": [
             "tlv"
           ],
-          "candidatesPrefiltered": 290,
-          "band": "confirm",
-          "score": 0.8933490909090909,
-          "margin": 0.003501450307587084,
-          "top1": {
-            "name": "מסעדת 24 רופי",
-            "address": "Шокен 14",
-            "locality": "תל אביב - יפו",
-            "lat": 32.0529670715332,
-            "lng": 34.7719993591309,
-            "providerCategory": "indian_restaurant",
-            "datasetConfidence": 0.861
-          },
-          "top3": [
-            "מסעדת 24 רופי (0.893)",
-            "מסעדת רוברס (0.890)",
-            "מסעדת טורטיה סאיד (0.882)"
-          ],
-          "resolutionKind": "answered",
-          "verdict": "wrong",
-          "failure": "ranking",
-          "acceptedRank": 290,
-          "indexProbeHits": [
-            "Pizza Rustico פיצה רוסטיקו @ אלוף מגן קלמן 3, תל אביב - יפו",
-            "Rustico @ בזל 42, תל אביב - יפו",
-            "Rustico Rothschild @ Rothschild Boulevard 15, תל אביב - יפו"
-          ],
-          "note": "the right row IS in the prefilter output, at rank 290"
-        },
-        {
-          "rawName": "רוסטיקו",
-          "cityHint": "תל אביב",
-          "countryHint": "ישראל",
-          "categoryHint": "restaurant",
-          "addressHint": "רוטשילד 15, תל אביב",
-          "queryText": "רוסטיקו",
-          "queryCityHint": "תל אביב",
-          "expectedName": null,
-          "expectedArea": null,
-          "regionsSearched": [
-            "tlv"
-          ],
           "candidatesPrefiltered": 5,
-          "band": "no_match",
-          "score": 0.7514327200000002,
-          "margin": 0.05202346586466178,
+          "band": "preselect",
+          "score": 0.99953216,
+          "margin": 0.07625485999999992,
           "top1": {
-            "name": "סושידו - Sushido",
-            "address": "שדרות רוטשילד 15",
+            "name": "Rustico",
+            "address": "בזל 42",
             "locality": "תל אביב - יפו",
-            "lat": 32.0632362365723,
-            "lng": 34.7708168029785,
-            "providerCategory": "sushi_restaurant",
-            "datasetConfidence": 0.508909
+            "lat": 32.0897674560547,
+            "lng": 34.7799606323242,
+            "providerCategory": "italian_restaurant",
+            "datasetConfidence": 0.994152
           },
           "top3": [
-            "סושידו - Sushido (0.751)",
-            "רוסטר בכפר (0.699)",
-            "VONG וונג (0.688)"
+            "Rustico (1.000)",
+            "Rustico Rothschild (0.923)",
+            "רוסטר בכפר (0.699)"
           ],
           "resolutionKind": "answered",
-          "verdict": "unadjudicated",
+          "verdict": "auto_match",
           "failure": null,
           "acceptedRank": null,
           "indexProbeHits": null,
-          "note": "no corpus expectation matched this candidate — rule from the top-3 below and add one"
+          "note": null
         }
       ],
       "extractionMisses": []
@@ -860,9 +763,7 @@
       "captionSource": "cache",
       "extractionSource": "cache",
       "extractionCityHint": "תל אביב",
-      "rawCandidateNames": [
-        "דיזנגוף 99"
-      ],
+      "rawCandidateNames": [],
       "droppedByPlausibility": {
         "hashtag_or_handle": 0,
         "city_or_country_only": 0,
@@ -870,47 +771,10 @@
         "evidence_not_in_caption": 0,
         "duplicate": 0
       },
-      "candidates": [
-        {
-          "rawName": "דיזנגוף 99",
-          "cityHint": "תל אביב",
-          "countryHint": "ישראל",
-          "categoryHint": "restaurant",
-          "addressHint": "דיזנגוף 99",
-          "queryText": "דיזנגוף 99",
-          "queryCityHint": "תל אביב",
-          "expectedName": "דיזנגוף 99",
-          "expectedArea": "דיזנגוף 99, תל אביב",
-          "regionsSearched": [
-            "tlv"
-          ],
-          "candidatesPrefiltered": 21,
-          "band": "no_match",
-          "score": 0.6673733872225814,
-          "margin": 0.10570473428140492,
-          "top1": {
-            "name": "אלנבי 99",
-            "address": "",
-            "locality": "תל אביב - יפו",
-            "lat": 32.0648078918457,
-            "lng": 34.7727661132812,
-            "providerCategory": "bar",
-            "datasetConfidence": 0.379861
-          },
-          "top3": [
-            "אלנבי 99 (0.667)",
-            "קפה דיזנגוף - Dizengoff Cafe (0.562)",
-            "Hayarkon 99 Restaurant (0.555)"
-          ],
-          "resolutionKind": "answered",
-          "verdict": "wrong",
-          "failure": "absent_from_index",
-          "acceptedRank": null,
-          "indexProbeHits": [],
-          "note": "no row in poi_index matches the expected name in either script"
-        }
-      ],
-      "extractionMisses": []
+      "candidates": [],
+      "extractionMisses": [
+        "דיזנגוף 99"
+      ]
     },
     {
       "url": "https://vt.tiktok.com/ZSVphmY3a/",
@@ -938,7 +802,7 @@
           "rawName": "Oscar’s",
           "cityHint": "ת״א",
           "countryHint": "ישראל",
-          "categoryHint": "restaurant",
+          "categoryHint": "bar",
           "addressHint": "נחלת בנימין 68",
           "queryText": "Oscar’s",
           "queryCityHint": "ת״א",
@@ -947,10 +811,10 @@
           "regionsSearched": [
             "tlv"
           ],
-          "candidatesPrefiltered": 4,
-          "band": "no_match",
-          "score": 0.7101988302325581,
-          "margin": 0.18145892517761297,
+          "candidatesPrefiltered": 8,
+          "band": "confirm",
+          "score": 0.8101988302325581,
+          "margin": 0.15841334451827238,
           "top1": {
             "name": "Oscar Wilde Irish Pub | אוסקר ווילד",
             "address": "Шахам 36",
@@ -961,9 +825,9 @@
             "datasetConfidence": 0.904779
           },
           "top3": [
-            "Oscar Wilde Irish Pub | אוסקר ווילד (0.710)",
-            "Oscar Wilde / ирландский паб (0.529)",
-            "אוסקר ווילד | Oscar Wilde (0.507)"
+            "Oscar Wilde Irish Pub | אוסקר ווילד (0.810)",
+            "פונדק השובבים (0.652)",
+            "קפה אוסקר (0.628)"
           ],
           "resolutionKind": "answered",
           "verdict": "wrong",
@@ -1017,10 +881,10 @@
           "regionsSearched": [
             "tlv"
           ],
-          "candidatesPrefiltered": 1,
+          "candidatesPrefiltered": 12,
           "band": "confirm",
           "score": 0.8207587200000002,
-          "margin": null,
+          "margin": 0.15410833322751327,
           "top1": {
             "name": "wow london",
             "address": "בית אשל 15",
@@ -1031,14 +895,16 @@
             "datasetConfidence": 0.347484
           },
           "top3": [
-            "wow london (0.821)"
+            "wow london (0.821)",
+            "Soft Cookies (0.667)",
+            "Cookies Center (0.582)"
           ],
           "resolutionKind": "answered",
           "verdict": "correct_not_auto_accepted",
           "failure": "not_auto_accepted",
           "acceptedRank": 1,
           "indexProbeHits": null,
-          "note": "top-1 is right but margin is null (1 prefiltered) — the lone-candidate policy question, handoff §3.1"
+          "note": "top-1 is right, band confirm, margin 0.154"
         }
       ],
       "extractionMisses": []

@@ -20,6 +20,7 @@ describe('EXTRACTION_JSON_SCHEMA vs ExtractionResultSchema', () => {
         'evidence',
         'modelConfidence',
         'identifiedName',
+        'nameVariants',
         'coordinates',
         'areaHint',
         'tags',
@@ -41,6 +42,7 @@ describe('EXTRACTION_JSON_SCHEMA vs ExtractionResultSchema', () => {
           evidence: 'evidence text',
           modelConfidence: 0.5,
           identifiedName: null,
+          nameVariants: ['Kohi', 'Kohi Coffee Shop'],
           areaHint: 'Florentin',
           tags: ['Italian', 'Hidden Gem'],
           dishes: ['sabich'],
@@ -51,6 +53,38 @@ describe('EXTRACTION_JSON_SCHEMA vs ExtractionResultSchema', () => {
       cityHint: 'Tel Aviv',
     };
     expect(ExtractionResultSchema.safeParse(sample).success).toBe(true);
+  });
+
+  it('caps nameVariants at the same 3 the Zod schema does', () => {
+    // The two schemas are hand-kept in step, and this is the pair most likely to drift: the JSON
+    // Schema cap is what the model is told, the Zod cap is what we will actually accept. A JSON
+    // Schema cap above the Zod one turns a compliant model response into EXTRACTOR_INVALID_OUTPUT
+    // — the whole extraction lost over a fourth spelling of one name.
+    const jsonCap = EXTRACTION_JSON_SCHEMA.properties.candidates.items.properties.nameVariants.maxItems;
+    expect(jsonCap).toBe(3);
+
+    const overCap = {
+      candidates: [
+        {
+          rawName: 'קוהי',
+          cityHint: 'תל אביב',
+          countryHint: null,
+          categoryHint: 'cafe',
+          addressHint: null,
+          evidence: 'קוהי',
+          modelConfidence: 0.5,
+          identifiedName: null,
+          nameVariants: Array.from({ length: jsonCap + 1 }, (_, i) => `Kohi ${i}`),
+          areaHint: null,
+          tags: [],
+          dishes: [],
+          whyGo: null,
+          coordinates: null,
+        },
+      ],
+      cityHint: 'תל אביב',
+    };
+    expect(ExtractionResultSchema.safeParse(overCap).success).toBe(false);
   });
 
   it('the category enum matches exactly the seven values ExtractedCategoryHintSchema declares', () => {

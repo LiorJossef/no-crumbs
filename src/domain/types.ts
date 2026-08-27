@@ -134,6 +134,23 @@ export interface ResolveQuery {
    */
   readonly addressHint?: string | null;
   /**
+   * Alternate script/spelling forms of `text` naming the **same** venue, from
+   * `PlaceCandidate.nameVariants` (plus `identifiedName` where it differs). The resolver may
+   * retrieve on each and scores the name term as the **best** match across `text` and these —
+   * so a Hebrew caption can reach a Latin-named row without the Hebrew original being discarded.
+   *
+   * **Optional for the same reason `addressHint` is**: every existing construction site — the
+   * Supabase adapter, the probe route, both manual harnesses — keeps compiling untouched, and an
+   * absent field, an explicit `null` and an empty array all mean the same thing (*no variants
+   * offered*), and `rankPlaces` collapses them with `?? null` so they cannot diverge.
+   *
+   * A variant is a **retrieval and scoring** input only. It never reaches storage, never becomes a
+   * place's name, and the auto-accept gates are unchanged — widening the query must not widen what
+   * we are willing to accept without a human. The zero-false-auto-accept property is asserted on
+   * both harnesses and is the constraint this field is most likely to threaten.
+   */
+  readonly textVariants?: readonly string[] | null;
+  /**
    * Bias point for manual "search near me" (MS11), which is what `poi_index_lat_lng_idx`
    * exists for. **The scorer has no distance term** — this is a prefilter input only, and a
    * resolver that ignores it is not wrong.
@@ -334,6 +351,27 @@ export interface PlaceCandidate {
    * unverified recall, not a database match).
    */
   readonly identifiedName: string | null;
+  /**
+   * The same venue's name written in the **other script** — the Latin form when the caption gave
+   * Hebrew, the Hebrew form when it gave Latin — plus any common alternate spelling. Never
+   * includes `rawName` itself. Empty is legal and is the correct answer for a Latin caption
+   * naming a Latin-only venue.
+   *
+   * **Why this field exists, measured (TLV-BILING-1).** 64% of the loaded `tlv` index is
+   * Hebrew-named, but the venues we were failing to find are in it under their *Latin* names
+   * while the caption gave the Hebrew one. `docs/evidence/places/bilingual-expansion.md` fed the
+   * Latin form to the resolver by hand and all six test venues came back correct at rank 1. The
+   * blocker was never retrieval breadth or ranking; it was that we only ever asked in one script.
+   *
+   * **This is `model_knowledge`, not `caption_verbatim`, and the distinction is the point.**
+   * `מתחת לעץ` -> `Under the Tree` is a *translation*: it cannot be a substring of the caption, so
+   * no grounding gate can check it. The deterministic transliterator measured on 2026-08-27
+   * managed 47% recall and failed on exactly this class. A variant is therefore a **search hint
+   * only** — it may widen what we look for, and it may never become the saved identity of a
+   * place. Name, coordinates, address, provenance and dedup identity all still come from the
+   * matched `poi_index` row, which stays the single source of truth.
+   */
+  readonly nameVariants: readonly string[];
   /**
    * The model's own best-guess coordinates for the place, inferred from whatever context the
    * caption gives (name, address, city/neighbourhood, business type) — not a database lookup, and

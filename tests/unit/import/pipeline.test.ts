@@ -106,6 +106,7 @@ const oneCandidate: PlaceCandidate = {
   modelConfidence: 0.9,
   addressHint: null,
   identifiedName: null,
+  nameVariants: [],
   coordinates: null,
   areaHint: null,
   tags: [],

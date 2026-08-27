@@ -112,6 +112,3 @@ jobs:
       # otherwise the check that guards production is itself unguarded.
       - name: schema inventory (read-only)
         run: npm run db:inventory
-      - name: stop
-        if: always()
-        run: npx supabase stop --no-backup
