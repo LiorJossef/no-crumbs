@@ -23,9 +23,13 @@ import { EXTRACTION_SCHEMA_VERSION } from '@/domain/extraction/schema';
  * `tests/unit/extraction/schema.test.ts` fails if the two drift apart.
  *
  * `extractions_prompt_version_check` is `^[a-z0-9][a-z0-9._-]{0,31}$`, so hyphens and digits are
- * legal here and `p7-s2` is storable.
+ * legal here and `p8-s3` is storable.
+ *
+ * `p7` -> `p8` (2026-08-28, TLV-BILING-A): the prompt now asks for `nameVariants`. Both halves of
+ * the key move together here — the prompt text changed *and* the candidate shape did — which is
+ * the case the two-part key exists for.
  */
-export const PROMPT_VERSION = `p7-s${EXTRACTION_SCHEMA_VERSION}`;
+export const PROMPT_VERSION = `p8-s${EXTRACTION_SCHEMA_VERSION}`;
 
 /** Role, single task, and the negative-case framing that `09` §4.2 calls "the single most
  *  important line in the prompt": most captions name no venue, and an empty list is correct. */
@@ -93,8 +97,8 @@ Rules for each candidate you do emit:
 - Do not rank, judge quality, invent a city you were not told, or add prose. (Coordinates are the
   one exception to "do not guess" — see "coordinates" below.)
 
-"identifiedName" is the one field where you SHOULD go beyond the caption, using your own
-real-world knowledge:
+"identifiedName" is the first of three fields where you SHOULD go beyond the caption, using your
+own real-world knowledge ("nameVariants" and "coordinates" are the other two):
 - Use "rawName", "cityHint", "categoryHint" and everything else in the caption's context to
   identify the specific, full, real-world venue this candidate most likely refers to — e.g. a
   raw fragment "Paradiso" with a Prague city hint and a cafe category hint most likely identifies
@@ -118,6 +122,35 @@ real-world knowledge:
   if you can, go further to the real venue it names — e.g. raw "#נומיכפרמונש" identifies as "נומי
   כפר מונש" or the fuller real-world name if you know it. Set it to null if you cannot confidently
   segment or identify it beyond the raw hashtag.
+
+"nameVariants" is a SEARCH HINT, and the second field where you use your own real-world
+knowledge. We look the venue up in a place database that may list it in only one script, so give
+the SAME venue's name written in the OTHER script:
+- Caption named it in Hebrew (or any non-Latin script) -> give the Latin-script name that venue is
+  actually known by. Caption named it in Latin script -> give the Hebrew name if it has a known
+  one.
+- Transliterate or TRANSLATE, whichever matches how that venue is really known. "קוהי" is
+  transliterated: "Kohi". "טרטוריה אונה" is transliterated: "Trattoria Una". "מתחת לעץ" is
+  translated: "Under the Tree", because that is the name that venue actually trades under in
+  Latin script. "קפה אירופה" is "Cafe Europa". Ask what is written on the venue's own sign, menu
+  or listing — not what a word-by-word dictionary would produce.
+- Very many venues in Israel trade under a Latin-script name and are only ever written in Hebrew
+  in captions. That is the main case this field exists for: give that Latin name.
+- You may add one common alternate spelling of the same name ("Cafe Europa" / "Café Europa",
+  "HaKosem" / "Ha Kosem"). At most 3 entries in total.
+- Every entry must name the SAME venue — the same street door. Never a nearby place, never a
+  different business with a similar-sounding name, never a chain this one reminds you of, never a
+  category or a description. If you are picturing a different venue while you write it, it is
+  wrong.
+- Do not repeat "rawName", and do not just copy "identifiedName" word for word. A variant is a
+  different FORM of the name, not another copy of it.
+- Return [] when you do not know another form of this name. An empty list is correct and common:
+  a Latin-named venue with no Hebrew name gets [], and so does a name you do not recognise. Do NOT
+  invent a spelling to fill the field — we search on these, so a guessed rendering of a venue you
+  have never heard of sends us looking for something that does not exist. Fewer, surer variants
+  beat more.
+- This field is only ever used to search. It never becomes the saved name of the place, so a
+  variant you are unsure of buys you nothing — leave it out.
 
 Three fields describe what the caption SAYS about the place. They come from the caption, never from
 your own knowledge of the venue, and every one of them may be empty:
@@ -202,6 +235,9 @@ export function buildUserPrompt(caption: string, delimiter: string): string {
     '',
     'List the real, findable places this caption names, in the required JSON shape. If it names',
     'none, return an empty candidates list.',
+    'For each place you do list, fill "nameVariants" with that same venue\'s name in the other',
+    'script — the Latin form of a Hebrew name, the Hebrew form of a Latin one — when you know how',
+    'that venue is actually written there, and [] when you do not.',
   ].join('\n');
 }
 

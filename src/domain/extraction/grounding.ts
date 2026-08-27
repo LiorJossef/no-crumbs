@@ -35,6 +35,14 @@
  *    substring-gated: `Hotel restaurant` is a reading of "inside Middle Eighty Hotel", not a quote
  *    from it. This is the one v2 field whose truthfulness rests on the prompt, and it is called
  *    out here so nobody later assumes a gate exists that does not.
+ *  - **`nameVariants`** (v3) are *hygiene only*, and this is the one place in the file where the
+ *    caption is not the reference. A variant is a translation or a transliteration, so it is by
+ *    construction not a caption substring — `מתחת לעץ` -> `Under the Tree` cannot pass a
+ *    containment test and must not be asked to. What is enforced here is the part that *is*
+ *    mechanical: a variant that merely repeats `rawName` is not a variant, a repeated variant is
+ *    not a second one, and blank strings are not names. Whether the variant names the right venue
+ *    is unenforceable here and is not enforced anywhere else either — it is contained instead, by
+ *    the variant never leaving the query side (`domain/types.ts`'s `nameVariants`).
  *
  * ## Matching is normalised, and `evidence` is not
  *
@@ -65,6 +73,10 @@ export interface GroundingCounters {
   readonly dish_not_in_caption: number;
   /** Individual tags dropped as empty, duplicate, redundant with the name/category, or over cap. */
   readonly tag_dropped: number;
+  /** Individual name variants dropped as blank, a repeat of `rawName`, or a duplicate of another
+   *  variant. A rising count means the model is padding the field rather than knowing a second
+   *  form of the name — worth watching, never an error on its own. */
+  readonly name_variant_dropped: number;
 }
 
 export interface GroundingResult {
@@ -114,6 +126,34 @@ function citesOnlyTheName(groundedIn: string, names: readonly (string | null)[])
 }
 
 /**
+ * De-duplicates `nameVariants` and strips the entries that carry no information: blanks, and any
+ * form that normalises to `rawName` (the contract in `domain/types.ts` says a variant is the name
+ * in the *other* form, so `rawName` back again is a wasted query term).
+ *
+ * Comparison is through `normalise()` — the same folding the resolver uses — so `Ha Kosem` and
+ * `ha kosem` are one variant, not two. The kept string is the model's original, not the normalised
+ * one: the resolver normalises its own inputs and would otherwise be handed something already
+ * flattened.
+ *
+ * Ordering is preserved, which matters because the schema caps the list: the model's first answer
+ * is the one it is most sure of.
+ */
+function cleanNameVariants(variants: readonly string[], rawName: string): readonly string[] {
+  const seen = new Set<string>([normalise(rawName)]);
+  const kept: string[] = [];
+
+  for (const variant of variants) {
+    const trimmed = variant.trim();
+    const key = normalise(trimmed);
+    if (key === '' || seen.has(key)) continue;
+    seen.add(key);
+    kept.push(trimmed);
+  }
+
+  return kept;
+}
+
+/**
  * Applies every v2 field rule against the caption the candidates were extracted from. Runs after
  * `filterPlausible`, on the survivors.
  */
@@ -125,6 +165,7 @@ export function applyGrounding(candidates: readonly PlaceCandidate[], caption: s
   let whyGoVerbatim = 0;
   let dishDropped = 0;
   let tagDropped = 0;
+  let variantDropped = 0;
 
   const out = candidates.map((candidate): PlaceCandidate => {
     const tags = canonicaliseTags(candidate.tags, {
@@ -135,6 +176,9 @@ export function applyGrounding(candidates: readonly PlaceCandidate[], caption: s
 
     const dishes = candidate.dishes.filter((dish) => containsNormalised(captionNormalised, dish));
     dishDropped += candidate.dishes.length - dishes.length;
+
+    const nameVariants = cleanNameVariants(candidate.nameVariants, candidate.rawName);
+    variantDropped += candidate.nameVariants.length - nameVariants.length;
 
     let whyGo = candidate.whyGo;
     if (whyGo !== null) {
@@ -149,7 +193,7 @@ export function applyGrounding(candidates: readonly PlaceCandidate[], caption: s
       }
     }
 
-    return { ...candidate, tags, dishes, whyGo };
+    return { ...candidate, tags, dishes, nameVariants, whyGo };
   });
 
   return {
@@ -160,6 +204,7 @@ export function applyGrounding(candidates: readonly PlaceCandidate[], caption: s
       why_go_verbatim_copy: whyGoVerbatim,
       dish_not_in_caption: dishDropped,
       tag_dropped: tagDropped,
+      name_variant_dropped: variantDropped,
     },
   };
 }
