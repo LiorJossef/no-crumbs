@@ -34,10 +34,33 @@ name · category · coordinates · source link · user note, plus (new) tags · 
 `main` carries everything below. Two PRs this session, both through `npm run merge:pr` with all six
 checks green:
 
-| PR | What |
-|---|---|
-| [#34](https://github.com/LiorJossef/P-002/pull/34) | Honest import failures — real codes, real statuses, a real audit row |
-| `feat/rich-place-extraction` | Rich extraction and the surfaces that show it — see §3.2 |
+| PR | What | State |
+|---|---|---|
+| [#34](https://github.com/LiorJossef/P-002/pull/34) | Honest import failures — real codes, real statuses, a real audit row | **merged**, `main` verified |
+| [#35](https://github.com/LiorJossef/P-002/pull/35) | Rich extraction and the surfaces that show it — see §3.2 | **open, not merged** |
+
+### 2.1 Exactly where PR #35 was left, 2026-08-27
+
+**The first thing to do in a fresh session**, before any new work.
+
+- Branch `feat/rich-place-extraction`, head **`84b7e97`**, pushed, **9 commits** ahead of `main`.
+- Working tree **clean**. `npm run verify` green locally: **592 tests, 41 files**, plus lint,
+  typecheck, layer guard, migration grants, schema inventory and the agent consistency check.
+- PR #35 is `OPEN`, `mergeable=MERGEABLE`, and the branch contains current `main`.
+- **CI was still running when the session ended and was deliberately not waited out.** At that
+  moment: `Vercel` pass, `Vercel Preview Comments` pass; `lint · typecheck · layer guard · unit`,
+  `migrations · RLS policy tests`, `next build` and `playwright` all **pending**. The final commit
+  (`84b7e97`, the manual harness) restarted the run, so any earlier green result belongs to an
+  older head and **must not be treated as this commit's**.
+
+**So: `gh pr checks 35` first.** If all six are green, merge with `npm run merge:pr -- 35`, then
+verify `main` and the deployment (`git-workflow.md` §11). If anything is red, fix it before
+anything else — nothing in §9 should start on top of a red branch. The merge gate refuses a
+pending or failing check, so it will not let a half-finished run through, but read the checks
+yourself rather than trusting the script to be the only reader.
+
+Nothing else was left mid-flight: no agents running, no uncommitted work, no local database
+changes pending.
 
 **The merge rule.** Routine merges need no approval, but **GitHub branch protection is unavailable
 on this plan**, so CI is not a gate and a red PR can be merged with one command.
