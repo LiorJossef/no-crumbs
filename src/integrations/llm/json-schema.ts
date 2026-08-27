@@ -37,6 +37,7 @@ export const EXTRACTION_JSON_SCHEMA = {
           'evidence',
           'modelConfidence',
           'identifiedName',
+          'nameVariants',
           'tags',
           'dishes',
           'whyGo',
@@ -59,6 +60,19 @@ export const EXTRACTION_JSON_SCHEMA = {
           modelConfidence: { type: ['number', 'null'], minimum: 0, maximum: 1 },
           /** `06` §3.4: the model's own best real-world identification, inference allowed. */
           identifiedName: { type: ['string', 'null'], minLength: 2, maxLength: 120 },
+          /**
+           * v3 (TLV-BILING-A): the same venue's name in the other script, as a **query** hint.
+           * `maxItems: 3` matches the Zod cap and sits under the measured `maxItems: 5` ceiling
+           * documented on `tags` below — a nested array above that is rejected outright by the
+           * Gemini `responseSchema` validator, so this cap is a hard constraint as well as a
+           * product one. Never nullable: an empty array is the answer when there is no variant,
+           * and one empty state is better than two.
+           */
+          nameVariants: {
+            type: 'array',
+            maxItems: 3,
+            items: { type: 'string', minLength: 2, maxLength: 120 },
+          },
           /**
            * v2: free-form library labels. Open vocabulary by design — canonicalised, capped and
            * de-duplicated in `domain/extraction/tags.ts`, not constrained to a list here.

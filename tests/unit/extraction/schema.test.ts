@@ -26,6 +26,7 @@ describe('ExtractionResultSchema', () => {
           modelConfidence: 0.9,
           addressHint: null,
           identifiedName: null,
+          nameVariants: [],
           coordinates: null,
         },
       ],
@@ -53,6 +54,7 @@ describe('ExtractionResultSchema', () => {
       modelConfidence: null,
       addressHint: null,
       identifiedName: null,
+      nameVariants: [],
     }));
     const parsed = ExtractionResultSchema.safeParse({ candidates: many, cityHint: null });
     expect(parsed.success).toBe(false);
@@ -74,6 +76,7 @@ describe('ExtractionResultSchema', () => {
           modelConfidence: null,
           addressHint: null,
           identifiedName: null,
+          nameVariants: [],
         },
       ],
       cityHint: null,
@@ -97,6 +100,7 @@ describe('ExtractionResultSchema', () => {
           modelConfidence: 0.8,
           addressHint: null,
           identifiedName: 'Paradiso Matcha Bar',
+          nameVariants: [],
           coordinates: { lat: 50.0755, lng: 14.4378 },
         },
       ],
@@ -142,6 +146,7 @@ describe('ExtractionResultSchema', () => {
           modelConfidence: null,
           addressHint: null,
           identifiedName: null,
+          nameVariants: [],
           coordinates: null,
         },
       ],
@@ -166,6 +171,7 @@ describe('ExtractionResultSchema', () => {
           modelConfidence: null,
           addressHint: null,
           identifiedName: null,
+          nameVariants: [],
           coordinates: { lat: 132, lng: 34.7654 },
         },
       ],
@@ -190,6 +196,7 @@ describe('ExtractionResultSchema', () => {
           modelConfidence: null,
           addressHint: null,
           identifiedName: null,
+          nameVariants: [],
         },
       ],
       cityHint: null,
@@ -213,6 +220,7 @@ describe('ExtractionResultSchema', () => {
           modelConfidence: null,
           addressHint: null,
           identifiedName: null,
+          nameVariants: [],
         },
       ],
       cityHint: null,
@@ -236,6 +244,7 @@ describe('toPlaceCandidate', () => {
       modelConfidence: 0.7,
       addressHint: null,
       identifiedName: null,
+      nameVariants: [],
       coordinates: null,
     });
     expect(candidate).toEqual({
@@ -251,6 +260,7 @@ describe('toPlaceCandidate', () => {
       modelConfidence: 0.7,
       addressHint: null,
       identifiedName: null,
+      nameVariants: [],
       coordinates: null,
     });
   });
@@ -269,6 +279,7 @@ describe('toPlaceCandidate', () => {
       modelConfidence: 0.8,
       addressHint: null,
       identifiedName: 'Paradiso Matcha Bar',
+      nameVariants: [],
       coordinates: null,
     });
     expect(candidate.identifiedName).toBe('Paradiso Matcha Bar');
@@ -289,6 +300,7 @@ describe('toPlaceCandidate', () => {
       modelConfidence: null,
       addressHint: null,
       identifiedName: null,
+      nameVariants: [],
       coordinates: null,
     });
     expect(candidate.categoryHint).toBe('bakery');
@@ -308,6 +320,7 @@ describe('toPlaceCandidate', () => {
       modelConfidence: null,
       addressHint: null,
       identifiedName: null,
+      nameVariants: [],
       coordinates: null,
     });
     // `attraction` has no scoreable equivalent, but the candidate is not the seam that decides
@@ -328,6 +341,14 @@ describe('schema versioning', () => {
     // treated as the new one. `PROMPT_VERSION` therefore has to carry `EXTRACTION_SCHEMA_VERSION`,
     // and this assertion is what makes forgetting that loud instead of silent.
     expect(PROMPT_VERSION).toContain(`s${EXTRACTION_SCHEMA_VERSION}`);
+  });
+
+  it('is on v3, under the prompt that asks for name variants', () => {
+    // Spelled out rather than derived, so moving the schema or the prompt is a deliberate edit
+    // here too. `p8` is the prompt that added the `nameVariants` instructions; `s3` is the
+    // candidate shape that has the field. Both halves moved together and both have to.
+    expect(EXTRACTION_SCHEMA_VERSION).toBe(3);
+    expect(PROMPT_VERSION).toBe('p8-s3');
   });
 
   it('keeps PROMPT_VERSION storable in the extractions column', () => {
@@ -354,6 +375,11 @@ describe('CANDIDATE_FIELD_PROVENANCE', () => {
     expect(CANDIDATE_FIELD_PROVENANCE.whyGo).toBe('caption_inference');
     expect(CANDIDATE_FIELD_PROVENANCE.identifiedName).toBe('world_knowledge');
     expect(CANDIDATE_FIELD_PROVENANCE.coordinates).toBe('world_knowledge');
+    // A variant is a translation or a transliteration, so it can never be a caption substring and
+    // no grounding gate can check it. Labelling it `caption_verbatim` or `caption_inference` would
+    // be the exact erosion this map exists to prevent — it is recall, and it is confined to the
+    // query side because of that.
+    expect(CANDIDATE_FIELD_PROVENANCE.nameVariants).toBe('world_knowledge');
     // `02` §D3: kept so it can be measured, never so it can be trusted.
     expect(CANDIDATE_FIELD_PROVENANCE.modelConfidence).toBe('model_self_report');
   });
@@ -370,6 +396,7 @@ describe('ExtractionResultSchema — v2 fields', () => {
     evidence: 'La Nonna in Market Row, Brixton',
     modelConfidence: 0.9,
     identifiedName: 'La Nonna',
+    nameVariants: [],
     tags: ['Italian'],
     dishes: ['artisan pasta'],
     whyGo: { text: 'Artisan pasta in a Brixton market hall.', groundedIn: 'delicious artisan pasta' },
@@ -406,6 +433,77 @@ describe('ExtractionResultSchema — v2 fields', () => {
 });
 
 /**
+ * `nameVariants` (v3, TLV-BILING-A). The measured problem it exists for: for every Hebrew caption
+ * in the live extraction cache, both `rawName` and `identifiedName` come back Hebrew (`קוהי`,
+ * `מתחת לעץ`) while the `poi_index` row holds the venue under its Latin name (`Kohi Coffee Shop`,
+ * `Under the Tree`), so the lookup never had a term that could match.
+ */
+describe('ExtractionResultSchema — nameVariants', () => {
+  const base = {
+    rawName: 'קוהי',
+    cityHint: 'תל אביב',
+    countryHint: 'ישראל',
+    areaHint: null,
+    categoryHint: 'cafe' as const,
+    addressHint: 'בן יהודה 155',
+    evidence: 'קוהי',
+    modelConfidence: 0.8,
+    identifiedName: 'קוהי',
+    nameVariants: ['Kohi', 'Kohi Coffee Shop'],
+    tags: [],
+    dishes: [],
+    whyGo: null,
+    coordinates: null,
+  };
+  const parse = (overrides: Record<string, unknown>) =>
+    ExtractionResultSchema.safeParse({ candidates: [{ ...base, ...overrides }], cityHint: 'תל אביב' });
+
+  it('accepts the Latin forms of a Hebrew-captioned venue', () => {
+    expect(parse({}).success).toBe(true);
+  });
+
+  it('accepts an empty list — the correct answer for a Latin-only venue', () => {
+    expect(parse({ nameVariants: [] }).success).toBe(true);
+  });
+
+  it('requires the field to be present, even when empty — no optional properties', () => {
+    const withoutField: Record<string, unknown> = { ...base };
+    delete withoutField.nameVariants;
+    expect(ExtractionResultSchema.safeParse({ candidates: [withoutField], cityHint: null }).success).toBe(false);
+  });
+
+  it('rejects a fourth variant rather than accepting a list of spellings', () => {
+    // The cap is a product decision as well as a Gemini `responseSchema` constraint: a model
+    // listing eight renderings of one name is producing noise, and every extra entry is another
+    // chance one of them names a different venue.
+    expect(parse({ nameVariants: ['Kohi', 'Kohi Coffee Shop', 'Cohi'] }).success).toBe(true);
+    expect(parse({ nameVariants: ['Kohi', 'Kohi Coffee Shop', 'Cohi', 'Koffee'] }).success).toBe(false);
+  });
+
+  it('rejects a one-character variant', () => {
+    expect(parse({ nameVariants: ['K'] }).success).toBe(false);
+  });
+
+  it('refuses a variant that fits raw but not once NFKC-normalised', () => {
+    // Same hazard as every other bounded string here: NFKC expands, and the two sides of a write
+    // measure different strings. 41 characters raw, 123 normalised, against a 120 bound.
+    const variant = 'ﬄ'.repeat(41);
+    expect(variant.length).toBeLessThanOrEqual(120);
+    expect(variant.normalize('NFKC').length).toBeGreaterThan(120);
+    expect(parse({ nameVariants: [variant] }).success).toBe(false);
+  });
+
+  it('carries the variants through toPlaceCandidate untouched', () => {
+    const candidate = toPlaceCandidate({ ...base });
+    expect(candidate.nameVariants).toEqual(['Kohi', 'Kohi Coffee Shop']);
+    // The caption's own wording is not disturbed by the variant existing — the whole point is that
+    // the Hebrew original survives alongside the Latin search term.
+    expect(candidate.rawName).toBe('קוהי');
+    expect(candidate.identifiedName).toBe('קוהי');
+  });
+});
+
+/**
  * NFKC expansion. Every one of these strings is short enough to pass a naive `.length` check and
  * long enough to be refused by a database that normalises before it checks — which is exactly the
  * shape of bug that never shows up in testing, because nobody writes a test with a ligature in it.
@@ -425,6 +523,7 @@ describe('NFKC-aware length bounds', () => {
     evidence: null,
     modelConfidence: null,
     identifiedName: null,
+    nameVariants: [],
     tags: [],
     dishes: [],
     whyGo: null,

@@ -18,6 +18,7 @@ function candidate(overrides: Partial<PlaceCandidate> = {}): PlaceCandidate {
     evidence: 'La Nonna in Market Row, Brixton',
     modelConfidence: 0.95,
     identifiedName: 'La Nonna',
+    nameVariants: [],
     tags: [],
     dishes: [],
     whyGo: null,

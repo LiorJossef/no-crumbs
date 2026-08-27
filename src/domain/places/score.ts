@@ -12,7 +12,7 @@
  * their regression test" a real claim rather than an aspiration.
  *
  * Fidelity to the prototype is the whole point, so the port's divergences are enumerated here and
- * nowhere else. There are five, all of them deliberate:
+ * nowhere else. There are six, all of them deliberate:
  *
  *  1. **`margin` is `null` when there is no second candidate**, never 1.0. The prototype writes
  *     `margin = 1.0` for a single-row prefilter, which sails through the `margin ≥ 0.05` gate on
@@ -50,6 +50,27 @@
  *     every row of the 44-case golden data, so `tests/unit/places/benchmark-golden.test.ts` is
  *     unchanged and still passes — verified, and it is the regression test for the day the column
  *     stops being empty.
+ *
+ *  6. **The name term is the best over every QUERY FORM, not just the query** (TLV-BILING-B).
+ *     `ResolveQuery.textVariants` carries alternate-script forms of the same venue name — a
+ *     Hebrew caption's `קוהי` alongside the Latin `Kohi` — and `nameScore` is the best match over
+ *     `text` and each of them, crossed with divergence 5's aliases. It is the mirror image of
+ *     divergence 5: 5 widens the *candidate* side, 6 widens the *query* side, and the index turned
+ *     out to need the second one, because `alt_names` is empty in every loaded row while the
+ *     venues we cannot find sit there under their Latin names
+ *     (`docs/evidence/places/bilingual-expansion.md`).
+ *
+ *     It has the same three honesty properties. The winning form is taken **strictly** greater, so
+ *     `text` wins every tie and a query with no variants scores byte-identically to before;
+ *     `tokenCoverage` travels with the winning form so the two reported numbers describe one
+ *     comparison; and `ScoredPlace.matchedText` records which form won, because a resolution whose
+ *     provenance cannot be read back is not evidence.
+ *
+ *     **The gates did not move and must not.** Widening the query can only raise a row's score
+ *     (`max` over more forms), never lower it, so more rows can reach `preselectScore` —
+ *     `queryForms`'s admission rule is the only thing narrowing that, and the margin gate is the
+ *     only thing standing between a lucky variant and a false auto-accept. Read `queryForms` before
+ *     changing anything here.
  *
  * Everything else in this file is the prototype byte for byte, including the tie-break order. The
  * *constants* are no longer: TLV-RANK-1 re-fit `SCORING.total` and extended `SCORING.generic`
@@ -104,6 +125,74 @@ export function distinctiveTokens(text: string): readonly string[] {
 export function queryTokens(text: string): readonly string[] {
   const distinctive = distinctiveTokens(text);
   return distinctive.length > 0 ? distinctive : tokenise(text);
+}
+
+/* ------------------------------------------------------------------------------------------- *
+ * Query forms — `text` plus its alternate-script variants (TLV-BILING-B)
+ * ------------------------------------------------------------------------------------------- */
+
+/**
+ * How many alternate forms of `ResolveQuery.text` are ever considered, beyond `text` itself.
+ *
+ * A ceiling rather than a courtesy. Every extra form is another chance for *some* row in the index
+ * to score highly, and the auto-accept gates are unchanged — so an unbounded variant list is a
+ * quiet widening of what the product will accept without a human. It is also the prefilter's token
+ * budget: `MAX_PREFILTER_TOKENS` is 12 and it is shared round-robin across the forms, so four forms
+ * is three tokens each, which is more than the modal business name has.
+ *
+ * Three, because the extraction schema offers at most the Latin form, the Hebrew form and
+ * `identifiedName`. A fourth would be the model inventing one.
+ */
+export const MAX_QUERY_VARIANTS = 3;
+
+/**
+ * The query forms actually used for retrieval and scoring: `text` first, then its admitted
+ * variants. **One answer, used by both sides** — `rankPlaces` scores over exactly this list and
+ * `prefilterTokens` selects rows over exactly this list, for the same reason `queryTokens` is
+ * shared with the prefilter (`10` §5's recall gate is meaningless if the two ask different
+ * questions).
+ *
+ * `text` is always first and always present, verbatim, even when it normalises to nothing. That is
+ * what makes the no-variant case bit-for-bit what it was before this function existed: the
+ * name-score search below takes a **strictly** greater variant, so `text` wins every tie.
+ *
+ * ## The admission rule, and why a variant is held to a higher bar than `text`
+ *
+ * A variant is admitted only if it (a) normalises to something, (b) is not already in the list
+ * under `normalise()`, and (c) has **at least one distinctive token**.
+ *
+ * (c) is the safety rule and it is deliberately asymmetric with `text`. `queryTokens` has an
+ * all-generic fallback — *"best coffee ever"* scores against its own generic words rather than
+ * dividing by zero — and that fallback exists so a caption the model could not read still produces
+ * an honest `confirm` instead of nothing. A **variant** is not a caption; it is the model's claim
+ * that this is the same venue under another name. A claim consisting only of words like `coffee`,
+ * `shop`, `restaurant`, `בר` is not a name, and admitting it can only add rows and raise scores —
+ * on a path whose gates did not move. `Kohi Coffee Shop` would be reachable from a bare
+ * `Coffee Shop`, and so would every other coffee shop in the index.
+ *
+ * This is an admission rule in the sense `scoring-constants.ts` uses the term, not a weight: it
+ * changes which strings count as a name, and nothing about how a name is scored.
+ */
+export function queryForms(
+  text: string,
+  textVariants?: readonly string[] | null,
+): readonly string[] {
+  const forms = [text];
+  if (textVariants === undefined || textVariants === null || textVariants.length === 0) {
+    return forms;
+  }
+
+  const seen = new Set<string>([normalise(text)]);
+  for (const variant of textVariants) {
+    if (forms.length > MAX_QUERY_VARIANTS) break;
+    if (typeof variant !== 'string') continue;
+    const key = normalise(variant);
+    if (key === '' || seen.has(key)) continue;
+    if (distinctiveTokens(variant).length === 0) continue;
+    seen.add(key);
+    forms.push(variant);
+  }
+  return forms;
 }
 
 /** `nameScore` and the token coverage it was built from — `06` §6.1 step 4's two reported numbers. */
@@ -193,6 +282,45 @@ export function bestNameScore(
   for (const alt of altNames) {
     const candidate = nameScore(queryText, alt);
     if (candidate.nameScore > best.nameScore) best = candidate;
+  }
+  return best;
+}
+
+/** A `NameScore` plus the query form that produced it. */
+export interface FormNameScore extends NameScore {
+  /**
+   * Which of `queryForms()`'s strings won — `ResolveQuery.text` itself, or one of its variants.
+   * Verbatim, so it can be printed next to the caption in an evidence run without a lookup.
+   */
+  readonly matchedText: string;
+}
+
+/**
+ * The best `bestNameScore` over every query form — the retrieval-and-scoring half of the bilingual
+ * change (TLV-BILING-B). `קוהי` and `Kohi` are the same venue asked about twice; the row's name
+ * term is whichever question it answers best.
+ *
+ * **Strictly greater, again**, and for the same reason `bestNameScore` is: `queryForms` puts `text`
+ * at index 0, so with no variants — or with variants that all score no higher — this is
+ * `bestNameScore(text, …)` byte for byte, and `matchedText` is `text`. There is no path where
+ * offering a variant *lowers* a row's score, which is the property the false-auto-accept analysis
+ * turns on: variants can only push scores up, so the risk they carry is entirely in *which* row
+ * they push up, never in demoting the right one.
+ */
+export function bestNameScoreAcrossForms(
+  forms: readonly string[],
+  name: string,
+  altNames: readonly string[],
+): FormNameScore {
+  const first = forms[0] ?? '';
+  let best: FormNameScore = { ...bestNameScore(first, name, altNames), matchedText: first };
+  for (let i = 1; i < forms.length; i += 1) {
+    const form = forms[i];
+    if (form === undefined) continue;
+    const candidate = bestNameScore(form, name, altNames);
+    if (candidate.nameScore > best.nameScore) {
+      best = { ...candidate, matchedText: form };
+    }
   }
   return best;
 }
@@ -365,6 +493,10 @@ export function categoryScore(
  * One candidate's score: `0.80·nameScore + 0.10·categoryScore + 0.10·datasetConfidence`, and then
  * the address term when — and only when — there is an address on both sides to compare.
  *
+ * `nameScore` is the best over every query form (`textVariants`, divergence 6) crossed with every
+ * alias (divergence 5). Nothing else on this function knows about variants: the category term, the
+ * address term, the weights and the bands are all exactly what they were.
+ *
  * The three base weights sum to 1.00, which is what keeps `score` in `[0,1]` — `resolution_score`'s
  * CHECK — without a clamp. The category weight was 0.18 until TLV-RANK-1, where a category bonus
  * was measured outranking a 1.000 name match (TLV-14). Why 0.10, and why the difference went to
@@ -405,8 +537,13 @@ export function scorePlace(
   categoryHint: CategoryHint | null,
   queryText: string,
   addressHint: string | null = null,
-): RankedPlace {
-  const name = bestNameScore(queryText, place.name, place.altNames);
+  textVariants: readonly string[] | null = null,
+): ScoredPlace {
+  const name = bestNameScoreAcrossForms(
+    queryForms(queryText, textVariants),
+    place.name,
+    place.altNames,
+  );
   const category = categoryScore(categoryHint, place.providerCategory);
   const base =
     SCORING.total.name * name.nameScore +
@@ -423,6 +560,7 @@ export function scorePlace(
     nameScore: name.nameScore,
     tokenCoverage: name.tokenCoverage,
     categoryScore: category,
+    matchedText: name.matchedText,
   };
 }
 
@@ -441,6 +579,30 @@ export function scorePlace(
  * the two differ only when one name contains an astral-plane character and the other a code point
  * in U+E000–U+FFFF, which no row in the three extracts does.
  */
+/**
+ * A `RankedPlace` that also says **which query form matched** — the provenance half of
+ * TLV-BILING-B. Declared here rather than on `RankedPlace` in `domain/types.ts` so that adding it
+ * touched no other file: it is a structural superset, so a `ScoredPlace` is a `RankedPlace`
+ * everywhere one is expected, and `ResolveResult.shortlist` carries the field at run time while
+ * still being typed as the narrower thing. `matchedTextOf` below is the reader for callers that
+ * only hold a `RankedPlace` — chiefly the evidence harnesses, which is what this exists for.
+ *
+ * Promote it into `RankedPlace` proper if a product surface ever needs it. Nothing here is a
+ * framework for provenance; it is one string and one accessor.
+ */
+export interface ScoredPlace extends RankedPlace {
+  readonly matchedText: string;
+}
+
+/**
+ * The query form that produced a ranked row's name score, or `null` for a `RankedPlace` that did
+ * not come from `scorePlace` (a hand-built test fixture, a record read back from storage).
+ */
+export function matchedTextOf(ranked: RankedPlace): string | null {
+  const withForm = ranked as Partial<ScoredPlace>;
+  return typeof withForm.matchedText === 'string' ? withForm.matchedText : null;
+}
+
 function byRank(a: RankedPlace, b: RankedPlace): number {
   if (a.score !== b.score) return b.score - a.score;
   if (a.nameScore !== b.nameScore) return b.nameScore - a.nameScore;
@@ -458,13 +620,25 @@ function byRank(a: RankedPlace, b: RankedPlace): number {
 export function rankPlaces(
   query: ResolveQuery,
   candidates: readonly ResolvedPlace[],
-): readonly RankedPlace[] {
+): readonly ScoredPlace[] {
   // `?? null` rather than a non-null default in the signature: `addressHint` is optional on
   // `ResolveQuery` so that every existing construction site — the adapter, the probe route, the
   // benchmark harnesses — keeps compiling untouched, and an absent field and an explicit `null`
   // have to mean the same thing or the two would resolve the same caption differently.
+  // Same `?? null` on `textVariants`, and the same reason twice over: an absent field and an empty
+  // array are one state (`ResolveQuery`'s doc comment says so), and `queryForms` is the single
+  // place that decides what the list of forms is, so the adapter's prefilter and this scorer
+  // cannot end up considering different ones.
   return candidates
-    .map((place) => scorePlace(place, query.categoryHint, query.text, query.addressHint ?? null))
+    .map((place) =>
+      scorePlace(
+        place,
+        query.categoryHint,
+        query.text,
+        query.addressHint ?? null,
+        query.textVariants ?? null,
+      ),
+    )
     .sort(byRank);
 }
 
