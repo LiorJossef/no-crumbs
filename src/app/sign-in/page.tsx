@@ -15,6 +15,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Loader2 } from 'lucide-react';
 import type { AuthError } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
+import { PinMark } from '@/components/brand/pin-mark';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -53,18 +54,6 @@ function authErrorMessage(error: AuthError, mode: Mode): string {
     default:
       return /phone/i.test(error.message) ? 'Enter your email and password.' : error.message;
   }
-}
-
-function PinMark({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
-      <path
-        d="M12 22s-8-7.4-8-12.5A8 8 0 1 1 20 9.5C20 14.6 12 22 12 22Z"
-        fill="var(--mint-700)"
-      />
-      <circle cx="12" cy="9.5" r="3" fill="var(--mint-100)" />
-    </svg>
-  );
 }
 
 export default function SignInPage() {
@@ -120,16 +109,9 @@ export default function SignInPage() {
     : 'Sign in to pick up your saved map right where you left it.';
 
   return (
-    <main
-      className="relative min-h-dvh overflow-hidden"
-      style={{
-        background:
-          'radial-gradient(130% 110% at 115% -15%, rgba(192,239,229,0.42) 0%, rgba(192,239,229,0) 58%),' +
-          'radial-gradient(120% 130% at -15% 118%, rgba(218,245,239,0.28) 0%, rgba(218,245,239,0) 62%),' +
-          'radial-gradient(90% 90% at 45% 40%, rgba(241,251,249,0.5) 0%, rgba(241,251,249,0) 70%),' +
-          'var(--background)',
-      }}
-    >
+    // The wash is `--brand-wash` (globals.css) rather than a gradient literal, so the landing
+    // page one step earlier in the flow paints the identical atmosphere.
+    <main className="relative min-h-dvh overflow-hidden" style={{ background: 'var(--brand-wash)' }}>
       <div className="relative flex min-h-dvh flex-col lg:flex-row">
         {/* Editorial / hero column — top-aligned + pinned by the form's mt-auto on mobile,
             vertically centered in a flex-1 left panel on desktop. */}

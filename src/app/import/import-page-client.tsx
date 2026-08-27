@@ -736,13 +736,10 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
       <div
         aria-hidden
         className={cn('absolute inset-0 -z-10', onClose && 'lg:hidden')}
-        style={{
-          background:
-            'radial-gradient(130% 110% at 115% -15%, rgba(192,239,229,0.42) 0%, rgba(192,239,229,0) 58%),' +
-            'radial-gradient(120% 130% at -15% 118%, rgba(218,245,239,0.28) 0%, rgba(218,245,239,0) 62%),' +
-            'radial-gradient(90% 90% at 45% 40%, rgba(241,251,249,0.5) 0%, rgba(241,251,249,0) 70%),' +
-            'var(--background)',
-        }}
+        // `--brand-wash` (globals.css) rather than the gradient literal that used to be inlined
+        // here. It was byte-identical to sign-in's and to the landing page's; three copies of one
+        // surface decision is three places to miss when the dark-mode repass lands.
+        style={{ background: 'var(--brand-wash)' }}
       />
       {/* Failure replaces the whole screen with news the user did not ask for. Announced the way
           `/map` already announces its filtered result count (`useResultAnnouncement` → one
