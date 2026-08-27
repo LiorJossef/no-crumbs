@@ -10,7 +10,7 @@
  * does not reimplement that logic, it only supplies snap points and content.
  *
  * Three stops per §6.5/§1.3, as pixel/fraction snap points vaul understands directly:
- *  - `peek`: a fixed px height (120px + safe-area-bottom) — count + Add action.
+ *  - `peek`: a fixed px height (120px + safe-area-bottom) — the viewport heading + Add action.
  *  - `half`: 55% of the viewport — the saved-places list, or (S5) a selected place's detail.
  *  - `full`: 100% — search field + full list.
  *
@@ -43,7 +43,7 @@
 import { Drawer } from 'vaul';
 
 import { useNonModalBackground } from './use-non-modal-background';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Plus, MapPin, ExternalLink, X, ChevronLeft, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,6 +52,7 @@ import { isSearchActive } from '@/domain/places/search';
 import { NoteEditor, RemoveSavedPlace } from './saved-place-edits';
 import { DishLine, TagChipList, TagChipRow, WhyGoLine } from './place-enrichment';
 import { enrichmentOf, rowAccessibleName, whyGoEarnsItsPlace } from '@/ui/place/enrichment';
+import type { ViewportHeading } from '@/ui/place/viewport';
 import type { MapPlace } from '@/components/map/types';
 
 /** Fixed peek height. `env(safe-area-inset-bottom)` is added via CSS `calc()` inside the snap
@@ -80,12 +81,26 @@ function snapToStop(snap: number | string | null): SheetStop {
 }
 
 export interface PlaceSheetProps {
-  /** Already filtered by `query` — this list and the map's pins are the same set, by construction
-   *  (`map-page-client.tsx` filters once and hands the result to both). */
+  /** **What is inside the map's current viewport**, already narrowed by `query` and already sorted
+   *  nearest-the-centre-first by `map-page-client.tsx` (`ux-map-is-the-query.md` §1, §6). Render it
+   *  in the order given: the top of the list is the pins the user's eye is already on, and
+   *  re-sorting here would break the one thing that makes the list and the map read as one object. */
   readonly places: readonly MapPlace[];
-  /** How many the user has saved in total, so a filtered list can say `3 of 20` rather than
-   *  claiming they have three places. */
-  readonly totalCount: number;
+  /** What this list says about itself — `12 places in London`, `No matches in this area`. Computed
+   *  once in `map-page-client.tsx` so the sheet and the desktop panel can never disagree, and
+   *  rendered verbatim: no surface re-derives a string from counts. `count`/`rest` exist only so
+   *  the peek row can emphasise the number without parsing `text`. */
+  readonly heading: ViewportHeading;
+  /** Nothing saved, ever — a different screen (§5), not a different string. Deliberately distinct
+   *  from `heading.empty`, which only means the *viewport* is empty and is recoverable by panning. */
+  readonly libraryIsEmpty: boolean;
+  /** A search is active and matches exist somewhere in the library, just not in view. Gates
+   *  `Show all matches`, which would otherwise be a button that flies the camera nowhere. */
+  readonly hasMatchesElsewhere: boolean;
+  /** Fit the cluster nearest the current viewport centre — the escape from an empty viewport. */
+  readonly onShowNearest: () => void;
+  /** Fit every library-wide match for the current query. */
+  readonly onShowAllMatches: () => void;
   readonly query: string;
   readonly onQueryChange: (query: string) => void;
   readonly selected: MapPlace | null;
@@ -110,7 +125,11 @@ interface SheetState {
 
 export function PlaceSheet({
   places,
-  totalCount,
+  heading,
+  libraryIsEmpty,
+  hasMatchesElsewhere,
+  onShowNearest,
+  onShowAllMatches,
   query,
   onQueryChange,
   selected,
@@ -186,7 +205,11 @@ export function PlaceSheet({
             ) : (
               <PlaceList
                 places={places}
-                totalCount={totalCount}
+                heading={heading}
+                libraryIsEmpty={libraryIsEmpty}
+                hasMatchesElsewhere={hasMatchesElsewhere}
+                onShowNearest={onShowNearest}
+                onShowAllMatches={onShowAllMatches}
                 query={query}
                 onQueryChange={onQueryChange}
                 stop={currentStop}
@@ -204,7 +227,11 @@ export function PlaceSheet({
 
 function PlaceList({
   places,
-  totalCount,
+  heading,
+  libraryIsEmpty,
+  hasMatchesElsewhere,
+  onShowNearest,
+  onShowAllMatches,
   query,
   onQueryChange,
   stop,
@@ -213,7 +240,11 @@ function PlaceList({
   onSelect,
 }: {
   places: readonly MapPlace[];
-  totalCount: number;
+  heading: ViewportHeading;
+  libraryIsEmpty: boolean;
+  hasMatchesElsewhere: boolean;
+  onShowNearest: () => void;
+  onShowAllMatches: () => void;
   query: string;
   onQueryChange: (query: string) => void;
   stop: SheetStop;
@@ -222,6 +253,32 @@ function PlaceList({
   onSelect?: (place: MapPlace) => void;
 }) {
   const filtering = isSearchActive(query);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+
+  /**
+   * Where focus goes after an escape (`ux-map-is-the-query.md` §7.2). Both escapes move the camera,
+   * which replaces every row beneath them and removes the button that was pressed — leaving focus on
+   * a node that is about to unmount strands a keyboard or screen-reader user at the document root.
+   * The heading is the right landing point because it is the one thing that now describes the new
+   * answer. `preventScroll` because the sheet is already where it needs to be and scrolling it to
+   * satisfy focus would move the list out from under the user's thumb.
+   */
+  const returnFocusToHeading = () => headingRef.current?.focus({ preventScroll: true });
+
+  const showNearest = () => {
+    onShowNearest();
+    returnFocusToHeading();
+  };
+
+  const showAllMatches = () => {
+    onShowAllMatches();
+    returnFocusToHeading();
+  };
+
+  // An empty library is a different screen, not a different count, so it overrides the viewport
+  // heading entirely — `Nothing saved in this area` would blame the camera for something panning
+  // cannot fix.
+  const headingText = libraryIsEmpty ? EMPTY_LIBRARY_HEADING : heading.text;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3.5 px-5 pt-3.5">
@@ -244,15 +301,17 @@ function PlaceList({
             aria-label="Show your places"
             className="-mx-1 rounded-lg px-1 text-left text-sm font-medium text-muted-foreground underline-offset-4 hover:underline"
           >
-            {filtering ? (
-              <>
-                <span className="font-heading font-extrabold text-foreground">{places.length}</span>{' '}
-                of {totalCount} places
-              </>
+            {/* The number carries the emphasis and the rest of the line stays quiet, exactly as it
+                did when this read `20 places saved`. `heading.count`/`heading.rest` are given to us
+                pre-split precisely so this stays a render and never a parse. When there is no count
+                — `Nothing saved in this area`, or the empty library — the emphasised span is not
+                rendered empty; the line is simply the sentence. */}
+            {libraryIsEmpty || heading.count === null ? (
+              headingText
             ) : (
               <>
-                <span className="font-heading font-extrabold text-foreground">{totalCount}</span>{' '}
-                places saved
+                <span className="font-heading font-extrabold text-foreground">{heading.count}</span>{' '}
+                {heading.rest}
               </>
             )}
           </button>
@@ -267,25 +326,34 @@ function PlaceList({
         </div>
       ) : (
         <>
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="font-heading text-xl font-extrabold tracking-tight text-foreground">
-              {stop === 'full' ? 'Your places' : `${totalCount} places saved`}
-            </h2>
-            {filtering && (
-              <p className="shrink-0 text-sm font-medium text-muted-foreground">
-                {places.length} of {totalCount}
-              </p>
-            )}
-          </div>
+          {/* The same string at `half` and at `full`. `Your places` used to sit here at `full`, and
+              deleting it is the point: at `full` the map is covered, so this line is the only thing
+              on screen explaining why the list is twelve rows and not twenty. Removing the
+              explanation exactly when the evidence is hidden is the wrong trade.
+              `tabIndex={-1}` makes it a focus target for the escapes below without putting it in
+              the tab order. */}
+          <h2
+            ref={headingRef}
+            tabIndex={-1}
+            className="font-heading text-xl font-extrabold tracking-tight text-foreground outline-none"
+          >
+            {headingText}
+          </h2>
 
-          <PlaceSearchField value={query} onChange={onQueryChange} />
+          {/* Hidden while the library is empty: there is nothing to search, and an inert field is a
+              false affordance offering work that cannot produce a result. */}
+          {!libraryIsEmpty && <PlaceSearchField value={query} onChange={onQueryChange} />}
 
-          {places.length === 0 ? (
-            filtering ? (
-              <NoSearchMatches query={query} onClear={() => onQueryChange('')} />
-            ) : (
-              <NoPlacesYet />
-            )
+          {libraryIsEmpty ? (
+            <NoPlacesYet onAddTikTok={onAddTikTok} />
+          ) : heading.empty ? (
+            <EmptyViewport
+              searching={filtering}
+              hasMatchesElsewhere={hasMatchesElsewhere}
+              onShowNearest={showNearest}
+              onShowAllMatches={showAllMatches}
+              onClearSearch={() => onQueryChange('')}
+            />
           ) : (
             <ul
               data-vaul-no-drag
@@ -465,40 +533,118 @@ export function PlaceSearchField({
 }
 
 /**
- * `ux-architecture.md` §9.3, verbatim: name the query back to the user (so a typo is obvious
- * without looking up at the field) and give them the one-tap way out. Shared by both surfaces.
+ * The escape hatch for an empty **viewport** — `ux-map-is-the-query.md` §2.3. Shared by both
+ * surfaces, and rendered where the old `NoSearchMatches` / `NoPlacesYet` block used to sit.
+ *
+ * It carries no line of text of its own, and that is deliberate. The header immediately above it
+ * already reads `No matches in this area` or `Nothing saved in this area`; the state is stated once,
+ * in the one place the spec makes the single source of truth, and a second sentence restating it
+ * would be the surface disagreeing with itself in the only state where the user is already stuck.
+ * The query is still visible verbatim in the field between the two, so a typo remains obvious
+ * without naming it back a third time.
+ *
+ * No illustration, no icon, no bordered card: text-weight buttons in the flow of the list, exactly
+ * as the search-empty state has always looked. `h-11` rather than the old `h-10` because these are
+ * the primary (and sometimes only) way out of the state, and 44px is the floor for a thumb.
  */
-export function NoSearchMatches({
-  query,
-  onClear,
+export function EmptyViewport({
+  searching,
+  hasMatchesElsewhere,
+  onShowNearest,
+  onShowAllMatches,
+  onClearSearch,
 }: {
-  query: string;
-  onClear: () => void;
+  searching: boolean;
+  /** Whether the query matches anything anywhere in the library. `Show all matches` is hidden
+   *  without it, because it would fly the camera to nothing and read as a broken button. */
+  hasMatchesElsewhere: boolean;
+  onShowNearest: () => void;
+  onShowAllMatches: () => void;
+  onClearSearch: () => void;
 }) {
   return (
     <div className="flex flex-1 flex-col items-start gap-3 py-6">
-      <p className="text-sm font-medium text-muted-foreground">
-        Nothing matches <span className="font-bold text-foreground">“{query.trim()}”</span>.
-      </p>
-      <Button
-        type="button"
-        variant="outline"
-        onClick={onClear}
-        className="h-10 rounded-lg px-4 text-sm font-bold"
-      >
-        Clear search
-      </Button>
+      {searching ? (
+        <>
+          {hasMatchesElsewhere && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onShowAllMatches}
+              className="h-11 rounded-lg px-4 text-sm font-bold"
+            >
+              Show all matches
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClearSearch}
+            className="h-11 rounded-lg px-4 text-sm font-bold"
+          >
+            Clear search
+          </Button>
+        </>
+      ) : (
+        /* Nearest cluster, not the whole library — see `showNearestCluster` in
+           `map-page-client.tsx`. Fitting everything is the continental two-bubbles-and-no-pins view
+           this feature exists to remove, and it is also not what the user meant: they panned into
+           empty ocean and want to be back at their places, closest first. */
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onShowNearest}
+          className="h-11 rounded-lg px-4 text-sm font-bold"
+        >
+          Show my places
+        </Button>
+      )}
     </div>
   );
 }
 
-/** A library with nothing in it. `L1-F8-T1` owns the real first-run experience (§9.2's coach line);
- *  this is only here so a brand-new account sees a sentence rather than a blank panel. */
-export function NoPlacesYet() {
+/**
+ * The heading for a library with nothing in it (`ux-map-is-the-query.md` §5). It replaces the
+ * viewport heading outright rather than sitting beside it: `Nothing saved in this area` would blame
+ * the camera for a state no amount of panning can fix, and a first-run screen that reports on an
+ * area is answering a question nobody has asked yet.
+ */
+export const EMPTY_LIBRARY_HEADING = 'Your map starts here.';
+
+/**
+ * The one line under that heading. It states what the product does in the product's own voice — it
+ * names the artefact (a map) rather than the mechanism, and it uses no implementation vocabulary.
+ * Shared so the sheet and the panel cannot drift into two first sentences.
+ */
+export function EmptyLibraryLine() {
   return (
-    <p className="py-6 text-sm font-medium text-muted-foreground">
-      Nothing saved yet. Add a TikTok and the places it names land here.
+    <p className="text-sm font-medium text-muted-foreground">
+      Paste a TikTok link and the places it talks about land on your map.
     </p>
+  );
+}
+
+/**
+ * The sheet's empty-library body: the line, then the product's primary action full-width in the
+ * thumb zone. The desktop panel does not use this — it already carries `Add a TikTok` in its header
+ * block, and a second copy of the same button would be the only thing on that screen twice.
+ *
+ * Nothing else appears here on purpose: no carousel, no checklist, no progress meter, no `0 places`,
+ * no empty-box illustration, and no permission prompt of any kind.
+ */
+export function NoPlacesYet({ onAddTikTok }: { onAddTikTok: () => void }) {
+  return (
+    <div className="flex flex-col gap-4 py-2">
+      <EmptyLibraryLine />
+      <Button
+        type="button"
+        className="h-12 w-full gap-1.5 rounded-lg text-sm font-bold"
+        onClick={onAddTikTok}
+      >
+        <Plus className="size-4" aria-hidden />
+        Add a TikTok
+      </Button>
+    </div>
   );
 }
 

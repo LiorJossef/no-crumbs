@@ -28,13 +28,27 @@
  *
  * ## Which fields are searchable, and why exactly these
  *
- * **You can search anything the row shows you.** Name, category, locality and the user's own note
- * are the four things a list row renders (`PlaceRow`), so every match is explainable by looking at
- * the result — the user is never left staring at a row wondering what it matched.
+ * **You can search the labels a place carries.** Name, category, locality, the user's own note, and
+ * — since extraction v2 — the place's `tags` and `dishes`.
  *
- * Deliberately excluded: `reason` (the model's sentence about why the post recommended the place)
- * and `addressLine`. Both would find real matches, and neither is on screen, so both produce rows
- * that look like bugs. Adding them is a change to what a row displays first, not a change here.
+ * The original rule here was narrower: *anything the row shows you*, on the grounds that every
+ * match should be explainable by looking at the result. That rule was written when a row rendered
+ * four fields and it still holds for four of the six. `tags` render on the row too, so they join on
+ * the original grounds. `dishes` do not — they are a detail-view line — and they are included
+ * anyway, deliberately:
+ *
+ * `natural wine`, `hidden gem`, `late night` and `momos` are exactly the words someone reaches for
+ * when they are trying to find a place again and cannot remember its name. That is this product's
+ * whole job. Leaving them unsearchable meant the extractor paid for them, the UI rendered them, and
+ * the one surface that exists to find things ignored them. A `momos` search returning The Laughing
+ * Yak is not a row that looks like a bug; it is the row the user was looking for, and its detail
+ * says why the moment they open it.
+ *
+ * Still deliberately excluded, and the line is now drawn between **labels and prose** rather than
+ * between on-row and off-row: `reason` and `why_go` (the model's sentences *about* the place) and
+ * `addressLine`. Prose matches on incidental words — a `why_go` containing "you" would match a
+ * search for `you` — so it widens results without making them findable. Tags and dishes are short,
+ * deliberate, human-chosen-vocabulary labels; sentences are not.
  *
  * ## Client-side, on purpose
  *
@@ -58,6 +72,11 @@ export interface SearchablePlace {
   readonly category?: string | null;
   readonly locality?: string | null;
   readonly note?: string | null;
+  /** `saved_places.tags`, already normalised and lowercase in the column. Absent on any place that
+   *  predates extraction v2, which is most of the library. */
+  readonly tags?: readonly string[] | null;
+  /** `saved_places.dishes`, stored the same way tags are. */
+  readonly dishes?: readonly string[] | null;
 }
 
 /**
@@ -80,7 +99,22 @@ export function toSearchTokens(query: string): readonly string[] {
 
 /** One place's searchable text, normalised and joined. Exported for the tests, not for callers. */
 export function toSearchHaystack(place: SearchablePlace): string {
-  return [place.name, place.category, place.locality, place.note]
+  // Tags and dishes are flattened into the same space-joined text as the scalar fields. That is
+  // safe for the same reason the scalar fields are: a query token never contains whitespace, and
+  // the separator always does, so no token can match across the boundary between two tags.
+  //
+  // They are put through `normalise()` even though the column already stores them normalised. The
+  // two normalisations are not identical — the database's `normalize_tag()` lowercases but does not
+  // fold accents or punctuation (`current-state.md` §7) — so a stored `café` would otherwise be
+  // unreachable by a search for `cafe`, which is the exact defect this file was created to fix.
+  return [
+    place.name,
+    place.category,
+    place.locality,
+    place.note,
+    ...(place.tags ?? []),
+    ...(place.dishes ?? []),
+  ]
     .map((field) => normalise(field))
     .filter((field) => field !== '')
     .join(' ');

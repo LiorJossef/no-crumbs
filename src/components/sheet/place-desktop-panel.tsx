@@ -19,16 +19,36 @@
  * so the map underneath (and the floating account chip above it) stay reachable everywhere else.
  */
 
+import { useRef } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { NoPlacesYet, NoSearchMatches, PlaceRow, PlaceSearchField } from './place-sheet';
+import {
+  EMPTY_LIBRARY_HEADING,
+  EmptyLibraryLine,
+  EmptyViewport,
+  PlaceRow,
+  PlaceSearchField,
+} from './place-sheet';
 import { isSearchActive } from '@/domain/places/search';
+import type { ViewportHeading } from '@/ui/place/viewport';
 import type { MapPlace } from '@/components/map/types';
 
 export interface PlaceDesktopPanelProps {
-  /** Already filtered by `query`, exactly like the pins on the map beside it. */
+  /** **What is inside the map's current viewport**, already narrowed by `query` and already sorted
+   *  nearest-the-centre-first by `map-page-client.tsx`. Rendered in the order given. */
   readonly places: readonly MapPlace[];
-  readonly totalCount: number;
+  /** What this list says about itself — `12 places in London`. The same object the mobile sheet
+   *  gets, computed once upstream, so the two presentations can never disagree about the area or
+   *  the count. Rendered verbatim; this panel derives no string of its own. */
+  readonly heading: ViewportHeading;
+  /** Nothing saved, ever (§5) — a different screen, not a different string. */
+  readonly libraryIsEmpty: boolean;
+  /** A search is active and matches exist somewhere in the library, just not in view. */
+  readonly hasMatchesElsewhere: boolean;
+  /** Fit the cluster nearest the current viewport centre. */
+  readonly onShowNearest: () => void;
+  /** Fit every library-wide match for the current query. */
+  readonly onShowAllMatches: () => void;
   readonly query: string;
   readonly onQueryChange: (query: string) => void;
   /** Opens the import overlay in `map-page-client.tsx` (client state) rather than navigating to
@@ -41,27 +61,53 @@ export interface PlaceDesktopPanelProps {
 
 export function PlaceDesktopPanel({
   places,
-  totalCount,
+  heading,
+  libraryIsEmpty,
+  hasMatchesElsewhere,
+  onShowNearest,
+  onShowAllMatches,
   query,
   onQueryChange,
   onAddTikTok,
   onSelect,
 }: PlaceDesktopPanelProps) {
   const filtering = isSearchActive(query);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+
+  /**
+   * Focus lands on the heading after either escape (§7.2). Both move the camera, which replaces
+   * every row and unmounts the button that was just pressed; without this the user is left at the
+   * document root in front of a list they never asked for. `preventScroll` because the panel is
+   * already in view and a scroll here would only shift the list under the pointer.
+   */
+  const returnFocusToHeading = () => headingRef.current?.focus({ preventScroll: true });
+
+  const showNearest = () => {
+    onShowNearest();
+    returnFocusToHeading();
+  };
+
+  const showAllMatches = () => {
+    onShowAllMatches();
+    returnFocusToHeading();
+  };
 
   return (
     <div className="pointer-events-none absolute inset-0 z-20 hidden lg:block">
       <div className="pointer-events-auto absolute inset-y-0 left-0 flex w-[clamp(320px,26vw,392px)] flex-col border-r border-border/70 bg-card/85 backdrop-blur-md">
         <div className="flex flex-col gap-4 px-6 pt-7">
-          <div className="flex items-center justify-between gap-3">
-            <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">
-              Your places
-            </h1>
-            {/* `3 of 20` while filtering, so the count never reads as "you have three places". */}
-            <span className="shrink-0 text-sm font-medium text-muted-foreground">
-              {filtering ? `${places.length} of ${totalCount}` : `${totalCount} saved`}
-            </span>
-          </div>
+          {/* The page's real subject, and it is an area rather than a collection: `Your places` and
+              the `3 of 20` counter beside it are both gone. The library total is not displayed
+              anywhere on `/map` — it answers a question about owning things, and this screen is for
+              finding one. `tabIndex={-1}` only so the escapes below have somewhere to send focus. */}
+          <h1
+            ref={headingRef}
+            tabIndex={-1}
+            className="font-heading text-2xl font-extrabold tracking-tight text-foreground outline-none"
+          >
+            {libraryIsEmpty ? EMPTY_LIBRARY_HEADING : heading.text}
+          </h1>
+          {libraryIsEmpty && <EmptyLibraryLine />}
           <Button
             type="button"
             className="h-12 w-full gap-1.5 rounded-lg text-sm font-bold"
@@ -70,16 +116,20 @@ export function PlaceDesktopPanel({
             <Plus className="size-4" aria-hidden />
             Add a TikTok
           </Button>
-          <PlaceSearchField value={query} onChange={onQueryChange} />
+          {/* Hidden while the library is empty: there is nothing to search, and an inert field is a
+              false affordance. The heading and the one line above it are the whole screen. */}
+          {!libraryIsEmpty && <PlaceSearchField value={query} onChange={onQueryChange} />}
         </div>
 
-        {places.length === 0 ? (
+        {libraryIsEmpty ? null : heading.empty ? (
           <div className="mt-4 px-6">
-            {filtering ? (
-              <NoSearchMatches query={query} onClear={() => onQueryChange('')} />
-            ) : (
-              <NoPlacesYet />
-            )}
+            <EmptyViewport
+              searching={filtering}
+              hasMatchesElsewhere={hasMatchesElsewhere}
+              onShowNearest={showNearest}
+              onShowAllMatches={showAllMatches}
+              onClearSearch={() => onQueryChange('')}
+            />
           </div>
         ) : (
           <ul className="mt-4 min-h-0 flex-1 overflow-y-auto px-6 pb-6">
