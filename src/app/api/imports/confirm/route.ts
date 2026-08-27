@@ -29,6 +29,20 @@
  * `domain/import/stored-candidates.ts`, which reads both schema versions and reports which it
  * found rather than flattening them.
  *
+ * ## Where the coordinate comes from (TLV-RESOLVE-T3)
+ *
+ * `/api/imports/probe` now runs the real `PlaceResolver` and stores the shortlist **on the server**,
+ * inside `extractions.candidates` (`domain/import/resolution-record.ts`). This route reads it back
+ * from the same row it already reads the candidates from, so the resolved place reaches a save
+ * without ever passing through the browser — `authenticated` holds no `INSERT`/`UPDATE` grant on
+ * that column at all. The request may carry an `optionIndex`, which is a position in that stored
+ * shortlist and still not a fact.
+ *
+ * A `preselect`-band candidate is saved with Overture provenance and a real `resolution_score`.
+ * Everything else — `confirm` band with no explicit pick, `no_match`, a failed lookup, a
+ * pre-resolver extraction row — keeps the existing `llm_guess` path unchanged. Both are correct
+ * outcomes; only the provenance columns differ, and they are what make the difference legible.
+ *
  * ## The three columns migration `0019` added
  *
  * `saved_places.tags`, `.why_go` and `.dishes` are written here too, and they are **place facts by
@@ -53,6 +67,7 @@ import { serviceRoleClient } from '@/integrations/supabase/service-role-client';
 import { supabasePlaceStore } from '@/integrations/supabase/place-store';
 import { ConfirmImportRequestSchema, type ConfirmItem } from '@/domain/import/confirm';
 import { derivePlaceSave } from '@/domain/import/candidate-place';
+import { chooseResolvedPlace } from '@/domain/import/resolution-record';
 import { deriveSavedPlaceEnrichment } from '@/domain/import/saved-place-enrichment';
 import { parseStoredCandidates, type StoredCandidate } from '@/domain/import/stored-candidates';
 import { DomainError, internal, notAuthenticated, type DomainErrorView } from '@/domain/errors';
@@ -90,6 +105,14 @@ type ItemResult =
       readonly placeId: string;
       readonly savedPlaceId: string;
       readonly name: string;
+      /**
+       * Which provenance this save actually got — additive on the wire, and the one field that
+       * tells a resolved place from a model guess without a database read. `'overture'` means the
+       * coordinate is a gazetteer row's; `'llm_guess'` means it is the model's own point.
+       */
+      readonly provider: 'overture' | 'llm_guess';
+      /** The scorer's real 0..1 score for an Overture save, `null` for a model guess. */
+      readonly resolutionScore: number | null;
       readonly enrichment: EnrichmentOutcome;
     }
   | { readonly status: 'skipped'; readonly candidateIndex: number; readonly reason: 'no_coordinates' }
@@ -149,11 +172,28 @@ async function confirmOne(
     };
   }
 
-  const { candidate, schemaVersion } = stored;
-  const derived = derivePlaceSave(candidate);
+  const { candidate, schemaVersion, resolution } = stored;
+
+  // The resolver's answer, read back off the server's own row. Nothing about this decision comes
+  // from the request except `optionIndex`, which is a position in a shortlist the server stored.
+  const choice = chooseResolvedPlace(resolution, item.optionIndex);
+  if (choice.kind === 'out_of_range') {
+    return {
+      status: 'failed',
+      candidateIndex: item.candidateIndex,
+      error: internal('optionIndex does not address a stored resolver option').toView(),
+    };
+  }
+
+  // `'choose'` — a `confirm`-band shortlist the caller did not pick from — falls through with
+  // `null`, i.e. to the unchanged `llm_guess` path. That is deliberate: an ambiguous shortlist is
+  // real information, but it is not permission to pick for the user.
+  const resolved = choice.kind === 'use' ? choice.ranked : null;
+
+  const derived = derivePlaceSave(candidate, resolved);
   if (derived.kind === 'skipped') {
-    // The model could not place this venue. Saying so is the whole point — a city-centre or
-    // country-centroid fallback would look identical to a real coordinate on the map.
+    // Neither the resolver nor the model could place this venue. Saying so is the whole point — a
+    // city-centre or country-centroid fallback would look identical to a real coordinate on the map.
     return { status: 'skipped', candidateIndex: item.candidateIndex, reason: derived.reason };
   }
 
@@ -171,7 +211,7 @@ async function confirmOne(
           provider: place.provider,
           providerPlaceId: place.providerPlaceId,
           sourceDataset: place.sourceDataset,
-          regionId: null,
+          regionId: place.regionId,
           name: place.name,
           altNames: [],
           providerCategory: place.providerCategory,
@@ -179,11 +219,13 @@ async function confirmOne(
           locality: place.locality,
           lat: place.lat,
           lng: place.lng,
-          // `ResolvedPlace` requires this field, and `place-store.ts` does not forward it to
-          // `resolve_place` (which has no such parameter). It is 0 rather than the `?? 0.5` this
-          // line used to carry: 0.5 was an invented number sitting on a field the scorer weights,
-          // one wiring change away from silently crediting every model guess.
-          datasetConfidence: 0,
+          // `poi_index.dataset_confidence` on a resolved save, 0 on a model guess — derived, like
+          // every other field here. It stays 0 rather than a `?? 0.5` default on the guess path:
+          // 0.5 was an invented number sitting on a field the scorer weights, one wiring change
+          // away from silently crediting every model guess. `place-store.ts` does not forward this
+          // to `resolve_place` (which has no such parameter); it is carried because `ResolvedPlace`
+          // requires it.
+          datasetConfidence: place.datasetConfidence,
         },
         category: place.category,
         countryCode: place.countryCode,
@@ -199,6 +241,8 @@ async function confirmOne(
       placeId,
       savedPlaceId,
       name: place.name,
+      provider: place.provider,
+      resolutionScore: place.resolutionScore,
       enrichment: enrichmentOutcome(schemaVersion, enrichment !== null, enrichmentApplied),
     };
   } catch (e) {

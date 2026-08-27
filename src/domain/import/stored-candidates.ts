@@ -41,6 +41,7 @@
 import { z } from 'zod';
 
 import { RawPlaceCandidateSchema, toPlaceCandidate } from '../extraction/schema';
+import { StoredResolutionSchema, type StoredResolution } from './resolution-record';
 import type { PlaceCandidate } from '../types';
 
 /**
@@ -55,6 +56,18 @@ export type StoredSchemaVersion = 1 | 2;
 export interface StoredCandidate {
   readonly candidate: PlaceCandidate;
   readonly schemaVersion: StoredSchemaVersion;
+  /**
+   * What the `PlaceResolver` said about this candidate when the probe ran, or `null` for a row
+   * written before TLV-RESOLVE-T3 wired the resolver in (there are six such rows on the local
+   * database) — see `resolution-record.ts` for why "never asked" is not folded into "no match".
+   *
+   * It rides as a sibling key **inside each candidate object** rather than in a column of its own,
+   * for two reasons. Index alignment is one: `ConfirmItem.candidateIndex` addresses this array, and
+   * two parallel arrays are one off-by-one away from saving a different place than the user picked.
+   * Backwards compatibility is the other: `z.object` strips unknown keys, so both candidate schemas
+   * below parse a resolution-bearing element unchanged, and every pre-existing row parses too.
+   */
+  readonly resolution: StoredResolution | null;
 }
 
 /**
@@ -93,9 +106,11 @@ export function parseStoredCandidates(raw: unknown): StoredCandidatesOutcome {
   const candidates: StoredCandidate[] = [];
 
   for (const element of asArray.data) {
+    const resolution = parseResolution(element);
+
     const v2 = RawPlaceCandidateSchema.safeParse(element);
     if (v2.success) {
-      candidates.push({ candidate: toPlaceCandidate(v2.data), schemaVersion: 2 });
+      candidates.push({ candidate: toPlaceCandidate(v2.data), schemaVersion: 2, resolution });
       continue;
     }
 
@@ -107,6 +122,7 @@ export function parseStoredCandidates(raw: unknown): StoredCandidatesOutcome {
         // than measured, and `schemaVersion: 1` beside them is what stops that being a lie.
         candidate: toPlaceCandidate({ ...v1.data, areaHint: null, tags: [], dishes: [], whyGo: null }),
         schemaVersion: 1,
+        resolution,
       });
       continue;
     }
@@ -117,4 +133,21 @@ export function parseStoredCandidates(raw: unknown): StoredCandidatesOutcome {
   }
 
   return { kind: 'ok', candidates };
+}
+
+/**
+ * The resolution sibling, parsed independently of the candidate around it.
+ *
+ * Independent on purpose: a candidate that still parses is still saveable, and a resolution record
+ * that does not parse — a shape from a future schema, or a corrupted row — must cost that candidate
+ * its Overture coordinate, not its save. `null` is the honest answer for both "absent" and
+ * "unreadable", because both mean *we have no resolver result we can stand behind for this
+ * candidate*, and the save falls back to the existing `llm_guess` path either way.
+ */
+function parseResolution(element: unknown): StoredResolution | null {
+  if (typeof element !== 'object' || element === null) return null;
+  const raw = (element as { readonly resolution?: unknown }).resolution;
+  if (raw === undefined || raw === null) return null;
+  const parsed = StoredResolutionSchema.safeParse(raw);
+  return parsed.success ? parsed.data : null;
 }

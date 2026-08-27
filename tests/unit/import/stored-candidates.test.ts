@@ -108,3 +108,98 @@ describe('parseStoredCandidates', () => {
     expect(parseStoredCandidates([{ ...V2_ROW, rawName: 'x' }]).kind).toBe('invalid');
   });
 });
+
+/**
+ * The `resolution` sibling (TLV-RESOLVE-T3). It rides *inside* each candidate object rather than in
+ * a parallel array, because `ConfirmItem.candidateIndex` addresses this array and two arrays are one
+ * off-by-one away from saving a different place than the user picked.
+ */
+describe('parseStoredCandidates — the resolution sibling', () => {
+  const RESOLUTION = {
+    kind: 'answered',
+    result: {
+      shortlist: [
+        {
+          place: {
+            provider: 'overture',
+            providerPlaceId: 'gers-1',
+            sourceDataset: 'overture-places',
+            regionId: 'tlv',
+            name: 'HaKosem Falafel',
+            altNames: [],
+            providerCategory: 'falafel_shop',
+            addressLine: null,
+            locality: 'Tel Aviv',
+            lat: 32.07515,
+            lng: 34.77291,
+            datasetConfidence: 0.87,
+          },
+          score: 0.93,
+          nameScore: 0.95,
+          tokenCoverage: 1,
+          categoryScore: 1,
+        },
+      ],
+      confidence: { band: 'preselect', score: 0.93, margin: 0.4 },
+      regionsSearched: ['tlv'],
+      candidatesPrefiltered: 21,
+    },
+  };
+
+  it('reads it back off a v2 row without disturbing the candidate', () => {
+    const result = parseStoredCandidates([{ ...V2_ROW, resolution: RESOLUTION }]);
+
+    expect(result.kind).toBe('ok');
+    if (result.kind !== 'ok') return;
+    expect(result.candidates[0]?.schemaVersion).toBe(2);
+    expect(result.candidates[0]?.candidate.rawName).toBe('Ha Kosem');
+    expect(result.candidates[0]?.resolution).toMatchObject({ kind: 'answered' });
+  });
+
+  it('reads it back off a v1 row too — the two are independent', () => {
+    // A v1 candidate re-pasted today gets resolved and backfilled by the probe route, so the pairing
+    // v1-candidate + v2-era resolution is a real row shape, not a hypothetical one.
+    const result = parseStoredCandidates([{ ...V1_ROW, resolution: RESOLUTION }]);
+
+    expect(result.kind).toBe('ok');
+    if (result.kind !== 'ok') return;
+    expect(result.candidates[0]?.schemaVersion).toBe(1);
+    expect(result.candidates[0]?.resolution).toMatchObject({ kind: 'answered' });
+  });
+
+  it('reports null — never a guess — for a row written before the resolver existed', () => {
+    // Six such rows exist on the local database. `null` means "never asked", which is deliberately
+    // not the same value as "asked and matched nothing".
+    const result = parseStoredCandidates([V2_ROW]);
+
+    expect(result.kind).toBe('ok');
+    if (result.kind !== 'ok') return;
+    expect(result.candidates[0]?.resolution).toBeNull();
+  });
+
+  it('drops an unreadable resolution without costing the candidate its save', () => {
+    // A shape from a future schema, or a corrupted row. Losing the Overture coordinate is the right
+    // cost; losing the save is not, and a 500 for the whole batch certainly is not.
+    const result = parseStoredCandidates([
+      { ...V2_ROW, resolution: { kind: 'answered', result: { shortlist: 'not an array' } } },
+    ]);
+
+    expect(result.kind).toBe('ok');
+    if (result.kind !== 'ok') return;
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0]?.resolution).toBeNull();
+  });
+
+  it('refuses a shortlist entry with an out-of-range coordinate', () => {
+    // The stored column is boundary data like any provider response — parsed, not trusted, even
+    // though only a service-role write can have put it there.
+    const bad = structuredClone(RESOLUTION);
+    bad.result.shortlist[0]!.place.lat = 999;
+
+    const result = parseStoredCandidates([{ ...V2_ROW, resolution: bad }]);
+
+    expect(result.kind).toBe('ok');
+    if (result.kind !== 'ok') return;
+    expect(result.candidates[0]?.resolution).toBeNull();
+  });
+});

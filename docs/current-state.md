@@ -1,5 +1,22 @@
 # Current state — cold-start document
 
+---
+> ## ⚠ Session of 2026-08-27 (fourth) — read [`handoff-2026-08-27-place-recognition.md`](handoff-2026-08-27-place-recognition.md) FIRST
+>
+> **The product has a working place resolver for the first time**, and two claims made repeatedly
+> below are now false: there *is* a `PlaceResolver` on the live import path, and `poi_index` is no
+> longer empty — it holds **10,462 Overture rows for Tel Aviv + Hasharon** (lat 31.95–32.40, lng
+> 34.70–35.00), loaded locally for the first time in this project's history. Measured: the resolver
+> puts a real caption's venue **11 m** from truth where the model's own guesses were **555 m** and
+> **483 m** out. **None of it is committed** — the whole change set is in the working tree.
+>
+> **The owner's stated priority for the next session** is improving *automatic* recognition in Tel
+> Aviv + Hasharon, measured on **20–30 real TikToks** for a 20s audience (cafés, brunch, bars and
+> wine bars, bakeries, desserts, talked-about restaurants). The shortlist picker shipped this
+> session is a fallback and should rarely be needed — **do not over-invest in fallback UX while core
+> recognition still needs work.** The handoff carries the failure taxonomy and the ordered next steps.
+---
+
 > Updated **2026-08-27**. Read this after `CLAUDE.md` and `working-agreement.md`, before anything
 > else. It is the running state, not a diary: when something here stops being true, change it.
 >

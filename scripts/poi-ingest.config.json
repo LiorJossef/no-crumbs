@@ -10,20 +10,25 @@
     "that section, so the loader refuses a region whose poi_regions.dataset_release differs from this",
     "value unless --allow-release-change is passed.",
     "",
-    "Region bboxes are duplicated from migration 0010's poi_regions seed on purpose and the loader",
-    "ASSERTS they are equal before it writes anything: the database is authoritative (10 §2), this",
-    "file is what the extract can actually read, and a silent disagreement between the two would load",
-    "rows outside the region a query scopes to."
+    "Region bboxes are duplicated from the poi_regions rows on purpose and the loader ASSERTS they",
+    "are equal before it writes anything: the database is authoritative (10 §2), this file is what",
+    "the extract can actually read, and a silent disagreement between the two would load rows",
+    "outside the region a query scopes to. tyo and ldn come from 0010's seed; tlv comes from 0020,",
+    "which widened it from the Tel Aviv municipality (32.03/32.12, 34.74/34.86) to the MVP launch",
+    "area, Tel Aviv PLUS the Hasharon - Herzliya, Ramat HaSharon, Ra'anana, Kfar Saba, Hod HaSharon,",
+    "Netanya and Petah Tikva were all outside the old box. Measured on release 2026-07-22.0: the new",
+    "box is 79 996 raw rows, 10 462 after the food-and-drink filter below, versus 35 430 / 4 997 for",
+    "the old one. If you change a bbox here, change it in a NEW migration too - never in 0010."
   ],
   "overtureRelease": "2026-07-22.0",
   "sourceDataset": "overture-places",
   "regions": {
     "tlv": {
-      "displayName": "Tel Aviv",
-      "minLat": 32.03,
-      "maxLat": 32.12,
-      "minLng": 34.74,
-      "maxLng": 34.86
+      "displayName": "Tel Aviv & Hasharon",
+      "minLat": 31.95,
+      "maxLat": 32.4,
+      "minLng": 34.7,
+      "maxLng": 35.0
     },
     "tyo": {
       "displayName": "Tokyo",

@@ -33,11 +33,23 @@
  *  4. **The category token table is indexed by `CategoryHint` only.** `CAT_TOKENS[hint]` is a
  *     `KeyError` for four of the seven values `09` §4.2's schema can emit; `categoryHintFor()`
  *     is the total conversion (`11` §2 ruling 9).
- *  5. **`altNames` is not scored** — only `name`, exactly as the prototype did. Overture gave us no
- *     alternate names, the column is empty until the OSM alias join (`06` §7.1 mitigation 1a,
- *     `10` §11), and scoring an always-empty array would let a future load silently change every
- *     benchmark number. When aliases land, this becomes "the best score over `name` and
- *     `altNames`" — one change, here, with the golden file to catch what it moves.
+ *  5. **`altNames` IS scored — `nameScore` is the best over `name` and every alias.** The prototype
+ *     scored `name` alone, and this file said so until TLV-RESOLVE-T1: Overture gave us no
+ *     alternate names, `poi_index.alt_names` is `not null default '{}'` (migration 0010), and
+ *     scoring an always-empty array would have let a future load silently move every benchmark
+ *     number. That is now the change this note always said it would be — "the best score over
+ *     `name` and `altNames`", one change, here — made ahead of the OSM alias join (`06` §7.1
+ *     mitigation 1a, `10` §11) because the aliases about to land are the **Hebrew and English
+ *     forms of the same venue**, and this is the single line that makes a caption's `פלאפל הקוסם`
+ *     reachable from a row named `Falafel HaKosem`.
+ *
+ *     Three properties keep it honest. `bestNameScore` takes the *strictly* greater alias, so the
+ *     primary `name` wins every tie and a row with no aliases scores byte-identically to before.
+ *     `tokenCoverage` travels with the winning string rather than being recomputed against `name`,
+ *     so the two reported numbers always describe the same comparison. And `alt_names` is empty in
+ *     every row of the 44-case golden data, so `tests/unit/places/benchmark-golden.test.ts` is
+ *     unchanged and still passes — verified, and it is the regression test for the day the column
+ *     stops being empty.
  *
  * Everything else is the prototype byte for byte, including the tie-break order and the odd
  * corners of `GENERIC` (`scoring-constants.ts`).
@@ -152,6 +164,37 @@ export function nameScore(queryText: string, candidateName: string): NameScore {
 }
 
 /**
+ * The best `nameScore` over the candidate's primary name and each of its aliases — divergence 5.
+ *
+ * **Strictly greater**, so `name` wins a tie and an alias can only ever *raise* a row's score. That
+ * matters twice: a row with an empty `altNames` (every row in the golden file, and every row in
+ * `poi_index` until the alias join lands) is bit-for-bit what it was before this function existed;
+ * and an alias that merely equals the primary name — a duplicated Hebrew form, say — cannot reorder
+ * the tie-break by swapping in a different `tokenCoverage`.
+ *
+ * The whole `NameScore` is carried over, not just the number, because `tokenCoverage` is the
+ * *explanation* of `nameScore` (`06` §6.1 step 4 reports both). Recomputing coverage against
+ * `name` while the score came from an alias would put two numbers in `RankedPlace` that describe
+ * different comparisons — the kind of quietly incoherent diagnostic that sends a future
+ * investigation the wrong way.
+ *
+ * No cap on alias count: `alt_names` is written wholesale by the loader from our own join, not by
+ * a user, and the loader is where a bound belongs if one is ever needed.
+ */
+export function bestNameScore(
+  queryText: string,
+  name: string,
+  altNames: readonly string[],
+): NameScore {
+  let best = nameScore(queryText, name);
+  for (const alt of altNames) {
+    const candidate = nameScore(queryText, alt);
+    if (candidate.nameScore > best.nameScore) best = candidate;
+  }
+  return best;
+}
+
+/**
  * 1 if the candidate's provider category agrees with the hint, else 0. No hint, or no category on
  * the row, is 0 — never a fraction and never a penalty.
  *
@@ -181,7 +224,7 @@ export function scorePlace(
   categoryHint: CategoryHint | null,
   queryText: string,
 ): RankedPlace {
-  const name = nameScore(queryText, place.name);
+  const name = bestNameScore(queryText, place.name, place.altNames);
   const category = categoryScore(categoryHint, place.providerCategory);
   const score =
     SCORING.total.name * name.nameScore +

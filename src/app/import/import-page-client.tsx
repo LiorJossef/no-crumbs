@@ -7,8 +7,11 @@
  * `docs/ux-architecture.md` §12.1's deck (C01–C22), quoted verbatim.
  *
  * The real flow: `submit()` calls `POST /api/imports/probe` (real oEmbed fetch + caption
- * extraction + `PlaceExtractor`, no resolver yet — see that route's header) and lands on
+ * extraction + `PlaceExtractor` + the real `PlaceResolver` — see that route's header) and lands on
  * `caption_preview`; "Done" there calls `POST /api/imports/confirm` via `saveExtractedCandidates`.
+ * Each candidate arrives with the resolver's stored shortlist attached, and the review screen's
+ * picker (`ui/import/candidate-resolution-view.ts`) is how a `confirm`-band candidate gets an
+ * answer — without it, that whole band silently saved the model's guessed coordinate.
  * The `no_places`/`results` `Screen` kinds and their `NoPlacesScreen`/`ResultsScreen` components
  * predate this real wiring and are currently unreachable from this file (no code path sets them);
  * they are kept as the shape L0-F6-T1's real streaming route is expected to drive, rather than
@@ -61,6 +64,19 @@ import {
   showsEvidence,
   skippedNotice,
 } from '@/domain/import/candidate-presentation';
+import type { StoredResolution } from '@/domain/import/resolution-record';
+import {
+  effectivePick,
+  pickRequiredNotice,
+  resolutionChip,
+  resolutionExplanation,
+  resolutionHeadline,
+  resolutionOptions,
+  resolutionView,
+  resolverPinLine,
+  willSave,
+  type CandidateResolutionView,
+} from '@/ui/import/candidate-resolution-view';
 import type { Candidate, PlaceCandidate } from '@/domain/types';
 import type { DomainErrorCode } from '@/domain/errors';
 import {
@@ -99,12 +115,23 @@ interface ProbeSuccess {
   readonly canonicalUrl: string;
   readonly thumbnailUrl: string | null;
   readonly caption: string | null;
-  /** The real, plausibility-filtered candidates from the real `PlaceExtractor` — pre-resolver, so
-   *  no `CandidateResolution` exists yet (that's `Candidate`, not `PlaceCandidate`). Empty when
-   *  `caption` was null (no LLM call on nothing) or when nothing survived the gate — both are
-   *  valid, expected outcomes, not errors. */
-  readonly candidates: readonly PlaceCandidate[];
+  /**
+   * The real, plausibility-filtered candidates from the real `PlaceExtractor`, each carrying the
+   * resolver's answer for it (`resolution`). Empty when `caption` was null (no LLM call on
+   * nothing) or when nothing survived the gate — both are valid, expected outcomes, not errors.
+   *
+   * `resolution` is `null` for a candidate that was **never put to the resolver**: an extraction
+   * row written before the resolver was wired in, or a candidate past `MAX_CANDIDATES`. That is
+   * deliberately not the same value as "we looked and found nothing"
+   * (`domain/import/resolution-record.ts`), and the screen must not say the same thing for both.
+   */
+  readonly candidates: readonly ProbeCandidate[];
 }
+
+/** A probe candidate: what the model extracted, plus what the resolver made of it. Matches the
+ *  route's `StoredCandidateRow` — the shortlist itself stays on the server; this is a read-only
+ *  copy for the screen, and a confirm may still only send *positions* into it. */
+type ProbeCandidate = PlaceCandidate & { readonly resolution: StoredResolution | null };
 
 interface ProbeErrorBody {
   readonly error: { readonly code: string; readonly retryable: boolean };
@@ -468,7 +495,7 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
    * currently-unreachable path without a real source yet).
    */
   async function saveExtractedCandidates(
-    candidateIndices: readonly number[],
+    picks: readonly CandidatePick[],
     extractionId: string | null,
   ): Promise<SaveOutcomeDetail> {
     const empty: SaveOutcomeDetail = {
@@ -480,13 +507,13 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
       statusByIndex: new Map(),
     };
 
-    if (candidateIndices.length === 0) return empty;
+    if (picks.length === 0) return empty;
 
     // No persisted extraction means there is nothing the server can derive a save from, and no
     // request this client could send that would be authorised. Reported as failed rather than
     // silently swallowed: the user pressed Save and nothing was saved.
     if (extractionId === null) {
-      return { ...empty, failed: candidateIndices.length };
+      return { ...empty, failed: picks.length };
     }
 
     // The request carries positions, not facts. Which candidates to save is the user's call — and
@@ -494,7 +521,14 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
     // comes from the extraction row the probe route wrote. The indices line up because the probe
     // route persisted exactly the array it returned — the same plausibility-filtered candidates,
     // in the same order.
-    const items = candidateIndices.map((candidateIndex) => ({ candidateIndex, note: null }));
+    const items = picks.map(({ candidateIndex, optionIndex }) => ({
+      candidateIndex,
+      // A position in the shortlist the *server* stored for this candidate, never a place fact.
+      // `null` leaves the server's own policy in charge: auto-accept under `preselect`, and the
+      // unchanged `llm_guess` path under `confirm` (`chooseResolvedPlace`).
+      optionIndex,
+      note: null,
+    }));
 
     const res = await fetch('/api/imports/confirm', {
       method: 'POST',
@@ -588,12 +622,12 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
    * before this fix, only `hard_failure`) already used.
    */
   async function finishCaptionPreview(
-    candidateIndices: readonly number[],
+    picks: readonly CandidatePick[],
     extractionId: string | null,
   ) {
     setCaptionSave({ saving: true, error: null, partialNotice: null, statusByIndex: null });
     try {
-      const result = await saveExtractedCandidates(candidateIndices, extractionId);
+      const result = await saveExtractedCandidates(picks, extractionId);
       lastSaveDetail.current = result;
       const outcome = decideCaptionSaveOutcome(result);
       switch (outcome.kind) {
@@ -781,7 +815,7 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
             error={captionSave.error}
             partialNotice={captionSave.partialNotice}
             statusByIndex={captionSave.statusByIndex}
-            onSave={(indices) => finishCaptionPreview(indices, screen.probe.extractionId)}
+            onSave={(picks) => finishCaptionPreview(picks, screen.probe.extractionId)}
             onRetry={reset}
             onContinue={continueAfterPartialSave}
           />
@@ -1160,18 +1194,33 @@ function CandidateRow({ candidate }: { candidate: Candidate }) {
 }
 
 /* ------------------------------------------------------------------------------------------- *
- * Caption preview — this task's real landing screen. Shows exactly what the real
- * `SourceAdapter` + `ContentExtractor` + `PlaceExtractor` + plausibility gate produced: the
- * caption, plainly, and every surviving `PlaceCandidate` with every field the schema carries
- * (`domain/extraction/schema.ts`) — pre-resolver, so there is no `CandidateResolution` yet and no
- * confidence band styling, just the raw candidate as a manual tester needs to see it to verify it
- * by hand against Google Maps.
+ * Caption preview — the real landing screen. Shows exactly what the real `SourceAdapter` +
+ * `ContentExtractor` + `PlaceExtractor` + plausibility gate produced: the caption, plainly, and
+ * every surviving `PlaceCandidate` with every field the schema carries
+ * (`domain/extraction/schema.ts`), plus the resolver's shortlist for it.
+ *
+ * The shortlist is a control, not a readout. A `preselect` candidate shows its match and lets the
+ * user override it; a `confirm` candidate shows the options and refuses to choose for them; and
+ * every other state renders exactly as it did before the picker existed.
  * ------------------------------------------------------------------------------------------- */
 
 /** Per-candidate outcome after a save that did not fully succeed, keyed by `candidateIndex`. Only
  *  populated for a partial failure — the one case where the user stays on this screen and needs to
  *  see which card is which. */
 export type ItemStatus = 'saved' | 'already_saved' | 'skipped' | 'failed';
+
+/**
+ * One line of the confirm request, as the review screen assembles it: *which* candidate, and
+ * *which* of that candidate's stored shortlist entries the user chose. Both are positions.
+ *
+ * This is the whole shape of what the browser is permitted to say about a place — no name, no
+ * coordinate, no provider id (`domain/import/candidate-place.ts`'s header). `optionIndex: null`
+ * means "the user made no explicit choice", which leaves the server's own policy in charge.
+ */
+export interface CandidatePick {
+  readonly candidateIndex: number;
+  readonly optionIndex: number | null;
+}
 
 function CaptionPreviewScreen({
   probe,
@@ -1191,7 +1240,7 @@ function CaptionPreviewScreen({
    *  retry here) and freezes the list, with each card carrying its own outcome. */
   partialNotice: string | null;
   statusByIndex: ReadonlyMap<number, ItemStatus> | null;
-  onSave: (indices: readonly number[]) => void;
+  onSave: (picks: readonly CandidatePick[]) => void;
   onContinue: () => void;
   /** Back to an empty paste field. The primary action when nothing was found — which is the
    *  *modal* import outcome at this hit rate, so "try another link" is the main path through this
@@ -1214,14 +1263,65 @@ function CaptionPreviewScreen({
    * candidate the model could not place can never enter the set — not added-then-filtered — so
    * the count on the button is always the number of places that will actually be written.
    */
-  const saveableIndices = useMemo(
-    () => probe.candidates.map((c, i) => (isSaveable(c) ? i : -1)).filter((i) => i >= 0),
+  /**
+   * Which shortlist entry the user picked for each candidate, keyed by candidate index. Only
+   * *explicit* picks live here — a `matched` candidate the user never touched stays absent, so
+   * the request carries `optionIndex: null` and the server's own auto-accept decides. Recording a
+   * `0` we invented would make the row read as a human choice it never was.
+   */
+  const [picks, setPicks] = useState<ReadonlyMap<number, number>>(() => new Map());
+
+  /** The resolver's answer per candidate, derived once. `resolutionView` is the only mapping —
+   *  the band itself comes from `deriveResolution`, the same function the confirm route uses. */
+  const views = useMemo(
+    () => probe.candidates.map((c) => resolutionView(c.resolution)),
     [probe.candidates],
   );
-  const [selected, setSelected] = useState<ReadonlySet<number>>(() => new Set(saveableIndices));
 
-  const selectedCount = selected.size;
-  const unsaveableCount = n - saveableIndices.length;
+  /**
+   * The candidates a Save would actually write.
+   *
+   * This used to be `isSaveable(c)` alone — "did the *model* give a coordinate?" — which hid every
+   * candidate the resolver had matched but the model had failed to place, even though the server
+   * derives that save's coordinate from the stored shortlist and would have written it happily.
+   * `willSave` asks the server's question instead: a user pick, or a `preselect` auto-accept, or a
+   * model coordinate. It is recomputed as picks change, because picking an option is exactly what
+   * turns an unsaveable `ambiguous` candidate into a saveable one.
+   */
+  const saveableIndices = useMemo(
+    () =>
+      probe.candidates
+        .map((c, i) => (willSave(isSaveable(c), views[i]!, picks.get(i) ?? null) ? i : -1))
+        .filter((i) => i >= 0),
+    [probe.candidates, views, picks],
+  );
+  const [selected, setSelected] = useState<ReadonlySet<number>>(
+    () =>
+      new Set(
+        probe.candidates
+          .map((c, i) => (willSave(isSaveable(c), views[i]!, null) ? i : -1))
+          .filter((i) => i >= 0),
+      ),
+  );
+
+  /** Picking an option is a decision about *this* place, so it selects the card too — otherwise a
+   *  user who picks the right branch of a chain and presses Save saves nothing, and the screen
+   *  never said why. Changing a pick on an already-selected card leaves the selection alone. */
+  function pick(candidateIndex: number, optionIndex: number) {
+    setPicks((current) => new Map(current).set(candidateIndex, optionIndex));
+    setSelected((current) => (current.has(candidateIndex) ? current : new Set(current).add(candidateIndex)));
+  }
+
+  // Counted over the saveable set rather than `selected.size`, so the number on the button is
+  // always the number of places the request will actually write — never a card that is ticked but
+  // has nothing to save.
+  const selectedCount = saveableIndices.filter((i) => selected.has(i)).length;
+  // Only the candidates that genuinely have nowhere to go: no map options *and* no model pin.
+  // A candidate that is merely waiting for a pick has a location — several — and counting it as
+  // "no location" contradicted the "Pick one of these to save it." on its own card.
+  const unsaveableCount = probe.candidates.filter(
+    (c, i) => !isSaveable(c) && resolutionOptions(views[i]!).length === 0,
+  ).length;
   const allSelected = selectedCount === saveableIndices.length && saveableIndices.length > 0;
   const frozen = statusByIndex !== null || saving;
 
@@ -1347,10 +1447,13 @@ function CaptionPreviewScreen({
                 <ExtractedCandidateRow
                   key={i}
                   candidate={c}
+                  view={views[i]!}
+                  pick={picks.get(i) ?? null}
                   selected={selected.has(i)}
                   frozen={frozen}
                   status={statusByIndex?.get(i) ?? null}
                   onToggle={() => toggle(i)}
+                  onPick={(optionIndex) => pick(i, optionIndex)}
                 />
               ))}
             </ul>
@@ -1405,7 +1508,16 @@ function CaptionPreviewScreen({
           <>
             <Button
               type="button"
-              onClick={() => onSave([...selected].sort((a, b) => a - b))}
+              onClick={() =>
+                onSave(
+                  saveableIndices
+                    .filter((i) => selected.has(i))
+                    .map((candidateIndex) => ({
+                      candidateIndex,
+                      optionIndex: picks.get(candidateIndex) ?? null,
+                    })),
+                )
+              }
               disabled={saving || selectedCount === 0}
               className="h-14 w-full gap-1.5 rounded-lg text-base font-bold"
             >
@@ -1456,29 +1568,60 @@ const STATUS_CHIP: Record<ItemStatus, { readonly label: string; readonly classNa
  */
 function ExtractedCandidateRow({
   candidate,
+  view,
+  pick,
   selected,
   frozen,
   status,
   onToggle,
+  onPick,
 }: {
   candidate: PlaceCandidate;
+  /** What the resolver made of this candidate, already derived (`ui/import/candidate-resolution-view.ts`). */
+  view: CandidateResolutionView;
+  /** The user's explicit shortlist choice, or `null` for "they haven't chosen". */
+  pick: number | null;
   selected: boolean;
   frozen: boolean;
   status: ItemStatus | null;
   onToggle: () => void;
+  onPick: (optionIndex: number) => void;
 }) {
   const title = candidateTitle(candidate);
-  const saveable = isSaveable(candidate);
+  // Not `isSaveable(candidate)`: a candidate the resolver matched is saveable even with no model
+  // coordinate, because the server derives the pin from the stored shortlist entry.
+  const saveable = willSave(isSaveable(candidate), view, pick);
   const chip = status === null ? null : STATUS_CHIP[status];
+  const options = resolutionOptions(view);
+  const chosen = effectivePick(view, pick);
+  const needsPick = pickRequiredNotice(isSaveable(candidate), view, pick);
+  const optionsId = useId();
+  const badge = resolutionChip(view, pick);
 
   const body = (
     <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
       <div className="flex items-baseline gap-2">
         <p className="truncate font-heading text-[15px] font-bold text-foreground">{title}</p>
-        {chip && (
+        {chip ? (
           <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold', chip.className)}>
             {chip.label}
           </span>
+        ) : (
+          // The resolver's state, in the same slot the post-save outcome uses — never both, and
+          // never the same colour: a matched candidate is the only one that gets the mint accent,
+          // so an ambiguous one can never be mistaken for a settled one at a glance.
+          badge !== null && (
+            <span
+              className={cn(
+                'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold',
+                badge.tone === 'settled'
+                  ? 'bg-[var(--mint-100)] text-[var(--mint-700)]'
+                  : 'bg-muted text-foreground',
+              )}
+            >
+              {badge.label}
+            </span>
+          )
         )}
       </div>
       <p className="truncate text-xs font-medium text-muted-foreground">
@@ -1550,10 +1693,74 @@ function ExtractedCandidateRow({
         </div>
       )}
 
+      {/* The shortlist. Rendered outside the toggle button on purpose — a radio inside a checkbox
+          is invalid markup and needs propagation tricks to behave. Only `matched` and `ambiguous`
+          have options; every other state renders exactly what it rendered before this existed. */}
+      {options.length > 0 && status === null && (
+        <div className="flex flex-col gap-1.5 border-t border-border/60 px-4 pt-2.5 pb-1">
+          <div className="flex flex-col gap-0.5">
+            <p
+              id={`${optionsId}-label`}
+              className={cn(
+                'text-[11px] font-bold tracking-[0.08em] uppercase',
+                view.kind === 'matched' ? 'text-[var(--mint-700)]' : 'text-foreground',
+              )}
+            >
+              {resolutionHeadline(view)}
+            </p>
+            <p className="text-xs font-medium text-muted-foreground">{resolutionExplanation(view)}</p>
+          </div>
+          <ul role="radiogroup" aria-labelledby={`${optionsId}-label`} className="flex flex-col gap-1">
+            {options.map((option) => {
+              const isChosen = chosen === option.index;
+              return (
+                <li key={option.index}>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={isChosen}
+                    disabled={frozen}
+                    onClick={() => onPick(option.index)}
+                    className={cn(
+                      // min-h-11 rather than a fixed height: the address wraps to two lines on a
+                      // 390px viewport far more often than it fits on one, and a clipped address
+                      // is the one thing this control exists to show.
+                      'flex min-h-11 w-full items-start gap-2.5 rounded-lg border px-3 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default',
+                      isChosen ? 'border-[var(--mint-700)] bg-[var(--mint-100)]/40' : 'border-border/60 bg-background',
+                    )}
+                  >
+                    <span
+                      aria-hidden
+                      className={cn(
+                        'mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border-2',
+                        isChosen ? 'border-[var(--mint-700)]' : 'border-border',
+                      )}
+                    >
+                      {isChosen && <span className="size-2 rounded-full bg-[var(--mint-700)]" />}
+                    </span>
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate text-[13px] font-bold text-foreground">{option.name}</span>
+                      {/* The address, not the name, is what tells two branches of a chain apart —
+                          so it wraps rather than truncating. */}
+                      <span className="text-xs font-medium break-words text-muted-foreground">
+                        {option.detail}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+          {needsPick && (
+            <p className="text-xs font-semibold text-foreground">{needsPick}</p>
+          )}
+        </div>
+      )}
+
       <div className="flex items-center justify-between gap-2 border-t border-border/60 px-4 py-1.5">
         <span className="flex items-center gap-1.5 truncate text-xs font-medium text-muted-foreground">
           <Crosshair className="size-3.5 shrink-0" aria-hidden />
-          {locationLine(candidate)}
+          {resolverPinLine(view, pick, isSaveable(candidate)) ?? locationLine(candidate)}
         </span>
         <a
           href={googleMapsSearchUrl(candidate)}

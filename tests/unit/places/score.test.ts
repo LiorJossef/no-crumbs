@@ -19,6 +19,7 @@ import type { PlaceProvider, RankedPlace, ResolveQuery, ResolvedPlace } from '@/
 import { jaroWinklerSimilarity } from '@/domain/places/jaro-winkler';
 import { normalise } from '@/domain/places/normalise';
 import {
+  bestNameScore,
   categoryScore,
   confidenceOf,
   distinctiveTokens,
@@ -365,5 +366,69 @@ describe('SCORING', () => {
     expect(SCORING.defaultMaxResults).toBe(5);
     expect(SCORING.generic.size).toBe(31);
     expect(Object.keys(SCORING.categoryTokens)).toEqual(['cafe', 'bar', 'restaurant']);
+  });
+});
+
+/**
+ * Divergence 5 — `nameScore` is the best over `name` and `altNames`.
+ *
+ * The reason this exists is not "aliases are nice": `poi_index.alt_names` is about to carry the
+ * Hebrew and English forms of the same venue, and without this the Hebrew row is unreachable from
+ * an English caption and vice versa. The properties below are what keep it from being a licence for
+ * an alias to change results it should not.
+ */
+describe('bestNameScore — the alias change', () => {
+  it('is exactly nameScore(name) when there are no aliases', () => {
+    expect(bestNameScore('Falafel HaKosem', 'Falafel HaKosem', [])).toEqual(
+      nameScore('Falafel HaKosem', 'Falafel HaKosem'),
+    );
+    expect(bestNameScore('HaKosem', 'Miznon', [])).toEqual(nameScore('HaKosem', 'Miznon'));
+  });
+
+  it('takes the alias when the alias scores higher', () => {
+    const viaAlias = bestNameScore('Falafel HaKosem', 'פלאפל הקוסם', ['Falafel HaKosem']);
+    expect(viaAlias).toEqual(nameScore('Falafel HaKosem', 'Falafel HaKosem'));
+    expect(viaAlias.nameScore).toBeGreaterThan(nameScore('Falafel HaKosem', 'פלאפל הקוסם').nameScore);
+  });
+
+  it('works in the other direction too — Hebrew query, Hebrew alias on a Latin row', () => {
+    expect(bestNameScore('פלאפל הקוסם', 'Falafel HaKosem', ['פלאפל הקוסם'])).toEqual(
+      nameScore('פלאפל הקוסם', 'פלאפל הקוסם'),
+    );
+  });
+
+  it('keeps the primary name on a tie, so an alias can only ever raise a score', () => {
+    const both = bestNameScore('HaKosem', 'HaKosem', ['HaKosem']);
+    expect(both).toEqual(nameScore('HaKosem', 'HaKosem'));
+  });
+
+  it('never lowers a score, whatever the aliases are', () => {
+    const alone = nameScore('HaKosem', 'HaKosem');
+    const withJunk = bestNameScore('HaKosem', 'HaKosem', ['', 'utterly unrelated brasserie', 'x']);
+    expect(withJunk.nameScore).toBe(alone.nameScore);
+  });
+
+  it('carries tokenCoverage from the winning string, not from the primary name', () => {
+    // If coverage were recomputed against `name`, RankedPlace would report two numbers describing
+    // two different comparisons — an incoherent diagnostic is worse than a missing one.
+    const best = bestNameScore('Falafel HaKosem', 'פלאפל הקוסם', ['Falafel HaKosem']);
+    expect(best.tokenCoverage).toBe(nameScore('Falafel HaKosem', 'Falafel HaKosem').tokenCoverage);
+  });
+});
+
+describe('scorePlace with aliases', () => {
+  it('promotes an aliased row above an unaliased near-miss', () => {
+    const aliased = place({ name: 'פלאפל הקוסם', altNames: ['Falafel HaKosem'], providerPlaceId: 'a' });
+    const other = place({ name: 'Falafel Ravid', providerPlaceId: 'b' });
+    const ranked = rankPlaces(query({ text: 'Falafel HaKosem' }), [other, aliased]);
+    expect(ranked[0]?.place.providerPlaceId).toBe('a');
+  });
+
+  it('leaves an alias-free row byte-identical to before the change', () => {
+    const row = place({ name: 'Falafel HaKosem' });
+    const scored = scorePlace(row, null, 'Falafel HaKosem');
+    const expected = nameScore('Falafel HaKosem', 'Falafel HaKosem');
+    expect(scored.nameScore).toBe(expected.nameScore);
+    expect(scored.tokenCoverage).toBe(expected.tokenCoverage);
   });
 });
