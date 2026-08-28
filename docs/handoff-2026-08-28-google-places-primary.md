@@ -133,12 +133,39 @@ indefinitely) and treat coordinates as refreshable cache, not as permanent recor
 
 ## Open loose ends (carry these forward)
 
-- **The extra-token penalty rejects branch names.** `רוסטיקו` → Google returns
-  `רוסטיקו רוטשילד` (the Rothschild branch, correct venue) and `scorePlace` lands it at 0.705,
-  below the 0.80 `confirm` gate, so the product falls back to the model's guess and shows
-  "Pin is approximate". Seen in the running app at 375x812. A branch qualifier is not a surplus
-  token in the sense `extraTokenPenalty` was built for, and Google appends them routinely. This is
-  now the single clearest scoring gap on the Google path.
+- **Why nine correct Google answers do not auto-accept — measured, not guessed.** The first
+  hypothesis (the extra-token penalty punishing Google's branch suffixes) is **wrong**, and the
+  real cause is more structural. Actual `nameScore`s, computed against the shipped scorer:
+
+  | query | Google top-1 | nameScore | final |
+  |---|---|---|---|
+  | `קפה אירופה` | `קפה אירופה` | **1.000** | 0.850 |
+  | `Palette Bistro` | `Palette Bistro` | **1.000** | 0.850 |
+  | `רוסטיקו` | `רוסטיקו רוטשילד` | 0.913 | 0.705 |
+  | `מתחת לעץ` | `מתחת לעץ בן יהודה` | 0.874 | 0.849 |
+
+  The top two are **byte-identical names scoring a perfect 1.000**, and they still land at 0.850.
+  The arithmetic says why: `0.8·1.0 + 0.1·categoryScore + 0.1·datasetConfidence`, where
+  `datasetConfidence` is pinned at 0.5 for Google (it publishes none) and `categoryScore` is 0
+  because Google types both venues `restaurant` while the caption's hint was `cafe` and `bar`.
+  Checked against Google's full `types` array too — it is `['restaurant','food',…]` with no `cafe`
+  in it, so reading `types` instead of `primaryType` would **not** fix this. It is a genuine
+  taxonomy disagreement, not a field we are failing to read.
+
+  **So on the Google path a perfect name tops out at 0.85 and cannot reach the 0.92 gate unless the
+  category also agrees.** The 0.05 handicap is the fabricated confidence term: an Overture row at
+  confidence 1.0 contributes 0.10 where Google contributes 0.05, for a number Google never claimed.
+  The principled fix is probably to **renormalise the blend when a provider publishes no
+  confidence** rather than to feed it a made-up 0.5 — `(0.8·name + 0.1·category) / 0.9` — which is
+  honest arithmetic rather than tuning. **Deliberately not done tonight**: it is a third scoring
+  change in one session, on n=15, affecting auto-accept, and it wants its own measurement.
+
+- **`רוסטיקו` is a multi-branch case, not a bug.** The caption says בזל 42; Google returned the
+  רוטשילד 15 branch; `addressScore` correctly reads a different street as contradicting evidence
+  and drives the row to `no_match`, so the product falls back to the model's guess and shows "Pin
+  is approximate". The scoring reasoning is sound — the disagreement is real. What is wrong is the
+  *outcome*: Overture auto-matched this venue and Google does not, so the primary path got worse
+  on this one case. The fix is a disambiguation surface (show both branches), not a weight.
 - **The review-screen copy is now wrong for resolved places.** It says "We work out pins from what
   the caption said, so they can be a street or two off." On a Google-resolved place the pin is the
   venue's own coordinate, ~10 m. The caveat should follow the provenance, not be printed always.
