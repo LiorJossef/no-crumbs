@@ -11,14 +11,14 @@ All of it is my own work.
 
 ## 1. What shipped
 
-Four PRs merged, one open. `main` verified after each: `npm run verify` exit 0, **1021 tests**.
+**Five PRs merged**, `main` verified after each: `npm run verify` exit 0, **1021 tests**.
 
 | PR | What |
 |---|---|
 | [#50](https://github.com/LiorJossef/P-002/pull/50) | Category pins, clusters that open, a basemap in our own palette |
 | [#51](https://github.com/LiorJossef/P-002/pull/51) | Information quality: presentation, storage, extraction p9→p11 |
 | [#52](https://github.com/LiorJossef/P-002/pull/52) | Whole tag labels, one category vocabulary, `/import` not half-empty |
-| [#53](https://github.com/LiorJossef/P-002/pull/53) | Clusters coloured by their majority category — **open, CI running** |
+| [#53](https://github.com/LiorJossef/P-002/pull/53) | Clusters coloured by their majority category, plus idempotent layer setup |
 
 ### The map — all three complaints in the brief
 
@@ -200,8 +200,11 @@ Still open from before and untouched: **the product name**.
 
 ## 5. Repo state
 
-- `main` clean and green, 1021 tests. Four PRs merged tonight, each verified on `main` after.
-- [PR #53](https://github.com/LiorJossef/P-002/pull/53) open with CI running — cluster colours.
+- `main` clean and green, 1021 tests. Five PRs merged tonight, each verified on `main` after.
+- **Verified on localhost** against the live local Supabase and a real TikTok import, at 1280×800
+  and 375×812. The Vercel preview builds and deploys green in CI but sits behind Vercel's
+  deployment protection, so I could not drive the preview itself — that is unchanged from previous
+  sessions, and worth knowing when reading "verified" here.
 - Local database has one new real save (`Kohi Coffee Shop`, resolved to Overture at 0.9004 with
   `country_code IL`, English tags, three Hebrew dishes) made by driving the real import flow.
 - The 3× `HaKosem` and 2× `La Nonna Brixton` rows are **left in place deliberately** — deleting
