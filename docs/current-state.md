@@ -2,8 +2,39 @@
 
 > **Read this section, then §9. Everything between them is history and is dated.**
 >
-> Last reconciled: **2026-08-28**, at the close of the parallel-streams session.
-> The newest session handoff is [`handoff-2026-08-28-integration.md`](handoff-2026-08-28-integration.md).
+> Last reconciled: **2026-08-30**, at the close of the collections session.
+> The newest session handoff is
+> [`handoff-2026-08-30-collections.md`](handoff-2026-08-30-collections.md), and it is the one to
+> read — everything below it dates from 2026-08-28 or earlier.
+
+## What changed on 2026-08-30, on `feat/collections` (unmerged at the time of writing)
+
+**Collections and shared collections exist**, built out of order on the owner's overnight
+instruction. A collection is a named set of your saved places that can be shared with another
+signed-in person by invite link, with `owner` / `editor` / `viewer` roles. `/collections/[id]` is
+`/map` with a different set of pins rather than a list page. Migrations `0024`–`0026`; design in
+`ux-collections.md`; the adversarial review that cleared it in
+`evidence/security/collections-rls-review-2026-08-29.md`.
+
+**The property to carry forward:** a collection item points at a `places` row, never at a
+`saved_places` row, so a collaborator gets a place's shared identity and **none** of the adder's
+overlay — not their note, tags or source link, and specifically not their `visit_state`. Sharing
+opened exactly one new policy rather than moving every `saved_places` path onto a membership test.
+
+**Also on that branch, from a backlog sweep** (full list in the handoff §4): the P0 `source_url`
+writer dead since `0017` is restored; the import paste field now submits on Enter, keeps the link on
+Cancel and reads a real share-sheet paste; a saved place can be **renamed**; a model-guessed pin now
+says **"Approximate location"** instead of `Matched via llm-guess`, and the `87% confidence` beside
+it is gone; the app has error/not-found screens and no longer blocks pinch-zoom; and
+`toCountryCode('Germany')` no longer returns **`DD`** (East Germany), which it had been writing into
+`places.country_code`.
+
+**Two things on that branch that are not finished** — ownership transfer (an owner deleting their
+account would destroy the collection for everyone, and blocks backlog §11.8), and the 24 null
+`source_url` rows, which are recoverable but need their own migration.
+
+**Nothing hosted changed.** Vercel, staging, production and Supabase auth config are exactly as the
+2026-08-29 session left them, and production is still 500ing for signed-in users.
 
 ## The rule that keeps this file honest
 

@@ -290,6 +290,24 @@ unsorted: a second organising axis over an append-only pile produces a tidier pi
 that would promote them:** ship the labels, and if users create three or more and then reach for an
 ordering, a cover, a description, or "send this list to someone", the container is justified.
 
+**BUILT 2026-08-30, out of order, on the owner's explicit overnight instruction.** Both entries
+above stand as written — the reasoning was not overturned, the *sequencing* was: the owner asked for
+Collections including shared Collections to be built that night, which supersedes both the L2
+deferral and the backlog's own §9 recommendation to stop at labels. What shipped is the shared
+object of the 2026-08-28 entry and the personal one of the 2026-08-29 entry at the same time,
+because they are the same table.
+
+The 2026-08-29 deferral's central worry — that a container duplicates a grouping we already derive
+from coordinates — is answered by construction rather than argued away: a collection **is a map**
+(`/collections/[id]` is `/map` with a different set of pins), so it never competes with the area
+list, it reuses it. And the cost the 2026-08-28 entry told us to respect was avoided rather than
+paid: **a collection item points at `places`, not at `saved_places`**, so membership-based RLS never
+touched the hot read at all — sharing opened exactly one new policy instead of rewriting every
+`saved_places` path. `security-privacy` reviewed it adversarially before it landed and did not
+exercise the veto; two authorisation defects it found are recorded in
+`handoff-2026-08-30-collections.md` §8. `user_tags` and OD-1 below are **untouched** and still open.
+Design: `ux-collections.md`. Schema: migrations `0024`/`0026`.
+
 **User-authored labels (`user_tags`) — proposed, and it is the one thing here that needs the owner
 to widen §2's "info" boundary.** Stated plainly rather than slipped past. §2 fixes stored info at
 *name · category · coordinates · source link · user note*, "which is exactly what open data lets us
