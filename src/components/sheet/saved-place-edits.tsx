@@ -40,6 +40,7 @@ import {
   deleteSavedPlace,
   setSavedPlaceVisited,
   updateSavedPlaceCategory,
+  updateSavedPlaceName,
   updateSavedPlaceNote,
 } from '@/app/actions/saved-places';
 import { useAnnouncer } from '@/ui/place/announce';
@@ -50,6 +51,11 @@ import {
   visitToggleAccessibleName,
 } from '@/ui/place/visit-state';
 import { NOTE_MAX_LENGTH, isNoteUnchanged, validateNote } from '@/domain/places/note';
+import {
+  DISPLAY_NAME_MAX_LENGTH,
+  isDisplayNameUnchanged,
+  validateDisplayName,
+} from '@/domain/places/display-name';
 import {
   PRODUCT_CATEGORY_LABEL,
   PRODUCT_CATEGORY_ORDER,
@@ -311,6 +317,136 @@ export function CategoryEditor({
         </p>
       )}
     </div>
+  );
+}
+
+/**
+ * Renaming a saved place.
+ *
+ * A pencil beside the name rather than a row in the controls block below: this edits the *identity*
+ * on the card, and a control that changes the biggest word on the screen belongs next to that word.
+ * Everything else in this file is a fact about the place; this is what it is called.
+ *
+ * Clearing the field restores the real name, and the reset control says that name out loud rather
+ * than being an unlabelled "reset" — the user has to be able to see what they are going back to.
+ */
+export function RenameTrigger({ onStart }: { onStart: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label="Rename this place"
+      onClick={onStart}
+      data-vaul-no-drag
+      className="mt-1 flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+    >
+      <Pencil className="size-3.5" aria-hidden />
+    </button>
+  );
+}
+
+export function NameEditor({
+  savedPlaceId,
+  displayNameOverride,
+  canonicalName,
+  onDone,
+}: {
+  savedPlaceId: string;
+  displayNameOverride: string | null;
+  canonicalName: string;
+  onDone: () => void;
+}) {
+  const [draft, setDraft] = useState(displayNameOverride ?? '');
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  function save(value: string) {
+    setError(null);
+    startTransition(async () => {
+      const result = await updateSavedPlaceName(savedPlaceId, value);
+      if (result.ok) {
+        onDone();
+        return;
+      }
+      setError(result.message);
+    });
+  }
+
+  const validation = validateDisplayName(draft);
+  const unchanged = isDisplayNameUnchanged(draft, displayNameOverride);
+
+  return (
+    <form
+      className="flex w-full flex-col gap-2"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (!unchanged && validation.ok) save(draft);
+      }}
+    >
+      <label htmlFor={`name-${savedPlaceId}`} className={LABEL}>
+        Name
+      </label>
+      <input
+        id={`name-${savedPlaceId}`}
+        ref={inputRef}
+        dir="auto"
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        onKeyDown={(event) => {
+          // Escape cancels. Unlike the note, Enter *does* submit — this is a single-line label, so
+          // there is no second line for Enter to be needed for.
+          if (event.key === 'Escape') {
+            event.stopPropagation();
+            onDone();
+          }
+        }}
+        disabled={pending}
+        maxLength={DISPLAY_NAME_MAX_LENGTH}
+        enterKeyHint="done"
+        placeholder={canonicalName}
+        aria-invalid={!validation.ok || undefined}
+        aria-describedby={error ? `name-error-${savedPlaceId}` : undefined}
+        data-vaul-no-drag
+        className={cn(
+          'h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50',
+          !validation.ok && 'border-destructive ring-3 ring-destructive/20',
+        )}
+      />
+      {error && (
+        <p id={`name-error-${savedPlaceId}`} role="alert" className="text-xs font-medium text-destructive">
+          {error}
+        </p>
+      )}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="submit" size="sm" disabled={pending || unchanged || !validation.ok}>
+          {pending ? 'Saving…' : 'Save'}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          disabled={pending}
+          onClick={onDone}
+        >
+          Cancel
+        </Button>
+        {displayNameOverride !== null && (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => save('')}
+            className="text-xs font-bold text-[var(--mint-700)] underline-offset-4 hover:underline disabled:opacity-50"
+          >
+            Use{' '}
+            <bdi>{canonicalName}</bdi>
+          </button>
+        )}
+      </div>
+    </form>
   );
 }
 

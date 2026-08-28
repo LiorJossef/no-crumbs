@@ -49,7 +49,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { isSearchActive } from '@/domain/places/search';
-import { BeenToggle, CategoryEditor, NoteEditor, RemoveSavedPlace } from './saved-place-edits';
+import {
+  BeenToggle,
+  CategoryEditor,
+  NameEditor,
+  NoteEditor,
+  RemoveSavedPlace,
+  RenameTrigger,
+} from './saved-place-edits';
 import { ActiveTagFilter, DishLine, TagChipList, TagChipRow, WhyGoLine } from './place-enrichment';
 import { BeenBadge, NotBeenFilterChip } from './visit-state';
 import { enrichmentOf, rowAccessibleName, whyGoEarnsItsPlace } from '@/ui/place/enrichment';
@@ -758,6 +765,7 @@ export function PlaceDetail({
   });
 
   const certainty = locationCertainty(provenance?.sourceDataset);
+  const [renaming, setRenaming] = useState(false);
 
   const isPopover = variant === 'popover';
 
@@ -789,14 +797,32 @@ export function PlaceDetail({
 
       <div className={cn('flex items-start justify-between gap-3', isPopover && 'px-4 pt-3.5')}>
         <div className="flex min-w-0 flex-col gap-1">
-          <h2
-            className={cn(
-              'font-heading text-2xl font-extrabold tracking-tight text-foreground',
-              isPopover && 'text-lg'
-            )}
-          >
-            {place.name}
-          </h2>
+          {renaming ? (
+            <NameEditor
+              key={`name-${place.id}`}
+              savedPlaceId={place.id}
+              displayNameOverride={detail?.displayNameOverride ?? null}
+              canonicalName={detail?.canonicalName ?? place.name}
+              onDone={() => setRenaming(false)}
+            />
+          ) : (
+            <div className="flex min-w-0 items-start gap-1">
+              {/* `<bdi>` rather than `dir="auto"` on the heading: a Hebrew name would otherwise
+                  right-align the whole identity block while the category line under it stayed
+                  left, so a mixed library would have a ragged edge. */}
+              <h2
+                className={cn(
+                  'min-w-0 font-heading text-2xl font-extrabold tracking-tight text-foreground',
+                  isPopover && 'text-lg'
+                )}
+              >
+                <bdi>{place.name}</bdi>
+              </h2>
+              {/* Beside the name, not in the controls block below: this is the one control that
+                  changes the biggest word on the screen, and it belongs next to that word. */}
+              {detail && <RenameTrigger onStart={() => setRenaming(true)} />}
+            </div>
+          )}
           <p dir="auto" className="text-sm font-medium text-muted-foreground">
             {categoryLocalityLine(place.category, locality)}
           </p>

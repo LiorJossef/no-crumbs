@@ -67,6 +67,14 @@ export interface Spot {
   /** `saved_places.display_name`, falling back to `places.name` — the per-user overlay `08 §2.2`
    *  rule 3 describes. */
   readonly name: string;
+  /** The stored override itself, or `null` when this place shows its real name. Exposed — unlike
+   *  `category_override`, which deliberately is not — because renaming is a *text* edit: the field
+   *  has to prefill with what the user typed last time, and "clear this" has to be distinguishable
+   *  from "type the canonical name in by hand". */
+  readonly displayNameOverride: string | null;
+  /** `places.name`, so the rename control can offer to go back to it by name rather than by an
+   *  unlabelled "reset". */
+  readonly canonicalName: string;
   /** The product's own category, already reconciled from the user's override, the provider's
    *  category and the model's hint by `productCategoryFor` — see `product-category.ts` for the
    *  ranking and why it is not simply `category_override ?? places.category`.

@@ -183,6 +183,8 @@ function toSpot(row: SavedPlaceRow): EnrichedSpot {
     id: row.id,
     placeId: row.place_id,
     name: row.display_name ?? place?.name ?? row.id,
+    displayNameOverride: row.display_name,
+    canonicalName: place?.name ?? row.id,
     category: productCategoryFor({
       override: row.category_override,
       providerCategory: place?.provider_category,

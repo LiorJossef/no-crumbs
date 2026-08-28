@@ -50,6 +50,7 @@
 import { revalidatePath } from 'next/cache';
 
 import { createClient } from '@/app/_lib/supabase/server';
+import { validateDisplayName } from '@/domain/places/display-name';
 import { validateNote } from '@/domain/places/note';
 import { isProductCategory, type ProductCategory } from '@/domain/places/product-category';
 
@@ -62,6 +63,7 @@ const GONE = 'That place is no longer in your list.';
 const FAILED_DELETE = "Couldn't remove that place. Try again.";
 const FAILED_UPDATE = "Couldn't save your note. Try again.";
 const FAILED_CATEGORY = "Couldn't change the category. Try again.";
+const FAILED_NAME = "Couldn't save that name. Try again.";
 const FAILED_VISIT = "Couldn't update that place. Try again.";
 const BAD_CATEGORY = 'That is not a category we know.';
 
@@ -129,6 +131,48 @@ export async function updateSavedPlaceNote(
   if (count === 0) return { ok: false, message: GONE };
 
   revalidatePath('/map');
+  return { ok: true };
+}
+
+/**
+ * Renames a saved place, or clears the rename.
+ *
+ * `display_name` has been selected, rendered and inside `0006`'s UPDATE column grant since the day
+ * it shipped, and nothing has ever written it — so this adds no schema surface and no new
+ * authority, it fills in the half that was missing. Same shape as the category override, and for
+ * the same reason: clearing writes SQL NULL rather than freezing today's `places.name` into the
+ * column, so a place whose canonical name later improves is not silently opted out of that.
+ *
+ * The `places` row is never touched. It is shared across users (charter invariant 4), so one
+ * person's private label for a venue must not become everyone's — which is exactly what the
+ * per-user overlay exists for, and why `place_id` is not in the grant at all.
+ */
+export async function updateSavedPlaceName(
+  savedPlaceId: string,
+  rawName: string,
+): Promise<SavedPlaceResult> {
+  const validated = validateDisplayName(rawName);
+  if (!validated.ok) return { ok: false, message: validated.message };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, message: NOT_SIGNED_IN };
+
+  const { error, count } = await supabase
+    .from('saved_places')
+    .update({ display_name: validated.value }, { count: 'exact' })
+    .eq('id', savedPlaceId);
+
+  if (error) {
+    console.error('updateSavedPlaceName failed', { savedPlaceId, code: error.code });
+    return { ok: false, message: FAILED_NAME };
+  }
+  if (count === 0) return { ok: false, message: GONE };
+
+  revalidatePath('/map');
+  revalidatePath('/collections');
   return { ok: true };
 }
 
