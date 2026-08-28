@@ -77,6 +77,13 @@
 --                           reporting PASS with the EXECUTE grant it names actually applied. The
 --                           reasoning is at the assertion; the short version is that a policy test
 --                           which cannot fail is worse than no policy test.
+--   P26                     migration 0023: the provider-response cache's two entry points.
+--                           P26a is the grant posture (0009's and 0018's PUBLIC-EXECUTE bug, which
+--                           bites every newly created function); P26b–P26e are the cache's own
+--                           behaviour, including the one assertion that is a licence and not a
+--                           preference — Google content may not be cached beyond 30 days.
+--                           Like P25 it names its own rows and counts nothing global, so it runs
+--                           against a database that already has data in it.
 --   P19c, P19d              migration 0013: the tombstone exemption reaching the OTHER alias
 --                           trigger (0005's INSERT-side places_alias_required), which 0011 missed.
 --                           Numbered topically, next to P19's exemption test, not chronologically.
@@ -1743,6 +1750,174 @@ begin
   raise notice 'PASS P25g another user cannot read C''s tags: the row itself is invisible to them';
 end $$;
 reset role;
+
+-- ── P26: migration 0023, the provider-response cache (place_lookups) ─────────────────────────
+-- `place_lookups` has existed since 0007 and held nothing until this migration gave it two entry
+-- points. Everything below is scoped to one fixture hash, so this section is safe on a database
+-- that already has rows in it.
+
+-- P26a: the grant posture. This is 0009's and 0018's bug asked about a third time, because it is
+-- structural: Postgres grants EXECUTE on every NEWLY CREATED function to PUBLIC, and a later
+-- `revoke ... from anon` does not remove a privilege held through PUBLIC. Both functions read and
+-- write a server-side cache; `anon` and `authenticated` hold nothing on the table (0007), so a
+-- reachable entry point would be a live path to it, not a guarded one.
+do $$
+declare r record;
+begin
+  for r in
+    select p.oid::regprocedure::text as sig, g.rolname
+      from pg_proc p
+      join pg_namespace n on n.oid = p.pronamespace
+      cross join (values ('anon'), ('authenticated'), ('public')) as g(rolname)
+     where n.nspname = 'public'
+       and p.proname in ('place_lookup_get', 'place_lookup_put')
+       and has_function_privilege(g.rolname, p.oid, 'execute')
+  loop
+    raise exception 'FAIL P26a: % holds EXECUTE on % (0009/0018''s PUBLIC-EXECUTE bug, again)',
+      r.rolname, r.sig;
+  end loop;
+  -- The positive half. Without it this passes just as well against a migration that granted
+  -- EXECUTE to nobody at all, i.e. against a cache that can never work.
+  if not has_function_privilege('service_role', 'public.place_lookup_get(text)', 'execute')
+     or not has_function_privilege('service_role',
+            'public.place_lookup_put(text, text, text, jsonb, integer)', 'execute') then
+    raise exception 'FAIL P26a: service_role cannot execute the cache functions';
+  end if;
+  raise notice 'PASS P26a only service_role can execute place_lookup_get/place_lookup_put';
+end $$;
+
+-- P26a-ii: and neither function is SECURITY DEFINER. It does not need to be — service_role has
+-- rolbypassrls and an explicit table grant (0012) — so a definer here would be privileged surface
+-- bought for nothing, and the kind that gets copied into the next function by imitation.
+do $$
+declare n integer;
+begin
+  select count(*) into n
+    from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
+   where ns.nspname = 'public'
+     and p.proname in ('place_lookup_get', 'place_lookup_put')
+     and p.prosecdef;
+  if n <> 0 then
+    raise exception 'FAIL P26a-ii: % of the cache functions are SECURITY DEFINER', n;
+  end if;
+  raise notice 'PASS P26a-ii neither cache function is SECURITY DEFINER';
+end $$;
+
+-- P26b: the round trip, and the counters. A hit must be one statement — serve, count, stamp — or
+-- the cache costs the latency it exists to save.
+do $$
+declare
+  v_hash text := 'aa' || repeat('0', 62);
+  v_response jsonb;
+  v_hits integer;
+begin
+  perform public.place_lookup_put(v_hash, 'google', 'global',
+                                  '{"v":1,"provider":"google","rows":[{"id":"ChIJ-fixture"}]}'::jsonb,
+                                  3600);
+  v_response := public.place_lookup_get(v_hash);
+  if v_response is null or v_response #>> '{rows,0,id}' <> 'ChIJ-fixture' then
+    raise exception 'FAIL P26b: the stored response did not come back (got %)', v_response;
+  end if;
+  select hit_count into v_hits from public.place_lookups where lookup_hash = v_hash;
+  if v_hits <> 1 then
+    raise exception 'FAIL P26b: hit_count is % after one read, expected 1', v_hits;
+  end if;
+  if (select last_hit_at from public.place_lookups where lookup_hash = v_hash) is null then
+    raise exception 'FAIL P26b: last_hit_at was not stamped by the read';
+  end if;
+  raise notice 'PASS P26b a cache read serves the response and bumps hit_count in one statement';
+end $$;
+
+-- P26c: an expired entry is a miss, decided by the SERVER's clock. This is the assertion that
+-- makes `expires_at` a boundary rather than a hint: if expiry were evaluated by the caller, a
+-- caller with a wrong clock would keep serving Google content past the 30-day cap.
+do $$
+declare v_hash text := 'aa' || repeat('0', 62);
+begin
+  update public.place_lookups set expires_at = now() - interval '1 second' where lookup_hash = v_hash;
+  if public.place_lookup_get(v_hash) is not null then
+    raise exception 'FAIL P26c: an expired entry was served';
+  end if;
+  raise notice 'PASS P26c an expired entry is a miss, on the server clock';
+end $$;
+
+-- P26d: and it does not merely stop being served — the next write removes it. Google's Service
+-- Specific Terms §5.4 caps how long the content may be KEPT, not how long it may be answered
+-- with, so a read gate on its own would not satisfy them.
+do $$
+declare
+  v_expired text := 'aa' || repeat('0', 62);
+  v_fresh   text := 'bb' || repeat('0', 62);
+begin
+  perform public.place_lookup_put(v_fresh, 'google', 'global', '{"v":1}'::jsonb, 3600);
+  if exists (select 1 from public.place_lookups where lookup_hash = v_expired) then
+    raise exception 'FAIL P26d: the expired row survived the next cache write';
+  end if;
+  raise notice 'PASS P26d a cache write prunes expired rows rather than leaving them on disk';
+end $$;
+
+-- P26e: THE LICENCE ASSERTION. `06-map-and-places-decision.md` §3.1 is VERIFIED: Google's Service
+-- Specific Terms §5.4 permit caching Places content for at most 30 consecutive calendar days, and
+-- only the place id is exempt. A cached Text Search row carries lat/lng, so the entry is inside the
+-- cap. This is enforced in the database and not only in the adapter for the same reason
+-- `place-resolver-factory.ts` puts the non-Google-map gate in code: a limit that lives in one
+-- caller is one refactor from gone, and this one is a term of a contract.
+do $$
+declare v_hash text := 'cc' || repeat('0', 62);
+begin
+  begin
+    perform public.place_lookup_put(v_hash, 'google', 'global', '{"v":1}'::jsonb, null);
+    raise exception 'FAIL P26e: a google entry was cached forever (Google SST §5.4)';
+  exception when check_violation then
+    raise notice 'PASS P26e-i a google entry with no TTL is refused';
+  end;
+
+  begin
+    perform public.place_lookup_put(v_hash, 'google', 'global', '{"v":1}'::jsonb, 30 * 24 * 3600 + 1);
+    raise exception 'FAIL P26e: a google entry was cached for more than 30 days (Google SST §5.4)';
+  exception when check_violation then
+    raise notice 'PASS P26e-ii a google TTL over 30 days is refused';
+  end;
+
+  -- The positive half, and it is not decoration: without it the two refusals above are also
+  -- satisfied by a function that refuses every google write, i.e. by a cache that never stores.
+  perform public.place_lookup_put(v_hash, 'google', 'global', '{"v":1}'::jsonb, 28 * 24 * 3600);
+  if (select expires_at from public.place_lookups where lookup_hash = v_hash) is null then
+    raise exception 'FAIL P26e: a legal google entry was stored with no expiry';
+  end if;
+  raise notice 'PASS P26e-iii the 28-day TTL the adapter actually uses is accepted';
+end $$;
+
+-- P26f: open data is a different licence and gets a different answer. Overture is ODbL and may be
+-- kept indefinitely; the ceiling above must be Google's, not a blanket rule that would quietly
+-- expire a cache nothing requires us to expire.
+do $$
+declare v_hash text := 'dd' || repeat('0', 62);
+begin
+  perform public.place_lookup_put(v_hash, 'overture', 'tlv', '{"v":1}'::jsonb, null);
+  if (select expires_at from public.place_lookups where lookup_hash = v_hash) is not null then
+    raise exception 'FAIL P26f: an open-data entry was given an expiry it does not need';
+  end if;
+  raise notice 'PASS P26f open data may be cached indefinitely; the 30-day cap is Google''s alone';
+end $$;
+
+-- P26g: the browser roles cannot touch the table itself, function or no function. 0007 revoked and
+-- nothing since has granted, but this is the assertion that would catch a future migration doing so
+-- — and `place_lookups` has FORCE RLS with NO policy, so a grant alone would still deny; the grant
+-- is the thing worth watching because it is what a `grant all on all tables` would hand over.
+do $$
+declare r record;
+begin
+  for r in
+    select g.rolname, p.priv
+      from (values ('anon'), ('authenticated')) as g(rolname)
+      cross join (values ('select'), ('insert'), ('update'), ('delete'), ('truncate')) as p(priv)
+     where has_table_privilege(g.rolname, 'public.place_lookups', p.priv)
+  loop
+    raise exception 'FAIL P26g: % holds % on place_lookups', r.rolname, r.priv;
+  end loop;
+  raise notice 'PASS P26g anon and authenticated hold no privilege on place_lookups';
+end $$;
 
 -- ── P23: DELIBERATELY UNPROVEN — mutual exclusion under real concurrency ─────────────────────
 -- The invariant: two transactions resolving the SAME venue under two DIFFERENT provider ids must
