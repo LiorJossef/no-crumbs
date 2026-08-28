@@ -6,7 +6,7 @@
  */
 
 import type { ExtractedCategoryHint } from '@/domain/places/category-hint';
-import { CATEGORY_STYLES, DEFAULT_CATEGORY } from './marker-style';
+import { DEFAULT_CATEGORY, isKnownCategory } from '@/ui/place/category-display';
 import type { MapPlace } from './types';
 
 export interface PlaceFeatureProperties {
@@ -28,8 +28,7 @@ export type PlaceFeatureCollection = GeoJSON.FeatureCollection<
  * that silently disappears from the map. Anything unrecognised becomes the house pin instead.
  */
 export function normaliseCategory(category: string | null | undefined): ExtractedCategoryHint {
-  if (category && category in CATEGORY_STYLES) return category as ExtractedCategoryHint;
-  return DEFAULT_CATEGORY;
+  return isKnownCategory(category) ? category : DEFAULT_CATEGORY;
 }
 
 export function toPlaceFeatures(places: readonly MapPlace[]): PlaceFeatureCollection {

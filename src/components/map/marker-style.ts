@@ -8,6 +8,9 @@
  */
 
 import type { ExtractedCategoryHint } from '@/domain/places/category-hint';
+import { CATEGORY_DISPLAY, DEFAULT_CATEGORY } from '@/ui/place/category-display';
+
+export { DEFAULT_CATEGORY };
 
 export const CATEGORY_ORDER = [
   'restaurant',
@@ -22,27 +25,29 @@ export const CATEGORY_ORDER = [
 /** The glyph drawn inside a pin. `./marker-images.ts` has one draw routine per value. */
 export type GlyphName = 'fork' | 'cup' | 'croissant' | 'glass' | 'star' | 'bag' | 'dot';
 
-export interface CategoryStyle {
-  /** Pin body fill. Chosen dark enough for a white glyph and far enough apart in hue that two
-   *  categories stay distinguishable at pin size on CARTO Positron's near-white land. */
-  readonly color: string;
+/** The pin's colour and label come from `ui/place/category-display.ts`, which the list and the
+ *  detail view read too — a café is the same brown word-and-colour wherever it appears. Only the
+ *  glyph is the map's own. */
+export type CategoryStyle = (typeof CATEGORY_DISPLAY)[ExtractedCategoryHint] & {
   readonly glyph: GlyphName;
-  /** What the category is called in the UI. Sentence case — the map is not a database view. */
-  readonly label: string;
-}
-
-export const CATEGORY_STYLES: Record<ExtractedCategoryHint, CategoryStyle> = {
-  restaurant: { color: '#C2452F', glyph: 'fork', label: 'Restaurant' },
-  cafe: { color: '#8A5A3B', glyph: 'cup', label: 'Café' },
-  bakery: { color: '#C68A17', glyph: 'croissant', label: 'Bakery' },
-  bar: { color: '#6D4FA8', glyph: 'glass', label: 'Bar' },
-  attraction: { color: '#2F7FA8', glyph: 'star', label: 'Attraction' },
-  shop: { color: '#B94B77', glyph: 'bag', label: 'Shop' },
-  // The house mint. An unknown category gets the brand colour rather than a grey "missing" state.
-  other: { color: '#2E7A70', glyph: 'dot', label: 'Place' },
 };
 
-export const DEFAULT_CATEGORY: ExtractedCategoryHint = 'other';
+const GLYPH_BY_CATEGORY: Record<ExtractedCategoryHint, GlyphName> = {
+  restaurant: 'fork',
+  cafe: 'cup',
+  bakery: 'croissant',
+  bar: 'glass',
+  attraction: 'star',
+  shop: 'bag',
+  other: 'dot',
+};
+
+export const CATEGORY_STYLES = Object.fromEntries(
+  CATEGORY_ORDER.map((category) => [
+    category,
+    { ...CATEGORY_DISPLAY[category], glyph: GLYPH_BY_CATEGORY[category] },
+  ])
+) as Record<ExtractedCategoryHint, CategoryStyle>;
 
 export function categoryStyle(category: string | undefined | null): CategoryStyle {
   if (category && category in CATEGORY_STYLES) {
