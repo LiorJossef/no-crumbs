@@ -11,14 +11,14 @@ All of it is my own work.
 
 ## 1. What shipped
 
-Four PRs merged, one open. `main` verified after each: `npm run verify` exit 0, **1021 tests**.
+**Five PRs merged**, `main` verified after each: `npm run verify` exit 0, **1021 tests**.
 
 | PR | What |
 |---|---|
 | [#50](https://github.com/LiorJossef/P-002/pull/50) | Category pins, clusters that open, a basemap in our own palette |
 | [#51](https://github.com/LiorJossef/P-002/pull/51) | Information quality: presentation, storage, extraction p9→p11 |
 | [#52](https://github.com/LiorJossef/P-002/pull/52) | Whole tag labels, one category vocabulary, `/import` not half-empty |
-| [#53](https://github.com/LiorJossef/P-002/pull/53) | Clusters coloured by their majority category — **open, CI running** |
+| [#53](https://github.com/LiorJossef/P-002/pull/53) | Clusters coloured by their majority category, plus idempotent layer setup |
 
 ### The map — all three complaints in the brief
 
@@ -159,14 +159,22 @@ judged on `resimulated()`.
 
 Five things, roughly in order of how much they cost to leave.
 
-1. **Duplicate places are the most visible defect left.** The library shows `HaKosem` three times
-   and `La Nonna Brixton` twice. Measured: the two La Nonna rows are **90 m apart** against
-   `resolve_place`'s **75 m** merge radius (`08` §1.2), same `name_key`, same country — so the
-   guard misses by 15 m. The radius was set for resolver-grade coordinates; an LLM guess is
-   documented at 65–470 m out, so for an unresolved place the guard is structurally too tight.
-   Widening it is a migration and a real trade: two branches of a chain 200 m apart would then
-   merge wrongly. **Not mine to decide overnight.** Note that improving recognition fixes this for
-   free — once a venue resolves to an Overture row, everything converges on that row.
+1. **Duplicate places — you already ruled on this, and there is now a measurement the ruling did
+   not have.** Your 2026-08-27 ruling was that the duplicate pairs stay as a realistic messy-state
+   fixture, with no merge path and the 75 m radius untouched. I have left them exactly as they are,
+   including the three `HaKosem` rows created by tonight's testing.
+
+   What is new: the two `La Nonna Brixton` rows are **90 m apart** with the same `name_key` and the
+   same country, against `resolve_place`'s **75 m** merge radius (`08` §1.2) — so the guard misses
+   by 15 m. That radius was set for resolver-grade coordinates, and an LLM guess is documented at
+   65–470 m out, so for an *unresolved* place the guard is structurally too tight rather than
+   unlucky. Widening it is a migration and a real trade: two branches of a chain 200 m apart would
+   then merge wrongly, and merging two distinct venues is the worse error.
+
+   Worth saying plainly because it changes the priority rather than the ruling: **improving
+   recognition fixes this for free.** Once a venue resolves to an Overture row, every save of it
+   converges on that row — which is a second reason the category-term work in (2) is the one that
+   pays twice.
 2. **The category term in the scorer** (§2's TLV-14). Making a category *mismatch* cost nothing
    rather than 0.10 less than a match would address both the false-accept case and two of the five
    `not_auto_accepted` cases. It re-measures every number in both harnesses, so it wants a session
@@ -200,8 +208,11 @@ Still open from before and untouched: **the product name**.
 
 ## 5. Repo state
 
-- `main` clean and green, 1021 tests. Four PRs merged tonight, each verified on `main` after.
-- [PR #53](https://github.com/LiorJossef/P-002/pull/53) open with CI running — cluster colours.
+- `main` clean and green, 1021 tests. Five PRs merged tonight, each verified on `main` after.
+- **Verified on localhost** against the live local Supabase and a real TikTok import, at 1280×800
+  and 375×812. The Vercel preview builds and deploys green in CI but sits behind Vercel's
+  deployment protection, so I could not drive the preview itself — that is unchanged from previous
+  sessions, and worth knowing when reading "verified" here.
 - Local database has one new real save (`Kohi Coffee Shop`, resolved to Overture at 0.9004 with
   `country_code IL`, English tags, three Hebrew dishes) made by driving the real import flow.
 - The 3× `HaKosem` and 2× `La Nonna Brixton` rows are **left in place deliberately** — deleting
