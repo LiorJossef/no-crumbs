@@ -50,57 +50,21 @@
  *    (2026-08-21) as reading mauve/dusty-purple rather than mint. The basemap now renders
  *    Positron's natural colors unmodified — blue water, green parks, neutral grey/white land and
  *    roads; the mint accent stays confined to pins/clusters and product UI, never the map tiles.
- * 2. Pins/clusters. `MapClusterLayer` (`src/components/ui/map.tsx`, read before deciding) renders
- *    three GL `circle`/`symbol` layers with paint-property props (`clusterColors`,
- *    `clusterThresholds`, `pointColor`) — VERIFIED from source that it does not accept a custom
- *    marker/icon element or a slot for one (unlike `MapMarker`, which does but isn't clustering-
- *    aware), so "custom marker icons" isn't available here without forking the component; styling
- *    is done through its existing paint props instead. The colors live in `./pin-paint.ts` and are
- *    the hex values behind this project's `--pin` / `--pin-selected` / `--pin-halo` tokens
- *    (`src/app/globals.css`) — hardcoded because MapLibre paint properties are canvas fill values,
- *    not CSS, so a `var(--token)` reference can't be handed to them directly. The default mapcn
- *    blue (`#3b82f6` family) is gone; the cluster ramp reuses `--pin`/`--pin-selected` plus the
- *    darkest mint step (`ink-on-mint`) so every cluster tier stays legible under the white count
- *    label, and unclustered points use `--pin`.
- *
- *    **Superseded in part, 2026-08-28.** This paragraph used to end "radius/stroke-width and true
- *    icon markers aren't exposed as props either — a fork of `MapClusterLayer` would be needed for
- *    those, out of scope for this pass", and the owner's verdict on the result was that the map
- *    reads as empty at a glance. Radius and stroke are now set directly on mapcn's own layers
- *    after it adds them (`applyPinPaint` in `./pin-paint.ts`), which needs no fork. True icon
- *    markers still would, and are still out of scope.
+ * 2. Pins and clusters are this file's own, not mapcn's. `MapClusterLayer` paints every place as
+ *    the same circle and exposes only colours, so the category already sitting on every feature
+ *    had nowhere to go. `./place-marker-layer.tsx` owns the source and the layers instead — see
+ *    it for what that buys and what it cost.
  */
 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { Map as MapLibreMap } from 'maplibre-gl';
-import { Map as MapcnMap, MapControls, MapClusterLayer, MapPopup } from '@/components/ui/map';
+import { Map as MapcnMap, MapControls, MapPopup } from '@/components/ui/map';
 import { PlaceDetail } from '@/components/sheet/place-sheet';
 import type { LatLngBoundsHint, MapPlace, MapSurfaceProps } from './types';
 import { LG_BREAKPOINT_PX, mapOcclusionInsets, queryRectFrom } from './query-rect';
-import { applyPinPaint, CLUSTER_COLORS, CLUSTER_THRESHOLDS, PIN_MINT_700 } from './pin-paint';
-
-type PlaceProperties = {
-  id: string;
-  name: string;
-  category: string;
-  note: string;
-};
-
-function toFeatureCollection(places: readonly MapPlace[]) {
-  return {
-    type: 'FeatureCollection' as const,
-    features: places.map((place) => ({
-      type: 'Feature' as const,
-      geometry: { type: 'Point' as const, coordinates: [place.lng, place.lat] },
-      properties: {
-        id: place.id,
-        name: place.name,
-        category: place.category,
-        note: place.note,
-      } satisfies PlaceProperties,
-    })),
-  };
-}
+import { BasemapTint } from './basemap-tint-layer';
+import { toPlaceFeatures } from './place-features';
+import { PlaceMarkerLayer } from './place-marker-layer';
 
 /**
  * The initial camera must *frame* every fixture place, not center on the average of their
@@ -255,17 +219,10 @@ export function MapSurfaceMapcn({
   focusPlaceIds,
   onViewportChange,
 }: MapSurfaceProps) {
-  const data = useMemo(() => toFeatureCollection(places), [places]);
+  const data = useMemo(() => toPlaceFeatures(places), [places]);
   const bounds = useMemo(() => boundsFor(places, initialBounds), [places, initialBounds]);
 
   const mapRef = useRef<MapLibreMap | null>(null);
-  /** The selected id as the `styledata` listener needs to see it — that listener is registered
-   *  once, in `attachMapRef`, and must read whatever selection is current when the style settles
-   *  rather than whichever one existed when the closure was created. */
-  const selectedIdRef = useRef<string | null>(selected?.id ?? null);
-  /** The `styledata` listener itself, held so the ref callback can detach exactly what it
-   *  attached when the map instance is swapped or unmounted. */
-  const repaintPins = useRef<(() => void) | null>(null);
   // Read inside the `load`-time callback below, which is created once (on mount) and must see
   // whatever bounds are current at the moment the map finishes loading, not the bounds that were
   // current when the callback closure was created. Updated in an effect, never during render.
@@ -418,7 +375,6 @@ export function MapSurfaceMapcn({
         previous.off('dragend', handleDragEnd);
         previous.off('moveend', scheduleViewportReport);
         previous.off('resize', scheduleViewportReport);
-        if (repaintPins.current) previous.off('styledata', repaintPins.current);
         observers.get(previous)?.disconnect();
         observers.delete(previous);
       }
@@ -474,16 +430,6 @@ export function MapSurfaceMapcn({
       });
       observer.observe(container);
       observers.set(instance, observer);
-      // Pin legibility (`applyPinPaint`). `styledata` rather than `load`, because mapcn's
-      // `MapClusterLayer` adds the layers we are re-painting from its *own* effect, which can
-      // commit after this callback runs — `addLayer` fires `styledata`, so this listener sees the
-      // layers the moment they exist. `applyPinPaint` is a no-op until then, and a no-op on every
-      // later `styledata` whose signature has not changed, which is what stops it looping against
-      // the `styledata` its own `setPaintProperty` calls provoke.
-      const repaint = () => applyPinPaint(instance, selectedIdRef.current);
-      repaintPins.current = repaint;
-      instance.on('styledata', repaint);
-      repaint();
       whenReady(instance, () => fitToBounds(instance));
       // `moveend` only — no `move`, no `render`, no rAF. `resize` too, because the insets are
       // viewport-dependent: crossing `lg` changes which edge the chrome covers. `dragend` carries
@@ -499,15 +445,6 @@ export function MapSurfaceMapcn({
     },
     [fitToBounds, fitTo, scheduleViewportReport, handleDragEnd]
   );
-
-  // Selection is a paint change on the map surface, not only a sheet/popover open: the selected
-  // pin takes `--pin-selected` and grows. Runs on every `selected` change; `applyPinPaint`'s own
-  // signature check makes a re-render with an unchanged selection free.
-  useEffect(() => {
-    selectedIdRef.current = selected?.id ?? null;
-    const instance = mapRef.current;
-    if (instance) applyPinPaint(instance, selectedIdRef.current);
-  }, [selected]);
 
   // The **initial** framing, and only that. `attachMapRef`'s `once('load', ...)` races against
   // `places` arriving; when the map loads before the first non-null `bounds` exists, this effect
@@ -574,16 +511,12 @@ export function MapSurfaceMapcn({
       attributionControl={{ compact: true }}
     >
       <MapControls showZoom showCompass showLocate showFullscreen />
-      <MapClusterLayer<PlaceProperties>
+      <BasemapTint />
+      <PlaceMarkerLayer
         data={data}
-        clusterRadius={50}
-        clusterMaxZoom={13}
-        clusterColors={CLUSTER_COLORS}
-        clusterThresholds={CLUSTER_THRESHOLDS}
-        pointColor={PIN_MINT_700}
-        onPointClick={(feature) => {
-          const id = feature.properties?.id;
-          const place = places.find((candidate) => candidate.id === id) ?? null;
+        selectedId={selected?.id ?? null}
+        onPlaceClick={(id) => {
+          const place = places.find((candidate) => candidate.id === id);
           // Selection lives with the caller (`map-page-client.tsx`'s `selected` state) — this
           // surface only reports the click; the `MapPopup` below reacts to `selected` the same way
           // any other consumer of it does.
