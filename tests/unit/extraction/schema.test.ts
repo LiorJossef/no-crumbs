@@ -348,7 +348,7 @@ describe('schema versioning', () => {
     // here too. `p9` tightened four rules against measured p8 output; `s3` is the candidate shape
     // that carries `nameVariants`, unchanged by that. Only the half that moved, moved.
     expect(EXTRACTION_SCHEMA_VERSION).toBe(3);
-    expect(PROMPT_VERSION).toBe('p11-s3');
+    expect(PROMPT_VERSION).toBe('p12-s3');
   });
 
   it('keeps PROMPT_VERSION storable in the extractions column', () => {

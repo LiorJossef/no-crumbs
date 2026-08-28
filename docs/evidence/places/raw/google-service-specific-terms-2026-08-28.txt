@@ -1,0 +1,34 @@
+SOURCE: https://cloud.google.com/maps-platform/terms/maps-service-terms
+FETCHED: 2026-08-28 (curl). Page states: Previous versions (Last modified June 10, 2026)
+EXTRACT: General Service Terms 1-3, and Core Service Terms 4, 6, 14, 15.
+----------------------------------------------------------------------
+ 1. Documentation 
+ Customer will comply with the Documentation.
+ 2 . Attribution 
+ Customer will attribute all the Services in accordance with the Documentation.
+ 3. Google ID Caching 
+ Customer may cache the Google ID values from the Services that return such field and allow caching, in accordance with its Documentation. For example, Customer may cache (a) place_id from Places API, Directions API, Geolocation API and Routes API, (b) pano_ID, from Street View Static API, and (c) video_ID from Aerial View API.
+ 4. Verification of Customer-Reported Subscriptions 
+---- 4. Directions API ----
+ 4. Directions API 
+ 4.1 Use without a Google Map . Customer may use Google Maps Content from the Directions API in Customer Applications without a corresponding Google Map.
+ 4.2 No use with a non-Google map. Customer must not use Google Maps Content from the Directions API in conjunction with a non-Google map.
+ 4.3 Caching. Customer may temporarily cache latitude and longitude values from the Directions API for up to 30 consecutive calendar days, after which Customer must delete the cached latitude and longitude values. 
+---- 6. Geocoding API ----
+ 6. Geocoding API 
+ 6.1 Use without a Google Map . Customer may use Google Maps Content from the Geocoding API in Customer Applications without a corresponding Google Map.
+ 6.2 No use with a non-Google map . Customer must not use Google Maps Content from the Geocoding API in conjunction with a non-Google map.
+ 6.3 Caching. 
+ 6.3.1 Customer may temporarily cache latitude (lat) and longitude (lng) values from the Geocoding API for up to 30 consecutive calendar days, after which Customer must delete the cached latitude and longitude values.
+ 6.3.2 Customer may indefinitely cache latitude (lat), longitude (lng), formatted_address, and the structured address values from the Geocoding API solely to support the direct, End User facing functionality of the Customer Application that initiated the request (e.g., displaying the address of a location in a weather application, associating location data with a photograph), only where the cache is not used as a replacement for making an additional call to the Services. Cached data must be logically isolated to the specific End User it is associated with and must not be used across multiple End Users. 
+---- 14. Places API (Legacy and New) ----
+ 14. Places API (Legacy and New) 
+ 14.1 Use without a Google Map. Customer may use Google Maps Content from the Places API in Customer Applications without a corresponding Google Map.
+ 14.2 No use with a non-Google map . Customer must not use Google Maps Content from the Places API in conjunction with a non-Google map.
+ 14.3 Caching. Customer may temporarily cache latitude and longitude values from the Places API for up to 30 consecutive calendar days, after which Customer must delete the cached latitude and longitude values.
+---- 15. Places UI Kit ----
+ 15. Places UI Kit 
+ 15.1 Places UI Kit usage . Customer may use Places UI Kit in Customer Applications with or without any map, including a non-Google Map. This clause will prevail over the No Use with Non-Google Maps clause of the Agreement.
+ 15.2 Caching . Customer may temporarily cache latitude and longitude values from the Places UI Kit for up to 30 consecutive calendar days, after which Customer must delete the cached latitude and longitude values.
+ 15.3 Use of Third-party products. To the extent that Customer uses Places UI Kit with third-party products or services in its Customer Application, Customer does so at its own discretion. Customer is responsible for (a) compliance with any applicable laws, regulations, industry standards or other requirements; (b) any misalignment that may arise from such use; and (c) ensuring that any use with a third-party service is compliant with the restrictions in the Agreement, including, without limitation, the restrictions against caching and exporting Google Maps Content and creating content from Google Maps Content; and (d) complying with Google’s attribution requirements including making it clear to the End User what is Google Maps Content and what content is not from Google. Google does not warrant or endorse, and will not have any liability or responsibility to Customer or any other person for, Customer's use of third-party products or services or their combination with the Services.
+ 15.4 No Alteration of Google Attribution, Links, or Notices . Customer may not remove, alter, or obscure Google provided attribution, links to terms, or user-facing notices.

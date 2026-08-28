@@ -49,8 +49,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { isSearchActive } from '@/domain/places/search';
-import { CategoryEditor, NoteEditor, RemoveSavedPlace } from './saved-place-edits';
+import { BeenToggle, CategoryEditor, NoteEditor, RemoveSavedPlace } from './saved-place-edits';
 import { ActiveTagFilter, DishLine, TagChipList, TagChipRow, WhyGoLine } from './place-enrichment';
+import { BeenBadge, NotBeenFilterChip } from './visit-state';
 import { enrichmentOf, rowAccessibleName, whyGoEarnsItsPlace } from '@/ui/place/enrichment';
 import { categoryDisplay, categoryLocalityLine } from '@/ui/place/category-display';
 import { formatCaptionQuote, quoteAddsSomething } from '@/ui/place/caption-quote';
@@ -112,6 +113,11 @@ export interface PlaceSheetProps {
   readonly activeTag: string | null;
   /** One tap to clear, from the pill. Chips themselves toggle through the `TagFilterContext`. */
   readonly onClearTag: () => void;
+  /** Whether the library is narrowed to places the user has not been to yet. A third filter
+   *  dimension beside the tag and the search box, applied upstream so the pins and the rows are
+   *  narrowed by the same predicate in the same frame. */
+  readonly notBeenOnly: boolean;
+  readonly onToggleNotBeen: () => void;
   readonly selected: MapPlace | null;
   readonly onDeselect: () => void;
   /** Opens the import overlay in `map-page-client.tsx` (client state) rather than navigating to
@@ -143,6 +149,8 @@ export function PlaceSheet({
   onQueryChange,
   activeTag,
   onClearTag,
+  notBeenOnly,
+  onToggleNotBeen,
   selected,
   onDeselect,
   onAddTikTok,
@@ -225,6 +233,8 @@ export function PlaceSheet({
                 onQueryChange={onQueryChange}
                 activeTag={activeTag}
                 onClearTag={onClearTag}
+                notBeenOnly={notBeenOnly}
+                onToggleNotBeen={onToggleNotBeen}
                 stop={currentStop}
                 onExpand={() => setActiveSnap(STOP_TO_SNAP.full)}
                 onAddTikTok={onAddTikTok}
@@ -249,6 +259,8 @@ function PlaceList({
   onQueryChange,
   activeTag,
   onClearTag,
+  notBeenOnly,
+  onToggleNotBeen,
   stop,
   onExpand,
   onAddTikTok,
@@ -264,6 +276,8 @@ function PlaceList({
   onQueryChange: (query: string) => void;
   activeTag: string | null;
   onClearTag: () => void;
+  notBeenOnly: boolean;
+  onToggleNotBeen: () => void;
   stop: SheetStop;
   onExpand: () => void;
   onAddTikTok: () => void;
@@ -346,8 +360,20 @@ function PlaceList({
           {!libraryIsEmpty && <PlaceSearchField value={query} onChange={onQueryChange} />}
 
           {/* Above the list *and* above the empty state, so the one control that undoes a tag
-              filter is on screen in the state where the filter has left nothing to look at. */}
+              filter is on screen in the state where the filter has left nothing to look at. The
+              same rule is what puts the `Not been yet` chip here: it is both the way in and the way
+              out of the filter, so it has to survive the state where the filter emptied the list. */}
+          {!libraryIsEmpty && (
+            <NotBeenFilterChip active={notBeenOnly} onToggle={onToggleNotBeen} />
+          )}
           {activeTag !== null && <ActiveTagFilter tag={activeTag} onClear={onClearTag} />}
+
+          {/* The one line some empty headings need — see `AreaHeading.note`. Above the scroll area
+              rather than inside it, so it sits with the heading it explains rather than where the
+              first row would have been. */}
+          {!libraryIsEmpty && heading.note !== null && (
+            <p className="text-sm font-medium text-muted-foreground">{heading.note}</p>
+          )}
 
           {libraryIsEmpty ? (
             <NoPlacesYet onAddTikTok={onAddTikTok} />
@@ -430,9 +456,15 @@ export function PlaceRow({
             Sentence case, not the raw enum in capitals. `RESTAURANT · TEL AVIV-YAFO` read as a
             database column, and shouting it made the least informative line on the row the loudest
             thing after the name. */}
-        <p dir="auto" className="truncate text-xs font-medium text-muted-foreground">
-          {categoryLocalityLine(place.category, locality)}
-        </p>
+        {/* The category line and the been badge share one row so the badge is beside the fact it
+            qualifies rather than under the name competing with it. The line truncates; the badge
+            does not shrink, because a half-drawn state marker is worse than a shorter city name. */}
+        <div className="flex min-w-0 items-center gap-1.5">
+          <p dir="auto" className="truncate text-xs font-medium text-muted-foreground">
+            {categoryLocalityLine(place.category, locality)}
+          </p>
+          {place.visited && <BeenBadge />}
+        </div>
         {/* Above the note, below the category, and rendered only when there are any — a row with no
             tags is the normal case (nothing was backfilled, so it is every row saved before
             extraction v2) and must look like a finished row, not a row missing a line. There is
@@ -467,7 +499,7 @@ export function PlaceRow({
         // this row rather than the one below it; without this, a screen reader user gets twenty
         // rows that differ only by name. Only the chips actually on screen are named, and the
         // overflow is a count, so the label stays a phrase rather than becoming a paragraph.
-        aria-label={rowAccessibleName(place.name, tags)}
+        aria-label={rowAccessibleName(place.name, tags, place.visited)}
         // `data-vaul-no-drag`: inside the mobile sheet, a press that begins on this row would
         // otherwise be read as the start of a sheet drag, and the tap would be swallowed.
         data-vaul-no-drag
@@ -823,6 +855,17 @@ export function PlaceDetail({
         {/* The dishes the post named. Last of the three content blocks because it is a list to
             skim rather than something to read, and because it is the one most often empty. */}
         <DishLine dishes={dishes} />
+
+        {/* The one control the product wants the user to come back and use — see
+            `saved-place-edits.tsx` for why it leads the controls block rather than sitting up in
+            the identity header. `key` on the saved place's id so a pending transition from the
+            previously selected place can never land on this one. */}
+        <BeenToggle
+          key={`been-${place.id}`}
+          savedPlaceId={place.id}
+          placeName={place.name}
+          visited={place.visited}
+        />
 
         {/* The user's own word for what this place is. Below the prose blocks rather than beside
             the category line above, because that line is the most-read thing on the card and this

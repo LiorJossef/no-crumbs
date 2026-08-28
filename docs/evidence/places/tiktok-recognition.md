@@ -4,11 +4,11 @@
 > edit the harness or the corpus, not this file. The machine record is
 > `tiktok-recognition-run.json`.
 
-Run at **2026-08-28T07:52:53.358Z** against `http://127.0.0.1:54321`, region `tlv`, 10462 rows, release `2026-07-22.0`.
+Run at **2026-08-28T11:29:47.789Z** against `http://127.0.0.1:54321`, region `tlv`, 10462 rows, release `2026-07-22.0`.
 Extractor: `2026-08-gemini-gemini-3.5-flash-lite` / prompt `p11-s3`.
 Resolver: **`overture`** (PLACE_RESOLVER=overture).
 
-## Auto-match rate: **7 / 16** (44%)
+## Auto-match rate: **9 / 16** (56%)
 
 > **NOT YET A MEASUREMENT: 13 URL(s) in the corpus, against the owner's brief of 20-30. Treat the rate above as a pilot, not a result.**
 > **categories with no URL yet: bars_and_wine_bars**
@@ -20,13 +20,13 @@ are the right venue — i.e. the share the user never had to touch the picker fo
 |---|---|
 | Corpus cases | 13 (ok: 13) |
 | Adjudicated candidates | 16 |
-| Auto-matched | 7 |
-| Correct but not auto-accepted | 5 |
+| Auto-matched | 9 |
+| Correct but not auto-accepted | 3 |
 | Wrong | 3 |
 | — of which extraction never named the venue | 1 |
 | **False auto-accepts** (preselect AND wrong) | **0** |
 | Unadjudicated (counted in neither direction) | 1 |
-| Network this run | 0 oEmbed, 0 LLM |
+| Network this run | 0 oEmbed, 0 LLM, 0 Google Text Search (0 replayed) |
 
 ## Failure buckets
 
@@ -37,9 +37,34 @@ are the right venue — i.e. the share the user never had to touch the picker fo
 | `absent_from_index` | 2 | No row for this venue in `poi_index`, in either script. Coverage — a different dataset or a wider ingest. |
 | `unreachable_in_index` | 1 | The row IS there; the prefilter cannot reach it from these tokens. The Hebrew/Latin alias gap. |
 | `ranking` | 0 | The right row was prefiltered and ranked below something else. Scorer weights. |
-| `not_auto_accepted` | 5 | Top-1 was right but the band was not `preselect`, so the picker was needed. Band policy. |
+| `not_auto_accepted` | 3 | Top-1 was right but the band was not `preselect`, so the picker was needed. Band policy. |
 | `resolver_failed` | 0 | The lookup errored in transport. |
 | `capped` | 0 | Past MAX_CANDIDATES (7); kept and visible, never resolved. |
+
+## Nearest rival, and the branch guard
+
+Guard constants this run: within **0.12** of the top score, token containment whose differentiators are not in the query, and further than **75 m** apart.
+
+| candidate | rows | top-1 | nearest rival | Δ score | metres | name diff | guard |
+|---|---|---|---|---|---|---|---|
+| `Ha Kosem` | 402+ | HaKosem (1.000) | הקוסם שרונה מרקט (0.860) | 0.1400 | 1093 | — | no-condition-met |
+| `מתחת לעץ` | 37+ | Under the Tree (1.000) | מתחם שרונה- Fauchon (0.766) | 0.2342 | 2385 | — | no-condition-met |
+| `קוהי` | 2 | Kohi Coffee Shop (0.946) | NIKO by Sharon Cohen (0.587) | 0.3593 | 29 | — | no-condition-met |
+| `קפה אירופה` | 11+ | Cafe Europa (1.000) | גלידה אירופה (0.911) | 0.0891 | 13 | — | no-condition-met |
+| `eats בית חנה` | 38+ | Eats Cafeteria (0.896) | Eats Cafeteria (0.896) | 0.0000 | 1636 | (identical) | **FIRED** → Eats Cafeteria |
+| `האחים` | 20+ | האחים (1.000) | מאפיית האחים (0.811) | 0.1893 | 487 | מאפיית | no-condition-met |
+| `בל עמי` | 215+ | בל בוי (0.912) | בן עמי תל אביב (0.895) | 0.0169 | 1220 | — | no-condition-met |
+| `Palette Bistro` | 58+ | Palette Bistro (1.000) | Paulette (0.967) | 0.0333 | 1527 | — | no-condition-met |
+| `האחים` | 26+ | האחים (1.000) | Benz Brothers (0.885) | 0.1146 | 2182 | — | no-condition-met |
+| `האחים` | 20+ | האחים (1.000) | פלאפל האחים (0.768) | 0.2321 | 29155 | פלאפל | no-condition-met |
+| `טרטוריה אונה` | 45+ | Trattoria Una (0.991) | עיריית קריית אונו (0.720) | 0.2706 | 8117 | — | no-condition-met |
+| `רוסטיקו` | 5 | Rustico (1.000) | Rustico Rothschild (0.905) | 0.0950 | 3074 | rothschild | **FIRED** → Rustico Rothschild |
+| `Gelalucci` | 11+ | Gelalucci (1.000) | קרלו גלידות (0.752) | 0.2482 | 7048 | — | no-condition-met |
+| `דיזנגוף 99` | 31+ | אלנבי 99 (0.787) | Dizengoff Square (0.676) | 0.1105 | 1464 | — | no-condition-met |
+| `Oscar’s` | 8 | Oscar Wilde Irish Pub | אוסקר ווילד (0.775) | פונדק השובבים (0.718) | 0.0567 | 8553 | — | no-condition-met |
+| `WOW` | 1 | wow london (0.941) | — | — | — | — | no-rival |
+
+**Guard fired on 2 of 16.** 1 candidate(s) had a single-row ranking, so the guard was structurally incapable of firing on them — that is a statement about this corpus, not evidence that the guard is correctly tuned.
 
 ## Per case
 
@@ -50,9 +75,19 @@ are the right venue — i.e. the share the user never had to touch the picker fo
    extraction(cache): cityHint=Tel Aviv  raw=[Ha Kosem]  dropped=none
    • "Ha Kosem" → AUTO-MATCH
        query: text="Ha Kosem" cityHint=Tel Aviv cat=restaurant  regionsSearched=[tlv]  prefiltered=402
-       band=preselect  score=0.991  margin=0.117
+       band=preselect  score=1.000  margin=0.140
        top1: HaKosem @ שלמה המלך 1, תל אביב - יפו  (32.076416, 34.776737)  cat=middle_eastern_restaurant conf=0.91
-       top3: HaKosem (0.991)  |  הקוסם שרונה מרקט (0.874)  |  הקוסקוס של גליה (0.836)
+       top3: HaKosem (1.000)  |  הקוסם שרונה מרקט (0.860)  |  פיצה הקוסם האיטלקי (0.809)
+       rival #2: הקוסם שרונה מרקט (0.860)  Δ=0.1400  1093m  (32.071171, 34.786552)  nameDiff=null  inBand=false
+       rival #3: פיצה הקוסם האיטלקי (0.809)  Δ=0.1909  6482m  (32.025547, 34.743149)  nameDiff=null  inBand=false
+       rival #4: הקוסקוס של מזל (0.802)  Δ=0.1981  8777m  (32.060299, 34.867916)  nameDiff=null  inBand=false
+       rival #5: הקוסקוס של גליה (0.800)  Δ=0.2004  23806m  (32.253704, 34.918518)  nameDiff=null  inBand=false
+       rival #6: פלאפל הקוסם (0.771)  Δ=0.2293  6m  (32.076427, 34.776680)  nameDiff=null  inBand=false
+       rival #7: Chaser (0.751)  Δ=0.2494  867m  (32.072117, 34.769054)  nameDiff=null  inBand=false
+       rival #8: הקטן - HaKatan (0.735)  Δ=0.2652  1924m  (32.059422, 34.772903)  nameDiff=null  inBand=false
+       rival #9: HaOgen Cafe (0.729)  Δ=0.2715  440m  (32.079830, 34.774372)  nameDiff=null  inBand=false
+       rival #10: HaSovel (הסובל) (0.726)  Δ=0.2742  1686m  (32.090691, 34.782776)  nameDiff=null  inBand=false
+       branch guard: no-condition-met  [402 ranked row(s), truncated]
        expected: HaKosem — שלמה המלך 1, Tel Aviv
 
 ── https://vt.tiktok.com/ZSVprT9Ag/  [cafes]
@@ -60,22 +95,32 @@ are the right venue — i.e. the share the user never had to touch the picker fo
    extraction(cache): cityHint=תל אביב  raw=[מתחת לעץ]  dropped=none
    • "מתחת לעץ" → AUTO-MATCH
        query: text="מתחת לעץ" cityHint=תל אביב cat=cafe  regionsSearched=[tlv]  prefiltered=37
-       band=preselect  score=0.997  margin=0.239
+       band=preselect  score=1.000  margin=0.234
        top1: Under the Tree @ בן יהודה 202, תל אביב - יפו  (32.090164, 34.774071)  cat=cafe conf=0.97
-       top3: Under the Tree (0.997)  |  קפה גרג מתחם ג'י (0.758)  |  The Streets (0.755)
+       top3: Under the Tree (1.000)  |  מתחם שרונה- Fauchon (0.766)  |  Meat Street (0.764)
+       rival #2: מתחם שרונה- Fauchon (0.766)  Δ=0.2342  2385m  (32.071701, 34.786953)  nameDiff=null  inBand=false
+       rival #3: Meat Street (0.764)  Δ=0.2360  19101m  (32.006477, 34.951061)  nameDiff=null  inBand=false
+       rival #4: Meat Street (0.764)  Δ=0.2360  224m  (32.088379, 34.772968)  nameDiff=null  inBand=false
+       rival #5: Chouffeland Street Bar (0.744)  Δ=0.2565  1678m  (32.093929, 34.791325)  nameDiff=null  inBand=false
+       rival #6: Bleecker Street (0.721)  Δ=0.2789  15756m  (32.176991, 34.906303)  nameDiff=null  inBand=false
+       rival #7: Bakery Street (0.716)  Δ=0.2838  10663m  (31.994392, 34.768341)  nameDiff=null  inBand=false
+       rival #8: קפה גרג מתחם ג'י (0.699)  Δ=0.3005  17154m  (32.171803, 34.928638)  nameDiff=null  inBand=false
+       rival #9: The Streets (0.696)  Δ=0.3041  1588m  (32.076077, 34.776859)  nameDiff=null  inBand=false
+       rival #10: Founders Square (0.694)  Δ=0.3064  2978m  (32.063396, 34.773018)  nameDiff=null  inBand=false
+       branch guard: no-condition-met  [37 ranked row(s), truncated]
        expected: מתחת לעץ — נתן אלתרמן 13 / לבונטין 13 / בן יהודה 202, תל אביב
 
 ── https://vt.tiktok.com/ZSVphhEg6/  [cafes]
    @paz_farchi1  caption(cache): ⁨	⁨	⁨	בית קפה חדש בסגנון יפני נפתח בתל אביב 🇯🇵✨ 📍קוהי, בן יהודה 155 תל אביב  הוקם ע”י סרבר גולומוב, שחי את התרבות היפנית כבר שנים והחליט להביא את זה לידי ביטוי בבית קפה מדוייק. מהתפריט תמצאו כאן שילוב מושלם בין קפה איכותי לבין אוכל יפני-אירופי עדין. יש כריך טמאגו על בריוש רך,  מוזלי עם אוכמניות ומנגו, סלט ירקות טבעוני וסלט קינואה הדרים למי שמחפש משהו קליל. והקינוחים? ואוו.  פנקייק יפני אוורירי בשתי גרסאות, פרנץ’ טוסט בריוש, עוגיות שוקולד ומאצ׳ה, רולדת מאצ׳ה ועוגת לימון מפוצצת הדרים. 🍰 ולמי שמגיע בשביל הקפה- זה לגמרי המקום!  קוהי מגישים קפה ספיישליטי שמגיע מבתי קלייה ברחבי העולם: יפן, הולנד, ארה״ב, בריטניה וגם מישראל. המחירים הוגנים לגמרי: אספרסו 13 ש״ח, פלאט וויט 17 ש״ח, קפוצ’ינו 18 ש״ח 💰 חשוב לדעת:  🔸אין תעודת כשרות כי פתוח בשבת 🔸שעות פתיחה:⁩ ראשון- שבת 07:30-18:30⁩⁩#המלצות #המלצפז #תלאביב #בתיקפה #בתיקפהתלאביב 
    extraction(cache): cityHint=תל אביב  raw=[קוהי]  dropped=none
-   • "קוהי" → CORRECT-BUT-NOT-AUTO (not_auto_accepted)
+   • "קוהי" → AUTO-MATCH
        query: text="קוהי" cityHint=תל אביב cat=cafe  regionsSearched=[tlv]  prefiltered=2
-       band=confirm  score=0.900  margin=0.313
+       band=preselect  score=0.946  margin=0.359
        top1: Kohi Coffee Shop @ בן יהודה 155, תל אביב - יפו  (32.088284, 34.773300)  cat=coffee_shop conf=0.30
-       top3: Kohi Coffee Shop (0.900)  |  NIKO by Sharon Cohen (0.588)
+       top3: Kohi Coffee Shop (0.946)  |  NIKO by Sharon Cohen (0.587)
+       rival #2: NIKO by Sharon Cohen (0.587)  Δ=0.3593  29m  (32.088089, 34.773499)  nameDiff=null  inBand=false
+       branch guard: no-condition-met  [2 ranked row(s)]
        expected: קוהי (Kohi) — בן יהודה 155, תל אביב
-       rank of the right row in the full prefilter: 1
-       note: top-1 is right, band confirm, margin 0.313
 
 ── https://vt.tiktok.com/ZSVprTkwJ/  [brunch]
    @liran.rozen  caption(cache): בראנץ׳ צרפתי כשר וחדש בתל אביב🥂 (פירוט👇🏻) #לירןרוזן #אוכלים_עם_לירן #בראנץ #5אננסים #מדדלירן  שעבר ללב תל אביב 🇫🇷 כתובת: לבונטין 19, תל אביב📍 כשר: כן! (רבנות תל אביב) ✅ סיקרתי אותו כבר פעמיים: בראסרי 18 נפתחה ממש לאחר פרוץ המלחמה בנובמבר 2023 ולאחרונה עבר מרמת אביב  ללב העיר בלבונטין 19 🙌🏻 שף המסעדה הוא שלמה שריקי, בחור צעיר ומוכשר שנכנס לכובע השף תוך כדי המלחמה ושירות מילואים! התפריט מציע קלאסיקות כמו פרנץ׳ טוסט, מילפיי,  אגז בנדיקט, סלט קיסר, טרטר טונה, סטייק טונה ועוד! הבראסרי פתוח כל היום! כמיטב המסורת  עם שלושה תפריטים שונים: בראנץ׳, עסקית צהריים וערב. בראנץ׳: שני עד חמישי: 9:00 עד 11:30 שישי: 9:00 עד 14:00 עסקיות צהריים: ראשון עד חמישי: 12:15 עד 15:30 ערב: ראשון עד חמישי 19:30 עד 22:00 האפי האוור (20% הנחה על הכל) ראשון עד חמישי: 17:30 עד 19:30 5 אננסים במדד לירן! (5/5) 🍍🍍🍍🍍🍍 (שירות, ניקיון, עיצוב, טעם ומחיר) כן דירגתי כי הם לא באמת חדשים. רק עברו מיקום. המסעדה מבוססת כבר. חייבת להגיע שוב בערב גם ❤️🙌🏻 ספרו לי מה אתם חשבתם👇🏻
@@ -85,51 +130,109 @@ are the right venue — i.e. the share the user never had to touch the picker fo
 ── https://vt.tiktok.com/ZSVphdqUs/  [brunch]
    @nadavbornstein  caption(cache): הבראנ׳צים הכי שווים היום בתל אביב    הבראנץ׳ קונטיננטל של קפה אירופה עם הדיספליי המרהיב - המון קינוחים, מלא מאפים מתוקים מלוחים 📍קפה אירופה   שישי ושבת, החל מ-11:00 זה של מיכל אפשטיין בeats עם הסקונס הפנומנליים שלה אגז בנדיקט הגרילד צ׳יז שטובלים במרק עגבניות שרופות ואיך אני אוהב פרנץ’ טוסט, כאן מקורמל ובפנים קרם וניל 📍eats בית חנה  שישי ושבת, 09:00-15:00 זה עם הבופה-מאפים, פחמימות פשוט נפלאות - החושחש והרוגעלך שווים הגעה במיוחד - שמים על המגש ומתיישבים בחממה של האחים 📍האחים  ראשון-שישי, 08:00-12:00 שישי כל שבועיים, 12:30-16:00 עלות כרטיס: 290 ש״ח ארוחת הבוקר של בל עמי - עם הפנקייק שכל בוקר אני מפנטז עליו, והפרנץ טוסט כמו קרפ סוזט רק להזמין מקום חודש מראש 📍בל עמי   הבראנץ׳-מסיבה בפלט - עם הבר שעמוס מנות ביס ומאפים. קונים כרטיס - והכל כולל האלכוהול ללא הגבלה (אבל לא זול הכרטיס) 📍Palette Bistro  יאללה שיהיה בוקר טוב 🌅
    extraction(cache): cityHint=תל אביב  raw=[קפה אירופה | eats בית חנה | האחים | בל עמי | Palette Bistro]  dropped=none
-   • "קפה אירופה" → CORRECT-BUT-NOT-AUTO (not_auto_accepted)
+   • "קפה אירופה" → AUTO-MATCH
        query: text="קפה אירופה" cityHint=תל אביב cat=cafe  regionsSearched=[tlv]  prefiltered=11
-       band=confirm  score=0.900  margin=0.125
+       band=preselect  score=1.000  margin=0.089
        top1: Cafe Europa @ Rothschild Boulevard 9, תל אביב - יפו  (32.063164, 34.770252)  cat=restaurant conf=1.00
-       top3: Cafe Europa (0.900)  |  גלידה אירופה (0.775)  |  חנות לחם - מגשי אירוח וקייטרינג חלבי (0.696)
+       top3: Cafe Europa (1.000)  |  גלידה אירופה (0.911)  |  Colisei - אירועי בוטיק (0.708)
+       rival #2: גלידה אירופה (0.911)  Δ=0.0891  13m  (32.063061, 34.770180)  nameDiff=null  inBand=true
+       rival #3: Colisei - אירועי בוטיק (0.708)  Δ=0.2920  26569m  (32.287811, 34.866409)  nameDiff=null  inBand=false
+       rival #4: סטלה אירועי בוטיק על הים מול הגלים (0.693)  Δ=0.3068  5902m  (32.017609, 34.738125)  nameDiff=null  inBand=false
+       rival #5: Yakimono יאקימונו אירועי בוטיק (0.668)  Δ=0.3323  95m  (32.063297, 34.771244)  nameDiff=null  inBand=false
+       rival #6: ISERD - Israel-Europe R&D Directorate (0.649)  Δ=0.3508  840m  (32.061035, 34.761696)  nameDiff=null  inBand=false
+       rival #7: אירועי בוטיק פלטין ראשון לציון (0.636)  Δ=0.3644  11574m  (31.962646, 34.802116)  nameDiff=null  inBand=false
+       rival #8: חנות לחם - מגשי אירוח וקייטרינג חלבי (0.623)  Δ=0.3768  10362m  (31.975611, 34.807880)  nameDiff=null  inBand=false
+       rival #9: האוכל של אתי, אירוח ביתי אותנטי (0.621)  Δ=0.3792  3329m  (32.038681, 34.749916)  nameDiff=null  inBand=false
+       rival #10: שניצל טיים אבן גבירול תא | חלות שניצל, מגשי אירוח (0.604)  Δ=0.3958  2818m  (32.086533, 34.781834)  nameDiff=null  inBand=false
+       branch guard: no-condition-met  [11 ranked row(s), truncated]
        expected: קפה אירופה — תל אביב
-       rank of the right row in the full prefilter: 1
-       note: top-1 is right, band confirm, margin 0.125
    • "eats בית חנה" → UNADJUDICATED
        query: text="eats בית חנה" cityHint=תל אביב cat=cafe  regionsSearched=[tlv]  prefiltered=38
-       band=confirm  score=0.916  margin=0.005
-       top1: Eats Cafeteria @ אד"ם הכהן 1, תל אביב - יפו  (32.083752, 34.776299)  cat=coffee_shop conf=0.99
-       top3: Eats Cafeteria (0.916)  |  Eats Cafeteria (0.911)  |  איטלקיה בתחנה (0.752)
+       band=confirm  score=0.896  margin=0.000
+       top1: Eats Cafeteria @ שיינקין 20, תל אביב - יפו  (32.069416, 34.772411)  cat=coffee_shop conf=0.94
+       top3: Eats Cafeteria (0.896)  |  Eats Cafeteria (0.896)  |  Eat Me (0.849)
+       rival #2: Eats Cafeteria (0.896)  Δ=0.0000  1636m  (32.083752, 34.776299)  nameDiff=(identical)  inBand=true
+       rival #3: Eat Me (0.849)  Δ=0.0465  3031m  (32.084167, 34.799469)  nameDiff=null  inBand=true
+       rival #4: איטלקיה בתחנה (0.815)  Δ=0.0805  1547m  (32.058685, 34.761963)  nameDiff=null  inBand=true
+       rival #5: איטס ויגן Eat's Vegan (0.815)  Δ=0.0809  10673m  (32.087833, 34.883587)  nameDiff=null  inBand=true
+       rival #6: Meat and Eat (0.778)  Δ=0.1178  27799m  (32.311752, 34.844994)  nameDiff=null  inBand=true
+       rival #7: Aslan meats (0.746)  Δ=0.1499  9163m  (32.047703, 34.866207)  nameDiff=null  inBand=false
+       rival #8: Ital" Fish - איטל פיש (0.726)  Δ=0.1700  29776m  (32.327381, 34.857311)  nameDiff=null  inBand=false
+       rival #9: BEITEA Hod Hasharon (0.713)  Δ=0.1829  16569m  (32.162933, 34.909382)  nameDiff=null  inBand=false
+       rival #10: Cafe Hatachana קפה התחנה (0.710)  Δ=0.1858  1565m  (32.058769, 34.761555)  nameDiff=null  inBand=false
+       branch guard: FIRED on "Eats Cafeteria" (Δ=0.0000, 1636m)  [38 ranked row(s), truncated]
        note: no corpus expectation matched this candidate — rule from the top-3 below and add one
    • "האחים" → AUTO-MATCH
        query: text="האחים" cityHint=תל אביב cat=restaurant  regionsSearched=[tlv]  prefiltered=20
-       band=preselect  score=1.000  margin=0.188
+       band=preselect  score=1.000  margin=0.189
        top1: האחים @ אבן גבירול 26, תל אביב - יפו  (32.072498, 34.781998)  cat=mediterranean_restaurant conf=1.00
-       top3: האחים (1.000)  |  מסעדת האחים חירק (0.812)  |  פלאפל האחים (0.804)
+       top3: האחים (1.000)  |  מאפיית האחים (0.811)  |  האחים פפושדו ובניהם בע''מ (0.810)
+       rival #2: מאפיית האחים (0.811)  Δ=0.1893  487m  (32.069717, 34.785992)  nameDiff=מאפיית  inBand=false
+       rival #3: האחים פפושדו ובניהם בע''מ (0.810)  Δ=0.1895  6030m  (32.019894, 34.797531)  nameDiff=פפושדו+ובניהם+בע+מ  inBand=false
+       rival #4: מסעדת האחים חירק (0.775)  Δ=0.2250  10140m  (32.091244, 34.887321)  nameDiff=מסעדת+חירק  inBand=false
+       rival #5: פיצת האחים (0.772)  Δ=0.2276  2399m  (32.081814, 34.804962)  nameDiff=פיצת  inBand=false
+       rival #6: חומוס האחים חולון (0.772)  Δ=0.2281  6195m  (32.016918, 34.777439)  nameDiff=חומוס+חולון  inBand=false
+       rival #7: מאפית האחים חיזקי (0.772)  Δ=0.2281  12216m  (31.964293, 34.804398)  nameDiff=מאפית+חיזקי  inBand=false
+       rival #8: פלאפל האחים (0.768)  Δ=0.2321  29155m  (32.326530, 34.858727)  nameDiff=פלאפל  inBand=false
+       rival #9: חומוס האחים רמת גן (0.730)  Δ=0.2695  3222m  (32.080090, 34.814999)  nameDiff=חומוס+רמת+גן  inBand=false
+       rival #10: בית קפה אחים סרייה (0.716)  Δ=0.2844  16413m  (32.116753, 34.948219)  nameDiff=null  inBand=false
+       branch guard: no-condition-met  [20 ranked row(s), truncated]
        expected: האחים — אבן גבירול 26, תל אביב
    • "בל עמי" → MISS (absent_from_index)
        query: text="בל עמי" cityHint=תל אביב cat=restaurant  regionsSearched=[tlv]  prefiltered=215
-       band=confirm  score=0.852  margin=0.010
-       top1: בלאגן @ דרך מנחם בגין 7, רמת גן  (32.085327, 34.800056)  cat=fast_food_restaurant conf=0.95
-       top3: בלאגן (0.852)  |  בורקס עמיקם (0.842)  |  ביס בלחי (0.829)
+       band=confirm  score=0.912  margin=0.017
+       top1: בל בוי @ ברדיצ'בסקי 14, תל אביב - יפו  (32.074627, 34.782780)  cat=pub conf=0.48
+       top3: בל בוי (0.912)  |  בן עמי תל אביב (0.895)  |  בליקמח (0.851)
+       rival #2: בן עמי תל אביב (0.895)  Δ=0.0169  1220m  (32.066097, 34.774639)  nameDiff=null  inBand=true
+       rival #3: בליקמח (0.851)  Δ=0.0611  6791m  (32.109947, 34.841587)  nameDiff=null  inBand=true
+       rival #4: ביס בלחי (0.832)  Δ=0.0800  5612m  (32.103676, 34.831493)  nameDiff=null  inBand=true
+       rival #5: בליקר סטריט (0.828)  Δ=0.0839  16290m  (32.177059, 34.906460)  nameDiff=null  inBand=true
+       rival #6: בליקרי קפה (0.826)  Δ=0.0859  7472m  (32.088009, 34.860497)  nameDiff=null  inBand=true
+       rival #7: בלאגן (0.822)  Δ=0.0903  2016m  (32.085327, 34.800056)  nameDiff=null  inBand=true
+       rival #8: בורקס עמיקם (0.819)  Δ=0.0932  179m  (32.073364, 34.781609)  nameDiff=null  inBand=true
+       rival #9: בורקס בטעמים (0.815)  Δ=0.0975  2019m  (32.082588, 34.802036)  nameDiff=null  inBand=true
+       rival #10: בן עמי עוגה וקפה (0.810)  Δ=0.1027  9841m  (32.160538, 34.807884)  nameDiff=null  inBand=true
+       branch guard: no-condition-met  [215 ranked row(s), truncated]
        expected: בל עמי — תל אביב
        poi_index probe: NO ROWS
        note: no row in poi_index matches the expected name in either script
    • "Palette Bistro" → CORRECT-BUT-NOT-AUTO (not_auto_accepted)
        query: text="Palette Bistro" cityHint=תל אביב cat=bar  regionsSearched=[tlv]  prefiltered=58
-       band=confirm  score=0.891  margin=0.089
+       band=confirm  score=1.000  margin=0.033
        top1: Palette Bistro @ проспект Иерушалаим 22, תל אביב - יפו  (32.054020, 34.759274)  cat=restaurant conf=0.91
-       top3: Palette Bistro (0.891)  |  Paulette (0.803)  |  PALETAS (0.772)
+       top3: Palette Bistro (1.000)  |  Paulette (0.967)  |  PALETAS (0.886)
+       rival #2: Paulette (0.967)  Δ=0.0333  1527m  (32.061878, 34.772564)  nameDiff=null  inBand=true
+       rival #3: PALETAS (0.886)  Δ=0.1143  1620m  (32.059658, 34.775120)  nameDiff=null  inBand=true
+       rival #4: PALEO (0.874)  Δ=0.1257  1656m  (32.063000, 34.773289)  nameDiff=null  inBand=false
+       rival #5: Paleo Levi (0.820)  Δ=0.1799  18979m  (32.170776, 34.906258)  nameDiff=null  inBand=false
+       rival #6: בסט ביס (0.815)  Δ=0.1847  15006m  (32.166893, 34.846607)  nameDiff=null  inBand=false
+       rival #7: דוד פלטין (0.815)  Δ=0.1847  3125m  (32.050159, 34.792118)  nameDiff=null  inBand=false
+       rival #8: ביסטרו רעים (0.804)  Δ=0.1958  7459m  (32.092930, 34.823757)  nameDiff=null  inBand=false
+       rival #9: Le Bistro Bar (0.801)  Δ=0.1985  6409m  (32.007965, 34.800144)  nameDiff=null  inBand=false
+       rival #10: ביסטרו התחנה (0.795)  Δ=0.2047  2129m  (32.061432, 34.780106)  nameDiff=null  inBand=false
+       branch guard: no-condition-met  [58 ranked row(s), truncated]
        expected: Palette Bistro — תל אביב
        rank of the right row in the full prefilter: 1
-       note: top-1 is right, band confirm, margin 0.089
+       note: top-1 is right, band confirm, margin 0.033
 
 ── https://vt.tiktok.com/ZSVprwmjy/  [brunch]
    @shirazooooo  caption(cache): זה המקום המושלם מבחינתי בתל אביב,  מראשון עד שישי מגישים ב׳אחים׳ בוקר חלומי שכולל בעיקר כמויות בלתי נתפסות של מאפים בכל הסוגים והגדלים. בוחרים כמה שאוהבים (כל אחד במחיר שונה) ומתיישבים בחצר ענקית ומהממת.  אני כל כך נהנתי היה לי בוקר מושלם ואין לי ספק שאחזור שוב בקרוב שמרו לכם  📍האחים, אבן גבירול 26 #בוקרבתלאביב #ארוחתבוקר 
    extraction(cache): cityHint=תל אביב  raw=[האחים]  dropped=none
    • "האחים" → AUTO-MATCH
        query: text="האחים" cityHint=תל אביב cat=restaurant  regionsSearched=[tlv]  prefiltered=26
-       band=preselect  score=1.000  margin=0.094
+       band=preselect  score=1.000  margin=0.115
        top1: האחים @ אבן גבירול 26, תל אביב - יפו  (32.072498, 34.781998)  cat=mediterranean_restaurant conf=1.00
-       top3: האחים (1.000)  |  Benz Brothers (0.906)  |  פלאפל האחים (0.804)
+       top3: האחים (1.000)  |  Benz Brothers (0.885)  |  פלאפל האחים (0.768)
+       rival #2: Benz Brothers (0.885)  Δ=0.1146  2182m  (32.057091, 34.767666)  nameDiff=null  inBand=true
+       rival #3: פלאפל האחים (0.768)  Δ=0.2321  29155m  (32.326530, 34.858727)  nameDiff=פלאפל  inBand=false
+       rival #4: Benz Brothers (0.708)  Δ=0.2917  381m  (32.075886, 34.781418)  nameDiff=null  inBand=false
+       rival #5: Brothers Bakery (0.680)  Δ=0.3200  3502m  (32.060192, 34.816204)  nameDiff=null  inBand=false
+       rival #6: Toma - תומא (0.655)  Δ=0.3447  232m  (32.074589, 34.782024)  nameDiff=null  inBand=false
+       rival #7: מאפיית האחים (0.649)  Δ=0.3515  487m  (32.069717, 34.785992)  nameDiff=מאפיית  inBand=false
+       rival #8: האחים פפושדו ובניהם בע''מ (0.648)  Δ=0.3516  6030m  (32.019894, 34.797531)  nameDiff=פפושדו+ובניהם+בע+מ  inBand=false
+       rival #9: Brothers pizz (0.648)  Δ=0.3523  4354m  (32.070297, 34.828129)  nameDiff=null  inBand=false
+       rival #10: Assaraf brothers (0.632)  Δ=0.3678  2140m  (32.055721, 34.770866)  nameDiff=null  inBand=false
+       branch guard: no-condition-met  [26 ranked row(s), truncated]
        expected: האחים — אבן גבירול 26, תל אביב
 
 ── https://vt.tiktok.com/ZSVph2SnR/  [bakeries]
@@ -137,9 +240,19 @@ are the right venue — i.e. the share the user never had to touch the picker fo
    extraction(cache): cityHint=תל אביב  raw=[האחים]  dropped=none
    • "האחים" → AUTO-MATCH
        query: text="האחים" cityHint=תל אביב cat=restaurant  regionsSearched=[tlv]  prefiltered=20
-       band=preselect  score=1.000  margin=0.196
+       band=preselect  score=1.000  margin=0.232
        top1: האחים @ אבן גבירול 26, תל אביב - יפו  (32.072498, 34.781998)  cat=mediterranean_restaurant conf=1.00
-       top3: האחים (1.000)  |  פלאפל האחים (0.804)  |  מסעדת האחים חירק (0.649)
+       top3: האחים (1.000)  |  פלאפל האחים (0.768)  |  Toma - תומא (0.655)
+       rival #2: פלאפל האחים (0.768)  Δ=0.2321  29155m  (32.326530, 34.858727)  nameDiff=פלאפל  inBand=false
+       rival #3: Toma - תומא (0.655)  Δ=0.3447  232m  (32.074589, 34.782024)  nameDiff=null  inBand=false
+       rival #4: מאפיית האחים (0.649)  Δ=0.3515  487m  (32.069717, 34.785992)  nameDiff=מאפיית  inBand=false
+       rival #5: האחים פפושדו ובניהם בע''מ (0.648)  Δ=0.3516  6030m  (32.019894, 34.797531)  nameDiff=פפושדו+ובניהם+בע+מ  inBand=false
+       rival #6: מסעדת האחים חירק (0.620)  Δ=0.3800  10140m  (32.091244, 34.887321)  nameDiff=מסעדת+חירק  inBand=false
+       rival #7: פיצת האחים (0.618)  Δ=0.3821  2399m  (32.081814, 34.804962)  nameDiff=פיצת  inBand=false
+       rival #8: חומוס האחים חולון (0.618)  Δ=0.3825  6195m  (32.016918, 34.777439)  nameDiff=חומוס+חולון  inBand=false
+       rival #9: מאפית האחים חיזקי (0.618)  Δ=0.3825  12216m  (31.964293, 34.804398)  nameDiff=מאפית+חיזקי  inBand=false
+       rival #10: חומוס האחים רמת גן (0.584)  Δ=0.4156  3222m  (32.080090, 34.814999)  nameDiff=חומוס+רמת+גן  inBand=false
+       branch guard: no-condition-met  [20 ranked row(s), truncated]
        expected: האחים — אבן גבירול 26, תל אביב
 
 ── https://vt.tiktok.com/ZSVphFPMC/  [talked_about_restaurants]
@@ -147,41 +260,76 @@ are the right venue — i.e. the share the user never had to touch the picker fo
    extraction(cache): cityHint=תל אביב  raw=[טרטוריה אונה]  dropped=none
    • "טרטוריה אונה" → AUTO-MATCH
        query: text="טרטוריה אונה" cityHint=תל אביב cat=restaurant  regionsSearched=[tlv]  prefiltered=45
-       band=preselect  score=0.934  margin=0.264
+       band=preselect  score=0.991  margin=0.271
        top1: Trattoria Una @ אינשטיין 69, תל אביב - יפו  (32.113518, 34.799419)  cat=italian_restaurant conf=0.30
-       top3: Trattoria Una (0.934)  |  ג'ונאם Junam (0.671)  |  עיריית קריית אונו (0.667)
+       top3: Trattoria Una (0.991)  |  עיריית קריית אונו (0.720)  |  פיצה אונו (0.628)
+       rival #2: עיריית קריית אונו (0.720)  Δ=0.2706  8117m  (32.064171, 34.862907)  nameDiff=null  inBand=false
+       rival #3: פיצה אונו (0.628)  Δ=0.3625  8746m  (32.060436, 34.867931)  nameDiff=null  inBand=false
+       rival #4: פיצה אונו (0.628)  Δ=0.3625  20591m  (32.210419, 34.985821)  nameDiff=null  inBand=false
+       rival #5: Trattoria- טרטוריה (0.627)  Δ=0.3632  4603m  (32.078377, 34.773598)  nameDiff=null  inBand=false
+       rival #6: ארקפה קרית אונו (0.622)  Δ=0.3683  7901m  (32.066170, 34.861950)  nameDiff=null  inBand=false
+       rival #7: טומי רול קרית אונו (0.616)  Δ=0.3742  10599m  (32.035660, 34.864307)  nameDiff=null  inBand=false
+       rival #8: פלאפל אוחנה (0.609)  Δ=0.3820  5290m  (32.070168, 34.822544)  nameDiff=null  inBand=false
+       rival #9: אופנה מתוקה תל אביב (0.606)  Δ=0.3850  6613m  (32.056507, 34.779419)  nameDiff=null  inBand=false
+       rival #10: ג'ונאם Junam (0.605)  Δ=0.3857  5634m  (32.069553, 34.769691)  nameDiff=null  inBand=false
+       branch guard: no-condition-met  [45 ranked row(s), truncated]
        expected: טרטוריה אונה — איינשטיין 69, תל אביב
 
 ── https://vt.tiktok.com/ZSVph2Q9n/  [talked_about_restaurants]
    @sapir_magal  caption(cache): זאת אחת המסעדות האיטלקיות הכי ותיקות ומוכרות בתל אביב באווירה איטלקית קלאסית ועכשיו יש להם תפריט חדש ומפתיע! תכירו את מסעדת רוסטיקו 🍽️ במקום תמצאו תפריט מגוון הכולל ראשונות, פסטות, פיצות, דגים, פירות ים ובשרים והכל נעשה במקום מחומרי גלם טריים ואיכותיים! אופציה לצמחוני, טבעוני וללא גלוטן 🌱 יש גם בר אלכוהול שמציע מגוון יינות, בירות וקוקטיילים מעולים 🍹 יש גם האפי האוור של 20% הנחה על כל האלכוהול בין הימים א׳-ה׳ בין השעות 17:00-19:0 🍺 שעות פתיחה: 🕐 ב׳-שבת- 12:00-22:30 א׳- 18:00-22:30 כתובת: בזל 42, תל אביב 📍 ויש מסעדה נוספת ברוטשילד 15, תל אביב 📍 (יש חניון ממול)  מומלץ להזמין מקומות מראש דרך אונטופו 📲 יש משלוחים דרך וולט ותן ביס 🏍️ ויש אופציה לסגור אירועים בחדר אירועים (עד 24 מקומות) בקיצור תשלחו למישהו שחייב לקחת אתכם לשם 😜 בשיתוף רוסטיקו #ספירממליצה #פודטוק #מסעדהאיטלקית 
    extraction(cache): cityHint=תל אביב  raw=[רוסטיקו]  dropped=none
-   • "רוסטיקו" → AUTO-MATCH
+   • "רוסטיקו" → CORRECT-BUT-NOT-AUTO (not_auto_accepted)
        query: text="רוסטיקו" cityHint=תל אביב cat=restaurant  regionsSearched=[tlv]  prefiltered=5
-       band=preselect  score=1.000  margin=0.076
+       band=confirm  score=1.000  margin=0.095
        top1: Rustico @ בזל 42, תל אביב - יפו  (32.089767, 34.779961)  cat=italian_restaurant conf=0.99
-       top3: Rustico (1.000)  |  Rustico Rothschild (0.923)  |  רוסטר בכפר (0.699)
+       top3: Rustico (1.000)  |  Rustico Rothschild (0.905)  |  Rusty Rails (0.816)
+       rival #2: Rustico Rothschild (0.905)  Δ=0.0950  3074m  (32.063221, 34.770840)  nameDiff=rothschild  inBand=true
+       rival #3: Rusty Rails (0.816)  Δ=0.1839  3798m  (32.059315, 34.761703)  nameDiff=null  inBand=false
+       rival #4: רוסטר בכפר (0.682)  Δ=0.3180  10519m  (32.168228, 34.842358)  nameDiff=null  inBand=false
+       rival #5: Pizza Rustico פיצה רוסטיקו (0.636)  Δ=0.3636  2162m  (32.071190, 34.786747)  nameDiff=pizza+פיצה+רוסטיקו  inBand=false
+       branch guard: FIRED on "Rustico Rothschild" (Δ=0.0950, 3074m)  [5 ranked row(s)]
        expected: רוסטיקו — בזל 42 / רוטשילד 15, תל אביב
+       rank of the right row in the full prefilter: 1
+       note: top-1 is right, band confirm, margin 0.095
 
 ── https://vt.tiktok.com/ZSVphDRbd/  [desserts]
    @thefoodnett  caption(cache): ⁨	⁨	ג׳לאטו איטלקי חדש בתל אביב! 🍦✨🇮🇹 ‪‪@gelalucci‬‬  יש מבחר טעמים - איטלקיים קלאסיים וגם טעמים מיוחדים שפותחו במיוחד לישראל. יש סורבה, גלידות ללא חלב/סוכר, גלידות ללא גלוטן - בקיצור מתאים לכולם! הריוניות: יש כמה טעמים בודדים עם ביצים ומנקים ושוטפים את המכונה בין הכנה להכנה (אבל אי אפשר להבטיח סטריליות מוחלטת) טווח מחירים לכדורי גלידה: 17₪-31₪ 📍מסריק 1, תל אביב שעות הרצה (עשויות להשתנות):  ראשון-רביעי - 00:00-10:00 חמישי - 10:00 - 01:00 שישי - 09:00 - 01:00 שבת - 09:00 - 00:00 ייתכנו שינויים בימי ההרצה הראשונים בשיתוף טעים מאוד!⁩⁩
    extraction(cache): cityHint=תל אביב  raw=[Gelalucci]  dropped=none
-   • "Gelalucci" → CORRECT-BUT-NOT-AUTO (not_auto_accepted)
+   • "Gelalucci" → AUTO-MATCH
        query: text="Gelalucci" cityHint=תל אביב cat=shop  regionsSearched=[tlv]  prefiltered=11
-       band=confirm  score=0.867  margin=0.197
+       band=preselect  score=1.000  margin=0.248
        top1: Gelalucci @ שדרות מסריק 1, תל אביב - יפו  (32.024208, 34.741554)  cat=ice_cream_shop conf=0.34
-       top3: Gelalucci (0.867)  |  קרלו גלידות (0.670)  |  לחם ארז - כיכר מסריק 1 (0.552)
+       top3: Gelalucci (1.000)  |  קרלו גלידות (0.752)  |  מטאו (0.609)
+       rival #2: קרלו גלידות (0.752)  Δ=0.2482  7048m  (32.079136, 34.778873)  nameDiff=null  inBand=false
+       rival #3: מטאו (0.609)  Δ=0.3908  7076m  (32.079205, 34.779324)  nameDiff=null  inBand=false
+       rival #4: לחם ארז - כיכר מסריק 1 (0.609)  Δ=0.3910  6895m  (32.077995, 34.777946)  nameDiff=null  inBand=false
+       rival #5: בית קפה "תוצרת הארץ" (0.523)  Δ=0.4774  7010m  (32.078728, 34.778900)  nameDiff=null  inBand=false
+       rival #6: מנטי (0.520)  Δ=0.4802  7076m  (32.079208, 34.779316)  nameDiff=null  inBand=false
+       rival #7: קפה פסטל (0.506)  Δ=0.4942  6968m  (32.078506, 34.778461)  nameDiff=null  inBand=false
+       rival #8: Masaryk Cafe - קפה מסריק (0.464)  Δ=0.5362  7023m  (32.078815, 34.778996)  nameDiff=null  inBand=false
+       rival #9: Royal Barber Studio - רויאל מספרה (0.405)  Δ=0.5947  7086m  (32.079422, 34.779091)  nameDiff=null  inBand=false
+       rival #10: Azuly Bar (0.395)  Δ=0.6053  7075m  (32.079201, 34.779320)  nameDiff=null  inBand=false
+       branch guard: no-condition-met  [11 ranked row(s), truncated]
        expected: Gelalucci — מסריק 1, תל אביב
-       rank of the right row in the full prefilter: 1
-       note: top-1 is right, band confirm, margin 0.197
 
 ── https://vt.tiktok.com/ZSVph5Xor/  [brunch]
    @thefoodnett  caption(cache): ⁨	⁨	⁨	הבראנץ החדש של חיים כהן! ✨🥞🥑🍳 ‪‪‪@chef_haim_cohen‬‬‬  דיזנגוף 9‪@dizengoff_99‬99‬99‬99  חיים בנה כאן בראנץ׳ שווה מאוד ב-150₪ לאדם: במקום המאזטים והצלוחיות שכולנו רגילים לראות מתחילים בפתיחים מושקעים. בוחרים 3 (או 5 אם אתם זוג) ממבחר שכולל למשל פסטרמי אלבקור, סלקים וסטרצ׳יאטלה, עגבניות שרי על גספצ׳ו וסלט ביצים. לאלה מתווספת סלסלת לחמים ומאפים טריים, 2 קפה ומיץ (ויפנקו אם תרצו בעוד) ועיקרית לבחירה מבין מנות ביצים עלומות שונות או ביצים מקושקשות, שקשוקה והפנקייק המעולה של דיקסי. אפשר גם לבחור להרכיב ארוחה איך שרוצים ולא מהארוחה המובנת ואז העיקריות נעות סביב 50₪ והצלוחיות 20₪-30₪. 📍דיזנגוף 99, תל אביב מומלץ להזמין מקום מראש, בטח בסופ״ש ‎ראשון-שישי 7:30-11:30 שבת 8:00-11:30⁩⁩⁩
    extraction(cache): cityHint=תל אביב  raw=[דיזנגוף 99]  dropped=none
    • "דיזנגוף 99" → MISS (absent_from_index)
        query: text="דיזנגוף 99" cityHint=תל אביב cat=restaurant  regionsSearched=[tlv]  prefiltered=31
-       band=no_match  score=0.674  margin=0.007
-       top1: Hayarkon 99 Restaurant @ HaYarkon 99 St., Tel Aviv  (32.079937, 34.766426)  cat=middle_eastern_restaurant conf=0.77
-       top3: Hayarkon 99 Restaurant (0.674)  |  אלנבי 99 (0.667)  |  Market Rothschild 99 (0.649)
+       band=no_match  score=0.787  margin=0.110
+       top1: אלנבי 99 @ , תל אביב - יפו  (32.064808, 34.772766)  cat=bar conf=0.38
+       top3: אלנבי 99 (0.787)  |  Dizengoff Square (0.676)  |  Hayarkon 99 Restaurant (0.621)
+       rival #2: Dizengoff Square (0.676)  Δ=0.1105  1464m  (32.077919, 34.774162)  nameDiff=null  inBand=true
+       rival #3: Hayarkon 99 Restaurant (0.621)  Δ=0.1655  1785m  (32.079937, 34.766426)  nameDiff=null  inBand=false
+       rival #4: Kikar Dizengoff (0.590)  Δ=0.1967  1486m  (32.078129, 34.774006)  nameDiff=null  inBand=false
+       rival #5: קפה דיזנגוף - Dizengoff Cafe (0.580)  Δ=0.2069  2338m  (32.085762, 34.774784)  nameDiff=null  inBand=false
+       rival #6: Market Rothschild 99 (0.572)  Δ=0.2146  622m  (32.068279, 34.777943)  nameDiff=null  inBand=false
+       rival #7: Cafe 99 (0.552)  Δ=0.2352  1701m  (32.079552, 34.767952)  nameDiff=null  inBand=false
+       rival #8: Dizengoff-bar (0.551)  Δ=0.2353  30085m  (32.326836, 34.852417)  nameDiff=null  inBand=false
+       rival #9: Cloud99 קלאוד 99 (0.533)  Δ=0.2539  10899m  (32.131836, 34.857182)  nameDiff=null  inBand=false
+       rival #10: Leggenda Dizengoff Square (0.510)  Δ=0.2767  1555m  (32.078743, 34.774120)  nameDiff=null  inBand=false
+       branch guard: no-condition-met  [31 ranked row(s), truncated]
        expected: דיזנגוף 99 — דיזנגוף 99, תל אביב
        poi_index probe: NO ROWS
        note: no row in poi_index matches the expected name in either script
@@ -191,9 +339,17 @@ are the right venue — i.e. the share the user never had to touch the picker fo
    extraction(cache): cityHint=תל אביב  raw=[Oscar’s]  dropped=none
    • "Oscar’s" → MISS (unreachable_in_index)
        query: text="Oscar’s" cityHint=תל אביב cat=restaurant  regionsSearched=[tlv]  prefiltered=8
-       band=no_match  score=0.732  margin=0.022
-       top1: פונדק השובבים @ נחלת בנימין 68, תל אביב - יפו  (32.061562, 34.772404)  cat=restaurant conf=0.47
-       top3: פונדק השובבים (0.732)  |  Oscar Wilde Irish Pub | אוסקר ווילד (0.710)  |  קפה אוסקר (0.708)
+       band=no_match  score=0.775  margin=0.057
+       top1: Oscar Wilde Irish Pub | אוסקר ווילד @ Шахам 36, פתח תקווה  (32.085758, 34.858574)  cat=irish_pub conf=0.90
+       top3: Oscar Wilde Irish Pub | אוסקר ווילד (0.775)  |  פונדק השובבים (0.718)  |  קפה אוסקר (0.709)
+       rival #2: פונדק השובבים (0.718)  Δ=0.0567  8553m  (32.061562, 34.772404)  nameDiff=null  inBand=true
+       rival #3: קפה אוסקר (0.709)  Δ=0.0659  12397m  (32.022518, 34.750244)  nameDiff=null  inBand=true
+       rival #4: אוסק'ה בית של מתוק (0.645)  Δ=0.1295  34120m  (32.386913, 34.928154)  nameDiff=null  inBand=false
+       rival #5: אוסקר ווילד | Oscar Wilde (0.635)  Δ=0.1393  10232m  (32.007847, 34.800808)  nameDiff=irish+pub  inBand=false
+       rival #6: אוסקר ווילד פתח תקוה (0.633)  Δ=0.1419  1322m  (32.088596, 34.872196)  nameDiff=null  inBand=false
+       rival #7: Oscar Wilde / ирландский паб (0.585)  Δ=0.1893  10182m  (32.007328, 34.802818)  nameDiff=null  inBand=false
+       rival #8: Osaka | אוסקה הרצליה | כשר (0.569)  Δ=0.2057  9513m  (32.159893, 34.808147)  nameDiff=null  inBand=false
+       branch guard: no-condition-met  [8 ranked row(s)]
        expected: Oscar's — נחלת בנימין 68, תל אביב
        poi_index probe: אוסקר ווילד | Oscar Wilde @ הרוקמים 26, חולון ; Oscar Wilde / ирландский паб @ הרוקמים 26, חולון ; Oscar Wilde Irish Pub | אוסקר ווילד @ Шахам 36, פתח תקווה ; קפה אוסקר @ דניאל 31, בת ים ; אוסקר ווילד פתח תקוה @ השחם, פתח תקווה ; פונדק השובבים @ נחלת בנימין 68, תל אביב - יפו
        note: the row exists in poi_index but the prefilter can never return it from these tokens
@@ -203,9 +359,10 @@ are the right venue — i.e. the share the user never had to touch the picker fo
    extraction(cache): cityHint=תל אביב  raw=[WOW]  dropped=none
    • "WOW" → CORRECT-BUT-NOT-AUTO (not_auto_accepted)
        query: text="WOW" cityHint=תל אביב cat=bakery  regionsSearched=[tlv]  prefiltered=1
-       band=confirm  score=0.821  margin=null
+       band=confirm  score=0.941  margin=null
        top1: wow london @ בית אשל 15, תל אביב - יפו  (32.053303, 34.757385)  cat=desserts conf=0.35
-       top3: wow london (0.821)
+       top3: wow london (0.941)
+       branch guard: no-rival  [1 ranked row(s)]
        expected: WOW — בית אשל 15, שוק הפשפשים, יפו
        rank of the right row in the full prefilter: 1
        note: top-1 is right but margin is null (1 prefiltered) — the lone-candidate policy question, handoff §3.1

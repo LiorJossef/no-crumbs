@@ -1,0 +1,27 @@
+HTTP/2 200 
+content-type: text/plain; charset=utf-8
+x-tt-logid: 20260828205040373E5A8D422A1E125FB8
+x-xss-protection: 1; mode=block
+x-frame-options: SAMEORIGIN
+x-content-type-options: nosniff
+x-download-options: noopen
+x-envoy-response-flags: -
+strict-transport-security: max-age=31536000; includeSubDomains
+access-control-expose-headers: x-tt-traceflag,x-tt-logid
+x-tt-trace-host: 0149881a1183eeccd237aad76bca7909ad909eb1640b10e87eb92073b785402dfb13ba0e16f7d9b3a933ae469e479fbe34c671545a1c5cb10abd173f36af08be2abc660c5db18639ee7f8c07569677c9b9b0eea7995ce7c5cba64f2d96bf213c0d24e893e1fe9db25a0dbd77396eead608
+x-tt-trace-id: 00-260828205040373E5A8D422A1E125FB8-1C5903A972912740-00
+server: TLB
+x-origin-response-time: 28,23.45.206.168
+x-akamai-request-id: 982a070.40ddda4d
+expires: Fri, 28 Aug 2026 12:50:40 GMT
+cache-control: max-age=0, no-cache, no-store
+pragma: no-cache
+date: Fri, 28 Aug 2026 12:50:40 GMT
+content-length: 1567
+x-cache: TCP_MISS from a62-0-96-172.deploy.akamaitechnologies.com (AkamaiGHost/22.6.2-039cf934921f24e45063a41240aca161) (-)
+x-cache-remote: TCP_MISS from a23-45-206-168.deploy.akamaitechnologies.com (AkamaiGHost/22.6.2-039cf934921f24e45063a41240aca161) (-)
+x-tt-trace-tag: id=16;cdn-cache=miss;type=dyn
+server-timing: cdn-cache; desc=MISS, edge; dur=206, origin; dur=28
+server-timing: inner; dur=24
+x-parent-response-time: 234,62.0.96.172
+

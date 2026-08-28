@@ -49,8 +49,9 @@
  *    blue water/green parks toward the brand's mint family, but the owner rejected the result
  *    (2026-08-21) as reading mauve/dusty-purple rather than mint. The basemap now renders
  *    Positron's natural colors unmodified — blue water, green parks, neutral grey/white land and
- *    roads; the mint accent stays confined to pins/clusters and product UI, never the map tiles.
- * 2. Pins and clusters are this file's own, not mapcn's. `MapClusterLayer` paints every place as
+ *    roads; the mint accent stays confined to pins and product UI, never the map tiles.
+ * 2. Pins are this file's own, not mapcn's — and there are no clusters at all since `L1-F5-T5`.
+ *    `MapClusterLayer` paints every place as
  *    the same circle and exposes only colours, so the category already sitting on every feature
  *    had nowhere to go. `./place-marker-layer.tsx` owns the source and the layers instead — see
  *    it for what that buys and what it cost.
@@ -128,7 +129,7 @@ const FIT_BOUNDS_MAX_ZOOM = 15;
 // the account chip (`map/page.tsx`, a 44px pill at `top: safe-area + 0.75rem`) and the post-import
 // confirmation (`import-confirmation.tsx`, same band). Without it a fitted pin lands *underneath*
 // them — visible in the first working version of the post-import flight, where the northernmost
-// London cluster sat half-hidden behind the "8 already saved" strip.
+// London pin sat half-hidden behind the "8 already saved" strip.
 // Below `lg` the confirmation drops to a second row under the account chip (see
 // `import-confirmation.tsx`), so the band it has to clear is that much deeper.
 const FLOATING_TOP_CHROME_PX = 56;
@@ -199,7 +200,9 @@ function whenReady(map: MapLibreMap, action: () => void): void {
   // (see `useContainerSize` below) it can finish its style, fetch tiles, and still never fire
   // `load`. Observed live: `isStyleLoaded() === true`, `areTilesLoaded() === true`, `loaded() ===
   // false`, camera stranded at zoom 0 over (0, 0) — so the initial `fitBounds` never ran and the map
-  // sat on a world view with two cluster bubbles and no pins.
+  // sat on a world view with two cluster bubbles and no pins. (Those bubbles no longer exist —
+  // density clustering was removed in `L1-F5-T5` — so the same bug now strands you on a world view
+  // of overlapping pins instead. The camera failure is the point, not what it showed.)
   //
   // `styledata` fires whenever the style finishes loading, which is the actual precondition for a
   // camera command. Both are registered and whichever arrives first wins; `done` makes the action
@@ -422,8 +425,8 @@ export function MapSurfaceMapcn({
         // (48 + a ~374 px panel on the left alone) exceeds the canvas width, so the fit is
         // impossible, silently does nothing, and leaves `hasFramedOnce` set. The camera then sits at
         // zoom 0 over (0, 0) for the life of the page: a world map with two cluster bubbles and no
-        // pins, which is exactly the symptom `current-state.md` §9.1 attributed to fitting all
-        // places at once.
+        // pins (the symptom as it was observed; the bubbles are gone since `L1-F5-T5`), which is
+        // exactly what `current-state.md` §9.1 attributed to fitting all places at once.
         //
         // Re-fit whatever was last framed, so a resize never undoes a focus flight; fall back to the
         // initial bounds when nothing has been framed yet.

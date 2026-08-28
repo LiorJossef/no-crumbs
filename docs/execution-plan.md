@@ -281,6 +281,59 @@ second retrieval system. It inherits that feature's nearest-first sort with no s
 server or in the database, a location-derived default camera on load, and geofencing or arrival
 notifications. The permission is requested on a tap and the result never leaves the browser.
 
+**`product-lead`, 2026-08-29 — the dependency is narrower than "F5-T2", and this feature is not
+blocked.** `L1-F5-T2` shipped and the owner then declined to settle the shipped interaction
+(`current-state.md` §0.1b). Near-me depends only on the parts that survived that review — the
+nearest-first sort and the anchor-cluster camera — **not** on the disputed continuous
+viewport-scope binding. Written down because the plan currently reads as if near-me were blocked on
+a rethink that has not been opened.
+
+**Ranked second of the three after-the-save capabilities** (`docs/product-ruling-after-the-save.md`
+§2). Build it after `L1-F12`: on its own, "what did I save near here" returns a list including four
+places the user already went to. F12 is what makes near-me's answer correct, and the two together
+produce the sentence the product is missing — *"three places near you that you haven't been to
+yet."*
+
+### L1-F12 — The library resolves: been / not been yet · `design-system-frontend` + `nextjs-architect` · depends: F5, F6 · cut: see below
+**New, `product-lead` ruling 2026-08-29 — `docs/product-ruling-after-the-save.md`.** Numbered F12 so
+no existing task id moves. Ranked **first** of the three after-the-save capabilities, on a schema
+finding rather than on an argument: `saved_places.visit_state` / `visited_at`, their CHECK, and the
+**user's own UPDATE column grant** have existed since migration `0006`; `get-spots.ts` already
+selects both and `Spot` already carries `visitState`/`visitedAt`; **nothing in `src/` reads or writes
+them.** So the capability that stops the library being append-only needs **no migration, no new
+grant and no boundary widening** — the plumbing was built eleven migrations ago and never wired up.
+
+Full acceptance criteria in the ruling §6. The two rules that must not be softened: the **write path
+is never cut** (a mark that does not survive a reload is worse than not shipping), and
+`saved_places_visited_at_consistent` means an unmark that leaves `visited_at` populated **fails
+23514** — both columns move in one UPDATE, both ways.
+
+| Task | What | Exit criterion | Cut |
+|---|---|---|---|
+| T1 | The write path: a server action modelled line-for-line on `updateSavedPlaceCategory`, and the `Been here` control in the place detail sheet | Marking survives a reload and is asserted on the row, not the screen; mark → unmark → mark round-trips without a CHECK violation; a second browser profile's attempt matches **zero rows** at the database; the diff contains **no migration and no grant** | never |
+| T2 | The state made legible and made to narrow: row + pin expression, and one `Not been yet` filter over the existing chip pattern | The filter narrows list **and** pins in the same frame, composes with search and a tag filter, the header count says what it counts, and the all-filtered state is designed copy with a way back. A visited place keeps its category glyph and never disappears from an unfiltered view | pin expression = 1 · filter = 2 |
+
+**Out of scope, named so it is not absorbed:** ratings, stars, "how was it", visit counts, visit
+history or an editable date, check-ins, auto-detected arrival, photos, sorting by visit state, any
+new column, any change to `places` or to the import/resolver path.
+
+### L1-F13 — Labels the user writes themselves (`user_tags`) · **PROPOSED, NOT STAFFED** · depends: F12 · cut: 4
+**Blocked on an owner ruling (OD-1 in `docs/product-ruling-after-the-save.md` §5), and deliberately
+carries no owner until it is answered** — a feature with a name in this column looks staffed.
+
+The question is one line: *does the MVP "info" boundary govern place facts only, or every stored
+field?* `user_tags` is the user's own words about their own save — the same class as `note`, which is
+already inside the boundary — but it is still a new stored column, and Charter §4 is the scope
+contract. If the answer is "place facts only", this proceeds; if "every field", it goes to the Future
+list and F12 and F11 are unaffected.
+
+Sized, so the ruling is taken with the cost known: one migration adding `user_tags text[]`, one name
+added to `0006`'s UPDATE column grant, a server action, an add/remove control, and **reuse of the
+existing chip filter**. `0019`'s header already reserves this exact column and this exact shape, and
+`normalize_tag_list()` / `tag_list_within()` / the BEFORE trigger already exist, are IMMUTABLE, are
+granted to `authenticated`, and are tested. **Cut from it in advance:** collection covers, ordering,
+a collection route, sharing, nesting, smart collections, a label manager screen.
+
 ### L1-F8 — Account popover and first run · spec `ux-interaction` / build `design-system-frontend` · depends: F1 · cut: —
 
 | Task | What | Exit criterion |
@@ -368,6 +421,32 @@ shared collection is a multiplayer document, not a social graph). Boundary and c
 `mvp-plan.md` §8; evaluation in `evidence/product/competitor-pass-2026-08-28.md` §G. Not ahead of
 the resolver.
 
+**Personal collections placed at L2 behind `L1-F13`, `product-lead` ruling 2026-08-29 — deferred,
+not cut.** They were never explicitly placed; the 2026-08-28 entry above is about the *shared*
+object, which is unaffected and not reopened. Reasoning in
+`docs/product-ruling-after-the-save.md` §4: the trip case ("what did I save for Tokyo?") is answered
+geographically and for free by the world-zoom country summary above, so a user-made "Tokyo"
+collection duplicates a grouping we derive from coordinates and then disagrees with it; the
+non-geographic case ("date night") is a **label on a save**, not a container, at roughly a tenth of
+the build. **The evidence that promotes them:** ship `L1-F13`, and if users create three or more
+labels and then reach for an ordering, a cover, a description, or "send this list to someone", the
+label has outgrown its shape and the container is justified.
+
+**Two other roadmap items placed by the same ruling.** **Natural-language search → L3**: it is a
+re-skin of retrieval and is worth strictly more after `user_tags` and the visited state exist than
+before them. **Cover-frame OCR is refuted, not deferred** — recall 1/8, and it reads background
+shopfronts as venues (`handoff-2026-08-28-google-places-primary.md`). It should stop appearing on
+roadmaps as a pending idea. Audio transcription stays at L3, unchanged.
+
+**A capability ruled out rather than scheduled: a return trigger.** The observation that nothing
+brings the user back is correct, and the answer is not a feature. There is no channel — Charter §4
+excludes PWA install and share-target and `brand-and-product-foundation.md` §6 already names
+notifications as out — and engagement mechanics inside a product nobody has opened is a loop that
+starts nowhere. The trigger is usefulness at the moment of need, which is `L1-F12` + `L1-F11`.
+**Out permanently at this level:** push or email notifications, weekly digests, "on this day",
+streaks, badges, counts-as-achievement, widgets, re-engagement copy. If this is ever wanted it
+starts with a channel decision, not with a feature.
+
 ## Critical path
 
 `L0-F1 → L0-F4 → L0-F6` is the spine, with `L0-F2 → L0-F3` and `L0-F5` feeding F6. In L1 the long
@@ -408,4 +487,5 @@ Three consequences worth holding in mind while executing:
 | 2026-08-27 | **Four owner rulings, taken as a batch at the start of the session** — the seven questions `current-state.md` §9.2 carried forward, answered rather than resolved in passing. (a) **Manual add as *place search* is inside Charter §2** — typing a name and picking a resolved place is a different object from the caption entry §2 forbids, with the same resolver and the same provenance fields. But it is **deliberately not started**: the owner wants it only as a proper place-search experience, not a basic manual-entry form, and the current work finishes first. The scope block is lifted; the quality bar replaces it. (b) **Near-me promoted from L2 to L1** — new feature `L1-F11`, two tasks, depending on `L1-F5-T2`, because binding the list to the viewport turns near-me into a control that *sets* the viewport rather than a second retrieval system. (c) **The five duplicate pairs in the demo library stay** as the most realistic messy-state fixture; delete them from the UI before a demo instead. No backfill, no merge path, and the 75 m radius is untouched. (d) **~27% is not accepted as a permanent product position, and media ingestion is not reopened either** — the priority is making the caption-based pipeline excellent and reliable end to end first; transcription, OCR and other inputs are revisited after that foundation is solid, which leaves `04` M9 closed for now and means the no-places copy should not yet be rewritten to defend the rate as a stated position |
 | 2026-08-27 | **`L1-F5-T2` reopened as "the map is the query"** — the plan-of-record's own next highest-impact step (`current-state.md` §9.1.1), and the first work in a while that changes what the product *feels* like rather than what it can survive. Three parts, one idea: the camera anchors on **one cluster** instead of fitting all of them (12 London + 8 Tel Aviv fitted to one box is a continental view with two bubbles and no individual pins); the list is bound to the **viewport**, so the sheet is always exactly what is on the map and its header names the area (`12 places in London`, not `20 places saved`); and the extraction v2 vocabulary becomes **findable** (`momos`, `natural wine`, `hidden gem` matched nothing before). Costs no model calls, no provider decision, no ODbL gate and no schema change. Specified in full in `docs/ux-map-is-the-query.md`, which also rules that `ux-architecture` §6.6.2's `Search this area` pill should **never be built** — its entire job was binding the list to the viewport on demand, and that binding is now permanent |
 | 2026-08-27 | **The resolver is real, and measuring it on real captions reordered the work.** `L0-F2` is delivered ([#40](https://github.com/LiorJossef/P-002/pull/40), [#41](https://github.com/LiorJossef/P-002/pull/41)); `L0-F3-T1` (the ODbL sign-off) is closed. **The number that matters changed by more than any fix did.** The owner supplied 13 real TikToks; through the shipped flow the **auto-match rate is 4/16 (25%)** where the synthetic benchmark says 11/15 — because `benchmark-spec.json`'s queries are script-matched to the index by construction, so half the old number was the measuring instrument. `tests/manual/tiktok-recognition.manual.ts` is now the harness of record for product accuracy; the synthetic one measures the scorer against a fixed substrate and its floor is raised 7 → 11 with that caveat written on the file. **Three ordering consequences, each from the corpus rather than from argument.** (a) **The address signal is promoted to the top of the resolver work.** The extractor already populates `addressHint` for 9 of 17 candidates and `ResolveQuery` has no address field at all; exact `address_line` matches sit in the index for four venues we get wrong, and `קוהי` → `Kohi Coffee Shop` shows the address is **script-neutral evidence** — it bridges Hebrew↔Latin where no name match can. (b) **The OSM `alt_names` join is deprioritised on evidence, not only on licence cost.** The handoff ranked it second on the theory that Latin captions cannot reach Hebrew rows; 11 of the owner's 12 captions are Hebrew and the index is 64% Hebrew, so they match in script already (`האחים` scores 1.000). The dominant failures are address blindness and Hebrew generic tokens. (c) **The scoring and prefilter fixes that moved the synthetic benchmark 7/15 → 11/15 moved the real number by exactly zero** — not a criticism of either, but the clearest evidence available that a benchmark can be improved without improving a product. **Two defects recorded for whoever touches this next**: the `source_dataset` CHECK that `0010` calls "the enforcement of `06` §11 Q2" does not fire (proven with a rolled-back UPDATE), and `alt_names` currently flows from `place-resolver.ts` through the stored resolution record and out to the browser in `probe/route.ts` |
+| 2026-08-29 | **The loop after a save, ruled — `docs/product-ruling-after-the-save.md` (`LOOP-AFTER-SAVE-1`).** The owner's intent was that the product feels behaviorally thin after places are saved, with an explicit instruction not to assume collections are the answer. The loop was written out end to end and the break located at steps 7–10 and 13: the product serves capture completely and serves retrieval **only when the user already knows what they are looking for**. It has retrieval by *identity* (search) and by *geography* (map) and neither of the two modes people actually use — **by state** (what is still outstanding) and **by proximity** (what is near me now). Three capabilities ranked by impact-per-build, and a fourth refused. **`L1-F12` — the visited state — is ranked first on a schema finding rather than an argument**: `saved_places.visit_state` / `visited_at`, their CHECK, and the *user's own UPDATE column grant* have existed since `0006`, `get-spots.ts` already selects both, `Spot` already carries them, and **nothing in `src/` reads or writes them** — so the capability that stops the library being append-only needs **no migration, no new grant and no boundary widening**. **`L1-F11` near-me is second**, with its dependency narrowed to the parts of `L1-F5-T2` that survived the owner's review, because the plan read as if it were blocked when it is not. **`L1-F13` — user-authored labels — is proposed, sized, and deliberately left unstaffed**, blocked on one owner ruling: does the MVP "info" boundary govern place facts only, or every stored field? **Collections: no, and the argument is written rather than diplomatic** — the trip case is answered geographically and for free by the L2 country summary, so a user-made "Tokyo" collection duplicates a grouping we derive from coordinates and then disagrees with it; the non-geographic case is a label, not a container, at a tenth of the build; and a second organising axis over an append-only pile makes a tidier pile. Personal collections deferred to L2 with the promoting evidence written down; the 2026-08-28 shared-collections ruling is untouched. **A return trigger is ruled out entirely, not deferred** — there is no channel (no PWA, no push), and the honest trigger is usefulness at the moment of need. Cover-frame OCR reclassified deferred → **refuted**; natural-language search placed at L3. Acceptance criteria written for `L1-F12`, including the one real trap: `saved_places_visited_at_consistent` makes an unmark that leaves `visited_at` populated fail 23514, so both columns move in one UPDATE. Five stale ownership entries named in the ruling §8 — `L0-F3`, `L0-F6`, `L1-F7-T1` (whose exit criterion is also stale against the Google Places switch), `L1-F5-T2` (labelled IN PROGRESS while actually shipped-and-under-review) and `L1-F11`'s dependency |
 | 2026-08-29 | **Overnight: the map brief closed, "generic information" split into three problems, and one recognition idea refuted.** Four PRs merged ([#50](https://github.com/LiorJossef/P-002/pull/50), [#51](https://github.com/LiorJossef/P-002/pull/51), [#52](https://github.com/LiorJossef/P-002/pull/52)) with a fifth open ([#53](https://github.com/LiorJossef/P-002/pull/53)); full account in `docs/handoff-2026-08-29-overnight-map-and-information.md`. **The map answers all three complaints in the 2026-08-28 brief**: per-category teardrop pins with drawn glyphs, clusters that ease into their members on tap and take the colour of the category holding a strict majority, and a basemap re-tinted at runtime into warm paper / mint water / sage parks. `mapcn`'s `MapClusterLayer` is gone — we own the source and the three layers, ~150 lines against `useMap()`, which is what the previous handoff predicted and it held. **Google Maps is not needed and that is now a measurement**: the limitation was one wrapper component, so D2 stands. **"The information feels generic" was three separate problems**: presentation (three stacked uppercase kickers, a category printed as the raw enum, and the street address never shown at all — it was in the data the whole time); storage (a Hebrew `countryHint: "ישראל"` resolved to nothing because `toCountryCode`'s ICU index was English-only, so `country_code` stored NULL and `resolve_place`'s dedup guard was disabled for those rows — this is what `HaKosem` appearing three times actually is); and extraction (prompt p8 → p11). The prompt work was measured against real captions each time, and **the marketing voice turned out not to be hallucination** — every adjective in "Enjoy a dreamy morning breakfast…" is the creator's own, and what makes it read as invented is the imperative mood plus dropping "Sunday to Friday", the one checkable fact, to keep "dreamy". **Recognition: 7/16 (44%) with zero false auto-accepts under p11**, the same rate as p8 with a better failure shape — `extraction_miss` 3 → 1, so Gelalucci and WOW now reach the picker with the right venue at rank 1 instead of never being named. Two self-inflicted regressions were caught only by a corpus run and fixed (p9 turned `מתחת לעץ` into the phonetic `Metahat LeEtz` and lost a 0.997 auto-match; p10's quote-clipping fix then produced the corpus's first-ever false auto-accept, via a `nameVariants` entry that named a *branch*). **`clippedQuote` closes a structural fragility**: one over-long `evidence` string was making Zod reject the whole response, so the caption the model read best in the corpus produced no places at all. **DEFERRED, each with the measurement recorded rather than a plan to revisit**: (a) the **decisive-margin band change** — compelling on the corpus (7/16 → 11/16) and **refuted by the 44-case golden benchmark**, where TLV-14 (`Bar 51`) auto-accepts the wrong venue `Hostel 51` at 0.900/0.095 because Overture files it as `bar` and the real `Bar 51` as `restaurant`; no threshold in (score, margin) separates it, and the finding points at the scorer's category term, which is TLV-RANK-1 still open at weight 0.10 (`docs/evidence/places/band-policy.md`); (b) the **75 m merge radius** — the two `La Nonna Brixton` rows are 90 m apart with the same `name_key` and country, so the guard misses by 15 m, but widening it is a migration and would wrongly merge two branches of a chain, so it is the owner's call; (c) **whether a lone candidate should auto-accept** (`WOW` has one prefiltered row and therefore no margin, so it can never reach `preselect` by construction); (d) **landing and sign-in copy**, left alone deliberately because it is positioning and a rebrand session is planned. **Two choices made that the previous handoff had put to the owner**: drawn glyphs over emoji (consistent across platforms at pin size, one table to restyle), and all seven category pin types rather than fewer louder ones |

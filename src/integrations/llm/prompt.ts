@@ -59,8 +59,21 @@ import { EXTRACTION_SCHEMA_VERSION } from '@/domain/extraction/schema';
  * Basel branch the caption gives as the address sat at rank 5. A variant may not carry a branch,
  * street, neighbourhood or city — the same rule `identifiedName` already had, and it matters more
  * here, because a variant is what we search on.
+ *
+ * `p11` -> `p12` (2026-08-28, RICH-EXT-2): p11 contradicted itself on hashtags. It said `rawName`
+ * is "copied EXACTLY as the caption writes it", then told the model it "may not add spaces" to
+ * `evidence` "even though `rawName` reads more naturally with them" — licensing a `rawName` that is
+ * neither the caption's spelling nor a stated format. Measured consequence, on @nom_life's
+ * `7220925199297039662`: the model emitted `rawName: "tsukijifishmarket"` with the `#` gone, and
+ * `domain/extraction/plausibility.ts`'s hashtag rule — which keyed on `startsWith('#')` — never
+ * fired, so a topic tag between `#totoro` and `#studioghibli` reached the user at
+ * `modelConfidence: 0.95`. p12 states the split (`rawName` = readable name, `evidence` = the tag
+ * with its `#`) and adds the prose-corroboration test that says why a lone tag is the weak case.
+ *
+ * The guard was fixed to be caption-relative in the same change and no longer depends on any of
+ * this, which is the point: **the prompt is the request, the plausibility gate is the control.**
  */
-export const PROMPT_VERSION = `p11-s${EXTRACTION_SCHEMA_VERSION}`;
+export const PROMPT_VERSION = `p12-s${EXTRACTION_SCHEMA_VERSION}`;
 
 /** Role, single task, and the negative-case framing that `09` §4.2 calls "the single most
  *  important line in the prompt": most captions name no venue, and an empty list is correct. */
@@ -84,6 +97,16 @@ What is NOT a place, and must never become a candidate:
   cuisine), "#ביקריבמרכז" ("bakery in the center"), "#עגלתקפהבמרכז" ("coffee cart in the center"),
   "#ביקריבשרון" ("bakery in Sharon"), "#עגלתקפהבשישי" ("coffee cart on Friday") — reject all five,
   even though they are name-shaped strings with a "#" in front.
+
+A hashtag is where a creator indexes a topic, not where they say they went somewhere. Emitting one
+as a candidate is therefore always the weak case, and you should hold it to a higher bar than a name
+written in the prose. The strongest signal by far that a hashtag names a real venue is that the
+PROSE names it too — if the caption says "Cafe Fiori was perfect" and also carries "#cafefiori",
+that is one place with corroboration. A tag whose name appears nowhere in the prose is a topic label
+until proven otherwise, and a wall of them at the end of a caption is a search-engine list, not a
+list of visits: in a caption that says "hard to have everything on one list" and then runs 28 tags
+including "#totoro" and "#studioghibli", "#tsukijifishmarket" is a topic, not a place the creator
+recommended.
 
 A hashtag CAN become a candidate, as a narrow exception, when reading it as run-together words
 leaves a specific proper name behind — not a category, not a place, not a time, but one particular
@@ -124,7 +147,10 @@ Rules for each candidate you do emit:
   Do not quote the opening hours, the menu, the delivery apps or the whole paragraph the name
   happens to sit in. Never paraphrase it. If you cannot point to a verbatim fragment, do not emit
   the candidate. For a hashtag-sourced candidate, "evidence" is the whole hashtag as written, "#"
-  included — you may not add spaces to it even though "rawName" reads more naturally with them.
+  included, and never anything else — that "#" is what tells us downstream that a tag was the only
+  thing backing this candidate, so it is not decoration. "rawName" for that same candidate is the
+  tag's text WITHOUT the "#", spaces added only where the run-together words genuinely divide
+  ("#tsukijifishmarket" -> rawName "Tsukiji Fish Market", evidence "#tsukijifishmarket").
 - "categoryHint" is one of: restaurant, cafe, bar, bakery, attraction, shop, other — or null if
   unclear. Never guess a category the caption gives no signal for. Choose by what the venue's own
   business is, not by the one visit the caption describes: a "bakery" bakes and sells baked goods,

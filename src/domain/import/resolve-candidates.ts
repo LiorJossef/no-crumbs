@@ -29,8 +29,35 @@
 import type { OpCtx, PlaceResolver } from '../ports';
 import { DomainError } from '../errors';
 import { buildResolveQuery, MAX_CANDIDATES } from './pipeline';
-import { answered, type StoredResolution } from './resolution-record';
+import { providerFailureOf } from './provider-failure';
+import { answered, failed, type StoredFailureReason, type StoredResolution } from './resolution-record';
 import type { PlaceCandidate } from '../types';
+
+/**
+ * Why one lookup produced nothing, in the vocabulary the record stores.
+ *
+ * Three sources, most specific first, and the order is the point:
+ *
+ *  1. an adapter's own classification, carried on the `DomainError`'s cause chain
+ *     (`provider-failure.ts`) — `quota_exhausted`, `auth`, `bad_request`, `provider_error`,
+ *     `timed_out`, `transport`;
+ *  2. `UPSTREAM_TIMEOUT`, for an adapter that does not classify but does time out. Keeps every
+ *     pre-existing resolver — and the Overture one — reading exactly as it did;
+ *  3. `lookup_failed`, the honest floor. It now means *we do not know why*, which is a narrower
+ *     and more useful claim than it made yesterday, when it meant *every failure, including the
+ *     ones we could have named*. Four of those in a row on a real Prague import is what started
+ *     this change.
+ *
+ * Never guesses. An unclassified failure stays unclassified rather than being filed under the
+ * most likely cause, because a plausible label here would be read as a measurement by whoever
+ * greps for it next.
+ */
+function failureReasonOf(e: unknown): StoredFailureReason {
+  const classified = providerFailureOf(e);
+  if (classified !== null) return classified.kind;
+  if (e instanceof DomainError && e.code === 'UPSTREAM_TIMEOUT') return 'timed_out';
+  return 'lookup_failed';
+}
 
 export interface ResolveCandidatesOutcome {
   /** One entry per input candidate, same order, same length. */
@@ -65,10 +92,9 @@ export async function resolveCandidates(
     } catch (e) {
       // The resolver's own contract already forbids a vendor error escaping it (`place-resolver.ts`
       // converts every PostgREST/transport failure to `internal(...)`), so this only ever sees a
-      // `DomainError` in practice. The `instanceof` check is still here because a fake port in a
-      // test is not bound by that contract and must not be able to crash the loop.
-      const code = e instanceof DomainError ? e.code : 'INTERNAL';
-      resolutions.push({ kind: 'failed', reason: code === 'UPSTREAM_TIMEOUT' ? 'timed_out' : 'lookup_failed' });
+      // `DomainError` in practice. `failureReasonOf` still takes `unknown`, because a fake port in
+      // a test is not bound by that contract and must not be able to crash the loop.
+      resolutions.push(failed(failureReasonOf(e)));
     }
   }
 

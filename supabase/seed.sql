@@ -11,6 +11,19 @@
 -- -> a `places` row (+ its required `place_provider_refs` alias) -> a `saved_places` row ->
 -- a `saved_place_sources` link. This is the only way to get a row into `saved_places` at all:
 -- 0006's deferred trigger rejects an origin='import' save with no linked source.
+--
+-- Each save also carries the `0019` enrichment — `tags`, `why_go`, `dishes` — because the tag
+-- chips filter both the list and the pins, and without seeded tags a freshly reset database has
+-- literally nothing for a tag-filtering test (or a human clicking around) to discover. The values
+-- are written in the SAME canonical form the application writes: `normalize_tag_list()` is a no-op
+-- on them, so what is seeded is what a real extraction would have stored, not a shape only the
+-- database would accept. See `src/domain/extraction/tags.ts` — lowercase, no punctuation, no
+-- accents, 2..28 characters, at most five per save.
+--
+-- Hebrew tags are seeded deliberately, not decoratively: he<->en is the language scope this
+-- product promises (`docs/current-state.md` §4), and a Hebrew tag is the one that exercises the
+-- bidi isolate on the chip, the RTL label inside an LTR accessible name on the dismiss pill, and
+-- `tagKey` equality across a click handler. A fixture with only ASCII tags cannot check any of it.
 
 -- ---------------------------------------------------------------------------------------------
 -- The demo user. Inserted directly into auth.users (local-dev only — the hosted projects have no
@@ -77,7 +90,10 @@ declare
       "caption": "grab the sourdough at anat bakery, worth the queue",
       "thumb": null,
       "name": "Anat Bakery", "category": "bakery", "addr": "3 Shabazi St",
-      "lat": 32.0596, "lng": 34.7654
+      "lat": 32.0596, "lng": 34.7654,
+      "tags": ["bakery", "מאפייה", "morning"],
+      "dishes": ["sourdough loaf"],
+      "whyGo": "The sourdough is worth the queue."
     },
     {
       "pid": "70000000000000002", "ppid": "demo-2a",
@@ -85,7 +101,10 @@ declare
       "caption": "ended the night at container, rooftop view of the port",
       "thumb": null,
       "name": "Container", "category": "bar", "addr": "43 Retzif Ha''Aliya Hashniya St",
-      "lat": 32.0524, "lng": 34.7498
+      "lat": 32.0524, "lng": 34.7498,
+      "tags": ["rooftop", "late night", "port view"],
+      "dishes": [],
+      "whyGo": "A rooftop bar looking out over the old port."
     },
     {
       "pid": "70000000000000003", "ppid": "demo-3",
@@ -93,7 +112,10 @@ declare
       "caption": "flat white and a window seat on rothschild, come early",
       "thumb": "https://commons.wikimedia.org/wiki/Special:FilePath/Interior%20Johnie%27s%20Coffee%20Shop%202021.jpg",
       "name": "Nordoy Café", "category": "cafe", "addr": "27 Rothschild Blvd",
-      "lat": 32.0668, "lng": 34.7749
+      "lat": 32.0668, "lng": 34.7749,
+      "tags": ["coffee", "בית קפה", "brunch"],
+      "dishes": ["flat white"],
+      "whyGo": "Come early if you want the window seat on Rothschild."
     },
     {
       "pid": "70000000000000004", "ppid": "demo-4",
@@ -101,7 +123,10 @@ declare
       "caption": "florentin''s best cortado, tiny place easy to miss",
       "thumb": "https://commons.wikimedia.org/wiki/Special:FilePath/420%20Cafe%20Coffeeshop%2C%20Amsterdam.jpg",
       "name": "Café Florentin", "category": "cafe", "addr": "12 Vital St",
-      "lat": 32.0554, "lng": 34.7686
+      "lat": 32.0554, "lng": 34.7686,
+      "tags": ["coffee", "hidden gem"],
+      "dishes": ["cortado"],
+      "whyGo": "A tiny place, easy to walk straight past."
     },
     {
       "pid": "70000000000000005", "ppid": "demo-5",
@@ -109,7 +134,10 @@ declare
       "caption": "neve tzedek coffee break between the boutiques",
       "thumb": "https://commons.wikimedia.org/wiki/Special:FilePath/Van%20Houtte%20Coffee%20Shop.jpg",
       "name": "Neve Tzedek Coffee House", "category": "cafe", "addr": "8 Shabazi St",
-      "lat": 32.0587, "lng": 34.7625
+      "lat": 32.0587, "lng": 34.7625,
+      "tags": ["coffee", "בית קפה", "quiet"],
+      "dishes": [],
+      "whyGo": "A coffee break between the Neve Tzedek boutiques."
     },
     {
       "pid": "70000000000000006", "ppid": "demo-6",
@@ -117,7 +145,10 @@ declare
       "caption": "old north espresso bar, best oat milk in the area",
       "thumb": "https://commons.wikimedia.org/wiki/Special:FilePath/777%20Coffee%20Shop.jpg",
       "name": "Old North Espresso Bar", "category": "cafe", "addr": "55 Ben Gurion Blvd",
-      "lat": 32.0870, "lng": 34.7749
+      "lat": 32.0870, "lng": 34.7749,
+      "tags": ["coffee", "oat milk", "espresso bar"],
+      "dishes": ["oat flat white"],
+      "whyGo": "The best oat milk in the old north."
     }
   ]'::jsonb;
   v_spot jsonb;
@@ -165,10 +196,22 @@ begin
     -- privileged table in this chain, so setting the two denormalized columns to exactly what the
     -- helper would derive (this loop's single source is each place's first and only one) keeps the
     -- same first-source-only semantics without needing an auth context.
+    -- `tags` / `dishes` are written directly rather than through apply_saved_place_extraction()
+    -- (0019) for the same reason the two source_* columns above are: that helper is service_role
+    -- only AND coalesce-only ("first writer wins"), and this script has no auth session. The
+    -- values are already canonical, so 0019's normalising trigger is a no-op on them and the two
+    -- CHECKs pass unchanged — if either ever stops being true, this insert fails loudly on the
+    -- next `db reset` rather than seeding a shape the app could not have produced.
+    -- `nullif(..., '{}')` matters: NULL is the ONLY empty state for these columns (0019's header),
+    -- and an empty array is not storable.
     insert into public.saved_places (user_id, place_id, origin, visit_state,
-                                      source_url, source_thumbnail_url)
+                                      source_url, source_thumbnail_url,
+                                      tags, why_go, dishes)
     values (v_user_id, v_place_id, 'import', 'want_to_go',
-            v_canonical_url, v_spot->>'thumb')
+            v_canonical_url, v_spot->>'thumb',
+            nullif(array(select jsonb_array_elements_text(v_spot->'tags')), '{}'::text[]),
+            v_spot->>'whyGo',
+            nullif(array(select jsonb_array_elements_text(v_spot->'dishes')), '{}'::text[]))
     returning id into v_saved_id;
 
     insert into public.saved_place_sources (saved_place_id, source_id, user_id)

@@ -31,6 +31,7 @@ import {
   PlaceSearchField,
 } from './place-sheet';
 import { ActiveTagFilter } from './place-enrichment';
+import { NotBeenFilterChip } from './visit-state';
 import type { AreaHeading, AreaRow } from '@/ui/place/active-area';
 import type { MapPlace } from '@/components/map/types';
 
@@ -49,6 +50,10 @@ export interface PlaceDesktopPanelProps {
    *  the mobile sheet — the two surfaces present one filter, not two. */
   readonly activeTag: string | null;
   readonly onClearTag: () => void;
+  /** Whether the library is narrowed to places the user has not been to yet. Same prop, same chip
+   *  and same behaviour as the mobile sheet — the two surfaces present one filter, not two. */
+  readonly notBeenOnly: boolean;
+  readonly onToggleNotBeen: () => void;
   /** Opens the import overlay in `map-page-client.tsx` (client state) rather than navigating to
    *  the standalone `/import` route, so the map underneath this panel stays mounted. */
   readonly onAddTikTok: () => void;
@@ -68,6 +73,8 @@ export function PlaceDesktopPanel({
   onQueryChange,
   activeTag,
   onClearTag,
+  notBeenOnly,
+  onToggleNotBeen,
   onAddTikTok,
   onSelect,
 }: PlaceDesktopPanelProps) {
@@ -107,8 +114,16 @@ export function PlaceDesktopPanel({
               false affordance. The heading and the one line above it are the whole screen. */}
           {!libraryIsEmpty && <PlaceSearchField value={query} onChange={onQueryChange} />}
           {/* Inside the header block, under the field and above whatever the list turns out to be,
-              so the control that undoes the filter is present in the empty state too. */}
+              so the controls that undo a filter are present in the empty state too. */}
+          {!libraryIsEmpty && (
+            <NotBeenFilterChip active={notBeenOnly} onToggle={onToggleNotBeen} />
+          )}
           {activeTag !== null && <ActiveTagFilter tag={activeTag} onClear={onClearTag} />}
+          {/* See `AreaHeading.note`: the one line an achievement heading needs and a failed query
+              does not. */}
+          {!libraryIsEmpty && heading.note !== null && (
+            <p className="text-sm font-medium text-muted-foreground">{heading.note}</p>
+          )}
         </div>
 
         {libraryIsEmpty ? null : (

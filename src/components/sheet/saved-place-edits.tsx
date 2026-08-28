@@ -2,9 +2,10 @@
 
 /**
  * The edits a user can make to a place they already saved — `L1-F7-T2` for the note and the delete,
- * and the category since 2026-08-28. All of them live here rather than inside `PlaceDetail` because
- * `place-sheet.tsx` is already 600 lines, and because they share one idiom: a `useTransition` around
- * a Server Action, an inline error, and no optimistic update.
+ * the category since 2026-08-28, and the been / not-been mark (`L1-F12-T1`). All of them live here
+ * rather than inside `PlaceDetail` because `place-sheet.tsx` is already 900 lines, and because they
+ * share one idiom: a `useTransition` around a Server Action, an inline error, and no optimistic
+ * update.
  *
  * ## One component pair, two surfaces
  *
@@ -32,14 +33,22 @@
  */
 
 import { useEffect, useRef, useState, useTransition } from 'react';
-import { Trash2, Pencil } from 'lucide-react';
+import { Trash2, Pencil, Check } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
   deleteSavedPlace,
+  setSavedPlaceVisited,
   updateSavedPlaceCategory,
   updateSavedPlaceNote,
 } from '@/app/actions/saved-places';
+import { useAnnouncer } from '@/ui/place/announce';
+import {
+  BEEN_ACTION_LABEL,
+  BEEN_STATE_LABEL,
+  visitChangeAnnouncement,
+  visitToggleAccessibleName,
+} from '@/ui/place/visit-state';
 import { NOTE_MAX_LENGTH, isNoteUnchanged, validateNote } from '@/domain/places/note';
 import {
   PRODUCT_CATEGORY_LABEL,
@@ -52,6 +61,108 @@ import { cn } from '@/lib/utils';
 const COUNTER_VISIBLE_FROM = NOTE_MAX_LENGTH - 200;
 
 const LABEL = 'text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase';
+
+/**
+ * "I've been here" — the one control that lets the library resolve rather than only grow.
+ *
+ * ## Why it is a toggle and not a checkbox, a menu item or a two-step confirm
+ *
+ * Marking is cheap to undo and costs nothing when wrong: the place stays on the map, keeps its
+ * note, keeps its pin, and one more tap puts it back. A confirmation step for an action with no
+ * consequence is ceremony, which is why `RemoveSavedPlace` below has two steps and this has one.
+ * `aria-pressed` rather than a checkbox because the control's own label changes with its state —
+ * `Been here` is an offer, `Been` is a fact — and that is a button's idiom, not an input's.
+ *
+ * ## Why it sits first among the three controls
+ *
+ * Category and note are things you set once, near the save. This is the thing you come *back* to a
+ * saved place to do, weeks later, and it is the only control on this screen the product is asking
+ * you to use repeatedly. It is still inside the same controls block as the note rather than up
+ * beside the place's name: the header block is identity (name, category, tags) and a control that
+ * changes state does not belong in it.
+ *
+ * ## Not optimistic, and no camera move
+ *
+ * Same rule as every other write here: `revalidatePath('/map')` is what updates the row's badge and
+ * the pin's opacity, so the screen can never disagree with the database about where you have been.
+ * Nothing in this component touches `focusPlaceIds` or any other camera mover — marking is a state
+ * change, not a navigation, and the map must not fly anywhere because you said you had been
+ * somewhere.
+ *
+ * The announcement goes through the page's single `role="status"` line
+ * (`src/ui/place/announce.ts`), because for a keyboard or screen-reader user the *effect* of this
+ * press is entirely visual: a badge appears, a pin fades, and with `Not been yet` on the row it
+ * refers to leaves the list. The ticket is taken before the request, so two quick presses can never
+ * leave the older sentence on screen.
+ */
+export function BeenToggle({
+  savedPlaceId,
+  placeName,
+  visited,
+}: {
+  savedPlaceId: string;
+  placeName: string;
+  visited: boolean;
+}) {
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const announcer = useAnnouncer();
+
+  function toggle() {
+    // Re-entry guard rather than `disabled`, and the difference is a real accessibility bug rather
+    // than a style choice. Measured 2026-08-28 at 1440x900: `disabled={pending}` removed the
+    // button from the focus order the instant it was activated, so a keyboard user pressing Space
+    // was dropped onto `<body>` and lost their place in a scrolling detail view. `aria-busy` says
+    // the same thing to assistive technology without taking focus away, and this guard gives the
+    // same protection against a second write landing on a stale `visited`.
+    if (pending) return;
+    const next = !visited;
+    // Claimed now, not when the request resolves — see `announce.ts` for why the order has to be
+    // the order of the gestures rather than of the responses.
+    const ticket = announcer?.begin() ?? 0;
+    setError(null);
+    startTransition(async () => {
+      const result = await setSavedPlaceVisited(savedPlaceId, next);
+      if (result.ok) {
+        announcer?.say(ticket, visitChangeAnnouncement(placeName, next));
+        return;
+      }
+      setError(result.message);
+    });
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <button
+        type="button"
+        aria-pressed={visited}
+        // The place is named as well as the state: this control has three render sites, and in the
+        // desktop map popover it sits a few nodes away from a list of other places' rows.
+        aria-label={visitToggleAccessibleName(placeName, visited)}
+        aria-busy={pending || undefined}
+        onClick={toggle}
+        // `data-vaul-no-drag`: inside the mobile sheet a press that begins here would otherwise be
+        // read as the start of a sheet drag and the tap would be swallowed.
+        data-vaul-no-drag
+        className={cn(
+          'flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border text-sm font-bold outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
+          pending && 'opacity-50',
+          visited
+            ? 'border-transparent bg-[var(--mint-100)] text-[var(--mint-700)]'
+            : 'border-input text-foreground hover:bg-muted',
+        )}
+      >
+        <Check className="size-4 shrink-0" aria-hidden />
+        {visited ? BEEN_STATE_LABEL : BEEN_ACTION_LABEL}
+      </button>
+      {error && (
+        <p role="alert" className="text-xs font-medium text-destructive">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
 
 /**
  * The user's own note: read, edit, clear. The only user-writable text on a saved place — `0015`

@@ -1,0 +1,34 @@
+SOURCE: https://docs.overturemaps.org/attribution/  (page: Last updated on May 15, 2026)
+FETCHED: 2026-08-28 (curl). EXTRACT: Places theme source licences.
+----------------------------------------------------------------------
+
+ Places ​ 
+ Data from Meta . Available under CDLA Permissive 2.0 .
+ Data from Microsoft . Available under CDLA Permissive 2.0 .
+ Data from PinMeTo . Available under CDLA Permissive 2.0 .
+ Data from Krick . Available under CDLA Permissive 2.0 .
+ Data from RenderSEO . Available under CDLA Permissive 2.0 .
+ Data from DAC . Available under CDLA Permissive 2.0 .
+ Data from BrightQuery . Available under CDLA Permissive 2.0 .
+ Data from Foursquare . Copyright 2024 Foursquare Labs, Inc. All rights reserved. Available under Apache 2.0 . Foursquare data was transformed to the Overture schema. Changed: 2026-03-18. NOTICE.txt .
+ Data from AllThePlaces . Available under CC0 1.0 .
+ Transportation ​ 
+ License for theme: ODbL 
+ © OpenStreetMap contributors. Available under the Open Database License .
+ Data from TomTom .
+ Last updated on May 15, 2026 
+ Previous
+ GERS Tutorial
+ Next
+ Releases
+ Addresses 
+---- CDLA-Permissive-2.0, https://cdla.dev/permissive-2-0/ ----
+1. Provision of the Data 
+ 1.1. A Data Recipient may use, modify, and share the Data made available by Data Provider(s) under this agreement if that Data Recipient follows the terms of this agreement.
+ 1.2. This agreement does not impose any restriction on a Data Recipient’s use, modification, or sharing of any portions of the Data that are in the public domain or that may be used, modified, or shared under any other legal exception or limitation.
+ 2. Conditions for Sharing Data 
+ 2.1. A Data Recipient may share Data, with or without modifications, so long as the Data Recipient makes available the text of this agreement with the shared Data.
+ 3. No Restrictions on Results 
+ 3.1. This agreement does not impose any restriction or obligations with respect to the use, modification, or sharing of Results.
+ 4. No Warranty; Limitation of Liability 
+ 4.1. All Data Recipients receive the Data sub

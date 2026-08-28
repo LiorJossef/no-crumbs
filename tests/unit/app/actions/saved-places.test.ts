@@ -1,6 +1,6 @@
 /**
- * Unit coverage for the Server Actions on a saved place — the two behind `L1-F7-T2` and the
- * category override added on 2026-08-28.
+ * Unit coverage for the Server Actions on a saved place — the two behind `L1-F7-T2`, the category
+ * override added on 2026-08-28, and the been / not-been mark (`L1-F12-T1`).
  *
  * The Supabase client is mocked, so this proves the *shape* of what reaches the database — which
  * table, which filter, which values, and whether `revalidatePath` runs — not that RLS scopes the
@@ -75,9 +75,12 @@ vi.mock('@/app/_lib/supabase/server', () => ({
   }),
 }));
 
-const { deleteSavedPlace, updateSavedPlaceCategory, updateSavedPlaceNote } = await import(
-  '@/app/actions/saved-places'
-);
+const {
+  deleteSavedPlace,
+  setSavedPlaceVisited,
+  updateSavedPlaceCategory,
+  updateSavedPlaceNote,
+} = await import('@/app/actions/saved-places');
 
 beforeEach(() => {
   calls.length = 0;
@@ -287,5 +290,132 @@ describe('updateSavedPlaceCategory', () => {
     const outcome = await updateSavedPlaceCategory('sp-1', 'bar');
     expect(outcome.ok).toBe(false);
     expect(calls).toEqual([]);
+  });
+});
+
+describe('setSavedPlaceVisited', () => {
+  /**
+   * The trap this whole feature turns on. `saved_places_visited_at_consistent` (`0006`) is
+   * `check (visit_state = 'visited' or visited_at is null)`, so the two columns are one value in
+   * two slots: an update that clears the state and leaves the timestamp is rejected with `23514`,
+   * and an update that sets the timestamp without the state is rejected from the other side.
+   *
+   * These tests pin the payload rather than the outcome, because the payload is the only thing
+   * this side of the wire controls — and the failing shape is asserted *by name* below rather than
+   * routed around, so a future edit that writes one column at a time goes red here instead of in
+   * production. The constraint itself is Postgres's and was exercised directly against the local
+   * database (`23514` on the split write, accepted on the paired one); a mock cannot prove that and
+   * this file does not pretend to.
+   */
+  it('marks a place as been by writing both columns in one update', async () => {
+    const before = Date.now();
+    await expect(setSavedPlaceVisited('sp-1', true)).resolves.toEqual({ ok: true });
+
+    expect(calls).toHaveLength(1);
+    const call = calls[0];
+    expect(call?.table).toBe('saved_places');
+    expect(call?.op).toBe('update');
+    expect(call?.count).toBe('exact');
+    expect(call?.filter).toEqual({ column: 'id', value: 'sp-1' });
+    expect(Object.keys(call?.values ?? {}).sort()).toEqual(['visit_state', 'visited_at']);
+    expect(call?.values?.visit_state).toBe('visited');
+    const stamped = Date.parse(String(call?.values?.visited_at));
+    expect(Number.isNaN(stamped)).toBe(false);
+    expect(stamped).toBeGreaterThanOrEqual(before);
+    expect(revalidated).toEqual(['/map']);
+  });
+
+  it('unmarks by clearing the timestamp in the same statement, never leaving it behind', async () => {
+    // The 23514 shape, asserted directly: `visit_state: 'want_to_go'` with a non-null `visited_at`
+    // is exactly what the CHECK rejects, so it must never be constructed.
+    await expect(setSavedPlaceVisited('sp-1', false)).resolves.toEqual({ ok: true });
+
+    expect(calls[0]?.values).toEqual({ visit_state: 'want_to_go', visited_at: null });
+    expect(calls[0]?.values?.visited_at).toBeNull();
+  });
+
+  it('survives the round trip mark -> unmark -> mark with a legal payload every time', async () => {
+    await setSavedPlaceVisited('sp-1', true);
+    await setSavedPlaceVisited('sp-1', false);
+    await setSavedPlaceVisited('sp-1', true);
+
+    expect(calls).toHaveLength(3);
+    for (const call of calls) {
+      const values = call.values ?? {};
+      // The constraint, restated as a predicate over the payload: either the state is `visited`,
+      // or the timestamp is null. Any third shape is a `23514` waiting to happen.
+      expect(values.visit_state === 'visited' || values.visited_at === null).toBe(true);
+      expect(Object.keys(values).sort()).toEqual(['visit_state', 'visited_at']);
+    }
+    expect(calls.map((call) => call.values?.visit_state)).toEqual([
+      'visited',
+      'want_to_go',
+      'visited',
+    ]);
+  });
+
+  it('writes the two visit columns and nothing else', async () => {
+    // `0006`'s UPDATE column grant covers display_name/category_override/note/visit_state/
+    // visited_at. Widening this action would be a schema conversation, not a code change.
+    await setSavedPlaceVisited('sp-1', true);
+    expect(Object.keys(calls[0]?.values ?? {}).sort()).toEqual(['visit_state', 'visited_at']);
+  });
+
+  it('filters on the row id alone and adds no user_id filter of its own', async () => {
+    // `saved_places_update_own` is the control. See the action file's header.
+    await setSavedPlaceVisited('sp-1', true);
+    expect(calls[0]?.filter).toEqual({ column: 'id', value: 'sp-1' });
+  });
+
+  it("reports another user's row as gone, and does not revalidate", async () => {
+    result = { error: null, count: 0 };
+
+    await expect(setSavedPlaceVisited('someone-elses-row', true)).resolves.toEqual({
+      ok: false,
+      message: 'That place is no longer in your list.',
+    });
+    expect(revalidated).toEqual([]);
+  });
+
+  it('refuses without a session and never reaches the database', async () => {
+    currentUser = null;
+
+    await expect(setSavedPlaceVisited('sp-1', true)).resolves.toEqual({
+      ok: false,
+      message: 'You are signed out. Sign in and try again.',
+    });
+    expect(calls).toEqual([]);
+  });
+
+  it('does not leak the CHECK violation into the message shown to the user', async () => {
+    result = {
+      error: { code: '23514', message: 'saved_places_visited_at_consistent violated' },
+      count: null,
+    };
+
+    const outcome = await setSavedPlaceVisited('sp-1', false);
+
+    expect(outcome.ok).toBe(false);
+    if (outcome.ok) throw new Error('unreachable');
+    expect(outcome.message).toBe("Couldn't update that place. Try again.");
+    expect(outcome.message).not.toContain('saved_places_visited_at_consistent');
+    expect(outcome.message).not.toContain('23514');
+    expect(revalidated).toEqual([]);
+  });
+
+  it('never puts a schema word in anything the user can read', async () => {
+    result = { error: null, count: 0 };
+    const gone = await setSavedPlaceVisited('sp-1', true);
+    result = { error: { code: '23514', message: 'x' }, count: null };
+    const failed = await setSavedPlaceVisited('sp-1', true);
+    currentUser = null;
+    const signedOut = await setSavedPlaceVisited('sp-1', true);
+
+    for (const outcome of [gone, failed, signedOut]) {
+      if (outcome.ok) throw new Error('unreachable');
+      for (const word of ['visit_state', 'want_to_go', 'visited']) {
+        expect(outcome.message).not.toContain(word);
+      }
+    }
   });
 });

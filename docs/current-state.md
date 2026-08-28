@@ -1,172 +1,90 @@
 # Current state — cold-start document
 
----
-> ## ⚠ READ FIRST — [`handoff-2026-08-29-overnight-map-and-information.md`](handoff-2026-08-29-overnight-map-and-information.md) is the newest state
+> **Read this section, then §9. Everything between them is history and is dated.**
 >
-> It supersedes **both** banners below and every ordered step in them. Five PRs (#50–#53) landed the
-> map and information work overnight; `main` was green at 1021 tests.
->
-> ### Already shipped — do not re-plan these
->
-> On 2026-08-28 two separate investigations in one session were dispatched to work on features that
-> were **already on `main`**, because this document still described them as outstanding. The cost was
-> real. Before planning anything from the prose below, check it against `git log main`.
->
-> | Reads as open below | Actually shipped |
-> |---|---|
-> | "Tag chips are still inert labels" (§0.3) | `6004baf` — detail chips are pressable, filter the list *and* the pins, with a removable `ActiveTagFilter` pill |
-> | Uniform map pins | `cb58e12` — every pin is a category-coloured teardrop with a drawn glyph |
-> | Clusters that only count | `99bb691` — clusters colour by strict-majority category and open on tap |
-> | Category shows the model's guess | `38325e8` — `ProductCategory` reads `places.provider_category` |
-> | Hebrew basemap labels reversed | `59ba7dc` — RTL text plugin loaded |
->
-> Two things inside the tag-chip item are **still genuinely open** and must not be swept up in the
-> correction: **list-row chips are inert by design** (a 20px chip inside the row's own button is
-> nested-interactive and under the 44px touch floor — deferred to a taller-row redesign), and a
-> `TagChipList` rendered outside a `TagFilterContext` still falls back to inert spans.
->
-> ### The real open items, as of 2026-08-28
->
-> The owner's ruling on the **candidate picker** (the newest handoff §3), the **category term in the
-> scorer** (TLV-14), whether a **lone candidate should auto-accept**, the **product name**, the
-> **Vercel env restore** (§5.1, owner-only), **dark mode** (still an unsigned first pass), and
-> **Playwright coverage for search and tag filtering** — was zero; now
-> [PR #64](https://github.com/LiorJossef/P-002/pull/64) (`test/retrieval-e2e`), eight tests over both
-> breakpoints, **open and deliberately not merged**. One design question first: the map is a canvas
-> with `preserveDrawingBuffer: false`, so the harness reaches MapLibre by walking React's fiber tree
-> — careful and loud-failing, but ~90 lines of internals archaeology where one inert
-> `data-place-count` on the map surface would do. That is a `src/components/map/**` change, and
-> `L1-F5-T5` reworks that file anyway, so the two are cheaper together. Two follow-ups either way:
-> the suite **skips in CI** (no `E2E_PASSWORD`, so a green check does not mean it ran) and
-> `seed.sql` writes no tags at all, so a `db:reset` leaves it nothing to discover.
->
-> ### Why this keeps happening, and the fix
->
-> This file is a **cold-start document** but it is written as a session handoff, and each new session
-> adds a separate `handoff-*.md` instead of reconciling this one. The banner stack is now three deep.
-> **Whoever closes a session updates the top banner to point at the newest handoff** — that is the
-> whole fix, and it takes one line.
+> Last reconciled: **2026-08-28**, at the close of the parallel-streams session.
+> The newest session handoff is [`handoff-2026-08-28-integration.md`](handoff-2026-08-28-integration.md).
 
+## The rule that keeps this file honest
 
----
-> ## ⚠ LATEST — read [`handoff-2026-08-28-categories-and-the-picker.md`](handoff-2026-08-28-categories-and-the-picker.md) FIRST
->
-> Supersedes the §10 priority order of the Google-Places handoff below (which is still correct about
-> the resolver, the ToS gate and the quota). Landed: the **RTL text plugin** — every Hebrew label on
-> the basemap was rendering backwards — and a **`ProductCategory` vocabulary** that finally reads
-> `places.provider_category`, so a gelateria stops being filed as "Shop".
->
-> **The next piece of work is the owner's ruling on the candidate picker** (§3 there): we ask
-> "Needs your pick" between two rows at the same address when name, category, address and a 0.31
-> margin all agree — because `datasetConfidence` 0.295 vetoed the gate. Treat it as a general
-> product + recognition problem, not a scoring tweak. A measurement of three weightings was in
-> flight and did not return; re-run it, and check TLV-14 before shipping anything.
+This file had a **four-deep stack of "⚠ READ FIRST" banners**, each added by a session that wrote a
+new `handoff-*.md` instead of reconciling this one. It cost real work: on 2026-08-28 two separate
+investigations were dispatched to build features that were **already on `main`**, because this
+document still described them as outstanding.
 
----
-> ## ⚠ LATEST — read [`handoff-2026-08-28-google-places-primary.md`](handoff-2026-08-28-google-places-primary.md) FIRST
->
-> It supersedes the ordered steps in every earlier handoff. Headline: **Google Places is now the
-> primary place resolver** (owner ruling, 2026-08-28) with the Overture index preserved off the
-> primary path and the MapLibre renderer unchanged. Measured on the same 13 real TikToks through the
-> shipped flow: **Google 15/15 correct top-1 against Overture's 12/15**, auto-match 6/16 vs 7/16 —
-> more accurate, slightly less decisive.
->
-> **It is not shippable yet, and that is not a code problem.** The Cloud project caps Places Text
-> Search at **100 requests/day** and one night of benchmarking exhausted it. Raising it is an owner
-> console/billing action. Separately, `06` §3.1 forbids Google Places data on a non-Google map, so
-> `place-resolver-factory.ts` keeps **production on Overture** until the renderer moves.
->
-> Also landed: **TikTok photo/carousel posts are supported** (`04` §5 category L closed with a real
-> specimen — oEmbed 400s `/photo/` and 200s the same id under `/video/`), and a provenance bug that
-> wrote a correctly-resolved place to `places` as `llm-guess` while 1054 tests stayed green.
->
-> **Refuted, do not repeat:** cover-frame OCR (recall 1/8, and it reads background shopfronts as
-> venues); Google's `types` array as a fix for the category term.
+**Whoever closes a session updates this section — not by adding a banner above it.** One accurate
+page beats five layers of correction. Before planning anything from the prose further down, check
+it against `git log main`.
 
----
-> ## ⚠ 2026-08-29 — [`handoff-2026-08-29-overnight-map-and-information.md`](handoff-2026-08-29-overnight-map-and-information.md)
->
-> Superseded by the entry above for *ordered steps*; its findings still stand and its map and
-> extraction work is all on `main`. Headline at the time: the map answers all three of the
-> owner's complaints (category pins, clusters that open and are coloured by their majority
-> category, a basemap re-tinted into the product's palette); the "information feels generic"
-> problem was **three separate problems** — presentation, a Hebrew `countryHint` storing
-> `country_code` NULL, and four extraction rules — all fixed and measured; and recognition is
-> **7/16 (44%) with zero false auto-accepts** under prompt `p11`, the same rate as `p8` with
-> `extraction_miss` down 3 → 1.
->
-> **The decisive-margin band change was tried and refuted** —
-> [`evidence/places/band-policy.md`](evidence/places/band-policy.md). It points at the scorer's
-> category term, not at the band gate. Nothing shipped there.
->
-> Bilingual query expansion (the previous handoff's next step) **shipped** and is in `p11`. The
-> 4/16 = 25% figure below is two prompt versions stale.
+## Where the product is, in one page
+
+**The core loop runs end to end**: paste a TikTok link → oEmbed → caption → LLM extraction →
+resolve → review and confirm → `places` / `saved_places` → map, list, search, tag filter, place
+detail. Verified against real TikToks, not only tests.
+
+**Recognition, measured 2026-08-28 by replaying recorded provider answers through the shipped
+scorer** (`evidence/places/recognition-scoreboard-2026-08-28.md`, and
+`recognition-decisive-evidence-2026-08-28.md` for the band rules):
+
+| | Google (canonical) | Overture (legacy) |
+|---|---|---|
+| correct top-1 | **15/16 · 94%** | 12/16 · 75% |
+| auto-resolution | **12/16 · 75%** | **12/16 · 75%** |
+| genuine ambiguity | 0 | 0 |
+| **wrong auto-match** | **0** | **0** |
+| needless questions | 3 | **0** |
+
+**Every auto-match rate written anywhere else in this repository is stale.** The widely-quoted
+"44%" is an *Overture* number under superseded weights and was never the Google path. Do not
+compare against it.
+
+**What resolution does when it fails**: it does not dead-end. A failed or unmatched lookup with a
+model coordinate still saves, as `llm_guess` / `llm-guess` with a null `resolution_score` and an
+approximate pin, and the screen says why and how many. No model coordinate means an honest
+unresolved state — never a fabricated point.
+
+**The caption is the extraction ceiling, and that is settled by evidence**
+(`evidence/extraction/transcription-and-media-feasibility-2026-08-28.md`). There is no compliant
+way to obtain TikTok audio, subtitles, or images 2..N of a carousel: oEmbed carries no media field,
+the Display API returns only the authenticated user's own uploads, and the ToS forbid extraction by
+any automated system not provided by TikTok — so a scraping vendor relocates the prohibition rather
+than curing it. **Do not re-investigate this.** Cover-frame OCR is separately refuted (recall 1/8).
+
+## Decisions a new session must not reopen
+
+- **Google Places is the canonical resolver**, in the environments where it is already in use.
+  **Owner ruling, 2026-08-28: the Google-Places-on-MapLibre policy question is decided for this
+  phase — do not reopen it, do not disable Google in preview/staging, and do not redesign the
+  resolver around it.** Moving the renderer to Google Maps is being considered separately and is
+  the owner's to sequence. The compliance analysis is preserved at
+  `evidence/places/google-places-display-ruling-2026-08-28.md` **as recorded evidence, not as a
+  live question**.
+- **Overture is not to be reintroduced.** It remains in the tree on the non-primary path.
+- **Density clustering of saved places is removed** (owner ruling, `06` §9.1). The world-zoom
+  country summary — flag emoji plus a saved-place count — is a *summary of the library*, not of
+  density, and is a separate L2 item.
+- **Resolution must never dead-end** (owner ruling): honest `llm_guess` fallback, never a
+  fabricated provider identity, upgradeable later.
+
+## The three gates between here and the owner's ~100-TikTok batch
+
+All four owner-only items, ordered, are in
+[`evidence/deploy/owner-actions-before-the-batch.md`](evidence/deploy/owner-actions-before-the-batch.md).
+The short version, all measured this session:
+
+1. **`PROD_DATABASE_URL` is empty in `.env.local`.** Blocks the production push (`db-push.sh`
+   refuses to start) *and* `db:inventory:prod`, so **production is currently unverifiable** —
+   several statements about production in this repo are reasoned from migration files rather than
+   read off the database.
+2. **The Vercel env store is empty**, so `/map` and `/import` 500 in production.
+   `vercel-env-restore.md` was corrected this session: four variables were missing and one
+   recommended variable is obsolete.
+3. **Hosted migrations.** Staging is at `0018` (missing `0019`–`0023`). **Production is at `0009`,
+   missing fourteen** — not `0018` as two documents previously claimed. And production's
+   `save_place`/`resolve_place` are the old arities, so a production confirm would **500 loudly**
+   (PGRST202, measured — there is no silent fallback).
 
 ---
-> ## ⚠ 2026-08-28 — [`handoff-2026-08-28-recognition-corpus.md`](handoff-2026-08-28-recognition-corpus.md)
->
-> Superseded by the entry above; its §4–§7 facts are still good. Headline at the time:
-> the auto-match rate was **4/16 (25%)**, the address signal shipped in both the scorer and
-> the prefilter, and the next step was bilingual query expansion — every venue we could not find
-> was in the index under its Latin name while the caption gave the Hebrew one.
-
----
-> ## Session of 2026-08-27 (fifth)
->
-> **The resolver work is committed and on `main`** ([PR #40](https://github.com/LiorJossef/P-002/pull/40),
-> six checks green). The fourth session's whole change set was uncommitted; it is now five atomic
-> commits. `poi_index` holds **10,462 Overture rows for Tel Aviv + Hasharon** (lat 31.95–32.40, lng
-> 34.70–35.00), loaded locally. On a real caption the resolver lands **11 m** from truth where the
-> model's own guesses were **555 m** and **483 m** out.
->
-> **The headline number changed, and the old one was the instrument.** The owner supplied 13 real
-> TikToks. Measured through the shipped flow (oEmbed → caption → extraction → resolve), the
-> **auto-match rate is 4/16 (25%)**. The synthetic benchmark says 11/15. Every number this project
-> quoted before today came from hand-written queries that are *script-matched to the index by
-> construction* — a Latin query for a Latin-named row — which is exactly what a real caption is not.
-> **Quote the corpus number, not the benchmark number.** Harness:
-> `tests/manual/tiktok-recognition.manual.ts`; corpus: `tests/manual/tiktok-recognition-corpus.json`;
-> record: `docs/evidence/places/tiktok-recognition-run.json`. Re-running costs zero LLM calls.
->
-> **The dominant failure is that we throw away the street address.** The extractor already
-> populates `addressHint` for 9 of 17 candidates; `poi_index.address_line` holds the same strings;
-> `ResolveQuery` has no address field at all. Exact address matches sit in the index for four
-> venues we currently get wrong (Kohi @ בן יהודה 155, Brasserie 18 @ לבונטין 19, Rustico @ בזל 42,
-> wow london @ בית אשל 15). The address is also **script-neutral** — `קוהי` reaches
-> `Kohi Coffee Shop` on the address where no name match can.
->
-> **The handoff's priority #2 (OSM `alt_names`) is deprioritised on evidence — see §0.5.**
->
-> Two silent-failure fixes landed: a city named only in the candidate text now scopes the query
-> (TLV-12 went from `regionsSearched: []` to `['tlv']`), and Hebrew abbreviations (`ת״א`, `ר״ג`,
-> `פ״ת`…) are recognised. `no_region_searched` on the real corpus is now **0**.
->
-> Still true from the fourth session, and still worth reading its handoff for: the failure taxonomy,
-> the measured facts about Overture and OSM coverage, and the environment traps in its §7.
-
----
-
-> Updated **2026-08-27**. Read this after `CLAUDE.md` and `working-agreement.md`, before anything
-> else. It is the running state, not a diary: when something here stops being true, change it.
->
-> This session rewrote the file rather than appending to it. Everything still true was kept;
-> narrative that had stopped earning its place was dropped. The previous version is in git history.
->
-> **Session of 2026-08-27 (second half) added:** §2.1 (PR #35 landed, and the constraint-mode trap
-> that nearly stopped it), §5.8 (a quarter of the library is phantom, measured), §5b (the mio travel
-> competitive read, and one corrected platform label), and a rewritten §9 — a build order, and
-> **§9.2, seven open questions the owner asked to be carried forward** rather than answered in
-> passing. Start there.
-
----
-> **Session of 2026-08-27 (third) — read this first.** `L1-F5-T2` "the map is the query" **shipped**
-> ([PR #37](https://github.com/LiorJossef/P-002/pull/37), six checks green, `main` verified). The
-> owner answered four of §9.2's seven questions. **The shipped interaction was then reviewed by the
-> owner and is explicitly NOT the settled product direction — see §0.1b before building on it.** A
-> related product direction is parked in §0.4.
-
----
-
 ## 0. What this session did
 
 ### 0.1 Shipped: the map is the query (`L1-F5-T2`)
@@ -775,18 +693,43 @@ first-writer-wins per column, so the fixtures were not overwritten by the later 
 
 ---
 
-## 9. The next highest-impact step
+## 9. What is open
 
-**Owner steer, 2026-08-27, and it superseded the previous one twice in a day.** First: bias toward
-**visible product progress and completed MVP journeys**, not continued hardening. Then, after the
-mio comparison: the priority for the next few days is a **strong, demo-ready MVP that feels
-noticeably useful and complete — not continued extraction tuning by default.**
+> **Reconciled 2026-08-28.** This section used to nominate "the next highest-impact step". It no
+> longer does: sequencing belongs to the owner and to `execution-plan.md`, and a stale
+> recommendation here is exactly what caused the duplicated work described at the top of this file.
+> What follows is the open list, not a plan.
+>
+> §9.1 below is **dated history**, kept for its reasoning. Its step 1 shipped; its ordering has
+> been overtaken by owner rulings recorded above and in `execution-plan.md`. Check any item in it
+> against `git log main` before acting on it.
 
-**First, and not a feature: restore the Vercel environment variables** (§5.1), then push the
-migrations behind them. Production is on `0009` while the code selects `0015`/`0016` columns, so the
-env restore *moves* the failure rather than removing it. Until both are done nothing anyone builds
-can be seen by anyone, from a phone or otherwise. Owner-only: it means entering credentials into a
-third party.
+**Owner-blocked** (nothing in the repo unblocks these):
+`evidence/deploy/owner-actions-before-the-batch.md` — the empty `PROD_DATABASE_URL`, the empty
+Vercel env store, the Google Places 100/day quota, and the hosted migration pushes.
+
+**Open engineering items carried forward**, in no implied order — see the newest handoff for the
+state of each:
+
+- The hosted migration pushes: staging needs `0019`–`0023`, production needs `0010`–`0023`. The
+  runbook is written and rehearsed as a dry run (`evidence/deploy/hosted-migration-runbook-2026-08-28.md`).
+- Production's `save_place` / `resolve_place` arities do not match what the app sends. Measured to
+  fail loudly (PGRST202), not silently. Closed by the migration push.
+- The `llm_guess` → Google **upgrade path** is designed and written into `resolution-record.ts`'s
+  header; the upgrader itself does not exist. It must be able to **merge two existing rows**, not
+  only relabel one.
+- Four `llm_guess` duplicate pairs on the local database that no distance guard can reach — the
+  coordinates drift a median 327 m between two runs of the same caption, four times the guard's
+  75 m radius. **No backfill has been run and none should be without reviewing the row list.**
+- CI runs **no signed-in e2e tests** — the `playwright` job starts no Supabase and sets no
+  `E2E_PASSWORD`, so every signed-in spec skips while the check reports green. Do not treat that
+  check as evidence. [PR #64](https://github.com/LiorJossef/P-002/pull/64) is open and unmerged.
+- `seed.sql` writes no tags, so a `db:reset` leaves tag-filtering tests nothing to discover.
+- A TikTok **connect timeout is reported to the user as "this share link has expired"** — a
+  confident claim about their link built from `UND_ERR_CONNECT_TIMEOUT`. Pre-existing.
+- Retrieval-side recognition remains unmeasurable offline: the replay fixes the provider's answer,
+  so anything touching `buildTextQuery` or a second address-carrying search is invisible to it.
+- Dark mode is still an unsigned first pass, and the product **name** is still open.
 
 ### 9.1 The build order
 

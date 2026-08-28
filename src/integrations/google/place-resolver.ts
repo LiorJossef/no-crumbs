@@ -96,9 +96,38 @@ import 'server-only';
  * Google for anything: identical requests are served from `place_lookups` instead of the network,
  * so a re-import costs nothing and a venue two people saved costs one call rather than two.
  * Counted on the 13-URL corpus, a second run is 16/16 hits.
+ *
+ * ## Failures are observable now, and that is not the same as failures being visible
+ *
+ * Until 2026-08-28 every non-OK response became one undifferentiated `internal(...)`, which
+ * `resolveCandidates` collapsed to `{ kind: 'failed', reason: 'lookup_failed' }`. A real Prague
+ * import produced four of those and nothing else: no way to tell an exhausted quota from a revoked
+ * key from a five-second timeout, and no server log line at all, because nothing downstream throws
+ * — resolution deliberately degrades one candidate rather than failing the import, so the route's
+ * own failure logging never runs.
+ *
+ * Two things changed, and the split between them is the point:
+ *
+ *  - `classifyGoogleStatus` names the failure, and `ProviderLookupFailure`
+ *    (`domain/import/provider-failure.ts`) carries that name on the `DomainError`'s cause chain.
+ *    Nothing vendor-specific rides along: the message is composed from the provider slug, the
+ *    classification and the status, and Google's own body stays one link further down where only
+ *    `describeCause` reads it.
+ *  - the resolver emits **one** `places.resolve_failed` line per failed lookup, with the
+ *    classification and the HTTP status and nothing else. Not the query, not the candidate name,
+ *    not a coordinate (`ports.ts`).
+ *
+ * The client boundary is untouched. `DomainError.toView` still returns a code and two booleans,
+ * and `tests/manual/describe-cause-redaction.manual.mts` is still the rule for what may appear in
+ * a log line.
  */
 
-import { internal } from '@/domain/errors';
+import { DomainError, internal, upstreamTimeout } from '@/domain/errors';
+import {
+  ProviderLookupFailure,
+  providerFailureOf,
+  type ProviderFailureKind,
+} from '@/domain/import/provider-failure';
 import type { OpCtx, PlaceResolver } from '@/domain/ports';
 import { scoreCandidates } from '@/domain/places/score';
 import type { RegionId, ResolveQuery, ResolveResult, ResolvedPlace } from '@/domain/types';
@@ -182,36 +211,119 @@ export interface GooglePlacesGateway {
   searchText(params: GoogleTextSearchParams, signal: AbortSignal): Promise<readonly GooglePlaceRow[]>;
 }
 
-export function googlePlacesGateway(apiKey: string): GooglePlacesGateway {
+/**
+ * Google's HTTP status, as one of our six classifications.
+ *
+ * Only the distinctions we can act on differently. The important one is `quota_exhausted` vs
+ * `auth`: on this project both are "Google refused", both used to be an identical
+ * `lookup_failed`, and they are opposite operational facts — one resolves by itself tomorrow, the
+ * other never does. Measured on this project's key: an exhausted Text Search quota answers
+ * **429** with `RESOURCE_EXHAUSTED` (`docs/evidence/places/`).
+ *
+ * The 403 branch is the one place this adapter reads the response body, and it reads it for two
+ * fixed tokens and nothing else. Google has historically served quota refusals as 403 with
+ * `RESOURCE_EXHAUSTED` / `rateLimitExceeded` as well as 429, and filing a spent quota as "our key
+ * is broken" would send an operator to the wrong console page. The body is not retained, not
+ * logged from here, and not returned — only the presence of a token is.
+ *
+ * Anything else 4xx is `bad_request`: the provider understood us and refused, which on a request
+ * this adapter composes itself means the adapter is wrong. 5xx is theirs.
+ */
+export function classifyGoogleStatus(status: number, body: string): ProviderFailureKind {
+  if (status === 429) return 'quota_exhausted';
+  if (status === 403 && /RESOURCE_EXHAUSTED|rateLimitExceeded/.test(body)) return 'quota_exhausted';
+  if (status === 401 || status === 403) return 'auth';
+  // A bad key is a **400**, not a 401 or a 403. Verified against the live endpoint with a
+  // deliberately invalid key: `400 {"error":{"status":"INVALID_ARGUMENT","message":"API key not
+  // valid. Please pass a valid API key.","details":[{"reason":"API_KEY_INVALID"}]}}`.
+  //
+  // Without this branch the single most likely production key fault — rotated, revoked, mistyped,
+  // or absent from the deploy — classified as `bad_request`, whose whole meaning is "the adapter
+  // built a wrong request". That sent an operator to the query builder over a credential problem,
+  // and it was a *confident* wrong answer where the old undifferentiated `lookup_failed` had at
+  // least been an honest "we do not know". Read the body the same way the 403 arm already does.
+  if (status === 400 && /API_KEY_INVALID|API key not valid/.test(body)) return 'auth';
+  if (status >= 500) return 'provider_error';
+  if (status >= 400) return 'bad_request';
+  // A 3xx or a 2xx that `response.ok` rejected is not a shape we have ever seen; `provider_error`
+  // is the honest bucket for "the provider answered something we cannot interpret".
+  return 'provider_error';
+}
+
+/**
+ * The `DomainError` a classified failure becomes.
+ *
+ * `timed_out` maps to `UPSTREAM_TIMEOUT` because that code already exists for exactly this and
+ * `resolveCandidates` already reads it; everything else is `INTERNAL`, unchanged. **The
+ * classification is not carried by the code** — `07` §9's set is closed and provider-agnostic
+ * (see `domain/import/provider-failure.ts`). It is carried by the cause chain:
+ *
+ *     DomainError  ->  ProviderLookupFailure (kind, status)  ->  the vendor's own error
+ *
+ * so `resolveCandidates` can read the classification, `describeCause` can log it, and
+ * `DomainError.toView` still hands the client a code and two booleans.
+ */
+function lookupFailure(
+  kind: ProviderFailureKind,
+  status: number | null,
+  cause: unknown,
+): DomainError {
+  const failure = new ProviderLookupFailure({ provider: 'google', kind, status, cause });
+  return kind === 'timed_out'
+    ? upstreamTimeout('Google Places searchText timed out', failure)
+    : internal('Google Places searchText failed', failure);
+}
+
+/**
+ * `timeoutMs` overrides the per-lookup ceiling. It exists because the timeout branch is otherwise
+ * only reachable by waiting five real seconds: `AbortSignal.timeout` is a Node internal and does
+ * not observe a fake clock, so a test that cannot set this number cannot assert that a slow Google
+ * is classified as `timed_out` rather than as `transport`. Production passes nothing and gets
+ * `GOOGLE_TIMEOUT_MS`.
+ */
+export function googlePlacesGateway(
+  apiKey: string,
+  options: { readonly timeoutMs?: number } = {},
+): GooglePlacesGateway {
+  const timeoutMs = options.timeoutMs ?? GOOGLE_TIMEOUT_MS;
   return {
     async searchText(params, signal) {
       // Our own ceiling, composed with the caller's cancellation rather than replacing it: whichever
       // fires first wins, and an aborted import still aborts immediately.
-      const timeout = AbortSignal.timeout(GOOGLE_TIMEOUT_MS);
-      const response = await fetch(SEARCH_TEXT_URL, {
-        method: 'POST',
-        signal: AbortSignal.any([signal, timeout]),
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Goog-Api-Key': apiKey,
-          'X-Goog-FieldMask': FIELD_MASK,
-        },
-        body: JSON.stringify({
-          textQuery: params.textQuery,
-          maxResultCount: params.maxResultCount,
-          ...(params.regionCode !== null ? { regionCode: params.regionCode } : {}),
-          ...(params.languageCode !== null ? { languageCode: params.languageCode } : {}),
-        }),
-      });
+      const timeout = AbortSignal.timeout(timeoutMs);
+      let response: Response;
+      try {
+        response = await fetch(SEARCH_TEXT_URL, {
+          method: 'POST',
+          signal: AbortSignal.any([signal, timeout]),
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': apiKey,
+            'X-Goog-FieldMask': FIELD_MASK,
+          },
+          body: JSON.stringify({
+            textQuery: params.textQuery,
+            maxResultCount: params.maxResultCount,
+            ...(params.regionCode !== null ? { regionCode: params.regionCode } : {}),
+            ...(params.languageCode !== null ? { languageCode: params.languageCode } : {}),
+          }),
+        });
+      } catch (cause) {
+        // Which signal fired is the whole difference between "Google is slow" and "the user left",
+        // and `fetch` reports both as the same rejection. `timeout.aborted` is the only thing that
+        // tells them apart, so it is asked rather than inferred from the error's name — an
+        // `AbortError` from the caller's signal is a cancellation, not a provider fact, and filing
+        // it as `timed_out` would put a user pressing Back into the provider's error rate.
+        throw lookupFailure(timeout.aborted ? 'timed_out' : 'transport', null, cause);
+      }
 
       if (!response.ok) {
-        // The body carries Google's own error object. It stops here: `internal()`'s cause is not
-        // serialised into the wire view (`DomainError.toView`), so no key, quota detail or vendor
-        // message can reach a client.
-        throw internal(
-          `Google Places searchText failed (${String(response.status)})`,
-          await response.text().catch(() => ''),
-        );
+        // The body carries Google's own error object. It stops here: it is read for the two quota
+        // tokens `classifyGoogleStatus` needs and then passed as a `cause`, which
+        // `DomainError.toView` does not serialise — so no key, quota detail or vendor message can
+        // reach a client, and `describeCause` clamps what survives into a log line.
+        const body = await response.text().catch(() => '');
+        throw lookupFailure(classifyGoogleStatus(response.status, body), response.status, body);
       }
 
       const body: unknown = await response.json();
@@ -364,9 +476,31 @@ export function googlePlaceResolver(
           ctx,
         );
       } catch (cause) {
-        // `PlaceResolver` never leaks a provider error. A gateway that already threw `internal`
-        // is re-wrapped harmlessly; anything else is converted here.
-        throw internal('Google Places searchText failed', cause);
+        // The one place a failed Google lookup is *observable*. Everything downstream swallows it
+        // on purpose — `resolveCandidates` degrades one candidate rather than failing the import —
+        // so without this line a whole import of dead lookups leaves no trace at all. That was the
+        // state on 2026-08-28: four failed lookups on a real Prague import, four identical
+        // `lookup_failed` records, and nothing in the server log to say which of quota, key,
+        // timeout or network it had been.
+        //
+        // Fields are scalars from closed sets plus an HTTP status. Never the query, never the
+        // candidate name, never the response body (`ports.ts`: "never a caption, never a
+        // coordinate"). `status` is omitted rather than zeroed when there was no response.
+        const failure = providerFailureOf(cause);
+        ctx.log.event('places.resolve_failed', {
+          provider: 'google',
+          classification: failure?.kind ?? 'transport',
+          ...(failure?.status != null ? { status: failure.status } : {}),
+          cached: lookupStore !== null,
+        });
+
+        // `PlaceResolver` never leaks a provider error — but a `DomainError` is not a provider
+        // error, it is this layer's own output, and re-wrapping it used to bury the cause chain
+        // one link deeper and flatten `UPSTREAM_TIMEOUT` into `INTERNAL`. Pass it through; convert
+        // only what is genuinely foreign (a store failure from `cachedProviderRows`, say).
+        throw cause instanceof DomainError
+          ? cause
+          : internal('Google Places searchText failed', cause);
       }
 
       const candidates = rows

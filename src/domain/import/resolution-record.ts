@@ -40,6 +40,61 @@
  * distinct from `{ kind: 'unresolved', reason: 'no_match' }`, which means we looked and found
  * nothing. Reporting "we looked" for "we could not look" is the uncertainty-into-certainty move the
  * working agreement forbids.
+ *
+ * ## The degraded save, and how it gets upgraded later
+ *
+ * Owner ruling, 2026-08-28: *resolution must never dead-end.* When Google is out of quota or
+ * unreachable, a candidate that carries the model's own coordinate is still saved — as
+ * `provider: 'llm_guess'`, `sourceDataset: 'llm-guess'`, `resolutionScore: null`
+ * (`candidate-place.ts`'s unchanged second branch). The fallback never fabricates a canonical
+ * provider identity and never borrows a provider score. **`resolution_score` stays `null`, not
+ * `0`**: the column's CHECK is `between 0 and 1` on `scoreCandidates`' own scale, so `0` is a real
+ * measurement meaning "we ranked it and it ranked worst". Nothing ranked this. `null` is the only
+ * value that says so, and it is already what "no resolver score exists" means everywhere else.
+ *
+ * What is new here is that the *reason* survives. A `failed` record now carries a classification
+ * rather than a uniform `lookup_failed`, so an `llm_guess` row written during a quota outage is
+ * distinguishable, after the fact, from one written because the venue genuinely has no match.
+ *
+ * **The upgrade path, written down because the upgrader is not built yet.** Everything it needs
+ * already exists; no column and no migration are owed:
+ *
+ *  1. *Find the rows.* `places p join place_provider_refs r on r.place_id = p.id` where
+ *     `r.provider = 'llm_guess'`. `places.source_dataset = 'llm-guess'` and
+ *     `resolution_score is null` corroborate. Sixteen such refs over fifteen places on the local
+ *     database as of 2026-08-28.
+ *  2. *Recover what was searched for — from the extraction, not from the id.* `provider_place_id`
+ *     is `llm:<placeNameKey(rawName)>|<placeNameKey(cityHint)>|<placeNameKey(countryHint)>`
+ *     (`llm-guess-place-id.ts`), and `placeNameKey` strips separators, so `ha kosem` and
+ *     `hakosem` both key as `hakosem`. That is exactly right for **dedup** and wrong for
+ *     **retrieval**: the key is not a query, and re-running the resolver on it would search for a
+ *     string no caption ever contained. Recompute it over `extractions.candidates` instead and use
+ *     it as a **join key** back to the originating candidate — reachable as
+ *     `saved_places → saved_place_sources → sources → extractions` — which carries the verbatim
+ *     `rawName`, `nameVariants`, `addressHint`, `cityHint` and `countryHint` that
+ *     `buildResolveQuery` actually needs.
+ *  3. *Read this record to know which rows deserve a lookup.* A candidate stored as
+ *     `{ kind: 'failed', reason: 'quota_exhausted' }` was never given a fair chance and should be
+ *     re-run first. One stored as `{ kind: 'answered', … }` whose band was `no_match` was looked up
+ *     properly and is a much weaker upgrade candidate. Before this change every failure was an
+ *     undifferentiated `lookup_failed` and that ordering was not derivable at all.
+ *  4. *Write the upgrade, and be able to **merge**.* This is the part a naive design gets wrong.
+ *     `place_provider_refs` holds aliases, many per place (migration `0005`), so the easy case is
+ *     an added `google` ref on the same `places` row plus a refresh of the provider-owned columns.
+ *     But two `llm_guess` rows frequently turn out to be **one** Google place: four of the sixteen
+ *     local refs are duplicate pairs — `Tokii`/`Tokii London` 85 m apart, `La Nonna`/`La Nonna
+ *     Brixton` 91 m, plus `Kiaans`/`Kiaans Tooting` and `Sycamore Vino Cucina`/`Sycamore Cucina &
+ *     Bar`. `resolve_place`'s near-duplicate guard misses all four (its radius is 75 m) and
+ *     widening it cannot fix them, because these coordinates are the model's own and drift a
+ *     median 327 m between two runs of the same caption — a distance guard cannot deduplicate
+ *     points noisier than its own radius. The canonical Google place id **is** the merge signal
+ *     the geometry cannot provide, so the upgrader must handle "these two rows are one place":
+ *     `places.merged_into_place_id` is the tombstone that already exists for it, and reads follow
+ *     the chain. An upgrader that can only relabel one row in place leaves the duplicates behind
+ *     and is not worth building.
+ *
+ * The one thing an upgrader must not do is silently replace a coordinate a user has been looking
+ * at. That is a product decision (`working-agreement.md` §7), not this module's.
  */
 
 import { z } from 'zod';
@@ -103,6 +158,38 @@ const StoredResolveResultSchema = z.object({
 });
 
 /**
+ * Why a lookup produced no answer, as it sits in stored `jsonb`.
+ *
+ * **Widened, never re-lettered.** Rows written before 2026-08-28 hold `lookup_failed` or
+ * `timed_out` and must keep parsing forever — an `extractions.candidates` row that fails this
+ * schema does not fail loudly, it reads back as `null`, and `chooseResolvedPlace` then silently
+ * saves the model's own guess instead. That is not hypothetical: it is exactly what happened when
+ * `'google'` was added to `PlaceProvider` and not to `StoredResolvedPlaceSchema`. So the first two
+ * members are load-bearing legacy and the rest are additive.
+ *
+ *  - `lookup_failed` — the honest floor: something failed and the adapter offered no
+ *    classification. Every pre-2026-08-28 row, and any provider that does not classify.
+ *  - `timed_out` — legacy spelling of the classification of the same name; the two are the same
+ *    fact and deliberately share one value rather than acquiring a synonym.
+ *  - the remaining five are `ProviderFailureKind` verbatim (`provider-failure.ts`).
+ *
+ * `failed()` below is what keeps that last sentence true rather than hopeful: it takes a
+ * `StoredFailureReason`, `resolveCandidates` hands it a `ProviderFailureKind`, and a classification
+ * that is not also a stored reason stops the build at that call site.
+ */
+export const STORED_FAILURE_REASONS = [
+  'lookup_failed',
+  'timed_out',
+  'quota_exhausted',
+  'auth',
+  'bad_request',
+  'provider_error',
+  'transport',
+] as const;
+
+export type StoredFailureReason = (typeof STORED_FAILURE_REASONS)[number];
+
+/**
  * One candidate's resolution outcome as it sits in `jsonb`.
  *
  * The two non-`answered` variants are the reasons `runImport` already models (`pipeline.ts`'s
@@ -111,7 +198,7 @@ const StoredResolveResultSchema = z.object({
  */
 export const StoredResolutionSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('answered'), result: StoredResolveResultSchema }),
-  z.object({ kind: z.literal('failed'), reason: z.enum(['lookup_failed', 'timed_out']) }),
+  z.object({ kind: z.literal('failed'), reason: z.enum(STORED_FAILURE_REASONS) }),
   z.object({ kind: z.literal('capped') }),
 ]);
 
@@ -125,12 +212,22 @@ export const StoredResolutionSchema = z.discriminatedUnion('kind', [
  */
 export type StoredResolution =
   | { readonly kind: 'answered'; readonly result: ResolveResult }
-  | { readonly kind: 'failed'; readonly reason: 'lookup_failed' | 'timed_out' }
+  | { readonly kind: 'failed'; readonly reason: StoredFailureReason }
   | { readonly kind: 'capped' };
 
 /** Convenience constructor so the route never hand-builds the discriminant. */
 export function answered(result: ResolveResult): StoredResolution {
   return { kind: 'answered', result };
+}
+
+/**
+ * The failed counterpart, and the seam that ties the adapter's classification vocabulary to the
+ * stored one. `resolveCandidates` calls this with a `ProviderFailureKind`; if a future
+ * classification is not also a `StoredFailureReason`, this call stops compiling instead of
+ * silently writing a value the Zod schema will later refuse to parse.
+ */
+export function failed(reason: StoredFailureReason): StoredResolution {
+  return { kind: 'failed', reason };
 }
 
 /* ------------------------------------------------------------------------------------------- *

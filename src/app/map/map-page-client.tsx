@@ -24,8 +24,12 @@
  *
  * `activeTag` is lifted here for exactly that reason and no other. It is a **second filter
  * dimension**, not text written into `query`; `src/ui/place/tag-filter.ts` carries the argument,
- * and the short version is that a tag is a second dimension, not text. Composition is AND: tag
- * first, then search, then the active area for the list only. Tapping a chip is not a camera
+ * and the short version is that a tag is a second dimension, not text.
+ *
+ * `notBeenOnly` (`L1-F12`) is the **third**, on the same argument: "been" is a fact about the
+ * user's own saved row, not a word that might appear in a note, and it is dismissed on its own.
+ * Composition is AND — tag, then visit state, then search, then the active area for the list only —
+ * and the order between the first three cannot change the result. None of the three is a camera
  * mover.
  *
  * ## The list is an area, not a rectangle (`docs/ux-stable-area-list.md`)
@@ -51,9 +55,10 @@
  *
  * There are therefore three derived lists here and they are deliberately not the same one:
  *
- *  - **`matches`** — the library narrowed by the filters the user set (the tag chip, then the
- *    search box). This is what the **pins** show, everywhere, so a pin never disappears for being
- *    off screen when being off screen is exactly what panning back would fix.
+ *  - **`matches`** — the library narrowed by the filters the user set (the tag chip, the
+ *    `Not been yet` chip, then the search box). This is what the **pins** show, everywhere, so a
+ *    pin never disappears for being off screen when being off screen is exactly what panning back
+ *    would fix.
  *  - **`inArea`** — `matches` that belong to the active area, in library order (most recently saved
  *    first). This is what the **list** shows, and its order never changes on pan, zoom or resize.
  *  - **`places`** — the whole library, used to build the areas and for the initial camera anchor.
@@ -76,16 +81,17 @@
  * a second entry point onto the same client component, not a replacement for the route.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MapSurface, type MapPlace } from '@/components/map/map-surface';
 import type { LatLngBoundsHint, ViewportChangeMeta } from '@/components/map/types';
 import { ImportConfirmation } from '@/components/map/import-confirmation';
 import { PlaceSheet } from '@/components/sheet/place-sheet';
 import { PlaceDesktopPanel } from '@/components/sheet/place-desktop-panel';
-import { filterByTag, filterPlaces } from '@/components/map/filter-places';
+import { filterByTag, filterByVisit, filterPlaces } from '@/components/map/filter-places';
 import { isSearchActive } from '@/domain/places/search';
 import { tagDisplayLabel } from '@/domain/extraction/tags';
 import { TagFilterContext, isSameTag, type TagFilter } from '@/ui/place/tag-filter';
+import { AnnounceContext, SILENT, latestSpoken, type Announcer } from '@/ui/place/announce';
 import { clusterByProximity, pickAnchorCluster } from '@/domain/places/clusters';
 import {
   anchorFor,
@@ -126,6 +132,19 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
    *  in any place's detail view through `TagFilterContext`, cleared by the pill above the list, by
    *  tapping the same chip again, or by starting an import. */
   const [activeTag, setActiveTag] = useState<string | null>(null);
+  /**
+   * The been / not-been narrowing (`L1-F12`): show only what is still outstanding.
+   *
+   * A third filter dimension rather than a tag or a query, for the same reason `activeTag` is one —
+   * "been" is a fact about the user's own row, not a word that might appear in a note, and it is
+   * dismissed on its own. Lifted here, like the other two, because it narrows the **pins** as well
+   * as the list; a filter that emptied the list while twenty-five pins stayed on the map would be
+   * two surfaces answering the same question differently.
+   *
+   * Not a camera mover. Turning it on can leave an area with nothing in it, and the answer to that
+   * is a written heading (`ALL_BEEN_HEADING`), never a flight somewhere else.
+   */
+  const [notBeenOnly, setNotBeenOnly] = useState(false);
   /**
    * What the last import saved. Two jobs, both of which the flow was missing entirely: it frames
    * the camera on the places that were just added (`focusPlaceIds`), and it is the only thing on
@@ -226,10 +245,18 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
    *  chip does not re-run it per keystroke. */
   const tagMatches = useMemo(() => filterByTag(places, activeTag), [places, activeTag]);
 
+  /** The tag-narrowed library, narrowed again to what is still outstanding. Before the search box
+   *  and after the chip purely so each pass memoises on its own input; the three compose as AND and
+   *  the order between them cannot change the result. */
+  const visitMatches = useMemo(
+    () => filterByVisit(tagMatches, notBeenOnly),
+    [tagMatches, notBeenOnly],
+  );
+
   /** The library narrowed by **both** filters. This is what the **pins** show — never narrowed by
    *  the viewport, which would be circular. The list is this same array narrowed again by the
    *  viewport below, so the pins and the rows can never disagree about what the filters did. */
-  const matches = useMemo(() => filterPlaces(tagMatches, query), [tagMatches, query]);
+  const matches = useMemo(() => filterPlaces(visitMatches, query), [visitMatches, query]);
 
   /**
    * What the **list** shows: the matches that belong to the active area, in library order — most
@@ -259,7 +286,7 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
   // rather than `3 places in London`. `ux-map-is-the-query.md` §2.2's string matrix says the noun
   // changes "exactly when a second filter is applied"; a chip is a second filter, and no new string
   // is invented for it.
-  const filtering = isSearchActive(query) || activeTag !== null;
+  const filtering = isSearchActive(query) || activeTag !== null || notBeenOnly;
   const heading = useMemo(
     () =>
       areaHeading({
@@ -267,9 +294,10 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
         area: activeArea?.label ?? null,
         searchQuery: query.trim(),
         tagLabel: activeTag === null ? null : tagDisplayLabel(activeTag),
+        notBeenOnly,
         matchesAnywhere: matches.length,
       }),
-    [inArea, activeArea, query, activeTag, matches],
+    [inArea, activeArea, query, activeTag, notBeenOnly, matches],
   );
 
   // The open place, resolved against the *current* server data on every render — which is what makes
@@ -286,7 +314,32 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
   const selected: MapPlace | null =
     selectedId === null ? null : (matches.find((place) => place.id === selectedId) ?? null);
 
-  const announcement = useResultAnnouncement(query, activeTag, matches.length);
+  const filterAnnouncement = useResultAnnouncement(query, activeTag, notBeenOnly, matches.length);
+
+  /**
+   * The page's one spoken line, and the ordering rule that lets two writers share it.
+   *
+   * The filter sentence and a been/not-been mark both change the list silently, so both belong in
+   * the single `role="status"` region below rather than in two regions that would interleave. A
+   * ticket is claimed when the user acts and presented when the sentence is ready, so a slow
+   * request can never overwrite a newer one — `src/ui/place/announce.ts` has the argument.
+   */
+  const [spoken, setSpoken] = useState(SILENT);
+  const ticketRef = useRef(0);
+  const announcer = useMemo<Announcer>(
+    () => ({
+      begin: () => ++ticketRef.current,
+      say: (ticket, message) => setSpoken((current) => latestSpoken(current, ticket, message)),
+    }),
+    [],
+  );
+
+  // The debounced filter sentence, pushed through the same channel so there is one order between
+  // the two writers rather than two independent ones. It takes its ticket at the moment it settles,
+  // which is the moment the *user's* typing produced it.
+  useEffect(() => {
+    announcer.say(announcer.begin(), filterAnnouncement);
+  }, [filterAnnouncement, announcer]);
 
   /** Camera mover 3. A fresh array each time, because the flight is keyed on array identity — so
    *  re-selecting the same place does fly again. The active area is deliberately not touched. */
@@ -342,6 +395,11 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
 
   const clearTag = useCallback(() => setActiveTag(null), []);
 
+  /** The been/not-been narrowing, on or off. Unlike a tag chip this does **not** deselect: the
+   *  control lives in the list's own header rather than inside a place's detail, so there is no
+   *  open place standing between the user and the answer they just asked for. */
+  const toggleNotBeen = useCallback(() => setNotBeenOnly((current) => !current), []);
+
   /** Memoised so every chip in the tree does not re-render on an unrelated state change — the
    *  context value is the only thing standing between this page's state and a leaf in the map's
    *  own popover. */
@@ -354,9 +412,14 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
     setLastImport(null);
     // An import that lands places the current filters exclude would save them into an invisible
     // list and fly the camera at pins that are filtered out. Starting an import is the user leaving
-    // the current narrowing behind, so both dimensions go with it.
+    // the current narrowing behind, so every dimension goes with it.
     setQuery('');
     setActiveTag(null);
+    // A fresh import always lands as not-been, so this one cannot hide what was just saved. It is
+    // cleared anyway: starting an import is the user leaving the current narrowing behind, and
+    // leaving one of three filters on after the other two go is the kind of half-state nobody can
+    // explain from the screen.
+    setNotBeenOnly(false);
     setShowImport(true);
   }
 
@@ -365,50 +428,76 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
     // own pin-anchored popover, which is rendered inside `components/map/**` and would otherwise
     // need a filter prop threaded through a surface whose job is cameras and pins.
     <TagFilterContext value={tagFilter}>
-      <div className="relative h-full w-full">
-        <MapSurface
-          places={matches}
-          // Selection only — tapping a pin must not move the camera under the finger that tapped
-          // it. `selectPlace` (camera mover 3) is for the list, where the pin may be off-screen.
-          onPlaceClick={(place) => {
-            setSelectedId(place.id);
-          }}
-          selected={selected}
-          onDeselect={() => {
-            setSelectedId(null);
-          }}
-          onViewportChange={handleViewportChange}
-          {...(initialBounds ? { initialBounds } : {})}
-          {...(focusPlaceIds ? { focusPlaceIds } : {})}
-        />
-
-        {/* The list and the pins both change silently as the user types, so the one thing a screen
-            reader user has no way to perceive is how many places are left. Rendered here, once, rather
-            than inside each surface: only one of the two is ever in the accessibility tree (the other
-            is `display: none` behind a breakpoint), but a single region cannot double-announce. */}
-        <p role="status" aria-live="polite" className="sr-only">
-          {announcement}
-        </p>
-        {lastImport && (
-          <ImportConfirmation
-            saved={lastImport.saved}
-            alreadySaved={lastImport.alreadySaved}
-            skipped={lastImport.skipped}
-            onDismiss={() => setLastImport(null)}
+      {/* The been/not-been toggle is a leaf in the same three trees the tag chips are — the sheet's
+          detail, the desktop map popover, and any future `PlaceDetail` host — so what it announces
+          reaches the page's one live region the same way: through a context, not through a callback
+          threaded across the map surface. */}
+      <AnnounceContext value={announcer}>
+        <div className="relative h-full w-full">
+          <MapSurface
+            places={matches}
+            // Selection only — tapping a pin must not move the camera under the finger that tapped
+            // it. `selectPlace` (camera mover 3) is for the list, where the pin may be off-screen.
+            onPlaceClick={(place) => {
+              setSelectedId(place.id);
+            }}
+            selected={selected}
+            onDeselect={() => {
+              setSelectedId(null);
+            }}
+            onViewportChange={handleViewportChange}
+            {...(initialBounds ? { initialBounds } : {})}
+            {...(focusPlaceIds ? { focusPlaceIds } : {})}
           />
-        )}
-        {/* `PlaceSheet` is mobile-only (its content is `lg:hidden`) and rendered through a vaul
-            portal, which appends to `document.body` *after* this component's own subtree — so at
-            matched z-indices it paints on top of anything rendered here, regardless of DOM/JSX
-            order. That's invisible normally (the sheet coexists with the map fine), but it means
-            the sheet cannot simply share a z-index with the import overlay below: unmounting it
-            while the overlay is open is the only way to guarantee mobile gets the same opaque,
-            edge-to-edge takeover the standalone `/import` route always had, with no "Your places"
-            list bleeding through behind/around it. Desktop is unaffected — `PlaceDesktopPanel`
-            below is a plain (non-portaled) sibling that the overlay's higher z-index already
-            paints over correctly. */}
-        {!showImport && (
-          <PlaceSheet
+
+          {/* The list and the pins both change silently as the user types, so the one thing a screen
+              reader user has no way to perceive is how many places are left. Rendered here, once, rather
+              than inside each surface: only one of the two is ever in the accessibility tree (the other
+              is `display: none` behind a breakpoint), but a single region cannot double-announce. */}
+          <p role="status" aria-live="polite" className="sr-only">
+            {spoken.message}
+          </p>
+          {lastImport && (
+            <ImportConfirmation
+              saved={lastImport.saved}
+              alreadySaved={lastImport.alreadySaved}
+              skipped={lastImport.skipped}
+              onDismiss={() => setLastImport(null)}
+            />
+          )}
+          {/* `PlaceSheet` is mobile-only (its content is `lg:hidden`) and rendered through a vaul
+              portal, which appends to `document.body` *after* this component's own subtree — so at
+              matched z-indices it paints on top of anything rendered here, regardless of DOM/JSX
+              order. That's invisible normally (the sheet coexists with the map fine), but it means
+              the sheet cannot simply share a z-index with the import overlay below: unmounting it
+              while the overlay is open is the only way to guarantee mobile gets the same opaque,
+              edge-to-edge takeover the standalone `/import` route always had, with no "Your places"
+              list bleeding through behind/around it. Desktop is unaffected — `PlaceDesktopPanel`
+              below is a plain (non-portaled) sibling that the overlay's higher z-index already
+              paints over correctly. */}
+          {!showImport && (
+            <PlaceSheet
+              places={inArea}
+              heading={heading}
+              otherAreas={otherAreas}
+              onSelectArea={selectArea}
+              libraryIsEmpty={places.length === 0}
+              filtering={filtering}
+              query={query}
+              onQueryChange={setQuery}
+              activeTag={activeTag}
+              onClearTag={clearTag}
+              notBeenOnly={notBeenOnly}
+              onToggleNotBeen={toggleNotBeen}
+              selected={selected}
+              onDeselect={() => {
+              setSelectedId(null);
+            }}
+              onAddTikTok={openImport}
+              onSelect={selectPlace}
+            />
+          )}
+          <PlaceDesktopPanel
             places={inArea}
             heading={heading}
             otherAreas={otherAreas}
@@ -419,42 +508,26 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
             onQueryChange={setQuery}
             activeTag={activeTag}
             onClearTag={clearTag}
-            selected={selected}
-            onDeselect={() => {
-            setSelectedId(null);
-          }}
+            notBeenOnly={notBeenOnly}
+            onToggleNotBeen={toggleNotBeen}
             onAddTikTok={openImport}
             onSelect={selectPlace}
           />
-        )}
-        <PlaceDesktopPanel
-          places={inArea}
-          heading={heading}
-          otherAreas={otherAreas}
-          onSelectArea={selectArea}
-          libraryIsEmpty={places.length === 0}
-          filtering={filtering}
-          query={query}
-          onQueryChange={setQuery}
-          activeTag={activeTag}
-          onClearTag={clearTag}
-          onAddTikTok={openImport}
-          onSelect={selectPlace}
-        />
-        {showImport && (
-          <ImportPageClient
-            onClose={() => setShowImport(false)}
-            onSaved={(outcome) => {
-              setLastImport(outcome);
-              setFocusPlaceIds(outcome.savedPlaceIds);
-              // Writer 3. Resolves itself once the refreshed rows arrive, so this does not wait
-              // on the data.
-              const first = outcome.savedPlaceIds[0];
-              if (first) setActiveAreaAnchor(first);
-            }}
-          />
-        )}
-      </div>
+          {showImport && (
+            <ImportPageClient
+              onClose={() => setShowImport(false)}
+              onSaved={(outcome) => {
+                setLastImport(outcome);
+                setFocusPlaceIds(outcome.savedPlaceIds);
+                // Writer 3. Resolves itself once the refreshed rows arrive, so this does not wait
+                // on the data.
+                const first = outcome.savedPlaceIds[0];
+                if (first) setActiveAreaAnchor(first);
+              }}
+            />
+          )}
+        </div>
+      </AnnounceContext>
     </TagFilterContext>
   );
 }
@@ -473,6 +546,7 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
 function useResultAnnouncement(
   query: string,
   activeTag: string | null,
+  notBeenOnly: boolean,
   matchCount: number,
 ): string {
   // The query the stored sentence describes is kept with it, and the sentence is only returned
@@ -481,18 +555,21 @@ function useResultAnnouncement(
   // perfectly formed, entirely stale sentence in state, and a live region would happily announce it.
   const [announced, setAnnounced] = useState({ filter: '', message: '' });
   const trimmed = query.trim();
-  // One key for both dimensions, so a stale sentence about the previous *tag* is discarded on the
-  // same rule that already discards a stale one about the previous query. `\u0000` because it is the
-  // one character neither a query nor a stored tag can contain.
-  const filter = `${activeTag ?? ''}\u0000${trimmed}`;
+  // One key for all three dimensions, so a stale sentence about the previous *tag* or the previous
+  // visit filter is discarded on the same rule that already discards a stale one about the previous
+  // query. `\u0000` because it is the one character neither a query nor a stored tag can contain.
+  const filter = `${activeTag ?? ''}\u0000${notBeenOnly ? '1' : ''}\u0000${trimmed}`;
 
   useEffect(() => {
-    if (activeTag === null && trimmed === '') return;
+    if (activeTag === null && trimmed === '' && !notBeenOnly) return;
     const timer = setTimeout(() => {
-      setAnnounced({ filter, message: filterSentence(trimmed, activeTag, matchCount) });
+      setAnnounced({
+        filter,
+        message: filterSentence(trimmed, activeTag, notBeenOnly, matchCount),
+      });
     }, ANNOUNCE_AFTER_MS);
     return () => clearTimeout(timer);
-  }, [filter, trimmed, activeTag, matchCount]);
+  }, [filter, trimmed, activeTag, notBeenOnly, matchCount]);
 
   return announced.filter === filter ? announced.message : '';
 }
@@ -505,18 +582,39 @@ function useResultAnnouncement(
  * read aloud as the sentence's own words would be indistinguishable from the rest of it, and the
  * user tapped something that said `Hidden Gem`.
  */
-function filterSentence(query: string, activeTag: string | null, count: number): string {
+function filterSentence(
+  query: string,
+  activeTag: string | null,
+  notBeenOnly: boolean,
+  count: number,
+): string {
   const noun = count === 1 ? 'place' : 'places';
+
+  // The visit filter alone gets its own sentence for the same reason the heading does: `3 places
+  // match` is true and useless when the user asked "what have I still got to do", and with no
+  // query and no tag there is nothing for `match` to be about.
+  if (notBeenOnly && activeTag === null && query === '') {
+    return count === 0
+      ? "You've been to all of them."
+      : `${count} ${noun} still to go.`;
+  }
+
+  // With another filter on, the visit filter becomes a qualifier on the sentence that filter
+  // produces rather than a sentence of its own — one clause, appended once.
+  const still = notBeenOnly ? ' you have not been to' : '';
+
   if (activeTag === null) {
     return count === 0
-      ? `No places match ${query}.`
-      : `${count} ${noun} ${count === 1 ? 'matches' : 'match'} ${query}.`;
+      ? `No places${still} match ${query}.`
+      : `${count} ${noun}${still} ${count === 1 ? 'matches' : 'match'} ${query}.`;
   }
   const label = tagDisplayLabel(activeTag);
   if (query === '') {
-    return count === 0 ? `No places tagged ${label}.` : `${count} ${noun} tagged ${label}.`;
+    return count === 0
+      ? `No places${still} tagged ${label}.`
+      : `${count} ${noun}${still} tagged ${label}.`;
   }
   return count === 0
-    ? `No places tagged ${label} match ${query}.`
-    : `${count} ${noun} tagged ${label} ${count === 1 ? 'matches' : 'match'} ${query}.`;
+    ? `No places${still} tagged ${label} match ${query}.`
+    : `${count} ${noun}${still} tagged ${label} ${count === 1 ? 'matches' : 'match'} ${query}.`;
 }

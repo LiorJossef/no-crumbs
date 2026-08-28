@@ -1,0 +1,123 @@
+{
+  "_comment": "RECOG-METRICS-1. ResolveQuery.textVariants per corpus URL and rawName, lifted from the local extraction cache by tests/manual/recognition-variants-from-cache.mjs. The run JSONs do not record variants and the replay needs them; see that script for why. Extractor output only — no provider content.",
+  "generated_at": "2026-08-28T12:54:56.093Z",
+  "urls": {
+    "https://www.tiktok.com/@joelleuzyel/video/7259010845558983978": {
+      "promptVersion": "p11-s3",
+      "candidates": {
+        "Ha Kosem": [
+          "HaKosem",
+          "הקוסם"
+        ]
+      }
+    },
+    "https://vt.tiktok.com/ZSVprT9Ag/": {
+      "promptVersion": "p11-s3",
+      "candidates": {
+        "מתחת לעץ": [
+          "Metahat LeEtz",
+          "Under the Tree"
+        ]
+      }
+    },
+    "https://vt.tiktok.com/ZSVphhEg6/": {
+      "promptVersion": "p11-s3",
+      "candidates": {
+        "קוהי": [
+          "Kohi"
+        ]
+      }
+    },
+    "https://vt.tiktok.com/ZSVprTkwJ/": {
+      "promptVersion": "p11-s3",
+      "candidates": {}
+    },
+    "https://vt.tiktok.com/ZSVphdqUs/": {
+      "promptVersion": "p11-s3",
+      "candidates": {
+        "קפה אירופה": [
+          "Cafe Europa"
+        ],
+        "eats בית חנה": [
+          "Eats",
+          "איטס",
+          "Eats Beit Hanna"
+        ],
+        "האחים": [
+          "HaAchim"
+        ],
+        "בל עמי": [
+          "Belle Ami"
+        ],
+        "Palette Bistro": [
+          "פלט ביסטרו",
+          "Palette"
+        ]
+      }
+    },
+    "https://vt.tiktok.com/ZSVprwmjy/": {
+      "promptVersion": "p11-s3",
+      "candidates": {
+        "האחים": [
+          "The Brothers"
+        ]
+      }
+    },
+    "https://vt.tiktok.com/ZSVph2SnR/": {
+      "promptVersion": "p11-s3",
+      "candidates": {
+        "האחים": [
+          "HaAhim"
+        ]
+      }
+    },
+    "https://vt.tiktok.com/ZSVphFPMC/": {
+      "promptVersion": "p11-s3",
+      "candidates": {
+        "טרטוריה אונה": [
+          "Trattoria Una"
+        ]
+      }
+    },
+    "https://vt.tiktok.com/ZSVph2Q9n/": {
+      "promptVersion": "p11-s3",
+      "candidates": {
+        "רוסטיקו": [
+          "Rustico"
+        ]
+      }
+    },
+    "https://vt.tiktok.com/ZSVphDRbd/": {
+      "promptVersion": "p11-s3",
+      "candidates": {
+        "Gelalucci": [
+          "גלאלוצ'י",
+          "גללוצ'י"
+        ]
+      }
+    },
+    "https://vt.tiktok.com/ZSVph5Xor/": {
+      "promptVersion": "p11-s3",
+      "candidates": {
+        "דיזנגוף 99": [
+          "Dizengoff 99"
+        ]
+      }
+    },
+    "https://vt.tiktok.com/ZSVphmY3a/": {
+      "promptVersion": "p11-s3",
+      "candidates": {
+        "Oscar’s": [
+          "Oscar's",
+          "אוסקרז"
+        ]
+      }
+    },
+    "https://vt.tiktok.com/ZSVphtyLT/": {
+      "promptVersion": "p11-s3",
+      "candidates": {
+        "WOW": []
+      }
+    }
+  }
+}

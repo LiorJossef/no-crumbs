@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { filterByTag, filterPlaces, toSearchablePlace } from '@/components/map/filter-places';
+import {
+  filterByTag,
+  filterByVisit,
+  filterPlaces,
+  toSearchablePlace,
+} from '@/components/map/filter-places';
 import type { MapPlace } from '@/components/map/types';
 import type { Spot } from '@/domain/places/spot';
 
@@ -15,7 +20,12 @@ import type { Spot } from '@/domain/places/spot';
 
 /** A `MapPlace` carrying the enrichment fields `getSpots` populates but `Spot` does not declare —
  *  the same shape `enrichmentOf` reads, and the same cast it documents. */
-function place(id: string, name: string, tags: readonly string[]): MapPlace {
+function place(
+  id: string,
+  name: string,
+  tags: readonly string[],
+  visited = false,
+): MapPlace {
   return {
     id,
     name,
@@ -24,6 +34,7 @@ function place(id: string, name: string, tags: readonly string[]): MapPlace {
     lng: 34.77,
     note: '',
     sourceUrl: undefined,
+    visited,
     detail: { id, name, category: 'restaurant', lat: 32.07, lng: 34.77, tags } as unknown as Spot,
   };
 }
@@ -49,6 +60,7 @@ const bare: MapPlace = {
   lng: 0,
   note: '',
   sourceUrl: undefined,
+  visited: false,
 };
 
 const library = [anat, kiaans, jones, mber, untagged, bare];
@@ -127,5 +139,51 @@ describe('toSearchablePlace', () => {
   it('is the projection the tag filter reads too, so the two can never disagree', () => {
     expect(toSearchablePlace(anat).tags).toEqual(['בורקס', 'מאפייה', 'hidden gem']);
     expect(toSearchablePlace(bare).tags).toEqual([]);
+  });
+});
+
+/**
+ * The been / not-been narrowing (`L1-F12-T1`).
+ *
+ * The one thing worth pinning beyond the obvious: this must never become a text match. A place
+ * whose note reads "been meaning to try this" is exactly the place the filter has to keep, and a
+ * substring implementation would drop it.
+ */
+const beenTo = place('been', 'Old North Espresso Bar', ['specialty coffee'], true);
+const stillToGo = place('togo', 'Nordoy Café', ['specialty coffee'], false);
+
+describe('filterByVisit', () => {
+  it('returns the library untouched when the filter is off', () => {
+    // Identity, not equality — same memoisation guarantee the other two filters give.
+    expect(filterByVisit(library, false)).toBe(library);
+  });
+
+  it('keeps only the places still to go', () => {
+    const narrowed = filterByVisit([beenTo, stillToGo], true);
+    expect(narrowed.map((p) => p.id)).toEqual(['togo']);
+  });
+
+  it('keeps a pin with no `Spot` at all — absent is not "been"', () => {
+    expect(filterByVisit([bare], true)).toEqual([bare]);
+  });
+
+  it('reads the state, never the text', () => {
+    const misleading: MapPlace = { ...stillToGo, note: 'been meaning to try this for months' };
+    expect(filterByVisit([misleading], true)).toEqual([misleading]);
+  });
+
+  it('composes with the tag chip and the search box as AND', () => {
+    const shortlist = [beenTo, stillToGo, anat];
+    const notBeen = filterByVisit(shortlist, true);
+    const tagged = filterByTag(notBeen, 'specialty coffee');
+    expect(tagged.map((p) => p.id)).toEqual(['togo']);
+    expect(filterPlaces(tagged, 'nordoy').map((p) => p.id)).toEqual(['togo']);
+    // Clearing the tag restores the other two narrowings rather than everything.
+    expect(filterPlaces(filterByTag(notBeen, null), 'nordoy').map((p) => p.id)).toEqual(['togo']);
+  });
+
+  it('never removes anything when the filter is off, however the library is marked', () => {
+    // Criterion 10: marking is not archiving. An unfiltered view keeps every place.
+    expect(filterByVisit([beenTo, stillToGo], false)).toHaveLength(2);
   });
 });

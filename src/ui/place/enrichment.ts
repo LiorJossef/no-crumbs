@@ -13,6 +13,7 @@
 import type { Spot } from '@/domain/places/spot';
 import { normalise } from '@/domain/places/normalise';
 import { tagDisplayLabel } from '@/domain/extraction/tags';
+import { BEEN_ROW_ANNOTATION } from './visit-state';
 
 /**
  * The three v2 columns as the read path returns them.
@@ -142,15 +143,26 @@ export function splitRowTags(tags: readonly string[]): RowTags {
  *
  * Pure and here rather than inline in the component so the "does a screen reader user get the same
  * scanning signal as a sighted one" question has a test rather than a code review.
+ *
+ * The been/not-been state is folded in here too, immediately after the name and before the tags,
+ * for the same reason: the row shows it as a badge, and a badge is invisible to a screen reader
+ * once `aria-label` has replaced the row's content. It comes before the tags because it is the
+ * fact that decides whether this row is worth opening at all — "already been" is a reason to skip
+ * past, and hearing it after three tag labels is hearing it too late.
  */
-export function rowAccessibleName(name: string, tags: readonly string[]): string {
+export function rowAccessibleName(
+  name: string,
+  tags: readonly string[],
+  visited = false,
+): string {
+  const subject = visited ? `${name}, ${BEEN_ROW_ANNOTATION}` : name;
   const { shown, overflow } = splitRowTags(tags);
-  if (shown.length === 0) return `Open ${name}`;
+  if (shown.length === 0) return `Open ${subject}`;
 
   const labels = shown.map(tagDisplayLabel).join(', ');
   return overflow > 0
-    ? `Open ${name}, tagged ${labels} and ${overflow} more`
-    : `Open ${name}, tagged ${labels}`;
+    ? `Open ${subject}, tagged ${labels} and ${overflow} more`
+    : `Open ${subject}, tagged ${labels}`;
 }
 
 /* ------------------------------------------------------------------------------------------- *

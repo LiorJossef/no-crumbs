@@ -301,6 +301,32 @@ export interface ScoringConstants {
    * name. Two vocabularies that look similar and must not be shared.
    */
   readonly addressNoise: ReadonlySet<string>;
+  /**
+   * The two pieces of evidence allowed to override a band gate (RECOG-METRICS-2, 2026-08-28), and
+   * the single free parameter between them. Both are measured in
+   * `docs/evidence/places/recognition-decisive-evidence-2026-08-28.md`; `confidenceOf` in
+   * `score.ts` carries the argument for each.
+   *
+   * Neither adds a *score*. They change which gate a row has to clear, and only ever in the
+   * direction of asking the user one fewer question that our own evidence had already answered —
+   * which is the owner's ruling of 2026-08-28: *"only ask the user to choose when ambiguity is
+   * genuinely unavoidable."*
+   */
+  readonly decisive: {
+    /**
+     * F3: how far below the top-1 a rival's **name** score has to sit before the margin gate is
+     * waived for an otherwise-exact name.
+     *
+     * 0.02, and it is a floor rather than a fitted value. The case it exists for is
+     * `Palette Bistro` (1.000) against `Paulette` (0.967) — a gap of 0.033. The cases it must
+     * **not** admit are two rows under the *same* name, where the gap is exactly 0.000: `The Dove`
+     * twice (LDN-13), `Afuri`/`AFURI` (TYO-07), `猿田彦珈琲` twice (TYO-09). There is nothing
+     * between 0.000 and 0.033 in either corpus, so any value in that interval behaves identically
+     * and 0.02 is the midpoint. It is a **separation** test, not a similarity threshold: raising it
+     * only makes the rule fire less often.
+     */
+    readonly rivalNameSeparation: number;
+  };
   /** `ResolveQuery.maxResults === null` → this. `06` §6.1 step 5's top 5. */
   readonly defaultMaxResults: number;
   /**
@@ -405,6 +431,7 @@ export const SCORING: ScoringConstants = Object.freeze({
   bands: Object.freeze({ preselectScore: 0.92, preselectMargin: 0.05, confirmScore: 0.8 }),
   branchGuard: Object.freeze({ rivalScoreBand: 0.12 }),
   samePlaceMetres: 75,
+  decisive: Object.freeze({ rivalNameSeparation: 0.02 }),
   defaultMaxResults: 5,
   address: Object.freeze({
     weight: 0.2,

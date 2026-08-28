@@ -169,6 +169,6 @@ describe('anthropicPlaceExtractor', () => {
   it('carries a stable version and the current prompt version', () => {
     const extractor = anthropicPlaceExtractor({ apiKey: 'test-key' });
     expect(extractor.version).toBe('2026-08-anthropic-haiku-4-5');
-    expect(extractor.promptVersion).toBe('p11-s3');
+    expect(extractor.promptVersion).toBe('p12-s3');
   });
 });

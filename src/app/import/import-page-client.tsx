@@ -72,6 +72,7 @@ import {
 import type { StoredResolution } from '@/domain/import/resolution-record';
 import {
   effectivePick,
+  lookupFailureNotice,
   pickRequiredNotice,
   resolutionChip,
   resolutionExplanation,
@@ -1413,6 +1414,33 @@ function CaptionPreviewScreen({
     [probe.candidates, views, picks],
   );
 
+  /**
+   * Why the lookups failed, said once, in the user's terms. Composes with `LOCATION_CAVEAT`
+   * rather than repeating it: this line says *why* those pins came from the caption, the caveat
+   * says *how far off* that leaves them.
+   *
+   * The count is of **failed** candidates that survive on the model's coordinate — not of every
+   * candidate on the screen that happens to use one. Those differ, and the difference was a
+   * screen that told the truth about nothing: a `capped` candidate the resolver never saw, or one
+   * that answered `no_match`, made this say "you can still save them" when the failure had
+   * rescued nobody. `showsLocationCaveat` below asks the wider question on purpose — the caveat
+   * is about every caption-derived pin, this sentence is only about the ones a failure produced.
+   */
+  const rescuedFromCaption = useMemo(
+    () =>
+      probe.candidates.filter(
+        (c, i) =>
+          views[i]!.kind === 'failed' &&
+          usesModelCoordinate(isSaveable(c), views[i]!, picks.get(i) ?? null),
+      ).length,
+    [probe.candidates, views, picks],
+  );
+
+  const lookupFailure = useMemo(
+    () => lookupFailureNotice(views, rescuedFromCaption),
+    [views, rescuedFromCaption],
+  );
+
   const [selected, setSelected] = useState<ReadonlySet<number>>(
     () =>
       new Set(
@@ -1557,6 +1585,15 @@ function CaptionPreviewScreen({
                 being true when resolution shipped. A resolved pin is the venue's own coordinate
                 (11 m for HaKosem) against 65-470 m for the model's guess, so this sentence is
                 shown only while some pin on this screen still comes from the caption. */}
+            {/* Ordered cause-then-consequence: the failure notice explains why these pins are
+                caption-derived, and LOCATION_CAVEAT then quantifies it. `role="status"` because
+                this appears on a screen the user is already reading, without their action. */}
+            {lookupFailure !== null && (
+              <p role="status" className="shrink-0 text-xs font-medium text-muted-foreground">
+                {lookupFailure}
+              </p>
+            )}
+
             {showsLocationCaveat && (
               <p className="shrink-0 text-xs font-medium text-muted-foreground">{LOCATION_CAVEAT}</p>
             )}
@@ -1569,6 +1606,7 @@ function CaptionPreviewScreen({
                 <ExtractedCandidateRow
                   key={i}
                   candidate={c}
+                  caption={probe.caption}
                   view={views[i]!}
                   pick={picks.get(i) ?? null}
                   selected={selected.has(i)}
@@ -1690,6 +1728,7 @@ const STATUS_CHIP: Record<ItemStatus, { readonly label: string; readonly classNa
  */
 function ExtractedCandidateRow({
   candidate,
+  caption,
   view,
   pick,
   selected,
@@ -1699,6 +1738,8 @@ function ExtractedCandidateRow({
   onPick,
 }: {
   candidate: PlaceCandidate;
+  /** The post's caption, which is where "is this name only in a hashtag?" is decided. */
+  caption: string | null;
   /** What the resolver made of this candidate, already derived (`ui/import/candidate-resolution-view.ts`). */
   view: CandidateResolutionView;
   /** The user's explicit shortlist choice, or `null` for "they haven't chosen". */
@@ -1759,7 +1800,7 @@ function ExtractedCandidateRow({
           &ldquo;{candidate.evidence}&rdquo;
         </p>
       )}
-      {isHashtagOnly(candidate) && (
+      {isHashtagOnly(caption, candidate) && (
         <p className="mt-1 text-xs font-medium text-muted-foreground">Only mentioned in a hashtag.</p>
       )}
     </div>
@@ -1882,7 +1923,11 @@ function ExtractedCandidateRow({
       )}
 
       <div className="flex items-center justify-between gap-2 border-t border-border/60 px-4 py-1.5">
-        <span className="flex items-center gap-1.5 truncate text-xs font-medium text-muted-foreground">
+        {/* Not `truncate`. This line's only job is to say where the pin came from, so clipping it
+            removes the whole message — measured at 412 px, "Approximate pin from the caption"
+            rendered as "Approximate pin from the ca…". Wrapping costs a few pixels of height and
+            never costs meaning. */}
+        <span className="flex min-w-0 items-center gap-1.5 text-xs font-medium leading-tight text-muted-foreground">
           <Crosshair className="size-3.5 shrink-0" aria-hidden />
           {resolverPinLine(view, pick, isSaveable(candidate)) ?? locationLine(candidate)}
         </span>

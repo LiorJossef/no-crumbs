@@ -7,8 +7,13 @@
  * implementation without any caller of `MapSurface` changing.
  *
  * Deliberately not abstracted here: camera control (`fitBounds`, programmatic pan/zoom beyond the
- * initial view), a marker-clustering contract, or a "loading/error" state for the map itself.
- * `L1-F5` owns camera-mover discipline; until then the surface owns its own camera.
+ * initial view) or a "loading/error" state for the map itself. `L1-F5` owns camera-mover
+ * discipline; until then the surface owns its own camera.
+ *
+ * There is no clustering contract, and there is no longer anything for one to describe: density
+ * clustering of saved places was removed by owner ruling in `L1-F5-T5`
+ * (`docs/06-map-and-places-decision.md` §9.1). Every saved place is its own pin at every zoom, so a
+ * surface implementing this port renders `places.length` pins — no merging, no counts.
  */
 
 import type { ProductCategory } from '@/domain/places/product-category';
@@ -32,6 +37,19 @@ export interface MapPlace {
   readonly lng: number;
   readonly note: string;
   readonly sourceUrl: string | undefined;
+  /**
+   * Whether the user has said they have been here — `saved_places.visit_state = 'visited'`,
+   * flattened to a boolean at the route boundary.
+   *
+   * On the port rather than read off `detail` (the way `locality` is) because the **pin renderer
+   * genuinely needs it**: a place you have been to is drawn at reduced emphasis, which is a
+   * decision the symbol layer's paint expression makes per feature. `locality` stays on `detail`
+   * precisely because no map implementation has any use for it. Required rather than optional so a
+   * surface constructing a `MapPlace` has to answer the question rather than inherit `undefined`
+   * as a third state the schema does not have — the column is NOT NULL with a default, so there is
+   * always a true answer.
+   */
+  readonly visited: boolean;
   /**
    * The full `Spot` this pin was built from, for the sheet/panel detail view
    * (`components/sheet/place-sheet.tsx`, `place-desktop-panel.tsx`). Optional and carried
@@ -61,8 +79,9 @@ export interface LatLngBoundsHint {
  */
 export interface MapSurfaceProps {
   readonly places: readonly MapPlace[];
-  /** Called when the user activates a single (non-cluster) pin. Optional: a surface with no
-   *  handler still renders and still shows its own default popup/detail, if it has one. */
+  /** Called when the user activates a pin. Every pin is a single saved place — there is nothing
+   *  else on the map to activate. Optional: a surface with no handler still renders and still shows
+   *  its own default popup/detail, if it has one. */
   readonly onPlaceClick?: (place: MapPlace) => void;
   /** Initial camera hint only — computed once, not kept in sync with `places` after mount. A
    *  surface with no `places` and no hint is free to pick its own default view. */

@@ -1,0 +1,35 @@
+SOURCE : https://cloud.google.com/maps-platform/terms  (Google Maps Platform Terms of Service)
+FETCHED: 2026-08-28 by security-privacy, task TOS-DISPLAY-1, independent re-fetch (curl).
+PAGE   : the version selector on the page reads "Last modified August 26, 2026".
+NOTE   : the 2026-08-26 revision is TWO DAYS OLD and post-dates the predecessor's capture in
+         google-maps-platform-tos-3.2-2026-08-28.txt. Sections 3.2.2-3.2.3 were diffed
+         character-for-character against that capture: IDENTICAL (similarity 0.9994, the only
+         opcode being the trailing section marker "3.2.4" that this capture includes and the
+         earlier one truncated at). Nothing in the operative restrictions moved.
+EXTRACT: the DEFINITIONS that the per-field question turns on, plus 3.2.3(e) and 3.2.4.
+----------------------------------------------------------------------
+
+---- Definitions (Section 15 / "Definitions") ----
+
+Google Maps Content " means any content provided through the Services (whether created by Google or its third-party licensors), including map and terrain data, imagery, traffic data, and places data (including business listings). " High Risk Activities " means activities where the use or failure of the Services would reasonab
+
+Customer Application " means any web page or application (including all source code and features) that has material value independent of the Services and is owned or controlled by Customer, or that Customer is authorized to use. " Customer End User " or " End User " means an individual or entity that Customer permits to use th
+
+Google Maps Core Services " means the services described at https://cloud.google.com/maps-platform/terms/maps-services/ . The Services include the Google Maps Content and the Software. " SLA " or " Service Level Agreement " means each of the then-curren
+
+NOTE: the document contains NO definition of "non-Google Map". It is used but never defined.
+      That absence is what makes the *edges* of 3.2.3(e) arguable; it does not make the worked
+      example in (e)(i) arguable, and (e)(i) is this project's exact configuration.
+
+---- 3.2.3(e) ----
+
+(e) No Use With Non-Google Maps . To avoid quality issues and/or brand confusion, Customer will not use the Google Maps Core Services with or near a non-Google Map in a Customer Application. For example, Customer will not (i) display or use Places content on a non-Google Map, (ii) display Street View imagery and non-Google Maps on the same screen, or (iii) link a Google Map to non-Google Maps Content or a non-Google Map. (f) No Use in Embedded Vehicle Systems . Customer will not use the Google Maps Core Services in connection with any Customer Application or device embedded in a vehic
+
+---- 3.2.4 ----
+
+3.2.4 Benchmarking . If Customer publicly discloses (whether directly or through a third party) the results of any comparative or compatibility testing, benchmarking, or evaluation of the Services (each, a "Test"): (a) the disclosure must include all information necessary for Google or a third party to replicate the Test; and (b) Google may conduct and publicly disclose the results of Tests against publicly available products or servi
+
+NOTE: 3.2.4 is a DISCLOSURE OBLIGATION, not a benchmarking exemption. It grants no permission to
+      call the Services in a configuration 3.2.3 forbids. It does attach a condition to publishing
+      comparative results: the disclosure "must include all information necessary for Google or a
+      third party to replicate the Test".

@@ -1,0 +1,304 @@
+{
+  "_comment": "RICH-EXT-1. Deterministic caption-sufficiency signals scored against E7 hand labels. Positive class is \"recoverable\" — the only class where escalating past the caption could help.",
+  "run_at": "2026-08-28T12:59:57.393Z",
+  "denominator": "docs/evidence/tiktok/07-caption-content-scoring.md (n=16)",
+  "class_distribution": {
+    "recoverable": 5,
+    "not-a-place": 5,
+    "futile": 3,
+    "sufficient": 3
+  },
+  "signal_scores": {
+    "noPinMarker": {
+      "tp": 5,
+      "fp": 10,
+      "fn": 0,
+      "tn": 1,
+      "precision": 0.33,
+      "recall": 1
+    },
+    "shortCaption": {
+      "tp": 0,
+      "fp": 2,
+      "fn": 5,
+      "tn": 9,
+      "precision": 0,
+      "recall": 0
+    },
+    "hashtagOnly": {
+      "tp": 0,
+      "fp": 1,
+      "fn": 5,
+      "tn": 10,
+      "precision": 0,
+      "recall": 0
+    },
+    "noAtMention": {
+      "tp": 4,
+      "fp": 7,
+      "fn": 1,
+      "tn": 4,
+      "precision": 0.36,
+      "recall": 0.8
+    },
+    "noStreetHint": {
+      "tp": 3,
+      "fp": 9,
+      "fn": 2,
+      "tn": 2,
+      "precision": 0.25,
+      "recall": 0.6
+    },
+    "cityWordOnly": {
+      "tp": 4,
+      "fp": 6,
+      "fn": 1,
+      "tn": 5,
+      "precision": 0.4,
+      "recall": 0.8
+    }
+  },
+  "rows": [
+    {
+      "id": "7245648559981350186",
+      "n": 1,
+      "class": "recoverable",
+      "note": "6 Tokyo spots, named in-video",
+      "caption": "6 Must try spots in Tokyo Japan! Tokyo food scene was amazing and stay tuned for me to drop my top bites of Kyoto! #japanesefood #japantravel #travelfoodie #streetfood #udon #pizza #pancakes #travelfood ",
+      "signals": {
+        "noPinMarker": true,
+        "shortCaption": false,
+        "hashtagOnly": false,
+        "noAtMention": true,
+        "noStreetHint": false,
+        "cityWordOnly": true
+      }
+    },
+    {
+      "id": "7220925199297039662",
+      "n": 2,
+      "class": "recoverable",
+      "note": "Tokyo rec list, named in-video",
+      "caption": "our full list of #tokyorestaurant recs! hard to have everything on one list, but this is a good jumping off point! 😉 what are you eating first? 🍣🍜🍨 #japanesefood #japan #japanrecs #japantravel #japantiktok #japanlife #tokyo #tokyofood #japantok #japantrip #udon #tsukijifishmarket #tsukjimarket #tsukijioutermarket #japanthings #japanfood #japanfoodies #asiatravel #asiantiktok #japantraveltips #japantips #totoro #ghibli #studioghibli #hayaomiyazaki #sushi #omakase #foodtok #foodtiktok ",
+      "signals": {
+        "noPinMarker": true,
+        "shortCaption": false,
+        "hashtagOnly": false,
+        "noAtMention": true,
+        "noStreetHint": true,
+        "cityWordOnly": false
+      }
+    },
+    {
+      "id": "7290074173500706079",
+      "n": 3,
+      "class": "not-a-place",
+      "note": "cats, control",
+      "caption": "before sleep talk.....very cute couple....#cats #fyp ",
+      "signals": {
+        "noPinMarker": true,
+        "shortCaption": true,
+        "hashtagOnly": false,
+        "noAtMention": true,
+        "noStreetHint": true,
+        "cityWordOnly": false
+      }
+    },
+    {
+      "id": "7402198592712215841",
+      "n": 4,
+      "class": "not-a-place",
+      "note": "app promo, control",
+      "caption": "creative slideshow ideas for your travel pics 📸 have your gallery full and want to post everything?  in panoslice you can upload as many images as you want and create a continuous slideshow - it's really cool  to create, follow the link in bio ✨️  #disenografico #digitalscrapbook #fyp #collageapp #panoslice #2phototrend #photoswipe #instagramcarousel #creative #edit #iphoneedit #androideditingapp #mobileediting #edittutorial ",
+      "signals": {
+        "noPinMarker": true,
+        "shortCaption": false,
+        "hashtagOnly": false,
+        "noAtMention": true,
+        "noStreetHint": true,
+        "cityWordOnly": false
+      }
+    },
+    {
+      "id": "7508758330035195158",
+      "n": 5,
+      "class": "not-a-place",
+      "note": "2 hashtags only, control",
+      "caption": "#youshouldknowpodcast #ysk ",
+      "signals": {
+        "noPinMarker": true,
+        "shortCaption": true,
+        "hashtagOnly": true,
+        "noAtMention": true,
+        "noStreetHint": true,
+        "cityWordOnly": false
+      }
+    },
+    {
+      "id": "7448327861636943150",
+      "n": 6,
+      "class": "futile",
+      "note": "\"drop cafe recs below\" — no venue exists",
+      "caption": "Drop cafe recs below pls #telaviv #telavivlife #americanabroad #aroma #aliyah #coffeetiktok ",
+      "signals": {
+        "noPinMarker": true,
+        "shortCaption": false,
+        "hashtagOnly": false,
+        "noAtMention": true,
+        "noStreetHint": true,
+        "cityWordOnly": false
+      }
+    },
+    {
+      "id": "7496222617053990175",
+      "n": 7,
+      "class": "sufficient",
+      "note": "Cafe Fiori + street + city",
+      "caption": "Nothing like a shuk coffee shop ☕️ @cafe fiori  Cafe Fiori 📍 Yom Tov St 20, Tel Aviv-Yafo #coffeetogo #cafefiori #telaviv",
+      "signals": {
+        "noPinMarker": false,
+        "shortCaption": false,
+        "hashtagOnly": false,
+        "noAtMention": false,
+        "noStreetHint": false,
+        "cityWordOnly": false
+      }
+    },
+    {
+      "id": "7494360070369709354",
+      "n": 8,
+      "class": "recoverable",
+      "note": "Simhovich, on-screen/spoken only",
+      "caption": "The best coffee in Tel Aviv is only 9 shekels?! They also have some of the best pizza… #yallabikes #telaviv ",
+      "signals": {
+        "noPinMarker": true,
+        "shortCaption": false,
+        "hashtagOnly": false,
+        "noAtMention": true,
+        "noStreetHint": false,
+        "cityWordOnly": true
+      }
+    },
+    {
+      "id": "7395598157620497696",
+      "n": 9,
+      "class": "sufficient",
+      "note": "Nomena Roasters + street + city",
+      "caption": "Nomena Roasters, placed on Allenby Street in Tel Aviv. Is a very special boutique place, that looks like perfume store and in fact the scent of the coffee is one of the best home perfumes you can have. Greate coffee and brownies, aesthetic interior, no wifi and amazing Telavivian vibe.  #coffeetiktok #coffeetime #telavivian #telavivlife #telavivcityguide #telavivguide #telavivianstyle #annazwiefka #telavivfood #wheretoeat #israelifood #foodplaces #israel🇮🇱 #wheretovisit #wheretogo #girlwhotravels #coffeelovers #coffeeplace @Anna Zwiefka ",
+      "signals": {
+        "noPinMarker": true,
+        "shortCaption": false,
+        "hashtagOnly": false,
+        "noAtMention": false,
+        "noStreetHint": true,
+        "cityWordOnly": true
+      }
+    },
+    {
+      "id": "7325134418991942945",
+      "n": 10,
+      "class": "not-a-place",
+      "note": "comedy, city only",
+      "caption": "POV: You try to order coffee in Tel Aviv #fyp #foryou #israel #israeli #standwithisrael #telaviv #telavivlife #telavivcity #telavivyafo #telavivbeach #coffee #icedcoffee #telavivian #telavivmoments ",
+      "signals": {
+        "noPinMarker": true,
+        "shortCaption": false,
+        "hashtagOnly": false,
+        "noAtMention": true,
+        "noStreetHint": true,
+        "cityWordOnly": true
+      }
+    },
+    {
+      "id": "7323274629865295137",
+      "n": 11,
+      "class": "not-a-place",
+      "note": "repost of #10",
+      "caption": "POV: You try to order coffee in Tel Aviv Via @zachmargs  #comedy #israel #telaviv ",
+      "signals": {
+        "noPinMarker": true,
+        "shortCaption": false,
+        "hashtagOnly": false,
+        "noAtMention": false,
+        "noStreetHint": true,
+        "cityWordOnly": true
+      }
+    },
+    {
+      "id": "7347722826654305578",
+      "n": 12,
+      "class": "recoverable",
+      "note": "Nomena, on-screen/spoken only",
+      "caption": "coffee in tlv > #bh #thankyouhashem #coffee #telaviv #ביתקפה #תלאביב ☕️☁️",
+      "signals": {
+        "noPinMarker": true,
+        "shortCaption": false,
+        "hashtagOnly": false,
+        "noAtMention": true,
+        "noStreetHint": true,
+        "cityWordOnly": true
+      }
+    },
+    {
+      "id": "7081307157660241157",
+      "n": 13,
+      "class": "recoverable",
+      "note": "\"Tel Aviv >\" — city only",
+      "caption": "Tel Aviv🇮🇱 > @broitsesco #herzlya #telaviv #work #study #lawstudent #lawtok #travel",
+      "signals": {
+        "noPinMarker": true,
+        "shortCaption": false,
+        "hashtagOnly": false,
+        "noAtMention": false,
+        "noStreetHint": true,
+        "cityWordOnly": true
+      }
+    },
+    {
+      "id": "7205629856716000517",
+      "n": 14,
+      "class": "futile",
+      "note": "question post, asks the audience",
+      "caption": "What’s the best hidden gem restaurant in London? 💎🤫👀 Comment below👇👇 #deinfluencing #londonrestaurants #hiddengems #secretspot ",
+      "signals": {
+        "noPinMarker": true,
+        "shortCaption": false,
+        "hashtagOnly": false,
+        "noAtMention": true,
+        "noStreetHint": true,
+        "cityWordOnly": true
+      }
+    },
+    {
+      "id": "7346702347491446049",
+      "n": 15,
+      "class": "sufficient",
+      "note": "8 restaurants + neighbourhoods",
+      "caption": "ad The hidden restaurants you NEED to know about ❤️ You guys know we love sharing hidden gems around London and these restaurants are exactly that - hidden away and absolute gems! You can get 50% off food at ALL OF THESE restaurants if you book them through @firsttableuk and it’s only £3 to book your first “First Table” when you sign up with code EXPLORING - book for 2-4 people at an off-peak dining time and get rewarded with 50% off the food bill (drinks are a regular price). It’s a no brainer. 🧠 SAVE THIS for hidden restaurants, all with 50% off food: ✨ La Nonna in Market Row, Brixton for delicious artisan pasta ✨ MBER London, underground on Pudding Lane for incredible pan-Asian sharing plates ✨ The Life Goddess for beautiful Greek dishes  ✨ The Laughing Yak Nepalese kitchen tucked away in Market Peckham  ✨ Sycamore Restaurant for seasonal Italian plates inside Middle Eighty Hotel in Covent Garden ✨ Tokii London, East meets West inside The Prince Akatoki London Hotel in Marylebone  ✨ Kiaans Tooting pan-Asian inside Tooting Market ✨ Jones Family Kitchen - hidden inside Eccleston Yards in Belgravia ❤️ Which one are you checking out first? #firsttable #halfpricefood #londonrestaurants #hiddenlondon #londonguide",
+      "signals": {
+        "noPinMarker": true,
+        "shortCaption": false,
+        "hashtagOnly": false,
+        "noAtMention": false,
+        "noStreetHint": false,
+        "cityWordOnly": true
+      }
+    },
+    {
+      "id": "7541775954906041622",
+      "n": 16,
+      "class": "futile",
+      "note": "name withheld in caption AND speech",
+      "caption": "my Italian friend told me not to make a tiktok about this london restaurant because he knows its the best Italian restaurant in London and wants to actually be able to get a reservation oops, save this for londons best hidden gem restaurant - where to eat in London - Knightsbridge restaurants - Italian food in London - London restaurant guide - London date night #londonrestaurant #londonrestaurants #londonfood #londonfoodie #londonfoodspots           ",
+      "signals": {
+        "noPinMarker": true,
+        "shortCaption": false,
+        "hashtagOnly": false,
+        "noAtMention": true,
+        "noStreetHint": true,
+        "cityWordOnly": true
+      }
+    }
+  ],
+  "live_extraction": false
+}

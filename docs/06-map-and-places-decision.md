@@ -501,6 +501,28 @@ viewport after a "show everything" zoom-out, ~2 000 points.
   **The 2 000-place ceiling is answered — it is not the risk. Legibility is** (sized 2026-08-28,
   `D2-CLUSTER-REMOVAL-SIZING`).
 
+  > **Confirmed by measurement when the removal was built** (`L1-F5-T5`, 2026-08-28). The sizing
+  > below was reasoning from the style spec; these are numbers from our real modules
+  > (`buildPinImages`, `pinLayerLayout`, `pinLayerPaint`, `toPlaceFeatures`) bundled with the
+  > repo's own Vite against the real CARTO style, 2 000 synthetic saves clumped around six city
+  > centres — harder for symbol placement than a uniform spread — over a scripted `easeTo` z12 → z4:
+  >
+  > | places | labels | median frame | p95 | ~fps |
+  > |---|---|---|---|---|
+  > | 31 (today) | gated | 17.0 ms | 42.5 | 59 |
+  > | 1 000 | gated | 17.5 | 48.5 | 57 |
+  > | **2 000 (ceiling)** | **gated** | **19.0** | **60.5** | **53** |
+  > | **2 000** | **forced ON** | **34.0** | 55.1 | **29** |
+  > | 5 000 | gated | 22.3 | 48.8 | 45 |
+  >
+  > Icons cost 2 ms of median frame time going from 31 to 2 000, and 3.1 ms/frame over the basemap
+  > alone. Forcing the label gate open at the same 2 000 halves the frame rate. So the honest
+  > ceiling is **at least 2 000 with headroom to 5 000, conditional entirely on
+  > `LABEL_MIN_ZOOM = 14`** — now pinned by a test asserting the exact `text-field` step
+  > expression, so the thing doing the work cannot be removed quietly. Two secondary results were
+  > non-results, which is itself the finding: a pan at z15 and one-off symbol layout are both flat
+  > across 31, 500 and 2 000 places, so that cost is tile fetch and the rasteriser, not our pins.
+
   - **Icons are fine.** The pin layer already sets `icon-allow-overlap` and `icon-ignore-placement`,
     and MapLibre's collision index short-circuits entirely under `'always'` overlap
     (`symbol/collision_index.ts`), so clustering was never protecting us from a collision blow-up —
@@ -540,7 +562,9 @@ viewport after a "show everything" zoom-out, ~2 000 points.
 
 - Post-import, one new place: `flyTo` zoom 16, `duration: 1200`, `curve: 1.42`, `essential: false`.
 - Post-import, N new places: `fitBounds` with `maxZoom: 15` and 48 px padding.
-- Cluster tap: `getClusterExpansionZoom` → `easeTo`, 400 ms.
+- ~~Cluster tap: `getClusterExpansionZoom` → `easeTo`, 400 ms.~~ **Retired with density clustering
+  (§9.1, `L1-F5-T5`, built 2026-08-28).** There is no cluster to tap; a tap is always a tap on a
+  place.
 - **All camera calls carry `padding: { bottom: sheetHeight }`** so the target never lands under the
   bottom sheet. This is the detail that separates a polished map from an irritating one.
 - `prefers-reduced-motion` → every `flyTo`/`easeTo` degrades to `jumpTo`. Charter §6.

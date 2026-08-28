@@ -23,6 +23,10 @@ function toMapPlace(spot: Spot): MapPlace {
     lng: spot.lng,
     note: spot.note ?? '',
     sourceUrl: spot.sourceUrl ?? spot.source?.canonicalUrl,
+    // `visit_state` flattened at the one boundary that knows the column exists. The port carries a
+    // boolean, not the stored value, so the schema's `'visited'` / `'want_to_go'` strings stop here
+    // and cannot reach a component that might print one.
+    visited: spot.visitState === 'visited',
     detail: spot,
   };
 }

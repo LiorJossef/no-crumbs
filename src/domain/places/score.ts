@@ -805,6 +805,13 @@ export function placeProximity(a: NamedPoint, b: NamedPoint): PlaceProximity {
  * same question and neither name contains the other, so this returns `null`. Catching it needs a
  * shared-prefix rule, which on this corpus also catches `Bar B`/`Bar Benfiddich`; it is not
  * attempted here.
+ *
+ * **A firing guard no longer implies a `confirm` band.** Since RECOG-METRICS-2, `addressIsDecisive`
+ * can override it — the caption wrote the street and the top row is on it, so the branch question is
+ * already answered. Anything deriving the *reason* a question was asked (`docs/ux-when-we-ask.md`
+ * §3.2) must read the band first and consult this second, never the reverse: `רוסטיקו` on Overture
+ * fires this guard and auto-accepts, and a reason derived from the guard alone would explain a
+ * question the user was never asked.
  */
 export function branchRival(
   ranked: readonly RankedPlace[],
@@ -878,6 +885,127 @@ function contradictedAddressOnly(top: RankedPlace): boolean {
 }
 
 /**
+ * Float-equality tolerance for "the name matched exactly" and "every query token is present".
+ *
+ * **Not calibration and not a knob.** `nameScore` and `tokenCoverage` are built from divisions, so
+ * a genuinely perfect match can land at 0.9999999999999998. Tuning this does not adjust the
+ * resolver, it only decides whether floating-point noise counts as imperfection. Same class of
+ * constant as `jaro-winkler.ts`'s prefix scale, and kept out of `SCORING` for the same reason.
+ */
+const EXACT = 0.999;
+
+/**
+ * **F2 — the caption's own street address is decisive.** (RECOG-METRICS-2, 2026-08-28.)
+ *
+ * When the caption wrote a street address and the top row carries the **same street and the same
+ * house number**, and every distinctive word the caption used appears in that row's name, and no
+ * row still in contention corroborates that same address, then the venue is identified. We are not
+ * more sure of anything else in this system, and until this change we asked anyway.
+ *
+ * ## What it overrides, and why each override is the address's to make
+ *
+ *  - **The score gate.** `קוהי` against `Kohi בית קפה יפני @ בן יהודה 155` scores 0.9067 — seven
+ *    thousandths under 0.92 — entirely because Google's display name appends the words *"Japanese
+ *    café"*. A descriptor in a display name is not evidence about which venue this is; the house
+ *    number is.
+ *  - **The null-margin block.** `WOW` against `wow london @ בית אשל 15` has one prefiltered row, so
+ *    `margin` is `null` and `'narrow-filter'` can never auto-accept it however right it is. `10`
+ *    §12 Q3's rule — an unmeasured margin is not a perfect margin — is about the *absence* of
+ *    evidence, and here the evidence is present and it is the address.
+ *  - **The branch guard.** `רוסטיקו` against `Rustico @ בזל 42` fires the guard, which asks whether
+ *    the user meant `Rustico Rothschild` 3.1 km away — about a caption that says `בזל 42`. The
+ *    guard's own second condition already stands down when the caption named the branch
+ *    (`branchRival`); this is the same idea one step further, because writing the street **is**
+ *    naming the branch. Withholding it would be the picker's worst failure: a question whose answer
+ *    is on the screen already.
+ *
+ * ## What holds it
+ *
+ * An address is **not unique** — `scorePlace`'s header records that `לבונטין 19` holds three venues
+ * and `בן יהודה 155` two — so the address never decides alone:
+ *
+ *  1. `addressScoreOf(top) === 1` is a strict test, not a strong one. `addressScore` only returns
+ *     the full street score when **both** house numbers are present and equal, and only reaches
+ *     exactly 1 when street similarity is exactly 1. A missing number halves it (`streetOnly`), a
+ *     different number is 0, and a cross-script pair is `null`. None of those qualify.
+ *  2. `tokenCoverage` at 1.0 means every distinctive token the caption wrote is in the row's name,
+ *     so the name still has to break the address's tie.
+ *  3. The score floor is still `confirmScore`.
+ *  4. Any rival within `branchGuard.rivalScoreBand` that corroborates the **same** address vetoes
+ *     it. If two rows are at one address, the address has separated nothing.
+ *
+ * ## Two limits on the evidence, stated because they are real
+ *
+ * **The golden benchmark cannot test this at all.** `raw-overture-scored.json` records no
+ * `addressLine`, so `addressScore` is `null` for all 44 cases and this predicate is arithmetically
+ * a no-op there. That file *neither refutes nor endorses* the rule — a distinction worth keeping,
+ * because both previous band proposals died on it and this one was never offered to it.
+ *
+ * **Condition 4 is measured against a record that holds one row per candidate.** In production
+ * `confidenceOf` sees the whole ranking, so the veto is exact. But the offline evidence
+ * (`tiktok-recognition-run.google.json`) stores only the top row for 14 of 16 Google candidates, so
+ * the *measurement* that no rival corroborates equally is a measurement about rows we can see. It
+ * is a stronger claim on Overture, where the record keeps ten.
+ *
+ * ## Off without `forms`, exactly as the branch guard is
+ *
+ * A caller that passes no query forms is not answering a question, it is banding a list of recorded
+ * numbers — `benchmark-golden.test.ts`'s replay of the 2026-07 run. A policy invented in 2026-08
+ * re-banding that run turns a fidelity check into a moving target, which is the rule `confidenceOf`
+ * already states for `branchRival`. **It is not a formality: `exactNameBeatsFuzzyRival` was written
+ * without this gate and silently re-banded LDN-01 (`Kiln`, recorded score 0.999, recorded margin
+ * 0.048) from `confirm` to `preselect`, breaking four assertions about a measurement taken before
+ * the rule existed.** Both overrides are claims about *this query against this row*, so without a
+ * query there is nothing for either to be true of.
+ */
+function addressIsDecisive(ranked: readonly RankedPlace[], forms: readonly string[]): boolean {
+  const top = ranked[0];
+  if (top === undefined || forms.length === 0) return false;
+  if (top.score < SCORING.bands.confirmScore) return false;
+  if (top.tokenCoverage < EXACT) return false;
+  if (addressScoreOf(top) !== 1) return false;
+  return !ranked
+    .slice(1)
+    .some((r) => top.score - r.score <= SCORING.branchGuard.rivalScoreBand && addressScoreOf(r) === 1);
+}
+
+/**
+ * **F3 — an exact name is not a close call.** (RECOG-METRICS-2, 2026-08-28.)
+ *
+ * Waives the **margin gate only**, for a top row whose name matched the query *exactly and
+ * wholly*, against a runner-up that is merely similar.
+ *
+ * `Palette Bistro` is the case: name score **1.000** with full coverage, and the band was `confirm`
+ * because `Paulette` — a different venue 1.5 km away — scores 0.967, inside the 0.05 margin gate.
+ * The margin gate's own argument (`scoring-constants.ts`, `bands`) is that a thin margin means
+ * *"sure of the business, unsure which branch"*. That reading requires the two rows to be plausibly
+ * the same name, and here they are not: one is the query and the other is a different word.
+ *
+ * ## What holds it
+ *
+ *  - The **score** gate is untouched. This only ever relaxes the margin, and only for a 1.000 name.
+ *  - `nameDifference(top, rival) === null` — the pair must **not** be branch-shaped. Two rows where
+ *    one name contains the other are exactly the case the margin gate is for, and they are left to
+ *    it and to the branch guard.
+ *  - The rival's *name* score must be more than `decisive.rivalNameSeparation` below the top's. Two
+ *    rows under the identical name are separated by 0.000 and can never qualify — which is what
+ *    keeps `The Dove` (LDN-13), `Afuri`/`AFURI` (TYO-07) and `猿田彦珈琲` (TYO-09) asking.
+ *  - The branch guard still runs, in `confidenceOf`. This does not touch it.
+ *
+ * Measured on the 44 golden cases: **fires on nothing**, and the three shapes above are why. It is
+ * the one of the two new rules the golden file can actually exercise, and it declines correctly on
+ * every case it is offered.
+ */
+function exactNameBeatsFuzzyRival(ranked: readonly RankedPlace[], forms: readonly string[]): boolean {
+  const top = ranked[0];
+  const rival = ranked[1];
+  if (top === undefined || rival === undefined || forms.length === 0) return false;
+  if (top.nameScore < EXACT || top.tokenCoverage < EXACT) return false;
+  if (nameDifference(top.place.name, rival.place.name) !== null) return false;
+  return top.nameScore - rival.nameScore > SCORING.decisive.rivalNameSeparation;
+}
+
+/**
  * `06` §6.2's three bands, over the full ranking.
  *
  * With the default `'narrow-filter'`, `preselect` requires both gates and a null margin therefore
@@ -897,6 +1025,33 @@ function contradictedAddressOnly(top: RankedPlace): boolean {
  * The production path is `scoreCandidates`, which always passes `queryForms()`'s output;
  * `score.test.ts` pins that wiring, because "the guard is off unless you ask for it" is only safe
  * while something asserts the one caller does ask.
+ *
+ * ## The two evidence overrides (RECOG-METRICS-2, 2026-08-28)
+ *
+ * Measured on the real corpus, **every** question this function asked was one the system could
+ * already answer: needless questions 4/16 on Google and 3/16 on Overture, genuine ambiguity 0/16 on
+ * both (`docs/evidence/places/recognition-scoreboard-2026-08-28.md`). The owner's ruling is to ask
+ * only when ambiguity is genuinely unavoidable, so two of those classes are closed here.
+ *
+ *  - `addressIsDecisive` (**F2**) overrides the score gate, the null-margin block **and** the branch
+ *    guard, and is therefore tested first. An exactly corroborated street address is the strongest
+ *    evidence in this system.
+ *  - `exactNameBeatsFuzzyRival` (**F3**) relaxes the **margin** term only, and is written inside the
+ *    existing condition so that the score gate and the branch guard still have to pass. It cannot
+ *    reach `preselect` on its own.
+ *
+ * Neither invents a score. `top.score` is returned unchanged in every branch, so
+ * `places.resolution_score` still stores what the scorer measured and only the band moves — the
+ * same discipline `contradictedAddressOnly` follows in the other direction.
+ *
+ * **A third fix, F1, was measured and deliberately not taken.** It would auto-accept a row whose
+ * name wholly contains the query — a pure suffix, `קוהי` → `Kohi בית קפה יפני` — and it recovers
+ * more than either rule here. It is held because the same shape covers a caption that lists three
+ * branches (`מתחת לעץ`: `נתן אלתרמן 13`, `לבונטין 13`, `בן יהודה 202`) where the provider returns
+ * one, and silently choosing one of three the caption named is a wrong auto-match in the user's
+ * terms even where a corpus scores it correct. Owner ruling, 2026-08-28. Do not add it without a
+ * signal that says the caption named no sibling branch, which the resolver does not currently
+ * receive.
  */
 export function confidenceOf(
   ranked: readonly RankedPlace[],
@@ -918,7 +1073,16 @@ export function confidenceOf(
       : margin >= SCORING.bands.preselectMargin;
 
   let band: ConfidenceBand;
-  if (top.score >= SCORING.bands.preselectScore && marginOk && branchRival(ranked, forms) === null) {
+  if (addressIsDecisive(ranked, forms)) {
+    // F2 takes precedence over all three gates, because the evidence it reads outranks all three.
+    // It cannot fire on a row the caption gave no address for, and `addressIsDecisive` is the only
+    // place that judgement is made.
+    band = 'preselect';
+  } else if (
+    top.score >= SCORING.bands.preselectScore &&
+    (marginOk || exactNameBeatsFuzzyRival(ranked, forms)) &&
+    branchRival(ranked, forms) === null
+  ) {
     band = 'preselect';
   } else if (top.score >= SCORING.bands.confirmScore || contradictedAddressOnly(top)) {
     band = 'confirm';
