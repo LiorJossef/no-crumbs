@@ -69,7 +69,6 @@ export const HTTP_STATUS_BY_ERROR_CODE = {
    *  Not 502 — TikTok answered us correctly, it just did not answer with a post. */
   SHORT_LINK_UNRESOLVED: 422,
   /** Client fault. A supported host, an unsupported post kind. */
-  PHOTO_POST: 422,
   /** The post itself cannot be read (private / deleted / region-locked — indistinguishable,
    *  VERIFIED `04` §5). 422, not 404: the route and the request were both fine, and not 502: this
    *  is TikTok working correctly and declining, which is not an upstream outage. */

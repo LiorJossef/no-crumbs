@@ -151,22 +151,6 @@ export const IMPORT_ERROR_COPY: Record<DomainErrorCode, ImportErrorCopy> = {
     actions: ['another_tiktok', 'back_to_map'],
   },
 
-  /** `07` §9 says to render this with `POST_UNAVAILABLE`'s copy "until `04` §5 category L has a
-   *  specimen". **We deliberately don't.** `kind=photo` is a deterministic canonicaliser verdict,
-   *  not an ambiguous read failure, and both `domain/errors.ts`'s `photoPost` message and
-   *  `RedirectScreen`'s shipped copy already say the specific, true thing. Borrowing "we couldn't
-   *  read it" here would tell the user we failed at something we never attempted. Flagged for
-   *  `07` §9 rather than done quietly. */
-  PHOTO_POST: {
-    kicker: 'Not supported yet',
-    headline: 'This kind of TikTok isn’t supported yet.',
-    // "on the list" was a roadmap promise this screen has no standing to make (brand §4: state,
-    // don't perform). What is true and useful is the boundary itself.
-    body: 'We can only read video posts for now.', // NEW
-    icon: 'photo',
-    actions: ['another_tiktok', 'open_tiktok'],
-  },
-
   /** `07` §9: **F9**, the single honest state. C60 headline, C61 body, C62 actions minus the manual
    *  add that has no destination. The word "yet" is load-bearing (§5.1) and stays. */
   POST_UNAVAILABLE: {
@@ -333,7 +317,7 @@ export function importErrorActions(
  * A test pins this list against `canonicaliseTikTokUrl`'s actual behaviour, so a new pre-submit
  * verdict cannot appear without landing here.
  */
-export const PRE_SUBMIT_ERROR_CODES = ['UNSUPPORTED_HOST', 'UNSUPPORTED_URL', 'PHOTO_POST'] as const;
+export const PRE_SUBMIT_ERROR_CODES = ['UNSUPPORTED_HOST', 'UNSUPPORTED_URL'] as const;
 
 /** The three codes above, as a type — what `/import`'s pre-submit redirect screen may carry. */
 export type PreSubmitErrorCode = (typeof PRE_SUBMIT_ERROR_CODES)[number];

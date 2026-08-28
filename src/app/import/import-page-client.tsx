@@ -281,7 +281,7 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
    *
    * `07` §9 splits these two ways and the screen must too: **`MALFORMED_URL` alone** is F1 inline
    * field copy (C06, "That doesn't look like a TikTok link."); `UNSUPPORTED_HOST`,
-   * `UNSUPPORTED_URL` and `PHOTO_POST` each get their own screen, because they are *recognised*
+   * `UNSUPPORTED_URL` each get their own screen, because they are *recognised*
    * links carrying different news.
    *
    * This used to be one boolean, and it produced two bugs at once. `canSubmit` required
@@ -357,7 +357,7 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
     // field's current value — one render behind on a seed tap.
     const verdict = canonicaliseTikTokUrl(target);
     if (!verdict.ok) {
-      // UNSUPPORTED_HOST/PHOTO_POST/UNSUPPORTED_URL are all "a recognised link, not a failure" —
+      // UNSUPPORTED_HOST/UNSUPPORTED_URL are both "a recognised link, not a failure" —
       // their own screen, sharing the server's copy for the same verdict. MALFORMED_URL stays on
       // the paste screen: `setTouched(true)` above is what reveals C06 under the field, which is
       // `07` §9's F1-inline treatment and the only code that gets it.

@@ -47,6 +47,22 @@ describe('resolveShortLink', () => {
     expect(result.externalId).toBe('7290074173500706079');
   });
 
+  it('resolves a photo/carousel share link, which redirects to /@handle/photo/<id>', async () => {
+    // Measured on a real carousel the owner supplied, 2026-08-28:
+    // `https://vt.tiktok.com/ZSVsx7UeX/` → 301 → `https://www.tiktok.com/@evesela/photo/…`.
+    // Before `photo` was in the pattern, the redirect was followed correctly and the id simply
+    // went unrecognised, so a readable post died as SHORT_LINK_UNRESOLVED in the running app.
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        redirectResponse('https://www.tiktok.com/@evesela/photo/7665396684981095688?_r=1&_t=ZS-99Fr'),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await resolveShortLink(link, ctx());
+    expect(result.externalId).toBe('7665396684981095688');
+  });
+
   it('throws SHORT_LINK_UNRESOLVED for the homepage-trap dead code (VERIFIED: 302 to homepage, HTTP 200 body never reached)', async () => {
     const fetchMock = vi.fn().mockResolvedValue(redirectResponse('https://www.tiktok.com/?_r=1', 302));
     vi.stubGlobal('fetch', fetchMock);

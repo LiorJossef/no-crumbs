@@ -122,9 +122,24 @@ describe('the SSRF boundary — default-deny, allow-list only', () => {
   });
 });
 
-describe('photo posts — PHOTO_POST, distinct from a video', () => {
-  it('/@handle/photo/<id> is classified as PHOTO_POST, not silently treated as a video', () => {
-    expectError(canonicaliseTikTokUrl(`https://www.tiktok.com/@a/photo/${VIDEO_ID}`), 'PHOTO_POST');
+describe('photo / carousel posts resolve exactly like a video (04 §5 category L, specimen 2026-08-28)', () => {
+  // Measured on a real carousel supplied by the owner, `@evesela/photo/7665396684981095688`:
+  // oEmbed **400s** the `/photo/` URL form and **200s** the identical id under `/video/<id>`,
+  // returning the full caption — which in that specimen names a venue outright. So the URL form
+  // was the only obstacle, and rejecting these as `PHOTO_POST` was refusing content we can read.
+  it('/@handle/photo/<id> yields the same externalId as the video form', () => {
+    expectVideo(canonicaliseTikTokUrl(`https://www.tiktok.com/@a/photo/${VIDEO_ID}`), VIDEO_ID);
+  });
+
+  it('the bare /photo/<id> form works too', () => {
+    expectVideo(canonicaliseTikTokUrl(`https://www.tiktok.com/photo/${VIDEO_ID}`), VIDEO_ID);
+  });
+
+  it('dedups against the same post linked as a video — the id alone is the key', () => {
+    // `04` §2: the dedup key is the numeric id, never the URL or the handle. A carousel and a
+    // video link to the same post must therefore not become two rows.
+    expectVideo(canonicaliseTikTokUrl(`https://www.tiktok.com/@a/photo/${VIDEO_ID}`), VIDEO_ID);
+    expectVideo(canonicaliseTikTokUrl(`https://www.tiktok.com/@b/video/${VIDEO_ID}`), VIDEO_ID);
   });
 });
 
