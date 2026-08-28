@@ -11,7 +11,8 @@ import { IMPORT_SEED_LINKS } from '@/ui/import/seed-links';
  * not the ones that restate today's contents.
  *
  * What can actually go wrong when someone swaps a link: pasting an Instagram URL, a TikTok profile
- * URL, a photo post, or a URL with a typo in it. Every one of those is a chip that dead-ends the
+ * URL, or a URL with a typo in it. A photo/carousel post is deliberately NOT in that list any
+ * more — oEmbed serves it under `/video/<id>`, so it is a supported seed, not a dead end. Every one of those is a chip that dead-ends the
  * very first thing a new user taps — the worst possible place for it — and every one of them is
  * caught below by running the seed through the same canonicaliser the screen runs it through.
  */
@@ -39,7 +40,6 @@ describe('IMPORT_SEED_LINKS', () => {
     for (const bad of [
       'https://www.instagram.com/p/abc/',
       'https://www.tiktok.com/@someone',
-      'https://www.tiktok.com/@someone/photo/7300000000000000000',
       'ttps://www.tiktok.com/@someone/video/7300000000000000000',
     ]) {
       expect(canonicaliseTikTokUrl(bad).ok, bad).toBe(false);

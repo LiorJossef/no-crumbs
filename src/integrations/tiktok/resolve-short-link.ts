@@ -4,7 +4,11 @@
  * module actually follows it. L0-F4-T1.
  *
  * Evidence this file encodes:
- *  - `vm.`, `vt.` and `www.tiktok.com/t/` share ONE code namespace: same code, same video.
+ *  - `vm.`, `vt.` and `www.tiktok.com/t/` share ONE code namespace: same code, same post.
+ *  - A share link to a **photo/carousel** post redirects to `/@<handle>/photo/<id>`, so `photo` is
+ *    in the pattern alongside `video`. Measured on a real carousel (2026-08-28): without it, the
+ *    owner's own share link died as `SHORT_LINK_UNRESOLVED` even though the post reads fine —
+ *    the redirect was followed correctly and the id was simply not recognised in it.
  *  - The video id is already in the FIRST hop's `Location` header
  *    (`https://m.tiktok.com/v/<id>.html?...`) — the redirect chain never needs to be fully
  *    followed, and no HTML is ever parsed.
@@ -22,7 +26,7 @@ import { isAllowedTikTokHost, type ClassifiedShortLink } from '@/domain/source/c
  *  `www.tiktok.com/@<handle-or-empty>/video/<id>` (a chain that resolves in one hop). Both are
  *  checked against every `Location` header seen, in order, so whichever hop the id appears in is
  *  found without assuming a fixed hop count. */
-const VIDEO_ID_IN_PATH = /\/(?:v\/(\d{17,20})\.html|(?:@[^/]*\/)?video\/(\d{17,20}))/;
+const VIDEO_ID_IN_PATH = /\/(?:v\/(\d{17,20})\.html|(?:@[^/]*\/)?(?:video|photo)\/(\d{17,20}))/;
 
 /** `04` §2 step 4's own hop budget: real chains observed were 2 hops; this leaves headroom
  *  without letting a redirect loop or an attacker-controlled chain run indefinitely (`07` §7). */

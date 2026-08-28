@@ -30,7 +30,6 @@
 
 import {
   malformedUrl,
-  photoPost,
   unsupportedHost,
   unsupportedUrl,
   type DomainError,
@@ -73,9 +72,18 @@ const UNSUPPORTED_TOP_LEVEL_PATHS: ReadonlySet<string> = new Set([
   'channel',
 ]);
 
-/** A resolvable TikTok video or photo post. `kind` stays `'video'` for a photo-post *shape* only
- *  until it is rejected as `PHOTO_POST` — a genuine photo post never reaches this type, it becomes
- *  an error result instead (see `photoPost` below). */
+/**
+ * A resolvable TikTok post — video **or** photo/carousel. `kind` is `'video'` for both, because
+ * that is what the thing downstream is: oEmbed answers a photo post with `"type": "video"` and the
+ * same `title`/`author`/`thumbnail` field set, so nothing after this point needs to know or care.
+ *
+ * Photo posts used to be rejected here as `PHOTO_POST`. That was written when `04` §5 category L
+ * had **no specimen**, and it was wrong: measured on a real carousel supplied by the owner
+ * (`@evesela/photo/7665396684981095688`, 2026-08-28), oEmbed **400s the `/photo/` URL form and
+ * 200s the identical id under `/video/<id>`**, returning the full caption — which in that specimen
+ * names a venue outright ("📍Dopo Cafe, Tel Aviv"). The URL form was the only obstacle, so this is
+ * the same rewrite the `/embed/` forms already get, for the same reason.
+ */
 export interface CanonicalVideo {
   readonly kind: 'video';
   readonly externalId: string;
@@ -188,17 +196,14 @@ function classifyPath(segments: readonly string[], hostname: string): Canonicali
     if (rest.length === 0) {
       return err(unsupportedUrl()); // a profile is not a post
     }
-    if (rest.length === 2 && rest[0] === 'video') {
+    if (rest.length === 2 && (rest[0] === 'video' || rest[0] === 'photo')) {
       return videoOrMalformed(rest[1] as string);
-    }
-    if (rest.length === 2 && rest[0] === 'photo') {
-      return err(photoPost());
     }
     return err(unsupportedUrl());
   }
 
-  // `/video/<id>`.
-  if (head === 'video' && rest.length === 1) {
+  // `/video/<id>` and `/photo/<id>`.
+  if ((head === 'video' || head === 'photo') && rest.length === 1) {
     return videoOrMalformed(rest[0] as string);
   }
 

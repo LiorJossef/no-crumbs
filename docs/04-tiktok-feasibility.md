@@ -36,6 +36,7 @@ audio track), which is currently out of charter scope.
 | M6 | Research API (`/v2/research/video/query/`) | Yes, incl. `video_description` | Yes | Non-profit academic institution in US/EEA/UK/CH/BR, funding disclosure, ethics review, ~30-day approval, **non-commercial only**, **must delete data not present on 30-day refresh** | **UNAVAILABLE** (eligibility + ToS both fail) |
 | M7 | Commercial Content API / Ad Library (`library.tiktok.com`) | Only **paid/commercial** content in EEA/UK/CH | ads only | approved researchers, 1k req/day, non-commercial | **UNAVAILABLE** (wrong corpus) |
 | M8 | Subtitle / caption-track endpoint | — | TikTok auto-generates WebVTT subtitles, but **no official public endpoint exposes them** | — | **UNAVAILABLE officially** |
+| M9 | **Photo / carousel posts via oEmbed** | **Yes** | **Yes, full** | none | **VERIFIED 2026-08-28** — see §5 category L |
 | M9 | Scraping the public HTML / `og:` tags / the internal `item_detail` JSON | technically yes | yes | — | **OUT OF BOUNDS** (ToS, bot protection, fragile) |
 | M10 | Third-party commercial data providers (Apify actors, RapidAPI, ScrapeCreators, Supadata…) | Yes, incl. caption **and** WebVTT subtitles | yes | paid, ~$0.004/item + $0.03/run tier | **ASSUMED capability; compliance UNRESOLVED — security-privacy decision** |
 | M11 | Audio transcription of the media file (ASR) | requires obtaining the media | yes, speech | our own cost | **NOT ASSESSED — out of current scope** (§7) |
@@ -94,7 +95,7 @@ drop the trailing slash. Strip a leading locale segment matching `^[a-z]{2}(-[A-
 | Pattern | Action |
 |---|---|
 | `/@<handle>/video/<id>` | `kind=video`, id captured |
-| `/@<handle>/photo/<id>` | `kind=photo`, id captured — see §3 `PHOTO_POST` |
+| `/@<handle>/photo/<id>` | id captured, canonicalised to `/video/<id>` — **VERIFIED supported**, 2026-08-28 |
 | `/video/<id>` | `kind=video` |
 | `/v/<id>.html` (m host) | `kind=video` |
 | `/embed/v2/<id>`, `/embed/<id>` | `kind=video` (rewrite; oEmbed rejects these forms verbatim) |
@@ -166,7 +167,6 @@ actually determine.
 | `MALFORMED_URL` | Steps 2–3 (no id / bad id shape) | VERIFIED | "That doesn't look like a link to a single TikTok post." Show an example URL. |
 | `UNSUPPORTED_URL` | profile / tag / music / discover / live path | VERIFIED | "That's a profile, not a post. Open the specific video and copy its link." |
 | `SHORT_LINK_UNRESOLVED` | Step 4 found no id (incl. 302→homepage) | VERIFIED | "This share link has expired or no longer points to a post. Try opening it and copying the full link." |
-| `PHOTO_POST` | Step 3 `kind=photo` | **UNVERIFIED — no specimen** | Provisionally treat as `POST_UNAVAILABLE`; see §5 category L |
 | `POST_UNAVAILABLE` | oEmbed 400 after passing validation | VERIFIED (the 400; not the cause) | **One honest state:** "We couldn't read this post. It may be private, deleted, or unavailable in this region." → offer manual place search. **Do not guess which.** |
 | `UPSTREAM_TIMEOUT` | our own AbortSignal (5 s short-link, 8 s oEmbed) | VERIFIED as implementable | "TikTok didn't respond. Retry." Retry ×2 with jitter. |
 | `RATE_LIMITED` | reserved; **no 429 ever observed** | not reproducible | Same copy as `UPSTREAM_TIMEOUT`. Keep the error case so a future TikTok change surfaces cleanly. |
@@ -240,7 +240,7 @@ precisely what makes the set able to measure the caption gap.
 | I | Emoji-heavy, incl. `📍` marker convention | 2 | `📍` is a strong extraction signal — confirm and exploit |
 | J | Creator commentary only, no venue named | 3 | the negative class; must yield 0 candidates, never a hallucination |
 | K | Very short caption (<30 chars) | 2 | `NO_CAPTION` / low-signal boundary |
-| L | **Photo/slideshow post** (`/@user/photo/<id>`) | 2 | **UNTESTED — no specimen found.** Determines whether `PHOTO_POST` is supported, a distinct error, or canonicalisable to `/video/<id>` |
+| L | **Photo/slideshow post** (`/@user/photo/<id>`) | 2 | **CLOSED 2026-08-28 (VERIFIED).** Specimen supplied by the owner. Answer: **canonicalisable to `/video/<id>`** — oEmbed 400s the `/photo/` form and 200s the same id under `/video/`, with the full caption. `PHOTO_POST` retired |
 | M | Non-Latin caption (Hebrew and/or Japanese) | 3 | transliteration + geocoding in target cities (feeds A5) |
 | N | **Known-private post** | 1 | confirms the `POST_UNAVAILABLE` 400 |
 | O | **Known-deleted post** (note the URL before deleting) | 1 | confirms deleted is indistinguishable from private |

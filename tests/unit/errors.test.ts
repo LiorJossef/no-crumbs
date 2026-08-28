@@ -11,7 +11,6 @@ import {
   malformedUrl,
   noCaption,
   notAuthenticated,
-  photoPost,
   postUnavailable,
   rateLimitedLocal,
   rateLimitedUpstream,
@@ -21,10 +20,10 @@ import {
   upstreamTimeout,
 } from '@/domain/errors';
 
-describe('DomainErrorCode — the closed 14-code union', () => {
-  it('has exactly 14 codes', () => {
-    expect(DOMAIN_ERROR_CODES).toHaveLength(14);
-    expect(new Set(DOMAIN_ERROR_CODES).size).toBe(14);
+describe('DomainErrorCode — the closed 13-code union', () => {
+  it('has exactly 13 codes', () => {
+    expect(DOMAIN_ERROR_CODES).toHaveLength(13);
+    expect(new Set(DOMAIN_ERROR_CODES).size).toBe(13);
   });
 
   it('is exactly the set named in 07 §9', () => {
@@ -34,7 +33,6 @@ describe('DomainErrorCode — the closed 14-code union', () => {
         'MALFORMED_URL',
         'UNSUPPORTED_URL',
         'SHORT_LINK_UNRESOLVED',
-        'PHOTO_POST',
         'POST_UNAVAILABLE',
         'UPSTREAM_TIMEOUT',
         'RATE_LIMITED_UPSTREAM',
@@ -66,7 +64,6 @@ describe('DomainErrorCode — the closed 14-code union', () => {
         case 'MALFORMED_URL':
         case 'UNSUPPORTED_URL':
         case 'SHORT_LINK_UNRESOLVED':
-        case 'PHOTO_POST':
         case 'POST_UNAVAILABLE':
         case 'UPSTREAM_TIMEOUT':
         case 'RATE_LIMITED_UPSTREAM':
@@ -96,7 +93,6 @@ describe('DomainErrorCode — the closed 14-code union', () => {
     expect(malformedUrl().retryable).toBe(false);
     expect(unsupportedUrl().retryable).toBe(false);
     expect(shortLinkUnresolved().retryable).toBe(false);
-    expect(photoPost().retryable).toBe(false);
     expect(postUnavailable().retryable).toBe(true);
     expect(upstreamTimeout().retryable).toBe(true);
     expect(rateLimitedUpstream().retryable).toBe(true);

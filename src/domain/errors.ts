@@ -28,7 +28,6 @@ export type DomainErrorCode =
   | 'MALFORMED_URL'
   | 'UNSUPPORTED_URL'
   | 'SHORT_LINK_UNRESOLVED'
-  | 'PHOTO_POST'
   | 'POST_UNAVAILABLE'
   | 'UPSTREAM_TIMEOUT'
   | 'RATE_LIMITED_UPSTREAM'
@@ -47,7 +46,6 @@ export const DOMAIN_ERROR_CODES: readonly DomainErrorCode[] = [
   'MALFORMED_URL',
   'UNSUPPORTED_URL',
   'SHORT_LINK_UNRESOLVED',
-  'PHOTO_POST',
   'POST_UNAVAILABLE',
   'UPSTREAM_TIMEOUT',
   'RATE_LIMITED_UPSTREAM',
@@ -139,7 +137,6 @@ export const shortLinkUnresolved = makeConstructor(
 
 /** Canonicaliser: `kind = 'photo'`. Pre-A, not retryable — rendered with `POST_UNAVAILABLE`'s copy
  *  until `04` §5 category L has a specimen (`07` §9). */
-export const photoPost = makeConstructor('PHOTO_POST', false, 'This kind of TikTok post is not supported yet.');
 
 /** oEmbed returned its one honest failure (`{"message":"Something went wrong","code":400}`) after
  *  our own pre-fetch validation passed. Private / deleted / region-locked are indistinguishable
@@ -210,7 +207,6 @@ export const DOMAIN_ERROR_CONSTRUCTORS = {
   MALFORMED_URL: malformedUrl,
   UNSUPPORTED_URL: unsupportedUrl,
   SHORT_LINK_UNRESOLVED: shortLinkUnresolved,
-  PHOTO_POST: photoPost,
   POST_UNAVAILABLE: postUnavailable,
   UPSTREAM_TIMEOUT: upstreamTimeout,
   RATE_LIMITED_UPSTREAM: rateLimitedUpstream,
