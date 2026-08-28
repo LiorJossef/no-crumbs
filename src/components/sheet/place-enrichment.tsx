@@ -92,12 +92,17 @@ const CHIP_ROW = 'px-2 py-0.5 text-[11px] leading-4';
  * The border width never changes between states, so nothing reflows; the whole thing animates on
  * `border-color`/`background-color`, neither of which triggers layout.
  */
-const CHIP_PRESSABLE =
+export const CHIP_PRESSABLE =
   'inline-flex min-h-8 max-w-full cursor-pointer items-center rounded-full border px-3 text-xs font-bold outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50';
-const CHIP_PRESSABLE_REST =
+export const CHIP_PRESSABLE_REST =
   'border-[var(--tag-foreground)]/15 bg-[var(--tag)] text-[var(--tag-foreground)] hover:border-[var(--tag-foreground)]/45';
-const CHIP_PRESSABLE_ACTIVE =
+export const CHIP_PRESSABLE_ACTIVE =
   'border-transparent bg-[var(--tag-selected)] text-[var(--tag-selected-foreground)]';
+
+/** The kicker above a filter pill — `TAGGED`, `SHOWING`. Exported so a second filter cannot invent
+ *  a slightly different micro-label beside the first. */
+export const FILTER_KICKER =
+  'shrink-0 text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase';
 
 /**
  * The full tag set, for a detail view. Wraps freely — five tags on a 390 px phone is two lines, and
@@ -184,9 +189,7 @@ export function ActiveTagFilter({
       {/* The same uppercase micro-label the rest of the sheet uses for a kicker. Without it a lone
           filled pill under the heading is just a word — the user has to infer that it is the reason
           the list got shorter. */}
-      <span className="shrink-0 text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">
-        Tagged
-      </span>
+      <span className={FILTER_KICKER}>Tagged</span>
       <button
         type="button"
         onClick={onClear}
