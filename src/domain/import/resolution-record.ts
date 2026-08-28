@@ -56,11 +56,19 @@ import type { RankedPlace, ResolveResult } from '../types';
  * than derived from the interface because this is a **parse of untrusted stored JSON**: a `jsonb`
  * column is boundary data like any provider response, and the domain must only ever see values a
  * schema admitted. `provider`/`sourceDataset` keep their closed unions here for the same reason.
+ *
+ * **These two unions must list every value `PlaceProvider`/`SourceDataset` admit.** They are closed
+ * on purpose, but a value the resolver can genuinely return and this schema cannot parse does not
+ * fail loudly — `chooseResolvedPlace` sees `null` and the confirm step silently saves the model's
+ * own guess instead. That is exactly what happened when `'google'` was added to `PlaceProvider` and
+ * not here: the review screen showed `Oscar's @ נחלת בנימין 68` and the row written to `places`
+ * was `llm-guess` at the model's coordinate, with no error anywhere. Verified by importing a real
+ * TikTok and reading the row back, 2026-08-28.
  */
 const StoredResolvedPlaceSchema = z.object({
-  provider: z.enum(['overture', 'nominatim', 'llm_guess']),
+  provider: z.enum(['overture', 'nominatim', 'llm_guess', 'google']),
   providerPlaceId: z.string().min(1),
-  sourceDataset: z.enum(['overture-places', 'osm-nominatim', 'llm-guess']),
+  sourceDataset: z.enum(['overture-places', 'osm-nominatim', 'llm-guess', 'google-places']),
   regionId: z.string().nullable(),
   name: z.string().min(1),
   altNames: z.array(z.string()),

@@ -91,8 +91,8 @@ export interface DerivedPlaceSave {
    * `'llm_guess'` when the coordinate came from the model rather than a gazetteer. This pair of
    * columns *is* the extracted-vs-inferred distinction as it reaches the database.
    */
-  readonly provider: Extract<PlaceProvider, 'overture' | 'llm_guess'>;
-  readonly sourceDataset: Extract<SourceDataset, 'overture-places' | 'llm-guess'>;
+  readonly provider: PlaceProvider;
+  readonly sourceDataset: SourceDataset;
   /** Stable dedup identity, recomputed here rather than accepted from the caller. */
   readonly providerPlaceId: string;
   /**
@@ -204,10 +204,15 @@ export function derivePlaceSave(
     return {
       kind: 'save',
       place: {
-        provider: 'overture',
-        sourceDataset: 'overture-places',
-        // Overture's GERS id, verbatim. `resolve_place` takes it as both `p_provider_place_id` and
-        // `p_source_dataset_id` — for Overture they are documented to be the same string.
+        // The provider that actually resolved it, never a constant. Hardcoding `'overture'` here
+        // was correct while it was the only resolver and became a provenance lie the moment a
+        // second one existed: it would have filed a Google coordinate under Overture's licence,
+        // which `source_dataset` exists to prevent (`06` §11 Q2).
+        provider: place.provider,
+        sourceDataset: place.sourceDataset,
+        // The provider's own id, verbatim. `resolve_place` takes it as both `p_provider_place_id`
+        // and `p_source_dataset_id`; for Overture (GERS) and Google (place id) alike they are the
+        // same string.
         providerPlaceId: place.providerPlaceId,
         // The POI's own name, not the model's guess at it. This is the point of resolving: the
         // gazetteer knows what the venue is called and the caption only knows what it was called.
