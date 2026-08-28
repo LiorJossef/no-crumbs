@@ -80,3 +80,40 @@ describe('toCountryCode', () => {
     expect(toCountryCode('Zz')).toBeNull();
   });
 });
+
+describe('a hint in the caption\'s own language', () => {
+  // The prompt asks the model to copy location words as the caption writes them, so a Hebrew
+  // caption produces a Hebrew `countryHint`. Measured on this database before the index covered
+  // `he`: `countryHint: "ישראל"` stored `country_code` NULL, which is the exact input that turns
+  // `resolve_place`'s dedup guard off and lets one venue become three rows.
+  it('resolves the official Hebrew name of a country', () => {
+    expect(toCountryCode('ישראל')).toBe('IL');
+    expect(toCountryCode('יפן')).toBe('JP');
+    expect(toCountryCode('בריטניה')).toBe('GB');
+    expect(toCountryCode('ארצות הברית')).toBe('US');
+    expect(toCountryCode('איטליה')).toBe('IT');
+  });
+
+  it('resolves the informal Hebrew names a caption is likelier to use', () => {
+    expect(toCountryCode('אנגליה')).toBe('GB');
+    expect(toCountryCode('סקוטלנד')).toBe('GB');
+    expect(toCountryCode('אמריקה')).toBe('US');
+  });
+
+  it('takes either way of typing the abbreviation', () => {
+    // U+05F4 survives `normalise()`; an ASCII quote does not. Two spellings, one country.
+    expect(toCountryCode('ארה״ב')).toBe('US');
+    expect(toCountryCode('ארה"ב')).toBe('US');
+  });
+
+  it('still refuses a Hebrew city, which is not a country', () => {
+    expect(toCountryCode('תל אביב')).toBeNull();
+    expect(toCountryCode('פלורנטין')).toBeNull();
+  });
+
+  it('does not let a second language displace an English name', () => {
+    expect(toCountryCode('Israel')).toBe('IL');
+    expect(toCountryCode('Turkey')).toBe('TR');
+    expect(toCountryCode('England')).toBe('GB');
+  });
+});

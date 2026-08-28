@@ -52,6 +52,8 @@ import { isSearchActive } from '@/domain/places/search';
 import { NoteEditor, RemoveSavedPlace } from './saved-place-edits';
 import { ActiveTagFilter, DishLine, TagChipList, TagChipRow, WhyGoLine } from './place-enrichment';
 import { enrichmentOf, rowAccessibleName, whyGoEarnsItsPlace } from '@/ui/place/enrichment';
+import { categoryDisplay, categoryLocalityLine } from '@/ui/place/category-display';
+import { formatCaptionQuote, quoteAddsSomething } from '@/ui/place/caption-quote';
 import {
   areaRowAccessibleName,
   areaRowCountText,
@@ -405,12 +407,17 @@ export function PlaceRow({
 }) {
   const locality = place.detail?.locality;
   const { tags } = enrichmentOf(place.detail);
+  const category = categoryDisplay(place.category);
 
   const body = (
     <>
+      {/* The row's own pin, in the category's colour — the same colour the map draws it. Two
+          surfaces showing one place used to agree on nothing but its name; now a brown cup on the
+          map and a brown row are visibly the same café. */}
       <span
         aria-hidden
-        className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"
+        style={{ backgroundColor: `${category.color}1F`, color: category.color }}
+        className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full"
       >
         <MapPin className="size-4" />
       </span>
@@ -418,10 +425,13 @@ export function PlaceRow({
         <p className="truncate font-heading text-sm font-bold text-foreground">{place.name}</p>
         {/* The city sits next to the category rather than being left off: it is the second thing
             you know about a saved place ("the London one"), and it is searchable — showing it keeps
-            the rule that every match is explainable from the row you can see. */}
-        <p className="truncate text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">
-          {place.category}
-          {locality && <span className="text-muted-foreground/70"> · {locality}</span>}
+            the rule that every match is explainable from the row you can see.
+
+            Sentence case, not the raw enum in capitals. `RESTAURANT · TEL AVIV-YAFO` read as a
+            database column, and shouting it made the least informative line on the row the loudest
+            thing after the name. */}
+        <p dir="auto" className="truncate text-xs font-medium text-muted-foreground">
+          {categoryLocalityLine(place.category, locality)}
         </p>
         {/* Above the note, below the category, and rendered only when there are any — a row with no
             tags is the normal case (nothing was backfilled, so it is every row saved before
@@ -702,6 +712,15 @@ export function PlaceDetail({
       ? whyGo
       : null;
 
+  // The caption fragment, minus the creator's 📍/✨ formatting, and only when it says something the
+  // name, address and city above it do not. Measured on this database: `📍האחים, אבן גבירול 26` is
+  // the name, a comma and the address — quoting it under a heading was a labelled block that
+  // repeated the two lines directly above it.
+  const quote = formatCaptionQuote(reason);
+  const shownQuote = quoteAddsSomething(quote, { name: place.name, addressLine, locality })
+    ? quote
+    : null;
+
   return (
     <div
       className={cn(
@@ -721,8 +740,8 @@ export function PlaceDetail({
           >
             {place.name}
           </h2>
-          <p className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">
-            {place.category}
+          <p dir="auto" className="text-sm font-medium text-muted-foreground">
+            {categoryLocalityLine(place.category, locality)}
           </p>
           {/* Directly under the identity block, and above every prose block below — this is the
               most prominent of the three new fields, deliberately.
@@ -752,22 +771,38 @@ export function PlaceDetail({
       </div>
 
       <div className={cn('flex flex-col gap-5', isPopover && 'gap-4 px-4 pb-4')}>
-        {reason && (
-          <div className="flex flex-col gap-1">
-            <p className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">
-              From the post
-            </p>
-            {/* `dir="auto"` because this is a verbatim caption substring: a Hebrew caption quote
-                rendered left-to-right puts its punctuation on the wrong end of the sentence. */}
-            <p dir="auto" className="text-sm leading-relaxed text-foreground">
-              {reason}
-            </p>
-          </div>
+        {/* The street address, which this view did not show at all until now. It was in the data
+            the whole time — `places.address_line`, already good enough to build the Google Maps
+            link out of — and it is the one fact that answers "can I actually find this place".
+            Above the caption quote, because it is checkable and the quote is not. */}
+        {addressLine && (
+          <p dir="auto" className="flex items-start gap-2 text-sm text-foreground">
+            <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+            <span>{addressLine}</span>
+          </p>
         )}
 
-        {/* The dishes the post named, immediately under the quote they came out of: both are the
-            creator's own words, and they belong together above anything the model wrote. */}
-        <DishLine dishes={dishes} />
+        {/* What the creator actually wrote, as a quotation rather than as a labelled field.
+            A rule and a pair of quote marks say "someone else's words" faster than the kicker
+            reading FROM THE POST did, and they leave the model's own sentence below free to be
+            plain text — which is the whole extracted-versus-inferred distinction, carried by shape
+            instead of by two competing labels.
+
+            `dir="auto"` because this is a verbatim caption substring: a Hebrew quote rendered
+            left-to-right puts its punctuation on the wrong end of the sentence. */}
+        {shownQuote !== null && (
+          <figure className="flex flex-col gap-1.5 border-l-2 border-[var(--mint-300)] pl-3">
+            <blockquote dir="auto" className="text-sm leading-relaxed text-foreground">
+              &ldquo;{shownQuote}&rdquo;
+            </blockquote>
+            {authorLabel && (
+              <figcaption className="text-xs font-medium text-muted-foreground">
+                {authorLabel}
+              </figcaption>
+            )}
+          </figure>
+        )}
+
 
         {/* And *then*, quieter, the model's own sentence — never above the quote, never at the same
             weight, and only when it says something the quote and the tags do not.
@@ -785,6 +820,10 @@ export function PlaceDetail({
             `ui/place/enrichment.ts`'s `whyGoEarnsItsPlace` for the rule and the threshold. */}
         {shownWhyGo !== null && <WhyGoLine whyGo={shownWhyGo} />}
 
+        {/* The dishes the post named. Last of the three content blocks because it is a list to
+            skim rather than something to read, and because it is the one most often empty. */}
+        <DishLine dishes={dishes} />
+
         {/* `L1-F7-T2`. The note used to render read-only, and a place you saved was a place you
             were stuck with. `key` on the saved place's id is what resets a half-typed draft when
             the selection changes — the editor deliberately does not sync from props in an effect,
@@ -796,7 +835,10 @@ export function PlaceDetail({
             chip pair inside it was a box nested inside a box. `authorLabel` (if any) is a caption
             above the pair, not squeezed into either action itself. */}
         <div className="flex flex-col gap-2">
-          {authorLabel && (
+          {/* Only when the quote did not already carry it — the attribution belongs with the
+              words it attributes, and printing it twice on one card is the kind of repetition that
+              makes a detail view feel padded. */}
+          {authorLabel && shownQuote === null && (
             <p className="text-xs font-medium text-muted-foreground">Saved from {authorLabel}</p>
           )}
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2">

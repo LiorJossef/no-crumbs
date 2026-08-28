@@ -510,7 +510,11 @@ export function MapSurfaceMapcn({
       styles={{ light: CARTO_LIGHT_STYLE, dark: CARTO_LIGHT_STYLE }}
       attributionControl={{ compact: true }}
     >
-      <MapControls showZoom showCompass showLocate showFullscreen />
+      {/* Zoom and locate only. The compass steers a bearing the map never leaves 0 for, and
+          "fullscreen" on a surface that already fills the viewport is an icon for a no-op — five
+          stacked buttons were ~250px of an 812px phone, and the two lowest of them sat under the
+          sheet. */}
+      <MapControls showZoom showLocate />
       <BasemapTint />
       <PlaceMarkerLayer
         data={data}

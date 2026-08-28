@@ -28,8 +28,39 @@ import { EXTRACTION_SCHEMA_VERSION } from '@/domain/extraction/schema';
  * `p7` -> `p8` (2026-08-28, TLV-BILING-A): the prompt now asks for `nameVariants`. Both halves of
  * the key move together here — the prompt text changed *and* the candidate shape did — which is
  * the case the two-part key exists for.
+ *
+ * `p8` -> `p9` (2026-08-28): four rules tightened against measured p8 output on a real Hebrew
+ * caption (`shirazooooo`, האחים). Tags must be English, because a tag is an index entry and
+ * `מאפייה` and `Bakery` are two tags neither of which finds the other. The dish/category test is
+ * restated in Hebrew, because `מאפים` ("pastries") was emitted as a dish. `whyGo` may not be
+ * imperative — p8 turned "I had a perfect morning" into "Enjoy a dreamy morning breakfast", which
+ * reads as invented even though every adjective in it was the creator's own — and must prefer the
+ * checkable detail, because that same sentence dropped "Sunday to Friday" to keep "dreamy".
+ * `categoryHint` gets a discriminator, because a pastry breakfast was labelled `restaurant`.
+ * Schema unchanged, so only the `p` half of the key moves.
+ *
+ * `p9` -> `p10` (2026-08-28): p9 paid for those four rules with a regression it took a corpus run
+ * to see. `מתחת לעץ` had been auto-matching at 0.997 through the variant `Under the Tree`; under
+ * p9 the model produced `Metahat LeEtz` — a phonetic rendering of a phrase that means something —
+ * and the venue became unreachable in the index. The translate-vs-transliterate rule was already
+ * in the prompt, with that exact venue as its example; thirty lines added after it were enough to
+ * stop the model following it. It is now a decision procedure with the failure named, rather than
+ * an illustration.
+ *
+ * The same run turned up a second thing this asks for badly: on the Rustico caption the model
+ * quoted 400 characters into `evidence`, `ExtractionResultSchema` rejected the whole response, and
+ * a caption it had read better than any other in the corpus — both branches, both addresses, both
+ * Latin variants — produced no places at all. `evidence` and `groundedIn` now say how short short
+ * is. `schema.ts`'s `clippedQuote` is the floor under that, because asking is not a guarantee.
+ *
+ * `p10` -> `p11` (2026-08-28): clipping let that caption through, and it immediately produced the
+ * corpus's **first false auto-accept**. The model offered `Rustico Rothschild` as the variant for
+ * `רוסטיקו`, which matched the Rothschild branch exactly and auto-accepted it at 0.999 while the
+ * Basel branch the caption gives as the address sat at rank 5. A variant may not carry a branch,
+ * street, neighbourhood or city — the same rule `identifiedName` already had, and it matters more
+ * here, because a variant is what we search on.
  */
-export const PROMPT_VERSION = `p8-s${EXTRACTION_SCHEMA_VERSION}`;
+export const PROMPT_VERSION = `p11-s${EXTRACTION_SCHEMA_VERSION}`;
 
 /** Role, single task, and the negative-case framing that `09` §4.2 calls "the single most
  *  important line in the prompt": most captions name no venue, and an empty list is correct. */
@@ -88,12 +119,18 @@ Rules for each candidate you do emit:
   Keep "addressHint" separate from "cityHint"/"countryHint" (city/neighbourhood/country name only,
   never the street line) and separate from "rawName" (the venue name only, never the address).
   Set "addressHint" to null when the caption gives no street address — never invent one.
-- "evidence" must be a short fragment copied VERBATIM from the caption that names this place. Never
-  paraphrase it. If you cannot point to a verbatim fragment, do not emit the candidate. For a
-  hashtag-sourced candidate, "evidence" is the whole hashtag as written, "#" included — you may not
-  add spaces to it even though "rawName" reads more naturally with them.
+- "evidence" must be a short fragment copied VERBATIM from the caption that names this place.
+  **Short means short: one clause, about fifteen words, and always the part that names the venue.**
+  Do not quote the opening hours, the menu, the delivery apps or the whole paragraph the name
+  happens to sit in. Never paraphrase it. If you cannot point to a verbatim fragment, do not emit
+  the candidate. For a hashtag-sourced candidate, "evidence" is the whole hashtag as written, "#"
+  included — you may not add spaces to it even though "rawName" reads more naturally with them.
 - "categoryHint" is one of: restaurant, cafe, bar, bakery, attraction, shop, other — or null if
-  unclear. Never guess a category the caption gives no signal for.
+  unclear. Never guess a category the caption gives no signal for. Choose by what the venue's own
+  business is, not by the one visit the caption describes: a "bakery" bakes and sells baked goods,
+  a "cafe" sells coffee and somewhere to sit, a "bar" sells drinks in the evening, a "restaurant"
+  sells meals. A restaurant that serves a pastry breakfast is still a restaurant. "restaurant" is
+  not a default to fall back on when the caption is unclear — null is.
 - Do not rank, judge quality, invent a city you were not told, or add prose. (Coordinates are the
   one exception to "do not guess" — see "coordinates" below.)
 
@@ -129,11 +166,19 @@ the SAME venue's name written in the OTHER script:
 - Caption named it in Hebrew (or any non-Latin script) -> give the Latin-script name that venue is
   actually known by. Caption named it in Latin script -> give the Hebrew name if it has a known
   one.
-- Transliterate or TRANSLATE, whichever matches how that venue is really known. "קוהי" is
-  transliterated: "Kohi". "טרטוריה אונה" is transliterated: "Trattoria Una". "מתחת לעץ" is
-  translated: "Under the Tree", because that is the name that venue actually trades under in
-  Latin script. "קפה אירופה" is "Cafe Europa". Ask what is written on the venue's own sign, menu
-  or listing — not what a word-by-word dictionary would produce.
+- Transliterate or TRANSLATE, whichever matches how that venue is really known. Decide it this
+  way, and this is the single most important judgement in this field:
+  - A name built from ordinary words that MEAN something is **translated**, because that is how
+    such a venue brands itself in Latin script. "מתחת לעץ" -> "Under the Tree". "האחים" -> "The
+    Brothers". "לחם ארז" -> "Lehem Erez" only if that is genuinely the sign; otherwise translate.
+  - A name that is a borrowed, foreign or invented word is **transliterated**. "קוהי" -> "Kohi".
+    "טרטוריה אונה" -> "Trattoria Una". "רוסטיקו" -> "Rustico". "קפה אירופה" -> "Cafe Europa".
+  - **Never sound out a phrase that means something.** "Metahat LeEtz" is not a name any venue
+    uses, and a variant like that is worse than no variant at all: we search on these, so it sends
+    us looking for a business that does not exist. If you catch yourself spelling out Hebrew words
+    letter by letter and the words have a meaning, translate them instead.
+  Ask what is written on the venue's own sign, menu or listing — not what a word-by-word
+  dictionary, and not what a phonetic renderer, would produce.
 - Very many venues in Israel trade under a Latin-script name and are only ever written in Hebrew
   in captions. That is the main case this field exists for: give that Latin name.
 - You may add one common alternate spelling of the same name ("Cafe Europa" / "Café Europa",
@@ -142,6 +187,12 @@ the SAME venue's name written in the OTHER script:
   different business with a similar-sounding name, never a chain this one reminds you of, never a
   category or a description. If you are picturing a different venue while you write it, it is
   wrong.
+- **A variant is the name and nothing else — never with a branch, street, neighbourhood or city
+  appended.** "רוסטיקו" is "Rustico", not "Rustico Rothschild"; "קוהי" is "Kohi", not "Kohi Ben
+  Yehuda". This is the same rule "identifiedName" has, and it matters more here, because we search
+  on these: a variant that names a branch makes us match *that* branch with total confidence, and
+  a caption that mentions two locations of one restaurant then resolves to whichever one you
+  happened to type. Picking a branch is not yours to do — the caption's own address decides it.
 - Do not repeat "rawName", and do not just copy "identifiedName" word for word. A variant is a
   different FORM of the name, not another copy of it.
 - Return [] when you do not know another form of this name. An empty list is correct and common:
@@ -158,8 +209,15 @@ your own knowledge of the venue, and every one of them may be empty:
 "tags" — up to 5 short labels for organising a saved-places library: cuisine, style, setting or
 vibe. Good tags: "Italian", "Matcha", "Pan-Asian", "Nepalese", "Hidden gem", "Rooftop", "Market
 stall", "Hotel restaurant", "Natural wine", "Greek".
+- **Always in English, whatever language the caption is in.** This is the one field where you must
+  not copy the caption's own words. A tag is an index entry: the user taps it to pull up every
+  place that shares it, so one concept has to be one string across a whole library. A Hebrew
+  caption tagged "מאפייה" and an English one tagged "Bakery" are two different tags and neither
+  finds the other. Translate the concept: "מאפים" -> "Pastries", "בוקר" -> "Breakfast", "חצר" ->
+  "Courtyard", "יין טבעי" -> "Natural wine".
 - One or two words each. No "#", no sentences, no venue name, no city or neighbourhood name.
-- Do not tag a restaurant "Restaurant" — a tag that only repeats "categoryHint" is wasted.
+- Do not tag a restaurant "Restaurant" — a tag that only repeats "categoryHint" is wasted, and
+  neither should a tag repeat something you already put in "dishes".
 - Every tag must be supported by something the caption actually says. "seasonal Italian plates
   inside Middle Eighty Hotel" supports "Italian" and "Hotel restaurant"; it does not support
   "Rooftop" or "Romantic". Do not add tags from what you know about the venue.
@@ -176,17 +234,33 @@ order by name.
   category ("coffee", "pasta", "food", "brunch"), or any phrase that names a kind of food rather
   than one particular item. If you find yourself writing an adjective plus a cuisine plus a generic
   noun, it is not a dish — leave it out and let "tags" carry it instead.
+- **The category test applies in every language, and that is where it is most often missed.**
+  "מאפים" is "pastries" — a whole category of thing, exactly like "coffee" — so it is a tag, never
+  a dish. "בורקס" is a dish. "קרואסון פיסטוק" is a dish. Ask what a waiter would bring if you said
+  only that word: one plate means a dish, "which one?" means a category.
 - Return [] when the caption names no particular item, which is most captions. An empty list here
   is the normal answer, not a gap to fill.
 
-"whyGo" — one short sentence, in YOUR OWN WORDS, saying why someone would go, or null.
+"whyGo" — one short sentence, in YOUR OWN WORDS, saying what the caption tells you about this
+place, or null. Written in English even when the caption is not.
 - "text": at most 25 words, plain and factual. No marketing language, no adjectives the caption did
   not earn, no invented detail. Write what the caption supports, in your own phrasing rather than
   by copying a caption sentence.
+- **State a fact; do not tell the reader what to do.** Never write a sentence in the imperative —
+  no "Enjoy...", "Try...", "Discover...", "Experience...", "Go for...", "Find...", "Visit...".
+  Those turn a person's description of somewhere they went into an advertisement for it, and they
+  read as invented even when every word under them came from the caption. Write "Pastry breakfast
+  served Sunday to Friday, eaten in a large courtyard", not "Enjoy a dreamy morning breakfast in a
+  stunning courtyard".
+- **Prefer the checkable detail over the adjective.** When the caption gives days, hours, a price,
+  a queue, a number of seats or a thing that sells out, that is the sentence — it is what a person
+  cannot get from the name and the category. Adjectives are what is left when there is nothing
+  concrete, and if the caption is nothing but adjectives, "whyGo" is null.
 - Vary how you start. These sentences end up in a list next to each other, so do not open every one
-  with the same word or template ("Go for...", "Visit this...") — write each one as it reads best.
+  with the same word or template — write each one as it reads best.
 - "groundedIn": the exact caption fragment your sentence is based on, copied VERBATIM, character
-  for character, the same discipline as "evidence". If you cannot point at one, "whyGo" is null.
+  for character, and as short as "evidence" — one clause, not the paragraph around it. If you
+  cannot point at one, "whyGo" is null.
 - "groundedIn" must say something. Quoting only the place's own name does not count: a caption that
   reads "Resturants in Tel Aviv 📍Ha Kosem" tells you the name and the city and nothing else, so
   "whyGo" there is null. You may know a great deal about that venue — none of it belongs in this

@@ -343,12 +343,12 @@ describe('schema versioning', () => {
     expect(PROMPT_VERSION).toContain(`s${EXTRACTION_SCHEMA_VERSION}`);
   });
 
-  it('is on v3, under the prompt that asks for name variants', () => {
+  it('is on v3, under the prompt that restated the translate-vs-transliterate rule', () => {
     // Spelled out rather than derived, so moving the schema or the prompt is a deliberate edit
-    // here too. `p8` is the prompt that added the `nameVariants` instructions; `s3` is the
-    // candidate shape that has the field. Both halves moved together and both have to.
+    // here too. `p9` tightened four rules against measured p8 output; `s3` is the candidate shape
+    // that carries `nameVariants`, unchanged by that. Only the half that moved, moved.
     expect(EXTRACTION_SCHEMA_VERSION).toBe(3);
-    expect(PROMPT_VERSION).toBe('p8-s3');
+    expect(PROMPT_VERSION).toBe('p11-s3');
   });
 
   it('keeps PROMPT_VERSION storable in the extractions column', () => {
@@ -575,5 +575,60 @@ describe('NFKC-aware length bounds', () => {
     // The guard must not reject ordinary text, including accented text, which NFKC leaves the same
     // length or shorter.
     expect(parse({ tags: ['Café'], dishes: ['crème brûlée'], areaHint: 'Florentin' }).success).toBe(true);
+  });
+});
+
+describe('an over-long quote is clipped, not fatal', () => {
+  // Measured on the corpus: the Rustico caption produced the best extraction in the set — both
+  // branches, both addresses, both Latin name variants — and every candidate in it was discarded
+  // because one `evidence` string ran past 240 characters. `EXTRACTOR_INVALID_OUTPUT`, no places
+  // found, for a caption the model read perfectly.
+  const longQuote = `${'מסעדת רוסטיקו במקום תמצאו תפריט מגוון הכולל ראשונות פסטות פיצות דגים '.repeat(6)}סוף`;
+
+  function parseCandidate(overrides: Record<string, unknown>) {
+    return RawPlaceCandidateSchema.safeParse({
+      rawName: 'רוסטיקו',
+      cityHint: 'תל אביב',
+      areaHint: null,
+      countryHint: 'ישראל',
+      categoryHint: 'restaurant',
+      addressHint: 'בזל 42',
+      evidence: 'מסעדת רוסטיקו',
+      modelConfidence: 0.9,
+      identifiedName: 'רוסטיקו',
+      nameVariants: ['Rustico'],
+      tags: [],
+      dishes: [],
+      whyGo: null,
+      coordinates: null,
+      ...overrides,
+    });
+  }
+
+  it('keeps the candidate when evidence is too long', () => {
+    const result = parseCandidate({ evidence: longQuote });
+    expect(result.success).toBe(true);
+    expect(result.data?.evidence?.length).toBeLessThanOrEqual(240);
+  });
+
+  it('keeps the candidate when groundedIn is too long', () => {
+    const result = parseCandidate({
+      whyGo: { text: 'Italian restaurant with a new menu.', groundedIn: longQuote },
+    });
+    expect(result.success).toBe(true);
+    expect(result.data?.whyGo?.groundedIn.length).toBeLessThanOrEqual(240);
+  });
+
+  it('clips to a prefix, so the quote is still verbatim and grounding still passes', () => {
+    // `grounding.ts` asks whether the fragment is a substring of the caption. A prefix of a
+    // substring is one too — which is why no ellipsis is appended.
+    const clipped = parseCandidate({ evidence: longQuote }).data?.evidence ?? '';
+    expect(clipped.length).toBeGreaterThan(100);
+    expect(longQuote.startsWith(clipped)).toBe(true);
+  });
+
+  it('leaves a quote that already fits exactly as it was', () => {
+    const short = 'מסעדת רוסטיקו 🍽️';
+    expect(parseCandidate({ evidence: short }).data?.evidence).toBe(short);
   });
 });

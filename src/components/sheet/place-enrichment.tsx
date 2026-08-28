@@ -237,17 +237,17 @@ export function TagChipRow({ tags }: { tags: readonly string[] }) {
 }
 
 /**
- * The kicker above a detail block — the same uppercase micro-label `PlaceDetail` already uses for
- * "From the post", lifted here so a new block cannot invent a fourth variant of it.
+ * The one small label left on the detail screen.
+ *
+ * There used to be three of these stacked — FROM THE POST, NAMED IN THE POST, IN SHORT — over a
+ * card that often held three lines of content between them, and the labels were the loudest thing
+ * on it. The caption quote now says what it is by being a quotation, and the model's sentence says
+ * what it is by being quiet and unquoted, which leaves exactly one block that genuinely needs
+ * naming.
  */
-function Kicker({ children, muted = false }: { children: React.ReactNode; muted?: boolean }) {
+function Kicker({ children }: { children: React.ReactNode }) {
   return (
-    <p
-      className={cn(
-        'text-[11px] font-bold tracking-[0.1em] uppercase',
-        muted ? 'text-muted-foreground/70' : 'text-muted-foreground',
-      )}
-    >
+    <p className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">
       {children}
     </p>
   );
@@ -271,7 +271,7 @@ export function DishLine({ dishes }: { dishes: readonly string[] }) {
 
   return (
     <div className="flex flex-col gap-1">
-      <Kicker>Named in the post</Kicker>
+      <Kicker>Dishes mentioned</Kicker>
       <p className="text-sm leading-relaxed text-foreground">
         {dishes.map((dish, index) => (
           <span key={dish}>
@@ -285,24 +285,22 @@ export function DishLine({ dishes }: { dishes: readonly string[] }) {
 }
 
 /**
- * The model's one-sentence summary — rendered *below* the verbatim caption quote and in muted ink,
- * never above it and never at the same weight.
+ * The model's one-sentence summary — below the verbatim caption quote, in muted ink, and with no
+ * label of its own.
  *
- * That ordering is the extracted-versus-inferred invariant expressed as hierarchy. `extracted_reason`
- * is what the creator actually wrote; this is the model's paraphrase of it. When both are on screen
- * the user must be able to tell which is which without reading a legend, and the cheapest honest
- * signal is that the source's own words are `text-foreground` and come first, while the machine's
- * are `text-muted-foreground` and come second.
+ * That is the extracted-versus-inferred invariant expressed as shape rather than as a caption.
+ * `extracted_reason` is what the creator actually wrote and renders as a quotation, between quote
+ * marks against a rule; this is the model's reading of it and renders as plain quiet prose. A user
+ * can tell the two apart at a glance without either being labelled, which is what lets the labels
+ * go — and the old `IN SHORT` kicker was doing nothing except making a one-line summary look like
+ * a section.
  *
  * Whether it renders at all is `whyGoEarnsItsPlace`'s decision, made by the caller.
  */
 export function WhyGoLine({ whyGo }: { whyGo: string }) {
   return (
-    <div className="flex flex-col gap-1">
-      <Kicker muted>In short</Kicker>
-      <p dir="auto" className="text-sm leading-relaxed text-muted-foreground">
-        {whyGo}
-      </p>
-    </div>
+    <p dir="auto" className="text-sm leading-relaxed text-muted-foreground">
+      {whyGo}
+    </p>
   );
 }

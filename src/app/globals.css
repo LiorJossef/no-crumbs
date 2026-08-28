@@ -219,6 +219,31 @@
   .maplibregl-ctrl-attrib {
     @apply bg-background! text-muted-foreground! border-border! rounded-md! border! shadow-sm!;
     }
+  /*
+   * Lift the map's own chrome clear of the sheet, below `lg`.
+   *
+   * The place sheet is an opaque strip pinned to the bottom of the map, and MapLibre puts its
+   * attribution and its controls at the bottom-right. Measured at 375x812: the attribution line
+   * sat at y = 776 with the sheet painting straight over it, and the two lowest control buttons
+   * were under it too. Crediting CARTO and OpenStreetMap on every map is a licence condition
+   * (`docs/evidence/licensing/carto-basemap-terms-2026-08-21.md`), so a credit no phone user can
+   * ever see is a compliance defect rather than a cosmetic one — and a zoom button you cannot
+   * press is a plain bug.
+   *
+   * `SHEET_PEEK_PX` (128) plus the safe-area inset the sheet sits on, plus a little air. Mirrored
+   * from `components/map/query-rect.ts`, which mirrors it from the sheet — the coupling is named
+   * in both places rather than reached for.
+   */
+  .maplibregl-ctrl-bottom-right,
+  .maplibregl-ctrl-bottom-left {
+    padding-bottom: calc(128px + env(safe-area-inset-bottom) + 0.25rem);
+    }
+  @media (min-width: 64rem) {
+    .maplibregl-ctrl-bottom-right,
+    .maplibregl-ctrl-bottom-left {
+      padding-bottom: 0;
+      }
+    }
   .maplibregl-ctrl-attrib a {
     @apply text-muted-foreground!;
     }
