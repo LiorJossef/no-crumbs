@@ -208,7 +208,7 @@ describe('degraded save: the provider is gone but the model placed the candidate
     expect(view).toEqual({ kind: 'failed', reason: 'quota_exhausted' });
     expect(willSave(true, view, null)).toBe(true);
     expect(usesModelCoordinate(true, view, null)).toBe(true);
-    expect(resolverPinLine(view, null, true)).toBe('Approximate pin from the caption');
+    expect(resolverPinLine(view, null, true)).toBe('Pin from the caption');
   });
 
   it('writes an honest `llm_guess` row: the model’s coordinate, no provider identity, no score', async () => {
@@ -269,7 +269,7 @@ describe('degraded save: the provider answered, and the answer was "no such plac
 
     expect(view).toEqual({ kind: 'unresolved' });
     expect(willSave(true, view, null)).toBe(true);
-    expect(resolverPinLine(view, null, true)).toBe('Approximate pin from the caption');
+    expect(resolverPinLine(view, null, true)).toBe('Pin from the caption');
     // …and it is still not a failure, so it never triggers the failure notice.
     expect(dominantFailure([view])).toBeNull();
   });
@@ -339,7 +339,7 @@ describe('a successful Google resolve is unchanged', () => {
       },
     });
     expect(dominantFailure([view])).toBeNull();
-    expect(lookupFailureNotice([view], true)).toBeNull();
+    expect(lookupFailureNotice([view], 1)).toBeNull();
   });
 });
 
@@ -353,30 +353,65 @@ describe('lookupFailureNotice', () => {
   const slow = resolutionView({ kind: 'failed', reason: 'timed_out' });
 
   it('names the daily limit, because that is the one cause with a time attached', () => {
-    const notice = lookupFailureNotice([quota, quota], true);
+    const notice = lookupFailureNotice([quota, quota], 2);
     expect(notice).toContain('today’s place lookups');
     expect(notice).toContain('You can still save them');
     expect(notice).toContain('captions');
   });
 
   it('never leaks which of our own things is broken', () => {
-    const notice = lookupFailureNotice([broke], true);
+    const notice = lookupFailureNotice([broke], 1);
     expect(notice).toBe(
-      'We couldn’t reach the place database just now, so these pins come from the captions rather than a place database. You can still save them.',
+      'We couldn’t reach the place database just now, so 1 of these pins comes from the captions rather than a place database. You can still save them.',
     );
     expect(notice).not.toMatch(/key|auth|403|quota/i);
   });
 
   it('drops the "you can still save" clause when nothing is saveable', () => {
-    const notice = lookupFailureNotice([quota], false);
-    expect(notice).toBe('We’ve used up today’s place lookups, so we couldn’t match these to a place.');
+    const notice = lookupFailureNotice([quota], 0);
+    expect(notice).toBe(
+      'We’ve used up today’s place lookups, so we couldn’t match one of these to a place.',
+    );
   });
 
   it('says "too slow" only when every failure really was a timeout', () => {
     expect(dominantFailure([slow, slow])).toBe('timed_out');
-    expect(lookupFailureNotice([slow, slow], false)).toContain('didn’t answer in time');
+    expect(lookupFailureNotice([slow, slow], 0)).toContain('didn’t answer in time');
     // One rejected key among the timeouts and "it was slow" stops being true.
     expect(dominantFailure([slow, broke])).toBe('lookup_failed');
+  });
+
+  // Both of these were rendered and photographed before they were written down
+  // (QA-DEGRADED-1). The notice used to take "does ANY candidate on this screen use a model
+  // coordinate", which a `capped` or `no_match` candidate satisfies — so a failure that rescued
+  // nobody still claimed credit for a survivor it had nothing to do with.
+  it('does not credit a failure for a candidate the resolver never saw', () => {
+    const capped = resolutionView({ kind: 'capped' });
+    expect(lookupFailureNotice([broke, capped], 0)).toBe(
+      'We couldn’t reach the place database just now, so we couldn’t match one of these to a place.',
+    );
+  });
+
+  // The worst rendering of the old bug: this sentence sat directly above a card chipped "Matched"
+  // and footed "Pin from the map data". A screen-level sentence about a per-candidate fact is
+  // false as soon as the screen is mixed, so it has to say how many.
+  it('counts, rather than describing the whole screen, when only some candidates failed', () => {
+    const matched = resolutionView({
+      kind: 'answered',
+      result: {
+        shortlist: [MATCH],
+        confidence: { band: 'preselect', score: 0.94, margin: null },
+        regionsSearched: ['global'],
+        candidatesPrefiltered: 1,
+      },
+    });
+    const notice = lookupFailureNotice([matched, matched, broke], 1);
+    expect(notice).not.toContain('these pins come from the captions');
+    expect(notice).toContain('1 of these pins comes');
+
+    expect(lookupFailureNotice([matched, broke, broke], 0)).toContain(
+      'we couldn’t match 2 of these to a place',
+    );
   });
 
   it('lets an exhausted quota outrank everything else', () => {

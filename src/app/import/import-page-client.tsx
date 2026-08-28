@@ -1416,23 +1416,29 @@ function CaptionPreviewScreen({
 
   /**
    * Why the lookups failed, said once, in the user's terms. Composes with `LOCATION_CAVEAT`
-   * rather than repeating it: this line says *why* the pins came from the caption, the caveat
+   * rather than repeating it: this line says *why* those pins came from the caption, the caveat
    * says *how far off* that leaves them.
    *
-   * Not derived from `saveableIndices.length` alone — that counts every saveable candidate,
-   * including ones the resolver placed. The question this asks is narrower: did anything survive
-   * the failure *on the strength of the caption's own coordinate*, which is what decides between
-   * "you can still save them" and "we couldn't match these to a place".
+   * The count is of **failed** candidates that survive on the model's coordinate — not of every
+   * candidate on the screen that happens to use one. Those differ, and the difference was a
+   * screen that told the truth about nothing: a `capped` candidate the resolver never saw, or one
+   * that answered `no_match`, made this say "you can still save them" when the failure had
+   * rescued nobody. `showsLocationCaveat` below asks the wider question on purpose — the caveat
+   * is about every caption-derived pin, this sentence is only about the ones a failure produced.
    */
-  const lookupFailure = useMemo(
+  const rescuedFromCaption = useMemo(
     () =>
-      lookupFailureNotice(
-        views,
-        probe.candidates.some((c, i) =>
+      probe.candidates.filter(
+        (c, i) =>
+          views[i]!.kind === 'failed' &&
           usesModelCoordinate(isSaveable(c), views[i]!, picks.get(i) ?? null),
-        ),
-      ),
+      ).length,
     [probe.candidates, views, picks],
+  );
+
+  const lookupFailure = useMemo(
+    () => lookupFailureNotice(views, rescuedFromCaption),
+    [views, rescuedFromCaption],
   );
 
   const [selected, setSelected] = useState<ReadonlySet<number>>(
@@ -1917,7 +1923,11 @@ function ExtractedCandidateRow({
       )}
 
       <div className="flex items-center justify-between gap-2 border-t border-border/60 px-4 py-1.5">
-        <span className="flex items-center gap-1.5 truncate text-xs font-medium text-muted-foreground">
+        {/* Not `truncate`. This line's only job is to say where the pin came from, so clipping it
+            removes the whole message — measured at 412 px, "Approximate pin from the caption"
+            rendered as "Approximate pin from the ca…". Wrapping costs a few pixels of height and
+            never costs meaning. */}
+        <span className="flex min-w-0 items-center gap-1.5 text-xs font-medium leading-tight text-muted-foreground">
           <Crosshair className="size-3.5 shrink-0" aria-hidden />
           {resolverPinLine(view, pick, isSaveable(candidate)) ?? locationLine(candidate)}
         </span>

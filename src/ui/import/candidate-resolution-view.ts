@@ -263,7 +263,7 @@ export function resolutionExplanation(view: CandidateResolutionView): string | n
  *    back on. This used to read "We couldn't place this one" while sitting directly above a
  *    shortlist of places we had in fact found; what is missing there is the user's answer, not the
  *    data.
- *  - **"Approximate pin from the caption"** — the degraded path (owner ruling §1.3, 2026-08-28),
+ *  - **"Pin from the caption"** — the degraded path (owner ruling §1.3, 2026-08-28),
  *    and **only** where the place database genuinely gave us nothing: `failed` (we never got an
  *    answer) and `unresolved` (we got one and it was "no such place"). A card in either state can
  *    now be saveable *because* the lookup produced nothing, and `locationLine`'s older "Pin is
@@ -285,7 +285,14 @@ export function resolverPinLine(
   if (effectivePick(view, pick) !== null) return 'Pin from the map data';
   if (resolutionOptions(view).length > 0 && !modelHasCoordinates) return 'Waiting on your pick';
   if (modelHasCoordinates && (view.kind === 'failed' || view.kind === 'unresolved')) {
-    return 'Approximate pin from the caption';
+    // Deliberately short. This renders in a fixed-width row beside the Maps link, and the longer
+    // wording it replaced measured 208 px into a 180 px box on a Pixel 7 — clipped to
+    // "Approximate pin from the ca…", losing the half of the sentence that says where the pin came
+    // from. Mobile is the primary target, so the honest wording arrived and was immediately cut.
+    // "Approximate" is not lost: LOCATION_CAVEAT says how far off at screen level, and this line's
+    // whole job is the provenance. The row also wraps now rather than truncating, so a future
+    // longer string degrades visibly instead of silently.
+    return 'Pin from the caption';
   }
   return null;
 }
@@ -369,22 +376,39 @@ export function dominantFailure(
  * What went wrong, and whether the user can still proceed — the sentence that turns a silent dead
  * end into a stated, recoverable one.
  *
- * `someSaveableFromCaption` is the caller's count of candidates that will still be written from the
- * model's coordinate. It is a parameter rather than something derived here because the answer
- * depends on the user's current picks, which this module does not hold.
+ * `rescuedFromCaption` is how many of the **failed** candidates will still be written from the
+ * model's own coordinate. It is a parameter rather than something derived here because it depends
+ * on the user's current picks, which this module does not hold.
  *
- * The wording obeys the same rule as the rest of this screen: it says where the pin came from
- * ("the captions") and never that it is a match. It also stops short of promising the upgrade —
- * `resolution-record.ts` documents how these rows get a canonical Google identity later, but the
+ * ## It must count failures, and it must say a number
+ *
+ * Both halves of that were wrong when this shipped, and both were caught by rendering the screen
+ * rather than by reading it. The caller passed "does *any* candidate on this screen use a model
+ * coordinate", which is a different question: a `capped` candidate the resolver never saw, or one
+ * that resolved to `no_match`, both satisfy it. So a screen whose failure left nothing behind
+ * still read *"you can still save them"*, crediting the failure for a survivor it had nothing to
+ * do with.
+ *
+ * The number matters for the same reason. A screen-level sentence about a per-candidate fact is
+ * false as soon as the screen is mixed: with two matched candidates and one failure this said
+ * *"these pins come from the captions"* directly above two cards chipped **Matched** and footed
+ * *"Pin from the map data"*, and in the no-coordinate case it said *"we couldn't match these to a
+ * place"* directly above the card that disproved it. Saying "2 of these" instead of "these" is
+ * what makes one sentence at the top of a mixed screen true.
+ *
+ * The wording otherwise obeys the same rule as the rest of this screen: it says where the pin came
+ * from ("the captions") and never that it is a match. It also stops short of promising the upgrade
+ * — `resolution-record.ts` documents how these rows get a canonical Google identity later, but the
  * upgrader does not exist yet, and a UI promise is not the place to record an intention.
  */
 export function lookupFailureNotice(
   views: readonly CandidateResolutionView[],
-  someSaveableFromCaption: boolean,
+  rescuedFromCaption: number,
 ): string | null {
   const reason = dominantFailure(views);
   if (reason === null) return null;
 
+  const failed = views.filter((v) => v.kind === 'failed').length;
   const cause =
     reason === 'quota_exhausted'
       ? 'We’ve used up today’s place lookups'
@@ -392,7 +416,11 @@ export function lookupFailureNotice(
         ? 'The place database didn’t answer in time'
         : 'We couldn’t reach the place database just now';
 
-  return someSaveableFromCaption
-    ? `${cause}, so these pins come from the captions rather than a place database. You can still save them.`
-    : `${cause}, so we couldn’t match these to a place.`;
+  if (rescuedFromCaption > 0) {
+    const pins =
+      rescuedFromCaption === 1 ? '1 of these pins comes' : `${String(rescuedFromCaption)} of these pins come`;
+    return `${cause}, so ${pins} from the captions rather than a place database. You can still save them.`;
+  }
+  const them = failed === 1 ? 'one of these' : `${String(failed)} of these`;
+  return `${cause}, so we couldn’t match ${them} to a place.`;
 }
