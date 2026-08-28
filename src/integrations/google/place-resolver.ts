@@ -233,6 +233,16 @@ export function classifyGoogleStatus(status: number, body: string): ProviderFail
   if (status === 429) return 'quota_exhausted';
   if (status === 403 && /RESOURCE_EXHAUSTED|rateLimitExceeded/.test(body)) return 'quota_exhausted';
   if (status === 401 || status === 403) return 'auth';
+  // A bad key is a **400**, not a 401 or a 403. Verified against the live endpoint with a
+  // deliberately invalid key: `400 {"error":{"status":"INVALID_ARGUMENT","message":"API key not
+  // valid. Please pass a valid API key.","details":[{"reason":"API_KEY_INVALID"}]}}`.
+  //
+  // Without this branch the single most likely production key fault — rotated, revoked, mistyped,
+  // or absent from the deploy — classified as `bad_request`, whose whole meaning is "the adapter
+  // built a wrong request". That sent an operator to the query builder over a credential problem,
+  // and it was a *confident* wrong answer where the old undifferentiated `lookup_failed` had at
+  // least been an honest "we do not know". Read the body the same way the 403 arm already does.
+  if (status === 400 && /API_KEY_INVALID|API key not valid/.test(body)) return 'auth';
   if (status >= 500) return 'provider_error';
   if (status >= 400) return 'bad_request';
   // A 3xx or a 2xx that `response.ok` rejected is not a shape we have ever seen; `provider_error`
