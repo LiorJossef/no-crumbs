@@ -1,6 +1,21 @@
 # Current state — cold-start document
 
 ---
+> ## ⚠ READ FIRST — [`handoff-2026-08-28-session-close.md`](handoff-2026-08-28-session-close.md) is the newest state
+>
+> It supersedes every banner below. `main` is at `5e312fe` with PRs #63 and #65 merged. All
+> unfinished work from that session is preserved on branch
+> `wip/session-2026-08-28-parallel-streams` (commit `aa31aa1`, pushed).
+>
+> **Four owner rulings from 2026-08-28 that change decisions written elsewhere in this file:**
+> Overture is out entirely; Google Places stays the canonical resolver; resolution must never
+> dead-end (honest `llm_guess` fallback, upgraded to a Google identity later); and the product is
+> behaviourally thin after the save. Read §1 of that handoff before planning anything.
+>
+> **Two facts that block the owner's ~100-TikTok production dataset:** the Vercel env store has no
+> Supabase values, and both hosted projects sit at migration `0018` while local is at `0023`.
+
+---
 > ## ⚠ READ FIRST — [`handoff-2026-08-29-overnight-map-and-information.md`](handoff-2026-08-29-overnight-map-and-information.md) is the newest state
 >
 > It supersedes **both** banners below and every ordered step in them. Five PRs (#50–#53) landed the
