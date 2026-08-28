@@ -56,6 +56,24 @@ import { boundsCentre, withinBounds, type ViewportBounds } from './viewport';
 /** What the header says instead of a city name when the places in an area do not agree on one. */
 export const UNNAMED_AREA_LABEL = 'this area';
 
+/**
+ * The heading when the `Not been yet` filter has nothing left to show.
+ *
+ * A completed library is an achievement, not an error, so this is written as one — and it never
+ * appears without the filter's own pill directly above it, which is the way back. `No matches` was
+ * the alternative and it frames finishing everything you saved as a failed query.
+ */
+export const ALL_BEEN_HEADING = "You've been to all of them";
+
+/** Under that heading when the whole library is done: the achievement, then the way forward. The
+ *  filter's own pill is the way *back* and is already on screen, so this line does not repeat it. */
+export const ALL_BEEN_LIBRARY_NOTE =
+  'Nothing left on your list. Paste a TikTok and it starts filling up again.';
+
+/** Under it when only this area is done. The `Elsewhere` rows below name the areas that still have
+ *  something in them, so this line points at them rather than at the import. */
+export const ALL_BEEN_AREA_NOTE = 'Your other areas still have places waiting.';
+
 /** The same absence, in a row that is *not* the area you are looking at — `this area` would be a
  *  lie there, and `Unnamed area` reads like a defect rather than an honest gap. */
 export const UNNAMED_OTHER_AREA_LABEL = 'Another area';
@@ -294,6 +312,16 @@ export interface AreaHeading {
   /** Whether this state has a control that undoes it. `clear-search` only: a tag filter is undone
    *  by its own pill directly above the list, and two controls for one state is worse than one. */
   readonly escape: 'clear-search' | null;
+  /**
+   * One line under the heading, or `null` for the states that need none.
+   *
+   * It exists for exactly one case and should stay that way: a heading that reports an *achievement*
+   * rather than a failed query leaves a surface with nothing on it but a sentence. On a phone, where
+   * the sheet is at `full` and the map is covered, "You've been to all of them" over 700 px of empty
+   * card is not a designed state — it is a blank screen with a caption. Every other empty heading
+   * here sits above rows, an `Elsewhere` section, or a `Clear search` button, and needs no help.
+   */
+  readonly note: string | null;
 }
 
 /**
@@ -308,6 +336,19 @@ export interface AreaHeading {
  * `Nothing saved in this area` is **gone**, and cannot recur: an area is defined by the places in
  * it, so an unfiltered area always has at least one. That deletes the state `Show my places`
  * existed to escape, and the button with it.
+ *
+ * ## The been/not-been filter gets its own nouns, and it has to
+ *
+ * `Not been yet` is a third filter dimension, and treating it as just another one would have
+ * produced two wrong sentences. With only that filter on and nothing left anywhere, the
+ * `matchesAnywhere === 0` branch would have read `Nothing tagged ""` — a sentence about a tag that
+ * was never applied, built from an empty string. And `7 matches in London` is a true sentence that
+ * says nothing: what the user asked was "what have I still got to do here", so the honest count is
+ * `7 to go in London`.
+ *
+ * Both special cases apply only when the visit filter is the **sole** filter. As soon as a search
+ * or a tag is also on, the generic `match`/`matches` noun is the right one — the result set is the
+ * intersection of several questions and no single one of them names it.
  */
 export function areaHeading(input: {
   /** How many of the area's places survive the filters — what the list is about to render. */
@@ -317,18 +358,24 @@ export function areaHeading(input: {
   readonly searchQuery: string;
   /** The active tag as the user saw it on the chip, or `null`. */
   readonly tagLabel: string | null;
+  /** Whether the library is narrowed to places the user has not been to yet. */
+  readonly notBeenOnly?: boolean;
   /** How many places match the filters anywhere in the library. Distinguishes "not here" from
    *  "nowhere", which are different sentences and different ways out. */
   readonly matchesAnywhere: number;
 }): AreaHeading {
   const { countInArea, area, searchQuery, tagLabel, matchesAnywhere } = input;
-  const filtering = searchQuery !== '' || tagLabel !== null;
+  const notBeenOnly = input.notBeenOnly ?? false;
+  const filtering = searchQuery !== '' || tagLabel !== null || notBeenOnly;
+  /** The visit filter, alone. The only case that earns its own vocabulary — see the header. */
+  const visitOnly = notBeenOnly && searchQuery === '' && tagLabel === null;
 
   if (filtering && matchesAnywhere === 0) {
     // Search wins the sentence when both are on: it is the thing the user typed, and the tag's own
     // pill is on screen immediately above with its own clear control.
-    const text =
-      searchQuery !== ''
+    const text = visitOnly
+      ? ALL_BEEN_HEADING
+      : searchQuery !== ''
         ? `Nothing matches "${searchQuery}"`
         : `Nothing tagged "${tagLabel ?? ''}"`;
     return {
@@ -337,26 +384,38 @@ export function areaHeading(input: {
       rest: text,
       empty: true,
       escape: searchQuery !== '' ? 'clear-search' : null,
+      note: visitOnly ? ALL_BEEN_LIBRARY_NOTE : null,
     };
   }
 
   const where = area ?? UNNAMED_AREA_LABEL;
 
   if (countInArea === 0) {
-    const text = `No matches in ${where}`;
-    return { text, count: null, rest: text, empty: true, escape: null };
+    // Still a written state rather than a bare zero, and the `Not been yet` pill directly above it
+    // is the way back — the same shape the tag filter's empty state already has.
+    const text = visitOnly ? `${ALL_BEEN_HEADING} in ${where}` : `No matches in ${where}`;
+    return {
+      text,
+      count: null,
+      rest: text,
+      empty: true,
+      escape: null,
+      note: visitOnly ? ALL_BEEN_AREA_NOTE : null,
+    };
   }
 
-  const noun = filtering
-    ? countInArea === 1
-      ? 'match'
-      : 'matches'
-    : countInArea === 1
-      ? 'place'
-      : 'places';
+  const noun = visitOnly
+    ? 'to go'
+    : filtering
+      ? countInArea === 1
+        ? 'match'
+        : 'matches'
+      : countInArea === 1
+        ? 'place'
+        : 'places';
   const count = String(countInArea);
   const rest = `${noun} in ${where}`;
-  return { text: `${count} ${rest}`, count, rest, empty: false, escape: null };
+  return { text: `${count} ${rest}`, count, rest, empty: false, escape: null, note: null };
 }
 
 /** The heading as a sentence, for the live region and for the map's own accessible name. */

@@ -65,3 +65,28 @@ export function filterByTag(
     (toSearchablePlace(place).tags ?? []).some((candidate) => isSameTag(candidate, tag)),
   );
 }
+
+/**
+ * The user's saved pins narrowed to the ones they have **not** been to yet.
+ *
+ * A third filter dimension beside the tag chip and the search box, composed as AND by the page
+ * client. Returns the input array itself when the filter is off, so an untouched control costs
+ * nothing downstream — the same identity guarantee `filterPlaces` and `filterByTag` give, and for
+ * the same reason (React memoisation upstream must not churn on a filter nobody set).
+ *
+ * `visited` is read straight off the port rather than through `toSearchablePlace`, and deliberately
+ * so: this is not a text match and it must never become one. "Been" is a fact about the user's own
+ * row, not a word that might appear in a note — a place whose note reads "been meaning to try this"
+ * is precisely the place this filter has to keep.
+ *
+ * There is intentionally no inverse. `Been` as a filter would be a second control answering a
+ * question nobody asked ("what have I already done?"), and the ruling that motivated this feature
+ * is explicit that the capability is a boolean and *one* filter.
+ */
+export function filterByVisit(
+  places: readonly MapPlace[],
+  notBeenOnly: boolean,
+): readonly MapPlace[] {
+  if (!notBeenOnly) return places;
+  return places.filter((place) => !place.visited);
+}

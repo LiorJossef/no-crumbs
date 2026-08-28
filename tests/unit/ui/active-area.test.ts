@@ -403,3 +403,137 @@ describe('the spoken heading', () => {
     expect(mapAccessibleName(heading, 'London')).toBe('Map of your saved places in London.');
   });
 });
+
+/**
+ * The heading with the been / not-been filter on (`L1-F12-T1`).
+ *
+ * Two of these are bug tests rather than feature tests. Before the filter was a third dimension,
+ * `matchesAnywhere === 0` with no search and no tag produced `Nothing tagged ""` — a sentence about
+ * a tag nobody applied, assembled from an empty string — and a non-empty result read `7 matches in
+ * London`, which is true and answers a question the user did not ask. Both are what criterion 14
+ * ("a bare number with an ambiguous denominator is a fail") and criterion 15 ("the all-filtered
+ * state is designed, not empty") exist to catch.
+ */
+describe('areaHeading with the not-been-yet filter', () => {
+  const base = { area: 'London', searchQuery: '', tagLabel: null, matchesAnywhere: 12 };
+
+  it('counts what it is actually counting when the visit filter is the only one on', () => {
+    expect(areaHeading({ ...base, countInArea: 7, notBeenOnly: true }).text).toBe(
+      '7 to go in London',
+    );
+    expect(areaHeading({ ...base, countInArea: 1, notBeenOnly: true }).text).toBe(
+      '1 to go in London',
+    );
+  });
+
+  it('still splits the count out for the peek row', () => {
+    const heading = areaHeading({ ...base, countInArea: 7, notBeenOnly: true });
+    expect(heading.count).toBe('7');
+    expect(heading.rest).toBe('to go in London');
+    expect(`${heading.count} ${heading.rest}`).toBe(heading.text);
+    expect(heading.empty).toBe(false);
+  });
+
+  it('writes the all-been state rather than leaving a blank list', () => {
+    const heading = areaHeading({
+      ...base,
+      countInArea: 0,
+      notBeenOnly: true,
+      matchesAnywhere: 0,
+    });
+    expect(heading.text).toBe("You've been to all of them");
+    expect(heading.empty).toBe(true);
+    // No `Clear search` escape: the `Not been yet` chip directly above is the way back, and two
+    // controls for one state is worse than one.
+    expect(heading.escape).toBeNull();
+  });
+
+  it('never assembles a sentence about a tag nobody applied', () => {
+    const heading = areaHeading({
+      ...base,
+      countInArea: 0,
+      notBeenOnly: true,
+      matchesAnywhere: 0,
+    });
+    expect(heading.text).not.toContain('tagged');
+    expect(heading.text).not.toContain('""');
+  });
+
+  it('says where, when the area is done but others are not', () => {
+    const heading = areaHeading({
+      ...base,
+      countInArea: 0,
+      notBeenOnly: true,
+      matchesAnywhere: 4,
+    });
+    expect(heading.text).toBe("You've been to all of them in London");
+    expect(heading.empty).toBe(true);
+  });
+
+  it('hands the sentence back to the generic noun as soon as a second filter is on', () => {
+    // With a search or a tag also narrowing, the result is an intersection and no single question
+    // names it — `matches` is the honest word.
+    expect(
+      areaHeading({ ...base, countInArea: 3, notBeenOnly: true, searchQuery: 'momos' }).text,
+    ).toBe('3 matches in London');
+    expect(
+      areaHeading({ ...base, countInArea: 3, notBeenOnly: true, tagLabel: 'Hidden Gem' }).text,
+    ).toBe('3 matches in London');
+  });
+
+  it('lets the search keep its own nowhere-sentence and its own escape', () => {
+    const heading = areaHeading({
+      ...base,
+      countInArea: 0,
+      notBeenOnly: true,
+      searchQuery: 'momos',
+      matchesAnywhere: 0,
+    });
+    expect(heading.text).toBe('Nothing matches "momos"');
+    expect(heading.escape).toBe('clear-search');
+  });
+
+  it('leaves every unfiltered heading exactly as it was', () => {
+    // The parameter is optional and defaults to off, so no existing call site changes meaning.
+    expect(areaHeading({ ...base, countInArea: 12 }).text).toBe('12 places in London');
+    expect(areaHeading({ ...base, countInArea: 12, notBeenOnly: false }).text).toBe(
+      '12 places in London',
+    );
+  });
+});
+
+describe('the line under an achievement heading', () => {
+  const base = { area: 'London', searchQuery: '', tagLabel: null, matchesAnywhere: 12 };
+
+  it('is null everywhere except the all-been states', () => {
+    expect(areaHeading({ ...base, countInArea: 12 }).note).toBeNull();
+    expect(areaHeading({ ...base, countInArea: 7, notBeenOnly: true }).note).toBeNull();
+    expect(
+      areaHeading({ ...base, countInArea: 0, searchQuery: 'momos', matchesAnywhere: 0 }).note,
+    ).toBeNull();
+    expect(areaHeading({ ...base, countInArea: 0, matchesAnywhere: 3, searchQuery: 'x' }).note)
+      .toBeNull();
+  });
+
+  it('points at the import when the whole library is done', () => {
+    const heading = areaHeading({
+      ...base,
+      countInArea: 0,
+      notBeenOnly: true,
+      matchesAnywhere: 0,
+    });
+    expect(heading.note).toBe(
+      'Nothing left on your list. Paste a TikTok and it starts filling up again.',
+    );
+  });
+
+  it('points at the other areas when only this one is done', () => {
+    const heading = areaHeading({
+      ...base,
+      countInArea: 0,
+      notBeenOnly: true,
+      matchesAnywhere: 4,
+    });
+    expect(heading.note).toBe('Your other areas still have places waiting.');
+  });
+});
