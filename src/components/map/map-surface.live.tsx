@@ -8,6 +8,21 @@
  * This is one implementation of the `MapSurfaceProps` port (`./types.ts`); it is not the public
  * `MapSurface` component — see `./map-surface.tsx`, the swap point — because no MapLibre type may
  * cross the port seam.
+ *
+ * ## Its clustering is superseded and must not be copied forward
+ *
+ * The `cluster: true` source below, its two cluster layers and its expansion-zoom tap handler are
+ * **the behaviour the owner ruled out on 2026-08-28** (`06-map-and-places-decision.md` §9.1):
+ * collapsing nearby saved places into a numbered bubble — a pair especially — is wrong for a
+ * retrieval product, because at city and local browsing zoom the user must see the actual pins.
+ * `map-surface.mapcn.tsx`, the wired implementation, has had all of it removed.
+ *
+ * It survives here only because this file is a **deliberately unwired raw-MapLibre reference**
+ * (`map-surface.tsx` line 20 keeps its import commented out and says "Do not wire it in"), and
+ * gutting a reference reduces the only value it has. **Wiring this file in as-is would reinstate
+ * the ruled-out behaviour.** That is the whole reason this paragraph exists: the ruling asks for
+ * the reasoning to travel with the code so nobody re-derives the bubble from an implementation
+ * that still shows one.
  */
 
 import { useEffect, useRef } from 'react';

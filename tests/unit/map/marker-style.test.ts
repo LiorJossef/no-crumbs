@@ -2,15 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import {
   CATEGORY_ORDER,
-  CLUSTER,
-  clusterCategoryCounts,
-  clusterColorExpression,
   CATEGORY_STYLES,
   LABEL_MIN_ZOOM,
   PIN,
   allPinImageIds,
   categoryStyle,
-  clusterRadiusExpression,
   pinGeometry,
   pinIconImageExpression,
   pinImageId,
@@ -105,17 +101,6 @@ describe('icon-image expression', () => {
   });
 });
 
-describe('clusters', () => {
-  it('grows with the count and never shrinks', () => {
-    const stops = clusterRadiusExpression().slice(3) as number[];
-    const counts = stops.filter((_, i) => i % 2 === 0);
-    const radii = stops.filter((_, i) => i % 2 === 1);
-    expect(counts).toEqual([...counts].sort((a, b) => a - b));
-    expect(radii).toEqual([...radii].sort((a, b) => a - b));
-    expect(new Set(radii).size).toBe(radii.length);
-  });
-});
-
 describe('features', () => {
   it('never emits a category the palette has no pin for', () => {
     const features = toPlaceFeatures([
@@ -144,58 +129,6 @@ describe('features', () => {
 describe('labels', () => {
   it('waits until the pins have separated', () => {
     expect(LABEL_MIN_ZOOM).toBeGreaterThanOrEqual(14);
-  });
-});
-
-describe('cluster composition', () => {
-  it('accumulates one counter per category, and only those', () => {
-    expect(Object.keys(clusterCategoryCounts()).sort()).toEqual([...CATEGORY_ORDER].sort());
-  });
-
-  /** Evaluate the colour expression against one cluster's counts, the way MapLibre would. */
-  function colorFor(counts: Partial<Record<string, number>>, pointCount: number): string {
-    const get = (key: string) => (key === 'point_count' ? pointCount : (counts[key] ?? 0));
-    const expr = clusterColorExpression();
-    const evaluate = (node: unknown): unknown => {
-      if (!Array.isArray(node)) return node;
-      const [op, ...args] = node as [string, ...unknown[]];
-      if (op === 'get') return get(args[0] as string);
-      if (op === 'max') return Math.max(...args.map((a) => evaluate(a) as number));
-      if (op === '*') return (evaluate(args[0]) as number) * (evaluate(args[1]) as number);
-      if (op === '<=') return (evaluate(args[0]) as number) <= (evaluate(args[1]) as number);
-      if (op === '==') return evaluate(args[0]) === evaluate(args[1]);
-      if (op === 'case') {
-        for (let i = 0; i + 1 < args.length; i += 2) {
-          if (evaluate(args[i])) return evaluate(args[i + 1]);
-        }
-        return evaluate(args[args.length - 1]);
-      }
-      return node;
-    };
-    return evaluate(expr) as string;
-  }
-
-  it('takes the colour of a category that holds a strict majority', () => {
-    expect(colorFor({ cafe: 4, bar: 1 }, 5)).toBe(CATEGORY_STYLES.cafe.color);
-    expect(colorFor({ restaurant: 3 }, 3)).toBe(CATEGORY_STYLES.restaurant.color);
-  });
-
-  it('stays mint when no category holds one — a plurality is not a majority', () => {
-    // 3 cafés and 2 bars is 40% something else. Colouring it brown would be a claim about the
-    // group that is not true of it.
-    expect(colorFor({ cafe: 3, bar: 2, bakery: 1 }, 6)).toBe(CLUSTER.mixedColor);
-    expect(colorFor({ cafe: 1, bar: 1 }, 2)).toBe(CLUSTER.mixedColor);
-  });
-
-  it('treats exactly half as not a majority', () => {
-    expect(colorFor({ cafe: 2, bar: 2 }, 4)).toBe(CLUSTER.mixedColor);
-    expect(colorFor({ cafe: 3, bar: 2 }, 5)).toBe(CATEGORY_STYLES.cafe.color);
-  });
-
-  it('covers every category, so adding one to the palette cannot leave it out here', () => {
-    for (const category of CATEGORY_ORDER) {
-      expect(colorFor({ [category]: 3 }, 3)).toBe(CATEGORY_STYLES[category].color);
-    }
   });
 });
 

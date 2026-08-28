@@ -1,5 +1,9 @@
 /**
- * Saved places as GeoJSON, for the clustered map source.
+ * Saved places as GeoJSON, one feature per saved place, for the map source.
+ *
+ * One feature per place is the whole shape of it since `L1-F5-T5`: the source is not clustered, so
+ * nothing here ever merges two places or writes a count. A pair of saves fifty metres apart is two
+ * features and therefore two pins (`docs/06-map-and-places-decision.md` §9.1).
  *
  * Pure and separate from the layer so the one property the renderer cannot recover from — a
  * category with no pin drawn for it — is testable without a WebGL context.
