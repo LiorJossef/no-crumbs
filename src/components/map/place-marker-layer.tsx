@@ -21,6 +21,8 @@ import {
   CLUSTER,
   LABEL_MAX_WIDTH_EM,
   LABEL_MIN_ZOOM,
+  clusterCategoryCounts,
+  clusterColorExpression,
   clusterRadiusExpression,
   clusterTextSizeExpression,
   pinGeometry,
@@ -98,6 +100,7 @@ export function PlaceMarkerLayer({ data, selectedId, onPlaceClick }: PlaceMarker
       cluster: true,
       clusterMaxZoom: CLUSTER_MAX_ZOOM,
       clusterRadius: CLUSTER_RADIUS_PX,
+      clusterProperties: clusterCategoryCounts() as never,
     });
 
     map.addLayer({
@@ -106,7 +109,7 @@ export function PlaceMarkerLayer({ data, selectedId, onPlaceClick }: PlaceMarker
       source: sourceId,
       filter: ['has', 'point_count'],
       paint: {
-        'circle-color': CLUSTER.color,
+        'circle-color': clusterColorExpression() as never,
         'circle-radius': clusterRadiusExpression() as never,
         'circle-stroke-color': CLUSTER.ringColor,
         'circle-stroke-width': CLUSTER.ringWidth,

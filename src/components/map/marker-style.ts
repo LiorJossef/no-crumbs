@@ -116,11 +116,61 @@ export function pinGeometry(selected: boolean): PinGeometry {
 }
 
 export const CLUSTER = {
-  color: '#2E7A70',
+  /** A cluster with no clear majority. Also the `other` pin's colour, which is the point: the
+   *  house mint is what this product says when it will not claim to know. */
+  mixedColor: '#2E7A70',
   ringColor: '#FFFFFF',
   ringWidth: 2.5,
   textColor: '#FFFFFF',
 } as const;
+
+/**
+ * One accumulator per category, for `GeoJSONSourceSpecification.clusterProperties`.
+ *
+ * Supercluster runs these over the members as it merges, so `['get', 'cafe']` on a cluster feature
+ * is how many cafés are inside it. That is the only way to know a cluster's composition — the
+ * members themselves are not on the feature.
+ */
+export function clusterCategoryCounts(): Record<string, unknown> {
+  return Object.fromEntries(
+    CATEGORY_ORDER.map((category) => [
+      category,
+      ['+', ['case', ['==', ['get', 'category'], category], 1, 0]],
+    ])
+  );
+}
+
+/**
+ * A cluster takes the colour of the category that owns it, and the house mint when none does.
+ *
+ * "Owns it" is a **strict majority** — more than half the members — rather than a plurality, and
+ * that is the honest line. Colouring 3 cafés and 2 bars brown says "cafés" about a group that is
+ * 40% something else; colouring 4 cafés and 1 bar brown is a fair summary of what is in there. A
+ * group with no majority is genuinely mixed, and mint is what this product already uses for "we
+ * are not claiming to know".
+ *
+ * Built from `CATEGORY_ORDER` rather than written out, so a new category cannot be added to the
+ * palette and quietly left out of this expression. Ties inside the `max` resolve to the first
+ * category in that order; a tie cannot be a strict majority with more than two categories present,
+ * and with exactly two it means neither has one, so the majority test rejects it first.
+ */
+export function clusterColorExpression(): unknown[] {
+  const counts = CATEGORY_ORDER.map((category) => ['get', category]);
+  const largest = ['max', ...counts];
+  const branches = CATEGORY_ORDER.flatMap((category) => [
+    ['==', ['get', category], largest],
+    CATEGORY_DISPLAY[category].color,
+  ]);
+
+  return [
+    'case',
+    // `2 x largest > point_count` is "more than half", without dividing.
+    ['<=', ['*', largest, 2], ['get', 'point_count']],
+    CLUSTER.mixedColor,
+    ...branches,
+    CLUSTER.mixedColor,
+  ];
+}
 
 /** Image ids registered with `map.addImage`. Stable strings so the layer's `icon-image`
  *  expression can build them with `concat`. */
