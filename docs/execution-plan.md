@@ -195,7 +195,7 @@ Depends on F7 because manual add **is** its main recovery. This is the modal out
 | T2 · **IN PROGRESS 2026-08-27** | The authorised camera movers, **the anchor-cluster home camera, and binding the list to the viewport** — "the map is the query" | No code path moves the camera outside the enumerated list; the flight reads as one motion, not a jump; every non-empty library settles with at least one *individual* pin and one readable place *name* on screen; panning changes the sheet |
 | T3 | S5 place detail as a sheet over the map, with the link back to the source post | Refresh-safe and deep-linkable; the source link opens the original post |
 | T4 | Sheet gesture arbitration and the performance pass | ~200 pins pan and zoom smoothly on a mid-range Android; sheet drag never fights map pan |
-| T5 · **NEW, owner ruling 2026-08-28** | **Remove density clustering of saved places.** Delete the cluster source options and the cluster circle/count layers, the expansion-zoom tap path, and whatever in `marker-style.ts` is left with no caller. Pins at every zoom | No numbered bubble appears at any zoom; two saved places 50 m apart render as **two pins**; a "show everything" zoom-out at the 2 000-place ceiling still pans acceptably on mid-range Android — **label** pressure, not icon count, is the thing to measure |
+| T5 · **NEW, owner ruling 2026-08-28** | **Remove density clustering of saved places.** Delete the cluster source options and the cluster circle/count layers, the expansion-zoom tap path, and whatever in `marker-style.ts` is left with no caller. Pins at every zoom | No numbered bubble appears at any zoom; two saved places 50 m apart render as **two pins**; a "show everything" zoom-out at the 2 000-place ceiling still pans acceptably. **Sized 2026-08-28: small.** ~65 lines out of `marker-style.ts` (five exports whose only referrers are the layer and one test file) and ~60 lines out of `tests/unit/map/marker-style.test.ts`; pure deletion, no new logic or state. **Labels are not the risk** — they are gated at `LABEL_MIN_ZOOM = 14`, so world zoom shapes zero glyphs. **Trap:** `src/domain/places/clusters.ts` is a different thing and survives — it anchors the camera and names the active area. **Do not land alone if avoidable:** removal makes world zoom *worse* than today (a mat of overlapping pins); the L2 country summary is what repairs it |
 
 ### L1-F6 — Saved list and search · `design-system-frontend` · depends: F5 · cut: search = 1
 
@@ -333,6 +333,35 @@ from that removal and not a prerequisite for it**, and explicitly not a mandate 
 clustering system. Decision and rationale: `06-map-and-places-decision.md` §9.1; the pattern was
 observed on mio (`evidence/product/competitor-pass-2026-08-28.md` §F). **Retires the old
 "clustering sophistication" L2 line**, which assumed the density model the owner has now rejected.
+
+**Sized 2026-08-28 (`D2-CLUSTER-REMOVAL-SIZING`): day-scale, and every mechanism is verified working
+— the unknown is design, not feasibility.**
+
+- **`country_code` already exists and is already granted to `authenticated`, so no migration.** It
+  stops at the query: `get-spots.ts` does not select it, and `Spot` / `MapPlace` /
+  `PlaceFeatureProperties` have no field. Four files of plumbing. Measured on the local database:
+  25 saved places → `GB` 12, `IL` 11, **`NULL` 2** (pre-fix rows), so ~8% would fall out of any
+  country bucket — what happens to those is a product call, not an implementation detail.
+- **A flag emoji cannot go in a symbol layer's `text-field`, measured rather than assumed.** Two
+  independent reasons: MapLibre's glyph atlas is single-channel alpha, so colour is impossible by
+  construction; and a regional-indicator pair needs a ligature, which per-codepoint shaping cannot
+  form — it draws two tofu boxes reading "J" "P". **The working technique is the one the pins
+  already use:** draw the flag once to a `<canvas>` (where the platform font does ligate and colour
+  it), `map.addImage`, then `'icon-image': ['concat', 'flag-', ['get','cc']]` with the count as
+  plain digits. Verified rendering. **Desktop caveat:** Windows' Segoe UI Emoji ships no flag
+  glyphs and would rasterise letters — mobile-first makes that acceptable, but choose the fallback
+  deliberately rather than discover it.
+- **Two layers with `minzoom`/`maxzoom` beats DOM markers.** The threshold becomes declarative —
+  MapLibre owns the swap, with no zoom listener, no React state, no re-render on zoom — and it stays
+  inside §9.1's "at most two DOM markers ever exist" rule.
+- **Anchor on the centroid of the user's own saved places in that country**, not a country-centroid
+  table: no new data, nothing to license, and the bubble sits where *your* places are. Average in
+  Cartesian space, not raw degrees, or the antimeridian and far-flung territories (US, RU, NZ) go
+  wrong.
+- **The biggest unknown is the transition band, and it is what will take the day.** A country with
+  24 saves spread over 1 500 km loses its bubble at the threshold and gains 24 pins that may all be
+  off-screen — zoom in on a bubble, see nothing. What tapping a bubble does, and where the threshold
+  sits, is the design question. Not a technical unknown.
 
 **Collections and sharing moved L3 → L2, 2026-08-28** (owner correction — a private, named-invitee
 shared collection is a multiplayer document, not a social graph). Boundary and cost in

@@ -498,10 +498,33 @@ viewport after a "show everything" zoom-out, ~2 000 points.
   is needed now either:** the answer is not a higher `minPoints`, it is no density clustering.
   `clusterRadius: 46` (`CLUSTER_RADIUS_PX`) never had a recorded reason and now never needs one.
 
-  **The 2 000-place design ceiling above is the one open risk in removing this**, and it is a real
-  question rather than a formality: clustering was partly what kept a "show everything" zoom-out
-  cheap. Labels, not icons, are the likely pressure point. Sized separately; do not treat the
-  removal as free until that is answered.
+  **The 2 000-place ceiling is answered — it is not the risk. Legibility is** (sized 2026-08-28,
+  `D2-CLUSTER-REMOVAL-SIZING`).
+
+  - **Icons are fine.** The pin layer already sets `icon-allow-overlap` and `icon-ignore-placement`,
+    and MapLibre's collision index short-circuits entirely under `'always'` overlap
+    (`symbol/collision_index.ts`), so clustering was never protecting us from a collision blow-up —
+    collision is already off. 2 000 icons is one batched quad pass.
+  - **Labels cannot bite at world zoom, because they do not exist there.** `place-marker-layer.tsx`
+    sets `'text-field': ['step', ['zoom'], '', LABEL_MIN_ZOOM, ['get','name']]` with
+    `LABEL_MIN_ZOOM = 14`, and symbol layout runs per tile at the tile's zoom — so tiles below z14
+    shape **zero glyphs**. The "show everything" zoom-out is an icons-only case. Forcing 2 000
+    labels on did quadruple frame time in the harness, which is why the z14 gate matters, but no
+    code path reaches it. *Benchmark caveat: run on a software rasteriser (SwiftShader), so the
+    numbers are an upper bound and a relative ranking, not phone frame times. Not measured on a
+    real device.*
+  - **The real consequence is visual, and it is a sequencing fact rather than a reason to keep
+    clustering.** With overlap allowed, zooming out to the world with a few hundred places renders a
+    solid mat of overlapping teardrops carrying no information — **worse than the bubbles that ship
+    today at that zoom.** So the removal and the country summary are not independent queue items:
+    the country summary is what repairs world zoom, and it should land soon after the removal rather
+    than whenever L2 comes round.
+
+  **One trap for whoever does the removal.** `src/domain/places/clusters.ts` (`clusterByProximity`,
+  ~50 km) is a *different thing* and survives: it anchors the camera and names the active area, and
+  never drew a bubble. `tests/unit/places/clusters.test.ts`, `area-label.test.ts` and
+  `active-area.test.ts` belong to it. A grep-and-delete on "cluster" would take out the areas
+  feature.
 - **Custom pins are sprite images in a `symbol` layer, not DOM markers.** This is the single most
   important mobile-performance decision: every `Marker` is an absolutely-positioned DOM node that
   the browser must re-transform on every frame of every pan. Hard rule: **at most two DOM markers
