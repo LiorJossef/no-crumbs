@@ -1600,6 +1600,7 @@ function CaptionPreviewScreen({
                 <ExtractedCandidateRow
                   key={i}
                   candidate={c}
+                  caption={probe.caption}
                   view={views[i]!}
                   pick={picks.get(i) ?? null}
                   selected={selected.has(i)}
@@ -1721,6 +1722,7 @@ const STATUS_CHIP: Record<ItemStatus, { readonly label: string; readonly classNa
  */
 function ExtractedCandidateRow({
   candidate,
+  caption,
   view,
   pick,
   selected,
@@ -1730,6 +1732,8 @@ function ExtractedCandidateRow({
   onPick,
 }: {
   candidate: PlaceCandidate;
+  /** The post's caption, which is where "is this name only in a hashtag?" is decided. */
+  caption: string | null;
   /** What the resolver made of this candidate, already derived (`ui/import/candidate-resolution-view.ts`). */
   view: CandidateResolutionView;
   /** The user's explicit shortlist choice, or `null` for "they haven't chosen". */
@@ -1790,7 +1794,7 @@ function ExtractedCandidateRow({
           &ldquo;{candidate.evidence}&rdquo;
         </p>
       )}
-      {isHashtagOnly(candidate) && (
+      {isHashtagOnly(caption, candidate) && (
         <p className="mt-1 text-xs font-medium text-muted-foreground">Only mentioned in a hashtag.</p>
       )}
     </div>

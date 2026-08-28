@@ -22,6 +22,7 @@
  * card (`locationLine`).
  */
 
+import { isHashtagOnlyEvidence } from '@/domain/extraction/plausibility';
 import type { PlaceCandidate } from '../types';
 import { PRODUCT_CATEGORY_LABEL, isProductCategory } from '../places/product-category';
 
@@ -129,9 +130,17 @@ export function locationLine(candidate: PlaceCandidate): string {
  * `filterPlausible` keeps a hashtag-only candidate rather than dropping it, capping its confidence
  * instead (`extraction/plausibility.ts`). The screen states the fact and not the cap: "confidence"
  * is a number we have decided not to show, so it cannot be the explanation.
+ *
+ * This delegates rather than re-testing the spelling. It used to be
+ * `candidate.rawName.trim().startsWith('#')`, which asked whether *the model* had kept the `#` —
+ * and the model strips it. On a real caption of one sentence and 28 hashtags that produced
+ * `rawName: "tsukijifishmarket"` at 0.95 confidence with no cap and no label, so a topic tag
+ * reached the user as a confident find. The cap and this notice are two readings of one fact and
+ * must come from one function; `isHashtagOnlyEvidence` asks the caption where the name is
+ * findable, which no model formatting choice can change.
  */
-export function isHashtagOnly(candidate: PlaceCandidate): boolean {
-  return candidate.rawName.trim().startsWith('#');
+export function isHashtagOnly(caption: string | null, candidate: PlaceCandidate): boolean {
+  return caption !== null && isHashtagOnlyEvidence(caption, candidate.rawName, candidate.evidence);
 }
 
 /** The primary action's label, which is also the clearest statement of what pressing it does. */
