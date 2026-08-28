@@ -1,5 +1,12 @@
 # RECOG-METRICS-1 — the recognition scoreboard, the failure classes, and the picker ruling
 
+> **Superseded in part, 2026-08-28.** §3's F2 and F3 have since landed in `confidenceOf`, and every
+> rate below is the measurement *before* they did. The current numbers, the diff and the reason F1
+> is still held are in
+> [`recognition-decisive-evidence-2026-08-28.md`](recognition-decisive-evidence-2026-08-28.md).
+> This file stands as the baseline it was: §0's correction of the three stale records, the failure
+> classes and the definitions are all unchanged.
+
 **2026-08-28.** Measured entirely by **replay from disk**: zero Google Text Search requests, zero
 network, zero database. The owner's ~100-TikTok production dataset keeps the whole 100/day quota.
 

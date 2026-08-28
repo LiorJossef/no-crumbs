@@ -29,7 +29,7 @@ import {
 } from '@/integrations/supabase/place-resolver';
 import { DomainError } from '@/domain/errors';
 import { NORM_VERSION } from '@/domain/places/normalise';
-import { MAX_QUERY_VARIANTS, matchedTextOf, queryTokens } from '@/domain/places/score';
+import { addressScoreOf, MAX_QUERY_VARIANTS, matchedTextOf, queryTokens } from '@/domain/places/score';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { OpCtx } from '@/domain/ports';
@@ -621,8 +621,15 @@ describe('overturePlaceResolver — textVariants (TLV-BILING-B)', () => {
     );
     expect(result.shortlist[0]!.place.name).toBe('Kohi Coffee Shop');
     expect(matchedTextOf(result.shortlist[0]!)).toBe('Kohi');
-    // A lone candidate still has an unmeasured margin, so it is `confirm`, not an auto-accept.
-    expect(result.confidence.band).toBe('confirm');
+    // This asserted `confirm` until RECOG-METRICS-2, on the rule that a lone candidate has an
+    // unmeasured margin and so cannot auto-accept. That rule now has one documented exception and
+    // this fixture is exactly it: the caption wrote `בן יהודה 155` and the row is at
+    // `בן יהודה 155`, so `addressIsDecisive` (`score.ts`, F2) overrides the null-margin block.
+    // Asserted as the three facts rather than the one band, so a future change that reaches
+    // `preselect` by some *other* route fails here instead of passing quietly.
+    expect(addressScoreOf(result.shortlist[0]!)).toBe(1);
+    expect(result.confidence.margin).toBeNull();
+    expect(result.confidence.band).toBe('preselect');
   });
 
   it('does not let two candidates with different variants share a cache entry', async () => {

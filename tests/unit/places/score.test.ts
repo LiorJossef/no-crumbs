@@ -1412,3 +1412,200 @@ describe('confidenceOf — a contradicted address', () => {
     expect(confidenceOf([ranked(0.75), ranked(0.1)]).band).toBe('no_match');
   });
 });
+
+/* ------------------------------------------------------------------------------------------- *
+ * The two evidence overrides (RECOG-METRICS-2)
+ *
+ * Both are measured in `docs/evidence/places/recognition-decisive-evidence-2026-08-28.md`; what
+ * belongs here is the *shape* of each rule and, above all, every shape it must refuse. A rule that
+ * only has tests for the cases it was built to rescue is a rule nobody has bounded.
+ *
+ * Every fixture carries the `textVariants` the real corpus carries. That is not decoration: the
+ * first draft of these tests omitted them and three cases scored differently enough to change band
+ * — `קוהי` alone drops from 0.9067 to 0.774 without the variant `Kohi`. A fixture that omits half
+ * the query measures a query the product never sends.
+ * ------------------------------------------------------------------------------------------- */
+
+describe('confidenceOf — the caption’s address is decisive (F2)', () => {
+  it('auto-accepts a corroborated address that the score gate alone would refuse', () => {
+    // `קוהי` from the real corpus against Google's answer. Score 0.9067 — under the 0.92 gate,
+    // entirely because the display name appends the words "Japanese café" — and one result, so
+    // there is no margin either. Two gates fail and the house number answers both.
+    const ranked_ = rankPlaces(
+      query({ text: 'קוהי', addressHint: 'בן יהודה 155', categoryHint: 'cafe', textVariants: ['Kohi'] }),
+      [place({ name: 'Kohi בית קפה יפני', addressLine: 'בן יהודה 155', providerCategory: 'coffee_shop' })],
+    );
+    const top = ranked_[0]!;
+    expect(addressScoreOf(top)).toBe(1);
+    expect(top.score).toBeLessThan(SCORING.bands.preselectScore);
+
+    const confidence = confidenceOf(ranked_, 'narrow-filter', ['קוהי', 'Kohi']);
+    expect(confidence.band).toBe('preselect');
+    // A lone row, so `'narrow-filter'` would normally make auto-accept unreachable by construction.
+    expect(confidence.margin).toBeNull();
+    // The band moves and the score does not. `places.resolution_score` still stores what was
+    // measured, exactly as `contradictedAddressOnly` leaves it alone in the other direction.
+    expect(confidence.score).toBe(top.score);
+  });
+
+  it('overrides the branch guard, because writing the street is naming the branch', () => {
+    // `רוסטיקו` on the Overture path: the caption says בזל 42 and the top row is on בזל 42, while
+    // the guard wants to ask about the רוטשילד branch 2.8 km away.
+    const forms = ['רוסטיקו', 'Rustico'];
+    const ranked_ = rankPlaces(
+      query({ text: 'רוסטיקו', addressHint: 'בזל 42', categoryHint: 'restaurant', textVariants: ['Rustico'] }),
+      [
+        place({ name: 'Rustico', addressLine: 'בזל 42', lat: 32.0876, lng: 34.7838 }),
+        place({ name: 'Rustico Rothschild', addressLine: 'Rothschild Boulevard 15', lat: 32.0637, lng: 34.7742 }),
+      ],
+    );
+    expect(ranked_[0]!.place.name).toBe('Rustico');
+    // The guard still fires. It is overridden, not disabled — anything deriving the *reason* for a
+    // question (`docs/ux-when-we-ask.md` §3.2) must read the band first and this second.
+    expect(branchRival(ranked_, forms)?.place.name).toBe('Rustico Rothschild');
+    expect(confidenceOf(ranked_, 'narrow-filter', forms).band).toBe('preselect');
+  });
+
+  it('refuses when a contender is at the same address, because then the address separated nothing', () => {
+    // Two venues at one street number is the case an address cannot decide — `scorePlace`'s header
+    // records that `לבונטין 19` holds three and `בן יהודה 155` two. Without this veto F2 would
+    // auto-accept the top row here: it clears every other condition.
+    const ranked_ = rankPlaces(
+      query({ text: 'קוהי', addressHint: 'בן יהודה 155', categoryHint: 'cafe', textVariants: ['Kohi'] }),
+      [
+        place({ name: 'Kohi Bakery בית קפה', addressLine: 'בן יהודה 155', lat: 32.0883, lng: 34.7733 }),
+        place({ name: 'Kohi בית קפה יפני', addressLine: 'בן יהודה 155', lat: 32.0883, lng: 34.7733, providerPlaceId: 'b' }),
+      ],
+    );
+    expect(addressScoreOf(ranked_[0]!)).toBe(1);
+    expect(addressScoreOf(ranked_[1]!)).toBe(1);
+    expect(ranked_[0]!.tokenCoverage).toBe(1);
+    expect(ranked_[0]!.score - ranked_[1]!.score).toBeLessThanOrEqual(SCORING.branchGuard.rivalScoreBand);
+    expect(confidenceOf(ranked_, 'narrow-filter', ['קוהי', 'Kohi']).band).toBe('confirm');
+  });
+
+  it('refuses a street match with no house number to confirm it', () => {
+    // `addressScore` halves a street-only match (`streetOnly`) and the rule tests for exactly 1.
+    // "Somewhere on Basel Street" is not an identification.
+    const ranked_ = rankPlaces(
+      query({ text: 'רוסטיקו', addressHint: 'בזל', textVariants: ['Rustico'] }),
+      [place({ name: 'Rustico רוסטיקו', addressLine: 'בזל 42' })],
+    );
+    expect(addressScoreOf(ranked_[0]!)).toBeLessThan(1);
+    expect(confidenceOf(ranked_, 'narrow-filter', ['רוסטיקו', 'Rustico']).band).not.toBe('preselect');
+  });
+
+  it('refuses when the name did not cover the query, however exact the address', () => {
+    // An address is not unique, so the name has to break its tie. A row at the right number whose
+    // name the caption never wrote is the shortlist's other tenant, not the venue — this is the
+    // literal second row of `handoff-2026-08-28-categories-and-the-picker.md` §3.1.
+    const ranked_ = rankPlaces(
+      query({ text: 'קוהי', addressHint: 'בן יהודה 155', textVariants: ['Kohi'] }),
+      [place({ name: 'NIKO by Sharon Cohen', addressLine: 'בן יהודה 155' })],
+    );
+    expect(addressScoreOf(ranked_[0]!)).toBe(1);
+    expect(ranked_[0]!.tokenCoverage).toBeLessThan(1);
+    expect(confidenceOf(ranked_, 'narrow-filter', ['קוהי', 'Kohi']).band).not.toBe('preselect');
+  });
+
+  it('is off without forms, so it cannot re-band a recorded run', () => {
+    const ranked_ = rankPlaces(
+      query({ text: 'קוהי', addressHint: 'בן יהודה 155', categoryHint: 'cafe', textVariants: ['Kohi'] }),
+      [place({ name: 'Kohi בית קפה יפני', addressLine: 'בן יהודה 155', providerCategory: 'coffee_shop' })],
+    );
+    expect(confidenceOf(ranked_).band).toBe('confirm');
+    expect(confidenceOf(ranked_, 'narrow-filter', []).band).toBe('confirm');
+  });
+});
+
+describe('confidenceOf — an exact name beats a fuzzy rival (F3)', () => {
+  /** `Palette Bistro` from the real Overture corpus, against the rival that was blocking it. */
+  const paletteForms = ['Palette Bistro', 'פלט ביסטרו', 'Palette'];
+  const paletteRanking = () =>
+    rankPlaces(
+      query({
+        text: 'Palette Bistro',
+        cityHint: 'תל אביב',
+        categoryHint: 'bar',
+        textVariants: ['פלט ביסטרו', 'Palette'],
+      }),
+      [
+        place({ name: 'Palette Bistro', providerPlaceId: 'palette', lat: 32.054, lng: 34.7593 }),
+        place({ name: 'Paulette', providerPlaceId: 'paulette', lat: 32.0664, lng: 34.7735 }),
+      ],
+    );
+
+  it('waives the margin gate for a whole-string match against a merely similar name', () => {
+    const ranked_ = paletteRanking();
+    const top = ranked_[0]!;
+    expect(top.place.name).toBe('Palette Bistro');
+    expect(top.nameScore).toBeGreaterThanOrEqual(0.999);
+    const margin = top.score - ranked_[1]!.score;
+    expect(margin).toBeLessThan(SCORING.bands.preselectMargin);
+    expect(top.nameScore - ranked_[1]!.nameScore).toBeGreaterThan(SCORING.decisive.rivalNameSeparation);
+
+    const confidence = confidenceOf(ranked_, 'narrow-filter', paletteForms);
+    expect(confidence.band).toBe('preselect');
+    // The margin is reported unchanged. Only the gate it has to clear moved.
+    expect(confidence.margin).toBeCloseTo(margin, 12);
+  });
+
+  it('keeps asking when two rows carry the identical name', () => {
+    // LDN-13 / TYO-07 / TYO-09 in one shape: the name separation is exactly 0, so the rule can
+    // never fire and the margin gate keeps the question. This is what stops F3 auto-picking one of
+    // two `The Dove`s.
+    const ranked_ = rankPlaces(
+      query({ text: 'The Dove' }),
+      [
+        place({ name: 'The Dove', providerPlaceId: 'dove-a', lat: 51.49, lng: -0.235 }),
+        place({ name: 'The Dove', providerPlaceId: 'dove-b', lat: 51.527, lng: -0.056 }),
+      ],
+    );
+    expect(ranked_[0]!.nameScore - ranked_[1]!.nameScore).toBe(0);
+    expect(confidenceOf(ranked_, 'narrow-filter', ['The Dove']).band).toBe('confirm');
+  });
+
+  it('keeps asking when the rival is a branch of the same venue', () => {
+    // `Padella` / `Padella Shoreditch` (LDN-07, LDN-12). One name contains the other, which is
+    // precisely the question the margin gate exists for, so F3 stands aside for it.
+    const ranked_ = rankPlaces(
+      query({ text: 'Padella' }),
+      [
+        place({ name: 'Padella', providerPlaceId: 'p1', lat: 51.5054, lng: -0.0896 }),
+        place({ name: 'Padella Shoreditch', providerPlaceId: 'p2', lat: 51.5257, lng: -0.0785 }),
+      ],
+    );
+    expect(nameDifference(ranked_[0]!.place.name, ranked_[1]!.place.name)).toEqual(['shoreditch']);
+    expect(confidenceOf(ranked_, 'narrow-filter', ['Padella']).band).toBe('confirm');
+  });
+
+  it('does not waive the score gate, only the margin', () => {
+    // A perfect name whose *score* is held down by a contradicted address. Every name condition F3
+    // asks for is met — 1.000 against 0.956, not branch-shaped, margin 0.036 under the gate — and
+    // the band stays `confirm` because 0.80 is not 0.92. F3 relaxes one gate and never two.
+    const ranked_ = rankPlaces(
+      query({ text: 'רוסטיקו', addressHint: 'בזל 42' }),
+      [
+        place({ name: 'רוסטיקו', addressLine: 'שדרות רוטשילד 15', lat: 32.0637, lng: 34.7742 }),
+        place({ name: 'רוסטיקאנו', addressLine: 'שדרות רוטשילד 15', lat: 32.09, lng: 34.79, providerPlaceId: 'r' }),
+      ],
+    );
+    const top = ranked_[0]!;
+    expect(top.nameScore).toBeGreaterThanOrEqual(0.999);
+    expect(top.score - ranked_[1]!.score).toBeLessThan(SCORING.bands.preselectMargin);
+    expect(top.nameScore - ranked_[1]!.nameScore).toBeGreaterThan(SCORING.decisive.rivalNameSeparation);
+    expect(top.score).toBeLessThan(SCORING.bands.preselectScore);
+    expect(confidenceOf(ranked_, 'narrow-filter', ['רוסטיקו']).band).toBe('confirm');
+  });
+
+  it('is off without forms, so it cannot re-band a recorded run', () => {
+    // The regression this caught for real. Without this gate F3 read `nameScore` off the 2026-07
+    // recorded rows in `benchmark-golden.test.ts`'s replay and moved LDN-01 (`Kiln`, recorded score
+    // 0.999, recorded margin 0.048) from `confirm` to `preselect` — re-banding a measurement taken
+    // before the rule existed, and breaking four assertions about it. Same rule, same reason, as
+    // the branch guard: no query, no override.
+    const ranked_ = paletteRanking();
+    expect(confidenceOf(ranked_).band).toBe('confirm');
+    expect(confidenceOf(ranked_, 'narrow-filter', []).band).toBe('confirm');
+  });
+});

@@ -1,44 +1,42 @@
 /**
- * RECOG-METRICS-1, part 2 — the failure classes, and the smallest change that fixes each one,
- * measured. **Zero provider quota, no network, no database.**
+ * RECOG-METRICS-1/2 — the failure classes, the two fixes that landed, and the one that did not.
+ * **Zero provider quota, no network, no database.**
  *
  *   npx vitest run tests/manual/recognition-failure-classes.manual.ts \
  *     --config tests/manual/vitest.manual.config.ts --reporter=verbose --disable-console-intercept
  *
- * ## What this is for
+ * ## What changed under this file
  *
- * The owner's brief: *"Fix classes of failures, not individual venues."* So every miss and every
- * needless question in the replayed corpus is grouped by **root cause**, and each proposed fix is
- * run as a band policy applied on top of the shipped ranking — nothing in `score.ts` or
- * `scoring-constants.ts` is modified, here or anywhere.
+ * RECOG-METRICS-1 measured three candidate fixes here as band policies applied *on top of* the
+ * shipped ranking. Two of them — **F2** (the caption's address is decisive) and **F3** (an exact
+ * name beats a fuzzy rival) — have since landed inside `confidenceOf` on the owner's ruling, so
+ * they are no longer proposals and are not simulated here. `sinceTheyLanded()` asserts instead that
+ * the candidates they were built for now auto-accept, which is the same evidence stated as a
+ * regression rather than as a forecast.
  *
- * ## The bar every proposal has to clear, and where it comes from
+ * **F1 was held, deliberately.** It would auto-accept a row whose name wholly contains the query —
+ * a pure suffix — and on the pre-landing corpus it was the largest single gain. The owner's ruling
+ * of 2026-08-28: on `מתחת לעץ` it silently picks one of **three branches the caption explicitly
+ * listed**, which is a wrong auto-match in the user's terms even where the corpus adjudicates it
+ * correct, because that corpus expectation accepts any branch. It stays measured here, against the
+ * post-landing baseline, because the size of what it would still buy is the whole argument.
  *
- * Two band proposals have already died in this repo, both on **one false auto-accept on the 44-case
- * golden file**: `score ≥ 0.85 && margin ≥ 0.05` (`band-policy.md`, on TLV-14 — and note that
- * refutation itself rested on a stale label, `resolution-confidence-2026-08-28.md` §5) and dropping
- * `datasetConfidence` outright (`dataset-confidence-weighting-2026-08-28.md`, on TYO-10). So a
- * proposal is measured on **three** corpora, not one:
+ * ## The bar, unchanged
  *
- *   1. the 16 real Google candidates,
- *   2. the 16 real Overture candidates,
- *   3. the 44 golden cases re-simulated under today's weights — the same construction
- *      `tests/unit/places/benchmark-golden.test.ts` uses (`resimulated`), because the *recorded*
- *      scores in that file belong to a two-re-fits-ago scorer.
+ * Two band proposals have died in this repo, both on one false auto-accept over the 44 golden
+ * cases: `score ≥ 0.85 && margin ≥ 0.05` (`band-policy.md`, TLV-14 — a refutation that itself rested
+ * on a stale label, `resolution-confidence-2026-08-28.md` §5) and dropping `datasetConfidence`
+ * outright (`dataset-confidence-weighting-2026-08-28.md`, TYO-10). So anything measured here is
+ * measured on three corpora: the 16 real Google candidates, the 16 real Overture candidates, and
+ * the 44 golden cases re-simulated under today's weights — the same construction
+ * `tests/unit/places/benchmark-golden.test.ts` uses.
  *
- * A proposal that adds a single auto-accept the adjudication does not call `OK` is reported as
- * **refuted**, whatever it recovers.
+ * ## What the golden file can and cannot say
  *
- * ## What the golden file can and cannot say here
- *
- * `raw-overture-scored.json` records no `addressLine`, so every address-dependent proposal is a
- * mathematical no-op on those 44 cases: they can neither be helped nor broken by it. That is
- * reported as *untested*, never as *safe*.
- *
- * Verdicts come from `adjudication.json`'s `overture_scored` column, with the two entries the
- * re-fits have made stale named explicitly — TLV-14 and TLV-10, both filed `MISS_RANK` against a
- * 2026-07 ranking whose top-1 has since changed. `benchmark-golden.test.ts` carries the same
- * register and the same reasons.
+ * `raw-overture-scored.json` records no `addressLine`, so every address-dependent rule is
+ * arithmetically a no-op there and is reported **untested**, never *safe*. Verdicts come from
+ * `adjudication.json`'s `overture_scored` column with the two re-fit-stale entries named
+ * explicitly — TLV-14 and TLV-10, the same register `benchmark-golden.test.ts` carries.
  *
  * Writes `docs/evidence/places/recognition-failure-classes-run.json`.
  */
@@ -63,7 +61,6 @@ import {
   REPO,
   RUNS,
   readJson,
-  pct,
   scoreboardFor,
   type CandidateRow,
   type RecordedCandidate,
@@ -107,7 +104,7 @@ const PROPOSALS: readonly Proposal[] = [
     id: 'F1',
     title: 'A pure suffix is not a mismatch — auto-accept when the query is wholly contained in the name',
     targets:
-      'A provider row whose display name is the venue plus a branch or a descriptor: `קוהי` → `Kohi בית קפה יפני`, `מתחת לעץ` → `מתחת לעץ בן יהודה`, `WOW` → `wow london`. Token coverage is 1.000 — every word the caption wrote is in the name — and the row is held under the gate by the extra-token penalty, which is a measure of how long the suffix is.',
+      'A provider row whose display name is the venue plus a branch or a descriptor. Token coverage is 1.000 — every word the caption wrote is in the name — and the row is held under the gate by the extra-token penalty, which measures how long the suffix is. Before F2 landed it carried `קוהי`, `מתחת לעץ` and `WOW`; F2 has since taken `קוהי` and `WOW` on address evidence, so what is measured below is what F1 would ADD to the shipped policy.',
     needsAddresses: false,
     promotes(ranked, _q, forms, sole) {
       const top = ranked[0];
@@ -117,46 +114,6 @@ const PROPOSALS: readonly Proposal[] = [
       if (top.tokenCoverage < 0.999) return false;
       if (suffixOver(forms, top.place.name) === null) return false;
       if (!marginOk(ranked, sole)) return false;
-      return branchRival(ranked, forms) === null;
-    },
-  },
-  {
-    id: 'F2',
-    title: "The caption's own street address is decisive — corroborated exactly, stop asking",
-    targets:
-      'Three candidates across both providers where the caption wrote a street address, the provider row carries the **same street and the same house number**, and every word of the caption\'s name appears in the row\'s name — and we still ask. `קוהי` on Google (`בן יהודה 155` against `בן יהודה 155`, held at 0.9067 by seven thousandths of name score); `WOW` on Overture (`בית אשל 15` against `בית אשל 15`, blocked only because one prefiltered row has no margin); `רוסטיקו` on Overture (`בזל 42` against `בזל 42`, blocked by the branch guard asking whether the user meant the רוטשילד branch the caption never mentions).',
-    needsAddresses: true,
-    promotes(ranked, q, forms) {
-      const top = ranked[0];
-      if (top === undefined || q.addressHint === null) return false;
-      if (top.score < SCORING.bands.confirmScore) return false;
-      // The address is not unique — `score.ts` records that לבונטין 19 holds three venues — so the
-      // name still has to do its half: every distinctive token the caption wrote must be in the row.
-      if (top.tokenCoverage < 0.999) return false;
-      if (addressScore(q.addressHint, top.place.addressLine) !== 1) return false;
-      // If a rival corroborates the same address just as exactly, the address has not separated
-      // anything and this rule must not fire.
-      const rivals = ranked.slice(1).filter((r) => top.score - r.score <= SCORING.branchGuard.rivalScoreBand);
-      if (rivals.some((r) => addressScore(q.addressHint, r.place.addressLine) === 1)) return false;
-      void forms;
-      return true;
-    },
-  },
-  {
-    id: 'F3',
-    title: 'An exact name is not a close call — waive the margin gate when the rival is only similar',
-    targets:
-      '`Palette Bistro` on Overture: name score **1.000**, whole-string exact, and the band is `confirm` because `Paulette` — a different venue 1.5 km away — scores 0.967, inside the 0.05 margin gate. The margin gate exists to catch "which branch"; here the names are not the same name.',
-    needsAddresses: false,
-    promotes(ranked, _q, forms) {
-      const top = ranked[0];
-      const second = ranked[1];
-      if (top === undefined || second === undefined) return false;
-      if (top.score < SCORING.bands.preselectScore) return false;
-      if (top.score - second.score >= SCORING.bands.preselectMargin) return false; // margin already fine
-      if (top.nameScore < 0.999 || top.tokenCoverage < 0.999) return false;
-      if (nameDifference(top.place.name, second.place.name) !== null) return false; // branch-shaped: keep asking
-      if (top.nameScore - second.nameScore <= 0.02) return false;
       return branchRival(ranked, forms) === null;
     },
   },
@@ -263,7 +220,7 @@ interface ProposalEffect {
   readonly untestable: boolean;
 }
 
-describe('recognition failure classes and the fixes that would close them', () => {
+describe('recognition failure classes — what landed, what is held, and what is left', () => {
   const classTable: { class: string; n: number; providers: string[]; candidates: string[] }[] = [];
   const effects: ProposalEffect[] = [];
 
@@ -285,7 +242,7 @@ describe('recognition failure classes and the fixes that would close them', () =
     expect(classTable.length).toBeGreaterThan(0);
   });
 
-  it('measures each proposal on all three corpora', () => {
+  it('measures every outstanding proposal on all three corpora', () => {
     const L: string[] = [];
     for (const p of PROPOSALS) {
       L.push(`\n── ${p.id}: ${p.title}`);
@@ -350,48 +307,78 @@ describe('recognition failure classes and the fixes that would close them', () =
   });
 
 
-  it('the three combined — what the corpus looks like if all three land', () => {
-    const L: string[] = ['\n── F1 + F2 + F3 applied together', ''];
-    L.push('| corpus | auto-resolution now | auto-resolution with F1+F2+F3 | WRONG auto-match | still asking |');
-    L.push('|---|---|---|---|---|');
+  it('F2 and F3 have landed — the candidates they carry now auto-accept', () => {
+    // Stated as a regression rather than as a forecast. Each of these was a `needless_question`
+    // before RECOG-METRICS-2 and is named in `confidenceOf`'s header as the case its rule exists
+    // for; if one stops auto-accepting, the rule has been broken by something else.
+    const carried: Readonly<Record<string, readonly string[]>> = {
+      google: ['קוהי'],
+      overture: ['רוסטיקו', 'WOW', 'Palette Bistro'],
+    };
+    const L: string[] = ['\n── F2 / F3 as shipped: the candidates they carry', ''];
+    for (const src of RUNS) {
+      const board = scoreboardFor(src);
+      for (const name of carried[src.provider] ?? []) {
+        const row = board.rows.find((r) => r.rawName === name);
+        L.push(`   ${src.provider.padEnd(8)} ${name.padEnd(16)} band=${String(row?.band)} score=${row?.score?.toFixed(4) ?? '—'} margin=${row?.margin?.toFixed(4) ?? 'null'} guard=${String(row?.guard)}`);
+        expect(row?.band, `${src.provider}:${name}`).toBe('preselect');
+        expect(row?.correctRank, `${src.provider}:${name}`).toBe(1);
+      }
+    }
+    console.log(L.join('\n'));
+  });
+
+  it('F1, held: what it would still add, and to which candidate', () => {
+    // The measurement that decides whether F1 is worth revisiting. After F2, the only thing it
+    // still buys is the case the owner ruled out — so the two facts are reported together:
+    // the candidate, and whether the caption gave an address at all.
+    //
+    // That second column is the finding. A caption that wrote a street address is already served
+    // by F2 (corroborated) or is an `address_conflict` (contradicted). So F1's *entire* remaining
+    // territory is candidates with NO address hint — which is exactly the population where a
+    // trailing token cannot be told apart from a branch name, because nothing else in the query
+    // says where the venue is.
+    const L: string[] = ['\n── F1, held: what it would add on top of the shipped policy', ''];
+    const p = PROPOSALS.find((x) => x.id === 'F1')!;
+    let total = 0;
     for (const src of RUNS) {
       const board = scoreboardFor(src);
       const run = readJson<RecordedRun>(src.file);
-      let gained = 0;
-      let wrong = 0;
-      const remaining: string[] = [];
       for (const kase of run.cases ?? []) {
         for (const cand of kase.candidates ?? []) {
           if (cand.resolutionKind !== 'answered') continue;
           const row = board.rows.find((r) => r.url === kase.url && r.rawName === cand.rawName);
           if (row === undefined || row.band === 'preselect') continue;
           const rb = rebuildForProposal(src.provider, kase.url, cand);
-          if (rb === null) continue;
-          if (PROPOSALS.some((p) => p.promotes(rb.ranked, rb.q, rb.forms, src.sole))) {
-            gained += 1;
-            if (row.correctRank !== 1) wrong += 1;
-          } else if (row.expected !== '(unadjudicated)') {
-            remaining.push(`${row.rawName} (${row.failureClass})`);
-          }
+          if (rb === null || !p.promotes(rb.ranked, rb.q, rb.forms, src.sole)) continue;
+          total += 1;
+          L.push(
+            `   ${src.provider.padEnd(8)} ${row.rawName} → ${String(row.top1)}  addressHint=${row.addressHint ?? 'NONE'}` +
+              `  correctRank=${String(row.correctRank)}`,
+          );
         }
       }
-      L.push(
-        `| ${src.provider} | ${String(board.autoCorrect)}/${String(board.adjudicated)} (${pct(board.autoCorrect, board.adjudicated)}) | ` +
-          `**${String(board.autoCorrect + gained)}/${String(board.adjudicated)}** (${pct(board.autoCorrect + gained, board.adjudicated)}) | ` +
-          `**${String(board.autoWrong + wrong)}** | ${remaining.join(', ') || '—'} |`,
-      );
     }
-    // The 44 golden cases must not move at all: none of the three fires there.
+    // Golden 44, for completeness: F1 has no shape there to fire on.
     let goldenMoved = 0;
     for (const caseId of Object.keys(golden)) {
       const ranked = goldenRanking(caseId);
       const q = goldenQuery(caseId);
       const forms = queryForms(q.text, null);
       if (confidenceOf(ranked, 'narrow-filter', forms).band === 'preselect') continue;
-      if (PROPOSALS.some((p) => p.promotes(ranked, q, forms, 'narrow-filter'))) goldenMoved += 1;
+      if (p.promotes(ranked, q, forms, 'narrow-filter')) goldenMoved += 1;
     }
     L.push('');
-    L.push(`golden-44 cases moved by F1+F2+F3: **${String(goldenMoved)}** — none of the three has a shape the synthetic benchmark contains, so the golden file neither refutes nor endorses them.`);
+    L.push(`   total across both real providers: ${String(total)}   golden-44: ${String(goldenMoved)}`);
+    L.push(
+      '   Every candidate above carries NO addressHint — which is the whole argument. A caption that',
+    );
+    L.push(
+      '   wrote a street is already decided by F2 or is an address conflict, so F1 only ever acts where',
+    );
+    L.push(
+      '   the query says nothing about location and a trailing token cannot be told from a branch name.',
+    );
     console.log(L.join('\n'));
     expect(goldenMoved).toBe(0);
   });
