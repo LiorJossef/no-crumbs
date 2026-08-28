@@ -62,7 +62,7 @@ begin
   end if;
 end $$;
 
--- ── 1. RLS is enabled AND forced on all eleven tables ───────────────────────────────────────
+-- ── 1. RLS is enabled AND forced on all fifteen tables ──────────────────────────────────────
 do $$
 declare v text;
 begin
@@ -74,15 +74,16 @@ begin
   if v is not null then
     raise exception 'FAIL 1: RLS not enabled+forced on: %', v;
   end if;
-  -- 9 through 0009; 11 from 0010 (poi_regions, poi_index). The count is asserted, not just the
+  -- 9 through 0009; 11 from 0010 (poi_regions, poi_index); 15 from 0024 (collections,
+  -- collection_members, collection_items, collection_invites). The count is asserted, not just the
   -- flags: a table nobody designed is exactly the thing this check exists to notice.
   if (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace
-       where n.nspname = 'public' and c.relkind = 'r') <> 11 then
-    raise exception 'FAIL 1: expected 11 tables in public, found %',
+       where n.nspname = 'public' and c.relkind = 'r') <> 15 then
+    raise exception 'FAIL 1: expected 15 tables in public, found %',
       (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace
         where n.nspname = 'public' and c.relkind = 'r');
   end if;
-  raise notice 'PASS 1  eleven tables, RLS enabled and forced on every one';
+  raise notice 'PASS 1  fifteen tables, RLS enabled and forced on every one';
 end $$;
 
 -- ── 2. the policy set is exactly the designed one, in both directions ───────────────────────
@@ -153,7 +154,87 @@ begin
     ('saved_place_sources','sps_insert_own','INSERT','authenticated',
        '','((user_id = (select auth.uid())) and (exists (select 1 from imports i where ((i.source_id = saved_place_sources.source_id) and (i.user_id = (select auth.uid()))))))'),
     ('saved_place_sources','sps_delete_own','DELETE','authenticated',
-       '(user_id = (select auth.uid()))','')
+       '(user_id = (select auth.uid()))',''),
+
+    -- ── 0024: shared collections. The first rows in this schema one user may read because
+    -- ANOTHER user put them there, so read the predicates rather than the names.
+    --
+    -- Every membership test goes through a SECURITY DEFINER helper (collection_role,
+    -- can_edit_collection, place_is_in_my_collection, shares_a_collection_with) and that is not a
+    -- readability choice: `postgres` owns them and carries BYPASSRLS, so they read
+    -- collection_members WITHOUT re-entering its own SELECT policy. Inline the same EXISTS into any
+    -- predicate below and the policy calls itself — Postgres does not notice at CREATE POLICY time,
+    -- it raises `infinite recursion detected in policy for relation collection_members` at query
+    -- time, i.e. in production. A "simplification" here that removes a function call is that bug.
+    --
+    -- collections. The SELECT qual has TWO disjuncts and both are load-bearing. The owner_id arm is
+    -- not redundant belt-and-braces: an AFTER INSERT trigger seats the owner's membership row, but
+    -- Postgres applies the SELECT policy to an `insert .. returning` tuple DURING the insert,
+    -- before that trigger fires. PostgREST always uses RETURNING, so with `collection_role(id) is
+    -- not null` alone nobody can create a collection at all (measured: 42501). Asserted
+    -- behaviourally by C0b in supabase/tests/0024_collections_policy_tests.sql.
+    ('collections','collections_select_member','SELECT','authenticated',
+       '((owner_id = (select auth.uid())) or (collection_role(id) is not null))',''),
+    ('collections','collections_insert_own','INSERT','authenticated',
+       '','(owner_id = (select auth.uid()))'),
+    ('collections','collections_update_owner','UPDATE','authenticated',
+       '(collection_role(id) = ''owner''::text)','(collection_role(id) = ''owner''::text)'),
+    ('collections','collections_delete_owner','DELETE','authenticated',
+       '(collection_role(id) = ''owner''::text)',''),
+
+    -- collection_members. There is deliberately NO INSERT policy and no INSERT grant (check 4):
+    -- every membership row is written by the owner-seating trigger or by join_collection_via_token,
+    -- both SECURITY DEFINER, so membership cannot be forged from a browser at all.
+    -- The DELETE qual is "leave, or be removed by the owner", and its first conjunct
+    -- (role <> 'owner') is what stops the collection being orphaned — drop it and the owner can
+    -- delete their own membership row, leaving a collection whose one-owner index points at nothing.
+    -- The UPDATE pair reads OLD in the qual and NEW in the with_check, which is how a single policy
+    -- forbids both demoting the owner and minting a second one.
+    ('collection_members','collection_members_select_member','SELECT','authenticated',
+       '(collection_role(collection_id) is not null)',''),
+    ('collection_members','collection_members_update_by_owner','UPDATE','authenticated',
+       '((collection_role(collection_id) = ''owner''::text) and (role <> ''owner''::text))','((collection_role(collection_id) = ''owner''::text) and (role = any (array[''editor''::text, ''viewer''::text])))'),
+    ('collection_members','collection_members_delete_self_or_by_owner','DELETE','authenticated',
+       '((role <> ''owner''::text) and ((user_id = (select auth.uid())) or (collection_role(collection_id) = ''owner''::text)))',''),
+
+    -- collection_items. The INSERT with_check has three conjuncts and the saved_places EXISTS is
+    -- the one that bounds the whole feature: without it a user could point an item at ANY row of
+    -- the global `places` table, and places_select_if_in_shared_collection (below) would then turn
+    -- that into a read primitive over every place in the database. added_by = auth.uid() is what
+    -- makes "added by <name>" unforgeable.
+    ('collection_items','collection_items_select_member','SELECT','authenticated',
+       '(collection_role(collection_id) is not null)',''),
+    ('collection_items','collection_items_insert_editor','INSERT','authenticated',
+       '','(can_edit_collection(collection_id) and (added_by = (select auth.uid())) and (exists (select 1 from saved_places sp where ((sp.place_id = collection_items.place_id) and (sp.user_id = (select auth.uid()))))))'),
+    ('collection_items','collection_items_update_editor','UPDATE','authenticated',
+       'can_edit_collection(collection_id)','can_edit_collection(collection_id)'),
+    ('collection_items','collection_items_delete_editor','DELETE','authenticated',
+       'can_edit_collection(collection_id)',''),
+
+    -- collection_invites. All four commands are owner-only, including SELECT: `token` is a bearer
+    -- credential, so a member who could read the invite list could mint new members at will.
+    ('collection_invites','collection_invites_select_owner','SELECT','authenticated',
+       '(collection_role(collection_id) = ''owner''::text)',''),
+    ('collection_invites','collection_invites_insert_owner','INSERT','authenticated',
+       '','((collection_role(collection_id) = ''owner''::text) and (created_by = (select auth.uid())))'),
+    ('collection_invites','collection_invites_update_owner','UPDATE','authenticated',
+       '(collection_role(collection_id) = ''owner''::text)','(collection_role(collection_id) = ''owner''::text)'),
+    ('collection_invites','collection_invites_delete_owner','DELETE','authenticated',
+       '(collection_role(collection_id) = ''owner''::text)',''),
+
+    -- The two cross-table read paths 0024 opens, and the ONLY two. `places` gains a second SELECT
+    -- policy beside places_select_if_saved, so a collaborator sees the shared place's IDENTITY;
+    -- nothing is added to saved_places, saved_place_sources, sources, extractions or
+    -- place_provider_refs, so the adder's note, visit_state, tags, why_go, extracted_reason,
+    -- source_url and provenance do not travel with a share. visit_state in particular: sharing a
+    -- `want_to_go` would disclose FUTURE location intent to everyone the link reached.
+    -- `profiles` gains the peer read that makes "added by <name>" renderable; profiles holds no
+    -- email (0002), so the disclosure is a display name and two timestamps.
+    -- A THIRD entry appearing under either table here is a privacy decision, not a refactor.
+    ('places','places_select_if_in_shared_collection','SELECT','authenticated',
+       'place_is_in_my_collection(id)',''),
+    ('profiles','profiles_select_collection_peers','SELECT','authenticated',
+       'shares_a_collection_with(id)','')
     -- place_lookups deliberately has no policy at all: deny-all server-side cache (R11)
   )
   select string_agg(msg, '; ' order by msg) into v from (
@@ -169,7 +250,7 @@ begin
      where a.cmd <> e.cmd or a.roles <> e.roles or a.q <> e.q or a.w <> e.w
   ) d;
   if v is not null then raise exception 'FAIL 2: policy drift: %', v; end if;
-  raise notice 'PASS 2  sixteen policies, exact name/command/role/qual/with_check match (place_lookups, poi_regions and poi_index deliberately have none)';
+  raise notice 'PASS 2  thirty-three policies, exact name/command/role/qual/with_check match (place_lookups, poi_regions and poi_index deliberately have none)';
 end $$;
 
 -- ── 3. anon holds nothing at all (08 §5.1) ──────────────────────────────────────────────────
@@ -257,7 +338,17 @@ begin
     ('extractions','SELECT'),
     ('place_provider_refs','SELECT'),
     ('saved_places','SELECT'), ('saved_places','DELETE'),
-    ('saved_place_sources','DELETE')
+    ('saved_place_sources','DELETE'),
+    -- 0024. SELECT and DELETE only, on all four. INSERT is COLUMN-level everywhere it exists (check
+    -- 5) and absent entirely on collection_members, so a table-level INSERT appearing on any of
+    -- these four is a real regression rather than a tidy-up: on collection_invites it would hand
+    -- the client `token`, i.e. let the creator choose the bearer credential instead of taking
+    -- gen_random_uuid()'s, which is how a share link becomes guessable. There is no table-level
+    -- UPDATE either, for the same reason it is absent on saved_places.
+    ('collections','SELECT'), ('collections','DELETE'),
+    ('collection_members','SELECT'), ('collection_members','DELETE'),
+    ('collection_items','SELECT'), ('collection_items','DELETE'),
+    ('collection_invites','SELECT'), ('collection_invites','DELETE')
     -- deliberately absent: every write on sources/extractions/places/place_provider_refs (global
     -- tables are server-written); INSERT and DELETE on imports (R10, start_import only); anything
     -- at all on place_lookups (R11); table-level SELECT on sources (R8 — columns only, below) and,
@@ -384,7 +475,14 @@ begin
        and cl.relkind in ('r', 'p', 'v', 'm', 'f')
        and a.grantee = 'authenticated'::regrole
        and (a.privilege_type = 'UPDATE'
-            or cl.relname in ('sources', 'places', 'saved_places', 'saved_place_sources'))
+            or cl.relname in ('sources', 'places', 'saved_places', 'saved_place_sources',
+                              -- 0024's four: named here so their column-level INSERT lists are
+                              -- asserted too, not just their UPDATE lists. Without these names the
+                              -- `privilege_type = 'UPDATE'` arm above would let a widened INSERT
+                              -- column list through unremarked, which on collection_invites means
+                              -- a client-suppliable `token`.
+                              'collections', 'collection_members',
+                              'collection_items', 'collection_invites'))
   ), expected(t, c, p) as (values
     -- profiles: display name only
     ('profiles','display_name','UPDATE'),
@@ -435,7 +533,34 @@ begin
     -- 0015: attribution + freshness for the Spot card. source_dataset_id stays withheld (0015's
     -- own header) — it is an internal join key, same class as name_key.
     ('places','source_dataset','SELECT'), ('places','resolution_score','SELECT'),
-    ('places','last_verified_at','SELECT')
+    ('places','last_verified_at','SELECT'),
+    -- ── 0024: shared collections. Every entry below is a REAL column grant; the four tables also
+    -- hold table-level SELECT and DELETE (check 4), which do not appear in attacl.
+    -- collections: rename/redescribe, and create with exactly the three columns the client sends.
+    -- id/created_at/updated_at are absent on purpose — a client-chosen primary key and a backdated
+    -- row are what a table-level INSERT would have permitted.
+    ('collections','name','UPDATE'), ('collections','description','UPDATE'),
+    ('collections','owner_id','INSERT'), ('collections','name','INSERT'),
+    ('collections','description','INSERT'),
+    -- collection_members: `role` and nothing else, and NO INSERT of any kind — the two SECURITY
+    -- DEFINER writers are the only way a membership row comes into existence.
+    ('collection_members','role','UPDATE'),
+    -- collection_items: the shared overlay is note+position. collection_id, place_id and added_by
+    -- are INSERT-only, never UPDATE — an item cannot be moved, repointed or re-attributed after the
+    -- fact, independently of whether the policy is right.
+    ('collection_items','note','UPDATE'), ('collection_items','position','UPDATE'),
+    ('collection_items','collection_id','INSERT'), ('collection_items','place_id','INSERT'),
+    ('collection_items','added_by','INSERT'), ('collection_items','note','INSERT'),
+    ('collection_items','position','INSERT'),
+    -- collection_invites: `token` is DELIBERATELY ABSENT from the INSERT list and is the single
+    -- most important omission in this whole expected set — it is the credential that admits a
+    -- stranger to somebody else''s collection, so it must come from gen_random_uuid() and never
+    -- from a request body. `revoked_at` is UPDATE-only (revocation is an act, not an initial
+    -- state); `role` and `expires_at` are INSERT-only, so a live link cannot be silently upgraded
+    -- from viewer to editor after it has been sent.
+    ('collection_invites','revoked_at','UPDATE'),
+    ('collection_invites','collection_id','INSERT'), ('collection_invites','role','INSERT'),
+    ('collection_invites','expires_at','INSERT'), ('collection_invites','created_by','INSERT')
   )
   select string_agg(format('%s %s.%s(%s)', kind, t, c, p), ', ' order by t, c, p) into v from (
     select 'UNEXPECTED' kind, a.t, a.c, a.p from actual a
@@ -479,7 +604,31 @@ begin
     ('normalize_tag','authenticated'),
     ('normalize_tag_list','authenticated'),
     ('normalize_sentence','authenticated'),
-    ('tag_list_within','authenticated')
+    ('tag_list_within','authenticated'),
+    -- 0024's six browser-reachable functions. The first four are SECURITY DEFINER membership
+    -- predicates and the grant is NOT optional: a policy expression is evaluated as the CALLING
+    -- role, so without EXECUTE every read on the four collection tables fails 42501 instead of
+    -- returning zero rows. They are safe to expose directly because none of them takes a user
+    -- argument — collection_role/can_edit_collection/place_is_in_my_collection answer only about
+    -- (select auth.uid()), so granting EXECUTE cannot turn them into a membership-probing oracle.
+    -- shares_a_collection_with does take a user id and is still safe: it discloses nothing the
+    -- caller could not read off the member lists of their own collections.
+    ('collection_role','authenticated'),
+    ('can_edit_collection','authenticated'),
+    ('place_is_in_my_collection','authenticated'),
+    ('shares_a_collection_with','authenticated'),
+    -- The two invite entry points, both SECURITY DEFINER. join_collection_via_token is the ONLY
+    -- client-reachable writer of a membership row; preview_collection_invite is what lets a join
+    -- screen name the collection before the person is a member of it. Neither is granted to `anon`
+    -- and that is a decision, not an oversight: an anon-callable preview would be an
+    -- unauthenticated, token-guessable read of a real person''s collection name and display name.
+    ('join_collection_via_token','authenticated'),
+    ('preview_collection_invite','authenticated')
+    -- add_collection_owner_membership (0024) is NOT here, deliberately. It is a SECURITY DEFINER
+    -- function that writes membership rows, and it is invoked by the executor as a trigger, which
+    -- needs no EXECUTE grant (0009's claim, asserted behaviourally by P4b in 0008_policy_tests.sql
+    -- and by C8b in 0024_collections_policy_tests.sql). Granting it would put a definer membership
+    -- writer on the PostgREST RPC surface for no benefit at all.
     -- apply_saved_place_extraction (0019) is NOT here, and that is the whole point of it: it is the
     -- only writer of saved_places.tags / why_go / dishes, and it is granted to service_role alone.
     -- Those three columns carry no column grant either, so check 5 above proves the other half —
@@ -505,7 +654,7 @@ begin
       left join actual a on a.n = e.n and a.role = e.role where a.n is null
   ) d;
   if v is not null then raise exception 'FAIL 6: function grant drift: %', v; end if;
-  raise notice 'PASS 6  only save_place, km_between, apply_saved_place_source_link and 0019''s four pure normalisers are reachable by a browser role; apply_saved_place_extraction is service_role only; anon has nothing';
+  raise notice 'PASS 6  only save_place, km_between, apply_saved_place_source_link, 0019''s four pure normalisers and 0024''s six collection entry points are reachable by a browser role; apply_saved_place_extraction is service_role only; anon has nothing';
 end $$;
 
 -- ── 6b. no function in `public` is overloaded, and resolve_place's argument list is the designed one ──
@@ -795,6 +944,87 @@ begin
     raise exception 'FAIL 9c: service_role cannot execute the trusted-server function(s): %', v;
   end if;
   raise notice 'PASS 9c service_role can execute all six server-side functions the pipeline and the repair path need';
+end $$;
+
+-- ── 9d. TRUNCATE for `service_role`: only where a migration actually asked for it ─────────────
+-- WHY THIS IS SEPARATE FROM CHECK 9, which already compares service_role's whole ACL. Check 9 is a
+-- matrix comparison and it TOLERATES excess on poi_regions/poi_index by design (read its header:
+-- "the four verbs the loader needs are REQUIRED and the rest are TOLERATED"). That tolerance is
+-- reasonable for SELECT/REFERENCES/TRIGGER/MAINTAIN and is NOT reasonable for TRUNCATE, so the one
+-- verb that can empty a table in a single statement gets its own assertion with its own rule.
+--
+-- WHY TRUNCATE SPECIFICALLY. It is not subject to RLS — no policy is consulted, no row is filtered —
+-- so it is the one privilege whose blast radius is "every row belonging to every user" regardless of
+-- how correct the policies are. 0008's header records exactly this reasoning for `authenticated`;
+-- this is the same argument applied to the other role that can reach these tables.
+--
+-- WHERE IT COMES FROM, measured on the local container 2026-08-28 while building 0024:
+--
+--   select defaclrole::regrole, defaclobjtype, defaclacl from pg_default_acl;
+--     -> postgres | r | {postgres=arwdDxtm/postgres, service_role=Dxtm/postgres}
+--
+-- A `postgres`-owned ALTER DEFAULT PRIVILEGES entry, SEPARATE from the anon/authenticated ones 0008
+-- documents and NOT removed by 0008 (which only revokes for anon and authenticated), hands
+-- `service_role` D=TRUNCATE, x=REFERENCES, t=TRIGGER, m=MAINTAIN on every new table in `public`.
+-- So a table that no migration ever mentions to service_role still arrives TRUNCATE-able by it.
+-- 0024's four tables did exactly that and are revoked in 0024 as a result.
+--
+-- THE RULE, and the scan is over EVERY relation in `public` rather than a listed subset: TRUNCATE is
+-- permitted only on the nine tables 0012 deliberately grants ALL to. That list is repeated verbatim
+-- from check 9 rather than referenced, because a shared list would let a future edit to check 9
+-- silently widen this one.
+--
+-- THE FIRST THING THIS CHECK FOUND, AND HOW IT WAS FIXED — read this before you touch the
+-- allow-list. On its first run it failed on poi_regions and poi_index. 0010 grants those two
+-- `select, insert, update, delete` and says in its own header that TRUNCATE is withheld on purpose
+-- (a region reload is a scoped DELETE inside the load transaction, 10 §7), so the live grant
+-- contradicted the migration that created them; check 9 tolerates that contradiction, this one
+-- reported it. **`0025_revoke_stray_truncate.sql` fixes it forward** — it revokes TRUNCATE on those
+-- two tables and nothing else, and restates the four verbs the region loader needs. So if this
+-- check ever fails on poi_regions or poi_index again, 0025 has been lost or a later migration
+-- re-widened them; the answer is another forward migration, NOT an entry in the allow-list below.
+-- Adding a table to that list is a statement that TRUNCATE is part of its design, and there are
+-- exactly nine tables for which that is true (0012).
+-- ENVIRONMENT-SENSITIVE, and knowing which way round matters before you read a green run as proof:
+-- this check PASSES on a database created without Supabase's ALTER DEFAULT PRIVILEGES (measured on a
+-- bare replay of 0001–0024 into an empty database, where check 0 also reports PASS instead of its
+-- usual NOTE) and FAILS on any database that carries them — which is every hosted project, the local
+-- container, and CI after `supabase db reset`. So a PASS here from an environment whose check 0 says
+-- PASS proves nothing; read check 0 first.
+do $$
+declare v text; n integer;
+begin
+  with designed_all(t) as (values
+    -- verbatim from check 9's `designed` set: the nine tables 0012 grants ALL to.
+    ('sources'), ('extractions'), ('places'), ('place_provider_refs'), ('place_lookups'),
+    ('profiles'), ('imports'), ('saved_places'), ('saved_place_sources')
+  ), actual as (
+    select c.relname::text t, c.relkind::text k
+      from pg_class c
+      join pg_namespace ns on ns.oid = c.relnamespace
+      cross join lateral aclexplode(c.relacl) a
+     where ns.nspname = 'public'
+       and c.relkind in ('r', 'p', 'v', 'm', 'f')
+       and a.grantee = 'service_role'::regrole
+       and a.privilege_type = 'TRUNCATE'
+  )
+  select string_agg(format('%s (relkind=%s)', a.t, a.k), ', ' order by a.t), count(*)
+    into v, n
+    from actual a left join designed_all d on d.t = a.t
+   where d.t is null;
+
+  if v is not null then
+    raise exception
+      'FAIL 9d: service_role holds TRUNCATE on % relation(s) in public that no migration granted it '
+      'on: %. TRUNCATE ignores RLS, so this is a single statement that empties every user''s rows. '
+      'It arrives from the postgres-owned ALTER DEFAULT PRIVILEGES entry service_role=Dxtm, which '
+      '0008 does not revoke (it names only anon and authenticated), so EVERY new table in public '
+      'gets it unless the creating migration revokes it explicitly — as 0024 does for the four '
+      'collection tables. Fix forward with `revoke truncate on public.<table> from service_role;` in '
+      'a new migration; do not add the table to the allow-list above unless TRUNCATE is genuinely '
+      'part of its design, in which case say so in the migration that grants it.', n, v;
+  end if;
+  raise notice 'PASS 9d service_role holds TRUNCATE only on the nine tables 0012 grants ALL to; no relation in public picked it up from the default privileges';
 end $$;
 
 rollback;
