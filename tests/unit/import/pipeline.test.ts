@@ -370,7 +370,7 @@ describe('runImport — heartbeats keep the stream non-idle (07 §5)', () => {
   });
 });
 
-describe('runImport — every one of the 14 DomainErrorCodes is a reachable failed outcome (07 §9)', () => {
+describe('runImport — every one of the 13 DomainErrorCodes is a reachable failed outcome (07 §9)', () => {
   const seen = new Set<DomainErrorCode>();
 
   async function expectFailed(ports: Ports, input: ImportInput, code: DomainErrorCode): Promise<void> {
@@ -397,14 +397,6 @@ describe('runImport — every one of the 14 DomainErrorCodes is a reachable fail
 
   it('UNSUPPORTED_URL — canonicaliser rejects a profile link', async () => {
     await expectFailed(makePorts(), makeInput({ rawInput: 'https://www.tiktok.com/@someone' }), 'UNSUPPORTED_URL');
-  });
-
-  it('PHOTO_POST — canonicaliser rejects a photo post', async () => {
-    await expectFailed(
-      makePorts(),
-      makeInput({ rawInput: 'https://www.tiktok.com/@someone/photo/7123456789012345678' }),
-      'PHOTO_POST',
-    );
   });
 
   it('SHORT_LINK_UNRESOLVED — the short-link hop exhausts its budget', async () => {
@@ -525,8 +517,8 @@ describe('runImport — every one of the 14 DomainErrorCodes is a reachable fail
     await expectFailed(ports, makeInput(), 'INTERNAL');
   });
 
-  it('proves all 14 codes were exercised above, none left out', () => {
-    expect(seen.size).toBe(14);
+  it('proves all 13 codes were exercised above, none left out', () => {
+    expect(seen.size).toBe(13);
     expect([...seen].sort()).toEqual([...DOMAIN_ERROR_CODES].sort());
   });
 });
