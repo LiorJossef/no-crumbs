@@ -22,6 +22,7 @@ import 'server-only';
  */
 
 import { createClient } from '@/app/_lib/supabase/server';
+import { withCanonicalAreaLabels } from '@/domain/places/area-label';
 import { productCategoryFor } from '@/domain/places/product-category';
 import type { SpotProvenance, SpotSource } from '@/domain/places/spot';
 import type { EnrichedSpot } from '@/ui/place/enrichment';
@@ -177,6 +178,9 @@ function toSpot(row: SavedPlaceRow): EnrichedSpot {
       providerCategory: place?.provider_category,
       extractedHint: place?.category,
     }),
+    // Whether the user has spoken, not what they said — see `Spot.categoryIsOverridden`. A blank
+    // string is not an override: `productCategoryFor` ignores it too, so the two agree.
+    categoryIsOverridden: (row.category_override ?? '').trim() !== '',
     lat: place?.lat ?? 0,
     lng: place?.lng ?? 0,
     ...(place?.address_line ? { addressLine: place.address_line } : {}),
@@ -210,5 +214,8 @@ export async function getSpots(): Promise<readonly EnrichedSpot[]> {
 
   if (error) throw error;
 
-  return (data as unknown as SavedPlaceRow[]).map(toSpot);
+  // One area, one name. Derived here for the same reason `productCategoryFor` is: a value every
+  // renderer needs and none of them should compute for itself. See `area-label.ts` for why the
+  // provider's own string stays in the column untouched.
+  return withCanonicalAreaLabels((data as unknown as SavedPlaceRow[]).map(toSpot));
 }

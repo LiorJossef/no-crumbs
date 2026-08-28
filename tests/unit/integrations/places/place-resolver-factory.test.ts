@@ -17,6 +17,7 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('server-only', () => ({}));
 
 import {
+  lookupCacheEnabled,
   resolverProviderFor,
   type PlaceResolverEnv,
 } from '@/integrations/places/place-resolver-factory';
@@ -90,5 +91,16 @@ describe('resolverProviderFor', () => {
       GOOGLE_PLACES_API_KEY: 'server-key',
     });
     expect(decision.provider).toBe('google');
+  });
+});
+
+describe('lookupCacheEnabled', () => {
+  it('is on unless it is explicitly switched off', () => {
+    // A cache that has to be opted into is a cache that is off in production, where the 100/day
+    // Text Search quota is the constraint it exists for.
+    expect(lookupCacheEnabled({})).toBe(true);
+    expect(lookupCacheEnabled({ PLACE_LOOKUP_CACHE: '' })).toBe(true);
+    expect(lookupCacheEnabled({ PLACE_LOOKUP_CACHE: 'on' })).toBe(true);
+    expect(lookupCacheEnabled({ PLACE_LOOKUP_CACHE: 'off' })).toBe(false);
   });
 });

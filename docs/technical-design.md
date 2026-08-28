@@ -550,8 +550,10 @@ anywhere in the product (charter §2). A new user is never shown a bare empty ma
 
 ### 11.5 Map
 
-One GeoJSON source with `cluster:true` (`clusterRadius:50`, `clusterMaxZoom:13`,
-`clusterMinPoints:3`); pins are **sprite images in a symbol layer, not DOM markers** — at most two
+One GeoJSON source. **Density clustering is removed — owner ruling 2026-08-28** (`L1-F5-T5`); the
+superseded design was `cluster:true` with `clusterRadius:50`, `clusterMaxZoom:13`,
+`clusterMinPoints:3`. Saved places render as individual pins at every zoom; the only summarisation
+kept is a **world-zoom country summary** at L2. See `06-map-and-places-decision.md` §9.1. pins are **sprite images in a symbol layer, not DOM markers** — at most two
 DOM markers ever exist (the user's location and the selected place), because every `Marker` is a DOM
 node the browser re-transforms on every frame of every pan. Selection is a feature-state change,
 never a source re-render. Below ~2 000 places the user's whole set is fetched once (~5 KB for 50) and

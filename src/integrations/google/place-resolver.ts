@@ -91,12 +91,18 @@ import 'server-only';
  * quota rather than the product's real ceiling — but it is the ceiling that is live today, and
  * raising it is an owner action in the Cloud console (and probably a billing one). Until it is
  * raised, treat this provider as measurable but not shippable.
+ *
+ * `GooglePlaceResolverOptions.lookupStore` is the one lever that moves that number without asking
+ * Google for anything: identical requests are served from `place_lookups` instead of the network,
+ * so a re-import costs nothing and a venue two people saved costs one call rather than two.
+ * Counted on the 13-URL corpus, a second run is 16/16 hits.
  */
 
 import { internal } from '@/domain/errors';
 import type { OpCtx, PlaceResolver } from '@/domain/ports';
 import { scoreCandidates } from '@/domain/places/score';
 import type { RegionId, ResolveQuery, ResolveResult, ResolvedPlace } from '@/domain/types';
+import { cachedProviderRows, type PlaceLookupStore } from '@/integrations/places/lookup-cache';
 
 /**
  * The single `RegionId` this provider reports. Not a real `poi_regions` row and never joined
@@ -303,23 +309,59 @@ export function languageCodeFor(query: ResolveQuery): string | null {
  * The resolver
  * ------------------------------------------------------------------------------------------- */
 
-export function googlePlaceResolver(gateway: GooglePlacesGateway): PlaceResolver {
+export interface GooglePlaceResolverOptions {
+  /**
+   * The shared provider-response cache (`place_lookups`), or `null` for "go to the network every
+   * time". See `integrations/places/lookup-cache.ts` for why it wraps the *request* here, inside
+   * the resolver and above `scoreCandidates`, rather than wrapping the whole `PlaceResolver`:
+   * caching a ranked result would mean every scoring change either invalidates the cache or serves
+   * a ranking the current scorer would not produce.
+   *
+   * It is the reason this adapter is affordable at all. The Cloud project's Text Search quota is
+   * 100 requests **per day across all users** (see the header); the same venue named by two
+   * different TikToks is one request instead of two, and a re-import is zero.
+   */
+  readonly lookupStore?: PlaceLookupStore | null;
+}
+
+export function googlePlaceResolver(
+  gateway: GooglePlacesGateway,
+  options: GooglePlaceResolverOptions = {},
+): PlaceResolver {
+  const lookupStore = options.lookupStore ?? null;
+
   return {
     provider: 'google',
 
     async resolve(query: ResolveQuery, ctx: OpCtx): Promise<ResolveResult> {
       const country = query.countryHint?.trim().toUpperCase();
+      const params: GoogleTextSearchParams = {
+        textQuery: buildTextQuery(query),
+        regionCode: country !== undefined && country.length === 2 ? country : null,
+        languageCode: languageCodeFor(query),
+        maxResultCount: MAX_GOOGLE_RESULTS,
+      };
 
       let rows: readonly GooglePlaceRow[];
       try {
-        rows = await gateway.searchText(
+        rows = await cachedProviderRows<GooglePlaceRow>(
           {
-            textQuery: buildTextQuery(query),
-            regionCode: country !== undefined && country.length === 2 ? country : null,
-            languageCode: languageCodeFor(query),
-            maxResultCount: MAX_GOOGLE_RESULTS,
+            store: lookupStore,
+            provider: 'google',
+            regionId: GLOBAL_REGION,
+            // Every field of the request and nothing else — the same four the manual harness's
+            // disk cache keys on, so a recorded corpus run and a production run agree on what
+            // counts as the same lookup. Written as a literal so a fifth request field has to be
+            // added here deliberately rather than arriving through a spread.
+            request: [
+              params.textQuery,
+              params.regionCode,
+              params.languageCode,
+              params.maxResultCount,
+            ],
+            fetch: () => gateway.searchText(params, ctx.signal),
           },
-          ctx.signal,
+          ctx,
         );
       } catch (cause) {
         // `PlaceResolver` never leaks a provider error. A gateway that already threw `internal`

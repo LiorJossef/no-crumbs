@@ -30,6 +30,7 @@ import {
   type GooglePlacesGateway,
   type GoogleTextSearchParams,
 } from '@/integrations/google/place-resolver';
+import type { PlaceLookupStore } from '@/integrations/places/lookup-cache';
 
 interface Logged {
   readonly name: string;
@@ -290,5 +291,98 @@ describe('googlePlaceResolver', () => {
     const serialised = JSON.stringify(line);
     expect(serialised).not.toContain('Palette');
     expect(serialised).not.toContain('32.05');
+  });
+});
+
+/* ------------------------------------------------------------------------------------------- *
+ * The lookup cache, as this adapter wires it. The cache's own behaviour is
+ * `tests/unit/integrations/places/lookup-cache.test.ts`; what is asserted here is the wiring —
+ * which key, and that a hit really does skip the network.
+ * ------------------------------------------------------------------------------------------- */
+
+describe('googlePlaceResolver with a lookup store', () => {
+  function recordingStore(): { store: PlaceLookupStore; rows: Map<string, unknown>; gets: string[] } {
+    const rows = new Map<string, unknown>();
+    const gets: string[] = [];
+    return {
+      rows,
+      gets,
+      store: {
+        get: (hash) => {
+          gets.push(hash);
+          return Promise.resolve(rows.get(hash) ?? null);
+        },
+        put: (entry) => {
+          rows.set(entry.lookupHash, entry.response);
+          return Promise.resolve();
+        },
+      },
+    };
+  }
+
+  it('spends one Text Search request for two identical resolves', async () => {
+    const seen: GoogleTextSearchParams[] = [];
+    const { store } = recordingStore();
+    const resolver = googlePlaceResolver(gatewayReturning([row()], seen), { lookupStore: store });
+    const { ctx } = ctxWith();
+
+    const first = await resolver.resolve(query({ text: 'Palette Bistro' }), ctx);
+    const second = await resolver.resolve(query({ text: 'Palette Bistro' }), ctx);
+
+    expect(seen).toHaveLength(1);
+    // Identical shortlists, because the ranker ran twice over the same provider rows — which is
+    // the consistency half of why this cache exists, not only the quota half.
+    expect(second.shortlist).toEqual(first.shortlist);
+    expect(second.confidence).toEqual(first.confidence);
+  });
+
+  it('keys on the request, so a different city hint is a different lookup', async () => {
+    const seen: GoogleTextSearchParams[] = [];
+    const { store } = recordingStore();
+    const resolver = googlePlaceResolver(gatewayReturning([row()], seen), { lookupStore: store });
+    const { ctx } = ctxWith();
+
+    await resolver.resolve(query({ text: 'Rustico', cityHint: 'תל אביב' }), ctx);
+    await resolver.resolve(query({ text: 'Rustico', cityHint: 'London' }), ctx);
+
+    expect(seen).toHaveLength(2);
+  });
+
+  it('does not key on categoryHint, which never reaches Google and so cannot change its answer', async () => {
+    const seen: GoogleTextSearchParams[] = [];
+    const { store } = recordingStore();
+    const resolver = googlePlaceResolver(gatewayReturning([row()], seen), { lookupStore: store });
+    const { ctx } = ctxWith();
+
+    await resolver.resolve(query({ text: 'Rustico', categoryHint: 'cafe' }), ctx);
+    await resolver.resolve(query({ text: 'Rustico', categoryHint: 'restaurant' }), ctx);
+
+    expect(seen).toHaveLength(1);
+  });
+
+  it('stores the raw provider rows, not a ranked result', async () => {
+    const { store, rows } = recordingStore();
+    const { ctx } = ctxWith();
+    await googlePlaceResolver(gatewayReturning([row()]), { lookupStore: store }).resolve(
+      query({ text: 'Palette Bistro' }),
+      ctx,
+    );
+
+    const stored = [...rows.values()][0] as { rows: readonly GooglePlaceRow[] };
+    // Google's own shape, verbatim. A `score` or a `band` in here would mean a scoring change
+    // silently serves a ranking the current scorer would not produce.
+    expect(stored.rows[0]).toEqual(row());
+    expect(JSON.stringify(stored)).not.toContain('score');
+  });
+
+  it('goes to the network on every resolve when no store is configured', async () => {
+    const seen: GoogleTextSearchParams[] = [];
+    const resolver = googlePlaceResolver(gatewayReturning([row()], seen));
+    const { ctx } = ctxWith();
+
+    await resolver.resolve(query({ text: 'Palette Bistro' }), ctx);
+    await resolver.resolve(query({ text: 'Palette Bistro' }), ctx);
+
+    expect(seen).toHaveLength(2);
   });
 });

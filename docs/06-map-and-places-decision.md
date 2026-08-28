@@ -462,10 +462,69 @@ drive attribution.
 Expected volumes: typical user 50 places; design ceiling **2 000**; realistic worst case in one
 viewport after a "show everything" zoom-out, ~2 000 points.
 
-- **One GeoJSON source with `cluster: true`.** `clusterRadius: 50`, `clusterMaxZoom: 13` (so at
-  neighbourhood zoom every place is individual), `clusterMinPoints: 3` (a lone pair of places should
-  not become a bubble). `clusterMinPoints` is ASSUMED available in MapLibre v5 from the style spec;
-  verify on first spike, and if absent, accept `clusterRadius: 40` instead.
+- **Density clustering of saved places is REMOVED — owner ruling, 2026-08-28.** This supersedes the
+  original design in this bullet (`clusterRadius: 50`, `clusterMaxZoom: 13`, `clusterMinPoints: 3`)
+  and the behaviour that shipped in `cb58e12`. **The ruling, in the owner's terms:** collapsing
+  nearby saved places into a numbered bubble — a pair especially — is wrong for this product. At
+  city and local browsing zoom the user must see **the actual place pins**, not a density summary
+  hiding them.
+
+  **This overrules the code comment that made the pair-bubble intentional.** `marker-style.ts`'s
+  "a cluster of two is a slightly bigger sibling of a pin, not a different species" was a considered
+  choice, and it is now the wrong one. It is recorded here so nobody re-derives it from the comment
+  and reinstates the behaviour; the comment goes with the code.
+
+  **What survives, and it is a different idea.** At **very low / world zoom only**, summarise the
+  library **geographically by country** — a marker per country carrying a **flag emoji and the
+  saved-place count** (🇯🇵 24, 🇮🇹 13), in the spirit of the world-level summary observed on mio
+  (`evidence/product/competitor-pass-2026-08-28.md` §F: at world zoom mio renders no pins at all,
+  only flag bubbles with counts). Zooming into a country or a city then shows **individual pins** —
+  never density clusters at any zoom. This is a *summary of the library*, not a *summary of density*,
+  and the distinction is the whole ruling: country grouping is a fact about the user's library that
+  survives zooming; a two-point bubble is an artefact of pixel proximity.
+
+  **These are two separate pieces of work and are sized separately** — removing local clustering is
+  the small, safe half, and the country summary is a new view that must not be smuggled in with it.
+  See `execution-plan.md` for where each sits. Do not build a general clustering system for this.
+
+  **Retained finding — `clusterMinPoints` is VERIFIED available**, and is now moot for a second
+  reason (checked 2026-08-28, `D2-CLUSTER-MINPOINTS`; kept because it also corrected our MapLibre
+  version). The repo depends on `maplibre-gl` **6.4.1**, not the v5 this section was written
+  against. `clusterMinPoints` is in the shipped style spec
+  (`@maplibre/maplibre-gl-style-spec` 26.2.1, `src/reference/v8.json`), on the public source type
+  (`maplibre-gl/dist/maplibre-gl.d.ts`), and genuinely wired to supercluster at runtime —
+  `maplibre-gl/src/source/geojson_source.ts:227`: `minPoints: Math.max(2, options.clusterMinPoints
+  || 2)` — as far back as v1.15.2. The `clusterRadius: 40` fallback was never needed. **None of it
+  is needed now either:** the answer is not a higher `minPoints`, it is no density clustering.
+  `clusterRadius: 46` (`CLUSTER_RADIUS_PX`) never had a recorded reason and now never needs one.
+
+  **The 2 000-place ceiling is answered — it is not the risk. Legibility is** (sized 2026-08-28,
+  `D2-CLUSTER-REMOVAL-SIZING`).
+
+  - **Icons are fine.** The pin layer already sets `icon-allow-overlap` and `icon-ignore-placement`,
+    and MapLibre's collision index short-circuits entirely under `'always'` overlap
+    (`symbol/collision_index.ts`), so clustering was never protecting us from a collision blow-up —
+    collision is already off. 2 000 icons is one batched quad pass.
+  - **Labels cannot bite at world zoom, because they do not exist there.** `place-marker-layer.tsx`
+    sets `'text-field': ['step', ['zoom'], '', LABEL_MIN_ZOOM, ['get','name']]` with
+    `LABEL_MIN_ZOOM = 14`, and symbol layout runs per tile at the tile's zoom — so tiles below z14
+    shape **zero glyphs**. The "show everything" zoom-out is an icons-only case. Forcing 2 000
+    labels on did quadruple frame time in the harness, which is why the z14 gate matters, but no
+    code path reaches it. *Benchmark caveat: run on a software rasteriser (SwiftShader), so the
+    numbers are an upper bound and a relative ranking, not phone frame times. Not measured on a
+    real device.*
+  - **The real consequence is visual, and it is a sequencing fact rather than a reason to keep
+    clustering.** With overlap allowed, zooming out to the world with a few hundred places renders a
+    solid mat of overlapping teardrops carrying no information — **worse than the bubbles that ship
+    today at that zoom.** So the removal and the country summary are not independent queue items:
+    the country summary is what repairs world zoom, and it should land soon after the removal rather
+    than whenever L2 comes round.
+
+  **One trap for whoever does the removal.** `src/domain/places/clusters.ts` (`clusterByProximity`,
+  ~50 km) is a *different thing* and survives: it anchors the camera and names the active area, and
+  never drew a bubble. `tests/unit/places/clusters.test.ts`, `area-label.test.ts` and
+  `active-area.test.ts` belong to it. A grep-and-delete on "cluster" would take out the areas
+  feature.
 - **Custom pins are sprite images in a `symbol` layer, not DOM markers.** This is the single most
   important mobile-performance decision: every `Marker` is an absolutely-positioned DOM node that
   the browser must re-transform on every frame of every pan. Hard rule: **at most two DOM markers

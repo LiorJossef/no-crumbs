@@ -56,7 +56,7 @@ what is verified and how, what is unresolved, and the next highest-impact step. 
 4. `docs/02-risks-and-unknowns.md` — unknowns, assumptions, risks
 5. `docs/01-agent-roster.md` — the eleven expert roles and who owns what
 
-Stack: Next.js + TypeScript + Supabase + Vercel. **D2 is closed** — MapLibre GL v5 + Protomaps
+Stack: Next.js + TypeScript + Supabase + Vercel. **D2 is closed** — MapLibre GL **6.4.1** (this line said v5 until 2026-08-28; the installed dependency is `^6.4.1`, so read the v6 API surface) + Protomaps
 tiles + our own resolver over Overture `places` extracts (`docs/06-map-and-places-decision.md`,
 schema in `docs/10-poi-index.md`). **D2b, 2026-08-20: the MVP resolves globally** — two sources
 behind one `PlaceResolver` port, the Overture index where a region is loaded (85% top-1) and
@@ -85,6 +85,18 @@ defaulting to doing the work yourself. Not for trivia — a one-line fix, a rena
 reading anyway — and never performatively. **You keep orchestration, integration, judgement and
 final verification**; delegating work never delegates accountability. When nothing fits and you do
 it yourself, say you checked.
+
+**Parallelise proactively — standing owner ruling, 2026-08-28, `working-agreement.md` §1.4.** In
+**every** session, look for the work that can genuinely run in parallel and dispatch it to the
+specialists while you continue the main thread: independent investigations, measurements against
+real rows, adversarial verification of what is already built, extraction or platform research,
+product/UX checks, test and harness work. No permission is needed per session, and the owner has
+given standing permission to change whatever agent configuration this requires. **Parallelism, not
+ceremony** — never spawn an agent to look busy, to duplicate what you are already doing, or to split
+work that is faster in one pass. **You own the lifecycle of everything you spawn:** track what is
+running, collect it, stop what no longer matters, and never end a session with background work
+unaccounted for. **And do not ask the owner to choose between ordinary implementation tasks** —
+pick by product impact and escalate only the decisions in `working-agreement.md` §7.
 
 **When you use one, say so** (owner ruling, 2026-08-26, `working-agreement.md` §1.3): what you
 delegated, which agent, whether it wrote code or only investigated, and how its output changed the

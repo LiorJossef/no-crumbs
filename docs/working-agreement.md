@@ -118,6 +118,52 @@ about a problem should not be made to write code to justify the call. Judgement 
 delegate stays yours; only the visibility of it is now fixed. **A session that used no specialists
 says so if the subject comes up, and that is a perfectly good answer.**
 
+### 1.4 Parallelise proactively — owner ruling, 2026-08-28
+
+**Standing rule, every session, no permission needed each time: where work can genuinely be
+parallelised, run it in parallel through the specialists in `.claude/agents/` while you continue the
+main thread.** §1.1 said *check whether a specialist fits before doing it yourself*. This goes
+further: **look for the independent work in every task and dispatch it**, rather than executing a
+task serially because serial is simpler to think about.
+
+What to look for, concretely. While you implement, something else can usually be running:
+
+- an **investigation** whose answer you will not need for another twenty minutes;
+- a **measurement or benchmark** against real rows;
+- **independent verification** of something already built (§2 — the builder is never the sole source
+  of evidence, so this one is nearly always available);
+- **extraction or platform research** that does not block the current diff;
+- a **product or UX check** on a surface you are about to change;
+- **test or harness work** alongside the feature it covers.
+
+The judgement stays yours, and it cuts both ways. **Parallelism, not ceremony:** do not spawn an
+agent to look busy, do not split work that is faster done in one pass, and do not fan out where the
+pieces are actually coupled and would each need the same context you already hold. An agent that
+duplicates what you are doing is worse than no agent — it burns tokens and produces a second opinion
+on work that was never in doubt.
+
+**You own the whole lifecycle of everything you spawn.** Dispatch it, keep track of what is running,
+collect the results, stop anything whose answer no longer matters, and **make sure nothing is still
+running or unread when the session closes.** The owner never chases an agent, never asks whether one
+is still going, and never receives a session that ended with background work unaccounted for. If a
+session ends with an agent's output uncollected, that is a failure of the session regardless of what
+shipped.
+
+**This supersedes the last sentence of §1.3.** "A session that used no specialists says so, and that
+is a perfectly good answer" was true under §1.1. Under §1.4 it is only true for a session with no
+parallelisable work in it — a genuinely rare case, and one that now needs the same one-sentence
+justification §1.2 asks for. Disclosure under §1.3 is unchanged and still applies to every
+delegation.
+
+**Autonomy, restated because it is the other half of this ruling.** Do not ask the owner to choose
+between ordinary implementation tasks. Pick by product impact (§1), take the next meaningful step,
+and escalate only genuine owner-level decisions — the ones §7 lists. "Which of these two features
+should I build next" is not one of them.
+
+**Configuration:** the owner has given standing permission to enable or change whatever agent
+settings this requires, without asking again.
+
+
 ## 2. Definition of done
 
 Implemented ≠ done. Tests passing ≠ working.
@@ -256,5 +302,24 @@ himself. Before the context ends, make sure these are true:
   highest-impact item is, and any live findings a future session must not rediscover.
 - `docs/execution-plan.md`'s change log has a line for anything deferred, cut or re-ordered.
 - The working tree is either committed on its feature branch or explained in `current-state.md`.
+- **Nothing is left running.** Every subagent spawned this session has been collected or stopped,
+  and its result is either acted on or written down (§1.4). A session that ends with an agent still
+  going, or with its output never read, has failed the hand-over regardless of what shipped.
+
+### 9.1 Update the top banner — added 2026-08-28, after it went wrong twice in one session
+
+`current-state.md` is the cold-start document, but it is *written* as a session handoff, and each
+session has been adding a separate `handoff-<date>-*.md` rather than reconciling it. The banner
+stack at the top of `current-state.md` reached three deep, and its "⚠ LATEST" pointed at the
+second-newest handoff.
+
+The cost was not hypothetical. On 2026-08-28 two separate investigations were dispatched to plan
+work — pressable tag chips, and per-category map pins — that had **both already shipped to `main`**
+hours earlier, because the cold-start document still listed them as outstanding.
+
+So, as part of closing a session: **update the top banner of `current-state.md` to point at the
+handoff you just wrote, and correct any claim in the body that your session made false.** It is one
+line and one edit. And when *starting* a session, check the plan against `git log main` before
+building on any "still to do" written in prose — a doc claims, a commit proves.
 
 `docs/current-state.md` is the cold-start document. Read it first, after `CLAUDE.md`.

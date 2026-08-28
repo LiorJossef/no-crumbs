@@ -135,6 +135,13 @@ import {
   placeResolverEnv,
   resolverProviderFor,
 } from '@/integrations/places/place-resolver-factory';
+import {
+  googlePlaceResolver,
+  googlePlacesGateway,
+  type GooglePlacesGateway,
+  type GooglePlaceRow,
+  type GoogleTextSearchParams,
+} from '@/integrations/google/place-resolver';
 import { normalise } from '@/domain/places/normalise';
 import { DomainError } from '@/domain/errors';
 import type { OpCtx, PlaceExtractor } from '@/domain/ports';
@@ -299,6 +306,72 @@ async function probeEnv(): Promise<Probe> {
  * and that comparison is the whole reason to run both.
  */
 const RESOLVER = resolverProviderFor(placeResolverEnv());
+
+/* ------------------------------------------------------------------------------------------- *
+ * Google Text Search, on disk
+ * ------------------------------------------------------------------------------------------- */
+
+/**
+ * A `GooglePlacesGateway` that answers from the disk cache before it answers from the network.
+ *
+ * The reason is a hard operational limit rather than speed: the Cloud project behind this key is
+ * capped at **100 Text Search requests per day** (`integrations/google/place-resolver.ts`), and one
+ * corpus run spends 16 of them. Scoring and band work needs to replay the *same* provider answers
+ * against a changed policy, over and over — which without this costs a day's quota per experiment
+ * and, worse, compares two policies against two different sets of provider answers.
+ *
+ * Cached at the gateway, not at the resolver, on purpose: everything we might want to change —
+ * mapping, scoring, weights, band gates — stays live, and only the network call is replayed. So a
+ * cached run measures the current code against fixed provider input, which is what a re-fit needs.
+ *
+ * `RECOGNITION_REFRESH=1` bypasses it, exactly as it does for captions and extractions.
+ *
+ * **Where these files live matters legally.** Google's Service Specific Terms §5.4 caps caching of
+ * lat/lng at 30 days, so provider rows must not enter the repository. `docs/evidence/.local/` is
+ * gitignored; this writes there and nowhere else, and a stale entry is a re-run, not a migration.
+ */
+function cachingGooglePlacesGateway(inner: GooglePlacesGateway): GooglePlacesGateway {
+  return {
+    async searchText(params: GoogleTextSearchParams, signal: AbortSignal) {
+      // Every field that changes Google's answer, and nothing that does not. Order is fixed by the
+      // literal below rather than by `JSON.stringify` over a built object, so a future field cannot
+      // silently re-key the whole cache.
+      const key = JSON.stringify([
+        params.textQuery,
+        params.regionCode,
+        params.languageCode,
+        params.maxResultCount,
+      ]);
+      const file = `google-${safeKey(params.textQuery)}-${sha(key).slice(0, 16)}.json`;
+
+      const hit = cacheRead<{ readonly rows: readonly GooglePlaceRow[] }>(file);
+      if (hit !== null) {
+        googleCacheHits += 1;
+        return hit.rows;
+      }
+
+      const rows = await inner.searchText(params, signal);
+      googleCalls += 1;
+      cacheWrite(file, { key, rows });
+      return rows;
+    },
+  };
+}
+
+let googleCalls = 0;
+let googleCacheHits = 0;
+
+/**
+ * The resolver this run measures. Identical to `createPlaceResolver` except that the Google
+ * gateway is wrapped in the disk cache above — the factory composes the production adapter, and
+ * this only replaces the one seam that spends quota.
+ */
+function createMeasuredResolver(client: SupabaseClient) {
+  const env_ = placeResolverEnv();
+  if (resolverProviderFor(env_).provider !== 'google') return createPlaceResolver(env_, client);
+  const apiKey = env_.GOOGLE_PLACES_API_KEY ?? env_.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
+  return googlePlaceResolver(cachingGooglePlacesGateway(googlePlacesGateway(apiKey)));
+}
 
 const env = await probeEnv();
 if (!env.ok) {
@@ -620,7 +693,7 @@ function acceptsRow(e: Expectation, name: string, address: string | null, locali
 
 describe.skipIf(!env.ok)('real TikToks through the real recognition flow', () => {
   const client = env.client as SupabaseClient;
-  const resolver = createPlaceResolver(placeResolverEnv(), client);
+  const resolver = createMeasuredResolver(client);
 
   for (const [i, c] of CORPUS.cases.entries()) {
     it(`case ${i + 1}/${CORPUS.cases.length} — ${c.url}`, async () => {
@@ -1078,7 +1151,7 @@ function renderSummary(rows: readonly CaseResult[]): string {
   L.push(`   UNADJUDICATED (no corpus expectation; ruled by nobody): ${t.unadjudicated}`);
   L.push('');
   L.push(`   cases: ${t.cases}  (${Object.entries(t.caseStatuses).map(([k, n]) => `${k}=${n}`).join(' ')})`);
-  L.push(`   network this run: ${oembedCalls} oEmbed fetch(es), ${llmCalls} LLM call(s)${REFRESH ? '  [RECOGNITION_REFRESH=1 — cache bypassed]' : ''}`);
+  L.push(`   network this run: ${oembedCalls} oEmbed fetch(es), ${llmCalls} LLM call(s), ${googleCalls} Google Text Search (${googleCacheHits} replayed from disk)${REFRESH ? '  [RECOGNITION_REFRESH=1 — cache bypassed]' : ''}`);
   L.push('');
   L.push('   failure buckets:');
   const order: FailureBucket[] = [
@@ -1136,7 +1209,12 @@ afterAll(() => {
         resolver: { provider: RESOLVER.provider, reason: RESOLVER.reason },
         extractor: extractor === null ? null : { version: extractor.version, promptVersion: extractor.promptVersion },
         cache_bypassed: REFRESH,
-        network_this_run: { oembed_fetches: oembedCalls, llm_calls: llmCalls },
+        network_this_run: {
+          oembed_fetches: oembedCalls,
+          llm_calls: llmCalls,
+          google_text_search_calls: googleCalls,
+          google_text_search_replayed: googleCacheHits,
+        },
         summary: {
           auto_match: t.autoMatch,
           adjudicated: t.adjudicated,
@@ -1189,7 +1267,9 @@ afterAll(() => {
   md.push(`| — of which extraction never named the venue | ${t.extractionMisses} |`);
   md.push(`| **False auto-accepts** (preselect AND wrong) | **${t.falseAutoAccepts}** |`);
   md.push(`| Unadjudicated (counted in neither direction) | ${t.unadjudicated} |`);
-  md.push(`| Network this run | ${oembedCalls} oEmbed, ${llmCalls} LLM |`);
+  md.push(
+    `| Network this run | ${oembedCalls} oEmbed, ${llmCalls} LLM, ${googleCalls} Google Text Search (${googleCacheHits} replayed) |`,
+  );
   md.push('');
   md.push('## Failure buckets');
   md.push('');

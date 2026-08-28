@@ -72,6 +72,11 @@ export interface Spot {
    *  answer, and the read path is the one place that has all three claims in hand. Deriving it
    *  here means no renderer re-derives it differently. */
   readonly category: ProductCategory;
+  /** Whether `category` came from `saved_places.category_override` rather than from the provider or
+   *  the model. The raw override string is deliberately **not** exposed: the only thing a surface
+   *  needs from it is whether the user has spoken, which is what tells an editor to offer "back to
+   *  automatic" rather than a control that cannot be undone. */
+  readonly categoryIsOverridden: boolean;
   readonly lat: number;
   readonly lng: number;
   readonly addressLine?: string;

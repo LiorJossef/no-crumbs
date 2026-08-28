@@ -29,12 +29,22 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { PlaceResolver } from '@/domain/ports';
 import { googlePlaceResolver, googlePlacesGateway } from '@/integrations/google/place-resolver';
+import { supabasePlaceLookupStore } from '@/integrations/supabase/place-lookup-store';
 import { overturePlaceResolver, supabasePoiIndexGateway } from '@/integrations/supabase/place-resolver';
 
 export type ResolverProvider = 'google' | 'overture';
 
 export interface PlaceResolverEnv {
   readonly PLACE_RESOLVER?: string;
+  /**
+   * `off` disables the shared provider-response cache (`place_lookups`). Anything else, including
+   * unset, leaves it on.
+   *
+   * It exists because a cache you cannot switch off is a debugging hazard: "is this a stale answer
+   * or a bad one" is otherwise unanswerable without a psql session. It is not a fallback — a cache
+   * failure already degrades to a miss on its own (`supabase/place-lookup-store.ts`).
+   */
+  readonly PLACE_LOOKUP_CACHE?: string;
   /**
    * Server-only key, and the one that should be used. Preferred over the `NEXT_PUBLIC_` key below
    * because that one is compiled into the browser bundle: anyone can read it and spend our quota.
@@ -101,6 +111,9 @@ export function resolverProviderFor(env: PlaceResolverEnv): {
 export function placeResolverEnv(): PlaceResolverEnv {
   return {
     ...(process.env.PLACE_RESOLVER !== undefined ? { PLACE_RESOLVER: process.env.PLACE_RESOLVER } : {}),
+    ...(process.env.PLACE_LOOKUP_CACHE !== undefined
+      ? { PLACE_LOOKUP_CACHE: process.env.PLACE_LOOKUP_CACHE }
+      : {}),
     ...(process.env.GOOGLE_PLACES_API_KEY !== undefined
       ? { GOOGLE_PLACES_API_KEY: process.env.GOOGLE_PLACES_API_KEY }
       : {}),
@@ -113,10 +126,19 @@ export function placeResolverEnv(): PlaceResolverEnv {
   };
 }
 
+/** Whether the shared provider-response cache is wired in. Off only when explicitly switched off. */
+export function lookupCacheEnabled(env: PlaceResolverEnv): boolean {
+  return env.PLACE_LOOKUP_CACHE !== 'off';
+}
+
 /**
  * `env` is passed explicitly rather than read from `process.env` in here, so a test can compose a
- * resolver deterministically. `db` is only touched on the Overture path — building a Google
- * resolver makes no database call.
+ * resolver deterministically. `db` is used on both paths now: the Overture resolver reads
+ * `poi_index` through it, and the Google resolver reads and writes `place_lookups` through it.
+ *
+ * The Overture path takes no lookup cache. It has nothing to buy: it is a query against a table in
+ * the same database, so a cache entry would be a round trip saving a round trip, and its adapter
+ * already holds a bounded in-process cache of prefiltered rows for the within-import case.
  */
 export function createPlaceResolver(env: PlaceResolverEnv, db: SupabaseClient): PlaceResolver {
   const { provider } = resolverProviderFor(env);
@@ -126,7 +148,9 @@ export function createPlaceResolver(env: PlaceResolverEnv, db: SupabaseClient): 
     if (apiKey === null) {
       throw new Error('A Google Places API key is required when PLACE_RESOLVER=google.');
     }
-    return googlePlaceResolver(googlePlacesGateway(apiKey));
+    return googlePlaceResolver(googlePlacesGateway(apiKey), {
+      lookupStore: lookupCacheEnabled(env) ? supabasePlaceLookupStore(db) : null,
+    });
   }
 
   return overturePlaceResolver(supabasePoiIndexGateway(db));

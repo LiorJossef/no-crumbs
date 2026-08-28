@@ -31,7 +31,15 @@ import { PRODUCT_CATEGORY_LABEL, isProductCategory } from '../places/product-cat
 export const LOCATION_CAVEAT =
   'We work out pins from what the caption said, so they can be a street or two off.';
 
-/** What the card is titled — and, by construction, what `derivePlaceSave` writes to `places.name`. */
+/**
+ * What the caption gave us to call this place: the model's identification, or the caption's own
+ * words when it made none.
+ *
+ * **This is not necessarily what gets saved.** When the resolver matched the candidate,
+ * `derivePlaceSave` writes the provider's name instead, and the card is titled with that — see
+ * `savedPlaceName` in `ui/import/candidate-resolution-view.ts`. This function is the fallback for
+ * the unresolved path and the input to `candidateProvenance`.
+ */
 export function candidateTitle(candidate: PlaceCandidate): string {
   const identified = candidate.identifiedName?.trim();
   return identified !== undefined && identified !== '' ? identified : candidate.rawName;
@@ -46,9 +54,14 @@ export function candidateTitle(candidate: PlaceCandidate): string {
  *
  * Deliberately not `Likely: …`, which hedges the name without saying where it came from — the
  * opposite of what this line is for.
+ *
+ * `shownTitle` is the title the card actually rendered, which since `savedPlaceName` may be the
+ * provider's name rather than this candidate's. Passing it keeps the two lines describing the same
+ * string: without it, a card titled `Kohi בית קפה יפני` would claim it was `Named in the caption`
+ * because the *model's* guess happened to equal `rawName`.
  */
-export function candidateProvenance(candidate: PlaceCandidate): string {
-  const title = candidateTitle(candidate);
+export function candidateProvenance(candidate: PlaceCandidate, shownTitle?: string): string {
+  const title = (shownTitle ?? candidateTitle(candidate)).trim();
   const raw = candidate.rawName.trim();
   return title.toLowerCase() === raw.toLowerCase()
     ? 'Named in the caption'

@@ -49,7 +49,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { isSearchActive } from '@/domain/places/search';
-import { NoteEditor, RemoveSavedPlace } from './saved-place-edits';
+import { CategoryEditor, NoteEditor, RemoveSavedPlace } from './saved-place-edits';
 import { ActiveTagFilter, DishLine, TagChipList, TagChipRow, WhyGoLine } from './place-enrichment';
 import { enrichmentOf, rowAccessibleName, whyGoEarnsItsPlace } from '@/ui/place/enrichment';
 import { categoryDisplay, categoryLocalityLine } from '@/ui/place/category-display';
@@ -823,6 +823,16 @@ export function PlaceDetail({
         {/* The dishes the post named. Last of the three content blocks because it is a list to
             skim rather than something to read, and because it is the one most often empty. */}
         <DishLine dishes={dishes} />
+
+        {/* The user's own word for what this place is. Below the prose blocks rather than beside
+            the category line above, because that line is the most-read thing on the card and this
+            is a control most people touch once — `saved-place-edits.tsx` has the argument. */}
+        <CategoryEditor
+          key={`category-${place.id}`}
+          savedPlaceId={place.id}
+          category={place.category}
+          isOverridden={detail?.categoryIsOverridden ?? false}
+        />
 
         {/* `L1-F7-T2`. The note used to render read-only, and a place you saved was a place you
             were stuck with. `key` on the saved place's id is what resets a half-typed draft when

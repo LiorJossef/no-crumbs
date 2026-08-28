@@ -19,14 +19,18 @@ import type { PlaceProvider, RankedPlace, ResolveQuery, ResolvedPlace } from '@/
 import { jaroWinklerSimilarity } from '@/domain/places/jaro-winkler';
 import { normalise } from '@/domain/places/normalise';
 import {
+  addressScoreOf,
   bestNameScore,
   bestNameScoreAcrossForms,
+  branchRival,
   categoryScore,
   confidenceOf,
   distinctiveTokens,
   MAX_QUERY_VARIANTS,
   matchedTextOf,
+  nameDifference,
   nameScore,
+  placeProximity,
   queryForms,
   queryTokens,
   rankPlaces,
@@ -369,22 +373,45 @@ describe('SCORING', () => {
     expect(Object.keys(SCORING.categoryTokens)).toEqual(['cafe', 'bar', 'restaurant']);
   });
 
-  it('holds the TLV-RANK-1 re-fit of the two values that moved', () => {
+  it('holds the re-fits of the two values that moved', () => {
     // `total` and `generic`. Both were the prototype's until 2026-08-27, when the first evidence
     // from a loaded index said they were wrong: a category bonus outranking a 1.000 name match
-    // (TLV-14) and `gelato` scored as identity (TLV-10). The argument is in
-    // `scoring-constants.ts`; the band-by-band consequences are enumerated in
-    // `benchmark-golden.test.ts`. This is just the pin.
-    expect(SCORING.total).toEqual({ name: 0.8, category: 0.1, datasetConfidence: 0.1 });
-    // 0.9999999999999999 in binary, which is the safe side of `resolution_score`s CHECK.
+    // (TLV-14) and `gelato` scored as identity (TLV-10). `total` moved again on 2026-08-28
+    // (RESOLVE-CONF-1) when both the category and the dataset-confidence terms were measured to be
+    // net-harmful and set to zero. The argument is in `scoring-constants.ts`; the band-by-band
+    // consequences are enumerated in `benchmark-golden.test.ts`. This is just the pin.
+    expect(SCORING.total).toEqual({ name: 1, category: 0, datasetConfidence: 0 });
     expect(SCORING.total.name + SCORING.total.category + SCORING.total.datasetConfidence)
       .toBeCloseTo(1, 15);
-    // The safety property the weights carry: no candidate can auto-accept without its category
-    // agreeing, because name + confidence alone cannot reach the 0.92 gate. That was true at
-    // 0.72/0.18 and it is still true at 0.80/0.10 — the re-fit changed ranking, not the gate.
-    expect(SCORING.total.name + SCORING.total.datasetConfidence)
-      .toBeLessThan(SCORING.bands.preselectScore);
     expect(SCORING.generic.size).toBe(53);
+  });
+
+  it('scores on the name, and on the address only where one can be compared', () => {
+    // The whole shape of the score after RESOLVE-CONF-1, as an assertion rather than as prose: a
+    // row we cannot compare an address against scores *exactly* its name score, whatever its
+    // category and whatever the provider thinks of the row.
+    const noAddress = place({ name: 'Onibus Coffee', providerCategory: null, datasetConfidence: 0 });
+    const scored = scorePlace(noAddress, 'cafe', 'Onibus Coffee');
+    expect(scored.score).toBe(scored.nameScore);
+
+    // And the category cannot move it in either direction — the exact defect this removed. Same
+    // row, same query, category agreeing and then flatly disagreeing.
+    const agrees = scorePlace(
+      place({ name: 'Cafe Europa', providerCategory: 'coffee_shop' }),
+      'cafe',
+      'Cafe Europa',
+    );
+    const disagrees = scorePlace(
+      place({ name: 'Cafe Europa', providerCategory: 'restaurant' }),
+      'cafe',
+      'Cafe Europa',
+    );
+    expect(agrees.categoryScore).toBe(1);
+    expect(disagrees.categoryScore).toBe(0);
+    expect(agrees.score).toBe(disagrees.score);
+    // Both auto-accept, which is the point: Google files a real café as `restaurant` and that is a
+    // taxonomy disagreement, not evidence that we have the wrong venue.
+    expect(disagrees.score).toBeGreaterThanOrEqual(SCORING.bands.preselectScore);
   });
 
   it('holds the TLV-ADDR-1 address constants', () => {
@@ -470,19 +497,18 @@ describe('TLV-RANK-1 — the ranking defects the re-fit closed', () => {
     expect(distinctiveTokens('that little wine bar near the market')).toEqual(['wine', 'market']);
   });
 
-  it('TLV-14: a 1.000 name match cannot be lost to a category bonus alone', () => {
+  it('TLV-14: a 1.000 name match cannot be lost to a category bonus at all', () => {
     // `Hostel 51` is filed `bar`; the real `Bar 51` is filed `restaurant`. The name scores are the
     // measured ones from the live index. At 0.18 the bonus reversed them by 0.002; at 0.10 it
-    // cannot reverse a gap this size, and the general statement is the ceiling below.
+    // could no longer reverse a gap this size; at 0 it cannot reverse any gap, which is the
+    // general form the two earlier re-fits were converging on.
     const exact = SCORING.total.name * 1 + SCORING.total.category * 0 + SCORING.total.datasetConfidence * 1;
     const bonus =
       SCORING.total.name * 0.785 + SCORING.total.category * 1 + SCORING.total.datasetConfidence * 0.768;
     expect(exact).toBeGreaterThan(bonus);
 
-    // The general form: a category agreement is worth this much name score, and no more.
-    const ceiling = SCORING.total.category / SCORING.total.name;
-    expect(ceiling).toBeLessThan(0.13);
-    expect(1 - 0.785).toBeGreaterThan(ceiling);
+    // A category agreement is worth exactly this much name score: none.
+    expect(SCORING.total.category).toBe(0);
   });
 });
 
@@ -735,21 +761,26 @@ describe('scorePlace with an address — the sign of every outcome', () => {
     );
   });
 
-  it('does not report an address component on RankedPlace', () => {
+  it('adds nothing to RankedPlace that is not deliberate provenance', () => {
     // Deliberate: `RankedPlace` is persisted through `extractions.candidates` and its zod schema
     // (`domain/import/resolution-record.ts`), and is constructed by a dozen call sites outside this
-    // module. The address changes `score` and nothing else; `addressScore` is exported for anyone
-    // who needs to explain a number.
+    // module. This assertion was written to stop the address term leaking a field, and it is kept
+    // exact so that every later addition has to be argued here.
     //
-    // **`matchedText` was added to this list by TLV-BILING-B and the rest of it did not move.**
-    // The original assertion was written to stop the address term leaking a field; it now also
-    // states the one field that was deliberately allowed to. `matchedText` is query provenance —
-    // which of `queryForms()`'s strings produced `nameScore` — and it is NOT in
-    // `StoredRankedPlaceSchema`, so zod strips it on the way back out of `jsonb` and nothing
-    // downstream can ever read it as an input. See the round-trip assertion below.
+    // **Two fields have been argued.** `matchedText` (TLV-BILING-B) is query provenance — which of
+    // `queryForms()`'s strings produced `nameScore`. `addressScore` (TRACK2-ADDR) is the
+    // three-valued address term, carried because `confidenceOf` needs to tell *"somewhere else"*
+    // (0) from *"could not compare"* (`null`) after the `addressHint` that produced it is out of
+    // reach, and because `ux-when-we-ask.md` §3.1 makes that distinction the highest-precedence
+    // reason to ask the user.
+    //
+    // Neither is in `StoredRankedPlaceSchema`, so zod strips both on the way back out of `jsonb`
+    // and nothing downstream can ever read either as an input. In-memory provenance, not storage —
+    // a resolution read back from the database carries its stored `band`, not the inputs to it.
     const ranked = scorePlace(kohi, 'cafe', 'Kohi', 'בן יהודה 155');
     expect(Object.keys(ranked).sort()).toEqual(
-      ['categoryScore', 'matchedText', 'nameScore', 'place', 'score', 'tokenCoverage'].sort(),
+      ['addressScore', 'categoryScore', 'matchedText', 'nameScore', 'place', 'score',
+        'tokenCoverage'].sort(),
     );
   });
 });
@@ -973,11 +1004,16 @@ describe('scorePlace and rankPlaces with textVariants', () => {
     expect(after[0]!.score - nikoAfter.score).toBeGreaterThan(SCORING.bands.preselectMargin);
   });
 
-  it('does not auto-accept the case it rescues — it moves it from no_match to confirm', () => {
-    // Measured, not assumed: `קוהי` + `Kohi` + `בן יהודה 155` lands at 0.917, three thousandths
-    // under the 0.92 gate, with a 0.255 margin. The venue is now OFFERED where it was previously
-    // not even in the shortlist. Pinned so that a later change which turns it into an auto-accept
-    // has to say so out loud.
+  it('auto-accepts the case it rescues, and that is the change RESOLVE-CONF-1 was made for', () => {
+    // This is the specimen from `handoff-2026-08-28-categories-and-the-picker.md` §3, and the test
+    // that used to stand here asked that any change turning it into an auto-accept say so out
+    // loud. Saying it out loud: it does now, deliberately.
+    //
+    // `קוהי` + `Kohi` + `בן יהודה 155` against `Kohi Coffee Shop` and `NIKO by Sharon Cohen` —
+    // near-perfect name, exact category, exact address, and a margin over the runner-up an order of
+    // magnitude past the gate. It was held at `confirm` on `Kohi Coffee Shop`'s Overture
+    // dataset_confidence of 0.295: a crawler's opinion of a row, vetoing every piece of evidence
+    // about the query. That term is gone, so the answer is now settled without asking the user.
     const before = confidenceOf(
       rankPlaces(query({ text: 'קוהי', addressHint: 'בן יהודה 155', categoryHint: 'cafe' }), [
         kohi,
@@ -996,8 +1032,8 @@ describe('scorePlace and rankPlaces with textVariants', () => {
       ),
     );
     expect(before.band).toBe('no_match');
-    expect(after.band).toBe('confirm');
-    expect(round3(after.score)).toBe(0.917);
+    expect(after.band).toBe('preselect');
+    expect(round3(after.score)).toBe(0.946);
   });
 
   it('records which form matched, on every row, including the ones text matched', () => {
@@ -1106,5 +1142,273 @@ describe('confidenceOf — what a sole candidate means', () => {
   it('leaves an empty ranking at no_match under either policy', () => {
     expect(confidenceOf([], 'exhaustive-search').band).toBe('no_match');
     expect(confidenceOf([]).band).toBe('no_match');
+  });
+});
+
+/* ------------------------------------------------------------------------------------------- *
+ * The branch guard (TRACK2-BRANCH, 2026-08-28)
+ * ------------------------------------------------------------------------------------------- */
+
+describe('nameDifference', () => {
+  it('reports the tokens the longer name adds', () => {
+    expect(nameDifference('Onibus Coffee', 'Onibus Coffee Yakumo')).toEqual(['yakumo']);
+    expect(nameDifference('Onibus Coffee Yakumo', 'Onibus Coffee')).toEqual(['yakumo']);
+    expect(nameDifference('むぎとオリーブ', 'むぎとオリーブ 銀座本店')).toEqual(['銀座本店']);
+  });
+
+  it('reports an empty difference for two rows under the same name', () => {
+    // Not `null`: `The Dove` and `The Dove` 13 km apart are the purest branch question there is,
+    // and the caller must be able to tell that from "these names are unrelated".
+    expect(nameDifference('The Dove', 'the dove')).toEqual([]);
+  });
+
+  it('is token containment, not substring containment', () => {
+    // `normalise('Bar B')` IS a substring of `normalise('Bar Benfiddich')`. Measured: a substring
+    // rule fires on TYO-05 and TYO-13 for exactly this pair, which is not a branch of anything.
+    expect(normalise('Bar B')).toBe('bar b');
+    expect(normalise('Bar Benfiddich').includes('bar b')).toBe(true);
+    expect(nameDifference('Bar B', 'Bar Benfiddich')).toBeNull();
+  });
+
+  it('is null for two different venues that share a token', () => {
+    expect(nameDifference('Bar 51', 'Hostel 51')).toBeNull();
+    expect(nameDifference('Kohi Coffee Shop', 'NIKO by Sharon Cohen')).toBeNull();
+  });
+
+  it('is null when either name normalises to nothing', () => {
+    expect(nameDifference('', 'Padella')).toBeNull();
+    expect(nameDifference('★', 'Padella')).toBeNull();
+  });
+});
+
+describe('branchRival — when two rows are branches of one venue', () => {
+  /** A ranked row at a chosen score and position. `lat` moves north from the fixture's 35.6. */
+  const row = (name: string, score: number, metresNorth = 0): RankedPlace => ({
+    place: place({ name, providerPlaceId: name, lat: 35.6 + metresNorth / 110_574, lng: 139.7 }),
+    score,
+    nameScore: score,
+    tokenCoverage: 1,
+    categoryScore: 1,
+  });
+
+  const forms = ['Onibus Coffee'];
+
+  it('finds a branch-named rival that is close in score and far in space', () => {
+    const rival = branchRival(
+      [row('Onibus Coffee', 1), row('Onibus Coffee Yakumo', 0.93, 3_000)],
+      forms,
+    );
+    expect(rival?.place.name).toBe('Onibus Coffee Yakumo');
+  });
+
+  it('ignores a rival further from the top than rivalScoreBand', () => {
+    const justOutside = 1 - SCORING.branchGuard.rivalScoreBand - 0.0001;
+    expect(branchRival([row('Onibus Coffee', 1), row('Onibus Coffee Yakumo', justOutside, 3_000)], forms))
+      .toBeNull();
+    const justInside = 1 - SCORING.branchGuard.rivalScoreBand;
+    expect(
+      branchRival([row('Onibus Coffee', 1), row('Onibus Coffee Yakumo', justInside, 3_000)], forms)
+        ?.place.name,
+    ).toBe('Onibus Coffee Yakumo');
+  });
+
+  it('ignores a rival inside samePlaceMetres — that is one venue recorded twice', () => {
+    // 75 m is the radius `resolve_place`'s dedup guard already treats as one place: Kiaans/Kiaans
+    // Tooting are 18 m apart and Sycamore's two rows 26 m. Two records of one address pin the same
+    // point, so choosing between them is not a decision the user has to make — and the shortlist
+    // collapse (`ux-when-we-ask.md` §4) removes one of them before this runs.
+    expect(branchRival([row('Onibus Coffee', 1), row('Onibus Coffee Yakumo', 0.93, 26)], forms))
+      .toBeNull();
+    const inside = SCORING.samePlaceMetres - 5;
+    expect(branchRival([row('Onibus Coffee', 1), row('Onibus Coffee Yakumo', 0.93, inside)], forms))
+      .toBeNull();
+    const outside = SCORING.samePlaceMetres + 5;
+    expect(
+      branchRival([row('Onibus Coffee', 1), row('Onibus Coffee Yakumo', 0.93, outside)], forms)
+        ?.place.name,
+    ).toBe('Onibus Coffee Yakumo');
+  });
+
+  it('answers the collapse side of the same question from one predicate', () => {
+    // `ux-when-we-ask.md` §4 collapses two shortlist rows into one place on exactly this predicate
+    // with the opposite verdict, so both sides read `placeProximity` rather than keeping a copy.
+    const near = placeProximity(
+      { name: 'Sycamore Vino Cucina', lat: 32.0709, lng: 34.7803 },
+      { name: 'Sycamore Vino Cucina & Bar', lat: 32.07092, lng: 34.78032 },
+    );
+    expect(near.difference).toEqual(['bar']);
+    expect(near.metres).toBeLessThan(SCORING.samePlaceMetres);
+    expect(near.sameSpot).toBe(true);
+
+    // And the pair the collapse must never merge: metres apart, unrelated names.
+    const kohiNiko = placeProximity(
+      { name: 'Kohi Coffee Shop', lat: 32.0866, lng: 34.7735 },
+      { name: 'NIKO by Sharon Cohen', lat: 32.0866, lng: 34.7735 },
+    );
+    expect(kohiNiko.sameSpot).toBe(true);
+    expect(kohiNiko.difference).toBeNull();
+  });
+
+  it('does not ask when the caption already named the branch', () => {
+    // `Dishoom Shoreditch` against `Dishoom`: the only token separating them is one the user
+    // typed. Asking here is the picker's other failure mode — a question whose answer is already
+    // on the screen (`handoff-2026-08-28-categories-and-the-picker.md` §3.4 item 4).
+    const ranked = [row('Dishoom Shoreditch', 1), row('Dishoom', 0.93, 6_800)];
+    expect(branchRival(ranked, ['Dishoom Shoreditch'])).toBeNull();
+    expect(branchRival(ranked, ['Dishoom'])?.place.name).toBe('Dishoom');
+  });
+
+  it('cannot be settled by the caption when the two names are identical', () => {
+    // An empty difference has nothing for the query to answer, so the `every` test must not pass
+    // vacuously. `The Dove` and `The Dove`, 13 km apart, is LDN-13 in the golden file.
+    expect(
+      branchRival([row('The Dove', 1), row('The Dove', 0.99, 13_000)], ['The Dove'])?.place.name,
+    ).toBe('The Dove');
+  });
+
+  it('is off when no query was supplied', () => {
+    // The contract `benchmark-golden.test.ts`'s replay depends on: banding a bare list of recorded
+    // scores is not answering a question, and the guard's caption rule has nothing to read.
+    expect(branchRival([row('Onibus Coffee', 1), row('Onibus Coffee Yakumo', 0.93, 3_000)], []))
+      .toBeNull();
+  });
+
+  it('reads every query form, not just the first', () => {
+    // The bilingual path (divergence 6): the branch token may be in the Latin variant.
+    const ranked = [row('Dishoom Shoreditch', 1), row('Dishoom', 0.93, 6_800)];
+    expect(branchRival(ranked, ['דישום', 'Dishoom Shoreditch'])).toBeNull();
+  });
+});
+
+describe('confidenceOf — the branch guard end to end', () => {
+  /** The five TYO-10 rows, verbatim from `raw-overture-scored.json`. */
+  const mugito = (name: string, lat: number, lng: number): ResolvedPlace =>
+    place({ name, providerPlaceId: name, providerCategory: 'japanese_restaurant', lat, lng });
+
+  // Coordinates are the golden file's, rounded to six decimals (~0.1 m — the file stores float32
+  // values whose full decimal expansion loses precision as a double, and no assertion here is
+  // within 100 m of a threshold).
+  const tyo10 = [
+    mugito('むぎとオリーブ 銀座本店', 35.668961, 139.764313),
+    mugito('むぎとオリーブ 銀座店', 35.6348, 139.613831),
+    mugito('むぎとオリーブ 日本橋店', 35.687054, 139.77478),
+    mugito('むぎとオリーブ', 35.69714, 139.770294),
+    mugito('むろと', 35.605637, 139.732101),
+  ];
+
+  it('holds TYO-10 at confirm instead of pinning the wrong branch', () => {
+    // The case this guard was written for. The bare row wins on an exact name match and clears
+    // both gates — score 1.000, margin 0.069 — and it sits 3.2 km from `むぎとオリーブ 銀座本店`,
+    // which is the branch `benchmark-spec.json` asks for (`expected_area: "Ginza"`).
+    const ranked = rankPlaces(query({ text: 'むぎとオリーブ', categoryHint: 'restaurant' }), tyo10);
+    expect(ranked[0]!.place.name).toBe('むぎとオリーブ');
+
+    const gatesOnly = confidenceOf(ranked);
+    expect(gatesOnly.band).toBe('preselect');
+    expect(gatesOnly.margin!).toBeGreaterThan(SCORING.bands.preselectMargin);
+
+    const guarded = confidenceOf(ranked, 'narrow-filter', ['むぎとオリーブ']);
+    expect(guarded.band).toBe('confirm');
+    // The guard changes the band and nothing else: same ranking, same score, same margin.
+    expect(guarded.score).toBe(gatesOnly.score);
+    expect(guarded.margin).toBe(gatesOnly.margin);
+  });
+
+  it('keeps auto-accepting TLV-14, where the rivals are different venues', () => {
+    // `Bar 51` against `Hostel 51` and `Studio 51`: a shared numeral is not a shared name, so
+    // `nameDifference` is null and the guard never runs. This is the case two earlier re-fits were
+    // aimed at and it must not be undone by this one.
+    const ranked = rankPlaces(
+      query({ text: 'Bar 51', cityHint: 'Tel Aviv', categoryHint: 'bar' }),
+      [
+        place({ name: 'Bar 51', providerPlaceId: 'a', lat: 32.0753, lng: 34.7665 }),
+        place({ name: 'Hostel 51', providerPlaceId: 'b', lat: 32.0885, lng: 34.7734 }),
+        place({ name: 'Studio 51', providerPlaceId: 'c', lat: 32.0704, lng: 34.7677 }),
+      ],
+    );
+    expect(ranked[0]!.place.name).toBe('Bar 51');
+    expect(confidenceOf(ranked, 'narrow-filter', ['Bar 51']).band).toBe('preselect');
+  });
+
+  it('runs from scoreCandidates without the caller having to ask for it', () => {
+    // The one production entry point, and the reason "no forms means no guard" is safe: the guard
+    // is on wherever a real query is being answered.
+    const result = scoreCandidates(
+      query({ text: 'むぎとオリーブ', categoryHint: 'restaurant' }),
+      tyo10,
+      ['tyo'],
+    );
+    expect(result.confidence.band).toBe('confirm');
+    expect(result.shortlist[0]!.place.name).toBe('むぎとオリーブ');
+  });
+});
+
+/* ------------------------------------------------------------------------------------------- *
+ * A contradicted address asks, it does not discard (TRACK2-ADDR)
+ * ------------------------------------------------------------------------------------------- */
+
+describe('confidenceOf — a contradicted address', () => {
+  /** `רוסטיקו` from the real corpus: Google returns the רוטשילד branch, the caption says בזל. */
+  const rusticoRothschild = place({
+    name: 'רוסטיקו רוטשילד',
+    providerPlaceId: 'rustico-rothschild',
+    addressLine: 'שדרות רוטשילד 15',
+    providerCategory: 'italian_restaurant',
+    lat: 32.0637,
+    lng: 34.7742,
+  });
+
+  const askRustico = () =>
+    rankPlaces(
+      query({ text: 'רוסטיקו', addressHint: 'בזל 42', categoryHint: 'restaurant' }),
+      [rusticoRothschild],
+    );
+
+  it('can never reach preselect, as an inequality over the constants', () => {
+    // Not a case, a bound: `addressScore === 0` makes `score = (1 − weight)·base` and `base ≤ 1`,
+    // so the highest a contradicted row can score is `1 − weight`. While that is under
+    // `preselectScore` the floor below cannot manufacture an auto-accept, whatever it does to the
+    // band. If a future re-fit breaks this inequality, it breaks here first.
+    expect(1 - SCORING.address.weight).toBeLessThan(SCORING.bands.preselectScore);
+  });
+
+  it('offers the venue at confirm instead of discarding it', () => {
+    // Measured: 0.9134 name, 0.7308 after the contradiction — under the 0.80 gate, so today the
+    // shortlist is never offered and `derivePlaceSave` falls back to the model's coordinate, which
+    // is 65–470 m out. The row is the right venue at the wrong branch, which is a question.
+    const ranked = askRustico();
+    expect(addressScoreOf(ranked[0]!)).toBe(0);
+    expect(ranked[0]!.score).toBeLessThan(SCORING.bands.confirmScore);
+
+    const confidence = confidenceOf(ranked, 'narrow-filter', ['רוסטיקו']);
+    expect(confidence.band).toBe('confirm');
+    // The score is not floored with the band. It is stored in `places.resolution_score` and it is
+    // the honest number: we are less confident, and we say so while still asking.
+    expect(confidence.score).toBe(ranked[0]!.score);
+  });
+
+  it('does not rescue a row whose name was weak to begin with', () => {
+    // The floor is `base ≥ confirmScore`, i.e. "the only thing holding it down is the address".
+    const ranked = rankPlaces(
+      query({ text: 'רוסטיקו', addressHint: 'בזל 42' }),
+      [place({ name: 'מסעדת אווה', addressLine: 'שדרות רוטשילד 15', lat: 32.0637, lng: 34.7742 })],
+    );
+    expect(addressScoreOf(ranked[0]!)).toBe(0);
+    expect(confidenceOf(ranked, 'narrow-filter', ['רוסטיקו']).band).toBe('no_match');
+  });
+
+  it('is not triggered by an address that could not be compared', () => {
+    // `null` is "no comparison was possible", which must never be read as a conflict — 8 of the 17
+    // real candidates carry no `addressHint` at all.
+    const ranked = rankPlaces(query({ text: 'Miznon' }), [place({ name: 'Mitbachon' })]);
+    expect(addressScoreOf(ranked[0]!)).toBeNull();
+    expect(ranked[0]!.score).toBeLessThan(SCORING.bands.confirmScore);
+    expect(confidenceOf(ranked, 'narrow-filter', ['Miznon']).band).toBe('no_match');
+  });
+
+  it('is not triggered by a row that did not come from scorePlace', () => {
+    // A hand-built or read-back row has no `addressScore` at all, and `undefined` is not 0.
+    expect(addressScoreOf(ranked(0.75))).toBeUndefined();
+    expect(confidenceOf([ranked(0.75), ranked(0.1)]).band).toBe('no_match');
   });
 });

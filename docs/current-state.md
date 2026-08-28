@@ -1,6 +1,54 @@
 # Current state — cold-start document
 
 ---
+> ## ⚠ READ FIRST — [`handoff-2026-08-29-overnight-map-and-information.md`](handoff-2026-08-29-overnight-map-and-information.md) is the newest state
+>
+> It supersedes **both** banners below and every ordered step in them. Five PRs (#50–#53) landed the
+> map and information work overnight; `main` was green at 1021 tests.
+>
+> ### Already shipped — do not re-plan these
+>
+> On 2026-08-28 two separate investigations in one session were dispatched to work on features that
+> were **already on `main`**, because this document still described them as outstanding. The cost was
+> real. Before planning anything from the prose below, check it against `git log main`.
+>
+> | Reads as open below | Actually shipped |
+> |---|---|
+> | "Tag chips are still inert labels" (§0.3) | `6004baf` — detail chips are pressable, filter the list *and* the pins, with a removable `ActiveTagFilter` pill |
+> | Uniform map pins | `cb58e12` — every pin is a category-coloured teardrop with a drawn glyph |
+> | Clusters that only count | `99bb691` — clusters colour by strict-majority category and open on tap |
+> | Category shows the model's guess | `38325e8` — `ProductCategory` reads `places.provider_category` |
+> | Hebrew basemap labels reversed | `59ba7dc` — RTL text plugin loaded |
+>
+> Two things inside the tag-chip item are **still genuinely open** and must not be swept up in the
+> correction: **list-row chips are inert by design** (a 20px chip inside the row's own button is
+> nested-interactive and under the 44px touch floor — deferred to a taller-row redesign), and a
+> `TagChipList` rendered outside a `TagFilterContext` still falls back to inert spans.
+>
+> ### The real open items, as of 2026-08-28
+>
+> The owner's ruling on the **candidate picker** (the newest handoff §3), the **category term in the
+> scorer** (TLV-14), whether a **lone candidate should auto-accept**, the **product name**, the
+> **Vercel env restore** (§5.1, owner-only), **dark mode** (still an unsigned first pass), and
+> **Playwright coverage for search and tag filtering** — was zero; now
+> [PR #64](https://github.com/LiorJossef/P-002/pull/64) (`test/retrieval-e2e`), eight tests over both
+> breakpoints, **open and deliberately not merged**. One design question first: the map is a canvas
+> with `preserveDrawingBuffer: false`, so the harness reaches MapLibre by walking React's fiber tree
+> — careful and loud-failing, but ~90 lines of internals archaeology where one inert
+> `data-place-count` on the map surface would do. That is a `src/components/map/**` change, and
+> `L1-F5-T5` reworks that file anyway, so the two are cheaper together. Two follow-ups either way:
+> the suite **skips in CI** (no `E2E_PASSWORD`, so a green check does not mean it ran) and
+> `seed.sql` writes no tags at all, so a `db:reset` leaves it nothing to discover.
+>
+> ### Why this keeps happening, and the fix
+>
+> This file is a **cold-start document** but it is written as a session handoff, and each new session
+> adds a separate `handoff-*.md` instead of reconciling this one. The banner stack is now three deep.
+> **Whoever closes a session updates the top banner to point at the newest handoff** — that is the
+> whole fix, and it takes one line.
+
+
+---
 > ## ⚠ LATEST — read [`handoff-2026-08-28-categories-and-the-picker.md`](handoff-2026-08-28-categories-and-the-picker.md) FIRST
 >
 > Supersedes the §10 priority order of the Google-Places handoff below (which is still correct about
@@ -169,7 +217,11 @@ current map behaviour works.** Recorded as given, before anyone treats §0.1 as 
    this work, and both are now suspect.
 2. **The clustering experience is disliked.** Stated about the *experience*, not the 50 km domain
    grouping in `domain/places/clusters.ts` — the on-map cluster bubbles are `MapClusterLayer`
-   (`clusterRadius={50}`, `clusterMaxZoom={13}` in `map-surface.mapcn.tsx`).
+   (`clusterRadius={50}`, `clusterMaxZoom={13}` in `map-surface.mapcn.tsx`). **Stale twice over:**
+   the shipped values became 46 / 13 in `cb58e12`, and as of the owner ruling on 2026-08-28 the
+   on-map density bubbles are **being removed entirely** (`L1-F5-T5`). Note `clusters.ts` is a
+   *different* thing and survives — it anchors the camera and names the active area, and never
+   drew a bubble.
 3. **The load-bearing objection: library scope must not continuously track the exact viewport.**
    Selecting a pin, zooming or panning should **not** turn `8 places in Tel Aviv` into 4 or 1 and
    make the rest vanish from the list. It may make sense for the list to change when the user
@@ -187,6 +239,24 @@ this objection, with `clusters.ts` already the primitive. Whoever takes the reth
 together, and should treat `ux-map-is-the-query.md` as a **superseded-in-part** spec rather than a
 binding one: its §1 (the query rect) and §4 (panning settles the list) are the parts under review,
 while its string matrix, empty states and accessibility rules are unaffected.
+
+### 0.2b How this session should run — standing owner ruling, 2026-08-28
+
+**Read this before planning any work.** Two rules, both permanent, both inherited by every cold
+start. Full text in `working-agreement.md` §1.4; the short version:
+
+1. **Parallelise proactively.** Every session, find the work that can genuinely run in parallel and
+   dispatch it to the specialists in `.claude/agents/` while the main thread continues —
+   investigations, measurements against real rows, independent verification of what was just built,
+   extraction research, product/UX checks, harness work. No per-session permission needed; standing
+   permission also covers changing any agent configuration required to make it work. **Parallelism,
+   not ceremony** — an agent that duplicates what you are already doing is worse than no agent.
+   **You own the lifecycle:** track what is running, collect it, stop what stopped mattering, and
+   **never close a session with background work unaccounted for.** The owner does not chase agents.
+2. **Continue autonomously.** Do not ask the owner to choose between ordinary implementation tasks.
+   Prioritise by product impact and take the next step; escalate only the genuine owner-level
+   decisions in `working-agreement.md` §7.
+
 
 ### 0.2 Owner rulings, 2026-08-27 (four of §9.2's seven)
 
@@ -206,8 +276,20 @@ Still open, carried in §9.2: the grounding line, export, the TikTok data export
 
 ### 0.3 Left undone, deliberately
 
-- **Tag chips are still inert labels.** Only the search half of "make the chips do what they look
-  like they do" is built. Making a chip pressable is the remaining half.
+- ~~**Tag chips are still inert labels.**~~ **Done 2026-08-28** in `6004baf`, now on `main`: detail
+  chips are pressable buttons with `aria-pressed`, tapping one filters the list *and* the pins, and
+  an `ActiveTagFilter` pill makes the applied filter visible and removable. **This line was left
+  stale for a day and misled a later session into re-planning finished work** — two things are still
+  genuinely open and should not be confused with the whole item: **list-row chips remain inert by
+  design** (a 20px chip inside the row's own button would be nested-interactive and under the 44px
+  touch floor — deferred to a taller-row redesign, `place-enrichment.tsx:36-38`), and a
+  `TagChipList` rendered outside a `TagFilterContext` provider still falls back to inert spans
+  (`src/ui/place/tag-filter.ts:35-44`).
+- **Search and tag filtering have no Playwright coverage at all.** Unit tests are good
+  (`tests/unit/ui/tag-filter.test.ts`, `tests/unit/map/filter-places.test.ts`,
+  `tests/unit/places/search.test.ts`), but `tests/e2e/` is seven import specs plus `smoke` and
+  `map-accessibility`, none of which exercise the search field or a tag filter. This is the real
+  remaining gap on the retrieval surface.
 - **The empty-library screen exists but the import overlay does not auto-open over it**
   (`ux-map-is-the-query.md` §5 item 2). Untested at 0 and 1 saved places — §9.3 asks for those
   library shapes and this session only exercised 20.

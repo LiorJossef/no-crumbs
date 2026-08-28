@@ -41,6 +41,16 @@ On the corpus alone it is compelling. Four of the five above cross; **7/16 → 1
 false auto-accepts. The separation looked clean: every *correct* confirm case had margin ≥ 0.089,
 every *wrong* case margin ≤ 0.022.
 
+> **CORRECTION, 2026-08-28.** §3 below is wrong about which venue TLV-14 ranks first, and the
+> refutation rests on that. Its top-1 under the shipped weights is **`Bar 51`** — the venue the case
+> asks for — and it already was before that section was written; `benchmark-golden.test.ts`'s
+> `REFIT_CASE_MOVES` recorded the change (`top1Was: 'Hostel 51'`, `top1Now: 'Bar 51'`) at the time.
+> What §3 read was `adjudication.json`'s `MISS_RANK`, a 2026-07 label made against a two-re-fits-ago
+> ranking. §4's diagnosis — that the category term is the damage, in both directions — survives and
+> is the section worth keeping. See
+> [`resolution-confidence-2026-08-28.md`](resolution-confidence-2026-08-28.md) §5, and §§1-2 of that
+> file for what shipped instead.
+
 ## 3. What refuted it
 
 Replayed against the **44-case golden benchmark under today's shipped weights** —
