@@ -22,6 +22,7 @@ import 'server-only';
  */
 
 import { createClient } from '@/app/_lib/supabase/server';
+import { withCanonicalAreaLabels } from '@/domain/places/area-label';
 import { productCategoryFor } from '@/domain/places/product-category';
 import type { SpotProvenance, SpotSource } from '@/domain/places/spot';
 import type { EnrichedSpot } from '@/ui/place/enrichment';
@@ -210,5 +211,8 @@ export async function getSpots(): Promise<readonly EnrichedSpot[]> {
 
   if (error) throw error;
 
-  return (data as unknown as SavedPlaceRow[]).map(toSpot);
+  // One area, one name. Derived here for the same reason `productCategoryFor` is: a value every
+  // renderer needs and none of them should compute for itself. See `area-label.ts` for why the
+  // provider's own string stays in the column untouched.
+  return withCanonicalAreaLabels((data as unknown as SavedPlaceRow[]).map(toSpot));
 }
