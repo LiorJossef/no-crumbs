@@ -54,6 +54,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { canonicaliseTikTokUrl } from '@/domain/source/canonicalise-tiktok-url';
+import { extractPastedUrl, pasteWasNarrowed } from '@/domain/source/extract-pasted-url';
 import type { PipelineStage } from '@/domain/import/events';
 import { googleMapsSearchUrl } from '@/domain/places/google-maps-search-url';
 import { decideCaptionSaveOutcome, type CaptionSaveResult } from '@/domain/import/caption-save-outcome';
@@ -333,10 +334,21 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
     inFlightProbe.current = null;
   }
 
-  function reset() {
+  /**
+   * Back to the paste screen, with the link still in the field.
+   *
+   * It used to clear it, and that made `Cancel` a punishment: the link is in TikTok, not in the
+   * browser, so a user who cancelled a slow import — or hit a failure with a `Try another` button —
+   * had to leave the product, reopen the post and copy the link again to try the same thing twice.
+   * Nothing about cancelling says the link was wrong.
+   *
+   * `clearUrl` is passed by the one caller for which it *is* finished: a completed save. Leaving
+   * the link there afterwards would invite a second import of a post already in the library.
+   */
+  function reset(options?: { readonly clearUrl?: boolean }) {
     abortInFlightProbe();
     setScreen({ kind: 'paste' });
-    setUrl('');
+    if (options?.clearUrl) setUrl('');
     setTouched(false);
     setCaptionSave({ saving: false, error: null, partialNotice: null, statusByIndex: null });
   }
@@ -677,7 +689,7 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
       switch (outcome.kind) {
         case 'proceed':
           backToMapWithFreshData(result);
-          reset();
+          reset({ clearUrl: true });
           return;
         case 'skip_only':
         case 'hard_failure':
@@ -707,7 +719,7 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
    *  which/how-many-failed message. */
   function continueAfterPartialSave() {
     backToMapWithFreshData(lastSaveDetail.current);
-    reset();
+    reset({ clearUrl: true });
   }
 
   return (
@@ -830,18 +842,18 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
             retryable={false}
             url={url}
             onRetrySameUrl={() => void submit()}
-            onTryAnother={reset}
+            onTryAnother={() => reset()}
             onBackToMap={backToMap}
             onSignIn={() => router.push('/sign-in')}
           />
         )}
 
         {screen.kind === 'rail' && (
-          <RailScreen rail={screen.rail} onCancel={reset} />
+          <RailScreen rail={screen.rail} onCancel={() => reset()} />
         )}
 
         {screen.kind === 'no_places' && (
-          <NoPlacesScreen authorHandle={screen.authorHandle} url={url} onRetry={reset} />
+          <NoPlacesScreen authorHandle={screen.authorHandle} url={url} onRetry={() => reset()} />
         )}
 
         {screen.kind === 'results' && (
@@ -850,9 +862,9 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
             candidates={screen.candidates}
             onSave={async () => {
               await saveConfirmedCandidates(screen.candidates);
-              reset();
+              reset({ clearUrl: true });
             }}
-            onCancel={reset}
+            onCancel={() => reset()}
           />
         )}
 
@@ -864,7 +876,7 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
             partialNotice={captionSave.partialNotice}
             statusByIndex={captionSave.statusByIndex}
             onSave={(picks) => finishCaptionPreview(picks, screen.probe.extractionId)}
-            onRetry={reset}
+            onRetry={() => reset()}
             onContinue={continueAfterPartialSave}
           />
         )}
@@ -876,7 +888,7 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
             retryable={screen.retryable}
             url={url}
             onRetrySameUrl={() => void submit()}
-            onTryAnother={reset}
+            onTryAnother={() => reset()}
             onBackToMap={backToMap}
             onSignIn={() => router.push('/sign-in')}
           />
@@ -927,7 +939,17 @@ function PasteScreen({
 }) {
   const seedsLabelId = useId();
   return (
-    <div className="flex flex-1 flex-col">
+    // A real `<form>`, because the first action in the flagship flow was tap-only: the field was a
+    // bare `<Input>` with no form and no key handler, so Enter on a desktop keyboard and Go on a
+    // phone keyboard both did nothing at all. Every seed button below is `type="button"`, so none
+    // of them submits it.
+    <form
+      className="flex flex-1 flex-col"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (canSubmit) onSubmit();
+      }}
+    >
       <div className="flex flex-col gap-2 pb-8">
         <ScreenKicker icon={<Link2 className="size-3.5" aria-hidden />} label="Add a place" />
         <h1 className="font-heading text-3xl font-extrabold tracking-tight text-foreground">
@@ -942,9 +964,28 @@ function PasteScreen({
         <Input
           autoFocus
           inputMode="url"
+          // A URL is not prose: autocapitalising it, autocorrecting it or underlining it in red are
+          // all a phone keyboard trying to help with something it cannot help with. `go` turns the
+          // return key into the action, which is what makes the form above reachable on a phone.
+          enterKeyHint="go"
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
           placeholder="Paste a TikTok link"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
+          onPaste={(event) => {
+            // What TikTok's share sheet copies is `caption … link … #hashtags`, not a bare link,
+            // and rejecting that as "That doesn't look like a TikTok link" was a lie — the link is
+            // right there. Read on paste only, never while typing: rewriting a field under a
+            // moving cursor is worse than not helping. `extract-pasted-url.ts` states plainly that
+            // it is not part of the SSRF boundary; whatever it picks still goes through the full
+            // host allow-list.
+            const pasted = event.clipboardData.getData('text');
+            if (!pasteWasNarrowed(pasted)) return;
+            event.preventDefault();
+            setUrl(extractPastedUrl(pasted));
+          }}
           onBlur={() => setTouched(true)}
           aria-invalid={showInvalid || undefined}
           className={cn(
@@ -998,15 +1039,14 @@ function PasteScreen({
           the home indicator on a short viewport without extra plumbing at this fidelity. */}
       <div className="mt-auto flex flex-col gap-2 pt-10">
         <Button
-          type="button"
+          type="submit"
           disabled={!canSubmit}
-          onClick={() => onSubmit()}
           className="h-12 w-full rounded-lg text-base font-bold"
         >
           Add →
         </Button>
       </div>
-    </div>
+    </form>
   );
 }
 
