@@ -9,9 +9,13 @@
  * **Resolution is the current change, and it is the difference between a product and a demo.**
  * Until now every coordinate this route led to was the model's own guess — measured 65–470 m out,
  * and 541 m apart between two runs of the same caption. Each in-budget candidate is now put to
- * `overturePlaceResolver` over the loaded `poi_index` rows, and the shortlist is written into the
- * same `extractions.candidates` array the confirm step already reads. Measured for the mention
- * "HaKosem": 11 m from the real venue.
+ * the `PlaceResolver` that `place-resolver-factory.ts` selects for this environment, and the
+ * shortlist is written into the same `extractions.candidates` array the confirm step already
+ * reads. Measured for the mention "HaKosem": 11 m from the real venue.
+ *
+ * **Which provider answers is config, not code** (owner ruling, 2026-08-28): Google Places where
+ * we develop and measure, the Overture `poi_index` in production until the map renderer moves.
+ * The factory's header carries the terms-of-service reason that gate exists.
  *
  * The shortlist is stored rather than returned-and-resent for the reason
  * `domain/import/candidate-place.ts`'s header gives at length: the browser may say *which*
@@ -97,7 +101,7 @@ import { serviceRoleClient } from '@/integrations/supabase/service-role-client';
 import { oembedSourceAdapter, canonicalUrlFor } from '@/integrations/tiktok/oembed-source-adapter';
 import { captionContentExtractor } from '@/integrations/tiktok/caption-content-extractor';
 import { createPlaceExtractor } from '@/integrations/llm/place-extractor-factory';
-import { overturePlaceResolver, supabasePoiIndexGateway } from '@/integrations/supabase/place-resolver';
+import { createPlaceResolver, placeResolverEnv } from '@/integrations/places/place-resolver-factory';
 import { canonicaliseTikTokUrl } from '@/domain/source/canonicalise-tiktok-url';
 import { resolveCandidates } from '@/domain/import/resolve-candidates';
 import type { StoredResolution } from '@/domain/import/resolution-record';
@@ -633,7 +637,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (candidates.length > 0 && !cachedResolutionsComplete) {
       const resolveStartedAt = Date.now();
       const outcome = await resolveCandidates(
-        overturePlaceResolver(supabasePoiIndexGateway(db)),
+        createPlaceResolver(placeResolverEnv(), db),
         candidates,
         extractionCityHint,
         ctx,

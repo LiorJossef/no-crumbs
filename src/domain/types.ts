@@ -67,7 +67,15 @@ export interface LatLng {
  * `ResolvedPlace`/`ConfirmItem`'s `provider` field can never silently drift out of sync with what
  * `resolve_place` actually accepts.
  */
-export type PlaceProvider = 'overture' | 'nominatim' | 'llm_guess';
+/**
+ * `'google'` (2026-08-28): Google Places API (New) Text Search, the provider the owner ruled
+ * primary after `docs/evidence/places/google-places-and-transcription-probe-2026-08-28.md`
+ * measured it at 14/15 top-1 against Overture's 12/15 on the real corpus. It needed **no
+ * migration**: `place_provider_refs.provider` carries a pattern CHECK
+ * (`^[a-z][a-z0-9_]{1,31}$`, migrations 0005/0007), not an enum, so `'google'` was already
+ * accepted. `06` §3.3 predicted "a small migration"; the foresight cost even less than that.
+ */
+export type PlaceProvider = 'overture' | 'nominatim' | 'llm_guess' | 'google';
 
 /**
  * Which dataset the row's *data* came from — the licensing/attribution mark, written to
@@ -84,7 +92,19 @@ export type PlaceProvider = 'overture' | 'nominatim' | 'llm_guess';
  * only ever admits `'overture-places'` — that constraint is about what may be *cached for
  * resolving*, not what `places.source_dataset` may record, so this addition does not touch it.
  */
-export type SourceDataset = 'overture-places' | 'osm-nominatim' | 'llm-guess';
+export type SourceDataset =
+  | 'overture-places'
+  | 'osm-nominatim'
+  | 'llm-guess'
+  /**
+   * Google Places. Its licensing position is unlike the other two and the mark exists to keep that
+   * visible per-row: Service Specific Terms §5.4 caps lat/lng caching at 30 days and only the
+   * place id is exempt, so a row carrying this dataset holds coordinates that are **cache, not
+   * record**. `06` §3.1 also forbids pairing this content with a non-Google map — see
+   * `integrations/google/place-resolver.ts` and `place-resolver-factory.ts` for where that is
+   * enforced rather than merely noted.
+   */
+  | 'google-places';
 
 /* ------------------------------------------------------------------------------------------- *
  * Resolution input
