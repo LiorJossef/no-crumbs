@@ -178,6 +178,9 @@ function toSpot(row: SavedPlaceRow): EnrichedSpot {
       providerCategory: place?.provider_category,
       extractedHint: place?.category,
     }),
+    // Whether the user has spoken, not what they said — see `Spot.categoryIsOverridden`. A blank
+    // string is not an override: `productCategoryFor` ignores it too, so the two agree.
+    categoryIsOverridden: (row.category_override ?? '').trim() !== '',
     lat: place?.lat ?? 0,
     lng: place?.lng ?? 0,
     ...(place?.address_line ? { addressLine: place.address_line } : {}),

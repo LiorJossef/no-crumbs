@@ -1,10 +1,10 @@
 'use client';
 
 /**
- * The two edits a user can make to a place they already saved — `L1-F7-T2`. Both live here rather
- * than inside `PlaceDetail` because `place-sheet.tsx` is already 600 lines, and because these two
- * share one idiom: a `useTransition` around a Server Action, an inline error, and no optimistic
- * update.
+ * The edits a user can make to a place they already saved — `L1-F7-T2` for the note and the delete,
+ * and the category since 2026-08-28. All of them live here rather than inside `PlaceDetail` because
+ * `place-sheet.tsx` is already 600 lines, and because they share one idiom: a `useTransition` around
+ * a Server Action, an inline error, and no optimistic update.
  *
  * ## One component pair, two surfaces
  *
@@ -35,8 +35,17 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import { Trash2, Pencil } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { deleteSavedPlace, updateSavedPlaceNote } from '@/app/actions/saved-places';
+import {
+  deleteSavedPlace,
+  updateSavedPlaceCategory,
+  updateSavedPlaceNote,
+} from '@/app/actions/saved-places';
 import { NOTE_MAX_LENGTH, isNoteUnchanged, validateNote } from '@/domain/places/note';
+import {
+  PRODUCT_CATEGORY_LABEL,
+  PRODUCT_CATEGORY_ORDER,
+  type ProductCategory,
+} from '@/domain/places/product-category';
 import { cn } from '@/lib/utils';
 
 /** Shown once the note gets close enough to the limit that the number is useful rather than noise. */
@@ -53,6 +62,147 @@ const LABEL = 'text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppe
  * the user selects a different place; it deliberately does not sync `draft` from props in an
  * effect, which would throw away half-typed text whenever the server revalidated.
  */
+
+/**
+ * The user's own word for what this place is.
+ *
+ * ## Why this exists at all
+ *
+ * `saved_places.category_override` has been in the schema since `0019` and `productCategoryFor`
+ * has ranked it above both the provider's registration and the model's guess since the day that
+ * function shipped — and **nothing ever wrote it**. The reconciliation was reading a column that
+ * could not be filled. This is the missing half, and it is additive: no schema change, no new
+ * authority, no new rendering path.
+ *
+ * It earns its place because the two claims underneath it are both wrong sometimes and in opposite
+ * ways. The model reads a caption *about* a place and files a gelateria as a `shop`. The provider
+ * files a real café as a `restaurant`, which is Google's taxonomy rather than a disagreement about
+ * the venue. The person who saved it has been there.
+ *
+ * ## Collapsed by default, one row when open
+ *
+ * Eight chips is more visual weight than a control most people will touch once deserves, so this
+ * follows `NoteEditor`'s idiom exactly: a label, the current value, and a small pencil. Opening it
+ * shows the whole vocabulary at once rather than a select — the set is closed and short, and a
+ * native select on a drag sheet fights the gesture layer the same way a dialog does
+ * (`place-sheet.tsx`'s `useNonModalBackground`).
+ *
+ * ## "Automatic" is an option, not an absence
+ *
+ * When the user has overridden the category, the row offers `Automatic` alongside the eight. It
+ * writes SQL `NULL`, which is a different statement from picking `Place`: it means *stop, use
+ * whatever you work out*, so a better provider category tomorrow still reaches this place. Freezing
+ * today's derivation into the column would opt the place out of every future improvement, silently.
+ *
+ * Not optimistic, for the same reason nothing else here is: `revalidatePath('/map')` is what
+ * updates the pin colour, the pin glyph and the line under the name, so the screen can never
+ * disagree with the database about what a place is.
+ */
+export function CategoryEditor({
+  savedPlaceId,
+  category,
+  isOverridden,
+}: {
+  savedPlaceId: string;
+  category: ProductCategory;
+  /** Whether `category` came from this user's override rather than the provider or the model.
+   *  Decides only whether `Automatic` is offered — there is nothing to undo otherwise. */
+  isOverridden: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function choose(next: ProductCategory | null) {
+    setError(null);
+    startTransition(async () => {
+      const result = await updateSavedPlaceCategory(savedPlaceId, next);
+      if (result.ok) {
+        setEditing(false);
+        return;
+      }
+      setError(result.message);
+    });
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center justify-between gap-2">
+        <p className={LABEL}>Category</p>
+        <button
+          type="button"
+          onClick={() => {
+            setError(null);
+            setEditing(!editing);
+          }}
+          aria-expanded={editing}
+          className="flex items-center gap-1 text-xs font-bold text-[var(--mint-700)] underline-offset-4 hover:underline"
+        >
+          <Pencil className="size-3" aria-hidden />
+          {editing ? 'Done' : 'Change'}
+        </button>
+      </div>
+
+      {editing ? (
+        // `radiogroup` rather than a list of buttons: these are one mutually exclusive choice, and
+        // a screen reader should say "3 of 9" rather than announce nine unrelated controls.
+        <div role="radiogroup" aria-label="Category" className="flex flex-wrap gap-1.5 pt-0.5">
+          {PRODUCT_CATEGORY_ORDER.map((value) => {
+            const active = value === category && isOverridden;
+            return (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                disabled={pending}
+                onClick={() => {
+                  choose(value);
+                }}
+                className={cn(
+                  'rounded-full px-2.5 py-1 text-xs font-bold transition-colors disabled:opacity-50',
+                  active
+                    ? 'bg-[var(--mint-100)] text-[var(--mint-700)]'
+                    : 'bg-muted text-foreground hover:bg-[var(--mint-100)]',
+                )}
+              >
+                {PRODUCT_CATEGORY_LABEL[value]}
+              </button>
+            );
+          })}
+          {isOverridden && (
+            <button
+              type="button"
+              role="radio"
+              aria-checked={false}
+              disabled={pending}
+              onClick={() => {
+                choose(null);
+              }}
+              className="rounded-full px-2.5 py-1 text-xs font-bold text-muted-foreground underline underline-offset-4 disabled:opacity-50"
+            >
+              Automatic
+            </button>
+          )}
+        </div>
+      ) : (
+        <p className="text-sm leading-relaxed text-foreground">
+          {PRODUCT_CATEGORY_LABEL[category]}
+          {!isOverridden && (
+            <span className="text-muted-foreground"> · worked out from the post</span>
+          )}
+        </p>
+      )}
+
+      {error && (
+        <p role="alert" className="text-xs font-medium text-destructive">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function NoteEditor({
   savedPlaceId,
   note,

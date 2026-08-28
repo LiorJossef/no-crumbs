@@ -29,6 +29,7 @@ const BARE_SPOT: Spot = {
   id: 'a4c1f0a4-0000-4000-8000-000000000001',
   name: 'The Laughing Yak',
   category: 'restaurant',
+  categoryIsOverridden: false,
   lat: 51.4682,
   lng: -0.0689,
   visitState: 'want_to_go',

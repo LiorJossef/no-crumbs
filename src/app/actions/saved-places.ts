@@ -50,6 +50,7 @@ import { revalidatePath } from 'next/cache';
 
 import { createClient } from '@/app/_lib/supabase/server';
 import { validateNote } from '@/domain/places/note';
+import { isProductCategory, type ProductCategory } from '@/domain/places/product-category';
 
 export type SavedPlaceResult =
   | { readonly ok: true }
@@ -59,6 +60,8 @@ const NOT_SIGNED_IN = 'You are signed out. Sign in and try again.';
 const GONE = 'That place is no longer in your list.';
 const FAILED_DELETE = "Couldn't remove that place. Try again.";
 const FAILED_UPDATE = "Couldn't save your note. Try again.";
+const FAILED_CATEGORY = "Couldn't change the category. Try again.";
+const BAD_CATEGORY = 'That is not a category we know.';
 
 /**
  * Deletes one of the caller's saved places.
@@ -120,6 +123,65 @@ export async function updateSavedPlaceNote(
   if (error) {
     console.error('updateSavedPlaceNote failed', { savedPlaceId, code: error.code });
     return { ok: false, message: FAILED_UPDATE };
+  }
+  if (count === 0) return { ok: false, message: GONE };
+
+  revalidatePath('/map');
+  return { ok: true };
+}
+
+/**
+ * Sets (or clears) the caller's own category for a saved place.
+ *
+ * ## Why this is a *third* write and not a widening of the note
+ *
+ * `0019`'s UPDATE column grant already covers `category_override`, and `productCategoryFor` already
+ * ranks it above both the provider's registration and the model's guess — the reconciliation has
+ * been reading a column nothing ever wrote since the day it shipped. So this adds no schema surface
+ * and no new authority: it fills in the half that was missing.
+ *
+ * ## `null` restores the derivation, and that is the point of the control
+ *
+ * Clearing writes SQL `NULL`, not `'other'` and not the derived value frozen into the column. The
+ * user is saying *"stop, use whatever you work out"*, which is a different statement from *"this is
+ * an Other"* — and it has to stay different, because a better provider category tomorrow should
+ * reach a place whose owner never overrode it. Freezing the current derivation would silently opt
+ * that place out of every future improvement.
+ *
+ * ## Why the value is validated here rather than only at the column
+ *
+ * `category_override` is plain `text` with no CHECK, and `productCategoryFor` tolerates a string it
+ * cannot parse by rendering `other` — deliberately, because an unparseable override is still the
+ * user's word. That tolerance is right for reading old rows and wrong for accepting new ones: a
+ * client that posts `'Kaffee'` would write a value the product can never render, and the user would
+ * see `Place` with no way to tell why. `isProductCategory` is the same predicate the renderer uses,
+ * so what this accepts and what the screen can draw cannot drift.
+ *
+ * Authorisation is `saved_places_update_own` (`0006`), exactly as for the other two — see the
+ * header for why no `user_id` filter appears here.
+ */
+export async function updateSavedPlaceCategory(
+  savedPlaceId: string,
+  category: ProductCategory | null,
+): Promise<SavedPlaceResult> {
+  if (category !== null && !isProductCategory(category)) {
+    return { ok: false, message: BAD_CATEGORY };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, message: NOT_SIGNED_IN };
+
+  const { error, count } = await supabase
+    .from('saved_places')
+    .update({ category_override: category }, { count: 'exact' })
+    .eq('id', savedPlaceId);
+
+  if (error) {
+    console.error('updateSavedPlaceCategory failed', { savedPlaceId, code: error.code });
+    return { ok: false, message: FAILED_CATEGORY };
   }
   if (count === 0) return { ok: false, message: GONE };
 

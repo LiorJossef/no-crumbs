@@ -1,5 +1,6 @@
 /**
- * Unit coverage for the two Server Actions behind `L1-F7-T2`.
+ * Unit coverage for the Server Actions on a saved place — the two behind `L1-F7-T2` and the
+ * category override added on 2026-08-28.
  *
  * The Supabase client is mocked, so this proves the *shape* of what reaches the database — which
  * table, which filter, which values, and whether `revalidatePath` runs — not that RLS scopes the
@@ -74,7 +75,9 @@ vi.mock('@/app/_lib/supabase/server', () => ({
   }),
 }));
 
-const { deleteSavedPlace, updateSavedPlaceNote } = await import('@/app/actions/saved-places');
+const { deleteSavedPlace, updateSavedPlaceCategory, updateSavedPlaceNote } = await import(
+  '@/app/actions/saved-places'
+);
 
 beforeEach(() => {
   calls.length = 0;
@@ -226,5 +229,63 @@ describe('updateSavedPlaceNote', () => {
     if (outcome.ok) throw new Error('unreachable');
     expect(outcome.message).toBe("Couldn't save your note. Try again.");
     expect(outcome.message).not.toContain('saved_places_note_check');
+  });
+});
+
+describe('updateSavedPlaceCategory', () => {
+  it('writes the category the user chose, and nothing else', () => {
+    return updateSavedPlaceCategory('sp-1', 'dessert').then((outcome) => {
+      expect(outcome).toEqual({ ok: true });
+      expect(calls).toEqual([
+        {
+          table: 'saved_places',
+          op: 'update',
+          values: { category_override: 'dessert' },
+          count: 'exact',
+          filter: { column: 'id', value: 'sp-1' },
+        },
+      ]);
+      expect(revalidated).toEqual(['/map']);
+    });
+  });
+
+  it('clears with SQL NULL, never with a frozen derivation', async () => {
+    // The distinction the control depends on: `null` means "use whatever you work out", so a
+    // better provider category tomorrow still reaches this place. Writing `'other'` — or today's
+    // derived value — would opt it out of every future improvement, silently.
+    await updateSavedPlaceCategory('sp-1', null);
+    expect(calls[0]?.values).toEqual({ category_override: null });
+  });
+
+  it('refuses a value the renderer could not draw, without touching the database', async () => {
+    // `category_override` is plain `text` with no CHECK, and `productCategoryFor` renders an
+    // unparseable override as `Place` on purpose — right for reading old rows, wrong for accepting
+    // new ones. A user who sent `Kaffee` would see `Place` with no way to tell why.
+    const outcome = await updateSavedPlaceCategory('sp-1', 'Kaffee' as never);
+    expect(outcome).toEqual({ ok: false, message: 'That is not a category we know.' });
+    expect(calls).toEqual([]);
+    expect(revalidated).toEqual([]);
+  });
+
+  it('reports a row that is not the callers as gone, exactly as the other two do', async () => {
+    result = { error: null, count: 0 };
+    const outcome = await updateSavedPlaceCategory('someone-elses-row', 'bar');
+    expect(outcome).toEqual({ ok: false, message: 'That place is no longer in your list.' });
+    expect(revalidated).toEqual([]);
+  });
+
+  it('never leaks Postgres error text to the browser', async () => {
+    result = { error: { code: '42501', message: 'permission denied for column category_override' }, count: null };
+    const outcome = await updateSavedPlaceCategory('sp-1', 'bar');
+    if (outcome.ok) throw new Error('unreachable');
+    expect(outcome.message).toBe("Couldn't change the category. Try again.");
+    expect(outcome.message).not.toContain('permission denied');
+  });
+
+  it('does not write when signed out', async () => {
+    currentUser = null;
+    const outcome = await updateSavedPlaceCategory('sp-1', 'bar');
+    expect(outcome.ok).toBe(false);
+    expect(calls).toEqual([]);
   });
 });
