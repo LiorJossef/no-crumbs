@@ -60,6 +60,10 @@ export interface SpotSource {
 /** One saved place, read-side. See this file's header for what each optional field means. */
 export interface Spot {
   readonly id: string;
+  /** `saved_places.place_id` — the shared `places` row behind this save. Distinct from `id`, which
+   *  is *this user's* save of it, and the one a collection stores: a collection is a set of places,
+   *  not a set of somebody's library rows. */
+  readonly placeId: string;
   /** `saved_places.display_name`, falling back to `places.name` — the per-user overlay `08 §2.2`
    *  rule 3 describes. */
   readonly name: string;

@@ -30,6 +30,7 @@ import type { SourceDataset } from '@/domain/types';
 
 const SAVED_PLACES_SELECT = `
   id,
+  place_id,
   note,
   visit_state,
   visited_at,
@@ -72,6 +73,10 @@ const SAVED_PLACES_SELECT = `
  */
 interface SavedPlaceRow {
   readonly id: string;
+  /** `saved_places.place_id` — the shared identity row this save points at. Needed by anything
+   *  that talks about the *place* rather than about this user's save of it; a collection stores
+   *  place ids, so adding a saved place to one has to know this. */
+  readonly place_id: string;
   readonly note: string | null;
   readonly visit_state: 'want_to_go' | 'visited';
   readonly visited_at: string | null;
@@ -172,6 +177,7 @@ function toSpot(row: SavedPlaceRow): EnrichedSpot {
 
   return {
     id: row.id,
+    placeId: row.place_id,
     name: row.display_name ?? place?.name ?? row.id,
     category: productCategoryFor({
       override: row.category_override,
