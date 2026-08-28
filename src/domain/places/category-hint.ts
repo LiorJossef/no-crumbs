@@ -26,6 +26,25 @@ export type ExtractedCategoryHint =
   | 'other';
 
 /**
+ * What each value is called in a sentence. Written out rather than capitalised programmatically so
+ * "cafe" can carry its accent and "other" can become a word a person would actually say.
+ *
+ * Here, in the domain, because the vocabulary is a fact about a place rather than a rendering
+ * choice — and because it was previously written out twice, in `import/candidate-presentation.ts`
+ * and in `ui/place/category-display.ts`, which is two tables that have to agree and nothing making
+ * them. The pin *colour* stays in `ui/`, which is where a colour belongs.
+ */
+export const CATEGORY_LABEL: Record<ExtractedCategoryHint, string> = {
+  restaurant: 'Restaurant',
+  cafe: 'Café',
+  bakery: 'Bakery',
+  bar: 'Bar',
+  attraction: 'Attraction',
+  shop: 'Shop',
+  other: 'Place',
+};
+
+/**
  * Total, and deliberately lossy in one direction only.
  *
  * `'bakery' → 'cafe'` is not a guess: `CAT_TOKENS.cafe` already contains the token `bakery`, so a

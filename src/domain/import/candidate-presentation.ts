@@ -23,22 +23,8 @@
  */
 
 import type { PlaceCandidate } from '../types';
+import { CATEGORY_LABEL } from '../places/category-hint';
 import type { ExtractedCategoryHint } from '../places/category-hint';
-
-/**
- * The seven-value extraction vocabulary, in sentence case for reading. Written out rather than
- * capitalised programmatically so "cafe" can carry its accent and "other" can become a word a
- * person would actually say.
- */
-const CATEGORY_LABEL: Record<ExtractedCategoryHint, string> = {
-  restaurant: 'Restaurant',
-  cafe: 'Café',
-  bar: 'Bar',
-  bakery: 'Bakery',
-  attraction: 'Attraction',
-  shop: 'Shop',
-  other: 'Place',
-};
 
 /** The one thing this screen says about location accuracy, said once rather than per card —
  *  because our honest position is identical on every candidate. "A street or two" is the measured

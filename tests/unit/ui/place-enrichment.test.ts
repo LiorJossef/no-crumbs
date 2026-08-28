@@ -16,7 +16,7 @@ import { describe, expect, it } from 'vitest';
 import {
   MAX_ROW_TAGS,
   MIN_NEW_WORDS,
-  ROW_TAG_CHAR_BUDGET,
+  ROW_TAG_PIXEL_BUDGET,
   enrichmentOf,
   newWordCount,
   rowAccessibleName,
@@ -69,13 +69,18 @@ describe('splitRowTags', () => {
     });
   });
 
-  it('keeps the first three — the extractor emits them most-salient-first and the database preserves that order', () => {
-    // The real Kiaans Tooting list. 31 characters across three tags, inside the budget.
+  it('keeps the widest prefix that fits — the extractor emits tags most-salient-first and the database preserves that order', () => {
+    // The real Kiaans Tooting list. Two whole chips, not three squeezed ones: `Pan Asian` (65 px)
+    // + `Market Stall` (81 px) + `Hidden Gem` (70 px) is 216 px against a list column measured at
+    // **192 px** on desktop. One budget has to serve both breakpoints and it has to be the
+    // narrower one, so a phone — whose column is ~294 px and could hold all three — shows two as
+    // well. That is the trade, stated: a whole label on both surfaces beats a third label that
+    // only fits on one of them.
     expect(
       splitRowTags(['pan asian', 'market stall', 'hidden gem', 'street food', 'late night']),
     ).toEqual({
-      shown: ['pan asian', 'market stall', 'hidden gem'],
-      overflow: 2,
+      shown: ['pan asian', 'market stall'],
+      overflow: 3,
     });
   });
 
@@ -112,7 +117,17 @@ describe('splitRowTags', () => {
 
   it('never shows more than its published count cap, however short the tags', () => {
     expect(splitRowTags(['a1', 'b2', 'c3', 'd4', 'e5']).shown).toHaveLength(MAX_ROW_TAGS);
-    expect(ROW_TAG_CHAR_BUDGET).toBe(34);
+    expect(ROW_TAG_PIXEL_BUDGET).toBe(205);
+  });
+
+  it('counts a chip\'s own padding, not just its characters', () => {
+    // Measured on this database after `Kohi Coffee Shop` was saved. 30 characters total, which sat
+    // well inside the old 34-character budget — and rendered as three truncated chips, the exact
+    // outcome the budget exists to prevent. Three chips cost three lots of padding.
+    expect(splitRowTags(['japanese', 'specialty coffee', 'bakery'])).toEqual({
+      shown: ['japanese', 'specialty coffee'],
+      overflow: 1,
+    });
   });
 });
 
@@ -137,7 +152,7 @@ describe('rowAccessibleName', () => {
         'street food',
         'late night',
       ]),
-    ).toBe('Open Kiaans Tooting, tagged Pan Asian, Market Stall, Hidden Gem and 2 more');
+    ).toBe('Open Kiaans Tooting, tagged Pan Asian, Market Stall and 3 more');
   });
 
   it('carries a Hebrew tag through unchanged — there is no casing to apply', () => {
