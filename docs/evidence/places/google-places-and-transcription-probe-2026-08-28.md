@@ -149,3 +149,53 @@ in the product.
 
 **Bottom line:** transcription proper is gated on a media-access decision that has not been taken.
 The cover frame is the part that is free, compliant, already in our hands, and unmeasured.
+
+---
+
+## B2. The cover frame, measured properly (VERIFIED, n=15) — and it does not carry the product
+
+Follow-up to B, run the same night on **E7's hand-labelled set** rather than the corpus. That choice
+is the point: `tests/manual/tiktok-recognition-corpus.json` is caption-rich by construction, so
+measuring OCR lift on it would flatter the mechanism. E7's 16 posts already carry a human verdict on
+*whether the caption names a place*, which is exactly the denominator this question needs.
+
+Machine record: `docs/evidence/tiktok/cover-frame-ocr-run-2026-08-28.json`. Cover frame + caption to
+`gemini-3.5-flash-lite`, ~1 240 tokens per post, prompted to report only what is legible and
+explicitly forbidden from using world knowledge.
+
+### Recall: 1 of 8
+
+Of the eight place-recommendation posts whose caption names no venue, the cover frame yielded a
+venue name for **one** (`@yallabikestlv` → `Pizza Lila`, which resolves cleanly to Merkhavya St 4).
+The other seven covers carry a hook line and no name — `perfection new coffee spot in tel aviv`,
+`Hidden spots in London` — which is exactly what the format rewards: the cover exists to make you
+watch, and naming the place on it would defeat that.
+
+So the earlier n=2 hint does **not** generalise. The cover frame is not a route to the 73%.
+
+### Precision: the more important result, and it is a warning
+
+On `@exploringlondon`'s post the model returned four venues —
+`Sea Garden`, `Hacf Agaver Market`, `Rama Hair & Be`, `Ersimes Organic & Her`. **The OCR was
+accurate, not hallucinated**: the frame was opened and read by the lead, and those really are
+shopfront signs in Brixton Village.
+
+They are also **none of them what the post is about**. The caption names eight restaurants (La
+Nonna, MBER, The Life Goddess, …) and the cover happens to be shot down a market arcade, so the
+model faithfully read a hair salon, an organic shop and a market sign and offered them as venues.
+
+**A naive cover-frame reader would invent places the creator never recommended.** That is a worse
+failure than finding nothing, and it is the failure this product's whole posture is against.
+
+### If it is ever picked up
+
+Not "read the image" but **"read the text the creator added"**. Overlay stickers and caption text
+are visually distinct from photographed signage, and the one success (`Pizza Lila`) was an overlay
+while every false positive was background signage. Any such candidate must also arrive as
+low-confidence and be droppable by `plausibility.ts` — never as a resolved place.
+
+### One operational fact worth keeping
+
+**`thumbnail_url` expires.** The URLs cached in `oembed-set1-raw.json` on 2026-08-18 all 403 now,
+and the run only worked after re-fetching oEmbed live. So a cover frame has to be read *during* the
+import; it cannot be stored and processed later.
