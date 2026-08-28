@@ -1,9 +1,31 @@
 # Current state — cold-start document
 
 ---
-> ## ⚠ 2026-08-29 — read [`handoff-2026-08-29-overnight-map-and-information.md`](handoff-2026-08-29-overnight-map-and-information.md) FIRST
+> ## ⚠ LATEST — read [`handoff-2026-08-28-google-places-primary.md`](handoff-2026-08-28-google-places-primary.md) FIRST
 >
-> It supersedes every earlier handoff's ordered steps. Headline: the map answers all three of the
+> It supersedes the ordered steps in every earlier handoff. Headline: **Google Places is now the
+> primary place resolver** (owner ruling, 2026-08-28) with the Overture index preserved off the
+> primary path and the MapLibre renderer unchanged. Measured on the same 13 real TikToks through the
+> shipped flow: **Google 15/15 correct top-1 against Overture's 12/15**, auto-match 6/16 vs 7/16 —
+> more accurate, slightly less decisive.
+>
+> **It is not shippable yet, and that is not a code problem.** The Cloud project caps Places Text
+> Search at **100 requests/day** and one night of benchmarking exhausted it. Raising it is an owner
+> console/billing action. Separately, `06` §3.1 forbids Google Places data on a non-Google map, so
+> `place-resolver-factory.ts` keeps **production on Overture** until the renderer moves.
+>
+> Also landed: **TikTok photo/carousel posts are supported** (`04` §5 category L closed with a real
+> specimen — oEmbed 400s `/photo/` and 200s the same id under `/video/`), and a provenance bug that
+> wrote a correctly-resolved place to `places` as `llm-guess` while 1054 tests stayed green.
+>
+> **Refuted, do not repeat:** cover-frame OCR (recall 1/8, and it reads background shopfronts as
+> venues); Google's `types` array as a fix for the category term.
+
+---
+> ## ⚠ 2026-08-29 — [`handoff-2026-08-29-overnight-map-and-information.md`](handoff-2026-08-29-overnight-map-and-information.md)
+>
+> Superseded by the entry above for *ordered steps*; its findings still stand and its map and
+> extraction work is all on `main`. Headline at the time: the map answers all three of the
 > owner's complaints (category pins, clusters that open and are coloured by their majority
 > category, a basemap re-tinted into the product's palette); the "information feels generic"
 > problem was **three separate problems** — presentation, a Hebrew `countryHint` storing

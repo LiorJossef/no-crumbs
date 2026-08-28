@@ -1,25 +1,53 @@
-# Handoff — Google Places becomes the primary resolver
+# Handoff — Google Places is the primary resolver (cold-start document)
 
-**Status: all of this session's work is merged to `main` and verified there.** Written to resume cold.
+**Status: everything below is merged to `main` and verified there.** `main` is green:
+**1068 tests, 59 files**, `npm run verify` clean, working tree clean.
 
-## What landed (all merged, `main` green at 1068 tests)
+Written so a completely fresh session can continue without reading any chat transcript. If you read
+only one section, read **§7 (blocked / owner input)** and **§10 (next tasks)**.
+
+---
+
+## 1. The ruling this session executed
+
+Owner ruling, **2026-08-28** (overnight session):
+
+1. **Google Places is the active direction for place resolution/data.** Move the database/index
+   resolver **out of the primary path but preserve it** — do not delete.
+2. **Do NOT switch the map renderer yet.** Google Maps is the *next thing to prototype*, so the
+   owner can experience both and then choose. Avoid investment that makes that comparison harder.
+3. Keep it lean, verify on real TikToks, desktop and mobile.
+4. Then keep exploring: multi-place extraction, TikTok photo/carousel links, free OCR, free
+   transcription, other product/UX improvements.
+
+The evidence the owner ruled on is
+[`evidence/places/google-places-and-transcription-probe-2026-08-28.md`](evidence/places/google-places-and-transcription-probe-2026-08-28.md).
+
+---
+
+## 2. What was completed and merged
+
+All merged through `npm run merge:pr` with CI green; `main` verified after each.
 
 | PR | What |
 |---|---|
-| [#55](https://github.com/LiorJossef/P-002/pull/55) | Google Places provider behind the existing port; language follows the caption's script; `SoleCandidateMeaning` band policy; the provenance bug fix |
-| [#56](https://github.com/LiorJossef/P-002/pull/56) | 5 s per-lookup timeout, and the 100/day quota recorded |
-| [#57](https://github.com/LiorJossef/P-002/pull/57) | TikTok photo/carousel posts supported; `PHOTO_POST` retired |
+| [#55](https://github.com/LiorJossef/P-002/pull/55) | Google Places provider behind the existing `PlaceResolver` port; language follows the caption's script; `SoleCandidateMeaning` band policy; the provenance bug fix (§5) |
+| [#56](https://github.com/LiorJossef/P-002/pull/56) | 5 s per-lookup timeout; the 100/day quota recorded in the adapter header |
+| [#57](https://github.com/LiorJossef/P-002/pull/57) | TikTok photo/carousel posts supported; `PHOTO_POST` retired (14 error codes → 13) |
 | [#58](https://github.com/LiorJossef/P-002/pull/58) | Cover-frame OCR measured and rejected as framed; exploration findings |
 | [#59](https://github.com/LiorJossef/P-002/pull/59) | The location caveat is shown only when it is true |
+| [#60](https://github.com/LiorJossef/P-002/pull/60) | This handoff |
 
-**The single most important thing to read before continuing** is "Questions only the owner can
-answer" below: the Google resolver is **not shippable** until the 100/day quota is raised, and that
-is a console action nobody but the owner can take.
+`main` HEAD at the end of the session: `c4758cb` (merge of #60).
 
-## The result, measured through the shipped flow
+---
 
-Same 13 real TikToks, same oEmbed → caption → extraction → resolve path, same scorer, one run each.
-Records: `docs/evidence/places/tiktok-recognition.md` (Overture) and `…google.md` (Google).
+## 3. The measurement that matters
+
+Same 13 real owner-supplied TikToks, same oEmbed → caption → extraction → resolve path, same
+scorer, one run per provider. Records:
+[`evidence/places/tiktok-recognition.md`](evidence/places/tiktok-recognition.md) (Overture) and
+[`evidence/places/tiktok-recognition.google.md`](evidence/places/tiktok-recognition.google.md).
 
 |                    | Overture `poi_index` | **Google Places** |
 |--------------------|----------------------|-------------------|
@@ -29,203 +57,407 @@ Records: `docs/evidence/places/tiktok-recognition.md` (Overture) and `…google.
 | False auto-accepts | 0                    | 0                 |
 
 **Google is more accurate and slightly less decisive.** Its three wins are exactly the coverage
-failures Overture cannot fix by scoring (`Oscar's` resolving to the previous tenant, `בל עמי`
-absent, `דיזנגוף 99`). Its nine non-auto-accepted answers are all *correct* — the user confirms a
-picker with one right option in it, which is a worse feel than Overture's 44% but never a wrong pin.
+failures Overture cannot fix by scoring: `Oscar's` resolves to the previous tenant at that address,
+`בל עמי` is absent from the index, `דיזנגוף 99` is wrong. Its nine non-auto-accepted answers are all
+*correct* — the user confirms a picker with one right option in it. Worse feel than 44%, never a
+wrong pin.
 
-Honest limits, stated because the number will be quoted: **n = 15 adjudicated candidates, one
-city.** The corpus is 13 URLs against the owner's brief of 20-30, and `bars_and_wine_bars` has no
-URL at all. This is a pilot, not a result.
+**Honest limits, because this number will be quoted:** n = 15 adjudicated candidates, one city,
+13 URLs against the owner's brief of 20–30, and `bars_and_wine_bars` has no URL at all. **A pilot,
+not a result.**
 
-### Three things had to be fixed before the comparison meant anything
+### How to re-run it
 
-1. **Language.** Unset, Google answered `האחים` with `Haachim @ Shlomo Ibn Gabirol Street 26` — the
-   right venue, transliterated. `addressScore` cannot compare across writing systems (it returns
-   null by design), so every Latin address silently discarded the address corroboration. The
-   adapter now asks in the caption's own script. Correct answers went 9 → 13 on that alone.
-2. **The corpus was provider-coupled.** Two `addressPattern`s were written against Overture's
-   Hebrew strings, so they tested *which dataset answered* rather than *which venue came back*.
-   Widened to accept either script. **Overture re-ran at 7/16 unchanged** — that control is what
-   makes the widening safe rather than self-serving.
-3. **The lone-candidate band rule.** Google returns one result for 14 of 16 candidates, so `margin`
-   is null and the band capped at `confirm` — a structural 0% auto-accept while 15/15 were right.
-   `SoleCandidateMeaning` now makes that a provider property: `'narrow-filter'` (default, Overture,
-   `10` §12 Q3 unchanged) vs `'exhaustive-search'` (Google). It waives only the *unmeasurable*
-   margin; the score gate is untouched and a real-but-poor margin still cannot pass.
+```bash
+set -a; source .env.local; set +a
+PLACE_RESOLVER=google npx vitest run tests/manual/tiktok-recognition.manual.ts --config tests/manual/vitest.manual.config.ts
+```
 
-## App-level verification (done, 2026-08-28)
+`PLACE_RESOLVER=overture` re-measures the baseline. Output is **provider-scoped** so neither run
+overwrites the other: `tiktok-recognition-run.json` / `.md` for Overture (unsuffixed — every
+existing doc cites those names), `tiktok-recognition-run.google.json` / `tiktok-recognition.google.md`
+for Google. Requires local Supabase up (`npx supabase status`) with the `tlv` region loaded — the
+per-miss `poi_index` probe is what tells "Google found it and we never had it" apart from "we had it
+and could not reach it".
 
-Ran the real app at 1280x720 and 375x812, signed in as the local demo user, imported real TikToks
-and read the rows back in psql. **This is where the harness's green run turned out to be hiding a
-defect**, so it is worth stating what it caught:
+**Each full run costs ~16 Google Text Search calls. The daily quota is 100 (§7).**
 
-- `Oscar's` resolved correctly and the review screen showed `Oscar's @ נחלת בנימין 68` — and the
-  row written to `places` was `llm-guess` at the model's own coordinate. Two silent causes, both
-  now fixed and pinned by `tests/unit/import/candidate-place-provenance.test.ts`: the stored
-  resolution schema did not list `'google'` (so it failed to parse and the confirm step fell
-  through to the guess path with no error), and `derivePlaceSave` hardcoded `provider: 'overture'`
-  for any resolved place, which would have filed a Google coordinate under Overture's licence.
-- After the fix, importing `Gelalucci` writes `source_dataset=google-places`, `provider=google`, a
-  real Google place id, and `(32.078032, 34.777851)` — Masaryk Square. **The Overture row for the
-  same venue carries the same address string and sits 6.9 km away.**
-- Mobile (375x812) renders the map, clusters, sheet peek and the review sheet correctly, including
-  RTL Hebrew in the candidate card.
+---
 
-**The `Oscar's` row in the local demo database is still the pre-fix `llm-guess` artifact.** Left
-alone deliberately — deleting rows is not a call to make unasked. Re-import it to replace it.
+## 4. Architectural decisions, and why
 
-## Exploration after the main work (owner's list, same session)
+### 4.1 The Google adapter does not rank
 
-| Item | Outcome |
+`src/integrations/google/place-resolver.ts` maps Text Search results to `ResolvedPlace` and hands
+them to `scoreCandidates` — the **same** scorer `src/integrations/supabase/place-resolver.ts` uses.
+
+Why: one ranker in the system, so a scoring change cannot mean two different things depending on who
+answered; and the two providers' numbers stay **directly comparable**, which keeps the provider
+choice re-decidable instead of a one-way door. Google's own relevance order is deliberately *not*
+carried through as a score — it is not on our 0..1 scale and `places.resolution_score`'s CHECK is.
+
+### 4.2 `datasetConfidence` is a fixed 0.5 for Google
+
+Google publishes no per-result confidence. `scorePlace` weights the term at 0.10, so a fabricated
+number would move real answers. 0.5 is the schema's neutral default. Being constant within a
+response it cannot change *ranking*, only where the absolute score sits against the band gates.
+
+**Known consequence, measured:** a perfect name (`nameScore` 1.000) tops out at
+`0.8·1 + 0.1·categoryScore + 0.05`. With a category disagreement that is **0.850**, which cannot
+reach the 0.92 preselect gate. See §10.2 — this is the clearest remaining scoring gap.
+
+### 4.3 No migration was needed for a `'google'` provider
+
+`place_provider_refs.provider` carries a **pattern** CHECK (`^[a-z][a-z0-9_]{1,31}$`, migrations
+`0005`/`0007`), not an enum. `06` §3.3 predicted "a small migration"; it cost less than that.
+Widening `PlaceProvider` / `SourceDataset` in `src/domain/types.ts` was a TypeScript-only change.
+
+### 4.4 Region semantics differ on purpose
+
+`regionsSearched: []` means *"we have not loaded that city"* (`regionLoaded()`, `06` §7.3). Google is
+global — a miss is a genuine not-found. So the Google adapter reports `GLOBAL_REGION` (`'global'`)
+and **never** an empty array, and `ResolvedPlace.regionId` is `null`. Returning `[]` would make every
+Google miss render as "we don't have that city yet", which would be a lie.
+
+### 4.5 Language follows the caption's script
+
+`languageCodeFor()` asks Google for `he` when the candidate name or city hint contains Hebrew, and
+omits the field otherwise. Not cosmetic: unset, Google answered `האחים` with
+`Haachim @ Shlomo Ibn Gabirol Street 26` — the right venue, transliterated. Our users are Hebrew
+speakers, **and** `addressScore` returns `null` across writing systems by design, so a Latin address
+silently discarded the corroboration the address hint exists to provide. **Correct answers went
+9 → 13 on this change alone.**
+
+### 4.6 `SoleCandidateMeaning` — and why it does NOT contradict `band-policy.md`
+
+`domain/places/score.ts` now takes `SoleCandidateMeaning`, `'narrow-filter'` (default) or
+`'exhaustive-search'` (Google only).
+
+Google returns exactly one result for 14 of 16 corpus candidates, so `margin` is null, so every
+answer capped at `confirm` and auto-accept was **structurally 0%** while 15/15 were right. `10` §12
+Q3's rule ("unmeasured margin is not perfect margin") is right for a token/trigram *prefilter*,
+where one row means our cheap filter matched one thing. It is wrong for a global text search, where
+one result means the index holds one place under that name near that city.
+
+**Read this before touching bands again.**
+[`evidence/places/band-policy.md`](evidence/places/band-policy.md) records a band change that was
+**tried and refuted** — a second path into `preselect` at `score ≥ 0.85 && margin ≥ 0.05`, which
+produced a false auto-accept on golden case `TLV-14` (`Bar 51` → `Hostel 51`, score 0.9000, margin
+0.0952).
+
+**That is a different change from this one and they do not collide.** `SoleCandidateMeaning` waives
+**only** the unmeasurable-margin block and leaves `preselectScore` at 0.92, so TLV-14 (0.9000, with
+a *measured* margin) still fails the score gate and is still rejected. A margin that exists must
+always clear its own gate; the provider's answer decides only what an *absent* margin means.
+
+### 4.7 The production gate lives in code, not prose
+
+`src/integrations/places/place-resolver-factory.ts`. See §8.
+
+---
+
+## 5. Bugs found, root causes, fixes
+
+### 5.1 A resolved place was saved as `llm-guess` (the important one)
+
+**All 1054 tests were green while this was broken.** Found only by importing a real TikTok in the
+browser and reading the row back in psql.
+
+Symptom: `Oscar's` resolved correctly, the review screen showed `Oscar's @ נחלת בנימין 68`, and
+`places` got `source_dataset='llm-guess'`, `resolution_score=NULL`, at the model's own coordinate.
+No error anywhere.
+
+Two independent, silent causes:
+
+1. `src/domain/import/resolution-record.ts` — `StoredResolvedPlaceSchema` listed three providers and
+   `'google'` was not among them. The stored resolution failed to parse on confirm,
+   `chooseResolvedPlace` saw `null`, and the save fell through to the model-guess path. **An
+   unparseable resolution is indistinguishable from no resolution.**
+2. `src/domain/import/candidate-place.ts` — `derivePlaceSave` hardcoded `provider: 'overture'` for
+   *any* resolved place. Correct while Overture was the only resolver; a provenance lie the moment a
+   second one existed. It would have filed a Google coordinate under Overture's licence, which is
+   exactly what `source_dataset` exists to prevent (`06` §11 Q2).
+
+Fixed, and pinned by `tests/unit/import/candidate-place-provenance.test.ts`.
+**If you add a fourth provider, that schema union is the thing that will silently bite you.**
+
+### 5.2 A 47-second spinner on provider failure
+
+With the Google quota exhausted, a 5-candidate import sat on a spinner for 47 s before degrading.
+`resolveCandidates` is sequential and `MAX_CANDIDATES` is 7, so a provider with no ceiling bounds the
+whole import at "however long seven hung requests take". Fixed with `GOOGLE_TIMEOUT_MS = 5_000`,
+composed with the caller's signal via `AbortSignal.any` so an aborted import still aborts at once.
+
+### 5.3 Photo-post share links died as `SHORT_LINK_UNRESOLVED`
+
+`src/integrations/tiktok/resolve-short-link.ts`'s id pattern matched only `video`, so a redirect to
+`/@handle/photo/<id>` was followed correctly and the id simply went unrecognised. Only surfaced by
+running the owner's real link in the app.
+
+### 5.4 The location caveat was unconditional
+
+`LOCATION_CAVEAT` ("pins can be a street or two off") rendered on every review screen, on the stated
+grounds that "our honest position is identical on every candidate". Untrue once resolution shipped:
+a resolved pin is the venue's own coordinate (11 m for HaKosem) against 65–470 m for the model's
+guess. `usesModelCoordinate()` in `src/ui/import/candidate-resolution-view.ts` now gates it.
+
+### 5.5 Open defect, NOT fixed — the corpus never checks distance
+
+`Gelalucci`'s `poi_index` row carries address `שדרות מסריק 1` and coordinates
+`(32.02421, 34.74155)` — **6.9 km from Masaryk Square**, where that address is. The harness scores
+it **correct**, because adjudication matches name and address *strings* and never distance. A milder
+case: `האחים` at אבן גבירול 26 is 232 m from the same address geocoded independently.
+
+A task chip was raised for this. On a map product, name-correct/coordinate-wrong must not pass.
+
+---
+
+## 6. Real-world findings
+
+### 6.1 TikTok photo / carousel posts are supported (VERIFIED, closes `04` §5 category L)
+
+Specimen supplied by the owner: `https://vt.tiktok.com/ZSVsx7UeX/`.
+
+| Request | Result |
 |---|---|
-| **Multiple places from one TikTok** | **Already works — no work needed.** Verified in the running app: one caption → "5 places found", with honest per-candidate degradation ("2 of these have no location — they won't be saved"). |
-| **TikTok photo / carousel links** | **Shipped.** `04` §5 category L was UNTESTED for want of a specimen; the owner supplied one and the premise was wrong. oEmbed 400s the `/photo/` URL form and 200s the same id under `/video/<id>`, full caption. Two code paths fixed, `PHOTO_POST` retired. A whole class of refusal removed. |
-| **Free OCR** | **Measured and, as currently framed, rejected.** See below. |
-| **Free transcription** | **Blocked on media access, not on transcription.** oEmbed exposes no video/audio URL and TikTok's robots.txt disallows every named AI agent, so `yt-dlp` was deliberately not run. |
+| `vt.tiktok.com/ZSVsx7UeX/` | 301 → `https://www.tiktok.com/@evesela/photo/7665396684981095688` |
+| oEmbed on `…/@evesela/photo/<id>` | **HTTP 400** — the URL form is rejected |
+| oEmbed on `…/video/<id>` (same id) | **HTTP 200**, `"type":"video"`, full caption, author, thumbnail |
 
-### OCR: the cover frame does not carry the product
+Caption returned: `new cafe in Tel Aviv 📍Dopo Cafe, Tel Aviv …` — a named venue. **The URL form was
+the only obstacle.** Photo posts are now canonicalised to the numeric id and re-issued as
+`/video/<id>`, the same rewrite `/embed/` forms already get. Dedup key unchanged (the id alone).
+`PHOTO_POST` retired. Verified end to end in the app: **"1 place found — Dopo Cafe"**.
 
-Full evidence in `docs/evidence/places/google-places-and-transcription-probe-2026-08-28.md` §B2,
-machine record in `docs/evidence/tiktok/cover-frame-ocr-run-2026-08-28.json`.
+### 6.2 Multi-place extraction already worked
 
-- **Recall 1 of 8.** Only one caption-less post yielded a venue from its cover. The rest carry a
-  hook line and no name — the cover exists to make you watch, so naming the place defeats it.
-- **Precision is the real problem.** On a London post the model read four *accurate* shopfront
-  signs off the frame (verified by eye) — a hair salon, an organic shop, a market — none of which
-  the post is about. A naive cover reader would invent places the creator never recommended.
-- If revisited, the ask is "read the text the creator **added**", not "read the image".
-- **`thumbnail_url` expires** — every URL cached on 2026-08-18 now 403s. A cover frame must be read
-  *during* the import.
+One caption → **"5 places found"** in the running app, with honest per-candidate degradation
+("2 of these have no location — they won't be saved"). No work was needed.
 
-### Transcription: there is prior work in a stash
+### 6.3 `thumbnail_url` expires
 
-`git stash list` carries **`stash@{3}: codex/cloudflare-audio-transcription (paused)`**, and
-`execution-plan.md`'s 2026-08-26 entry records an out-of-band transcription feature whose orphan
-database objects were dropped from staging. So this ground has been walked before. Anyone resuming
-should read that stash before starting fresh.
+Every signed thumbnail URL cached in `evidence/tiktok/oembed-set1-raw.json` on 2026-08-18 now
+**403s**. A cover frame must be read *during* the import; it cannot be stored and processed later.
 
-## Questions only the owner can answer
+---
 
-1. **The Google Places quota is 100 requests/day** on this Cloud project
-   (`SearchTextRequestPerDayPerProject`), and one night of measurement exhausted it. At 1–7 lookups
-   per import that is ~15–100 imports/day for all users combined. Raising it is a console (and
-   probably billing) action. **Until it is raised, Google is measurable but not shippable.**
-2. **Media access for transcription** — licensed third-party providers (Apify/ScrapeCreators/
-   Supadata, ~$0.004/item) are the only path that supplies video or subtitles without us scraping.
-   That is a spend decision and a `security-privacy` decision, both yours.
+## 7. Blocked — exactly what needs the owner
 
-## What is NOT done
-- **A server-only Google key.** The adapter falls back to `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, which
-  is compiled into the browser bundle and therefore spendable by anyone. `GOOGLE_PLACES_API_KEY`
-  is read first and should be set, restricted, before any deploy. Security follow-up, not a blocker
-  for local measurement.
-- **The 30-day coordinate rule (§5.4).** Nothing yet refreshes or expires Google-sourced
-  coordinates in `places`. Only `place_id` is exempt. Needed before production, and production is
-  gated anyway.
+### 7.1 The Google Places quota is 100 requests/day — THIS IS THE SHIP BLOCKER
 
+The Cloud project behind the current key carries `SearchTextRequestPerDayPerProject = 100`. One
+night of measurement exhausted it (HTTP 429, `RESOURCE_EXHAUSTED`, `project_number:1058188956109`).
 
-## The ruling (owner, 2026-08-28, overnight session)
+At 1–7 lookups per import that is roughly **15–100 imports per day across all users combined**. The
+published free tier is 5 000 Text Search (Pro) calls/month, so this is a *project-level* quota, not
+the product's real ceiling — but it is the ceiling that is live today.
 
-1. **Google Places is the active direction for place resolution/data.** Move the
-   database/index resolver **out of the primary path, but preserve it** — do not delete.
-2. **Do NOT switch the map renderer yet.** Google Maps is the *next thing to prototype*, so the
-   owner can experience both and then choose. Avoid investment that makes that comparison harder.
-3. Keep it lean, verify on real TikToks, desktop and mobile.
-4. Then keep exploring: multi-place extraction, TikTok photo/carousel links, free OCR, free
-   transcription, and any other product/UX improvement found.
+**Raising it is an owner action** in the Cloud console, and probably a billing change. Until then the
+Google provider is **measurable but not shippable**. Do not attempt to change quota or billing.
 
-### What this session told the owner before they ruled
-`docs/evidence/places/google-places-and-transcription-probe-2026-08-28.md` measured it:
-Google top-1 **14/15** vs our resolver **12/15** on the same real extracted candidates; all three
-of our misses were index *coverage*, not scoring. The owner then ruled as above.
+### 7.2 Media access for transcription
 
-### The constraint that is NOT resolved by the ruling, and how this session handles it
-`06-map-and-places-decision.md` §3.1 (VERIFIED): **Google Places data + a non-Google map is
-forbidden** (Service Specific Terms §5.3), and §5.4 caps lat/lng caching at 30 days.
-The owner has been told this, twice, and directed Google Places into the primary path while
-keeping MapLibre for now.
+Licensed third-party providers (Apify / ScrapeCreators / Supadata, ~$0.004/item) are the only path
+that supplies video or subtitles without us scraping. That is a **spend** decision and a
+`security-privacy` decision, both the owner's.
 
-**How that is squared here, and it is a sequencing answer, not a legal one:**
-the adapter is built and made primary **by configuration**, and the *production* default is
-unchanged until the Google renderer prototype lands (item 2 above, which the owner has already
-named as next). So the forbidden pairing is never what a real end user is served. This is written
-down rather than assumed because it is the one thing that must not be quietly lost:
+### 7.3 A server-only Google key
 
-> **GATE: do not enable the Google resolver for production end users until the map renderer
-> prototype ships.** Dev/preview measurement is fine. This is a ToS gate, not a taste one.
+The factory prefers `GOOGLE_PLACES_API_KEY` and falls back to `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`,
+which is **compiled into the browser bundle** and therefore readable and spendable by anyone. Fine
+for local work; **must be replaced with a restricted server-only key before any deploy.**
 
-Storage follows §5.4 the same way: we persist Google's `place_id` (explicitly exempt, storable
-indefinitely) and treat coordinates as refreshable cache, not as permanent record.
+---
 
-## Decisions taken this session (reversible, made without waiting)
+## 8. Risks, caveats, ToS, and the production gate
 
-- **No migration is needed to add a `'google'` provider.** `place_provider_refs.provider` carries a
-  *pattern* CHECK (`^[a-z][a-z0-9_]{1,31}$`, migration `0005`/`0007`), not an enum list, so
-  `'google'` is already accepted. Widening `PlaceProvider` / `SourceDataset` is a TypeScript-only
-  change. `06` §3.3 predicted "a small migration"; it turned out to be less than that.
-- **The Google adapter reuses `domain/places/score.ts`, it does not rank.** Google results are
-  mapped to `ResolvedPlace[]` and handed to the existing `scoreCandidates(...)`. One ranker in the
-  system, and Overture-vs-Google numbers stay directly comparable. No scoring code is duplicated.
-- **`datasetConfidence` for a Google row is `0.5`** — the schema's neutral default. Google exposes
-  no per-result confidence and inventing one would be exactly the "confidently wrong" failure the
-  working agreement forbids.
-- **Band policy is left unchanged for now, deliberately.** `margin === null → confirm` means a
-  single Google result can never auto-accept. That may be wrong *for this provider* (Google
-  searched a global index and returned one place; a one-row Overture prefilter meant something
-  else). **Measure first, then decide.** Do not loosen an auto-accept rule on intuition — a false
-  auto-accept is the most damaging failure mode in `benchmark-spec.json`.
+### 8.1 The gate
 
-## Where things are
+`06-map-and-places-decision.md` §3.1 is **VERIFIED**: Google Places content **may not be used in
+conjunction with a non-Google map** (Service Specific Terms §5.3), and §5.4 caps lat/lng caching at
+**30 days**. Our renderer is still MapLibre + Protomaps.
 
-- Evidence for the ruling: `docs/evidence/places/google-places-and-transcription-probe-2026-08-28.md`
-- Overture adapter (preserved, still tested): `src/integrations/supabase/place-resolver.ts`
-- Scorer (shared by both providers): `src/domain/places/score.ts`
-- Real-TikTok harness of record: `tests/manual/tiktok-recognition.manual.ts`
-  + corpus `tests/manual/tiktok-recognition-corpus.json`
-- Baseline to beat: **7/16 auto-match**, 12/15 top-1 correct (run record
-  `docs/evidence/places/tiktok-recognition-run.json`)
+The owner's ruling makes Google primary *and* keeps the renderer, so it is reconciled as
+**sequencing**, in `src/integrations/places/place-resolver-factory.ts`:
 
-## Open loose ends (carry these forward)
+- Google is the default in `local`, `preview`, `staging`, `test`.
+- **Production falls back to Overture.** An unset or unrecognised `NEXT_PUBLIC_STAGE` **counts as
+  production** — failing safe costs a measurement, failing open costs a terms breach.
+- `PLACE_RESOLVER=google|overture` overrides explicitly, for the day the renderer moves and for
+  pinning a measurement run.
 
-- **Why nine correct Google answers do not auto-accept — measured, not guessed.** The first
-  hypothesis (the extra-token penalty punishing Google's branch suffixes) is **wrong**, and the
-  real cause is more structural. Actual `nameScore`s, computed against the shipped scorer:
+**When the Google Maps renderer prototype ships, that gate is what to delete. It has no other job.**
 
-  | query | Google top-1 | nameScore | final |
-  |---|---|---|---|
-  | `קפה אירופה` | `קפה אירופה` | **1.000** | 0.850 |
-  | `Palette Bistro` | `Palette Bistro` | **1.000** | 0.850 |
-  | `רוסטיקו` | `רוסטיקו רוטשילד` | 0.913 | 0.705 |
-  | `מתחת לעץ` | `מתחת לעץ בן יהודה` | 0.874 | 0.849 |
+### 8.2 Coordinate storage
 
-  The top two are **byte-identical names scoring a perfect 1.000**, and they still land at 0.850.
-  The arithmetic says why: `0.8·1.0 + 0.1·categoryScore + 0.1·datasetConfidence`, where
-  `datasetConfidence` is pinned at 0.5 for Google (it publishes none) and `categoryScore` is 0
-  because Google types both venues `restaurant` while the caption's hint was `cafe` and `bar`.
-  Checked against Google's full `types` array too — it is `['restaurant','food',…]` with no `cafe`
-  in it, so reading `types` instead of `primaryType` would **not** fix this. It is a genuine
-  taxonomy disagreement, not a field we are failing to read.
+Only Google's `place_id` is exempt from §5.4 and safe to store indefinitely. **Coordinates from this
+provider are cache, not record.** Nothing yet refreshes or expires them in `places`. Needed before
+production; production is gated anyway.
 
-  **So on the Google path a perfect name tops out at 0.85 and cannot reach the 0.92 gate unless the
-  category also agrees.** The 0.05 handicap is the fabricated confidence term: an Overture row at
-  confidence 1.0 contributes 0.10 where Google contributes 0.05, for a number Google never claimed.
-  The principled fix is probably to **renormalise the blend when a provider publishes no
-  confidence** rather than to feed it a made-up 0.5 — `(0.8·name + 0.1·category) / 0.9` — which is
-  honest arithmetic rather than tuning. **Deliberately not done tonight**: it is a third scoring
-  change in one session, on n=15, affecting auto-accept, and it wants its own measurement.
+### 8.3 Do not re-derive Google coordinates into committed evidence
 
-- **`רוסטיקו` is a multi-branch case, not a bug.** The caption says בזל 42; Google returned the
-  רוטשילד 15 branch; `addressScore` correctly reads a different street as contradicting evidence
-  and drives the row to `no_match`, so the product falls back to the model's guess and shows "Pin
-  is approximate". The scoring reasoning is sound — the disagreement is real. What is wrong is the
-  *outcome*: Overture auto-matched this venue and Google does not, so the primary path got worse
-  on this one case. The fix is a disambiguation surface (show both branches), not a weight.
-- **The review-screen copy is now wrong for resolved places.** It says "We work out pins from what
-  the caption said, so they can be a street or two off." On a Google-resolved place the pin is the
-  venue's own coordinate, ~10 m. The caveat should follow the provenance, not be printed always.
+The 30-day cache rule applies. Record names, addresses and verdicts; keep raw coordinates out of git.
 
-- Corpus adjudication **never checks distance**; `Gelalucci`'s index row is ~6.9 km from its own
-  address and still scores as correct. Task chip raised.
-- Whether Google needs its own band policy — answer with the measurement, not by argument.
-- The `06` §3 table still says Google is "Not measured — no key". Stale; superseded by the
-  evidence file above.
+---
+
+## 9. Negative experiments — do not repeat
+
+### 9.1 Cover-frame OCR does not carry the product
+
+Full write-up: `evidence/places/google-places-and-transcription-probe-2026-08-28.md` §B2. Machine
+record: `evidence/tiktok/cover-frame-ocr-run-2026-08-28.json`.
+
+- **Recall 1 of 8.** Of the eight place-recommendation posts whose caption names no venue, the cover
+  frame yielded one (`Pizza Lila`). The rest carry a hook line and no name — the cover exists to
+  make you watch, so naming the place defeats it.
+- **Precision is the real problem.** On `@exploringlondon` the model returned four venues —
+  Sea Garden, Hacf Agaver Market, Rama Hair, Ersimes Organic. The OCR was **accurate, not
+  hallucinated** (the frame was opened and read; those are real Brixton Village shopfronts). None of
+  them is what the post is about. **A naive cover reader invents places the creator never
+  recommended.**
+- If revisited: the ask is "read the text the creator **added**" (overlay stickers), not "read the
+  image". Any such candidate must arrive low-confidence and be droppable by `plausibility.ts`.
+
+### 9.2 Google's `types` array does not fix the category term
+
+Checked directly: `קפה אירופה` returns `['restaurant','food','point_of_interest','establishment']`
+with **no `cafe`**. Reading `types` instead of `primaryType` would not help — it is a genuine
+taxonomy disagreement, not a field we fail to read.
+
+### 9.3 The extra-token penalty is NOT why answers do not auto-accept
+
+A plausible-sounding hypothesis that the measurement killed: Google appends branch suffixes
+(`רוסטיקו רוטשילד`), so the extra-token penalty looked like the culprit. Actual `nameScore`s:
+`קפה אירופה` → `קפה אירופה` scores a **perfect 1.000** and still lands at 0.850. The cause is
+§4.2 + the category term, not the penalty.
+
+### 9.4 `score ≥ 0.85 && margin ≥ 0.05` as a second preselect path
+
+Refuted before this session — `evidence/places/band-policy.md`, false auto-accept on `TLV-14`.
+See §4.6 for why `SoleCandidateMeaning` is not the same change.
+
+### 9.5 Scraping TikTok for media
+
+`tiktok.com/robots.txt` has `Disallow: /` for `ClaudeBot`, `Claude-User`, `anthropic-ai`,
+`Claude-SearchBot`, `GPTBot`, `CCBot` and every other named AI agent, and `/@user/video/…` is not in
+the `Allow` list for `*`. `yt-dlp` **is installed on this machine** and was deliberately not run.
+Do not run it. See §7.2 for the compliant path.
+
+---
+
+## 10. Next tasks, in priority order
+
+### 10.1 Add a distance assertion to the corpus adjudication — HIGHEST VALUE, unblocked
+
+§5.5. The harness scores a venue correct while it sits 6.9 km from its own address. On a map product
+that is the product being wrong. Add an optional `expectedLatLng` / `maxDistanceM` to
+`tests/manual/tiktok-recognition-corpus.json` expectations and a `coordinate_mismatch` failure
+bucket in `tests/manual/tiktok-recognition.manual.ts`; re-run **both** providers and report what it
+reclassifies. Also investigate whether the `Gelalucci` row is bad in Overture source data or was
+corrupted by `evidence/places/ingest-overture-city-extract.py`. **Do not source replacement
+coordinates from Google** (§8.1).
+
+### 10.2 Renormalise the blend when a provider publishes no confidence
+
+§4.2. A perfect name tops out at 0.850 on the Google path because `datasetConfidence` is a
+fabricated 0.5 and the category term often disagrees. The principled fix is to **renormalise**
+rather than feed a made-up number: `(0.8·name + 0.1·category) / 0.9` for a provider with no
+confidence signal. Honest arithmetic, not tuning. **Deliberately not done in this session** — it
+would have been a third scoring change in one night, on n=15, affecting auto-accept.
+
+Measure before shipping: re-run both providers **and** the 44-case golden benchmark
+(`tests/unit/places/benchmark-golden.test.ts`), and confirm no new false auto-accept — that is
+exactly how `band-policy.md`'s idea died.
+
+### 10.3 A disambiguation surface for multi-branch venues
+
+`רוסטיקו`: the caption says בזל 42, Google returns the רוטשילד 15 branch, `addressScore` correctly
+reads a different street as contradicting evidence, the row drops to `no_match`, and the product
+falls back to the model's guess showing "Pin is approximate". The scoring is *right*; the outcome is
+wrong. Overture auto-matched this venue and Google does not, so the primary path got worse on this
+one case. The fix is showing both branches, not a weight.
+
+### 10.4 Grow the corpus
+
+13 URLs against the owner's brief of 20–30, and `bars_and_wine_bars` has none. Every number in §3 is
+a pilot until this is done. Adding a URL only means appending to
+`tests/manual/tiktok-recognition-corpus.json` — read its `_readme` first.
+
+### 10.5 The Google Maps renderer prototype
+
+The owner's stated next direction (§1.2). It is also what unlocks §8.1's gate. Not started.
+**This is a large piece and a product decision about how far to take it — confirm scope first.**
+
+---
+
+## 11. Repo state that must not be disturbed
+
+### 11.1 Stashes — four, all owner-owned
+
+```
+stash@{0}  gemini grounding attempt — blocked on 429 quota, deferred
+stash@{1}  WIP: import/extraction work before remember-me branch
+stash@{2}  google-maps-demo: vis.gl/react-google-maps demo surface (D2 stays MapLibre+CARTO)
+stash@{3}  wip: cloudflare audio transcription (paused)
+```
+
+**Never run a bare `git stash push`/`pop` in this repo.** A `stash push <paths>` that fails on an
+untracked path stashes nothing, and the follow-up `pop` then restores **stash@{0}, the owner's**.
+That happened this session and was recovered only because it conflicted loudly. To move uncommitted
+work between branches use `git checkout -b <new> <base>` (the working tree carries across).
+
+`stash@{2}` is directly relevant to §10.5, and `stash@{3}` to §7.2 — **read them before starting
+either from scratch.**
+
+### 11.2 Branches and PRs
+
+- **PR #22** (`docs/tel-aviv-scope-narrowing`, open since 2026-08-24) is **pre-existing and not
+  this session's**. Leave it alone unless the owner asks.
+- Several unmerged remote branches predate this session (`feat/remember-me`,
+  `feat/address-capture-maps-link`, `feat/tiktok-done-saves-to-map`, …). Not touched, not assessed.
+- This session's six branches are all merged.
+
+### 11.3 Uncommitted work is user-owned
+
+Never reset, clean, or sweep it into a commit (`git-workflow.md`).
+
+---
+
+## 12. Working commands
+
+```bash
+npm run verify          # lint + typecheck + layer guard + migrations + schema + agents + unit
+npm run test            # unit only — NOT the CI gate
+npm run merge:pr -- <n> # the ONLY way to merge; GitHub branch protection is unavailable
+gh pr checks <n>        # CI is the authority, not `npm run verify` (verify covers 1 of 4 jobs)
+npx supabase status     # local DB must be up for the manual harness
+psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -c "select name, source_dataset, lat, lng from places order by created_at desc limit 5;"
+```
+
+Local dev sign-in: `demo@example.com` / `local-dev-preview-1234` at `localhost:3000/sign-in`
+(local Supabase only). Start the app through the Browser pane's `preview_start` with
+`{name: "nextjs-dev"}`, never `npm run dev` in Bash.
+
+**Landing anything:** branch → PR → **CI green** → `npm run merge:pr -- <n>` → verify `main`.
+The script refuses a draft, a non-`main` base, any failing *or pending* check, an empty check list,
+a non-mergeable PR, or a branch behind `main` (merge `main` in — never rebase/force-push).
+
+---
+
+## 13. Key file map
+
+| Path | What |
+|---|---|
+| `src/integrations/google/place-resolver.ts` | The Google adapter. Header carries the quota + ToS notes |
+| `src/integrations/places/place-resolver-factory.ts` | **The production gate.** Delete when the renderer moves |
+| `src/integrations/supabase/place-resolver.ts` | The Overture adapter — preserved, still tested |
+| `src/domain/places/score.ts` | The one ranker, shared. `SoleCandidateMeaning` lives here |
+| `src/domain/places/scoring-constants.ts` | Weights and band thresholds |
+| `src/domain/import/candidate-place.ts` | `derivePlaceSave` — provenance (§5.1) |
+| `src/domain/import/resolution-record.ts` | `StoredResolvedPlaceSchema` — the silent-failure trap (§5.1) |
+| `src/domain/source/canonicalise-tiktok-url.ts` | URL forms incl. `/photo/` |
+| `src/integrations/tiktok/resolve-short-link.ts` | Redirect id extraction incl. `/photo/` |
+| `src/ui/import/candidate-resolution-view.ts` | `willSave`, `usesModelCoordinate` |
+| `tests/manual/tiktok-recognition.manual.ts` | **The harness of record for product accuracy** |
+| `docs/06-map-and-places-decision.md` | D2/D2b, the ToS analysis (§3.1 is the gate) |
+| `docs/evidence/places/band-policy.md` | The refuted band change — read before touching bands |
