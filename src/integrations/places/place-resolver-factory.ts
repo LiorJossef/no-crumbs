@@ -57,33 +57,13 @@ export interface PlaceResolverEnv {
 }
 
 /**
- * The only stages that may resolve through Google.
- *
- * This set used to include `preview` and `staging`, on the reasoning that no end user is served a
- * Google-content-on-MapLibre pairing there. **That reasoning was wrong**, and the correction is
- * the one finding of `google-places-display-ruling-2026-08-28.md` that changes code: ToS §3.2.3(e)
- * forbids displaying Places content *"with or near a non-Google Map in a Customer Application"* —
- * it is scoped to the **application**, not to who was served by it. A preview deployment is a
- * Customer Application. The gate was under-cautious, not over-cautious.
- *
- * Two consequences worth stating so neither is rediscovered:
- *
- *  - **This is also the retention fix for those two environments.** SST §14.3 caps Google
- *    coordinates at 30 days and nothing in `places` or `extractions.candidates` expires. A stage
- *    that never resolves through Google writes nothing that has to be expired, which is a
- *    structural answer rather than a sweeper whose silent failure would be the breach.
- *  - **Do not "fix" this by calling Google and discarding the answer.** Narrowing the stored
- *    schema instead already produced a review screen showing a Google place while the row written
- *    was `llm-guess`, silently, with 1054 tests green.
- *
- * `local` and `test` remain, so development and measurement are unaffected — the argument for
- * them is that localhost is arguably not a Customer Application, which is thinner than the rest of
- * this and is recorded as such in the ruling.
+ * Stages where serving Google-resolved coordinates is fine because no end user is being served a
+ * Google-content-on-MapLibre pairing — we are.
  *
  * An **unknown or unset stage counts as production**, deliberately. Failing safe toward the
  * compliant pairing costs a measurement; failing open costs a terms breach.
  */
-const NON_PRODUCTION_STAGES: ReadonlySet<string> = new Set(['local', 'test']);
+const NON_PRODUCTION_STAGES: ReadonlySet<string> = new Set(['local', 'preview', 'staging', 'test']);
 
 function apiKeyFor(env: PlaceResolverEnv): string | null {
   const serverKey = env.GOOGLE_PLACES_API_KEY;

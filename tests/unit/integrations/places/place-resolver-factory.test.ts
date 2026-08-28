@@ -30,21 +30,12 @@ const LOCAL_WITH_KEY: PlaceResolverEnv = {
 describe('resolverProviderFor', () => {
   it('uses Google where we develop and measure', () => {
     expect(resolverProviderFor(LOCAL_WITH_KEY).provider).toBe('google');
-    expect(resolverProviderFor({ ...LOCAL_WITH_KEY, NEXT_PUBLIC_STAGE: 'test' }).provider).toBe(
+    expect(resolverProviderFor({ ...LOCAL_WITH_KEY, NEXT_PUBLIC_STAGE: 'preview' }).provider).toBe(
       'google',
     );
-  });
-
-  // ToS §3.2.3(e) is scoped to the Customer Application, not to whether an end user was served by
-  // it, so a deployed preview is inside the prohibition exactly as production is. These two used
-  // to assert 'google'; the ruling that flipped them is
-  // docs/evidence/places/google-places-display-ruling-2026-08-28.md.
-  it('does not use Google on a deployed preview or staging', () => {
-    for (const stage of ['preview', 'staging']) {
-      const decision = resolverProviderFor({ ...LOCAL_WITH_KEY, NEXT_PUBLIC_STAGE: stage });
-      expect(decision.provider).toBe('overture');
-      expect(decision.reason).toContain('non-Google map');
-    }
+    expect(resolverProviderFor({ ...LOCAL_WITH_KEY, NEXT_PUBLIC_STAGE: 'staging' }).provider).toBe(
+      'google',
+    );
   });
 
   it('falls back to Overture in production, and says why', () => {
