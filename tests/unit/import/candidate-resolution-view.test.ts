@@ -21,6 +21,7 @@ import {
   resolutionOptions,
   resolutionView,
   resolverPinLine,
+  savedPlaceName,
   usesModelCoordinate,
   willSave,
 } from '@/ui/import/candidate-resolution-view';
@@ -278,5 +279,44 @@ describe('usesModelCoordinate', () => {
         }
       }
     }
+  });
+});
+
+/**
+ * The card is titled with what the SAVE writes.
+ *
+ * `candidateTitle` used to be the title on every path while `derivePlaceSave` wrote the provider's
+ * name on the resolved one, so a user confirmed `קוהי` and got `Kohi בית קפה יפני` in their
+ * library. These pin the two back together.
+ */
+describe('savedPlaceName', () => {
+  const shortlist = (names: readonly string[]): readonly RankedPlace[] =>
+    names.map((name, i) => ranked({ name, providerPlaceId: `g${String(i)}` }, 0.95 - i * 0.1));
+
+  it('is the provider name the auto-accepted top entry would save', () => {
+    const view = resolutionView(
+      answered('preselect', shortlist(['Kohi בית קפה יפני', 'NIKO by Sharon Cohen'])),
+    );
+    expect(savedPlaceName(view, null)).toBe('Kohi בית קפה יפני');
+  });
+
+  it('follows an explicit pick, because the save does', () => {
+    const view = resolutionView(
+      answered('preselect', shortlist(['Kohi בית קפה יפני', 'NIKO by Sharon Cohen'])),
+    );
+    expect(savedPlaceName(view, 1)).toBe('NIKO by Sharon Cohen');
+  });
+
+  it('is null while an ambiguous candidate has no pick — nothing is settled to title with', () => {
+    const view = resolutionView(
+      answered('confirm', shortlist(['Kohi בית קפה יפני', 'NIKO by Sharon Cohen'])),
+    );
+    expect(savedPlaceName(view, null)).toBeNull();
+    expect(savedPlaceName(view, 0)).toBe('Kohi בית קפה יפני');
+  });
+
+  it('is null when nothing resolved, so the caller falls back to the caption reading', () => {
+    expect(savedPlaceName(resolutionView(answered('no_match', [])), null)).toBeNull();
+    expect(savedPlaceName(resolutionView(null), null)).toBeNull();
   });
 });

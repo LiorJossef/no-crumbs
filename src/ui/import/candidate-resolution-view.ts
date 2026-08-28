@@ -131,6 +131,37 @@ export function effectivePick(view: CandidateResolutionView, pick: number | null
 }
 
 /**
+ * The name this candidate would actually be **saved** under, or `null` when the save would use the
+ * model's own name.
+ *
+ * ## The bug this closes
+ *
+ * `candidateTitle` in `domain/import/candidate-presentation.ts` documents itself as *"what the card
+ * is titled — and, by construction, what `derivePlaceSave` writes to `places.name`"*. That is true
+ * only on the unresolved path, where the save really does write `identifiedName ?? rawName`. On the
+ * resolved path `derivePlaceSave` writes `place.name` — the provider's name — with its own comment
+ * explaining that this is the entire point of resolving: *"the gazetteer knows what the venue is
+ * called and the caption only knows what it was called."*
+ *
+ * Both comments are right and together they were a lie on screen. The user confirmed a card titled
+ * `קוהי` — the model's reading of the caption — and got `Kohi בית קפה יפני` in their library. It is
+ * the same defect `ux-import-review-screen.md` §3.2 was written to kill, reintroduced by resolution
+ * rather than by copy.
+ *
+ * The fix is the general one rather than a rename: **the card is titled with whatever the save will
+ * write**, derived from the same `effectivePick` the save is derived from, so the two cannot drift
+ * again. `null` means there is no resolved pick, and the caller falls back to `candidateTitle`.
+ */
+export function savedPlaceName(
+  view: CandidateResolutionView,
+  pick: number | null,
+): string | null {
+  const chosen = effectivePick(view, pick);
+  if (chosen === null) return null;
+  return resolutionOptions(view).find((option) => option.index === chosen)?.name ?? null;
+}
+
+/**
  * Whether pressing Save would actually write this candidate.
  *
  * This replaced `isSaveable(candidate)` alone, which asked only whether the *model* gave a

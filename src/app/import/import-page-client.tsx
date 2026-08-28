@@ -77,6 +77,7 @@ import {
   resolutionExplanation,
   resolutionHeadline,
   resolutionOptions,
+  savedPlaceName,
   resolutionView,
   resolverPinLine,
   usesModelCoordinate,
@@ -1708,7 +1709,9 @@ function ExtractedCandidateRow({
   onToggle: () => void;
   onPick: (optionIndex: number) => void;
 }) {
-  const title = candidateTitle(candidate);
+  // The name the SAVE will write, never the model's guess at it — `savedPlaceName` explains why the
+  // two used to differ on screen. Falls back to the caption's reading when nothing resolved.
+  const title = savedPlaceName(view, pick) ?? candidateTitle(candidate);
   // Not `isSaveable(candidate)`: a candidate the resolver matched is saveable even with no model
   // coordinate, because the server derives the pin from the stored shortlist entry.
   const saveable = willSave(isSaveable(candidate), view, pick);
@@ -1746,7 +1749,7 @@ function ExtractedCandidateRow({
         )}
       </div>
       <p className="truncate text-xs font-medium text-muted-foreground">
-        {candidateProvenance(candidate)}
+        {candidateProvenance(candidate, title)}
       </p>
       <p className="truncate text-[13px] font-medium text-muted-foreground">
         {candidateMeta(candidate)}
