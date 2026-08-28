@@ -53,8 +53,8 @@
  * to make the network call, not in the browser that could be tampered with.
  *
  * Extraction: `createPlaceExtractor(process.env)` (the composition-root factory, `02`'s
- * dev-local-model / prod-hosted-model split) is called only when a non-null caption exists — no
- * LLM call on nothing. Its raw candidates are run straight through `filterPlausible` (the same
+ * dev-local-model / prod-hosted-model split) is called only when some `ContentPart` carried text —
+ * no LLM call on nothing. Its raw candidates are run straight through `filterPlausible` (the same
  * gate `runImport` will apply, `09` §5.2/D4) before this route ever hands them to the client; the
  * ordering is a single straight-line `await` chain here, not the full event-sequence machinery
  * `runImport` owns.
@@ -103,6 +103,7 @@ import { captionContentExtractor } from '@/integrations/tiktok/caption-content-e
 import { createPlaceExtractor } from '@/integrations/llm/place-extractor-factory';
 import { createPlaceResolver, placeResolverEnv } from '@/integrations/places/place-resolver-factory';
 import { canonicaliseTikTokUrl } from '@/domain/source/canonicalise-tiktok-url';
+import { contentHashInput, contentPartsText, withContent } from '@/domain/import/content-parts';
 import { resolveCandidates } from '@/domain/import/resolve-candidates';
 import type { StoredResolution } from '@/domain/import/resolution-record';
 import { EXTRACTION_SCHEMA_VERSION } from '@/domain/extraction/schema';
@@ -135,8 +136,10 @@ interface StartImportRow {
   readonly is_idempotent: boolean;
 }
 
-/** The `extractions.input_hash` value for a caption — the one place the hash is computed, so the
- *  read side and the write side cannot drift into disagreeing about what a cache hit means. */
+/** The one place a hash is computed on this route, so the read side and the write side cannot drift
+ *  into disagreeing about what a cache hit means. *What* gets hashed is
+ *  `contentHashInput`'s decision, in `domain/`, where the backward-compatibility rule that keeps
+ *  today's rows valid is written down and unit-tested. */
 function sha256(text: string): string {
   return createHash('sha256').update(text, 'utf8').digest('hex');
 }
@@ -173,9 +176,11 @@ function routeCtx(signal: AbortSignal): OpCtx {
  * That second part matters as much as the money. A cache hit means re-opening the same TikTok
  * shows you the same places, which is the only reason a user would trust the screen twice.
  *
- * `input_hash` is what makes the hit safe: the row is only reused when the caption still hashes to
- * what produced it. An edited caption (TikTok allows it) misses the cache and re-extracts, rather
- * than silently showing places the current caption no longer names.
+ * `input_hash` is what makes the hit safe: the row is only reused when the content the model would
+ * be given still hashes to what produced it. An edited caption (TikTok allows it) misses the cache
+ * and re-extracts, rather than silently showing places the current caption no longer names — and so
+ * does a source that has gained a second `ContentPart`, which is the whole reason the hash covers
+ * the parts array rather than the caption string (`domain/import/content-parts.ts`).
  *
  * Returns null on any miss, any mismatch, and any read error — a cache is never allowed to fail an
  * import, only to fail to help.
@@ -197,7 +202,7 @@ async function readCachedExtraction(
     readonly sourceId: string;
     readonly model: string;
     readonly promptVersion: string;
-    readonly captionHash: string;
+    readonly contentHash: string;
   },
 ): Promise<CachedExtraction | null> {
   const { data, error } = await db
@@ -210,7 +215,7 @@ async function readCachedExtraction(
 
   if (error !== null || data === null) return null;
   if (data.status !== 'ok') return null;
-  if (data.input_hash !== input.captionHash) return null;
+  if (data.input_hash !== input.contentHash) return null;
 
   // Stored `jsonb` is untrusted input like any other — re-parsed, never assumed to still match the
   // current shape. Through `parseStoredCandidates`, the same reader `/api/imports/confirm` uses, so
@@ -293,7 +298,7 @@ async function persistExtraction(
     readonly sourceId: string;
     readonly extractorVersion: string | null;
     readonly promptVersion: string | null;
-    readonly captionHash: string | null;
+    readonly contentHash: string | null;
     /** Candidate objects with their `resolution` sibling already attached — see `StoredCandidateRow`. */
     readonly candidates: readonly StoredCandidateRow[];
     readonly latencyMs: number | null;
@@ -314,10 +319,10 @@ async function persistExtraction(
         // and a cache hit worth having.
         candidates: input.candidates,
         candidate_count: input.candidates.length,
-        // Lets a later read tell "same post, same prompt, different caption" (an edited caption)
-        // from a genuine cache hit, without storing the caption twice — `sources.content_text`
-        // already holds it.
-        input_hash: input.captionHash,
+        // Lets a later read tell "same post, same prompt, different content" — an edited caption,
+        // or a part the source did not have last time — from a genuine cache hit, without storing
+        // the text twice; `sources.content_text` already holds the caption.
+        input_hash: input.contentHash,
         latency_ms: input.latencyMs,
       },
       { onConflict: 'source_id,model,prompt_version' },
@@ -561,11 +566,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const sourceStartedAt = Date.now();
     const raw = await source.fetch(externalId, ctx);
-    const parts = await captionContentExtractor.extract(raw, ctx);
-    const caption = parts.find((p) => p.kind === 'caption')?.text ?? null;
+    // Every `ContentExtractor`'s output, in prompt order, with the parts that carry no text
+    // dropped. One element today — the caption — and that is the point: adding the transcript
+    // extractor is an append here, not a second variable threaded through the rest of the route.
+    const parts = withContent(await captionContentExtractor.extract(raw, ctx));
     const msSource = Date.now() - sourceStartedAt;
 
-    // No caption at all: never call the LLM on nothing (07 §5.2's "no caption" pre-check).
+    /** The response's `caption` field and nothing else: the review screen prints the caption
+     *  verbatim under the thumbnail. No stage keys off it any more. */
+    const caption = parts.find((p) => p.kind === 'caption')?.text ?? null;
+
     let candidates: readonly PlaceCandidate[] = [];
     let resolutions: readonly (StoredResolution | null)[] = [];
     let extractorVersion: string | null = null;
@@ -580,9 +590,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
      * papered over; persisting it is a schema change and this task owns no migration.
      */
     let extractionCityHint: string | null = null;
-    const captionHash = caption === null ? null : sha256(caption);
+    /** Null exactly when no part carried text — `07` §5.2's "no caption" pre-check, generalised to
+     *  the array: no content, no model call, and nothing to key a cache row on. */
+    const contentHash = parts.length === 0 ? null : sha256(contentHashInput(parts));
 
-    if (caption !== null) {
+    if (contentHash !== null) {
       stage = 'extract';
       const extractor = createPlaceExtractor({
         ...(process.env.LLM_PROVIDER !== undefined ? { LLM_PROVIDER: process.env.LLM_PROVIDER } : {}),
@@ -595,13 +607,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       promptVersion = extractor.promptVersion;
 
       // The cache is consulted *before* the model, which is the whole point and is what the write
-      // side shipped without. Same source, same model, same prompt version, same caption ⇒ the
+      // side shipped without. Same source, same model, same prompt version, same content ⇒ the
       // answer we already have, at no cost and with no re-roll of a nondeterministic result.
       cached = await readCachedExtraction(db, {
         sourceId: raw.id,
         model: extractor.version,
         promptVersion: extractor.promptVersion,
-        captionHash: captionHash as string,
+        contentHash,
       });
 
       if (cached !== null) {
@@ -611,7 +623,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         const extractStartedAt = Date.now();
         const extracted = await extractor.extract(parts, ctx);
         msExtract = Date.now() - extractStartedAt;
-        candidates = filterPlausible(extracted.candidates, caption).kept;
+        // Checked against every part joined, not the caption alone: the gate asks whether the
+        // model's evidence really appears in what the model was given, so it has to be given the
+        // same string the extractor built its prompt from.
+        candidates = filterPlausible(extracted.candidates, contentPartsText(parts)).kept;
         extractionCityHint = extracted.cityHint;
       }
     }
@@ -671,7 +686,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         sourceId: raw.id,
         extractorVersion,
         promptVersion,
-        captionHash,
+        contentHash,
         candidates: storedCandidates,
         latencyMs: msExtract,
       });

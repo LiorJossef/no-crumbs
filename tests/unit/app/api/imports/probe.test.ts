@@ -137,6 +137,14 @@ vi.mock('@/integrations/tiktok/oembed-source-adapter', () => ({
 const captionExtractMock = vi.fn(async () => [
   { kind: 'caption', text: 'grab the sourdough at Cafe Fiori', origin: 'tiktok-oembed-title' },
 ]);
+/** A second `ContentPart`, standing in for the transcript extractor that is not wired up yet. It is
+ *  injected through the caption extractor's mock on purpose: what these tests are about is the
+ *  route's behaviour when the array holds more than one part, not who produced the second one. */
+const TRANSCRIPT_PART = {
+  kind: 'transcript' as const,
+  text: 'and the babka next door at Lehem Erez',
+  origin: 'tiktok-asr',
+};
 vi.mock('@/integrations/tiktok/caption-content-extractor', () => ({
   captionContentExtractor: {
     id: 'caption',
@@ -391,6 +399,65 @@ describe('POST /api/imports/probe — extraction branch', () => {
   });
 
   /**
+   * The same pre-check, expressed over the array rather than over one caption string: "no parts, or
+   * no part with text". A caption of three spaces is not content, and paying the model for it — as
+   * the caption-string form did, because `'   ' !== null` — buys nothing but a bill.
+   */
+  it('skips the LLM call when the only part carries nothing but whitespace', async () => {
+    extractMock.mockClear();
+    captionExtractMock.mockResolvedValueOnce([
+      { kind: 'caption', text: '   \n ', origin: 'tiktok-oembed-title' },
+    ]);
+
+    const res = await postProbe();
+    const body = (await res.json()) as { caption: string | null; extractionId: string | null };
+
+    expect(res.status).toBe(200);
+    expect(extractMock).not.toHaveBeenCalled();
+    // Null, not `'   '`: the review screen must not print a blank caption block as if the post had
+    // said something.
+    expect(body.caption).toBeNull();
+    expect(body.extractionId).toBeNull();
+  });
+
+  /**
+   * The capability the `ContentPart[]` seam exists for, proven one extractor early: nothing in this
+   * route requires a *caption* part any more. A post with no caption and a transcript is a normal
+   * extraction, and the response's `caption` field stays honest about there being no caption.
+   */
+  it('extracts from a non-caption part when there is no caption', async () => {
+    const candidate: PlaceCandidate = {
+      rawName: 'Lehem Erez',
+      cityHint: 'Tel Aviv',
+      countryHint: 'IL',
+      categoryHint: 'bakery',
+      evidence: 'babka next door at Lehem Erez',
+      modelConfidence: 0.8,
+      addressHint: null,
+      identifiedName: null,
+      nameVariants: [],
+      coordinates: null,
+      areaHint: null,
+      tags: [],
+      dishes: [],
+      whyGo: null,
+    };
+    extractMock.mockClear();
+    extractMock.mockResolvedValueOnce({ candidates: [candidate], cityHint: 'Tel Aviv' });
+    captionExtractMock.mockResolvedValueOnce([TRANSCRIPT_PART]);
+
+    const res = await postProbe();
+    const body = (await res.json()) as { caption: string | null; candidates: PlaceCandidate[] };
+
+    expect(res.status).toBe(200);
+    expect(extractMock).toHaveBeenCalledTimes(1);
+    expect(body.caption).toBeNull();
+    // Survives `filterPlausible`: the gate is now given every part's text, so evidence quoted from
+    // the transcript is evidence the model really was shown.
+    expect(body.candidates).toHaveLength(1);
+  });
+
+  /**
    * Stage C — the `PlaceResolver` wiring (TLV-RESOLVE-T3).
    *
    * The property that matters here is not "the resolver was called". It is that the shortlist ends
@@ -550,8 +617,12 @@ describe('POST /api/imports/probe — extraction branch', () => {
    * deterministic. These three cases pin the read side's contract.
    */
   describe('the extraction cache', () => {
-    // sha256 of the caption `captionExtractMock` returns, which is what the route hashes.
+    // sha256 of the caption `captionExtractMock` returns — what the route hashes when the caption
+    // is the only part, and what every `extractions` row in every environment already holds.
     const CAPTION_HASH = '0e14a376f9f0a5c0077ff671c337ab4edbfb69bf8ae876a5e5145127a6793153';
+    // The same source once the transcript part joins it: `domain/import/content-parts.ts`'s
+    // composite key over (kind, origin, text) for `[caption, transcript]`.
+    const CAPTION_AND_TRANSCRIPT_HASH = 'c86a152d2354b7b9344a62e87e106401a971f8dfd24fa2da4c5c7935ca365f59';
 
     // Shaped as schema v2 writes it (`domain/extraction/schema.ts`). A v1-shaped row — one with no
     // `tags`/`dishes`/`whyGo`/`areaHint` — would fail `RawPlaceCandidateSchema` here and be treated
@@ -597,6 +668,53 @@ describe('POST /api/imports/probe — extraction branch', () => {
       // A hit writes nothing: there is no new answer to record, and re-upserting would overwrite
       // the original row's `latency_ms` with a null.
       expect(persisted.extractions).toHaveLength(0);
+    });
+
+    it('keys a caption-only extraction on the caption text alone, as every stored row already is', async () => {
+      // Pinned to the literal, not recomputed: this is the compatibility promise. If the route
+      // starts composing the key differently for a single caption, every `extractions` row written
+      // before that change silently becomes a miss and re-extracts on next import.
+      extractMock.mockResolvedValueOnce({ candidates: [], cityHint: null });
+
+      await postProbe();
+
+      expect(persisted.extractions[0]?.input_hash).toBe(CAPTION_HASH);
+    });
+
+    /**
+     * The regression this whole change exists for. Before it, the key was `sha256(caption)`, so a
+     * source that gained a transcript hashed **identically** to the caption-only run: the cached,
+     * caption-only answer — usually zero candidates — was served forever and the transcript never
+     * reached the model. Silent, permanent, and caught by nothing.
+     */
+    it('misses a caption-only cache row once a second part joins the caption', async () => {
+      cachedExtractionRow = {
+        id: 'ext-cached',
+        status: 'ok',
+        input_hash: CAPTION_HASH,
+        candidates: [],
+      };
+      captionExtractMock.mockResolvedValueOnce([
+        { kind: 'caption', text: 'grab the sourdough at Cafe Fiori', origin: 'tiktok-oembed-title' },
+        TRANSCRIPT_PART,
+      ]);
+      extractMock.mockClear();
+      extractMock.mockResolvedValueOnce({ candidates: [], cityHint: null });
+
+      const res = await postProbe();
+
+      expect(res.status).toBe(200);
+      expect(extractMock).toHaveBeenCalledTimes(1);
+      // Both parts reach the model, in order — the route carries the array rather than collapsing
+      // it back to a caption string.
+      expect(extractMock.mock.calls[0]?.[0]).toEqual([
+        { kind: 'caption', text: 'grab the sourdough at Cafe Fiori', origin: 'tiktok-oembed-title' },
+        TRANSCRIPT_PART,
+      ]);
+      // And the new answer is stored under a key that is not the caption's, so the two runs stay
+      // distinguishable rather than overwriting each other's meaning.
+      expect(persisted.extractions[0]?.input_hash).toBe(CAPTION_AND_TRANSCRIPT_HASH);
+      expect(persisted.extractions[0]?.input_hash).not.toBe(CAPTION_HASH);
     });
 
     it('re-extracts when the caption changed under the same source and prompt version', async () => {
