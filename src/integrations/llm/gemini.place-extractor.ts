@@ -7,9 +7,10 @@
  *
  * Structured output is enforced via `generationConfig.responseSchema`
  * (`integrations/llm/json-schema.ts`'s `EXTRACTION_JSON_SCHEMA`), and the response is re-parsed
- * with `domain/extraction/schema.ts`'s `ExtractionResultSchema` regardless — schema-shaping the
- * request narrows what the model *can* say; the Zod parse is what we actually trust (`07` §10's
- * Zod-at-every-boundary rule).
+ * with `domain/extraction/schema.ts`'s `parseExtractionResultPartial` regardless — schema-shaping
+ * the request narrows what the model *can* say; the Zod parse is what we actually trust (`07` §10's
+ * Zod-at-every-boundary rule). That parse is per candidate: one malformed candidate no longer
+ * discards the other four, and the count it did discard is logged rather than swallowed.
  *
  * No tools, no function calling, no network access initiated by the model — the caption can at
  * worst produce a response that fails `ExtractionResultSchema` (charter R10, `09` §6).
@@ -26,14 +27,15 @@
  * on the exact same prompt/schema got every one of those venues right, repeatably.
  */
 import { extractorInvalidOutput, extractorUnavailable } from '@/domain/errors';
-import { ExtractionResultSchema, toPlaceCandidate } from '@/domain/extraction/schema';
+import { parseExtractionResultPartial, toPlaceCandidate } from '@/domain/extraction/schema';
 import type { OpCtx, PlaceExtractor } from '@/domain/ports';
 import type { ContentPart } from '@/domain/types';
 
 import { costUsd, logExtractionCost } from './cost';
-import { EXTRACTION_JSON_SCHEMA } from './json-schema';
+import { EXTRACTION_JSON_SCHEMA, MAX_OUTPUT_TOKENS } from './json-schema';
 import { postProcessCandidates } from './post-process';
 import { buildUserPrompt, generateDelimiter, PROMPT_VERSION, SYSTEM_PROMPT } from './prompt';
+import { applyStopDiagnosis, classifyGeminiStop } from './stop-reason';
 
 const GEMINI_ENDPOINT_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
@@ -117,7 +119,11 @@ export function geminiExtractorVersion(model: string): string {
 interface GeminiGenerateContentResponse {
   readonly candidates?: readonly {
     readonly content?: { readonly parts?: readonly { readonly text?: string }[] };
+    /** Why generation ended: `STOP`, `MAX_TOKENS`, `SAFETY`, … See `stop-reason.ts`. */
+    readonly finishReason?: unknown;
   }[];
+  /** Set when the **prompt** was blocked, in which case there is no candidate at all. */
+  readonly promptFeedback?: { readonly blockReason?: unknown };
   readonly usageMetadata?: {
     readonly promptTokenCount?: number;
     readonly candidatesTokenCount?: number;
@@ -166,6 +172,13 @@ export function geminiPlaceExtractor(config: {
             generationConfig: {
               responseMimeType: 'application/json',
               responseSchema: geminiSchema,
+              // Sent explicitly rather than left to the model default, which is a number we do not
+              // control and cannot see in the response. Same ceiling and same arithmetic as the
+              // Anthropic adapter (`json-schema.ts`'s `MAX_OUTPUT_TOKENS`) — the two adapters
+              // truncating at different, unstated points would make every cross-adapter comparison
+              // a comparison of two budgets. Gemini's own `maxItems` cap here is 8, so this is
+              // roughly twice what the widest legal response can need.
+              maxOutputTokens: MAX_OUTPUT_TOKENS,
               // Every extraction was one sample from the model's default distribution, and it cost
               // us a false diagnosis: three corpus captions returned zero candidates under `p8-s3`
               // that had returned a candidate under `p7-s2`, which read exactly like a prompt
@@ -200,6 +213,35 @@ export function geminiPlaceExtractor(config: {
       }
 
       const parsedResponse = json as GeminiGenerateContentResponse;
+      const elapsedMs = Date.now() - startedAt;
+      const usage = {
+        inputTokens: parsedResponse.usageMetadata?.promptTokenCount ?? 0,
+        outputTokens: parsedResponse.usageMetadata?.candidatesTokenCount ?? 0,
+      };
+
+      // Logged before anything can throw: a truncated or blocked call is still a call we made, and
+      // a cost line that only appears on success under-reports what extraction actually costs.
+      logExtractionCost(ctx.log, {
+        extractorVersion: version,
+        promptVersion: PROMPT_VERSION,
+        inputTokens: usage.inputTokens,
+        outputTokens: usage.outputTokens,
+        costUsd: GEMINI_FLASH_LITE_PRICE_PER_1M === undefined ? 0 : costUsd(usage, GEMINI_FLASH_LITE_PRICE_PER_1M),
+        costModel: GEMINI_FLASH_LITE_PRICE_PER_1M === undefined ? 'unmeasured' : 'measured',
+        elapsedMs,
+      });
+
+      // Before the body is read. A `MAX_TOKENS` finish means the JSON below is cut off, and a
+      // `SAFETY`/`blockReason` stop means there is no JSON at all — both used to arrive as
+      // "response contained no text part" or "not valid JSON", which name the symptom and hide the
+      // cause (`stop-reason.ts`).
+      applyStopDiagnosis(
+        classifyGeminiStop(parsedResponse.candidates?.[0]?.finishReason, parsedResponse.promptFeedback?.blockReason),
+        'Gemini',
+        ctx,
+        { extractorVersion: version, outputTokens: usage.outputTokens, maxOutputTokens: MAX_OUTPUT_TOKENS },
+      );
+
       const text = parsedResponse.candidates?.[0]?.content?.parts?.[0]?.text;
       if (text === undefined) {
         throw extractorInvalidOutput('Gemini response contained no text part.');
@@ -212,29 +254,26 @@ export function geminiPlaceExtractor(config: {
         throw extractorInvalidOutput('Gemini response content was not valid JSON.', e);
       }
 
-      const parsed = ExtractionResultSchema.safeParse(candidateJson);
-      if (!parsed.success) {
+      const parsed = parseExtractionResultPartial(candidateJson);
+      if (!parsed.ok) {
         throw extractorInvalidOutput(undefined, parsed.error);
       }
+      if (parsed.value.dropped > 0) {
+        // A fault, not a note: the list handed back is not the list the model sent, and no field
+        // of `PlaceExtractor`'s return type can say so. See `parseExtractionResultPartial`.
+        ctx.log.event('extraction.candidates_dropped', {
+          extractorVersion: version,
+          promptVersion: PROMPT_VERSION,
+          reason: 'schema_invalid',
+          dropped: parsed.value.dropped,
+          kept: parsed.value.candidates.length,
+          total: parsed.value.total,
+        });
+      }
 
-      const elapsedMs = Date.now() - startedAt;
-      const usage = {
-        inputTokens: parsedResponse.usageMetadata?.promptTokenCount ?? 0,
-        outputTokens: parsedResponse.usageMetadata?.candidatesTokenCount ?? 0,
-      };
-      logExtractionCost(ctx.log, {
-        extractorVersion: version,
-        promptVersion: PROMPT_VERSION,
-        inputTokens: usage.inputTokens,
-        outputTokens: usage.outputTokens,
-        costUsd: GEMINI_FLASH_LITE_PRICE_PER_1M === undefined ? 0 : costUsd(usage, GEMINI_FLASH_LITE_PRICE_PER_1M),
-        costModel: GEMINI_FLASH_LITE_PRICE_PER_1M === undefined ? 'unmeasured' : 'measured',
-        elapsedMs,
-      });
+      const candidates = postProcessCandidates(parsed.value.candidates.map(toPlaceCandidate), caption, ctx);
 
-      const candidates = postProcessCandidates(parsed.data.candidates.map(toPlaceCandidate), caption, ctx);
-
-      return { candidates, cityHint: parsed.data.cityHint };
+      return { candidates, cityHint: parsed.value.cityHint };
     },
   };
 }

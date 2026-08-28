@@ -6,23 +6,25 @@
  *
  * Structured output is enforced with tool-use forced to one tool
  * (`integrations/llm/json-schema.ts`'s `EXTRACTION_JSON_SCHEMA`), and the response is re-parsed
- * with `domain/extraction/schema.ts`'s `ExtractionResultSchema` regardless — schema-shaping the
- * request narrows what the model *can* say; the Zod parse is what we actually trust (`07` §10's
- * Zod-at-every-boundary rule).
+ * with `domain/extraction/schema.ts`'s `parseExtractionResultPartial` regardless — schema-shaping
+ * the request narrows what the model *can* say; the Zod parse is what we actually trust (`07` §10's
+ * Zod-at-every-boundary rule). That parse is per candidate: one malformed candidate no longer
+ * discards the other four, and the count it did discard is logged rather than swallowed.
  *
  * No tools with side effects, no function calling beyond the one forced structured-output tool, no
  * network access initiated by the model — the caption can at worst produce a response that fails
  * `ExtractionResultSchema` (charter R10, `09` §6).
  */
 import { extractorInvalidOutput, extractorUnavailable } from '@/domain/errors';
-import { ExtractionResultSchema, toPlaceCandidate } from '@/domain/extraction/schema';
+import { parseExtractionResultPartial, toPlaceCandidate } from '@/domain/extraction/schema';
 import type { OpCtx, PlaceExtractor } from '@/domain/ports';
 import type { ContentPart } from '@/domain/types';
 
 import { ANTHROPIC_HAIKU_4_5_PRICE_PER_1M, costUsd, logExtractionCost } from './cost';
-import { EXTRACTION_JSON_SCHEMA } from './json-schema';
+import { EXTRACTION_JSON_SCHEMA, MAX_OUTPUT_TOKENS } from './json-schema';
 import { postProcessCandidates } from './post-process';
 import { buildUserPrompt, generateDelimiter, PROMPT_VERSION, SYSTEM_PROMPT } from './prompt';
+import { applyStopDiagnosis, classifyAnthropicStop } from './stop-reason';
 
 const ANTHROPIC_ENDPOINT = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
@@ -41,6 +43,8 @@ interface AnthropicToolUseBlock {
 
 interface AnthropicMessagesResponse {
   readonly content: readonly Record<string, unknown>[];
+  /** Why generation ended. Read, not ignored — `stop-reason.ts` explains what it separates. */
+  readonly stop_reason?: unknown;
   readonly usage: { readonly input_tokens: number; readonly output_tokens: number };
 }
 
@@ -86,7 +90,10 @@ export function anthropicPlaceExtractor(config: {
           },
           body: JSON.stringify({
             model,
-            max_tokens: 1024,
+            // Was 1024, which a real five-candidate Hebrew caption already overruns. The
+            // arithmetic is on `MAX_OUTPUT_TOKENS` in `json-schema.ts`, derived from the schema's
+            // own 12-candidate cap and the measured size of a candidate object.
+            max_tokens: MAX_OUTPUT_TOKENS,
             system: SYSTEM_PROMPT,
             messages: [{ role: 'user', content: buildUserPrompt(caption, delimiter) }],
             tools: [
@@ -115,21 +122,14 @@ export function anthropicPlaceExtractor(config: {
       }
 
       const parsedResponse = json as AnthropicMessagesResponse;
-      const toolUse = parsedResponse.content?.find(isToolUseBlock);
-      if (toolUse === undefined) {
-        throw extractorInvalidOutput('Anthropic did not return the forced tool call.');
-      }
-
-      const parsed = ExtractionResultSchema.safeParse(toolUse.input);
-      if (!parsed.success) {
-        throw extractorInvalidOutput(undefined, parsed.error);
-      }
-
       const elapsedMs = Date.now() - startedAt;
       const usage = {
         inputTokens: parsedResponse.usage?.input_tokens ?? 0,
         outputTokens: parsedResponse.usage?.output_tokens ?? 0,
       };
+
+      // Logged before anything can throw: a truncated or refused call is still a billed call, and
+      // a cost line that only appears on success under-reports what extraction actually costs.
       logExtractionCost(ctx.log, {
         extractorVersion: ANTHROPIC_EXTRACTOR_VERSION,
         promptVersion: PROMPT_VERSION,
@@ -140,9 +140,39 @@ export function anthropicPlaceExtractor(config: {
         elapsedMs,
       });
 
-      const candidates = postProcessCandidates(parsed.data.candidates.map(toPlaceCandidate), caption, ctx);
+      // Before anything is read out of the body: a truncated or refused response must not be
+      // salvaged into something that looks like a complete answer (`stop-reason.ts`).
+      applyStopDiagnosis(classifyAnthropicStop(parsedResponse.stop_reason), 'Anthropic', ctx, {
+        extractorVersion: ANTHROPIC_EXTRACTOR_VERSION,
+        outputTokens: usage.outputTokens,
+        maxOutputTokens: MAX_OUTPUT_TOKENS,
+      });
 
-      return { candidates, cityHint: parsed.data.cityHint };
+      const toolUse = parsedResponse.content?.find(isToolUseBlock);
+      if (toolUse === undefined) {
+        throw extractorInvalidOutput('Anthropic did not return the forced tool call.');
+      }
+
+      const parsed = parseExtractionResultPartial(toolUse.input);
+      if (!parsed.ok) {
+        throw extractorInvalidOutput(undefined, parsed.error);
+      }
+      if (parsed.value.dropped > 0) {
+        // A fault, not a note: the list handed back is not the list the model sent, and no field
+        // of `PlaceExtractor`'s return type can say so. See `parseExtractionResultPartial`.
+        ctx.log.event('extraction.candidates_dropped', {
+          extractorVersion: ANTHROPIC_EXTRACTOR_VERSION,
+          promptVersion: PROMPT_VERSION,
+          reason: 'schema_invalid',
+          dropped: parsed.value.dropped,
+          kept: parsed.value.candidates.length,
+          total: parsed.value.total,
+        });
+      }
+
+      const candidates = postProcessCandidates(parsed.value.candidates.map(toPlaceCandidate), caption, ctx);
+
+      return { candidates, cityHint: parsed.value.cityHint };
     },
   };
 }

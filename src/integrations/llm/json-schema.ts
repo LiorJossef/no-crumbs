@@ -16,6 +16,53 @@
  * round-trips a candidate through this shape and asserts `ExtractionResultSchema` accepts it.
  */
 
+/**
+ * The output-token ceiling both hosted adapters send, and the arithmetic behind it.
+ *
+ * ## What it replaces
+ *
+ * The Anthropic adapter sent `max_tokens: 1024` against this fourteen-field candidate. Measured on
+ * the 65 recorded extraction responses in `docs/evidence/.local/tiktok-recognition-cache` (13
+ * captions x 5 prompt versions, 79 candidate objects, no network — these are replayed, not
+ * re-fetched):
+ *
+ * | Measure | Value |
+ * |---|---|
+ * | Serialised candidate object, median | 598 characters |
+ * | Serialised candidate object, p95 / max | 783 / 819 characters |
+ * | Worst whole response (5 candidates, Hebrew) | 3,162 characters |
+ *
+ * Characters are not tokens, and the mix matters: ASCII runs about 4 characters per token, Hebrew
+ * between roughly 1.2 and 0.8 — Hebrew code points are two UTF-8 bytes each, so a byte-level BPE
+ * spends far more of the budget on the same visible text. Applying those two rates to that worst
+ * real response gives **1,177 to 1,453 output tokens for five candidates**. Both numbers are above
+ * 1,024. So this was not a hypothetical ceiling waiting for a seven-place caption: a five-place
+ * Hebrew caption of a kind already in the corpus overruns it, and until `stop-reason.ts` existed
+ * the overrun arrived as an indistinguishable `EXTRACTOR_INVALID_OUTPUT`.
+ *
+ * ## The number
+ *
+ * Per candidate, at the pessimistic Hebrew rate: 819 characters ≈ **490 tokens**.
+ * `candidates.maxItems` above lets the model emit **12**, and the ceiling has to cover what the
+ * model is *allowed* to say, not what the pipeline later keeps (`MAX_CANDIDATES = 7`) — a
+ * candidate truncated away is still a broken response.
+ *
+ *     12 x 490  = 5,880   twelve worst-case candidates
+ *         + 40  =    40   envelope: `cityHint`, brackets, tool-call framing
+ *     -----------------
+ *              ≈ 5,920 → 8,192 (the next power of two, ~28% headroom)
+ *
+ * ## Why raising it is close to free
+ *
+ * `max_tokens` is a ceiling, not a purchase: output is billed per token generated, and a normal
+ * response generates ~300–1,500. The exposure is a runaway generation, which is bounded — 8,192
+ * output tokens on `claude-haiku-4-5` at $5/1M is **$0.041**, once, and `stop_reason` now says so
+ * in the log when it happens instead of leaving it to be inferred.
+ *
+ * Re-derive this whenever the candidate shape or `candidates.maxItems` changes; both are inputs.
+ */
+export const MAX_OUTPUT_TOKENS = 8192;
+
 export const EXTRACTION_JSON_SCHEMA = {
   type: 'object',
   additionalProperties: false,

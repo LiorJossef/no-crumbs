@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { OpCtx } from '@/domain/ports';
 import type { PlaceCandidate } from '@/domain/types';
-import { EXTRACTION_JSON_SCHEMA } from '@/integrations/llm/json-schema';
+import { EXTRACTION_JSON_SCHEMA, MAX_OUTPUT_TOKENS } from '@/integrations/llm/json-schema';
 import { geminiPlaceExtractor, geminiExtractorVersion } from '@/integrations/llm/gemini.place-extractor';
 
 function ctx(events: { name: string; fields: Record<string, unknown> }[] = []): OpCtx {
@@ -24,11 +24,32 @@ function jsonResponse(body: unknown, status = 200): Response {
 function generateContentResponse(
   candidateJson: unknown,
   usageMetadata = { promptTokenCount: 300, candidatesTokenCount: 40 },
+  finishReason: string = 'STOP',
 ) {
   return jsonResponse({
-    candidates: [{ content: { parts: [{ text: JSON.stringify(candidateJson) }] } }],
+    candidates: [{ content: { parts: [{ text: JSON.stringify(candidateJson) }] }, finishReason }],
     usageMetadata,
   });
+}
+
+/** One schema-valid candidate, so a test can talk about *which* candidates survive. */
+function candidate(rawName: string, evidence: string) {
+  return {
+    rawName,
+    cityHint: null,
+    countryHint: null,
+    areaHint: null,
+    categoryHint: null,
+    addressHint: null,
+    evidence,
+    modelConfidence: null,
+    identifiedName: null,
+    nameVariants: [],
+    tags: [],
+    dishes: [],
+    whyGo: null,
+    coordinates: null,
+  };
 }
 
 describe('geminiPlaceExtractor', () => {
@@ -220,6 +241,108 @@ describe('geminiPlaceExtractor', () => {
     await expect(
       extractor.extract([{ kind: 'caption', text: 'anything', origin: 'tiktok-oembed-title' }], ctx()),
     ).rejects.toMatchObject({ code: 'EXTRACTOR_INVALID_OUTPUT' });
+  });
+
+  it('sends the same explicit output-token ceiling as the other adapter', async () => {
+    // Gemini set no `maxOutputTokens` at all, so it inherited a model default we neither control
+    // nor see. Two adapters truncating at different, unstated points makes every cross-adapter
+    // comparison a comparison of two budgets.
+    let capturedInit: RequestInit | undefined;
+    const fetchImpl = async (_url: string, init?: RequestInit) => {
+      capturedInit = init;
+      return generateContentResponse({ candidates: [], cityHint: null });
+    };
+    const extractor = geminiPlaceExtractor({ apiKey: 'test-key', fetchImpl: fetchImpl as unknown as typeof fetch });
+
+    await extractor.extract([{ kind: 'caption', text: 'anything', origin: 'tiktok-oembed-title' }], ctx());
+
+    const body = JSON.parse(capturedInit?.body as string);
+    expect(body.generationConfig.maxOutputTokens).toBe(MAX_OUTPUT_TOKENS);
+  });
+
+  it('fails a truncated response instead of returning the candidates that survived the cut', async () => {
+    const events: { name: string; fields: Record<string, unknown> }[] = [];
+    const fetchImpl = async () =>
+      generateContentResponse(
+        { candidates: [candidate('Cafe Fiori', 'Cafe Fiori')], cityHint: null },
+        { promptTokenCount: 4000, candidatesTokenCount: 8192 },
+        'MAX_TOKENS',
+      );
+    const extractor = geminiPlaceExtractor({ apiKey: 'test-key', fetchImpl: fetchImpl as typeof fetch });
+
+    await expect(
+      extractor.extract([{ kind: 'caption', text: 'Cafe Fiori', origin: 'tiktok-oembed-title' }], ctx(events)),
+    ).rejects.toMatchObject({ code: 'EXTRACTOR_INVALID_OUTPUT' });
+
+    expect(events.find((e) => e.name === 'extraction.stopped')?.fields).toMatchObject({
+      cause: 'truncated',
+      reason: 'MAX_TOKENS',
+      outputTokens: 8192,
+      maxOutputTokens: MAX_OUTPUT_TOKENS,
+    });
+  });
+
+  it('reports a safety stop as a refusal, not as malformed output', async () => {
+    const events: { name: string; fields: Record<string, unknown> }[] = [];
+    const fetchImpl = async () =>
+      generateContentResponse({ candidates: [], cityHint: null }, { promptTokenCount: 300, candidatesTokenCount: 0 }, 'SAFETY');
+    const extractor = geminiPlaceExtractor({ apiKey: 'test-key', fetchImpl: fetchImpl as typeof fetch });
+
+    await expect(
+      extractor.extract([{ kind: 'caption', text: 'anything', origin: 'tiktok-oembed-title' }], ctx(events)),
+    ).rejects.toMatchObject({ code: 'EXTRACTOR_INVALID_OUTPUT' });
+
+    expect(events.find((e) => e.name === 'extraction.stopped')?.fields.cause).toBe('refused');
+  });
+
+  it('reports a blocked prompt as a refusal rather than as "no text part"', async () => {
+    // A blocked prompt returns no candidate at all, so the old code reached "response contained no
+    // text part" — the symptom, not the cause.
+    const events: { name: string; fields: Record<string, unknown> }[] = [];
+    const fetchImpl = async () => jsonResponse({ promptFeedback: { blockReason: 'SAFETY' } });
+    const extractor = geminiPlaceExtractor({ apiKey: 'test-key', fetchImpl: fetchImpl as typeof fetch });
+
+    await expect(
+      extractor.extract([{ kind: 'caption', text: 'anything', origin: 'tiktok-oembed-title' }], ctx(events)),
+    ).rejects.toMatchObject({ code: 'EXTRACTOR_INVALID_OUTPUT' });
+
+    expect(events.find((e) => e.name === 'extraction.stopped')?.fields).toMatchObject({
+      cause: 'refused',
+      reason: 'prompt_SAFETY',
+    });
+  });
+
+  it('keeps the valid candidates when one of them is malformed, and logs the ones it dropped', async () => {
+    const events: { name: string; fields: Record<string, unknown> }[] = [];
+    const fetchImpl = async () =>
+      generateContentResponse({
+        candidates: [
+          candidate('Cafe Fiori', 'Cafe Fiori was unreal'),
+          { rawName: 'x' },
+          candidate('Anat Bakery', 'Anat Bakery next door'),
+        ],
+        cityHint: null,
+      });
+    const extractor = geminiPlaceExtractor({ apiKey: 'test-key', fetchImpl: fetchImpl as typeof fetch });
+
+    const result = await extractor.extract(
+      [
+        {
+          kind: 'caption',
+          text: 'Cafe Fiori was unreal, and Anat Bakery next door',
+          origin: 'tiktok-oembed-title',
+        },
+      ],
+      ctx(events),
+    );
+
+    expect(result.candidates.map((c) => c.rawName)).toEqual(['Cafe Fiori', 'Anat Bakery']);
+    expect(events.find((e) => e.name === 'extraction.candidates_dropped')?.fields).toMatchObject({
+      reason: 'schema_invalid',
+      dropped: 1,
+      kept: 2,
+      total: 3,
+    });
   });
 
   it('versions itself per hosted model, defaulting to the hosted flash-lite model', () => {
