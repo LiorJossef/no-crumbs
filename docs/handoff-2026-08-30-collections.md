@@ -224,25 +224,30 @@ Supabase auth config are all exactly as you left them, and the standing hold is 
 - **`docs/product-backlog-2026-08-29.md` and `scripts/rebuild-prod.sh` are still untracked**, as you
   left them. I did not commit either — the backlog is your working document and the script is the
   one-off you wanted to review before deleting.
-- **Local database test data, all of it deletable:**
+- **Local database test data, already trimmed, and what is left is deliberate.** The specialists
+  created seven throwaway accounts to drive the join flow end to end; **six are deleted**. One is
+  kept on purpose so you wake up to a collection that is genuinely *shared* rather than one with a
+  single member — `flow-mobile-…@example.com`, display name `דנה`, an editor on `מסעדות טובות`.
+  `demo@example.com`'s own `display_name` was set to `מאיה` so the inviter line had something real
+  to render.
+
+  All three are one command each to remove when you have looked:
 
 ```sql
--- The collection, its members, items and invites (created for testing; cascades cleanly)
+-- the demonstration collaborator
+delete from auth.users where email like 'flow-mobile-%@example.com';
+
+-- the test collection, its members, items and invites (cascades cleanly)
 delete from public.collections where id = '78a030ea-abf6-44fc-91a9-62e848269659';
 
--- The seven throwaway accounts a specialist created to drive the join flow end to end
-delete from auth.users where email like 'joiner-%@example.com'
-                          or email like 'd-joiner-%@example.com'
-                          or email like 'probe-%@example.com'
-                          or email like 'flow-%@example.com';
-
--- demo@example.com's display_name was set to 'מאיה' so the inviter line had something to render
+-- demo@example.com's display name, back to unset
 update public.profiles set display_name = null
  where id = (select id from auth.users where email = 'demo@example.com');
 ```
 
-All 31 real saved places are intact and untouched. A pre-session dump is at
-`~/p-002-backups/local-pre-collections-20260828T200649Z.dump`.
+  **All 31 real saved places are intact and untouched**, and nothing else in the database was
+  changed. Dumps: `~/p-002-backups/local-pre-collections-20260828T200649Z.dump` (before any of
+  tonight's work) and `local-pre-0026-*.dump` (before the membership migration).
 
 ---
 
