@@ -135,6 +135,29 @@ export function memberLabel(args: {
   return trimmed.length > 0 ? trimmed : 'A collaborator';
 }
 
+/** A display name is a label under someone else's eyes, so it is shorter than the 80 the profiles
+ *  column allows. */
+export const MEMBER_NAME_MAX_LENGTH = 40;
+
+/**
+ * The part of an email address before the `@`, for prefilling the "what should people call you"
+ * field.
+ *
+ * Prefill, never fallback. The suggestion is shown to the person it is about, in a field they have
+ * to confirm, which makes it consent; deriving a visible name from someone's address *without* that
+ * confirmation would put a fragment of their email in front of collaborators who were never given
+ * it. That is why `memberLabel` above falls back to `A collaborator` and not to this.
+ *
+ * `''` for anything that is not an address with a non-empty local part — an empty prefill is
+ * honest, and `Continue` on an empty field simply leaves the person as `A collaborator`.
+ */
+export function emailLocalPart(email: string | null | undefined): string {
+  const address = email ?? '';
+  const at = address.indexOf('@');
+  if (at <= 0) return '';
+  return address.slice(0, at).trim().slice(0, MEMBER_NAME_MAX_LENGTH);
+}
+
 /** What an item's attribution reads as once its adder has deleted their account: `added_by` is
  *  `on delete set null`, so the item survives de-identified rather than vanishing out of someone
  *  else's collection. */

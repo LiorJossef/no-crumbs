@@ -35,9 +35,11 @@ export interface CollectionSummary {
   readonly ownerName: string | null;
   readonly placeCount: number;
   readonly memberCount: number;
-  /** Up to six category values, in collection order — the raw material for the index card's
-   *  stand-in for a cover image. We store no images and upload none, so a collection's own
-   *  contents are the only honest thing to draw it from. */
+  /** The **distinct** categories present, most common first, capped at five — the raw material for
+   *  the index row's stand-in for a cover image. Distinct rather than one per place: three
+   *  restaurants drawn as three identical red bars reads as a rendering bug, while one bar says
+   *  the true thing, which is that this collection is restaurants. We store no images and upload
+   *  none, so a collection's own contents are the only honest thing to draw it from. */
   readonly categories: readonly ProductCategory[];
   readonly updatedAt: string;
 }
@@ -91,12 +93,12 @@ export interface CollectionDetail {
 
 const SUMMARY_SELECT = `
   role,
-  collection:collections (
+  collection:collections!collection_members_collection_id_fkey (
     id,
     name,
     description,
     updated_at,
-    owner:profiles ( display_name ),
+    owner:profiles!collections_owner_id_fkey ( display_name ),
     items:collection_items ( position, place:places ( category, provider_category ) ),
     members:collection_members ( user_id )
   )
@@ -158,16 +160,31 @@ export async function getCollections(): Promise<readonly CollectionSummary[]> {
         ownerName: row.collection.owner?.display_name ?? null,
         placeCount: items.length,
         memberCount: row.collection.members.length,
-        categories: items.slice(0, 6).map((item) =>
-          productCategoryFor({
-            override: null,
-            providerCategory: item.place?.provider_category,
-            extractedHint: item.place?.category,
-          }),
+        categories: distinctCategoriesByCount(
+          items.map((item) =>
+            productCategoryFor({
+              override: null,
+              providerCategory: item.place?.provider_category,
+              extractedHint: item.place?.category,
+            }),
+          ),
         ),
         updatedAt: row.collection.updated_at,
       };
     });
+}
+
+/** The collection's category mix: each category once, most common first, at most five. No `+n`
+ *  beyond that — the strip is a texture, not a count, and the row's accessible name carries every
+ *  fact it cannot. */
+function distinctCategoriesByCount(all: readonly ProductCategory[]): readonly ProductCategory[] {
+  const counts = new Map<ProductCategory, number>();
+  for (const category of all) counts.set(category, (counts.get(category) ?? 0) + 1);
+
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([category]) => category);
 }
 
 const DETAIL_SELECT = `
@@ -175,11 +192,11 @@ const DETAIL_SELECT = `
   name,
   description,
   owner_id,
-  members:collection_members ( user_id, role, joined_at, profile:profiles ( display_name ) ),
+  members:collection_members ( user_id, role, joined_at, profile:profiles!collection_members_user_id_fkey ( display_name ) ),
   items:collection_items (
     id, place_id, note, position, added_by, created_at,
     place:places ( name, category, provider_category, lat, lng, address_line, locality ),
-    adder:profiles ( display_name )
+    adder:profiles!collection_items_added_by_fkey ( display_name )
   )
 `;
 
@@ -353,7 +370,7 @@ export async function getCollectionMemberships(): Promise<CollectionMemberships>
   const { data, error } = await supabase
     .from('collection_members')
     .select(
-      'role, collection:collections ( id, name, items:collection_items ( place_id ) )',
+      'role, collection:collections!collection_members_collection_id_fkey ( id, name, items:collection_items ( place_id ) )',
     )
     .eq('user_id', user.id)
     .in('role', ['owner', 'editor'])

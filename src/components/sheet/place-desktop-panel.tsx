@@ -32,6 +32,7 @@ import {
 } from './place-sheet';
 import { ActiveTagFilter } from './place-enrichment';
 import { NotBeenFilterChip } from './visit-state';
+import { CollectionsNavRow } from '@/components/collections/collections-nav-row';
 import type { AreaHeading, AreaRow } from '@/ui/place/active-area';
 import type { MapPlace } from '@/components/map/types';
 
@@ -139,6 +140,7 @@ export function PlaceDesktopPanel({
               </ul>
             )}
             <ElsewhereSection rows={otherAreas} filtering={filtering} onSelectArea={selectArea} />
+            <CollectionsNavRow />
           </div>
         )}
       </div>
