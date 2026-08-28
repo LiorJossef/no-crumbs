@@ -768,11 +768,14 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
           // forcing full-viewport height), rounded corners on all sides, hairline border + elevation.
           onClose &&
             'lg:relative lg:mx-0 lg:my-0 lg:w-[clamp(420px,34vw,480px)] lg:max-w-none lg:flex-none lg:max-h-[min(52rem,calc(100vh-4rem))] lg:justify-start lg:overflow-hidden lg:rounded-2xl lg:border lg:border-border/70 lg:bg-card lg:px-8 lg:py-10 lg:shadow-[var(--shadow-elevated)]',
-          // Desktop (`lg+`), standalone `/import` route (`onClose` unset — no map behind it, no
-          // scrim on `<main>` to centre against): the original flush right-docked, full-height
-          // panel, unchanged from before the centred-card overlay treatment existed.
+          // Desktop (`lg+`), standalone `/import` route (`onClose` unset — no map behind it).
+          //
+          // This used to be a flush right-docked, full-height panel, and with no map behind it that
+          // left the other two thirds of a 1280px screen as an empty wash — the emptiest surface in
+          // the product, on a screen whose whole content is one input. It is now the same centred
+          // card the overlay uses, so the two ways into this flow look like one flow.
           !onClose &&
-            'lg:absolute lg:inset-y-0 lg:left-auto lg:right-0 lg:mx-0 lg:w-[clamp(400px,32vw,480px)] lg:max-w-none lg:flex-none lg:justify-center lg:border-l lg:border-border/70 lg:bg-card lg:px-8 lg:py-10 lg:shadow-[var(--shadow-elevated)]',
+            'lg:relative lg:my-auto lg:w-[clamp(420px,34vw,480px)] lg:max-w-none lg:flex-none lg:max-h-[min(52rem,calc(100vh-4rem))] lg:justify-start lg:overflow-hidden lg:rounded-2xl lg:border lg:border-border/70 lg:bg-card lg:px-8 lg:py-10 lg:shadow-[var(--shadow-elevated)]',
         )}
       >
         {onClose ? (

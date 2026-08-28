@@ -10,10 +10,12 @@
  * owns the vocabulary and the scorer's mapping of it.
  */
 
+import { CATEGORY_LABEL } from '@/domain/places/category-hint';
 import type { ExtractedCategoryHint } from '@/domain/places/category-hint';
 
 export interface CategoryDisplay {
-  /** Sentence case, the way it is written in a sentence. */
+  /** Sentence case, the way it is written in a sentence. From the domain — the import review
+   *  screen reads the same table, so a café is a "Café" on every surface. */
   readonly label: string;
   /**
    * The pin colour. Dark enough to carry a white glyph, and far enough apart in hue from its
@@ -27,15 +29,22 @@ export interface CategoryDisplay {
  * of the user's places, and painting it grey would make "we do not know" look like "this one is
  * lesser".
  */
-export const CATEGORY_DISPLAY: Record<ExtractedCategoryHint, CategoryDisplay> = {
-  restaurant: { label: 'Restaurant', color: '#C2452F' },
-  cafe: { label: 'Café', color: '#8A5A3B' },
-  bakery: { label: 'Bakery', color: '#C68A17' },
-  bar: { label: 'Bar', color: '#6D4FA8' },
-  attraction: { label: 'Attraction', color: '#2F7FA8' },
-  shop: { label: 'Shop', color: '#B94B77' },
-  other: { label: 'Place', color: '#2E7A70' },
+const CATEGORY_COLOR: Record<ExtractedCategoryHint, string> = {
+  restaurant: '#C2452F',
+  cafe: '#8A5A3B',
+  bakery: '#C68A17',
+  bar: '#6D4FA8',
+  attraction: '#2F7FA8',
+  shop: '#B94B77',
+  other: '#2E7A70',
 };
+
+export const CATEGORY_DISPLAY = Object.fromEntries(
+  Object.entries(CATEGORY_LABEL).map(([category, label]) => [
+    category,
+    { label, color: CATEGORY_COLOR[category as ExtractedCategoryHint] },
+  ])
+) as Record<ExtractedCategoryHint, CategoryDisplay>;
 
 export const DEFAULT_CATEGORY: ExtractedCategoryHint = 'other';
 

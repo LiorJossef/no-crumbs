@@ -70,22 +70,38 @@ export function enrichmentOf(spot: Spot | undefined): SpotEnrichment {
 export const MAX_ROW_TAGS = 3;
 
 /**
- * The second cap, and the one that actually does the work: the total *characters* a row's chips may
- * spend.
+ * The second cap, and the one that actually does the work: roughly how many pixels of chip a row
+ * can hold.
  *
- * A count alone is not enough, and this is measured rather than reasoned. `Sycamore Vino Cucina`
- * carries `seasonal italian`, `hotel restaurant`, `modern italian small plates`; three chips fitted
- * on the row only by every one of them truncating, and a row reading `Seasonal I… Hotel Resta…
- * Modern Italian Sma…` is strictly worse than two whole labels and a count — the whole point of a
- * chip is that you can read it at a glance.
+ * A count alone is not enough. `Sycamore Vino Cucina` carries `seasonal italian`, `hotel
+ * restaurant`, `modern italian small plates`; three chips fit only by every one of them
+ * truncating, and a row reading `Seasonal I… Hotel Resta… Modern Italian Sma…` is strictly worse
+ * than two whole labels and a count — the whole point of a chip is that you can read it.
  *
- * 34 characters is the budget the same row's ~294 px holds at 11 px bold with chip padding,
- * checked against the real tag lists on this database: `pan asian, market stall, hidden gem` (31)
- * fits three, `seasonal italian, hotel restaurant` (32) fits two, `בורקס, מאפייה, hidden gem` (21)
- * fits three. It is a proxy for width, not a measurement of it — a deliberate trade, because
- * measuring text in the browser would mean a layout read on every row of a scrolling list.
+ * **This used to be a character budget, and characters were the wrong unit.** A chip costs its
+ * text *plus* ~17 px of its own padding, so three short tags are much more expensive than one long
+ * one of the same total length. Measured on this database after `Kohi Coffee Shop` was saved:
+ * `japanese, specialty coffee, bakery` is 30 characters, comfortably inside the old 34-character
+ * budget, and rendered as `Japane… Specialty Coff… Bake… +1` — three truncated chips, the exact
+ * outcome the budget existed to prevent. In pixels the same three cost 59 + 102 + 49 = 210 against
+ * a content column of ~240 px minus the overflow count.
+ *
+ * 205 px, checked against the real tag lists here: `japanese, specialty coffee` fits and `bakery`
+ * does not (2 + `+2`); `seasonal italian, hotel restaurant` fits at 204 (2 + `+1`); `בורקס,
+ * מאפייה, hidden gem` fits all three at 164. Still a proxy for width rather than a measurement of
+ * it — measuring text in the browser would mean a layout read on every row of a scrolling list —
+ * but a proxy with the right shape.
  */
-export const ROW_TAG_CHAR_BUDGET = 34;
+export const ROW_TAG_PIXEL_BUDGET = 205;
+
+/** A chip's own horizontal padding, and the per-character width of its 11 px bold label. Both
+ *  approximate, both read off the rendered rows rather than off the CSS. */
+const CHIP_PADDING_PX = 17;
+const CHIP_CHAR_PX = 5.3;
+
+function chipWidth(tag: string): number {
+  return CHIP_PADDING_PX + tag.length * CHIP_CHAR_PX;
+}
 
 export interface RowTags {
   readonly shown: readonly string[];
@@ -107,9 +123,10 @@ export function splitRowTags(tags: readonly string[]): RowTags {
 
   for (const tag of tags) {
     if (shown.length === MAX_ROW_TAGS) break;
-    if (shown.length > 0 && spent + tag.length > ROW_TAG_CHAR_BUDGET) break;
+    const width = chipWidth(tag);
+    if (shown.length > 0 && spent + width > ROW_TAG_PIXEL_BUDGET) break;
     shown.push(tag);
-    spent += tag.length;
+    spent += width;
   }
 
   return { shown, overflow: tags.length - shown.length };

@@ -187,7 +187,7 @@ export function resolutionExplanation(view: CandidateResolutionView): string | n
     case 'matched':
       return 'Pick a different one if this isn’t it.';
     case 'ambiguous':
-      return 'We found these, but we can’t tell which one the caption meant. Nothing is matched until you pick.';
+      return 'The caption doesn’t say which.';
     default:
       return null;
   }
