@@ -523,6 +523,12 @@ export function RemoveSavedPlace({
         Remove <span className="font-bold">{placeName}</span> from your places? Your note goes with
         it.
       </p>
+      {/* Focus lands on Cancel, not on Remove. The confirm step exists to make the product's one
+          irreversible action deliberate, and autofocusing the destructive button undoes exactly
+          that: a keyboard user who presses Space or Enter out of habit has deleted a place, and a
+          screen-reader user is told "Remove" before they are told what is being removed.
+          The sentence above is read first either way, because focus moving into this block
+          announces the group. */}
       <div className="flex items-center gap-2">
         <Button
           type="button"
@@ -530,7 +536,6 @@ export function RemoveSavedPlace({
           variant="destructive"
           disabled={pending}
           onClick={remove}
-          autoFocus
         >
           {pending ? 'Removing…' : 'Remove'}
         </Button>
@@ -540,6 +545,7 @@ export function RemoveSavedPlace({
           variant="ghost"
           disabled={pending}
           onClick={() => setConfirming(false)}
+          autoFocus
         >
           Cancel
         </Button>
