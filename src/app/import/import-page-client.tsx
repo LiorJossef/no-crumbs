@@ -1067,7 +1067,20 @@ function RailScreen({
   rail: RailState;
   onCancel: () => void;
 }) {
-  const stages: readonly PipelineStage[] = ['source', 'extract', 'resolve'];
+  /**
+   * Two stages, not three.
+   *
+   * `resolve` was on this rail and never left `pending`, because `/api/imports/probe` is one
+   * request and one response: there is no boundary inside it between extraction and resolution for
+   * anything to report crossing. So the rail displayed a step it could never run, and the last
+   * thing a user saw before the results was a grey "Matching locations" that stayed grey.
+   *
+   * The honest fix is the opposite of marking it done on a timer — that would be inventing
+   * progress, which is the one thing this product must not do. `PipelineStage` keeps all three
+   * values, because the *pipeline* genuinely has three; this list is what the rail can honestly
+   * narrate today, and the third comes back when `L0-F6`'s streaming route can drive it.
+   */
+  const stages: readonly PipelineStage[] = ['source', 'extract'];
 
   return (
     <div className="flex flex-1 flex-col">
