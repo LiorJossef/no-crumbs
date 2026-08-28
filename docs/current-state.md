@@ -1,12 +1,30 @@
 # Current state — cold-start document
 
 ---
-> ## ⚠ 2026-08-28 — read [`handoff-2026-08-28-recognition-corpus.md`](handoff-2026-08-28-recognition-corpus.md) FIRST
+> ## ⚠ 2026-08-29 — read [`handoff-2026-08-29-overnight-map-and-information.md`](handoff-2026-08-29-overnight-map-and-information.md) FIRST
 >
-> It carries the current priorities and supersedes the 2026-08-27 handoff's ordered steps. Headline:
-> the real auto-match rate is **4/16 (25%)**, the address signal is shipped in both the scorer and
-> the prefilter, and **the next step is bilingual query expansion** — every venue we cannot find is
-> in the index under its Latin name while the caption gave the Hebrew one. Measured, not theorised.
+> It supersedes every earlier handoff's ordered steps. Headline: the map answers all three of the
+> owner's complaints (category pins, clusters that open and are coloured by their majority
+> category, a basemap re-tinted into the product's palette); the "information feels generic"
+> problem was **three separate problems** — presentation, a Hebrew `countryHint` storing
+> `country_code` NULL, and four extraction rules — all fixed and measured; and recognition is
+> **7/16 (44%) with zero false auto-accepts** under prompt `p11`, the same rate as `p8` with
+> `extraction_miss` down 3 → 1.
+>
+> **The decisive-margin band change was tried and refuted** —
+> [`evidence/places/band-policy.md`](evidence/places/band-policy.md). It points at the scorer's
+> category term, not at the band gate. Nothing shipped there.
+>
+> Bilingual query expansion (the previous handoff's next step) **shipped** and is in `p11`. The
+> 4/16 = 25% figure below is two prompt versions stale.
+
+---
+> ## ⚠ 2026-08-28 — [`handoff-2026-08-28-recognition-corpus.md`](handoff-2026-08-28-recognition-corpus.md)
+>
+> Superseded by the entry above; its §4–§7 facts are still good. Headline at the time:
+> the auto-match rate was **4/16 (25%)**, the address signal shipped in both the scorer and
+> the prefilter, and the next step was bilingual query expansion — every venue we could not find
+> was in the index under its Latin name while the caption gave the Hebrew one.
 
 ---
 > ## Session of 2026-08-27 (fifth)
