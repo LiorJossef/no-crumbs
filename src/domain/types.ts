@@ -516,7 +516,11 @@ export interface RawText {
  *  analyser is a second `ContentExtractor` implementation, not a signature change anywhere
  *  (07 §10, §12's stage-B trigger). */
 export interface MediaRef {
-  readonly kind: 'video' | 'image';
+  /** `'audio'` is the demuxed audio track of a post, produced by the media-acquisition step, not
+   *  something a platform hands us directly — it is what `ContentExtractor` `'transcript'` keys on
+   *  (`integrations/transcription/`). A `'video'` ref is deliberately not the same thing: a
+   *  transcriber needs bytes it can send, and turning an MP4 into those bytes is a separate step. */
+  readonly kind: 'video' | 'image' | 'audio';
   readonly url: string;
   readonly expiresAt: Date | null;
 }

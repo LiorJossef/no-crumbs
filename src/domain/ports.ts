@@ -120,6 +120,63 @@ export interface ContentExtractor {
 }
 
 /**
+ * B(pre, audio). Audio bytes in, the words that were spoken out. The seam between the domain's
+ * "get me text from this post" step and whatever ASR provider we happen to be paying — declared
+ * here and not inside `integrations/transcription/` because a second provider must be a second
+ * adapter behind this interface, exactly as `PlaceExtractor` already works.
+ *
+ * It is **not** a member of `Ports`. Nothing in `runImport` calls a transcriber: the only caller is
+ * the `'transcript'` `ContentExtractor`, which already sits in `Ports.content`, so a transcriber is
+ * that extractor's constructor argument. Adding a seventh `Ports` field for a dependency the
+ * orchestrator never touches would make every existing fake `Ports` in the test suite carry a port
+ * it does not use.
+ *
+ * **Silence is a result, not a failure.** A clip with no speech in it returns `text: ''` — the modal
+ * case, since a large share of TikTok audio is music over a voiceless video. An adapter that
+ * invents a transcript for silence is the specific measured failure mode this port exists to
+ * refuse: FAccT '24 measured ~1% of Whisper segments as fabricated *specifically* when nobody was
+ * speaking, complete with invented names and URLs, and an invented venue name is exactly the input
+ * that would travel furthest through this pipeline before anyone noticed. `NO_CAPTION` is not
+ * thrown here either — "this clip was silent" is not an error, and only `runImport` knows whether
+ * any other extractor produced text.
+ *
+ * Throws only `DomainError` (`domain/errors.ts`): transport, quota and non-2xx become
+ * `EXTRACTOR_UNAVAILABLE`, a vendor response that fails its Zod parse becomes
+ * `EXTRACTOR_INVALID_OUTPUT`. The taxonomy is closed (`07` §9) and this port deliberately does not
+ * ask for a fifteenth code — a transcriber *is* a model adapter, and those two codes already say
+ * the two true things about it.
+ */
+export interface TranscriptionInput {
+  /** The clip itself. Bytes, never a URL: no model provider we have evaluated will fetch audio on
+   *  our behalf, so the caller has already acquired them. */
+  readonly audio: Uint8Array;
+  /** IANA type of `audio`, e.g. `audio/aac`. Passed through to the provider rather than sniffed —
+   *  the acquisition step knows what it produced and guessing here would be inventing a fact. */
+  readonly mimeType: string;
+}
+
+export interface TranscriptionResult {
+  /** Verbatim speech, in the language it was spoken. `''` when the clip contains no speech, and
+   *  `''` is a success. Never a summary, never a description of the audio. */
+  readonly text: string;
+  /** The provider's own guess at the spoken language (BCP-47-ish), or `null` when it offered none
+   *  or there was nothing to detect. **Self-reported and unmeasured** — carried for logging and
+   *  future evaluation, and nothing in the pipeline may branch on it until it has been graded. */
+  readonly language: string | null;
+}
+
+export interface Transcriber {
+  /** Names the model, the way `PlaceExtractor.version` does — half of the provenance recorded on
+   *  the `ContentPart` this eventually produces. */
+  readonly version: string;
+  /** Names the prompt text. Bump on any wording change; it is the other half of that provenance,
+   *  and `import/content-parts.ts` folds `origin` into the extraction cache key, so a prompt
+   *  change correctly invalidates cached extractions built on the old transcript. */
+  readonly promptVersion: string;
+  transcribe(input: TranscriptionInput, ctx: OpCtx): Promise<TranscriptionResult>;
+}
+
+/**
  * C. Text -> 0..N candidates. Schema-constrained; no tools; no side effects (charter R10, `09` §2).
  * One implementation, Anthropic's structured-output adapter (L0-F4) — a second model is a second
  * file, never a framework (`07` §10).
