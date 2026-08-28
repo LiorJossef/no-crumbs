@@ -462,10 +462,43 @@ drive attribution.
 Expected volumes: typical user 50 places; design ceiling **2 000**; realistic worst case in one
 viewport after a "show everything" zoom-out, ~2 000 points.
 
-- **One GeoJSON source with `cluster: true`.** `clusterRadius: 50`, `clusterMaxZoom: 13` (so at
-  neighbourhood zoom every place is individual), `clusterMinPoints: 3` (a lone pair of places should
-  not become a bubble). `clusterMinPoints` is ASSUMED available in MapLibre v5 from the style spec;
-  verify on first spike, and if absent, accept `clusterRadius: 40` instead.
+- **One GeoJSON source with `cluster: true`.** Designed as `clusterRadius: 50`, `clusterMaxZoom: 13`
+  (so at neighbourhood zoom every place is individual), `clusterMinPoints: 3` (a lone pair of places
+  should not become a bubble).
+
+  **`clusterMinPoints` is VERIFIED available** (checked 2026-08-28, `D2-CLUSTER-MINPOINTS`). The
+  repo depends on `maplibre-gl` **6.4.1** — not the v5 this section was written against
+  (`package.json`, `package-lock.json`). It is a documented GeoJSON-source property in the style
+  spec the library ships (`@maplibre/maplibre-gl-style-spec` 26.2.1,
+  `src/reference/v8.json` → `"clusterMinPoints": { "type": "number", … "Defaults to 2" }`), it is on
+  the public source type (`maplibre-gl/dist/maplibre-gl.d.ts`), and it is genuinely wired to
+  supercluster at runtime — `maplibre-gl/src/source/geojson_source.ts:227`:
+  `minPoints: Math.max(2, options.clusterMinPoints || 2)`. It is not new in v6: MapLibre v1.15.2
+  carries the same line (`src/source/geojson_source.js:141`) — the oldest tag checked — so it very
+  likely came in with the Mapbox GL JS 1.x fork, though only "≤ 1.15.2" is verified.
+  **The `clusterRadius: 40` fallback is therefore moot** — nothing forces it.
+
+  **What actually ships differs from the design, and pairs do cluster today.** The active surface is
+  `map-surface.mapcn` → `src/components/map/place-marker-layer.tsx`, which sets
+  `clusterRadius: 46` (`CLUSTER_RADIUS_PX`, line 43), `clusterMaxZoom: 13` (matches) and **no
+  `clusterMinPoints`**, so MapLibre's default of 2 applies. `clusterRadiusExpression()` in
+  `marker-style.ts` starts its ramp at `point_count: 2` and is commented "a cluster of two is a
+  slightly bigger sibling of a pin, not a different species" — the two-point bubble is drawn on
+  purpose, so the shipped behaviour is a **deliberate reversal of `clusterMinPoints: 3`**, just one
+  that was never written down here until now. The stale `map-surface.live` variant (not wired in)
+  still uses `clusterRadius: 50` / `clusterMaxZoom: 14`.
+
+  **`clusterRadius: 46` has no recorded justification.** It arrived in `cb58e12`
+  ("feat(map): give every pin its category, and make clusters open", 2026-08-28) replacing the
+  spec's `50`, with no comment on the constant and no mention in the commit body; there is no
+  evidence file for it. Treat 46 as unexplained until the owner says otherwise.
+
+  Open recommendation, **not applied** — the map surface is the owner's call: either set
+  `clusterMinPoints: 3` and start the radius ramp at 3 to honour the original intent, or keep the
+  pair-bubble and delete `clusterMinPoints: 3` from this spec so the doc stops describing behaviour
+  we chose against. Whichever way it goes, give `46` a one-line reason or return it to `50`.
+  (`docs/technical-design.md` §"map" and `docs/current-state.md` repeat the old `50` /
+  `clusterMinPoints: 3` numbers and will need the same correction.)
 - **Custom pins are sprite images in a `symbol` layer, not DOM markers.** This is the single most
   important mobile-performance decision: every `Marker` is an absolutely-positioned DOM node that
   the browser must re-transform on every frame of every pan. Hard rule: **at most two DOM markers

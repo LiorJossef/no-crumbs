@@ -56,7 +56,7 @@ what is verified and how, what is unresolved, and the next highest-impact step. 
 4. `docs/02-risks-and-unknowns.md` — unknowns, assumptions, risks
 5. `docs/01-agent-roster.md` — the eleven expert roles and who owns what
 
-Stack: Next.js + TypeScript + Supabase + Vercel. **D2 is closed** — MapLibre GL v5 + Protomaps
+Stack: Next.js + TypeScript + Supabase + Vercel. **D2 is closed** — MapLibre GL **6.4.1** (this line said v5 until 2026-08-28; the installed dependency is `^6.4.1`, so read the v6 API surface) + Protomaps
 tiles + our own resolver over Overture `places` extracts (`docs/06-map-and-places-decision.md`,
 schema in `docs/10-poi-index.md`). **D2b, 2026-08-20: the MVP resolves globally** — two sources
 behind one `PlaceResolver` port, the Overture index where a region is loaded (85% top-1) and
