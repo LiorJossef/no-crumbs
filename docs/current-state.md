@@ -210,7 +210,11 @@ current map behaviour works.** Recorded as given, before anyone treats §0.1 as 
    this work, and both are now suspect.
 2. **The clustering experience is disliked.** Stated about the *experience*, not the 50 km domain
    grouping in `domain/places/clusters.ts` — the on-map cluster bubbles are `MapClusterLayer`
-   (`clusterRadius={50}`, `clusterMaxZoom={13}` in `map-surface.mapcn.tsx`).
+   (`clusterRadius={50}`, `clusterMaxZoom={13}` in `map-surface.mapcn.tsx`). **Stale twice over:**
+   the shipped values became 46 / 13 in `cb58e12`, and as of the owner ruling on 2026-08-28 the
+   on-map density bubbles are **being removed entirely** (`L1-F5-T5`). Note `clusters.ts` is a
+   *different* thing and survives — it anchors the camera and names the active area, and never
+   drew a bubble.
 3. **The load-bearing objection: library scope must not continuously track the exact viewport.**
    Selecting a pin, zooming or panning should **not** turn `8 places in Tel Aviv` into 4 or 1 and
    make the rest vanish from the list. It may make sense for the list to change when the user

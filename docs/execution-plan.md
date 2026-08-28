@@ -187,7 +187,7 @@ Depends on F7 because manual add **is** its main recovery. This is the modal out
 | T1 | F10 "read, but no places named" + the three recoveries: retry · open the original · add a place you know | The word "error" and the word "caption" appear nowhere on screen; each recovery reaches a working destination |
 | T2 | F9 "couldn't read this one", plus the **unsupported-platform** redirect | An Instagram or YouTube link is named as recognised-but-unsupported and lands on manual add — never on a failure screen |
 
-### L1-F5 — Map, pins, camera, place detail · `maps-geospatial` + `design-system-frontend` · depends: F1 · cut: clustering → plain pins = 6
+### L1-F5 — Map, pins, camera, place detail · `maps-geospatial` + `design-system-frontend` · depends: F1 · cut: — (the old "clustering → plain pins = 6" cut is now the **decision**, T5)
 
 | Task | What | Exit criterion |
 |---|---|---|
@@ -195,6 +195,7 @@ Depends on F7 because manual add **is** its main recovery. This is the modal out
 | T2 · **IN PROGRESS 2026-08-27** | The authorised camera movers, **the anchor-cluster home camera, and binding the list to the viewport** — "the map is the query" | No code path moves the camera outside the enumerated list; the flight reads as one motion, not a jump; every non-empty library settles with at least one *individual* pin and one readable place *name* on screen; panning changes the sheet |
 | T3 | S5 place detail as a sheet over the map, with the link back to the source post | Refresh-safe and deep-linkable; the source link opens the original post |
 | T4 | Sheet gesture arbitration and the performance pass | ~200 pins pan and zoom smoothly on a mid-range Android; sheet drag never fights map pan |
+| T5 · **NEW, owner ruling 2026-08-28** | **Remove density clustering of saved places.** Delete the cluster source options and the cluster circle/count layers, the expansion-zoom tap path, and whatever in `marker-style.ts` is left with no caller. Pins at every zoom | No numbered bubble appears at any zoom; two saved places 50 m apart render as **two pins**; a "show everything" zoom-out at the 2 000-place ceiling still pans acceptably on mid-range Android — **label** pressure, not icon count, is the thing to measure |
 
 ### L1-F6 — Saved list and search · `design-system-frontend` · depends: F5 · cut: search = 1
 
@@ -315,12 +316,23 @@ an unforked map style.
 
 No task breakdown until L1 closes, by design.
 
-**L2, in order:** the forked Protomaps style (D9b) · clustering sophistication · category filter · onboarding that lands
+**L2, in order:** the forked Protomaps style (D9b) · **the world-zoom country summary** (replaces the retired
+"clustering sophistication" item — see below) · category filter · onboarding that lands
 the first places · more ingested cities (an accuracy accelerator now, not a coverage requirement) ·
 the five motion moments · the 50-post pipeline evaluation and threshold re-fit · the OSM alias join.
 
 **L3:** Instagram · YouTube · audio transcription behind the `ContentExtractor` flag · a credentialed
 provider benchmark · alternate-name indexing.
+
+**The world-zoom country summary — new L2 item, owner ruling 2026-08-28.** At **very low / world zoom
+only**, summarise the library by country: one marker per country carrying a **flag emoji and a
+saved-place count** (🇯🇵 24, 🇮🇹 13). Zoom into a country or city and individual pins take over —
+never density clusters at any zoom. This is a *summary of the library*, not of density, which is
+what distinguishes it from the clustering being removed in `L1-F5-T5`. **Deliberately kept separate
+from that removal and not a prerequisite for it**, and explicitly not a mandate to build a general
+clustering system. Decision and rationale: `06-map-and-places-decision.md` §9.1; the pattern was
+observed on mio (`evidence/product/competitor-pass-2026-08-28.md` §F). **Retires the old
+"clustering sophistication" L2 line**, which assumed the density model the owner has now rejected.
 
 **Collections and sharing moved L3 → L2, 2026-08-28** (owner correction — a private, named-invitee
 shared collection is a multiplayer document, not a social graph). Boundary and cost in
@@ -344,6 +356,7 @@ Three consequences worth holding in mind while executing:
 
 | Date | Change |
 |---|---|
+| 2026-08-28 | **Density clustering of saved places is removed — owner ruling.** Collapsing nearby saved places into a numbered bubble, a pair especially, is wrong for a retrieval product: at city and local browsing zoom the user must see the actual pins, not a summary hiding them. This **overrules the implementation comment** in `marker-style.ts` that made the two-point bubble deliberate — a considered choice that is now the wrong one, recorded so nobody re-derives it from the comment and puts it back. Added as **`L1-F5-T5`**, and F5's old cut option ("clustering → plain pins = 6") is retired because it is now the decision rather than a fallback. **Sized separately from the new view below, on purpose:** the removal is expected to be small and safe, but the 2 000-place design ceiling in `06` §9.1 is a genuine open risk — clustering was partly what kept a "show everything" zoom-out cheap, and **label** pressure rather than icon count is the thing to measure before calling it free. Separately, the owner preserved one summarisation idea: a **world-zoom country summary** (flag emoji + saved-place count per country, individual pins once you zoom in), added as a new **L2** item and **retiring the old "clustering sophistication" L2 line**, which assumed the density model now rejected. Explicitly not a mandate to build a general clustering system. Decision in `06-map-and-places-decision.md` §9.1; the country pattern was observed on mio (`evidence/product/competitor-pass-2026-08-28.md` §F) |
 | 2026-08-20 | Created in session with the owner: the Level → Feature → Task ladder for L0 and L1, **46 tasks across 16 features**, one line and one checkable exit criterion each, with owners drawn from `.claude/agents/` and cut flags carrying `mvp-plan.md` §6's order. Structure approved before expansion. Three orderings here differ from anything the retired milestone ladder said, and each is a consequence rather than a preference: **L1-F4 depends on L1-F7**, because the no-places screen's main recovery *is* manual add and that outcome is modal (~73%) rather than exceptional — so the course's CRUD surface moves early; **L0-F3-T1 (the ODbL sign-off) is a merge gate owned outside the feature**, so it is scheduled as its own task rather than assumed; and **L0-F5 (applying the schema) follows L0-F2**, so no hosted project acquires a shape that no code has exercised. L2 and L3 are named but deliberately unexpanded, with near-me first in L2 |
 | 2026-08-22 | L0-F4-T1 closed: the oEmbed `SourceAdapter` + caption `ContentExtractor` are on `main`. L0-F4-T2 (the LLM `PlaceExtractor`) starts this session, with an owner-requested constraint added to its scope: the model-provider abstraction must support a **local model in development** (no per-run cost) and a **stronger hosted model in production**, selected by config, not a code fork. **Open decision flagged, not resolved:** the owner wants coordinates sourced from **Google Maps** going forward, which reopens D2/D2b (`06` §11) — Google's ToS on caching/storing geocoded coordinates conflicts with the MVP boundary's "store forever" open-data premise, and Google Maps billing/key setup is new infra. This is explicitly **not** a replacement of the Overture/Nominatim `PlaceResolver` architecture as part of the current task — it needs its own sign-off (`maps-geospatial` + `security-privacy` + `product-lead`) before any code changes, same pattern as the ODbL gate on L0-F3-T1 |
 | 2026-08-22 | **The Google-coordinates flag is closed: resolved as an incremental move, not switched now.** A first ruling rejected the ask outright (bright-line ToS conflict) on the premise that the renderer stays MapLibre+CARTO and storage must be forever; the owner corrected both premises, then ruled explicitly: no renderer swap now, no live Google resolver adapter now — §2 (CARTO) and §3 (Overture/Nominatim, L0-F2/L0-F3) proceed exactly as planned. The only forward-looking change: when `maps-geospatial` builds the `PlaceResolver` port (L0-F3-T2), the `provider` union/check-constraint should be written so adding a `'google'` provider later is a migration, not a redesign — no Google-specific code owed now. The eventual switch (renderer + resolver together, since the ToS analysis only clears if both move together) is a separate task, started only when the owner explicitly asks. Recorded in `06-map-and-places-decision.md` §3.3 |
