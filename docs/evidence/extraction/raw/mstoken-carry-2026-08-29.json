@@ -1,0 +1,954 @@
+{
+  "task": "L0-TRANSCRIPT-T4",
+  "measuredAt": "2026-08-28T19:03:29.153Z",
+  "egress": "residential (IL ISP), local Node",
+  "node": "v22.22.3",
+  "design": {
+    "rounds": 4,
+    "posts": 5,
+    "arms": [
+      "cold",
+      "jar"
+    ],
+    "minIntervalMs": 2500,
+    "fetchBudget": 40
+  },
+  "aborted": null,
+  "fetchesSpent": 40,
+  "summary": {
+    "cold": {
+      "arm": "cold",
+      "n": 20,
+      "payload": 12,
+      "csrShed": 8,
+      "other": 0
+    },
+    "jar": {
+      "arm": "jar",
+      "n": 20,
+      "payload": 10,
+      "csrShed": 10,
+      "other": 0
+    }
+  },
+  "results": [
+    {
+      "arm": "cold",
+      "round": 1,
+      "handle": "briancantstopeating",
+      "videoId": "7245648559981350186",
+      "n": 1,
+      "status": 200,
+      "ms": 415,
+      "bytes": 44059,
+      "hasPayload": false,
+      "csrFallback": true,
+      "hardBlock": false,
+      "renderMs": "16.44",
+      "setCookieNames": [
+        "msToken"
+      ],
+      "cookiesSent": [],
+      "error": null
+    },
+    {
+      "arm": "jar",
+      "round": 1,
+      "handle": "briancantstopeating",
+      "videoId": "7245648559981350186",
+      "n": 2,
+      "status": 200,
+      "ms": 393,
+      "bytes": 44059,
+      "hasPayload": false,
+      "csrFallback": true,
+      "hardBlock": false,
+      "renderMs": "10.02",
+      "setCookieNames": [
+        "msToken"
+      ],
+      "cookiesSent": [
+        "msToken"
+      ],
+      "error": null
+    },
+    {
+      "arm": "cold",
+      "round": 1,
+      "handle": "nom_life",
+      "videoId": "7220925199297039662",
+      "n": 3,
+      "status": 200,
+      "ms": 2352,
+      "bytes": 436664,
+      "hasPayload": true,
+      "csrFallback": false,
+      "hardBlock": false,
+      "renderMs": "2050.12",
+      "setCookieNames": [
+        "ttwid",
+        "tt_csrf_token",
+        "tt_chain_token",
+        "msToken"
+      ],
+      "cookiesSent": [],
+      "error": null
+    },
+    {
+      "arm": "jar",
+      "round": 1,
+      "handle": "nom_life",
+      "videoId": "7220925199297039662",
+      "n": 4,
+      "status": 200,
+      "ms": 1348,
+      "bytes": 437583,
+      "hasPayload": true,
+      "csrFallback": false,
+      "hardBlock": false,
+      "renderMs": "1045.06",
+      "setCookieNames": [
+        "ttwid",
+        "tt_csrf_token",
+        "tt_chain_token",
+        "msToken"
+      ],
+      "cookiesSent": [
+        "msToken",
+        "ttwid",
+        "tt_csrf_token",
+        "tt_chain_token"
+      ],
+      "error": null
+    },
+    {
+      "arm": "cold",
+      "round": 1,
+      "handle": "yallabikestlv",
+      "videoId": "7494360070369709354",
+      "n": 5,
+      "status": 200,
+      "ms": 1292,
+      "bytes": 433638,
+      "hasPayload": true,
+      "csrFallback": false,
+      "hardBlock": false,
+      "renderMs": "926.26",
+      "setCookieNames": [
+        "ttwid",
+        "tt_csrf_token",
+        "tt_chain_token",
+        "msToken"
+      ],
+      "cookiesSent": [],
+      "error": null
+    },
+    {
+      "arm": "jar",
+      "round": 1,
+      "handle": "yallabikestlv",
+      "videoId": "7494360070369709354",
+      "n": 6,
+      "status": 200,
+      "ms": 347,
+      "bytes": 44059,
+      "hasPayload": false,
+      "csrFallback": true,
+      "hardBlock": false,
+      "renderMs": "10.42",
+      "setCookieNames": [
+        "msToken"
+      ],
+      "cookiesSent": [
+        "msToken",
+        "ttwid",
+        "tt_csrf_token",
+        "tt_chain_token"
+      ],
+      "error": null
+    },
+    {
+      "arm": "cold",
+      "round": 1,
+      "handle": "alexandramoulavi",
+      "videoId": "7347722826654305578",
+      "n": 7,
+      "status": 200,
+      "ms": 293,
+      "bytes": 44059,
+      "hasPayload": false,
+      "csrFallback": true,
+      "hardBlock": false,
+      "renderMs": "13.76",
+      "setCookieNames": [
+        "msToken"
+      ],
+      "cookiesSent": [],
+      "error": null
+    },
+    {
+      "arm": "jar",
+      "round": 1,
+      "handle": "alexandramoulavi",
+      "videoId": "7347722826654305578",
+      "n": 8,
+      "status": 200,
+      "ms": 2244,
+      "bytes": 419401,
+      "hasPayload": true,
+      "csrFallback": false,
+      "hardBlock": false,
+      "renderMs": "1801.28",
+      "setCookieNames": [
+        "tt_chain_token",
+        "msToken"
+      ],
+      "cookiesSent": [
+        "msToken",
+        "ttwid",
+        "tt_csrf_token",
+        "tt_chain_token"
+      ],
+      "error": null
+    },
+    {
+      "arm": "cold",
+      "round": 1,
+      "handle": "ysabellahazan",
+      "videoId": "7081307157660241157",
+      "n": 9,
+      "status": 200,
+      "ms": 269,
+      "bytes": 44059,
+      "hasPayload": false,
+      "csrFallback": true,
+      "hardBlock": false,
+      "renderMs": "11.30",
+      "setCookieNames": [
+        "msToken"
+      ],
+      "cookiesSent": [],
+      "error": null
+    },
+    {
+      "arm": "jar",
+      "round": 1,
+      "handle": "ysabellahazan",
+      "videoId": "7081307157660241157",
+      "n": 10,
+      "status": 200,
+      "ms": 333,
+      "bytes": 44059,
+      "hasPayload": false,
+      "csrFallback": true,
+      "hardBlock": false,
+      "renderMs": "19.73",
+      "setCookieNames": [
+        "msToken"
+      ],
+      "cookiesSent": [
+        "msToken",
+        "ttwid",
+        "tt_csrf_token",
+        "tt_chain_token"
+      ],
+      "error": null
+    },
+    {
+      "arm": "cold",
+      "round": 2,
+      "handle": "briancantstopeating",
+      "videoId": "7245648559981350186",
+      "n": 11,
+      "status": 200,
+      "ms": 425,
+      "bytes": 44059,
+      "hasPayload": false,
+      "csrFallback": true,
+      "hardBlock": false,
+      "renderMs": "145.27",
+      "setCookieNames": [],
+      "cookiesSent": [],
+      "error": null
+    },
+    {
+      "arm": "jar",
+      "round": 2,
+      "handle": "briancantstopeating",
+      "videoId": "7245648559981350186",
+      "n": 12,
+      "status": 200,
+      "ms": 324,
+      "bytes": 44059,
+      "hasPayload": false,
+      "csrFallback": true,
+      "hardBlock": false,
+      "renderMs": "7.97",
+      "setCookieNames": [
+        "msToken"
+      ],
+      "cookiesSent": [
+        "msToken",
+        "ttwid",
+        "tt_csrf_token",
+        "tt_chain_token"
+      ],
+      "error": null
+    },
+    {
+      "arm": "cold",
+      "round": 2,
+      "handle": "nom_life",
+      "videoId": "7220925199297039662",
+      "n": 13,
+      "status": 200,
+      "ms": 1788,
+      "bytes": 436930,
+      "hasPayload": true,
+      "csrFallback": false,
+      "hardBlock": false,
+      "renderMs": "1434.23",
+      "setCookieNames": [
+        "ttwid",
+        "tt_csrf_token",
+        "tt_chain_token",
+        "msToken"
+      ],
+      "cookiesSent": [],
+      "error": null
+    },
+    {
+      "arm": "jar",
+      "round": 2,
+      "handle": "nom_life",
+      "videoId": "7220925199297039662",
+      "n": 14,
+      "status": 200,
+      "ms": 1067,
+      "bytes": 437589,
+      "hasPayload": true,
+      "csrFallback": false,
+      "hardBlock": false,
+      "renderMs": "768.57",
+      "setCookieNames": [
+        "tt_chain_token",
+        "msToken"
+      ],
+      "cookiesSent": [
+        "msToken",
+        "ttwid",
+        "tt_csrf_token",
+        "tt_chain_token"
+      ],
+      "error": null
+    },
+    {
+      "arm": "cold",
+      "round": 2,
+      "handle": "yallabikestlv",
+      "videoId": "7494360070369709354",
+      "n": 15,
+      "status": 200,
+      "ms": 2009,
+      "bytes": 423593,
+      "hasPayload": true,
+      "csrFallback": false,
+      "hardBlock": false,
+      "renderMs": "1615.02",
+      "setCookieNames": [
+        "ttwid",
+        "tt_csrf_token",
+        "tt_chain_token",
+        "msToken"
+      ],
+      "cookiesSent": [],
+      "error": null
+    },
+    {
+      "arm": "jar",
+      "round": 2,
+      "handle": "yallabikestlv",
+      "videoId": "7494360070369709354",
+      "n": 16,
+      "status": 200,
+      "ms": 292,
+      "bytes": 44059,
+      "hasPayload": false,
+      "csrFallback": true,
+      "hardBlock": false,
+      "renderMs": "12.41",
+      "setCookieNames": [
+        "msToken"
+      ],
+      "cookiesSent": [
+        "msToken",
+        "ttwid",
+        "tt_csrf_token",
+        "tt_chain_token"
+      ],
+      "error": null
+    },
+    {
+      "arm": "cold",
+      "round": 2,
+      "handle": "alexandramoulavi",
+      "videoId": "7347722826654305578",
+      "n": 17,
+      "status": 200,
+      "ms": 754,
+      "bytes": 418762,
+      "hasPayload": true,
+      "csrFallback": false,
+      "hardBlock": false,
+      "renderMs": "459.01",
+      "setCookieNames": [
+        "ttwid",
+        "tt_csrf_token",
+        "tt_chain_token",
+        "msToken"
+      ],
+      "cookiesSent": [],
+      "error": null
+    },
+    {
+      "arm": "jar",
+      "round": 2,
+      "handle": "alexandramoulavi",
+      "videoId": "7347722826654305578",
+      "n": 18,
+      "status": 200,
+      "ms": 922,
+      "bytes": 419401,
+      "hasPayload": true,
+      "csrFallback": false,
+      "hardBlock": false,
+      "renderMs": "641.86",
+      "setCookieNames": [
+        "tt_chain_token",
+        "msToken"
+      ],
+      "cookiesSent": [
+        "msToken",
+        "ttwid",
+        "tt_csrf_token",
+        "tt_chain_token"
+      ],
+      "error": null
+    },
+    {
+      "arm": "cold",
+      "round": 2,
+      "handle": "ysabellahazan",
+      "videoId": "7081307157660241157",
+      "n": 19,
+      "status": 200,
+      "ms": 338,
+      "bytes": 44059,
+      "hasPayload": false,
+      "csrFallback": true,
+      "hardBlock": false,
+      "renderMs": "11.98",
+      "setCookieNames": [
+        "msToken"
+      ],
+      "cookiesSent": [],
+      "error": null
+    },
+    {
+      "arm": "jar",
+      "round": 2,
+      "handle": "ysabellahazan",
+      "videoId": "7081307157660241157",
+      "n": 20,
+      "status": 200,
+      "ms": 1210,
+      "bytes": 411124,
+      "hasPayload": true,
+      "csrFallback": false,
+      "hardBlock": false,
+      "renderMs": "872.07",
+      "setCookieNames": [
+        "tt_chain_token",
+        "msToken"
+      ],
+      "cookiesSent": [
+        "msToken",
+        "ttwid",
+        "tt_csrf_token",
+        "tt_chain_token"
+      ],
+      "error": null
+    },
+    {
+      "arm": "cold",
+      "round": 3,
+      "handle": "briancantstopeating",
+      "videoId": "7245648559981350186",
+      "n": 21,
+      "status": 200,
+      "ms": 798,
+      "bytes": 435377,
+      "hasPayload": true,
+      "csrFallback": false,
+      "hardBlock": false,
+      "renderMs": "379.55",
+      "setCookieNames": [
+        "ttwid",
+        "tt_csrf_token",
+        "tt_chain_token",
+        "msToken"
+      ],
+      "cookiesSent": [],
+      "error": null
+    },
+    {
+      "arm": "jar",
+      "round": 3,
+      "handle": "briancantstopeating",
+      "videoId": "7245648559981350186",
+      "n": 22,
+      "status": 200,
+      "ms": 1422,
+      "bytes": 425963,
+      "hasPayload": true,
+      "csrFallback": false,
+      "hardBlock": false,
+      "renderMs": "1103.68",
+      "setCookieNames": [
+        "tt_chain_token",
+        "msToken"
+      ],
+      "cookiesSent": [
+        "msToken",
+        "ttwid",
+        "tt_csrf_token",
+        "tt_chain_token"
+      ],
+      "error": null
+    },
+    {
+      "arm": "cold",
+      "round": 3,
+      "handle": "nom_life",
+      "videoId": "7220925199297039662",
+      "n": 23,
+      "status": 200,
+      "ms": 845,
+      "bytes": 436777,
+      "hasPayload": true,
+      "csrFallback": false,
+      "hardBlock": false,
+      "renderMs": "546.28",
+      "setCookieNames": [
+        "ttwid",
+        "tt_csrf_token",
+        "tt_chain_token",
+        "msToken"
+      ],
+      "cookiesSent": [],
+      "error": null
+    },
+    {
+      "arm": "jar",
+      "round": 3,
+      "handle": "nom_life",
+      "videoId": "7220925199297039662",
+      "n": 24,
+      "status": 200,
+      "ms": 1045,
+      "bytes": 437611,
+      "hasPayload": true,
+      "csrFallback": false,
+      "hardBlock": false,
+      "renderMs": "774.01",
+      "setCookieNames": [
+        "tt_chain_token",
+        "msToken"
+      ],
+      "cookiesSent": [
+        "msToken",
+        "ttwid",
+        "tt_csrf_token",
+        "tt_chain_token"
+      ],
+      "error": null
+    },
+    {
+      "arm": "cold",
+      "round": 3,
+      "handle": "yallabikestlv",
+      "videoId": "7494360070369709354",
+      "n": 25,
+      "status": 200,
+      "ms": 702,
+      "bytes": 423452,
+      "hasPayload": true,
+      "csrFallback": false,
+      "hardBlock": false,
+      "renderMs": "418.47",
+      "setCookieNames": [
+        "ttwid",
+        "tt_csrf_token",
+        "tt_chain_token",
+        "msToken"
+      ],
+      "cookiesSent": [],
+      "error": null
+    },
+    {
+      "arm": "jar",
+      "round": 3,
+      "handle": "yallabikestlv",
+      "videoId": "7494360070369709354",
+      "n": 26,
+      "status": 200,
+      "ms": 1534,
+      "bytes": 424266,
+      "hasPayload": true,
+      "csrFallback": false,
+      "hardBlock": false,
+      "renderMs": "1197.18",
+      "setCookieNames": [
+        "tt_chain_token",
+        "msToken"
+      ],
+      "cookiesSent": [
+        "msToken",
+        "ttwid",
+        "tt_csrf_token",
+        "tt_chain_token"
+      ],
+      "error": null
+    },
+    {
+      "arm": "cold",
+      "round": 3,
+      "handle": "alexandramoulavi",
+      "videoId": "7347722826654305578",
+      "n": 27,
+      "status": 200,
+      "ms": 280,
+      "bytes": 44059,
+      "hasPayload": false,
+      "csrFallback": true,
+      "hardBlock": false,
+      "renderMs": "8.52",
+      "setCookieNames": [
+        "msToken"
+      ],
+      "cookiesSent": [],
+      "error": null
+    },
+    {
+      "arm": "jar",
+      "round": 3,
+      "handle": "alexandramoulavi",
+      "videoId": "7347722826654305578",
+      "n": 28,
+      "status": 200,
+      "ms": 1563,
+      "bytes": 419434,
+      "hasPayload": true,
+      "csrFallback": false,
+      "hardBlock": false,
+      "renderMs": "1264.00",
+      "setCookieNames": [
+        "tt_chain_token",
+        "msToken"
+      ],
+      "cookiesSent": [
+        "msToken",
+        "ttwid",
+        "tt_csrf_token",
+        "tt_chain_token"
+      ],
+      "error": null
+    },
+    {
+      "arm": "cold",
+      "round": 3,
+      "handle": "ysabellahazan",
+      "videoId": "7081307157660241157",
+      "n": 29,
+      "status": 200,
+      "ms": 2742,
+      "bytes": 411442,
+      "hasPayload": true,
+      "csrFallback": false,
+      "hardBlock": false,
+      "renderMs": "1410.84",
+      "setCookieNames": [
+        "ttwid",
+        "tt_csrf_token",
+        "tt_chain_token",
+        "msToken"
+      ],
+      "cookiesSent": [],
+      "error": null
+    },
+    {
+      "arm": "jar",
+      "round": 3,
+      "handle": "ysabellahazan",
+      "videoId": "7081307157660241157",
+      "n": 30,
+      "status": 200,
+      "ms": 393,
+      "bytes": 44059,
+      "hasPayload": false,
+      "csrFallback": true,
+      "hardBlock": false,
+      "renderMs": "92.06",
+      "setCookieNames": [
+        "msToken"
+      ],
+      "cookiesSent": [
+        "msToken",
+        "ttwid",
+        "tt_csrf_token",
+        "tt_chain_token"
+      ],
+      "error": null
+    },
+    {
+      "arm": "cold",
+      "round": 4,
+      "handle": "briancantstopeating",
+      "videoId": "7245648559981350186",
+      "n": 31,
+      "status": 200,
+      "ms": 360,
+      "bytes": 44059,
+      "hasPayload": false,
+      "csrFallback": true,
+      "hardBlock": false,
+      "renderMs": "90.94",
+      "setCookieNames": [
+        "msToken"
+      ],
+      "cookiesSent": [],
+      "error": null
+    },
+    {
+      "arm": "jar",
+      "round": 4,
+      "handle": "briancantstopeating",
+      "videoId": "7245648559981350186",
+      "n": 32,
+      "status": 200,
+      "ms": 710,
+      "bytes": 425967,
+      "hasPayload": true,
+      "csrFallback": false,
+      "hardBlock": false,
+      "renderMs": "335.06",
+      "setCookieNames": [
+        "tt_chain_token",
+        "msToken"
+      ],
+      "cookiesSent": [
+        "msToken",
+        "ttwid",
+        "tt_csrf_token",
+        "tt_chain_token"
+      ],
+      "error": null
+    },
+    {
+      "arm": "cold",
+      "round": 4,
+      "handle": "nom_life",
+      "videoId": "7220925199297039662",
+      "n": 33,
+      "status": 200,
+      "ms": 2530,
+      "bytes": 447831,
+      "hasPayload": true,
+      "csrFallback": false,
+      "hardBlock": false,
+      "renderMs": "2219.81",
+      "setCookieNames": [
+        "ttwid",
+        "tt_csrf_token",
+        "tt_chain_token",
+        "msToken"
+      ],
+      "cookiesSent": [],
+      "error": null
+    },
+    {
+      "arm": "jar",
+      "round": 4,
+      "handle": "nom_life",
+      "videoId": "7220925199297039662",
+      "n": 34,
+      "status": 200,
+      "ms": 303,
+      "bytes": 44059,
+      "hasPayload": false,
+      "csrFallback": true,
+      "hardBlock": false,
+      "renderMs": "10.49",
+      "setCookieNames": [
+        "msToken"
+      ],
+      "cookiesSent": [
+        "msToken",
+        "ttwid",
+        "tt_csrf_token",
+        "tt_chain_token"
+      ],
+      "error": null
+    },
+    {
+      "arm": "cold",
+      "round": 4,
+      "handle": "yallabikestlv",
+      "videoId": "7494360070369709354",
+      "n": 35,
+      "status": 200,
+      "ms": 1994,
+      "bytes": 423765,
+      "hasPayload": true,
+      "csrFallback": false,
+      "hardBlock": false,
+      "renderMs": "1653.44",
+      "setCookieNames": [
+        "ttwid",
+        "tt_csrf_token",
+        "tt_chain_token",
+        "msToken"
+      ],
+      "cookiesSent": [],
+      "error": null
+    },
+    {
+      "arm": "jar",
+      "round": 4,
+      "handle": "yallabikestlv",
+      "videoId": "7494360070369709354",
+      "n": 36,
+      "status": 200,
+      "ms": 317,
+      "bytes": 44059,
+      "hasPayload": false,
+      "csrFallback": true,
+      "hardBlock": false,
+      "renderMs": "11.43",
+      "setCookieNames": [
+        "msToken"
+      ],
+      "cookiesSent": [
+        "msToken",
+        "ttwid",
+        "tt_csrf_token",
+        "tt_chain_token"
+      ],
+      "error": null
+    },
+    {
+      "arm": "cold",
+      "round": 4,
+      "handle": "alexandramoulavi",
+      "videoId": "7347722826654305578",
+      "n": 37,
+      "status": 200,
+      "ms": 360,
+      "bytes": 44059,
+      "hasPayload": false,
+      "csrFallback": true,
+      "hardBlock": false,
+      "renderMs": "13.02",
+      "setCookieNames": [
+        "msToken"
+      ],
+      "cookiesSent": [],
+      "error": null
+    },
+    {
+      "arm": "jar",
+      "round": 4,
+      "handle": "alexandramoulavi",
+      "videoId": "7347722826654305578",
+      "n": 38,
+      "status": 200,
+      "ms": 287,
+      "bytes": 44059,
+      "hasPayload": false,
+      "csrFallback": true,
+      "hardBlock": false,
+      "renderMs": "8.82",
+      "setCookieNames": [
+        "msToken"
+      ],
+      "cookiesSent": [
+        "msToken",
+        "ttwid",
+        "tt_csrf_token",
+        "tt_chain_token"
+      ],
+      "error": null
+    },
+    {
+      "arm": "cold",
+      "round": 4,
+      "handle": "ysabellahazan",
+      "videoId": "7081307157660241157",
+      "n": 39,
+      "status": 200,
+      "ms": 2658,
+      "bytes": 411035,
+      "hasPayload": true,
+      "csrFallback": false,
+      "hardBlock": false,
+      "renderMs": "2316.34",
+      "setCookieNames": [
+        "ttwid",
+        "tt_csrf_token",
+        "tt_chain_token",
+        "msToken"
+      ],
+      "cookiesSent": [],
+      "error": null
+    },
+    {
+      "arm": "jar",
+      "round": 4,
+      "handle": "ysabellahazan",
+      "videoId": "7081307157660241157",
+      "n": 40,
+      "status": 200,
+      "ms": 341,
+      "bytes": 44059,
+      "hasPayload": false,
+      "csrFallback": true,
+      "hardBlock": false,
+      "renderMs": "30.62",
+      "setCookieNames": [
+        "msToken"
+      ],
+      "cookiesSent": [
+        "msToken",
+        "ttwid",
+        "tt_csrf_token",
+        "tt_chain_token"
+      ],
+      "error": null
+    }
+  ],
+  "analysis": {
+    "question": "Does carrying TikTok's own msToken/ttwid cookies between attempts raise the server-render rate?",
+    "answer": "No measurable effect. Cold 12/20 (60%), cookie-jar 10/20 (50%); the jar arm was nominally WORSE. Paired McNemar discordance 6 vs 4, p ~ 0.75. n=20/arm cannot resolve a difference smaller than roughly 30 points, so this rules out a large effect only.",
+    "label": "ASSUMED-NO-EFFECT — measured once, residential egress, 2026-08-29. Not measured from Vercel.",
+    "paired": {
+      "bothPayload": 6,
+      "bothShed": 4,
+      "coldOnly": 6,
+      "jarOnly": 4
+    },
+    "sheddingIsTimeVarying": "55% overall here vs 33% measured earlier the same day; per-round payload counts ranged 4/10 to 8/10. The success rate is not a constant to design against.",
+    "classifierQuality": "x-csr-fallback: 1 was present on 18/18 shed responses and 0/22 rendered responses. Shed bodies were byte-identical at 44,059 bytes; renders were 411-438 KB. TikTok render duration (x-bytefaas-execution-duration) 8-145 ms on a shed vs 335-2,316 ms on a render. Wall latency 269-425 ms shed vs 702-2,742 ms render.",
+    "blockSignals": "Zero. All 40 responses were HTTP 200; no 403, no 429, no interstitial, no transport error. No hard block was observed at any point.",
+    "notCarriedIntoCode": "No cookie jar was implemented, on this result. Persisting an anti-bot token to raise a hit rate is also the change most likely to turn load-shedding into attention."
+  }
+}
