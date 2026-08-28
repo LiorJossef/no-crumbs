@@ -20,6 +20,7 @@ import type { ResolveQuery } from '@/domain/types';
 import {
   buildTextQuery,
   GLOBAL_REGION,
+  languageCodeFor,
   GOOGLE_DATASET_CONFIDENCE,
   googlePlaceResolver,
   MAX_GOOGLE_RESULTS,
@@ -169,6 +170,22 @@ describe('buildTextQuery', () => {
   });
 });
 
+describe('languageCodeFor', () => {
+  it('asks for Hebrew when the caption wrote in Hebrew', () => {
+    // Not cosmetic: unset, Google answered `האחים` with `Haachim @ Shlomo Ibn Gabirol Street 26` —
+    // the right venue under a name it does not use, and an address `addressScore` cannot compare
+    // against a Hebrew hint at all (it returns null across writing systems).
+    expect(languageCodeFor(query({ text: 'האחים' }))).toBe('he');
+    expect(languageCodeFor(query({ text: 'Rustico', cityHint: 'תל אביב' }))).toBe('he');
+  });
+
+  it('leaves the language to Google when nothing in the query is Hebrew', () => {
+    // Hebrew↔English is the language scope; this stays global rather than pinned to one market.
+    expect(languageCodeFor(query({ text: 'Ha Kosem', cityHint: 'Tel Aviv' }))).toBeNull();
+    expect(languageCodeFor(query({ text: 'Glitch Coffee', cityHint: 'Tokyo' }))).toBeNull();
+  });
+});
+
 describe('googlePlaceResolver', () => {
   it('declares the provider it writes into place_provider_refs', () => {
     expect(googlePlaceResolver(gatewayReturning([])).provider).toBe('google');
@@ -223,6 +240,7 @@ describe('googlePlaceResolver', () => {
 
     expect(seen[0]?.regionCode).toBe('IL');
     expect(seen[0]?.maxResultCount).toBe(MAX_GOOGLE_RESULTS);
+    expect(seen[0]?.languageCode).toBe('he');
   });
 
   it('sends no region code for a hint that is not an alpha-2 code', async () => {

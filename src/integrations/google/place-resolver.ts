@@ -32,6 +32,18 @@ import 'server-only';
  * failure the working agreement forbids. Being constant across a response it cannot change the
  * *ranking* within one query; it only sets where the absolute score sits against the band gates.
  *
+ * ## Language: we ask in the script the caption was written in
+ *
+ * Text Search localises names and addresses to `languageCode`. Left unset it answered
+ * `האחים` with `Haachim @ Shlomo Ibn Gabirol Street 26` — the right venue, transliterated. That is
+ * wrong twice over: our users are Hebrew speakers in Tel Aviv and would be shown a place under a
+ * name it does not use, and `addressScore` explicitly cannot compare across writing systems, so a
+ * Latin address silently discards the corroboration an address is *for*.
+ *
+ * So the language follows the query: Hebrew in, Hebrew out. Anywhere else the field is omitted and
+ * Google's own default applies, which keeps this global rather than pinning it to one market.
+ * `docs` memory: Hebrew↔English is the language scope; other scripts are best-effort.
+ *
  * ## Region semantics differ from Overture's, and the difference is load-bearing
  *
  * `regionsSearched: []` means *"we have not loaded that city"* — `regionLoaded()` turns it into a
@@ -114,6 +126,8 @@ export interface GoogleTextSearchParams {
   readonly textQuery: string;
   /** ISO-3166-1 alpha-2, upper-cased by the caller. Biases results to a country when we know one. */
   readonly regionCode: string | null;
+  /** BCP-47. `null` leaves it to Google. See the header for why this is not cosmetic. */
+  readonly languageCode: string | null;
   readonly maxResultCount: number;
 }
 
@@ -140,6 +154,7 @@ export function googlePlacesGateway(apiKey: string): GooglePlacesGateway {
           textQuery: params.textQuery,
           maxResultCount: params.maxResultCount,
           ...(params.regionCode !== null ? { regionCode: params.regionCode } : {}),
+          ...(params.languageCode !== null ? { languageCode: params.languageCode } : {}),
         }),
       });
 
@@ -231,6 +246,19 @@ export function buildTextQuery(query: ResolveQuery): string {
   return city !== undefined && city !== '' ? `${query.text}, ${city}` : query.text;
 }
 
+const HEBREW = /[\u0590-\u05FF]/u;
+
+/**
+ * The language to ask Google to answer in, or `null` to let Google decide.
+ *
+ * Only Hebrew is asserted, and only from the query's own script — this is the language scope the
+ * product actually commits to, not a general locale system. A Latin caption about a Tel Aviv venue
+ * gets Google's default, which is the right answer for whoever wrote it that way.
+ */
+export function languageCodeFor(query: ResolveQuery): string | null {
+  return HEBREW.test(query.text) || HEBREW.test(query.cityHint ?? '') ? 'he' : null;
+}
+
 /* ------------------------------------------------------------------------------------------- *
  * The resolver
  * ------------------------------------------------------------------------------------------- */
@@ -248,6 +276,7 @@ export function googlePlaceResolver(gateway: GooglePlacesGateway): PlaceResolver
           {
             textQuery: buildTextQuery(query),
             regionCode: country !== undefined && country.length === 2 ? country : null,
+            languageCode: languageCodeFor(query),
             maxResultCount: MAX_GOOGLE_RESULTS,
           },
           ctx.signal,
