@@ -1,6 +1,57 @@
 # Handoff — Google Places becomes the primary resolver
 
-**Status: IN PROGRESS.** Updated as the session runs. Written so this work resumes cold.
+**Status: adapter delivered and measured; app-level verification next.** Written so this resumes cold.
+
+## The result, measured through the shipped flow
+
+Same 13 real TikToks, same oEmbed → caption → extraction → resolve path, same scorer, one run each.
+Records: `docs/evidence/places/tiktok-recognition.md` (Overture) and `…google.md` (Google).
+
+|                    | Overture `poi_index` | **Google Places** |
+|--------------------|----------------------|-------------------|
+| Correct top-1      | 12 / 15              | **15 / 15**       |
+| Wrong              | 3                    | **0**             |
+| Auto-match         | **7 / 16 (44%)**     | 6 / 16 (38%)      |
+| False auto-accepts | 0                    | 0                 |
+
+**Google is more accurate and slightly less decisive.** Its three wins are exactly the coverage
+failures Overture cannot fix by scoring (`Oscar's` resolving to the previous tenant, `בל עמי`
+absent, `דיזנגוף 99`). Its nine non-auto-accepted answers are all *correct* — the user confirms a
+picker with one right option in it, which is a worse feel than Overture's 44% but never a wrong pin.
+
+Honest limits, stated because the number will be quoted: **n = 15 adjudicated candidates, one
+city.** The corpus is 13 URLs against the owner's brief of 20-30, and `bars_and_wine_bars` has no
+URL at all. This is a pilot, not a result.
+
+### Three things had to be fixed before the comparison meant anything
+
+1. **Language.** Unset, Google answered `האחים` with `Haachim @ Shlomo Ibn Gabirol Street 26` — the
+   right venue, transliterated. `addressScore` cannot compare across writing systems (it returns
+   null by design), so every Latin address silently discarded the address corroboration. The
+   adapter now asks in the caption's own script. Correct answers went 9 → 13 on that alone.
+2. **The corpus was provider-coupled.** Two `addressPattern`s were written against Overture's
+   Hebrew strings, so they tested *which dataset answered* rather than *which venue came back*.
+   Widened to accept either script. **Overture re-ran at 7/16 unchanged** — that control is what
+   makes the widening safe rather than self-serving.
+3. **The lone-candidate band rule.** Google returns one result for 14 of 16 candidates, so `margin`
+   is null and the band capped at `confirm` — a structural 0% auto-accept while 15/15 were right.
+   `SoleCandidateMeaning` now makes that a provider property: `'narrow-filter'` (default, Overture,
+   `10` §12 Q3 unchanged) vs `'exhaustive-search'` (Google). It waives only the *unmeasurable*
+   margin; the score gate is untouched and a real-but-poor margin still cannot pass.
+
+## What is NOT done
+
+- **App-level verification** — running the import in the browser at both breakpoints and reading
+  the persisted rows. The numbers above are the harness, which is the same code path but not the
+  same proof.
+- **A server-only Google key.** The adapter falls back to `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, which
+  is compiled into the browser bundle and therefore spendable by anyone. `GOOGLE_PLACES_API_KEY`
+  is read first and should be set, restricted, before any deploy. Security follow-up, not a blocker
+  for local measurement.
+- **The 30-day coordinate rule (§5.4).** Nothing yet refreshes or expires Google-sourced
+  coordinates in `places`. Only `place_id` is exempt. Needed before production, and production is
+  gated anyway.
+
 
 ## The ruling (owner, 2026-08-28, overnight session)
 
