@@ -39,11 +39,28 @@ URL at all. This is a pilot, not a result.
    `10` §12 Q3 unchanged) vs `'exhaustive-search'` (Google). It waives only the *unmeasurable*
    margin; the score gate is untouched and a real-but-poor margin still cannot pass.
 
-## What is NOT done
+## App-level verification (done, 2026-08-28)
 
-- **App-level verification** — running the import in the browser at both breakpoints and reading
-  the persisted rows. The numbers above are the harness, which is the same code path but not the
-  same proof.
+Ran the real app at 1280x720 and 375x812, signed in as the local demo user, imported real TikToks
+and read the rows back in psql. **This is where the harness's green run turned out to be hiding a
+defect**, so it is worth stating what it caught:
+
+- `Oscar's` resolved correctly and the review screen showed `Oscar's @ נחלת בנימין 68` — and the
+  row written to `places` was `llm-guess` at the model's own coordinate. Two silent causes, both
+  now fixed and pinned by `tests/unit/import/candidate-place-provenance.test.ts`: the stored
+  resolution schema did not list `'google'` (so it failed to parse and the confirm step fell
+  through to the guess path with no error), and `derivePlaceSave` hardcoded `provider: 'overture'`
+  for any resolved place, which would have filed a Google coordinate under Overture's licence.
+- After the fix, importing `Gelalucci` writes `source_dataset=google-places`, `provider=google`, a
+  real Google place id, and `(32.078032, 34.777851)` — Masaryk Square. **The Overture row for the
+  same venue carries the same address string and sits 6.9 km away.**
+- Mobile (375x812) renders the map, clusters, sheet peek and the review sheet correctly, including
+  RTL Hebrew in the candidate card.
+
+**The `Oscar's` row in the local demo database is still the pre-fix `llm-guess` artifact.** Left
+alone deliberately — deleting rows is not a call to make unasked. Re-import it to replace it.
+
+## What is NOT done
 - **A server-only Google key.** The adapter falls back to `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, which
   is compiled into the browser bundle and therefore spendable by anyone. `GOOGLE_PLACES_API_KEY`
   is read first and should be set, restricted, before any deploy. Security follow-up, not a blocker
@@ -115,6 +132,16 @@ indefinitely) and treat coordinates as refreshable cache, not as permanent recor
   `docs/evidence/places/tiktok-recognition-run.json`)
 
 ## Open loose ends (carry these forward)
+
+- **The extra-token penalty rejects branch names.** `רוסטיקו` → Google returns
+  `רוסטיקו רוטשילד` (the Rothschild branch, correct venue) and `scorePlace` lands it at 0.705,
+  below the 0.80 `confirm` gate, so the product falls back to the model's guess and shows
+  "Pin is approximate". Seen in the running app at 375x812. A branch qualifier is not a surplus
+  token in the sense `extraTokenPenalty` was built for, and Google appends them routinely. This is
+  now the single clearest scoring gap on the Google path.
+- **The review-screen copy is now wrong for resolved places.** It says "We work out pins from what
+  the caption said, so they can be a street or two off." On a Google-resolved place the pin is the
+  venue's own coordinate, ~10 m. The caveat should follow the provenance, not be printed always.
 
 - Corpus adjudication **never checks distance**; `Gelalucci`'s index row is ~6.9 km from its own
   address and still scores as correct. Task chip raised.
