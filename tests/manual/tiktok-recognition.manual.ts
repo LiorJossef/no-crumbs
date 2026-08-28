@@ -122,11 +122,7 @@ vi.mock('server-only', () => ({}));
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 
-import {
-  MAX_PREFILTER_ROWS,
-  overturePlaceResolver,
-  supabasePoiIndexGateway,
-} from '@/integrations/supabase/place-resolver';
+import { MAX_PREFILTER_ROWS } from '@/integrations/supabase/place-resolver';
 import { oembedSourceAdapter } from '@/integrations/tiktok/oembed-source-adapter';
 import { captionContentExtractor } from '@/integrations/tiktok/caption-content-extractor';
 import { createPlaceExtractor } from '@/integrations/llm/place-extractor-factory';
@@ -134,6 +130,11 @@ import { canonicaliseTikTokUrl } from '@/domain/source/canonicalise-tiktok-url';
 import { filterPlausible } from '@/domain/extraction/plausibility';
 import { buildResolveQuery, MAX_CANDIDATES } from '@/domain/import/pipeline';
 import { resolveCandidates } from '@/domain/import/resolve-candidates';
+import {
+  createPlaceResolver,
+  placeResolverEnv,
+  resolverProviderFor,
+} from '@/integrations/places/place-resolver-factory';
 import { normalise } from '@/domain/places/normalise';
 import { DomainError } from '@/domain/errors';
 import type { OpCtx, PlaceExtractor } from '@/domain/ports';
@@ -287,6 +288,17 @@ async function probeEnv(): Promise<Probe> {
 
   return { ok: true, reason: 'ready', client, rows: count ?? 0, region: region as Record<string, unknown> };
 }
+
+/**
+ * Which provider this run measures (owner ruling, 2026-08-28). Selected by the *same* factory the
+ * import route uses, so the harness cannot measure a composition the product never builds. Set
+ * `PLACE_RESOLVER=overture` to re-measure the baseline.
+ *
+ * The local `poi_index` stays a precondition even on the Google path: the per-miss index probe is
+ * what tells "Google found it and we never had it" apart from "we had it and could not reach it",
+ * and that comparison is the whole reason to run both.
+ */
+const RESOLVER = resolverProviderFor(placeResolverEnv());
 
 const env = await probeEnv();
 if (!env.ok) {
@@ -608,7 +620,7 @@ function acceptsRow(e: Expectation, name: string, address: string | null, locali
 
 describe.skipIf(!env.ok)('real TikToks through the real recognition flow', () => {
   const client = env.client as SupabaseClient;
-  const resolver = overturePlaceResolver(supabasePoiIndexGateway(client));
+  const resolver = createPlaceResolver(placeResolverEnv(), client);
 
   for (const [i, c] of CORPUS.cases.entries()) {
     it(`case ${i + 1}/${CORPUS.cases.length} — ${c.url}`, async () => {
@@ -1092,8 +1104,16 @@ function renderSummary(rows: readonly CaseResult[]): string {
  * Run records
  * ------------------------------------------------------------------------------------------- */
 
-const OUT_JSON = fileURLToPath(new URL('../../docs/evidence/places/tiktok-recognition-run.json', import.meta.url));
-const OUT_MD = fileURLToPath(new URL('../../docs/evidence/places/tiktok-recognition.md', import.meta.url));
+/** Provider-scoped, so measuring Google never overwrites the Overture baseline it is being
+ *  compared against. `overture` keeps the original unsuffixed names: it is the record every
+ *  existing document already cites, and renaming it would break those citations. */
+const SUFFIX = RESOLVER.provider === 'overture' ? '' : `.${RESOLVER.provider}`;
+const OUT_JSON = fileURLToPath(
+  new URL(`../../docs/evidence/places/tiktok-recognition-run${SUFFIX}.json`, import.meta.url),
+);
+const OUT_MD = fileURLToPath(
+  new URL(`../../docs/evidence/places/tiktok-recognition${SUFFIX}.md`, import.meta.url),
+);
 
 afterAll(() => {
   if (!env.ok || results.length === 0) return;
@@ -1113,6 +1133,7 @@ afterAll(() => {
         overture_release: ingestConfig.overtureRelease,
         region: env.region,
         poi_index_rows_tlv: env.rows,
+        resolver: { provider: RESOLVER.provider, reason: RESOLVER.reason },
         extractor: extractor === null ? null : { version: extractor.version, promptVersion: extractor.promptVersion },
         cache_bypassed: REFRESH,
         network_this_run: { oembed_fetches: oembedCalls, llm_calls: llmCalls },
@@ -1146,6 +1167,7 @@ afterAll(() => {
   md.push('');
   md.push(`Run at **${new Date().toISOString()}** against \`${URL_}\`, region \`tlv\`, ${env.rows} rows, release \`${ingestConfig.overtureRelease}\`.`);
   md.push(extractor === null ? 'No extractor configured; cached extractions only.' : `Extractor: \`${extractor.version}\` / prompt \`${extractor.promptVersion}\`.`);
+  md.push(`Resolver: **\`${RESOLVER.provider}\`** (${RESOLVER.reason}).`);
   md.push('');
   md.push(`## Auto-match rate: **${t.autoMatch} / ${t.adjudicated}** (${pct(t.autoMatch, t.adjudicated)})`);
   md.push('');

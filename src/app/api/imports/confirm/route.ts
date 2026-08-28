@@ -72,6 +72,7 @@ import { deriveSavedPlaceEnrichment } from '@/domain/import/saved-place-enrichme
 import { parseStoredCandidates, type StoredCandidate } from '@/domain/import/stored-candidates';
 import { DomainError, internal, notAuthenticated, type DomainErrorView } from '@/domain/errors';
 import type { OpCtx } from '@/domain/ports';
+import type { PlaceProvider } from '@/domain/types';
 
 /**
  * A real logger, not the no-op this route used to build.
@@ -110,7 +111,7 @@ type ItemResult =
        * tells a resolved place from a model guess without a database read. `'overture'` means the
        * coordinate is a gazetteer row's; `'llm_guess'` means it is the model's own point.
        */
-      readonly provider: 'overture' | 'llm_guess';
+      readonly provider: PlaceProvider;
       /** The scorer's real 0..1 score for an Overture save, `null` for a model guess. */
       readonly resolutionScore: number | null;
       readonly enrichment: EnrichmentOutcome;
