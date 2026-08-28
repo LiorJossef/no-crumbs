@@ -119,9 +119,62 @@ work individually, so it is a combination issue, not a capability one. Arm A's f
 argument anyway: it was *diagnosable* precisely because the transcript existed as text. Fused, the
 same run would have said "no places found" with no way to tell misheard from mis-extracted.
 
+## 5b. What was built after §5, and the one thing still broken
+
+**p13 shipped and is verified live.** The same Bar Kafe post went from **0 candidates to 1**:
+`rawName: בר קפה`, `evidence: המקום נקרא בר קפה` quoted from the **transcript**, and
+`whyGo.groundedIn: המאצ׳ה עננים מטורפת` quoted from the **caption**. Name from the audio, reason
+from the caption, each grounded in the part it came from. A lone caption part still builds a
+byte-identical prompt to p12, asserted against a hand-written golden string.
+
+**The pipeline is wired into the real import flow** (`integrations/import/transcription.ts`,
+`audio-acquirer.ts`) behind two flags, `TIKTOK_MEDIA_ACQUISITION=on` and `IMPORT_TRANSCRIPTION=on`,
+both off by default.
+
+**Running it for real found two bugs no test caught:**
+
+1. **Fixed.** The hard-block detector substring-matched bare `captcha`, which is in TikTok's own
+   script bundle on every healthy page. The first real import tripped the breaker on a **200 that
+   had just served us the payload** and then refused everything for thirty minutes. A page carrying
+   the rehydration payload is now never a block. Regression test confirmed to fail against the old
+   logic.
+2. **NOT fixed — the one remaining blocker.** The media CDN returns **403**. Measured directly
+   against `v16-webapp-prime.tiktok.com`, same signed URL and headers throughout:
+
+   | Request | Result |
+   |---|---|
+   | UA + referer | **403** |
+   | + `Range: bytes=0-` | 403 |
+   | **+ cookies from the page fetch** | **200, 7,096,912 bytes** |
+
+   So the fix is the session, and it is half-built: `acquireTikTokMedia` now captures `Set-Cookie`
+   from the page response and hands it to the downloader. But it captures only **2 cookie pairs**
+   (logged as `tiktok.media_acquisition.session captured=true pairs=2`) and the download still 403s,
+   where a full `curl -c` jar succeeds. **The captured set is incomplete.** Likely causes, in order:
+   cookies set on earlier hops of the redirect chain are being dropped (we only read the final
+   response), or the CDN wants a token (`ttwid`) issued by a request we never make. Reproduce with
+   the `curl` table above — it is four commands and no Gemini spend.
+
+**What did work end to end in the real flow:** short-link → page → retry-through-sheds → media ref.
+One import logged `acquired attempts=3 shed=2`, proving retry-on-shed in production code. And every
+failure degraded exactly as designed — each 403 produced a caption-only import at HTTP 200, never an
+error.
+
+**Separate bug, unrelated to transcription:** `vt.tiktok.com` short links fail from the app with
+`ConnectTimeoutError` after 10 s, surfacing as `SHORT_LINK_UNRESOLVED` / "This share link has
+expired." `yt-dlp` resolves the same link instantly from the same machine, so it is our fetch, not
+the link — probably an IPv6/undici issue in `resolve-short-link.ts`. **Any user pasting a Share
+link hits this**, which makes it higher-priority than transcription.
+
 ## 6. Resume here — remaining work, in order
 
-1. **`p13`: teach the extraction prompt that a transcript is a source.** The blocker. `ContentPart`
+0. **Complete the CDN session** (§5b.2). The single thing between here and a working feature.
+   Diagnose with the `curl` table; no model spend needed.
+
+0b. **Fix `vt.tiktok.com` short-link resolution** (§5b). User-facing today, independent of this work.
+
+1. ~~**`p13`: teach the extraction prompt that a transcript is a source.**~~ **DONE and verified
+   live** — see §5b. Original note follows for context. `ContentPart`
    carries `kind` and `origin`, and both adapters currently discard them via
    `parts.map(p => p.text).join('\n\n')`. The prompt must distinguish caption from transcript,
    because the provenance rules differ: a caption is what the creator wrote, a transcript is what an
