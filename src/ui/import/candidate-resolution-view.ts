@@ -156,6 +156,27 @@ export function willSave(
 }
 
 /**
+ * Whether this candidate's pin would come from the **model** rather than from a resolver match.
+ *
+ * The mirror of `willSave`'s three cases: a picked option and an auto-accepted `matched` top entry
+ * both yield a provider coordinate, so only the `llm_guess` fallback is left. That is the one case
+ * `LOCATION_CAVEAT` ("pins can be a street or two off") is actually true of.
+ *
+ * It exists because the caveat used to be unconditional, on the stated grounds that "our honest
+ * position is identical on every candidate". That stopped being true when resolution shipped: a
+ * resolved pin is the venue's own coordinate — measured 11 m for HaKosem, against 65-470 m for the
+ * model's guess — so telling that user their pin may be a street off is simply false, and a
+ * caveat the user learns to disbelieve is worse than none.
+ */
+export function usesModelCoordinate(
+  modelHasCoordinates: boolean,
+  view: CandidateResolutionView,
+  pick: number | null,
+): boolean {
+  return effectivePick(view, pick) === null && modelHasCoordinates;
+}
+
+/**
  * The heading over an option list.
  *
  * Only the two states that *have* options get one. `unresolved`, `failed`, `capped` and
