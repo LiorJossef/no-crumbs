@@ -4,7 +4,7 @@
 > edit the harness or the corpus, not this file. The machine record is
 > `tiktok-recognition-run.json`.
 
-Run at **2026-08-28T07:52:53.358Z** against `http://127.0.0.1:54321`, region `tlv`, 10462 rows, release `2026-07-22.0`.
+Run at **2026-08-28T09:46:28.803Z** against `http://127.0.0.1:54321`, region `tlv`, 10462 rows, release `2026-07-22.0`.
 Extractor: `2026-08-gemini-gemini-3.5-flash-lite` / prompt `p11-s3`.
 Resolver: **`overture`** (PLACE_RESOLVER=overture).
 
@@ -21,8 +21,8 @@ are the right venue — i.e. the share the user never had to touch the picker fo
 | Corpus cases | 13 (ok: 13) |
 | Adjudicated candidates | 16 |
 | Auto-matched | 7 |
-| Correct but not auto-accepted | 5 |
-| Wrong | 3 |
+| Correct but not auto-accepted | 4 |
+| Wrong | 4 |
 | — of which extraction never named the venue | 1 |
 | **False auto-accepts** (preselect AND wrong) | **0** |
 | Unadjudicated (counted in neither direction) | 1 |
@@ -37,7 +37,7 @@ are the right venue — i.e. the share the user never had to touch the picker fo
 | `absent_from_index` | 2 | No row for this venue in `poi_index`, in either script. Coverage — a different dataset or a wider ingest. |
 | `unreachable_in_index` | 1 | The row IS there; the prefilter cannot reach it from these tokens. The Hebrew/Latin alias gap. |
 | `ranking` | 0 | The right row was prefiltered and ranked below something else. Scorer weights. |
-| `not_auto_accepted` | 5 | Top-1 was right but the band was not `preselect`, so the picker was needed. Band policy. |
+| `not_auto_accepted` | 4 | Top-1 was right but the band was not `preselect`, so the picker was needed. Band policy. |
 | `resolver_failed` | 0 | The lookup errored in transport. |
 | `capped` | 0 | Past MAX_CANDIDATES (7); kept and visible, never resolved. |
 
@@ -165,14 +165,14 @@ are the right venue — i.e. the share the user never had to touch the picker fo
 ── https://vt.tiktok.com/ZSVphDRbd/  [desserts]
    @thefoodnett  caption(cache): ⁨	⁨	ג׳לאטו איטלקי חדש בתל אביב! 🍦✨🇮🇹 ‪‪@gelalucci‬‬  יש מבחר טעמים - איטלקיים קלאסיים וגם טעמים מיוחדים שפותחו במיוחד לישראל. יש סורבה, גלידות ללא חלב/סוכר, גלידות ללא גלוטן - בקיצור מתאים לכולם! הריוניות: יש כמה טעמים בודדים עם ביצים ומנקים ושוטפים את המכונה בין הכנה להכנה (אבל אי אפשר להבטיח סטריליות מוחלטת) טווח מחירים לכדורי גלידה: 17₪-31₪ 📍מסריק 1, תל אביב שעות הרצה (עשויות להשתנות):  ראשון-רביעי - 00:00-10:00 חמישי - 10:00 - 01:00 שישי - 09:00 - 01:00 שבת - 09:00 - 00:00 ייתכנו שינויים בימי ההרצה הראשונים בשיתוף טעים מאוד!⁩⁩
    extraction(cache): cityHint=תל אביב  raw=[Gelalucci]  dropped=none
-   • "Gelalucci" → CORRECT-BUT-NOT-AUTO (not_auto_accepted)
+   • "Gelalucci" → MISS (coordinate_mismatch)
        query: text="Gelalucci" cityHint=תל אביב cat=shop  regionsSearched=[tlv]  prefiltered=11
        band=confirm  score=0.867  margin=0.197
        top1: Gelalucci @ שדרות מסריק 1, תל אביב - יפו  (32.024208, 34.741554)  cat=ice_cream_shop conf=0.34
        top3: Gelalucci (0.867)  |  קרלו גלידות (0.670)  |  לחם ארז - כיכר מסריק 1 (0.552)
        expected: Gelalucci — מסריק 1, תל אביב
        rank of the right row in the full prefilter: 1
-       note: top-1 is right, band confirm, margin 0.197
+       note: top-1 is the right venue by name and address but sits 6894 m from it (tolerance 500 m) — the row's own address and coordinates disagree
 
 ── https://vt.tiktok.com/ZSVph5Xor/  [brunch]
    @thefoodnett  caption(cache): ⁨	⁨	⁨	הבראנץ החדש של חיים כהן! ✨🥞🥑🍳 ‪‪‪@chef_haim_cohen‬‬‬  דיזנגוף 9‪@dizengoff_99‬99‬99‬99  חיים בנה כאן בראנץ׳ שווה מאוד ב-150₪ לאדם: במקום המאזטים והצלוחיות שכולנו רגילים לראות מתחילים בפתיחים מושקעים. בוחרים 3 (או 5 אם אתם זוג) ממבחר שכולל למשל פסטרמי אלבקור, סלקים וסטרצ׳יאטלה, עגבניות שרי על גספצ׳ו וסלט ביצים. לאלה מתווספת סלסלת לחמים ומאפים טריים, 2 קפה ומיץ (ויפנקו אם תרצו בעוד) ועיקרית לבחירה מבין מנות ביצים עלומות שונות או ביצים מקושקשות, שקשוקה והפנקייק המעולה של דיקסי. אפשר גם לבחור להרכיב ארוחה איך שרוצים ולא מהארוחה המובנת ואז העיקריות נעות סביב 50₪ והצלוחיות 20₪-30₪. 📍דיזנגוף 99, תל אביב מומלץ להזמין מקום מראש, בטח בסופ״ש ‎ראשון-שישי 7:30-11:30 שבת 8:00-11:30⁩⁩⁩

@@ -60,6 +60,9 @@
  * A count is not a diagnosis. Every miss is bucketed by cause, in the vocabulary
  * `handoff-2026-08-27-place-recognition.md` §3 already uses, and each bucket has a different fix:
  *
+ *  - `coordinate_mismatch`    — top-1 IS the right venue by name and address, and sits further from
+ *                               that address than the tolerance allows. Not a resolver failure at
+ *                               all: the source row's own address and coordinates disagree.
  *  - `no_region_searched`     — `regionsSearched` is empty. The database was never queried at all.
  *  - `absent_from_index`      — the venue is not reachable by the prefilter AND an independent
  *                               ILIKE probe of `poi_index.name_norm` finds no row for it either.
@@ -147,6 +150,13 @@ import ingestConfig from '../../scripts/poi-ingest.config.json' with { type: 'js
  * loud, located error, not a `undefined is not a function` two hundred lines later.
  * ------------------------------------------------------------------------------------------- */
 
+const ExpectedPointSchema = z.object({
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+  /** Which address this point is, in prose. A multi-branch venue lists one per branch. */
+  label: z.string().min(1),
+});
+
 const ExpectationSchema = z.object({
   name: z.string().min(1),
   area: z.string().min(1),
@@ -154,6 +164,22 @@ const ExpectationSchema = z.object({
   namePattern: z.string().min(1).optional(),
   addressPattern: z.string().min(1).optional(),
   indexProbe: z.array(z.string().min(1)).optional(),
+  /**
+   * Where this venue actually is. **Optional, and its absence is not a pass** — it means this
+   * expectation makes no claim about distance, which is exactly what every expectation used to do.
+   *
+   * A list because one venue can have several branches and the corpus accepts any of them
+   * (`רוסטיקו` is at בזל 42 *and* רוטשילד 15). Passing means within `maxDistanceM` of **any** point.
+   *
+   * Provenance is OSM/Nominatim via `docs/evidence/places/geocode-corpus-addresses.py`, geocoding
+   * the *street address*, never the venue, and never Google — `06` §3.1/§5.4 forbid committing
+   * Google coordinates. Every entry was reviewed by hand; the ones that geocoded to the wrong city
+   * or to a bare city centroid were dropped rather than kept with a loose tolerance.
+   */
+  expectedPoints: z.array(ExpectedPointSchema).min(1).optional(),
+  /** Overrides `DEFAULT_MAX_DISTANCE_M` for a venue whose street is unusually long or whose
+   *  ground-truth point is a street centroid rather than a door. */
+  maxDistanceM: z.number().positive().optional(),
 });
 
 const CorpusCaseSchema = z.object({
@@ -186,6 +212,47 @@ function candidateRegex(e: Expectation): RegExp {
 
 function nameRegex(e: Expectation): RegExp {
   return new RegExp(e.namePattern ?? e.candidatePattern ?? literalPattern(e.name), 'iu');
+}
+
+/**
+ * How far a returned pin may sit from the venue's real address before it stops counting as the
+ * right answer.
+ *
+ * **Deliberately loose.** The ground truth is a geocoded *street address*, not the venue's door, so
+ * a long street's centroid is legitimately a couple of hundred metres out — `האחים` at אבן גבירול
+ * 26 is 222 m from its own geocode and is unambiguously the right row. This assertion exists to
+ * catch a row that is in the wrong *place*, not to grade a pin to the metre. The case it was
+ * written for missed by **6.9 km**.
+ */
+const DEFAULT_MAX_DISTANCE_M = 500;
+
+/** Metres between two points. Haversine on a spherical earth: at city scale the ellipsoid
+ *  correction is far below the tolerance above, and a wrong formula here would be a silent
+ *  adjudication bug rather than a visible one. */
+function distanceM(aLat: number, aLng: number, bLat: number, bLng: number): number {
+  const R = 6_371_000;
+  const toRad = (d: number): number => (d * Math.PI) / 180;
+  const dLat = toRad(bLat - aLat);
+  const dLng = toRad(bLng - aLng);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+/**
+ * Distance from a row to the nearest acceptable point, or `null` when this expectation makes no
+ * distance claim.
+ *
+ * `null` is load-bearing and is not "pass": it means *unmeasured*, and the caller reports it as
+ * such rather than counting it as evidence. Ten of the corpus's fourteen adjudicated expectations
+ * have a point; the four that do not are the ones whose `area` is only a city name, or whose
+ * address OSM does not hold — inventing a coordinate for those would be the exact fabrication this
+ * whole assertion exists to catch.
+ */
+function distanceToExpected(e: Expectation, lat: number, lng: number): number | null {
+  if (e.expectedPoints === undefined) return null;
+  return Math.min(...e.expectedPoints.map((p) => distanceM(lat, lng, p.lat, p.lng)));
 }
 
 /* ------------------------------------------------------------------------------------------- *
@@ -369,6 +436,7 @@ function ctx(): OpCtx {
 type Verdict = 'auto_match' | 'correct_not_auto_accepted' | 'wrong' | 'unadjudicated';
 
 type FailureBucket =
+  | 'coordinate_mismatch'
   | 'no_region_searched'
   | 'absent_from_index'
   | 'unreachable_in_index'
@@ -794,7 +862,20 @@ describe.skipIf(!env.ok)('real TikToks through the real recognition flow', () =>
         continue;
       }
 
-      const correct = top1 !== null && acceptsRow(expectation, top1.name, top1.address, top1.locality);
+      // Identity and location are two separate questions, and the harness used to ask only the
+      // first. `Gelalucci`'s poi_index row carries address `שדרות מסריק 1` and sits 6.9 km from
+      // where that address is; on a map product that is the product being wrong, and it scored as
+      // CORRECT for as long as adjudication compared only strings.
+      const identityMatch =
+        top1 !== null && acceptsRow(expectation, top1.name, top1.address, top1.locality);
+      const distance =
+        top1 === null ? null : distanceToExpected(expectation, top1.lat, top1.lng);
+      const tolerance = expectation.maxDistanceM ?? DEFAULT_MAX_DISTANCE_M;
+      // `null` is *unmeasured*, not *within tolerance* — an expectation with no point makes no
+      // distance claim and must behave exactly as it did before this existed.
+      const locationOk = distance === null || distance <= tolerance;
+
+      const correct = identityMatch && locationOk;
       const autoMatched = correct && res.confidence.band === 'preselect';
 
       // Diagnostics, run only on a miss, and only against the database (no LLM, no network).
@@ -810,6 +891,16 @@ describe.skipIf(!env.ok)('real TikToks through the real recognition flow', () =>
           res.confidence.margin === null
             ? `top-1 is right but margin is null (${res.candidatesPrefiltered} prefiltered) — the lone-candidate policy question, handoff §3.1`
             : `top-1 is right, band ${res.confidence.band}, margin ${res.confidence.margin.toFixed(3)}`;
+      } else if (identityMatch && !locationOk) {
+        // The right venue by name and address, in the wrong place. Its own bucket because no other
+        // one describes it: the row is neither absent, nor unreachable, nor mis-ranked — the
+        // dataset simply disagrees with itself about where this address is. Nothing about the
+        // resolver can fix it; it is a coverage/data-quality finding about the source.
+        bucket = 'coordinate_mismatch';
+        acceptedRank = 1;
+        note =
+          `top-1 is the right venue by name and address but sits ${Math.round(distance ?? 0)} m ` +
+          `from it (tolerance ${tolerance} m) — the row's own address and coordinates disagree`;
       } else if (!correct) {
         // The whole ranking, not the product's top 5, so the right row's real rank is visible.
         // `score.ts` computes band and margin on the full ranking before `maxResults` truncates,
@@ -1197,6 +1288,7 @@ afterAll(() => {
   md.push('|---|---|---|');
   const meaning: Record<string, string> = {
     extraction_miss: 'The caption names the venue; the model produced no candidate string for it. Prompt/extraction work.',
+    coordinate_mismatch: 'Right venue by name and address, wrong place on the map. The source row disagrees with itself — a data-quality finding, not a resolver one.',
     no_region_searched: '`cityHint` mapped to no loaded region, so the database was never queried. Region inference.',
     absent_from_index: 'No row for this venue in `poi_index`, in either script. Coverage — a different dataset or a wider ingest.',
     unreachable_in_index: 'The row IS there; the prefilter cannot reach it from these tokens. The Hebrew/Latin alias gap.',

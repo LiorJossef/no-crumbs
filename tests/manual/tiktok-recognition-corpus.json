@@ -50,6 +50,22 @@
     "                   what separates 'absent from the index' from 'present but unreachable across",
     "                   scripts' — the TLV-13 failure. Give BOTH scripts where you know them.",
     "",
+    "  expectedPoints   optional list of {lat, lng, label}. WHERE THE VENUE ACTUALLY IS. A result that",
+    "                   matches on name and address but sits further than `maxDistanceM` from every",
+    "                   point is a MISS, bucketed `coordinate_mismatch`. A list because a venue can",
+    "                   have branches and any of them counts.",
+    "                   Absence makes NO distance claim — it is not a pass. Four expectations have no",
+    "                   points because their `area` is only a city name, or OSM does not hold the",
+    "                   address; inventing a coordinate there would be the fabrication this catches.",
+    "                   Provenance: OSM/Nominatim via docs/evidence/places/geocode-corpus-addresses.py,",
+    "                   geocoding the STREET ADDRESS, never the venue, and never Google (06 §3.1/§5.4",
+    "                   forbid committing Google coordinates). Every entry was reviewed by hand — one",
+    "                   that geocoded to Herzliya and three that landed on the city centroid were",
+    "                   dropped rather than kept with a loose tolerance.",
+    "  maxDistanceM     optional. Overrides the harness default of 500 m. Loose on purpose: the ground",
+    "                   truth is a street address, not a door, so a few hundred metres is legitimate.",
+    "                   The case this was written for missed by 6.9 km.",
+    "",
     "Regexes are matched case-insensitively after normalise(), which lowercases, strips punctuation",
     "and diacritics, and keeps Hebrew. Write them lowercase.",
     "",
@@ -81,7 +97,14 @@
             "hakosem",
             "הקוסם"
           ],
-          "addressPatternNote": "Transliteration added 2026-08-28. The pattern was authored against Overture, which writes this street in Hebrew; Google returns \"Shlomo HaMelekh Street 1\" for the same venue at the same point. Both denote שלמה המלך 1, so accepting either keeps the guard (it still rejects a same-name venue on a different street) while no longer testing which provider answered."
+          "addressPatternNote": "Transliteration added 2026-08-28. The pattern was authored against Overture, which writes this street in Hebrew; Google returns \"Shlomo HaMelekh Street 1\" for the same venue at the same point. Both denote שלמה המלך 1, so accepting either keeps the guard (it still rejects a same-name venue on a different street) while no longer testing which provider answered.",
+          "expectedPoints": [
+            {
+              "lat": 32.076428,
+              "lng": 34.776683,
+              "label": "שלמה המלך 1"
+            }
+          ]
         }
       ]
     },
@@ -99,6 +122,18 @@
             "מתחת לעץ",
             "mitachat",
             "under the tree"
+          ],
+          "expectedPoints": [
+            {
+              "lat": 32.061966,
+              "lng": 34.775443,
+              "label": "לבונטין 13"
+            },
+            {
+              "lat": 32.090187,
+              "lng": 34.774205,
+              "label": "בן יהודה 202"
+            }
           ]
         }
       ]
@@ -116,6 +151,13 @@
           "indexProbe": [
             "קוהי",
             "kohi"
+          ],
+          "expectedPoints": [
+            {
+              "lat": 32.088262,
+              "lng": 34.773293,
+              "label": "בן יהודה 155"
+            }
           ]
         }
       ]
@@ -133,6 +175,13 @@
           "indexProbe": [
             "בראסרי",
             "brasserie"
+          ],
+          "expectedPoints": [
+            {
+              "lat": 32.062138,
+              "lng": 34.776046,
+              "label": "לבונטין 19 (street centroid)"
+            }
           ]
         }
       ]
@@ -160,6 +209,13 @@
           "addressPattern": "אבן גבירול",
           "indexProbe": [
             "האחים"
+          ],
+          "expectedPoints": [
+            {
+              "lat": 32.074489,
+              "lng": 34.782059,
+              "label": "אבן גבירול 26"
+            }
           ]
         },
         {
@@ -196,6 +252,13 @@
           "addressPattern": "אבן גבירול",
           "indexProbe": [
             "האחים"
+          ],
+          "expectedPoints": [
+            {
+              "lat": 32.074489,
+              "lng": 34.782059,
+              "label": "אבן גבירול 26"
+            }
           ]
         }
       ]
@@ -213,6 +276,13 @@
           "addressPattern": "אבן גבירול",
           "indexProbe": [
             "האחים"
+          ],
+          "expectedPoints": [
+            {
+              "lat": 32.074489,
+              "lng": 34.782059,
+              "label": "אבן גבירול 26"
+            }
           ]
         }
       ]
@@ -232,7 +302,14 @@
             "טרטוריה אונה",
             "trattoria una"
           ],
-          "addressPatternNote": "Second street added 2026-08-28, on measurement rather than assumption. Overture files this venue at איינשטיין 69 and Google at בארט 2; the two points are 11 m apart, i.e. the same building addressed from two streets. Accepting either is what makes this expectation about the venue rather than about a dataset's street-labelling convention."
+          "addressPatternNote": "Second street added 2026-08-28, on measurement rather than assumption. Overture files this venue at איינשטיין 69 and Google at בארט 2; the two points are 11 m apart, i.e. the same building addressed from two streets. Accepting either is what makes this expectation about the venue rather than about a dataset's street-labelling convention.",
+          "expectedPoints": [
+            {
+              "lat": 32.113065,
+              "lng": 34.798648,
+              "label": "איינשטיין (street centroid)"
+            }
+          ]
         }
       ]
     },
@@ -250,6 +327,18 @@
           "indexProbe": [
             "רוסטיקו",
             "rustico"
+          ],
+          "expectedPoints": [
+            {
+              "lat": 32.089704,
+              "lng": 34.77993,
+              "label": "בזל 42"
+            },
+            {
+              "lat": 32.063174,
+              "lng": 34.770838,
+              "label": "רוטשילד 15"
+            }
           ]
         }
       ]
@@ -267,6 +356,13 @@
           "indexProbe": [
             "gelalucci",
             "ג'לאלוצ'י"
+          ],
+          "expectedPoints": [
+            {
+              "lat": 32.078032,
+              "lng": 34.777851,
+              "label": "שדרות מסריק 1"
+            }
           ]
         }
       ]
@@ -285,6 +381,13 @@
           "indexProbe": [
             "דיזנגוף 99",
             "dizengoff 99"
+          ],
+          "expectedPoints": [
+            {
+              "lat": 32.079218,
+              "lng": 34.773749,
+              "label": "דיזנגוף 99"
+            }
           ]
         }
       ]
@@ -304,7 +407,14 @@
             "אוסקר",
             "פונדק השובבים"
           ],
-          "addressPattern": "נחלת בנימין"
+          "addressPattern": "נחלת בנימין",
+          "expectedPoints": [
+            {
+              "lat": 32.061255,
+              "lng": 34.772392,
+              "label": "נחלת בנימין 68"
+            }
+          ]
         }
       ]
     },

@@ -1,6 +1,6 @@
 {
   "_comment": "Machine record of a tests/manual/tiktok-recognition.manual.ts run — real TikTok URLs through the real oEmbed → caption → extraction → resolve flow. Regenerated on every run; see tiktok-recognition.md for the human reading. Corpus: tests/manual/tiktok-recognition-corpus.json.",
-  "run_at": "2026-08-28T07:52:53.356Z",
+  "run_at": "2026-08-28T09:46:28.801Z",
   "supabase_url": "http://127.0.0.1:54321",
   "overture_release": "2026-07-22.0",
   "region": {
@@ -32,8 +32,8 @@
     "auto_match": 7,
     "adjudicated": 16,
     "auto_match_rate": 0.4375,
-    "correct_not_auto_accepted": 5,
-    "wrong": 3,
+    "correct_not_auto_accepted": 4,
+    "wrong": 4,
     "extraction_misses": 1,
     "false_auto_accepts": 0,
     "unadjudicated": 1,
@@ -42,9 +42,10 @@
       "ok": 13
     },
     "failure_buckets": {
-      "not_auto_accepted": 5,
+      "not_auto_accepted": 4,
       "extraction_miss": 1,
       "absent_from_index": 2,
+      "coordinate_mismatch": 1,
       "unreachable_in_index": 1
     }
   },
@@ -786,11 +787,11 @@
             "לחם ארז - כיכר מסריק 1 (0.552)"
           ],
           "resolutionKind": "answered",
-          "verdict": "correct_not_auto_accepted",
-          "failure": "not_auto_accepted",
+          "verdict": "wrong",
+          "failure": "coordinate_mismatch",
           "acceptedRank": 1,
           "indexProbeHits": null,
-          "note": "top-1 is right, band confirm, margin 0.197"
+          "note": "top-1 is the right venue by name and address but sits 6894 m from it (tolerance 500 m) — the row's own address and coordinates disagree"
         }
       ],
       "extractionMisses": []
