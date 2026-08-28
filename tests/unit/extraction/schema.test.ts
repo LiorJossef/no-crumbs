@@ -343,12 +343,12 @@ describe('schema versioning', () => {
     expect(PROMPT_VERSION).toContain(`s${EXTRACTION_SCHEMA_VERSION}`);
   });
 
-  it('is on v3, under the prompt that asks for name variants', () => {
+  it('is on v3, under the prompt that tightened tags, dishes and whyGo', () => {
     // Spelled out rather than derived, so moving the schema or the prompt is a deliberate edit
-    // here too. `p8` is the prompt that added the `nameVariants` instructions; `s3` is the
-    // candidate shape that has the field. Both halves moved together and both have to.
+    // here too. `p9` tightened four rules against measured p8 output; `s3` is the candidate shape
+    // that carries `nameVariants`, unchanged by that. Only the half that moved, moved.
     expect(EXTRACTION_SCHEMA_VERSION).toBe(3);
-    expect(PROMPT_VERSION).toBe('p8-s3');
+    expect(PROMPT_VERSION).toBe('p9-s3');
   });
 
   it('keeps PROMPT_VERSION storable in the extractions column', () => {

@@ -28,8 +28,18 @@ import { EXTRACTION_SCHEMA_VERSION } from '@/domain/extraction/schema';
  * `p7` -> `p8` (2026-08-28, TLV-BILING-A): the prompt now asks for `nameVariants`. Both halves of
  * the key move together here — the prompt text changed *and* the candidate shape did — which is
  * the case the two-part key exists for.
+ *
+ * `p8` -> `p9` (2026-08-28): four rules tightened against measured p8 output on a real Hebrew
+ * caption (`shirazooooo`, האחים). Tags must be English, because a tag is an index entry and
+ * `מאפייה` and `Bakery` are two tags neither of which finds the other. The dish/category test is
+ * restated in Hebrew, because `מאפים` ("pastries") was emitted as a dish. `whyGo` may not be
+ * imperative — p8 turned "I had a perfect morning" into "Enjoy a dreamy morning breakfast", which
+ * reads as invented even though every adjective in it was the creator's own — and must prefer the
+ * checkable detail, because that same sentence dropped "Sunday to Friday" to keep "dreamy".
+ * `categoryHint` gets a discriminator, because a pastry breakfast was labelled `restaurant`.
+ * Schema unchanged, so only the `p` half of the key moves.
  */
-export const PROMPT_VERSION = `p8-s${EXTRACTION_SCHEMA_VERSION}`;
+export const PROMPT_VERSION = `p9-s${EXTRACTION_SCHEMA_VERSION}`;
 
 /** Role, single task, and the negative-case framing that `09` §4.2 calls "the single most
  *  important line in the prompt": most captions name no venue, and an empty list is correct. */
@@ -93,7 +103,11 @@ Rules for each candidate you do emit:
   hashtag-sourced candidate, "evidence" is the whole hashtag as written, "#" included — you may not
   add spaces to it even though "rawName" reads more naturally with them.
 - "categoryHint" is one of: restaurant, cafe, bar, bakery, attraction, shop, other — or null if
-  unclear. Never guess a category the caption gives no signal for.
+  unclear. Never guess a category the caption gives no signal for. Choose by what the venue's own
+  business is, not by the one visit the caption describes: a "bakery" bakes and sells baked goods,
+  a "cafe" sells coffee and somewhere to sit, a "bar" sells drinks in the evening, a "restaurant"
+  sells meals. A restaurant that serves a pastry breakfast is still a restaurant. "restaurant" is
+  not a default to fall back on when the caption is unclear — null is.
 - Do not rank, judge quality, invent a city you were not told, or add prose. (Coordinates are the
   one exception to "do not guess" — see "coordinates" below.)
 
@@ -158,8 +172,15 @@ your own knowledge of the venue, and every one of them may be empty:
 "tags" — up to 5 short labels for organising a saved-places library: cuisine, style, setting or
 vibe. Good tags: "Italian", "Matcha", "Pan-Asian", "Nepalese", "Hidden gem", "Rooftop", "Market
 stall", "Hotel restaurant", "Natural wine", "Greek".
+- **Always in English, whatever language the caption is in.** This is the one field where you must
+  not copy the caption's own words. A tag is an index entry: the user taps it to pull up every
+  place that shares it, so one concept has to be one string across a whole library. A Hebrew
+  caption tagged "מאפייה" and an English one tagged "Bakery" are two different tags and neither
+  finds the other. Translate the concept: "מאפים" -> "Pastries", "בוקר" -> "Breakfast", "חצר" ->
+  "Courtyard", "יין טבעי" -> "Natural wine".
 - One or two words each. No "#", no sentences, no venue name, no city or neighbourhood name.
-- Do not tag a restaurant "Restaurant" — a tag that only repeats "categoryHint" is wasted.
+- Do not tag a restaurant "Restaurant" — a tag that only repeats "categoryHint" is wasted, and
+  neither should a tag repeat something you already put in "dishes".
 - Every tag must be supported by something the caption actually says. "seasonal Italian plates
   inside Middle Eighty Hotel" supports "Italian" and "Hotel restaurant"; it does not support
   "Rooftop" or "Romantic". Do not add tags from what you know about the venue.
@@ -176,15 +197,30 @@ order by name.
   category ("coffee", "pasta", "food", "brunch"), or any phrase that names a kind of food rather
   than one particular item. If you find yourself writing an adjective plus a cuisine plus a generic
   noun, it is not a dish — leave it out and let "tags" carry it instead.
+- **The category test applies in every language, and that is where it is most often missed.**
+  "מאפים" is "pastries" — a whole category of thing, exactly like "coffee" — so it is a tag, never
+  a dish. "בורקס" is a dish. "קרואסון פיסטוק" is a dish. Ask what a waiter would bring if you said
+  only that word: one plate means a dish, "which one?" means a category.
 - Return [] when the caption names no particular item, which is most captions. An empty list here
   is the normal answer, not a gap to fill.
 
-"whyGo" — one short sentence, in YOUR OWN WORDS, saying why someone would go, or null.
+"whyGo" — one short sentence, in YOUR OWN WORDS, saying what the caption tells you about this
+place, or null. Written in English even when the caption is not.
 - "text": at most 25 words, plain and factual. No marketing language, no adjectives the caption did
   not earn, no invented detail. Write what the caption supports, in your own phrasing rather than
   by copying a caption sentence.
+- **State a fact; do not tell the reader what to do.** Never write a sentence in the imperative —
+  no "Enjoy...", "Try...", "Discover...", "Experience...", "Go for...", "Find...", "Visit...".
+  Those turn a person's description of somewhere they went into an advertisement for it, and they
+  read as invented even when every word under them came from the caption. Write "Pastry breakfast
+  served Sunday to Friday, eaten in a large courtyard", not "Enjoy a dreamy morning breakfast in a
+  stunning courtyard".
+- **Prefer the checkable detail over the adjective.** When the caption gives days, hours, a price,
+  a queue, a number of seats or a thing that sells out, that is the sentence — it is what a person
+  cannot get from the name and the category. Adjectives are what is left when there is nothing
+  concrete, and if the caption is nothing but adjectives, "whyGo" is null.
 - Vary how you start. These sentences end up in a list next to each other, so do not open every one
-  with the same word or template ("Go for...", "Visit this...") — write each one as it reads best.
+  with the same word or template — write each one as it reads best.
 - "groundedIn": the exact caption fragment your sentence is based on, copied VERBATIM, character
   for character, the same discipline as "evidence". If you cannot point at one, "whyGo" is null.
 - "groundedIn" must say something. Quoting only the place's own name does not count: a caption that
