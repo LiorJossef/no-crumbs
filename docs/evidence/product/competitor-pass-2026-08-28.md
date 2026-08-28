@@ -117,3 +117,141 @@ we lack that isn't already covered by the mio findings.
 app's actual category value list — this pass never got one, so (A) above is a design ruling built
 on our own data plus indirect evidence, not a taxonomy comparison. If a future session captures
 real screenshots, redo (A) properly.
+
+---
+
+# Part 2 — visual pass, and shared collections re-evaluated (same day)
+
+> Owner correction, 2026-08-28: **§E conflated collaborative collections with social-network
+> features.** Followers and creator profiles are out; a shared collection two named people both
+> contribute to is a different object and was asked for on its own merits. §G below replaces the
+> relevant §E bullet.
+>
+> Also this pass: a **quick visual review** of publicly published App Store screenshots and
+> marketing/FAQ pages for both apps — deliberately shallow, to catch UX patterns a text-only scan
+> cannot see. robots.txt checked first for all four hosts: `mio.travel` is now `Allow: /`
+> (Cloudflare-managed, `Content-Signal: use=reference` — it was disallowed when `01` was written),
+> `getplotline.app` allows everything except `/api/ /c/ /j/ /p/ /r/`, and both stores allow app
+> detail pages. Read-only, no account, no app installed, no API called. Screenshots are gitignored
+> in `.local/competitors/raw/screens-2026-08-28/`.
+
+## F. What the screenshots settled that the text pass could not
+
+**The deferred item in §A is now partly closed.** That section ended by saying it never got a look
+at either app's real category list, and to redo it if a future session did. It did.
+
+- **Plotline's vocabulary is VERIFIED and complete** (their FAQ, verbatim): nine categories — *eat,
+  brew, sip, explore, vibe, stay, shop, go, party*. **They are verbs, not nouns.** And they filter
+  on three separate axes — city, category, and **vibe** ("what other apps call mood") — plus source
+  platform. That is exactly the coarse-category-plus-separate-descriptor split §A argued for from
+  our own data, shipped by someone else. §A's ruling stands and now has outside confirmation.
+- **mio's is VERIFIED but partial** (four values seen on their own review sheet and place card):
+  *Attraction, Shopping, Nature, Restaurant*, each emoji-prefixed. Nouns, coarse, ordinary words —
+  no provider type strings anywhere in their UI. Consistent with §A's third rule.
+
+**mio's review-and-confirm sheet** — the surface most directly comparable to ours: a cat mascot,
+*"mio found 5 spots!"*, then the **source card at the top** (caption text, platform icon, `@handle`,
+video thumbnail), then one row per place — thumbnail, name, emoji category, and a **checkbox on the
+right, with one row left unchecked**. So confirmation is opt-out per place, and the source stays
+visible while you decide. Ours is the same shape; theirs shows the caption, which is worth stealing.
+
+**mio's place detail**: photo, name, `hvar, croatia`, `Open • 11am–6pm, mon–fri`, then **one
+category chip styled differently from the free tags beside it** (`Nature` outlined + emoji, then
+`beach` `relaxing` `scenic` as plain chips) — the category/tag distinction made visible, which ours
+does not do. Then `tldr;`, `local recs`, a photo strip, `pro tips`, and a bottom bar of
+**[navigate] [source] [organise]**. Note the primary, filled action is **organise** — collection
+assignment is the main verb on a saved place, ahead of favourite.
+
+**mio's library**: `Your collections (12)` · `Countries (8)` · `All saves (10333)` · `Favs (30)`,
+then a horizontal collection carousel of photo-mosaic covers with a `+ New Collection` tile, then
+`Recently Added` as a photo grid with a heart overlay per card and a quick-action menu of
+**Collection / Trip / Remove**. Two icons sit in the `Recently Added` header: an **inbox with an
+unread dot**, and a videos icon — the processing queue, given permanent real estate rather than
+being a transient toast.
+
+**Two map findings, both directly relevant to us:**
+
+1. **At world zoom mio renders no pins at all** — only flag-badged country bubbles with counts
+   (UK 352, Germany 245). The zoomed-out map is a *summary*, not a thinned pin cloud. That is the
+   §0.4 "automatic geography" idea rendered, and `clusters.ts` is already the primitive for it.
+2. **Plotline's pins carry the category** — a coloured circle with a per-category glyph (fork,
+   binoculars, wine glass, bed, sparkle), so category is legible on the map without opening
+   anything. Ours are uniform. This is a small render change with a large retrieval payoff, and it
+   is the map-side half of the same job as the inert tag chips (§0.3).
+
+**Plotline's place sheet** shows **distance from the user on the card** (`Philadelphia · 2393 mi`),
+three actions — **visited ✓ / not-interested ⊘ / save 🔖** — and `THE INSIDE SCOOP`: the creator's
+recommendation **quoted with the `@handle` inline** (*"@safiyany visited this Insomnia Cookies
+location … a secret backroom called the 'cookie speakeasy'"*). That is our `whyGo`, plus attribution
+we already store and do not surface. **A "not interested" action is new** — it is the third state
+between saved and deleted, and it is how a 5-result import stops being all-or-nothing.
+
+## G. Shared collections, evaluated on their own — this replaces §E's second bullet
+
+**§E was wrong to bundle these.** Three distinct things were filed as one:
+
+1. **Public creator profiles and a follower graph** — a social network. Still out, unchanged.
+2. **Publishing a list publicly** — a distribution surface. A separate question, not this one.
+3. **A private collection two or more named, invited people both contribute to** — a multiplayer
+   document. No graph, no feed, no discovery, no audience, no strangers.
+
+Only (1) is what Charter §1 excludes. (3) is a different product object and deserved its own ruling.
+
+**VERIFIED — both competitors ship it, and Plotline's pricing is the interesting part:**
+
+- **Plotline: shared Collections are in the free tier, explicitly and permanently.** Their pricing
+  page states it twice, and once in the negative: *"Collaboration is not part of [Premiere]"* — they
+  monetise **planning**, not sharing. The model: **editor and viewer roles, each with its own invite
+  link**, no cap on joiners, live updates, **every stop shows who added it**, and a **shared note
+  anyone can edit**. Their screenshot shows a `👥 3` members chip, a `Share` button, overlapping
+  member avatars on the map, and **a contributor avatar on every row of the list**.
+- **mio**: collaborators appear on **Trips** (`Austin, Kevin, Sari +3`), and their web app serves
+  share and invite routes.
+
+**The structural finding: collaboration is separable from itinerary planning.** mio hangs it off the
+*trip* — the dated itinerary object our charter declines — which is what made it look like planner
+bloat in §E. Plotline hangs it off the **collection** as well, and keeps that half free. So adopting
+shared collections does not drag us toward being a planner. That was the actual worry, and it is
+unfounded.
+
+**Why it fits *retrieval*, which is our job and not theirs:**
+
+- Our primary user's failure mode is not only *"find it again"*; it is *"we are both going and only
+  one of us has the list."* A shared collection is retrieval for two people. It extends the job we
+  already claim rather than adding a second one.
+- It is **the only growth loop available to a product with no feed and no creator pages**. An invite
+  link is distribution that costs the sender nothing and requires no audience.
+- Plotline pricing it free says they read it as retention and acquisition, not revenue. We should
+  read it the same way and not plan to charge for it either.
+
+**What it actually costs — stated plainly, because this is not a small feature:**
+
+- It is **the first multi-writer object in our schema.** Every RLS policy touching `saved_places`
+  goes from `owner = auth.uid()` to membership-based. That is a `security-privacy` review with a
+  veto attached, not a UI task.
+- **Invite links are unguessable-token public URLs** — a new externally-reachable surface, with
+  revocation, expiry and abuse cases to specify. Note Plotline disallows exactly these paths
+  (`/c/ /j/ /p/`) in robots.txt, which is the correct instinct.
+- **Attribution needs a per-row actor column** (`added_by`), and it should be added at the same time
+  as membership, not retrofitted.
+- Shared notes raise a concurrency question we have never had to answer.
+
+**Recommended filing — a change to the plan, not a decision taken:** move private shared collections
+out of "excluded on no-social-graph grounds" and into **L2 as its own feature**, with the boundary
+written down: **named invitees only; no public profiles, no follower graph, no discovery feed.**
+It should **not** jump ahead of the resolver — §D's ranked list is unchanged by this.
+
+**One thing to keep excluded that sits right next to it:** Plotline ships **Trending** — *"see what
+other travelers are saving near you."* That is the discovery feed, it is a different product, and
+being adjacent to shared collections is not a reason to let it in.
+
+## H. Corrections to earlier claims in our own docs
+
+- **§E bullet 2 ("shared collections with followers")** — withdrawn and replaced by §G.
+- **`current-state.md` §5b, "Near-me is an open goal for the whole category. Nobody has it."** —
+  too strong. True of mio. **Plotline shows distance from the user on every place card** and
+  sequences trips from a home base with travel times. The narrower claim survives: nobody has
+  *near-me as a retrieval mode* — a "what's around me right now" entry point — and that is still
+  the open goal. The wider one does not.
+- **§A's deferred item** — discharged for Plotline (complete, VERIFIED), partly for mio (four
+  values). No further screenshot pass is owed.

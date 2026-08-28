@@ -225,8 +225,20 @@ with search working *within* a city or collection as well as across the whole li
 Recorded as a direction, not scheduled. Two things already in the repo bear on it: the coordinate
 clustering shipped this session is exactly the "automatic geography" primitive such a model needs
 (and it deliberately avoids the `locality` string, which is where a naive city grouping would break
-on `Tel Aviv` / `Tel Aviv-Yafo`); and Charter §1's no-social-graph stance is what shared collections
-would have to be weighed against. `mvp-plan.md` §8 currently files collections and sharing at L3.
+on `Tel Aviv` / `Tel Aviv-Yafo`).
+
+**Owner correction, 2026-08-28 — shared collections are not a social-graph question.** The earlier
+framing weighed them against Charter §1's no-social-graph stance; that conflated three different
+things. Public creator profiles and a follower graph stay out. **A private collection that named,
+invited people both contribute to is a multiplayer document, not a network** — no feed, no
+discovery, no audience — and it is retrieval for two people rather than a second job. Both
+competitors ship it, and Plotline's version hangs off the *collection*, not the trip, and is free
+forever — which proves collaboration is separable from the itinerary planner we decline. Its real
+cost is that it is our first multi-writer object: membership-based RLS on every `saved_places` path,
+invite-link tokens as a new public surface, and an `added_by` column. **Filed at L2 as its own
+feature**, boundary written down (named invitees only; no public profiles, no follower graph, no
+discovery feed), and explicitly not ahead of the resolver. Full evaluation:
+`evidence/product/competitor-pass-2026-08-28.md` §G.
 
 ---
 
@@ -542,9 +554,12 @@ claim to be better at theirs.
    pointing at `L0-F2b`/D2b. Their own weakest reviewed surface is branch disambiguation — *"it adds
    something with the same name somewhere else no matter how many times i press on the one i want"* —
    which is precisely the multi-branch failure §6 measured in ours.
-5. **Near-me is an open goal for the whole category.** Nobody has it. Two mio reviewers ask for it by
+5. **Near-me as a retrieval mode is an open goal for the category.** Two mio reviewers ask for it by
    name and do not get it. It is the everyday half of our own single primary user
-   (`brand-and-product-foundation` §2), and it is currently filed at L2.
+   (`brand-and-product-foundation` §2), and it is `L1-F11` per §0.2. **Narrowed 2026-08-28:**
+   "nobody has it" was too strong — Plotline shows distance from the user on every place card and
+   sequences trips from a home base. What nobody has is a *what is around me right now* entry
+   point, and that is the part still ours to take.
 
 **Where we are clearly behind, stated without flinching:** capture friction; per-place richness
 (they carry opening hours, real photos, a *tldr*, "local recs" and "pro tips" — repeatedly named in

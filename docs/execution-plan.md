@@ -319,8 +319,13 @@ No task breakdown until L1 closes, by design.
 the first places · more ingested cities (an accuracy accelerator now, not a coverage requirement) ·
 the five motion moments · the 50-post pipeline evaluation and threshold re-fit · the OSM alias join.
 
-**L3:** Instagram · YouTube · audio transcription behind the `ContentExtractor` flag · collections and
-sharing · a credentialed provider benchmark · alternate-name indexing.
+**L3:** Instagram · YouTube · audio transcription behind the `ContentExtractor` flag · a credentialed
+provider benchmark · alternate-name indexing.
+
+**Collections and sharing moved L3 → L2, 2026-08-28** (owner correction — a private, named-invitee
+shared collection is a multiplayer document, not a social graph). Boundary and cost in
+`mvp-plan.md` §8; evaluation in `evidence/product/competitor-pass-2026-08-28.md` §G. Not ahead of
+the resolver.
 
 ## Critical path
 
