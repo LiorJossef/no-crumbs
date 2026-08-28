@@ -72,6 +72,7 @@ import {
 import type { StoredResolution } from '@/domain/import/resolution-record';
 import {
   effectivePick,
+  lookupFailureNotice,
   pickRequiredNotice,
   resolutionChip,
   resolutionExplanation,
@@ -1413,6 +1414,27 @@ function CaptionPreviewScreen({
     [probe.candidates, views, picks],
   );
 
+  /**
+   * Why the lookups failed, said once, in the user's terms. Composes with `LOCATION_CAVEAT`
+   * rather than repeating it: this line says *why* the pins came from the caption, the caveat
+   * says *how far off* that leaves them.
+   *
+   * Not derived from `saveableIndices.length` alone — that counts every saveable candidate,
+   * including ones the resolver placed. The question this asks is narrower: did anything survive
+   * the failure *on the strength of the caption's own coordinate*, which is what decides between
+   * "you can still save them" and "we couldn't match these to a place".
+   */
+  const lookupFailure = useMemo(
+    () =>
+      lookupFailureNotice(
+        views,
+        probe.candidates.some((c, i) =>
+          usesModelCoordinate(isSaveable(c), views[i]!, picks.get(i) ?? null),
+        ),
+      ),
+    [probe.candidates, views, picks],
+  );
+
   const [selected, setSelected] = useState<ReadonlySet<number>>(
     () =>
       new Set(
@@ -1557,6 +1579,15 @@ function CaptionPreviewScreen({
                 being true when resolution shipped. A resolved pin is the venue's own coordinate
                 (11 m for HaKosem) against 65-470 m for the model's guess, so this sentence is
                 shown only while some pin on this screen still comes from the caption. */}
+            {/* Ordered cause-then-consequence: the failure notice explains why these pins are
+                caption-derived, and LOCATION_CAVEAT then quantifies it. `role="status"` because
+                this appears on a screen the user is already reading, without their action. */}
+            {lookupFailure !== null && (
+              <p role="status" className="shrink-0 text-xs font-medium text-muted-foreground">
+                {lookupFailure}
+              </p>
+            )}
+
             {showsLocationCaveat && (
               <p className="shrink-0 text-xs font-medium text-muted-foreground">{LOCATION_CAVEAT}</p>
             )}

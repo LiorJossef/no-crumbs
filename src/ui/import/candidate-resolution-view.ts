@@ -31,7 +31,7 @@
  */
 
 import { deriveResolution } from '@/domain/import/pipeline';
-import type { StoredResolution } from '@/domain/import/resolution-record';
+import type { StoredFailureReason, StoredResolution } from '@/domain/import/resolution-record';
 import type { RankedPlace, ResolvedPlace } from '@/domain/types';
 
 /**
@@ -61,8 +61,13 @@ export type CandidateResolutionView =
   | { readonly kind: 'ambiguous'; readonly options: readonly ResolutionOption[] }
   /** We looked and found nothing that matched. */
   | { readonly kind: 'unresolved' }
-  /** The lookup itself failed. Not "no such place" — we never got an answer. */
-  | { readonly kind: 'failed'; readonly reason: 'lookup_failed' | 'timed_out' }
+  /**
+   * The lookup itself failed. Not "no such place" — we never got an answer. `reason` carries the
+   * adapter's classification since 2026-08-28 (`domain/import/provider-failure.ts`), which is what
+   * lets `lookupFailureNotice` say "we are out of lookups for today" rather than the one
+   * undifferentiated "that broke" this screen used to have for every cause.
+   */
+  | { readonly kind: 'failed'; readonly reason: StoredFailureReason }
   /** Past `MAX_CANDIDATES`: kept and shown, but never put to the resolver. */
   | { readonly kind: 'capped' }
   /** No record at all — this candidate was never put to the resolver. */
@@ -246,13 +251,31 @@ export function resolutionExplanation(view: CandidateResolutionView): string | n
 }
 
 /**
- * The pin line, when — and only when — the resolver is what decides where this save lands. Null
- * means the screen keeps saying what it already said about the model's own guess
- * (`candidate-presentation.ts`'s `locationLine`), which is the unchanged fallback.
+ * Where this card's pin comes from, in the same slot for every candidate. `null` only for the one
+ * case that has no pin at all, where the screen keeps saying what it already said
+ * (`candidate-presentation.ts`'s `locationLine`: "We couldn't place this one").
  *
- * The middle case is the one worth spelling out. A candidate with options, no pick and no model
- * coordinate used to read "We couldn't place this one" — sitting directly above a shortlist of
- * places we had, in fact, found. What is missing there is the user's answer, not the data.
+ * Three answers, and they are the three provenances a save can actually have:
+ *
+ *  - **"Pin from the map data"** — a picked or auto-accepted shortlist entry. The venue's own
+ *    coordinate; measured 11 m out for HaKosem.
+ *  - **"Waiting on your pick"** — options exist, none chosen, and the model gave nothing to fall
+ *    back on. This used to read "We couldn't place this one" while sitting directly above a
+ *    shortlist of places we had in fact found; what is missing there is the user's answer, not the
+ *    data.
+ *  - **"Approximate pin from the caption"** — the degraded path (owner ruling §1.3, 2026-08-28),
+ *    and **only** where the place database genuinely gave us nothing: `failed` (we never got an
+ *    answer) and `unresolved` (we got one and it was "no such place"). A card in either state can
+ *    now be saveable *because* the lookup produced nothing, and `locationLine`'s older "Pin is
+ *    approximate" reads as a hedge on a match rather than as the absence of one. This line and
+ *    `lookupFailureNotice` are the two places the screen states that the coordinate came from what
+ *    the caption said and not from a place database.
+ *
+ * The two states deliberately excluded from that last case are the two where the sentence would be
+ * false. `ambiguous` has options — the pin is waiting on a decision, not on the data. And
+ * `not_attempted`/`capped` were never put to the resolver at all, so contrasting them *with* a
+ * place database would claim a search that never happened: "we never looked" is not "we looked and
+ * found nothing" (`resolution-record.ts`). Both keep the wording they already had.
  */
 export function resolverPinLine(
   view: CandidateResolutionView,
@@ -261,6 +284,9 @@ export function resolverPinLine(
 ): string | null {
   if (effectivePick(view, pick) !== null) return 'Pin from the map data';
   if (resolutionOptions(view).length > 0 && !modelHasCoordinates) return 'Waiting on your pick';
+  if (modelHasCoordinates && (view.kind === 'failed' || view.kind === 'unresolved')) {
+    return 'Approximate pin from the caption';
+  }
   return null;
 }
 
@@ -293,4 +319,80 @@ export function pickRequiredNotice(
 ): string | null {
   if (willSave(modelHasCoordinates, view, pick)) return null;
   return view.kind === 'ambiguous' ? 'Pick one of these to save it.' : null;
+}
+
+/* ------------------------------------------------------------------------------------------- *
+ * The degraded path — what the screen says when the place database could not answer.
+ *
+ * Owner ruling, 2026-08-28: *resolution must never dead-end.* A candidate whose lookup failed but
+ * which carries the model's own coordinate is still saveable — `willSave` above has always said so
+ * and `derivePlaceSave` has always written it as `llm_guess` with a null score. What the screen did
+ * **not** do was say why there was no match, or that the pin it was about to save came from the
+ * caption rather than from a place database. A user looking at four cards with no matches learned
+ * nothing about whether to try again in a minute, tomorrow, or never.
+ *
+ * These two functions are that missing sentence. They are deliberately about the *cause*, and they
+ * are deliberately screen-level rather than per-card: one failed lookup and seven failed lookups
+ * have the same explanation, and repeating it eight times would read as eight problems.
+ * ------------------------------------------------------------------------------------------- */
+
+/**
+ * The one failure to speak about when several candidates failed for different reasons.
+ *
+ * Priority, and each step is a claim about what the user can do next rather than about severity:
+ *
+ *  1. `quota_exhausted` wins outright. It is the only cause with a *time* attached — nothing works
+ *    until tomorrow, and everything does then — so it must never be hidden behind a generic
+ *    "something went wrong" that invites an immediate, guaranteed-useless retry.
+ *  2. `timed_out` is next, but only when **every** failure was one: "it was too slow" is a claim
+ *    about the provider's latency, and it stops being true the moment one of the failures was in
+ *    fact a rejected key.
+ *  3. Everything else collapses to one sentence. `auth`, `bad_request`, `provider_error`,
+ *    `transport` and `lookup_failed` differ in what *we* must fix and not at all in what the user
+ *    can do, and spelling out "our API key was rejected" on a review screen would be leaking our
+ *    operational state into a product surface for no user benefit. The distinction is not lost —
+ *    it is in the server log, which is where an operator reads it.
+ *
+ * `null` when nothing failed. A screen with no failures says nothing about failures.
+ */
+export function dominantFailure(
+  views: readonly CandidateResolutionView[],
+): StoredFailureReason | null {
+  const reasons = views.flatMap((v) => (v.kind === 'failed' ? [v.reason] : []));
+  if (reasons.length === 0) return null;
+  if (reasons.includes('quota_exhausted')) return 'quota_exhausted';
+  if (reasons.every((r) => r === 'timed_out')) return 'timed_out';
+  return 'lookup_failed';
+}
+
+/**
+ * What went wrong, and whether the user can still proceed — the sentence that turns a silent dead
+ * end into a stated, recoverable one.
+ *
+ * `someSaveableFromCaption` is the caller's count of candidates that will still be written from the
+ * model's coordinate. It is a parameter rather than something derived here because the answer
+ * depends on the user's current picks, which this module does not hold.
+ *
+ * The wording obeys the same rule as the rest of this screen: it says where the pin came from
+ * ("the captions") and never that it is a match. It also stops short of promising the upgrade —
+ * `resolution-record.ts` documents how these rows get a canonical Google identity later, but the
+ * upgrader does not exist yet, and a UI promise is not the place to record an intention.
+ */
+export function lookupFailureNotice(
+  views: readonly CandidateResolutionView[],
+  someSaveableFromCaption: boolean,
+): string | null {
+  const reason = dominantFailure(views);
+  if (reason === null) return null;
+
+  const cause =
+    reason === 'quota_exhausted'
+      ? 'We’ve used up today’s place lookups'
+      : reason === 'timed_out'
+        ? 'The place database didn’t answer in time'
+        : 'We couldn’t reach the place database just now';
+
+  return someSaveableFromCaption
+    ? `${cause}, so these pins come from the captions rather than a place database. You can still save them.`
+    : `${cause}, so we couldn’t match these to a place.`;
 }
