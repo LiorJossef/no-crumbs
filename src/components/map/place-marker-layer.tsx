@@ -83,6 +83,29 @@ export function PlaceMarkerLayer({ data, selectedId, onPlaceClick }: PlaceMarker
   useEffect(() => {
     if (!map || !styleReady) return;
 
+    /**
+     * Teardown, used by the cleanup below **and** before every setup.
+     *
+     * Doing it on the way in as well is not belt-and-braces. The cleanup runs inside a `try`
+     * because the style can be mid-reload, and if `removeLayer` throws on the first of the three
+     * the source is never removed — after which the next setup's `addSource` throws "there is
+     * already a source with this ID", aborts the whole effect body, and the map is left with no
+     * layers at all and no cleanup registered to recover from. Removing first makes setup
+     * idempotent, so a failed teardown costs a repaint instead of the feature.
+     */
+    const removeOurs = () => {
+      try {
+        for (const layerId of [pinLayerId, clusterCountLayerId, clusterLayerId]) {
+          if (map.getLayer(layerId)) map.removeLayer(layerId);
+        }
+        if (map.getSource(sourceId)) map.removeSource(sourceId);
+      } catch {
+        // Style mid-reload; whatever is left goes with it.
+      }
+    };
+
+    removeOurs();
+
     for (const image of buildPinImages(window.devicePixelRatio || 1)) {
       if (!map.hasImage(image.id)) {
         map.addImage(image.id, image.data, { pixelRatio: image.pixelRatio });
@@ -212,14 +235,7 @@ export function PlaceMarkerLayer({ data, selectedId, onPlaceClick }: PlaceMarker
         map.off('mouseenter', layerId, pointer);
         map.off('mouseleave', layerId, resetPointer);
       }
-      try {
-        for (const layerId of [pinLayerId, clusterCountLayerId, clusterLayerId]) {
-          if (map.getLayer(layerId)) map.removeLayer(layerId);
-        }
-        if (map.getSource(sourceId)) map.removeSource(sourceId);
-      } catch {
-        // The style can be mid-reload during teardown; the layers go with it either way.
-      }
+      removeOurs();
     };
   }, [map, styleReady, sourceId, clusterLayerId, clusterCountLayerId, pinLayerId]);
 
