@@ -129,6 +129,7 @@ import {
   type ProviderFailureKind,
 } from '@/domain/import/provider-failure';
 import type { OpCtx, PlaceResolver } from '@/domain/ports';
+import { toCountryCode } from '@/domain/places/country-code';
 import { scoreCandidates } from '@/domain/places/score';
 import type { RegionId, ResolveQuery, ResolveResult, ResolvedPlace } from '@/domain/types';
 import { cachedProviderRows, type PlaceLookupStore } from '@/integrations/places/lookup-cache';
@@ -446,10 +447,15 @@ export function googlePlaceResolver(
     provider: 'google',
 
     async resolve(query: ResolveQuery, ctx: OpCtx): Promise<ResolveResult> {
-      const country = query.countryHint?.trim().toUpperCase();
       const params: GoogleTextSearchParams = {
         textQuery: buildTextQuery(query),
-        regionCode: country !== undefined && country.length === 2 ? country : null,
+        // `countryHint` is a country **name**, never a code: the prompt asks the model to copy the
+        // caption's own location words, so it arrives as `United Kingdom`, `Czech Republic`,
+        // `Israel` or `ישראל`. This line used to require `/^..$/` after an upper-case, which none
+        // of those satisfy — measured across all 50 candidate rows in the local database, **not
+        // one** carried a two-letter code, so `regionCode` was `null` on every real import and the
+        // field was dead. Those same four values through `toCountryCode` give `GB / CZ / IL / IL`.
+        regionCode: toCountryCode(query.countryHint),
         languageCode: languageCodeFor(query),
         maxResultCount: MAX_GOOGLE_RESULTS,
       };
