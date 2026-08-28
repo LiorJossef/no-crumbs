@@ -1,6 +1,20 @@
 # Handoff — Google Places becomes the primary resolver
 
-**Status: adapter delivered and measured; app-level verification next.** Written so this resumes cold.
+**Status: all of this session's work is merged to `main` and verified there.** Written to resume cold.
+
+## What landed (all merged, `main` green at 1068 tests)
+
+| PR | What |
+|---|---|
+| [#55](https://github.com/LiorJossef/P-002/pull/55) | Google Places provider behind the existing port; language follows the caption's script; `SoleCandidateMeaning` band policy; the provenance bug fix |
+| [#56](https://github.com/LiorJossef/P-002/pull/56) | 5 s per-lookup timeout, and the 100/day quota recorded |
+| [#57](https://github.com/LiorJossef/P-002/pull/57) | TikTok photo/carousel posts supported; `PHOTO_POST` retired |
+| [#58](https://github.com/LiorJossef/P-002/pull/58) | Cover-frame OCR measured and rejected as framed; exploration findings |
+| [#59](https://github.com/LiorJossef/P-002/pull/59) | The location caveat is shown only when it is true |
+
+**The single most important thing to read before continuing** is "Questions only the owner can
+answer" below: the Google resolver is **not shippable** until the 100/day quota is raised, and that
+is a console action nobody but the owner can take.
 
 ## The result, measured through the shipped flow
 
