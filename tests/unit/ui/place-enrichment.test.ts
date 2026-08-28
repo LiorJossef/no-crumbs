@@ -34,6 +34,7 @@ const BARE_SPOT: Spot = {
   lat: 51.4682,
   lng: -0.0689,
   visitState: 'want_to_go',
+  savedAt: new Date('2026-08-24T13:22:51Z'),
 };
 
 describe('enrichmentOf', () => {

@@ -54,6 +54,10 @@ import { ActiveTagFilter, DishLine, TagChipList, TagChipRow, WhyGoLine } from '.
 import { BeenBadge, NotBeenFilterChip } from './visit-state';
 import { enrichmentOf, rowAccessibleName, whyGoEarnsItsPlace } from '@/ui/place/enrichment';
 import { categoryDisplay, categoryLocalityLine } from '@/ui/place/category-display';
+import { savedPlaceMapsUrl } from '@/ui/place/maps-link';
+import { locationCertainty, savedOnLine } from '@/ui/place/location-certainty';
+import { AddToCollection } from '@/components/collections/add-to-collection';
+import { CollectionsNavRow } from '@/components/collections/collections-nav-row';
 import { formatCaptionQuote, quoteAddsSomething } from '@/ui/place/caption-quote';
 import {
   areaRowAccessibleName,
@@ -393,6 +397,7 @@ function PlaceList({
                 </ul>
               )}
               <ElsewhereSection rows={otherAreas} filtering={filtering} onSelectArea={selectArea} />
+              <CollectionsNavRow />
             </div>
           )}
         </>
@@ -427,9 +432,15 @@ function PlaceList({
 export function PlaceRow({
   place,
   onSelect,
+  secondLine,
 }: {
   place: MapPlace;
   onSelect?: (place: MapPlace) => void;
+  /** Overrides the `Category · Locality` line. A collection's rows are built from a `places` row
+   *  rather than from the caller's own `Spot`, so they have a locality to show and no `detail` to
+   *  read it from; the alternative was putting `locality` on the map port, which exists precisely
+   *  so no renderer detail leaks into it. */
+  secondLine?: string;
 }) {
   const locality = place.detail?.locality;
   const { tags } = enrichmentOf(place.detail);
@@ -448,7 +459,13 @@ export function PlaceRow({
         <MapPin className="size-4" />
       </span>
       <div className="flex min-w-0 flex-col gap-0.5 pt-0.5 text-left">
-        <p className="truncate font-heading text-sm font-bold text-foreground">{place.name}</p>
+        {/* `<bdi>` isolates a Hebrew or Arabic name inside this LTR row without right-aligning the
+            row itself, and `line-clamp-1` replaces `truncate` because an ellipsis on an RTL string
+            in an LTR box clips the *start* of the name — the half that identifies it
+            (`docs/ux-library-at-scale.md` §4.2). */}
+        <p className="line-clamp-1 font-heading text-sm font-bold text-foreground">
+          <bdi>{place.name}</bdi>
+        </p>
         {/* The city sits next to the category rather than being left off: it is the second thing
             you know about a saved place ("the London one"), and it is searchable — showing it keeps
             the rule that every match is explainable from the row you can see.
@@ -460,8 +477,8 @@ export function PlaceRow({
             qualifies rather than under the name competing with it. The line truncates; the badge
             does not shrink, because a half-drawn state marker is worse than a shorter city name. */}
         <div className="flex min-w-0 items-center gap-1.5">
-          <p dir="auto" className="truncate text-xs font-medium text-muted-foreground">
-            {categoryLocalityLine(place.category, locality)}
+          <p className="line-clamp-1 text-xs font-medium text-muted-foreground">
+            <bdi>{secondLine ?? categoryLocalityLine(place.category, locality)}</bdi>
           </p>
           {place.visited && <BeenBadge />}
         </div>
@@ -528,10 +545,15 @@ export function PlaceSearchField({
   value,
   onChange,
   className,
+  // What this field searches, used as both the visible placeholder and the accessible name so the
+  // two can never disagree. A collection's own list passes its own wording; everywhere else the
+  // library is what is being searched.
+  label = 'Search your places',
 }: {
   value: string;
   onChange: (value: string) => void;
   className?: string;
+  label?: string;
 }) {
   const filtering = isSearchActive(value);
 
@@ -554,8 +576,8 @@ export function PlaceSearchField({
             onChange('');
           }
         }}
-        aria-label="Search your places"
-        placeholder="Search your places"
+        aria-label={label}
+        placeholder={label}
         className={cn(
           'h-12 rounded-lg pl-10 text-sm font-medium [&::-webkit-search-cancel-button]:hidden',
           filtering && 'pr-12',
@@ -727,12 +749,15 @@ export function PlaceDetail({
   // given) — better than nothing, and the previous behavior for those rows.
   const addressLine = place.detail?.addressLine;
   const locality = place.detail?.locality;
-  const queryParts = addressLine
-    ? [place.name, addressLine, locality].filter((part): part is string => Boolean(part))
-    : [place.name, `${place.lat},${place.lng}`];
-  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-    queryParts.join(', '),
-  )}`;
+  const googleMapsUrl = savedPlaceMapsUrl({
+    name: place.name,
+    addressLine,
+    locality,
+    lat: place.lat,
+    lng: place.lng,
+  });
+
+  const certainty = locationCertainty(provenance?.sourceDataset);
 
   const isPopover = variant === 'popover';
 
@@ -867,6 +892,13 @@ export function PlaceDetail({
           visited={place.visited}
         />
 
+        {/* Directly under `BeenToggle` and above `CategoryEditor`: been/not-been and "which list is
+            this in" are both statements about the user's *intent* with the place, while category
+            and note are corrections to what we got wrong. Grouping the two intent controls keeps
+            the correction block intact underneath. Renders nothing outside a `CollectionsContext`
+            provider, so the desktop popover and any test host are unaffected. */}
+        <AddToCollection key={`collections-${place.id}`} placeId={detail?.placeId} />
+
         {/* The user's own word for what this place is. Below the prose blocks rather than beside
             the category line above, because that line is the most-read thing on the card and this
             is a control most people touch once — `saved-place-edits.tsx` has the argument. */}
@@ -918,13 +950,31 @@ export function PlaceDetail({
           </div>
         </div>
 
-        {provenance && (
-          <p className="text-[11px] font-medium text-muted-foreground/70">
-            Matched via {provenance.sourceDataset}
-            {typeof provenance.resolutionScore === 'number' &&
-              ` · ${Math.round(provenance.resolutionScore * 100)}% confidence`}
-          </p>
-        )}
+        {/* Where this pin came from, and when you saved it. Both were facts the database held and
+            no screen said: the first was a dataset slug at 11px (`Matched via llm-guess`) that
+            twenty-one of thirty-one places carried and nobody could read, and the second was in the
+            ORDER BY and nowhere else. `location-certainty.ts` has the argument for why the
+            confidence percentage that used to sit here is gone. */}
+        <div className="flex flex-col gap-1">
+          {certainty && (
+            <p
+              className={cn(
+                'text-xs font-medium',
+                certainty.isApproximate ? 'text-foreground' : 'text-muted-foreground',
+              )}
+            >
+              {certainty.label}
+              {certainty.detail && (
+                <span className="font-normal text-muted-foreground"> — {certainty.detail}</span>
+              )}
+            </p>
+          )}
+          {detail?.savedAt && (
+            <p className="text-[11px] font-medium text-muted-foreground/70">
+              {savedOnLine(detail.savedAt, new Date())}
+            </p>
+          )}
+        </div>
 
         {/* Last, and quiet. The destructive action belongs below everything the user might have
             opened this detail to read, not competing with it. `onClose` is the deselect the

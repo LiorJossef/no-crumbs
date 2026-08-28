@@ -105,4 +105,7 @@ export interface Spot {
   readonly sourceThumbnailUrl?: string;
   readonly visitState: VisitState;
   readonly visitedAt?: Date;
+  /** `saved_places.created_at`. The library is ordered most-recently-saved-first and said so
+   *  nowhere, which made the order both invisible and unverifiable; the detail view now says it. */
+  readonly savedAt: Date;
 }
