@@ -205,6 +205,21 @@ export const IMPORT_ERROR_COPY: Record<DomainErrorCode, ImportErrorCopy> = {
     actions: ['another_tiktok', 'open_tiktok'], // C71 order, minus the manual add
   },
 
+  /** An F10 variant like `NO_CAPTION`: nothing is broken, there is simply no audio we can read, so
+   *  the primary action is forward rather than a retry that would fail identically.
+   *
+   *  Barely reachable, and that is deliberate — a transcript is additive, so a failed demux
+   *  normally leaves the import running on the caption. This copy is for the narrow case where
+   *  there was no caption either, which is why it does not mention audio as though the user had
+   *  asked for it. */
+  MEDIA_UNREADABLE: {
+    kicker: 'Nothing to read',
+    headline: 'We couldn’t get anything out of this one.',
+    body: 'No caption, and the audio wasn’t something we could read either. Some TikToks only show the place on screen.',
+    icon: 'no-caption',
+    actions: ['another_tiktok', 'open_tiktok'],
+  },
+
   /** `07` §9: F9 with `Retry` — "cheap, the source is cached". The headline's job is to stop
    *  blaming the TikTok for something our own step did. */
   EXTRACTOR_UNAVAILABLE: {

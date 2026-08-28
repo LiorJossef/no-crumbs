@@ -33,6 +33,7 @@ export type DomainErrorCode =
   | 'RATE_LIMITED_UPSTREAM'
   | 'RATE_LIMITED_LOCAL'
   | 'NO_CAPTION'
+  | 'MEDIA_UNREADABLE'
   | 'EXTRACTOR_UNAVAILABLE'
   | 'EXTRACTOR_INVALID_OUTPUT'
   | 'NOT_AUTHENTICATED'
@@ -51,6 +52,7 @@ export const DOMAIN_ERROR_CODES: readonly DomainErrorCode[] = [
   'RATE_LIMITED_UPSTREAM',
   'RATE_LIMITED_LOCAL',
   'NO_CAPTION',
+  'MEDIA_UNREADABLE',
   'EXTRACTOR_UNAVAILABLE',
   'EXTRACTOR_INVALID_OUTPUT',
   'NOT_AUTHENTICATED',
@@ -176,6 +178,23 @@ export const rateLimitedLocal = makeConstructor(
  *  would read the same empty caption. */
 export const noCaption = makeConstructor('NO_CAPTION', false, 'This post has no caption to read.');
 
+/**
+ * Media demuxer: the post's video could not be turned into audio — not an MP4, truncated, no
+ * audio track, a codec we do not read, or past a size or duration ceiling.
+ *
+ * A code of its own rather than a reused one. Mapping "we will not send four minutes of audio"
+ * onto `NO_CAPTION` puts a false statement in the log line that `07` §7.1 groups by, and the
+ * caption may well have been fine. Not retryable: the same bytes demux the same way.
+ *
+ * It rarely reaches a user. A transcript is additive, so a failed demux means the import
+ * continues on the caption alone; this surfaces only when there was no caption either.
+ */
+export const mediaUnreadable = makeConstructor(
+  'MEDIA_UNREADABLE',
+  false,
+  "We couldn't read this post's audio.",
+);
+
 /** LLM adapter: transport failure, 5xx, quota or timeout. Stage B, retryable — the source is
  *  already cached, so a retry is cheap. */
 export const extractorUnavailable = makeConstructor(
@@ -212,6 +231,7 @@ export const DOMAIN_ERROR_CONSTRUCTORS = {
   RATE_LIMITED_UPSTREAM: rateLimitedUpstream,
   RATE_LIMITED_LOCAL: rateLimitedLocal,
   NO_CAPTION: noCaption,
+  MEDIA_UNREADABLE: mediaUnreadable,
   EXTRACTOR_UNAVAILABLE: extractorUnavailable,
   EXTRACTOR_INVALID_OUTPUT: extractorInvalidOutput,
   NOT_AUTHENTICATED: notAuthenticated,

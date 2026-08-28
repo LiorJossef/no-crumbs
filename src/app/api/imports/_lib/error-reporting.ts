@@ -87,6 +87,10 @@ export const HTTP_STATUS_BY_ERROR_CODE = {
   NO_CAPTION: 422,
   /** Upstream fault: the model provider was unreachable, 5xx, out of quota or too slow. 502 is
    *  correct *here* and only here (plus the line below). */
+  /** Client-ish fault, in the sense that the bytes are what they are: the post's video carries no
+   *  audio we can read. Nothing upstream is broken and nothing of ours failed, so neither a 5xx
+   *  nor an alarm is warranted. */
+  MEDIA_UNREADABLE: 422,
   EXTRACTOR_UNAVAILABLE: 502,
   /** Upstream fault: the model answered with something that fails its own schema after a reprompt.
    *  "Invalid response from the upstream server" is the definition of 502. */
@@ -103,7 +107,7 @@ export const HTTP_STATUS_BY_ERROR_CODE = {
  *
  * `07` §7.1 says "an `error_code = 'INTERNAL'` is the one line that should page a human". That
  * sentence only means anything if a human is not also paged for every mistyped link and every
- * logged-out request. Reporting all fourteen codes at `console.error` would put a user's typo in
+ * logged-out request. Reporting all fourteen user-reachable codes at `console.error` would put a user's typo in
  * the same Vercel bucket as a service-role misconfiguration — the same dilution as the blanket 502
  * this module exists to remove, one layer up.
  *

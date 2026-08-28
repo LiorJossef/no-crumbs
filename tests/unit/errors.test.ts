@@ -20,10 +20,10 @@ import {
   upstreamTimeout,
 } from '@/domain/errors';
 
-describe('DomainErrorCode — the closed 13-code union', () => {
-  it('has exactly 13 codes', () => {
-    expect(DOMAIN_ERROR_CODES).toHaveLength(13);
-    expect(new Set(DOMAIN_ERROR_CODES).size).toBe(13);
+describe('DomainErrorCode — the closed 14-code union', () => {
+  it('has exactly 14 codes', () => {
+    expect(DOMAIN_ERROR_CODES).toHaveLength(14);
+    expect(new Set(DOMAIN_ERROR_CODES).size).toBe(14);
   });
 
   it('is exactly the set named in 07 §9', () => {
@@ -38,6 +38,7 @@ describe('DomainErrorCode — the closed 13-code union', () => {
         'RATE_LIMITED_UPSTREAM',
         'RATE_LIMITED_LOCAL',
         'NO_CAPTION',
+        'MEDIA_UNREADABLE',
         'EXTRACTOR_UNAVAILABLE',
         'EXTRACTOR_INVALID_OUTPUT',
         'NOT_AUTHENTICATED',
@@ -69,6 +70,7 @@ describe('DomainErrorCode — the closed 13-code union', () => {
         case 'RATE_LIMITED_UPSTREAM':
         case 'RATE_LIMITED_LOCAL':
         case 'NO_CAPTION':
+        case 'MEDIA_UNREADABLE':
         case 'EXTRACTOR_UNAVAILABLE':
         case 'EXTRACTOR_INVALID_OUTPUT':
         case 'NOT_AUTHENTICATED':

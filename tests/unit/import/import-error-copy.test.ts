@@ -46,8 +46,8 @@ describe('IMPORT_ERROR_COPY — exhaustiveness', () => {
     expect(Object.keys(IMPORT_ERROR_COPY).sort()).toEqual([...CODES].sort());
   });
 
-  it('covers all 13 codes', () => {
-    expect(Object.keys(IMPORT_ERROR_COPY)).toHaveLength(13);
+  it('covers all 14 codes', () => {
+    expect(Object.keys(IMPORT_ERROR_COPY)).toHaveLength(14);
   });
 
   it('gives every entry a kicker, a headline and one body sentence', () => {

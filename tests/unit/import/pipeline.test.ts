@@ -370,7 +370,7 @@ describe('runImport — heartbeats keep the stream non-idle (07 §5)', () => {
   });
 });
 
-describe('runImport — every one of the 13 DomainErrorCodes is a reachable failed outcome (07 §9)', () => {
+describe('runImport — every DomainErrorCode reachable from the pipeline is a failed outcome (07 §9)', () => {
   const seen = new Set<DomainErrorCode>();
 
   async function expectFailed(ports: Ports, input: ImportInput, code: DomainErrorCode): Promise<void> {
@@ -517,9 +517,19 @@ describe('runImport — every one of the 13 DomainErrorCodes is a reachable fail
     await expectFailed(ports, makeInput(), 'INTERNAL');
   });
 
-  it('proves all 13 codes were exercised above, none left out', () => {
-    expect(seen.size).toBe(13);
-    expect([...seen].sort()).toEqual([...DOMAIN_ERROR_CODES].sort());
+  /**
+   * `MEDIA_UNREADABLE` is the one code deliberately *not* reachable here, and the exclusion is the
+   * assertion: a demux failure must never end an import. The transcript `ContentExtractor` catches
+   * it and returns no parts, so the import continues on the caption and the user keeps the places
+   * the caption alone would have found. If this test ever starts seeing `MEDIA_UNREADABLE`, that
+   * degradation has been lost and a post with a good caption is now failing over its audio.
+   */
+  const NOT_REACHABLE_FROM_PIPELINE: readonly string[] = ['MEDIA_UNREADABLE'];
+
+  it('proves every pipeline-reachable code was exercised above, none left out', () => {
+    const expected = DOMAIN_ERROR_CODES.filter((c) => !NOT_REACHABLE_FROM_PIPELINE.includes(c));
+    expect(seen.size).toBe(expected.length);
+    expect([...seen].sort()).toEqual([...expected].sort());
   });
 });
 
