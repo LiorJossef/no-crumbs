@@ -22,6 +22,12 @@
  *    and the `ALIASES` table below is what actually settles the ambiguous ones.
  *  - **ICU tracks official renames; captions do not.** ICU's display name for `TR` is "Türkiye",
  *    so a caption saying "Turkey" misses entirely.
+ *  - **A caption is not written in English, and neither is the hint taken from it.** The prompt
+ *    tells the model to copy location words as the caption writes them, so a Hebrew caption yields
+ *    `countryHint: "ישראל"`. Measured on this database: that row's `country_code` is NULL, which
+ *    is exactly the failure this module was written to stop — one physical venue, three `places`
+ *    rows, because the dedup guard's `country_code is not distinct from` never matched. The index
+ *    is therefore built over every locale in `INDEX_LOCALES`, not over English alone.
  *
  * Everything here is a pure function over its input plus ICU data, so this belongs in `domain/`.
  */
@@ -69,6 +75,17 @@ const ALIASES: ReadonlyMap<string, string> = new Map([
   ['uae', 'AE'],
   ['russia', 'RU'],
   ['emirates', 'AE'],
+  // The same informal names in Hebrew. ICU's `he` data covers the official ones (ישראל, יפן,
+  // בריטניה, ארצות הברית all resolve); these are the four a caption is likelier to use than the
+  // official form, plus both spellings of the abbreviation. `normalise()` keeps the gershayim
+  // (U+05F4 is inside the Hebrew block it preserves) but drops an ASCII quote to a space, so the
+  // two ways of typing "ארה״ב" normalise differently and both have to be listed.
+  ['אנגליה', 'GB'],
+  ['סקוטלנד', 'GB'],
+  ['ויילס', 'GB'],
+  ['אמריקה', 'US'],
+  ['ארה״ב', 'US'],
+  ['ארה ב', 'US'],
 ]);
 
 /**
@@ -89,28 +106,49 @@ const NOT_A_COUNTRY: ReadonlySet<string> = new Set(['ZZ', 'QO', 'EU', 'EZ', 'UN'
  * `UK`); `ALIASES` is consulted first and overrides this map wherever the two disagree.
  */
 function buildIcuIndex(): ReadonlyMap<string, string> {
-  const display = new Intl.DisplayNames(['en'], { type: 'region' });
   const index = new Map<string, string>();
-  for (let first = 65; first <= 90; first += 1) {
-    for (let second = 65; second <= 90; second += 1) {
-      const code = String.fromCharCode(first) + String.fromCharCode(second);
-      if (NOT_A_COUNTRY.has(code)) continue;
-      let name: string | undefined;
-      try {
-        name = display.of(code);
-      } catch {
-        continue; // Not a region ICU knows about.
+  for (const locale of INDEX_LOCALES) {
+    let display: Intl.DisplayNames;
+    try {
+      display = new Intl.DisplayNames([locale], { type: 'region' });
+    } catch {
+      continue; // A runtime built without this locale's data. English is always present.
+    }
+    for (let first = 65; first <= 90; first += 1) {
+      for (let second = 65; second <= 90; second += 1) {
+        const code = String.fromCharCode(first) + String.fromCharCode(second);
+        if (NOT_A_COUNTRY.has(code)) continue;
+        let name: string | undefined;
+        try {
+          name = display.of(code);
+        } catch {
+          continue; // Not a region ICU knows about.
+        }
+        // ICU echoes the input back for an unknown code; that is not a name.
+        if (name === undefined || name === code) continue;
+        const key = normalise(name);
+        // First writer wins, and English is first, so an English name can never be displaced by a
+        // collision with some other language's word for a different country.
+        if (key !== '' && !index.has(key)) index.set(key, code);
       }
-      // ICU echoes the input back for an unknown code; that is not a name.
-      if (name === undefined || name === code) continue;
-      const key = normalise(name);
-      if (key !== '' && !index.has(key)) index.set(key, code);
     }
   }
   return index;
 }
 
-/** Built lazily and once — 676 `Intl` lookups is not work to repeat per candidate. */
+/**
+ * The languages a `countryHint` can arrive in.
+ *
+ * English first, always: it is the language of every fallback in this file and the one locale
+ * every runtime ships data for, and building it first means an English name wins any collision.
+ * Hebrew because it is the product's second language (`docs/brand-and-product-foundation.md`) and
+ * the one that produced the measured NULL. This is a short list on purpose — every locale added
+ * is 676 more ICU lookups at first use and one more chance that some language's word for one
+ * country is another language's word for a different one.
+ */
+const INDEX_LOCALES = ['en', 'he'] as const;
+
+/** Built lazily and once — 676 `Intl` lookups per locale is not work to repeat per candidate. */
 let icuIndex: ReadonlyMap<string, string> | null = null;
 
 /**
