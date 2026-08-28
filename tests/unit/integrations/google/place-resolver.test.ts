@@ -20,6 +20,7 @@ import type { ResolveQuery } from '@/domain/types';
 import {
   buildTextQuery,
   GLOBAL_REGION,
+  GOOGLE_TIMEOUT_MS,
   languageCodeFor,
   GOOGLE_DATASET_CONFIDENCE,
   googlePlaceResolver,
@@ -167,6 +168,16 @@ describe('buildTextQuery', () => {
     const built = buildTextQuery(query({ text: 'בראסרי 18', addressHint: 'לבונטין 19' }));
     expect(built).toBe('בראסרי 18, תל אביב');
     expect(built).not.toContain('לבונטין');
+  });
+});
+
+describe('GOOGLE_TIMEOUT_MS', () => {
+  it('bounds a single lookup well inside a tolerable import', () => {
+    // `resolveCandidates` is sequential and `MAX_CANDIDATES` is 7, so an untimed provider bounds
+    // the whole import at "however long seven hung requests take". Measured for real: with the
+    // project's Text Search quota exhausted, a 5-candidate import sat on a spinner for 47 s.
+    expect(GOOGLE_TIMEOUT_MS).toBeLessThanOrEqual(8_000);
+    expect(GOOGLE_TIMEOUT_MS * 7).toBeLessThan(45_000);
   });
 });
 

@@ -79,6 +79,18 @@ import 'server-only';
  *
  * Only `providerPlaceId` (Google's place id) is exempt from §5.4 and safe to store indefinitely.
  * Coordinates from this provider are cache, not record.
+ *
+ * ## Quota — the operational blocker, measured 2026-08-28
+ *
+ * The Cloud project behind the current key carries
+ * `SearchTextRequestPerDayPerProject = 100`, a **hard cap of 100 Text Search requests per day**,
+ * and one night of measurement exhausted it (HTTP 429, `RESOURCE_EXHAUSTED`). At 1–7 lookups per
+ * import that is roughly 15–100 imports **per day across all users combined**.
+ *
+ * The published free tier is 5 000 Text Search (Pro) calls per month, so this is a project-level
+ * quota rather than the product's real ceiling — but it is the ceiling that is live today, and
+ * raising it is an owner action in the Cloud console (and probably a billing one). Until it is
+ * raised, treat this provider as measurable but not shippable.
  */
 
 import { internal } from '@/domain/errors';
@@ -98,6 +110,18 @@ export const GOOGLE_DATASET_CONFIDENCE = 0.5;
 /** Text Search caps at 20; we score what we ask for, and our shortlist is 5. Ten is headroom for
  *  the scorer to re-rank within without paying for results nothing will ever read. */
 export const MAX_GOOGLE_RESULTS = 10;
+
+/**
+ * Per-lookup ceiling. `04` §7's sibling budgets are 5 s for a short link and 8 s for oEmbed; this
+ * is the same kind of number for the same reason.
+ *
+ * It is not hypothetical. With the project's Text Search quota exhausted (see below), a real
+ * 5-candidate import sat on a spinner for **47 seconds** before degrading — the lookups were going
+ * to fail either way, and the only thing the wait bought the user was the wait. `resolveCandidates`
+ * is sequential and `MAX_CANDIDATES` is 7, so an untimed provider bounds the whole import at
+ * "however long seven hung requests take".
+ */
+export const GOOGLE_TIMEOUT_MS = 5_000;
 
 const SEARCH_TEXT_URL = 'https://places.googleapis.com/v1/places:searchText';
 
@@ -155,9 +179,12 @@ export interface GooglePlacesGateway {
 export function googlePlacesGateway(apiKey: string): GooglePlacesGateway {
   return {
     async searchText(params, signal) {
+      // Our own ceiling, composed with the caller's cancellation rather than replacing it: whichever
+      // fires first wins, and an aborted import still aborts immediately.
+      const timeout = AbortSignal.timeout(GOOGLE_TIMEOUT_MS);
       const response = await fetch(SEARCH_TEXT_URL, {
         method: 'POST',
-        signal,
+        signal: AbortSignal.any([signal, timeout]),
         headers: {
           'Content-Type': 'application/json',
           'X-Goog-Api-Key': apiKey,
