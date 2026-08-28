@@ -60,6 +60,46 @@ defect**, so it is worth stating what it caught:
 **The `Oscar's` row in the local demo database is still the pre-fix `llm-guess` artifact.** Left
 alone deliberately — deleting rows is not a call to make unasked. Re-import it to replace it.
 
+## Exploration after the main work (owner's list, same session)
+
+| Item | Outcome |
+|---|---|
+| **Multiple places from one TikTok** | **Already works — no work needed.** Verified in the running app: one caption → "5 places found", with honest per-candidate degradation ("2 of these have no location — they won't be saved"). |
+| **TikTok photo / carousel links** | **Shipped.** `04` §5 category L was UNTESTED for want of a specimen; the owner supplied one and the premise was wrong. oEmbed 400s the `/photo/` URL form and 200s the same id under `/video/<id>`, full caption. Two code paths fixed, `PHOTO_POST` retired. A whole class of refusal removed. |
+| **Free OCR** | **Measured and, as currently framed, rejected.** See below. |
+| **Free transcription** | **Blocked on media access, not on transcription.** oEmbed exposes no video/audio URL and TikTok's robots.txt disallows every named AI agent, so `yt-dlp` was deliberately not run. |
+
+### OCR: the cover frame does not carry the product
+
+Full evidence in `docs/evidence/places/google-places-and-transcription-probe-2026-08-28.md` §B2,
+machine record in `docs/evidence/tiktok/cover-frame-ocr-run-2026-08-28.json`.
+
+- **Recall 1 of 8.** Only one caption-less post yielded a venue from its cover. The rest carry a
+  hook line and no name — the cover exists to make you watch, so naming the place defeats it.
+- **Precision is the real problem.** On a London post the model read four *accurate* shopfront
+  signs off the frame (verified by eye) — a hair salon, an organic shop, a market — none of which
+  the post is about. A naive cover reader would invent places the creator never recommended.
+- If revisited, the ask is "read the text the creator **added**", not "read the image".
+- **`thumbnail_url` expires** — every URL cached on 2026-08-18 now 403s. A cover frame must be read
+  *during* the import.
+
+### Transcription: there is prior work in a stash
+
+`git stash list` carries **`stash@{3}: codex/cloudflare-audio-transcription (paused)`**, and
+`execution-plan.md`'s 2026-08-26 entry records an out-of-band transcription feature whose orphan
+database objects were dropped from staging. So this ground has been walked before. Anyone resuming
+should read that stash before starting fresh.
+
+## Questions only the owner can answer
+
+1. **The Google Places quota is 100 requests/day** on this Cloud project
+   (`SearchTextRequestPerDayPerProject`), and one night of measurement exhausted it. At 1–7 lookups
+   per import that is ~15–100 imports/day for all users combined. Raising it is a console (and
+   probably billing) action. **Until it is raised, Google is measurable but not shippable.**
+2. **Media access for transcription** — licensed third-party providers (Apify/ScrapeCreators/
+   Supadata, ~$0.004/item) are the only path that supplies video or subtitles without us scraping.
+   That is a spend decision and a `security-privacy` decision, both yours.
+
 ## What is NOT done
 - **A server-only Google key.** The adapter falls back to `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, which
   is compiled into the browser bundle and therefore spendable by anyone. `GOOGLE_PLACES_API_KEY`
