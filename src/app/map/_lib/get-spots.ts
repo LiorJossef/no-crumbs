@@ -22,6 +22,7 @@ import 'server-only';
  */
 
 import { createClient } from '@/app/_lib/supabase/server';
+import { productCategoryFor } from '@/domain/places/product-category';
 import type { SpotProvenance, SpotSource } from '@/domain/places/spot';
 import type { EnrichedSpot } from '@/ui/place/enrichment';
 import type { SourceDataset } from '@/domain/types';
@@ -42,6 +43,7 @@ const SAVED_PLACES_SELECT = `
   place:places (
     name,
     category,
+    provider_category,
     lat,
     lng,
     address_line,
@@ -98,7 +100,13 @@ interface SavedPlaceRow {
   readonly dishes: readonly string[] | null;
   readonly place: {
     readonly name: string;
+    /** The model's coarse guess from the caption. One of three claims about what this place is —
+     *  see `domain/places/product-category.ts` for how they are ranked. */
     readonly category: string | null;
+    /** Overture's or Google's own category string, in their snake_case (`ice_cream_shop`). Granted
+     *  to `authenticated` by `0015`. The stronger of the two system claims, because it is the
+     *  venue's own registration rather than an inference from a caption. */
+    readonly provider_category: string | null;
     readonly lat: number;
     readonly lng: number;
     readonly address_line: string | null;
@@ -164,7 +172,11 @@ function toSpot(row: SavedPlaceRow): EnrichedSpot {
   return {
     id: row.id,
     name: row.display_name ?? place?.name ?? row.id,
-    category: row.category_override ?? place?.category ?? null,
+    category: productCategoryFor({
+      override: row.category_override,
+      providerCategory: place?.provider_category,
+      extractedHint: place?.category,
+    }),
     lat: place?.lat ?? 0,
     lng: place?.lng ?? 0,
     ...(place?.address_line ? { addressLine: place.address_line } : {}),

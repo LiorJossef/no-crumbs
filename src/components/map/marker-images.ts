@@ -9,7 +9,7 @@
  * `./marker-style.ts`, which is where the unit tests live.
  */
 
-import type { ExtractedCategoryHint } from '@/domain/places/category-hint';
+import type { ProductCategory } from '@/domain/places/product-category';
 import {
   CATEGORY_ORDER,
   CATEGORY_STYLES,
@@ -154,6 +154,21 @@ const GLYPHS: Record<GlyphName, Draw> = {
     ctx.fill();
   },
 
+  cone: (ctx) => {
+    // Two scoops and a wafer. Drawn as one filled path per part rather than an outline, because at
+    // 24px in a pin the stroke weight that reads as "cone" at icon size closes up into a blob.
+    ctx.beginPath();
+    ctx.arc(9.6, 8.4, 3.9, 0, Math.PI * 2);
+    ctx.arc(14.4, 8.4, 3.9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(6.2, 11.4);
+    ctx.lineTo(17.8, 11.4);
+    ctx.lineTo(12, 21.4);
+    ctx.closePath();
+    ctx.fill();
+  },
+
   dot: (ctx) => {
     ctx.beginPath();
     ctx.arc(12, 12, 5.6, 0, Math.PI * 2);
@@ -163,7 +178,7 @@ const GLYPHS: Record<GlyphName, Draw> = {
 
 function drawPin(
   ctx: CanvasRenderingContext2D,
-  category: ExtractedCategoryHint,
+  category: ProductCategory,
   geometry: PinGeometry
 ): void {
   const { color, glyph } = CATEGORY_STYLES[category];

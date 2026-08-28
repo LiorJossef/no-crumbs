@@ -248,12 +248,24 @@ region moves that city from 63% to 85%. The ingest is a parameterised script, so
 cheapest L2 item and the first to take if L1 closes early · the five motion moments · the 50-post pipeline evaluation and threshold re-fit · the OSM
 alias join that would fix Tel Aviv's 8/14.
 
-**→ L3:** Instagram · YouTube · audio transcription behind the `ContentExtractor` seam · collections
-and sharing · a credentialed places provider · alternate-name indexing for non-Latin scripts.
+**→ L3:** Instagram · YouTube · audio transcription behind the `ContentExtractor` seam · a
+credentialed places provider · alternate-name indexing for non-Latin scripts.
+
+**Collections and sharing, re-filed L3 → L2 on 2026-08-28 (owner correction).** They had been
+deferred as a social-graph question; they are not one. A **private collection that named, invited
+people both contribute to** is a multiplayer document — no feed, no discovery, no audience — and it
+is retrieval for two people, which is the job we already claim. Both competitors ship it, and
+Plotline's hangs off the *collection* rather than the trip, which is the evidence that collaboration
+is separable from the itinerary planner we decline. **Boundary, binding:** named invitees only; no
+public profiles, no follower graph, no discovery or trending feed. **Cost to respect:** it is our
+first multi-writer object — membership-based RLS on every `saved_places` path, invite-link tokens as
+a new public surface, an `added_by` column, and a `security-privacy` sign-off before the schema
+lands. It does **not** precede the resolver. Evaluation:
+`evidence/product/competitor-pass-2026-08-28.md` §G.
 
 **Not anywhere:** manual caption entry (Charter §2 — it defeats the product), social graph, public
-profiles, creator discovery, itinerary generation, recommendation ranking, offline mode, native
-apps, PWA share-target.
+profiles, creator discovery, trending/discovery feeds, itinerary generation, recommendation ranking,
+offline mode, native apps, PWA share-target.
 
 ## 9. Risks specific to this MVP shape
 

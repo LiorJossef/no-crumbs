@@ -4,24 +4,9 @@ import { createClient } from '@/app/_lib/supabase/server';
 import { signOut } from '@/app/actions/sign-out';
 import { Button } from '@/components/ui/button';
 import type { MapPlace } from '@/components/map/map-surface';
-import type { ExtractedCategoryHint } from '@/domain/places/category-hint';
 import type { Spot } from '@/domain/places/spot';
 import { getSpots } from './_lib/get-spots';
 import { MapPageClient } from './map-page-client';
-
-// The seven glyphs `MapPlace.category` (and the map pin/marker layer) actually render.
-// `places.category`/`saved_places.category_override` are free `text` with no CHECK tying them to
-// this taxonomy (0005/0011) — nothing in this codebase writes them yet, so an unrecognised or
-// absent value falls back to `'other'` rather than the mapping being a partial function.
-const EXTRACTED_CATEGORY_HINTS: readonly ExtractedCategoryHint[] = [
-  'restaurant', 'cafe', 'bar', 'bakery', 'attraction', 'shop', 'other',
-];
-
-function toMapCategory(category: string | null): ExtractedCategoryHint {
-  return (EXTRACTED_CATEGORY_HINTS as readonly string[]).includes(category ?? '')
-    ? (category as ExtractedCategoryHint)
-    : 'other';
-}
 
 // `Spot` (the real, richer read model, `domain/places/spot.ts`) adapted to the map surface's
 // port. `MapPlace` is the shared port every map implementation depends on, so — same as the
@@ -33,7 +18,7 @@ function toMapPlace(spot: Spot): MapPlace {
   return {
     id: spot.id,
     name: spot.name,
-    category: toMapCategory(spot.category),
+    category: spot.category,
     lat: spot.lat,
     lng: spot.lng,
     note: spot.note ?? '',

@@ -5,7 +5,7 @@
  * category with no pin drawn for it — is testable without a WebGL context.
  */
 
-import type { ExtractedCategoryHint } from '@/domain/places/category-hint';
+import type { ProductCategory } from '@/domain/places/product-category';
 import { DEFAULT_CATEGORY, isKnownCategory } from '@/ui/place/category-display';
 import type { MapPlace } from './types';
 
@@ -13,7 +13,7 @@ export interface PlaceFeatureProperties {
   readonly id: string;
   readonly name: string;
   /** Always a category the palette has a pin for; see `normaliseCategory`. */
-  readonly category: ExtractedCategoryHint;
+  readonly category: ProductCategory;
 }
 
 export type PlaceFeatureCollection = GeoJSON.FeatureCollection<
@@ -27,7 +27,7 @@ export type PlaceFeatureCollection = GeoJSON.FeatureCollection<
  * was never registered, and MapLibre drops the whole symbol rather than falling back — a place
  * that silently disappears from the map. Anything unrecognised becomes the house pin instead.
  */
-export function normaliseCategory(category: string | null | undefined): ExtractedCategoryHint {
+export function normaliseCategory(category: string | null | undefined): ProductCategory {
   return isKnownCategory(category) ? category : DEFAULT_CATEGORY;
 }
 

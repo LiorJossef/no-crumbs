@@ -7,36 +7,30 @@
  * `./place-marker-layer.tsx`.
  */
 
-import type { ExtractedCategoryHint } from '@/domain/places/category-hint';
+import { PRODUCT_CATEGORY_ORDER } from '@/domain/places/product-category';
+import type { ProductCategory } from '@/domain/places/product-category';
 import { CATEGORY_DISPLAY, DEFAULT_CATEGORY } from '@/ui/place/category-display';
 
 export { DEFAULT_CATEGORY };
 
-export const CATEGORY_ORDER = [
-  'restaurant',
-  'cafe',
-  'bakery',
-  'bar',
-  'attraction',
-  'shop',
-  'other',
-] as const satisfies readonly ExtractedCategoryHint[];
+export const CATEGORY_ORDER = PRODUCT_CATEGORY_ORDER;
 
 /** The glyph drawn inside a pin. `./marker-images.ts` has one draw routine per value. */
-export type GlyphName = 'fork' | 'cup' | 'croissant' | 'glass' | 'star' | 'bag' | 'dot';
+export type GlyphName = 'fork' | 'cup' | 'croissant' | 'glass' | 'cone' | 'star' | 'bag' | 'dot';
 
 /** The pin's colour and label come from `ui/place/category-display.ts`, which the list and the
  *  detail view read too — a café is the same brown word-and-colour wherever it appears. Only the
  *  glyph is the map's own. */
-export type CategoryStyle = (typeof CATEGORY_DISPLAY)[ExtractedCategoryHint] & {
+export type CategoryStyle = (typeof CATEGORY_DISPLAY)[ProductCategory] & {
   readonly glyph: GlyphName;
 };
 
-const GLYPH_BY_CATEGORY: Record<ExtractedCategoryHint, GlyphName> = {
+const GLYPH_BY_CATEGORY: Record<ProductCategory, GlyphName> = {
   restaurant: 'fork',
   cafe: 'cup',
   bakery: 'croissant',
   bar: 'glass',
+  dessert: 'cone',
   attraction: 'star',
   shop: 'bag',
   other: 'dot',
@@ -47,11 +41,11 @@ export const CATEGORY_STYLES = Object.fromEntries(
     category,
     { ...CATEGORY_DISPLAY[category], glyph: GLYPH_BY_CATEGORY[category] },
   ])
-) as Record<ExtractedCategoryHint, CategoryStyle>;
+) as Record<ProductCategory, CategoryStyle>;
 
 export function categoryStyle(category: string | undefined | null): CategoryStyle {
   if (category && category in CATEGORY_STYLES) {
-    return CATEGORY_STYLES[category as ExtractedCategoryHint];
+    return CATEGORY_STYLES[category as ProductCategory];
   }
   return CATEGORY_STYLES[DEFAULT_CATEGORY];
 }
@@ -176,7 +170,7 @@ export function clusterColorExpression(): unknown[] {
  *  expression can build them with `concat`. */
 export const PIN_IMAGE_PREFIX = 'p002-pin-';
 
-export function pinImageId(category: ExtractedCategoryHint, selected: boolean): string {
+export function pinImageId(category: ProductCategory, selected: boolean): string {
   return `${PIN_IMAGE_PREFIX}${category}${selected ? '-selected' : ''}`;
 }
 
