@@ -30,8 +30,15 @@
 > The owner's ruling on the **candidate picker** (the newest handoff §3), the **category term in the
 > scorer** (TLV-14), whether a **lone candidate should auto-accept**, the **product name**, the
 > **Vercel env restore** (§5.1, owner-only), **dark mode** (still an unsigned first pass), and
-> **no Playwright coverage at all for search or tag filtering** — `tests/e2e/` is seven import specs
-> plus `smoke` and `map-accessibility`.
+> **Playwright coverage for search and tag filtering** — was zero; now
+> [PR #64](https://github.com/LiorJossef/P-002/pull/64) (`test/retrieval-e2e`), eight tests over both
+> breakpoints, **open and deliberately not merged**. One design question first: the map is a canvas
+> with `preserveDrawingBuffer: false`, so the harness reaches MapLibre by walking React's fiber tree
+> — careful and loud-failing, but ~90 lines of internals archaeology where one inert
+> `data-place-count` on the map surface would do. That is a `src/components/map/**` change, and
+> `L1-F5-T5` reworks that file anyway, so the two are cheaper together. Two follow-ups either way:
+> the suite **skips in CI** (no `E2E_PASSWORD`, so a green check does not mean it ran) and
+> `seed.sql` writes no tags at all, so a `db:reset` leaves it nothing to discover.
 >
 > ### Why this keeps happening, and the fix
 >
