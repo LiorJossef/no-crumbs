@@ -302,5 +302,24 @@ himself. Before the context ends, make sure these are true:
   highest-impact item is, and any live findings a future session must not rediscover.
 - `docs/execution-plan.md`'s change log has a line for anything deferred, cut or re-ordered.
 - The working tree is either committed on its feature branch or explained in `current-state.md`.
+- **Nothing is left running.** Every subagent spawned this session has been collected or stopped,
+  and its result is either acted on or written down (§1.4). A session that ends with an agent still
+  going, or with its output never read, has failed the hand-over regardless of what shipped.
+
+### 9.1 Update the top banner — added 2026-08-28, after it went wrong twice in one session
+
+`current-state.md` is the cold-start document, but it is *written* as a session handoff, and each
+session has been adding a separate `handoff-<date>-*.md` rather than reconciling it. The banner
+stack at the top of `current-state.md` reached three deep, and its "⚠ LATEST" pointed at the
+second-newest handoff.
+
+The cost was not hypothetical. On 2026-08-28 two separate investigations were dispatched to plan
+work — pressable tag chips, and per-category map pins — that had **both already shipped to `main`**
+hours earlier, because the cold-start document still listed them as outstanding.
+
+So, as part of closing a session: **update the top banner of `current-state.md` to point at the
+handoff you just wrote, and correct any claim in the body that your session made false.** It is one
+line and one edit. And when *starting* a session, check the plan against `git log main` before
+building on any "still to do" written in prose — a doc claims, a commit proves.
 
 `docs/current-state.md` is the cold-start document. Read it first, after `CLAUDE.md`.

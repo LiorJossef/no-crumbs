@@ -1,6 +1,47 @@
 # Current state — cold-start document
 
 ---
+> ## ⚠ READ FIRST — [`handoff-2026-08-29-overnight-map-and-information.md`](handoff-2026-08-29-overnight-map-and-information.md) is the newest state
+>
+> It supersedes **both** banners below and every ordered step in them. Five PRs (#50–#53) landed the
+> map and information work overnight; `main` was green at 1021 tests.
+>
+> ### Already shipped — do not re-plan these
+>
+> On 2026-08-28 two separate investigations in one session were dispatched to work on features that
+> were **already on `main`**, because this document still described them as outstanding. The cost was
+> real. Before planning anything from the prose below, check it against `git log main`.
+>
+> | Reads as open below | Actually shipped |
+> |---|---|
+> | "Tag chips are still inert labels" (§0.3) | `6004baf` — detail chips are pressable, filter the list *and* the pins, with a removable `ActiveTagFilter` pill |
+> | Uniform map pins | `cb58e12` — every pin is a category-coloured teardrop with a drawn glyph |
+> | Clusters that only count | `99bb691` — clusters colour by strict-majority category and open on tap |
+> | Category shows the model's guess | `38325e8` — `ProductCategory` reads `places.provider_category` |
+> | Hebrew basemap labels reversed | `59ba7dc` — RTL text plugin loaded |
+>
+> Two things inside the tag-chip item are **still genuinely open** and must not be swept up in the
+> correction: **list-row chips are inert by design** (a 20px chip inside the row's own button is
+> nested-interactive and under the 44px touch floor — deferred to a taller-row redesign), and a
+> `TagChipList` rendered outside a `TagFilterContext` still falls back to inert spans.
+>
+> ### The real open items, as of 2026-08-28
+>
+> The owner's ruling on the **candidate picker** (the newest handoff §3), the **category term in the
+> scorer** (TLV-14), whether a **lone candidate should auto-accept**, the **product name**, the
+> **Vercel env restore** (§5.1, owner-only), **dark mode** (still an unsigned first pass), and
+> **no Playwright coverage at all for search or tag filtering** — `tests/e2e/` is seven import specs
+> plus `smoke` and `map-accessibility`.
+>
+> ### Why this keeps happening, and the fix
+>
+> This file is a **cold-start document** but it is written as a session handoff, and each new session
+> adds a separate `handoff-*.md` instead of reconciling this one. The banner stack is now three deep.
+> **Whoever closes a session updates the top banner to point at the newest handoff** — that is the
+> whole fix, and it takes one line.
+
+
+---
 > ## ⚠ LATEST — read [`handoff-2026-08-28-categories-and-the-picker.md`](handoff-2026-08-28-categories-and-the-picker.md) FIRST
 >
 > Supersedes the §10 priority order of the Google-Places handoff below (which is still correct about
