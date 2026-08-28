@@ -1,6 +1,6 @@
 {
   "_comment": "Machine record of a tests/manual/tiktok-recognition.manual.ts run — real TikTok URLs through the real oEmbed → caption → extraction → resolve flow. Regenerated on every run; see tiktok-recognition.md for the human reading. Corpus: tests/manual/tiktok-recognition-corpus.json.",
-  "run_at": "2026-08-28T07:48:43.909Z",
+  "run_at": "2026-08-28T07:52:41.034Z",
   "supabase_url": "http://127.0.0.1:54321",
   "overture_release": "2026-07-22.0",
   "region": {
@@ -29,11 +29,11 @@
     "llm_calls": 0
   },
   "summary": {
-    "auto_match": 0,
+    "auto_match": 6,
     "adjudicated": 16,
-    "auto_match_rate": 0,
-    "correct_not_auto_accepted": 13,
-    "wrong": 2,
+    "auto_match_rate": 0.375,
+    "correct_not_auto_accepted": 9,
+    "wrong": 0,
     "extraction_misses": 1,
     "false_auto_accepts": 0,
     "unadjudicated": 1,
@@ -42,8 +42,7 @@
       "ok": 13
     },
     "failure_buckets": {
-      "unreachable_in_index": 2,
-      "not_auto_accepted": 13,
+      "not_auto_accepted": 9,
       "extraction_miss": 1
     }
   },
@@ -84,7 +83,7 @@
             "global"
           ],
           "candidatesPrefiltered": 1,
-          "band": "confirm",
+          "band": "preselect",
           "score": 0.9500000000000001,
           "margin": null,
           "top1": {
@@ -100,16 +99,11 @@
             "HaKosem (0.950)"
           ],
           "resolutionKind": "answered",
-          "verdict": "wrong",
-          "failure": "unreachable_in_index",
+          "verdict": "auto_match",
+          "failure": null,
           "acceptedRank": null,
-          "indexProbeHits": [
-            "HaKosem @ שלמה המלך 1, תל אביב - יפו",
-            "פלאפל הקוסם @ שלמה המלך 1, תל אביב - יפו",
-            "הקוסם שרונה מרקט @ אלוף מגן קלמן 3, תל אביב - יפו",
-            "פיצה הקוסם האיטלקי @ —, בת ים"
-          ],
-          "note": "the row exists in poi_index but the prefilter can never return it from these tokens"
+          "indexProbeHits": null,
+          "note": null
         }
       ],
       "extractionMisses": []
@@ -336,7 +330,7 @@
             "global"
           ],
           "candidatesPrefiltered": 1,
-          "band": "confirm",
+          "band": "preselect",
           "score": 0.9500000000000001,
           "margin": null,
           "top1": {
@@ -372,7 +366,7 @@
             "global"
           ],
           "candidatesPrefiltered": 1,
-          "band": "confirm",
+          "band": "preselect",
           "score": 0.9500000000000001,
           "margin": null,
           "top1": {
@@ -388,11 +382,11 @@
             "האחים (0.950)"
           ],
           "resolutionKind": "answered",
-          "verdict": "correct_not_auto_accepted",
-          "failure": "not_auto_accepted",
-          "acceptedRank": 1,
+          "verdict": "auto_match",
+          "failure": null,
+          "acceptedRank": null,
           "indexProbeHits": null,
-          "note": "top-1 is right but margin is null (1 prefiltered) — the lone-candidate policy question, handoff §3.1"
+          "note": null
         },
         {
           "rawName": "בל עמי",
@@ -408,7 +402,7 @@
             "global"
           ],
           "candidatesPrefiltered": 1,
-          "band": "confirm",
+          "band": "preselect",
           "score": 0.9500000000000001,
           "margin": null,
           "top1": {
@@ -424,11 +418,11 @@
             "בל עמי (0.950)"
           ],
           "resolutionKind": "answered",
-          "verdict": "correct_not_auto_accepted",
-          "failure": "not_auto_accepted",
-          "acceptedRank": 1,
+          "verdict": "auto_match",
+          "failure": null,
+          "acceptedRank": null,
           "indexProbeHits": null,
-          "note": "top-1 is right but margin is null (1 prefiltered) — the lone-candidate policy question, handoff §3.1"
+          "note": null
         },
         {
           "rawName": "Palette Bistro",
@@ -505,7 +499,7 @@
             "global"
           ],
           "candidatesPrefiltered": 1,
-          "band": "confirm",
+          "band": "preselect",
           "score": 0.9600000000000002,
           "margin": null,
           "top1": {
@@ -521,11 +515,11 @@
             "האחים (0.960)"
           ],
           "resolutionKind": "answered",
-          "verdict": "correct_not_auto_accepted",
-          "failure": "not_auto_accepted",
-          "acceptedRank": 1,
+          "verdict": "auto_match",
+          "failure": null,
+          "acceptedRank": null,
           "indexProbeHits": null,
-          "note": "top-1 is right but margin is null (1 prefiltered) — the lone-candidate policy question, handoff §3.1"
+          "note": null
         }
       ],
       "extractionMisses": []
@@ -566,7 +560,7 @@
             "global"
           ],
           "candidatesPrefiltered": 1,
-          "band": "confirm",
+          "band": "preselect",
           "score": 0.9600000000000002,
           "margin": null,
           "top1": {
@@ -582,11 +576,11 @@
             "האחים (0.960)"
           ],
           "resolutionKind": "answered",
-          "verdict": "correct_not_auto_accepted",
-          "failure": "not_auto_accepted",
-          "acceptedRank": 1,
+          "verdict": "auto_match",
+          "failure": null,
+          "acceptedRank": null,
           "indexProbeHits": null,
-          "note": "top-1 is right but margin is null (1 prefiltered) — the lone-candidate policy question, handoff §3.1"
+          "note": null
         }
       ],
       "extractionMisses": []
@@ -645,13 +639,11 @@
             "טונינו (0.597)"
           ],
           "resolutionKind": "answered",
-          "verdict": "wrong",
-          "failure": "unreachable_in_index",
-          "acceptedRank": null,
-          "indexProbeHits": [
-            "Trattoria Una @ אינשטיין 69, תל אביב - יפו"
-          ],
-          "note": "the row exists in poi_index but the prefilter can never return it from these tokens"
+          "verdict": "correct_not_auto_accepted",
+          "failure": "not_auto_accepted",
+          "acceptedRank": 1,
+          "indexProbeHits": null,
+          "note": "top-1 is right, band no_match, margin 0.162"
         }
       ],
       "extractionMisses": []
@@ -875,7 +867,7 @@
             "global"
           ],
           "candidatesPrefiltered": 1,
-          "band": "confirm",
+          "band": "preselect",
           "score": 0.9600000000000002,
           "margin": null,
           "top1": {
@@ -891,11 +883,11 @@
             "Oscar’s (0.960)"
           ],
           "resolutionKind": "answered",
-          "verdict": "correct_not_auto_accepted",
-          "failure": "not_auto_accepted",
-          "acceptedRank": 1,
+          "verdict": "auto_match",
+          "failure": null,
+          "acceptedRank": null,
           "indexProbeHits": null,
-          "note": "top-1 is right but margin is null (1 prefiltered) — the lone-candidate policy question, handoff §3.1"
+          "note": null
         }
       ],
       "extractionMisses": []

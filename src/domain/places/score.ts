@@ -643,15 +643,38 @@ export function rankPlaces(
 }
 
 /**
+ * What a candidate list of length one means. It is a property of the **provider**, not of the
+ * scoring, which is why it is a parameter here rather than a constant.
+ *
+ * `'narrow-filter'` — the Overture path, and the default. `poi_index` rows arrive from a cheap
+ * token/trigram prefilter, so one row means *the filter matched one thing*, which says nothing
+ * about whether the right venue exists. `10` §12 Q3 rules the band for it: `confirm`. Unmeasured
+ * margin is not perfect margin.
+ *
+ * `'exhaustive-search'` — the Google path. Text Search consults a global index and returns the
+ * matches it has; one result means *the index holds one place under that name near that city*,
+ * which is real evidence rather than an artefact of how cheaply we filtered. Measured on the 13
+ * real corpus TikToks, Google returns exactly one result for 14 of 16 candidates, so under
+ * `'narrow-filter'` the auto-accept rate is structurally 0% no matter how right the answers are —
+ * and they were right 15/15.
+ *
+ * The score gate is **not** relaxed by either value: a sole candidate still has to clear
+ * `preselectScore`. What changes is only whether an unmeasurable margin blocks it.
+ */
+export type SoleCandidateMeaning = 'narrow-filter' | 'exhaustive-search';
+
+/**
  * `06` §6.2's three bands, over the full ranking.
  *
- * `preselect` requires both gates; a null margin therefore cannot reach it, which is `10` §12 Q3's
- * ruling expressed as arithmetic rather than as a special case — there is no `if (margin === null)`
- * branch to forget. Nothing here rounds: the prototype rounds the margin to three decimals only
- * when writing its JSON, and rounding before a `≥ 0.05` comparison would move a 0.0496 case across
- * the gate for the sake of a display convention.
+ * With the default `'narrow-filter'`, `preselect` requires both gates and a null margin therefore
+ * cannot reach it — `10` §12 Q3's ruling expressed as arithmetic. Nothing here rounds: the
+ * prototype rounds the margin to three decimals only when writing its JSON, and rounding before a
+ * `≥ 0.05` comparison would move a 0.0496 case across the gate for a display convention.
  */
-export function confidenceOf(ranked: readonly RankedPlace[]): Confidence {
+export function confidenceOf(
+  ranked: readonly RankedPlace[],
+  soleCandidateMeaning: SoleCandidateMeaning = 'narrow-filter',
+): Confidence {
   const top = ranked[0];
   if (top === undefined) {
     return { band: 'no_match', score: 0, margin: null };
@@ -659,9 +682,15 @@ export function confidenceOf(ranked: readonly RankedPlace[]): Confidence {
   const second = ranked[1];
   const margin = second === undefined ? null : top.score - second.score;
 
+  // A margin that exists must always clear its gate. The provider's answer only decides what an
+  // *absent* margin means, so this can never let a measured-but-poor margin through.
+  const marginOk =
+    margin === null
+      ? soleCandidateMeaning === 'exhaustive-search'
+      : margin >= SCORING.bands.preselectMargin;
+
   let band: ConfidenceBand;
-  if (top.score >= SCORING.bands.preselectScore && margin !== null &&
-      margin >= SCORING.bands.preselectMargin) {
+  if (top.score >= SCORING.bands.preselectScore && marginOk) {
     band = 'preselect';
   } else if (top.score >= SCORING.bands.confirmScore) {
     band = 'confirm';
@@ -685,12 +714,13 @@ export function scoreCandidates(
   query: ResolveQuery,
   candidates: readonly ResolvedPlace[],
   regionsSearched: readonly RegionId[],
+  soleCandidateMeaning: SoleCandidateMeaning = 'narrow-filter',
 ): ResolveResult {
   const ranked = rankPlaces(query, candidates);
   const cap = query.maxResults ?? SCORING.defaultMaxResults;
   return {
     shortlist: ranked.slice(0, Math.max(0, cap)),
-    confidence: confidenceOf(ranked),
+    confidence: confidenceOf(ranked, soleCandidateMeaning),
     regionsSearched,
     candidatesPrefiltered: candidates.length,
   };

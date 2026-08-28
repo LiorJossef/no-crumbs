@@ -1062,3 +1062,49 @@ describe('scorePlace and rankPlaces with textVariants', () => {
     expect(ranked.score).toBeLessThan(SCORING.bands.confirmScore);
   });
 });
+
+/* ------------------------------------------------------------------------------------------- *
+ * The lone-candidate band policy (2026-08-28)
+ * ------------------------------------------------------------------------------------------- */
+
+describe('confidenceOf — what a sole candidate means', () => {
+  const sole = (score: number): readonly RankedPlace[] => [
+    { place: {} as ResolvedPlace, score, nameScore: score, tokenCoverage: 1, categoryScore: 1 },
+  ];
+
+  it('defaults to narrow-filter, where an unmeasurable margin cannot auto-accept', () => {
+    // `10` §12 Q3, unchanged: one prefiltered row says the filter was narrow, not that we are sure.
+    const c = confidenceOf(sole(1));
+    expect(c.band).toBe('confirm');
+    expect(c.margin).toBeNull();
+  });
+
+  it('lets an exhaustive search auto-accept its sole result', () => {
+    // Google returns one result for 14 of 16 real corpus candidates; one result there means the
+    // global index holds one place under that name, which is evidence rather than an artefact.
+    const c = confidenceOf(sole(SCORING.bands.preselectScore), 'exhaustive-search');
+    expect(c.band).toBe('preselect');
+    expect(c.margin).toBeNull();
+  });
+
+  it('does not relax the score gate for an exhaustive search', () => {
+    const justBelow = SCORING.bands.preselectScore - 0.0001;
+    expect(confidenceOf(sole(justBelow), 'exhaustive-search').band).toBe('confirm');
+  });
+
+  it('still enforces a margin that was actually measured', () => {
+    // The provider's answer decides what an *absent* margin means and nothing else, so a poor but
+    // real margin can never be promoted by it.
+    const pair: readonly RankedPlace[] = [
+      { place: {} as ResolvedPlace, score: 0.99, nameScore: 1, tokenCoverage: 1, categoryScore: 1 },
+      { place: {} as ResolvedPlace, score: 0.98, nameScore: 1, tokenCoverage: 1, categoryScore: 1 },
+    ];
+    expect(confidenceOf(pair, 'exhaustive-search').band).toBe('confirm');
+    expect(confidenceOf(pair).band).toBe('confirm');
+  });
+
+  it('leaves an empty ranking at no_match under either policy', () => {
+    expect(confidenceOf([], 'exhaustive-search').band).toBe('no_match');
+    expect(confidenceOf([]).band).toBe('no_match');
+  });
+});

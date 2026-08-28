@@ -76,11 +76,12 @@
           "area": "שלמה המלך 1, Tel Aviv",
           "candidatePattern": "ha ?kosem|הקוסם",
           "namePattern": "ha ?kosem|הקוסם",
-          "addressPattern": "שלמה המלך|king george",
+          "addressPattern": "שלמה המלך|king george|shlomo ?ha ?melekh",
           "indexProbe": [
             "hakosem",
             "הקוסם"
-          ]
+          ],
+          "addressPatternNote": "Transliteration added 2026-08-28. The pattern was authored against Overture, which writes this street in Hebrew; Google returns \"Shlomo HaMelekh Street 1\" for the same venue at the same point. Both denote שלמה המלך 1, so accepting either keeps the guard (it still rejects a same-name venue on a different street) while no longer testing which provider answered."
         }
       ]
     },
@@ -226,11 +227,12 @@
           "area": "איינשטיין 69, תל אביב",
           "candidatePattern": "טרטוריה אונה",
           "namePattern": "טרטוריה אונה|trattoria una",
-          "addressPattern": "אי?ינשטיין",
+          "addressPattern": "אי?ינשטיין|בארט|bart|einstein",
           "indexProbe": [
             "טרטוריה אונה",
             "trattoria una"
-          ]
+          ],
+          "addressPatternNote": "Second street added 2026-08-28, on measurement rather than assumption. Overture files this venue at איינשטיין 69 and Google at בארט 2; the two points are 11 m apart, i.e. the same building addressed from two streets. Accepting either is what makes this expectation about the venue rather than about a dataset's street-labelling convention."
         }
       ]
     },

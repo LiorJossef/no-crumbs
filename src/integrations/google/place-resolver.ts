@@ -44,6 +44,19 @@ import 'server-only';
  * Google's own default applies, which keeps this global rather than pinning it to one market.
  * `docs` memory: Hebrew↔English is the language scope; other scripts are best-effort.
  *
+ * ## A lone result means something here that it does not mean for a prefilter
+ *
+ * Text Search returns exactly one result for 14 of the 16 real corpus candidates, so `margin` is
+ * null almost always. Under the default band policy (`10` §12 Q3: unmeasured margin is not perfect
+ * margin) that caps every answer at `confirm` and makes the auto-accept rate structurally 0% —
+ * measured, with 15/15 of those answers correct. The rule is right for `poi_index`, where one row
+ * means *our cheap prefilter matched one thing*; it is wrong here, where one result means *a global
+ * index holds one place under that name near that city*.
+ *
+ * So this adapter passes `'exhaustive-search'` to `scoreCandidates`. That waives **only** the
+ * unmeasurable-margin block. The score gate is untouched, and a margin that does exist must still
+ * clear it — so this can never promote a measured-but-poor margin.
+ *
  * ## Region semantics differ from Overture's, and the difference is load-bearing
  *
  * `regionsSearched: []` means *"we have not loaded that city"* — `regionLoaded()` turns it into a
@@ -299,7 +312,7 @@ export function googlePlaceResolver(gateway: GooglePlacesGateway): PlaceResolver
 
       // `no_match` on an empty list is `scoreCandidates`' own construction, so there is one path to
       // it rather than two. `GLOBAL_REGION` rather than `[]`: see the header.
-      return scoreCandidates(query, candidates, [GLOBAL_REGION]);
+      return scoreCandidates(query, candidates, [GLOBAL_REGION], 'exhaustive-search');
     },
   };
 }
