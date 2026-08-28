@@ -6,11 +6,13 @@
  * owner's own manual, real-model pass against a live TikTok URL is the other half of this task's
  * verification, not something an automated test can stand in for.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
 import { extractorUnavailable, internal, noCaption, upstreamTimeout } from '@/domain/errors';
-import type { PlaceCandidate, ResolveResult } from '@/domain/types';
+
+import { buildMp4 } from '../../../integrations/media/mp4-fixtures';
+import type { MediaRef, PlaceCandidate, ResolveResult } from '@/domain/types';
 
 /**
  * `place-resolver.ts` opens with `import 'server-only'`, which throws unless it is resolved under
@@ -36,6 +38,11 @@ const FAKE_RAW_SOURCE = {
   canonicalUrl: VIDEO_URL,
   thumbnailUrl: null,
   fetchedAt: new Date('2026-01-01T00:00:00Z'),
+  /** `texts` is what the real caption extractor's `supports` reads; `media` is what the transcript
+   *  extractor's reads, and `oembed-source-adapter.ts` really does return `[]` for it — populating
+   *  it is the transcription step's job, which is the whole of L0-TRANSCRIPT-T6. */
+  texts: [{ kind: 'caption', text: 'grab the sourdough at Cafe Fiori' }],
+  media: [] as MediaRef[],
 };
 
 vi.mock('@/app/_lib/supabase/server', () => ({
@@ -67,6 +74,11 @@ const persisted = {
 let cachedExtractionRow: Record<string, unknown> | null = null;
 
 function resetPersisted() {
+  captionSupports = true;
+  acquireMediaMock.mockReset();
+  acquireMediaMock.mockResolvedValue(null);
+  transcribeMock.mockReset();
+  transcribeMock.mockResolvedValue({ text: TRANSCRIPT_TEXT, language: 'en' });
   persisted.extractions.length = 0;
   persisted.importUpdates.length = 0;
   persisted.extractionUpdates.length = 0;
@@ -145,12 +157,42 @@ const TRANSCRIPT_PART = {
   text: 'and the babka next door at Lehem Erez',
   origin: 'tiktok-asr',
 };
+/** The real extractor answers `false` for a post with no caption (and throws `NO_CAPTION` if it is
+ *  called anyway). The route gates every extractor on `supports` now, so that answer has to be
+ *  controllable here or the caption-less case cannot be reached at all. */
+let captionSupports = true;
 vi.mock('@/integrations/tiktok/caption-content-extractor', () => ({
   captionContentExtractor: {
     id: 'caption',
-    supports: () => true,
+    supports: () => captionSupports,
     extract: captionExtractMock,
   },
+}));
+
+/**
+ * The transcription seams (L0-TRANSCRIPT-T6), faked at the two places that would leave this
+ * machine: the TikTok page fetch that produces a `MediaRef`, and the Gemini call that turns audio
+ * into words. Everything between them is the real thing — the real composition root, the real
+ * `httpAudioAcquirer`, the real MP4 demuxer, the real transcript `ContentExtractor` — so these
+ * tests exercise the wiring rather than a mock of it.
+ *
+ * `importOriginal` keeps `mediaAcquisitionEnabled` real: the `TIKTOK_MEDIA_ACQUISITION` gate is
+ * part of what is under test, and a test that stubbed it out would not notice it being bypassed.
+ */
+const acquireMediaMock = vi.fn<() => Promise<MediaRef | null>>(async () => null);
+vi.mock('@/integrations/tiktok/media-acquisition', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  acquireTikTokMedia: () => acquireMediaMock(),
+}));
+
+const TRANSCRIPT_TEXT = 'and the babka next door at Lehem Erez';
+const transcribeMock = vi.fn(async () => ({ text: TRANSCRIPT_TEXT, language: 'en' }));
+vi.mock('@/integrations/transcription/gemini.transcriber', () => ({
+  geminiTranscriber: () => ({
+    version: '2026-08-transcribe-fake',
+    promptVersion: 't1-a1',
+    transcribe: transcribeMock,
+  }),
 }));
 
 const extractMock = vi.fn();
@@ -376,25 +418,33 @@ describe('POST /api/imports/probe — extraction branch', () => {
     expect(body.error.code).toBe('EXTRACTOR_UNAVAILABLE');
   });
 
-  it('skips the LLM call entirely when there is no caption', async () => {
+  /**
+   * Rewritten for the extractor array (L0-TRANSCRIPT-T6), and it asserts the *same* end-to-end
+   * behaviour it always did — `NO_CAPTION`, no model call, no row — from the input that really
+   * produces it.
+   *
+   * It used to fake an extractor that claims to support the source and then returns nothing, and
+   * assert a 200 for it. No extractor behaves that way: the real caption extractor answers
+   * `supports: false` for a post with no caption, and throws `NO_CAPTION` if it is called anyway,
+   * so a caption-less post has always come back 422. Gating the extractors on `supports` is what
+   * makes the two paths visibly the same, and the code that guarantees it is the route's
+   * "no extractor claimed this source" throw — without which the honest 422 would have quietly
+   * become a "no places found" 200.
+   */
+  it('reports a source no extractor supports as NO_CAPTION, and pays no model', async () => {
     extractMock.mockClear();
-    captionExtractMock.mockResolvedValueOnce([]);
+    captionExtractMock.mockClear();
+    captionSupports = false;
 
     const res = await postProbe();
-    const body = (await res.json()) as {
-      caption: string | null;
-      candidates: PlaceCandidate[];
-      extractionId: string | null;
-    };
+    const body = (await res.json()) as { error: { code: string; retryable: boolean } };
 
-    expect(res.status).toBe(200);
-    expect(body.caption).toBeNull();
-    expect(body.candidates).toHaveLength(0);
+    expect(res.status).toBe(422);
+    expect(body.error).toEqual({ code: 'NO_CAPTION', retryable: false });
+    expect(captionExtractMock).not.toHaveBeenCalled();
     expect(extractMock).not.toHaveBeenCalled();
     // No model ran, so there is no `model`/`prompt_version` to satisfy those `not null` columns
-    // and no extraction to record. The id must be null rather than a fabricated handle the
-    // confirm route would reject anyway.
-    expect(body.extractionId).toBeNull();
+    // and no extraction to record.
     expect(persisted.extractions).toHaveLength(0);
   });
 
@@ -934,5 +984,288 @@ describe('POST /api/imports/probe — honest failures', () => {
     } finally {
       spy.mockRestore();
     }
+  });
+});
+
+/**
+ * Transcription (L0-TRANSCRIPT-T6) — the pieces existed and nothing composed them, so
+ * `RawSource.media` was always `[]` and the transcript extractor's `supports` was always false.
+ *
+ * The property under test is **not** "a transcript is produced". It is that a transcript is
+ * strictly *additive*: acquisition off, no media, a dead download, a file we cannot demux and a
+ * model that refuses all have to leave the import exactly where the caption alone left it. A
+ * transcript that cost a user the places their caption already named would be worse than no
+ * transcript at all.
+ *
+ * Offline: the page fetch (`acquireTikTokMedia`) and the Gemini call are mocked, and the CDN
+ * download is served from the demuxer's own fixture builder through a stubbed `fetch`. Nothing
+ * here can leave the machine.
+ */
+describe('POST /api/imports/probe — transcription', () => {
+  const CAPTION_PART = {
+    kind: 'caption' as const,
+    text: 'grab the sourdough at Cafe Fiori',
+    origin: 'tiktok-oembed-title',
+  };
+  const MEDIA_REF: MediaRef = {
+    kind: 'video',
+    url: 'https://v16-webapp-prime.tiktokcdn.com/video/7123456789012345678.mp4',
+    expiresAt: null,
+  };
+  /** `Uint8Array` is not a `BodyInit` under this lib; `slice()` gives a buffer that is exactly the
+   *  view, so the response body is the fixture and nothing more. */
+  const MP4 = buildMp4().slice().buffer as ArrayBuffer;
+
+  const envBefore = {
+    TIKTOK_MEDIA_ACQUISITION: process.env.TIKTOK_MEDIA_ACQUISITION,
+    IMPORT_TRANSCRIPTION: process.env.IMPORT_TRANSCRIPTION,
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+  };
+
+  /** Both switches, because both are required and each guards a different cost — the egress that
+   *  oEmbed depends on, and a 500-call daily model budget. */
+  function turnTranscriptionOn(): void {
+    process.env.TIKTOK_MEDIA_ACQUISITION = 'on';
+    process.env.IMPORT_TRANSCRIPTION = 'on';
+    process.env.GEMINI_API_KEY = 'test-key-never-used';
+  }
+
+  let logged: string[] = [];
+
+  beforeEach(() => {
+    resetPersisted();
+    logged = [];
+    vi.spyOn(console, 'info').mockImplementation((line: unknown) => {
+      logged.push(String(line));
+    });
+    captionExtractMock.mockClear();
+    captionExtractMock.mockResolvedValue([CAPTION_PART]);
+    extractMock.mockReset();
+    extractMock.mockResolvedValue({ candidates: [], cityHint: null });
+    // The CDN download. A real, well-formed MP4 so the real demuxer really runs.
+    vi.stubGlobal('fetch', async () => new Response(MP4, { status: 200 }));
+    delete process.env.TIKTOK_MEDIA_ACQUISITION;
+    delete process.env.IMPORT_TRANSCRIPTION;
+    delete process.env.GEMINI_API_KEY;
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    for (const [key, value] of Object.entries(envBefore)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+
+  /** The route's own `OpCtx` logger writes one JSON line per event through `console.info`. */
+  function loggedEvents(): Record<string, unknown>[] {
+    return logged
+      .map((line) => {
+        try {
+          return JSON.parse(line) as Record<string, unknown>;
+        } catch {
+          return null;
+        }
+      })
+      .filter((parsed): parsed is Record<string, unknown> => parsed !== null);
+  }
+
+  function partsSeenByTheModel(): { kind: string; text: string }[] {
+    const call = extractMock.mock.calls[0] as unknown as [{ kind: string; text: string }[]];
+    return call[0];
+  }
+
+  function storedHash(): string {
+    return persisted.extractions[0]?.input_hash as string;
+  }
+
+  it('does nothing at all while it is switched off', async () => {
+    const res = await postProbe();
+
+    expect(res.status).toBe(200);
+    expect(acquireMediaMock).not.toHaveBeenCalled();
+    expect(transcribeMock).not.toHaveBeenCalled();
+    expect(partsSeenByTheModel()).toEqual([CAPTION_PART]);
+  });
+
+  it('does not acquire when only IMPORT_TRANSCRIPTION is on', async () => {
+    process.env.IMPORT_TRANSCRIPTION = 'on';
+    process.env.GEMINI_API_KEY = 'test-key-never-used';
+
+    const res = await postProbe();
+
+    expect(res.status).toBe(200);
+    expect(acquireMediaMock).not.toHaveBeenCalled();
+    expect(partsSeenByTheModel()).toEqual([CAPTION_PART]);
+    expect(loggedEvents()).toContainEqual(
+      expect.objectContaining({ event: 'transcription.skipped', reason: 'acquisition_disabled' }),
+    );
+  });
+
+  it('does not transcribe when only TIKTOK_MEDIA_ACQUISITION is on', async () => {
+    process.env.TIKTOK_MEDIA_ACQUISITION = 'on';
+
+    const res = await postProbe();
+
+    expect(res.status).toBe(200);
+    expect(acquireMediaMock).not.toHaveBeenCalled();
+    expect(transcribeMock).not.toHaveBeenCalled();
+  });
+
+  it('runs on the caption alone when the post has no acquirable media', async () => {
+    turnTranscriptionOn();
+    acquireMediaMock.mockResolvedValue(null);
+
+    const res = await postProbe();
+
+    expect(res.status).toBe(200);
+    expect(acquireMediaMock).toHaveBeenCalledOnce();
+    expect(transcribeMock).not.toHaveBeenCalled();
+    expect(partsSeenByTheModel()).toEqual([CAPTION_PART]);
+  });
+
+  it('appends the transcript after the caption, in prompt order', async () => {
+    turnTranscriptionOn();
+    acquireMediaMock.mockResolvedValue(MEDIA_REF);
+
+    const res = await postProbe();
+
+    expect(res.status).toBe(200);
+    expect(transcribeMock).toHaveBeenCalledOnce();
+    // Caption first, transcript second. The parts are concatenated in this order to build the
+    // prompt and the cache key is computed over it, so the order is behaviour, not presentation.
+    expect(partsSeenByTheModel()).toEqual([
+      CAPTION_PART,
+      { kind: 'transcript', text: TRANSCRIPT_TEXT, origin: '2026-08-transcribe-fake/t1-a1' },
+    ]);
+    // The bytes the model was given came out of the real demuxer, not the MP4 handed through.
+    const clip = transcribeMock.mock.calls[0] as unknown as [{ audio: Uint8Array; mimeType: string }];
+    expect(clip[0].mimeType).toBe('audio/aac');
+    expect(clip[0].audio[0]).toBe(0xff);
+    // The response is unchanged in shape: a transcript adds input, not an output field.
+    expect(((await res.json()) as { caption: string }).caption).toBe(CAPTION_PART.text);
+  });
+
+  /**
+   * `contentHashInput`'s contract, asserted through the route rather than re-implemented: a
+   * caption-only source keeps hashing to its caption (so every stored row survives), and the same
+   * source with a transcript keys somewhere else (so the cached caption-only answer — usually zero
+   * candidates — is not served forever over input the model has never seen).
+   */
+  it('keys the extraction cache differently once a transcript joins the caption', async () => {
+    turnTranscriptionOn();
+    acquireMediaMock.mockResolvedValue(null);
+    await postProbe();
+    const captionOnly = storedHash();
+
+    resetPersisted();
+    extractMock.mockResolvedValue({ candidates: [], cityHint: null });
+    acquireMediaMock.mockResolvedValue(MEDIA_REF);
+    await postProbe();
+    const withTranscript = storedHash();
+
+    expect(captionOnly).toMatch(/^[0-9a-f]{64}$/);
+    expect(withTranscript).not.toBe(captionOnly);
+  });
+
+  it('degrades to the caption when the audio download fails', async () => {
+    turnTranscriptionOn();
+    acquireMediaMock.mockResolvedValue(MEDIA_REF);
+    vi.stubGlobal('fetch', async () => {
+      throw new TypeError('fetch failed');
+    });
+
+    const res = await postProbe();
+
+    expect(res.status).toBe(200);
+    expect(transcribeMock).not.toHaveBeenCalled();
+    expect(partsSeenByTheModel()).toEqual([CAPTION_PART]);
+    expect(loggedEvents()).toContainEqual(
+      expect.objectContaining({ event: 'transcription.audio_unavailable', reason: 'transport' }),
+    );
+  });
+
+  it('degrades to the caption when the downloaded bytes will not demux', async () => {
+    turnTranscriptionOn();
+    acquireMediaMock.mockResolvedValue(MEDIA_REF);
+    vi.stubGlobal(
+      'fetch',
+      async () => new Response(new Uint8Array(64).fill(0x7a).slice().buffer as ArrayBuffer, { status: 200 }),
+    );
+
+    const res = await postProbe();
+
+    expect(res.status).toBe(200);
+    expect(transcribeMock).not.toHaveBeenCalled();
+    expect(partsSeenByTheModel()).toEqual([CAPTION_PART]);
+    expect(loggedEvents()).toContainEqual(
+      expect.objectContaining({
+        event: 'transcription.audio_unavailable',
+        reason: 'demux',
+        detail: 'not_mp4',
+      }),
+    );
+  });
+
+  it('degrades to the caption when the transcriber fails', async () => {
+    turnTranscriptionOn();
+    acquireMediaMock.mockResolvedValue(MEDIA_REF);
+    transcribeMock.mockRejectedValue(extractorUnavailable('429 from the model'));
+
+    const res = await postProbe();
+
+    expect(res.status).toBe(200);
+    expect(partsSeenByTheModel()).toEqual([CAPTION_PART]);
+    expect(loggedEvents()).toContainEqual(
+      expect.objectContaining({
+        event: 'transcription.degraded',
+        code: 'EXTRACTOR_UNAVAILABLE',
+      }),
+    );
+  });
+
+  it('degrades to the caption when acquisition throws instead of returning null', async () => {
+    turnTranscriptionOn();
+    acquireMediaMock.mockRejectedValue(new Error('bug in the acquirer'));
+
+    const res = await postProbe();
+
+    expect(res.status).toBe(200);
+    expect(partsSeenByTheModel()).toEqual([CAPTION_PART]);
+    expect(loggedEvents()).toContainEqual(
+      expect.objectContaining({ event: 'transcription.skipped', reason: 'acquisition_threw' }),
+    );
+  });
+
+  /**
+   * The one failure that is not degraded. An abort means the user cancelled; carrying on to
+   * transcribe, extract and resolve on their behalf would spend a model budget for a screen nobody
+   * is going to see.
+   */
+  it('propagates an abort rather than continuing on the caption', async () => {
+    turnTranscriptionOn();
+    const controller = new AbortController();
+    acquireMediaMock.mockImplementation(async () => {
+      controller.abort();
+      throw upstreamTimeout();
+    });
+
+    const req = new NextRequest('http://localhost/api/imports/probe', {
+      method: 'POST',
+      body: JSON.stringify({ url: VIDEO_URL }),
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+    });
+    const { POST } = await import('@/app/api/imports/probe/route');
+    const res = await POST(req);
+    const body = (await res.json()) as { error: { code: string } };
+
+    expect(res.status).not.toBe(200);
+    expect(body.error.code).toBe('UPSTREAM_TIMEOUT');
+    expect(extractMock).not.toHaveBeenCalled();
+    // An abandoned request writes no terminal state: `expires_at` sweeps the row, and stamping it
+    // `failed` would file every Cancel as a TikTok outage.
+    expect(persisted.importUpdates).toHaveLength(0);
   });
 });

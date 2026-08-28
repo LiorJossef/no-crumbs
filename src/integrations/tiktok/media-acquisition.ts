@@ -116,6 +116,18 @@ export interface MediaAcquisitionDeps {
   readonly now?: () => number;
   readonly sleep?: (ms: number) => Promise<void>;
   readonly random?: () => number;
+  /**
+   * Called with the `Cookie` header value the page fetch was issued a session under, when one is
+   * issued. **The media CDN requires it.** Measured 2026-08-29 against
+   * `v16-webapp-prime.tiktok.com`: the same signed `playAddr`, same UA, same referer, returns
+   * **403** without these cookies and **200** with them.
+   *
+   * A callback rather than a field on the returned `MediaRef`, because `MediaRef` is a domain type
+   * that travels into `RawSource` and gets logged and persisted; a session token has no business
+   * riding along there. The caller that needs it opts in, holds it for the one download, and drops
+   * it.
+   */
+  readonly onSession?: (cookie: string) => void;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -230,22 +242,48 @@ interface FetchOutcome {
   readonly status: number | null;
 }
 
-/** The wall shapes. A 403/429 or an interstitial is a refusal; everything else is not, and
- *  mistaking a shed for a refusal (or the reverse) is the only classification error that matters
- *  here — one costs a transcript, the other costs oEmbed. */
+/**
+ * The wall shapes. A 403/429 or an interstitial is a refusal; everything else is not, and
+ * mistaking a shed for a refusal (or the reverse) is the only classification error that matters
+ * here — one costs a transcript, the other costs oEmbed.
+ *
+ * **A page that carries the rehydration payload is never a block, whatever words are in it.**
+ * That guard is the whole fix for a bug this shipped with: the marker list used to include bare
+ * `captcha`, and TikTok's own script bundle references a captcha module on *every* page — so a
+ * perfectly good render tripped the breaker on the first request and put acquisition into a
+ * 30-minute cooldown. Measured against a live local import on 2026-08-29:
+ * `breaker_tripped reason=hard_block status=200` on a 200 that had served us the payload.
+ *
+ * So markers are consulted only when there is no payload, and the vaguest of them are gone.
+ * `captcha` and `access denied` were both dropped: they appear in ordinary bundles and ordinary
+ * copy, and a marker that fires on a healthy page is not evidence of a wall.
+ */
 function isHardBlock(status: number, body: string): boolean {
   if (status === 403 || status === 429) {
     return true;
+  }
+  if (body.includes(REHYDRATION_MARKER)) {
+    return false;
   }
   const low = body.slice(0, 200_000).toLowerCase();
   return (
     low.includes('tiktok-verify') ||
     low.includes('verify to continue') ||
     low.includes('slide to verify') ||
-    low.includes('access denied') ||
-    low.includes('unusual traffic') ||
-    low.includes('captcha')
+    low.includes('unusual traffic')
   );
+}
+
+/** The page's `Set-Cookie` values flattened into a `Cookie` request header. Name and value only —
+ *  attributes (`Path`, `HttpOnly`, `Expires`) are response-side and must not be echoed back. */
+function sessionCookieFrom(response: Response): string | null {
+  const raw = response.headers.getSetCookie?.() ?? [];
+  const pairs: string[] = [];
+  for (const line of raw) {
+    const pair = line.split(';', 1)[0]?.trim();
+    if (pair !== undefined && pair.includes('=') && !pair.endsWith('=')) pairs.push(pair);
+  }
+  return pairs.length === 0 ? null : pairs.join('; ');
 }
 
 async function readBody(response: Response): Promise<string | null> {
@@ -263,7 +301,11 @@ async function readBody(response: Response): Promise<string | null> {
  * same rule `resolve-short-link.ts` obeys). A redirect off the allow-list is an anomaly, not a
  * hop to follow.
  */
-async function fetchPageOnce(url: string, ctx: OpCtx): Promise<FetchOutcome> {
+async function fetchPageOnce(
+  url: string,
+  ctx: OpCtx,
+  d: Required<MediaAcquisitionDeps>,
+): Promise<FetchOutcome> {
   let current = url;
 
   for (let hop = 0; hop < MAX_REDIRECT_HOPS; hop += 1) {
@@ -315,6 +357,12 @@ async function fetchPageOnce(url: string, ctx: OpCtx): Promise<FetchOutcome> {
       return { cls: 'anomaly', body: null, status: response.status };
     }
     if (body.includes(REHYDRATION_MARKER)) {
+      const session = sessionCookieFrom(response);
+      ctx.log.event('tiktok.media_acquisition.session', {
+        captured: session !== null,
+        pairs: session === null ? 0 : session.split(';').length,
+      });
+      if (session !== null) d.onSession?.(session);
       return { cls: 'payload', body, status: response.status };
     }
     // The measured shed: 200, the marker absent, `x-csr-fallback: 1`. Requiring *both* keeps a
@@ -435,6 +483,7 @@ export async function acquireTikTokMedia(
     now: deps.now ?? (() => Date.now()),
     sleep: deps.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms))),
     random: deps.random ?? Math.random,
+    onSession: deps.onSession ?? (() => {}),
   };
 
   if (!HANDLE.test(input.authorHandle) || !VIDEO_ID.test(input.externalId)) {
@@ -462,7 +511,7 @@ export async function acquireTikTokMedia(
       throw upstreamTimeout();
     }
 
-    const outcome = await politely(() => fetchPageOnce(url, ctx), d);
+    const outcome = await politely(() => fetchPageOnce(url, ctx, d), d);
 
     if (outcome === 'budget-exhausted') {
       ctx.log.event('tiktok.media_acquisition.suppressed', {

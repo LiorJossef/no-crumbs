@@ -85,6 +85,42 @@ afterEach(() => {
 });
 
 describe('acquireTikTokMedia', () => {
+  /**
+   * Regression, and it shipped: the wall detector substring-matched bare `captcha`, which appears
+   * in TikTok's own script bundle on every healthy page. A live local import on 2026-08-29 logged
+   * `breaker_tripped reason=hard_block status=200` against a response that had just served us the
+   * payload, and acquisition then refused everything for thirty minutes. A page carrying the
+   * payload is never a block, whatever words are in it.
+   */
+  it('does not read a healthy page as a block because its bundle mentions captcha', async () => {
+    const html = payloadHtml(EXTERNAL_ID, MEDIA_URL).replace(
+      '</body>',
+      '<script src="/webapp/captcha-sdk.js"></script><div>Access denied handler</div></body>',
+    );
+    // A fresh Response per call — a body can only be read once.
+    const fetchMock = vi.fn().mockImplementation(async () => renderResponse(html));
+    vi.stubGlobal('fetch', fetchMock);
+    const events: Recorded[] = [];
+    const { deps } = fakeDeps();
+
+    const ref = await acquireTikTokMedia(
+      { externalId: EXTERNAL_ID, authorHandle: HANDLE },
+      ctx(events),
+      deps,
+    );
+
+    expect(ref?.url).toBe(MEDIA_URL);
+    expect(events.map((e) => e.name)).not.toContain('tiktok.media_acquisition.breaker_tripped');
+
+    // And the breaker really is closed afterwards, not merely un-logged.
+    const second = await acquireTikTokMedia(
+      { externalId: EXTERNAL_ID, authorHandle: HANDLE },
+      ctx(),
+      deps,
+    );
+    expect(second?.url).toBe(MEDIA_URL);
+  });
+
   it('returns a video MediaRef with its expiry when the page is server-rendered', async () => {
     const fetchMock = vi
       .fn()

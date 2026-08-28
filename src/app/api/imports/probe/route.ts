@@ -59,6 +59,24 @@
  * ordering is a single straight-line `await` chain here, not the full event-sequence machinery
  * `runImport` owns.
  *
+ * **Content is an array of extractors now** (L0-TRANSCRIPT-T6), which is the difference between a
+ * built feature and a running one. Media acquisition, the MP4 demuxer, the Gemini transcriber and
+ * the transcript `ContentExtractor` were all written, tested and unreachable: `RawSource.media` was
+ * always `[]`, so `supports` was always false. This route attaches the acquired ref between the
+ * source fetch and the extractors, and runs caption-then-transcript in that order because the
+ * extraction cache is keyed on it. Both halves are off by default — `TIKTOK_MEDIA_ACQUISITION=on`
+ * gates the page fetch, `IMPORT_TRANSCRIPTION=on` gates paying a model for the audio — and with
+ * either one off this route behaves exactly as it did before. A transcript is **additive**: no
+ * media, a failed download, an unparseable file, a rate-limited model and an open circuit breaker
+ * all leave the import running on the caption, because it must never cost a user the places their
+ * caption would have found.
+ *
+ * One cost this buys and does not yet solve: the extraction cache is keyed on the parts, so the key
+ * cannot be computed until the transcript exists — a re-paste of the same post pays a fresh
+ * transcription call and then reads the cached extraction. Caching the transcript itself needs
+ * somewhere to put it (a `sources` column, or a `content_parts` row), which is a migration, and
+ * this task owns none.
+ *
  * Latency: a real local Ollama call measured 7–34s on CPU in prior testing. This is a dev-only
  * route with no `maxDuration` export — Vercel's serverless function timeout is a *deploy*
  * concern, and this route is never meant to reach a deployed environment; `next dev` itself has
@@ -102,6 +120,7 @@ import { oembedSourceAdapter, canonicalUrlFor } from '@/integrations/tiktok/oemb
 import { captionContentExtractor } from '@/integrations/tiktok/caption-content-extractor';
 import { createPlaceExtractor } from '@/integrations/llm/place-extractor-factory';
 import { createPlaceResolver, placeResolverEnv } from '@/integrations/places/place-resolver-factory';
+import { createTranscriptionStep, transcriptionEnv } from '@/integrations/import/transcription';
 import { canonicaliseTikTokUrl } from '@/domain/source/canonicalise-tiktok-url';
 import { contentHashInput, contentPartsText, withContent } from '@/domain/import/content-parts';
 import { resolveCandidates } from '@/domain/import/resolve-candidates';
@@ -113,6 +132,7 @@ import {
   DomainError,
   internal,
   malformedUrl,
+  noCaption,
   notAuthenticated,
   type DomainErrorCode,
 } from '@/domain/errors';
@@ -124,8 +144,8 @@ import {
   logSeverityFor,
   type ImportFailureStage,
 } from '@/app/api/imports/_lib/error-reporting';
-import type { OpCtx } from '@/domain/ports';
-import type { PlaceCandidate } from '@/domain/types';
+import type { ContentExtractor, OpCtx } from '@/domain/ports';
+import type { ContentPart, PlaceCandidate } from '@/domain/types';
 
 /** `start_import`'s row shape (`supabase/migrations/0007_functions.sql`), which this route needs
  *  the id from so it can advance the row it opened. */
@@ -565,11 +585,51 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     importId = startRow.import_id;
 
     const sourceStartedAt = Date.now();
-    const raw = await source.fetch(externalId, ctx);
-    // Every `ContentExtractor`'s output, in prompt order, with the parts that carry no text
-    // dropped. One element today — the caption — and that is the point: adding the transcript
-    // extractor is an append here, not a second variable threaded through the rest of the route.
-    const parts = withContent(await captionContentExtractor.extract(raw, ctx));
+    const fetched = await source.fetch(externalId, ctx);
+
+    // Transcription (L0-TRANSCRIPT-T6), off unless *both* `TIKTOK_MEDIA_ACQUISITION=on` and
+    // `IMPORT_TRANSCRIPTION=on` — `integrations/import/transcription.ts` says why that is two
+    // switches rather than one. `null` means this route composes exactly what it composed before.
+    const transcription = createTranscriptionStep(transcriptionEnv());
+    // Nothing populates `RawSource.media`: `oembed-source-adapter.ts` returns `media: []`, so the
+    // post's audio ref has to be attached between the source fetch and the extractors. A new
+    // object, never the adapter's own mutated in place.
+    //
+    // Unconditional, once enabled. `media-acquisition.ts` asks callers not to acquire when the
+    // caption already resolves the post, and honouring that means extracting, judging the result
+    // and only then acquiring — a second model call and a re-entrant stage, which is a pipeline
+    // change and not this task's. Recorded here rather than silently ignored.
+    const raw = transcription === null ? fetched : await transcription.attachMedia(fetched, ctx);
+
+    // Every `ContentExtractor`'s output, **caption first, transcript second**. That order is not
+    // cosmetic: the parts are concatenated in it to build the prompt, and `contentHashInput` keys
+    // the extraction cache on it, so reversing it is a different prompt, a different answer and a
+    // different cache row.
+    //
+    // The `supports`-and-append loop `runImport` already runs (`domain/import/pipeline.ts`), not an
+    // `if` per extractor: `ContentExtractor` was declared as an array seam so that a second
+    // implementation costs a push here and nothing else downstream.
+    const extractors: readonly ContentExtractor[] =
+      transcription === null
+        ? [captionContentExtractor]
+        : [captionContentExtractor, transcription.extractor];
+    const collected: ContentPart[] = [];
+    for (const extractor of extractors) {
+      if (!extractor.supports(raw)) continue;
+      collected.push(...(await extractor.extract(raw, ctx)));
+    }
+    // No extractor claimed this source. `NO_CAPTION` is what that has always meant on this route —
+    // the code the caption extractor itself raises on an empty caption, and the one `runImport`
+    // raises for the same empty array — so gating that extractor on `supports` must not quietly
+    // turn it into a 200. "The post says nothing" and "the post named no places" are different
+    // screens.
+    if (collected.length === 0) throw noCaption();
+    // ...with the parts that carry no text dropped.
+    const parts = withContent(collected);
+    // Still `ms_source`, and it now covers acquisition, the audio download and the transcription
+    // call when they run. The per-phase numbers are in the `tiktok.media_acquisition.*`,
+    // `transcription.audio_acquired` and `transcription.cost` log lines rather than in a column
+    // this task has no migration to add.
     const msSource = Date.now() - sourceStartedAt;
 
     /** The response's `caption` field and nothing else: the review screen prints the caption
