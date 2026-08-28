@@ -100,10 +100,11 @@ describe('icon-image expression', () => {
 describe('clusters', () => {
   it('grows with the count and never shrinks', () => {
     const stops = clusterRadiusExpression().slice(3) as number[];
-    for (let i = 0; i + 3 < stops.length; i += 2) {
-      expect(stops[i + 2]).toBeGreaterThan(stops[i]);
-      expect(stops[i + 3]).toBeGreaterThan(stops[i + 1]);
-    }
+    const counts = stops.filter((_, i) => i % 2 === 0);
+    const radii = stops.filter((_, i) => i % 2 === 1);
+    expect(counts).toEqual([...counts].sort((a, b) => a - b));
+    expect(radii).toEqual([...radii].sort((a, b) => a - b));
+    expect(new Set(radii).size).toBe(radii.length);
   });
 });
 
@@ -120,9 +121,9 @@ describe('features', () => {
   });
 
   it('writes lng before lat, which is what MapLibre reads', () => {
-    const [lng, lat] = toPlaceFeatures([place()]).features[0].geometry.coordinates;
-    expect(lng).toBeCloseTo(34.7654);
-    expect(lat).toBeCloseTo(32.0596);
+    const coordinates = toPlaceFeatures([place()]).features[0]?.geometry.coordinates ?? [];
+    expect(coordinates[0]).toBeCloseTo(34.7654);
+    expect(coordinates[1]).toBeCloseTo(32.0596);
   });
 
   it('normalises a missing category rather than dropping the place', () => {

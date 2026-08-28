@@ -28,6 +28,7 @@ import {
   pinSortKeyExpression,
 } from './marker-style';
 import type { PlaceFeatureCollection } from './place-features';
+import { useStyleReady } from './use-style-ready';
 
 interface PlaceMarkerLayerProps {
   readonly data: PlaceFeatureCollection;
@@ -62,7 +63,8 @@ function styleTextFont(map: MapLibreMap): string[] {
 }
 
 export function PlaceMarkerLayer({ data, selectedId, onPlaceClick }: PlaceMarkerLayerProps) {
-  const { map, isLoaded } = useMap();
+  const { map } = useMap();
+  const styleReady = useStyleReady(map);
   const instanceId = useId().replace(/:/g, '');
   const sourceId = `places-${instanceId}`;
   const clusterLayerId = `places-clusters-${instanceId}`;
@@ -77,7 +79,7 @@ export function PlaceMarkerLayer({ data, selectedId, onPlaceClick }: PlaceMarker
   }, [onPlaceClick]);
 
   useEffect(() => {
-    if (!map || !isLoaded) return;
+    if (!map || !styleReady) return;
 
     for (const image of buildPinImages(window.devicePixelRatio || 1)) {
       if (!map.hasImage(image.id)) {
@@ -216,21 +218,21 @@ export function PlaceMarkerLayer({ data, selectedId, onPlaceClick }: PlaceMarker
         // The style can be mid-reload during teardown; the layers go with it either way.
       }
     };
-  }, [map, isLoaded, sourceId, clusterLayerId, clusterCountLayerId, pinLayerId]);
+  }, [map, styleReady, sourceId, clusterLayerId, clusterCountLayerId, pinLayerId]);
 
   // The source's only writer, and the selection effect below is the layer's. Both run after the
   // creation effect in the same commit, so the layers are never rendered from stale state.
   useEffect(() => {
-    if (!map || !isLoaded) return;
+    if (!map || !styleReady) return;
     const source = map.getSource(sourceId) as GeoJSONSource | undefined;
     source?.setData(data);
-  }, [map, isLoaded, sourceId, data]);
+  }, [map, styleReady, sourceId, data]);
 
   useEffect(() => {
-    if (!map || !isLoaded || !map.getLayer(pinLayerId)) return;
+    if (!map || !styleReady || !map.getLayer(pinLayerId)) return;
     map.setLayoutProperty(pinLayerId, 'icon-image', pinIconImageExpression(selectedId) as never);
     map.setLayoutProperty(pinLayerId, 'symbol-sort-key', pinSortKeyExpression(selectedId) as never);
-  }, [map, isLoaded, pinLayerId, selectedId]);
+  }, [map, styleReady, pinLayerId, selectedId]);
 
   return null;
 }

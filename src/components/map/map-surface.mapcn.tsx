@@ -62,6 +62,7 @@ import { Map as MapcnMap, MapControls, MapPopup } from '@/components/ui/map';
 import { PlaceDetail } from '@/components/sheet/place-sheet';
 import type { LatLngBoundsHint, MapPlace, MapSurfaceProps } from './types';
 import { LG_BREAKPOINT_PX, mapOcclusionInsets, queryRectFrom } from './query-rect';
+import { BasemapTint } from './basemap-tint-layer';
 import { toPlaceFeatures } from './place-features';
 import { PlaceMarkerLayer } from './place-marker-layer';
 
@@ -510,6 +511,7 @@ export function MapSurfaceMapcn({
       attributionControl={{ compact: true }}
     >
       <MapControls showZoom showCompass showLocate showFullscreen />
+      <BasemapTint />
       <PlaceMarkerLayer
         data={data}
         selectedId={selected?.id ?? null}
