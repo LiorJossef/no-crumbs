@@ -1,9 +1,73 @@
 # Handoff — automatic TikTok transcription, 2026-08-29
 
-Branch `feat/tiktok-media-acquisition`, pushed, seven commits, `npm run verify` green
-(80 files / 1481 tests, only the two pre-existing `<img>` warnings). Not merged, no PR opened.
+Branch `feat/tiktok-media-acquisition`, pushed to `origin`. **Not merged. No PR opened. `main` is
+untouched.** `npm run verify` green — lint 0 errors (2 pre-existing `<img>` warnings in files this
+work never touched), typecheck clean, **83 files / 1543 tests passing**.
 
-**Resume at §6.** Everything above it is what was established and why.
+**Resume at §0.** Everything after it is what was established and why.
+
+---
+
+## 0. Resume here
+
+**Status: the feature is built end to end and blocked on one HTTP 403.** Every stage is implemented,
+unit-tested and proven on real data individually; the chain does not yet complete in one run because
+the media CDN refuses our download.
+
+### The exact blocker
+
+The media CDN (`v16-webapp-prime.tiktok.com`) returns **403** to our download. Measured directly,
+same signed URL and headers throughout:
+
+| Request | Result |
+|---|---|
+| UA + referer (what the code sent originally) | **403** |
+| + `Range: bytes=0-` | **403** |
+| **+ cookies from the page fetch (`curl -c` jar)** | **200, 7,096,912 bytes** |
+
+So the session is the answer, and the fix is **half-built**. `acquireTikTokMedia` now captures
+`Set-Cookie` from the page response and hands it to the downloader via an `onSession` callback.
+It works, and it is not enough:
+
+```
+{"event":"tiktok.media_acquisition.session","captured":true,"pairs":2}
+{"event":"transcription.audio_unavailable","reason":"status","status":403}
+```
+
+**We capture 2 cookie pairs. The successful `curl` jar contained more.** The captured set is
+incomplete, so the CDN still refuses us.
+
+### What I tried, and what happened
+
+| Attempt | Result |
+|---|---|
+| UA + referer only | 403 |
+| Adding `Range: bytes=0-` | 403 — no effect either way |
+| `curl` with a full cookie jar (`-c`/`-b`) | **200, full 7 MB file** — proves cookies are the discriminator |
+| Capturing `Set-Cookie` off the final page response and replaying it as `Cookie` | `captured=true pairs=2`, download still **403** |
+
+### Where I believe the gap is
+
+Two candidates, in order of likelihood:
+
+1. **Cookies from earlier hops are being dropped.** `fetchPageOnce` follows redirects by hand
+   (`redirect: 'manual'`) and `sessionCookieFrom` reads `Set-Cookie` only from the **final** response.
+   `curl -c` accumulates across the whole chain. Any cookie issued on a redirect hop is lost.
+2. **A cookie the page fetch never receives.** The CDN may want `ttwid`, which is typically issued by
+   a different TikTok endpoint than the post page. If so, no amount of reading the page response will
+   produce it and a separate priming request is needed.
+
+### Recommended next step
+
+Reproduce the four `curl` commands in the table above, then **diff the cookie names** in the working
+jar against the two we capture. That names the missing cookie immediately and distinguishes cause 1
+from cause 2. It costs **zero Gemini calls** and no model spend. Then either accumulate `Set-Cookie`
+across every redirect hop (cause 1) or add the priming request (cause 2).
+
+Do **not** start by rewriting the acquisition module. The mechanism is right; the cookie set is
+incomplete.
+
+---
 
 ---
 
@@ -200,6 +264,32 @@ link hits this**, which makes it higher-priority than transcription.
    number can be re-measured on resume.
 
 5. **Then measure properly**, and not on the corpora we have been quoting. See §7.
+
+## 6b. Requirement recorded for the next iteration — do NOT implement yet
+
+**Owner requirement, 2026-08-29: only run transcription for videos with short captions.**
+
+The goal is to avoid transcription cost and latency when the caption already carries enough
+information. A caption that names the venue makes the audio redundant, and paying a model call plus
+a page fetch plus a multi-megabyte download for it is waste on the modal import.
+
+**This is recorded, not built.** Nothing in the current code gates on caption length; when
+transcription is enabled it runs for every post that yields a media ref. Deciding the trigger is its
+own task, and note two things the evidence already says about it:
+
+- `evidence/extraction/transcript-value-ceiling-2026-08-29.md` §3.1 measured caption-shape signals
+  and found **none of them usable as a gate on their own** — `shortCaption` (<60 chars) scored
+  precision 0.00 and recall 0.00 on the E7 corpus, because the hard cases are *long* captions (one
+  is 488 characters and names nothing). A naive length threshold is the one variant already measured
+  to fail.
+- The better-performing signal was **"the extractor returned zero candidates"**, which implies a
+  cheaper shape than length: extract from the caption first, and only escalate to audio when that
+  produces nothing. That costs one extra model call on the posts that need it and none on the posts
+  that do not — but it makes transcription a second pass rather than a pre-step, which is a real
+  change to the route's control flow.
+
+Whoever picks this up should decide between those two shapes deliberately rather than reaching for
+the length threshold because it is easiest.
 
 ## 7. Sizing must move to the owner's own corpus
 
