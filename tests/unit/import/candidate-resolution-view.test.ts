@@ -21,6 +21,7 @@ import {
   resolutionOptions,
   resolutionView,
   resolverPinLine,
+  usesModelCoordinate,
   willSave,
 } from '@/ui/import/candidate-resolution-view';
 
@@ -232,5 +233,50 @@ describe('the chip', () => {
     expect(resolutionChip(resolutionView(null), null)).toBeNull();
     expect(resolutionChip(resolutionView({ kind: 'capped' }), null)).toBeNull();
     expect(resolutionChip(resolutionView(answered('no_match', [])), null)).toBeNull();
+  });
+});
+
+/* ------------------------------------------------------------------------------------------- *
+ * usesModelCoordinate — is the location caveat true of this candidate? (2026-08-28)
+ * ------------------------------------------------------------------------------------------- */
+
+describe('usesModelCoordinate', () => {
+  const matched = resolutionView(answered('preselect', [ranked()]));
+  const ambiguous = resolutionView(answered('confirm', [ranked(), ranked()]));
+  const unresolved = resolutionView(answered('no_match', []));
+
+  // The caveat "pins can be a street or two off" used to be unconditional. That was fair when
+  // every coordinate was the model's; a resolved pin is the venue's own (11 m for HaKosem against
+  // 65-470 m), so showing it there is simply false — and a caveat users learn to disbelieve is
+  // worse than none.
+  it('is false when the resolver auto-accepted a match', () => {
+    expect(usesModelCoordinate(true, matched, null)).toBe(false);
+  });
+
+  it('is false once the user picks a shortlist option', () => {
+    expect(usesModelCoordinate(true, ambiguous, 0)).toBe(false);
+  });
+
+  it('is true for the llm_guess fallback — the one case the caveat describes', () => {
+    expect(usesModelCoordinate(true, unresolved, null)).toBe(true);
+  });
+
+  it('is false for a candidate that will not be saved at all', () => {
+    // Nothing is written, so there is no pin to caveat.
+    expect(usesModelCoordinate(false, unresolved, null)).toBe(false);
+  });
+
+  it('never disagrees with willSave about where a coordinate came from', () => {
+    // If a save happens and it is not the model's coordinate, it came from the resolver. The two
+    // functions read the same three cases, so this pins them together rather than by convention.
+    for (const view of [matched, ambiguous, unresolved]) {
+      for (const pick of [null, 0]) {
+        for (const hasCoords of [true, false]) {
+          if (usesModelCoordinate(hasCoords, view, pick)) {
+            expect(willSave(hasCoords, view, pick)).toBe(true);
+          }
+        }
+      }
+    }
   });
 });

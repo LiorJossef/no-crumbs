@@ -79,6 +79,7 @@ import {
   resolutionOptions,
   resolutionView,
   resolverPinLine,
+  usesModelCoordinate,
   willSave,
   type CandidateResolutionView,
 } from '@/ui/import/candidate-resolution-view';
@@ -1398,6 +1399,19 @@ function CaptionPreviewScreen({
         .filter((i) => i >= 0),
     [probe.candidates, views, picks],
   );
+  /**
+   * Is `LOCATION_CAVEAT` still true of anything on this screen? Recomputed with `picks` for the
+   * same reason `saveableIndices` is: picking a shortlist option is exactly what turns a
+   * caption-derived pin into a provider one.
+   */
+  const showsLocationCaveat = useMemo(
+    () =>
+      probe.candidates.some((c, i) =>
+        usesModelCoordinate(isSaveable(c), views[i]!, picks.get(i) ?? null),
+      ),
+    [probe.candidates, views, picks],
+  );
+
   const [selected, setSelected] = useState<ReadonlySet<number>>(
     () =>
       new Set(
@@ -1537,10 +1551,14 @@ function CaptionPreviewScreen({
               </div>
             )}
 
-            {/* Said once, at screen level, because our honest position is the same on every
-                candidate. This is what replaced the per-card "95%": a percentage the model
-                assigns to itself, measured against reality as 65-470 m of error. */}
-            <p className="shrink-0 text-xs font-medium text-muted-foreground">{LOCATION_CAVEAT}</p>
+            {/* Said once at screen level, and only when it is true. It used to be unconditional,
+                on the grounds that our position was identical on every candidate — which stopped
+                being true when resolution shipped. A resolved pin is the venue's own coordinate
+                (11 m for HaKosem) against 65-470 m for the model's guess, so this sentence is
+                shown only while some pin on this screen still comes from the caption. */}
+            {showsLocationCaveat && (
+              <p className="shrink-0 text-xs font-medium text-muted-foreground">{LOCATION_CAVEAT}</p>
+            )}
 
             <ul
               aria-labelledby={headingId}
