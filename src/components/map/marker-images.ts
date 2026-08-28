@@ -3,7 +3,7 @@
  *
  * MapLibre's glyph fonts carry no colour emoji and its `symbol` layer takes a raster image, not an
  * SVG, so every marker on this map is drawn here once at mount and registered with
- * `map.addImage`. Seven categories × two states = fourteen small bitmaps.
+ * `map.addImage`. Eight categories × two states = sixteen small bitmaps.
  *
  * Browser-only: it needs a real `<canvas>`. The palette and geometry it draws from are in
  * `./marker-style.ts`, which is where the unit tests live.
