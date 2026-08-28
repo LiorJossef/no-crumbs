@@ -62,7 +62,9 @@
  *    each row's unrecorded Overture confidence from the recorded score (which is exact: `conf`
  *    appears linearly and every other term is recorded). It asserts the band table under the
  *    current weights, case by case, and re-asserts zero false auto-accepts there. This is the test
- *    that would have caught a re-fit that fixed two cases and broke three.
+ *    that would have caught a re-fit that fixed two cases and broke three. It is also the only
+ *    half that supplies a **query**, which is what runs the branch guard (`resimulatedConfidence`);
+ *    the replay bands bare recorded scores and is untouched by band policy invented after the run.
  *
  * The simulation is honest about its one limit: the file records each case's **top 5**, so a row
  * that was sixth under the old weights and would be first under the new ones is invisible to it.
@@ -74,9 +76,15 @@ import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
-import type { ConfidenceBand, RankedPlace, ResolvedPlace } from '@/domain/types';
+import type { Confidence, ConfidenceBand, RankedPlace, ResolvedPlace } from '@/domain/types';
 import { categoryHintFor, type ExtractedCategoryHint } from '@/domain/places/category-hint';
-import { categoryScore, confidenceOf, nameScore, rankPlaces } from '@/domain/places/score';
+import {
+  categoryScore,
+  confidenceOf,
+  nameScore,
+  queryForms,
+  rankPlaces,
+} from '@/domain/places/score';
 import { SCORING } from '@/domain/places/scoring-constants';
 
 /* ------------------------------------------------------------------------------------------- *
@@ -153,7 +161,7 @@ const RECORDED_WEIGHTS = { name: 0.72, category: 0.18, datasetConfidence: 0.1 } 
  * this red, which forces whoever changes it to come here and re-run the enumerations below —
  * exactly the "the benchmark is their regression test" clause of `06` §6.3, made mechanical.
  */
-const CURRENT_WEIGHTS = { name: 0.8, category: 0.1, datasetConfidence: 0.1 } as const;
+const CURRENT_WEIGHTS = { name: 1, category: 0, datasetConfidence: 0 } as const;
 
 /**
  * Every row whose replayed `name_score` no longer equals the recorded one, and why.
@@ -688,8 +696,26 @@ function resimulated(caseId: string): readonly RankedPlace[] {
 }
 
 /**
- * Every case the re-fit moves, and in which direction. Six entries, and each one had to be argued
- * before it was written down — this list is the review record, not a snapshot.
+ * The band `resimulated`'s ranking lands in, with the **query supplied** — which is what turns the
+ * branch guard on (`score.ts`, divergence 7). `queryForms` rather than a bare `[query]` so this
+ * asks the question the production path asks; no golden case carries `textVariants`, so the list
+ * is one element either way.
+ *
+ * The replay section above deliberately does *not* do this: it bands the 2026-07 recorded scores,
+ * and a guard invented in 2026-08 re-banding that run would turn a fidelity check into a moving
+ * target. Six of its 29 recorded preselects would move if it did — TYO-02, TYO-04, TYO-14, LDN-02,
+ * LDN-07, LDN-12, the same branch families the re-fit section reports below.
+ */
+const resimulatedConfidence = (caseId: string): Confidence =>
+  confidenceOf(resimulated(caseId), 'narrow-filter', queryForms(golden[caseId]!.query, null));
+
+/**
+ * Every case the re-fit moves, and in which direction. Fifteen entries, and each one had to be
+ * argued before it was written down — this list is the review record, not a snapshot.
+ *
+ * Nine of them are RESOLVE-CONF-1's (`SCORING.total` at name-only). The other six are
+ * TRACK2-BRANCH's branch guard, and they all read `preselect -> confirm` with an **unchanged**
+ * top-1: the guard never reorders a shortlist, it only refuses to pre-tick one.
  *
  * `verdict` is the *recorded* adjudication, which was made against the **old** top-1. Where the
  * re-fit changes the top-1 the verdict is therefore stale and pessimistic (TLV-10 and TLV-14 are
@@ -706,6 +732,61 @@ const REFIT_CASE_MOVES: readonly {
   readonly why: string;
 }[] = [
   {
+    caseId: 'TYO-02',
+    from: 'preselect',
+    to: 'confirm',
+    top1Was: 'Onibus Coffee',
+    top1Now: 'Onibus Coffee',
+    why: 'The branch guard. The caption says `Onibus Coffee` and the index holds the bare name ' +
+      'plus `Onibus Coffee Yakumo` (3.1 km, Δ 0.072), `… 自由が丘` (4.5 km, Δ 0.085) and ' +
+      '`… 中目黒三丁目店` (497 m, Δ 0.097). The top-1 happens to be the Nakameguro flagship the ' +
+      'case asks for, but nothing measured says so — the gap to each branch is its suffix length. ' +
+      'This is the same shape as TYO-10, where the equivalent luck runs the other way.',
+  },
+  {
+    caseId: 'TYO-04',
+    from: 'preselect',
+    to: 'confirm',
+    top1Was: 'Koffee Mameya',
+    top1Now: 'Koffee Mameya',
+    why: 'The branch guard: `KOFFEE MAMEYA Kakeru`, 8.5 km away at Δ 0.072, is a different room ' +
+      'with a different menu and the caption names neither.',
+  },
+  {
+    caseId: 'TYO-07',
+    from: 'confirm',
+    to: 'confirm',
+    top1Was: 'AFURI',
+    top1Now: 'Afuri',
+    why: 'Two Overture rows for the same ramen chain, tied at a 1.000 name score. With the ' +
+      'category and confidence terms gone the totals are exactly equal and the comparator falls ' +
+      'through to the raw name, where "Afuri" sorts above "AFURI". Same venue, same band, and the ' +
+      'margin is 0 either way — this is the tie-break becoming visible, not a ranking change.',
+  },
+  {
+    caseId: 'TYO-10',
+    from: 'confirm',
+    to: 'confirm',
+    top1Was: 'むぎとオリーブ 銀座本店',
+    top1Now: 'むぎとオリーブ',
+    why: 'The case TRACK2-BRANCH exists for. Under RESOLVE-CONF-1 the bare `むぎとオリーブ` row ' +
+      'takes rank 1 on an exact name match and used to auto-accept at margin 0.069 — pinning a ' +
+      'point 3.2 km from `むぎとオリーブ 銀座本店`, and `benchmark-spec.json` gives this case ' +
+      '`expected_area: "Ginza"`. So the earlier entry here, which read the two rows as ' +
+      'interchangeable branches, was wrong about what the case asks. The branch guard now holds ' +
+      'it at `confirm`: same ranking, but the user picks the branch instead of being handed one. ' +
+      'Its band is unchanged from the recorded run; only the top-1 moves.',
+  },
+  {
+    caseId: 'TYO-14',
+    from: 'preselect',
+    to: 'confirm',
+    top1Was: 'Koffee Mameya',
+    top1Now: 'Koffee Mameya',
+    why: 'TYO-04 asked twice, with `Omotesando, Tokyo` for an expected area rather than ' +
+      '`Omotesando`. Same rows, same guard, same reason.',
+  },
+  {
     caseId: 'TLV-08',
     from: 'confirm',
     to: 'confirm',
@@ -717,11 +798,12 @@ const REFIT_CASE_MOVES: readonly {
   {
     caseId: 'TLV-10',
     from: 'no_match',
-    to: 'no_match',
+    to: 'confirm',
     top1Was: 'Zucca Cafe & Gelato',
     top1Now: 'Anita Sarona',
-    why: 'The generic-list fix. A real Anita branch now ranks first instead of fourth. Still ' +
-      'no_match on this recorded top-5 (0.797) — the live index scores it 0.856, i.e. confirm.',
+    why: 'The generic-list fix put a real Anita branch first; RESOLVE-CONF-1 now lifts it over the ' +
+      '0.80 gate as well, so a correct venue is offered to the user instead of being discarded. ' +
+      'It was under the gate on Overture dataset confidence alone.',
   },
   {
     caseId: 'TLV-12',
@@ -729,19 +811,20 @@ const REFIT_CASE_MOVES: readonly {
     to: 'confirm',
     top1Was: 'Bellboy',
     top1Now: 'Bellboy',
-    why: 'The cost of the re-fit, stated plainly: a correct case loses auto-accept at 0.9154, ' +
-      'just under the 0.92 gate. The top-1 is unchanged and right; the user now confirms it. ' +
-      'It falls because its top row matched the category, and category is worth less than it was. ' +
-      'This one is not simulation-only — the live index reproduces it at 0.916.',
+    why: 'The cost, and it is the same case that paid for TLV-RANK-1: a correct top-1 that used to ' +
+      'be auto-accepted because it matched the category. At 0.896 it is now a confirm. The venue ' +
+      'is unchanged and right; the user taps once.',
   },
   {
     caseId: 'TLV-14',
     from: 'confirm',
-    to: 'confirm',
+    to: 'preselect',
     top1Was: 'Hostel 51',
     top1Now: 'Bar 51',
-    why: 'The defect this re-fit was made for. A 1.000 name match now outranks a category bonus. ' +
-      'Band unchanged, so the user sees the same screen with the right venue first.',
+    why: 'The case both earlier re-fits were aimed at, now settled. `Bar 51` takes rank 1 on a ' +
+      '1.000 name score with a 0.215 margin over `Hostel 51`, and auto-accepts. Its RECORDED ' +
+      'verdict is MISS_RANK, which was true of the 2026-07 ranking and is not true of this one — ' +
+      'see STALE_VERDICTS below.',
   },
   {
     caseId: 'LDN-01',
@@ -749,9 +832,44 @@ const REFIT_CASE_MOVES: readonly {
     to: 'preselect',
     top1Was: 'Kiln',
     top1Now: 'Kiln',
-    why: 'The one case that gains auto-accept, at margin 0.0521 against a 0.05 gate. Adjudicated ' +
-      'OK, so it is not a false accept — but it is a hair over the line and it is the single ' +
-      'place where this re-fit auto-accepts something it did not before. Worth watching.',
+    why: 'Adjudicated OK, and it now clears the gate on name alone at margin 0.067 rather than by ' +
+      'a hair. It was the marginal auto-accept of the previous re-fit; it is no longer marginal.',
+  },
+  {
+    caseId: 'LDN-02',
+    from: 'preselect',
+    to: 'confirm',
+    top1Was: 'Bar Termini',
+    top1Now: 'Bar Termini',
+    why: 'The branch guard: `Bar Termini Centrale` is 1.5 km away at Δ 0.081, and `Bar Termini` ' +
+      'is what a caption calls either of them.',
+  },
+  {
+    caseId: 'LDN-07',
+    from: 'preselect',
+    to: 'confirm',
+    top1Was: 'Padella',
+    top1Now: 'Padella',
+    why: 'The branch guard: `Padella Shoreditch`, 2.1 km away at Δ 0.095. The spec expects ' +
+      '"Borough Market **or** Shoreditch", which is the case admitting in writing that it cannot ' +
+      'tell the two apart either.',
+  },
+  {
+    caseId: 'LDN-12',
+    from: 'preselect',
+    to: 'confirm',
+    top1Was: 'Padella',
+    top1Now: 'Padella',
+    why: 'LDN-07 asked again with a bare `London` for an expected area. Same rows, same guard.',
+  },
+  {
+    caseId: 'NEG-01',
+    from: 'confirm',
+    to: 'confirm',
+    top1Was: 'The Edge Bar Shoreditch',
+    top1Now: 'The Rum Kitchen - Shoreditch',
+    why: 'A caption naming no venue. Which wrong row is first is noise by construction — the ' +
+      'margin is 0.005 — and the band is what matters: still confirm, still not auto-accepted.',
   },
   {
     caseId: 'NEG-03',
@@ -759,8 +877,32 @@ const REFIT_CASE_MOVES: readonly {
     to: 'no_match',
     top1Was: 'Tirza wine bar',
     top1Now: 'Tirza wine bar',
-    why: 'A negative case gets safer: a caption naming no venue drops from 0.813 to 0.7926, under ' +
-      'the confirm gate. This is the direction a no-name caption should move.',
+    why: 'A negative case gets safer: a caption naming no venue drops to 0.744, under the confirm ' +
+      'gate. This is the direction a no-name caption should move.',
+  },
+];
+
+/**
+ * Auto-accepted cases whose **recorded** verdict is not `OK`, with the reason it is stale.
+ *
+ * This list is the one place the benchmark is allowed to disagree with its own adjudication, and it
+ * exists because the alternative is worse: the verdicts were made in 2026-07 against a ranking two
+ * re-fits ago, and silently re-labelling them from inside the test that they grade would end the
+ * benchmark's usefulness. So the disagreement is written down, one entry at a time, with what the
+ * top-1 actually is now and what the case actually asked for.
+ *
+ * Empty is the healthy state. An entry here is a debt: it should be paid off by re-adjudicating
+ * against the live index in `tests/manual/tlv-resolve-benchmark.manual.ts`, not by growing this
+ * list.
+ */
+const STALE_VERDICTS: readonly { readonly caseId: string; readonly why: string }[] = [
+  {
+    caseId: 'TLV-14',
+    why: 'Recorded MISS_RANK — "intended venue exists in the dataset but was not returned in the ' +
+      'top 3" — against a 2026-07 ranking whose top-1 was `Hostel 51`. The spec asks for "any real ' +
+      'Tel Aviv venue named Bar 51" and the top-1 is now `Bar 51` itself, at a 1.000 name score. ' +
+      'Note that `docs/evidence/places/band-policy.md` §3 read this stale label as ground truth ' +
+      'and concluded a decisive-margin band rule produced a false auto-accept here; it does not.',
   },
 ];
 
@@ -775,22 +917,28 @@ describe('the re-fit — 44 cases under the current SCORING.total', () => {
     ).toBeCloseTo(1, 10);
   });
 
-  it('cannot reach preselect on a category match alone', () => {
-    // The structural safety property the re-fit preserves: a perfect name and a perfect dataset
-    // confidence still cannot auto-accept without the category agreeing, because
-    // `0.80 + 0.10 = 0.90 < 0.92`. This is also the reason 0.82 was rejected — there the same sum
-    // is exactly the gate, and the band would turn on floating-point rounding.
-    const withoutCategory = SCORING.total.name + SCORING.total.datasetConfidence;
-    expect(withoutCategory).toBeLessThan(SCORING.bands.preselectScore);
-    expect(SCORING.bands.preselectScore - withoutCategory).toBeGreaterThan(0.005);
+  it('names the gate that actually stops a caption which names no venue', () => {
+    // The property this file used to assert — "cannot reach preselect without a category match,
+    // because 0.80 + 0.10 < 0.92" — died with the category term, so its replacement is asserted
+    // here rather than assumed. It is the MARGIN gate, and it is the stronger of the two: a
+    // caption that names no venue matches many rows equally badly, which is a small margin by
+    // construction, whereas its absolute score depends on how generic the words happen to be.
+    const perfectName = SCORING.total.name;
+    expect(perfectName).toBeGreaterThanOrEqual(SCORING.bands.preselectScore);
+
+    for (const caseId of ['NEG-01', 'NEG-02', 'NEG-03']) {
+      const confidence = resimulatedConfidence(caseId);
+      expect(confidence.margin, caseId).not.toBeNull();
+      expect(confidence.margin!, caseId).toBeLessThan(SCORING.bands.preselectMargin / 3);
+    }
   });
 
-  it('moves exactly the six enumerated cases, in the enumerated directions', () => {
+  it('moves exactly the fifteen enumerated cases, in the enumerated directions', () => {
     const moved: string[] = [];
     for (const caseId of caseIds) {
       const before = bandOf(caseId, 'recorded');
       const ranked = resimulated(caseId);
-      const after = confidenceOf(ranked).band;
+      const after = resimulatedConfidence(caseId).band;
       const top1Was = golden[caseId]!.results[0]!.name;
       const top1Now = ranked[0]!.place.name;
       if (before !== after || top1Was !== top1Now) {
@@ -805,31 +953,44 @@ describe('the re-fit — 44 cases under the current SCORING.total', () => {
     );
   });
 
-  it('tallies 29 preselect / 11 confirm / 4 no_match under the current weights', () => {
-    // Recorded was 29/12/3. The preselect count is unchanged — TLV-12 leaves it and LDN-01 enters —
-    // and the case that left `confirm` went *down*, to `no_match`, on a caption that names no venue.
+  it('tallies 24 preselect / 17 confirm / 3 no_match under the current weights and guard', () => {
+    // Recorded was 29/12/3; the previous re-fit held 29/11/4; RESOLVE-CONF-1 alone gives 31/10/3.
+    // TRACK2-BRANCH's guard then returns seven of those auto-accepts to the user — TYO-02, TYO-04,
+    // TYO-10, TYO-14, LDN-02, LDN-07, LDN-12, every one of them a bare chain name with a branch
+    // within 0.10 of it and kilometres away. Six show as `preselect -> confirm` moves; TYO-10 was
+    // already `confirm` in the recorded run and is listed for its top-1 change. That is the price,
+    // and it is paid for one thing: TYO-10 was a FALSE auto-accept, 3.2 km from the Ginza branch
+    // `benchmark-spec.json` asks for. `docs/evidence/places/branch-guard-2026-08-28.md` has the
+    // per-configuration table, including the 30/11/3 variant that catches TYO-10 alone and why it
+    // was refused.
     const tally = { preselect: 0, confirm: 0, no_match: 0 };
-    for (const caseId of caseIds) tally[confidenceOf(resimulated(caseId)).band] += 1;
-    expect(tally).toEqual({ preselect: 29, confirm: 11, no_match: 4 });
+    for (const caseId of caseIds) tally[resimulatedConfidence(caseId).band] += 1;
+    expect(tally).toEqual({ preselect: 24, confirm: 17, no_match: 3 });
   });
 
   it('still auto-accepts nothing the adjudication did not call correct', () => {
-    // The invariant. Not "no more false auto-accepts than before" — none, under the shipped
-    // weights, judged by the same six non-OK verdicts as the recorded run. Two of those six now
-    // rank the right venue first and are still counted against us here; see `REFIT_CASE_MOVES`.
+    // The invariant, and the only one that cannot be traded away: not "no more false auto-accepts
+    // than before" but none at all, judged by the recorded verdicts — with every disagreement
+    // between a recorded verdict and the current ranking named in `STALE_VERDICTS` rather than
+    // absorbed.
     const verdicts = adjudication.verdicts.overture_scored!;
+    const stale = new Set(STALE_VERDICTS.map((v) => v.caseId));
     const autoAccepted = caseIds.filter(
-      (id) => confidenceOf(resimulated(id)).band === 'preselect',
+      (id) => resimulatedConfidence(id).band === 'preselect',
     );
-    expect(autoAccepted.length).toBe(29);
-    expect(autoAccepted.filter((id) => verdicts[id] !== 'OK')).toEqual([]);
+    expect(autoAccepted.length).toBe(24);
+    expect(autoAccepted.filter((id) => verdicts[id] !== 'OK' && !stale.has(id))).toEqual([]);
+    // And nothing may sit in `STALE_VERDICTS` that is not actually auto-accepted — the list is an
+    // exception register, not a place to park a case.
+    expect(STALE_VERDICTS.map((v) => v.caseId).filter((id) => !autoAccepted.includes(id))).toEqual([]);
   });
 
   it('keeps the three no-name captions out of auto-accept', () => {
     // `06` §6.3's negatives, re-checked under the re-fit rather than assumed to have survived it.
-    // All three still fail the 0.92 gate, and NEG-03 now fails the 0.80 gate as well.
+    // All three still fail the 0.92 gate, and NEG-03 now fails the 0.80 gate as well. The margin
+    // is the gate that holds structurally; see the assertion above.
     for (const caseId of ['NEG-01', 'NEG-02', 'NEG-03']) {
-      const confidence = confidenceOf(resimulated(caseId));
+      const confidence = resimulatedConfidence(caseId);
       expect(confidence.band, caseId).not.toBe('preselect');
       expect(confidence.score, caseId).toBeLessThan(SCORING.bands.preselectScore);
     }

@@ -12,7 +12,7 @@
  * their regression test" a real claim rather than an aspiration.
  *
  * Fidelity to the prototype is the whole point, so the port's divergences are enumerated here and
- * nowhere else. There are six, all of them deliberate:
+ * nowhere else. There are seven, all of them deliberate:
  *
  *  1. **`margin` is `null` when there is no second candidate**, never 1.0. The prototype writes
  *     `margin = 1.0` for a single-row prefilter, which sails through the `margin ≥ 0.05` gate on
@@ -72,6 +72,14 @@
  *     only thing standing between a lucky variant and a false auto-accept. Read `queryForms` before
  *     changing anything here.
  *
+ *  7. **`preselect` has a third gate: no branch rival** (TRACK2-BRANCH). The prototype bands on
+ *     score and margin alone, and with the score reduced to the name term that lets a bare venue
+ *     name auto-accept over its own branches — measured, TYO-10 pins a row 3 km from the Ginza
+ *     branch the case asks for, at margin 0.069. The gap between a bare name and `bare + suffix`
+ *     is `0.45·(1 − jaroWinkler) + 0.04·surplusTokens`, i.e. a measure of suffix length rather
+ *     than of confidence, so no value of `preselectMargin` separates the two. `branchRival` below
+ *     is the separator, and `scoring-constants.ts`'s `branchGuard` carries the measurement.
+ *
  * Everything else in this file is the prototype byte for byte, including the tie-break order. The
  * *constants* are no longer: TLV-RANK-1 re-fit `SCORING.total` and extended `SCORING.generic`
  * against the first evidence from a loaded index. This file's arithmetic did not change and its
@@ -89,6 +97,7 @@ import type {
   ResolvedPlace,
   RegionId,
 } from '../types';
+import { haversineKm, type GeoPoint } from './clusters';
 import { jaroWinklerSimilarity } from './jaro-winkler';
 import { normalise, tokenise } from './normalise';
 import { SCORING } from './scoring-constants';
@@ -490,17 +499,21 @@ export function categoryScore(
 }
 
 /**
- * One candidate's score: `0.80·nameScore + 0.10·categoryScore + 0.10·datasetConfidence`, and then
- * the address term when — and only when — there is an address on both sides to compare.
+ * One candidate's score: **`nameScore`**, and then the address term when — and only when — there is
+ * an address on both sides to compare.
  *
  * `nameScore` is the best over every query form (`textVariants`, divergence 6) crossed with every
  * alias (divergence 5). Nothing else on this function knows about variants: the category term, the
  * address term, the weights and the bands are all exactly what they were.
  *
- * The three base weights sum to 1.00, which is what keeps `score` in `[0,1]` — `resolution_score`'s
- * CHECK — without a clamp. The category weight was 0.18 until TLV-RANK-1, where a category bonus
- * was measured outranking a 1.000 name match (TLV-14). Why 0.10, and why the difference went to
- * `name` rather than to `datasetConfidence`, is argued once in `scoring-constants.ts`.
+ * The base is still written as a weighted sum of three terms because `SCORING.total` still names
+ * three free parameters — two of which are now **zero**. `category` and `datasetConfidence` were
+ * both removed from the score under RESOLVE-CONF-1 (2026-08-28), on measurement, and the argument
+ * for each is in `scoring-constants.ts`. The short version: one bit derived from a three-value hint
+ * against a provider's hundred-value taxonomy was deciding whether the user saw the candidate
+ * picker, and an Overture crawler-confidence column was vetoing matches every other term agreed on.
+ * The weights still sum to 1.00, which is what keeps `score` in `[0,1]` — `resolution_score`'s
+ * CHECK — without a clamp.
  *
  * ## The address term, and the one property it has to have (TLV-ADDR-1)
  *
@@ -561,6 +574,7 @@ export function scorePlace(
     tokenCoverage: name.tokenCoverage,
     categoryScore: category,
     matchedText: name.matchedText,
+    addressScore: address,
   };
 }
 
@@ -592,6 +606,16 @@ export function scorePlace(
  */
 export interface ScoredPlace extends RankedPlace {
   readonly matchedText: string;
+  /**
+   * The address term as `addressScore` returned it — three-valued, and the third value is why it
+   * is carried rather than recomputed: `null` (*"no comparison was possible"*) and `0` (*"this is
+   * somewhere else"*) are different facts, and by the time a row reaches `confidenceOf` or the
+   * picker the `addressHint` that produced it is out of reach. `ux-when-we-ask.md` §3.1 makes
+   * `addressScore === 0` the highest-precedence reason to ask the user, and a reason re-derived
+   * from a hint the view has to fetch again is a reason that will eventually disagree with the
+   * band it explains.
+   */
+  readonly addressScore: number | null;
 }
 
 /**
@@ -601,6 +625,15 @@ export interface ScoredPlace extends RankedPlace {
 export function matchedTextOf(ranked: RankedPlace): string | null {
   const withForm = ranked as Partial<ScoredPlace>;
   return typeof withForm.matchedText === 'string' ? withForm.matchedText : null;
+}
+
+/**
+ * The address term recorded on a ranked row: a number, `null` for *"no comparison was possible"*,
+ * and `undefined` for a row that did not come from `scorePlace`. Three return values because
+ * collapsing any two of them loses the distinction the term exists to make.
+ */
+export function addressScoreOf(ranked: RankedPlace): number | null | undefined {
+  return (ranked as Partial<ScoredPlace>).addressScore;
 }
 
 function byRank(a: RankedPlace, b: RankedPlace): number {
@@ -663,6 +696,187 @@ export function rankPlaces(
  */
 export type SoleCandidateMeaning = 'narrow-filter' | 'exhaustive-search';
 
+/* ------------------------------------------------------------------------------------------- *
+ * The branch guard (TRACK2-BRANCH)
+ * ------------------------------------------------------------------------------------------- */
+
+/**
+ * The tokens one place name has that the other does not, or `null` when neither name's tokens
+ * contain the other's — `['yakumo']` for `Onibus Coffee` against `Onibus Coffee Yakumo`, `[]` for
+ * two rows named `The Dove`, `null` for `Bar 51` against `Hostel 51`.
+ *
+ * **Multiset containment over normalised tokens, not substring containment.** `normalise('Bar B')`
+ * is a substring of `normalise('Bar Benfiddich')` and the two are not branches of anything;
+ * measured, substring containment fires on TYO-05 and TYO-13 for exactly that pair. Tokens also
+ * make the *differentiator* readable, which is what the caption rule below needs.
+ *
+ * The differentiators are deliberately **not** filtered through `SCORING.generic`. `Monmouth
+ * Coffee` and `Monmouth Coffee Company` differ only by a word that set would call generic, and the
+ * two rows behind those names are 705 m and 5 km apart: a suffix that looks like noise still
+ * leaves two premises that need choosing between.
+ */
+export function nameDifference(a: string, b: string): readonly string[] | null {
+  const left = tokenise(a);
+  const right = tokenise(b);
+  if (left.length === 0 || right.length === 0) return null;
+  const [shorter, longer] = left.length <= right.length ? [left, right] : [right, left];
+  const remaining = [...longer];
+  for (const token of shorter) {
+    const at = remaining.indexOf(token);
+    if (at < 0) return null;
+    remaining.splice(at, 1);
+  }
+  return remaining;
+}
+
+/** The two fields this file needs off a place to compare it with another: what it is called, and
+ *  where it is. Widened from `ResolvedPlace` so a shortlist row, a stored row or a test fixture can
+ *  all be compared without any of them being converted first. */
+export type NamedPoint = GeoPoint & { readonly name: string };
+
+/** `placeProximity`'s answer: how the two names relate, and how far apart the two rows are. */
+export interface PlaceProximity {
+  /** `nameDifference` of the two names — `null` when neither name's tokens contain the other's. */
+  readonly difference: readonly string[] | null;
+  /** Great-circle metres between them. */
+  readonly metres: number;
+  /**
+   * `metres <= SCORING.samePlaceMetres`: one venue recorded twice rather than two premises.
+   *
+   * Carried here so that the two consumers of this predicate read the **same** number. They draw
+   * opposite conclusions from it and that is the design: `difference !== null && sameSpot` is one
+   * place and the shortlist collapses it (`docs/ux-when-we-ask.md` §4);
+   * `difference !== null && !sameSpot` is two branches and `branchRival` asks about it.
+   */
+  readonly sameSpot: boolean;
+}
+
+/**
+ * The one name-and-distance comparison of two candidate rows.
+ *
+ * Exported as a single function because the picker needs exactly this predicate with the opposite
+ * verdict, and a private copy on each side is how the collapse and the guard end up disagreeing
+ * about whether a row exists — `ux-when-we-ask.md` §4's table, in code:
+ *
+ * | | `sameSpot` | far apart |
+ * |---|---|---|
+ * | `difference !== null` | one place — collapse, never ask | branches — ask |
+ * | `difference === null` | rivals — ask | rank decides |
+ */
+export function placeProximity(a: NamedPoint, b: NamedPoint): PlaceProximity {
+  const metres = haversineKm(a, b) * 1000;
+  return {
+    difference: nameDifference(a.name, b.name),
+    metres,
+    sameSpot: metres <= SCORING.samePlaceMetres,
+  };
+}
+
+/**
+ * The rival that makes the top-1 a **branch question**, or `null` when there is none.
+ *
+ * The class this exists for: the top candidate and a close rival are plausibly branches of one
+ * venue, and nothing in the score can say which one the caption meant — because the gap between
+ * them measures how long the branch suffix is, not which branch was filmed
+ * (`scoring-constants.ts`, `branchGuard`). Branch identity that the caption does not settle is
+ * what `confirm` is for: the user watched the video and can answer, the scorer cannot.
+ *
+ * Three conditions, all required, each of which rules out a different non-question:
+ *
+ *  1. **Within `rivalScoreBand` of the top.** A row far below is not competing for the pin.
+ *  2. **`nameDifference` is not `null`, and the caption did not settle it.** If every token the
+ *     longer name adds is already in what the user asked — `Dishoom Shoreditch` against
+ *     `Dishoom` — then the caption *did* say which branch, and asking would be the picker's other
+ *     failure: a question whose answer is on the screen already
+ *     (`handoff-2026-08-28-categories-and-the-picker.md` §3.4 item 4). An **empty** difference —
+ *     two rows under the identical name — can never be settled this way, which is why the check
+ *     requires at least one differentiator.
+ *  3. **Further apart than `SCORING.samePlaceMetres`.** Two records of the same premises pin the
+ *     same point, so choosing between them is a prefilter artefact, not a decision — and the
+ *     shortlist collapse removes one of them before this ever runs. This is what keeps
+ *     `Kohi Coffee Shop` and `NIKO by Sharon Cohen` — same address, metres apart — auto-accepting,
+ *     although that pair also fails (2) on the names.
+ *
+ * `forms` is `queryForms()`'s output, so the caption rule reads the Hebrew and the Latin form of
+ * the question alike. An empty `forms` means the caller is banding a bare score list rather than
+ * answering a query — an evidence replay — and the guard does not run; see `confidenceOf`.
+ *
+ * **Known gap: two *sibling* branches never satisfy (2).** `X 銀座店` against `X 日本橋店` is the
+ * same question and neither name contains the other, so this returns `null`. Catching it needs a
+ * shared-prefix rule, which on this corpus also catches `Bar B`/`Bar Benfiddich`; it is not
+ * attempted here.
+ */
+export function branchRival(
+  ranked: readonly RankedPlace[],
+  forms: readonly string[],
+): RankedPlace | null {
+  const top = ranked[0];
+  if (top === undefined || forms.length === 0) return null;
+  const asked = new Set(forms.flatMap((form) => tokenise(form)));
+
+  for (let i = 1; i < ranked.length; i += 1) {
+    const rival = ranked[i]!;
+    // Cheapest test first: `ranked` is sorted, but this is written as a filter rather than a
+    // `break` so a hand-built list cannot make the guard depend on sort order.
+    if (top.score - rival.score > SCORING.branchGuard.rivalScoreBand) continue;
+    const { difference, sameSpot } = placeProximity(top.place, rival.place);
+    if (difference === null) continue;
+    if (difference.length > 0 && difference.every((token) => asked.has(token))) continue;
+    if (sameSpot) continue;
+    return rival;
+  }
+  return null;
+}
+
+/**
+ * Whether the **only** thing holding this row under the confirm gate is an address that
+ * contradicts the caption (TRACK2-ADDR, folded into TRACK2-BRANCH's measurement pass).
+ *
+ * ## The arithmetic this exists to fix
+ *
+ * `addressScore === 0` means the streets or the house numbers disagree, and `scorePlace` prices
+ * that at `score = (1 − 0.2)·base`. So a contradicted row reaches `confirmScore` **only if
+ * `base ≥ 1.0000`** — a mathematically perfect name and nothing less. That threshold was never
+ * chosen; it is `0.8 / 0.8` falling out of two constants fitted for other reasons, and its effect
+ * is that we throw away a provider row we found and let `derivePlaceSave` fall back to the model's
+ * coordinate, which is measured 65–470 m out.
+ *
+ * Measured on the two contradicted candidates in the real corpus
+ * (`docs/evidence/places/tiktok-recognition-run.google.json`), replayed under the current weights:
+ * `טרטוריה אונה` scores exactly 0.8000 and survives *only* because its name matches perfectly,
+ * and `רוסטיקו` scores 0.7308 on a 0.9134 name and is discarded. Both are adjudicated **correct
+ * venues**; Google simply returned a different branch than the caption's street.
+ *
+ * ## Why a band floor and not a smaller penalty
+ *
+ * The ranking is right as it is: a row we can place *elsewhere* should fall below a row we cannot
+ * place at all, and `scorePlace`'s comment says so. What is wrong is the **destination**. A
+ * contradicted address is strong evidence about *where this candidate is*, and no evidence at all
+ * that the venue does not exist — so it should rank the row down and then hand it to the user with
+ * the conflict on screen (`docs/ux-when-we-ask.md` §3.1's `address_conflict`, the
+ * highest-precedence reason to ask, which could never fire while such a row never reached
+ * `confirm`).
+ *
+ * So the score is left exactly as it was — it is stored in `places.resolution_score` and it is an
+ * honest number — and only the band moves. `base` is recovered by division rather than carried as
+ * a field: when `addressScore === 0` the address term contributes nothing, so
+ * `score = (1 − weight)·base` holds exactly.
+ *
+ * The alternative measured and not taken was an asymmetric weight — a contradiction costing
+ * `contradictedWeight` where corroboration pays `weight`. At 0.10 it rescues both corpus cases
+ * (0.900 and 0.822) and keeps auto-accept unreachable, but it needs a new free parameter with only
+ * 0.02 of headroom against the 0.92 gate, and it moves the *ranking* to buy a *band*.
+ * `branch-guard-2026-08-28.md` §5 has both tables.
+ *
+ * **This cannot manufacture an auto-accept**: `preselect` is decided above and requires
+ * `score ≥ 0.92`, while a contradicted row cannot exceed `1 − weight = 0.80`. `score.test.ts`
+ * pins that as an inequality over the constants, not as a case.
+ */
+function contradictedAddressOnly(top: RankedPlace): boolean {
+  if (addressScoreOf(top) !== 0) return false;
+  return top.score / (1 - SCORING.address.weight) >= SCORING.bands.confirmScore;
+}
+
 /**
  * `06` §6.2's three bands, over the full ranking.
  *
@@ -670,10 +884,24 @@ export type SoleCandidateMeaning = 'narrow-filter' | 'exhaustive-search';
  * cannot reach it — `10` §12 Q3's ruling expressed as arithmetic. Nothing here rounds: the
  * prototype rounds the margin to three decimals only when writing its JSON, and rounding before a
  * `≥ 0.05` comparison would move a 0.0496 case across the gate for a display convention.
+ *
+ * ## `forms`, and why the branch guard is off without it (TRACK2-BRANCH)
+ *
+ * `preselect` now needs a third thing: no `branchRival`. That guard's second condition asks whether
+ * **the caption already named the branch**, so it cannot run without knowing what was asked — and
+ * a caller with no query is not answering a question, it is banding a list of numbers. Passing no
+ * `forms` therefore leaves the two gates exactly as they were, which is what
+ * `benchmark-golden.test.ts`'s replay of the 2026-07 recorded scores relies on: that section
+ * reproduces a run, and a policy invented afterwards has no business re-banding it.
+ *
+ * The production path is `scoreCandidates`, which always passes `queryForms()`'s output;
+ * `score.test.ts` pins that wiring, because "the guard is off unless you ask for it" is only safe
+ * while something asserts the one caller does ask.
  */
 export function confidenceOf(
   ranked: readonly RankedPlace[],
   soleCandidateMeaning: SoleCandidateMeaning = 'narrow-filter',
+  forms: readonly string[] = [],
 ): Confidence {
   const top = ranked[0];
   if (top === undefined) {
@@ -690,9 +918,9 @@ export function confidenceOf(
       : margin >= SCORING.bands.preselectMargin;
 
   let band: ConfidenceBand;
-  if (top.score >= SCORING.bands.preselectScore && marginOk) {
+  if (top.score >= SCORING.bands.preselectScore && marginOk && branchRival(ranked, forms) === null) {
     band = 'preselect';
-  } else if (top.score >= SCORING.bands.confirmScore) {
+  } else if (top.score >= SCORING.bands.confirmScore || contradictedAddressOnly(top)) {
     band = 'confirm';
   } else {
     band = 'no_match';
@@ -720,7 +948,13 @@ export function scoreCandidates(
   const cap = query.maxResults ?? SCORING.defaultMaxResults;
   return {
     shortlist: ranked.slice(0, Math.max(0, cap)),
-    confidence: confidenceOf(ranked, soleCandidateMeaning),
+    // The same `queryForms` the ranking was scored with, so the branch guard's "did the caption
+    // say which branch" test reads exactly the question the rows were matched against.
+    confidence: confidenceOf(
+      ranked,
+      soleCandidateMeaning,
+      queryForms(query.text, query.textVariants ?? null),
+    ),
     regionsSearched,
     candidatesPrefiltered: candidates.length,
   };
