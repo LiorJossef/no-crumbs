@@ -347,15 +347,68 @@ Do not run it. See §7.2 for the compliant path.
 
 ## 10. Next tasks, in priority order
 
-### 10.1 Add a distance assertion to the corpus adjudication — HIGHEST VALUE, unblocked
+### 10.1 Distance assertion in the corpus — **STARTED, PAUSED, on a branch. Read this first.**
 
-§5.5. The harness scores a venue correct while it sits 6.9 km from its own address. On a map product
-that is the product being wrong. Add an optional `expectedLatLng` / `maxDistanceM` to
-`tests/manual/tiktok-recognition-corpus.json` expectations and a `coordinate_mismatch` failure
-bucket in `tests/manual/tiktok-recognition.manual.ts`; re-run **both** providers and report what it
-reclassifies. Also investigate whether the `Gelalucci` row is bad in Overture source data or was
-corrupted by `evidence/places/ingest-overture-city-extract.py`. **Do not source replacement
-coordinates from Google** (§8.1).
+**Branch `fix/corpus-distance-assertion` (pushed, no PR, DO NOT merge as-is).** Work was stopped
+mid-task by the owner, deliberately, with a framing question attached:
+
+> **Decide whether this is worth continuing as a general product/system improvement across the
+> corpus, rather than as optimisation for individual places.** That decision comes first. Do not
+> resume by drilling further into `Gelalucci` or any single venue.
+
+That is the right question to answer before touching it again, and it is genuinely open. What the
+branch proves is that **one** venue in a 16-expectation corpus has a source row whose address and
+coordinates disagree. Whether that is a systemic data-quality problem worth building adjudication
+machinery for, or a single bad Overture row worth a one-line note, is **not** established by n=1.
+A cheap way to settle it before investing further: query `poi_index` directly for rows whose
+`address_line` street disagrees with their coordinates at scale — that is a data audit, needs no
+harness change, and would say whether this is one row or thousands.
+
+#### What is on the branch and works
+
+Measured on the Overture run (Google could not be re-run — quota, §7.1):
+
+|                       | before | after |
+|---|---|---|
+| Auto-match            | 7/16   | 7/16  |
+| Correct, not auto     | 5      | 4     |
+| Wrong                 | 3      | 4     |
+
+**Exactly one case reclassifies**, and it is the intended one:
+`Gelalucci` — *"top-1 is the right venue by name and address but sits 6894 m from it (tolerance
+500 m)"*. Nothing else moved, which is the point: the assertion is not a blunt instrument that
+re-scores the corpus.
+
+- `tests/manual/tiktok-recognition.manual.ts` — `expectedPoints` / `maxDistanceM` on the expectation
+  schema, `distanceM` + `distanceToExpected` helpers, `DEFAULT_MAX_DISTANCE_M = 500`, and a new
+  `coordinate_mismatch` failure bucket. Identity and location are now separate questions:
+  `identityMatch && locationOk`. **A missing point is *unmeasured*, not a pass.**
+- `tests/manual/tiktok-recognition-corpus.json` — 12 of 16 expectations carry ground-truth points.
+- `docs/evidence/places/geocode-corpus-addresses.py` + `corpus-address-geocode.json` — how the
+  ground truth was produced and its raw output.
+
+#### Provenance rule that must not be broken
+
+Ground truth is **OSM/Nominatim geocoding of the street address**, never the venue, and **never
+Google** — `06` §3.1/§5.4 forbid committing Google coordinates. The four expectations without points
+are the ones whose `area` is only a city name or whose address OSM does not hold; every geocode was
+reviewed by hand and one that resolved to **Herzliya** plus three that landed on the Tel Aviv
+centroid were dropped rather than kept with a loose tolerance. Corroboration worth knowing:
+Nominatim and Google independently place מסריק 1 at (32.078032, 34.777851) to five decimals.
+
+#### Known gaps on the branch
+
+1. The markdown failure-bucket table iterates a fixed list that `coordinate_mismatch` was never
+   added to, so the new bucket is **missing from `tiktok-recognition.md`** while present and correct
+   in `tiktok-recognition-run.json`. Cosmetic, but it makes the human-readable record under-report.
+2. The Google provider has **not** been re-run against the assertion (quota).
+3. The `Gelalucci` row has **not** been traced to either bad Overture source data or our ingest
+   (`docs/evidence/places/ingest-overture-city-extract.py`).
+
+#### If the answer is "not worth it"
+
+Close the branch rather than leaving it to rot, and keep §5.5 in this document as the recorded
+defect. The geocode script and its output are useful independently and can be kept.
 
 ### 10.2 Renormalise the blend when a provider publishes no confidence
 
@@ -410,6 +463,9 @@ work between branches use `git checkout -b <new> <base>` (the working tree carri
 either from scratch.**
 
 ### 11.2 Branches and PRs
+
+- **`fix/corpus-distance-assertion`** — this session's paused work-in-progress, **pushed with no
+  PR, do not merge as-is**. §10.1 has the full state and the question to answer first.
 
 - **PR #22** (`docs/tel-aviv-scope-narrowing`, open since 2026-08-24) is **pre-existing and not
   this session's**. Leave it alone unless the owner asks.
