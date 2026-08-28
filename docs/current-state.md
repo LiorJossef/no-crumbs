@@ -1,6 +1,20 @@
 # Current state — cold-start document
 
 ---
+> ## ⚠ LATEST — read [`handoff-2026-08-28-categories-and-the-picker.md`](handoff-2026-08-28-categories-and-the-picker.md) FIRST
+>
+> Supersedes the §10 priority order of the Google-Places handoff below (which is still correct about
+> the resolver, the ToS gate and the quota). Landed: the **RTL text plugin** — every Hebrew label on
+> the basemap was rendering backwards — and a **`ProductCategory` vocabulary** that finally reads
+> `places.provider_category`, so a gelateria stops being filed as "Shop".
+>
+> **The next piece of work is the owner's ruling on the candidate picker** (§3 there): we ask
+> "Needs your pick" between two rows at the same address when name, category, address and a 0.31
+> margin all agree — because `datasetConfidence` 0.295 vetoed the gate. Treat it as a general
+> product + recognition problem, not a scoring tweak. A measurement of three weightings was in
+> flight and did not return; re-run it, and check TLV-14 before shipping anything.
+
+---
 > ## ⚠ LATEST — read [`handoff-2026-08-28-google-places-primary.md`](handoff-2026-08-28-google-places-primary.md) FIRST
 >
 > It supersedes the ordered steps in every earlier handoff. Headline: **Google Places is now the
