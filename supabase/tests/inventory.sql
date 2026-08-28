@@ -190,12 +190,14 @@ begin
     -- delete their own membership row, leaving a collection whose one-owner index points at nothing.
     -- The UPDATE pair reads OLD in the qual and NEW in the with_check, which is how a single policy
     -- forbids both demoting the owner and minting a second one.
+    -- `0026`: both quals gained `removed_at is null`, and the DELETE policy is GONE — ending a
+    -- membership is `end_collection_membership` (definer) and the DELETE grant is revoked, because
+    -- with it a removed member could delete their own tombstone and rejoin as a stranger. If a
+    -- DELETE policy on this table ever reappears here, that hole has been reopened.
     ('collection_members','collection_members_select_member','SELECT','authenticated',
-       '(collection_role(collection_id) is not null)',''),
+       '((removed_at is null) and (collection_role(collection_id) is not null))',''),
     ('collection_members','collection_members_update_by_owner','UPDATE','authenticated',
-       '((collection_role(collection_id) = ''owner''::text) and (role <> ''owner''::text))','((collection_role(collection_id) = ''owner''::text) and (role = any (array[''editor''::text, ''viewer''::text])))'),
-    ('collection_members','collection_members_delete_self_or_by_owner','DELETE','authenticated',
-       '((role <> ''owner''::text) and ((user_id = (select auth.uid())) or (collection_role(collection_id) = ''owner''::text)))',''),
+       '((collection_role(collection_id) = ''owner''::text) and (role <> ''owner''::text) and (removed_at is null))','((collection_role(collection_id) = ''owner''::text) and (role = any (array[''editor''::text, ''viewer''::text])))'),
 
     -- collection_items. The INSERT with_check has three conjuncts and the saved_places EXISTS is
     -- the one that bounds the whole feature: without it a user could point an item at ANY row of
@@ -346,7 +348,11 @@ begin
     -- gen_random_uuid()'s, which is how a share link becomes guessable. There is no table-level
     -- UPDATE either, for the same reason it is absent on saved_places.
     ('collections','SELECT'), ('collections','DELETE'),
-    ('collection_members','SELECT'), ('collection_members','DELETE'),
+    -- SELECT only since `0026`. `authenticated` holds NO INSERT, NO DELETE and no row-level UPDATE
+    -- grant on this table at all: membership is created by a trigger or `join_collection_via_token`
+    -- and ended by `end_collection_membership`, all SECURITY DEFINER. A DELETE reappearing in this
+    -- list means a removed member can delete their own tombstone and rejoin as a stranger.
+    ('collection_members','SELECT'),
     ('collection_items','SELECT'), ('collection_items','DELETE'),
     ('collection_invites','SELECT'), ('collection_invites','DELETE')
     -- deliberately absent: every write on sources/extractions/places/place_provider_refs (global
@@ -623,7 +629,13 @@ begin
     -- and that is a decision, not an oversight: an anon-callable preview would be an
     -- unauthenticated, token-guessable read of a real person''s collection name and display name.
     ('join_collection_via_token','authenticated'),
-    ('preview_collection_invite','authenticated')
+    ('preview_collection_invite','authenticated'),
+    -- `0026`. `end_collection_membership` replaces the DELETE grant this file no longer expects;
+    -- the other two are the owner's only way back from a removal, since rule 3 of the join function
+    -- is absolute and the tombstones are invisible through the table itself.
+    ('end_collection_membership','authenticated'),
+    ('collection_removed_members','authenticated'),
+    ('restore_collection_membership','authenticated')
     -- add_collection_owner_membership (0024) is NOT here, deliberately. It is a SECURITY DEFINER
     -- function that writes membership rows, and it is invoked by the executor as a trigger, which
     -- needs no EXECUTE grant (0009's claim, asserted behaviourally by P4b in 0008_policy_tests.sql

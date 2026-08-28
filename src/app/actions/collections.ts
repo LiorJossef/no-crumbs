@@ -401,7 +401,13 @@ export async function joinCollection(token: string): Promise<JoinResult> {
 
   if (error || typeof data !== 'string') {
     console.error('joinCollection failed', { code: error?.code });
-    return { ok: false, message: 'That invite link is no longer valid. Ask for a new one.' };
+    // `PT403` is the one refusal that is safe to distinguish: it can only be reached by somebody
+    // holding a live token who *was* a member of that exact collection, so it tells them something
+    // they already know. Every other failure keeps the uniform message — a caller who could tell
+    // an unknown token from a revoked one could enumerate which tokens ever existed.
+    return error?.code === 'PT403'
+      ? { ok: false, message: 'You are no longer in this collection. Ask the owner to add you back.' }
+      : { ok: false, message: 'That invite link is no longer valid. Ask for a new one.' };
   }
 
   revalidatePath('/collections');
@@ -437,9 +443,25 @@ export async function updateMemberRole(
 /**
  * Removes a member, or — when `userId` is the caller — leaves the collection.
  *
- * One function for both because it is one policy: `role <> 'owner' and (it's you, or you own the
- * collection)`. The owner cannot be removed and cannot leave; their exit is deleting the
- * collection, which is a different and louder act.
+ * One function for both because it is one rule: leaving is allowed for any non-owner, removing
+ * someone else needs ownership, and the owner's own row can be ended by nobody. Their exit is
+ * deleting the collection, which is a different and louder act.
+ *
+ * ## Why this is an RPC and not a DELETE
+ *
+ * It was a DELETE, and an independent security review broke it: the owner removed a member, the
+ * member clicked the same invite link, and they were back in. `on conflict do nothing` only
+ * protects while a row exists to conflict with, and the removal deleted exactly that row. The same
+ * hole escalated — an editor demoted to viewer could leave and re-click their original editor link.
+ *
+ * So a membership now **ends** rather than being deleted (`0026`), and the DELETE grant on
+ * `collection_members` is gone entirely — which matters, because with it a removed member could
+ * delete their own tombstone and rejoin as a stranger. The tombstone and the revoked grant are one
+ * control, not two.
+ *
+ * Every refusal comes back as the same `42501`, deliberately: "you are not the owner", "there is no
+ * such member" and "that collection does not exist" are three different facts about a collection
+ * the caller may have no access to at all.
  */
 export async function removeMember(
   collectionId: string,
@@ -448,17 +470,15 @@ export async function removeMember(
   const supabase = await createClient();
   if (!(await currentUserId())) return { ok: false, message: NOT_SIGNED_IN };
 
-  const { error, count } = await supabase
-    .from('collection_members')
-    .delete({ count: 'exact' })
-    .eq('collection_id', collectionId)
-    .eq('user_id', userId);
+  const { error } = await supabase.rpc('end_collection_membership', {
+    p_collection: collectionId,
+    p_user: userId,
+  });
 
   if (error) {
     console.error('removeMember failed', { collectionId, code: error.code });
     return { ok: false, message: NO_ACCESS };
   }
-  if (count === 0) return { ok: false, message: NO_ACCESS };
 
   revalidatePath('/collections');
   revalidatePath(`/collections/${collectionId}`);

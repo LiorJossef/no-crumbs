@@ -480,10 +480,22 @@ begin
      and user_id = current_setting('c24.b')::uuid;
   if found then raise exception 'FAIL C7a: an editor promoted themselves to owner'; end if;
 
-  delete from public.collection_members
-   where collection_id = current_setting('c24.coll')::uuid
-     and user_id = current_setting('c24.a')::uuid;
-  if found then raise exception 'FAIL C7a: an editor deleted the owner''s membership row'; end if;
+  -- `0026` revoked the DELETE grant entirely and moved ending a membership into
+  -- `end_collection_membership`, so this refusal is now a privilege denial rather than a zero-row
+  -- RLS match — strictly stronger, and checked as such: a bare DELETE must not even be expressible.
+  begin
+    delete from public.collection_members
+     where collection_id = current_setting('c24.coll')::uuid
+       and user_id = current_setting('c24.a')::uuid;
+    raise exception 'FAIL C7a: DELETE on collection_members is still granted to authenticated';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.end_collection_membership(current_setting('c24.coll')::uuid,
+                                             current_setting('c24.a')::uuid);
+    raise exception 'FAIL C7a: an editor removed the owner';
+  exception when insufficient_privilege then null;
+  end;
 
   select count(*) into n from public.collection_invites
    where collection_id = current_setting('c24.coll')::uuid;
@@ -536,20 +548,25 @@ end $$;
 do $$
 declare n integer;
 begin
-  delete from public.collection_members
-   where collection_id = current_setting('c24.coll')::uuid
-     and user_id = current_setting('c24.c')::uuid;
-  if not found then raise exception 'FAIL C3b-ii: a viewer could not leave the collection'; end if;
+  -- Leaving is `end_collection_membership` on yourself since `0026`; the DELETE grant is gone.
+  perform public.end_collection_membership(current_setting('c24.coll')::uuid,
+                                           current_setting('c24.c')::uuid);
+  if public.collection_role(current_setting('c24.coll')::uuid) is not null then
+    raise exception 'FAIL C3b-ii: a viewer could not leave the collection';
+  end if;
   select count(*) into n from public.collections where id = current_setting('c24.coll')::uuid;
   if n <> 0 then raise exception 'FAIL C3b-ii: after leaving, C can still read the collection'; end if;
   raise notice 'PASS C3b-ii a member can leave, and loses their read the moment they do';
 end $$;
 
 -- Put C back, as the privileged role, so the C2/C8 assertions below have a stable member count.
+-- An UPDATE rather than an INSERT since `0026`: leaving leaves the row in place as a tombstone, so
+-- there is nothing to insert — which is the whole point of the migration.
 reset role;
-insert into public.collection_members (collection_id, user_id, role, invited_by)
-values (current_setting('c24.coll')::uuid, current_setting('c24.c')::uuid, 'viewer',
-        current_setting('c24.a')::uuid);
+update public.collection_members
+   set removed_at = null, removed_by = null
+ where collection_id = current_setting('c24.coll')::uuid
+   and user_id = current_setting('c24.c')::uuid;
 
 -- ── C2 / C3c / C6b: as the NON-MEMBER D ───────────────────────────────────────────────────────
 select set_config('request.jwt.claims',
@@ -674,12 +691,23 @@ set local role authenticated;
 
 do $$
 begin
-  -- C7b: the owner cannot delete their own membership row (the collection would be orphaned and
-  -- the partial unique index would point at nothing). They delete the collection instead.
-  delete from public.collection_members
-   where collection_id = current_setting('c24.coll')::uuid
-     and user_id = current_setting('c24.a')::uuid;
-  if found then raise exception 'FAIL C7b: the owner deleted their own membership row'; end if;
+  -- C7b: the owner cannot end their own membership (the collection would be orphaned and the
+  -- partial unique index would point at nothing). They delete the collection instead. Since `0026`
+  -- there are two refusals stacked here, and both are asserted: the DELETE grant is gone, and the
+  -- function that replaced it refuses the owner's row.
+  begin
+    delete from public.collection_members
+     where collection_id = current_setting('c24.coll')::uuid
+       and user_id = current_setting('c24.a')::uuid;
+    raise exception 'FAIL C7b: DELETE on collection_members is still granted to authenticated';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.end_collection_membership(current_setting('c24.coll')::uuid,
+                                             current_setting('c24.a')::uuid);
+    raise exception 'FAIL C7b: the owner ended their own membership row';
+  exception when insufficient_privilege then null;
+  end;
 
   -- C7c: nor demote themselves.
   update public.collection_members set role = 'viewer'
@@ -859,6 +887,232 @@ begin
     raise exception 'FAIL C8b: authenticated can execute add_collection_owner_membership — a definer membership writer is on the RPC surface';
   end if;
   raise notice 'PASS C8b add_collection_owner_membership is not executable by authenticated (trigger-only)';
+end $$;
+
+-- ── C10: a link never undoes a removal (0026) ─────────────────────────────────────────────────
+-- The two authorisation failures `docs/evidence/security/collections-rls-review-2026-08-29.md`
+-- found in 0024, and the reason `0026` exists. Both were reproduced here BEFORE the migration was
+-- written, and both of these blocks fail against a 0024-only database — which is the only thing
+-- that makes them evidence rather than decoration.
+--
+-- They run last because they permanently change B's and C's membership, and everything above needs
+-- both of them to be members.
+
+-- C10a (F2) — ESCALATION. A demotes B to viewer; B leaves, which is permitted; B re-clicks the
+-- EDITOR link they were originally sent. Under 0024, leaving deleted the row, so the redemption
+-- was rule 4 ("never a member") and handed B the invite's role back. B must come back a viewer.
+reset role;
+select set_config('request.jwt.claims',
+       '{"sub":"a0000000-0000-4000-8000-000000000024","role":"authenticated"}', true);
+set local role authenticated;
+
+update public.collection_members set role = 'viewer'
+ where collection_id = current_setting('c24.coll')::uuid
+   and user_id = current_setting('c24.b')::uuid;
+
+reset role;
+select set_config('request.jwt.claims',
+       '{"sub":"b0000000-0000-4000-8000-000000000024","role":"authenticated"}', true);
+set local role authenticated;
+
+do $$
+declare v_role text;
+begin
+  if public.collection_role(current_setting('c24.coll')::uuid) <> 'viewer' then
+    raise exception 'FAIL C10a setup: B was not demoted, so the escalation is untestable';
+  end if;
+
+  perform public.end_collection_membership(current_setting('c24.coll')::uuid,
+                                           current_setting('c24.b')::uuid);
+  if public.collection_role(current_setting('c24.coll')::uuid) is not null then
+    raise exception 'FAIL C10a: B left and is still a member';
+  end if;
+
+  perform public.join_collection_via_token(current_setting('c24.tok_live')::uuid);
+  v_role := public.collection_role(current_setting('c24.coll')::uuid);
+  if v_role <> 'viewer' then
+    raise exception 'FAIL C10a: a demoted member left and re-clicked the editor link and came back as % — the invite role must not be consulted for a returning member', v_role;
+  end if;
+  raise notice 'PASS C10a leaving and rejoining restores the role held at leaving, not the link''s';
+end $$;
+
+-- C10b (F1) — REMOVAL. A removes C; C re-clicks the viewer link. Under 0024 this put C straight
+-- back in with the shared `places` read restored. It must now be refused, and the refusal must be
+-- a DIFFERENT sqlstate from the uniform bad-token one (`22023`), because only somebody holding a
+-- live token who genuinely was a member can ever see it.
+reset role;
+select set_config('request.jwt.claims',
+       '{"sub":"a0000000-0000-4000-8000-000000000024","role":"authenticated"}', true);
+set local role authenticated;
+
+do $$
+begin
+  perform public.end_collection_membership(current_setting('c24.coll')::uuid,
+                                           current_setting('c24.c')::uuid);
+  -- The tombstone is invisible through the table, so the owner's own member list sheds C at once
+  -- and no query in src/ needs a `removed_at is null` filter added to stay correct.
+  if exists (select 1 from public.collection_members
+              where collection_id = current_setting('c24.coll')::uuid
+                and user_id = current_setting('c24.c')::uuid) then
+    raise exception 'FAIL C10b: a removed member is still visible in the owner''s member list';
+  end if;
+  raise notice 'PASS C10b-i removing a member hides them from the member list immediately';
+end $$;
+
+reset role;
+select set_config('request.jwt.claims',
+       '{"sub":"c0000000-0000-4000-8000-000000000024","role":"authenticated"}', true);
+set local role authenticated;
+
+do $$
+declare v_state text; v_places int;
+begin
+  if public.collection_role(current_setting('c24.coll')::uuid) is not null then
+    raise exception 'FAIL C10b: C still has a role after being removed';
+  end if;
+
+  -- The read the whole feature opens, gone in the same instant.
+  select count(*) into v_places from public.places where id = current_setting('c24.p_shared')::uuid;
+  if v_places <> 0 then
+    raise exception 'FAIL C10b: a removed member can still read the shared place row';
+  end if;
+
+  begin
+    perform public.join_collection_via_token(current_setting('c24.tok_viewer')::uuid);
+    raise exception 'FAIL C10b: a REMOVED member re-clicked the invite link and was let back in';
+  exception
+    when sqlstate 'PT403' then
+      raise notice 'PASS C10b a removed member is refused by the link, with a sqlstate of its own';
+    when others then
+      get stacked diagnostics v_state = returned_sqlstate;
+      raise exception 'FAIL C10b: expected PT403, got %', v_state;
+  end;
+end $$;
+
+-- C10c — the tombstone cannot be removed from the browser. Both halves matter and they are one
+-- control: without the revoked DELETE, a removed member deletes their own tombstone and rejoins as
+-- rule 4; without the ungrantable columns, they write `removed_at = null` directly.
+do $$
+begin
+  if has_table_privilege('authenticated', 'public.collection_members', 'delete') then
+    raise exception 'FAIL C10c: authenticated still holds DELETE on collection_members — a removed member can delete their own tombstone and rejoin as a stranger';
+  end if;
+  if has_column_privilege('authenticated', 'public.collection_members', 'removed_at', 'update')
+     or has_column_privilege('authenticated', 'public.collection_members', 'removed_by', 'update')
+     or has_column_privilege('authenticated', 'public.collection_members', 'removed_at', 'insert')
+     or has_column_privilege('authenticated', 'public.collection_members', 'removed_by', 'insert') then
+    raise exception 'FAIL C10c: the removal columns are writable by the client';
+  end if;
+  raise notice 'PASS C10c a removal cannot be undone from the client: no DELETE grant, and neither removal column is writable';
+end $$;
+
+-- C10d — the owner's row is still immovable, now through the function rather than a policy, and
+-- an ended member cannot end anybody's membership including their own tombstone.
+do $$
+declare v_state text;
+begin
+  begin
+    perform public.end_collection_membership(current_setting('c24.coll')::uuid,
+                                             current_setting('c24.c')::uuid);
+    raise exception 'FAIL C10d: a removed member could still call end_collection_membership';
+  exception
+    when sqlstate '42501' then null;
+    when others then
+      get stacked diagnostics v_state = returned_sqlstate;
+      raise exception 'FAIL C10d: expected 42501 from a removed caller, got %', v_state;
+  end;
+  raise notice 'PASS C10d-i an ended member cannot end a membership';
+end $$;
+
+reset role;
+select set_config('request.jwt.claims',
+       '{"sub":"a0000000-0000-4000-8000-000000000024","role":"authenticated"}', true);
+set local role authenticated;
+
+do $$
+declare v_state text;
+begin
+  begin
+    perform public.end_collection_membership(current_setting('c24.coll')::uuid,
+                                             current_setting('c24.a')::uuid);
+    raise exception 'FAIL C10d: the owner ended their own membership and orphaned the collection';
+  exception
+    when sqlstate '42501' then null;
+    when others then
+      get stacked diagnostics v_state = returned_sqlstate;
+      raise exception 'FAIL C10d: expected 42501 ending the owner''s row, got %', v_state;
+  end;
+  raise notice 'PASS C10d the owner''s membership still cannot be ended, by anyone';
+end $$;
+
+-- C10e — the owner's way back. Rule 3 is absolute, so without this a removal is a state the owner
+-- cannot get out of. Owner-only, and the role is the owner's choice rather than the old link's.
+do $$
+declare v_removed int; v_left boolean;
+begin
+  select count(*) into v_removed
+    from public.collection_removed_members(current_setting('c24.coll')::uuid);
+  if v_removed < 1 then
+    raise exception 'FAIL C10e: the owner cannot see who they removed, so a removal is a dead end';
+  end if;
+
+  select left_voluntarily into v_left
+    from public.collection_removed_members(current_setting('c24.coll')::uuid)
+   where user_id = current_setting('c24.c')::uuid;
+  if v_left is not false then
+    raise exception 'FAIL C10e: a removal is reported as a voluntary leave';
+  end if;
+
+  perform public.restore_collection_membership(current_setting('c24.coll')::uuid,
+                                               current_setting('c24.c')::uuid, 'editor');
+  raise notice 'PASS C10e the owner can see who they removed and put them back, at a role they choose';
+end $$;
+
+reset role;
+select set_config('request.jwt.claims',
+       '{"sub":"c0000000-0000-4000-8000-000000000024","role":"authenticated"}', true);
+set local role authenticated;
+
+do $$
+declare v_state text;
+begin
+  if public.collection_role(current_setting('c24.coll')::uuid) <> 'editor' then
+    raise exception 'FAIL C10e: C was not restored';
+  end if;
+
+  -- And a non-owner cannot use either of them, on any collection.
+  if (select count(*) from public.collection_removed_members(current_setting('c24.coll')::uuid)) <> 0 then
+    raise exception 'FAIL C10f: a non-owner can list a collection''s removed members';
+  end if;
+  begin
+    perform public.restore_collection_membership(current_setting('c24.coll')::uuid,
+                                                 current_setting('c24.b')::uuid, 'editor');
+    raise exception 'FAIL C10f: a non-owner restored a membership';
+  exception
+    when sqlstate '42501' then null;
+    when others then
+      get stacked diagnostics v_state = returned_sqlstate;
+      raise exception 'FAIL C10f: expected 42501, got %', v_state;
+  end;
+  raise notice 'PASS C10f neither restore path is reachable by a non-owner';
+end $$;
+
+-- C10g — after all of that, there is still exactly one owner, and the partial unique index counts
+-- only live rows (or a later ownership transfer would be refused by a tombstone).
+reset role;
+do $$
+declare v_owners int;
+begin
+  select count(*) into v_owners from public.collection_members
+   where collection_id = current_setting('c24.coll')::uuid
+     and role = 'owner' and removed_at is null;
+  if v_owners <> 1 then
+    raise exception 'FAIL C10g: % live owners after the removal cycle', v_owners;
+  end if;
+  if pg_get_indexdef('public.collection_members_one_owner_idx'::regclass) not like '%removed_at IS NULL%' then
+    raise exception 'FAIL C10g: the one-owner index still counts tombstones';
+  end if;
+  raise notice 'PASS C10g exactly one live owner, and the one-owner index ignores tombstones';
 end $$;
 
 reset role;
