@@ -33,6 +33,19 @@ export interface MapPlace {
   readonly note: string;
   readonly sourceUrl: string | undefined;
   /**
+   * Whether the user has said they have been here — `saved_places.visit_state = 'visited'`,
+   * flattened to a boolean at the route boundary.
+   *
+   * On the port rather than read off `detail` (the way `locality` is) because the **pin renderer
+   * genuinely needs it**: a place you have been to is drawn at reduced emphasis, which is a
+   * decision the symbol layer's paint expression makes per feature. `locality` stays on `detail`
+   * precisely because no map implementation has any use for it. Required rather than optional so a
+   * surface constructing a `MapPlace` has to answer the question rather than inherit `undefined`
+   * as a third state the schema does not have — the column is NOT NULL with a default, so there is
+   * always a true answer.
+   */
+  readonly visited: boolean;
+  /**
    * The full `Spot` this pin was built from, for the sheet/panel detail view
    * (`components/sheet/place-sheet.tsx`, `place-desktop-panel.tsx`). Optional and carried
    * end-to-end without being read: neither `MapSurface` (this port's real consumer) nor its three

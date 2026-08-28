@@ -204,6 +204,48 @@ export function pinIconImageExpression(selectedId: string | null): unknown[] {
   ];
 }
 
+/**
+ * How much of a pin is left once you have been there.
+ *
+ * The constraint is that a place you have been to must stay a *normal pin* — same category colour,
+ * same glyph, same tap target — so the only lever is emphasis
+ * (`product-ruling-after-the-save.md` §6.2 criterion 9). Seven category colours already carry
+ * meaning on this map and an eighth hue for "been" would compete with all of them; opacity does
+ * not, because it reads as *quieter*, not as *different*.
+ *
+ * 0.45 rather than something gentler: measured against CARTO Positron, a mint or brown pin at 0.7
+ * is indistinguishable from a full-strength one at arm's length on a phone, and the whole point is
+ * that a glance at the map should separate what is left to do from what is done. 0.45 is still
+ * comfortably above the basemap's own label ink, so the pin never reads as disabled or as a
+ * rendering artefact — it is quiet, not gone.
+ *
+ * `icon-opacity` and `text-opacity` are compositor-side, per-feature paint properties: the layer
+ * re-evaluates them when the source data changes and never re-lays-out or re-collides the symbols,
+ * so a mark costs no relayout of the map.
+ */
+export const VISITED_PIN_OPACITY = 0.45;
+
+/** The name label under a visited pin, one notch less faded than the pin — at 0.45 an 12 px label
+ *  with a halo starts to disappear into the basemap, and a nameless pin is a worse answer than a
+ *  quiet one. */
+export const VISITED_LABEL_OPACITY = 0.55;
+
+/**
+ * Paint opacity for the unclustered pin layer: full strength, reduced for a place you have been to.
+ *
+ * A plain data-driven `case` on the feature's own property, so nothing needs to be re-pushed when a
+ * mark changes — `revalidatePath('/map')` refreshes `places`, `toPlaceFeatures` rebuilds the
+ * collection, `setData` lands it, and the expression re-evaluates on the new property.
+ *
+ * `to-boolean` rather than a bare `['get', 'visited']`: an older feature written before this
+ * property existed would `get` `null`, and MapLibre's `case` requires a boolean condition — a
+ * failed condition drops the whole paint property, which would fade *every* pin. `to-boolean`
+ * makes `null` false, which is also the honest default.
+ */
+export function pinOpacityExpression(visitedOpacity = VISITED_PIN_OPACITY): unknown[] {
+  return ['case', ['to-boolean', ['get', 'visited']], visitedOpacity, 1];
+}
+
 /** Draw the selected pin last, so its larger body is never covered by a neighbour. Same `null`
  *  caveat as `pinIconImageExpression`. */
 export function pinSortKeyExpression(selectedId: string | null): unknown[] | number {

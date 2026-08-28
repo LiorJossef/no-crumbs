@@ -14,6 +14,9 @@ export interface PlaceFeatureProperties {
   readonly name: string;
   /** Always a category the palette has a pin for; see `normaliseCategory`. */
   readonly category: ProductCategory;
+  /** Whether the user has been here. Drives `pinOpacityExpression` — a place you have been to is
+   *  the same pin at reduced emphasis, never a different colour and never a missing feature. */
+  readonly visited: boolean;
 }
 
 export type PlaceFeatureCollection = GeoJSON.FeatureCollection<
@@ -41,6 +44,7 @@ export function toPlaceFeatures(places: readonly MapPlace[]): PlaceFeatureCollec
         id: place.id,
         name: place.name,
         category: normaliseCategory(place.category),
+        visited: place.visited,
       },
     })),
   };

@@ -27,7 +27,9 @@ import {
   clusterTextSizeExpression,
   pinGeometry,
   pinIconImageExpression,
+  pinOpacityExpression,
   pinSortKeyExpression,
+  VISITED_LABEL_OPACITY,
 } from './marker-style';
 import type { PlaceFeatureCollection } from './place-features';
 import { useStyleReady } from './use-style-ready';
@@ -191,6 +193,11 @@ export function PlaceMarkerLayer({ data, selectedId, onPlaceClick }: PlaceMarker
         'text-color': '#1B1B1A',
         'text-halo-color': '#FAF9F6',
         'text-halo-width': 1.6,
+        // A place you have been to is the same pin, quieter — see `pinOpacityExpression`. Both are
+        // per-feature paint properties, so a mark re-evaluates them on the next `setData` without
+        // touching placement or collision; nothing here re-lays-out the map.
+        'icon-opacity': pinOpacityExpression() as never,
+        'text-opacity': pinOpacityExpression(VISITED_LABEL_OPACITY) as never,
       },
     });
 
