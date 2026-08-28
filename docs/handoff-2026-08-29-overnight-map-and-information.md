@@ -206,4 +206,10 @@ Still open from before and untouched: **the product name**.
   `country_code IL`, English tags, three Hebrew dishes) made by driving the real import flow.
 - The 3× `HaKosem` and 2× `La Nonna Brixton` rows are **left in place deliberately** — deleting
   rows is destructive and they are the evidence for §3.1.
+- **The older rows still show pre-p11 enrichment**, and that is expected rather than the fix not
+  working. `האחים` still carries `בקר / מאפים / חצר` because nothing re-extracts a saved row.
+  Backfilling would overwrite existing `tags` / `why_go` / `dishes` — including the hand-written
+  fixture sentences on Anat Bakery and Kiaans — and spend ~11 model calls, so it is a data decision
+  for you, not one to take overnight. The one row saved tonight through the real flow
+  (`Kohi Coffee Shop`) is what p11 output looks like.
 - `docs/evidence/places/tiktok-recognition.md` and `-run.json` are rewritten to the p11 run.
