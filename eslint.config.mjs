@@ -112,7 +112,10 @@ const integrationsZone = {
 };
 
 export default tseslint.config(
-  { ignores: ['.next/**', 'node_modules/**', 'coverage/**', 'playwright-report/**', 'test-results/**', 'next-env.d.ts', 'docs/evidence/**', 'supabase/.temp/**', 'supabase/.branches/**'] },
+  { ignores: ['.next/**', 'node_modules/**', 'coverage/**', 'playwright-report/**', 'test-results/**', 'next-env.d.ts', 'docs/evidence/**', 'supabase/.temp/**', 'supabase/.branches/**',
+      // Third-party, minified, redistributed verbatim under its own licence. Linting a vendored
+      // bundle tells us nothing we can act on — we do not own the source (`src/components/map/rtl-text.ts`).
+      'public/vendor/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   ...next,

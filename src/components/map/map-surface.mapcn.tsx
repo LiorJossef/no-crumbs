@@ -65,6 +65,12 @@ import { LG_BREAKPOINT_PX, mapOcclusionInsets, queryRectFrom } from './query-rec
 import { BasemapTint } from './basemap-tint-layer';
 import { toPlaceFeatures } from './place-features';
 import { PlaceMarkerLayer } from './place-marker-layer';
+import { ensureRtlTextPlugin } from './rtl-text';
+
+// Called at module scope, not in an effect. MapLibre applies the plugin when a tile's glyphs are
+// first shaped, so it has to be in place before any `Map` is constructed — an effect in this
+// component runs after `MapcnMap` has already created one.
+ensureRtlTextPlugin();
 
 /**
  * The initial camera must *frame* every fixture place, not center on the average of their
