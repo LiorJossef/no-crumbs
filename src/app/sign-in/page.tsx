@@ -15,6 +15,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Loader2 } from 'lucide-react';
 import type { AuthError } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
+import { safeReturnPath } from '@/domain/auth/return-path';
 import { PinMark } from '@/components/brand/pin-mark';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -98,7 +99,16 @@ export default function SignInPage() {
       }
     }
 
-    router.push('/map');
+    // A collection invite link sends a signed-out visitor here with `?next=`, and dumping them on
+    // the map afterwards loses the thing they were invited to unless the link is still in their
+    // clipboard. `safeReturnPath` is an allow-list of path shapes, not a same-origin check — see
+    // its header for why the sign-in page is the worst page in a product to leave open.
+    // Read off `location` rather than through `useSearchParams`: this value is wanted once, at
+    // submit time, on the client — and the hook would force this statically-rendered route into a
+    // Suspense boundary (or fail the production build) for a string we can already see.
+    router.push(
+      safeReturnPath(new URLSearchParams(window.location.search).get('next')) as '/map',
+    );
     router.refresh();
   }
 
