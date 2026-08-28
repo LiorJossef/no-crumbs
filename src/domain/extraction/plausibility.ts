@@ -28,14 +28,23 @@ export type PlausibilityDropReason =
   | 'duplicate';
 
 /**
- * A `#`-prefixed candidate that survives the other rules is kept, not dropped — a real venue can
- * appear only as a hashtag in a caption (`#aroma` for the Aroma cafe chain) and there is no way to
- * tell that apart from a fake one (`#tsukijifishmarket`) from caption text alone (measured against
- * `gemma4:e4b`). Instead its confidence is capped here so nothing downstream — today just the
- * stored row, once the resolver's confidence bands exist — can treat an uncorroborated hashtag as
- * more trustworthy than this. Deliberately not the full corroboration/near-duplicate design (a
- * `#cafefiori` that also appears as prose "Cafe Fiori" gets no credit for that yet); this is the
- * narrow interim rule only.
+ * A candidate whose only evidence is a hashtag survives the other rules and is **kept**, not
+ * dropped — its confidence is capped here instead, and `isHashtagOnlyEvidence` below is what the
+ * review screen states in words ("Only mentioned in a hashtag").
+ *
+ * **Keeping it is a measured decision, not a hedge.** Across 129 real cached captions (the
+ * `corpus-100` set plus E7), venues that appear *only* inside a hashtag are common in exactly the
+ * Hebrew Tel Aviv content this product targets — `#LaLaLand`, `#הריםבייקרי` ("Harim Bakery", whose
+ * caption's prose says only "new cafe!! in Tower of David Jerusalem"), `#שוקהכרמל`, `#איטמי`.
+ * Dropping the class would cost every one of those. Nor is there a non-arbitrary way to separate
+ * them from junk by caption shape: hashtag counts over those 129 captions run 0 → 30 with no
+ * cliff (0 tags 9, 1 tag 5, 3 tags 16, 5 tags 23, 10 tags 11, 30 tags 1), so any "trailing tag
+ * block bigger than N is SEO salad" threshold would be a number invented to fit one specimen.
+ *
+ * So the line is: **a hashtag is weak evidence, not absent evidence.** Keep the candidate, cap it,
+ * and say so on screen. What that costs is that `#tsukijifishmarket` still reaches the review
+ * list — as a labelled, capped candidate the user can reject, rather than as the confident find it
+ * used to be.
  */
 const HASHTAG_ONLY_CONFIDENCE_CEILING = 0.5;
 
@@ -80,8 +89,78 @@ function isHandleOrUrl(rawName: string): boolean {
   return false;
 }
 
-function isHashtagOnly(rawName: string): boolean {
-  return rawName.trim().startsWith('#');
+/**
+ * Every `#tag` token in a caption. A tag runs to the next whitespace or the next `#`, so
+ * `#a#b` is two tags and `#tel aviv` is the tag `#tel` followed by prose.
+ */
+const HASHTAG_TOKEN = /#[^\s#]+/gu;
+
+/**
+ * Letters and digits only, lowercased, everything else removed — so `#tsukijifishmarket`,
+ * `tsukijifishmarket` and `Tsukiji Fish Market` all reduce to the same string.
+ *
+ * The aggressiveness is the point, and it is what `normaliseForComparison` deliberately does not
+ * do (that one keeps word boundaries, because the rules using it care about words). Here the
+ * enemy is precisely the model's freedom over `#`, spacing and casing when it copies a tag, so
+ * every one of those has to stop mattering.
+ */
+function tightenForTagMatch(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/gu, '')
+    .replace(/[^\p{L}\p{N}]/gu, '');
+}
+
+/**
+ * Is a hashtag the **only** thing in this caption that evidences the candidate?
+ *
+ * This replaces a test on the candidate's own spelling — `rawName.trim().startsWith('#')` — and
+ * that replacement is the whole fix. **The old test never fired on the case that motivated it.**
+ * On @nom_life's post (`7220925199297039662`), a caption of one sentence plus 28 tags, the model
+ * returned `rawName: "tsukijifishmarket"` — the tag with its `#` stripped — at
+ * `modelConfidence: 0.95`. `startsWith('#')` was false, so neither the confidence cap nor the
+ * review screen's "Only mentioned in a hashtag" notice applied, and a topic tag sitting between
+ * `#totoro` and `#studioghibli` reached the user as an ordinary confident result. It resolves
+ * cleanly, too, because Tsukiji Fish Market is real — nothing downstream could have caught it.
+ * The prompt asked for the `#` (`integrations/llm/prompt.ts`) and the model did not supply it, and
+ * a guard that depends on the model formatting its answer correctly is not a guard.
+ *
+ * So the question asked here is about the **caption**, not about the candidate's spelling:
+ * strip every `#tag` token out of the caption to leave the prose, then ask where the name is
+ * findable. Tag but not prose → hashtag-only. In prose → corroborated, full confidence, no label,
+ * regardless of whether a tag happens to repeat it. That is the "the hashtag is the only evidence"
+ * / "a hashtag agrees with the prose" line the rule has to draw, and drawing it on the caption
+ * makes it immune to how the model chose to write `rawName`.
+ *
+ * `evidence` is tested as a second route because tight matching is within-script: when the model
+ * segments and transliterates a tag (`#נומיכפרמונש` → `"Nomi Kfar Monash"`, which the prompt asks
+ * for), the name no longer tightens into the Hebrew tag, but the verbatim `evidence` quote still
+ * does.
+ */
+export function isHashtagOnlyEvidence(
+  caption: string,
+  rawName: string,
+  evidence: string | null,
+): boolean {
+  const tags = caption.match(HASHTAG_TOKEN) ?? [];
+  if (tags.length === 0) return false;
+
+  // Split rather than replace-with-a-space: tightening removes whitespace, so joining the prose
+  // either side of a removed tag into one string would let a name match across the seam and be
+  // wrongly read as prose-corroborated — a false negative in the unsafe direction.
+  const proseSegments = caption.split(HASHTAG_TOKEN).map(tightenForTagMatch);
+  const tightTags = tags.map(tightenForTagMatch);
+
+  const onlyInTag = (value: string): boolean => {
+    const tight = tightenForTagMatch(value);
+    if (tight === '') return false;
+    if (proseSegments.some((segment) => segment.includes(tight))) return false;
+    return tightTags.some((tag) => tag.includes(tight));
+  };
+
+  if (onlyInTag(rawName)) return true;
+  return evidence !== null && onlyInTag(evidence);
 }
 
 function isCityOrCountryOnly(rawName: string, cityHint: string | null, countryHint: string | null): boolean {
@@ -209,7 +288,11 @@ export function filterPlausible<T extends PlaceCandidate>(
       continue;
     }
     seen.add(key);
-    if (isHashtagOnly(candidate.rawName) && candidate.modelConfidence !== null && candidate.modelConfidence > HASHTAG_ONLY_CONFIDENCE_CEILING) {
+    if (
+      isHashtagOnlyEvidence(caption, candidate.rawName, candidate.evidence) &&
+      candidate.modelConfidence !== null &&
+      candidate.modelConfidence > HASHTAG_ONLY_CONFIDENCE_CEILING
+    ) {
       // `{ ...candidate, modelConfidence }` is a `T` at runtime — every other property is copied
       // — but TypeScript cannot prove a spread-plus-override of a generic is still that generic,
       // so the assertion states what the spread guarantees. The only alternative is dropping the

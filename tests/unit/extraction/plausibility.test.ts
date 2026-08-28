@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { evidenceFoundInCaption, filterPlausible } from '@/domain/extraction/plausibility';
+import {
+  evidenceFoundInCaption,
+  filterPlausible,
+  isHashtagOnlyEvidence,
+} from '@/domain/extraction/plausibility';
 import type { PlaceCandidate } from '@/domain/types';
 
 function candidate(overrides: Partial<PlaceCandidate>): PlaceCandidate {
@@ -58,7 +62,12 @@ describe('filterPlausible', () => {
   });
 
   it('keeps a hashtag-shaped plausible venue name, capping confidence even when the model reported higher', () => {
-    const result = filterPlausible([candidate({ rawName: '#aroma', modelConfidence: 0.9 })], 'anything');
+    // The caption has to actually contain the tag now: the rule asks where the name is findable in
+    // the caption, not how the model spelled `rawName` (see `isHashtagOnlyEvidence`).
+    const result = filterPlausible(
+      [candidate({ rawName: '#aroma', modelConfidence: 0.9 })],
+      'morning coffee run #aroma',
+    );
     expect(result.kept).toHaveLength(1);
     expect(result.kept[0]?.modelConfidence).toBe(0.5);
   });
@@ -210,5 +219,134 @@ describe('filterPlausible', () => {
       caption,
     );
     expect(result.kept.map((c) => c.rawName)).toEqual(['Cafe Fiori', 'Bar Kaymak', 'Anzu Bakery']);
+  });
+});
+
+/**
+ * RICH-EXT-2. The candidate this rule exists for, and the two real captions that say why it caps
+ * rather than drops.
+ *
+ * `NOM_LIFE_CAPTION` is the verbatim caption of TikTok `7220925199297039662` (@nom_life), cached in
+ * `docs/evidence/tiktok/oembed-set1-raw.json`. The candidate beneath it is the verbatim output of a
+ * real `gemini-3.5-flash-lite` call on 2026-08-28, recorded in
+ * `docs/evidence/extraction/raw/caption-sufficiency-trigger-live-2026-08-28.json`. One sample, so
+ * it is pinned as a fixture and no rate is claimed from it.
+ */
+const NOM_LIFE_CAPTION =
+  'our full list of #tokyorestaurant recs! hard to have everything on one list, but this is a good ' +
+  'jumping off point! 😉 what are you eating first? 🍣🍜🍨 #japanesefood #japan #japanrecs ' +
+  '#japantravel #japantiktok #japanlife #tokyo #tokyofood #japantok #japantrip #udon ' +
+  '#tsukijifishmarket #tsukjimarket #tsukijioutermarket #japanthings #japanfood #japanfoodies ' +
+  '#asiatravel #asiantiktok #japantraveltips #japantips #totoro #ghibli #studioghibli ' +
+  '#hayaomiyazaki #sushi #omakase #foodtok #foodtiktok ';
+
+/** Real caption, TikTok `7335105363756240174` (@raquelhutt). The venue exists only as a tag, and
+ *  it is a real Tel Aviv restaurant — the reason this class is capped and not dropped. */
+const LA_LA_LAND_CAPTION = 'One of my FAV restaurants in TLV 🇮🇱💙 #LaLaLand ';
+
+describe('isHashtagOnlyEvidence — the hashtag-as-a-place regression (RICH-EXT-2)', () => {
+  it('fires when the model strips the "#" it was asked to keep — the @nom_life defect', () => {
+    // This is the whole bug. `rawName.trim().startsWith('#')` returned false for this exact string,
+    // so the cap and the review screen's "Only mentioned in a hashtag" notice both stayed silent.
+    expect(isHashtagOnlyEvidence(NOM_LIFE_CAPTION, 'tsukijifishmarket', null)).toBe(true);
+  });
+
+  it('caps the @nom_life candidate end to end instead of letting 0.95 through', () => {
+    const result = filterPlausible(
+      [
+        candidate({
+          rawName: 'tsukijifishmarket',
+          cityHint: 'Tokyo',
+          modelConfidence: 0.95,
+          evidence: '#tsukijifishmarket',
+        }),
+      ],
+      NOM_LIFE_CAPTION,
+    );
+    // Kept, not dropped: capping is the measured decision (see `HASHTAG_ONLY_CONFIDENCE_CEILING`).
+    expect(result.kept).toHaveLength(1);
+    expect(result.kept[0]?.modelConfidence).toBe(0.5);
+  });
+
+  it('still fires when the model keeps the "#"', () => {
+    expect(isHashtagOnlyEvidence(NOM_LIFE_CAPTION, '#tsukijifishmarket', null)).toBe(true);
+  });
+
+  it('still fires when the model segments the run-together tag into words', () => {
+    // `tightenForTagMatch` removes spaces on both sides, so "Tsukiji Fish Market" and
+    // "#tsukijifishmarket" are the same string by the time they are compared.
+    expect(isHashtagOnlyEvidence(NOM_LIFE_CAPTION, 'Tsukiji Fish Market', null)).toBe(true);
+  });
+
+  it('fires on the real tag-only venue too — which is why the rule caps rather than drops', () => {
+    expect(isHashtagOnlyEvidence(LA_LA_LAND_CAPTION, 'La La Land', null)).toBe(true);
+  });
+
+  it('keeps the real tag-only venue rather than dropping it', () => {
+    const result = filterPlausible(
+      [candidate({ rawName: '#LaLaLand', modelConfidence: 0.9, evidence: '#LaLaLand' })],
+      LA_LA_LAND_CAPTION,
+    );
+    expect(result.kept).toHaveLength(1);
+    expect(result.kept[0]?.modelConfidence).toBe(0.5);
+  });
+
+  it('does NOT fire when the prose names the venue and a hashtag merely agrees with it', () => {
+    // The "do not over-collapse" line: a tag that corroborates prose is corroboration, not the
+    // only evidence, and the candidate keeps its full confidence and shows no hashtag notice.
+    const caption = 'Cafe Fiori 📍 Yom Tov St 20, Tel Aviv-Yafo #cafefiori #telaviv';
+    expect(isHashtagOnlyEvidence(caption, 'Cafe Fiori', 'Cafe Fiori')).toBe(false);
+    const result = filterPlausible(
+      [candidate({ rawName: 'Cafe Fiori', evidence: 'Cafe Fiori', modelConfidence: 0.95 })],
+      caption,
+    );
+    expect(result.kept[0]?.modelConfidence).toBe(0.95);
+  });
+
+  it('does not fire on a caption with no hashtags at all', () => {
+    expect(isHashtagOnlyEvidence('Nomena Roasters, on Allenby Street', 'Nomena Roasters', null)).toBe(
+      false,
+    );
+  });
+
+  it('does not fire on a name the caption never contains — that is a different rule\'s job', () => {
+    // Ungrounded names are `evidence_not_in_caption`'s business. This rule answers only "is the
+    // evidence a tag", and must return false rather than guessing.
+    expect(isHashtagOnlyEvidence(NOM_LIFE_CAPTION, 'Simhovich Cafe', null)).toBe(false);
+  });
+
+  it('reaches the verdict through `evidence` when the name was transliterated out of its script', () => {
+    // `#נומיכפרמונש` → "Nomi Kfar Monash" is exactly what the prompt asks the model to do, and the
+    // Latin name cannot tighten into the Hebrew tag. The verbatim evidence quote still can.
+    const caption = 'עגלת קפה מעולה #נומיכפרמונש #עגלתקפה';
+    expect(isHashtagOnlyEvidence(caption, 'Nomi Kfar Monash', '#נומיכפרמונש')).toBe(true);
+  });
+
+  it('fires on a Hebrew tag-only venue named nowhere in the prose', () => {
+    // Real caption, TikTok cached in corpus-100: the prose says only "new cafe!! in Tower of David
+    // Jerusalem" and the bakery's name is a tag.
+    const caption = 'בית קפה חדש!! במגדל דוד ירושלים 😍 #הריםבייקרי #כשר #ביתקפה';
+    expect(isHashtagOnlyEvidence(caption, '#הריםבייקרי', null)).toBe(true);
+  });
+
+  it('does not fire on a Hebrew venue the prose names, tag or no tag', () => {
+    const caption = 'תכירו את קפה פוסלסקי, בית קפה קטן ומשפחתי בחיפה #קפהפוסלסקי';
+    expect(isHashtagOnlyEvidence(caption, 'קפה פוסלסקי', null)).toBe(false);
+  });
+
+  it('leaves an already-low model confidence alone rather than raising it to the ceiling', () => {
+    const result = filterPlausible(
+      [candidate({ rawName: 'tsukijifishmarket', modelConfidence: 0.2 })],
+      NOM_LIFE_CAPTION,
+    );
+    expect(result.kept[0]?.modelConfidence).toBe(0.2);
+  });
+
+  it('leaves a null model confidence null', () => {
+    const result = filterPlausible(
+      [candidate({ rawName: 'tsukijifishmarket', modelConfidence: null })],
+      NOM_LIFE_CAPTION,
+    );
+    expect(result.kept[0]?.modelConfidence).toBeNull();
   });
 });
