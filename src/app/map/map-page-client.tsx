@@ -105,7 +105,21 @@ import { ImportPageClient, type SaveOutcomeDetail } from '@/app/import/import-pa
 const ANNOUNCE_AFTER_MS = 500;
 
 export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
-  const [selected, setSelected] = useState<MapPlace | null>(null);
+  /**
+   * The **id** of the open place, never the object.
+   *
+   * Holding the `MapPlace` itself made the detail view a snapshot: a Server Action calls
+   * `revalidatePath('/map')`, `places` arrives as a fresh array of fresh objects, the list re-renders
+   * — and the popover keeps rendering the copy it captured when the pin was tapped. Measured
+   * 2026-08-28: changing a place's category updated its row to `Bar` while the open panel went on
+   * saying `Dessert` until the user reselected it. The same staleness was there for the note and for
+   * anything else a Server Action writes; the category editor is only what made it visible.
+   *
+   * Deriving from `matches` rather than from `places` also retires a render-phase `setSelected(null)`
+   * that existed to close the detail when a filter removed its place: a place that is not in
+   * `matches` now simply has no `selected` to render.
+   */
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
   const [query, setQuery] = useState('');
   /** The one tag narrowing the library, as stored (lowercase, normalised), or `null`. Set by a chip
@@ -258,30 +272,26 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
     [inArea, activeArea, query, activeTag, matches],
   );
 
-  // A place filtered out by a **filter** must not stay open in the detail view: its pin is gone
-  // from the map, so the sheet (or the map's popover) would be showing detail for something the user
-  // can no longer see or dismiss by tapping. Adjusted during render rather than in an effect —
-  // React's own pattern for "a prop/derived value invalidated some state" — and it converges
-  // immediately, because after the reset the guard is false.
+  // The open place, resolved against the *current* server data on every render — which is what makes
+  // an edit visible in the panel the user made it in. See `selectedId`.
   //
-  // Deliberately guarded on `matches` and NOT on `inArea`: crossing into another area would
-  // otherwise slam the open detail shut mid-gesture, which is the map taking something away from
-  // the user for looking somewhere else.
+  // Resolved against `matches`, not `places`, and that carries a behaviour that used to be a
+  // render-phase `setSelected(null)`: a place filtered out by a **filter** must not stay open, since
+  // its pin is gone from the map and the detail would be showing something the user can no longer
+  // see or dismiss by tapping. Now it simply does not resolve.
   //
-  // A tag chip never reaches this guard, because `toggleTag` deselects first and the place the chip
-  // came from carries the tag anyway. It stays written against the general case rather than the
-  // search case: two filters feed `matches` now, and a guard that only names one of them is a
-  // guard someone will later assume does not apply.
-  if (selected && !matches.some((place) => place.id === selected.id)) {
-    setSelected(null);
-  }
+  // Deliberately `matches` and NOT `inArea`: crossing into another area would otherwise slam the
+  // open detail shut mid-gesture, which is the map taking something away from the user for looking
+  // somewhere else.
+  const selected: MapPlace | null =
+    selectedId === null ? null : (matches.find((place) => place.id === selectedId) ?? null);
 
   const announcement = useResultAnnouncement(query, activeTag, matches.length);
 
   /** Camera mover 3. A fresh array each time, because the flight is keyed on array identity — so
    *  re-selecting the same place does fly again. The active area is deliberately not touched. */
   function selectPlace(place: MapPlace) {
-    setSelected(place);
+    setSelectedId(place.id);
     setFocusPlaceIds([place.id]);
   }
 
@@ -291,7 +301,7 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
       const area = areas.find((candidate) => candidate.id === areaId);
       if (!area) return;
       setActiveAreaAnchor(area.id);
-      setSelected(null);
+      setSelectedId(null);
       setFocusPlaceIds(area.members.map((place) => place.id));
     },
     [areas],
@@ -327,7 +337,7 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
    */
   const toggleTag = useCallback((tag: string) => {
     setActiveTag((current) => (current !== null && isSameTag(current, tag) ? null : tag));
-    setSelected(null);
+    setSelectedId(null);
   }, []);
 
   const clearTag = useCallback(() => setActiveTag(null), []);
@@ -358,9 +368,15 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
       <div className="relative h-full w-full">
         <MapSurface
           places={matches}
-          onPlaceClick={setSelected}
+          // Selection only — tapping a pin must not move the camera under the finger that tapped
+          // it. `selectPlace` (camera mover 3) is for the list, where the pin may be off-screen.
+          onPlaceClick={(place) => {
+            setSelectedId(place.id);
+          }}
           selected={selected}
-          onDeselect={() => setSelected(null)}
+          onDeselect={() => {
+            setSelectedId(null);
+          }}
           onViewportChange={handleViewportChange}
           {...(initialBounds ? { initialBounds } : {})}
           {...(focusPlaceIds ? { focusPlaceIds } : {})}
@@ -404,7 +420,9 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
             activeTag={activeTag}
             onClearTag={clearTag}
             selected={selected}
-            onDeselect={() => setSelected(null)}
+            onDeselect={() => {
+            setSelectedId(null);
+          }}
             onAddTikTok={openImport}
             onSelect={selectPlace}
           />
