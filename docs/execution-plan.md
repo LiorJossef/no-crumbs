@@ -387,7 +387,7 @@ untouched and still open.
 | Task | State | Notes |
 |---|---|---|
 | T1 — schema, RLS, invites | **done** | `0024`. Four tables, seven functions, two new cross-table read paths. `0025` (the stray `service_role` TRUNCATE) and `0026` (membership ends rather than being deleted) follow from it |
-| T2 — independent adversarial review | **done** | `evidence/security/collections-rls-review-2026-08-29.md`. Veto **not** exercised; two authorisation defects found and fixed forward in `0026` |
+| T2 — independent adversarial review | **done** | `evidence/security/collections-rls-review-2026-08-29.md`. Veto **not** exercised. The two authorisation defects it found — a removed member could rejoin with the same link, and a demoted editor could restore their own rights by leaving first — are **fixed** in `0026`: membership ends rather than being deleted, and the `DELETE` grant is revoked so a tombstone cannot be deleted either |
 | T3 — index, the collection-as-map, the picker | **done** | `/collections`, `/collections/[id]`, `Add to a collection` on `/map` |
 | T4 — sharing, members, join | **done** | Invite link carrying a role, signed-in redemption only |
 | T5 — ordering UI | **cut, column kept** | `position` is written on append. Drag over a canvas map inside a sheet that owns vertical drag is the worst gesture surface in the product; it ships later as a dedicated mode |

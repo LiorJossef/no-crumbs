@@ -248,21 +248,32 @@ All 31 real saved places are intact and untouched. A pre-session dump is at
 
 ## 8. Risky, incomplete, or needing your decision
 
-### The one thing I would not ship to real users without fixing (in progress at handoff)
+### Fixed after the review, before handoff
 
-The independent security review found **two authorisation holes**, and they are the same root cause:
+The independent security review found **two authorisation holes**, same root cause. **Both are
+fixed** — migration `0026`, commit `3ea5874`:
 
 - **Removing a member does not remove them.** The owner deletes C's membership; C re-clicks the same
   invite link and is back in. `on conflict do nothing` only protects while a row exists to conflict
   with, and a removal deletes exactly that row.
 - **A demoted editor can restore their own rights** by leaving and re-clicking the old editor link.
 
-Neither leaks anything — they are authorisation failures, not disclosure, which is why the reviewer
+Neither leaked anything — they are authorisation failures, not disclosure, which is why the reviewer
 did not veto. But "I removed them" silently not working is the wrong failure mode for a product
-about where people go. **Migration `0026` was in flight when this handoff was written**; check
-whether it landed. The design: membership *ends* rather than being deleted, every predicate gains
-`removed_at is null`, and a link can restore a voluntary leaver at the role they left with but can
-never undo a removal.
+about where people go.
+
+**Membership now ends rather than being deleted.** Redeeming a link has four rules: already in is a
+no-op; a voluntary leaver comes back at the role they held when they left, with the invite's role
+not consulted at all; someone the owner removed is refused; a stranger joins at the invite's role.
+The `DELETE` grant on `collection_members` is gone, which is half the fix rather than tidiness —
+with it, a removed member could delete their own tombstone and rejoin as a stranger. The owner gets
+`collection_removed_members` and `restore_collection_membership` so a removal is not a dead end.
+
+Proven, in both directions: the two attacks were reproduced by hand on the `0025` schema first
+(their verbatim output is in `0026`'s header and the commit message), then re-run and refused.
+Nine new policy assertions, 43 total. And verified through the running app — removed a member from
+the share panel, read the tombstone out of Postgres, watched their re-click refused with `PT403`,
+and put them back through the owner's restore path.
 
 ### Decisions that are yours
 
@@ -295,15 +306,13 @@ everything that spends quota.
 
 ## 9. What I would do next
 
-1. **Land `0026` and re-run the security review's F1/F2 attacks.** Sharing is not safe to put in
-   front of a second real person until removal means removal.
-2. **Open the PR and let CI speak.** `npm run verify` and `npm run build` are clean locally, and
+1. **Open the PR and let CI speak.** `npm run verify` and `npm run build` are clean locally, and
    `db:inventory` is green, but CI is the authority and it has four jobs, not one.
-3. **Then production** (§12.1 → 12.2 → 12.3). It has been 500ing for every signed-in user since
+2. **Then production** (§12.1 → 12.2 → 12.3). It has been 500ing for every signed-in user since
    2026-08-26 and `/healthz` still says `ok: true`. That is now the largest single gap between what
    this repo contains and what anybody can use, and it needs you for the env store.
-4. **Rate-limit `/api/imports/probe`** before production comes back. One unconfirmed signup plus a
+3. **Rate-limit `/api/imports/probe`** before production comes back. One unconfirmed signup plus a
    loop of distinct URLs drains both the Gemini and the Google budgets for the day; `rateLimitedLocal`
    still has zero production call sites.
-5. **The `no_places` screen** (§3.1 + §3.2). It is still the modal import outcome and still the
+4. **The `no_places` screen** (§3.1 + §3.2). It is still the modal import outcome and still the
    weakest surface, and it is the highest-value thing left that costs no quota to build.
