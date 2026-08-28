@@ -12,10 +12,9 @@
  * downloader uses to find a media URL. **It downloads no media and parses no payload**: the only
  * thing recorded is whether the marker is present, the status, the byte count and the timing.
  *
- * Never reachable in production: `VERCEL_ENV === 'production'` 404s, and a shared token is
- * required besides. Nothing here is a step toward shipping this mechanism; it exists to put a
- * measured number against an acquisition route the owner asked to have tested rather than
- * assumed.
+ * Preview only — every other environment 404s, and that gate is the whole of it. Nothing here is
+ * a step toward shipping this mechanism; it exists to put a measured number against an
+ * acquisition route the owner asked to have tested rather than assumed.
  */
 
 import { NextResponse } from 'next/server';
@@ -40,7 +39,36 @@ interface AttemptResult {
   readonly ms: number;
   readonly bytes: number;
   readonly hasPayload: boolean;
+  /** TikTok served the client-side-rendered shell instead of server-rendering. Throttle. */
+  readonly csrFallback: boolean;
+  /** 403 / 429 / a verification interstitial. A wall, not a throttle — the distinction decides
+   *  whether retrying could rescue this route. */
+  readonly hardBlock: boolean;
+  /** TikTok's own renderer duration, in ms. ~190 on a shed request, ~1200 on a real render. */
+  readonly renderMs: string | null;
   readonly error: string | null;
+}
+
+/**
+ * Measured residentially 2026-08-29: a *failed* fetch is not a 403 and not a captcha. It is
+ * HTTP 200 with `x-csr-fallback: 1`, ~44 KB, no `charset` on the content type, and TikTok's own
+ * renderer reporting ~190 ms of execution instead of ~1200 ms — the CSR shell a real browser
+ * would go on to hydrate over XHR. That is SSR load-shedding, and it is retryable. A hard block
+ * would look completely different, so classify them apart rather than counting both as "failed".
+ */
+function classify(status: number, headers: Headers, body: string): { csrFallback: boolean; hardBlock: boolean } {
+  const low = body.toLowerCase();
+  return {
+    csrFallback: headers.get('x-csr-fallback') === '1',
+    hardBlock:
+      status === 403 ||
+      status === 429 ||
+      low.includes('tiktok-verify') ||
+      low.includes('verify to continue') ||
+      low.includes('slide to verify') ||
+      low.includes('access denied') ||
+      low.includes('unusual traffic'),
+  };
 }
 
 async function probeOnce(url: string, attempt: number): Promise<AttemptResult> {
@@ -55,12 +83,16 @@ async function probeOnce(url: string, attempt: number): Promise<AttemptResult> {
       redirect: 'follow',
     });
     const body = await res.text();
+    const { csrFallback, hardBlock } = classify(res.status, res.headers, body);
     return {
       attempt,
       status: res.status,
       ms: Date.now() - started,
       bytes: body.length,
       hasPayload: body.includes(REHYDRATION_MARKER),
+      csrFallback,
+      hardBlock,
+      renderMs: res.headers.get('x-bytefaas-execution-duration'),
       error: null,
     };
   } catch (e) {
@@ -70,6 +102,9 @@ async function probeOnce(url: string, attempt: number): Promise<AttemptResult> {
       ms: Date.now() - started,
       bytes: 0,
       hasPayload: false,
+      csrFallback: false,
+      hardBlock: false,
+      renderMs: null,
       // Class only — never a vendor error body.
       error: e instanceof Error ? e.name : 'unknown',
     };
@@ -108,6 +143,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       summary: {
         withPayload: ok,
         of: ATTEMPTS,
+        csrFallback: attempts.filter((a) => a.csrFallback).length,
+        hardBlock: attempts.filter((a) => a.hardBlock).length,
         meanMs: Math.round(attempts.reduce((s, a) => s + a.ms, 0) / ATTEMPTS),
       },
     },
