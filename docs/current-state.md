@@ -224,8 +224,20 @@ Still open, carried in §9.2: the grounding line, export, the TikTok data export
 
 ### 0.3 Left undone, deliberately
 
-- **Tag chips are still inert labels.** Only the search half of "make the chips do what they look
-  like they do" is built. Making a chip pressable is the remaining half.
+- ~~**Tag chips are still inert labels.**~~ **Done 2026-08-28** in `6004baf`, now on `main`: detail
+  chips are pressable buttons with `aria-pressed`, tapping one filters the list *and* the pins, and
+  an `ActiveTagFilter` pill makes the applied filter visible and removable. **This line was left
+  stale for a day and misled a later session into re-planning finished work** — two things are still
+  genuinely open and should not be confused with the whole item: **list-row chips remain inert by
+  design** (a 20px chip inside the row's own button would be nested-interactive and under the 44px
+  touch floor — deferred to a taller-row redesign, `place-enrichment.tsx:36-38`), and a
+  `TagChipList` rendered outside a `TagFilterContext` provider still falls back to inert spans
+  (`src/ui/place/tag-filter.ts:35-44`).
+- **Search and tag filtering have no Playwright coverage at all.** Unit tests are good
+  (`tests/unit/ui/tag-filter.test.ts`, `tests/unit/map/filter-places.test.ts`,
+  `tests/unit/places/search.test.ts`), but `tests/e2e/` is seven import specs plus `smoke` and
+  `map-accessibility`, none of which exercise the search field or a tag filter. This is the real
+  remaining gap on the retrieval surface.
 - **The empty-library screen exists but the import overlay does not auto-open over it**
   (`ux-map-is-the-query.md` §5 item 2). Untested at 0 and 1 saved places — §9.3 asks for those
   library shapes and this session only exercised 20.
