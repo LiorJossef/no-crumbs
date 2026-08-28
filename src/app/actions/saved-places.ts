@@ -1,8 +1,9 @@
 'use server';
 
 /**
- * The two writes a user may make to a place they already saved — `L1-F7-T2`, the U and the D of
- * the CRUD the course grades. Until this file existed, `src/app/actions/` held only `sign-out.ts`:
+ * The writes a user may make to a place they already saved — `L1-F7-T2`, the U and the D of the
+ * CRUD the course grades, plus the category override and the been/not-been mark added since.
+ * Until this file existed, `src/app/actions/` held only `sign-out.ts`:
  * the product could create and read, and a place you saved was a place you were stuck with.
  *
  * ## Why Server Actions rather than route handlers
@@ -14,7 +15,7 @@
  *
  * ## Authorisation is Postgres's job here, not this file's
  *
- * Neither function filters on `user_id`, and that is deliberate rather than an omission. Both go
+ * No function here filters on `user_id`, and that is deliberate rather than an omission. All go
  * through the user's own client, so `saved_places_delete_own` and `saved_places_update_own`
  * (`using (user_id = (select auth.uid()))`, migration `0006`) decide which row is addressable. A
  * request naming someone else's `savedPlaceId` matches **zero rows** at the database, whatever this
@@ -61,6 +62,7 @@ const GONE = 'That place is no longer in your list.';
 const FAILED_DELETE = "Couldn't remove that place. Try again.";
 const FAILED_UPDATE = "Couldn't save your note. Try again.";
 const FAILED_CATEGORY = "Couldn't change the category. Try again.";
+const FAILED_VISIT = "Couldn't update that place. Try again.";
 const BAD_CATEGORY = 'That is not a category we know.';
 
 /**
@@ -187,4 +189,73 @@ export async function updateSavedPlaceCategory(
 
   revalidatePath('/map');
   return { ok: true };
+}
+
+/**
+ * Marks a saved place as somewhere the user has been, or moves it back to still-to-go.
+ *
+ * ## Why both columns move in one statement, always
+ *
+ * `0006` carries `saved_places_visited_at_consistent`:
+ * `check (visit_state = 'visited' or visited_at is null)`. So the two columns are not independent
+ * — an update that clears the state and leaves the timestamp behind is rejected with `23514`, and
+ * an update that sets the timestamp without the state is rejected the same way from the other
+ * side. Writing one column at a time would therefore be a runtime error in one direction and a
+ * silent inconsistency in the other; a single `update` with both keys is the only shape the
+ * constraint accepts, in both directions. That is not defensive coding, it is the column pair's
+ * actual contract, which is why `visitedFields` is the one place either value is produced.
+ *
+ * ## Why the timestamp is the server's clock and is not user-editable
+ *
+ * `visited_at` exists to make "been" a fact with a time attached rather than a bare flag, and the
+ * time is *when it was recorded here*, never a date the user typed — an editable visit date is
+ * explicitly out of scope (`docs/product-ruling-after-the-save.md` §6.5), and taking one from the
+ * browser would let a client write any timestamp it liked into a column nothing validates. Nothing
+ * renders it today; it is written because the schema asked for it and because a mark with no time
+ * is the thing that has to be re-derived later.
+ *
+ * Authorisation is `saved_places_update_own` (`0006`), and both columns have been inside that
+ * migration's UPDATE column grant since the day it shipped — this action adds no schema surface
+ * and no new authority. See the header for why no `user_id` filter appears here.
+ */
+export async function setSavedPlaceVisited(
+  savedPlaceId: string,
+  visited: boolean,
+): Promise<SavedPlaceResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, message: NOT_SIGNED_IN };
+
+  const { error, count } = await supabase
+    .from('saved_places')
+    .update(visitedFields(visited, new Date()), { count: 'exact' })
+    .eq('id', savedPlaceId);
+
+  if (error) {
+    console.error('setSavedPlaceVisited failed', { savedPlaceId, code: error.code });
+    return { ok: false, message: FAILED_VISIT };
+  }
+  if (count === 0) return { ok: false, message: GONE };
+
+  revalidatePath('/map');
+  return { ok: true };
+}
+
+/**
+ * The one producer of the `visit_state` / `visited_at` pair, so the CHECK above cannot be violated
+ * by a caller that remembers one column and forgets the other.
+ *
+ * Not exported: a `'use server'` module may only export async functions, and Next fails the build
+ * rather than warning. The unit test asserts the payload through the recorded `update` call
+ * instead, which is the shape that actually reaches Postgres and therefore the thing worth pinning.
+ */
+function visitedFields(
+  visited: boolean,
+  now: Date,
+): { visit_state: 'visited' | 'want_to_go'; visited_at: string | null } {
+  return visited
+    ? { visit_state: 'visited', visited_at: now.toISOString() }
+    : { visit_state: 'want_to_go', visited_at: null };
 }
