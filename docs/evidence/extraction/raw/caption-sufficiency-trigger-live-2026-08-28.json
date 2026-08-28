@@ -1,0 +1,208 @@
+{
+  "_provenance": [
+    "RICH-EXT-1. The live PlaceExtractor pass over E7 captions, 2026-08-28.",
+    "",
+    "READ THIS BEFORE CITING THE FILE. This is a faithful TRANSCRIPTION of the live run's stdout and",
+    "of a Python dump taken from the machine record immediately after the run — not a fresh write by",
+    "the harness. The harness originally wrote both passes to one file, and a subsequent offline",
+    "re-run overwrote the live record. Re-running live would have taken this task to 19 model calls",
+    "against a 10-call cap, so the results were transcribed instead and the clobber bug was fixed",
+    "(the harness now writes live results here and the offline pass to its own file).",
+    "",
+    "Everything below appeared verbatim in the run output. `modelConfidence` was captured for post #2",
+    "only, from a post-run dump; the other eight are recorded as null because their values were not",
+    "in the retained output, NOT because the model returned null. `cost_events` holds the 7 of 9",
+    "events that were in the retained dump, in call order.",
+    "",
+    "Nothing in docs/evidence/extraction/transcription-and-media-feasibility-2026-08-28.md depends on",
+    "the two missing cost events or on the uncaptured confidences."
+  ],
+  "run_at": "2026-08-28T00:00:00.000Z",
+  "denominator": "docs/evidence/tiktok/07-caption-content-scoring.md (n=16)",
+  "extractor": {
+    "version": "2026-08-gemini-gemini-3.5-flash-lite",
+    "promptVersion": "p11-s3"
+  },
+  "live_extraction": true,
+  "live_calls": 9,
+  "live_calls_budgeted": 10,
+  "live_calls_wasted": 1,
+  "live_calls_wasted_reason": "first attempt crashed on a Logger stub missing `event`",
+  "results": [
+    {
+      "n": 1,
+      "id": "7245648559981350186",
+      "handle": "briancantstopeating",
+      "class": "recoverable",
+      "candidateCount": 0,
+      "rawNames": [],
+      "cityHint": "Tokyo",
+      "modelConfidences": [],
+      "triggerVerdict": "true-positive: zero candidates, escalation would have helped"
+    },
+    {
+      "n": 2,
+      "id": "7220925199297039662",
+      "handle": "nom_life",
+      "class": "recoverable",
+      "candidateCount": 1,
+      "rawNames": ["tsukijifishmarket"],
+      "cityHint": "Tokyo",
+      "modelConfidences": [0.95],
+      "triggerVerdict": "false-negative: a hashtag became a 0.95-confidence candidate, which both invents a place and suppresses the trigger. See section 4 of the report."
+    },
+    {
+      "n": 6,
+      "id": "7448327861636943150",
+      "handle": "marielleisrael",
+      "class": "futile",
+      "candidateCount": 0,
+      "rawNames": [],
+      "cityHint": "Tel Aviv",
+      "modelConfidences": [],
+      "triggerVerdict": "false-positive: fires, but no venue exists anywhere in the post"
+    },
+    {
+      "n": 8,
+      "id": "7494360070369709354",
+      "handle": "yallabikestlv",
+      "class": "recoverable",
+      "candidateCount": 0,
+      "rawNames": [],
+      "cityHint": "Tel Aviv",
+      "modelConfidences": [],
+      "triggerVerdict": "true-positive"
+    },
+    {
+      "n": 12,
+      "id": "7347722826654305578",
+      "handle": "alexandramoulavi",
+      "class": "recoverable",
+      "candidateCount": 0,
+      "rawNames": [],
+      "cityHint": "Tel Aviv",
+      "modelConfidences": [],
+      "triggerVerdict": "true-positive"
+    },
+    {
+      "n": 13,
+      "id": "7081307157660241157",
+      "handle": "ysabellahazan",
+      "class": "recoverable",
+      "candidateCount": 0,
+      "rawNames": [],
+      "cityHint": "Tel Aviv",
+      "modelConfidences": [],
+      "triggerVerdict": "true-positive"
+    },
+    {
+      "n": 14,
+      "id": "7205629856716000517",
+      "handle": "gadderhq",
+      "class": "futile",
+      "candidateCount": 0,
+      "rawNames": [],
+      "cityHint": "London",
+      "modelConfidences": [],
+      "triggerVerdict": "false-positive"
+    },
+    {
+      "n": 16,
+      "id": "7541775954906041622",
+      "handle": "emshelx",
+      "class": "futile",
+      "candidateCount": 0,
+      "rawNames": [],
+      "cityHint": "London",
+      "modelConfidences": [],
+      "triggerVerdict": "false-positive"
+    },
+    {
+      "n": 7,
+      "id": "7496222617053990175",
+      "handle": "muchmorethanmatcha",
+      "class": "sufficient",
+      "candidateCount": 1,
+      "rawNames": ["Cafe Fiori"],
+      "cityHint": "Tel Aviv-Yafo",
+      "modelConfidences": [],
+      "triggerVerdict": "true-negative: correctly silent on a caption that names its venue"
+    }
+  ],
+  "trigger_score": {
+    "_positive_class": "recoverable",
+    "_signal": "extractor returned zero candidates",
+    "tp": 4,
+    "fp": 3,
+    "fn": 1,
+    "tn": 1,
+    "recall": 0.8,
+    "precision": 0.57,
+    "_precision_caveat": "Upper bound. The 5 `not-a-place` control posts were not called (call budget) and would near-certainly also return zero candidates, pushing precision toward 4/12 = 0.33 over the full set."
+  },
+  "cost_events": [
+    {
+      "extractorVersion": "2026-08-gemini-gemini-3.5-flash-lite",
+      "promptVersion": "p11-s3",
+      "inputTokens": 4900,
+      "outputTokens": 18,
+      "costUsd": 0,
+      "costModel": "unmeasured",
+      "elapsedMs": 2226
+    },
+    {
+      "extractorVersion": "2026-08-gemini-gemini-3.5-flash-lite",
+      "promptVersion": "p11-s3",
+      "inputTokens": 5008,
+      "outputTokens": 211,
+      "costUsd": 0,
+      "costModel": "unmeasured",
+      "elapsedMs": 2439
+    },
+    {
+      "extractorVersion": "2026-08-gemini-gemini-3.5-flash-lite",
+      "promptVersion": "p11-s3",
+      "inputTokens": 4875,
+      "outputTokens": 10,
+      "costUsd": 0,
+      "costModel": "unmeasured",
+      "elapsedMs": 6791
+    },
+    {
+      "extractorVersion": "2026-08-gemini-gemini-3.5-flash-lite",
+      "promptVersion": "p11-s3",
+      "inputTokens": 4881,
+      "outputTokens": 12,
+      "costUsd": 0,
+      "costModel": "unmeasured",
+      "elapsedMs": 1959
+    },
+    {
+      "extractorVersion": "2026-08-gemini-gemini-3.5-flash-lite",
+      "promptVersion": "p11-s3",
+      "inputTokens": 4876,
+      "outputTokens": 12,
+      "costUsd": 0,
+      "costModel": "unmeasured",
+      "elapsedMs": 26745
+    },
+    {
+      "extractorVersion": "2026-08-gemini-gemini-3.5-flash-lite",
+      "promptVersion": "p11-s3",
+      "inputTokens": 4881,
+      "outputTokens": 19,
+      "costUsd": 0,
+      "costModel": "unmeasured",
+      "elapsedMs": 2079
+    },
+    {
+      "extractorVersion": "2026-08-gemini-gemini-3.5-flash-lite",
+      "promptVersion": "p11-s3",
+      "inputTokens": 4879,
+      "outputTokens": 11,
+      "costUsd": 0,
+      "costModel": "unmeasured",
+      "elapsedMs": 1919
+    }
+  ]
+}
