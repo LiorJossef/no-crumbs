@@ -24,6 +24,61 @@ describe('toCountryCode', () => {
     expect(toCountryCode('Vietnam')).toBe('VN');
   });
 
+  it('does not answer a live country with the code of a state that no longer exists', () => {
+    // Found 2026-08-29 by the round-trip test below, in English, on the commonest of them:
+    // `'Germany'` returned `'DD'` — the German Democratic Republic — because `DD` sorts before
+    // `DE` and ICU gives it the same display name. Six more behaved the same way. A wrong code is
+    // the failure mode this whole module exists to avoid, so each one is pinned by name.
+    expect(toCountryCode('Germany')).toBe('DE');
+    expect(toCountryCode('גרמניה')).toBe('DE');
+    expect(toCountryCode('Serbia')).toBe('RS');
+    expect(toCountryCode('Yemen')).toBe('YE');
+    expect(toCountryCode('Zimbabwe')).toBe('ZW');
+    expect(toCountryCode('Vanuatu')).toBe('VU');
+    expect(toCountryCode('Curaçao')).toBe('CW');
+    expect(toCountryCode('Myanmar')).toBe('MM');
+    // Hebrew was unprotected where English had an alias entry: `וייטנאם` returned `VD`.
+    expect(toCountryCode('וייטנאם')).toBe('VN');
+  });
+
+  it('canonicalises a deprecated alpha-2 code rather than passing it through', () => {
+    // A stored `'DD'` from before the fix, or a model that emits an alias directly. Returning the
+    // alias unchanged would keep the wrong code alive on every later pass.
+    expect(toCountryCode('DD')).toBe('DE');
+    expect(toCountryCode('UK')).toBe('GB');
+    expect(toCountryCode('VD')).toBe('VN');
+    expect(toCountryCode('FX')).toBe('FR');
+  });
+
+  it('round-trips every ICU region display name back to that region, in both indexed locales', () => {
+    // The measurement that found the seven above, kept as a permanent guard. Every canonical
+    // region ICU knows, in `en` and `he`: its own display name must resolve to its own code.
+    // Aliases are excluded because their names belong to the region they alias, which is the
+    // whole point; `NOT_A_COUNTRY` codes are excluded because they are deliberately unresolvable.
+    const notACountry = new Set(['ZZ', 'QO', 'EU', 'EZ', 'UN', 'XA', 'XB']);
+    const wrong: Record<string, string | null> = {};
+    for (const locale of ['en', 'he']) {
+      const display = new Intl.DisplayNames([locale], { type: 'region' });
+      for (let first = 65; first <= 90; first += 1) {
+        for (let second = 65; second <= 90; second += 1) {
+          const code = String.fromCharCode(first) + String.fromCharCode(second);
+          if (notACountry.has(code)) continue;
+          if (Intl.getCanonicalLocales(`und-${code}`)[0] !== `und-${code}`) continue;
+          let name: string | undefined;
+          try {
+            name = display.of(code);
+          } catch {
+            continue;
+          }
+          if (name === undefined || name === code) continue;
+          const got = toCountryCode(name);
+          if (got !== code) wrong[`${locale}:${code}:${name}`] = got;
+        }
+      }
+    }
+    expect(wrong).toEqual({});
+  });
+
   it('accepts the official rename and the name captions still use', () => {
     expect(toCountryCode('Türkiye')).toBe('TR');
     expect(toCountryCode('Turkiye')).toBe('TR');
@@ -104,6 +159,17 @@ describe('a hint in the caption\'s own language', () => {
     // U+05F4 survives `normalise()`; an ASCII quote does not. Two spellings, one country.
     expect(toCountryCode('ארה״ב')).toBe('US');
     expect(toCountryCode('ארה"ב')).toBe('US');
+  });
+
+  it('resolves the Hebrew spellings ICU does not carry', () => {
+    // Measured returning `null` on 2026-08-29. `צ׳כיה` (Hebrew geresh) is ICU's own spelling and
+    // already worked; an ASCII apostrophe normalises to a space, and the mark is often dropped.
+    expect(toCountryCode('צ׳כיה')).toBe('CZ');
+    expect(toCountryCode("צ'כיה")).toBe('CZ');
+    expect(toCountryCode('צכיה')).toBe('CZ');
+    expect(toCountryCode('שוויץ')).toBe('CH');
+    expect(toCountryCode('דרום קוריאה')).toBe('KR');
+    expect(toCountryCode('הממלכה המאוחדת')).toBe('GB');
   });
 
   it('still refuses a Hebrew city, which is not a country', () => {
