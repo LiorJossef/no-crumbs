@@ -86,6 +86,18 @@ reading anyway — and never performatively. **You keep orchestration, integrati
 final verification**; delegating work never delegates accountability. When nothing fits and you do
 it yourself, say you checked.
 
+**Parallelise proactively — standing owner ruling, 2026-08-28, `working-agreement.md` §1.4.** In
+**every** session, look for the work that can genuinely run in parallel and dispatch it to the
+specialists while you continue the main thread: independent investigations, measurements against
+real rows, adversarial verification of what is already built, extraction or platform research,
+product/UX checks, test and harness work. No permission is needed per session, and the owner has
+given standing permission to change whatever agent configuration this requires. **Parallelism, not
+ceremony** — never spawn an agent to look busy, to duplicate what you are already doing, or to split
+work that is faster in one pass. **You own the lifecycle of everything you spawn:** track what is
+running, collect it, stop what no longer matters, and never end a session with background work
+unaccounted for. **And do not ask the owner to choose between ordinary implementation tasks** —
+pick by product impact and escalate only the decisions in `working-agreement.md` §7.
+
 **When you use one, say so** (owner ruling, 2026-08-26, `working-agreement.md` §1.3): what you
 delegated, which agent, whether it wrote code or only investigated, and how its output changed the
 result — including where you disagreed with it. Transparency, not a quota: never delegate

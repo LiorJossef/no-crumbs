@@ -188,6 +188,24 @@ together, and should treat `ux-map-is-the-query.md` as a **superseded-in-part** 
 binding one: its §1 (the query rect) and §4 (panning settles the list) are the parts under review,
 while its string matrix, empty states and accessibility rules are unaffected.
 
+### 0.2b How this session should run — standing owner ruling, 2026-08-28
+
+**Read this before planning any work.** Two rules, both permanent, both inherited by every cold
+start. Full text in `working-agreement.md` §1.4; the short version:
+
+1. **Parallelise proactively.** Every session, find the work that can genuinely run in parallel and
+   dispatch it to the specialists in `.claude/agents/` while the main thread continues —
+   investigations, measurements against real rows, independent verification of what was just built,
+   extraction research, product/UX checks, harness work. No per-session permission needed; standing
+   permission also covers changing any agent configuration required to make it work. **Parallelism,
+   not ceremony** — an agent that duplicates what you are already doing is worse than no agent.
+   **You own the lifecycle:** track what is running, collect it, stop what stopped mattering, and
+   **never close a session with background work unaccounted for.** The owner does not chase agents.
+2. **Continue autonomously.** Do not ask the owner to choose between ordinary implementation tasks.
+   Prioritise by product impact and take the next step; escalate only the genuine owner-level
+   decisions in `working-agreement.md` §7.
+
+
 ### 0.2 Owner rulings, 2026-08-27 (four of §9.2's seven)
 
 1. **Manual add as *place search* is inside Charter §2** — same resolver, same provenance fields, not
