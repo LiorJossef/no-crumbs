@@ -104,9 +104,73 @@ function isGenericWordsOnly(rawName: string): boolean {
 }
 
 /**
+ * Whitespace runs collapse to one space. Applied to **both** sides of the evidence test and to
+ * nothing else — see `evidenceFoundInCaption`. `\s` covers NBSP, tabs and newlines, all of which a
+ * caption carries and a model's quote of it silently does not.
+ */
+function collapseWhitespace(text: string): string {
+  return text.replace(/\s+/gu, ' ').trim();
+}
+
+/** `...`, `…`, `[...]`, `[…]` — the four ways the model writes "I skipped a bit here". */
+const ELISION = /\s*(?:\[\s*(?:\.{3}|…)\s*\]|\.{3}|…)\s*/u;
+
+/**
+ * Minimum length of each piece of an elided quote. An elision splits one containment test into
+ * several, and short pieces are cheap to satisfy by accident, which is exactly the hallucination
+ * the gate exists to catch. Measured elided quotes in the recognition corpus had segments of 40
+ * and 52 characters; 12 keeps a wide margin under the shortest real one while making a
+ * two-character fragment inadmissible.
+ */
+const ELIDED_SEGMENT_MIN_CHARS = 12;
+
+/**
+ * Is `evidence` really a quote from `caption`?
+ *
+ * This used to be `caption.includes(evidence)`, and **that exact test was measured producing false
+ * "no places found" on real imports** (`docs/evidence/extraction/determinism-2026-08-28.md`). Over
+ * 79 real extraction runs on the 13-URL recognition corpus, every empty result — 4 of them,
+ * including the corpus's one recorded `extraction_miss` — was this gate dropping a correct
+ * candidate. Two causes, both benign quoting habits rather than fabrication:
+ *
+ *  1. **A collapsed double space.** The caption reads `מרמת אביב  ללב העיר`; the model quoted it
+ *     with one space. Every character otherwise identical, and the venue, its street and its house
+ *     number all correct.
+ *  2. **An elided quote.** The model wrote `מסעדת רוסטיקו ... כתובת: בזל 42, תל אביב` — two real
+ *     caption fragments joined by an ellipsis it added itself.
+ *
+ * The relaxation is deliberately narrow, and stops well short of `grounding.ts`'s `normalise()`
+ * test. Case, accents, punctuation and emoji are all still significant here, because a strict
+ * `evidence` mismatch drops a whole candidate and that consequence is what buys the strictness. It
+ * is whitespace and elision only: every character the model claims the caption contains must still
+ * be in the caption, in order.
+ */
+export function evidenceFoundInCaption(caption: string, evidence: string): boolean {
+  const haystack = collapseWhitespace(caption);
+  const needle = collapseWhitespace(evidence);
+  if (needle === '') return false;
+  if (haystack.includes(needle)) return true;
+
+  const segments = needle.split(ELISION).map(collapseWhitespace).filter((s) => s !== '');
+  if (segments.length < 2) return false;
+  if (segments.some((s) => Array.from(s).length < ELIDED_SEGMENT_MIN_CHARS)) return false;
+
+  // In order, non-overlapping: `A ... B` means B comes after A in the caption, not merely that
+  // both appear somewhere. A model that reassembled two distant fragments backwards is not
+  // quoting.
+  let searchFrom = 0;
+  for (const segment of segments) {
+    const at = haystack.indexOf(segment, searchFrom);
+    if (at < 0) return false;
+    searchFrom = at + segment.length;
+  }
+  return true;
+}
+
+/**
  * Applies every `09` §5.2 rule in order, against the caption the candidates were extracted from.
  * `caption` is the verbatim text the extractor read — needed only to check that `evidence` is a
- * real substring of it, never inspected any other way.
+ * real quote from it, never inspected any other way.
  */
 export function filterPlausible<T extends PlaceCandidate>(
   candidates: readonly T[],
@@ -135,7 +199,7 @@ export function filterPlausible<T extends PlaceCandidate>(
       dropped.generic_words_only += 1;
       continue;
     }
-    if (candidate.evidence !== null && !caption.includes(candidate.evidence)) {
+    if (candidate.evidence !== null && !evidenceFoundInCaption(caption, candidate.evidence)) {
       dropped.evidence_not_in_caption += 1;
       continue;
     }

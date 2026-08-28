@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { filterPlausible } from '@/domain/extraction/plausibility';
+import { evidenceFoundInCaption, filterPlausible } from '@/domain/extraction/plausibility';
 import type { PlaceCandidate } from '@/domain/types';
 
 function candidate(overrides: Partial<PlaceCandidate>): PlaceCandidate {
@@ -121,6 +121,82 @@ describe('filterPlausible', () => {
     const result = filterPlausible([candidate({ rawName: '#ביקריבמרכז', evidence: '#ביקריבמרכז' })], 'anything #ביקריבמרכז');
     expect(result.dropped.generic_words_only).toBe(0);
     expect(result.kept).toHaveLength(1);
+  });
+
+  /**
+   * TRACK1-STABLE. Every one of these strings is a real Gemini `evidence` value against the real
+   * caption it was extracted from, taken from
+   * `docs/evidence/extraction/determinism-2026-08-28.md`. Under the previous
+   * `caption.includes(evidence)` test each of the first two dropped a correct, fully-addressed
+   * venue and reported the import to the user as "no places found".
+   */
+  describe('evidence matching (measured against real model output)', () => {
+    // The caption has two spaces after `אביב`; the model's quote has one. Nothing else differs.
+    const braserieCaption =
+      'בראסרי 18 נפתחה ממש לאחר פרוץ המלחמה בנובמבר 2023 ולאחרונה עבר מרמת אביב  ללב העיר בלבונטין 19 🙌🏻 שף המסעדה הוא שלמה שרי';
+    const braserieEvidence =
+      'בראסרי 18 נפתחה ממש לאחר פרוץ המלחמה בנובמבר 2023 ולאחרונה עבר מרמת אביב ללב העיר בלבונטין 19';
+
+    const rusticoCaption =
+      'תכירו את מסעדת רוסטיקו 🍽️ במקום תמצאו תפריט מגוון הכולל ראשונות, פסטות ופיצות. כתובת: בזל 42, תל אביב 📍 ויש מסעדה נוספת ברוטשילד 15, תל אביב';
+    const rusticoEvidence =
+      'מסעדת רוסטיקו 🍽️ במקום תמצאו תפריט מגוון... כתובת: בזל 42, תל אביב 📍 ויש מסעדה נוספת ברוטשילד 15';
+
+    it('accepts a quote that differs from the caption only by a collapsed double space', () => {
+      expect(braserieCaption.includes(braserieEvidence)).toBe(false);
+      expect(evidenceFoundInCaption(braserieCaption, braserieEvidence)).toBe(true);
+    });
+
+    it('keeps the candidate that collapsed space used to delete', () => {
+      const result = filterPlausible(
+        [candidate({ rawName: 'בראסרי 18', addressHint: 'לבונטין 19', evidence: braserieEvidence })],
+        braserieCaption,
+      );
+      expect(result.dropped.evidence_not_in_caption).toBe(0);
+      expect(result.kept).toHaveLength(1);
+    });
+
+    it('accepts an elided quote whose segments are both real and in caption order', () => {
+      expect(rusticoCaption.includes(rusticoEvidence)).toBe(false);
+      expect(evidenceFoundInCaption(rusticoCaption, rusticoEvidence)).toBe(true);
+    });
+
+    it('accepts the same elision written with a real ellipsis character or in brackets', () => {
+      expect(evidenceFoundInCaption(rusticoCaption, rusticoEvidence.replace('...', '…'))).toBe(true);
+      expect(evidenceFoundInCaption(rusticoCaption, rusticoEvidence.replace('...', '[...]'))).toBe(true);
+    });
+
+    it('still rejects a quote the caption does not contain', () => {
+      expect(evidenceFoundInCaption(braserieCaption, 'בראסרי 18 קיבלה כוכב מישלן')).toBe(false);
+    });
+
+    it('rejects an elided quote whose segments appear in the wrong order', () => {
+      const caption = 'first a long enough fragment here, then a second long fragment there';
+      expect(evidenceFoundInCaption(caption, 'a second long fragment there ... first a long enough fragment')).toBe(false);
+    });
+
+    it('rejects an elision whose segments are short enough to hit by accident', () => {
+      // `a ... b` must not pass just because the caption contains an `a` and a `b`. Every segment
+      // is under ELIDED_SEGMENT_MIN_CHARS, so the whole quote is inadmissible.
+      expect(evidenceFoundInCaption('a caption about a bakery and a bar', 'a ... b')).toBe(false);
+    });
+
+    it('rejects an elided quote with one real segment and one invented one', () => {
+      expect(
+        evidenceFoundInCaption(rusticoCaption, 'מסעדת רוסטיקו 🍽️ במקום תמצאו תפריט מגוון... זוכת פרס המסעדה של השנה'),
+      ).toBe(false);
+    });
+
+    it('rejects empty and whitespace-only evidence', () => {
+      expect(evidenceFoundInCaption('any caption at all', '')).toBe(false);
+      expect(evidenceFoundInCaption('any caption at all', '   \n  ')).toBe(false);
+    });
+
+    it('does not fold case, accents, punctuation or emoji — that tolerance belongs to grounding.ts', () => {
+      expect(evidenceFoundInCaption('Café Levinsky 41', 'Cafe Levinsky 41')).toBe(false);
+      expect(evidenceFoundInCaption('Cafe Fiori', 'CAFE FIORI')).toBe(false);
+      expect(evidenceFoundInCaption('📍Ha Kosem', 'Ha Kosem!')).toBe(false);
+    });
   });
 
   it('keeps multiple distinct plausible candidates from a list-style post', () => {
