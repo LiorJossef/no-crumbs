@@ -8,6 +8,10 @@
  * would be `undefined` — then a crash or a silent 0 — in a literal TypeScript port. Making the
  * conversion explicit and total is the only way the scorer can keep a closed `CategoryHint`
  * without a cast.
+ *
+ * What each value is *called* is not here: labels live in `product-category.ts`, whose vocabulary
+ * is a superset of this one. Two label tables that have to agree, with nothing making them agree,
+ * is what that move removed.
  */
 
 import type { CategoryHint } from '../types';
@@ -24,25 +28,6 @@ export type ExtractedCategoryHint =
   | 'attraction'
   | 'shop'
   | 'other';
-
-/**
- * What each value is called in a sentence. Written out rather than capitalised programmatically so
- * "cafe" can carry its accent and "other" can become a word a person would actually say.
- *
- * Here, in the domain, because the vocabulary is a fact about a place rather than a rendering
- * choice — and because it was previously written out twice, in `import/candidate-presentation.ts`
- * and in `ui/place/category-display.ts`, which is two tables that have to agree and nothing making
- * them. The pin *colour* stays in `ui/`, which is where a colour belongs.
- */
-export const CATEGORY_LABEL: Record<ExtractedCategoryHint, string> = {
-  restaurant: 'Restaurant',
-  cafe: 'Café',
-  bakery: 'Bakery',
-  bar: 'Bar',
-  attraction: 'Attraction',
-  shop: 'Shop',
-  other: 'Place',
-};
 
 /**
  * Total, and deliberately lossy in one direction only.

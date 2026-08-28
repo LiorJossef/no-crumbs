@@ -19,6 +19,7 @@
  */
 
 import type { MediaRef, SourceDataset } from '../types';
+import type { ProductCategory } from './product-category';
 
 /** `saved_places.visit_state`'s two values, verbatim (migration `0006`'s CHECK). */
 export type VisitState = 'want_to_go' | 'visited';
@@ -62,11 +63,15 @@ export interface Spot {
   /** `saved_places.display_name`, falling back to `places.name` — the per-user overlay `08 §2.2`
    *  rule 3 describes. */
   readonly name: string;
-  /** `saved_places.category_override`, falling back to `places.category`. Both are free `text` in
-   *  the database (no CHECK ties either to a closed taxonomy today, `0005`/`0011`'s comments), so
-   *  this is `string | null`, not the closed `ExtractedCategoryHint` the map's pin glyph uses —
-   *  reconciling the two is the map-pin renderer's job, not this type's. */
-  readonly category: string | null;
+  /** The product's own category, already reconciled from the user's override, the provider's
+   *  category and the model's hint by `productCategoryFor` — see `product-category.ts` for the
+   *  ranking and why it is not simply `category_override ?? places.category`.
+   *
+   *  Closed and non-nullable, unlike the three free-`text` columns behind it: every renderer
+   *  downstream (pin glyph, pin colour, the line under the name, the filter row) needs a total
+   *  answer, and the read path is the one place that has all three claims in hand. Deriving it
+   *  here means no renderer re-derives it differently. */
+  readonly category: ProductCategory;
   readonly lat: number;
   readonly lng: number;
   readonly addressLine?: string;

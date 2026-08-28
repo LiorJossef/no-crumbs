@@ -11,7 +11,7 @@
  * `L1-F5` owns camera-mover discipline; until then the surface owns its own camera.
  */
 
-import type { ExtractedCategoryHint } from '@/domain/places/category-hint';
+import type { ProductCategory } from '@/domain/places/product-category';
 import type { Spot } from '@/domain/places/spot';
 
 /**
@@ -27,7 +27,7 @@ import type { Spot } from '@/domain/places/spot';
 export interface MapPlace {
   readonly id: string;
   readonly name: string;
-  readonly category: ExtractedCategoryHint;
+  readonly category: ProductCategory;
   readonly lat: number;
   readonly lng: number;
   readonly note: string;

@@ -23,8 +23,7 @@
  */
 
 import type { PlaceCandidate } from '../types';
-import { CATEGORY_LABEL } from '../places/category-hint';
-import type { ExtractedCategoryHint } from '../places/category-hint';
+import { PRODUCT_CATEGORY_LABEL, isProductCategory } from '../places/product-category';
 
 /** The one thing this screen says about location accuracy, said once rather than per card —
  *  because our honest position is identical on every candidate. "A street or two" is the measured
@@ -67,7 +66,7 @@ export function candidateMeta(candidate: PlaceCandidate): string {
   const parts: string[] = [];
 
   if (candidate.categoryHint !== null) {
-    parts.push(CATEGORY_LABEL[candidate.categoryHint as ExtractedCategoryHint] ?? 'Place');
+    parts.push(isProductCategory(candidate.categoryHint) ? PRODUCT_CATEGORY_LABEL[candidate.categoryHint] : 'Place');
   }
 
   const address = candidate.addressHint?.trim() ?? '';

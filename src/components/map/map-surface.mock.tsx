@@ -14,6 +14,7 @@ import { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import type { LatLngBoundsHint, MapPlace, MapSurfaceProps } from './types';
+import { PRODUCT_CATEGORY_LABEL } from '@/domain/places/product-category';
 
 const FALLBACK_SPAN = 0.05; // degrees, for a single-place or zero-span bounding box
 
@@ -109,16 +110,6 @@ function declutter(
   return result;
 }
 
-const CATEGORY_LABEL: Record<MapPlace['category'], string> = {
-  restaurant: 'Restaurant',
-  cafe: 'Cafe',
-  bar: 'Bar',
-  bakery: 'Bakery',
-  attraction: 'Attraction',
-  shop: 'Shop',
-  other: 'Place',
-};
-
 export function MapSurfaceMock({ places, onPlaceClick, initialBounds }: MapSurfaceProps) {
   const [selected, setSelected] = useState<MapPlace | null>(null);
   const bounds = useMemo(() => boundsFor(places, initialBounds), [places, initialBounds]);
@@ -175,7 +166,7 @@ export function MapSurfaceMock({ places, onPlaceClick, initialBounds }: MapSurfa
           <button
             key={place.id}
             type="button"
-            aria-label={`${place.name} (${CATEGORY_LABEL[place.category]})`}
+            aria-label={`${place.name} (${PRODUCT_CATEGORY_LABEL[place.category]})`}
             onClick={() => handlePinClick(place)}
             className="absolute -translate-x-1/2 -translate-y-full cursor-pointer touch-manipulation transition-transform duration-150 will-change-transform hover:scale-110"
             style={{ left: `${left}%`, top: `${top}%` }}
@@ -202,7 +193,7 @@ export function MapSurfaceMock({ places, onPlaceClick, initialBounds }: MapSurfa
           <Card className="shadow-[var(--shadow-elevated)]">
             <CardHeader>
               <CardTitle>{selected.name}</CardTitle>
-              <CardDescription>{CATEGORY_LABEL[selected.category]}</CardDescription>
+              <CardDescription>{PRODUCT_CATEGORY_LABEL[selected.category]}</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
               {selected.note && <p className="text-sm text-foreground">{selected.note}</p>}
