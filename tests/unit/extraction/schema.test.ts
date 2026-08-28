@@ -343,12 +343,13 @@ describe('schema versioning', () => {
     expect(PROMPT_VERSION).toContain(`s${EXTRACTION_SCHEMA_VERSION}`);
   });
 
-  it('is on v3, under the prompt that restated the translate-vs-transliterate rule', () => {
+  it('is on v3, under the prompt that learned to read a transcript', () => {
     // Spelled out rather than derived, so moving the schema or the prompt is a deliberate edit
-    // here too. `p9` tightened four rules against measured p8 output; `s3` is the candidate shape
-    // that carries `nameVariants`, unchanged by that. Only the half that moved, moved.
+    // here too. `p13` taught the prompt what a transcript is and gave each content part its own
+    // labelled block; `s3` is the candidate shape that carries `nameVariants`, unchanged by that.
+    // Only the half that moved, moved.
     expect(EXTRACTION_SCHEMA_VERSION).toBe(3);
-    expect(PROMPT_VERSION).toBe('p12-s3');
+    expect(PROMPT_VERSION).toBe('p13-s3');
   });
 
   it('keeps PROMPT_VERSION storable in the extractions column', () => {

@@ -27,6 +27,7 @@
  */
 import { extractorInvalidOutput, extractorUnavailable } from '@/domain/errors';
 import { ExtractionResultSchema, toPlaceCandidate } from '@/domain/extraction/schema';
+import { contentPartsText } from '@/domain/import/content-parts';
 import type { OpCtx, PlaceExtractor } from '@/domain/ports';
 import type { ContentPart } from '@/domain/types';
 
@@ -124,10 +125,6 @@ interface GeminiGenerateContentResponse {
   };
 }
 
-function joinCaption(parts: readonly ContentPart[]): string {
-  return parts.map((p) => p.text).join('\n\n');
-}
-
 /**
  * `apiKey` and `model` are passed in, not read from `process.env` here — same composition-root
  * separation as the other adapters.
@@ -147,7 +144,10 @@ export function geminiPlaceExtractor(config: {
     promptVersion: PROMPT_VERSION,
 
     async extract(parts: readonly ContentPart[], ctx: OpCtx) {
-      const caption = joinCaption(parts);
+      // The exact string the model is shown, joined the one way `content-parts.ts` joins it — the
+      // plausibility and grounding gates test `evidence`/`groundedIn` against this, so a quote
+      // taken from the transcript has to be findable here too (`domain/import/content-parts.ts`).
+      const sourceText = contentPartsText(parts);
       const delimiter = generateDelimiter();
       const startedAt = Date.now();
 
@@ -162,7 +162,7 @@ export function geminiPlaceExtractor(config: {
           },
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-            contents: [{ role: 'user', parts: [{ text: buildUserPrompt(caption, delimiter) }] }],
+            contents: [{ role: 'user', parts: [{ text: buildUserPrompt(parts, delimiter) }] }],
             generationConfig: {
               responseMimeType: 'application/json',
               responseSchema: geminiSchema,
@@ -232,7 +232,7 @@ export function geminiPlaceExtractor(config: {
         elapsedMs,
       });
 
-      const candidates = postProcessCandidates(parsed.data.candidates.map(toPlaceCandidate), caption, ctx);
+      const candidates = postProcessCandidates(parsed.data.candidates.map(toPlaceCandidate), sourceText, ctx);
 
       return { candidates, cityHint: parsed.data.cityHint };
     },

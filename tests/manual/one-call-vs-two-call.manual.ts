@@ -78,7 +78,7 @@ async function oneCall(
           {
             role: 'user',
             parts: [
-              { text: buildUserPrompt(caption, delimiter) },
+              { text: buildUserPrompt([{ kind: 'caption', text: caption, origin: 'manual' }], delimiter) },
               {
                 text:
                   'The spoken audio of the same post follows. Treat what is said in it as ' +
@@ -127,7 +127,11 @@ describe.skipIf([MP4, TRANSCRIPT, CAPTION, KEY].some((v) => v === undefined))(
       const aMs = Date.now() - aStarted;
 
       // Arm B — caption + audio, one call, no transcript.
-      const b = await oneCall(CAPTION as string, audio.audio, audio.mimeType);
+      // Arm B is a known 400 and costs a call to re-learn that; skip it when only Arm A matters.
+      const b =
+        process.env.SKIP_B === '1'
+          ? { ms: 0, body: { skipped: true } }
+          : await oneCall(CAPTION as string, audio.audio, audio.mimeType);
 
       const out = process.env.OUT;
       if (out !== undefined) {

@@ -16,6 +16,7 @@
  */
 import { extractorInvalidOutput, extractorUnavailable } from '@/domain/errors';
 import { ExtractionResultSchema, toPlaceCandidate } from '@/domain/extraction/schema';
+import { contentPartsText } from '@/domain/import/content-parts';
 import type { OpCtx, PlaceExtractor } from '@/domain/ports';
 import type { ContentPart } from '@/domain/types';
 
@@ -48,10 +49,6 @@ function isToolUseBlock(block: Record<string, unknown>): block is AnthropicToolU
   return block['type'] === 'tool_use' && block['name'] === TOOL_NAME;
 }
 
-function joinCaption(parts: readonly ContentPart[]): string {
-  return parts.map((p) => p.text).join('\n\n');
-}
-
 /**
  * `apiKey` and `model` are passed in, not read from `process.env` here — this file has no I/O
  * dependency on how the composition root (L0-F6) sources config, and a test supplies a fake key
@@ -70,7 +67,10 @@ export function anthropicPlaceExtractor(config: {
     promptVersion: PROMPT_VERSION,
 
     async extract(parts: readonly ContentPart[], ctx: OpCtx) {
-      const caption = joinCaption(parts);
+      // The exact string the model is shown, joined the one way `content-parts.ts` joins it — the
+      // plausibility and grounding gates test `evidence`/`groundedIn` against this, so a quote
+      // taken from the transcript has to be findable here too (`domain/import/content-parts.ts`).
+      const sourceText = contentPartsText(parts);
       const delimiter = generateDelimiter();
       const startedAt = Date.now();
 
@@ -88,11 +88,11 @@ export function anthropicPlaceExtractor(config: {
             model,
             max_tokens: 1024,
             system: SYSTEM_PROMPT,
-            messages: [{ role: 'user', content: buildUserPrompt(caption, delimiter) }],
+            messages: [{ role: 'user', content: buildUserPrompt(parts, delimiter) }],
             tools: [
               {
                 name: TOOL_NAME,
-                description: 'Record the place candidates found in the caption.',
+                description: "Record the place candidates found in the post's source text.",
                 input_schema: EXTRACTION_JSON_SCHEMA,
               },
             ],
@@ -140,7 +140,7 @@ export function anthropicPlaceExtractor(config: {
         elapsedMs,
       });
 
-      const candidates = postProcessCandidates(parsed.data.candidates.map(toPlaceCandidate), caption, ctx);
+      const candidates = postProcessCandidates(parsed.data.candidates.map(toPlaceCandidate), sourceText, ctx);
 
       return { candidates, cityHint: parsed.data.cityHint };
     },
