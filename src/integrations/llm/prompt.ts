@@ -38,8 +38,29 @@ import { EXTRACTION_SCHEMA_VERSION } from '@/domain/extraction/schema';
  * checkable detail, because that same sentence dropped "Sunday to Friday" to keep "dreamy".
  * `categoryHint` gets a discriminator, because a pastry breakfast was labelled `restaurant`.
  * Schema unchanged, so only the `p` half of the key moves.
+ *
+ * `p9` -> `p10` (2026-08-28): p9 paid for those four rules with a regression it took a corpus run
+ * to see. `מתחת לעץ` had been auto-matching at 0.997 through the variant `Under the Tree`; under
+ * p9 the model produced `Metahat LeEtz` — a phonetic rendering of a phrase that means something —
+ * and the venue became unreachable in the index. The translate-vs-transliterate rule was already
+ * in the prompt, with that exact venue as its example; thirty lines added after it were enough to
+ * stop the model following it. It is now a decision procedure with the failure named, rather than
+ * an illustration.
+ *
+ * The same run turned up a second thing this asks for badly: on the Rustico caption the model
+ * quoted 400 characters into `evidence`, `ExtractionResultSchema` rejected the whole response, and
+ * a caption it had read better than any other in the corpus — both branches, both addresses, both
+ * Latin variants — produced no places at all. `evidence` and `groundedIn` now say how short short
+ * is. `schema.ts`'s `clippedQuote` is the floor under that, because asking is not a guarantee.
+ *
+ * `p10` -> `p11` (2026-08-28): clipping let that caption through, and it immediately produced the
+ * corpus's **first false auto-accept**. The model offered `Rustico Rothschild` as the variant for
+ * `רוסטיקו`, which matched the Rothschild branch exactly and auto-accepted it at 0.999 while the
+ * Basel branch the caption gives as the address sat at rank 5. A variant may not carry a branch,
+ * street, neighbourhood or city — the same rule `identifiedName` already had, and it matters more
+ * here, because a variant is what we search on.
  */
-export const PROMPT_VERSION = `p9-s${EXTRACTION_SCHEMA_VERSION}`;
+export const PROMPT_VERSION = `p11-s${EXTRACTION_SCHEMA_VERSION}`;
 
 /** Role, single task, and the negative-case framing that `09` §4.2 calls "the single most
  *  important line in the prompt": most captions name no venue, and an empty list is correct. */
@@ -98,10 +119,12 @@ Rules for each candidate you do emit:
   Keep "addressHint" separate from "cityHint"/"countryHint" (city/neighbourhood/country name only,
   never the street line) and separate from "rawName" (the venue name only, never the address).
   Set "addressHint" to null when the caption gives no street address — never invent one.
-- "evidence" must be a short fragment copied VERBATIM from the caption that names this place. Never
-  paraphrase it. If you cannot point to a verbatim fragment, do not emit the candidate. For a
-  hashtag-sourced candidate, "evidence" is the whole hashtag as written, "#" included — you may not
-  add spaces to it even though "rawName" reads more naturally with them.
+- "evidence" must be a short fragment copied VERBATIM from the caption that names this place.
+  **Short means short: one clause, about fifteen words, and always the part that names the venue.**
+  Do not quote the opening hours, the menu, the delivery apps or the whole paragraph the name
+  happens to sit in. Never paraphrase it. If you cannot point to a verbatim fragment, do not emit
+  the candidate. For a hashtag-sourced candidate, "evidence" is the whole hashtag as written, "#"
+  included — you may not add spaces to it even though "rawName" reads more naturally with them.
 - "categoryHint" is one of: restaurant, cafe, bar, bakery, attraction, shop, other — or null if
   unclear. Never guess a category the caption gives no signal for. Choose by what the venue's own
   business is, not by the one visit the caption describes: a "bakery" bakes and sells baked goods,
@@ -143,11 +166,19 @@ the SAME venue's name written in the OTHER script:
 - Caption named it in Hebrew (or any non-Latin script) -> give the Latin-script name that venue is
   actually known by. Caption named it in Latin script -> give the Hebrew name if it has a known
   one.
-- Transliterate or TRANSLATE, whichever matches how that venue is really known. "קוהי" is
-  transliterated: "Kohi". "טרטוריה אונה" is transliterated: "Trattoria Una". "מתחת לעץ" is
-  translated: "Under the Tree", because that is the name that venue actually trades under in
-  Latin script. "קפה אירופה" is "Cafe Europa". Ask what is written on the venue's own sign, menu
-  or listing — not what a word-by-word dictionary would produce.
+- Transliterate or TRANSLATE, whichever matches how that venue is really known. Decide it this
+  way, and this is the single most important judgement in this field:
+  - A name built from ordinary words that MEAN something is **translated**, because that is how
+    such a venue brands itself in Latin script. "מתחת לעץ" -> "Under the Tree". "האחים" -> "The
+    Brothers". "לחם ארז" -> "Lehem Erez" only if that is genuinely the sign; otherwise translate.
+  - A name that is a borrowed, foreign or invented word is **transliterated**. "קוהי" -> "Kohi".
+    "טרטוריה אונה" -> "Trattoria Una". "רוסטיקו" -> "Rustico". "קפה אירופה" -> "Cafe Europa".
+  - **Never sound out a phrase that means something.** "Metahat LeEtz" is not a name any venue
+    uses, and a variant like that is worse than no variant at all: we search on these, so it sends
+    us looking for a business that does not exist. If you catch yourself spelling out Hebrew words
+    letter by letter and the words have a meaning, translate them instead.
+  Ask what is written on the venue's own sign, menu or listing — not what a word-by-word
+  dictionary, and not what a phonetic renderer, would produce.
 - Very many venues in Israel trade under a Latin-script name and are only ever written in Hebrew
   in captions. That is the main case this field exists for: give that Latin name.
 - You may add one common alternate spelling of the same name ("Cafe Europa" / "Café Europa",
@@ -156,6 +187,12 @@ the SAME venue's name written in the OTHER script:
   different business with a similar-sounding name, never a chain this one reminds you of, never a
   category or a description. If you are picturing a different venue while you write it, it is
   wrong.
+- **A variant is the name and nothing else — never with a branch, street, neighbourhood or city
+  appended.** "רוסטיקו" is "Rustico", not "Rustico Rothschild"; "קוהי" is "Kohi", not "Kohi Ben
+  Yehuda". This is the same rule "identifiedName" has, and it matters more here, because we search
+  on these: a variant that names a branch makes us match *that* branch with total confidence, and
+  a caption that mentions two locations of one restaurant then resolves to whichever one you
+  happened to type. Picking a branch is not yours to do — the caption's own address decides it.
 - Do not repeat "rawName", and do not just copy "identifiedName" word for word. A variant is a
   different FORM of the name, not another copy of it.
 - Return [] when you do not know another form of this name. An empty list is correct and common:
@@ -222,7 +259,8 @@ place, or null. Written in English even when the caption is not.
 - Vary how you start. These sentences end up in a list next to each other, so do not open every one
   with the same word or template — write each one as it reads best.
 - "groundedIn": the exact caption fragment your sentence is based on, copied VERBATIM, character
-  for character, the same discipline as "evidence". If you cannot point at one, "whyGo" is null.
+  for character, and as short as "evidence" — one clause, not the paragraph around it. If you
+  cannot point at one, "whyGo" is null.
 - "groundedIn" must say something. Quoting only the place's own name does not count: a caption that
   reads "Resturants in Tel Aviv 📍Ha Kosem" tells you the name and the city and nothing else, so
   "whyGo" there is null. You may know a great deal about that venue — none of it belongs in this

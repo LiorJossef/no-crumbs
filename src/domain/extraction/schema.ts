@@ -163,6 +163,55 @@ export function boundedText(max: number, min = 0): z.ZodType<string> {
     });
 }
 
+/**
+ * The longest prefix of `value` that fits `max` once NFKC-normalised, cut at a boundary a reader
+ * would recognise: the last sentence end if there is one, else the last space, else hard.
+ *
+ * NFKC expansion is why this loops rather than calling `slice(0, max)` once — one code point can
+ * become eighteen, so the only reliable test is to normalise and measure.
+ */
+function clipToBound(value: string, max: number): string {
+  let text = value;
+  while (text.length > 0 && text.normalize('NFKC').length > max) {
+    text = text.slice(0, Math.max(1, Math.floor(text.length * (max / text.normalize('NFKC').length))));
+  }
+  if (text === value) return value;
+  const sentence = Math.max(text.lastIndexOf('. '), text.lastIndexOf('! '), text.lastIndexOf('? '));
+  if (sentence > max / 2) return text.slice(0, sentence + 1).trimEnd();
+  const space = text.lastIndexOf(' ');
+  return (space > max / 2 ? text.slice(0, space) : text).trimEnd();
+}
+
+/**
+ * A verbatim caption fragment, clipped to fit rather than rejected for being long.
+ *
+ * `evidence` and `whyGo.groundedIn` are quotes, and the model does not reliably keep a quote
+ * short. When one is too long the alternative to clipping is what actually happened, measured on
+ * the corpus: a caption about two Rustico branches produced the best extraction in the whole set —
+ * both branches, both addresses, both Latin name variants — and **every candidate in it was
+ * discarded** because one `evidence` string ran to 400 characters. `EXTRACTOR_INVALID_OUTPUT`, no
+ * places found, for a caption the model read perfectly.
+ *
+ * A clipped quote is still a quote. `grounding.ts` checks that `evidence` is a substring of the
+ * caption, and a prefix of a substring is one too, so the honesty gate the field exists for is
+ * unaffected — nothing is fabricated, there is just less of it. No ellipsis is appended for
+ * exactly that reason: a "…" would be a character the caption does not contain.
+ *
+ * The prompt asks for a short fragment, so this should be rare. It is the floor under that asking,
+ * not a substitute for it.
+ */
+export function clippedQuote(max: number, min = 0) {
+  return z
+    .string()
+    .transform((value) => clipToBound(value, max))
+    .refine((value) => value.length >= min, {
+      message: `must be at least ${min} characters`,
+    })
+    .refine((value) => value.length <= max && value.normalize('NFKC').length <= max, {
+      message: `must be at most ${max} characters once NFKC-normalised`,
+    });
+}
+
 /* ------------------------------------------------------------------------------------------- *
  * whyGo (v2)
  * ------------------------------------------------------------------------------------------- */
@@ -197,7 +246,7 @@ export const WhyGoSchema = z.object({
    * quote be attributed to a named creator next to a real source link, which inverts which column
    * is trusted. The gate is the value; the storage was the risk.
    */
-  groundedIn: boundedText(240, 3),
+  groundedIn: clippedQuote(240, 3),
 });
 
 export type WhyGo = z.infer<typeof WhyGoSchema>;
@@ -238,7 +287,7 @@ export const RawPlaceCandidateSchema = z.object({
    *  captured explicitly so it generalizes across caption formats instead of riding along inside
    *  `evidence` by incidental luck. */
   addressHint: boundedText(160).nullable(),
-  evidence: boundedText(240).nullable(),
+  evidence: clippedQuote(240).nullable(),
   modelConfidence: z.number().min(0).max(1).nullable(),
   identifiedName: boundedText(120, 2).nullable(),
   /**
