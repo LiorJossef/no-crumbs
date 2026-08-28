@@ -123,6 +123,10 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 
 import { MAX_PREFILTER_ROWS } from '@/integrations/supabase/place-resolver';
+import { queryForms } from '@/domain/places/score';
+import { SCORING } from '@/domain/places/scoring-constants';
+import { rankedRecordOf, RANKED_ROWS_RECORDED } from './recognition-ranking';
+import type { RankedRecord } from './recognition-ranking';
 import { oembedSourceAdapter } from '@/integrations/tiktok/oembed-source-adapter';
 import { captionContentExtractor } from '@/integrations/tiktok/caption-content-extractor';
 import { createPlaceExtractor } from '@/integrations/llm/place-extractor-factory';
@@ -477,6 +481,18 @@ interface CandidateResult {
   readonly margin: number | null;
   readonly top1: Top1 | null;
   readonly top3: readonly string[];
+  /**
+   * **Every** ranked row, not just the top one: name, score, the score's component terms,
+   * lat/lng, the provider place id and the row's relation to the top-1 (score gap, metres, token
+   * difference). `null` when nothing was resolved.
+   *
+   * HARNESS-RIVAL-1. `top3` above is a formatted string — `"むぎとオリーブ (0.926)"` — and a
+   * formatted string cannot answer the branch guard's question, which is *how far apart* the top
+   * row and its nearest rival are. `handoff-2026-08-28-resolution-confidence.md` §4.3: the guard
+   * shipped evidenced only on the 44-case Overture golden file because this field did not exist.
+   * `top1`/`top3` are kept unchanged so every existing reader of this record still works.
+   */
+  readonly ranking: RankedRecord | null;
   readonly resolutionKind: string;
   /** The corpus expectation this candidate was paired with, or null. */
   readonly expectedName: string | null;
@@ -815,6 +831,7 @@ describe.skipIf(!env.ok)('real TikToks through the real recognition flow', () =>
           margin: null,
           top1: null,
           top3: [],
+          ranking: null,
           resolutionKind: resolution?.kind ?? 'not_attempted',
           verdict: expectation === null ? 'unadjudicated' : 'wrong',
           failure:
@@ -847,6 +864,34 @@ describe.skipIf(!env.ok)('real TikToks through the real recognition flow', () =>
             };
       const top3 = res.shortlist.slice(0, 3).map((r) => `${r.place.name} (${r.score.toFixed(3)})`);
 
+      // HARNESS-RIVAL-1 — the ranking, with coordinates, for every row and not just the winner.
+      //
+      // `shortlist` is capped at `SCORING.defaultMaxResults` (5) while `candidatesPrefiltered`
+      // counts the whole ranking, so a truncated shortlist is re-fetched deeper. That re-fetch is
+      // free on the provider this measurement is for: `googlePlaceResolver` always asks Google for
+      // `MAX_GOOGLE_RESULTS` rows regardless of `maxResults`, so the request is byte-identical and
+      // both the disk cache above and `place_lookups` serve it — **zero Text Search quota**. On
+      // Overture it is one extra read of a table this harness only ever reads.
+      //
+      // The band is NOT recomputed from it: `scoreCandidates` already banded the full ranking
+      // before truncating (`domain/types.ts`, `candidatesPrefiltered`), so re-resolving is strictly
+      // a recording step and cannot move a number this run reports.
+      const deep =
+        res.candidatesPrefiltered > res.shortlist.length
+          ? await resolver
+              .resolve({ ...query, maxResults: RANKED_ROWS_RECORDED }, ctx())
+              .then((r) => r.shortlist)
+              .catch(() => res.shortlist)
+          : res.shortlist;
+      const ranking = rankedRecordOf(
+        deep,
+        queryForms(query.text, query.textVariants ?? null),
+        // The FULL ranking's length, so a 10-row window onto a 297-row Overture prefilter is
+        // recorded as the window it is. Google's own answer is at most `MAX_GOOGLE_RESULTS`, so on
+        // the provider this measurement is for the two numbers coincide and nothing is truncated.
+        res.candidatesPrefiltered,
+      );
+
       if (expectation === null) {
         candidates.push({
           ...common,
@@ -857,6 +902,7 @@ describe.skipIf(!env.ok)('real TikToks through the real recognition flow', () =>
           margin: res.confidence.margin,
           top1,
           top3,
+          ranking,
           resolutionKind: 'answered',
           verdict: 'unadjudicated',
           failure: null,
@@ -925,6 +971,7 @@ describe.skipIf(!env.ok)('real TikToks through the real recognition flow', () =>
         margin: res.confidence.margin,
         top1,
         top3,
+        ranking,
         resolutionKind: 'answered',
         verdict: autoMatched ? 'auto_match' : correct ? 'correct_not_auto_accepted' : 'wrong',
         failure: bucket,
@@ -1120,6 +1167,23 @@ function renderCase(r: CaseResult): string {
       `       top1: ${x.top1 === null ? '—' : `${x.top1.name} @ ${x.top1.address ?? '—'}, ${x.top1.locality ?? '—'}  (${x.top1.lat.toFixed(6)}, ${x.top1.lng.toFixed(6)})  cat=${x.top1.providerCategory ?? '—'} conf=${x.top1.datasetConfidence.toFixed(2)}`}`,
     );
     L.push(`       top3: ${x.top3.join('  |  ') || '—'}`);
+    // HARNESS-RIVAL-1 — every rival with its coordinates, its gap and its distance from the top-1,
+    // because "the guard did not fire" is only readable next to the numbers it was reading.
+    if (x.ranking !== null) {
+      for (const row of x.ranking.rows.slice(1)) {
+        L.push(
+          `       rival #${row.rank}: ${row.name} (${row.score.toFixed(3)})  Δ=${row.scoreGapFromTop1.toFixed(4)}  ` +
+            `${Math.round(row.metresFromTop1)}m  (${row.lat.toFixed(6)}, ${row.lng.toFixed(6)})  ` +
+            `nameDiff=${row.nameDifferenceFromTop1 === null ? 'null' : row.nameDifferenceFromTop1.join('+') || '(identical)'}  ` +
+            `inBand=${String(row.withinRivalScoreBand)}`,
+        );
+      }
+      L.push(
+        `       branch guard: ${x.ranking.branchGuard.fired ? `FIRED on "${x.ranking.branchGuard.rivalName ?? ''}" ` +
+          `(Δ=${x.ranking.branchGuard.rivalScoreGap?.toFixed(4) ?? '—'}, ${Math.round(x.ranking.branchGuard.rivalMetres ?? 0)}m)` : x.ranking.branchGuard.reason}` +
+          `  [${x.ranking.rankedLength} ranked row(s)${x.ranking.complete ? '' : ', truncated'}]`,
+      );
+    }
     if (x.expectedName !== null) L.push(`       expected: ${x.expectedName} — ${x.expectedArea ?? ''}`);
     if (x.acceptedRank !== null) L.push(`       rank of the right row in the full prefilter: ${x.acceptedRank}`);
     if (x.indexProbeHits !== null) L.push(`       poi_index probe: ${x.indexProbeHits.join(' ; ') || 'NO ROWS'}`);
@@ -1188,6 +1252,62 @@ const OUT_MD = fileURLToPath(
   new URL(`../../docs/evidence/places/tiktok-recognition${SUFFIX}.md`, import.meta.url),
 );
 
+/**
+ * HARNESS-RIVAL-1 — the nearest-rival table, which is the whole point of recording coordinates.
+ *
+ * One row per resolved candidate: the top-1, the runner-up, the score gap between them, the metres
+ * between them, and whether the shipped `branchRival` fired. `handoff-2026-08-28-resolution-confidence.md`
+ * §4.3 could not be answered from the previous record shape because these two numbers did not exist
+ * in it; a table that omitted them and printed only "guard: no" would repeat that mistake in a
+ * friendlier font.
+ *
+ * A candidate whose ranking has ONE row prints `—` for the rival and `no-rival` for the guard. That
+ * is not a pass: it means the provider returned a single answer and this corpus cannot say anything
+ * about the guard for that candidate, which is a finding about the corpus and must read as one.
+ */
+function renderRivals(rs: readonly CaseResult[]): string[] {
+  const rows = rs.flatMap((r) =>
+    r.candidates.flatMap((c) => (c.ranking === null ? [] : [{ url: r.url, c, ranking: c.ranking }])),
+  );
+  if (rows.length === 0) return [];
+
+  const md: string[] = [];
+  md.push('## Nearest rival, and the branch guard');
+  md.push('');
+  md.push(
+    `Guard constants this run: within **${SCORING.branchGuard.rivalScoreBand}** of the top score, ` +
+      `token containment whose differentiators are not in the query, and further than ` +
+      `**${SCORING.samePlaceMetres} m** apart.`,
+  );
+  md.push('');
+  md.push('| candidate | rows | top-1 | nearest rival | Δ score | metres | name diff | guard |');
+  md.push('|---|---|---|---|---|---|---|---|');
+  for (const { c, ranking } of rows) {
+    const top = ranking.rows[0];
+    const rival = ranking.rows[1];
+    const diff = rival?.nameDifferenceFromTop1;
+    md.push(
+      `| \`${c.rawName}\` | ${ranking.rankedLength}${ranking.complete ? '' : '+'} | ` +
+        `${top?.name ?? '—'} (${top?.score.toFixed(3) ?? '—'}) | ` +
+        `${rival?.name ?? '—'}${rival === undefined ? '' : ` (${rival.score.toFixed(3)})`} | ` +
+        `${rival === undefined ? '—' : rival.scoreGapFromTop1.toFixed(4)} | ` +
+        `${rival === undefined ? '—' : Math.round(rival.metresFromTop1).toString()} | ` +
+        `${diff === undefined || diff === null ? '—' : diff.length === 0 ? '(identical)' : diff.join(' ')} | ` +
+        `${ranking.branchGuard.fired ? `**FIRED** → ${ranking.branchGuard.rivalName ?? ''}` : ranking.branchGuard.reason} |`,
+    );
+  }
+  md.push('');
+  const fired = rows.filter((r) => r.ranking.branchGuard.fired).length;
+  const noRival = rows.filter((r) => r.ranking.branchGuard.reason === 'no-rival').length;
+  md.push(
+    `**Guard fired on ${fired} of ${rows.length}.** ${noRival} candidate(s) had a single-row ranking, ` +
+      'so the guard was structurally incapable of firing on them — that is a statement about this ' +
+      'corpus, not evidence that the guard is correctly tuned.',
+  );
+  md.push('');
+  return md;
+}
+
 afterAll(() => {
   if (!env.ok || results.length === 0) return;
   const t = tally(results);
@@ -1207,6 +1327,18 @@ afterAll(() => {
         region: env.region,
         poi_index_rows_tlv: env.rows,
         resolver: { provider: RESOLVER.provider, reason: RESOLVER.reason },
+        // The constants every `candidates[].ranking` field was evaluated against. Carried in the
+        // record because the score weights moved twice in two days (`scoring-constants.ts`), and a
+        // gap or a band read out of a record that does not say what produced it is a number
+        // without units — the 2026-08-28 07:52 run was stale by lunchtime for exactly that reason.
+        scoring: {
+          weights: SCORING.total,
+          bands: SCORING.bands,
+          branch_guard: SCORING.branchGuard,
+          same_place_metres: SCORING.samePlaceMetres,
+          address_weight: SCORING.address.weight,
+          ranked_rows_recorded: RANKED_ROWS_RECORDED,
+        },
         extractor: extractor === null ? null : { version: extractor.version, promptVersion: extractor.promptVersion },
         cache_bypassed: REFRESH,
         network_this_run: {
@@ -1290,6 +1422,7 @@ afterAll(() => {
     md.push(`| \`${k}\` | ${v.length} | ${meaning[k] ?? ''} |`);
   }
   md.push('');
+  md.push(...renderRivals(results));
   md.push('## Per case');
   md.push('');
   md.push('```');

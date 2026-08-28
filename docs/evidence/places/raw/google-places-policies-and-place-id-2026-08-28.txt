@@ -1,0 +1,69 @@
+SOURCE: https://developers.google.com/maps/documentation/places/web-service/policies
+FETCHED: 2026-08-28 (curl).
+----------
+ Policies and attributions for Places API 
+ Stay organized with collections
+ Save and categorize content based on your preferences.
+ Page Summary
+ outlined_flag 
+ Applications using the Places API must provide publicly accessible Terms of Use and a Privacy Policy that incorporate Google's Terms of Service and Privacy Policy, respectively.
+ You must not pre-fetch, cache, or store Places API content beyond the allowed exceptions, although the place_id is exempt from caching restrictions.
+ Places API results displayed on a map must be shown on a Google Map, with proper attribution including the Google logo and third-party data providers, if applicable.
+ When displaying Places API data without a Google Map, you must include the Google logo, adhering to the provided style guidelines and attribution requirements.
+ You must retrieve and display attributions for place details, photos, and reviews obtained through the Places API, including author information and links where available.
+ This document lists requirements that are specific to all applications
+ developed with the Places API (New), including the Autocomplete (New)
+ service that is part of that API. More general information for Google Maps
+---- attribution ----
+ Google Maps attribution requirements
+ This section provides attribution requirements and guidelines for displaying Google
+ Maps and Content through your applications.
+ Note: The following updated attribution requirements now use "Google Maps"
+ instead of only "Google." We acknowledge that your existing implementations may use the
+ attribution of "Google,"
+ in alignment with prior guidance, and you may continue using "Google" as an attribution for now.
+ For new implementations, use "Google Maps" as described in this section. In the future,
+ we will provide timelines and instructions to help you transition existing "Google" attributions
+ to "Google Maps" attributions.
+ Display Google Maps attribution
+ You must follow Google Maps attribution requirements when displaying Content from
+ Google Maps Platform APIs in your app or website. You don't need to add extra attribution
+ if the Content is shown on a Google Map where the attribution is already visible.
+ Included Google Maps attribution
+ For Google Maps attribution that is already provided by Google Maps Platform in
+ the user interface, such as in Places UI Kit:
+ Don't remove included attribution regardless of where it is displayed. Don't alter, hide,
+ or obscure the attribution and make sure it is clearly visible against the background.
+ Always visually distinguish Google Maps Platform Content from other content by using UI
+ cues such as a border, background color, shadow, or sufficient whitespace.
+ When making visual modifications, you must adhere to all Google Maps attribution
+ requirements.
+ Google Maps logo and text attribution
+ Attribution should take the form of the Google Maps logo whenever possible.
+ In cases where space is limited, the text Google Maps is acceptable.
+ It must always be clear to end users which content is provided by Google Maps.
+ Left: Example of Google Maps logo attribution, Right: Example of Google Maps text attribution 
+ Logo attribution
+Follow these requirements for using the Google Maps logo in your app or website.
+ Examples of acceptable variations for Google Maps logo attribution 
+ Download Google Maps logos
+ Use the official Google Maps logo files. Download the logos below, and follow the guidelines in this section.
+ Download the Google Maps attribution assets 
+ When using the Google Maps logo, follow these guidelines.
+ Don't modify the logo in any way.
+====================================================================
+SOURCE: https://developers.google.com/maps/documentation/places/web-service/place-id
+FETCHED: 2026-08-28 (curl).
+----------
+ Save place IDs for later use
+ Place IDs are exempt from the caching restrictions stated in
+ Section 3.2.3(b) 
+ of the Google Maps Platform Terms of Service. You can therefore store place ID values for later
+ use.
+ Refresh stored place IDs
+ Because Place IDs may change due to updates on the Google Maps database, Google recommends
+ refreshing place IDs if they are more than 12 months old. You can refresh Place IDs at no
+ charge by making a
+ Place Details request , specifying only the place ID
+field in the fields parameter.
+ Places API (New)
