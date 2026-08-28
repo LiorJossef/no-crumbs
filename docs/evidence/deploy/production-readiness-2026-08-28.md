@@ -13,6 +13,54 @@
 
 ---
 
+## CORRECTION, 2026-08-28 (`PROD-READY-2`, `devops-vercel`)
+
+**This file states or implies that production is at migration `0018`. It is at `0009`.** The
+orchestrator ran `npm run db:status:staging` and `npm run db:status:prod` — the two commands §1.1
+correctly declined to run — and measured:
+
+| Project | Remote head | Missing |
+|---|---|---|
+| `p-002-staging` | `0018` | `0019`–`0023` — **five**, as this file says |
+| `p-002-prod` | **`0009`** | **`0010`–`0023` — fourteen** |
+
+Recorded at `docs/evidence/deploy/hosted-migration-state-2026-08-28.md`. What follows in *this* file
+is otherwise sound; these are the parts that are not, so the record is right rather than tidy:
+
+1. **§0's gate table, row 2** — "Hosted schema is `0018`" is true of staging only.
+2. **§2's whole table is a staging table, not a production one.** Every row reasons from an "`0018`
+   database". Against production at `0009` the list is much longer: `/map`'s
+   `SAVED_PLACES_SELECT` is missing **seven** columns, not three (`extracted_reason` `0015`;
+   `source_url`, `source_thumbnail_url` `0016`; `tags`, `why_go`, `dishes` `0019`; and, on the
+   nested select, `places.source_dataset` and `resolution_score` from `0010`).
+3. **§2 misses the decisive failure entirely, because it only looked at columns.** Two **RPC
+   signatures** also changed inside the gap. Production's `save_place` is `0007`'s three-argument
+   form and the app calls `0017`'s four-argument form; production's `resolve_place` is `0007`'s
+   twelve-argument form and the app calls `0014`'s fifteen-argument form. **Restoring the Vercel env
+   store alone does not give a production that can complete a save.** Both fail loudly
+   (`PGRST202` → `internal(...)` → HTTP 500), which is the good news; the trace is in
+   `hosted-migration-runbook-2026-08-28.md` and in `PROD-READY-2`'s report.
+4. **§1.3's conclusion survives, and its reasoning gets *stronger*.** Production's `poi_index` is
+   not merely empty — at `0009` **the table does not exist**, because `0010` creates it. Every claim
+   in §1.3 about `no_region` and `llm_guess` holds.
+5. **§1.4 survives unchanged.** The Overture gate is decided by `NEXT_PUBLIC_STAGE`/`VERCEL_ENV` in
+   application code, not by schema.
+6. **§5.1's checklist is right in *order* and wrong in *size*.** Its step 7 says "applies
+   `0019`–`0023`"; against production it applies `0010`–`0023`, and two of the extra nine (`0014`,
+   `0017`) `DROP` a function that exists on production today. Its step 3's note that the CLI is
+   linked to staging is still the thing that will stop the run.
+7. **§3's Vercel findings are unaffected**, except that the deployed commit has moved on: measured
+   today, `/healthz` reports `5e312fe` (was `394fd43`), and `/map` and `/import` still return
+   **500**. The env store is still empty.
+8. **§4's promotion analysis is unaffected** — it reasons from constraints and triggers, not from a
+   migration number.
+
+`docs/vercel-env-restore.md` §4 said "production is still on migration `0009`" all along, and was
+right. `docs/current-state.md` contradicts itself: line 16 says both hosted projects are at `0018`;
+line 768 says "local `0019`, **staging `0018`**, production `0009`". Line 16 is the wrong one.
+
+---
+
 ## 0. The one-line verdict
 
 **Production cannot serve an import today, and it would not produce trustworthy rows if it could.**
