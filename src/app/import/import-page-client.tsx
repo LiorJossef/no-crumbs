@@ -268,6 +268,15 @@ export function ImportPageClient({ onClose, onSaved, initialUrl }: ImportPageCli
   const [screen, setScreen] = useState<Screen>({ kind: 'paste' });
   const [url, setUrl] = useState(initialUrl ?? '');
   const [touched, setTouched] = useState(initialUrl !== undefined);
+  /**
+   * The browser said the radio was off when `submit()` ran, so no request was made.
+   *
+   * Inline under the field rather than a failure screen, and deliberately not a `DomainErrorCode`:
+   * nothing was sent, so there is no `DomainError` to render and the nearest code — `INTERNAL`,
+   * "that didn't work on our side" — would blame us for the user's connection. Cleared at the top
+   * of every submit, so the message only ever describes the attempt the user just made.
+   */
+  const [offline, setOffline] = useState(false);
   /** The caption-preview screen's own save-in-flight state (the real "Done" path, this task).
    *  Kept out of `Screen` itself: a save failure re-shows the *same* `caption_preview` screen with
    *  an inline error, never a screen transition — `Screen`'s union is about which layout renders,
@@ -386,6 +395,7 @@ export function ImportPageClient({ onClose, onSaved, initialUrl }: ImportPageCli
    */
   async function submit(target: string = url) {
     setTouched(true);
+    setOffline(false);
     // Re-derived from `target` rather than read off the `validation` memo, which is bound to the
     // field's current value — one render behind on a seed tap.
     const verdict = canonicaliseTikTokUrl(target);
@@ -397,6 +407,15 @@ export function ImportPageClient({ onClose, onSaved, initialUrl }: ImportPageCli
       if (verdict.error.code !== 'MALFORMED_URL') {
         setScreen({ kind: 'redirect', reason: verdict.error.code as PreSubmitErrorCode });
       }
+      return;
+    }
+
+    // Offline, checked here rather than before the verdict above: a malformed link is malformed
+    // whether or not there is a connection, and this is the first step that actually needs one.
+    // Running the rail instead lands on `INTERNAL` — a claim about our servers, made about a
+    // request that never left the device.
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      setOffline(true);
       return;
     }
 
@@ -854,6 +873,7 @@ export function ImportPageClient({ onClose, onSaved, initialUrl }: ImportPageCli
             setUrl={setUrl}
             setTouched={setTouched}
             showInvalid={showInvalid}
+            showOffline={offline}
             canSubmit={canSubmit}
             // Wrapped, never `onSubmit={submit}`: `submit`'s first parameter is the URL, and a
             // bare handler would receive React's `MouseEvent` as it. The `() => void` prop type
@@ -960,6 +980,7 @@ function PasteScreen({
   setUrl,
   setTouched,
   showInvalid,
+  showOffline,
   canSubmit,
   onSubmit,
   onSeed,
@@ -968,6 +989,9 @@ function PasteScreen({
   setUrl: (v: string) => void;
   setTouched: (v: boolean) => void;
   showInvalid: boolean;
+  /** The last submit stopped because the browser is offline — the link is fine and still in the
+   *  field, so this is news about the connection, not about what was pasted. */
+  showOffline: boolean;
   canSubmit: boolean;
   onSubmit: () => void;
   /** Runs one of `IMPORT_SEED_LINKS` through the ordinary submit path. */
@@ -1032,6 +1056,14 @@ function PasteScreen({
         {showInvalid && (
           <p className="text-sm font-semibold text-destructive">
             That doesn&rsquo;t look like a TikTok link.
+          </p>
+        )}
+        {/* Not `aria-invalid` on the field: the link is not the problem. `role="status"` because
+            this appears after an action rather than describing what is typed. The sentence is the
+            one `/collections/join` already uses for the same stop. */}
+        {showOffline && !showInvalid && (
+          <p role="status" className="text-sm font-semibold text-destructive">
+            You&rsquo;re offline. Check your connection and try again.
           </p>
         )}
       </div>
@@ -1397,7 +1429,9 @@ function CandidateRow({ candidate }: { candidate: Candidate }) {
         <MapPin className="size-4" />
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <p className="truncate font-heading text-sm font-bold text-foreground">{c.rawName}</p>
+        <p className="line-clamp-1 font-heading text-sm font-bold text-foreground">
+          <bdi>{c.rawName}</bdi>
+        </p>
         <p className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">
           {band.place?.locality ?? c.cityHint ?? 'Location unknown'}
         </p>
@@ -1590,8 +1624,16 @@ function CaptionPreviewScreen({
       <div className="flex shrink-0 items-center gap-3 pb-3">
         {probe.thumbnailUrl ? (
           // A signed, ~6-month-expiry remote TikTok CDN URL; not worth a next/image
-          // remotePatterns entry.
-          <img src={probe.thumbnailUrl} alt="" className="size-12 shrink-0 rounded-lg object-cover" />
+          // remotePatterns entry. `referrerPolicy="no-referrer"` for the same reason the saved
+          // place's thumbnail carries it: without it the browser hands TikTok's CDN the URL of the
+          // screen the user is on. It does not hide the request itself — the CDN still sees the IP
+          // and the user agent — it only stops us telling them where from.
+          <img
+            src={probe.thumbnailUrl}
+            alt=""
+            referrerPolicy="no-referrer"
+            className="size-12 shrink-0 rounded-lg object-cover"
+          />
         ) : (
           <span
             aria-hidden
@@ -1837,6 +1879,11 @@ function ExtractedCandidateRow({
   const chip = status === null ? null : STATUS_CHIP[status];
   const options = resolutionOptions(view);
   const chosen = effectivePick(view, pick);
+  /** The chosen row itself, not just the name `savedPlaceName` reads off it: the Google Maps link
+   *  needs its address too, which is the only thing that tells two branches of one chain apart. */
+  const chosenRow = options.find((option) => option.index === chosen) ?? null;
+  const chosenOption =
+    chosenRow === null ? null : { name: chosenRow.name, detail: chosenRow.address };
   const needsPick = pickRequiredNotice(isSaveable(candidate), view, pick);
   const optionsId = useId();
   /** The shortlist is progressive disclosure, opened by `Not this place?` — except when there is
@@ -1857,7 +1904,13 @@ function ExtractedCandidateRow({
   const body = (
     <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
       <div className="flex items-baseline gap-2">
-        <p className="truncate font-heading text-[15px] font-bold text-foreground">{title}</p>
+        {/* `<bdi>` and `line-clamp-1` rather than `truncate`, on every name and address line of
+            this screen — the ruling the saved-place list and popover already made
+            (`place-sheet.tsx`): a Hebrew name in an LTR row is flipped by the chip beside it, and
+            an ellipsis on an RTL string clips the *start*, which is the half that identifies it. */}
+        <p className="line-clamp-1 font-heading text-[15px] font-bold text-foreground">
+          <bdi>{title}</bdi>
+        </p>
         {chip ? (
           <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold', chip.className)}>
             {chip.label}
@@ -1885,8 +1938,8 @@ function ExtractedCandidateRow({
           caption's own wording for the name ("The caption called it …") directly under the name
           it resolved to, the verbatim caption fragment under that, and a duplicate warning naming
           a pin the user is about to harmlessly re-save. */}
-      <p className="truncate text-[13px] font-medium text-muted-foreground">
-        {candidateMeta(candidate)}
+      <p className="line-clamp-1 text-[13px] font-medium text-muted-foreground">
+        <bdi>{candidateMeta(candidate)}</bdi>
       </p>
       {isHashtagOnly(caption, candidate) && (
         <p className="mt-1 text-xs font-medium text-muted-foreground">Only mentioned in a hashtag.</p>
@@ -2014,7 +2067,9 @@ function ExtractedCandidateRow({
                       {isChosen && <span className="size-2 rounded-full bg-[var(--mint-700)]" />}
                     </span>
                     <span className="flex min-w-0 flex-1 flex-col">
-                      <span className="truncate text-[13px] font-bold text-foreground">{option.name}</span>
+                      <span className="line-clamp-1 text-[13px] font-bold text-foreground">
+                        <bdi>{option.name}</bdi>
+                      </span>
                       {/* The address, not the name, is what tells two branches of a chain apart —
                           so it wraps rather than truncating. */}
                       <span className="text-xs font-medium break-words text-muted-foreground">
@@ -2044,7 +2099,7 @@ function ExtractedCandidateRow({
           {resolverPinLine(view, pick, isSaveable(candidate)) ?? locationLine(candidate)}
         </span>
         <a
-          href={googleMapsSearchUrl(candidate)}
+          href={googleMapsSearchUrl(candidate, chosenOption)}
           target="_blank"
           rel="noreferrer"
           aria-label={

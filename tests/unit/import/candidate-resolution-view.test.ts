@@ -135,6 +135,18 @@ describe('option identity and labelling', () => {
     expect(options.map((o) => o.detail)).toEqual(['Dizengoff 50, Tel Aviv', 'Ibn Gabirol 30, Tel Aviv']);
   });
 
+  it('carries the address separately from the line, so a query never searches the copy', () => {
+    const view = resolutionView(
+      answered('confirm', [
+        ranked({ name: 'Kohi', addressLine: 'Dizengoff 50', locality: 'Tel Aviv' }),
+        ranked({ name: 'Kohi', addressLine: null, locality: null }),
+      ]),
+    );
+    const options = resolutionOptions(view);
+    expect(options.map((o) => o.detail)).toEqual(['Dizengoff 50, Tel Aviv', 'No address in the map data']);
+    expect(options.map((o) => o.address)).toEqual(['Dizengoff 50, Tel Aviv', null]);
+  });
+
   it('does not repeat a locality the address already contains', () => {
     expect(optionDetail(place({ addressLine: 'חצר השוק 6, רעננה', locality: 'רעננה' }))).toBe('חצר השוק 6, רעננה');
   });

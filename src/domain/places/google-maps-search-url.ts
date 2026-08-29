@@ -98,12 +98,50 @@ function buildQueryText(candidate: PlaceCandidate): string {
 }
 
 /**
+ * The shortlist row the review screen is showing as chosen — the user's pick, or the top entry a
+ * `matched` candidate auto-accepts. Structural rather than the screen's own `ResolutionOption`,
+ * which lives in the UI layer and may not be imported from here.
+ */
+export interface PickedPlace {
+  readonly name: string;
+  /** The row's address/locality line as the card shows it, or `null` when it has none. */
+  readonly detail: string | null;
+}
+
+/**
+ * The query for a candidate the user has settled: the picked row's own name and address, and
+ * nothing from the caption beyond a fallback city.
+ *
+ * The caption's `addressHint`/`areaHint`/`countryHint` are dropped rather than mixed in, because a
+ * pick is the user disagreeing with the caption's reading: choosing the Basel branch of a chain
+ * the caption placed in Tel Aviv and then searching Google for the Tel Aviv address would send
+ * them to the branch they just rejected. `cityHint` survives only when the map data gave the
+ * picked row no detail at all, where the choice is between a weak query and a bare name.
+ */
+function pickedQueryText(pick: PickedPlace, candidate: PlaceCandidate): string {
+  const fallbackCity =
+    pick.detail === null && candidate.cityHint !== null && !alreadyContains(pick.name, candidate.cityHint)
+      ? candidate.cityHint
+      : null;
+  return [pick.name, pick.detail, fallbackCity]
+    .filter((part): part is string => part !== null && part.trim().length > 0)
+    .join(', ');
+}
+
+/**
  * A `https://www.google.com/maps/search/?api=1&query=...` URL for the given candidate — the
  * documented "Search" URL form (`https://developers.google.com/maps/documentation/urls/get-started#search-action`),
  * never a place-details or embed URL, since this candidate has no place ID and none is ever
  * fetched (`06` §3.4). Percent-encoding is `encodeURIComponent`'s job; this function does no
  * manual escaping.
+ *
+ * `pick` is the review screen's chosen shortlist row, when it has one. It exists because the card
+ * titled itself with the picked place while this link kept searching the caption's raw string, so
+ * the two named different venues the moment a user picked — on the one card whose whole purpose is
+ * telling two same-named branches apart. With no pick the caption-reconciling behaviour above is
+ * unchanged, and that is still the common case.
  */
-export function googleMapsSearchUrl(candidate: PlaceCandidate): string {
-  return `${GOOGLE_MAPS_SEARCH_BASE}${encodeURIComponent(buildQueryText(candidate))}`;
+export function googleMapsSearchUrl(candidate: PlaceCandidate, pick: PickedPlace | null = null): string {
+  const query = pick === null ? buildQueryText(candidate) : pickedQueryText(pick, candidate);
+  return `${GOOGLE_MAPS_SEARCH_BASE}${encodeURIComponent(query)}`;
 }
