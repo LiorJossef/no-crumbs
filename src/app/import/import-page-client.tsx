@@ -179,7 +179,16 @@ type Screen =
    */
   | { readonly kind: 'redirect'; readonly reason: PreSubmitErrorCode }
   | { readonly kind: 'rail'; readonly rail: RailState }
-  | { readonly kind: 'no_places'; readonly authorHandle: string | null }
+  | {
+      readonly kind: 'no_places';
+      readonly authorHandle: string | null;
+      /** The canonical URL, never the `url` state: a share-sheet paste is a caption with a link
+       *  somewhere inside it, and `Open the original TikTok` has to be an href. */
+      readonly canonicalUrl: string;
+      /** Whether there was a caption to read at all. "We read it and it named nothing" and "there
+       *  was nothing to read" are different facts and this screen says which. */
+      readonly hadCaption: boolean;
+    }
   | { readonly kind: 'results'; readonly authorHandle: string | null; readonly candidates: readonly Candidate[] }
   /** The real-fetch slice's landing screen (this task): no LLM has run, so this is deliberately
    *  not `no_places` or `results` — both of those imply extraction happened. Shows the raw
@@ -438,7 +447,20 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
           extractFact: n === 0 ? 'No places named' : n === 1 ? '1 place found' : `${n} places found`,
         },
       });
-      setScreen({ kind: 'caption_preview', probe: body });
+      // The modal outcome of an import gets its own screen. It had one all along — `NoPlacesScreen`
+      // was written, reviewed and never constructed, so every zero-candidate import fell through to
+      // the review screen and rendered a source row, one muted sentence and a half-empty card. At
+      // LEVEL B's hit rate that is the screen most imports end on.
+      setScreen(
+        n === 0
+          ? {
+              kind: 'no_places',
+              authorHandle: body.authorHandle,
+              canonicalUrl: body.canonicalUrl,
+              hadCaption: body.caption !== null,
+            }
+          : { kind: 'caption_preview', probe: body },
+      );
     } catch {
       // A user pressing Cancel is not an internal error. An abort lands here as a DOMException,
       // and so does any response that arrived after this call stopped owning the screen — both
@@ -854,7 +876,8 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
         {screen.kind === 'no_places' && (
           <NoPlacesScreen
             authorHandle={screen.authorHandle}
-            url={url}
+            url={screen.canonicalUrl}
+            hadCaption={screen.hadCaption}
             onRetry={() => reset({ clearUrl: true })}
           />
         )}
@@ -1207,10 +1230,12 @@ function RailStep({
 function NoPlacesScreen({
   authorHandle,
   url,
+  hadCaption,
   onRetry,
 }: {
   authorHandle: string | null;
   url: string;
+  hadCaption: boolean;
   onRetry: () => void;
 }) {
   return (
@@ -1222,15 +1247,27 @@ function NoPlacesScreen({
         <div className="flex flex-col items-center gap-1.5">
           <p className="text-[11px] font-bold tracking-[0.14em] text-[var(--mint-700)] uppercase">All done</p>
           <h1 className="font-heading text-xl font-extrabold tracking-tight text-foreground">
-            No places named
+            {hadCaption ? 'No places named' : 'Nothing to read'}
           </h1>
           {/* C70, `ux-architecture` §12.4, with the handle kept from this screen's own wording.
               The second sentence is the capability boundary said in human — at LEVEL B it is the
               product's main capability disclosure — and it is what replaced the manual-add
               promise. Still no blame: we read it, it simply had no name in it. */}
+          {/* Two different facts, and conflating them is the thing this codebase will not do:
+              a caption we read that named nothing, and a post that carried no caption at all. */}
           <p className="max-w-xs text-sm font-medium text-muted-foreground">
-            We read {authorHandle ? `@${authorHandle}’s TikTok` : 'this one'}, but it doesn&rsquo;t name
-            a place we can put on a map. Some TikToks only show the place on screen.
+            {hadCaption ? (
+              <>
+                We read {authorHandle ? `@${authorHandle}’s TikTok` : 'this one'}, but it
+                doesn&rsquo;t name a place we can put on a map. Some TikToks only show the place on
+                screen.
+              </>
+            ) : (
+              <>
+                {authorHandle ? `@${authorHandle}’s TikTok` : 'This TikTok'} has no caption, and
+                the caption is all we can read. Some TikToks only show the place on screen.
+              </>
+            )}
           </p>
         </div>
       </div>
