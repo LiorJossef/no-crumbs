@@ -58,6 +58,7 @@
 import { z } from 'zod';
 
 import { MAX_TAG_LENGTH, MAX_TAGS_PER_CANDIDATE, MIN_TAG_LENGTH } from './tags';
+import { EXTRACTED_CATEGORY_HINTS } from '../places/category-hint';
 import type { PlaceCandidate } from '../types';
 
 /**
@@ -67,6 +68,12 @@ import type { PlaceCandidate } from '../types';
  *
  * v1 → v2 (2026-08-27): added `areaHint`, `tags`, `dishes`, `whyGo`.
  * v2 → v3 (2026-08-28): added `nameVariants` (TLV-BILING-A).
+ * v3 → v4 (2026-08-29): the owner's category and tagging taxonomy. `categoryHint` narrows from
+ *   seven values to `places/taxonomy.ts`'s three primary categories, and `tags` narrows from an
+ *   open vocabulary of five to at most two drawn from a closed whitelist. No field was added or
+ *   removed, which is precisely why the version had to move: a v3 row and a v4 row have the same
+ *   *shape* and different *vocabularies*, so nothing but this number stops a cached v3 candidate
+ *   being read back as if the model had been asked the new question.
  *
  * ## v3, and why it is not the `nameAliases` the owner cut from v2
  *
@@ -92,16 +99,16 @@ import type { PlaceCandidate } from '../types';
  * deterministic transliterator measured on 2026-08-27 reached 47% recall and failed on exactly that
  * class, which is why this is the model's job and not a function's.
  */
-export const EXTRACTION_SCHEMA_VERSION = 3;
+export const EXTRACTION_SCHEMA_VERSION = 4;
 
-const EXTRACTED_CATEGORY_HINTS = ['restaurant', 'cafe', 'bar', 'bakery', 'attraction', 'shop', 'other'] as const;
-
-/** `places/category-hint.ts`'s `ExtractedCategoryHint`, restated as a Zod enum so this file is the
- *  one place the model-facing vocabulary is spelled out for schema generation.
+/** `places/category-hint.ts`'s `ExtractedCategoryHint` — the owner's three primary categories —
+ *  as a Zod enum.
  *
- *  **Kept in v2 deliberately.** `tags` supplements this vocabulary, it does not replace it: the
- *  map pins, the scorer's `cat_score` and `categoryHintFor` all key on these seven values, and an
- *  open vocabulary cannot be a closed enum's replacement without breaking all three. */
+ *  **Imported, not restated.** It was spelled out here once, on the reasoning that this file
+ *  should be the one place the model-facing vocabulary appears for schema generation, and that
+ *  argument had it backwards: a second literal list is exactly how the extractor's seven values
+ *  and the scorer's three came to disagree in the first place. `taxonomy.ts` is the vocabulary;
+ *  this is the wire format of it. */
 export const ExtractedCategoryHintSchema = z.enum(EXTRACTED_CATEGORY_HINTS);
 
 export const CoordinatesSchema = z.object({

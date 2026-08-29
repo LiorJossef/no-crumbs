@@ -7,13 +7,18 @@
  * `MockSavedPlace` is deliberately not `SavedRecommendation`: that type is still to come
  * (`domain/README.md`), and it will carry a real `PlaceId`, `UserId` and `Source` provenance this
  * fixture has no business inventing ahead of the feature that needs them. This shape borrows what
- * already exists — `LatLng` and `ExtractedCategoryHint` — rather than adding a parallel `lat`/`lng`
+ * already exists — `LatLng` and `ProductCategory` — rather than adding a parallel `lat`/`lng`
  * or category vocabulary, and it lives in `places/` rather than `types.ts` because it is not part
  * of the shared vocabulary other layers depend on; it is scaffolding for one UI slice.
+ *
+ * The category was `ExtractedCategoryHint` until the 2026-08-29 taxonomy narrowed that type to the
+ * three the model may emit. `ProductCategory` is the right one and always was: these are *saved*
+ * places picking a marker glyph, which is the display question, not a claim about what a model
+ * read out of a caption.
  */
 
 import type { LatLng } from '../types';
-import type { ExtractedCategoryHint } from './category-hint';
+import type { ProductCategory } from './product-category';
 
 /** One pin's worth of data for the vertical slice's map. Shaped like the eventual
  *  `SavedRecommendation` will be as far as the map needs: a stable id, a name, a category to pick
@@ -22,7 +27,7 @@ export interface MockSavedPlace {
   /** Fixture-local, not a `PlaceId` — there is no `places` row behind this yet. */
   readonly id: string;
   readonly name: string;
-  readonly category: ExtractedCategoryHint;
+  readonly category: ProductCategory;
   readonly location: LatLng;
   /** A fake TikTok video URL — shape-only, never fetched. */
   readonly sourceUrl: string;
@@ -38,7 +43,9 @@ export const mockSavedPlaces: readonly MockSavedPlace[] = [
   {
     id: 'mock-tlv-1',
     name: 'Anita Gelato',
-    category: 'other',
+    // `dessert` rather than the `other` it carried: a gelateria labelled "Place" is the exact
+    // symptom `product-category.ts` was written to fix, and a fixture should not model the bug.
+    category: 'dessert',
     location: { lat: 32.0809, lng: 34.7806 },
     sourceUrl: 'https://www.tiktok.com/@foodie.tlv/video/7000000000000000001',
     note: 'Pistachio gelato from the video was unreal, go before 6pm or it sells out.',

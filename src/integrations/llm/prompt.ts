@@ -12,6 +12,12 @@
  */
 
 import { EXTRACTION_SCHEMA_VERSION } from '@/domain/extraction/schema';
+import {
+  MAX_SUB_TAGS_PER_PLACE,
+  PRIMARY_CATEGORIES,
+  PRIMARY_CATEGORY_SCOPE,
+  SUB_TAG_LABELS,
+} from '@/domain/places/taxonomy';
 
 /**
  * The cache key on `extractions (source_id, model, prompt_version)`, and therefore the **only**
@@ -72,8 +78,28 @@ import { EXTRACTION_SCHEMA_VERSION } from '@/domain/extraction/schema';
  *
  * The guard was fixed to be caption-relative in the same change and no longer depends on any of
  * this, which is the point: **the prompt is the request, the plausibility gate is the control.**
+ *
+ * `p12` -> `p13` (2026-08-29): the owner's category and tagging taxonomy. Both halves of the key
+ * move — the vocabularies the prompt asks for changed, and so did the schema that accepts them.
+ *
+ * The category list drops from seven values to three, and the reason is not that four were
+ * unused. They were used and they disagreed with everything downstream: a gelateria the caption
+ * described as a shop read `Shop` on the review card and `Dessert` on the saved row one tap later,
+ * because the display vocabulary had already grown a value the extractor never had. Three is now
+ * the whole of what the model may say, and `product-category.ts` stays wider on purpose — it reads
+ * the resolver's answer as well, and that one is Google's taxonomy, not ours.
+ *
+ * `tags` changes from an open vocabulary of five to a closed whitelist of two, which is the
+ * larger change and the one to watch. The open vocabulary worked exactly as designed and still
+ * produced an unusable index: measured across the 31 live saved places, 35 distinct tags mixing
+ * cuisine, dish, venue type, neighbourhood, vibe and noise, of which **4 are in the new
+ * whitelist**. The prompt now hands the model the list and forbids everything else, and
+ * `extraction/tags.ts` drops whatever arrives outside it — the same request/control split the
+ * hashtag rule has. Expect a step change in tag *volume*, not a regression: most captions will now
+ * produce one tag or none where they used to produce three, and one findable tag is worth more
+ * than three that no two places share.
  */
-export const PROMPT_VERSION = `p12-s${EXTRACTION_SCHEMA_VERSION}`;
+export const PROMPT_VERSION = `p13-s${EXTRACTION_SCHEMA_VERSION}`;
 
 /** Role, single task, and the negative-case framing that `09` §4.2 calls "the single most
  *  important line in the prompt": most captions name no venue, and an empty list is correct. */
@@ -151,12 +177,14 @@ Rules for each candidate you do emit:
   thing backing this candidate, so it is not decoration. "rawName" for that same candidate is the
   tag's text WITHOUT the "#", spaces added only where the run-together words genuinely divide
   ("#tsukijifishmarket" -> rawName "Tsukiji Fish Market", evidence "#tsukijifishmarket").
-- "categoryHint" is one of: restaurant, cafe, bar, bakery, attraction, shop, other — or null if
-  unclear. Never guess a category the caption gives no signal for. Choose by what the venue's own
-  business is, not by the one visit the caption describes: a "bakery" bakes and sells baked goods,
-  a "cafe" sells coffee and somewhere to sit, a "bar" sells drinks in the evening, a "restaurant"
-  sells meals. A restaurant that serves a pastry breakfast is still a restaurant. "restaurant" is
-  not a default to fall back on when the caption is unclear — null is.
+- "categoryHint" is EXACTLY one of: ${PRIMARY_CATEGORIES.join(', ')} — or null if the caption
+  gives no signal. There is no fourth value; anything else you might reach for belongs in "tags".
+${PRIMARY_CATEGORIES.map((category) => `  - "${category}": ${PRIMARY_CATEGORY_SCOPE[category]}.`).join('\n')}
+  Never guess a category the caption gives no signal for. Choose by what the venue's own business
+  is, not by the one visit the caption describes: a restaurant that serves a pastry breakfast is
+  still a restaurant, and a bakery or an ice cream counter is a "cafe" — it is where you go for a
+  drink or something sweet, not for a meal. "restaurant" is not a default to fall back on when the
+  caption is unclear — null is.
 - Do not rank, judge quality, invent a city you were not told, or add prose. (Coordinates are the
   one exception to "do not guess" — see "coordinates" below.)
 
@@ -232,24 +260,34 @@ the SAME venue's name written in the OTHER script:
 Three fields describe what the caption SAYS about the place. They come from the caption, never from
 your own knowledge of the venue, and every one of them may be empty:
 
-"tags" — up to 5 short labels for organising a saved-places library: cuisine, style, setting or
-vibe. Good tags: "Italian", "Matcha", "Pan-Asian", "Nepalese", "Hidden gem", "Rooftop", "Market
-stall", "Hotel restaurant", "Natural wine", "Greek".
-- **Always in English, whatever language the caption is in.** This is the one field where you must
-  not copy the caption's own words. A tag is an index entry: the user taps it to pull up every
-  place that shares it, so one concept has to be one string across a whole library. A Hebrew
-  caption tagged "מאפייה" and an English one tagged "Bakery" are two different tags and neither
-  finds the other. Translate the concept: "מאפים" -> "Pastries", "בוקר" -> "Breakfast", "חצר" ->
-  "Courtyard", "יין טבעי" -> "Natural wine".
-- One or two words each. No "#", no sentences, no venue name, no city or neighbourhood name.
-- Do not tag a restaurant "Restaurant" — a tag that only repeats "categoryHint" is wasted, and
-  neither should a tag repeat something you already put in "dishes".
+"tags" — at most ${MAX_SUB_TAGS_PER_PLACE} labels, and **every one of them must be copied
+character for character from this list**:
+
+${SUB_TAG_LABELS.join(' · ')}
+
+- **This list is closed.** Do not invent a tag, do not translate one, do not pluralise, shorten or
+  rephrase one, and do not emit anything that is not on it exactly as written above. A tag is an
+  index entry — the user taps it to pull up every place that shares it — so a label that is nearly
+  one of these is not a near miss, it is a tag that finds nothing. Anything you emit that is not on
+  the list is discarded.
+- **If no label on the list strongly applies, return [].** An empty list is the normal, correct
+  answer and it is much better than a label that is only loosely true. Zero and one are both
+  ordinary results; ${MAX_SUB_TAGS_PER_PLACE} is a ceiling, never a target.
+- What the cuisine labels cover, so you pick from the list rather than around it: "Italian" is
+  pizza and pasta; "Japanese" is sushi, ramen and izakaya; "Asian" is Thai, Vietnamese, Chinese and
+  pan-Asian; "Middle Eastern" is Levantine food, skewers and local street food; "Mexican" is tacos
+  and Mexican street food; "American" is burgers, BBQ and diners; "Mediterranean" is Greek, coastal
+  and seafood.
+- The rest describe a speciality rather than a cuisine, and mostly suit cafes and bars: "Bakery",
+  "Desserts", "Specialty Coffee", "Brunch", "Cocktails", "Wine Bar", "Beer & Pub", "Speakeasy".
+- **The caption is in whatever language it is in; these labels are always in this English form.**
+  A Hebrew caption about מאפייה gets the tag "Bakery" — not "מאפייה", and not "Pastries".
 - Every tag must be supported by something the caption actually says. "seasonal Italian plates
-  inside Middle Eighty Hotel" supports "Italian" and "Hotel restaurant"; it does not support
-  "Rooftop" or "Romantic". Do not add tags from what you know about the venue.
-- Prefer the plain, reusable word a person would filter by: "Italian", not "Seasonal Italian small
-  plates". The same concept must get the same tag in every caption you ever read.
-- Return [] when the caption says nothing about the place beyond its name.
+  inside Middle Eighty Hotel" supports "Italian"; it supports nothing else on the list. Do not add
+  a tag from what you know about the venue rather than from what the caption says.
+- Do not repeat "categoryHint" with a tag: a bar does not need "Cocktails" unless the caption is
+  actually about its cocktails, and nothing on this list should restate a dish you have already put
+  in "dishes".
 
 "dishes" — up to 5 specific menu items the caption itself names: "sabich", "pistachio croissant",
 "cortado", "birria tacos", "matcha latte". A dish is something you could point at on a menu and
