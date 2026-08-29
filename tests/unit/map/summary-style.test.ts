@@ -25,14 +25,20 @@ import { describe, expect, it } from 'vitest';
 import {
   AREA_BAND_ZOOM,
   AREA_DISC_SPEC,
+  CAPPED_PILL_CENTRING_EM,
   COUNTRY_BAND_ZOOM,
   SUMMARY_TAP_TARGET_PX,
+  SUMMARY_TEXT_PX,
   areaLayerLayout,
   countryLayerLayout,
   summaryLayerPaint,
 } from '@/components/map/summary-style';
 import { AREA_BAND_MAX, AREA_BAND_MIN, COUNTRY_BAND_MAX } from '@/components/map/zoom-bands';
-import { countryDiscImageId, resolveDiscTokens } from '@/components/map/country-flag-image';
+import {
+  countryDiscImageId,
+  resolveDiscTokens,
+  summaryPillWidth,
+} from '@/components/map/country-flag-image';
 
 const COMPONENT_SOURCE = readFileSync('src/components/map/summary-marker-layer.tsx', 'utf8');
 const STYLE_SOURCE = readFileSync('src/components/map/summary-style.ts', 'utf8');
@@ -162,12 +168,56 @@ describe('the area band and the country band are one object', () => {
     expect(code(COMPONENT_SOURCE)).not.toContain("'text-offset'");
   });
 
-  it('differs between the bands only in where the image id comes from', () => {
-    const { 'icon-image': countryIcon, ...countryRest } = country();
+  it('differs between the bands only in the image id and the cap it implies', () => {
+    // Amended 2026-08-29, and deliberately not weakened: the two bands were identical apart from
+    // where the image id comes from until the country band gained the flag cap's centring offset.
+    // The cap is the *only* thing that makes them different objects, so it is the only thing this
+    // is allowed to except — everything else must still be equal, field for field.
+    const { 'icon-image': countryIcon, 'text-offset': offset, ...countryRest } = country();
     const { 'icon-image': areaIcon, ...areaRest } = area();
     expect(countryIcon).toEqual(['get', 'icon']);
     expect(typeof areaIcon).toBe('string');
+    expect(offset).toBeDefined();
+    expect(areaLayerLayout(FONT, 'x')['text-offset']).toBeUndefined();
     expect(countryRest).toEqual(areaRest);
+  });
+});
+
+describe('a capped pill is centred on its own coordinate', () => {
+  // The owner's report: the macro badges do not sit over the places they count. They do not,
+  // because `icon-text-fit: 'width'` centres the *text* on the coordinate and hangs the image's
+  // fixed regions off the text box — and the flag cap is entirely on the leading edge, so the drawn
+  // pill ends up half the cap's width to the left. See `CAPPED_PILL_CENTRING_EM`.
+
+  it('measures the overhang from the pill widths rather than re-adding the cap geometry', () => {
+    const overhang = summaryPillWidth(true) - summaryPillWidth(false);
+    expect(overhang).toBeGreaterThan(0);
+    expect(CAPPED_PILL_CENTRING_EM * SUMMARY_TEXT_PX).toBeCloseTo(overhang / 2, 10);
+  });
+
+  it('shifts the flagged pill right by half its cap, in ems, because text-offset speaks ems', () => {
+    expect(country()['text-offset']).toEqual([
+      'case',
+      ['==', ['get', 'countryCode'], ''],
+      ['literal', [0, 0]],
+      ['literal', [CAPPED_PILL_CENTRING_EM, 0]],
+    ]);
+  });
+
+  it('leaves every capless pill alone, because a capless pill is already symmetric', () => {
+    // The countryless bucket carries `countryCode: ''` and draws the same capless image every area
+    // marker does; correcting it would push it off its own coordinate in the other direction.
+    expect(area()['text-offset']).toBeUndefined();
+    const offset = country()['text-offset'] as unknown[];
+    expect(offset[1]).toEqual(['==', ['get', 'countryCode'], '']);
+    expect(offset[2]).toEqual(['literal', [0, 0]]);
+  });
+
+  it('moves the text, never the icon — the pill is fitted to the text and follows it', () => {
+    // `icon-offset` would slide the pill off its own label: `fitIconToText` applies it to the icon
+    // box alone (`maplibre-gl/src/symbol/shaping.ts`).
+    expect(country()['icon-offset']).toBeUndefined();
+    expect(area()['icon-offset']).toBeUndefined();
   });
 });
 

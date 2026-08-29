@@ -24,7 +24,7 @@
  * lets `תל אביב-יפו` shape through the RTL plugin.
  */
 
-import { SUMMARY_PILL, type DiscTokens } from './country-flag-image';
+import { SUMMARY_PILL, summaryPillWidth, type DiscTokens } from './country-flag-image';
 import { AREA_BAND_MAX, AREA_BAND_MIN, COUNTRY_BAND_MAX } from './zoom-bands';
 
 /** The label's size, shared by both bands so one number is not two. */
@@ -45,6 +45,33 @@ const LABEL_COUNT_GAP = '  ';
 
 export const COUNTRY_LAYER_ID = 'country-pills';
 export const AREA_LAYER_ID = 'area-pills';
+
+/**
+ * **The flag cap sits entirely on the leading edge, so a capped pill is not centred on its own
+ * coordinate** — and `icon-text-fit` is what makes that a bug rather than a detail.
+ *
+ * With `icon-text-fit: 'width'` MapLibre fits the icon to the **text box**, not the other way
+ * round (`shaping.ts` `fitIconToText`: "the icon will be centered on the text, then stretched"),
+ * and lays the image's fixed regions outside that box as pixel offsets (`quads.ts` `getPxOffset`).
+ * `text-anchor: 'center'` therefore puts the *text* on the country's coordinate, and the pill grows
+ * asymmetrically around it: 45 CSS px of leading inset where the cap is, 25 px trailing. The drawn
+ * marker's centre lands 10 px to the **left** of the mean of the user's own saved places, which at
+ * world zoom is hundreds of kilometres and reads exactly as the owner reported it — the badge is
+ * not over the places it counts. The capless pill (every area marker, and the countryless country
+ * bucket) is symmetric and already correct.
+ *
+ * The offset below moves the text, and the pill follows it because the pill is fitted to the text.
+ * It is **not** `icon-offset`: that shifts the icon alone and would slide the pill off its label.
+ *
+ * Derived from `summaryPillWidth` rather than re-adding the cap geometry here — the difference
+ * between the two pill widths *is* the overhang, all of it leading, so there is no second copy of
+ * `country-flag-image.ts`'s insets to drift from the first.
+ */
+const CAP_OVERHANG_PX = summaryPillWidth(true) - summaryPillWidth(false);
+
+/** The same correction in ems, which is the unit `text-offset` is measured in — so it stays right
+ *  if `SUMMARY_TEXT_PX` is ever tuned. */
+export const CAPPED_PILL_CENTRING_EM = CAP_OVERHANG_PX / 2 / SUMMARY_TEXT_PX;
 
 /**
  * The capless pill: no flag in it. It is the area band's marker **and** the country band's marker
@@ -131,6 +158,15 @@ export function countryLayerLayout(textFont: readonly string[]): Record<string, 
     // Per-feature, because the flag, the theme and the mint ring are all baked into the image.
     'icon-image': ['get', 'icon'],
     'text-field': labelAndCount(),
+    // Per-feature too, and for the same reason: only a *capped* pill is off-centre. The countryless
+    // bucket carries `countryCode: ''` and draws the capless pill, which is already symmetric — see
+    // `CAPPED_PILL_CENTRING_EM`.
+    'text-offset': [
+      'case',
+      ['==', ['get', 'countryCode'], ''],
+      ['literal', [0, 0]],
+      ['literal', [CAPPED_PILL_CENTRING_EM, 0]],
+    ],
   };
 }
 
@@ -172,6 +208,8 @@ export function areaLayerLayout(
     // that knows the theme.
     'icon-image': pillImageId,
     'text-field': labelAndCount(),
+    // No `text-offset`: a capless pill's leading and trailing insets are equal, so it is already
+    // centred on the area's own coordinate. See `CAPPED_PILL_CENTRING_EM`.
   };
 }
 
