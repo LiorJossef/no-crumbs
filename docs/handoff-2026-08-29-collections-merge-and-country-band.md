@@ -133,6 +133,17 @@ has claimed since it was written that the route checks one. Postgres-backed slid
 scopes, fail-closed, zero policies and zero privileges on the table for every role including
 `service_role`. 14 assertions, 7 sabotage-tested.
 
+**It has NOT been independently reviewed.** `agent-guardrails.md` §5.20 requires `security-privacy`
+sign-off on anything touching RLS and grants, and the specialist's own cross-user attempt is not
+that. A review was started and **killed part-way through, at the question of whether a caller can
+use the opportunistic prune to evict someone else's counters and clear a block** — no findings
+survived, so it must be re-run from scratch. **Do not merge #72 until it has.** The questions it was
+given, worth re-using: the `SECURITY DEFINER` search_path pinning; that `userId` must come from
+`getUser()` and is enforced by comment rather than mechanism; the claim that the two-arg advisory
+lock is a different space from `resolve_place`'s one-arg form in `0014`; whether 0027 fails open or
+closed on production if `postgres` lacks `rolbypassrls` (0024's assumption, never run hosted); and
+the prune question it died on.
+
 **The routes are not wired.** That is the next step and it needs whoever does it to work out the
 real per-run `llmCalls` / `placeCalls`; passing a guess corrupts the ceiling.
 
