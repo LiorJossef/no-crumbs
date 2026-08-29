@@ -258,40 +258,65 @@ const VIEWPORT_DEBOUNCE_MS = 120;
 /**
  * Run `action` as soon as the map can accept a camera command, and never later than that.
  *
- * `map.loaded()` is the wrong test for this and cost us a working feature once already: it reports
- * false while *tiles* are in flight, which is most of the second after any camera move, so a
- * camera command guarded on it is routinely dropped and — because the effect that issued it has no
- * reason to re-run — never retried. `isStyleLoaded()` is the actual precondition for `fitBounds`;
- * before that, MapLibre's own `load` event is the earliest safe moment.
+ * ## What "ready" means, and the two wrong answers this has already had
+ *
+ * `map.loaded()` was the first, and it cost us a working feature: it reports false while *tiles*
+ * are in flight, which is most of the second after any camera move, so a command guarded on it is
+ * routinely dropped and — because the effect that issued it has no reason to re-run — never
+ * retried.
+ *
+ * `map.isStyleLoaded()` was the second, on the stated grounds that it is "the actual precondition
+ * for `fitBounds`". **It is not, and that was measured on 2026-08-29.** `cameraForBounds`,
+ * `fitBounds` and `easeTo` read `map.transform` and nothing else; the style is irrelevant to all
+ * three. Worse, `Style.loaded()` returns false while any *source* is loading, which includes the
+ * ordinary `setData` that `PlaceMarkerLayer` and `SummaryMarkerLayer` issue whenever the library
+ * they draw changes — and a source finishing emits **`sourcedata`**, not `styledata`, while `load`
+ * has long since fired and cannot fire twice. So the deferred action waited for two events that
+ * were never coming and was dropped silently, for good.
+ *
+ * That is the whole of the country-tap bug in the 2026-08-29 handoff §2, and it is why it looked
+ * intermittent. Tapping a country from the *global* scope changes the list from 32 rows to 14,
+ * which changes the pin source, which makes `isStyleLoaded()` false in the same commit the flight
+ * is requested — so the flight is deferred and lost. Tapping the same country twice, or tapping
+ * one whose places were already the whole list, changes no data, leaves the style loaded, and
+ * flies correctly. Observed live, both ways, with `[PROBE whenReady] deferred` never followed by
+ * the action running.
+ *
+ * ## The answer
+ *
+ * The precondition for a camera command is a **sized container**, because that is what the
+ * transform is built from and what the padding is measured against. Everything else is a fallback
+ * for the case where the map is constructed before layout: `load`, `styledata`, `sourcedata` and
+ * `idle` are all registered, whichever arrives first wins, and `done` keeps the action idempotent
+ * so the camera cannot be framed twice.
+ *
+ * A fit that is still impossible when it runs is not this function's problem: `fitTo` asks
+ * `cameraForBounds` first and declines to record a framing it could not perform, so the
+ * `ResizeObserver` retries it.
  */
 function whenReady(map: MapLibreMap, action: () => void): void {
-  if (map.isStyleLoaded()) {
+  const container = map.getContainer();
+  if (container.clientWidth > 0 && container.clientHeight > 0) {
     action();
     return;
   }
-  // `load` alone is not enough, and this was measured rather than reasoned. `load` fires after the
-  // style *and* a first complete render; if the map was created before its container had a size
-  // (see `useContainerSize` below) it can finish its style, fetch tiles, and still never fire
-  // `load`. Observed live: `isStyleLoaded() === true`, `areTilesLoaded() === true`, `loaded() ===
-  // false`, camera stranded at zoom 0 over (0, 0) — so the initial `fitBounds` never ran and the map
-  // sat on a world view with two cluster bubbles and no pins. (Those bubbles no longer exist —
-  // density clustering was removed in `L1-F5-T5` — so the same bug now strands you on a world view
-  // of overlapping pins instead. The camera failure is the point, not what it showed.)
-  //
-  // `styledata` fires whenever the style finishes loading, which is the actual precondition for a
-  // camera command. Both are registered and whichever arrives first wins; `done` makes the action
-  // idempotent so the camera cannot be framed twice.
+  // `load` alone was never enough, and that was measured too: if the map was created before its
+  // container had a size it can finish its style, fetch tiles, and still never fire `load` —
+  // observed with `isStyleLoaded() === true`, `areTilesLoaded() === true`, `loaded() === false`
+  // and the camera stranded at zoom 0 over (0, 0).
   let done = false;
   const run = () => {
     if (done) return;
     done = true;
-    map.off('load', run);
-    map.off('styledata', run);
+    for (const event of READY_EVENTS) map.off(event, run);
     action();
   };
-  map.once('load', run);
-  map.on('styledata', run);
+  for (const event of READY_EVENTS) map.on(event, run);
 }
+
+/** Every event that can mean "the map has settled enough to move the camera". More than one,
+ *  because each of them individually has a case it does not cover — see `whenReady`. */
+const READY_EVENTS = ['load', 'styledata', 'sourcedata', 'idle'] as const;
 
 export function MapSurfaceMapcn({
   places,
