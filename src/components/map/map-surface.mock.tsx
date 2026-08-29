@@ -166,7 +166,11 @@ export function MapSurfaceMock({ places, onPlaceClick, initialBounds }: MapSurfa
           <button
             key={place.id}
             type="button"
-            aria-label={`${place.name} (${PRODUCT_CATEGORY_LABEL[place.category]})`}
+            aria-label={
+              place.category
+                ? `${place.name} (${PRODUCT_CATEGORY_LABEL[place.category]})`
+                : place.name
+            }
             onClick={() => handlePinClick(place)}
             className="absolute -translate-x-1/2 -translate-y-full cursor-pointer touch-manipulation transition-transform duration-150 will-change-transform hover:scale-110"
             style={{ left: `${left}%`, top: `${top}%` }}
@@ -193,7 +197,9 @@ export function MapSurfaceMock({ places, onPlaceClick, initialBounds }: MapSurfa
           <Card className="shadow-[var(--shadow-elevated)]">
             <CardHeader>
               <CardTitle>{selected.name}</CardTitle>
-              <CardDescription>{PRODUCT_CATEGORY_LABEL[selected.category]}</CardDescription>
+              <CardDescription>
+                {selected.category ? PRODUCT_CATEGORY_LABEL[selected.category] : null}
+              </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
               {selected.note && <p className="text-sm text-foreground">{selected.note}</p>}

@@ -197,7 +197,8 @@ export function BeenToggle({
  *
  * ## Collapsed by default, one row when open
  *
- * Eight chips is more visual weight than a control most people will touch once deserves, so this
+ * Three chips (four with `Automatic`), down from eight with the 2026-08-29 taxonomy. Even eight was
+ * more visual weight than a control most people will touch once deserves, so this
  * follows `NoteEditor`'s idiom exactly: a label, the current value, and a small pencil. Opening it
  * shows the whole vocabulary at once rather than a select — the set is closed and short, and a
  * native select on a drag sheet fights the gesture layer the same way a dialog does
@@ -205,10 +206,14 @@ export function BeenToggle({
  *
  * ## "Automatic" is an option, not an absence
  *
- * When the user has overridden the category, the row offers `Automatic` alongside the eight. It
- * writes SQL `NULL`, which is a different statement from picking `Place`: it means *stop, use
+ * When the user has overridden the category, the row offers `Automatic` alongside the three. It
+ * writes SQL `NULL`, which is a different statement from every chip on the row: it means *stop, use
  * whatever you work out*, so a better provider category tomorrow still reaches this place. Freezing
  * today's derivation into the column would opt the place out of every future improvement, silently.
+ *
+ * It used to be distinguishable from picking `Place`, the old eighth value. There is no `Place`
+ * any more — a place we cannot categorise simply has none — so `Automatic` is now the only way to
+ * say "I have no opinion", which is what it always meant.
  *
  * Not optimistic, for the same reason nothing else here is: `revalidatePath('/map')` is what
  * updates the pin colour, the pin glyph and the line under the name, so the screen can never
@@ -220,7 +225,9 @@ export function CategoryEditor({
   isOverridden,
 }: {
   savedPlaceId: string;
-  category: ProductCategory;
+  /** The place's current category, `null` where nothing resolved one. A null is a legitimate
+   *  resting state, not an error: the row simply shows no chip as active. */
+  category: ProductCategory | null;
   /** Whether `category` came from this user's override rather than the provider or the model.
    *  Decides only whether `Automatic` is offered — there is nothing to undo otherwise. */
   isOverridden: boolean;
@@ -261,7 +268,7 @@ export function CategoryEditor({
 
       {editing ? (
         // `radiogroup` rather than a list of buttons: these are one mutually exclusive choice, and
-        // a screen reader should say "3 of 9" rather than announce nine unrelated controls.
+        // a screen reader should say "2 of 4" rather than announce four unrelated controls.
         <div role="radiogroup" aria-label="Category" className="flex flex-wrap gap-1.5 pt-0.5">
           {PRODUCT_CATEGORY_ORDER.map((value) => {
             const active = value === category && isOverridden;
@@ -303,8 +310,15 @@ export function CategoryEditor({
         </div>
       ) : (
         <p className="text-sm leading-relaxed text-foreground">
-          {PRODUCT_CATEGORY_LABEL[category]}
-          {!isOverridden && (
+          {/* A place with no category says so in words rather than showing a blank line where a
+              value should be — the control is the answer to "what is this?", and silence there
+              reads as a rendering fault rather than as an honest "we could not tell". */}
+          {category === null ? (
+            <span className="text-muted-foreground">Not set</span>
+          ) : (
+            PRODUCT_CATEGORY_LABEL[category]
+          )}
+          {category !== null && !isOverridden && (
             <span className="text-muted-foreground"> · worked out from the post</span>
           )}
         </p>

@@ -33,7 +33,9 @@ import type { ZoomBand } from './zoom-bands';
 export interface MapPlace {
   readonly id: string;
   readonly name: string;
-  readonly category: ProductCategory;
+  /** `null` where none of the three claims resolved. `toPlaceFeatures` turns that into the
+   *  `uncategorised` pin key; nothing downstream has to invent a category to draw one. */
+  readonly category: ProductCategory | null;
   readonly lat: number;
   readonly lng: number;
   readonly note: string;

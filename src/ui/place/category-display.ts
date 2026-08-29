@@ -15,34 +15,42 @@ import { PRODUCT_CATEGORY_LABEL } from '@/domain/places/product-category';
 import type { ProductCategory } from '@/domain/places/product-category';
 
 export interface CategoryDisplay {
-  /** Sentence case, the way it is written in a sentence. From the domain — the import review
-   *  screen reads the same table, so a café is a "Café" on every surface. */
-  readonly label: string;
+  /** Sentence case, the way it is written in a sentence — or `null` for a place we have no
+   *  category for, which prints nothing rather than a word meaning "we would rather not say". */
+  readonly label: string | null;
   /**
    * The pin colour. Dark enough to carry a white glyph, and far enough apart in hue from its
-   * neighbours to stay distinguishable at pin size on a near-white map.
+   * neighbours to stay distinguishable at pin size on a near-white map. Never null: every pin has
+   * to be drawn in something.
    */
   readonly color: string;
 }
 
 /**
- * `other` keeps the house mint deliberately: a place whose category we could not read is still one
- * of the user's places, and painting it grey would make "we do not know" look like "this one is
- * lesser".
+ * Three colours and a fallback, matching the three categories the taxonomy defines.
+ *
+ * The palette used to carry eight. Five of them are gone with the values they coloured — and the
+ * one worth recording is `dessert`'s pink, added so that "a gelateria used to render as a shop"
+ * could never mean two confusable colours as well as two confusable words. A gelateria is a `cafe`
+ * now, so the confusion it guarded against cannot arise: there is no `shop`.
  */
 const CATEGORY_COLOR: Record<ProductCategory, string> = {
   restaurant: '#C2452F',
   cafe: '#8A5A3B',
-  bakery: '#C68A17',
   bar: '#6D4FA8',
-  // Pink, and specifically *not* the magenta `shop` already holds: a gelateria used to render as
-  // a shop, so the two categories most likely to be confused for one another must not also be the
-  // two colours most likely to be confused for one another at pin size.
-  dessert: '#D4577A',
-  attraction: '#2F7FA8',
-  shop: '#8E4585',
-  other: '#2E7A70',
 };
+
+/**
+ * What an uncategorised place is drawn in — the house mint, deliberately, and this reasoning
+ * survives the narrowing unchanged: a place whose category we could not read is still one of the
+ * user's places, and painting it grey would make "we do not know" look like "this one is lesser".
+ *
+ * It is a colour and **not** a category. It has no label and the filter bar offers no chip for it,
+ * because "we have no fact here" is not a thing to filter a library by.
+ */
+export const UNCATEGORISED_COLOR = '#2E7A70';
+
+const UNCATEGORISED_DISPLAY: CategoryDisplay = { label: null, color: UNCATEGORISED_COLOR };
 
 export const CATEGORY_DISPLAY = Object.fromEntries(
   Object.entries(PRODUCT_CATEGORY_LABEL).map(([category, label]) => [
@@ -51,14 +59,14 @@ export const CATEGORY_DISPLAY = Object.fromEntries(
   ])
 ) as Record<ProductCategory, CategoryDisplay>;
 
-export const DEFAULT_CATEGORY: ProductCategory = 'other';
-
 export function isKnownCategory(category: unknown): category is ProductCategory {
   return typeof category === 'string' && category in CATEGORY_DISPLAY;
 }
 
+/** Total: every value, including `null` and anything left over from the eight-value vocabulary,
+ *  gets something to draw. Only the three named categories get a word. */
 export function categoryDisplay(category: string | null | undefined): CategoryDisplay {
-  return CATEGORY_DISPLAY[isKnownCategory(category) ? category : DEFAULT_CATEGORY];
+  return isKnownCategory(category) ? CATEGORY_DISPLAY[category] : UNCATEGORISED_DISPLAY;
 }
 
 /**

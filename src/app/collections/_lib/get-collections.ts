@@ -55,7 +55,9 @@ export interface CollectionPlace {
   readonly itemId: string;
   readonly placeId: string;
   readonly name: string;
-  readonly category: ProductCategory;
+  /** `null` where none of the three claims resolved — the row prints its locality alone and the
+   *  pin keeps the house mint. See `productCategoryFor`. */
+  readonly category: ProductCategory | null;
   readonly lat: number;
   readonly lng: number;
   readonly addressLine: string | null;
@@ -177,9 +179,16 @@ export async function getCollections(): Promise<readonly CollectionSummary[]> {
 /** The collection's category mix: each category once, most common first, at most five. No `+n`
  *  beyond that — the strip is a texture, not a count, and the row's accessible name carries every
  *  fact it cannot. */
-function distinctCategoriesByCount(all: readonly ProductCategory[]): readonly ProductCategory[] {
+function distinctCategoriesByCount(
+  all: readonly (ProductCategory | null)[],
+): readonly ProductCategory[] {
   const counts = new Map<ProductCategory, number>();
-  for (const category of all) counts.set(category, (counts.get(category) ?? 0) + 1);
+  // An uncategorised place contributes no colour to the strip. The strip is a texture made of
+  // facts; the absence of a fact is not one of them.
+  for (const category of all) {
+    if (category === null) continue;
+    counts.set(category, (counts.get(category) ?? 0) + 1);
+  }
 
   return [...counts.entries()]
     .sort((a, b) => b[1] - a[1])

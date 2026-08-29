@@ -9,7 +9,7 @@
  * `./marker-style.ts`, which is where the unit tests live.
  */
 
-import type { ProductCategory } from '@/domain/places/product-category';
+import type { PinKey } from './marker-style';
 import {
   CATEGORY_ORDER,
   CATEGORY_STYLES,
@@ -91,23 +91,6 @@ const GLYPHS: Record<GlyphName, Draw> = {
     ctx.fill();
   },
 
-  croissant: (ctx) => {
-    // A crescent: one arc out, a tighter one back, tips pulled up into horns.
-    ctx.beginPath();
-    ctx.moveTo(3, 16.5);
-    ctx.quadraticCurveTo(3.5, 5, 12, 5);
-    ctx.quadraticCurveTo(20.5, 5, 21, 16.5);
-    ctx.quadraticCurveTo(19.5, 13.5, 17.5, 14.6);
-    ctx.quadraticCurveTo(15.5, 9.8, 12, 9.8);
-    ctx.quadraticCurveTo(8.5, 9.8, 6.5, 14.6);
-    ctx.quadraticCurveTo(4.5, 13.5, 3, 16.5);
-    ctx.closePath();
-    ctx.fill();
-    // The rolled centre, so it does not read as a plain arch.
-    ctx.beginPath();
-    ctx.ellipse(12, 15.5, 3.4, 2.6, 0, 0, Math.PI * 2);
-    ctx.fill();
-  },
 
   glass: (ctx) => {
     // Coupe: bowl, stem, foot.
@@ -124,50 +107,8 @@ const GLYPHS: Record<GlyphName, Draw> = {
     ctx.fill();
   },
 
-  star: (ctx) => {
-    const cx = 12;
-    const cy = 12.4;
-    const outer = 9.6;
-    const inner = 4.2;
-    ctx.beginPath();
-    for (let i = 0; i < 10; i += 1) {
-      const radius = i % 2 === 0 ? outer : inner;
-      const angle = -Math.PI / 2 + (i * Math.PI) / 5;
-      const x = cx + radius * Math.cos(angle);
-      const y = cy + radius * Math.sin(angle);
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.closePath();
-    ctx.fill();
-  },
 
-  bag: (ctx) => {
-    // Handle first, so the body's fill covers where it meets the rim.
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = ctx.fillStyle;
-    ctx.beginPath();
-    ctx.arc(12, 8.6, 4, Math.PI, 0);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.roundRect(4, 8.6, 16, 12.6, 2.2);
-    ctx.fill();
-  },
 
-  cone: (ctx) => {
-    // Two scoops and a wafer. Drawn as one filled path per part rather than an outline, because at
-    // 24px in a pin the stroke weight that reads as "cone" at icon size closes up into a blob.
-    ctx.beginPath();
-    ctx.arc(9.6, 8.4, 3.9, 0, Math.PI * 2);
-    ctx.arc(14.4, 8.4, 3.9, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(6.2, 11.4);
-    ctx.lineTo(17.8, 11.4);
-    ctx.lineTo(12, 21.4);
-    ctx.closePath();
-    ctx.fill();
-  },
 
   dot: (ctx) => {
     ctx.beginPath();
@@ -178,7 +119,7 @@ const GLYPHS: Record<GlyphName, Draw> = {
 
 function drawPin(
   ctx: CanvasRenderingContext2D,
-  category: ProductCategory,
+  category: PinKey,
   geometry: PinGeometry
 ): void {
   const { color, glyph } = CATEGORY_STYLES[category];

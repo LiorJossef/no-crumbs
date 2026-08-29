@@ -29,14 +29,31 @@
 
 import { PRODUCT_CATEGORY_ORDER } from '@/domain/places/product-category';
 import type { ProductCategory } from '@/domain/places/product-category';
-import { CATEGORY_DISPLAY, DEFAULT_CATEGORY } from '@/ui/place/category-display';
+import { CATEGORY_DISPLAY, UNCATEGORISED_COLOR } from '@/ui/place/category-display';
 
-export { DEFAULT_CATEGORY };
+/**
+ * The pin drawn for a place we have no category for.
+ *
+ * A **pin key, not a category** — that distinction is the whole of the 2026-08-29 narrowing. It is
+ * a thing the map has to draw, because every place gets a pin; it is not a thing the filter bar
+ * offers, because "we have no fact here" is not something to filter a library by. The old `other`
+ * was both at once, which is how it became a category in everything but name.
+ */
+export const UNCATEGORISED_PIN = 'uncategorised';
 
-export const CATEGORY_ORDER = PRODUCT_CATEGORY_ORDER;
+/** Everything the map may draw a pin for: the three categories, plus the absence of one. */
+export type PinKey = ProductCategory | typeof UNCATEGORISED_PIN;
 
-/** The glyph drawn inside a pin. `./marker-images.ts` has one draw routine per value. */
-export type GlyphName = 'fork' | 'cup' | 'croissant' | 'glass' | 'cone' | 'star' | 'bag' | 'dot';
+/** Draw order, and the order images are registered in. */
+export const CATEGORY_ORDER: readonly PinKey[] = [...PRODUCT_CATEGORY_ORDER, UNCATEGORISED_PIN];
+
+/** The glyph drawn inside a pin. `./marker-images.ts` has one draw routine per value.
+ *
+ *  `croissant`, `cone`, `star` and `bag` went with the categories they belonged to — a bakery and
+ *  a gelateria are `cafe` now and draw a cup, and there is no `shop` or `attraction` to draw. Their
+ *  draw routines went with them rather than being left in place "in case", which is how a palette
+ *  ends up with glyphs nothing references. */
+export type GlyphName = 'fork' | 'cup' | 'glass' | 'dot';
 
 /** The pin's colour and label come from `ui/place/category-display.ts`, which the list and the
  *  detail view read too — a café is the same brown word-and-colour wherever it appears. Only the
@@ -45,29 +62,33 @@ export type CategoryStyle = (typeof CATEGORY_DISPLAY)[ProductCategory] & {
   readonly glyph: GlyphName;
 };
 
-const GLYPH_BY_CATEGORY: Record<ProductCategory, GlyphName> = {
+const GLYPH_BY_PIN: Record<PinKey, GlyphName> = {
   restaurant: 'fork',
   cafe: 'cup',
-  bakery: 'croissant',
   bar: 'glass',
-  dessert: 'cone',
-  attraction: 'star',
-  shop: 'bag',
-  other: 'dot',
+  [UNCATEGORISED_PIN]: 'dot',
+};
+
+const UNCATEGORISED_STYLE: CategoryStyle = {
+  label: null,
+  color: UNCATEGORISED_COLOR,
+  glyph: GLYPH_BY_PIN[UNCATEGORISED_PIN],
 };
 
 export const CATEGORY_STYLES = Object.fromEntries(
-  CATEGORY_ORDER.map((category) => [
-    category,
-    { ...CATEGORY_DISPLAY[category], glyph: GLYPH_BY_CATEGORY[category] },
+  CATEGORY_ORDER.map((key) => [
+    key,
+    key === UNCATEGORISED_PIN
+      ? UNCATEGORISED_STYLE
+      : { ...CATEGORY_DISPLAY[key], glyph: GLYPH_BY_PIN[key] },
   ])
-) as Record<ProductCategory, CategoryStyle>;
+) as Record<PinKey, CategoryStyle>;
 
 export function categoryStyle(category: string | undefined | null): CategoryStyle {
   if (category && category in CATEGORY_STYLES) {
-    return CATEGORY_STYLES[category as ProductCategory];
+    return CATEGORY_STYLES[category as PinKey];
   }
-  return CATEGORY_STYLES[DEFAULT_CATEGORY];
+  return UNCATEGORISED_STYLE;
 }
 
 /** Pin geometry in CSS pixels, before `devicePixelRatio`. */
@@ -133,7 +154,7 @@ export function pinGeometry(selected: boolean): PinGeometry {
  *  expression can build them with `concat`. */
 export const PIN_IMAGE_PREFIX = 'p002-pin-';
 
-export function pinImageId(category: ProductCategory, selected: boolean): string {
+export function pinImageId(category: PinKey, selected: boolean): string {
   return `${PIN_IMAGE_PREFIX}${category}${selected ? '-selected' : ''}`;
 }
 
@@ -157,7 +178,7 @@ export function allPinImageIds(): string[] {
  * rather than falling back. `toPlaceFeatures` already normalises it, so this is belt-and-braces.
  */
 export function pinIconImageExpression(selectedId: string | null): unknown[] {
-  const name: unknown[] = ['coalesce', ['get', 'category'], DEFAULT_CATEGORY];
+  const name: unknown[] = ['coalesce', ['get', 'category'], UNCATEGORISED_PIN];
   if (selectedId === null) return ['concat', PIN_IMAGE_PREFIX, name];
   return [
     'concat',

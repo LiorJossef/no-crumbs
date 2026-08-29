@@ -827,7 +827,7 @@ export function NoPlacesYet({ onAddTikTok }: { onAddTikTok: () => void }) {
  */
 export interface DetailPlace {
   readonly name: string;
-  readonly category: ProductCategory;
+  readonly category: ProductCategory | null;
   readonly lat: number;
   readonly lng: number;
   /** The source post's link, where the caller's own save carries one. `undefined`, not omitted, so

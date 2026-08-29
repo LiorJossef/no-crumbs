@@ -187,6 +187,8 @@ function toSpot(row: SavedPlaceRow): EnrichedSpot {
     name: row.display_name ?? place?.name ?? row.id,
     displayNameOverride: row.display_name,
     canonicalName: place?.name ?? row.id,
+    // `null` where none of the three claims resolved — see `productCategoryFor`. A `Spot` with no
+    // category is a normal place: it draws the house-mint pin and its row prints its locality.
     category: productCategoryFor({
       override: row.category_override,
       providerCategory: place?.provider_category,

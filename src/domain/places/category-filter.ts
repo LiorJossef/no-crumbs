@@ -10,17 +10,13 @@
  *
  * ## Why the facets are derived from the places and never from the vocabulary
  *
- * `PRODUCT_CATEGORY_ORDER` lists eight values and would be the obvious thing to render a bar from.
- * It is the wrong thing. Two of the eight (`dessert` most sharply) are reachable only through the
- * provider's taxonomy, because `ExtractedCategoryHint` carries seven values and `ProductCategory`
- * carries eight — the parity gap in `product-backlog-2026-08-29.md` §1.1, which is a separate item
- * and is deliberately not repaired here. A bar built from the vocabulary would therefore offer
- * chips that no library on some code paths can ever fill, and §1.3 rule 2 is explicit that a filter
- * leading to an empty list is "a broken promise with a tap target on it".
- *
- * Counting first and rendering second makes that impossible by construction rather than by a
- * maintained exclusion list: a category with no places has no facet, so it has no chip, whatever
- * the vocabularies do to each other later.
+ * `PRODUCT_CATEGORY_ORDER` now lists exactly the three categories the extractor can emit, so the
+ * gap this originally guarded against — a bar offering chips no library could fill, because the
+ * display vocabulary carried eight values against the extractor's seven — is closed at the source.
+ * The guard stays anyway, and deliberately: §1.3 rule 2 is that a filter leading to an empty list
+ * is "a broken promise with a tap target on it", and counting first makes that impossible *by
+ * construction* rather than by a vocabulary invariant somebody has to keep true. A library of only
+ * restaurants gets one chip.
  *
  * ## What the facets should be counted over — the seam this is designed for
  *
@@ -77,16 +73,16 @@ const ORDER_INDEX: ReadonlyMap<ProductCategory, number> = new Map(
 );
 
 /**
- * A stored category string as the product's vocabulary, with anything unreadable landing on
- * `other`.
+ * A stored category string as the product's vocabulary, or `null` when it is not one of the three.
  *
- * The fallback is not a guess and not a widening: `productCategoryFor` already resolves an
- * unparseable override to `other`, and `categoryDisplay` already renders an unknown value as
- * "Place". A row that reads "Place" in the list has to be counted under the chip that says "Place",
- * or the bar's counts contradict the rows they claim to summarise.
+ * The fallback used to be `other`, and removing it is the point rather than a tidying: a place we
+ * cannot categorise is not *in* a category called "we cannot categorise it". It has no chip, it is
+ * in no chip's results, and its row prints its locality alone. `null` in, `null` out — including
+ * for the values the eight-value vocabulary used to produce, which are still in the database on
+ * rows written before 2026-08-29.
  */
-export function toProductCategory(value: string | null | undefined): ProductCategory {
-  return isProductCategory(value) ? value : 'other';
+export function toProductCategory(value: string | null | undefined): ProductCategory | null {
+  return isProductCategory(value) ? value : null;
 }
 
 /** Whether a category selection narrows anything. `null` is "no filter", which is the resting
@@ -113,6 +109,9 @@ export function categoryFacets<T>(
 
   for (const place of places) {
     const category = toProductCategory(categoryOf(place));
+    // An uncategorised place is counted under nothing. It is still in the library and still on the
+    // map; it is simply not a fact any of the three chips can claim.
+    if (category === null) continue;
     counts.set(category, (counts.get(category) ?? 0) + 1);
   }
 
