@@ -106,7 +106,7 @@ const MUTATION_CONTROLS: readonly string[] = [
 
 function render(
   place: DetailPlace,
-  savedPlace: { readonly id: string; readonly visited: boolean } | null,
+  savedPlace: { readonly id: string; readonly visited: boolean; readonly visitedAt?: Date } | null,
   extra: { primaryAction?: string; footer?: string; variant?: 'sheet' | 'hosted' } = {},
 ): string {
   return renderToStaticMarkup(
@@ -194,5 +194,42 @@ describe('PlaceDetail — the Google Maps link', () => {
     const alone = render(UNSAVED, null);
     expect(alone).not.toContain('Open TikTok');
     expect(alone).toContain('Open in Google Maps');
+  });
+});
+
+describe('PlaceDetail — when the been mark was made', () => {
+  it('says the month beside the toggle once the place is marked been', () => {
+    // `visited_at` has been selected, mapped and typed since the mark shipped and rendered
+    // nowhere. This is the one surface that says it — a per-row date was declined on purpose
+    // (`location-certainty.ts`), and this is the detail, not the row.
+    const markup = render(SAVED, {
+      id: 'saved-1',
+      visited: true,
+      visitedAt: new Date('2026-08-24T10:00:00Z'),
+    });
+    expect(markup).toContain('Marked as been in August');
+  });
+
+  it('says nothing when the row is marked but carries no timestamp', () => {
+    // Allowed by `0006`'s CHECK, so it is a row that exists rather than a defensive branch.
+    const markup = render(SAVED, { id: 'saved-1', visited: true });
+    expect(markup).not.toContain('Marked as been');
+  });
+
+  it('says nothing on a place that is not marked been', () => {
+    // The date and the state cannot disagree in the database; a date under a button reading
+    // `Been here` would be the screen contradicting itself.
+    const markup = render(SAVED, {
+      id: 'saved-1',
+      visited: false,
+      visitedAt: new Date('2026-08-24T10:00:00Z'),
+    });
+    expect(markup).toContain('Been here');
+    expect(markup).not.toContain('Marked as been');
+  });
+
+  it('says nothing to a caller with no saved row of its own', () => {
+    // The collection host sees somebody else's place: their visit is not a fact it may show.
+    expect(render(UNSAVED, null)).not.toContain('Marked as been');
   });
 });

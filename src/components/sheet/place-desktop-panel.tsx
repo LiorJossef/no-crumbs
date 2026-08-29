@@ -51,6 +51,8 @@ export interface PlaceDesktopPanelProps {
   readonly onSelectArea: (areaId: string) => void;
   readonly activeAreaId: string | null;
   readonly libraryIsEmpty: boolean;
+  /** See `PlaceSheetProps` — library-wide, because the chip filters the map as well as this list. */
+  readonly libraryHasVisited: boolean;
   readonly filtering: boolean;
   readonly query: string;
   readonly onQueryChange: (query: string) => void;
@@ -82,6 +84,7 @@ export function PlaceDesktopPanel({
   onSelectArea,
   activeAreaId,
   libraryIsEmpty,
+  libraryHasVisited,
   filtering,
   query,
   onQueryChange,
@@ -152,6 +155,7 @@ export function PlaceDesktopPanel({
               onToggleCategory={onToggleCategory}
               notBeenOnly={notBeenOnly}
               onToggleNotBeen={onToggleNotBeen}
+              anyVisited={libraryHasVisited}
             />
           )}
           {activeTag !== null && <ActiveTagFilter tag={activeTag} onClear={onClearTag} />}
