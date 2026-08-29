@@ -22,9 +22,17 @@ import { useNonModalBackground } from '@/components/sheet/use-non-modal-backgrou
 import { CollectionContent, type CollectionView } from '@/components/collections/collection-content';
 import type { CollectionDetail } from '@/app/collections/_lib/get-collections';
 
-/** The sheet's stops, matching `place-sheet.tsx` so the two surfaces feel like one product. */
-const PEEK_PX = 132;
+/** The sheet's stops, matching `place-sheet.tsx` so the two surfaces feel like one product — the
+ *  peek height is that file's `PEEK_PX`, duplicated with the coupling named because it is not
+ *  exported (`query-rect.ts`'s `SHEET_PEEK_PX` mirrors the same number the same way). */
+const PEEK_PX = 128;
 const SNAP_POINTS: Array<`${number}px` | number> = [`${PEEK_PX}px`, 0.55, 1];
+
+/** Where the sheet **rests** here, and the one difference from `/map` the camera has to know about:
+ *  this surface opens at `half` and stays there, so more than half the map is permanently covered.
+ *  Read off `SNAP_POINTS` rather than restated, so the sheet and the camera cannot drift apart. */
+const RESTING_SNAP = SNAP_POINTS[1] ?? 0.55;
+const RESTING_SHEET_FRACTION = typeof RESTING_SNAP === 'number' ? RESTING_SNAP : undefined;
 
 export function CollectionClient({
   collection,
@@ -37,7 +45,7 @@ export function CollectionClient({
 }) {
   const [view, setView] = useState<CollectionView>('list');
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-  const [snap, setSnap] = useState<number | string | null>(SNAP_POINTS[1] ?? 0.55);
+  const [snap, setSnap] = useState<number | string | null>(RESTING_SNAP);
 
   const pins = useMemo(() => collection.places.map(toMapPlace), [collection.places]);
   const initialBounds = useMemo(() => boundsOf(collection.places), [collection.places]);
@@ -49,8 +57,8 @@ export function CollectionClient({
 
   function selectItem(itemId: string | null) {
     setSelectedItemId(itemId);
-    // A place is worth reading at half, not through a 132px slot.
-    if (itemId !== null && snap === SNAP_POINTS[0]) setSnap(SNAP_POINTS[1] ?? 0.55);
+    // A place is worth reading at half, not through the peek slot.
+    if (itemId !== null && snap === SNAP_POINTS[0]) setSnap(RESTING_SNAP);
   }
 
   const content = (
@@ -68,7 +76,7 @@ export function CollectionClient({
         // scrolls, so it does not even look scrollable. A place's detail is different and stays at
         // `half`: it is short, and burying the map to read one card is the wrong trade.
         if (next === 'share' || next === 'add') setSnap(1);
-        else if (next === 'place' && snap === SNAP_POINTS[0]) setSnap(SNAP_POINTS[1] ?? 0.55);
+        else if (next === 'place' && snap === SNAP_POINTS[0]) setSnap(RESTING_SNAP);
       }}
       selectedItemId={selectedItemId}
       onSelectItem={selectItem}
@@ -85,6 +93,9 @@ export function CollectionClient({
         }}
         {...(initialBounds ? { initialBounds } : {})}
         {...(focusPlaceIds ? { focusPlaceIds } : {})}
+        {...(RESTING_SHEET_FRACTION !== undefined
+          ? { restingSheetFraction: RESTING_SHEET_FRACTION }
+          : {})}
       />
 
       {/* Mobile: the same drag sheet `/map` uses. */}

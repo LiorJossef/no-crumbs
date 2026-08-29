@@ -12,7 +12,9 @@
  * the caller's `unproject` as a function), only the `LatLngBoundsHint` shape the map port already
  * speaks. Camera *policy* — how much cosmetic breathing room a `fitBounds` gets, the zoom ceiling,
  * the flight duration — stays in the surface; this module only answers where the map's chrome is
- * and what rectangle of the world is left over.
+ * and what rectangle of the world is left over. `clampFitPadding` is here for the same reason the
+ * rest of it is: it decides no policy, it only refuses to hand the camera a box with nothing in it,
+ * and that refusal has boundaries no one can eyeball from the surface.
  */
 
 import type { LatLngBoundsHint } from './types';
@@ -86,17 +88,73 @@ export function safeAreaInsetBottomPx(): number {
  *    the width of the whole viewport to clear a chip a few hundred pixels wide. Camera-only too:
  *    the camera has to clear it, because a pin *underneath* the chip is unclickable, which is a
  *    different problem from a pin the list forgot.
+ *
+ * `bottomOcclusionPx` overrides the sub-`lg` sheet height for a surface whose sheet **rests**
+ * somewhere other than the peek stop: `/collections/[id]` opens at the half stop and stays there, so
+ * the chrome permanently over its map is ~55% of the viewport rather than 128 px. It replaces
+ * `SHEET_PEEK_PX` only — `safe-area-inset-bottom` is still added on top of it, because the sheet
+ * sits on that inset whatever stop it is at — and the `lg+` branch has no sheet to override.
  */
-export function mapOcclusionInsets(viewportWidth: number): {
+export function mapOcclusionInsets(
+  viewportWidth: number,
+  bottomOcclusionPx: number = SHEET_PEEK_PX
+): {
   top: number;
   bottom: number;
   left: number;
   right: number;
 } {
   if (viewportWidth < LG_BREAKPOINT_PX) {
-    return { top: 0, bottom: SHEET_PEEK_PX + safeAreaInsetBottomPx(), left: 0, right: 0 };
+    return { top: 0, bottom: bottomOcclusionPx + safeAreaInsetBottomPx(), left: 0, right: 0 };
   }
   return { top: 0, bottom: 0, left: leftPanelWidthPx(viewportWidth), right: 0 };
+}
+
+/**
+ * The narrowest strip of map a `fitBounds` is allowed to frame into, on either axis.
+ *
+ * Not a taste number. MapLibre's `cameraForBoxAndBearing` subtracts the padding from the transform's
+ * size and divides the bounding box by what is left: a *negative* remainder makes `fitBounds` warn
+ * and silently do nothing — the camera stays wherever it was, which this surface has already shipped
+ * once as a world view at zoom 0 — and a remainder of exactly *zero* is worse, giving a scale of 0,
+ * a zoom of -Infinity and a centre that unprojects to NaN. So the surviving band has to be strictly
+ * positive, and 96 px is the smallest strip in which a framed pin still reads as being somewhere.
+ */
+export const MIN_FIT_BAND_PX = 96;
+
+/**
+ * Shrink a `fitBounds` padding box until `MIN_FIT_BAND_PX` of map survives on both axes.
+ *
+ * The padding is the sum of three independent things — cosmetic breathing room, the floating top
+ * chrome, and a bottom sheet that may rest at over half the viewport — and nothing stops their sum
+ * from exceeding the container. A phone in landscape with a half-height sheet does it.
+ *
+ * Both sides of an over-budget axis are scaled by the same factor rather than one being sacrificed,
+ * so the surviving band keeps its position between the chrome above and the sheet below: every pin
+ * loses clearance evenly instead of some of them sliding back under the sheet. The result is honest
+ * degradation — visibly cramped, but framed, finite and on screen.
+ */
+export function clampFitPadding(
+  padding: { top: number; bottom: number; left: number; right: number },
+  canvasWidth: number,
+  canvasHeight: number
+): { top: number; bottom: number; left: number; right: number } {
+  const [top, bottom] = clampPaddingAxis(padding.top, padding.bottom, canvasHeight);
+  const [left, right] = clampPaddingAxis(padding.left, padding.right, canvasWidth);
+  return { top, bottom, left, right };
+}
+
+/** One axis of `clampFitPadding`. Non-finite and negative inputs collapse to zero here rather than
+ *  travelling on into the camera, where they become a NaN centre nothing downstream can explain. */
+function clampPaddingAxis(start: number, end: number, extent: number): [number, number] {
+  if (!Number.isFinite(extent) || extent <= 0) return [0, 0];
+  const a = Number.isFinite(start) && start > 0 ? start : 0;
+  const b = Number.isFinite(end) && end > 0 ? end : 0;
+  // Never spend more than half the axis on the band itself, so a viewport shorter than 192 px still
+  // gets padding rather than having all of it clamped away.
+  const budget = extent - Math.min(MIN_FIT_BAND_PX, extent / 2);
+  if (a + b <= budget) return [a, b];
+  return [(a * budget) / (a + b), (b * budget) / (a + b)];
 }
 
 /**

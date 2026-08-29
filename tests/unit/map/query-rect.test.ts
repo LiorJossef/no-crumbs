@@ -15,9 +15,11 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  clampFitPadding,
   LG_BREAKPOINT_PX,
   leftPanelWidthPx,
   mapOcclusionInsets,
+  MIN_FIT_BAND_PX,
   queryRectFrom,
   safeAreaInsetBottomPx,
   SHEET_PEEK_PX,
@@ -196,6 +198,117 @@ describe('mapOcclusionInsets', () => {
   it('never insets the top — the floating chrome is camera-only', () => {
     expect(mapOcclusionInsets(390).top).toBe(0);
     expect(mapOcclusionInsets(1440).top).toBe(0);
+  });
+});
+
+describe('mapOcclusionInsets — a sheet that rests somewhere other than the peek stop', () => {
+  // `/collections/[id]` opens its sheet at the 0.55 snap point and stays there, so ~447 px of an
+  // 812 px phone is permanently covered. Framing it as 128 px put 2 of its 3 pins underneath.
+  const HALF_SHEET_AT_812 = 0.55 * 812;
+
+  it('replaces the peek height with the override, below lg', () => {
+    expect(mapOcclusionInsets(375, HALF_SHEET_AT_812)).toEqual({
+      top: 0,
+      bottom: HALF_SHEET_AT_812,
+      left: 0,
+      right: 0,
+    });
+  });
+
+  it('defaults to the peek height when no override is given — /map is untouched', () => {
+    expect(mapOcclusionInsets(375)).toEqual(mapOcclusionInsets(375, SHEET_PEEK_PX));
+    expect(mapOcclusionInsets(375).bottom).toBe(SHEET_PEEK_PX);
+  });
+
+  it('treats an explicit undefined as no override, so an optional prop can be forwarded as-is', () => {
+    expect(mapOcclusionInsets(375, undefined).bottom).toBe(SHEET_PEEK_PX);
+  });
+
+  it('ignores the override at lg+, where the chrome is a left panel and there is no sheet', () => {
+    const withOverride = mapOcclusionInsets(1440, HALF_SHEET_AT_812);
+    expect(withOverride).toEqual(mapOcclusionInsets(1440));
+    expect(withOverride.bottom).toBe(0);
+    expect(withOverride.left).toBe(leftPanelWidthPx(1440));
+  });
+
+  it('overrides only the sheet, never the safe-area inset', () => {
+    // `safeAreaInsetBottomPx()` is 0 in this process (no `document`), so the assertion that the
+    // inset is still *added* is the one below in spirit and this one in fact: the bottom is the
+    // override plus that zero, and never the override in place of the pair.
+    expect(typeof document).toBe('undefined');
+    expect(mapOcclusionInsets(375, 0).bottom).toBe(0);
+  });
+});
+
+describe('clampFitPadding — the padding box can exceed the container, and must not', () => {
+  it('leaves a padding box that fits exactly as it was', () => {
+    // The real 375x812 case after the fix: top 48 + 100 chrome, bottom 48 + 446.6 of sheet. 643 of
+    // 812 px, leaving a 169 px band — tight, valid, and not the clamp's business.
+    const padding = { top: 148, bottom: 48 + 0.55 * 812, left: 48, right: 48 };
+    expect(clampFitPadding(padding, 375, 812)).toEqual(padding);
+  });
+
+  it('scales an over-budget axis down until MIN_FIT_BAND_PX survives', () => {
+    // The same sheet in landscape: 812x375, so the bottom alone is 48 + 206 against 375 px of
+    // height. Unclamped this is 402 px of padding in a 375 px container.
+    const padding = { top: 148, bottom: 48 + 0.55 * 375, left: 48, right: 48 };
+    const clamped = clampFitPadding(padding, 812, 375);
+    expect(clamped.top + clamped.bottom).toBeCloseTo(375 - MIN_FIT_BAND_PX, 6);
+    expect(clamped.left).toBe(48);
+    expect(clamped.right).toBe(48);
+  });
+
+  it('scales both sides of an over-budget axis by the same factor', () => {
+    // Position, not just size: the surviving band has to stay between the chrome above and the
+    // sheet below, or the clamp fixes the camera by sliding pins under the sheet instead.
+    const padding = { top: 100, bottom: 300, left: 0, right: 0 };
+    const clamped = clampFitPadding(padding, 1000, 300);
+    expect(clamped.bottom / clamped.top).toBeCloseTo(3, 6);
+  });
+
+  it('never lets the surviving band reach zero, which is where MapLibre returns a NaN centre', () => {
+    // `cameraForBoxAndBearing` divides by `size - padding`: zero gives a zoom of -Infinity and a
+    // centre that unprojects to NaN, negative makes `fitBounds` warn and silently not move.
+    for (const [w, h] of [[375, 812], [812, 375], [320, 200], [200, 120], [100, 100]] as const) {
+      const clamped = clampFitPadding({ top: 148, bottom: 500, left: 48, right: 48 }, w, h);
+      expect(h - clamped.top - clamped.bottom).toBeGreaterThan(0);
+      expect(w - clamped.left - clamped.right).toBeGreaterThan(0);
+    }
+  });
+
+  it('spends at most half an axis on the band, so a very short viewport keeps some padding', () => {
+    // A 120 px axis cannot afford a 96 px band without clamping the padding to nothing, which
+    // would put pins flush against — and under — the chrome. Half is the floor.
+    const clamped = clampFitPadding({ top: 148, bottom: 500, left: 0, right: 0 }, 1000, 120);
+    expect(clamped.top + clamped.bottom).toBeCloseTo(60, 6);
+    expect(120 - clamped.top - clamped.bottom).toBeCloseTo(60, 6);
+  });
+
+  it('sits exactly on the boundary without scaling, and scales one pixel past it', () => {
+    const exact = { top: 100, bottom: 812 - MIN_FIT_BAND_PX - 100, left: 0, right: 0 };
+    expect(clampFitPadding(exact, 375, 812)).toEqual(exact);
+    const over = { ...exact, bottom: exact.bottom + 1 };
+    const clamped = clampFitPadding(over, 375, 812);
+    expect(clamped.top + clamped.bottom).toBeCloseTo(812 - MIN_FIT_BAND_PX, 6);
+    expect(clamped.bottom).toBeLessThan(over.bottom);
+  });
+
+  it('collapses a non-finite or negative padding to zero rather than passing NaN to the camera', () => {
+    expect(clampFitPadding({ top: NaN, bottom: Infinity, left: -50, right: 48 }, 375, 812)).toEqual({
+      top: 0,
+      bottom: 0,
+      left: 0,
+      right: 48,
+    });
+  });
+
+  it('returns no padding at all for a container with no size — nothing to frame into', () => {
+    expect(clampFitPadding({ top: 148, bottom: 176, left: 48, right: 48 }, 0, 0)).toEqual({
+      top: 0,
+      bottom: 0,
+      left: 0,
+      right: 0,
+    });
   });
 });
 
