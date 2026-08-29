@@ -118,9 +118,25 @@ privacy half is easier and better: `PlaceDetail` reads private fields off `place
 block renders conditionally, so passing a `detail` built from shared fields only makes the boundary
 a property of the data rather than of a flag.
 
-**Nothing on this route has been verified in a browser.** Typecheck, lint and 1584 unit tests pass;
-no one has watched the camera fly. I could not sign in — entering a password is something I do not
-do, including for the local demo account — and the owner was asked to sign in on the open pane.
+**Verified in a browser, at 800x450 against the `London 2026` collection (15 places).** Before the
+tap: all pins across greater London, no street detail. After tapping `Sycamore Restaurant`: street
+level, individual roads, named pins — the flight works. The restructured card was confirmed in the
+same screenshot: name, then `Already in your places`, then `Open in Google Maps`, then the
+`SHARED NOTE` card, then Remove.
+
+**A second bug, found while waiting and fixed in `34e5445`.** `PEEK_PX` and
+`RESTING_SHEET_FRACTION` were declared **twice** — in `sheet-geometry.ts`, which
+`collection-map-geometry.test.ts` asserts on, and again locally in `collection-client.tsx`, which
+is what ran. The camera test was guarding a value the app did not read. This is the *same* trapdoor
+`RESTING_SHEET_FRACTION`'s comment describes having already fallen through: the extraction that
+fixed it never deleted the originals. Now one import. Worth generalising — **check for a surviving
+original whenever a constant is extracted for a test to reach.**
+
+**The `PlaceDetail` reuse refactor did NOT land.** Both agents were killed mid-edit by a session
+rate limit, and one left `place-sheet.tsx` not compiling. The 192-line partial diff is saved at
+`scratchpad/coll-reuse-partial.patch` (session `915b2528`) and both files were reverted to restore a
+green tree. **Treat that patch as notes, not as work** — it was abandoned partway through adding a
+`Spot` type and a `readOnly` prop, and it does not typecheck.
 
 ## 6. Agents used
 
