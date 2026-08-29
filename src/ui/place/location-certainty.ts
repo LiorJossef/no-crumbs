@@ -60,6 +60,16 @@ export function locationCertainty(
 }
 
 /**
+ * How a list row says `isApproximate` to a screen reader.
+ *
+ * Lowercase and a fragment, exactly like `BEEN_ROW_ANNOTATION`, because it is appended to the
+ * row's one accessible name rather than announced on its own. The row itself can only afford a
+ * glyph — `PlaceRow` says why — and `aria-label` replaces a button's content, so a mark rendered
+ * inside one is announced nowhere unless it is in the name.
+ */
+export const APPROXIMATE_ROW_ANNOTATION = 'approximate location';
+
+/**
  * "Saved on 24 August", or with the year once it is no longer this one.
  *
  * The library is ordered most-recently-saved-first and said so nowhere, which made the order both

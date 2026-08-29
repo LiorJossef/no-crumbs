@@ -67,7 +67,12 @@ import type { PlaceDetailFacts } from '@/domain/places/spot';
 import { enrichmentOf, rowAccessibleName, whyGoEarnsItsPlace } from '@/ui/place/enrichment';
 import { categoryDisplay, categoryLocalityLine } from '@/ui/place/category-display';
 import { savedPlaceMapsUrl } from '@/ui/place/maps-link';
-import { locationCertainty, savedOnLine, visitedOnLine } from '@/ui/place/location-certainty';
+import {
+  APPROXIMATE_ROW_ANNOTATION,
+  locationCertainty,
+  savedOnLine,
+  visitedOnLine,
+} from '@/ui/place/location-certainty';
 import { AddToCollection } from '@/components/collections/add-to-collection';
 
 import { formatCaptionQuote, quoteAddsSomething } from '@/ui/place/caption-quote';
@@ -618,16 +623,50 @@ export function PlaceRow({
   const locality = place.detail?.locality;
   const { tags } = enrichmentOf(place.detail);
   const category = categoryDisplay(place.category);
+  /**
+   * Whether this row's pin is the model's own guess — 65–470 m out, median 327 m. The detail view
+   * has said so since `location-certainty.ts` shipped and the row said nothing, so twenty-one of
+   * thirty-one places looked exactly as placed as the matched ones until you opened them.
+   *
+   * A glyph and not a word, which is a real trade rather than a preference. The line it sits on is
+   * `Category · Locality`, it is `line-clamp-1`, and the locality is what tells a Tel Aviv row from
+   * a London one; on a 390 px phone `Approximate` would take about half of it, so the honest mark
+   * would be paid for by hiding the city. The glyph is a dashed circle — the map convention for a
+   * boundary that is not exact — at the muted weight of the line it annotates, so it registers as a
+   * qualifier rather than a warning, and its meaning is carried by shape, never by colour alone.
+   *
+   * Its cost, stated: a glyph is not self-describing. What makes it decodable is one tap away —
+   * the detail view's `Approximate location — worked out from the post…` — plus the tooltip on a
+   * pointer device and `APPROXIMATE_ROW_ANNOTATION` in the row's accessible name.
+   */
+  const certainty = locationCertainty(place.detail?.provenance?.sourceDataset);
+  const approximateLabel = certainty?.isApproximate === true ? certainty.label : null;
+  const rowName = rowAccessibleName(place.name, tags, place.visited);
 
   const body = (
     <>
       {/* The row's own pin, in the category's colour — the same colour the map draws it. Two
           surfaces showing one place used to agree on nothing but its name; now a brown cup on the
-          map and a brown row are visibly the same café. */}
+          map and a brown row are visibly the same café.
+
+          A dashed ring when the coordinate is the model's own guess. The mark belongs here and not
+          beside the text: this disc *is* the pin, so the uncertainty is drawn on the thing it is
+          about, it costs the city name no width on a 375 px row, and running down a list the
+          dashed ring reads against the solid ones above and below it. Tried trailing the category
+          line first — a lone dashed circle after `Restaurant · ת״א` attaches to nothing and reads
+          as a smudge. */}
       <span
         aria-hidden
-        style={{ backgroundColor: `${category.color}1F`, color: category.color }}
-        className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full"
+        title={approximateLabel ?? undefined}
+        style={{
+          backgroundColor: `${category.color}1F`,
+          color: category.color,
+          ...(approximateLabel === null ? {} : { borderColor: category.color }),
+        }}
+        className={cn(
+          'mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full',
+          approximateLabel !== null && 'border border-dashed',
+        )}
       >
         <MapPin className="size-4" />
       </span>
@@ -689,7 +728,12 @@ export function PlaceRow({
         // this row rather than the one below it; without this, a screen reader user gets twenty
         // rows that differ only by name. Only the chips actually on screen are named, and the
         // overflow is a count, so the label stays a phrase rather than becoming a paragraph.
-        aria-label={rowAccessibleName(place.name, tags, place.visited)}
+        // Last, after the tags: it qualifies the pin rather than the place, and it is the least
+        // decisive of the row's facts for "is this the row I want open". `rowAccessibleName` still
+        // builds the name; this appends the one thing it has no argument for.
+        aria-label={
+          approximateLabel === null ? rowName : `${rowName}, ${APPROXIMATE_ROW_ANNOTATION}`
+        }
         // `data-vaul-no-drag`: inside the mobile sheet, a press that begins on this row would
         // otherwise be read as the start of a sheet drag, and the tap would be swallowed.
         data-vaul-no-drag
