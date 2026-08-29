@@ -2,89 +2,71 @@
  * The category vocabulary the **product** speaks, and how the two vocabularies we are handed
  * translate into it.
  *
- * Three different taxonomies meet on a saved place and none of them is ours:
+ * Three claims meet on a saved place and none of them is ours:
  *
- *  - `places.category` — the model's seven-value guess from the caption (`ExtractedCategoryHint`).
- *  - `places.provider_category` — the resolver's raw string, Overture's or Google's, in their own
- *    snake_case (`ice_cream_shop`, `mediterranean_restaurant`, `smoothie_juice_bar`).
+ *  - `places.category` — the model's guess from the caption (`ExtractedCategoryHint`).
+ *  - `places.provider_category` — the resolver's raw string, Google's, in its own snake_case
+ *    (`ice_cream_shop`, `mediterranean_restaurant`, `smoothie_juice_bar`).
  *  - `saved_places.category_override` — the user's, and therefore final.
  *
- * Until this file existed we rendered the first of those and ignored the second, which produced
- * the bug that motivated it: Gelalucci, a gelateria, sat in the user's library labelled **"Shop"**
- * — because the caption made the model say `shop` — while the same row carried the provider's
- * `ice_cream_shop` and nothing read it.
+ * ## One vocabulary now, where there were two
  *
- * ## Why a separate type rather than widening `ExtractedCategoryHint`
+ * This file used to carry **eight** values against the extractor's seven, on the argument that the
+ * display vocabulary should be free to say things the model was never offered — `dessert` above
+ * all, because a gelateria was rendering as "Shop". That argument was right about the symptom and
+ * wrong about the cure: it fixed one word by adding a second vocabulary, and the two then
+ * disagreed in a way a user could see. A gelateria read `Shop` on the review card and `Dessert` on
+ * the saved row **one tap later** — a place changing what it *is* by being saved.
  *
- * They answer different questions. `ExtractedCategoryHint` is *what the model may emit*: it is
- * pinned to the extraction schema and the prompt, and changing it means a prompt version and a
- * re-measurement. `ProductCategory` is *what we show a person*, and it must be able to say things
- * the model was never offered — starting with `dessert`. Keeping them apart means the display
- * vocabulary can grow at product speed without touching the extractor, and `ProductCategory` being
- * a strict superset keeps every existing hint valid without a mapping table.
+ * The owner's taxonomy of 2026-08-29 closes it from the other end. `ProductCategory` is now an
+ * alias of `places/taxonomy.ts`'s `PrimaryCategory`: three values, the same three the extractor may
+ * emit and the same three the scorer scores. There is one vocabulary in this product and this is
+ * it. What used to be a fourth, fifth or eighth value is now either folded into one of the three
+ * (a bakery and a gelateria are both `cafe` — you go for a drink or something sweet, not a meal) or
+ * is **`null`**, which is a real answer and the point of the next section.
  *
- * ## Why `dessert` and nothing else, for now
+ * ## `null` is a category, and refusing to fake one is the whole design
  *
- * One value was added, on evidence rather than taste. In the Tel Aviv Overture extract
- * `ice_cream_shop` (288 rows), `desserts` (109) and `smoothie_juice_bar` (82) are all sizeable and
- * all land, today, on either `shop` (wrong and unappetising) or `bar` (wrong and misleading). No
- * other missing value has that combination of volume and wrongness. `street food` was considered
- * and left out: `food_stand`/`food_truck` are a rounding error next to `*_restaurant`, and the
- * line between a falafel counter and a small restaurant is one the source data does not draw.
- *
- * Discriminating power beyond this level is **not** this vocabulary's job — `saved_places.tags`
- * already carries *italian*, *specialty coffee*, *natural wine*, *japanese*. A coarse category the
- * user can filter and colour by, plus specific tags, is the right shape. Adding
- * `italian_restaurant` here would just move the provider's taxonomy behind a nicer label.
+ * `productCategoryFor` returns `ProductCategory | null`, where it used to fall back to `other`.
+ * `other` was a fifth vocabulary hiding in a default: it rendered as "Place", counted under a chip
+ * that said "Place", and told the user nothing except that we had something and would not say what.
+ * A museum, a butcher and a caption too vague to read are not one category, and the honest rendering
+ * of all three is no category at all — the row prints its locality, the pin keeps the house mint,
+ * and the filter bar does not offer a chip for the absence of a fact.
  */
 
 import type { ExtractedCategoryHint } from './category-hint';
+import { PRIMARY_CATEGORIES, type PrimaryCategory } from './taxonomy';
 
 /**
- * `ExtractedCategoryHint`'s seven values plus `dessert`. The superset relation is checked below
- * rather than asserted here, so widening the extraction vocabulary later fails this file's
- * typecheck instead of silently rendering the new value as "Place".
+ * The product's category vocabulary — an **alias** of the taxonomy's primary categories, not a
+ * second list of the same three strings.
+ *
+ * An alias rather than a parallel type because the reason the two used to differ has gone. The old
+ * header argued they answer different questions: what a model may emit versus what we show a
+ * person. They do, and the answer to both is now the same three values by the owner's ruling, so a
+ * second declaration would only be a place for them to drift apart again.
  */
-export type ProductCategory =
-  | 'restaurant'
-  | 'cafe'
-  | 'bakery'
-  | 'bar'
-  | 'dessert'
-  | 'attraction'
-  | 'shop'
-  | 'other';
+export type ProductCategory = PrimaryCategory;
 
-/** Render order wherever the whole set is listed (a filter row, a legend): the things people save
- *  most, first, then the two we would rather not have to show. */
-export const PRODUCT_CATEGORY_ORDER = [
-  'restaurant',
-  'cafe',
-  'bakery',
-  'bar',
-  'dessert',
-  'attraction',
-  'shop',
-  'other',
-] as const satisfies readonly ProductCategory[];
+/** Render order wherever the whole set is listed (a filter row, a legend). The taxonomy's own
+ *  order — restaurant, cafe, bar — which is roughly how often people save each. */
+export const PRODUCT_CATEGORY_ORDER = PRIMARY_CATEGORIES;
 
 /**
- * What each value is called in a sentence. `other` becomes "Place" rather than "Other" because it
- * appears in the line *under a place's name*, where "Other · Tel Aviv" reads like a database null
- * and "Place · Tel Aviv" reads like a sentence.
+ * What each value is called in a sentence.
+ *
+ * `other: 'Place'` used to live here, and its removal is the point rather than a tidy-up: a place
+ * we cannot categorise now has **no** label, not a label meaning "we would rather not say". See
+ * `ui/place/category-display.ts` for what that renders as.
  */
 export const PRODUCT_CATEGORY_LABEL = {
   restaurant: 'Restaurant',
   cafe: 'Café',
-  bakery: 'Bakery',
   bar: 'Bar',
-  dessert: 'Dessert',
-  attraction: 'Attraction',
-  shop: 'Shop',
-  other: 'Place',
-  // The second `satisfies` is the compile-time proof of the superset claim in this file's header:
-  // add a value to `ExtractedCategoryHint` without adding it here and this line stops compiling,
-  // rather than the new value silently rendering as "Place".
+  // The compile-time proof that the display vocabulary covers everything the extractor can emit.
+  // Widen `ExtractedCategoryHint` without widening this and the line stops compiling, rather than
+  // the new value silently rendering as nothing.
 } satisfies Record<ProductCategory, string> & Record<ExtractedCategoryHint, string>;
 
 export function isProductCategory(value: unknown): value is ProductCategory {
@@ -118,6 +100,9 @@ const PROVIDER_CATEGORY_EXCEPTIONS: Readonly<Record<string, ProductCategory>> = 
   bakery: 'bakery',
   bagel_shop: 'bakery',
   patisserie: 'bakery',
+  // Google's own string for a patisserie. Measured on the first day of real use: a Ra'anana
+  // patisserie came back as `pastry_shop`, which `_shop` then filed under `shop`.
+  pastry_shop: 'bakery',
 
   // — dessert — the reason this file exists
   desserts: 'dessert',

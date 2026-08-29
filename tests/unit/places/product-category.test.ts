@@ -37,6 +37,8 @@ describe('productCategoryFromProvider', () => {
     expect(productCategoryFromProvider('coffee_shop')).toBe('cafe');
     expect(productCategoryFromProvider('ice_cream_shop')).toBe('dessert');
     expect(productCategoryFromProvider('bagel_shop')).toBe('bakery');
+    // A real production row, 2026-08-29: Google returns `pastry_shop` for a patisserie.
+    expect(productCategoryFromProvider('pastry_shop')).toBe('bakery');
     expect(productCategoryFromProvider('smoothie_juice_bar')).toBe('dessert');
     expect(productCategoryFromProvider('salad_bar')).toBe('restaurant');
   });
