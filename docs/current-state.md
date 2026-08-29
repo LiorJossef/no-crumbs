@@ -7,7 +7,7 @@
 > [`handoff-2026-08-30-collections.md`](handoff-2026-08-30-collections.md), and it is the one to
 > read — everything below it dates from 2026-08-28 or earlier.
 
-## What changed on 2026-08-30, on `feat/collections` (unmerged at the time of writing)
+## What changed on 2026-08-30, on `feat/collections` — **merged to `main` as `a245f8b`**
 
 **Collections and shared collections exist**, built out of order on the owner's overnight
 instruction. A collection is a named set of your saved places that can be shared with another
@@ -33,8 +33,29 @@ it is gone; the app has error/not-found screens and no longer blocks pinch-zoom;
 account would destroy the collection for everyone, and blocks backlog §11.8), and the 24 null
 `source_url` rows, which are recoverable but need their own migration.
 
-**Nothing hosted changed.** Vercel, staging, production and Supabase auth config are exactly as the
-2026-08-29 session left them, and production is still 500ing for signed-in users.
+**A camera defect found and fixed after the review, and still not fully closed.** Opening a
+collection on a phone framed 2 of its 3 pins *underneath its own sheet*: `mapOcclusionInsets`
+assumed every sub-`lg` surface rests at the 128 px peek stop, and `/collections/[id]` rests at
+`0.55`. Fixed in `8f9a1c4` + `60e915c` by making the resting occlusion a parameter, defaulting to
+peek so `/map` is untouched. **Portrait is fixed and verified** (375x812: pins at y=148/239/317,
+sheet at 365). **Short viewports are not**: an independent browser review measured the lowest pin
+clipped at 640x360 and ~11 px under the sheet at 568x320 — real landscape phones. The cause is that
+`fitBoundsPadding` charges every sub-`lg` surface 100 px of floating top chrome, and
+`/collections/[id]` has none; that phantom allowance is the whole overflow. Tracked as
+`L2-COLL-CAM-2`.
+
+**A pre-existing rotation defect, surfaced by that review and owned by nobody yet.** Rotating the
+viewport *without a reload* leaves the camera framed for the old size, which puts collection pins
+back under the sheet through a second door. It affects `/map` equally and predates collections: the
+`window.resize` handler fits against a transform MapLibre has not resized yet, and our own
+`ResizeObserver` then early-returns because MapLibre's internal observer already matched the canvas
+to the container. Not introduced by the collections work; not fixed by it either.
+
+**Nothing hosted changed by hand, but the merge deployed.** Production now serves the merge commit
+`a245f8b` and **still 500s** — the env store is empty, which is the actual cause and is unrelated to
+this branch. Staging and Supabase auth config are exactly as the 2026-08-29 session left them.
+**Production's database is at `0023` while `main` now needs `0024`-`0026`**, so the restore order is
+env vars -> push migrations -> redeploy; migrations last gives a fresh 500 for a new reason.
 
 ## The rule that keeps this file honest
 
