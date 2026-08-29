@@ -43,8 +43,8 @@
 import { Drawer } from 'vaul';
 
 import { useNonModalBackground } from './use-non-modal-background';
-import { useRef, useState } from 'react';
-import { Plus, MapPin, ExternalLink, X, ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { Plus, MapPin, ExternalLink, X, ChevronLeft, ChevronUp, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -58,20 +58,22 @@ import {
   RenameTrigger,
 } from './saved-place-edits';
 import { ActiveTagFilter, DishLine, TagChipList, TagChipRow, WhyGoLine } from './place-enrichment';
-import { BeenBadge, NotBeenFilterChip } from './visit-state';
+import { BeenBadge } from './visit-state';
+import { BOTTOM_NAV_HEIGHT_PX } from '@/components/nav/bottom-nav';
+import { CategoryFilterBar } from './category-filter-bar';
+import type { CategoryFacet } from '@/domain/places/category-filter';
+import type { ProductCategory } from '@/domain/places/product-category';
+import type { PlaceDetailFacts } from '@/domain/places/spot';
 import { enrichmentOf, rowAccessibleName, whyGoEarnsItsPlace } from '@/ui/place/enrichment';
 import { categoryDisplay, categoryLocalityLine } from '@/ui/place/category-display';
 import { savedPlaceMapsUrl } from '@/ui/place/maps-link';
 import { locationCertainty, savedOnLine } from '@/ui/place/location-certainty';
 import { AddToCollection } from '@/components/collections/add-to-collection';
-import { CollectionsNavRow } from '@/components/collections/collections-nav-row';
+
 import { formatCaptionQuote, quoteAddsSomething } from '@/ui/place/caption-quote';
-import {
-  areaRowAccessibleName,
-  areaRowCountText,
-  type AreaHeading,
-  type AreaRow,
-} from '@/ui/place/active-area';
+import type { AreaHeading } from '@/ui/place/active-area';
+import type { ElsewhereEntry } from '@/ui/place/elsewhere-groups';
+import { ElsewhereSection } from './elsewhere-section';
 import type { MapPlace } from '@/components/map/types';
 
 /** Fixed peek height. `env(safe-area-inset-bottom)` is added via CSS `calc()` inside the snap
@@ -82,10 +84,44 @@ const PEEK_PX = 128;
 type SheetStop = 'peek' | 'half' | 'full';
 
 const SNAP_PEEK = `${PEEK_PX}px` as const;
-const SNAP_HALF = 0.55 as const;
+/**
+ * The stop the sheet rises to when a place is selected.
+ *
+ * Exported because the **camera** needs it: selecting a pin raises the sheet over 55% of the
+ * viewport, and a pin that was in the lower half is then behind it. `map-surface`'s reveal pan is
+ * what stops that, and it can only be right if it is reading the same number this sheet moves to.
+ * Two independent readings of one stop is how a "reveal" comes to reveal into the wrong band.
+ */
+export const SHEET_HALF_FRACTION = 0.55 as const;
+
+const SNAP_HALF = SHEET_HALF_FRACTION;
 const SNAP_FULL = 1 as const;
 
 const SNAP_POINTS: Array<`${number}px` | number> = [SNAP_PEEK, SNAP_HALF, SNAP_FULL];
+
+/**
+ * How tall the sheet's content column is at each stop, as CSS.
+ *
+ * **This is a bug fix, not a layout preference.** `Drawer.Content` is `h-full` and vaul positions
+ * the sheet by translating it, so at `half` the bottom 45% of a full-height flex column sits below
+ * the bottom of the screen. Everything down there is laid out, painted, hit-testable and reported
+ * `visible` by a testing library — and completely unreachable, because the scroll container's own
+ * bottom is off screen so scrolling to its end still does not bring it into view. Measured at 844:
+ * the `Elsewhere` heading came to rest 242 px below the viewport at maximum scroll.
+ *
+ * That was survivable while the only thing down there was a section most sessions never opened. It
+ * is not survivable now: `Elsewhere` is the country band's whole list rendering, and it is the
+ * accessible equivalent of markers a screen reader cannot reach at all (§6).
+ *
+ * `dvh` rather than a measured pixel value, so it survives a rotation and the mobile URL bar with no
+ * JavaScript and no resize listener. The subtraction is the drag handle above this column
+ * (`mt-2.5 h-1`), which is the only other thing inside `Drawer.Content`.
+ */
+const STOP_TO_CONTENT_HEIGHT: Record<SheetStop, string> = {
+  peek: `calc(${PEEK_PX}px - 14px)`,
+  half: 'calc(55dvh - 14px)',
+  full: 'calc(100dvh - 14px)',
+};
 
 const STOP_TO_SNAP: Record<SheetStop, `${number}px` | number> = {
   peek: SNAP_PEEK,
@@ -107,9 +143,17 @@ export interface PlaceSheetProps {
   /** What this list says about itself — `12 places in London`. Rendered verbatim; no surface
    *  re-derives a string from counts. */
   readonly heading: AreaHeading;
-  /** The user's other areas, with their own match counts. Empty renders no section. */
-  readonly otherAreas: readonly AreaRow[];
+  /** The user's other areas, grouped by country (`ui/place/elsewhere-groups.ts`). Empty renders no
+   *  section. Built upstream so this surface and the desktop panel cannot disagree about it. */
+  readonly elsewhere: readonly ElsewhereEntry[];
+  /** Which country groups the user has explicitly opened or closed. Defaults are not in here —
+   *  `isCountryExpanded` owns those, and this surface passes its own (`active-and-previous`). */
+  readonly countryExpansion: ReadonlyMap<string, boolean>;
+  readonly onToggleCountry: (key: string, expanded: boolean) => void;
   readonly onSelectArea: (areaId: string) => void;
+  /** The area the list is showing. Not rendered — it is what the scroll reset and the heading's
+   *  crossfade key on, both of which mark the one legitimate change of scope. */
+  readonly activeAreaId: string | null;
   /** Nothing saved, ever — a different screen, not a different string. */
   readonly libraryIsEmpty: boolean;
   /** Whether the search box or a tag chip is narrowing the library, which decides the noun on the
@@ -129,6 +173,11 @@ export interface PlaceSheetProps {
    *  narrowed by the same predicate in the same frame. */
   readonly notBeenOnly: boolean;
   readonly onToggleNotBeen: () => void;
+  /** The categories the library actually holds, with counts, already narrowed by every other
+   *  filter. Computed on the page rather than here because the same filter narrows the pins. */
+  readonly categoryFacets: readonly CategoryFacet[];
+  readonly activeCategory: ProductCategory | null;
+  readonly onToggleCategory: (category: ProductCategory) => void;
   readonly selected: MapPlace | null;
   readonly onDeselect: () => void;
   /** Opens the import overlay in `map-page-client.tsx` (client state) rather than navigating to
@@ -152,8 +201,11 @@ interface SheetState {
 export function PlaceSheet({
   places,
   heading,
-  otherAreas,
+  elsewhere,
+  countryExpansion,
+  onToggleCountry,
   onSelectArea,
+  activeAreaId,
   libraryIsEmpty,
   filtering,
   query,
@@ -162,6 +214,9 @@ export function PlaceSheet({
   onClearTag,
   notBeenOnly,
   onToggleNotBeen,
+  categoryFacets,
+  activeCategory,
+  onToggleCategory,
   selected,
   onDeselect,
   onAddTikTok,
@@ -231,13 +286,22 @@ export function PlaceSheet({
             <Drawer.Handle className="mx-auto mt-2.5 h-1 w-9 shrink-0 rounded-full bg-border" />
 
             {selected ? (
-              <PlaceDetail place={selected} onClose={onDeselect} />
+              /* `place.id` is a `saved_places` id on this route — saying so at the call site is
+                 what the required prop buys. */
+              <PlaceDetail
+                place={selected}
+                savedPlace={{ id: selected.id, visited: selected.visited }}
+                onClose={onDeselect}
+              />
             ) : (
               <PlaceList
                 places={places}
                 heading={heading}
-                otherAreas={otherAreas}
+                elsewhere={elsewhere}
+                countryExpansion={countryExpansion}
+                onToggleCountry={onToggleCountry}
                 onSelectArea={onSelectArea}
+                activeAreaId={activeAreaId}
                 libraryIsEmpty={libraryIsEmpty}
                 filtering={filtering}
                 query={query}
@@ -246,6 +310,9 @@ export function PlaceSheet({
                 onClearTag={onClearTag}
                 notBeenOnly={notBeenOnly}
                 onToggleNotBeen={onToggleNotBeen}
+                categoryFacets={categoryFacets}
+                activeCategory={activeCategory}
+                onToggleCategory={onToggleCategory}
                 stop={currentStop}
                 onExpand={() => setActiveSnap(STOP_TO_SNAP.full)}
                 onAddTikTok={onAddTikTok}
@@ -262,8 +329,11 @@ export function PlaceSheet({
 function PlaceList({
   places,
   heading,
-  otherAreas,
+  elsewhere,
+  countryExpansion,
+  onToggleCountry,
   onSelectArea,
+  activeAreaId,
   libraryIsEmpty,
   filtering,
   query,
@@ -272,6 +342,9 @@ function PlaceList({
   onClearTag,
   notBeenOnly,
   onToggleNotBeen,
+  categoryFacets,
+  activeCategory,
+  onToggleCategory,
   stop,
   onExpand,
   onAddTikTok,
@@ -279,8 +352,11 @@ function PlaceList({
 }: {
   places: readonly MapPlace[];
   heading: AreaHeading;
-  otherAreas: readonly AreaRow[];
+  elsewhere: readonly ElsewhereEntry[];
+  countryExpansion: ReadonlyMap<string, boolean>;
+  onToggleCountry: (key: string, expanded: boolean) => void;
   onSelectArea: (areaId: string) => void;
+  activeAreaId: string | null;
   libraryIsEmpty: boolean;
   filtering: boolean;
   query: string;
@@ -289,12 +365,37 @@ function PlaceList({
   onClearTag: () => void;
   notBeenOnly: boolean;
   onToggleNotBeen: () => void;
+  categoryFacets: readonly CategoryFacet[];
+  activeCategory: ProductCategory | null;
+  onToggleCategory: (category: ProductCategory) => void;
   stop: SheetStop;
   onExpand: () => void;
   onAddTikTok: () => void;
   onSelect?: (place: MapPlace) => void;
 }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * **The scroll goes back to the top when the area changes, and it never did before.**
+   *
+   * This was specified when the area model shipped (`ux-stable-area-list.md`) and was not built.
+   * The cost is at its worst exactly where the country band puts the user: you scroll two thousand
+   * pixels to reach `Elsewhere`, tap a city, and the browser clamps `scrollTop` to the new content
+   * — so you arrive at the *bottom* of the new area, looking at `Elsewhere` again, with no visible
+   * evidence that anything happened but a heading you cannot see.
+   *
+   * In a layout effect rather than an event handler, because the rows have to be replaced before
+   * there is a new scroll height to be at the top of; and keyed on the area rather than fired from
+   * the tap, so a switch that arrives any other way — the map's own area marker, an import landing
+   * elsewhere — is reset by the same line.
+   *
+   * `instant`, not smooth: this is not a journey through 2 000 px of someone else's city, and a
+   * long animated scroll would also fight the camera flight happening at the same moment.
+   */
+  useLayoutEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+  }, [activeAreaId]);
 
   /** Switching area replaces every row and unmounts the button that was pressed, so focus lands on
    *  the heading — the one thing that describes the new answer. */
@@ -307,26 +408,36 @@ function PlaceList({
   const headingText = libraryIsEmpty ? EMPTY_LIBRARY_HEADING : heading.text;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3.5 px-5 pt-3.5">
+    <div
+      style={{ height: STOP_TO_CONTENT_HEIGHT[stop] }}
+      className="flex min-h-0 flex-col gap-3.5 px-5 pt-3.5"
+    >
       {stop === 'peek' ? (
-        <div className="flex items-center justify-between gap-3 pb-[calc(env(safe-area-inset-bottom)+0.875rem)]">
-          {/* At `peek` the list and the field are both off screen, so this line is the tap target
-              that brings them back. It used to be a button only while filtering — the argument
-              being that a filtered count needs a way to reach the field that set it, and an
-              unfiltered one is just a sentence.
-
-              That stopped holding at `L1-F7-T2`. The list is now the entry point to place detail,
-              and therefore the only route to editing a note or removing a place; the map's pins
-              are canvas-painted and cannot be tapped by anything but a pointer landing exactly on
-              them. Leaving the unfiltered case inert put the whole feature behind a drag gesture
-              with no affordance saying it was there. Making it always a button also deletes a
-              special case rather than adding one. */}
+        /*
+         * One line, and the bar underneath it carries everything else.
+         *
+         * This row used to hold the heading and a 48 px `Add a TikTok`, and briefly a third
+         * Collections slot as well. Both of those are now in `BottomNav`, which is the owner's
+         * 2026-08-29 ruling: destinations and the primary action live in persistent chrome, not in
+         * the sheet. What is left here is the one thing that is genuinely about *this* sheet —
+         * what the list below is, and that it can be pulled up.
+         *
+         * That is also what pays for the bar. `PEEK_PX` is 128 and is mirrored in four places, one
+         * of them a licence condition; it sets the camera's bottom budget too, so it must not move.
+         * Dropping the button frees the lower half of the band for the bar to sit in, and the
+         * padding below matches `BOTTOM_NAV_HEIGHT_PX` so the line never sits behind it.
+         */
+        <div
+          className="flex items-center"
+          style={{ paddingBottom: `${BOTTOM_NAV_HEIGHT_PX}px` }}
+        >
           <button
             type="button"
             onClick={onExpand}
             aria-label="Show your places"
-            className="-mx-1 rounded-lg px-1 text-left text-sm font-medium text-muted-foreground underline-offset-4 hover:underline"
+            className="flex min-w-0 flex-1 items-center gap-1 rounded-lg px-1 text-left text-sm font-medium text-muted-foreground"
           >
+            <span className="min-w-0 truncate">
             {/* The number carries the emphasis and the rest of the line stays quiet, exactly as it
                 did when this read `20 places saved`. `heading.count`/`heading.rest` are given to us
                 pre-split precisely so this stays a render and never a parse. When there is no count
@@ -337,18 +448,20 @@ function PlaceList({
             ) : (
               <>
                 <span className="font-heading font-extrabold text-foreground">{heading.count}</span>{' '}
-                {heading.rest}
+                {/* The short form — `18 in London`, not `18 places in London`. Given to us by
+                    `areaHeading` rather than sliced off `text` here, because a surface that parses
+                    a string it was handed pre-split is a surface that will eventually disagree
+                    with the one that built it. The noun is one drag up, and the fact that this is
+                    a map is doing the rest of the work. */}
+                {heading.shortRest}
               </>
             )}
+            </span>
+            {/* The one thing the row was missing: at rest the middle slot read as a caption, so
+                nothing on screen said the list was there to be pulled up. The underline it used to
+                carry only appeared on hover, which a phone does not have. */}
+            <ChevronUp className="size-4 shrink-0 opacity-60" aria-hidden />
           </button>
-          <Button
-            type="button"
-            className="h-12 gap-1.5 rounded-lg px-4 text-sm font-bold"
-            onClick={onAddTikTok}
-          >
-            <Plus className="size-4" aria-hidden />
-            Add a TikTok
-          </Button>
         </div>
       ) : (
         <>
@@ -358,10 +471,19 @@ function PlaceList({
               explanation exactly when the evidence is hidden is the wrong trade.
               `tabIndex={-1}` makes it a focus target for the escapes below without putting it in
               the tab order. */}
+          {/* `key` on the area, so React remounts the heading and `tw-animate-css`'s entrance runs:
+              140 ms, the one piece of motion that marks the one legitimate change of scope (§7).
+              It is deliberately not applied when only the *count* changes — filtering re-renders
+              this element without remounting it, and a heading that flashes on every keystroke is
+              the animation §7 forbids by name. `motion-reduce` makes it an instant swap, which is
+              the right answer here even though a sub-150 ms opacity fade would be permitted on its
+              own: this fires alongside a scroll reset and a focus move, and three simultaneous
+              changes with reduced motion on should be one frame. */}
           <h2
+            key={activeAreaId ?? 'no-area'}
             ref={headingRef}
             tabIndex={-1}
-            className="font-heading text-xl font-extrabold tracking-tight text-foreground outline-none"
+            className="animate-in fade-in-0 duration-140 font-heading text-xl font-extrabold tracking-tight text-foreground outline-none motion-reduce:animate-none"
           >
             {headingText}
           </h2>
@@ -374,8 +496,20 @@ function PlaceList({
               filter is on screen in the state where the filter has left nothing to look at. The
               same rule is what puts the `Not been yet` chip here: it is both the way in and the way
               out of the filter, so it has to survive the state where the filter emptied the list. */}
+          {/* One horizontal-scroll row, not two stacked ones: the category chips and the visit
+              chip are the same kind of control asking the same kind of question, and the merge is
+              also what lifts `Not been yet` from the 36 px its own file names as a compromise to
+              the 44 px floor. Categories had nowhere to live before this — the only way to narrow
+              by kind was to open a place and tap a tag chip inside its detail view, which is a
+              retrieval control hidden inside a reading surface. */}
           {!libraryIsEmpty && (
-            <NotBeenFilterChip active={notBeenOnly} onToggle={onToggleNotBeen} />
+            <CategoryFilterBar
+              facets={categoryFacets}
+              activeCategory={activeCategory}
+              onToggleCategory={onToggleCategory}
+              notBeenOnly={notBeenOnly}
+              onToggleNotBeen={onToggleNotBeen}
+            />
           )}
           {activeTag !== null && <ActiveTagFilter tag={activeTag} onClear={onClearTag} />}
 
@@ -389,23 +523,37 @@ function PlaceList({
           {libraryIsEmpty ? (
             <NoPlacesYet onAddTikTok={onAddTikTok} />
           ) : (
-            <div
-              data-vaul-no-drag
-              className="min-h-0 flex-1 overflow-y-auto pb-[calc(env(safe-area-inset-bottom)+1rem)]"
-            >
-              {heading.escape === 'clear-search' && (
-                <ClearSearchEscape onClearSearch={() => onQueryChange('')} />
-              )}
-              {!heading.empty && (
-                <ul>
-                  {places.map((place) => (
-                    <PlaceRow key={place.id} place={place} {...(onSelect ? { onSelect } : {})} />
-                  ))}
-                </ul>
-              )}
-              <ElsewhereSection rows={otherAreas} filtering={filtering} onSelectArea={selectArea} />
-              <CollectionsNavRow />
-            </div>
+            <>
+              <div
+                ref={scrollRef}
+                data-vaul-no-drag
+                className="min-h-0 flex-1 overflow-y-auto"
+                // Exactly the bar's height, so the last row clears it instead of ending underneath
+                // it. This is what pays for `BottomNav` floating over the sheet at `half` and
+                // `full` — the ruling it reverses was right that a bar painted over a scrolling
+                // list steals the bottom of the list, and this is the price rather than a denial.
+                style={{ scrollPaddingBottom: BOTTOM_NAV_HEIGHT_PX, paddingBottom: BOTTOM_NAV_HEIGHT_PX }}
+              >
+                {heading.escape === 'clear-search' && (
+                  <ClearSearchEscape onClearSearch={() => onQueryChange('')} />
+                )}
+                {!heading.empty && (
+                  <ul>
+                    {places.map((place) => (
+                      <PlaceRow key={place.id} place={place} {...(onSelect ? { onSelect } : {})} />
+                    ))}
+                  </ul>
+                )}
+                <ElsewhereSection
+                  entries={elsewhere}
+                  filtering={filtering}
+                  expansion={countryExpansion}
+                  expansionDefault="active-and-previous"
+                  onToggleCountry={onToggleCountry}
+                  onSelectArea={selectArea}
+                />
+              </div>
+            </>
           )}
         </>
       )}
@@ -623,46 +771,6 @@ export function ClearSearchEscape({ onClearSearch }: { onClearSearch: () => void
   );
 }
 
-/** The user's other areas, one tappable row each. This is what replaces `Show all matches`: the
- *  rows name where the matches are, with counts, one tap away. */
-export function ElsewhereSection({
-  rows,
-  filtering,
-  onSelectArea,
-}: {
-  rows: readonly AreaRow[];
-  filtering: boolean;
-  onSelectArea: (areaId: string) => void;
-}) {
-  if (rows.length === 0) return null;
-
-  return (
-    <section className="mt-2 border-t border-border/70 pt-3">
-      <h3 className="px-1 pb-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-        Elsewhere
-      </h3>
-      <ul>
-        {rows.map((row) => (
-          <li key={row.id}>
-            <button
-              type="button"
-              onClick={() => onSelectArea(row.id)}
-              aria-label={areaRowAccessibleName(row, filtering)}
-              className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-1 py-2.5 text-left transition-colors hover:bg-muted/60"
-            >
-              <span className="font-heading text-sm font-bold text-foreground">{row.label}</span>
-              <span className="flex items-center gap-1 text-sm font-medium text-muted-foreground">
-                {areaRowCountText(row.count, filtering)}
-                <ChevronRight className="size-4" aria-hidden />
-              </span>
-            </button>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
 /**
  * The heading for a library with nothing in it (`ux-map-is-the-query.md` §5). It replaces the
  * viewport heading outright rather than sitting beside it: `Nothing saved in this area` would blame
@@ -708,12 +816,55 @@ export function NoPlacesYet({ onAddTikTok }: { onAddTikTok: () => void }) {
   );
 }
 
+/**
+ * The place `PlaceDetail` renders — deliberately narrower than `MapPlace`, which structurally
+ * satisfies it, so `/map` passes its pin object unchanged.
+ *
+ * It is narrower so that a caller with **no `saved_places` row** can be honest. A collection item
+ * has the shared `places` facts and nothing else; asked for a `MapPlace` it would have to invent an
+ * `id`, a `note` and a `visited` for a row that does not exist. Nothing private lives here at all:
+ * the caller's own save arrives as the separate `savedPlace` prop, and `detail` is optional.
+ */
+export interface DetailPlace {
+  readonly name: string;
+  readonly category: ProductCategory;
+  readonly lat: number;
+  readonly lng: number;
+  /** The source post's link, where the caller's own save carries one. `undefined`, not omitted, so
+   *  a caller on the collection path has to say out loud that it has no source to show. */
+  readonly sourceUrl: string | undefined;
+  /** The shared place facts, plus whatever the caller's own save adds. A caller passing only
+   *  shared facts (`SharedOnlyPlaceFacts`) renders no private field — see `domain/places/spot.ts`
+   *  for why that is a property of the data here and not of a flag. */
+  readonly detail?: PlaceDetailFacts;
+}
+
 export function PlaceDetail({
   place,
+  savedPlace,
   onClose,
   variant = 'sheet',
+  primaryAction,
+  footer,
 }: {
-  place: MapPlace;
+  place: DetailPlace;
+  /**
+   * The caller's own `saved_places` row for this place, or `null` when they have none.
+   *
+   * **Required, and deliberately not defaulted.** Every mutation on this screen — rename, been,
+   * category, note, remove, add-to-collection — writes to that row, and this component used to
+   * take the id from `place.id`. That is a saved-place id on `/map` and a *collection item* id on
+   * `/collections/[id]`, so a second host silently aimed five writes at a row its caller does not
+   * own. Making the caller name the row is what stops that; `null` says "no row", and every
+   * mutation block below is gated on it.
+   *
+   * **One object rather than an id and a `visited` beside it**, because the two are facts about
+   * the same row and a caller cannot have one without the other: the id says where to write and
+   * `visited` says what that row currently holds. Passed separately they can disagree, and the
+   * failure is silent — an id with a null `visited` would render the read-only screen, so every
+   * control on `/map` would quietly vanish with nothing raised. This shape cannot express that.
+   */
+  savedPlace: { readonly id: string; readonly visited: boolean } | null;
   onClose: () => void;
   /** `'sheet'` (default, mobile): an X that fully deselects. `'panel'` (desktop, retired — no
    *  caller renders this anymore now that detail lives entirely in the map popover, kept only so
@@ -722,8 +873,26 @@ export function PlaceDetail({
    *  honest affordance for what actually happened. `'popover'` (desktop, `lg+`): a compact shell
    *  for `MapSurfaceMapcn`'s pin-anchored `MapPopup` — narrower than `panel`, a plain "×" close
    *  button (there is no list to return to, the left list panel is untouched by selection), and
-   *  its own scroll/max-height so a long detail can't blow off the edge of the map. */
-  variant?: 'sheet' | 'panel' | 'popover';
+   *  its own scroll/max-height so a long detail can't blow off the edge of the map.
+   *  `'hosted'`: **the host draws its own navigation and this renders none** — the collection route
+   *  puts a back arrow in a header row of its own, aligned with the collection list's back control
+   *  so the header does not jump when the view changes, and a second close affordance inside the
+   *  scroll column would be two ways out of one screen. It also takes the host's `px-4` gutter
+   *  rather than this view's `px-5`, because that column has to line up with the list rows behind
+   *  the same arrow and a 4 px sideways shift on every open is more visible than the difference. */
+  variant?: 'sheet' | 'panel' | 'popover' | 'hosted';
+  /**
+   * Rendered where `BeenToggle` sits — the "what does this do to *your* library" position.
+   *
+   * A slot rather than a `readOnly` boolean: a flag can be forgotten, and it would not have fixed
+   * the thing that actually bites (`place.id` standing in for a saved-place id). The collection
+   * route puts `Added by …` and `Save to your places` here, which is that position's question
+   * asked by somebody who has no row yet.
+   */
+  primaryAction?: ReactNode;
+  /** Rendered last, below the provenance block and the destructive action. The collection route
+   *  puts the shared note and `Remove from this collection` here. */
+  footer?: ReactNode;
 }) {
   const detail = place.detail;
   const note = detail?.note;
@@ -768,6 +937,19 @@ export function PlaceDetail({
   const [renaming, setRenaming] = useState(false);
 
   const isPopover = variant === 'popover';
+  const isHosted = variant === 'hosted';
+
+  /** Every mutation block below is gated on this, and none of them reads an id off `place` — that
+   *  is the whole point of this refactor. No narrowing is needed: the prop is already the pair. */
+  const savedRow = savedPlace;
+
+  /**
+   * Whether the Google Maps link is the only external action on the card, which decides both its
+   * wording and its target size. Beside `Open TikTok` the pair reads as a list of destinations and
+   * a bare noun is enough; alone in whitespace a bare noun stops looking like something to press,
+   * and it needs its own 44 px rather than borrowing the row's.
+   */
+  const mapsLinkAlone = !tiktokUrl;
 
   // Resolved here rather than inline so the JSX below carries no cast: `whyGoEarnsItsPlace` already
   // rejects null/blank, but TypeScript cannot see that through a boolean.
@@ -790,17 +972,20 @@ export function PlaceDetail({
     <div
       className={cn(
         'flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-3.5',
-        isPopover && 'max-h-[min(70vh,26rem)] w-72 gap-4 px-0 pb-0 pt-0'
+        isPopover && 'max-h-[min(70vh,26rem)] w-72 gap-4 px-0 pb-0 pt-0',
+        // The host's gutter and its own top spacing — see the `variant` docblock for why 4 px
+        // matters here and why the top padding belongs to the header row above this column.
+        isHosted && 'px-4 pb-[calc(env(safe-area-inset-bottom)+2rem)] pt-1'
       )}
     >
       {thumbnailUrl && <SourceMediaThumbnail url={thumbnailUrl} />}
 
       <div className={cn('flex items-start justify-between gap-3', isPopover && 'px-4 pt-3.5')}>
         <div className="flex min-w-0 flex-col gap-1">
-          {renaming ? (
+          {renaming && savedRow ? (
             <NameEditor
-              key={`name-${place.id}`}
-              savedPlaceId={place.id}
+              key={`name-${savedRow.id}`}
+              savedPlaceId={savedRow.id}
               displayNameOverride={detail?.displayNameOverride ?? null}
               canonicalName={detail?.canonicalName ?? place.name}
               onDone={() => setRenaming(false)}
@@ -820,7 +1005,7 @@ export function PlaceDetail({
               </h2>
               {/* Beside the name, not in the controls block below: this is the one control that
                   changes the biggest word on the screen, and it belongs next to that word. */}
-              {detail && <RenameTrigger onStart={() => setRenaming(true)} />}
+              {savedRow && <RenameTrigger onStart={() => setRenaming(true)} />}
             </div>
           )}
           <p dir="auto" className="text-sm font-medium text-muted-foreground">
@@ -837,20 +1022,24 @@ export function PlaceDetail({
               *is* before either says anything about why it was saved. */}
           {tags.length > 0 && <TagChipList tags={tags} />}
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label={variant === 'panel' ? 'Back to your places' : 'Close place detail'}
-          onClick={onClose}
-          className="shrink-0 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
-        >
-          {variant === 'panel' ? (
-            <ChevronLeft className="size-5" aria-hidden />
-          ) : (
-            <X className="size-5" aria-hidden />
-          )}
-        </Button>
+        {/* Nothing at `hosted`: the host has already drawn its own back control in a header row
+            above this column, and two ways out of one screen is one too many. */}
+        {!isHosted && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label={variant === 'panel' ? 'Back to your places' : 'Close place detail'}
+            onClick={onClose}
+            className="shrink-0 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            {variant === 'panel' ? (
+              <ChevronLeft className="size-5" aria-hidden />
+            ) : (
+              <X className="size-5" aria-hidden />
+            )}
+          </Button>
+        )}
       </div>
 
       <div className={cn('flex flex-col gap-5', isPopover && 'gap-4 px-4 pb-4')}>
@@ -911,35 +1100,45 @@ export function PlaceDetail({
             `saved-place-edits.tsx` for why it leads the controls block rather than sitting up in
             the identity header. `key` on the saved place's id so a pending transition from the
             previously selected place can never land on this one. */}
-        <BeenToggle
-          key={`been-${place.id}`}
-          savedPlaceId={place.id}
-          placeName={place.name}
-          visited={place.visited}
-        />
+        {savedRow && (
+          <BeenToggle
+            key={`been-${savedRow.id}`}
+            savedPlaceId={savedRow.id}
+            placeName={place.name}
+            visited={savedRow.visited}
+          />
+        )}
+
+        {/* The same position, for a host whose caller has no row to toggle: on
+            `/collections/[id]` this is `Added by …` and `Save to your places`. */}
+        {primaryAction}
 
         {/* Directly under `BeenToggle` and above `CategoryEditor`: been/not-been and "which list is
             this in" are both statements about the user's *intent* with the place, while category
             and note are corrections to what we got wrong. Grouping the two intent controls keeps
             the correction block intact underneath. Renders nothing outside a `CollectionsContext`
             provider, so the desktop popover and any test host are unaffected. */}
-        <AddToCollection key={`collections-${place.id}`} placeId={detail?.placeId} />
+        {savedRow && (
+          <AddToCollection key={`collections-${savedRow.id}`} placeId={detail?.placeId} />
+        )}
 
         {/* The user's own word for what this place is. Below the prose blocks rather than beside
             the category line above, because that line is the most-read thing on the card and this
             is a control most people touch once — `saved-place-edits.tsx` has the argument. */}
-        <CategoryEditor
-          key={`category-${place.id}`}
-          savedPlaceId={place.id}
-          category={place.category}
-          isOverridden={detail?.categoryIsOverridden ?? false}
-        />
+        {savedRow && (
+          <CategoryEditor
+            key={`category-${savedRow.id}`}
+            savedPlaceId={savedRow.id}
+            category={place.category}
+            isOverridden={detail?.categoryIsOverridden ?? false}
+          />
+        )}
 
         {/* `L1-F7-T2`. The note used to render read-only, and a place you saved was a place you
             were stuck with. `key` on the saved place's id is what resets a half-typed draft when
             the selection changes — the editor deliberately does not sync from props in an effect,
             which would discard typing every time the server revalidated. */}
-        <NoteEditor key={place.id} savedPlaceId={place.id} note={note} />
+        {savedRow && <NoteEditor key={savedRow.id} savedPlaceId={savedRow.id} note={note} />}
 
         {/* Two external actions, presented as plain text links — same weight as `reason`/`note`
             above, no border/fill box. The panel (or sheet) is already the container; a bordered
@@ -958,6 +1157,7 @@ export function PlaceDetail({
                 href={tiktokUrl}
                 target="_blank"
                 rel="noreferrer"
+                data-vaul-no-drag
                 className="flex items-center gap-1.5 text-sm font-bold text-[var(--mint-700)] underline-offset-4 hover:underline"
               >
                 Open TikTok
@@ -968,9 +1168,13 @@ export function PlaceDetail({
               href={googleMapsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-sm font-bold text-[var(--mint-700)] underline-offset-4 hover:underline"
+              data-vaul-no-drag
+              className={cn(
+                'flex items-center gap-1.5 text-sm font-bold text-[var(--mint-700)] underline-offset-4 hover:underline',
+                mapsLinkAlone && 'min-h-11'
+              )}
             >
-              Google Maps
+              {mapsLinkAlone ? 'Open in Google Maps' : 'Google Maps'}
               <ExternalLink className="size-3.5" aria-hidden />
             </a>
           </div>
@@ -980,34 +1184,51 @@ export function PlaceDetail({
             no screen said: the first was a dataset slug at 11px (`Matched via llm-guess`) that
             twenty-one of thirty-one places carried and nobody could read, and the second was in the
             ORDER BY and nowhere else. `location-certainty.ts` has the argument for why the
-            confidence percentage that used to sit here is gone. */}
-        <div className="flex flex-col gap-1">
-          {certainty && (
-            <p
-              className={cn(
-                'text-xs font-medium',
-                certainty.isApproximate ? 'text-foreground' : 'text-muted-foreground',
-              )}
-            >
-              {certainty.label}
-              {certainty.detail && (
-                <span className="font-normal text-muted-foreground"> — {certainty.detail}</span>
-              )}
-            </p>
-          )}
-          {detail?.savedAt && (
-            <p className="text-[11px] font-medium text-muted-foreground/70">
-              {savedOnLine(detail.savedAt, new Date())}
-            </p>
-          )}
-        </div>
+            confidence percentage that used to sit here is gone.
+
+            The wrapper itself is conditional because an empty one is invisible but not free: it is
+            a flex child in a `gap-5` column, so on a surface that has neither fact — a place seen
+            from inside a collection — it opens a 20 px hole above the footer. */}
+        {(certainty || detail?.savedAt) && (
+          <div className="flex flex-col gap-1">
+            {certainty && (
+              <p
+                className={cn(
+                  'text-xs font-medium',
+                  certainty.isApproximate ? 'text-foreground' : 'text-muted-foreground',
+                )}
+              >
+                {certainty.label}
+                {certainty.detail && (
+                  <span className="font-normal text-muted-foreground"> — {certainty.detail}</span>
+                )}
+              </p>
+            )}
+            {detail?.savedAt && (
+              <p className="text-[11px] font-medium text-muted-foreground/70">
+                {savedOnLine(detail.savedAt, new Date())}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Last, and quiet. The destructive action belongs below everything the user might have
             opened this detail to read, not competing with it. `onClose` is the deselect the
             caller already passes — the map page's own render-time guard would drop the selection
             once the revalidated list arrives, but that would leave the detail open over a place
             that is already gone for the length of the round trip. */}
-        <RemoveSavedPlace savedPlaceId={place.id} placeName={place.name} onRemoved={onClose} />
+        {savedRow && (
+          <RemoveSavedPlace
+            savedPlaceId={savedRow.id}
+            placeName={place.name}
+            onRemoved={onClose}
+          />
+        )}
+
+        {/* Last of all, and the host's to fill: `/collections/[id]` puts the shared note and
+            `Remove from this collection` here — both statements about *this collection*, which is
+            why they sit below everything this view says about the place itself. */}
+        {footer}
       </div>
     </div>
   );

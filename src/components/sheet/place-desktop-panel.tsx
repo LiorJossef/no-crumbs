@@ -19,21 +19,24 @@
  * so the map underneath (and the floating account chip above it) stay reachable everywhere else.
  */
 
-import { useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   ClearSearchEscape,
-  ElsewhereSection,
   EMPTY_LIBRARY_HEADING,
   EmptyLibraryLine,
   PlaceRow,
   PlaceSearchField,
 } from './place-sheet';
+import { ElsewhereSection } from './elsewhere-section';
 import { ActiveTagFilter } from './place-enrichment';
-import { NotBeenFilterChip } from './visit-state';
+import { CategoryFilterBar } from './category-filter-bar';
+import type { CategoryFacet } from '@/domain/places/category-filter';
+import type { ProductCategory } from '@/domain/places/product-category';
 import { CollectionsNavRow } from '@/components/collections/collections-nav-row';
-import type { AreaHeading, AreaRow } from '@/ui/place/active-area';
+import type { AreaHeading } from '@/ui/place/active-area';
+import type { ElsewhereEntry } from '@/ui/place/elsewhere-groups';
 import type { MapPlace } from '@/components/map/types';
 
 export interface PlaceDesktopPanelProps {
@@ -41,8 +44,12 @@ export interface PlaceDesktopPanelProps {
   readonly places: readonly MapPlace[];
   /** The same object the mobile sheet gets, so the two presentations cannot disagree. */
   readonly heading: AreaHeading;
-  readonly otherAreas: readonly AreaRow[];
+  /** The same grouped section the sheet gets, built once upstream. */
+  readonly elsewhere: readonly ElsewhereEntry[];
+  readonly countryExpansion: ReadonlyMap<string, boolean>;
+  readonly onToggleCountry: (key: string, expanded: boolean) => void;
   readonly onSelectArea: (areaId: string) => void;
+  readonly activeAreaId: string | null;
   readonly libraryIsEmpty: boolean;
   readonly filtering: boolean;
   readonly query: string;
@@ -55,6 +62,9 @@ export interface PlaceDesktopPanelProps {
    *  and same behaviour as the mobile sheet — the two surfaces present one filter, not two. */
   readonly notBeenOnly: boolean;
   readonly onToggleNotBeen: () => void;
+  readonly categoryFacets: readonly CategoryFacet[];
+  readonly activeCategory: ProductCategory | null;
+  readonly onToggleCategory: (category: ProductCategory) => void;
   /** Opens the import overlay in `map-page-client.tsx` (client state) rather than navigating to
    *  the standalone `/import` route, so the map underneath this panel stays mounted. */
   readonly onAddTikTok: () => void;
@@ -66,8 +76,11 @@ export interface PlaceDesktopPanelProps {
 export function PlaceDesktopPanel({
   places,
   heading,
-  otherAreas,
+  elsewhere,
+  countryExpansion,
+  onToggleCountry,
   onSelectArea,
+  activeAreaId,
   libraryIsEmpty,
   filtering,
   query,
@@ -76,10 +89,20 @@ export function PlaceDesktopPanel({
   onClearTag,
   notBeenOnly,
   onToggleNotBeen,
+  categoryFacets,
+  activeCategory,
+  onToggleCategory,
   onAddTikTok,
   onSelect,
 }: PlaceDesktopPanelProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  /** The same scroll reset the sheet does, for the same reason and with the same timing — see
+   *  `PlaceList`. A panel is shorter than a sheet at `full` but the arithmetic is identical. */
+  useLayoutEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+  }, [activeAreaId]);
 
   /** Switching area replaces every row and unmounts the button that was pressed. */
   const selectArea = (areaId: string) => {
@@ -95,10 +118,13 @@ export function PlaceDesktopPanel({
               the `3 of 20` counter beside it are both gone. The library total is not displayed
               anywhere on `/map` — it answers a question about owning things, and this screen is for
               finding one. `tabIndex={-1}` only so the escapes below have somewhere to send focus. */}
+          {/* Keyed and faded exactly as the sheet's `h2` is — one change of scope, one motion, on
+              both surfaces. See `PlaceList` for why it keys on the area and not on the count. */}
           <h1
+            key={activeAreaId ?? 'no-area'}
             ref={headingRef}
             tabIndex={-1}
-            className="font-heading text-2xl font-extrabold tracking-tight text-foreground outline-none"
+            className="animate-in fade-in-0 duration-140 font-heading text-2xl font-extrabold tracking-tight text-foreground outline-none motion-reduce:animate-none"
           >
             {libraryIsEmpty ? EMPTY_LIBRARY_HEADING : heading.text}
           </h1>
@@ -116,8 +142,17 @@ export function PlaceDesktopPanel({
           {!libraryIsEmpty && <PlaceSearchField value={query} onChange={onQueryChange} />}
           {/* Inside the header block, under the field and above whatever the list turns out to be,
               so the controls that undo a filter are present in the empty state too. */}
+          {/* The same bar the sheet renders. Two surfaces offering different filter controls over
+              one library is how the phone and the desktop come to disagree about what the product
+              can do — `PlaceRow` is shared for exactly this reason. */}
           {!libraryIsEmpty && (
-            <NotBeenFilterChip active={notBeenOnly} onToggle={onToggleNotBeen} />
+            <CategoryFilterBar
+              facets={categoryFacets}
+              activeCategory={activeCategory}
+              onToggleCategory={onToggleCategory}
+              notBeenOnly={notBeenOnly}
+              onToggleNotBeen={onToggleNotBeen}
+            />
           )}
           {activeTag !== null && <ActiveTagFilter tag={activeTag} onClear={onClearTag} />}
           {/* See `AreaHeading.note`: the one line an achievement heading needs and a failed query
@@ -128,20 +163,36 @@ export function PlaceDesktopPanel({
         </div>
 
         {libraryIsEmpty ? null : (
-          <div className="mt-4 min-h-0 flex-1 overflow-y-auto px-6 pb-6">
-            {heading.escape === 'clear-search' && (
-              <ClearSearchEscape onClearSearch={() => onQueryChange('')} />
-            )}
-            {!heading.empty && (
-              <ul>
-                {places.map((place) => (
-                  <PlaceRow key={place.id} place={place} onSelect={onSelect} />
-                ))}
-              </ul>
-            )}
-            <ElsewhereSection rows={otherAreas} filtering={filtering} onSelectArea={selectArea} />
-            <CollectionsNavRow />
-          </div>
+          <>
+            <div ref={scrollRef} className="mt-4 min-h-0 flex-1 overflow-y-auto px-6">
+              {heading.escape === 'clear-search' && (
+                <ClearSearchEscape onClearSearch={() => onQueryChange('')} />
+              )}
+              {!heading.empty && (
+                <ul>
+                  {places.map((place) => (
+                    <PlaceRow key={place.id} place={place} onSelect={onSelect} />
+                  ))}
+                </ul>
+              )}
+              {/* `all`, not `active-and-previous`: §9 — there is room on a desktop panel, and
+                  collapsing is a mobile economy. The default is passed rather than derived from a
+                  breakpoint in JS, because both surfaces render unconditionally and a media query
+                  read in JavaScript is a second source of truth about which one the user sees. */}
+              <ElsewhereSection
+                entries={elsewhere}
+                filtering={filtering}
+                expansion={countryExpansion}
+                expansionDefault="all"
+                onToggleCountry={onToggleCountry}
+                onSelectArea={selectArea}
+              />
+            </div>
+            {/* Pinned to the bottom of the panel, out of the scroll — see `PlaceList`. */}
+            <div className="shrink-0 px-6 pb-6">
+              <CollectionsNavRow />
+            </div>
+          </>
         )}
       </div>
     </div>

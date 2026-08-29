@@ -1,6 +1,23 @@
 /**
- * Draws the country disc MapLibre renders as `icon-image` at world zoom: a flag in a disc, with a
- * mint ring when the disc is the active area's country (`docs/ux-library-at-scale.md` §2.2).
+ * Draws the **summary pill** MapLibre renders as `icon-image` in the country and area bands
+ * (`docs/ux-library-at-scale.md` §2.2, §2.3): a card-surface pill with a hairline border and the
+ * disc's drop shadow, carrying an optional flag cap at its leading edge.
+ *
+ * ## Why a pill and not a bare disc
+ *
+ * The first version drew a disc and let the country's name and count fall on the basemap as bare
+ * text with a halo. On the running map that is not a marker, it is map furniture: it collides with
+ * CARTO's own labels (`United Kingdom 18` landing on the basemap's `ASIA`), the first letter sits
+ * against the disc's ring, and nothing about it says *tap me*. The area band had the same defect in
+ * a second form — a disc with the count in it and the area's name as bare text underneath, which
+ * repeated the basemap's own city label directly below a disc sitting on that city.
+ *
+ * A pill fixes both at once and is what §2.2/§2.3 already claimed the two bands were: the same
+ * object one zoom apart. It is drawn once as a **stretchable image** — `stretchX` plus `content`,
+ * with `icon-text-fit: 'width'` on the layer — so the text inside it stays live text in a symbol
+ * layer and the bitmap only supplies the surface. That is what keeps §2.2's "the count is plain
+ * digits in a symbol layer, never baked into the image" true, and what lets `תל אביב-יפו` shape
+ * through the RTL plugin.
  *
  * ## Why the flag is a bitmap and never a `text-field`
  *
@@ -14,7 +31,22 @@
  *    (`glyph: codePoint`). There is no cluster or ligature substitution, so the regional-indicator
  *    pair U+1F1EF U+1F1F5 is two separate lookups and renders as two boxes, not 🇯🇵.
  *
- * The count is **not** in this bitmap. It is a separate symbol layer, so it stays live data.
+ * ## The geometry contract, and why it is written down here
+ *
+ * `content` and `stretchX` are in **raw bitmap pixels**, not CSS pixels
+ * (`maplibre-gl/src/symbol/quads.ts:65` derives `imageWidth` from `paddedRect`, and `quads.ts:134`
+ * divides the fixed offsets by `pixelRatio`). Everything below is authored in CSS pixels and
+ * multiplied by `pixelRatio` exactly once, at the end, the same way the canvas transform is.
+ *
+ * Two invariants the drawing must not break, both load-bearing:
+ *
+ * - **The stretched span must be flat.** `content` marks the region the text is mapped onto and
+ *   `stretchX` marks the columns MapLibre may repeat; every column between them is smeared across
+ *   the text's width, so both edges of `content` sit at or inside the pill's flat middle — never in
+ *   a rounded end. `padX === radius` is what guarantees that on the capless pill.
+ * - **`content` spans the image's full height.** With `icon-text-fit: 'width'` the vertical axis is
+ *   not fitted, and `quads.ts` still maps `content`'s vertical band onto the icon's natural height:
+ *   a shorter content band would scale the whole pill up vertically. Full height keeps it 1:1.
  *
  * Browser-only in effect, but safe to import anywhere: nothing touches `document` at module scope,
  * and every entry point returns an empty/neutral result when there is no canvas.
@@ -25,8 +57,8 @@ export type DiscTheme = 'light' | 'dark';
 
 export interface CountryDiscSpec {
   /**
-   * ISO 3166-1 alpha-2. `null` — or anything that is not two ASCII letters — draws an empty disc,
-   * which is what §2.5 needs for an area whose members all lack a country.
+   * ISO 3166-1 alpha-2. `null` — or anything that is not two ASCII letters — draws the **capless**
+   * pill, which is both §2.5's area with no country and the area band's own marker.
    */
   readonly countryCode: string | null;
   /** The active area's country. The mint ring is the only state colour on the marker. */
@@ -37,6 +69,9 @@ export interface CountryDiscImage {
   readonly id: string;
   readonly data: ImageData;
   readonly pixelRatio: number;
+  /** Raw-bitmap-pixel metadata for `map.addImage`. See the geometry contract above. */
+  readonly stretchX: readonly [number, number][];
+  readonly content: readonly [number, number, number, number];
 }
 
 export interface CountryDiscOptions {
@@ -51,46 +86,79 @@ export interface CountryDiscOptions {
 }
 
 /**
- * Geometry in CSS pixels, before `devicePixelRatio`. Exported because the count layer has to offset
- * itself from the disc, and the disc must not be measured twice.
+ * The pill's geometry in CSS pixels, before `devicePixelRatio`.
  *
- * The bitmap always reserves room for the ring, ring or no ring, so the disc centre sits at the
- * same place in every image and the layer's anchor and count offset are constant across states.
+ * `padX === radius` is not a taste decision: it is what keeps `content`'s edges out of the rounded
+ * ends, which is what stops the stretch smearing a curve across the label.
+ *
+ * The flag cap is **concentric** with the pill's leading arc — its centre is at `radius` from the
+ * pill's leading edge — so it is inset from the border by `radius - capDiameter / 2` all the way
+ * round, and cannot touch it at any angle.
  */
-export const COUNTRY_DISC = {
-  diameter: 36,
+export const SUMMARY_PILL = {
+  height: 34,
+  radius: 17,
+  /** Horizontal padding on a side with no cap. Equal to `radius` — see above. */
+  padX: 17,
   borderWidth: 1,
-  ringWidth: 2.5,
-  ringGap: 2,
-  shadowPad: 7,
+  /** The active state: the hairline border is replaced by a mint one at this width. Same outer
+   *  geometry in both states, so a pill does not resize when its country becomes active. */
+  ringWidth: 2,
+  /** Transparent margin around the pill, holding the shadow. `shadowBlur + shadowOffsetY <= this`. */
+  shadowPad: 8,
   shadowBlur: 5,
   shadowOffsetY: 1.5,
+  /** The flag circle in the leading cap. */
+  capDiameter: 24,
+  /** Flag circle's trailing edge to the label's leading edge. */
+  capGap: 8,
   /**
-   * The box the flag's **inked** pixels are fitted into — roughly the widest 4:3 rectangle inside
-   * the disc, less the border. Fitted rather than set as a font size because Apple, Google and Noto
-   * flags share neither metrics nor side bearing: Apple pads its advance, so scaling to the advance
-   * leaves the flag floating at ~60% of the disc.
+   * The box the flag's **inked** pixels are fitted into. Fitted rather than set as a font size
+   * because Apple, Google and Noto flags share neither metrics nor side bearing: Apple pads its
+   * advance, so scaling to the advance leaves the flag floating at ~60% of the cap.
    */
-  flagWidth: 27,
-  flagHeight: 20,
-  /** The fallback two-letter code. Same weight and size as the count layer. */
-  codeFontPx: 14,
+  flagWidth: 20,
+  flagHeight: 15,
+  /** The fallback two-letter code, drawn in the cap where the platform has no flag glyph. */
+  codeFontPx: 12,
   codeWeight: 600,
+  /** Natural width of the stretchable middle. Any positive number works — the rendered width comes
+   *  from the text — so this is only the size of the atlas slot. */
+  textSlot: 24,
 } as const;
 
-const RING_OUTER_RADIUS =
-  COUNTRY_DISC.diameter / 2 + COUNTRY_DISC.ringGap + COUNTRY_DISC.ringWidth;
+/** Bitmap height in CSS pixels. Also the marker's tap target height: `collision_feature.ts:76-81`
+ *  expands the icon's collision box back out to the full image, so ≥44 here is ≥44 on screen. */
+export const SUMMARY_PILL_HEIGHT = SUMMARY_PILL.height + 2 * SUMMARY_PILL.shadowPad;
 
-/** Bitmap edge in CSS pixels, and the disc centre inside it. Square, so both are one number. */
-export const COUNTRY_DISC_SIZE = Math.ceil(2 * (RING_OUTER_RADIUS + COUNTRY_DISC.shadowPad));
-export const COUNTRY_DISC_CENTRE = COUNTRY_DISC_SIZE / 2;
+/** Distance from the bitmap's leading edge to the label's leading edge, per cap kind. */
+function leadingInset(capped: boolean): number {
+  return capped
+    ? SUMMARY_PILL.shadowPad +
+        SUMMARY_PILL.radius +
+        SUMMARY_PILL.capDiameter / 2 +
+        SUMMARY_PILL.capGap
+    : SUMMARY_PILL.shadowPad + SUMMARY_PILL.padX;
+}
+
+const TRAILING_INSET = SUMMARY_PILL.padX + SUMMARY_PILL.shadowPad;
+
+/** Bitmap width in CSS pixels, per cap kind. */
+export function summaryPillWidth(capped: boolean): number {
+  return leadingInset(capped) + SUMMARY_PILL.textSlot + TRAILING_INSET;
+}
 
 const EMOJI_FONT_STACK =
   '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Twemoji Mozilla", sans-serif';
 const SANS_FALLBACK_STACK =
   'system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
 
-interface DiscTokens {
+/**
+ * The pill's material, resolved from the design tokens. Exported because both bands' text layers
+ * are painted from it — two independent readings of `--card` is how the two bands come to disagree
+ * about what a summary marker is made of.
+ */
+export interface DiscTokens {
   readonly surface: string;
   readonly border: string;
   readonly ink: string;
@@ -117,7 +185,7 @@ function defaultCreateCanvas(): HTMLCanvasElement | null {
   return document.createElement('canvas');
 }
 
-/** The same rule `components/ui/map.tsx` uses, so the disc and the basemap never disagree. */
+/** The same rule `components/ui/map.tsx` uses, so the pill and the basemap never disagree. */
 function documentTheme(): DiscTheme | null {
   if (typeof document === 'undefined') return null;
   const root = document.documentElement;
@@ -138,7 +206,7 @@ function readVar(styles: CSSStyleDeclaration, name: string): string | null {
   return value;
 }
 
-function resolveTokens(theme: DiscTheme): DiscTokens {
+export function resolveDiscTokens(theme: DiscTheme): DiscTokens {
   const fallback = { ...TOKEN_FALLBACK[theme], fontFamily: SANS_FALLBACK_STACK };
   if (typeof document === 'undefined' || typeof getComputedStyle !== 'function') return fallback;
   if (documentTheme() !== theme) return fallback;
@@ -223,7 +291,7 @@ function flagGlyphsSupported(options: CountryDiscOptions): boolean {
 
 const REGIONAL_INDICATOR_A = 0x1f1e6;
 
-/** `null` unless this is two ASCII letters — everything else is an empty disc, not a guess. */
+/** `null` unless this is two ASCII letters — everything else is a capless pill, not a guess. */
 export function normaliseCountryCode(code: string | null | undefined): string | null {
   if (typeof code !== 'string') return null;
   const upper = code.trim().toUpperCase();
@@ -240,14 +308,17 @@ export function flagEmoji(code: string): string {
 /**
  * The `icon-image` id. Pure and SSR-safe, so the layer can build its expression on the server or
  * before any canvas exists.
+ *
+ * The name is `country-disc:` for history, not accuracy — `summary-features.ts` and both bands
+ * resolve their ids through this function, so the string itself is never written anywhere else.
  */
 export function countryDiscImageId(spec: CountryDiscSpec, theme: DiscTheme): string {
   const code = normaliseCountryCode(spec.countryCode) ?? 'none';
-  return `country-disc:${theme}:${code}${spec.active ? ':active' : ''}`;
+  return `summary-pill:${theme}:${code}${spec.active ? ':active' : ''}`;
 }
 
 /**
- * Rasterised discs, keyed by id and pixel ratio. A device has one pixel ratio and a session has one
+ * Rasterised pills, keyed by id and pixel ratio. A device has one pixel ratio and a session has one
  * theme, so this is a handful of entries; the point is that panning and re-styling never rebuild a
  * canvas.
  */
@@ -259,33 +330,64 @@ export function clearCountryDiscImageCache(): void {
   flagGlyphsMemo = null;
 }
 
-function drawDisc(ctx: CanvasRenderingContext2D, tokens: DiscTokens, active: boolean): void {
-  const centre = COUNTRY_DISC_CENTRE;
-  const radius = COUNTRY_DISC.diameter / 2;
+/** A rounded rectangle, built from arcs rather than `roundRect` — Safari shipped `roundRect` only
+ *  in 16, and this runs on whatever phone the user has. */
+function pillPath(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  radius: number
+): void {
+  const r = Math.min(radius, w / 2, h / 2);
+  const half = Math.PI / 2;
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arc(x + w - r, y + r, r, -half, 0);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.arc(x + w - r, y + h - r, r, 0, half);
+  ctx.lineTo(x + r, y + h);
+  ctx.arc(x + r, y + h - r, r, half, Math.PI);
+  ctx.lineTo(x, y + r);
+  ctx.arc(x + r, y + r, r, Math.PI, Math.PI + half);
+  ctx.closePath();
+}
+
+function drawPill(
+  ctx: CanvasRenderingContext2D,
+  tokens: DiscTokens,
+  active: boolean,
+  widthCss: number
+): void {
+  const { shadowPad, height, radius, borderWidth, ringWidth } = SUMMARY_PILL;
+  const w = widthCss - 2 * shadowPad;
 
   ctx.save();
   ctx.shadowColor = 'rgba(15, 30, 28, 0.34)';
-  ctx.shadowBlur = COUNTRY_DISC.shadowBlur;
-  ctx.shadowOffsetY = COUNTRY_DISC.shadowOffsetY;
+  ctx.shadowBlur = SUMMARY_PILL.shadowBlur;
+  ctx.shadowOffsetY = SUMMARY_PILL.shadowOffsetY;
   ctx.fillStyle = tokens.surface;
-  ctx.beginPath();
-  ctx.arc(centre, centre, radius, 0, Math.PI * 2);
+  pillPath(ctx, shadowPad, shadowPad, w, height, radius);
   ctx.fill();
   ctx.restore();
 
-  ctx.lineWidth = COUNTRY_DISC.borderWidth;
-  ctx.strokeStyle = tokens.border;
-  ctx.beginPath();
-  ctx.arc(centre, centre, radius - COUNTRY_DISC.borderWidth / 2, 0, Math.PI * 2);
+  // The mint ring is the border, at twice the width — not an extra ring outside the pill. An outer
+  // ring would change the bitmap's outer geometry between states, and `content` is measured from
+  // that edge, so the pill would shift under its own label the moment a country became active.
+  const line = active ? ringWidth : borderWidth;
+  ctx.lineWidth = line;
+  ctx.strokeStyle = active ? tokens.ring : tokens.border;
+  pillPath(
+    ctx,
+    shadowPad + line / 2,
+    shadowPad + line / 2,
+    w - line,
+    height - line,
+    radius - line / 2
+  );
   ctx.stroke();
-
-  if (active) {
-    ctx.lineWidth = COUNTRY_DISC.ringWidth;
-    ctx.strokeStyle = tokens.ring;
-    ctx.beginPath();
-    ctx.arc(centre, centre, RING_OUTER_RADIUS - COUNTRY_DISC.ringWidth / 2, 0, Math.PI * 2);
-    ctx.stroke();
-  }
 }
 
 /** Where a glyph actually puts pixels, relative to the text origin. */
@@ -306,7 +408,7 @@ const measured = new Map<string, PaintedBox | null>();
  *
  * `TextMetrics.actualBoundingBox*` is not usable for this: for a colour emoji Chromium reports a
  * generic font-level box, identical for every flag and much larger than the flag it paints, so
- * fitting the reported box shrinks the flag to two thirds of the disc. Reading the pixels is
+ * fitting the reported box shrinks the flag to two thirds of the cap. Reading the pixels is
  * font-independent and is the only measurement true of Apple, Noto and Segoe at once.
  *
  * Memoised per font-and-glyph: it is a fixed-size scan, run once per country per session, never per
@@ -372,16 +474,20 @@ function scanPaintedBox(
   };
 }
 
+/** The flag circle's centre, concentric with the pill's leading arc. */
+const CAP_CENTRE_X = SUMMARY_PILL.shadowPad + SUMMARY_PILL.radius;
+const CAP_CENTRE_Y = SUMMARY_PILL.shadowPad + SUMMARY_PILL.height / 2;
+const CAP_RADIUS = SUMMARY_PILL.capDiameter / 2;
+
 function drawFlag(
   ctx: CanvasRenderingContext2D,
   code: string,
   createCanvas: () => HTMLCanvasElement | null
 ): void {
-  const centre = COUNTRY_DISC_CENTRE;
   ctx.save();
-  // Clip to the disc: a font whose flag overhangs its advance cannot bleed over the border.
+  // Clip to the cap: a font whose flag overhangs its advance cannot bleed onto the label.
   ctx.beginPath();
-  ctx.arc(centre, centre, COUNTRY_DISC.diameter / 2 - COUNTRY_DISC.borderWidth, 0, Math.PI * 2);
+  ctx.arc(CAP_CENTRE_X, CAP_CENTRE_Y, CAP_RADIUS - SUMMARY_PILL.borderWidth, 0, Math.PI * 2);
   ctx.clip();
 
   const glyph = flagEmoji(code);
@@ -389,20 +495,20 @@ function drawFlag(
   ctx.font = font;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
-  ctx.translate(centre, centre);
+  ctx.translate(CAP_CENTRE_X, CAP_CENTRE_Y);
 
   const box = measurePaintedBox(font, glyph, createCanvas);
   if (box) {
     const fit = Math.min(
-      COUNTRY_DISC.flagWidth / box.width,
-      COUNTRY_DISC.flagHeight / box.height
+      SUMMARY_PILL.flagWidth / box.width,
+      SUMMARY_PILL.flagHeight / box.height
     );
     ctx.scale(fit, fit);
     ctx.fillText(glyph, -(box.left + box.width / 2), -(box.top + box.height / 2));
   } else {
-    // No readback: fit the advance and centre on the em box. Looser, but it still lands in the disc.
+    // No readback: fit the advance and centre on the em box. Looser, but it still lands in the cap.
     const advance = ctx.measureText(glyph).width;
-    const scale = advance > 0 ? COUNTRY_DISC.flagWidth / advance : 1;
+    const scale = advance > 0 ? SUMMARY_PILL.flagWidth / advance : 1;
     ctx.scale(scale, scale);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -417,22 +523,21 @@ function drawCode(
   code: string,
   createCanvas: () => HTMLCanvasElement | null
 ): void {
-  const centre = COUNTRY_DISC_CENTRE;
   ctx.save();
-  const font = `${COUNTRY_DISC.codeWeight} ${COUNTRY_DISC.codeFontPx}px ${tokens.fontFamily}`;
+  const font = `${SUMMARY_PILL.codeWeight} ${SUMMARY_PILL.codeFontPx}px ${tokens.fontFamily}`;
   ctx.font = font;
   ctx.fillStyle = tokens.ink;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
-  ctx.translate(centre, centre);
+  ctx.translate(CAP_CENTRE_X, CAP_CENTRE_Y);
 
-  // Two capitals at 14px overrun the inner disc on a wide face; squeeze rather than clip, so `WW`
-  // stays inside the border on every font without changing the size the other codes read at.
-  const limit = COUNTRY_DISC.diameter - 10;
+  // Two capitals overrun the cap on a wide face; squeeze rather than clip, so `WW` stays inside the
+  // ring on every font without changing the size the other codes read at.
+  const limit = SUMMARY_PILL.capDiameter - 6;
   const box = measurePaintedBox(font, code, createCanvas);
   if (box) {
     // Optically centred on the caps: an all-caps pair has no descender, so a `middle` baseline
-    // sits it visibly high in the disc.
+    // sits it visibly high in the cap.
     if (box.width > limit) ctx.scale(limit / box.width, 1);
     ctx.fillText(code, -(box.left + box.width / 2), -(box.top + box.height / 2));
   } else {
@@ -445,6 +550,16 @@ function drawCode(
   ctx.restore();
 }
 
+/** The hairline around the cap, so a flag with a white field (JP, FI, NG) still has an edge against
+ *  the card surface it sits on. Drawn after the flag, over its clipped edge. */
+function drawCapRing(ctx: CanvasRenderingContext2D, tokens: DiscTokens): void {
+  ctx.lineWidth = SUMMARY_PILL.borderWidth;
+  ctx.strokeStyle = tokens.border;
+  ctx.beginPath();
+  ctx.arc(CAP_CENTRE_X, CAP_CENTRE_Y, CAP_RADIUS - SUMMARY_PILL.borderWidth / 2, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
 function build(
   spec: CountryDiscSpec,
   options: CountryDiscOptions,
@@ -454,40 +569,57 @@ function build(
   const createCanvas = options.createCanvas ?? defaultCreateCanvas;
   const canvas = createCanvas();
   if (!canvas) return null;
-  canvas.width = Math.ceil(COUNTRY_DISC_SIZE * options.pixelRatio);
-  canvas.height = Math.ceil(COUNTRY_DISC_SIZE * options.pixelRatio);
+
+  const code = normaliseCountryCode(spec.countryCode);
+  const capped = code !== null;
+  const widthCss = summaryPillWidth(capped);
+
+  canvas.width = Math.ceil(widthCss * options.pixelRatio);
+  canvas.height = Math.ceil(SUMMARY_PILL_HEIGHT * options.pixelRatio);
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return null;
 
   // Everything below is authored in CSS pixels; the transform is the whole of the DPR story.
   ctx.scale(options.pixelRatio, options.pixelRatio);
-  drawDisc(ctx, tokens, spec.active === true);
+  drawPill(ctx, tokens, spec.active === true, widthCss);
 
-  const code = normaliseCountryCode(spec.countryCode);
   if (code) {
     if (flags) drawFlag(ctx, code, createCanvas);
     else drawCode(ctx, tokens, code, createCanvas);
+    drawCapRing(ctx, tokens);
   }
+
+  // Raw bitmap pixels, and rounded to the same integers the canvas was allocated at — a fractional
+  // `content` edge is a fractional texture cut and shows up as a seam in the stretched middle.
+  const contentLeft = Math.round(leadingInset(capped) * options.pixelRatio);
+  const contentRight = canvas.width - Math.round(TRAILING_INSET * options.pixelRatio);
 
   return {
     id: countryDiscImageId(spec, options.theme),
     data: ctx.getImageData(0, 0, canvas.width, canvas.height),
     pixelRatio: options.pixelRatio,
+    // The whole content span stretches, so `fixedContentWidth` is 0 and the rendered middle is
+    // exactly the label’s width (`quads.ts:93-108`). A narrower stretch zone would impose a
+    // minimum width the shortest labels could not meet.
+    stretchX: [[contentLeft, contentRight]],
+    // Full height: see the geometry contract at the top of this file.
+    content: [contentLeft, 0, contentRight, canvas.height],
   };
 }
 
 /**
- * Every disc the layer needs, ready for `map.addImage(id, data, { pixelRatio })`.
+ * Every pill the layers need, ready for
+ * `map.addImage(id, data, { pixelRatio, stretchX, content })`.
  *
- * Duplicate specs collapse, already-built discs come from the cache, and a missing canvas yields
- * `[]` rather than throwing — the caller degrades to no country icons instead of failing to mount.
+ * Duplicate specs collapse, already-built pills come from the cache, and a missing canvas yields
+ * `[]` rather than throwing — the caller degrades to no summary icons instead of failing to mount.
  */
 export function buildCountryDiscImages(
   specs: readonly CountryDiscSpec[],
   options: CountryDiscOptions
 ): CountryDiscImage[] {
   if (specs.length === 0) return [];
-  const tokens = resolveTokens(options.theme);
+  const tokens = resolveDiscTokens(options.theme);
   const flags = flagGlyphsSupported(options);
 
   const images: CountryDiscImage[] = [];

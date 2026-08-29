@@ -245,3 +245,44 @@ export function toCountryCode(input: string | null | undefined): string | null {
 
   return icuIndex.get(key) ?? null;
 }
+
+/**
+ * The English name for an ISO-3166-1 alpha-2 code — `'GB'` -> `'United Kingdom'` — for the
+ * `Elsewhere` section's country group rows (`docs/ux-library-at-scale.md` §2.6 rule 7).
+ *
+ * The inverse direction of this module, and it lives here for the reason the forward direction
+ * does: ICU is the one source of country names in the process, and a second table maintained
+ * beside it is a second table that goes stale. §2.6 asks for "a static code → name table"; ICU is
+ * that table, already installed and already current.
+ *
+ * **Never blank, never a tie-breaker.** An unknown or malformed code returns the code itself,
+ * uppercased, which is exactly what the flag disc's own fallback draws — so a country we cannot
+ * name reads the same way in the list as it does on the map, and a row is never empty. `null` in,
+ * `null` out: that is the unflagged bucket of §2.5, whose row is labelled by its area rather than
+ * by a country, and inventing a name for it here would be the conversion of uncertainty into
+ * certainty the house rules forbid.
+ *
+ * English only, deliberately. The interface strings are English (§4); only *content* is
+ * bidirectional, and a country name in this position is interface.
+ */
+export function toCountryName(code: string | null | undefined): string | null {
+  if (code === null || code === undefined) return null;
+  const trimmed = code.trim();
+  if (!/^[A-Za-z]{2}$/.test(trimmed)) return trimmed === '' ? null : trimmed.toUpperCase();
+
+  // Canonicalised first, so a stored deprecated code is named for the territory that exists today
+  // rather than for one that stopped existing in 1990 — the same failure `buildIcuIndex` skips
+  // aliases to avoid, arriving from the other direction.
+  const upper = canonicalRegion(trimmed.toUpperCase());
+  // The same non-countries the forward index skips. ICU will happily name `ZZ` "Unknown Region",
+  // which as a row heading is a sentence about our data pretending to be a place.
+  if (NOT_A_COUNTRY.has(upper)) return upper;
+  try {
+    const name = new Intl.DisplayNames(['en'], { type: 'region' }).of(upper);
+    // ICU echoes the input back for a code it does not know; that is not a name, but it is also
+    // exactly the fallback we want, so there is nothing to branch on.
+    return name ?? upper;
+  } catch {
+    return upper;
+  }
+}

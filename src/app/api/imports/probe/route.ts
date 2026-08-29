@@ -531,14 +531,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         : (await source.resolveShortLink(canonicalised.value, ctx)).externalId;
     videoId = externalId;
 
-    // `save_place`'s own RLS boundary (`sps_insert_own`, 0006) requires a matching `imports` row
-    // before it will let this user's session attach a source to a saved place — "the source must
-    // be one this user actually imported: no borrowing provenance". `start_import` (0007, B7) is
-    // the only way such a row is created. The real streaming route (L0-F6-T1) will call it as
-    // stage A; this throwaway probe route stops after extraction and never did, so every real
-    // save through `/api/imports/confirm` with a non-null `sourceId` unconditionally failed
-    // `sps_insert_own`'s WITH CHECK with a masked `INTERNAL` — this call is what makes the probe
-    // path's provenance real instead of borrowed, matching what the finished pipeline will do.
+    // `sps_insert_own` (0006) requires a matching `imports` row before this user's session may
+    // attach a source to a saved place — "the source must be one this user actually imported: no
+    // borrowing provenance". `start_import` (0007, B7) is the only way such a row is created. The
+    // real streaming route (L0-F6-T1) will call it as stage A; this throwaway probe route stops
+    // after extraction and never did, so every real save through `/api/imports/confirm` with a
+    // non-null `sourceId` unconditionally failed that WITH CHECK with a masked `INTERNAL` — this
+    // call is what makes the probe path's provenance real instead of borrowed.
+    //
+    // **The policy is on `saved_place_sources`, not on `save_place`**, and this comment said
+    // otherwise until 2026-08-29. It matters because `save_place` only reaches that table inside
+    // `if p_source_id is not null` (0017:75), so a save with no source — a manual add — never
+    // touches the policy and needs no `imports` row at all. Read the other way round, this
+    // sentence was the reason manual add looked blocked on a migration it does not need; proved
+    // against the local container as a user with zero `imports` rows, `SET CONSTRAINTS ALL
+    // IMMEDIATE` to force the deferred provenance trigger, landing `origin='manual'`.
     const { data: startRows, error: startImportError } = await db.rpc('start_import', {
       p_user_id: user.id,
       p_platform: 'tiktok',

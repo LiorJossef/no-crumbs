@@ -29,10 +29,7 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { updateDisplayName } from '@/app/actions/collections';
-
-/** §6's limit. Shorter than the column's 80 because this is a label rendered beside a role on a
- *  44px row, not a field of prose. */
-export const MEMBER_NAME_MAX_LENGTH = 40;
+import { MEMBER_NAME_MAX_LENGTH } from '@/domain/collections/collection';
 
 export function NamePrompt({
   suggestedName,

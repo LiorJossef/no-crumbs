@@ -18,6 +18,7 @@
 
 import type { ProductCategory } from '@/domain/places/product-category';
 import type { Spot } from '@/domain/places/spot';
+import type { ZoomBand } from './zoom-bands';
 
 /**
  * One pin's worth of data, provider-agnostic. Deliberately flat (`lat`/`lng` rather than a nested
@@ -73,6 +74,63 @@ export interface LatLngBoundsHint {
 }
 
 /**
+ * One area of the library, as the map draws it (`docs/ux-library-at-scale.md` §2.3).
+ *
+ * Provider-agnostic and flat, like `MapPlace`, so no renderer's coordinate-order convention crosses
+ * this seam. Built from the *same* `Area` objects the list renders as `Elsewhere` rows — the map
+ * and the list must never derive their geography separately, because the list is the accessible
+ * rendering of a canvas a screen reader cannot reach at all (§6).
+ */
+export interface MapAreaSummary {
+  readonly id: string;
+  /** The area's own name, or `null` where its members do not agree on one — the marker then shows
+   *  the count alone rather than a name we cannot stand behind. */
+  readonly label: string | null;
+  readonly count: number;
+  readonly lat: number;
+  readonly lng: number;
+}
+
+/** One country of the library, as the map draws it (§2.2). */
+export interface MapCountrySummary {
+  /** Stable address for the marker and its tap. Not the code: the areas with no country at all are
+   *  a real, tappable group, and `null` is not a key. */
+  readonly key: string;
+  /** ISO 3166-1 alpha-2, or `null` for that group — which renders unflagged rather than absent. */
+  readonly countryCode: string | null;
+  /**
+   * What the marker calls the country, in English.
+   *
+   * A flag alone is an identification puzzle: it asks the reader to know 250 flags, and where the
+   * platform has no flag glyph the disc falls back to a two-letter code, which is worse. The name
+   * costs one `text-field` — only the flag itself has to be a bitmap — and it makes the marker say
+   * what it is rather than testing whether you can tell.
+   */
+  readonly label: string;
+  readonly count: number;
+  /** The mean of the user's own saved places in the country, never a country centroid: the marker
+   *  sits where *your* places are, and there is no gazetteer to license. */
+  readonly lat: number;
+  readonly lng: number;
+  /** The extent of the country's areas, which is what a tap on it frames. */
+  readonly bounds: LatLngBoundsHint;
+}
+
+/**
+ * The library summarised, for the two zoom bands above the pins.
+ *
+ * Optional on the port: a surface given none simply draws pins at every zoom, which is what every
+ * surface did before the bands existed and what the mock still does.
+ */
+export interface MapSummaries {
+  readonly countries: readonly MapCountrySummary[];
+  readonly areas: readonly MapAreaSummary[];
+  /** The country the list is currently showing, which carries the mint ring — at world zoom the map
+   *  still says *you are here* while showing everything. The only state colour on a marker. */
+  readonly activeCountryKey: string | null;
+}
+
+/**
  * The public contract for a map surface component. Kept minimal on purpose: no camera-mover
  * discipline (`L1-F5`), no per-marker styling hook, no imperative ref/handle — those are all
  * additions a real requirement can motivate later, not scaffolding to pre-build now.
@@ -116,6 +174,37 @@ export interface MapSurfaceProps {
    */
   readonly focusPlaceIds?: readonly string[];
   /**
+   * The country and area bands (§2.1). Omitted, a surface draws pins at every zoom.
+   */
+  readonly summaries?: MapSummaries;
+  /**
+   * A tap on an area marker. **The same gesture as an `Elsewhere` row tap** and deliberately routed
+   * to the same writer in the caller — §2.4 makes it writer 2 and camera mover 4, not a new one, so
+   * that "which gestures may change the active area" stays a list of four in one file.
+   */
+  readonly onAreaClick?: (areaId: string) => void;
+  /**
+   * A tap on a country marker.
+   *
+   * Reported rather than acted on here, even though the surface owns the camera, because it *is* a
+   * camera move and the enumeration of who may move the camera lives with the caller. It changes no
+   * list state: you have chosen a country, not a place, so the sheet keeps saying what it said.
+   */
+  readonly onCountryClick?: (countryKey: string) => void;
+  /**
+   * "Frame this box, and come to rest inside this zoom range" — the country tap's camera.
+   *
+   * A separate mover from `focusPlaceIds` because it needs something that prop cannot express: a
+   * zoom **floor** as well as a ceiling. Fitting a country's areas honestly can land anywhere —
+   * a country with one saved place is a zero-extent box that fits at the ceiling and drops the user
+   * onto a single pin, and a country spanning a continent fits *below* the country band and leaves
+   * them looking at the marker they just tapped, apparently unresponsive. §2.4 requires the landing
+   * to be inside the area band either way, so that you always arrive on labelled area markers.
+   *
+   * Passing a **new object identity** requests one flight, exactly as `focusPlaceIds` does.
+   */
+  readonly focusBounds?: FocusBoundsRequest;
+  /**
    * How much of the surface's own container its bottom sheet covers **at rest**, below `lg`, as a
    * fraction of container height.
    *
@@ -133,6 +222,23 @@ export interface MapSurfaceProps {
    * spells out why the two consumers part company here.
    */
   readonly restingSheetFraction?: number;
+  /**
+   * How much of the container this surface's sheet covers **once a place is selected**, as a
+   * fraction — the band the camera must keep the selected pin out of.
+   *
+   * Separate from `restingSheetFraction` because they are different moments. The resting fraction
+   * is what the sheet covers all the time and is what a `fitBounds` frames around; this one is what
+   * it covers only while a detail is open, which on `/map` is the `half` stop and is four times
+   * deeper than the peek strip that surface rests at.
+   *
+   * **Omitted means no reveal**, which is the right default: a surface that raises nothing when a
+   * place is selected has nothing to be revealed from, and a camera that pans on selection anyway
+   * would be exactly the unrequested move the pin handler refuses.
+   *
+   * Camera-only, like the two above, and for the same reason — a pin behind a raised sheet is still
+   * in view for listing purposes.
+   */
+  readonly selectedOcclusionFraction?: number;
   /**
    * How deep a band of floating chrome sits over the **top** of this surface's map, in pixels —
    * the allowance a `fitBounds` has to leave so a fitted pin does not land underneath it.
@@ -193,13 +299,60 @@ export interface MapSurfaceProps {
  */
 export interface ViewportChangeMeta {
   /**
-   * True only when the settled camera was **panned by the user** — a drag (pointer or touch,
-   * including its inertia) or a keyboard pan.
+   * True when the settled camera was **moved by the user** — a drag or a zoom, pointer, touch or
+   * keyboard, inertia included. False for every programmatic move: a `ResizeObserver` re-fit, the
+   * initial `fitBounds`, a flight to a selected pin, the post-import flight, and the flight a
+   * country tap starts.
    *
-   * Deliberately false for a zoom of any kind (wheel, pinch without a pan, double-click, the map's
-   * own zoom buttons) as well as for every programmatic move: zooming out until a second city is on
-   * screen must not hand the list to that city, which is a rule about meaning rather than about
-   * plumbing, so the surface answers it rather than leaving each caller to guess.
+   * **A user's own zoom counted as `false` until 2026-08-29, and that was right until it was not.**
+   * The old rule said zooming out until a second city was on screen must not hand the list to that
+   * city — true while the list could only ever be one city, and the flag was the only thing
+   * standing between the user and a silent re-scope. The country band changed what a zoom *means*:
+   * `ui/place/list-scope.ts` makes the discrete zoom **band** the trigger, so crossing into the
+   * country band is the user asking for the whole library and crossing back out is them asking for
+   * a place again. A zoom is the only gesture that can cross a band, so reporting it as `false`
+   * leaves every transition in that module dead code.
+   *
+   * What has not changed, and is the whole guard: **it must stay false for every programmatic
+   * move.** That is what stops a re-fit or a post-import flight rewriting the list, and it is why a
+   * surface cannot answer this from `zoomend` alone — MapLibre fires `zoomend` for `flyTo` and
+   * `fitBounds` too, so the user's zoom is the one carrying an `originalEvent`.
    */
   readonly userInitiated: boolean;
+  /**
+   * The zoom the camera came to rest at, exactly as the surface reports it — not rounded, not
+   * clamped to a band edge.
+   *
+   * Reported alongside `band` rather than instead of it because the two answer different questions:
+   * `band` is what is *drawn*, and a caller that wants "how close are we" (a label threshold, a
+   * telemetry line) needs the number and must not recover it from the band.
+   */
+  readonly zoom: number;
+  /**
+   * Which of the three bands (`zoom-bands.ts`, `docs/ux-library-at-scale.md` §2.1) that zoom lands
+   * in — and therefore which layer the user is actually looking at: country pills, area pills, or
+   * pins.
+   *
+   * Here because a caller has to be able to answer the map with something other than a map. When
+   * the country band is showing there is nothing on screen a list of *places* corresponds to, so
+   * the sidebar has to switch to a country/city view; without this, the page's only options are to
+   * re-derive the thresholds itself (a second definition of where a band starts) or to add its own
+   * zoom listener (a second camera subscription, on a surface that deliberately has exactly one).
+   *
+   * Derived with `bandForZoom`, so it moves whenever the constants are tuned.
+   *
+   * **Independent of `userInitiated`.** A programmatic flight crosses bands just as a pinch does,
+   * and the band it lands in is a fact about the map either way. Callers that only want to react to
+   * gestures apply their own guard; this field never lies about what is drawn to express one.
+   */
+  readonly band: ZoomBand;
+}
+
+/** A framing request with a zoom range, for `MapSurfaceProps.focusBounds`. */
+export interface FocusBoundsRequest {
+  readonly bounds: LatLngBoundsHint;
+  /** Inclusive floor and ceiling for the resting zoom. Both are required: a range with one open end
+   *  is exactly the case that produced the two failures documented on the prop. */
+  readonly minZoom: number;
+  readonly maxZoom: number;
 }

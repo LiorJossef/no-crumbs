@@ -89,6 +89,10 @@ export interface Area<T> {
   /** The area's places, in the caller's input order (which is `created_at desc`, i.e. most recently
    *  saved first — the list's order, and it never changes on pan, zoom or resize). */
   readonly members: readonly T[];
+  /** `members.length`, carried explicitly so an `Area` is a `GeoCluster` — which is what lets
+   *  `bucketAreasByCountry` take areas directly and hand the same objects back in its buckets,
+   *  rather than the caller re-deriving which area a country's cluster was. */
+  readonly count: number;
   readonly memberIds: ReadonlySet<string>;
   /** Member coordinates, kept alongside so a camera-settled decision costs no re-projection. */
   readonly points: readonly GeoPoint[];
@@ -130,6 +134,7 @@ export function buildAreas<T>(
       id: smallest,
       label: clusterLabel(cluster, toLocality),
       members: cluster.members,
+      count: cluster.members.length,
       memberIds: new Set(ids),
       points: cluster.members.map(toPoint),
       bounds: cluster.bounds,
@@ -216,9 +221,12 @@ function distanceToBoundsKm(bounds: GeoBounds, point: GeoPoint): number {
 }
 
 /**
- * **The four-writer rule, enforced.**
+ * **The four-writer rule, enforced** — and **superseded on 2026-08-29 by
+ * `list-scope.ts`'s `scopeAfterCameraSettled`**, which `map-page-client.tsx` now routes through
+ * instead. Nothing in the app calls this any more; it is kept because the rule it states is still
+ * the rule, and its successor implements it verbatim for the area case.
  *
- * `activeAreaId` has exactly four writers: the initial anchor resolution, an area-row tap, a
+ * `activeAreaId` had exactly four writers: the initial anchor resolution, an area-row tap, a
  * finished import, and a *settled user gesture that crossed a boundary*. It is **never re-derived
  * from settled bounds**, and this function is the only path the fourth writer can take.
  *
@@ -228,10 +236,12 @@ function distanceToBoundsKm(bounds: GeoBounds, point: GeoPoint): number {
  * rewrite the list, structurally rather than by a guard someone has to remember. That is the
  * specific fix for `21 places` becoming `9 places` with nobody touching anything.
  *
- * It is false for a zoom, too, and that is the second half of the promise: zooming out from Tel Aviv
- * until London's twelve pins are also on screen must not hand the list to London. The caller decides
- * what counts as a pan (`map-surface.mapcn.tsx`); this function decides nothing at all when it is
- * told the camera moved on its own.
+ * It used to be false for a **zoom** as well, and that half of the promise is gone: it said zooming
+ * out from Tel Aviv until London's twelve pins are also on screen must not hand the list to London,
+ * which was right while the list could only ever be one city. It cannot be right now that the map
+ * draws a country band — at that zoom neither city is on screen as a city — so the successor makes
+ * the discrete zoom band the trigger and the flag reports a user's zoom as what it is. See
+ * `components/map/types.ts`'s `ViewportChangeMeta.userInitiated`.
  *
  * Returns the id to store, which is `currentId` unchanged in every case that is not a crossing.
  */
@@ -246,42 +256,14 @@ export function areaAfterCameraSettled<T>(input: {
   return dominantArea(areas, rect, currentId) ?? currentId;
 }
 
-/** One `Elsewhere` row: another of the user's areas, with how many of the current matches are in it. */
+/** One `Elsewhere` row: another of the user's areas, with how many of the current matches are in it.
+ *  Built by `ui/place/elsewhere-groups.ts`, which owns the filtering and sorting rules — there is
+ *  deliberately only one implementation of them, because two would eventually disagree. */
 export interface AreaRow {
   readonly id: string;
   /** Already resolved for display — never `null`, never `this area`. */
   readonly label: string;
   readonly count: number;
-}
-
-/**
- * The `Elsewhere` section: one row per *other* area, most places first.
- *
- * `matchIds` is the library after the search box and the tag chip, so a row reports what the user
- * would actually find there — `No matches in London` needs no escape button of its own when the
- * row below it already says `Tel Aviv-Yafo · 3 matches ›`. Areas with nothing left after the
- * filters are dropped rather than shown as `0`: a row that leads to an empty list is a broken
- * promise with a tap target on it.
- *
- * Sorted count descending, then label, then id — deterministic, so the rows do not reorder between
- * two renders of the same library.
- */
-export function elsewhereRows<T>(
-  areas: readonly Area<T>[],
-  activeId: string | null,
-  matchIds: ReadonlySet<string>,
-): readonly AreaRow[] {
-  const rows: AreaRow[] = [];
-  for (const area of areas) {
-    if (area.id === activeId) continue;
-    let count = 0;
-    for (const id of area.memberIds) if (matchIds.has(id)) count += 1;
-    if (count === 0) continue;
-    rows.push({ id: area.id, label: area.label ?? UNNAMED_OTHER_AREA_LABEL, count });
-  }
-  return rows.sort(
-    (a, b) => b.count - a.count || a.label.localeCompare(b.label) || a.id.localeCompare(b.id),
-  );
 }
 
 /** `8 places` / `1 place` / `8 matches` / `1 match` — the trailing half of an `Elsewhere` row, and
@@ -291,9 +273,16 @@ export function areaRowCountText(count: number, filtering: boolean): string {
   return `${count} ${count === 1 ? 'place' : 'places'}`;
 }
 
-/** What a screen reader hears on an area row: the name, the count, and what tapping does. */
+/**
+ * What a screen reader hears on an area row: the name, the count, and what tapping does.
+ *
+ * `open this area`, not `show on map`. The tap changes the list's whole scope, replaces every row
+ * and moves focus — and on a phone at the `full` stop it shows nothing on the map at all, because
+ * the map is covered by the sheet saying it. One string on both surfaces, and the one a country
+ * group's own name has to agree with.
+ */
 export function areaRowAccessibleName(row: AreaRow, filtering: boolean): string {
-  return `${row.label}, ${areaRowCountText(row.count, filtering)}, show on map`;
+  return `${row.label}, ${areaRowCountText(row.count, filtering)}, open this area`;
 }
 
 /** Everything the header needs to say what the list is. Shape-compatible with what the sheet's peek
@@ -306,6 +295,18 @@ export interface AreaHeading {
   readonly count: string | null;
   /** `text` minus `count` and the space after it. Equals `text` when `count` is `null`. */
   readonly rest: string;
+  /**
+   * `rest` with the unit noun dropped — `in London`, so the peek row reads `18 in London` where the
+   * sheet's own heading reads `18 places in London`.
+   *
+   * The peek row now carries three controls in roughly 335 px and the heading is the element that
+   * gives way (`ux-navigation-structure-2026-08-29.md` §2.1), so it is handed the short string
+   * rather than left to slice one off `text`. Only the bare unit nouns go: `to go` is a state
+   * rather than a unit, and `7 in London` would answer a question the user did not ask.
+   *
+   * Equals `rest` wherever there is no count to shorten around.
+   */
+  readonly shortRest: string;
   /** Nothing to list in this area right now — the surface renders no rows, and the `Elsewhere`
    *  section below is the way out. */
   readonly empty: boolean;
@@ -382,6 +383,7 @@ export function areaHeading(input: {
       text,
       count: null,
       rest: text,
+      shortRest: text,
       empty: true,
       escape: searchQuery !== '' ? 'clear-search' : null,
       note: visitOnly ? ALL_BEEN_LIBRARY_NOTE : null,
@@ -398,6 +400,7 @@ export function areaHeading(input: {
       text,
       count: null,
       rest: text,
+      shortRest: text,
       empty: true,
       escape: null,
       note: visitOnly ? ALL_BEEN_AREA_NOTE : null,
@@ -415,7 +418,19 @@ export function areaHeading(input: {
         : 'places';
   const count = String(countInArea);
   const rest = `${noun} in ${where}`;
-  return { text: `${count} ${rest}`, count, rest, empty: false, escape: null, note: null };
+  // `to go` is a state, not a unit, so it survives the short form: `7 in London` would answer a
+  // question the user did not ask, where `18 in London` is `18 places in London` with the only
+  // word a map can supply for itself removed.
+  const shortRest = visitOnly ? rest : `in ${where}`;
+  return {
+    text: `${count} ${rest}`,
+    count,
+    rest,
+    shortRest,
+    empty: false,
+    escape: null,
+    note: null,
+  };
 }
 
 /** The heading as a sentence, for the live region and for the map's own accessible name. */

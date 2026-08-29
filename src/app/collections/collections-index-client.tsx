@@ -10,16 +10,16 @@
  * an escape handler and a backdrop in exchange for nothing.
  */
 
-import { useRef, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, ChevronRight, Plus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CollectionCover } from '@/components/collections/collection-cover';
+import { BottomNav, BOTTOM_NAV_HEIGHT_PX } from '@/components/nav/bottom-nav';
 import { memberLabel } from '@/domain/collections/collection';
-import { createCollection } from '@/app/actions/collections';
+import { useCreateCollection } from '@/components/collections/use-create-collection';
 import type { CollectionSummary } from './_lib/get-collections';
 
 export function CollectionsIndexClient({
@@ -29,32 +29,33 @@ export function CollectionsIndexClient({
   collections: readonly CollectionSummary[];
   libraryIsEmpty: boolean;
 }) {
-  const router = useRouter();
   const [composing, setComposing] = useState(false);
   const [name, setName] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
   const fieldRef = useRef<HTMLInputElement>(null);
+  // One caller of `createCollection` for the whole product — the same hook the `＋` menu's
+  // `Create a collection` pane uses, so the two entry points cannot drift on trimming, on keeping
+  // the name after a failure, or on navigating into what was just made.
+  const { pending, error, create, clearError } = useCreateCollection();
 
   const mine = collections.filter((collection) => collection.role === 'owner');
   const shared = collections.filter((collection) => collection.role !== 'owner');
 
   function submit() {
-    setError(null);
-    startTransition(async () => {
-      const result = await createCollection(name, '');
-      if (!result.ok) {
-        setError(result.message);
-        fieldRef.current?.focus();
-        return;
-      }
-      // Straight into it: a new empty collection you cannot see is a dead end.
-      router.push(`/collections/${result.id}` as `/collections/${string}`);
+    // Focus returns to the field only on failure — on success the route changes and there is
+    // nothing here to focus. `create` resolving `false` is that signal.
+    void create(name).then((created) => {
+      if (!created) fieldRef.current?.focus();
     });
   }
 
   return (
     <div className="flex min-h-dvh flex-col">
+      <BottomNav />
+      {/* The back arrow is gone below `lg`, and that is the point of the bar rather than an
+          omission. `BottomNav`'s Map tab goes exactly where the arrow went, and two controls to
+          one destination — one of them a stack, one of them not — is the second navigation model
+          `ux-navigation-structure-2026-08-29.md` §1.2 warned a bar would create. It survives above
+          `lg`, where the bar does not render at all. */}
       <header className="flex items-center gap-1 px-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] pb-2">
         <Button
           render={<Link href="/map" />}
@@ -62,14 +63,27 @@ export function CollectionsIndexClient({
           variant="ghost"
           size="icon-lg"
           aria-label="Back to the map"
-          className="size-11 rounded-full text-muted-foreground"
+          className="hidden size-11 rounded-full text-muted-foreground lg:flex"
         >
           <ArrowLeft className="size-4" aria-hidden />
         </Button>
-        <h1 className="font-heading text-lg font-bold tracking-tight">Collections</h1>
+        <h1 className="px-2 font-heading text-lg font-bold tracking-tight lg:px-0">Collections</h1>
       </header>
 
-      <div className="mx-auto w-full max-w-[560px] flex-1 px-4 pb-4">
+      {/* The bar's ＋ is not this control and must never become it. A button that lives in
+          persistent chrome has to mean one thing on every screen it appears on — people learn the
+          gesture and its position, not the label under it — so the circle is `Add a TikTok`
+          everywhere, and creating a collection is a page action that belongs in the list it creates
+          into. That is also where Plotline puts theirs: the last card in the collections row, not a
+          bottom button.
+
+          Padded clear of the bar, since the page now scrolls under it. */}
+      <div
+        className="mx-auto w-full max-w-[560px] flex-1 px-4"
+        style={{
+          paddingBottom: `calc(${BOTTOM_NAV_HEIGHT_PX}px + env(safe-area-inset-bottom) + 1.5rem)`,
+        }}
+      >
         {collections.length === 0 ? (
           <EmptyIndex libraryIsEmpty={libraryIsEmpty} />
         ) : (
@@ -78,13 +92,10 @@ export function CollectionsIndexClient({
             {shared.length > 0 ? <Section title="Shared with you" collections={shared} /> : null}
           </>
         )}
-      </div>
 
-      {/* Sticky at the bottom on a phone (thumb zone), static once there is room. */}
-      <div className="sticky bottom-0 mx-auto w-full max-w-[560px] border-t border-border/70 bg-background/95 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 backdrop-blur lg:static lg:border-t-0 lg:bg-transparent lg:backdrop-blur-none">
         {composing ? (
           <form
-            className="flex flex-col gap-2"
+            className="mt-4 flex flex-col gap-2"
             onSubmit={(event) => {
               event.preventDefault();
               submit();
@@ -113,37 +124,46 @@ export function CollectionsIndexClient({
                 {error}
               </p>
             ) : null}
-            <Button
-              type="submit"
-              size="lg"
-              className="h-14 w-full text-base"
-              disabled={pending || name.trim().length === 0}
-            >
-              {pending ? 'Creating…' : 'Create'}
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              className="h-11 w-full text-muted-foreground"
-              onClick={() => {
-                setComposing(false);
-                setError(null);
-                setName('');
-              }}
-            >
-              Cancel
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                type="submit"
+                size="lg"
+                className="h-12 flex-1 text-base"
+                disabled={pending || name.trim().length === 0}
+              >
+                {pending ? 'Creating…' : 'Create'}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-12 px-4 text-muted-foreground"
+                onClick={() => {
+                  setComposing(false);
+                  clearError();
+                  setName('');
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
           </form>
         ) : (
-          <Button
+          /* A row in the list rather than a button under it. It reads as "and one more, which you
+             make yourself" — the same shape as the collections above it, so it is found by the eye
+             already scanning them rather than by a separate sweep to the bottom of the screen. */
+          <button
             type="button"
-            size="lg"
-            className="h-14 w-full text-base"
             onClick={() => setComposing(true)}
+            className="mt-2 flex min-h-14 w-full items-center gap-3 rounded-xl border border-dashed border-border px-3 text-left text-sm font-medium text-muted-foreground transition-colors hover:border-border/70 hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
           >
-            <Plus className="size-4" aria-hidden />
+            <span
+              aria-hidden
+              className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted"
+            >
+              <Plus className="size-4" />
+            </span>
             New collection
-          </Button>
+          </button>
         )}
       </div>
     </div>

@@ -21,11 +21,9 @@ import {
   areaRowCountText,
   buildAreas,
   dominantArea,
-  elsewhereRows,
   mapAccessibleName,
   resolveArea,
   UNNAMED_AREA_LABEL,
-  UNNAMED_OTHER_AREA_LABEL,
   type Area,
 } from '@/ui/place/active-area';
 import type { ViewportBounds } from '@/ui/place/viewport';
@@ -239,45 +237,6 @@ describe('areaAfterCameraSettled — the four-writer rule', () => {
   });
 });
 
-describe('elsewhereRows', () => {
-  const areas = areasOf();
-  const london = areaNamed(areas, 'London');
-  const telAviv = areaNamed(areas, 'Tel Aviv-Yafo');
-  const everything = new Set(library.map((place) => place.id));
-
-  it('lists every other area with its own count, never the active one', () => {
-    expect(elsewhereRows(areas, london.id, everything)).toEqual([
-      { id: telAviv.id, label: 'Tel Aviv-Yafo', count: 9 },
-    ]);
-  });
-
-  it('reports what the filters left in each area, not the area size', () => {
-    const twoInTelAviv = new Set(telAviv.members.slice(0, 2).map((place) => place.id));
-    expect(elsewhereRows(areas, london.id, twoInTelAviv)).toEqual([
-      { id: telAviv.id, label: 'Tel Aviv-Yafo', count: 2 },
-    ]);
-  });
-
-  it('drops an area the filters emptied rather than offering a row that leads nowhere', () => {
-    expect(elsewhereRows(areas, london.id, new Set())).toEqual([]);
-  });
-
-  it('sorts by count descending and names an unlabelled area honestly', () => {
-    const mixed = [
-      ...city('n', 1, { lat: 40.71, lng: -74.0 }, [null]),
-      ...library,
-    ];
-    const built = areasOf(mixed);
-    const rows = elsewhereRows(
-      built,
-      areaNamed(built, 'London').id,
-      new Set(mixed.map((place) => place.id)),
-    );
-    expect(rows.map((row) => row.count)).toEqual([9, 1]);
-    expect(rows[1]?.label).toBe(UNNAMED_OTHER_AREA_LABEL);
-  });
-});
-
 describe('areaRowCountText', () => {
   it('uses the same noun the header does', () => {
     expect(areaRowCountText(8, false)).toBe('8 places');
@@ -288,7 +247,7 @@ describe('areaRowCountText', () => {
 
   it('says what tapping the row does', () => {
     expect(areaRowAccessibleName({ id: 'a', label: 'Tel Aviv-Yafo', count: 8 }, false)).toBe(
-      'Tel Aviv-Yafo, 8 places, show on map',
+      'Tel Aviv-Yafo, 8 places, open this area',
     );
   });
 });
@@ -306,6 +265,39 @@ describe('areaHeading', () => {
     expect(heading.count).toBe('12');
     expect(heading.rest).toBe('places in London');
     expect(`${heading.count} ${heading.rest}`).toBe(heading.text);
+  });
+
+  it('drops the unit noun for the peek row, which has three controls to fit', () => {
+    // The peek row renders `count` and `shortRest`; the sheet's own heading renders `text`. The
+    // short form exists because the row is now Collections + heading + Add inside ~335 px.
+    expect(areaHeading({ ...base, countInArea: 18 }).shortRest).toBe('in London');
+    expect(areaHeading({ ...base, countInArea: 1 }).shortRest).toBe('in London');
+    expect(areaHeading({ ...base, countInArea: 3, searchQuery: 'momos' }).shortRest).toBe(
+      'in London',
+    );
+  });
+
+  it('keeps `to go`, which is a state and not a unit', () => {
+    // `7 in London` would answer a question the user did not ask. Only `place`/`places` and
+    // `match`/`matches` are droppable — a map supplies those words for itself.
+    const heading = areaHeading({ ...base, countInArea: 7, notBeenOnly: true });
+    expect(heading.shortRest).toBe('to go in London');
+    expect(heading.shortRest).toBe(heading.rest);
+  });
+
+  it('equals `rest` where there is no count to shorten around', () => {
+    const nowhere = areaHeading({
+      ...base,
+      countInArea: 0,
+      searchQuery: 'momos',
+      matchesAnywhere: 0,
+    });
+    expect(nowhere.count).toBeNull();
+    expect(nowhere.shortRest).toBe(nowhere.rest);
+
+    const notHere = areaHeading({ ...base, countInArea: 0, searchQuery: 'momos' });
+    expect(notHere.count).toBeNull();
+    expect(notHere.shortRest).toBe(notHere.rest);
   });
 
   it('changes the noun exactly when a filter is on', () => {

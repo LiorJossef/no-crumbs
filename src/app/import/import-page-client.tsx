@@ -59,21 +59,17 @@ import type { PipelineStage } from '@/domain/import/events';
 import { googleMapsSearchUrl } from '@/domain/places/google-maps-search-url';
 import { decideCaptionSaveOutcome, type CaptionSaveResult } from '@/domain/import/caption-save-outcome';
 import {
-  LOCATION_CAVEAT,
   candidateMeta,
-  candidateProvenance,
   candidateTitle,
   isHashtagOnly,
   isSaveable,
   locationLine,
   saveButtonLabel,
-  showsEvidence,
   skippedNotice,
 } from '@/domain/import/candidate-presentation';
 import type { StoredResolution } from '@/domain/import/resolution-record';
 import {
   effectivePick,
-  lookupFailureNotice,
   pickRequiredNotice,
   resolutionChip,
   resolutionExplanation,
@@ -82,7 +78,6 @@ import {
   savedPlaceName,
   resolutionView,
   resolverPinLine,
-  usesModelCoordinate,
   willSave,
   type CandidateResolutionView,
 } from '@/ui/import/candidate-resolution-view';
@@ -1462,46 +1457,19 @@ function CaptionPreviewScreen({
         .filter((i) => i >= 0),
     [probe.candidates, views, picks],
   );
-  /**
-   * Is `LOCATION_CAVEAT` still true of anything on this screen? Recomputed with `picks` for the
-   * same reason `saveableIndices` is: picking a shortlist option is exactly what turns a
-   * caption-derived pin into a provider one.
-   */
-  const showsLocationCaveat = useMemo(
-    () =>
-      probe.candidates.some((c, i) =>
-        usesModelCoordinate(isSaveable(c), views[i]!, picks.get(i) ?? null),
-      ),
-    [probe.candidates, views, picks],
-  );
 
   /**
-   * Why the lookups failed, said once, in the user's terms. Composes with `LOCATION_CAVEAT`
-   * rather than repeating it: this line says *why* those pins came from the caption, the caveat
-   * says *how far off* that leaves them.
+   * Every saveable candidate arrives **ticked**, including one the user already has.
    *
-   * The count is of **failed** candidates that survive on the model's coordinate — not of every
-   * candidate on the screen that happens to use one. Those differ, and the difference was a
-   * screen that told the truth about nothing: a `capped` candidate the resolver never saw, or one
-   * that answered `no_match`, made this say "you can still save them" when the failure had
-   * rescued nobody. `showsLocationCaveat` below asks the wider question on purpose — the caveat
-   * is about every caption-derived pin, this sentence is only about the ones a failure produced.
+   * A duplicate check briefly un-ticked those, and the owner rejected it on 2026-08-29 for a
+   * reason the screen made obvious: on a post whose only candidate was already saved, the single
+   * card arrived off and `Select a place to save` was disabled, so the review screen offered
+   * nothing to do at all. Save is the primary path and it must be live on arrival.
+   *
+   * Nothing is lost by ticking a duplicate: `save_place` is idempotent on `(user_id, place_id)`,
+   * so re-saving a place the user has is a no-op that reports `already_saved` afterwards — which
+   * is where that fact belongs, on the outcome rather than as a warning to read beforehand.
    */
-  const rescuedFromCaption = useMemo(
-    () =>
-      probe.candidates.filter(
-        (c, i) =>
-          views[i]!.kind === 'failed' &&
-          usesModelCoordinate(isSaveable(c), views[i]!, picks.get(i) ?? null),
-      ).length,
-    [probe.candidates, views, picks],
-  );
-
-  const lookupFailure = useMemo(
-    () => lookupFailureNotice(views, rescuedFromCaption),
-    [views, rescuedFromCaption],
-  );
-
   const [selected, setSelected] = useState<ReadonlySet<number>>(
     () =>
       new Set(
@@ -1641,24 +1609,12 @@ function CaptionPreviewScreen({
               </div>
             )}
 
-            {/* Said once at screen level, and only when it is true. It used to be unconditional,
-                on the grounds that our position was identical on every candidate — which stopped
-                being true when resolution shipped. A resolved pin is the venue's own coordinate
-                (11 m for HaKosem) against 65-470 m for the model's guess, so this sentence is
-                shown only while some pin on this screen still comes from the caption. */}
-            {/* Ordered cause-then-consequence: the failure notice explains why these pins are
-                caption-derived, and LOCATION_CAVEAT then quantifies it. `role="status"` because
-                this appears on a screen the user is already reading, without their action. */}
-            {lookupFailure !== null && (
-              <p role="status" className="shrink-0 text-xs font-medium text-muted-foreground">
-                {lookupFailure}
-              </p>
-            )}
-
-            {showsLocationCaveat && (
-              <p className="shrink-0 text-xs font-medium text-muted-foreground">{LOCATION_CAVEAT}</p>
-            )}
-
+            {/* No screen-level caveat paragraphs. Owner ruling, 2026-08-29: two prose blocks
+                apologising for the pin's provenance ("We couldn't reach the place database just
+                now…", and the caveat quantifying it) sat between the heading and the first card,
+                and the same fact is already on every card that has it — `Pin from the caption`,
+                `Pin is approximate` — attached to the one place it is true of rather than
+                asserted over the whole screen. The per-card line stays; these do not. */}
             <ul
               aria-labelledby={headingId}
               className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain pb-1"
@@ -1822,6 +1778,19 @@ function ExtractedCandidateRow({
   const chosen = effectivePick(view, pick);
   const needsPick = pickRequiredNotice(isSaveable(candidate), view, pick);
   const optionsId = useId();
+  /** The shortlist is progressive disclosure, opened by `Not this place?` — except when there is
+   *  nothing chosen for it to be an alternative *to*, which is the one card that has to ask. Held
+   *  as initial state rather than derived, so it stays open once opened even after picking. */
+  const [optionsOpen, setOptionsOpen] = useState(chosen === null);
+  /**
+   * Whether the shortlist is worth offering at all. Owner ruling, 2026-08-29: **more than one**
+   * option, because `Not this place?` over a list of exactly one is asking the user to pick a
+   * different one when there is no different one.
+   *
+   * The second arm is the card that has no answer yet — a sole option nothing has chosen still
+   * has to be reachable, or that card can never be saved and the screen never says why.
+   */
+  const showsShortlist = options.length > 1 || (options.length > 0 && chosen === null);
   const badge = resolutionChip(view, pick);
 
   const body = (
@@ -1850,17 +1819,14 @@ function ExtractedCandidateRow({
           )
         )}
       </div>
-      <p className="truncate text-xs font-medium text-muted-foreground">
-        {candidateProvenance(candidate, title)}
-      </p>
+      {/* Category and address, and nothing else. Owner ruling, 2026-08-29: one clean result.
+          Three blocks are gone from here and each was saying something already on screen — the
+          caption's own wording for the name ("The caption called it …") directly under the name
+          it resolved to, the verbatim caption fragment under that, and a duplicate warning naming
+          a pin the user is about to harmlessly re-save. */}
       <p className="truncate text-[13px] font-medium text-muted-foreground">
         {candidateMeta(candidate)}
       </p>
-      {showsEvidence(candidate) && (
-        <p className="mt-1 border-l-2 border-border pl-2.5 text-xs font-medium text-muted-foreground">
-          &ldquo;{candidate.evidence}&rdquo;
-        </p>
-      )}
       {isHashtagOnly(caption, candidate) && (
         <p className="mt-1 text-xs font-medium text-muted-foreground">Only mentioned in a hashtag.</p>
       )}
@@ -1919,11 +1885,33 @@ function ExtractedCandidateRow({
         </div>
       )}
 
-      {/* The shortlist. Rendered outside the toggle button on purpose — a radio inside a checkbox
-          is invalid markup and needs propagation tricks to behave. Only `matched` and `ambiguous`
-          have options; every other state renders exactly what it rendered before this existed. */}
-      {options.length > 0 && status === null && (
+      {/* The shortlist, **closed by default** (owner ruling, 2026-08-29).
+          Rendered outside the toggle button on purpose — a radio inside a checkbox is invalid
+          markup and needs propagation tricks to behave. Only `matched` and `ambiguous` have
+          options; every other state renders exactly what it rendered before this existed.
+
+          Open on arrival in exactly one case: nothing is chosen yet. That is not an exception to
+          the ruling but the reason it is safe — a card the resolver could not settle has no
+          default to present as the clean single result, and hiding its options would leave a
+          card that cannot be saved and does not say why. Everywhere else the resolver has an
+          answer, and asking the user to audit it before they have doubted it is the busywork
+          this closes. */}
+      {showsShortlist && status === null && (
         <div className="flex flex-col gap-1.5 border-t border-border/60 px-4 pt-2.5 pb-1">
+          {!optionsOpen ? (
+            <button
+              type="button"
+              disabled={frozen}
+              aria-expanded={false}
+              aria-controls={optionsId}
+              onClick={() => setOptionsOpen(true)}
+              className="flex h-11 w-fit items-center gap-1 text-xs font-bold text-[var(--mint-700)] outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
+            >
+              Not this place?
+              <ChevronDown className="size-3.5" aria-hidden />
+            </button>
+          ) : (
+          <>
           <div className="flex flex-col gap-0.5">
             <p
               id={`${optionsId}-label`}
@@ -1936,7 +1924,7 @@ function ExtractedCandidateRow({
             </p>
             <p className="text-xs font-medium text-muted-foreground">{resolutionExplanation(view)}</p>
           </div>
-          <ul role="radiogroup" aria-labelledby={`${optionsId}-label`} className="flex flex-col gap-1">
+          <ul id={optionsId} role="radiogroup" aria-labelledby={`${optionsId}-label`} className="flex flex-col gap-1">
             {options.map((option) => {
               const isChosen = chosen === option.index;
               return (
@@ -1979,6 +1967,8 @@ function ExtractedCandidateRow({
           </ul>
           {needsPick && (
             <p className="text-xs font-semibold text-foreground">{needsPick}</p>
+          )}
+          </>
           )}
         </div>
       )}

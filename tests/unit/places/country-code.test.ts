@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { toCountryCode } from '@/domain/places/country-code';
+import { toCountryCode, toCountryName } from '@/domain/places/country-code';
 
 describe('toCountryCode', () => {
   it('resolves the country names real captions actually use', () => {
@@ -181,5 +181,38 @@ describe('a hint in the caption\'s own language', () => {
     expect(toCountryCode('Israel')).toBe('IL');
     expect(toCountryCode('Turkey')).toBe('TR');
     expect(toCountryCode('England')).toBe('GB');
+  });
+});
+
+describe('toCountryName', () => {
+  it('names the countries the library actually holds', () => {
+    expect(toCountryName('GB')).toBe('United Kingdom');
+    expect(toCountryName('IL')).toBe('Israel');
+    expect(toCountryName('CZ')).toBe('Czechia');
+    expect(toCountryName('JP')).toBe('Japan');
+  });
+
+  it('accepts a lowercase or padded code, because storage is not a promise about case', () => {
+    expect(toCountryName('gb')).toBe('United Kingdom');
+    expect(toCountryName(' il ')).toBe('Israel');
+  });
+
+  it('names a deprecated code for the territory that exists today', () => {
+    // The forward direction skips aliases so `DD` cannot claim "Germany"; the reverse has to name
+    // a stored `DD` for the country the row is actually in, not for one that ended in 1990.
+    expect(toCountryName('DD')).toBe('Germany');
+    expect(toCountryName('UK')).toBe('United Kingdom');
+  });
+
+  it('falls back to the code itself rather than to a blank row (§2.6 rule 7)', () => {
+    expect(toCountryName('XX')).toBe('XX');
+    expect(toCountryName('zz')).toBe('ZZ');
+    expect(toCountryName('not-a-code')).toBe('NOT-A-CODE');
+  });
+
+  it('returns null for no country at all, which is a group the list labels differently', () => {
+    expect(toCountryName(null)).toBeNull();
+    expect(toCountryName(undefined)).toBeNull();
+    expect(toCountryName('  ')).toBeNull();
   });
 });
