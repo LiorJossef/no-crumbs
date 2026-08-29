@@ -201,18 +201,19 @@ function useRefitOnChange(
 ): void {
   const signature = pins.map((pin) => pin.id).sort().join(',');
   const previous = useRef<string | null>(null);
-  // Kept in a ref so a caller that re-creates the callback each render cannot re-fire the effect;
-  // the signature is the only thing allowed to trigger it.
-  const onRefitRef = useRef(onRefit);
-  onRefitRef.current = onRefit;
 
+  // `onRefit` is in the deps rather than stashed in a ref, and that is safe rather than sloppy: the
+  // signature guard below is what decides whether anything happens, so a caller that re-creates the
+  // callback every render re-runs this effect and it does nothing. (Stashing it in a ref meant
+  // writing that ref during render, which React forbids — it is exactly the read-your-own-write
+  // hazard that makes a concurrent re-render see a callback from a tree that was thrown away.)
   useEffect(() => {
     const isFirst = previous.current === null;
     if (previous.current !== signature) {
       previous.current = signature;
-      if (!isFirst && signature !== '') onRefitRef.current(signature.split(','));
+      if (!isFirst && signature !== '') onRefit(signature.split(','));
     }
-  }, [signature]);
+  }, [signature, onRefit]);
 }
 
 /**
