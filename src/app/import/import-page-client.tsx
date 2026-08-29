@@ -1336,7 +1336,9 @@ function CandidateRow({ candidate }: { candidate: Candidate }) {
         <MapPin className="size-4" />
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <p className="truncate font-heading text-sm font-bold text-foreground">{c.rawName}</p>
+        <p className="line-clamp-1 font-heading text-sm font-bold text-foreground">
+          <bdi>{c.rawName}</bdi>
+        </p>
         <p className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">
           {band.place?.locality ?? c.cityHint ?? 'Location unknown'}
         </p>
@@ -1809,7 +1811,13 @@ function ExtractedCandidateRow({
   const body = (
     <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
       <div className="flex items-baseline gap-2">
-        <p className="truncate font-heading text-[15px] font-bold text-foreground">{title}</p>
+        {/* `<bdi>` and `line-clamp-1` rather than `truncate`, on every name and address line of
+            this screen — the ruling the saved-place list and popover already made
+            (`place-sheet.tsx`): a Hebrew name in an LTR row is flipped by the chip beside it, and
+            an ellipsis on an RTL string clips the *start*, which is the half that identifies it. */}
+        <p className="line-clamp-1 font-heading text-[15px] font-bold text-foreground">
+          <bdi>{title}</bdi>
+        </p>
         {chip ? (
           <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold', chip.className)}>
             {chip.label}
@@ -1837,8 +1845,8 @@ function ExtractedCandidateRow({
           caption's own wording for the name ("The caption called it …") directly under the name
           it resolved to, the verbatim caption fragment under that, and a duplicate warning naming
           a pin the user is about to harmlessly re-save. */}
-      <p className="truncate text-[13px] font-medium text-muted-foreground">
-        {candidateMeta(candidate)}
+      <p className="line-clamp-1 text-[13px] font-medium text-muted-foreground">
+        <bdi>{candidateMeta(candidate)}</bdi>
       </p>
       {isHashtagOnly(caption, candidate) && (
         <p className="mt-1 text-xs font-medium text-muted-foreground">Only mentioned in a hashtag.</p>
@@ -1966,7 +1974,9 @@ function ExtractedCandidateRow({
                       {isChosen && <span className="size-2 rounded-full bg-[var(--mint-700)]" />}
                     </span>
                     <span className="flex min-w-0 flex-1 flex-col">
-                      <span className="truncate text-[13px] font-bold text-foreground">{option.name}</span>
+                      <span className="line-clamp-1 text-[13px] font-bold text-foreground">
+                        <bdi>{option.name}</bdi>
+                      </span>
                       {/* The address, not the name, is what tells two branches of a chain apart —
                           so it wraps rather than truncating. */}
                       <span className="text-xs font-medium break-words text-muted-foreground">
