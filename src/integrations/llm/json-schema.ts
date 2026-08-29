@@ -16,6 +16,9 @@
  * round-trips a candidate through this shape and asserts `ExtractionResultSchema` accepts it.
  */
 
+import { MAX_TAGS_PER_CANDIDATE } from '@/domain/extraction/tags';
+import { PRIMARY_CATEGORIES } from '@/domain/places/taxonomy';
+
 /**
  * The output-token ceiling both hosted adapters send, and the arithmetic behind it.
  *
@@ -96,9 +99,15 @@ export const EXTRACTION_JSON_SCHEMA = {
           countryHint: { type: ['string', 'null'], maxLength: 80 },
           /** v2: the neighbourhood/market/building, so it stops being written into the name. */
           areaHint: { type: ['string', 'null'], maxLength: 80 },
+          /**
+           * v4 (2026-08-29): the owner's three primary categories, down from seven. `null` stays a
+           * member — the prompt is explicit that a caption giving no category signal produces
+           * `null` and never a fallback guess, and an enum that cannot say so would force the
+           * model to invent one.
+           */
           categoryHint: {
             type: ['string', 'null'],
-            enum: ['restaurant', 'cafe', 'bar', 'bakery', 'attraction', 'shop', 'other', null],
+            enum: [...PRIMARY_CATEGORIES, null],
           },
           /** A verbatim street address near a "📍" marker (or elsewhere in the caption), separate
            *  from `cityHint`/`countryHint`/`rawName` — load-bearing for the Google Maps link. */
@@ -121,19 +130,30 @@ export const EXTRACTION_JSON_SCHEMA = {
             items: { type: 'string', minLength: 2, maxLength: 120 },
           },
           /**
-           * v2: free-form library labels. Open vocabulary by design — canonicalised, capped and
-           * de-duplicated in `domain/extraction/tags.ts`, not constrained to a list here.
+           * v4 (2026-08-29): at most two library labels, drawn from `taxonomy.ts`'s closed
+           * whitelist. Was five and free-form.
            *
-           * `maxItems: 5` is a **measured Gemini limit, not a product choice.** Bisected against
-           * the live `gemini-3.5-flash-lite` `responseSchema` validator on 2026-08-27: this exact
-           * schema with `tags.maxItems` at 5 is accepted (HTTP 200) and at 8 or 10 is rejected
-           * (HTTP 400 `INVALID_ARGUMENT`, with no field named in the response body). Renaming the
-           * property changed nothing, and removing `minLength`/`maxLength` changed nothing, so it
-           * is the nested array's own item cap. The root `candidates` array's `maxItems: 12` is
-           * unaffected — the limit only bites on arrays nested inside it. `dishes` sits at 5 for
-           * the same reason. Re-measure before raising either.
+           * **The whitelist is stated in the prompt and enforced in the domain, not declared as an
+           * `enum` here, and that is a deliberate omission.** An `enum` would be the strongest
+           * expression of a closed vocabulary and it is where this should end up — but the one
+           * thing measured about this schema is that Gemini's `responseSchema` validator is
+           * particular about *nested* arrays: `tags.maxItems` at 5 is accepted (HTTP 200) and at 8
+           * or 10 is rejected outright (HTTP 400 `INVALID_ARGUMENT`, no field named in the body),
+           * bisected against the live `gemini-3.5-flash-lite` on 2026-08-27. Whether it accepts a
+           * 15-value `enum` on a nested array's `items` is unmeasured, and the failure mode if it
+           * does not is every import returning 400. That measurement costs live quota, which is not
+           * spent on curiosity (`p002-cost-constraints`), so the enum waits for a run that is
+           * happening anyway. Until then `domain/extraction/tags.ts` is the control and a
+           * non-whitelisted tag is dropped rather than stored.
+           *
+           * The old `maxItems: 5` ceiling no longer binds here — 2 is well under it — but it still
+           * binds on `dishes`, which is why that field did not move. Re-measure before raising it.
            */
-          tags: { type: 'array', maxItems: 5, items: { type: 'string', minLength: 2, maxLength: 28 } },
+          tags: {
+            type: 'array',
+            maxItems: MAX_TAGS_PER_CANDIDATE,
+            items: { type: 'string', minLength: 2, maxLength: 28 },
+          },
           /** v2: named dishes/drinks the caption itself names. Verbatim-class — `grounding.ts`
            *  drops any item that is not findable in the caption. */
           dishes: { type: 'array', maxItems: 5, items: { type: 'string', minLength: 2, maxLength: 60 } },

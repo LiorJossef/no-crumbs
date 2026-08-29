@@ -41,6 +41,10 @@
 import { z } from 'zod';
 
 import { RawPlaceCandidateSchema, toPlaceCandidate } from '../extraction/schema';
+import {
+  LEGACY_EXTRACTED_CATEGORY_HINTS,
+  narrowLegacyCategoryHint,
+} from '../places/category-hint';
 import { StoredResolutionSchema, type StoredResolution } from './resolution-record';
 import type { PlaceCandidate } from '../types';
 
@@ -49,7 +53,7 @@ import type { PlaceCandidate } from '../types';
  * coincidence — it is the same number, and when v3 lands this union gains a member and every
  * `switch` on it that forgot to grows a compile error.
  */
-export type StoredSchemaVersion = 1 | 2 | 3;
+export type StoredSchemaVersion = 1 | 2 | 3 | 4;
 
 /** One stored candidate plus the schema it was written under. The pairing is the point: see this
  *  file's header for why the version cannot be inferred from the candidate's own fields. */
@@ -71,17 +75,34 @@ export interface StoredCandidate {
 }
 
 /**
+ * Every shape before v4 shared one thing the current schema no longer accepts: the **seven-value**
+ * category vocabulary. So the older rungs are derived from the current schema with that field
+ * widened back, rather than from the current schema directly.
+ *
+ * This is the correction the v4 narrowing forced, and it is worth naming because the failure was
+ * not the obvious one. A stored `bakery` does not produce a cache *miss*, which would be harmless;
+ * it fails the current shape, then fails v2 and v1 as well — because both are derived from the
+ * current shape and inherited the narrow enum — and the ladder ends at `kind: 'invalid'`, which
+ * the confirm route answers with a 500 on a row that is perfectly well-formed for its own version.
+ */
+const LegacyRawCandidateSchema = RawPlaceCandidateSchema.extend({
+  categoryHint: z.enum(LEGACY_EXTRACTED_CATEGORY_HINTS).nullable(),
+});
+
+/**
  * The v1 candidate shape, derived from the v2 one by removing exactly the four fields v2 added.
  *
  * Derived rather than restated so there is no second copy of `rawName`'s bounds, the category
  * enum, or the coordinate ranges to drift. A hand-written v1 schema would be a frozen fork of a
  * file that is still moving.
  */
-const V2RawCandidateSchema = RawPlaceCandidateSchema.omit({
+const V3RawCandidateSchema = LegacyRawCandidateSchema;
+
+const V2RawCandidateSchema = LegacyRawCandidateSchema.omit({
   nameVariants: true,
 });
 
-const V1RawCandidateSchema = RawPlaceCandidateSchema.omit({
+const V1RawCandidateSchema = LegacyRawCandidateSchema.omit({
   nameVariants: true,
   areaHint: true,
   tags: true,
@@ -113,16 +134,36 @@ export function parseStoredCandidates(raw: unknown): StoredCandidatesOutcome {
   for (const element of asArray.data) {
     const resolution = parseResolution(element);
 
-    const v3 = RawPlaceCandidateSchema.safeParse(element);
+    const v4 = RawPlaceCandidateSchema.safeParse(element);
+    if (v4.success) {
+      candidates.push({ candidate: toPlaceCandidate(v4.data), schemaVersion: 4, resolution });
+      continue;
+    }
+
+    // v3 differs from v4 in vocabulary alone, not in shape, so it is read through the same
+    // `toPlaceCandidate` with the category narrowed on the way past — see
+    // `narrowLegacyCategoryHint` for why `bakery` becomes `cafe` and the other three become null.
+    const v3 = V3RawCandidateSchema.safeParse(element);
     if (v3.success) {
-      candidates.push({ candidate: toPlaceCandidate(v3.data), schemaVersion: 3, resolution });
+      candidates.push({
+        candidate: toPlaceCandidate({
+          ...v3.data,
+          categoryHint: narrowLegacyCategoryHint(v3.data.categoryHint),
+        }),
+        schemaVersion: 3,
+        resolution,
+      });
       continue;
     }
 
     const v2 = V2RawCandidateSchema.safeParse(element);
     if (v2.success) {
       candidates.push({
-        candidate: toPlaceCandidate({ ...v2.data, nameVariants: [] }),
+        candidate: toPlaceCandidate({
+          ...v2.data,
+          categoryHint: narrowLegacyCategoryHint(v2.data.categoryHint),
+          nameVariants: [],
+        }),
         schemaVersion: 2,
         resolution,
       });
@@ -137,6 +178,7 @@ export function parseStoredCandidates(raw: unknown): StoredCandidatesOutcome {
         // than measured, and `schemaVersion: 1` beside them is what stops that being a lie.
         candidate: toPlaceCandidate({
           ...v1.data,
+          categoryHint: narrowLegacyCategoryHint(v1.data.categoryHint),
           areaHint: null,
           tags: [],
           dishes: [],
@@ -149,9 +191,9 @@ export function parseStoredCandidates(raw: unknown): StoredCandidatesOutcome {
       continue;
     }
 
-    // Report the *v3* failure. It is the one a developer needs: "this row is not v1/v2 either" is
-    // noise once we already know it is not the current shape.
-    return { kind: 'invalid', cause: v3.error };
+    // Report the *current-shape* failure. It is the one a developer needs: "this row is not
+    // v1/v2/v3 either" is noise once we already know it is not the current shape.
+    return { kind: 'invalid', cause: v4.error };
   }
 
   return { kind: 'ok', candidates };

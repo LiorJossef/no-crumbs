@@ -286,7 +286,12 @@ describe('toPlaceCandidate', () => {
     expect(candidate.rawName).toBe('Paradiso');
   });
 
-  it('keeps "bakery" as "bakery" rather than collapsing it onto "cafe"', () => {
+  // These two used to assert that `bakery` and `attraction` survived `toPlaceCandidate` unchanged
+  // — the point being that this function is a reshape, not the narrowing seam. The 2026-08-29
+  // taxonomy removed both values from what the model may emit, so the claim now has to be made
+  // with a value that still exists; the narrowing of *stored* rows written under the old
+  // vocabulary is covered in `places/category-hint.test.ts` and `import/stored-candidates.test.ts`.
+  it('passes the category through unchanged — this function reshapes, it does not narrow', () => {
     const candidate = toPlaceCandidate({
       rawName: 'Lehamim Bakery',
       cityHint: null,
@@ -295,7 +300,7 @@ describe('toPlaceCandidate', () => {
       tags: [],
       dishes: [],
       whyGo: null,
-      categoryHint: 'bakery',
+      categoryHint: 'cafe',
       evidence: null,
       modelConfidence: null,
       addressHint: null,
@@ -303,10 +308,10 @@ describe('toPlaceCandidate', () => {
       nameVariants: [],
       coordinates: null,
     });
-    expect(candidate.categoryHint).toBe('bakery');
+    expect(candidate.categoryHint).toBe('cafe');
   });
 
-  it('keeps a category the scorer cannot score, rather than dropping it to null', () => {
+  it('keeps a null category null rather than filling it with a default', () => {
     const candidate = toPlaceCandidate({
       rawName: 'The Grand Museum',
       cityHint: null,
@@ -315,7 +320,7 @@ describe('toPlaceCandidate', () => {
       tags: [],
       dishes: [],
       whyGo: null,
-      categoryHint: 'attraction',
+      categoryHint: null,
       evidence: null,
       modelConfidence: null,
       addressHint: null,
@@ -323,10 +328,9 @@ describe('toPlaceCandidate', () => {
       nameVariants: [],
       coordinates: null,
     });
-    // `attraction` has no scoreable equivalent, but the candidate is not the seam that decides
-    // that — `categoryHintFor` is, at the `ResolveQuery` boundary. Storage and the review screen
-    // both keep the real value.
-    expect(candidate.categoryHint).toBe('attraction');
+    // A caption that gives no category signal produces no category. `restaurant` is not a
+    // fallback, here or in the prompt.
+    expect(candidate.categoryHint).toBeNull();
   });
 });
 
@@ -343,12 +347,13 @@ describe('schema versioning', () => {
     expect(PROMPT_VERSION).toContain(`s${EXTRACTION_SCHEMA_VERSION}`);
   });
 
-  it('is on v3, under the prompt that restated the translate-vs-transliterate rule', () => {
+  it('is on v4, under the prompt that closed the category and tag vocabularies', () => {
     // Spelled out rather than derived, so moving the schema or the prompt is a deliberate edit
-    // here too. `p9` tightened four rules against measured p8 output; `s3` is the candidate shape
-    // that carries `nameVariants`, unchanged by that. Only the half that moved, moved.
-    expect(EXTRACTION_SCHEMA_VERSION).toBe(3);
-    expect(PROMPT_VERSION).toBe('p12-s3');
+    // here too. `s4` and `p13` moved together, which is the case the two-part key exists for: a
+    // v3 row and a v4 row have the same *shape* and different *vocabularies*, so the schema half
+    // had to move even though no field was added or removed.
+    expect(EXTRACTION_SCHEMA_VERSION).toBe(4);
+    expect(PROMPT_VERSION).toBe('p13-s4');
   });
 
   it('keeps PROMPT_VERSION storable in the extractions column', () => {
