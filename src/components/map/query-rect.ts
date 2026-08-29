@@ -113,14 +113,21 @@ export function mapOcclusionInsets(
 /**
  * The narrowest strip of map a `fitBounds` is allowed to frame into, on either axis.
  *
- * Not a taste number. MapLibre's `cameraForBoxAndBearing` subtracts the padding from the transform's
- * size and divides the bounding box by what is left: a *negative* remainder makes `fitBounds` warn
+ * Why a floor at all: MapLibre's `cameraForBoxAndBearing` subtracts the padding from the transform's
+ * size and divides the bounding box by what is left. A *negative* remainder makes `fitBounds` warn
  * and silently do nothing — the camera stays wherever it was, which this surface has already shipped
  * once as a world view at zoom 0 — and a remainder of exactly *zero* is worse, giving a scale of 0,
- * a zoom of -Infinity and a centre that unprojects to NaN. So the surviving band has to be strictly
- * positive, and 96 px is the smallest strip in which a framed pin still reads as being somewhere.
+ * a zoom of -Infinity and a centre that unprojects to NaN.
+ *
+ * Why *this* floor: a bigger one makes the clamp eat the occlusion it exists to respect. The clamp
+ * scales the whole padding box down, so a floor that engages before the box is genuinely impossible
+ * starts shaving pixels off the sheet's own allowance — at 812×375 (a phone in landscape with a
+ * half-resting sheet) a 96 px floor leaves 176 px of bottom padding against 206 px of sheet and puts
+ * the lowest pin back underneath it, which is the bug this whole path exists to fix. 48 is the
+ * largest floor that never does that, and it is not a coincidence that it equals the cosmetic
+ * breathing room a fit already reserves: a band narrower than that is not a frame either way.
  */
-export const MIN_FIT_BAND_PX = 96;
+export const MIN_FIT_BAND_PX = 48;
 
 /**
  * Shrink a `fitBounds` padding box until `MIN_FIT_BAND_PX` of map survives on both axes.

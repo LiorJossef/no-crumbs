@@ -277,11 +277,49 @@ describe('clampFitPadding — the padding box can exceed the container, and must
   });
 
   it('spends at most half an axis on the band, so a very short viewport keeps some padding', () => {
-    // A 120 px axis cannot afford a 96 px band without clamping the padding to nothing, which
-    // would put pins flush against — and under — the chrome. Half is the floor.
-    const clamped = clampFitPadding({ top: 148, bottom: 500, left: 0, right: 0 }, 1000, 120);
-    expect(clamped.top + clamped.bottom).toBeCloseTo(60, 6);
-    expect(120 - clamped.top - clamped.bottom).toBeCloseTo(60, 6);
+    // An axis shorter than twice the floor cannot afford the whole floor without clamping the
+    // padding away to nothing, which would put pins flush against — and under — the chrome.
+    const extent = MIN_FIT_BAND_PX;
+    const clamped = clampFitPadding({ top: 148, bottom: 500, left: 0, right: 0 }, 1000, extent);
+    expect(clamped.top + clamped.bottom).toBeCloseTo(extent / 2, 6);
+    expect(extent - clamped.top - clamped.bottom).toBeCloseTo(extent / 2, 6);
+  });
+
+  it('leaves /map\'s own padding untouched at every device size it actually runs at', () => {
+    // The regression guard for the change that introduced the clamp: `/map` passes no
+    // `restingSheetFraction`, so its padding is a flat 48 + 100 chrome / 48 + 128 peek below `lg`,
+    // and the clamp must be a no-op on it — landscape phones included, where the band is tightest.
+    const mapPadding = {
+      top: 48 + 100,
+      bottom: 48 + SHEET_PEEK_PX,
+      left: 48,
+      right: 48,
+    };
+    for (const [w, h] of [
+      [320, 568],
+      [360, 640],
+      [375, 667],
+      [375, 812],
+      [390, 844],
+      [430, 932],
+      [667, 375],
+      [812, 375],
+    ] as const) {
+      expect(clampFitPadding(mapPadding, w, h)).toEqual(mapPadding);
+    }
+  });
+
+  it('leaves the lg+ padding untouched, where there is no sheet in the budget at all', () => {
+    const desktopPadding = { top: 48 + 56, bottom: 48, left: 48 + leftPanelWidthPx(1440), right: 48 };
+    for (const [w, h] of [
+      [1024, 768],
+      [1280, 720],
+      [1440, 900],
+      [1920, 1080],
+      [2560, 1440],
+    ] as const) {
+      expect(clampFitPadding(desktopPadding, w, h)).toEqual(desktopPadding);
+    }
   });
 
   it('sits exactly on the boundary without scaling, and scales one pixel past it', () => {
