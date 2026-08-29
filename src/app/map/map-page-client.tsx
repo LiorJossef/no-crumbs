@@ -104,13 +104,23 @@ import {
   type AreaRow,
 } from '@/ui/place/active-area';
 import { ImportPageClient, type SaveOutcomeDetail } from '@/app/import/import-page-client';
+import { CollectionsContext, type CollectionsForPlace } from '@/ui/place/collections-context';
 
 /** How long the typing has to settle before the result count is announced to a screen reader.
  *  Without it a `polite` live region reads a new count on every keystroke, which is worse than
  *  silence — the user cannot hear the field they are typing into. */
 const ANNOUNCE_AFTER_MS = 500;
 
-export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
+export function MapPageClient({
+  places,
+  collections,
+}: {
+  places: readonly MapPlace[];
+  /** The caller's editable collections and what is already in them. Passed to a context rather
+   *  than down through props for the same reason `TagFilterContext` exists: one of the three hosts
+   *  of `PlaceDetail` lives inside the map surface, which must not learn what a collection is. */
+  collections: CollectionsForPlace;
+}) {
   /**
    * The **id** of the open place, never the object.
    *
@@ -427,7 +437,8 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
     // Every chip in every tree below reads its state from here — the sheet's detail, and the map's
     // own pin-anchored popover, which is rendered inside `components/map/**` and would otherwise
     // need a filter prop threaded through a surface whose job is cameras and pins.
-    <TagFilterContext value={tagFilter}>
+    <CollectionsContext value={collections}>
+      <TagFilterContext value={tagFilter}>
       {/* The been/not-been toggle is a leaf in the same three trees the tag chips are — the sheet's
           detail, the desktop map popover, and any future `PlaceDetail` host — so what it announces
           reaches the page's one live region the same way: through a context, not through a callback
@@ -528,7 +539,8 @@ export function MapPageClient({ places }: { places: readonly MapPlace[] }) {
           )}
         </div>
       </AnnounceContext>
-    </TagFilterContext>
+      </TagFilterContext>
+    </CollectionsContext>
   );
 }
 

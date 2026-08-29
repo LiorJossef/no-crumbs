@@ -7,7 +7,19 @@
 -- survives, and production never sees it.
 --
 -- Run:  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/0008_policy_tests.sql
+-- or:   npm run db:test:0008
 -- It must be run by a role that can insert into auth.users (postgres locally / in CI).
+--
+-- `npm run db:test` runs THIS FILE AND THEN supabase/tests/0024_collections_policy_tests.sql,
+-- as two separate psql invocations chained with &&. They are two scripts rather than one file
+-- because they do not have the same precondition, and that difference is real rather than
+-- cosmetic: **this file requires an empty database** (see the LIMIT paragraph below — several
+-- assertions count ALL rows in a table), while 0024 names every row by id and counts nothing
+-- global, so 0024 runs against a database you are actually developing on and this one does not.
+-- Order is not load-bearing in either direction — both files are one transaction ending in
+-- ROLLBACK, so neither leaves state for the other, and 0024-then-0008 was measured to give the
+-- same 85 PASS as 0008-then-0024. The chain is written 0008-first only because 0008 is the
+-- older and broader suite and its failure is the more informative one to see first.
 --
 -- ONE HARNESS PREREQUISITE ON A THROWAWAY CONTAINER, measured 2026-08-19 (MS5 task 5) and recorded
 -- here because it cost a session's debugging twice. In the bare

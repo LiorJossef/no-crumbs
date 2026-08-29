@@ -60,9 +60,21 @@ export interface SpotSource {
 /** One saved place, read-side. See this file's header for what each optional field means. */
 export interface Spot {
   readonly id: string;
+  /** `saved_places.place_id` — the shared `places` row behind this save. Distinct from `id`, which
+   *  is *this user's* save of it, and the one a collection stores: a collection is a set of places,
+   *  not a set of somebody's library rows. */
+  readonly placeId: string;
   /** `saved_places.display_name`, falling back to `places.name` — the per-user overlay `08 §2.2`
    *  rule 3 describes. */
   readonly name: string;
+  /** The stored override itself, or `null` when this place shows its real name. Exposed — unlike
+   *  `category_override`, which deliberately is not — because renaming is a *text* edit: the field
+   *  has to prefill with what the user typed last time, and "clear this" has to be distinguishable
+   *  from "type the canonical name in by hand". */
+  readonly displayNameOverride: string | null;
+  /** `places.name`, so the rename control can offer to go back to it by name rather than by an
+   *  unlabelled "reset". */
+  readonly canonicalName: string;
   /** The product's own category, already reconciled from the user's override, the provider's
    *  category and the model's hint by `productCategoryFor` — see `product-category.ts` for the
    *  ranking and why it is not simply `category_override ?? places.category`.
@@ -101,4 +113,7 @@ export interface Spot {
   readonly sourceThumbnailUrl?: string;
   readonly visitState: VisitState;
   readonly visitedAt?: Date;
+  /** `saved_places.created_at`. The library is ordered most-recently-saved-first and said so
+   *  nowhere, which made the order both invisible and unverifiable; the detail view now says it. */
+  readonly savedAt: Date;
 }

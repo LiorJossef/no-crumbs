@@ -62,7 +62,7 @@ import type { Map as MapLibreMap } from 'maplibre-gl';
 import { Map as MapcnMap, MapControls, MapPopup } from '@/components/ui/map';
 import { PlaceDetail } from '@/components/sheet/place-sheet';
 import type { LatLngBoundsHint, MapPlace, MapSurfaceProps } from './types';
-import { LG_BREAKPOINT_PX, mapOcclusionInsets, queryRectFrom } from './query-rect';
+import { clampFitPadding, LG_BREAKPOINT_PX, mapOcclusionInsets, queryRectFrom } from './query-rect';
 import { BasemapTint } from './basemap-tint-layer';
 import { toPlaceFeatures } from './place-features';
 import { PlaceMarkerLayer } from './place-marker-layer';
@@ -152,19 +152,40 @@ const FOCUS_FLIGHT_MS = 1200;
  * chrome (present at every width; below `lg` the post-import confirmation drops to a second row, so
  * the band is deeper). Only the first of those three is shared with the query rect — see
  * `mapOcclusionInsets` for why the other two are camera-only.
+ *
+ * `restingSheetFraction` is the caller saying its sheet rests somewhere other than the peek stop.
+ * It is resolved against the **container** height passed in, not `window.innerHeight`, for the same
+ * reason `reportViewport` reads the container: the container is what `unproject` and the camera
+ * both speak, and a stale size has already cost this file a real bug. Resolving it here rather than
+ * at the call site is also what makes a resize or an orientation change free — the existing re-fit
+ * path re-enters this function with the new container and gets the new pixel value for nothing.
+ *
+ * Clamped on the way out, because these three summands are independent and their sum can exceed
+ * the container: at 375×812 a half-resting sheet already spends 643 of 812 px, and the same sheet
+ * in landscape spends more than there is. See `clampFitPadding`.
  */
 function fitBoundsPadding(
-  viewportWidth: number
+  viewportWidth: number,
+  containerWidth: number,
+  containerHeight: number,
+  restingSheetFraction: number | undefined
 ): { top: number; bottom: number; left: number; right: number } {
-  const occlusion = mapOcclusionInsets(viewportWidth);
+  const occlusion = mapOcclusionInsets(
+    viewportWidth,
+    restingSheetFraction === undefined ? undefined : restingSheetFraction * containerHeight
+  );
   const topChrome =
     viewportWidth < LG_BREAKPOINT_PX ? FLOATING_TOP_CHROME_MOBILE_PX : FLOATING_TOP_CHROME_PX;
-  return {
-    top: FIT_BOUNDS_PADDING + topChrome + occlusion.top,
-    bottom: FIT_BOUNDS_PADDING + occlusion.bottom,
-    left: FIT_BOUNDS_PADDING + occlusion.left,
-    right: FIT_BOUNDS_PADDING + occlusion.right,
-  };
+  return clampFitPadding(
+    {
+      top: FIT_BOUNDS_PADDING + topChrome + occlusion.top,
+      bottom: FIT_BOUNDS_PADDING + occlusion.bottom,
+      left: FIT_BOUNDS_PADDING + occlusion.left,
+      right: FIT_BOUNDS_PADDING + occlusion.right,
+    },
+    containerWidth,
+    containerHeight
+  );
 }
 
 /**
@@ -226,6 +247,7 @@ export function MapSurfaceMapcn({
   selected = null,
   onDeselect,
   focusPlaceIds,
+  restingSheetFraction,
   onViewportChange,
 }: MapSurfaceProps) {
   const data = useMemo(() => toPlaceFeatures(places), [places]);
@@ -251,7 +273,16 @@ export function MapSurfaceMapcn({
   const fitTo = useCallback(
     (map: MapLibreMap, target: [[number, number], [number, number]], animate: boolean) => {
       const viewportWidth = typeof window === 'undefined' ? 0 : window.innerWidth;
-      const padding = fitBoundsPadding(viewportWidth);
+      // The container is the camera's own frame of reference, so a sheet expressed as a fraction of
+      // it resolves correctly on every re-fit — including the `ResizeObserver` one, which is the
+      // only thing that runs after an orientation change.
+      const container = map.getContainer();
+      const padding = fitBoundsPadding(
+        viewportWidth,
+        container.clientWidth,
+        container.clientHeight,
+        restingSheetFraction
+      );
       framedTo.current = target;
       hasFramedOnce.current = true;
       map.fitBounds(target, {
@@ -260,7 +291,7 @@ export function MapSurfaceMapcn({
         duration: animate ? FOCUS_FLIGHT_MS : 0,
       });
     },
-    []
+    [restingSheetFraction]
   );
 
   const fitToBounds = useCallback(

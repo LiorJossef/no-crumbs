@@ -1,0 +1,661 @@
+'use client';
+
+/**
+ * Everything inside a collection, as one switchable stack of views: the list of places, one
+ * place's detail, the picker that adds more, and the share/members panel.
+ *
+ * ## Why a stack and not dialogs
+ *
+ * Every view here replaces the content of the surface it is already in — the mobile sheet or the
+ * desktop panel — and offers a back control. It never opens a second overlay.
+ * `src/components/sheet/use-non-modal-background.ts` records what happens otherwise: a drawer
+ * marked `<main>` `aria-hidden` and made the whole map page unreachable to a screen reader. A
+ * second dialog stacked over the sheet is how that comes back, so there isn't one.
+ *
+ * ## Why this is not `PlaceSheet`
+ *
+ * `PlaceSheet` is bound to `/map`'s concerns — active areas, the tag filter, the been filter, the
+ * import overlay — none of which a collection has. Reusing it would mean a variant flag threaded
+ * through eleven props on the product's most important surface. What is reused instead is
+ * everything below the layout: `PlaceRow`, `PlaceSearchField`, the same snap points, the same row
+ * language. Same visual result, no blast radius on `/map`.
+ */
+
+import { useMemo, useRef, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { ArrowLeft, Check, MoreHorizontal, Plus, Users } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { PlaceRow, PlaceSearchField } from '@/components/sheet/place-sheet';
+import { SharePanel } from '@/components/collections/share-panel';
+import { CollectionPlaceDetail } from '@/components/collections/collection-place-detail';
+import { canEdit, canManage, memberLabel } from '@/domain/collections/collection';
+import { filterPlaces } from '@/components/map/filter-places';
+import { categoryLocalityLine } from '@/ui/place/category-display';
+import {
+  addPlacesToCollection,
+  deleteCollection,
+  removeMember,
+  updateCollection,
+} from '@/app/actions/collections';
+import type { CollectionDetail } from '@/app/collections/_lib/get-collections';
+import type { MapPlace } from '@/components/map/map-surface';
+import { cn } from '@/lib/utils';
+
+export type CollectionView = 'list' | 'place' | 'add' | 'share';
+
+export interface CollectionContentProps {
+  readonly collection: CollectionDetail;
+  readonly currentUserId: string;
+  /** The caller's own saved places, for the picker. Their own library only. */
+  readonly library: readonly MapPlace[];
+  readonly pins: readonly MapPlace[];
+  readonly view: CollectionView;
+  readonly onViewChange: (view: CollectionView) => void;
+  readonly selectedItemId: string | null;
+  readonly onSelectItem: (itemId: string | null) => void;
+}
+
+export function CollectionContent(props: CollectionContentProps) {
+  const { collection, currentUserId, view, onViewChange, selectedItemId, onSelectItem } = props;
+  const selected = collection.places.find((place) => place.itemId === selectedItemId) ?? null;
+
+  if (view === 'share') {
+    return (
+      <SharePanel
+        collectionId={collection.id}
+        collectionName={collection.name}
+        role={collection.role}
+        members={collection.members}
+        invite={collection.invite}
+        currentUserId={currentUserId}
+        onBack={() => onViewChange('list')}
+      />
+    );
+  }
+
+  if (view === 'add') {
+    return (
+      <AddPlacesPanel
+        collection={collection}
+        library={props.library}
+        onDone={() => onViewChange('list')}
+      />
+    );
+  }
+
+  if (view === 'place' && selected) {
+    return (
+      <CollectionPlaceDetail
+        collectionId={collection.id}
+        place={selected}
+        role={collection.role}
+        currentUserId={currentUserId}
+        onBack={() => {
+          onSelectItem(null);
+          onViewChange('list');
+        }}
+      />
+    );
+  }
+
+  return <CollectionList {...props} />;
+}
+
+function CollectionList({
+  collection,
+  currentUserId,
+  pins,
+  onViewChange,
+  onSelectItem,
+}: CollectionContentProps) {
+  const [query, setQuery] = useState('');
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const matches = useMemo(() => filterPlaces(pins, query), [pins, query]);
+  const editable = canEdit(collection.role);
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="shrink-0 px-4 pb-2 pt-1">
+        <div className="flex items-start gap-1">
+          <Button
+            render={<Link href="/collections" />}
+            nativeButton={false}
+            variant="ghost"
+            size="icon-lg"
+            aria-label="Back to collections"
+            className="-ml-2 size-11 shrink-0 rounded-full text-muted-foreground"
+          >
+            <ArrowLeft className="size-4" aria-hidden />
+          </Button>
+          <div className="min-w-0 flex-1 pt-2.5">
+            <h2 className="line-clamp-2 font-heading text-base font-bold">
+              <bdi>{collection.name}</bdi>
+            </h2>
+            <button
+              type="button"
+              onClick={() => onViewChange('share')}
+              aria-label="Who is in this collection"
+              data-vaul-no-drag
+              className="mt-0.5 flex min-h-6 flex-wrap items-center gap-x-1.5 rounded text-start text-[13px] text-muted-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              {/* Separate elements with a literal separator, never one interpolated string: a count
+                  and a Hebrew name in one line of text reorder around each other. `whitespace-nowrap`
+                  so the wrap happens between the two facts, not inside `3 places`. */}
+              <span className="whitespace-nowrap">
+                {placeCountLabel(collection.places.length)}
+              </span>
+              <span aria-hidden>·</span>
+              <span className="flex items-center gap-1 whitespace-nowrap">
+                <Users className="size-3" aria-hidden />
+                <bdi>{membersLine(collection, currentUserId)}</bdi>
+              </span>
+            </button>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-lg"
+            aria-label="Collection options"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((open) => !open)}
+            data-vaul-no-drag
+            className="size-11 shrink-0 rounded-full text-muted-foreground"
+          >
+            <MoreHorizontal className="size-4" aria-hidden />
+          </Button>
+        </div>
+
+        {menuOpen ? (
+          <CollectionMenu
+            collection={collection}
+            currentUserId={currentUserId}
+            onShare={() => {
+              setMenuOpen(false);
+              onViewChange('share');
+            }}
+            onClose={() => setMenuOpen(false)}
+          />
+        ) : null}
+
+        {collection.places.length > 0 ? (
+          <div className="mt-2">
+            <PlaceSearchField value={query} onChange={setQuery} label="Search this collection" />
+          </div>
+        ) : null}
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+5rem)]">
+        {collection.places.length === 0 ? (
+          <EmptyCollection collection={collection} onAdd={() => onViewChange('add')} />
+        ) : matches.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            Nothing in this collection matches that.
+          </p>
+        ) : (
+          <ul>
+            {matches.map((place) => (
+              <PlaceRow
+                key={place.id}
+                place={place}
+                secondLine={secondLineFor(collection, place.id)}
+                onSelect={() => {
+                  onSelectItem(place.id);
+                  onViewChange('place');
+                }}
+              />
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Not while the collection is empty: the empty state already offers this exact button, and
+          two identical primaries on one screen is a question, not an invitation. */}
+      {editable && collection.places.length > 0 ? (
+        <div className="shrink-0 border-t border-border/70 bg-card px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3">
+          <Button
+            type="button"
+            size="lg"
+            className="h-12 w-full text-base"
+            onClick={() => onViewChange('add')}
+            data-vaul-no-drag
+          >
+            <Plus className="size-4" aria-hidden />
+            Add places
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function EmptyCollection({
+  collection,
+  onAdd,
+}: {
+  collection: CollectionDetail;
+  onAdd: () => void;
+}) {
+  const owner = collection.members.find((member) => member.role === 'owner');
+
+  return (
+    <div className="py-10 text-center">
+      <p className="font-heading text-base font-bold">Nothing in this collection yet.</p>
+      {canEdit(collection.role) ? (
+        <>
+          <p className="mx-auto mt-2 max-w-xs text-sm text-muted-foreground">
+            Add places from your map and everyone here will see them.
+          </p>
+          <Button variant="outline" size="lg" className="mt-5 h-11" onClick={onAdd}>
+            Add places
+          </Button>
+        </>
+      ) : (
+        <p className="mx-auto mt-2 max-w-xs text-sm text-muted-foreground">
+          <span dir="auto">{memberLabel({ displayName: owner?.displayName ?? null, isYou: false })}</span>{' '}
+          hasn&apos;t added any places.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Rename, leave and delete. Inline rather than a popover portal — the whole feature keeps every
+ *  surface inside the sheet it was opened from. */
+function CollectionMenu({
+  collection,
+  currentUserId,
+  onShare,
+  onClose,
+}: {
+  collection: CollectionDetail;
+  currentUserId: string;
+  onShare: () => void;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [renaming, setRenaming] = useState(false);
+  const [name, setName] = useState(collection.name);
+  const [confirming, setConfirming] = useState<'delete' | 'leave' | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  if (renaming) {
+    return (
+      <form
+        className="mt-2 flex flex-col gap-2 rounded-lg border border-border bg-muted/40 p-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          startTransition(async () => {
+            const result = await updateCollection(collection.id, name, collection.description ?? '');
+            if (!result.ok) {
+              setError(result.message);
+              return;
+            }
+            setRenaming(false);
+            onClose();
+            router.refresh();
+          });
+        }}
+      >
+        <label htmlFor="rename-collection" className="text-sm font-medium">
+          Rename
+        </label>
+        <Input
+          id="rename-collection"
+          autoFocus
+          dir="auto"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          maxLength={80}
+          className="h-11 text-base"
+          data-vaul-no-drag
+        />
+        {error ? (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        ) : null}
+        <div className="flex gap-2">
+          <Button type="submit" size="lg" className="h-11 flex-1" disabled={pending}>
+            Save
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="lg"
+            className="h-11"
+            onClick={() => setRenaming(false)}
+          >
+            Cancel
+          </Button>
+        </div>
+      </form>
+    );
+  }
+
+  if (confirming === 'delete') {
+    return (
+      <InlineConfirm
+        prompt={`Delete “${collection.name}”? Everyone loses it.`}
+        confirmLabel="Delete"
+        pending={pending}
+        error={error}
+        onCancel={() => setConfirming(null)}
+        onConfirm={() =>
+          startTransition(async () => {
+            const result = await deleteCollection(collection.id);
+            if (!result.ok) {
+              setError(result.message);
+              return;
+            }
+            router.push('/collections');
+          })
+        }
+      />
+    );
+  }
+
+  if (confirming === 'leave') {
+    return (
+      <InlineConfirm
+        prompt={`Leave “${collection.name}”? You can rejoin with the link.`}
+        confirmLabel="Leave"
+        pending={pending}
+        error={error}
+        onCancel={() => setConfirming(null)}
+        onConfirm={() =>
+          startTransition(async () => {
+            const result = await removeMember(collection.id, currentUserId);
+            if (!result.ok) {
+              setError(result.message);
+              return;
+            }
+            router.push('/collections');
+          })
+        }
+      />
+    );
+  }
+
+  return (
+    <div className="mt-2 flex flex-col rounded-lg border border-border bg-muted/40">
+      {canManage(collection.role) ? (
+        <>
+          <MenuRow label="Share" onClick={onShare} />
+          <MenuRow label="Rename" onClick={() => setRenaming(true)} />
+          <MenuRow label="Delete collection" destructive onClick={() => setConfirming('delete')} />
+        </>
+      ) : (
+        <MenuRow label="Leave collection" destructive onClick={() => setConfirming('leave')} />
+      )}
+    </div>
+  );
+}
+
+function MenuRow({
+  label,
+  destructive,
+  onClick,
+}: {
+  label: string;
+  destructive?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      data-vaul-no-drag
+      className={cn(
+        'flex min-h-11 items-center px-3 text-left text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 not-last:border-b not-last:border-border/70',
+        destructive ? 'text-destructive' : 'text-foreground',
+      )}
+    >
+      {label}
+    </button>
+  );
+}
+
+export function InlineConfirm({
+  prompt,
+  confirmLabel,
+  pending,
+  error,
+  onConfirm,
+  onCancel,
+}: {
+  prompt: string;
+  confirmLabel: string;
+  pending: boolean;
+  error: string | null;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="mt-2 rounded-lg border border-border bg-muted/40 p-3" role="group">
+      <p dir="auto" className="text-sm font-medium">
+        {prompt}
+      </p>
+      {error ? (
+        <p role="alert" className="mt-1 text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
+      <div className="mt-2 flex gap-2">
+        <Button
+          type="button"
+          variant="destructive"
+          size="lg"
+          className="h-11 flex-1"
+          disabled={pending}
+          onClick={onConfirm}
+          data-vaul-no-drag
+        >
+          {confirmLabel}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="lg"
+          className="h-11"
+          onClick={onCancel}
+          data-vaul-no-drag
+        >
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The picker: the caller's own library, multi-select, with places already in the collection shown
+ * checked and inert. That inert state is how "re-adding is a silent no-op" becomes visible rather
+ * than mysterious — the alternative is a tap that appears to do nothing.
+ *
+ * This is the product's only multi-select surface, deliberately: selecting several *is* the task
+ * here, so no mode has to be entered or left.
+ */
+function AddPlacesPanel({
+  collection,
+  library,
+  onDone,
+}: {
+  collection: CollectionDetail;
+  library: readonly MapPlace[];
+  onDone: () => void;
+}) {
+  const router = useRouter();
+  const [query, setQuery] = useState('');
+  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const headingRef = useRef<HTMLHeadingElement>(null);
+
+  // `MapPlace.id` here is the saved-place id; the collection stores place ids, so the two lists are
+  // compared through the place id carried on the row's detail.
+  const alreadyIn = useMemo(
+    () => new Set(collection.places.map((place) => place.placeId)),
+    [collection.places],
+  );
+
+  const matches = useMemo(() => filterPlaces(library, query), [library, query]);
+
+  function toggle(placeId: string) {
+    setPicked((current) => {
+      const next = new Set(current);
+      if (next.has(placeId)) next.delete(placeId);
+      else next.add(placeId);
+      return next;
+    });
+  }
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="shrink-0 px-4 pb-2 pt-1">
+        <div className="flex items-center gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-lg"
+            aria-label="Back to the collection"
+            onClick={onDone}
+            className="-ml-2 size-11 shrink-0 rounded-full text-muted-foreground"
+            data-vaul-no-drag
+          >
+            <ArrowLeft className="size-4" aria-hidden />
+          </Button>
+          <h2 ref={headingRef} tabIndex={-1} className="font-heading text-base font-bold outline-none">
+            Add places
+          </h2>
+        </div>
+        <div className="mt-2">
+          <PlaceSearchField value={query} onChange={setQuery} label="Search your places" />
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-4">
+        {library.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            You have no saved places yet. Import a TikTok first.
+          </p>
+        ) : (
+          <ul>
+            {matches.map((place) => {
+              const placeId = placeIdOf(place);
+              const isIn = placeId !== null && alreadyIn.has(placeId);
+              const isPicked = placeId !== null && picked.has(placeId);
+              return (
+                <li key={place.id} className="border-b border-border/70 last:border-b-0">
+                  <button
+                    type="button"
+                    disabled={isIn || placeId === null}
+                    aria-pressed={isIn || isPicked}
+                    onClick={() => placeId && toggle(placeId)}
+                    data-vaul-no-drag
+                    className="flex min-h-16 w-full items-center gap-3 rounded-lg py-3.5 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-60"
+                  >
+                    <span
+                      aria-hidden
+                      className={cn(
+                        'flex size-6 shrink-0 items-center justify-center rounded-full border',
+                        isIn || isPicked
+                          ? 'border-primary bg-primary text-primary-foreground'
+                          : 'border-border',
+                      )}
+                    >
+                      {isIn || isPicked ? <Check className="size-3.5" /> : null}
+                    </span>
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="line-clamp-1 text-sm font-bold">
+                        <bdi>{place.name}</bdi>
+                      </span>
+                      <span className="line-clamp-1 text-xs text-muted-foreground">
+                        <bdi>{place.detail?.locality ?? place.detail?.addressLine ?? ''}</bdi>
+                      </span>
+                    </span>
+                    {isIn ? (
+                      <span className="shrink-0 text-xs text-muted-foreground">Already in</span>
+                    ) : null}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
+      <div className="shrink-0 border-t border-border/70 bg-card px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3">
+        {error ? (
+          <p role="alert" className="pb-2 text-sm text-destructive">
+            {error}
+          </p>
+        ) : null}
+        <Button
+          type="button"
+          size="lg"
+          className="h-12 w-full text-base"
+          disabled={pending || picked.size === 0}
+          data-vaul-no-drag
+          onClick={() =>
+            startTransition(async () => {
+              setError(null);
+              const result = await addPlacesToCollection(collection.id, [...picked]);
+              if (!result.ok) {
+                setError(result.message);
+                return;
+              }
+              setPicked(new Set());
+              router.refresh();
+              onDone();
+            })
+          }
+        >
+          {picked.size === 0
+            ? 'Select places to add'
+            : `Add ${picked.size} place${picked.size === 1 ? '' : 's'}`}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** A library row carries its saved-place id as `id`; the place identity a collection stores lives
+ *  on the `Spot` behind it. Absent only for a row not built from a real `Spot`, which cannot
+ *  happen on this screen — the fallback keeps such a row visible and inert rather than crashing. */
+function placeIdOf(place: MapPlace): string | null {
+  return place.detail?.placeId ?? null;
+}
+
+/** `Category · Locality` for a collection row, built from the `places` row the item points at
+ *  rather than from a `Spot` the caller may not have. */
+function secondLineFor(collection: CollectionDetail, itemId: string): string {
+  const place = collection.places.find((candidate) => candidate.itemId === itemId);
+  if (!place) return '';
+  return categoryLocalityLine(place.category, place.locality);
+}
+
+function placeCountLabel(count: number): string {
+  if (count === 0) return 'No places yet';
+  return `${count} place${count === 1 ? '' : 's'}`;
+}
+
+/**
+ * "You and Maya", "You, Maya and 1 other". Always you first — a list you are in that starts with
+ * someone else reads like someone else's list.
+ */
+function membersLine(collection: CollectionDetail, currentUserId: string): string {
+  const others = collection.members
+    .filter((member) => member.userId !== currentUserId)
+    .map((member) => memberLabel({ displayName: member.displayName, isYou: false }));
+
+  if (others.length === 0) return 'Only you';
+  if (others.length === 1) return `You and ${others[0]}`;
+  return `You, ${others[0]} and ${others.length - 1} other${others.length - 1 === 1 ? '' : 's'}`;
+}
+
+export { placeIdOf };

@@ -382,6 +382,100 @@ export const ExtractionResultSchema = z.object({
 export type ExtractionResult = z.infer<typeof ExtractionResultSchema>;
 
 /* ------------------------------------------------------------------------------------------- *
+ * Item-by-item parsing
+ * ------------------------------------------------------------------------------------------- */
+
+/**
+ * The response minus the candidates: everything that has to be right for the reply to be a reply
+ * at all. `candidates` is only checked for *being* a capped array here; each element is parsed
+ * separately below.
+ */
+const ExtractionEnvelopeSchema = z.object({
+  candidates: z.array(z.unknown()).max(12),
+  cityHint: boundedText(80).nullable(),
+});
+
+/** A response parsed item by item: the candidates that were valid, plus an honest count of the
+ *  ones that were not. `dropped > 0` means **this list is not what the model said** — see
+ *  `parseExtractionResultPartial` for why that must never be logged quietly. */
+export interface PartialExtractionResult {
+  readonly candidates: readonly RawPlaceCandidate[];
+  readonly cityHint: string | null;
+  /** How many elements of `candidates` failed `RawPlaceCandidateSchema`. */
+  readonly dropped: number;
+  /** How many the model sent. `dropped + candidates.length`, kept explicitly so a log line does
+   *  not have to reconstruct the denominator. */
+  readonly total: number;
+}
+
+export type PartialExtractionParse =
+  | { readonly ok: true; readonly value: PartialExtractionResult }
+  | { readonly ok: false; readonly error: z.ZodError };
+
+/**
+ * Parse a model response **candidate by candidate**, keeping the valid ones.
+ *
+ * ## Why, and what it is worth
+ *
+ * `ExtractionResultSchema.safeParse` is all-or-nothing: one bad element and the whole response is
+ * `EXTRACTOR_INVALID_OUTPUT`. That is not a hypothetical cost. `clippedQuote` exists in this same
+ * file because of it — a caption naming two Rustico branches produced the best extraction in the
+ * whole corpus and lost **every** candidate to one over-long `evidence` string. Clipping fixed
+ * that one field; the all-or-nothing rule is still there for every other field, and one malformed
+ * candidate out of five still costs the other four.
+ *
+ * ## The two limits, which are the point
+ *
+ * **The envelope is strict.** A reply that is not an object, whose `candidates` is not an array,
+ * that exceeds the 12-item cap, or whose `cityHint` is not a bounded string or `null`, is a hard
+ * failure exactly as before. There is nothing to salvage from a shape we cannot read, and the
+ * 12-cap is a flood guard (`09` §3.3) — a model emitting 40 hashtag "places" must still fail.
+ *
+ * **All-invalid stays a hard failure.** If the model sent candidates and not one of them parsed,
+ * that is a broken response, not an empty one. Returning `[]` there would be a lie of exactly the
+ * shape this product must not tell: `[]` is a *meaningful* answer here — "this caption names no
+ * place" is the modal outcome (~73%) and has its own screen — so a parse failure must never
+ * impersonate it.
+ *
+ * ## What the caller owes
+ *
+ * `dropped > 0` is a **fault**, not a note. Three candidates returned from a five-candidate reply
+ * look identical to a complete answer of three at every later stage: the port
+ * (`ports.ts`'s `PlaceExtractor`) returns candidates and a `cityHint` and has nowhere to say
+ * "partial", so nothing downstream — not the review screen, not the `imports` row — can tell.
+ * Until that port carries the fact, the log line is the only place it exists, and the adapters
+ * emit `extraction.candidates_dropped` on every non-zero count. Do not add a caller that ignores
+ * it.
+ */
+export function parseExtractionResultPartial(value: unknown): PartialExtractionParse {
+  const envelope = ExtractionEnvelopeSchema.safeParse(value);
+  if (!envelope.success) return { ok: false, error: envelope.error };
+
+  const kept: RawPlaceCandidate[] = [];
+  const issues: z.ZodIssue[] = [];
+  envelope.data.candidates.forEach((element, index) => {
+    const parsed = RawPlaceCandidateSchema.safeParse(element);
+    if (parsed.success) {
+      kept.push(parsed.data);
+      return;
+    }
+    // Re-pathed under the element's index so an all-invalid failure reports which candidate said
+    // what, rather than a flat list of field errors with no owner.
+    for (const issue of parsed.error.issues) {
+      issues.push({ ...issue, path: ['candidates', index, ...issue.path] } as z.ZodIssue);
+    }
+  });
+
+  const total = envelope.data.candidates.length;
+  if (total > 0 && kept.length === 0) return { ok: false, error: new z.ZodError(issues) };
+
+  return {
+    ok: true,
+    value: { candidates: kept, cityHint: envelope.data.cityHint, dropped: total - kept.length, total },
+  };
+}
+
+/* ------------------------------------------------------------------------------------------- *
  * The domain shape
  * ------------------------------------------------------------------------------------------- */
 

@@ -15,11 +15,21 @@
  * with Node and stays current, and a table we maintain ourselves is a table that goes stale. Two
  * things ICU alone gets wrong for our input, both handled below:
  *
- *  - **Deprecated and exceptionally-reserved codes collide with real ones.** Brute-forcing all
- *    676 two-letter combinations finds `FX` (Metropolitan France) and `UK` (an alias) alongside
- *    `FR` and `GB`, and `VD` (North Vietnam) alongside `VN`. Alphabetically-first resolves `FR`
- *    and `GB` correctly but picks `VD` over `VN`, so alphabetical order is a partial fix at best
- *    and the `ALIASES` table below is what actually settles the ambiguous ones.
+ *  - **Deprecated and exceptionally-reserved codes collide with real ones, and alphabetical order
+ *    is not the fix.** Brute-forcing all 676 two-letter combinations finds `FX` (Metropolitan
+ *    France) and `UK` (an alias) alongside `FR` and `GB`, `VD` (North Vietnam) alongside `VN`, and
+ *    — measured on 2026-08-29 by round-tripping every ICU region display name back through this
+ *    function — **seven more where the deprecated code sorts first and therefore won**:
+ *    `Germany` -> `DD` (East Germany), `Serbia` -> `CS`, `Yemen` -> `YD`, `Zimbabwe` -> `RH`
+ *    (Rhodesia), `Vanuatu` -> `NH`, `Curaçao` -> `AN`, `Myanmar` -> `BU`. English, not only
+ *    Hebrew: `toCountryCode('Germany')` returned `'DD'`, a real-looking code for a state that
+ *    stopped existing in 1990, written straight into `places.country_code`.
+ *
+ *    So the index now skips any code that is not its own canonical region
+ *    (`isCanonicalRegion` below, off `Intl.getCanonicalLocales`), which removes every alias from
+ *    the name space before the collision can happen instead of naming the survivors one at a time.
+ *    `ALIASES` keeps its Vietnam entries: they cost nothing and the informal `'viet nam'` spelling
+ *    still needs them.
  *  - **ICU tracks official renames; captions do not.** ICU's display name for `TR` is "Türkiye",
  *    so a caption saying "Turkey" misses entirely.
  *  - **A caption is not written in English, and neither is the hint taken from it.** The prompt
@@ -45,7 +55,8 @@ import { normalise } from './normalise';
  * unmapped name does.
  */
 const ALIASES: ReadonlyMap<string, string> = new Map([
-  // ICU resolves these to a deprecated or exceptionally-reserved code.
+  // ICU used to resolve these to a deprecated or exceptionally-reserved code. `isCanonicalRegion`
+  // now handles the class; these stay because `'viet nam'` is a spelling ICU does not carry.
   ['vietnam', 'VN'],
   ['viet nam', 'VN'],
   // ICU uses the current official name only.
@@ -54,6 +65,9 @@ const ALIASES: ReadonlyMap<string, string> = new Map([
   ['swaziland', 'SZ'],
   ['macedonia', 'MK'],
   ['burma', 'MM'],
+  // ICU's display name is the compound "Myanmar (Burma)", so neither half resolves on its own.
+  // (`'Myanmar'` used to answer `'BU'` — the deprecated Burma code — which was worse than a miss.)
+  ['myanmar', 'MM'],
   ['cape verde', 'CV'],
   ['ivory coast', 'CI'],
   // Informal and abbreviated forms.
@@ -86,6 +100,19 @@ const ALIASES: ReadonlyMap<string, string> = new Map([
   ['אמריקה', 'US'],
   ['ארה״ב', 'US'],
   ['ארה ב', 'US'],
+  // Hebrew names ICU's `he` data does not carry in the form a caption writes them. Each was
+  // measured returning `null` on 2026-08-29, and each is one spelling away from a name ICU does
+  // know — which is exactly the shape of gap a table is for.
+  //  - `צ׳כיה` (with the Hebrew geresh, U+05F3) is ICU's spelling and already resolves. An ASCII
+  //    apostrophe is punctuation to `normalise()` and becomes a space, and plenty of keyboards
+  //    produce one; the third form drops the mark entirely.
+  ['צ כיה', 'CZ'],
+  ['צכיה', 'CZ'],
+  //  - ICU has `שווייץ` (double yod) and `קוריאה הדרומית`; captions write the shorter forms.
+  ['שוויץ', 'CH'],
+  ['דרום קוריאה', 'KR'],
+  //  - The formal Hebrew for the United Kingdom. `בריטניה` and `אנגליה` already resolve.
+  ['הממלכה המאוחדת', 'GB'],
 ]);
 
 /**
@@ -101,9 +128,34 @@ const ALIASES: ReadonlyMap<string, string> = new Map([
 const NOT_A_COUNTRY: ReadonlySet<string> = new Set(['ZZ', 'QO', 'EU', 'EZ', 'UN', 'XA', 'XB']);
 
 /**
- * `normalise(displayName) → alpha-2`, built once from ICU. Alphabetically-first wins so that the
- * canonical code beats a later alias sharing its display name (`FR` before `FX`, `GB` before
- * `UK`); `ALIASES` is consulted first and overrides this map wherever the two disagree.
+ * The current ISO-3166-1 code for a territory, given any code ICU knows for it: `'DD'` -> `'DE'`,
+ * `'UK'` -> `'GB'`, `'VD'` -> `'VN'`. Returns `code` unchanged when it is already canonical or
+ * when ICU has no alias for it.
+ *
+ * CLDR's region-alias data, reached through `Intl.getCanonicalLocales`, which performs the
+ * substitution as part of BCP-47 canonicalisation. Using it means the deprecated-code problem is
+ * answered from the same data that creates it, rather than from a list of pairs we maintain and
+ * that goes stale the next time a country is renamed.
+ */
+function canonicalRegion(code: string): string {
+  try {
+    const canonical = Intl.getCanonicalLocales(`und-${code}`)[0];
+    return canonical === undefined ? code : (canonical.slice(4) || code);
+  } catch {
+    return code;
+  }
+}
+
+/** `true` when `code` is a territory's current code rather than a deprecated or reserved alias of
+ *  one. The index is built over these only, so an alias can never claim a display name. */
+function isCanonicalRegion(code: string): boolean {
+  return canonicalRegion(code) === code;
+}
+
+/**
+ * `normalise(displayName) → alpha-2`, built once from ICU. Only canonical regions are indexed, so
+ * a deprecated alias can never claim a display name; `ALIASES` is consulted first and overrides
+ * this map wherever the two disagree.
  */
 function buildIcuIndex(): ReadonlyMap<string, string> {
   const index = new Map<string, string>();
@@ -118,6 +170,9 @@ function buildIcuIndex(): ReadonlyMap<string, string> {
       for (let second = 65; second <= 90; second += 1) {
         const code = String.fromCharCode(first) + String.fromCharCode(second);
         if (NOT_A_COUNTRY.has(code)) continue;
+        // `DD` (East Germany) has the display name "Germany" and sorts before `DE`. Skipping every
+        // alias is what stops it, and every one like it, from winning.
+        if (!isCanonicalRegion(code)) continue;
         let name: string | undefined;
         try {
           name = display.of(code);
@@ -180,7 +235,9 @@ export function toCountryCode(input: string | null | undefined): string | null {
   // word (`'AT'`, `'IN'`, `'IT'`) is still a country: the model is asked for a country here, and
   // rejecting valid codes to guard against a hypothetical stray word would lose more than it saves.
   if (/^[A-Za-z]{2}$/.test(trimmed)) {
-    const upper = trimmed.toUpperCase();
+    // Canonicalised on the way in, so a caller handing us a stored `'DD'` gets `'DE'` back rather
+    // than a code no longer in the index. Idempotent for a code that is already canonical.
+    const upper = canonicalRegion(trimmed.toUpperCase());
     for (const code of icuIndex.values()) if (code === upper) return upper;
     for (const code of ALIASES.values()) if (code === upper) return upper;
     return null;

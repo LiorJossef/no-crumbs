@@ -5,6 +5,7 @@ import { signOut } from '@/app/actions/sign-out';
 import { Button } from '@/components/ui/button';
 import type { MapPlace } from '@/components/map/map-surface';
 import type { Spot } from '@/domain/places/spot';
+import { getCollectionMemberships } from '@/app/collections/_lib/get-collections';
 import { getSpots } from './_lib/get-spots';
 import { MapPageClient } from './map-page-client';
 
@@ -45,7 +46,10 @@ export default async function MapPage() {
     redirect('/sign-in');
   }
 
-  const spots = await getSpots();
+  // Read alongside the library rather than lazily on first open: the "Add to a collection" row has
+  // to say which collections a place is already in *before* it is tapped, so the answer has to be
+  // in hand when the detail renders.
+  const [spots, collections] = await Promise.all([getSpots(), getCollectionMemberships()]);
   const mapPlaces: readonly MapPlace[] = spots.map(toMapPlace);
 
   return (
@@ -74,7 +78,7 @@ export default async function MapPage() {
       {/* Selection state (map pin → sheet detail, S5) is client-only per `docs/ux-architecture.md`
        *  §1.5 — it is never a URL in this slice — so it is lifted into a client component rather
        *  than living in this server component. */}
-      <MapPageClient places={mapPlaces} />
+      <MapPageClient places={mapPlaces} collections={collections} />
     </main>
   );
 }

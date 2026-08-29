@@ -30,6 +30,8 @@ import type { SourceDataset } from '@/domain/types';
 
 const SAVED_PLACES_SELECT = `
   id,
+  place_id,
+  created_at,
   note,
   visit_state,
   visited_at,
@@ -72,6 +74,13 @@ const SAVED_PLACES_SELECT = `
  */
 interface SavedPlaceRow {
   readonly id: string;
+  /** `saved_places.place_id` — the shared identity row this save points at. Needed by anything
+   *  that talks about the *place* rather than about this user's save of it; a collection stores
+   *  place ids, so adding a saved place to one has to know this. */
+  readonly place_id: string;
+  /** Was in `.order()` and nowhere else, so "most recently saved first" was a claim no surface
+   *  could show or check. */
+  readonly created_at: string;
   readonly note: string | null;
   readonly visit_state: 'want_to_go' | 'visited';
   readonly visited_at: string | null;
@@ -172,7 +181,10 @@ function toSpot(row: SavedPlaceRow): EnrichedSpot {
 
   return {
     id: row.id,
+    placeId: row.place_id,
     name: row.display_name ?? place?.name ?? row.id,
+    displayNameOverride: row.display_name,
+    canonicalName: place?.name ?? row.id,
     category: productCategoryFor({
       override: row.category_override,
       providerCategory: place?.provider_category,
@@ -193,6 +205,7 @@ function toSpot(row: SavedPlaceRow): EnrichedSpot {
     ...(row.source_thumbnail_url ? { sourceThumbnailUrl: row.source_thumbnail_url } : {}),
     visitState: row.visit_state,
     ...(row.visited_at ? { visitedAt: new Date(row.visited_at) } : {}),
+    savedAt: new Date(row.created_at),
     // Extraction v2 (`0019`). Present unconditionally rather than spread-when-truthy like the
     // fields above: `[]`/`null` are the honest, common answers here (no backfill ran, so every row
     // saved before v2 has all three empty), and an absent key would make "this place has no tags"

@@ -27,12 +27,16 @@ import type { Spot } from '@/domain/places/spot';
 
 const BARE_SPOT: Spot = {
   id: 'a4c1f0a4-0000-4000-8000-000000000001',
+  placeId: 'a4c1f0a4-0000-4000-8000-0000000000f1',
   name: 'The Laughing Yak',
+  displayNameOverride: null,
+  canonicalName: 'The Laughing Yak',
   category: 'restaurant',
   categoryIsOverridden: false,
   lat: 51.4682,
   lng: -0.0689,
   visitState: 'want_to_go',
+  savedAt: new Date('2026-08-24T13:22:51Z'),
 };
 
 describe('enrichmentOf', () => {

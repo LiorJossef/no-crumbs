@@ -255,11 +255,36 @@ describe('googlePlaceResolver', () => {
     expect(seen[0]?.languageCode).toBe('he');
   });
 
-  it('sends no region code for a hint that is not an alpha-2 code', async () => {
+  it('converts the country *name* the model actually emits into a region code', async () => {
+    // The four shapes the local database holds across all 50 candidate rows, and the counts they
+    // arrived in: `United Kingdom` x24, a Hebrew string x13, `Czech Republic` x9, `Israel` x4.
+    // Not one row carried a two-letter code, so the previous `/^..$/` test made `regionCode` dead
+    // on every real import. The Hebrew case is the one that matters most — it is the product's
+    // primary market and the form no ASCII-shaped guard was ever going to accept.
+    const cases: readonly (readonly [string, string])[] = [
+      ['United Kingdom', 'GB'],
+      ['ישראל', 'IL'],
+      ['Czech Republic', 'CZ'],
+      ['Israel', 'IL'],
+    ];
+    for (const [countryHint, expected] of cases) {
+      const seen: GoogleTextSearchParams[] = [];
+      const { ctx } = ctxWith();
+      await googlePlaceResolver(gatewayReturning([], seen)).resolve(
+        query({ text: 'Rustico', countryHint }),
+        ctx,
+      );
+      expect(seen[0]?.regionCode, countryHint).toBe(expected);
+    }
+  });
+
+  it('still sends no region code when the hint names no country we can resolve', async () => {
+    // Unchanged and load-bearing: a wrong `regionCode` biases Google towards the wrong country,
+    // which is worse than not biasing it at all.
     const seen: GoogleTextSearchParams[] = [];
     const { ctx } = ctxWith();
     await googlePlaceResolver(gatewayReturning([], seen)).resolve(
-      query({ text: 'Rustico', countryHint: 'Israel' }),
+      query({ text: 'Rustico', countryHint: 'Atlantis' }),
       ctx,
     );
 

@@ -116,6 +116,24 @@ export interface MapSurfaceProps {
    */
   readonly focusPlaceIds?: readonly string[];
   /**
+   * How much of the surface's own container its bottom sheet covers **at rest**, below `lg`, as a
+   * fraction of container height.
+   *
+   * A fraction and not pixels, because the number has to survive a resize and an orientation
+   * change: the surface re-resolves it against the container it actually has at the moment it
+   * frames the camera, so the existing re-fit path carries it with no extra wiring.
+   *
+   * Omitted means `/map`'s sheet, which rests at a fixed peek strip. Pass it when the resting stop
+   * is something else — `/collections/[id]` opens at the half stop and stays there, and framing its
+   * pins as though 128 px were covered put two of three of them underneath its own sheet.
+   *
+   * Camera-only, deliberately: it widens the `fitBounds` padding and never the query rect. A place
+   * hidden behind a raised sheet is still "in view" for listing purposes
+   * (`docs/ux-map-is-the-query.md` §1) — that is the forgiving direction, and `mapOcclusionInsets`
+   * spells out why the two consumers part company here.
+   */
+  readonly restingSheetFraction?: number;
+  /**
    * "This is what is on screen now" — the surface reporting its **query rect** so the caller can
    * make the map the query (`docs/ux-map-is-the-query.md` §1). Optional: a surface with no handler
    * simply never calls it, and a surface that cannot compute one (the mock) never implements it.
