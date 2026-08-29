@@ -113,7 +113,7 @@ import { tagDisplayLabel } from '@/domain/extraction/tags';
 import { TagFilterContext, isSameTag, type TagFilter } from '@/ui/place/tag-filter';
 import { AnnounceContext, SILENT, latestSpoken, type Announcer } from '@/ui/place/announce';
 import { clusterByProximity, pickAnchorCluster } from '@/domain/places/clusters';
-import { buildAreas } from '@/ui/place/active-area';
+import { buildAreas, mapAccessibleName } from '@/ui/place/active-area';
 import {
   activeCountryKey as ringedCountryKeyFor,
   fallbackScope,
@@ -124,6 +124,7 @@ import {
   scopeForAreaTap,
   scopeForCountryTap,
   scopeHeading,
+  scopeLabel,
   type ListScope,
 } from '@/ui/place/list-scope';
 import { elsewhereGroups } from '@/ui/place/elsewhere-groups';
@@ -514,6 +515,14 @@ export function MapPageClient({
     [inScope, listScope, query, activeTag, notBeenOnly, matches],
   );
 
+  // The canvas is unreachable to a screen reader, so the honest thing for it to say is what it is
+  // showing and that the list beside it is complete. Same `where` the heading uses, so the two can
+  // never describe different places.
+  const canvasName = useMemo(
+    () => mapAccessibleName(heading, scopeLabel(listScope)),
+    [heading, listScope],
+  );
+
   // The open place, resolved against the *current* server data on every render — which is what makes
   // an edit visible in the panel the user made it in. See `selectedId`.
   //
@@ -762,6 +771,7 @@ export function MapPageClient({
             onAreaClick={selectArea}
             onCountryClick={focusCountry}
             {...(focusBounds ? { focusBounds } : {})}
+            accessibleName={canvasName}
           />
 
           {/* The list and the pins both change silently as the user types, so the one thing a screen

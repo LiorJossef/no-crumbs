@@ -329,6 +329,7 @@ export function MapSurfaceMapcn({
   onAreaClick,
   onCountryClick,
   focusBounds,
+  accessibleName,
   restingSheetFraction,
   selectedOcclusionFraction,
   floatingTopChromePx,
@@ -656,6 +657,26 @@ export function MapSurfaceMapcn({
    * `h-full w-full` inside a flex layout, so it changes size in cases the window never fires for —
    * including the first layout pass, which is the one that matters here.
    */
+  /**
+   * The canvas's accessible name.
+   *
+   * MapLibre labels its own canvas `Map` and marks it `role="region"` with `tabindex="0"`, so a
+   * screen reader user tabs into the map and is told the word "map" — which they could already
+   * see from the page. `accessibleName` says what is on it instead.
+   *
+   * Written from `attachMapRef` and not from the effect alone, and the ref is what makes that
+   * possible. The instance arrives through mapcn's `useImperativeHandle` on a commit of its own,
+   * which does not re-render this component — so an effect keyed on `accessibleName` would run
+   * once with `mapRef.current` still null and then never again on a map whose heading never
+   * changes. The effect keeps it in step afterwards, when it does.
+   */
+  const accessibleNameRef = useRef(accessibleName);
+  useEffect(() => {
+    accessibleNameRef.current = accessibleName;
+    if (accessibleName === undefined) return;
+    mapRef.current?.getCanvas().setAttribute('aria-label', accessibleName);
+  }, [accessibleName]);
+
   const attachMapRef = useCallback(
     (instance: MapLibreMap | null) => {
       const previous = mapRef.current;
@@ -669,6 +690,8 @@ export function MapSurfaceMapcn({
       }
       mapRef.current = instance;
       if (!instance) return;
+      const name = accessibleNameRef.current;
+      if (name !== undefined) instance.getCanvas().setAttribute('aria-label', name);
       // Measure the container *now*, before anything reads the canvas.
       //
       // MapLibre sizes its canvas once, at construction, and falls back to 400×300 when that
