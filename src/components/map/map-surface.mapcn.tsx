@@ -445,14 +445,32 @@ export function MapSurfaceMapcn({
   }, []);
 
   /**
-   * A pan by the user, and the only thing in this file that may say so.
-   *
-   * `dragend` covers pointer drags, touch drags and their inertia; MapLibre's keyboard handler pans
-   * through the same drag machinery, so arrow keys arrive here too. A wheel or pinch **zoom** does
-   * not, which is deliberate — see `ViewportChangeMeta`.
+   * A pan by the user. `dragend` covers pointer drags, touch drags and their inertia; MapLibre's
+   * keyboard handler pans through the same drag machinery, so arrow keys arrive here too.
    */
   const handleDragEnd = useCallback(() => {
     pannedSinceReport.current = true;
+  }, []);
+
+  /**
+   * A **zoom** by the user, which this file refused to report until now.
+   *
+   * Excluding zooms was right while the list was only ever one area: a zoom could hand the list to
+   * another city by accident, and `ViewportChangeMeta` said so. The country band reversed it. Under
+   * `list-scope.ts` a zoom is the *only* gesture that can cross a band, so with `dragend` as the
+   * sole writer every transition that module defines was dead code — and the symptom was the one
+   * the owner reported: zoom out until the country badges appear and the sidebar still says
+   * `18 places in London`, describing something the map has stopped drawing.
+   *
+   * The guard is `originalEvent`, not the event name. `zoomend` fires for `flyTo`, `fitBounds` and
+   * `easeTo` too, so keying on it alone would let all six camera movers rewrite the list — exactly
+   * what the `userInitiated` flag exists to prevent, and worse than not reporting zooms at all.
+   * MapLibre's handler manager attaches the wheel/touch/dblclick event that caused the zoom,
+   * including onto the inertial `easeTo` it starts itself; a programmatic command carries none.
+   * There is no `NavigationControl` on this map, so there are no zoom buttons to account for.
+   */
+  const handleZoomEnd = useCallback((event: { originalEvent?: unknown }) => {
+    if (event.originalEvent) pannedSinceReport.current = true;
   }, []);
 
   /** Trailing debounce (§4). One pinch or inertial flick emits several `moveend`s; the list must
@@ -498,6 +516,7 @@ export function MapSurfaceMapcn({
       const previous = mapRef.current;
       if (previous && previous !== instance) {
         previous.off('dragend', handleDragEnd);
+        previous.off('zoomend', handleZoomEnd);
         previous.off('moveend', scheduleViewportReport);
         previous.off('resize', scheduleViewportReport);
         observers.get(previous)?.disconnect();
@@ -557,9 +576,11 @@ export function MapSurfaceMapcn({
       observers.set(instance, observer);
       whenReady(instance, () => fitToBounds(instance));
       // `moveend` only — no `move`, no `render`, no rAF. `resize` too, because the insets are
-      // viewport-dependent: crossing `lg` changes which edge the chrome covers. `dragend` carries
-      // no rect of its own; it only records that the move about to be reported was the user's.
+      // viewport-dependent: crossing `lg` changes which edge the chrome covers. `dragend` and
+      // `zoomend` carry no rect of their own; they only record that the move about to be reported
+      // was the user's.
       instance.on('dragend', handleDragEnd);
+      instance.on('zoomend', handleZoomEnd);
       instance.on('moveend', scheduleViewportReport);
       instance.on('resize', scheduleViewportReport);
       // The first settle. Without this the caller holds no rect until the user touches the map,
@@ -568,7 +589,7 @@ export function MapSurfaceMapcn({
       // instead of producing a pre-fit rect and then a post-fit one.
       whenReady(instance, scheduleViewportReport);
     },
-    [fitToBounds, fitTo, scheduleViewportReport, handleDragEnd]
+    [fitToBounds, fitTo, scheduleViewportReport, handleDragEnd, handleZoomEnd]
   );
 
   // The **initial** framing, and only that. `attachMapRef`'s `once('load', ...)` races against
