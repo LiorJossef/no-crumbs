@@ -335,15 +335,19 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
   }
 
   /**
-   * Back to the paste screen, with the link still in the field.
+   * Back to the paste screen, keeping the link unless the caller says it is finished with it.
    *
-   * It used to clear it, and that made `Cancel` a punishment: the link is in TikTok, not in the
-   * browser, so a user who cancelled a slow import — or hit a failure with a `Try another` button —
-   * had to leave the product, reopen the post and copy the link again to try the same thing twice.
-   * Nothing about cancelling says the link was wrong.
+   * Clearing unconditionally made `Cancel` a punishment: the link lives in TikTok, not in the
+   * browser, so a user who cancelled a slow import had to leave the product, reopen the post and
+   * copy the link again to try the same thing twice. Nothing about cancelling says the link was
+   * wrong, so `Cancel` keeps it.
    *
-   * `clearUrl` is passed by the one caller for which it *is* finished: a completed save. Leaving
-   * the link there afterwards would invite a second import of a post already in the library.
+   * `clearUrl` marks the callers for which the link genuinely is spent, and they divide by what the
+   * action *claims*, not by whether it succeeded:
+   *  - a completed save — leaving it invites re-importing a post already in the library;
+   *  - `Try another`, which promises another. A failure screen offers `Try the same one again`
+   *    beside it, so returning both of them to a field still holding the old link makes the two
+   *    buttons do the same thing, and on `no_places` it re-runs the read that just found nothing.
    */
   function reset(options?: { readonly clearUrl?: boolean }) {
     abortInFlightProbe();
@@ -842,7 +846,7 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
             retryable={false}
             url={url}
             onRetrySameUrl={() => void submit()}
-            onTryAnother={() => reset()}
+            onTryAnother={() => reset({ clearUrl: true })}
             onBackToMap={backToMap}
             onSignIn={() => router.push('/sign-in')}
           />
@@ -853,7 +857,11 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
         )}
 
         {screen.kind === 'no_places' && (
-          <NoPlacesScreen authorHandle={screen.authorHandle} url={url} onRetry={() => reset()} />
+          <NoPlacesScreen
+            authorHandle={screen.authorHandle}
+            url={url}
+            onRetry={() => reset({ clearUrl: true })}
+          />
         )}
 
         {screen.kind === 'results' && (
@@ -876,7 +884,7 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
             partialNotice={captionSave.partialNotice}
             statusByIndex={captionSave.statusByIndex}
             onSave={(picks) => finishCaptionPreview(picks, screen.probe.extractionId)}
-            onRetry={() => reset()}
+            onRetry={() => reset({ clearUrl: true })}
             onContinue={continueAfterPartialSave}
           />
         )}
@@ -888,7 +896,7 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
             retryable={screen.retryable}
             url={url}
             onRetrySameUrl={() => void submit()}
-            onTryAnother={() => reset()}
+            onTryAnother={() => reset({ clearUrl: true })}
             onBackToMap={backToMap}
             onSignIn={() => router.push('/sign-in')}
           />

@@ -141,4 +141,25 @@ test.describe('the failure screen is never a dead end', () => {
     console.log(JSON.stringify({ unknownCodeScreen: body.replace(/\n+/g, ' | ').slice(0, 300) }));
     expect(body).toContain('Reference: SOME_CODE_WE_DO_NOT_KNOW');
   });
+
+  test('Try another TikTok returns to an empty field, not the link that just failed', async ({ page }) => {
+    // `import-error-copy.ts` already states the contract — "`another_tiktok` returns to F0 with an
+    // empty, focused field" — and the screen did not honour it: both it and `Retry` called `reset()`
+    // with no `clearUrl`, so the two actions left the field in the same state and the one promising
+    // *another* handed back the one that just failed. Fails on the pre-fix code.
+    await signIn(page);
+    await page.goto('/import');
+    await page.waitForLoadState('networkidle');
+    const field = page.getByPlaceholder('Paste a TikTok link');
+    await field.fill(MISSING);
+    await page.getByRole('button', { name: 'Add →' }).click();
+
+    const tryAnother = page.getByRole('button', { name: 'Try another TikTok' });
+    await expect(tryAnother).toBeVisible({ timeout: 30_000 });
+    await tryAnother.click();
+
+    await expect(field).toBeVisible();
+    console.log(JSON.stringify({ fieldAfterTryAnother: await field.inputValue() }));
+    await expect(field, 'the action that promises another must not hand back the failed one').toHaveValue('');
+  });
 });
