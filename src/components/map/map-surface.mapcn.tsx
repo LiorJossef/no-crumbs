@@ -68,6 +68,7 @@ import { AREA_DISC_SPEC } from './summary-style';
 import { useDiscTheme } from './use-disc-theme';
 import { clampFitPadding, LG_BREAKPOINT_PX, mapOcclusionInsets, queryRectFrom } from './query-rect';
 import { pinGeometry } from './marker-style';
+import { nearbyPlaces } from '@/ui/place/nearby';
 import { BasemapTint } from './basemap-tint-layer';
 import { toPlaceFeatures } from './place-features';
 import { PlaceMarkerLayer } from './place-marker-layer';
@@ -336,6 +337,12 @@ export function MapSurfaceMapcn({
   onViewportChange,
 }: MapSurfaceProps) {
   const data = useMemo(() => toPlaceFeatures(places), [places]);
+  /** The open pin's neighbours, for the popover's `Nearby` section. Same rule as the mobile
+   *  sheet's; both read the same library, so both get the same answer. */
+  const nearbyToSelected = useMemo(
+    () => (selected === null ? [] : nearbyPlaces(selected, places)),
+    [selected, places],
+  );
   const theme = useDiscTheme();
   const countryFeatures = useMemo(
     () => toCountryFeatures(summaries?.countries ?? [], summaries?.activeCountryKey ?? null, theme),
@@ -1000,6 +1007,11 @@ export function MapSurfaceMapcn({
               // — a row marked been before the column was written has no timestamp, and absent is
               // what that is.
               ...(selected.detail?.visitedAt ? { visitedAt: selected.detail.visitedAt } : {}),
+            }}
+            nearby={nearbyToSelected}
+            onSelectNearby={(id) => {
+              const neighbour = places.find((candidate) => candidate.id === id);
+              if (neighbour) onPlaceClick?.(neighbour);
             }}
             onClose={() => onDeselect?.()}
             variant="popover"
