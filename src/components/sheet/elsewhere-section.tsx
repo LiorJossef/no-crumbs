@@ -49,6 +49,23 @@ const ROW_BASE =
 export interface ElsewhereSectionProps {
   readonly entries: readonly ElsewhereEntry[];
   readonly filtering: boolean;
+  /**
+   * The section's own heading. Defaults to `Elsewhere`, which is what it says when it sits under a
+   * list of places and names the areas that are *not* on screen.
+   *
+   * It is a prop because the same grouped geography is now also the **whole** body of the list in
+   * the two scopes above an area (`ui/place/list-scope.ts`): at world zoom it is every country you
+   * have saved in, and after a country tap it is that country's cities. Those are not "elsewhere" —
+   * they are the answer — so they name themselves. One renderer, three headings, rather than three
+   * renderers that would eventually disagree about what a country row looks like.
+   */
+  readonly title?: string;
+  /**
+   * `secondary` (the default) keeps the rule and the gap that separate this from the place rows
+   * above it. `primary` drops both, for the scopes where these rows *are* the list and there is
+   * nothing above them to be separated from.
+   */
+  readonly variant?: 'secondary' | 'primary';
   /** Explicit user toggles only, keyed by country. Defaults live in `isCountryExpanded`. */
   readonly expansion: ReadonlyMap<string, boolean>;
   readonly expansionDefault: ExpansionDefault;
@@ -61,6 +78,8 @@ export interface ElsewhereSectionProps {
 export function ElsewhereSection({
   entries,
   filtering,
+  title = 'Elsewhere',
+  variant = 'secondary',
   expansion,
   expansionDefault,
   onToggleCountry,
@@ -69,12 +88,12 @@ export function ElsewhereSection({
   if (entries.length === 0) return null;
 
   return (
-    <section className="mt-5 border-t border-border/70 pt-4">
+    <section className={variant === 'primary' ? '' : 'mt-5 border-t border-border/70 pt-4'}>
       {/* At the row's own weight and in `text-foreground`, not muted 12 px: this is the only place
           in the scroll where the kind of thing changes, so it is the only place that looks like a
           change. It is a heading, not a control — nothing here is focusable. */}
       <h3 className="px-1 pb-1.5 font-heading text-sm font-extrabold tracking-tight text-foreground">
-        Elsewhere
+        {title}
       </h3>
       <ul>
         {entries.map((entry) =>
