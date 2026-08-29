@@ -866,7 +866,10 @@ function ControlButton({
       aria-label={label}
       type="button"
       className={cn(
-        "flex size-8 items-center justify-center transition-colors",
+        // 40px, not the registry's 32: these are the map's primary affordances on a phone and
+        // 32 is under every touch-target floor. Still under 44 — the group would otherwise be
+        // 132px of an 812px viewport — matching the 36-40px compromise the sheet chips took.
+        "flex size-10 items-center justify-center transition-colors",
         "first:rounded-t-md last:rounded-b-md",
         "hover:bg-accent dark:hover:bg-accent/40",
         "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset",
