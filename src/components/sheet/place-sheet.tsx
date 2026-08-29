@@ -156,6 +156,11 @@ export interface PlaceSheetProps {
   readonly activeAreaId: string | null;
   /** Nothing saved, ever — a different screen, not a different string. */
   readonly libraryIsEmpty: boolean;
+  /** Anything in the **whole library** is marked been. The `Not been yet` chip's precondition, and
+   *  library-wide rather than list-wide on purpose: the chip filters the map too, and the map draws
+   *  every match rather than this area's, so a been place in the next city is one this chip hides
+   *  and a list-scoped test would refuse to draw the control that un-hides it. */
+  readonly libraryHasVisited: boolean;
   /** Whether the search box or a tag chip is narrowing the library, which decides the noun on the
    *  area rows so they never disagree with the header above them. */
   readonly filtering: boolean;
@@ -207,6 +212,7 @@ export function PlaceSheet({
   onSelectArea,
   activeAreaId,
   libraryIsEmpty,
+  libraryHasVisited,
   filtering,
   query,
   onQueryChange,
@@ -303,6 +309,7 @@ export function PlaceSheet({
                 onSelectArea={onSelectArea}
                 activeAreaId={activeAreaId}
                 libraryIsEmpty={libraryIsEmpty}
+                libraryHasVisited={libraryHasVisited}
                 filtering={filtering}
                 query={query}
                 onQueryChange={onQueryChange}
@@ -335,6 +342,7 @@ function PlaceList({
   onSelectArea,
   activeAreaId,
   libraryIsEmpty,
+  libraryHasVisited,
   filtering,
   query,
   onQueryChange,
@@ -358,6 +366,7 @@ function PlaceList({
   onSelectArea: (areaId: string) => void;
   activeAreaId: string | null;
   libraryIsEmpty: boolean;
+  libraryHasVisited: boolean;
   filtering: boolean;
   query: string;
   onQueryChange: (query: string) => void;
@@ -509,6 +518,7 @@ function PlaceList({
               onToggleCategory={onToggleCategory}
               notBeenOnly={notBeenOnly}
               onToggleNotBeen={onToggleNotBeen}
+              anyVisited={libraryHasVisited}
             />
           )}
           {activeTag !== null && <ActiveTagFilter tag={activeTag} onClear={onClearTag} />}

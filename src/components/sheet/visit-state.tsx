@@ -1,9 +1,11 @@
 'use client';
 
 /**
- * How been / not-been looks: the badge that says a place is done, and the chip that narrows the
- * library to the ones that are not. The write control lives in `saved-place-edits.tsx` with the
- * other Server-Action writes; `src/ui/place/visit-state.ts` owns every word either of them says.
+ * How been / not-been looks on a list row: the badge that says a place is done. This file used to
+ * hold the `Not been yet` filter chip as well; the nav ruling moved that into
+ * `category-filter-bar.tsx`, which is also what lifted it to the 44 px touch floor, so only the
+ * badge lives here. The write control lives in `saved-place-edits.tsx` with the other
+ * Server-Action writes; `src/ui/place/visit-state.ts` owns every word any of them says.
  *
  * ## The badge is a `<span>`, and that is the whole design of the list row
  *
@@ -21,28 +23,12 @@
  * perfectly openable, and a strikethrough says "delete". Both are the wrong verb. A small filled
  * tick beside the category line says "done" and leaves the row at full contrast, which matters
  * because a place you have been to is still the thing you look up when a friend asks where to go.
- *
- * ## The filter chip is one control that is also its own dismissal
- *
- * `ActiveTagFilter` is a pill you press to clear a filter you set somewhere else (on a tag chip
- * inside a place's detail). The visit filter has no "somewhere else" — there is no per-place
- * surface that could set it — so it needs a control that is present in the list, and a second
- * control just to remove it would be two targets for one boolean. It is therefore one chip using
- * the shared pressable-chip tokens: unpressed it reads as an offer, pressed it takes the active
- * pill's fill and grows an `×`, which is the same shape and the same affordance the tag pill has.
- * `aria-pressed` carries the state; the `×` is `aria-hidden` decoration on top of it.
  */
 
-import { Check, X } from 'lucide-react';
+import { Check } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
-import { BEEN_STATE_LABEL, NOT_BEEN_FILTER_LABEL } from '@/ui/place/visit-state';
-import {
-  CHIP_PRESSABLE,
-  CHIP_PRESSABLE_ACTIVE,
-  CHIP_PRESSABLE_REST,
-  FILTER_KICKER,
-} from './place-enrichment';
+import { BEEN_STATE_LABEL } from '@/ui/place/visit-state';
 
 /**
  * "You have been here", on a list row and in a place's detail header.
@@ -63,50 +49,5 @@ export function BeenBadge({ className }: { className?: string }) {
       <Check className="size-3" />
       {BEEN_STATE_LABEL}
     </span>
-  );
-}
-
-/**
- * The one library filter this capability adds: show only what is still outstanding.
- *
- * Rendered under the search field on both surfaces, so it is in the same block as the search box
- * and the active-tag pill — the three narrowings sit together rather than one of them hiding
- * inside a place's detail. Hidden entirely while the library is empty, for the same reason the
- * search field is: an inert control offering work that cannot produce a result is a false
- * affordance.
- *
- * `min-h-9` (36 px) matches `ActiveTagFilter`'s pill exactly. It is under the 44 px touch floor and
- * that is the same trade the tag pill already makes and states: these sit in a header block with no
- * competing target within 12 px, they are 110–140 px wide, and a 44 px slab under the search field
- * would out-shout the field itself. Named as a trade rather than a rule met.
- */
-export function NotBeenFilterChip({
-  active,
-  onToggle,
-  className,
-}: {
-  active: boolean;
-  onToggle: () => void;
-  className?: string;
-}) {
-  return (
-    <div data-vaul-no-drag className={cn('flex min-w-0 items-center gap-2', className)}>
-      <span className={FILTER_KICKER}>Showing</span>
-      <button
-        type="button"
-        // The state model, exactly as the tag chips: a toggle says pressed / not pressed, and
-        // pressing the pressed one clears. No live region and no second control needed for either.
-        aria-pressed={active}
-        onClick={onToggle}
-        className={cn(
-          CHIP_PRESSABLE,
-          'min-h-9 gap-1.5',
-          active ? CHIP_PRESSABLE_ACTIVE : CHIP_PRESSABLE_REST,
-        )}
-      >
-        <span className="truncate">{NOT_BEEN_FILTER_LABEL}</span>
-        {active && <X className="size-3.5 shrink-0" aria-hidden />}
-      </button>
-    </div>
   );
 }
