@@ -81,6 +81,47 @@ inventing tags would be the "convert uncertainty into certainty" failure.
 must fire on **explicit submit only** — never per keystroke. Free-text typing searches the local
 library, which is free.
 
+## 5b. The collections session, later the same day
+
+The owner used `/collections/[id]` and reported three things. Two were real, one was already fixed.
+
+**Real, fixed — `b83d154`: tapping a place never moved the camera.** `/map` has always flown on this
+gesture (`selectPlace`, camera mover 3, writing `focusPlaceIds`); `collection-client.tsx`'s
+`selectItem` set only the selection. Since `initialBounds` fits *all* of a collection's places by
+design, a collection spanning countries opens at macro zoom — so the tap appeared to do nothing.
+`focusPlaceIds` now has two writers sharing one slot, `/map`'s design. **`571bb32`** fixes a
+ref-during-render that this introduced and eslint caught.
+
+**Already fixed — the "isolated pin at macro zoom".** Not a separate defect: it is §1's pin-band
+floor, fixed in `028d77f` earlier the same day. The collection route passes no `summaries`, so it
+takes the `null` branch and keeps every pin at every zoom. `places={pins}` has always passed the
+whole collection; nothing was ever hiding all but the selection.
+
+**Real, fixed — `118bf8f`: the place card was about its note.** Not blank, as reported, but an empty
+bordered textarea sat under the address and above every action, making the note the visual centre.
+Identity and actions now lead; the note is a muted card beneath them that collapses to
+`Add a shared note` when empty.
+
+**Refused, twice, and it is a privacy boundary rather than an omission.** The owner asked for a
+"source reference" and "action toggles" on a collection place. A collection item points at a
+`places` row and never at the adder's `saved_places` row — a collaborator gets the shared identity
+and none of the adder's overlay. A source link there leaks it to everyone in the collection. An
+honest version exists (show *your own* source link and visit state when you have saved the place
+yourself) and needs new plumbing; it is the owner's call and is not built.
+
+**In flight at session close:** reusing `PlaceDetail` itself on the collection route, with the
+shared note injected as a footer slot (the owner's architecture ruling). **The hazard whoever picks
+this up must not miss:** `PlaceDetail` passes `place.id` into six mutation paths as `savedPlaceId`
+(place-sheet.tsx 904, 1017, 1027, 1034, 1043, 1111), and on this route `place.id` is the
+**collection item id**. Naive reuse aims five write paths at a row that is not the caller's. The
+privacy half is easier and better: `PlaceDetail` reads private fields off `place.detail` and every
+block renders conditionally, so passing a `detail` built from shared fields only makes the boundary
+a property of the data rather than of a flag.
+
+**Nothing on this route has been verified in a browser.** Typecheck, lint and 1584 unit tests pass;
+no one has watched the camera fly. I could not sign in — entering a password is something I do not
+do, including for the local demo account — and the owner was asked to sign in on the open pane.
+
 ## 6. Agents used
 
 `supabase-database` (investigation only — the §5 answer, no code). `maps-geospatial` (wrote the §1
