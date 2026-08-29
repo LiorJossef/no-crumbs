@@ -61,7 +61,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { Map as MapLibreMap } from 'maplibre-gl';
 import { Map as MapcnMap, MapControls, MapPopup } from '@/components/ui/map';
 import { PlaceDetail } from '@/components/sheet/place-sheet';
-import type { LatLngBoundsHint, MapPlace, MapSurfaceProps } from './types';
+import type { FocusBoundsRequest, LatLngBoundsHint, MapPlace, MapSurfaceProps } from './types';
 import { SummaryMarkerLayer } from './summary-marker-layer';
 import { toAreaFeatures, toCountryFeatures } from './summary-features';
 import { AREA_DISC_SPEC } from './summary-style';
@@ -229,6 +229,19 @@ function fitBoundsPadding(
 }
 
 /**
+ * **What the camera is currently holding, in the terms it was asked for.**
+ *
+ * A resize changes what "there" means in pixels, so it has to reproduce the *request*, not the
+ * numbers the request produced. Keeping only a bounding box was enough while every mover framed a
+ * box the same way; camera mover 5 does not — it clamps the resting zoom into the area band, which
+ * a plain `fitBounds` cannot express — so a resize after a country tap re-fitted the box with the
+ * wrong ceiling, or, before this, threw the camera back to the whole library.
+ */
+type Framing =
+  | { readonly kind: 'fit'; readonly target: [[number, number], [number, number]] }
+  | { readonly kind: 'country'; readonly request: FocusBoundsRequest };
+
+/**
  * Container-size observers, keyed by map instance. A module-level `WeakMap` rather than a `useRef`
  * because the React Compiler forbids assigning to a ref that an effect also reads, and the observer
  * has to be created where the instance first arrives (the ref callback), not at mount — the instance
@@ -338,31 +351,56 @@ export function MapSurfaceMapcn({
     latestBounds.current = bounds;
   }, [bounds]);
 
-  /** The last box the camera was actually framed to. A resize re-fits *this*, not whatever the
-   *  full `places` bounding box happens to be now — otherwise a resize silently undoes a focus
-   *  flight and throws the camera back across the world. */
-  const framedTo = useRef<[[number, number], [number, number]] | null>(null);
+  /** The last framing the camera actually took. A resize re-runs *this*, not whatever the full
+   *  `places` bounding box happens to be now — otherwise a resize silently undoes a focus flight
+   *  and throws the camera back across the world. */
+  const framing = useRef<Framing | null>(null);
   /** Set by the first real fit, wherever it comes from. Guards the automatic whole-library
    *  framing so it happens once, on arrival, and never again as a side effect of data changing. */
   const hasFramedOnce = useRef(false);
 
-  const fitTo = useCallback(
-    (map: MapLibreMap, target: [[number, number], [number, number]], animate: boolean) => {
-      const viewportWidth = typeof window === 'undefined' ? 0 : window.innerWidth;
-      // The container is the camera's own frame of reference, so a sheet expressed as a fraction of
-      // it resolves correctly on every re-fit that reads a settled container — the `ResizeObserver`
-      // one below does. The `window` resize listener further down does not: it runs *first* after an
-      // orientation change, against a transform MapLibre has not resized yet. That is a known defect
-      // in the resize path, tracked separately, and not something this function can compensate for.
+  /** The padding a fit has to leave for whatever chrome is over the map right now, measured
+   *  against the container the camera is actually in. Read by every mover, so none of them can
+   *  frame against a different idea of the visible band than the others. */
+  const paddingFor = useCallback(
+    (map: MapLibreMap) => {
       const container = map.getContainer();
-      const padding = fitBoundsPadding(
-        viewportWidth,
+      return fitBoundsPadding(
+        typeof window === 'undefined' ? 0 : window.innerWidth,
         container.clientWidth,
         container.clientHeight,
         restingSheetFraction,
         floatingTopChromePx
       );
-      framedTo.current = target;
+    },
+    [restingSheetFraction, floatingTopChromePx]
+  );
+
+  const fitTo = useCallback(
+    (map: MapLibreMap, target: [[number, number], [number, number]], animate: boolean) => {
+      // The container is the camera's own frame of reference, so a sheet expressed as a fraction of
+      // it resolves correctly on every re-fit that reads a settled container — the `ResizeObserver`
+      // one below does. The `window` resize listener further down does not: it runs *first* after an
+      // orientation change, against a transform MapLibre has not resized yet. That is a known defect
+      // in the resize path, tracked separately, and not something this function can compensate for.
+      const padding = paddingFor(map);
+      // **Ask before recording.** `fitBounds` answers an impossible fit — padding wider or taller
+      // than the *transform* — by doing nothing whatsoever: `cameraForBounds` returns undefined and
+      // `_fitInternal` returns before it moves anything, with no exception, no camera event and
+      // nothing in the console. Recording the framing first therefore filed a fit that never
+      // happened as one that did, and that is a bug with a long tail: `hasFramedOnce` guards the
+      // whole-library framing, so one silent failure stranded the camera for the life of the page
+      // at the transform's own minimum zoom — `log2(containerHeight / 512)` under
+      // `renderWorldCopies: false`, with the latitude clamped to 0 — while every retry, the
+      // `ResizeObserver`'s included, believed the map was framed. Measured against the probe in
+      // `docs/handoff-2026-08-29-…`: a camera reported at `zoom 0.4798` in a 714 px container is
+      // exactly that floor, not a coincidence.
+      //
+      // The impossible case is reachable and not theoretical: MapLibre falls back to a 400×300
+      // transform when it is constructed before its container has a size, and `/map`'s own mobile
+      // padding is 324 px of vertical, which does not fit in 300.
+      if (!map.cameraForBounds(target, { padding, maxZoom: FIT_BOUNDS_MAX_ZOOM })) return;
+      framing.current = { kind: 'fit', target };
       hasFramedOnce.current = true;
       map.fitBounds(target, {
         padding,
@@ -370,7 +408,7 @@ export function MapSurfaceMapcn({
         duration: animate ? FOCUS_FLIGHT_MS : 0,
       });
     },
-    [restingSheetFraction, floatingTopChromePx]
+    [paddingFor]
   );
 
   const fitToBounds = useCallback(
@@ -380,6 +418,74 @@ export function MapSurfaceMapcn({
       fitTo(map, target, false);
     },
     [fitTo]
+  );
+
+  /**
+   * The country framing itself, separated from the effect that requests it so that the resize path
+   * can reproduce it. See camera mover 5 below for why it is `cameraForBounds` → clamp → `easeTo`
+   * and not `fitBounds`.
+   */
+  const frameCountry = useCallback(
+    (map: MapLibreMap, request: FocusBoundsRequest, animate: boolean) => {
+      const { bounds, minZoom, maxZoom } = request;
+      const padding = paddingFor(map);
+      const duration = animate ? COUNTRY_FLIGHT_MS : 0;
+      // A box wider than half the globe is one `unionBounds` cannot describe: it always emits
+      // `west <= east`, so an antimeridian-straddling country arrives here inside out and
+      // `cameraForBounds` frames the long way round. Degrade honestly to the country's own
+      // centroid, which `meanCentroid` computes in 3-D and is correct there, rather than framing a
+      // box that is wrong. Fixing it properly means changing `unionBounds` and `clusterByProximity`
+      // together, which their own headers already say.
+      const centre: [number, number] = [
+        (bounds.west + bounds.east) / 2,
+        (bounds.north + bounds.south) / 2,
+      ];
+      framing.current = { kind: 'country', request };
+      hasFramedOnce.current = true;
+      if (bounds.east - bounds.west > 180) {
+        map.easeTo({ center: centre, zoom: minZoom, duration });
+        return;
+      }
+      const camera = map.cameraForBounds(
+        [
+          [bounds.west, bounds.south],
+          [bounds.east, bounds.north],
+        ],
+        { padding, maxZoom }
+      );
+      const zoom = camera?.zoom;
+      map.easeTo({
+        center: camera?.center ?? centre,
+        zoom: typeof zoom === 'number' && Number.isFinite(zoom) ? Math.max(zoom, minZoom) : minZoom,
+        duration,
+      });
+    },
+    [paddingFor]
+  );
+
+  /**
+   * Put the camera back where it was after the container changed size under it.
+   *
+   * Dispatching on the *kind* of framing rather than re-fitting a stored box is what stops a
+   * resize from quietly demoting a country tap: `fitBounds` has no resting floor, so re-fitting a
+   * country's box through it lands wherever the box happens to fit — on pins for a small country,
+   * on the country marker the user just tapped for a large one — which is precisely the pair of
+   * failures camera mover 5 exists to prevent. Never animated: a resize is not a journey.
+   */
+  const refitFramed = useCallback(
+    (map: MapLibreMap) => {
+      const current = framing.current;
+      if (current === null) {
+        fitToBounds(map);
+        return;
+      }
+      if (current.kind === 'country') {
+        frameCountry(map, current.request, false);
+        return;
+      }
+      fitTo(map, current.target, false);
+    },
+    [fitTo, fitToBounds, frameCountry]
   );
 
   // The viewport reporter, held in a ref so attaching the MapLibre listeners does not depend on the
@@ -467,10 +573,24 @@ export function MapSurfaceMapcn({
    * what the `userInitiated` flag exists to prevent, and worse than not reporting zooms at all.
    * MapLibre's handler manager attaches the wheel/touch/dblclick event that caused the zoom,
    * including onto the inertial `easeTo` it starts itself; a programmatic command carries none.
-   * There is no `NavigationControl` on this map, so there are no zoom buttons to account for.
+   *
+   * **The zoom buttons are the exception, and this comment used to deny they existed.** It said
+   * there is no `NavigationControl` on this map and therefore no buttons to account for — true of
+   * MapLibre's own control and false of the map, which renders mapcn's `<MapControls showZoom>`.
+   * Those buttons call `map.zoomTo`, a programmatic command carrying no `originalEvent`, so
+   * pressing `−` until the country badges appear left the list still describing a city the map had
+   * stopped drawing — the exact symptom `8a15423` was meant to end, surviving on the one zoom
+   * affordance a desktop user is most likely to reach for. They report themselves instead, through
+   * `onUserZoom`; the guard below stays as it is, because it is right about everything else.
    */
   const handleZoomEnd = useCallback((event: { originalEvent?: unknown }) => {
     if (event.originalEvent) pannedSinceReport.current = true;
+  }, []);
+
+  /** A zoom the user asked for through a control rather than a gesture. Same authority as a wheel
+   *  or a pinch: the button is the user's hand, it just leaves no `originalEvent` behind. */
+  const handleControlZoom = useCallback(() => {
+    pannedSinceReport.current = true;
   }, []);
 
   /** Trailing debounce (§4). One pinch or inertial flick emits several `moveend`s; the list must
@@ -563,11 +683,11 @@ export function MapSurfaceMapcn({
         // pins (the symptom as it was observed; the bubbles are gone since `L1-F5-T5`), which is
         // exactly what `current-state.md` §9.1 attributed to fitting all places at once.
         //
-        // Re-fit whatever was last framed, so a resize never undoes a focus flight; fall back to the
-        // initial bounds when nothing has been framed yet.
-        const framed = framedTo.current;
-        if (framed) fitTo(instance, framed, false);
-        else fitToBounds(instance);
+        // Re-run whatever was last framed, so a resize never undoes a focus flight; fall back to
+        // the initial bounds when nothing has been framed yet — which now includes the case where
+        // an earlier fit was impossible against a smaller transform and correctly declined to
+        // record itself, so this is the retry that un-strands the camera.
+        refitFramed(instance);
         // The rect moved with the canvas, and neither `resize()` nor an instant `fitBounds` is
         // guaranteed to leave a `moveend` behind.
         scheduleViewportReport();
@@ -589,7 +709,7 @@ export function MapSurfaceMapcn({
       // instead of producing a pre-fit rect and then a post-fit one.
       whenReady(instance, scheduleViewportReport);
     },
-    [fitToBounds, fitTo, scheduleViewportReport, handleDragEnd, handleZoomEnd]
+    [fitToBounds, refitFramed, scheduleViewportReport, handleDragEnd, handleZoomEnd]
   );
 
   // The **initial** framing, and only that. `attachMapRef`'s `once('load', ...)` races against
@@ -648,6 +768,10 @@ export function MapSurfaceMapcn({
    *
    * `prefers-reduced-motion` needs no branch: `easeTo` sets its own duration to 0 under it, as long
    * as nothing passes `essential: true`, and nothing here does.
+   *
+   * The framing itself lives in `frameCountry` above, because a resize has to be able to reproduce
+   * it. It did not, until now: this flight recorded nothing, so the next container resize re-fitted
+   * the *library* box and threw the camera back off the country the user had just chosen.
    */
   const flownBounds = useRef<MapSurfaceProps['focusBounds']>(undefined);
   useEffect(() => {
@@ -656,45 +780,8 @@ export function MapSurfaceMapcn({
     const instance = mapRef.current;
     if (!instance) return;
     flownBounds.current = focusBounds;
-    whenReady(instance, () => {
-      const { bounds, minZoom, maxZoom } = focusBounds;
-      const container = instance.getContainer();
-      const padding = fitBoundsPadding(
-        typeof window === 'undefined' ? 0 : window.innerWidth,
-        container.clientWidth,
-        container.clientHeight,
-        restingSheetFraction,
-        floatingTopChromePx
-      );
-      // A box wider than half the globe is one `unionBounds` cannot describe: it always emits
-      // `west <= east`, so an antimeridian-straddling country arrives here inside out and
-      // `cameraForBounds` frames the long way round. Degrade honestly to the country's own
-      // centroid, which `meanCentroid` computes in 3-D and is correct there, rather than framing a
-      // box that is wrong. Fixing it properly means changing `unionBounds` and `clusterByProximity`
-      // together, which their own headers already say.
-      const centre: [number, number] = [
-        (bounds.west + bounds.east) / 2,
-        (bounds.north + bounds.south) / 2,
-      ];
-      if (bounds.east - bounds.west > 180) {
-        instance.easeTo({ center: centre, zoom: minZoom, duration: COUNTRY_FLIGHT_MS });
-        return;
-      }
-      const camera = instance.cameraForBounds(
-        [
-          [bounds.west, bounds.south],
-          [bounds.east, bounds.north],
-        ],
-        { padding, maxZoom }
-      );
-      const zoom = camera?.zoom;
-      instance.easeTo({
-        center: camera?.center ?? centre,
-        zoom: typeof zoom === 'number' && Number.isFinite(zoom) ? Math.max(zoom, minZoom) : minZoom,
-        duration: COUNTRY_FLIGHT_MS,
-      });
-    });
-  }, [focusBounds, restingSheetFraction, floatingTopChromePx]);
+    whenReady(instance, () => frameCountry(instance, focusBounds, true));
+  }, [focusBounds, frameCountry]);
 
   /**
    * **Camera mover 6: the pin you just tapped is not allowed to vanish under the sheet.**
@@ -779,13 +866,12 @@ export function MapSurfaceMapcn({
   useEffect(() => {
     const handleResize = () => {
       const instance = mapRef.current;
-      const target = framedTo.current;
-      if (!instance || !target) return;
-      fitTo(instance, target, false);
+      if (!instance) return;
+      refitFramed(instance);
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [fitTo]);
+  }, [refitFramed]);
 
   return (
     <MapcnMap
@@ -798,7 +884,7 @@ export function MapSurfaceMapcn({
           "fullscreen" on a surface that already fills the viewport is an icon for a no-op — five
           stacked buttons were ~250px of an 812px phone, and the two lowest of them sat under the
           sheet. */}
-      <MapControls showZoom showLocate />
+      <MapControls showZoom showLocate onUserZoom={handleControlZoom} />
       <BasemapTint />
       {hasSummaryBands && (
         <SummaryMarkerLayer
