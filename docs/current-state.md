@@ -2,10 +2,34 @@
 
 > **Read this section, then §9. Everything between them is history and is dated.**
 >
-> Last reconciled: **2026-08-30**, at the close of the collections session.
+> Last reconciled: **2026-08-30**, at the close of the overnight product pass.
 > The newest session handoff is
-> [`handoff-2026-08-30-collections.md`](handoff-2026-08-30-collections.md), and it is the one to
-> read — everything below it dates from 2026-08-28 or earlier.
+> [`handoff-2026-08-30-overnight-product-pass.md`](handoff-2026-08-30-overnight-product-pass.md),
+> and it is the one to read. Everything below the next section dates from 2026-08-29 or earlier.
+
+## What changed overnight, 2026-08-30 — twelve PRs, all merged
+
+Full account in the handoff above. The three things a new session must not re-derive:
+
+**Two complete components were found unrendered**, both reviewed, both looking finished, both
+dead — `NoPlacesScreen` (the screen most imports end on) and `AddSheet` (the whole create menu).
+`npm run verify` was green because they were unreachable, not because they worked. After a session
+that ends early, grep new components for call sites before trusting a green suite.
+
+**`＋` now opens the create menu and a place can be added by name** (manual add, `L1-F7-T1`). One
+Google Places lookup, on explicit submit only; typing searches the local library and cannot reach a
+provider.
+
+**Area grouping no longer merges separate cities.** Two places link within 2 km, or within 50 km
+when both localities normalise the same. A name may only ever *join*, never *split* — the veto
+variants are measured and rejected (see the handoff §2), so do not re-propose them. **The related
+defect that is still open** is `candidate-place.ts:254-255`: an `llm_guess` place takes its
+`locality` *and* its coordinates from the model, so a wrong city guess produces a wrong label and a
+wrong pin together, and no grouping rule can separate that.
+
+Also shipped: the map's zoom/locate controls are reachable on a phone at all; a row says when its
+pin is only approximate; a place lists your other places within a walk; `/profile` exists and holds
+sign-out; the import wait stops claiming "a few seconds" through a 30-second extraction.
 
 ## What changed on 2026-08-30, on `feat/collections` — **merged to `main` as `a245f8b`**
 
