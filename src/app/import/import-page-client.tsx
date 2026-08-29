@@ -84,6 +84,7 @@ import {
 import type { Candidate, PlaceCandidate } from '@/domain/types';
 import type { DomainErrorCode } from '@/domain/errors';
 import { IMPORT_SEED_LINKS } from '@/ui/import/seed-links';
+import { railWaitLine } from '@/ui/import/rail-wait-line';
 import {
   COPY_LINK_INSTRUCTION,
   IMPORT_ERROR_ACTION_LABEL,
@@ -1108,6 +1109,18 @@ function RailScreen({
    */
   const stages: readonly PipelineStage[] = ['source', 'extract'];
 
+  /**
+   * Elapsed time, only so the line below can stop claiming "a few seconds" through a 30-second
+   * wait. One second is the coarsest tick that still lets the copy change on its thresholds, and
+   * the interval is cleared on unmount — this screen is replaced the moment the probe answers.
+   */
+  const [elapsedMs, setElapsedMs] = useState(0);
+  useEffect(() => {
+    const startedAt = Date.now();
+    const id = setInterval(() => setElapsedMs(Date.now() - startedAt), 1000);
+    return () => clearInterval(id);
+  }, []);
+
   return (
     <div className="flex flex-1 flex-col">
       <div className="flex flex-col gap-1 pb-10">
@@ -1115,8 +1128,10 @@ function RailScreen({
         <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">
           Adding your TikTok
         </h1>
-        <p className="text-sm font-medium text-muted-foreground">
-          This usually takes a few seconds.
+        {/* `aria-live="polite"`: the line changes while the user is waiting and a screen reader
+            user has no other way to learn that anything is still happening. */}
+        <p aria-live="polite" className="text-sm font-medium text-muted-foreground">
+          {railWaitLine(elapsedMs)}
         </p>
       </div>
 
