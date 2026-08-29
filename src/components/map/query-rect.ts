@@ -136,10 +136,22 @@ export const MIN_FIT_BAND_PX = 48;
  * chrome, and a bottom sheet that may rest at over half the viewport — and nothing stops their sum
  * from exceeding the container. A phone in landscape with a half-height sheet does it.
  *
- * Both sides of an over-budget axis are scaled by the same factor rather than one being sacrificed,
- * so the surviving band keeps its position between the chrome above and the sheet below: every pin
- * loses clearance evenly instead of some of them sliding back under the sheet. The result is honest
- * degradation — visibly cramped, but framed, finite and on screen.
+ * **What this guarantees is a strictly positive band, and nothing more.** Both sides of an
+ * over-budget axis are scaled by the same factor rather than one being sacrificed, which preserves
+ * the *ratio* between them and so keeps the surviving band roughly where it was between the chrome
+ * above and the sheet below. It does not preserve either side's absolute clearance and it cannot:
+ * once the scale factor drops below `sheet / (MIN_FIT_BAND_PX + sheet)` the scaled bottom padding is
+ * smaller than the sheet it was supposed to clear, and the lowest pin slides back underneath it.
+ * That is measured, not hypothetical — at 640×360 with a 0.55 resting sheet and `/map`'s 100 px
+ * top-chrome allowance the clamp returns 194.8 px of bottom padding against a 198.0 px sheet.
+ *
+ * So **clearing the sheet is the caller's job, done by passing padding that fits** — never the
+ * clamp's. The clamp is the last resort that stops `fitBounds` being handed a box with nothing in
+ * it: a negative remainder makes it warn and silently not move, a zero remainder gives a NaN
+ * centre. A surface that needs its pins above its own sheet must not spend padding it has not got,
+ * which is why the floating-chrome allowance is a prop (`MapSurfaceProps.floatingTopChromePx`)
+ * rather than a constant — `/collections/[id]` has no floating top chrome, so it declares zero
+ * instead of paying `/map`'s 100 px and pushing the clamp down into its own sheet.
  */
 export function clampFitPadding(
   padding: { top: number; bottom: number; left: number; right: number },
@@ -157,8 +169,10 @@ function clampPaddingAxis(start: number, end: number, extent: number): [number, 
   if (!Number.isFinite(extent) || extent <= 0) return [0, 0];
   const a = Number.isFinite(start) && start > 0 ? start : 0;
   const b = Number.isFinite(end) && end > 0 ? end : 0;
-  // Never spend more than half the axis on the band itself, so a viewport shorter than 192 px still
-  // gets padding rather than having all of it clamped away.
+  // Never spend more than half the axis on the band itself. The rule engages below 2 ×
+  // MIN_FIT_BAND_PX — 96 px of extent — where reserving the whole floor would be most of the
+  // container and would clamp the padding away to nothing, leaving pins flush against (and under)
+  // the chrome. Below that the floor becomes `extent / 2` instead.
   const budget = extent - Math.min(MIN_FIT_BAND_PX, extent / 2);
   if (a + b <= budget) return [a, b];
   return [(a * budget) / (a + b), (b * budget) / (a + b)];

@@ -125,13 +125,20 @@ const CARTO_LIGHT_STYLE = 'https://basemaps.cartocdn.com/gl/positron-gl-style/st
 const FIT_BOUNDS_PADDING = 48;
 const FIT_BOUNDS_MAX_ZOOM = 15;
 
-// Extra top padding for the floating chrome that overlays the map's top edge on every breakpoint:
-// the account chip (`map/page.tsx`, a 44px pill at `top: safe-area + 0.75rem`) and the post-import
-// confirmation (`import-confirmation.tsx`, same band). Without it a fitted pin lands *underneath*
-// them — visible in the first working version of the post-import flight, where the northernmost
-// London pin sat half-hidden behind the "8 already saved" strip.
-// Below `lg` the confirmation drops to a second row under the account chip (see
-// `import-confirmation.tsx`), so the band it has to clear is that much deeper.
+// Extra top padding for the floating chrome that overlays the map's top edge — the **default**,
+// used by any surface that does not declare its own (`MapSurfaceProps.floatingTopChromePx`).
+// These two numbers describe `/map` specifically: the account chip (`map/page.tsx`, a 44px pill at
+// `top: safe-area + 0.75rem`) and the post-import confirmation (`import-confirmation.tsx`, same
+// band). Without them a fitted pin lands *underneath* — visible in the first working version of the
+// post-import flight, where the northernmost London pin sat half-hidden behind the "8 already
+// saved" strip. Below `lg` the confirmation drops to a second row under the account chip, so the
+// band it has to clear is that much deeper.
+//
+// They were applied to every surface until `L2-COLL-CAM-2`. `/collections/[id]` has neither of
+// these overlays — grep it: nothing in `collection-client.tsx` or `components/collections/**` is
+// `absolute` or `fixed` over the map, and `<MapControls>` defaults to bottom-right — so it was
+// paying 100 px for chrome that is not there, out of a container that on a landscape phone has no
+// 100 px to spare.
 const FLOATING_TOP_CHROME_PX = 56;
 const FLOATING_TOP_CHROME_MOBILE_PX = 100;
 
@@ -149,33 +156,48 @@ const FOCUS_FLIGHT_MS = 1200;
  * pin that renders in the GL layer under an opaque panel is invisible and unclickable.
  *
  * So the padding is the occlusion above **plus** the cosmetic 48 px **plus** the floating top
- * chrome (present at every width; below `lg` the post-import confirmation drops to a second row, so
- * the band is deeper). Only the first of those three is shared with the query rect — see
- * `mapOcclusionInsets` for why the other two are camera-only.
+ * chrome. Only the first of those three is shared with the query rect — see `mapOcclusionInsets`
+ * for why the other two are camera-only.
  *
- * `restingSheetFraction` is the caller saying its sheet rests somewhere other than the peek stop.
- * It is resolved against the **container** height passed in, not `window.innerHeight`, for the same
- * reason `reportViewport` reads the container: the container is what `unproject` and the camera
- * both speak, and a stale size has already cost this file a real bug. Resolving it here rather than
- * at the call site is also what makes a resize or an orientation change free — the existing re-fit
- * path re-enters this function with the new container and gets the new pixel value for nothing.
+ * Both of the last two are **the caller's to declare**, because both are properties of the
+ * composition around the map rather than of the map:
+ *  - `restingSheetFraction` — its sheet rests somewhere other than the peek stop.
+ *  - `floatingTopChromePx` — how deep a band of floating chrome it puts over the map's top edge,
+ *    `0` for a surface with none. Omitted keeps `/map`'s constants, which is what this function
+ *    used to apply to every surface unconditionally. That default was the bug behind
+ *    `L2-COLL-CAM-2`: `/collections/[id]` renders nothing over its map, so charging it 100 px was
+ *    100 px of a short container spent on chrome that does not exist, and on a landscape phone it
+ *    pushed the total past the container and into the clamp — which then scaled the *sheet's*
+ *    allowance down too and put the lowest pin back underneath it. Measured at 640×360: 394 px of
+ *    padding in a 360 px container, clamped to a 194.8 px bottom against a 198.0 px sheet.
+ *
+ * The sheet fraction is resolved against the **container** height passed in, not
+ * `window.innerHeight`, for the same reason `reportViewport` reads the container: the container is
+ * what `unproject` and the camera both speak, and a stale size has already cost this file a real
+ * bug. Resolving it here rather than at the call site is also what keeps a re-fit cheap — the
+ * re-fit path re-enters this function with whatever container it has now and gets the new pixel
+ * value for nothing. (Whether an *orientation change* re-fits against the new container is a
+ * separate, known defect in the resize path below, tracked outside this task.)
  *
  * Clamped on the way out, because these three summands are independent and their sum can exceed
- * the container: at 375×812 a half-resting sheet already spends 643 of 812 px, and the same sheet
- * in landscape spends more than there is. See `clampFitPadding`.
+ * the container: at 375×812 a half-resting sheet already spends 543 of 812 px, and on a landscape
+ * phone the margin is thin enough that a phantom 100 px is the difference. See `clampFitPadding`,
+ * which is explicit that surviving the clamp is not the same as clearing the sheet.
  */
 function fitBoundsPadding(
   viewportWidth: number,
   containerWidth: number,
   containerHeight: number,
-  restingSheetFraction: number | undefined
+  restingSheetFraction: number | undefined,
+  floatingTopChromePx: number | undefined
 ): { top: number; bottom: number; left: number; right: number } {
   const occlusion = mapOcclusionInsets(
     viewportWidth,
     restingSheetFraction === undefined ? undefined : restingSheetFraction * containerHeight
   );
   const topChrome =
-    viewportWidth < LG_BREAKPOINT_PX ? FLOATING_TOP_CHROME_MOBILE_PX : FLOATING_TOP_CHROME_PX;
+    floatingTopChromePx ??
+    (viewportWidth < LG_BREAKPOINT_PX ? FLOATING_TOP_CHROME_MOBILE_PX : FLOATING_TOP_CHROME_PX);
   return clampFitPadding(
     {
       top: FIT_BOUNDS_PADDING + topChrome + occlusion.top,
@@ -248,6 +270,7 @@ export function MapSurfaceMapcn({
   onDeselect,
   focusPlaceIds,
   restingSheetFraction,
+  floatingTopChromePx,
   onViewportChange,
 }: MapSurfaceProps) {
   const data = useMemo(() => toPlaceFeatures(places), [places]);
@@ -274,14 +297,17 @@ export function MapSurfaceMapcn({
     (map: MapLibreMap, target: [[number, number], [number, number]], animate: boolean) => {
       const viewportWidth = typeof window === 'undefined' ? 0 : window.innerWidth;
       // The container is the camera's own frame of reference, so a sheet expressed as a fraction of
-      // it resolves correctly on every re-fit — including the `ResizeObserver` one, which is the
-      // only thing that runs after an orientation change.
+      // it resolves correctly on every re-fit that reads a settled container — the `ResizeObserver`
+      // one below does. The `window` resize listener further down does not: it runs *first* after an
+      // orientation change, against a transform MapLibre has not resized yet. That is a known defect
+      // in the resize path, tracked separately, and not something this function can compensate for.
       const container = map.getContainer();
       const padding = fitBoundsPadding(
         viewportWidth,
         container.clientWidth,
         container.clientHeight,
-        restingSheetFraction
+        restingSheetFraction,
+        floatingTopChromePx
       );
       framedTo.current = target;
       hasFramedOnce.current = true;
@@ -291,7 +317,7 @@ export function MapSurfaceMapcn({
         duration: animate ? FOCUS_FLIGHT_MS : 0,
       });
     },
-    [restingSheetFraction]
+    [restingSheetFraction, floatingTopChromePx]
   );
 
   const fitToBounds = useCallback(
