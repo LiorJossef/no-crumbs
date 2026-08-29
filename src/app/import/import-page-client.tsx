@@ -1529,8 +1529,16 @@ function CaptionPreviewScreen({
       <div className="flex shrink-0 items-center gap-3 pb-3">
         {probe.thumbnailUrl ? (
           // A signed, ~6-month-expiry remote TikTok CDN URL; not worth a next/image
-          // remotePatterns entry.
-          <img src={probe.thumbnailUrl} alt="" className="size-12 shrink-0 rounded-lg object-cover" />
+          // remotePatterns entry. `referrerPolicy="no-referrer"` for the same reason the saved
+          // place's thumbnail carries it: without it the browser hands TikTok's CDN the URL of the
+          // screen the user is on. It does not hide the request itself — the CDN still sees the IP
+          // and the user agent — it only stops us telling them where from.
+          <img
+            src={probe.thumbnailUrl}
+            alt=""
+            referrerPolicy="no-referrer"
+            className="size-12 shrink-0 rounded-lg object-cover"
+          />
         ) : (
           <span
             aria-hidden
