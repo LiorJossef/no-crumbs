@@ -58,9 +58,48 @@ export type ElsewhereEntry =
       /** Matches across the country's areas, excluding the active one. */
       readonly count: number;
       readonly areas: readonly AreaRow[];
-      /** Rule 3. Open on arrival when this is the country you are already in. */
+      /**
+       * Rule 3, extended. Open on arrival when this is the country you are in **or** the one you
+       * just came from — which is what makes an area switch reversible in one tap instead of
+       * three, without a back chevron, a second screen or a navigation stack.
+       */
       readonly expandedByDefault: boolean;
     };
+
+/**
+ * Which areas the section is being built around.
+ *
+ * `previousAreaId` is the area an explicit tap moved *away* from, and only an explicit tap: a
+ * pan-driven switch does not write it, because a pan is not a navigation anyone is trying to undo.
+ */
+export interface ElsewhereScope {
+  readonly activeAreaId: string | null;
+  readonly previousAreaId?: string | null;
+}
+
+/**
+ * Whether a country group is open, resolved from the user's own toggles and the surface's default.
+ *
+ * Three inputs, in the order they win:
+ *
+ *  1. **An explicit toggle always wins.** Nothing below may reach past a control the user pressed.
+ *  2. **Any active filter opens every group** — a collapsed group under a search hides the answer
+ *     to the question just asked. The whole point of a filtered `Elsewhere` is that it names where
+ *     the matches are without a tap, and `Japan · 3 matches ⌄` gives that back. The forced state is
+ *     a *default*, not a write, so clearing the filter restores whatever the surface would show.
+ *  3. **The surface's own default.** Desktop opens everything (§9: there is room, and collapsing is
+ *     a mobile economy); the sheet opens the country you are in and the one you came from.
+ */
+export type ExpansionDefault = 'active-and-previous' | 'all';
+
+export function isCountryExpanded(
+  entry: Extract<ElsewhereEntry, { kind: 'country' }>,
+  overrides: ReadonlyMap<string, boolean>,
+  mode: ExpansionDefault,
+  filtering: boolean,
+): boolean {
+  return overrides.get(entry.key) ?? (filtering || mode === 'all' || entry.expandedByDefault);
+}
 
 /**
  * Build the section.
@@ -77,10 +116,16 @@ export type ElsewhereEntry =
  */
 export function elsewhereGroups<T>(
   countries: readonly CountrySummary<T>[],
-  activeAreaId: string | null,
+  scope: ElsewhereScope,
   matchIds: ReadonlySet<string>,
 ): readonly ElsewhereEntry[] {
-  const activeCountryKey = countryKeyOfActiveArea(countries, activeAreaId);
+  const { activeAreaId, previousAreaId = null } = scope;
+  const openKeys = new Set(
+    [
+      countryKeyOfArea(countries, activeAreaId),
+      countryKeyOfArea(countries, previousAreaId),
+    ].filter((key): key is string => key !== null),
+  );
   const entries: ElsewhereEntry[] = [];
 
   for (const country of countries) {
@@ -120,7 +165,7 @@ export function elsewhereGroups<T>(
       label: country.label,
       count: rows.reduce((total, row) => total + row.count, 0),
       areas: rows,
-      expandedByDefault: country.key === activeCountryKey,
+      expandedByDefault: openKeys.has(country.key),
     });
   }
 
@@ -135,16 +180,16 @@ function toRow<T>(area: Area<T>, matchIds: ReadonlySet<string>): AreaRow | null 
   return { id: area.id, label: area.label ?? UNNAMED_OTHER_AREA_LABEL, count };
 }
 
-/** Which country the user is currently standing in, for rule 3. `null` when the active area is
- *  countryless, or when there is no active area at all — neither can match a real country's key. */
-function countryKeyOfActiveArea<T>(
+/** The country an area sits in, for rule 3. `null` for a countryless area or no area at all —
+ *  neither can match a real country's key, and neither is a group that could open. */
+function countryKeyOfArea<T>(
   countries: readonly CountrySummary<T>[],
-  activeAreaId: string | null,
+  areaId: string | null,
 ): string | null {
-  if (activeAreaId === null) return null;
+  if (areaId === null) return null;
   for (const country of countries) {
     if (country.countryCode === null) continue;
-    if (country.areas.some((area) => area.id === activeAreaId)) return countryKey(country.countryCode);
+    if (country.areas.some((area) => area.id === areaId)) return countryKey(country.countryCode);
   }
   return null;
 }

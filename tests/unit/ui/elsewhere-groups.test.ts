@@ -14,7 +14,11 @@ import { describe, expect, it } from 'vitest';
 
 import { clusterByProximity } from '@/domain/places/clusters';
 import { buildAreas, type Area } from '@/ui/place/active-area';
-import { countryGroupAccessibleName, elsewhereGroups } from '@/ui/place/elsewhere-groups';
+import {
+  countryGroupAccessibleName,
+  elsewhereGroups,
+  isCountryExpanded,
+} from '@/ui/place/elsewhere-groups';
 import { NO_COUNTRY_KEY, summariseByCountry } from '@/ui/place/library-summary';
 
 interface TestPlace {
@@ -124,7 +128,7 @@ describe('summariseByCountry', () => {
 
 describe('elsewhereGroups', () => {
   it('makes a country with two or more remaining areas a group, and one with a single area a row', () => {
-    const entries = elsewhereGroups(countriesOf(), areaIdNamed('London'), allIds());
+    const entries = elsewhereGroups(countriesOf(), { activeAreaId: areaIdNamed('London') }, allIds());
 
     const uk = entries.find((e) => e.kind === 'country');
     expect(uk?.kind === 'country' && uk.label).toBe('United Kingdom');
@@ -144,7 +148,7 @@ describe('elsewhereGroups', () => {
     const withoutManchester = library.filter((place) => !place.id.startsWith('man'));
     const entries = elsewhereGroups(
       countriesOf(withoutManchester),
-      areaIdNamed('London', withoutManchester),
+      { activeAreaId: areaIdNamed('London', withoutManchester) },
       allIds(withoutManchester),
     );
 
@@ -155,17 +159,30 @@ describe('elsewhereGroups', () => {
   });
 
   it('expands the active area’s own country by default, and nothing else', () => {
-    const inLondon = elsewhereGroups(countriesOf(), areaIdNamed('London'), allIds());
+    const inLondon = elsewhereGroups(countriesOf(), { activeAreaId: areaIdNamed('London') }, allIds());
     const uk = inLondon.find((e) => e.kind === 'country');
     expect(uk?.kind === 'country' && uk.expandedByDefault).toBe(true);
 
-    const inTelAviv = elsewhereGroups(countriesOf(), areaIdNamed('Tel Aviv-Yafo'), allIds());
+    const inTelAviv = elsewhereGroups(countriesOf(), { activeAreaId: areaIdNamed('Tel Aviv-Yafo') }, allIds());
     const ukFromAbroad = inTelAviv.find((e) => e.kind === 'country');
     expect(ukFromAbroad?.kind === 'country' && ukFromAbroad.expandedByDefault).toBe(false);
   });
 
+  it('also expands the country you came from, so the way back is one tap', () => {
+    // Standing in Tel Aviv, having arrived from London: the UK opens, unasked.
+    const entries = elsewhereGroups(
+      countriesOf(),
+      { activeAreaId: areaIdNamed('Tel Aviv-Yafo'), previousAreaId: areaIdNamed('London') },
+      allIds(),
+    );
+    const uk = entries.find((e) => e.kind === 'country');
+
+    expect(uk?.kind === 'country' && uk.expandedByDefault).toBe(true);
+    expect(uk?.kind === 'country' && uk.areas.map((a) => a.label)).toContain('London');
+  });
+
   it('renders countryless areas as top-level rows, unflagged and last (rule 6)', () => {
-    const entries = elsewhereGroups(countriesOf(), areaIdNamed('London'), allIds());
+    const entries = elsewhereGroups(countriesOf(), { activeAreaId: areaIdNamed('London') }, allIds());
     const last = entries[entries.length - 1];
 
     expect(last?.kind).toBe('area');
@@ -176,7 +193,7 @@ describe('elsewhereGroups', () => {
   it('counts matches under a filter and drops anything the filter emptied, groups included', () => {
     // Only Bristol survives the filter. The UK therefore has one remaining area and becomes a row.
     const bristolOnly = new Set(bristolPlaces.map((p) => p.id));
-    const entries = elsewhereGroups(countriesOf(), areaIdNamed('London'), bristolOnly);
+    const entries = elsewhereGroups(countriesOf(), { activeAreaId: areaIdNamed('London') }, bristolOnly);
 
     expect(entries).toHaveLength(1);
     const only = entries[0];
@@ -186,7 +203,7 @@ describe('elsewhereGroups', () => {
 
   it('never renders the active area as a row of its own', () => {
     const london = areaIdNamed('London');
-    const entries = elsewhereGroups(countriesOf(), london, allIds());
+    const entries = elsewhereGroups(countriesOf(), { activeAreaId: london }, allIds());
     const everyAreaId = entries.flatMap((entry) =>
       entry.kind === 'area' ? [entry.row.id] : entry.areas.map((a) => a.id),
     );
@@ -196,7 +213,7 @@ describe('elsewhereGroups', () => {
 
   it('reaches every non-active area from the section — the §6 accessibility requirement', () => {
     const london = areaIdNamed('London');
-    const entries = elsewhereGroups(countriesOf(), london, allIds());
+    const entries = elsewhereGroups(countriesOf(), { activeAreaId: london }, allIds());
     const reachable = new Set(
       entries.flatMap((entry) =>
         entry.kind === 'area' ? [entry.row.id] : entry.areas.map((a) => a.id),
@@ -209,9 +226,17 @@ describe('elsewhereGroups', () => {
     expect([...reachable].sort()).toEqual([...expected].sort());
   });
 
+  it('names an area it cannot label honestly, and never “this area”', () => {
+    const entries = elsewhereGroups(countriesOf(), { activeAreaId: areaIdNamed('London') }, allIds());
+    const unnamed = entries.find((e) => e.kind === 'area' && e.countryCode === null);
+
+    // `this area` is only ever true of the one you are in; a row you can travel to is `Another area`.
+    expect(unnamed?.kind === 'area' && unnamed.row.label).toBe('Another area');
+  });
+
   it('is deterministic: the same library twice produces the same order', () => {
-    const once = elsewhereGroups(countriesOf(), areaIdNamed('London'), allIds()).map((e) => e.key);
-    const twice = elsewhereGroups(countriesOf(), areaIdNamed('London'), allIds()).map((e) => e.key);
+    const once = elsewhereGroups(countriesOf(), { activeAreaId: areaIdNamed('London') }, allIds()).map((e) => e.key);
+    const twice = elsewhereGroups(countriesOf(), { activeAreaId: areaIdNamed('London') }, allIds()).map((e) => e.key);
 
     expect(once).toEqual(twice);
   });
@@ -219,7 +244,7 @@ describe('elsewhereGroups', () => {
 
 describe('countryGroupAccessibleName', () => {
   it('says the name, the count and the state, in that order', () => {
-    const entries = elsewhereGroups(countriesOf(), areaIdNamed('London'), allIds());
+    const entries = elsewhereGroups(countriesOf(), { activeAreaId: areaIdNamed('London') }, allIds());
     const uk = entries.find((e) => e.kind === 'country');
     if (uk?.kind !== 'country') throw new Error('expected a country group');
 
@@ -229,5 +254,38 @@ describe('countryGroupAccessibleName', () => {
     expect(countryGroupAccessibleName(uk, true, true)).toBe(
       'United Kingdom, 5 matches in 2 areas, collapse',
     );
+  });
+});
+
+describe('isCountryExpanded', () => {
+  const ukGroup = () => {
+    const entry = elsewhereGroups(
+      countriesOf(),
+      { activeAreaId: areaIdNamed('Tel Aviv-Yafo') },
+      allIds(),
+    ).find((e) => e.kind === 'country');
+    if (entry?.kind !== 'country') throw new Error('expected a country group');
+    return entry;
+  };
+
+  const none: ReadonlyMap<string, boolean> = new Map();
+
+  it('follows the surface default when the user has said nothing', () => {
+    // Not the active country, so the sheet keeps it closed and the desktop panel opens it (§9).
+    expect(isCountryExpanded(ukGroup(), none, 'active-and-previous', false)).toBe(false);
+    expect(isCountryExpanded(ukGroup(), none, 'all', false)).toBe(true);
+  });
+
+  it('opens every group while a filter is active, so a search never hides its own answer', () => {
+    expect(isCountryExpanded(ukGroup(), none, 'active-and-previous', true)).toBe(true);
+  });
+
+  it('lets an explicit toggle win over both, in both directions', () => {
+    const closed = new Map([[ukGroup().key, false]]);
+    const open = new Map([[ukGroup().key, true]]);
+
+    // Even under a filter, a group the user closed stays closed — the expander still works.
+    expect(isCountryExpanded(ukGroup(), closed, 'active-and-previous', true)).toBe(false);
+    expect(isCountryExpanded(ukGroup(), open, 'active-and-previous', false)).toBe(true);
   });
 });

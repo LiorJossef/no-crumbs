@@ -62,6 +62,10 @@ import type { Map as MapLibreMap } from 'maplibre-gl';
 import { Map as MapcnMap, MapControls, MapPopup } from '@/components/ui/map';
 import { PlaceDetail } from '@/components/sheet/place-sheet';
 import type { LatLngBoundsHint, MapPlace, MapSurfaceProps } from './types';
+import { SummaryMarkerLayer } from './summary-marker-layer';
+import { toAreaFeatures, toCountryFeatures } from './summary-features';
+import { AREA_DISC_SPEC } from './summary-style';
+import { useDiscTheme } from './use-disc-theme';
 import { clampFitPadding, LG_BREAKPOINT_PX, mapOcclusionInsets, queryRectFrom } from './query-rect';
 import { BasemapTint } from './basemap-tint-layer';
 import { toPlaceFeatures } from './place-features';
@@ -147,6 +151,10 @@ const FLOATING_TOP_CHROME_MOBILE_PX = 100;
 // answer to "where did my eight places go". MapLibre honours `prefers-reduced-motion` for
 // `fitBounds` internally (it drops the animation), so no separate branch is needed here.
 const FOCUS_FLIGHT_MS = 1200;
+
+// Shorter than the post-import flight, because it is answering a tap rather than reporting that
+// something happened while the user was not looking (`ux-library-at-scale.md` §7).
+const COUNTRY_FLIGHT_MS = 600;
 
 /**
  * The base 48 px `fitBounds` padding treats the whole viewport as available map space. That is
@@ -269,11 +277,36 @@ export function MapSurfaceMapcn({
   selected = null,
   onDeselect,
   focusPlaceIds,
+  summaries,
+  onAreaClick,
+  onCountryClick,
+  focusBounds,
   restingSheetFraction,
   floatingTopChromePx,
   onViewportChange,
 }: MapSurfaceProps) {
   const data = useMemo(() => toPlaceFeatures(places), [places]);
+  const theme = useDiscTheme();
+  const countryFeatures = useMemo(
+    () => toCountryFeatures(summaries?.countries ?? [], summaries?.activeCountryKey ?? null, theme),
+    [summaries, theme]
+  );
+  const areaFeatures = useMemo(() => toAreaFeatures(summaries?.areas ?? []), [summaries]);
+  // Every disc either band's features can reference: one per country in the state it is drawn in,
+  // plus the plain flagless disc the *area* band draws on. Derived from the same list the features
+  // are, so an `icon-image` id can never be referenced without its image having been offered to
+  // `addImage` in the same commit — a symbol that names a missing image draws no icon, and with a
+  // count in the same layer it would degrade to a bare number floating on the map.
+  const discs = useMemo(
+    () => [
+      AREA_DISC_SPEC,
+      ...(summaries?.countries ?? []).map((country) => ({
+        countryCode: country.countryCode,
+        ...(country.key === summaries?.activeCountryKey ? { active: true } : {}),
+      })),
+    ],
+    [summaries]
+  );
   const bounds = useMemo(() => boundsFor(places, initialBounds), [places, initialBounds]);
 
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -551,6 +584,71 @@ export function MapSurfaceMapcn({
     whenReady(instance, () => fitTo(instance, target, true));
   }, [focusPlaceIds, places, fitTo]);
 
+  /**
+   * **Camera mover 5: a country tap frames that country's areas, clamped inside the area band.**
+   *
+   * Not `fitBounds`, and that is a measured correction rather than a preference. `fitBounds`'
+   * `minZoom` is inherited from `FlyToOptions` and means "a floor on the flight *arc*" — it is read
+   * inside `flyTo` and ignored under `linear: true`, so it cannot bound where the camera comes to
+   * rest. `cameraForBounds` → clamp → `easeTo` is the only shape that can.
+   *
+   * The floor is what makes the gesture work at all, and both of its failures were measured on a
+   * 390×844 transform with `/map`'s real padding. A globe-spanning country fits at zoom −0.331,
+   * which is *below* the country band: you tap a country and arrive back on country markers, so
+   * the tap appears to do nothing. A country holding one saved place is a zero-extent box, which
+   * fits at the ceiling and drops you straight onto a pin — the one outcome §2.4 forbids by name,
+   * since you can never jump from a country to pins.
+   *
+   * `prefers-reduced-motion` needs no branch: `easeTo` sets its own duration to 0 under it, as long
+   * as nothing passes `essential: true`, and nothing here does.
+   */
+  const flownBounds = useRef<MapSurfaceProps['focusBounds']>(undefined);
+  useEffect(() => {
+    if (!focusBounds) return;
+    if (flownBounds.current === focusBounds) return;
+    const instance = mapRef.current;
+    if (!instance) return;
+    flownBounds.current = focusBounds;
+    whenReady(instance, () => {
+      const { bounds, minZoom, maxZoom } = focusBounds;
+      const container = instance.getContainer();
+      const padding = fitBoundsPadding(
+        typeof window === 'undefined' ? 0 : window.innerWidth,
+        container.clientWidth,
+        container.clientHeight,
+        restingSheetFraction,
+        floatingTopChromePx
+      );
+      // A box wider than half the globe is one `unionBounds` cannot describe: it always emits
+      // `west <= east`, so an antimeridian-straddling country arrives here inside out and
+      // `cameraForBounds` frames the long way round. Degrade honestly to the country's own
+      // centroid, which `meanCentroid` computes in 3-D and is correct there, rather than framing a
+      // box that is wrong. Fixing it properly means changing `unionBounds` and `clusterByProximity`
+      // together, which their own headers already say.
+      const centre: [number, number] = [
+        (bounds.west + bounds.east) / 2,
+        (bounds.north + bounds.south) / 2,
+      ];
+      if (bounds.east - bounds.west > 180) {
+        instance.easeTo({ center: centre, zoom: minZoom, duration: COUNTRY_FLIGHT_MS });
+        return;
+      }
+      const camera = instance.cameraForBounds(
+        [
+          [bounds.west, bounds.south],
+          [bounds.east, bounds.north],
+        ],
+        { padding, maxZoom }
+      );
+      const zoom = camera?.zoom;
+      instance.easeTo({
+        center: camera?.center ?? centre,
+        zoom: typeof zoom === 'number' && Number.isFinite(zoom) ? Math.max(zoom, minZoom) : minZoom,
+        duration: COUNTRY_FLIGHT_MS,
+      });
+    });
+  }, [focusBounds, restingSheetFraction, floatingTopChromePx]);
+
   // Re-fit when the viewport crosses the `lg` breakpoint or is resized while at `lg+` (the panel
   // width is a viewport-relative `clamp()`, not a fixed pixel value) — otherwise a fit computed at
   // one width goes stale after a resize/orientation change and pins can drift back under the
@@ -582,6 +680,16 @@ export function MapSurfaceMapcn({
           sheet. */}
       <MapControls showZoom showLocate />
       <BasemapTint />
+      {summaries && (
+        <SummaryMarkerLayer
+          countries={countryFeatures}
+          areas={areaFeatures}
+          discs={discs}
+          theme={theme}
+          {...(onCountryClick ? { onCountryClick } : {})}
+          {...(onAreaClick ? { onAreaClick } : {})}
+        />
+      )}
       <PlaceMarkerLayer
         data={data}
         selectedId={selected?.id ?? null}

@@ -51,6 +51,7 @@ const SAVED_PLACES_SELECT = `
     lng,
     address_line,
     locality,
+    country_code,
     source_dataset,
     resolution_score
   ),
@@ -121,6 +122,7 @@ interface SavedPlaceRow {
     readonly lng: number;
     readonly address_line: string | null;
     readonly locality: string | null;
+    readonly country_code: string | null;
     readonly source_dataset: string | null;
     readonly resolution_score: number | null;
   } | null;
@@ -197,6 +199,7 @@ function toSpot(row: SavedPlaceRow): EnrichedSpot {
     lng: place?.lng ?? 0,
     ...(place?.address_line ? { addressLine: place.address_line } : {}),
     ...(place?.locality ? { locality: place.locality } : {}),
+    ...(place?.country_code ? { countryCode: place.country_code } : {}),
     ...(provenance ? { provenance } : {}),
     ...(source ? { source } : {}),
     ...(row.extracted_reason ? { reason: row.extracted_reason } : {}),

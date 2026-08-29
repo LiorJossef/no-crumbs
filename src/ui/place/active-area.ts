@@ -251,42 +251,14 @@ export function areaAfterCameraSettled<T>(input: {
   return dominantArea(areas, rect, currentId) ?? currentId;
 }
 
-/** One `Elsewhere` row: another of the user's areas, with how many of the current matches are in it. */
+/** One `Elsewhere` row: another of the user's areas, with how many of the current matches are in it.
+ *  Built by `ui/place/elsewhere-groups.ts`, which owns the filtering and sorting rules — there is
+ *  deliberately only one implementation of them, because two would eventually disagree. */
 export interface AreaRow {
   readonly id: string;
   /** Already resolved for display — never `null`, never `this area`. */
   readonly label: string;
   readonly count: number;
-}
-
-/**
- * The `Elsewhere` section: one row per *other* area, most places first.
- *
- * `matchIds` is the library after the search box and the tag chip, so a row reports what the user
- * would actually find there — `No matches in London` needs no escape button of its own when the
- * row below it already says `Tel Aviv-Yafo · 3 matches ›`. Areas with nothing left after the
- * filters are dropped rather than shown as `0`: a row that leads to an empty list is a broken
- * promise with a tap target on it.
- *
- * Sorted count descending, then label, then id — deterministic, so the rows do not reorder between
- * two renders of the same library.
- */
-export function elsewhereRows<T>(
-  areas: readonly Area<T>[],
-  activeId: string | null,
-  matchIds: ReadonlySet<string>,
-): readonly AreaRow[] {
-  const rows: AreaRow[] = [];
-  for (const area of areas) {
-    if (area.id === activeId) continue;
-    let count = 0;
-    for (const id of area.memberIds) if (matchIds.has(id)) count += 1;
-    if (count === 0) continue;
-    rows.push({ id: area.id, label: area.label ?? UNNAMED_OTHER_AREA_LABEL, count });
-  }
-  return rows.sort(
-    (a, b) => b.count - a.count || a.label.localeCompare(b.label) || a.id.localeCompare(b.id),
-  );
 }
 
 /** `8 places` / `1 place` / `8 matches` / `1 match` — the trailing half of an `Elsewhere` row, and
@@ -296,9 +268,16 @@ export function areaRowCountText(count: number, filtering: boolean): string {
   return `${count} ${count === 1 ? 'place' : 'places'}`;
 }
 
-/** What a screen reader hears on an area row: the name, the count, and what tapping does. */
+/**
+ * What a screen reader hears on an area row: the name, the count, and what tapping does.
+ *
+ * `open this area`, not `show on map`. The tap changes the list's whole scope, replaces every row
+ * and moves focus — and on a phone at the `full` stop it shows nothing on the map at all, because
+ * the map is covered by the sheet saying it. One string on both surfaces, and the one a country
+ * group's own name has to agree with.
+ */
 export function areaRowAccessibleName(row: AreaRow, filtering: boolean): string {
-  return `${row.label}, ${areaRowCountText(row.count, filtering)}, show on map`;
+  return `${row.label}, ${areaRowCountText(row.count, filtering)}, open this area`;
 }
 
 /** Everything the header needs to say what the list is. Shape-compatible with what the sheet's peek

@@ -83,6 +83,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MapSurface, type MapPlace } from '@/components/map/map-surface';
+import type { FocusBoundsRequest, MapSummaries } from '@/components/map/types';
+import { COUNTRY_LANDING_ZOOM } from '@/components/map/zoom-bands';
 import type { LatLngBoundsHint, ViewportChangeMeta } from '@/components/map/types';
 import { ImportConfirmation } from '@/components/map/import-confirmation';
 import { PlaceSheet } from '@/components/sheet/place-sheet';
@@ -98,11 +100,12 @@ import {
   areaAfterCameraSettled,
   areaHeading,
   buildAreas,
-  elsewhereRows,
   resolveArea,
   type Area,
-  type AreaRow,
 } from '@/ui/place/active-area';
+import { elsewhereGroups } from '@/ui/place/elsewhere-groups';
+import { meanCentroid } from '@/domain/places/country-bucket';
+import { summariseByCountry } from '@/ui/place/library-summary';
 import { ImportPageClient, type SaveOutcomeDetail } from '@/app/import/import-page-client';
 import { CollectionsContext, type CollectionsForPlace } from '@/ui/place/collections-context';
 
@@ -110,6 +113,10 @@ import { CollectionsContext, type CollectionsForPlace } from '@/ui/place/collect
  *  Without it a `polite` live region reads a new count on every keystroke, which is worse than
  *  silence — the user cannot hear the field they are typing into. */
 const ANNOUNCE_AFTER_MS = 500;
+
+/** One frozen empty map, so clearing the country-group overrides is not a fresh identity each
+ *  time — the surfaces re-render on it. */
+const EMPTY_EXPANSION: ReadonlyMap<string, boolean> = new Map();
 
 export function MapPageClient({
   places,
@@ -170,14 +177,21 @@ export function MapPageClient({
    * switch this prop back to something else, which the map reads as a brand-new request and
    * answers by throwing the camera across the world.
    *
-   * **The authorised camera movers, and there are now exactly four.** `06` §9.2 listed four, this
+   * **The authorised camera movers, and there are now exactly five.** `06` §9.2 listed four, this
    * file grew to seven, and `docs/ux-stable-area-list.md` cut it back — the reconciliation `06`
-   * §9.2 was owed is this comment. In the order they run:
+   * §9.2 was owed is this comment. The fifth is the country band's, added by
+   * `docs/ux-library-at-scale.md` §2.4 and recorded here rather than hidden inside the map surface,
+   * because a list of who may move the camera is only worth having if it is complete. In the order
+   * they run:
    *
    *  1. The initial framing — the *anchor area*, not the whole library (see the header).
    *  2. A finished import flies to the places it saved.
    *  3. Selecting a place from the list flies to that place, and **holds** the active area.
-   *  4. Tapping an `Elsewhere` row flies to that area, and is the one gesture that sets it by hand.
+   *  4. Tapping an `Elsewhere` row — or the map's own area marker, which is the same gesture — flies
+   *     to that area, and is the one gesture that sets the active area by hand.
+   *  5. Tapping a country marker frames that country's areas, clamped inside the area band. It
+   *     moves the camera and **nothing else**: the list, the header and the active area are
+   *     untouched, because choosing a country is not choosing a place. See `focusCountry`.
    *
    * Three are gone, all of them for the same reason — narrowing must never navigate. A settled
    * search no longer flies to its matches, clearing the search no longer returns to a cluster, and
@@ -186,6 +200,10 @@ export function MapPageClient({
    * camera mover, and must never become one: panning, zooming, typing, and tapping a tag chip.
    */
   const [focusPlaceIds, setFocusPlaceIds] = useState<readonly string[] | null>(null);
+  /** Mover 5's request, held separately from `focusPlaceIds` because it frames a box rather than a
+   *  set of places and comes to rest inside a zoom range rather than under a ceiling. Keyed on
+   *  object identity by the surface, exactly as `focusPlaceIds` is. */
+  const [focusBounds, setFocusBounds] = useState<FocusBoundsRequest | null>(null);
   /**
    * **Which of the user's areas the list is showing**, held as the id of a place inside it rather
    * than a cluster index — clusters are rebuilt on every library change and carry no id of their
@@ -197,6 +215,32 @@ export function MapPageClient({
    * bounds, which is what stops the camera rewriting the list on its own.
    */
   const [activeAreaAnchor, setActiveAreaAnchor] = useState<string | null>(null);
+
+  /**
+   * The area an explicit tap moved *away* from, so the way back is one tap.
+   *
+   * `Elsewhere` expands the country you are in and the country you came from
+   * (`elsewhere-groups.ts`), which is what makes an area switch reversible without a back chevron,
+   * a navigation stack or a second screen. Before this the switch was one-way: tap `Tokyo` from
+   * London and the route home was to find United Kingdom in the new section, open it, and tap
+   * London — three taps, two of them below the fold.
+   *
+   * **Written only by writer 2**, the explicit area tap. A pan that crosses a boundary (writer 4)
+   * does not write it, because a pan is not a navigation anyone is trying to undo; nor do the
+   * initial resolution or a finished import, which are arrivals rather than departures.
+   */
+  const [previousAreaId, setPreviousAreaId] = useState<string | null>(null);
+
+  /**
+   * Which country groups the user has explicitly opened or closed in `Elsewhere`.
+   *
+   * Only explicit toggles: the defaults live in `isCountryExpanded`, so this map is empty until
+   * someone presses something, and an empty map still renders the right thing. It is held here
+   * rather than in either surface because both render unconditionally — there is no JS media query
+   * anywhere on this page — and the sheet and the panel must not disagree about which group is open.
+   */
+  const [countryExpansion, setCountryExpansion] =
+    useState<ReadonlyMap<string, boolean>>(EMPTY_EXPANSION);
 
   /** Every cluster in the library. Keyed on `places`, so an import re-clusters once rather than on
    *  every render. */
@@ -268,6 +312,10 @@ export function MapPageClient({
    *  viewport below, so the pins and the rows can never disagree about what the filters did. */
   const matches = useMemo(() => filterPlaces(visitMatches, query), [visitMatches, query]);
 
+  /** The same set, as ids — read by the `Elsewhere` counts and by the camera, which must frame what
+   *  the filter left rather than what the area holds. */
+  const matchIds = useMemo(() => new Set(matches.map((place) => place.id)), [matches]);
+
   /**
    * What the **list** shows: the matches that belong to the active area, in library order — most
    * recently saved first.
@@ -285,11 +333,75 @@ export function MapPageClient({
     [matches, activeArea],
   );
 
-  /** The other areas, with what the current filters left in each. Empty when the user has one area,
-   *  which is the common case and renders no section at all. */
-  const otherAreas: readonly AreaRow[] = useMemo(
-    () => elsewhereRows(areas, activeArea?.id ?? null, new Set(matches.map((place) => place.id))),
-    [areas, activeArea, matches],
+  /**
+   * The library's areas bucketed into countries — the top level of `ux-library-at-scale.md` §2's
+   * geography, and the **one** computation the map's world-zoom band and the list's `Elsewhere`
+   * section both read. Two call sites deriving "the countries" separately is how they come to
+   * disagree, and the list is the accessible rendering of a canvas nothing else can reach.
+   *
+   * Keyed on `areas`, so it costs nothing on a keystroke, a pan or a chip tap.
+   */
+  const countries = useMemo(
+    () =>
+      summariseByCountry(
+        areas,
+        (place: MapPlace) => place.detail?.countryCode ?? null,
+        (place: MapPlace) => place,
+      ),
+    [areas],
+  );
+
+  /** Which country's marker carries the mint ring at world zoom: the one you are standing in. */
+  const activeCountryKey = useMemo(() => {
+    const id = activeArea?.id;
+    if (id === undefined) return null;
+    const found = countries.find((country) => country.areas.some((area) => area.id === id));
+    return found?.key ?? null;
+  }, [countries, activeArea]);
+
+  /**
+   * The same summary, in the map port's own shape (`components/map/types.ts`).
+   *
+   * Mapped here rather than derived in the surface, so the map and the list are two renderings of
+   * one computation — §2's opening claim, and the thing that makes the band accessible: a canvas is
+   * unreachable by a screen reader and the list beside it has to carry the identical geography.
+   * The port's types are flat and provider-agnostic, so no map implementation ever learns what an
+   * `Area` is.
+   */
+  const summaries = useMemo<MapSummaries>(
+    () => ({
+      countries: countries.map((country) => ({
+        key: country.key,
+        countryCode: country.countryCode,
+        label: country.label,
+        count: country.count,
+        lat: country.centroid.lat,
+        lng: country.centroid.lng,
+        bounds: country.bounds,
+      })),
+      areas: areas.map((area) => ({
+        id: area.id,
+        label: area.label,
+        count: area.count,
+        // The area's marker sits at the mean of its own places, the same rule the country's does —
+        // never the centre of its bounding box, which for an L-shaped city is in the sea.
+        ...(meanCentroid(area.points) ?? { lat: 0, lng: 0 }),
+      })),
+      activeCountryKey,
+    }),
+    [countries, areas, activeCountryKey],
+  );
+
+  /** The `Elsewhere` section: the other areas grouped by country, with what the current filters
+   *  left in each. Empty when the user has one area, which renders no section at all. */
+  const elsewhere = useMemo(
+    () =>
+      elsewhereGroups(
+        countries,
+        { activeAreaId: activeArea?.id ?? null, previousAreaId },
+        matchIds,
+      ),
+    [countries, activeArea, previousAreaId, matchIds],
   );
 
   // Both narrowings feed the header's noun, so a tag-filtered list reads `3 matches in London`
@@ -358,17 +470,77 @@ export function MapPageClient({
     setFocusPlaceIds([place.id]);
   }
 
-  /** Writer 2 and camera mover 4: the only gesture that picks an area by hand. */
+  /**
+   * Writer 2 and camera mover 4: the only gesture that picks an area by hand, from an `Elsewhere`
+   * row or from the map's own area marker (§2.4 — the marker is this writer, not a new one).
+   *
+   * Three things it does that it did not:
+   *
+   * 1. **It records where you came from**, so the country you just left opens in the new
+   *    `Elsewhere` and the way back is one tap. Only this writer does — see `previousAreaId`.
+   * 2. **It frames the places the filter left**, not the area's whole membership. Tapping
+   *    `London · 1 match` under a search used to fly the camera to a box around all eighteen London
+   *    places while the list showed one row; the camera and the list were answering different
+   *    questions. Falls back to the whole area when the filter has left nothing there, which the
+   *    row itself cannot express — `elsewhereGroups` drops an area with no matches — but a caller
+   *    can, and an empty box frames nothing at all.
+   * 3. **It clears the country-group overrides.** Both defaults have just moved (the active country
+   *    and the previous one), so a surviving toggle means the country you left stays open while the
+   *    one you arrived in is closed — stale state below the fold that nobody asked for and nobody
+   *    can see. Clearing also makes the list's shape after a switch a pure function of the new
+   *    area, which is the same property the scroll reset buys.
+   */
   const selectArea = useCallback(
     (areaId: string) => {
       const area = areas.find((candidate) => candidate.id === areaId);
       if (!area) return;
+      const matching = area.members.filter((place) => matchIds.has(place.id));
+      setPreviousAreaId((current) => {
+        const active = resolveArea(areas, activeAreaAnchor)?.id ?? null;
+        return active === area.id ? current : active;
+      });
       setActiveAreaAnchor(area.id);
       setSelectedId(null);
-      setFocusPlaceIds(area.members.map((place) => place.id));
+      setCountryExpansion(EMPTY_EXPANSION);
+      setFocusPlaceIds((matching.length > 0 ? matching : area.members).map((place) => place.id));
     },
-    [areas],
+    [areas, activeAreaAnchor, matchIds],
   );
+
+  /**
+   * **Camera mover 5**, and the enumeration above is amended rather than quietly outgrown: tapping
+   * a country marker frames that country's areas.
+   *
+   * It is a fifth mover rather than a reuse of `focusPlaceIds` because it needs a zoom **floor** as
+   * well as a ceiling — §2.4 requires the camera to come to rest inside the area band, so that a
+   * country tap always lands on labelled area markers and never on an empty map or on pins. It is
+   * **not** a fifth writer of the active area: you have chosen a country, not a place, so the sheet
+   * keeps saying exactly what it said. That asymmetry is the point of §2.4's two-tap path.
+   */
+  const focusCountry = useCallback(
+    (key: string) => {
+      const country = countries.find((candidate) => candidate.key === key);
+      if (!country) return;
+      setFocusBounds({
+        bounds: country.bounds,
+        minZoom: COUNTRY_LANDING_ZOOM.min,
+        maxZoom: COUNTRY_LANDING_ZOOM.max,
+      });
+    },
+    [countries],
+  );
+
+  /**
+   * A country group opened or closed.
+   *
+   * The **resolved** next state comes from the surface rather than being flipped from the map here,
+   * and that is not ceremony: the default a group falls back to differs by surface (the panel opens
+   * everything, the sheet opens two) and rises to `true` under any filter, so `!(overrides.get(key)
+   * ?? false)` would make the first press on an already-open group a silent no-op.
+   */
+  const toggleCountry = useCallback((key: string, expanded: boolean) => {
+    setCountryExpansion((current) => new Map(current).set(key, expanded));
+  }, []);
 
   /**
    * Writer 4. `userInitiated` is the whole guard: every programmatic camera move reports `false`,
@@ -459,6 +631,10 @@ export function MapPageClient({
             onViewportChange={handleViewportChange}
             {...(initialBounds ? { initialBounds } : {})}
             {...(focusPlaceIds ? { focusPlaceIds } : {})}
+            summaries={summaries}
+            onAreaClick={selectArea}
+            onCountryClick={focusCountry}
+            {...(focusBounds ? { focusBounds } : {})}
           />
 
           {/* The list and the pins both change silently as the user types, so the one thing a screen
@@ -490,8 +666,11 @@ export function MapPageClient({
             <PlaceSheet
               places={inArea}
               heading={heading}
-              otherAreas={otherAreas}
+              elsewhere={elsewhere}
+              countryExpansion={countryExpansion}
+              onToggleCountry={toggleCountry}
               onSelectArea={selectArea}
+              activeAreaId={activeArea?.id ?? null}
               libraryIsEmpty={places.length === 0}
               filtering={filtering}
               query={query}
@@ -511,8 +690,11 @@ export function MapPageClient({
           <PlaceDesktopPanel
             places={inArea}
             heading={heading}
-            otherAreas={otherAreas}
+            elsewhere={elsewhere}
+            countryExpansion={countryExpansion}
+            onToggleCountry={toggleCountry}
             onSelectArea={selectArea}
+            activeAreaId={activeArea?.id ?? null}
             libraryIsEmpty={places.length === 0}
             filtering={filtering}
             query={query}

@@ -43,8 +43,8 @@
 import { Drawer } from 'vaul';
 
 import { useNonModalBackground } from './use-non-modal-background';
-import { useRef, useState } from 'react';
-import { Plus, MapPin, ExternalLink, X, ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { useLayoutEffect, useRef, useState } from 'react';
+import { Plus, MapPin, ExternalLink, X, ChevronLeft, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -66,12 +66,9 @@ import { locationCertainty, savedOnLine } from '@/ui/place/location-certainty';
 import { AddToCollection } from '@/components/collections/add-to-collection';
 import { CollectionsNavRow } from '@/components/collections/collections-nav-row';
 import { formatCaptionQuote, quoteAddsSomething } from '@/ui/place/caption-quote';
-import {
-  areaRowAccessibleName,
-  areaRowCountText,
-  type AreaHeading,
-  type AreaRow,
-} from '@/ui/place/active-area';
+import type { AreaHeading } from '@/ui/place/active-area';
+import type { ElsewhereEntry } from '@/ui/place/elsewhere-groups';
+import { ElsewhereSection } from './elsewhere-section';
 import type { MapPlace } from '@/components/map/types';
 
 /** Fixed peek height. `env(safe-area-inset-bottom)` is added via CSS `calc()` inside the snap
@@ -86,6 +83,30 @@ const SNAP_HALF = 0.55 as const;
 const SNAP_FULL = 1 as const;
 
 const SNAP_POINTS: Array<`${number}px` | number> = [SNAP_PEEK, SNAP_HALF, SNAP_FULL];
+
+/**
+ * How tall the sheet's content column is at each stop, as CSS.
+ *
+ * **This is a bug fix, not a layout preference.** `Drawer.Content` is `h-full` and vaul positions
+ * the sheet by translating it, so at `half` the bottom 45% of a full-height flex column sits below
+ * the bottom of the screen. Everything down there is laid out, painted, hit-testable and reported
+ * `visible` by a testing library — and completely unreachable, because the scroll container's own
+ * bottom is off screen so scrolling to its end still does not bring it into view. Measured at 844:
+ * the `Elsewhere` heading came to rest 242 px below the viewport at maximum scroll.
+ *
+ * That was survivable while the only thing down there was a section most sessions never opened. It
+ * is not survivable now: `Elsewhere` is the country band's whole list rendering, and it is the
+ * accessible equivalent of markers a screen reader cannot reach at all (§6).
+ *
+ * `dvh` rather than a measured pixel value, so it survives a rotation and the mobile URL bar with no
+ * JavaScript and no resize listener. The subtraction is the drag handle above this column
+ * (`mt-2.5 h-1`), which is the only other thing inside `Drawer.Content`.
+ */
+const STOP_TO_CONTENT_HEIGHT: Record<SheetStop, string> = {
+  peek: `calc(${PEEK_PX}px - 14px)`,
+  half: 'calc(55dvh - 14px)',
+  full: 'calc(100dvh - 14px)',
+};
 
 const STOP_TO_SNAP: Record<SheetStop, `${number}px` | number> = {
   peek: SNAP_PEEK,
@@ -107,9 +128,17 @@ export interface PlaceSheetProps {
   /** What this list says about itself — `12 places in London`. Rendered verbatim; no surface
    *  re-derives a string from counts. */
   readonly heading: AreaHeading;
-  /** The user's other areas, with their own match counts. Empty renders no section. */
-  readonly otherAreas: readonly AreaRow[];
+  /** The user's other areas, grouped by country (`ui/place/elsewhere-groups.ts`). Empty renders no
+   *  section. Built upstream so this surface and the desktop panel cannot disagree about it. */
+  readonly elsewhere: readonly ElsewhereEntry[];
+  /** Which country groups the user has explicitly opened or closed. Defaults are not in here —
+   *  `isCountryExpanded` owns those, and this surface passes its own (`active-and-previous`). */
+  readonly countryExpansion: ReadonlyMap<string, boolean>;
+  readonly onToggleCountry: (key: string, expanded: boolean) => void;
   readonly onSelectArea: (areaId: string) => void;
+  /** The area the list is showing. Not rendered — it is what the scroll reset and the heading's
+   *  crossfade key on, both of which mark the one legitimate change of scope. */
+  readonly activeAreaId: string | null;
   /** Nothing saved, ever — a different screen, not a different string. */
   readonly libraryIsEmpty: boolean;
   /** Whether the search box or a tag chip is narrowing the library, which decides the noun on the
@@ -152,8 +181,11 @@ interface SheetState {
 export function PlaceSheet({
   places,
   heading,
-  otherAreas,
+  elsewhere,
+  countryExpansion,
+  onToggleCountry,
   onSelectArea,
+  activeAreaId,
   libraryIsEmpty,
   filtering,
   query,
@@ -236,8 +268,11 @@ export function PlaceSheet({
               <PlaceList
                 places={places}
                 heading={heading}
-                otherAreas={otherAreas}
+                elsewhere={elsewhere}
+                countryExpansion={countryExpansion}
+                onToggleCountry={onToggleCountry}
                 onSelectArea={onSelectArea}
+                activeAreaId={activeAreaId}
                 libraryIsEmpty={libraryIsEmpty}
                 filtering={filtering}
                 query={query}
@@ -262,8 +297,11 @@ export function PlaceSheet({
 function PlaceList({
   places,
   heading,
-  otherAreas,
+  elsewhere,
+  countryExpansion,
+  onToggleCountry,
   onSelectArea,
+  activeAreaId,
   libraryIsEmpty,
   filtering,
   query,
@@ -279,8 +317,11 @@ function PlaceList({
 }: {
   places: readonly MapPlace[];
   heading: AreaHeading;
-  otherAreas: readonly AreaRow[];
+  elsewhere: readonly ElsewhereEntry[];
+  countryExpansion: ReadonlyMap<string, boolean>;
+  onToggleCountry: (key: string, expanded: boolean) => void;
   onSelectArea: (areaId: string) => void;
+  activeAreaId: string | null;
   libraryIsEmpty: boolean;
   filtering: boolean;
   query: string;
@@ -295,6 +336,28 @@ function PlaceList({
   onSelect?: (place: MapPlace) => void;
 }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * **The scroll goes back to the top when the area changes, and it never did before.**
+   *
+   * This was specified when the area model shipped (`ux-stable-area-list.md`) and was not built.
+   * The cost is at its worst exactly where the country band puts the user: you scroll two thousand
+   * pixels to reach `Elsewhere`, tap a city, and the browser clamps `scrollTop` to the new content
+   * — so you arrive at the *bottom* of the new area, looking at `Elsewhere` again, with no visible
+   * evidence that anything happened but a heading you cannot see.
+   *
+   * In a layout effect rather than an event handler, because the rows have to be replaced before
+   * there is a new scroll height to be at the top of; and keyed on the area rather than fired from
+   * the tap, so a switch that arrives any other way — the map's own area marker, an import landing
+   * elsewhere — is reset by the same line.
+   *
+   * `instant`, not smooth: this is not a journey through 2 000 px of someone else's city, and a
+   * long animated scroll would also fight the camera flight happening at the same moment.
+   */
+  useLayoutEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+  }, [activeAreaId]);
 
   /** Switching area replaces every row and unmounts the button that was pressed, so focus lands on
    *  the heading — the one thing that describes the new answer. */
@@ -307,7 +370,10 @@ function PlaceList({
   const headingText = libraryIsEmpty ? EMPTY_LIBRARY_HEADING : heading.text;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3.5 px-5 pt-3.5">
+    <div
+      style={{ height: STOP_TO_CONTENT_HEIGHT[stop] }}
+      className="flex min-h-0 flex-col gap-3.5 px-5 pt-3.5"
+    >
       {stop === 'peek' ? (
         <div className="flex items-center justify-between gap-3 pb-[calc(env(safe-area-inset-bottom)+0.875rem)]">
           {/* At `peek` the list and the field are both off screen, so this line is the tap target
@@ -358,10 +424,19 @@ function PlaceList({
               explanation exactly when the evidence is hidden is the wrong trade.
               `tabIndex={-1}` makes it a focus target for the escapes below without putting it in
               the tab order. */}
+          {/* `key` on the area, so React remounts the heading and `tw-animate-css`'s entrance runs:
+              140 ms, the one piece of motion that marks the one legitimate change of scope (§7).
+              It is deliberately not applied when only the *count* changes — filtering re-renders
+              this element without remounting it, and a heading that flashes on every keystroke is
+              the animation §7 forbids by name. `motion-reduce` makes it an instant swap, which is
+              the right answer here even though a sub-150 ms opacity fade would be permitted on its
+              own: this fires alongside a scroll reset and a focus move, and three simultaneous
+              changes with reduced motion on should be one frame. */}
           <h2
+            key={activeAreaId ?? 'no-area'}
             ref={headingRef}
             tabIndex={-1}
-            className="font-heading text-xl font-extrabold tracking-tight text-foreground outline-none"
+            className="animate-in fade-in-0 duration-140 font-heading text-xl font-extrabold tracking-tight text-foreground outline-none motion-reduce:animate-none"
           >
             {headingText}
           </h2>
@@ -389,23 +464,45 @@ function PlaceList({
           {libraryIsEmpty ? (
             <NoPlacesYet onAddTikTok={onAddTikTok} />
           ) : (
-            <div
-              data-vaul-no-drag
-              className="min-h-0 flex-1 overflow-y-auto pb-[calc(env(safe-area-inset-bottom)+1rem)]"
-            >
-              {heading.escape === 'clear-search' && (
-                <ClearSearchEscape onClearSearch={() => onQueryChange('')} />
-              )}
-              {!heading.empty && (
-                <ul>
-                  {places.map((place) => (
-                    <PlaceRow key={place.id} place={place} {...(onSelect ? { onSelect } : {})} />
-                  ))}
-                </ul>
-              )}
-              <ElsewhereSection rows={otherAreas} filtering={filtering} onSelectArea={selectArea} />
-              <CollectionsNavRow />
-            </div>
+            <>
+              <div
+                ref={scrollRef}
+                data-vaul-no-drag
+                className="min-h-0 flex-1 overflow-y-auto"
+              >
+                {heading.escape === 'clear-search' && (
+                  <ClearSearchEscape onClearSearch={() => onQueryChange('')} />
+                )}
+                {!heading.empty && (
+                  <ul>
+                    {places.map((place) => (
+                      <PlaceRow key={place.id} place={place} {...(onSelect ? { onSelect } : {})} />
+                    ))}
+                  </ul>
+                )}
+                <ElsewhereSection
+                  entries={elsewhere}
+                  filtering={filtering}
+                  expansion={countryExpansion}
+                  expansionDefault="active-and-previous"
+                  onToggleCountry={onToggleCountry}
+                  onSelectArea={selectArea}
+                />
+              </div>
+              {/* **Outside the scroll container**, and that is the fix rather than the layout.
+                  `collections-nav-row.tsx` argues its placement well — no tab bar, no permanent
+                  chrome, and a collection is a subset of your places so it belongs under them — and
+                  the argument survives; only the position did not. Inside the scroll it sat behind
+                  every row and every country group, which at 100 places is some three thousand
+                  pixels down, and it is the **only** route to `/collections` in the product. A
+                  feature reachable only by exhausting a scroll is a feature nobody finds.
+
+                  Here it costs a permanent 44 px at `half` and `full`, still reads as "under your
+                  places", and stops competing with `Elsewhere` for the bottom of the same scroll. */}
+              <div className="shrink-0 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
+                <CollectionsNavRow />
+              </div>
+            </>
           )}
         </>
       )}
@@ -620,46 +717,6 @@ export function ClearSearchEscape({ onClearSearch }: { onClearSearch: () => void
         Clear search
       </Button>
     </div>
-  );
-}
-
-/** The user's other areas, one tappable row each. This is what replaces `Show all matches`: the
- *  rows name where the matches are, with counts, one tap away. */
-export function ElsewhereSection({
-  rows,
-  filtering,
-  onSelectArea,
-}: {
-  rows: readonly AreaRow[];
-  filtering: boolean;
-  onSelectArea: (areaId: string) => void;
-}) {
-  if (rows.length === 0) return null;
-
-  return (
-    <section className="mt-2 border-t border-border/70 pt-3">
-      <h3 className="px-1 pb-1 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-        Elsewhere
-      </h3>
-      <ul>
-        {rows.map((row) => (
-          <li key={row.id}>
-            <button
-              type="button"
-              onClick={() => onSelectArea(row.id)}
-              aria-label={areaRowAccessibleName(row, filtering)}
-              className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-1 py-2.5 text-left transition-colors hover:bg-muted/60"
-            >
-              <span className="font-heading text-sm font-bold text-foreground">{row.label}</span>
-              <span className="flex items-center gap-1 text-sm font-medium text-muted-foreground">
-                {areaRowCountText(row.count, filtering)}
-                <ChevronRight className="size-4" aria-hidden />
-              </span>
-            </button>
-          </li>
-        ))}
-      </ul>
-    </section>
   );
 }
 

@@ -73,6 +73,63 @@ export interface LatLngBoundsHint {
 }
 
 /**
+ * One area of the library, as the map draws it (`docs/ux-library-at-scale.md` §2.3).
+ *
+ * Provider-agnostic and flat, like `MapPlace`, so no renderer's coordinate-order convention crosses
+ * this seam. Built from the *same* `Area` objects the list renders as `Elsewhere` rows — the map
+ * and the list must never derive their geography separately, because the list is the accessible
+ * rendering of a canvas a screen reader cannot reach at all (§6).
+ */
+export interface MapAreaSummary {
+  readonly id: string;
+  /** The area's own name, or `null` where its members do not agree on one — the marker then shows
+   *  the count alone rather than a name we cannot stand behind. */
+  readonly label: string | null;
+  readonly count: number;
+  readonly lat: number;
+  readonly lng: number;
+}
+
+/** One country of the library, as the map draws it (§2.2). */
+export interface MapCountrySummary {
+  /** Stable address for the marker and its tap. Not the code: the areas with no country at all are
+   *  a real, tappable group, and `null` is not a key. */
+  readonly key: string;
+  /** ISO 3166-1 alpha-2, or `null` for that group — which renders unflagged rather than absent. */
+  readonly countryCode: string | null;
+  /**
+   * What the marker calls the country, in English.
+   *
+   * A flag alone is an identification puzzle: it asks the reader to know 250 flags, and where the
+   * platform has no flag glyph the disc falls back to a two-letter code, which is worse. The name
+   * costs one `text-field` — only the flag itself has to be a bitmap — and it makes the marker say
+   * what it is rather than testing whether you can tell.
+   */
+  readonly label: string;
+  readonly count: number;
+  /** The mean of the user's own saved places in the country, never a country centroid: the marker
+   *  sits where *your* places are, and there is no gazetteer to license. */
+  readonly lat: number;
+  readonly lng: number;
+  /** The extent of the country's areas, which is what a tap on it frames. */
+  readonly bounds: LatLngBoundsHint;
+}
+
+/**
+ * The library summarised, for the two zoom bands above the pins.
+ *
+ * Optional on the port: a surface given none simply draws pins at every zoom, which is what every
+ * surface did before the bands existed and what the mock still does.
+ */
+export interface MapSummaries {
+  readonly countries: readonly MapCountrySummary[];
+  readonly areas: readonly MapAreaSummary[];
+  /** The country the list is currently showing, which carries the mint ring — at world zoom the map
+   *  still says *you are here* while showing everything. The only state colour on a marker. */
+  readonly activeCountryKey: string | null;
+}
+
+/**
  * The public contract for a map surface component. Kept minimal on purpose: no camera-mover
  * discipline (`L1-F5`), no per-marker styling hook, no imperative ref/handle — those are all
  * additions a real requirement can motivate later, not scaffolding to pre-build now.
@@ -115,6 +172,37 @@ export interface MapSurfaceProps {
    * requested through this prop.
    */
   readonly focusPlaceIds?: readonly string[];
+  /**
+   * The country and area bands (§2.1). Omitted, a surface draws pins at every zoom.
+   */
+  readonly summaries?: MapSummaries;
+  /**
+   * A tap on an area marker. **The same gesture as an `Elsewhere` row tap** and deliberately routed
+   * to the same writer in the caller — §2.4 makes it writer 2 and camera mover 4, not a new one, so
+   * that "which gestures may change the active area" stays a list of four in one file.
+   */
+  readonly onAreaClick?: (areaId: string) => void;
+  /**
+   * A tap on a country marker.
+   *
+   * Reported rather than acted on here, even though the surface owns the camera, because it *is* a
+   * camera move and the enumeration of who may move the camera lives with the caller. It changes no
+   * list state: you have chosen a country, not a place, so the sheet keeps saying what it said.
+   */
+  readonly onCountryClick?: (countryKey: string) => void;
+  /**
+   * "Frame this box, and come to rest inside this zoom range" — the country tap's camera.
+   *
+   * A separate mover from `focusPlaceIds` because it needs something that prop cannot express: a
+   * zoom **floor** as well as a ceiling. Fitting a country's areas honestly can land anywhere —
+   * a country with one saved place is a zero-extent box that fits at the ceiling and drops the user
+   * onto a single pin, and a country spanning a continent fits *below* the country band and leaves
+   * them looking at the marker they just tapped, apparently unresponsive. §2.4 requires the landing
+   * to be inside the area band either way, so that you always arrive on labelled area markers.
+   *
+   * Passing a **new object identity** requests one flight, exactly as `focusPlaceIds` does.
+   */
+  readonly focusBounds?: FocusBoundsRequest;
   /**
    * How much of the surface's own container its bottom sheet covers **at rest**, below `lg`, as a
    * fraction of container height.
@@ -202,4 +290,13 @@ export interface ViewportChangeMeta {
    * plumbing, so the surface answers it rather than leaving each caller to guess.
    */
   readonly userInitiated: boolean;
+}
+
+/** A framing request with a zoom range, for `MapSurfaceProps.focusBounds`. */
+export interface FocusBoundsRequest {
+  readonly bounds: LatLngBoundsHint;
+  /** Inclusive floor and ceiling for the resting zoom. Both are required: a range with one open end
+   *  is exactly the case that produced the two failures documented on the prop. */
+  readonly minZoom: number;
+  readonly maxZoom: number;
 }

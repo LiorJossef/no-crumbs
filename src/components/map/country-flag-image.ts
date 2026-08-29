@@ -90,7 +90,13 @@ const EMOJI_FONT_STACK =
 const SANS_FALLBACK_STACK =
   'system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
 
-interface DiscTokens {
+/**
+ * The disc's material, resolved from the design tokens. Exported because the **area** band draws
+ * the same object one zoom in — a circle layer rather than a bitmap, but the same surface, border
+ * and ink — and two independent readings of `--card` is how the two bands come to disagree about
+ * what a summary marker is made of.
+ */
+export interface DiscTokens {
   readonly surface: string;
   readonly border: string;
   readonly ink: string;
@@ -138,7 +144,7 @@ function readVar(styles: CSSStyleDeclaration, name: string): string | null {
   return value;
 }
 
-function resolveTokens(theme: DiscTheme): DiscTokens {
+export function resolveDiscTokens(theme: DiscTheme): DiscTokens {
   const fallback = { ...TOKEN_FALLBACK[theme], fontFamily: SANS_FALLBACK_STACK };
   if (typeof document === 'undefined' || typeof getComputedStyle !== 'function') return fallback;
   if (documentTheme() !== theme) return fallback;
@@ -487,7 +493,7 @@ export function buildCountryDiscImages(
   options: CountryDiscOptions
 ): CountryDiscImage[] {
   if (specs.length === 0) return [];
-  const tokens = resolveTokens(options.theme);
+  const tokens = resolveDiscTokens(options.theme);
   const flags = flagGlyphsSupported(options);
 
   const images: CountryDiscImage[] = [];

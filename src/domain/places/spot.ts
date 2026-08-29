@@ -93,6 +93,16 @@ export interface Spot {
   readonly lng: number;
   readonly addressLine?: string;
   readonly locality?: string;
+  /**
+   * ISO 3166-1 alpha-2, as stored. Absent where the column is NULL, which is real and common —
+   * every row imported before `toCountryCode` landed carries one.
+   *
+   * Read by the library's country level (`ui/place/library-summary.ts`), and only ever through
+   * `areaCountry`'s plurality rule: a place with no country of its own still lands in the country
+   * of the 50 km area it sits in, so a NULL here loses nobody from the world-zoom band
+   * (`docs/ux-library-at-scale.md` §2.5).
+   */
+  readonly countryCode?: string;
   readonly provenance?: SpotProvenance;
   readonly source?: SpotSource;
   /** `saved_places.extracted_reason` — system-derived, never user-writable (`0015`). */
