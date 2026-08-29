@@ -908,8 +908,20 @@ export function MapSurfaceMapcn({
       {/* Zoom and locate only. The compass steers a bearing the map never leaves 0 for, and
           "fullscreen" on a surface that already fills the viewport is an icon for a no-op — five
           stacked buttons were ~250px of an 812px phone, and the two lowest of them sat under the
-          sheet. */}
-      <MapControls showZoom showLocate onUserZoom={handleControlZoom} />
+          sheet.
+          Dropping to three did not clear the sheet: at 375x812 the group still opened at y=667
+          against a sheet top of 684, so `Zoom out` and `Find my location` were both wholly behind
+          it and the locate button also sat under the create FAB. The `globals.css` rule that lifts
+          the attribution cannot reach these — it selects `.maplibregl-ctrl-bottom-right`, MapLibre's
+          own chrome, and `<MapControls>` is a plain absolutely-positioned div beside it. The inset
+          is the same one that rule uses (peek + safe area) plus room for the attribution line the
+          group now stacks above. `lg` restores the library default: no sheet, nothing to clear. */}
+      <MapControls
+        showZoom
+        showLocate
+        onUserZoom={handleControlZoom}
+        className="bottom-[calc(128px+env(safe-area-inset-bottom)+3rem)] lg:bottom-10"
+      />
       <BasemapTint />
       {hasSummaryBands && (
         <SummaryMarkerLayer
