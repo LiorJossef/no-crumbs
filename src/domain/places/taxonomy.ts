@@ -130,23 +130,86 @@ export const SUB_TAG_LABELS: readonly string[] = SUB_TAG_KEYS.map((key) => SUB_T
 export const MAX_SUB_TAGS_PER_PLACE = 2;
 
 /**
- * Spelling variants of the *listed* labels, and nothing else.
+ * **Terms that mean a whitelisted label, keyed by their canonical form.**
  *
- * The model is given the whitelist verbatim and told to copy from it; this is the small allowance
- * for it writing the same word slightly differently — a plural where the list has a singular, or
- * the ampersand in `Beer & Pub` spelled out. Each entry is the identical concept under a different
- * spelling, which is what separates it from a guess: `Cocktail` **is** `Cocktails`, whereas
- * `Natural wine` is not `Wine Bar` and must be dropped rather than rounded to its nearest
- * neighbour. Rounding is how a closed vocabulary quietly becomes an open one again.
+ * This started as spelling variants only, on the argument that anything more is *rounding* — and
+ * rounding is how a closed vocabulary quietly reopens. The owner widened it on 2026-08-29 when the
+ * existing library was aligned to the whitelist ("map obvious equivalents"), and the widening needs
+ * a rule or it becomes taste. The rule is: **an alias is admitted only when the specification's own
+ * text already says the target covers it.**
  *
- * Keys are already `tagKey`-canonical, so a lookup happens after normalisation.
+ * That is what separates the three classes below from the ones deliberately left out. `Greek` is
+ * admitted because the specification writes `Mediterranean (Greek, coastal, seafood)`; `Natural
+ * wine` is refused because nothing says `Wine Bar` covers it, and a wine style is not a venue type.
+ * `Pasta` is admitted because the specification writes `Italian (pizza, pasta)`; `Schnitzel` is
+ * refused because it is a dish, and dishes have their own field. When in doubt the tag is dropped,
+ * because a place with no tag is honest and a place with a tag nothing supports is not.
+ *
+ * Kept deliberately small in one direction: these are *cuisines and specialities*, never dishes,
+ * vibes, neighbourhoods or venue types. `matcha`, `hidden gem`, `marylebone` and `market stall` all
+ * have obvious-looking neighbours on the list and none of them is admitted.
  */
 const SUB_TAG_ALIASES: Readonly<Record<string, SubTag>> = {
-  'beer and pub': 'beer pub',
+  // — 1. spelling variants of a listed label: the same word, written differently —
+  bakeries: 'bakery',
   dessert: 'desserts',
   cocktail: 'cocktails',
-  bakeries: 'bakery',
+  'beer and pub': 'beer pub',
+  // British spelling. `specialty` is the label because the specification writes it that way.
+  'speciality coffee': 'specialty coffee',
+
+  // — 2. terms the specification's own coverage text names for that label —
+  // `Italian (pizza, pasta)`
+  pizza: 'italian',
+  pasta: 'italian',
+  // `Japanese (sushi, ramen, izakaya)`
+  sushi: 'japanese',
+  ramen: 'japanese',
+  izakaya: 'japanese',
+  // `Asian (Thai, Vietnamese, Chinese, pan-Asian)`
+  thai: 'asian',
+  vietnamese: 'asian',
+  chinese: 'asian',
+  'pan asian': 'asian',
+  // `Middle Eastern (Levantine, skewers, local street food)`. Bare `street food` is **not** here:
+  // the specification gives it to both Middle Eastern and Mexican, so on its own it names neither.
+  levantine: 'middle eastern',
+  skewers: 'middle eastern',
+  // `Mexican (tacos, Mexican street food)`
+  tacos: 'mexican',
+  // `American (burgers, BBQ, diners)`
+  burgers: 'american',
+  bbq: 'american',
+  diner: 'american',
+  diners: 'american',
+  // `Mediterranean (Greek, coastal, seafood)`. `coastal` is left out: alone it describes a view.
+  greek: 'mediterranean',
+  seafood: 'mediterranean',
+  // The `cafe` category covers "bakeries, patisseries, ice cream and desserts", and the sub-tags
+  // are where that distinction survives now that the category itself cannot express it.
+  patisserie: 'bakery',
+  patisseries: 'bakery',
+  pastries: 'bakery',
+  'ice cream': 'desserts',
+  gelato: 'desserts',
+  // An Asian cuisine the specification does not name individually, and `Asian` is the label that
+  // exists for exactly that case. The live library carries it on two places.
+  nepalese: 'asian',
+
+  // — 3. direct translations of a listed label —
+  // The prompt requires English and `p11` measured that requirement leaking anyway. A Hebrew tag
+  // reaching the gate is a bug upstream; mapping it is cheaper than a permanently unfindable chip,
+  // and Hebrew<->English is this product's stated language scope.
+  'מאפייה': 'bakery',
+  'מאפים': 'bakery',
 };
+
+/** The alias pairs, for the callers that have to reproduce this table somewhere else — today the
+ *  one-off data alignment in `supabase/migrations/0028_align_tags_to_taxonomy.sql`, which cannot
+ *  import TypeScript and is held to this list by `tests/unit/places/taxonomy-migration.test.ts`. */
+export const SUB_TAG_ALIAS_PAIRS: readonly (readonly [string, SubTag])[] = Object.entries(
+  SUB_TAG_ALIASES
+) as readonly (readonly [string, SubTag])[];
 
 /** The whitelist entry a canonicalised tag belongs to, or `null` if it is not in the vocabulary. */
 export function resolveSubTag(canonical: string): SubTag | null {
