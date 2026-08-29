@@ -1,5 +1,32 @@
 # How users reach things — navigation structure
 
+> ## ⚠ §1, §2 and §5 are SUPERSEDED — owner ruling, 2026-08-29 (same day)
+>
+> The owner used the third peek slot this document specifies, and ruled instead for **Plotline's
+> structure: a bottom bar with paged destinations**. That reverses §1's "we do not build a tab bar"
+> and everything in §2 that budgets the third slot. Shipped in `ddd684e`;
+> `src/components/nav/bottom-nav.tsx` is the implementation and carries the reasoning.
+>
+> **Read the rest of this document anyway.** Three parts of it survive and are load-bearing:
+>
+> - **§1.2's collision is real**, and the implementation pays it rather than denying it. A bar and a
+>   three-stop drag sheet both want the bottom of the screen. It is settled by moving `Add a TikTok`
+>   out of the peek row into the bar's `＋`, which leaves the peek row one line of text and frees the
+>   lower half of the 128 px band for the bar. `PEEK_PX` never moved, so the camera budget, the query
+>   rect and the attribution padding never moved either.
+> - **§4's refusal list still binds.** No Trips, no Profile, no References destination, no fourth slot
+>   held open. The bar exists; the destinations behind it are still refused.
+> - **§3 is untouched and was built** — categories are the filter bar, not a destination
+>   (`7f61251`), merged with `Not been yet` into one horizontal-scroll row.
+>
+> §6's delta table is now two reversals deep and should be read as history.
+>
+> What actually happened, recorded because it is the useful part: the audit assessed the Collections
+> row at `half` and `full`; this document corrected it to the resting state and answered with a third
+> peek slot; the owner used *that* and said the answer was not a better-packed sheet but pages. Both
+> corrections were right about the problem and wrong about the size of it.
+
+
 > Owner: UX / Interaction. Date: **2026-08-29**. Task **LIBRARY-IA-2-NAV**.
 > Status: **ruling.** No shell, nothing verified at runtime. Every number below is read off the code
 > at the line cited, or is arithmetic over values in the code, and I say which.
