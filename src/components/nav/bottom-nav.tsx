@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * The product's two destinations, and its one primary action, as a floating bar.
+ * The product's three destinations, and its one primary action, as a floating bar.
  *
  * **This reverses `ux-navigation-structure-2026-08-29.md` §1, on the owner's instruction
  * (2026-08-29).** That ruling refused a bar and answered the reachability problem with a third slot
@@ -28,13 +28,26 @@
  *  - It does not steal from the list: the sheet's scroll container is padded by exactly this bar's
  *    height, so the last row clears it instead of hiding under it.
  *
- * ## Two destinations, and it must not grow a third
+ * ## Three destinations, and the third was ruled in by the owner
  *
- * `/map` and `/collections`. That is the whole product, and §4's refusal list still binds even
- * though §1 no longer does: no Trips (Charter §1 declines itinerary planning), no Profile screen
- * (we have no settings), no References destination (a source link is a field on a saved place, not
- * an entity with a screen). **An empty tab is a promise**, and a bar sized for destinations we do
- * not have is the template-SaaS shape Charter §6 bans.
+ * `/map`, `/collections` and `/profile`. This paragraph said **two** and named Profile in the
+ * refusal list, on the grounds that we have no settings; the owner reversed that on 2026-08-29 and
+ * asked for a profile page carrying basic account information, a few library stats and sign-out.
+ *
+ * The reason the refusal was right and is now wrong is worth keeping, because it is what stops a
+ * fourth tab: **an empty tab is a promise**, and a bar sized for destinations we do not have is the
+ * template-SaaS shape Charter §6 bans. Profile stopped being empty the moment it had somewhere to
+ * put sign-out — which was a permanent button over the map, a primary navigation action for
+ * something people do about once a year. The rest of §4's list still binds: no Trips (Charter §1
+ * declines itinerary planning), no References destination (a source link is a field on a saved
+ * place, not an entity with a screen).
+ *
+ * **The labels moved under the icons, and only because three tabs made them.** Measured at the
+ * 375 px reference viewport: the pill has 275 px of inner width, so a third tab leaves each one
+ * 73 px of content — and `Collections` beside a 16 px icon needs about 102 px at `text-sm`. Every
+ * phone width fails that, so a horizontal label could only ever have shipped truncated. Stacked at
+ * 11 px it measures about 63 px and fits, inside the same 44 px tab height, so `BOTTOM_NAV_HEIGHT_PX`
+ * does not move and neither does anything that reads it.
  *
  * `＋` is deliberately not a tab. It is an action, it changes nothing about where you are, and
  * Plotline separates it into its own circle for the same reason. It carries no `aria-current` and
@@ -43,19 +56,22 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Library, Map as MapIcon, Plus } from 'lucide-react';
+import { Library, Map as MapIcon, Plus, UserRound } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
+import { BOTTOM_NAV_HEIGHT_PX } from './bottom-nav-metrics';
 
 /**
- * The bar's own height, in CSS pixels, excluding the safe-area inset it sits on.
+ * Re-exported for the client components that already import it from here — the sheet has to pad its
+ * scroll container by exactly this, and two independent readings of one number is how a list comes
+ * to end underneath a control.
  *
- * Exported because the sheet has to pad its scroll container by exactly this, and two independent
- * readings of one number is how a list comes to end underneath a control. It is **not** part of the
- * camera budget: the bar sits inside the peek band the camera already yields, so nothing in
- * `query-rect.ts` reads this.
+ * **A Server Component must import it from `./bottom-nav-metrics` instead**, and that module's
+ * header says what happens when it does not: a non-component export of a `'use client'` module is a
+ * client reference rather than a value on the server, so it interpolates into `calc()` as a thrown
+ * error's source text and takes the whole declaration to `0` without anything failing loudly.
  */
-export const BOTTOM_NAV_HEIGHT_PX = 68;
+export { BOTTOM_NAV_HEIGHT_PX };
 
 /** The one thing the circle ever does. Not a prop — see the note above `BottomNavProps`. */
 const ADD_LABEL = 'Add a TikTok';
@@ -104,6 +120,7 @@ export function BottomNav({ onAdd }: BottomNavProps) {
   // than lighting nothing. `/map` is exact — there is nothing below it.
   const onMap = pathname === '/map';
   const onCollections = pathname.startsWith('/collections');
+  const onProfile = pathname === '/profile';
 
   return (
     <nav
@@ -124,6 +141,7 @@ export function BottomNav({ onAdd }: BottomNavProps) {
             "pressed but inert". */}
         <NavTab href="/map" icon={MapIcon} label="Map" active={onMap} />
         <NavTab href="/collections" icon={Library} label="Collections" active={onCollections} />
+        <NavTab href="/profile" icon={UserRound} label="Profile" active={onProfile} />
       </div>
       <AddButton {...(onAdd ? { onAdd } : {})} />
     </nav>
@@ -136,7 +154,7 @@ function NavTab({
   label,
   active,
 }: {
-  href: '/map' | '/collections';
+  href: '/map' | '/collections' | '/profile';
   icon: typeof MapIcon;
   label: string;
   active: boolean;
@@ -148,7 +166,7 @@ function NavTab({
       // exactly what `aria-current="page"` means. `true` would be a weaker, vaguer claim.
       {...(active ? { 'aria-current': 'page' as const } : {})}
       className={cn(
-        'flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full px-2 text-sm font-medium transition-colors',
+        'flex h-11 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-full px-2 font-medium transition-colors',
         'focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
         active
           ? 'bg-muted text-foreground'
@@ -158,8 +176,12 @@ function NavTab({
       <Icon className="size-4 shrink-0" aria-hidden />
       {/* Visually hidden rather than removed under 360 px, so a narrow phone gets a bar of icons
           on screen and a bar of named controls in the accessibility tree. A CSS breakpoint, never
-          a media query in JavaScript — `map-page-client.tsx` forbids the latter outright. */}
-      <span className="truncate max-[359px]:sr-only">{label}</span>
+          a media query in JavaScript — `map-page-client.tsx` forbids the latter outright. The
+          threshold still holds at three tabs: `Collections` at 11 px measures ~63 px against 73 px
+          of content width at 375 and ~57 px at 320, which is where it would start to truncate. */}
+      <span className="max-w-full truncate text-[11px] leading-none max-[359px]:sr-only">
+        {label}
+      </span>
     </Link>
   );
 }
