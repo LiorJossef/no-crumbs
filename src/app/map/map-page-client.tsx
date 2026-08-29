@@ -113,7 +113,7 @@ import { tagDisplayLabel } from '@/domain/extraction/tags';
 import { TagFilterContext, isSameTag, type TagFilter } from '@/ui/place/tag-filter';
 import { AnnounceContext, SILENT, latestSpoken, type Announcer } from '@/ui/place/announce';
 import { clusterByProximity, pickAnchorCluster } from '@/domain/places/clusters';
-import { buildAreas } from '@/ui/place/active-area';
+import { buildAreas, mapAccessibleName } from '@/ui/place/active-area';
 import {
   activeCountryKey as ringedCountryKeyFor,
   fallbackScope,
@@ -124,6 +124,7 @@ import {
   scopeForAreaTap,
   scopeForCountryTap,
   scopeHeading,
+  scopeLabel,
   type ListScope,
 } from '@/ui/place/list-scope';
 import { elsewhereGroups } from '@/ui/place/elsewhere-groups';
@@ -283,7 +284,16 @@ export function MapPageClient({
 
   /** Every cluster in the library. Keyed on `places`, so an import re-clusters once rather than on
    *  every render. */
-  const clusters = useMemo(() => clusterByProximity(places, (place) => place), [places]);
+  const clusters = useMemo(
+    () =>
+      clusterByProximity(places, (place) => place, {
+        // The same projection `buildAreas` takes three lines below. Without it the grouping is
+        // geometry alone, which merges every city inside 50 km: the owner's library reported
+        // `4 places in תל אביב-יפו` over a set holding Rishon LeZion and Ra'anana.
+        toLocality: (place: MapPlace) => place.detail?.locality ?? null,
+      }),
+    [places],
+  );
 
   /** The clusters as *areas* — labelled, indexed by member id, memoised once per library so the
    *  header's city name is stable for the session rather than recomputed per render. */
@@ -499,6 +509,10 @@ export function MapPageClient({
   // rather than `3 places in London`. `ux-map-is-the-query.md` §2.2's string matrix says the noun
   // changes "exactly when a second filter is applied"; a chip is a second filter, and no new string
   // is invented for it.
+  /** Library-wide, not list-wide: the `Not been yet` chip narrows the map as well as the list, and
+   *  the map draws every match. */
+  const libraryHasVisited = useMemo(() => places.some((place) => place.visited), [places]);
+
   const filtering =
     isSearchActive(query) || activeTag !== null || notBeenOnly || activeCategory !== null;
   const heading = useMemo(
@@ -512,6 +526,14 @@ export function MapPageClient({
         matchesAnywhere: matches.length,
       }),
     [inScope, listScope, query, activeTag, notBeenOnly, matches],
+  );
+
+  // The canvas is unreachable to a screen reader, so the honest thing for it to say is what it is
+  // showing and that the list beside it is complete. Same `where` the heading uses, so the two can
+  // never describe different places.
+  const canvasName = useMemo(
+    () => mapAccessibleName(heading, scopeLabel(listScope)),
+    [heading, listScope],
   );
 
   // The open place, resolved against the *current* server data on every render — which is what makes
@@ -762,6 +784,7 @@ export function MapPageClient({
             onAreaClick={selectArea}
             onCountryClick={focusCountry}
             {...(focusBounds ? { focusBounds } : {})}
+            accessibleName={canvasName}
           />
 
           {/* The list and the pins both change silently as the user types, so the one thing a screen
@@ -805,6 +828,7 @@ export function MapPageClient({
               onSelectArea={selectArea}
               activeAreaId={activeAreaId}
               libraryIsEmpty={places.length === 0}
+              libraryHasVisited={libraryHasVisited}
               filtering={filtering}
               query={query}
               onQueryChange={setQuery}
@@ -832,6 +856,7 @@ export function MapPageClient({
             onSelectArea={selectArea}
             activeAreaId={activeAreaId}
             libraryIsEmpty={places.length === 0}
+              libraryHasVisited={libraryHasVisited}
             filtering={filtering}
             query={query}
             onQueryChange={setQuery}

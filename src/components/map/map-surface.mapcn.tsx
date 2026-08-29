@@ -68,6 +68,7 @@ import { AREA_DISC_SPEC } from './summary-style';
 import { useDiscTheme } from './use-disc-theme';
 import { clampFitPadding, LG_BREAKPOINT_PX, mapOcclusionInsets, queryRectFrom } from './query-rect';
 import { pinGeometry } from './marker-style';
+import { nearbyPlaces } from '@/ui/place/nearby';
 import { BasemapTint } from './basemap-tint-layer';
 import { toPlaceFeatures } from './place-features';
 import { PlaceMarkerLayer } from './place-marker-layer';
@@ -329,12 +330,19 @@ export function MapSurfaceMapcn({
   onAreaClick,
   onCountryClick,
   focusBounds,
+  accessibleName,
   restingSheetFraction,
   selectedOcclusionFraction,
   floatingTopChromePx,
   onViewportChange,
 }: MapSurfaceProps) {
   const data = useMemo(() => toPlaceFeatures(places), [places]);
+  /** The open pin's neighbours, for the popover's `Nearby` section. Same rule as the mobile
+   *  sheet's; both read the same library, so both get the same answer. */
+  const nearbyToSelected = useMemo(
+    () => (selected === null ? [] : nearbyPlaces(selected, places)),
+    [selected, places],
+  );
   const theme = useDiscTheme();
   const countryFeatures = useMemo(
     () => toCountryFeatures(summaries?.countries ?? [], summaries?.activeCountryKey ?? null, theme),
@@ -656,6 +664,26 @@ export function MapSurfaceMapcn({
    * `h-full w-full` inside a flex layout, so it changes size in cases the window never fires for —
    * including the first layout pass, which is the one that matters here.
    */
+  /**
+   * The canvas's accessible name.
+   *
+   * MapLibre labels its own canvas `Map` and marks it `role="region"` with `tabindex="0"`, so a
+   * screen reader user tabs into the map and is told the word "map" — which they could already
+   * see from the page. `accessibleName` says what is on it instead.
+   *
+   * Written from `attachMapRef` and not from the effect alone, and the ref is what makes that
+   * possible. The instance arrives through mapcn's `useImperativeHandle` on a commit of its own,
+   * which does not re-render this component — so an effect keyed on `accessibleName` would run
+   * once with `mapRef.current` still null and then never again on a map whose heading never
+   * changes. The effect keeps it in step afterwards, when it does.
+   */
+  const accessibleNameRef = useRef(accessibleName);
+  useEffect(() => {
+    accessibleNameRef.current = accessibleName;
+    if (accessibleName === undefined) return;
+    mapRef.current?.getCanvas().setAttribute('aria-label', accessibleName);
+  }, [accessibleName]);
+
   const attachMapRef = useCallback(
     (instance: MapLibreMap | null) => {
       const previous = mapRef.current;
@@ -669,6 +697,8 @@ export function MapSurfaceMapcn({
       }
       mapRef.current = instance;
       if (!instance) return;
+      const name = accessibleNameRef.current;
+      if (name !== undefined) instance.getCanvas().setAttribute('aria-label', name);
       // Measure the container *now*, before anything reads the canvas.
       //
       // MapLibre sizes its canvas once, at construction, and falls back to 400×300 when that
@@ -969,7 +999,20 @@ export function MapSurfaceMapcn({
           {/* `MapPlace.id` is a `saved_places` id for every surface that renders this map. */}
           <PlaceDetail
             place={selected}
-            savedPlace={{ id: selected.id, visited: selected.visited }}
+            savedPlace={{
+              id: selected.id,
+              visited: selected.visited,
+              // Same read as the mobile sheet's: `visitedAt` is on the joined `Spot`, not on the
+              // pin. Spread rather than an explicit `undefined` under `exactOptionalPropertyTypes`
+              // — a row marked been before the column was written has no timestamp, and absent is
+              // what that is.
+              ...(selected.detail?.visitedAt ? { visitedAt: selected.detail.visitedAt } : {}),
+            }}
+            nearby={nearbyToSelected}
+            onSelectNearby={(id) => {
+              const neighbour = places.find((candidate) => candidate.id === id);
+              if (neighbour) onPlaceClick?.(neighbour);
+            }}
             onClose={() => onDeselect?.()}
             variant="popover"
           />

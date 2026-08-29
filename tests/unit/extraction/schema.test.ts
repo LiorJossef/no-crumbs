@@ -347,13 +347,12 @@ describe('schema versioning', () => {
     expect(PROMPT_VERSION).toContain(`s${EXTRACTION_SCHEMA_VERSION}`);
   });
 
-  it('is on v4, under the prompt that closed the category and tag vocabularies', () => {
+  it('is on v4, under the prompt that widened the hashtag rule to category-plus-number names', () => {
     // Spelled out rather than derived, so moving the schema or the prompt is a deliberate edit
-    // here too. `s4` and `p13` moved together, which is the case the two-part key exists for: a
-    // v3 row and a v4 row have the same *shape* and different *vocabularies*, so the schema half
-    // had to move even though no field was added or removed.
+    // here too. `p14` is a prose-only change (the `#בראסרי18` miss), so the schema half stays at
+    // `s4` — the two halves move independently, which is why the key has two of them.
     expect(EXTRACTION_SCHEMA_VERSION).toBe(4);
-    expect(PROMPT_VERSION).toBe('p13-s4');
+    expect(PROMPT_VERSION).toBe('p14-s4');
   });
 
   it('keeps PROMPT_VERSION storable in the extractions column', () => {

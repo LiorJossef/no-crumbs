@@ -16,24 +16,32 @@
  * ## `Not been yet` is the first chip in this row, not a row of its own
  *
  * The nav ruling §3 merges it here rather than stacking a second bar, and the merge buys something
- * concrete: `NotBeenFilterChip` states its own 36 px height as a compromise under the 44 px touch
- * floor, taken because it sat alone under the search field with no competing target. In a row of
- * chips that argument is gone — there are now neighbours 8 px away — so every chip in this bar is
- * 44 px. That is the ruling's stated reason for the merge and it is the one hard number here.
+ * concrete: the standalone chip this replaced stated its own 36 px height as a compromise under the
+ * 44 px touch floor, taken because it sat alone under the search field with no competing target. In
+ * a row of chips that argument is gone — there are now neighbours 8 px away — so every chip in this
+ * bar is 44 px. That is the ruling's stated reason for the merge and it is the one hard number here.
  *
- * The chip is rebuilt from the same tokens and the same string rather than composed from
- * `visit-state.tsx`, because that component brings its own `Showing` kicker and its own `min-h-9`,
- * neither of which survives the move into a scroll row. The state model is copied exactly:
- * `aria-pressed`, and pressing the pressed one clears.
+ * It is rebuilt from the same tokens and the same string rather than composed from the old
+ * component, which brought its own `Showing` kicker and its own `min-h-9`, neither of which
+ * survives the move into a scroll row. The state model is copied exactly: `aria-pressed`, and
+ * pressing the pressed one clears — one control that is also its own dismissal, because a visit
+ * filter has no "somewhere else" that could have set it (unlike `ActiveTagFilter`, whose filter is
+ * set on a chip inside a place's detail) and a second target just to remove it would be two
+ * controls for one boolean.
+ *
+ * **It renders only when something is actually marked been** (`anyVisited`). It used to render on
+ * every library, so on a library where nobody has marked anything it was a filter that returned
+ * everything — the same "target that does nothing" this file already refuses to draw for a
+ * single-category library.
  *
  * ## No `All` chip, and this is a deviation worth reading
  *
  * §1.3 rule 5 says "`All` is a chip, first, selected by default". It is not built, for two reasons.
  * The nav ruling gives the first slot to `Not been yet`, so `All` could not be first anyway; and in
- * this product a pressed chip means *this is narrowing your library* — `ActiveTagFilter`,
- * `NotBeenFilterChip` and the detail tag chips all say so — while an `All` chip would sit pressed
- * in the state where nothing is narrowed, inverting that meaning at the head of a row that
- * otherwise obeys it. Nothing pressed *is* everything, and pressing the pressed chip clears.
+ * this product a pressed chip means *this is narrowing your library* — `ActiveTagFilter`, the visit
+ * chip and the detail tag chips all say so — while an `All` chip would sit pressed in the state
+ * where nothing is narrowed, inverting that meaning at the head of a row that otherwise obeys it.
+ * Nothing pressed *is* everything, and pressing the pressed chip clears.
  *
  * The residual cost is real and stated rather than hidden: with no `All`, clearing a category means
  * finding the pressed chip, which can be scrolled out of view in a library with many categories.
@@ -78,8 +86,8 @@ const BAR_LABEL = 'Filter your places';
 
 export interface CategoryFilterBarProps {
   /** Present categories with counts, already ordered — `categoryFacets` from the domain. Empty
-   *  means an empty library and the whole bar disappears; one entry keeps the row for `Not been
-   *  yet` but draws no category chips. */
+   *  means an empty library and the whole bar disappears; one entry draws no category chips, and
+   *  the row survives only if the visit chip has something to do. */
   readonly facets: readonly CategoryFacet[];
   /** The category currently narrowing the library, or `null` for none. */
   readonly activeCategory: ProductCategory | null;
@@ -89,6 +97,11 @@ export interface CategoryFilterBarProps {
   /** `Not been yet`, whose state and handler stay owned by the page exactly as they are today. */
   readonly notBeenOnly: boolean;
   readonly onToggleNotBeen: () => void;
+  /** Whether anything in the list this bar sits over is marked been. Nothing marked means the chip
+   *  removes nothing, which is the same objection the one-category case answers below: a target
+   *  whose pressed and unpressed states show the same rows. The caller passes the plain fact; the
+   *  "and it must not vanish while pressed" rule is applied here so there is one of it. */
+  readonly anyVisited: boolean;
   className?: string;
 }
 
@@ -98,6 +111,7 @@ export function CategoryFilterBar({
   onToggleCategory,
   notBeenOnly,
   onToggleNotBeen,
+  anyVisited,
   className,
 }: CategoryFilterBarProps) {
   // No facets means no places, and the parent already hides the whole filter block in that state;
@@ -107,10 +121,23 @@ export function CategoryFilterBar({
   // One category is not a choice. Every place in the library is a restaurant, so a `Restaurant 12`
   // chip is a control whose pressed and unpressed states show the same twelve rows — not a broken
   // promise in §1.3 rule 2's sense, but a target that does nothing, which is worse than absent.
-  // **The row itself still renders**, because `Not been yet` is in it and that filter is unrelated
-  // to how many categories the library happens to hold; hiding it here would delete a shipped
-  // control for anyone whose library is all one kind of place.
+  // **The row itself may still render**, because `Not been yet` is in it and that filter is
+  // unrelated to how many categories the library happens to hold; hiding it here would delete a
+  // shipped control for anyone whose library is all one kind of place.
   const showCategories = facets.length > 1;
+
+  // Nothing marked been, nothing for this chip to take away. Until now it rendered on every
+  // library, so on the common one — nobody has marked anything — pressing it returned exactly the
+  // list already on screen: an affordance offering a narrowing that does not exist.
+  //
+  // `notBeenOnly ||` is the same rule `activeCategory` gets in the facets upstream: a *pressed*
+  // chip must survive, or marking your last outstanding place as been would delete the only
+  // control that can undo the filter hiding the rest of your library.
+  const showNotBeen = notBeenOnly || anyVisited;
+
+  // Both halves gone leaves an empty flex row, which is invisible but not free — it is a `gap-3.5`
+  // child in the sheet's column, so it opens a hole under the search field.
+  if (!showNotBeen && !showCategories) return null;
 
   return (
     <div
@@ -127,19 +154,21 @@ export function CategoryFilterBar({
         className,
       )}
     >
-      <button
-        type="button"
-        aria-pressed={notBeenOnly}
-        onClick={onToggleNotBeen}
-        className={cn(
-          CHIP_PRESSABLE,
-          BAR_CHIP,
-          notBeenOnly ? CHIP_PRESSABLE_ACTIVE : CHIP_PRESSABLE_REST,
-        )}
-      >
-        <span className="whitespace-nowrap">{NOT_BEEN_FILTER_LABEL}</span>
-        {notBeenOnly && <X className="size-3.5 shrink-0" aria-hidden />}
-      </button>
+      {showNotBeen && (
+        <button
+          type="button"
+          aria-pressed={notBeenOnly}
+          onClick={onToggleNotBeen}
+          className={cn(
+            CHIP_PRESSABLE,
+            BAR_CHIP,
+            notBeenOnly ? CHIP_PRESSABLE_ACTIVE : CHIP_PRESSABLE_REST,
+          )}
+        >
+          <span className="whitespace-nowrap">{NOT_BEEN_FILTER_LABEL}</span>
+          {notBeenOnly && <X className="size-3.5 shrink-0" aria-hidden />}
+        </button>
+      )}
 
       {showCategories && facets.map(({ category, count }) => (
         <CategoryChip
