@@ -12,10 +12,10 @@
  * nobody touching anything.
  *
  * The coupling was right; the **granularity** was wrong. The unit of scope is a *place*, not a
- * rectangle. `domain/places/clusters.ts` already groups saved places at ~50 km on coordinates
- * (never on the `locality` string — the live library holds `London`, `Tel Aviv-Yafo`, `Tel Aviv`
- * and `תל אביב - יפו`, four spellings for two cities). So the map now answers **which of your areas
- * you are in**, and nothing else. Pan and zoom freely inside one: nothing changes at all. Cross into
+ * rectangle. `domain/places/clusters.ts` already groups saved places into cities — proximity joins,
+ * and a differing `locality` vetoes a join beyond 2 km (the live library holds five spellings of
+ * Tel Aviv, so neither the coordinates nor the string can do it alone). So the map now answers
+ * **which of your areas you are in**, and nothing else. Pan and zoom freely inside one: nothing changes at all. Cross into
  * another of your own areas, and the list switches — which is the only moment it may.
  *
  * The cluster boundary **is** the hysteresis: data-shaped rather than screen-shaped, with no pixel
@@ -111,9 +111,9 @@ export interface AreaProjections<T> {
  * **The label is `clusterLabel`'s plurality rule, not `viewport.ts`'s 70% confidence rule**, and
  * that is a deliberate departure from the spec, decided against the real library. The 70% bar
  * existed to stop a *viewport* spanning two cities from being named after one of them — a viewport
- * can hold London and Tel Aviv at once. A 50 km single-link cluster cannot: its members are one
- * metropolitan area by construction, so the only open question is which spelling to print, and that
- * is a display choice rather than a which-city claim.
+ * can hold London and Tel Aviv at once. A cluster cannot: its members are one city by construction
+ * — proximity joins them and a differing city name vetoes the join — so the only open question is
+ * which spelling to print, and that is a display choice rather than a which-city claim.
  *
  * Measured: the local Tel Aviv cluster is six `Tel Aviv-Yafo`, two `Tel Aviv` and one
  * `תל אביב - יפו` — 67%, under the old bar, so the 70% rule would render `9 places in this area`
