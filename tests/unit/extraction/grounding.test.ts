@@ -165,19 +165,31 @@ describe('applyGrounding — dishes', () => {
 describe('applyGrounding — tags', () => {
   it('canonicalises, de-duplicates and drops name/category echoes', () => {
     const { candidates, counters } = applyGrounding(
-      [candidate({ tags: ['italian', 'Italian', 'restaurant', 'Sycamore Restaurant', 'Hotel restaurant'] })],
+      [candidate({ tags: ['italian', 'Italian', 'restaurant', 'Sycamore Restaurant', 'Brunch'] })],
       CAPTION,
     );
-    expect(candidates[0]?.tags).toEqual(['italian', 'hotel restaurant']);
+    expect(candidates[0]?.tags).toEqual(['italian', 'brunch']);
     expect(counters.tag_dropped).toBe(3);
   });
 
   it('does not require a tag to appear in the caption', () => {
-    // Deliberate, and the one v2 field with no substring gate: `Hotel Restaurant` is a reading of
-    // "inside Middle Eighty Hotel", not a quote from it. Stated here so nobody later assumes a gate
-    // exists that does not.
-    const { candidates } = applyGrounding([candidate({ tags: ['Hotel Restaurant'] })], CAPTION);
-    expect(candidates[0]?.tags).toEqual(['hotel restaurant']);
+    // Deliberate, and the one v2 field with no substring gate: a tag is a *reading* of the caption
+    // — "seasonal Italian plates" supports `Italian` without containing it — so no containment
+    // test may exist here. Stated so nobody later assumes a gate that does not exist.
+    const { candidates } = applyGrounding([candidate({ tags: ['Italian'] })], CAPTION);
+    expect(candidates[0]?.tags).toEqual(['italian']);
+  });
+
+  it('drops a tag outside the whitelist and counts it as dropped', () => {
+    // The gate the 2026-08-29 taxonomy added, seen from the pipeline rather than from the unit:
+    // `Hotel restaurant` was a *good* tag under the open vocabulary and is not on the list, so it
+    // is discarded here rather than reaching a filter chip nothing else will ever share.
+    const { candidates, counters } = applyGrounding(
+      [candidate({ tags: ['Hotel restaurant', 'Natural wine'] })],
+      CAPTION,
+    );
+    expect(candidates[0]?.tags).toEqual([]);
+    expect(counters.tag_dropped).toBe(2);
   });
 });
 

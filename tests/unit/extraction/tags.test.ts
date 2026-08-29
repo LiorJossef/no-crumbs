@@ -116,29 +116,57 @@ describe('canonicaliseTags', () => {
   });
 
   it('folds two runs of the same caption onto identical tags', () => {
-    // Real output: run 1 of the London caption produced `Market Stall`/`Hotel Restaurant`, run 2
-    // produced `Market stall`/`Hotel restaurant`. Consistency across imports is the whole point of
-    // the field, so it cannot depend on which casing the model felt like this time.
-    expect(canonicaliseTags(['Market Stall', 'Hotel Restaurant'])).toEqual(
-      canonicaliseTags(['Market stall', 'Hotel restaurant']),
+    // Real output: run 1 of the London caption produced `Specialty Coffee`/`Wine Bar`, run 2
+    // produced `Specialty coffee`/`Wine bar`. Consistency across imports is the whole point of
+    // the field, so it cannot depend on which casing the model felt like this time. (The original
+    // fixture used `Market Stall`/`Hotel Restaurant`, which the 2026-08-29 whitelist no longer
+    // admits — the *casing* claim is what this test is about, and it needs listed labels to make
+    // it, or it passes trivially on two empty arrays.)
+    expect(canonicaliseTags(['Specialty Coffee', 'Wine Bar'])).toEqual(
+      canonicaliseTags(['Specialty coffee', 'Wine bar']),
     );
+    expect(canonicaliseTags(['Specialty Coffee', 'Wine Bar'])).toEqual([
+      'specialty coffee',
+      'wine bar',
+    ]);
+  });
+
+  it('drops everything that is not on the whitelist, rather than rounding it to the nearest', () => {
+    // The vocabulary the live library actually accumulated under the open scheme. `Natural wine`
+    // is not `Wine Bar` and `Greek` is not `Mediterranean` — each is a defensible round and each
+    // would put a claim in the library that no caption made. Dropped, so the place carries no tag.
+    expect(
+      canonicaliseTags(['Hidden gem', 'Market stall', 'Natural wine', 'Greek', 'Marylebone']),
+    ).toEqual([]);
+  });
+
+  it('accepts a spelling variant of a listed label, which is not the same as rounding', () => {
+    // `Cocktail` **is** `Cocktails`; `Beer and Pub` is `Beer & Pub` with the ampersand written out.
+    expect(canonicaliseTags(['Cocktail'])).toEqual(['cocktails']);
+    expect(canonicaliseTags(['Beer and Pub'])).toEqual(['beer pub']);
+    expect(canonicaliseTags(['Dessert'])).toEqual(['desserts']);
   });
 
   it('drops a tag that only repeats the place name', () => {
-    expect(canonicaliseTags(['La Nonna', 'Italian'], { names: ['La Nonna'] })).toEqual(['italian']);
+    // `Bakery` is both a whitelisted tag and, for this venue, its own name — which is exactly the
+    // case that keeps the exclusion worth having now that the vocabulary is closed.
+    expect(canonicaliseTags(['Bakery', 'Italian'], { names: ['Bakery'] })).toEqual(['italian']);
   });
 
   it('drops a tag that only repeats the category hint', () => {
-    expect(canonicaliseTags(['Restaurant', 'Greek'], { categoryHint: 'restaurant' })).toEqual(['greek']);
+    expect(canonicaliseTags(['Bar', 'Cocktails'], { categoryHint: 'bar' })).toEqual(['cocktails']);
   });
 
   it('ignores a null name or category in the exclusions', () => {
-    expect(canonicaliseTags(['Greek'], { names: [null], categoryHint: null })).toEqual(['greek']);
+    expect(canonicaliseTags(['Italian'], { names: [null], categoryHint: null })).toEqual([
+      'italian',
+    ]);
   });
 
   it('caps the list', () => {
-    const many = ['Italian', 'Greek', 'Nepalese', 'Matcha', 'Rooftop', 'Vegan', 'Kosher'];
+    const many = ['Italian', 'Japanese', 'Asian', 'Brunch', 'Cocktails', 'Speakeasy'];
     expect(canonicaliseTags(many)).toHaveLength(MAX_TAGS_PER_CANDIDATE);
+    expect(canonicaliseTags(many)).toEqual(['italian', 'japanese']);
   });
 
   it('returns an empty list for an empty input, not a placeholder', () => {
@@ -176,7 +204,7 @@ describe('canonicaliseTag — invisible and expanding characters', () => {
   });
 
   it('does not let a zero-width space mint a second copy of one tag', () => {
-    expect(canonicaliseTags(['hidden gem', 'hidden​ gem'])).toEqual(['hidden gem']);
+    expect(canonicaliseTags(['wine bar', 'wine​ bar'])).toEqual(['wine bar']);
   });
 
   it('drops a tag whose stored form exceeds the bound, rather than truncating it', () => {

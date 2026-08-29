@@ -91,7 +91,13 @@ describe('candidateMeta', () => {
 
   it('renders every category in the extraction vocabulary as a word', () => {
     expect(candidateMeta({ ...base, categoryHint: 'cafe', addressHint: null })).toBe('Café · London');
-    expect(candidateMeta({ ...base, categoryHint: 'other', addressHint: null })).toBe('Place · London');
+    expect(candidateMeta({ ...base, categoryHint: 'bar', addressHint: null })).toBe('Bar · London');
+    expect(candidateMeta({ ...base, categoryHint: 'restaurant', addressHint: null })).toBe(
+      'Restaurant · London',
+    );
+    // No category is a normal answer, not a gap: the review card says where, and says nothing
+    // about what, rather than calling it a "Place".
+    expect(candidateMeta({ ...base, categoryHint: null, addressHint: null })).toBe('London');
   });
 });
 

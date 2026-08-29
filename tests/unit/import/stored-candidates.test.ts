@@ -36,13 +36,41 @@ const V2_ROW = {
 };
 
 describe('parseStoredCandidates', () => {
-  it('reads a v3 row as v3, keeping its name variants', () => {
+  it('reads a row with every current key as the current version, keeping its name variants', () => {
     const result = parseStoredCandidates([{ ...V2_ROW, ...V3_ROW_EXTRA }]);
 
     expect(result.kind).toBe('ok');
     if (result.kind !== 'ok') return;
-    expect(result.candidates[0]?.schemaVersion).toBe(3);
+    // v3 and v4 are the same *shape* — v4 narrowed two vocabularies and added no field — so a
+    // ladder that reads shapes cannot tell them apart when the values are legal under both. This
+    // row's `restaurant` is, so it reads as 4. That is not a defect to fix here: the cache key
+    // pins `prompt_version`, so a genuine v3 row is never served under the current prompt, and the
+    // version is only load-bearing where a *key* is absent.
+    expect(result.candidates[0]?.schemaVersion).toBe(4);
     expect(result.candidates[0]?.candidate.nameVariants).toEqual(['Kohi']);
+  });
+
+  // REGRESSION (2026-08-29). Narrowing `categoryHint` to three values made every stored row
+  // carrying one of the other four fail the current shape — and then fail v2 and v1 as well,
+  // because both are derived from the current schema and inherited the narrow enum. The ladder
+  // ended at `invalid`, which the confirm route answers with a 500 on a row that is perfectly
+  // well-formed for its own version. Two of the 23 local `extractions` rows are like this.
+  it('reads a row whose category left the vocabulary, narrowing it rather than rejecting it', () => {
+    const result = parseStoredCandidates([
+      { ...V2_ROW, ...V3_ROW_EXTRA, categoryHint: 'bakery' },
+      { ...V2_ROW, ...V3_ROW_EXTRA, categoryHint: 'shop' },
+    ]);
+
+    expect(result.kind).toBe('ok');
+    if (result.kind !== 'ok') return;
+    expect(result.candidates.map((c) => c.schemaVersion)).toEqual([3, 3]);
+    // `bakery` is a cafe in the new taxonomy; `shop` has no home in it, and null is the honest
+    // answer rather than the nearest guess.
+    expect(result.candidates[0]?.candidate.categoryHint).toBe('cafe');
+    expect(result.candidates[1]?.candidate.categoryHint).toBeNull();
+    // Everything else about the row survives — this is a vocabulary narrowing, not a downgrade.
+    expect(result.candidates[0]?.candidate.nameVariants).toEqual(['Kohi']);
+    expect(result.candidates[0]?.candidate.tags).toEqual(['italian', 'hidden gem']);
   });
 
   // REGRESSION (TLV-BILING, 2026-08-28). Adding a required `nameVariants` to the candidate schema
