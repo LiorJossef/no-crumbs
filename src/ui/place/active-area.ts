@@ -221,9 +221,12 @@ function distanceToBoundsKm(bounds: GeoBounds, point: GeoPoint): number {
 }
 
 /**
- * **The four-writer rule, enforced.**
+ * **The four-writer rule, enforced** — and **superseded on 2026-08-29 by
+ * `list-scope.ts`'s `scopeAfterCameraSettled`**, which `map-page-client.tsx` now routes through
+ * instead. Nothing in the app calls this any more; it is kept because the rule it states is still
+ * the rule, and its successor implements it verbatim for the area case.
  *
- * `activeAreaId` has exactly four writers: the initial anchor resolution, an area-row tap, a
+ * `activeAreaId` had exactly four writers: the initial anchor resolution, an area-row tap, a
  * finished import, and a *settled user gesture that crossed a boundary*. It is **never re-derived
  * from settled bounds**, and this function is the only path the fourth writer can take.
  *
@@ -233,10 +236,12 @@ function distanceToBoundsKm(bounds: GeoBounds, point: GeoPoint): number {
  * rewrite the list, structurally rather than by a guard someone has to remember. That is the
  * specific fix for `21 places` becoming `9 places` with nobody touching anything.
  *
- * It is false for a zoom, too, and that is the second half of the promise: zooming out from Tel Aviv
- * until London's twelve pins are also on screen must not hand the list to London. The caller decides
- * what counts as a pan (`map-surface.mapcn.tsx`); this function decides nothing at all when it is
- * told the camera moved on its own.
+ * It used to be false for a **zoom** as well, and that half of the promise is gone: it said zooming
+ * out from Tel Aviv until London's twelve pins are also on screen must not hand the list to London,
+ * which was right while the list could only ever be one city. It cannot be right now that the map
+ * draws a country band — at that zoom neither city is on screen as a city — so the successor makes
+ * the discrete zoom band the trigger and the flag reports a user's zoom as what it is. See
+ * `components/map/types.ts`'s `ViewportChangeMeta.userInitiated`.
  *
  * Returns the id to store, which is `currentId` unchanged in every case that is not a crossing.
  */

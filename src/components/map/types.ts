@@ -299,13 +299,24 @@ export interface MapSurfaceProps {
  */
 export interface ViewportChangeMeta {
   /**
-   * True only when the settled camera was **panned by the user** — a drag (pointer or touch,
-   * including its inertia) or a keyboard pan.
+   * True when the settled camera was **moved by the user** — a drag or a zoom, pointer, touch or
+   * keyboard, inertia included. False for every programmatic move: a `ResizeObserver` re-fit, the
+   * initial `fitBounds`, a flight to a selected pin, the post-import flight, and the flight a
+   * country tap starts.
    *
-   * Deliberately false for a zoom of any kind (wheel, pinch without a pan, double-click, the map's
-   * own zoom buttons) as well as for every programmatic move: zooming out until a second city is on
-   * screen must not hand the list to that city, which is a rule about meaning rather than about
-   * plumbing, so the surface answers it rather than leaving each caller to guess.
+   * **A user's own zoom counted as `false` until 2026-08-29, and that was right until it was not.**
+   * The old rule said zooming out until a second city was on screen must not hand the list to that
+   * city — true while the list could only ever be one city, and the flag was the only thing
+   * standing between the user and a silent re-scope. The country band changed what a zoom *means*:
+   * `ui/place/list-scope.ts` makes the discrete zoom **band** the trigger, so crossing into the
+   * country band is the user asking for the whole library and crossing back out is them asking for
+   * a place again. A zoom is the only gesture that can cross a band, so reporting it as `false`
+   * leaves every transition in that module dead code.
+   *
+   * What has not changed, and is the whole guard: **it must stay false for every programmatic
+   * move.** That is what stops a re-fit or a post-import flight rewriting the list, and it is why a
+   * surface cannot answer this from `zoomend` alone — MapLibre fires `zoomend` for `flyTo` and
+   * `fitBounds` too, so the user's zoom is the one carrying an `originalEvent`.
    */
   readonly userInitiated: boolean;
   /**

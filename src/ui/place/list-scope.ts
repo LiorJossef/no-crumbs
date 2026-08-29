@@ -364,7 +364,17 @@ function unionMemberIds<T>(areas: readonly Area<T>[]): ReadonlySet<string> {
  * | global, 2+ countries | `3 countries` |
  * | global, exactly 1 | that country — the global list and its list hold the same places, so the |
  * |  | sentence is true either way and `31 places in 1 country` is not English anyone writes |
+ * | global, 1 countryless bucket over 2+ areas | `your library` — see below |
  * | global, empty library | `your library` |
+ *
+ * **The single-country shortcut cannot be taken for the countryless bucket with more than one area
+ * in it**, and that was a real sentence until it was tested. The bucket's label is
+ * `library-summary.ts`'s "name it after the place it actually contains" rule, which reads the
+ * *first* area — so a library of three saves in Kowloon and two in Osaka, none of them carrying a
+ * country, rendered `5 places in Kowloon` over a list that plainly held Osaka too. The shortcut is
+ * sound whenever the label speaks for everything under it: a real country contains all of its own
+ * areas by construction, and a one-area bucket is that one area. Neither holds here, and
+ * `1 countries` is not the repair, so the honest answer is the one the empty library already gives.
  */
 export function scopeLabel<T>(resolved: ResolvedScope<T>): string | null {
   switch (resolved.kind) {
@@ -376,7 +386,11 @@ export function scopeLabel<T>(resolved: ResolvedScope<T>): string | null {
       const countries = resolved.countries;
       if (countries.length === 0) return 'your library';
       const only = countries[0];
-      if (countries.length === 1 && only !== undefined) return countryLabel(only);
+      if (countries.length === 1 && only !== undefined) {
+        return only.countryCode !== null || only.areas.length === 1
+          ? countryLabel(only)
+          : 'your library';
+      }
       return `${countries.length} countries`;
     }
   }

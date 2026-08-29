@@ -32,7 +32,7 @@
  * and the order between the first three cannot change the result. None of the three is a camera
  * mover.
  *
- * ## The list is an area, not a rectangle (`docs/ux-stable-area-list.md`)
+ * ## The list is a scope, not a rectangle (`docs/ux-stable-area-list.md`, `ux-library-at-scale.md`)
  *
  * This file owns a second, prior narrowing, and 2026-08-28 changed what it narrows *by*. The list
  * used to be "every saved place whose pin is inside the map's query rect". The owner used that and
@@ -41,11 +41,20 @@
  * re-fit, a `fitBounds` once the container finally measures, a flight to a pin. A row that left was
  * gone, and the only way back was to reproduce a camera position by hand.
  *
- * The coupling was right; the granularity was wrong. **The unit of scope is now a place, not a
- * rectangle**: an *area* is a ~50 km coordinate cluster of the user's own saves, and the map says
- * which of your areas you are in. Pan and zoom freely inside one and nothing changes at all. Cross
- * into another of your areas with a real gesture and the list switches, which is the only moment it
- * may. `ui/place/active-area.ts` owns every rule; this file owns the state and the wiring.
+ * The coupling was right; the granularity was wrong. **The unit of scope is a place, not a
+ * rectangle**: an *area* is a ~50 km coordinate cluster of the user's own saves. Pan and zoom
+ * freely inside one and nothing changes at all. Cross into another of your areas with a real
+ * gesture and the list switches, which is the only moment it may.
+ *
+ * **2026-08-29 added the level above it.** One anchor was the right answer while the map only drew
+ * pins; it became the wrong answer the day the map grew a country band. At world zoom the screen
+ * says `United Kingdom 18` and `Israel 14`, no single city is on it, and the list underneath went
+ * on saying `18 places in London` — describing a place the map had stopped showing. So the scope is
+ * now three states rather than one anchor (`global` | `country` | `area`), the country band writes
+ * it, and the only camera-driven transition is the **discrete** one: `scopeAfterCameraSettled`
+ * switches on the zoom *band*, which is the same thing MapLibre swaps layers on, so a pan of any
+ * size inside one band is still a no-op down to object identity. `ui/place/list-scope.ts` owns
+ * every rule; this file owns the state and the wiring.
  *
  * **The one rule: narrowing never navigates.** The search box and the tag chip narrow what is
  * listed and can never move the camera or change the active area. That is why the settled-search
@@ -59,8 +68,10 @@
  *    `Not been yet` chip, then the search box). This is what the **pins** show, everywhere, so a
  *    pin never disappears for being off screen when being off screen is exactly what panning back
  *    would fix.
- *  - **`inArea`** — `matches` that belong to the active area, in library order (most recently saved
- *    first). This is what the **list** shows, and its order never changes on pan, zoom or resize.
+ *  - **`inScope`** — `matches` that belong to the current scope, in library order (most recently
+ *    saved first). This is what the **list** shows, and its order never changes on pan, zoom or
+ *    resize. Under a global scope it is every match, which is the point: the list and the country
+ *    band are then two renderings of one library.
  *  - **`places`** — the whole library, used to build the areas and for the initial camera anchor.
  *    Its count is displayed nowhere.
  *
@@ -102,14 +113,19 @@ import { tagDisplayLabel } from '@/domain/extraction/tags';
 import { TagFilterContext, isSameTag, type TagFilter } from '@/ui/place/tag-filter';
 import { AnnounceContext, SILENT, latestSpoken, type Announcer } from '@/ui/place/announce';
 import { clusterByProximity, pickAnchorCluster } from '@/domain/places/clusters';
+import { buildAreas } from '@/ui/place/active-area';
 import {
-  anchorFor,
-  areaAfterCameraSettled,
-  areaHeading,
-  buildAreas,
-  resolveArea,
-  type Area,
-} from '@/ui/place/active-area';
+  activeCountryKey as ringedCountryKeyFor,
+  fallbackScope,
+  resolveScopeOrFallback,
+  sameScope,
+  scopeAfterCameraSettled,
+  scopeAreaId,
+  scopeForAreaTap,
+  scopeForCountryTap,
+  scopeHeading,
+  type ListScope,
+} from '@/ui/place/list-scope';
 import { elsewhereGroups } from '@/ui/place/elsewhere-groups';
 import { meanCentroid } from '@/domain/places/country-bucket';
 import { summariseByCountry } from '@/ui/place/library-summary';
@@ -184,21 +200,24 @@ export function MapPageClient({
    * switch this prop back to something else, which the map reads as a brand-new request and
    * answers by throwing the camera across the world.
    *
-   * **The authorised camera movers, and there are now exactly five.** `06` §9.2 listed four, this
-   * file grew to seven, and `docs/ux-stable-area-list.md` cut it back — the reconciliation `06`
-   * §9.2 was owed is this comment. The fifth is the country band's, added by
-   * `docs/ux-library-at-scale.md` §2.4 and recorded here rather than hidden inside the map surface,
-   * because a list of who may move the camera is only worth having if it is complete. In the order
-   * they run:
+   * **The authorised camera movers, and there are exactly six.** `06` §9.2 listed four, this file
+   * grew to seven, and `docs/ux-stable-area-list.md` cut it back — the reconciliation `06` §9.2 was
+   * owed is this comment. It said *five* until 2026-08-29 while a sixth was already running and
+   * documented in `map-surface.mapcn.tsx`, which is exactly the drift a list like this exists to
+   * stop: a list of who may move the camera is only worth having if it is complete, wherever the
+   * mover happens to live. In the order they run:
    *
    *  1. The initial framing — the *anchor area*, not the whole library (see the header).
    *  2. A finished import flies to the places it saved.
-   *  3. Selecting a place from the list flies to that place, and **holds** the active area.
+   *  3. Selecting a place from the list flies to that place, and **holds** the scope.
    *  4. Tapping an `Elsewhere` row — or the map's own area marker, which is the same gesture — flies
-   *     to that area, and is the one gesture that sets the active area by hand.
-   *  5. Tapping a country marker frames that country's areas, clamped inside the area band. It
-   *     moves the camera and **nothing else**: the list, the header and the active area are
-   *     untouched, because choosing a country is not choosing a place. See `focusCountry`.
+   *     to that area, and sets an **area** scope by hand.
+   *  5. Tapping a country marker frames that country's areas, clamped inside the area band, and
+   *     sets a **country** scope. See `focusCountry`.
+   *  6. Selecting a place raises the sheet to `half`, so the camera offsets itself by the fraction
+   *     of the viewport the sheet is about to cover — otherwise the pin just tapped comes to rest
+   *     behind it. It lives in the surface (`map-surface.mapcn.tsx`, `selectedOcclusionFraction`)
+   *     because only the surface knows the projection, but it is a mover and belongs on this list.
    *
    * Three are gone, all of them for the same reason — narrowing must never navigate. A settled
    * search no longer flies to its matches, clearing the search no longer returns to a cluster, and
@@ -212,16 +231,25 @@ export function MapPageClient({
    *  object identity by the surface, exactly as `focusPlaceIds` is. */
   const [focusBounds, setFocusBounds] = useState<FocusBoundsRequest | null>(null);
   /**
-   * **Which of the user's areas the list is showing**, held as the id of a place inside it rather
-   * than a cluster index — clusters are rebuilt on every library change and carry no id of their
-   * own, so an anchor place survives an import landing in the area and a deletion from it.
+   * **What the list is a list of** — the whole library, one country of it, or one ~50 km area
+   * (`ui/place/list-scope.ts`, which owns every rule below and is where the argument lives).
    *
-   * `null` means "not chosen yet", and the anchor area below fills in. It has exactly four writers,
-   * enumerated on `focusPlaceIds` above: the initial resolution, an `Elsewhere` row tap, a finished
-   * import, and a settled *user pan* that crossed a boundary. It is never re-derived from settled
-   * bounds, which is what stops the camera rewriting the list on its own.
+   * `null` means "nothing chosen yet" and is not a fourth state: it selects the page's own default
+   * (the anchor area) through `fallbackScope`, and it exists only so that default can stay a
+   * *derivation* rather than an effect that paints one frame of the wrong list first.
+   *
+   * An `area` scope still holds the id of a place inside the area rather than a cluster index —
+   * clusters are rebuilt on every library change and carry no id of their own, so an anchor place
+   * survives an import landing in the area and a deletion from it. A `country` scope holds a
+   * `CountrySummary.key`, stable in the same way.
+   *
+   * **Five writers**, and they are the movers enumerated on `focusPlaceIds` plus the camera: the
+   * default resolution, an `Elsewhere`/area-marker tap (4), a country-marker tap (5), a finished
+   * import (2), and a settled *user gesture that crossed a zoom band or an area boundary*. It is
+   * never re-derived from settled bounds alone, which is what stops the camera rewriting the list
+   * on its own.
    */
-  const [activeAreaAnchor, setActiveAreaAnchor] = useState<string | null>(null);
+  const [scope, setScope] = useState<ListScope | null>(null);
   /** The category chip, if one is pressed. A fourth filter dimension, lifted here for the same
    *  reason the other three are: it narrows the **pins** as well as the rows, and a list of four
    *  cafés over a map of thirty-one everything is worse than no filter at all. */
@@ -290,20 +318,58 @@ export function MapPageClient({
   const initialBounds = anchorCluster?.bounds;
 
   /**
-   * **Writer 1 of `activeAreaAnchor`**: the area the camera opened on, resolved once the library
-   * arrives, and again if the anchored place is ever deleted out from under it.
+   * The library's areas bucketed into countries — the top level of `ux-library-at-scale.md` §2's
+   * geography, and the **one** computation the map's world-zoom band and the list's `Elsewhere`
+   * section both read. Two call sites deriving "the countries" separately is how they come to
+   * disagree, and the list is the accessible rendering of a canvas nothing else can reach.
    *
-   * Derived during render rather than in an effect — `resolveArea` returning `null` is exactly
-   * React's "a prop invalidated some state" case, and it converges immediately because after the
-   * write the lookup succeeds. Doing it in an effect would paint one frame of the wrong list.
+   * Above the filters, not below them, because the scope resolves against it: a country scope has
+   * to name a country of the *library*, never one of whatever the search box left.
+   *
+   * Keyed on `areas`, so it costs nothing on a keystroke, a pan or a chip tap.
    */
-  const resolved = resolveArea(areas, activeAreaAnchor);
-  const activeArea: Area<MapPlace> | null =
-    resolved ??
-    (anchorCluster ? (areas.find((area) => area.memberIds.has(anchorCluster.members[0]?.id ?? '')) ?? null) : null);
-  if (resolved === null && activeArea !== null && activeAreaAnchor !== activeArea.id) {
-    setActiveAreaAnchor(anchorFor(activeArea));
-  }
+  const countries = useMemo(
+    () =>
+      summariseByCountry(
+        areas,
+        (place: MapPlace) => place.detail?.countryCode ?? null,
+        (place: MapPlace) => place,
+      ),
+    [areas],
+  );
+
+  /** The page's default area: the one holding the most recently saved place, which is also the one
+   *  the camera opens on. Where the scope falls back to when what it named has been deleted. */
+  const preferredAreaId = useMemo(() => {
+    const seed = anchorCluster?.members[0]?.id;
+    if (seed === undefined) return null;
+    return areas.find((area) => area.memberIds.has(seed))?.id ?? null;
+  }, [areas, anchorCluster]);
+
+  /** The scope as stored, with the page's default filled in while nothing has been chosen. */
+  const storedScope = useMemo(
+    () => scope ?? fallbackScope(areas, preferredAreaId),
+    [scope, areas, preferredAreaId],
+  );
+
+  /**
+   * **The scope resolved against the library as it is right now** — the areas, the places and the
+   * country it names, or the fallback when it names something that has just been deleted.
+   *
+   * Derived during render rather than in an effect: a stored scope going stale is exactly React's
+   * "a prop invalidated some state" case, and the correction below converges immediately because
+   * `resolveScope` is idempotent on its own canonical output. Doing it in an effect would paint one
+   * frame of the wrong list.
+   */
+  const listScope = useMemo(
+    () => resolveScopeOrFallback(areas, countries, storedScope, preferredAreaId),
+    [areas, countries, storedScope, preferredAreaId],
+  );
+  if (!sameScope(storedScope, listScope.scope)) setScope(listScope.scope);
+
+  /** The one area the list is about, or `null` under a country or global scope — where several are
+   *  listed at once and there is no single one for `Elsewhere` to subtract. */
+  const activeAreaId = scopeAreaId(listScope);
 
   /** The library narrowed by the active tag chip, before the search box sees it. Its own `useMemo`
    *  rather than one fused expression so that typing does not re-run the tag pass and tapping a
@@ -318,9 +384,6 @@ export function MapPageClient({
     [tagMatches, notBeenOnly],
   );
 
-  /** The library narrowed by **both** filters. This is what the **pins** show — never narrowed by
-   *  the viewport, which would be circular. The list is this same array narrowed again by the
-   *  viewport below, so the pins and the rows can never disagree about what the filters did. */
   /** The same library narrowed to one category. Its own pass for the same memoisation reason as
    *  the two above; the four compose as AND and their order cannot change the result. */
   const categoryMatches = useMemo(
@@ -328,6 +391,9 @@ export function MapPageClient({
     [visitMatches, activeCategory],
   );
 
+  /** The library narrowed by **every** filter. This is what the **pins** show — never narrowed by
+   *  the scope, which would be circular. The list is this same array narrowed once more by the
+   *  scope, so the pins and the rows can never disagree about what the filters did. */
   const matches = useMemo(
     () => filterPlaces(categoryMatches, query),
     [categoryMatches, query],
@@ -360,7 +426,7 @@ export function MapPageClient({
   const matchIds = useMemo(() => new Set(matches.map((place) => place.id)), [matches]);
 
   /**
-   * What the **list** shows: the matches that belong to the active area, in library order — most
+   * What the **list** shows: the matches that belong to the current scope, in library order — most
    * recently saved first.
    *
    * The order is the library's and never the camera's. The nearest-the-centre sort this replaced
@@ -368,39 +434,25 @@ export function MapPageClient({
    * and re-ordering rows under a pan is the same instability as removing them, one row at a time.
    * Distance belongs to near-me (`L1-F11`), where it is distance from *you*.
    *
-   * Falls back to every match while there is no area yet — the single frame before the library
-   * resolves, and the empty-library case.
+   * Under a global scope `memberIds` is every saved place, so this is `matches` — no branch, and no
+   * "no area yet" special case for the frame before the library resolves.
    */
-  const inArea = useMemo(
-    () => (activeArea ? matches.filter((place) => activeArea.memberIds.has(place.id)) : matches),
-    [matches, activeArea],
+  const inScope = useMemo(
+    () => matches.filter((place) => listScope.memberIds.has(place.id)),
+    [matches, listScope],
   );
 
   /**
-   * The library's areas bucketed into countries — the top level of `ux-library-at-scale.md` §2's
-   * geography, and the **one** computation the map's world-zoom band and the list's `Elsewhere`
-   * section both read. Two call sites deriving "the countries" separately is how they come to
-   * disagree, and the list is the accessible rendering of a canvas nothing else can reach.
+   * Which country's marker carries the mint ring at world zoom.
    *
-   * Keyed on `areas`, so it costs nothing on a keystroke, a pan or a chip tap.
+   * `null` under a global scope, and that is the point rather than a gap: with the whole library
+   * listed, no single country is the one you are in, and ringing one would contradict the list
+   * directly under it.
    */
-  const countries = useMemo(
-    () =>
-      summariseByCountry(
-        areas,
-        (place: MapPlace) => place.detail?.countryCode ?? null,
-        (place: MapPlace) => place,
-      ),
-    [areas],
+  const activeCountryKey = useMemo(
+    () => ringedCountryKeyFor(listScope, countries),
+    [listScope, countries],
   );
-
-  /** Which country's marker carries the mint ring at world zoom: the one you are standing in. */
-  const activeCountryKey = useMemo(() => {
-    const id = activeArea?.id;
-    if (id === undefined) return null;
-    const found = countries.find((country) => country.areas.some((area) => area.id === id));
-    return found?.key ?? null;
-  }, [countries, activeArea]);
 
   /**
    * The same summary, in the map port's own shape (`components/map/types.ts`).
@@ -439,12 +491,8 @@ export function MapPageClient({
    *  left in each. Empty when the user has one area, which renders no section at all. */
   const elsewhere = useMemo(
     () =>
-      elsewhereGroups(
-        countries,
-        { activeAreaId: activeArea?.id ?? null, previousAreaId },
-        matchIds,
-      ),
-    [countries, activeArea, previousAreaId, matchIds],
+      elsewhereGroups(countries, { activeAreaId, previousAreaId }, matchIds),
+    [countries, activeAreaId, previousAreaId, matchIds],
   );
 
   // Both narrowings feed the header's noun, so a tag-filtered list reads `3 matches in London`
@@ -455,15 +503,15 @@ export function MapPageClient({
     isSearchActive(query) || activeTag !== null || notBeenOnly || activeCategory !== null;
   const heading = useMemo(
     () =>
-      areaHeading({
-        countInArea: inArea.length,
-        area: activeArea?.label ?? null,
+      scopeHeading({
+        scope: listScope,
+        countInScope: inScope.length,
         searchQuery: query.trim(),
         tagLabel: activeTag === null ? null : tagDisplayLabel(activeTag),
         notBeenOnly,
         matchesAnywhere: matches.length,
       }),
-    [inArea, activeArea, query, activeTag, notBeenOnly, matches],
+    [inScope, listScope, query, activeTag, notBeenOnly, matches],
   );
 
   // The open place, resolved against the *current* server data on every render — which is what makes
@@ -474,7 +522,7 @@ export function MapPageClient({
   // its pin is gone from the map and the detail would be showing something the user can no longer
   // see or dismiss by tapping. Now it simply does not resolve.
   //
-  // Deliberately `matches` and NOT `inArea`: crossing into another area would otherwise slam the
+  // Deliberately `matches` and NOT `inScope`: crossing into another area would otherwise slam the
   // open detail shut mid-gesture, which is the map taking something away from the user for looking
   // somewhere else.
   const selected: MapPlace | null =
@@ -539,32 +587,46 @@ export function MapPageClient({
       const area = areas.find((candidate) => candidate.id === areaId);
       if (!area) return;
       const matching = area.members.filter((place) => matchIds.has(place.id));
-      setPreviousAreaId((current) => {
-        const active = resolveArea(areas, activeAreaAnchor)?.id ?? null;
-        return active === area.id ? current : active;
-      });
-      setActiveAreaAnchor(area.id);
+      // `null` under a country or global scope, which is right: you did not come from an area, so
+      // there is no area for `Elsewhere` to keep open as the way back.
+      setPreviousAreaId((current) => (activeAreaId === area.id ? current : activeAreaId));
+      setScope(scopeForAreaTap(area.id));
       setSelectedId(null);
       setCountryExpansion(EMPTY_EXPANSION);
       setFocusPlaceIds((matching.length > 0 ? matching : area.members).map((place) => place.id));
     },
-    [areas, activeAreaAnchor, matchIds],
+    [areas, activeAreaId, matchIds],
   );
 
   /**
-   * **Camera mover 5**, and the enumeration above is amended rather than quietly outgrown: tapping
-   * a country marker frames that country's areas.
+   * **Camera mover 5, and a writer of the scope** — tapping a country marker frames that country's
+   * areas *and* makes the list a list of that country.
    *
-   * It is a fifth mover rather than a reuse of `focusPlaceIds` because it needs a zoom **floor** as
-   * well as a ceiling — §2.4 requires the camera to come to rest inside the area band, so that a
-   * country tap always lands on labelled area markers and never on an empty map or on pins. It is
-   * **not** a fifth writer of the active area: you have chosen a country, not a place, so the sheet
-   * keeps saying exactly what it said. That asymmetry is the point of §2.4's two-tap path.
+   * It is its own mover rather than a reuse of `focusPlaceIds` because it needs a zoom **floor** as
+   * well as a ceiling: §2.4 requires the camera to come to rest inside the area band, so that a
+   * country tap always lands on labelled area markers and never on an empty map or on pins.
+   *
+   * **This comment used to argue the opposite, and the owner reversed it on 2026-08-29.** It said
+   * the tap moved the camera and *nothing else* — "you have chosen a country, not a place, so the
+   * sheet keeps saying exactly what it said" — and called that asymmetry the point of §2.4's
+   * two-tap path. The owner used it and rejected it: tapping `United Kingdom 18` and landing on a
+   * list still headed `14 places in Tel Aviv-Yafo` reads as a broken control, not as a deliberate
+   * two-tap path. A country is now a scope the list can be in (`ui/place/list-scope.ts`), which is
+   * what makes the tap expressible at all — the old model had one anchor and no way to say
+   * "this country".
+   *
+   * It clears the selection and the country-group overrides for the same reasons writer 2 does: the
+   * open place may be in another country entirely, and both `Elsewhere` defaults have just moved.
+   * `previousAreaId` is deliberately not written — a country tap is not a departure from an area,
+   * and there is nothing for the one-tap way back to point at.
    */
   const focusCountry = useCallback(
     (key: string) => {
       const country = countries.find((candidate) => candidate.key === key);
       if (!country) return;
+      setScope(scopeForCountryTap(country.key));
+      setSelectedId(null);
+      setCountryExpansion(EMPTY_EXPANSION);
       setFocusBounds({
         bounds: country.bounds,
         minZoom: COUNTRY_LANDING_ZOOM.min,
@@ -587,21 +649,31 @@ export function MapPageClient({
   }, []);
 
   /**
-   * Writer 4. `userInitiated` is the whole guard: every programmatic camera move reports `false`,
-   * so a re-fit, the initial framing or a flight to a pin structurally cannot rewrite the list.
+   * The camera's own writer, and the only one.
+   *
+   * Two guards, both in `scopeAfterCameraSettled`. `userInitiated` is the first: every programmatic
+   * camera move reports `false`, so a re-fit, the initial framing, a flight to a pin and the flight
+   * a country tap just started structurally cannot rewrite what the tap wrote. The **band** is the
+   * second: the only camera-driven transition switches on `bandForZoom`, the same discrete number
+   * MapLibre swaps layers on, so a pan of any size that stays in one band changes the scope only by
+   * the 50 km cluster rule that already existed. That is the owner's "do not refilter on every
+   * small map pan" (ruling 5, reaffirmed 2026-08-29) as a property of the state machine rather than
+   * a threshold someone has to tune.
    */
   const handleViewportChange = useCallback(
     (bounds: LatLngBoundsHint, meta: ViewportChangeMeta) => {
-      setActiveAreaAnchor((current) =>
-        areaAfterCameraSettled({
-          areas,
-          currentId: resolveArea(areas, current)?.id ?? current,
-          rect: bounds,
+      setScope((current) =>
+        scopeAfterCameraSettled({
+          scope: current ?? fallbackScope(areas, preferredAreaId),
+          zoom: meta.zoom,
           userInitiated: meta.userInitiated,
+          areas,
+          countries,
+          rect: bounds,
         }),
       );
     },
-    [areas],
+    [areas, countries, preferredAreaId],
   );
 
   /**
@@ -725,13 +797,13 @@ export function MapPageClient({
           {!showImport && <BottomNav onAdd={openImport} />}
           {!showImport && (
             <PlaceSheet
-              places={inArea}
+              places={inScope}
               heading={heading}
               elsewhere={elsewhere}
               countryExpansion={countryExpansion}
               onToggleCountry={toggleCountry}
               onSelectArea={selectArea}
-              activeAreaId={activeArea?.id ?? null}
+              activeAreaId={activeAreaId}
               libraryIsEmpty={places.length === 0}
               filtering={filtering}
               query={query}
@@ -752,13 +824,13 @@ export function MapPageClient({
             />
           )}
           <PlaceDesktopPanel
-            places={inArea}
+            places={inScope}
             heading={heading}
             elsewhere={elsewhere}
             countryExpansion={countryExpansion}
             onToggleCountry={toggleCountry}
             onSelectArea={selectArea}
-            activeAreaId={activeArea?.id ?? null}
+            activeAreaId={activeAreaId}
             libraryIsEmpty={places.length === 0}
             filtering={filtering}
             query={query}
@@ -782,7 +854,7 @@ export function MapPageClient({
                 // Writer 3. Resolves itself once the refreshed rows arrive, so this does not wait
                 // on the data.
                 const first = outcome.savedPlaceIds[0];
-                if (first) setActiveAreaAnchor(first);
+                if (first) setScope(scopeForAreaTap(first));
               }}
             />
           )}
