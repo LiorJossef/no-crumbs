@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { OpCtx } from '@/domain/ports';
 import { anthropicPlaceExtractor } from '@/integrations/llm/anthropic.place-extractor';
 import { MAX_OUTPUT_TOKENS } from '@/integrations/llm/json-schema';
+import { PROMPT_VERSION } from '@/integrations/llm/prompt';
 
 function ctx(events: { name: string; fields: Record<string, unknown> }[] = []): OpCtx {
   return {
@@ -307,9 +308,12 @@ describe('anthropicPlaceExtractor', () => {
     expect(events.find((e) => e.name === 'extraction.candidates_dropped')).toBeUndefined();
   });
 
-  it('carries a stable version and the current prompt version', () => {
+  it('carries a stable version and passes the current prompt version through unchanged', () => {
+    // The literal value is pinned once, in `tests/unit/extraction/schema.test.ts`. What matters
+    // here is only that the adapter reports the prompt it actually sent — pinning the string in
+    // two files makes a version bump touch a test that has no opinion about it.
     const extractor = anthropicPlaceExtractor({ apiKey: 'test-key' });
     expect(extractor.version).toBe('2026-08-anthropic-haiku-4-5');
-    expect(extractor.promptVersion).toBe('p13-s4');
+    expect(extractor.promptVersion).toBe(PROMPT_VERSION);
   });
 });
