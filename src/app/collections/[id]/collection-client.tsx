@@ -26,13 +26,36 @@ import type { CollectionDetail } from '@/app/collections/_lib/get-collections';
  *  peek height is that file's `PEEK_PX`, duplicated with the coupling named because it is not
  *  exported (`query-rect.ts`'s `SHEET_PEEK_PX` mirrors the same number the same way). */
 const PEEK_PX = 128;
-const SNAP_POINTS: Array<`${number}px` | number> = [`${PEEK_PX}px`, 0.55, 1];
+const PEEK_STOP = `${PEEK_PX}px` as const;
 
-/** Where the sheet **rests** here, and the one difference from `/map` the camera has to know about:
- *  this surface opens at `half` and stays there, so more than half the map is permanently covered.
- *  Read off `SNAP_POINTS` rather than restated, so the sheet and the camera cannot drift apart. */
-const RESTING_SNAP = SNAP_POINTS[1] ?? 0.55;
-const RESTING_SHEET_FRACTION = typeof RESTING_SNAP === 'number' ? RESTING_SNAP : undefined;
+/**
+ * Where the sheet **rests** here, and the one difference from `/map` the camera has to know about:
+ * this surface opens at `half` and stays there, so more than half the map is permanently covered.
+ *
+ * This is the single source for that number and `SNAP_POINTS` is built *from* it, rather than the
+ * camera reading it back out of the array by index. The index version failed open: it was
+ * `SNAP_POINTS[1] ?? 0.55` narrowed with a `typeof === 'number'` test, so reordering the stops so
+ * that index 1 held a `px` string made the fraction `undefined`, the prop was dropped by the
+ * conditional spread, the camera silently reverted to framing for a 128 px peek, and no test
+ * anywhere failed. Deriving in this direction there is nothing to fail: the value the sheet rests
+ * at and the value the camera frames for are the same constant.
+ */
+const RESTING_SHEET_FRACTION = 0.55;
+const RESTING_SNAP: number = RESTING_SHEET_FRACTION;
+
+const SNAP_POINTS: Array<`${number}px` | number> = [PEEK_STOP, RESTING_SHEET_FRACTION, 1];
+
+/** This surface puts **nothing** over the top edge of its map: no account chip, no post-import
+ *  strip, no floating filter row — its whole UI is the sheet below `lg` and the left panel at
+ *  `lg+`, and MapLibre's own controls sit bottom-right. Declaring that is not cosmetic. The camera
+ *  used to be charged `/map`'s 100 px allowance anyway, and on a short container that phantom band
+ *  was the whole overflow: at 640×360 (a landscape Pixel/Galaxy) the padding came to 394 px of a
+ *  360 px container, `clampFitPadding` scaled the box down, and the lowest pin landed under this
+ *  sheet — measured in a browser, its tip at 163 px against a sheet top of 162 px, and 10 px under
+ *  at 568×320. At zero the same fit is 294 px of 360, never reaches the clamp, and every pin clears
+ *  the sheet by the full 48 px. If this surface ever grows floating top chrome, this is the number
+ *  that has to grow with it. */
+const FLOATING_TOP_CHROME_PX = 0;
 
 export function CollectionClient({
   collection,
@@ -58,7 +81,7 @@ export function CollectionClient({
   function selectItem(itemId: string | null) {
     setSelectedItemId(itemId);
     // A place is worth reading at half, not through the peek slot.
-    if (itemId !== null && snap === SNAP_POINTS[0]) setSnap(RESTING_SNAP);
+    if (itemId !== null && snap === PEEK_STOP) setSnap(RESTING_SNAP);
   }
 
   const content = (
@@ -76,7 +99,7 @@ export function CollectionClient({
         // scrolls, so it does not even look scrollable. A place's detail is different and stays at
         // `half`: it is short, and burying the map to read one card is the wrong trade.
         if (next === 'share' || next === 'add') setSnap(1);
-        else if (next === 'place' && snap === SNAP_POINTS[0]) setSnap(RESTING_SNAP);
+        else if (next === 'place' && snap === PEEK_STOP) setSnap(RESTING_SNAP);
       }}
       selectedItemId={selectedItemId}
       onSelectItem={selectItem}
@@ -93,9 +116,8 @@ export function CollectionClient({
         }}
         {...(initialBounds ? { initialBounds } : {})}
         {...(focusPlaceIds ? { focusPlaceIds } : {})}
-        {...(RESTING_SHEET_FRACTION !== undefined
-          ? { restingSheetFraction: RESTING_SHEET_FRACTION }
-          : {})}
+        restingSheetFraction={RESTING_SHEET_FRACTION}
+        floatingTopChromePx={FLOATING_TOP_CHROME_PX}
       />
 
       {/* Mobile: the same drag sheet `/map` uses. */}
