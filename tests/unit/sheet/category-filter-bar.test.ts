@@ -23,7 +23,7 @@ import type { CategoryFacet } from '@/domain/places/category-filter';
 const FACETS: readonly CategoryFacet[] = [
   { category: 'restaurant', count: 6 },
   { category: 'cafe', count: 4 },
-  { category: 'other', count: 1 },
+  { category: 'bar', count: 1 },
 ];
 
 function render(overrides: Partial<CategoryFilterBarProps> = {}): string {
@@ -52,8 +52,7 @@ describe('CategoryFilterBar — what it offers', () => {
     expect(chips[0]).toContain('Not been yet');
     expect(chips[1]).toContain('Restaurant');
     expect(chips[2]).toContain('Café');
-    // `other` renders as "Place" — the display layer's word, not a new string.
-    expect(chips[3]).toContain('Place');
+    expect(chips[3]).toContain('Bar');
   });
 
   it('renders no chip for a category that is not in the facets', () => {
@@ -133,7 +132,7 @@ describe('CategoryFilterBar — accessibility', () => {
     const chips = buttons(render());
     expect(chips[1]).toContain('aria-label="Restaurant, 6 places"');
     expect(chips[2]).toContain('aria-label="Café, 4 places"');
-    expect(chips[3]).toContain('aria-label="Place, 1 place"');
+    expect(chips[3]).toContain('aria-label="Bar, 1 place"');
   });
 
   it('leaves the colour dot out of the accessibility tree — colour never carries meaning alone', () => {

@@ -135,11 +135,15 @@ export interface Spot extends PlaceDetailFacts {
    *  category and the model's hint by `productCategoryFor` — see `product-category.ts` for the
    *  ranking and why it is not simply `category_override ?? places.category`.
    *
-   *  Closed and non-nullable, unlike the three free-`text` columns behind it: every renderer
-   *  downstream (pin glyph, pin colour, the line under the name, the filter row) needs a total
-   *  answer, and the read path is the one place that has all three claims in hand. Deriving it
-   *  here means no renderer re-derives it differently. */
-  readonly category: ProductCategory;
+   *  Closed, and **nullable since the 2026-08-29 taxonomy**. It was non-nullable, on the argument
+   *  that every renderer downstream needs a total answer — which is true and is now the renderers'
+   *  job rather than a reason to invent a category. The old totality was bought with `other`, a
+   *  value that rendered as "Place" and meant only that we had declined to say; a museum, a butcher
+   *  and a caption too vague to read are not one category. `null` says so, and each renderer has a
+   *  correct answer for it: no word in the line under the name, the house mint on the pin, no chip
+   *  in the filter row. The read path is still the one place that has all three claims in hand, so
+   *  no renderer re-derives it differently. */
+  readonly category: ProductCategory | null;
   /** Whether `category` came from `saved_places.category_override` rather than from the provider or
    *  the model. The raw override string is deliberately **not** exposed: the only thing a surface
    *  needs from it is whether the user has spoken, which is what tells an editor to offer "back to

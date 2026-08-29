@@ -237,13 +237,13 @@ describe('updateSavedPlaceNote', () => {
 
 describe('updateSavedPlaceCategory', () => {
   it('writes the category the user chose, and nothing else', () => {
-    return updateSavedPlaceCategory('sp-1', 'dessert').then((outcome) => {
+    return updateSavedPlaceCategory('sp-1', 'cafe').then((outcome) => {
       expect(outcome).toEqual({ ok: true });
       expect(calls).toEqual([
         {
           table: 'saved_places',
           op: 'update',
-          values: { category_override: 'dessert' },
+          values: { category_override: 'cafe' },
           count: 'exact',
           filter: { column: 'id', value: 'sp-1' },
         },
