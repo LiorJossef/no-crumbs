@@ -111,6 +111,15 @@ data, security, deployment, migrations **or the verification machinery itself** 
 gate is invisible until something else fails. This does not relax `git-workflow.md` §9.3: the
 destructive and irreversible actions still need a specific instruction each time.
 
+**Lean by default — this is a LEAN MVP, and the rule is global** (owner ruling, 2026-08-29,
+charter §5). Across every domain — DB queries, UI, state, auth, data flow, maps — use standard
+libraries and built-in primitives **as they ship**. No custom utility layers, bespoke state
+machines or homebrewed algorithms where a library already answers the question; if a library gets
+90% of the way there, ship the 90%. Simplicity over cleverness: a five-line standard solution beats
+a clever abstraction. Prefer deleting custom code to extending it. Keep every PR small and scoped
+to what was asked — no cascading refactors. When a defect points into custom internals, say so in a
+sentence and ask before investigating further.
+
 House rules: claims about third-party capabilities are labelled VERIFIED / ASSUMED / UNAVAILABLE,
 with evidence in `docs/evidence/`; design may only depend on VERIFIED. Charter §4 is the scope
 contract — new ideas go to a Future list, not into the current sprint.

@@ -123,6 +123,16 @@ collection/sharing semantics — but only where the openness costs nothing today
 
 ## 5. Non-negotiable engineering principles
 
+- **Lean by default — use the library, do not rebuild it** (owner ruling, 2026-08-29, and it
+  governs the whole codebase, not one feature). Reach for standard libraries and built-in
+  primitives — MapCN, Supabase, Next.js, Zod, the platform — and use them as they ship. Do not
+  write custom utility layers, bespoke state machines or homebrewed algorithms where a library
+  already answers the question. If a library gets 90% of the way there, ship the 90%.
+- **Simplicity over cleverness.** If a five-line standard solution solves it, that is the solution.
+  An MVP does not get custom engines or complex abstractions. Prefer deleting custom code to
+  extending it, and keep every PR small, scoped to what was asked, and free of cascading refactors.
+  This is the general form of the explainability constraint below: an abstraction you cannot
+  justify in one plain sentence should not exist.
 - Strongly typed end to end; no `any` at module boundaries.
 - Layered: `ui` → `app` (server actions / route handlers) → `domain` → `integrations`. Domain logic
   never imports a vendor SDK; every external service sits behind an interface we own.
