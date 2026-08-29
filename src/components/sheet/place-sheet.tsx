@@ -43,7 +43,7 @@
 import { Drawer } from 'vaul';
 
 import { useNonModalBackground } from './use-non-modal-background';
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Plus, MapPin, ExternalLink, X, ChevronLeft, ChevronUp, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -67,6 +67,7 @@ import type { PlaceDetailFacts } from '@/domain/places/spot';
 import { enrichmentOf, rowAccessibleName, whyGoEarnsItsPlace } from '@/ui/place/enrichment';
 import { categoryDisplay, categoryLocalityLine } from '@/ui/place/category-display';
 import { savedPlaceMapsUrl } from '@/ui/place/maps-link';
+import { nearbyDistanceLabel, nearbyPlaces, type NearbyPlace } from '@/ui/place/nearby';
 import {
   APPROXIMATE_ROW_ANNOTATION,
   locationCertainty,
@@ -261,6 +262,13 @@ export function PlaceSheet({
   const setActiveSnap = (snap: number | string | null) =>
     setSheet((s) => ({ ...s, snap }));
 
+  /** Your other places within a walk of the open one. Memoised on the pair rather than computed
+   *  in the detail: `places` is the whole library and the sheet re-renders on every drag frame. */
+  const nearbyToSelected = useMemo(
+    () => (selected === null ? [] : nearbyPlaces(selected, places)),
+    [selected, places],
+  );
+
   const currentStop = snapToStop(sheet.snap);
 
   return (
@@ -309,6 +317,11 @@ export function PlaceSheet({
                   // `exactOptionalPropertyTypes` is on and "absent" is the honest shape for a
                   // marked row that never got a timestamp.
                   ...(selected.detail?.visitedAt ? { visitedAt: selected.detail.visitedAt } : {}),
+                }}
+                nearby={nearbyToSelected}
+                onSelectNearby={(id) => {
+                  const neighbour = places.find((candidate) => candidate.id === id);
+                  if (neighbour) onSelect(neighbour);
                 }}
                 onClose={onDeselect}
               />
@@ -911,6 +924,8 @@ export interface DetailPlace {
 export function PlaceDetail({
   place,
   savedPlace,
+  nearby,
+  onSelectNearby,
   onClose,
   variant = 'sheet',
   primaryAction,
@@ -942,6 +957,17 @@ export function PlaceDetail({
      *  it is a third fact about the one row. */
     readonly visitedAt?: Date;
   } | null;
+  /**
+   * Your other saved places within a short walk of this one, nearest first, already computed by
+   * the caller (`ui/place/nearby.ts`).
+   *
+   * The caller computes it because only the caller knows what "your places" means on its surface:
+   * `/map` has the whole library, and `/collections/[id]` deliberately has none of the viewer's
+   * own overlay and must not grow a second library through this door. Omitted renders nothing.
+   */
+  nearby?: readonly NearbyPlace[];
+  /** Opening one of them. Omitted, they render as plain text rather than as dead buttons. */
+  onSelectNearby?: (id: string) => void;
   onClose: () => void;
   /** `'sheet'` (default, mobile): an X that fully deselects. `'panel'` (desktop, retired — no
    *  caller renders this anymore now that detail lives entirely in the map popover, kept only so
@@ -1276,6 +1302,51 @@ export function PlaceDetail({
             </a>
           </div>
         </div>
+
+        {/* What else of yours is around here — the library's own retrieval question, asked at the
+            scale of one place. Below the external links and above the provenance line: it is a
+            fact about the library rather than about this place, so it belongs after everything
+            this card is actually about. Renders nothing when there is nothing within a walk, which
+            is the point — a section that is always full stops carrying information. */}
+        {nearby !== undefined && nearby.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+              {nearby.length === 1 ? 'Also nearby' : `${nearby.length} more nearby`}
+            </p>
+            <ul className="flex flex-col">
+              {nearby.map((neighbour) => (
+                <li key={neighbour.id}>
+                  {/* A button when the host can open it, plain text when it cannot — a row that
+                      looks pressable and does nothing is worse than one that never offered. */}
+                  {onSelectNearby ? (
+                    <button
+                      type="button"
+                      data-vaul-no-drag
+                      onClick={() => onSelectNearby(neighbour.id)}
+                      className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg text-left transition-colors outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50"
+                    >
+                      <span className="line-clamp-1 text-sm font-semibold text-foreground">
+                        <bdi>{neighbour.name}</bdi>
+                      </span>
+                      <span className="shrink-0 text-xs font-medium text-muted-foreground">
+                        {nearbyDistanceLabel(neighbour.km)}
+                      </span>
+                    </button>
+                  ) : (
+                    <p className="flex min-h-11 items-center justify-between gap-3 text-sm">
+                      <span className="line-clamp-1 font-semibold text-foreground">
+                        <bdi>{neighbour.name}</bdi>
+                      </span>
+                      <span className="shrink-0 text-xs font-medium text-muted-foreground">
+                        {nearbyDistanceLabel(neighbour.km)}
+                      </span>
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* Where this pin came from, and when you saved it. Both were facts the database held and
             no screen said: the first was a dataset slug at 11px (`Matched via llm-guess`) that
