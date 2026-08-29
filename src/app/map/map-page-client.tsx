@@ -500,6 +500,10 @@ export function MapPageClient({
   // rather than `3 places in London`. `ux-map-is-the-query.md` §2.2's string matrix says the noun
   // changes "exactly when a second filter is applied"; a chip is a second filter, and no new string
   // is invented for it.
+  /** Library-wide, not list-wide: the `Not been yet` chip narrows the map as well as the list, and
+   *  the map draws every match. */
+  const libraryHasVisited = useMemo(() => places.some((place) => place.visited), [places]);
+
   const filtering =
     isSearchActive(query) || activeTag !== null || notBeenOnly || activeCategory !== null;
   const heading = useMemo(
@@ -815,6 +819,7 @@ export function MapPageClient({
               onSelectArea={selectArea}
               activeAreaId={activeAreaId}
               libraryIsEmpty={places.length === 0}
+              libraryHasVisited={libraryHasVisited}
               filtering={filtering}
               query={query}
               onQueryChange={setQuery}
@@ -842,6 +847,7 @@ export function MapPageClient({
             onSelectArea={selectArea}
             activeAreaId={activeAreaId}
             libraryIsEmpty={places.length === 0}
+              libraryHasVisited={libraryHasVisited}
             filtering={filtering}
             query={query}
             onQueryChange={setQuery}
