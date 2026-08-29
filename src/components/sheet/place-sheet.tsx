@@ -314,7 +314,14 @@ export function PlaceSheet({
                 activeCategory={activeCategory}
                 onToggleCategory={onToggleCategory}
                 stop={currentStop}
-                onExpand={() => setActiveSnap(STOP_TO_SNAP.full)}
+                // `half` for an empty library, `full` once there is a list. The empty state is a
+                // heading, a line and one button — about 380 px — so opening it full gave a new
+                // user their first screen as that button above roughly 1 100 px of white, with the
+                // map they came for hidden behind it. Half fits the content and leaves the map
+                // visible; a list is the only thing worth the whole screen.
+                onExpand={() =>
+                  setActiveSnap(libraryIsEmpty ? STOP_TO_SNAP.half : STOP_TO_SNAP.full)
+                }
                 onAddTikTok={onAddTikTok}
                 onSelect={onSelect}
               />
