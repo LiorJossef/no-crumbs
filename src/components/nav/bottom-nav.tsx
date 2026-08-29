@@ -57,8 +57,25 @@ import { cn } from '@/lib/utils';
  */
 export const BOTTOM_NAV_HEIGHT_PX = 68;
 
-/** The one thing the circle ever does. Not a prop — see the note above `BottomNavProps`. */
-const ADD_LABEL = 'Add a TikTok';
+/**
+ * What the circle does, said accurately for each of its two behaviours.
+ *
+ * Still not a prop — see the note above `BottomNavProps`; a caller may not *rename* this button,
+ * which is what that rule exists to prevent. These two strings describe the two things the button
+ * genuinely is, and the component picks between them rather than a caller doing it.
+ *
+ * `/map` hands it `onAdd`, which opens the create menu: add a place (by link or by name) or create
+ * a collection. Announcing that as "Add a TikTok" was a plain inaccuracy to anyone who cannot see
+ * the sheet open. The other tabs have no library to search, so the circle still links to `/import`
+ * there and "Add a TikTok" is exactly what it does.
+ *
+ * **This split is temporary and is the visible edge of an unfinished job**: the owner's ruling is
+ * that `＋` means one thing on every screen, so the fix is for the other tabs to open the same menu.
+ * Until they do, the honest label is the one that matches the behaviour — telling a screen reader
+ * user the same wrong thing everywhere is not consistency.
+ */
+const ADD_LABEL_MENU = 'Create';
+const ADD_LABEL_IMPORT = 'Add a TikTok';
 
 interface BottomNavProps {
   /**
@@ -182,14 +199,14 @@ function AddButton({ onAdd }: { onAdd?: () => void }) {
 
   if (!onAdd) {
     return (
-      <Link href="/import" aria-label={ADD_LABEL} className={className}>
+      <Link href="/import" aria-label={ADD_LABEL_IMPORT} className={className}>
         <Plus className="size-5" aria-hidden />
       </Link>
     );
   }
 
   return (
-    <button type="button" onClick={onAdd} aria-label={ADD_LABEL} className={className}>
+    <button type="button" onClick={onAdd} aria-label={ADD_LABEL_MENU} className={className}>
       <Plus className="size-5" aria-hidden />
     </button>
   );
