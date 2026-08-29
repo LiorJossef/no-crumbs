@@ -135,6 +135,39 @@ Also open, and now visible: the `＋` on `/collections` falls back to a link to 
 opening anything in place, because that route has no overlay. It works; it is not the same gesture
 as on `/map`.
 
+### 5.1 P0 — the collection map goes blank when you zoom out
+
+**Reported by the owner, 2026-08-29, at the close of this session. Diagnosed, deliberately not
+fixed — the owner asked for it to start a fresh session.**
+
+On `/collections/[id]`, zooming out empties the map: no pins, no summary markers, nothing at all.
+
+**Root cause, and it is two lines of evidence rather than a theory.**
+
+1. `place-marker-layer.tsx` sets `minzoom: PIN_BAND_MIN` (8.5) on the pin layer, for *every*
+   `MapSurface`. Below 8.5 the pins are hidden by MapLibre, by design.
+2. `summaries` — the prop that mounts `SummaryMarkerLayer`, the country and area bands that are
+   supposed to *replace* the pins below 8.5 — is passed by `map-page-client.tsx:689` and **by
+   nothing else**. `collection-client.tsx` never passes it.
+
+So on the collection route the pins are removed at z<8.5 and nothing takes their place. `/map` is
+unaffected because it has the bands. The band model assumes a replacement exists; this surface is
+the one place it does not.
+
+**Two candidate fixes, and the second is the one I would take:**
+
+- Mount `SummaryMarkerLayer` on the collection route too, summarising that collection's own places.
+  Correct in the long run, more work, and it needs `summariseByCountry`/`clusterByProximity` run
+  over a collection rather than the library.
+- **Make the pin band's floor conditional on a summary existing.** The `minzoom` is only justified
+  by what replaces it — `place-marker-layer.tsx`'s own header says the removal of density clustering
+  was accepted *because* `06` §9.1 named the world-zoom summary as the repair. A surface with no
+  summary layer should keep its pins at every zoom, because for it the floor is pure loss. Smaller,
+  safer, and it makes the coupling explicit instead of implicit.
+
+Whoever takes this: check `/collections/join/[token]` for the same shape before assuming it is one
+route.
+
 Not verified by me, in priority order:
 
 - **Anything below 375 px or in landscape.** The bar has a `max-[359px]` icon-only breakpoint that
