@@ -18,6 +18,7 @@ import { ArrowLeft, ChevronRight, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CollectionCover } from '@/components/collections/collection-cover';
+import { BottomNav, BOTTOM_NAV_HEIGHT_PX } from '@/components/nav/bottom-nav';
 import { memberLabel } from '@/domain/collections/collection';
 import { createCollection } from '@/app/actions/collections';
 import type { CollectionSummary } from './_lib/get-collections';
@@ -55,6 +56,12 @@ export function CollectionsIndexClient({
 
   return (
     <div className="flex min-h-dvh flex-col">
+      <BottomNav />
+      {/* The back arrow is gone below `lg`, and that is the point of the bar rather than an
+          omission. `BottomNav`'s Map tab goes exactly where the arrow went, and two controls to
+          one destination — one of them a stack, one of them not — is the second navigation model
+          `ux-navigation-structure-2026-08-29.md` §1.2 warned a bar would create. It survives above
+          `lg`, where the bar does not render at all. */}
       <header className="flex items-center gap-1 px-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] pb-2">
         <Button
           render={<Link href="/map" />}
@@ -62,14 +69,19 @@ export function CollectionsIndexClient({
           variant="ghost"
           size="icon-lg"
           aria-label="Back to the map"
-          className="size-11 rounded-full text-muted-foreground"
+          className="hidden size-11 rounded-full text-muted-foreground lg:flex"
         >
           <ArrowLeft className="size-4" aria-hidden />
         </Button>
-        <h1 className="font-heading text-lg font-bold tracking-tight">Collections</h1>
+        <h1 className="px-2 font-heading text-lg font-bold tracking-tight lg:px-0">Collections</h1>
       </header>
 
-      <div className="mx-auto w-full max-w-[560px] flex-1 px-4 pb-4">
+      {/* Clears the bar rather than ending underneath it. `lg:pb-4` because the bar is mobile-only
+          and desktop should not carry its hole. */}
+      <div
+        className="mx-auto w-full max-w-[560px] flex-1 px-4 pb-4 lg:pb-4"
+        style={{ paddingBottom: `calc(${BOTTOM_NAV_HEIGHT_PX}px + env(safe-area-inset-bottom) + 1rem)` }}
+      >
         {collections.length === 0 ? (
           <EmptyIndex libraryIsEmpty={libraryIsEmpty} />
         ) : (

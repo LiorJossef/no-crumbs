@@ -59,6 +59,7 @@ import {
 } from './saved-place-edits';
 import { ActiveTagFilter, DishLine, TagChipList, TagChipRow, WhyGoLine } from './place-enrichment';
 import { BeenBadge } from './visit-state';
+import { BOTTOM_NAV_HEIGHT_PX } from '@/components/nav/bottom-nav';
 import { CategoryFilterBar } from './category-filter-bar';
 import type { CategoryFacet } from '@/domain/places/category-filter';
 import type { ProductCategory } from '@/domain/places/product-category';
@@ -67,10 +68,7 @@ import { categoryDisplay, categoryLocalityLine } from '@/ui/place/category-displ
 import { savedPlaceMapsUrl } from '@/ui/place/maps-link';
 import { locationCertainty, savedOnLine } from '@/ui/place/location-certainty';
 import { AddToCollection } from '@/components/collections/add-to-collection';
-import {
-  CollectionsNavRow,
-  CollectionsPeekSlot,
-} from '@/components/collections/collections-nav-row';
+
 import { formatCaptionQuote, quoteAddsSomething } from '@/ui/place/caption-quote';
 import type { AreaHeading } from '@/ui/place/active-area';
 import type { ElsewhereEntry } from '@/ui/place/elsewhere-groups';
@@ -399,43 +397,23 @@ function PlaceList({
     >
       {stop === 'peek' ? (
         /*
-         * Three slots at rest, not two (`docs/ux-navigation-structure-2026-08-29.md` §1).
+         * One line, and the bar underneath it carries everything else.
          *
-         * The app opens here, and until now the only two things reachable from the state it opens
-         * in were "expand the sheet" and "import". Collections — a real route with its own shell —
-         * had no door from the resting state at all: you dragged the sheet up and then found a row.
-         * The leading slot is that door.
+         * This row used to hold the heading and a 48 px `Add a TikTok`, and briefly a third
+         * Collections slot as well. Both of those are now in `BottomNav`, which is the owner's
+         * 2026-08-29 ruling: destinations and the primary action live in persistent chrome, not in
+         * the sheet. What is left here is the one thing that is genuinely about *this* sheet —
+         * what the list below is, and that it can be pulled up.
          *
-         * Collections leads and the import trails, with the heading between them, so the two
-         * consequential taps in the row — one navigates away from the map, one opens the import
-         * overlay — are as far apart as the row allows. Both controls are `shrink-0` and the
-         * heading is the element that gives way: at 375 px it has about 107 px, which fits
-         * `18 in London` and truncates `13 in Tel Aviv-Yafo` by a few characters. That is the
-         * correct thing to truncate, and the full string is one drag up.
-         *
-         * The peek stop's height does not change. `PEEK_PX` is mirrored in four places, one of
-         * them a licence condition (MapLibre's attribution padding), and it also sets the camera's
-         * bottom budget — so the third slot had to fit inside the 52 px of vertical slack the row
-         * already had, and it does.
+         * That is also what pays for the bar. `PEEK_PX` is 128 and is mirrored in four places, one
+         * of them a licence condition; it sets the camera's bottom budget too, so it must not move.
+         * Dropping the button frees the lower half of the band for the bar to sit in, and the
+         * padding below matches `BOTTOM_NAV_HEIGHT_PX` so the line never sits behind it.
          */
-        <div className="-mx-1 flex items-center justify-between gap-2.5 pb-[calc(env(safe-area-inset-bottom)+0.875rem)]">
-          {/* Not shown while the library is empty. A collection of places you do not have is not a
-              destination yet, and the first-run screen must not look like a toolbar — that screen
-              is the whole product proposition and it gets two slots, not three. This is a
-              different population from "no collections yet", which still renders the slot: hiding
-              it there would make the feature invisible to everyone who has never used it. */}
-          {!libraryIsEmpty && <CollectionsPeekSlot />}
-          {/* At `peek` the list and the field are both off screen, so this line is the tap target
-              that brings them back. It used to be a button only while filtering — the argument
-              being that a filtered count needs a way to reach the field that set it, and an
-              unfiltered one is just a sentence.
-
-              That stopped holding at `L1-F7-T2`. The list is now the entry point to place detail,
-              and therefore the only route to editing a note or removing a place; the map's pins
-              are canvas-painted and cannot be tapped by anything but a pointer landing exactly on
-              them. Leaving the unfiltered case inert put the whole feature behind a drag gesture
-              with no affordance saying it was there. Making it always a button also deletes a
-              special case rather than adding one. */}
+        <div
+          className="flex items-center"
+          style={{ paddingBottom: `${BOTTOM_NAV_HEIGHT_PX}px` }}
+        >
           <button
             type="button"
             onClick={onExpand}
@@ -467,17 +445,6 @@ function PlaceList({
                 carry only appeared on hover, which a phone does not have. */}
             <ChevronUp className="size-4 shrink-0 opacity-60" aria-hidden />
           </button>
-          {/* `Add` rather than `Add a TikTok`, at this stop only. It sits beside a line that says
-              `18 in London`, so the object of the verb is unambiguous; on the empty-library screen
-              below it is full-width, carries the whole proposition, and keeps its full label. */}
-          <Button
-            type="button"
-            className="h-12 shrink-0 gap-1.5 rounded-lg px-4 text-sm font-bold"
-            onClick={onAddTikTok}
-          >
-            <Plus className="size-4" aria-hidden />
-            Add
-          </Button>
         </div>
       ) : (
         <>
@@ -544,6 +511,11 @@ function PlaceList({
                 ref={scrollRef}
                 data-vaul-no-drag
                 className="min-h-0 flex-1 overflow-y-auto"
+                // Exactly the bar's height, so the last row clears it instead of ending underneath
+                // it. This is what pays for `BottomNav` floating over the sheet at `half` and
+                // `full` — the ruling it reverses was right that a bar painted over a scrolling
+                // list steals the bottom of the list, and this is the price rather than a denial.
+                style={{ scrollPaddingBottom: BOTTOM_NAV_HEIGHT_PX, paddingBottom: BOTTOM_NAV_HEIGHT_PX }}
               >
                 {heading.escape === 'clear-search' && (
                   <ClearSearchEscape onClearSearch={() => onQueryChange('')} />
@@ -563,19 +535,6 @@ function PlaceList({
                   onToggleCountry={onToggleCountry}
                   onSelectArea={selectArea}
                 />
-              </div>
-              {/* **Outside the scroll container**, and that is the fix rather than the layout.
-                  `collections-nav-row.tsx` argues its placement well — no tab bar, no permanent
-                  chrome, and a collection is a subset of your places so it belongs under them — and
-                  the argument survives; only the position did not. Inside the scroll it sat behind
-                  every row and every country group, which at 100 places is some three thousand
-                  pixels down, and it is the **only** route to `/collections` in the product. A
-                  feature reachable only by exhausting a scroll is a feature nobody finds.
-
-                  Here it costs a permanent 44 px at `half` and `full`, still reads as "under your
-                  places", and stops competing with `Elsewhere` for the bottom of the same scroll. */}
-              <div className="shrink-0 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
-                <CollectionsNavRow />
               </div>
             </>
           )}

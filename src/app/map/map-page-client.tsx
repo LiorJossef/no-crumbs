@@ -88,6 +88,7 @@ import { COUNTRY_LANDING_ZOOM } from '@/components/map/zoom-bands';
 import type { LatLngBoundsHint, ViewportChangeMeta } from '@/components/map/types';
 import { ImportConfirmation } from '@/components/map/import-confirmation';
 import { PlaceSheet } from '@/components/sheet/place-sheet';
+import { BottomNav } from '@/components/nav/bottom-nav';
 import { PlaceDesktopPanel } from '@/components/sheet/place-desktop-panel';
 import { filterByTag, filterByVisit, filterPlaces } from '@/components/map/filter-places';
 import {
@@ -713,6 +714,12 @@ export function MapPageClient({
               list bleeding through behind/around it. Desktop is unaffected — `PlaceDesktopPanel`
               below is a plain (non-portaled) sibling that the overlay's higher z-index already
               paints over correctly. */}
+          {/* The bar sits outside the `!showImport` guard's subtree for the same reason the sheet
+              sits inside it: the import overlay is a full takeover, and navigating away from a
+              half-finished import by tapping a tab is not a thing to offer. It renders only below
+              `lg` (its own class), where `PlaceDesktopPanel`'s always-visible column already gives
+              desktop everything the bar is for. */}
+          {!showImport && <BottomNav onAddTikTok={openImport} />}
           {!showImport && (
             <PlaceSheet
               places={inArea}
