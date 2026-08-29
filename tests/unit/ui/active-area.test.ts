@@ -267,6 +267,39 @@ describe('areaHeading', () => {
     expect(`${heading.count} ${heading.rest}`).toBe(heading.text);
   });
 
+  it('drops the unit noun for the peek row, which has three controls to fit', () => {
+    // The peek row renders `count` and `shortRest`; the sheet's own heading renders `text`. The
+    // short form exists because the row is now Collections + heading + Add inside ~335 px.
+    expect(areaHeading({ ...base, countInArea: 18 }).shortRest).toBe('in London');
+    expect(areaHeading({ ...base, countInArea: 1 }).shortRest).toBe('in London');
+    expect(areaHeading({ ...base, countInArea: 3, searchQuery: 'momos' }).shortRest).toBe(
+      'in London',
+    );
+  });
+
+  it('keeps `to go`, which is a state and not a unit', () => {
+    // `7 in London` would answer a question the user did not ask. Only `place`/`places` and
+    // `match`/`matches` are droppable — a map supplies those words for itself.
+    const heading = areaHeading({ ...base, countInArea: 7, notBeenOnly: true });
+    expect(heading.shortRest).toBe('to go in London');
+    expect(heading.shortRest).toBe(heading.rest);
+  });
+
+  it('equals `rest` where there is no count to shorten around', () => {
+    const nowhere = areaHeading({
+      ...base,
+      countInArea: 0,
+      searchQuery: 'momos',
+      matchesAnywhere: 0,
+    });
+    expect(nowhere.count).toBeNull();
+    expect(nowhere.shortRest).toBe(nowhere.rest);
+
+    const notHere = areaHeading({ ...base, countInArea: 0, searchQuery: 'momos' });
+    expect(notHere.count).toBeNull();
+    expect(notHere.shortRest).toBe(notHere.rest);
+  });
+
   it('changes the noun exactly when a filter is on', () => {
     expect(areaHeading({ ...base, countInArea: 3, searchQuery: 'momos' }).text).toBe(
       '3 matches in London',

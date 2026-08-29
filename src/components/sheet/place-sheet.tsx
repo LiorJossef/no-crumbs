@@ -44,7 +44,7 @@ import { Drawer } from 'vaul';
 
 import { useNonModalBackground } from './use-non-modal-background';
 import { useLayoutEffect, useRef, useState } from 'react';
-import { Plus, MapPin, ExternalLink, X, ChevronLeft, Search } from 'lucide-react';
+import { Plus, MapPin, ExternalLink, X, ChevronLeft, ChevronUp, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -64,7 +64,10 @@ import { categoryDisplay, categoryLocalityLine } from '@/ui/place/category-displ
 import { savedPlaceMapsUrl } from '@/ui/place/maps-link';
 import { locationCertainty, savedOnLine } from '@/ui/place/location-certainty';
 import { AddToCollection } from '@/components/collections/add-to-collection';
-import { CollectionsNavRow } from '@/components/collections/collections-nav-row';
+import {
+  CollectionsNavRow,
+  CollectionsPeekSlot,
+} from '@/components/collections/collections-nav-row';
 import { formatCaptionQuote, quoteAddsSomething } from '@/ui/place/caption-quote';
 import type { AreaHeading } from '@/ui/place/active-area';
 import type { ElsewhereEntry } from '@/ui/place/elsewhere-groups';
@@ -375,7 +378,33 @@ function PlaceList({
       className="flex min-h-0 flex-col gap-3.5 px-5 pt-3.5"
     >
       {stop === 'peek' ? (
-        <div className="flex items-center justify-between gap-3 pb-[calc(env(safe-area-inset-bottom)+0.875rem)]">
+        /*
+         * Three slots at rest, not two (`docs/ux-navigation-structure-2026-08-29.md` §1).
+         *
+         * The app opens here, and until now the only two things reachable from the state it opens
+         * in were "expand the sheet" and "import". Collections — a real route with its own shell —
+         * had no door from the resting state at all: you dragged the sheet up and then found a row.
+         * The leading slot is that door.
+         *
+         * Collections leads and the import trails, with the heading between them, so the two
+         * consequential taps in the row — one navigates away from the map, one opens the import
+         * overlay — are as far apart as the row allows. Both controls are `shrink-0` and the
+         * heading is the element that gives way: at 375 px it has about 114 px, which fits
+         * `18 in London` and truncates `13 in Tel Aviv-Yafo` by a few characters. That is the
+         * correct thing to truncate, and the full string is one drag up.
+         *
+         * The peek stop's height does not change. `PEEK_PX` is mirrored in four places, one of
+         * them a licence condition (MapLibre's attribution padding), and it also sets the camera's
+         * bottom budget — so the third slot had to fit inside the 52 px of vertical slack the row
+         * already had, and it does.
+         */
+        <div className="-mx-1 flex items-center justify-between gap-2.5 pb-[calc(env(safe-area-inset-bottom)+0.875rem)]">
+          {/* Not shown while the library is empty. A collection of places you do not have is not a
+              destination yet, and the first-run screen must not look like a toolbar — that screen
+              is the whole product proposition and it gets two slots, not three. This is a
+              different population from "no collections yet", which still renders the slot: hiding
+              it there would make the feature invisible to everyone who has never used it. */}
+          {!libraryIsEmpty && <CollectionsPeekSlot />}
           {/* At `peek` the list and the field are both off screen, so this line is the tap target
               that brings them back. It used to be a button only while filtering — the argument
               being that a filtered count needs a way to reach the field that set it, and an
@@ -391,8 +420,9 @@ function PlaceList({
             type="button"
             onClick={onExpand}
             aria-label="Show your places"
-            className="-mx-1 rounded-lg px-1 text-left text-sm font-medium text-muted-foreground underline-offset-4 hover:underline"
+            className="flex min-w-0 flex-1 items-center gap-1 rounded-lg px-1 text-left text-sm font-medium text-muted-foreground"
           >
+            <span className="min-w-0 truncate">
             {/* The number carries the emphasis and the rest of the line stays quiet, exactly as it
                 did when this read `20 places saved`. `heading.count`/`heading.rest` are given to us
                 pre-split precisely so this stays a render and never a parse. When there is no count
@@ -403,17 +433,30 @@ function PlaceList({
             ) : (
               <>
                 <span className="font-heading font-extrabold text-foreground">{heading.count}</span>{' '}
-                {heading.rest}
+                {/* The short form — `18 in London`, not `18 places in London`. Given to us by
+                    `areaHeading` rather than sliced off `text` here, because a surface that parses
+                    a string it was handed pre-split is a surface that will eventually disagree
+                    with the one that built it. The noun is one drag up, and the fact that this is
+                    a map is doing the rest of the work. */}
+                {heading.shortRest}
               </>
             )}
+            </span>
+            {/* The one thing the row was missing: at rest the middle slot read as a caption, so
+                nothing on screen said the list was there to be pulled up. The underline it used to
+                carry only appeared on hover, which a phone does not have. */}
+            <ChevronUp className="size-4 shrink-0 opacity-60" aria-hidden />
           </button>
+          {/* `Add` rather than `Add a TikTok`, at this stop only. It sits beside a line that says
+              `18 in London`, so the object of the verb is unambiguous; on the empty-library screen
+              below it is full-width, carries the whole proposition, and keeps its full label. */}
           <Button
             type="button"
-            className="h-12 gap-1.5 rounded-lg px-4 text-sm font-bold"
+            className="h-12 shrink-0 gap-1.5 rounded-lg px-4 text-sm font-bold"
             onClick={onAddTikTok}
           >
             <Plus className="size-4" aria-hidden />
-            Add a TikTok
+            Add
           </Button>
         </div>
       ) : (

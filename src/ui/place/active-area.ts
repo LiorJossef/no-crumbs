@@ -290,6 +290,18 @@ export interface AreaHeading {
   readonly count: string | null;
   /** `text` minus `count` and the space after it. Equals `text` when `count` is `null`. */
   readonly rest: string;
+  /**
+   * `rest` with the unit noun dropped — `in London`, so the peek row reads `18 in London` where the
+   * sheet's own heading reads `18 places in London`.
+   *
+   * The peek row now carries three controls in roughly 335 px and the heading is the element that
+   * gives way (`ux-navigation-structure-2026-08-29.md` §2.1), so it is handed the short string
+   * rather than left to slice one off `text`. Only the bare unit nouns go: `to go` is a state
+   * rather than a unit, and `7 in London` would answer a question the user did not ask.
+   *
+   * Equals `rest` wherever there is no count to shorten around.
+   */
+  readonly shortRest: string;
   /** Nothing to list in this area right now — the surface renders no rows, and the `Elsewhere`
    *  section below is the way out. */
   readonly empty: boolean;
@@ -366,6 +378,7 @@ export function areaHeading(input: {
       text,
       count: null,
       rest: text,
+      shortRest: text,
       empty: true,
       escape: searchQuery !== '' ? 'clear-search' : null,
       note: visitOnly ? ALL_BEEN_LIBRARY_NOTE : null,
@@ -382,6 +395,7 @@ export function areaHeading(input: {
       text,
       count: null,
       rest: text,
+      shortRest: text,
       empty: true,
       escape: null,
       note: visitOnly ? ALL_BEEN_AREA_NOTE : null,
@@ -399,7 +413,19 @@ export function areaHeading(input: {
         : 'places';
   const count = String(countInArea);
   const rest = `${noun} in ${where}`;
-  return { text: `${count} ${rest}`, count, rest, empty: false, escape: null, note: null };
+  // `to go` is a state, not a unit, so it survives the short form: `7 in London` would answer a
+  // question the user did not ask, where `18 in London` is `18 places in London` with the only
+  // word a map can supply for itself removed.
+  const shortRest = visitOnly ? rest : `in ${where}`;
+  return {
+    text: `${count} ${rest}`,
+    count,
+    rest,
+    shortRest,
+    empty: false,
+    escape: null,
+    note: null,
+  };
 }
 
 /** The heading as a sentence, for the live region and for the map's own accessible name. */
