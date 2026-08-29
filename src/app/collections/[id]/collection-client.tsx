@@ -72,16 +72,45 @@ export function CollectionClient({
 
   const pins = useMemo(() => collection.places.map(toMapPlace), [collection.places]);
   const initialBounds = useMemo(() => boundsOf(collection.places), [collection.places]);
-  const focusPlaceIds = useRefitOnChange(pins);
+  /**
+   * **The one thing that moves the camera after the initial framing**, and it now has two writers
+   * rather than one — the same single-slot design `/map` uses, for the same reason: the surface
+   * keys the flight on the array's *identity*, so whoever writes last wins and a re-render that
+   * changes nothing cannot re-fly.
+   *
+   * Writer 1 is `useRefitOnChange` — the collection's membership changed.
+   * Writer 2 is `selectItem` — somebody tapped a place, and see below.
+   */
+  const [focusPlaceIds, setFocusPlaceIds] = useState<readonly string[] | null>(null);
+  useRefitOnChange(pins, setFocusPlaceIds);
 
   // Same reason `PlaceSheet` calls it: `modal={false}` does not reach Radix through vaul 1.1.2, so
   // without this the drawer hides the entire page from assistive technology.
   useNonModalBackground(true);
 
+  /**
+   * **Writer 2, and the fix for the bug the owner reported**: tapping a row in a collection left the
+   * camera exactly where it was. On a collection spanning more than one city that is a stranded
+   * macro view — you tap a restaurant in London and the map goes on showing the whole United
+   * Kingdom, so the pin you asked for is a dot among dots and the tap appears to have done nothing.
+   *
+   * `/map` has always flown on this gesture (`selectPlace`, camera mover 3); this surface simply
+   * never wired it. Framing a single place is a zero-area box, which `fitBounds` answers by zooming
+   * to its `FIT_BOUNDS_MAX_ZOOM` ceiling — street level, which is what a single place deserves.
+   *
+   * A **fresh array every time**, deliberately: the flight is keyed on identity, so re-tapping the
+   * row you are already on flies again rather than sitting there doing nothing. Tapping a pin also
+   * routes through here, and flying to a pin the user can already see is not wasted — it is what
+   * lifts it clear of the sheet and out of the macro view.
+   *
+   * Deselecting (`null`) moves nothing. Going back to the list is not a request to go anywhere.
+   */
   function selectItem(itemId: string | null) {
     setSelectedItemId(itemId);
+    if (itemId === null) return;
+    setFocusPlaceIds([itemId]);
     // A place is worth reading at half, not through the peek slot.
-    if (itemId !== null && snap === PEEK_STOP) setSnap(RESTING_SNAP);
+    if (snap === PEEK_STOP) setSnap(RESTING_SNAP);
   }
 
   const content = (
@@ -161,22 +190,29 @@ export function CollectionClient({
  * objects on every write, and framing on identity would fly the camera every time a shared note
  * was edited.
  *
- * Returns `undefined` on the first render, because `initialBounds` has already framed those.
+ * Writes nothing on the first render, because `initialBounds` has already framed those.
+ *
+ * It reports into the caller's single focus slot rather than owning one of its own: a place tap
+ * writes the same slot, and two slots would mean two flights racing on one camera.
  */
-function useRefitOnChange(pins: readonly MapPlace[]): readonly string[] | undefined {
+function useRefitOnChange(
+  pins: readonly MapPlace[],
+  onRefit: (ids: readonly string[]) => void,
+): void {
   const signature = pins.map((pin) => pin.id).sort().join(',');
   const previous = useRef<string | null>(null);
-  const [focus, setFocus] = useState<readonly string[] | undefined>(undefined);
+  // Kept in a ref so a caller that re-creates the callback each render cannot re-fire the effect;
+  // the signature is the only thing allowed to trigger it.
+  const onRefitRef = useRef(onRefit);
+  onRefitRef.current = onRefit;
 
   useEffect(() => {
     const isFirst = previous.current === null;
     if (previous.current !== signature) {
       previous.current = signature;
-      if (!isFirst && signature !== '') setFocus(signature.split(','));
+      if (!isFirst && signature !== '') onRefitRef.current(signature.split(','));
     }
   }, [signature]);
-
-  return focus;
 }
 
 /**
