@@ -31,7 +31,9 @@ import {
 } from './place-sheet';
 import { ElsewhereSection } from './elsewhere-section';
 import { ActiveTagFilter } from './place-enrichment';
-import { NotBeenFilterChip } from './visit-state';
+import { CategoryFilterBar } from './category-filter-bar';
+import type { CategoryFacet } from '@/domain/places/category-filter';
+import type { ProductCategory } from '@/domain/places/product-category';
 import { CollectionsNavRow } from '@/components/collections/collections-nav-row';
 import type { AreaHeading } from '@/ui/place/active-area';
 import type { ElsewhereEntry } from '@/ui/place/elsewhere-groups';
@@ -60,6 +62,9 @@ export interface PlaceDesktopPanelProps {
    *  and same behaviour as the mobile sheet — the two surfaces present one filter, not two. */
   readonly notBeenOnly: boolean;
   readonly onToggleNotBeen: () => void;
+  readonly categoryFacets: readonly CategoryFacet[];
+  readonly activeCategory: ProductCategory | null;
+  readonly onToggleCategory: (category: ProductCategory) => void;
   /** Opens the import overlay in `map-page-client.tsx` (client state) rather than navigating to
    *  the standalone `/import` route, so the map underneath this panel stays mounted. */
   readonly onAddTikTok: () => void;
@@ -84,6 +89,9 @@ export function PlaceDesktopPanel({
   onClearTag,
   notBeenOnly,
   onToggleNotBeen,
+  categoryFacets,
+  activeCategory,
+  onToggleCategory,
   onAddTikTok,
   onSelect,
 }: PlaceDesktopPanelProps) {
@@ -134,8 +142,17 @@ export function PlaceDesktopPanel({
           {!libraryIsEmpty && <PlaceSearchField value={query} onChange={onQueryChange} />}
           {/* Inside the header block, under the field and above whatever the list turns out to be,
               so the controls that undo a filter are present in the empty state too. */}
+          {/* The same bar the sheet renders. Two surfaces offering different filter controls over
+              one library is how the phone and the desktop come to disagree about what the product
+              can do — `PlaceRow` is shared for exactly this reason. */}
           {!libraryIsEmpty && (
-            <NotBeenFilterChip active={notBeenOnly} onToggle={onToggleNotBeen} />
+            <CategoryFilterBar
+              facets={categoryFacets}
+              activeCategory={activeCategory}
+              onToggleCategory={onToggleCategory}
+              notBeenOnly={notBeenOnly}
+              onToggleNotBeen={onToggleNotBeen}
+            />
           )}
           {activeTag !== null && <ActiveTagFilter tag={activeTag} onClear={onClearTag} />}
           {/* See `AreaHeading.note`: the one line an achievement heading needs and a failed query

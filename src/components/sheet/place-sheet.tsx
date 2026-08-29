@@ -58,7 +58,10 @@ import {
   RenameTrigger,
 } from './saved-place-edits';
 import { ActiveTagFilter, DishLine, TagChipList, TagChipRow, WhyGoLine } from './place-enrichment';
-import { BeenBadge, NotBeenFilterChip } from './visit-state';
+import { BeenBadge } from './visit-state';
+import { CategoryFilterBar } from './category-filter-bar';
+import type { CategoryFacet } from '@/domain/places/category-filter';
+import type { ProductCategory } from '@/domain/places/product-category';
 import { enrichmentOf, rowAccessibleName, whyGoEarnsItsPlace } from '@/ui/place/enrichment';
 import { categoryDisplay, categoryLocalityLine } from '@/ui/place/category-display';
 import { savedPlaceMapsUrl } from '@/ui/place/maps-link';
@@ -161,6 +164,11 @@ export interface PlaceSheetProps {
    *  narrowed by the same predicate in the same frame. */
   readonly notBeenOnly: boolean;
   readonly onToggleNotBeen: () => void;
+  /** The categories the library actually holds, with counts, already narrowed by every other
+   *  filter. Computed on the page rather than here because the same filter narrows the pins. */
+  readonly categoryFacets: readonly CategoryFacet[];
+  readonly activeCategory: ProductCategory | null;
+  readonly onToggleCategory: (category: ProductCategory) => void;
   readonly selected: MapPlace | null;
   readonly onDeselect: () => void;
   /** Opens the import overlay in `map-page-client.tsx` (client state) rather than navigating to
@@ -197,6 +205,9 @@ export function PlaceSheet({
   onClearTag,
   notBeenOnly,
   onToggleNotBeen,
+  categoryFacets,
+  activeCategory,
+  onToggleCategory,
   selected,
   onDeselect,
   onAddTikTok,
@@ -284,6 +295,9 @@ export function PlaceSheet({
                 onClearTag={onClearTag}
                 notBeenOnly={notBeenOnly}
                 onToggleNotBeen={onToggleNotBeen}
+                categoryFacets={categoryFacets}
+                activeCategory={activeCategory}
+                onToggleCategory={onToggleCategory}
                 stop={currentStop}
                 onExpand={() => setActiveSnap(STOP_TO_SNAP.full)}
                 onAddTikTok={onAddTikTok}
@@ -313,6 +327,9 @@ function PlaceList({
   onClearTag,
   notBeenOnly,
   onToggleNotBeen,
+  categoryFacets,
+  activeCategory,
+  onToggleCategory,
   stop,
   onExpand,
   onAddTikTok,
@@ -333,6 +350,9 @@ function PlaceList({
   onClearTag: () => void;
   notBeenOnly: boolean;
   onToggleNotBeen: () => void;
+  categoryFacets: readonly CategoryFacet[];
+  activeCategory: ProductCategory | null;
+  onToggleCategory: (category: ProductCategory) => void;
   stop: SheetStop;
   onExpand: () => void;
   onAddTikTok: () => void;
@@ -389,7 +409,7 @@ function PlaceList({
          * Collections leads and the import trails, with the heading between them, so the two
          * consequential taps in the row — one navigates away from the map, one opens the import
          * overlay — are as far apart as the row allows. Both controls are `shrink-0` and the
-         * heading is the element that gives way: at 375 px it has about 114 px, which fits
+         * heading is the element that gives way: at 375 px it has about 107 px, which fits
          * `18 in London` and truncates `13 in Tel Aviv-Yafo` by a few characters. That is the
          * correct thing to truncate, and the full string is one drag up.
          *
@@ -492,8 +512,20 @@ function PlaceList({
               filter is on screen in the state where the filter has left nothing to look at. The
               same rule is what puts the `Not been yet` chip here: it is both the way in and the way
               out of the filter, so it has to survive the state where the filter emptied the list. */}
+          {/* One horizontal-scroll row, not two stacked ones: the category chips and the visit
+              chip are the same kind of control asking the same kind of question, and the merge is
+              also what lifts `Not been yet` from the 36 px its own file names as a compromise to
+              the 44 px floor. Categories had nowhere to live before this — the only way to narrow
+              by kind was to open a place and tap a tag chip inside its detail view, which is a
+              retrieval control hidden inside a reading surface. */}
           {!libraryIsEmpty && (
-            <NotBeenFilterChip active={notBeenOnly} onToggle={onToggleNotBeen} />
+            <CategoryFilterBar
+              facets={categoryFacets}
+              activeCategory={activeCategory}
+              onToggleCategory={onToggleCategory}
+              notBeenOnly={notBeenOnly}
+              onToggleNotBeen={onToggleNotBeen}
+            />
           )}
           {activeTag !== null && <ActiveTagFilter tag={activeTag} onClear={onClearTag} />}
 

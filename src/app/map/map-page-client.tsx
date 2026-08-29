@@ -90,6 +90,12 @@ import { ImportConfirmation } from '@/components/map/import-confirmation';
 import { PlaceSheet } from '@/components/sheet/place-sheet';
 import { PlaceDesktopPanel } from '@/components/sheet/place-desktop-panel';
 import { filterByTag, filterByVisit, filterPlaces } from '@/components/map/filter-places';
+import {
+  categoryFacets,
+  filterByCategory,
+  toggleCategory,
+} from '@/domain/places/category-filter';
+import type { ProductCategory } from '@/domain/places/product-category';
 import { isSearchActive } from '@/domain/places/search';
 import { tagDisplayLabel } from '@/domain/extraction/tags';
 import { TagFilterContext, isSameTag, type TagFilter } from '@/ui/place/tag-filter';
@@ -215,6 +221,10 @@ export function MapPageClient({
    * bounds, which is what stops the camera rewriting the list on its own.
    */
   const [activeAreaAnchor, setActiveAreaAnchor] = useState<string | null>(null);
+  /** The category chip, if one is pressed. A fourth filter dimension, lifted here for the same
+   *  reason the other three are: it narrows the **pins** as well as the rows, and a list of four
+   *  cafés over a map of thirty-one everything is worse than no filter at all. */
+  const [activeCategory, setActiveCategory] = useState<ProductCategory | null>(null);
 
   /**
    * The area an explicit tap moved *away* from, so the way back is one tap.
@@ -310,7 +320,39 @@ export function MapPageClient({
   /** The library narrowed by **both** filters. This is what the **pins** show — never narrowed by
    *  the viewport, which would be circular. The list is this same array narrowed again by the
    *  viewport below, so the pins and the rows can never disagree about what the filters did. */
-  const matches = useMemo(() => filterPlaces(visitMatches, query), [visitMatches, query]);
+  /** The same library narrowed to one category. Its own pass for the same memoisation reason as
+   *  the two above; the four compose as AND and their order cannot change the result. */
+  const categoryMatches = useMemo(
+    () => filterByCategory(visitMatches, activeCategory, (place) => place.category),
+    [visitMatches, activeCategory],
+  );
+
+  const matches = useMemo(
+    () => filterPlaces(categoryMatches, query),
+    [categoryMatches, query],
+  );
+
+  /**
+   * The chips, counted over the library narrowed by **every other filter but this one**.
+   *
+   * That is what makes each count a true statement of what pressing the chip produces rather than
+   * a fact about the whole library, and it is why the search pass has to be applied here by hand:
+   * `matches` has the category filter already in it, so counting over it would show every chip but
+   * the pressed one at zero.
+   *
+   * `activeCategory` is pinned in so a pressed chip cannot vanish underneath the user when the
+   * combination it is part of empties — a filter whose only escape has scrolled out of existence
+   * is a trap. At zero it says "this combination has nothing in it", which is the honest reading.
+   */
+  const facets = useMemo(
+    () =>
+      categoryFacets(
+        filterPlaces(visitMatches, query),
+        (place) => place.category,
+        activeCategory,
+      ),
+    [visitMatches, query, activeCategory],
+  );
 
   /** The same set, as ids — read by the `Elsewhere` counts and by the camera, which must frame what
    *  the filter left rather than what the area holds. */
@@ -408,7 +450,8 @@ export function MapPageClient({
   // rather than `3 places in London`. `ux-map-is-the-query.md` §2.2's string matrix says the noun
   // changes "exactly when a second filter is applied"; a chip is a second filter, and no new string
   // is invented for it.
-  const filtering = isSearchActive(query) || activeTag !== null || notBeenOnly;
+  const filtering =
+    isSearchActive(query) || activeTag !== null || notBeenOnly || activeCategory !== null;
   const heading = useMemo(
     () =>
       areaHeading({
@@ -577,6 +620,14 @@ export function MapPageClient({
 
   const clearTag = useCallback(() => setActiveTag(null), []);
 
+  /** A category chip. Pressing the pressed one clears, pressing any other replaces — the same one
+   *  tap either way the tag chips give, so the product does not hold two state models for one
+   *  gesture. It does **not** deselect: unlike a tag chip, this control is in the list itself, so
+   *  the answer to what was just asked is already the thing on screen. */
+  const toggleCategoryFilter = useCallback((category: ProductCategory) => {
+    setActiveCategory((current) => toggleCategory(current, category));
+  }, []);
+
   /** The been/not-been narrowing, on or off. Unlike a tag chip this does **not** deselect: the
    *  control lives in the list's own header rather than inside a place's detail, so there is no
    *  open place standing between the user and the answer they just asked for. */
@@ -679,6 +730,9 @@ export function MapPageClient({
               onClearTag={clearTag}
               notBeenOnly={notBeenOnly}
               onToggleNotBeen={toggleNotBeen}
+              categoryFacets={facets}
+              activeCategory={activeCategory}
+              onToggleCategory={toggleCategoryFilter}
               selected={selected}
               onDeselect={() => {
               setSelectedId(null);
@@ -703,6 +757,9 @@ export function MapPageClient({
             onClearTag={clearTag}
             notBeenOnly={notBeenOnly}
             onToggleNotBeen={toggleNotBeen}
+            categoryFacets={facets}
+            activeCategory={activeCategory}
+            onToggleCategory={toggleCategoryFilter}
             onAddTikTok={openImport}
             onSelect={selectPlace}
           />
