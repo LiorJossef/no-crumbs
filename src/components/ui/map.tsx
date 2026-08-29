@@ -822,6 +822,16 @@ type MapControlsProps = {
   className?: string;
   /** Callback with user coordinates when located */
   onLocate?: (coords: { longitude: number; latitude: number }) => void;
+  /**
+   * Fired when the user zooms with these buttons, before the camera moves.
+   *
+   * These buttons drive the camera through `map.zoomTo`, which is a programmatic command and
+   * therefore emits a `zoomend` with **no `originalEvent`** — indistinguishable, to any listener,
+   * from a re-fit or a flight. A surface that decides anything from "did the user do this?" has no
+   * other way to find out, and the alternative it falls into is worse: keying on the event name
+   * alone would hand every automatic camera move the same authority as a gesture.
+   */
+  onUserZoom?: () => void;
 };
 
 const positionClasses = {
@@ -877,17 +887,20 @@ function MapControls({
   showFullscreen = false,
   className,
   onLocate,
+  onUserZoom,
 }: MapControlsProps) {
   const { map } = useMap();
   const [waitingForLocation, setWaitingForLocation] = useState(false);
 
   const handleZoomIn = useCallback(() => {
+    onUserZoom?.();
     map?.zoomTo(map.getZoom() + 1, { duration: 300 });
-  }, [map]);
+  }, [map, onUserZoom]);
 
   const handleZoomOut = useCallback(() => {
+    onUserZoom?.();
     map?.zoomTo(map.getZoom() - 1, { duration: 300 });
-  }, [map]);
+  }, [map, onUserZoom]);
 
   const handleResetBearing = useCallback(() => {
     map?.resetNorthPitch({ duration: 300 });
