@@ -223,6 +223,7 @@ export function CategoryEditor({
   savedPlaceId,
   category,
   isOverridden,
+  fromAPost,
 }: {
   savedPlaceId: string;
   /** The place's current category, `null` where nothing resolved one. A null is a legitimate
@@ -231,6 +232,13 @@ export function CategoryEditor({
   /** Whether `category` came from this user's override rather than the provider or the model.
    *  Decides only whether `Automatic` is offered — there is nothing to undo otherwise. */
   isOverridden: boolean;
+  /** Whether this place came from a TikTok at all.
+   *
+   *  Only the sentence under the value depends on it, and only so that it stops being false: a
+   *  manually added place has no post, and the line read `Bar · worked out from the post` on the
+   *  first one ever saved. Its category came from the map listing's own type, which is a different
+   *  claim and a better one. */
+  fromAPost: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -319,7 +327,9 @@ export function CategoryEditor({
             PRODUCT_CATEGORY_LABEL[category]
           )}
           {category !== null && !isOverridden && (
-            <span className="text-muted-foreground"> · worked out from the post</span>
+            <span className="text-muted-foreground">
+              {fromAPost ? ' · worked out from the post' : ' · from the map listing'}
+            </span>
           )}
         </p>
       )}

@@ -252,13 +252,22 @@ export interface ImportPageClientProps {
   /** Called once, just before this overlay closes, when a "Done" actually saved something. The
    *  map owner (`map-page-client.tsx`) uses it to frame the new pins and confirm the save. */
   readonly onSaved?: (detail: SaveOutcomeDetail) => void;
+  /**
+   * A link the user already typed somewhere else, to open with.
+   *
+   * The `＋` sheet has its own field, and reaching this overlay from it used to drop what was in
+   * it — the user pasted a TikTok link, pressed the button named after it, and landed on an empty
+   * paste screen being asked for the same link again. Seeded as `touched` too, so a seeded link
+   * that turns out to be invalid says so immediately rather than waiting for a first edit.
+   */
+  readonly initialUrl?: string;
 }
 
-export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {}) {
+export function ImportPageClient({ onClose, onSaved, initialUrl }: ImportPageClientProps = {}) {
   const router = useRouter();
   const [screen, setScreen] = useState<Screen>({ kind: 'paste' });
-  const [url, setUrl] = useState('');
-  const [touched, setTouched] = useState(false);
+  const [url, setUrl] = useState(initialUrl ?? '');
+  const [touched, setTouched] = useState(initialUrl !== undefined);
   /** The caption-preview screen's own save-in-flight state (the real "Done" path, this task).
    *  Kept out of `Screen` itself: a save failure re-shows the *same* `caption_preview` screen with
    *  an inline error, never a screen transition — `Screen`'s union is about which layout renders,

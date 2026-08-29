@@ -1228,6 +1228,10 @@ export function PlaceDetail({
             savedPlaceId={savedRow.id}
             category={place.category}
             isOverridden={detail?.categoryIsOverridden ?? false}
+            // A place with no TikTok behind it was added by hand, so nothing was "worked out from
+            // the post" — there is no post. `tiktokUrl` rather than a new field: the same value
+            // already decides whether this card offers `Open TikTok`, so the two cannot disagree.
+            fromAPost={Boolean(tiktokUrl)}
           />
         )}
 
