@@ -21,26 +21,20 @@ import type { LatLngBoundsHint } from '@/components/map/types';
 import { useNonModalBackground } from '@/components/sheet/use-non-modal-background';
 import { CollectionContent, type CollectionView } from '@/components/collections/collection-content';
 import type { CollectionDetail } from '@/app/collections/_lib/get-collections';
-
-/** The sheet's stops, matching `place-sheet.tsx` so the two surfaces feel like one product — the
- *  peek height is that file's `PEEK_PX`, duplicated with the coupling named because it is not
- *  exported (`query-rect.ts`'s `SHEET_PEEK_PX` mirrors the same number the same way). */
-const PEEK_PX = 128;
-const PEEK_STOP = `${PEEK_PX}px` as const;
+import { PEEK_PX, RESTING_SHEET_FRACTION } from './sheet-geometry';
 
 /**
- * Where the sheet **rests** here, and the one difference from `/map` the camera has to know about:
- * this surface opens at `half` and stays there, so more than half the map is permanently covered.
+ * The sheet's stops and the camera's resting fraction, **imported rather than redeclared**.
  *
- * This is the single source for that number and `SNAP_POINTS` is built *from* it, rather than the
- * camera reading it back out of the array by index. The index version failed open: it was
- * `SNAP_POINTS[1] ?? 0.55` narrowed with a `typeof === 'number'` test, so reordering the stops so
- * that index 1 held a `px` string made the fraction `undefined`, the prop was dropped by the
- * conditional spread, the camera silently reverted to framing for a 128 px peek, and no test
- * anywhere failed. Deriving in this direction there is nothing to fail: the value the sheet rests
- * at and the value the camera frames for are the same constant.
+ * They were declared in both places until now: `sheet-geometry.ts` held the copy
+ * `tests/unit/collections/collection-map-geometry.test.ts` asserts on, and this file held the copy
+ * that actually ran. Change the fraction here and the test went on passing against the stale one —
+ * the exact trapdoor the comment on `RESTING_SHEET_FRACTION` describes having already fallen
+ * through once, left open one level up. A camera constant with two sources of truth and a test
+ * pointed at the wrong one is worse than no test.
  */
-const RESTING_SHEET_FRACTION = 0.55;
+const PEEK_STOP = `${PEEK_PX}px` as const;
+
 const RESTING_SNAP: number = RESTING_SHEET_FRACTION;
 
 const SNAP_POINTS: Array<`${number}px` | number> = [PEEK_STOP, RESTING_SHEET_FRACTION, 1];
