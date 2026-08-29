@@ -72,6 +72,7 @@ import { BasemapTint } from './basemap-tint-layer';
 import { toPlaceFeatures } from './place-features';
 import { PlaceMarkerLayer } from './place-marker-layer';
 import { ensureRtlTextPlugin } from './rtl-text';
+import { bandForZoom, PIN_BAND_MIN } from './zoom-bands';
 
 // Called at module scope, not in an effect. MapLibre applies the plugin when a tile's glyphs are
 // first shaped, so it has to be in place before any `Map` is constructed — an effect in this
@@ -302,6 +303,15 @@ export function MapSurfaceMapcn({
     [summaries, theme]
   );
   const areaFeatures = useMemo(() => toAreaFeatures(summaries?.areas ?? []), [summaries]);
+  /**
+   * Whether this surface draws the country/area bands at all — and therefore whether the pins are
+   * allowed a floor.
+   *
+   * One boolean rather than two `summaries &&` tests, because the two are the same decision. Not
+   * every caller passes `summaries`: `/map` does, `/collections/[id]` does not, and when the pins'
+   * `minzoom` was applied unconditionally that second surface simply emptied as you zoomed out.
+   */
+  const hasSummaryBands = summaries !== undefined;
   // Every disc either band's features can reference: one per country in the state it is drawn in,
   // plus the plain flagless disc the *area* band draws on. Derived from the same list the features
   // are, so an `icon-image` id can never be referenced without its image having been offered to
@@ -425,7 +435,13 @@ export function MapSurfaceMapcn({
     // would let the next programmatic re-fit inherit a gesture that already had its answer.
     const userInitiated = pannedSinceReport.current;
     pannedSinceReport.current = false;
-    if (rect) handler(rect, { userInitiated });
+    // Read here, in the coalesced report, and nowhere else. The band is a property of where the
+    // camera *came to rest*, so it belongs to the same trailing debounce as the rect: sampling it
+    // on `move` or per frame would hand the caller every band the camera passed through on one
+    // flick, and `ux-library-at-scale.md` §2.1's whole point is that the swap is MapLibre's, with
+    // no zoom listener and nothing re-rendering under a moving thumb.
+    const zoom = instance.getZoom();
+    if (rect) handler(rect, { userInitiated, zoom, band: bandForZoom(zoom) });
   }, []);
 
   /**
@@ -763,7 +779,7 @@ export function MapSurfaceMapcn({
           sheet. */}
       <MapControls showZoom showLocate />
       <BasemapTint />
-      {summaries && (
+      {hasSummaryBands && (
         <SummaryMarkerLayer
           countries={countryFeatures}
           areas={areaFeatures}
@@ -776,6 +792,11 @@ export function MapSurfaceMapcn({
       <PlaceMarkerLayer
         data={data}
         selectedId={selected?.id ?? null}
+        // The same expression that mounts the bands above decides the pins' floor, and that is the
+        // point: the floor exists only because the bands replace what it hides. A surface with no
+        // bands (`/collections/[id]`) gets `null` and keeps every pin at every zoom, instead of
+        // going blank below z8.5 with nothing drawn in their place — see `place-marker-layer.tsx`.
+        replacedBelowZoom={hasSummaryBands ? PIN_BAND_MIN : null}
         onPlaceClick={(id) => {
           const place = places.find((candidate) => candidate.id === id);
           // Selection lives with the caller (`map-page-client.tsx`'s `selected` state) — this

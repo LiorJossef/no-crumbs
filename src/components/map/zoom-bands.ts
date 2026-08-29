@@ -45,3 +45,23 @@ export const COUNTRY_LANDING_ZOOM = {
   min: AREA_BAND_MIN + 0.15,
   max: AREA_BAND_MAX - 0.5,
 } as const;
+
+/** Which of the three bands a zoom falls in. */
+export type ZoomBand = 'country' | 'area' | 'pin';
+
+/**
+ * The band a resting camera is in — the one definition of where a band starts.
+ *
+ * Callers outside this file must never re-derive this from the constants: a page that compares
+ * `zoom < 4.5` itself is a second definition, and the numbers above are the ones §2.1 expects to be
+ * tuned on a device. Tuning them must move every consumer at once.
+ *
+ * The comparisons mirror MapLibre's own `minzoom <= z < maxzoom`, so this returns exactly the band
+ * whose layer is drawn at that zoom — including on the shared boundaries, where the higher band
+ * wins in both places.
+ */
+export function bandForZoom(zoom: number): ZoomBand {
+  if (zoom >= PIN_BAND_MIN) return 'pin';
+  if (zoom >= AREA_BAND_MIN) return 'area';
+  return 'country';
+}

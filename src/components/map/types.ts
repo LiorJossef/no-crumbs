@@ -18,6 +18,7 @@
 
 import type { ProductCategory } from '@/domain/places/product-category';
 import type { Spot } from '@/domain/places/spot';
+import type { ZoomBand } from './zoom-bands';
 
 /**
  * One pin's worth of data, provider-agnostic. Deliberately flat (`lat`/`lng` rather than a nested
@@ -307,6 +308,33 @@ export interface ViewportChangeMeta {
    * plumbing, so the surface answers it rather than leaving each caller to guess.
    */
   readonly userInitiated: boolean;
+  /**
+   * The zoom the camera came to rest at, exactly as the surface reports it — not rounded, not
+   * clamped to a band edge.
+   *
+   * Reported alongside `band` rather than instead of it because the two answer different questions:
+   * `band` is what is *drawn*, and a caller that wants "how close are we" (a label threshold, a
+   * telemetry line) needs the number and must not recover it from the band.
+   */
+  readonly zoom: number;
+  /**
+   * Which of the three bands (`zoom-bands.ts`, `docs/ux-library-at-scale.md` §2.1) that zoom lands
+   * in — and therefore which layer the user is actually looking at: country pills, area pills, or
+   * pins.
+   *
+   * Here because a caller has to be able to answer the map with something other than a map. When
+   * the country band is showing there is nothing on screen a list of *places* corresponds to, so
+   * the sidebar has to switch to a country/city view; without this, the page's only options are to
+   * re-derive the thresholds itself (a second definition of where a band starts) or to add its own
+   * zoom listener (a second camera subscription, on a surface that deliberately has exactly one).
+   *
+   * Derived with `bandForZoom`, so it moves whenever the constants are tuned.
+   *
+   * **Independent of `userInitiated`.** A programmatic flight crosses bands just as a pinch does,
+   * and the band it lands in is a fact about the map either way. Callers that only want to react to
+   * gestures apply their own guard; this field never lies about what is drawn to express one.
+   */
+  readonly band: ZoomBand;
 }
 
 /** A framing request with a zoom range, for `MapSurfaceProps.focusBounds`. */

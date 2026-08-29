@@ -32,6 +32,20 @@
  * expansion gesture. Do not repair anything here by reintroducing density clustering under another
  * name; the band is the sanctioned answer and a bubble is still not one.
  *
+ * ## The floor is conditional, because it is only ever paid for by a replacement
+ *
+ * `replacedBelowZoom` is required rather than defaulted, and it is the whole of the fix for the
+ * blank collection map (`docs/handoff-2026-08-29-navigation-pages.md` §5.1). This layer used to
+ * apply `minzoom: PIN_BAND_MIN` unconditionally, to every `MapSurface`. On `/map` that is correct
+ * — the bands take over. On `/collections/[id]`, which mounts the same surface and passes no
+ * `summaries`, it deleted the pins at z<8.5 and put **nothing** in their place: the owner zoomed
+ * out and the map was empty.
+ *
+ * So the caller states the replacement rather than this file assuming one. `null` means "nothing
+ * replaces these pins", and a layer with no replacement keeps its pins at every zoom, because for
+ * that surface the floor is pure loss and never the trade §9.1 accepted. Do not reintroduce a
+ * default here: a default is exactly how the assumption became invisible the first time.
+ *
  * Everything visual is in `./marker-style.ts` and `./marker-images.ts`.
  */
 
@@ -49,15 +63,45 @@ import {
 import type { PlaceFeatureCollection } from './place-features';
 import { styleTextFont } from './style-text-font';
 import { useStyleReady } from './use-style-ready';
-import { PIN_BAND_MIN } from './zoom-bands';
+
+/**
+ * The layer's zoom range, as a value.
+ *
+ * Extracted from the `useEffect` for the same reason `pinLayerLayout` and `pinLayerPaint` were
+ * (`tests/unit/map/no-density-clustering.test.ts`'s header): "the pins keep their floor only when
+ * something replaces them" is the rule that broke the collection map, and a rule a test can call is
+ * a rule that stays fixed. `map.addLayer` is a statement and cannot be asserted on directly.
+ *
+ * Returns an **empty object** rather than `{ minzoom: 0 }` when there is no replacement — see the
+ * call site.
+ */
+export function pinLayerZoomRange(replacedBelowZoom: number | null): { readonly minzoom?: number } {
+  return replacedBelowZoom === null ? {} : { minzoom: replacedBelowZoom };
+}
 
 interface PlaceMarkerLayerProps {
   readonly data: PlaceFeatureCollection;
   readonly selectedId: string | null;
+  /**
+   * The zoom below which a **summary layer draws in this layer's place**, or `null` when nothing
+   * does.
+   *
+   * Not optional, and not defaulted to `PIN_BAND_MIN`. The floor and the replacement are one
+   * decision, and this prop is where the two are tied together in the type system rather than in a
+   * paragraph somebody has to find: a surface may only hide its pins if it can say what the user
+   * sees instead. `PIN_BAND_MIN` when `summaries` are mounted, `null` when they are not — see the
+   * header, and `map-surface.mapcn.tsx`, where both are decided by the same expression.
+   */
+  readonly replacedBelowZoom: number | null;
   readonly onPlaceClick?: (placeId: string) => void;
 }
 
-export function PlaceMarkerLayer({ data, selectedId, onPlaceClick }: PlaceMarkerLayerProps) {
+export function PlaceMarkerLayer({
+  data,
+  selectedId,
+  replacedBelowZoom,
+  onPlaceClick,
+}: PlaceMarkerLayerProps) {
   const { map } = useMap();
   const styleReady = useStyleReady(map);
   const instanceId = useId().replace(/:/g, '');
@@ -70,6 +114,17 @@ export function PlaceMarkerLayer({ data, selectedId, onPlaceClick }: PlaceMarker
   useEffect(() => {
     onPlaceClickRef.current = onPlaceClick;
   }, [onPlaceClick]);
+
+  // The current selection, for the *creation* path only. `replacedBelowZoom` is in the setup
+  // effect's dependencies, so the layer can now be rebuilt at a moment when a pin is selected; the
+  // selection effect below would not re-run for that rebuild and the chosen pin would silently
+  // revert to its unselected icon. Seeding the layout from a ref costs nothing and removes the
+  // whole class. `selectedId` itself must never enter those dependencies — that would tear down
+  // and rebuild the source on every tap.
+  const selectedIdRef = useRef(selectedId);
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
 
   useEffect(() => {
     if (!map || !styleReady) return;
@@ -120,8 +175,11 @@ export function PlaceMarkerLayer({ data, selectedId, onPlaceClick }: PlaceMarker
       // out of the pin layer; with nothing clustering, it could only ever be a no-op dressed up as
       // a safeguard, and the next reader would have assumed bubbles still existed somewhere.
       //
-      // The pin band's floor (`zoom-bands.ts`, `ux-library-at-scale.md` §2.1). Above it every saved
-      // place is its own pin exactly as before; below it the area and country summaries take over.
+      // The pin band's floor (`zoom-bands.ts`, `ux-library-at-scale.md` §2.1), and only when this
+      // surface has a summary layer to hand the band to. Above it every saved place is its own pin
+      // exactly as before; below it the area and country summaries take over. With
+      // `replacedBelowZoom === null` there is no floor at all and the pins draw everywhere — see
+      // the header on why that is the honest default for a surface with no bands.
       //
       // **This is not clustering returning under another name.** Nothing merges, nothing counts a
       // radius, and no feature in this source is ever anything but one saved place. What changes is
@@ -135,8 +193,11 @@ export function PlaceMarkerLayer({ data, selectedId, onPlaceClick }: PlaceMarker
       // band for free — a symbol layer is hit-tested through the collision index, which placement
       // only fills inside the band, so a pin cannot answer a tap while it is invisible. (A *circle*
       // layer would; see `inBand` and the area disc's own guard.)
-      minzoom: PIN_BAND_MIN,
-      layout: pinLayerLayout(styleTextFont(map)) as never,
+      // Omitted entirely when nothing replaces these pins, rather than set to 0: a layer with no
+      // `minzoom` is MapLibre's own way of saying "every zoom", and writing a number there would
+      // read as a tuned floor that happens to be the bottom of the scale.
+      ...pinLayerZoomRange(replacedBelowZoom),
+      layout: pinLayerLayout(styleTextFont(map), selectedIdRef.current) as never,
       paint: pinLayerPaint() as never,
     });
 
@@ -163,7 +224,7 @@ export function PlaceMarkerLayer({ data, selectedId, onPlaceClick }: PlaceMarker
       map.off('mouseleave', pinLayerId, resetPointer);
       removeOurs();
     };
-  }, [map, styleReady, sourceId, pinLayerId]);
+  }, [map, styleReady, sourceId, pinLayerId, replacedBelowZoom]);
 
   // The source's only writer, and the selection effect below is the layer's. Both run after the
   // creation effect in the same commit, so the layers are never rendered from stale state.
