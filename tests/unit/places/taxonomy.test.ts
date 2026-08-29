@@ -17,6 +17,7 @@ import {
   PRIMARY_CATEGORIES,
   PRIMARY_CATEGORY_SCOPE,
   SUB_TAGS,
+  SUB_TAG_ALIAS_PAIRS,
   SUB_TAG_KEYS,
   SUB_TAG_LABELS,
   isPrimaryCategory,
@@ -84,28 +85,65 @@ describe('resolveSubTag', () => {
   });
 
   it('accepts a spelling variant of a listed label', () => {
+    // `Cocktail` **is** `Cocktails`; `Beer and Pub` is `Beer & Pub` with the ampersand written out.
     expect(resolveSubTag('cocktail')).toBe('cocktails');
     expect(resolveSubTag('dessert')).toBe('desserts');
     expect(resolveSubTag('beer and pub')).toBe('beer pub');
     expect(resolveSubTag('bakeries')).toBe('bakery');
+    expect(resolveSubTag('speciality coffee')).toBe('specialty coffee');
+  });
+
+  it('accepts a term the specification says the label covers', () => {
+    // The owner widened the table on 2026-08-29 ("map obvious equivalents"), and the rule that
+    // stops that becoming taste is written on `SUB_TAG_ALIASES`: an alias is admitted only where
+    // the specification's own coverage text already names the source. Each of these is quoted from
+    // it — `Italian (pizza, pasta)`, `Mediterranean (Greek, coastal, seafood)`, `Asian (…,
+    // pan-Asian)`, `Japanese (sushi, ramen, izakaya)`, `Mexican (tacos, …)`.
+    expect(resolveSubTag('pasta')).toBe('italian');
+    expect(resolveSubTag('greek')).toBe('mediterranean');
+    expect(resolveSubTag('pan asian')).toBe('asian');
+    expect(resolveSubTag('ramen')).toBe('japanese');
+    expect(resolveSubTag('tacos')).toBe('mexican');
+  });
+
+  it('accepts a Hebrew label as its English equivalent', () => {
+    // The prompt requires English and `p11` measured that requirement leaking anyway; five Hebrew
+    // tags reached the live library under the open vocabulary.
+    expect(resolveSubTag('מאפייה')).toBe('bakery');
+    expect(resolveSubTag('מאפים')).toBe('bakery');
   });
 
   it('does not round a different concept onto its nearest neighbour', () => {
-    // Each of these is a real tag from the live library and each has a tempting neighbour.
-    // Rounding is how a closed vocabulary quietly reopens.
+    // The other side of the same rule, and each of these is a real tag from the live library with
+    // a tempting neighbour. Nothing says `Wine Bar` covers a wine *style*; `schnitzel` and `matcha`
+    // are dishes, which have their own field; `market stall` is a venue type and `marylebone` is a
+    // neighbourhood `locality` already holds. Rounding is how a closed vocabulary quietly reopens.
     expect(resolveSubTag('natural wine')).toBeNull();
-    expect(resolveSubTag('greek')).toBeNull();
     expect(resolveSubTag('hidden gem')).toBeNull();
-    expect(resolveSubTag('pan asian')).toBeNull();
+    expect(resolveSubTag('schnitzel')).toBeNull();
+    expect(resolveSubTag('matcha')).toBeNull();
+    expect(resolveSubTag('market stall')).toBeNull();
+    expect(resolveSubTag('marylebone')).toBeNull();
+    // The specification gives bare `street food` to Middle Eastern *and* to Mexican, so on its own
+    // it names neither — an alias here would pick one at random.
+    expect(resolveSubTag('street food')).toBeNull();
     expect(resolveSubTag('')).toBeNull();
   });
 
-  it('resolves every alias to a key that exists', () => {
-    for (const alias of ['cocktail', 'dessert', 'beer and pub', 'bakeries']) {
-      const resolved = resolveSubTag(alias);
-      expect(resolved).not.toBeNull();
-      expect(isSubTag(resolved)).toBe(true);
+  it('resolves every alias to a key that exists, and never off one listed tag onto another', () => {
+    for (const [src, dst] of SUB_TAG_ALIAS_PAIRS) {
+      expect(isSubTag(dst)).toBe(true);
+      expect(resolveSubTag(src)).toBe(dst);
+      // A source that is itself a listed tag would silently rewrite good data — a place tagged
+      // `Bakery` becoming `Desserts` because someone added a plausible-looking row.
+      expect(isSubTag(src)).toBe(false);
     }
+  });
+
+  it('keys every alias in the canonical form the gate will hand it', () => {
+    // `resolveSubTag` runs *after* `canonicaliseTag`, so an alias keyed `Pan-Asian` would never
+    // match anything. Asserted rather than assumed: the table is hand-written.
+    for (const [src] of SUB_TAG_ALIAS_PAIRS) expect(tagKey(src)).toBe(src);
   });
 });
 

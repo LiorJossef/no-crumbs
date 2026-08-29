@@ -133,11 +133,18 @@ describe('canonicaliseTags', () => {
 
   it('drops everything that is not on the whitelist, rather than rounding it to the nearest', () => {
     // The vocabulary the live library actually accumulated under the open scheme. `Natural wine`
-    // is not `Wine Bar` and `Greek` is not `Mediterranean` — each is a defensible round and each
-    // would put a claim in the library that no caption made. Dropped, so the place carries no tag.
+    // is not `Wine Bar`, `Market stall` is a venue type and `Marylebone` is a neighbourhood
+    // `locality` already holds — each has a defensible round and each would put a claim in the
+    // library that no caption made. Dropped, so the place carries no tag.
+    //
+    // `Greek` was in this list until the owner's 2026-08-29 alignment ruling, and it moved for a
+    // reason that is not a change of heart: the specification writes `Mediterranean (Greek,
+    // coastal, seafood)`, so `Greek` is covered by the target's own definition, which is now the
+    // rule for admitting an alias at all. See `places/taxonomy.test.ts`.
     expect(
-      canonicaliseTags(['Hidden gem', 'Market stall', 'Natural wine', 'Greek', 'Marylebone']),
+      canonicaliseTags(['Hidden gem', 'Market stall', 'Natural wine', 'Marylebone']),
     ).toEqual([]);
+    expect(canonicaliseTags(['Greek'])).toEqual(['mediterranean']);
   });
 
   it('accepts a spelling variant of a listed label, which is not the same as rounding', () => {
