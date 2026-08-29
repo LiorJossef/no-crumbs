@@ -10,8 +10,7 @@
  * an escape handler and a backdrop in exchange for nothing.
  */
 
-import { useRef, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, ChevronRight, Plus } from 'lucide-react';
 
@@ -20,7 +19,7 @@ import { Input } from '@/components/ui/input';
 import { CollectionCover } from '@/components/collections/collection-cover';
 import { BottomNav, BOTTOM_NAV_HEIGHT_PX } from '@/components/nav/bottom-nav';
 import { memberLabel } from '@/domain/collections/collection';
-import { createCollection } from '@/app/actions/collections';
+import { useCreateCollection } from '@/components/collections/use-create-collection';
 import type { CollectionSummary } from './_lib/get-collections';
 
 export function CollectionsIndexClient({
@@ -30,27 +29,22 @@ export function CollectionsIndexClient({
   collections: readonly CollectionSummary[];
   libraryIsEmpty: boolean;
 }) {
-  const router = useRouter();
   const [composing, setComposing] = useState(false);
   const [name, setName] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
   const fieldRef = useRef<HTMLInputElement>(null);
+  // One caller of `createCollection` for the whole product — the same hook the `＋` menu's
+  // `Create a collection` pane uses, so the two entry points cannot drift on trimming, on keeping
+  // the name after a failure, or on navigating into what was just made.
+  const { pending, error, create, clearError } = useCreateCollection();
 
   const mine = collections.filter((collection) => collection.role === 'owner');
   const shared = collections.filter((collection) => collection.role !== 'owner');
 
   function submit() {
-    setError(null);
-    startTransition(async () => {
-      const result = await createCollection(name, '');
-      if (!result.ok) {
-        setError(result.message);
-        fieldRef.current?.focus();
-        return;
-      }
-      // Straight into it: a new empty collection you cannot see is a dead end.
-      router.push(`/collections/${result.id}` as `/collections/${string}`);
+    // Focus returns to the field only on failure — on success the route changes and there is
+    // nothing here to focus. `create` resolving `false` is that signal.
+    void create(name).then((created) => {
+      if (!created) fieldRef.current?.focus();
     });
   }
 
@@ -145,7 +139,7 @@ export function CollectionsIndexClient({
                 className="h-12 px-4 text-muted-foreground"
                 onClick={() => {
                   setComposing(false);
-                  setError(null);
+                  clearError();
                   setName('');
                 }}
               >
