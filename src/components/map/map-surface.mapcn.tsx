@@ -992,7 +992,15 @@ export function MapSurfaceMapcn({
           {/* `MapPlace.id` is a `saved_places` id for every surface that renders this map. */}
           <PlaceDetail
             place={selected}
-            savedPlace={{ id: selected.id, visited: selected.visited }}
+            savedPlace={{
+              id: selected.id,
+              visited: selected.visited,
+              // Same read as the mobile sheet's: `visitedAt` is on the joined `Spot`, not on the
+              // pin. Spread rather than an explicit `undefined` under `exactOptionalPropertyTypes`
+              // — a row marked been before the column was written has no timestamp, and absent is
+              // what that is.
+              ...(selected.detail?.visitedAt ? { visitedAt: selected.detail.visitedAt } : {}),
+            }}
             onClose={() => onDeselect?.()}
             variant="popover"
           />
