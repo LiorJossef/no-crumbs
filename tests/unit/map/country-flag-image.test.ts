@@ -1,21 +1,21 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
-  COUNTRY_DISC,
-  COUNTRY_DISC_CENTRE,
-  COUNTRY_DISC_SIZE,
+  SUMMARY_PILL,
+  SUMMARY_PILL_HEIGHT,
   buildCountryDiscImages,
   clearCountryDiscImageCache,
   countryDiscImageId,
   flagEmoji,
   hasFlagGlyphs,
   normaliseCountryCode,
+  summaryPillWidth,
 } from '@/components/map/country-flag-image';
 
 /**
  * The vitest environment is `node`: there is no canvas, which is the point. Everything the module
  * does to a 2D context is recorded here, so the drawing is assertable without a rasteriser. The
- * real pixels are checked by the Playwright render script, not by this file.
+ * real pixels are checked on screen, not by this file.
  */
 interface Op {
   readonly op: string;
@@ -76,6 +76,8 @@ function makeCanvas(options: FakeOptions = {}): FakeCanvas {
     clearRect: record('clearRect'),
     beginPath: record('beginPath'),
     closePath: record('closePath'),
+    moveTo: record('moveTo'),
+    lineTo: record('lineTo'),
     arc: record('arc'),
     clip: record('clip'),
     stroke(...args: unknown[]) {
@@ -159,9 +161,16 @@ function factory(options: FakeOptions = {}) {
 
 const JP = '\u{1F1EF}\u{1F1F5}';
 
-/** The disc canvases only. The painted-box scan takes a scratch canvas of its own. */
-function discs(f: { made: FakeCanvas[] }): FakeCanvas[] {
-  return f.made.filter((c) => c.ops.some((o) => o.op === 'arc'));
+/** The pill canvases only. The painted-box scan takes a scratch canvas of its own, and it never
+ *  draws a path. */
+function pills(f: { made: FakeCanvas[] }): FakeCanvas[] {
+  return f.made.filter((c) => c.ops.some((o) => o.op === 'moveTo'));
+}
+
+function strokes(canvas: FakeCanvas): { colour: string; width: number }[] {
+  return canvas.ops
+    .filter((o) => o.op === 'stroke')
+    .map((o) => ({ colour: String(o.args[0]), width: Number(o.args[1]) }));
 }
 
 beforeEach(() => {
@@ -190,16 +199,16 @@ describe('flagEmoji', () => {
 
 describe('countryDiscImageId', () => {
   it('is pure, deterministic, and safe to call with no document', () => {
-    expect(countryDiscImageId({ countryCode: 'il' }, 'light')).toBe('country-disc:light:IL');
+    expect(countryDiscImageId({ countryCode: 'il' }, 'light')).toBe('summary-pill:light:IL');
     expect(countryDiscImageId({ countryCode: 'IL', active: true }, 'light')).toBe(
-      'country-disc:light:IL:active'
+      'summary-pill:light:IL:active'
     );
-    expect(countryDiscImageId({ countryCode: 'IL' }, 'dark')).toBe('country-disc:dark:IL');
+    expect(countryDiscImageId({ countryCode: 'IL' }, 'dark')).toBe('summary-pill:dark:IL');
   });
 
-  it('collapses every unusable code onto one unflagged id', () => {
-    expect(countryDiscImageId({ countryCode: null }, 'light')).toBe('country-disc:light:none');
-    expect(countryDiscImageId({ countryCode: 'ISR' }, 'light')).toBe('country-disc:light:none');
+  it('collapses every unusable code onto one capless id', () => {
+    expect(countryDiscImageId({ countryCode: null }, 'light')).toBe('summary-pill:light:none');
+    expect(countryDiscImageId({ countryCode: 'ISR' }, 'light')).toBe('summary-pill:light:none');
   });
 });
 
@@ -246,44 +255,66 @@ describe('buildCountryDiscImages', () => {
       flagGlyphs: true,
       createCanvas: f.create,
     });
-    expect(textOps(discs(f)[0]!)).toEqual([JP]);
+    expect(textOps(pills(f)[0]!)).toEqual([JP]);
   });
 
-  it('draws the two-letter code in the same disc when it does not', () => {
+  it('draws the two-letter code in the same cap when it does not', () => {
     const f = factory();
     buildCountryDiscImages([{ countryCode: 'gb' }], {
       ...base,
       flagGlyphs: false,
       createCanvas: f.create,
     });
-    expect(textOps(discs(f)[0]!)).toEqual(['GB']);
-    const codeOp = discs(f)[0]!.ops.find((o) => o.op === 'fillText');
-    expect(codeOp?.args[4]).toContain(`${COUNTRY_DISC.codeFontPx}px`);
+    expect(textOps(pills(f)[0]!)).toEqual(['GB']);
+    const codeOp = pills(f)[0]!.ops.find((o) => o.op === 'fillText');
+    expect(codeOp?.args[4]).toContain(`${SUMMARY_PILL.codeFontPx}px`);
     // The code is ink, never the mint reserved for the active ring.
     expect(codeOp?.args[3]).toBe('#1B1B1A');
   });
 
-  it('draws an empty disc for an area with no country', () => {
+  it('draws a capless pill for an area, and for a country we cannot name', () => {
     const f = factory();
     const [image] = buildCountryDiscImages([{ countryCode: null }], {
       ...base,
       flagGlyphs: true,
       createCanvas: f.create,
     });
-    expect(image?.id).toBe('country-disc:light:none');
-    expect(textOps(discs(f)[0]!)).toEqual([]);
+    expect(image?.id).toBe('summary-pill:light:none');
+    expect(textOps(pills(f)[0]!)).toEqual([]);
+    // Only the pill's own border: no cap means no cap ring.
+    expect(strokes(pills(f)[0]!)).toEqual([
+      { colour: '#E7E3DC', width: SUMMARY_PILL.borderWidth },
+    ]);
   });
 
   it('rings the active country in the mint token and nothing else', () => {
     const f = factory();
-    buildCountryDiscImages(
+    buildCountryDiscImages([{ countryCode: 'IL' }, { countryCode: 'IL', active: true }], {
+      ...base,
+      flagGlyphs: true,
+      createCanvas: f.create,
+    });
+    // Inactive: hairline pill border, then the hairline round the flag cap.
+    expect(strokes(pills(f)[0]!)).toEqual([
+      { colour: '#E7E3DC', width: SUMMARY_PILL.borderWidth },
+      { colour: '#E7E3DC', width: SUMMARY_PILL.borderWidth },
+    ]);
+    // Active: the *pill's* border becomes mint, at the ring width. The cap ring is untouched.
+    expect(strokes(pills(f)[1]!)).toEqual([
+      { colour: '#2E7A70', width: SUMMARY_PILL.ringWidth },
+      { colour: '#E7E3DC', width: SUMMARY_PILL.borderWidth },
+    ]);
+  });
+
+  it('keeps the two states the same size, so an active pill does not resize under its label', () => {
+    const f = factory();
+    const [plain, active] = buildCountryDiscImages(
       [{ countryCode: 'IL' }, { countryCode: 'IL', active: true }],
       { ...base, flagGlyphs: true, createCanvas: f.create }
     );
-    const strokes = (c: FakeCanvas) =>
-      c.ops.filter((o) => o.op === 'stroke').map((o) => String(o.args[0]));
-    expect(strokes(discs(f)[0]!)).toEqual(['#E7E3DC']);
-    expect(strokes(discs(f)[1]!)).toEqual(['#E7E3DC', '#2E7A70']);
+    expect(active?.content).toEqual(plain?.content);
+    expect(active?.stretchX).toEqual(plain?.stretchX);
+    expect(pills(f)[1]!.width).toBe(pills(f)[0]!.width);
   });
 
   it('uses the dark surface and the same mint ring in the dark theme', () => {
@@ -294,12 +325,11 @@ describe('buildCountryDiscImages', () => {
       flagGlyphs: true,
       createCanvas: f.create,
     });
-    const disc = discs(f)[0]!;
-    expect(disc.ops.filter((o) => o.op === 'fill').map((o) => String(o.args[0]))).toContain('#1C232B');
-    expect(disc.ops.filter((o) => o.op === 'stroke').map((o) => String(o.args[0]))).toEqual([
-      '#2A323B',
-      '#2E7A70',
-    ]);
+    const pill = pills(f)[0]!;
+    expect(pill.ops.filter((o) => o.op === 'fill').map((o) => String(o.args[0]))).toContain(
+      '#1C232B'
+    );
+    expect(strokes(pill).map((s) => s.colour)).toEqual(['#2E7A70', '#2A323B']);
   });
 
   describe('device pixel ratio', () => {
@@ -312,11 +342,11 @@ describe('buildCountryDiscImages', () => {
           flagGlyphs: true,
           createCanvas: f.create,
         });
-        const disc = discs(f)[0]!;
-        expect(disc.width).toBe(Math.ceil(COUNTRY_DISC_SIZE * dpr));
-        expect(disc.height).toBe(Math.ceil(COUNTRY_DISC_SIZE * dpr));
+        const pill = pills(f)[0]!;
+        expect(pill.width).toBe(Math.ceil(summaryPillWidth(true) * dpr));
+        expect(pill.height).toBe(Math.ceil(SUMMARY_PILL_HEIGHT * dpr));
         // The first scale is the DPR one: the geometry below it is authored in CSS pixels.
-        expect(disc.ops.filter((o) => o.op === 'scale')[0]!.args).toEqual([dpr, dpr]);
+        expect(pill.ops.filter((o) => o.op === 'scale')[0]!.args).toEqual([dpr, dpr]);
         // MapLibre lays the bitmap out at width / pixelRatio, so this is what keeps 1x, 2x and
         // 3x the same size on screen instead of three different sizes.
         expect(image?.pixelRatio).toBe(dpr);
@@ -329,7 +359,7 @@ describe('buildCountryDiscImages', () => {
     const opts = { ...base, flagGlyphs: true, createCanvas: f.create };
     buildCountryDiscImages([{ countryCode: 'IL' }, { countryCode: 'IL' }], opts);
     buildCountryDiscImages([{ countryCode: 'IL' }], opts);
-    expect(discs(f)).toHaveLength(1);
+    expect(pills(f)).toHaveLength(1);
     // The painted-box scan is memoised too: one scratch canvas for the whole run.
     expect(f.made).toHaveLength(2);
   });
@@ -347,7 +377,7 @@ describe('buildCountryDiscImages', () => {
     at(3, 'light', false);
     at(2, 'dark', false);
     at(2, 'light', true);
-    expect(discs(f)).toHaveLength(4);
+    expect(pills(f)).toHaveLength(4);
   });
 
   it('degrades to no icons rather than throwing when there is no canvas', () => {
@@ -359,7 +389,117 @@ describe('buildCountryDiscImages', () => {
   });
 });
 
-describe('fitting the glyph to the disc', () => {
+/**
+ * The half MapLibre reads. `content` and `stretchX` are raw bitmap pixels
+ * (`maplibre-gl/src/symbol/quads.ts:65`, `:134`), and getting either of them wrong is not a
+ * rendering wobble — it is the label falling out of its own pill, which is the defect this whole
+ * change exists to remove.
+ */
+describe('the stretchable-image geometry', () => {
+  const build = (countryCode: string | null, pixelRatio: number) => {
+    const f = factory();
+    const [image] = buildCountryDiscImages([{ countryCode }], {
+      pixelRatio,
+      theme: 'light',
+      flagGlyphs: true,
+      createCanvas: f.create,
+    });
+    return { image: image!, canvas: pills(f)[0]! };
+  };
+
+  for (const dpr of [1, 2, 3]) {
+    it(`states content in raw bitmap pixels at ${dpr}x, not CSS pixels`, () => {
+      const { image } = build('IL', dpr);
+      const [left, top, right, bottom] = image.content;
+      // Multiplied by the pixel ratio exactly once, like the canvas transform.
+      const capped = SUMMARY_PILL.shadowPad +
+        SUMMARY_PILL.radius +
+        SUMMARY_PILL.capDiameter / 2 +
+        SUMMARY_PILL.capGap;
+      expect(left).toBe(Math.round(capped * dpr));
+      expect(top).toBe(0);
+      expect(right).toBe(
+        Math.ceil(summaryPillWidth(true) * dpr) -
+          Math.round((SUMMARY_PILL.padX + SUMMARY_PILL.shadowPad) * dpr)
+      );
+      expect(bottom).toBe(Math.ceil(SUMMARY_PILL_HEIGHT * dpr));
+    });
+  }
+
+  it('spans the full bitmap height, so `icon-text-fit: width` leaves the vertical axis 1:1', () => {
+    // A shorter content band is not a crop: `quads.ts` maps it onto the icon's natural height, so
+    // the whole pill would be scaled up vertically by imageHeight / contentHeight.
+    for (const code of ['IL', null]) {
+      const { image, canvas } = build(code, 2);
+      expect(image.content[1]).toBe(0);
+      expect(image.content[3]).toBe(canvas.height);
+    }
+  });
+
+  it('stretches exactly the content span, so the pill can be as narrow as its shortest label', () => {
+    const { image } = build(null, 2);
+    // `fixedContentWidth` is then 0 and the rendered middle is exactly the label's width. A
+    // narrower stretch zone would impose a minimum width a one-digit count could not meet.
+    expect(image.stretchX).toEqual([[image.content[0], image.content[2]]]);
+  });
+
+  it('keeps both content edges inside the pill’s flat middle', () => {
+    // The stretched columns are repeated across the label's width. A content edge inside a rounded
+    // end would smear that curve the whole way along the pill.
+    for (const capped of [true, false]) {
+      const { image } = build(capped ? 'IL' : null, 2);
+      const flatFrom = (SUMMARY_PILL.shadowPad + SUMMARY_PILL.radius) * 2;
+      const flatTo = (summaryPillWidth(capped) - SUMMARY_PILL.shadowPad - SUMMARY_PILL.radius) * 2;
+      expect(image.content[0]).toBeGreaterThanOrEqual(flatFrom);
+      expect(image.content[2]).toBeLessThanOrEqual(flatTo);
+    }
+  });
+
+  it('gives the capless pill equal padding on both sides', () => {
+    const { image, canvas } = build(null, 2);
+    expect(image.content[0]).toBe(canvas.width - image.content[2]);
+  });
+
+  it('leaves room for the flag between the pill edge and the label', () => {
+    const capped = build('IL', 2);
+    const capless = build(null, 2);
+    expect(capped.image.content[0] - capless.image.content[0]).toBe(
+      (SUMMARY_PILL.capDiameter / 2 + SUMMARY_PILL.capGap) * 2
+    );
+  });
+});
+
+describe('geometry', () => {
+  it('clears §6’s 44 px tap floor on the bitmap alone', () => {
+    // `collision_feature.ts:76-81` adds the icon's collisionPadding back onto the fitted box, so
+    // the hit box is the whole image, height included.
+    expect(SUMMARY_PILL_HEIGHT).toBeGreaterThanOrEqual(44);
+  });
+
+  it('keeps the shadow inside the transparent margin, so the pill stays centred on its label', () => {
+    expect(SUMMARY_PILL.shadowBlur + SUMMARY_PILL.shadowOffsetY).toBeLessThanOrEqual(
+      SUMMARY_PILL.shadowPad
+    );
+  });
+
+  it('pads a capless side by exactly the corner radius', () => {
+    // Not a taste decision: it is what keeps `content`'s edges out of the rounded ends.
+    expect(SUMMARY_PILL.padX).toBe(SUMMARY_PILL.radius);
+  });
+
+  it('sits the flag cap concentric with the pill’s leading arc', () => {
+    expect(SUMMARY_PILL.capDiameter / 2).toBeLessThan(SUMMARY_PILL.radius);
+    // Inset equally all round, so the cap cannot touch the border on any side.
+    expect(SUMMARY_PILL.radius - SUMMARY_PILL.capDiameter / 2).toBeGreaterThanOrEqual(
+      SUMMARY_PILL.borderWidth * 2
+    );
+    expect(SUMMARY_PILL.height / 2 - SUMMARY_PILL.capDiameter / 2).toBeGreaterThanOrEqual(
+      SUMMARY_PILL.borderWidth * 2
+    );
+  });
+});
+
+describe('fitting the glyph to the cap', () => {
   const base = { pixelRatio: 1, theme: 'light' } as const;
 
   /** A painted rectangle in the scan canvas, expressed relative to the scan's text origin. */
@@ -372,32 +512,32 @@ describe('fitting the glyph to the disc', () => {
 
   it('scales the painted pixels, not the advance, and centres on them', () => {
     // Chromium reports the same generic box for every flag while painting 28x21 of it, so the
-    // advance and the reported metrics both overstate the glyph. 54x40 painted fits at 0.5.
+    // advance and the reported metrics both overstate the glyph.
     const f = factory({ painted: painted(0, -40, 54, 40), fallbackWidth: 90 });
     buildCountryDiscImages([{ countryCode: 'JP' }], {
       ...base,
       flagGlyphs: true,
       createCanvas: f.create,
     });
-    const ops = discs(f)[0]!.ops;
+    const ops = pills(f)[0]!.ops;
     expect(ops.filter((o) => o.op === 'scale').at(-1)?.args).toEqual([
-      COUNTRY_DISC.flagWidth / 54,
-      COUNTRY_DISC.flagWidth / 54,
+      SUMMARY_PILL.flagWidth / 54,
+      SUMMARY_PILL.flagWidth / 54,
     ]);
     const text = ops.find((o) => o.op === 'fillText');
     expect([text?.args[1], text?.args[2]]).toEqual([-27, 20]);
   });
 
-  it('takes the tighter of the two constraints so a tall glyph cannot overflow the disc', () => {
+  it('takes the tighter of the two constraints so a tall glyph cannot overflow the cap', () => {
     const f = factory({ painted: painted(0, -60, 40, 60) });
     buildCountryDiscImages([{ countryCode: 'JP' }], {
       ...base,
       flagGlyphs: true,
       createCanvas: f.create,
     });
-    expect(discs(f)[0]!.ops.filter((o) => o.op === 'scale').at(-1)?.args).toEqual([
-      COUNTRY_DISC.flagHeight / 60,
-      COUNTRY_DISC.flagHeight / 60,
+    expect(pills(f)[0]!.ops.filter((o) => o.op === 'scale').at(-1)?.args).toEqual([
+      SUMMARY_PILL.flagHeight / 60,
+      SUMMARY_PILL.flagHeight / 60,
     ]);
   });
 
@@ -408,39 +548,31 @@ describe('fitting the glyph to the disc', () => {
       flagGlyphs: true,
       createCanvas: f.create,
     });
-    expect(discs(f)[0]!.ops.filter((o) => o.op === 'scale').at(-1)?.args).toEqual([
-      COUNTRY_DISC.flagWidth / 56,
-      COUNTRY_DISC.flagWidth / 56,
+    expect(pills(f)[0]!.ops.filter((o) => o.op === 'scale').at(-1)?.args).toEqual([
+      SUMMARY_PILL.flagWidth / 56,
+      SUMMARY_PILL.flagWidth / 56,
     ]);
   });
 
-  it('squeezes a two-letter code that would overrun the disc, and leaves a narrow one alone', () => {
+  it('squeezes a two-letter code that would overrun the cap, and leaves a narrow one alone', () => {
     const wide = factory({ painted: painted(0, -10, 60, 10) });
     buildCountryDiscImages([{ countryCode: 'WW' }], {
       ...base,
       flagGlyphs: false,
       createCanvas: wide.create,
     });
-    expect(discs(wide)[0]!.ops.filter((o) => o.op === 'scale').at(-1)?.args).toEqual([
-      (COUNTRY_DISC.diameter - 10) / 60,
+    expect(pills(wide)[0]!.ops.filter((o) => o.op === 'scale').at(-1)?.args).toEqual([
+      (SUMMARY_PILL.capDiameter - 6) / 60,
       1,
     ]);
 
-    const narrow = factory({ painted: painted(0, -10, 20, 10) });
+    const narrow = factory({ painted: painted(0, -10, 12, 10) });
     buildCountryDiscImages([{ countryCode: 'IL' }], {
       ...base,
       flagGlyphs: false,
       createCanvas: narrow.create,
     });
     // Only the device-pixel-ratio scale; the code is drawn at its natural width.
-    expect(discs(narrow)[0]!.ops.filter((o) => o.op === 'scale')).toHaveLength(1);
-  });
-});
-
-describe('geometry', () => {
-  it('reserves ring room in every bitmap so the disc centre never moves', () => {
-    expect(COUNTRY_DISC_CENTRE).toBe(COUNTRY_DISC_SIZE / 2);
-    const ringOuter = COUNTRY_DISC.diameter / 2 + COUNTRY_DISC.ringGap + COUNTRY_DISC.ringWidth;
-    expect(COUNTRY_DISC_SIZE).toBeGreaterThanOrEqual(2 * ringOuter);
+    expect(pills(narrow)[0]!.ops.filter((o) => o.op === 'scale')).toHaveLength(1);
   });
 });

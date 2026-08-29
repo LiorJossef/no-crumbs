@@ -3,7 +3,7 @@
 /**
  * The country and area bands, on the map (`docs/ux-library-at-scale.md` §2.1–§2.4).
  *
- * Two sources and four layers, following `place-marker-layer.tsx`'s shape exactly: `useMap()`,
+ * Two sources and two layers, following `place-marker-layer.tsx`'s shape exactly: `useMap()`,
  * `useStyleReady()`, teardown-before-setup so a failed cleanup costs a repaint instead of the
  * feature, and one effect that owns the data.
  *
@@ -20,13 +20,17 @@
  * so there is no zoom listener, no React state that changes on zoom, and no re-render as the user
  * pinches. That is the whole design of §2.1 and it is why the transition costs nothing.
  *
- * **Every layer here is a symbol layer, including the area band, and that is load-bearing rather
- * than incidental.** A symbol layer is hit-tested through the collision index, which placement
- * fills only inside the layer's zoom band, so a marker can never answer a tap while it is
- * invisible. The area band was first written as a `circle` layer — the obvious choice, since there
- * is no flag to draw one zoom in — and it was wrong three ways at once: invisible against our own
- * basemap, tappable outside its band, and a 32 px target. `summary-style.ts`'s
- * `areaDiscLayerLayout` records all three. Do not turn it back into a circle to save a bitmap.
+ * **Both layers here are symbol layers, and that is load-bearing rather than incidental.** A symbol
+ * layer is hit-tested through the collision index, which placement fills only inside the layer's
+ * zoom band, so a marker can never answer a tap while it is invisible. The area band was first
+ * written as a `circle` layer — the obvious choice, since there is no flag to draw one zoom in —
+ * and it was wrong three ways at once: invisible against our own basemap, tappable outside its
+ * band, and a 32 px target. `summary-style.ts`'s `areaLayerLayout` records all three. Do not turn
+ * it back into a circle to save a bitmap.
+ *
+ * **One layer per band, not two.** The area band used to carry a second symbol layer for the area's
+ * name, drawn beneath the disc, where it landed on the basemap's own label for the same city. The
+ * name now lives inside the pill's text field, which is the same field the country band uses.
  */
 
 import { useEffect, useId, useRef } from 'react';
@@ -43,17 +47,13 @@ import {
 import { styleTextFont } from './style-text-font';
 import {
   AREA_BAND_ZOOM,
-  AREA_DISC_LAYER_ID,
   AREA_DISC_SPEC,
-  AREA_LABEL_LAYER_ID,
-  areaDiscLayerLayout,
-  areaDiscLayerPaint,
-  areaLabelLayerLayout,
-  areaLabelLayerPaint,
+  AREA_LAYER_ID,
+  areaLayerLayout,
   COUNTRY_BAND_ZOOM,
   COUNTRY_LAYER_ID,
   countryLayerLayout,
-  countryLayerPaint,
+  summaryLayerPaint,
 } from './summary-style';
 import type { AreaFeatureCollection, CountryFeatureCollection } from './summary-features';
 import { useStyleReady } from './use-style-ready';
@@ -61,7 +61,7 @@ import { useStyleReady } from './use-style-ready';
 interface SummaryMarkerLayerProps {
   readonly countries: CountryFeatureCollection;
   readonly areas: AreaFeatureCollection;
-  /** Every disc the country layer's features reference, ready for `addImage`. Built by the caller
+  /** Every pill the country layer's features reference, ready for `addImage`. Built by the caller
    *  so this component never has to know what a country *is*. */
   readonly discs: readonly CountryDiscSpec[];
   readonly theme: DiscTheme;
@@ -83,8 +83,7 @@ export function SummaryMarkerLayer({
   const countrySourceId = `country-summary-${instanceId}`;
   const areaSourceId = `area-summary-${instanceId}`;
   const countryLayerId = `${COUNTRY_LAYER_ID}-${instanceId}`;
-  const areaDiscLayerId = `${AREA_DISC_LAYER_ID}-${instanceId}`;
-  const areaLabelLayerId = `${AREA_LABEL_LAYER_ID}-${instanceId}`;
+  const areaLayerId = `${AREA_LAYER_ID}-${instanceId}`;
 
   // Held in refs so the listeners, attached once with the layers, always call the current handlers
   // rather than the ones that existed at mount.
@@ -100,7 +99,7 @@ export function SummaryMarkerLayer({
 
     const removeOurs = () => {
       try {
-        for (const id of [areaLabelLayerId, areaDiscLayerId, countryLayerId]) {
+        for (const id of [areaLayerId, countryLayerId]) {
           if (map.getLayer(id)) map.removeLayer(id);
         }
         for (const id of [areaSourceId, countrySourceId]) {
@@ -119,23 +118,15 @@ export function SummaryMarkerLayer({
     map.addSource(countrySourceId, { type: 'geojson', data: emptyCollection() });
     map.addSource(areaSourceId, { type: 'geojson', data: emptyCollection() });
 
-    // The area band goes in first so the country discs, which are bigger and never share a zoom
+    // The area band goes in first so the country pills, which are bigger and never share a zoom
     // with it, sit above it in the layer order — and so a future band never has to be re-ordered.
     map.addLayer({
-      id: areaDiscLayerId,
+      id: areaLayerId,
       type: 'symbol',
       source: areaSourceId,
       ...AREA_BAND_ZOOM,
-      layout: areaDiscLayerLayout(font, countryDiscImageId(AREA_DISC_SPEC, theme)) as never,
-      paint: areaDiscLayerPaint(tokens) as never,
-    });
-    map.addLayer({
-      id: areaLabelLayerId,
-      type: 'symbol',
-      source: areaSourceId,
-      ...AREA_BAND_ZOOM,
-      layout: areaLabelLayerLayout(font) as never,
-      paint: areaLabelLayerPaint(tokens) as never,
+      layout: areaLayerLayout(font, countryDiscImageId(AREA_DISC_SPEC, theme)) as never,
+      paint: summaryLayerPaint(tokens) as never,
     });
     map.addLayer({
       id: countryLayerId,
@@ -143,19 +134,20 @@ export function SummaryMarkerLayer({
       source: countrySourceId,
       ...COUNTRY_BAND_ZOOM,
       layout: countryLayerLayout(font) as never,
-      paint: countryLayerPaint(tokens) as never,
+      paint: summaryLayerPaint(tokens) as never,
     });
 
-    // Delegated on both layers now, and that is the payoff of drawing the area band as a symbol
-    // rather than a circle: a symbol layer is hit-tested through the collision index, which
-    // placement fills only inside the band, so neither marker can answer a tap while it is
-    // invisible. A circle layer had no such protection and needed a hand-written zoom guard.
+    // Delegated on both layers, and that is the payoff of drawing the area band as a symbol rather
+    // than a circle: a symbol layer is hit-tested through the collision index, which placement
+    // fills only inside the band, so neither marker can answer a tap while it is invisible. A
+    // circle layer had no such protection and needed a hand-written zoom guard.
     //
-    // A point query is also enough now. The disc is a 59 px bitmap, so its icon hit box clears
-    // §6's 44 px floor on its own — where a 15 px circle was a 32 px target and would have needed
-    // the query padded out to compensate.
+    // A point query is also enough. `collision_feature.ts:76-81` adds the icon's `collisionPadding`
+    // back onto the fitted box, so the hit box is the whole pill — 50 px tall and at least as wide
+    // as its label — where a 15 px circle was a 32 px target and would have needed the query padded
+    // out to compensate.
     const openArea = (event: MapMouseEvent) => {
-      const feature = map.queryRenderedFeatures(event.point, { layers: [areaDiscLayerId] })[0];
+      const feature = map.queryRenderedFeatures(event.point, { layers: [areaLayerId] })[0];
       const id = feature?.properties?.id;
       if (typeof id === 'string') onAreaClickRef.current?.(id);
     };
@@ -173,40 +165,36 @@ export function SummaryMarkerLayer({
       map.getCanvas().style.cursor = '';
     };
 
-    map.on('click', areaDiscLayerId, openArea);
+    map.on('click', areaLayerId, openArea);
     map.on('click', countryLayerId, openCountry);
     map.on('mouseenter', countryLayerId, pointer);
     map.on('mouseleave', countryLayerId, resetPointer);
-    map.on('mouseenter', areaDiscLayerId, pointer);
-    map.on('mouseleave', areaDiscLayerId, resetPointer);
+    map.on('mouseenter', areaLayerId, pointer);
+    map.on('mouseleave', areaLayerId, resetPointer);
 
     return () => {
-      map.off('click', areaDiscLayerId, openArea);
+      map.off('click', areaLayerId, openArea);
       map.off('click', countryLayerId, openCountry);
       map.off('mouseenter', countryLayerId, pointer);
       map.off('mouseleave', countryLayerId, resetPointer);
-      map.off('mouseenter', areaDiscLayerId, pointer);
-      map.off('mouseleave', areaDiscLayerId, resetPointer);
+      map.off('mouseenter', areaLayerId, pointer);
+      map.off('mouseleave', areaLayerId, resetPointer);
       removeOurs();
     };
-  }, [
-    map,
-    styleReady,
-    theme,
-    countrySourceId,
-    areaSourceId,
-    countryLayerId,
-    areaDiscLayerId,
-    areaLabelLayerId,
-  ]);
+  }, [map, styleReady, theme, countrySourceId, areaSourceId, countryLayerId, areaLayerId]);
 
   /**
    * The images and the data, in one effect and in this order.
    *
    * They cannot be separated. A feature whose `icon-image` names an image that has not been added
-   * draws no icon, so `setData` before `addImage` is a frame of countless discs; and the set of
-   * images is data-dependent — a country arrives when an import lands in a new one — so they cannot
-   * be added once at mount the way the pins' are.
+   * draws no icon, so `setData` before `addImage` is a frame of bare labels on the basemap — the
+   * exact defect the pill exists to remove; and the set of images is data-dependent — a country
+   * arrives when an import lands in a new one — so they cannot be added once at mount the way the
+   * pins' are.
+   *
+   * `stretchX` and `content` are what make the pill a surface the label sits *inside*: they are the
+   * image's half of `icon-text-fit`, and without them MapLibre draws the bitmap at its natural
+   * width with the label spilling out of it.
    *
    * Nothing is ever removed. `removeImage` on an id nothing references costs an `ErrorEvent`, and on
    * one something does it forces a reload of every tile that used it; the images are a handful of
@@ -221,7 +209,11 @@ export function SummaryMarkerLayer({
       theme,
     })) {
       if (!map.hasImage(image.id)) {
-        map.addImage(image.id, image.data, { pixelRatio: image.pixelRatio });
+        map.addImage(image.id, image.data, {
+          pixelRatio: image.pixelRatio,
+          stretchX: [...image.stretchX],
+          content: [...image.content] as [number, number, number, number],
+        });
       }
     }
     (map.getSource(countrySourceId) as GeoJSONSource | undefined)?.setData(countries);
