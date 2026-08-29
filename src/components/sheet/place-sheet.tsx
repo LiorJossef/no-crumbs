@@ -67,7 +67,7 @@ import type { PlaceDetailFacts } from '@/domain/places/spot';
 import { enrichmentOf, rowAccessibleName, whyGoEarnsItsPlace } from '@/ui/place/enrichment';
 import { categoryDisplay, categoryLocalityLine } from '@/ui/place/category-display';
 import { savedPlaceMapsUrl } from '@/ui/place/maps-link';
-import { locationCertainty, savedOnLine } from '@/ui/place/location-certainty';
+import { locationCertainty, savedOnLine, visitedOnLine } from '@/ui/place/location-certainty';
 import { AddToCollection } from '@/components/collections/add-to-collection';
 
 import { formatCaptionQuote, quoteAddsSomething } from '@/ui/place/caption-quote';
@@ -296,7 +296,15 @@ export function PlaceSheet({
                  what the required prop buys. */
               <PlaceDetail
                 place={selected}
-                savedPlace={{ id: selected.id, visited: selected.visited }}
+                savedPlace={{
+                  id: selected.id,
+                  visited: selected.visited,
+                  // `visitedAt` lives on the joined `Spot` rather than on the pin, so it is read
+                  // off `detail` here. Spread rather than passed as `undefined` because
+                  // `exactOptionalPropertyTypes` is on and "absent" is the honest shape for a
+                  // marked row that never got a timestamp.
+                  ...(selected.detail?.visitedAt ? { visitedAt: selected.detail.visitedAt } : {}),
+                }}
                 onClose={onDeselect}
               />
             ) : (
@@ -874,7 +882,15 @@ export function PlaceDetail({
    * failure is silent — an id with a null `visited` would render the read-only screen, so every
    * control on `/map` would quietly vanish with nothing raised. This shape cannot express that.
    */
-  savedPlace: { readonly id: string; readonly visited: boolean } | null;
+  savedPlace: {
+    readonly id: string;
+    readonly visited: boolean;
+    /** `saved_places.visited_at` — when the been mark was made here. Optional and only optional:
+     *  `0006`'s CHECK allows `visited` with no timestamp, so a caller that has none is telling the
+     *  truth rather than forgetting a field. Same object as the other two for the reason above —
+     *  it is a third fact about the one row. */
+    readonly visitedAt?: Date;
+  } | null;
   onClose: () => void;
   /** `'sheet'` (default, mobile): an X that fully deselects. `'panel'` (desktop, retired — no
    *  caller renders this anymore now that detail lives entirely in the map popover, kept only so
@@ -952,6 +968,11 @@ export function PlaceDetail({
   /** Every mutation block below is gated on this, and none of them reads an id off `place` — that
    *  is the whole point of this refactor. No narrowing is needed: the prop is already the pair. */
   const savedRow = savedPlace;
+
+  /** Gated on `visited` as well as on the date. The pair cannot disagree in the database (`0006`'s
+   *  CHECK), but this prop is an object a caller assembles, and a date printed under a button
+   *  reading `Been here` would be the screen contradicting itself. */
+  const visitedOn = savedRow?.visited ? visitedOnLine(savedRow.visitedAt, new Date()) : null;
 
   /**
    * Whether the Google Maps link is the only external action on the card, which decides both its
@@ -1111,12 +1132,27 @@ export function PlaceDetail({
             the identity header. `key` on the saved place's id so a pending transition from the
             previously selected place can never land on this one. */}
         {savedRow && (
-          <BeenToggle
-            key={`been-${savedRow.id}`}
-            savedPlaceId={savedRow.id}
-            placeName={place.name}
-            visited={savedRow.visited}
-          />
+          /* The toggle and the date it produced, in one block rather than as two children of the
+             `gap-5` column — 20 px between a control and the caption that qualifies it reads as
+             two unrelated things. `gap-1.5` is the toggle's own internal rhythm (it uses the same
+             for its error line). */
+          <div className="flex flex-col gap-1.5">
+            <BeenToggle
+              key={`been-${savedRow.id}`}
+              savedPlaceId={savedRow.id}
+              placeName={place.name}
+              visited={savedRow.visited}
+            />
+            {/* The one thing the database has always held about a been mark and no screen said.
+                Same 11px muted weight as `Saved on …` below, because it is the same kind of fact:
+                a quiet record of when, not something to act on. Absent — silently — when the row
+                carries no timestamp; `visitedOnLine` says why that is a real state. */}
+            {visitedOn && (
+              <p className="text-center text-[11px] font-medium text-muted-foreground/70">
+                {visitedOn}
+              </p>
+            )}
+          </div>
         )}
 
         {/* The same position, for a host whose caller has no row to toggle: on

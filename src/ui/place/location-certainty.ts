@@ -74,3 +74,29 @@ export function savedOnLine(savedAt: Date, now: Date): string {
     ...(sameYear ? {} : { year: 'numeric' }),
   })}`;
 }
+
+/**
+ * "Marked as been in August", or with the year once it is no longer this one.
+ *
+ * Two things this wording is careful about, and both are about not claiming more than the column
+ * holds. `saved_places.visited_at` is the moment the *mark* was made in this app — never a date
+ * the user gave us, and an editable visit date is out of scope
+ * (`product-ruling-after-the-save.md` §6.5) — so "Marked as" rather than "You went", and a month
+ * rather than a day: to-the-day precision on a record-keeping timestamp reads as a claim about
+ * the visit itself.
+ *
+ * `null` when there is no timestamp, and that state is real rather than defensive: `0006`'s
+ * `saved_places_visited_at_consistent` only forbids a timestamp *without* the state, so a row can
+ * be `visited` with `visited_at is null` — anything marked by a path that did not write one.
+ * Guessing a month for it would be inventing the fact.
+ *
+ * On the detail only, like `savedOnLine` above and for the same reason.
+ */
+export function visitedOnLine(visitedAt: Date | null | undefined, now: Date): string | null {
+  if (!visitedAt) return null;
+  const sameYear = visitedAt.getFullYear() === now.getFullYear();
+  return `Marked as been in ${visitedAt.toLocaleDateString('en-GB', {
+    month: 'long',
+    ...(sameYear ? {} : { year: 'numeric' }),
+  })}`;
+}
