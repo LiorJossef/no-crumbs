@@ -722,7 +722,7 @@ export function MapPageClient({
               half-finished import by tapping a tab is not a thing to offer. It renders only below
               `lg` (its own class), where `PlaceDesktopPanel`'s always-visible column already gives
               desktop everything the bar is for. */}
-          {!showImport && <BottomNav onAddTikTok={openImport} />}
+          {!showImport && <BottomNav onAdd={openImport} />}
           {!showImport && (
             <PlaceSheet
               places={inArea}

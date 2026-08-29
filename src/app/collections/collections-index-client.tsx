@@ -18,6 +18,7 @@ import { ArrowLeft, ChevronRight, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CollectionCover } from '@/components/collections/collection-cover';
+import { cn } from '@/lib/utils';
 import { BottomNav, BOTTOM_NAV_HEIGHT_PX } from '@/components/nav/bottom-nav';
 import { memberLabel } from '@/domain/collections/collection';
 import { createCollection } from '@/app/actions/collections';
@@ -56,7 +57,7 @@ export function CollectionsIndexClient({
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <BottomNav />
+      <BottomNav onAdd={() => setComposing(true)} addLabel="New collection" />
       {/* The back arrow is gone below `lg`, and that is the point of the bar rather than an
           omission. `BottomNav`'s Map tab goes exactly where the arrow went, and two controls to
           one destination — one of them a stack, one of them not — is the second navigation model
@@ -99,7 +100,16 @@ export function CollectionsIndexClient({
        * back to being static with no offset at all. */}
       <div
         style={{ bottom: `calc(${BOTTOM_NAV_HEIGHT_PX}px + env(safe-area-inset-bottom))` }}
-        className="sticky mx-auto w-full max-w-[560px] border-t border-border/70 bg-background/95 px-4 pb-3 pt-3 backdrop-blur lg:static lg:bottom-auto! lg:border-t-0 lg:bg-transparent lg:pb-0 lg:backdrop-blur-none">
+        // Renders nothing at all below `lg` unless the form is open — otherwise it painted an
+        // empty bordered strip above the bar, which reads as a control that failed to load.
+        data-composing={composing ? '' : undefined}
+        className={cn(
+          'sticky mx-auto w-full max-w-[560px] px-4 lg:static lg:bottom-auto! lg:block lg:border-t-0 lg:bg-transparent lg:pb-0 lg:pt-0 lg:backdrop-blur-none',
+          composing
+            ? 'block border-t border-border/70 bg-background/95 pb-3 pt-3 backdrop-blur'
+            : 'hidden',
+        )}
+      >
         {composing ? (
           <form
             className="flex flex-col gap-2"
@@ -153,10 +163,20 @@ export function CollectionsIndexClient({
             </Button>
           </form>
         ) : (
+          /*
+           * **Below `lg` this is the bar's `＋`, not a button here.** Both existed for one commit
+           * and the screen showed two plus signs stacked a few pixels apart, meaning two different
+           * things — "new collection" and "add a TikTok" — with nothing on either saying which.
+           * One `＋` per screen, and it adds the thing the screen is about.
+           *
+           * It survives at `lg+`, where no bar renders and this is the only way to create one.
+           * Composing still opens the form above, in both cases: the bar's circle is a trigger, and
+           * a name field belongs on the page rather than inside floating chrome.
+           */
           <Button
             type="button"
             size="lg"
-            className="h-14 w-full text-base"
+            className="hidden h-14 w-full text-base lg:flex"
             onClick={() => setComposing(true)}
           >
             <Plus className="size-4" aria-hidden />

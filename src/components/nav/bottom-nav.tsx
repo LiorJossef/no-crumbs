@@ -58,10 +58,24 @@ import { cn } from '@/lib/utils';
 export const BOTTOM_NAV_HEIGHT_PX = 68;
 
 interface BottomNavProps {
-  /** Opens the import overlay in place. Omitted on routes that have no overlay to open — the
-   *  circle then links to `/import`, the standalone route that has always existed and does the
-   *  same job. Never a control that goes somewhere and then asks you to find it again. */
-  readonly onAddTikTok?: () => void;
+  /**
+   * What the `＋` does on this route. Omitted, the circle links to `/import` — the standalone route
+   * that has always existed and does the same job as `/map`'s overlay.
+   */
+  readonly onAdd?: () => void;
+  /**
+   * The `＋`'s accessible name, which is also what it means.
+   *
+   * **The circle is contextual: it adds the thing the screen you are on is about.** On `/map` that
+   * is a TikTok; on `/collections` it is a collection. That is not a flourish — before it, the
+   * collections page carried its own full-width `New collection` button *and* the bar's `＋` a few
+   * pixels below it, so the screen showed two plus signs stacked, meaning two different things,
+   * with nothing on either saying which was which.
+   *
+   * One `＋` per screen is the rule. The glyph cannot carry the difference, so the accessible name
+   * does, and the visible label lives on whatever the button opens.
+   */
+  readonly addLabel?: string;
 }
 
 /**
@@ -80,7 +94,7 @@ interface BottomNavProps {
  * worse than no number.
  */
 
-export function BottomNav({ onAddTikTok }: BottomNavProps) {
+export function BottomNav({ onAdd, addLabel = 'Add a TikTok' }: BottomNavProps) {
   const pathname = usePathname();
 
   // `startsWith`, so `/collections/[id]` and the join route keep the Collections tab lit rather
@@ -108,7 +122,7 @@ export function BottomNav({ onAddTikTok }: BottomNavProps) {
         <NavTab href="/map" icon={MapIcon} label="Map" active={onMap} />
         <NavTab href="/collections" icon={Library} label="Collections" active={onCollections} />
       </div>
-      <AddButton {...(onAddTikTok ? { onAddTikTok } : {})} />
+      <AddButton label={addLabel} {...(onAdd ? { onAdd } : {})} />
     </nav>
   );
 }
@@ -148,33 +162,32 @@ function NavTab({
 }
 
 /**
- * The import action.
+ * The add action.
  *
  * Filled and circular so it reads as the one thing on the bar that *does* something rather than
  * going somewhere — the same separation Plotline makes, and the reason it is outside the two tabs
  * instead of being a third one.
  *
- * Its accessible name stays `Add a TikTok`. The visible glyph is a `＋` because at this size a
- * label does not fit, but the control's name is the one the rest of the product uses for it, and a
- * button whose spoken name is "add" in a product that adds exactly one kind of thing is a name that
- * says less than it could.
+ * The visible glyph is a `＋` because at this size a label does not fit, so the accessible name
+ * carries the whole meaning — and the meaning changes by route. `Add` alone would be a name that
+ * says less than it could in a product where the two screens add different things.
  */
-function AddButton({ onAddTikTok }: { onAddTikTok?: () => void }) {
+function AddButton({ onAdd, label }: { onAdd?: () => void; label: string }) {
   // `size-14`, taller than the 44 px tabs beside it, because it is its own surface rather than a
   // control inside one — it has to read as a peer of the pill, not as a chip that escaped it.
   const className =
     'pointer-events-auto flex size-14 shrink-0 items-center justify-center rounded-full border border-border/70 bg-primary text-primary-foreground shadow-[var(--shadow-elevated)] backdrop-blur-md transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
 
-  if (!onAddTikTok) {
+  if (!onAdd) {
     return (
-      <Link href="/import" aria-label="Add a TikTok" className={className}>
+      <Link href="/import" aria-label={label} className={className}>
         <Plus className="size-5" aria-hidden />
       </Link>
     );
   }
 
   return (
-    <button type="button" onClick={onAddTikTok} aria-label="Add a TikTok" className={className}>
+    <button type="button" onClick={onAdd} aria-label={label} className={className}>
       <Plus className="size-5" aria-hidden />
     </button>
   );
