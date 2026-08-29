@@ -249,6 +249,15 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
   const [screen, setScreen] = useState<Screen>({ kind: 'paste' });
   const [url, setUrl] = useState('');
   const [touched, setTouched] = useState(false);
+  /**
+   * The browser said the radio was off when `submit()` ran, so no request was made.
+   *
+   * Inline under the field rather than a failure screen, and deliberately not a `DomainErrorCode`:
+   * nothing was sent, so there is no `DomainError` to render and the nearest code — `INTERNAL`,
+   * "that didn't work on our side" — would blame us for the user's connection. Cleared at the top
+   * of every submit, so the message only ever describes the attempt the user just made.
+   */
+  const [offline, setOffline] = useState(false);
   /** The caption-preview screen's own save-in-flight state (the real "Done" path, this task).
    *  Kept out of `Screen` itself: a save failure re-shows the *same* `caption_preview` screen with
    *  an inline error, never a screen transition — `Screen`'s union is about which layout renders,
@@ -367,6 +376,7 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
    */
   async function submit(target: string = url) {
     setTouched(true);
+    setOffline(false);
     // Re-derived from `target` rather than read off the `validation` memo, which is bound to the
     // field's current value — one render behind on a seed tap.
     const verdict = canonicaliseTikTokUrl(target);
@@ -378,6 +388,15 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
       if (verdict.error.code !== 'MALFORMED_URL') {
         setScreen({ kind: 'redirect', reason: verdict.error.code as PreSubmitErrorCode });
       }
+      return;
+    }
+
+    // Offline, checked here rather than before the verdict above: a malformed link is malformed
+    // whether or not there is a connection, and this is the first step that actually needs one.
+    // Running the rail instead lands on `INTERNAL` — a claim about our servers, made about a
+    // request that never left the device.
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      setOffline(true);
       return;
     }
 
@@ -822,6 +841,7 @@ export function ImportPageClient({ onClose, onSaved }: ImportPageClientProps = {
             setUrl={setUrl}
             setTouched={setTouched}
             showInvalid={showInvalid}
+            showOffline={offline}
             canSubmit={canSubmit}
             // Wrapped, never `onSubmit={submit}`: `submit`'s first parameter is the URL, and a
             // bare handler would receive React's `MouseEvent` as it. The `() => void` prop type
@@ -927,6 +947,7 @@ function PasteScreen({
   setUrl,
   setTouched,
   showInvalid,
+  showOffline,
   canSubmit,
   onSubmit,
   onSeed,
@@ -935,6 +956,9 @@ function PasteScreen({
   setUrl: (v: string) => void;
   setTouched: (v: boolean) => void;
   showInvalid: boolean;
+  /** The last submit stopped because the browser is offline — the link is fine and still in the
+   *  field, so this is news about the connection, not about what was pasted. */
+  showOffline: boolean;
   canSubmit: boolean;
   onSubmit: () => void;
   /** Runs one of `IMPORT_SEED_LINKS` through the ordinary submit path. */
@@ -999,6 +1023,14 @@ function PasteScreen({
         {showInvalid && (
           <p className="text-sm font-semibold text-destructive">
             That doesn&rsquo;t look like a TikTok link.
+          </p>
+        )}
+        {/* Not `aria-invalid` on the field: the link is not the problem. `role="status"` because
+            this appears after an action rather than describing what is typed. The sentence is the
+            one `/collections/join` already uses for the same stop. */}
+        {showOffline && !showInvalid && (
+          <p role="status" className="text-sm font-semibold text-destructive">
+            You&rsquo;re offline. Check your connection and try again.
           </p>
         )}
       </div>
