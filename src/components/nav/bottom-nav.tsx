@@ -57,26 +57,29 @@ import { cn } from '@/lib/utils';
  */
 export const BOTTOM_NAV_HEIGHT_PX = 68;
 
+/** The one thing the circle ever does. Not a prop — see the note above `BottomNavProps`. */
+const ADD_LABEL = 'Add a TikTok';
+
 interface BottomNavProps {
   /**
    * What the `＋` does on this route. Omitted, the circle links to `/import` — the standalone route
    * that has always existed and does the same job as `/map`'s overlay.
    */
   readonly onAdd?: () => void;
-  /**
-   * The `＋`'s accessible name, which is also what it means.
-   *
-   * **The circle is contextual: it adds the thing the screen you are on is about.** On `/map` that
-   * is a TikTok; on `/collections` it is a collection. That is not a flourish — before it, the
-   * collections page carried its own full-width `New collection` button *and* the bar's `＋` a few
-   * pixels below it, so the screen showed two plus signs stacked, meaning two different things,
-   * with nothing on either saying which was which.
-   *
-   * One `＋` per screen is the rule. The glyph cannot carry the difference, so the accessible name
-   * does, and the visible label lives on whatever the button opens.
-   */
-  readonly addLabel?: string;
 }
+
+/**
+ * **The `＋` means one thing on every screen, and it must stay that way.**
+ *
+ * It was briefly contextual — `Add a TikTok` on `/map`, `New collection` on `/collections` — to
+ * resolve a visual collision with that page's own create button. That was the wrong fix and the
+ * owner named it: the same circle, in the same place, doing two different jobs depending on the tab
+ * is a mode, and people learn a control in persistent chrome by its gesture and its position, not
+ * by the label they cannot see on it.
+ *
+ * So the circle is always the product's one core action, and page-level actions live on their page.
+ * `/collections` creates from a row inside its own list, which is also where Plotline puts theirs.
+ */
 
 /**
  * **There is no count on the Collections tab, and that is deliberate.**
@@ -94,7 +97,7 @@ interface BottomNavProps {
  * worse than no number.
  */
 
-export function BottomNav({ onAdd, addLabel = 'Add a TikTok' }: BottomNavProps) {
+export function BottomNav({ onAdd }: BottomNavProps) {
   const pathname = usePathname();
 
   // `startsWith`, so `/collections/[id]` and the join route keep the Collections tab lit rather
@@ -122,7 +125,7 @@ export function BottomNav({ onAdd, addLabel = 'Add a TikTok' }: BottomNavProps) 
         <NavTab href="/map" icon={MapIcon} label="Map" active={onMap} />
         <NavTab href="/collections" icon={Library} label="Collections" active={onCollections} />
       </div>
-      <AddButton label={addLabel} {...(onAdd ? { onAdd } : {})} />
+      <AddButton {...(onAdd ? { onAdd } : {})} />
     </nav>
   );
 }
@@ -169,10 +172,9 @@ function NavTab({
  * instead of being a third one.
  *
  * The visible glyph is a `＋` because at this size a label does not fit, so the accessible name
- * carries the whole meaning — and the meaning changes by route. `Add` alone would be a name that
- * says less than it could in a product where the two screens add different things.
+ * carries the whole meaning. It is a constant, deliberately — see the note above `BottomNavProps`.
  */
-function AddButton({ onAdd, label }: { onAdd?: () => void; label: string }) {
+function AddButton({ onAdd }: { onAdd?: () => void }) {
   // `size-14`, taller than the 44 px tabs beside it, because it is its own surface rather than a
   // control inside one — it has to read as a peer of the pill, not as a chip that escaped it.
   const className =
@@ -180,14 +182,14 @@ function AddButton({ onAdd, label }: { onAdd?: () => void; label: string }) {
 
   if (!onAdd) {
     return (
-      <Link href="/import" aria-label={label} className={className}>
+      <Link href="/import" aria-label={ADD_LABEL} className={className}>
         <Plus className="size-5" aria-hidden />
       </Link>
     );
   }
 
   return (
-    <button type="button" onClick={onAdd} aria-label={label} className={className}>
+    <button type="button" onClick={onAdd} aria-label={ADD_LABEL} className={className}>
       <Plus className="size-5" aria-hidden />
     </button>
   );

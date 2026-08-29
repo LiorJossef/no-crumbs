@@ -18,7 +18,6 @@ import { ArrowLeft, ChevronRight, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CollectionCover } from '@/components/collections/collection-cover';
-import { cn } from '@/lib/utils';
 import { BottomNav, BOTTOM_NAV_HEIGHT_PX } from '@/components/nav/bottom-nav';
 import { memberLabel } from '@/domain/collections/collection';
 import { createCollection } from '@/app/actions/collections';
@@ -57,7 +56,7 @@ export function CollectionsIndexClient({
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <BottomNav onAdd={() => setComposing(true)} addLabel="New collection" />
+      <BottomNav />
       {/* The back arrow is gone below `lg`, and that is the point of the bar rather than an
           omission. `BottomNav`'s Map tab goes exactly where the arrow went, and two controls to
           one destination — one of them a stack, one of them not — is the second navigation model
@@ -77,7 +76,20 @@ export function CollectionsIndexClient({
         <h1 className="px-2 font-heading text-lg font-bold tracking-tight lg:px-0">Collections</h1>
       </header>
 
-      <div className="mx-auto w-full max-w-[560px] flex-1 px-4 pb-4">
+      {/* The bar's ＋ is not this control and must never become it. A button that lives in
+          persistent chrome has to mean one thing on every screen it appears on — people learn the
+          gesture and its position, not the label under it — so the circle is `Add a TikTok`
+          everywhere, and creating a collection is a page action that belongs in the list it creates
+          into. That is also where Plotline puts theirs: the last card in the collections row, not a
+          bottom button.
+
+          Padded clear of the bar, since the page now scrolls under it. */}
+      <div
+        className="mx-auto w-full max-w-[560px] flex-1 px-4"
+        style={{
+          paddingBottom: `calc(${BOTTOM_NAV_HEIGHT_PX}px + env(safe-area-inset-bottom) + 1.5rem)`,
+        }}
+      >
         {collections.length === 0 ? (
           <EmptyIndex libraryIsEmpty={libraryIsEmpty} />
         ) : (
@@ -86,33 +98,10 @@ export function CollectionsIndexClient({
             {shared.length > 0 ? <Section title="Shared with you" collections={shared} /> : null}
           </>
         )}
-      </div>
 
-      {/* Sticky at the bottom on a phone (thumb zone), static once there is room.
-       *
-       * **It rests on top of `BottomNav`, not underneath it.** `bottom-0` put the page's primary
-       * action behind the bar the moment the bar shipped — a create button you cannot see or press
-       * is a worse regression than the reachability problem the bar was added to solve. The offset
-       * is the bar's own exported height plus the inset it sits on, so there is one number here and
-       * not a second guess at it.
-       *
-       * The `lg:` resets are what keep desktop unchanged: no bar renders there, so the footer goes
-       * back to being static with no offset at all. */}
-      <div
-        style={{ bottom: `calc(${BOTTOM_NAV_HEIGHT_PX}px + env(safe-area-inset-bottom))` }}
-        // Renders nothing at all below `lg` unless the form is open — otherwise it painted an
-        // empty bordered strip above the bar, which reads as a control that failed to load.
-        data-composing={composing ? '' : undefined}
-        className={cn(
-          'sticky mx-auto w-full max-w-[560px] px-4 lg:static lg:bottom-auto! lg:block lg:border-t-0 lg:bg-transparent lg:pb-0 lg:pt-0 lg:backdrop-blur-none',
-          composing
-            ? 'block border-t border-border/70 bg-background/95 pb-3 pt-3 backdrop-blur'
-            : 'hidden',
-        )}
-      >
         {composing ? (
           <form
-            className="flex flex-col gap-2"
+            className="mt-4 flex flex-col gap-2"
             onSubmit={(event) => {
               event.preventDefault();
               submit();
@@ -141,47 +130,46 @@ export function CollectionsIndexClient({
                 {error}
               </p>
             ) : null}
-            <Button
-              type="submit"
-              size="lg"
-              className="h-14 w-full text-base"
-              disabled={pending || name.trim().length === 0}
-            >
-              {pending ? 'Creating…' : 'Create'}
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              className="h-11 w-full text-muted-foreground"
-              onClick={() => {
-                setComposing(false);
-                setError(null);
-                setName('');
-              }}
-            >
-              Cancel
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                type="submit"
+                size="lg"
+                className="h-12 flex-1 text-base"
+                disabled={pending || name.trim().length === 0}
+              >
+                {pending ? 'Creating…' : 'Create'}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-12 px-4 text-muted-foreground"
+                onClick={() => {
+                  setComposing(false);
+                  setError(null);
+                  setName('');
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
           </form>
         ) : (
-          /*
-           * **Below `lg` this is the bar's `＋`, not a button here.** Both existed for one commit
-           * and the screen showed two plus signs stacked a few pixels apart, meaning two different
-           * things — "new collection" and "add a TikTok" — with nothing on either saying which.
-           * One `＋` per screen, and it adds the thing the screen is about.
-           *
-           * It survives at `lg+`, where no bar renders and this is the only way to create one.
-           * Composing still opens the form above, in both cases: the bar's circle is a trigger, and
-           * a name field belongs on the page rather than inside floating chrome.
-           */
-          <Button
+          /* A row in the list rather than a button under it. It reads as "and one more, which you
+             make yourself" — the same shape as the collections above it, so it is found by the eye
+             already scanning them rather than by a separate sweep to the bottom of the screen. */
+          <button
             type="button"
-            size="lg"
-            className="hidden h-14 w-full text-base lg:flex"
             onClick={() => setComposing(true)}
+            className="mt-2 flex min-h-14 w-full items-center gap-3 rounded-xl border border-dashed border-border px-3 text-left text-sm font-medium text-muted-foreground transition-colors hover:border-border/70 hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
           >
-            <Plus className="size-4" aria-hidden />
+            <span
+              aria-hidden
+              className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted"
+            >
+              <Plus className="size-4" />
+            </span>
             New collection
-          </Button>
+          </button>
         )}
       </div>
     </div>
