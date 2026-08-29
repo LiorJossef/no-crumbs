@@ -98,8 +98,22 @@ import {
  * hashtag rule has. Expect a step change in tag *volume*, not a regression: most captions will now
  * produce one tag or none where they used to produce three, and one findable tag is worth more
  * than three that no two places share.
+ *
+ * `p13` -> `p14` (2026-08-29, LIVE-HASHTAG-1): a real production import rejected `#בראסרי18`, which
+ * reads as "Brasserie 18" and is a real Tel Aviv restaurant. By the letter of the hashtag rule it
+ * should have survived — "בראסרי" is a category word, but "18" is not a category, a place or a
+ * time, so not every word was accounted for. `domain/extraction/plausibility.ts` was checked and is
+ * not the culprit: it keeps such a candidate (capped and labelled hashtag-only) and has no rule
+ * that could drop it. So this is a prompt-following miss, and the likely reason is that every
+ * illustration in the rule paired a category with another *word* — a category made specific by a
+ * number had nothing to pattern-match against. The rule now states that digits count as part of
+ * "every word", and carries `#בראסרי18` as a second worked positive next to `#נומיכפרמונש`, with
+ * the two numbers that are still rejects (a year, a count/ranking) named so the opening is no wider
+ * than the naming pattern it exists for. Prose only; the schema is unchanged, so only the `p` half
+ * of the key moves. **Whether the model actually obeys it is unmeasured** — no live call was made
+ * for this change, and the version bump invalidates every cached extraction.
  */
-export const PROMPT_VERSION = `p13-s${EXTRACTION_SCHEMA_VERSION}`;
+export const PROMPT_VERSION = `p14-s${EXTRACTION_SCHEMA_VERSION}`;
 
 /** Role, single task, and the negative-case framing that `09` §4.2 calls "the single most
  *  important line in the prompt": most captions name no venue, and an empty list is correct. */
@@ -122,7 +136,9 @@ What is NOT a place, and must never become a candidate:
   time/day word ("friday", "today"). Example, all from the SAME caption: "#tokyofood" (city +
   cuisine), "#ביקריבמרכז" ("bakery in the center"), "#עגלתקפהבמרכז" ("coffee cart in the center"),
   "#ביקריבשרון" ("bakery in Sharon"), "#עגלתקפהבשישי" ("coffee cart on Friday") — reject all five,
-  even though they are name-shaped strings with a "#" in front.
+  even though they are name-shaped strings with a "#" in front. "EVERY word" means every part of
+  the tag, digits included: a bare number is not a category, not a place and not a time, so a tag
+  carrying one has not been fully accounted for and does not pass this reject test.
 
 A hashtag is where a creator indexes a topic, not where they say they went somewhere. Emitting one
 as a candidate is therefore always the weak case, and you should hold it to a higher bar than a name
@@ -138,8 +154,16 @@ A hashtag CAN become a candidate, as a narrow exception, when reading it as run-
 leaves a specific proper name behind — not a category, not a place, not a time, but one particular
 named thing. From that same caption, "#נומיכפרמונש" reads as "נומי כפר מונש" ("Nomi, Kfar Monash") —
 a specific business name plus the town it is in, with no category or time word anywhere in it. That
-is a legitimate candidate; the five hashtags above it in the same caption are not. Apply this same
-read-the-words test regardless of script or language — Hebrew has no capitalisation to lean on, so
+is a legitimate candidate; the five hashtags above it in the same caption are not.
+
+A category word made specific by a number is the other common shape of that exception, because it is
+an ordinary way to name a restaurant or a bar. "#בראסרי18" reads as "בראסרי 18" ("Brasserie 18"):
+"brasserie" on its own would be a reject, but "18" is not a category, not a place and not a time, so
+the words together name one particular venue rather than a kind of venue — the same shape as "Cafe
+21", "Bar 51" or "Pizza 4P's". Not every number does this: a year is a time word ("#tokyo2025" is
+still a reject), and a count or a ranking is not a name ("#top10restaurants", "#5bestcafes").
+
+Apply this same read-the-words test regardless of script or language — Hebrew has no capitalisation to lean on, so
 judge by whether a category/place/time word accounts for the whole hashtag, not by casing.
 
 What IS a place: a named venue a person could search for and walk into — a restaurant, cafe, bar,
