@@ -57,8 +57,64 @@ export interface SpotSource {
   readonly media?: MediaRef;
 }
 
+/**
+ * What a `places` row says: the facts about a place that everyone who can see it shares.
+ *
+ * It is split out because two surfaces render the same place from different rows. `/map` reads a
+ * `Spot` — the caller's own `saved_places` row joined to the place. A collection item points at the
+ * `places` row **and nothing else**: a collaborator is granted the shared identity and none of the
+ * adder's overlay. Handing the detail view a `Spot` on that path would mean inventing a
+ * `saved_places` id for a row that does not exist, which is the "convert uncertainty into
+ * certainty" failure `working-agreement.md` §4 forbids.
+ *
+ * `addressLine`/`locality` take `null` as well as absent here, unlike on `Spot`: a `places` read
+ * that selects the columns and finds them NULL says `null`, and making every such caller launder
+ * that into `undefined` buys nothing.
+ */
+export interface PlaceSharedFacts {
+  /** `places.id`. On a `Spot` this is `saved_places.place_id`; in a collection it is
+   *  `collection_items.place_id`. It is never a saved-place id and never a collection-item id. */
+  readonly placeId: string;
+  readonly addressLine?: string | null;
+  readonly locality?: string | null;
+}
+
+/**
+ * The shared facts, plus everything the **caller's own save** of the place can add — each field
+ * optional, because a viewer who owns no `saved_places` row for it has none of them.
+ *
+ * This is the type a detail view reads. Optionality is doing real work: every block that renders
+ * one of these fields already renders only when the field is present, so a caller that passes
+ * shared facts alone gets a screen with no private field on it **by construction**, rather than by
+ * a `readOnly` flag somebody has to remember to pass. `SharedOnlyPlaceFacts` is how a caller says
+ * it is on that path and has the compiler hold it to it.
+ */
+export interface PlaceDetailFacts extends PlaceSharedFacts {
+  readonly displayNameOverride?: string | null;
+  readonly canonicalName?: string;
+  readonly categoryIsOverridden?: boolean;
+  readonly provenance?: SpotProvenance;
+  readonly source?: SpotSource;
+  readonly reason?: string;
+  readonly note?: string;
+  readonly sourceUrl?: string;
+  readonly sourceThumbnailUrl?: string;
+  readonly savedAt?: Date;
+}
+
+/**
+ * A place as seen by somebody who owns no save of it — structurally `PlaceSharedFacts`, with every
+ * overlay key pinned to `never` so that adding one is a type error rather than a privacy incident.
+ *
+ * Assignable to `PlaceDetailFacts` (`never` is assignable to everything), so the same detail view
+ * takes either.
+ */
+export type SharedOnlyPlaceFacts = PlaceSharedFacts & {
+  readonly [K in Exclude<keyof PlaceDetailFacts, keyof PlaceSharedFacts>]?: never;
+};
+
 /** One saved place, read-side. See this file's header for what each optional field means. */
-export interface Spot {
+export interface Spot extends PlaceDetailFacts {
   readonly id: string;
   /** `saved_places.place_id` — the shared `places` row behind this save. Distinct from `id`, which
    *  is *this user's* save of it, and the one a collection stores: a collection is a set of places,

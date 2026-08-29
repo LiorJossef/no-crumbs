@@ -822,7 +822,13 @@ export function MapSurfaceMapcn({
           onClose={() => onDeselect?.()}
           className="hidden max-w-none p-0 lg:block"
         >
-          <PlaceDetail place={selected} onClose={() => onDeselect?.()} variant="popover" />
+          {/* `MapPlace.id` is a `saved_places` id for every surface that renders this map. */}
+          <PlaceDetail
+            place={selected}
+            savedPlace={{ id: selected.id, visited: selected.visited }}
+            onClose={() => onDeselect?.()}
+            variant="popover"
+          />
         </MapPopup>
       )}
     </MapcnMap>

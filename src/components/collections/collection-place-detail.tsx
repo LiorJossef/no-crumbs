@@ -12,29 +12,32 @@
  * The one thing it says about the *caller's* own library is whether they already have this place,
  * which is their own row and nobody else's.
  *
- * ## Parity with the standard place detail, and where it stops
+ * ## It is `PlaceDetail`, not a second copy of it
  *
- * A collection is a scoped view of places, so this reads as the same kind of screen as
- * `PlaceDetail` in `components/sheet/place-sheet.tsx`: the name in the same 2xl heading, the same
- * `Category · Locality` line under it, the same address row with a muted pin, the same
- * bordered-full-width shape for the one action about the caller's own library, the same quiet mint
- * text link for the external one, the same uppercase micro-label on a secondary section, and the
- * destructive action last and quiet.
+ * A collection is a scoped view of places, so this reads as the same kind of screen as the standard
+ * detail — and it now *is* that component (`components/sheet/place-sheet.tsx`), rendered with
+ * `variant="hosted"`. It used to be a hand-copied layout that had to be kept in step by hand: the
+ * same 2xl heading, the same `Category · Locality` line, the same address row, the same section
+ * rhythm, all written twice.
  *
- * It stops at the data. `PlaceDetail` is built from the caller's own `saved_places` row, and a
- * collection item points at a `places` row and nothing else. So four blocks of the standard sheet
- * are **structurally absent here, not omitted by preference**:
+ * Two props are what make that reuse safe rather than dangerous:
  *
- *  - **the been / not-been toggle** and the tag chips — the caller's own overlay, and this object
- *    carries no `saved_places` id to write to;
- *  - **the source reference** ("Open TikTok", the thumbnail, `Saved from @handle`) — the adder's
- *    link, which a collaborator is not granted and which no amount of layout work can make
- *    shareable;
- *  - the caption quote, the model's sentence, and the match-certainty line, all of which live on
- *    the adder's extraction.
+ *  - **`savedPlace={null}`.** `PlaceDetail` renders six controls that write to a `saved_places`
+ *    row, and it used to take that row's id from `place.id`. Here `place.id` is a **collection
+ *    item** id, so naive reuse would have aimed five writes at a row this caller does not own.
+ *    The prop is required and undefaulted, so no host can arrive at that by omission — and it
+ *    carries the row's id and its visit state *together*, so "there is a row" and "we know nothing
+ *    about it" is not a state anyone can express. A collection never learns anybody's visit state.
+ *  - **a `SharedOnlyPlaceFacts` detail.** Every private block in `PlaceDetail` — the thumbnail, the
+ *    caption quote, the model's sentence, the tags, `Open TikTok`, the match-certainty line, the
+ *    saved-on line — renders only when its field is present, and the object passed here carries
+ *    none of them. The boundary is a property of the data, not of a `readOnly` flag somebody has to
+ *    remember; the type pins each of those keys to `never`, so adding one is a compile error.
  *
- * What replaces them is the one thing this screen has that the standard one does not: `Save to
- * your places`, which is the whole point of somebody else's recommendation.
+ * What is left is what this screen has that the standard one does not, passed into two slots:
+ * `Added by …` and `Save to your places` where the been / not-been toggle sits (the "what does this
+ * do to *your* library" position, which is the whole point of somebody else's recommendation), and
+ * the shared note plus `Remove from this collection` in the footer.
  *
  * The shared note is a **secondary card near the bottom**, not the body of the screen. It used to
  * render as an always-open three-row textarea directly under the address, above every action, so an
@@ -44,13 +47,13 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Check, ExternalLink, MapPin, Pencil, Plus } from 'lucide-react';
+import { ArrowLeft, Check, Pencil, Plus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { InlineConfirm } from '@/components/collections/collection-content';
+import { PlaceDetail } from '@/components/sheet/place-sheet';
 import { canEdit, memberLabel, FORMER_MEMBER_LABEL } from '@/domain/collections/collection';
-import { categoryLocalityLine } from '@/ui/place/category-display';
-import { savedPlaceMapsUrl } from '@/ui/place/maps-link';
+import { SECTION_LABEL } from '@/ui/place/section-label';
 import {
   removeCollectionItem,
   saveCollectionPlace,
@@ -58,18 +61,11 @@ import {
 } from '@/app/actions/collections';
 import type { CollectionPlace } from '@/app/collections/_lib/get-collections';
 import type { CollectionRole } from '@/domain/collections/collection';
-
-/**
- * The micro-label above a secondary section. Character-for-character the `LABEL` constant in
- * `components/sheet/saved-place-edits.tsx`, copied rather than imported because that one is not
- * exported and exporting it is outside this change's path scope. If a third surface needs it, it
- * should move to the token layer instead of being copied again.
- */
-const SECTION_LABEL = 'text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase';
+import type { SharedOnlyPlaceFacts } from '@/domain/places/spot';
 
 /** The quiet mint text action, as used for the external links and the note affordance in the
- *  standard detail view. `min-h-11` is the one addition: those links sit in a dense block on a
- *  screen full of other targets, and each of these is alone in whitespace on a phone. */
+ *  standard detail view. `min-h-11` is the one addition: the note's affordance sits alone in
+ *  whitespace on a phone rather than in that view's dense row of links. */
 const TEXT_ACTION =
   'inline-flex min-h-11 items-center gap-1.5 rounded text-sm font-bold text-[var(--mint-700)] underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50';
 
@@ -92,13 +88,31 @@ export function CollectionPlaceDetail({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  /**
+   * The place, with only what a `places` row says about it.
+   *
+   * Typed `SharedOnlyPlaceFacts` rather than left to inference on purpose: the type pins every
+   * overlay key to `never`, so a later edit that reaches for the adder's note or source link stops
+   * at the compiler instead of at a collaborator's screen (and anything it does not name is an
+   * excess property on this literal, which is also an error). `CollectionPlace` carries none of
+   * those fields either — the query never selects them — so the boundary holds in two independent
+   * places.
+   */
+  const facts: SharedOnlyPlaceFacts = {
+    placeId: place.placeId,
+    addressLine: place.addressLine,
+    locality: place.locality,
+  };
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* A back arrow rather than `PlaceDetail`'s close "×", and this is the one navigation
           divergence: every view in `CollectionContent` — share, add, place — replaces the content
           of the same surface and returns to the list. An "×" would promise a close that does not
           exist here. Same position and same size as the list's own back control, so the header does
-          not jump when the view changes. */}
+          not jump when the view changes — which is why it is a header row of this component and not
+          something `PlaceDetail` draws inside its own scrolling column (`variant="hosted"` is that
+          component agreeing to render no navigation of its own). */}
       <div className="flex shrink-0 items-center gap-1 px-4 pb-1 pt-1">
         <Button
           type="button"
@@ -113,53 +127,41 @@ export function CollectionPlaceDetail({
         </Button>
       </div>
 
-      {/* `gap-5` and the section rhythm of `PlaceDetail`. `px-4`, not its `px-5`: this column has to
-          line up with the collection list's rows behind the same back arrow, and a 4 px sideways
-          shift on every open/close of a place is more visible than the difference itself. */}
-      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+2rem)] pt-1">
-        <div className="flex min-w-0 flex-col gap-1">
-          {/* `<bdi>` rather than `dir="auto"`, for the same reason the standard sheet gives: a
-              Hebrew name would otherwise right-align the identity block while the line under it
-              stayed left. */}
-          <h2 className="min-w-0 font-heading text-2xl font-extrabold tracking-tight text-foreground">
-            <bdi>{place.name}</bdi>
-          </h2>
-          <p dir="auto" className="text-sm font-medium text-muted-foreground">
-            {categoryLocalityLine(place.category, place.locality)}
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-5">
-          {place.addressLine ? (
-            <p dir="auto" className="flex items-start gap-2 text-sm text-foreground">
-              <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
-              <span>{place.addressLine}</span>
-            </p>
-          ) : null}
-
-          {/* Attribution is shown only when it was not you: a twelve-row collection where every line
-              reads "Added by you" is noise dressed as information.
-
-              It sits with the identity rather than down with the provenance block the standard sheet
-              puts at its foot, because in a shared collection *who recommended this* is a reason to
-              read on, not a footnote about how the row got here. */}
-          {place.addedBy !== currentUserId ? (
-            <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
-              <span>Added by</span>
-              <span className="font-bold">
-                {place.addedBy === null
-                  ? FORMER_MEMBER_LABEL
-                  : memberLabel({ displayName: place.addedByName, isYou: false })}
-              </span>
-            </p>
-          ) : null}
-
-          {/* The actions, in the standard sheet's order: what this does to the caller's own library
-              first, in its full-width bordered shape (the same one `BeenToggle` occupies there),
-              then the external link as quiet text. Two stacked outline buttons — what was here
-              before — gave the two equal weight, and they are not equal: one is the loop that makes
-              a shared collection worth something, the other is a way out of the app. */}
+      <PlaceDetail
+        place={{
+          name: place.name,
+          category: place.category,
+          lat: place.lat,
+          lng: place.lng,
+          // The adder's TikTok is theirs. Stated rather than omitted, because the prop is required.
+          sourceUrl: undefined,
+          detail: facts,
+        }}
+        // No `saved_places` row is in play here. `place.itemId` is a collection item and
+        // `place.placeId` is a shared place; neither is a row this caller may write a note, a
+        // category, a visit state or a deletion to.
+        savedPlace={null}
+        onClose={onBack}
+        variant="hosted"
+        primaryAction={
           <div className="flex flex-col gap-3">
+            {/* Attribution is shown only when it was not you: a twelve-row collection where every
+                line reads "Added by you" is noise dressed as information.
+
+                It leads this block rather than sitting down with the provenance the standard sheet
+                puts at its foot, because in a shared collection *who recommended this* is a reason
+                to read on, not a footnote about how the row got here. */}
+            {place.addedBy !== currentUserId ? (
+              <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                <span>Added by</span>
+                <span className="font-bold">
+                  {place.addedBy === null
+                    ? FORMER_MEMBER_LABEL
+                    : memberLabel({ displayName: place.addedByName, isYou: false })}
+                </span>
+              </p>
+            ) : null}
+
             {/* Somebody adds a place, and everyone else can take it. It saves as `origin = 'manual'`
                 because that is true — the recommendation came from a person, not from a TikTok this
                 user imported. */}
@@ -195,79 +197,65 @@ export function CollectionPlaceDetail({
               </Button>
             )}
 
-            {error ? (
+            {error && !confirming ? (
               <p role="alert" className="text-sm text-destructive">
                 {error}
               </p>
             ) : null}
-
-            {/* "Open in Google Maps", not the standard sheet's bare "Google Maps": there it sits
-                beside "Open TikTok" and the pair reads as a list of destinations, and here it is
-                alone, where a bare noun stops looking like something to press. */}
-            <a
-              href={savedPlaceMapsUrl({
-                name: place.name,
-                addressLine: place.addressLine,
-                locality: place.locality,
-                lat: place.lat,
-                lng: place.lng,
-              })}
-              target="_blank"
-              rel="noreferrer noopener"
-              data-vaul-no-drag
-              className={`${TEXT_ACTION} w-fit`}
-            >
-              Open in Google Maps
-              <ExternalLink className="size-3.5" aria-hidden />
-            </a>
           </div>
+        }
+        footer={
+          <>
+            <SharedNote
+              collectionId={collectionId}
+              itemId={place.itemId}
+              note={place.note}
+              editable={editable}
+            />
 
-          <SharedNote
-            collectionId={collectionId}
-            itemId={place.itemId}
-            note={place.note}
-            editable={editable}
-          />
-
-          {editable ? (
-            <div className="border-t border-border/70 pt-4">
-              {confirming ? (
-                <InlineConfirm
-                  prompt="Remove from this collection?"
-                  confirmLabel="Remove"
-                  pending={pending}
-                  error={error}
-                  onCancel={() => setConfirming(false)}
-                  onConfirm={() =>
-                    startTransition(async () => {
-                      const result = await removeCollectionItem(collectionId, place.itemId);
-                      if (!result.ok) {
-                        setError(result.message);
-                        return;
-                      }
-                      router.refresh();
-                      onBack();
-                    })
-                  }
-                />
-              ) : (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="lg"
-                  className="h-11 w-full justify-start px-1 text-destructive"
-                  onClick={() => setConfirming(true)}
-                  data-vaul-no-drag
-                >
-                  Remove from this collection
-                </Button>
-              )}
-              {/* Both strings say "from this collection" so it is never mistaken for deleting the
-                  place out of anyone's own library, which this does not do. */}
-            </div>
-          ) : null}
-        </div>
-      </div>
+            {editable ? (
+              <div className="border-t border-border/70 pt-4">
+                {confirming ? (
+                  <InlineConfirm
+                    prompt="Remove from this collection?"
+                    confirmLabel="Remove"
+                    pending={pending}
+                    error={error}
+                    onCancel={() => setConfirming(false)}
+                    onConfirm={() =>
+                      startTransition(async () => {
+                        const result = await removeCollectionItem(collectionId, place.itemId);
+                        if (!result.ok) {
+                          setError(result.message);
+                          return;
+                        }
+                        router.refresh();
+                        onBack();
+                      })
+                    }
+                  />
+                ) : (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="lg"
+                    className="h-11 w-full justify-start px-1 text-destructive"
+                    onClick={() => {
+                      setError(null);
+                      setConfirming(true);
+                    }}
+                    data-vaul-no-drag
+                  >
+                    Remove from this collection
+                  </Button>
+                )}
+                {/* Both strings say "from this collection" so it is never mistaken for deleting the
+                    place out of anyone's own library, which this does not do. */}
+              </div>
+            ) : null}
+          </>
+        }
+      />
     </div>
   );
 }

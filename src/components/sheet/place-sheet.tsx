@@ -43,7 +43,7 @@
 import { Drawer } from 'vaul';
 
 import { useNonModalBackground } from './use-non-modal-background';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Plus, MapPin, ExternalLink, X, ChevronLeft, ChevronUp, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -63,6 +63,7 @@ import { BOTTOM_NAV_HEIGHT_PX } from '@/components/nav/bottom-nav';
 import { CategoryFilterBar } from './category-filter-bar';
 import type { CategoryFacet } from '@/domain/places/category-filter';
 import type { ProductCategory } from '@/domain/places/product-category';
+import type { PlaceDetailFacts } from '@/domain/places/spot';
 import { enrichmentOf, rowAccessibleName, whyGoEarnsItsPlace } from '@/ui/place/enrichment';
 import { categoryDisplay, categoryLocalityLine } from '@/ui/place/category-display';
 import { savedPlaceMapsUrl } from '@/ui/place/maps-link';
@@ -285,7 +286,13 @@ export function PlaceSheet({
             <Drawer.Handle className="mx-auto mt-2.5 h-1 w-9 shrink-0 rounded-full bg-border" />
 
             {selected ? (
-              <PlaceDetail place={selected} onClose={onDeselect} />
+              /* `place.id` is a `saved_places` id on this route — saying so at the call site is
+                 what the required prop buys. */
+              <PlaceDetail
+                place={selected}
+                savedPlace={{ id: selected.id, visited: selected.visited }}
+                onClose={onDeselect}
+              />
             ) : (
               <PlaceList
                 places={places}
@@ -809,12 +816,55 @@ export function NoPlacesYet({ onAddTikTok }: { onAddTikTok: () => void }) {
   );
 }
 
+/**
+ * The place `PlaceDetail` renders — deliberately narrower than `MapPlace`, which structurally
+ * satisfies it, so `/map` passes its pin object unchanged.
+ *
+ * It is narrower so that a caller with **no `saved_places` row** can be honest. A collection item
+ * has the shared `places` facts and nothing else; asked for a `MapPlace` it would have to invent an
+ * `id`, a `note` and a `visited` for a row that does not exist. Nothing private lives here at all:
+ * the caller's own save arrives as the separate `savedPlace` prop, and `detail` is optional.
+ */
+export interface DetailPlace {
+  readonly name: string;
+  readonly category: ProductCategory;
+  readonly lat: number;
+  readonly lng: number;
+  /** The source post's link, where the caller's own save carries one. `undefined`, not omitted, so
+   *  a caller on the collection path has to say out loud that it has no source to show. */
+  readonly sourceUrl: string | undefined;
+  /** The shared place facts, plus whatever the caller's own save adds. A caller passing only
+   *  shared facts (`SharedOnlyPlaceFacts`) renders no private field — see `domain/places/spot.ts`
+   *  for why that is a property of the data here and not of a flag. */
+  readonly detail?: PlaceDetailFacts;
+}
+
 export function PlaceDetail({
   place,
+  savedPlace,
   onClose,
   variant = 'sheet',
+  primaryAction,
+  footer,
 }: {
-  place: MapPlace;
+  place: DetailPlace;
+  /**
+   * The caller's own `saved_places` row for this place, or `null` when they have none.
+   *
+   * **Required, and deliberately not defaulted.** Every mutation on this screen — rename, been,
+   * category, note, remove, add-to-collection — writes to that row, and this component used to
+   * take the id from `place.id`. That is a saved-place id on `/map` and a *collection item* id on
+   * `/collections/[id]`, so a second host silently aimed five writes at a row its caller does not
+   * own. Making the caller name the row is what stops that; `null` says "no row", and every
+   * mutation block below is gated on it.
+   *
+   * **One object rather than an id and a `visited` beside it**, because the two are facts about
+   * the same row and a caller cannot have one without the other: the id says where to write and
+   * `visited` says what that row currently holds. Passed separately they can disagree, and the
+   * failure is silent — an id with a null `visited` would render the read-only screen, so every
+   * control on `/map` would quietly vanish with nothing raised. This shape cannot express that.
+   */
+  savedPlace: { readonly id: string; readonly visited: boolean } | null;
   onClose: () => void;
   /** `'sheet'` (default, mobile): an X that fully deselects. `'panel'` (desktop, retired — no
    *  caller renders this anymore now that detail lives entirely in the map popover, kept only so
@@ -823,8 +873,26 @@ export function PlaceDetail({
    *  honest affordance for what actually happened. `'popover'` (desktop, `lg+`): a compact shell
    *  for `MapSurfaceMapcn`'s pin-anchored `MapPopup` — narrower than `panel`, a plain "×" close
    *  button (there is no list to return to, the left list panel is untouched by selection), and
-   *  its own scroll/max-height so a long detail can't blow off the edge of the map. */
-  variant?: 'sheet' | 'panel' | 'popover';
+   *  its own scroll/max-height so a long detail can't blow off the edge of the map.
+   *  `'hosted'`: **the host draws its own navigation and this renders none** — the collection route
+   *  puts a back arrow in a header row of its own, aligned with the collection list's back control
+   *  so the header does not jump when the view changes, and a second close affordance inside the
+   *  scroll column would be two ways out of one screen. It also takes the host's `px-4` gutter
+   *  rather than this view's `px-5`, because that column has to line up with the list rows behind
+   *  the same arrow and a 4 px sideways shift on every open is more visible than the difference. */
+  variant?: 'sheet' | 'panel' | 'popover' | 'hosted';
+  /**
+   * Rendered where `BeenToggle` sits — the "what does this do to *your* library" position.
+   *
+   * A slot rather than a `readOnly` boolean: a flag can be forgotten, and it would not have fixed
+   * the thing that actually bites (`place.id` standing in for a saved-place id). The collection
+   * route puts `Added by …` and `Save to your places` here, which is that position's question
+   * asked by somebody who has no row yet.
+   */
+  primaryAction?: ReactNode;
+  /** Rendered last, below the provenance block and the destructive action. The collection route
+   *  puts the shared note and `Remove from this collection` here. */
+  footer?: ReactNode;
 }) {
   const detail = place.detail;
   const note = detail?.note;
@@ -869,6 +937,19 @@ export function PlaceDetail({
   const [renaming, setRenaming] = useState(false);
 
   const isPopover = variant === 'popover';
+  const isHosted = variant === 'hosted';
+
+  /** Every mutation block below is gated on this, and none of them reads an id off `place` — that
+   *  is the whole point of this refactor. No narrowing is needed: the prop is already the pair. */
+  const savedRow = savedPlace;
+
+  /**
+   * Whether the Google Maps link is the only external action on the card, which decides both its
+   * wording and its target size. Beside `Open TikTok` the pair reads as a list of destinations and
+   * a bare noun is enough; alone in whitespace a bare noun stops looking like something to press,
+   * and it needs its own 44 px rather than borrowing the row's.
+   */
+  const mapsLinkAlone = !tiktokUrl;
 
   // Resolved here rather than inline so the JSX below carries no cast: `whyGoEarnsItsPlace` already
   // rejects null/blank, but TypeScript cannot see that through a boolean.
@@ -891,17 +972,20 @@ export function PlaceDetail({
     <div
       className={cn(
         'flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-3.5',
-        isPopover && 'max-h-[min(70vh,26rem)] w-72 gap-4 px-0 pb-0 pt-0'
+        isPopover && 'max-h-[min(70vh,26rem)] w-72 gap-4 px-0 pb-0 pt-0',
+        // The host's gutter and its own top spacing — see the `variant` docblock for why 4 px
+        // matters here and why the top padding belongs to the header row above this column.
+        isHosted && 'px-4 pb-[calc(env(safe-area-inset-bottom)+2rem)] pt-1'
       )}
     >
       {thumbnailUrl && <SourceMediaThumbnail url={thumbnailUrl} />}
 
       <div className={cn('flex items-start justify-between gap-3', isPopover && 'px-4 pt-3.5')}>
         <div className="flex min-w-0 flex-col gap-1">
-          {renaming ? (
+          {renaming && savedRow ? (
             <NameEditor
-              key={`name-${place.id}`}
-              savedPlaceId={place.id}
+              key={`name-${savedRow.id}`}
+              savedPlaceId={savedRow.id}
               displayNameOverride={detail?.displayNameOverride ?? null}
               canonicalName={detail?.canonicalName ?? place.name}
               onDone={() => setRenaming(false)}
@@ -921,7 +1005,7 @@ export function PlaceDetail({
               </h2>
               {/* Beside the name, not in the controls block below: this is the one control that
                   changes the biggest word on the screen, and it belongs next to that word. */}
-              {detail && <RenameTrigger onStart={() => setRenaming(true)} />}
+              {savedRow && <RenameTrigger onStart={() => setRenaming(true)} />}
             </div>
           )}
           <p dir="auto" className="text-sm font-medium text-muted-foreground">
@@ -938,20 +1022,24 @@ export function PlaceDetail({
               *is* before either says anything about why it was saved. */}
           {tags.length > 0 && <TagChipList tags={tags} />}
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label={variant === 'panel' ? 'Back to your places' : 'Close place detail'}
-          onClick={onClose}
-          className="shrink-0 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
-        >
-          {variant === 'panel' ? (
-            <ChevronLeft className="size-5" aria-hidden />
-          ) : (
-            <X className="size-5" aria-hidden />
-          )}
-        </Button>
+        {/* Nothing at `hosted`: the host has already drawn its own back control in a header row
+            above this column, and two ways out of one screen is one too many. */}
+        {!isHosted && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label={variant === 'panel' ? 'Back to your places' : 'Close place detail'}
+            onClick={onClose}
+            className="shrink-0 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            {variant === 'panel' ? (
+              <ChevronLeft className="size-5" aria-hidden />
+            ) : (
+              <X className="size-5" aria-hidden />
+            )}
+          </Button>
+        )}
       </div>
 
       <div className={cn('flex flex-col gap-5', isPopover && 'gap-4 px-4 pb-4')}>
@@ -1012,35 +1100,45 @@ export function PlaceDetail({
             `saved-place-edits.tsx` for why it leads the controls block rather than sitting up in
             the identity header. `key` on the saved place's id so a pending transition from the
             previously selected place can never land on this one. */}
-        <BeenToggle
-          key={`been-${place.id}`}
-          savedPlaceId={place.id}
-          placeName={place.name}
-          visited={place.visited}
-        />
+        {savedRow && (
+          <BeenToggle
+            key={`been-${savedRow.id}`}
+            savedPlaceId={savedRow.id}
+            placeName={place.name}
+            visited={savedRow.visited}
+          />
+        )}
+
+        {/* The same position, for a host whose caller has no row to toggle: on
+            `/collections/[id]` this is `Added by …` and `Save to your places`. */}
+        {primaryAction}
 
         {/* Directly under `BeenToggle` and above `CategoryEditor`: been/not-been and "which list is
             this in" are both statements about the user's *intent* with the place, while category
             and note are corrections to what we got wrong. Grouping the two intent controls keeps
             the correction block intact underneath. Renders nothing outside a `CollectionsContext`
             provider, so the desktop popover and any test host are unaffected. */}
-        <AddToCollection key={`collections-${place.id}`} placeId={detail?.placeId} />
+        {savedRow && (
+          <AddToCollection key={`collections-${savedRow.id}`} placeId={detail?.placeId} />
+        )}
 
         {/* The user's own word for what this place is. Below the prose blocks rather than beside
             the category line above, because that line is the most-read thing on the card and this
             is a control most people touch once — `saved-place-edits.tsx` has the argument. */}
-        <CategoryEditor
-          key={`category-${place.id}`}
-          savedPlaceId={place.id}
-          category={place.category}
-          isOverridden={detail?.categoryIsOverridden ?? false}
-        />
+        {savedRow && (
+          <CategoryEditor
+            key={`category-${savedRow.id}`}
+            savedPlaceId={savedRow.id}
+            category={place.category}
+            isOverridden={detail?.categoryIsOverridden ?? false}
+          />
+        )}
 
         {/* `L1-F7-T2`. The note used to render read-only, and a place you saved was a place you
             were stuck with. `key` on the saved place's id is what resets a half-typed draft when
             the selection changes — the editor deliberately does not sync from props in an effect,
             which would discard typing every time the server revalidated. */}
-        <NoteEditor key={place.id} savedPlaceId={place.id} note={note} />
+        {savedRow && <NoteEditor key={savedRow.id} savedPlaceId={savedRow.id} note={note} />}
 
         {/* Two external actions, presented as plain text links — same weight as `reason`/`note`
             above, no border/fill box. The panel (or sheet) is already the container; a bordered
@@ -1059,6 +1157,7 @@ export function PlaceDetail({
                 href={tiktokUrl}
                 target="_blank"
                 rel="noreferrer"
+                data-vaul-no-drag
                 className="flex items-center gap-1.5 text-sm font-bold text-[var(--mint-700)] underline-offset-4 hover:underline"
               >
                 Open TikTok
@@ -1069,9 +1168,13 @@ export function PlaceDetail({
               href={googleMapsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-sm font-bold text-[var(--mint-700)] underline-offset-4 hover:underline"
+              data-vaul-no-drag
+              className={cn(
+                'flex items-center gap-1.5 text-sm font-bold text-[var(--mint-700)] underline-offset-4 hover:underline',
+                mapsLinkAlone && 'min-h-11'
+              )}
             >
-              Google Maps
+              {mapsLinkAlone ? 'Open in Google Maps' : 'Google Maps'}
               <ExternalLink className="size-3.5" aria-hidden />
             </a>
           </div>
@@ -1081,34 +1184,51 @@ export function PlaceDetail({
             no screen said: the first was a dataset slug at 11px (`Matched via llm-guess`) that
             twenty-one of thirty-one places carried and nobody could read, and the second was in the
             ORDER BY and nowhere else. `location-certainty.ts` has the argument for why the
-            confidence percentage that used to sit here is gone. */}
-        <div className="flex flex-col gap-1">
-          {certainty && (
-            <p
-              className={cn(
-                'text-xs font-medium',
-                certainty.isApproximate ? 'text-foreground' : 'text-muted-foreground',
-              )}
-            >
-              {certainty.label}
-              {certainty.detail && (
-                <span className="font-normal text-muted-foreground"> — {certainty.detail}</span>
-              )}
-            </p>
-          )}
-          {detail?.savedAt && (
-            <p className="text-[11px] font-medium text-muted-foreground/70">
-              {savedOnLine(detail.savedAt, new Date())}
-            </p>
-          )}
-        </div>
+            confidence percentage that used to sit here is gone.
+
+            The wrapper itself is conditional because an empty one is invisible but not free: it is
+            a flex child in a `gap-5` column, so on a surface that has neither fact — a place seen
+            from inside a collection — it opens a 20 px hole above the footer. */}
+        {(certainty || detail?.savedAt) && (
+          <div className="flex flex-col gap-1">
+            {certainty && (
+              <p
+                className={cn(
+                  'text-xs font-medium',
+                  certainty.isApproximate ? 'text-foreground' : 'text-muted-foreground',
+                )}
+              >
+                {certainty.label}
+                {certainty.detail && (
+                  <span className="font-normal text-muted-foreground"> — {certainty.detail}</span>
+                )}
+              </p>
+            )}
+            {detail?.savedAt && (
+              <p className="text-[11px] font-medium text-muted-foreground/70">
+                {savedOnLine(detail.savedAt, new Date())}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Last, and quiet. The destructive action belongs below everything the user might have
             opened this detail to read, not competing with it. `onClose` is the deselect the
             caller already passes — the map page's own render-time guard would drop the selection
             once the revalidated list arrives, but that would leave the detail open over a place
             that is already gone for the length of the round trip. */}
-        <RemoveSavedPlace savedPlaceId={place.id} placeName={place.name} onRemoved={onClose} />
+        {savedRow && (
+          <RemoveSavedPlace
+            savedPlaceId={savedRow.id}
+            placeName={place.name}
+            onRemoved={onClose}
+          />
+        )}
+
+        {/* Last of all, and the host's to fill: `/collections/[id]` puts the shared note and
+            `Remove from this collection` here — both statements about *this collection*, which is
+            why they sit below everything this view says about the place itself. */}
+        {footer}
       </div>
     </div>
   );

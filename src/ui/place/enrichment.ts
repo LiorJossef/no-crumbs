@@ -10,7 +10,7 @@
  * owns tag identity and `tagDisplayLabel` owns casing, and neither is re-implemented here.
  */
 
-import type { Spot } from '@/domain/places/spot';
+import type { PlaceDetailFacts, Spot } from '@/domain/places/spot';
 import { normalise } from '@/domain/places/normalise';
 import { tagDisplayLabel } from '@/domain/extraction/tags';
 import { BEEN_ROW_ANNOTATION } from './visit-state';
@@ -52,7 +52,7 @@ const NO_ENRICHMENT: SpotEnrichment = { tags: [], whyGo: null, dishes: [] };
  * one line to delete when it does. A `MapPlace` built by a test or a mock surface carries none of
  * them, and gets the empty shape rather than `undefined` sprayed through every renderer.
  */
-export function enrichmentOf(spot: Spot | undefined): SpotEnrichment {
+export function enrichmentOf(spot: PlaceDetailFacts | undefined): SpotEnrichment {
   if (!spot) return NO_ENRICHMENT;
   const enriched = spot as Partial<SpotEnrichment>;
   return {

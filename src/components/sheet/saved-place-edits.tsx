@@ -61,12 +61,11 @@ import {
   PRODUCT_CATEGORY_ORDER,
   type ProductCategory,
 } from '@/domain/places/product-category';
+import { SECTION_LABEL } from '@/ui/place/section-label';
 import { cn } from '@/lib/utils';
 
 /** Shown once the note gets close enough to the limit that the number is useful rather than noise. */
 const COUNTER_VISIBLE_FROM = NOTE_MAX_LENGTH - 200;
-
-const LABEL = 'text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase';
 
 /**
  * "I've been here" — the one control that lets the library resolve rather than only grow.
@@ -245,7 +244,7 @@ export function CategoryEditor({
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between gap-2">
-        <p className={LABEL}>Category</p>
+        <p className={SECTION_LABEL}>Category</p>
         <button
           type="button"
           onClick={() => {
@@ -387,7 +386,7 @@ export function NameEditor({
         if (!unchanged && validation.ok) save(draft);
       }}
     >
-      <label htmlFor={`name-${savedPlaceId}`} className={LABEL}>
+      <label htmlFor={`name-${savedPlaceId}`} className={SECTION_LABEL}>
         Name
       </label>
       <input
@@ -471,7 +470,7 @@ export function NoteEditor({
     return (
       <div className="flex flex-col gap-1">
         <div className="flex items-center justify-between gap-2">
-          <p className={LABEL}>Your note</p>
+          <p className={SECTION_LABEL}>Your note</p>
           <button
             type="button"
             onClick={() => {
@@ -521,7 +520,7 @@ export function NoteEditor({
 
   return (
     <div className="flex flex-col gap-2">
-      <label htmlFor={`note-${savedPlaceId}`} className={LABEL}>
+      <label htmlFor={`note-${savedPlaceId}`} className={SECTION_LABEL}>
         Your note
       </label>
       <textarea
