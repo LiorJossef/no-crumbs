@@ -122,6 +122,37 @@ describe('filterPlausible', () => {
     expect(result.kept[0]?.modelConfidence).toBe(0.5);
   });
 
+  it('keeps a category-plus-number Hebrew hashtag (#בראסרי18) — the filter is NOT what rejected it in production', () => {
+    // LIVE-HASHTAG-1. A production import dropped `#בראסרי18` ("Brasserie 18", a real Tel Aviv
+    // restaurant). This test establishes which layer was responsible: every rule in this file lets
+    // the candidate through, so the miss is the model not following the prompt, not the gate. The
+    // digits survive `normaliseForComparison` (`\p{N}`), the English stop-word list cannot match a
+    // Hebrew word, and no cityHint equals the name.
+    const caption = 'המקום הכי טוב בעיר 🔥 #בראסרי18 #אוכל #תלאביב';
+    const result = filterPlausible(
+      [candidate({ rawName: 'בראסרי 18', cityHint: 'Tel Aviv', evidence: '#בראסרי18', modelConfidence: 0.9 })],
+      caption,
+    );
+    expect(result.kept).toHaveLength(1);
+    expect(result.dropped.hashtag_or_handle).toBe(0);
+    expect(result.dropped.city_or_country_only).toBe(0);
+    expect(result.dropped.generic_words_only).toBe(0);
+    expect(result.dropped.evidence_not_in_caption).toBe(0);
+    // Kept, but capped and labelled: a tag with no prose behind it is weak evidence, not proof.
+    expect(result.kept[0]?.modelConfidence).toBe(0.5);
+    expect(isHashtagOnlyEvidence(caption, 'בראסרי 18', '#בראסרי18')).toBe(true);
+  });
+
+  it('keeps the Latin form of the same shape (#cafe21) with the "#" still attached', () => {
+    // The rawName spelling must not decide this either way — the same candidate survives whether
+    // the model stripped the "#" the prompt asked it to keep or not.
+    const caption = 'best flat white here #cafe21 #coffee';
+    const withHash = filterPlausible([candidate({ rawName: '#cafe21', evidence: '#cafe21' })], caption);
+    const withoutHash = filterPlausible([candidate({ rawName: 'Cafe 21', evidence: '#cafe21' })], caption);
+    expect(withHash.kept).toHaveLength(1);
+    expect(withoutHash.kept).toHaveLength(1);
+  });
+
   it('keeps a real venue-shaped Hebrew hashtag but the plausibility gate alone cannot reject a Hebrew generic-descriptor hashtag — that discrimination is the prompt\'s job', () => {
     // `isGenericWordsOnly`'s stop-word list is English-only and a hashtag has no spaces to split
     // on, so a Hebrew "bakery in the center"-style hashtag is not caught here either; this layer
