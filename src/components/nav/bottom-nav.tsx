@@ -55,7 +55,7 @@ import { cn } from '@/lib/utils';
  * camera budget: the bar sits inside the peek band the camera already yields, so nothing in
  * `query-rect.ts` reads this.
  */
-export const BOTTOM_NAV_HEIGHT_PX = 64;
+export const BOTTOM_NAV_HEIGHT_PX = 68;
 
 interface BottomNavProps {
   /** Opens the import overlay in place. Omitted on routes that have no overlay to open — the
@@ -92,17 +92,23 @@ export function BottomNav({ onAddTikTok }: BottomNavProps) {
     <nav
       aria-label="Main"
       style={{ height: `calc(${BOTTOM_NAV_HEIGHT_PX}px + env(safe-area-inset-bottom))` }}
-      className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex items-start justify-center px-3 lg:hidden"
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-50 mx-auto flex max-w-md items-start gap-2 px-3 lg:hidden"
     >
-      <div className="pointer-events-auto flex w-full max-w-md items-center gap-1 rounded-full border border-border/70 bg-card/90 p-1.5 shadow-[var(--shadow-elevated)] backdrop-blur-md">
+      {/* Two surfaces, not one, and the gap between them is the point. The destinations live in
+          the pill; the action is its own detached circle beside it. That is the separation Plotline
+          makes and the reason `＋` is not a third tab: it does not take you anywhere, so it should
+          not sit in the control that says where you are. It also puts the one destructive-ish tap
+          — the one that opens a full-screen takeover — a deliberate distance from the two that
+          merely navigate. */}
+      <div className="pointer-events-auto flex min-w-0 flex-1 items-center gap-1 rounded-full border border-border/70 bg-card/90 p-1.5 shadow-[var(--shadow-elevated)] backdrop-blur-md">
         {/* A `<Link>` to the route you are already on, rather than a disabled control. It is the
             cheapest correct answer for a two-destination bar: the browser handles the no-op, the
             control keeps its accessible name and its focus behaviour, and nothing has to model
             "pressed but inert". */}
         <NavTab href="/map" icon={MapIcon} label="Map" active={onMap} />
         <NavTab href="/collections" icon={Library} label="Collections" active={onCollections} />
-        <AddButton {...(onAddTikTok ? { onAddTikTok } : {})} />
       </div>
+      <AddButton {...(onAddTikTok ? { onAddTikTok } : {})} />
     </nav>
   );
 }
@@ -154,8 +160,10 @@ function NavTab({
  * says less than it could.
  */
 function AddButton({ onAddTikTok }: { onAddTikTok?: () => void }) {
+  // `size-14`, taller than the 44 px tabs beside it, because it is its own surface rather than a
+  // control inside one — it has to read as a peer of the pill, not as a chip that escaped it.
   const className =
-    'flex size-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
+    'pointer-events-auto flex size-14 shrink-0 items-center justify-center rounded-full border border-border/70 bg-primary text-primary-foreground shadow-[var(--shadow-elevated)] backdrop-blur-md transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
 
   if (!onAddTikTok) {
     return (

@@ -76,12 +76,7 @@ export function CollectionsIndexClient({
         <h1 className="px-2 font-heading text-lg font-bold tracking-tight lg:px-0">Collections</h1>
       </header>
 
-      {/* Clears the bar rather than ending underneath it. `lg:pb-4` because the bar is mobile-only
-          and desktop should not carry its hole. */}
-      <div
-        className="mx-auto w-full max-w-[560px] flex-1 px-4 pb-4 lg:pb-4"
-        style={{ paddingBottom: `calc(${BOTTOM_NAV_HEIGHT_PX}px + env(safe-area-inset-bottom) + 1rem)` }}
-      >
+      <div className="mx-auto w-full max-w-[560px] flex-1 px-4 pb-4">
         {collections.length === 0 ? (
           <EmptyIndex libraryIsEmpty={libraryIsEmpty} />
         ) : (
@@ -92,8 +87,19 @@ export function CollectionsIndexClient({
         )}
       </div>
 
-      {/* Sticky at the bottom on a phone (thumb zone), static once there is room. */}
-      <div className="sticky bottom-0 mx-auto w-full max-w-[560px] border-t border-border/70 bg-background/95 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 backdrop-blur lg:static lg:border-t-0 lg:bg-transparent lg:backdrop-blur-none">
+      {/* Sticky at the bottom on a phone (thumb zone), static once there is room.
+       *
+       * **It rests on top of `BottomNav`, not underneath it.** `bottom-0` put the page's primary
+       * action behind the bar the moment the bar shipped — a create button you cannot see or press
+       * is a worse regression than the reachability problem the bar was added to solve. The offset
+       * is the bar's own exported height plus the inset it sits on, so there is one number here and
+       * not a second guess at it.
+       *
+       * The `lg:` resets are what keep desktop unchanged: no bar renders there, so the footer goes
+       * back to being static with no offset at all. */}
+      <div
+        style={{ bottom: `calc(${BOTTOM_NAV_HEIGHT_PX}px + env(safe-area-inset-bottom))` }}
+        className="sticky mx-auto w-full max-w-[560px] border-t border-border/70 bg-background/95 px-4 pb-3 pt-3 backdrop-blur lg:static lg:bottom-auto! lg:border-t-0 lg:bg-transparent lg:pb-0 lg:backdrop-blur-none">
         {composing ? (
           <form
             className="flex flex-col gap-2"
