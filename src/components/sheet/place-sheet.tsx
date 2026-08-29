@@ -83,7 +83,17 @@ const PEEK_PX = 128;
 type SheetStop = 'peek' | 'half' | 'full';
 
 const SNAP_PEEK = `${PEEK_PX}px` as const;
-const SNAP_HALF = 0.55 as const;
+/**
+ * The stop the sheet rises to when a place is selected.
+ *
+ * Exported because the **camera** needs it: selecting a pin raises the sheet over 55% of the
+ * viewport, and a pin that was in the lower half is then behind it. `map-surface`'s reveal pan is
+ * what stops that, and it can only be right if it is reading the same number this sheet moves to.
+ * Two independent readings of one stop is how a "reveal" comes to reveal into the wrong band.
+ */
+export const SHEET_HALF_FRACTION = 0.55 as const;
+
+const SNAP_HALF = SHEET_HALF_FRACTION;
 const SNAP_FULL = 1 as const;
 
 const SNAP_POINTS: Array<`${number}px` | number> = [SNAP_PEEK, SNAP_HALF, SNAP_FULL];

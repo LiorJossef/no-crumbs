@@ -222,6 +222,23 @@ export interface MapSurfaceProps {
    */
   readonly restingSheetFraction?: number;
   /**
+   * How much of the container this surface's sheet covers **once a place is selected**, as a
+   * fraction — the band the camera must keep the selected pin out of.
+   *
+   * Separate from `restingSheetFraction` because they are different moments. The resting fraction
+   * is what the sheet covers all the time and is what a `fitBounds` frames around; this one is what
+   * it covers only while a detail is open, which on `/map` is the `half` stop and is four times
+   * deeper than the peek strip that surface rests at.
+   *
+   * **Omitted means no reveal**, which is the right default: a surface that raises nothing when a
+   * place is selected has nothing to be revealed from, and a camera that pans on selection anyway
+   * would be exactly the unrequested move the pin handler refuses.
+   *
+   * Camera-only, like the two above, and for the same reason — a pin behind a raised sheet is still
+   * in view for listing purposes.
+   */
+  readonly selectedOcclusionFraction?: number;
+  /**
    * How deep a band of floating chrome sits over the **top** of this surface's map, in pixels —
    * the allowance a `fitBounds` has to leave so a fitted pin does not land underneath it.
    *

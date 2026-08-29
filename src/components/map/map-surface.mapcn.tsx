@@ -67,6 +67,7 @@ import { toAreaFeatures, toCountryFeatures } from './summary-features';
 import { AREA_DISC_SPEC } from './summary-style';
 import { useDiscTheme } from './use-disc-theme';
 import { clampFitPadding, LG_BREAKPOINT_PX, mapOcclusionInsets, queryRectFrom } from './query-rect';
+import { pinGeometry } from './marker-style';
 import { BasemapTint } from './basemap-tint-layer';
 import { toPlaceFeatures } from './place-features';
 import { PlaceMarkerLayer } from './place-marker-layer';
@@ -128,6 +129,14 @@ const CARTO_LIGHT_STYLE = 'https://basemaps.cartocdn.com/gl/positron-gl-style/st
 // single-place import (a zero-area bounding box) from zooming in absurdly tight.
 const FIT_BOUNDS_PADDING = 48;
 const FIT_BOUNDS_MAX_ZOOM = 15;
+
+/** Air between a revealed pin and the edge of the band it is revealed into. Smaller than
+ *  `FIT_BOUNDS_PADDING` on purpose: this is a corrective nudge, and every pixel of margin here is a
+ *  pixel the map moves that the user did not ask it to. */
+const REVEAL_MARGIN_PX = 24;
+/** Shorter than `FOCUS_FLIGHT_MS`: a nudge that takes as long as a journey reads as a journey.
+ *  `easeTo` sets its own duration to 0 under `prefers-reduced-motion`, so there is no branch. */
+const REVEAL_PAN_MS = 320;
 
 // Extra top padding for the floating chrome that overlays the map's top edge — the **default**,
 // used by any surface that does not declare its own (`MapSurfaceProps.floatingTopChromePx`).
@@ -282,6 +291,7 @@ export function MapSurfaceMapcn({
   onCountryClick,
   focusBounds,
   restingSheetFraction,
+  selectedOcclusionFraction,
   floatingTopChromePx,
   onViewportChange,
 }: MapSurfaceProps) {
@@ -648,6 +658,79 @@ export function MapSurfaceMapcn({
       });
     });
   }, [focusBounds, restingSheetFraction, floatingTopChromePx]);
+
+  /**
+   * **Camera mover 6: the pin you just tapped is not allowed to vanish under the sheet.**
+   *
+   * Tapping a pin raises the sheet from the 128 px peek stop to `half`, which covers 55% of the
+   * viewport. Measured at 375×812 on the real library: a pin at y = 590 stayed exactly where it
+   * was while the sheet's top came to rest at y = 365, so the place the user had just tapped was
+   * 225 px underneath it — selected, its detail open, and invisible. Every pin in the lower half
+   * of the screen had that behaviour, which is most of them.
+   *
+   * The rule this does **not** break is the one the pin handler states: tapping a pin must not
+   * move the camera under the finger that tapped it. That rule was written against a *flight* —
+   * re-centring on the tapped place, which throws the rest of the map away and is disorienting on
+   * every tap. This is the minimum corrective pan and nothing more: if the pin already sits in the
+   * band the chrome leaves visible, **the camera does not move at all**, and where it does move it
+   * moves by exactly the shortfall. A tap on a pin in the top half is still a camera no-op.
+   *
+   * It is `easeTo` rather than `flyTo` because the two are different gestures. A flight arcs out
+   * through a lower zoom and reads as "we are going somewhere"; this is a nudge, the zoom never
+   * changes, and it should read as the sheet pushing the map up rather than as travel.
+   *
+   * Keyed on the selected id, so re-rendering for any other reason cannot re-pan; and it reads the
+   * **container**, never `window.innerHeight`, because the container is what `project` speaks and a
+   * stale size has already cost this file a real bug.
+   */
+  const revealedFor = useRef<string | null>(null);
+  useEffect(() => {
+    const place = selected;
+    const id = place?.id ?? null;
+    // Deselecting must not pan anything back. The user has moved on, and a camera that rewinds
+    // itself when a sheet closes is a second unrequested move paying for the first.
+    if (place === null || id === null) {
+      revealedFor.current = null;
+      return;
+    }
+    if (revealedFor.current === id) return;
+    const instance = mapRef.current;
+    if (!instance) return;
+    revealedFor.current = id;
+
+    const container = instance.getContainer();
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    if (width === 0 || height === 0) return;
+
+    const occlusion = mapOcclusionInsets(
+      typeof window === 'undefined' ? width : window.innerWidth,
+      selectedOcclusionFraction === undefined ? undefined : selectedOcclusionFraction * height
+    );
+
+    const point = instance.project([place.lng, place.lat]);
+    // The icon is anchored at the teardrop's tip, so its body is entirely *above* the coordinate.
+    // Clearing the tip alone would leave the pin itself half under the sheet, which is the same
+    // defect one marker-height further on.
+    const pinHeight = pinGeometry(true).height;
+
+    const minX = occlusion.left + REVEAL_MARGIN_PX;
+    const maxX = width - occlusion.right - REVEAL_MARGIN_PX;
+    const minY = occlusion.top + REVEAL_MARGIN_PX + pinHeight;
+    const maxY = height - occlusion.bottom - REVEAL_MARGIN_PX;
+    // An occlusion taller than the container leaves no band to reveal into. Do nothing rather than
+    // pan to a nonsense target — `clampFitPadding`'s header makes the same call for the same reason.
+    if (minX >= maxX || minY >= maxY) return;
+
+    const dx = point.x < minX ? point.x - minX : point.x > maxX ? point.x - maxX : 0;
+    const dy = point.y < minY ? point.y - minY : point.y > maxY ? point.y - maxY : 0;
+    if (dx === 0 && dy === 0) return;
+
+    // `panBy` negates its argument and hands it to `easeTo` as an offset, so passing the point's
+    // own overshoot moves that point onto the boundary. Verified in `maplibre-gl/src/ui/camera.ts`
+    // (`panBy` at :432 does `Point.convert(offset).mult(-1)`), not assumed.
+    instance.panBy([dx, dy], { duration: REVEAL_PAN_MS });
+  }, [selected, selectedOcclusionFraction]);
 
   // Re-fit when the viewport crosses the `lg` breakpoint or is resized while at `lg+` (the panel
   // width is a viewport-relative `clamp()`, not a fixed pixel value) — otherwise a fit computed at

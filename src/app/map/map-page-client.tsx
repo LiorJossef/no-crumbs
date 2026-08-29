@@ -87,7 +87,7 @@ import type { FocusBoundsRequest, MapSummaries } from '@/components/map/types';
 import { COUNTRY_LANDING_ZOOM } from '@/components/map/zoom-bands';
 import type { LatLngBoundsHint, ViewportChangeMeta } from '@/components/map/types';
 import { ImportConfirmation } from '@/components/map/import-confirmation';
-import { PlaceSheet } from '@/components/sheet/place-sheet';
+import { PlaceSheet, SHEET_HALF_FRACTION } from '@/components/sheet/place-sheet';
 import { BottomNav } from '@/components/nav/bottom-nav';
 import { PlaceDesktopPanel } from '@/components/sheet/place-desktop-panel';
 import { filterByTag, filterByVisit, filterPlaces } from '@/components/map/filter-places';
@@ -680,6 +680,9 @@ export function MapPageClient({
             onDeselect={() => {
               setSelectedId(null);
             }}
+            // Selecting a place raises the sheet to `half`; without this the camera does not know
+            // that and the pin the user just tapped can sit behind it. See camera mover 6.
+            selectedOcclusionFraction={SHEET_HALF_FRACTION}
             onViewportChange={handleViewportChange}
             {...(initialBounds ? { initialBounds } : {})}
             {...(focusPlaceIds ? { focusPlaceIds } : {})}
