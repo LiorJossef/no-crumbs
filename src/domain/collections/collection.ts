@@ -135,8 +135,17 @@ export function memberLabel(args: {
   return trimmed.length > 0 ? trimmed : 'A collaborator';
 }
 
-/** A display name is a label under someone else's eyes, so it is shorter than the 80 the profiles
- *  column allows. */
+/**
+ * A display name is a label under someone else's eyes — rendered beside a role on a 44 px row, not
+ * a field of prose — so it is shorter than the 80 the profiles column allows (`§6`).
+ *
+ * **The one definition**, and `NamePrompt` imports it rather than keeping its own. It held a second
+ * copy of `40` until 2026-08-29 while `share-panel.test.ts` asserted on *this* one, so the test was
+ * guarding a number the rendered `maxLength` did not read — the same trapdoor
+ * `RESTING_SHEET_FRACTION` and `PEEK_PX` each fell through. It also has to live here rather than
+ * beside the component for the reason that test records: every export of a `'use client'` module is
+ * a client *reference*, so a Server Component importing one gets a proxy.
+ */
 export const MEMBER_NAME_MAX_LENGTH = 40;
 
 /**

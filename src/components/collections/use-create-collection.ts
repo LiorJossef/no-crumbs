@@ -24,9 +24,6 @@ import { useRouter } from 'next/navigation';
 
 import { createCollection } from '@/app/actions/collections';
 
-/** The column's own limit, mirrored on the field so the failure is prevented rather than reported. */
-export const COLLECTION_NAME_MAX_LENGTH = 80;
-
 export interface CreateCollectionState {
   /** In flight. Both callers disable their submit on it. */
   readonly pending: boolean;
