@@ -285,16 +285,17 @@ describe('clampFitPadding — the padding box can exceed the container, and must
     expect(extent - clamped.top - clamped.bottom).toBeCloseTo(extent / 2, 6);
   });
 
-  it('leaves /map\'s own padding untouched at every device size it actually runs at', () => {
-    // The regression guard for the change that introduced the clamp: `/map` passes no
-    // `restingSheetFraction`, so its padding is a flat 48 + 100 chrome / 48 + 128 peek below `lg`,
-    // and the clamp must be a no-op on it — landscape phones included, where the band is tightest.
-    const mapPadding = {
-      top: 48 + 100,
-      bottom: 48 + SHEET_PEEK_PX,
-      left: 48,
-      right: 48,
-    };
+  // `/map` passes neither `restingSheetFraction` nor `floatingTopChromePx`, so its padding below
+  // `lg` is a flat 48 + 100 of chrome on top and 48 + 128 of peek strip underneath: 324 px, fixed,
+  // whatever the viewport is. Both tests below are regression guards on that box, and they are two
+  // tests rather than one because the answer genuinely differs by container height — a phone in
+  // landscape is shorter than 324 + 48 and the clamp *does* engage there.
+  const MAP_PADDING = { top: 48 + 100, bottom: 48 + SHEET_PEEK_PX, left: 48, right: 48 };
+
+  it("leaves /map's own padding untouched wherever 324 px of it fits", () => {
+    // 324 px of padding needs 372 px of height to clear MIN_FIT_BAND_PX, so every device at least
+    // 372 px tall is a no-op. That includes both landscape entries here, but only just: 812x375
+    // clears the budget by 3 px.
     for (const [w, h] of [
       [320, 568],
       [360, 640],
@@ -305,8 +306,85 @@ describe('clampFitPadding — the padding box can exceed the container, and must
       [667, 375],
       [812, 375],
     ] as const) {
-      expect(clampFitPadding(mapPadding, w, h)).toEqual(mapPadding);
+      expect(clampFitPadding(MAP_PADDING, w, h), `${w}x${h}`).toEqual(MAP_PADDING);
     }
+  });
+
+  it("clamps /map's padding on a landscape phone under 372 px tall, and the peek strip still clears", () => {
+    // The half of the device range the guard above cannot cover, and used to imply it did. A
+    // Pixel/Galaxy-class phone in landscape is 360 px tall and an iPhone SE is 320, both under the
+    // 372 px `/map`'s own padding needs, so the clamp engages and the assertion has to be about
+    // what survives rather than about nothing happening. What must survive is the peek strip: the
+    // scaled-down bottom padding is still deeper than the 128 px of sheet it exists to clear, so no
+    // fitted pin lands underneath it. That is a property of these numbers, not a guarantee
+    // `clampFitPadding` makes — see its doc comment.
+    for (const [w, h] of [
+      [640, 360],
+      [568, 320],
+    ] as const) {
+      const clamped = clampFitPadding(MAP_PADDING, w, h);
+      expect(clamped, `${w}x${h} should clamp`).not.toEqual(MAP_PADDING);
+      expect(clamped.top + clamped.bottom, `${w}x${h}`).toBeCloseTo(h - MIN_FIT_BAND_PX, 6);
+      expect(clamped.bottom, `${w}x${h} must still clear the peek strip`).toBeGreaterThanOrEqual(
+        SHEET_PEEK_PX
+      );
+      // The horizontal axis has room to spare on both, and must not be touched by a vertical clamp.
+      expect(clamped.left).toBe(48);
+      expect(clamped.right).toBe(48);
+    }
+  });
+
+  // `/collections/[id]`'s padding: a flat 48 all round plus its own half-resting sheet, and **no**
+  // top-chrome allowance, because that surface renders nothing over the top of its map
+  // (`floatingTopChromePx: 0`). The height varies, so this is a function rather than a constant.
+  const collectionPadding = (h: number) => ({
+    top: 48,
+    bottom: 48 + 0.55 * h,
+    left: 48,
+    right: 48,
+  });
+
+  it('never clamps the bottom padding below the sheet it exists to clear', () => {
+    // The invariant the whole resting-sheet path exists for, stated as a property rather than as
+    // the handful of viewports someone happened to measure: if the clamped bottom padding is
+    // shallower than the sheet, the lowest fitted pin is *behind* the sheet, which is the original
+    // bug. Every height here is a real device in one orientation or the other — 360 is a
+    // Pixel/Galaxy-class phone in landscape, 320 an iPhone SE.
+    for (const h of [812, 667, 428, 390, 375, 360, 320]) {
+      const sheet = 0.55 * h;
+      const clamped = clampFitPadding(collectionPadding(h), 812, h);
+      expect(clamped.bottom, `${h}px tall`).toBeGreaterThanOrEqual(sheet);
+    }
+  });
+
+  it('is the phantom top chrome that broke that invariant, not the clamp — the same box with /map\'s 100 px fails', () => {
+    // Kept as the reason `floatingTopChromePx` is a prop. Charging this surface `/map`'s mobile
+    // chrome allowance for chrome it does not render pushes the box over the budget on a short
+    // container; the clamp then scales the sheet's own allowance down with everything else and the
+    // pin slides back under the sheet. Both of these are measured browser cases, reproduced on the
+    // merged code before this change: at 360 the lowest pin's tip sat 1 px below the sheet's top
+    // edge, at 320 it sat 10 px below it.
+    for (const h of [360, 320]) {
+      const sheet = 0.55 * h;
+      const withPhantomChrome = { ...collectionPadding(h), top: 48 + 100 };
+      const clamped = clampFitPadding(withPhantomChrome, 812, h);
+      expect(clamped.bottom, `${h}px tall`).toBeLessThan(sheet);
+    }
+  });
+
+  it('holds that invariant down to a 179 px container, and no further — which is the caller\'s limit, not the clamp\'s', () => {
+    // The honest boundary, so nobody has to rediscover it in a browser. With no top-chrome
+    // allowance the clamped bottom clears a 0.55 sheet for every container at least 179 px tall,
+    // which is far below any device that can render this app at all. Below that the clamp cannot
+    // satisfy it — not because no padding box would fit (a smaller cosmetic margin would), but
+    // because the clamp scales proportionally and never reallocates between the two sides. That is
+    // exactly the guarantee `clampFitPadding` documents: a positive band, not a cleared sheet.
+    for (let h = 179; h <= 320; h += 1) {
+      const clamped = clampFitPadding(collectionPadding(h), 812, h);
+      expect(clamped.bottom, `${h}px tall`).toBeGreaterThanOrEqual(0.55 * h);
+    }
+    const below = clampFitPadding(collectionPadding(178), 812, 178);
+    expect(below.bottom).toBeLessThan(0.55 * 178);
   });
 
   it('leaves the lg+ padding untouched, where there is no sheet in the budget at all', () => {

@@ -134,6 +134,30 @@ export interface MapSurfaceProps {
    */
   readonly restingSheetFraction?: number;
   /**
+   * How deep a band of floating chrome sits over the **top** of this surface's map, in pixels —
+   * the allowance a `fitBounds` has to leave so a fitted pin does not land underneath it.
+   *
+   * Pixels rather than a fraction (the mirror image of `restingSheetFraction`) because floating
+   * chrome is a fixed-height pill: `/map`'s account chip is 44 px and its post-import strip is one
+   * row under it, at every viewport height. A sheet is a fraction of the viewport; a chip is not.
+   *
+   * Omitted means `/map`'s chrome, which is what the surface has always assumed: ~56 px at `lg+`
+   * and ~100 px below it, where the post-import confirmation drops to a second row. **Pass `0` when
+   * the surface has none.** `/collections/[id]` renders nothing over the top of its map — its list
+   * lives entirely in the bottom sheet below `lg` and the left panel at `lg+` — and paying `/map`'s
+   * 100 px anyway is what pushed the fit past what a short container can afford: at 640×360 the
+   * padding came to 394 px of a 360 px container, the clamp scaled the whole box down, and the
+   * lowest pin came to rest under the sheet — measured in a browser, its tip at 163 px against a
+   * sheet top of 162 px, and 10 px under at 568×320. A number given here replaces the default at
+   * every width, so a surface whose chrome differs by breakpoint should pass the deeper of the two.
+   *
+   * Camera-only, exactly like the default it replaces: `mapOcclusionInsets` never insets the query
+   * rect by top chrome, because deleting a whole viewport-wide band of pins from the list to clear
+   * a chip a few hundred pixels wide is the unforgiving direction
+   * (`docs/ux-map-is-the-query.md` §1).
+   */
+  readonly floatingTopChromePx?: number;
+  /**
    * "This is what is on screen now" — the surface reporting its **query rect** so the caller can
    * make the map the query (`docs/ux-map-is-the-query.md` §1). Optional: a surface with no handler
    * simply never calls it, and a surface that cannot compute one (the mock) never implements it.
