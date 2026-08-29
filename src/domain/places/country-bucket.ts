@@ -5,8 +5,8 @@
  * questions the map's world-zoom band and the list's `Elsewhere` section both need: which country
  * an area belongs to, and where a country's marker should sit.
  *
- * **Areas are bucketed by the area's country, not the place's** (§2.5). A 50 km cluster is in one
- * country by construction, so the area can answer for members whose own `country_code` is NULL —
+ * **Areas are bucketed by the area's country, not the place's** (§2.5). An area is one city by
+ * construction and so one country, and it can answer for members whose own `country_code` is NULL —
  * two of the 31 places in the library today, and dropping them would make real saved places
  * invisible at world zoom.
  */
