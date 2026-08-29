@@ -1776,6 +1776,11 @@ function ExtractedCandidateRow({
   const chip = status === null ? null : STATUS_CHIP[status];
   const options = resolutionOptions(view);
   const chosen = effectivePick(view, pick);
+  /** The chosen row itself, not just the name `savedPlaceName` reads off it: the Google Maps link
+   *  needs its address too, which is the only thing that tells two branches of one chain apart. */
+  const chosenRow = options.find((option) => option.index === chosen) ?? null;
+  const chosenOption =
+    chosenRow === null ? null : { name: chosenRow.name, detail: chosenRow.address };
   const needsPick = pickRequiredNotice(isSaveable(candidate), view, pick);
   const optionsId = useId();
   /** The shortlist is progressive disclosure, opened by `Not this place?` — except when there is
@@ -1983,7 +1988,7 @@ function ExtractedCandidateRow({
           {resolverPinLine(view, pick, isSaveable(candidate)) ?? locationLine(candidate)}
         </span>
         <a
-          href={googleMapsSearchUrl(candidate)}
+          href={googleMapsSearchUrl(candidate, chosenOption)}
           target="_blank"
           rel="noreferrer"
           aria-label={
