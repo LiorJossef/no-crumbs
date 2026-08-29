@@ -284,7 +284,16 @@ export function MapPageClient({
 
   /** Every cluster in the library. Keyed on `places`, so an import re-clusters once rather than on
    *  every render. */
-  const clusters = useMemo(() => clusterByProximity(places, (place) => place), [places]);
+  const clusters = useMemo(
+    () =>
+      clusterByProximity(places, (place) => place, {
+        // The same projection `buildAreas` takes three lines below. Without it the grouping is
+        // geometry alone, which merges every city inside 50 km: the owner's library reported
+        // `4 places in תל אביב-יפו` over a set holding Rishon LeZion and Ra'anana.
+        toLocality: (place: MapPlace) => place.detail?.locality ?? null,
+      }),
+    [places],
+  );
 
   /** The clusters as *areas* — labelled, indexed by member id, memoised once per library so the
    *  header's city name is stable for the session rather than recomputed per render. */
