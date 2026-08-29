@@ -116,11 +116,24 @@ one thing alone — see §4.
 
 ## 5. Open, and what is NOT verified
 
-**Collect the running `NAV-3` agent first.** It was working on `/collections/[id]` and
-`/collections/join/[token]` when the session was wrapped up. Its output is uncollected and its
-changes may be in the working tree uncommitted. **Do not plan around the collections routes until
-you have read its report** — in particular its answer to whether the bar costs that route's camera
-anything, since its sheet rests at `0.55` rather than at the peek stop.
+**`NAV-3` is collected and partly reverted — start here.** The agent ruled that the bar belongs on
+`/collections/[id]`, and its reasoning is sound and kept. I measured the result in a browser and
+**backed the mount out**: at 375×812 the collection's own list ran **212 px under the bar, 144 px of
+it below the viewport entirely.** The padding had gone on `Drawer.Content`, which is `h-full` and
+translated by vaul, so it never brings the scroll container's own end into view.
+
+`/map`'s sheet already solved exactly this, structurally, by binding the content column's height to
+its stop in `dvh` (`place-sheet.tsx`'s `STOP_TO_CONTENT_HEIGHT`, documented there as a bug fix and
+not a layout preference). **Do that on `/collections/[id]` first, then mount the bar.** Kept in the
+tree and ready: `src/app/collections/[id]/sheet-geometry.ts` and its ten unit tests, and
+`docs/ux-nav-collections-routes-2026-08-29.md` with the measurement and the full ruling.
+
+One thing in that document worth not losing: §4.6 of the navigation ruling ("no tab bar on
+`/collections`") died with §1 and must not be cited later as if it survived.
+
+Also open, and now visible: the `＋` on `/collections` falls back to a link to `/import` rather than
+opening anything in place, because that route has no overlay. It works; it is not the same gesture
+as on `/map`.
 
 Not verified by me, in priority order:
 
