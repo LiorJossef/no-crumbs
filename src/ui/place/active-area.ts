@@ -89,6 +89,10 @@ export interface Area<T> {
   /** The area's places, in the caller's input order (which is `created_at desc`, i.e. most recently
    *  saved first — the list's order, and it never changes on pan, zoom or resize). */
   readonly members: readonly T[];
+  /** `members.length`, carried explicitly so an `Area` is a `GeoCluster` — which is what lets
+   *  `bucketAreasByCountry` take areas directly and hand the same objects back in its buckets,
+   *  rather than the caller re-deriving which area a country's cluster was. */
+  readonly count: number;
   readonly memberIds: ReadonlySet<string>;
   /** Member coordinates, kept alongside so a camera-settled decision costs no re-projection. */
   readonly points: readonly GeoPoint[];
@@ -130,6 +134,7 @@ export function buildAreas<T>(
       id: smallest,
       label: clusterLabel(cluster, toLocality),
       members: cluster.members,
+      count: cluster.members.length,
       memberIds: new Set(ids),
       points: cluster.members.map(toPoint),
       bounds: cluster.bounds,

@@ -14,12 +14,19 @@
 import type { GeoBounds, GeoCluster, GeoPoint } from './clusters';
 import { isValidPoint } from './clusters';
 
-/** One country's worth of the library: its areas, where its marker goes, and how much is in it. */
-export interface CountryBucket<T> {
+/**
+ * One country's worth of the library: its areas, where its marker goes, and how much is in it.
+ *
+ * Generic over the *cluster* type as well as the member type so a caller that passes richer areas
+ * — `ui/place/active-area.ts`'s `Area<T>`, which carries the stable id and the display label the
+ * list and the map both key on — gets those same objects back rather than a bare `GeoCluster` it
+ * would then have to match up again by identity.
+ */
+export interface CountryBucket<T, C extends GeoCluster<T> = GeoCluster<T>> {
   /** ISO 3166-1 alpha-2, or `null` for areas whose members carry no usable country at all. A
    *  `null` bucket renders unflagged and sorts last; it is never merged into a real country. */
   readonly countryCode: string | null;
-  readonly areas: readonly GeoCluster<T>[];
+  readonly areas: readonly C[];
   /** Where the country's marker sits — the mean of your own saved places, not a country centroid. */
   readonly centroid: GeoPoint;
   /** Extent of the country's areas, for the camera to fit when the marker is tapped (§2.4). */
@@ -114,14 +121,14 @@ export function meanCentroid(points: readonly GeoPoint[]): GeoPoint | null {
  * Ordered by count descending, then by country code, so the order is stable across renders; the
  * `null` bucket always sorts last however big it is, because it is a gap rather than a place.
  */
-export function bucketAreasByCountry<T>(
-  areas: readonly GeoCluster<T>[],
+export function bucketAreasByCountry<T, C extends GeoCluster<T>>(
+  areas: readonly C[],
   toCountryCode: (item: T) => string | null | undefined,
   toPoint: (item: T) => GeoPoint,
-): readonly CountryBucket<T>[] {
+): readonly CountryBucket<T, C>[] {
   // A space can never collide with a country code, which the `areaCountry` regex guarantees.
   const NULL_KEY = ' ';
-  const buckets = new Map<string, GeoCluster<T>[]>();
+  const buckets = new Map<string, C[]>();
 
   for (const area of areas) {
     const key = areaCountry(area, toCountryCode) ?? NULL_KEY;
@@ -130,7 +137,7 @@ export function bucketAreasByCountry<T>(
     else buckets.set(key, [area]);
   }
 
-  const result: CountryBucket<T>[] = [];
+  const result: CountryBucket<T, C>[] = [];
   for (const [key, grouped] of buckets) {
     const members = grouped.flatMap((area) => area.members);
     const centroid = meanCentroid(members.map(toPoint));
@@ -150,7 +157,10 @@ export function bucketAreasByCountry<T>(
   return result.sort(compareBuckets);
 }
 
-function compareBuckets<T>(a: CountryBucket<T>, b: CountryBucket<T>): number {
+function compareBuckets<T, C extends GeoCluster<T>>(
+  a: CountryBucket<T, C>,
+  b: CountryBucket<T, C>,
+): number {
   if (a.countryCode === null) return b.countryCode === null ? 0 : 1;
   if (b.countryCode === null) return -1;
   if (a.count !== b.count) return b.count - a.count;
