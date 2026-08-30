@@ -78,7 +78,7 @@ import { AddToCollection } from '@/components/collections/add-to-collection';
 
 import { formatCaptionQuote, quoteAddsSomething } from '@/ui/place/caption-quote';
 import type { AreaHeading } from '@/ui/place/active-area';
-import type { ElsewhereEntry } from '@/ui/place/elsewhere-groups';
+import { elsewhereAreaCount, type ElsewhereEntry } from '@/ui/place/elsewhere-groups';
 import { ElsewhereSection } from './elsewhere-section';
 import type { MapPlace } from '@/components/map/types';
 
@@ -449,6 +449,10 @@ function PlaceList({
   // An empty library is a different screen, not a different count.
   const headingText = libraryIsEmpty ? EMPTY_LIBRARY_HEADING : heading.text;
 
+  /** The areas the peek row promises. Read off `elsewhere` rather than off the library, so it can
+   *  never disagree with the section the tap actually lands on — under a filter both shrink. */
+  const moreAreas = elsewhereAreaCount(elsewhere);
+
   return (
     <div
       style={{ height: STOP_TO_CONTENT_HEIGHT[stop] }}
@@ -476,7 +480,11 @@ function PlaceList({
           <button
             type="button"
             onClick={onExpand}
-            aria-label="Show your places"
+            aria-label={
+              moreAreas > 0
+                ? `Show your places, and ${moreAreas} more ${moreAreas === 1 ? 'area' : 'areas'}`
+                : 'Show your places'
+            }
             className="flex min-w-0 flex-1 items-center gap-1 rounded-lg px-1 text-left text-sm font-medium text-muted-foreground"
           >
             <span className="min-w-0 truncate">
@@ -499,6 +507,15 @@ function PlaceList({
               </>
             )}
             </span>
+            {/* The line used to name one city while the map drew pins in three, which reads as the
+                list having lost places rather than as it being scoped. This says the others are
+                there and that the same tap reaches them. `shrink-0` so the city name is what gives
+                way when the row runs out of room — the promise must not be the half that truncates. */}
+            {moreAreas > 0 ? (
+              <span className="shrink-0 whitespace-nowrap">
+                · +{moreAreas} more {moreAreas === 1 ? 'area' : 'areas'}
+              </span>
+            ) : null}
             {/* The one thing the row was missing: at rest the middle slot read as a caption, so
                 nothing on screen said the list was there to be pulled up. The underline it used to
                 carry only appeared on hover, which a phone does not have. */}
