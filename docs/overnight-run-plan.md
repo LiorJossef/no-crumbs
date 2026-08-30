@@ -218,6 +218,60 @@ test is part of the package and is what its exit criterion is checked against at
 is where the whole thing is stabilised, not where testing begins — arriving there with 41 packages and
 no tests written would make it unfinishable in one pass.
 
+## 7b. Dispatching agents safely — read before the first dispatch
+
+**The constraint that governs everything here:** `agent-guardrails.md` §1.1 —
+*"Never commit, push, merge… Leave your changes uncommitted in the working tree; the orchestrator
+commits."* So every agent you dispatch is **editing the same working tree at the same time**. Two
+agents on one file is not a merge conflict you resolve later; it is one silently overwriting the
+other, and you will not find out until Wave 8.
+
+### The protocol
+
+1. **Hold a live claim list.** Before dispatching, write down the file globs that agent owns. **Never
+   dispatch an agent whose scope intersects a live claim.** §8's path scopes exist for this; if two
+   packages share a file, they are serial, full stop.
+2. **You commit, they don't.** When an agent returns: read the diff yourself, run `npm run typecheck`,
+   then commit with a Conventional Commit subject and the *why* in the body.
+3. **Commit before the next dispatch into the same paths.** Otherwise two agents' work lands in one
+   commit, and the ledger's commit column becomes a lie.
+4. **Cap build-tier concurrency at 3–4.** Past that, your own review-and-commit becomes the bottleneck
+   and the collision surface grows faster than the throughput.
+5. **Use `isolation: "worktree"`** for anything long-running, exploratory, or touching many files at
+   once. The agent gets its own git worktree and physically cannot disturb the shared tree; you merge
+   its result deliberately. Wave 0 and W6-1 are the obvious candidates.
+6. **Advise tier is always safe to run alongside anything.** `product-lead` and `ux-interaction` have
+   no `Bash` and write only to `docs/**`. Dispatch them freely and concurrently.
+7. **Verification runs concurrently with the next build.** `qa-reliability` checking W1-2 can run while
+   `ai-extraction` builds W1-3 — different files, and the verifier is read-only. **Give the verifier
+   the exit criterion only, never the diff** (§7).
+8. **Never ask an agent to do something the guardrails forbid you to ask.** No commits, no pushes, no
+   branch switching, no `gh` mutations, no `.env` of any kind, no migrations. If a package seems to
+   need one, it is out of scope — record it and move on.
+9. **Track what you spawned and collect all of it.** Never end a wave with an agent unaccounted for.
+
+### Who owns what
+
+Use the eleven local specialists in `.claude/agents/`, by `subagent_type`. The roster and its
+mandates are `docs/01-agent-roster.md`; the tiers are Build (writes production code), Probe (evidence
+and verification), Advise (rulings and specs, no shell).
+
+| Wave | Primary owner | Support |
+|---|---|---|
+| **W0** foundation | `design-system-frontend` — the single build owner of production UI | — (serial, one agent, worktree recommended) |
+| **W1** correctness | `ai-extraction` (W1-2, W1-3, W1-4) · `nextjs-architect` (W1-5, W1-6) · `maps-geospatial` (W1-1) | `qa-reliability` verifies each |
+| **W2** map at rest | `maps-geospatial` | `ux-interaction` specifies the overview decision; `qa-reliability` verifies W2-1 and W2-2 independently |
+| **W3** interaction | `design-system-frontend` | `ux-interaction` holds the state matrix |
+| **W4** identity | `design-system-frontend` | `product-lead` on any string; `security-privacy` if the OG route exposes anything |
+| **W5** library | `design-system-frontend` | `ux-interaction` on row and facet design |
+| **W6** the moment | `nextjs-architect` (W6-1 decomposition, first and alone) then `design-system-frontend` | `ai-extraction` on W6-4 provenance; `ux-interaction` on W6-5 |
+| **W7** night & edges | `design-system-frontend` (W7-1, W7-2, W7-3, W7-5) · `nextjs-architect` + `supabase-database` (W7-4) | **`security-privacy` must review W7-4** — account deletion cascades into other people's shared collections |
+| **W8** stabilise | `qa-reliability` leads | everyone, on their own findings |
+
+**Two standing rules from the roster.** `design-system-frontend` is the *single* build owner of
+production UI — do not let another agent restyle a component. And **no subagent delegates**: every
+handoff routes back through you.
+
 ## 8. The work packages
 
 Path scope is listed so agents do not collide. **Two agents must never hold the same file.**
