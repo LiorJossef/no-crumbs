@@ -49,9 +49,20 @@ import type {
  * `07` §7's ceiling: candidates beyond this are kept, visible, with `resolution.status = 'capped'`
  * — never silently dropped. The same number also bounds provider requests per import, since one
  * lookup is issued per resolved candidate (`07` §7's `MAX_PROVIDER_REQUESTS_PER_IMPORT`, the same
- * value for the same reason).
+ * value for the same reason) — so raising this constant raises the paid-lookup budget with it,
+ * 7 -> 8 as of 2026-08-31.
+ *
+ * Why 8 (growth-plan G3). The only real listicle in the corpus, the `exploringlondon` post, names
+ * exactly eight venues. At 7 its last venue was extracted, never resolved, and shown `capped`: a
+ * whole place lost to an off-by-one, on the single post that best demonstrates the product.
+ *
+ * Why 8 is the ceiling rather than a way-point. `integrations/llm/gemini.place-extractor.ts`'s
+ * `GEMINI_MAX_CANDIDATES` is a **measured** model limit of 8 — bisected live, `maxItems` 9 and
+ * above answer a bare `400 INVALID_ARGUMENT` — so the model cannot emit a ninth candidate for
+ * this cap to keep. The two caps now meet exactly, with no headroom in either direction: raising
+ * this number alone would cap nothing, and raising both needs a live re-bisection first.
  */
-export const MAX_CANDIDATES = 7;
+export const MAX_CANDIDATES = 8;
 
 export interface ImportInput {
   readonly userId: UserId;

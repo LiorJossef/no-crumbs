@@ -249,9 +249,9 @@ describe('runImport — NO_PLACES_FOUND is a success, not an error (07 §9)', ()
   });
 });
 
-describe('runImport — MAX_CANDIDATES = 7 is enforced (07 §7)', () => {
-  it('caps resolution at 7 even when extraction returns 10; the rest are visible and capped', async () => {
-    expect(MAX_CANDIDATES).toBe(7);
+describe('runImport — MAX_CANDIDATES = 8 is enforced (07 §7)', () => {
+  it('caps resolution at 8 even when extraction returns 10; the rest are visible and capped', async () => {
+    expect(MAX_CANDIDATES).toBe(8);
 
     const tenCandidates: PlaceCandidate[] = Array.from({ length: 10 }, (_, i) => ({
       ...oneCandidate,
@@ -270,20 +270,83 @@ describe('runImport — MAX_CANDIDATES = 7 is enforced (07 §7)', () => {
     });
 
     const events = await collect(ports, makeInput());
-    expect(resolveCalls).toBe(7);
+    expect(resolveCalls).toBe(8);
 
     const candidateEvents = events.filter((e): e is Extract<ImportEvent, { t: 'candidate' }> => e.t === 'candidate');
-    expect(candidateEvents).toHaveLength(7);
-    expect(candidateEvents.every((e) => e.total === 7)).toBe(true);
+    expect(candidateEvents).toHaveLength(8);
+    expect(candidateEvents.every((e) => e.total === 8)).toBe(true);
 
     const outcome = terminalOutcome(events);
     expect(outcome.kind).toBe('ready');
     if (outcome.kind === 'ready') {
       expect(outcome.candidates).toHaveLength(10);
-      const capped = outcome.candidates.slice(7);
+      const capped = outcome.candidates.slice(8);
       expect(capped.every((c) => c.resolution.status === 'unresolved' && c.resolution.reason === 'capped')).toBe(true);
-      const inBudget = outcome.candidates.slice(0, 7);
+      const inBudget = outcome.candidates.slice(0, 8);
       expect(inBudget.every((c) => c.resolution.status === 'resolved')).toBe(true);
+    }
+  });
+
+  /**
+   * The G3 regression (growth-plan §2). Our only real listicle, the `exploringlondon` post, names
+   * exactly eight venues; at `MAX_CANDIDATES = 7` the eighth was extracted, never resolved, and
+   * shown `capped`. This is the case the cap must not truncate, asserted at the size the corpus
+   * actually produces rather than at an abstract boundary — the previous test proves the cap still
+   * *exists*, this one proves it no longer bites the post we have.
+   */
+  it('resolves all eight of an eight-venue listicle — none comes back capped (G3)', async () => {
+    const eightVenues = [
+      'Dishoom Shoreditch',
+      'Padella',
+      'Bao Soho',
+      'Gloria',
+      'Smoking Goat',
+      'Kiln',
+      'Brat',
+      'Lyle\u2019s',
+    ];
+    const eightCandidates: PlaceCandidate[] = eightVenues.map((rawName) => ({
+      ...oneCandidate,
+      rawName,
+      cityHint: 'London',
+      countryHint: 'GB',
+      evidence: `${rawName} is unmissable`,
+    }));
+
+    const resolvedNames: string[] = [];
+    const ports = makePorts({
+      extractor: {
+        version: 'v1',
+        promptVersion: 'p1',
+        extract: async () => ({ candidates: eightCandidates, cityHint: 'London' }),
+      },
+      resolver: {
+        provider: 'overture',
+        resolve: async (query) => {
+          resolvedNames.push(query.text);
+          return preselectResult(`p${resolvedNames.length}`);
+        },
+      },
+    });
+
+    const events = await collect(ports, makeInput());
+
+    // Every one of the eight reached the resolver, in the order the post named them.
+    expect(resolvedNames).toEqual(eightVenues);
+
+    const candidateEvents = events.filter((e): e is Extract<ImportEvent, { t: 'candidate' }> => e.t === 'candidate');
+    expect(candidateEvents).toHaveLength(8);
+    expect(candidateEvents.every((e) => e.total === 8)).toBe(true);
+
+    const outcome = terminalOutcome(events);
+    expect(outcome.kind).toBe('ready');
+    if (outcome.kind === 'ready') {
+      expect(outcome.candidates).toHaveLength(8);
+      expect(outcome.candidates.map((c) => c.resolution.status)).toEqual(Array(8).fill('resolved'));
+      // The defect, stated as the thing that must not happen again.
+      expect(
+        outcome.candidates.some((c) => c.resolution.status === 'unresolved' && c.resolution.reason === 'capped'),
+      ).toBe(false);
     }
   });
 });

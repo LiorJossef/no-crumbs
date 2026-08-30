@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { MAX_CANDIDATES } from '@/domain/import/pipeline';
 import type { OpCtx } from '@/domain/ports';
 import type { PlaceCandidate } from '@/domain/types';
 import { EXTRACTION_JSON_SCHEMA, MAX_OUTPUT_TOKENS } from '@/integrations/llm/json-schema';
@@ -115,6 +116,11 @@ describe('geminiPlaceExtractor', () => {
       .then(() => {
         const body = JSON.parse(capturedInit?.body as string);
         expect(body.generationConfig.responseSchema.properties.candidates.maxItems).toBe(8);
+        // Since 2026-08-31 (growth-plan G3) the pipeline's own cap is this same 8, so the two meet
+        // exactly and nothing absorbs a change to either: a lower model cap silently loses a place
+        // the pipeline would have resolved, a higher one is a live re-bisection. Asserted as an
+        // equality rather than two separate numbers, because the agreement is the invariant.
+        expect(body.generationConfig.responseSchema.properties.candidates.maxItems).toBe(MAX_CANDIDATES);
         // The shared schema is untouched — the cap is applied at call time, for this vendor only.
         expect(EXTRACTION_JSON_SCHEMA.properties.candidates.maxItems).toBe(12);
       });

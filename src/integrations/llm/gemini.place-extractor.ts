@@ -62,9 +62,13 @@ const GEMINI_ENDPOINT_BASE = 'https://generativelanguage.googleapis.com/v1beta/m
  * behaves like a budget over (root array length x item complexity), and the root cap is the only
  * lever that moves it.
  *
- * Dropping 12 -> 8 costs nothing real: `domain/import/pipeline.ts` enforces `MAX_CANDIDATES = 7`
- * (`07` §7) before any of these candidates is resolved, so a ninth candidate would have been
- * discarded a step later anyway. The shared `EXTRACTION_JSON_SCHEMA` keeps its own 12 for the
+ * Dropping 12 -> 8 used to cost nothing real, because `domain/import/pipeline.ts` enforced
+ * `MAX_CANDIDATES = 7` (`07` §7) and a ninth candidate would have been discarded a step later
+ * anyway. That headroom is gone: `MAX_CANDIDATES` was raised 7 -> 8 on 2026-08-31 (growth-plan
+ * G3, so an eight-venue listicle survives whole), and **the two caps now meet exactly.** Every
+ * candidate this schema permits is one the pipeline resolves, and nothing absorbs a change to
+ * either number — lowering this one silently loses a place, and raising it is a live re-bisection
+ * against the endpoint, not an edit. The shared `EXTRACTION_JSON_SCHEMA` keeps its own 12 for the
  * Anthropic adapter, which has no such limit.
  */
 const GEMINI_MAX_CANDIDATES = 8;
