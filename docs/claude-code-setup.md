@@ -55,6 +55,23 @@ and **reading or editing any `.env*` file**, which is `agent-guardrails.md` §3 
 `deny` outranks every `allow`, including the ones in `~/.claude/settings.json` — this is the
 mechanism by which the repo takes its posture back from the machine.
 
+**Added 2026-08-30 for concurrent dispatch:** `git add -A`, `git add .`, `git add --all` and
+`git checkout -- <path>`. The first three are denied to **the orchestrator**, which is the only
+party that stages anything — with several agents writing at once, a bulk stage sweeps another
+agent's unreviewed, half-written work into a commit that claims to be atomic, and measurement in
+this repo found concurrent staging also *losing* 42% of the files it was asked to add. Staging by
+explicit path is what makes per-agent commits attributable, so it is enforced rather than requested.
+`git checkout --` was the one tree-destroying verb in the `reset`/`clean`/`restore` family still
+reachable.
+
+**What is still not enforced, and is worth naming rather than glossing:** `git switch` and
+`git checkout -b` remain in `allow`, because the orchestrator needs them to open a feature branch
+and the harness cannot tell the orchestrator from a specialist. Under concurrency a branch switch
+rewrites the working tree under every running agent, which makes it *more* destructive than the
+denied commands. That rule is carried by `agent-guardrails.md` rule 1 and by judgement. Saying so is
+the point: §2.1 previously claimed an enforcement mechanism that had been removed, and that error is
+the reason this paragraph exists.
+
 **`ask` — deliberately empty.** *Owner ruling, 2026-08-30: "soften the guards, let us work more
 freely."* This list held 30 rules — `db:push:staging|prod`, `db:reset`, `db:verify`, `merge:pr`,
 `supabase db push|reset|link`, `psql`, `docker`, `gh pr create|edit|close`, and edits to every file
@@ -171,3 +188,11 @@ lists to everyone.
   options were offered and this was the one chosen — the two that would have removed `deny` rules
   were declined, so force-push, `reset`/`clean`, direct pushes to `main`, `--no-verify` and reading
   `.env*` all remain refused.
+- **2026-08-30, concurrent dispatch** — owner ruling that specialists run several at a time. Four
+  `deny` rules added (bulk `git add`, `git checkout --`), taking `deny` to 63. **A documentation
+  defect was found and corrected in the same pass:** `agent-guardrails.md` §4 15a still told every
+  agent that the guarded paths sit in the `ask` list and that a prompt distinguishes the orchestrator
+  from a specialist. The `ask` list had been emptied hours earlier, so no prompt fired and the
+  guardrail was describing a mechanism that no longer existed. Two specialists found it
+  independently. A guardrail whose stated enforcement is imaginary is worse than one that admits it
+  is honour-system — the first is trusted, the second is checked.
