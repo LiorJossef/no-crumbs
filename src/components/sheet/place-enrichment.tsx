@@ -58,7 +58,7 @@ import { X } from 'lucide-react';
 
 import { tagDisplayLabel } from '@/domain/extraction/tags';
 import { splitRowTags } from '@/ui/place/enrichment';
-import { isTagActive, useTagFilter } from '@/ui/place/tag-filter';
+import { isTagActive, useTagFilter, type TagFacet } from '@/ui/place/tag-filter';
 import { PRESS_CHIP } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -180,6 +180,100 @@ export function TagChipList({ tags }: { tags: readonly string[] }) {
     </ul>
   );
 }
+
+/**
+ * **The tag facet: the library's own vocabulary, with counts, as a row of chips.**
+ *
+ * Tags are the only field that actually separates one saved place from another — `places.category`
+ * holds four values across the twenty live rows, fourteen of them `restaurant` — and until now the
+ * only way to filter by one was to already know it existed, open a place that happened to carry it,
+ * and tap the chip inside its detail view. `growth-plan.md` §4 names that as the pattern: *"you can
+ * filter by a tag only if you already happened to see it on a place"*. This is the aggregate read
+ * the product had no surface for.
+ *
+ * ## Three rules, all of them `overnight-copy-deck.md` §9.1's and none of them negotiable
+ *
+ *  1. **Every chip yields at least one place.** The facets are counted over the user's own rows, so
+ *     a tag no place carries cannot appear. `tagFacets` is where that is guaranteed.
+ *  2. **No tags at all means nothing renders** — not a disabled row, not a "no tags yet" line, not
+ *     a placeholder. The caller passes an empty array and this returns `null`. It is also the
+ *     common case: nothing was backfilled, so every place saved before extraction v2 has none.
+ *  3. **A control must not remove itself when you use it.** That is why this row is absent while a
+ *     tag is filtering: `ActiveTagFilter` is on screen instead, holding the pressed tag and one tap
+ *     to clear. The deck's own recommendation was to keep the pressed chip inside this row; the
+ *     shape here satisfies the rule it exists for — the way out is always visible — and it avoids
+ *     showing counts this surface cannot compute honestly. **The reason is a data seam, stated
+ *     rather than dressed up:** the sheet is handed a list already narrowed by the active tag, so
+ *     with a tag on, every other tag's count here would be its co-occurrence with that tag rather
+ *     than its own. A wrong number in a chip is worse than a chip that steps aside for the pill.
+ *     Wiring the un-narrowed set through the page — the seam `categoryFacets` already has — is what
+ *     would let both live on screen together, and that is a change in a file this lane does not own.
+ *
+ * ## Why a second row rather than more chips in the category bar
+ *
+ * `category-filter-bar.tsx` argues against stacking bars, and it is right about the chip it was
+ * written for: `Not been yet` and `Café 4` are the same kind of control asking the same kind of
+ * question. A tag is a different question — *what is this place like* rather than *what kind of
+ * thing is it* — and merging them would put two vocabularies in one row where a `Café 13` chip and
+ * a `Late Night 5` chip look identical and mean different dimensions. What tells them apart on
+ * screen is the category chip's coloured dot, which a tag chip does not have.
+ */
+export function TagFacetBar({
+  facets,
+  className,
+}: {
+  /** Already counted and ordered by `tagFacets`. Empty renders nothing at all. */
+  readonly facets: readonly TagFacet[];
+  className?: string;
+}) {
+  const filter = useTagFilter();
+  // No provider means no way to act on a tap, and a row of chips that cannot filter is the false
+  // affordance this whole file refuses elsewhere.
+  if (filter === null || facets.length === 0) return null;
+
+  return (
+    <div
+      // The same gestures the category bar takes, and for the same reasons: without
+      // `data-vaul-no-drag` a horizontal drag inside the sheet is read as a sheet drag, and
+      // `overscroll-x-contain` stops a swipe running off the end from chaining into the browser's
+      // back gesture. `-m-1 p-1` keeps the 3px focus ring inside the scroll box.
+      data-vaul-no-drag
+      role="group"
+      aria-label={TAG_BAR_LABEL}
+      className={cn(
+        '-m-1 flex gap-2 overflow-x-auto overscroll-x-contain p-1',
+        '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+        className,
+      )}
+    >
+      {facets.map(({ tag, label, count }) => (
+        <button
+          key={tag}
+          type="button"
+          data-vaul-no-drag
+          aria-pressed={isTagActive(filter.activeTag, tag)}
+          // The visible text is `Late Night 5`, which read aloud is a loose number away from a
+          // sentence. The label names the same two facts in words and contains the visible label,
+          // so it satisfies label-in-name rather than replacing what the chip says. `isolate` on
+          // the tag: it is model output derived from an arbitrary caption, and a Hebrew tag would
+          // otherwise reorder the count and the noun around it.
+          aria-label={`${isolate(label)}, ${count} place${count === 1 ? '' : 's'}`}
+          onClick={() => filter.onToggleTag(tag)}
+          className={cn(CHIP_PRESSABLE, 'min-h-11 shrink-0 gap-2')}
+        >
+          <span dir="auto" className="max-w-40 truncate">
+            {label}
+          </span>
+          <span className="shrink-0 tabular-nums opacity-70">{count}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** The group's accessible name. A row of toggle buttons with no grouping is a handful of loose
+ *  words — the same reason `TagChipList` and the category bar each name themselves. */
+const TAG_BAR_LABEL = 'Filter by tag';
 
 /**
  * The active filter, said out loud above the list: which tag is narrowing the library, and one tap

@@ -45,7 +45,7 @@
  */
 
 import { createContext, use } from 'react';
-import { tagKey } from '@/domain/extraction/tags';
+import { tagDisplayLabel, tagKey } from '@/domain/extraction/tags';
 
 /** What a chip needs to know to be a control. `null` where there is no filter to drive. */
 export interface TagFilter {
@@ -79,4 +79,110 @@ export function isSameTag(a: string, b: string): boolean {
 /** Whether this tag is the one currently filtering. `false` for no filter at all. */
 export function isTagActive(activeTag: string | null, tag: string): boolean {
   return activeTag !== null && isSameTag(activeTag, tag);
+}
+
+/**
+ * One tag chip's worth of fact: a tag the library actually contains, how it is written, and how
+ * many of the counted places carry it.
+ *
+ * `tag` is the **stored** string (lowercase, normalised) because that is what `onToggleTag` takes;
+ * `label` is `tagDisplayLabel`'s rendering of it, resolved here so that no surface re-implements
+ * casing and so the label a user taps is the label the count is about.
+ */
+export interface TagFacet {
+  readonly tag: string;
+  readonly label: string;
+  /** Places in the counted set carrying this tag. **Never 0** — see `tagFacets`. */
+  readonly count: number;
+}
+
+/** The caller's projection onto a place's tags, so this module never learns about `MapPlace` — the
+ *  same shape `categoryFacets` takes its `CategoryOf` by. */
+export type TagsOf<T> = (place: T) => readonly string[] | null | undefined;
+
+/**
+ * How many chips the row will draw. The category bar can never have more than three; a tag
+ * vocabulary is open, and a real library's tail is a long list of tags carried by one place each.
+ *
+ * Twelve is a judgement and is stated as one: it is roughly two phone-widths of scrolling, it is
+ * more than the four categories the data actually separates on (`place-sheet.tsx` measured four
+ * values across twenty rows, fourteen of them `restaurant`), and a chip below it is a filter whose
+ * result the user could have reached by reading the list. The **active tag is pinned in regardless
+ * of where it ranks**, because a control that scrolls out of existence when you use it is the same
+ * defect as one that disappears.
+ */
+export const MAX_TAG_FACETS = 12;
+
+/**
+ * The tags present in `places`, with counts, most-used first.
+ *
+ * ## Every rendered chip yields at least one place, and that is the whole rule
+ *
+ * `overnight-copy-deck.md` §9.1 rules it and it is not close: the facet is built from counts over
+ * the user's own rows, so a chip can never offer a tag no place carries. A tag with no places is a
+ * control that does nothing, which is worse than an absent control — this file's own header makes
+ * the same argument one level up ("a control that means something slightly different from what it
+ * is is worse than no control").
+ *
+ * **An empty input therefore produces an empty array, and the caller draws nothing at all** — not a
+ * disabled row, not a "no tags yet" line, not a placeholder. That is the rule
+ * `profile/page.tsx:159` and `categoryFacets` already follow: a heading over nothing is a promise
+ * the data cannot keep. It is also the common case, because nothing was backfilled and every place
+ * saved before extraction v2 has no tags at all.
+ *
+ * ## What it should be counted over
+ *
+ * The same seam `categoryFacets` documents: the library narrowed by **every other filter and not by
+ * the tag itself**, so each count is a true statement of what pressing the chip produces.
+ *
+ * ## Ordering, and why not alphabetical
+ *
+ * Count descending, ties broken by the stored key's code-unit order. Deliberately **not**
+ * `localeCompare`: tags are free-form and this library mixes Hebrew and Latin, so a locale-aware
+ * comparison would order the row differently depending on the runtime's collation data — a
+ * genuinely non-deterministic bar, which is the same objection `categoryFacets` records against
+ * sorting its own chips by label.
+ *
+ * Counting is keyed on `tagKey`, so a place carrying `pan asian` and `pan-asian` — which the
+ * database's `normalize_tag()` permits, see `isSameTag` — is counted once, and the label rendered
+ * is the first spelling encountered rather than an arbitrary one.
+ */
+export function tagFacets<T>(
+  places: readonly T[],
+  tagsOf: TagsOf<T>,
+  /** The tag currently filtering, if any. Pinned into the result even when the cap would have
+   *  dropped it, so the pressed chip is always on screen. Never pinned at a count of 0: unlike a
+   *  category, the *tag* filter has its own dismiss control above the list, so a zero-count tag
+   *  chip here would be a second way out that says nothing true. */
+  keepTag: string | null = null,
+  limit: number = MAX_TAG_FACETS,
+): readonly TagFacet[] {
+  const counts = new Map<string, { tag: string; count: number }>();
+
+  for (const place of places) {
+    // One place counts once per tag however many times it carries it.
+    const seen = new Set<string>();
+    for (const tag of tagsOf(place) ?? []) {
+      const key = tagKey(tag);
+      if (key === '' || seen.has(key)) continue;
+      seen.add(key);
+      const entry = counts.get(key);
+      if (entry) entry.count += 1;
+      else counts.set(key, { tag, count: 1 });
+    }
+  }
+
+  const ordered = [...counts.entries()]
+    .sort(([keyA, a], [keyB, b]) => b.count - a.count || (keyA < keyB ? -1 : keyA > keyB ? 1 : 0))
+    .map(([, { tag, count }]): TagFacet => ({ tag, label: tagDisplayLabel(tag), count }));
+
+  if (ordered.length <= limit) return ordered;
+
+  const shown = ordered.slice(0, limit);
+  if (keepTag === null || shown.some((facet) => isSameTag(facet.tag, keepTag))) return shown;
+
+  // The active tag ranked below the cap. It replaces the last chip rather than being appended, so
+  // the row's length is the one number this function promises.
+  const active = ordered.find((facet) => isSameTag(facet.tag, keepTag));
+  return active ? [...shown.slice(0, limit - 1), active] : shown;
 }

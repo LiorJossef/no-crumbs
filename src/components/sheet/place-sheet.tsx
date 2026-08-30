@@ -52,6 +52,7 @@ import { Button, PRESS_ROW } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { isSearchActive } from '@/domain/places/search';
+import { tagFacets } from '@/ui/place/tag-filter';
 import {
   BeenToggle,
   CategoryEditor,
@@ -60,7 +61,14 @@ import {
   RemoveSavedPlace,
   RenameTrigger,
 } from './saved-place-edits';
-import { ActiveTagFilter, DishLine, TagChipList, TagChipRow, WhyGoLine } from './place-enrichment';
+import {
+  ActiveTagFilter,
+  DishLine,
+  TagChipList,
+  TagChipRow,
+  TagFacetBar,
+  WhyGoLine,
+} from './place-enrichment';
 import { BeenBadge } from './visit-state';
 import { BOTTOM_NAV_HEIGHT_PX } from '@/components/nav/bottom-nav';
 import { CategoryFilterBar } from './category-filter-bar';
@@ -302,6 +310,29 @@ function PlaceList({
   const headingText = libraryIsEmpty ? EMPTY_LIBRARY_HEADING : heading.text;
 
   /**
+   * The tag vocabulary of everything currently matching, with counts — `growth-plan.md` §4's
+   * "there is no tag facet with counts, though categories have one".
+   *
+   * Counted over `places` **and** `otherPlaces` together, because that pair is exactly the library
+   * narrowed by every other filter: `otherPlaces` is documented as "every match the scope above
+   * leaves out". Counting only the in-scope rows would make each chip a claim about the area
+   * heading rather than about the library, and tapping it would then reveal places the count did
+   * not include — the same disagreement `categoryFacets` records against scoping its own counts to
+   * the active area.
+   *
+   * Empty while a tag is filtering, which is what makes every count above true: this list is
+   * already narrowed by that tag, so any other tag's number here would be its co-occurrence with
+   * the active one. `ActiveTagFilter` is the control on screen in that state.
+   */
+  const facets = useMemo(
+    () =>
+      activeTag !== null
+        ? []
+        : tagFacets([...places, ...otherPlaces], (place) => enrichmentOf(place.detail).tags),
+    [places, otherPlaces, activeTag],
+  );
+
+  /**
    * What the peek row promises above the count in the header: how many more rows are down there.
    *
    * It counted *areas* until they were deleted (2026-08-30), and that needed a guard against the
@@ -438,6 +469,11 @@ function PlaceList({
               anyVisited={libraryHasVisited}
             />
           )}
+          {/* Under the category bar rather than merged into it: a tag asks *what is this place
+              like*, a category asks *what kind of thing is it*, and one row holding both would put
+              two vocabularies in identical chips. Renders nothing at all when the library carries
+              no tags, which is most libraries — see `TagFacetBar`. */}
+          {!libraryIsEmpty && <TagFacetBar facets={facets} />}
           {activeTag !== null && <ActiveTagFilter tag={activeTag} onClear={onClearTag} />}
 
           {/* The one line some empty headings need — see `AreaHeading.note`. Above the scroll area
