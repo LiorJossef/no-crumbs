@@ -26,17 +26,16 @@ import {
   ClearSearchEscape,
   EMPTY_LIBRARY_HEADING,
   EmptyLibraryLine,
+  EverywhereElse,
   PlaceRow,
   PlaceSearchField,
 } from './place-sheet';
-import { ElsewhereSection } from './elsewhere-section';
 import { ActiveTagFilter } from './place-enrichment';
 import { CategoryFilterBar } from './category-filter-bar';
 import type { CategoryFacet } from '@/domain/places/category-filter';
 import type { ProductCategory } from '@/domain/places/product-category';
 import { CollectionsNavRow } from '@/components/collections/collections-nav-row';
 import type { AreaHeading } from '@/ui/place/active-area';
-import type { ElsewhereEntry } from '@/ui/place/elsewhere-groups';
 import type { MapPlace } from '@/components/map/types';
 
 export interface PlaceDesktopPanelProps {
@@ -44,16 +43,13 @@ export interface PlaceDesktopPanelProps {
   readonly places: readonly MapPlace[];
   /** The same object the mobile sheet gets, so the two presentations cannot disagree. */
   readonly heading: AreaHeading;
-  /** The same grouped section the sheet gets, built once upstream. */
-  readonly elsewhere: readonly ElsewhereEntry[];
-  readonly countryExpansion: ReadonlyMap<string, boolean>;
-  readonly onToggleCountry: (key: string, expanded: boolean) => void;
-  readonly onSelectArea: (areaId: string) => void;
+  /** The rest of the library — the same continuation the sheet renders, built once upstream so the
+   *  two surfaces cannot disagree about what is outside the scope. */
+  readonly otherPlaces: readonly MapPlace[];
   readonly activeAreaId: string | null;
   readonly libraryIsEmpty: boolean;
   /** See `PlaceSheetProps` — library-wide, because the chip filters the map as well as this list. */
   readonly libraryHasVisited: boolean;
-  readonly filtering: boolean;
   readonly query: string;
   readonly onQueryChange: (query: string) => void;
   /** The tag currently narrowing the library, or `null`. Same prop, same pill and same behaviour as
@@ -78,14 +74,10 @@ export interface PlaceDesktopPanelProps {
 export function PlaceDesktopPanel({
   places,
   heading,
-  elsewhere,
-  countryExpansion,
-  onToggleCountry,
-  onSelectArea,
+  otherPlaces,
   activeAreaId,
   libraryIsEmpty,
   libraryHasVisited,
-  filtering,
   query,
   onQueryChange,
   activeTag,
@@ -98,7 +90,6 @@ export function PlaceDesktopPanel({
   onAddTikTok,
   onSelect,
 }: PlaceDesktopPanelProps) {
-  const headingRef = useRef<HTMLHeadingElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   /** The same scroll reset the sheet does, for the same reason and with the same timing — see
@@ -107,12 +98,6 @@ export function PlaceDesktopPanel({
     scrollRef.current?.scrollTo({ top: 0, behavior: 'instant' });
   }, [activeAreaId]);
 
-  /** Switching area replaces every row and unmounts the button that was pressed. */
-  const selectArea = (areaId: string) => {
-    onSelectArea(areaId);
-    headingRef.current?.focus({ preventScroll: true });
-  };
-
   return (
     <div className="pointer-events-none absolute inset-0 z-20 hidden lg:block">
       <div className="pointer-events-auto absolute inset-y-0 left-0 flex w-[clamp(320px,26vw,392px)] flex-col border-r border-border/70 bg-card/85 backdrop-blur-md">
@@ -120,13 +105,11 @@ export function PlaceDesktopPanel({
           {/* The page's real subject, and it is an area rather than a collection: `Your places` and
               the `3 of 20` counter beside it are both gone. The library total is not displayed
               anywhere on `/map` — it answers a question about owning things, and this screen is for
-              finding one. `tabIndex={-1}` only so the escapes below have somewhere to send focus. */}
+              finding one. */}
           {/* Keyed and faded exactly as the sheet's `h2` is — one change of scope, one motion, on
               both surfaces. See `PlaceList` for why it keys on the area and not on the count. */}
           <h1
             key={activeAreaId ?? 'no-area'}
-            ref={headingRef}
-            tabIndex={-1}
             className="animate-in fade-in-0 duration-140 font-heading text-2xl font-extrabold tracking-tight text-foreground outline-none motion-reduce:animate-none"
           >
             {libraryIsEmpty ? EMPTY_LIBRARY_HEADING : heading.text}
@@ -179,18 +162,10 @@ export function PlaceDesktopPanel({
                   ))}
                 </ul>
               )}
-              {/* `all`, not `active-and-previous`: §9 — there is room on a desktop panel, and
-                  collapsing is a mobile economy. The default is passed rather than derived from a
-                  breakpoint in JS, because both surfaces render unconditionally and a media query
-                  read in JavaScript is a second source of truth about which one the user sees. */}
-              <ElsewhereSection
-                entries={elsewhere}
-                filtering={filtering}
-                expansion={countryExpansion}
-                expansionDefault="all"
-                onToggleCountry={onToggleCountry}
-                onSelectArea={selectArea}
-              />
+              {/* The same continuation the sheet renders, from the same array. The panel used to
+                  differ here — it opened every country group where the sheet opened two — and with
+                  the groups gone there is nothing left for the two surfaces to disagree about. */}
+              <EverywhereElse places={otherPlaces} flush={heading.empty} onSelect={onSelect} />
             </div>
             {/* Pinned to the bottom of the panel, out of the scroll — see `PlaceList`. */}
             <div className="shrink-0 px-6 pb-6">

@@ -91,7 +91,7 @@ export function scopeForCountryTap(key: string): ListScope {
   return { kind: 'country', key };
 }
 
-/** An area marker or an `Elsewhere` row was tapped — the gesture `active-area.ts` calls writer 2. */
+/** An area marker was tapped — the gesture `active-area.ts` calls writer 2. */
 export function scopeForAreaTap(anchor: string): ListScope {
   return { kind: 'area', anchor };
 }
@@ -139,8 +139,9 @@ interface ScopeContents<T> {
 export type ResolvedScope<T> =
   | (ScopeContents<T> & {
       readonly kind: 'global';
-      /** Every country, for the grouped global list — the accessible rendering of the country
-       *  band, and the reason the two must come from one computation (`library-summary.ts`). */
+      /** Every country in the library. What `scopeLabel` counts (`31 places in 3 countries`), and
+       *  what a country tap resolves against — one computation, shared with the map's own country
+       *  band (`library-summary.ts`). */
       readonly countries: readonly CountrySummary<T>[];
     })
   | (ScopeContents<T> & { readonly kind: 'country'; readonly country: CountrySummary<T> })
@@ -499,11 +500,11 @@ export function activeCountryKey<T>(
 }
 
 /**
- * The area the `Elsewhere` section should exclude, if any.
+ * The one area the list is about, if it is about one.
  *
- * `null` for a country or global scope, because those list several areas above it and there is no
- * single one to subtract. What `Elsewhere` should *become* under those scopes is a surface
- * question (`elsewhere-groups.ts`), not this module's — this only answers what the scope is.
+ * `null` for a country or global scope, which list several areas at once. The surfaces use it as
+ * the key for the two things that mark a change of scope — the scroll reset and the header's
+ * crossfade — so a scope covering several areas correctly marks nothing.
  */
 export function scopeAreaId<T>(resolved: ResolvedScope<T>): string | null {
   return resolved.kind === 'area' ? resolved.area.id : null;

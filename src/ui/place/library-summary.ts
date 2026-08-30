@@ -1,12 +1,15 @@
 /**
- * The library summarised by country, for the two surfaces that render the same summary
- * (`docs/ux-library-at-scale.md` §2): the map's world-zoom band and the list's `Elsewhere` section.
+ * The library summarised by country (`docs/ux-library-at-scale.md` §2).
  *
- * **One computation, two renderings, and that is the point.** §2's opening claim is that the
- * zoomed-out map and the list below it are the same object drawn differently — which is what makes
- * the feature accessible, since a canvas is unreachable by a screen reader and the list beside it
- * has to carry the identical summary. Two call sites deriving "the countries" independently is
- * exactly how they come to disagree, so both read this.
+ * Two readers, and they must not derive it separately: the map's world-zoom band draws one marker
+ * per country, and `ui/place/list-scope.ts` resolves the **country scope** a tap on one of those
+ * markers puts the list into. Two call sites deriving "the countries" independently is exactly how
+ * they come to disagree about what the tap selected.
+ *
+ * The list itself no longer renders countries. It grouped the user's other areas under country
+ * rows until 2026-08-30, when the owner deleted that section outright (see `EverywhereElse` in
+ * `components/sheet/place-sheet.tsx`); this computation outlived it because the map still needs
+ * it.
  *
  * Pure, and separate from both renderers, so §2.5's rule — *no place ever disappears* — is
  * assertable without a WebGL context or a DOM.

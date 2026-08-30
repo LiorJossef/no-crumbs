@@ -78,8 +78,6 @@ import { AddToCollection } from '@/components/collections/add-to-collection';
 
 import { formatCaptionQuote, quoteAddsSomething } from '@/ui/place/caption-quote';
 import { isolate, type AreaHeading } from '@/ui/place/active-area';
-import { elsewhereAreaCount, type ElsewhereEntry } from '@/ui/place/elsewhere-groups';
-import { ElsewhereSection } from './elsewhere-section';
 import type { MapPlace } from '@/components/map/types';
 import { useNearMeDistance } from '@/components/map/near-me-context';
 
@@ -114,11 +112,12 @@ const SNAP_POINTS: Array<`${number}px` | number> = [SNAP_PEEK, SNAP_HALF, SNAP_F
  * the bottom of the screen. Everything down there is laid out, painted, hit-testable and reported
  * `visible` by a testing library — and completely unreachable, because the scroll container's own
  * bottom is off screen so scrolling to its end still does not bring it into view. Measured at 844:
- * the `Elsewhere` heading came to rest 242 px below the viewport at maximum scroll.
+ * the boundary heading below the last row came to rest 242 px below the viewport at maximum scroll.
  *
  * That was survivable while the only thing down there was a section most sessions never opened. It
- * is not survivable now: `Elsewhere` is the country band's whole list rendering, and it is the
- * accessible equivalent of markers a screen reader cannot reach at all (§6).
+ * is not survivable now: everything below that heading is the rest of the library, and the list is
+ * the only rendering of it a screen reader can reach — the map's markers are painted into a canvas
+ * (§6).
  *
  * `dvh` rather than a measured pixel value, so it survives a rotation and the mobile URL bar with no
  * JavaScript and no resize listener. The subtraction is the drag handle above this column
@@ -150,14 +149,16 @@ export interface PlaceSheetProps {
   /** What this list says about itself — `12 places in London`. Rendered verbatim; no surface
    *  re-derives a string from counts. */
   readonly heading: AreaHeading;
-  /** The user's other areas, grouped by country (`ui/place/elsewhere-groups.ts`). Empty renders no
-   *  section. Built upstream so this surface and the desktop panel cannot disagree about it. */
-  readonly elsewhere: readonly ElsewhereEntry[];
-  /** Which country groups the user has explicitly opened or closed. Defaults are not in here —
-   *  `isCountryExpanded` owns those, and this surface passes its own (`active-and-previous`). */
-  readonly countryExpansion: ReadonlyMap<string, boolean>;
-  readonly onToggleCountry: (key: string, expanded: boolean) => void;
-  readonly onSelectArea: (areaId: string) => void;
+  /**
+   * Every match the scope above leaves out, in the same library order as `places` — the rest of
+   * your library, rendered as ordinary rows under the ones the header is about.
+   *
+   * This replaces the `Elsewhere` section: a country → city tree the user had to navigate to reach
+   * a place, over a library that is five Israeli cities. `docs/ux-stable-area-list.md`:114 named
+   * this as the fallback and the owner has taken it (2026-08-30). Empty renders nothing at all,
+   * which is every library that fits in one area and every global scope by construction.
+   */
+  readonly otherPlaces: readonly MapPlace[];
   /** The area the list is showing. Not rendered — it is what the scroll reset and the heading's
    *  crossfade key on, both of which mark the one legitimate change of scope. */
   readonly activeAreaId: string | null;
@@ -168,9 +169,6 @@ export interface PlaceSheetProps {
    *  every match rather than this area's, so a been place in the next city is one this chip hides
    *  and a list-scoped test would refuse to draw the control that un-hides it. */
   readonly libraryHasVisited: boolean;
-  /** Whether the search box or a tag chip is narrowing the library, which decides the noun on the
-   *  area rows so they never disagree with the header above them. */
-  readonly filtering: boolean;
   readonly query: string;
   readonly onQueryChange: (query: string) => void;
   /** The tag currently narrowing the library, as stored — `null` when no chip is active. A second
@@ -213,14 +211,10 @@ interface SheetState {
 export function PlaceSheet({
   places,
   heading,
-  elsewhere,
-  countryExpansion,
-  onToggleCountry,
-  onSelectArea,
+  otherPlaces,
   activeAreaId,
   libraryIsEmpty,
   libraryHasVisited,
-  filtering,
   query,
   onQueryChange,
   activeTag,
@@ -330,14 +324,10 @@ export function PlaceSheet({
               <PlaceList
                 places={places}
                 heading={heading}
-                elsewhere={elsewhere}
-                countryExpansion={countryExpansion}
-                onToggleCountry={onToggleCountry}
-                onSelectArea={onSelectArea}
+                otherPlaces={otherPlaces}
                 activeAreaId={activeAreaId}
                 libraryIsEmpty={libraryIsEmpty}
                 libraryHasVisited={libraryHasVisited}
-                filtering={filtering}
                 query={query}
                 onQueryChange={onQueryChange}
                 activeTag={activeTag}
@@ -370,14 +360,10 @@ export function PlaceSheet({
 function PlaceList({
   places,
   heading,
-  elsewhere,
-  countryExpansion,
-  onToggleCountry,
-  onSelectArea,
+  otherPlaces,
   activeAreaId,
   libraryIsEmpty,
   libraryHasVisited,
-  filtering,
   query,
   onQueryChange,
   activeTag,
@@ -394,14 +380,10 @@ function PlaceList({
 }: {
   places: readonly MapPlace[];
   heading: AreaHeading;
-  elsewhere: readonly ElsewhereEntry[];
-  countryExpansion: ReadonlyMap<string, boolean>;
-  onToggleCountry: (key: string, expanded: boolean) => void;
-  onSelectArea: (areaId: string) => void;
+  otherPlaces: readonly MapPlace[];
   activeAreaId: string | null;
   libraryIsEmpty: boolean;
   libraryHasVisited: boolean;
-  filtering: boolean;
   query: string;
   onQueryChange: (query: string) => void;
   activeTag: string | null;
@@ -416,17 +398,15 @@ function PlaceList({
   onAddTikTok: () => void;
   onSelect?: (place: MapPlace) => void;
 }) {
-  const headingRef = useRef<HTMLHeadingElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   /**
    * **The scroll goes back to the top when the area changes, and it never did before.**
    *
    * This was specified when the area model shipped (`ux-stable-area-list.md`) and was not built.
-   * The cost is at its worst exactly where the country band puts the user: you scroll two thousand
-   * pixels to reach `Elsewhere`, tap a city, and the browser clamps `scrollTop` to the new content
-   * — so you arrive at the *bottom* of the new area, looking at `Elsewhere` again, with no visible
-   * evidence that anything happened but a heading you cannot see.
+   * Without it, an area switch arriving from the map's own area marker clamps `scrollTop` to the
+   * new content — so you land somewhere in the middle of a city you did not scroll to, with no
+   * visible evidence that anything happened but a heading you cannot see.
    *
    * In a layout effect rather than an event handler, because the rows have to be replaced before
    * there is a new scroll height to be at the top of; and keyed on the area rather than fired from
@@ -440,27 +420,19 @@ function PlaceList({
     scrollRef.current?.scrollTo({ top: 0, behavior: 'instant' });
   }, [activeAreaId]);
 
-  /** Switching area replaces every row and unmounts the button that was pressed, so focus lands on
-   *  the heading — the one thing that describes the new answer. */
-  const selectArea = (areaId: string) => {
-    onSelectArea(areaId);
-    headingRef.current?.focus({ preventScroll: true });
-  };
-
   // An empty library is a different screen, not a different count.
   const headingText = libraryIsEmpty ? EMPTY_LIBRARY_HEADING : heading.text;
 
   /**
-   * The areas the peek row promises. Read off `elsewhere` rather than off the library, so it can
-   * never disagree with the section the tap actually lands on — under a filter both shrink.
+   * What the peek row promises above the count in the header: how many more rows are down there.
    *
-   * **Zero unless the scope is a single area.** `scopeAreaId` is `null` for a country or a global
-   * scope (`list-scope.ts`), so `elsewhereGroups` subtracts nothing and `elsewhere` then holds
-   * every area in the library — including the ones the list is already showing. The word that
-   * breaks is *more*: at the country band this read `32 in 2 countries · +2 more areas` over a
-   * list already holding all 32.
+   * It counted *areas* until they were deleted (2026-08-30), and that needed a guard against the
+   * global scope: nothing was subtracted there, so the row read `32 in 2 countries · +2 more areas`
+   * over a list already holding all 32. Counting the rows themselves needs no guard — `otherPlaces`
+   * is exactly what is rendered below the scope's own places, so a global scope leaves it empty by
+   * construction and the promise disappears on its own.
    */
-  const moreAreas = activeAreaId === null ? 0 : elsewhereAreaCount(elsewhere);
+  const moreElsewhere = otherPlaces.length;
 
   return (
     <div
@@ -490,8 +462,8 @@ function PlaceList({
             type="button"
             onClick={onExpand}
             aria-label={
-              moreAreas > 0
-                ? `Show your places, and ${moreAreas} more ${moreAreas === 1 ? 'area' : 'areas'}`
+              moreElsewhere > 0
+                ? `Show your places, and ${moreElsewhere} more from everywhere else`
                 : 'Show your places'
             }
             className="flex min-w-0 flex-1 items-center gap-1 rounded-lg px-1 text-left text-sm font-medium text-muted-foreground"
@@ -520,10 +492,8 @@ function PlaceList({
                 list having lost places rather than as it being scoped. This says the others are
                 there and that the same tap reaches them. `shrink-0` so the city name is what gives
                 way when the row runs out of room — the promise must not be the half that truncates. */}
-            {moreAreas > 0 ? (
-              <span className="shrink-0 whitespace-nowrap">
-                · +{moreAreas} more {moreAreas === 1 ? 'area' : 'areas'}
-              </span>
+            {moreElsewhere > 0 ? (
+              <span className="shrink-0 whitespace-nowrap">· +{moreElsewhere} more</span>
             ) : null}
             {/* The one thing the row was missing: at rest the middle slot read as a caption, so
                 nothing on screen said the list was there to be pulled up. The underline it used to
@@ -536,9 +506,7 @@ function PlaceList({
           {/* The same string at `half` and at `full`. `Your places` used to sit here at `full`, and
               deleting it is the point: at `full` the map is covered, so this line is the only thing
               on screen explaining why the list is twelve rows and not twenty. Removing the
-              explanation exactly when the evidence is hidden is the wrong trade.
-              `tabIndex={-1}` makes it a focus target for the escapes below without putting it in
-              the tab order. */}
+              explanation exactly when the evidence is hidden is the wrong trade. */}
           {/* `key` on the area, so React remounts the heading and `tw-animate-css`'s entrance runs:
               140 ms, the one piece of motion that marks the one legitimate change of scope (§7).
               It is deliberately not applied when only the *count* changes — filtering re-renders
@@ -549,8 +517,6 @@ function PlaceList({
               changes with reduced motion on should be one frame. */}
           <h2
             key={activeAreaId ?? 'no-area'}
-            ref={headingRef}
-            tabIndex={-1}
             className="animate-in fade-in-0 duration-140 font-heading text-xl font-extrabold tracking-tight text-foreground outline-none motion-reduce:animate-none"
           >
             {headingText}
@@ -613,13 +579,10 @@ function PlaceList({
                     ))}
                   </ul>
                 )}
-                <ElsewhereSection
-                  entries={elsewhere}
-                  filtering={filtering}
-                  expansion={countryExpansion}
-                  expansionDefault="active-and-previous"
-                  onToggleCountry={onToggleCountry}
-                  onSelectArea={selectArea}
+                <EverywhereElse
+                  places={otherPlaces}
+                  flush={heading.empty}
+                  {...(onSelect ? { onSelect } : {})}
                 />
               </div>
             </>
@@ -910,6 +873,55 @@ export function ClearSearchEscape({ onClearSearch }: { onClearSearch: () => void
         Clear search
       </Button>
     </div>
+  );
+}
+
+/**
+ * The rest of your library, under the places the header is about.
+ *
+ * **This is what replaced `Elsewhere`** (owner ruling, 2026-08-30; the fallback written into
+ * `docs/ux-stable-area-list.md`:114). That section listed the user's other *areas* — a country row
+ * you expanded to reach a city row you tapped to change the whole list — and on a real library it
+ * rendered as five Israeli cities filed under `Israel 4 places`. The plan had already refused a
+ * city switcher twice (`current-state.md` §9.3, `ux-map-is-the-query.md` §8); the section overturned
+ * that refusal and the owner has put it back. So the places outside the scope are simply the next
+ * rows: no tree, no expansion state, no tap that means something different from every other tap in
+ * the scroll.
+ *
+ * The rule and the heading stay, and they are not decoration. `3 places in תל אביב-יפו` above eight
+ * rows would be a count that describes neither the list nor anything else, and this is still the one
+ * place in the scroll where the rows stop being about the header. What it is *not* any more is a
+ * control: nothing here is focusable, and the rows below it are ordinary `PlaceRow`s that open a
+ * place, which is what every other row in the list already does.
+ *
+ * `flush` drops the rule for the states that render no rows above it (`No matches in London`,
+ * `You've been to all of them in London`) — a divider between a heading and the first thing under it
+ * separates nothing. Those states are also the reason this section is rendered outside
+ * `heading.empty`: it is what they escape to, and the spec granted them no button precisely because
+ * the matches were listed underneath.
+ */
+export function EverywhereElse({
+  places,
+  flush = false,
+  onSelect,
+}: {
+  places: readonly MapPlace[];
+  flush?: boolean;
+  onSelect?: (place: MapPlace) => void;
+}) {
+  if (places.length === 0) return null;
+
+  return (
+    <section className={flush ? '' : 'mt-5 border-t border-border/70 pt-4'}>
+      <h3 className="px-1 pb-1.5 font-heading text-sm font-extrabold tracking-tight text-foreground">
+        Everywhere else
+      </h3>
+      <ul>
+        {places.map((place) => (
+          <PlaceRow key={place.id} place={place} {...(onSelect ? { onSelect } : {})} />
+        ))}
+      </ul>
+    </section>
   );
 }
 
