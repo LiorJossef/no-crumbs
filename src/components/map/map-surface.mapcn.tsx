@@ -240,7 +240,7 @@ function fitBoundsPadding(
  */
 type Framing =
   | { readonly kind: 'fit'; readonly target: [[number, number], [number, number]] }
-  | { readonly kind: 'country'; readonly request: FocusBoundsRequest };
+  | { readonly kind: 'bounds'; readonly request: FocusBoundsRequest };
 
 /**
  * Container-size observers, keyed by map instance. A module-level `WeakMap` rather than a `useRef`
@@ -335,6 +335,7 @@ export function MapSurfaceMapcn({
   selectedOcclusionFraction,
   floatingTopChromePx,
   onViewportChange,
+  controlSlot,
 }: MapSurfaceProps) {
   const data = useMemo(() => toPlaceFeatures(places), [places]);
   /** The open pin's neighbours, for the popover's `Nearby` section. Same rule as the mobile
@@ -454,11 +455,17 @@ export function MapSurfaceMapcn({
   );
 
   /**
-   * The country framing itself, separated from the effect that requests it so that the resize path
-   * can reproduce it. See camera mover 5 below for why it is `cameraForBounds` → clamp → `easeTo`
-   * and not `fitBounds`.
+   * The `focusBounds` framing itself, separated from the effect that requests it so that the resize
+   * path can reproduce it. See camera mover 5 below for why it is `cameraForBounds` → clamp →
+   * `easeTo` and not `fitBounds`.
+   *
+   * Two movers use it and the second is why it is no longer called `frameCountry`: near-me (mover
+   * 8) asks for a **zero-extent** box at the user's own point with `minZoom === maxZoom`, which is
+   * the same request shape saying "centre here, rest at exactly this zoom". A degenerate box is
+   * handled by the code below without a branch — `cameraForBounds` either returns a finite camera
+   * or nothing, and both paths already fall back to the box's own centre and `minZoom`.
    */
-  const frameCountry = useCallback(
+  const frameBounds = useCallback(
     (map: MapLibreMap, request: FocusBoundsRequest, animate: boolean) => {
       const { bounds, minZoom, maxZoom } = request;
       const padding = paddingFor(map);
@@ -473,7 +480,7 @@ export function MapSurfaceMapcn({
         (bounds.west + bounds.east) / 2,
         (bounds.north + bounds.south) / 2,
       ];
-      framing.current = { kind: 'country', request };
+      framing.current = { kind: 'bounds', request };
       hasFramedOnce.current = true;
       if (bounds.east - bounds.west > 180) {
         map.easeTo({ center: centre, zoom: minZoom, duration });
@@ -512,13 +519,13 @@ export function MapSurfaceMapcn({
         fitToBounds(map);
         return;
       }
-      if (current.kind === 'country') {
-        frameCountry(map, current.request, false);
+      if (current.kind === 'bounds') {
+        frameBounds(map, current.request, false);
         return;
       }
       fitTo(map, current.target, false);
     },
-    [fitTo, fitToBounds, frameCountry]
+    [fitTo, fitToBounds, frameBounds]
   );
 
   // The viewport reporter, held in a ref so attaching the MapLibre listeners does not depend on the
@@ -824,7 +831,7 @@ export function MapSurfaceMapcn({
    * `prefers-reduced-motion` needs no branch: `easeTo` sets its own duration to 0 under it, as long
    * as nothing passes `essential: true`, and nothing here does.
    *
-   * The framing itself lives in `frameCountry` above, because a resize has to be able to reproduce
+   * The framing itself lives in `frameBounds` above, because a resize has to be able to reproduce
    * it. It did not, until now: this flight recorded nothing, so the next container resize re-fitted
    * the *library* box and threw the camera back off the country the user had just chosen.
    */
@@ -835,8 +842,8 @@ export function MapSurfaceMapcn({
     const instance = mapRef.current;
     if (!instance) return;
     flownBounds.current = focusBounds;
-    whenReady(instance, () => frameCountry(instance, focusBounds, true));
-  }, [focusBounds, frameCountry]);
+    whenReady(instance, () => frameBounds(instance, focusBounds, true));
+  }, [focusBounds, frameBounds]);
 
   /**
    * **Camera mover 6: the pin you just tapped is not allowed to vanish under the sheet.**
@@ -935,23 +942,36 @@ export function MapSurfaceMapcn({
       styles={{ light: CARTO_LIGHT_STYLE, dark: CARTO_LIGHT_STYLE }}
       attributionControl={{ compact: true }}
     >
-      {/* Zoom and locate only. The compass steers a bearing the map never leaves 0 for, and
-          "fullscreen" on a surface that already fills the viewport is an icon for a no-op — five
-          stacked buttons were ~250px of an 812px phone, and the two lowest of them sat under the
-          sheet.
+      {/* Zoom only, plus whatever the caller puts in `controlSlot` above it. The compass steers a
+          bearing the map never leaves 0 for, and "fullscreen" on a surface that already fills the
+          viewport is an icon for a no-op — five stacked buttons were ~250px of an 812px phone, and
+          the two lowest of them sat under the sheet.
           Dropping to three did not clear the sheet: at 375x812 the group still opened at y=667
           against a sheet top of 684, so `Zoom out` and `Find my location` were both wholly behind
           it and the locate button also sat under the create FAB. The `globals.css` rule that lifts
           the attribution cannot reach these — it selects `.maplibregl-ctrl-bottom-right`, MapLibre's
-          own chrome, and `<MapControls>` is a plain absolutely-positioned div beside it. The inset
+          own chrome, and the column below is a plain absolutely-positioned div beside it. The inset
           is the same one that rule uses (peek + safe area) plus room for the attribution line the
-          group now stacks above. `lg` restores the library default: no sheet, nothing to clear. */}
-      <MapControls
-        showZoom
-        showLocate
-        onUserZoom={handleControlZoom}
-        className="bottom-[calc(128px+env(safe-area-inset-bottom)+3rem)] lg:bottom-10"
-      />
+          group now stacks above. `lg` restores the library default: no sheet, nothing to clear.
+
+          `showLocate` is deliberately **off** since `L1-F11`. The registry's own locate button
+          answers a denial with a `console.error` and a stopped spinner, and flies the camera itself
+          at a hard-coded zoom — a silent failure and an undocumented camera mover, neither
+          fixable from outside `components/ui/map.tsx`. `NearMeControl` arrives through the slot
+          instead, owned by the page.
+
+          The column is one absolutely-positioned flex stack holding both, so the slot and the zoom
+          group cannot drift apart at a breakpoint. `MapControls` is taken out of its own corner by
+          `relative bottom-auto right-auto`, which `cn`'s tailwind-merge resolves against the
+          `absolute bottom-* right-*` it applies itself. */}
+      <div className="absolute right-2 z-10 flex flex-col items-end gap-1.5 bottom-[calc(128px+env(safe-area-inset-bottom)+3rem)] lg:bottom-10">
+        {controlSlot}
+        <MapControls
+          showZoom
+          onUserZoom={handleControlZoom}
+          className="relative bottom-auto right-auto"
+        />
+      </div>
       <BasemapTint />
       {hasSummaryBands && (
         <SummaryMarkerLayer

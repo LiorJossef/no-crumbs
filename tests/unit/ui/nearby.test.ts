@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { nearbyDistanceLabel, nearbyPlaces, type NearbyCandidate } from '@/ui/place/nearby';
+import {
+  NEAR_ME_MAX_KM,
+  distancesFromUser,
+  nearbyDistanceLabel,
+  nearbyPlaces,
+  nearestArea,
+  nearestFirst,
+  type NearbyCandidate,
+} from '@/ui/place/nearby';
+import { DEFAULT_CLUSTER_RADIUS_KM } from '@/domain/places/clusters';
 
 /** Real Tel Aviv coordinates from the local library, so the distances below are real distances. */
 const KOHI = { id: 'kohi', name: 'Kohi', lat: 32.0883, lng: 34.7733 };
@@ -100,5 +109,102 @@ describe('nearbyDistanceLabel', () => {
   it('switches to one decimal at a kilometre', () => {
     expect(nearbyDistanceLabel(1)).toBe('1.0 km');
     expect(nearbyDistanceLabel(1.24)).toBe('1.2 km');
+  });
+});
+
+/**
+ * Near me (`L1-F11`). The origin is the user, not the map, and these are the three functions the
+ * list side of that is made of. Coordinates are the same real Tel Aviv and London rows as above, so
+ * every distance below is a distance that exists.
+ */
+const DIZENGOFF_SQUARE = { lat: 32.0787, lng: 34.7743 };
+
+describe('distancesFromUser', () => {
+  it('measures the places that are actually near you', () => {
+    const distances = distancesFromUser(DIZENGOFF_SQUARE, ALL);
+    expect(distances.get('kohi')).toBeCloseTo(1.07, 1);
+    expect(distances.get('hakosem')).toBeCloseTo(0.34, 1);
+  });
+
+  it('leaves out what is beyond reach rather than labelling it 3,600 km', () => {
+    // Standing in Tel Aviv, a London row gets no distance at all. A number that large is
+    // arithmetic, not information, and it would push the rows that matter down the list.
+    const distances = distancesFromUser(DIZENGOFF_SQUARE, ALL);
+    expect(distances.has('london')).toBe(false);
+  });
+
+  it('reaches exactly as far as an area does', () => {
+    expect(NEAR_ME_MAX_KM).toBe(DEFAULT_CLUSTER_RADIUS_KM);
+    const justInside = { id: 'edge', lat: 32.0787 + 0.4, lng: 34.7743 };
+    const justOutside = { id: 'far', lat: 32.0787 + 0.6, lng: 34.7743 };
+    const distances = distancesFromUser(DIZENGOFF_SQUARE, [justInside, justOutside]);
+    expect(distances.has('edge')).toBe(true);
+    expect(distances.has('far')).toBe(false);
+  });
+});
+
+describe('nearestFirst', () => {
+  it('lifts the places near you to the top, nearest first', () => {
+    const distances = distancesFromUser(DIZENGOFF_SQUARE, ALL);
+    expect(nearestFirst(ALL, distances).map((p) => p.id)).toEqual([
+      'hakosem',
+      'gelalucci',
+      'kohi',
+      'london',
+    ]);
+  });
+
+  it('leaves everything beyond reach in the order the library gave it', () => {
+    // Two London rows with no distance keep their library order (most recently saved first) behind
+    // the measured ones, rather than being sorted by a number they do not have.
+    const rows = [
+      { id: 'london-new' },
+      { id: 'london-old' },
+      { id: 'kohi' },
+    ];
+    const distances = new Map([['kohi', 1.13]]);
+    expect(nearestFirst(rows, distances).map((p) => p.id)).toEqual([
+      'kohi',
+      'london-new',
+      'london-old',
+    ]);
+  });
+
+  it('is the identity, by reference, when nothing is near you', () => {
+    // Every render before anyone presses the control, and every fix taken far from the library.
+    // Returning the same array is what stops the list re-rendering for a measurement that changed
+    // nothing.
+    expect(nearestFirst(ALL, new Map())).toBe(ALL);
+  });
+});
+
+describe('nearestArea', () => {
+  const TEL_AVIV = { id: 'kohi', points: [KOHI, HAKOSEM, GELALUCCI] };
+  const LONDON_AREA = { id: 'london', points: [LONDON] };
+  const AREAS = [TEL_AVIV, LONDON_AREA];
+
+  it('picks the area you are standing in', () => {
+    expect(nearestArea(AREAS, DIZENGOFF_SQUARE)?.id).toBe('kohi');
+  });
+
+  it('measures to the nearest member, never to the middle of the cluster', () => {
+    // An area is a ~50 km cluster, so its mean can sit kilometres from every place in it. Measuring
+    // to the mean would tell someone standing outside one of their own cafés that they are
+    // somewhere else.
+    const spread = { id: 'spread', points: [KOHI, { lat: 32.4, lng: 34.9 }] };
+    expect(nearestArea([spread], KOHI)?.id).toBe('spread');
+  });
+
+  it('says nothing rather than handing you an area you are not in', () => {
+    // Ashkelon-ish: inside Israel, 50+ km from every saved place. The camera still flies to the
+    // user; the list keeps the area they were reading.
+    expect(nearestArea(AREAS, { lat: 31.6, lng: 34.55 })).toBeNull();
+  });
+
+  it('answers identically for two equidistant areas, whatever order they arrive in', () => {
+    const left = { id: 'aaa', points: [{ lat: 32.0787, lng: 34.7643 }] };
+    const right = { id: 'zzz', points: [{ lat: 32.0787, lng: 34.7843 }] };
+    expect(nearestArea([left, right], DIZENGOFF_SQUARE)?.id).toBe('aaa');
+    expect(nearestArea([right, left], DIZENGOFF_SQUARE)?.id).toBe('aaa');
   });
 });

@@ -27,7 +27,11 @@
  * hide a place the user saved.
  */
 
-import { haversineKm, type GeoPoint } from '@/domain/places/clusters';
+import {
+  DEFAULT_CLUSTER_RADIUS_KM,
+  haversineKm,
+  type GeoPoint,
+} from '@/domain/places/clusters';
 import { placeNameKey } from '@/domain/places/name-key';
 
 /** A short walk. See the module docblock. */
@@ -109,4 +113,107 @@ export function nearbyDistanceLabel(km: number): string {
     return `${metres} m`;
   }
   return `${km.toFixed(1)} km`;
+}
+
+/**
+ * ## Near me (`L1-F11`)
+ *
+ * The three functions below are the same distance work applied to a different origin: not the place
+ * you have open, but **you**. They exist here rather than in a module of their own so the product
+ * has exactly one answer to "how far apart are these two saves", one rounding rule for saying it,
+ * and one place where a distance can start being wrong.
+ *
+ * They take a plain `GeoPoint` and never a state, a permission or a map. Whether there is a real
+ * user location to pass is `components/map/near-me.ts`'s `distanceOrigin`, and it is the only
+ * caller allowed to answer it — a map centre is not an origin, which is the whole of `T2`.
+ */
+
+/**
+ * How far away a saved place has to be before "near you" stops being a claim about anywhere.
+ *
+ * The same ~50 km that defines an *area*, and deliberately the same constant rather than a second
+ * number: an area is already the product's unit of "the places around here", so near-me measures
+ * exactly as far as the thing the list is grouped into. Beyond it a distance is arithmetic rather
+ * than information — `3,600 km` under a London row while you stand in Tel Aviv tells you nothing
+ * you did not know and buries the rows that do.
+ */
+export const NEAR_ME_MAX_KM = DEFAULT_CLUSTER_RADIUS_KM;
+
+/**
+ * Distance from the user to each place that is genuinely near them, by place id.
+ *
+ * Places beyond the reach are **absent from the map**, not present with a large number: a caller
+ * renders what is here and nothing where there is nothing, so there is no threshold logic at the
+ * call site to get wrong.
+ */
+export function distancesFromUser(
+  origin: GeoPoint,
+  places: readonly ({ readonly id: string } & GeoPoint)[],
+  maxKm: number = NEAR_ME_MAX_KM,
+): ReadonlyMap<string, number> {
+  const distances = new Map<string, number>();
+  for (const place of places) {
+    const km = haversineKm(origin, place);
+    if (km <= maxKm) distances.set(place.id, km);
+  }
+  return distances;
+}
+
+/**
+ * The list with the places near you lifted to the top, nearest first, and everything else left
+ * exactly as it arrived.
+ *
+ * The library's own order (most recently saved first) is the default and stays the default — this
+ * only reorders while a real fix is being held, and it degrades to the identity when the user has
+ * nothing within reach. Returned **by identity** in that case so a `useMemo` downstream of it does
+ * not re-render every row for a fix taken 400 km from anything.
+ *
+ * The two groups keep their relative order (`sort` is stable), so two places at the same distance,
+ * and every place beyond the reach, are still in the order the list would otherwise have shown.
+ */
+export function nearestFirst<T extends { readonly id: string }>(
+  places: readonly T[],
+  distances: ReadonlyMap<string, number>,
+): readonly T[] {
+  if (distances.size === 0) return places;
+  return [...places].sort((left, right) => {
+    const a = distances.get(left.id);
+    const b = distances.get(right.id);
+    if (a === undefined && b === undefined) return 0;
+    if (a === undefined) return 1;
+    if (b === undefined) return -1;
+    return a - b;
+  });
+}
+
+/**
+ * Which of the user's own areas they are standing in: the one with a saved place nearest to them,
+ * within reach.
+ *
+ * `null` when nothing they have saved is within `maxKm`, and that is a real answer rather than a
+ * gap — near-me still moves the camera to them, and the list keeps saying what it said, because
+ * inventing an area they are not in would be the map answering a different question.
+ *
+ * Nearest **member**, not nearest centroid: an area is a ~50 km cluster and its mean can sit several
+ * kilometres from every place in it, so a user standing outside one café would otherwise be told
+ * they are somewhere else. Ties break on the area's own id so two equidistant areas cannot swap
+ * between two taps.
+ */
+export function nearestArea<A extends { readonly id: string; readonly points: readonly GeoPoint[] }>(
+  areas: readonly A[],
+  origin: GeoPoint,
+  maxKm: number = NEAR_ME_MAX_KM,
+): A | null {
+  let best: A | null = null;
+  let bestKm = Infinity;
+  for (const area of areas) {
+    let km = Infinity;
+    for (const point of area.points) km = Math.min(km, haversineKm(origin, point));
+    if (km > maxKm) continue;
+    if (km < bestKm || (km === bestKm && best !== null && area.id.localeCompare(best.id) < 0)) {
+      best = area;
+      bestKm = km;
+    }
+  }
+  return best;
 }

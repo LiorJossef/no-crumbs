@@ -16,6 +16,8 @@
  * surface implementing this port renders `places.length` pins — no merging, no counts.
  */
 
+import type { ReactNode } from 'react';
+
 import type { ProductCategory } from '@/domain/places/product-category';
 import type { Spot } from '@/domain/places/spot';
 import type { ZoomBand } from './zoom-bands';
@@ -299,6 +301,19 @@ export interface MapSurfaceProps {
    * than comparing raw numbers, per §1's antimeridian note.
    */
   readonly onViewportChange?: (bounds: LatLngBoundsHint, meta: ViewportChangeMeta) => void;
+  /**
+   * Extra chrome to render in the surface's own control column, above its zoom buttons.
+   *
+   * A slot and not a named `nearMe` prop, deliberately. The near-me control (`L1-F11`) has to sit
+   * where a locate control is looked for — beside the zoom buttons, which only the surface
+   * positions — while everything it *means* stays with the caller: the permission, the fix, the
+   * camera flight and the enumeration of who may move the camera. A named prop would put a
+   * geolocation vocabulary on a port whose whole job is to know nothing about the product, and
+   * every future surface would have to re-implement the same button.
+   *
+   * Omitted, the column holds only whatever the surface draws itself.
+   */
+  readonly controlSlot?: ReactNode;
 }
 
 /**
