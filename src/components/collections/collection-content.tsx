@@ -24,7 +24,7 @@
 import { useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Check, MoreHorizontal, Plus, Users } from 'lucide-react';
+import { ArrowLeft, Check, ChevronLeft, MoreHorizontal, Plus, Users } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,6 +43,14 @@ import {
 import type { CollectionDetail } from '@/app/collections/_lib/get-collections';
 import type { MapPlace } from '@/components/map/map-surface';
 import { cn } from '@/lib/utils';
+
+/**
+ * The product's kicker: 11 px, tracked, mint — the same treatment `import-page-client.tsx` draws
+ * above every screen title. Uppercasing is a Latin device with no Hebrew equivalent, so an RTL
+ * chrome carries the label by weight and colour instead.
+ */
+const KICKER =
+  'text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--mint-700)] rtl:normal-case rtl:tracking-normal';
 
 export type CollectionView = 'list' | 'place' | 'add' | 'share';
 
@@ -124,41 +132,20 @@ function CollectionList({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="shrink-0 px-4 pb-2 pt-1">
-        <div className="flex items-start gap-1">
-          <Button
-            render={<Link href="/collections" />}
-            nativeButton={false}
-            variant="ghost"
-            size="icon-lg"
-            aria-label="Back to collections"
-            className="-ml-2 size-11 shrink-0 rounded-full text-muted-foreground"
+        {/* The kicker row, and the up-link *is* the kicker: it says where it goes, in the slot the
+            unlabelled back arrow used to occupy, so nothing has to be relearned. */}
+        <div className="flex items-center gap-1">
+          <Link
+            href="/collections"
+            aria-label="Collections"
+            className={cn(
+              KICKER,
+              '-ms-2 inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full px-2 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+            )}
           >
-            <ArrowLeft className="size-4" aria-hidden />
-          </Button>
-          <div className="min-w-0 flex-1 pt-2.5">
-            <h2 className="line-clamp-2 font-heading text-base font-bold">
-              <bdi>{collection.name}</bdi>
-            </h2>
-            <button
-              type="button"
-              onClick={() => onViewChange('share')}
-              aria-label="Who is in this collection"
-              data-vaul-no-drag
-              className="mt-0.5 flex min-h-6 flex-wrap items-center gap-x-1.5 rounded text-start text-[13px] text-muted-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-            >
-              {/* Separate elements with a literal separator, never one interpolated string: a count
-                  and a Hebrew name in one line of text reorder around each other. `whitespace-nowrap`
-                  so the wrap happens between the two facts, not inside `3 places`. */}
-              <span className="whitespace-nowrap">
-                {placeCountLabel(collection.places.length)}
-              </span>
-              <span aria-hidden>·</span>
-              <span className="flex items-center gap-1 whitespace-nowrap">
-                <Users className="size-3" aria-hidden />
-                <bdi>{membersLine(collection, currentUserId)}</bdi>
-              </span>
-            </button>
-          </div>
+            <ChevronLeft className="size-3.5 shrink-0 rtl:rotate-180" aria-hidden />
+            Collection
+          </Link>
           <Button
             type="button"
             variant="ghost"
@@ -167,11 +154,32 @@ function CollectionList({
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((open) => !open)}
             data-vaul-no-drag
-            className="size-11 shrink-0 rounded-full text-muted-foreground"
+            className="ms-auto size-11 shrink-0 rounded-full text-muted-foreground"
           >
             <MoreHorizontal className="size-4" aria-hidden />
           </Button>
         </div>
+
+        <h2 className="line-clamp-2 font-heading text-base font-bold">
+          <bdi>{collection.name}</bdi>
+        </h2>
+        <button
+          type="button"
+          onClick={() => onViewChange('share')}
+          aria-label="Who is in this collection"
+          data-vaul-no-drag
+          className="mt-0.5 flex min-h-6 flex-wrap items-center gap-x-1.5 rounded text-start text-[13px] text-muted-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          {/* Separate elements with a literal separator, never one interpolated string: a count and
+              a Hebrew name in one line of text reorder around each other. `whitespace-nowrap` so the
+              wrap happens between the two facts, not inside `3 places`. */}
+          <span className="whitespace-nowrap">{placeCountLabel(collection.places.length)}</span>
+          <span aria-hidden>·</span>
+          <span className="flex items-center gap-1 whitespace-nowrap">
+            <Users className="size-3" aria-hidden />
+            <bdi>{membersLine(collection, currentUserId)}</bdi>
+          </span>
+        </button>
 
         {menuOpen ? (
           <CollectionMenu
