@@ -28,6 +28,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 
+import { DISPLAY_HEADING_AXES } from '@/components/brand/display-type';
 import { PinMark } from '@/components/brand/pin-mark';
 import { Button } from '@/components/ui/button';
 
@@ -84,15 +85,24 @@ export default function ShellError({
           to hold an editorial column beside a form, and a failure screen has no second panel of
           content to put there. Mobile keeps the shared shape — hero at the top, action in the
           thumb zone via `mt-auto` — and desktop centres the same column. */}
-      <div className="w-full lg:max-w-[420px]">
-        <PinMark className="h-[30px] w-[30px] lg:h-9 lg:w-9" />
+      <div className="w-full lg:max-w-105">
+        <PinMark className="size-7.5 lg:size-9" />
 
         {/* Assertive: this content swaps in without a navigation, so nothing else announces it. */}
         <div role="alert">
-          <p className="mt-6 text-[11px] font-bold tracking-[0.14em] text-brand uppercase lg:text-[13px]">
+          <p className="mt-6 text-micro font-bold tracking-[0.14em] text-brand uppercase">
             {SHELL_ERROR_COPY.kicker}
           </p>
-          <h1 className="mt-2 font-heading text-[34px] leading-[1.05] font-extrabold tracking-tight text-foreground lg:text-[40px]">
+          {/* The display face, and the token type scale. `brand-and-product-foundation.md` §3.1
+              gives `h1`/`h2` to Fraunces; a failure screen is still the product speaking. What was
+              here was `font-heading text-[34px] leading-[1.05] lg:text-[40px]` — three arbitrary
+              values for a size W0 registered as `--text-display` with its own line height. The
+              `lg` bump to 40px goes with them: this column is capped at 420px on desktop and 34px
+              already fills it, so the bump only made the failure louder. */}
+          <h1
+            className="mt-2 font-display text-display font-bold tracking-tight text-foreground"
+            style={DISPLAY_HEADING_AXES}
+          >
             {SHELL_ERROR_COPY.headline}
           </h1>
           <p className="mt-3 max-w-sm text-sm font-medium leading-snug text-muted-foreground lg:text-base">
@@ -101,10 +111,10 @@ export default function ShellError({
         </div>
       </div>
 
-      <div className="mt-auto w-full pt-10 lg:mt-0 lg:max-w-[420px]">
+      <div className="mt-auto w-full pt-10 lg:mt-0 lg:max-w-105">
         <Button
           onClick={() => retry()}
-          className="h-12 w-full rounded-lg text-base font-bold lg:h-[52px] lg:text-[15.5px]"
+          className="h-12 w-full rounded-lg text-base font-bold lg:h-13 lg:text-reading"
         >
           {SHELL_ERROR_COPY.retry}
         </Button>

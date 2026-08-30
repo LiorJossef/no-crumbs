@@ -1,5 +1,16 @@
 'use client';
 
+import {
+  BRAND_HAIRLINE,
+  BRAND_INK,
+  BRAND_INK_MUTED,
+  BRAND_INK_ON_MINT,
+  BRAND_MINT,
+  BRAND_MINT_DEEP,
+  BRAND_SURFACE,
+} from '@/components/brand/brand-colors';
+import { CRUMB_PATH, CRUMB_VIEWBOX } from '@/components/brand/crumb-path';
+
 /**
  * The last resort: the boundary for a failure in the root layout itself, which is the one place
  * `error.tsx` cannot reach.
@@ -7,17 +18,31 @@
  * **This file is plain on purpose, and that is a constraint rather than a shortcut.** When it
  * renders it *replaces the whole document*, `<html>` and `<body>` included, so the root layout
  * never runs — Next's own reference says global-error "does not include your global styles", and
- * the Manrope webfont is loaded by the layout this file is standing in for. A Tailwind class here
- * would resolve to nothing and a `var(--foreground)` would resolve to nothing, which on a page
- * whose entire job is to be readable means invisible text. So: inline styles only, a system font
- * stack, and the design tokens written as their literal values. That is a deliberate exception to
- * `brand-and-product-foundation.md` §5's "every colour is a token" — the values below are copies
- * of `--background`, `--foreground`, `--muted-foreground`, `--border`, `--primary` and
- * `--ink-on-mint` from `globals.css`, and if the palette moves they are the one place that will
- * not follow.
+ * the Manrope and Fraunces webfonts are loaded by the layout this file is standing in for. A
+ * Tailwind class here would resolve to nothing and a `var(--foreground)` would resolve to nothing,
+ * which on a page whose entire job is to be readable means invisible text. So: inline styles only,
+ * a system font stack, and the design tokens as their literal values.
  *
- * Do not add a component import, an icon or a stylesheet to this file. Everything it needs must
- * survive the app being broken.
+ * **The literals are no longer a private copy** — W7-5. The comment they replaced said, correctly,
+ * that "if the palette moves they are the one place that will not follow". That is now fixed rather
+ * than merely documented: they come from `components/brand/brand-colors.ts`, whose unit test
+ * asserts all seven against `:root` in `globals.css`. The exception to
+ * `brand-and-product-foundation.md` §5's "every colour is a token" stands; what changed is that the
+ * exception is now checked.
+ *
+ * **On the rule that used to read "do not add a component import, an icon or a stylesheet".** Its
+ * reason is still exactly right — everything here must survive the app being broken, and the
+ * last-resort document must not depend on the module graph of the boundary it is backstopping. What
+ * it now permits, and only this: **leaf modules of plain constants that import nothing themselves.**
+ * `crumb-path.ts` is a string and some numbers; `brand-colors.ts` is seven strings. Neither can
+ * fail to evaluate, neither pulls React, a component, an icon library or CSS, and both are inlined
+ * by the bundler. **Still forbidden: a component, an icon package, a stylesheet, a hook, anything
+ * with a side effect at import time.** If you cannot say in one line why an import cannot throw, it
+ * does not belong in this file.
+ *
+ * The mark is drawn as an inline `<svg>` from that shared path for the same reason. It is the
+ * product's mark at the moment the product is least recognisable, and a `<PinMark>` import would
+ * have been exactly the component this file refuses.
  */
 
 /**
@@ -25,7 +50,9 @@
  * import: the last-resort document should not depend on the module graph of the boundary it is
  * backstopping. A unit test pins the two to the same behaviour so the duplication cannot drift.
  */
-export function globalErrorReference(digest: string | undefined): string | null {
+export function globalErrorReference(
+  digest: string | undefined,
+): string | null {
   if (!digest) return null;
   const safe = digest.replace(/[^a-zA-Z0-9]/g, '').slice(0, 16);
   return safe.length > 0 ? safe : null;
@@ -39,14 +66,27 @@ export const GLOBAL_ERROR_COPY = {
   referenceLabel: 'Reference',
 } as const;
 
-const INK = '#1B1B1A';
-const MUTED_INK = '#75716A';
-const SURFACE = '#FAF9F6';
-const MINT = '#A8ECE2';
-const INK_ON_MINT = '#123B35';
-const HAIRLINE = '#E7E3DC';
-const SYSTEM_FONT =
-  'system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+const SYSTEM_FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+
+/**
+ * The nearest thing to the display face that needs no webfont.
+ *
+ * `no-crumbs-design-system.html` declares the display family as
+ * `"Fraunces", "Iowan Old Style", Georgia, serif`. Fraunces cannot load here, so this is the rest of
+ * that stack — the fallback the design system already chose, rather than a new decision made in an
+ * error boundary. The headline comes out a serif on every platform the product runs on, which is
+ * most of what makes this screen read as *this* product rather than as the browser's own error page.
+ */
+const FALLBACK_DISPLAY_FONT = '"Iowan Old Style", Georgia, "Times New Roman", serif';
+
+/**
+ * The mint bloom off the top-right corner.
+ *
+ * `--brand-wash` stacks three radials over `--background`; this is the one that carries it, at the
+ * one opacity that survives being written as an eight-digit hex. Written out because there is no
+ * stylesheet here to read the token from — the same reason as the colours above it.
+ */
+const WASH = `radial-gradient(120% 90% at 108% -12%, ${BRAND_MINT}66 0%, ${BRAND_SURFACE} 62%)`;
 
 export default function GlobalError({
   error,
@@ -60,7 +100,15 @@ export default function GlobalError({
 
   return (
     <html lang="en">
-      <body style={{ margin: 0, background: SURFACE, color: INK, fontFamily: SYSTEM_FONT }}>
+      <body
+        style={{
+          margin: 0,
+          background: BRAND_SURFACE,
+          backgroundImage: WASH,
+          color: BRAND_INK,
+          fontFamily: SYSTEM_FONT,
+        }}
+      >
         {/* React 19 hoists these into <head>. The viewport meta is not optional here: the root
             layout's `viewport` export is gone with the layout, and without it a phone renders
             this at desktop width — unreadable, on the screen that exists to be read. */}
@@ -80,18 +128,42 @@ export default function GlobalError({
             margin: '0 auto',
           }}
         >
+          {/* The crumb, drawn from the shared path. Thirty pixels, the size it is on `/`,
+              `/sign-in`, `error.tsx` and `not-found.tsx` — so the one screen that cannot load the
+              product's stylesheet still opens with the product's mark. */}
+          <svg
+            viewBox={`0 0 ${CRUMB_VIEWBOX} ${CRUMB_VIEWBOX}`}
+            width="30"
+            height="30"
+            aria-hidden="true"
+            style={{ display: 'block', marginBottom: '20px' }}
+          >
+            <path d={CRUMB_PATH} fill={BRAND_MINT_DEEP} />
+          </svg>
+
           <h1
             style={{
               margin: 0,
-              fontSize: '30px',
-              lineHeight: 1.1,
-              fontWeight: 800,
-              letterSpacing: '-0.02em',
+              // A serif, and one notch lighter than the 800 it was. The display face is set at 700
+              // everywhere else in the product (`components/brand/display-type.ts`); an extra-bold
+              // serif at 32px on a failure screen reads as shouting.
+              fontFamily: FALLBACK_DISPLAY_FONT,
+              fontSize: '32px',
+              lineHeight: 1.12,
+              fontWeight: 700,
+              letterSpacing: '-0.012em',
             }}
           >
             {GLOBAL_ERROR_COPY.headline}
           </h1>
-          <p style={{ margin: '12px 0 0', fontSize: '15px', lineHeight: 1.4, color: MUTED_INK }}>
+          <p
+            style={{
+              margin: '12px 0 0',
+              fontSize: '15px',
+              lineHeight: 1.4,
+              color: BRAND_INK_MUTED,
+            }}
+          >
             {GLOBAL_ERROR_COPY.body}
           </p>
 
@@ -103,9 +175,12 @@ export default function GlobalError({
               minHeight: '48px',
               width: '100%',
               border: 'none',
-              borderRadius: '16px',
-              background: MINT,
-              color: INK_ON_MINT,
+              // 8px, the product's `--radius-lg`, not the 16px this used to draw. A pill-radius
+              // button is not a shape the rest of the product has, and the point of this screen is
+              // to look like the rest of the product.
+              borderRadius: '8px',
+              background: BRAND_MINT,
+              color: BRAND_INK_ON_MINT,
               font: 'inherit',
               fontSize: '16px',
               fontWeight: 700,
@@ -125,9 +200,9 @@ export default function GlobalError({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              borderRadius: '16px',
-              border: `1px solid ${HAIRLINE}`,
-              color: INK,
+              borderRadius: '8px',
+              border: `1px solid ${BRAND_HAIRLINE}`,
+              color: BRAND_INK,
               fontSize: '15px',
               fontWeight: 700,
               textDecoration: 'none',
@@ -137,9 +212,21 @@ export default function GlobalError({
           </a>
 
           {reference && (
-            <p style={{ margin: '16px 0 0', fontSize: '12px', color: MUTED_INK, textAlign: 'center' }}>
+            <p
+              style={{
+                margin: '16px 0 0',
+                fontSize: '12px',
+                color: BRAND_INK_MUTED,
+                textAlign: 'center',
+              }}
+            >
               {GLOBAL_ERROR_COPY.referenceLabel}{' '}
-              <span style={{ fontFamily: 'ui-monospace, monospace', userSelect: 'all' }}>
+              <span
+                style={{
+                  fontFamily: 'ui-monospace, monospace',
+                  userSelect: 'all',
+                }}
+              >
                 {reference}
               </span>
             </p>
