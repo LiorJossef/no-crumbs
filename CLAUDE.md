@@ -136,6 +136,24 @@ before claiming anything is green. Still needing a specific instruction each tim
 history rewrites, branch deletion, direct pushes to `main`, `--admin`/`--auto` merges, merging
 anything not green, reverting what is already on `main`, and destructive database operations.
 
+**The Claude Code setup is project-contained and committed — owner ruling, 2026-08-30,
+[`docs/claude-code-setup.md`](docs/claude-code-setup.md).** `.claude/settings.json` (the permission
+posture), `.claude/agents/` (the eleven specialists) and `.claude/hooks/` all live in the repo and
+are reviewable in a diff; nothing this project depends on sits in `~/.claude/`. The settings turn
+`git-workflow.md` §9.3 and `agent-guardrails.md` §1–§4 from prose into rules the harness enforces:
+**`deny`** for what nobody may do here (force-push, `reset`/`clean`/`stash`/`restore`, rebase, branch
+deletion, `revert`, `gh pr merge` by hand, mutating `gh api`, `vercel:*`, and **reading any `.env*`
+file**), **`ask`** for the deliberate announced steps (`db:push:*`, `db:reset`, `merge:pr`, and edits
+to the guarded files in §4.15), **`allow`** for the ordinary toolchain. A project `deny` outranks
+every `allow`, including any in a user-level settings file — that is how the repo holds its own
+posture. `.claude/settings.local.json` is gitignored and must never carry a rule the team relies on.
+
+Run **`npm run check:claude`** (also inside `npm run verify`) to prove it is still wired. It failed
+for real on 2026-08-30: `core.hooksPath` was unset and `.git/hooks/` did not exist, so
+`.githooks/pre-push` — the only refusal of a direct push to `main` — was dead. Root cause:
+`node_modules/` was absent, so `prepare` had never run. `.claude/hooks/ensure-git-hooks.sh` now
+re-arms it at every session start rather than at install time.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know
