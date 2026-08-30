@@ -1,10 +1,25 @@
 # Restoring the Vercel environment variables
 
+> **RESOLVED 2026-08-29 — the env store was filled and production is live.** Verified 2026-08-30:
+> `https://p-002-zeta.vercel.app/healthz` answers `{"ok":true,"stage":"production","commit":"99324dd"}`,
+> which is current `main`.
+>
+> **What is still CURRENT in this file:** §2's variable matrix (the authoritative list of what the
+> code reads and how each one must be scoped), §3's procedure, and §5's observation that `/healthz`
+> cannot detect a broken deploy. Use it as the env reference, and as the checklist if the store is
+> ever lost again.
+>
+> **What is DATED:** every present-tense sentence about production being down, and every migration
+> number. §1 and §4 describe 2026-08-26 and are left standing as the incident record.
+>
 > Written **2026-08-26**, when production was found serving 500s because the Vercel project had **no
-> environment variables at all**. This is the checklist for putting them back. It is the owner's
-> job: it is credential entry into a third party, so it is not something an agent does.
+> environment variables at all**. Filling it in is the owner's job: it is credential entry into a
+> third party, so it is not something an agent does.
 
-## 1. What was found, and how to re-check it
+## 1. What was found on 2026-08-26 — the incident record
+
+> This section is DATED. It describes the outage, not today. The commands are still the right way to
+> re-check the store; the finding below is what they returned that day.
 
 ```bash
 npx vercel env ls production --project p-002
@@ -112,7 +127,14 @@ curl -s -o /dev/null -w '%{http_code}\n' https://p-002-zeta.vercel.app/import   
 enough to build a Supabase client, ask who the user is, and redirect. A 500 means the variables are
 still not reaching the build.
 
-Then sign in and open `/map`. **Expect it to fail at that point, and that failure is the *other*
+Then sign in and open `/map`.
+
+**The 2026-08-26 expectation below no longer applies.** Production's database has since been pushed
+to `0026`, measured 2026-08-30 with `npm run db:status:prod`, so the missing-column failure this
+paragraph predicts does not happen any more. The remaining production gap is `0028`–`0030`, the
+taxonomy alignment. The original text follows as the incident record:
+
+> **Expect it to fail at that point, and that failure is the *other*
 problem, not this one:** production is still on migration `0009`, so `get-spots.ts`'s select of
 `extracted_reason`, `source_url`, `address_line`, `source_dataset` and `resolution_score` has no
 columns to resolve. `current-state.md` §3.0 carries both halves. Fixing the env store makes the
@@ -136,11 +158,12 @@ not a silent wrong write) and the ordered fix are in
 
 ## 5. Worth fixing separately
 
-**Still true on 2026-08-28**, measured: `/healthz` → `200 {"ok":true,"stage":"production","commit":"5e312fe"}`,
-`/` → 200, `/sign-in` → 200, `/map` → **500**, `/import` → **500**. Production has been down since
-2026-08-26 and the only thing that has changed is which commit is broken.
+**Was true on 2026-08-28**, measured then: `/healthz` → `200 {"ok":true,"stage":"production","commit":"5e312fe"}`,
+`/` → 200, `/sign-in` → 200, `/map` → **500**, `/import` → **500**. That outage ran from 2026-08-26
+until the env store was filled on 2026-08-29. It is over.
 
-Nothing in this repo notices that production is down. `/healthz` returns `ok:true` with no
+**The gap it exposed is not**, and it is the reason this section survives the fix: nothing in this
+repo would notice the same outage again. `/healthz` returns `ok:true` with no
 environment variables set, because it deliberately reads no configuration — which was the right call
 for a deploy smoke check and is useless as a health check. A check that fetched `/map` and asserted
 `307` would have caught this the day it happened. That is a real gap, recorded here rather than

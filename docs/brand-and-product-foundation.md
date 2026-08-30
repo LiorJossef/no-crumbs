@@ -128,9 +128,13 @@ holds those strings and is ratified as written.
 ## 6. Navigation and screens — eight surfaces
 
 The IA principle is ratified as written in `ux-architecture` §1.1 and is the strongest structural
-decision in the product: **the map is the application shell, not a page inside it.** No tab bar. One
-persistent destination (`/map`), one primary action (add a link). Everything else is a layer over the
-map or a full-screen task that returns to it.
+decision in the product: **the map is the application shell, not a page inside it.** One persistent
+destination (`/map`), one primary action (add a link). Everything else is a layer over the map or a
+full-screen task that returns to it.
+
+**Corrected 2026-08-29:** "no tab bar" is reversed. The owner ruled for a bottom bar with paged
+destinations and it shipped (`src/components/nav/bottom-nav.tsx`); the shell principle above is
+unaffected, because `/map` is still the resting destination and the bar is chrome over it.
 
 | # | Route | Surface | Layer |
 |---|---|---|---|
@@ -141,7 +145,7 @@ map or a full-screen task that returns to it.
 | S5 | `/place/[id]` | **Place detail** — what it is, and which post made you save it | layer |
 | S6 | `/import` | **Add a link** — the flagship entry | layer |
 | S7 | `/import/[id]` | **Review & confirm** — the disambiguation surface | full |
-| S8 | `/add-place` | **Add a place you know** — manual add + delete. Never cut: CRUD evidence *and* the no-places recovery | layer |
+| S8 | `＋` → `Add a place` | **Add a place you know** — manual add + delete. Never cut: CRUD evidence *and* the no-places recovery. **Shipped 2026-08-30 as a sheet, not the `/add-place` route this row planned** | layer |
 | — | — | **First run** — the state of S3 at zero saved places, not a route | state |
 
 **Pruned from `ux-architecture` §1.2:** the account screen (S9) becomes a **popover** — sign out,
@@ -149,8 +153,13 @@ delete my data, location-permission state — and S1 loses its marketing content
 design and keep consistent, with nothing lost that the MVP needs.
 
 **Also out, and named so nobody re-proposes them:** settings pages, onboarding carousel,
-notifications, activity log, import history, profile, collections, share. A finished import has no
-artifact of its own — its output is pins.
+notifications, activity log, import history. A finished import has no artifact of its own — its
+output is pins.
+
+**Corrected 2026-08-30:** three names left that list by owner ruling and are now shipped —
+**collections** and **sharing a collection by invite** (`ux-collections.md`, migrations `0024`–`0026`)
+and **`/profile`**, which also holds sign-out. The refusals that still bind are the rest of the list,
+plus Charter §1's: no public profiles, no follower graph, no discovery feed.
 
 ## 7. The main mobile flow
 
@@ -167,8 +176,9 @@ matching → review → confirm → pins land** (F0→F8).
 
 Two properties of this flow are load-bearing and must not be traded for polish:
 
-1. **Each stage is a real event**, not a timed animation. The rail is honest by construction because
-   the streaming route (L0 step 5) emits the stages the rail renders.
+1. **Each stage is a real event**, not a timed animation. **Not true yet, 2026-08-30:** the streaming
+   route (`L0-F6`) does not exist and `/api/imports/probe` is still request/response, so today's rail
+   is driven client-side. This stays the bar the rail is held to, not a description of it.
 2. **Nothing reaches the map without confirmation**, and the no-places screen is a *designed
    destination* of this flow, not an error branch off it.
 

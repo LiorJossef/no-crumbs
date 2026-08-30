@@ -1,8 +1,12 @@
 # Navigation supplement — layering, empty states, stacked sheets
 
+> **Status 2026-08-30: §1 is DEAD.** The owner ruled for a bottom bar the same day and it shipped
+> (`ddd684e`, `src/components/nav/bottom-nav.tsx`); read §1 as the cost list the implementation had
+> to pay, not as a refusal. **Live:** §2 (`COLL-EMPTY-1`, unbuilt) and §3 (no stacked sheets).
+>
 > Owner: UX / Interaction. Date: **2026-08-29**. Task **LIBRARY-IA-2-NAV**, supplement.
-> Status: **rulings.** No shell, nothing verified at runtime. Arithmetic below is over values read
-> off the code at the lines cited.
+> No shell, nothing verified at runtime. Arithmetic below is over values read off the code at the
+> lines cited.
 >
 > Companion to `ux-navigation-structure-2026-08-29.md`, which is not edited. §1 here **replaces the
 > reasoning** in that document's §1.1–§1.2 while leaving its ruling unchanged; §2 and §3 are new.

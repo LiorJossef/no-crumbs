@@ -1,4 +1,10 @@
-# Map list stability — design ruling (ux-interaction, 2026-08-28). BUILD THIS.
+# Map list stability — design ruling (ux-interaction, 2026-08-28). BUILT.
+
+> **Status 2026-08-30.** **Dead:** the "Elsewhere" one-row-per-area section and everything leaning on
+> it — the owner deleted that tree (`d9cbdf2`, one `git revert` away), so §"The list" bullet 2, the
+> `No matches in London` rationale and §"Disclosure" describe a UI that is gone; cut 6's "no
+> collections UI" is reversed (collections shipped). **Live:** the cluster-not-rectangle decision,
+> the behaviour table, the header copy strings, motion, a11y and the remaining cuts.
 
 ## The failure, precisely
 A continuous, unauthored input (camera position) drives a binary, destructive output (list
@@ -97,11 +103,11 @@ camera jump.
 9. NO persisted activeAreaId.
 10. DO NOT touch clusters.ts or the 50 km radius.
 
-## Near-me (L1-F11) — justification REPLACED and improved
-Old ("near-me just sets the viewport") dies with the binding. New: near-me is the single mode
-where the list is ORDERED BY DISTANCE and distances are displayed, because distance-from-you is a
-fact about the world while distance-from-map-centre never was. Header `12 places near you`.
-Task does not move.
+## Near-me (L1-F11) — SHIPPED 2026-08-30
+Near-me is the single mode where the list is ORDERED BY DISTANCE and distances are displayed,
+because distance-from-you is a fact about the world while distance-from-map-centre never was.
+Shipped with permission requested only on an explicit tap, and a distance label only against a fix
+accurate to 500 m.
 
 ## Disclosure
 Partially overturns the §9.3 / ux-map-is-the-query §8 refusal of a "city switcher" — but only to a

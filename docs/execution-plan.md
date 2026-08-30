@@ -39,7 +39,13 @@ Pure TypeScript. No network, no database, no React.
 | T2 | `canonicalise-tiktok-url.ts` — pure, table-driven, and the SSRF boundary | The whole table in `04` §2 passes, including `tiktok.com.evil.io` and `nottiktok.com` failing **closed**; and a non-TikTok URL is classified as *recognised platform* vs *not a link we read*, which is what the manual-add redirect in `brand-and-product-foundation.md` §1 needs |
 | T3 | `runImport(ports, input, ctx)` against fake ports | The full event sequence is emitted in order; all 14 codes are reachable in tests; the `MAX_CANDIDATES = 7` budget is enforced; partial success is a first-class result |
 
-### L0-F2 — Local resolve seam · `maps-geospatial` · depends: — · cut: never · **DELIVERED 2026-08-27**
+### L0-F2 — Local resolve seam · `maps-geospatial` · depends: — · cut: never · **DELIVERED 2026-08-27, and still live**
+
+**Not dead code, despite the Overture ruling.** The 2026-08-28 ruling dropped Overture as the
+*canonical* resolver, not as a code path: `place-resolver-factory.ts` still routes **production** to
+`overturePlaceResolver`, because Google Places content may not be paired with a non-Google map
+(`06` §3.1). So this seam is what production actually resolves with today. It stops being live when
+a Google renderer ships and the gate is deleted.
 **T1 and T2 are done and on `main`** ([PR #40](https://github.com/LiorJossef/P-002/pull/40),
 [#41](https://github.com/LiorJossef/P-002/pull/41)). `poi_index` holds 10 462 Overture rows for
 `tlv`; `public.poi_prefilter` (`0021`) does both arms of `10` §5; the shipped adapter is measured
@@ -124,6 +130,10 @@ change to any caller.
 ### L0-F5 — Schema live · `supabase-database` + `devops-vercel` · depends: F2 · cut: never
 Was MS5 task 8. Deliberately after F2, so we do not apply a schema no code has exercised.
 
+**Measured 2026-08-30 (supabase CLI):** local `0001`–`0030` (29 files; `0027` does not exist),
+**production `0026`**, **staging `0018`**. Production is eight migrations *ahead* of staging — the
+reverse of what every doc said. Staging is the drifted environment now.
+
 | Task | What | Exit criterion |
 |---|---|---|
 | T1 | Apply `0010` + `0014` to **staging** | `inventory.sql` PASS on staging with the new tables in the matrix; the policy suite green; `pg_trgm` the only extension beyond baseline |
@@ -192,10 +202,13 @@ Depends on F7 because manual add **is** its main recovery. This is the modal out
 | Task | What | Exit criterion |
 |---|---|---|
 | T1 | Saved pins as a GeoJSON source, upstream Protomaps style with the palette swapped | Pins carry their own opaque surface, so pin-on-tile contrast holds against the worst background the style produces |
-| T2 · **IN PROGRESS 2026-08-27** | The authorised camera movers, **the anchor-cluster home camera, and binding the list to the viewport** — "the map is the query" | No code path moves the camera outside the enumerated list; the flight reads as one motion, not a jump; every non-empty library settles with at least one *individual* pin and one readable place *name* on screen; panning changes the sheet |
+| T2 · **DONE** (marker corrected 2026-08-30) | The authorised camera movers, **the anchor-cluster home camera, and binding the list to the viewport** — "the map is the query" | No code path moves the camera outside the enumerated list; the flight reads as one motion, not a jump; every non-empty library settles with at least one *individual* pin and one readable place *name* on screen; panning changes the sheet |
 | T3 | S5 place detail as a sheet over the map, with the link back to the source post | Refresh-safe and deep-linkable; the source link opens the original post |
 | T4 | Sheet gesture arbitration and the performance pass | ~200 pins pan and zoom smoothly on a mid-range Android; sheet drag never fights map pan |
-| T5 · **NEW, owner ruling 2026-08-28** | **Remove density clustering of saved places.** Delete the cluster source options and the cluster circle/count layers, the expansion-zoom tap path, and whatever in `marker-style.ts` is left with no caller. Pins at every zoom | No numbered bubble appears at any zoom; two saved places 50 m apart render as **two pins**; a "show everything" zoom-out at the 2 000-place ceiling still pans acceptably. **Sized 2026-08-28: small.** ~65 lines out of `marker-style.ts` (five exports whose only referrers are the layer and one test file) and ~60 lines out of `tests/unit/map/marker-style.test.ts`; pure deletion, no new logic or state. **Labels are not the risk** — they are gated at `LABEL_MIN_ZOOM = 14`, so world zoom shapes zero glyphs. **Trap:** `src/domain/places/clusters.ts` is a different thing and survives — it anchors the camera and names the active area. **Do not land alone if avoidable:** removal makes world zoom *worse* than today (a mat of overlapping pins); the L2 country summary is what repairs it |
+| T5 · **DONE 2026-08-30** — guard test `tests/unit/map/no-density-clustering.test.ts` (owner ruling 2026-08-28) | **Remove density clustering of saved places.** Delete the cluster source options and the cluster circle/count layers, the expansion-zoom tap path, and whatever in `marker-style.ts` is left with no caller. Pins at every zoom | No numbered bubble appears at any zoom; two saved places 50 m apart render as **two pins**; a "show everything" zoom-out at the 2 000-place ceiling still pans acceptably. **Sized 2026-08-28: small.** ~65 lines out of `marker-style.ts` (five exports whose only referrers are the layer and one test file) and ~60 lines out of `tests/unit/map/marker-style.test.ts`; pure deletion, no new logic or state. **Labels are not the risk** — they are gated at `LABEL_MIN_ZOOM = 14`, so world zoom shapes zero glyphs. **Trap:** `src/domain/places/clusters.ts` is a different thing and survives — it anchors the camera and names the active area. **Do not land alone if avoidable:** removal makes world zoom *worse* than today (a mat of overlapping pins); the L2 country summary is what repairs it |
+
+T2 shipped but is **not signed off** — the owner declined to settle the viewport-scope interaction
+(`current-state.md` §0.1b).
 
 ### L1-F6 — Saved list and search · `design-system-frontend` · depends: F5 · cut: search = 1
 
@@ -230,10 +243,11 @@ before. Prose (`reason`, `why_go`) stays out, and the line is now drawn between 
 rather than between on-row and off-row: prose matches on incidental words, so it widens results
 without making anything findable.
 
-**Still open on this feature:** the category-filter chips of S4/§1.4 (`[All][Food]`) are not built,
-and the *tag* chips on a row are still inert labels — making a chip pressable is the remaining half
-of `mvp-plan`/`current-state` §9.1.1's "make the chips do what they look like they do"; the search
-half is done. `L1-F6-T1`'s snap-point behaviour is unverified against `ux-architecture` §6.5 by a
+**Chips, DONE 2026-08-30:** the category-filter chips of S4/§1.4 are built
+(`src/components/sheet/category-filter-bar.tsx`, `7f61251`) and the tag chips are pressable
+(`6004baf`) — §9.1.1's "make the chips do what they look like they do" is closed.
+
+**Still open:** `L1-F6-T1`'s snap-point behaviour is unverified against `ux-architecture` §6.5 by a
 test; it was exercised by hand, not by Playwright.
 
 ### L1-F7 — Manual add and delete (CRUD) · `nextjs-architect` + `supabase-database` · depends: F1, L0-F3 · cut: never
@@ -241,28 +255,20 @@ The course's CRUD evidence **and** F4's recovery. One feature, two jobs.
 
 | Task | What | Exit criterion |
 |---|---|---|
-| T1 | S8 — POI search over the resolver (global, so it works anywhere), select, save | A place in an un-ingested city can be found and saved by name |
+| T1 · **BUILT 2026-08-30** — `src/app/actions/manual-add.ts`, `src/components/add/add-sheet.tsx`, `universal-input.ts`, 4 test files | S8 — POI search over the resolver (global, so it works anywhere), select, save | A place in an un-ingested city can be found and saved by name — read against the **Google Places** resolver (ruling 2026-08-28), not the Nominatim adapter this was written for |
 | T2 · **DONE 2026-08-26** | Delete, and update of the user's note | Create / read / update / delete each demonstrable in the UI on a saved place — verified at 390×844 and 1440×900 by `tests/manual/crud-e2e.manual.mjs` |
 | T3 · **DONE 2026-08-26** | Ownership verification | The column grants on `saved_places` still exclude `user_id`/`place_id`/`origin`, and a cross-user write attempt fails at the database, not in the UI — P4 (cross-user UPDATE and DELETE affect zero rows) and P5c/P5c-ii/P5c-iii, plus P5c-iv asserting `note` *is* writable |
 
-**T1 — owner ruling, 2026-08-27. In scope, and deliberately not started yet.**
-The scope question this task was blocked on is answered: **manual add as *place search* falls inside
-Charter §2.** Charter §2 forbids asking the user for caption text; typing a name and picking a
-resolved place is a different object with the same resolver and the same provenance fields, and the
-old wording forbade something wider than intended.
+**T1 — the two owner rulings of 2026-08-27 that shaped it.** (a) **In scope:** manual add as *place
+search* falls inside Charter §2 — typing a name and picking a resolved place is a different object
+from the caption entry §2 forbids. (b) **The quality bar, which is why it was delayed for three
+days:** *"I only want it if we can make it a proper place-search experience, not a basic
+manual-entry form."* That bar still governs — it is what the shipped surface is reviewed against.
 
-What the owner did **not** authorise is starting it now, and the reason is a quality bar rather than
-a priority: *"I only want it if we can make it a proper place-search experience, not a basic
-manual-entry form."* A name field and a Save button would technically close the task and would be
-the wrong thing to ship. So T1 stays unstarted until the current work closes, and its implementation
-is a decision to take then, not now.
+**Owed before T1 is called closed:** independent evidence (`qa-reliability`, not the builder) that a
+place in a city we have never ingested can be found and saved by name, on phone and desktop.
 
-The pressure behind it is unchanged and worth restating: manual add is the recovery for the modal
-import outcome, and the missing destination for three failure screens plus `NoPlacesScreen`'s
-`Add manually →`, which currently calls `reset()` and returns the user to an empty paste field.
-"An un-ingested city" in the exit criterion means the `PlaceResolver` of `L0-F2b`/D2b, still parked.
-
-### L1-F11 — Near me · `maps-geospatial` + `design-system-frontend` · depends: F5-T2 · cut: never
+### L1-F11 — Near me · `maps-geospatial` + `design-system-frontend` · depends: F5-T2 · cut: never · **DONE 2026-08-30** (`ffd55e1`)
 **Promoted from L2 to L1 by owner ruling, 2026-08-27.** Numbered F11 rather than inserted mid-ladder
 so no existing task id moves.
 
@@ -274,33 +280,25 @@ second retrieval system. It inherits that feature's nearest-first sort with no s
 
 | Task | What | Exit criterion |
 |---|---|---|
-| T1 | A near-me control that requests location once and moves the camera to it | The permission prompt appears only on an explicit tap, never on load; a denial is a designed state with a working alternative, not an error |
-| T2 | Distance, shown only where it is a fact about the world | Distance is displayed only against a real user location, never against a map centre; refusing the permission removes the distances rather than showing wrong ones |
+| T1 · **DONE** (`ffd55e1`) | A near-me control that requests location once and moves the camera to it | The permission prompt appears only on an explicit tap, never on load; a denial is a designed state with a working alternative, not an error |
+| T2 · **DONE** (`ffd55e1`) | Distance, shown only where it is a fact about the world | Distance is displayed only against a real user location, never against a map centre; refusing the permission removes the distances rather than showing wrong ones |
 
 **Not in scope and named so it is not absorbed:** background location, any location stored on the
 server or in the database, a location-derived default camera on load, and geofencing or arrival
 notifications. The permission is requested on a tap and the result never leaves the browser.
 
-**`product-lead`, 2026-08-29 — the dependency is narrower than "F5-T2", and this feature is not
-blocked.** `L1-F5-T2` shipped and the owner then declined to settle the shipped interaction
-(`current-state.md` §0.1b). Near-me depends only on the parts that survived that review — the
-nearest-first sort and the anchor-cluster camera — **not** on the disputed continuous
-viewport-scope binding. Written down because the plan currently reads as if near-me were blocked on
-a rethink that has not been opened.
-
 **Ranked second of the three after-the-save capabilities** (`docs/product-ruling-after-the-save.md`
-§2). Build it after `L1-F12`: on its own, "what did I save near here" returns a list including four
-places the user already went to. F12 is what makes near-me's answer correct, and the two together
-produce the sentence the product is missing — *"three places near you that you haven't been to
-yet."*
+§2), behind `L1-F12` — F12 is what makes near-me's answer correct, and the two together produce the
+sentence the product was missing: *"three places near you that you haven't been to yet."* Both are
+now built.
 
-### L1-F12 — The library resolves: been / not been yet · `design-system-frontend` + `nextjs-architect` · depends: F5, F6 · cut: see below
+### L1-F12 — The library resolves: been / not been yet · `design-system-frontend` + `nextjs-architect` · depends: F5, F6 · cut: see below · **DONE 2026-08-30**
 **New, `product-lead` ruling 2026-08-29 — `docs/product-ruling-after-the-save.md`.** Numbered F12 so
 no existing task id moves. Ranked **first** of the three after-the-save capabilities, on a schema
 finding rather than on an argument: `saved_places.visit_state` / `visited_at`, their CHECK, and the
 **user's own UPDATE column grant** have existed since migration `0006`; `get-spots.ts` already
-selects both and `Spot` already carries `visitState`/`visitedAt`; **nothing in `src/` reads or writes
-them.** So the capability that stops the library being append-only needs **no migration, no new
+selects both and `Spot` already carries `visitState`/`visitedAt`; nothing in `src/` read or wrote
+them **until T1/T2 shipped on 2026-08-30**. So the capability that stops the library being append-only needs **no migration, no new
 grant and no boundary widening** — the plumbing was built eleven migrations ago and never wired up.
 
 Full acceptance criteria in the ruling §6. The two rules that must not be softened: the **write path
@@ -310,8 +308,8 @@ is never cut** (a mark that does not survive a reload is worse than not shipping
 
 | Task | What | Exit criterion | Cut |
 |---|---|---|---|
-| T1 | The write path: a server action modelled line-for-line on `updateSavedPlaceCategory`, and the `Been here` control in the place detail sheet | Marking survives a reload and is asserted on the row, not the screen; mark → unmark → mark round-trips without a CHECK violation; a second browser profile's attempt matches **zero rows** at the database; the diff contains **no migration and no grant** | never |
-| T2 | The state made legible and made to narrow: row + pin expression, and one `Not been yet` filter over the existing chip pattern | The filter narrows list **and** pins in the same frame, composes with search and a tag filter, the header count says what it counts, and the all-filtered state is designed copy with a way back. A visited place keeps its category glyph and never disappears from an unfiltered view | pin expression = 1 · filter = 2 |
+| T1 · **DONE 2026-08-30** — `setSavedPlaceVisited` in `src/app/actions/saved-places.ts`, `src/components/sheet/visit-state.tsx` | The write path: a server action modelled line-for-line on `updateSavedPlaceCategory`, and the `Been here` control in the place detail sheet | Marking survives a reload and is asserted on the row, not the screen; mark → unmark → mark round-trips without a CHECK violation; a second browser profile's attempt matches **zero rows** at the database; the diff contains **no migration and no grant** | never |
+| T2 · **DONE 2026-08-30** — the `Not been yet` chip | The state made legible and made to narrow: row + pin expression, and one `Not been yet` filter over the existing chip pattern | The filter narrows list **and** pins in the same frame, composes with search and a tag filter, the header count says what it counts, and the all-filtered state is designed copy with a way back. A visited place keeps its category glyph and never disappears from an unfiltered view | pin expression = 1 · filter = 2 |
 
 **Out of scope, named so it is not absorbed:** ratings, stars, "how was it", visit counts, visit
 history or an editable date, check-ins, auto-detected arrival, photos, sorting by visit state, any
@@ -346,7 +344,7 @@ The schedule's pressure point: the mandatory permission tests sit behind every U
 | Task | What | Exit criterion |
 |---|---|---|
 | T1 | `test-specification.md` (course M6) | Covers core features, invalid inputs, central processes, permissions, database, edge cases, basic UI |
-| T2 | **Verification of** the unit tier: canonicalisation, scoring, dedup, confidence. The feature agents author these tests; `qa-reliability` verifies coverage and adversarially re-checks them (roster, 2026-08-27) | The existing 136 tests still green, plus the new seams; no test asserts a number the code derives from the same constant |
+| T2 | **Verification of** the unit tier: canonicalisation, scoring, dedup, confidence. The feature agents author these tests; `qa-reliability` verifies coverage and adversarially re-checks them (roster, 2026-08-27) | The existing suite still green (**1 959 tests in 107 files, measured 2026-08-30**; "136" was the MS5 figure), plus the new seams; no test asserts a number the code derives from the same constant |
 | T3 | **RLS policy tests** — mandatory, not optional (`03` gap 2) | A cross-user read **fails**, and that failing test is the evidence artefact for M6/M7 |
 | T4 | Playwright: the golden path, double-paste idempotency, camera stability | The golden path passes against a **deployment**, not only locally |
 
@@ -370,7 +368,7 @@ an unforked map style.
 No task breakdown until L1 closes, by design.
 
 **L2, in order:** the forked Protomaps style (D9b) · **the world-zoom country summary** (replaces the retired
-"clustering sophistication" item — see below) · category filter · more ingested cities (an accuracy
+"clustering sophistication" item — see below) · ~~category filter~~ (built at L1 instead, `7f61251`) · more ingested cities (an accuracy
 accelerator now, not a coverage requirement) · the five motion moments · the 50-post pipeline
 evaluation and threshold re-fit · the OSM alias join.
 
@@ -522,4 +520,5 @@ Three consequences worth holding in mind while executing:
 | 2026-08-29 | **The loop after a save, ruled — `docs/product-ruling-after-the-save.md` (`LOOP-AFTER-SAVE-1`).** The owner's intent was that the product feels behaviorally thin after places are saved, with an explicit instruction not to assume collections are the answer. The loop was written out end to end and the break located at steps 7–10 and 13: the product serves capture completely and serves retrieval **only when the user already knows what they are looking for**. It has retrieval by *identity* (search) and by *geography* (map) and neither of the two modes people actually use — **by state** (what is still outstanding) and **by proximity** (what is near me now). Three capabilities ranked by impact-per-build, and a fourth refused. **`L1-F12` — the visited state — is ranked first on a schema finding rather than an argument**: `saved_places.visit_state` / `visited_at`, their CHECK, and the *user's own UPDATE column grant* have existed since `0006`, `get-spots.ts` already selects both, `Spot` already carries them, and **nothing in `src/` reads or writes them** — so the capability that stops the library being append-only needs **no migration, no new grant and no boundary widening**. **`L1-F11` near-me is second**, with its dependency narrowed to the parts of `L1-F5-T2` that survived the owner's review, because the plan read as if it were blocked when it is not. **`L1-F13` — user-authored labels — is proposed, sized, and deliberately left unstaffed**, blocked on one owner ruling: does the MVP "info" boundary govern place facts only, or every stored field? **Collections: no, and the argument is written rather than diplomatic** — the trip case is answered geographically and for free by the L2 country summary, so a user-made "Tokyo" collection duplicates a grouping we derive from coordinates and then disagrees with it; the non-geographic case is a label, not a container, at a tenth of the build; and a second organising axis over an append-only pile makes a tidier pile. Personal collections deferred to L2 with the promoting evidence written down; the 2026-08-28 shared-collections ruling is untouched. **A return trigger is ruled out entirely, not deferred** — there is no channel (no PWA, no push), and the honest trigger is usefulness at the moment of need. Cover-frame OCR reclassified deferred → **refuted**; natural-language search placed at L3. Acceptance criteria written for `L1-F12`, including the one real trap: `saved_places_visited_at_consistent` makes an unmark that leaves `visited_at` populated fail 23514, so both columns move in one UPDATE. Five stale ownership entries named in the ruling §8 — `L0-F3`, `L0-F6`, `L1-F7-T1` (whose exit criterion is also stale against the Google Places switch), `L1-F5-T2` (labelled IN PROGRESS while actually shipped-and-under-review) and `L1-F11`'s dependency |
 | 2026-08-29 | **Overnight: the map brief closed, "generic information" split into three problems, and one recognition idea refuted.** Four PRs merged ([#50](https://github.com/LiorJossef/P-002/pull/50), [#51](https://github.com/LiorJossef/P-002/pull/51), [#52](https://github.com/LiorJossef/P-002/pull/52)) with a fifth open ([#53](https://github.com/LiorJossef/P-002/pull/53)); full account in `docs/handoff-2026-08-29-overnight-map-and-information.md`. **The map answers all three complaints in the 2026-08-28 brief**: per-category teardrop pins with drawn glyphs, clusters that ease into their members on tap and take the colour of the category holding a strict majority, and a basemap re-tinted at runtime into warm paper / mint water / sage parks. `mapcn`'s `MapClusterLayer` is gone — we own the source and the three layers, ~150 lines against `useMap()`, which is what the previous handoff predicted and it held. **Google Maps is not needed and that is now a measurement**: the limitation was one wrapper component, so D2 stands. **"The information feels generic" was three separate problems**: presentation (three stacked uppercase kickers, a category printed as the raw enum, and the street address never shown at all — it was in the data the whole time); storage (a Hebrew `countryHint: "ישראל"` resolved to nothing because `toCountryCode`'s ICU index was English-only, so `country_code` stored NULL and `resolve_place`'s dedup guard was disabled for those rows — this is what `HaKosem` appearing three times actually is); and extraction (prompt p8 → p11). The prompt work was measured against real captions each time, and **the marketing voice turned out not to be hallucination** — every adjective in "Enjoy a dreamy morning breakfast…" is the creator's own, and what makes it read as invented is the imperative mood plus dropping "Sunday to Friday", the one checkable fact, to keep "dreamy". **Recognition: 7/16 (44%) with zero false auto-accepts under p11**, the same rate as p8 with a better failure shape — `extraction_miss` 3 → 1, so Gelalucci and WOW now reach the picker with the right venue at rank 1 instead of never being named. Two self-inflicted regressions were caught only by a corpus run and fixed (p9 turned `מתחת לעץ` into the phonetic `Metahat LeEtz` and lost a 0.997 auto-match; p10's quote-clipping fix then produced the corpus's first-ever false auto-accept, via a `nameVariants` entry that named a *branch*). **`clippedQuote` closes a structural fragility**: one over-long `evidence` string was making Zod reject the whole response, so the caption the model read best in the corpus produced no places at all. **DEFERRED, each with the measurement recorded rather than a plan to revisit**: (a) the **decisive-margin band change** — compelling on the corpus (7/16 → 11/16) and **refuted by the 44-case golden benchmark**, where TLV-14 (`Bar 51`) auto-accepts the wrong venue `Hostel 51` at 0.900/0.095 because Overture files it as `bar` and the real `Bar 51` as `restaurant`; no threshold in (score, margin) separates it, and the finding points at the scorer's category term, which is TLV-RANK-1 still open at weight 0.10 (`docs/evidence/places/band-policy.md`); (b) the **75 m merge radius** — the two `La Nonna Brixton` rows are 90 m apart with the same `name_key` and country, so the guard misses by 15 m, but widening it is a migration and would wrongly merge two branches of a chain, so it is the owner's call; (c) **whether a lone candidate should auto-accept** (`WOW` has one prefiltered row and therefore no margin, so it can never reach `preselect` by construction); (d) **landing and sign-in copy**, left alone deliberately because it is positioning and a rebrand session is planned. **Two choices made that the previous handoff had put to the owner**: drawn glyphs over emoji (consistent across platforms at pin size, one table to restyle), and all seven category pin types rather than fewer louder ones |
 | 2026-08-30 | **Overnight: Collections and shared Collections built, plus a nineteen-item backlog sweep.** Full account in `docs/handoff-2026-08-30-collections.md`; branch `feat/collections`, cut from `origin/main` so none of the transcription work is entangled. **Collections were built out of order on the owner's explicit instruction**, superseding both the L2 deferral and the backlog's §9 "stop at labels" recommendation — new feature `L2-F1` above. **The design decision that made it cheap and safe is one line: a collection item points at `places`, not at `saved_places`.** The 2026-08-28 ruling told us to expect membership RLS on every `saved_places` path; pointing at the shared identity row instead opened **exactly one** new policy and never touched the hot read, and it makes the privacy claim structural — the adder's note, tags, source link and `visit_state` cannot reach a collaborator because no policy grants them. `visit_state` in particular must not travel: "I want to go here" discloses *future* location intent. **A collection is a map, not a list** — `/collections/[id]` is `/map` with a different set of pins, the same sheet, the same rows — which is also what answers the 2026-08-29 deferral's worry that a container would duplicate the area grouping we derive from coordinates. **Sharing is an invite link carrying a role, redeemable only by a signed-in user**, so there is still no unauthenticated read over personal location data. `security-privacy` attacked it independently and did **not** exercise the veto: thirteen routes to another user's `saved_places` row all refused, with a working positive baseline in the same session. It found two **authorisation** defects — removing a member did not remove them, and a demoted editor could restore their own rights by leaving and re-clicking the old link — both fixed forward in `0026` by making membership *end* rather than be deleted. **Three schema findings worth carrying**: `Postgres applies a SELECT policy to a RETURNING tuple before an AFTER trigger fires`, so a members-only SELECT policy made collection creation impossible from PostgREST; a table-level INSERT grant on an invites table hands the client its own `token` column, which is how a bearer credential becomes guessable; and a **second** `postgres`-owned `ALTER DEFAULT PRIVILEGES` entry grants `service_role` **TRUNCATE** on every new table in `public`, which `0008` never revokes and which `poi_regions`/`poi_index` had been carrying against `0010`'s explicit written decision (fixed in `0025`, caught permanently by `inventory.sql` check 9d). **Backlog sweep, all verified before being fixed**: the P0 `source_url` writer dead since `0017`; three defects in the import paste field (Enter did nothing, Cancel ate the link, a real share-sheet paste was rejected); the rail stage that could never run, **deleted rather than faked**; rename a saved place (§6.1, zero migrations); "Approximate location" replacing a dataset slug, with the `87% confidence` removed as false precision (§6.3, §6.7); the saved date (§5.1); RTL name clipping (§5.6); error/global-error/not-found screens and pinch-zoom (§12.6, §12.7); security headers (§12.20); the autofocused destructive button (§13.7); and four extraction robustness fixes (§8.4, §8.7, §8.8, §8.9). **Two backlog claims refuted and left alone** — §5.2's sticky-controls story is false (they are outside the scroller), and §6.3 names a `places.provider` column that does not exist. **Found in passing and not on any list: `toCountryCode('Germany')` returned `DD` — East Germany** — along with seven more deprecated codes, on a function live on the confirm seam writing into a column the dedup guard treats as a positive statement. **Nothing hosted was touched and no external API call was made all night**; the standing hold on Vercel, staging, production, Gemini and Google Places is intact, and the transcription branch is untouched and pushed |
+| 2026-08-30 | **Status reconciled against the code (`DOC-FIX-1`).** An audit measured this file against `src/`, the migration state and the test suite, and eight entries were wrong in the same direction — work shipped and never recorded, so the ladder read as if it were ahead of us. Corrected: `L1-F5-T2` (the stale `IN PROGRESS 2026-08-27` marker `product-ruling-after-the-save.md` §8 already named), `L1-F5-T5` (guard test `tests/unit/map/no-density-clustering.test.ts`), `L1-F7-T1` — manual add is **built** (`src/app/actions/manual-add.ts`, `src/components/add/add-sheet.tsx`, `universal-input.ts`), and the passage saying it was "deliberately not started yet" is replaced by the two owner rulings that shaped it, because the 2026-08-27 quality bar is still the standard it gets reviewed against — `L1-F11` (shipped with no marker at all, `ffd55e1`), `L1-F12-T1`/`T2` (`setSavedPlaceVisited`, `visit-state.tsx`, the `Not been yet` chip), and the **category-filter chips**, which were recorded as unbuilt in `L1-F6` *and* queued as an upcoming L2 item while `src/components/sheet/category-filter-bar.tsx` had already shipped in `7f61251`; tag chips are pressable (`6004baf`). Two numbers replaced: the suite is **1 959 tests in 107 files**, not 136; and **production is at `0026` while staging is at `0018`**, which is eight ahead — the opposite of what the docs said, so staging is now the drifted environment. **Deliberately not "fixed", because they are still true:** `POST /api/imports` does not exist (only `probe/` and `confirm/`), `L1-F8-T1` is genuinely unbuilt, and the Nominatim adapter of `L0-F3-T2`/D2b was **never built** and was superseded by the 2026-08-28 Google Places ruling |
 | 2026-08-29 | **The list now follows the map, and the review screen shows one clean result.** Three streams, all browser-verified rather than taken from an agent's report. **(1) The macro/list desync is fixed and its root cause was not the list model.** `list-scope.ts` shipped unwired in `0ce9512`; wiring it into `map-page-client.tsx` replaced the single area anchor with a `ListScope` (`global`/`country`/`area`). But every transition it defines was **dead code**, because `pannedSinceReport` was written by `dragend` alone — a wheel or pinch zoom reported `userInitiated: false`, and a zoom is the only gesture that can cross a band. `zoomend` now reports too, guarded on `originalEvent` so the six camera movers cannot rewrite the list. Verified: `32 in 2 countries` at the country band, `14 in Israel` after a badge tap. **This reverses camera mover 5** (owner, 2026-08-29); its comment is rewritten, and the enumeration corrected from five movers to six. The 55 tests written before wiring found a real bug in `scopeLabel` — a countryless single "country" is labelled after its first area, so a Kowloon+Osaka library rendered `5 places in Kowloon`. **(2) `PlaceDetail` is reused on the collection route, safely.** It took the `saved_places` id it writes to from `place.id`, which is a *collection item* id there — naive reuse aimed five write paths at a row the caller does not own. `savedPlace: {id, visited} | null` is now required and undefaulted, as one object rather than two nullable props that can disagree (an id with a null `visited` would have silently rendered the read-only screen and made every control on `/map` vanish). `SharedOnlyPlaceFacts` pins every overlay key to `never`, so the privacy boundary is a compile error rather than a flag. **(3) The review card, on owner ruling after using it.** Pre-ticked again — a duplicate check had started un-ticking already-saved places, and on a post whose only candidate was a duplicate the card arrived off and Save was **disabled**, so the screen offered nothing to do. The shortlist is closed behind `Not this place?`, shown only when there is more than one option; three redundant lines and two apologetic paragraphs cut. **The probe-time duplicate detection was reverted, not shipped**: with the warnings gone it had no consumer, and a server round-trip computing something nothing renders is dead code. The measured dedup ladder is preserved in the handoff — the real fix is at `places` identity (`resolve_place`), which is an owner decision. Also: two more constants with two sources of truth, found by sweeping for the trapdoor `34e5445` fell through — `share-panel.test.ts` was asserting on the domain's `MEMBER_NAME_MAX_LENGTH` while `name-prompt.tsx` rendered its own copy |

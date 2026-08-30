@@ -28,7 +28,7 @@ product's coverage ends two thirds of the way through it.
 | 1 | Sees a TikTok about a place | outside the product |
 | 2 | Copies the link | outside the product |
 | 3 | Pastes it | **yes** — `L1-F2` |
-| 4 | Product reads it, extracts, resolves | **yes** — 44% auto-match, the rest reaches the picker |
+| 4 | Product reads it, extracts, resolves | **yes** — Google: 15/16 correct top-1, 12/16 auto-resolved, 0 wrong auto-matches (2026-08-28). The 44% this line used to quote was Overture under superseded weights |
 | 5 | Reviews and confirms | **yes** — `L1-F3`, never cut |
 | 6 | The place lands on the map | **yes** — the post-confirm flight |
 | 7 | **Time passes. Weeks.** | **no** — nothing changes, nothing is remembered, nothing decays |
@@ -342,9 +342,9 @@ makes the ladder look healthier than it is:
    by owner decision since 2026-08-27. Reads staffed; is not.
 2. **`L0-F6` (streaming route)** — owners `nextjs-architect` + `devops-vercel`, **paused since
    2026-08-20**; `/api/imports/probe` is still the stand-in. Reads staffed; is not.
-3. **`L1-F7-T1` (manual add)** — owners listed, status "in scope, deliberately not started" since
-   2026-08-27. Its *exit criterion* is also stale: it names an un-ingested city resolved by the
-   parked `PlaceResolver`, while Google Places has since been made the primary resolver.
+3. **`L1-F7-T1` (manual add)** — **shipped 2026-08-30** (`src/components/add/add-sheet.tsx`,
+   `src/app/actions/manual-add.ts`), against a stale exit criterion naming an un-ingested city and
+   the parked `PlaceResolver`. Close it against what Google Places actually does.
 4. **`L1-F5-T2`** — marked **`IN PROGRESS 2026-08-27`**. It shipped, and the owner then reviewed the
    shipped interaction and explicitly did not settle it (`current-state.md` §0.1b). "In progress" is
    the one label that is wrong in both directions.

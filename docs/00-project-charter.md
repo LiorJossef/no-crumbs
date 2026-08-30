@@ -99,7 +99,7 @@ nearly free via the same source abstraction. Quality of TikTok support outranks 
 | 6 | Review: confirm / disambiguate / reject each candidate before anything is saved |
 | 7 | Designed failure state when a TikTok cannot be read — retry, open original, or add a known place |
 | 8 | Persist confirmed places, deduplicated, linked to the source TikTok(s) |
-| 9 | Interactive map of saved places with clustering and a premium custom style |
+| 9 | Interactive map of saved places with a premium custom style (density clustering removed by owner ruling, L1-F5-T5) |
 | 10 | User location on permission, and "what have I saved around here?" retrieval |
 | 11 | List view with text search and category filter over saved places |
 | 12 | Place detail view with useful info and a link back to the original TikTok |
@@ -112,14 +112,16 @@ infrastructure the TikTok pipeline needs — but the product is never presented 
 map first.
 
 **Explicitly out of scope for V1:** manual caption/description/transcript entry by the user; social
-graph; public profiles; creator discovery; itinerary generation; collaborative or shared
-collections; video/audio/OCR analysis; screenshot import; recommendation ranking; gamification;
-offline mode; native apps; PWA install and share-target.
+graph; public profiles; creator discovery; itinerary generation; video/audio/OCR analysis;
+screenshot import; recommendation ranking; gamification; offline mode; native apps; PWA install and
+share-target.
+
+**Scope change, 2026-08-30 (owner-instructed):** shared collections moved into V1 and shipped
+(`0024`–`0026`, `src/app/collections/**`); public profiles and the social graph stay out.
 
 **Architecture must stay open to** (without building): additional source platforms behind a
-`SourceAdapter` seam; a future media analyser behind a `ContentExtractor` seam so audio
-transcription or OCR can supplement text metadata without rewriting the rest of the product; and
-collection/sharing semantics — but only where the openness costs nothing today.
+`SourceAdapter` seam, and a future media analyser behind a `ContentExtractor` seam so audio
+transcription or OCR can supplement text metadata — but only where the openness costs nothing today.
 
 ## 5. Non-negotiable engineering principles
 
@@ -229,11 +231,9 @@ Owners are agent roles from [`01-agent-roster.md`](01-agent-roster.md).
 | `07-import-execution-model.md` | how the import pipeline executes on Vercel |
 | `08-place-identity.md` | what one physical place is; dedup; PostGIS decision |
 | `09-extraction-and-resolution.md` | AI extraction contract and resolution scoring |
-| `10-pipeline-evaluation.md` | staged evaluation of the real pipeline |
-| `product-specification.md` | course deliverable — product spec |
-| `technical-design.md` | course deliverable — detailed technical design |
-| `test-specification.md` | course deliverable — test spec |
-| `scale.md` · `security.md` · `deployment.md` | course deliverables |
-| `how-the-system-works.md` | the explainability document; the student's study guide |
-| `implementation-plan.md` | the final planning deliverable and milestone plan |
-| `adr/` | one file per architectural decision, with alternatives and why they lost |
+| `10-poi-index.md` · `11-resolver-vocabulary.md` | the POI index schema, ingest and resolver vocabulary |
+| `mvp-plan.md` · `execution-plan.md` · `current-state.md` | the plan of record, the running status, the cold-start document (with `working-agreement.md`, `git-workflow.md`, `agent-guardrails.md` for how the work is done) |
+| `product-specification.md` · `technical-design.md` | course deliverables — product spec, technical design |
+| `security.md` | course deliverable (M9) — interim; its §3 lists what is still owed |
+| `implementation-plan.md` | the decision ledger and the M3 architecture answer |
+| `test-specification.md` · `scale.md` · `deployment.md` · `how-the-system-works.md` | course deliverables — **NOT YET WRITTEN** |

@@ -7,25 +7,27 @@ of them submittable, climbed one at a time. `docs/implementation-plan.md` keeps 
 the M3 architecture answer, the migration order and the build orders; its milestone ladder and its
 half-day budget are retired.
 
-Done: repo, toolchain and deploy (was MS2), the technical design (MS3), the database (MS4; 17
-migrations locally, nine on both hosted projects), and the POI index chain `0010`/`0014` plus the
-resolver vocabulary, the ported scorer, the 44-case golden file and the Tel Aviv ingest with
-measured Overture confidences (was MS5 tasks 1–5).
+Done: repo, toolchain and deploy (was MS2), the technical design (MS3), the database (MS4), and the
+POI index chain `0010`/`0014` plus the resolver vocabulary, the ported scorer, the 44-case golden
+file and the Tel Aviv ingest (was MS5 tasks 1–5).
 
-**Application code exists and the core loop runs end to end**: auth, the map (MapLibre + CARTO),
-the saved-places list and sheet, and a real TikTok import — oEmbed → caption → LLM extraction →
-review and confirm → `places`/`saved_places`. Verified against real TikToks, not only tests. What
-it is *not* yet: there is no `PlaceResolver`, so every coordinate is the model's own guess and is
-measurably 65–470 m out; the streaming route (`L0-F6`) does not exist and `/api/imports/probe` is
-still the request/response stand-in.
+**Production is live** at `https://p-002-zeta.vercel.app`, auto-deployed from `main`.
 
-**L0 is in progress.** Its six steps and their exit criteria are in `mvp-plan.md` §5: the import
-domain, the local resolve seam (was MS5 task 7 — a candidate string resolving against the ingested rows,
-including the `score` column on the 57 of 71 replayable benchmark rows), **the global resolver
-(step 2b, D2b)**, the adapters, the migrations
-applied to staging and production (was MS5 task 8), and the streaming route proven from a preview
-deployment. MS5 task 6 (Tokyo, London) has moved to L2, where it is now an
-accuracy accelerator rather than the product's coverage boundary.
+**Migrations — re-measure, never copy forward.** `npm run db:status:staging` / `db:status:prod`.
+Measured 2026-08-30: 29 on disk (`0001`–`0030`, no `0027`), **staging `0018`, production `0026`**.
+
+**The core loop runs end to end**: auth, the map (MapLibre + CARTO), the saved-places list and
+sheet, and a real TikTok import — oEmbed → caption → LLM extraction → review → `places`/
+`saved_places`. Verified against real TikToks, not only tests.
+
+**`PlaceResolver` exists; Google Places is canonical** (`place-resolver-factory.ts`), 15/16 top-1.
+Production falls back to Overture behind a **ToS gate** — Google content may not pair with a
+non-Google map (`06` §3.1, VERIFIED). The gate is code on purpose; a Google renderer deletes it.
+
+**L1 is nearly complete and collections (L2) has shipped.** Not built: the streaming route
+(`L0-F6`, `/api/imports/probe` is the stand-in) and `L1-F8-T1`, the account menu with
+delete-my-data — the last unbuilt L1 product feature. D2b was **superseded, not completed**.
+Per-task status is `docs/execution-plan.md`; read `docs/current-state.md` first.
 
 The MVP boundary, and it is three decisions rather than a feature list: one link in one field;
 **TikTok only** — the sole VERIFIED access mechanism, so an Instagram or YouTube link is a recognised
@@ -56,12 +58,13 @@ what is verified and how, what is unresolved, and the next highest-impact step. 
 4. `docs/02-risks-and-unknowns.md` — unknowns, assumptions, risks
 5. `docs/01-agent-roster.md` — the eleven expert roles and who owns what
 
-Stack: Next.js + TypeScript + Supabase + Vercel. **D2 is closed** — MapLibre GL **6.4.1** (this line said v5 until 2026-08-28; the installed dependency is `^6.4.1`, so read the v6 API surface) + Protomaps
-tiles + our own resolver over Overture `places` extracts (`docs/06-map-and-places-decision.md`,
-schema in `docs/10-poi-index.md`). **D2b, 2026-08-20: the MVP resolves globally** — two sources
-behind one `PlaceResolver` port, the Overture index where a region is loaded (85% top-1) and
-Nominatim everywhere else (63%), routed on the extraction's `cityHint`. Nominatim's ODbL write path
-re-opens `06` §11 Q2; that sign-off is owed **before** the adapter merges.
+Stack: Next.js + TypeScript + Supabase + Vercel. **MapLibre GL 6.4.1** (read the v6 API surface) on
+**CARTO** tiles, and **Google Places** as the canonical resolver with the Overture index as
+production's ToS-gated fallback (`docs/06-map-and-places-decision.md`, schema `docs/10-poi-index.md`).
+
+**Nominatim was never built** — no adapter exists in `src/`. D2b's two-source design and its ODbL
+sign-off were superseded by the Google Places ruling of 2026-08-28, not delivered. Protomaps is
+likewise unused: `map-surface.live.tsx` is not wired in.
 
 **You are the lead developer and orchestrator, not the only pair of hands.** Eleven specialists live
 in `.claude/agents/`, invocable by `subagent_type`, in three tiers (`docs/01-agent-roster.md`):

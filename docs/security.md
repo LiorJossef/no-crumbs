@@ -38,6 +38,10 @@ Since **§2.6** that sentence is literally true rather than approximately true: 
 country_code, lat, lng`, so the self-granting gate reaches nothing else — in particular not the raw
 `provider_payload`.
 
+**Amendment, 2026-08-30 — the table predates `0024`'s two new read arms.** `places_select_if_in_shared_collection`
+concedes nothing the self-granting property did not, but `profiles_select_collection_peers` is new in
+kind — the first policy exposing one user's row to another — and its review is part of owed item 1.
+
 **Critically, that same path is closed for `sources`** — the table holding cached third-party caption
 text. `sps_insert_own` requires the caller to already own an `imports` row for that `source_id`, so a
 user cannot attach themselves to an arbitrary cached source. They would have to import that TikTok
@@ -47,8 +51,10 @@ themselves, which they could have done regardless.
 Both must survive implementation, and both belong in code review:
 
 1. **Never `GRANT EXECUTE` a `SECURITY DEFINER` function returning global rows to `authenticated`.**
-   This is the only identified way to bypass the gate. Today `resolve_place`/`merge_places` are
-   service-role only; that grant list is load-bearing, not incidental.
+   This is the only identified way to bypass the gate. `resolve_place`/`merge_places` are
+   service-role only; that grant list is load-bearing, not incidental. `0024`'s four helpers *are*
+   granted to `authenticated`, and stay inside the rule because each returns a **boolean about the
+   caller's own membership** — never a row.
 2. **Keep the import-ownership predicate in `sps_insert_own`.** It reads like a redundant integrity
    check and is in fact the only thing preventing self-granted access to cached caption text.
 
@@ -150,7 +156,8 @@ Nothing in the repo had ever granted `service_role` a table privilege. Every tru
 `08` §5 was running on Supabase's `ALTER DEFAULT PRIVILEGES` (`service_role=arwdDxtm` on new tables in
 `public`) — measured present in the container, and previously unverified in either direction. It fails
 closed, so it was never an exposure, but it was unproven: if the defaults stop being seeded the server
-path breaks at runtime with CI green. `0012` states the matrix (`ALL` on the nine tables) and
+path breaks at runtime with CI green. `0012` states the matrix (`ALL` on the nine tables of the day; `0025` narrows the POI pair to
+`select/insert/update/delete`, and `0024`'s collections tables take no `service_role` grant at all) and
 `inventory.sql` check 9 asserts it exactly, including **no `WITH GRANT OPTION`** — which would let
 application code hand `authenticated` the privilege this ruling just removed.
 
@@ -171,22 +178,21 @@ neither `BYPASSRLS` nor `LOGIN` nor `SUPERUSER`.
 
 ## 3. Owed — the deferred work
 
-Nothing below has been done. Re-engage the security agent before submission; the natural slot is the
-testing/security milestone, but items marked ⚠ are cheaper to answer *before* the code they govern
-exists.
+**Eight items are owed** — the count of record; correct other documents against it. Of the original
+twelve, 2, 8 and 9 are CLOSED, 5 is split (residue Q3–Q7 tracked in `06` §11) and 3 is largely built.
 
 | # | Owed item | Source |
 |---|---|---|
 | 1 | The full M9 document: authentication, authorisation, logged-in-only actions, cross-user prevention, input validation, API protection, secret storage, remaining risks | course M9 |
 | 2 | ~~⚠ D8: which Supabase Auth methods to offer~~ — **CLOSED 2026-08-18, see §2.5** | Charter §8 |
-| 3 | ⚠ SSRF design for user-supplied URLs: host allow-list, redirect hop limit and re-validation, private-range blocking, timeouts, response size caps | `04` §8 |
+| 3 | ⚠ SSRF for user-supplied URLs — **mostly BUILT and tested.** Closed allow-list of six hosts, default-deny (`domain/source/canonicalise-tiktok-url.ts`, `isAllowedTikTokHost`; suffix and userinfo tricks such as `tiktok.com.evil.io` are covered by tests), `redirect: 'manual'` with `MAX_HOPS = 5` and the allow-list re-applied to every `Location` header, and `AbortSignal` timeouts on every fetch (`integrations/tiktok/resolve-short-link.ts`). Private-range blocking is implied by the allow-list rather than checked directly. **Still missing: response-size caps** — no `Content-Length` check and no byte ceiling on any response body | `04` §8 |
 | 4 | The remaining 7 questions in `04-tiktok-feasibility.md` §8 | social-integration |
 | 5 | ~~The 7 licensing/privacy questions in `06-map-and-places-decision.md` §11~~ — **SPLIT 2026-08-18, no longer one item.** Q1 (Apache-2.0 NOTICE sufficiency) **ANSWERED**, repo `NOTICE` shipped, `LICENSES/Apache-2.0.txt` + `/attributions` owed by MS5/MS10. Q2 (ODbL share-alike) **NARROWED** — no MS5 row is ODbL-derived, so it re-opens on the first PR adding an OSM alias or a Nominatim write path, not before MS5. Q3–Q7 remain open and are items 6a–10 in spirit; none can change an Overture-only schema. **Security-Privacy rules, maps-geospatial evidences and implements** — the earlier ownership split between this table and `implementation-plan.md` §4 is why none of them was answered | `06` §11 |
 | 6 | Caption-retention posture: TTL, copyright and personal-data stance on storing creator captions and handles | `07` |
 | 7 | Whether cached `sources` rows must be GC'd after user deletion | `08` §10 |
 | 8 | ~~Whether `places.created_at` predating a save is an acceptable inference channel~~ — **CLOSED 2026-08-19, see §2.6**: acceptable; the grant is narrowed to a column list anyway, for `provider_payload` | `08` §10 |
 | 9 | ~~Whether the user-writable `imports.candidates` grant should be revoked~~ — **CLOSED.** Ruled in `technical-design.md` §14 (the seventh reconciliation) and applied in MS4's migrations: `authenticated` holds no `UPDATE (candidates)` grant. The row was stale, not open | `08` §10 |
-| 10 | Public tile-key posture: URL restriction, and what happens if it is scraped | `06` §11 |
+| 10 | Public browser-key posture — now `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, not a tile key (CARTO is keyless): URL restriction, and what happens if it is scraped | `06` §11 |
 | 11 | Concrete per-user rate limits and the monthly cost ceiling | Charter §8 D11 |
 | 12 | The pre-submission security checklist for QA to execute | course M9 |
 
@@ -209,4 +215,5 @@ Settled in other documents; the M9 document later only has to *collect* these:
 - Extraction runs with no tools and no side effects, so a hostile caption can at worst produce output
   that fails schema validation.
 - The user's live position is never persisted server-side.
-- Secrets are server-only; the browser sees only the Supabase anon key and the public tile key.
+- Secrets are server-only; the browser sees the Supabase anon key and, where it is set,
+  `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` (owed item 10). The CARTO basemap needs no key at all.
