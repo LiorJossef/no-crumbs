@@ -345,6 +345,21 @@ function Section({
                     </>
                   ) : null}
                 </p>
+                {/* The collection's own description. It has been selected, mapped and carried on
+                    `CollectionSummary` since collections shipped and drawn nowhere
+                    (`growth-plan.md` §4) — a row of one line, which is what a description is worth
+                    against a name and a count. `line-clamp-1`, not `truncate`, for the same reason
+                    the name above uses `line-clamp-2`: an ellipsis on an RTL string inside an LTR
+                    box clips the beginning.
+
+                    `<bdi>` rather than `dir="auto"`, matching the name: `dir="auto"` would
+                    right-align an all-Hebrew description while the count line beside it stayed
+                    left, and a mixed list would have a ragged edge. */}
+                {collection.description ? (
+                  <p className="line-clamp-1 text-caption text-muted-foreground">
+                    <bdi>{collection.description}</bdi>
+                  </p>
+                ) : null}
                 <CollectionCover categories={collection.categories} className="mt-0.5" />
               </div>
               <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
@@ -380,5 +395,11 @@ function rowAccessibleName(collection: CollectionSummary): string {
   const second = secondFact(collection);
   if (second) parts.push(second);
   if (collection.role === 'viewer') parts.push('view only');
+  // The description joins the label because the label *replaces* the row's visible text: an
+  // `aria-label` on a link overrides everything inside it, so a description rendered above and
+  // left out here would be text a sighted user reads and a screen-reader user never hears.
+  // Isolated for the same reason the name is — it is user-typed and a count follows nothing here,
+  // but it can carry its own direction next to the English facts before it.
+  if (collection.description) parts.push(isolate(collection.description));
   return parts.join(', ');
 }

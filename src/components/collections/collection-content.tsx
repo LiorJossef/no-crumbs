@@ -319,6 +319,24 @@ function CollectionList({
           </span>
         </button>
 
+        {/* The collection's own description, which has been read from the database and carried on
+            `CollectionDetail` since collections shipped and never drawn (`growth-plan.md` §4).
+
+            It sits *below* the count and members line rather than between that line and the name.
+            The count line is a control — it opens the share view — and putting prose between a
+            heading and its own button separates the two things that belong together. Under it, the
+            description reads as what it is: the owner's sentence about the collection, not part of
+            its identity.
+
+            `line-clamp-3` because this is a sheet header over a list: the description is worth
+            three lines of it and not more, and the limit is 500 characters. `<bdi>` rather than
+            `dir="auto"`, matching the heading directly above — see the index row for why. */}
+        {collection.description ? (
+          <p className="mt-1.5 line-clamp-3 text-caption text-muted-foreground">
+            <bdi>{collection.description}</bdi>
+          </p>
+        ) : null}
+
         {menuOpen ? (
           <CollectionMenu
             collection={collection}
