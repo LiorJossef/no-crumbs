@@ -186,6 +186,12 @@ describe('PlaceRow — the post, on the row (W5-1)', () => {
 
   it('falls back to the category disc when there is no thumbnail at all', () => {
     // The majority state: nothing was backfilled, so every place saved before `0016` has none.
+    //
+    // The *other* fallback — an image that 404s — has two arms, and only one of them is visible
+    // here. `onError` covers a failure after hydration; a `ref` that reads `complete &&
+    // naturalWidth === 0` covers one that happened before it, which on a server-rendered list is
+    // the common case and which no static render can exercise. That arm's evidence is a
+    // screenshot of the desktop panel, and it is deliberately not faked into an assertion here.
     const markup = render(placeWith('google-places'));
     expect(markup).toContain('lucide-map-pin');
     expect(markup).not.toContain('<img');

@@ -843,6 +843,21 @@ function RowMedia({
           loading="lazy"
           decoding="async"
           onError={() => setFailed(true)}
+          /* **`onError` alone is not enough on a server-rendered list, and this was measured
+             rather than reasoned.** The markup ships from the server with the `src` already on it,
+             so the browser starts the request during parse — before React has hydrated and before
+             any handler is attached. An image that fails in that window never calls `onError` at
+             all, and the row keeps the browser's own broken-image glyph forever: exactly the hole
+             the fallback exists to prevent. Caught by looking at a 1440x900 screenshot of the
+             desktop panel, where the list is server-rendered; the mobile sheet mounts its list
+             after a drag, i.e. after hydration, so there it worked and looked fine.
+
+             A ref callback runs at attach, which is the first moment we can ask. `complete` with a
+             zero `naturalWidth` is the DOM's way of saying "finished, and there is no image" — the
+             only reliable read of a failure that already happened. */
+          ref={(node) => {
+            if (node?.complete === true && node.naturalWidth === 0) setFailed(true);
+          }}
           className="size-full object-cover"
         />
       </span>
