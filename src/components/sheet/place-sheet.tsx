@@ -390,16 +390,25 @@ function PlaceList({
               on screen explaining why the list is twelve rows and not twenty. Removing the
               explanation exactly when the evidence is hidden is the wrong trade. */}
           {/* `key` on the area, so React remounts the heading and `tw-animate-css`'s entrance runs:
-              140 ms, the one piece of motion that marks the one legitimate change of scope (§7).
-              It is deliberately not applied when only the *count* changes — filtering re-renders
-              this element without remounting it, and a heading that flashes on every keystroke is
-              the animation §7 forbids by name. `motion-reduce` makes it an instant swap, which is
-              the right answer here even though a sub-150 ms opacity fade would be permitted on its
-              own: this fires alongside a scroll reset and a focus move, and three simultaneous
-              changes with reduced motion on should be one frame. */}
+              `duration-enter` (140 ms), the one piece of motion that marks the one legitimate
+              change of scope (§7). It is deliberately not applied when only the *count* changes —
+              filtering re-renders this element without remounting it, and a heading that flashes on
+              every keystroke is the animation §7 forbids by name.
+
+              **The reduced-motion arm was an instant swap and is now the fade alone** (W3-3, and
+              `ux-overnight-specs.md` OQ-9, ruled by the orchestrator). The argument that used to
+              sit here was that this fires alongside a scroll reset and a focus move, so three
+              simultaneous changes with reduced motion on should be one frame. `facelift-plan.md`
+              §3a overrides it with a rule that applies to all nine animations rather than to this
+              one: under `prefers-reduced-motion` they collapse **to the opacity change alone, not
+              to nothing**, because the thing that just changed still has to be findable — and a
+              heading that swaps with no transition at all during a scroll reset is exactly the
+              change a reduced-motion user is most likely to miss. So the fade is unconditional and
+              only the 4 px rise is `motion-safe:`. That is the whole of the inversion: opacity is
+              everyone's, transform is the pointer user's bonus. */}
           <h2
             key={activeAreaId ?? 'no-area'}
-            className="animate-in fade-in-0 duration-140 font-heading text-xl font-extrabold tracking-tight text-foreground outline-none motion-reduce:animate-none"
+            className="animate-in fade-in-0 duration-enter motion-safe:slide-in-from-bottom-1 font-heading text-xl font-extrabold tracking-tight text-foreground outline-none"
           >
             {headingText}
           </h2>
