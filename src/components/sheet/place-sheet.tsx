@@ -776,7 +776,7 @@ export function PlaceRow({
         // the only confirmation a phone can give that the tap landed on *this* row before the
         // camera starts flying. Shallower than a button's on purpose — see its docblock.
         className={cn(
-          'flex min-h-16 w-full items-start gap-3 rounded-lg py-3.5 text-left transition-colors outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50',
+          'flex min-h-16 w-full items-start gap-3 rounded-lg py-3.5 text-left motion-safe:transition-colors outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50',
           PRESS_ROW,
         )}
       >
@@ -1570,7 +1570,7 @@ export function PlaceDetail({
                       data-vaul-no-drag
                       onClick={() => onSelectNearby(neighbour.id)}
                       className={cn(
-                        'flex min-h-11 w-full items-center justify-between gap-3 rounded-lg text-left transition-colors outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50',
+                        'flex min-h-11 w-full items-center justify-between gap-3 rounded-lg text-left motion-safe:transition-colors outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50',
                         // The same row shape, so the same press. It swaps the whole detail view
                         // under the finger, which is the one place a missing acknowledgement reads
                         // as the app having lost the place you were looking at.

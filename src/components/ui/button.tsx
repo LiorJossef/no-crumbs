@@ -7,7 +7,13 @@ import { PRESS_BEAT, PRESS_BUTTON, PRESS_CHIP } from "@/lib/interaction"
 const buttonVariants = cva(
   // `disabled:opacity-45`, not 50: the matrix fixes the disabled step at 45% and there is no
   // reason for the button to hold a second number for it.
-  `group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-45 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 ${PRESS_BEAT}`,
+  //
+  // **No un-prefixed `transition-all`.** It used to be here and it was doing exactly one thing:
+  // running the hover fade and the press translate for users who had asked for reduced motion,
+  // because `PRESS_BEAT`'s `motion-safe:transition` supersedes it for everybody else. Deleting it
+  // is W3-3's inversion applied to the button — the un-prefixed state is the reduced case, and the
+  // reduced case for a press is the colour arriving at once.
+  `group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-45 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 ${PRESS_BEAT}`,
   {
     variants: {
       variant: {
