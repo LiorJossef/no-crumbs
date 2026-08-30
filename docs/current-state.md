@@ -2,10 +2,70 @@
 
 > **Read this section, then §9. Everything between them is history and is dated.**
 >
-> Last reconciled: **2026-08-30**, at the close of the overnight product pass.
-> The newest session handoff is
-> [`handoff-2026-08-30-overnight-product-pass.md`](handoff-2026-08-30-overnight-product-pass.md),
-> and it is the one to read. Everything below the next section dates from 2026-08-29 or earlier.
+> Last reconciled: **2026-08-30**, at the close of the RTL / sheet-hierarchy session.
+> Read the section directly below first. The previous handoff is
+> [`handoff-2026-08-30-overnight-product-pass.md`](handoff-2026-08-30-overnight-product-pass.md).
+> Everything below the next two sections dates from 2026-08-29 or earlier.
+
+## Session close, 2026-08-30 — `fix/rtl-and-area-hierarchy`, 8 commits, **not pushed**
+
+**The repo is out of GitHub Actions minutes.** Owner instruction: run lint, typecheck and tests
+locally, do not push, do not trigger a workflow. `npm run merge:pr` gates on CI, so nothing can land
+through the normal route until that is resolved. The branch is complete and green locally
+(1817/1817, lint and typecheck clean) and is waiting on the owner.
+
+**Landed on the branch:**
+- **Bidi.** Eight accessible names were dragging their trailing count into a Hebrew name's RTL run
+  (`רעננה, 1 place…` rendering as `1 ,הננער place…`). `isolate()` in `ui/place/active-area.ts` is
+  `<bdi>` for strings, since an `aria-label` is an attribute. Measured in a browser: headings that
+  *end* with the name were already correct and were deliberately left alone.
+- **The collapsed sheet** said `14 in Tel Aviv-Yafo` while the map drew pins in three cities. It now
+  says `· +N more areas` and the tap it already had opens `Elsewhere`. `Elsewhere` was already
+  Country → Areas; nothing there needed restructuring.
+- **The import costs one `Add`, not two.** `ImportPageClient` runs an `initialUrl` on mount, so the
+  ＋ sheet's `Add this TikTok` is the only Add. Six taps → five. The Gemini-budget guard in
+  `seed-links.test.ts` was **restated, not weakened** — it now pins that exactly one effect may
+  submit, that it carries a once-ever ref, and that `initialUrl` has exactly one caller which must
+  be a submit handler.
+- **A real save-path defect**, found by `ux-interaction` while speccing the flatten: an `ambiguous`
+  candidate with model coordinates arrived **pre-ticked**, with the "pick one" notice suppressed,
+  and Save wrote the model's guessed pin while verified provider rows sat unpicked above it — and
+  the pin line read `Pin is approximate`. The one card that would save a guess was the one card that
+  did not say so. The existing test had asserted the defect as correct.
+- **Profile:** `Who you save from` removed (owner). `creatorBreakdown` is now dead code.
+
+**Reverted on the branch, and this matters more than what landed.** A fix that stopped a *guessed*
+locality merging across the 50 km radius shipped and was reverted the same hour after
+`qa-reliability` broke it and I reproduced both breaks: it shatters London from one area into
+**seven** once 1–17 of its 18 rows are Google-verified (upgrades arrive one at a time in
+production), and it missed the case it was built for, because it only fires when the guess's
+spelling matches a verified one — Ra'anana merges as `Tel Aviv` and `ת״א`, the two spellings
+`llm-guess` actually emits. **My adversarial fixture had used the one spelling that happened to be
+verified, which flattered the fix.** `clusters.ts` now records this as the third rejected attempt in
+that family. Do not propose a fourth: it belongs to resolution.
+
+**Uncommitted in the tree, on purpose** (owner wants to look at it himself): the marker-collision
+fix in `components/map/summary-style.ts` + its test. Area pills stop bypassing MapLibre's collision
+index. Independently verified — the negated `symbol-sort-key` is confirmed correct, and without the
+negation the map would silently keep the *emptiest* area. **Its open cost:** `queryRenderedFeatures`
+is backed by the collision index, so a dropped pill is also an **untappable** area — 1 of 5 adjacent
+areas reachable at z5–7, and `COUNTRY_LANDING_ZOOM` (4.65–8.0) lands a country tap in exactly that
+range. Directionally right; keeping the losers reachable is unsolved.
+
+**Open, undiagnosed, and the owner's next session:** on **production**, importing King David Hotel
+(Jerusalem) placed the pin correctly but the sheet header read **`1 in הרצליה`**. The extraction was
+correct, city included. The owner's reading is that this is downstream active-area/UI state. Nobody
+has read the production rows — `PROD_DATABASE_URL` is empty. **The local dev user and the production
+user are different users with different rows; do not diagnose one from the other.** I did that three
+times in that session and was wrong each time.
+
+**Also open:** item 5's review collapse (a single confident result should lose its tickbox and card
+chrome) is specced in [`ux-import-flatten.md`](ux-import-flatten.md) §3 and **not built**. Its §8
+carries two owner decisions: whether `Add a place` deserves its own tap, and whether to widen the
+`preselect` band (3 of 16 candidates ask `Needs your pick` with zero genuine ambiguities).
+
+**Local `npm run check:schema` fails** for an unrelated reason: the local database carries PR #72's
+`rate_limit_events` table, which is not on `main`. 16 relations where the inventory expects 15.
 
 ## What changed overnight, 2026-08-30 — twelve PRs, all merged
 
@@ -76,8 +136,10 @@ back under the sheet through a second door. It affects `/map` equally and predat
 to the container. Not introduced by the collections work; not fixed by it either.
 
 **Nothing hosted changed by hand, but the merge deployed.** Production now serves the merge commit
-`a245f8b` and **still 500s** — the env store is empty, which is the actual cause and is unrelated to
-this branch. Staging and Supabase auth config are exactly as the 2026-08-29 session left them.
+`a245f8b`. **Corrected 2026-08-30: production is UP.** It serves the current `main` on
+`p-002-zeta.vercel.app` — `/` 200, `/sign-in` 200, `/map` 307 to sign-in, which is correct
+signed-out behaviour. The env store was filled on 2026-08-29; the "still 500s" claim this line used
+to carry was stale. Staging and Supabase auth config are exactly as the 2026-08-29 session left them.
 **Production's database is at `0023` while `main` now needs `0024`-`0026`**, so the restore order is
 env vars -> push migrations -> redeploy; migrations last gives a fresh 500 for a new reason.
 
@@ -152,7 +214,7 @@ The short version, all measured this session:
    refuses to start) *and* `db:inventory:prod`, so **production is currently unverifiable** —
    several statements about production in this repo are reasoned from migration files rather than
    read off the database.
-2. **The Vercel env store is empty**, so `/map` and `/import` 500 in production.
+2. ~~**The Vercel env store is empty**, so `/map` and `/import` 500 in production.~~ **Resolved** — production serves `main` and returns 200/307 as expected (checked 2026-08-30).
    `vercel-env-restore.md` was corrected this session: four variables were missing and one
    recommended variable is obsolete.
 3. **Hosted migrations.** Staging is at `0018` (missing `0019`–`0023`). **Production is at `0009`,
