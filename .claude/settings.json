@@ -106,6 +106,10 @@
       "Bash(git commit --no-verify:*)",
       "Bash(git commit -n:*)",
       "Bash(git config:*)",
+      "Bash(git add -A:*)",
+      "Bash(git add .:*)",
+      "Bash(git add --all:*)",
+      "Bash(git checkout --:*)",
 
       "Bash(cat .env:*)",
       "Bash(cat ./.env:*)",
