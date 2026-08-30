@@ -88,7 +88,9 @@ fight over the same files. Estimates are working days for one developer with spe
 never the sole source of evidence that it works.
 
 ### Stage 3 — The library · ~4 days · spec `ux-interaction` / build `design-system-frontend`
-- List rows carrying the enrichment already stored per save (`tags`, `why_go`, `dishes`)
+- List rows carrying the enrichment already stored per save (`tags`, `why_go`, `dishes`). **The detail
+  view already renders all of it** (`place-sheet.tsx` :1203, :1273, :1277, :1161) — the row does not,
+  and the detail's own problem is hierarchy rather than content
 - Place detail sectioned, with the post as its hero
 - Skeletons and `loading.tsx` for every awaiting route (finding 8)
 - Real empty, all-filtered and no-match states

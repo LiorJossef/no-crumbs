@@ -2508,8 +2508,8 @@ td .mono { font-size: 12.5px; color: var(--ink-3); }
         the screen on the left is generous &mdash; the real one has no pins on it at all. Fixing the framing, then tiering
         labels by zoom rather than gating them at 14, is the single cheapest legibility win in the product.</p></div>
       <div class="card"><h3>The sheet got its content back</h3><p>Tags, the one-line <em>why go</em> and the dishes the
-        post named are all stored per save and mostly render only in the detail view. On the row they turn a list of
-        names into a list of reasons.</p></div>
+        post named are stored per save and render in the detail view, but not on the row. Bringing them up to the row is
+        what turns a list of names into a list of reasons.</p></div>
     </div>
   </div>
 </section>
@@ -2657,7 +2657,10 @@ td .mono { font-size: 12.5px; color: var(--ink-3); }
     <div class="sec-head">
       <p class="eyebrow">Mockup 03 &middot; the payoff surfaces</p>
       <h2>A saved place should look like something worth having saved.</h2>
-      <p class="lede">Today a place opens as a name, a category line and a caption quote. The database already
+      <p class="lede"><strong>Correction, verified in the code:</strong> the place detail already renders the tags, the
+        one-line <em>why go</em>, the dishes and the TikTok thumbnail &mdash; an earlier draft of this page said it
+        did not. Its problem is not missing content; it is that ~12 conditional blocks sit in one flat ungrouped column
+        with no hierarchy past the name. What is genuinely thin is the <em>list row</em>. The database already
         holds the thumbnail, the author, the tags, a one-line <em>why go</em> and the dishes the post named &mdash;
         and a collection is already a real object with members and invites. These two screens are almost entirely
         a rendering problem, not a data problem.</p>
