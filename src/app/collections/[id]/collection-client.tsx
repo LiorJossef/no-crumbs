@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 /**
  * A collection, on the map.
@@ -13,15 +13,22 @@
  * only narrowing is the search box, and it never moves the camera.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Drawer } from 'vaul';
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Drawer } from "vaul";
 
-import { MapSurface, type MapPlace } from '@/components/map/map-surface';
-import type { LatLngBoundsHint } from '@/components/map/types';
-import { useNonModalBackground } from '@/components/sheet/use-non-modal-background';
-import { CollectionContent, type CollectionView } from '@/components/collections/collection-content';
-import type { CollectionDetail } from '@/app/collections/_lib/get-collections';
-import { PEEK_PX, RESTING_SHEET_FRACTION } from './sheet-geometry';
+import { MapSurface, type MapPlace } from "@/components/map/map-surface";
+import type { LatLngBoundsHint } from "@/components/map/types";
+import { useNonModalBackground } from "@/components/sheet/use-non-modal-background";
+import {
+  CollectionContent,
+  type CollectionView,
+} from "@/components/collections/collection-content";
+import type { CollectionDetail } from "@/app/collections/_lib/get-collections";
+import {
+  CollectionsContext,
+  type CollectionsForPlace,
+} from "@/ui/place/collections-context";
+import { PEEK_PX, RESTING_SHEET_FRACTION } from "./sheet-geometry";
 
 /**
  * The sheet's stops and the camera's resting fraction, **imported rather than redeclared**.
@@ -37,7 +44,11 @@ const PEEK_STOP = `${PEEK_PX}px` as const;
 
 const RESTING_SNAP: number = RESTING_SHEET_FRACTION;
 
-const SNAP_POINTS: Array<`${number}px` | number> = [PEEK_STOP, RESTING_SHEET_FRACTION, 1];
+const SNAP_POINTS: Array<`${number}px` | number> = [
+  PEEK_STOP,
+  RESTING_SHEET_FRACTION,
+  1,
+];
 
 /** This surface puts **nothing** over the top edge of its map: no account chip, no post-import
  *  strip, no floating filter row — its whole UI is the sheet below `lg` and the left panel at
@@ -54,18 +65,29 @@ const FLOATING_TOP_CHROME_PX = 0;
 export function CollectionClient({
   collection,
   library,
+  collections,
   currentUserId,
 }: {
   collection: CollectionDetail;
   library: readonly MapPlace[];
+  /** The caller's own editable collections, for the detail's `Add to a collection` row. Provided
+   *  here for the same reason `/map` provides it: `PlaceDetail` reads it from a context rather than
+   *  a prop, so that the map surface never has to know what a collection is. */
+  collections: CollectionsForPlace;
   currentUserId: string;
 }) {
-  const [view, setView] = useState<CollectionView>('list');
+  const [view, setView] = useState<CollectionView>("list");
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [snap, setSnap] = useState<number | string | null>(RESTING_SNAP);
 
-  const pins = useMemo(() => collection.places.map(toMapPlace), [collection.places]);
-  const initialBounds = useMemo(() => boundsOf(collection.places), [collection.places]);
+  const pins = useMemo(
+    () => collection.places.map(toMapPlace),
+    [collection.places],
+  );
+  const initialBounds = useMemo(
+    () => boundsOf(collection.places),
+    [collection.places],
+  );
   /**
    * **The one thing that moves the camera after the initial framing**, and it now has two writers
    * rather than one — the same single-slot design `/map` uses, for the same reason: the surface
@@ -75,7 +97,9 @@ export function CollectionClient({
    * Writer 1 is `useRefitOnChange` — the collection's membership changed.
    * Writer 2 is `selectItem` — somebody tapped a place, and see below.
    */
-  const [focusPlaceIds, setFocusPlaceIds] = useState<readonly string[] | null>(null);
+  const [focusPlaceIds, setFocusPlaceIds] = useState<readonly string[] | null>(
+    null,
+  );
   useRefitOnChange(pins, setFocusPlaceIds);
 
   // Same reason `PlaceSheet` calls it: `modal={false}` does not reach Radix through vaul 1.1.2, so
@@ -121,8 +145,8 @@ export function CollectionClient({
         // sit below the fold with nothing on screen suggesting there is more — the panel barely
         // scrolls, so it does not even look scrollable. A place's detail is different and stays at
         // `half`: it is short, and burying the map to read one card is the wrong trade.
-        if (next === 'share' || next === 'add') setSnap(1);
-        else if (next === 'place' && snap === PEEK_STOP) setSnap(RESTING_SNAP);
+        if (next === "share" || next === "add") setSnap(1);
+        else if (next === "place" && snap === PEEK_STOP) setSnap(RESTING_SNAP);
       }}
       selectedItemId={selectedItemId}
       onSelectItem={selectItem}
@@ -130,47 +154,51 @@ export function CollectionClient({
   );
 
   return (
-    <div className="relative h-full w-full">
-      <MapSurface
-        places={pins}
-        onPlaceClick={(place) => {
-          selectItem(place.id);
-          setView('place');
-        }}
-        {...(initialBounds ? { initialBounds } : {})}
-        {...(focusPlaceIds ? { focusPlaceIds } : {})}
-        restingSheetFraction={RESTING_SHEET_FRACTION}
-        floatingTopChromePx={FLOATING_TOP_CHROME_PX}
-      />
+    // The same provider `/map` mounts. Without it `AddToCollection` renders `null`, so a place
+    // opened from a collection silently lost a control it has on the map — see R1.
+    <CollectionsContext value={collections}>
+      <div className="relative h-full w-full">
+        <MapSurface
+          places={pins}
+          onPlaceClick={(place) => {
+            selectItem(place.id);
+            setView("place");
+          }}
+          {...(initialBounds ? { initialBounds } : {})}
+          {...(focusPlaceIds ? { focusPlaceIds } : {})}
+          restingSheetFraction={RESTING_SHEET_FRACTION}
+          floatingTopChromePx={FLOATING_TOP_CHROME_PX}
+        />
 
-      {/* Mobile: the same drag sheet `/map` uses. */}
-      <Drawer.Root
-        open
-        modal={false}
-        dismissible={false}
-        snapPoints={SNAP_POINTS}
-        activeSnapPoint={snap}
-        setActiveSnapPoint={setSnap}
-        snapToSequentialPoint
-      >
-        <Drawer.Portal>
-          <Drawer.Content
-            data-testid="collection-sheet"
-            className="fixed inset-x-0 bottom-0 z-40 flex h-full max-h-[100dvh] flex-col rounded-t-2xl border-t border-border/70 bg-card shadow-[var(--shadow-elevated)] outline-none lg:hidden"
-          >
-            <Drawer.Handle className="mx-auto mt-2.5 h-1 w-9 shrink-0 rounded-full bg-border" />
+        {/* Mobile: the same drag sheet `/map` uses. */}
+        <Drawer.Root
+          open
+          modal={false}
+          dismissible={false}
+          snapPoints={SNAP_POINTS}
+          activeSnapPoint={snap}
+          setActiveSnapPoint={setSnap}
+          snapToSequentialPoint
+        >
+          <Drawer.Portal>
+            <Drawer.Content
+              data-testid="collection-sheet"
+              className="fixed inset-x-0 bottom-0 z-40 flex h-full max-h-[100dvh] flex-col rounded-t-2xl border-t border-border/70 bg-card shadow-[var(--shadow-elevated)] outline-none lg:hidden"
+            >
+              <Drawer.Handle className="mx-auto mt-2.5 h-1 w-9 shrink-0 rounded-full bg-border" />
+              {content}
+            </Drawer.Content>
+          </Drawer.Portal>
+        </Drawer.Root>
+
+        {/* Desktop: the same left panel, same width, same treatment. */}
+        <div className="pointer-events-none absolute inset-0 z-20 hidden lg:block">
+          <div className="pointer-events-auto absolute inset-y-0 left-0 flex w-[clamp(320px,26vw,392px)] flex-col border-r border-border/70 bg-card/85 pt-4 backdrop-blur-md">
             {content}
-          </Drawer.Content>
-        </Drawer.Portal>
-      </Drawer.Root>
-
-      {/* Desktop: the same left panel, same width, same treatment. */}
-      <div className="pointer-events-none absolute inset-0 z-20 hidden lg:block">
-        <div className="pointer-events-auto absolute inset-y-0 left-0 flex w-[clamp(320px,26vw,392px)] flex-col border-r border-border/70 bg-card/85 pt-4 backdrop-blur-md">
-          {content}
+          </div>
         </div>
       </div>
-    </div>
+    </CollectionsContext>
   );
 }
 
@@ -193,7 +221,10 @@ function useRefitOnChange(
   pins: readonly MapPlace[],
   onRefit: (ids: readonly string[]) => void,
 ): void {
-  const signature = pins.map((pin) => pin.id).sort().join(',');
+  const signature = pins
+    .map((pin) => pin.id)
+    .sort()
+    .join(",");
   const previous = useRef<string | null>(null);
 
   // `onRefit` is in the deps rather than stashed in a ref, and that is safe rather than sloppy: the
@@ -205,7 +236,7 @@ function useRefitOnChange(
     const isFirst = previous.current === null;
     if (previous.current !== signature) {
       previous.current = signature;
-      if (!isFirst && signature !== '') onRefit(signature.split(','));
+      if (!isFirst && signature !== "") onRefit(signature.split(","));
     }
   }, [signature, onRefit]);
 }
@@ -219,14 +250,14 @@ function useRefitOnChange(
  * collection never learns anybody's visit state, so no pin here can be drawn at the reduced
  * emphasis a visited one gets on `/map`.
  */
-function toMapPlace(place: CollectionDetail['places'][number]): MapPlace {
+function toMapPlace(place: CollectionDetail["places"][number]): MapPlace {
   return {
     id: place.itemId,
     name: place.name,
     category: place.category,
     lat: place.lat,
     lng: place.lng,
-    note: place.note ?? '',
+    note: place.note ?? "",
     sourceUrl: undefined,
     visited: false,
   };
@@ -234,7 +265,9 @@ function toMapPlace(place: CollectionDetail['places'][number]): MapPlace {
 
 /** Frame all of the collection's places. Unlike `/map`, there is no anchor-area choice to make:
  *  a collection is small and hand-made, and seeing all of it is the point. */
-function boundsOf(places: CollectionDetail['places']): LatLngBoundsHint | undefined {
+function boundsOf(
+  places: CollectionDetail["places"],
+): LatLngBoundsHint | undefined {
   if (places.length === 0) return undefined;
 
   const lats = places.map((place) => place.lat);
