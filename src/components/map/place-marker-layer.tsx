@@ -49,12 +49,16 @@
  * Everything visual is in `./marker-style.ts` and `./marker-images.ts`.
  */
 
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useMemo, useRef } from 'react';
 import type { GeoJSONSource, MapMouseEvent } from 'maplibre-gl';
 import { useMap } from '@/components/ui/map';
 
 import { buildPinImages } from './marker-images';
 import {
+  LABEL_TIER_ZOOMS,
+  labelTierFor,
+  metresPerPixel,
+  LABEL_CLEARANCE_PX,
   pinIconImageExpression,
   pinLayerLayout,
   pinLayerPaint,
@@ -63,6 +67,97 @@ import {
 import type { PlaceFeatureCollection } from './place-features';
 import { styleTextFont } from './style-text-font';
 import { useStyleReady } from './use-style-ready';
+
+/** Metres per degree of latitude. Constant enough at this scale; longitude is scaled by `cos φ`. */
+const METRES_PER_DEGREE = 111320;
+
+/**
+ * **Which zoom each pin's name is allowed to appear at** — the per-feature half of `W2-3`'s label
+ * tiering (`marker-style.ts`, `LABEL_TIER_ZOOMS`).
+ *
+ * A pin's name is drawn at the first tier by which its **nearest neighbour** is
+ * `LABEL_CLEARANCE_PX` away on screen, so the thing that decides is the library's own geometry: a
+ * place alone in its city is named on the overview, and nine places on one street are named once
+ * the user has zoomed in far enough to tell them apart. Labels are drawn with collision off (see
+ * this file's layer spec) and nothing else thins them, which is what makes the separation the
+ * honest test rather than a count or a zoom guess.
+ *
+ * ## The grid, and why it is not `O(n²)`
+ *
+ * The design ceiling is 2 000 places (`06` §9.1) and this runs on every change to the source —
+ * which includes every keystroke in the search box, because filtering rebuilds the collection. A
+ * pairwise scan is four million distance tests per keystroke.
+ *
+ * So points are bucketed into a grid whose cell is the coarsest tier's own clearance, each point is
+ * compared only against its own cell and the eight around it, and the scan **stops early** the
+ * moment it finds a neighbour closer than the finest tier's clearance — because everything below
+ * that resolves to the same answer (`LABEL_ALL_ZOOM`) and no closer neighbour can change it. The
+ * dense case, which is the expensive one and the one this product actually has, therefore exits on
+ * its first or second candidate.
+ *
+ * A pin with no neighbour inside the 3×3 window gets `Infinity`, which `labelTierFor` reads as *no
+ * zoom is needed* and answers with the lowest tier. That is correct rather than approximate: a
+ * neighbour outside the window is by construction further than the coarsest tier's clearance.
+ */
+export function withLabelZooms(data: PlaceFeatureCollection): GeoJSON.FeatureCollection {
+  const features = data.features;
+  if (features.length === 0) return data as GeoJSON.FeatureCollection;
+
+  const lats = features.map((feature) => feature.geometry.coordinates[1] ?? 0);
+  const lngs = features.map((feature) => feature.geometry.coordinates[0] ?? 0);
+  const meanLat = lats.reduce((sum, lat) => sum + lat, 0) / lats.length;
+  const cosLat = Math.max(Math.cos((meanLat * Math.PI) / 180), 1e-6);
+
+  const coarsest = LABEL_TIER_ZOOMS[0] ?? 0;
+  const finest = LABEL_TIER_ZOOMS[LABEL_TIER_ZOOMS.length - 1] ?? 0;
+  /** The separation the lowest tier is about — one grid cell, so a closer neighbour is always in
+   *  the 3×3 window and a further one never changes the answer. */
+  const cellMetres = LABEL_CLEARANCE_PX * metresPerPixel(coarsest, meanLat);
+  /** Below this every pin resolves to the same tier, so the scan may stop. */
+  const settledMetres = LABEL_CLEARANCE_PX * metresPerPixel(finest, meanLat);
+  const cellLat = cellMetres / METRES_PER_DEGREE;
+  const cellLng = cellMetres / (METRES_PER_DEGREE * cosLat);
+
+  const cells = new Map<string, number[]>();
+  const keyOf = (index: number) =>
+    `${Math.floor((lats[index] ?? 0) / cellLat)}:${Math.floor((lngs[index] ?? 0) / cellLng)}`;
+  for (let index = 0; index < features.length; index += 1) {
+    const key = keyOf(index);
+    const bucket = cells.get(key);
+    if (bucket) bucket.push(index);
+    else cells.set(key, [index]);
+  }
+
+  const nearestMetres = (index: number): number => {
+    const row = Math.floor((lats[index] ?? 0) / cellLat);
+    const column = Math.floor((lngs[index] ?? 0) / cellLng);
+    let best = Number.POSITIVE_INFINITY;
+    for (let dRow = -1; dRow <= 1; dRow += 1) {
+      for (let dColumn = -1; dColumn <= 1; dColumn += 1) {
+        for (const other of cells.get(`${row + dRow}:${column + dColumn}`) ?? []) {
+          if (other === index) continue;
+          const dLat = ((lats[other] ?? 0) - (lats[index] ?? 0)) * METRES_PER_DEGREE;
+          const dLng = ((lngs[other] ?? 0) - (lngs[index] ?? 0)) * METRES_PER_DEGREE * cosLat;
+          const distance = Math.hypot(dLat, dLng);
+          if (distance < best) best = distance;
+          if (best <= settledMetres) return best;
+        }
+      }
+    }
+    return best;
+  };
+
+  return {
+    type: 'FeatureCollection',
+    features: features.map((feature, index) => ({
+      ...feature,
+      properties: {
+        ...feature.properties,
+        labelZoom: labelTierFor(nearestMetres(index), lats[index] ?? 0),
+      },
+    })),
+  };
+}
 
 /**
  * The layer's zoom range, as a value.
@@ -226,13 +321,18 @@ export function PlaceMarkerLayer({
     };
   }, [map, styleReady, sourceId, pinLayerId, replacedBelowZoom]);
 
+  /** The features with their label tier stamped on. Memoised on `data`, so the grid scan costs
+   *  nothing on a selection, a re-render or a camera move — only on a library or filter change,
+   *  which is the same key the source is written on. */
+  const labelled = useMemo(() => withLabelZooms(data), [data]);
+
   // The source's only writer, and the selection effect below is the layer's. Both run after the
   // creation effect in the same commit, so the layers are never rendered from stale state.
   useEffect(() => {
     if (!map || !styleReady) return;
     const source = map.getSource(sourceId) as GeoJSONSource | undefined;
-    source?.setData(data);
-  }, [map, styleReady, sourceId, data]);
+    source?.setData(labelled);
+  }, [map, styleReady, sourceId, labelled]);
 
   useEffect(() => {
     if (!map || !styleReady || !map.getLayer(pinLayerId)) return;

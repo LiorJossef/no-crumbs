@@ -31,6 +31,7 @@ import { PRODUCT_CATEGORY_ORDER } from '@/domain/places/product-category';
 import type { ProductCategory } from '@/domain/places/product-category';
 import { CATEGORY_DISPLAY } from '@/ui/place/category-display';
 import { PIN_LABEL_HALO, PIN_LABEL_INK, UNCATEGORISED_COLOR } from '@/ui/place/palette';
+import { PIN_BAND_MIN } from './zoom-bands';
 
 /**
  * The pin drawn for a place we have no category for.
@@ -241,19 +242,124 @@ export function pinSortKeyExpression(selectedId: string | null): unknown[] | num
 }
 
 /**
- * The zoom at which a place's name appears next to its pin.
+ * **The zoom by which every saved place is named**, and the top of the tier ladder below.
  *
- * Below this the map is for orientation and a field of labels is noise; above it the user is
- * reading one neighbourhood and the names are the point.
- *
- * The layer draws these labels with collision off (see `place-marker-layer.tsx`), so this zoom is
- * the only thing thinning them — which is why it is 14 and not 13.5. At 13.5 a dense
- * neighbourhood stacked two or three names on top of each other; by 14 the pins have separated.
+ * This was `LABEL_MIN_ZOOM` — one flat gate, the only thing thinning the labels, and the reason it
+ * was 14 rather than 13.5 was legibility rather than cost: *"at 13.5 a dense neighbourhood stacked
+ * two or three names on top of each other; by 14 the pins have separated."* That sentence is still
+ * true and it is why 14 is still where the ladder ends. What changed is that 14 is no longer where
+ * it *starts*: since the home camera came to rest on the user's own pins (`W2-1`), a settled home
+ * view sits at z8.8–13 and a flat gate at 14 meant the overview had pins and not one name on it.
  */
-export const LABEL_MIN_ZOOM = 14;
+export const LABEL_ALL_ZOOM = 14;
+
+/**
+ * **The zooms a name may appear at**, low to high — `W2-3`, `facelift-plan.md` stage 2's *"labels
+ * tiered by zoom, not gated at 14"*.
+ *
+ * A pin's name appears at the first tier by which that pin has `LABEL_CLEARANCE_PX` of room to its
+ * nearest neighbour, so a place alone in its city is named on the overview and nine places on one
+ * street are named when the user has zoomed in far enough to tell them apart. The tier is a
+ * per-feature property (`labelZoom`, stamped in `place-marker-layer.tsx`) and the zoom test is the
+ * `step` in `pinTextFieldExpression`, because MapLibre only allows `['zoom']` at the top level of a
+ * `step` or `interpolate` in a layout property.
+ *
+ * The floor is `PIN_BAND_MIN` rather than a number of its own: below it this layer does not draw at
+ * all on a surface with summary bands, so a lower tier could only ever apply to
+ * `/collections/[id]`, where a name over a two-place collection at world zoom is noise.
+ *
+ * Five tiers rather than a continuous ramp: `text-field` is a *layout* property, so every distinct
+ * value it can take is a distinct symbol layout, and a continuous per-feature threshold would
+ * relayout on every fractional zoom change. Five steps relayout five times, which is what the
+ * bands already cost.
+ */
+export const LABEL_TIER_ZOOMS: readonly number[] = [PIN_BAND_MIN, 10, 11.5, 13, LABEL_ALL_ZOOM];
+
+/**
+ * How far a pin's nearest neighbour has to be, on screen, before its name is worth drawing.
+ *
+ * The labels are drawn with collision **off** — `text-allow-overlap` is on and has to be, because
+ * these are the user's own places and a name that loses a fight with a street label is a name that
+ * silently is not there (measured: at z14 with six pins on screen, with collision on, not one name
+ * drew). So nothing thins them but this number, and it is the label's own width rather than a
+ * guess: `text-max-width` is 9 em at `text-size` 12, i.e. ~108 px for a wrapped name, and 96 px is
+ * that minus the slack a short name leaves.
+ *
+ * **This is also what keeps the frame budget.** `06` §9.1 measured 2 000 pins at 19.0 ms median
+ * with labels gated and 34.0 ms / ~29 fps with labels forced on, and the flat gate was the whole
+ * of the defence. A separation rule is a strictly stronger one: the number of labels that can be
+ * shaped at any zoom is bounded by the number of `LABEL_CLEARANCE_PX` cells on the screen, which is
+ * a function of the *viewport* and not of the library. A 2 000-place library clumped in six cities
+ * shapes a handful of glyphs at z9, where the flat gate shaped none and a naive tiering would shape
+ * two thousand.
+ */
+export const LABEL_CLEARANCE_PX = 96;
 
 /** Names longer than this wrap; `text-max-width` is in ems, which is what the layer wants. */
 export const LABEL_MAX_WIDTH_EM = 9;
+
+/** Web Mercator, the way `camera-model.ts` and MapLibre both compute it: a 512 px tile world. */
+const EQUATOR_METRES = 40075016.686;
+const TILE_PX = 512;
+
+/** Ground resolution in metres per CSS pixel at a zoom and a latitude. */
+export function metresPerPixel(zoom: number, lat: number): number {
+  return (EQUATOR_METRES * Math.cos((lat * Math.PI) / 180)) / (TILE_PX * 2 ** zoom);
+}
+
+/**
+ * The zoom at which two points `metres` apart are `LABEL_CLEARANCE_PX` apart on screen — i.e. the
+ * zoom at which a name beside one of them stops touching the other.
+ *
+ * `Infinity` in, `-Infinity` out: a pin with no neighbour at all needs no zoom to have room, and
+ * `labelTierFor` turns that into the lowest tier.
+ */
+export function separationZoom(metres: number, lat: number): number {
+  if (metres <= 0) return Number.POSITIVE_INFINITY;
+  return Math.log2((LABEL_CLEARANCE_PX * metresPerPixel(0, lat)) / metres);
+}
+
+/**
+ * Which tier a pin whose nearest neighbour is `metres` away belongs to: the first tier at or above
+ * the zoom where it has room, and the last tier for anything that never does.
+ *
+ * The last tier is `LABEL_ALL_ZOOM`, so a pin that is genuinely on top of its neighbour is named at
+ * 14 exactly as it is today. **Nothing is hidden by this change that is visible without it** — the
+ * ladder only ever moves a name *earlier*.
+ */
+export function labelTierFor(metres: number, lat: number): number {
+  const needed = separationZoom(metres, lat);
+  for (const tier of LABEL_TIER_ZOOMS) {
+    if (needed <= tier) return tier;
+  }
+  return LABEL_ALL_ZOOM;
+}
+
+/**
+ * `text-field` for the pin layer: nothing, then progressively the pins that have room, then all of
+ * them.
+ *
+ * One `step` on `['zoom']` with a per-feature `case` in each branch, and that shape is forced:
+ * MapLibre rejects a zoom expression anywhere but the top level of a `step` or `interpolate` in a
+ * layout property, so `['case', ['>=', ['zoom'], ['get', 'labelZoom']], …]` — the obvious way to
+ * write this — does not compile.
+ *
+ * The first branch is the literal empty string, which is what makes a zoom-out cost nothing:
+ * symbol layout runs per tile at the tile's own zoom, so below the floor MapLibre shapes zero
+ * glyphs. That property is the one `06` §9.1's measurement depends on and it is unchanged.
+ */
+export function pinTextFieldExpression(): unknown[] {
+  const expression: unknown[] = ['step', ['zoom'], ''];
+  for (const tier of LABEL_TIER_ZOOMS) {
+    expression.push(tier, [
+      'case',
+      ['<=', ['coalesce', ['get', 'labelZoom'], LABEL_ALL_ZOOM], tier],
+      ['get', 'name'],
+      '',
+    ]);
+  }
+  return expression;
+}
 
 /**
  * The pin layer's `layout` and `paint`, as plain objects.
@@ -286,10 +392,11 @@ export function pinLayerLayout(
     'icon-allow-overlap': true,
     'icon-ignore-placement': true,
     'symbol-sort-key': pinSortKeyExpression(selectedId),
-    // The label gate, and the reason a "show everything" zoom-out is an icons-only case: symbol
-    // layout runs per tile at the tile's own zoom, so below `LABEL_MIN_ZOOM` this `step` yields the
-    // empty string and MapLibre shapes zero glyphs. Measured — see `06` §9.1.
-    'text-field': ['step', ['zoom'], '', LABEL_MIN_ZOOM, ['get', 'name']],
+    // The label ladder, and the reason a "show everything" zoom-out is still an icons-only case:
+    // symbol layout runs per tile at the tile's own zoom, so below the lowest tier this `step`
+    // yields the empty string and MapLibre shapes zero glyphs. Measured — see `06` §9.1 — and see
+    // `pinTextFieldExpression` for why the per-pin test lives inside the branches.
+    'text-field': pinTextFieldExpression(),
     'text-font': [...textFont],
     'text-size': 12,
     'text-anchor': 'top',
