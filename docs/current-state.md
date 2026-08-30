@@ -42,36 +42,71 @@ document before 2026-08-30.
 | Migrations on disk | 29 — `0001`–`0030`, `0027` does not exist |
 | Staging database | `0018` — missing `0019`–`0030` |
 | Production database | `0026` — missing `0028`–`0030` |
-| Git | `main` == `origin/main` == `99324dd`, tree clean |
-| Open PRs | #72, #64, #22 — all green, all 153–424 commits behind `main` |
+| Git | `main` == `origin/main` == `7ca82bc`, tree clean |
+| Open PRs | #72, #64, #22 — green from runs before 2026-08-29 21:52, all 153–424 commits behind `main`; plus #101 (project-contained Claude config), whose checks could not start |
+| Git hooks | `core.hooksPath` must be `.githooks`. It was **unset** on 2026-08-30 — `main` was unprotected. `npm run check:claude` now fails if that recurs |
 
 **Production is eight migrations ahead of staging.** Staging is the stale environment, so it is no
 longer a rehearsal for a production push.
 
-## CI is not running
+## CI exists and is correct; the runner stopped starting on 2026-08-29
 
-**There is no active GitHub workflow**, so nothing is being checked automatically. `npm run verify`
-locally is the only gate, and it covers one of the four jobs the workflow used to define.
+**Corrected 2026-08-30.** This section previously said "there is no active GitHub workflow" and
+listed *restore CI* as owed work. **That was wrong, and it was expensive to be wrong about** — it
+would have sent someone to rewrite a workflow that is already right.
 
-The `e2e` job was never evidence even when it ran: it set no `E2E_PASSWORD` and started no Supabase,
-so seven of nine spec files skipped and the check reported green over four signed-out tests.
-`tests/e2e/global-setup.ts` was written to make that impossible and was itself dead code —
+`.github/workflows/ci.yml` is tracked, is on `main`, and `gh workflow list` reports it **active**. It
+defines exactly the four jobs this file described as the ones it "used to": `lint · typecheck ·
+layer guard · unit`, `next build`, `playwright`, and `migrations · RLS policy tests`.
+
+What is actually true is narrower and more actionable. Measured 2026-08-30 over the last 100 runs:
+
+| | |
+|---|---|
+| Successful runs | 72 — most recently **2026-08-29 21:36** |
+| Consecutive failures since | **22**, from 2026-08-29 21:52 to now |
+| Shape of every failure | **0 steps executed, ~2 seconds, no logs, no annotations** |
+
+A job that fails in two seconds having run no steps never started. That is not a code failure and no
+change to `ci.yml` will fix it — it is an **account-level GitHub Actions problem**, most plausibly an
+exhausted minutes allowance or spending limit on a private repo. The billing endpoint needs a `user`
+scope the CLI does not currently hold, so this is diagnosed, not confirmed.
+
+**Owner action, and it is the cheapest unblock available:** check
+<https://github.com/settings/billing>. Until Actions can start, **`npm run merge:pr` correctly
+refuses every PR** — an empty or failing check list is not a pass — so *nothing can land*, including
+the three PRs below and anything built this week. That single fact gates the remaining seven days.
+
+The `e2e` job's older weakness stands and is unrelated: it sets no `E2E_PASSWORD` and starts no
+Supabase, so seven of nine spec files skipped and the check reported green over four signed-out
+tests. `tests/e2e/global-setup.ts` was written to make that impossible and was itself dead code —
 `playwright.config.ts` had no `globalSetup` key. **It is wired now** (verified against all four
-environments it distinguishes), so it is ready for whatever workflow comes back.
+environments it distinguishes), so the next green run is the one that proves it: the job must stand
+up a local Supabase, seed the demo user and pass `E2E_PASSWORD`, or the guard will fail it. That is
+the intended behaviour, not a bug to work around.
 
-**Follow-up, owed: restore CI.** Whatever replaces the workflow, its e2e job must stand up a local
-Supabase, seed the demo user and pass `E2E_PASSWORD`, or the guard will fail it — which is the
-intended behaviour, not a bug to work around.
+**Local `npm run verify` is the only gate that runs today**, and on a fresh checkout it does not run
+at all until `npm install` has: measured 2026-08-30, `node_modules/` was absent, so the `eslint` on
+`PATH` was 8.35.0, which cannot read the flat `eslint.config.mjs` this repo ships, and `verify` died
+on its first step. The same absence left `core.hooksPath` unset — see
+[`claude-code-setup.md`](claude-code-setup.md).
 
 ## Open, in impact order
 
+0. **GitHub Actions cannot start a runner** (above). It is item zero because it blocks *landing*,
+   not building: `merge:pr` refuses a PR whose checks are absent or failing, so every finished
+   feature queues behind it. Owner action, not an engineering task — check
+   <https://github.com/settings/billing>. **Do not "restore CI"**; `ci.yml` is present, active and
+   correct.
 1. **`L1-F8-T1`** — account menu, delete-my-data, and the zero-places first-run state. Blocked by
    nothing. **Trap:** `collections.owner_id` is `on delete cascade` and ownership transfer was never
    built, so deleting an account destroys shared collections for everyone in them.
 2. **`L1-F10` graded artefacts** — `test-specification.md`, `scale.md`, `deployment.md`,
    `how-the-system-works.md` do not exist; `security.md` is interim with 8 items owed. Largest
    submission gap.
-3. **Restore CI**, and make its e2e job satisfy the now-wired guard (above).
+3. Once a runner starts again, the first green `playwright` job is what proves the now-wired e2e
+   guard: it must stand up a local Supabase, seed the demo user and pass `E2E_PASSWORD`, or the
+   guard will fail it by design.
 4. **Unverified code on `main` and in production**: the `{ kind: 'user' }` arm of `Framing`
    (`map-surface.mapcn.tsx`) was written as a minimal fix and never exercised in a browser.
 5. **Defect 1, undiagnosed** — production settled on a country view with no pin under a header
