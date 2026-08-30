@@ -1,6 +1,6 @@
 <title>No Crumbs Design System</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400..900&family=Manrope:wght@400..800&family=JetBrains+Mono:wght@400..700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,400..900,0..100,0..1&family=Manrope:wght@400..800&family=JetBrains+Mono:wght@400..700&display=swap">
 <style>
 /* ============================================================================
    TOKENS — dark-first. The page is the night map; the mockups inside it are
@@ -38,7 +38,7 @@
   --shadow-2: 0 8px 24px -12px rgba(0,0,0,.7);
   --shadow-3: 0 28px 64px -28px rgba(0,0,0,.85);
 
-  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --display: "Fraunces", "Iowan Old Style", Georgia, serif;
   --body:    "Manrope", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --mono:    "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
@@ -121,12 +121,24 @@ body {
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
-h1,h2,h3,h4 {
+/* Two roles, deliberately different species. h1/h2 carry the editorial voice in a
+   warm display serif; h3/h4 are functional labels at 15-17px, where a serif turns to
+   mud, so they stay in the product's own Manrope. */
+h1, h2 {
   font-family: var(--display);
+  font-optical-sizing: auto;
+  font-variation-settings: "SOFT" 32, "WONK" 1;
+  font-weight: 700;
+  letter-spacing: -.012em;
+  line-height: 1.08;
+  text-wrap: balance;
+  margin: 0;
+}
+h3, h4 {
+  font-family: var(--body);
   font-weight: 800;
-  font-stretch: normal;
-  letter-spacing: -.025em;
-  line-height: 1.05;
+  letter-spacing: -.015em;
+  line-height: 1.25;
   text-wrap: balance;
   margin: 0;
 }
@@ -200,7 +212,7 @@ header.top {
     linear-gradient(to bottom, transparent 62%, var(--bg) 100%);
 }
 .hero-in { position: relative; z-index: 2; }
-.hero h1 { font-size: clamp(42px, 7.4vw, 96px); font-stretch: normal; letter-spacing: -.035em; }
+.hero h1 { font-size: clamp(40px, 6.8vw, 88px); letter-spacing: -.018em; font-variation-settings: "SOFT" 44, "WONK" 1; }
 .hero h1 em { font-style: normal; color: var(--mint); }
 .hero .lede { margin-top: 22px; max-width: 56ch; font-size: clamp(17px, 1.7vw, 21px); }
 .hero-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 30px; }
@@ -637,7 +649,7 @@ td .mono { font-size: 12.5px; color: var(--ink-3); }
 /* ---------- brand page ---------- */
 .crumb-gold  { --gold:#F2C46B; --gold-d:#E0A845; --gold-dd:#C98B2E; --crust:#3A2A15; }
 
-.wm { font-family:"Archivo",sans-serif; font-weight:900; font-stretch: normal; letter-spacing:-.045em; line-height:.86; text-transform:uppercase; color:var(--ink); }
+.wm { font-family:var(--display); font-weight:900; font-optical-sizing:auto; font-variation-settings:"SOFT" 60,"WONK" 1; letter-spacing:-.022em; line-height:.94; color:var(--ink); }
 .wm-xl { font-size:clamp(52px,11vw,140px); }
 .wm-lg { font-size:clamp(34px,6vw,64px); }
 .wm-sm { font-size:22px; }
@@ -671,10 +683,10 @@ td .mono { font-size: 12.5px; color: var(--ink-3); }
 .appcard .show.dark { background:#0D1614; }
 
 .og { width:min(100%,420px); aspect-ratio:1200/630; border-radius:12px; background:#FAF9F6; border:1px solid #E7E3DC; padding:26px; display:flex; flex-direction:column; justify-content:space-between; box-shadow:var(--shadow-2); }
-.og .t { font-family:"Archivo",sans-serif; font-weight:900; font-stretch: normal; font-size:clamp(20px,3.4vw,34px); letter-spacing:-.04em; line-height:1.02; color:#1B1B1A; }
+.og .t { font-family:var(--display); font-weight:800; font-variation-settings:"SOFT" 44,"WONK" 1; font-size:clamp(20px,3.4vw,34px); letter-spacing:-.04em; line-height:1.02; color:#1B1B1A; }
 .og .s { font-size:clamp(11px,1.4vw,14px); color:#75716A; font-weight:600; margin-top:8px; }
 .og .row { display:flex; align-items:center; gap:9px; }
-.og .row b { font-family:"Archivo",sans-serif; font-weight:900; font-stretch: normal; font-size:15px; letter-spacing:-.03em; text-transform:uppercase; color:#1B1B1A; }
+.og .row b { font-family:var(--display); font-weight:900; font-variation-settings:"SOFT" 60,"WONK" 1; font-size:16px; letter-spacing:-.02em; color:#1B1B1A; }
 
 .pinrow { display:flex; gap:22px; align-items:flex-end; flex-wrap:wrap; justify-content:center; }
 .pinlab { font-size:10.5px; font-weight:700; color:#75716A; text-align:center; margin-top:7px; }
@@ -840,7 +852,7 @@ td .mono { font-size: 12.5px; color: var(--ink-3); }
 .cover { border-bottom:1px solid var(--line-soft); padding-block:clamp(44px,6vw,78px) clamp(22px,3vw,34px);
   background:radial-gradient(120% 150% at 88% -40%, var(--glow) 0%, transparent 58%); }
 .cover-n { font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--mint-mid); }
-.cover-t { font-size:clamp(34px,5.6vw,68px); letter-spacing:-.035em; margin-top:12px; }
+.cover-t { font-size:clamp(32px,5.2vw,62px); letter-spacing:-.016em; margin-top:12px; font-variation-settings:"SOFT" 44,"WONK" 1; }
 .cover-b { font-size:clamp(16px,1.6vw,19px); color:var(--ink-2); max-width:56ch; margin-top:14px; line-height:1.55; }
 
 .subnav { display:flex; gap:6px; flex-wrap:wrap; margin-top:26px; }
@@ -1314,10 +1326,12 @@ td .mono { font-size: 12.5px; color: var(--ink-3); }
     <div class="sec-head">
       <p class="eyebrow">Wordmark</p>
       <h2>Two words, stacked, heavy, tight.</h2>
-      <p class="lede">Set in <strong>Archivo</strong> at 900, slightly condensed, with tracking pulled to
-        &minus;0.045em. Stacked is the primary: it makes a solid rectangle that sits beside the mascot without either
+      <p class="lede">Set in <strong>Fraunces</strong> at 900 &mdash; a variable display serif with a
+        <code>SOFT</code> axis, run warm at 60, and <code>WONK</code> on, which is what gives it the slight tilt that
+        keeps it from reading as a bank. Stacked is the primary: it makes a solid rectangle that sits beside the mascot without either
         fighting the other, and it puts <em>No</em> and <em>Crumbs</em> on separate lines so the phrase reads as a phrase.
-        <strong>This is the only place Archivo appears.</strong> A wordmark is a drawn asset, not a typeface in the
+        <strong>Fraunces carries the editorial voice and nothing else</strong> &mdash; the wordmark and the large
+        headings. Functional labels stay in Manrope, and a wordmark is a drawn asset, not a typeface in the
         product &mdash; so the signed-off &ldquo;Manrope only&rdquo; decision for UI survives intact.</p>
     </div>
 
@@ -1469,7 +1483,7 @@ td .mono { font-size: 12.5px; color: var(--ink-3); }
         <div class="show" style="flex-direction:column;gap:12px">
           <div class="crumb-gold" style="display:flex;flex-direction:column;align-items:center;gap:10px">
             <svg viewBox="0 0 100 100" style="width:66px;height:66px"><use href="#crumbFace"/></svg>
-            <p style="font-family:'Archivo',sans-serif;font-weight:900;font-stretch: normal;font-size:19px;letter-spacing:-.03em;color:#1B1B1A">Your map starts here.</p>
+            <p style="font-family:var(--display);font-weight:800;font-variation-settings:'SOFT' 44,'WONK' 1;font-size:20px;letter-spacing:-.014em;color:#1B1B1A">Your map starts here.</p>
             <p style="font-size:13px;color:#75716A;font-weight:500;text-align:center;max-width:32ch">Paste a TikTok link and the places it talks about land on your map.</p>
             <span style="margin-top:4px;padding:10px 18px;border-radius:12px;background:#A8ECE2;color:#123B35;font-weight:800;font-size:13px">+ Add a TikTok</span>
             <p style="font-size:10.5px;color:#A9A49B;margin-top:2px">Shipping copy, unchanged. Only the mascot is new &mdash; and it is the part to argue about.</p>
@@ -3799,10 +3813,9 @@ window.CRUMB = (function () {
 
   /* ---------- wordmark typeface switcher ---------- */
   var FACES = [
+    ['Fraunces', '"Fraunces", Georgia, serif'],
     ['Manrope', '"Manrope", sans-serif'],
-    ['Archivo', '"Archivo", sans-serif'],
-    ['Bricolage', '"Bricolage Grotesque", sans-serif'],
-    ['Fraunces', '"Fraunces", Georgia, serif']
+    ['Mono', '"JetBrains Mono", monospace']
   ];
   var bar = document.getElementById('wmbar');
   var host = document.getElementById('shortlist');

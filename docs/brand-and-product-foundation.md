@@ -116,10 +116,24 @@ Three constraints keep it from eating the design system:
    it sits a few degrees from the café category amber, and on this map colour means *what a place is*.
    Mint stays the only brand colour; gold belongs to the mascot alone; the two never share a surface.
 
-**Typography:** the wordmark is set in **Archivo** 900, tight tracking, sentence or upper case, at
-normal width. A wordmark is a drawn asset, not a typeface in the product, so §5's *Manrope only*
-ruling for UI survives intact. **Do not apply a `font-stretch` axis** — Archivo is variable-width and
-an expanded setting visibly distorts the letterforms.
+**Typography — amended 2026-08-30 (second pass).** The wordmark was first set in **Archivo**; that is
+**retired**. Archivo and Manrope are both grotesques, so pairing them was a near-miss — too similar to
+read as a deliberate pairing, too different to read as one family, which is exactly the "something is
+off and I cannot say what" the owner reported. Any second sans has the same problem.
+
+The wordmark and the large editorial headings are now **Fraunces** — a variable display serif, run
+with `SOFT` at 60 and `WONK` on, which is what gives it the slight tilt that keeps it from reading as
+a bank. It contrasts with Manrope completely rather than nearly, and its warmth suits a food product
+with a soft-cornered mascot better than a neutral grotesque did.
+
+**Two roles, and the split matters:** Fraunces carries `h1`/`h2` and the wordmark. **Functional labels
+— `h3`, `h4`, card titles at 15–17px — stay in Manrope**, because a serif at that size turns to mud.
+So §5's *Manrope only* ruling for UI survives intact, and the display face is confined to the
+editorial voice.
+
+**Do not apply a `font-stretch` axis** to any of them. Archivo was variable-width and an expanded
+setting visibly distorted the letterforms — the first version of the design-system document shipped
+that bug across every heading.
 
 Moods, style constructions and the motion set are in
 [`no-crumbs-design-system.html`](no-crumbs-design-system.html) → The Mascot. Eight moods, each bound to
