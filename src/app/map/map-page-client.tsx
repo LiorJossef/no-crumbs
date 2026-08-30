@@ -114,6 +114,7 @@ import { TagFilterContext, isSameTag, type TagFilter } from '@/ui/place/tag-filt
 import { AnnounceContext, SILENT, latestSpoken, type Announcer } from '@/ui/place/announce';
 import { clusterByProximity, pickAnchorCluster } from '@/domain/places/clusters';
 import { buildAreas, mapAccessibleName } from '@/ui/place/active-area';
+import { locationCertainty } from '@/ui/place/location-certainty';
 import {
   activeCountryKey as ringedCountryKeyFor,
   fallbackScope,
@@ -302,6 +303,12 @@ export function MapPageClient({
         // geometry alone, which merges every city inside 50 km: the owner's library reported
         // `4 places in תל אביב-יפו` over a set holding Rishon LeZion and Ra'anana.
         toLocality: (place: MapPlace) => place.detail?.locality ?? null,
+        // An `llm_guess` row's locality is the model's, from the same guess as its coordinates, so
+        // a Ra'anana café in a "best of Tel Aviv" post arrives with the wrong city and joins the
+        // wrong area. `locationCertainty` is the project's one answer to "was this matched or
+        // guessed" — reused here rather than re-testing the dataset slug.
+        isLocalityTrusted: (place: MapPlace) =>
+          locationCertainty(place.detail?.provenance?.sourceDataset)?.isApproximate !== true,
       }),
     [places],
   );

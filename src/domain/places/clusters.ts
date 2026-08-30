@@ -42,19 +42,35 @@
  * predicate changed. A spatial index here would be speculative machinery defending against a
  * library size this product does not have.
  *
- * Three things this deliberately does **not** do, each measured rather than assumed:
+ * Two things this deliberately does **not** do, each measured rather than assumed:
  *
  *  - **An unknown locality does not link beyond `nearKm`.** Letting unknown match everything reads
  *    generous and is a hole: one unlabelled row halfway between two cities re-merges them
  *    transitively, which reproduces the exact bug. The cost is that a lone unnamed place more than
  *    2 km from anything becomes its own one-place area, which is at least honest.
- *  - **It does not trust `source_dataset`.** Gating the veto to resolved rows, so an `llm-guess`
- *    locality cannot split a city, was measured on the owner's own four rows and made it *worse*:
- *    the untrusted row becomes the free bridge and Rishon LeZion merges back into Tel Aviv.
- *  - **It does not try to rescue a wrong coordinate.** `candidate-place.ts` writes an `llm_guess`
- *    row's `lat`/`lng` and its `locality` from the same model guess, so a place the model puts in
- *    the wrong city arrives with a matching wrong city name. No grouping rule can separate that,
- *    and one contorted to try would misgroup honest rows. It belongs to resolution, not here.
+ *  - **It does not gate the veto on `source_dataset`.** Letting a resolved row's locality overrule
+ *    an `llm-guess` one was measured on the owner's four rows and made it *worse*: the untrusted
+ *    row becomes the free bridge and Rishon LeZion merges back into Tel Aviv. What *is* gated, from
+ *    2026-08-30, is the **join** — see below.
+ *
+ * ## A guessed city name may not merge across the metro radius — but only where we know better
+ *
+ * `candidate-place.ts` writes an `llm_guess` row's `locality` from the same model guess as its
+ * coordinates, so a Ra'anana café pulled out of a "best cafés in Tel Aviv" post arrives with the
+ * right pin and the city name of the post. Rule 2 then merges it into Tel Aviv 14.9 km away.
+ *
+ * Refusing every guessed name the 50 km reach is the obvious fix and it is wrong: measured on the
+ * real 32-row library it shatters **London from one area into seven**, because all 18 London rows
+ * are guesses spread over 11 km and the name is the only thing holding them together.
+ *
+ * So the gate is conditional on having a better answer. A guessed locality keeps its reach unless
+ * some row *elsewhere in the library* carries the same normalised name from a real map listing —
+ * in which case the verified spelling wins and the guess is proximity-only. Measured: the real
+ * library is untouched at two areas, and the adversarial Ra'anana row leaves the Tel Aviv cluster.
+ *
+ * It still does **not** try to rescue a wrong coordinate: a place the model puts in the wrong city
+ * arrives with a matching wrong city name and nothing here can separate that. That belongs to
+ * resolution.
  *
  * `clusterLabel` still picks the display name after the group exists, where being wrong costs a
  * word rather than a group.
@@ -164,6 +180,11 @@ export interface ClusterOptions<T = unknown> {
    * anywhere the grouping is shown to a user.
    */
   readonly toLocality?: (item: T) => string | null | undefined;
+  /**
+   * Whether the item's `locality` was read off a map listing rather than guessed by the model.
+   * Defaults to trusting every row, which is the behaviour before 2026-08-30. See the header.
+   */
+  readonly isLocalityTrusted?: (item: T) => boolean;
 }
 
 /** The box around a set of points. Only ever called with a non-empty set — a cluster always has at
@@ -206,27 +227,43 @@ export function clusterByProximity<T>(
   const nearKm = options.nearKm ?? DEFAULT_NEAR_RADIUS_KM;
   const { toLocality } = options;
 
-  const located: { item: T; point: GeoPoint; locality: string }[] = [];
+  const located: { item: T; point: GeoPoint; locality: string; trusted: boolean }[] = [];
   for (const item of items) {
     const point = toPoint(item);
     // `''` is "no usable city", and with no `toLocality` at all every row gets it — which makes
     // `linked` fall through to plain proximity at `radiusKm`, the old behaviour.
     if (isValidPoint(point)) {
-      located.push({ item, point, locality: normaliseLocality((toLocality?.(item) ?? '').trim()) });
+      located.push({
+        item,
+        point,
+        locality: normaliseLocality((toLocality?.(item) ?? '').trim()),
+        trusted: options.isLocalityTrusted?.(item) ?? true,
+      });
     }
   }
 
   /** The edge the flood fill walks: near enough to ignore the name, or the same named city within
    *  the metropolitan radius. See the file header for why it is not one of those alone. */
+  /** The locality strings a map listing actually gave us, anywhere in the library. See the header
+   *  for why the gate below is conditional on this rather than on trust alone. */
+  const verifiedNames = new Set<string>();
+  for (const entry of located) {
+    if (entry.trusted && entry.locality !== '') verifiedNames.add(entry.locality);
+  }
+
   const linked = (
-    a: { point: GeoPoint; locality: string },
-    b: { point: GeoPoint; locality: string },
+    a: { point: GeoPoint; locality: string; trusted: boolean },
+    b: { point: GeoPoint; locality: string; trusted: boolean },
   ): boolean => {
     const km = haversineKm(a.point, b.point);
     if (km <= nearKm) return true;
     if (km > radiusKm) return false;
     if (toLocality === undefined) return true;
-    return a.locality !== '' && a.locality === b.locality;
+    if (a.locality === '' || a.locality !== b.locality) return false;
+    // A guessed label may not reach across the metropolitan radius on a name we have a verified
+    // spelling of. Where nothing is verified it keeps its reach — see the header.
+    if (!verifiedNames.has(a.locality)) return true;
+    return a.trusted && b.trusted;
   };
 
   const clusters: GeoCluster<T>[] = [];
