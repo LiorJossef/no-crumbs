@@ -104,12 +104,18 @@ for name in rows:
 # reference where the surrounding prose says it dispatches, owns, or staffs work. Measured
 # 2026-08-30 across CLAUDE.md and all of docs/: 8 distinct agents matched, zero false positives.
 # A pattern that stops matching is a silent regression, so the count is asserted below.
+# Each entry is either a pattern (applies to every document) or a (pattern, only_in_file) pair.
 AGENT_REF_PATTERNS = [
     r"subagent_type[:=]?\s*`([a-z][a-z-]+)`",          # dispatch, the literal API
     r"`([a-z][a-z-]+)`\s+(?:sub)?agent\b",             # "`qa-reliability` agent"
     r"\b(?:sub)?agent\s+`([a-z][a-z-]+)`",             # "agent `qa-reliability`"
     r"[Oo]wners?:\s*`([a-z][a-z-]+)`",                 # "Owner: `security-privacy`"
-    r"·\s*`([a-z][a-z-]+)`\s*(?:·|$)",                 # execution-plan.md's feature rows
+    # NOTE: the `·`-separated form is scoped to execution-plan.md, where it was written for the
+    # feature rows. Applied repo-wide it reads any `·`-separated list of code identifiers as agent
+    # names: measured 2026-08-30, docs/plan-nav2-map-shell.md lists React state variables that way
+    # and the check failed on `query`, `clusters`, `countries` and `facets`. That failure was live
+    # on main and took `npm run verify` red with it.
+    (r"·\s*`([a-z][a-z-]+)`\s*(?:·|$)", "docs/execution-plan.md"),
     r"\b(?:spec|build|review|owned by|delegated to)\s+`([a-z][a-z-]+)`",
     r"^\|\s*`([a-z][a-z-]+)`\s*\|\s*(?:Build|Probe|Advise)\s*\|",   # the roster table
 ]
@@ -117,7 +123,10 @@ KNOWN = set(agents)
 matched = set()
 for doc in ["CLAUDE.md"] + sorted(glob.glob("docs/*.md")):
     text = open(doc, encoding="utf-8").read()
-    for pattern in AGENT_REF_PATTERNS:
+    for entry in AGENT_REF_PATTERNS:
+        pattern, only_in = entry if isinstance(entry, tuple) else (entry, None)
+        if only_in is not None and doc != only_in:
+            continue
         for ref in re.findall(pattern, text, re.M):
             matched.add(ref)
             if ref not in KNOWN:
