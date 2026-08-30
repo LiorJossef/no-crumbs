@@ -48,8 +48,27 @@ import { authCookie } from './fixtures.mjs';
 import { exportCommit, buildApp, startApp } from './app-server.mjs';
 
 const REPO_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const APP_PORT = 3187; // deliberately not 3000: another agent may be holding the dev server
-const STUB_PORT = 54387; // deliberately not 54321: not to be confused with a real local Supabase
+
+/**
+ * Both ports are chosen at run time rather than fixed, and the reason is concurrency.
+ *
+ * A fixed port is a shared resource with no lock on it. 3000 is the dev server another agent may be
+ * holding; 54321 is a real local Supabase and must never be shadowed. Even a private number is not
+ * safe — the first version of this file hard-coded 54387 and the second run of the night died with
+ * `EADDRINUSE` on the previous run's own `TIME_WAIT` sockets. Asking the kernel for a free port
+ * costs nothing and removes the whole class.
+ */
+async function findFreePort() {
+  const { createServer } = await import('node:net');
+  return new Promise((resolvePort, reject) => {
+    const probe = createServer();
+    probe.once('error', reject);
+    probe.listen(0, '127.0.0.1', () => {
+      const { port } = probe.address();
+      probe.close(() => resolvePort(port));
+    });
+  });
+}
 
 /**
  * The screens, and whether the number of saved places changes what they show.
@@ -62,12 +81,23 @@ const STUB_PORT = 54387; // deliberately not 54321: not to be confused with a re
  * output directory lie about how much was checked.
  */
 const SCREENS = [
-  { route: '/', name: 'landing', auth: 'out', varyByPlaces: false },
-  { route: '/sign-in', name: 'sign-in', auth: 'out', varyByPlaces: false },
-  { route: '/map', name: 'map', auth: 'in', varyByPlaces: true },
-  { route: '/profile', name: 'profile', auth: 'in', varyByPlaces: true },
-  { route: '/collections', name: 'collections', auth: 'in', varyByPlaces: false },
-  { route: '/import', name: 'import', auth: 'in', varyByPlaces: false },
+  // `/` is captured in **both** states, and that is a correction rather than extra coverage.
+  //
+  // The first version of this file attached the session cookie to every context, including the two
+  // screens it labelled `signed-out` — so `stub--signed-out--landing--390x844.png` showed
+  // `Signed in as demo@example.com` under an `Open your map →` button. The pixels were honest and
+  // the filename was a lie, which is precisely the failure the naming rule exists to prevent, and
+  // it took looking at the picture to catch it. `auth` is now the list of states a screen is
+  // actually captured in, and the cookie is attached per state rather than per run.
+  //
+  // The signed-in landing is worth having anyway: it is a different screen (a different CTA and an
+  // account line) and it is on the demo path.
+  { route: '/', name: 'landing', auth: ['out', 'in'], varyByPlaces: false },
+  { route: '/sign-in', name: 'sign-in', auth: ['out'], varyByPlaces: false },
+  { route: '/map', name: 'map', auth: ['in'], varyByPlaces: true },
+  { route: '/profile', name: 'profile', auth: ['in'], varyByPlaces: true },
+  { route: '/collections', name: 'collections', auth: ['in'], varyByPlaces: false },
+  { route: '/import', name: 'import', auth: ['in'], varyByPlaces: false },
 ];
 
 function parseArgs(argv) {
@@ -106,7 +136,7 @@ async function settle(page, settleMs) {
   await page.waitForTimeout(settleMs);
 }
 
-async function capture({ browser, baseUrl, screen, viewportSpec, cookie, outDir, label, settleMs, fullPage }) {
+async function capture({ browser, baseUrl, screen, viewportSpec, cookie, outDir, label, settleMs, fullPage, authState }) {
   const context = await browser.newContext({
     viewport: viewportSpec.viewport,
     deviceScaleFactor: viewportSpec.deviceScaleFactor,
@@ -154,7 +184,7 @@ async function capture({ browser, baseUrl, screen, viewportSpec, cookie, outDir,
     route: screen.route,
     finalUrl,
     viewport: viewportSpec.id,
-    auth: screen.auth,
+    auth: authState,
     status,
     error,
     consoleErrors,
@@ -207,7 +237,12 @@ async function main() {
     process.exit(2);
   }
 
-  const counts = String(args.counts ?? '0,3,30')
+  // 0 first, and that ordering is a decision. `growth-plan.md` §6 calls shipping the zero state
+  // "the one thing" and W1-1 is the run's highest-impact package, so the screen a new user gets is
+  // the screen we most need to see. 300 is at the other end for the reason §8a gives in terms —
+  // "the demo dies at zero, the product dies at scale" — and it is the only case that tests the
+  // second half of that sentence.
+  const counts = String(args.counts ?? '0,3,30,300')
     .split(',')
     .map((n) => Number(n.trim()))
     .filter((n) => Number.isFinite(n));
@@ -247,7 +282,7 @@ async function main() {
       process.stderr.write(`[harness] exporting ${fromCommit} to ${appDir}\n`);
       manifest.commit = exportCommit(REPO_DIR, fromCommit, appDir);
 
-      stub = await startStubSupabase({ port: STUB_PORT, places: counts[0] ?? 0 });
+      stub = await startStubSupabase({ port: 0, places: counts[0] ?? 0 });
       const env = {
         NEXT_PUBLIC_SUPABASE_URL: stub.url,
         NEXT_PUBLIC_SUPABASE_ANON_KEY: 'stub-anon-key-not-a-secret',
@@ -263,7 +298,7 @@ async function main() {
       }
 
       process.stderr.write('[harness] starting\n');
-      server = await startApp(appDir, APP_PORT, env);
+      server = await startApp(appDir, await findFreePort(), env);
       baseUrl = server.url;
       manifest.notes.push(
         'Signed-in screens are STUB-BACKED: rows come from tests/harness/fixtures.mjs through ' +
@@ -284,33 +319,48 @@ async function main() {
 
     for (const viewportSpec of GATE_VIEWPORTS) {
       for (const screen of screens) {
-        if (screen.auth === 'in' && !fromCommit) {
-          manifest.skipped.push({
-            route: screen.route,
-            viewport: viewportSpec.id,
-            reason: 'signed-in screen, no credentials against a deployment',
-          });
-          continue;
-        }
-        const passes = screen.varyByPlaces ? counts : [counts[0] ?? 0];
-        for (const count of passes) {
-          if (stub) stub.setPlaceCount(count);
-          const label = screen.auth === 'out'
-            ? 'signed-out'
-            : `signed-in-${count}-places`;
-          process.stderr.write(`[harness] ${label} ${screen.route} @ ${viewportSpec.id}\n`);
-          const shot = await capture({
-            browser,
-            baseUrl,
-            screen,
-            viewportSpec,
-            cookie,
-            outDir,
-            label,
-            settleMs,
-            fullPage,
-          });
-          manifest.shots.push({ ...shot, placeCount: screen.varyByPlaces ? count : null });
+        for (const authState of screen.auth) {
+          if (authState === 'in' && !fromCommit) {
+            manifest.skipped.push({
+              route: screen.route,
+              viewport: viewportSpec.id,
+              reason: 'signed-in screen, no credentials against a deployment',
+            });
+            continue;
+          }
+          const passes = authState === 'in' && screen.varyByPlaces ? counts : [counts[0] ?? 0];
+          for (const count of passes) {
+            if (stub) stub.setPlaceCount(count);
+            // The data source leads the filename, not just the manifest.
+            //
+            // Orchestrator ruling, 2026-08-31: a screenshot is an assertion, and the run's
+            // load-bearing rule is that no change may increase what the product asserts. An
+            // unlabelled stub-backed PNG pasted into a report asserts that the product read those
+            // rows from Postgres. It did not. A manifest alone is not enough because a PNG gets
+            // separated from its directory the moment somebody drags one into a document — so the
+            // word travels *in the filename*, where it cannot be lost.
+            const label = `${manifest.dataSource === 'stub' ? 'stub' : 'live'}--${
+              authState === 'out' ? 'signed-out' : `signed-in-${count}-places`
+            }`;
+            process.stderr.write(`[harness] ${label} ${screen.route} @ ${viewportSpec.id}\n`);
+            const shot = await capture({
+              browser,
+              baseUrl,
+              screen,
+              viewportSpec,
+              // Attached per state, never per run. See the note on SCREENS.
+              cookie: authState === 'in' ? cookie : null,
+              outDir,
+              label,
+              settleMs,
+              fullPage,
+              authState,
+            });
+            manifest.shots.push({
+              ...shot,
+              placeCount: authState === 'in' && screen.varyByPlaces ? count : null,
+            });
+          }
         }
       }
     }

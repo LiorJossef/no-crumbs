@@ -8,25 +8,36 @@
  * taken against these rows is stub-backed and must be labelled as such: it proves the *rendering*
  * of a screen at a given place count, and it proves nothing about a query, a policy or a join.
  *
- * The place names and coordinates are real Tel Aviv venues so a 3-place and a 30-place map have
- * a plausible spread rather than a synthetic grid — the 30-place camera fit is one of the things
- * a screenshot is meant to catch, and evenly-spaced fake points would hide it.
+ * ## The names are invented on purpose, and it is a rule rather than a preference
+ *
+ * These were real Tel Aviv venue names for about an hour on 2026-08-31, because real names give a
+ * realistic spread of string lengths and that is what a list layout is judged on. The orchestrator
+ * ruled that out and was right: **if a reader could mistake a fixture for a real saved place, the
+ * screenshot is lying about something even when every pixel is honest.** A stub-backed picture of
+ * `Miznon · Tel Aviv-Yafo` asserts that somebody saved Miznon. Nobody did.
+ *
+ * So every name is `<dish or venue kind> No. <n>` — a shape that keeps the length variety a layout
+ * needs (13 to 31 characters here, which is the range that decides where a row truncates) while
+ * being unmistakable as fixture data at a glance. The addresses say `Fixture St` for the same
+ * reason. The *coordinates* are real Tel Aviv points, because a synthetic grid would hide exactly
+ * the camera-fit behaviour a 30-place screenshot exists to show, and a coordinate asserts nothing
+ * about a business.
  */
 
-/** Real Tel Aviv venues, roughly in the density the product actually sees. */
+/** Real Tel Aviv coordinates, invented names. See the header for why that split. */
 const SEED_PLACES = [
-  { name: 'Miznon', category: 'restaurant', lat: 32.0715, lng: 34.7681, locality: 'Tel Aviv-Yafo', provider: 'restaurant' },
-  { name: 'Anita La Mamma del Gelato', category: 'dessert', lat: 32.0562, lng: 34.7605, locality: 'Tel Aviv-Yafo', provider: 'ice_cream_shop' },
-  { name: 'Cafe Levinsky 41', category: 'cafe', lat: 32.0592, lng: 34.7719, locality: 'Tel Aviv-Yafo', provider: 'cafe' },
-  { name: 'Port Said', category: 'bar', lat: 32.0629, lng: 34.7745, locality: 'Tel Aviv-Yafo', provider: 'bar' },
-  { name: 'HaKosem', category: 'restaurant', lat: 32.0725, lng: 34.7735, locality: 'Tel Aviv-Yafo', provider: 'restaurant' },
-  { name: 'Bucke Bakery', category: 'bakery', lat: 32.0668, lng: 34.7702, locality: 'Tel Aviv-Yafo', provider: 'bakery' },
-  { name: 'Beit Kandinof', category: 'bar', lat: 32.0538, lng: 34.7530, locality: 'Yafo', provider: 'bar' },
-  { name: 'Tamara Yogurt', category: 'dessert', lat: 32.0801, lng: 34.7801, locality: 'Tel Aviv-Yafo', provider: 'dessert_shop' },
-  { name: 'Shakshukia', category: 'restaurant', lat: 32.0483, lng: 34.7520, locality: 'Yafo', provider: 'restaurant' },
-  { name: 'Cafe Xoho', category: 'cafe', lat: 32.0862, lng: 34.7752, locality: 'Tel Aviv-Yafo', provider: 'cafe' },
-  { name: 'Dalida', category: 'restaurant', lat: 32.0602, lng: 34.7688, locality: 'Tel Aviv-Yafo', provider: 'restaurant' },
-  { name: 'Casino San Remo', category: 'bar', lat: 32.0655, lng: 34.7712, locality: 'Tel Aviv-Yafo', provider: 'bar' },
+  { name: 'Sabich Counter No. 1', category: 'restaurant', lat: 32.0715, lng: 34.7681, locality: 'Tel Aviv-Yafo', provider: 'restaurant' },
+  { name: 'Gelato Window No. 2', category: 'dessert', lat: 32.0562, lng: 34.7605, locality: 'Tel Aviv-Yafo', provider: 'ice_cream_shop' },
+  { name: 'Filter Coffee Bar No. 3', category: 'cafe', lat: 32.0592, lng: 34.7719, locality: 'Tel Aviv-Yafo', provider: 'cafe' },
+  { name: 'Wine Room No. 4', category: 'bar', lat: 32.0629, lng: 34.7745, locality: 'Tel Aviv-Yafo', provider: 'bar' },
+  { name: 'Hummus Kitchen No. 5', category: 'restaurant', lat: 32.0725, lng: 34.7735, locality: 'Tel Aviv-Yafo', provider: 'restaurant' },
+  { name: 'Sourdough Bakery No. 6', category: 'bakery', lat: 32.0668, lng: 34.7702, locality: 'Tel Aviv-Yafo', provider: 'bakery' },
+  { name: 'Courtyard Bar No. 7', category: 'bar', lat: 32.0538, lng: 34.7530, locality: 'Yafo', provider: 'bar' },
+  { name: 'Frozen Yoghurt Stand No. 8', category: 'dessert', lat: 32.0801, lng: 34.7801, locality: 'Tel Aviv-Yafo', provider: 'dessert_shop' },
+  { name: 'Shakshuka House No. 9', category: 'restaurant', lat: 32.0483, lng: 34.7520, locality: 'Yafo', provider: 'restaurant' },
+  { name: 'Roastery Cafe No. 10', category: 'cafe', lat: 32.0862, lng: 34.7752, locality: 'Tel Aviv-Yafo', provider: 'cafe' },
+  { name: 'Levantine Dining Room No. 11', category: 'restaurant', lat: 32.0602, lng: 34.7688, locality: 'Tel Aviv-Yafo', provider: 'restaurant' },
+  { name: 'Late Night Cocktail Bar No. 12', category: 'bar', lat: 32.0655, lng: 34.7712, locality: 'Tel Aviv-Yafo', provider: 'bar' },
 ];
 
 const NOTES = [
@@ -91,7 +102,7 @@ export function savedPlaceRows(count) {
       note: NOTES[i % NOTES.length],
       visit_state: i % 4 === 0 ? 'visited' : 'want_to_go',
       visited_at: i % 4 === 0 ? savedAt : null,
-      extracted_reason: i % 3 === 0 ? 'best sabich in the city, no debate' : null,
+      extracted_reason: i % 3 === 0 ? 'fixture caption quote, not a real review' : null,
       display_name: null,
       category_override: null,
       source_url: `https://www.tiktok.com/@fixture/video/${7000000000000000000 + i}`,
@@ -117,7 +128,7 @@ export function savedPlaceRows(count) {
           source: {
             platform: 'tiktok',
             canonical_url: `https://www.tiktok.com/@fixture/video/${7000000000000000000 + i}`,
-            author_handle: `fixture${i % 5}`,
+            author_handle: `fixture_account_${i % 5}`,
             author_name: null,
             thumbnail_url: null,
           },
