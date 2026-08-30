@@ -92,14 +92,41 @@ for name in rows:
     if name not in agents:
         bad(f"roster lists '{name}' but {AGENT_DIR}/{name}.md does not exist")
 
-# Every subagent_type named in docs/ or CLAUDE.md must be a real agent.
+# Every agent named in docs/ or CLAUDE.md must be a real agent.
+#
+# This check was dead from the day it was written until 2026-08-30: the loop filtered candidates
+# and then fell off the end without ever calling bad(), so the script's header claimed four checks
+# and delivered three. The reason it was neutered is visible the moment you re-enable it naively —
+# `([a-z]+-[a-z-]+)` inside backticks matches 95 tokens across these documents, nearly all of them
+# `aria-label`, `bg-card` and friends. An allow-list of exceptions loses that race permanently.
+#
+# So match the *context* instead of the shape: a kebab-case token is only read as an agent
+# reference where the surrounding prose says it dispatches, owns, or staffs work. Measured
+# 2026-08-30 across CLAUDE.md and all of docs/: 8 distinct agents matched, zero false positives.
+# A pattern that stops matching is a silent regression, so the count is asserted below.
+AGENT_REF_PATTERNS = [
+    r"subagent_type[:=]?\s*`([a-z][a-z-]+)`",          # dispatch, the literal API
+    r"`([a-z][a-z-]+)`\s+(?:sub)?agent\b",             # "`qa-reliability` agent"
+    r"\b(?:sub)?agent\s+`([a-z][a-z-]+)`",             # "agent `qa-reliability`"
+    r"[Oo]wners?:\s*`([a-z][a-z-]+)`",                 # "Owner: `security-privacy`"
+    r"·\s*`([a-z][a-z-]+)`\s*(?:·|$)",                 # execution-plan.md's feature rows
+    r"\b(?:spec|build|review|owned by|delegated to)\s+`([a-z][a-z-]+)`",
+    r"^\|\s*`([a-z][a-z-]+)`\s*\|\s*(?:Build|Probe|Advise)\s*\|",   # the roster table
+]
 KNOWN = set(agents)
-for doc in ["CLAUDE.md"] + glob.glob("docs/*.md"):
-    for ref in set(re.findall(r"`([a-z]+-[a-z-]+)`", open(doc, encoding="utf-8").read())):
-        if ref in KNOWN or "-" not in ref: continue
-        if ref in {"current-state","execution-plan","working-agreement","git-workflow","mvp-plan",
-                   "agent-guardrails","place-store","service-role","saved-places","place_provider_refs"}:
-            continue
+matched = set()
+for doc in ["CLAUDE.md"] + sorted(glob.glob("docs/*.md")):
+    text = open(doc, encoding="utf-8").read()
+    for pattern in AGENT_REF_PATTERNS:
+        for ref in re.findall(pattern, text, re.M):
+            matched.add(ref)
+            if ref not in KNOWN:
+                bad(f"{doc} names `{ref}` as an agent, but {AGENT_DIR}/{ref}.md does not exist")
+
+if agents and len(matched) < 8:
+    bad(f"the agent-reference patterns matched only {len(matched)} agents across the documents "
+        f"(8 on 2026-08-30). A doc rewrite has probably changed how agents are named, and this "
+        f"check is drifting back towards the dead code it replaced — widen AGENT_REF_PATTERNS")
 
 print(f"checked {len(agents)} agent definitions against {ROSTER}")
 for name in sorted(agents):
