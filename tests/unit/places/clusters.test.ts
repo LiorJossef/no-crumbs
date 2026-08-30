@@ -217,6 +217,107 @@ describe('clusterByProximity', () => {
   });
 });
 
+/**
+ * The production bug of 2026-08-29: four saved places in three cities — Ra'anana, Rishon LeZion and
+ * two in Tel Aviv — grouped as one area headed `4 places in תל אביב-יפו`.
+ *
+ * Coordinates are the real city centres, and the distances are the whole point: Tel Aviv → Rishon
+ * LeZion is 11.2 km and → Ra'anana 14.9 km, while the user's own London saves span 20 km. No radius
+ * separates those, which is why the rule is proximity **plus** a city-name veto.
+ */
+describe('clusterByProximity with a locality', () => {
+  const IL: readonly Row[] = [
+    { id: 'ta1', name: 'Kohi', lat: 32.07, lng: 34.78, locality: 'תל אביב-יפו' },
+    { id: 'ta2', name: 'HaKosem', lat: 32.075, lng: 34.775, locality: 'Tel Aviv-Yafo' },
+    { id: 'raa', name: 'Ra’anana café', lat: 32.1848, lng: 34.8713, locality: "Ra'anana" },
+    { id: 'ris', name: 'Rishon café', lat: 31.9714, lng: 34.7896, locality: 'Rishon LeZion' },
+  ];
+
+  it('splits Ra’anana and Rishon LeZion off Tel Aviv, and keeps Tel Aviv together', () => {
+    const clusters = clusterByProximity(IL, toPoint, { toLocality });
+
+    expect(clusters).toHaveLength(3);
+    expect(clusters.map((cluster) => names(cluster))).toEqual([
+      ['Kohi', 'HaKosem'],
+      ['Ra’anana café'],
+      ['Rishon café'],
+    ]);
+  });
+
+  it('is the regression: without a locality the same four rows are one area', () => {
+    // Pins the reason the projection has to be supplied by the caller — the geometric default is
+    // unchanged, and it is what produced `4 places in תל אביב-יפו`.
+    expect(clusterByProximity(IL, toPoint)).toHaveLength(1);
+  });
+
+  it('holds one city together across five spellings, three scripts and an abbreviation', () => {
+    // Every string here is in the live library, written by google-places, overture-places and
+    // llm-guess. Grouping on the string alone would return five areas; the ≤2 km near-join is what
+    // collapses them without an alias table.
+    const spellings: readonly Row[] = [
+      { id: 's1', name: 'Kohi', lat: 32.0883, lng: 34.7733, locality: 'תל אביב-יפו' },
+      { id: 's2', name: 'Old North', lat: 32.087, lng: 34.7749, locality: 'Tel Aviv-Yafo' },
+      { id: 's3', name: 'HaKosem', lat: 32.0764, lng: 34.7767, locality: 'תל אביב - יפו' },
+      { id: 's4', name: 'HaKosem (llm)', lat: 32.0736, lng: 34.7816, locality: 'Tel Aviv' },
+      { id: 's5', name: "Oscar's", lat: 32.0645, lng: 34.7735, locality: 'ת״א' },
+      { id: 's6', name: 'Container', lat: 32.0524, lng: 34.7498, locality: 'Tel Aviv-Yafo' },
+    ];
+    const clusters = clusterByProximity(spellings, toPoint, { toLocality });
+    expect(clusters).toHaveLength(1);
+    expect(at(clusters, 0).count).toBe(6);
+  });
+
+  it('lets one city name reach across a metropolitan spread the near-join cannot', () => {
+    // Croydon and Richmond are ~20 km out and are still `London`. This is the case a smaller
+    // radius would have broken, and it is why the veto — not a tighter radius — is the fix.
+    const clusters = clusterByProximity(LONDON, toPoint, { toLocality });
+    expect(clusters).toHaveLength(1);
+    expect(at(clusters, 0).count).toBe(12);
+  });
+
+  it('does not let an unnamed place bridge two cities', () => {
+    // Measured hazard: with "unknown matches everything", this single row re-merges Ra'anana into
+    // Tel Aviv transitively and the reported bug comes straight back.
+    const withUnnamed: readonly Row[] = [
+      at(IL, 0),
+      at(IL, 2),
+      { id: 'mid', name: 'Unnamed midway', lat: 32.125, lng: 34.825, locality: null },
+    ];
+    const clusters = clusterByProximity(withUnnamed, toPoint, { toLocality });
+    expect(clusters.map((cluster) => names(cluster))).toEqual([
+      ['Kohi'],
+      ['Ra’anana café'],
+      ['Unnamed midway'],
+    ]);
+  });
+
+  it('still joins an unnamed place to its neighbours within the near radius', () => {
+    const withUnnamed: readonly Row[] = [
+      at(IL, 0),
+      { id: 'nearby', name: 'Unnamed nearby', lat: 32.0715, lng: 34.7815, locality: null },
+    ];
+    const clusters = clusterByProximity(withUnnamed, toPoint, { toLocality });
+    expect(clusters).toHaveLength(1);
+  });
+
+  it('honours a caller-supplied near radius', () => {
+    // Ra’anana and Herzliya centres are 3.4 km apart: separate below that, merged above it.
+    const pair: readonly Row[] = [
+      at(IL, 2),
+      { id: 'her', name: 'Herzliya café', lat: 32.1624, lng: 34.8447, locality: 'Herzliya' },
+    ];
+    expect(clusterByProximity(pair, toPoint, { toLocality })).toHaveLength(2);
+    expect(clusterByProximity(pair, toPoint, { toLocality, nearKm: 5 })).toHaveLength(1);
+  });
+
+  it('separates two cities that share nothing but a radius, at any input order', () => {
+    const forward = clusterByProximity(IL, toPoint, { toLocality });
+    const reverse = clusterByProximity([...IL].reverse(), toPoint, { toLocality });
+    expect(forward).toHaveLength(3);
+    expect(reverse).toHaveLength(3);
+  });
+});
+
 describe('clusterLabel', () => {
   const clusterOf = (rows: readonly Row[]): GeoCluster<Row> =>
     at(clusterByProximity(rows, toPoint), 0);

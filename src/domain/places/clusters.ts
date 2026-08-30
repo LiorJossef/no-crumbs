@@ -11,27 +11,53 @@
  * belongs to *one* group of places at a time. That decision is a data question, not a map question,
  * so it lives here where it can be tested without a renderer.
  *
- * ## Why coordinates and never the `locality` string
+ * ## Why proximity alone was wrong, and what replaced it
  *
- * This is called out explicitly in §9.1 and it is not hypothetical: the live library holds
- * `London`, `Tel Aviv-Yafo`, `Tel Aviv` and `Tel Aviv` — **three spellings for two cities** —
- * because the rows came from different resolutions of the same place. Grouping on the string ships
- * that defect straight to the user as duplicate city rows. Coordinates cannot disagree with
- * themselves, so grouping is geometric and the string is used for one thing only: choosing a label
- * *after* the group exists (`clusterLabel`), where being wrong costs a word rather than a group.
+ * Until 2026-08-29 the rule was pure single-link proximity at 50 km, on the argument that the
+ * `locality` string is too dirty to group on — the live library holds `Tel Aviv-Yafo`,
+ * `תל אביב-יפו`, `תל אביב - יפו`, `Tel Aviv` and `ת״א`, five spellings of one city, because rows
+ * came from `google-places`, `overture-places` and `llm-guess`. That half is still true and is why
+ * the string cannot be the *only* input.
  *
- * ## Why single-link at ~50 km, and why O(n²)
+ * The other half was false. 50 km is not "far smaller than the gap between two cities anyone saves
+ * places in": measured against the real library plus real Israeli coordinates, central Tel Aviv to
+ * Rishon LeZion is **11.2 km** and to Ra'anana **14.9 km**, while the user's own 18 London pins span
+ * **11.0 km**. So a user with four saved places in three cities was shown one area headed
+ * `4 places in תל אביב-יפו`. Geometry cannot fix that on its own: the separation margin between
+ * "another city" and "the far side of London" is 0.2 km, and one saved place in Croydon inverts it.
  *
- * Single-link (two places are in the same cluster if they are within the radius of *each other*,
- * transitively) is the rule that matches how people think about "places in a city": a chain of
- * neighbourhoods across greater London stays one London, while Tel Aviv is 3,500 km away and can
- * never join. 50 km is a metropolitan area, comfortably larger than any city's spread and far
- * smaller than the gap between two cities anyone saves places in. It is a default, not a law —
- * `options.radiusKm` overrides it — but it is not a knob the UI should be turning per render.
+ * ## The rule now: proximity joins, a different named city vetoes
  *
- * The library is at most a few hundred rows, so the naive all-pairs flood fill is microseconds and
- * is readable at a glance. A spatial index here would be speculative machinery defending against a
- * library size this product does not have; when it does, this function's signature does not change.
+ * Two places are linked when **either**
+ *
+ *  1. they are within `nearKm` (2 km) of each other — this close, they are one neighbourhood
+ *     whatever the strings say, which is what collapses the five Tel Aviv spellings without an
+ *     alias table (measured: 0.3 km is enough to bridge every variant in the real library, so 2 km
+ *     carries a 6× margin); **or**
+ *  2. they are within `radiusKm` (50 km) **and** both carry a `locality` that normalises to the
+ *     same string. `London` reaches across greater London at any spread; `ראשון לציון` never
+ *     reaches `תל אביב-יפו`.
+ *
+ * Still single-link, still one flood fill, still O(n²) over a few hundred rows — only the edge
+ * predicate changed. A spatial index here would be speculative machinery defending against a
+ * library size this product does not have.
+ *
+ * Three things this deliberately does **not** do, each measured rather than assumed:
+ *
+ *  - **An unknown locality does not link beyond `nearKm`.** Letting unknown match everything reads
+ *    generous and is a hole: one unlabelled row halfway between two cities re-merges them
+ *    transitively, which reproduces the exact bug. The cost is that a lone unnamed place more than
+ *    2 km from anything becomes its own one-place area, which is at least honest.
+ *  - **It does not trust `source_dataset`.** Gating the veto to resolved rows, so an `llm-guess`
+ *    locality cannot split a city, was measured on the owner's own four rows and made it *worse*:
+ *    the untrusted row becomes the free bridge and Rishon LeZion merges back into Tel Aviv.
+ *  - **It does not try to rescue a wrong coordinate.** `candidate-place.ts` writes an `llm_guess`
+ *    row's `lat`/`lng` and its `locality` from the same model guess, so a place the model puts in
+ *    the wrong city arrives with a matching wrong city name. No grouping rule can separate that,
+ *    and one contorted to try would misgroup honest rows. It belongs to resolution, not here.
+ *
+ * `clusterLabel` still picks the display name after the group exists, where being wrong costs a
+ * word rather than a group.
  *
  * ## The antimeridian — what this does and does not handle
  *
@@ -76,8 +102,19 @@ export interface GeoCluster<T> {
   readonly count: number;
 }
 
-/** ~50 km: a metropolitan area. See the file header for why this number and not a tuned one. */
+/** ~50 km: a metropolitan area, and the reach of a *matching* city name. See the file header. */
 export const DEFAULT_CLUSTER_RADIUS_KM = 50;
+
+/**
+ * ~2 km: close enough that two places are one neighbourhood whatever their `locality` strings say,
+ * so a differing name cannot split them.
+ *
+ * Bounded from both sides by measurement, not taste. Below: 0.3 km already bridges every spelling
+ * variant in the real 32-row library, so 2 km is 6× the observed need. Above: the closest pair of
+ * genuinely distinct city centres in the Israeli test set (Ra'anana and Herzliya) are 3.4 km apart,
+ * and this must stay under that or it merges them.
+ */
+export const DEFAULT_NEAR_RADIUS_KM = 2;
 
 const EARTH_RADIUS_KM = 6371;
 
@@ -114,9 +151,19 @@ export function isValidPoint(point: GeoPoint | null | undefined): point is GeoPo
   );
 }
 
-export interface ClusterOptions {
-  /** Single-link radius in kilometres. Defaults to `DEFAULT_CLUSTER_RADIUS_KM`. */
+export interface ClusterOptions<T = unknown> {
+  /** How far a *matching* city name reaches, in kilometres. Defaults to
+   *  `DEFAULT_CLUSTER_RADIUS_KM`. */
   readonly radiusKm?: number;
+  /** How far proximity alone joins, ignoring the city name. Defaults to
+   *  `DEFAULT_NEAR_RADIUS_KM`. */
+  readonly nearKm?: number;
+  /**
+   * The item's city, if the caller has one. **Omitting it falls back to pure proximity at
+   * `radiusKm`** — the pre-2026-08-29 behaviour, which groups adjacent cities together. Supply it
+   * anywhere the grouping is shown to a user.
+   */
+  readonly toLocality?: (item: T) => string | null | undefined;
 }
 
 /** The box around a set of points. Only ever called with a non-empty set — a cluster always has at
@@ -153,15 +200,34 @@ function boundsOf(points: readonly GeoPoint[]): GeoBounds {
 export function clusterByProximity<T>(
   items: readonly T[],
   toPoint: (item: T) => GeoPoint | null | undefined,
-  options: ClusterOptions = {},
+  options: ClusterOptions<T> = {},
 ): readonly GeoCluster<T>[] {
   const radiusKm = options.radiusKm ?? DEFAULT_CLUSTER_RADIUS_KM;
+  const nearKm = options.nearKm ?? DEFAULT_NEAR_RADIUS_KM;
+  const { toLocality } = options;
 
-  const located: { item: T; point: GeoPoint }[] = [];
+  const located: { item: T; point: GeoPoint; locality: string }[] = [];
   for (const item of items) {
     const point = toPoint(item);
-    if (isValidPoint(point)) located.push({ item, point });
+    // `''` is "no usable city", and with no `toLocality` at all every row gets it — which makes
+    // `linked` fall through to plain proximity at `radiusKm`, the old behaviour.
+    if (isValidPoint(point)) {
+      located.push({ item, point, locality: normaliseLocality((toLocality?.(item) ?? '').trim()) });
+    }
   }
+
+  /** The edge the flood fill walks: near enough to ignore the name, or the same named city within
+   *  the metropolitan radius. See the file header for why it is not one of those alone. */
+  const linked = (
+    a: { point: GeoPoint; locality: string },
+    b: { point: GeoPoint; locality: string },
+  ): boolean => {
+    const km = haversineKm(a.point, b.point);
+    if (km <= nearKm) return true;
+    if (km > radiusKm) return false;
+    if (toLocality === undefined) return true;
+    return a.locality !== '' && a.locality === b.locality;
+  };
 
   const clusters: GeoCluster<T>[] = [];
   // Everything not yet claimed by a cluster, in input order. Claiming removes it, so the outer loop
@@ -185,7 +251,7 @@ export function clusterByProximity<T>(
       for (let index = unclaimed.length - 1; index >= 0; index -= 1) {
         const candidate = unclaimed[index];
         if (candidate === undefined) continue;
-        if (haversineKm(from.point, candidate.point) <= radiusKm) {
+        if (linked(from, candidate)) {
           unclaimed.splice(index, 1);
           members.push(candidate);
           frontier.push(candidate);

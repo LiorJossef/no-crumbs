@@ -33,7 +33,9 @@ import type { ZoomBand } from './zoom-bands';
 export interface MapPlace {
   readonly id: string;
   readonly name: string;
-  readonly category: ProductCategory;
+  /** `null` where none of the three claims resolved. `toPlaceFeatures` turns that into the
+   *  `uncategorised` pin key; nothing downstream has to invent a category to draw one. */
+  readonly category: ProductCategory | null;
   readonly lat: number;
   readonly lng: number;
   readonly note: string;
@@ -204,6 +206,18 @@ export interface MapSurfaceProps {
    * Passing a **new object identity** requests one flight, exactly as `focusPlaceIds` does.
    */
   readonly focusBounds?: FocusBoundsRequest;
+  /**
+   * What the map is showing, as a sentence, for the canvas's accessible name.
+   *
+   * MapLibre labels its own canvas `Map` and marks it `role="region"`, focusable — so a screen
+   * reader user tabs into it and is told nothing at all. The canvas contents are unreachable to
+   * them either way, so the useful thing it can say is what is on it and that the list beside it
+   * is complete; `mapAccessibleName` in `ui/place/active-area.ts` composes that sentence.
+   *
+   * Omitted leaves MapLibre's own label alone, which is what a surface with no list beside it
+   * should do.
+   */
+  readonly accessibleName?: string;
   /**
    * How much of the surface's own container its bottom sheet covers **at rest**, below `lg`, as a
    * fraction of container height.

@@ -22,7 +22,6 @@ import 'server-only';
  */
 
 import { createClient } from '@/app/_lib/supabase/server';
-import { withCanonicalAreaLabels } from '@/domain/places/area-label';
 import { productCategoryFor } from '@/domain/places/product-category';
 import type { SpotProvenance, SpotSource } from '@/domain/places/spot';
 import type { EnrichedSpot } from '@/ui/place/enrichment';
@@ -187,6 +186,8 @@ function toSpot(row: SavedPlaceRow): EnrichedSpot {
     name: row.display_name ?? place?.name ?? row.id,
     displayNameOverride: row.display_name,
     canonicalName: place?.name ?? row.id,
+    // `null` where none of the three claims resolved — see `productCategoryFor`. A `Spot` with no
+    // category is a normal place: it draws the house-mint pin and its row prints its locality.
     category: productCategoryFor({
       override: row.category_override,
       providerCategory: place?.provider_category,
@@ -230,8 +231,9 @@ export async function getSpots(): Promise<readonly EnrichedSpot[]> {
 
   if (error) throw error;
 
-  // One area, one name. Derived here for the same reason `productCategoryFor` is: a value every
-  // renderer needs and none of them should compute for itself. See `area-label.ts` for why the
-  // provider's own string stays in the column untouched.
-  return withCanonicalAreaLabels((data as unknown as SavedPlaceRow[]).map(toSpot));
+  // Each place carries the city the resolver actually put it in. A rule that rewrote every
+  // locality in a 50 km cluster to that cluster's most common spelling used to sit here; it read
+  // as "this venue is in Tel Aviv-Yafo" for venues in Rishon LeZion and Ra'anana. See the
+  // `area-label.ts` removal in this commit.
+  return (data as unknown as SavedPlaceRow[]).map(toSpot);
 }

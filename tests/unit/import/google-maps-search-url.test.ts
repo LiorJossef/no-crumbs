@@ -174,3 +174,59 @@ describe('googleMapsSearchUrl — areaHint (schema v2)', () => {
     expect(queryOf(c as PlaceCandidate)).toBe('La Nonna, restaurant, London, GB');
   });
 });
+
+/**
+ * The defect: the review card titles itself with the shortlist row the save will write
+ * (`savedPlaceName`), while this link kept searching the caption's raw string — so picking the
+ * Basel branch left the `aria-label` naming Basel and the href searching Tel Aviv, on the one card
+ * whose entire purpose is telling two same-named branches apart.
+ */
+describe('googleMapsSearchUrl — a picked shortlist row', () => {
+  const queryOf = (url: string) => decodeURIComponent(new URL(url).searchParams.get('query') ?? '');
+
+  const caption = candidate({
+    rawName: 'קפה קפה',
+    identifiedName: 'Cafe Cafe',
+    addressHint: 'רוטשילד 12',
+    cityHint: 'תל אביב',
+    countryHint: 'ישראל',
+    categoryHint: 'cafe',
+  });
+
+  it('searches the picked row rather than the caption', () => {
+    const url = googleMapsSearchUrl(caption, { name: 'Cafe Cafe', detail: 'בזל 42, תל אביב-יפו' });
+
+    expect(queryOf(url)).toBe('Cafe Cafe, בזל 42, תל אביב-יפו');
+  });
+
+  it('drops the caption address, area and country once a row is picked', () => {
+    const url = googleMapsSearchUrl(
+      candidate({ ...caption, areaHint: 'Market Row, Brixton' }),
+      { name: 'La Nonna', detail: '21 Kingly St, London' },
+    );
+    const query = queryOf(url);
+
+    // Keeping them would search for the place the user just rejected.
+    expect(query).toBe('La Nonna, 21 Kingly St, London');
+    expect(query).not.toContain('רוטשילד');
+    expect(query).not.toContain('Brixton');
+    expect(query).not.toContain('ישראל');
+  });
+
+  it('falls back to the caption city when the picked row has no detail at all', () => {
+    const url = googleMapsSearchUrl(caption, { name: 'Cafe Cafe', detail: null });
+
+    expect(queryOf(url)).toBe('Cafe Cafe, תל אביב');
+  });
+
+  it('does not repeat a city the picked name already carries', () => {
+    const url = googleMapsSearchUrl(caption, { name: 'Cafe Cafe תל אביב', detail: null });
+
+    expect(queryOf(url)).toBe('Cafe Cafe תל אביב');
+  });
+
+  it('is byte-for-byte the old query when nothing is picked', () => {
+    expect(queryOf(googleMapsSearchUrl(caption, null))).toBe(queryOf(googleMapsSearchUrl(caption)));
+    expect(queryOf(googleMapsSearchUrl(caption))).toBe('Cafe Cafe, רוטשילד 12, תל אביב, ישראל');
+  });
+});

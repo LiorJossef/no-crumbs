@@ -23,7 +23,7 @@ import type { CategoryFacet } from '@/domain/places/category-filter';
 const FACETS: readonly CategoryFacet[] = [
   { category: 'restaurant', count: 6 },
   { category: 'cafe', count: 4 },
-  { category: 'other', count: 1 },
+  { category: 'bar', count: 1 },
 ];
 
 function render(overrides: Partial<CategoryFilterBarProps> = {}): string {
@@ -34,6 +34,10 @@ function render(overrides: Partial<CategoryFilterBarProps> = {}): string {
       onToggleCategory: () => {},
       notBeenOnly: false,
       onToggleNotBeen: () => {},
+      // The default is a library where somebody has marked something, because that is the state
+      // every assertion below about the visit chip is actually about. The chip's own condition has
+      // its own block.
+      anyVisited: true,
       ...overrides,
     }),
   );
@@ -52,8 +56,7 @@ describe('CategoryFilterBar — what it offers', () => {
     expect(chips[0]).toContain('Not been yet');
     expect(chips[1]).toContain('Restaurant');
     expect(chips[2]).toContain('Café');
-    // `other` renders as "Place" — the display layer's word, not a new string.
-    expect(chips[3]).toContain('Place');
+    expect(chips[3]).toContain('Bar');
   });
 
   it('renders no chip for a category that is not in the facets', () => {
@@ -80,6 +83,34 @@ describe('CategoryFilterBar — what it offers', () => {
     expect(chips[0]).toContain('Not been yet');
     // A single chip's pressed and unpressed states would show the same twelve rows.
     expect(chips[0]).not.toContain('Restaurant');
+  });
+});
+
+describe('CategoryFilterBar — the visit chip only appears when it can change the result', () => {
+  it('leaves it out when nothing in the list is marked been', () => {
+    // The defect this replaced: the chip rendered on every library, so on the common one — nobody
+    // has marked anything — pressing it returned exactly the list already on screen.
+    const chips = buttons(render({ anyVisited: false }));
+    expect(chips).toHaveLength(3);
+    for (const chip of chips) expect(chip).not.toContain('Not been yet');
+  });
+
+  it('draws it as soon as one place is marked been', () => {
+    expect(render({ anyVisited: true })).toContain('Not been yet');
+  });
+
+  it('keeps it while it is pressed, even once nothing is marked been any more', () => {
+    // Marking your last outstanding place as been must not delete the only control that can undo
+    // the filter hiding the rest of the library. Same rule the pressed category chip gets.
+    const chips = buttons(render({ anyVisited: false, notBeenOnly: true }));
+    expect(chips[0]).toContain('Not been yet');
+    expect(chips[0]).toContain('aria-pressed="true"');
+  });
+
+  it('renders nothing at all when neither the chip nor the categories have anything to offer', () => {
+    // One category and nothing marked been: an empty flex row would still open a gap under the
+    // search field.
+    expect(render({ facets: [{ category: 'restaurant', count: 12 }], anyVisited: false })).toBe('');
   });
 });
 
@@ -133,7 +164,7 @@ describe('CategoryFilterBar — accessibility', () => {
     const chips = buttons(render());
     expect(chips[1]).toContain('aria-label="Restaurant, 6 places"');
     expect(chips[2]).toContain('aria-label="Café, 4 places"');
-    expect(chips[3]).toContain('aria-label="Place, 1 place"');
+    expect(chips[3]).toContain('aria-label="Bar, 1 place"');
   });
 
   it('leaves the colour dot out of the accessibility tree — colour never carries meaning alone', () => {

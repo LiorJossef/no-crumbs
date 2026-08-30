@@ -2,89 +2,71 @@
  * The category vocabulary the **product** speaks, and how the two vocabularies we are handed
  * translate into it.
  *
- * Three different taxonomies meet on a saved place and none of them is ours:
+ * Three claims meet on a saved place and none of them is ours:
  *
- *  - `places.category` — the model's seven-value guess from the caption (`ExtractedCategoryHint`).
- *  - `places.provider_category` — the resolver's raw string, Overture's or Google's, in their own
- *    snake_case (`ice_cream_shop`, `mediterranean_restaurant`, `smoothie_juice_bar`).
+ *  - `places.category` — the model's guess from the caption (`ExtractedCategoryHint`).
+ *  - `places.provider_category` — the resolver's raw string, Google's, in its own snake_case
+ *    (`ice_cream_shop`, `mediterranean_restaurant`, `smoothie_juice_bar`).
  *  - `saved_places.category_override` — the user's, and therefore final.
  *
- * Until this file existed we rendered the first of those and ignored the second, which produced
- * the bug that motivated it: Gelalucci, a gelateria, sat in the user's library labelled **"Shop"**
- * — because the caption made the model say `shop` — while the same row carried the provider's
- * `ice_cream_shop` and nothing read it.
+ * ## One vocabulary now, where there were two
  *
- * ## Why a separate type rather than widening `ExtractedCategoryHint`
+ * This file used to carry **eight** values against the extractor's seven, on the argument that the
+ * display vocabulary should be free to say things the model was never offered — `dessert` above
+ * all, because a gelateria was rendering as "Shop". That argument was right about the symptom and
+ * wrong about the cure: it fixed one word by adding a second vocabulary, and the two then
+ * disagreed in a way a user could see. A gelateria read `Shop` on the review card and `Dessert` on
+ * the saved row **one tap later** — a place changing what it *is* by being saved.
  *
- * They answer different questions. `ExtractedCategoryHint` is *what the model may emit*: it is
- * pinned to the extraction schema and the prompt, and changing it means a prompt version and a
- * re-measurement. `ProductCategory` is *what we show a person*, and it must be able to say things
- * the model was never offered — starting with `dessert`. Keeping them apart means the display
- * vocabulary can grow at product speed without touching the extractor, and `ProductCategory` being
- * a strict superset keeps every existing hint valid without a mapping table.
+ * The owner's taxonomy of 2026-08-29 closes it from the other end. `ProductCategory` is now an
+ * alias of `places/taxonomy.ts`'s `PrimaryCategory`: three values, the same three the extractor may
+ * emit and the same three the scorer scores. There is one vocabulary in this product and this is
+ * it. What used to be a fourth, fifth or eighth value is now either folded into one of the three
+ * (a bakery and a gelateria are both `cafe` — you go for a drink or something sweet, not a meal) or
+ * is **`null`**, which is a real answer and the point of the next section.
  *
- * ## Why `dessert` and nothing else, for now
+ * ## `null` is a category, and refusing to fake one is the whole design
  *
- * One value was added, on evidence rather than taste. In the Tel Aviv Overture extract
- * `ice_cream_shop` (288 rows), `desserts` (109) and `smoothie_juice_bar` (82) are all sizeable and
- * all land, today, on either `shop` (wrong and unappetising) or `bar` (wrong and misleading). No
- * other missing value has that combination of volume and wrongness. `street food` was considered
- * and left out: `food_stand`/`food_truck` are a rounding error next to `*_restaurant`, and the
- * line between a falafel counter and a small restaurant is one the source data does not draw.
- *
- * Discriminating power beyond this level is **not** this vocabulary's job — `saved_places.tags`
- * already carries *italian*, *specialty coffee*, *natural wine*, *japanese*. A coarse category the
- * user can filter and colour by, plus specific tags, is the right shape. Adding
- * `italian_restaurant` here would just move the provider's taxonomy behind a nicer label.
+ * `productCategoryFor` returns `ProductCategory | null`, where it used to fall back to `other`.
+ * `other` was a fifth vocabulary hiding in a default: it rendered as "Place", counted under a chip
+ * that said "Place", and told the user nothing except that we had something and would not say what.
+ * A museum, a butcher and a caption too vague to read are not one category, and the honest rendering
+ * of all three is no category at all — the row prints its locality, the pin keeps the house mint,
+ * and the filter bar does not offer a chip for the absence of a fact.
  */
 
 import type { ExtractedCategoryHint } from './category-hint';
+import { PRIMARY_CATEGORIES, type PrimaryCategory } from './taxonomy';
 
 /**
- * `ExtractedCategoryHint`'s seven values plus `dessert`. The superset relation is checked below
- * rather than asserted here, so widening the extraction vocabulary later fails this file's
- * typecheck instead of silently rendering the new value as "Place".
+ * The product's category vocabulary — an **alias** of the taxonomy's primary categories, not a
+ * second list of the same three strings.
+ *
+ * An alias rather than a parallel type because the reason the two used to differ has gone. The old
+ * header argued they answer different questions: what a model may emit versus what we show a
+ * person. They do, and the answer to both is now the same three values by the owner's ruling, so a
+ * second declaration would only be a place for them to drift apart again.
  */
-export type ProductCategory =
-  | 'restaurant'
-  | 'cafe'
-  | 'bakery'
-  | 'bar'
-  | 'dessert'
-  | 'attraction'
-  | 'shop'
-  | 'other';
+export type ProductCategory = PrimaryCategory;
 
-/** Render order wherever the whole set is listed (a filter row, a legend): the things people save
- *  most, first, then the two we would rather not have to show. */
-export const PRODUCT_CATEGORY_ORDER = [
-  'restaurant',
-  'cafe',
-  'bakery',
-  'bar',
-  'dessert',
-  'attraction',
-  'shop',
-  'other',
-] as const satisfies readonly ProductCategory[];
+/** Render order wherever the whole set is listed (a filter row, a legend). The taxonomy's own
+ *  order — restaurant, cafe, bar — which is roughly how often people save each. */
+export const PRODUCT_CATEGORY_ORDER = PRIMARY_CATEGORIES;
 
 /**
- * What each value is called in a sentence. `other` becomes "Place" rather than "Other" because it
- * appears in the line *under a place's name*, where "Other · Tel Aviv" reads like a database null
- * and "Place · Tel Aviv" reads like a sentence.
+ * What each value is called in a sentence.
+ *
+ * `other: 'Place'` used to live here, and its removal is the point rather than a tidy-up: a place
+ * we cannot categorise now has **no** label, not a label meaning "we would rather not say". See
+ * `ui/place/category-display.ts` for what that renders as.
  */
 export const PRODUCT_CATEGORY_LABEL = {
   restaurant: 'Restaurant',
   cafe: 'Café',
-  bakery: 'Bakery',
   bar: 'Bar',
-  dessert: 'Dessert',
-  attraction: 'Attraction',
-  shop: 'Shop',
-  other: 'Place',
-  // The second `satisfies` is the compile-time proof of the superset claim in this file's header:
-  // add a value to `ExtractedCategoryHint` without adding it here and this line stops compiling,
-  // rather than the new value silently rendering as "Place".
+  // The compile-time proof that the display vocabulary covers everything the extractor can emit.
+  // Widen `ExtractedCategoryHint` without widening this and the line stops compiling, rather than
+  // the new value silently rendering as nothing.
 } satisfies Record<ProductCategory, string> & Record<ExtractedCategoryHint, string>;
 
 export function isProductCategory(value: unknown): value is ProductCategory {
@@ -92,19 +74,28 @@ export function isProductCategory(value: unknown): value is ProductCategory {
 }
 
 /**
- * The exceptions table. Deliberately **not** an exhaustive transcription of either provider's
- * enum — Overture's Tel Aviv extract alone carries 130+ distinct values and Google's list moves
- * without telling us, so an exhaustive table would be stale on arrival and impossible to review.
+ * The provider-category table. Deliberately **not** an exhaustive transcription of Google's enum —
+ * it moves without telling us, so an exhaustive table would be stale on arrival and impossible to
+ * review. The suffix rules below carry the long tail.
  *
- * The suffix rules in `productCategoryFromProvider` carry the long tail (every `*_restaurant`,
- * every `*_bar`). This table holds exactly two kinds of entry:
+ * Three kinds of entry, and the third is new:
  *
- *  1. values with no suffix a rule can read (`bar`, `bakery`, `diner`, `desserts`);
- *  2. values a suffix rule would get **wrong** — and each of those is a real row we have seen:
+ *  1. values with no suffix a rule can read (`bar`, `bakery`, `diner`);
+ *  2. values a suffix rule would get **wrong**, each of them a real row we have seen:
  *     `coffee_shop` and `ice_cream_shop` are not shops, `bagel_shop` is a bakery,
- *     `smoothie_juice_bar` and `salad_bar` are not bars.
+ *     `smoothie_juice_bar` and `salad_bar` are not bars;
+ *  3. values that are **read perfectly well and are outside the vocabulary** — a museum, a
+ *     butcher, a liquor store. They map to `null`, explicitly rather than by falling off the end,
+ *     which is what stops `_shop`/`_store` filing a butcher under something and what keeps the
+ *     knowledge that we *did* understand the string. "Read and outside the three" and "unreadable"
+ *     resolve the same way today; they are not the same fact, and this is where they would part.
+ *
+ * The `dessert`, `bakery`, `shop` and `attraction` groups this table used to produce are gone with
+ * the eight-value vocabulary. A gelateria, a patisserie and a bagel counter are all `cafe` now —
+ * the specification's own line is that `cafe` covers "bakeries, patisseries, ice cream and
+ * desserts".
  */
-const PROVIDER_CATEGORY_EXCEPTIONS: Readonly<Record<string, ProductCategory>> = {
+const PROVIDER_CATEGORY_EXCEPTIONS: Readonly<Record<string, ProductCategory | null>> = {
   // — cafés —
   cafe: 'cafe',
   coffee_shop: 'cafe',
@@ -114,24 +105,27 @@ const PROVIDER_CATEGORY_EXCEPTIONS: Readonly<Record<string, ProductCategory>> = 
   internet_cafe: 'cafe',
   cat_cafe: 'cafe',
 
-  // — bakeries —
-  bakery: 'bakery',
-  bagel_shop: 'bakery',
-  patisserie: 'bakery',
+  // — bakeries, which are cafés —
+  bakery: 'cafe',
+  bagel_shop: 'cafe',
+  patisserie: 'cafe',
+  // Google's own string for a patisserie. Measured on the first day of real use: a Ra'anana
+  // patisserie came back as `pastry_shop`, which `_shop` then filed under `shop`.
+  pastry_shop: 'cafe',
 
-  // — dessert — the reason this file exists
-  desserts: 'dessert',
-  dessert_shop: 'dessert',
-  ice_cream_shop: 'dessert',
-  frozen_yogurt_shop: 'dessert',
-  gelato_shop: 'dessert',
-  chocolate_shop: 'dessert',
-  candy_store: 'dessert',
-  confectionery: 'dessert',
-  donut_shop: 'dessert',
-  juice_shop: 'dessert',
-  smoothie_juice_bar: 'dessert',
-  acai_shop: 'dessert',
+  // — desserts, which are also cafés. This group is why the eight-value vocabulary existed —
+  desserts: 'cafe',
+  dessert_shop: 'cafe',
+  ice_cream_shop: 'cafe',
+  frozen_yogurt_shop: 'cafe',
+  gelato_shop: 'cafe',
+  chocolate_shop: 'cafe',
+  candy_store: 'cafe',
+  confectionery: 'cafe',
+  donut_shop: 'cafe',
+  juice_shop: 'cafe',
+  smoothie_juice_bar: 'cafe',
+  acai_shop: 'cafe',
 
   // — bars — `pub` and `*pub` have no `_bar` to match on
   bar: 'bar',
@@ -158,54 +152,61 @@ const PROVIDER_CATEGORY_EXCEPTIONS: Readonly<Record<string, ProductCategory>> = 
   salad_bar: 'restaurant',
   bar_and_grill: 'restaurant',
 
-  // — shops —
-  deli: 'shop',
-  delicatessen: 'shop',
-  butcher_shop: 'shop',
-  liquor_store: 'shop',
-  wine_shop: 'shop',
-
-  // — attractions —
-  tourist_attraction: 'attraction',
-  museum: 'attraction',
-  art_gallery: 'attraction',
-  park: 'attraction',
-  national_park: 'attraction',
-  zoo: 'attraction',
-  aquarium: 'attraction',
-  historical_landmark: 'attraction',
-  observation_deck: 'attraction',
-  public_plaza: 'attraction',
+  // — read, and outside the three. A shop sells you food to take away and a museum is not a meal;
+  //   calling either of them `restaurant` because a caption was vague would be worse than saying
+  //   nothing, which is what `null` says.
+  deli: null,
+  delicatessen: null,
+  butcher_shop: null,
+  liquor_store: null,
+  wine_shop: null,
+  grocery_store: null,
+  supermarket: null,
+  tourist_attraction: null,
+  museum: null,
+  art_gallery: null,
+  park: null,
+  national_park: null,
+  zoo: null,
+  aquarium: null,
+  historical_landmark: null,
+  observation_deck: null,
+  public_plaza: null,
 };
 
-/** Checked in order. First match wins, so `_shop` never gets a chance at `coffee_shop` — the
- *  exceptions table above is consulted before any of these run. */
+/** Checked in order. First match wins, and only for a string the table above has no opinion on —
+ *  so `_shop` never gets a chance at `coffee_shop` or at `museum`. */
 const PROVIDER_CATEGORY_SUFFIXES: readonly (readonly [string, ProductCategory])[] = [
   ['_restaurant', 'restaurant'],
   ['_cafe', 'cafe'],
-  ['_bakery', 'bakery'],
+  ['_bakery', 'cafe'],
   ['_bar', 'bar'],
   ['_pub', 'bar'],
-  ['_shop', 'shop'],
-  ['_store', 'shop'],
-  ['_market', 'shop'],
 ];
 
 /**
- * The provider's category, translated — or `null` when we genuinely cannot read it.
+ * The provider's category, translated — or `null` when there is nothing here we can say.
  *
- * `null` is a real answer and it matters: `poi_index` carries `barber`, `notary_public`,
- * `topic_publisher` and other rows that are not places to eat at all, and a resolver can hand us
- * any of them. Guessing `shop` for those would be inventing a fact. `null` means "defer to the
- * model", which is what `productCategoryFor` does with it.
+ * `null` is a real answer and it covers two cases the caller treats alike: a string we cannot read
+ * at all (`poi_index` carries `barber`, `notary_public`, `topic_publisher` — rows that are not
+ * places to eat), and a string we read perfectly well that names something outside the three. In
+ * both, guessing would be inventing a fact. `productCategoryFor` falls through to the model, and if
+ * the model has nothing either the place ends up with no category, which is allowed and correct.
+ *
+ * The `_shop`/`_store`/`_market` suffix rules are gone with the `shop` value they produced. A
+ * suffix that can only conclude "outside the vocabulary" earns nothing over falling through, and
+ * keeping it would have quietly re-created `other` under a new name.
  */
 export function productCategoryFromProvider(raw: string | null | undefined): ProductCategory | null {
   if (!raw) return null;
   const key = raw.trim().toLowerCase();
   if (key.length === 0) return null;
 
-  const exact = PROVIDER_CATEGORY_EXCEPTIONS[key];
-  if (exact) return exact;
+  // `hasOwn`, not truthiness: an entry whose value is `null` is a *decision* that this string has
+  // no category, and it must stop the suffix rules rather than fall through to them.
+  if (Object.hasOwn(PROVIDER_CATEGORY_EXCEPTIONS, key)) {
+    return PROVIDER_CATEGORY_EXCEPTIONS[key] ?? null;
+  }
 
   for (const [suffix, category] of PROVIDER_CATEGORY_SUFFIXES) {
     if (key.endsWith(suffix)) return category;
@@ -224,25 +225,32 @@ export interface CategorySources {
 }
 
 /**
- * Resolve the three claims into the one a person sees.
+ * Resolve the three claims into the one a person sees, **or into no claim at all**.
  *
  * The order is an epistemic ranking, not a preference. The user's override is a statement about
  * their own place. The provider's category is the venue's own registration — what the business
  * says it is. The model's hint is an inference from a caption someone wrote about a video, which
  * is the weakest of the three and the only one that can be confused by the *subject* of a post
- * ("the gelato at this place" → `shop`).
+ * ("the gelato at this place" used to produce `shop`).
  *
- * An unreadable provider string does not consume the slot: it falls through to the model rather
- * than to `other`, so we never lose a category we do have.
+ * An unreadable provider string does not consume the slot: it falls through to the model, so we
+ * never lose a category we do have.
+ *
+ * **The return type is nullable and that is the change.** This used to end in `?? 'other'`, and
+ * `other` was a fifth vocabulary hiding in a default — it rendered as "Place", counted under a chip
+ * that said "Place", and meant only that we had declined to say. `null` says the same thing
+ * without dressing it as a category: the row prints its locality alone, the pin keeps the house
+ * mint, and the filter bar offers no chip for it.
  */
-export function productCategoryFor(sources: CategorySources): ProductCategory {
+export function productCategoryFor(sources: CategorySources): ProductCategory | null {
   const { override, providerCategory, extractedHint } = sources;
 
   if (isProductCategory(override)) return override;
   // A free-text override we cannot parse is still the user's word and still outranks everything
-  // below, but there is nothing to render it as; `other` at least does not contradict them.
-  if (typeof override === 'string' && override.trim().length > 0) return 'other';
+  // below — including a provider category that would contradict it. There is nothing to render it
+  // as, so the place shows no category rather than one the user has already disagreed with.
+  if (typeof override === 'string' && override.trim().length > 0) return null;
 
   return productCategoryFromProvider(providerCategory)
-    ?? (isProductCategory(extractedHint) ? extractedHint : 'other');
+    ?? (isProductCategory(extractedHint) ? extractedHint : null);
 }

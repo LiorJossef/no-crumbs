@@ -27,11 +27,17 @@ describe('toProductCategory', () => {
     }
   });
 
-  it('lands anything unreadable on `other`, which is what the row already renders', () => {
-    // `categoryDisplay` prints "Place" for each of these, so the chip that says "Place" has to
-    // count them or the bar contradicts the list it summarises.
+  it('answers null for anything that is not one of the three', () => {
+    // It used to answer `other`, so the chip that said "Place" could count these. There is no such
+    // chip: `categoryDisplay` prints no word for any of them, and a bar that summarises the list
+    // has nothing to say about a place the list itself says nothing about.
     for (const value of [null, undefined, '', 'ice_cream_shop', 'RESTAURANT', 'nightclub']) {
-      expect(toProductCategory(value)).toBe('other');
+      expect(toProductCategory(value)).toBeNull();
+    }
+    // Including the five values the eight-value vocabulary used to produce, which are still stored
+    // on rows written before 2026-08-29.
+    for (const retired of ['bakery', 'dessert', 'attraction', 'shop', 'other']) {
+      expect(toProductCategory(retired)).toBeNull();
     }
   });
 });
@@ -78,11 +84,11 @@ describe('categoryFacets', () => {
   });
 
   it('breaks count ties by the product render order, not by insertion order', () => {
-    // `shop` is seen first and `restaurant` last; the bar must still read restaurant, cafe, shop.
-    expect(shape([row('1', 'shop'), row('2', 'cafe'), row('3', 'restaurant')])).toEqual([
+    // `bar` is seen first and `restaurant` last; the bar must still read restaurant, cafe, bar.
+    expect(shape([row('1', 'bar'), row('2', 'cafe'), row('3', 'restaurant')])).toEqual([
       ['restaurant', 1],
       ['cafe', 1],
-      ['shop', 1],
+      ['bar', 1],
     ]);
   });
 
@@ -99,9 +105,11 @@ describe('categoryFacets', () => {
     expect(shape(reversed)).toEqual(shape(places));
   });
 
-  it('counts unreadable categories under `other` rather than dropping them', () => {
+  it('counts an uncategorised place under nothing, rather than under a catch-all chip', () => {
+    // Two of these three places have no category the product can name. They are still in the
+    // library and still on the map; the bar simply has no chip that would be true of them, and
+    // offering one ("Place, 2") would be a filter for the absence of a fact.
     expect(shape([row('1', null), row('2', 'not a category'), row('3', 'cafe')])).toEqual([
-      ['other', 2],
       ['cafe', 1],
     ]);
   });
@@ -133,8 +141,13 @@ describe('filterByCategory', () => {
     ]);
   });
 
-  it('finds the places the `Place` chip counts', () => {
-    expect(filterByCategory(places, 'other', categoryOf).map((place) => place.id)).toEqual(['3']);
+  it('leaves an uncategorised place out of every chip, rather than inventing one for it', () => {
+    // There is no `Place` chip any more. Place `3` carries a category outside the three, so no
+    // chip counts it and no chip returns it — it is still in the library and still on the map.
+    for (const category of ['restaurant', 'cafe', 'bar'] as const) {
+      expect(filterByCategory(places, category, categoryOf).map((p) => p.id)).not.toContain('3');
+    }
+    expect(categoryFacets(places, categoryOf).map((f) => f.category)).not.toContain('other');
   });
 
   it('agrees with the facet count for every chip it offers', () => {
@@ -151,8 +164,10 @@ describe('matchesCategory', () => {
     expect(matchesCategory('cafe', 'bar')).toBe(false);
     // A provider string is not a product category; it must not half-match one.
     expect(matchesCategory('coffee_shop', 'cafe')).toBe(false);
-    expect(matchesCategory('coffee_shop', 'shop')).toBe(false);
-    expect(matchesCategory('coffee_shop', 'other')).toBe(true);
+    // And a value from the retired eight-value vocabulary matches nothing at all, rather than
+    // landing on a catch-all chip: `null` is not a category to be counted under.
+    expect(matchesCategory('dessert', 'cafe')).toBe(false);
+    expect(matchesCategory(null, 'cafe')).toBe(false);
   });
 });
 

@@ -44,7 +44,7 @@
  */
 
 import { Drawer } from 'vaul';
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import {
   useEffect,
   useId,
@@ -254,19 +254,28 @@ function PaneSwitch({ pane, children }: { pane: AddPane; children: ReactNode }) 
   const reduced = useReducedMotion();
   const shift = reduced ? 0 : 12;
 
+  // The incoming pane animates; the outgoing one is simply replaced.
+  //
+  // This was an `<AnimatePresence mode="wait">` and it did not work — measured in a browser, not
+  // reasoned. Choosing `Add a place` set `state.pane` correctly (`data-pane="place"`) while the
+  // rendered child stayed the menu, settled at `opacity: 1; transform: none`, indefinitely: the
+  // old pane never exited, so under `mode="wait"` the new one never mounted. The create menu's
+  // only two actions were both dead, which is the sort of thing that only shows up when a
+  // committed-but-unwired component is finally rendered.
+  //
+  // `key` alone gives the remount and the enter animation, which is the half a user perceives. An
+  // exit animation on a 140 ms pane change inside a sheet is not worth a state machine that can
+  // strand the whole feature.
   return (
-    <AnimatePresence mode="wait" initial={false}>
-      <motion.div
-        key={pane}
-        initial={{ opacity: 0, x: shift }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -shift }}
-        transition={{ duration: reduced ? 0 : 0.14, ease: 'easeOut' }}
-        className="flex min-h-0 flex-col"
-      >
-        {children}
-      </motion.div>
-    </AnimatePresence>
+    <motion.div
+      key={pane}
+      initial={{ opacity: 0, x: shift }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: reduced ? 0 : 0.14, ease: 'easeOut' }}
+      className="flex min-h-0 flex-col"
+    >
+      {children}
+    </motion.div>
   );
 }
 

@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { formatCaptionQuote, quoteAddsSomething } from '@/ui/place/caption-quote';
-import { categoryDisplay, categoryLocalityLine } from '@/ui/place/category-display';
+import {
+  categoryDisplay,
+  categoryLocalityLine,
+  UNCATEGORISED_COLOR,
+} from '@/ui/place/category-display';
 
 describe('formatCaptionQuote', () => {
   it('drops the creator formatting that leads a caption fragment', () => {
@@ -63,9 +67,20 @@ describe('category display', () => {
     expect(categoryDisplay('restaurant').label).toBe('Restaurant');
   });
 
-  it('falls back to the house pin rather than showing an empty label', () => {
-    expect(categoryDisplay('nightclub').label).toBe('Place');
-    expect(categoryDisplay(null).color).toBe(categoryDisplay('other').color);
+  it('draws an uncategorised place, and says nothing about what it is', () => {
+    // The pair the 2026-08-29 narrowing turns on: a colour is always needed, a word is not. The
+    // label used to be "Place", which read as a category and was only ever a refusal to say.
+    expect(categoryDisplay('nightclub').label).toBeNull();
+    expect(categoryDisplay(null).label).toBeNull();
+    expect(categoryDisplay('other').label).toBeNull();
+    expect(categoryDisplay(null).color).toBe(UNCATEGORISED_COLOR);
+    expect(categoryDisplay('nightclub').color).toBe(UNCATEGORISED_COLOR);
+  });
+
+  it('drops the category half of the line entirely when there is none', () => {
+    expect(categoryLocalityLine(null, 'Tel Aviv-Yafo')).toBe('Tel Aviv-Yafo');
+    expect(categoryLocalityLine('shop', 'Tel Aviv-Yafo')).toBe('Tel Aviv-Yafo');
+    expect(categoryLocalityLine(null, null)).toBe('');
   });
 
   it('drops the separator when half the line is missing', () => {

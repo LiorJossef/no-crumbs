@@ -43,7 +43,7 @@
 import { Drawer } from 'vaul';
 
 import { useNonModalBackground } from './use-non-modal-background';
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Plus, MapPin, ExternalLink, X, ChevronLeft, ChevronUp, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -67,7 +67,13 @@ import type { PlaceDetailFacts } from '@/domain/places/spot';
 import { enrichmentOf, rowAccessibleName, whyGoEarnsItsPlace } from '@/ui/place/enrichment';
 import { categoryDisplay, categoryLocalityLine } from '@/ui/place/category-display';
 import { savedPlaceMapsUrl } from '@/ui/place/maps-link';
-import { locationCertainty, savedOnLine } from '@/ui/place/location-certainty';
+import { nearbyDistanceLabel, nearbyPlaces, type NearbyPlace } from '@/ui/place/nearby';
+import {
+  APPROXIMATE_ROW_ANNOTATION,
+  locationCertainty,
+  savedOnLine,
+  visitedOnLine,
+} from '@/ui/place/location-certainty';
 import { AddToCollection } from '@/components/collections/add-to-collection';
 
 import { formatCaptionQuote, quoteAddsSomething } from '@/ui/place/caption-quote';
@@ -156,6 +162,11 @@ export interface PlaceSheetProps {
   readonly activeAreaId: string | null;
   /** Nothing saved, ever — a different screen, not a different string. */
   readonly libraryIsEmpty: boolean;
+  /** Anything in the **whole library** is marked been. The `Not been yet` chip's precondition, and
+   *  library-wide rather than list-wide on purpose: the chip filters the map too, and the map draws
+   *  every match rather than this area's, so a been place in the next city is one this chip hides
+   *  and a list-scoped test would refuse to draw the control that un-hides it. */
+  readonly libraryHasVisited: boolean;
   /** Whether the search box or a tag chip is narrowing the library, which decides the noun on the
    *  area rows so they never disagree with the header above them. */
   readonly filtering: boolean;
@@ -207,6 +218,7 @@ export function PlaceSheet({
   onSelectArea,
   activeAreaId,
   libraryIsEmpty,
+  libraryHasVisited,
   filtering,
   query,
   onQueryChange,
@@ -250,6 +262,13 @@ export function PlaceSheet({
   const setActiveSnap = (snap: number | string | null) =>
     setSheet((s) => ({ ...s, snap }));
 
+  /** Your other places within a walk of the open one. Memoised on the pair rather than computed
+   *  in the detail: `places` is the whole library and the sheet re-renders on every drag frame. */
+  const nearbyToSelected = useMemo(
+    () => (selected === null ? [] : nearbyPlaces(selected, places)),
+    [selected, places],
+  );
+
   const currentStop = snapToStop(sheet.snap);
 
   return (
@@ -290,7 +309,20 @@ export function PlaceSheet({
                  what the required prop buys. */
               <PlaceDetail
                 place={selected}
-                savedPlace={{ id: selected.id, visited: selected.visited }}
+                savedPlace={{
+                  id: selected.id,
+                  visited: selected.visited,
+                  // `visitedAt` lives on the joined `Spot` rather than on the pin, so it is read
+                  // off `detail` here. Spread rather than passed as `undefined` because
+                  // `exactOptionalPropertyTypes` is on and "absent" is the honest shape for a
+                  // marked row that never got a timestamp.
+                  ...(selected.detail?.visitedAt ? { visitedAt: selected.detail.visitedAt } : {}),
+                }}
+                nearby={nearbyToSelected}
+                onSelectNearby={(id) => {
+                  const neighbour = places.find((candidate) => candidate.id === id);
+                  if (neighbour) onSelect(neighbour);
+                }}
                 onClose={onDeselect}
               />
             ) : (
@@ -303,6 +335,7 @@ export function PlaceSheet({
                 onSelectArea={onSelectArea}
                 activeAreaId={activeAreaId}
                 libraryIsEmpty={libraryIsEmpty}
+                libraryHasVisited={libraryHasVisited}
                 filtering={filtering}
                 query={query}
                 onQueryChange={onQueryChange}
@@ -314,7 +347,14 @@ export function PlaceSheet({
                 activeCategory={activeCategory}
                 onToggleCategory={onToggleCategory}
                 stop={currentStop}
-                onExpand={() => setActiveSnap(STOP_TO_SNAP.full)}
+                // `half` for an empty library, `full` once there is a list. The empty state is a
+                // heading, a line and one button — about 380 px — so opening it full gave a new
+                // user their first screen as that button above roughly 1 100 px of white, with the
+                // map they came for hidden behind it. Half fits the content and leaves the map
+                // visible; a list is the only thing worth the whole screen.
+                onExpand={() =>
+                  setActiveSnap(libraryIsEmpty ? STOP_TO_SNAP.half : STOP_TO_SNAP.full)
+                }
                 onAddTikTok={onAddTikTok}
                 onSelect={onSelect}
               />
@@ -335,6 +375,7 @@ function PlaceList({
   onSelectArea,
   activeAreaId,
   libraryIsEmpty,
+  libraryHasVisited,
   filtering,
   query,
   onQueryChange,
@@ -358,6 +399,7 @@ function PlaceList({
   onSelectArea: (areaId: string) => void;
   activeAreaId: string | null;
   libraryIsEmpty: boolean;
+  libraryHasVisited: boolean;
   filtering: boolean;
   query: string;
   onQueryChange: (query: string) => void;
@@ -509,6 +551,7 @@ function PlaceList({
               onToggleCategory={onToggleCategory}
               notBeenOnly={notBeenOnly}
               onToggleNotBeen={onToggleNotBeen}
+              anyVisited={libraryHasVisited}
             />
           )}
           {activeTag !== null && <ActiveTagFilter tag={activeTag} onClear={onClearTag} />}
@@ -600,16 +643,50 @@ export function PlaceRow({
   const locality = place.detail?.locality;
   const { tags } = enrichmentOf(place.detail);
   const category = categoryDisplay(place.category);
+  /**
+   * Whether this row's pin is the model's own guess — 65–470 m out, median 327 m. The detail view
+   * has said so since `location-certainty.ts` shipped and the row said nothing, so twenty-one of
+   * thirty-one places looked exactly as placed as the matched ones until you opened them.
+   *
+   * A glyph and not a word, which is a real trade rather than a preference. The line it sits on is
+   * `Category · Locality`, it is `line-clamp-1`, and the locality is what tells a Tel Aviv row from
+   * a London one; on a 390 px phone `Approximate` would take about half of it, so the honest mark
+   * would be paid for by hiding the city. The glyph is a dashed circle — the map convention for a
+   * boundary that is not exact — at the muted weight of the line it annotates, so it registers as a
+   * qualifier rather than a warning, and its meaning is carried by shape, never by colour alone.
+   *
+   * Its cost, stated: a glyph is not self-describing. What makes it decodable is one tap away —
+   * the detail view's `Approximate location — worked out from the post…` — plus the tooltip on a
+   * pointer device and `APPROXIMATE_ROW_ANNOTATION` in the row's accessible name.
+   */
+  const certainty = locationCertainty(place.detail?.provenance?.sourceDataset);
+  const approximateLabel = certainty?.isApproximate === true ? certainty.label : null;
+  const rowName = rowAccessibleName(place.name, tags, place.visited);
 
   const body = (
     <>
       {/* The row's own pin, in the category's colour — the same colour the map draws it. Two
           surfaces showing one place used to agree on nothing but its name; now a brown cup on the
-          map and a brown row are visibly the same café. */}
+          map and a brown row are visibly the same café.
+
+          A dashed ring when the coordinate is the model's own guess. The mark belongs here and not
+          beside the text: this disc *is* the pin, so the uncertainty is drawn on the thing it is
+          about, it costs the city name no width on a 375 px row, and running down a list the
+          dashed ring reads against the solid ones above and below it. Tried trailing the category
+          line first — a lone dashed circle after `Restaurant · ת״א` attaches to nothing and reads
+          as a smudge. */}
       <span
         aria-hidden
-        style={{ backgroundColor: `${category.color}1F`, color: category.color }}
-        className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full"
+        title={approximateLabel ?? undefined}
+        style={{
+          backgroundColor: `${category.color}1F`,
+          color: category.color,
+          ...(approximateLabel === null ? {} : { borderColor: category.color }),
+        }}
+        className={cn(
+          'mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full',
+          approximateLabel !== null && 'border border-dashed',
+        )}
       >
         <MapPin className="size-4" />
       </span>
@@ -671,7 +748,12 @@ export function PlaceRow({
         // this row rather than the one below it; without this, a screen reader user gets twenty
         // rows that differ only by name. Only the chips actually on screen are named, and the
         // overflow is a count, so the label stays a phrase rather than becoming a paragraph.
-        aria-label={rowAccessibleName(place.name, tags, place.visited)}
+        // Last, after the tags: it qualifies the pin rather than the place, and it is the least
+        // decisive of the row's facts for "is this the row I want open". `rowAccessibleName` still
+        // builds the name; this appends the one thing it has no argument for.
+        aria-label={
+          approximateLabel === null ? rowName : `${rowName}, ${APPROXIMATE_ROW_ANNOTATION}`
+        }
         // `data-vaul-no-drag`: inside the mobile sheet, a press that begins on this row would
         // otherwise be read as the start of a sheet drag, and the tap would be swallowed.
         data-vaul-no-drag
@@ -827,7 +909,7 @@ export function NoPlacesYet({ onAddTikTok }: { onAddTikTok: () => void }) {
  */
 export interface DetailPlace {
   readonly name: string;
-  readonly category: ProductCategory;
+  readonly category: ProductCategory | null;
   readonly lat: number;
   readonly lng: number;
   /** The source post's link, where the caller's own save carries one. `undefined`, not omitted, so
@@ -842,6 +924,8 @@ export interface DetailPlace {
 export function PlaceDetail({
   place,
   savedPlace,
+  nearby,
+  onSelectNearby,
   onClose,
   variant = 'sheet',
   primaryAction,
@@ -864,7 +948,26 @@ export function PlaceDetail({
    * failure is silent — an id with a null `visited` would render the read-only screen, so every
    * control on `/map` would quietly vanish with nothing raised. This shape cannot express that.
    */
-  savedPlace: { readonly id: string; readonly visited: boolean } | null;
+  savedPlace: {
+    readonly id: string;
+    readonly visited: boolean;
+    /** `saved_places.visited_at` — when the been mark was made here. Optional and only optional:
+     *  `0006`'s CHECK allows `visited` with no timestamp, so a caller that has none is telling the
+     *  truth rather than forgetting a field. Same object as the other two for the reason above —
+     *  it is a third fact about the one row. */
+    readonly visitedAt?: Date;
+  } | null;
+  /**
+   * Your other saved places within a short walk of this one, nearest first, already computed by
+   * the caller (`ui/place/nearby.ts`).
+   *
+   * The caller computes it because only the caller knows what "your places" means on its surface:
+   * `/map` has the whole library, and `/collections/[id]` deliberately has none of the viewer's
+   * own overlay and must not grow a second library through this door. Omitted renders nothing.
+   */
+  nearby?: readonly NearbyPlace[];
+  /** Opening one of them. Omitted, they render as plain text rather than as dead buttons. */
+  onSelectNearby?: (id: string) => void;
   onClose: () => void;
   /** `'sheet'` (default, mobile): an X that fully deselects. `'panel'` (desktop, retired — no
    *  caller renders this anymore now that detail lives entirely in the map popover, kept only so
@@ -942,6 +1045,11 @@ export function PlaceDetail({
   /** Every mutation block below is gated on this, and none of them reads an id off `place` — that
    *  is the whole point of this refactor. No narrowing is needed: the prop is already the pair. */
   const savedRow = savedPlace;
+
+  /** Gated on `visited` as well as on the date. The pair cannot disagree in the database (`0006`'s
+   *  CHECK), but this prop is an object a caller assembles, and a date printed under a button
+   *  reading `Been here` would be the screen contradicting itself. */
+  const visitedOn = savedRow?.visited ? visitedOnLine(savedRow.visitedAt, new Date()) : null;
 
   /**
    * Whether the Google Maps link is the only external action on the card, which decides both its
@@ -1101,12 +1209,27 @@ export function PlaceDetail({
             the identity header. `key` on the saved place's id so a pending transition from the
             previously selected place can never land on this one. */}
         {savedRow && (
-          <BeenToggle
-            key={`been-${savedRow.id}`}
-            savedPlaceId={savedRow.id}
-            placeName={place.name}
-            visited={savedRow.visited}
-          />
+          /* The toggle and the date it produced, in one block rather than as two children of the
+             `gap-5` column — 20 px between a control and the caption that qualifies it reads as
+             two unrelated things. `gap-1.5` is the toggle's own internal rhythm (it uses the same
+             for its error line). */
+          <div className="flex flex-col gap-1.5">
+            <BeenToggle
+              key={`been-${savedRow.id}`}
+              savedPlaceId={savedRow.id}
+              placeName={place.name}
+              visited={savedRow.visited}
+            />
+            {/* The one thing the database has always held about a been mark and no screen said.
+                Same 11px muted weight as `Saved on …` below, because it is the same kind of fact:
+                a quiet record of when, not something to act on. Absent — silently — when the row
+                carries no timestamp; `visitedOnLine` says why that is a real state. */}
+            {visitedOn && (
+              <p className="text-center text-[11px] font-medium text-muted-foreground/70">
+                {visitedOn}
+              </p>
+            )}
+          </div>
         )}
 
         {/* The same position, for a host whose caller has no row to toggle: on
@@ -1131,6 +1254,10 @@ export function PlaceDetail({
             savedPlaceId={savedRow.id}
             category={place.category}
             isOverridden={detail?.categoryIsOverridden ?? false}
+            // A place with no TikTok behind it was added by hand, so nothing was "worked out from
+            // the post" — there is no post. `tiktokUrl` rather than a new field: the same value
+            // already decides whether this card offers `Open TikTok`, so the two cannot disagree.
+            fromAPost={Boolean(tiktokUrl)}
           />
         )}
 
@@ -1179,6 +1306,51 @@ export function PlaceDetail({
             </a>
           </div>
         </div>
+
+        {/* What else of yours is around here — the library's own retrieval question, asked at the
+            scale of one place. Below the external links and above the provenance line: it is a
+            fact about the library rather than about this place, so it belongs after everything
+            this card is actually about. Renders nothing when there is nothing within a walk, which
+            is the point — a section that is always full stops carrying information. */}
+        {nearby !== undefined && nearby.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+              {nearby.length === 1 ? 'Also nearby' : `${nearby.length} more nearby`}
+            </p>
+            <ul className="flex flex-col">
+              {nearby.map((neighbour) => (
+                <li key={neighbour.id}>
+                  {/* A button when the host can open it, plain text when it cannot — a row that
+                      looks pressable and does nothing is worse than one that never offered. */}
+                  {onSelectNearby ? (
+                    <button
+                      type="button"
+                      data-vaul-no-drag
+                      onClick={() => onSelectNearby(neighbour.id)}
+                      className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg text-left transition-colors outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50"
+                    >
+                      <span className="line-clamp-1 text-sm font-semibold text-foreground">
+                        <bdi>{neighbour.name}</bdi>
+                      </span>
+                      <span className="shrink-0 text-xs font-medium text-muted-foreground">
+                        {nearbyDistanceLabel(neighbour.km)}
+                      </span>
+                    </button>
+                  ) : (
+                    <p className="flex min-h-11 items-center justify-between gap-3 text-sm">
+                      <span className="line-clamp-1 font-semibold text-foreground">
+                        <bdi>{neighbour.name}</bdi>
+                      </span>
+                      <span className="shrink-0 text-xs font-medium text-muted-foreground">
+                        {nearbyDistanceLabel(neighbour.km)}
+                      </span>
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* Where this pin came from, and when you saved it. Both were facts the database held and
             no screen said: the first was a dataset slug at 11px (`Matched via llm-guess`) that

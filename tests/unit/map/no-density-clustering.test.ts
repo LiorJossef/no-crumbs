@@ -111,7 +111,7 @@ describe('two saved places 50 m apart are two pins', () => {
     {
       id: 'a',
       name: 'Anat Bakery',
-      category: 'bakery',
+      category: 'cafe',
       lat: 32.0596,
       lng: 34.7654,
       note: '',
@@ -134,7 +134,7 @@ describe('two saved places 50 m apart are two pins', () => {
     const { features } = toPlaceFeatures(near);
     expect(features).toHaveLength(2);
     expect(features.map((f) => f.properties.id)).toEqual(['a', 'b']);
-    expect(features.map((f) => f.properties.category)).toEqual(['bakery', 'cafe']);
+    expect(features.map((f) => f.properties.category)).toEqual(['cafe', 'cafe']);
     // Distinct coordinates: neither is merged onto the other's position.
     expect(features[0]?.geometry.coordinates).not.toEqual(features[1]?.geometry.coordinates);
   });

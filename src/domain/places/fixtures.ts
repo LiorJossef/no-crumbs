@@ -27,7 +27,9 @@ export interface MockSavedPlace {
   /** Fixture-local, not a `PlaceId` — there is no `places` row behind this yet. */
   readonly id: string;
   readonly name: string;
-  readonly category: ProductCategory;
+  /** `null` for a place the product has no category for — a museum, a shop. A legitimate
+   *  fixture state, not a gap: the map draws the house-mint pin for it. */
+  readonly category: ProductCategory | null;
   readonly location: LatLng;
   /** A fake TikTok video URL — shape-only, never fetched. */
   readonly sourceUrl: string;
@@ -43,9 +45,10 @@ export const mockSavedPlaces: readonly MockSavedPlace[] = [
   {
     id: 'mock-tlv-1',
     name: 'Anita Gelato',
-    // `dessert` rather than the `other` it carried: a gelateria labelled "Place" is the exact
-    // symptom `product-category.ts` was written to fix, and a fixture should not model the bug.
-    category: 'dessert',
+    // A gelateria is a `cafe` under the 2026-08-29 taxonomy — you go for something sweet, not a
+    // meal. It carried `other` before that (rendering as "Place", the symptom the whole taxonomy
+    // exists to fix) and `dessert` in between.
+    category: 'cafe',
     location: { lat: 32.0809, lng: 34.7806 },
     sourceUrl: 'https://www.tiktok.com/@foodie.tlv/video/7000000000000000001',
     note: 'Pistachio gelato from the video was unreal, go before 6pm or it sells out.',
@@ -77,7 +80,7 @@ export const mockSavedPlaces: readonly MockSavedPlace[] = [
   {
     id: 'mock-lon-1',
     name: 'Borough Market',
-    category: 'attraction',
+    category: null,
     location: { lat: 51.5055, lng: -0.0908 },
     sourceUrl: 'https://www.tiktok.com/@london.food/video/7000000000000000005',
     note: 'The stall from the video is near the Stoney Street entrance.',
@@ -101,7 +104,7 @@ export const mockSavedPlaces: readonly MockSavedPlace[] = [
   {
     id: 'mock-lon-4',
     name: 'Daunt Books Marylebone',
-    category: 'shop',
+    category: null,
     location: { lat: 51.5194, lng: -0.1518 },
     sourceUrl: 'https://www.tiktok.com/@london.bookshops/video/7000000000000000008',
     note: 'The travel-books-by-country shelving from the video.',
@@ -109,7 +112,7 @@ export const mockSavedPlaces: readonly MockSavedPlace[] = [
   {
     id: 'mock-nyc-1',
     name: "Levain Bakery",
-    category: 'bakery',
+    category: 'cafe',
     location: { lat: 40.7794, lng: -73.9799 },
     sourceUrl: 'https://www.tiktok.com/@nyc.desserts/video/7000000000000000009',
     note: 'The cookie from the viral video, chocolate chip walnut.',
@@ -117,7 +120,7 @@ export const mockSavedPlaces: readonly MockSavedPlace[] = [
   {
     id: 'mock-nyc-2',
     name: 'The High Line',
-    category: 'attraction',
+    category: null,
     location: { lat: 40.748, lng: -74.0048 },
     sourceUrl: 'https://www.tiktok.com/@nyc.walks/video/7000000000000000010',
     note: 'Enter near Chelsea Market, walk north at golden hour like the clip.',

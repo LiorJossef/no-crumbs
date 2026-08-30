@@ -12,10 +12,11 @@ import {
   pinImageId,
   pinOpacityExpression,
   pinSortKeyExpression,
+  UNCATEGORISED_PIN,
   VISITED_LABEL_OPACITY,
   VISITED_PIN_OPACITY,
 } from '@/components/map/marker-style';
-import { CATEGORY_DISPLAY } from '@/ui/place/category-display';
+import { UNCATEGORISED_COLOR } from '@/ui/place/category-display';
 import { normaliseCategory, toPlaceFeatures } from '@/components/map/place-features';
 import type { MapPlace } from '@/components/map/types';
 
@@ -23,7 +24,7 @@ function place(overrides: Partial<MapPlace> = {}): MapPlace {
   return {
     id: 'a',
     name: 'Anat Bakery',
-    category: 'bakery',
+    category: 'cafe',
     lat: 32.0596,
     lng: 34.7654,
     note: '',
@@ -34,7 +35,7 @@ function place(overrides: Partial<MapPlace> = {}): MapPlace {
 }
 
 describe('category palette', () => {
-  it('covers every extracted category exactly once', () => {
+  it('covers the three categories and the uncategorised pin, exactly once each', () => {
     expect(new Set(CATEGORY_ORDER).size).toBe(CATEGORY_ORDER.length);
     expect(Object.keys(CATEGORY_STYLES).sort()).toEqual([...CATEGORY_ORDER].sort());
   });
@@ -47,9 +48,21 @@ describe('category palette', () => {
   });
 
   it('falls back to the house pin for anything it does not recognise', () => {
-    expect(categoryStyle('nightclub')).toBe(CATEGORY_STYLES.other);
-    expect(categoryStyle(null)).toBe(CATEGORY_STYLES.other);
+    expect(categoryStyle('nightclub')).toBe(CATEGORY_STYLES[UNCATEGORISED_PIN]);
+    expect(categoryStyle(null)).toBe(CATEGORY_STYLES[UNCATEGORISED_PIN]);
+    // Including every value the eight-value vocabulary used to produce. Rows written under it are
+    // still in the database, and a pin id that was never registered is a place that vanishes.
+    expect(categoryStyle('bakery')).toBe(CATEGORY_STYLES[UNCATEGORISED_PIN]);
+    expect(categoryStyle('dessert')).toBe(CATEGORY_STYLES[UNCATEGORISED_PIN]);
+    expect(categoryStyle('shop')).toBe(CATEGORY_STYLES[UNCATEGORISED_PIN]);
+    expect(categoryStyle('other')).toBe(CATEGORY_STYLES[UNCATEGORISED_PIN]);
     expect(categoryStyle('cafe')).toBe(CATEGORY_STYLES.cafe);
+  });
+
+  it('gives the uncategorised pin a colour but no word', () => {
+    // The distinction the narrowing turns on: it is something to draw, not something to say.
+    expect(CATEGORY_STYLES[UNCATEGORISED_PIN].color).toBe(UNCATEGORISED_COLOR);
+    expect(CATEGORY_STYLES[UNCATEGORISED_PIN].label).toBeNull();
   });
 });
 
@@ -107,7 +120,7 @@ describe('features', () => {
       place({ id: '1', category: 'cafe' }),
       place({ id: '2', category: 'nightclub' as never }),
     ]).features;
-    expect(features.map((f) => f.properties.category)).toEqual(['cafe', 'other']);
+    expect(features.map((f) => f.properties.category)).toEqual(['cafe', UNCATEGORISED_PIN]);
     for (const feature of features) {
       expect(CATEGORY_ORDER).toContain(feature.properties.category);
     }
@@ -120,8 +133,8 @@ describe('features', () => {
   });
 
   it('normalises a missing category rather than dropping the place', () => {
-    expect(normaliseCategory(undefined)).toBe('other');
-    expect(normaliseCategory('')).toBe('other');
+    expect(normaliseCategory(undefined)).toBe(UNCATEGORISED_PIN);
+    expect(normaliseCategory('')).toBe(UNCATEGORISED_PIN);
     expect(normaliseCategory('bar')).toBe('bar');
   });
 });
@@ -159,8 +172,8 @@ describe('the been state on a pin', () => {
     expect(serialised).toContain(String(VISITED_PIN_OPACITY));
     // Not a hue, not a hex, not one of the seven.
     expect(serialised).not.toMatch(/#[0-9a-f]{3,8}/i);
-    for (const category of CATEGORY_ORDER) {
-      expect(serialised).not.toContain(CATEGORY_DISPLAY[category].color);
+    for (const key of CATEGORY_ORDER) {
+      expect(serialised).not.toContain(CATEGORY_STYLES[key].color);
     }
   });
 

@@ -60,6 +60,16 @@ export function locationCertainty(
 }
 
 /**
+ * How a list row says `isApproximate` to a screen reader.
+ *
+ * Lowercase and a fragment, exactly like `BEEN_ROW_ANNOTATION`, because it is appended to the
+ * row's one accessible name rather than announced on its own. The row itself can only afford a
+ * glyph — `PlaceRow` says why — and `aria-label` replaces a button's content, so a mark rendered
+ * inside one is announced nowhere unless it is in the name.
+ */
+export const APPROXIMATE_ROW_ANNOTATION = 'approximate location';
+
+/**
  * "Saved on 24 August", or with the year once it is no longer this one.
  *
  * The library is ordered most-recently-saved-first and said so nowhere, which made the order both
@@ -70,6 +80,32 @@ export function savedOnLine(savedAt: Date, now: Date): string {
   const sameYear = savedAt.getFullYear() === now.getFullYear();
   return `Saved on ${savedAt.toLocaleDateString('en-GB', {
     day: 'numeric',
+    month: 'long',
+    ...(sameYear ? {} : { year: 'numeric' }),
+  })}`;
+}
+
+/**
+ * "Marked as been in August", or with the year once it is no longer this one.
+ *
+ * Two things this wording is careful about, and both are about not claiming more than the column
+ * holds. `saved_places.visited_at` is the moment the *mark* was made in this app — never a date
+ * the user gave us, and an editable visit date is out of scope
+ * (`product-ruling-after-the-save.md` §6.5) — so "Marked as" rather than "You went", and a month
+ * rather than a day: to-the-day precision on a record-keeping timestamp reads as a claim about
+ * the visit itself.
+ *
+ * `null` when there is no timestamp, and that state is real rather than defensive: `0006`'s
+ * `saved_places_visited_at_consistent` only forbids a timestamp *without* the state, so a row can
+ * be `visited` with `visited_at is null` — anything marked by a path that did not write one.
+ * Guessing a month for it would be inventing the fact.
+ *
+ * On the detail only, like `savedOnLine` above and for the same reason.
+ */
+export function visitedOnLine(visitedAt: Date | null | undefined, now: Date): string | null {
+  if (!visitedAt) return null;
+  const sameYear = visitedAt.getFullYear() === now.getFullYear();
+  return `Marked as been in ${visitedAt.toLocaleDateString('en-GB', {
     month: 'long',
     ...(sameYear ? {} : { year: 'numeric' }),
   })}`;

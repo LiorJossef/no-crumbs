@@ -192,6 +192,11 @@ const SUB_TAG_ALIASES: Readonly<Record<string, SubTag>> = {
   pastries: 'bakery',
   'ice cream': 'desserts',
   gelato: 'desserts',
+  // Breakfast and brunch are one facet in this vocabulary, by the owner's ruling of 2026-08-29.
+  // It was dropped by the first alignment rather than mapped, on the grounds that they are not the
+  // same meal and `Brunch` carries no coverage text to admit it — the owner overruled that, which
+  // is the right call for a list with one morning label and no second one.
+  breakfast: 'brunch',
   // An Asian cuisine the specification does not name individually, and `Asian` is the label that
   // exists for exactly that case. The live library carries it on two places.
   nepalese: 'asian',
