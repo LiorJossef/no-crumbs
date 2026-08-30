@@ -844,8 +844,21 @@ export function MapSurfaceMapcn({
   }, []);
 
   /**
-   * A pan by the user. `dragend` covers pointer drags, touch drags and their inertia; MapLibre's
-   * keyboard handler pans through the same drag machinery, so arrow keys arrive here too.
+   * A pan by the user. `dragend` covers pointer drags, touch drags and their inertia.
+   *
+   * **It does not cover the keyboard, and this docblock claimed it did until 2026-08-31.** It said
+   * *"MapLibre's keyboard handler pans through the same drag machinery, so arrow keys arrive here
+   * too"*. Read against the installed `maplibre-gl` 6.4.1 that is false, and the mechanism is worth
+   * writing down because it is the same one `handleZoomEnd` relies on:
+   * `handler/keyboard.ts` returns a `cameraAnimation` that calls `map.easeTo(…, {originalEvent: e})`
+   * directly. It sets neither `panDelta` nor `zoomDelta`, so `handler_manager.ts`'s
+   * `mergeHandlerResult` never records a `drag` event-in-progress — and `dragend` is only ever
+   * fired from there. `camera.ts` fires no `dragend` at all.
+   *
+   * So arrow-key panning emitted no `dragend`, and (the pan leaves the zoom alone) no `zoomend`
+   * either. It therefore neither retired the recorded framing nor marked the report user-initiated:
+   * a keyboard user could pan the map and have the next resize throw the camera back, with the list
+   * still naming where they started. `handleMoveEnd` below closes it.
    */
   const handleDragEnd = useCallback(() => {
     pannedSinceReport.current = true;
@@ -892,6 +905,35 @@ export function MapSurfaceMapcn({
     pannedSinceReport.current = true;
     noteUserGesture();
   }, [noteUserGesture]);
+
+  /**
+   * **The general form of the rule the other three are special cases of: a camera event carrying an
+   * `originalEvent` was caused by a person.**
+   *
+   * `dragend` and `zoomend` between them cover the pointer, the touch and the wheel. They miss the
+   * keyboard, because MapLibre's keyboard handler drives the camera through a bare
+   * `easeTo(…, {originalEvent: e})` rather than through the drag or zoom machinery — see
+   * `handleDragEnd`. `moveend` is the one event *every* camera move ends with, and `camera.ts`
+   * passes the caller's `eventData` straight through to it, so the presence of `originalEvent` is
+   * the same structural guard `handleZoomEnd` already trusts, applied where it is exhaustive.
+   *
+   * It is additive rather than a replacement: `dragend` also sets the pan flag *before* the inertia
+   * decays, which is the sticky-across-the-debounce behaviour `pannedSinceReport` documents, and
+   * the zoom buttons still need `handleControlZoom` because a programmatic `zoomTo` carries no
+   * `originalEvent` by construction. Both remaining handlers are idempotent with this one.
+   *
+   * Nothing this file issues can trip it: every `easeTo`, `fitBounds` and `flyTo` here is called
+   * with options only and no `eventData`, so a programmatic framing's `moveend` carries no
+   * `originalEvent` — which is the same property that makes `userInitiated` trustworthy at all.
+   */
+  const handleMoveEnd = useCallback(
+    (event: { originalEvent?: unknown }) => {
+      if (!event.originalEvent) return;
+      pannedSinceReport.current = true;
+      noteUserGesture();
+    },
+    [noteUserGesture]
+  );
 
   /** Trailing debounce (§4). One pinch or inertial flick emits several `moveend`s; the list must
    *  settle once, after the camera has, and never reflow under a moving thumb. */
@@ -957,6 +999,7 @@ export function MapSurfaceMapcn({
       if (previous && previous !== instance) {
         previous.off('dragend', handleDragEnd);
         previous.off('zoomend', handleZoomEnd);
+        previous.off('moveend', handleMoveEnd);
         previous.off('moveend', scheduleViewportReport);
         previous.off('resize', scheduleViewportReport);
         observers.get(previous)?.disconnect();
@@ -1023,6 +1066,10 @@ export function MapSurfaceMapcn({
       // was the user's.
       instance.on('dragend', handleDragEnd);
       instance.on('zoomend', handleZoomEnd);
+      // Before the report's own `moveend` listener, so the pan flag is set by the time the
+      // trailing debounce reads it. They are two listeners on one event rather than one that does
+      // both jobs, because the report is debounced and this is not.
+      instance.on('moveend', handleMoveEnd);
       instance.on('moveend', scheduleViewportReport);
       instance.on('resize', scheduleViewportReport);
       // The first settle. Without this the caller holds no rect until the user touches the map,
@@ -1031,7 +1078,7 @@ export function MapSurfaceMapcn({
       // instead of producing a pre-fit rect and then a post-fit one.
       whenReady(instance, scheduleViewportReport);
     },
-    [fitToBounds, refitFramed, scheduleViewportReport, handleDragEnd, handleZoomEnd]
+    [fitToBounds, refitFramed, scheduleViewportReport, handleDragEnd, handleZoomEnd, handleMoveEnd]
   );
 
   // The **initial** framing, and only that. `attachMapRef`'s `once('load', ...)` races against
