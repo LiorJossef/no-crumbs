@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { createClient } from '@/app/_lib/supabase/server';
+import { DISPLAY_AXES } from '@/components/brand/display-type';
 import { PinMark } from '@/components/brand/pin-mark';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -33,9 +34,11 @@ const HEADLINE = ['Your saved places,', 'on one map.'] as const;
 const SUBHEAD =
   'Paste a TikTok link and the place lands on your map. Organised by where, not by when.';
 // The honest boundary, stated in the product rather than in a footnote
-// (`brand-and-product-foundation.md` §1). Deliberately does *not* promise the manual-add recovery
-// path for an Instagram or YouTube link: S8 (`/add-place`) does not exist yet, and the tone rule
-// is that we never state something as done that is not.
+// (`brand-and-product-foundation.md` §1). The string is unchanged and still true; its old reason
+// is not. It used to say the manual-add recovery path for an Instagram or YouTube link "does not
+// exist yet" — that shipped on 2026-08-30 as `components/add/add-sheet.tsx`. What the sentence
+// promises is still exactly what the *import* pipeline reads, which is TikTok and nothing else, so
+// the line stays: a recovery path is not the same claim as support.
 const BOUNDARY = 'Works with TikTok links today.';
 // What actually happens, in the product's own three steps — not a feature list and not a claim
 // about how well it works. Step 2 is deliberately "check what we found" rather than anything that
@@ -92,14 +95,26 @@ export default async function Home() {
           <div className="relative z-10 flex items-center gap-2.5">
             <PinMark className="h-[30px] w-[30px] lg:h-9 lg:w-9" />
             {/*
-              OPEN OWNER DECISION — the product name is not decided and is not ours to invent
-              (`brand-and-product-foundation.md` §3, owed at L1-F1-T1). The repo codename is set
-              as a small tracked-uppercase label beside the mark so it reads as a deliberate
-              treatment rather than an unfinished one. When the name lands, this string and the
-              `<title>` in `app/layout.tsx` are the two places it goes.
+              The wordmark. The name is **decided** — No Crumbs, owner, 2026-08-30,
+              `brand-and-product-foundation.md` §3 — and this is one of the six surfaces
+              `voice-and-vocabulary.md` §2 permits it on (surface 2, the landing mark).
+
+              The treatment changed as well as the text, and that is the part worth recording. What
+              was here was `text-[13px] font-extrabold tracking-[0.2em] uppercase`, which is §5's
+              **kicker** device: 11px tracked uppercase, a typographic label. A wordmark is not a
+              kicker, and setting the two identically would have made the product's name read as
+              one more small label on a page that already has one directly beneath it.
+
+              So: Fraunces (`--font-display`, loaded in `app/layout.tsx`), `SOFT` 60 and `WONK` on
+              per §3.1, set as `No Crumbs` — not `NO CRUMBS`, not `no crumbs`. §5's "sentence case
+              everywhere" exempts the wordmark, and these are the only two capitals in the product.
+              No `font-stretch` axis; §3.1 names an expanded width as a shipped bug.
             */}
-            <span className="font-heading text-[13px] font-extrabold tracking-[0.2em] text-muted-foreground uppercase lg:text-sm">
-              P-002
+            <span
+              className="font-display text-lg font-semibold tracking-tight text-foreground lg:text-xl"
+              style={DISPLAY_AXES}
+            >
+              No Crumbs
             </span>
           </div>
 
@@ -111,7 +126,21 @@ export default async function Home() {
               {KICKER}
             </p>
 
-            <h1 className="mt-2 font-heading text-[34px] leading-[1.05] font-extrabold tracking-tight text-foreground lg:text-[clamp(40px,5.5vw,64px)]">
+            {/* The one editorial heading on this screen, so it takes the display face with the
+                wordmark eight lines above it — §3.1's split is `h1`/`h2` and the wordmark in
+                Fraunces, everything functional in Manrope. Leaving this in Manrope would have put
+                a serif word directly above a grotesque headline, which is the near-miss pairing
+                §3.1 retired Archivo over, reproduced inside one column.
+
+                `text-display lg:text-hero` rather than `text-[34px] lg:text-[clamp(40px,5.5vw,64px)]`:
+                W0 registered both sizes as tokens and they carry their own line-heights, so the
+                bracketed `leading-[1.05]` goes too. Three arbitrary values removed, no pixel
+                moved except mobile leading, which the token puts at 1.12 — the extra room a serif
+                at 34px wants anyway. */}
+            <h1
+              className="mt-2 font-display text-display font-extrabold tracking-tight text-foreground lg:text-hero"
+              style={DISPLAY_AXES}
+            >
               {HEADLINE[0]}
               <br />
               {HEADLINE[1]}
