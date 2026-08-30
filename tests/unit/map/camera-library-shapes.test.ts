@@ -67,6 +67,7 @@ import {
   summaryPillFitAllowance,
   type SummaryPillLabel,
 } from '@/components/map/country-flag-image';
+import { LABEL_FIT_ALLOWANCE } from '@/components/map/marker-style';
 import { NEAR_ME_ZOOM } from '@/components/map/near-me';
 import {
   BAND_EDGE_GUARD,
@@ -149,11 +150,15 @@ function initialBoundsFor(shape: LibraryShape): GeoBounds | undefined {
  * **The home framing as the surface performs it, all of it** — `map-surface.mapcn.tsx`'s
  * `fitToBounds`, mirrored.
  *
- * Three steps, and the middle one is the `W2-1` change: fit the box bare, `settleZoom` the answer
- * clear of the band boundary, and — only if that lands somewhere that draws summary pills — re-fit
- * paying the pill allowance and settle again. The allowance is skipped in the pin band because no
- * pill is drawn there and paying for one is what pushed the fit back down out of the pin band: the
- * owner's own five-area library fits at z8.78 bare and z7.68 with the allowance at 390×844.
+ * Fit the box bare, `settleZoom` the answer clear of the band boundary, then pay for whichever mark
+ * is actually drawn where it landed — and only if the library can afford it.
+ *
+ *  - **Out of the pin band**: re-fit paying the ~200 px summary-pill allowance, and settle again.
+ *    Paying it unconditionally is what pushed the fit back *out* of the pin band in the first place:
+ *    the owner's five-area library fits at z8.78 bare and z7.68 with the pill allowance at 390×844.
+ *  - **In the pin band**: no pill is drawn, but a *name* is (`W2-3`), and a name is wider than the
+ *    pin the fit frames. Re-fit paying `LABEL_FIT_ALLOWANCE`, and keep that fit only if it is still
+ *    in the pin band. The band wins; the label is what gives way.
  *
  * `homeCameraWithMarkers` used to be a second, fuller derivation beside this one. It is gone: there
  * was never a case where the surface framed home *without* the allowance rule, so two functions
@@ -179,13 +184,22 @@ function homeFraming(
   const bare = fitCamera(bounds, viewport, { maxZoom: HOME_LANDING_ZOOM.max });
   const bareZoom = settleZoom(bare?.zoom ?? HOME_LANDING_ZOOM.min);
   if (bandForZoom(bareZoom) === 'pin') {
+    // The pins are named at rest, and a name is wider than its pin, so the fit pays for one —
+    // but only where paying does not push the library back out of the band. See `fitToBounds`.
+    const padded = fitCamera(bounds, viewport, {
+      maxZoom: HOME_LANDING_ZOOM.max,
+      markerAllowance: LABEL_FIT_ALLOWANCE,
+    });
+    const paddedZoom = settleZoom(padded?.zoom ?? HOME_LANDING_ZOOM.min);
+    const affordable = bandForZoom(paddedZoom) === 'pin';
     return {
       camera: fitCamera(bounds, viewport, {
         maxZoom: HOME_LANDING_ZOOM.max,
-        exactZoom: bareZoom,
+        exactZoom: affordable ? paddedZoom : bareZoom,
+        ...(affordable ? { markerAllowance: LABEL_FIT_ALLOWANCE } : {}),
       }),
-      zoom: bareZoom,
-      allowance: none,
+      zoom: affordable ? paddedZoom : bareZoom,
+      allowance: affordable ? LABEL_FIT_ALLOWANCE : none,
       fitZoom: bare?.zoom ?? HOME_LANDING_ZOOM.min,
     };
   }
@@ -377,6 +391,35 @@ describe('what you saved last cannot decide where the map opens', () => {
    * paying for. At 390×844 the owner's library fits at z8.78 bare and z7.68 with the allowance —
    * pins on one side of a pill's own width, four grey capsules on the other.
    */
+  /**
+   * **The label allowance, and the rule that it is the label which gives way.** A pin's name is
+   * drawn at rest since `W2-3` and is wider than the pin the fit frames, so the camera pays for it
+   * — but paying widens the padding, which lowers the zoom, which on a phone is enough to push a
+   * library out of the pin band and back onto the capsules `W2-1` exists to remove.
+   *
+   * Both branches, on real shapes: a one-city library can afford it several times over, and the
+   * owner's five-area library at z8.78 cannot. Neither is asserted as a number — what is pinned is
+   * that the band survives either way, which is the property that makes the trade safe.
+   */
+  it('pays for a pin\'s name only where the band survives it', () => {
+    const oneCity = homeFraming(ONE_CITY, PHONE);
+    expect(oneCity.allowance).toEqual(LABEL_FIT_ALLOWANCE);
+    expect(bandForZoom(oneCity.zoom)).toBe('pin');
+
+    const owners = homeFraming(FIVE_ISRAELI_AREAS, PHONE);
+    expect(owners.allowance).toEqual({ x: 0, y: 0 });
+    expect(bandForZoom(owners.zoom)).toBe('pin');
+  });
+
+  /** And the allowance is real geometry rather than a tuned number: half a label's width, because
+   *  a name is centred on its pin, and the offset plus its lines below the anchor. */
+  it('reserves half a name horizontally and its lines vertically', () => {
+    expect(LABEL_FIT_ALLOWANCE.x).toBeGreaterThan(0);
+    expect(LABEL_FIT_ALLOWANCE.y).toBeGreaterThan(0);
+    // Wider than the control column it has to clear, which is what the photographed defect was.
+    expect(LABEL_FIT_ALLOWANCE.x).toBeGreaterThan(CONTROL_COLUMN_PX / 2);
+  });
+
   it('does not pay for a pill it is not going to draw', () => {
     const bounds = initialBoundsFor(FIVE_ISRAELI_AREAS) as GeoBounds;
     const allowance = summaryPillFitAllowance(
@@ -534,7 +577,11 @@ describe('every summary marker lands whole inside the visible map', () => {
         // screen, and it would pass for the wrong reason. The band is what decides, so the band is
         // what is checked first.
         if (bandForZoom(zoom) === 'pin') {
-          expect(homeFraming(shape, viewport).allowance).toEqual({ x: 0, y: 0 });
+          // …and the camera has not paid for one either. What it may have paid for is the *label*
+          // allowance, which is a different and much smaller number for a mark that is drawn here.
+          expect(homeFraming(shape, viewport).allowance).not.toEqual(
+            summaryPillFitAllowance(markersOf(shape).map((marker) => marker.label)),
+          );
           return;
         }
 

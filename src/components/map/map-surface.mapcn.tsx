@@ -68,7 +68,7 @@ import { toAreaFeatures, toCountryFeatures } from './summary-features';
 import { AREA_DISC_SPEC } from './summary-style';
 import { useDiscTheme } from './use-disc-theme';
 import { clampFitPadding, LG_BREAKPOINT_PX, mapOcclusionInsets, queryRectFrom } from './query-rect';
-import { pinGeometry } from './marker-style';
+import { LABEL_FIT_ALLOWANCE, pinGeometry } from './marker-style';
 import { nearbyPlaces } from '@/ui/place/nearby';
 import { BasemapTint } from './basemap-tint-layer';
 import { toPlaceFeatures } from './place-features';
@@ -720,6 +720,36 @@ export function MapSurfaceMapcn({
       });
       const bareZoom = settleZoom(bare?.zoom ?? HOME_LANDING_ZOOM.min);
       if (bandForZoom(bareZoom) === 'pin') {
+        // **Pay for the name if the library can afford it.** The fit frames pin *anchors*, and
+        // 48 px of `FIT_BOUNDS_PADDING` is exactly the width of the zoom-control column, so a pin
+        // comes to rest precisely at that column's leading edge — correct until `W2-3` started
+        // drawing names at rest, after which the name went under the buttons (photographed at
+        // 390×844: `Filter C…` / `Bar N…` beneath the geolocate control) and off the bottom edge at
+        // 1440×900. `LABEL_FIT_ALLOWANCE` is the room a name needs; the question is what it costs.
+        //
+        // It is not free: more padding is a lower fitted zoom, and on a phone that is enough to
+        // push a library out of the pin band and back onto the capsules `W2-1` exists to get rid
+        // of. So it is spent only where spending it changes nothing else — measured against the
+        // owner's own five-area library, which fits at z8.78 and cannot afford it, and against a
+        // one-city library at z12.5, which can several times over. **The band wins; the label is
+        // what gives way**, because a clipped name is a blemish and no pins at all is the defect.
+        //
+        // It fixes the *resting* view only. A user who pans a pin under the controls still has its
+        // name under them, and no camera can answer that — a symbol layer cannot see a DOM button.
+        const padded = map.cameraForBounds(box, {
+          padding: paddingFor(map, LABEL_FIT_ALLOWANCE),
+          maxZoom: HOME_LANDING_ZOOM.max,
+        });
+        const paddedZoom = settleZoom(padded?.zoom ?? HOME_LANDING_ZOOM.min);
+        if (bandForZoom(paddedZoom) === 'pin') {
+          frameHome({
+            bounds,
+            minZoom: paddedZoom,
+            maxZoom: paddedZoom,
+            markerAllowancePx: LABEL_FIT_ALLOWANCE,
+          });
+          return;
+        }
         frameHome({ bounds, minZoom: bareZoom, maxZoom: bareZoom });
         return;
       }

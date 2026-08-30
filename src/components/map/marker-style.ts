@@ -298,6 +298,44 @@ export const LABEL_CLEARANCE_PX = 96;
 /** Names longer than this wrap; `text-max-width` is in ems, which is what the layer wants. */
 export const LABEL_MAX_WIDTH_EM = 9;
 
+/** The label's own type size, in CSS pixels. Declared rather than inlined in the layer spec
+ *  because `LABEL_FIT_ALLOWANCE` is derived from it and the two must not drift. */
+export const LABEL_TEXT_SIZE = 12;
+
+/** `text-offset`, in ems, from the icon's anchor. A name sits *below* its pin. */
+export const LABEL_OFFSET_EM = 0.4;
+
+/** How many lines a wrapped name is allowed to be before the fit stops paying for it. Two, which
+ *  is what `LABEL_MAX_WIDTH_EM` produces for the long end of real place names. */
+const LABEL_MAX_LINES = 2;
+
+/**
+ * **Room for the name drawn beside a pin at the edge of the fitted box**, per axis, in CSS pixels —
+ * the same shape as `summaryPillFitAllowance`'s answer for a summary pill, and needed for the same
+ * reason now that names are drawn at rest (`W2-3`).
+ *
+ * The fit frames **pin anchors**. Until the label ladder landed, that was enough: `FIT_BOUNDS_PADDING`
+ * is 48 px and the map's zoom-control column is a 40 px button at `right-2`, i.e. exactly 48 px
+ * wide, so a pin came to rest precisely at the column's leading edge. A *name* is wider than its
+ * pin, so it went under the controls — photographed at 390×844 with three places, where the
+ * right-hand pin's name rendered as `Filter C…` / `Bar N…` beneath the geolocate and zoom buttons,
+ * and at 1440×900 where the lowest pin's name ran off the bottom edge. Neither is truncation: the
+ * label is drawn and the chrome sits on top of it.
+ *
+ * Half a label's width, because a name is centred on its pin and only half of it hangs off either
+ * side. The height is the offset plus the lines, measured below the anchor, and is applied to both
+ * edges the way the pill allowance is — the fit takes one number per axis.
+ *
+ * **It is not free and it is not always paid.** Adding it widens the padding, which lowers the
+ * fitted zoom, and the home camera may only spend that where doing so does not push the library
+ * out of the pin band — see `fitToBounds`, which is where that decision lives, because only the
+ * camera knows what the alternative costs.
+ */
+export const LABEL_FIT_ALLOWANCE = {
+  x: (LABEL_MAX_WIDTH_EM * LABEL_TEXT_SIZE) / 2,
+  y: (LABEL_OFFSET_EM + LABEL_MAX_LINES * 1.2) * LABEL_TEXT_SIZE,
+} as const;
+
 /** Web Mercator, the way `camera-model.ts` and MapLibre both compute it: a 512 px tile world. */
 const EQUATOR_METRES = 40075016.686;
 const TILE_PX = 512;
@@ -398,9 +436,9 @@ export function pinLayerLayout(
     // `pinTextFieldExpression` for why the per-pin test lives inside the branches.
     'text-field': pinTextFieldExpression(),
     'text-font': [...textFont],
-    'text-size': 12,
+    'text-size': LABEL_TEXT_SIZE,
     'text-anchor': 'top',
-    'text-offset': [0, 0.4],
+    'text-offset': [0, LABEL_OFFSET_EM],
     'text-max-width': LABEL_MAX_WIDTH_EM,
     // Your own places outrank the basemap. With collision on, MapLibre places symbols in layer
     // order and ours is the last layer, so every name lost to a street label that was already there
