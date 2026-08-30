@@ -72,6 +72,13 @@ several of them record decisions that look like bugs until you read why.
    is verified by an agent that did not write it (§7).
 6. **Every colour is a token.** A hard-coded colour is a review failure. MapLibre style expressions
    cannot read CSS variables — they take a named export from the palette module built in W0-2.
+6a. **Tailwind does the work — this is the run's implementation mandate, not a preference.** After W0
+   registers the scales, **an arbitrary value in square brackets is a review failure the same way a
+   hard-coded colour is.** Write `shadow-sheet`, not `shadow-[var(--shadow-elevated)]`;
+   `duration-base`, not `duration-[220ms]`. Drive state from variants — `hover:`, `focus-visible:`,
+   `active:`, `group-hover:`, `aria-pressed:`, `data-[state=…]`, `motion-safe:` — never from a class
+   string assembled in a ternary. The baseline is 166 arbitrary values, 3 `active:`, 0 `group-hover:`
+   and 0 `motion-safe:`; §5's K5–K9 are how that is checked. Full rationale: `facelift-plan.md` §3a.
 7. **Never delete or rewrite a comment explaining *why*.** This codebase's comments are its design
    record. If a comment becomes wrong, update it in the same commit.
 8. **Do not touch:** `supabase/migrations/*` (no new migrations this run), `.claude/settings.json`,
@@ -286,6 +293,46 @@ and verification), Advise (rulings and specs, no shell).
 production UI — do not let another agent restyle a component. And **no subagent delegates**: every
 handoff routes back through you.
 
+## 7c. SmoothUI — a source of components, not a system
+
+**Owner instruction, 2026-08-31: use [SmoothUI](https://smoothui.dev/).** It fits this repo unusually
+well, and it comes with one trap worth naming before anyone opens it.
+
+**Why it fits.** It is built on shadcn/ui foundations, targets React 19, Tailwind v4 and Motion, and is
+MIT. This repo runs React **19.2.8**, Tailwind **4.3.3**, `motion` **13.1.1**, has a `components.json`,
+and already ratified *"no UI primitive is hand-rolled while a shadcn equivalent exists"* — while the
+audit found sheets, dialogs, popovers, tooltips, tabs, badges, skeletons and toasts **all hand-rolled**,
+and four separate `aria-live` regions doing the job of one toast. SmoothUI is the shortest path out of
+that, and because it **vendors source rather than adding a runtime package**, it inherits the same
+property that made shadcn safe to commit to early: restyling stays a token change.
+
+**Use the pinned local CLI.** `shadcn` is already a devDependency at `^4.18.0`. Guardrail §3.13 forbids
+`npx`-ing an unpinned package, so **do not run `npx shadcn@latest`.** Use the installed binary.
+
+**Two gates, both hard:**
+
+1. **New dependencies.** SmoothUI's animation layer is Motion *and GSAP*. `motion` is present; **`gsap`
+   is not in `package.json`.** Any component that pulls GSAP — or anything else not already installed
+   — **does not come in**. Agents may not install dependencies (§3.13); propose it and move on.
+2. **The motion budget.** SmoothUI ships 130 components including Dynamic Islands, Siri Orbs and
+   Scramble Hover. This product's design system carries a **closed list of nine micro-animations** and
+   the sentence *"everything else stays still"*. **Taking a decorative component because it is
+   available is a failed package**, not a bonus. Every import must map to a state in the matrix or a
+   moment on the list.
+
+**Where it earns its place** — take these, adapt them to the tokens, and leave the rest:
+
+| Need | Package | Why SmoothUI beats hand-rolling it |
+|---|---|---|
+| The count tick, `3 places found` | **W6-3** | *Number Flow* is precisely this moment, and it is the one animation the payoff beat needs |
+| Loading skeletons | **W5-4** | The repo has none, and geometry-matched skeletons are fiddly to get right |
+| Toast | **W3/W5 cleanup** | Replaces four independent `aria-live` regions with one component |
+| Dialog · Popover · Tabs · Badge | **W3-4** | All hand-rolled today; only two components use the installed primitive library |
+
+**Adapt, don't adopt.** Anything vendored in is *our* source the moment it lands: it takes our tokens,
+our type scale, our easings, our voice. A component arriving with its own hard-coded colours or its own
+duration constants is not finished until those are gone — K5 and K12 count them either way.
+
 ## 8. The work packages
 
 Path scope is listed so agents do not collide. **Two agents must never hold the same file.**
@@ -330,7 +377,7 @@ Specified in [`facelift-plan.md`](facelift-plan.md) §3a. **Build from the state
 | **W3-1** | Press feedback on the shared button, row and chip class strings | `src/components/ui/button.tsx`, `src/components/sheet/place-sheet.tsx`, `src/components/sheet/place-enrichment.tsx` | `active:` on all three; every pressable thing acknowledges within one frame |
 | **W3-2** | `group` coupling: hovering or pressing a row lifts its pin and dims its neighbours | `src/components/sheet/place-sheet.tsx`, `src/components/map/place-marker-layer.tsx`, `src/app/map/map-page-client.tsx` | `group-hover:` > 0; the coupling works in a browser at 1440×900 |
 | **W3-3** | Invert `motion-reduce:` to `motion-safe:` so the accessible path is the default | all `src/**/*.tsx` with motion | `motion-safe:` > 0; every animation has a reduced arm |
-| **W3-4** | The remaining state-matrix gaps: hover, focus-visible and disabled on every element in the table | per the matrix | Each row of the matrix is satisfiable by inspection |
+| **W3-4** | The remaining state-matrix gaps: hover, focus-visible and disabled on every element in the table. Where a primitive is hand-rolled (dialog, popover, tabs, badge, toast), vendor it from SmoothUI per §7c rather than restyling the hand-rolled one | per the matrix | Each row of the matrix is satisfiable by inspection; no new dependency added |
 
 ### Wave 4 — identity
 
@@ -348,7 +395,7 @@ Specified in [`facelift-plan.md`](facelift-plan.md) §3a. **Build from the state
 | **W5-1** | Thumbnail and elapsed time on the list row. `MapPlace.detail` already carries the whole record — this is a render, not a rewire | `src/components/sheet/place-sheet.tsx` | Rows show the post still and *Saved 3 days ago*; falls back to the category disc on image error |
 | **W5-2** | Sort control: recently saved · nearest · A–Z. Batch writes break recency | `src/components/sheet/place-sheet.tsx`, `src/app/map/map-page-client.tsx` | Three orders work; the choice survives a reload |
 | **W5-3** | A tag facet with counts. Tags are the only field that actually separates places | `src/ui/place/tag-filter.ts`, `src/components/sheet/category-filter-bar.tsx` | Tag counts render; tapping filters; no tag invented that no place carries |
-| **W5-4** | `loading.tsx` for `/collections`, `/collections/[id]`, `/profile`, matching the real row geometry | `src/app/collections/`, `src/app/profile/` | Three files; tab changes paint instantly |
+| **W5-4** | `loading.tsx` for `/collections`, `/collections/[id]`, `/profile`, matching the real row geometry. SmoothUI's skeleton is the starting point (§7c) | `src/app/collections/`, `src/app/profile/` | Three files; tab changes paint instantly; skeleton geometry matches the real rows |
 | **W5-5** | Visible result count beside the search field (it exists only as `sr-only`) | `src/components/sheet/place-sheet.tsx` | Sighted users see `12 of 32` |
 | **W5-6** | Collection description rendered — queried twice, mapped twice, shown nowhere | `src/app/collections/collections-index-client.tsx`, `src/components/collections/collection-content.tsx` | Description renders on the index and the header |
 
@@ -365,7 +412,7 @@ this acquires its first regression.
 |---|---|---|---|
 | **W6-1** | Split the import client by beat: `paste`, `rail`, `review`, `no-places`, `failure`, plus `review/candidate-card` | `src/app/import/` | No file over ~450 lines; behaviour identical; `npm run verify` green |
 | **W6-2** | **Split the source fetch into its own sub-second request.** oEmbed returns in under a second; extraction takes 7–34s. Two round trips, still request/response, **no streaming route** | `src/app/api/` (new source-preview route), `src/app/import/screens/rail-screen.tsx` | The post — thumbnail, `@handle`, caption — is on screen within ~1s while extraction runs underneath |
-| **W6-3** | **Hold the payoff.** `3 places found` is computed then overwritten on the next statement, so it renders for **zero frames**. Hold it ~700ms, count 0→N | `src/app/import/` | The count is visible and animates; test asserts the state is not overwritten in the same batch |
+| **W6-3** | **Hold the payoff.** `3 places found` is computed then overwritten on the next statement, so it renders for **zero frames**. Hold it ~700ms, count 0→N — SmoothUI's *Number Flow* is built for exactly this (§7c) | `src/app/import/` | The count is visible and animates; test asserts the state is not overwritten in the same batch |
 | **W6-4** | **Provenance takes the badge slot.** Today the confident signal is an 11px mint pill and the uncertainty is 12px grey at the bottom of the card — the hierarchy inverts the epistemics. Same three states, opposite visual weight. **No invented confidence number** | `src/app/import/screens/review/candidate-card.tsx`, `src/ui/import/candidate-resolution-view.ts` | A caption-derived pin reads as caption-derived at a glance; a matched pin reads as matched. Verified by someone reading five cards cold |
 | **W6-5** | **Rebuild the no-places screen** — the modal outcome, ~73% of imports. It currently shows the user nothing: not the post, not the caption we just read. Strings do not change (`spec-no-places-found.md`) | `src/app/import/screens/no-places-screen.tsx` | The post and its caption are on screen; both recovery actions present on **every** entry point |
 | **W6-6** | **Pins land.** Camera flight then staggered drop, paint-only over a per-feature order — no relayout, no re-collision | `src/components/map/place-marker-layer.tsx`, `map-surface.mapcn.tsx` | Pins arrive in sequence after the flight; frame budget unchanged |
