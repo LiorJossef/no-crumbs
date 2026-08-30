@@ -40,9 +40,12 @@
  * a transparent tap-catcher rather than wiring into the map's own gesture surface.
  */
 
-import { Drawer } from 'vaul';
-
-import { useNonModalBackground } from './use-non-modal-background';
+import {
+  HALF_FRACTION,
+  STOP_TO_CONTENT_HEIGHT,
+  type SheetStop,
+} from '@/components/shell/sheet-geometry';
+import { savedPlaceRef } from '@/components/map/saved-place-ref';
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Plus, MapPin, ExternalLink, X, ChevronLeft, ChevronUp, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -81,65 +84,13 @@ import { isolate, type AreaHeading } from '@/ui/place/active-area';
 import type { MapPlace } from '@/components/map/types';
 import { useNearMeDistance } from '@/components/map/near-me-context';
 
-/** Fixed peek height. `env(safe-area-inset-bottom)` is added via CSS `calc()` inside the snap
- *  point's own element (vaul only takes a bare px number for the snap point itself), so the sheet's
- *  *drag* stop stays a stable number while the visual bottom padding still respects the inset. */
-const PEEK_PX = 128;
-
-type SheetStop = 'peek' | 'half' | 'full';
-
-const SNAP_PEEK = `${PEEK_PX}px` as const;
 /**
- * The stop the sheet rises to when a place is selected.
- *
- * Exported because the **camera** needs it: selecting a pin raises the sheet over 55% of the
- * viewport, and a pin that was in the lower half is then behind it. `map-surface`'s reveal pan is
- * what stops that, and it can only be right if it is reading the same number this sheet moves to.
- * Two independent readings of one stop is how a "reveal" comes to reveal into the wrong band.
+ * The stops, the snap points and the content heights now live in
+ * `src/components/shell/sheet-geometry.ts` — one declaration for the whole product, because
+ * `/collections/[id]` had grown a second copy of every one of them
+ * (`ux-collections-as-scope.md` §5 item 8).
  */
-export const SHEET_HALF_FRACTION = 0.55 as const;
-
-const SNAP_HALF = SHEET_HALF_FRACTION;
-const SNAP_FULL = 1 as const;
-
-const SNAP_POINTS: Array<`${number}px` | number> = [SNAP_PEEK, SNAP_HALF, SNAP_FULL];
-
-/**
- * How tall the sheet's content column is at each stop, as CSS.
- *
- * **This is a bug fix, not a layout preference.** `Drawer.Content` is `h-full` and vaul positions
- * the sheet by translating it, so at `half` the bottom 45% of a full-height flex column sits below
- * the bottom of the screen. Everything down there is laid out, painted, hit-testable and reported
- * `visible` by a testing library — and completely unreachable, because the scroll container's own
- * bottom is off screen so scrolling to its end still does not bring it into view. Measured at 844:
- * the boundary heading below the last row came to rest 242 px below the viewport at maximum scroll.
- *
- * That was survivable while the only thing down there was a section most sessions never opened. It
- * is not survivable now: everything below that heading is the rest of the library, and the list is
- * the only rendering of it a screen reader can reach — the map's markers are painted into a canvas
- * (§6).
- *
- * `dvh` rather than a measured pixel value, so it survives a rotation and the mobile URL bar with no
- * JavaScript and no resize listener. The subtraction is the drag handle above this column
- * (`mt-2.5 h-1`), which is the only other thing inside `Drawer.Content`.
- */
-const STOP_TO_CONTENT_HEIGHT: Record<SheetStop, string> = {
-  peek: `calc(${PEEK_PX}px - 14px)`,
-  half: 'calc(55dvh - 14px)',
-  full: 'calc(100dvh - 14px)',
-};
-
-const STOP_TO_SNAP: Record<SheetStop, `${number}px` | number> = {
-  peek: SNAP_PEEK,
-  half: SNAP_HALF,
-  full: SNAP_FULL,
-};
-
-function snapToStop(snap: number | string | null): SheetStop {
-  if (snap === SNAP_FULL) return 'full';
-  if (snap === SNAP_HALF) return 'half';
-  return 'peek';
-}
+export const SHEET_HALF_FRACTION = HALF_FRACTION;
 
 export interface PlaceSheetProps {
   /** **What is inside the map's current viewport**, already narrowed by `query` and already sorted
@@ -196,16 +147,12 @@ export interface PlaceSheetProps {
   /** Selecting from the list, which the map's canvas-drawn pins cannot offer to a keyboard user —
    *  see `PlaceRow`'s header for why this stopped being optional at `L1-F7-T2`. */
   readonly onSelect: (place: MapPlace) => void;
-}
-
-interface SheetState {
-  readonly snap: number | string | null;
-  /** The stop to restore on deselect — kept in state (not a ref) so the transition below can be
-   *  computed during render, per React's own "adjust state when a prop changes" pattern
-   *  (https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes),
-   *  without a `useEffect` and without reading/writing a ref mid-render. */
-  readonly previousStop: SheetStop;
-  readonly lastSelectedId: string | null;
+  /** Which stop the shell's sheet is at. Supplied rather than owned: the drawer, its snap points
+   *  and the rise-to-half-on-select rule all moved to `components/shell` when `/collections/[id]`
+   *  stopped keeping a second copy of them (`ux-collections-as-scope.md` §5 item 9). */
+  readonly stop: SheetStop;
+  /** Pull the sheet open from the peek row. */
+  readonly onExpand: (stop: SheetStop) => void;
 }
 
 export function PlaceSheet({
@@ -228,35 +175,9 @@ export function PlaceSheet({
   onDeselect,
   onAddTikTok,
   onSelect,
+  stop,
+  onExpand,
 }: PlaceSheetProps) {
-  // `modal={false}` below does not reach Radix through vaul 1.1.2, so the dialog hides the whole
-  // page from assistive technology. See `use-non-modal-background.ts` for the measurement.
-  useNonModalBackground(true);
-
-  const [sheet, setSheet] = useState<SheetState>({
-    snap: STOP_TO_SNAP.peek,
-    previousStop: 'peek',
-    lastSelectedId: null,
-  });
-
-  // Rising to `half` for a newly selected place, and restoring the prior stop on deselect (§7).
-  // Both sides of the guard must be normalized to the same nullable type (`string | null`) —
-  // comparing `selected?.id` (which is `undefined` when nothing is selected) against
-  // `sheet.lastSelectedId` (typed and stored as `null`) never closes the guard, since
-  // `undefined !== null` is always `true`, causing an infinite render loop.
-  const selectedId = selected?.id ?? null;
-  if (selectedId !== sheet.lastSelectedId) {
-    const current = snapToStop(sheet.snap);
-    setSheet({
-      snap: selected ? STOP_TO_SNAP.half : STOP_TO_SNAP[sheet.previousStop],
-      previousStop: selected && current !== 'half' ? current : sheet.previousStop,
-      lastSelectedId: selectedId,
-    });
-  }
-
-  const setActiveSnap = (snap: number | string | null) =>
-    setSheet((s) => ({ ...s, snap }));
-
   /** Your other places within a walk of the open one. Memoised on the pair rather than computed
    *  in the detail: `places` is the whole library and the sheet re-renders on every drag frame. */
   const nearbyToSelected = useMemo(
@@ -264,96 +185,52 @@ export function PlaceSheet({
     [selected, places],
   );
 
-  const currentStop = snapToStop(sheet.snap);
+  if (selected) {
+    return (
+      <PlaceDetail
+        place={selected}
+        /* The write target comes from `selected.savedPlaceId`, never from `selected.id` — the two
+           differ on any surface whose pins are not saved rows, and `savedPlaceRef` is the one place
+           that answers it. Every pin on this route carries one (`map/page.tsx`'s `toMapPlace`), so
+           the detail keeps all six of its mutations. */
+        savedPlace={savedPlaceRef(selected)}
+        nearby={nearbyToSelected}
+        onSelectNearby={(id) => {
+          const neighbour = places.find((candidate) => candidate.id === id);
+          if (neighbour) onSelect(neighbour);
+        }}
+        onClose={onDeselect}
+      />
+    );
+  }
 
   return (
-    <>
-      {/* At `full`, the map is not meaningfully visible; a tap on the remaining strip collapses
-          the sheet rather than reaching the map underneath (§6.5). Non-modal drawer, so this is
-          the only thing standing in for that rule — there is no vaul overlay to repurpose.
-          Mobile-only: the desktop panel has no equivalent full-bleed stop. */}
-      {currentStop === 'full' && (
-        <button
-          type="button"
-          aria-label="Collapse the places sheet"
-          onClick={() => setActiveSnap(STOP_TO_SNAP.peek)}
-          className="fixed inset-0 z-30 bg-transparent lg:hidden"
-        />
-      )}
-
-      <Drawer.Root
-        open
-        modal={false}
-        dismissible={false}
-        snapPoints={SNAP_POINTS}
-        activeSnapPoint={sheet.snap}
-        setActiveSnapPoint={setActiveSnap}
-        snapToSequentialPoint
-      >
-        <Drawer.Portal>
-          {/* `lg:hidden` — the desktop composition (`PlaceDesktopPanel`) replaces this surface
-              entirely above the breakpoint; there is no drag, no snap points, no sheet chrome. */}
-          <Drawer.Content
-            data-testid="place-sheet"
-            className="fixed inset-x-0 bottom-0 z-40 flex h-full max-h-[100dvh] flex-col rounded-t-2xl border-t border-border/70 bg-card shadow-[var(--shadow-elevated)] outline-none lg:hidden"
-          >
-            <Drawer.Handle className="mx-auto mt-2.5 h-1 w-9 shrink-0 rounded-full bg-border" />
-
-            {selected ? (
-              /* `place.id` is a `saved_places` id on this route — saying so at the call site is
-                 what the required prop buys. */
-              <PlaceDetail
-                place={selected}
-                savedPlace={{
-                  id: selected.id,
-                  visited: selected.visited,
-                  // `visitedAt` lives on the joined `Spot` rather than on the pin, so it is read
-                  // off `detail` here. Spread rather than passed as `undefined` because
-                  // `exactOptionalPropertyTypes` is on and "absent" is the honest shape for a
-                  // marked row that never got a timestamp.
-                  ...(selected.detail?.visitedAt ? { visitedAt: selected.detail.visitedAt } : {}),
-                }}
-                nearby={nearbyToSelected}
-                onSelectNearby={(id) => {
-                  const neighbour = places.find((candidate) => candidate.id === id);
-                  if (neighbour) onSelect(neighbour);
-                }}
-                onClose={onDeselect}
-              />
-            ) : (
-              <PlaceList
-                places={places}
-                heading={heading}
-                otherPlaces={otherPlaces}
-                activeAreaId={activeAreaId}
-                libraryIsEmpty={libraryIsEmpty}
-                libraryHasVisited={libraryHasVisited}
-                query={query}
-                onQueryChange={onQueryChange}
-                activeTag={activeTag}
-                onClearTag={onClearTag}
-                notBeenOnly={notBeenOnly}
-                onToggleNotBeen={onToggleNotBeen}
-                categoryFacets={categoryFacets}
-                activeCategory={activeCategory}
-                onToggleCategory={onToggleCategory}
-                stop={currentStop}
-                // `half` for an empty library, `full` once there is a list. The empty state is a
-                // heading, a line and one button — about 380 px — so opening it full gave a new
-                // user their first screen as that button above roughly 1 100 px of white, with the
-                // map they came for hidden behind it. Half fits the content and leaves the map
-                // visible; a list is the only thing worth the whole screen.
-                onExpand={() =>
-                  setActiveSnap(libraryIsEmpty ? STOP_TO_SNAP.half : STOP_TO_SNAP.full)
-                }
-                onAddTikTok={onAddTikTok}
-                onSelect={onSelect}
-              />
-            )}
-          </Drawer.Content>
-        </Drawer.Portal>
-      </Drawer.Root>
-    </>
+    <PlaceList
+      places={places}
+      heading={heading}
+      otherPlaces={otherPlaces}
+      activeAreaId={activeAreaId}
+      libraryIsEmpty={libraryIsEmpty}
+      libraryHasVisited={libraryHasVisited}
+      query={query}
+      onQueryChange={onQueryChange}
+      activeTag={activeTag}
+      onClearTag={onClearTag}
+      notBeenOnly={notBeenOnly}
+      onToggleNotBeen={onToggleNotBeen}
+      categoryFacets={categoryFacets}
+      activeCategory={activeCategory}
+      onToggleCategory={onToggleCategory}
+      stop={stop}
+      // `half` for an empty library, `full` once there is a list. The empty state is a heading, a
+      // line and one button — about 380 px — so opening it full gave a new user their first screen
+      // as that button above roughly 1 100 px of white, with the map they came for hidden behind
+      // it. Half fits the content and leaves the map visible; a list is the only thing worth the
+      // whole screen.
+      onExpand={() => onExpand(libraryIsEmpty ? 'half' : 'full')}
+      onAddTikTok={onAddTikTok}
+      onSelect={onSelect}
+    />
   );
 }
 
@@ -454,10 +331,7 @@ function PlaceList({
          * Dropping the button frees the lower half of the band for the bar to sit in, and the
          * padding below matches `BOTTOM_NAV_HEIGHT_PX` so the line never sits behind it.
          */
-        <div
-          className="flex items-center"
-          style={{ paddingBottom: `${BOTTOM_NAV_HEIGHT_PX}px` }}
-        >
+        <div className="flex items-center" style={{ paddingBottom: `${BOTTOM_NAV_HEIGHT_PX}px` }}>
           <button
             type="button"
             onClick={onExpand}
@@ -469,24 +343,26 @@ function PlaceList({
             className="flex min-w-0 flex-1 items-center gap-1 rounded-lg px-1 text-left text-sm font-medium text-muted-foreground"
           >
             <span className="min-w-0 truncate">
-            {/* The number carries the emphasis and the rest of the line stays quiet, exactly as it
+              {/* The number carries the emphasis and the rest of the line stays quiet, exactly as it
                 did when this read `20 places saved`. `heading.count`/`heading.rest` are given to us
                 pre-split precisely so this stays a render and never a parse. When there is no count
                 — `Nothing saved in this area`, or the empty library — the emphasised span is not
                 rendered empty; the line is simply the sentence. */}
-            {libraryIsEmpty || heading.count === null ? (
-              headingText
-            ) : (
-              <>
-                <span className="font-heading font-extrabold text-foreground">{heading.count}</span>{' '}
-                {/* The short form — `18 in London`, not `18 places in London`. Given to us by
+              {libraryIsEmpty || heading.count === null ? (
+                headingText
+              ) : (
+                <>
+                  <span className="font-heading font-extrabold text-foreground">
+                    {heading.count}
+                  </span>{' '}
+                  {/* The short form — `18 in London`, not `18 places in London`. Given to us by
                     `areaHeading` rather than sliced off `text` here, because a surface that parses
                     a string it was handed pre-split is a surface that will eventually disagree
                     with the one that built it. The noun is one drag up, and the fact that this is
                     a map is doing the rest of the work. */}
-                {heading.shortRest}
-              </>
-            )}
+                  {heading.shortRest}
+                </>
+              )}
             </span>
             {/* The line used to name one city while the map drew pins in three, which reads as the
                 list having lost places rather than as it being scoped. This says the others are
@@ -567,7 +443,10 @@ function PlaceList({
                 // it. This is what pays for `BottomNav` floating over the sheet at `half` and
                 // `full` — the ruling it reverses was right that a bar painted over a scrolling
                 // list steals the bottom of the list, and this is the price rather than a denial.
-                style={{ scrollPaddingBottom: BOTTOM_NAV_HEIGHT_PX, paddingBottom: BOTTOM_NAV_HEIGHT_PX }}
+                style={{
+                  scrollPaddingBottom: BOTTOM_NAV_HEIGHT_PX,
+                  paddingBottom: BOTTOM_NAV_HEIGHT_PX,
+                }}
               >
                 {heading.escape === 'clear-search' && (
                   <ClearSearchEscape onClearSearch={() => onQueryChange('')} />
@@ -1089,7 +968,7 @@ export function PlaceDetail({
   const thumbnailUrl = detail?.sourceThumbnailUrl ?? source?.media?.url;
   const authorLabel = source?.authorHandle
     ? `@${source.authorHandle}`
-    : source?.authorName ?? null;
+    : (source?.authorName ?? null);
   // Name + address + city, not coordinates: the model's/extraction's lat/lng is only a
   // provisional pin position for our own map (never a resolution source, see
   // `domain/places/google-maps-search-url.ts`'s header), so it is not trustworthy as the basis
@@ -1135,7 +1014,13 @@ export function PlaceDetail({
   // rejects null/blank, but TypeScript cannot see that through a boolean.
   const shownWhyGo =
     whyGo !== null &&
-    whyGoEarnsItsPlace(whyGo, { reason, tags, dishes, name: place.name, locality })
+    whyGoEarnsItsPlace(whyGo, {
+      reason,
+      tags,
+      dishes,
+      name: place.name,
+      locality,
+    })
       ? whyGo
       : null;
 
@@ -1144,7 +1029,11 @@ export function PlaceDetail({
   // the name, a comma and the address — quoting it under a heading was a labelled block that
   // repeated the two lines directly above it.
   const quote = formatCaptionQuote(reason);
-  const shownQuote = quoteAddsSomething(quote, { name: place.name, addressLine, locality })
+  const shownQuote = quoteAddsSomething(quote, {
+    name: place.name,
+    addressLine,
+    locality,
+  })
     ? quote
     : null;
 
@@ -1155,7 +1044,7 @@ export function PlaceDetail({
         isPopover && 'max-h-[min(70vh,26rem)] w-72 gap-4 px-0 pb-0 pt-0',
         // The host's gutter and its own top spacing — see the `variant` docblock for why 4 px
         // matters here and why the top padding belongs to the header row above this column.
-        isHosted && 'px-4 pb-[calc(env(safe-area-inset-bottom)+2rem)] pt-1'
+        isHosted && 'px-4 pb-[calc(env(safe-area-inset-bottom)+2rem)] pt-1',
       )}
     >
       {thumbnailUrl && <SourceMediaThumbnail url={thumbnailUrl} />}
@@ -1178,7 +1067,7 @@ export function PlaceDetail({
               <h2
                 className={cn(
                   'min-w-0 font-heading text-2xl font-extrabold tracking-tight text-foreground',
-                  isPopover && 'text-lg'
+                  isPopover && 'text-lg',
                 )}
               >
                 <bdi>{place.name}</bdi>
@@ -1254,7 +1143,6 @@ export function PlaceDetail({
             )}
           </figure>
         )}
-
 
         {/* And *then*, quieter, the model's own sentence — never above the quote, never at the same
             weight, and only when it says something the quote and the tags do not.
@@ -1370,7 +1258,7 @@ export function PlaceDetail({
               data-vaul-no-drag
               className={cn(
                 'flex items-center gap-1.5 text-sm font-bold text-[var(--mint-700)] underline-offset-4 hover:underline',
-                mapsLinkAlone && 'min-h-11'
+                mapsLinkAlone && 'min-h-11',
               )}
             >
               {mapsLinkAlone ? 'Open in Google Maps' : 'Google Maps'}
@@ -1462,11 +1350,7 @@ export function PlaceDetail({
             once the revalidated list arrives, but that would leave the detail open over a place
             that is already gone for the length of the round trip. */}
         {savedRow && (
-          <RemoveSavedPlace
-            savedPlaceId={savedRow.id}
-            placeName={place.name}
-            onRemoved={onClose}
-          />
+          <RemoveSavedPlace savedPlaceId={savedRow.id} placeName={place.name} onRemoved={onClose} />
         )}
 
         {/* Last of all, and the host's to fill: `/collections/[id]` puts the shared note and

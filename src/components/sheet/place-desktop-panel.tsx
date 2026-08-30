@@ -99,81 +99,82 @@ export function PlaceDesktopPanel({
   }, [activeAreaId]);
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-20 hidden lg:block">
-      <div className="pointer-events-auto absolute inset-y-0 left-0 flex w-[clamp(320px,26vw,392px)] flex-col border-r border-border/70 bg-card/85 backdrop-blur-md">
-        <div className="flex flex-col gap-4 px-6 pt-7">
-          {/* The page's real subject, and it is an area rather than a collection: `Your places` and
+    /* The frame — the `pointer-events-none` full-bleed wrapper, the fixed width, the hairline, the
+       blur and the `hidden lg:block` — belongs to `MapShell`, which draws the identical column for
+       every scope. This component is only what goes inside it. */
+    <>
+      <div className="flex flex-col gap-4 px-6 pt-7">
+        {/* The page's real subject, and it is an area rather than a collection: `Your places` and
               the `3 of 20` counter beside it are both gone. The library total is not displayed
               anywhere on `/map` — it answers a question about owning things, and this screen is for
               finding one. */}
-          {/* Keyed and faded exactly as the sheet's `h2` is — one change of scope, one motion, on
+        {/* Keyed and faded exactly as the sheet's `h2` is — one change of scope, one motion, on
               both surfaces. See `PlaceList` for why it keys on the area and not on the count. */}
-          <h1
-            key={activeAreaId ?? 'no-area'}
-            className="animate-in fade-in-0 duration-140 font-heading text-2xl font-extrabold tracking-tight text-foreground outline-none motion-reduce:animate-none"
-          >
-            {libraryIsEmpty ? EMPTY_LIBRARY_HEADING : heading.text}
-          </h1>
-          {libraryIsEmpty && <EmptyLibraryLine />}
-          <Button
-            type="button"
-            className="h-12 w-full gap-1.5 rounded-lg text-sm font-bold"
-            onClick={() => onAddTikTok()}
-          >
-            <Plus className="size-4" aria-hidden />
-            Add a TikTok
-          </Button>
-          {/* Hidden while the library is empty: there is nothing to search, and an inert field is a
+        <h1
+          key={activeAreaId ?? 'no-area'}
+          className="animate-in fade-in-0 duration-140 font-heading text-2xl font-extrabold tracking-tight text-foreground outline-none motion-reduce:animate-none"
+        >
+          {libraryIsEmpty ? EMPTY_LIBRARY_HEADING : heading.text}
+        </h1>
+        {libraryIsEmpty && <EmptyLibraryLine />}
+        <Button
+          type="button"
+          className="h-12 w-full gap-1.5 rounded-lg text-sm font-bold"
+          onClick={() => onAddTikTok()}
+        >
+          <Plus className="size-4" aria-hidden />
+          Add a TikTok
+        </Button>
+        {/* Hidden while the library is empty: there is nothing to search, and an inert field is a
               false affordance. The heading and the one line above it are the whole screen. */}
-          {!libraryIsEmpty && <PlaceSearchField value={query} onChange={onQueryChange} />}
-          {/* Inside the header block, under the field and above whatever the list turns out to be,
+        {!libraryIsEmpty && <PlaceSearchField value={query} onChange={onQueryChange} />}
+        {/* Inside the header block, under the field and above whatever the list turns out to be,
               so the controls that undo a filter are present in the empty state too. */}
-          {/* The same bar the sheet renders. Two surfaces offering different filter controls over
+        {/* The same bar the sheet renders. Two surfaces offering different filter controls over
               one library is how the phone and the desktop come to disagree about what the product
               can do — `PlaceRow` is shared for exactly this reason. */}
-          {!libraryIsEmpty && (
-            <CategoryFilterBar
-              facets={categoryFacets}
-              activeCategory={activeCategory}
-              onToggleCategory={onToggleCategory}
-              notBeenOnly={notBeenOnly}
-              onToggleNotBeen={onToggleNotBeen}
-              anyVisited={libraryHasVisited}
-            />
-          )}
-          {activeTag !== null && <ActiveTagFilter tag={activeTag} onClear={onClearTag} />}
-          {/* See `AreaHeading.note`: the one line an achievement heading needs and a failed query
+        {!libraryIsEmpty && (
+          <CategoryFilterBar
+            facets={categoryFacets}
+            activeCategory={activeCategory}
+            onToggleCategory={onToggleCategory}
+            notBeenOnly={notBeenOnly}
+            onToggleNotBeen={onToggleNotBeen}
+            anyVisited={libraryHasVisited}
+          />
+        )}
+        {activeTag !== null && <ActiveTagFilter tag={activeTag} onClear={onClearTag} />}
+        {/* See `AreaHeading.note`: the one line an achievement heading needs and a failed query
               does not. */}
-          {!libraryIsEmpty && heading.note !== null && (
-            <p className="text-sm font-medium text-muted-foreground">{heading.note}</p>
-          )}
-        </div>
-
-        {libraryIsEmpty ? null : (
-          <>
-            <div ref={scrollRef} className="mt-4 min-h-0 flex-1 overflow-y-auto px-6">
-              {heading.escape === 'clear-search' && (
-                <ClearSearchEscape onClearSearch={() => onQueryChange('')} />
-              )}
-              {!heading.empty && (
-                <ul>
-                  {places.map((place) => (
-                    <PlaceRow key={place.id} place={place} onSelect={onSelect} />
-                  ))}
-                </ul>
-              )}
-              {/* The same continuation the sheet renders, from the same array. The panel used to
-                  differ here — it opened every country group where the sheet opened two — and with
-                  the groups gone there is nothing left for the two surfaces to disagree about. */}
-              <EverywhereElse places={otherPlaces} flush={heading.empty} onSelect={onSelect} />
-            </div>
-            {/* Pinned to the bottom of the panel, out of the scroll — see `PlaceList`. */}
-            <div className="shrink-0 px-6 pb-6">
-              <CollectionsNavRow />
-            </div>
-          </>
+        {!libraryIsEmpty && heading.note !== null && (
+          <p className="text-sm font-medium text-muted-foreground">{heading.note}</p>
         )}
       </div>
-    </div>
+
+      {libraryIsEmpty ? null : (
+        <>
+          <div ref={scrollRef} className="mt-4 min-h-0 flex-1 overflow-y-auto px-6">
+            {heading.escape === 'clear-search' && (
+              <ClearSearchEscape onClearSearch={() => onQueryChange('')} />
+            )}
+            {!heading.empty && (
+              <ul>
+                {places.map((place) => (
+                  <PlaceRow key={place.id} place={place} onSelect={onSelect} />
+                ))}
+              </ul>
+            )}
+            {/* The same continuation the sheet renders, from the same array. The panel used to
+                  differ here — it opened every country group where the sheet opened two — and with
+                  the groups gone there is nothing left for the two surfaces to disagree about. */}
+            <EverywhereElse places={otherPlaces} flush={heading.empty} onSelect={onSelect} />
+          </div>
+          {/* Pinned to the bottom of the panel, out of the scroll — see `PlaceList`. */}
+          <div className="shrink-0 px-6 pb-6">
+            <CollectionsNavRow />
+          </div>
+        </>
+      )}
+    </>
   );
 }

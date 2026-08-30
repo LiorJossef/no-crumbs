@@ -1,24 +1,41 @@
 'use client';
 
 /**
- * The collections index: everything the user is in, and the one control that makes a new one.
+ * The collections index — **the sheet's list, not a page.**
+ *
+ * It used to be a standalone document: a `flex min-h-dvh flex-col` wrapper, its own `<header>`, an
+ * `<h1>Collections</h1>`, a `max-w-[560px]` column and a `lg`-only back arrow to the map, with no
+ * map anywhere on it. `ux-collections-as-scope.md` §5 items 1, 2 and 4 delete all of that: this is
+ * S4 with collections in it, rendered through the same shell `/map` and `/collections/[id]` render,
+ * so dragging the sheet down leaves you looking at your own places rather than at nothing.
+ *
+ * The sheet rests at `full`, which means the initial fit happens entirely behind it. That is on
+ * purpose — the framing is correct the moment the sheet is dragged down, and the alternative is
+ * opening a list surface half-covered by a map nobody asked to look at yet.
  *
  * Rows with hairline dividers rather than a card each — a bordered box per collection is card soup
  * at four collections, and `docs/ux-collections.md` §1.1 rules it out for that reason. The create
- * control is a full-width primary in the thumb zone, and it opens a one-field composer in place
- * rather than navigating or opening a dialog: a dialog for a single text input costs a focus trap,
- * an escape handler and a backdrop in exchange for nothing.
+ * control is a full-width row in the list rather than a button under it, and it opens a one-field
+ * composer in place rather than navigating or opening a dialog: a dialog for a single text input
+ * costs a focus trap, an escape handler and a backdrop in exchange for nothing.
  */
 
 import { isolate } from '@/ui/place/active-area';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ChevronRight, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronUp, Plus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { CollectionCover } from '@/components/collections/collection-cover';
-import { BottomNav, BOTTOM_NAV_HEIGHT_PX } from '@/components/nav/bottom-nav';
+import { KICKER } from '@/components/collections/collection-content';
+import { boundsOfPoints } from '@/components/map/bounds';
+import type { MapPlace } from '@/components/map/types';
+import { BOTTOM_NAV_HEIGHT_PX } from '@/components/nav/bottom-nav';
+import { MapShell } from '@/components/shell/map-shell';
+import { STOP_TO_CONTENT_HEIGHT, type SheetStop } from '@/components/shell/sheet-geometry';
+import { useMapShell } from '@/components/shell/use-map-shell';
 import { memberLabel } from '@/domain/collections/collection';
 import { useCreateCollection } from '@/components/collections/use-create-collection';
 import type { CollectionSummary } from './_lib/get-collections';
@@ -26,9 +43,88 @@ import type { CollectionSummary } from './_lib/get-collections';
 export function CollectionsIndexClient({
   collections,
   libraryIsEmpty,
+  places,
 }: {
   collections: readonly CollectionSummary[];
   libraryIsEmpty: boolean;
+  /** The caller's saved places. The pins on the map behind this list, and the array the bar's `＋`
+   *  menu searches — that menu's search is a filter over exactly this array. */
+  places: readonly MapPlace[];
+}) {
+  const shell = useMapShell({ restingStop: 'full' });
+  const initialBounds = useMemo(() => boundsOfPoints(places), [places]);
+
+  const list = (stop?: SheetStop) => (
+    <CollectionsList
+      collections={collections}
+      libraryIsEmpty={libraryIsEmpty}
+      {...(stop ? { stop } : {})}
+      onExpand={() => shell.sheet.goTo('full')}
+      idPrefix={stop ? 'sheet' : 'panel'}
+    />
+  );
+
+  return (
+    <MapShell
+      shell={shell}
+      places={places}
+      {...(initialBounds ? { initialBounds } : {})}
+      restingStop="full"
+      /* Nothing floats over this map's top edge, and §3 of the ruling forbids it ever doing so —
+         the account chip is `/map`'s and is `hidden lg:flex`, so neither collections route has ever
+         had top chrome. Charging the camera `/map`'s 100 px allowance for chrome that is not there
+         is what `L2-COLL-CAM-2` measured on the sibling route. */
+      floatingTopChromePx={0}
+      /* No map-drawn detail: these pins are the user's library shown as context behind a list of
+         collections, and tapping one here would open a place detail this surface has no room for.
+         The map is reachable in one drag, and the place is one tap from there. */
+      selectedPlace={null}
+      accessibleName="Your places"
+      createMenuPlaces={places}
+      sheetContent={(stop) => list(stop)}
+      panelContent={
+        <div className="flex min-h-0 flex-1 flex-col pt-4">
+          {/* The one exit to the map that exists at `lg+`, and it is not the arrow §5 item 2
+              deleted. Below `lg` the map is one drag down and `BottomNav`'s Map tab goes there,
+              which is why the ruling removed the arrow — but the bar does not render at `lg+` and
+              the panel is opaque over the map's left edge, so without this the desktop index is a
+              dead end. Shaped as the `[id]` route's up-link rather than as a second back arrow, so
+              the two collections routes carry the same control in the same place. */}
+          <Link
+            href="/map"
+            className={cn(
+              KICKER,
+              'mx-4 -ms-2 inline-flex min-h-11 w-fit shrink-0 items-center gap-1 rounded-full px-2 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+            )}
+          >
+            <ChevronLeft className="size-3.5 shrink-0 rtl:rotate-180" aria-hidden />
+            Map
+          </Link>
+          {list()}
+        </div>
+      }
+    />
+  );
+}
+
+function CollectionsList({
+  collections,
+  libraryIsEmpty,
+  stop,
+  onExpand,
+  idPrefix,
+}: {
+  collections: readonly CollectionSummary[];
+  libraryIsEmpty: boolean;
+  /** Which stop the shell's sheet is at, when this renders *in* the sheet. Absent in the `lg+`
+   *  panel, which has no stops. It caps the content column: `Drawer.Content` is `h-full` and vaul
+   *  translates it, so an uncapped column's lower half is laid out below the bottom of the screen
+   *  and unreachable by scrolling. */
+  stop?: SheetStop;
+  onExpand: () => void;
+  /** The two instances of this list — one in the sheet, one in the `lg+` panel — are both in the
+   *  document at once, and only one is displayed. The composer's field needs a unique id in each. */
+  idPrefix: string;
 }) {
   const [composing, setComposing] = useState(false);
   const [name, setName] = useState('');
@@ -40,6 +136,7 @@ export function CollectionsIndexClient({
 
   const mine = collections.filter((collection) => collection.role === 'owner');
   const shared = collections.filter((collection) => collection.role !== 'owner');
+  const fieldId = `${idPrefix}-new-collection-name`;
 
   function submit() {
     // Focus returns to the field only on failure — on success the route changes and there is
@@ -49,40 +146,56 @@ export function CollectionsIndexClient({
     });
   }
 
-  return (
-    <div className="flex min-h-dvh flex-col">
-      <BottomNav />
-      {/* The back arrow is gone below `lg`, and that is the point of the bar rather than an
-          omission. `BottomNav`'s Map tab goes exactly where the arrow went, and two controls to
-          one destination — one of them a stack, one of them not — is the second navigation model
-          `ux-navigation-structure-2026-08-29.md` §1.2 warned a bar would create. It survives above
-          `lg`, where the bar does not render at all. */}
-      <header className="flex items-center gap-1 px-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] pb-2">
-        <Button
-          render={<Link href="/map" />}
-          nativeButton={false}
-          variant="ghost"
-          size="icon-lg"
-          aria-label="Back to the map"
-          className="hidden size-11 rounded-full text-muted-foreground lg:flex"
-        >
-          <ArrowLeft className="size-4" aria-hidden />
-        </Button>
-        <h1 className="px-2 font-heading text-lg font-bold tracking-tight lg:px-0">Collections</h1>
-      </header>
-
-      {/* The bar's ＋ is not this control and must never become it. A button that lives in
-          persistent chrome has to mean one thing on every screen it appears on — people learn the
-          gesture and its position, not the label under it — so the circle is `Add a TikTok`
-          everywhere, and creating a collection is a page action that belongs in the list it creates
-          into. That is also where Plotline puts theirs: the last card in the collections row, not a
-          bottom button.
-
-          Padded clear of the bar, since the page now scrolls under it. */}
+  if (stop === 'peek') {
+    /* One line, the same shape the saved list's peek row has: what the list below is, and that it
+       can be pulled up. Everything else in the band belongs to `BottomNav`, which floats over it. */
+    return (
       <div
-        className="mx-auto w-full max-w-[560px] flex-1 px-4"
+        style={{ height: STOP_TO_CONTENT_HEIGHT.peek }}
+        className="flex min-h-0 flex-col px-5 pt-3.5"
+      >
+        <div className="flex items-center" style={{ paddingBottom: `${BOTTOM_NAV_HEIGHT_PX}px` }}>
+          <button
+            type="button"
+            onClick={onExpand}
+            aria-label="Show your collections"
+            className="flex min-w-0 flex-1 items-center gap-1 rounded-lg px-1 text-left text-sm font-medium text-muted-foreground"
+          >
+            <span className="min-w-0 truncate">
+              {collections.length === 0 ? (
+                'Nothing collected yet'
+              ) : (
+                <>
+                  {/* The number carries the emphasis and the rest of the line stays quiet, exactly
+                      as the saved list's peek row does it. */}
+                  <span className="font-heading font-extrabold text-foreground">
+                    {collections.length}
+                  </span>{' '}
+                  {collections.length === 1 ? 'collection' : 'collections'}
+                </>
+              )}
+            </span>
+            <ChevronUp className="size-4 shrink-0 opacity-60" aria-hidden />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      {...(stop ? { style: { height: STOP_TO_CONTENT_HEIGHT[stop] } } : {})}
+      className="flex min-h-0 flex-1 flex-col"
+    >
+      <div
+        data-vaul-no-drag
+        className="min-h-0 flex-1 overflow-y-auto px-4"
+        // Exactly the bar's height, so the last row clears it instead of ending underneath it —
+        // the same price every list inside this shell pays for `BottomNav` floating over it. The
+        // panel at `lg+` renders no bar, so it pays nothing.
         style={{
-          paddingBottom: `calc(${BOTTOM_NAV_HEIGHT_PX}px + env(safe-area-inset-bottom) + 1.5rem)`,
+          scrollPaddingBottom: stop === undefined ? 0 : BOTTOM_NAV_HEIGHT_PX,
+          paddingBottom: stop === undefined ? 0 : BOTTOM_NAV_HEIGHT_PX,
         }}
       >
         {collections.length === 0 ? (
@@ -102,11 +215,11 @@ export function CollectionsIndexClient({
               submit();
             }}
           >
-            <label htmlFor="new-collection-name" className="text-sm font-medium">
+            <label htmlFor={fieldId} className="text-sm font-medium">
               Name this collection
             </label>
             <Input
-              id="new-collection-name"
+              id={fieldId}
               ref={fieldRef}
               autoFocus
               dir="auto"
@@ -117,11 +230,11 @@ export function CollectionsIndexClient({
               autoCapitalize="sentences"
               maxLength={80}
               aria-invalid={error !== null}
-              aria-describedby={error ? 'new-collection-error' : undefined}
+              aria-describedby={error ? `${fieldId}-error` : undefined}
               className="h-12 text-base"
             />
             {error ? (
-              <p id="new-collection-error" role="alert" className="text-sm text-destructive">
+              <p id={`${fieldId}-error`} role="alert" className="text-sm text-destructive">
                 {error}
               </p>
             ) : null}
@@ -151,10 +264,14 @@ export function CollectionsIndexClient({
         ) : (
           /* A row in the list rather than a button under it. It reads as "and one more, which you
              make yourself" — the same shape as the collections above it, so it is found by the eye
-             already scanning them rather than by a separate sweep to the bottom of the screen. */
+             already scanning them rather than by a separate sweep to the bottom of the screen.
+
+             The bar's ＋ is not this control and must never become it: a button in persistent
+             chrome has to mean one thing on every screen it appears on. */
           <button
             type="button"
             onClick={() => setComposing(true)}
+            data-vaul-no-drag
             className="mt-2 flex min-h-14 w-full items-center gap-3 rounded-xl border border-dashed border-border px-3 text-left text-sm font-medium text-muted-foreground transition-colors hover:border-border/70 hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
           >
             <span
@@ -172,29 +289,16 @@ export function CollectionsIndexClient({
 }
 
 function EmptyIndex({ libraryIsEmpty }: { libraryIsEmpty: boolean }) {
+  // Two lines of copy and nothing else. The `Go to your map` button that used to sit here is gone
+  // (§5 item 4): the Map tab is on screen, and the map itself is now one drag behind this list.
   return (
     <div className="py-10 text-center">
       <p className="font-heading text-base font-bold">Nothing collected yet.</p>
-      {libraryIsEmpty ? (
-        <>
-          <p className="mx-auto mt-2 max-w-xs text-sm text-muted-foreground">
-            Save some places first, then group them here.
-          </p>
-          <Button
-            render={<Link href="/map" />}
-            nativeButton={false}
-            variant="outline"
-            size="lg"
-            className="mt-5 h-11"
-          >
-            Go to your map
-          </Button>
-        </>
-      ) : (
-        <p className="mx-auto mt-2 max-w-xs text-sm text-muted-foreground">
-          A collection is a set of places you can share with one other person.
-        </p>
-      )}
+      <p className="mx-auto mt-2 max-w-xs text-sm text-muted-foreground">
+        {libraryIsEmpty
+          ? 'Save some places first, then group them here.'
+          : 'A collection is a set of places you can share with one other person.'}
+      </p>
     </div>
   );
 }
@@ -218,6 +322,7 @@ function Section({
               href={`/collections/${collection.id}` as `/collections/${string}`}
               // The accessible name carries every fact the colour strip cannot (§8.4).
               aria-label={rowAccessibleName(collection)}
+              data-vaul-no-drag
               className="flex min-h-[76px] items-center gap-3 rounded-lg px-1 py-3.5 transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
             >
               <div className="flex min-w-0 flex-1 flex-col gap-1">
