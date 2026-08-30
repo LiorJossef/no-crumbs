@@ -29,6 +29,7 @@ import {
   EverywhereElse,
   PlaceRow,
   PlaceSearchField,
+  ResultCount,
   useLibraryTagFacets,
 } from './place-sheet';
 import { ActiveTagFilter, TagFacetBar } from './place-enrichment';
@@ -64,6 +65,12 @@ export interface PlaceDesktopPanelProps {
   readonly categoryFacets: readonly CategoryFacet[];
   readonly activeCategory: ProductCategory | null;
   readonly onToggleCategory: (category: ProductCategory) => void;
+  /** How many places this list would show with the search and every filter cleared — the
+   *  denominator in `12 of 32`. Same prop, same meaning and same optionality as
+   *  `PlaceSheetProps.unfilteredCount`, which carries the reasoning: absent renders no count at
+   *  all, because a denominator derived from the already-narrowed props would be a confident wrong
+   *  answer about a number the user can check against the list in front of them. */
+  readonly unfilteredCount?: number;
   /** Opens the import overlay in `map-page-client.tsx` (client state) rather than navigating to
    *  the standalone `/import` route, so the map underneath this panel stays mounted. */
   readonly onAddTikTok: () => void;
@@ -88,6 +95,7 @@ export function PlaceDesktopPanel({
   categoryFacets,
   activeCategory,
   onToggleCategory,
+  unfilteredCount,
   onAddTikTok,
   onSelect,
 }: PlaceDesktopPanelProps) {
@@ -137,7 +145,24 @@ export function PlaceDesktopPanel({
         </Button>
         {/* Hidden while the library is empty: there is nothing to search, and an inert field is a
               false affordance. The heading and the one line above it are the whole screen. */}
-        {!libraryIsEmpty && <PlaceSearchField value={query} onChange={onQueryChange} />}
+        {!libraryIsEmpty && (
+          <div className="flex flex-col gap-1.5">
+            <PlaceSearchField value={query} onChange={onQueryChange} />
+            {/* The same count the sheet shows, from the same component. It is the one fact this
+                surface has only ever said out loud — `map-shell.tsx`'s live region — and a
+                sighted desktop user watching rows disappear had no number anywhere on screen. */}
+            <ResultCount
+              shown={places.length + otherPlaces.length}
+              {...(unfilteredCount === undefined ? {} : { of: unfilteredCount })}
+              narrowing={
+                query.trim() !== '' ||
+                activeTag !== null ||
+                notBeenOnly ||
+                activeCategory !== null
+              }
+            />
+          </div>
+        )}
         {/* Inside the header block, under the field and above whatever the list turns out to be,
               so the controls that undo a filter are present in the empty state too. */}
         {/* The same bar the sheet renders. Two surfaces offering different filter controls over

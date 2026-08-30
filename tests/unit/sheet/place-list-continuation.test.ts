@@ -44,6 +44,7 @@ const { PlaceDesktopPanel } = await import('@/components/sheet/place-desktop-pan
 
 import { areaHeading, type AreaHeading } from '@/ui/place/active-area';
 import { TagFilterContext } from '@/ui/place/tag-filter';
+import type { EnrichedSpot } from '@/ui/place/enrichment';
 import type { MapPlace } from '@/components/map/types';
 
 function place(id: string, name: string, locality: string): MapPlace {
@@ -85,6 +86,8 @@ function render(options: {
   places?: readonly MapPlace[];
   otherPlaces?: readonly MapPlace[];
   heading?: AreaHeading;
+  query?: string;
+  unfilteredCount?: number;
 }): string {
   return renderToStaticMarkup(
     createElement(PlaceDesktopPanel, {
@@ -102,7 +105,8 @@ function render(options: {
       activeAreaId: 'tlv-1',
       libraryIsEmpty: false,
       libraryHasVisited: false,
-      query: '',
+      query: options.query ?? '',
+      ...(options.unfilteredCount === undefined ? {} : { unfilteredCount: options.unfilteredCount }),
       onQueryChange: () => {},
       activeTag: null,
       onClearTag: () => {},
@@ -243,8 +247,12 @@ describe('the desktop heading enters the way the design system says it enters', 
  * the same argument that makes `PlaceRow` shared between the two.
  */
 describe('the tag facet reaches the desktop panel too', () => {
+  /** `tags` lives on `EnrichedSpot`, not on `Spot` — `enrichmentOf`'s own docblock says the cast
+   *  is the single place that assumes `getSpots` populated columns `Spot` does not yet declare, so
+   *  a fixture standing in for a read row has to say the same thing. */
   function tagged(place: MapPlace, tags: readonly string[]): MapPlace {
-    return { ...place, detail: { ...place.detail!, tags: [...tags] } };
+    const detail: EnrichedSpot = { ...place.detail!, tags: [...tags], whyGo: null, dishes: [] };
+    return { ...place, detail };
   }
 
   /** The panel inside a live filter context, which is the only state the facet row draws in. */
@@ -298,5 +306,26 @@ describe('the tag facet reaches the desktop panel too', () => {
     // The default fixture carries none, which is also the majority of real libraries.
     expect(renderWithTags([[], []])).not.toContain('Filter by tag');
     expect(render({})).not.toContain('Filter by tag');
+  });
+});
+
+/**
+ * Desktop parity for the visible result count (W5-5). Same component as the sheet's, same three
+ * conditions, and the same refusal to render without a denominator it can stand behind.
+ */
+describe('the result count reaches the desktop panel too', () => {
+  it('says how many of how many while something is narrowing', () => {
+    expect(render({ query: 'momos', unfilteredCount: 32 })).toContain('5 of 32');
+  });
+
+  it('stays away when nothing is narrowing, and when there is no denominator', () => {
+    expect(render({ unfilteredCount: 32 })).not.toContain('of 32');
+    expect(render({ query: 'momos' })).not.toMatch(/\d+ of \d+/);
+  });
+
+  it('is hidden from the accessibility tree, because the live region already says it', () => {
+    expect(render({ query: 'momos', unfilteredCount: 32 })).toMatch(
+      /<p aria-hidden="true"[^>]*>5 of 32<\/p>/,
+    );
   });
 });
