@@ -4,6 +4,9 @@ const PORT = 3000;
 
 export default defineConfig({
   testDir: './tests/e2e',
+  // Without this line the guard is dead code, which is what it was from the day it was written
+  // until 2026-08-30: CI skipped 28 of 34 tests and reported green. See tests/e2e/global-setup.ts.
+  globalSetup: './tests/e2e/global-setup.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
