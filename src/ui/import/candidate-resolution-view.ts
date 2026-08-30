@@ -228,6 +228,27 @@ export function usesModelCoordinate(
 }
 
 /**
+ * Whether the review screen collapses to a single confident result (`ux-import-flatten.md` §3):
+ * one candidate, and the resolver settled it.
+ *
+ * The condition is `deriveResolution`'s existing `preselect` band and nothing else — no second
+ * threshold, no number of its own. That matters twice over:
+ *
+ *  - `matched` is the one boundary we have measured (Google: 15/16 correct top-1, zero wrong
+ *    auto-matches), so the state that removes the tickbox is the state that earned it;
+ *  - **`matched` can never be a caption pin.** `effectivePick` always returns its top entry, so
+ *    `usesModelCoordinate` is false and `resolverPinLine` is `Pin from the map data` for every
+ *    view this returns true for. The collapse therefore cannot be the thing that hides a guess —
+ *    which is exactly the defect §1.3 found on the `ambiguous` + model-coordinate card.
+ *
+ * Two or more candidates, `ambiguous`, `unresolved`, `failed`, `capped` and `not_attempted` all
+ * render as they always have.
+ */
+export function collapsesToOneResult(views: readonly CandidateResolutionView[]): boolean {
+  return views.length === 1 && views[0]?.kind === 'matched';
+}
+
+/**
  * The heading over an option list.
  *
  * Only the two states that *have* options get one. `unresolved`, `failed`, `capped` and
