@@ -73,7 +73,7 @@ export function ImportConfirmation({
       className="pointer-events-none absolute inset-x-0 top-[calc(env(safe-area-inset-top)+4rem)] z-40 flex justify-center px-3 lg:top-4"
     >
       <div className="pointer-events-auto flex max-w-[min(28rem,calc(100vw-1.5rem))] items-center gap-2 rounded-full border border-border/70 bg-card/95 py-1.5 pl-3 pr-1.5 shadow-[var(--shadow-elevated)] backdrop-blur-md">
-        <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[var(--mint-100)] text-[var(--mint-700)]">
+        <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-accent text-brand">
           <Check className="size-3.5" aria-hidden />
         </span>
         <p className="truncate text-xs font-semibold text-foreground">

@@ -1132,7 +1132,7 @@ export function PlaceDetail({
             `dir="auto"` because this is a verbatim caption substring: a Hebrew quote rendered
             left-to-right puts its punctuation on the wrong end of the sentence. */}
         {shownQuote !== null && (
-          <figure className="flex flex-col gap-1.5 border-l-2 border-[var(--mint-300)] pl-3">
+          <figure className="flex flex-col gap-1.5 border-l-2 border-brand-tint pl-3">
             <blockquote dir="auto" className="text-sm leading-relaxed text-foreground">
               &ldquo;{shownQuote}&rdquo;
             </blockquote>
@@ -1245,7 +1245,7 @@ export function PlaceDetail({
                 target="_blank"
                 rel="noreferrer"
                 data-vaul-no-drag
-                className="flex items-center gap-1.5 text-sm font-bold text-[var(--mint-700)] underline-offset-4 hover:underline"
+                className="flex items-center gap-1.5 text-sm font-bold text-brand underline-offset-4 hover:underline"
               >
                 Open TikTok
                 <ExternalLink className="size-3.5" aria-hidden />
@@ -1257,7 +1257,7 @@ export function PlaceDetail({
               rel="noopener noreferrer"
               data-vaul-no-drag
               className={cn(
-                'flex items-center gap-1.5 text-sm font-bold text-[var(--mint-700)] underline-offset-4 hover:underline',
+                'flex items-center gap-1.5 text-sm font-bold text-brand underline-offset-4 hover:underline',
                 mapsLinkAlone && 'min-h-11',
               )}
             >

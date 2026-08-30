@@ -153,7 +153,7 @@ export function BeenToggle({
           'flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border text-sm font-bold outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
           pending && 'opacity-50',
           visited
-            ? 'border-transparent bg-[var(--mint-100)] text-[var(--mint-700)]'
+            ? 'border-transparent bg-accent text-brand'
             : 'border-input text-foreground hover:bg-muted',
         )}
       >
@@ -267,7 +267,7 @@ export function CategoryEditor({
             setEditing(!editing);
           }}
           aria-expanded={editing}
-          className="flex items-center gap-1 text-xs font-bold text-[var(--mint-700)] underline-offset-4 hover:underline"
+          className="flex items-center gap-1 text-xs font-bold text-brand underline-offset-4 hover:underline"
         >
           <Pencil className="size-3" aria-hidden />
           {editing ? 'Done' : 'Change'}
@@ -293,8 +293,8 @@ export function CategoryEditor({
                 className={cn(
                   'rounded-full px-2.5 py-1 text-xs font-bold transition-colors disabled:opacity-50',
                   active
-                    ? 'bg-[var(--mint-100)] text-[var(--mint-700)]'
-                    : 'bg-muted text-foreground hover:bg-[var(--mint-100)]',
+                    ? 'bg-accent text-brand'
+                    : 'bg-muted text-foreground hover:bg-accent',
                 )}
               >
                 {PRODUCT_CATEGORY_LABEL[value]}
@@ -462,7 +462,7 @@ export function NameEditor({
             type="button"
             disabled={pending}
             onClick={() => save('')}
-            className="text-xs font-bold text-[var(--mint-700)] underline-offset-4 hover:underline disabled:opacity-50"
+            className="text-xs font-bold text-brand underline-offset-4 hover:underline disabled:opacity-50"
           >
             Use{' '}
             <bdi>{canonicalName}</bdi>
@@ -502,7 +502,7 @@ export function NoteEditor({
               setError(null);
               setEditing(true);
             }}
-            className="flex items-center gap-1 text-xs font-bold text-[var(--mint-700)] underline-offset-4 hover:underline"
+            className="flex items-center gap-1 text-xs font-bold text-brand underline-offset-4 hover:underline"
           >
             <Pencil className="size-3" aria-hidden />
             {note ? 'Edit' : 'Add a note'}

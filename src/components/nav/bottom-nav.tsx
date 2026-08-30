@@ -414,7 +414,7 @@ function ImportPending() {
       style={{ background: 'var(--brand-wash)' }}
     >
       <Loader2
-        className="size-5 animate-spin text-[var(--mint-700)] motion-reduce:animate-none"
+        className="size-5 animate-spin text-brand motion-reduce:animate-none"
         aria-hidden
       />
       <p role="status" className="text-sm font-medium text-muted-foreground">

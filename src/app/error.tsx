@@ -89,7 +89,7 @@ export default function ShellError({
 
         {/* Assertive: this content swaps in without a navigation, so nothing else announces it. */}
         <div role="alert">
-          <p className="mt-6 text-[11px] font-bold tracking-[0.14em] text-[var(--mint-700)] uppercase lg:text-[13px]">
+          <p className="mt-6 text-[11px] font-bold tracking-[0.14em] text-brand uppercase lg:text-[13px]">
             {SHELL_ERROR_COPY.kicker}
           </p>
           <h1 className="mt-2 font-heading text-[34px] leading-[1.05] font-extrabold tracking-tight text-foreground lg:text-[40px]">
@@ -111,7 +111,7 @@ export default function ShellError({
 
         <Link
           href="/map"
-          className="mt-3 flex h-12 w-full items-center justify-center text-sm font-bold text-[var(--mint-700)]"
+          className="mt-3 flex h-12 w-full items-center justify-center text-sm font-bold text-brand"
         >
           {SHELL_ERROR_COPY.back}
         </Link>

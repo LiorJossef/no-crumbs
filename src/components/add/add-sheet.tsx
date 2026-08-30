@@ -699,7 +699,7 @@ export function AddPlacePane({
           disabled={busy}
           onClick={() => onAddManually(manualAddSeed(input))}
           data-vaul-no-drag
-          className="mt-1 flex min-h-12 w-full items-center gap-2 rounded-lg px-1 text-left text-sm font-bold text-[var(--mint-700)] transition-colors outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
+          className="mt-1 flex min-h-12 w-full items-center gap-2 rounded-lg px-1 text-left text-sm font-bold text-brand transition-colors outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
         >
           <Plus className="size-4 shrink-0" aria-hidden />
           <span className="line-clamp-1">{manualAddLabel(input)}</span>

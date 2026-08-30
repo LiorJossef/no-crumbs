@@ -896,7 +896,7 @@ export function ImportPageClient({
             type="button"
             onClick={leaveImport}
             aria-label="Close and return to map"
-            className="absolute left-5 top-[calc(env(safe-area-inset-top)+2rem)] z-20 flex size-9 items-center justify-center rounded-full bg-[var(--mint-100)] text-[var(--mint-700)] transition-colors hover:bg-[var(--mint-100)]/80 lg:left-6 lg:top-6"
+            className="absolute left-5 top-[calc(env(safe-area-inset-top)+2rem)] z-20 flex size-9 items-center justify-center rounded-full bg-accent text-brand transition-colors hover:bg-accent/80 lg:left-6 lg:top-6"
           >
             <X className="size-4" aria-hidden />
           </button>
@@ -904,7 +904,7 @@ export function ImportPageClient({
           <Link
             href="/map"
             aria-label="Close and return to map"
-            className="absolute left-5 top-[calc(env(safe-area-inset-top)+2rem)] z-20 flex size-9 items-center justify-center rounded-full bg-[var(--mint-100)] text-[var(--mint-700)] transition-colors hover:bg-[var(--mint-100)]/80 lg:left-6 lg:top-6"
+            className="absolute left-5 top-[calc(env(safe-area-inset-top)+2rem)] z-20 flex size-9 items-center justify-center rounded-full bg-accent text-brand transition-colors hover:bg-accent/80 lg:left-6 lg:top-6"
           >
             <X className="size-4" aria-hidden />
           </Link>
@@ -1012,10 +1012,10 @@ export function ImportPageClient({
 function ScreenKicker({ icon, label }: { icon: ReactNode; label: string }) {
   return (
     <div className="flex items-center gap-2 pb-3">
-      <span className="flex size-7 items-center justify-center rounded-full bg-[var(--mint-100)] text-[var(--mint-700)]">
+      <span className="flex size-7 items-center justify-center rounded-full bg-accent text-brand">
         {icon}
       </span>
-      <p className="text-[11px] font-bold tracking-[0.14em] text-[var(--mint-700)] uppercase">{label}</p>
+      <p className="text-[11px] font-bold tracking-[0.14em] text-brand uppercase">{label}</p>
     </div>
   );
 }
@@ -1142,7 +1142,7 @@ function PasteScreen({
                 <button
                   type="button"
                   onClick={() => onSeed(seed.url)}
-                  className="flex h-11 items-center rounded-full border border-input bg-background px-4 text-[13px] font-semibold text-muted-foreground transition-colors hover:border-[var(--mint-700)] hover:text-[var(--mint-700)] motion-reduce:transition-none"
+                  className="flex h-11 items-center rounded-full border border-input bg-background px-4 text-[13px] font-semibold text-muted-foreground transition-colors hover:border-brand hover:text-brand motion-reduce:transition-none"
                 >
                   {seed.label}
                 </button>
@@ -1275,8 +1275,8 @@ function RailStep({
         <span
           className={cn(
             'flex size-8 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
-            status === 'done' && 'border-[var(--mint-700)] bg-[var(--mint-700)] text-white',
-            status === 'active' && 'border-[var(--mint-700)] bg-transparent text-[var(--mint-700)]',
+            status === 'done' && 'border-brand bg-brand text-white',
+            status === 'active' && 'border-brand bg-transparent text-brand',
             status === 'pending' && 'border-border bg-transparent text-muted-foreground',
           )}
         >
@@ -1288,7 +1288,7 @@ function RailStep({
           <span
             className={cn(
               'my-1 w-0.5 flex-1 transition-colors',
-              status === 'done' ? 'bg-[var(--mint-700)]' : 'bg-border',
+              status === 'done' ? 'bg-brand' : 'bg-border',
             )}
             aria-hidden
           />
@@ -1305,7 +1305,7 @@ function RailStep({
         </p>
         {status === 'done' && fact && <p className="text-sm font-medium text-muted-foreground">{fact}</p>}
         {status === 'active' && activeCopy && (
-          <p className="text-sm font-medium text-[var(--mint-700)]">{activeCopy}</p>
+          <p className="text-sm font-medium text-brand">{activeCopy}</p>
         )}
       </div>
     </li>
@@ -1348,11 +1348,11 @@ function NoPlacesScreen({
   return (
     <div className="flex flex-1 flex-col">
       <div className="flex flex-1 flex-col items-center justify-center gap-5 text-center">
-        <span className="flex size-14 items-center justify-center rounded-full bg-accent text-[var(--mint-700)]">
+        <span className="flex size-14 items-center justify-center rounded-full bg-accent text-brand">
           <MapPin className="size-6" aria-hidden />
         </span>
         <div className="flex flex-col items-center gap-1.5">
-          <p className="text-[11px] font-bold tracking-[0.14em] text-[var(--mint-700)] uppercase">All done</p>
+          <p className="text-[11px] font-bold tracking-[0.14em] text-brand uppercase">All done</p>
           <h1 className="font-heading text-xl font-extrabold tracking-tight text-foreground">
             {hadCaption ? 'No places named' : 'Nothing to read'}
           </h1>
@@ -1413,7 +1413,7 @@ function NoPlacesScreen({
             href={url}
             target="_blank"
             rel="noreferrer"
-            className="flex h-11 w-full items-center justify-center gap-1.5 rounded-lg text-sm font-bold text-[var(--mint-700)]"
+            className="flex h-11 w-full items-center justify-center gap-1.5 rounded-lg text-sm font-bold text-brand"
           >
             Open the original TikTok
             <ArrowUpRight className="size-4" aria-hidden />
@@ -1487,7 +1487,7 @@ function CandidateRow({ candidate }: { candidate: Candidate }) {
         aria-hidden
         className={cn(
           'mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full',
-          band.tone === 'confident' && 'bg-[var(--mint-700)]/15 text-[var(--mint-700)]',
+          band.tone === 'confident' && 'bg-brand/15 text-brand',
           band.tone === 'confirm' && 'bg-muted text-muted-foreground',
           band.tone === 'unresolved' && 'bg-muted text-muted-foreground/70',
         )}
@@ -1505,7 +1505,7 @@ function CandidateRow({ candidate }: { candidate: Candidate }) {
       <span
         className={cn(
           'shrink-0 rounded-full px-2.5 py-1 text-xs font-bold',
-          band.tone === 'confident' && 'bg-[var(--mint-700)]/15 text-[var(--mint-700)]',
+          band.tone === 'confident' && 'bg-brand/15 text-brand',
           band.tone === 'confirm' && 'bg-muted text-foreground',
           band.tone === 'unresolved' && 'bg-muted text-muted-foreground',
         )}
@@ -1755,7 +1755,7 @@ function CaptionPreviewScreen({
             href={probe.canonicalUrl}
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-1 truncate text-sm font-semibold text-[var(--mint-700)]"
+            className="flex items-center gap-1 truncate text-sm font-semibold text-brand"
           >
             {probe.authorHandle ? `@${probe.authorHandle}’s TikTok` : 'This TikTok'}
             <ArrowUpRight className="size-3.5 shrink-0" aria-hidden />
@@ -1813,7 +1813,7 @@ function CaptionPreviewScreen({
                   type="button"
                   disabled={frozen}
                   onClick={() => setSelected(allSelected ? new Set() : new Set(saveableIndices))}
-                  className="flex h-11 items-center text-[13px] font-bold text-[var(--mint-700)] disabled:opacity-50"
+                  className="flex h-11 items-center text-[13px] font-bold text-brand disabled:opacity-50"
                 >
                   {allSelected ? 'Deselect all' : 'Select all'}
                 </button>
@@ -1939,7 +1939,7 @@ function CaptionPreviewScreen({
  *  and every card has to say what became of it — including `already_saved`, which a re-import used
  *  to report as a fresh save it had not made. */
 const STATUS_CHIP: Record<ItemStatus, { readonly label: string; readonly className: string }> = {
-  saved: { label: 'Saved', className: 'bg-[var(--mint-100)] text-[var(--mint-700)]' },
+  saved: { label: 'Saved', className: 'bg-accent text-brand' },
   already_saved: { label: 'Already on your map', className: 'bg-muted text-muted-foreground' },
   skipped: { label: 'No location', className: 'bg-muted text-muted-foreground' },
   failed: { label: 'Couldn’t save', className: 'bg-destructive/10 text-destructive' },
@@ -2038,7 +2038,7 @@ function ExtractedCandidateRow({
               className={cn(
                 'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold',
                 badge.tone === 'settled'
-                  ? 'bg-[var(--mint-100)] text-[var(--mint-700)]'
+                  ? 'bg-accent text-brand'
                   : 'bg-muted text-foreground',
               )}
             >
@@ -2088,7 +2088,7 @@ function ExtractedCandidateRow({
             aria-expanded={false}
             aria-controls={optionsId}
             onClick={() => setOptionsOpen(true)}
-            className="flex h-11 w-fit items-center gap-1 text-xs font-bold text-[var(--mint-700)] outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
+            className="flex h-11 w-fit items-center gap-1 text-xs font-bold text-brand outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
           >
             Not this place?
             <ChevronDown className="size-3.5" aria-hidden />
@@ -2100,7 +2100,7 @@ function ExtractedCandidateRow({
             id={`${optionsId}-label`}
             className={cn(
               'text-[11px] font-bold tracking-[0.08em] uppercase',
-              view.kind === 'matched' ? 'text-[var(--mint-700)]' : 'text-foreground',
+              view.kind === 'matched' ? 'text-brand' : 'text-foreground',
             )}
           >
             {resolutionHeadline(view)}
@@ -2123,17 +2123,17 @@ function ExtractedCandidateRow({
                     // 390px viewport far more often than it fits on one, and a clipped address
                     // is the one thing this control exists to show.
                     'flex min-h-11 w-full items-start gap-2.5 rounded-lg border px-3 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default',
-                    isChosen ? 'border-[var(--mint-700)] bg-[var(--mint-100)]/40' : 'border-border/60 bg-background',
+                    isChosen ? 'border-brand bg-accent/40' : 'border-border/60 bg-background',
                   )}
                 >
                   <span
                     aria-hidden
                     className={cn(
                       'mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border-2',
-                      isChosen ? 'border-[var(--mint-700)]' : 'border-border',
+                      isChosen ? 'border-brand' : 'border-border',
                     )}
                   >
-                    {isChosen && <span className="size-2 rounded-full bg-[var(--mint-700)]" />}
+                    {isChosen && <span className="size-2 rounded-full bg-brand" />}
                   </span>
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="line-clamp-1 text-[13px] font-bold text-foreground">
@@ -2182,7 +2182,7 @@ function ExtractedCandidateRow({
             ? `Check “${isolate(title)}” on Google Maps`
             : `Find “${isolate(title)}” on Google Maps`
         }
-        className="flex h-11 shrink-0 items-center gap-1 text-xs font-bold text-[var(--mint-700)]"
+        className="flex h-11 shrink-0 items-center gap-1 text-xs font-bold text-brand"
       >
         {saveable ? 'Check on Google Maps' : 'Find on Google Maps'}
         <ArrowUpRight className="size-3.5" aria-hidden />
@@ -2236,7 +2236,7 @@ function ExtractedCandidateRow({
             className={cn(
               'mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md border-2 transition-colors motion-reduce:transition-none',
               selected
-                ? 'border-[var(--mint-700)] bg-[var(--mint-700)] text-white'
+                ? 'border-brand bg-brand text-white'
                 : 'border-border bg-transparent',
             )}
           >
@@ -2393,11 +2393,11 @@ function ImportFailureScreen({
   return (
     <div className="flex flex-1 flex-col">
       <div className="flex flex-1 flex-col items-center justify-center gap-5 text-center">
-        <span className="flex size-14 items-center justify-center rounded-full bg-[var(--mint-100)] text-[var(--mint-700)]">
+        <span className="flex size-14 items-center justify-center rounded-full bg-accent text-brand">
           <Icon className="size-6" aria-hidden />
         </span>
         <div className="flex flex-col items-center gap-1.5">
-          <p className="text-[11px] font-bold tracking-[0.14em] text-[var(--mint-700)] uppercase">
+          <p className="text-[11px] font-bold tracking-[0.14em] text-brand uppercase">
             {copy.kicker}
           </p>
           <h1
@@ -2434,7 +2434,7 @@ function ImportFailureScreen({
                 className={cn(
                   'flex h-11 w-full items-center justify-center gap-1.5 rounded-lg text-sm font-bold',
                   tertiary
-                    ? 'text-[var(--mint-700)]'
+                    ? 'text-brand'
                     : 'border border-input bg-background text-foreground',
                 )}
               >

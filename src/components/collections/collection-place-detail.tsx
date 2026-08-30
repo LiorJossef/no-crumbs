@@ -77,7 +77,7 @@ import type { PlaceDetailFacts, SharedOnlyPlaceFacts } from '@/domain/places/spo
  *  standard detail view. `min-h-11` is the one addition: the note's affordance sits alone in
  *  whitespace on a phone rather than in that view's dense row of links. */
 const TEXT_ACTION =
-  'inline-flex min-h-11 items-center gap-1.5 rounded text-sm font-bold text-[var(--mint-700)] underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50';
+  'inline-flex min-h-11 items-center gap-1.5 rounded text-sm font-bold text-brand underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50';
 
 export function CollectionPlaceDetail({
   collectionId,

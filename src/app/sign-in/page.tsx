@@ -128,7 +128,7 @@ export default function SignInPage() {
         <div className="relative flex flex-1 flex-col px-6 pt-14 lg:justify-center lg:px-[clamp(48px,7vw,110px)] lg:pt-0">
           <PinMark className="relative z-10 h-[30px] w-[30px] lg:h-9 lg:w-9" />
 
-          <p className="relative z-10 mt-4 text-[11px] font-bold tracking-[0.14em] text-[var(--mint-700)] uppercase lg:mt-6 lg:text-[13px]">
+          <p className="relative z-10 mt-4 text-[11px] font-bold tracking-[0.14em] text-brand uppercase lg:mt-6 lg:text-[13px]">
             {kicker}
           </p>
 
@@ -195,7 +195,7 @@ export default function SignInPage() {
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="mt-0.5 size-4 shrink-0 rounded border-border accent-[var(--mint-700)]"
+                    className="mt-0.5 size-4 shrink-0 rounded border-border accent-brand"
                   />
                   <span>
                     Remember me
@@ -256,11 +256,11 @@ export default function SignInPage() {
                 {isSignUp ? (
                   <>
                     Have an account?{' '}
-                    <span className="font-bold text-[var(--mint-700)]">Sign in</span>
+                    <span className="font-bold text-brand">Sign in</span>
                   </>
                 ) : (
                   <>
-                    New here? <span className="font-bold text-[var(--mint-700)]">Create an account</span>
+                    New here? <span className="font-bold text-brand">Create an account</span>
                   </>
                 )}
               </button>

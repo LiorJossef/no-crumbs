@@ -60,7 +60,7 @@ import { cn } from '@/lib/utils';
  * chrome carries the label by weight and colour instead.
  */
 export const KICKER =
-  'text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--mint-700)] rtl:normal-case rtl:tracking-normal';
+  'text-[11px] font-bold uppercase tracking-[0.14em] text-brand rtl:normal-case rtl:tracking-normal';
 
 export type CollectionView = 'list' | 'place' | 'add' | 'share';
 

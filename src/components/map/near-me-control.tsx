@@ -89,7 +89,7 @@ export function NearMeControl({
             'flex size-10 items-center justify-center transition-colors',
             'hover:bg-accent dark:hover:bg-accent/40',
             'focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset',
-            status === 'located' && 'text-[var(--mint-700)]',
+            status === 'located' && 'text-brand',
           )}
         >
           {locating ? (

@@ -107,7 +107,7 @@ export default async function Home() {
               piece between the subhead and the thumb-zone action, not split either side of the
               headline. At `lg` the column as a whole is centred, so this only needs the gap. */}
           <div className="relative z-10 mt-10 lg:mt-8">
-            <p className="text-[11px] font-bold tracking-[0.14em] text-[var(--mint-700)] uppercase lg:text-[13px]">
+            <p className="text-[11px] font-bold tracking-[0.14em] text-brand uppercase lg:text-[13px]">
               {KICKER}
             </p>
 
@@ -172,7 +172,7 @@ export default async function Home() {
                 </Link>
                 <p className="mt-3 text-center text-sm font-medium text-muted-foreground">
                   New here?{' '}
-                  <Link href="/sign-in" className="font-bold text-[var(--mint-700)]">
+                  <Link href="/sign-in" className="font-bold text-brand">
                     Create an account
                   </Link>
                 </p>
