@@ -39,8 +39,88 @@
     --color-foreground: var(--foreground);
     --color-background: var(--background);
     --radius-sm: var(--radius-sm);
+    --radius-md: var(--radius-md);
     --radius-lg: var(--radius);
     --radius-xl: var(--radius-xl);
+
+    /*
+     * Everything below is registered so Tailwind generates a utility for it and an author never
+     * has to write a bracket. `facelift-plan.md` §3a: after this block, `shadow-[var(--shadow-elevated)]`
+     * is `shadow-sheet` and `duration-[220ms]` is `duration-base`, and an arbitrary value in
+     * square brackets is a review failure rather than a shortcut.
+     *
+     * Aliases, not values — the same shape the colour block above already uses. The value lives in
+     * `:root` so it stays themeable (and so hand-written CSS, an inline `style` and a Motion
+     * transition can all read the same `var()`); `@theme inline` only teaches Tailwind the name.
+     */
+
+    /* Surfaces and roles that existed in `:root` but had no utility, so every call site reached
+     * for `bg-[var(--tag)]`. Registering them is what makes W0-3's collapse a rename. */
+    --color-brand: var(--brand);
+    --color-brand-foreground: var(--brand-foreground);
+    --color-brand-tint: var(--brand-tint);
+    --color-ink-on-mint: var(--ink-on-mint);
+    --color-card-2: var(--card-2);
+    --color-tag: var(--tag);
+    --color-tag-foreground: var(--tag-foreground);
+    --color-tag-selected: var(--tag-selected);
+    --color-tag-selected-foreground: var(--tag-selected-foreground);
+    --color-pin: var(--pin);
+    --color-pin-selected: var(--pin-selected);
+    --color-pin-halo: var(--pin-halo);
+
+    /* State. Not the brand — see `:root`. */
+    --color-success: var(--success);
+    --color-success-foreground: var(--success-foreground);
+    --color-warning: var(--warning);
+    --color-warning-foreground: var(--warning-foreground);
+    --color-info: var(--info);
+    --color-info-foreground: var(--info-foreground);
+
+    /* Elevation. */
+    --shadow-raised: var(--shadow-raised);
+    --shadow-sheet: var(--shadow-sheet);
+    --shadow-overlay: var(--shadow-overlay);
+
+    /*
+     * Motion: the nine-animation closed list, by name.
+     *
+     * **The namespace is `--transition-duration-*`, not `--duration-*`.** Tailwind's `duration`
+     * utility resolves against `--transition-duration` (`lib.mjs`: `resolve(value,
+     * ["--transition-duration"])`), and a `--duration-base` key here would register cleanly, error
+     * nowhere, and generate no `duration-base` class at all — the same silent failure mode that
+     * cost `--radius-md` four button sizes. Caught by `tests/unit/ui/design-tokens.test.ts`, which
+     * compiles this file rather than reading it. `--ease-*` *is* the right namespace for easings.
+     *
+     * The `:root` side keeps the shorter `--duration-*` names, because that is what an inline
+     * `style` and a Motion transition read.
+     */
+    --transition-duration-press: var(--duration-press);
+    --transition-duration-enter: var(--duration-enter);
+    --transition-duration-couple: var(--duration-couple);
+    --transition-duration-settle: var(--duration-settle);
+    --transition-duration-stagger-row: var(--duration-stagger-row);
+    --transition-duration-cross: var(--duration-cross);
+    --transition-duration-base: var(--duration-base);
+    --transition-duration-tick: var(--duration-tick);
+    --transition-duration-flight: var(--duration-flight);
+    --transition-duration-stagger-pin: var(--duration-stagger-pin);
+    --ease-standard: var(--ease-standard);
+    --ease-emphasised: var(--ease-emphasised);
+    --ease-exit: var(--ease-exit);
+
+    /* Type. Adds to Tailwind's default ramp rather than replacing it: `text-sm`, `text-base` and
+     * `text-2xl` are still the right answer where they already fit, and these five are the sizes
+     * this product actually uses that the default ramp has no name for. */
+    --text-micro: var(--text-micro);
+    --text-micro--line-height: var(--leading-micro);
+    --text-caption: var(--text-caption);
+    --text-caption--line-height: var(--leading-caption);
+    --text-reading: var(--text-reading);
+    --text-display: var(--text-display);
+    --text-display--line-height: var(--leading-display);
+    --text-hero: var(--text-hero);
+    --text-hero--line-height: var(--leading-hero);
 }
 
 /*
@@ -79,6 +159,62 @@
     --accent-foreground: #1B1B1A;
     --ring: var(--mint-700);
     --destructive: oklch(0.577 0.245 27.325);
+
+    /*
+     * The strong mint, as a role rather than a ramp step.
+     *
+     * `--mint-700` was reached for directly at 58 call sites in `.tsx` — 44 of them as
+     * `text-[var(--mint-700)]` — which is the ramp leaking into components. It is one thing
+     * everywhere it appears: **the mint that is dark enough to be read**, either as ink on paper
+     * (5.1:1 on `--card`) or as a ground carrying white (the same 5.1:1, inverted).
+     *
+     * Not `--primary`, which is the pale `--mint-400` fill and can only ever carry `--ink-on-mint`.
+     * Not `--ink-on-mint`, which is the near-black-green that sits *on* a mint surface. Those three
+     * are genuinely three roles and collapsing any two of them loses a contrast guarantee.
+     *
+     * `--ring`, `--pin` and `--tag-selected` are the same value and stay written as `--mint-700`:
+     * each is an independent decision that happens to have landed on the same step, and aliasing
+     * them to `--brand` would assert a coupling nobody has ruled on.
+     */
+    --brand: var(--mint-700);
+    --brand-foreground: #FFFFFF;
+    /* The soft mint rule: a quote's left border, a tinted band. Between `--accent` (invisible on
+     * white) and `--brand` (ink-strength) — the only step in the ramp that reads as a line rather
+     * than as text or as paper. */
+    --brand-tint: var(--mint-300);
+
+    /*
+     * The second surface: where a row or an icon button goes when you hover it.
+     *
+     * The state matrix (`facelift-plan.md` §3a) names it `card-2` and the palette had no such
+     * value, so hover on a white card had nowhere to go. One warm step down from `--card`, and a
+     * step short of `--border` (#E7E3DC), so a hovered row is still clearly a surface and not a
+     * divider.
+     */
+    --card-2: #F3F1EB;
+
+    /*
+     * State, and the point of it is that **success is not the brand colour**.
+     *
+     * Until now the only affirmative colour in the system was mint, so "this worked" and "this is
+     * No Crumbs" were painted the same, and there was nothing at all for a warning or a neutral
+     * notice. All three are chosen to sit *with* the mint rather than against it — same lightness
+     * register, comparable chroma — while separating from it in hue by enough to mean something:
+     * success 144°, warning 32°, info 210°, against `--mint-700`'s 172°.
+     *
+     * Deliberately not `--mint-400`. Every one carries white at AA for normal text, measured:
+     * success 5.27:1, warning 5.41:1, info 6.93:1, and 5.0:1 / 5.14:1 / 6.58:1 as ink on
+     * `--background`.
+     *
+     * This does **not** move the saved/selected check-circle, which is mint by the explicit product
+     * decision recorded at the top of this block. "Selected" is not "succeeded".
+     */
+    --success: #2B7A4B;
+    --success-foreground: #FFFFFF;
+    --warning: #9A5B14;
+    --warning-foreground: #FFFFFF;
+    --info: #255C93;
+    --info-foreground: #FFFFFF;
 
     --pin: var(--mint-700);
     --pin-selected: var(--mint-900);
@@ -131,11 +267,94 @@
         radial-gradient(90% 90% at 45% 40%, rgba(241, 251, 249, 0.5) 0%, rgba(241, 251, 249, 0) 70%),
         var(--background);
 
-    --shadow-elevated: 0 14px 28px -18px rgba(0, 0, 0, 0.18);
+    /*
+     * Elevation, as three named steps instead of one string copied into brackets.
+     *
+     * `--shadow-elevated` was the only shadow in the system and it was reached for as
+     * `shadow-[var(--shadow-elevated)]` at eleven call sites. `--shadow-sheet` **is that value** —
+     * so replacing those brackets with `shadow-sheet` is a rename and not a restyle — and the two
+     * either side of it fill the gap that forced every raised thing to choose between no shadow at
+     * all and the sheet's.
+     *
+     * `--shadow-elevated` is kept as the name the eleven call sites still use; it is the alias, not
+     * the definition, so there is one value and not two to drift.
+     */
+    --shadow-raised: 0 1px 2px -1px rgba(0, 0, 0, 0.10), 0 2px 6px -4px rgba(0, 0, 0, 0.12);
+    --shadow-sheet: 0 14px 28px -18px rgba(0, 0, 0, 0.18);
+    --shadow-overlay: 0 24px 48px -24px rgba(0, 0, 0, 0.28);
+    --shadow-elevated: var(--shadow-sheet);
 
+    /*
+     * `--radius-md` was **referenced four times in `components/ui/button.tsx` and never defined**
+     * (`facelift-plan.md` §1, finding 5), and the consequence is worse than that finding says:
+     * the four small button sizes were rendering with **square corners**.
+     *
+     * Measured in Chromium against the running dev server, 2026-08-31. `min(var(--radius-md), 10px)`
+     * with `--radius-md` undefined is invalid at computed-value time, which makes the property
+     * `unset` — and `border-radius` does not inherit, so `unset` is the initial value, `0`. The
+     * `rounded-lg` in the base class string does not save it, because `cn()`'s `twMerge` strips
+     * `rounded-lg` the moment the size adds its own `rounded-*`: an `xs` button's final class list
+     * carries `rounded-[min(var(--radius-md),10px)]` and nothing else in that group. So `xs`, `sm`,
+     * `icon-xs` and `icon-sm` were square, and had been for as long as the file has existed.
+     *
+     * Defining the token is therefore a visible change and the intended one: 10px on `xs` and
+     * `icon-xs`, 12px on `sm` and `icon-sm`, measured.
+     *
+     * 0.875rem sits where the ramp says it should, one step between `--radius-sm` and `--radius`,
+     * and above both `min()` caps so the caps are what decide — which is what makes the four sizes
+     * read as one family rather than as four numbers.
+     */
     --radius-sm: 0.75rem;
+    --radius-md: 0.875rem;
     --radius: 1rem;
     --radius-xl: 1.5rem;
+
+    /*
+     * Motion: the closed list of nine micro-animations in `facelift-plan.md` §3a, and nothing else.
+     * Named for the moment each one belongs to, so a reviewer can tell whether an animation is on
+     * the list by reading the class — `duration-press` is on it, `duration-[250ms]` is not.
+     *
+     * `--duration-base` is `pin.select`'s 220ms, and it is called "base" because it is the one an
+     * author reaches for when the moment has no name of its own.
+     *
+     * `pins.land` is the one entry that is only half CSS: the 900ms is a MapLibre camera flight,
+     * which reads a number in TypeScript and cannot read a custom property. The token exists so the
+     * paint half — the staggered drop — is written against the same number rather than a second one.
+     */
+    --duration-press: 90ms;
+    --duration-enter: 140ms;
+    --duration-couple: 160ms;
+    --duration-settle: 180ms;
+    --duration-stagger-row: 40ms;
+    --duration-cross: 200ms;
+    --duration-base: 220ms;
+    --duration-tick: 400ms;
+    --duration-flight: 900ms;
+    --duration-stagger-pin: 60ms;
+
+    /* Standard for anything that just moves; emphasised for the one thing the user is watching
+     * (`pin.select`, `pins.land`), which needs to leave quickly and arrive slowly; exit for
+     * something on its way off screen, which should not linger. */
+    --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+    --ease-emphasised: cubic-bezier(0.05, 0.7, 0.1, 1);
+    --ease-exit: cubic-bezier(0.3, 0, 1, 1);
+
+    /*
+     * Type. Five sizes the product already uses that Tailwind's default ramp has no name for —
+     * measured as bracketed values across the `.tsx` tree: 11px x29, 13px x14, 15.5px x5, 34px
+     * x4 and the
+     * landing clamp x2. This is an *addition* to the default ramp, not a replacement: `text-sm`,
+     * `text-base` and `text-2xl` keep working and stay the right answer where they already fit.
+     */
+    --text-micro: 0.6875rem;
+    --leading-micro: 1.45;
+    --text-caption: 0.8125rem;
+    --leading-caption: 1.4;
+    --text-reading: 0.96875rem;
+    --text-display: 2.125rem;
+    --leading-display: 1.12;
+    --text-hero: clamp(2.5rem, 5.5vw, 4rem);
+    --leading-hero: 1.05;
 
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
