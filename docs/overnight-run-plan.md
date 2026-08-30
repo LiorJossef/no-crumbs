@@ -57,8 +57,8 @@ several of them record decisions that look like bugs until you read why.
 
 ## 3. Hard rules — these are not style preferences
 
-1. **Never commit to `main`.** One kebab-case, prefixed branch per work package, cut from the branch
-   named in §6. `.githooks/pre-push` refuses a direct push; do not work around it.
+1. **Never commit to `main`.** Everything in this run lands on the single branch named in §6.
+   `.githooks/pre-push` refuses a direct push to `main`; do not work around it.
 2. **`npm run typecheck` on every commit — that is the whole inner loop** (owner decision). Full
    `verify`, which includes the suite, runs at **every wave close** and again in Wave 8. A wave does
    not close on a red gate. `verify` is **not** CI — it covers one of CI's four jobs.
@@ -132,31 +132,32 @@ Re-measure at the start of the run. If a number differs, trust your measurement 
 
 ---
 
-## 6. Branching, and the CI reality
+## 6. One branch, and the CI reality
+
+**Owner decision, 2026-08-30: no new branches.** Everything in this run — all nine waves — lands on:
+
+```
+docs/no-crumbs-brand-and-facelift-lock
+```
+
+It already has `origin/main` merged in, and is tagged `pre-facelift` at its pre-implementation tip.
+No per-wave branches, no stack, no per-wave PRs. **PR #105** is the one PR and it grows.
+
+The consequence to hold on to: **there is no bisect boundary but the commit itself.** That makes two
+things load-bearing rather than tidy — the wave-close `verify` gate (§7a), now the only scheduled
+checkpoint, and atomic, well-scoped commits (§7b), now the only way to isolate a regression after the
+fact. A sloppy commit tonight is a lost hour tomorrow.
+
+**Another session may share this checkout.** It happened during the writing of this plan: a peer
+switched the working tree to a different branch and left uncommitted edits in it. Before you start,
+run `git branch --show-current` and `git status`. If you are not on the branch above, or the tree
+carries changes that are not yours, **do not switch and do not clean** — uncommitted changes are
+user-owned. Use `git worktree add` and work in isolation instead.
 
 **CI cannot start a runner.** All four jobs report `steps=0` — a job that never began. `merge:pr` will
-correctly refuse every PR, so **nothing lands tonight and that is expected.** Do not try to merge. Do
-not use `--admin`. Do not "fix CI"; `ci.yml` is correct and the cause is account-level.
-
-**Stack the branches.** Base branch for the run:
-
-```
-docs/no-crumbs-brand-and-facelift-lock      (has origin/main merged in)
-  └── feat/w0-token-foundation              W0 — serial, blocks everything
-        └── feat/w1-correctness             W1 — parallel inside, one branch
-              └── feat/w2-map-at-rest       W2
-                    └── feat/w3-interaction W3
-                          └── feat/w4-identity
-                                └── feat/w5-library
-                                      └── feat/w6-the-moment
-                                            └── feat/w7-night-and-edges
-                                                  └── chore/w8-stabilise
-```
-
-One PR per wave, based on the previous wave's branch. **If a wave would be the fourth unlanded branch,
-stop and report rather than stacking deeper.**
-
----
+correctly refuse the PR, so **nothing lands tonight and that is expected.** Do not try to merge. Do
+not use `--admin`. Do not "fix CI"; `ci.yml` is correct and the cause is account-level. Owner action:
+<https://github.com/settings/billing>.
 
 ## 7. Verification protocol
 
@@ -220,34 +221,47 @@ no tests written would make it unfinishable in one pass.
 
 ## 7b. Dispatching agents safely — read before the first dispatch
 
-**The constraint that governs everything here:** `agent-guardrails.md` §1.1 —
-*"Never commit, push, merge… Leave your changes uncommitted in the working tree; the orchestrator
-commits."* So every agent you dispatch is **editing the same working tree at the same time**. Two
-agents on one file is not a merge conflict you resolve later; it is one silently overwriting the
-other, and you will not find out until Wave 8.
+**Owner ruling, 2026-08-30, scoped to this run: agents may commit their own work.** This overrides
+`agent-guardrails.md` §1.1 — *"never commit… the orchestrator commits"* — **for this run only**. The
+guardrail stands everywhere else, and the exception is recorded here rather than edited into that file
+so it stays visible instead of silent. Pushing, merging, branching, tagging and every `gh` mutation
+remain forbidden to agents; the lead does those.
+
+**The hazard that ruling creates, and the one rule that removes it.** Every agent you dispatch edits
+**the same working tree at the same time**, and now several of them can commit into it. So
+`git commit -a`, `git add .` or `git add -A` from one agent will **sweep another agent's half-finished
+edits into its commit** — a corrupted history that looks fine until Wave 8.
+
+> **Every agent stages only the explicit paths it claimed. Never `-a`, never `add .`, never `add -A`.**
+> `git add src/components/sheet/place-sheet.tsx` — never a directory, never a wildcard that could reach
+> a file it does not own.
+
+Two agents on one file is still data loss rather than a conflict. The claim list is what prevents it.
 
 ### The protocol
 
 1. **Hold a live claim list.** Before dispatching, write down the file globs that agent owns. **Never
    dispatch an agent whose scope intersects a live claim.** §8's path scopes exist for this; if two
    packages share a file, they are serial, full stop.
-2. **You commit, they don't.** When an agent returns: read the diff yourself, run `npm run typecheck`,
-   then commit with a Conventional Commit subject and the *why* in the body.
-3. **Commit before the next dispatch into the same paths.** Otherwise two agents' work lands in one
-   commit, and the ledger's commit column becomes a lie.
+2. **Agents commit their own work — atomically, with explicit staging.** One package, one commit, a
+   Conventional Commit subject, the *why* in the body, `npm run typecheck` before committing, and
+   `git add` naming each file. **You still read every diff as it lands** (`git log -p`), because on a
+   single branch the commit is the only bisect boundary that exists.
+3. **A package's commit lands before another agent is dispatched into its paths.** The claim is
+   released by the commit, not by the agent finishing.
 4. **Cap build-tier concurrency at 3–4.** Past that, your own review-and-commit becomes the bottleneck
    and the collision surface grows faster than the throughput.
-5. **Use `isolation: "worktree"`** for anything long-running, exploratory, or touching many files at
-   once. The agent gets its own git worktree and physically cannot disturb the shared tree; you merge
-   its result deliberately. Wave 0 and W6-1 are the obvious candidates.
+5. **`isolation: "worktree"` is the exception now, not a default tool.** On a single branch a
+   worktree's result has to be brought back by hand. Reserve it for a genuinely exploratory package
+   where an approach may need to be tried and discarded. Otherwise: shared tree, clean claim.
 6. **Advise tier is always safe to run alongside anything.** `product-lead` and `ux-interaction` have
    no `Bash` and write only to `docs/**`. Dispatch them freely and concurrently.
 7. **Verification runs concurrently with the next build.** `qa-reliability` checking W1-2 can run while
    `ai-extraction` builds W1-3 — different files, and the verifier is read-only. **Give the verifier
    the exit criterion only, never the diff** (§7).
-8. **Never ask an agent to do something the guardrails forbid you to ask.** No commits, no pushes, no
-   branch switching, no `gh` mutations, no `.env` of any kind, no migrations. If a package seems to
-   need one, it is out of scope — record it and move on.
+8. **Everything else in the guardrails still binds.** No pushes, no merges, no branch creation or
+   switching, no tags, no `gh` mutations, no `.env` of any kind, no migrations, no `--no-verify`. If a
+   package seems to need one, it is out of scope — record it and move on.
 9. **Track what you spawned and collect all of it.** Never end a wave with an agent unaccounted for.
 
 ### Who owns what
@@ -258,7 +272,7 @@ and verification), Advise (rulings and specs, no shell).
 
 | Wave | Primary owner | Support |
 |---|---|---|
-| **W0** foundation | `design-system-frontend` — the single build owner of production UI | — (serial, one agent, worktree recommended) |
+| **W0** foundation | `design-system-frontend` — the single build owner of production UI | — (serial, one agent) |
 | **W1** correctness | `ai-extraction` (W1-2, W1-3, W1-4) · `nextjs-architect` (W1-5, W1-6) · `maps-geospatial` (W1-1) | `qa-reliability` verifies each |
 | **W2** map at rest | `maps-geospatial` | `ux-interaction` specifies the overview decision; `qa-reliability` verifies W2-1 and W2-2 independently |
 | **W3** interaction | `design-system-frontend` | `ux-interaction` holds the state matrix |
