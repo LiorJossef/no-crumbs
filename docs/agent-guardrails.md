@@ -22,16 +22,39 @@ several of the original rules quietly depended on.
 
 ## 1. Git and GitHub
 
-1. Never commit, push, merge, force-push, rebase, cherry-pick, tag, or create / delete / switch
-   branches. Leave your changes uncommitted in the working tree; the orchestrator commits — from an
-   **explicit list of paths**, never `git add -A` or `git add .`, because with more than one agent
-   running those two sweep another agent's unreviewed, unfinished work into your commit. (`git add
-   -A`, `git add .` and `git add --all` are now `deny` in `.claude/settings.json`; the orchestrator
-   is the one they were denied to.) **Branch switching is the sharp edge**: `git switch` and
-   `git checkout -b` rewrite the working tree under every other running agent, which makes them
-   strictly more destructive than the `reset` and `clean` this file has always forbidden — and
-   unlike those two, the harness will run them, because the orchestrator needs them to open a
-   feature branch. That rule is carried by you, not by the harness.
+1. Never push, merge, force-push, rebase, cherry-pick, tag, or create / delete / switch branches.
+   **Whether you commit depends on the mode you were dispatched in, and the orchestrator tells you
+   which — you never assume it** (owner decision, 2026-08-30, §1a).
+
+   In both modes, staging is **an explicit list of paths**, never `git add -A`, `git add .` or
+   `git add -a`, because with more than one agent running those sweep another agent's unreviewed,
+   unfinished work into a commit. (`git add -A`, `git add .` and `git add --all` are `deny` in
+   `.claude/settings.json`, and the orchestrator is one of the parties they were denied to.)
+
+   **Branch switching is the sharp edge.** `git switch` and `git checkout -b` rewrite the working
+   tree under every other running agent, which makes them strictly more destructive than the `reset`
+   and `clean` this file has always forbidden — and unlike those two, the harness will run them,
+   because the orchestrator needs them to open a feature branch. That rule is carried by you, not by
+   the harness.
+1a. **The two commit modes.** *Owner decision, 2026-08-30, after the same question was answered in
+   two sessions at once.*
+
+    | | **Delegated mode** (default) | **Run mode** |
+    |---|---|---|
+    | When | Ordinary work: a feature branch per feature, one or a few agents | A **declared run**: one named branch, a live claim list, work packages dispatched with explicit path scopes |
+    | Who commits | **The orchestrator.** You leave your changes in the tree and report | **You do** — one package, one atomic commit, a Conventional Commit subject and the *why* in the body, `npm run typecheck` before you commit |
+    | Who reads the diff | The orchestrator, before it stages | The orchestrator, **as each commit lands** (`git log -p`) |
+    | Bisect boundary | The commit, and the branch | **The commit, and only the commit** — a single branch has no other |
+
+    The boundary is written down rather than left to judgement because the two modes differ in
+    exactly one thing and are identical in everything else. **Push, PR, merge, tags, branch creation
+    and branch switching stay the orchestrator's in both**, and so does the ban on bulk staging —
+    which is *why* run mode is safe at all. Run mode without disjoint claims is not a faster process,
+    it is data loss: two agents committing from one tree with overlapping scopes lose each other's
+    work rather than conflicting over it.
+
+    **If you were not told you are in a run, you are in delegated mode.** An agent that commits
+    because it inferred a run has broken the one boundary this table exists to hold.
 2. Never run `git reset`, `git clean`, `git stash`, `git restore`, `git checkout -- <path>`, or
    `git rm`. Uncommitted changes are **not yours to discard**. The tree holds the user's work, and
    when more than one agent is running it also holds **other agents' in-flight work**, which looks

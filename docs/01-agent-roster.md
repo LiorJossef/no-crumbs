@@ -185,12 +185,15 @@ Disjoint write scopes buy two properties for the price of one, and the second is
 easy to miss.
 
 1. **No lost writes.** Two agents cannot edit one file, so neither silently overwrites the other.
-2. **Attribution survives a shared tree.** Guardrail 1 tells every specialist to leave its changes
-   uncommitted for the orchestrator to commit. With one agent that is unambiguous. With five it
-   would be an unattributable pile — *except* that disjoint scopes make `git add <scope>` select
-   exactly one agent's work. The commit granularity `git-workflow.md` demands (Level → Feature →
-   Subtask → atomic commit) survives concurrency **because of** the disjointness rule, not
-   alongside it.
+2. **Attribution survives a shared tree.** With one agent, a single pile of edits is unambiguous.
+   With five it would not be — *except* that disjoint scopes make `git add <scope>` select exactly
+   one agent's work. The commit granularity `git-workflow.md` demands (Level → Feature → Subtask →
+   atomic commit) survives concurrency **because of** the disjointness rule, not alongside it.
+
+   This is what makes **run mode** possible at all (`agent-guardrails.md` §1a): when agents commit
+   their own packages onto a single shared branch, disjointness is the only thing standing between
+   atomic history and two agents silently consuming each other's work. Bulk staging is banned in
+   both modes for the same reason, and it is banned in the harness rather than merely asked for.
 
 Lose disjointness and you lose the ability to commit, review or revert one agent's work
 independently. That is why it is a hard constraint rather than a preference, and why the answer to
