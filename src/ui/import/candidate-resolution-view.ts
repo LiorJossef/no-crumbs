@@ -46,6 +46,15 @@ export interface ResolutionOption {
   readonly name: string;
   /** Address and/or locality, deduplicated. Never empty — see `optionDetail`. */
   readonly detail: string;
+  /**
+   * The same fields as `detail`, but `null` where `detail` is the "no address" sentence.
+   *
+   * `detail` is a line to render and is never blank, deliberately. That makes it the wrong thing to
+   * put in a query: `googleMapsSearchUrl` was handed it and searched Google for
+   * `Kohi, No address in the map data`. Two fields rather than a caller that pattern-matches the
+   * sentence, because the sentence is copy and copy changes.
+   */
+  readonly address: string | null;
   readonly lat: number;
   readonly lng: number;
 }
@@ -73,6 +82,10 @@ export type CandidateResolutionView =
   /** No record at all — this candidate was never put to the resolver. */
   | { readonly kind: 'not_attempted' };
 
+/** What `optionDetail` says when the map data carried neither an address nor a locality. Named so
+ *  `ResolutionOption.address` can recognise it without matching on the copy. */
+const NO_ADDRESS_DETAIL = 'No address in the map data';
+
 /**
  * `21 Kingly St, London` — the fields that actually distinguish two rows with the same name.
  *
@@ -88,14 +101,16 @@ export function optionDetail(place: ResolvedPlace): string {
   }
   if (address !== '') return address;
   if (locality !== '') return locality;
-  return 'No address in the map data';
+  return NO_ADDRESS_DETAIL;
 }
 
 function toOption(ranked: RankedPlace, index: number): ResolutionOption {
+  const detail = optionDetail(ranked.place);
   return {
     index,
     name: ranked.place.name,
-    detail: optionDetail(ranked.place),
+    detail,
+    address: detail === NO_ADDRESS_DETAIL ? null : detail,
     lat: ranked.place.lat,
     lng: ranked.place.lng,
   };
