@@ -436,7 +436,7 @@ agents' *tasks* collide even when their scopes do not.
 | `src/domain/ports.ts` | 34 | Ports are added by the architect on request, never by the adapter author |
 | `src/domain/errors.ts` | 29 | A closed union; adding a code is a UI-visible contract change and must be announced |
 | `src/app/globals.css` | the whole token layer | `design-system-frontend` exclusively. Never a second UI agent |
-| `src/components/map/types.ts` | 17 | `maps-geospatial` exclusively, even under the map partition |
+| `src/components/map/types.ts` | 28 (21 source, 7 test) | `maps-geospatial` exclusively, even under the map partition |
 | `supabase/tests/inventory.sql` | asserted by `check:schema` **and** CI | `supabase-database` writes, `security-privacy` reviews, one task at a time |
 | `docs/current-state.md`, `docs/execution-plan.md` | every agent reads them | **Orchestrator writes.** Agents return status as prose. This is the likeliest concurrent-write conflict in the repo |
 
