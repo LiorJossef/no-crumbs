@@ -204,6 +204,119 @@ function summariseSequence(series, timestamps) {
   };
 }
 
+
+/**
+ * The camera's resting zoom, how many pin symbols the map actually drew, and how many of them are
+ * labelled.
+ *
+ * **Why this exists.** `PIN_BAND_MIN` is 8.5. Below it the whole library collapses into one summary
+ * marker and no per-pin cost is paid at all; above it every pin is a drawn symbol. So the zoom is
+ * the single number that decides whether a "2,000 pins" measurement is measuring 2,000 pins or one
+ * pill — and until `5cd7ce8` removed the home camera's country-band ceiling, it was the latter.
+ * Guessing is not an option here; an unmeasured zoom would make every frame number below
+ * uninterpretable.
+ *
+ * **Why it is a fiber walk.** Nothing in `src/` exposes the MapLibre `Map` — it lives in a ref
+ * inside `map-surface.mapcn.tsx`, there is no `window.__map`, and adding one is a change under
+ * `src/` this harness may not make. Tile URLs cannot answer the question either: a vector source
+ * floors the zoom for tile selection, so z8.0 and z8.5 both request z8, and 8.0 versus 8.5 is the
+ * entire point.
+ *
+ * **The direction matters, and the first version had it backwards.** It walked *up* (`fiber.return`)
+ * from the MapLibre canvas and found nothing, for a reason worth recording: **MapLibre creates that
+ * canvas itself, so React never touches it and it carries no `__reactFiber$` key at all.** The walk
+ * now descends from each host element's fiber through `child` and through the hook chain
+ * (`memoizedState` → `next`), which is where a `useRef` holding the map actually lives — measured
+ * path `DIV.child.child.memoizedState.next.memoizedState`.
+ *
+ * It reads and never writes, it is bounded, and if React's internals change it returns `zoom: null`
+ * with a reason rather than a guess.
+ */
+async function readCamera(page) {
+  return page.evaluate(() => {
+    const looksLikeMap = (v) =>
+      v !== null &&
+      typeof v === 'object' &&
+      typeof v.getZoom === 'function' &&
+      typeof v.queryRenderedFeatures === 'function';
+
+    const seen = new Set();
+    let scanned = 0;
+    let map = null;
+    const KEYS = ['current', 'memoizedState', 'next', 'baseState', 'stateNode', 'child', 'sibling'];
+    const visit = (value, depth) => {
+      if (map || depth > 8 || value === null || typeof value !== 'object' || seen.has(value)) return;
+      seen.add(value);
+      scanned += 1;
+      if (scanned > 60_000) return;
+      if (looksLikeMap(value)) {
+        map = value;
+        return;
+      }
+      for (const key of KEYS) {
+        try {
+          if (value[key] !== undefined) visit(value[key], depth + 1);
+        } catch {
+          /* a getter that throws is not the map */
+        }
+      }
+    };
+
+    for (const element of Array.from(document.querySelectorAll('*'))) {
+      for (const key of Object.keys(element)) {
+        if (key.startsWith('__reactFiber$') || key.startsWith('__reactContainer$')) {
+          visit(element[key], 0);
+        }
+      }
+      if (map) break;
+    }
+
+    if (!map) {
+      return {
+        zoom: null,
+        reason: document.querySelector('canvas.maplibregl-canvas')
+          ? 'a maplibre canvas exists but no map object was reachable from any fiber'
+          : 'no maplibre canvas in the DOM',
+      };
+    }
+
+    const zoom = map.getZoom();
+    let features = [];
+    try {
+      features = map.queryRenderedFeatures();
+    } catch {
+      return { zoom: Number(zoom.toFixed(3)), reason: 'style not ready; feature counts unavailable' };
+    }
+
+    const symbols = features.filter((f) => f.layer && f.layer.type === 'symbol');
+    // The saved-place pins carry a generated suffix (`places-pins-_r_1_`), so match the prefix.
+    const pins = symbols.filter((f) => (f.layer.id ?? '').startsWith('places-pins'));
+    // Labels are `text-field` **inside the pin layer**, tiered per feature by `labelZoom`
+    // (`marker-style.ts`), not a separate layer and not a global switch. So "labels on" is a count,
+    // not a boolean — which is the axis `facelift-plan.md` §2's 19.0 ms vs 34.0 ms sits on.
+    const labelled = pins.filter((f) => {
+      const labelZoom = f.properties ? Number(f.properties.labelZoom) : NaN;
+      return Number.isFinite(labelZoom) && zoom >= labelZoom;
+    }).length;
+
+    const byLayer = {};
+    for (const feature of symbols) {
+      const id = feature.layer.id ?? 'unknown';
+      byLayer[id] = (byLayer[id] ?? 0) + 1;
+    }
+
+    return {
+      zoom: Number(zoom.toFixed(3)),
+      band: zoom >= 8.5 ? 'pin' : zoom >= 4.5 ? 'area' : 'country',
+      symbolsRendered: symbols.length,
+      pinSymbolsRendered: pins.length,
+      pinLabelsRendered: labelled,
+      byLayer,
+      reason: null,
+    };
+  });
+}
+
 async function measureOne({ browser, baseUrl, viewportSpec, cookie, outDir, windowMs }) {
   const context = await browser.newContext({
     viewport: viewportSpec.viewport,
@@ -253,6 +366,10 @@ async function measureOne({ browser, baseUrl, viewportSpec, cookie, outDir, wind
   await client.send('Page.stopScreencast');
 
   const frameTimes = await page.evaluate(() => window.__frameTimes ?? []);
+  // Read the camera *before* the context closes, at rest. `PIN_BAND_MIN` is 8.5: below it the pins
+  // are one summary marker, above it they are individually drawn symbols, and the frame budget
+  // question only exists on the second side of that line.
+  const camera = await readCamera(page);
   await context.close();
 
   const changes = await diffFrames(browser, frames);
@@ -291,6 +408,7 @@ async function measureOne({ browser, baseUrl, viewportSpec, cookie, outDir, wind
 
   return {
     viewport: viewportSpec.id,
+    camera,
     sequence,
     budget,
     changeSeries: changes.map((v, i) => ({
@@ -382,7 +500,11 @@ async function main() {
         `${m.sequence.paintsAfterMapPaint} paints, ${m.sequence.changeEventsAfterMapPaint} of them ` +
         `visible, spread over ${m.sequence.spanAfterMapPaintMs}ms\n` +
         `[motion] ${m.viewport}: frame time max ${m.budget.maxMs}ms, ${m.budget.over16_7ms} over ` +
-        `16.7ms, ${m.budget.over33_3ms} over 33.3ms (median ${m.budget.medianMs}ms — see medianCaveat)\n`,
+        `16.7ms, ${m.budget.over33_3ms} over 33.3ms (median ${m.budget.medianMs}ms — see medianCaveat)\n` +
+        `[motion] ${m.viewport}: resting zoom ${m.camera.zoom ?? `unknown (${m.camera.reason})`}` +
+        `${m.camera.band ? ` (${m.camera.band} band)` : ''}, ` +
+        `${m.camera.pinSymbolsRendered ?? '?'} pin symbols drawn, ` +
+        `${m.camera.pinLabelsRendered ?? '?'} of them labelled\n`,
     );
   }
   process.stderr.write(`\n[motion] report -> ${join(outDir, 'motion.json')}\n`);

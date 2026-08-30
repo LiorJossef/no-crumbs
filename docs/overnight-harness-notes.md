@@ -264,12 +264,23 @@ field, the item rows with their shared notes and the `＋ Add places` action. Th
 create a token-guessable enumeration surface, and the page carries a long comment saying so. Both
 states are captured.
 
-One fidelity gap, stated: the stub does not implement `select=`, so it returns a **superset** row
-and lets each caller take the columns it asked for. A caller that asked for a column the fixture
-does not have would get `undefined` where PostgREST would have errored. Keying fixtures by query
-string would close that and would break the moment somebody reordered a select; the superset is the
-better trade, but it means **this stub cannot catch a select/interface drift**, which is exactly the
-class of bug those hand-written interfaces exist to catch. Only a real database does that.
+### A limitation of the harness, not a footnote: the stub is blind to select drift
+
+The stub does not implement `select=`. It returns a **superset** row and lets each caller take the
+columns it asked for, so a caller that asks for a column the fixture does not have gets `undefined`
+where PostgREST would have raised `42703`.
+
+**Therefore this harness is structurally incapable of catching a select/interface drift** — a select
+that gains a column its hand-written row interface does not have, or vice versa. Those interfaces
+exist in `get-spots.ts` and `get-collections.ts` precisely because `supabase gen types` output is
+not in this repository, and their own headers say the drift is meant to fail loudly. Against this
+stub it fails silently, and the screenshot still looks green.
+
+So: **a green collections screenshot from this harness says the components render. It says nothing
+about whether the query behind them is still correct.** Only a real database says that. Keying
+fixtures by query string would close the gap and would break the moment somebody reordered a select,
+which is why the superset is still the right trade — but the blindness has to travel with the
+evidence.
 
 Observed while looking, not filed as a defect: at 390×844 the collection detail's `＋ Add places`
 button sits directly over the last visible list row, clipping it mid-row with no scrim or bottom
@@ -325,3 +336,69 @@ shows the whole map ghosted and half-opaque with the summary pill already in pla
 400 ms in eleven steps rather than in one, and it can say no frame exceeded 33 ms. It cannot say
 whether the easing reads as a pin *landing* or as a pin *twitching*. Q4 keeps a person in it. This
 only removes the part where the person also had to be a stopwatch.
+
+## 10. Re-measured after W2-1: did removing the camera ceiling cost the frame budget?
+
+§9 said the 2,000-pin number was not a performance result, because the home camera's country-band
+ceiling collapsed the whole library into one summary marker and 2,000 symbols were never drawn.
+**`5cd7ce8` removed that ceiling**, so the caveat expired and the question became real. Re-measured.
+
+To answer it at all the harness had to learn to read the camera, which it now does — see
+`readCamera` in `measure-motion.mjs`. `PIN_BAND_MIN` is 8.5, and a frame number taken without
+knowing which side of that line the camera rested on is uninterpretable.
+
+**Answer: the camera does settle in the pin band, 2,000 symbols really are drawn, and the cost is
+modest. No regression. But the result is conditional, and the condition is about to change.**
+
+| | 390×844 | | 1440×900 | |
+|---|---|---|---|---|
+| | **30** | **2,000** | **30** | **2,000** |
+| Resting zoom | 12.265 | 11.584 | 13.141 | 12.501 |
+| Band | pin | pin | pin | pin |
+| **Pin symbols drawn** | **30** | **2,000** | **30** | **2,000** |
+| Pin labels drawn | 0 | 0 | 0 | 0 |
+| Frame time max | 425.0 ms | 543.1 ms | 642.2 ms | 516.6 ms |
+| Frames over 16.7 ms | 11 | 14 | 11 | 17 |
+| Frames over 33.3 ms | 8 | 11 | 10 | 17 |
+
+*Commit `2f01d93` (contains `5cd7ce8`), stub-backed, one run each.*
+
+**The three questions, answered directly.**
+
+1. **Does the camera settle in the pin band?** Yes — 11.58 to 13.14 against a `PIN_BAND_MIN` of 8.5,
+   on both viewports and at both counts. Not marginal. The question is real.
+2. **Does it draw 2,000 symbols, and what does that cost?** It draws exactly 2,000. Against the
+   30-place run **on the same tool and the same commit**: mobile max 425 → 543 ms and three more
+   frames over 33.3 ms; desktop max 642 → 517 ms — *lower* — and seven more frames over 33.3 ms.
+   The cost is real, small, and concentrated in the load, not in the resting state. **There is no
+   frame-rate collapse at 2,000 pins.** Comparing against the pre-`5cd7ce8` run at 2,000 places
+   (max 334 / 317 ms) is the honest before/after, and it says the same thing: the ceiling's removal
+   bought a modest load cost.
+3. **Are labels on?** **No — zero of 2,000 pins are labelled**, and the mechanism matters. The built
+   commit gates labels with one flat `LABEL_MIN_ZOOM = 14` (`['step', ['zoom'], '', 14,
+   ['get','name']]`), and the camera rests at 11.6–13.1. So every number above is on the **cheap**
+   side of `facelift-plan.md` §2's 19.0 ms-vs-34.0 ms axis, and it is cheap because of the flat gate
+   and the resting zoom, not because tiering thinned anything.
+
+**The finding that follows from question 3, and it is the important one.** The five-tier label
+system — `LABEL_TIER_ZOOMS = [8.5, 10, 11.5, 13, 14]` and the per-feature `labelZoom` stamp — was
+**uncommitted work in the tree at the time of writing**, not in any commit measured here. When it
+lands, pins become eligible for labels from z8.5 upward, which is **exactly the range the camera now
+rests in** after `5cd7ce8`. Two changes that are individually correct combine to move this
+measurement from §2's cheap axis to its expensive one:
+
+> **`5cd7ce8` put the camera where the pins draw; the label tiering will put labels where the camera
+> now rests. Neither change can see the other. This must be re-measured at 2,000 places once the
+> tiering commits** — it is the one case where §2's 34.0 ms / ~29 fps figure could become real, and
+> nothing else in the run would notice.
+
+(Whether it actually bites is genuinely open: `labelTierFor` pushes a pin with no clearance up to
+`LABEL_ALL_ZOOM`, and 2,000 pins in one metro have very little clearance, so the tiering may thin
+them to almost nothing on its own. That is a prediction, which is why it needs measuring rather than
+asserting.)
+
+**Caveats on the numbers themselves.** One run per cell, and `maxMs` is a load-time spike with real
+run-to-run variance — the 30-place mobile max moved 383 → 425 ms across two runs of the *same* build
+earlier tonight, so treat differences under ~100 ms as noise and read the over-budget counts
+alongside. As in §9, the median is meaningless in headless and none of these should be quoted next
+to §2's number.

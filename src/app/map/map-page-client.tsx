@@ -135,7 +135,7 @@ import {
 import { distancesFromUser, nearestArea, nearestFirst } from '@/ui/place/nearby';
 import { meanCentroid, unionBounds } from '@/domain/places/country-bucket';
 import { summariseByCountry } from '@/ui/place/library-summary';
-import { EMPTY_LIBRARY_BOUNDS } from '@/ui/place/viewport';
+import { zeroStateBounds } from '@/ui/place/viewport';
 import { ImportPageClient, type SaveOutcomeDetail } from '@/app/import/import-page-client';
 import { AddSheetHost } from '@/components/add/add-sheet-host';
 import { CollectionsContext, type CollectionsForPlace } from '@/ui/place/collections-context';
@@ -160,6 +160,30 @@ const ANNOUNCE_AFTER_MS = 500;
  * one call site, when `active-area.ts` is next open.
  */
 const EMPTY_MAP_ACCESSIBLE_NAME = 'A map. Nothing saved yet.';
+
+/**
+ * The browser's own IANA time zone, or `null` where there is no browser.
+ *
+ * The **only** location signal this page ever reads, and it is not a location: it is a formatting
+ * preference the browser already volunteers to every page, it identifies a metro at best, and it is
+ * used for one thing — which region a map with nothing on it opens over (`zeroStateBounds`). No
+ * permission prompt, no IP lookup, no `navigator.geolocation`; `ux-map-is-the-query.md` §5 chose
+ * this mechanism over all three for exactly that reason, and `L1-F11`'s locate control stays the
+ * one place the product ever asks where the user is.
+ *
+ * `null` on the server, which is correct rather than degraded: the value never reaches the DOM as
+ * text, so the two renders agree on everything React compares. It is a prop to a canvas.
+ */
+function browserTimeZone(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone ?? null;
+  } catch {
+    // A browser with no ICU data at all. The fallback region is the honest answer, not a crash on
+    // the first screen a new account ever sees.
+    return null;
+  }
+}
 
 export function MapPageClient({
   places,
@@ -414,10 +438,15 @@ export function MapPageClient({
    *
    * Passing `undefined` here used to fall all the way through to MapLibre's constructor default,
    * which is the whole globe at zoom 0 over the Atlantic: §9.3's *"zero places shows no bare world
-   * map"* criterion. `EMPTY_LIBRARY_BOUNDS` says what it is a placeholder for.
+   * map"* criterion. `zeroStateBounds` is the designed answer to it — a regional map framed from
+   * the browser's own time zone, which is the mechanism `ux-map-is-the-query.md` §5 chose precisely
+   * because it costs no permission prompt, no IP lookup and no `navigator.geolocation` call.
    */
   const initialBounds = useMemo(
-    () => (areas.length > 0 ? unionBounds(areas.map((area) => area.bounds)) : EMPTY_LIBRARY_BOUNDS),
+    () =>
+      areas.length > 0
+        ? unionBounds(areas.map((area) => area.bounds))
+        : zeroStateBounds(browserTimeZone()),
     [areas],
   );
 

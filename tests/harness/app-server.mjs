@@ -99,29 +99,44 @@ export async function startApp(appDir, port, env = {}) {
   const signalGroup = (signal) => {
     try {
       process.kill(-child.pid, signal);
+      return true;
     } catch {
-      // The group is already gone, which is the outcome we wanted.
+      return false; // the group is already gone, which is the outcome we wanted
     }
   };
+
+  const groupIsGone = () => !signalGroup(0);
 
   return {
     url,
     log,
-    stop: () =>
-      new Promise((done) => {
-        let settled = false;
-        const finish = () => {
-          if (settled) return;
-          settled = true;
-          done();
-        };
-        child.once('exit', finish);
-        signalGroup('SIGTERM');
-        setTimeout(() => {
-          signalGroup('SIGKILL');
-          finish();
-        }, 5000);
-      }),
+    /**
+     * Stop the server, and do not resolve until the process group is actually gone.
+     *
+     * The first fix — detach, then SIGTERM the group — was not enough, and a wrapper was found
+     * still running after a `measure-motion` run. `npx` becomes `npm exec` becomes `next`, and
+     * `npm` does not reliably die on SIGTERM; the escalation to SIGKILL was on a 5 s timer, but the
+     * promise had already resolved on the direct child's `exit`, so the harness exited first and
+     * took the timer with it. Anything that resolves before the thing it is stopping has stopped is
+     * not a stop.
+     *
+     * So: SIGTERM, then poll. SIGKILL the group after a grace period, and keep polling until
+     * `kill(-pid, 0)` says there is nothing left to signal.
+     */
+    stop: async () => {
+      signalGroup('SIGTERM');
+      const graceUntil = Date.now() + 3000;
+      const hardUntil = Date.now() + 10_000;
+      while (!groupIsGone()) {
+        if (Date.now() > hardUntil) {
+          throw new Error(
+            `next start (pid ${child.pid}) would not die; something is still holding ${url}`,
+          );
+        }
+        if (Date.now() > graceUntil) signalGroup('SIGKILL');
+        await new Promise((r) => setTimeout(r, 100));
+      }
+    },
   };
 }
 
