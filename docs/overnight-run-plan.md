@@ -84,6 +84,14 @@ several of them record decisions that look like bugs until you read why.
 
 ## 4. The baseline, measured 2026-08-30 22:29
 
+**Tagged as `pre-facelift`** (annotated, pushed). That tag is the exact state this run starts from —
+no file under `src/`, `supabase/` or `tests/` differs from `origin/main` at it, because everything
+committed before the run is documentation. Its message carries these numbers and the six known
+defects, so `git show pre-facelift` is the fastest way to see where you began.
+
+Use it: `git diff pre-facelift..HEAD -- src/` is the whole of what the run changed, and it is what the
+Wave 8 report should be written against.
+
 Re-measure at the start of the run. If a number differs, trust your measurement and say so.
 
 | Metric | Baseline | Command |
