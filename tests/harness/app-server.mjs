@@ -63,10 +63,15 @@ export function buildApp(appDir, env = {}) {
  * needs to be persisted anywhere.
  */
 export async function startApp(appDir, port, env = {}) {
+  // `detached: true` puts the server in its own process group, and `stop()` below signals the
+  // whole group. Without it, `npx` spawns `npm exec`, which spawns `next`, and killing the pid we
+  // hold leaves the wrapper alive — one was found idling after a run on 2026-08-31, which under
+  // concurrency means a stray port holder nobody can account for.
   const child = spawn('npx', ['next', 'start', '-p', String(port)], {
     cwd: appDir,
     env: { ...process.env, ...env },
     stdio: ['ignore', 'pipe', 'pipe'],
+    detached: true,
   });
   const log = [];
   child.stdout.on('data', (d) => log.push(String(d)));
@@ -76,7 +81,11 @@ export async function startApp(appDir, port, env = {}) {
   const deadline = Date.now() + 90_000;
   for (;;) {
     if (Date.now() > deadline) {
-      child.kill('SIGKILL');
+      try {
+        process.kill(-child.pid, 'SIGKILL');
+      } catch {
+        /* already gone */
+      }
       throw new Error(`next start did not answer on ${url} within 90s:\n${log.join('')}`);
     }
     try {
@@ -87,16 +96,30 @@ export async function startApp(appDir, port, env = {}) {
     }
     await new Promise((r) => setTimeout(r, 500));
   }
+  const signalGroup = (signal) => {
+    try {
+      process.kill(-child.pid, signal);
+    } catch {
+      // The group is already gone, which is the outcome we wanted.
+    }
+  };
+
   return {
     url,
     log,
     stop: () =>
       new Promise((done) => {
-        child.once('exit', () => done());
-        child.kill('SIGTERM');
-        setTimeout(() => {
-          child.kill('SIGKILL');
+        let settled = false;
+        const finish = () => {
+          if (settled) return;
+          settled = true;
           done();
+        };
+        child.once('exit', finish);
+        signalGroup('SIGTERM');
+        setTimeout(() => {
+          signalGroup('SIGKILL');
+          finish();
         }, 5000);
       }),
   };
