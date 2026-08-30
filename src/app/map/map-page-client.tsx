@@ -75,12 +75,17 @@
  *  - **`places`** — the whole library, used to build the areas and for the initial camera anchor.
  *    Its count is displayed nowhere.
  *
- * **The initial camera anchors on one area, never all of them.** Fitting every saved place put 12
- * London and 9 Tel Aviv places into one box, which is a continental view of Europe and North
- * Africa: two cluster bubbles, no individual pins, no readable name. `domain/places/clusters.ts`
- * groups on coordinates (never on the `locality` string — the library holds four spellings for two
- * cities) and picks the anchor: the cluster holding the most recently saved place, else the largest.
- * `getSpots` already returns `created_at desc`, so `places[0]` is that most recent save.
+ * **The initial camera frames the whole library**, and this paragraph used to say the opposite.
+ * Anchoring on one area was the answer to a real defect — fitting every saved place put 12 London
+ * and 9 Tel Aviv places into one box, i.e. a continental view of Europe and North Africa with no
+ * individual pins and no readable name — and the owner rejected it in production on 2026-08-30,
+ * because the anchor is the cluster holding the *most recent save*: signing back in opened on
+ * whatever you had added last. The box is now the union of the areas' boxes, which is
+ * order-independent, and the resting zoom is whatever that box honestly fits at
+ * (`components/map/zoom-bands.ts`, `HOME_LANDING_ZOOM` and `settleZoom`, where both reversals are
+ * written down). `domain/places/clusters.ts` still groups on coordinates (never on the `locality`
+ * string — the library holds four spellings for two cities), and `anchorCluster` survives as
+ * `preferredAreaId`'s fallback for the *list*, never as a camera.
  *
  * `showImport` is the same pattern one level up: "Add a TikTok" (in both `PlaceSheet` and
  * `PlaceDesktopPanel`) used to be a `router.push('/import')` — a real route change that unmounts
@@ -275,11 +280,14 @@ export function MapPageClient({
    * stop: a list of who may move the camera is only worth having if it is complete, wherever the
    * mover happens to live. In the order they run:
    *
-   *  1. The initial framing — **the whole library**, come to rest at or below the top of the area
-   *     band (`HOME_LANDING_ZOOM`) so the home view is the overview rather than a place, and
-   *     falling back to `EMPTY_LIBRARY_BOUNDS` when there is nothing saved at all. It framed the
+   *  1. The initial framing — **the whole library**, come to rest wherever that box honestly fits
+   *     and never inside the guard window around the band boundary (`settleZoom`), so a one-metro
+   *     library opens on its own named pins and a three-continent library opens on flag discs. It
+   *     falls back to `EMPTY_LIBRARY_BOUNDS` when there is nothing saved at all. It framed the
    *     *anchor area* inside the pin band until 2026-08-30, which meant signing back in opened on
-   *     whatever you saved last; the owner reversed that after using it. See `initialBounds`.
+   *     whatever you saved last; the owner reversed that after using it — and that reversal also
+   *     clamped the resting zoom below the pin band, which drew none of the user's places at all
+   *     and was undone on 2026-08-31. See `initialBounds`, and `zoom-bands.ts` for both.
    *  2. A finished import flies to the places it saved.
    *  3. Selecting a place from the list flies to that place, and **holds** the scope. It frames
    *     into the band the *raised* sheet leaves visible, not into the whole viewport — the surface
@@ -390,8 +398,11 @@ export function MapPageClient({
    * and the owner rejected that in production: *"I added this Jerusalem Hotel, and after that, when
    * I signed in again, it opened on the Jerusalem Hotel, but I'm not interested in that... So on
    * mobile and on desktop."* The home view is now the overview — *"open the map when you see the
-   * countries, not last added place"* — which the surface lands by fitting this box under
-   * `HOME_LANDING_ZOOM`'s area-band ceiling.
+   * countries, not last added place"* — which the surface lands by fitting **this box**, and the
+   * band it comes to rest in is whatever the box honestly fits at. The same reversal also clamped
+   * that fit below the pin band, which meant no library ever opened on a place of its own; the
+   * clamp was undone on 2026-08-31 and the box was not, because the box is what answered the
+   * complaint. `zoom-bands.ts` carries the argument.
    *
    * The union of the **areas'** boxes rather than of the raw places, so it is the same geometry the
    * area and country markers are drawn from and cannot disagree with them by a place the clustering

@@ -74,7 +74,13 @@ import { BasemapTint } from './basemap-tint-layer';
 import { toPlaceFeatures } from './place-features';
 import { PlaceMarkerLayer } from './place-marker-layer';
 import { ensureRtlTextPlugin } from './rtl-text';
-import { bandForZoom, HOME_LANDING_ZOOM, PIN_BAND_MIN } from './zoom-bands';
+import {
+  bandForZoom,
+  HOME_LANDING_ZOOM,
+  PIN_BAND_MIN,
+  settleZoom,
+  ZERO_STATE_ZOOM,
+} from './zoom-bands';
 import { summaryPillFitAllowance, type SummaryPillLabel } from './country-flag-image';
 
 // Called at module scope, not in an effect. MapLibre applies the plugin when a tile's glyphs are
@@ -262,6 +268,18 @@ function fitBoundsPadding(
 type Framing =
   | { readonly kind: 'fit'; readonly target: [[number, number], [number, number]] }
   | { readonly kind: 'bounds'; readonly request: FocusBoundsRequest }
+  /**
+   * **The home overview, recorded as a decision to re-take rather than as a camera to replay.**
+   *
+   * Every other arm reproduces a *request*. This one deliberately reproduces nothing: `fitToBounds`
+   * chooses its resting zoom by fitting the library against the container it has **now** and
+   * settling that fit clear of the band boundary, so replaying the box, the zoom or the marker
+   * allowance it happened to choose against the old container would replay an answer to a question
+   * that has changed. A rotation, an orientation change or mobile Safari collapsing its URL bar
+   * re-runs the whole derivation instead — which is the only way the home view stays the overview
+   * at both sizes rather than the overview of whichever size it was first measured at.
+   */
+  | { readonly kind: 'home' }
   /**
    * **The user moved the camera themselves, so there is nothing for a resize to reproduce.**
    *
@@ -452,6 +470,25 @@ export function MapSurfaceMapcn({
   useEffect(() => {
     latestAllowance.current = markerAllowance;
   }, [markerAllowance]);
+  /**
+   * **Whether there is anything saved at all** — the one fact the home framing cannot read off the
+   * box it was handed.
+   *
+   * `/map` delivers the zero-place region through the *identical* prop path as a real library's box
+   * (`map-page-client.tsx`: `areas.length > 0 ? unionBounds(…) : EMPTY_LIBRARY_BOUNDS`), so
+   * `initialBounds` is a well-formed rectangle either way and the surface cannot tell the two apart
+   * by looking at it. That is deliberate — the page owns *where* the empty camera points — but it
+   * means the surface has to be told *that* it is empty, and `places` is the honest signal.
+   *
+   * A ref, and for the same reason as the two above rather than a new one: `fitToBounds` is a
+   * transitive dependency of `attachMapRef`, and a callback ref whose identity changes is detached
+   * and re-attached by React — which re-frames the whole library and rebuilds the `ResizeObserver`.
+   * Depending on `places.length` directly would therefore re-frame the camera on every import.
+   */
+  const latestPlaceCount = useRef(places.length);
+  useEffect(() => {
+    latestPlaceCount.current = places.length;
+  }, [places]);
 
   /** The last framing the camera actually took. A resize re-runs *this*, not whatever the full
    *  `places` bounding box happens to be now — otherwise a resize silently undoes a focus flight
@@ -592,51 +629,109 @@ export function MapSurfaceMapcn({
   );
 
   /**
-   * **Camera mover 1: the home framing.** The whole library's box, come to rest at or below the
-   * top of the area band — the overview, not a place.
+   * **Camera mover 1: the home framing.** The whole library's box, framed as tightly as the library
+   * allows — the overview, and the zoom is a consequence rather than an input.
    *
-   * Two things changed here on 2026-08-30, both on the owner's ruling after using production, and
-   * they are one change: the box widened from the anchor cluster to the whole library, and the
-   * resting range flipped from a pin-band **floor** to an area-band **ceiling**
-   * (`HOME_LANDING_ZOOM`, where the argument lives). Either alone fails — a wide box with the old
-   * floor is zoomed straight back in on its own centre, and a ceiling over the anchor box still
-   * opens on the city you saved in last. The symptom was *"I added this Jerusalem Hotel, and after
-   * that, when I signed in again, it opened on the Jerusalem Hotel"*.
+   * ## What changed, and when
    *
-   * It still goes through `frameBounds` rather than `fitTo`, and the reason survives the reversal:
-   * `fitBounds`' `minZoom` is inherited from `FlyToOptions` and bounds the flight arc, not where
-   * the camera stops (camera mover 5's docblock measured that), so only `cameraForBounds` → clamp →
-   * `easeTo` can express a resting range at all. Recording the request rather than a box is what
-   * lets `refitFramed` reproduce that range after an orientation change instead of re-fitting
-   * through a path with no range of its own.
+   * Two things changed on 2026-08-30, both on the owner's ruling after using production, and they
+   * were treated as one change: the box widened from the anchor cluster to the whole library, and
+   * the resting range flipped from a pin-band **floor** to an area-band **ceiling**. The warning
+   * that stood here is still the important sentence and is still true — *either alone fails: a wide
+   * box with the old floor is zoomed straight back in on its own centre, and a ceiling over the
+   * anchor box still opens on the city you saved in last.* The symptom was *"I added this Jerusalem
+   * Hotel, and after that, when I signed in again, it opened on the Jerusalem Hotel"*.
    *
-   * The pin-band guarantee it used to enforce has not been dropped from the product, only from the
-   * first load: movers 2, 3, 7 and 8 are each *about* a place, frame through `fitTo` or their own
-   * `FocusBoundsRequest`, and none of them read this function.
+   * **Only the box half of that answered the complaint, and the box half stays.** The ceiling was
+   * the cause of `current-state.md` defect 0a — pins draw at `z >= PIN_BAND_MIN` (8.5) and the
+   * ceiling was 8.0, so the home screen drew none of the user's places for any library at any size
+   * — and it is gone as of 2026-08-31 (`W2-1`, `ux-overnight-specs.md` Spec 1). Removing a ceiling
+   * is not restoring a floor: nothing here forces a minimum zoom, so the Tel-Aviv-plus-Tokyo case
+   * still fits at z≈2 on flag discs rather than at 8.65 over open sea. `HOME_LANDING_ZOOM`'s
+   * docblock carries the full argument and both reversals.
+   *
+   * ## How the resting zoom is chosen — ask, settle, then request exactly that
+   *
+   * `cameraForBounds` answers *"where would an honest fit come to rest"*, `settleZoom` moves it
+   * clear of the band boundary if it landed in the ambiguous window, and the result is requested as
+   * a degenerate range (`minZoom === maxZoom`). That last step is why this still goes through
+   * `frameBounds` rather than `fitTo`, and the reason survives both reversals: `fitBounds`' own
+   * `minZoom` is inherited from `FlyToOptions` and bounds the flight *arc*, not where the camera
+   * stops (camera mover 5's docblock measured that), so only `cameraForBounds` → clamp → `easeTo`
+   * can express a resting zoom at all. Near-me (mover 8) already asks in exactly this shape, so
+   * this is an existing code path and not a new one.
+   *
+   * ## The marker allowance is paid only when a marker is drawn, and this is measured
+   *
+   * The allowance is room for the ~200 px summary pill hanging off a corner anchor. It is real —
+   * `Israel 14` was clipped under the zoom controls in the 2026-08-30 report — but it is only real
+   * in the two bands that *draw* pills, and paying it unconditionally is self-defeating: it widens
+   * the padding, which lowers the fitted zoom, which is what pushes a library that would have
+   * settled on pins back down into the band that draws pills. Measured against
+   * `library-shapes.ts` at 390×844: the owner's own five-area library fits at **z8.78 with no
+   * allowance and z7.68 with it** — pins on one side of the pill's own width, four grey capsules on
+   * the other. Removing the ceiling alone would not have fixed defect 0a for the library the defect
+   * was reported against.
+   *
+   * So it is two passes. Fit bare; if that settles in the pin band there are no pills to pay for
+   * and the bare fit is the answer; otherwise re-fit with the allowance and settle again. The
+   * second pass cannot bounce back into the pin band — more padding only ever lowers the zoom —
+   * so this terminates in one step, and every pill is still whole in frame wherever pills are
+   * drawn, which is the whole of what the 2026-08-30 report asked for.
+   *
+   * The pin-band guarantee that movers 2, 3, 7 and 8 carry is untouched: each is *about* a place,
+   * frames through `fitTo` or its own `FocusBoundsRequest`, and none of them reads this function.
    */
   const fitToBounds = useCallback(
     (map: MapLibreMap) => {
       const target = latestBounds.current;
       if (!target) return;
-      frameBounds(
-        map,
-        {
-          bounds: {
-            west: target[0][0],
-            south: target[0][1],
-            east: target[1][0],
-            north: target[1][1],
-          },
-          minZoom: HOME_LANDING_ZOOM.min,
-          maxZoom: HOME_LANDING_ZOOM.max,
-          // The only framing in the app whose box is a set of *summary* anchors, and so the only
-          // one that has to pay for the pill drawn at each of them.
-          markerAllowancePx: latestAllowance.current,
-        },
-        false
-      );
+      const bounds = {
+        west: target[0][0],
+        south: target[0][1],
+        east: target[1][0],
+        north: target[1][1],
+      };
+      // Recorded as `home` rather than as the `bounds` request `frameBounds` files for itself, so a
+      // resize re-derives the whole decision against the new container instead of replaying a zoom
+      // that was correct for the old one. Written *after* the call, because `frameBounds` records
+      // its own arm on the way in. See `Framing`'s `home` note.
+      const frameHome = (request: FocusBoundsRequest) => {
+        frameBounds(map, request, false);
+        framing.current = { kind: 'home' };
+      };
+
+      // Nothing saved: there is no library to fit, so there is nothing for a fit to answer. The
+      // page has handed us a designed region (`zeroStateBounds`) and the camera rests at a fixed
+      // metro zoom over it — see `ZERO_STATE_ZOOM`. Fitting the region's own box instead would make
+      // the zoom a function of how wide someone drew a placeholder rectangle.
+      if (latestPlaceCount.current === 0) {
+        frameHome({ bounds, minZoom: ZERO_STATE_ZOOM, maxZoom: ZERO_STATE_ZOOM });
+        return;
+      }
+
+      const box: [[number, number], [number, number]] = target;
+      // `undefined` is MapLibre's answer to an impossible fit — padding wider or taller than the
+      // transform — which `fitTo`'s docblock records as a real production failure. Degrading to the
+      // world view is honest and leaves the `ResizeObserver` free to retry against a real container.
+      const bare = map.cameraForBounds(box, {
+        padding: paddingFor(map),
+        maxZoom: HOME_LANDING_ZOOM.max,
+      });
+      const bareZoom = settleZoom(bare?.zoom ?? HOME_LANDING_ZOOM.min);
+      if (bandForZoom(bareZoom) === 'pin') {
+        frameHome({ bounds, minZoom: bareZoom, maxZoom: bareZoom });
+        return;
+      }
+      const allowance = latestAllowance.current;
+      const padded = map.cameraForBounds(box, {
+        padding: paddingFor(map, allowance),
+        maxZoom: HOME_LANDING_ZOOM.max,
+      });
+      const zoom = settleZoom(padded?.zoom ?? HOME_LANDING_ZOOM.min);
+      frameHome({ bounds, minZoom: zoom, maxZoom: zoom, markerAllowancePx: allowance });
     },
-    [frameBounds]
+    [frameBounds, paddingFor]
   );
 
   /**
@@ -648,12 +743,16 @@ export function MapSurfaceMapcn({
    * on the country marker the user just tapped for a large one — which is precisely the pair of
    * failures camera mover 5 exists to prevent. Never animated: a resize is not a journey.
    *
-   * A `user` framing is reproduced by leaving the camera alone — see the union's own note.
+   * A `user` framing is reproduced by leaving the camera alone — see the union's own note. A
+   * `home` framing is reproduced by **re-deciding** it, which is the one arm that deliberately does
+   * not replay what it recorded: the home resting zoom is a function of the container, so replaying
+   * it would reproduce the answer the old container deserved. `null` takes the same path, because
+   * "nothing has been framed yet" and "the overview" want the same thing.
    */
   const refitFramed = useCallback(
     (map: MapLibreMap) => {
       const current = framing.current;
-      if (current === null) {
+      if (current === null || current.kind === 'home') {
         fitToBounds(map);
         return;
       }

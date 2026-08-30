@@ -10,16 +10,20 @@
  * against `COUNTRY_BAND_MAX` / `PIN_BAND_MIN` rather than against 4.5 and 8.5: tuning the numbers
  * must move this file's meaning with them, not break it.
  */
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 import {
   AREA_BAND_MAX,
   AREA_BAND_MIN,
+  BAND_EDGE_GUARD,
   bandForZoom,
   COUNTRY_BAND_MAX,
   COUNTRY_LANDING_ZOOM,
   HOME_LANDING_ZOOM,
   PIN_BAND_MIN,
+  settleZoom,
+  ZERO_STATE_ZOOM,
   type ZoomBand,
 } from '@/components/map/zoom-bands';
 
@@ -80,17 +84,21 @@ describe('bandForZoom', () => {
   });
 
   /**
-   * The home framing's ceiling, and the inversion of what this test asserted until 2026-08-30.
+   * **The home framing's range, and the second inversion of this test.**
    *
    * It used to check that the home view rested in the **pin** band — §9.3's *"a non-empty library
-   * never settles on a view with no individual pin in it"*. The owner used that in production and
-   * reversed it: the first load is now the overview, so the constant is a ceiling and the property
-   * worth pinning is that the ceiling keeps the camera **out** of the pin band. Stated against
-   * `bandForZoom` rather than against 8.5, so tuning the bands moves it.
+   * never settles on a view with no individual pin in it"*. The owner reversed that on 2026-08-30
+   * and it became a *ceiling*, asserted to keep the camera **out** of the pin band. That ceiling
+   * was `current-state.md` defect 0a, and it is gone as of 2026-08-31 (`W2-1`).
+   *
+   * What replaces both is neither a floor nor a ceiling: the range spans the whole scale, and the
+   * band a library lands in is a fact about the library. So the property left to pin here is that
+   * the range *permits* every band, and everything about where a camera actually comes to rest is
+   * `settleZoom`'s, below.
    */
-  it('keeps the home framing out of the pin band', () => {
-    expect(bandForZoom(HOME_LANDING_ZOOM.max)).toBe('area');
-    expect(HOME_LANDING_ZOOM.max).toBeLessThan(PIN_BAND_MIN);
+  it('lets the home framing reach every band, including the pins', () => {
+    expect(HOME_LANDING_ZOOM.max).toBeGreaterThan(PIN_BAND_MIN);
+    expect(bandForZoom(HOME_LANDING_ZOOM.max)).toBe('pin');
   });
 
   /** An overview must be allowed to be a world view: the range reaches the country band and below
@@ -100,9 +108,107 @@ describe('bandForZoom', () => {
     expect(bandForZoom(HOME_LANDING_ZOOM.min)).toBe('country');
   });
 
-  /** The two landings are one band apart by construction — a country tap zooms *in* from the home
-   *  view, never out of it. */
-  it('rests no further in than a country tap does', () => {
-    expect(HOME_LANDING_ZOOM.max).toBeLessThanOrEqual(COUNTRY_LANDING_ZOOM.max);
+  /**
+   * `HOME_LANDING_ZOOM.max` is `map-surface.mapcn.tsx`'s private `FIT_BOUNDS_MAX_ZOOM`, written as
+   * a literal because that module transitively imports `server-only` and cannot be read from here.
+   * The duplication is checked rather than trusted — the same device `camera-model.ts` already uses
+   * for the four padding constants — because a ceiling that drifts from the one every other camera
+   * mover fits under is invisible until two movers disagree about where a one-place box rests.
+   *
+   * The country tap is the reason this is now a *seam* test rather than a `<=` between the two
+   * landings. Those were one band apart while home had a ceiling; home now rests wherever the
+   * library fits, so a country tap zooming *in* from a pin-band home view is correct behaviour and
+   * asserting the old ordering would forbid the fix.
+   */
+  it('holds the same ceiling the place framings fit under', () => {
+    const SURFACE = readFileSync('src/components/map/map-surface.mapcn.tsx', 'utf8');
+    expect(SURFACE).toContain(`const FIT_BOUNDS_MAX_ZOOM = ${HOME_LANDING_ZOOM.max};`);
+    // And the country tap is still clamped strictly inside the area band, which `W2-1` did not
+    // touch: §2.4 forbids a country tap landing on pins, whatever the home view does.
+    expect(COUNTRY_LANDING_ZOOM.max).toBeLessThan(PIN_BAND_MIN);
+  });
+});
+
+/**
+ * `settleZoom` — the one place a camera is allowed to consult the band boundary.
+ *
+ * `bandForZoom` answers *which band is this zoom in*; `settleZoom` answers *may a camera come to
+ * rest here*. The second question exists because MapLibre's own rounding decides which of two
+ * layers draws at a zoom sitting exactly on a shared boundary, so a camera that stops there is a
+ * camera whose screen is decided by a float.
+ */
+describe('settleZoom', () => {
+  /** The property, over the whole window and then some. A resting zoom is never strictly inside
+   *  `(PIN_BAND_MIN ± BAND_EDGE_GUARD)`, so `bandForZoom` of a settled camera is never ambiguous. */
+  it('never comes to rest inside the guard window, at any input', () => {
+    for (let zoom = 0; zoom <= 24; zoom += 0.01) {
+      const settled = settleZoom(zoom);
+      const inside =
+        settled > PIN_BAND_MIN - BAND_EDGE_GUARD && settled < PIN_BAND_MIN + BAND_EDGE_GUARD;
+      expect(inside).toBe(false);
+    }
+  });
+
+  /**
+   * **Outward, into the area band, and never inward.** Zooming out never crops, and
+   * `camera-library-shapes.test.ts` asserts that every saved place is on the visible map at rest —
+   * which is the strongest property the home view has. Resolving inward would zoom in from a fit
+   * that has already spent its 48 px of cosmetic margin.
+   */
+  it('resolves a fit inside the window outward', () => {
+    const edge = PIN_BAND_MIN - BAND_EDGE_GUARD;
+    expect(settleZoom(PIN_BAND_MIN)).toBe(edge);
+    expect(settleZoom(PIN_BAND_MIN - 0.01)).toBe(edge);
+    expect(settleZoom(PIN_BAND_MIN + 0.1)).toBe(edge);
+    expect(bandForZoom(settleZoom(PIN_BAND_MIN))).toBe('area');
+  });
+
+  /** Everything outside the window is left exactly as the box fitted it — the zoom is a consequence
+   *  of the library, and `settleZoom` is not a second opinion about it. */
+  it('leaves an unambiguous fit alone', () => {
+    for (const zoom of [0, 2.5, COUNTRY_BAND_MAX, 6, PIN_BAND_MIN - BAND_EDGE_GUARD, 8.65, 12, 15]) {
+      expect(settleZoom(zoom)).toBe(zoom);
+    }
+  });
+
+  /** The range is applied here rather than by the caller, which is what lets the home framing pass
+   *  the settled value straight through as a degenerate `minZoom === maxZoom` request. */
+  it('clamps into the home range', () => {
+    expect(settleZoom(-4)).toBe(HOME_LANDING_ZOOM.min);
+    expect(settleZoom(40)).toBe(HOME_LANDING_ZOOM.max);
+  });
+
+  /**
+   * The six cases of `ux-overnight-specs.md` Spec 1 §1.5, as a table, stated in bands rather than
+   * in numbers: what a library of that shape fits at is `camera-library-shapes.test.ts`' business,
+   * and what the settled camera then *draws* is this one's.
+   */
+  it('answers each library shape with the band that shape deserves', () => {
+    const cases: readonly (readonly [string, number, 'country' | 'area' | 'pin'])[] = [
+      ['3 places in one city', 12.4, 'pin'],
+      ['30 places in one city', 10.8, 'pin'],
+      ['1 place, fitted to the ceiling', HOME_LANDING_ZOOM.max, 'pin'],
+      ['3 places, three cities ~200 km apart', 7.2, 'area'],
+      ['3 places in three countries', 2.1, 'country'],
+      ['a box that only just fits at the boundary', 8.5, 'area'],
+    ];
+    for (const [name, fit, band] of cases) {
+      expect(`${name}: ${bandForZoom(settleZoom(fit))}`).toBe(`${name}: ${band}`);
+    }
+  });
+});
+
+/**
+ * The zero-places camera. A fixed zoom rather than a fit, because there is no library to fit — the
+ * region it sits over is `zeroStateBounds` and its extent is a placeholder, so fitting it would
+ * make the zoom a function of how wide someone drew a rectangle.
+ */
+describe('ZERO_STATE_ZOOM', () => {
+  /** A real neighbourhood: streets, parks and basemap place names, which is
+   *  `current-state.md` §9.3's *"no bare world map: a plausible regional view"*. */
+  it('is a metro-scale view, and one no pin layer would be empty at by accident', () => {
+    expect(bandForZoom(ZERO_STATE_ZOOM)).toBe('pin');
+    expect(settleZoom(ZERO_STATE_ZOOM)).toBe(ZERO_STATE_ZOOM);
+    expect(ZERO_STATE_ZOOM).toBeLessThanOrEqual(HOME_LANDING_ZOOM.max);
   });
 });

@@ -154,6 +154,19 @@ export function fitCamera(
     /** What `FocusBoundsRequest.markerAllowancePx` adds to every side — room for the marker drawn
      *  at a corner of the box, which the fit itself knows nothing about. */
     readonly markerAllowance?: { readonly x: number; readonly y: number };
+    /**
+     * **Come to rest at exactly this zoom, whatever the box fits at** — the degenerate
+     * `minZoom === maxZoom` request shape that near-me (mover 8) and, since `W2-1`, the home
+     * framing both use.
+     *
+     * `frameBounds` asks `cameraForBounds` for the *centre* and then `easeTo`s to it at a zoom it
+     * chose itself, so the padding still decides where the box is centred while the zoom is an
+     * input rather than an output. Modelled the same way: the anchor arithmetic below is unchanged
+     * and only the scale differs. Without this, a settled camera could not be projected at the
+     * zoom it actually rests at, and every screen-position assertion would be taken against the
+     * raw fit — a different picture.
+     */
+    readonly exactZoom?: number;
   } = {},
 ): SettledCamera | null {
   const padding = framePadding(viewport, options.restingSheetFraction, options.markerAllowance);
@@ -168,7 +181,8 @@ export function fitCamera(
   const scaleX = spanX > 0 ? availableWidth / spanX : Number.POSITIVE_INFINITY;
   const scaleY = spanY > 0 ? availableHeight / spanY : Number.POSITIVE_INFINITY;
   const scale = Math.min(scaleX, scaleY);
-  const zoom = Number.isFinite(scale) ? Math.min(maxZoom, Math.log2(scale)) : maxZoom;
+  const fitted = Number.isFinite(scale) ? Math.min(maxZoom, Math.log2(scale)) : maxZoom;
+  const zoom = options.exactZoom ?? fitted;
 
   // The box's midpoint does not land at the viewport centre: MapLibre offsets the camera by half
   // the padding asymmetry, which is what pushes a fit clear of the left panel and of the sheet.
