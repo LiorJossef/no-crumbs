@@ -96,6 +96,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MapPlace } from '@/components/map/map-surface';
 import { MapShell } from '@/components/shell/map-shell';
 import { useMapShell } from '@/components/shell/use-map-shell';
+import type { SheetStop } from '@/components/shell/sheet-geometry';
 import type { MapSummaries } from '@/components/map/types';
 import { COUNTRY_LANDING_ZOOM } from '@/components/map/zoom-bands';
 import type { LatLngBoundsHint, ViewportChangeMeta } from '@/components/map/types';
@@ -139,6 +140,22 @@ import { CollectionsContext, type CollectionsForPlace } from '@/ui/place/collect
  *  silence — the user cannot hear the field they are typing into. */
 const ANNOUNCE_AFTER_MS = 500;
 
+/**
+ * What the canvas calls itself when there is nothing saved yet.
+ *
+ * Sentence case, one clause, no promise: it says what is there and what is not, which is all a
+ * screen-reader user can act on from a surface they cannot reach. `voice-and-vocabulary.md` — no
+ * exclamation mark, no banned word, and the product name is not one of this string's business.
+ *
+ * **Declared here rather than beside `mapAccessibleName`** (`ui/place/active-area.ts`), which is
+ * where it belongs: that module composes every other sentence about the canvas, and a second
+ * declaration site is how two surfaces come to describe the same map differently. It is here
+ * because `active-area.ts` is outside this change's write scope tonight and a drive-by edit to a
+ * file another agent may be holding is worse than a well-marked temporary home. Move it, with its
+ * one call site, when `active-area.ts` is next open.
+ */
+const EMPTY_MAP_ACCESSIBLE_NAME = 'A map. Nothing saved yet.';
+
 export function MapPageClient({
   places,
   collections,
@@ -177,7 +194,31 @@ export function MapPageClient({
    * that existed to close the detail when a filter removed its place: a place that is not in
    * `matches` now simply has no `selected` to render.
    */
-  const shell = useMapShell({ restingStop: 'peek' });
+  /**
+   * **Where the sheet rests while nothing is open, decided once on arrival** — `peek` for a
+   * library with something in it, `half` for one with nothing.
+   *
+   * The zero-places screen is the one this page cannot afford to get wrong: photographed at
+   * 390×844 with an empty library, the peek strip collapses to the single line
+   * `Your map starts here. ⌃`, so the sentence explaining what to do and the `Add a TikTok` button
+   * underneath it are both *inside* the sheet and invisible. The only visible way forward on a
+   * phone was the `＋` in the tab bar. At `half` all three are on screen and in the thumb zone,
+   * which is what `ux-map-is-the-query.md` §5 asked for and what
+   * `ux-overnight-specs.md` Spec 3's layer 3 specifies.
+   *
+   * **A `useState` initialiser rather than a plain `places.length === 0`**, and that is the whole
+   * of the care here. This value has two consumers that must never disagree: `useMapShell`
+   * snapshots it at mount (it seeds `snap` and `previousStop`, and nothing re-seeds them), while
+   * `MapShell` reads it on every render for the camera's bottom budget
+   * (`restingSheetFractionFor`). A live expression would flip to `peek` the moment the first
+   * import lands while the sheet itself was still resting at `half` — the camera would then frame
+   * the places it just saved for a 128 px strip and put them behind a sheet covering 55% of the
+   * viewport, which is camera mover 6's defect arriving by the back door. Snapshotting keeps the
+   * two halves of one fact in agreement for the life of the page, and the sheet does not jump
+   * under a user who has just imported.
+   */
+  const [restingStop] = useState<SheetStop>(() => (places.length === 0 ? 'half' : 'peek'));
+  const shell = useMapShell({ restingStop });
   const { selectedId, setSelectedId } = shell;
   const [showImport, setShowImport] = useState(false);
   /**
@@ -583,9 +624,20 @@ export function MapPageClient({
   // The canvas is unreachable to a screen reader, so the honest thing for it to say is what it is
   // showing and that the list beside it is complete. Same `where` the heading uses, so the two can
   // never describe different places.
+  //
+  // Except over a library with nothing in it, where that sentence is a small lie told twice.
+  // `scopeLabel` answers `your library` for the empty global scope and the count is 0, so the
+  // canvas announced `Map of your saved places in your library. The list below names all 0.` over
+  // a map that has no saved places and a list that names nothing. `EMPTY_MAP_ACCESSIBLE_NAME` is
+  // one clause, states a fact, and stops claiming a library. See
+  // `ux-overnight-specs.md` Spec 3 §3.7 — it is that spec's one new string, offered because the
+  // alternative is a false one.
   const canvasName = useMemo(
-    () => mapAccessibleName(heading, scopeLabel(listScope)),
-    [heading, listScope],
+    () =>
+      places.length === 0
+        ? EMPTY_MAP_ACCESSIBLE_NAME
+        : mapAccessibleName(heading, scopeLabel(listScope)),
+    [heading, listScope, places],
   );
 
   // The open place, resolved against the *current* server data on every render — which is what makes
@@ -941,8 +993,11 @@ export function MapPageClient({
               places={matches}
               initialBounds={initialBounds}
               // The sheet rests on the peek strip here, so the camera concedes 128px rather than a
-              // fraction of the viewport. A collection rests at `half` and concedes accordingly.
-              restingStop="peek"
+              // fraction of the viewport. A collection rests at `half` and concedes accordingly —
+              // and so does this page while the library is empty, because the zero-state sheet
+              // rests at `half` too. The same snapshot the shell was seeded with, deliberately:
+              // see `restingStop` for what a live expression would do to the post-import flight.
+              restingStop={restingStop}
               // Selection only — tapping a pin must not move the camera under the finger that
               // tapped it. `selectPlace` (camera mover 3) is for the list, where the pin may be
               // off-screen.
