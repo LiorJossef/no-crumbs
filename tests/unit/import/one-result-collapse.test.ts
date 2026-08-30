@@ -34,6 +34,8 @@ import { functionSource, importClientSource } from './import-client-source';
  */
 
 const CLIENT_SOURCE = importClientSource();
+/** The same files with comments stripped — for the assertions about what the *code* contains. */
+const CLIENT_CODE = importClientSource({ stripComments: true });
 
 function place(over: Partial<ResolvedPlace> = {}): ResolvedPlace {
   return {
@@ -146,7 +148,12 @@ describe('the review screen wires the collapse to that one band', () => {
     expect(CLIENT_SOURCE).toContain('const collapsed = statusByIndex === null && collapsesToOneResult(views)');
     // No band literal in the client: that mapping belongs to `deriveResolution`, and a second
     // copy of it here is how the screen and the server end up disagreeing about what was saved.
-    expect(CLIENT_SOURCE).not.toContain("'preselect'");
+    //
+    // Read with comments stripped, the way `import-error-copy.test.ts` reads the copy strings and
+    // for the same reason: `candidate-card.tsx`'s header *names* the four literals it may not
+    // contain, which is documentation of this rule rather than a breach of it. A guard that fires
+    // on its own explanation teaches people to delete the explanation.
+    expect(CLIENT_CODE).not.toContain("'preselect'");
   });
 
   it('keeps the save an explicit press', () => {
