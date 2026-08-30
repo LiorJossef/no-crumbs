@@ -11,8 +11,11 @@
 | 2 | [`mvp-plan.md`](mvp-plan.md) | The strategy: the MVP boundary, the four levels L0–L3, what is deliberately absent and where it went. |
 | 3 | [`execution-plan.md`](execution-plan.md) | The ladder and the running status: Level → Feature → Task, with an exit criterion per task. |
 | 4 | [`working-agreement.md`](working-agreement.md) | How this project is built, and which decisions are the owner's. |
+| 5 | [`facelift-plan.md`](facelift-plan.md) | The five-stage visual rebuild, locked 2026-08-30: twelve audited findings, the map capability matrix, the decisions and the landing strategy while CI is down. |
+| 6 | [`voice-and-vocabulary.md`](voice-and-vocabulary.md) | Binding on every user-facing string: the tone rule, where the name may appear, the vocabulary table and the banned words. |
+| 7 | [`no-crumbs-design-system.html`](no-crumbs-design-system.html) | The same material rendered — audit, name, brand, mascot and voice — with live mockups and the running motion set. Open it in a browser. |
 
-`../CLAUDE.md` sits above all four and wins where they disagree.
+`../CLAUDE.md` sits above all of them and wins where they disagree.
 
 ## The rule this directory runs on
 

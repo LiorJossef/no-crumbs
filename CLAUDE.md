@@ -52,7 +52,13 @@ what is verified and how, what is unresolved, and the next highest-impact step. 
 1. `docs/mvp-plan.md` — **the plan of record**: the MVP boundary, the four levels, the exit criteria
 1b. `docs/execution-plan.md` — **the ladder and the running status**: Level → Feature → Task
 1c. `docs/brand-and-product-foundation.md` — positioning, user, tone, visual direction, the eight
-   surfaces, the main flow. The product **name is still open** (owed at L1-F1-T1)
+   surfaces, the main flow. **The product is named No Crumbs** (owner, 2026-08-30); §3 is closed and
+   §3.1 rules the identity mascot-led, overriding §5's "no illustration style" for the mark only
+1d. `docs/voice-and-vocabulary.md` — **binding on every user-facing string**: the one rule (the name is
+   the only joke), the six surfaces the name may appear on, the vocabulary table, the banned words
+1e. `docs/facelift-plan.md` — the **five-stage visual rebuild**, its twelve audited findings, the
+   locked decisions and the map capability matrix. Rendered, with live mockups and the mascot motion
+   set, in `docs/no-crumbs-design-system.html`
 2. `docs/00-project-charter.md` — product definition, V1 boundary, engineering principles, open decisions
 3. `docs/implementation-plan.md` — the decision ledger, the M3 architecture answer, the change log
 4. `docs/02-risks-and-unknowns.md` — unknowns, assumptions, risks

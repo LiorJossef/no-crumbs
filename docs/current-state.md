@@ -17,6 +17,11 @@
 The core loop works end to end and is deployed. A TikTok link becomes a caption, an LLM extraction,
 a resolved place and a saved row; the map shows it; the library finds it again.
 
+**The product is named.** **No Crumbs**, owner decision 2026-08-30 — `brand-and-product-foundation.md`
+§3 is closed, §3.1 records the mascot ruling, [`voice-and-vocabulary.md`](voice-and-vocabulary.md)
+governs every string, and [`facelift-plan.md`](facelift-plan.md) is the plan of record for the visual
+rebuild. None of it is implemented.
+
 **Live** at `https://p-002-zeta.vercel.app`, auto-deployed from `main`.
 `/healthz` → `{"ok":true,"stage":"production","commit":"99324dd"}`.
 
@@ -93,11 +98,21 @@ on its first step. The same absence left `core.hooksPath` unset — see
 
 ## Open, in impact order
 
+0a. **The home screen draws no pins at all.** Found 2026-08-30 by two specialists independently and
+   verified against the code. Pins render at `PIN_BAND_MIN = 8.5` (`place-marker-layer.tsx`); the home
+   camera rests at `HOME_LANDING_ZOOM.max = 8.0` (`zoom-bands.ts`), deliberately half a band inside the
+   area band, because "a landing exactly on `AREA_BAND_MAX` is one rounding away from drawing pins".
+   The consequence is that the first five seconds of a map product contain **zero of the user's
+   places** — a stock basemap and grey area capsules. This supersedes item 7 below, which understates
+   it by a whole band. Owned by [`facelift-plan.md`](facelift-plan.md) stage 2, where it is the first
+   task.
 0. **GitHub Actions cannot start a runner** (above). It is item zero because it blocks *landing*,
    not building: `merge:pr` refuses a PR whose checks are absent or failing, so every finished
    feature queues behind it. Owner action, not an engineering task — check
    <https://github.com/settings/billing>. **Do not "restore CI"**; `ci.yml` is present, active and
-   correct.
+   correct. **Re-measured 2026-08-30 evening: unchanged** — the four jobs still report `steps=0`, a job
+   that never began. `#101` and `#102` merged regardless, which means the `merge:pr` gate was
+   **bypassed rather than passed**; do not assume anything on `main` is verified by CI.
 1. **`L1-F8-T1`** — account menu, delete-my-data, and the zero-places first-run state. Blocked by
    nothing. **Trap:** `collections.owner_id` is `on delete cascade` and ownership transfer was never
    built, so deleting an account destroys shared collections for everyone in them.
@@ -108,14 +123,26 @@ on its first step. The same absence left `core.hooksPath` unset — see
    guard: it must stand up a local Supabase, seed the demo user and pass `E2E_PASSWORD`, or the
    guard will fail it by design.
 4. **Unverified code on `main` and in production**: the `{ kind: 'user' }` arm of `Framing`
-   (`map-surface.mapcn.tsx`) was written as a minimal fix and never exercised in a browser.
-5. **Defect 1, undiagnosed** — production settled on a country view with no pin under a header
-   naming a city. Two theories measured and disproved. Best remaining lead: `framing.current`
-   records a country framing and `refitFramed` replays it on every `ResizeObserver` hit.
+   (`map-surface.mapcn.tsx`) was written as a minimal fix and never exercised in a browser. Confirmed
+   2026-08-30 to be **load-bearing** — it is the only thing that retires a replayed framing, so it sits
+   directly under defect 0a and item 5. Produced in one place, consumed in one place, covered by no
+   test. Fix and cover it together.
+5. **Defect 1 — mechanism confirmed 2026-08-30, and it is broader than a country tap.** `refitFramed`
+   replays `framing.current` on every `ResizeObserver` hit, and `framing.current` is only retired by
+   `noteUserGesture`. Since the 2026-08-30 home reversal, the first-load framing *itself* records
+   `maxZoom: 8.0` — so a plain load followed by any resize (mobile Safari collapsing its URL bar on the
+   first scroll) replays a framing that lands in the area band with no pins, with no country tap
+   involved. Owned by [`facelift-plan.md`](facelift-plan.md) stage 2, and `qa-reliability` verifies the
+   fix independently.
 6. **Migration pushes** — staging `0019`–`0030`, production `0028`–`0030`.
-7. Pin labels are gated at `LABEL_MIN_ZOOM = 14` while home settles at z12–13, so "a readable place
-   name once the map settles" is still not met.
-8. `EMPTY_LIBRARY_BOUNDS` is a guessed region and needs an owner ruling.
+7. ~~Pin labels are gated at `LABEL_MIN_ZOOM = 14` while home settles at z12–13.~~ **Stale** — this
+   predates the 2026-08-30 home reversal. Superseded by 0a: home rests at z8.0, below the pin band, so
+   there is nothing to label. The question is what the overview should be, not where the label gate
+   sits.
+8. `EMPTY_LIBRARY_BOUNDS` is a guessed region and needs an owner ruling. Its docblock is also now
+   factually wrong: it cites `HOME_LANDING_MIN_ZOOM`, a constant that no longer exists, and claims a
+   pin-band rest that cannot happen. Owned by [`facelift-plan.md`](facelift-plan.md) stage 2 as a
+   designed zero-state.
 9. Four `llm_guess` duplicate pairs no distance guard reaches (327 m median drift against a 75 m
    radius). The `llm_guess` → Google upgrader does not exist. **No backfill without reviewing the
    rows.**
