@@ -154,8 +154,16 @@ export function CollectionPlaceDetail({
 
       <PlaceDetail
         place={{
-          name: place.name,
-          category: place.category,
+          // **Both of these follow `mine`, not `place`, and they must move together with
+          //  `detail`.** `CollectionPlace` carries the shared `places` name and a category
+          //  `getCollection` derives with `override: null` — correct for somebody else's place,
+          //  and stale for your own. Mixing the two sources is worse than either: `detail`
+          //  supplies `categoryIsOverridden`, so a screen showing the derived category *and*
+          //  `isOverridden: true` prints a system guess as if it were your choice, and ticks the
+          //  wrong chip — one tap on the chip that already looks selected then overwrites the
+          //  override you actually set.
+          name: mine ? mine.name : place.name,
+          category: mine ? mine.category : place.category,
           lat: place.lat,
           lng: place.lng,
           // Your own TikTok when this is your place; otherwise nothing — the adder's is theirs.
