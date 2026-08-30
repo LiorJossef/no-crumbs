@@ -14,8 +14,9 @@
 >   out of the peek row into the bar's `＋`, which leaves the peek row one line of text and frees the
 >   lower half of the 128 px band for the bar. `PEEK_PX` never moved, so the camera budget, the query
 >   rect and the attribution padding never moved either.
-> - **§4's refusal list still binds.** No Trips, no Profile, no References destination, no fourth slot
->   held open. The bar exists; the destinations behind it are still refused.
+> - **§4's refusal list still binds, less Profile** — the owner reversed that one on 2026-08-30 and
+>   `/profile` exists, holding sign-out. No Trips, no References destination, no further slot held
+>   open: the bar is Map · Collections · Profile and the create action, and it closes there.
 > - **§3 is untouched and was built** — categories are the filter bar, not a destination
 >   (`7f61251`), merged with `Not been yet` into one horizontal-scroll row.
 >

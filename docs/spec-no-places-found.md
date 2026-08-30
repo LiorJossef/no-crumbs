@@ -1,7 +1,12 @@
 # "No places found" — specification for the modal import outcome
 
-> Owner: UX / Interaction. Date: **2026-08-30**. Task: **L2-NOPLACES-1**. Status: **spec for
-> implementation**. `design-system-frontend` owns the code; this document owns the surface.
+> **Status 2026-08-30: UNBUILT. The whole spec is still the target.** The screen is now *reachable*
+> (`import-page-client.tsx:509`) but ships the old `{authorHandle, canonicalUrl, hadCaption}` shape,
+> no A/B/C cases, no `emptyReason`, no embedded search. The build is behind this document; do not
+> edit this document down to match it.
+>
+> Owner: UX / Interaction. Date: **2026-08-30**. Task: **L2-NOPLACES-1**.
+> `design-system-frontend` owns the code; this document owns the surface.
 >
 > Target: `src/app/import/import-page-client.tsx` — the dead `NoPlacesScreen` (~line 1204) is
 > replaced, and `CaptionPreviewScreen`'s zero-candidate branches are removed. One additive change to
@@ -23,24 +28,18 @@
 ## 1. The problem, stated so the design follows from it
 
 Roughly three imports in four end here. `CLAUDE.md` calls it: *"'no places found' is the modal import
-outcome, so its screen is a core surface, not an error path."* Today it is neither designed nor
-reachable:
+outcome, so its screen is a core surface, not an error path."* It is reachable and it is not
+designed:
 
-1. **`NoPlacesScreen` is unreachable.** The `no_places` `Screen` kind is declared and the component
-   is rendered at `import-page-client.tsx:855`, but **nothing constructs it**. `submit()` always
-   lands on `caption_preview` (line 442). Confirmed by reading the file.
-2. **So the live zero case is a half-empty review screen.** `CaptionPreviewScreen` renders a "Review
-   & confirm" kicker over the headline `No places named`, a source row, a collapsed caption
-   disclosure, one muted grey sentence, and a border-topped footer under a large empty gap. It
-   announces itself as a review of nothing.
-3. **The one forward action is a lie about itself.** `Try another link →` calls `onRetry` → `reset()`
+1. **`NoPlacesScreen` was unreachable** when this spec was written — `submit()` always fell through
+   to `caption_preview`. **Wired on 2026-08-30** (`import-page-client.tsx:509`), but in the old
+   `{authorHandle, canonicalUrl, hadCaption}` shape: no A/B/C cases, no caption panel, no offer.
+   Everything below §3 is still owed.
+2. **The one forward action is a lie about itself.** `Try another link →` calls `onRetry` → `reset()`
    with no `clearUrl`, so it returns to the paste screen **with the same dead link still in the
    field** and an `Add →` button that will re-read the same caption and return the same nothing.
    `ux-architecture` §5.3 explicitly requires "an empty field, focused".
-4. **The capability disclosure lives in the dead component.** "Some TikToks only show the place on
-   screen" — the product's main capability disclosure at this hit rate — is in `NoPlacesScreen` and
-   is therefore on nobody's screen.
-5. **The user leaves with less than they arrived with.** They had a video they wanted to keep. They
+3. **The user leaves with less than they arrived with.** They had a video they wanted to keep. They
    leave with nothing kept, nothing added, and no route to the place they can see in the video.
 
 **The fact that constrains the honest answer.** ~81 of the owner's 113 saved TikToks name no venue
@@ -172,7 +171,7 @@ Every state the implementer must build, including the ones inside it:
 | State | Trigger | Notes |
 |---|---|---|
 | `browse` (default) | arrival from the rail with zero candidates | §4, §5. Four copy variants A/B/C, three when C's data is unavailable |
-| `browse` · no manual add | build has no place search | §5.4. **This is the shippable-today variant** |
+| `browse` · no manual add | the place search is not reachable from this flow | §5.4. Fallback only |
 | `search.idle` | field focused or typed into, not submitted | Nothing has been requested |
 | `search.pending` | submit | One in-flight lookup, guarded like `inFlightProbe` — a second submit while one is running is refused, not queued |
 | `search.results` | N ≥ 1 results | List of at most 5. Never auto-selects, even at N = 1 |
@@ -349,12 +348,13 @@ headline). The placeholder and the zero-results pair are §8 / C45 verbatim.
 `Try another TikTok` is `IMPORT_ERROR_ACTION_LABEL.another_tiktok` — read from that map, do not add a
 second literal. `Back to the map` is `IMPORT_ERROR_ACTION_LABEL.back_to_map`.
 
-### 5.4 The shippable-today variant (no place search)
+### 5.4 The two variants — build the with-search one
 
-Manual add (S8 / `L1-F7-T1`) does not exist. The existing rule in `import-error-copy.ts` is right and
-this screen inherits it: **a recovery only ever points somewhere that works.** So the screen renders
-in two variants, gated on a single boolean the build owns (a capability flag, or the presence of the
-search route — `design-system-frontend`'s call):
+**Manual add shipped on 2026-08-30** (`src/components/add/add-sheet.tsx`,
+`src/app/actions/manual-add.ts`), so the with-search variant is the one to build and the offer in
+§5.2 points at something that works. The no-search variant below stays specified as the fallback for
+one case only: the place search not being reachable from inside the import flow. The rule it exists
+to honour is unchanged — **a recovery only ever points somewhere that works.**
 
 | | With place search | Without (today) |
 |---|---|---|

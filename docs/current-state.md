@@ -8,6 +8,9 @@
 > unpushed commits that had landed and a production outage that was over. That history is now
 > [`history-2026-08.md`](history-2026-08.md); it is dated and is not maintained. Read
 > [`README.md`](README.md) for what else in `docs/` can be trusted.
+>
+> **Other documents cite section numbers this file no longer has** (`§0.1b`, `§5.1`, `§9.1`, `§9.3`
+> and so on). Those all resolve in `history-2026-08.md`, which kept the old numbering.
 
 ## Where the product is
 

@@ -1,8 +1,12 @@
 # When we ask — the review screen's question model
 
+> **Status 2026-08-30: UNBUILT and still the target.** No `Confidence.reason`, no Shape A/B, no
+> collapse function in `src/` — the whole question model is owed. **Superseded in part:** §10 is
+> replaced by `spec-no-places-found.md`, and the single-confident-result layout by
+> `ux-import-flatten.md` §3 (shipped). Everything else here stands as written.
+>
 > Owner: UX / Interaction. Date: **2026-08-28**. Task **TRACK3-ASK**, branch `feat/resolution-confidence`.
-> Status: **spec for implementation**. `design-system-frontend` owns the code; this document owns the
-> surface.
+> `design-system-frontend` owns the code; this document owns the surface.
 >
 > Answers the owner's ruling of 2026-08-28 (`docs/handoff-2026-08-28-categories-and-the-picker.md`
 > §3): *"The review screen should only ask the user a question when there is a meaningful decision
@@ -305,11 +309,10 @@ One tap, always visible, never behind a menu. It reveals a panel containing, in 
 
 and it deselects the card.
 
-**It does not say "search for it myself".** S8 manual add is `L1-F7-T1` and does not exist; this
-screen has twice shipped a button naming a destination we do not have (see `NoPlacesScreen`'s and
-`ImportFailureScreen`'s header notes) and it is not doing it a third time. **When S8 lands, this is
-the first place it goes**: `None of these` gains a primary **`Search for it myself →`** above the
-consequence line, and that is the one-tap manual route the role brief asks for.
+**Manual add shipped on 2026-08-30** (`src/components/add/add-sheet.tsx`), so the rule that a
+recovery only ever points somewhere that works is now satisfied here: `None of these` gains a primary
+**`Search for it myself →`** above the consequence line. That is the one-tap manual route the role
+brief asks for, and it is no longer a promise — it is a destination.
 
 ### 7.4 The footer
 
@@ -395,9 +398,9 @@ accent circle stays; it is the mark of the surface, not decoration.
 found none of them, and none has a model pin. Those cards stay on screen with their §9 statements.
 Never hide what we found in order to render a tidier empty state.
 
-**When S8 lands (`L1-F7-T1`)**, `Add a place you know` becomes the promoted primary here and
-`Try another link` drops to secondary — `ux-architecture` §5.3's real hierarchy, which we have been
-unable to honour.
+**Manual add landed on 2026-08-30**, so `Add a place you know` is the promoted primary here and
+`Try another link` drops to secondary — `ux-architecture` §5.3's real hierarchy, finally available.
+`spec-no-places-found.md` owns this screen in full and supersedes this section.
 
 ---
 
@@ -569,8 +572,8 @@ than a wrong pin the user finds later.
 6. Tapping one option in Shape A both picks it and increments the Save count, in one tap.
 7. `Yes, that's it` in Shape B causes `optionIndex` to be present in the confirm request body.
    Inspect the request, then inspect the persisted `places.provider` — it must not be `llm_guess`.
-8. `None of these` deselects the card, states the consequence, and offers the Maps link — with no
-   control naming a manual-add screen that does not exist.
+8. `None of these` deselects the card, states the consequence, offers the Maps link, and offers
+   `Search for it myself →`, which reaches the shipped manual add.
 9. The no-places screen shows the caption behind one tap, on both the standalone and in-review paths,
    and its primary returns to a **focused** URL field.
 10. `prefers-reduced-motion: reduce`: answering a question changes the card with no height animation

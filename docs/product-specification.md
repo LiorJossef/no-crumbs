@@ -6,6 +6,12 @@
 **Scope contract:** [`00-project-charter.md`](00-project-charter.md) §4. This document restates that
 contract in product language; where the two disagree, the charter wins.
 
+> **Addendum, 2026-08-30 — this is a frozen M2 deliverable; the body below is not edited.** Two of
+> its framing claims have expired: the product is **built and live in production** (commit `99324dd`),
+> so "nothing here is VERIFIED yet, pre-implementation by design" describes August 18, not today; and
+> **manual add (capability 13) shipped**, which is what makes O4's recovery route real. Current truth
+> lives in `docs/current-state.md`; standing UX rulings are indexed in `docs/ux-rulings.md`.
+
 ### How to read the labels in this document
 
 | Label | Meaning |

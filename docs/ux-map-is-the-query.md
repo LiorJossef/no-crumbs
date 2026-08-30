@@ -1,9 +1,14 @@
 # The map is the query — viewport-bound saved places
 
-> **Task:** `L1-F5-T2b`. **Status:** specification, ready to build. **Owner of this document:**
-> `ux-interaction`. **Owner of the code:** `design-system-frontend`.
+> **Status 2026-08-30: BUILT, then half-overruled.** **Dead:** §1 (the query rect as list membership)
+> and §4 (the list follows the viewport) — the owner rejected continuous viewport scope;
+> `ux-stable-area-list.md` replaces them. **Live and binding:** §2 header copy, §3 sheet stops, §5
+> empty library (specced, the auto-opening overlay is still unbuilt), §6, §7, §8.
 >
-> **Binding inputs:** `docs/current-state.md` §9.1 step 1 and §9.3 (acceptance criteria),
+> **Task:** `L1-F5-T2b`. **Owner of this document:** `ux-interaction`. **Owner of the code:**
+> `design-system-frontend`.
+>
+> **Binding inputs:** `docs/history-2026-08.md` §9.1 step 1 and §9.3 (acceptance criteria),
 > `docs/ux-architecture.md` §1.3 / §1.4 / §6.6 / §9.3, `docs/brand-and-product-foundation.md` §4–§6.
 >
 > **Surfaces affected:** `src/app/map/map-page-client.tsx`, `src/components/sheet/place-sheet.tsx`,
@@ -380,7 +385,7 @@ evidence that it works.
 
 ## 10. Deviations from binding documents
 
-**One.** `current-state.md` §9.3 names the empty-viewport escape as `Show all places`. This document
+**One.** `history-2026-08.md` §9.3 names the empty-viewport escape as `Show all places`. This document
 labels it **`Show my places`** and defines it as a nearest-cluster fit rather than a whole-library
 fit.
 

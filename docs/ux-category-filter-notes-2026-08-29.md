@@ -1,8 +1,11 @@
 # The category filter bar — build notes
 
+> **Status 2026-08-30: INTEGRATED.** The bar renders on both surfaces (`place-sheet.tsx:540`,
+> `place-desktop-panel.tsx:135`), so §4 items 6 and 7 are discharged. **Still unverified, unchanged:**
+> §4 items 1–5, 8 and 9 — nobody has seen this bar on a device, and item 3 (horizontal scroll versus
+> vaul's drag) remains the highest risk. §2's four open questions are ruled in §5.
+>
 > Owner: Design System / Frontend. Date: **2026-08-29**. Task **LIBRARY-IA-3**.
-> Status: **two files written, nothing integrated.** Not done; the orchestrator wires it and makes
-> the call.
 >
 > Specs implemented: `ux-library-at-scale.md` §1.3 (the bar) and
 > `ux-navigation-structure-2026-08-29.md` §3 (categories are the bar, not a destination; the
@@ -89,10 +92,9 @@ disappear into the fill. Same box in both states, so pressing a chip never shift
 **2.8 The `Not been yet` chip is rebuilt, not composed.** `NotBeenFilterChip` brings its own
 `Showing` kicker and its own `min-h-9`, neither of which survives the move into a scroll row. The bar
 rebuilds it from the same tokens and the **same string** (`NOT_BEEN_FILTER_LABEL`), keeping the state
-model verbatim. Two consequences for review: the `Showing` kicker is gone (the group's accessible
-name carries the job now), and `visit-state.tsx` still exports the old 36 px chip, which will be dead
-code on the mobile sheet once this is wired but is **still used by the desktop panel**
-(`place-desktop-panel.tsx:138`, checked), so it does not become dead code and must not be deleted.
+model verbatim. The `Showing` kicker is gone; the group's accessible name carries the job now.
+**Corrected 2026-08-30:** the desktop panel now renders this bar too, so `visit-state.tsx`'s 36 px
+`NotBeenFilterChip` has no caller left and *is* dead code — a clean delete, not a thing to preserve.
 
 **2.9 Only `Not been yet` grows an `×` when pressed.** The detail tag chips have no `×`; the two
 standalone pills do. In a row of many chips the tag-chip precedent applies, so category chips rely on
@@ -136,17 +138,22 @@ and the pressed states. It is not a rendering.
    inside the scroll box. Untested against a real overflow container.
 5. **Whether the pressed chip can end up scrolled out of view**, which is §2.1's residual cost. No
    measurement of how many chips fit at 390 px.
-6. **Nothing about integration.** The bar is not rendered anywhere, the page holds no
-   `activeCategory`, the pins are not filtered, and no `MapPlace → category` projection exists in
-   `filter-places.ts`. `heading`/`filtering`/`useResultAnnouncement` in `map-page-client.tsx` all take
-   a filter list that does not yet include this one, so **an unwired category filter would produce a
-   heading that does not mention it** — that is integration work, and it is the orchestrator's.
-7. **Whether the desktop panel should get this bar too.** `place-desktop-panel.tsx:138` keeps
-   rendering the 36 px `NotBeenFilterChip`, so after integration the phone and the desktop would
-   offer different filter controls. Neither spec says which desktop gets; mobile-first says the
-   phone lands first, but somebody has to rule on the split rather than let it happen.
+6. **Integration** — *discharged 2026-08-30.* Wired on both surfaces; the heading counts it.
+7. **The phone/desktop split** — *discharged 2026-08-30.* Both render the same bar (§5 rule 4).
 8. **RTL.** A Hebrew library still has English category labels, so the chip text is Latin either way,
    but I have not looked at what the row does under `dir="rtl"`.
 9. **60 fps.** No measurement. `CHIP_PRESSABLE`'s only animation is `transition-colors`, which does
    not trigger layout, and the bar re-renders on every keystroke if the counts are live (§2.5) — at
    the handful of chips this produces that should be free, but "should be" is not a measurement.
+
+## 5. `ux-interaction`'s rulings on §2 — 2026-08-30
+
+1. **No `All` chip. §1.3 rule 5 is withdrawn.** §2.1's argument is correct: nothing pressed *is*
+   everything, and a pressed `All` would invert the one meaning every chip in this product shares.
+   The residual cost is real and the fix is scrolling the pressed chip into view, never a new chip.
+2. **Tie-break stays `PRODUCT_CATEGORY_ORDER` (§2.2), and counts stay live (§2.5).** A count that
+   moves as you type is true; a stable one is a lie about what pressing the chip produces.
+3. **Only `Not been yet` keeps its `×` (§2.9).** The ~18 px shift is accepted. Uniform `×`es would
+   put four dismiss glyphs in a scroll row; removing it would break a shipped control's clear path.
+4. **Phone and desktop render the same bar.** Same facets, same order, same strings. A filter that
+   exists on one breakpoint and not the other is two products.
