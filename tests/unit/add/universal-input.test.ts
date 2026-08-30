@@ -28,6 +28,28 @@ describe('universalInput', () => {
     expect(universalInput(pasted)).toEqual({ kind: 'tiktok', url: SHORT });
   });
 
+  it('classifies the share-sheet / data-export link form on both of its hosts', () => {
+    // VERIFIED 2026-08-27, `docs/evidence/capture/raw/01-export-link-form.txt`. Both of these used
+    // to fall through to `kind: 'text'`, so the Add sheet offered to name a place after a URL
+    // instead of importing a real TikTok.
+    const share = 'https://www.tiktok.com/share/video/7245648559981350186/';
+    expect(universalInput(share)).toEqual({ kind: 'tiktok', url: share });
+
+    const exported = 'https://www.tiktokv.com/share/video/7245648559981350186/';
+    expect(universalInput(exported)).toEqual({ kind: 'tiktok', url: exported });
+
+    const withQuery = `${share}?_r=1&_t=ZS-abc123`;
+    expect(universalInput(withQuery)).toEqual({ kind: 'tiktok', url: withQuery });
+  });
+
+  it('digs a share-sheet link out of the caption blob it arrives wrapped in', () => {
+    const exported = 'https://www.tiktokv.com/share/video/7245648559981350186/';
+    expect(universalInput(`6 must try spots in Tokyo ${exported} #japantravel`)).toEqual({
+      kind: 'tiktok',
+      url: exported,
+    });
+  });
+
   it('is text, not a fourth kind, for hosts the owner ruled out', () => {
     // 2026-08-29 ruling: no Instagram, no YouTube. A link we do not read is not a recognised
     // failure case, it is just text — so the offer against it is manual add, and this assertion is

@@ -77,10 +77,11 @@ import {
 import { AddToCollection } from '@/components/collections/add-to-collection';
 
 import { formatCaptionQuote, quoteAddsSomething } from '@/ui/place/caption-quote';
-import type { AreaHeading } from '@/ui/place/active-area';
-import type { ElsewhereEntry } from '@/ui/place/elsewhere-groups';
+import { isolate, type AreaHeading } from '@/ui/place/active-area';
+import { elsewhereAreaCount, type ElsewhereEntry } from '@/ui/place/elsewhere-groups';
 import { ElsewhereSection } from './elsewhere-section';
 import type { MapPlace } from '@/components/map/types';
+import { useNearMeDistance } from '@/components/map/near-me-context';
 
 /** Fixed peek height. `env(safe-area-inset-bottom)` is added via CSS `calc()` inside the snap
  *  point's own element (vaul only takes a bare px number for the snap point itself), so the sheet's
@@ -449,6 +450,18 @@ function PlaceList({
   // An empty library is a different screen, not a different count.
   const headingText = libraryIsEmpty ? EMPTY_LIBRARY_HEADING : heading.text;
 
+  /**
+   * The areas the peek row promises. Read off `elsewhere` rather than off the library, so it can
+   * never disagree with the section the tap actually lands on — under a filter both shrink.
+   *
+   * **Zero unless the scope is a single area.** `scopeAreaId` is `null` for a country or a global
+   * scope (`list-scope.ts`), so `elsewhereGroups` subtracts nothing and `elsewhere` then holds
+   * every area in the library — including the ones the list is already showing. The word that
+   * breaks is *more*: at the country band this read `32 in 2 countries · +2 more areas` over a
+   * list already holding all 32.
+   */
+  const moreAreas = activeAreaId === null ? 0 : elsewhereAreaCount(elsewhere);
+
   return (
     <div
       style={{ height: STOP_TO_CONTENT_HEIGHT[stop] }}
@@ -476,7 +489,11 @@ function PlaceList({
           <button
             type="button"
             onClick={onExpand}
-            aria-label="Show your places"
+            aria-label={
+              moreAreas > 0
+                ? `Show your places, and ${moreAreas} more ${moreAreas === 1 ? 'area' : 'areas'}`
+                : 'Show your places'
+            }
             className="flex min-w-0 flex-1 items-center gap-1 rounded-lg px-1 text-left text-sm font-medium text-muted-foreground"
           >
             <span className="min-w-0 truncate">
@@ -499,6 +516,15 @@ function PlaceList({
               </>
             )}
             </span>
+            {/* The line used to name one city while the map drew pins in three, which reads as the
+                list having lost places rather than as it being scoped. This says the others are
+                there and that the same tap reaches them. `shrink-0` so the city name is what gives
+                way when the row runs out of room — the promise must not be the half that truncates. */}
+            {moreAreas > 0 ? (
+              <span className="shrink-0 whitespace-nowrap">
+                · +{moreAreas} more {moreAreas === 1 ? 'area' : 'areas'}
+              </span>
+            ) : null}
             {/* The one thing the row was missing: at rest the middle slot read as a caption, so
                 nothing on screen said the list was there to be pulled up. The underline it used to
                 carry only appeared on hover, which a phone does not have. */}
@@ -662,6 +688,25 @@ export function PlaceRow({
   const certainty = locationCertainty(place.detail?.provenance?.sourceDataset);
   const approximateLabel = certainty?.isApproximate === true ? certainty.label : null;
   const rowName = rowAccessibleName(place.name, tags, place.visited);
+  /**
+   * How far this place is from **the user** (`L1-F11-T2`), or `null`, which is the normal case.
+   *
+   * Read from a context rather than taken as a prop so the three hosts of this row do not each have
+   * to learn about geolocation. `null` covers every state but a held, accurate-enough fix — no
+   * provider, never asked, refused, revoked, timed out, or a fix too rough to subtract from — so
+   * there is no arrangement of props that renders a distance measured from anything but a real
+   * position. The map's centre is not, and can never become, one of the inputs here.
+   */
+  const distanceKm = useNearMeDistance(place.id);
+  const distanceLabel = distanceKm === null ? null : nearbyDistanceLabel(distanceKm);
+  // `aria-label` replaces the button's content in the accessibility tree, so anything rendered
+  // inside it that is not in the name is announced nowhere at all. Both annotations qualify the pin
+  // rather than the place, so both come last; the distance first, because it is the one the user
+  // asked for by pressing a control.
+  const annotations = [
+    ...(distanceLabel === null ? [] : [`${distanceLabel} away`]),
+    ...(approximateLabel === null ? [] : [APPROXIMATE_ROW_ANNOTATION]),
+  ];
 
   const body = (
     <>
@@ -723,6 +768,21 @@ export function PlaceRow({
           <p className="line-clamp-1 text-sm font-medium text-muted-foreground">{place.note}</p>
         )}
       </div>
+      {/* Trailing, aligned with the name, and only ever present while a real fix is held. `ms-auto`
+          rather than `ml-auto` so it lands on the correct edge of an RTL list. `aria-hidden`
+          because the row's own `aria-label` already carries it — announcing it twice is what the
+          name's other annotations avoid. */}
+      {distanceLabel !== null && (
+        <span
+          // Hidden from the tree only where the row's own `aria-label` already carries it, which is
+          // the selectable row. A plain `<li>` has no label to be announced instead of, so hiding
+          // the distance there would delete it rather than de-duplicate it.
+          aria-hidden={onSelect !== undefined}
+          className="ms-auto shrink-0 pt-1 text-xs font-medium tabular-nums text-muted-foreground"
+        >
+          {distanceLabel}
+        </span>
+      )}
     </>
   );
 
@@ -752,7 +812,7 @@ export function PlaceRow({
         // decisive of the row's facts for "is this the row I want open". `rowAccessibleName` still
         // builds the name; this appends the one thing it has no argument for.
         aria-label={
-          approximateLabel === null ? rowName : `${rowName}, ${APPROXIMATE_ROW_ANNOTATION}`
+          annotations.length === 0 ? rowName : `${isolate(rowName)}, ${annotations.join(', ')}`
         }
         // `data-vaul-no-drag`: inside the mobile sheet, a press that begins on this row would
         // otherwise be read as the start of a sheet drag, and the tap would be swallowed.

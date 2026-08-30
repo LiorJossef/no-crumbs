@@ -37,3 +37,35 @@ https://www.tiktok.com/share/video/7245648559981350186/
 https://www.tiktok.com/@/video/7245648559981350186/
   => {"ok":true,"value":{"kind":"video","externalId":"7245648559981350186"}}
      ^ correct — this is the form the redirect chain in A eventually lands on.
+
+## E. FIXED 2026-08-30 — before/after through the same canonicaliser
+# Run offline, no network: a throwaway vitest probe imported `git show HEAD:` (the pre-fix file)
+# and the working-tree file side by side and printed both verdicts for each input. Probe deleted
+# after the run; this output is the artefact. The fix is `www.tiktokv.com` added to TIKTOK_HOSTS
+# plus a `/share/(video|photo)/<id>` branch in classifyPath — the id is read from the path, so
+# neither form costs an extra network call.
+
+https://www.tiktokv.com/share/video/7245648559981350186/
+  BEFORE: UNSUPPORTED_HOST
+  AFTER : ok {"kind":"video","externalId":"7245648559981350186"}
+https://www.tiktok.com/share/video/7245648559981350186/
+  BEFORE: UNSUPPORTED_URL
+  AFTER : ok {"kind":"video","externalId":"7245648559981350186"}
+https://www.tiktok.com/share/video/7245648559981350186/?_r=1&_t=ZS-abc
+  BEFORE: UNSUPPORTED_URL
+  AFTER : ok {"kind":"video","externalId":"7245648559981350186"}
+https://www.tiktok.com/share/photo/7245648559981350186
+  BEFORE: UNSUPPORTED_URL
+  AFTER : ok {"kind":"video","externalId":"7245648559981350186"}
+https://www.tiktok.com/@evesela
+  BEFORE: UNSUPPORTED_URL
+  AFTER : UNSUPPORTED_URL
+https://www.instagram.com/reel/Cabc123/
+  BEFORE: UNSUPPORTED_HOST
+  AFTER : UNSUPPORTED_HOST
+https://www.tiktok.com/share/user/12345
+  BEFORE: UNSUPPORTED_URL
+  AFTER : UNSUPPORTED_URL
+https://www.tiktokv.com.evil.io/share/video/7245648559981350186/
+  BEFORE: UNSUPPORTED_HOST
+  AFTER : UNSUPPORTED_HOST

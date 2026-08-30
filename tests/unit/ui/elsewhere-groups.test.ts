@@ -249,10 +249,10 @@ describe('countryGroupAccessibleName', () => {
     if (uk?.kind !== 'country') throw new Error('expected a country group');
 
     expect(countryGroupAccessibleName(uk, false, false)).toBe(
-      'United Kingdom, 5 places in 2 areas, expand',
+      '\u2068United Kingdom\u2069, 5 places in 2 areas, expand',
     );
     expect(countryGroupAccessibleName(uk, true, true)).toBe(
-      'United Kingdom, 5 matches in 2 areas, collapse',
+      '\u2068United Kingdom\u2069, 5 matches in 2 areas, collapse',
     );
   });
 });

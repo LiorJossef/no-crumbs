@@ -20,6 +20,7 @@
  * about a category, and it is not checkable.
  */
 
+import { isolate } from '@/ui/place/active-area';
 import { useEffect, useRef, useState, useSyncExternalStore, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Copy, MoreHorizontal } from 'lucide-react';
@@ -581,7 +582,7 @@ function MemberRow({
             variant="ghost"
             size="icon-lg"
             aria-expanded={open}
-            aria-label={`Change what ${name} can do`}
+            aria-label={`Change what ${isolate(name)} can do`}
             onClick={() => {
               setOpen((wasOpen) => !wasOpen);
               setConfirmingRemoval(false);

@@ -116,7 +116,7 @@ describe('PlaceRow — the mark reaches a screen reader', () => {
     // `aria-label` replaces a button's content, so the glyph is announced nowhere unless it is in
     // the name. Last because it qualifies the pin rather than the place.
     const markup = render(placeWith('llm-guess'));
-    expect(markup).toMatch(/aria-label="Open Sycamore, approximate location"/);
+    expect(markup).toMatch(/aria-label="\u2068Open Sycamore\u2069, approximate location"/);
   });
 
   it('leaves the name alone when the pin was matched', () => {

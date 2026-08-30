@@ -29,8 +29,10 @@ export const metadata = { title: 'Profile' };
  * **What it refuses.** No persona, no completion ring, no streak, no badge — §4 refusals 5, 6 and 8
  * of that same document, and `mvp-plan.md` §8. Every figure here is a count of the user's own rows.
  * `Been` sits beside `Not been yet` rather than as `1 of 32`, because a fraction of a library that
- * is not meant to be completed frames it as a failure state. Creator handles are text and must not
- * become links: that step is creator discovery, which Charter §1 excludes by name.
+ * is not meant to be completed frames it as a failure state.
+ *
+ * The `Who you save from` section was removed on 2026-08-30 (owner). `creatorBreakdown` still
+ * exists and is still tested; nothing renders it.
  *
  * **Still not a settings screen.** There are no settings to keep — no theme, no units, no
  * notifications, no export yet — so this must not grow into the front door of a settings section
@@ -61,7 +63,7 @@ export default async function ProfilePage() {
     email: user.email ?? null,
   });
   const joined = joinedLabel(profile?.created_at ? new Date(profile.created_at) : null);
-  const { stats, countries, categories, creators } = deriveProfileBreakdown(places);
+  const { stats, countries, categories } = deriveProfileBreakdown(places);
 
   return (
     <main className="min-h-dvh w-full bg-background">
@@ -193,17 +195,6 @@ export default async function ProfilePage() {
                   </Row>
                 );
               })}
-            </ul>
-          </section>
-        ) : null}
-
-        {creators.length > 0 ? (
-          <section aria-labelledby="creators" className="mt-6">
-            <SectionHeading id="creators">Who you save from</SectionHeading>
-            <ul className="mt-1">
-              {creators.map((creator) => (
-                <Row key={creator.label} label={creator.label} count={creator.count} />
-              ))}
             </ul>
           </section>
         ) : null}

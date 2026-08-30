@@ -31,6 +31,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { isolate } from '@/ui/place/active-area';
 import {
   ArrowUpRight,
   Check,
@@ -69,6 +70,7 @@ import {
 } from '@/domain/import/candidate-presentation';
 import type { StoredResolution } from '@/domain/import/resolution-record';
 import {
+  collapsesToOneResult,
   effectivePick,
   pickRequiredNotice,
   resolutionChip,
@@ -253,17 +255,41 @@ export interface ImportPageClientProps {
    *  map owner (`map-page-client.tsx`) uses it to frame the new pins and confirm the save. */
   readonly onSaved?: (detail: SaveOutcomeDetail) => void;
   /**
-   * A link the user already typed somewhere else, to open with.
+   * A link the user has **already submitted** somewhere else. Passing it runs the import.
    *
    * The `＋` sheet has its own field, and reaching this overlay from it used to drop what was in
    * it — the user pasted a TikTok link, pressed the button named after it, and landed on an empty
-   * paste screen being asked for the same link again. Seeded as `touched` too, so a seeded link
-   * that turns out to be invalid says so immediately rather than waiting for a first edit.
+   * paste screen being asked for the same link again. Then it carried the link but still waited on
+   * a second button, also called `Add`, for the same intent: two taps named the same thing, and
+   * the overlay's own comment blamed a prop that by then existed.
+   *
+   * **The contract, and it is load-bearing: only pass this for a link the user pressed a submit
+   * button on.** It costs one model call against a hard daily budget the moment this mounts, so it
+   * is not "prefill the field" — `AddSheetHost.onSubmitTikTok` is the only caller and it fires
+   * only on that press. Seeded as `touched` too, so a seeded link that turns out to be invalid
+   * says so immediately rather than waiting for a first edit.
    */
   readonly initialUrl?: string;
+  /**
+   * Opens the host's manual-add surface (the `＋` sheet, `components/add/add-sheet-host.tsx`).
+   *
+   * `NoPlacesScreen` is the **modal** outcome of an import at LEVEL B's hit rate, and without this
+   * it is a dead end: the user watched a video, knows the place, and the screen can only offer
+   * them another link. Pass it wherever that sheet exists — the host closes this overlay and opens
+   * it. Omitting it is not a degradation to hide but the honest state of a surface that has no
+   * manual add to reach (the standalone `/import` route), and the screen renders accordingly
+   * rather than showing a button that goes nowhere. That is the defect
+   * `tests/unit/import/import-error-copy.test.ts` guards: `Add manually →`, wired to `reset()`.
+   */
+  readonly onAddManually?: () => void;
 }
 
-export function ImportPageClient({ onClose, onSaved, initialUrl }: ImportPageClientProps = {}) {
+export function ImportPageClient({
+  onClose,
+  onSaved,
+  initialUrl,
+  onAddManually,
+}: ImportPageClientProps = {}) {
   const router = useRouter();
   const [screen, setScreen] = useState<Screen>({ kind: 'paste' });
   const [url, setUrl] = useState(initialUrl ?? '');
@@ -523,6 +549,28 @@ export function ImportPageClient({ onClose, onSaved, initialUrl }: ImportPageCli
     setTouched(true);
     void submit(seedUrl);
   }
+
+  /**
+   * A link that arrived already submitted runs itself, so `Add this TikTok` is the only `Add`.
+   *
+   * `inFlightProbe` already refuses a *concurrent* second call, but it is cleared when the first
+   * finishes — it cannot stop a re-mount from spending a second model call minutes later. This ref
+   * is the once-ever guard, and it is deliberately not in the dependency array: `initialUrl` is the
+   * link the user pressed a button on, and re-running for a new value would be a submit they never
+   * made.
+   */
+  const seedSubmitted = useRef(false);
+  useEffect(() => {
+    if (seedSubmitted.current) return;
+    const seed = initialUrl?.trim() ?? '';
+    if (seed === '') return;
+    seedSubmitted.current = true;
+    // Deferred a microtask rather than called straight: `submit` sets `touched`/`offline`
+    // synchronously before its first await, and setting state inside an effect body cascades a
+    // render. Nothing observable moves — the request is issued in the same frame either way.
+    queueMicrotask(() => void submit(seed));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialUrl]);
 
   /**
    * The real save path (`POST /api/imports/confirm`, L0-F4-T3) wired onto `ResultsScreen`'s
@@ -909,6 +957,7 @@ export function ImportPageClient({ onClose, onSaved, initialUrl }: ImportPageCli
             url={screen.canonicalUrl}
             hadCaption={screen.hadCaption}
             onRetry={() => reset({ clearUrl: true })}
+            onAddManually={onAddManually ?? null}
           />
         )}
 
@@ -1266,21 +1315,20 @@ function RailStep({
 /* ------------------------------------------------------------------------------------------- *
  * "No places found" — the modal outcome (~73% at LEVEL B), a success screen, never an error.
  *
- * `ux-architecture` §5.3 gives this screen three actions in order: `Try another TikTok` (primary,
- * "forward, not retry"), `Add a place you know` → S8 manual add, and `Open the TikTok` as a
- * tertiary text link. **S8 does not exist — it is `L1-F7-T1`** — so the manual-add action is not
- * rendered here, for the same reason `ui/import/import-error-copy.ts` withholds it from every
- * failure screen: a recovery must point somewhere that works.
+ * `ux-architecture` §5.3 gives this screen three actions in order: `Add a place you know` → manual
+ * add, `Try another TikTok`, and `Open the TikTok` as a tertiary text link.
  *
- * This screen used to promise it anyway. Its primary read `Add manually →` under "That happens a
- * lot — add it yourself in a few seconds", and it called `reset()` — an empty paste field. On the
- * *modal* import outcome, the biggest button in the product named a destination we do not have.
- * `ImportFailureScreen` had the identical defect and lost it (see that component's header note);
- * this is the last place it lived.
+ * This screen once promised the first one while it did not exist. Its primary read `Add manually →`
+ * under "That happens a lot — add it yourself in a few seconds", and it called `reset()` — an empty
+ * paste field. On the *modal* import outcome, the biggest button in the product named a destination
+ * we did not have, so it was withheld, for the same reason `ui/import/import-error-copy.ts`
+ * withholds it from every failure screen: a recovery must point somewhere that works.
  *
- * **When S8 lands (`L1-F7-T1`), restore it here**: `Add a place you know` becomes the promoted
- * primary (§5.3's real hierarchy), `Try another TikTok` drops back to the 44px secondary it is
- * below, and the body sentence can offer the manual route again — by then truthfully.
+ * Manual add shipped on 2026-08-30 (`components/add/add-sheet.tsx`, behind the `＋`), so the
+ * recovery is back — and back under the same rule that removed it. It renders **only when the host
+ * passed `onAddManually`**, i.e. only where there is a manual-add surface to open. The standalone
+ * `/import` route has none and therefore still shows `Try another TikTok` as its primary, rather
+ * than a button that would name a place the route cannot reach.
  * ------------------------------------------------------------------------------------------- */
 
 function NoPlacesScreen({
@@ -1288,11 +1336,14 @@ function NoPlacesScreen({
   url,
   hadCaption,
   onRetry,
+  onAddManually,
 }: {
   authorHandle: string | null;
   url: string;
   hadCaption: boolean;
   onRetry: () => void;
+  /** Opens the manual-add surface. Absent wherever there is none — see this screen's header. */
+  onAddManually: (() => void) | null;
 }) {
   return (
     <div className="flex flex-1 flex-col">
@@ -1329,14 +1380,29 @@ function NoPlacesScreen({
       </div>
 
       <div className="flex flex-col gap-2 pt-8">
-        {/* Promoted from the 44px outline it used to be. It is the only action on this screen that
-            does what its label says, so it is the primary — and §5.3 wants the primary forward
-            rather than a retry, which is exactly what it is. The label comes from the shared map
-            so it cannot drift from the identical action on the failure screens. */}
+        {/* §5.3's hierarchy, and it only exists where the destination does. The user has a place in
+            mind — they watched the video — and this is the one action that ends with it on their
+            map; trying another link starts the whole wait again. Without a manual-add surface to
+            open, `Try another TikTok` keeps the primary it has held since the dead `Add manually →`
+            was removed. The retry label comes from the shared map so it cannot drift from the
+            identical action on the failure screens. */}
+        {onAddManually && (
+          <Button
+            type="button"
+            onClick={onAddManually}
+            className="h-12 w-full gap-1.5 rounded-lg text-base font-bold"
+          >
+            Add a place you know
+          </Button>
+        )}
         <Button
           type="button"
+          variant={onAddManually ? 'outline' : 'default'}
           onClick={onRetry}
-          className="h-12 w-full gap-1.5 rounded-lg text-base font-bold"
+          className={cn(
+            'w-full gap-1.5 rounded-lg font-bold',
+            onAddManually ? 'h-11 text-sm' : 'h-12 text-base',
+          )}
         >
           {IMPORT_ERROR_ACTION_LABEL.another_tiktok}
         </Button>
@@ -1595,6 +1661,26 @@ function CaptionPreviewScreen({
   const allSelected = selectedCount === saveableIndices.length && saveableIndices.length > 0;
   const frozen = statusByIndex !== null || saving;
 
+  /**
+   * One candidate, and the resolver settled it — so the screen states the result instead of asking
+   * a question with one legal answer (`ux-import-flatten.md` §3). The band is `collapsesToOneResult`'s
+   * and therefore `deriveResolution`'s; this screen adds no threshold of its own.
+   *
+   * Suppressed once a save has reported per-card outcomes: that state's whole job is a status chip
+   * on a card, and the collapsed layout has no card.
+   *
+   * What it does not touch is the decision. Save is still one explicit press and still says
+   * `Nothing is saved until you tap Save.` — the collapse removes the sub-decisions (Charter §3
+   * invariant 2).
+   */
+  const collapsed = statusByIndex === null && collapsesToOneResult(views);
+  /** The name the save will write, exactly as the card derives it — so the H1 and the request can
+   *  never name different places, and picking another row re-titles the screen. */
+  const soleTitle =
+    collapsed && probe.candidates[0]
+      ? (savedPlaceName(views[0]!, picks.get(0) ?? null) ?? candidateTitle(probe.candidates[0]))
+      : null;
+
   function toggle(index: number) {
     setSelected((current) => {
       const next = new Set(current);
@@ -1607,16 +1693,38 @@ function CaptionPreviewScreen({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex shrink-0 flex-col gap-1 pb-4">
-        <ScreenKicker icon={<SearchCheck className="size-3.5" aria-hidden />} label="Review & confirm" />
-        <h1 id={headingId} className="font-heading text-2xl font-extrabold tracking-tight text-foreground">
-          {probe.caption === null
-            ? 'No caption to search'
-            : n === 0
-              ? 'No places named'
-              : n === 1
-                ? '1 place found'
-                : `${n} places found`}
+        <ScreenKicker
+          icon={<SearchCheck className="size-3.5" aria-hidden />}
+          // The kicker carries the count and the H1 carries the name: at N = 1 the count is not
+          // information — the screen shows one place — and "Review & confirm" names a process
+          // rather than the result (`ux-import-flatten.md` §5).
+          label={collapsed ? '1 place found' : 'Review & confirm'}
+        />
+        <h1
+          id={headingId}
+          className={cn(
+            'font-heading text-2xl font-extrabold tracking-tight text-foreground',
+            // A name, unlike a count, can be long and can be Hebrew: `<bdi>` below so the
+            // surrounding punctuation cannot flip it, and two clamped lines rather than an
+            // ellipsis that would eat the start of an RTL name.
+            collapsed && 'line-clamp-2',
+          )}
+        >
+          {collapsed
+            ? <bdi>{soleTitle}</bdi>
+            : probe.caption === null
+              ? 'No caption to search'
+              : n === 0
+                ? 'No places named'
+                : n === 1
+                  ? '1 place found'
+                  : `${n} places found`}
         </h1>
+        {collapsed && probe.candidates[0] && (
+          <p className="line-clamp-2 text-sm font-medium text-muted-foreground">
+            <bdi>{candidateMeta(probe.candidates[0])}</bdi>
+          </p>
+        )}
       </div>
 
       {/* The source row. The thumbnail slot never collapses — its presence is the provenance
@@ -1732,6 +1840,7 @@ function CaptionPreviewScreen({
                   selected={selected.has(i)}
                   frozen={frozen}
                   status={statusByIndex?.get(i) ?? null}
+                  collapsed={collapsed}
                   onToggle={() => toggle(i)}
                   onPick={(optionIndex) => pick(i, optionIndex)}
                 />
@@ -1854,6 +1963,7 @@ function ExtractedCandidateRow({
   selected,
   frozen,
   status,
+  collapsed,
   onToggle,
   onPick,
 }: {
@@ -1867,6 +1977,10 @@ function ExtractedCandidateRow({
   selected: boolean;
   frozen: boolean;
   status: ItemStatus | null;
+  /** The single-confident-result layout (`ux-import-flatten.md` §3): the screen's H1 already
+   *  carries this candidate's name and meta, so the card drops its own chrome, its tickbox and
+   *  that name. Only ever true for a `matched` view — see `collapsesToOneResult`. */
+  collapsed: boolean;
   onToggle: () => void;
   onPick: (optionIndex: number) => void;
 }) {
@@ -1947,6 +2061,155 @@ function ExtractedCandidateRow({
     </div>
   );
 
+  /* The shortlist, **closed by default** (owner ruling, 2026-08-29).
+     Rendered outside the toggle button on purpose — a radio inside a checkbox is invalid
+     markup and needs propagation tricks to behave. Only `matched` and `ambiguous` have
+     options; every other state renders exactly what it rendered before this existed.
+
+     Open on arrival in exactly one case: nothing is chosen yet. That is not an exception to
+     the ruling but the reason it is safe — a card the resolver could not settle has no
+     default to present as the clean single result, and hiding its options would leave a
+     card that cannot be saved and does not say why. Everywhere else the resolver has an
+     answer, and asking the user to audit it before they have doubted it is the busywork
+     this closes. */
+  const shortlist = showsShortlist && status === null && (
+    // The hairline and the inset belong to the card. Collapsed, there is no card to sit inside,
+    // so this block carries the screen's own margin instead.
+    <div
+      className={cn(
+        'flex flex-col gap-1.5',
+        !collapsed && 'border-t border-border/60 px-4 pt-2.5 pb-1',
+      )}
+    >
+        {!optionsOpen ? (
+          <button
+            type="button"
+            disabled={frozen}
+            aria-expanded={false}
+            aria-controls={optionsId}
+            onClick={() => setOptionsOpen(true)}
+            className="flex h-11 w-fit items-center gap-1 text-xs font-bold text-[var(--mint-700)] outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
+          >
+            Not this place?
+            <ChevronDown className="size-3.5" aria-hidden />
+          </button>
+        ) : (
+        <>
+        <div className="flex flex-col gap-0.5">
+          <p
+            id={`${optionsId}-label`}
+            className={cn(
+              'text-[11px] font-bold tracking-[0.08em] uppercase',
+              view.kind === 'matched' ? 'text-[var(--mint-700)]' : 'text-foreground',
+            )}
+          >
+            {resolutionHeadline(view)}
+          </p>
+          <p className="text-xs font-medium text-muted-foreground">{resolutionExplanation(view)}</p>
+        </div>
+        <ul id={optionsId} role="radiogroup" aria-labelledby={`${optionsId}-label`} className="flex flex-col gap-1">
+          {options.map((option) => {
+            const isChosen = chosen === option.index;
+            return (
+              <li key={option.index}>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={isChosen}
+                  disabled={frozen}
+                  onClick={() => onPick(option.index)}
+                  className={cn(
+                    // min-h-11 rather than a fixed height: the address wraps to two lines on a
+                    // 390px viewport far more often than it fits on one, and a clipped address
+                    // is the one thing this control exists to show.
+                    'flex min-h-11 w-full items-start gap-2.5 rounded-lg border px-3 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default',
+                    isChosen ? 'border-[var(--mint-700)] bg-[var(--mint-100)]/40' : 'border-border/60 bg-background',
+                  )}
+                >
+                  <span
+                    aria-hidden
+                    className={cn(
+                      'mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border-2',
+                      isChosen ? 'border-[var(--mint-700)]' : 'border-border',
+                    )}
+                  >
+                    {isChosen && <span className="size-2 rounded-full bg-[var(--mint-700)]" />}
+                  </span>
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="line-clamp-1 text-[13px] font-bold text-foreground">
+                      <bdi>{option.name}</bdi>
+                    </span>
+                    {/* The address, not the name, is what tells two branches of a chain apart —
+                        so it wraps rather than truncating. */}
+                    <span className="text-xs font-medium break-words text-muted-foreground">
+                      {option.detail}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        {needsPick && (
+          <p className="text-xs font-semibold text-foreground">{needsPick}</p>
+        )}
+        </>
+        )}
+    </div>
+  );
+
+  const pinRow = (
+    <div
+      className={cn(
+        'flex items-center justify-between gap-2',
+        !collapsed && 'border-t border-border/60 px-4 py-1.5',
+      )}
+    >
+      {/* Not `truncate`. This line's only job is to say where the pin came from, so clipping it
+          removes the whole message — measured at 412 px, "Approximate pin from the caption"
+          rendered as "Approximate pin from the ca…". Wrapping costs a few pixels of height and
+          never costs meaning. */}
+      <span className="flex min-w-0 items-center gap-1.5 text-xs font-medium leading-tight text-muted-foreground">
+        <Crosshair className="size-3.5 shrink-0" aria-hidden />
+        {resolverPinLine(view, pick, isSaveable(candidate)) ?? locationLine(candidate)}
+      </span>
+      <a
+        href={googleMapsSearchUrl(candidate, chosenOption)}
+        target="_blank"
+        rel="noreferrer"
+        aria-label={
+          saveable
+            ? `Check “${isolate(title)}” on Google Maps`
+            : `Find “${isolate(title)}” on Google Maps`
+        }
+        className="flex h-11 shrink-0 items-center gap-1 text-xs font-bold text-[var(--mint-700)]"
+      >
+        {saveable ? 'Check on Google Maps' : 'Find on Google Maps'}
+        <ArrowUpRight className="size-3.5" aria-hidden />
+      </a>
+    </div>
+  );
+
+  // The single-confident-result layout (`ux-import-flatten.md` §3). Gone: the tickbox (one legal
+  // value is not a control), the resolver chip, the card's border and surface (one card is not a
+  // list), and the name — the screen's own H1 carries it now. Kept: where the pin came from, the
+  // Google Maps check, and the shortlist behind `Not this place?`.
+  //
+  // The pin line is read from `resolverPinLine` exactly as the full card reads it, so this layout
+  // states its provenance rather than assuming it — and `collapsesToOneResult` only ever returns
+  // true for a `matched` view, whose pin is a provider row and never the caption's.
+  if (collapsed) {
+    return (
+      <li className="flex shrink-0 flex-col gap-1.5">
+        {isHashtagOnly(caption, candidate) && (
+          <p className="text-xs font-medium text-muted-foreground">Only mentioned in a hashtag.</p>
+        )}
+        {pinRow}
+        {shortlist}
+      </li>
+    );
+  }
+
   return (
     <li
       className={cn(
@@ -1999,120 +2262,9 @@ function ExtractedCandidateRow({
         </div>
       )}
 
-      {/* The shortlist, **closed by default** (owner ruling, 2026-08-29).
-          Rendered outside the toggle button on purpose — a radio inside a checkbox is invalid
-          markup and needs propagation tricks to behave. Only `matched` and `ambiguous` have
-          options; every other state renders exactly what it rendered before this existed.
+      {shortlist}
 
-          Open on arrival in exactly one case: nothing is chosen yet. That is not an exception to
-          the ruling but the reason it is safe — a card the resolver could not settle has no
-          default to present as the clean single result, and hiding its options would leave a
-          card that cannot be saved and does not say why. Everywhere else the resolver has an
-          answer, and asking the user to audit it before they have doubted it is the busywork
-          this closes. */}
-      {showsShortlist && status === null && (
-        <div className="flex flex-col gap-1.5 border-t border-border/60 px-4 pt-2.5 pb-1">
-          {!optionsOpen ? (
-            <button
-              type="button"
-              disabled={frozen}
-              aria-expanded={false}
-              aria-controls={optionsId}
-              onClick={() => setOptionsOpen(true)}
-              className="flex h-11 w-fit items-center gap-1 text-xs font-bold text-[var(--mint-700)] outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
-            >
-              Not this place?
-              <ChevronDown className="size-3.5" aria-hidden />
-            </button>
-          ) : (
-          <>
-          <div className="flex flex-col gap-0.5">
-            <p
-              id={`${optionsId}-label`}
-              className={cn(
-                'text-[11px] font-bold tracking-[0.08em] uppercase',
-                view.kind === 'matched' ? 'text-[var(--mint-700)]' : 'text-foreground',
-              )}
-            >
-              {resolutionHeadline(view)}
-            </p>
-            <p className="text-xs font-medium text-muted-foreground">{resolutionExplanation(view)}</p>
-          </div>
-          <ul id={optionsId} role="radiogroup" aria-labelledby={`${optionsId}-label`} className="flex flex-col gap-1">
-            {options.map((option) => {
-              const isChosen = chosen === option.index;
-              return (
-                <li key={option.index}>
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={isChosen}
-                    disabled={frozen}
-                    onClick={() => onPick(option.index)}
-                    className={cn(
-                      // min-h-11 rather than a fixed height: the address wraps to two lines on a
-                      // 390px viewport far more often than it fits on one, and a clipped address
-                      // is the one thing this control exists to show.
-                      'flex min-h-11 w-full items-start gap-2.5 rounded-lg border px-3 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default',
-                      isChosen ? 'border-[var(--mint-700)] bg-[var(--mint-100)]/40' : 'border-border/60 bg-background',
-                    )}
-                  >
-                    <span
-                      aria-hidden
-                      className={cn(
-                        'mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border-2',
-                        isChosen ? 'border-[var(--mint-700)]' : 'border-border',
-                      )}
-                    >
-                      {isChosen && <span className="size-2 rounded-full bg-[var(--mint-700)]" />}
-                    </span>
-                    <span className="flex min-w-0 flex-1 flex-col">
-                      <span className="line-clamp-1 text-[13px] font-bold text-foreground">
-                        <bdi>{option.name}</bdi>
-                      </span>
-                      {/* The address, not the name, is what tells two branches of a chain apart —
-                          so it wraps rather than truncating. */}
-                      <span className="text-xs font-medium break-words text-muted-foreground">
-                        {option.detail}
-                      </span>
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-          {needsPick && (
-            <p className="text-xs font-semibold text-foreground">{needsPick}</p>
-          )}
-          </>
-          )}
-        </div>
-      )}
-
-      <div className="flex items-center justify-between gap-2 border-t border-border/60 px-4 py-1.5">
-        {/* Not `truncate`. This line's only job is to say where the pin came from, so clipping it
-            removes the whole message — measured at 412 px, "Approximate pin from the caption"
-            rendered as "Approximate pin from the ca…". Wrapping costs a few pixels of height and
-            never costs meaning. */}
-        <span className="flex min-w-0 items-center gap-1.5 text-xs font-medium leading-tight text-muted-foreground">
-          <Crosshair className="size-3.5 shrink-0" aria-hidden />
-          {resolverPinLine(view, pick, isSaveable(candidate)) ?? locationLine(candidate)}
-        </span>
-        <a
-          href={googleMapsSearchUrl(candidate, chosenOption)}
-          target="_blank"
-          rel="noreferrer"
-          aria-label={
-            saveable
-              ? `Check “${title}” on Google Maps`
-              : `Find “${title}” on Google Maps`
-          }
-          className="flex h-11 shrink-0 items-center gap-1 text-xs font-bold text-[var(--mint-700)]"
-        >
-          {saveable ? 'Check on Google Maps' : 'Find on Google Maps'}
-          <ArrowUpRight className="size-3.5" aria-hidden />
-        </a>
-      </div>
+      {pinRow}
     </li>
   );
 }

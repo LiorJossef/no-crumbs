@@ -18,7 +18,7 @@
  *
  *  - `extractPastedUrl` pulls the link out of the caption-plus-hashtags blob TikTok's share sheet
  *    actually copies. It is explicitly *not* an SSRF boundary; it only chooses a substring.
- *  - `canonicaliseTikTokUrl` is that boundary — the closed five-host allow-list, no ports, no
+ *  - `canonicaliseTikTokUrl` is that boundary — the closed six-host allow-list, no ports, no
  *    userinfo, no IP literals, and the path shapes that are actually posts.
  *
  * So `kind: 'tiktok'` means "the import pipeline will accept this", not "this string contains the

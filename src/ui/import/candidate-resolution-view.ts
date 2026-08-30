@@ -228,6 +228,27 @@ export function usesModelCoordinate(
 }
 
 /**
+ * Whether the review screen collapses to a single confident result (`ux-import-flatten.md` §3):
+ * one candidate, and the resolver settled it.
+ *
+ * The condition is `deriveResolution`'s existing `preselect` band and nothing else — no second
+ * threshold, no number of its own. That matters twice over:
+ *
+ *  - `matched` is the one boundary we have measured (Google: 15/16 correct top-1, zero wrong
+ *    auto-matches), so the state that removes the tickbox is the state that earned it;
+ *  - **`matched` can never be a caption pin.** `effectivePick` always returns its top entry, so
+ *    `usesModelCoordinate` is false and `resolverPinLine` is `Pin from the map data` for every
+ *    view this returns true for. The collapse therefore cannot be the thing that hides a guess —
+ *    which is exactly the defect §1.3 found on the `ambiguous` + model-coordinate card.
+ *
+ * Two or more candidates, `ambiguous`, `unresolved`, `failed`, `capped` and `not_attempted` all
+ * render as they always have.
+ */
+export function collapsesToOneResult(views: readonly CandidateResolutionView[]): boolean {
+  return views.length === 1 && views[0]?.kind === 'matched';
+}
+
+/**
  * The heading over an option list.
  *
  * Only the two states that *have* options get one. `unresolved`, `failed`, `capped` and
@@ -286,11 +307,18 @@ export function resolutionExplanation(view: CandidateResolutionView): string | n
  *    `lookupFailureNotice` are the two places the screen states that the coordinate came from what
  *    the caption said and not from a place database.
  *
- * The two states deliberately excluded from that last case are the two where the sentence would be
- * false. `ambiguous` has options — the pin is waiting on a decision, not on the data. And
- * `not_attempted`/`capped` were never put to the resolver at all, so contrasting them *with* a
- * place database would claim a search that never happened: "we never looked" is not "we looked and
- * found nothing" (`resolution-record.ts`). Both keep the wording they already had.
+ * `ambiguous` used to be excluded from that last case on the grounds that its pin is waiting on a
+ * decision rather than on the data. That is true only while there is no model coordinate to save
+ * instead — and when there is, `willSave` returns true, so the card arrives **pre-ticked** with
+ * `Save this place →` live, `pickRequiredNotice` suppressed, and this line falling through to
+ * `locationLine`'s `Pin is approximate`. The one card that would save a guess was the one card that
+ * did not say so, with the provider's own rows sitting unpicked directly above it. Reaching here as
+ * `ambiguous` means exactly that case: options exist, none is picked, and the model gave a pin.
+ * (`matched` can never reach here — `effectivePick` always returns its top entry.)
+ *
+ * `not_attempted`/`capped` stay excluded: they were never put to the resolver at all, so
+ * contrasting them *with* a place database would claim a search that never happened — "we never
+ * looked" is not "we looked and found nothing" (`resolution-record.ts`).
  */
 export function resolverPinLine(
   view: CandidateResolutionView,
@@ -299,7 +327,10 @@ export function resolverPinLine(
 ): string | null {
   if (effectivePick(view, pick) !== null) return 'Pin from the map data';
   if (resolutionOptions(view).length > 0 && !modelHasCoordinates) return 'Waiting on your pick';
-  if (modelHasCoordinates && (view.kind === 'failed' || view.kind === 'unresolved')) {
+  if (
+    modelHasCoordinates &&
+    (view.kind === 'failed' || view.kind === 'unresolved' || view.kind === 'ambiguous')
+  ) {
     // Deliberately short. This renders in a fixed-width row beside the Maps link, and the longer
     // wording it replaced measured 208 px into a 180 px box on a Pixel 7 — clipped to
     // "Approximate pin from the ca…", losing the half of the sentence that says where the pin came

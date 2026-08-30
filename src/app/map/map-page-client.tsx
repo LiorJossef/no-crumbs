@@ -98,6 +98,10 @@ import type { FocusBoundsRequest, MapSummaries } from '@/components/map/types';
 import { COUNTRY_LANDING_ZOOM } from '@/components/map/zoom-bands';
 import type { LatLngBoundsHint, ViewportChangeMeta } from '@/components/map/types';
 import { ImportConfirmation } from '@/components/map/import-confirmation';
+import { NearMeControl } from '@/components/map/near-me-control';
+import { NearMeDistancesContext } from '@/components/map/near-me-context';
+import { distanceOrigin, nearMeCamera, nearMeNotice, type UserFix } from '@/components/map/near-me';
+import { useNearMe } from '@/components/map/use-near-me';
 import { PlaceSheet, SHEET_HALF_FRACTION } from '@/components/sheet/place-sheet';
 import { BottomNav } from '@/components/nav/bottom-nav';
 import { PlaceDesktopPanel } from '@/components/sheet/place-desktop-panel';
@@ -118,7 +122,6 @@ import {
   activeCountryKey as ringedCountryKeyFor,
   fallbackScope,
   resolveScopeOrFallback,
-  sameScope,
   scopeAfterCameraSettled,
   scopeAreaId,
   scopeForAreaTap,
@@ -128,6 +131,7 @@ import {
   type ListScope,
 } from '@/ui/place/list-scope';
 import { elsewhereGroups } from '@/ui/place/elsewhere-groups';
+import { distancesFromUser, nearestArea, nearestFirst } from '@/ui/place/nearby';
 import { meanCentroid } from '@/domain/places/country-bucket';
 import { summariseByCountry } from '@/ui/place/library-summary';
 import { ImportPageClient, type SaveOutcomeDetail } from '@/app/import/import-page-client';
@@ -212,10 +216,11 @@ export function MapPageClient({
    * switch this prop back to something else, which the map reads as a brand-new request and
    * answers by throwing the camera across the world.
    *
-   * **The authorised camera movers, and there are exactly six.** `06` §9.2 listed four, this file
+   * **The authorised camera movers, and there are exactly eight.** `06` §9.2 listed four, this file
    * grew to seven, and `docs/ux-stable-area-list.md` cut it back — the reconciliation `06` §9.2 was
    * owed is this comment. It said *five* until 2026-08-29 while a sixth was already running and
-   * documented in `map-surface.mapcn.tsx`, which is exactly the drift a list like this exists to
+   * documented in `map-surface.mapcn.tsx`, and it said *six* until `L1-F11` while mover 7 was
+   * already written thirty lines below it — which is exactly the drift a list like this exists to
    * stop: a list of who may move the camera is only worth having if it is complete, wherever the
    * mover happens to live. In the order they run:
    *
@@ -230,12 +235,22 @@ export function MapPageClient({
    *     of the viewport the sheet is about to cover — otherwise the pin just tapped comes to rest
    *     behind it. It lives in the surface (`map-surface.mapcn.tsx`, `selectedOcclusionFraction`)
    *     because only the surface knows the projection, but it is a mover and belongs on this list.
+   *  7. Revealing one saved place — a manual add, or a pick out of the `＋` sheet's search. See
+   *     `revealSavedPlace`.
+   *  8. Near me (`L1-F11`): an explicit tap on the map's locate control, once a position comes
+   *     back, flies to the user's own point and sets an **area** scope. See `goToUserLocation`. A
+   *     denial, a timeout or an unsupported browser moves nothing at all — there is no camera path
+   *     out of this mover that does not start with a real position.
    *
    * Three are gone, all of them for the same reason — narrowing must never navigate. A settled
    * search no longer flies to its matches, clearing the search no longer returns to a cluster, and
    * `Show my places` / `Show all matches` no longer exist: the state they escaped (a viewport with
    * nothing in it) cannot occur when the list is an area rather than a rectangle. What is *not* a
    * camera mover, and must never become one: panning, zooming, typing, and tapping a tag chip.
+   *
+   * One mover was **removed** by `L1-F11`: `MapControls`' own `showLocate` button flew the camera
+   * from inside the registry component at a hard-coded zoom, which is a mover this list could never
+   * have accounted for. It is off, and mover 8 replaces it.
    */
   const [focusPlaceIds, setFocusPlaceIds] = useState<readonly string[] | null>(null);
   /** Mover 5's request, held separately from `focusPlaceIds` because it frames a box rather than a
@@ -255,11 +270,11 @@ export function MapPageClient({
    * survives an import landing in the area and a deletion from it. A `country` scope holds a
    * `CountrySummary.key`, stable in the same way.
    *
-   * **Five writers**, and they are the movers enumerated on `focusPlaceIds` plus the camera: the
+   * **Six writers**, and they are the movers enumerated on `focusPlaceIds` plus the camera: the
    * default resolution, an `Elsewhere`/area-marker tap (4), a country-marker tap (5), a finished
-   * import (2), and a settled *user gesture that crossed a zoom band or an area boundary*. It is
-   * never re-derived from settled bounds alone, which is what stops the camera rewriting the list
-   * on its own.
+   * import (2), near me (8), and a settled *user gesture that crossed a zoom band or an area
+   * boundary*. It is never re-derived from settled bounds alone, which is what stops the camera
+   * rewriting the list on its own.
    */
   const [scope, setScope] = useState<ListScope | null>(null);
   /** The category chip, if one is pressed. A fourth filter dimension, lifted here for the same
@@ -378,15 +393,24 @@ export function MapPageClient({
    * country it names, or the fallback when it names something that has just been deleted.
    *
    * Derived during render rather than in an effect: a stored scope going stale is exactly React's
-   * "a prop invalidated some state" case, and the correction below converges immediately because
-   * `resolveScope` is idempotent on its own canonical output. Doing it in an effect would paint one
-   * frame of the wrong list.
+   * "a prop invalidated some state" case, and deriving it costs no frame of the wrong list.
+   *
+   * The fallback is **derived and never written back**, and that is the fix for a real defect. An
+   * anchor that does not resolve has two causes that look identical here: the place was deleted, or
+   * the place was just saved and the refreshed rows have not landed yet. `onSaved` writes the new
+   * place's anchor optimistically and `import-page-client` calls it *before* `router.refresh()`, so
+   * there is always at least one render where the anchor names a row `areas` does not hold yet.
+   * Persisting the fallback in that render replaced the import's own anchor with the previously
+   * active area permanently — a correct pin under a header naming a city the place is not in. The
+   * camera already handles this correctly by waiting for the data rather than guessing.
+   *
+   * Leaving the store alone costs nothing for the deletion case: the dead anchor keeps rendering as
+   * this same fallback, and the next explicit scope change overwrites it.
    */
   const listScope = useMemo(
     () => resolveScopeOrFallback(areas, countries, storedScope, preferredAreaId),
     [areas, countries, storedScope, preferredAreaId],
   );
-  if (!sameScope(storedScope, listScope.scope)) setScope(listScope.scope);
 
   /** The one area the list is about, or `null` under a country or global scope — where several are
    *  listed at once and there is no single one for `Elsewhere` to subtract. */
@@ -670,6 +694,84 @@ export function MapPageClient({
   );
 
   /**
+   * **Camera mover 8, and a writer of the scope** — near me (`L1-F11`).
+   *
+   * Called once per successful fix, from inside `useNearMe`'s geolocation callback, so the only
+   * thing that can reach it is a tap that produced a real position. A denial, a timeout or a
+   * browser without the API never arrive here at all: those are states the control renders, not
+   * cameras.
+   *
+   * **It writes the scope for the same reason a country tap does.** The flight is programmatic, so
+   * `handleViewportChange` reports `userInitiated: false` and changes nothing — meaning without
+   * this write the camera would land on your street while the list underneath went on saying
+   * `18 places in London`. That is the broken control the owner rejected on 2026-08-29, and near-me
+   * would be a second door into it.
+   *
+   * **It writes nothing when you have saved nothing near here.** `nearestArea` returns `null`
+   * beyond ~50 km, and the honest answer is then the one the control says out loud (`Nothing saved
+   * near you yet`): the camera still moves, so you can see for yourself that there is nothing, and
+   * the list keeps the area you were looking at rather than being handed one you are not in.
+   *
+   * The selection is cleared like movers 4 and 5 clear it — the open place is very likely somewhere
+   * else entirely — and `previousAreaId` is recorded on the same rule `selectArea` uses, so the
+   * area you were reading is one tap back in `Elsewhere`. Filters are deliberately **not** cleared:
+   * this is not an import, and "not been yet" plus near-me is the whole sentence the feature is for.
+   */
+  const goToUserLocation = useCallback(
+    (fix: UserFix) => {
+      const area = nearestArea(areas, fix.point);
+      if (area !== null) {
+        setPreviousAreaId((current) => (activeAreaId === area.id ? current : activeAreaId));
+        setScope(scopeForAreaTap(area.id));
+        setCountryExpansion(EMPTY_EXPANSION);
+      }
+      setSelectedId(null);
+      setFocusBounds(nearMeCamera(fix));
+    },
+    [areas, activeAreaId],
+  );
+
+  const nearMe = useNearMe(goToUserLocation);
+
+  /** Where the user is, as far as the browser told us — `null` for every state but a held fix. */
+  const userPoint = nearMe.state.status === 'located' ? nearMe.state.fix.point : null;
+
+  /** The area they are standing in, or `null` when nothing they saved is within reach. Read by the
+   *  control's notice; the camera mover above computes its own, because it must not depend on a
+   *  render having happened. */
+  const userArea = useMemo(
+    () => (userPoint === null ? null : nearestArea(areas, userPoint)),
+    [areas, userPoint],
+  );
+
+  /**
+   * **The one origin any distance on screen is measured from** (`L1-F11-T2`).
+   *
+   * `null` unless a real, accurate-enough fix is being held, so a refusal, a revocation, a timeout
+   * and a 3 km indoor fix all remove the distances rather than recomputing them against something
+   * that is not the user. There is deliberately no fallback to the map centre: distance from a
+   * camera is not a fact about the world, and the sort that used to do it is what
+   * `docs/ux-stable-area-list.md` removed.
+   */
+  const distances = useMemo(() => {
+    const origin = distanceOrigin(nearMe.state);
+    return origin === null ? null : distancesFromUser(origin, inScope);
+  }, [nearMe.state, inScope]);
+
+  /** The list, nearest first while a fix is held — and `inScope` by identity the rest of the time,
+   *  which is every render before anyone presses the control. */
+  const listed = useMemo(
+    () => (distances === null ? inScope : nearestFirst(inScope, distances)),
+    [inScope, distances],
+  );
+
+  /** What the control says when it cannot do what it looks like it does, or when it worked and the
+   *  answer is that there is nothing here. `null` while there is nothing to say. */
+  const nearMeNoticeText = nearMe.noticeDismissed
+    ? null
+    : nearMeNotice(nearMe.state, userArea !== null);
+
+  /**
    * A country group opened or closed.
    *
    * The **resolved** next state comes from the surface rather than being flipped from the map here,
@@ -803,6 +905,10 @@ export function MapPageClient({
           reaches the page's one live region the same way: through a context, not through a callback
           threaded across the map surface. */}
       <AnnounceContext value={announcer}>
+        {/* Every `PlaceRow` in the sheet and in the desktop panel reads its distance from here.
+            `null` — no fix, a refused or revoked permission, or a fix too rough to measure from —
+            is the state that makes a row render no distance at all, which is `L1-F11-T2`. */}
+        <NearMeDistancesContext value={distances}>
         <div className="relative h-full w-full">
           <MapSurface
             places={matches}
@@ -826,6 +932,17 @@ export function MapPageClient({
             onCountryClick={focusCountry}
             {...(focusBounds ? { focusBounds } : {})}
             accessibleName={canvasName}
+            // The locate control sits in the surface's own control column because that is where a
+            // user looks for it; everything it means — the permission, the fix, the flight — is
+            // owned here. See camera mover 8.
+            controlSlot={
+              <NearMeControl
+                status={nearMe.state.status}
+                notice={nearMeNoticeText}
+                onRequest={nearMe.request}
+                onDismissNotice={nearMe.dismissNotice}
+              />
+            }
           />
 
           {/* The list and the pins both change silently as the user types, so the one thing a screen
@@ -865,7 +982,7 @@ export function MapPageClient({
           {!showImport && <BottomNav onAdd={() => setAddOpen(true)} />}
           {!showImport && (
             <PlaceSheet
-              places={inScope}
+              places={listed}
               heading={heading}
               elsewhere={elsewhere}
               countryExpansion={countryExpansion}
@@ -911,14 +1028,14 @@ export function MapPageClient({
             // The same reveal a manual save gets, and for the same reason: the user named a place,
             // so a filter they set earlier must not be what decides whether they see it.
             onSelectPlace={revealSavedPlace}
-            // The link the user pasted is not carried across yet: `ImportPageClient` has no
-            // `initialUrl` prop, and adding one is a change to a file outside this task's scope.
-            // Until it does, this opens the overlay on its own paste screen.
+            // The link is carried across and **submitted**: `initialUrl` runs the import on mount,
+            // so the sheet's `Add this TikTok` is the only Add between the ＋ and the save. This
+            // callback fires only on that press, which is the prop's stated contract.
             onSubmitTikTok={(url) => openImport(url)}
             onManualSaved={(saved) => revealSavedPlace(saved.savedPlaceId)}
           />
           <PlaceDesktopPanel
-            places={inScope}
+            places={listed}
             heading={heading}
             elsewhere={elsewhere}
             countryExpansion={countryExpansion}
@@ -944,6 +1061,13 @@ export function MapPageClient({
             <ImportPageClient
               {...(importSeedUrl === null ? {} : { initialUrl: importSeedUrl })}
               onClose={() => setShowImport(false)}
+              // The recovery on the screen most imports end on. `NoPlacesScreen` withheld it while
+              // there was no manual-add surface to send anyone to; there is one now, and without
+              // this the modal outcome of an import is a dead end.
+              onAddManually={() => {
+                setShowImport(false);
+                setAddOpen(true);
+              }}
               onSaved={(outcome) => {
                 setLastImport(outcome);
                 setFocusPlaceIds(outcome.savedPlaceIds);
@@ -955,6 +1079,7 @@ export function MapPageClient({
             />
           )}
         </div>
+        </NearMeDistancesContext>
       </AnnounceContext>
       </TagFilterContext>
     </CollectionsContext>

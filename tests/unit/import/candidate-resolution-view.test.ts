@@ -216,9 +216,23 @@ describe('the pin line', () => {
     expect(resolverPinLine(ambiguous, 0, false)).toBe('Pin from the map data');
   });
 
-  it('leaves the model-guess wording alone wherever the model guess is what will be saved', () => {
-    // `null` hands the line back to `locationLine`, which is what this screen already said.
-    expect(resolverPinLine(ambiguous, null, true)).toBeNull();
+  /**
+   * This assertion used to read `expect(resolverPinLine(ambiguous, null, true)).toBeNull()`, on the
+   * stated grounds that `null` hands the line back to `locationLine` and that is what the screen
+   * already said. It was encoding the defect.
+   *
+   * With a model coordinate, an unanswered `ambiguous` card is not waiting on anything: `willSave`
+   * is true, so it arrives **pre-ticked** with `Save this place →` live and `pickRequiredNotice`
+   * suppressed, and pressing Save writes the model's guess while the provider's own rows sit
+   * unpicked directly above. `locationLine`'s `Pin is approximate` reads as a hedge on a match we
+   * are not about to save. This is the one card that needs the sentence most.
+   */
+  it('says the pin came from the caption when that is what an unanswered card would save', () => {
+    expect(resolverPinLine(ambiguous, null, true)).toBe('Pin from the caption');
+  });
+
+  it('still hands the line back for the two states that were never put to the resolver', () => {
+    // "We never looked" is not "we looked and found nothing" — see the function's header.
     expect(resolverPinLine(resolutionView(null), null, true)).toBeNull();
     expect(resolverPinLine(resolutionView(answered('no_match', [])), null, false)).toBeNull();
   });

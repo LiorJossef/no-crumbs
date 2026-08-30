@@ -30,7 +30,7 @@
  * they stand on their own, unflagged, sorted last however many there are.
  */
 
-import { UNNAMED_OTHER_AREA_LABEL, type Area, type AreaRow } from './active-area';
+import { isolate, UNNAMED_OTHER_AREA_LABEL, type Area, type AreaRow } from './active-area';
 import { countryKey, type CountrySummary } from './library-summary';
 
 /**
@@ -172,6 +172,17 @@ export function elsewhereGroups<T>(
   return entries.sort(compareEntries);
 }
 
+/**
+ * How many other areas `Elsewhere` leads to, counting inside the country groups.
+ *
+ * The peek row promises a number, so it has to be the number of things you can actually tap
+ * through to — a country group is one row and two destinations, and saying `1 more area` over a
+ * group holding two is the kind of small lie that makes people stop trusting the count.
+ */
+export function elsewhereAreaCount(entries: readonly ElsewhereEntry[]): number {
+  return entries.reduce((total, entry) => total + (entry.kind === 'area' ? 1 : entry.areas.length), 0);
+}
+
 /** The area's row, or `null` when the filters left nothing in it (rule 5). */
 function toRow<T>(area: Area<T>, matchIds: ReadonlySet<string>): AreaRow | null {
   let count = 0;
@@ -229,5 +240,5 @@ export function countryGroupAccessibleName(
       ? 'place'
       : 'places';
   const areas = entry.areas.length === 1 ? '1 area' : `${entry.areas.length} areas`;
-  return `${entry.label}, ${entry.count} ${noun} in ${areas}, ${expanded ? 'collapse' : 'expand'}`;
+  return `${isolate(entry.label)}, ${entry.count} ${noun} in ${areas}, ${expanded ? 'collapse' : 'expand'}`;
 }

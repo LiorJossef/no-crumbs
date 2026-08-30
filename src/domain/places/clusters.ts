@@ -56,6 +56,23 @@
  *    the wrong city arrives with a matching wrong city name. No grouping rule can separate that,
  *    and one contorted to try would misgroup honest rows. It belongs to resolution, not here.
  *
+ * **A third rejected attempt, 2026-08-30 — gating the JOIN rather than the veto.** The idea: a
+ * guessed locality keeps its 50 km reach unless some row elsewhere in the library carries the same
+ * normalised name from a real map listing. It looked clean, it left the real library untouched at
+ * two areas, and it shipped for an hour. Two measurements on those same 32 rows killed it:
+ *
+ *  - **It has a cliff, on the one axis that moves.** 0 verified London rows is fine and 18 is
+ *    fine; **1 to 17 shatters London into seven areas**, because a single verified `london` poisons
+ *    the name for every guessed row carrying it. Google resolution is on in production and upgrades
+ *    arrive one row at a time, so the library walks straight through that range.
+ *  - **It missed the case it was built for.** It only fires when the guess's spelling matches a
+ *    verified one. The adversarial Ra'anana row is blocked as `תל אביב-יפו` and `Tel Aviv-Yafo`,
+ *    and **merges as `Tel Aviv` and as `ת״א`** — the two spellings `llm-guess` actually produces.
+ *    The model's spelling is the one least likely to match the provider's.
+ *
+ * Every rule in this family needs a verified footprint for the city, and that is exactly what does
+ * not exist when there is one verified row. It belongs to resolution.
+ *
  * `clusterLabel` still picks the display name after the group exists, where being wrong costs a
  * word rather than a group.
  *

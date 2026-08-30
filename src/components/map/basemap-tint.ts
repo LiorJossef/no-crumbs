@@ -205,3 +205,89 @@ export function tintPaintValue(value: unknown, tint: Tint): unknown {
   }
   return value;
 }
+
+/**
+ * Zoom ranges we impose on CARTO's own label layers, replacing the style's.
+ *
+ * The ceiling is the defect, and it is the one that answers the owner's complaint. CARTO stops
+ * drawing settlement names at exactly the zoom someone leans in to inspect a place — hamlets and
+ * suburbs at 16, cities at 15, towns at 14 — so the closer you look, the less the map says about
+ * where you are. `FIT_BOUNDS_MAX_ZOOM` is 15 and a user zooms past it, which lands them on street
+ * geometry with no area name anywhere on screen.
+ *
+ * The floors matter less but are not free: `roadname_major` starts at 13 while the anchor-cluster
+ * camera rests around 12–13, so a settled map routinely carries no street name at all.
+ *
+ * The three road layers are named by CARTO's own class filters, so lowering them is not a blanket
+ * "show streets": `roadname_major` is motorway and trunk only, `roadname_pri` primary, and
+ * `roadname_sec` secondary and tertiary — between them the roads a person names when they say where
+ * something is. `roadname_minor` (16) is deliberately absent: residential street names are the
+ * noise that makes a map read as a generic maps app, and they do not answer "roughly where is
+ * this". A layer CARTO renames simply keeps its own range — see the application site.
+ */
+export const LABEL_ZOOM_RANGES: Readonly<Record<string, readonly [number, number]>> = {
+  place_town: [8, 24],
+  place_city_r5: [8, 24],
+  place_city_r6: [8, 24],
+  place_villages: [10, 24],
+  place_suburbs: [11, 24],
+  place_hamlet: [12, 24],
+  roadname_major: [11, 24],
+  roadname_pri: [11.5, 24],
+  roadname_sec: [13, 24],
+};
+
+/**
+ * The exact stack every other label layer in the style declares. Matching it is not tidiness: a
+ * different stack is a different glyph URL, and a stack CARTO does not serve renders the layer
+ * blank with no error.
+ */
+export const BASEMAP_LABEL_FONT = [
+  'Montserrat Regular',
+  'Open Sans Regular',
+  'Noto Sans Regular',
+  'HanWangHeiLight Regular',
+  'NanumBarunGothic Regular',
+] as const;
+
+/**
+ * The POI names layer Positron does not ship.
+ *
+ * Positron draws no POI text beyond parks and stadiums, so nothing on the map ever says what a
+ * saved place is *near* — which is the orientation question. The `poi` source-layer is already in
+ * every tile we load, so this adds a layer, not a source, a key or a request.
+ *
+ * Text only, and there is no icon to suppress: both CARTO styles ship a single sprite image
+ * (`circle-11`, used by the city dots), so the "cartoon POI glyphs" this was once rejected over do
+ * not exist. `{name}` is the local-script name, so this renders Hebrew in Israel rather than a
+ * transliteration.
+ *
+ * The id starts `poi_`, which `ROLE_PATTERNS` already resolves to `label` — so the tint colours it
+ * on the same pass with no change to the role map.
+ */
+export const POI_LABEL_LAYER_ID = 'poi_label';
+
+/**
+ * The POI classes worth naming: the things a person uses to orient themselves. Everyday retail is
+ * deliberately absent — a map dense with shops and pharmacies is the "generic maps app" texture,
+ * and those labels would compete with the user's own saved places, which are the subject here.
+ */
+export const POI_LABEL_CLASSES = [
+  'park',
+  'stadium',
+  'attraction',
+  'museum',
+  'university',
+  'college',
+  'school',
+  'hospital',
+  'railway',
+  'bus',
+  'harbor',
+  'airport',
+  'cemetery',
+  'place_of_worship',
+  'library',
+  'theatre',
+] as const;
+export const POI_LABEL_MIN_ZOOM = 12;
