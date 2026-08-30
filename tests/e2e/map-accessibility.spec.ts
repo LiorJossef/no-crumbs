@@ -38,14 +38,28 @@ test.describe('the map page is reachable by assistive technology', () => {
 
     // And the consequence: role queries walk the accessibility tree, so these all returned zero
     // while `<main>` was hidden, even though the buttons were on screen and clickable by mouse.
-    await expect(page.getByRole('button', { name: /add a tiktok/i }).first()).toBeAttached();
-    // The search field, and not `Sign out`, which this used to assert. Signing out is no longer a
-    // control on this page — it moved inside `/profile` (owner ruling, 2026-08-29). The search
-    // field is the better stand-in anyway: the docblock above names it as one of the three that
-    // returned zero, and it is the only one of the three that exists at **both** project
-    // viewports, where the profile entry point is breakpoint-split by design.
+    // Two controls that exist at **both** project viewports, which is what this assertion needs
+    // and what makes it stable.
+    //
+    // It used to name `Add a TikTok` and `Sign out`, and both have since moved. Sign-out is no
+    // longer on this page at all — it lives inside `/profile` (owner ruling, 2026-08-29). And the
+    // create control is named differently per breakpoint on purpose: below `lg` it is the `＋`,
+    // which now opens the create menu and says `Create`, while the desktop panel keeps a literal
+    // `Add a TikTok` button. Asserting either name here would pass at one viewport and fail at the
+    // other, which is exactly what it did.
+    //
+    // The map's canvas carries a real accessible name now (`mapAccessibleName`), so a role query
+    // for it proves the same thing the buttons did and is not tied to a label anyone is likely to
+    // reword. The create control is the second, matched on either of its two names.
+    //
+    // Not the search field, which was the obvious third candidate: at the mobile sheet's peek stop
+    // it is clipped and therefore out of the accessibility tree, which is correct behaviour and
+    // makes it useless to a role query at one of the two viewports.
     await expect(
-      page.getByRole('searchbox', { name: /search your places/i }).first(),
+      page.getByRole('region', { name: /map of your saved places/i }).first(),
+    ).toBeAttached();
+    await expect(
+      page.getByRole('button', { name: /create|add a tiktok/i }).first(),
     ).toBeAttached();
   });
 });
