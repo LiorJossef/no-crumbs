@@ -46,10 +46,22 @@ describe('tinting one colour', () => {
   it('caps lightness where a role asks it to, so near-white can hold colour', () => {
     // Uncapped, `#fafaf8` comes back all but unchanged: HSL chroma is bounded by
     // `(1 - |2L - 1|) x S`, which at L = 0.98 is ~4% of the saturation asked for.
-    const capped = tintColor('#fafaf8', BASEMAP_TINTS.land);
-    expect(lightness(capped)).toBeCloseTo(BASEMAP_TINTS.land.maxLightness ?? 1, 2);
+    //
+    // Asserted through `water` rather than `land` since `exp/richer-basemap`. The mechanism being
+    // pinned is "the cap lets a near-white input actually take colour", and it needs a role that
+    // *asks* for colour to demonstrate it. `land` is no longer one: the Mapbox-Standard palette
+    // deliberately makes it near-neutral paper, so the old `r - b > 10` was asserting the beige
+    // direction itself, which the owner reversed on 2026-08-30.
+    const capped = tintColor('#fafaf8', BASEMAP_TINTS.water);
+    expect(lightness(capped)).toBeCloseTo(BASEMAP_TINTS.water.maxLightness ?? 1, 2);
     const [r, , b] = /rgb\((\d+), (\d+), (\d+)\)/.exec(capped)!.slice(1).map(Number) as number[];
-    expect(r! - b!).toBeGreaterThan(10); // visibly warm, not grey
+    expect(b! - r!).toBeGreaterThan(10); // visibly blue, not grey
+  });
+
+  it('keeps land near-neutral so it reads as paper rather than beige', () => {
+    const tinted = tintColor('#fafaf8', BASEMAP_TINTS.land);
+    const [r, , b] = /rgb\((\d+), (\d+), (\d+)\)/.exec(tinted)!.slice(1).map(Number) as number[];
+    expect(Math.abs(r! - b!)).toBeLessThan(10);
   });
 
   it('leaves roads at their own near-white so they read against the land', () => {

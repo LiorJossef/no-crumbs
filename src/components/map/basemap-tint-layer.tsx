@@ -16,7 +16,6 @@ import {
   BASEMAP_LABEL_FONT,
   LABEL_ZOOM_RANGES,
   POI_LABEL_LAYER_ID,
-  POI_LABEL_CLASSES,
   POI_LABEL_MIN_ZOOM,
   TINTED_PAINT_PROPERTIES,
   roleFor,
@@ -25,6 +24,8 @@ import {
 } from './basemap-tint';
 import { useStyleReady } from './use-style-ready';
 
+const TINT_ENABLED = true;
+
 export function BasemapTint() {
   const { map } = useMap();
   const styleReady = useStyleReady(map);
@@ -32,12 +33,16 @@ export function BasemapTint() {
   useEffect(() => {
     if (!map || !styleReady) return;
 
-    // Before the tint, so the POI layer it adds is coloured by the same pass below.
     addPoiLabels(map);
     for (const [id, [minzoom, maxzoom]] of Object.entries(LABEL_ZOOM_RANGES)) {
       if (!map.getLayer(id)) continue;
       map.setLayerZoomRange(id, minzoom, maxzoom);
     }
+
+    // EXPERIMENT (exp/richer-basemap): the tint machinery is kept, but `BASEMAP_TINTS` is retuned
+    // from warm paper to the Mapbox Standard "Day" palette. The mechanism was never the cause of
+    // the washed-out look — the eight numbers were. Revert = restore that table.
+    if (!TINT_ENABLED) return;
 
     for (const layer of map.getStyle().layers ?? []) {
       const role = roleFor(layer.id);
@@ -89,7 +94,11 @@ function addPoiLabels(map: MapLibreMap): void {
       // `text-padding` and `text-optional` against MapLibre's collision index rather than by a
       // rank cut: `rank` is not carried on this source-layer's features, so filtering on it
       // silently matched nothing.
-      filter: ['all', ['has', 'name'], ['in', 'class', ...POI_LABEL_CLASSES]],
+      // EXPERIMENT (exp/richer-basemap): the class allow-list is dropped, so every named POI the
+      // tile carries draws. The old 16-class list deliberately excluded retail and food to avoid
+      // "generic maps app" texture; this experiment is explicitly testing that denser texture.
+      // Revert = restore `['in', 'class', ...POI_LABEL_CLASSES]` as the second clause.
+      filter: ['all', ['has', 'name']],
       layout: {
         'text-field': ['get', 'name'],
         'text-font': [...BASEMAP_LABEL_FONT],
@@ -98,7 +107,9 @@ function addPoiLabels(map: MapLibreMap): void {
         'text-padding': 6,
         'text-optional': true,
       },
-      paint: { 'text-color': '#8a8a8a', 'text-halo-color': '#ffffff', 'text-halo-width': 1 },
+      // Darker than the old #8a8a8a: that grey was chosen to recede into the tinted paper, and
+      // against Voyager's fuller colour it reads as illegible rather than quiet.
+      paint: { 'text-color': '#5b5b66', 'text-halo-color': '#ffffff', 'text-halo-width': 1.25 },
     },
     map.getLayer('roadname_minor') ? 'roadname_minor' : undefined,
   );

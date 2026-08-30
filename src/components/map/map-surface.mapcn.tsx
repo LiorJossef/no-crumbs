@@ -109,7 +109,10 @@ function boundsFor(
 // `styles.light` and `styles.dark` — the brand direction is "light only... no dark map"
 // (`brand-and-product-foundation.md` §5), so this surface deliberately never requests
 // `dark-matter-gl-style` regardless of the visitor's OS theme preference.
-const CARTO_LIGHT_STYLE = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
+// EXPERIMENT (exp/richer-basemap): Voyager, not Positron. Positron is a near-monochrome style
+// designed to sit *under* data; Voyager is CARTO's full-colour style — coloured road classes,
+// green parks, blue water, denser place labels. Revert = change this one word back to `positron`.
+const CARTO_LIGHT_STYLE = 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json';
 
 // Attribution is **not** set explicitly here, and that is a correction rather than an omission.
 //
