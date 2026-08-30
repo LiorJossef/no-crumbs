@@ -13,9 +13,9 @@
  *    `isAllowedTikTokHost` to every `Location` header it follows (`04` §2 step 4, `07` §7). Only
  *    that adapter can ever construct `SHORT_LINK_UNRESOLVED` — a pure function cannot know whether
  *    a code resolves without asking the network.
- *  - **Default-deny, allow-list only.** `isAllowedTikTokHost` is a closed five-host `Set` equality
+ *  - **Default-deny, allow-list only.** `isAllowedTikTokHost` is a closed six-host `Set` equality
  *    check, never a substring or suffix test. `tiktok.com.evil.io` and `nottiktok.com` fail for the
- *    same reason an unrecognised host does: they are not `===` to one of the five strings. There is
+ *    same reason an unrecognised host does: they are not `===` to one of the six strings. There is
  *    no code path that could accidentally treat "ends with tiktok.com" as sufficient.
  *  - **Two distinguishable non-TikTok outcomes, not one.** `04` §5's own example copy for
  *    `UNSUPPORTED_HOST` ("We support TikTok links. Instagram and YouTube aren't supported yet.") is
@@ -44,6 +44,11 @@ export const TIKTOK_HOSTS: ReadonlySet<string> = new Set([
   'm.tiktok.com',
   'vm.tiktok.com',
   'vt.tiktok.com',
+  // TikTok's own share/export host, added 2026-08-30. VERIFIED in
+  // `docs/evidence/capture/raw/01-export-link-form.txt`: the data export emits
+  // `https://www.tiktokv.com/share/video/<id>/`, which 301s to the same path on `www.tiktok.com`.
+  // Only the `www.` form has ever been observed, so only the `www.` form is allow-listed.
+  'www.tiktokv.com',
 ]);
 
 /** `04` §2 step 1's SSRF gate, standalone and reusable. `hostname` must already be lower-cased —
@@ -224,6 +229,18 @@ function classifyPath(segments: readonly string[], hostname: string): Canonicali
       return videoOrMalformed(rest[0] as string);
     }
     return err(unsupportedUrl());
+  }
+
+  // `/share/video/<id>` — what TikTok's own share sheet and its data export emit, on
+  // `www.tiktok.com` and on `www.tiktokv.com`. VERIFIED 2026-08-27,
+  // `docs/evidence/capture/raw/01-export-link-form.txt`: oEmbed 200s the `www.tiktok.com` form and
+  // returns the full caption, and 400s the `www.tiktokv.com` one. The id is already in the path,
+  // so both are rewritten to a video id here — a local rewrite, never an extra network hop, and
+  // the `tiktokv` host is dropped along with everything else that is not the id. `photo` rides
+  // along for the same reason it does above: the id is the identity, and oEmbed answers a photo
+  // post as a video.
+  if (head === 'share' && rest.length === 2 && (rest[0] === 'video' || rest[0] === 'photo')) {
+    return videoOrMalformed(rest[1] as string);
   }
 
   // Short links: `vm.`/`vt.` + `/<code>`, or `www.tiktok.com/t/<code>`. Classified, not

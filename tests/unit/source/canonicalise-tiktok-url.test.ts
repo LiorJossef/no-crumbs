@@ -111,14 +111,103 @@ describe('the SSRF boundary — default-deny, allow-list only', () => {
     expectError(canonicaliseTikTokUrl(`javascript:alert(1)`), 'MALFORMED_URL');
   });
 
-  it('TIKTOK_HOSTS / isAllowedTikTokHost is the exact five-host closed set, reusable by the future short-link adapter', () => {
+  it('TIKTOK_HOSTS / isAllowedTikTokHost is the exact six-host closed set, reusable by the short-link adapter', () => {
     expect([...TIKTOK_HOSTS].sort()).toEqual(
-      ['m.tiktok.com', 'tiktok.com', 'vm.tiktok.com', 'vt.tiktok.com', 'www.tiktok.com'].sort(),
+      [
+        'm.tiktok.com',
+        'tiktok.com',
+        'vm.tiktok.com',
+        'vt.tiktok.com',
+        'www.tiktok.com',
+        'www.tiktokv.com',
+      ].sort(),
     );
     expect(isAllowedTikTokHost('www.tiktok.com')).toBe(true);
+    expect(isAllowedTikTokHost('www.tiktokv.com')).toBe(true);
     expect(isAllowedTikTokHost('tiktok.com.evil.io')).toBe(false);
     expect(isAllowedTikTokHost('nottiktok.com')).toBe(false);
+    // Widening to `www.tiktokv.com` must not widen to the whole registrable domain: only the
+    // `www.` form is what the export emits, and only the `www.` form is what was measured.
+    expect(isAllowedTikTokHost('tiktokv.com')).toBe(false);
+    expect(isAllowedTikTokHost('www.tiktokv.com.evil.io')).toBe(false);
     expect(isAllowedTikTokHost('TIKTOK.COM')).toBe(false); // caller must pass an already-lowercased hostname
+  });
+});
+
+/**
+ * The share-sheet / data-export link form. VERIFIED 2026-08-27,
+ * `docs/evidence/capture/raw/01-export-link-form.txt`: `www.tiktokv.com/share/video/<id>/` 301s to
+ * `www.tiktok.com/share/video/<id>/`, and oEmbed answers **that** form 200 with the full caption
+ * in `title`. Before this, the first was `UNSUPPORTED_HOST` ("Instagram and YouTube aren't
+ * supported yet") and the second `UNSUPPORTED_URL` ("that's a TikTok link, but not a post") —
+ * two false sentences told about a link TikTok itself generated.
+ *
+ * The point of every assertion here is that the id comes out of the *path*: no network call is
+ * needed to accept either form, and the host is discarded with the rest of the URL.
+ */
+describe('the /share/video/<id> form — TikTok\'s own share sheet and data export', () => {
+  it('www.tiktok.com/share/video/<id>/ is a post, not a profile', () => {
+    expectVideo(canonicaliseTikTokUrl(`https://www.tiktok.com/share/video/${VIDEO_ID}/`), VIDEO_ID);
+  });
+
+  it('www.tiktokv.com/share/video/<id>/ — the data export\'s host — is a TikTok link', () => {
+    expectVideo(canonicaliseTikTokUrl(`https://www.tiktokv.com/share/video/${VIDEO_ID}/`), VIDEO_ID);
+  });
+
+  it('both forms survive the query string a share sheet appends', () => {
+    // Real share links carry `?_r=1&_t=...&is_from_webapp=1`; step 2 drops the query entirely, so
+    // the identity is the id in both cases.
+    expectVideo(
+      canonicaliseTikTokUrl(
+        `https://www.tiktok.com/share/video/${VIDEO_ID}/?_r=1&_t=ZS-abc123&is_from_webapp=1`,
+      ),
+      VIDEO_ID,
+    );
+    expectVideo(
+      canonicaliseTikTokUrl(`https://www.tiktokv.com/share/video/${VIDEO_ID}/?_r=1#frag`),
+      VIDEO_ID,
+    );
+  });
+
+  it('works without the trailing slash, and with a photo post', () => {
+    expectVideo(canonicaliseTikTokUrl(`https://www.tiktok.com/share/video/${VIDEO_ID}`), VIDEO_ID);
+    expectVideo(canonicaliseTikTokUrl(`https://www.tiktok.com/share/photo/${VIDEO_ID}`), VIDEO_ID);
+  });
+
+  it('dedups against the same post pasted in the @handle form — the id alone is the key', () => {
+    expectVideo(canonicaliseTikTokUrl(`https://www.tiktokv.com/share/video/${VIDEO_ID}/`), VIDEO_ID);
+    expectVideo(canonicaliseTikTokUrl(`https://www.tiktok.com/@a/video/${VIDEO_ID}`), VIDEO_ID);
+  });
+
+  it('the empty-handle form the redirect chain lands on still works', () => {
+    // `https://www.tiktok.com/@/video/<id>/`, hop 3 of the chain in the evidence file.
+    expectVideo(canonicaliseTikTokUrl(`https://www.tiktok.com/@/video/${VIDEO_ID}/`), VIDEO_ID);
+  });
+
+  it('/share/<something-else> is still UNSUPPORTED_URL, and a bad id is still MALFORMED_URL', () => {
+    // Accepting `share/video` must not accept the whole `/share/` namespace.
+    expectError(canonicaliseTikTokUrl('https://www.tiktok.com/share/user/12345'), 'UNSUPPORTED_URL');
+    expectError(canonicaliseTikTokUrl('https://www.tiktok.com/share/video/nope'), 'MALFORMED_URL');
+  });
+
+  it('the new host is not a hole in the allow-list', () => {
+    expectError(
+      canonicaliseTikTokUrl(`https://www.tiktokv.com.evil.io/share/video/${VIDEO_ID}/`),
+      'UNSUPPORTED_HOST',
+    );
+    expectError(
+      canonicaliseTikTokUrl(`https://www.tiktokv.com:8443/share/video/${VIDEO_ID}/`),
+      'UNSUPPORTED_HOST',
+    );
+  });
+
+  it('keeps telling the truth about links that genuinely are not posts', () => {
+    // The copy each of these drives has to stay honest, which is only true while the codes are.
+    // A profile is UNSUPPORTED_URL ("a TikTok link, but not a post"); Instagram is
+    // UNSUPPORTED_HOST ("that link isn't a TikTok").
+    expectError(canonicaliseTikTokUrl('https://www.tiktok.com/@evesela'), 'UNSUPPORTED_URL');
+    expectError(canonicaliseTikTokUrl('https://www.instagram.com/reel/Cabc123/'), 'UNSUPPORTED_HOST');
+    expectError(canonicaliseTikTokUrl('https://www.youtube.com/watch?v=abc123'), 'UNSUPPORTED_HOST');
   });
 });
 
