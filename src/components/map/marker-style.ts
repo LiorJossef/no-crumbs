@@ -29,7 +29,8 @@
 
 import { PRODUCT_CATEGORY_ORDER } from '@/domain/places/product-category';
 import type { ProductCategory } from '@/domain/places/product-category';
-import { CATEGORY_DISPLAY, UNCATEGORISED_COLOR } from '@/ui/place/category-display';
+import { CATEGORY_DISPLAY } from '@/ui/place/category-display';
+import { PIN_LABEL_HALO, PIN_LABEL_INK, UNCATEGORISED_COLOR } from '@/ui/place/palette';
 
 /**
  * The pin drawn for a place we have no category for.
@@ -57,7 +58,9 @@ export type GlyphName = 'fork' | 'cup' | 'glass' | 'dot';
 
 /** The pin's colour and label come from `ui/place/category-display.ts`, which the list and the
  *  detail view read too — a café is the same brown word-and-colour wherever it appears. Only the
- *  glyph is the map's own. */
+ *  glyph is the map's own. The colours themselves are `ui/place/palette.ts`, by name: a MapLibre
+ *  expression is evaluated by the GL renderer and cannot resolve a CSS custom property, so the map
+ *  takes the literal while the DOM takes the `--category-*` token. */
 export type CategoryStyle = (typeof CATEGORY_DISPLAY)[ProductCategory] & {
   readonly glyph: GlyphName;
 };
@@ -303,8 +306,11 @@ export function pinLayerLayout(
 
 export function pinLayerPaint(): Record<string, unknown> {
   return {
-    'text-color': '#1B1B1A',
-    'text-halo-color': '#FAF9F6',
+    // `--foreground` and `--background`, by name from the palette module — a `text-color` is a
+    // MapLibre paint value and `var(--foreground)` would not parse. See `palette.ts`'s header for
+    // why the duplication is deliberate.
+    'text-color': PIN_LABEL_INK,
+    'text-halo-color': PIN_LABEL_HALO,
     'text-halo-width': 1.6,
     // A place you have been to is the same pin, quieter — see `pinOpacityExpression`. Both are
     // per-feature paint properties, so a mark re-evaluates them on the next `setData` without

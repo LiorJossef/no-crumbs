@@ -13,6 +13,7 @@
 
 import { PRODUCT_CATEGORY_LABEL } from '@/domain/places/product-category';
 import type { ProductCategory } from '@/domain/places/product-category';
+import { CATEGORY_COLOR, UNCATEGORISED_COLOR } from '@/ui/place/palette';
 
 export interface CategoryDisplay {
   /** Sentence case, the way it is written in a sentence — or `null` for a place we have no
@@ -29,26 +30,22 @@ export interface CategoryDisplay {
 /**
  * Three colours and a fallback, matching the three categories the taxonomy defines.
  *
+ * **The values moved to `./palette.ts`** (W0-2), which is the one module the MapLibre style
+ * expressions import from and the one place the `--category-*` tokens in `globals.css` are checked
+ * against. Nothing about the palette's shape changed; only where the literals live. What stays
+ * here is what this file was always for: which *word* goes with which colour.
+ *
  * The palette used to carry eight. Five of them are gone with the values they coloured — and the
  * one worth recording is `dessert`'s pink, added so that "a gelateria used to render as a shop"
  * could never mean two confusable colours as well as two confusable words. A gelateria is a `cafe`
  * now, so the confusion it guarded against cannot arise: there is no `shop`.
- */
-const CATEGORY_COLOR: Record<ProductCategory, string> = {
-  restaurant: '#C2452F',
-  cafe: '#8A5A3B',
-  bar: '#6D4FA8',
-};
-
-/**
- * What an uncategorised place is drawn in — the house mint, deliberately, and this reasoning
- * survives the narrowing unchanged: a place whose category we could not read is still one of the
- * user's places, and painting it grey would make "we do not know" look like "this one is lesser".
  *
- * It is a colour and **not** a category. It has no label and the filter bar offers no chip for it,
- * because "we have no fact here" is not a thing to filter a library by.
+ * The narrowing's other surviving decision — that an uncategorised place is drawn in the house mint
+ * and never in grey, because "we do not know" must not read as "this one is lesser" — moved with
+ * the value and is written out in full on `UNCATEGORISED_COLOR` there. It is re-exported rather
+ * than relocated so that a caller reading *display* still finds it where it has always been.
  */
-export const UNCATEGORISED_COLOR = '#2E7A70';
+export { UNCATEGORISED_COLOR } from '@/ui/place/palette';
 
 const UNCATEGORISED_DISPLAY: CategoryDisplay = { label: null, color: UNCATEGORISED_COLOR };
 

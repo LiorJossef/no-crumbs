@@ -68,6 +68,10 @@
     --color-pin: var(--pin);
     --color-pin-selected: var(--pin-selected);
     --color-pin-halo: var(--pin-halo);
+    --color-category-restaurant: var(--category-restaurant);
+    --color-category-cafe: var(--category-cafe);
+    --color-category-bar: var(--category-bar);
+    --color-category-uncategorised: var(--category-uncategorised);
 
     /* State. Not the brand — see `:root`. */
     --color-success: var(--success);
@@ -219,6 +223,33 @@
     --pin: var(--mint-700);
     --pin-selected: var(--mint-900);
     --pin-halo: #FFFFFF;
+
+    /*
+     * The category palette, and **this is one of two copies on purpose.**
+     *
+     * `src/ui/place/palette.ts` holds the same four values as named TypeScript exports, because a
+     * MapLibre style expression is evaluated by the GL renderer rather than by the browser's style
+     * engine and **cannot resolve a CSS custom property** — a pin painted `var(--category-cafe)`
+     * is a pin painted with an unparseable string. The DOM needs the token for the opposite reason:
+     * the list, the detail view and the filter chips paint the same categories and must be
+     * re-themeable from this file without anybody editing a component.
+     *
+     * Neither copy is redundant and **neither may be deleted to "fix the duplication"**.
+     * `tests/unit/ui/palette-tokens.test.ts` asserts the two sides agree; that test is the whole
+     * of what stops them drifting.
+     *
+     * `cafe` was retuned from `#8A5A3B` on 2026-08-31 — `facelift-plan.md` §1 finding 4, brick and
+     * brown not separating at pin size. The measurement and the argument live on `CATEGORY_COLOR`
+     * in `palette.ts` rather than being half-told in both places.
+     *
+     * Uncategorised is `--mint-700` written as a reference and not as a literal, because it *is*
+     * the house mint: a place whose category we could not read is still one of the user's places,
+     * and grey would make "we do not know" read as "this one is lesser".
+     */
+    --category-restaurant: #C2452F;
+    --category-cafe: #6F4A2B;
+    --category-bar: #6D4FA8;
+    --category-uncategorised: var(--mint-700);
 
     /*
      * A tag chip. `mint-200` rather than `mint-100` because a chip sits on `--card` (#FFFFFF) as

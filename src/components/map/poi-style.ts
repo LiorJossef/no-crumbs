@@ -49,8 +49,14 @@ export const POI_GROUPS: Readonly<Record<PoiGroup, readonly string[]>> = {
  *
  * Saturated enough to be legible as a category at 11 px against near-white paper, dark enough to
  * pass as text rather than decoration. These are basemap colours and are deliberately *not* the
- * product's own category palette (`ui/place/category-display.ts`) — a saved café and a basemap café
- * must not look like the same kind of thing, or the user's own library stops being the subject.
+ * product's own category palette (`ui/place/palette.ts`) — a saved café and a basemap café must not
+ * look like the same kind of thing, or the user's own library stops being the subject.
+ *
+ * Which is also why they did **not** move into `palette.ts` when the category colours did (W0-2).
+ * That module is the product's own place palette and has a `--category-*` token twin in
+ * `globals.css` for the DOM to paint from; these six never reach the DOM at all — they exist only
+ * inside a MapLibre `match` expression — so they have nothing to be a token of, and filing them
+ * beside the product palette would invite exactly the merge this comment exists to prevent.
  */
 export const POI_GROUP_COLORS: Readonly<Record<PoiGroup, string>> = {
   food: '#b8632c',
