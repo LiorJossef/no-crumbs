@@ -10,6 +10,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
 import { extractorUnavailable, internal, noCaption, upstreamTimeout } from '@/domain/errors';
+import { MAX_CANDIDATES } from '@/domain/import/pipeline';
 import type { PlaceCandidate, ResolveResult } from '@/domain/types';
 
 /**
@@ -522,7 +523,7 @@ describe('POST /api/imports/probe — extraction branch', () => {
     });
 
     it('issues at most MAX_CANDIDATES lookups and keeps the rest, marked capped', async () => {
-      const names = Array.from({ length: 9 }, (_, i) => `Place ${i}`);
+      const names = Array.from({ length: MAX_CANDIDATES + 2 }, (_, i) => `Place ${i}`);
       captionExtractMock.mockResolvedValueOnce([
         { kind: 'caption', text: names.join(' and '), origin: 'tiktok-oembed-title' },
       ]);
@@ -533,13 +534,18 @@ describe('POST /api/imports/probe — extraction branch', () => {
 
       await postProbe();
 
-      // `07` §7's `MAX_PROVIDER_REQUESTS_PER_IMPORT` is the same 7 as `MAX_CANDIDATES`.
-      expect(resolveMock).toHaveBeenCalledTimes(7);
+      // `07` §7's `MAX_PROVIDER_REQUESTS_PER_IMPORT` is the same number as `MAX_CANDIDATES`, so
+      // this asserts the paid-lookup budget as well as the cap. Derived from the constant rather
+      // than written out: this test hard-coded 7 and broke when the cap moved to 8 (W1-3), which
+      // is a test failing for the one reason it should not — the number it pins lives elsewhere.
+      // What is genuinely this route's contract is the *shape*: exactly `MAX_CANDIDATES` lookups,
+      // and every candidate past the cap kept and marked `capped` rather than silently dropped.
+      expect(resolveMock).toHaveBeenCalledTimes(MAX_CANDIDATES);
       const stored = persisted.extractions[0]?.candidates as { resolution: unknown }[];
-      expect(stored).toHaveLength(9);
+      expect(stored).toHaveLength(MAX_CANDIDATES + 2);
       // Kept and visible, never silently dropped.
-      expect(stored[7]?.resolution).toEqual({ kind: 'capped' });
-      expect(stored[8]?.resolution).toEqual({ kind: 'capped' });
+      expect(stored[MAX_CANDIDATES]?.resolution).toEqual({ kind: 'capped' });
+      expect(stored[MAX_CANDIDATES + 1]?.resolution).toEqual({ kind: 'capped' });
     });
   });
 
