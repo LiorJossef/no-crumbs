@@ -12,10 +12,14 @@ import { cn } from '@/lib/utils';
  *
  * **Two deliberate departures, both required by this design system:**
  *
- *  - `bg-card-2`, not shadcn's `bg-accent`. In this palette `--accent` is `--mint-100` (`#F1FBF9`),
- *    a near-white mint that is invisible on the white `--card` every one of these sits on.
- *    `--card-2` (`#F3F1EB`) is the system's actual second surface and is what a placeholder should
- *    be drawn in.
+ *  - `bg-card-2`, not shadcn's `bg-accent`. In this palette `--accent` resolves to `--mint-100`, a
+ *    near-white mint that is invisible on the white `--card` every one of these sits on. `--card-2`
+ *    is the system's actual second surface and is what a placeholder should be drawn in.
+ *
+ *    The resolved values are deliberately not written out here. They live in `globals.css`, they
+ *    are one grep away, and a hex pasted into a comment does not move when the ramp does — W0-2
+ *    retuned a palette value on measurement the same night this was written. A comment naming a
+ *    colour the system no longer uses is worse than one that never named it. K12 counts them too.
  *  - `motion-safe:animate-pulse`, not a bare `animate-pulse`. The design system carries a closed
  *    list of nine micro-animations and a reduced-motion answer for each; under
  *    `prefers-reduced-motion` this settles into a static block, which still says "content is
