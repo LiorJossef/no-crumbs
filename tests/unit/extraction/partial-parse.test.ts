@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseExtractionResultPartial } from '@/domain/extraction/schema';
+import {
+  CANDIDATE_CAP,
+  FLOOD_GUARD_CANDIDATES,
+  parseExtractionResultPartial,
+} from '@/domain/extraction/schema';
+import { MAX_CANDIDATES } from '@/domain/import/pipeline';
 
 /**
  * Real recorded model output, not a hand-written shape: the first three candidates of the
@@ -74,6 +79,10 @@ const RECORDED = [
 
 /** The failure mode this whole function exists for: one element that is not a candidate. */
 const MALFORMED = { rawName: 'x' };
+
+/** `n` valid candidates with distinguishable names, so which ones survived is checkable. */
+const manyValid = (n: number) =>
+  Array.from({ length: n }, (_, i) => ({ ...RECORDED[0], rawName: `Place ${i}` }));
 
 describe('parseExtractionResultPartial', () => {
   it('keeps the valid candidates when one element of a real response is malformed', () => {
@@ -150,8 +159,8 @@ describe('parseExtractionResultPartial', () => {
   });
 
   it('fails hard on an unreadable envelope rather than salvaging anything', () => {
-    // Nothing to salvage from a shape we cannot read, and the 12-item cap is a flood guard
-    // (`09` §3.3) that a per-item parse must not quietly turn into a trim.
+    // Nothing to salvage from a shape we cannot read. The flood guard is the separate limit, and
+    // it is exercised below.
     expect(parseExtractionResultPartial(null).ok).toBe(false);
     expect(parseExtractionResultPartial('a string').ok).toBe(false);
     expect(parseExtractionResultPartial({ cityHint: null }).ok).toBe(false);
@@ -160,9 +169,80 @@ describe('parseExtractionResultPartial', () => {
     expect(parseExtractionResultPartial({ candidates: [], cityHint: 'x'.repeat(81) }).ok).toBe(false);
   });
 
-  it('still refuses a response above the 12-candidate cap instead of keeping the first 12', () => {
-    const flood = Array.from({ length: 13 }, () => RECORDED[0]);
+  it('yields places from a thirteen-place post instead of losing all thirteen', () => {
+    // `growth-plan.md` G2, and the reason this file changed. The envelope bound was the keep-cap,
+    // the envelope is parsed before the salvage loop, and a failed envelope returns `{ ok: false }`
+    // — so one candidate over the line cost the caption every place it named.
+    const parsed = parseExtractionResultPartial({ candidates: manyValid(13), cityHint: null });
+
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.value.candidates).toHaveLength(CANDIDATE_CAP);
+    // The model's own ordering, cut from the end: the caption's first twelve venues survive.
+    expect(parsed.value.candidates.map((c) => c.rawName)).toEqual(
+      Array.from({ length: CANDIDATE_CAP }, (_, i) => `Place ${i}`),
+    );
+    // The pipeline's budget is what turns these into places, so the parse has to hand it a full
+    // one. Asserted against the constant rather than a literal: `MAX_CANDIDATES` moves.
+    expect(parsed.value.candidates.slice(0, MAX_CANDIDATES)).toHaveLength(MAX_CANDIDATES);
+  });
+
+  it('reports the thirteenth candidate as truncated, never as dropped', () => {
+    // Two different facts. `dropped` means the model sent something malformed; `truncated` means it
+    // sent something fine that we do not carry. Folding one into the other would read an
+    // over-productive listicle as a partly broken reply.
+    const withOneBad = [...manyValid(13).slice(0, 1), MALFORMED, ...manyValid(13).slice(1)];
+    const parsed = parseExtractionResultPartial({ candidates: withOneBad, cityHint: null });
+
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.value.total).toBe(14);
+    expect(parsed.value.dropped).toBe(1);
+    expect(parsed.value.truncated).toBe(1);
+    expect(parsed.value.candidates).toHaveLength(CANDIDATE_CAP);
+    // The malformed element does not eat a slot in the cap: twelve real venues, not eleven.
+    expect(parsed.value.candidates.map((c) => c.rawName)).not.toContain('x');
+  });
+
+  it('reports nothing truncated when the reply fits the cap', () => {
+    const parsed = parseExtractionResultPartial({ candidates: [...RECORDED], cityHint: null });
+
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.value.truncated).toBe(0);
+  });
+
+  it('still refuses a flood, which is what stops the fix being a hole', () => {
+    // `09` §3.3: a model emitting 40 hashtag "places" has stopped answering the question, and no
+    // prefix of that reply is worth keeping. The guard moved; it did not go away.
+    const flood = manyValid(FLOOD_GUARD_CANDIDATES + 1);
 
     expect(parseExtractionResultPartial({ candidates: flood, cityHint: null }).ok).toBe(false);
+    expect(parseExtractionResultPartial({ candidates: manyValid(40), cityHint: null }).ok).toBe(false);
+  });
+
+  it('truncates a reply that sits exactly on the flood guard', () => {
+    const parsed = parseExtractionResultPartial({
+      candidates: manyValid(FLOOD_GUARD_CANDIDATES),
+      cityHint: null,
+    });
+
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.value.candidates).toHaveLength(CANDIDATE_CAP);
+    expect(parsed.value.truncated).toBe(FLOOD_GUARD_CANDIDATES - CANDIDATE_CAP);
+    expect(parsed.value.dropped).toBe(0);
+  });
+
+  it('still fails hard when an over-cap reply is entirely invalid', () => {
+    // The new band must not become a way for an unreadable reply to arrive as `[]`. Thirteen
+    // elements, none of them a candidate: past the old cliff, and still an error rather than
+    // "this caption names no place".
+    const parsed = parseExtractionResultPartial({
+      candidates: Array.from({ length: 13 }, () => MALFORMED),
+      cityHint: null,
+    });
+
+    expect(parsed.ok).toBe(false);
   });
 });
