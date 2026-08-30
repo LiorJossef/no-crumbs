@@ -131,6 +131,7 @@ import { elsewhereGroups } from '@/ui/place/elsewhere-groups';
 import { meanCentroid } from '@/domain/places/country-bucket';
 import { summariseByCountry } from '@/ui/place/library-summary';
 import { ImportPageClient, type SaveOutcomeDetail } from '@/app/import/import-page-client';
+import { AddSheetHost } from '@/components/add/add-sheet-host';
 import { CollectionsContext, type CollectionsForPlace } from '@/ui/place/collections-context';
 
 /** How long the typing has to settle before the result count is announced to a screen reader.
@@ -168,6 +169,16 @@ export function MapPageClient({
    */
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
+  /**
+   * The `＋` sheet. Owner's ruling, 2026-08-29: `＋` opens the same create menu everywhere, so this
+   * page no longer sends that button straight into the TikTok overlay — the choice between a place
+   * and a collection is made inside the sheet, where it can be seen.
+   *
+   * Held here rather than inside `BottomNav` because the sheet needs this page's library to search
+   * and this page's camera to fly afterwards, and because the import overlay it can hand off to is
+   * this page's state too.
+   */
+  const [addOpen, setAddOpen] = useState(false);
   const [query, setQuery] = useState('');
   /** The one tag narrowing the library, as stored (lowercase, normalised), or `null`. Set by a chip
    *  in any place's detail view through `TagFilterContext`, cleared by the pill above the list, by
@@ -736,7 +747,12 @@ export function MapPageClient({
     [activeTag, toggleTag],
   );
 
-  function openImport() {
+  /** A link handed over from the `＋` sheet, so the overlay opens with it already typed. `null`
+   *  for every other way in, which is the standalone paste screen's own empty start. */
+  const [importSeedUrl, setImportSeedUrl] = useState<string | null>(null);
+
+  function openImport(seedUrl: string | null = null) {
+    setImportSeedUrl(seedUrl);
     setLastImport(null);
     // An import that lands places the current filters exclude would save them into an invisible
     // list and fly the camera at pins that are filtered out. Starting an import is the user leaving
@@ -749,6 +765,31 @@ export function MapPageClient({
     // explain from the screen.
     setNotBeenOnly(false);
     setShowImport(true);
+  }
+
+  /**
+   * Camera mover 7, and writer 4: **show me this one place**, whether it was just written by a
+   * manual add or picked out of the `＋` sheet's search.
+   *
+   * It clears the filters for the identical reason `openImport` clears them — a place revealed into
+   * a narrowing that excludes it lands in an invisible list under a camera flying at a pin that is
+   * filtered out, and `selected` is derived from `matches`, so a filtered-out place has no detail
+   * to open at all. `activeCategory` goes too, which `openImport` predates: a manual add takes its
+   * category from the provider, so a `Bar` chip would hide a café nobody could see they had added.
+   *
+   * The three writes at the end are the same three the import path already makes, in the same
+   * order: the list scope, the camera, the selection. Selecting is what names a manual save back to
+   * the user — the row came from a provider match they did not pick off a list, so the detail card
+   * opening on it *is* the confirmation, and Remove is one tap inside it.
+   */
+  function revealSavedPlace(savedPlaceId: string) {
+    setQuery('');
+    setActiveTag(null);
+    setNotBeenOnly(false);
+    setActiveCategory(null);
+    setScope(scopeForAreaTap(savedPlaceId));
+    setFocusPlaceIds([savedPlaceId]);
+    setSelectedId(savedPlaceId);
   }
 
   return (
@@ -817,7 +858,11 @@ export function MapPageClient({
               half-finished import by tapping a tab is not a thing to offer. It renders only below
               `lg` (its own class), where `PlaceDesktopPanel`'s always-visible column already gives
               desktop everything the bar is for. */}
-          {!showImport && <BottomNav onAdd={openImport} />}
+          {/* `＋` opens the create menu, never the TikTok overlay directly — the 2026-08-29 ruling.
+              The TikTok arm inside the sheet still lands in that same overlay (`onSubmitTikTok`
+              below), so nothing about the import path changed; what changed is that it is now one
+              of two things the button can start rather than the only one. */}
+          {!showImport && <BottomNav onAdd={() => setAddOpen(true)} />}
           {!showImport && (
             <PlaceSheet
               places={inScope}
@@ -847,6 +892,31 @@ export function MapPageClient({
               onSelect={selectPlace}
             />
           )}
+          {/* Rendered after `PlaceSheet` on purpose. Both are vaul drawers in body-level portals, so
+              paint order is mount order at equal z-index; this one is modal, sits a layer above
+              (`z-50` content over the sheet's `z-40`), and must be the thing the backdrop covers
+              rather than the thing covered by it.
+
+              **Not** under `!showImport`, unlike the sheet above it, and the difference is that
+              `PlaceSheet` is always open while this one renders nothing at all when `addOpen` is
+              false. Guarding it would mean unmounting a *modal* drawer mid-open on the one path
+              that raises the import overlay from inside it — and a modal drawer that never runs its
+              close effect is how `document.body` keeps a scroll lock and a `pointer-events: none`
+              nobody can see. Closing it normally and letting the overlay mount on top costs one
+              140 ms crossfade behind an opaque takeover. */}
+          <AddSheetHost
+            open={addOpen}
+            onOpenChange={setAddOpen}
+            places={places}
+            // The same reveal a manual save gets, and for the same reason: the user named a place,
+            // so a filter they set earlier must not be what decides whether they see it.
+            onSelectPlace={revealSavedPlace}
+            // The link the user pasted is not carried across yet: `ImportPageClient` has no
+            // `initialUrl` prop, and adding one is a change to a file outside this task's scope.
+            // Until it does, this opens the overlay on its own paste screen.
+            onSubmitTikTok={(url) => openImport(url)}
+            onManualSaved={(saved) => revealSavedPlace(saved.savedPlaceId)}
+          />
           <PlaceDesktopPanel
             places={inScope}
             heading={heading}
@@ -872,6 +942,7 @@ export function MapPageClient({
           />
           {showImport && (
             <ImportPageClient
+              {...(importSeedUrl === null ? {} : { initialUrl: importSeedUrl })}
               onClose={() => setShowImport(false)}
               onSaved={(outcome) => {
                 setLastImport(outcome);
