@@ -104,7 +104,7 @@ Protomaps code that neither of you edits.
 `country-flag-image.ts` and `summary-style.ts` each carry mechanics inside a style file, and
 `map-surface.mapcn.tsx` cannot be partitioned at all. Take none of them without a lease.
 
-**`src/components/map/types.ts` (24 importers) is yours exclusively.** When a styling change needs a
+**`src/components/map/types.ts` (28 importers) is yours exclusively.** When a styling change needs a
 field, it comes to you as a request.
 
 **`src/components/shell/use-map-shell.ts` is yours** — it declares the `CameraFocus` union and
