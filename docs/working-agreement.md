@@ -163,6 +163,30 @@ should I build next" is not one of them.
 **Configuration:** the owner has given standing permission to enable or change whatever agent
 settings this requires, without asking again.
 
+### 1.5 Dispatch runs concurrently — owner ruling, 2026-08-30
+
+§1.4 said *find the work that can run in parallel*. This says **run as many specialists at once as
+can safely complete**, and it replaces the old rule that agents whose paths overlap are serialised.
+
+The safety condition is one sentence: **two agents may run concurrently if, and only if, their
+write scopes are disjoint and they hold no exclusive resource in common.** Serialising on directory
+overlap satisfied that condition but forbade work it allows — two agents rarely contend over the
+same *file*, only the same directory.
+
+Disjointness is not only about lost writes. It is also what keeps `git-workflow.md`'s per-subtask
+commits possible: with disjoint scopes, `git add <scope>` selects exactly one agent's work, so a
+shared tree still produces attributable, individually revertable commits. Lose disjointness and you
+lose the ability to commit, review or revert one agent's work at all.
+
+The mechanics — the five-field dispatch contract, waves, the exclusive resources that do not
+partition, and the escape hatch when scopes genuinely cannot be split — are in
+[`01-agent-roster.md`](01-agent-roster.md). The binding rules for the specialists are
+[`agent-guardrails.md`](agent-guardrails.md) §8, and §9 lists the five classes of work that never
+run concurrently with anything.
+
+**Concurrency raises the ceiling on how much can run; it does not lower the bar for whether
+something should.** §1.4's "parallelism, not ceremony" is unchanged and still governs.
+
 
 ## 2. Definition of done
 
@@ -186,6 +210,13 @@ Before calling meaningful work complete, where relevant:
 Never report that something works on the strength of implementation reasoning. For core
 functionality, mocks and unit tests are useful but are not a substitute for realistic end-to-end
 verification.
+
+**Under concurrent dispatch, verification names a commit.** When several agents are writing, the
+working tree is not the change — it holds everyone's half-finished work, so evidence taken from it
+proves nothing about any one thing. So the builder's scope is committed first, and the verifier is
+pointed at that SHA; evidence that cannot name the ref it was taken against is not evidence. This
+is what keeps "the builder is never the sole source of evidence" true when the builder is still
+running.
 
 ## 3. Real TikTok testing
 
@@ -304,7 +335,9 @@ himself. Before the context ends, make sure these are true:
 - The working tree is either committed on its feature branch or explained in `current-state.md`.
 - **Nothing is left running.** Every subagent spawned this session has been collected or stopped,
   and its result is either acted on or written down (§1.4). A session that ends with an agent still
-  going, or with its output never read, has failed the hand-over regardless of what shipped.
+  going, or with its output never read, has failed the hand-over regardless of what shipped. Under
+  §1.5 this is per **wave**: a wave with an uncollected result is an unfinished wave, and the count
+  of what was dispatched must match the count of what was read.
 
 ### 9.1 Update the top banner — added 2026-08-28, after it went wrong twice in one session
 

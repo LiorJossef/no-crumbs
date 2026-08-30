@@ -52,7 +52,13 @@ what is verified and how, what is unresolved, and the next highest-impact step. 
 1. `docs/mvp-plan.md` — **the plan of record**: the MVP boundary, the four levels, the exit criteria
 1b. `docs/execution-plan.md` — **the ladder and the running status**: Level → Feature → Task
 1c. `docs/brand-and-product-foundation.md` — positioning, user, tone, visual direction, the eight
-   surfaces, the main flow. The product **name is still open** (owed at L1-F1-T1)
+   surfaces, the main flow. **The product is named No Crumbs** (owner, 2026-08-30); §3 is closed and
+   §3.1 rules the identity mascot-led, overriding §5's "no illustration style" for the mark only
+1d. `docs/voice-and-vocabulary.md` — **binding on every user-facing string**: the one rule (the name is
+   the only joke), the six surfaces the name may appear on, the vocabulary table, the banned words
+1e. `docs/facelift-plan.md` — the **five-stage visual rebuild**, its twelve audited findings, the
+   locked decisions and the map capability matrix. Rendered, with live mockups and the mascot motion
+   set, in `docs/no-crumbs-design-system.html`
 2. `docs/00-project-charter.md` — product definition, V1 boundary, engineering principles, open decisions
 3. `docs/implementation-plan.md` — the decision ledger, the M3 architecture answer, the change log
 4. `docs/02-risks-and-unknowns.md` — unknowns, assumptions, risks
@@ -73,12 +79,15 @@ in `.claude/agents/`, invocable by `subagent_type`, in three tiers (`docs/01-age
 evidence (`social-integration`, `security-privacy`, `devops-vercel`, `qa-reliability`, which also
 owns test harnesses); **Advise** rules and specifies, with no shell (`product-lead`,
 `ux-interaction`). Delegate meaningful implementation and investigation — decompose the task,
-delegate it with a task ID and a path scope, integrate, verify, commit.
+delegate it with a task ID and a write scope, integrate, verify, commit.
 
 You **own verification without personally executing every step**: decide what evidence is required,
 ensure it is independent, inspect it, and make the done/not-done call. The hard constraint is that
 **the agent that built a thing is never the sole source of evidence that it works.** No subagent
-delegates; every handoff routes back through you, and you serialise agents whose paths overlap.
+delegates; every handoff routes back through you, and **you dispatch in waves whose write scopes are
+disjoint** — the concurrency rule, `01-agent-roster.md` and `agent-guardrails.md` §8. Evidence about
+a change names the **commit** it was taken against, never "the working tree": under concurrency the
+tree holds several agents' half-finished work and proves nothing about any one of them.
 `docs/agent-guardrails.md` lists what a specialist must never do — commits, merges, deploys, hosted
 migration pushes and destructive database operations stay with you.
 
@@ -89,12 +98,16 @@ reading anyway — and never performatively. **You keep orchestration, integrati
 final verification**; delegating work never delegates accountability. When nothing fits and you do
 it yourself, say you checked.
 
-**Parallelise proactively — standing owner ruling, 2026-08-28, `working-agreement.md` §1.4.** In
-**every** session, look for the work that can genuinely run in parallel and dispatch it to the
-specialists while you continue the main thread: independent investigations, measurements against
-real rows, adversarial verification of what is already built, extraction or platform research,
-product/UX checks, test and harness work. No permission is needed per session, and the owner has
-given standing permission to change whatever agent configuration this requires. **Parallelism, not
+**Parallelise proactively — standing owner ruling, 2026-08-28, extended to concurrent dispatch on
+2026-08-30, `working-agreement.md` §1.4.** In **every** session, look for the work that can
+genuinely run in parallel and dispatch it to the specialists while you continue the main thread:
+independent investigations, measurements against real rows, adversarial verification of what is
+already built, extraction or platform research, product/UX checks, test and harness work. No
+permission is needed per session, and the owner has given standing permission to change whatever
+agent configuration this requires. Several specialists run **at once**, in waves: cut the write
+scopes until they are pairwise disjoint, check the exclusive resources (the local database, the
+migration number, the dev server, the provider budget), dispatch the wave in one message, then
+commit each scope as its own commit — disjointness is what keeps that possible. **Parallelism, not
 ceremony** — never spawn an agent to look busy, to duplicate what you are already doing, or to split
 work that is faster in one pass. **You own the lifecycle of everything you spawn:** track what is
 running, collect it, stop what no longer matters, and never end a session with background work

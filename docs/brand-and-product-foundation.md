@@ -50,26 +50,95 @@ cities. Recorded in `mvp-plan.md` §8.
 Anti-users are unchanged and still testable: `product-specification.md` §2.1 — this recommends
 nothing, has no social graph, and is not an itinerary planner.
 
-## 3. The name — OPEN, with a deadline
+## 3. The name — **DECIDED 2026-08-30: No Crumbs**
 
-**Not decided.** The brief, captured so the next session does not re-derive it:
+**Owner decision.** The product is called **No Crumbs**. §3 is closed; what follows records the
+reasoning so it is not re-derived, and the constraints the name brings with it.
 
-- **Direction:** short, modern, memorable, consumer-app-like, and connected to the **product action**.
-  Reference points for register only: *MapIt*, *Spotted*.
-- **Avoid:** poetic, travel-brochure or outdoorsy names (*Cairn*, *Amble*, *Yonder* were explored and
-  rejected as a direction, not individually).
-- **Avoid also:** TikTok-derived names (trademark, and the product outgrows the platform), the `-It`
-  construction (dates immediately, and it is crowded), and implementation vocabulary — the house rule
-  in `ux-architecture` §12 bans it in user-facing language, and the name is the most user-facing
-  string there is.
-- **Explored, kept on the table:** *Pinned* (names the artifact; needs no explanation; free success
-  copy; Pinterest adjacency), *Mapt* (most ownable; a coined spelling), *Placed* (cleanest; quietest),
-  *Dropp* (punchy; trend-styled).
-- **Owed before it blocks:** the name is needed at **L1 step 1**, which is the first thing that puts a
-  word in the shell header, and again for the deck. It does not block L0 at all.
-- **Not owed with it:** a logo, a wordmark treatment, an icon set. Charter §4 keeps those out.
-- **Not verified for any candidate:** trademark and domain. Owed before public use; not before a
-  course submission.
+**Three meanings stack, and the third is the product.** *Left no crumbs* is current praise meaning
+executed flawlessly. *Crumbs* are food, which is what this map holds. And **a crumb trail is how you
+find your way back** — which is exactly what the product does with a place you saw once, in a video.
+
+**The negation resolves on two layers, and this is load-bearing.** *No crumbs* means none are left,
+while the trail idea needs them to exist. Both readings survive only because they never meet: **the
+negation is the copy, the trail is the mark.** The words always mean *that place was flawless* — a
+judgement about somewhere the user went. The trail appears only as a shape: the loading animation, the
+empty state, the icon. Meaning 3 is never spoken in the product's voice.
+
+**What the research established, and it changed the brief.** The category is saturated: at least
+**thirty-four shipping products** turn a social link into a pin on a personal map — Plotline, Stasht,
+Postcard, GeoTok, MunchMap, iCrave, Triply, Rezz, Drawer, SpotFetch, Mapstr, Mapbite, Beli, Rex,
+Recco, SpotSavor, Keepza, Spots, Pin Drop, TokSpot, North, Truffle, Nomblr, Pocket Places, Placelist,
+Eats, To Eat List, Eaterly, Eatlist, Eater, SaveThatPlace, Step, The Infatuation and Crumbs among
+them. Between them they have taken the roots `map*`, `spot*`, `plot*`, `save`/`stash`, `pin*`, `geo*`
+and `*tok`. **Three of this section's own four candidates died on that** — *Mapt*, *Pinned* and
+*Spots* are all built from taken roots, and *Spots* and *Pin Drop* ship today as personal-map products
+under those exact names. A descriptive name in this category now guarantees a collision.
+
+**The cost of this name, priced rather than hidden: category legibility.** A negation that reads
+food-adjacent makes a first-time hearer guess a recipe app or a cleaning product before a map. Every
+introduction pays it. That is why the landing subhead must stay literal and must never be traded for a
+cleverer line.
+
+**Dating risk, honestly.** *Ate and left no crumbs* peaked around 2023–24, so it is familiar rather
+than fresh — it ages like *slay*, not like *rizz*. What dates is copy leaning on the slang reading,
+which `voice-and-vocabulary.md` §1 already bans. Stripped of the slang it is two short common words,
+food-adjacent, spellable and sayable, with a mark that carries meaning 3 without dating at all.
+
+**Still unverified, and owed before public use rather than before a submission:** trademark and
+domain. Domain-availability research was inconclusive and one round of it was wrong — a name with no
+DNS record is not necessarily unregistered, and `whois` disproved several such claims. Nothing short is
+free, and every competitor in this category runs a workaround domain, so the domain must not drive any
+naming decision.
+
+**Where the name may and may not appear:** [`voice-and-vocabulary.md`](voice-and-vocabulary.md) §2
+holds the complete list. Six permitted surfaces; banned in every failure string, every toast, every
+empty state, anything describing a place, and never as a verb.
+
+### 3.1 The mark — a mascot, and it overrides §5
+
+**Owner ruling, 2026-08-30**, recorded rather than left to be discovered as a contradiction: the
+identity is **mascot-led**, a soft-cornered crumb character in the register of the reference artist the
+owner supplied. §5 scopes the MVP as *warm minimal* and explicitly excludes an illustration style, and
+Charter §4 keeps illustration systems off the current sprint. **This ruling overrides both**, for the
+mark only.
+
+Three constraints keep it from eating the design system:
+
+1. **The silhouette is the system.** The same closed path is the mascot at 168px, the pin at 30px and
+   the favicon at 16px. An illustrator may change the face, shading, feet and palette. **If they change
+   the outline, the pin is lost** and the product is back to the teardrop all thirty-four competitors
+   draw.
+2. **Face on chrome, silhouette on data.** The character appears on the app icon, splash, sign-in and
+   link preview. On the map it is a pin in a category colour with no face — thirty-one smiling faces
+   over a city is a toy, and a pin with eyes cannot carry a category colour.
+3. **The crumb is a shape, not a colour.** Toast-gold is the obvious brand colour and is **refused**:
+   it sits a few degrees from the café category amber, and on this map colour means *what a place is*.
+   Mint stays the only brand colour; gold belongs to the mascot alone; the two never share a surface.
+
+**Typography — amended 2026-08-30 (second pass).** The wordmark was first set in **Archivo**; that is
+**retired**. Archivo and Manrope are both grotesques, so pairing them was a near-miss — too similar to
+read as a deliberate pairing, too different to read as one family, which is exactly the "something is
+off and I cannot say what" the owner reported. Any second sans has the same problem.
+
+The wordmark and the large editorial headings are now **Fraunces** — a variable display serif, run
+with `SOFT` at 60 and `WONK` on, which is what gives it the slight tilt that keeps it from reading as
+a bank. It contrasts with Manrope completely rather than nearly, and its warmth suits a food product
+with a soft-cornered mascot better than a neutral grotesque did.
+
+**Two roles, and the split matters:** Fraunces carries `h1`/`h2` and the wordmark. **Functional labels
+— `h3`, `h4`, card titles at 15–17px — stay in Manrope**, because a serif at that size turns to mud.
+So §5's *Manrope only* ruling for UI survives intact, and the display face is confined to the
+editorial voice.
+
+**Do not apply a `font-stretch` axis** to any of them. Archivo was variable-width and an expanded
+setting visibly distorted the letterforms — the first version of the design-system document shipped
+that bug across every heading.
+
+Moods, style constructions and the motion set are in
+[`no-crumbs-design-system.html`](no-crumbs-design-system.html) → The Mascot. Eight moods, each bound to
+a real product state; the neutral one belongs to *no places found*, because a sad mascot turns the
+product's modal outcome into a small failure several times a week.
 
 ## 4. Personality and tone
 
@@ -201,3 +270,4 @@ Two properties of this flow are load-bearing and must not be traded for polish:
 | 2026-08-20 | Created in session with the owner. Decided: the positioning line and its long form; **one merged user profile** with two retrieval questions, which promoted **near-me to the first L2 item** because the everyday half of our own primary user depends on it; the personality (modern, sleek, effortless, discovery — clean and confident, not cold or corporate) with four operable rules and the ruling that **the failure screen, not the success screen, is the tone test** at a ~73% no-places rate; the visual direction as **warm minimal, light only, dark-ready in architecture** (semantic token roles, no dark values, no toggle, no dark map — and every colour a token, which is what keeps both the dark theme and the L2 map fork cheap); **display + text typography restricted to three placements**; the surface set **pruned from ten to eight** (account → popover, landing → minimal sign-in); and the flagship flow ratified with a **three-stage rail on real streamed events** and the reassurance ladder cut from four messages to two. Two things were deliberately not decided: the **name**, which is open with its brief, its rejected directions, its live shortlist and a deadline (L1 step 1, the first surface with a header — it does not block L0), and anything resembling a design system, logo or component inventory, which Charter §4 keeps out of the MVP. One honesty item recorded rather than smoothed: the positioning says *social media* while the MVP reads *TikTok*, so the platform boundary is carried **in the product** as a recognised redirect to manual add rather than as a footnote |
 | 2026-08-20 | Owner decision, same day: **the component stack** (shadcn/ui + Tailwind + Lucide + Manrope, Motion for subtle interaction only) is fixed now, ahead of the name/tokens, precisely so no UI from here on is a hand-rolled primitive or a bare unstyled placeholder — shadcn's copy-in-source model keeps restyling cheap once §5's tokens land. This narrows, not reverses, the earlier "no component inventory" ruling: a library choice isn't a designed system §5 still owns |
 | 2026-08-21 | Owner approved the sign-in screen's design exploration, superseding §5's placeholder values (**not** an append — the table above was rewritten, not extended). **Mint replaces clay/amber** as the one accent family; **typography drops the two-face display/text pairing for Manrope alone** at two weights/roles, retiring the "three placements" rule along with it; **radius becomes one explicit value per size** instead of a multiplier scale off a single base, after the owner rejected the first exploration's radius ("not a fan of the border radius!"); and a **mobile/desktop composition pattern** (full-bleed atmosphere + top hero + thumb-zone form on mobile, genuine two-panel editorial/frosted-form split on desktop) is recorded as the reusable pattern for future full-screen surfaces, not a one-off. Dark mode's values are now explicitly flagged stale rather than silently left inconsistent — they still reflect the rejected light-blue exploration and need their own pass before enabling. One tension noted, not resolved here: the approved hero copy reads warmer than `ux-architecture.md` §1's "no marketing" description of S2 |
+| 2026-08-30 | **The name closes: No Crumbs**, and §3 is rewritten from an open brief into a decision, with the three meanings, the two-layer resolution of the negation, the saturated-category research that killed three of its own four candidates, and the priced cost (category legibility). **§3.1 is new and overrides §5 and Charter §4 for the mark only:** the identity is mascot-led, on the owner's ruling, with three constraints that keep it contained — the silhouette is the system, face on chrome and silhouette on data, and the crumb is a shape rather than a colour so that mint remains the only brand colour and category colour keeps meaning what a place is. Archivo enters for the wordmark alone, at normal width, which leaves §5's *Manrope only* UI ruling intact. Two companion documents are created: [`voice-and-vocabulary.md`](voice-and-vocabulary.md), which governs every string and closes a drift between the copy deck and the shipped code in favour of the code, and [`facelift-plan.md`](facelift-plan.md), which is the plan of record for the five-stage visual rebuild |
