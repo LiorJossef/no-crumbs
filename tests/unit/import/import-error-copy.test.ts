@@ -336,8 +336,12 @@ describe('the pre-submit codes are the same map, not a second one', () => {
   /**
    * Is this string *rendered* by the component — as a quoted literal or a JSX text node — rather
    * than merely appearing somewhere inside it? A plain `includes` is too blunt: `NO_CAPTION`'s
-   * kicker is "No caption", and `CaptionPreviewScreen`'s unrelated heading "No caption to search"
-   * contains it. This asks the question the guard actually means.
+   * kicker is "No caption", and `CaptionPreviewScreen` used to carry an unrelated heading "No
+   * caption to search" that contains it — a false positive on a screen that was not rendering the
+   * copy map at all. That particular heading was deleted on 2026-08-31 with the dead `n === 0`
+   * branches (W1-6), so the collision is currently hypothetical; the substring hazard is not, and
+   * a two-word kicker will keep colliding with ordinary prose. This asks the question the guard
+   * actually means.
    */
   function rendersLiterally(source: string, text: string): boolean {
     const escaped = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

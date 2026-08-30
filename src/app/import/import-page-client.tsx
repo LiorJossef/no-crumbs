@@ -12,10 +12,13 @@
  * Each candidate arrives with the resolver's stored shortlist attached, and the review screen's
  * picker (`ui/import/candidate-resolution-view.ts`) is how a `confirm`-band candidate gets an
  * answer — without it, that whole band silently saved the model's guessed coordinate.
- * The `no_places`/`results` `Screen` kinds and their `NoPlacesScreen`/`ResultsScreen` components
- * predate this real wiring and are currently unreachable from this file (no code path sets them);
- * they are kept as the shape L0-F6-T1's real streaming route is expected to drive, rather than
- * deleted ahead of that work.
+ * `NoPlacesScreen` is where a zero-candidate import lands, and at LEVEL B’s hit rate that is
+ * the *modal* outcome of this flow rather than an edge case — `submit()` routes to it directly.
+ * A second, competing candidate design sat unreachable beside it here — the `results` `Screen`
+ * kind, `ResultsScreen`, `CandidateRow`, and a `saveConfirmedCandidates` that posted place
+ * facts rather than positions — kept for a streaming route that never came. It was deleted on
+ * 2026-08-31 rather than carried into the decomposition, where it would have been a second
+ * answer to every question about how a candidate is confirmed.
  *
  * The one piece of real domain logic wired up live beyond the above is `canonicaliseTikTokUrl`
  * (`domain/source/canonicalise-tiktok-url.ts`) against the pasted string, so the paste screen's
@@ -83,7 +86,7 @@ import {
   willSave,
   type CandidateResolutionView,
 } from '@/ui/import/candidate-resolution-view';
-import type { Candidate, PlaceCandidate } from '@/domain/types';
+import type { PlaceCandidate } from '@/domain/types';
 import type { DomainErrorCode } from '@/domain/errors';
 import { IMPORT_SEED_LINKS } from '@/ui/import/seed-links';
 import { railWaitLine } from '@/ui/import/rail-wait-line';
@@ -192,7 +195,6 @@ type Screen =
        *  was nothing to read" are different facts and this screen says which. */
       readonly hadCaption: boolean;
     }
-  | { readonly kind: 'results'; readonly authorHandle: string | null; readonly candidates: readonly Candidate[] }
   /** The real-fetch slice's landing screen (this task): no LLM has run, so this is deliberately
    *  not `no_places` or `results` — both of those imply extraction happened. Shows the raw
    *  caption plainly, once the real `SourceAdapter` + `ContentExtractor` have run. */
@@ -573,63 +575,8 @@ export function ImportPageClient({
   }, [initialUrl]);
 
   /**
-   * The real save path (`POST /api/imports/confirm`, L0-F4-T3) wired onto `ResultsScreen`'s
-   * "Save →" button — currently unreachable, see this file's header. Only `status: 'resolved'`
-   * candidates have a single `ResolvedPlace` to confirm
-   * — `ambiguous` (pick one of several options) and `unresolved` (nothing to save) are not this
-   * task's scope and are silently skipped here, matching `ConfirmImportRequestSchema`'s own
-   * comment that a candidate with no single place never reaches this endpoint.
-   *
-   * `sourceId: null`: this path (and the `results`/`no_places` screens it serves) predates the real
-   * streaming route and currently has no live caller in this file — there is no real `sources.id`
-   * row to link. Passing `null` is the honest state of the data available here — `save_place`
-   * treats it as a manual save — rather than inventing a fake uuid that would fail the `sources`
-   * foreign key. Real provenance linking arrives with L0-F6-T1, when this screen's candidates come
-   * from an actual import.
-   */
-  async function saveConfirmedCandidates(candidates: readonly Candidate[]) {
-    const items = candidates
-      .filter((c) => c.resolution.status === 'resolved')
-      .map((c) => {
-        const { place, confidence } = c.resolution as Extract<Candidate['resolution'], { status: 'resolved' }>;
-        const countryHint = c.candidate.countryHint;
-        return {
-          provider: place.provider,
-          providerPlaceId: place.providerPlaceId,
-          sourceDataset: place.sourceDataset,
-          name: place.name,
-          category: c.candidate.categoryHint,
-          providerCategory: place.providerCategory,
-          addressLine: place.addressLine,
-          locality: place.locality,
-          countryCode: countryHint && /^[A-Z]{2}$/.test(countryHint) ? countryHint : null,
-          lat: place.lat,
-          lng: place.lng,
-          resolutionScore: confidence.score,
-          note: null,
-        };
-      });
-
-    if (items.length === 0) return;
-
-    try {
-      await fetch('/api/imports/confirm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sourceId: null, items }),
-      });
-    } catch {
-      // Best-effort for this not-yet-live path: no dedicated error UI exists here yet (the same
-      // minimal-fidelity gap `ProbeErrorScreen`'s header notes for the real flow). A failed save
-      // is not silently claimed as a success anywhere else in this file, but there is no "confirm
-      // failed" state wired up here either — a follow-up, once this path is fed by the real
-      // streaming route (L0-F6-T1) instead of sitting unreachable.
-    }
-  }
-
-  /**
-   * The real caption-preview screen's "Done" save (this task, L0-F4-T3 follow-up). Unlike
-   * `saveConfirmedCandidates` above, these `PlaceCandidate`s never went through `PlaceResolver` —
+   * The real caption-preview screen's "Done" save (this task, L0-F4-T3 follow-up). These
+   * `PlaceCandidate`s never went through `PlaceResolver` —
    * `/api/imports/probe` stops after extraction (this file's header) — so there is no
    * `CandidateResolution`/`ResolvedPlace` to confirm. The only coordinate available here is the
    * model's own best guess, `PlaceCandidate.coordinates` (`domain/types.ts`'s doc comment on that
@@ -645,8 +592,7 @@ export function ImportPageClient({
    * `sourceId`: the real `sources.id` this screen's probe fetched (`ProbeSuccess.sourceId`) — a
    * TikTok link was pasted and actually fetched, so even a zero-candidate ("no places found")
    * manual save still links back to that source. `null` stays reserved for a true no-source
-   * manual entry, which this screen never produces (`saveConfirmedCandidates` above is the
-   * currently-unreachable path without a real source yet).
+   * manual entry, which this screen never produces.
    */
   async function saveExtractedCandidates(
     picks: readonly CandidatePick[],
@@ -958,18 +904,6 @@ export function ImportPageClient({
             hadCaption={screen.hadCaption}
             onRetry={() => reset({ clearUrl: true })}
             onAddManually={onAddManually ?? null}
-          />
-        )}
-
-        {screen.kind === 'results' && (
-          <ResultsScreen
-            authorHandle={screen.authorHandle}
-            candidates={screen.candidates}
-            onSave={async () => {
-              await saveConfirmedCandidates(screen.candidates);
-              reset({ clearUrl: true });
-            }}
-            onCancel={() => reset()}
           />
         )}
 
@@ -1425,98 +1359,6 @@ function NoPlacesScreen({
 }
 
 /* ------------------------------------------------------------------------------------------- *
- * Review/results — reuses PlaceRow's visual language (place-sheet.tsx) for candidate rows.
- * ------------------------------------------------------------------------------------------- */
-
-function ResultsScreen({
-  authorHandle,
-  candidates,
-  onSave,
-  onCancel,
-}: {
-  authorHandle: string | null;
-  candidates: readonly Candidate[];
-  onSave: () => void;
-  onCancel: () => void;
-}) {
-  const n = candidates.length;
-
-  return (
-    <div className="flex flex-1 flex-col">
-      <div className="flex flex-col gap-1 pb-6">
-        <ScreenKicker icon={<SearchCheck className="size-3.5" aria-hidden />} label="Review & confirm" />
-        <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">
-          {n === 1 ? '1 place found' : `${n} places found`}
-        </h1>
-        {authorHandle && (
-          <p className="text-sm font-medium text-muted-foreground">From @{authorHandle}&rsquo;s TikTok</p>
-        )}
-      </div>
-
-      <ul className="flex flex-1 flex-col gap-3 overflow-y-auto pb-4">
-        {candidates.map((c, i) => (
-          <CandidateRow key={i} candidate={c} />
-        ))}
-      </ul>
-
-      <div className="flex flex-col gap-2 pt-4">
-        <Button type="button" onClick={onSave} className="h-12 w-full rounded-lg text-base font-bold">
-          Save →
-        </Button>
-        <Button type="button" variant="ghost" onClick={onCancel} className="h-11 w-full rounded-lg text-sm font-bold">
-          Cancel
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function CandidateRow({ candidate }: { candidate: Candidate }) {
-  const { candidate: c, resolution } = candidate;
-
-  const band =
-    resolution.status === 'resolved'
-      ? { label: 'Ready to check', tone: 'confident' as const, place: resolution.place }
-      : resolution.status === 'ambiguous'
-        ? { label: 'A few options', tone: 'confirm' as const, place: resolution.options[0] ?? null }
-        : { label: 'Not matched', tone: 'unresolved' as const, place: null };
-
-  return (
-    <li className="flex items-start gap-3 rounded-xl border border-border/70 bg-card px-4 py-3.5">
-      <span
-        aria-hidden
-        className={cn(
-          'mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full',
-          band.tone === 'confident' && 'bg-brand/15 text-brand',
-          band.tone === 'confirm' && 'bg-muted text-muted-foreground',
-          band.tone === 'unresolved' && 'bg-muted text-muted-foreground/70',
-        )}
-      >
-        <MapPin className="size-4" />
-      </span>
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <p className="line-clamp-1 font-heading text-sm font-bold text-foreground">
-          <bdi>{c.rawName}</bdi>
-        </p>
-        <p className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">
-          {band.place?.locality ?? c.cityHint ?? 'Location unknown'}
-        </p>
-      </div>
-      <span
-        className={cn(
-          'shrink-0 rounded-full px-2.5 py-1 text-xs font-bold',
-          band.tone === 'confident' && 'bg-brand/15 text-brand',
-          band.tone === 'confirm' && 'bg-muted text-foreground',
-          band.tone === 'unresolved' && 'bg-muted text-muted-foreground',
-        )}
-      >
-        {band.label}
-      </span>
-    </li>
-  );
-}
-
-/* ------------------------------------------------------------------------------------------- *
  * Caption preview — the real landing screen. Shows exactly what the real `SourceAdapter` +
  * `ContentExtractor` + `PlaceExtractor` + plausibility gate produced: the caption, plainly, and
  * every surviving `PlaceCandidate` with every field the schema carries
@@ -1710,15 +1552,15 @@ function CaptionPreviewScreen({
             collapsed && 'line-clamp-2',
           )}
         >
-          {collapsed
-            ? <bdi>{soleTitle}</bdi>
-            : probe.caption === null
-              ? 'No caption to search'
-              : n === 0
-                ? 'No places named'
-                : n === 1
-                  ? '1 place found'
-                  : `${n} places found`}
+          {/* No `n === 0` or `probe.caption === null` arm — see the list below for why
+              neither can be reached from here. */}
+          {collapsed ? (
+            <bdi>{soleTitle}</bdi>
+          ) : n === 1 ? (
+            '1 place found'
+          ) : (
+            `${n} places found`
+          )}
         </h1>
         {collapsed && probe.candidates[0] && (
           <p className="line-clamp-2 text-sm font-medium text-muted-foreground">
@@ -1796,58 +1638,56 @@ function CaptionPreviewScreen({
       )}
 
       <div className="flex min-h-0 flex-1 flex-col gap-3">
-        {n === 0 ? (
-          <p className="pt-1 text-sm font-medium text-muted-foreground">
-            {probe.caption === null
-              ? "This TikTok didn't have a caption to search."
-              : "This TikTok didn't call out a specific spot by name. That happens a lot."}
-          </p>
-        ) : (
-          <>
-            {n >= 2 && statusByIndex === null && (
-              <div className="flex shrink-0 items-center justify-between">
-                <p className="text-[13px] font-medium text-muted-foreground">
-                  {selectedCount} of {saveableIndices.length} selected
-                </p>
-                <button
-                  type="button"
-                  disabled={frozen}
-                  onClick={() => setSelected(allSelected ? new Set() : new Set(saveableIndices))}
-                  className="flex h-11 items-center text-[13px] font-bold text-brand disabled:opacity-50"
-                >
-                  {allSelected ? 'Deselect all' : 'Select all'}
-                </button>
-              </div>
-            )}
-
-            {/* No screen-level caveat paragraphs. Owner ruling, 2026-08-29: two prose blocks
-                apologising for the pin's provenance ("We couldn't reach the place database just
-                now…", and the caveat quantifying it) sat between the heading and the first card,
-                and the same fact is already on every card that has it — `Pin from the caption`,
-                `Pin is approximate` — attached to the one place it is true of rather than
-                asserted over the whole screen. The per-card line stays; these do not. */}
-            <ul
-              aria-labelledby={headingId}
-              className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain pb-1"
+        {/* No zero-candidate arm, and it is unreachable two ways. `submit()` sends every
+            zero-candidate probe to `NoPlacesScreen` instead, so this component is only ever
+            constructed with `n >= 1`. And a null caption can never get here either: the probe
+            route initialises `candidates` to `[]` and only assigns it inside
+            `if (caption !== null)` (`api/imports/probe/route.ts`), so no caption always means
+            zero candidates, which always means `no_places`. Both facts are cross-module, so
+            anything that splits this request in two has to re-establish them before assuming
+            `n >= 1` here. */}
+        {n >= 2 && statusByIndex === null && (
+          <div className="flex shrink-0 items-center justify-between">
+            <p className="text-[13px] font-medium text-muted-foreground">
+              {selectedCount} of {saveableIndices.length} selected
+            </p>
+            <button
+              type="button"
+              disabled={frozen}
+              onClick={() => setSelected(allSelected ? new Set() : new Set(saveableIndices))}
+              className="flex h-11 items-center text-[13px] font-bold text-brand disabled:opacity-50"
             >
-              {probe.candidates.map((c, i) => (
-                <ExtractedCandidateRow
-                  key={i}
-                  candidate={c}
-                  caption={probe.caption}
-                  view={views[i]!}
-                  pick={picks.get(i) ?? null}
-                  selected={selected.has(i)}
-                  frozen={frozen}
-                  status={statusByIndex?.get(i) ?? null}
-                  collapsed={collapsed}
-                  onToggle={() => toggle(i)}
-                  onPick={(optionIndex) => pick(i, optionIndex)}
-                />
-              ))}
-            </ul>
-          </>
+              {allSelected ? 'Deselect all' : 'Select all'}
+            </button>
+          </div>
         )}
+
+        {/* No screen-level caveat paragraphs. Owner ruling, 2026-08-29: two prose blocks
+            apologising for the pin's provenance ("We couldn't reach the place database just
+            now…", and the caveat quantifying it) sat between the heading and the first card,
+            and the same fact is already on every card that has it — `Pin from the caption`,
+            `Pin is approximate` — attached to the one place it is true of rather than
+            asserted over the whole screen. The per-card line stays; these do not. */}
+        <ul
+          aria-labelledby={headingId}
+          className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain pb-1"
+        >
+          {probe.candidates.map((c, i) => (
+            <ExtractedCandidateRow
+              key={i}
+              candidate={c}
+              caption={probe.caption}
+              view={views[i]!}
+              pick={picks.get(i) ?? null}
+              selected={selected.has(i)}
+              frozen={frozen}
+              status={statusByIndex?.get(i) ?? null}
+              collapsed={collapsed}
+              onToggle={() => toggle(i)}
+              onPick={(optionIndex) => pick(i, optionIndex)}
+            />
+          ))}
+        </ul>
       </div>
 
       <div className="mt-auto flex shrink-0 flex-col gap-2 border-t border-border/70 pt-4">
@@ -1875,7 +1715,7 @@ function CaptionPreviewScreen({
           >
             Continue to map →
           </Button>
-        ) : n === 0 || saveableIndices.length === 0 ? (
+        ) : saveableIndices.length === 0 ? (
           <>
             <Button
               type="button"
