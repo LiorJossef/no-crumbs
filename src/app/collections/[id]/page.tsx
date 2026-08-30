@@ -4,7 +4,7 @@ import { createClient } from '@/app/_lib/supabase/server';
 import { getSpots } from '@/app/map/_lib/get-spots';
 import type { MapPlace } from '@/components/map/map-surface';
 import type { Spot } from '@/domain/places/spot';
-import { getCollection } from '../_lib/get-collections';
+import { getCollection, getCollectionMemberships } from '../_lib/get-collections';
 import { CollectionClient } from './collection-client';
 
 /** The same `Spot` → `MapPlace` mapping `/map` does, for the picker's rows. Duplicated rather than
@@ -42,11 +42,23 @@ export default async function CollectionPage({
   // make this route an existence oracle for other people's collections.
   if (!collection) notFound();
 
-  const library = (await getSpots()).map(toMapPlace);
+  // Read alongside the library for the same reason `/map` does: the `Add to a collection` row has
+  // to say which collections a place is already in *before* it is tapped, so the answer has to be
+  // in hand when the detail renders. Without it the row renders nothing at all, and a place opened
+  // here would be missing a control it has on the map — which `R1` forbids.
+  const [library, collections] = await Promise.all([
+    getSpots().then((spots) => spots.map(toMapPlace)),
+    getCollectionMemberships(),
+  ]);
 
   return (
     <main className="relative h-dvh w-full overflow-hidden">
-      <CollectionClient collection={collection} library={library} currentUserId={user.id} />
+      <CollectionClient
+        collection={collection}
+        library={library}
+        collections={collections}
+        currentUserId={user.id}
+      />
     </main>
   );
 }

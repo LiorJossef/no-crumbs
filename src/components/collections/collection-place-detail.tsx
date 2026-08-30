@@ -3,41 +3,46 @@
 /**
  * One place, as seen from inside a collection.
  *
- * **What is on this screen is the whole privacy claim of the feature, made concrete.** It shows the
- * shared identity of the place (name, category, address), the note written *for the collection*,
- * and who put it there. It does not show — and cannot, because no policy grants it — the adder's
- * own note, their been / not-been mark, their tags, or the TikTok they saved it from. That is why
- * the sentence on the share panel is checkable rather than a reassurance.
+ * **A place is one object, whatever route reached it** — `docs/product-ruling-one-place-one-object.md`
+ * R1. This screen *is* `PlaceDetail`, the component `/map` renders, with `variant="hosted"`. The
+ * collection may only **add**, through the two slots that component exposes: `Added by …` in
+ * `primaryAction`, the shared note and `Remove from this collection` in the footer. It reorders
+ * nothing, renames nothing, hides nothing.
  *
- * The one thing it says about the *caller's* own library is whether they already have this place,
- * which is their own row and nobody else's.
+ * ## One component, two callers — and the difference is whose row is in hand
  *
- * ## It is `PlaceDetail`, not a second copy of it
+ *  - **A place the viewer saved themselves.** Their own `saved_places` row is already loaded on
+ *    this route (the library the picker uses), so it is passed straight through: their note, their
+ *    been mark, their category, their TikTok. Withholding it was never a privacy boundary — it was
+ *    the viewer's own data hidden from the viewer, which is exactly the complaint that produced R1:
+ *    the same place opened from a collection looked like a different application.
+ *  - **A place somebody else added that the viewer does not have.** Here the narrowing below *is*
+ *    the privacy claim of the feature, made concrete. No policy grants the adder's private note,
+ *    their been / not-been mark or the TikTok they saved it from, and none of it appears. (R2's
+ *    "the source travels with the place" is a separate `SECURITY DEFINER` read, not something this
+ *    component can reach for; until it exists, another member's row stays out of view entirely.)
  *
- * A collection is a scoped view of places, so this reads as the same kind of screen as the standard
- * detail — and it now *is* that component (`components/sheet/place-sheet.tsx`), rendered with
- * `variant="hosted"`. It used to be a hand-copied layout that had to be kept in step by hand: the
- * same 2xl heading, the same `Category · Locality` line, the same address row, the same section
- * rhythm, all written twice.
+ * Two props carry that difference, and both are deliberately hard to get wrong:
  *
- * Two props are what make that reuse safe rather than dangerous:
+ *  - **`savedPlace`.** `PlaceDetail` renders six controls that write to a `saved_places` row, and
+ *    it used to take that row's id from `place.id`. On this route `place.itemId` is a **collection
+ *    item** id and `place.placeId` is a shared place; neither is writable by this caller, so naive
+ *    reuse would have aimed five writes at the wrong rows. The prop stays required and undefaulted
+ *    so no host can arrive at that by omission, and it carries the id and the visit state
+ *    *together*, so "there is a row" and "we know nothing about it" is not a state anyone can
+ *    express. The only id ever placed in it here is the viewer's own saved-place id, read off
+ *    their own library row.
+ *  - **the facts object.** Every private block in `PlaceDetail` — the thumbnail, the caption quote,
+ *    the model's sentence, the tags, `Open TikTok`, the match-certainty line, the saved-on line —
+ *    renders only when its field is present. For a place the viewer does not own, what is passed
+ *    is a `SharedOnlyPlaceFacts` literal, whose type pins each of those keys to `never`: the
+ *    boundary is a property of the data rather than of a `readOnly` flag somebody has to remember,
+ *    and a later edit that reaches for the adder's note stops at the compiler instead of at a
+ *    collaborator's screen. `CollectionPlace` carries none of those fields either — the query never
+ *    selects them — so the boundary holds in two independent places.
  *
- *  - **`savedPlace={null}`.** `PlaceDetail` renders six controls that write to a `saved_places`
- *    row, and it used to take that row's id from `place.id`. Here `place.id` is a **collection
- *    item** id, so naive reuse would have aimed five writes at a row this caller does not own.
- *    The prop is required and undefaulted, so no host can arrive at that by omission — and it
- *    carries the row's id and its visit state *together*, so "there is a row" and "we know nothing
- *    about it" is not a state anyone can express. A collection never learns anybody's visit state.
- *  - **a `SharedOnlyPlaceFacts` detail.** Every private block in `PlaceDetail` — the thumbnail, the
- *    caption quote, the model's sentence, the tags, `Open TikTok`, the match-certainty line, the
- *    saved-on line — renders only when its field is present, and the object passed here carries
- *    none of them. The boundary is a property of the data, not of a `readOnly` flag somebody has to
- *    remember; the type pins each of those keys to `never`, so adding one is a compile error.
- *
- * What is left is what this screen has that the standard one does not, passed into two slots:
- * `Added by …` and `Save to your places` where the been / not-been toggle sits (the "what does this
- * do to *your* library" position, which is the whole point of somebody else's recommendation), and
- * the shared note plus `Remove from this collection` in the footer.
+ * `library` is required for the same reason: a host that forgot to pass it would quietly render
+ * every one of the viewer's own places as though it belonged to a stranger.
  *
  * The shared note is a **secondary card near the bottom**, not the body of the screen. It used to
  * render as an always-open three-row textarea directly under the address, above every action, so an
@@ -61,7 +66,8 @@ import {
 } from '@/app/actions/collections';
 import type { CollectionPlace } from '@/app/collections/_lib/get-collections';
 import type { CollectionRole } from '@/domain/collections/collection';
-import type { SharedOnlyPlaceFacts } from '@/domain/places/spot';
+import type { MapPlace } from '@/components/map/map-surface';
+import type { PlaceDetailFacts, SharedOnlyPlaceFacts } from '@/domain/places/spot';
 
 /** The quiet mint text action, as used for the external links and the note affordance in the
  *  standard detail view. `min-h-11` is the one addition: the note's affordance sits alone in
@@ -74,12 +80,16 @@ export function CollectionPlaceDetail({
   place,
   role,
   currentUserId,
+  library,
   onBack,
 }: {
   collectionId: string;
   place: CollectionPlace;
   role: CollectionRole;
   currentUserId: string;
+  /** The viewer's **own** saved places — the same list the picker uses. Required, not optional:
+   *  see the header for why an omitted library is a silently wrong screen rather than a safe one. */
+  library: readonly MapPlace[];
   onBack: () => void;
 }) {
   const router = useRouter();
@@ -87,6 +97,16 @@ export function CollectionPlaceDetail({
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  /**
+   * The viewer's own save of this place, if they have one.
+   *
+   * Matched on the shared `places` id, which is the only identity the two sides have in common:
+   * `MapPlace.id` is a `saved_places` id and `CollectionPlace.itemId` is a collection item, so
+   * neither can be compared to the other. `null` is the ordinary case — most places in a shared
+   * collection belong to somebody else.
+   */
+  const mine = library.find((entry) => entry.detail?.placeId === place.placeId) ?? null;
 
   /**
    * The place, with only what a `places` row says about it.
@@ -97,12 +117,17 @@ export function CollectionPlaceDetail({
    * excess property on this literal, which is also an error). `CollectionPlace` carries none of
    * those fields either — the query never selects them — so the boundary holds in two independent
    * places.
+   *
+   * Used whenever `mine` is null. When it is not, the viewer's own `Spot` is passed instead — that
+   * is their row, and hiding it from them was the defect R1 names.
    */
-  const facts: SharedOnlyPlaceFacts = {
+  const sharedOnly: SharedOnlyPlaceFacts = {
     placeId: place.placeId,
     addressLine: place.addressLine,
     locality: place.locality,
   };
+
+  const facts: PlaceDetailFacts = mine?.detail ?? sharedOnly;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -129,18 +154,41 @@ export function CollectionPlaceDetail({
 
       <PlaceDetail
         place={{
-          name: place.name,
-          category: place.category,
+          // **Both of these follow `mine`, not `place`, and they must move together with
+          //  `detail`.** `CollectionPlace` carries the shared `places` name and a category
+          //  `getCollection` derives with `override: null` — correct for somebody else's place,
+          //  and stale for your own. Mixing the two sources is worse than either: `detail`
+          //  supplies `categoryIsOverridden`, so a screen showing the derived category *and*
+          //  `isOverridden: true` prints a system guess as if it were your choice, and ticks the
+          //  wrong chip — one tap on the chip that already looks selected then overwrites the
+          //  override you actually set.
+          name: mine ? mine.name : place.name,
+          category: mine ? mine.category : place.category,
           lat: place.lat,
           lng: place.lng,
-          // The adder's TikTok is theirs. Stated rather than omitted, because the prop is required.
-          sourceUrl: undefined,
+          // Your own TikTok when this is your place; otherwise nothing — the adder's is theirs.
+          // Stated rather than omitted, because the prop is required.
+          sourceUrl: mine ? mine.sourceUrl : undefined,
           detail: facts,
         }}
-        // No `saved_places` row is in play here. `place.itemId` is a collection item and
-        // `place.placeId` is a shared place; neither is a row this caller may write a note, a
-        // category, a visit state or a deletion to.
-        savedPlace={null}
+        /* **The id here must be a `saved_places` id and nothing else.** `place.itemId` is a
+           collection item and `place.placeId` is a shared place; aiming a write at either would
+           hit a row this caller does not own, which is the exact hazard that made this prop
+           required and undefaulted. `mine.id` is the viewer's own saved-place id, so it is the
+           only value that may appear here. `null` when they have no row: every mutation in
+           `PlaceDetail` is gated on this object. */
+        savedPlace={
+          mine
+            ? {
+                id: mine.id,
+                visited: mine.visited,
+                // Spread rather than passed as `undefined`: `exactOptionalPropertyTypes` is on and
+                // "absent" is the honest shape for a marked row with no timestamp. Same
+                // construction as `/map`'s call site (`place-sheet.tsx`), deliberately.
+                ...(mine.detail?.visitedAt ? { visitedAt: mine.detail.visitedAt } : {}),
+              }
+            : null
+        }
         onClose={onBack}
         variant="hosted"
         primaryAction={
@@ -164,8 +212,12 @@ export function CollectionPlaceDetail({
 
             {/* Somebody adds a place, and everyone else can take it. It saves as `origin = 'manual'`
                 because that is true — the recommendation came from a person, not from a TikTok this
-                user imported. */}
-            {place.savedByMe ? (
+                user imported.
+
+                Nothing at all once the viewer's own row is in hand: the Been-here toggle now
+                occupies this position, and an inert `Already in your places` sitting beside a live
+                control that says more is noise. */}
+            {mine ? null : place.savedByMe ? (
               // Deliberately not the button shape: nothing here can undo a save, so an element that
               // looks like the control above it would be a false affordance.
               <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">

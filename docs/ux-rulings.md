@@ -50,6 +50,10 @@
 | R40 | The empty library opens on a regional map from the browser timezone: no IP lookup, no permission prompt | `ux-map-is-the-query.md` §5 |
 | R41 | No illustration, mascot, carousel, checklist, gradient or `0 places` on any empty state | `ux-map-is-the-query.md` §5, `spec-no-places-found.md` §4.4 |
 | R42 | Never convert uncertainty into certainty: an approximate pin says so, in the same place the user reads the name | `ux-import-flatten.md` §4 |
+| R43 | One shell. A collection is a **scope** on the map, and the collections index is the sheet's list — never a page | `ux-collections-as-scope.md` §1 |
+| R44 | Two layers maximum (shell → one pushed pane), and **exactly one back-shaped control on screen at any moment**; a route-level up control names its destination, it never says "back" | `ux-collections-as-scope.md` §2 |
+| R45 | A context may only **add** to the canonical `PlaceDetail`, through its two slots — never reorder, rename or hide what it draws | `ux-collections-as-scope.md` §4 |
+| R46 | The shell unification is **not** deferred behind the chrome work: the duplicate drawer and second map surface are what make the route feel like a separate app, which is the complaint itself (owner, 2026-08-30, closing `O13`) | `product-ruling-one-place-one-object.md` R4 |
 
 ## Open — with the owner unless stated
 

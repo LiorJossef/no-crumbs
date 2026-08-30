@@ -21,6 +21,7 @@ import type { LatLngBoundsHint } from '@/components/map/types';
 import { useNonModalBackground } from '@/components/sheet/use-non-modal-background';
 import { CollectionContent, type CollectionView } from '@/components/collections/collection-content';
 import type { CollectionDetail } from '@/app/collections/_lib/get-collections';
+import { CollectionsContext, type CollectionsForPlace } from '@/ui/place/collections-context';
 import { PEEK_PX, RESTING_SHEET_FRACTION } from './sheet-geometry';
 
 /**
@@ -54,10 +55,15 @@ const FLOATING_TOP_CHROME_PX = 0;
 export function CollectionClient({
   collection,
   library,
+  collections,
   currentUserId,
 }: {
   collection: CollectionDetail;
   library: readonly MapPlace[];
+  /** The caller's own editable collections, for the detail's `Add to a collection` row. Mounted
+   *  here for the same reason `/map` mounts it: `PlaceDetail` reads it from a context rather than a
+   *  prop, so the map surface never has to know what a collection is. */
+  collections: CollectionsForPlace;
   currentUserId: string;
 }) {
   const [view, setView] = useState<CollectionView>('list');
@@ -130,47 +136,51 @@ export function CollectionClient({
   );
 
   return (
-    <div className="relative h-full w-full">
-      <MapSurface
-        places={pins}
-        onPlaceClick={(place) => {
-          selectItem(place.id);
-          setView('place');
-        }}
-        {...(initialBounds ? { initialBounds } : {})}
-        {...(focusPlaceIds ? { focusPlaceIds } : {})}
-        restingSheetFraction={RESTING_SHEET_FRACTION}
-        floatingTopChromePx={FLOATING_TOP_CHROME_PX}
-      />
+    // The same provider `/map` mounts. Without it `AddToCollection` renders `null`, so a place
+    // opened from a collection silently loses a control it has on the map — see R1.
+    <CollectionsContext value={collections}>
+      <div className="relative h-full w-full">
+        <MapSurface
+          places={pins}
+          onPlaceClick={(place) => {
+            selectItem(place.id);
+            setView('place');
+          }}
+          {...(initialBounds ? { initialBounds } : {})}
+          {...(focusPlaceIds ? { focusPlaceIds } : {})}
+          restingSheetFraction={RESTING_SHEET_FRACTION}
+          floatingTopChromePx={FLOATING_TOP_CHROME_PX}
+        />
 
-      {/* Mobile: the same drag sheet `/map` uses. */}
-      <Drawer.Root
-        open
-        modal={false}
-        dismissible={false}
-        snapPoints={SNAP_POINTS}
-        activeSnapPoint={snap}
-        setActiveSnapPoint={setSnap}
-        snapToSequentialPoint
-      >
-        <Drawer.Portal>
-          <Drawer.Content
-            data-testid="collection-sheet"
-            className="fixed inset-x-0 bottom-0 z-40 flex h-full max-h-[100dvh] flex-col rounded-t-2xl border-t border-border/70 bg-card shadow-[var(--shadow-elevated)] outline-none lg:hidden"
-          >
-            <Drawer.Handle className="mx-auto mt-2.5 h-1 w-9 shrink-0 rounded-full bg-border" />
+        {/* Mobile: the same drag sheet `/map` uses. */}
+        <Drawer.Root
+          open
+          modal={false}
+          dismissible={false}
+          snapPoints={SNAP_POINTS}
+          activeSnapPoint={snap}
+          setActiveSnapPoint={setSnap}
+          snapToSequentialPoint
+        >
+          <Drawer.Portal>
+            <Drawer.Content
+              data-testid="collection-sheet"
+              className="fixed inset-x-0 bottom-0 z-40 flex h-full max-h-[100dvh] flex-col rounded-t-2xl border-t border-border/70 bg-card shadow-[var(--shadow-elevated)] outline-none lg:hidden"
+            >
+              <Drawer.Handle className="mx-auto mt-2.5 h-1 w-9 shrink-0 rounded-full bg-border" />
+              {content}
+            </Drawer.Content>
+          </Drawer.Portal>
+        </Drawer.Root>
+
+        {/* Desktop: the same left panel, same width, same treatment. */}
+        <div className="pointer-events-none absolute inset-0 z-20 hidden lg:block">
+          <div className="pointer-events-auto absolute inset-y-0 left-0 flex w-[clamp(320px,26vw,392px)] flex-col border-r border-border/70 bg-card/85 pt-4 backdrop-blur-md">
             {content}
-          </Drawer.Content>
-        </Drawer.Portal>
-      </Drawer.Root>
-
-      {/* Desktop: the same left panel, same width, same treatment. */}
-      <div className="pointer-events-none absolute inset-0 z-20 hidden lg:block">
-        <div className="pointer-events-auto absolute inset-y-0 left-0 flex w-[clamp(320px,26vw,392px)] flex-col border-r border-border/70 bg-card/85 pt-4 backdrop-blur-md">
-          {content}
+          </div>
         </div>
       </div>
-    </div>
+    </CollectionsContext>
   );
 }
 

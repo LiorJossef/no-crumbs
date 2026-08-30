@@ -93,6 +93,10 @@ export function CollectionContent(props: CollectionContentProps) {
         place={selected}
         role={collection.role}
         currentUserId={currentUserId}
+        // The viewer's own library, so a place they already have opens as *their* place — their
+        // note, their been mark, their TikTok — rather than as a stranger's. Same list the picker
+        // uses; it was already on these props and simply was not passed on.
+        library={props.library}
         onBack={() => {
           onSelectItem(null);
           onViewChange('list');
