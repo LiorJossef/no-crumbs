@@ -7,7 +7,7 @@
 
 | # | File | What it tells you |
 |---|---|---|
-| 1 | [`current-state.md`](current-state.md) | What is built, what is verified and how, what is open. **Its top section is the only part that is current**; everything below it is dated history, kept for the reasoning. |
+| 1 | [`current-state.md`](current-state.md) | What is built, what is measured, what is open. ~100 lines, all of it current. The session narrative it used to carry is in [`history-2026-08.md`](history-2026-08.md). |
 | 2 | [`mvp-plan.md`](mvp-plan.md) | The strategy: the MVP boundary, the four levels L0–L3, what is deliberately absent and where it went. |
 | 3 | [`execution-plan.md`](execution-plan.md) | The ladder and the running status: Level → Feature → Task, with an exit criterion per task. |
 | 4 | [`working-agreement.md`](working-agreement.md) | How this project is built, and which decisions are the owner's. |
@@ -50,8 +50,8 @@ depend on VERIFIED.
 **Runbooks — CURRENT, because they are operational.** `db-migration-runbook.md` ·
 `vercel-env-restore.md`
 
-**Session handoffs (`handoff-*.md`, `ms*.md`) — DATED, all of them, always.** One per working
-session. They are the archaeology: what was tried, what was measured, what the owner ruled. Read one
+**Session history — DATED, all of it, always.** [`history-2026-08.md`](history-2026-08.md) and the
+`handoff-*.md` / `ms*.md` files. One per working session. They are the archaeology: what was tried, what was measured, what the owner ruled. Read one
 when you want to know *why*, never to find out *what is true now*. `current-state.md` is the only
 document that answers that.
 
