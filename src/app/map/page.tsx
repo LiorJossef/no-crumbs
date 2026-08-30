@@ -27,6 +27,10 @@ function toMapPlace(spot: Spot): MapPlace {
     // boolean, not the stored value, so the schema's `'visited'` / `'want_to_go'` strings stop here
     // and cannot reach a component that might print one.
     visited: spot.visitState === 'visited',
+    // These pins *are* the viewer's own saved rows, so the detail view opened from one may write to
+    // it. Stated rather than inferred from `id`: a surface whose pins are not saved rows omits this
+    // and gets a read-only detail (`components/map/saved-place-ref.ts`).
+    savedPlaceId: spot.id,
     detail: spot,
   };
 }
