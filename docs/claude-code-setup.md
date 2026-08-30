@@ -55,40 +55,34 @@ and **reading or editing any `.env*` file**, which is `agent-guardrails.md` §3 
 `deny` outranks every `allow`, including the ones in `~/.claude/settings.json` — this is the
 mechanism by which the repo takes its posture back from the machine.
 
-**Added 2026-08-30 for concurrent dispatch:** `git add -A`, `git add .`, `git add --all` and
-`git checkout -- <path>`. The first three are denied to **the orchestrator**, which is the only
-party that stages anything — with several agents writing at once, a bulk stage sweeps another
-agent's unreviewed, half-written work into a commit that claims to be atomic, and measurement in
-this repo found concurrent staging also *losing* 42% of the files it was asked to add. Staging by
-explicit path is what makes per-agent commits attributable, so it is enforced rather than requested.
-`git checkout --` was the one tree-destroying verb in the `reset`/`clean`/`restore` family still
-reachable.
+**Cut to 23 rules on 2026-08-30**, by owner ruling — *"remove all that you can, keep the ones that
+will break."* The list had reached 63. What remains is **exactly the set `check-claude-config.sh`
+asserts by name**, so removing any one of them turns `npm run verify` red. That is the whole
+selection rule. It is worth being blunt about what it is and is not: the surviving 23 are the ones
+that were *written down in a test*, which correlates with importance but is not the same as it.
+
+Removed: `--force-with-lease`, `commit -n`, `filter-branch`, `stash`, `restore`, `git rm`,
+`branch -d`, remote branch deletion, `checkout --`, the four bulk `git add` rules, `gh repo edit` /
+`secret` / `release`, `gh api -X PATCH|PUT`, `db:inventory:staging|prod`, `supabase stop
+--no-backup` / `projects`, `rm -rf`, `aws`, `mongosh`, `brew`, `pip3 install`, `yarn`, `pnpm`, four
+further `.env*` reads and all three `.env*` **edit** rules.
+
+**Two consequences to hold on to.** The bulk `git add` ban — which two sessions independently
+arrived at, and which is what keeps agents from eating each other's commits in run mode — is now
+prose in `agent-guardrails.md` and `01-agent-roster.md` rather than something the machine refuses.
+And `.env` and `.env.local` remain unreadable, but `.env.production`, `.env.development`,
+`.env.vercel.preview` and `.env.local.bak-staging` do not, and nothing prevents an `.env*` file
+being **written**. There is no `.env.local` in this checkout today, so today's exposure is nil; that
+is a property of the checkout, not of the posture.
 
 **What is still not enforced, and is worth naming rather than glossing:** `git switch` and
 `git checkout -b` remain in `allow`, because the orchestrator needs them to open a feature branch
-and the harness cannot tell the orchestrator from a specialist. Under concurrency a branch switch
-rewrites the working tree under every running agent, which makes it *more* destructive than the
-denied commands. That rule is carried by `agent-guardrails.md` rule 1 and by judgement. Saying so is
-the point: §2.1 previously claimed an enforcement mechanism that had been removed, and that error is
-the reason this paragraph exists.
-
-**`ask` — deliberately empty.** *Owner ruling, 2026-08-30: "soften the guards, let us work more
-freely."* This list held 30 rules — `db:push:staging|prod`, `db:reset`, `db:verify`, `merge:pr`,
-`supabase db push|reset|link`, `psql`, `docker`, `gh pr create|edit|close`, and edits to every file
-`agent-guardrails.md` §4 protects. All 30 moved into `allow`.
-
-The reasoning, so the trade is legible rather than implied: **an `ask` rule is an announcement, not
-a protection.** It fires on the way to an action that is going to happen anyway, and anyone
-answering thirty prompts a session stops reading them — which is worse than not prompting, because
-it manufactures the appearance of review. The rules that actually hold a line are all in `deny`, and
-**none of them were touched.**
-
-What this genuinely costs, stated plainly: a hosted migration push, a `db:reset`, a `merge:pr`, and
-an edit to `CLAUDE.md`, `.claude/agents/`, `.claude/settings.json`, `.githooks/` or a `check-*.sh`
-now happen **without a prompt**. `git-workflow.md` §9.3's "a specific instruction each time" is
-therefore carried by judgement and by the written guardrails, not by the harness. That is a real
-reduction in safety and it is the owner's call to make. `scripts/check-claude-config.sh` asserts
-nothing about `ask` any more, on purpose — it asserts `deny`, which is the part still doing work.
+and the harness cannot tell it from a specialist. Under concurrency a branch switch rewrites the
+working tree under every running agent, which makes it *more* destructive than the commands that are
+denied. That rule is carried by `agent-guardrails.md` rule 1 and by judgement. Saying so is the
+point: §2.1 once claimed an enforcement mechanism that had been removed, and that error is the
+reason this paragraph exists — the same error is now much easier to make, because the list is a
+third of the size and forty rules that were true this afternoon are false tonight.
 
 **`allow`** — the actual toolchain: the `npm run` scripts, `vitest`, `playwright`, `tsc`, `eslint`,
 read-only `git`, read-only `gh`, `supabase migration list|status|start`, and the ordinary shell verbs
@@ -189,10 +183,18 @@ lists to everyone.
   were declined, so force-push, `reset`/`clean`, direct pushes to `main`, `--no-verify` and reading
   `.env*` all remain refused.
 - **2026-08-30, concurrent dispatch** — owner ruling that specialists run several at a time. Four
-  `deny` rules added (bulk `git add`, `git checkout --`), taking `deny` to 63. **A documentation
+  `deny` rules added (bulk `git add`, `git checkout --`), taking `deny` to 63. **All four were
+  removed the same evening by the ruling below.** **A documentation
   defect was found and corrected in the same pass:** `agent-guardrails.md` §4 15a still told every
   agent that the guarded paths sit in the `ask` list and that a prompt distinguishes the orchestrator
   from a specialist. The `ask` list had been emptied hours earlier, so no prompt fired and the
   guardrail was describing a mechanism that no longer existed. Two specialists found it
   independently. A guardrail whose stated enforcement is imaginary is worse than one that admits it
   is honour-system — the first is trusted, the second is checked.
+- **2026-08-30, the deny list cut to 23** — owner ruling, *"remove all that you can, keep the ones
+  that will break."* Forty rules removed; the survivors are exactly those `check-claude-config.sh`
+  asserts by name, so the gate is now the definition of the posture rather than a check on it. That
+  is a coherent rule and it has one property worth stating: **the list can no longer drift from the
+  gate, because it is the gate.** What it cannot tell you is whether the 23 are the *right* 23 —
+  they are the ones somebody once wrote a test for. `rm -rf`, `git stash`, `git restore`, the bulk
+  `git add` ban and every `.env*` **edit** rule are now judgement rather than enforcement.
