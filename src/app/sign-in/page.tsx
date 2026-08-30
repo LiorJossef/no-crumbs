@@ -128,11 +128,11 @@ export default function SignInPage() {
         <div className="relative flex flex-1 flex-col px-6 pt-14 lg:justify-center lg:px-[clamp(48px,7vw,110px)] lg:pt-0">
           <PinMark className="relative z-10 h-[30px] w-[30px] lg:h-9 lg:w-9" />
 
-          <p className="relative z-10 mt-4 text-[11px] font-bold tracking-[0.14em] text-brand uppercase lg:mt-6 lg:text-[13px]">
+          <p className="relative z-10 mt-4 text-micro font-bold tracking-[0.14em] text-brand uppercase lg:mt-6 lg:text-caption">
             {kicker}
           </p>
 
-          <h1 className="relative z-10 mt-2 font-heading text-[34px] leading-[1.05] font-extrabold tracking-tight text-foreground lg:text-[clamp(40px,5.5vw,64px)]">
+          <h1 className="relative z-10 mt-2 font-heading text-display leading-[1.05] font-extrabold tracking-tight text-foreground lg:text-hero">
             {headline[0]}
             <br />
             {headline[1]}
@@ -146,14 +146,14 @@ export default function SignInPage() {
         {/* Form — thumb-zone bottom sheet on mobile (pushed down by the hero's flex-1), a
             full-height frosted panel with a single hairline edge on desktop. */}
         <div
-          className="relative mt-auto flex w-full flex-col gap-4 px-6 pb-8 pt-6 lg:mt-0 lg:h-auto lg:w-[clamp(360px,32vw,460px)] lg:flex-none lg:justify-center lg:border-l lg:border-[rgba(231,227,220,0.7)] lg:bg-white/55 lg:px-10 lg:py-0 lg:backdrop-blur-[10px]"
+          className="relative mt-auto flex w-full flex-col gap-4 px-6 pb-8 pt-6 lg:mt-0 lg:h-auto lg:w-[clamp(360px,32vw,460px)] lg:flex-none lg:justify-center lg:border-l lg:border-border/70 lg:bg-white/55 lg:px-10 lg:py-0 lg:backdrop-blur-[10px]"
         >
           <div className="w-full lg:mx-auto lg:max-w-[320px]">
             <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4 lg:gap-5">
               <div className="flex flex-col gap-1.5">
                 <Label
                   htmlFor="email"
-                  className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase"
+                  className="text-micro font-bold tracking-[0.1em] text-muted-foreground uppercase"
                 >
                   Email
                 </Label>
@@ -172,7 +172,7 @@ export default function SignInPage() {
               <div className="flex flex-col gap-1.5">
                 <Label
                   htmlFor="password"
-                  className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase"
+                  className="text-micro font-bold tracking-[0.1em] text-muted-foreground uppercase"
                 >
                   Password
                 </Label>
@@ -231,7 +231,7 @@ export default function SignInPage() {
               <Button
                 type="submit"
                 disabled={pending}
-                className="h-12 w-full rounded-lg text-base font-bold lg:h-[52px] lg:text-[15.5px]"
+                className="h-12 w-full rounded-lg text-base font-bold lg:h-[52px] lg:text-reading"
               >
                 {pending ? (
                   <>
