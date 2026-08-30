@@ -332,11 +332,30 @@ existing chip filter**. `0019`'s header already reserves this exact column and t
 granted to `authenticated`, and are tested. **Cut from it in advance:** collection covers, ordering,
 a collection route, sharing, nesting, smart collections, a label manager screen.
 
-### L1-F8 — Account popover and first run · spec `ux-interaction` / build `design-system-frontend` · depends: F1 · cut: —
+### L1-F8 — Account popover and first run · **a chain, not an owner** · depends: F1, **L2-F1-T6** · cut: —
+
+**Restaffed 2026-08-30.** This row read "spec `ux-interaction` / build `design-system-frontend`",
+and neither of those agents may touch the half of the task that deletes data: the destructive server
+action is in `nextjs-architect`'s tree, the `collections.owner_id` cascade is in
+`supabase-database`'s, and both definitions tell the agent to stop when a change needs another
+agent's paths. It is also the only remaining task that can destroy **other users'** data. So it is
+staffed as an ordered chain, each link handing off to the next:
+
+1. `supabase-database` — the cascade fix and the deletion RPC. **`collections.owner_id` is
+   `on delete cascade` and ownership transfer was never built, so deleting an account today destroys
+   shared collections for everyone in them.**
+2. `security-privacy` — adversarial review of an irreversible data path, **and a veto**. Nothing
+   proceeds past this link without it.
+3. `nextjs-architect` — the server action and its error handling.
+4. `design-system-frontend` — the popover, to `ux-interaction`'s spec.
+
+**`L2-F1-T6` (ownership transfer) is a hard dependency, not a nice-to-have** — see the L2 section,
+where it is recorded as "NOT BUILT, and it blocks account deletion". It needs an owner
+(`supabase-database`) and it must land before T1 starts.
 
 | Task | What | Exit criterion |
 |---|---|---|
-| T1 | The 3-item popover (account, how this works, sign out) with delete-my-data, and the zero-places state of S3 | No account *page* exists; a new user never sees a bare empty map |
+| T1 | The 3-item popover (account, how this works, sign out) with delete-my-data, and the zero-places state of S3 | No account *page* exists; a new user never sees a bare empty map; **and a shared collection survives its owner deleting their account** |
 
 ### L1-F9 — Verification · `qa-reliability` · depends: F1–F7 · cut: e2e → documented manual = 4
 The schedule's pressure point: the mandatory permission tests sit behind every UI feature.
@@ -348,14 +367,27 @@ The schedule's pressure point: the mandatory permission tests sit behind every U
 | T3 | **RLS policy tests** — mandatory, not optional (`03` gap 2) | A cross-user read **fails**, and that failing test is the evidence artefact for M6/M7 |
 | T4 | Playwright: the golden path, double-paste idempotency, camera stability | The golden path passes against a **deployment**, not only locally |
 
-### L1-F10 — Graded artefacts and submission · `security-privacy`, `devops-vercel`, `product-lead` · depends: F9 · cut: how-it-works = 3
+### L1-F10 — Graded artefacts and submission · **owners are per task, below** · depends: F9 · cut: how-it-works = 3
 
-| Task | What | Exit criterion |
-|---|---|---|
-| T1 | `security.md` in full (course M9) + the 12 owed items | The largest known gap closed: auth, authorisation, restricted actions, cross-user prevention, input validation, API protection, secret storage, remaining risks |
-| T2 | `scale.md` (M8) | Heavy queries named, indexes justified, pagination and over-fetching addressed, the client/server split argued, limits stated |
-| T3 | `deployment.md` + README env matrix (M10) | A stranger can run it locally from the README and knows what every variable is for |
-| T4 | `how-the-system-works.md` (R2) | Every component, library and decision explained in one sentence each — the study guide for M11's interview questions |
+**Staffed at task level 2026-08-30.** The row named three agents at *feature* level and left T2–T4
+with no owner at all, which meant the largest remaining submission gap defaulted to the orchestrator
+and serialised four documents behind one context. Two structural fixes go with the table:
+
+- **`docs/03-university-requirements.md` is a read-first document for every owner below.** Before
+  this change it was referenced by exactly one of the eleven agent definitions, and by none of the
+  three named here — the agents responsible for the graded submission were not loading the document
+  that defines what is graded.
+- **Build and Probe agents may author their own graded document**, notwithstanding the general
+  shape of `agent-guardrails.md` §4. Only the two Advise agents had explicit `docs/**` authority,
+  while the nine others hold all the subject knowledge these documents need. `docs/security.md`
+  specifically is governed by §15a: `security-privacy` writes it, the orchestrator reviews it.
+
+| Task | What | Owner | Exit criterion |
+|---|---|---|---|
+| T1 | `security.md` in full (course M9) + the 12 owed items | `security-privacy` (§15a) | The largest known gap closed: auth, authorisation, restricted actions, cross-user prevention, input validation, API protection, secret storage, remaining risks |
+| T2 | `scale.md` (M8) | `supabase-database` (queries, indexes, pagination) + `nextjs-architect` (client/server split) | Heavy queries named, indexes justified, pagination and over-fetching addressed, the client/server split argued, limits stated |
+| T3 | `deployment.md` + README env matrix (M10) | `devops-vercel` — it is a near-verbatim restatement of that agent's own charter | A stranger can run it locally from the README and knows what every variable is for |
+| T4 | `how-the-system-works.md` (R2) | `product-lead` — the only agent with a whole-repo read mandate, no shell, and nothing else on the critical path | Every component, library and decision explained in one sentence each — the study guide for M11's interview questions |
 | T5 | Deck + the ten-artefact checklist | The product works from a device that has never opened the project, on a network that is not the developer's; the repo is openable by an examiner |
 
 **L1 exit:** the five Definition-of-Done statements in `implementation-plan.md` §18, on plain pins and

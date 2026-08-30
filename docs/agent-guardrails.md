@@ -57,10 +57,31 @@ commit bodies** — so a secret quoted in a reply becomes a permanent repo secre
 
 ## 4. The guardrails themselves
 
-15. Never modify `scripts/merge-pr.sh`, `scripts/check-*.sh`, `scripts/db-push.sh`,
-    `scripts/db-env.sh`, `.github/workflows/`, the ESLint layer-guard rules, `supabase/tests/*.sql`,
-    `CLAUDE.md`, `docs/security.md`, or `.claude/agents/`. If a guard is wrong, say so and stop.
-    An agent that can edit the check that grades it is not constrained.
+15. **Never, by any agent.** `scripts/merge-pr.sh`, `scripts/check-*.sh`, `scripts/db-push.sh`,
+    `scripts/db-env.sh`, the ESLint layer-guard rules, `CLAUDE.md`, `.claude/settings.json`, and
+    `.claude/agents/`. If a guard is wrong, say so and stop. An agent that can edit the check that
+    grades it is not constrained.
+
+15a. **Named owner only, and never self-approved.** *Amended 2026-08-30.* The original rule listed
+    three more paths as "never", and in doing so **forbade three agents from producing their own
+    assigned deliverables** — `docs/security.md` is `security-privacy`'s `L1-F10-T1`,
+    `supabase/tests/*.sql` is `supabase-database`'s `L1-F9-T3` and the course's M6/M7 evidence, and
+    `.github/workflows/` is the only automated gate. A guardrail that blocks assigned work gets
+    ignored, and an ignored guardrail protects nothing. So these three move to a narrower rule:
+
+    | Path | May edit | Must review before it lands |
+    |---|---|---|
+    | `docs/security.md` | `security-privacy` | the orchestrator |
+    | `supabase/tests/*.sql` | `supabase-database` | `security-privacy` |
+    | `.github/workflows/` | **the orchestrator only** | — `devops-vercel` and `qa-reliability` propose a diff |
+
+    Any other agent touching these three does the same thing it did before: says so, and stops. The
+    owner never merges its own change to them; that is what "never self-approved" means, and it is
+    the property the blanket ban was actually protecting.
+
+    `.claude/settings.json` encodes this split: the "never" list above and these three paths are all
+    `ask` rather than `deny`, because the harness cannot tell the orchestrator from a specialist and
+    a prompt is what distinguishes them. See [`claude-code-setup.md`](claude-code-setup.md) §2.1.
 16. Never weaken, skip, `.skip`, delete, or relax an assertion in an existing test to make your
     change pass. A failing test is a finding.
 
