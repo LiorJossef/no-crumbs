@@ -68,6 +68,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { COLLECTION_NAME_MAX_LENGTH } from '@/domain/collections/collection';
+import { IMPORT_ERROR_COPY } from '@/ui/import/import-error-copy';
 import {
   addSubmitIntent,
   manualAddLabel,
@@ -416,6 +417,17 @@ function MenuRow({
 }
 
 export const PLACE_TITLE = 'Add a place';
+/**
+ * The two lines shown against a link we recognised and cannot read (W1-5).
+ *
+ * Read from `IMPORT_ERROR_COPY` rather than written out, because `/import` already ships this exact
+ * news and growth defect G4 was, at root, two surfaces disagreeing about one URL. A literal here
+ * would be a third wording waiting to drift. The entry's `kicker` ("Not TikTok") is deliberately
+ * not carried across: this sheet has no kicker slot, and adding one for a two-line notice would be
+ * a new component in a package whose exit criterion needs none.
+ */
+const UNSUPPORTED_HOST_COPY = IMPORT_ERROR_COPY.UNSUPPORTED_HOST;
+
 const FIELD_LABEL = 'Paste a TikTok link or search your places';
 const FIELD_PLACEHOLDER = 'Paste a link, or search';
 
@@ -474,9 +486,16 @@ export function AddPlacePane({
 
   const input = universalInput(value);
   const isLink = input.kind === 'tiktok';
+  /**
+   * A link we recognised and cannot read (W1-5, growth defect G4). Kept separate from `isLink`
+   * deliberately: widening `isLink` would put `Add this TikTok` under an Instagram URL, which is
+   * the opposite of the news this state exists to deliver.
+   */
+  const unsupportedLink = input.kind === 'unsupported-link';
   // A link is not a search term. "Nothing you've saved matches https://vm.tiktok.com/…" would be a
-  // true statement nobody asked for, so the results list is simply not the answer to a link.
-  const shownResults = isLink ? [] : results;
+  // true statement nobody asked for, so the results list is simply not the answer to a link —
+  // including one we cannot read, which is still a link and still not a search term.
+  const shownResults = isLink || unsupportedLink ? [] : results;
   const firstResultId = shownResults[0]?.id ?? null;
 
   // The pane mounts when it is entered, so mount *is* "the user just came here". After
@@ -625,17 +644,34 @@ export function AddPlacePane({
 
         {/* One slot for both lines so they can never stack into a two-line shove of the list.
             `role="status"` because the clipboard hint arrives without the user looking for it. */}
-        {(error !== null || hint !== null) && (
-          <p
-            id={hintId}
-            role="status"
-            className={cn(
-              'text-sm font-medium',
-              error !== null ? 'text-destructive' : 'text-muted-foreground',
-            )}
-          >
-            {error ?? hint}
+        {unsupportedLink ? (
+          /*
+           * The recognised redirect (`brand-and-product-foundation.md` §1): we know what this link
+           * is, we cannot read it, and the next move is the manual-add row already below. Muted and
+           * `role="status"`, never `text-destructive` or `role="alert"` — **nothing failed here**,
+           * and dressing a boundary as an error is how a product teaches users it is broken.
+           *
+           * Both strings are read from `IMPORT_ERROR_COPY.UNSUPPORTED_HOST` rather than written
+           * again, so this surface and `/import` cannot drift into two wordings for one piece of
+           * news — which is exactly the defect G4 turned out to be.
+           */
+          <p id={hintId} role="status" className="text-sm font-medium text-muted-foreground">
+            <span className="block text-foreground">{UNSUPPORTED_HOST_COPY.headline}</span>
+            {UNSUPPORTED_HOST_COPY.body}
           </p>
+        ) : (
+          (error !== null || hint !== null) && (
+            <p
+              id={hintId}
+              role="status"
+              className={cn(
+                'text-sm font-medium',
+                error !== null ? 'text-destructive' : 'text-muted-foreground',
+              )}
+            >
+              {error ?? hint}
+            </p>
+          )
         )}
 
         {/* The primary action, and only when there is something to be primary about. A disabled
