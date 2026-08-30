@@ -32,6 +32,8 @@ export interface Tint {
   readonly maxLightness?: number;
 }
 
+import { POI_TIER_FLOOR } from './poi-style';
+
 export type BasemapRole =
   | 'land'
   | 'water'
@@ -43,19 +45,29 @@ export type BasemapRole =
   | 'labelHalo';
 
 /**
- * Warm paper, mint water, sage parks. The whole basemap's temperature lives in this one table —
- * changing the map's mood later is editing eight pairs of numbers, not a style file.
+ * EXPERIMENT (exp/richer-basemap): the Mapbox Standard "Day" palette, read off the reference
+ * screenshot, replacing the warm-paper/mint/sage table.
+ *
+ * The mechanism is unchanged and so is the reason it exists — the whole basemap's temperature is
+ * eight pairs of numbers, not a style file. What changed is the direction: land drops almost all
+ * its warmth so it reads as neutral near-white paper rather than beige; water goes vivid sky blue
+ * instead of pale mint; parks go a fuller leaf green. The lightness caps are raised across the
+ * board, and that is the specific fix for "washed out" — the old caps (land 0.93, water 0.84,
+ * green 0.89) pulled every colour toward the same flat value and removed Voyager's contrast.
+ *
+ * Revert = restore the warm-paper table in git history.
  */
 export const BASEMAP_TINTS: Record<BasemapRole, Tint> = {
-  land: { hue: 40, saturation: 0.46, maxLightness: 0.93 },
-  water: { hue: 174, saturation: 0.32, maxLightness: 0.84 },
-  green: { hue: 104, saturation: 0.34, maxLightness: 0.89 },
+  land: { hue: 36, saturation: 0.09, maxLightness: 0.97 },
+  water: { hue: 202, saturation: 0.72, maxLightness: 0.82 },
+  green: { hue: 100, saturation: 0.44, maxLightness: 0.86 },
   // Uncapped on purpose: roads keep their own near-white and stand off the land.
-  roadFill: { hue: 42, saturation: 0.5 },
-  roadCase: { hue: 38, saturation: 0.3, maxLightness: 0.88 },
-  building: { hue: 36, saturation: 0.26, maxLightness: 0.9 },
-  label: { hue: 32, saturation: 0.16 },
-  labelHalo: { hue: 42, saturation: 0.5 },
+  roadFill: { hue: 40, saturation: 0.06 },
+  roadCase: { hue: 38, saturation: 0.12, maxLightness: 0.88 },
+  building: { hue: 36, saturation: 0.11, maxLightness: 0.93 },
+  // Cooler and near-neutral: Mapbox's place labels are dark slate, not brown ink.
+  label: { hue: 250, saturation: 0.12 },
+  labelHalo: { hue: 40, saturation: 0.08 },
 };
 
 /**
@@ -235,6 +247,14 @@ export const LABEL_ZOOM_RANGES: Readonly<Record<string, readonly [number, number
   roadname_major: [11, 24],
   roadname_pri: [11.5, 24],
   roadname_sec: [13, 24],
+  // EXPERIMENT (exp/richer-basemap): residential street names, from z15.
+  //
+  // This layer was deliberately absent, on the reasoning quoted above: residential names are "the
+  // noise that makes a map read as a generic maps app". The owner's reference screenshots show
+  // them densely (BAY ST, GREEN ST, HYDE ST, POLK ST at z14), and named a populated map as the
+  // thing they want, so the trade is being re-tested rather than assumed. z15 rather than CARTO's
+  // 16 keeps them out of the z13 resting view and lets them in once the user has leaned in.
+  roadname_minor: [15, 24],
 };
 
 /**
@@ -290,4 +310,11 @@ export const POI_LABEL_CLASSES = [
   'library',
   'theatre',
 ] as const;
-export const POI_LABEL_MIN_ZOOM = 12;
+/**
+ * The lowest zoom at which any POI label draws.
+ *
+ * Derived from `POI_TIERS` rather than written down again: since `exp/richer-basemap` the classes
+ * are tiered, so this is the landmark tier's floor and moves with it. A second literal here is a
+ * second thing to forget when a tier is retuned.
+ */
+export const POI_LABEL_MIN_ZOOM = POI_TIER_FLOOR;

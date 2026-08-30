@@ -16,6 +16,7 @@ import {
   POI_LABEL_MIN_ZOOM,
   roleFor,
 } from '@/components/map/basemap-tint';
+import { POI_TIERS, poiLabelClasses } from '@/components/map/poi-style';
 
 /** `FIT_BOUNDS_MAX_ZOOM` in `map-surface.mapcn.tsx`, and a user may zoom past it by hand. */
 const CAMERA_MAX_ZOOM = 15;
@@ -39,18 +40,29 @@ describe('label zoom ranges', () => {
     }
   });
 
-  it('leaves residential street names where CARTO put them', () => {
-    // `roadname_minor` is the noise that makes a map read as a generic maps app, and it does not
-    // answer "roughly where is this".
-    expect(LABEL_ZOOM_RANGES).not.toHaveProperty('roadname_minor');
+  it('keeps residential street names out of the resting view', () => {
+    // This used to assert `roadname_minor` was absent entirely, on the reasoning that residential
+    // names are "the noise that makes a map read as a generic maps app". `exp/richer-basemap`
+    // re-tests that trade against the owner's reference screenshots, which show them densely.
+    //
+    // What is still pinned is the half that was actually load-bearing: they must not appear in the
+    // view the camera comes to rest in, so leaning in reveals them rather than the overview
+    // arriving pre-cluttered. If the experiment is reverted, this goes back to `not.toHaveProperty`.
+    const range = LABEL_ZOOM_RANGES['roadname_minor'];
+    expect(range).toBeDefined();
+    expect(range?.[0]).toBeGreaterThan(CAMERA_RESTING_ZOOM);
   });
 });
 
 describe('the POI names layer', () => {
-  it('is tinted by the existing label role rather than a new one', () => {
-    // The `poi_` prefix is load-bearing: it is what `ROLE_PATTERNS` matches, so adding this layer
-    // needed no change to the role map. Renaming it silently drops it out of the palette.
+  it('still resolves to the label role, though the tint now skips it', () => {
+    // The `poi_` prefix is what `ROLE_PATTERNS` matches, and that is unchanged. Since
+    // `exp/richer-basemap` the layer is *exempted* from the tint pass by id
+    // (`basemap-tint-layer.tsx`) because it carries a per-class `match` on `text-color` that a
+    // single-hue tint would collapse — so this now pins the prefix convention rather than the
+    // tinting, and the exemption is what has to move if the layer is ever renamed.
     expect(roleFor(POI_LABEL_LAYER_ID)).toBe('label');
+    expect(POI_LABEL_LAYER_ID.startsWith('poi_')).toBe(true);
   });
 
   it('appears at or below the zoom the camera settles at', () => {
@@ -63,5 +75,36 @@ describe('the POI names layer', () => {
     expect(BASEMAP_LABEL_FONT[0]).toBe('Montserrat Regular');
     expect(BASEMAP_LABEL_FONT).toContain('Noto Sans Regular');
     expect(BASEMAP_LABEL_FONT).toHaveLength(5);
+  });
+});
+
+describe('POI zoom tiers', () => {
+  it('places every coloured class in exactly one tier', () => {
+    // Both directions matter and both are silent failures. A class in `POI_GROUPS` but no tier has
+    // a colour and never draws; a class in two tiers draws twice from the same source and the two
+    // copies fight each other in the collision index.
+    const tiered = POI_TIERS.flatMap((tier) => [...tier.classes]);
+    expect(new Set(tiered).size, 'a class appears in two tiers').toBe(tiered.length);
+    expect([...new Set(tiered)].sort()).toEqual([...new Set(poiLabelClasses())].sort());
+  });
+
+  it('shows only orienting places at the zoom the camera settles at', () => {
+    // The defect the tiers exist for: at z14 every cafe, bank and clothes shop drew at once and
+    // the user's own saved places competed with a hundred labels they did not choose.
+    const atRest = POI_TIERS.filter((tier) => tier.minzoom <= CAMERA_RESTING_ZOOM);
+    expect(atRest).toHaveLength(1);
+    expect(atRest[0]?.id).toBe('landmark');
+    expect(atRest[0]?.classes).not.toContain('restaurant');
+    expect(atRest[0]?.classes).not.toContain('shop');
+  });
+
+  it('reveals finer tiers strictly as the user leans in', () => {
+    const zooms = POI_TIERS.map((tier) => tier.minzoom);
+    expect([...zooms].sort((a, b) => a - b)).toEqual(zooms);
+    expect(new Set(zooms).size).toBe(zooms.length);
+  });
+
+  it('keeps the exported floor in step with the tiers', () => {
+    expect(POI_LABEL_MIN_ZOOM).toBe(Math.min(...POI_TIERS.map((tier) => tier.minzoom)));
   });
 });

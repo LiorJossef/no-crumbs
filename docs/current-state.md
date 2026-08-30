@@ -137,12 +137,17 @@ marker-collision fix. Untouched all session.
      class: motorway/trunk, primary, secondary+tertiary at 13. `roadname_minor` deliberately
      untouched — residential names are noise.
    - **A `poi_label` layer** added on the `poi` source-layer already inside every tile we load. No
-     new source, key or request. Text with no icon, and that is not a compromise: **both CARTO
-     sprites contain exactly one image (`circle-11`)**, so the "cartoon POI glyphs" the 2026-08-21
-     Voyager rejection was based on **do not exist**.
-   - **Do not switch basemap.** Positron and Voyager are **byte-identical in structure** — 93
-     layers, same ids, same layout, same source — differing only in `paint`. A switch adds *zero*
-     geographic information. This is settled; do not re-open it.
+     new source, key or request. Text with no icon: **all three CARTO sprites contain exactly one
+     image (`circle-11`)**, so the "cartoon POI glyphs" the 2026-08-21 Voyager rejection was based
+     on **do not exist**. Superseded 2026-08-30 (`06` §2.2) — this is now **four** layers tiered by
+     zoom and coloured by family. Read "text with no icon" as a *current* state, not a ceiling: the
+     canvas→`addImage` machinery the pins already use makes a class-keyed sprite reachable.
+   - **Do not switch basemap *for information*.** Positron and Voyager are **byte-identical in
+     structure** — 93 layers, same ids, same layout, same source — differing only in `paint`. A
+     switch adds *zero* geographic information. Still true, and re-verified 2026-08-30. **The
+     basemap did switch to Voyager on 2026-08-30, on `paint` grounds alone** (`06` §2.2) after the
+     owner asked for a materially richer, Mapbox-like map and ruled the beige direction out. That
+     is consistent with this finding rather than a reversal of it: it buys colour, not data.
    - Verified on a phone viewport against the real library. Street names, neighbourhood names and a
      landmark all coexist; the balance point is `roadname_sec` at 13, because street labels take
      collision slots from neighbourhood names when lowered further.

@@ -98,6 +98,64 @@ and should not be wired back in. The place-resolution pairing analysis in §3.1 
 carries no place-data restrictions of its own, so the "any map + Overture/FSQ-OS dataset" row in
 §3.1 still reads YES.
 
+
+### 2.2 Revised 2026-08-30: Voyager, a Mapbox-Standard palette, and tiered POI labels
+
+The owner asked whether a MapLibre basemap could get materially closer to Mapbox Standard, using
+Mapbox screenshots of San Francisco and Tel Aviv as the reference, and explicitly ruled that the
+current beige direction was **not** to be preserved. The renderer decision is untouched — this is
+`exp/richer-basemap`, three dials inside the existing surface, no camera, marker, sheet or
+architecture code changed.
+
+| Dial | Was | Is |
+|---|---|---|
+| Style URL | `positron-gl-style` | `voyager-gl-style` — same source, same keyless free tier, same 93-layer structure |
+| `BASEMAP_TINTS` | warm paper / mint water / sage parks, lightness capped at 0.93/0.84/0.89 | Mapbox Standard "Day": near-neutral land, vivid sky-blue water, fuller green, caps raised |
+| POI labels | one layer, 16 classes, from z12, one grey | four layers tiered by zoom, ~60 classes, coloured by family |
+
+**§2.1's "do not switch basemap" finding stands and was not overturned.** It said Positron and
+Voyager are structurally identical — 93 layers, same ids, same source — so a switch adds *zero
+geographic information*. That is correct and was re-verified. The switch here is made on `paint`
+alone, which is exactly what that finding said the difference was; it buys colour, not data.
+
+**What was measured rather than assumed.** One Tel Aviv z14 tile from `carto.streets/v1` carries
+**2 545 POI features across ~90 `class` values** (restaurant 852, shop 838, cafe 429, bar 252,
+hotel 235, art_gallery 162, museum 38). The tiles are not POI-poor and never were. The first
+attempt drew every named POI and the owner's verdict was "sometimes you can see a lot of places and
+it's really confusing" — correct, because it also drew `bicycle_parking` (469), `waste_basket`
+(295) and `gate` (223), and because at city zoom the user's own saved places competed with a
+hundred labels they did not choose.
+
+**The repair is a zoom tier, not a filter**, and it copies `zoom-bands.ts` deliberately: landmarks
+z13, culture z15, food z16, everyday retail z17, as four layers with their own `minzoom`. MapLibre
+owns the swap, so nothing listens for zoom and nothing re-renders on a pinch. `["zoom"]` is not
+legal inside `filter` — only as the input to a top-level `step`/`interpolate` in a paint or layout
+property — so a per-class threshold *has* to be a layer boundary.
+
+**The one thing CARTO cannot give us is POI icons.** Verified by fetching each sprite: `positron`,
+`voyager` and `dark-matter` ship **exactly one image, `circle-11`**. The reference screenshots'
+coloured glyphs, transit squares and highway shields cannot be drawn from CARTO at any setting.
+This is **not** a hard ceiling, and §2.1's phrasing that it is should be read as superseded: the
+codebase already rasterises canvas bitmaps and calls `addImage` for the pins and the country pills,
+and the `poi` source-layer carries `class` and `subclass`, so a sprite keyed on class is reachable
+with machinery that exists and is already tested. It is simply not a style swap. Not done, not
+scheduled.
+
+**Two tests were changed, both encoding rulings this work re-tests**, recorded here so neither is
+re-derived from a comment later:
+
+- *"land is visibly warm, not grey"* (`basemap-tint.test.ts`) asserted the beige direction itself.
+  The mechanism it exists to prove — a lightness cap lets a near-white input take colour — now runs
+  through `water`, and a land-is-near-neutral assertion replaces it.
+- *"leaves residential street names where CARTO put them"* (`basemap-labels.test.ts`) asserted
+  `roadname_minor`'s absence. It now pins the half that was load-bearing: they stay out of the
+  zoom the camera rests at, so leaning in reveals them rather than the overview arriving cluttered.
+
+**Verified by use, not only by tests** (local dev, mobile viewport, the owner's real library):
+z8–z12.5 shows cities and uppercase district names with no POI labels and the saved pins clearly
+the subject; z15 adds culture (Nahum Gutman Museum, Balfour Medical Centre); z16+ adds food
+(Jazz Kissa, Saffe, Cofix). All four tiers behave.
+
 ---
 
 ## 3. (B) Place resolution evaluation — including the licensing column that decides it

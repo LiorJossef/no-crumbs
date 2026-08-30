@@ -97,6 +97,12 @@ holds those strings and is ratified as written.
 
 ## 5. Visual direction
 
+> **Map palette amended 2026-08-30.** "Warm minimal" still governs the product UI, and the map is
+> still light-only. The *basemap* is no longer warm paper: the owner ruled the beige direction out
+> and asked for a materially richer, Mapbox-like map, so the basemap now runs CARTO Voyager under a
+> Mapbox-Standard "Day" palette with zoom-tiered, family-coloured POI labels (`06` §2.2). The
+> product's own tokens, pins and chrome are unchanged.
+
 **Warm minimal, light only, dark-ready in architecture — first tokens signed off 2026-08-21
 (L1-F1-T2), superseding the placeholder values below from the initial component-stack decision.**
 
