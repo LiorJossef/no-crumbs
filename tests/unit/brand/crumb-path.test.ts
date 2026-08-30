@@ -24,8 +24,12 @@ import {
 const OUTLINE_SIGNATURE = 'M34 9C50 3 70 7 82 20';
 
 /** Files that draw the mark. Each is asserted to reach the outline rather than restate it.
- *  Grows with the run: W4-4 adds the icon and the link preview. */
-const CONSUMERS = ['src/components/brand/pin-mark.tsx', 'src/components/map/marker-images.ts'];
+ */
+const CONSUMERS = [
+  'src/components/brand/pin-mark.tsx',
+  'src/components/map/marker-images.ts',
+  'src/app/opengraph-image.tsx',
+];
 
 describe('the crumb outline', () => {
   it('is a single closed subpath', () => {
@@ -60,6 +64,15 @@ describe('the crumb outline', () => {
     expect(CRUMB_PIN_BOUNDS.maxY).toBeGreaterThan(CRUMB_BOUNDS.maxY);
     // The tail's shoulders sit inside the crumb so the union reads as one silhouette with no seam.
     expect(CRUMB_PIN_TAIL_PATH).toContain('90');
+  });
+
+  it('is copied into the favicon character for character', () => {
+    // `app/icon.svg` is the one file that legitimately restates the path: it is a static asset
+    // served to the browser and it cannot import anything. So the copy is asserted instead of
+    // forbidden — this test *is* the mechanism that keeps the 16px mark and the 30px pin the same
+    // shape, and it is named in a comment inside the SVG so the next editor finds it.
+    const svg = readFileSync('src/app/icon.svg', 'utf8');
+    expect(svg).toContain(CRUMB_PATH);
   });
 
   it('appears as a literal in exactly one file', () => {

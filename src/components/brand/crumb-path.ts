@@ -73,3 +73,27 @@ export const CRUMB_HEAD_CENTRE = {
   x: (CRUMB_BOUNDS.minX + CRUMB_BOUNDS.maxX) / 2,
   y: (CRUMB_BOUNDS.minY + CRUMB_BOUNDS.maxY) / 2,
 } as const;
+
+/**
+ * The face — and where it may appear is a rule, not a preference.
+ *
+ * `brand-and-product-foundation.md` §3.1 rule 2: **face on chrome, silhouette on data.** It goes on
+ * the app icon, the splash and the link preview. It never goes on the map — *"thirty-one smiling
+ * faces over a city is a toy, and a pin with eyes cannot carry a category colour"* — and the design
+ * system drops it below 32px, where two dot eyes turn to mud.
+ *
+ * Authored in the same 100-square as `CRUMB_PATH`, so a call site places the crumb once and the
+ * face rides along. The eyes are ellipses rather than circles: taller than they are wide is what
+ * keeps the character from reading as startled.
+ */
+export const CRUMB_EYES = [
+  { cx: 36, cy: 42, rx: 5.4, ry: 6.6 },
+  { cx: 58, cy: 41, rx: 5.4, ry: 6.6 },
+] as const;
+
+/** The smile, drawn as a stroke. Not a closed shape — a filled mouth reads as a shout. */
+export const CRUMB_SMILE_PATH = 'M40 60c3.4 4 10.4 4 14-.4';
+export const CRUMB_SMILE_WIDTH = 4;
+
+/** The smallest size the face survives at, per the design system's own icon row. */
+export const CRUMB_FACE_MIN_PX = 32;

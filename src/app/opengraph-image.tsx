@@ -1,0 +1,181 @@
+import { ImageResponse } from 'next/og';
+
+import {
+  BRAND_INK,
+  BRAND_INK_MUTED,
+  BRAND_INK_ON_MINT,
+  BRAND_MINT,
+  BRAND_SURFACE,
+} from '@/components/brand/brand-colors';
+import {
+  CRUMB_EYES,
+  CRUMB_HEAD_CENTRE,
+  CRUMB_PATH,
+  CRUMB_PIN_TAIL_PATH,
+  CRUMB_SMILE_PATH,
+  CRUMB_SMILE_WIDTH,
+  CRUMB_VIEWBOX,
+} from '@/components/brand/crumb-path';
+import { CATEGORY_COLOR } from '@/ui/place/palette';
+
+/**
+ * The link preview.
+ *
+ * **The asset with the highest ratio of effort to credibility, and the product had none.** Every
+ * shared collection invite previewed as a bare URL with the platform's generic globe — which is
+ * what a link to a product nobody has heard of looks like when it is also a link to nothing.
+ *
+ * `voice-and-vocabulary.md` §2 surface 5 (the app icon, which `overnight-copy-deck.md` §1.2 reads
+ * as covering this file too), so the name may appear here. Both strings are the deck's, verbatim:
+ * `No Crumbs` is C103 and the sentence under it is C102, the same one the meta description and the
+ * landing subhead carry. Nothing on this image is written for it.
+ *
+ * ## Why the drawing is data URIs and not JSX
+ *
+ * This renders through satori, which lays out a subset of CSS against a subset of SVG. It has no
+ * cascade and no custom properties, so every colour here is a literal from
+ * `components/brand/brand-colors.ts` — the same arrangement, and the same reason, as
+ * `global-error.tsx`. Handing it a finished `<img>` rather than an element tree is the part of
+ * satori that is least likely to surprise us.
+ *
+ * ## The face is allowed here, and required
+ *
+ * `brand-and-product-foundation.md` §3.1 rule 2: face on chrome, silhouette on data. The link
+ * preview is named in that list, and at 132px there is room for it — this is the one surface in the
+ * product where the mascot is a mascot rather than a shape.
+ *
+ * ## The three pins are the product, in one line
+ *
+ * They are the actual category colours from `ui/place/palette.ts`, in the actual pin shape. A
+ * preview that shows *what a place looks like on this map* says more about the product than another
+ * sentence would, and it costs nothing: the shapes and the colours already exist.
+ */
+
+export const alt = 'No Crumbs — your saved places, on one map';
+export const size = { width: 1200, height: 630 };
+export const contentType = 'image/png';
+
+/** The mark, with a face, as a data URI. */
+function crumbFaceImage(fill: string, faceFill: string): string {
+  const eyes = CRUMB_EYES.map(
+    (eye) => `<ellipse cx="${eye.cx}" cy="${eye.cy}" rx="${eye.rx}" ry="${eye.ry}" fill="${faceFill}"/>`,
+  ).join('');
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${CRUMB_VIEWBOX} ${CRUMB_VIEWBOX}">` +
+    `<path d="${CRUMB_PATH}" fill="${fill}"/>${eyes}` +
+    `<path d="${CRUMB_SMILE_PATH}" fill="none" stroke="${faceFill}" stroke-width="${CRUMB_SMILE_WIDTH}" stroke-linecap="round"/>` +
+    `</svg>`;
+  return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
+}
+
+/** A map pin, faceless, in a category colour — exactly what the map draws. */
+function crumbPinImage(fill: string): string {
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${CRUMB_VIEWBOX} 128">` +
+    `<path d="${CRUMB_PIN_TAIL_PATH}" fill="${fill}"/><path d="${CRUMB_PATH}" fill="${fill}"/>` +
+    `<circle cx="${CRUMB_HEAD_CENTRE.x}" cy="${CRUMB_HEAD_CENTRE.y}" r="17" fill="${BRAND_SURFACE}"/>` +
+    `</svg>`;
+  return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
+}
+
+/**
+ * One weight of one face, fetched from the same host `next/font` already builds against.
+ *
+ * **This is a build-time fetch, not a runtime one.** The route has no request-time input, so Next
+ * renders it once during `next build` and serves a static PNG; a visitor's browser never talks to
+ * Google. That is the same trade `app/layout.tsx` already makes for Manrope and Fraunces, which is
+ * the argument for it: it adds a fetch, not a new kind of dependency.
+ *
+ * **It returns `null` rather than throwing, and that is the whole design.** If the network is
+ * unavailable at build time the preview renders in satori's bundled Geist instead of Fraunces —
+ * visibly not our wordmark, but a preview that exists — and the build stays green. A brand asset is
+ * not worth failing a deploy over.
+ *
+ * The axis instance is requested by name: `SOFT` 60 and `WONK` 1 are the wordmark's setting
+ * (`components/brand/display-type.ts`), and satori takes a static file, so the variable axes have
+ * to be resolved on Google's side rather than ours.
+ */
+async function fetchFont(family: string): Promise<ArrayBuffer | null> {
+  try {
+    const css = await fetch(`https://fonts.googleapis.com/css2?family=${family}&display=swap`, {
+      // Without a browser UA the API answers in `woff2`, which satori cannot parse.
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+    }).then((response) => response.text());
+    const url = /src:\s*url\((https:[^)]+\.(?:ttf|otf))\)/.exec(css)?.[1];
+    if (url === undefined) return null;
+    return await fetch(url).then((response) => response.arrayBuffer());
+  } catch {
+    return null;
+  }
+}
+
+export default async function OpengraphImage() {
+  const [display, body] = await Promise.all([
+    fetchFont('Fraunces:SOFT,WONK,opsz,wght@60,1,144,700'),
+    fetchFont('Manrope:wght@500'),
+  ]);
+
+  const fonts = [
+    display && { name: 'Fraunces', data: display, style: 'normal' as const, weight: 700 as const },
+    body && { name: 'Manrope', data: body, style: 'normal' as const, weight: 500 as const },
+  ].filter((font) => font !== null);
+
+  return new ImageResponse(
+    (
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          padding: '84px',
+          // `--brand-wash` is three stacked radials over `--background`; satori takes one. This is
+          // the one that carries it — the mint bloom off the top-right corner.
+          backgroundColor: BRAND_SURFACE,
+          backgroundImage: `radial-gradient(circle at 105% -10%, ${BRAND_MINT} 0%, ${BRAND_SURFACE} 62%)`,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
+          {/* An `<img>` on purpose: satori renders one, there is no DOM here, and `next/image` is
+              a component this renderer cannot run. */}
+          <img src={crumbFaceImage(BRAND_INK_ON_MINT, BRAND_MINT)} width={132} height={132} alt="" />
+          <span
+            style={{
+              fontFamily: 'Fraunces',
+              fontSize: '86px',
+              fontWeight: 700,
+              letterSpacing: '-0.022em',
+              color: BRAND_INK,
+            }}
+          >
+            No Crumbs
+          </span>
+        </div>
+
+        <p
+          style={{
+            fontFamily: 'Manrope',
+            fontSize: '38px',
+            lineHeight: 1.35,
+            fontWeight: 500,
+            color: BRAND_INK_MUTED,
+            margin: '44px 0 0',
+            maxWidth: '900px',
+          }}
+        >
+          Paste a TikTok link and the place lands on your map. Organised by where, not by when.
+        </p>
+
+        <div style={{ display: 'flex', gap: '18px', marginTop: '56px' }}>
+          {[CATEGORY_COLOR.restaurant, CATEGORY_COLOR.cafe, CATEGORY_COLOR.bar].map((color) => (
+            <img key={color} src={crumbPinImage(color)} width={44} height={56} alt="" />
+          ))}
+        </div>
+      </div>
+    ),
+    // `exactOptionalPropertyTypes` is on, so the key is omitted rather than set to `undefined`
+    // when no font was fetched — which is also what makes satori fall back to its bundled face.
+    fonts.length > 0 ? { ...size, fonts } : { ...size },
+  );
+}
