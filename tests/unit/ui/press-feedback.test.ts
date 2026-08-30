@@ -64,6 +64,39 @@ describe('the three press strings', () => {
   });
 });
 
+describe('the state matrix, row by row, on the button (W3-4)', () => {
+  it('warms an outline button\'s border on hover instead of greying its fill', () => {
+    // §3a: "border → mint, tint wash". An outlined control's border *is* its affordance, and this
+    // was the one hover in the table answered with a grey.
+    const markup = renderToStaticMarkup(createElement(Button, { variant: 'outline' }, 'Clear'));
+    expect(markup).toContain('hover:border-primary');
+    expect(markup).toContain('hover:bg-primary/5');
+    // Far below `default`'s solid mint, so the two never read as the same button.
+    expect(markup).not.toContain('hover:bg-primary/80');
+  });
+
+  it('disables an icon button harder than a labelled one', () => {
+    // 30% against the base's 45%. A disabled icon button is a glyph and nothing else — no label to
+    // carry the meaning, no fill to sit in — so at 45% it still reads as live and gets tapped.
+    const icon = renderToStaticMarkup(
+      createElement(Button, { size: 'icon', disabled: true, 'aria-label': 'Close' }),
+    );
+    expect(icon).toContain('disabled:opacity-30');
+    const labelled = renderToStaticMarkup(createElement(Button, { disabled: true }, 'Save'));
+    expect(labelled).toContain('disabled:opacity-45');
+    expect(labelled).not.toContain('disabled:opacity-30');
+  });
+
+  it('has no un-prefixed transition left on the base', () => {
+    // W3-3. `transition-all` here ran the hover fade and the press translate *only* for users who
+    // had asked for reduced motion, because `PRESS_BEAT` supersedes it for everyone else — the
+    // inversion failing in the exact direction it exists to prevent.
+    const markup = renderToStaticMarkup(createElement(Button, {}, 'Add a TikTok'));
+    expect(markup).not.toMatch(/(?<!motion-safe:)transition-all/);
+    expect(markup).toContain('motion-safe:transition');
+  });
+});
+
 describe('the strings reach the DOM', () => {
   it('presses a primary button, and drops its shadow a level', () => {
     // `shadow-raised` exists so `active:shadow-none` has somewhere to fall from: a press that only

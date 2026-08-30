@@ -4,6 +4,17 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 import { PRESS_BEAT, PRESS_BUTTON, PRESS_CHIP } from "@/lib/interaction"
 
+/**
+ * The icon button's two matrix columns that differ from every other button: the chip's press depth
+ * (see the `size` block below) and a **30%** disabled step rather than the base's 45%.
+ *
+ * 30 rather than 45 because a disabled icon button is a glyph and nothing else — no label to carry
+ * the meaning, no fill to sit in — so at 45% it still reads as a live control and gets tapped. The
+ * matrix sets the two steps apart for exactly that reason, and it lands after `variant` in cva's
+ * order, so it wins over the base for any icon-sized button.
+ */
+const ICON_BUTTON = `disabled:opacity-30 ${PRESS_CHIP}`
+
 const buttonVariants = cva(
   // `disabled:opacity-45`, not 50: the matrix fixes the disabled step at 45% and there is no
   // reason for the button to hold a second number for it.
@@ -24,8 +35,13 @@ const buttonVariants = cva(
         // press. The two are one beat: the base's `translate-y-px` rides the same transition and
         // there is deliberately no second duration.
         default: `bg-primary text-primary-foreground shadow-raised hover:bg-primary/80 active:shadow-none ${PRESS_BUTTON}`,
+        // The matrix's hover for an outline button is "border → mint, tint wash", and it was the
+        // one hover in the table that this file answered with a grey. An outlined control's border
+        // *is* its affordance, so warming that border is the cheapest true signal it has; the 5%
+        // fill is the wash, deliberately far below `default`'s solid mint so the two never read as
+        // the same button. `hover:text-foreground` stays — the label darkens with it.
         outline:
-          "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+          "border-border bg-background hover:border-primary hover:bg-primary/5 hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
         ghost:
@@ -40,13 +56,14 @@ const buttonVariants = cva(
         xs: "h-6 gap-1 rounded-[min(var(--radius-md),10px)] px-2 text-xs in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
         sm: "h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
         lg: "h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
-        // An icon button takes the chip's 5% rather than the filled button's 1.5%: at 24–36px a
-        // 1.5% squeeze is under half a pixel and invisible. It lands after `variant` in cva's own
-        // order, so an icon-sized `default` button resolves to this one — either is a true press.
-        icon: `size-8 ${PRESS_CHIP}`,
-        "icon-xs": `size-6 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-lg [&_svg:not([class*='size-'])]:size-3 ${PRESS_CHIP}`,
-        "icon-sm": `size-7 rounded-[min(var(--radius-md),12px)] in-data-[slot=button-group]:rounded-lg ${PRESS_CHIP}`,
-        "icon-lg": `size-9 ${PRESS_CHIP}`,
+        // `ICON_BUTTON` is the chip's 5% press rather than the filled button's 1.5% — at 24–36px a
+        // 1.5% squeeze is under half a pixel and invisible — plus the matrix's 30% disabled step.
+        // Both land after `variant` in cva's own order, so an icon-sized `default` button resolves
+        // to these rather than to the base's numbers.
+        icon: `size-8 ${ICON_BUTTON}`,
+        "icon-xs": `size-6 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-lg [&_svg:not([class*='size-'])]:size-3 ${ICON_BUTTON}`,
+        "icon-sm": `size-7 rounded-[min(var(--radius-md),12px)] in-data-[slot=button-group]:rounded-lg ${ICON_BUTTON}`,
+        "icon-lg": `size-9 ${ICON_BUTTON}`,
       },
     },
     defaultVariants: {
