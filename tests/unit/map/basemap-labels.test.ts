@@ -39,18 +39,29 @@ describe('label zoom ranges', () => {
     }
   });
 
-  it('leaves residential street names where CARTO put them', () => {
-    // `roadname_minor` is the noise that makes a map read as a generic maps app, and it does not
-    // answer "roughly where is this".
-    expect(LABEL_ZOOM_RANGES).not.toHaveProperty('roadname_minor');
+  it('keeps residential street names out of the resting view', () => {
+    // This used to assert `roadname_minor` was absent entirely, on the reasoning that residential
+    // names are "the noise that makes a map read as a generic maps app". `exp/richer-basemap`
+    // re-tests that trade against the owner's reference screenshots, which show them densely.
+    //
+    // What is still pinned is the half that was actually load-bearing: they must not appear in the
+    // view the camera comes to rest in, so leaning in reveals them rather than the overview
+    // arriving pre-cluttered. If the experiment is reverted, this goes back to `not.toHaveProperty`.
+    const range = LABEL_ZOOM_RANGES['roadname_minor'];
+    expect(range).toBeDefined();
+    expect(range?.[0]).toBeGreaterThan(CAMERA_RESTING_ZOOM);
   });
 });
 
 describe('the POI names layer', () => {
-  it('is tinted by the existing label role rather than a new one', () => {
-    // The `poi_` prefix is load-bearing: it is what `ROLE_PATTERNS` matches, so adding this layer
-    // needed no change to the role map. Renaming it silently drops it out of the palette.
+  it('still resolves to the label role, though the tint now skips it', () => {
+    // The `poi_` prefix is what `ROLE_PATTERNS` matches, and that is unchanged. Since
+    // `exp/richer-basemap` the layer is *exempted* from the tint pass by id
+    // (`basemap-tint-layer.tsx`) because it carries a per-class `match` on `text-color` that a
+    // single-hue tint would collapse — so this now pins the prefix convention rather than the
+    // tinting, and the exemption is what has to move if the layer is ever renamed.
     expect(roleFor(POI_LABEL_LAYER_ID)).toBe('label');
+    expect(POI_LABEL_LAYER_ID.startsWith('poi_')).toBe(true);
   });
 
   it('appears at or below the zoom the camera settles at', () => {

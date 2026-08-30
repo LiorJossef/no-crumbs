@@ -22,9 +22,13 @@ import {
   tintFor,
   tintPaintValue,
 } from './basemap-tint';
+import { poiColorExpression, poiLabelClasses } from './poi-style';
 import { useStyleReady } from './use-style-ready';
 
 const TINT_ENABLED = true;
+
+/** CARTO's settlement-and-district label layers, smallest first. */
+const DISTRICT_LABEL_LAYERS = ['place_suburbs', 'place_hamlet', 'place_villages'] as const;
 
 export function BasemapTint() {
   const { map } = useMap();
@@ -39,12 +43,31 @@ export function BasemapTint() {
       map.setLayerZoomRange(id, minzoom, maxzoom);
     }
 
+    // EXPERIMENT (exp/richer-basemap): district names in spaced caps, the way the reference draws
+    // them. This is label *hierarchy* rather than label count — a neighbourhood set in caps reads
+    // as a region containing the street names beneath it, where the same word in sentence case
+    // competes with them. CARTO ships the layers; only the treatment is ours.
+    for (const id of DISTRICT_LABEL_LAYERS) {
+      if (!map.getLayer(id)) continue;
+      try {
+        map.setLayoutProperty(id, 'text-transform', 'uppercase');
+        map.setLayoutProperty(id, 'text-letter-spacing', 0.14);
+      } catch {
+        // A layer CARTO reshaped. It keeps its own treatment.
+      }
+    }
+
     // EXPERIMENT (exp/richer-basemap): the tint machinery is kept, but `BASEMAP_TINTS` is retuned
     // from warm paper to the Mapbox Standard "Day" palette. The mechanism was never the cause of
     // the washed-out look — the eight numbers were. Revert = restore that table.
     if (!TINT_ENABLED) return;
 
     for (const layer of map.getStyle().layers ?? []) {
+      // Our own POI layer is exempt. It carries a `match` on `class` rather than a flat colour
+      // (`poi-style.ts`), and the tint's job is to push a colour to one hue — run over this layer
+      // it would collapse six families back to one. It used to be *deliberately* included, which
+      // was right when the layer was a single grey.
+      if (layer.id === POI_LABEL_LAYER_ID) continue;
       const role = roleFor(layer.id);
       if (!role) continue;
       const paint = (layer as { paint?: Record<string, unknown> }).paint;
@@ -94,22 +117,29 @@ function addPoiLabels(map: MapLibreMap): void {
       // `text-padding` and `text-optional` against MapLibre's collision index rather than by a
       // rank cut: `rank` is not carried on this source-layer's features, so filtering on it
       // silently matched nothing.
-      // EXPERIMENT (exp/richer-basemap): the class allow-list is dropped, so every named POI the
-      // tile carries draws. The old 16-class list deliberately excluded retail and food to avoid
-      // "generic maps app" texture; this experiment is explicitly testing that denser texture.
-      // Revert = restore `['in', 'class', ...POI_LABEL_CLASSES]` as the second clause.
-      filter: ['all', ['has', 'name']],
+      // EXPERIMENT (exp/richer-basemap): a curated allow-list, widened from the original 16 to
+      // cover food, retail and culture, but *not* the whole tile. Drawing everything with a name
+      // put `waste_basket` (295 in one Tel Aviv z14 tile), `bicycle_parking` (469) and `gate` (223)
+      // on the map, which reads as clutter rather than richness. See `poi-style.ts`.
+      filter: ['all', ['has', 'name'], ['in', 'class', ...poiLabelClasses()]],
       layout: {
         'text-field': ['get', 'name'],
         'text-font': [...BASEMAP_LABEL_FONT],
-        'text-size': ['interpolate', ['linear'], ['zoom'], 14, 9, 18, 11],
+        // Up from 9-11px. At 9px a POI name is present but not readable at arm's length, which is
+        // most of why the first pass looked emptier than the reference at the same zoom.
+        'text-size': ['interpolate', ['linear'], ['zoom'], 13, 10, 18, 12.5],
         'text-max-width': 8,
         'text-padding': 6,
         'text-optional': true,
       },
-      // Darker than the old #8a8a8a: that grey was chosen to recede into the tinted paper, and
-      // against Voyager's fuller colour it reads as illegible rather than quiet.
-      paint: { 'text-color': '#5b5b66', 'text-halo-color': '#ffffff', 'text-halo-width': 1.25 },
+      // Coloured by family rather than one grey. This is the single change that most closes the
+      // gap to the reference: it lets the eye sort a dense field of names into kinds of place
+      // before reading any of them. `poi-style.ts` owns the mapping.
+      paint: {
+        'text-color': poiColorExpression() as never,
+        'text-halo-color': '#ffffff',
+        'text-halo-width': 1.25,
+      },
     },
     map.getLayer('roadname_minor') ? 'roadname_minor' : undefined,
   );

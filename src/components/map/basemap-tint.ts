@@ -245,6 +245,14 @@ export const LABEL_ZOOM_RANGES: Readonly<Record<string, readonly [number, number
   roadname_major: [11, 24],
   roadname_pri: [11.5, 24],
   roadname_sec: [13, 24],
+  // EXPERIMENT (exp/richer-basemap): residential street names, from z15.
+  //
+  // This layer was deliberately absent, on the reasoning quoted above: residential names are "the
+  // noise that makes a map read as a generic maps app". The owner's reference screenshots show
+  // them densely (BAY ST, GREEN ST, HYDE ST, POLK ST at z14), and named a populated map as the
+  // thing they want, so the trade is being re-tested rather than assumed. z15 rather than CARTO's
+  // 16 keeps them out of the z13 resting view and lets them in once the user has leaned in.
+  roadname_minor: [15, 24],
 };
 
 /**
