@@ -18,11 +18,17 @@ It works end to end and it feels like an empty demo. Two locked plans say why an
 client gets).
 
 This run executes **the parts of both that can be built and verified without CI**, because CI cannot
-currently start a runner (§9). It is organised into **six waves and 24 work packages**. Every package
-has an exit criterion a different agent can check.
+currently start a runner (§9). It is organised into **eight waves and 41 work packages**. Every package has an exit criterion a
+different agent can check — and §8a adds four judged gates, because none of the numeric targets
+measures whether the result is any good.
 
-**Definition of done for the run: all 24 packages closed, `npm run verify` green, no regression in the
-2,017-test baseline, and every KPI in §5 met.** Nothing is "done" because an agent says so — see §7.
+**Definition of done: all 41 packages closed, the four quality gates in §8a passed, `npm run verify`
+green, no regression in the 2,017-test baseline, and every KPI in §5 met.** Nothing is "done" because
+an agent says so — see §7.
+
+**The goal is not the checklist.** It is a product that works, completely, and is worth looking at.
+The packages are how that gets built and the KPIs are how it gets checked; §8a is how you tell whether
+it actually happened.
 
 ---
 
@@ -99,7 +105,8 @@ Re-measure at the start of the run. If a number differs, trust your measurement 
 
 | # | Target | Measured by |
 |---|---|---|
-| K1 | **All 24 packages closed** and independently verified | §7's ledger |
+| K1 | **All 41 packages closed** and independently verified | §7's ledger |
+| K0 | **The four quality gates in §8a passed** | judged, by an agent that built none of it |
 | K2 | `npm run verify` **green** | the command |
 | K3 | Tests **≥ 2017 + one regression test per defect fixed** (≥ 2022) | `npx vitest run` |
 | K4 | `@theme` keys **≥ 60** | §4 command |
@@ -132,6 +139,8 @@ docs/no-crumbs-brand-and-facelift-lock      (has origin/main merged in)
                     └── feat/w3-interaction W3
                           └── feat/w4-identity
                                 └── feat/w5-library
+                                      └── feat/w6-the-moment
+                                            └── feat/w7-night-and-edges
 ```
 
 One PR per wave, based on the previous wave's branch. **If a wave would be the fourth unlanded branch,
@@ -223,6 +232,68 @@ Specified in [`facelift-plan.md`](facelift-plan.md) §3a. **Build from the state
 
 ---
 
+### Wave 6 — the moment · the demo, and the reason anyone cares
+
+Facelift stage 4. **`import-page-client.tsx` is 2,482 lines; W1-6 already removed the dead code.
+Decompose before redesigning** — three of the five signature moments cross screen boundaries, so they
+need a shared transition wrapper, and adding that inside one file on top of a competing design is how
+this acquires its first regression.
+
+| ID | Package | Paths | Exit criterion |
+|---|---|---|---|
+| **W6-1** | Split the import client by beat: `paste`, `rail`, `review`, `no-places`, `failure`, plus `review/candidate-card` | `src/app/import/` | No file over ~450 lines; behaviour identical; `npm run verify` green |
+| **W6-2** | **Split the source fetch into its own sub-second request.** oEmbed returns in under a second; extraction takes 7–34s. Two round trips, still request/response, **no streaming route** | `src/app/api/` (new source-preview route), `src/app/import/screens/rail-screen.tsx` | The post — thumbnail, `@handle`, caption — is on screen within ~1s while extraction runs underneath |
+| **W6-3** | **Hold the payoff.** `3 places found` is computed then overwritten on the next statement, so it renders for **zero frames**. Hold it ~700ms, count 0→N | `src/app/import/` | The count is visible and animates; test asserts the state is not overwritten in the same batch |
+| **W6-4** | **Provenance takes the badge slot.** Today the confident signal is an 11px mint pill and the uncertainty is 12px grey at the bottom of the card — the hierarchy inverts the epistemics. Same three states, opposite visual weight. **No invented confidence number** | `src/app/import/screens/review/candidate-card.tsx`, `src/ui/import/candidate-resolution-view.ts` | A caption-derived pin reads as caption-derived at a glance; a matched pin reads as matched. Verified by someone reading five cards cold |
+| **W6-5** | **Rebuild the no-places screen** — the modal outcome, ~73% of imports. It currently shows the user nothing: not the post, not the caption we just read. Strings do not change (`spec-no-places-found.md`) | `src/app/import/screens/no-places-screen.tsx` | The post and its caption are on screen; both recovery actions present on **every** entry point |
+| **W6-6** | **Pins land.** Camera flight then staggered drop, paint-only over a per-feature order — no relayout, no re-collision | `src/components/map/place-marker-layer.tsx`, `map-surface.mapcn.tsx` | Pins arrive in sequence after the flight; frame budget unchanged |
+| **W6-7** | The overlay stays mounted until `focusPlaceIds` resolves, so the map is revealed *into* the flight rather than after it | `src/app/map/map-page-client.tsx` | Confirm → map → flight is one continuous gesture, verified in a browser |
+
+### Wave 7 — the night map and the edges
+
+Facelift stage 5. **`L1-F8-T1` is the last unbuilt L1 product feature.**
+
+| ID | Package | Paths | Exit criterion |
+|---|---|---|---|
+| **W7-1** | Rebuild `.dark` against the mint ramp. It currently holds an abandoned light-blue exploration **and nothing in `src/` ever applies the class** | `src/app/globals.css`, new theme provider | `.dark` is reachable, mint-derived, and every token has a dark value |
+| **W7-2** | One theme source of truth. Three modules read `prefers-color-scheme` independently and would disagree with a class strategy | `src/components/ui/map.tsx`, `use-disc-theme.ts`, `country-flag-image.ts` | One reader; the other three consume it |
+| **W7-3** | A night basemap palette across the style's 93 layers. **Chrome is brand, basemap is geography** — the map stays cool at night | `src/components/map/basemap-tint.ts`, `poi-style.ts` | The night map is legible and the category colours still separate on it |
+| **W7-4** | **Account menu, sign-out, delete-my-data** (`L1-F8-T1`). **Trap:** `collections.owner_id` is `on delete cascade` and ownership transfer was never built, so deleting an account destroys shared collections for everyone in them. Handle it or refuse deletion for owners of shared collections — do not silently destroy other people's data | `src/app/profile/`, new server action | Deletion works, and a shared collection's other members do not lose it. Test asserts the cascade case |
+| **W7-5** | Error, 404 and the global error boundary brought into the family. `global-error.tsx` uses inline styles and a system font because it cannot see the stylesheet — inline the wash and an inline SVG mark | `src/app/error.tsx`, `global-error.tsx`, `not-found.tsx` | All three look like the product |
+| **W7-6** | Contrast, focus and 44px pass, plus a **60fps pass on a real device**. Six `backdrop-blur` surfaces sit over a live WebGL canvas — the standing perf risk | all touched surfaces | No contrast failure at AA; no touch target under 44px; the map holds frame rate while the sheet is open |
+
+## 8a. The quality bar — because none of §5 measures beauty
+
+Every KPI in §5 is a grep. You can hit all fourteen and still ship something nobody would screenshot.
+**These four gates are the other half, and the run is not complete without them.** They are judged, not
+counted — which is exactly why a different agent judges them.
+
+**Q1 — the walkthrough.** One agent walks every reachable screen at **390×844 and 1440×900**, signed
+out and signed in, at **0, 3 and 30 places**. For each screen: does it match the design system, or is
+it a screen nobody designed? Every mismatch is a finding with a screenshot or a precise description.
+**The 0-place and 300-place cases are where this product dies** — the demo dies at zero, the product
+dies at scale.
+
+**Q2 — the demo runs clean.** The 90-second sequence, start to finish, no restarts, no dev tools:
+open the app → paste a link → watch the post appear → the count land → review with provenance legible
+→ confirm → the camera flies and the pins drop → open a place → near me → not been yet → **and then
+the honest beat: a second link that names nothing, landing on a screen that reads as a destination
+rather than a failure.** If any beat needs an excuse, it is not done.
+
+**Q3 — nothing over-claims.** Independently checkable, and it outranks every other gate: the rail
+makes no stage claim the server did not send; no screen presents inferred content in the same visual
+register as verbatim content; no invented confidence number appears anywhere; the capped candidate
+does not save silently. **A beautiful product that fakes streamed stages is a failed run, not a
+partial one.**
+
+**Q4 — it feels alive.** Every pressable thing acknowledges within one frame. Hovering a row moves its
+pin. Filtering fades rather than deletes. Pins land rather than blink on. Under
+`prefers-reduced-motion` all of it degrades to opacity and stays usable. Judged by using it, not by
+reading the diff.
+
+**If Q1–Q4 pass and a KPI does not, report the KPI and ship. If a KPI passes and Q1–Q4 do not, the run
+is not finished.** The counts exist to make the work checkable; they were never the point.
+
 ## 9. Out of scope tonight — do not spend the night on these
 
 - **Merging anything.** CI cannot start a runner. This is owner action: <https://github.com/settings/billing>
@@ -250,7 +321,8 @@ Specified in [`facelift-plan.md`](facelift-plan.md) §3a. **Build from the state
 ## 11. Report at the end
 
 A single `docs/overnight-run-report.md`:
-1. The ledger, all 24 rows
+1. The ledger, all 41 rows
+1b. The four quality gates, each with its evidence
 2. Every KPI from §5 with its measured value
 3. What was **not** completed and precisely why
 4. Every decision recorded for the owner
