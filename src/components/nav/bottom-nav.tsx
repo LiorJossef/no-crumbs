@@ -60,6 +60,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Library, Map as MapIcon, Plus, UserRound } from 'lucide-react';
 
+import type { MapPlace } from '@/components/map/types';
 import { cn } from '@/lib/utils';
 import { BOTTOM_NAV_HEIGHT_PX } from './bottom-nav-metrics';
 
@@ -104,6 +105,16 @@ interface BottomNavProps {
    * everywhere else, where this component opens the same menu itself.
    */
   readonly onAdd?: () => void;
+  /**
+   * The library that menu should search, for a route that has one in hand but hosts no menu of its
+   * own — `/collections/[id]` loads the caller's saved places for its picker.
+   *
+   * Ignored when `onAdd` is passed, because that route is opening its own menu with its own
+   * library. Empty is the honest default for `/collections` and `/profile`, which load none: an
+   * empty search says "no matches" for places the user genuinely has, and offering to save one they
+   * already have is how a duplicate row gets written.
+   */
+  readonly places?: readonly MapPlace[];
 }
 
 /**
@@ -135,7 +146,7 @@ interface BottomNavProps {
  * worse than no number.
  */
 
-export function BottomNav({ onAdd }: BottomNavProps) {
+export function BottomNav({ onAdd, places = [] }: BottomNavProps) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   /** The link the user pressed `Add this TikTok` on, on a tab with no import overlay of its own.
@@ -215,6 +226,7 @@ export function BottomNav({ onAdd }: BottomNavProps) {
         <HostlessCreateMenu
           open={menuOpen}
           onOpenChange={setMenuOpen}
+          places={places}
           onSubmitTikTok={setImportUrl}
         />
       )}
@@ -296,16 +308,20 @@ function AddButton({ onAdd }: { onAdd: () => void }) {
  * it supplied locally — an import overlay for a submitted link, and somewhere to send a place that
  * was just saved.
  *
- * The library is empty on purpose: these routes do not load one, and an empty search is a truthful
- * "no matches" rather than a wrong one. Both the manual add and the TikTok arm work in full.
+ * The library is whatever the host route has in hand, and empty where it has none. `/collections`
+ * and `/profile` load no places, so their search is an honest "no matches"; `/collections/[id]`
+ * already loads the caller's saved places for its picker and passes them, because an empty search
+ * there would deny places the user genuinely has and offer to save a duplicate.
  */
 function HostlessCreateMenu({
   open,
   onOpenChange,
+  places,
   onSubmitTikTok,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  places: readonly MapPlace[];
   onSubmitTikTok: (url: string) => void;
 }) {
   const router = useRouter();
@@ -314,7 +330,7 @@ function HostlessCreateMenu({
     <AddSheetHost
       open={open}
       onOpenChange={onOpenChange}
-      places={[]}
+      places={places}
       onSelectPlace={() => router.push('/map')}
       onSubmitTikTok={onSubmitTikTok}
       onManualSaved={() => router.push('/map')}

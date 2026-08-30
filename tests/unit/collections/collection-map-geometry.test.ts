@@ -1,26 +1,32 @@
 import { describe, expect, it } from 'vitest';
 
 /**
- * What the bottom nav bar costs `/collections/[id]`'s camera. Answer: nothing, and this is the
+ * What the bottom nav bar costs each of the shell's two scopes. Answer: nothing, and this is the
  * arithmetic that has to keep being true for that answer to hold.
  *
+ * **This test was about a bar that was not on screen.** `/collections/[id]` rendered no `BottomNav`
+ * at all until `NAV2` mounted the shell's — which is what makes `ux-collections-as-scope.md` §2.3's
+ * exits ("the Map tab, on screen at every stop") real rather than aspirational. So the claim below
+ * is now load-bearing where before it was green and about nothing, and it covers **both** scopes:
+ * `/map`, whose sheet rests on the 128 px peek strip, and a collection, whose sheet rests at
+ * `HALF_FRACTION`.
+ *
  * The bar is `fixed` chrome `BOTTOM_NAV_HEIGHT_PX` tall (plus the safe-area inset it sits on) at
- * the bottom of the viewport. This route's sheet **rests** at `RESTING_SHEET_FRACTION` of the
- * container rather than at the 128 px peek stop `/map` uses, and `mapOcclusionInsets` is already
- * told that (`collection-client.tsx` passes `restingSheetFraction`). So the bar adds no new
- * occlusion for exactly as long as it is shorter than the band the camera already concedes to the
- * sheet — and if either number moves, this is where it fails rather than on a phone.
+ * the bottom of the viewport. `mapOcclusionInsets` is already told what each scope's sheet covers
+ * (`MapShell` derives it from `restingStop`). So the bar adds no new occlusion for exactly as long
+ * as it is shorter than the band the camera already concedes to the sheet — and if either number
+ * moves, this is where it fails rather than on a phone.
  *
  * There is no jsdom in this repo (`vitest.config.ts` sets `environment: 'node'`), so nothing here
  * renders. It does not need to: the claim is geometric, and `query-rect.ts` exists precisely so
  * the geometry can be checked without a canvas.
  */
 
-const { BOTTOM_NAV_HEIGHT_PX } = await import('@/components/nav/bottom-nav');
-const { RESTING_SHEET_FRACTION } = await import('@/app/collections/[id]/sheet-geometry');
-const { MIN_FIT_BAND_PX, clampFitPadding, mapOcclusionInsets } = await import(
-  '@/components/map/query-rect'
-);
+const { BOTTOM_NAV_HEIGHT_PX } = await import('@/components/nav/bottom-nav-metrics');
+const { HALF_FRACTION: RESTING_SHEET_FRACTION, PEEK_PX } =
+  await import('@/components/shell/sheet-geometry');
+const { MIN_FIT_BAND_PX, clampFitPadding, mapOcclusionInsets } =
+  await import('@/components/map/query-rect');
 
 /** The four `L2-COLL-CAM-2` established, as `[width, height]`. */
 const VIEWPORTS: ReadonlyArray<readonly [number, number]> = [
@@ -49,7 +55,7 @@ function collectionFitPadding(width: number, height: number) {
   );
 }
 
-describe('the bottom nav bar over /collections/[id]', () => {
+describe('the bottom nav bar over a collection scope', () => {
   it.each(VIEWPORTS)(
     'sits inside the occlusion the camera already concedes at %ix%i',
     (width, height) => {
@@ -95,5 +101,28 @@ describe('the bottom nav bar over /collections/[id]', () => {
       expect(padding.top).toBeCloseTo(FIT_BOUNDS_PADDING, 6);
       expect(height - padding.top - padding.bottom).toBeGreaterThanOrEqual(MIN_FIT_BAND_PX);
     }
+  });
+});
+
+/**
+ * The same question for `/map`, which the shell now draws the identical bar over and whose sheet
+ * rests on the peek strip rather than at `half`. This is the *tighter* of the two constraints —
+ * 128 px against 68 px, where a collection concedes 176 px at the shortest viewport tested — so it
+ * is the one that fails first if either number moves.
+ */
+describe('the bottom nav bar over /map', () => {
+  it.each(VIEWPORTS)('sits inside the peek strip the camera already concedes at %ix%i', (width) => {
+    // `restingSheetFraction` is undefined for a peek-resting scope, which is what makes
+    // `mapOcclusionInsets` fall back to its own `SHEET_PEEK_PX`. Passing undefined here is the
+    // honest reproduction of what `MapShell` passes.
+    const conceded = mapOcclusionInsets(width, undefined).bottom;
+    expect(conceded).toBeGreaterThanOrEqual(BOTTOM_NAV_HEIGHT_PX);
+    expect(PEEK_PX).toBeGreaterThan(BOTTOM_NAV_HEIGHT_PX);
+  });
+
+  it('leaves the peek row enough room above the bar to be read', () => {
+    // `PlaceList`'s peek row pads itself by exactly the bar's height. What is left is the line
+    // itself, and a line of text that has been squeezed to nothing is a control nobody can use.
+    expect(PEEK_PX - BOTTOM_NAV_HEIGHT_PX).toBeGreaterThanOrEqual(44);
   });
 });

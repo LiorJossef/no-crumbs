@@ -29,6 +29,8 @@ import { ArrowLeft, Check, ChevronLeft, MoreHorizontal, Plus, Users } from 'luci
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PlaceRow, PlaceSearchField } from '@/components/sheet/place-sheet';
+import { BOTTOM_NAV_HEIGHT_PX } from '@/components/nav/bottom-nav';
+import { STOP_TO_CONTENT_HEIGHT, type SheetStop } from '@/components/shell/sheet-geometry';
 import { SharePanel } from '@/components/collections/share-panel';
 import { CollectionPlaceDetail } from '@/components/collections/collection-place-detail';
 import { canEdit, canManage, memberLabel } from '@/domain/collections/collection';
@@ -64,9 +66,31 @@ export interface CollectionContentProps {
   readonly onViewChange: (view: CollectionView) => void;
   readonly selectedItemId: string | null;
   readonly onSelectItem: (itemId: string | null) => void;
+  /**
+   * Which stop the shell's sheet is at, when this is rendering *in* the sheet. Absent in the `lg+`
+   * panel, which has no stops.
+   *
+   * It exists to cap the content column's height. `Drawer.Content` is `h-full` and vaul positions
+   * the sheet by translating it, so at `half` the bottom 45% of a full-height column sits below the
+   * bottom of the screen: laid out, painted, hit-testable and completely unreachable, because the
+   * scroll container's own bottom is off screen. That is why `Add places` was tappable only at
+   * `full` (`ux-collections-as-scope.md` §5 item 11), and the cap is the fix `/map`'s list has had
+   * since it hit the same wall.
+   */
+  readonly stop?: SheetStop;
 }
 
 export function CollectionContent(props: CollectionContentProps) {
+  return props.stop === undefined ? (
+    <CollectionBody {...props} />
+  ) : (
+    <div style={{ height: STOP_TO_CONTENT_HEIGHT[props.stop] }} className="flex min-h-0 flex-col">
+      <CollectionBody {...props} />
+    </div>
+  );
+}
+
+function CollectionBody(props: CollectionContentProps) {
   const { collection, currentUserId, view, onViewChange, selectedItemId, onSelectItem } = props;
   const selected = collection.places.find((place) => place.itemId === selectedItemId) ?? null;
 
@@ -122,12 +146,26 @@ function CollectionList({
   pins,
   onViewChange,
   onSelectItem,
+  stop,
 }: CollectionContentProps) {
   const [query, setQuery] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
 
   const matches = useMemo(() => filterPlaces(pins, query), [pins, query]);
   const editable = canEdit(collection.role);
+  /** Whether the pinned `Add places` footer is drawn. Whichever element is *last* in the column is
+   *  the one that has to clear the floating bar, and it is one or the other, never both. */
+  const hasFooter = editable && collection.places.length > 0;
+  /**
+   * What the floating bar costs the bottom of this column — its height in the sheet, nothing in the
+   * `lg+` panel, where `BottomNav` does not render at all.
+   *
+   * Keyed on `stop` being present rather than on a breakpoint, because that *is* the distinction:
+   * `stop` is what the shell passes to the content it puts in the sheet. A media query in
+   * JavaScript would be a second, weaker way of asking the same question, and `map-page-client.tsx`
+   * forbids one outright.
+   */
+  const barPx = stop === undefined ? 0 : BOTTOM_NAV_HEIGHT_PX;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -200,7 +238,22 @@ function CollectionList({
         ) : null}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+5rem)]">
+      <div
+        data-vaul-no-drag
+        className="min-h-0 flex-1 overflow-y-auto px-4"
+        // Exactly the bar's height, so the last row clears it instead of ending underneath it —
+        // the same price `PlaceList` pays for `BottomNav` floating over the sheet. It replaced a
+        // hand-picked `5rem + safe-area`, which was a guess at a bar this route did not even
+        // render until the shell mounted one (`ux-collections-as-scope.md` §5 item 7).
+        //
+        // Only when nothing is pinned below it. With the footer there, this list ends at the
+        // footer's top edge and the bar is the footer's problem; paying here as well would be 68 px
+        // of dead white between the last row and a button.
+        style={{
+          scrollPaddingBottom: hasFooter ? 0 : barPx,
+          paddingBottom: hasFooter ? 0 : barPx,
+        }}
+      >
         {collection.places.length === 0 ? (
           <EmptyCollection collection={collection} onAdd={() => onViewChange('add')} />
         ) : matches.length === 0 ? (
@@ -226,8 +279,18 @@ function CollectionList({
 
       {/* Not while the collection is empty: the empty state already offers this exact button, and
           two identical primaries on one screen is a question, not an invitation. */}
-      {editable && collection.places.length > 0 ? (
-        <div className="shrink-0 border-t border-border/70 bg-card px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3">
+      {hasFooter ? (
+        /* The bar's height is in the bottom padding, because this footer is pinned to the bottom of
+           the sheet's column and `BottomNav` floats over that column at every stop. Measured at
+           375×812 before it was added: the button came to rest at y 754–802 against a bar occupying
+           744–812, i.e. entirely behind it. This route rendered no bar at all until the shell
+           mounted one, which is why the collision is new rather than long-standing. */
+        <div
+          className="shrink-0 border-t border-border/70 bg-card px-4 pt-3"
+          style={{
+            paddingBottom: `calc(env(safe-area-inset-bottom) + 0.75rem + ${barPx}px)`,
+          }}
+        >
           <Button
             type="button"
             size="lg"
@@ -267,7 +330,9 @@ function EmptyCollection({
         </>
       ) : (
         <p className="mx-auto mt-2 max-w-xs text-sm text-muted-foreground">
-          <span dir="auto">{memberLabel({ displayName: owner?.displayName ?? null, isYou: false })}</span>{' '}
+          <span dir="auto">
+            {memberLabel({ displayName: owner?.displayName ?? null, isYou: false })}
+          </span>{' '}
           hasn&apos;t added any places.
         </p>
       )}
@@ -302,7 +367,11 @@ function CollectionMenu({
         onSubmit={(event) => {
           event.preventDefault();
           startTransition(async () => {
-            const result = await updateCollection(collection.id, name, collection.description ?? '');
+            const result = await updateCollection(
+              collection.id,
+              name,
+              collection.description ?? '',
+            );
             if (!result.ok) {
               setError(result.message);
               return;
@@ -541,7 +610,11 @@ function AddPlacesPanel({
           >
             <ArrowLeft className="size-4" aria-hidden />
           </Button>
-          <h2 ref={headingRef} tabIndex={-1} className="font-heading text-base font-bold outline-none">
+          <h2
+            ref={headingRef}
+            tabIndex={-1}
+            className="font-heading text-base font-bold outline-none"
+          >
             Add places
           </h2>
         </div>
