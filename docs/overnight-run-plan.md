@@ -59,8 +59,9 @@ several of them record decisions that look like bugs until you read why.
 
 1. **Never commit to `main`.** One kebab-case, prefixed branch per work package, cut from the branch
    named in §6. `.githooks/pre-push` refuses a direct push; do not work around it.
-2. **Use the fast loop, not full `verify`, on every commit.** See §7a. Full `verify` runs at each
-   wave close and again in Wave 8. It is **not** CI — it covers one of CI's four jobs.
+2. **`npm run typecheck` on every commit — that is the whole inner loop** (owner decision). Full
+   `verify`, which includes the suite, runs at **every wave close** and again in Wave 8. A wave does
+   not close on a red gate. `verify` is **not** CI — it covers one of CI's four jobs.
 3. **No change may increase what the product asserts.** This is the load-bearing rule of the whole
    codebase. The rail claims no stage the server did not send; no screen presents inferred content in
    the same visual register as verbatim content; an uncertain result beats a confidently wrong one. A
@@ -177,19 +178,15 @@ these are the four that dominate:
 | `typecheck` | 3.7s |
 | **unit tests** | **3.9s** |
 
-**The tests are the second-fastest thing in `verify`,** and they are the only stage that catches a
-regression rather than a style or structure violation. Across eight stacked branches, a break
-introduced in Wave 0 — which edits `globals.css` and ~75 call sites — would otherwise propagate
-through seven waves with no bisect point. So:
-
-**Per commit — the fast loop, ~8 seconds:**
+**Per commit — the fast loop, ~4 seconds:**
 
 ```
-npm run typecheck && npx vitest run
+npm run typecheck
 ```
 
-Typecheck catches the signature and token breakage that propagates worst; the tests catch the rest.
-Nothing else runs. **Do not skip these two — they are cheaper than the bug.**
+That is the whole inner loop. **Owner decision, 2026-08-30:** the suite does not run per commit.
+Typecheck stays because it is the stage that catches the signature and token breakage that propagates
+worst across a stack, and because at 3.7 s it is the cheapest insurance available.
 
 **Per wave close — the full gate:**
 
@@ -197,14 +194,21 @@ Nothing else runs. **Do not skip these two — they are cheaper than the bug.**
 npm run verify
 ```
 
-Lint and the layer guard cost 26 seconds together and catch nothing that compounds silently, so they
-wait for the wave boundary rather than the commit.
+`verify` includes `npm run test`, so **the suite still runs at every wave boundary** — eight times over
+the run. That is what bounds the risk of the deferral: if a regression lands, the bisect point is a
+wave rather than a commit, which is coarse but not blind. Lint and the layer guard ride along here for
+the same reason, since together they cost 26 s and catch nothing that compounds silently.
+
+**A wave does not close on a red gate.** If `verify` fails at a wave boundary, fix it there. Carrying a
+failure into the next wave is what turns a coarse bisect point into no bisect point at all.
 
 **If a test fails, it is not in the way.** It is either right, or its being wrong is the finding. Do
 not delete it, skip it, or mark it `todo` to keep moving — record it and fix it.
 
-**Write tests as you go; run the suite as above.** A package's regression test is part of the package,
-not of Wave 8. Wave 8 is where the whole thing is stabilised, not where testing begins.
+**Write the tests as you go even though you are not running them per commit.** A package's regression
+test is part of the package and is what its exit criterion is checked against at the wave gate. Wave 8
+is where the whole thing is stabilised, not where testing begins — arriving there with 41 packages and
+no tests written would make it unfinishable in one pass.
 
 ## 8. The work packages
 
