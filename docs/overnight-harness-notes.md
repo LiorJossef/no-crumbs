@@ -402,3 +402,63 @@ run-to-run variance — the 30-place mobile max moved 383 → 425 ms across two 
 earlier tonight, so treat differences under ~100 ms as noise and read the over-budget counts
 alongside. As in §9, the median is meaningless in headless and none of these should be quoted next
 to §2's number.
+
+## 11. The import screens, and the hour they cost
+
+`30ac86b` added a development-only `?state=` seam to `/import`, and its own header says why the
+harness could not use it as built: `devScreen` is guarded on a literal
+`process.env.NODE_ENV !== 'production'` that the bundler folds, so a production build **eliminates**
+the branch. `next build` pins `NODE_ENV=production`. The harness runs `next build` then `next start`.
+The seam is correctly impossible on exactly the path the harness uses.
+
+The harness now has a `--dev` arm that runs `next dev` against the exported commit instead. **The
+guard was not weakened**, which was never on the table: a seam reachable in a production build is a
+second way into a screen a real user can reach.
+
+Dev captures carry `stub-dev--` in the filename rather than `stub--`, and the manifest records
+`buildMode`. They are **not the same artefact** as a production capture — no minification, React in
+development mode, different bundling and different timing — so they are good for layout and copy,
+which is what Q1 asks of these screens, and **the motion measurements in §9 and §10 stay on the
+production path.** Dev captures also carry Next's own dev-indicator badge in the corner; it is not
+product UI.
+
+### The failure that nearly shipped, and the guard that now stops it
+
+The first `--dev` run produced ten screenshots across five `?state=` values. All ten were the same
+idle paste screen. Status 200, no page errors, nothing failed.
+
+**Next 16's dev server refuses cross-origin requests for its own client chunks.** Driving `next dev`
+at `http://127.0.0.1:<port>` returns **403 on every `_next/static/chunks/*` file**, so React never
+hydrates — no effects, no handlers, no client state — and `useDevScreen`'s effect never runs. The
+server-rendered HTML still paints perfectly, and a screenshot of it looks completely fine. Serving
+on and requesting `localhost` fixes it; `next start` is unaffected, which is why every earlier
+measurement was sound.
+
+This is the second time tonight a capture was honest in its pixels and wrong in its filename, so it
+is now checked rather than watched for:
+
+- **`hydrated`** — every capture asserts a React root exists on the page. An unhydrated capture is
+  server HTML, not the product, and must never be filed as evidence of one.
+- **`notExpect`** — a screen reached through a seam must prove it left the screen it was reached
+  *from*. The import screens assert the idle screen's `OR TRY ONE OF THESE` is gone.
+
+Both land in the manifest per shot, the run prints `UNUSABLE` lines naming which check failed, and
+it now **exits non-zero** when any capture fails one. A harness that cannot fail cannot be evidence.
+
+### What the seam does and does not reach
+
+Captured at `5169413`, both gate viewports, all ten hydrated and all ten seam-verified: `no-places`,
+`review`, `rail`, `error-POST_UNAVAILABLE`, `redirect-UNSUPPORTED_HOST`.
+
+**One gap, and it matters for W6.** `spec-no-places-found.md` gives three distinct cases — A no
+caption, B nothing named, C area only. The seam hardcodes `hadCaption: true` and reaches **case B
+only**; A and C have no `?state=` spelling. Whoever rebuilds that screen in Wave 6 should extend the
+seam to all three, or the before/after will silently compare one case out of three.
+
+### Observed on the review screen, not filed
+
+At 390×844 the header reads **`3 places found`** while the counter below it reads **`1 of 2
+selected`**, with two candidate cards visible. Whether the third candidate is deliberately outside
+the selectable set (it is the past-the-cap card nobody looked up) or simply below the fold, the two
+numbers contradict each other on the same screen. W6-4 is about to rework this screen's provenance
+hierarchy, so it is worth deciding deliberately rather than inheriting.

@@ -62,12 +62,44 @@ export function buildApp(appDir, env = {}) {
  * even *reading* one impossible), and there is no reason a throwaway pointer at a loopback stub
  * needs to be persisted anywhere.
  */
-export async function startApp(appDir, port, env = {}) {
+/**
+ * Start the app on `port` and resolve once it answers.
+ *
+ * `options.dev` runs `next dev` instead of `next start`, and it exists for exactly one reason:
+ * `src/app/import/_lib/dev-screen.ts` guards its `?state=` seam on a literal
+ * `process.env.NODE_ENV !== 'production'`, which the bundler folds so the branch is *eliminated*
+ * from a production build — the difference between "unreachable" and "not shipped". `next build`
+ * pins `NODE_ENV=production`, so the seam is correctly invisible to the production path this
+ * harness normally uses. Running dev is how the harness meets that guard rather than weakening it,
+ * and weakening it was never on the table: a seam reachable in production would be a second way
+ * into a screen a real user can reach.
+ *
+ * A dev-mode capture is **not the same artefact** as a production-build one — no minification,
+ * React in development mode, different bundling, different timing. Fine for layout and copy, which
+ * is what Q1 asks of these screens. Not fine for anything timing-related, so the motion
+ * measurements stay on the production path.
+ *
+ * Dev compiles routes on demand, so the readiness timeout is longer and the first navigation to any
+ * route is slow.
+ */
+export async function startApp(appDir, port, env = {}, options = {}) {
   // `detached: true` puts the server in its own process group, and `stop()` below signals the
   // whole group. Without it, `npx` spawns `npm exec`, which spawns `next`, and killing the pid we
   // hold leaves the wrapper alive — one was found idling after a run on 2026-08-31, which under
   // concurrency means a stray port holder nobody can account for.
-  const child = spawn('npx', ['next', 'start', '-p', String(port)], {
+  // `-H localhost` in dev, and the URL below is `localhost` to match. This is not cosmetic.
+  //
+  // Next 16's dev server refuses cross-origin requests for its own client chunks. Driving
+  // `next dev` at `http://127.0.0.1:<port>` returns **403 on every `_next/static/chunks/*` file**,
+  // so React never hydrates and the page sits there as inert server-rendered HTML — no effects, no
+  // event handlers, no client state. It looks completely fine in a screenshot, which is how it cost
+  // an hour: ten captures of five different `?state=` values that were all the same idle screen,
+  // because `useDevScreen`'s effect had never run. Host and requested origin have to agree.
+  //
+  // Production is left on `127.0.0.1`: `next start` serves its chunks without the check, that path
+  // is the one every measurement so far was taken on, and `localhost` can resolve to `::1` on a
+  // machine where the server bound IPv4.
+  const child = spawn('npx', options.dev ? ['next', 'dev', '-p', String(port), '-H', 'localhost'] : ['next', 'start', '-p', String(port)], {
     cwd: appDir,
     env: { ...process.env, ...env },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -77,8 +109,8 @@ export async function startApp(appDir, port, env = {}) {
   child.stdout.on('data', (d) => log.push(String(d)));
   child.stderr.on('data', (d) => log.push(String(d)));
 
-  const url = `http://127.0.0.1:${port}`;
-  const deadline = Date.now() + 90_000;
+  const url = options.dev ? `http://localhost:${port}` : `http://127.0.0.1:${port}`;
+  const deadline = Date.now() + (options.dev ? 180_000 : 90_000);
   for (;;) {
     if (Date.now() > deadline) {
       try {
@@ -86,7 +118,9 @@ export async function startApp(appDir, port, env = {}) {
       } catch {
         /* already gone */
       }
-      throw new Error(`next start did not answer on ${url} within 90s:\n${log.join('')}`);
+      throw new Error(
+        `next ${options.dev ? 'dev' : 'start'} did not answer on ${url} in time:\n${log.join('')}`,
+      );
     }
     try {
       const response = await fetch(url, { redirect: 'manual' });

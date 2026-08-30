@@ -107,6 +107,20 @@ const SCREENS = [
   // invited stranger sees, and `0024` refuses `anon` the invite preview on purpose, so the screen
   // deliberately says less than `ux-collections.md` §5.3 asks for. Both are captured.
   { route: `/collections/join/${DEMO_INVITE_TOKEN}`, name: 'collection-join', auth: ['out', 'in'], varyByPlaces: false },
+
+  // The import states, reachable only through `dev-screen.ts`'s `?state=` seam, which is guarded on
+  // a literal `NODE_ENV !== 'production'` the bundler eliminates. So these need `--dev`; in the
+  // production path they are recorded as skipped rather than quietly missing.
+  //
+  // Ordered by what the product is judged on, not by the flow. `no-places` first: `mvp-plan.md`
+  // calls it the modal outcome of an import, which makes it a core surface rather than an error
+  // path, and Wave 6 is about to rebuild it. `review` next, because W6-4 inverts its provenance
+  // hierarchy and a *before* only exists until that lands. Then the failure screens.
+  { route: '/import?state=no-places', name: 'import-no-places', auth: ['in'], varyByPlaces: false, requiresDev: true, notExpect: 'OR TRY ONE OF THESE' },
+  { route: '/import?state=review', name: 'import-review', auth: ['in'], varyByPlaces: false, requiresDev: true, notExpect: 'OR TRY ONE OF THESE' },
+  { route: '/import?state=rail', name: 'import-rail', auth: ['in'], varyByPlaces: false, requiresDev: true, notExpect: 'OR TRY ONE OF THESE' },
+  { route: '/import?state=error-POST_UNAVAILABLE', name: 'import-error-post-unavailable', auth: ['in'], varyByPlaces: false, requiresDev: true, notExpect: 'OR TRY ONE OF THESE' },
+  { route: '/import?state=redirect-UNSUPPORTED_HOST', name: 'import-redirect-unsupported-host', auth: ['in'], varyByPlaces: false, requiresDev: true, notExpect: 'OR TRY ONE OF THESE' },
 ];
 
 function parseArgs(argv) {
@@ -186,6 +200,37 @@ async function capture({ browser, baseUrl, screen, viewportSpec, cookie, outDir,
     }
   }
   const finalUrl = page.url();
+
+  /**
+   * Did React actually hydrate, and does the screen show what its filename claims?
+   *
+   * Both checks exist because of one incident on 2026-08-31. Next 16's dev server refuses
+   * cross-origin requests for its own client chunks, so driving `next dev` at `127.0.0.1` returned
+   * 403 on every `_next/static/chunks/*` file and React never hydrated. The pages still rendered —
+   * server HTML is perfectly photogenic — so the harness produced ten screenshots of five different
+   * `?state=` values that were all the same idle screen, and every one of them was labelled with
+   * the state it did not show. Status was 200. Nothing failed.
+   *
+   * `hydrated` is the general guard: an unhydrated capture has no effects, no handlers and no
+   * client state, so it is not a picture of the product and must never be filed as one.
+   * `notExpect` is the specific one: a screen reached through a seam has to prove it left the
+   * screen it was reached *from*.
+   */
+  const hydrated = await page
+    .evaluate(() => {
+      const roots = [document.querySelector('main'), ...Array.from(document.body.children)];
+      return roots.some(
+        (el) => el !== null && Object.keys(el).some((k) => k.startsWith('__reactFiber$')),
+      );
+    })
+    .catch(() => false);
+
+  let expectMet = null;
+  if (screen.notExpect) {
+    const text = await page.evaluate(() => document.body.innerText).catch(() => '');
+    expectMet = !new RegExp(screen.notExpect, 'i').test(text);
+  }
+
   await context.close();
 
   return {
@@ -195,6 +240,8 @@ async function capture({ browser, baseUrl, screen, viewportSpec, cookie, outDir,
     viewport: viewportSpec.id,
     auth: authState,
     status,
+    hydrated,
+    expectMet,
     error,
     consoleErrors,
     pageErrors,
@@ -256,7 +303,11 @@ async function main() {
     .map((n) => Number(n.trim()))
     .filter((n) => Number.isFinite(n));
   const routeFilter = typeof args.routes === 'string' ? args.routes.split(',').map((r) => r.trim()) : null;
-  const screens = routeFilter ? SCREENS.filter((s) => routeFilter.includes(s.route)) : SCREENS;
+  // Matched against the screen *name* as well as the route, because the import screens differ only
+  // by query string and `--routes /import` would otherwise be ambiguous.
+  const screens = routeFilter
+    ? SCREENS.filter((s) => routeFilter.includes(s.route) || routeFilter.includes(s.name))
+    : SCREENS;
   const settleMs = Number(args.settle ?? 2500);
   const fullPage = args['full-page'] === true;
 
@@ -264,12 +315,19 @@ async function main() {
   const outDir = isAbsolute(outArg) ? outArg : join(REPO_DIR, outArg);
   mkdirSync(outDir, { recursive: true });
 
+  const devMode = args.dev === true;
   const manifest = {
     takenAt: new Date().toISOString(),
-    mode: fromCommit ? 'local-build' : 'remote',
+    mode: fromCommit ? (devMode ? 'local-dev' : 'local-build') : 'remote',
     commit: null,
     baseUrl: null,
     dataSource: fromCommit ? 'stub' : 'live-deployment',
+    /**
+     * `next dev` or `next start`. Recorded because they are not the same artefact: dev has no
+     * minification, React in development mode, different bundling and different timing. Layout and
+     * copy are trustworthy; timing is not, and the motion harness never runs in dev.
+     */
+    buildMode: fromCommit ? (devMode ? 'next dev' : 'next build + next start') : 'deployed build',
     viewports: GATE_VIEWPORTS.map((v) => v.id),
     placeCounts: fromCommit ? counts : [],
     shots: [],
@@ -297,18 +355,27 @@ async function main() {
         NEXT_PUBLIC_SUPABASE_ANON_KEY: 'stub-anon-key-not-a-secret',
       };
 
-      process.stderr.write('[harness] building\n');
-      const build = buildApp(appDir, env);
-      if (!build.ok) {
-        manifest.notes.push('next build FAILED; no local screens captured');
-        writeFileSync(join(outDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
-        process.stderr.write(build.output);
-        process.exit(1);
+      if (!devMode) {
+        process.stderr.write('[harness] building\n');
+        const build = buildApp(appDir, env);
+        if (!build.ok) {
+          manifest.notes.push('next build FAILED; no local screens captured');
+          writeFileSync(join(outDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+          process.stderr.write(build.output);
+          process.exit(1);
+        }
       }
 
-      process.stderr.write('[harness] starting\n');
-      server = await startApp(appDir, await findFreePort(), env);
+      process.stderr.write(`[harness] starting (${devMode ? 'next dev' : 'next start'})\n`);
+      server = await startApp(appDir, await findFreePort(), env, { dev: devMode });
       baseUrl = server.url;
+      if (devMode) {
+        manifest.notes.push(
+          'DEV MODE: captured from `next dev`, not a production build. Unminified, React in ' +
+            'development mode, different bundling and timing. Trustworthy for layout and copy; ' +
+            'NOT for anything timing-related.',
+        );
+      }
       manifest.notes.push(
         'Signed-in screens are STUB-BACKED: rows come from tests/harness/fixtures.mjs through ' +
           'tests/harness/stub-supabase.mjs, not from Postgres. They evidence rendering only.',
@@ -328,6 +395,16 @@ async function main() {
 
     for (const viewportSpec of GATE_VIEWPORTS) {
       for (const screen of screens) {
+        if (screen.requiresDev && !devMode) {
+          manifest.skipped.push({
+            route: screen.route,
+            viewport: viewportSpec.id,
+            reason:
+              'reachable only through the dev-only ?state= seam, which a production build ' +
+              'eliminates. Re-run with --dev.',
+          });
+          continue;
+        }
         for (const authState of screen.auth) {
           if (authState === 'in' && !fromCommit) {
             manifest.skipped.push({
@@ -348,7 +425,8 @@ async function main() {
             // rows from Postgres. It did not. A manifest alone is not enough because a PNG gets
             // separated from its directory the moment somebody drags one into a document — so the
             // word travels *in the filename*, where it cannot be lost.
-            const label = `${manifest.dataSource === 'stub' ? 'stub' : 'live'}--${
+            const source = manifest.dataSource === 'stub' ? 'stub' : 'live';
+            const label = `${devMode ? `${source}-dev` : source}--${
               authState === 'out' ? 'signed-out' : `signed-in-${count}-places`
             }`;
             process.stderr.write(`[harness] ${label} ${screen.route} @ ${viewportSpec.id}\n`);
@@ -381,14 +459,29 @@ async function main() {
     writeFileSync(join(outDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
   }
 
-  const broken = manifest.shots.filter((s) => s.error !== null || (s.status !== null && s.status >= 400));
+  const broken = manifest.shots.filter(
+    (s) =>
+      s.error !== null ||
+      (s.status !== null && s.status >= 400) ||
+      s.hydrated === false ||
+      s.expectMet === false,
+  );
   process.stderr.write(
     `\n[harness] ${manifest.shots.length} screenshots -> ${outDir}\n` +
-      `[harness] ${manifest.skipped.length} skipped, ${broken.length} with an error or a >=400 status\n`,
+      `[harness] ${manifest.skipped.length} skipped, ${broken.length} unusable\n`,
   );
   for (const shot of broken) {
-    process.stderr.write(`[harness]   BROKEN ${shot.file} status=${shot.status} ${shot.error ?? ''}\n`);
+    const why = [
+      shot.error,
+      shot.status !== null && shot.status >= 400 ? `status ${shot.status}` : null,
+      shot.hydrated === false ? 'REACT DID NOT HYDRATE — this is server HTML, not the product' : null,
+      shot.expectMet === false ? 'screen did not change: the seam did not fire' : null,
+    ]
+      .filter(Boolean)
+      .join('; ');
+    process.stderr.write(`[harness]   UNUSABLE ${shot.file}: ${why}\n`);
   }
+  if (broken.length > 0) process.exitCode = 1;
 }
 
 await main();
