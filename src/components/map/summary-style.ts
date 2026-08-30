@@ -104,9 +104,9 @@ function pillLayout(textFont: readonly string[]): Record<string, unknown> {
     // outright (`maplibre-gl/src/symbol/shaping.ts:635-637`) and centres the icon on the text, so
     // there is no anchor here to be quietly disregarded.
     'icon-text-fit': 'width',
-    // A marker must never be dropped for colliding with another, and never with the basemap's own
-    // labels either: a country that vanishes at world zoom is a country's worth of saved places the
-    // user cannot see. Two markers close enough to overlap is the accepted imperfection §2.3 names.
+    // The country band's default: never dropped, for anything. A country that vanishes at world
+    // zoom is a country's worth of saved places the user cannot see. The area band overrides all
+    // four of these — see `areaLayerLayout`.
     'icon-allow-overlap': true,
     'icon-ignore-placement': true,
     'text-font': [...textFont],
@@ -208,6 +208,20 @@ export function areaLayerLayout(
     // that knows the theme.
     'icon-image': pillImageId,
     'text-field': labelAndCount(),
+    // **The area band collides; the country band does not.** Neighbouring cities are a few pixels
+    // apart across this whole band — Ra'anana and Herzliya are 4.9 px apart at z7, under a pill
+    // ~125 px wide — so overlap-always drew them as one unreadable stack of text. Turning MapLibre's
+    // own placement back on is the whole fix: the loser is hidden until zooming in makes room, which
+    // it always does, because z8.5 ends the band. A country has no such recovery, which is why the
+    // two bands differ here.
+    'icon-allow-overlap': false,
+    'icon-ignore-placement': false,
+    'text-allow-overlap': false,
+    'text-ignore-placement': false,
+    // Placement is first-come-first-served in **ascending** sort-key order
+    // (`pauseable_placement.ts:45`), the opposite of the draw order `pillLayout` documents, so the
+    // key is negated: the area holding the most places is placed first and is the one that survives.
+    'symbol-sort-key': ['-', 0, ['get', 'count']],
     // No `text-offset`: a capless pill's leading and trailing insets are equal, so it is already
     // centred on the area's own coordinate. See `CAPPED_PILL_CENTRING_EM`.
   };

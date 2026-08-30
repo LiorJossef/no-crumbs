@@ -140,18 +140,34 @@ describe('the bands stay declarative and stay symbol layers', () => {
     }
   });
 
-  it('lets neither band be dropped for colliding with the basemap', () => {
-    for (const layout of bands()) {
-      expect(layout['icon-allow-overlap']).toBe(true);
-      expect(layout['icon-ignore-placement']).toBe(true);
-      expect(layout['text-allow-overlap']).toBe(true);
-      expect(layout['text-ignore-placement']).toBe(true);
-    }
+  it('never lets a country be dropped for colliding with anything', () => {
+    // A country that vanishes at world zoom is a country's worth of saved places the user cannot
+    // see, and there is no zoom below the country band to recover it at.
+    expect(country()['icon-allow-overlap']).toBe(true);
+    expect(country()['icon-ignore-placement']).toBe(true);
+    expect(country()['text-allow-overlap']).toBe(true);
+    expect(country()['text-ignore-placement']).toBe(true);
   });
 
-  it('draws the busier marker on top', () => {
-    // `symbol_bucket.ts` sorts ascending, so a higher key is buffered later and therefore above.
-    for (const layout of bands()) expect(layout['symbol-sort-key']).toEqual(['get', 'count']);
+  it('lets the area band collide, because neighbouring cities stack into unreadable mush', () => {
+    // Owner report, 2026-08-30: Ra'anana and Herzliya project 4.9 px apart at z7 under a ~125 px
+    // pill, so overlap-always drew every Sharon city as one illegible pile of text. MapLibre's own
+    // placement hides the loser until zooming in makes room — and z8.5 always makes room, because
+    // it ends the band. Measured before and after in the browser; see the task's evidence.
+    expect(area()['icon-allow-overlap']).toBe(false);
+    expect(area()['icon-ignore-placement']).toBe(false);
+    expect(area()['text-allow-overlap']).toBe(false);
+    expect(area()['text-ignore-placement']).toBe(false);
+  });
+
+  it('lets the busier marker win, in whichever direction the band needs', () => {
+    // Two different mechanisms read this key in opposite orders, so the two bands cannot share it.
+    // Draw order: `symbol_bucket.ts` sorts ascending and buffers in that order, so a *higher* key
+    // lands on top — what the country band, which never collides, wants.
+    expect(country()['symbol-sort-key']).toEqual(['get', 'count']);
+    // Placement: `pauseable_placement.ts:45` also sorts ascending, but first-placed *wins*, so the
+    // area band has to negate the count for the fullest area to be the one that survives.
+    expect(area()['symbol-sort-key']).toEqual(['-', 0, ['get', 'count']]);
   });
 });
 
@@ -168,18 +184,27 @@ describe('the area band and the country band are one object', () => {
     expect(code(COMPONENT_SOURCE)).not.toContain("'text-offset'");
   });
 
-  it('differs between the bands only in the image id and the cap it implies', () => {
-    // Amended 2026-08-29, and deliberately not weakened: the two bands were identical apart from
-    // where the image id comes from until the country band gained the flag cap's centring offset.
-    // The cap is the *only* thing that makes them different objects, so it is the only thing this
-    // is allowed to except — everything else must still be equal, field for field.
+  it('differs between the bands only in the image id, the cap, and colliding', () => {
+    // Amended 2026-08-29 and again 2026-08-30, and deliberately not weakened: the two bands were
+    // identical apart from where the image id comes from until the country band gained the flag
+    // cap's centring offset, and then until the area band started colliding. Each exception is
+    // asserted on its own above; everything *else* must still be equal, field for field.
+    const collision = [
+      'icon-allow-overlap',
+      'icon-ignore-placement',
+      'text-allow-overlap',
+      'text-ignore-placement',
+      'symbol-sort-key',
+    ];
+    const strip = (layout: Record<string, unknown>) =>
+      Object.fromEntries(Object.entries(layout).filter(([k]) => !collision.includes(k)));
     const { 'icon-image': countryIcon, 'text-offset': offset, ...countryRest } = country();
     const { 'icon-image': areaIcon, ...areaRest } = area();
     expect(countryIcon).toEqual(['get', 'icon']);
     expect(typeof areaIcon).toBe('string');
     expect(offset).toBeDefined();
     expect(areaLayerLayout(FONT, 'x')['text-offset']).toBeUndefined();
-    expect(countryRest).toEqual(areaRest);
+    expect(strip(countryRest)).toEqual(strip(areaRest));
   });
 });
 
