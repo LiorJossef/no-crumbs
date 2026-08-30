@@ -13,7 +13,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { clusterByProximity } from '@/domain/places/clusters';
-import { buildAreas, isolate, type Area } from '@/ui/place/active-area';
+import { buildAreas, type Area } from '@/ui/place/active-area';
 import {
   countryGroupAccessibleName,
   elsewhereGroups,
@@ -249,10 +249,10 @@ describe('countryGroupAccessibleName', () => {
     if (uk?.kind !== 'country') throw new Error('expected a country group');
 
     expect(countryGroupAccessibleName(uk, false, false)).toBe(
-      `${isolate('United Kingdom')}, 5 places in 2 areas, expand`,
+      '\u2068United Kingdom\u2069, 5 places in 2 areas, expand',
     );
     expect(countryGroupAccessibleName(uk, true, true)).toBe(
-      `${isolate('United Kingdom')}, 5 matches in 2 areas, collapse`,
+      '\u2068United Kingdom\u2069, 5 matches in 2 areas, collapse',
     );
   });
 });

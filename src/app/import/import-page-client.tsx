@@ -31,6 +31,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { isolate } from '@/ui/place/active-area';
 import {
   ArrowUpRight,
   Check,
@@ -2133,8 +2134,8 @@ function ExtractedCandidateRow({
           rel="noreferrer"
           aria-label={
             saveable
-              ? `Check “${title}” on Google Maps`
-              : `Find “${title}” on Google Maps`
+              ? `Check “${isolate(title)}” on Google Maps`
+              : `Find “${isolate(title)}” on Google Maps`
           }
           className="flex h-11 shrink-0 items-center gap-1 text-xs font-bold text-[var(--mint-700)]"
         >

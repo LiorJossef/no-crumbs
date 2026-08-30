@@ -77,7 +77,7 @@ import {
 import { AddToCollection } from '@/components/collections/add-to-collection';
 
 import { formatCaptionQuote, quoteAddsSomething } from '@/ui/place/caption-quote';
-import type { AreaHeading } from '@/ui/place/active-area';
+import { isolate, type AreaHeading } from '@/ui/place/active-area';
 import { elsewhereAreaCount, type ElsewhereEntry } from '@/ui/place/elsewhere-groups';
 import { ElsewhereSection } from './elsewhere-section';
 import type { MapPlace } from '@/components/map/types';
@@ -449,9 +449,17 @@ function PlaceList({
   // An empty library is a different screen, not a different count.
   const headingText = libraryIsEmpty ? EMPTY_LIBRARY_HEADING : heading.text;
 
-  /** The areas the peek row promises. Read off `elsewhere` rather than off the library, so it can
-   *  never disagree with the section the tap actually lands on — under a filter both shrink. */
-  const moreAreas = elsewhereAreaCount(elsewhere);
+  /**
+   * The areas the peek row promises. Read off `elsewhere` rather than off the library, so it can
+   * never disagree with the section the tap actually lands on — under a filter both shrink.
+   *
+   * **Zero unless the scope is a single area.** `scopeAreaId` is `null` for a country or a global
+   * scope (`list-scope.ts`), so `elsewhereGroups` subtracts nothing and `elsewhere` then holds
+   * every area in the library — including the ones the list is already showing. The word that
+   * breaks is *more*: at the country band this read `32 in 2 countries · +2 more areas` over a
+   * list already holding all 32.
+   */
+  const moreAreas = activeAreaId === null ? 0 : elsewhereAreaCount(elsewhere);
 
   return (
     <div
@@ -769,7 +777,7 @@ export function PlaceRow({
         // decisive of the row's facts for "is this the row I want open". `rowAccessibleName` still
         // builds the name; this appends the one thing it has no argument for.
         aria-label={
-          approximateLabel === null ? rowName : `${rowName}, ${APPROXIMATE_ROW_ANNOTATION}`
+          approximateLabel === null ? rowName : `${isolate(rowName)}, ${APPROXIMATE_ROW_ANNOTATION}`
         }
         // `data-vaul-no-drag`: inside the mobile sheet, a press that begins on this row would
         // otherwise be read as the start of a sheet drag, and the tap would be swallowed.

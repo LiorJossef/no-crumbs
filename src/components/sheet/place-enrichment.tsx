@@ -53,6 +53,7 @@
  *    render concern and `domain/extraction/tags.ts` owns it. Nothing here re-implements it.
  */
 
+import { isolate } from '@/ui/place/active-area';
 import { X } from 'lucide-react';
 
 import { tagDisplayLabel } from '@/domain/extraction/tags';
@@ -193,7 +194,7 @@ export function ActiveTagFilter({
       <button
         type="button"
         onClick={onClear}
-        aria-label={`Clear the ${label} tag filter`}
+        aria-label={`Clear the ${isolate(label)} tag filter`}
         className="inline-flex min-h-9 min-w-0 cursor-pointer items-center gap-1.5 rounded-full bg-[var(--tag-selected)] px-3 text-xs font-bold text-[var(--tag-selected-foreground)] outline-none transition-colors hover:bg-[color-mix(in_oklch,var(--tag-selected),var(--foreground)_10%)] focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         <span dir="auto" className="truncate">

@@ -13,7 +13,6 @@ import { describe, expect, it } from 'vitest';
 
 import { clusterByProximity } from '@/domain/places/clusters';
 import {
-  isolate,
   anchorFor,
   areaAfterCameraSettled,
   areaHeading,
@@ -248,7 +247,7 @@ describe('areaRowCountText', () => {
 
   it('says what tapping the row does', () => {
     expect(areaRowAccessibleName({ id: 'a', label: 'Tel Aviv-Yafo', count: 8 }, false)).toBe(
-      `${isolate('Tel Aviv-Yafo')}, 8 places, open this area`,
+      '\u2068Tel Aviv-Yafo\u2069, 8 places, open this area',
     );
   });
 });
@@ -381,7 +380,7 @@ describe('the spoken heading', () => {
       matchesAnywhere: 12,
     });
     expect(mapAccessibleName(heading, 'London')).toBe(
-      `Map of your saved places in ${isolate('London')}. The list below names all 12.`,
+      'Map of your saved places in \u2068London\u2069. The list below names all 12.',
     );
   });
 
@@ -394,7 +393,7 @@ describe('the spoken heading', () => {
       matchesAnywhere: 3,
     });
     expect(mapAccessibleName(heading, 'London')).toBe(
-      `Map of your saved places in ${isolate('London')}.`,
+      'Map of your saved places in \u2068London\u2069.',
     );
   });
 });

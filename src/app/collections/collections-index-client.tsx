@@ -10,6 +10,7 @@
  * an escape handler and a backdrop in exchange for nothing.
  */
 
+import { isolate } from '@/ui/place/active-area';
 import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, ChevronRight, Plus } from 'lucide-react';
@@ -268,7 +269,9 @@ function placeCountLabel(count: number): string {
 }
 
 function rowAccessibleName(collection: CollectionSummary): string {
-  const parts = [collection.name, placeCountLabel(collection.placeCount).toLowerCase()];
+  // The name is isolated: it is user-typed and everything after it is a count, which a Hebrew
+  // name otherwise drags into its own run — `⁨שבת בתל אביב⁩, 3 places` vs `3 ,שבת בתל אביב places`.
+  const parts = [isolate(collection.name), placeCountLabel(collection.placeCount).toLowerCase()];
   const second = secondFact(collection);
   if (second) parts.push(second);
   if (collection.role === 'viewer') parts.push('view only');
