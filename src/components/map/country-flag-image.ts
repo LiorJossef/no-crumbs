@@ -131,6 +131,11 @@ export const SUMMARY_PILL = {
  *  expands the icon's collision box back out to the full image, so ≥44 here is ≥44 on screen. */
 export const SUMMARY_PILL_HEIGHT = SUMMARY_PILL.height + 2 * SUMMARY_PILL.shadowPad;
 
+/** The label's font size. `SUMMARY_TEXT_PX` in `summary-style.ts` is the same number and is the
+ *  one the layer uses; that module imports *this* one, so it is restated here rather than imported
+ *  and the two are coupled by name. */
+const SUMMARY_LABEL_FONT_PX = 14;
+
 /** Distance from the bitmap's leading edge to the label's leading edge, per cap kind. */
 function leadingInset(capped: boolean): number {
   return capped
@@ -146,6 +151,113 @@ const TRAILING_INSET = SUMMARY_PILL.padX + SUMMARY_PILL.shadowPad;
 /** Bitmap width in CSS pixels, per cap kind. */
 export function summaryPillWidth(capped: boolean): number {
   return leadingInset(capped) + SUMMARY_PILL.textSlot + TRAILING_INSET;
+}
+
+/** One marker's label, as the camera has to reason about it: the text the symbol layer will shape,
+ *  and whether the pill drawing it carries a flag cap (which widens its leading inset). */
+export interface SummaryPillLabel {
+  readonly text: string;
+  readonly capped: boolean;
+}
+
+/**
+ * **How much room the widest summary marker needs beside its own anchor point**, in CSS pixels.
+ *
+ * `summaryPillWidth` sizes the *atlas slot*; the pill on screen is `icon-text-fit: 'width'` fitted
+ * to live text, so its rendered width is the two fixed insets plus however wide the label shapes.
+ * `text-anchor: 'center'` (and the `CAPPED_PILL_CENTRING_EM` correction beside it) puts the anchor
+ * in the middle of that, so a pill hangs half its width either side of the coordinate it marks.
+ *
+ * **Which is why fitting a box of anchors clips every marker on it, always.** `cameraForBounds`
+ * frames the anchors to the padded edge; the pill drawn at an edge anchor then hangs half its width
+ * off screen. On 2026-08-30 that was `United Kingdom 18` cut in half at the left edge and
+ * `Israel 14` cut off at the right under the zoom controls — with a camera framing its box
+ * perfectly correctly. The camera has to pad by what is *drawn*, not by what is fitted.
+ *
+ * **Taken over the labels this library actually has**, never a constant: the caller passes every
+ * marker it is about to draw and gets the widest one back. A one-country library pays for its one
+ * pill, `Bosnia and Herzegovina 12` pays for itself, and a Hebrew or Japanese label is measured the
+ * same way as a Latin one rather than assumed to be the same width. An empty list is zero — a
+ * surface with no summary bands (`/collections/[id]`) pays nothing.
+ *
+ * `y` is half the bitmap's height and is exact.
+ */
+export function summaryPillFitAllowance(labels: readonly SummaryPillLabel[]): {
+  readonly x: number;
+  readonly y: number;
+} {
+  let widest = 0;
+  for (const label of labels) {
+    const width = leadingInset(label.capped) + measureSummaryLabelPx(label.text) + TRAILING_INSET;
+    if (width > widest) widest = width;
+  }
+  if (widest === 0) return { x: 0, y: 0 };
+  return { x: widest / 2, y: SUMMARY_PILL_HEIGHT / 2 };
+}
+
+/**
+ * How wide a label shapes, and it is the one **approximate** number in the allowance above.
+ *
+ * The exact answer lives inside the GL context: MapLibre shapes the label out of the basemap's
+ * glyph PBFs (`styleTextFont` borrows Positron's own upright stack), and no function outside a
+ * running map can ask for those advances. So this measures the same string in the same size in a
+ * 2-D canvas and adds a margin for the typeface being a near neighbour rather than the same one.
+ *
+ * It is approximate **in width, not in behaviour**: it is driven by the real label, so it tracks
+ * length, digits, script and case rather than assuming a shape. Where there is no canvas at all —
+ * SSR, and every unit test, which run in Node — it falls back to a per-code-point model that keeps
+ * the same property. The fallback is deliberately the wider of the two so a server-rendered first
+ * frame never under-pads.
+ */
+function measureSummaryLabelPx(text: string): number {
+  const context = measurementContext();
+  if (context === null) return estimateSummaryLabelPx(text);
+  context.font = `${SUMMARY_LABEL_FONT_PX}px ${SANS_FALLBACK_STACK}`;
+  const measured = context.measureText(text).width;
+  if (!Number.isFinite(measured) || measured <= 0) return estimateSummaryLabelPx(text);
+  return measured * GLYPH_MARGIN;
+}
+
+/** The basemap's glyphs are not the platform's UI font, so a canvas measurement is a near miss
+ *  rather than an answer. 8% is the margin the allowance carries for that; it is a judgement, and
+ *  it is the only place in this file where one is spent. */
+const GLYPH_MARGIN = 1.08;
+
+let measurementCanvas: HTMLCanvasElement | null = null;
+function measurementContext(): CanvasRenderingContext2D | null {
+  if (typeof document === 'undefined') return null;
+  measurementCanvas ??= document.createElement('canvas');
+  return measurementCanvas.getContext('2d');
+}
+
+/**
+ * Width without a canvas, per code point rather than per character, so an astral CJK ideograph
+ * counts once and a Hebrew letter is not assumed to be as wide as a Latin capital.
+ *
+ * Three buckets, in ems: full-width scripts (CJK, Hangul, and the ideographic punctuation between
+ * them) at 1, the space at a third, everything else — Latin, Hebrew, Arabic, Cyrillic, digits — at
+ * 0.6, which is above Open Sans's mixed-case average and so errs wide.
+ */
+function estimateSummaryLabelPx(text: string): number {
+  let ems = 0;
+  for (const char of text) {
+    const code = char.codePointAt(0) ?? 0;
+    if (char === ' ') ems += 0.34;
+    else if (isFullWidth(code)) ems += 1;
+    else ems += 0.6;
+  }
+  return ems * SUMMARY_LABEL_FONT_PX;
+}
+
+function isFullWidth(code: number): boolean {
+  return (
+    (code >= 0x1100 && code <= 0x115f) ||
+    (code >= 0x2e80 && code <= 0xa4cf) ||
+    (code >= 0xac00 && code <= 0xd7a3) ||
+    (code >= 0xf900 && code <= 0xfaff) ||
+    (code >= 0xff00 && code <= 0xff60) ||
+    (code >= 0x20000 && code <= 0x3fffd)
+  );
 }
 
 const EMOJI_FONT_STACK =

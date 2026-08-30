@@ -47,25 +47,37 @@ export const COUNTRY_LANDING_ZOOM = {
 } as const;
 
 /**
- * Where the **home** framing is allowed to come to rest — the mirror image of the constant above,
- * one band further in.
+ * Where the **home** framing is allowed to come to rest — a *ceiling*, one band out from
+ * `COUNTRY_LANDING_ZOOM`.
  *
- * §9.3's first acceptance criterion is that every non-empty library settles with at least one
- * *individual* pin on screen: *"a view of nothing but cluster bubbles is a fail."* Below
- * `PIN_BAND_MIN` the pin layer does not draw at all, so a home view that fits honestly and lands at
- * z8.2 is that failure — which is what the owner photographed on 2026-08-30, five area pills over
- * Israel with no pin among them.
+ * **This constant used to be a floor (`HOME_LANDING_MIN_ZOOM = PIN_BAND_MIN + 0.15`), and the owner
+ * reversed it on 2026-08-30 after using the shipped behaviour in production.** The floor existed to
+ * satisfy §9.3's *"a view of nothing but cluster bubbles is a fail"*: it guaranteed at least one
+ * individual pin on the home view. What that guarantee cost, once the home box was the anchor
+ * cluster, was that signing back in opened on whatever you saved last — *"I added this Jerusalem
+ * Hotel, and after that, when I signed in again, it opened on the Jerusalem Hotel, but I'm not
+ * interested in that"*. The home view is now the whole library seen from far enough out to read as
+ * geography: *"open the map when you see the countries, not last added place."*
  *
- * An honest fit has no floor of its own, and the margin it happens to leave is thin rather than
- * safe: the owner's own library fits at z8.78 on a 390×844 phone, 0.28 of a zoom level above the
- * band edge, and a shorter viewport (browser chrome on a small phone) or an anchor cluster more
- * than ~37 km tall spends that margin and drops out of the band. The floor removes the class rather
- * than the instance.
+ * So the pin-on-screen guarantee no longer applies to the **first load**. It still applies to every
+ * mover that is *about* a place — selecting one, a finished import, near-me — none of which read
+ * this constant: they frame through `fitTo`/`frameBounds` with their own ranges, and `L1-F5`'s
+ * camera tests keep asserting the pin band for them.
  *
- * The `0.15` margin is `COUNTRY_LANDING_ZOOM.min`'s, for the same reason: a landing exactly on a
- * shared band edge is one rounding away from drawing the wrong layer.
+ * `max` is `COUNTRY_LANDING_ZOOM.max` — strictly inside the area band, for that constant's own
+ * reason: a landing exactly on `AREA_BAND_MAX` is one rounding away from drawing pins. The result
+ * degrades in the only direction that is honest. A library in several countries fits below
+ * `COUNTRY_BAND_MAX` on its own and lands on flag discs; a one-country library cannot show
+ * "countries" at all, so it lands on its area pills, which is as close as its own data gets.
+ *
+ * `min` is 0 rather than a band edge: an overview must be allowed to be a world view. It is a
+ * floor only in the arithmetic sense — `frameBounds` applies it with `Math.max`, and no honest fit
+ * of real saved places is below it.
  */
-export const HOME_LANDING_MIN_ZOOM = PIN_BAND_MIN + 0.15;
+export const HOME_LANDING_ZOOM = {
+  min: 0,
+  max: COUNTRY_LANDING_ZOOM.max,
+} as const;
 
 /** Which of the three bands a zoom falls in. */
 export type ZoomBand = 'country' | 'area' | 'pin';

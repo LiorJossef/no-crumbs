@@ -168,6 +168,94 @@ export const TEL_AVIV_PLUS_TOKYO: LibraryShape = {
   places: [ROTHSCHILD, DIZENGOFF, NEVE_TZEDEK, FLORENTIN, CARMEL_MARKET, TOKYO[0] as FixturePlace],
 };
 
+/* ------------------------------------------- Shapes the demo library is not */
+
+/**
+ * **The shapes that stop the marker-padding fix being a fix for one screenshot.** The library that
+ * produced the 2026-08-30 clipping report was UK 18 + Israel 14; these are the ones it is not.
+ *
+ * Each isolates one variable the allowance has to be derived from rather than tuned against: how
+ * wide the *label* is, how many countries there are, and what happens to geometry the fit cannot
+ * honestly frame.
+ */
+
+/** The longest country name that is not a special case — 21 characters against `Israel`'s 6, so a
+ *  pill roughly twice as wide from the same geometry. */
+export const LONG_COUNTRY_LABEL: LibraryShape = {
+  name: '2 places in Bosnia and Herzegovina',
+  places: [
+    { id: 'ba-sarajevo', lat: 43.8563, lng: 18.4131, locality: 'Sarajevo', countryCode: 'BA' },
+    { id: 'ba-mostar', lat: 43.3438, lng: 17.8078, locality: 'Mostar', countryCode: 'BA' },
+  ],
+};
+
+/** One country, so the fit has one pill to clear and no second marker to hide behind. The area
+ *  band's label here is Hebrew, which is the RTL half of "measured the same way". */
+export const ONE_COUNTRY: LibraryShape = {
+  name: '3 places in one country',
+  places: [ROTHSCHILD, RAANANA, JERUSALEM],
+};
+
+/** Full-width script: `東京` shapes at roughly twice a Latin character's advance, and an allowance
+ *  that counted characters rather than measuring them would under-pad it. */
+export const CJK_LABELS: LibraryShape = {
+  name: '3 places in Tokyo',
+  places: [...TOKYO],
+};
+
+/** Twenty countries. The allowance must grow with the widest *label*, never with the marker count —
+ *  a fit that got wider per country would be impossible long before this. */
+export const TWENTY_COUNTRIES: LibraryShape = {
+  name: '20 places across 20 countries',
+  places: [
+    { id: 'c-il', lat: 32.0684, lng: 34.7745, locality: 'Tel Aviv', countryCode: 'IL' },
+    { id: 'c-gb', lat: 51.5155, lng: -0.1417, locality: 'London', countryCode: 'GB' },
+    { id: 'c-fr', lat: 48.8566, lng: 2.3522, locality: 'Paris', countryCode: 'FR' },
+    { id: 'c-es', lat: 40.4168, lng: -3.7038, locality: 'Madrid', countryCode: 'ES' },
+    { id: 'c-pt', lat: 38.7223, lng: -9.1393, locality: 'Lisbon', countryCode: 'PT' },
+    { id: 'c-it', lat: 41.9028, lng: 12.4964, locality: 'Rome', countryCode: 'IT' },
+    { id: 'c-gr', lat: 37.9838, lng: 23.7275, locality: 'Athens', countryCode: 'GR' },
+    { id: 'c-de', lat: 52.52, lng: 13.405, locality: 'Berlin', countryCode: 'DE' },
+    { id: 'c-pl', lat: 52.2297, lng: 21.0122, locality: 'Warsaw', countryCode: 'PL' },
+    { id: 'c-se', lat: 59.3293, lng: 18.0686, locality: 'Stockholm', countryCode: 'SE' },
+    { id: 'c-tr', lat: 41.0082, lng: 28.9784, locality: 'Istanbul', countryCode: 'TR' },
+    { id: 'c-eg', lat: 30.0444, lng: 31.2357, locality: 'Cairo', countryCode: 'EG' },
+    { id: 'c-za', lat: -33.9249, lng: 18.4241, locality: 'Cape Town', countryCode: 'ZA' },
+    { id: 'c-in', lat: 28.6139, lng: 77.209, locality: 'Delhi', countryCode: 'IN' },
+    { id: 'c-th', lat: 13.7563, lng: 100.5018, locality: 'Bangkok', countryCode: 'TH' },
+    { id: 'c-jp', lat: 35.6762, lng: 139.6503, locality: '東京', countryCode: 'JP' },
+    { id: 'c-au', lat: -33.8688, lng: 151.2093, locality: 'Sydney', countryCode: 'AU' },
+    { id: 'c-us', lat: 40.7128, lng: -74.006, locality: 'New York', countryCode: 'US' },
+    { id: 'c-mx', lat: 19.4326, lng: -99.1332, locality: 'Mexico City', countryCode: 'MX' },
+    { id: 'c-br', lat: -23.5505, lng: -46.6333, locality: 'São Paulo', countryCode: 'BR' },
+  ],
+};
+
+/**
+ * A pair either side of the antimeridian. `unionBounds` always emits `west <= east`, so this
+ * arrives as a box **wider than 180°** — the case `frameBounds` degrades to the box's centroid at
+ * `minZoom` for, deliberately, because the box it was handed frames the long way round.
+ *
+ * It is here to prove the padding change does not *break* that path, not to claim the markers are
+ * framed: no camera frames Auckland and Honolulu on one phone with both pills whole.
+ */
+export const ANTIMERIDIAN: LibraryShape = {
+  name: '2 places across the antimeridian',
+  places: [
+    { id: 'nz-auckland', lat: -36.8485, lng: 174.7633, locality: 'Auckland', countryCode: 'NZ' },
+    { id: 'us-honolulu', lat: 21.3069, lng: -157.8583, locality: 'Honolulu', countryCode: 'US' },
+  ],
+};
+
+/** The shapes above, for the marker-extent rule. Kept out of `POPULATED_SHAPES` so the older rules
+ *  keep asserting exactly the set they were written against. */
+export const LABEL_SHAPES: readonly LibraryShape[] = [
+  LONG_COUNTRY_LABEL,
+  ONE_COUNTRY,
+  CJK_LABELS,
+  TWENTY_COUNTRIES,
+];
+
 /** Every non-empty shape, for the rules that must hold across all of them. */
 export const POPULATED_SHAPES: readonly LibraryShape[] = [
   SINGLE,

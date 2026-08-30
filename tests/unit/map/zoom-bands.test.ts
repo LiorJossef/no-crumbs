@@ -18,7 +18,7 @@ import {
   bandForZoom,
   COUNTRY_BAND_MAX,
   COUNTRY_LANDING_ZOOM,
-  HOME_LANDING_MIN_ZOOM,
+  HOME_LANDING_ZOOM,
   PIN_BAND_MIN,
   type ZoomBand,
 } from '@/components/map/zoom-bands';
@@ -80,14 +80,29 @@ describe('bandForZoom', () => {
   });
 
   /**
-   * §9.3's first criterion: a non-empty library never settles on a view with no individual pin in
-   * it. The home framing enforces that with a resting **floor**, and the floor is only worth having
-   * if it is inside the band the pin layer draws in — stated against `bandForZoom` rather than
-   * against 8.5, so tuning the bands moves it.
+   * The home framing's ceiling, and the inversion of what this test asserted until 2026-08-30.
+   *
+   * It used to check that the home view rested in the **pin** band — §9.3's *"a non-empty library
+   * never settles on a view with no individual pin in it"*. The owner used that in production and
+   * reversed it: the first load is now the overview, so the constant is a ceiling and the property
+   * worth pinning is that the ceiling keeps the camera **out** of the pin band. Stated against
+   * `bandForZoom` rather than against 8.5, so tuning the bands moves it.
    */
-  it('lands the home framing in the pin band, clear of where a country tap rests', () => {
-    expect(bandForZoom(HOME_LANDING_MIN_ZOOM)).toBe('pin');
-    expect(HOME_LANDING_MIN_ZOOM).toBeGreaterThanOrEqual(PIN_BAND_MIN);
-    expect(HOME_LANDING_MIN_ZOOM).toBeGreaterThan(COUNTRY_LANDING_ZOOM.max);
+  it('keeps the home framing out of the pin band', () => {
+    expect(bandForZoom(HOME_LANDING_ZOOM.max)).toBe('area');
+    expect(HOME_LANDING_ZOOM.max).toBeLessThan(PIN_BAND_MIN);
+  });
+
+  /** An overview must be allowed to be a world view: the range reaches the country band and below
+   *  it, so a library spread across continents is never clamped back up into one country. */
+  it('lets the home framing reach the country band and the world', () => {
+    expect(HOME_LANDING_ZOOM.min).toBeLessThan(COUNTRY_BAND_MAX);
+    expect(bandForZoom(HOME_LANDING_ZOOM.min)).toBe('country');
+  });
+
+  /** The two landings are one band apart by construction — a country tap zooms *in* from the home
+   *  view, never out of it. */
+  it('rests no further in than a country tap does', () => {
+    expect(HOME_LANDING_ZOOM.max).toBeLessThanOrEqual(COUNTRY_LANDING_ZOOM.max);
   });
 });

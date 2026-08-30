@@ -80,7 +80,11 @@ export interface Insets {
  * `fitBoundsPadding`, mirrored. `/map` passes no `restingSheetFraction` and no
  * `floatingTopChromePx`, so the defaults below are the ones that actually run there.
  */
-export function framePadding(viewport: Viewport, restingSheetFraction?: number): Insets {
+export function framePadding(
+  viewport: Viewport,
+  restingSheetFraction?: number,
+  markerAllowance: { readonly x: number; readonly y: number } = { x: 0, y: 0 },
+): Insets {
   const occlusion = mapOcclusionInsets(
     viewport.width,
     restingSheetFraction === undefined ? undefined : restingSheetFraction * viewport.height,
@@ -88,15 +92,27 @@ export function framePadding(viewport: Viewport, restingSheetFraction?: number):
   const topChrome = viewport.width < LG ? FLOATING_TOP_CHROME_MOBILE_PX : FLOATING_TOP_CHROME_PX;
   return clampFitPadding(
     {
-      top: FIT_BOUNDS_PADDING + topChrome + occlusion.top,
-      bottom: FIT_BOUNDS_PADDING + occlusion.bottom,
-      left: FIT_BOUNDS_PADDING + occlusion.left,
-      right: FIT_BOUNDS_PADDING + occlusion.right,
+      top: FIT_BOUNDS_PADDING + topChrome + occlusion.top + markerAllowance.y,
+      bottom: FIT_BOUNDS_PADDING + occlusion.bottom + markerAllowance.y,
+      left: FIT_BOUNDS_PADDING + occlusion.left + markerAllowance.x,
+      right: FIT_BOUNDS_PADDING + occlusion.right + markerAllowance.x,
     },
     viewport.width,
     viewport.height,
   );
 }
+
+/**
+ * The map's right-hand control column, in CSS pixels: a 40 px button at `right-2`
+ * (`map-surface.mapcn.tsx`'s control stack, `components/ui/map.tsx`'s `size-10`).
+ *
+ * It is **not** in `mapOcclusionInsets` — that inset feeds the query rect, and adding a column
+ * there would delete visible pins from the list — so a test that wants "clear of the zoom
+ * controls" has to say so itself. It is exactly `FIT_BOUNDS_PADDING`, which is why the marker
+ * allowance stacked on top of that padding puts a pill's trailing edge at the column's leading
+ * edge rather than under it.
+ */
+export const CONTROL_COLUMN_PX = 48;
 
 const TILE_PX = 512;
 
@@ -133,9 +149,15 @@ export interface SettledCamera {
 export function fitCamera(
   bounds: GeoBounds,
   viewport: Viewport,
-  options: { readonly restingSheetFraction?: number; readonly maxZoom?: number } = {},
+  options: {
+    readonly restingSheetFraction?: number;
+    readonly maxZoom?: number;
+    /** What `FocusBoundsRequest.markerAllowancePx` adds to every side — room for the marker drawn
+     *  at a corner of the box, which the fit itself knows nothing about. */
+    readonly markerAllowance?: { readonly x: number; readonly y: number };
+  } = {},
 ): SettledCamera | null {
-  const padding = framePadding(viewport, options.restingSheetFraction);
+  const padding = framePadding(viewport, options.restingSheetFraction, options.markerAllowance);
   const maxZoom = options.maxZoom ?? FIT_BOUNDS_MAX_ZOOM;
 
   const availableWidth = viewport.width - padding.left - padding.right;

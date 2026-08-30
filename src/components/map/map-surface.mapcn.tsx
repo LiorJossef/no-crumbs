@@ -73,7 +73,8 @@ import { BasemapTint } from './basemap-tint-layer';
 import { toPlaceFeatures } from './place-features';
 import { PlaceMarkerLayer } from './place-marker-layer';
 import { ensureRtlTextPlugin } from './rtl-text';
-import { bandForZoom, HOME_LANDING_MIN_ZOOM, PIN_BAND_MIN } from './zoom-bands';
+import { bandForZoom, HOME_LANDING_ZOOM, PIN_BAND_MIN } from './zoom-bands';
+import { summaryPillFitAllowance, type SummaryPillLabel } from './country-flag-image';
 
 // Called at module scope, not in an effect. MapLibre applies the plugin when a tile's glyphs are
 // first shaped, so it has to be in place before any `Map` is constructed — an effect in this
@@ -208,7 +209,23 @@ function fitBoundsPadding(
   containerWidth: number,
   containerHeight: number,
   restingSheetFraction: number | undefined,
-  floatingTopChromePx: number | undefined
+  floatingTopChromePx: number | undefined,
+  /**
+   * Room for the **marker drawn at** an edge of the fitted box, per axis, on top of everything
+   * else. Zero for a fit that frames pins: a pin's icon is small and the 48 px of cosmetic
+   * breathing room already covers it. Non-zero for the home framing, whose box is a set of summary
+   * anchors and whose markers are ~200 px pills hanging half their width either side of one.
+   *
+   * Added *before* `clampFitPadding` rather than after, so an allowance that does not fit is
+   * scaled down with the rest of the box instead of pushing the padding past the container and
+   * silently stopping the camera moving at all.
+   *
+   * On the right this stacks on the same 48 px that already clears the zoom controls — the control
+   * column is a 40 px button at `right-2`, i.e. exactly `FIT_BOUNDS_PADDING` wide — so the pill's
+   * trailing edge comes to rest at the column's leading edge rather than under it, which is the
+   * second half of the 2026-08-30 report.
+   */
+  markerAllowance: { readonly x: number; readonly y: number } = { x: 0, y: 0 }
 ): { top: number; bottom: number; left: number; right: number } {
   const occlusion = mapOcclusionInsets(
     viewportWidth,
@@ -219,10 +236,10 @@ function fitBoundsPadding(
     (viewportWidth < LG_BREAKPOINT_PX ? FLOATING_TOP_CHROME_MOBILE_PX : FLOATING_TOP_CHROME_PX);
   return clampFitPadding(
     {
-      top: FIT_BOUNDS_PADDING + topChrome + occlusion.top,
-      bottom: FIT_BOUNDS_PADDING + occlusion.bottom,
-      left: FIT_BOUNDS_PADDING + occlusion.left,
-      right: FIT_BOUNDS_PADDING + occlusion.right,
+      top: FIT_BOUNDS_PADDING + topChrome + occlusion.top + markerAllowance.y,
+      bottom: FIT_BOUNDS_PADDING + occlusion.bottom + markerAllowance.y,
+      left: FIT_BOUNDS_PADDING + occlusion.left + markerAllowance.x,
+      right: FIT_BOUNDS_PADDING + occlusion.right + markerAllowance.x,
     },
     containerWidth,
     containerHeight
@@ -389,6 +406,32 @@ export function MapSurfaceMapcn({
     ],
     [summaries]
   );
+  /**
+   * **What the home framing has to leave room for**, derived from the markers this library is
+   * actually about to draw rather than from a constant.
+   *
+   * Both bands, because the home view may come to rest in either: a library spread across countries
+   * lands on country pills, a one-country library on its area pills, and the framing cannot know
+   * which until it has fitted. Taking the widest of the two is one number that is right for both.
+   *
+   * The label text mirrors `labelAndCount()` in `summary-style.ts` — the label, two spaces, the
+   * count — because that is the string the symbol layer shapes. Only the *cap* differs between the
+   * bands: an area pill never carries a flag.
+   */
+  const markerAllowance = useMemo(() => {
+    const labels: SummaryPillLabel[] = [
+      ...(summaries?.countries ?? []).map((country) => ({
+        text: `${country.label}  ${country.count}`,
+        capped: country.countryCode !== null,
+      })),
+      ...(summaries?.areas ?? []).map((area) => ({
+        text: `${area.label ?? ''}  ${area.count}`,
+        capped: false,
+      })),
+    ];
+    return summaryPillFitAllowance(labels);
+  }, [summaries]);
+
   const bounds = useMemo(() => boundsFor(places, initialBounds), [places, initialBounds]);
 
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -399,6 +442,12 @@ export function MapSurfaceMapcn({
   useEffect(() => {
     latestBounds.current = bounds;
   }, [bounds]);
+  /** Read at framing time for the same reason `latestBounds` is: the `load`-time callback is
+   *  created once, and the library it will frame may not have arrived when it was. */
+  const latestAllowance = useRef(markerAllowance);
+  useEffect(() => {
+    latestAllowance.current = markerAllowance;
+  }, [markerAllowance]);
 
   /** The last framing the camera actually took. A resize re-runs *this*, not whatever the full
    *  `places` bounding box happens to be now — otherwise a resize silently undoes a focus flight
@@ -440,14 +489,15 @@ export function MapSurfaceMapcn({
    *  against the container the camera is actually in. Read by every mover, so none of them can
    *  frame against a different idea of the visible band than the others. */
   const paddingFor = useCallback(
-    (map: MapLibreMap) => {
+    (map: MapLibreMap, markerAllowance?: { readonly x: number; readonly y: number }) => {
       const container = map.getContainer();
       return fitBoundsPadding(
         typeof window === 'undefined' ? 0 : window.innerWidth,
         container.clientWidth,
         container.clientHeight,
         sheetFractionRef.current,
-        floatingTopChromePx
+        floatingTopChromePx,
+        markerAllowance
       );
     },
     [floatingTopChromePx]
@@ -501,8 +551,8 @@ export function MapSurfaceMapcn({
    */
   const frameBounds = useCallback(
     (map: MapLibreMap, request: FocusBoundsRequest, animate: boolean) => {
-      const { bounds, minZoom, maxZoom } = request;
-      const padding = paddingFor(map);
+      const { bounds, minZoom, maxZoom, markerAllowancePx } = request;
+      const padding = paddingFor(map, markerAllowancePx);
       const duration = animate ? COUNTRY_FLIGHT_MS : 0;
       // A box wider than half the globe is one `unionBounds` cannot describe: it always emits
       // `west <= east`, so an antimeridian-straddling country arrives here inside out and
@@ -538,26 +588,27 @@ export function MapSurfaceMapcn({
   );
 
   /**
-   * **Camera mover 1: the home framing.** The anchor cluster's box, come to rest inside the pin
-   * band.
+   * **Camera mover 1: the home framing.** The whole library's box, come to rest at or below the
+   * top of the area band — the overview, not a place.
    *
-   * It goes through `frameBounds` rather than `fitTo`, and the reason is the whole of the second
-   * production defect of 2026-08-30. `fitBounds` has a zoom **ceiling** and no floor — its
-   * `minZoom` is inherited from `FlyToOptions` and bounds the flight arc, not where the camera
-   * stops (camera mover 5's docblock measured that) — so the home view lands wherever the box
-   * happens to fit. Below `PIN_BAND_MIN` the pin layer does not draw, so a library whose anchor box
-   * is a few tens of kilometres across opens on area pills and no pins at all: five bubbles over
-   * Israel under a header that correctly read `3 places in תל אביב-יפו`. `cameraForBounds` → clamp
-   * → `easeTo` is the only shape that can express a resting floor, and it is already written.
+   * Two things changed here on 2026-08-30, both on the owner's ruling after using production, and
+   * they are one change: the box widened from the anchor cluster to the whole library, and the
+   * resting range flipped from a pin-band **floor** to an area-band **ceiling**
+   * (`HOME_LANDING_ZOOM`, where the argument lives). Either alone fails — a wide box with the old
+   * floor is zoomed straight back in on its own centre, and a ceiling over the anchor box still
+   * opens on the city you saved in last. The symptom was *"I added this Jerusalem Hotel, and after
+   * that, when I signed in again, it opened on the Jerusalem Hotel"*.
    *
-   * The floor is not a re-centre. `frameBounds` keeps `cameraForBounds`' own centre, so a library
-   * that fits comfortably (the common case — a city's worth of pins fits around z12) is untouched;
-   * only a fit that would have landed outside the band moves, and it moves by zooming in on the
-   * middle of the anchor rather than by choosing somewhere else.
+   * It still goes through `frameBounds` rather than `fitTo`, and the reason survives the reversal:
+   * `fitBounds`' `minZoom` is inherited from `FlyToOptions` and bounds the flight arc, not where
+   * the camera stops (camera mover 5's docblock measured that), so only `cameraForBounds` → clamp →
+   * `easeTo` can express a resting range at all. Recording the request rather than a box is what
+   * lets `refitFramed` reproduce that range after an orientation change instead of re-fitting
+   * through a path with no range of its own.
    *
-   * Recording the request rather than a box also fixes the resize path for free: `refitFramed`
-   * reproduces the floor, where before it re-fitted through `fitBounds` and could demote the home
-   * view out of the pin band on an orientation change.
+   * The pin-band guarantee it used to enforce has not been dropped from the product, only from the
+   * first load: movers 2, 3, 7 and 8 are each *about* a place, frame through `fitTo` or their own
+   * `FocusBoundsRequest`, and none of them read this function.
    */
   const fitToBounds = useCallback(
     (map: MapLibreMap) => {
@@ -572,8 +623,11 @@ export function MapSurfaceMapcn({
             east: target[1][0],
             north: target[1][1],
           },
-          minZoom: HOME_LANDING_MIN_ZOOM,
-          maxZoom: FIT_BOUNDS_MAX_ZOOM,
+          minZoom: HOME_LANDING_ZOOM.min,
+          maxZoom: HOME_LANDING_ZOOM.max,
+          // The only framing in the app whose box is a set of *summary* anchors, and so the only
+          // one that has to pay for the pill drawn at each of them.
+          markerAllowancePx: latestAllowance.current,
         },
         false
       );

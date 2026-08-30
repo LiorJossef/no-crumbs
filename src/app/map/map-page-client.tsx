@@ -119,7 +119,7 @@ import { clusterByProximity, pickAnchorCluster } from '@/domain/places/clusters'
 import { buildAreas, mapAccessibleName } from '@/ui/place/active-area';
 import {
   activeCountryKey as ringedCountryKeyFor,
-  fallbackScope,
+  GLOBAL_SCOPE,
   resolveScopeOrFallback,
   scopeAfterCameraSettled,
   scopeAreaId,
@@ -130,7 +130,7 @@ import {
   type ListScope,
 } from '@/ui/place/list-scope';
 import { distancesFromUser, nearestArea, nearestFirst } from '@/ui/place/nearby';
-import { meanCentroid } from '@/domain/places/country-bucket';
+import { meanCentroid, unionBounds } from '@/domain/places/country-bucket';
 import { summariseByCountry } from '@/ui/place/library-summary';
 import { EMPTY_LIBRARY_BOUNDS } from '@/ui/place/viewport';
 import { ImportPageClient, type SaveOutcomeDetail } from '@/app/import/import-page-client';
@@ -219,10 +219,11 @@ export function MapPageClient({
    * stop: a list of who may move the camera is only worth having if it is complete, wherever the
    * mover happens to live. In the order they run:
    *
-   *  1. The initial framing — the *anchor area*, not the whole library (see the header), come to
-   *     rest inside the **pin band** (`HOME_LANDING_MIN_ZOOM`) so the home view can never be
-   *     nothing but area bubbles, and falling back to `EMPTY_LIBRARY_BOUNDS` when there is no
-   *     anchor to open on.
+   *  1. The initial framing — **the whole library**, come to rest at or below the top of the area
+   *     band (`HOME_LANDING_ZOOM`) so the home view is the overview rather than a place, and
+   *     falling back to `EMPTY_LIBRARY_BOUNDS` when there is nothing saved at all. It framed the
+   *     *anchor area* inside the pin band until 2026-08-30, which meant signing back in opened on
+   *     whatever you saved last; the owner reversed that after using it. See `initialBounds`.
    *  2. A finished import flies to the places it saved.
    *  3. Selecting a place from the list flies to that place, and **holds** the scope. It frames
    *     into the band the *raised* sheet leaves visible, not into the whole viewport — the surface
@@ -264,8 +265,9 @@ export function MapPageClient({
    * (`ui/place/list-scope.ts`, which owns every rule below and is where the argument lives).
    *
    * `null` means "nothing chosen yet" and is not a fourth state: it selects the page's own default
-   * (the anchor area) through `fallbackScope`, and it exists only so that default can stay a
-   * *derivation* rather than an effect that paints one frame of the wrong list first.
+   * — **global** since 2026-08-30, matching the overview the camera now opens on — and it exists
+   * only so that default can stay a *derivation* rather than an effect that paints one frame of the
+   * wrong list first.
    *
    * An `area` scope still holds the id of a place inside the area rather than a cluster index —
    * clusters are rebuilt on every library change and carry no id of their own, so an anchor place
@@ -328,15 +330,32 @@ export function MapPageClient({
   }, [clusters, places]);
 
   /**
-   * What the surface opens on. The anchor cluster's box, and — for a library with nothing in it —
-   * a designed regional view rather than nothing at all.
+   * **What the surface opens on: the whole library**, and — for a library with nothing in it — a
+   * designed regional view rather than nothing at all.
+   *
+   * It was `anchorCluster?.bounds` until 2026-08-30, i.e. the area holding the most recent save,
+   * and the owner rejected that in production: *"I added this Jerusalem Hotel, and after that, when
+   * I signed in again, it opened on the Jerusalem Hotel, but I'm not interested in that... So on
+   * mobile and on desktop."* The home view is now the overview — *"open the map when you see the
+   * countries, not last added place"* — which the surface lands by fitting this box under
+   * `HOME_LANDING_ZOOM`'s area-band ceiling.
+   *
+   * The union of the **areas'** boxes rather than of the raw places, so it is the same geometry the
+   * area and country markers are drawn from and cannot disagree with them by a place the clustering
+   * dropped. `unionBounds` returns an inverted box for an empty input, which is why the guard is on
+   * `areas.length` and not on the result.
+   *
+   * `anchorCluster` outlives the change because `preferredAreaId` still needs it — it is now only
+   * the list's *fallback* after a deletion, never a camera.
    *
    * Passing `undefined` here used to fall all the way through to MapLibre's constructor default,
    * which is the whole globe at zoom 0 over the Atlantic: §9.3's *"zero places shows no bare world
-   * map"* criterion, still open since 2026-08-27. `EMPTY_LIBRARY_BOUNDS` says what it is a
-   * placeholder for.
+   * map"* criterion. `EMPTY_LIBRARY_BOUNDS` says what it is a placeholder for.
    */
-  const initialBounds = anchorCluster?.bounds ?? EMPTY_LIBRARY_BOUNDS;
+  const initialBounds = useMemo(
+    () => (areas.length > 0 ? unionBounds(areas.map((area) => area.bounds)) : EMPTY_LIBRARY_BOUNDS),
+    [areas],
+  );
 
   /**
    * The library's areas bucketed into countries — the top level of `ux-library-at-scale.md` §2's
@@ -367,11 +386,16 @@ export function MapPageClient({
     return areas.find((area) => area.memberIds.has(seed))?.id ?? null;
   }, [areas, anchorCluster]);
 
-  /** The scope as stored, with the page's default filled in while nothing has been chosen. */
-  const storedScope = useMemo(
-    () => scope ?? fallbackScope(areas, preferredAreaId),
-    [scope, areas, preferredAreaId],
-  );
+  /**
+   * The scope as stored, with the page's default filled in while nothing has been chosen.
+   *
+   * **The default is global**, and it is the list's half of the 2026-08-30 home-view reversal: the
+   * camera now opens on the whole library, and a header reading `1 in Jerusalem` over a view of
+   * countries is the same broken control the owner rejected when a country tap left the list
+   * behind. `fallbackScope`'s anchor area is still the answer for a *deleted* scope — that is
+   * `resolveScopeOrFallback` below, which keeps taking `preferredAreaId`.
+   */
+  const storedScope = useMemo(() => scope ?? GLOBAL_SCOPE, [scope]);
 
   /**
    * **The scope resolved against the library as it is right now** — the areas, the places and the
@@ -757,7 +781,7 @@ export function MapPageClient({
     (bounds: LatLngBoundsHint, meta: ViewportChangeMeta) => {
       setScope((current) =>
         scopeAfterCameraSettled({
-          scope: current ?? fallbackScope(areas, preferredAreaId),
+          scope: current ?? GLOBAL_SCOPE,
           zoom: meta.zoom,
           userInitiated: meta.userInitiated,
           areas,
@@ -766,7 +790,7 @@ export function MapPageClient({
         }),
       );
     },
-    [areas, countries, preferredAreaId],
+    [areas, countries],
   );
 
   /**

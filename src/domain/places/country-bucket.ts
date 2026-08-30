@@ -167,9 +167,15 @@ function compareBuckets<T, C extends GeoCluster<T>>(
   return a.countryCode.localeCompare(b.countryCode);
 }
 
-/** Smallest box containing every input box. Shares `clusterByProximity`'s antimeridian limitation,
- *  named in that file's header; a library straddling it would need both to change together. */
-function unionBounds(all: readonly GeoBounds[]): GeoBounds {
+/**
+ * Smallest box containing every input box. Shares `clusterByProximity`'s antimeridian limitation,
+ * named in that file's header; a library straddling it would need both to change together.
+ *
+ * Exported since 2026-08-30 for the map's **home framing**, which opens on the whole library rather
+ * than on one anchor area. An empty input returns an inverted box (`north < south`), so a caller
+ * with no areas must not call it — `/map` guards on `areas.length`.
+ */
+export function unionBounds(all: readonly GeoBounds[]): GeoBounds {
   let north = -90;
   let south = 90;
   let east = -180;

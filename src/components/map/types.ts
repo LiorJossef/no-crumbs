@@ -384,4 +384,15 @@ export interface FocusBoundsRequest {
    *  is exactly the case that produced the two failures documented on the prop. */
   readonly minZoom: number;
   readonly maxZoom: number;
+  /**
+   * Extra fit padding, in CSS pixels per axis, for **what is drawn at the corners of the box** —
+   * omit it and a marker anchored on the box's edge is guaranteed to hang off screen, because the
+   * camera frames the anchor and the label hangs either side of it. See
+   * `SUMMARY_PILL_FIT_ALLOWANCE`, which is the only value passed here today.
+   *
+   * Part of the *request* rather than an argument, so a resize reproduces it: the surface replays
+   * the stored request, and an allowance held anywhere else would be dropped on the first
+   * orientation change.
+   */
+  readonly markerAllowancePx?: { readonly x: number; readonly y: number };
 }
