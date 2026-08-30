@@ -2,10 +2,121 @@
 
 > **Read this section, then §9. Everything between them is history and is dated.**
 >
-> Last reconciled: **2026-08-30**, at the close of the RTL / sheet-hierarchy session.
+> Last reconciled: **2026-08-30**, at the close of the near-me / basemap-context session.
 > Read the section directly below first. The previous handoff is
 > [`handoff-2026-08-30-overnight-product-pass.md`](handoff-2026-08-30-overnight-product-pass.md).
 > Everything below the next two sections dates from 2026-08-29 or earlier.
+
+## Session close, 2026-08-30 — `feat/near-me`, 5 commits, **pushed, no CI**
+
+Branched off `fix/rtl-and-area-hierarchy` (below), so the remote branch carries **14 commits ahead
+of `main`**: that branch's 8 and this session's 5. Pushed on owner instruction **without waiting for
+GitHub Actions minutes** — `gh run list` shows no runs, so nothing was consumed and **no check has
+ever gone green on any of it**. `npm run merge:pr` gates on CI, so none of this can land through the
+normal route yet. Locally: **1877/1877 green, typecheck and lint clean.**
+
+**Still uncommitted and still the owner's**: `src/components/map/summary-style.ts` and its test, the
+marker-collision fix. Untouched all session.
+
+### What shipped
+
+1. **The map now has geographic context** (`feat(map): give the basemap enough context…`). This was
+   the owner's headline complaint: a pin on warm paper with nothing to say what it was near. Two
+   causes, both measured against the live style and the actual vector tiles, not guessed:
+   - **The ceiling was the bigger one.** CARTO retires settlement names *above* the zoom a person
+     leans in at — hamlets/suburbs at 16, cities 15, towns 14 — so zooming in *removed* the area
+     name. Every range now outlives the camera.
+   - **The floors were the rest.** `roadname_major` starts at 13; the anchor-cluster camera rests at
+     **~12.5** (measured, not assumed), so a settled map carried no street name at all. Lowered by
+     class: motorway/trunk, primary, secondary+tertiary at 13. `roadname_minor` deliberately
+     untouched — residential names are noise.
+   - **A `poi_label` layer** added on the `poi` source-layer already inside every tile we load. No
+     new source, key or request. Text with no icon, and that is not a compromise: **both CARTO
+     sprites contain exactly one image (`circle-11`)**, so the "cartoon POI glyphs" the 2026-08-21
+     Voyager rejection was based on **do not exist**.
+   - **Do not switch basemap.** Positron and Voyager are **byte-identical in structure** — 93
+     layers, same ids, same layout, same source — differing only in `paint`. A switch adds *zero*
+     geographic information. This is settled; do not re-open it.
+   - Verified on a phone viewport against the real library. Street names, neighbourhood names and a
+     landmark all coexist; the balance point is `roadname_sec` at 13, because street labels take
+     collision slots from neighbourhood names when lowered further.
+
+2. **Near me — `L1-F11`, the last unbuilt L1 feature** (`feat(map): near me…`). Permission requested
+   only on an explicit tap; the position never leaves the browser. Denial is a designed state
+   (shape change, still pressable, an alternative that works); timeout/unavailable degrade to
+   "try again", never to "denied". Distance shows only against a real fix accurate to 500 m — one
+   gate, and there is **no code path from a map centre to a distance label**. Reuses `haversineKm`,
+   the existing rounding rule, the 50 km cluster radius and `focusBounds`; adds no camera code.
+   **The registry's own locate button was switched off** — it logged denials to the console, never
+   handed the position to the page, and flew the camera from outside the enumeration.
+   **Camera movers are now 8**, not the six the file claimed; `docs/06` §9.2 still says four and
+   that reconciliation is still owed.
+
+3. **The production `1 in הרצליה` bug is diagnosed and fixed** (`fix(map): an import no longer
+   leaves the sheet naming the wrong city`). It was **not** resolution, extraction or area grouping.
+   `resolveScopeOrFallback` cannot tell a *deleted* anchor from one whose row **has not arrived
+   yet**, and the render-phase correction persisted its guess. `onSaved` writes the anchor
+   optimistically and `import-page-client` calls it **before** `router.refresh()`, so there is
+   always ≥1 render where the anchor names a row `areas` does not hold — the fallback resolved to
+   the previously active area and was written back permanently. The camera already handled this
+   correctly by *waiting for the data*. **The fallback is now derived and never written back.**
+   Regression test: `tests/unit/ui/post-import-scope.test.ts`.
+   **`revealSavedPlace` (manual add) has the same shape at `map-page-client.tsx:~785` and was NOT
+   verified** — treat as suspect.
+
+4. **Import review collapses on one confident result** + **`NoPlacesScreen` recovery wired**. The
+   collapse uses the existing `preselect` band, no new threshold, and **can never fire on a
+   caption-derived pin** (tested across every view × both coordinate sources). Tap count is
+   unchanged at 5 — what it removes is what you must read and decide, not a tap.
+
+5. **A real TikTok share link is no longer rejected as fake.** `tiktok.com/share/video/<id>/` and
+   `www.tiktokv.com/share/video/<id>/` — what TikTok's own share sheet and data export emit — were
+   returning "that's not a post" and "Instagram and YouTube aren't supported yet". No extra network
+   call; the id is already in the path. Profile, Instagram, `/share/user/` and a
+   `tiktokv.com.evil.io` suffix probe all still reject.
+
+### What needs attention next
+
+**Blocking everything:** none of the 14 commits has a green check. When Actions minutes return, open
+**one** PR for the whole branch — one run, not twelve — and land it through `npm run merge:pr`.
+
+**Highest-priority next steps, in order:**
+1. **The owner is reviewing the map himself** and will say whether the basemap needs more. Do not
+   pre-emptively tune it further.
+2. **`L1-F10` graded artefacts — `test-specification.md` (M6), `scale.md` (M8), `deployment.md` +
+   README env matrix (M10), `how-the-system-works.md` (R2) do not exist**, and `security.md` (M9) is
+   an interim file with a 12-item owed list. These are **graded** and are the largest remaining
+   submission gap. The owner's ruling this session was **product first, documents when the product
+   is ready** — so this is next once he calls the product done, and it parallelises well.
+3. **`revealSavedPlace`'s unverified copy of the scope bug** (item 3 above).
+4. The `＋` on `/collections` and `/profile` still routes to `/import` instead of opening the create
+   menu, contradicting the 2026-08-29 ruling. **It is not a two-file fix** — there is no deep-link
+   support on `/map` or `/import`, so it needs a decision about where the user lands first.
+
+### Two corrections worth carrying forward
+
+- **The tint is not washing out the roads.** I asserted this before checking. Positron's background
+  is `#fafaf8` (L 0.978) with white road fills — a 0.022 gap; our tint caps land at 0.93 and leaves
+  roads at 1.0, which is *wider*. The tint improved road contrast.
+- **Read the tile data before tuning zoom numbers.** Several reload cycles were spent guessing why
+  labels did not appear. Fetching one `.mvt` answered it immediately: `transportation_name` exists
+  from z11, `poi` from z12, and the camera rests at 12.57.
+
+### Specialists used
+
+`maps-geospatial` (built near-me), `design-system-frontend` (built the import collapse),
+`social-integration` (the TikTok URL fix), `qa-reliability` (diagnosed the scope bug — reproduced it
+and isolated causation with a control run, and correctly refused to touch area grouping),
+`general-purpose` + `ux-interaction` (the basemap investigation, in parallel; the Positron/Voyager
+identity finding came from `general-purpose` and overturned my own plan). Three doc-writing agents
+were spawned and **killed within 30 seconds** on the owner's instruction that documents wait until
+the product is ready; they wrote nothing.
+
+**One process failure to avoid repeating:** path serialisation on `src/components/map/` did not
+hold — I edited `basemap-tint-layer.tsx` while `maps-geospatial` was still working in that
+directory, which polluted its `tsc` run, and `design-system-frontend` left
+`import-page-client.tsx` unparseable mid-edit, which silently served a **stale bundle** and made
+~20 minutes of basemap verification meaningless.
 
 ## Session close, 2026-08-30 — `fix/rtl-and-area-hierarchy`, 8 commits, **not pushed**
 
