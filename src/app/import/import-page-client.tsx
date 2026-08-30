@@ -71,7 +71,6 @@ import {
   saveButtonLabel,
   skippedNotice,
 } from '@/domain/import/candidate-presentation';
-import type { StoredResolution } from '@/domain/import/resolution-record';
 import {
   arrivesTicked,
   collapsesToOneResult,
@@ -101,121 +100,8 @@ import {
   type ImportErrorIcon,
   type PreSubmitErrorCode,
 } from '@/ui/import/import-error-copy';
-
-/* ------------------------------------------------------------------------------------------- *
- * `/api/imports/probe` — the throwaway route wired in ahead of the real streaming route
- * (L0-F6-T1). Proves the real oEmbed fetch + caption extraction reach this screen: no LLM, no
- * candidates, no `runImport`. See `src/app/api/imports/probe/route.ts`'s header.
- * ------------------------------------------------------------------------------------------- */
-
-interface ProbeSuccess {
-  /** The real `sources.id` row this probe fetched/cached — carried through so a later save (even
-   *  with zero candidates) links this source instead of silently sending `sourceId: null`. */
-  readonly sourceId: string;
-  /**
-   * The `extractions` row the probe route persisted for this source. Every place fact a save
-   * writes is derived server-side from that row, so this id — not a payload of names and
-   * coordinates — is what "Done" sends (`src/app/api/imports/confirm/route.ts`).
-   *
-   * `null` when the extraction could not be persisted (or there was no caption to extract from).
-   * A save is impossible then, and the screen must say so rather than post a request that cannot
-   * be authorised.
-   */
-  readonly extractionId: string | null;
-  readonly authorHandle: string | null;
-  readonly authorName: string | null;
-  readonly canonicalUrl: string;
-  readonly thumbnailUrl: string | null;
-  readonly caption: string | null;
-  /**
-   * The real, plausibility-filtered candidates from the real `PlaceExtractor`, each carrying the
-   * resolver's answer for it (`resolution`). Empty when `caption` was null (no LLM call on
-   * nothing) or when nothing survived the gate — both are valid, expected outcomes, not errors.
-   *
-   * `resolution` is `null` for a candidate that was **never put to the resolver**: an extraction
-   * row written before the resolver was wired in, or a candidate past `MAX_CANDIDATES`. That is
-   * deliberately not the same value as "we looked and found nothing"
-   * (`domain/import/resolution-record.ts`), and the screen must not say the same thing for both.
-   */
-  readonly candidates: readonly ProbeCandidate[];
-}
-
-/** A probe candidate: what the model extracted, plus what the resolver made of it. Matches the
- *  route's `StoredCandidateRow` — the shortlist itself stays on the server; this is a read-only
- *  copy for the screen, and a confirm may still only send *positions* into it. */
-type ProbeCandidate = PlaceCandidate & { readonly resolution: StoredResolution | null };
-
-interface ProbeErrorBody {
-  readonly error: { readonly code: string; readonly retryable: boolean };
-}
-
-/* ------------------------------------------------------------------------------------------- *
- * Local state — modelled after the real event vocabulary so the eventual stream consumer is a
- * drop-in swap.
- * ------------------------------------------------------------------------------------------- */
-
-type StageStatus = 'pending' | 'active' | 'done';
-
-interface RailState {
-  readonly source: StageStatus;
-  readonly extract: StageStatus;
-  readonly resolve: StageStatus;
-  readonly sourceFact: string | null; // C10
-  readonly extractFact: string | null; // C13/C14/C15
-  readonly candidateProgress: { readonly index: number; readonly total: number } | null; // C18
-}
-
-const RAIL_IDLE: RailState = {
-  source: 'pending',
-  extract: 'pending',
-  resolve: 'pending',
-  sourceFact: null,
-  extractFact: null,
-  candidateProgress: null,
-};
-
-/** The screens this page can be in. `paste` covers both the empty field and an inline-invalid
- *  field (C06) — that is copy, not a screen change. */
-type Screen =
-  | { readonly kind: 'paste' }
-  /**
-   * The pre-submit verdict: `canonicaliseTikTokUrl` rejected the pasted string on the client, so
-   * no request was made. Three of the taxonomy's codes, and they render the **same** copy the
-   * server's version of that verdict would (`ui/import/import-error-copy.ts`) — see
-   * `PRE_SUBMIT_ERROR_CODES` for why that was not true before.
-   */
-  | { readonly kind: 'redirect'; readonly reason: PreSubmitErrorCode }
-  | { readonly kind: 'rail'; readonly rail: RailState }
-  | {
-      readonly kind: 'no_places';
-      readonly authorHandle: string | null;
-      /** The canonical URL, never the `url` state: a share-sheet paste is a caption with a link
-       *  somewhere inside it, and `Open the original TikTok` has to be an href. */
-      readonly canonicalUrl: string;
-      /** Whether there was a caption to read at all. "We read it and it named nothing" and "there
-       *  was nothing to read" are different facts and this screen says which. */
-      readonly hadCaption: boolean;
-    }
-  /** The real-fetch slice's landing screen (this task): no LLM has run, so this is deliberately
-   *  not `no_places` or `results` — both of those imply extraction happened. Shows the raw
-   *  caption plainly, once the real `SourceAdapter` + `ContentExtractor` have run. */
-  | { readonly kind: 'caption_preview'; readonly probe: ProbeSuccess }
-  /**
-   * A thrown `DomainError` from the probe route, rendered from the one client-side copy map
-   * (`ui/import/import-error-copy.ts`) that `07` §9 specifies.
-   *
-   * `code` is a `DomainErrorCode`, not a `string`, and that is the whole point: it is narrowed
-   * once at the fetch seam by `toDomainErrorCode`, so the screen's copy lookup is total by the
-   * type system rather than by a default branch. `rawCode` keeps whatever the server actually
-   * sent, purely so a support conversation can quote it — the two are identical for all 14 real
-   * codes, and differ only when something outside the taxonomy answered.
-   */
-  | {
-      readonly kind: 'probe_error';
-      readonly code: DomainErrorCode;
-      readonly rawCode: string;
-      readonly retryable: boolean;
-    };
+import type { ProbeErrorBody, ProbeSuccess } from './_lib/probe-contract';
+import { RAIL_IDLE, type RailState, type Screen, type StageStatus } from './_lib/screen';
 
 /* ------------------------------------------------------------------------------------------- *
  * Component
