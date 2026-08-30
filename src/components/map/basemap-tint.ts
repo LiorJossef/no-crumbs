@@ -32,6 +32,8 @@ export interface Tint {
   readonly maxLightness?: number;
 }
 
+import { POI_TIER_FLOOR } from './poi-style';
+
 export type BasemapRole =
   | 'land'
   | 'water'
@@ -308,4 +310,11 @@ export const POI_LABEL_CLASSES = [
   'library',
   'theatre',
 ] as const;
-export const POI_LABEL_MIN_ZOOM = 12;
+/**
+ * The lowest zoom at which any POI label draws.
+ *
+ * Derived from `POI_TIERS` rather than written down again: since `exp/richer-basemap` the classes
+ * are tiered, so this is the landmark tier's floor and moves with it. A second literal here is a
+ * second thing to forget when a tier is retuned.
+ */
+export const POI_LABEL_MIN_ZOOM = POI_TIER_FLOOR;

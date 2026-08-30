@@ -16,6 +16,7 @@ import {
   POI_LABEL_MIN_ZOOM,
   roleFor,
 } from '@/components/map/basemap-tint';
+import { POI_TIERS, poiLabelClasses } from '@/components/map/poi-style';
 
 /** `FIT_BOUNDS_MAX_ZOOM` in `map-surface.mapcn.tsx`, and a user may zoom past it by hand. */
 const CAMERA_MAX_ZOOM = 15;
@@ -74,5 +75,36 @@ describe('the POI names layer', () => {
     expect(BASEMAP_LABEL_FONT[0]).toBe('Montserrat Regular');
     expect(BASEMAP_LABEL_FONT).toContain('Noto Sans Regular');
     expect(BASEMAP_LABEL_FONT).toHaveLength(5);
+  });
+});
+
+describe('POI zoom tiers', () => {
+  it('places every coloured class in exactly one tier', () => {
+    // Both directions matter and both are silent failures. A class in `POI_GROUPS` but no tier has
+    // a colour and never draws; a class in two tiers draws twice from the same source and the two
+    // copies fight each other in the collision index.
+    const tiered = POI_TIERS.flatMap((tier) => [...tier.classes]);
+    expect(new Set(tiered).size, 'a class appears in two tiers').toBe(tiered.length);
+    expect([...new Set(tiered)].sort()).toEqual([...new Set(poiLabelClasses())].sort());
+  });
+
+  it('shows only orienting places at the zoom the camera settles at', () => {
+    // The defect the tiers exist for: at z14 every cafe, bank and clothes shop drew at once and
+    // the user's own saved places competed with a hundred labels they did not choose.
+    const atRest = POI_TIERS.filter((tier) => tier.minzoom <= CAMERA_RESTING_ZOOM);
+    expect(atRest).toHaveLength(1);
+    expect(atRest[0]?.id).toBe('landmark');
+    expect(atRest[0]?.classes).not.toContain('restaurant');
+    expect(atRest[0]?.classes).not.toContain('shop');
+  });
+
+  it('reveals finer tiers strictly as the user leans in', () => {
+    const zooms = POI_TIERS.map((tier) => tier.minzoom);
+    expect([...zooms].sort((a, b) => a - b)).toEqual(zooms);
+    expect(new Set(zooms).size).toBe(zooms.length);
+  });
+
+  it('keeps the exported floor in step with the tiers', () => {
+    expect(POI_LABEL_MIN_ZOOM).toBe(Math.min(...POI_TIERS.map((tier) => tier.minzoom)));
   });
 });
