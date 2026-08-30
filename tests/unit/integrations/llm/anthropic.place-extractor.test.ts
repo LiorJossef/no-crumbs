@@ -308,6 +308,42 @@ describe('anthropicPlaceExtractor', () => {
     expect(events.find((e) => e.name === 'extraction.candidates_dropped')).toBeUndefined();
   });
 
+  it('logs an over-long reply as truncation, which is not the same fact as a drop', async () => {
+    // `growth-plan.md` G2's other half. Thirteen valid candidates now yield twelve places instead
+    // of none, and the thirteenth is a fact about the model's reply that nothing downstream can
+    // carry — `PlaceExtractor` returns candidates and a `cityHint` — so this line is where it
+    // lives. It must not arrive as `candidates_dropped`: nothing here was malformed.
+    const events: { name: string; fields: Record<string, unknown> }[] = [];
+    const names = Array.from({ length: 13 }, (_, i) => `Cafe Number ${i}`);
+    const fetchImpl = async () =>
+      toolUseResponse({ candidates: names.map((name) => candidate(name, name)), cityHint: null });
+    const extractor = anthropicPlaceExtractor({ apiKey: 'test-key', fetchImpl: fetchImpl as typeof fetch });
+
+    const result = await extractor.extract(
+      [{ kind: 'caption', text: names.join(', '), origin: 'tiktok-oembed-title' }],
+      ctx(events),
+    );
+
+    expect(result.candidates).toHaveLength(12);
+    expect(events.find((e) => e.name === 'extraction.candidates_truncated')?.fields).toMatchObject({
+      cap: 12,
+      truncated: 1,
+      kept: 12,
+      total: 13,
+    });
+    expect(events.find((e) => e.name === 'extraction.candidates_dropped')).toBeUndefined();
+  });
+
+  it('says nothing about truncation when the reply fits the cap', async () => {
+    const events: { name: string; fields: Record<string, unknown> }[] = [];
+    const fetchImpl = async () => toolUseResponse({ candidates: [candidate('Cafe Fiori', 'Cafe Fiori')], cityHint: null });
+    const extractor = anthropicPlaceExtractor({ apiKey: 'test-key', fetchImpl: fetchImpl as typeof fetch });
+
+    await extractor.extract([{ kind: 'caption', text: 'Cafe Fiori', origin: 'tiktok-oembed-title' }], ctx(events));
+
+    expect(events.find((e) => e.name === 'extraction.candidates_truncated')).toBeUndefined();
+  });
+
   it('carries a stable version and passes the current prompt version through unchanged', () => {
     // The literal value is pinned once, in `tests/unit/extraction/schema.test.ts`. What matters
     // here is only that the adapter reports the prompt it actually sent — pinning the string in

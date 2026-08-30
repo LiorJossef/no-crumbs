@@ -27,7 +27,7 @@
  * on the exact same prompt/schema got every one of those venues right, repeatably.
  */
 import { extractorInvalidOutput, extractorUnavailable } from '@/domain/errors';
-import { parseExtractionResultPartial, toPlaceCandidate } from '@/domain/extraction/schema';
+import { CANDIDATE_CAP, parseExtractionResultPartial, toPlaceCandidate } from '@/domain/extraction/schema';
 import type { OpCtx, PlaceExtractor } from '@/domain/ports';
 import type { ContentPart } from '@/domain/types';
 
@@ -270,6 +270,23 @@ export function geminiPlaceExtractor(config: {
           promptVersion: PROMPT_VERSION,
           reason: 'schema_invalid',
           dropped: parsed.value.dropped,
+          kept: parsed.value.candidates.length,
+          total: parsed.value.total,
+        });
+      }
+      if (parsed.value.truncated > 0) {
+        // The other half of the same silence. Not a fault — the model read the caption well and
+        // named more places than we carry — but the return type has no more room for this fact
+        // than it has for `dropped`, so this line is the only place it exists.
+        //
+        // Its own event rather than a second `reason` on `candidates_dropped`: anything counting
+        // that event is counting replies we could not read, and a caption naming fourteen real
+        // venues is not one of those. Two facts, two names.
+        ctx.log.event('extraction.candidates_truncated', {
+          extractorVersion: version,
+          promptVersion: PROMPT_VERSION,
+          cap: CANDIDATE_CAP,
+          truncated: parsed.value.truncated,
           kept: parsed.value.candidates.length,
           total: parsed.value.total,
         });

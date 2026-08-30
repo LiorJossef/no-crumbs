@@ -469,12 +469,13 @@ export interface PartialExtractionResult {
    * 14-place listicle as a partly unreadable reply.
    *
    * It shares `dropped`'s limitation: `ports.ts`'s `PlaceExtractor` returns candidates and a
-   * `cityHint` and has no way to say "there were more", so nothing downstream can see this either.
-   * The adapters log `extraction.candidates_dropped` and do **not** yet log this — they are outside
-   * the change that added it — so today it is honest in the type and unobserved in the logs. What
-   * it counts is at least the thirteenth candidate of a reply, already far past the pipeline's
-   * `MAX_CANDIDATES`, so it would have been shown as `capped` at best and the resolver would never
-   * have seen it.
+   * `cityHint` and has no way to say "there were more", so nothing downstream can see this. The log
+   * line is therefore the only place the fact exists, and both adapters emit
+   * `extraction.candidates_truncated` on every non-zero count — a **separate** event from
+   * `extraction.candidates_dropped`, because anything counting that one is counting replies we
+   * could not read and this is not one of those. What it counts is at least the thirteenth
+   * candidate of a reply, already far past the pipeline's `MAX_CANDIDATES`, so it would have been
+   * shown as `capped` at best and the resolver would never have seen it.
    */
   readonly truncated: number;
   /** How many the model sent. `dropped + truncated + candidates.length`, kept explicitly so a log
@@ -529,7 +530,8 @@ export type PartialExtractionParse =
  * it.
  *
  * `truncated > 0` is **not** a fault — it is a productive caption meeting a policy limit — but it
- * is subject to the same silence, and no adapter logs it yet.
+ * is subject to the same silence, so it gets the same treatment under a different name:
+ * `extraction.candidates_truncated`, never folded into the dropped count.
  */
 export function parseExtractionResultPartial(value: unknown): PartialExtractionParse {
   const envelope = ExtractionEnvelopeSchema.safeParse(value);
