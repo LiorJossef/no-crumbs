@@ -18,11 +18,11 @@ It works end to end and it feels like an empty demo. Two locked plans say why an
 client gets).
 
 This run executes **the parts of both that can be built and verified without CI**, because CI cannot
-currently start a runner (§9). It is organised into **eight waves and 41 work packages**. Every package has an exit criterion a
+currently start a runner (§9). It is organised into **nine waves and 49 work packages** — eight build waves and a stabilise wave that runs only once they are all closed. Every package has an exit criterion a
 different agent can check — and §8a adds four judged gates, because none of the numeric targets
 measures whether the result is any good.
 
-**Definition of done: all 41 packages closed, the four quality gates in §8a passed, `npm run verify`
+**Definition of done: all 49 packages closed, the four quality gates in §8a passed, `npm run verify`
 green, no regression in the 2,017-test baseline, and every KPI in §5 met.** Nothing is "done" because
 an agent says so — see §7.
 
@@ -59,8 +59,8 @@ several of them record decisions that look like bugs until you read why.
 
 1. **Never commit to `main`.** One kebab-case, prefixed branch per work package, cut from the branch
    named in §6. `.githooks/pre-push` refuses a direct push; do not work around it.
-2. **`npm run verify` must pass before every commit.** It is lint + typecheck + layer guard + unit.
-   It is **not** CI — it covers one of CI's four jobs.
+2. **Use the fast loop, not full `verify`, on every commit.** See §7a. Full `verify` runs at each
+   wave close and again in Wave 8. It is **not** CI — it covers one of CI's four jobs.
 3. **No change may increase what the product asserts.** This is the load-bearing rule of the whole
    codebase. The rail claims no stage the server did not send; no screen presents inferred content in
    the same visual register as verbatim content; an uncertain result beats a confidently wrong one. A
@@ -105,9 +105,9 @@ Re-measure at the start of the run. If a number differs, trust your measurement 
 
 | # | Target | Measured by |
 |---|---|---|
-| K1 | **All 41 packages closed** and independently verified | §7's ledger |
+| K1 | **All 49 packages closed** and independently verified | §7's ledger |
 | K0 | **The four quality gates in §8a passed** | judged, by an agent that built none of it |
-| K2 | `npm run verify` **green** | the command |
+| K2 | `npm run verify` **green** at the top of the stack, after Wave 8 | the command |
 | K3 | Tests **≥ 2017 + one regression test per defect fixed** (≥ 2022) | `npx vitest run` |
 | K4 | `@theme` keys **≥ 60** | §4 command |
 | K5 | Arbitrary-value classes **≤ 60** (from 166) | §4 command |
@@ -141,6 +141,7 @@ docs/no-crumbs-brand-and-facelift-lock      (has origin/main merged in)
                                 └── feat/w5-library
                                       └── feat/w6-the-moment
                                             └── feat/w7-night-and-edges
+                                                  └── chore/w8-stabilise
 ```
 
 One PR per wave, based on the previous wave's branch. **If a wave would be the fourth unlanded branch,
@@ -163,6 +164,47 @@ For every package:
 `ID | branch | commit | built by | verified by | verdict | evidence`.
 
 ---
+
+## 7a. The loop — what to run, and when
+
+**Measured 2026-08-30**, because the intuition here is wrong. `npm run verify` chains eight commands;
+these are the four that dominate:
+
+| Stage | Time |
+|---|---|
+| `check:layers` | **14.9s** |
+| `lint` | **10.7s** |
+| `typecheck` | 3.7s |
+| **unit tests** | **3.9s** |
+
+**The tests are the second-fastest thing in `verify`,** and they are the only stage that catches a
+regression rather than a style or structure violation. Across eight stacked branches, a break
+introduced in Wave 0 — which edits `globals.css` and ~75 call sites — would otherwise propagate
+through seven waves with no bisect point. So:
+
+**Per commit — the fast loop, ~8 seconds:**
+
+```
+npm run typecheck && npx vitest run
+```
+
+Typecheck catches the signature and token breakage that propagates worst; the tests catch the rest.
+Nothing else runs. **Do not skip these two — they are cheaper than the bug.**
+
+**Per wave close — the full gate:**
+
+```
+npm run verify
+```
+
+Lint and the layer guard cost 26 seconds together and catch nothing that compounds silently, so they
+wait for the wave boundary rather than the commit.
+
+**If a test fails, it is not in the way.** It is either right, or its being wrong is the finding. Do
+not delete it, skip it, or mark it `todo` to keep moving — record it and fix it.
+
+**Write tests as you go; run the suite as above.** A package's regression test is part of the package,
+not of Wave 8. Wave 8 is where the whole thing is stabilised, not where testing begins.
 
 ## 8. The work packages
 
@@ -262,6 +304,22 @@ Facelift stage 5. **`L1-F8-T1` is the last unbuilt L1 product feature.**
 | **W7-5** | Error, 404 and the global error boundary brought into the family. `global-error.tsx` uses inline styles and a system font because it cannot see the stylesheet — inline the wash and an inline SVG mark | `src/app/error.tsx`, `global-error.tsx`, `not-found.tsx` | All three look like the product |
 | **W7-6** | Contrast, focus and 44px pass, plus a **60fps pass on a real device**. Six `backdrop-blur` surfaces sit over a live WebGL canvas — the standing perf risk | all touched surfaces | No contrast failure at AA; no touch target under 44px; the map holds frame rate while the sheet is open |
 
+### Wave 8 — stabilise · after all 41 packages, not before
+
+**Nothing here starts until Waves 0–7 are closed.** This is the pass that turns a stack of correct
+packages into a product that holds together.
+
+| ID | Package | Exit criterion |
+|---|---|---|
+| **W8-1** | Full `npm run verify` on the top of the stack, and on each wave branch | Green everywhere, or every failure recorded with its cause |
+| **W8-2** | Fix everything lint and the layer guard surface — they have been deferred since Wave 0 and will have accumulated | Zero violations; no rule disabled to achieve it |
+| **W8-3** | Run the whole suite and fix every regression. Add the missing regression test for any defect fixed without one | Tests ≥ 2017 + one per defect; no skipped or `todo` tests added during the run |
+| **W8-4** | **The four quality gates in §8a**, judged by an agent that built none of it | Q1–Q4 pass, each with its evidence |
+| **W8-5** | Polish pass: the findings Q1's walkthrough produced, in severity order | Every finding fixed or recorded with a reason |
+| **W8-6** | Real-device pass — 60fps with the sheet open over the live map, and the contrast/44px sweep | No frame-rate regression; no AA failure; no target under 44px |
+| **W8-7** | Documents reconciled. Any document this run proved wrong is corrected **in the same branch** | `current-state.md` reflects the end state; no document contradicts the code |
+| **W8-8** | The report (§11) | Written, with every KPI measured rather than asserted |
+
 ## 8a. The quality bar — because none of §5 measures beauty
 
 Every KPI in §5 is a grep. You can hit all fourteen and still ship something nobody would screenshot.
@@ -321,7 +379,7 @@ is not finished.** The counts exist to make the work checkable; they were never 
 ## 11. Report at the end
 
 A single `docs/overnight-run-report.md`:
-1. The ledger, all 41 rows
+1. The ledger, all 49 rows
 1b. The four quality gates, each with its evidence
 2. Every KPI from §5 with its measured value
 3. What was **not** completed and precisely why
