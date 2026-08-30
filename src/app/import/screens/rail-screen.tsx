@@ -7,15 +7,23 @@
  * private to this file; only `RailScreen` is exported.
  *
  * **The rail may claim no stage the server did not send** (`facelift-plan.md` §5, and the reason
- * `resolve` is not in `stages` below). **W6-2 edits this file next**: it splits the source fetch
- * into its own sub-second request, which finally lets `source: done` be reported when the fetch
- * *resolves* rather than when it is issued, and deletes the honest approximation that stands in for
- * it today. The sequencing itself belongs to the run module, not here — one `AbortController` has
- * to cover both requests or Cancel stops covering either.
+ * `resolve` is not in `stages` below).
+ *
+ * W6-2 split the source fetch into its own sub-second request, so `source: done` is now reported
+ * when the fetch **resolves** rather than when it is issued, and the honest approximation that
+ * stood in for that is deleted rather than kept alongside it. The sequencing lives in
+ * `_lib/use-import-run.ts`, not here: one `AbortController` has to cover both requests or Cancel
+ * stops covering either.
+ *
+ * What that buys this screen is `rail.post` — the thumbnail, the `@handle` and the caption of the
+ * post the user just pasted, on screen within about a second while the 7-34s model call runs
+ * underneath. **It renders only when the server has actually sent it.** `post === null` means the
+ * preview has not landed or did not, and the honest rendering of both is the block simply not
+ * being there; nothing here may fill it from the pasted URL or from a timer.
  */
 
 import { useEffect, useState } from 'react';
-import { Check, Loader2 } from 'lucide-react';
+import { Check, Link2, Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -82,6 +90,51 @@ export function RailScreen({
           {railWaitLine(elapsedMs)}
         </p>
       </div>
+
+      {/* The post, once the server has actually sent it (`RailState.post`, W6-2). Its visual
+          language is the review screen's source row on purpose: the same 48px still, the same
+          handle line, so the object the user is watching being read is recognisably the same
+          object they then confirm.
+
+          The caption is shown expanded and clamped rather than behind a disclosure. On the review
+          screen the caption is evidence for a rarer question and is collapsed by default; here it
+          is the only thing on screen that proves we read the right post, and there is nothing else
+          for the user to do for the next half-minute. Four lines is enough to recognise a post and
+          short enough that the rail stays the subject. */}
+      {rail.post !== null && (
+        <div className="mb-8 flex flex-col gap-2.5 rounded-lg border border-border/70 bg-card p-3">
+          <div className="flex items-center gap-3">
+            {rail.post.thumbnailUrl ? (
+              // A signed, ~6-month-expiry remote TikTok CDN URL; not worth a next/image
+              // remotePatterns entry. `referrerPolicy="no-referrer"` for the same reason the review
+              // screen's copy of this row carries it: without it the browser hands TikTok's CDN the
+              // URL of the screen the user is on. It does not hide the request — the CDN still sees
+              // the IP and the user agent — it only stops us telling them where from.
+              <img
+                src={rail.post.thumbnailUrl}
+                alt=""
+                referrerPolicy="no-referrer"
+                className="size-12 shrink-0 rounded-md object-cover"
+              />
+            ) : (
+              <span
+                aria-hidden
+                className="flex size-12 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground"
+              >
+                <Link2 className="size-4" />
+              </span>
+            )}
+            <p className="min-w-0 truncate text-sm font-semibold text-foreground">
+              {rail.post.authorHandle ? `@${rail.post.authorHandle}’s TikTok` : 'This TikTok'}
+            </p>
+          </div>
+          {rail.post.caption !== null && (
+            <p className="line-clamp-4 text-caption font-medium text-muted-foreground">
+              {rail.post.caption}
+            </p>
+          )}
+        </div>
+      )}
 
       <ol className="flex flex-col gap-0">
         {stages.map((stage, i) => (

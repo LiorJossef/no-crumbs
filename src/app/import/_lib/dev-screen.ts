@@ -188,9 +188,18 @@ export function parseDevScreen(raw: string | null | undefined): Screen | null {
   if (raw === null || raw === undefined || raw === '') return null;
 
   if (raw === 'rail') {
+    // The state W6-2 exists to make possible: the source stage genuinely settled, the post on
+    // screen, and extraction still running underneath. The bare `source: 'active'` rail that
+    // precedes it lasts about a second and has nothing on it to judge.
     return {
       kind: 'rail',
-      rail: { ...RAIL_IDLE, source: 'done', sourceFact: 'Read @demo’s TikTok', extract: 'active' },
+      rail: {
+        ...RAIL_IDLE,
+        source: 'done',
+        sourceFact: 'Read @demo’s TikTok',
+        extract: 'active',
+        post: DEV_PROBE,
+      },
     };
   }
   if (raw === 'review') return { kind: 'caption_preview', probe: DEV_PROBE };

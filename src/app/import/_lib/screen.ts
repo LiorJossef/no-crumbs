@@ -8,16 +8,14 @@
  * slice of; it lives apart from the shell because three of Wave 6's packages widen it and would
  * otherwise all be edits to the same 2,300-line file.
  *
- * **W6-2** adds `RailState.post: SourcePreview | null` so the rail can show the thumbnail, handle
- * and caption while extraction runs. **W6-3** adds `PAYOFF_HOLD_MS` beside `RAIL_IDLE`. **W6-5**
- * changes the `no_places` variant to `{ kind: 'no_places'; probe: ProbeSuccess }`
- * (`spec-no-places-found.md` §10.1).
+ * **W6-3** adds `PAYOFF_HOLD_MS` beside `RAIL_IDLE`. **W6-5** changes the `no_places` variant to
+ * `{ kind: 'no_places'; probe: ProbeSuccess }` (`spec-no-places-found.md` §10.1).
  */
 
 import type { DomainErrorCode } from '@/domain/errors';
 import type { PreSubmitErrorCode } from '@/ui/import/import-error-copy';
 
-import type { ProbeSuccess } from './probe-contract';
+import type { ProbeSuccess, SourcePreview } from './probe-contract';
 
 /* ------------------------------------------------------------------------------------------- *
  * Local state — modelled after the real event vocabulary so the eventual stream consumer is a
@@ -33,6 +31,18 @@ export interface RailState {
   readonly sourceFact: string | null; // C10
   readonly extractFact: string | null; // C13/C14/C15
   readonly candidateProgress: { readonly index: number; readonly total: number } | null; // C18
+  /**
+   * The post itself, once `/api/imports/source-preview` has actually answered — never before, and
+   * never inferred from anything (W6-2).
+   *
+   * This is the field that makes the rail worth watching: oEmbed answers in under a second and the
+   * model call behind the probe measured 7-34s, so for that whole wait the screen can show the
+   * thumbnail, the `@handle` and the caption of the post the user just pasted. `null` means the
+   * preview has not landed — either it is still in flight, or it failed, and a rail with a
+   * `source` stage still reading `active` is the honest rendering of both. Nothing here may be
+   * filled in from the pasted URL or from a timer.
+   */
+  readonly post: SourcePreview | null;
 }
 
 export const RAIL_IDLE: RailState = {
@@ -42,6 +52,7 @@ export const RAIL_IDLE: RailState = {
   sourceFact: null,
   extractFact: null,
   candidateProgress: null,
+  post: null,
 };
 
 /** The screens this page can be in. `paste` covers both the empty field and an inline-invalid

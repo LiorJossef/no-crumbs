@@ -42,7 +42,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { canonicaliseTikTokUrl } from '@/domain/source/canonicalise-tiktok-url';
 import { toDomainErrorCode, type PreSubmitErrorCode } from '@/ui/import/import-error-copy';
 
-import type { ProbeErrorBody, ProbeSuccess } from './probe-contract';
+import type { ProbeErrorBody, ProbeSuccess, SourcePreview } from './probe-contract';
 import { RAIL_IDLE, type Screen } from './screen';
 
 /** What the shell needs in order to render and drive one run. */
@@ -201,17 +201,37 @@ async function submit(target: string = url) {
     return;
   }
 
-  // A real TikTok link: `/api/imports/probe` is one round trip that now runs the real oEmbed
-  // fetch, the real caption extraction *and* the real `PlaceExtractor` call before it responds
-  // (`route.ts`'s header) — there is no server-sent boundary between "source done" and
-  // "extraction started". oEmbed + caption parsing is sub-second next to a real local-model
-  // call (7-34s measured), so the honest approximation is: show `source` active for the
-  // request's very first tick, then flip to `source: done, extract: active` right after the
-  // fetch is *issued* (not after it resolves) — the rail's `extract` step then genuinely spans
-  // the real, multi-second wall-clock time the request is in flight, rather than flashing for
-  // 0ms after the response already arrived.
-  // The in-flight guard. Synchronous, and ahead of every `await` in this function, so a second
-  // call dispatched in the same task sees it — see `inFlightProbe`.
+  /*
+   * A real TikTok link: **two round trips, in sequence, and no stream** (W6-2).
+   *
+   * `/api/imports/source-preview` answers in under a second with the post — thumbnail, `@handle`,
+   * caption. `/api/imports/probe` then takes the 7-34s a real model call measures, and answers
+   * with the places. Each `setScreen` below reports a stage only once the server has actually
+   * said so.
+   *
+   * **What this deleted, and why it had to go.** There used to be one request, and the rail flipped
+   * `source: 'done'` with the fact `'Read the TikTok'` immediately after the fetch was *issued* —
+   * a comment here called it "the honest approximation" available with one round trip, which it
+   * was. With two it is no longer needed, and `facelift-plan.md` §5 and the run's rule 3 forbid a
+   * stage claim the server did not send. It is not kept alongside the real one.
+   *
+   * **In sequence rather than in parallel, deliberately.** `oembedSourceAdapter.fetch` is
+   * cache-through against `public.sources`, so the probe's own source fetch for the same video is
+   * a database read *once the preview has written that row*. Issued in parallel both would miss a
+   * cold cache and both would hit TikTok, doubling the upstream cost per import for no latency
+   * gain — the total is bounded by the model call either way. The user still sees the post 7-34s
+   * earlier, which is the entire point.
+   *
+   * **A preview failure is silent.** The probe runs regardless and is the sole authority on
+   * whether the import failed, so there is exactly one path to a failure screen and no way for the
+   * two responses to disagree on screen. Nor does it cost a wait: the probe fails at its own
+   * source stage, before any model call, with the same code.
+   *
+   * The in-flight guard. Synchronous, and ahead of every `await` in this function, so a second
+   * call dispatched in the same task sees it — see `inFlightProbe`. **One controller covers both
+   * requests**, which is why this sequencing lives here and not in `rail-screen.tsx`: Cancel has to
+   * abort whichever is in flight, and the ownership guard has to cover both responses.
+   */
   if (inFlightProbe.current !== null) return;
   const probe = new AbortController();
   inFlightProbe.current = probe;
@@ -223,20 +243,51 @@ async function submit(target: string = url) {
 
   setScreen({ kind: 'rail', rail: { ...RAIL_IDLE, source: 'active' } });
 
-  try {
-    const fetchPromise = fetch('/api/imports/probe', {
+  const post = async (route: string): Promise<Response> =>
+    fetch(route, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url: target }),
       signal: probe.signal,
     });
 
-    setScreen({
-      kind: 'rail',
-      rail: { ...RAIL_IDLE, source: 'done', sourceFact: 'Read the TikTok', extract: 'active' },
-    });
+  try {
+    /**
+     * Round trip 1 — the post. Its only job is to fill the rail's `source` stage with something
+     * true, so anything other than a well-formed success is dropped: a preview failure leaves
+     * `source` reading `active` and `post` null, which is exactly what "we are still reading it"
+     * looks like and is the honest rendering of "we could not". `stillCurrent()` gates it like
+     * every other response here.
+     */
+    let preview: SourcePreview | null = null;
+    try {
+      const previewRes = await post('/api/imports/source-preview');
+      const previewBody = (await previewRes.json()) as SourcePreview | ProbeErrorBody;
+      if (!stillCurrent()) return;
+      if (previewRes.ok && !('error' in previewBody)) {
+        preview = previewBody;
+        setScreen({
+          kind: 'rail',
+          rail: {
+            ...RAIL_IDLE,
+            source: 'done',
+            // The real handle off the real response, never the pasted URL.
+            sourceFact: previewBody.authorHandle
+              ? `Read @${previewBody.authorHandle}'s TikTok`
+              : 'Read the TikTok',
+            extract: 'active',
+            post: previewBody,
+          },
+        });
+      }
+    } catch (e) {
+      // An abort must not be swallowed here — it would fall through into the probe below and
+      // issue a request the user has already cancelled. Every other preview failure is dropped.
+      if (probe.signal.aborted || !stillCurrent()) throw e;
+    }
 
-    const res = await fetchPromise;
+    // Round trip 2 — the places.
+    const res = await post('/api/imports/probe');
     const body = (await res.json()) as ProbeSuccess | ProbeErrorBody;
     if (!stillCurrent()) return;
 
@@ -256,6 +307,11 @@ async function submit(target: string = url) {
         sourceFact: body.authorHandle ? `Read @${body.authorHandle}'s TikTok` : 'Read the TikTok',
         extract: 'done',
         extractFact: n === 0 ? 'No places named' : n === 1 ? '1 place found' : `${n} places found`,
+        // The post stays on the rail through the payoff beat. `body` is a `ProbeSuccess`, which
+        // extends `SourcePreview`, so this is the same object shape the preview supplied — falling
+        // back to it means a rail whose preview failed still gets the post at this point rather
+        // than losing the block it had never shown.
+        post: preview ?? body,
       },
     });
     // The modal outcome of an import gets its own screen. It had one all along — `NoPlacesScreen`

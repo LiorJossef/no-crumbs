@@ -5,10 +5,9 @@
  * server-only; here it means "not a route, and colocated with the one screen that uses it". Nothing
  * in this directory carries `import 'server-only'` and nothing in it may.
  *
- * Lifted verbatim out of `import-page-client.tsx` (its lines 105-150) by W6-1. **W6-2 edits this
- * file next**: it splits the source fetch into its own sub-second request, which wants a
- * `SourcePreview` type here — `ProbeSuccess` minus `extractionId` and `candidates` — with
- * `ProbeSuccess` extending it, so the two responses are provably the same fields.
+ * Lifted verbatim out of `import-page-client.tsx` (its lines 105-150) by W6-1, and widened by W6-2
+ * into the two round trips an import now makes: `SourcePreview` (the post, sub-second) and
+ * `ProbeSuccess` (the places, 7-34s), the second extending the first.
  */
 
 import type { StoredResolution } from '@/domain/import/resolution-record';
@@ -18,12 +17,36 @@ import type { PlaceCandidate } from '@/domain/types';
  * `/api/imports/probe` — the throwaway route wired in ahead of the real streaming route
  * (L0-F6-T1). Proves the real oEmbed fetch + caption extraction reach this screen: no LLM, no
  * candidates, no `runImport`. See `src/app/api/imports/probe/route.ts`'s header.
+ *
+ * Since W6-2 it is the **second** of two round trips. `/api/imports/source-preview` answers first
+ * with the post alone; this one answers with the places. There is still no stream anywhere —
+ * `overnight-run-plan.md` §9 leaves `L0-F6` unfunded and `facelift-plan.md` §4 decision 4 forbids
+ * shipping a more convincing fake in its place.
  * ------------------------------------------------------------------------------------------- */
 
-export interface ProbeSuccess {
-  /** The real `sources.id` row this probe fetched/cached — carried through so a later save (even
-   *  with zero candidates) links this source instead of silently sending `sourceId: null`. */
+/**
+ * What `POST /api/imports/source-preview` returns: the post itself, and nothing about places.
+ *
+ * The sub-second half of an import. oEmbed answers in under a second while the model call behind
+ * the probe measured 7-34s, so this is what the rail can put on screen — the thumbnail, the
+ * `@handle`, the caption — while extraction runs underneath.
+ *
+ * **`ProbeSuccess` extends it rather than repeating its fields**, so the two responses are provably
+ * the same shape and a screen written against one cannot be handed the other and silently miss a
+ * field. Everything the probe adds is about *places*, which is exactly the axis the split is on.
+ */
+export interface SourcePreview {
+  /** The real `sources.id` row this fetch cached — carried through so a later save (even with zero
+   *  candidates) links this source instead of silently sending `sourceId: null`. */
   readonly sourceId: string;
+  readonly authorHandle: string | null;
+  readonly authorName: string | null;
+  readonly canonicalUrl: string;
+  readonly thumbnailUrl: string | null;
+  readonly caption: string | null;
+}
+
+export interface ProbeSuccess extends SourcePreview {
   /**
    * The `extractions` row the probe route persisted for this source. Every place fact a save
    * writes is derived server-side from that row, so this id — not a payload of names and
@@ -34,11 +57,6 @@ export interface ProbeSuccess {
    * be authorised.
    */
   readonly extractionId: string | null;
-  readonly authorHandle: string | null;
-  readonly authorName: string | null;
-  readonly canonicalUrl: string;
-  readonly thumbnailUrl: string | null;
-  readonly caption: string | null;
   /**
    * The real, plausibility-filtered candidates from the real `PlaceExtractor`, each carrying the
    * resolver's answer for it (`resolution`). Empty when `caption` was null (no LLM call on

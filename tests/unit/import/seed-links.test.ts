@@ -85,10 +85,24 @@ describe('a seed takes the same path as a paste', () => {
 
   it('routes the seed through submit(), with no fetch of its own', () => {
     expect(CLIENT).toContain('void submit(seedUrl)');
-    // One import request site in the whole component. A second call to the probe route would be
-    // a seed-only path — which is exactly what this affordance must not have. (The two other
-    // `fetch`es in the file are the confirm/save route, reached only from the review screen.)
-    expect(CLIENT.match(/fetch\('\/api\/imports\/probe'/g) ?? []).toHaveLength(1);
+    /*
+     * One request site per import route in the whole screen. A second call to either would be a
+     * seed-only path, which is exactly what this affordance must not have, and the probe route
+     * spends a Gemini call against a hard 500/day budget.
+     *
+     * This used to count `fetch('/api/imports/probe'` literals and expect one. W6-2 made the
+     * import two round trips — `/api/imports/source-preview` then `/api/imports/probe` — issued
+     * through one small `post(route)` helper that carries the shared `AbortController`, so the
+     * literal it counted no longer exists and the assertion would have counted **zero** and
+     * passed. Restated against what is now true, and deliberately stricter: it pins both routes,
+     * *and* pins that there is exactly one `fetch(` in the whole screen, which is the property the
+     * old count was standing in for.
+     */
+    expect(CLIENT.match(/post\('\/api\/imports\/probe'\)/g) ?? []).toHaveLength(1);
+    expect(CLIENT.match(/post\('\/api\/imports\/source-preview'\)/g) ?? []).toHaveLength(1);
+    // The confirm/save route lives in `_lib/save-extracted-candidates.ts` and has its own `fetch`;
+    // this counts the run module's, which is the one the cost rule is about.
+    expect(CLIENT.match(/\bfetch\(route,/g) ?? []).toHaveLength(1);
   });
 
   /**
