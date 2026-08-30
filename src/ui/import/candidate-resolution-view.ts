@@ -197,6 +197,9 @@ export function savedPlaceName(
  * An `ambiguous` candidate with no model coordinate and no pick yet is deliberately **not**
  * saveable: the server would return `skipped` for it, and counting it on the Save button would be
  * a promise the request cannot keep.
+ *
+ * **Saveable is not the same question as ticked-on-arrival**, and conflating them was defect G5 —
+ * see `arrivesTicked` below, which is what the review screen seeds its selection from.
  */
 export function willSave(
   modelHasCoordinates: boolean,
@@ -204,6 +207,40 @@ export function willSave(
   pick: number | null,
 ): boolean {
   return effectivePick(view, pick) !== null || modelHasCoordinates;
+}
+
+/**
+ * Whether the review screen ticks this candidate **before the user has touched it**.
+ *
+ * `willSave` answers "would Save write this?"; this answers "should Save write this without being
+ * asked?". They were the same function until 2026-08-31, and the gap between the two questions was
+ * growth defect G5: a `capped` candidate — one past `MAX_CANDIDATES`, which the resolver **never
+ * looked at** — arrived ticked whenever the model had produced a coordinate, so the card carrying
+ * the least provenance on the screen was saved by default. Nothing had verified that pin and
+ * nothing had claimed to.
+ *
+ * The line is drawn at *was this candidate put to the resolver at all*, and only there:
+ *
+ *  - `matched` / `ambiguous`-with-a-pick — a provider row. Ticked.
+ *  - `unresolved` / `failed` with a model coordinate — the degraded path the owner ruled in on
+ *    2026-08-28 (*resolution must never dead-end*). We looked, we got nothing back, and the card
+ *    says `Pin from the caption` about the pin it is about to save. **Still ticked**, deliberately:
+ *    this is not the defect, and un-ticking it would quietly repeal that ruling.
+ *  - `capped` / `not_attempted` with a model coordinate — **not** ticked. Not because the pin is
+ *    worse than the one above it (it is the same model coordinate) but because nothing about it has
+ *    been checked, and the default has to be the one that does not decide on the user's behalf.
+ *
+ * It is a *default*, not a veto. Such a candidate stays saveable, keeps its checkbox, is counted in
+ * `saveableIndices`, and is included by `Select all` — one tap saves it, and the card states its
+ * provenance while the user is deciding (`resolverPinLine`). Making it unsaveable would trade one
+ * silent decision for another.
+ */
+export function arrivesTicked(
+  modelHasCoordinates: boolean,
+  view: CandidateResolutionView,
+): boolean {
+  if (view.kind === 'capped' || view.kind === 'not_attempted') return false;
+  return willSave(modelHasCoordinates, view, null);
 }
 
 /**
@@ -291,7 +328,7 @@ export function resolutionExplanation(view: CandidateResolutionView): string | n
  * case that has no pin at all, where the screen keeps saying what it already said
  * (`candidate-presentation.ts`'s `locationLine`: "We couldn't place this one").
  *
- * Three answers, and they are the three provenances a save can actually have:
+ * Four answers, and they are the provenances a save can actually have:
  *
  *  - **"Pin from the map data"** — a picked or auto-accepted shortlist entry. The venue's own
  *    coordinate; measured 11 m out for HaKosem.
@@ -306,6 +343,8 @@ export function resolutionExplanation(view: CandidateResolutionView): string | n
  *    approximate" reads as a hedge on a match rather than as the absence of one. This line and
  *    `lookupFailureNotice` are the two places the screen states that the coordinate came from what
  *    the caption said and not from a place database.
+ *  - **"Pin from the caption. We didn’t check this one."** — the same coordinate, and a second fact
+ *    the bare line above would misstate. See the `capped`/`not_attempted` paragraph below.
  *
  * `ambiguous` used to be excluded from that last case on the grounds that its pin is waiting on a
  * decision rather than on the data. That is true only while there is no model coordinate to save
@@ -316,9 +355,22 @@ export function resolutionExplanation(view: CandidateResolutionView): string | n
  * `ambiguous` means exactly that case: options exist, none is picked, and the model gave a pin.
  * (`matched` can never reach here — `effectivePick` always returns its top entry.)
  *
- * `not_attempted`/`capped` stay excluded: they were never put to the resolver at all, so
- * contrasting them *with* a place database would claim a search that never happened — "we never
- * looked" is not "we looked and found nothing" (`resolution-record.ts`).
+ * `not_attempted`/`capped` get their **own** line, and the reason they cannot share the one above
+ * is the reason they had none at all until 2026-08-31: they were never put to the resolver, so the
+ * bare "Pin from the caption" — which contrasts the caption *with* a place database — would claim a
+ * search that never happened. "We never looked" is not "we looked and found nothing"
+ * (`resolution-record.ts`), and that distinction is not negotiable.
+ *
+ * Silence turned out to be the worse of the two errors, though. These cards still save the model's
+ * coordinate when they have one, so the card carrying the least provenance on the screen was the
+ * one card saying nothing about where its pin came from — and beside a sibling reading "Pin from
+ * the map data", saying nothing reads as having nothing to declare. So both facts are stated and
+ * neither is implied: where the pin came from, and that nobody checked it.
+ *
+ * It stops there. It does not say *why* nobody checked it: the cap is ours, not the post's, and
+ * "only the first N candidates are looked up" is machinery, not news the reader can act on. And
+ * with no model coordinate there is no pin to have a provenance, so it stays `null` and
+ * `locationLine`'s "We couldn't place this one" is still the whole truth.
  */
 export function resolverPinLine(
   view: CandidateResolutionView,
@@ -339,6 +391,13 @@ export function resolverPinLine(
     // whole job is the provenance. The row also wraps now rather than truncating, so a future
     // longer string degrades visibly instead of silently.
     return 'Pin from the caption';
+  }
+  if (modelHasCoordinates && (view.kind === 'capped' || view.kind === 'not_attempted')) {
+    // Two sentences rather than one clause, and longer than the line above on purpose: the row
+    // wraps (see the note above) and the second fact is the one that stops this reading as a
+    // match. The short-line constraint that shaped "Pin from the caption" was a truncation
+    // hazard, and truncation is no longer how this row degrades.
+    return 'Pin from the caption. We didn’t check this one.';
   }
   return null;
 }

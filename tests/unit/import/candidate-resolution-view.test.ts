@@ -231,9 +231,31 @@ describe('the pin line', () => {
     expect(resolverPinLine(ambiguous, null, true)).toBe('Pin from the caption');
   });
 
-  it('still hands the line back for the two states that were never put to the resolver', () => {
-    // "We never looked" is not "we looked and found nothing" — see the function's header.
-    expect(resolverPinLine(resolutionView(null), null, true)).toBeNull();
+  /**
+   * This assertion used to read `expect(resolverPinLine(resolutionView(null), null, true))
+   * .toBeNull()` for the never-looked states. The reasoning behind it was right and is unchanged —
+   * "we never looked" is not "we looked and found nothing", so these two may never render the bare
+   * `Pin from the caption`, which contrasts the caption *with* a place database.
+   *
+   * What was wrong was the conclusion drawn from it. Silence left the card that saves the model's
+   * coordinate with *nothing* said about where the pin came from, beside siblings reading `Pin from
+   * the map data` — which is not neutrality, it reads as having nothing to declare. They get their
+   * own line instead of the wrong one (defect G5, 2026-08-31).
+   */
+  it('says both facts for the states that were never put to the resolver', () => {
+    expect(resolverPinLine(resolutionView(null), null, true)).toBe(
+      'Pin from the caption. We didn’t check this one.',
+    );
+    expect(resolverPinLine(resolutionView({ kind: 'capped' }), null, true)).toBe(
+      'Pin from the caption. We didn’t check this one.',
+    );
+  });
+
+  it('says nothing about a pin when there is no pin', () => {
+    // No model coordinate: there is no provenance to state, and `locationLine`'s "We couldn't
+    // place this one" is still the whole truth.
+    expect(resolverPinLine(resolutionView(null), null, false)).toBeNull();
+    expect(resolverPinLine(resolutionView({ kind: 'capped' }), null, false)).toBeNull();
     expect(resolverPinLine(resolutionView(answered('no_match', [])), null, false)).toBeNull();
   });
 

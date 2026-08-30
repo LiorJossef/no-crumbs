@@ -73,6 +73,7 @@ import {
 } from '@/domain/import/candidate-presentation';
 import type { StoredResolution } from '@/domain/import/resolution-record';
 import {
+  arrivesTicked,
   collapsesToOneResult,
   effectivePick,
   pickRequiredNotice,
@@ -1472,12 +1473,24 @@ function CaptionPreviewScreen({
    * Nothing is lost by ticking a duplicate: `save_place` is idempotent on `(user_id, place_id)`,
    * so re-saving a place the user has is a no-op that reports `already_saved` afterwards — which
    * is where that fact belongs, on the outcome rather than as a warning to read beforehand.
+   *
+   * **With one exception, and it is not that ruling being walked back** (defect G5, 2026-08-31).
+   * `arrivesTicked` withholds the tick from the two views nothing was ever *looked up* for —
+   * `capped` (past `MAX_CANDIDATES`) and `not_attempted` — which used to arrive ticked whenever the
+   * model had guessed a coordinate, so the card with the least provenance on the screen saved by
+   * default. The 2026-08-29 ruling is about a place we found and the user already has; this is
+   * about a place nobody checked. Everything else the ruling covers still arrives ticked, including
+   * the `unresolved`/`failed` cards whose pin also comes from the caption — we looked for those.
+   *
+   * `saveableIndices` above deliberately still counts them: they keep their checkbox, `Select all`
+   * includes them, and the card says where its pin came from while the user decides
+   * (`resolverPinLine`). This is a default, not a veto.
    */
   const [selected, setSelected] = useState<ReadonlySet<number>>(
     () =>
       new Set(
         probe.candidates
-          .map((c, i) => (willSave(isSaveable(c), views[i]!, null) ? i : -1))
+          .map((c, i) => (arrivesTicked(isSaveable(c), views[i]!) ? i : -1))
           .filter((i) => i >= 0),
       ),
   );
