@@ -5,6 +5,26 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+    /*
+     * Three faces, and the split between them is a ruling rather than a preference
+     * (`brand-and-product-foundation.md` §3.1, second pass, 2026-08-30).
+     *
+     * `--font-display` is **Fraunces** — a variable display serif, run with `SOFT` at 60 and `WONK`
+     * on — and it carries the wordmark and the large editorial headings, and nothing else. It
+     * replaced Archivo, which was retired for being a near-miss: Archivo and Manrope are both
+     * grotesques, too similar to read as a deliberate pairing and too different to read as one
+     * family, which is exactly the "something is off and I cannot say what" the owner reported.
+     *
+     * `--font-heading` stays **Manrope**, deliberately, and must not be repointed at the display
+     * face. Functional labels — `h3`, `h4`, card titles at 15-17px — are the majority of what reads
+     * through it, and a serif at that size turns to mud. So the display face is confined to the
+     * editorial voice and §5's "Manrope only for UI" survives intact.
+     *
+     * Do not add a `font-stretch` axis to any of them. Archivo was variable-width and an expanded
+     * setting visibly distorted the letterforms across every heading in the first draft of the
+     * design-system document.
+     */
+    --font-display: var(--font-display);
     --font-heading: var(--font-heading);
     --font-sans: var(--font-sans);
     --color-sidebar-ring: var(--sidebar-ring);
