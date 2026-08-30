@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
@@ -83,15 +84,45 @@ describe('a seed takes the same path as a paste', () => {
     expect(CLIENT.match(/fetch\('\/api\/imports\/probe'/g) ?? []).toHaveLength(1);
   });
 
-  it('never fires an import from an effect', () => {
-    // The cost rule, as a test: one uncached tap is one Gemini call against a hard 500/day
-    // budget, so no prefetch, no warm-up, nothing on mount. Only event handlers may call submit.
+  /**
+   * The cost rule: one uncached import is one Gemini call against a hard 500/day budget, so no
+   * prefetch, no warm-up, nothing that fires without a user having pressed something.
+   *
+   * This used to be "no effect may call `submit`", which was the right rule expressed as the
+   * shape it happened to take. On 2026-08-30 the `＋` sheet's `Add this TikTok` stopped needing a
+   * second `Add` in the overlay, and the only way to run a link the user submitted in another
+   * component is a mount effect. **The rule did not change; the shape did.** So the assertion is
+   * restated to pin what actually matters, and it is deliberately stricter than the one it
+   * replaces — it now also pins the caller, which the old one never looked at.
+   */
+  it('fires an import from exactly one effect, and only the already-submitted seed', () => {
     const effects = CLIENT.match(/useEffect\([\s\S]*?\n\s*\}, \[[^\]]*\]\);/g) ?? [];
     // Every `useEffect(` in the file, or this assertion is looking at nothing.
     expect(effects).toHaveLength((CLIENT.match(/useEffect\(/g) ?? []).length);
-    for (const effect of effects) {
-      expect(effect).not.toContain('submit(');
-      expect(effect).not.toContain('submitSeed');
-    }
+
+    const submitting = effects.filter((e) => e.includes('submit('));
+    expect(submitting).toHaveLength(1);
+    // And it is the seed one, guarded so it can never spend a second call on a re-mount.
+    expect(submitting[0]).toContain('seedSubmitted.current');
+    expect(CLIENT).toContain('const seedSubmitted = useRef(false)');
+    // No effect may reach the *paste screen's* seed chips, which are still gesture-only.
+    for (const effect of effects) expect(effect).not.toContain('submitSeed');
+  });
+
+  it('is handed an already-submitted link by exactly one caller, and that caller is a submit handler', () => {
+    // The prop spends a model call on mount, so "who may pass it" is now part of the cost rule.
+    // A second caller — or one that prefills rather than submits — is the regression to catch.
+    const callers = execSync(
+      "grep -rn 'initialUrl' src --include='*.tsx' | grep -v 'src/app/import/import-page-client.tsx'",
+      { encoding: 'utf8' },
+    )
+      .trim()
+      .split('\n')
+      .filter((line) => /initialUrl:/.test(line));
+    expect(callers).toHaveLength(1);
+    expect(callers[0]).toContain('src/app/map/map-page-client.tsx');
+
+    const mapClient = readFileSync('src/app/map/map-page-client.tsx', 'utf8');
+    expect(mapClient).toContain('onSubmitTikTok={(url) => openImport(url)}');
   });
 });

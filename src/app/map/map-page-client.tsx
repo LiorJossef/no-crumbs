@@ -918,9 +918,9 @@ export function MapPageClient({
             // The same reveal a manual save gets, and for the same reason: the user named a place,
             // so a filter they set earlier must not be what decides whether they see it.
             onSelectPlace={revealSavedPlace}
-            // The link the user pasted is not carried across yet: `ImportPageClient` has no
-            // `initialUrl` prop, and adding one is a change to a file outside this task's scope.
-            // Until it does, this opens the overlay on its own paste screen.
+            // The link is carried across and **submitted**: `initialUrl` runs the import on mount,
+            // so the sheet's `Add this TikTok` is the only Add between the ＋ and the save. This
+            // callback fires only on that press, which is the prop's stated contract.
             onSubmitTikTok={(url) => openImport(url)}
             onManualSaved={(saved) => revealSavedPlace(saved.savedPlaceId)}
           />

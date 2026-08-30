@@ -253,12 +253,19 @@ export interface ImportPageClientProps {
    *  map owner (`map-page-client.tsx`) uses it to frame the new pins and confirm the save. */
   readonly onSaved?: (detail: SaveOutcomeDetail) => void;
   /**
-   * A link the user already typed somewhere else, to open with.
+   * A link the user has **already submitted** somewhere else. Passing it runs the import.
    *
    * The `＋` sheet has its own field, and reaching this overlay from it used to drop what was in
    * it — the user pasted a TikTok link, pressed the button named after it, and landed on an empty
-   * paste screen being asked for the same link again. Seeded as `touched` too, so a seeded link
-   * that turns out to be invalid says so immediately rather than waiting for a first edit.
+   * paste screen being asked for the same link again. Then it carried the link but still waited on
+   * a second button, also called `Add`, for the same intent: two taps named the same thing, and
+   * the overlay's own comment blamed a prop that by then existed.
+   *
+   * **The contract, and it is load-bearing: only pass this for a link the user pressed a submit
+   * button on.** It costs one model call against a hard daily budget the moment this mounts, so it
+   * is not "prefill the field" — `AddSheetHost.onSubmitTikTok` is the only caller and it fires
+   * only on that press. Seeded as `touched` too, so a seeded link that turns out to be invalid
+   * says so immediately rather than waiting for a first edit.
    */
   readonly initialUrl?: string;
 }
@@ -523,6 +530,28 @@ export function ImportPageClient({ onClose, onSaved, initialUrl }: ImportPageCli
     setTouched(true);
     void submit(seedUrl);
   }
+
+  /**
+   * A link that arrived already submitted runs itself, so `Add this TikTok` is the only `Add`.
+   *
+   * `inFlightProbe` already refuses a *concurrent* second call, but it is cleared when the first
+   * finishes — it cannot stop a re-mount from spending a second model call minutes later. This ref
+   * is the once-ever guard, and it is deliberately not in the dependency array: `initialUrl` is the
+   * link the user pressed a button on, and re-running for a new value would be a submit they never
+   * made.
+   */
+  const seedSubmitted = useRef(false);
+  useEffect(() => {
+    if (seedSubmitted.current) return;
+    const seed = initialUrl?.trim() ?? '';
+    if (seed === '') return;
+    seedSubmitted.current = true;
+    // Deferred a microtask rather than called straight: `submit` sets `touched`/`offline`
+    // synchronously before its first await, and setting state inside an effect body cascades a
+    // render. Nothing observable moves — the request is issued in the same frame either way.
+    queueMicrotask(() => void submit(seed));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialUrl]);
 
   /**
    * The real save path (`POST /api/imports/confirm`, L0-F4-T3) wired onto `ResultsScreen`'s
