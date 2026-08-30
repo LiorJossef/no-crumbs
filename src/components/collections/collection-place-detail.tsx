@@ -50,12 +50,16 @@
  * about this place *in this collection*; it is placed and weighted like one.
  */
 
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Check, Pencil, Plus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { InlineConfirm } from '@/components/collections/collection-content';
+import {
+  HostedPaneBackContext,
+  type HostedPaneBackControl,
+} from '@/components/collections/add-to-collection';
 import { PlaceDetail } from '@/components/sheet/place-sheet';
 import { canEdit, memberLabel, FORMER_MEMBER_LABEL } from '@/domain/collections/collection';
 import { SECTION_LABEL } from '@/ui/place/section-label';
@@ -98,6 +102,11 @@ export function CollectionPlaceDetail({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  /** Set while a pane inside `PlaceDetail` — today only the add-to-a-collection picker — has
+   *  borrowed the header's one back control. See `HostedPaneBackContext`. */
+  const [paneBack, setPaneBack] = useState<HostedPaneBackControl | null>(null);
+  const backHost = useMemo(() => ({ setBack: setPaneBack }), []);
+
   /**
    * The viewer's own save of this place, if they have one.
    *
@@ -138,176 +147,181 @@ export function CollectionPlaceDetail({
           not jump when the view changes — which is why it is a header row of this component and not
           something `PlaceDetail` draws inside its own scrolling column (`variant="hosted"` is that
           component agreeing to render no navigation of its own). */}
+      {/* One control, whatever is showing underneath: while a pane has borrowed it, it dismisses
+          the pane instead of the detail, in the same slot and at the same size. Two back-shaped
+          controls on one screen is what `ux-collections-as-scope.md` §2.2 forbids. */}
       <div className="flex shrink-0 items-center gap-1 px-4 pb-1 pt-1">
         <Button
           type="button"
           variant="ghost"
           size="icon-lg"
-          aria-label="Back to the collection"
-          onClick={onBack}
+          aria-label={paneBack ? paneBack.label : 'Back to the collection'}
+          onClick={paneBack ? paneBack.onBack : onBack}
           data-vaul-no-drag
-          className="-ml-2 size-11 shrink-0 rounded-full text-muted-foreground"
+          className="-ms-2 size-11 shrink-0 rounded-full text-muted-foreground"
         >
           <ArrowLeft className="size-4" aria-hidden />
         </Button>
       </div>
 
-      <PlaceDetail
-        place={{
-          // **Both of these follow `mine`, not `place`, and they must move together with
-          //  `detail`.** `CollectionPlace` carries the shared `places` name and a category
-          //  `getCollection` derives with `override: null` — correct for somebody else's place,
-          //  and stale for your own. Mixing the two sources is worse than either: `detail`
-          //  supplies `categoryIsOverridden`, so a screen showing the derived category *and*
-          //  `isOverridden: true` prints a system guess as if it were your choice, and ticks the
-          //  wrong chip — one tap on the chip that already looks selected then overwrites the
-          //  override you actually set.
-          name: mine ? mine.name : place.name,
-          category: mine ? mine.category : place.category,
-          lat: place.lat,
-          lng: place.lng,
-          // Your own TikTok when this is your place; otherwise nothing — the adder's is theirs.
-          // Stated rather than omitted, because the prop is required.
-          sourceUrl: mine ? mine.sourceUrl : undefined,
-          detail: facts,
-        }}
-        /* **The id here must be a `saved_places` id and nothing else.** `place.itemId` is a
-           collection item and `place.placeId` is a shared place; aiming a write at either would
-           hit a row this caller does not own, which is the exact hazard that made this prop
-           required and undefaulted. `mine.id` is the viewer's own saved-place id, so it is the
-           only value that may appear here. `null` when they have no row: every mutation in
-           `PlaceDetail` is gated on this object. */
-        savedPlace={
-          mine
-            ? {
-                id: mine.id,
-                visited: mine.visited,
-                // Spread rather than passed as `undefined`: `exactOptionalPropertyTypes` is on and
-                // "absent" is the honest shape for a marked row with no timestamp. Same
-                // construction as `/map`'s call site (`place-sheet.tsx`), deliberately.
-                ...(mine.detail?.visitedAt ? { visitedAt: mine.detail.visitedAt } : {}),
-              }
-            : null
-        }
-        onClose={onBack}
-        variant="hosted"
-        primaryAction={
-          <div className="flex flex-col gap-3">
-            {/* Attribution is shown only when it was not you: a twelve-row collection where every
-                line reads "Added by you" is noise dressed as information.
-
-                It leads this block rather than sitting down with the provenance the standard sheet
-                puts at its foot, because in a shared collection *who recommended this* is a reason
-                to read on, not a footnote about how the row got here. */}
-            {place.addedBy !== currentUserId ? (
-              <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                <span>Added by</span>
-                <span className="font-bold">
-                  {place.addedBy === null
-                    ? FORMER_MEMBER_LABEL
-                    : memberLabel({ displayName: place.addedByName, isYou: false })}
-                </span>
-              </p>
-            ) : null}
-
-            {/* Somebody adds a place, and everyone else can take it. It saves as `origin = 'manual'`
-                because that is true — the recommendation came from a person, not from a TikTok this
-                user imported.
-
-                Nothing at all once the viewer's own row is in hand: the Been-here toggle now
-                occupies this position, and an inert `Already in your places` sitting beside a live
-                control that says more is noise. */}
-            {mine ? null : place.savedByMe ? (
-              // Deliberately not the button shape: nothing here can undo a save, so an element that
-              // looks like the control above it would be a false affordance.
-              <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-                <Check className="size-4 shrink-0" aria-hidden />
-                Already in your places
-              </p>
-            ) : (
-              <Button
-                type="button"
-                variant="outline"
-                size="lg"
-                className="h-11 w-full justify-center gap-2 rounded-lg text-sm font-bold"
-                disabled={pending}
-                data-vaul-no-drag
-                onClick={() =>
-                  startTransition(async () => {
-                    setError(null);
-                    const result = await saveCollectionPlace(place.placeId);
-                    if (!result.ok) {
-                      setError(result.message);
-                      return;
-                    }
-                    router.refresh();
-                  })
+      <HostedPaneBackContext value={backHost}>
+        <PlaceDetail
+          place={{
+            // **Both of these follow `mine`, not `place`, and they must move together with
+            //  `detail`.** `CollectionPlace` carries the shared `places` name and a category
+            //  `getCollection` derives with `override: null` — correct for somebody else's place,
+            //  and stale for your own. Mixing the two sources is worse than either: `detail`
+            //  supplies `categoryIsOverridden`, so a screen showing the derived category *and*
+            //  `isOverridden: true` prints a system guess as if it were your choice, and ticks the
+            //  wrong chip — one tap on the chip that already looks selected then overwrites the
+            //  override you actually set.
+            name: mine ? mine.name : place.name,
+            category: mine ? mine.category : place.category,
+            lat: place.lat,
+            lng: place.lng,
+            // Your own TikTok when this is your place; otherwise nothing — the adder's is theirs.
+            // Stated rather than omitted, because the prop is required.
+            sourceUrl: mine ? mine.sourceUrl : undefined,
+            detail: facts,
+          }}
+          /* **The id here must be a `saved_places` id and nothing else.** `place.itemId` is a
+             collection item and `place.placeId` is a shared place; aiming a write at either would
+             hit a row this caller does not own, which is the exact hazard that made this prop
+             required and undefaulted. `mine.id` is the viewer's own saved-place id, so it is the
+             only value that may appear here. `null` when they have no row: every mutation in
+             `PlaceDetail` is gated on this object. */
+          savedPlace={
+            mine
+              ? {
+                  id: mine.id,
+                  visited: mine.visited,
+                  // Spread rather than passed as `undefined`: `exactOptionalPropertyTypes` is on and
+                  // "absent" is the honest shape for a marked row with no timestamp. Same
+                  // construction as `/map`'s call site (`place-sheet.tsx`), deliberately.
+                  ...(mine.detail?.visitedAt ? { visitedAt: mine.detail.visitedAt } : {}),
                 }
-              >
-                <Plus className="size-4 shrink-0" aria-hidden />
-                Save to your places
-              </Button>
-            )}
+              : null
+          }
+          onClose={onBack}
+          variant="hosted"
+          primaryAction={
+            <div className="flex flex-col gap-3">
+              {/* Attribution is shown only when it was not you: a twelve-row collection where every
+                  line reads "Added by you" is noise dressed as information.
 
-            {error && !confirming ? (
-              <p role="alert" className="text-sm text-destructive">
-                {error}
-              </p>
-            ) : null}
-          </div>
-        }
-        footer={
-          <>
-            <SharedNote
-              collectionId={collectionId}
-              itemId={place.itemId}
-              note={place.note}
-              editable={editable}
-            />
+                  It leads this block rather than sitting down with the provenance the standard sheet
+                  puts at its foot, because in a shared collection *who recommended this* is a reason
+                  to read on, not a footnote about how the row got here. */}
+              {place.addedBy !== currentUserId ? (
+                <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                  <span>Added by</span>
+                  <span className="font-bold">
+                    {place.addedBy === null
+                      ? FORMER_MEMBER_LABEL
+                      : memberLabel({ displayName: place.addedByName, isYou: false })}
+                  </span>
+                </p>
+              ) : null}
 
-            {editable ? (
-              <div className="border-t border-border/70 pt-4">
-                {confirming ? (
-                  <InlineConfirm
-                    prompt="Remove from this collection?"
-                    confirmLabel="Remove"
-                    pending={pending}
-                    error={error}
-                    onCancel={() => setConfirming(false)}
-                    onConfirm={() =>
-                      startTransition(async () => {
-                        const result = await removeCollectionItem(collectionId, place.itemId);
-                        if (!result.ok) {
-                          setError(result.message);
-                          return;
-                        }
-                        router.refresh();
-                        onBack();
-                      })
-                    }
-                  />
-                ) : (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="lg"
-                    className="h-11 w-full justify-start px-1 text-destructive"
-                    onClick={() => {
+              {/* Somebody adds a place, and everyone else can take it. It saves as `origin = 'manual'`
+                  because that is true — the recommendation came from a person, not from a TikTok this
+                  user imported.
+
+                  Nothing at all once the viewer's own row is in hand: the Been-here toggle now
+                  occupies this position, and an inert `Already in your places` sitting beside a live
+                  control that says more is noise. */}
+              {mine ? null : place.savedByMe ? (
+                // Deliberately not the button shape: nothing here can undo a save, so an element that
+                // looks like the control above it would be a false affordance.
+                <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+                  <Check className="size-4 shrink-0" aria-hidden />
+                  Already in your places
+                </p>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  className="h-11 w-full justify-center gap-2 rounded-lg text-sm font-bold"
+                  disabled={pending}
+                  data-vaul-no-drag
+                  onClick={() =>
+                    startTransition(async () => {
                       setError(null);
-                      setConfirming(true);
-                    }}
-                    data-vaul-no-drag
-                  >
-                    Remove from this collection
-                  </Button>
-                )}
-                {/* Both strings say "from this collection" so it is never mistaken for deleting the
-                    place out of anyone's own library, which this does not do. */}
-              </div>
-            ) : null}
-          </>
-        }
-      />
+                      const result = await saveCollectionPlace(place.placeId);
+                      if (!result.ok) {
+                        setError(result.message);
+                        return;
+                      }
+                      router.refresh();
+                    })
+                  }
+                >
+                  <Plus className="size-4 shrink-0" aria-hidden />
+                  Save to your places
+                </Button>
+              )}
+
+              {error && !confirming ? (
+                <p role="alert" className="text-sm text-destructive">
+                  {error}
+                </p>
+              ) : null}
+            </div>
+          }
+          footer={
+            <>
+              <SharedNote
+                collectionId={collectionId}
+                itemId={place.itemId}
+                note={place.note}
+                editable={editable}
+              />
+
+              {editable ? (
+                <div className="border-t border-border/70 pt-4">
+                  {confirming ? (
+                    <InlineConfirm
+                      prompt="Remove from this collection?"
+                      confirmLabel="Remove"
+                      pending={pending}
+                      error={error}
+                      onCancel={() => setConfirming(false)}
+                      onConfirm={() =>
+                        startTransition(async () => {
+                          const result = await removeCollectionItem(collectionId, place.itemId);
+                          if (!result.ok) {
+                            setError(result.message);
+                            return;
+                          }
+                          router.refresh();
+                          onBack();
+                        })
+                      }
+                    />
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="lg"
+                      className="h-11 w-full justify-start px-1 text-destructive"
+                      onClick={() => {
+                        setError(null);
+                        setConfirming(true);
+                      }}
+                      data-vaul-no-drag
+                    >
+                      Remove from this collection
+                    </Button>
+                  )}
+                  {/* Both strings say "from this collection" so it is never mistaken for deleting the
+                      place out of anyone's own library, which this does not do. */}
+                </div>
+              ) : null}
+            </>
+          }
+        />
+      </HostedPaneBackContext>
     </div>
   );
 }

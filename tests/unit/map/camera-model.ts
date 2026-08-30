@@ -48,14 +48,13 @@ const LG = 1024;
 /**
  * `SHEET_HALF_FRACTION` — the stop the sheet rises to when a place is selected.
  *
- * **Mirrored, and it should not have to be.** `src/components/sheet/place-sheet.tsx` exports it,
- * with a header saying it is exported *because the camera needs it* — but that module transitively
- * imports `server-only` (through `saved-place-edits` / `add-to-collection`), so importing it from a
- * unit test fails at load with *"This module cannot be imported from a Client Component module"*.
- * Until the constant lives somewhere importable, the copy is checked against the source text in
- * `camera-library-shapes.test.ts`.
+ * **No longer mirrored.** It used to be a hand-copied `0.55` here, because `place-sheet.tsx`
+ * exported it and that module transitively imports `server-only`. `NAV2` gave it an importable
+ * home: `src/components/shell/sheet-geometry.ts` is React-free and `server-only`-free precisely so
+ * the camera's numbers can be read from a test, and it is now the one declaration for the whole
+ * product.
  */
-export const SHEET_HALF_FRACTION = 0.55;
+export { HALF_FRACTION as SHEET_HALF_FRACTION } from '@/components/shell/sheet-geometry';
 
 /** The two breakpoints `current-state.md` §9.3 names. The map fills the viewport on both, so the
  *  container and the viewport are the same rectangle. */
@@ -210,7 +209,9 @@ export function visibleBand(viewport: Viewport, bottomOcclusionPx?: number): Vis
 }
 
 export function inBand(point: ScreenPoint, band: VisibleBand): boolean {
-  return point.x >= band.minX && point.x <= band.maxX && point.y >= band.minY && point.y <= band.maxY;
+  return (
+    point.x >= band.minX && point.x <= band.maxX && point.y >= band.minY && point.y <= band.maxY
+  );
 }
 
 /** The union box of a set of points — what a naive `fitBounds` over the whole library frames, and
