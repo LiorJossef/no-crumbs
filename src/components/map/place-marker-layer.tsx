@@ -62,7 +62,10 @@ import {
   pinIconImageExpression,
   pinLayerLayout,
   pinLayerPaint,
+  pinOpacityExpression,
   pinSortKeyExpression,
+  VISITED_LABEL_OPACITY,
+  VISITED_PIN_OPACITY,
 } from './marker-style';
 import type { PlaceFeatureCollection } from './place-features';
 import { styleTextFont } from './style-text-font';
@@ -188,6 +191,18 @@ interface PlaceMarkerLayerProps {
    * header, and `map-surface.mapcn.tsx`, where both are decided by the same expression.
    */
   readonly replacedBelowZoom: number | null;
+  /**
+   * The place the user is **pointing at in the list**, or `null` — `W3-2`, the row↔pin coupling.
+   *
+   * Every other pin quietens to the level a visited pin already sits at, and the pointed-at one is
+   * drawn by `pin-highlight-layer.tsx` instead of here. It is a **paint** change and nothing else:
+   * hover changes at pointer rate, so anything that re-lays-out a symbol is unaffordable at the
+   * 2 000-pin ceiling.
+   *
+   * Deliberately **not** a camera mover, and it must not become one: pointing at a row is not
+   * asking to go there. It does not appear among the eight in `map-page-client.tsx`'s docblock.
+   */
+  readonly hoveredId?: string | null;
   readonly onPlaceClick?: (placeId: string) => void;
 }
 
@@ -195,6 +210,7 @@ export function PlaceMarkerLayer({
   data,
   selectedId,
   replacedBelowZoom,
+  hoveredId = null,
   onPlaceClick,
 }: PlaceMarkerLayerProps) {
   const { map } = useMap();
@@ -339,6 +355,29 @@ export function PlaceMarkerLayer({
     map.setLayoutProperty(pinLayerId, 'icon-image', pinIconImageExpression(selectedId) as never);
     map.setLayoutProperty(pinLayerId, 'symbol-sort-key', pinSortKeyExpression(selectedId) as never);
   }, [map, styleReady, pinLayerId, selectedId]);
+
+  /**
+   * The dim half of the row↔pin coupling, and its own effect rather than part of the one above.
+   *
+   * The selection effect writes **layout** properties, which re-lay-out and re-collide the whole
+   * layer; this one writes **paint**, which the compositor re-evaluates without touching placement.
+   * Folding them together would make a hover cost what a selection costs, on every pointer move
+   * across a list — and that, not the drawing, is the expensive thing at the 2 000-pin ceiling.
+   *
+   * The 160 ms transition is set once at layer creation (`icon-opacity-transition`), so the change
+   * here is a value and MapLibre animates between the two.
+   */
+  useEffect(() => {
+    if (!map || !styleReady || !map.getLayer(pinLayerId)) return;
+    map.setPaintProperty(pinLayerId, 'icon-opacity', pinOpacityExpression(
+      VISITED_PIN_OPACITY,
+      hoveredId,
+    ) as never);
+    map.setPaintProperty(pinLayerId, 'text-opacity', pinOpacityExpression(
+      VISITED_LABEL_OPACITY,
+      hoveredId,
+    ) as never);
+  }, [map, styleReady, pinLayerId, hoveredId]);
 
   return null;
 }

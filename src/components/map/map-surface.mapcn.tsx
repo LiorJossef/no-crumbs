@@ -73,6 +73,7 @@ import { nearbyPlaces } from '@/ui/place/nearby';
 import { BasemapTint } from './basemap-tint-layer';
 import { toPlaceFeatures } from './place-features';
 import { PlaceMarkerLayer } from './place-marker-layer';
+import { PinHighlightLayer } from './pin-highlight-layer';
 import { ensureRtlTextPlugin } from './rtl-text';
 import {
   bandForZoom,
@@ -390,6 +391,7 @@ export function MapSurfaceMapcn({
   floatingTopChromePx,
   onViewportChange,
   controlSlot,
+  hoveredPlaceId,
 }: MapSurfaceProps) {
   const data = useMemo(() => toPlaceFeatures(places), [places]);
   /** The open pin's neighbours, for the popover's `Nearby` section. Same rule as the mobile
@@ -1339,6 +1341,7 @@ export function MapSurfaceMapcn({
         // bands (`/collections/[id]`) gets `null` and keeps every pin at every zoom, instead of
         // going blank below z8.5 with nothing drawn in their place — see `place-marker-layer.tsx`.
         replacedBelowZoom={hasSummaryBands ? PIN_BAND_MIN : null}
+        hoveredId={hoveredPlaceId ?? null}
         onPlaceClick={(id) => {
           const place = places.find((candidate) => candidate.id === id);
           // Selection lives with the caller (`map-page-client.tsx`'s `selected` state) — this
@@ -1346,6 +1349,15 @@ export function MapSurfaceMapcn({
           // any other consumer of it does.
           if (place && onPlaceClick) onPlaceClick(place);
         }}
+      />
+      {/* The lifted, named pin for whichever row the pointer is on. Mounted *after* the pin layer,
+          which is what puts it above — MapLibre draws in the order layers are added, and the
+          highlight has to be on top of the neighbour it overlaps. It answers no pointer events, so
+          the pin underneath it keeps owning taps. See `pin-highlight-layer.tsx`. */}
+      <PinHighlightLayer
+        data={data}
+        hoveredId={hoveredPlaceId ?? null}
+        replacedBelowZoom={hasSummaryBands ? PIN_BAND_MIN : null}
       />
       {selected && (
         // Anchored at the selected place's own lng/lat — mapcn's `MapPopup` keeps a MapLibre

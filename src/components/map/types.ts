@@ -172,6 +172,21 @@ export interface MapSurfaceProps {
    *  popup (or no handler) simply never calls it. */
   readonly onDeselect?: () => void;
   /**
+   * The place the user is **pointing at in the list**, or `null` — the row↔pin coupling (`W3-2`,
+   * `facelift-plan.md` §3a: *"pins and rows are the same object"*).
+   *
+   * A surface answers it by quietening every other pin and drawing this one lifted and named. It is
+   * a **hint about attention, not about state**: it does not select, it does not persist, it does
+   * not survive a pointer leaving the row, and it is emphatically **not a camera mover** — pointing
+   * at a row is not asking to go there, and it must never be added to the eight movers enumerated
+   * in `map-page-client.tsx`. A surface is free to ignore it entirely; `map-surface.mock.tsx` does.
+   *
+   * Separate from `selected` because the two mean different things and can be true at once: a
+   * selection is a decision the user made and a hover is where their pointer happens to be. A
+   * surface that conflated them would close a place's detail by moving the mouse.
+   */
+  readonly hoveredPlaceId?: string | null;
+  /**
    * "Frame exactly these places, now" — the one *explicit* camera mover this port exposes.
    *
    * It exists because of what an import used to look like: you paste a London TikTok, eight

@@ -230,8 +230,111 @@ export const VISITED_LABEL_OPACITY = 0.55;
  * failed condition drops the whole paint property, which would fade *every* pin. `to-boolean`
  * makes `null` false, which is also the honest default.
  */
-export function pinOpacityExpression(visitedOpacity = VISITED_PIN_OPACITY): unknown[] {
-  return ['case', ['to-boolean', ['get', 'visited']], visitedOpacity, 1];
+export function pinOpacityExpression(
+  visitedOpacity = VISITED_PIN_OPACITY,
+  hoveredId: string | null = null,
+): unknown[] {
+  const own: unknown[] = ['case', ['to-boolean', ['get', 'visited']], visitedOpacity, 1];
+  if (hoveredId === null) return own;
+  // **The row↔pin coupling's dim half** (`W3-2`, `ux-overnight-specs.md` §2.2). Pointing at a row
+  // in the list quietens every pin except its own, so the two surfaces read as one thing.
+  //
+  // `0` for the hovered pin, because `pin-highlight-layer.tsx` draws it instead: drawing both
+  // would double the ring and the shadow, and the highlight is a different bitmap at a different
+  // offset. Everything else drops to `visitedOpacity`, which is the level a *visited* mark already
+  // sits at on this property — so a neighbour you have already been to does not move at all, and
+  // the dim reads as "the others got quieter" rather than as a global flicker.
+  //
+  // Still a `case` on a **paint** property and still per-feature, so this re-evaluates on the
+  // compositor and never re-lays-out or re-collides a symbol. That is the whole reason hover can
+  // afford to change at pointer rate; see `pin-highlight-layer.tsx` for the alternative that
+  // cannot.
+  return ['case', ['==', ['get', 'id'], hoveredId], 0, visitedOpacity];
+}
+
+/**
+ * How quiet a pin goes while a *different* one is pointed at, on whichever property is asking.
+ *
+ * A named alias rather than a number, because the value is deliberately not a new one: the dim
+ * level **is** the visited level, per property (0.45 for an icon, 0.55 for a label). One number
+ * with two meanings is intentional — it is what makes "a visited neighbour does not move" true,
+ * and it keeps the map from acquiring a second, competing idea of *quiet*.
+ *
+ * `ux-overnight-specs.md` §2.2 specifies a single `LINKED_DIM_OPACITY = VISITED_PIN_OPACITY` used
+ * for both properties. That is right for icons and wrong for labels: a visited label rests at 0.55,
+ * so dimming it to 0.45 would make the one mark the spec says must not move the only one that does.
+ * The deviation is per-property rather than per-value, and it is why `pinOpacityExpression` reuses
+ * its own `visitedOpacity` argument instead of reading a constant.
+ */
+export const LINKED_DIM_OPACITY = VISITED_PIN_OPACITY;
+
+/** How long the dim and the lift take, in milliseconds — `--duration-link`, expressed here because
+ *  a MapLibre transition is read by the GL renderer and cannot resolve a CSS custom property. */
+export const LINK_TRANSITION_MS = 160;
+
+/** The id of the one-feature layer that draws the pointed-at pin. */
+export const PIN_HIGHLIGHT_LAYER_SUFFIX = 'pin-highlight';
+
+/**
+ * **The lifted pin, as a layer spec** — the other half of the coupling.
+ *
+ * It is its own single-feature layer and that is forced twice over.
+ *
+ * `icon-translate` is what lifts it, and in MapLibre that is a **paint property that is not
+ * data-driven**: it takes one value for the whole layer, so it cannot be expressed as a `case` over
+ * the hovered feature on the main pin layer. A layer holding exactly one feature is the only way to
+ * translate exactly one symbol.
+ *
+ * And the obvious alternative — swapping the hovered pin's `icon-image` on the main layer, which is
+ * how *selection* works — is a **layout** property change: it re-lays-out and re-collides every
+ * symbol in the layer. Selection pays that once per tap. Hover would pay it per pointer move across
+ * a list, and at the 2 000-pin ceiling that is the frame budget gone (`06` §9.1: 2 000 symbols
+ * relaying out is the expensive case, not drawing them). One extra symbol costs one quad.
+ *
+ * `text-field` carries **no zoom gate at all** — not the `W2-3` ladder, not a `step`. The pointed-at
+ * pin is named at every zoom, which is the entire point of the coupling: the row says a name and
+ * the map has to say the same name back. It is one glyph run, so the ladder's budget argument does
+ * not apply to it.
+ */
+export function pinHighlightLayerLayout(textFont: readonly string[]): Record<string, unknown> {
+  const geometry = pinGeometry(false);
+  return {
+    'icon-image': ['concat', PIN_IMAGE_PREFIX, ['coalesce', ['get', 'category'], UNCATEGORISED_PIN]],
+    'icon-anchor': 'bottom',
+    'icon-offset': [0, geometry.tipToBottom],
+    // 1.1×, resampled from the unselected bitmap rather than drawn at size. `PIN.selectedScale` is
+    // 1.28 and has its own bitmap precisely because resampling softened the ring at that size; 1.1
+    // is a much smaller step and is deliberately provisional. **If it reads soft on a retina
+    // display the repair is a dedicated hover bitmap in `marker-images.ts`, which belongs to the
+    // crumb-silhouette work — report it, do not open that file.**
+    'icon-size': 1.1,
+    'icon-allow-overlap': true,
+    'icon-ignore-placement': true,
+    'text-field': ['get', 'name'],
+    'text-font': [...textFont],
+    'text-size': LABEL_TEXT_SIZE,
+    'text-anchor': 'top',
+    'text-offset': [0, LABEL_OFFSET_EM],
+    'text-max-width': LABEL_MAX_WIDTH_EM,
+    'text-allow-overlap': true,
+    'text-ignore-placement': true,
+  };
+}
+
+/**
+ * Paint for the highlight layer. `icon-translate` is the lift; its transition is what makes the
+ * lift a movement rather than a jump, and it is the only thing `prefers-reduced-motion` removes
+ * here — §3a's rule is that the nine animations collapse **to the opacity change**, not to nothing,
+ * so the dim stays in both arms and the pin still has to be findable.
+ */
+export function pinHighlightLayerPaint(reducedMotion: boolean): Record<string, unknown> {
+  return {
+    'icon-translate': [0, -3],
+    'icon-translate-transition': { duration: reducedMotion ? 0 : LINK_TRANSITION_MS, delay: 0 },
+    'text-color': PIN_LABEL_INK,
+    'text-halo-color': PIN_LABEL_HALO,
+    'text-halo-width': 1.6,
+  };
 }
 
 /** Draw the selected pin last, so its larger body is never covered by a neighbour. Same `null`
@@ -462,5 +565,16 @@ export function pinLayerPaint(): Record<string, unknown> {
     // touching placement or collision; nothing here re-lays-out the map.
     'icon-opacity': pinOpacityExpression(),
     'text-opacity': pinOpacityExpression(VISITED_LABEL_OPACITY),
+    // …and the same two properties carry the row↔pin dim (`W3-2`), so the ramp between the two
+    // states is declared once, here, rather than per update. `--duration-link`, written as a number
+    // because a MapLibre transition is read by the GL renderer and cannot resolve a CSS custom
+    // property (see `ui/place/palette.ts`'s header for the same reason applied to colour).
+    //
+    // **No reduced-motion arm, and that is `facelift-plan.md` §3a's own rule rather than an
+    // omission:** the nine animations collapse *to the opacity change*, not to nothing. An opacity
+    // ramp is already the reduced form. What reduced motion removes is the highlight's translate —
+    // see `pinHighlightLayerPaint`.
+    'icon-opacity-transition': { duration: LINK_TRANSITION_MS, delay: 0 },
+    'text-opacity-transition': { duration: LINK_TRANSITION_MS, delay: 0 },
   };
 }
