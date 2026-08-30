@@ -31,8 +31,11 @@ export default async function CollectionsPage() {
     getSpots().then((spots) => spots.map(toMapPlace)),
   ]);
 
+  // The shell's box, exactly as `/map` and `/collections/[id]` declare it: this route is the same
+  // shell with collections in its sheet, so it gets the same viewport-height, non-scrolling frame
+  // rather than a document that scrolls.
   return (
-    <main className="min-h-dvh w-full bg-background">
+    <main className="relative h-dvh w-full overflow-hidden">
       <CollectionsIndexClient
         collections={collections}
         libraryIsEmpty={library.length === 0}

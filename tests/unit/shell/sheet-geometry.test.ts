@@ -11,7 +11,7 @@
  * No DOM here (`vitest.config.ts` sets `environment: 'node'`); none is needed, because every claim
  * below is arithmetic or source text.
  */
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
@@ -49,26 +49,9 @@ describe('PEEK_PX and its mirrors', () => {
     );
   });
 
-  it('is no longer declared anywhere under src/app/collections', () => {
-    // §5 item 8's deletion, as a property rather than a memory. `sheet-geometry.ts` is gone from
-    // that route; what must never come back is a second declaration of any of the three constants
-    // it held, in any file there.
-    const files = readdirSync(new URL('../../../src/app/collections/', import.meta.url), {
-      recursive: true,
-      encoding: 'utf8',
-    }).filter((name) => name.endsWith('.ts') || name.endsWith('.tsx'));
-
-    expect(files).not.toContain('[id]/sheet-geometry.ts');
-    for (const name of files) {
-      const source = repoFile(`src/app/collections/${name}`);
-      expect(source, name).not.toMatch(
-        /(PEEK_PX|RESTING_SHEET_FRACTION|FLOATING_TOP_CHROME_PX)\s*=/,
-      );
-      // §5 item 9: one `Drawer.Root` for the product, and it is the shell's. The element, not the
-      // word — a comment explaining where the second one went is the point of deleting it.
-      expect(source, name).not.toContain('<Drawer.Root');
-    }
-  });
+  // The "no second declaration" half of §5 item 8 used to live here, scoped to
+  // `src/app/collections/`. It now lives in `one-shell.test.ts` and covers the whole of `src/`,
+  // because a second shell is no likelier on that route than anywhere else.
 });
 
 describe('the three stops', () => {

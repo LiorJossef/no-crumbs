@@ -17,7 +17,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { type MapPlace } from '@/components/map/map-surface';
-import type { LatLngBoundsHint } from '@/components/map/types';
+import { boundsOfPoints } from '@/components/map/bounds';
 import { MapShell } from '@/components/shell/map-shell';
 import { useMapShell } from '@/components/shell/use-map-shell';
 import {
@@ -53,7 +53,9 @@ export function CollectionClient({
   const { camera, selectedId, setSelectedId } = shell;
 
   const pins = useMemo(() => collection.places.map(toMapPlace), [collection.places]);
-  const initialBounds = useMemo(() => boundsOf(collection.places), [collection.places]);
+  /** Frame all of the collection's places. Unlike `/map`, there is no anchor-area choice to make:
+   *  a collection is small and hand-made, and seeing all of it is the point. */
+  const initialBounds = useMemo(() => boundsOfPoints(collection.places), [collection.places]);
 
   useRefitOnChange(pins, camera.framePlaces);
 
@@ -199,21 +201,5 @@ function toMapPlace(place: CollectionDetail['places'][number]): MapPlace {
     note: place.note ?? '',
     sourceUrl: undefined,
     visited: false,
-  };
-}
-
-/** Frame all of the collection's places. Unlike `/map`, there is no anchor-area choice to make:
- *  a collection is small and hand-made, and seeing all of it is the point. */
-function boundsOf(places: CollectionDetail['places']): LatLngBoundsHint | undefined {
-  if (places.length === 0) return undefined;
-
-  const lats = places.map((place) => place.lat);
-  const lngs = places.map((place) => place.lng);
-
-  return {
-    north: Math.max(...lats),
-    south: Math.min(...lats),
-    east: Math.max(...lngs),
-    west: Math.min(...lngs),
   };
 }
