@@ -6,6 +6,8 @@ import { describe, expect, it } from 'vitest';
 import { canonicaliseTikTokUrl } from '@/domain/source/canonicalise-tiktok-url';
 import { IMPORT_SEED_LINKS } from '@/ui/import/seed-links';
 
+import { importClientSource } from './import-client-source';
+
 /**
  * The paste screen's cold-start seeds. The list is meant to be edited — the owner swaps URLs as
  * the recognition corpus changes — so the interesting tests are the ones that catch a bad *edit*,
@@ -60,7 +62,7 @@ describe('IMPORT_SEED_LINKS', () => {
   it('is the only place the client names a seed URL', () => {
     // A seed pasted into the component as a literal is a seed that stops being one-line editable,
     // and it is how a "temporary" test link ends up shipped.
-    const client = readFileSync('src/app/import/import-page-client.tsx', 'utf8');
+    const client = importClientSource();
     expect(client).not.toContain('tiktok.com/@');
     for (const seed of IMPORT_SEED_LINKS) {
       expect(client).not.toContain(seed.url);
@@ -72,9 +74,14 @@ describe('IMPORT_SEED_LINKS', () => {
  * The invariant the whole affordance rests on: a seed tap is a paste. Asserted against the
  * component source because the repo's unit runner has no DOM — the e2e suite drives the real
  * click, this pins the shape that makes the e2e result generalise.
+ *
+ * "The component source" is every file under `src/app/import/` (`import-client-source.ts`). The
+ * counts below — one probe fetch, one submitting effect — are counts over *the whole screen*, and
+ * W6-1 splits it into eleven files. A scan of one of them would report "exactly one" while eleven
+ * twelfths of the screen went unread, and the thing being guarded is a hard 500/day model budget.
  */
 describe('a seed takes the same path as a paste', () => {
-  const CLIENT = readFileSync('src/app/import/import-page-client.tsx', 'utf8');
+  const CLIENT = importClientSource();
 
   it('routes the seed through submit(), with no fetch of its own', () => {
     expect(CLIENT).toContain('void submit(seedUrl)');
@@ -113,7 +120,7 @@ describe('a seed takes the same path as a paste', () => {
     // The prop spends a model call on mount, so "who may pass it" is now part of the cost rule.
     // A second caller — or one that prefills rather than submits — is the regression to catch.
     const callers = execSync(
-      "grep -rn 'initialUrl' src --include='*.tsx' | grep -v 'src/app/import/import-page-client.tsx'",
+      "grep -rn 'initialUrl' src --include='*.tsx' | grep -v 'src/app/import/'",
       { encoding: 'utf8' },
     )
       .trim()

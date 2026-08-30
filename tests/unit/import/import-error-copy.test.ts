@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs';
-
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -8,6 +6,8 @@ import {
   type DomainErrorCode,
 } from '@/domain/errors';
 import { canonicaliseTikTokUrl } from '@/domain/source/canonicalise-tiktok-url';
+
+import { importClientSource } from './import-client-source';
 import {
   IMPORT_ERROR_ACTION_LABEL,
   IMPORT_ERROR_COPY,
@@ -272,10 +272,13 @@ describe('the pre-submit codes are the same map, not a second one', () => {
    * The component with its comments stripped. Comments are where this change *documents* the copy
    * it replaced ("the primary used to read …"), and a string quoted in a comment is by definition
    * not rendered — matching on it would make the guard fire on its own explanation.
+   *
+   * "The component" is every file under `src/app/import/`, not one path. This is the guard that
+   * stops an error string being re-hardcoded into the screen, and W6-1 moves the failure screen
+   * out of `import-page-client.tsx` — after which a path-pinned scan would report a clean result
+   * about a file that no longer renders a single error code. See `import-client-source.ts`.
    */
-  const CLIENT_SOURCE = readFileSync('src/app/import/import-page-client.tsx', 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/^\s*\/\/.*$/gm, '');
+  const CLIENT_SOURCE = importClientSource({ stripComments: true });
 
   it('is exactly the set canonicaliseTikTokUrl can reject with, minus the inline one', () => {
     const inputs = [
@@ -360,14 +363,14 @@ describe('the pre-submit codes are the same map, not a second one', () => {
       for (const [what, string] of [['kicker', kicker], ['headline', headline], ['body', body]] as const) {
         expect(
           rendersLiterally(CLIENT_SOURCE, string),
-          `import-page-client.tsx hard-codes ${code}'s ${what}: "${string}"`,
+          `the import client hard-codes ${code}'s ${what}: "${string}"`,
         ).toBe(false);
       }
     }
     for (const label of Object.values(IMPORT_ERROR_ACTION_LABEL)) {
       expect(
         rendersLiterally(CLIENT_SOURCE, label),
-        `import-page-client.tsx hard-codes the action label "${label}"`,
+        `the import client hard-codes the action label "${label}"`,
       ).toBe(false);
     }
   });

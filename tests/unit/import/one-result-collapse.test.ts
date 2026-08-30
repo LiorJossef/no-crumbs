@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs';
-
 import { describe, expect, it } from 'vitest';
 
 import type { StoredResolution } from '@/domain/import/resolution-record';
@@ -12,6 +10,8 @@ import {
   usesModelCoordinate,
   type CandidateResolutionView,
 } from '@/ui/import/candidate-resolution-view';
+
+import { functionSource, importClientSource } from './import-client-source';
 
 /**
  * The review screen's single-confident-result collapse (`docs/ux-import-flatten.md` §3), and the
@@ -27,9 +27,13 @@ import {
  * The screen itself has no DOM in this runner, so the layout assertions are made against the
  * component source — the same technique `import-error-copy.test.ts` uses, and for the same reason:
  * the defect it guards is a control wired to nothing, which is a fact about the source.
+ *
+ * That source is read as a **directory**, not as one path (`import-client-source.ts` says why):
+ * W6-1 moves `NoPlacesScreen` and the review screen into files of their own, and a scan pinned to
+ * `import-page-client.tsx` would keep passing while reading a file that no longer contains either.
  */
 
-const CLIENT_SOURCE = readFileSync('src/app/import/import-page-client.tsx', 'utf8');
+const CLIENT_SOURCE = importClientSource();
 
 function place(over: Partial<ResolvedPlace> = {}): ResolvedPlace {
   return {
@@ -155,10 +159,15 @@ describe('the review screen wires the collapse to that one band', () => {
 });
 
 describe('NoPlacesScreen — the modal outcome has its recovery back', () => {
-  /** From `function NoPlacesScreen(` to the next top-level `function `. */
-  const NO_PLACES_SOURCE = CLIENT_SOURCE.slice(
-    CLIENT_SOURCE.indexOf('function NoPlacesScreen('),
-  ).split('\nfunction ')[0]!;
+  /**
+   * `function NoPlacesScreen(` to the next top-level `function `, out of the one file that defines
+   * it — `functionSource` throws unless **exactly one** does.
+   *
+   * That is stricter than the slice it replaces, which took `indexOf` of a name and would have
+   * yielded an empty string on a rename. Every `not.toContain` below passes against an empty
+   * string, so the old shape would have gone quiet rather than red.
+   */
+  const NO_PLACES_SOURCE = functionSource('NoPlacesScreen');
 
   it('offers `Add a place you know`', () => {
     expect(NO_PLACES_SOURCE).toContain('Add a place you know');
