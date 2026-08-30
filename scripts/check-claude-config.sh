@@ -108,25 +108,16 @@ REQUIRED_DENY = [
     ("Bash(git config:*)",             "agent-guardrails.md §1.3 — never change git config or core.hooksPath"),
     ("Bash(git push -u origin main:*)", "git-workflow.md §9.3 — pushing directly to main, via the -u form"),
 ]
-REQUIRED_ASK = [
-    ("Bash(npm run db:push:staging:*)", "git-workflow.md §9.3 — db:push is deliberate and announced"),
-    ("Bash(npm run db:push:prod:*)",    "git-workflow.md §9.3 — db:push is deliberate and announced"),
-    ("Bash(npm run db:reset:*)",        "agent-guardrails.md §2.6 — destroys local data"),
-    ("Bash(npm run merge:pr:*)",        "git-workflow.md §9.1 — landing is announced"),
-    ("Edit(.claude/agents/**)",         "agent-guardrails.md §4.15 — an agent must not edit its own definition"),
-    ("Edit(CLAUDE.md)",                 "agent-guardrails.md §4.15 — guarded file"),
-    ("Edit(scripts/merge-pr.sh)",       "agent-guardrails.md §4.15 — the gate must not edit itself"),
-    ("Edit(.github/workflows/**)",      "agent-guardrails.md §4.15 — guarded file"),
-    ("Edit(supabase/tests/**)",         "agent-guardrails.md §4.15 — guarded file"),
-    ("Edit(.githooks/**)",              "the pre-push guard must not be edited unprompted"),
-]
+# The ask list is deliberately empty. Owner ruling 2026-08-30, "soften the guards, let us work
+# more freely": its 30 rules moved into allow. Nothing is asserted about ask any more, and that is
+# the intended posture rather than an omission — ask rules are announcements, not protections. What
+# used to sit behind a prompt now sits behind judgement and the written guardrails, which is a real
+# reduction in safety and is recorded as such in docs/claude-code-setup.md §2.1. The deny list
+# above is the part that still holds a line, so it is the part this script asserts.
 if settings:
     for rule, why in REQUIRED_DENY:
         if rule not in deny:
             bad(f"deny list is missing `{rule}` — {why}")
-    for rule, why in REQUIRED_ASK:
-        if rule not in ask:
-            bad(f"ask list is missing `{rule}` — {why}")
     overlap = deny & (ask | allow)
     if overlap:
         bad(f"rules appear in deny and also in ask/allow, which is ambiguous: {sorted(overlap)}")

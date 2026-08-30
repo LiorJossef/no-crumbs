@@ -143,8 +143,11 @@ are reviewable in a diff; nothing this project depends on sits in `~/.claude/`. 
 `git-workflow.md` §9.3 and `agent-guardrails.md` §1–§4 from prose into rules the harness enforces:
 **`deny`** for what nobody may do here (force-push, `reset`/`clean`/`stash`/`restore`, rebase, branch
 deletion, `revert`, `gh pr merge` by hand, mutating `gh api`, `vercel:*`, and **reading any `.env*`
-file**), **`ask`** for the deliberate announced steps (`db:push:*`, `db:reset`, `merge:pr`, and edits
-to the guarded files in §4.15), **`allow`** for the ordinary toolchain. A project `deny` outranks
+file**), and **`allow`** for everything else. The `ask` list is **deliberately empty** — owner ruling
+2026-08-30, *"soften the guards, let us work more freely"*: its 30 rules moved into `allow`, so
+`db:push:*`, `db:reset`, `merge:pr` and edits to the §4.15 guarded files now run **without a
+prompt**. §9.3's "a specific instruction each time" is carried by your judgement and the written
+guardrails, not by the harness. A project `deny` outranks
 every `allow`, including any in a user-level settings file — that is how the repo holds its own
 posture. `.claude/settings.local.json` is gitignored and must never carry a rule the team relies on.
 

@@ -55,17 +55,23 @@ and **reading or editing any `.env*` file**, which is `agent-guardrails.md` §3 
 `deny` outranks every `allow`, including the ones in `~/.claude/settings.json` — this is the
 mechanism by which the repo takes its posture back from the machine.
 
-**`ask`** — the deliberate, announced steps. §9.3 says these need "a specific instruction each
-time", and a permission prompt *is* that instruction: `db:push:staging|prod`, `db:reset`,
-`db:verify`, `merge:pr`, `supabase db push|reset|link`, `psql`, `gh pr create|edit|close`, and edits
-to the files `agent-guardrails.md` §4 protects — `CLAUDE.md`, `docs/security.md`, `.claude/agents/`,
-`.claude/settings.json`, `.github/workflows/`, `scripts/merge-pr.sh`, `scripts/check-*.sh`,
-`scripts/db-push.sh`, `scripts/db-env.sh`, `supabase/tests/`, `.githooks/`, `.gitignore`.
+**`ask` — deliberately empty.** *Owner ruling, 2026-08-30: "soften the guards, let us work more
+freely."* This list held 30 rules — `db:push:staging|prod`, `db:reset`, `db:verify`, `merge:pr`,
+`supabase db push|reset|link`, `psql`, `docker`, `gh pr create|edit|close`, and edits to every file
+`agent-guardrails.md` §4 protects. All 30 moved into `allow`.
 
-`ask` rather than `deny` on that last group is deliberate: the orchestrator legitimately needs to
-edit `.github/workflows/` — restoring CI is open item 3 in `current-state.md` — and an agent that can
-edit the check that grades it is exactly what §4 forbids. A prompt distinguishes the two without
-blocking the work.
+The reasoning, so the trade is legible rather than implied: **an `ask` rule is an announcement, not
+a protection.** It fires on the way to an action that is going to happen anyway, and anyone
+answering thirty prompts a session stops reading them — which is worse than not prompting, because
+it manufactures the appearance of review. The rules that actually hold a line are all in `deny`, and
+**none of them were touched.**
+
+What this genuinely costs, stated plainly: a hosted migration push, a `db:reset`, a `merge:pr`, and
+an edit to `CLAUDE.md`, `.claude/agents/`, `.claude/settings.json`, `.githooks/` or a `check-*.sh`
+now happen **without a prompt**. `git-workflow.md` §9.3's "a specific instruction each time" is
+therefore carried by judgement and by the written guardrails, not by the harness. That is a real
+reduction in safety and it is the owner's call to make. `scripts/check-claude-config.sh` asserts
+nothing about `ask` any more, on purpose — it asserts `deny`, which is the part still doing work.
 
 **`allow`** — the actual toolchain: the `npm run` scripts, `vitest`, `playwright`, `tsc`, `eslint`,
 read-only `git`, read-only `gh`, `supabase migration list|status|start`, and the ordinary shell verbs
@@ -157,3 +163,11 @@ lists to everyone.
   unset and `main` consequently unprotected; added `.claude/settings.json`,
   `.claude/hooks/ensure-git-hooks.sh` and `scripts/check-claude-config.sh`; wired `check:claude` into
   `npm run verify`; gitignored `.claude/settings.local.json`.
+- **2026-08-30, later** — closed two holes in the first version of the posture (§3.1), and wired
+  `check:schema`, `check:agents` and `check:claude` into CI's `verify` job, which had been a strict
+  subset of the local filter it exists to backstop.
+- **2026-08-30, later still** — owner ruling *"soften the guards, let us work more freely"*: the
+  `ask` list was emptied into `allow` (§2.1). The 59 `deny` rules are unchanged. Three softer
+  options were offered and this was the one chosen — the two that would have removed `deny` rules
+  were declined, so force-push, `reset`/`clean`, direct pushes to `main`, `--no-verify` and reading
+  `.env*` all remain refused.
