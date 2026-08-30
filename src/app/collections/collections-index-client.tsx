@@ -23,11 +23,13 @@
 import { isolate } from '@/ui/place/active-area';
 import { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ChevronRight, ChevronUp, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronUp, Plus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { CollectionCover } from '@/components/collections/collection-cover';
+import { KICKER } from '@/components/collections/collection-content';
 import { boundsOfPoints } from '@/components/map/bounds';
 import type { MapPlace } from '@/components/map/types';
 import { BOTTOM_NAV_HEIGHT_PX } from '@/components/nav/bottom-nav';
@@ -80,7 +82,27 @@ export function CollectionsIndexClient({
       accessibleName="Your places"
       createMenuPlaces={places}
       sheetContent={(stop) => list(stop)}
-      panelContent={<div className="flex min-h-0 flex-1 flex-col pt-4">{list()}</div>}
+      panelContent={
+        <div className="flex min-h-0 flex-1 flex-col pt-4">
+          {/* The one exit to the map that exists at `lg+`, and it is not the arrow §5 item 2
+              deleted. Below `lg` the map is one drag down and `BottomNav`'s Map tab goes there,
+              which is why the ruling removed the arrow — but the bar does not render at `lg+` and
+              the panel is opaque over the map's left edge, so without this the desktop index is a
+              dead end. Shaped as the `[id]` route's up-link rather than as a second back arrow, so
+              the two collections routes carry the same control in the same place. */}
+          <Link
+            href="/map"
+            className={cn(
+              KICKER,
+              'mx-4 -ms-2 inline-flex min-h-11 w-fit shrink-0 items-center gap-1 rounded-full px-2 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+            )}
+          >
+            <ChevronLeft className="size-3.5 shrink-0 rtl:rotate-180" aria-hidden />
+            Map
+          </Link>
+          {list()}
+        </div>
+      }
     />
   );
 }
