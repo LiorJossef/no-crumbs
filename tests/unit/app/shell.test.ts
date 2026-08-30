@@ -141,11 +141,34 @@ describe('viewport', () => {
   });
 
   it('does not ship the repo codename as the product name', () => {
-    // The name is an open owner decision (`mvp-plan.md`, L1-F1-T1). `P-002` is a folder, and it
-    // was the browser tab title, the bookmark and every link preview.
+    /*
+     * `P-002` is a folder name. It was the browser tab title, the bookmark and every link preview
+     * until W4-1 landed the real name (**No Crumbs**, owner 2026-08-30 —
+     * `brand-and-product-foundation.md` §3, which this test's comment used to describe as an open
+     * decision).
+     *
+     * **This assertion went blind on 2026-08-31 and that is why it now reads the way it does.**
+     * It matched `title:\s*'([^']+)'`, which assumed a flat string. W4-1 correctly made `title` a
+     * `{ default, template }` object, so the regex stopped matching, `title` was `undefined`, and
+     * a guard whose whole job is to fail on one substring could no longer see the string at all.
+     * It failed loudly here rather than silently passing, which is the only reason it was caught.
+     *
+     * So it now reads every quoted string in the `metadata` export's title block and checks all of
+     * them. A guard that can only see one shape of the thing it guards is one refactor from being
+     * decoration.
+     */
     const layout = repoFile('src/app/layout.tsx');
-    const title = /title:\s*'([^']+)'/.exec(layout)?.[1];
-    expect(title).toBeDefined();
-    expect(title).not.toMatch(/P-002/);
+
+    const titleBlock = /title:\s*\{([^}]+)\}/.exec(layout)?.[1];
+    expect(titleBlock, 'metadata.title should be a { default, template } object').toBeDefined();
+
+    const titles = [...(titleBlock ?? '').matchAll(/'([^']+)'/g)].map((m) => m[1]);
+    // Both halves, not just `default`: the template is what every sub-page's tab renders through,
+    // so a codename there would ship on more screens than a bad default would.
+    expect(titles.length).toBeGreaterThanOrEqual(2);
+    for (const title of titles) {
+      expect(title).not.toMatch(/P-002/);
+    }
+    expect(titles.some((t) => t?.includes('No Crumbs'))).toBe(true);
   });
 });
