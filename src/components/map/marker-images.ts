@@ -3,11 +3,37 @@
  *
  * MapLibre's glyph fonts carry no colour emoji and its `symbol` layer takes a raster image, not an
  * SVG, so every marker on this map is drawn here once at mount and registered with
- * `map.addImage`. Eight categories × two states = sixteen small bitmaps.
+ * `map.addImage`. Four pin keys × two states = eight small bitmaps.
  *
  * Browser-only: it needs a real `<canvas>`. The palette and geometry it draws from are in
  * `./marker-style.ts`, which is where the unit tests live.
+ *
+ * ## The body is the crumb, and it is not drawn here
+ *
+ * Until W4-3 this file computed a teardrop — a circle's arc closed by its two lower tangents —
+ * which is the Google Maps marker every one of the thirty-four products in this category draws.
+ * The outline now comes from `@/components/brand/crumb-path`, the same closed path the mark, the
+ * favicon and the link preview use, because `brand-and-product-foundation.md` §3.1 rule 1 makes
+ * that sharing the whole point: *"if the outline changes, the pin is lost"*.
+ *
+ * **No face, ever, on this surface.** §3.1 rule 2 splits face onto chrome and silhouette onto data:
+ * thirty-one smiling faces over a city is a toy, and a pin with eyes cannot carry a category
+ * colour. What sits in the head is the category glyph, in white — see `drawPin`.
+ *
+ * **Nothing about the bitmap's size or anchor changed**, and that is deliberate rather than
+ * incidental. `pinGeometry` still owns width, height, `tipToBottom` and the anchor, all of them in
+ * `./marker-style.ts` and all of them read by the camera's padding. A pin that got taller for
+ * visual reasons is a camera-affecting change; this one draws a different shape inside the same
+ * box.
  */
+
+import {
+  CRUMB_BOUNDS,
+  CRUMB_HEAD_CENTRE,
+  CRUMB_PATH,
+  CRUMB_PIN_BOUNDS,
+  CRUMB_PIN_TAIL_PATH,
+} from '@/components/brand/crumb-path';
 
 import type { PinKey } from './marker-style';
 import {
@@ -117,30 +143,72 @@ const GLYPHS: Record<GlyphName, Draw> = {
   },
 };
 
+/**
+ * How the crumb is placed inside the bitmap `pinGeometry` describes.
+ *
+ * Two anchors, and they are chosen rather than obvious:
+ *
+ *  - **Width, not height, sets the scale.** The bitmap is exactly `2 * centreX` wide, which is the
+ *    head's width plus the ring plus the shadow pad, so the drawn shape has exactly `2 *
+ *    headRadius` of horizontal room and no more. Scaling to fill the *height* instead would push
+ *    the crumb's shoulders under the ring and clip them.
+ *  - **The tip lands on `tipY`.** The layer anchors at `bottom` and offsets by `tipToBottom`, so
+ *    the point of the pin — not the bottom edge of the image — sits on the coordinate. That
+ *    contract is `pinGeometry`'s and this drawing has to satisfy it exactly.
+ *
+ * The consequence, stated because it is visible: the crumb pin is a little shorter than the
+ * teardrop was. The teardrop filled the full 40 units from the top of the head to the tip; the
+ * crumb is stubbier — 89 wide by 120 tall in its own space against the teardrop's 26 by 40 — so at
+ * the same head width it stands about 6px lower and leaves transparent space at the top of the
+ * bitmap. **The bitmap, the anchor and the offset are unchanged**, so nothing the camera reads has
+ * moved.
+ */
+function crumbTransform(geometry: PinGeometry) {
+  const { centreX, tipY, headRadius } = geometry;
+  const scale = (headRadius * 2) / (CRUMB_BOUNDS.maxX - CRUMB_BOUNDS.minX);
+  return {
+    scale,
+    // The crumb's own ink centre, not the middle of its authoring square — they differ by 0.3
+    // units, which is a visible half-pixel of asymmetry once the shape has a white ring on it.
+    offsetX: centreX - CRUMB_HEAD_CENTRE.x * scale,
+    offsetY: tipY - CRUMB_PIN_BOUNDS.maxY * scale,
+  };
+}
+
 function drawPin(
   ctx: CanvasRenderingContext2D,
   category: PinKey,
   geometry: PinGeometry
 ): void {
   const { color, glyph } = CATEGORY_STYLES[category];
-  const { centreX, centreY, tipY, headRadius, ringWidth, glyphBox } = geometry;
+  const { ringWidth, glyphBox } = geometry;
+  const { scale, offsetX, offsetY } = crumbTransform(geometry);
 
-  // The teardrop: the head's arc, closed by the two tangent lines that meet at the tip. `acos`
-  // rather than `asin` — the angle wanted is the one at the centre of the head, between "straight
-  // down to the tip" and "out to where the tangent touches".
-  const tangent = Math.acos(headRadius / (tipY - centreY));
+  // One `Path2D` holding two subpaths — the crumb and the point under it — rather than a merged
+  // outline. The crumb has to stay byte-identical to the shape the mark and the favicon draw, and
+  // merging would produce a fourth "same" path that is not the same path. Both subpaths wind the
+  // same way, so `nonzero` fills their union; the tail's shoulders sit at y=90, inside the crumb,
+  // so there is no seam to see.
   const body = new Path2D();
-  body.moveTo(centreX, tipY);
-  body.arc(centreX, centreY, headRadius, Math.PI / 2 - tangent, Math.PI / 2 + tangent, true);
-  body.closePath();
+  body.addPath(new Path2D(CRUMB_PIN_TAIL_PATH));
+  body.addPath(new Path2D(CRUMB_PATH));
+
+  ctx.save();
+  ctx.translate(offsetX, offsetY);
+  ctx.scale(scale, scale);
 
   // The white ring is a stroke laid down *before* the fill: a stroke straddles its path, so
-  // filling over it leaves exactly half the width standing proud of the body.
+  // filling over it leaves exactly half the width standing proud of the body. It is also what
+  // covers the internal seam where the two subpaths cross.
+  //
+  // `lineWidth` is divided by the scale because a stroke *is* transformed by the CTM, unlike the
+  // shadow — `shadowBlur` and `shadowOffsetY` are in output space by specification, so they stay
+  // as written and keep the same drop shadow the teardrop had.
   ctx.save();
   ctx.shadowColor = 'rgba(15, 30, 28, 0.34)';
   ctx.shadowBlur = PIN.shadowBlur;
   ctx.shadowOffsetY = PIN.shadowOffsetY;
-  ctx.lineWidth = ringWidth * 2;
+  ctx.lineWidth = (ringWidth * 2) / scale;
   ctx.lineJoin = 'round';
   ctx.strokeStyle = '#FFFFFF';
   ctx.stroke(body);
@@ -148,9 +216,20 @@ function drawPin(
 
   ctx.fillStyle = color;
   ctx.fill(body);
+  ctx.restore();
+
+  // The glyph sits in the crumb's head, which is *not* the middle of the bitmap: the tail is
+  // shorter than the teardrop's, so the head rides lower than `geometry.centreY`.
+  //
+  // The design system draws a plain white circle here — "the silhouette on a point, in the
+  // category's own colour, with a white aperture". The category glyph is kept instead, because
+  // dropping it would leave colour as the sole carrier of what a place *is*, on the one surface
+  // where that is the pin's whole job. It is an aperture either way, and it is still faceless.
+  const headX = offsetX + CRUMB_HEAD_CENTRE.x * scale;
+  const headY = offsetY + CRUMB_HEAD_CENTRE.y * scale;
 
   ctx.save();
-  ctx.translate(centreX - glyphBox / 2, centreY - glyphBox / 2);
+  ctx.translate(headX - glyphBox / 2, headY - glyphBox / 2);
   ctx.scale(glyphBox / GLYPH_VIEWBOX, glyphBox / GLYPH_VIEWBOX);
   ctx.fillStyle = '#FFFFFF';
   ctx.lineCap = 'round';

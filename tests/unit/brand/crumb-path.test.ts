@@ -24,8 +24,8 @@ import {
 const OUTLINE_SIGNATURE = 'M34 9C50 3 70 7 82 20';
 
 /** Files that draw the mark. Each is asserted to reach the outline rather than restate it.
- *  Grows with the run: W4-3 adds the map's canvas, W4-4 the icon and the link preview. */
-const CONSUMERS = ['src/components/brand/pin-mark.tsx'];
+ *  Grows with the run: W4-4 adds the icon and the link preview. */
+const CONSUMERS = ['src/components/brand/pin-mark.tsx', 'src/components/map/marker-images.ts'];
 
 describe('the crumb outline', () => {
   it('is a single closed subpath', () => {
