@@ -148,6 +148,19 @@ on its first step. The same absence left `core.hooksPath` unset — see
    rows.**
 10. A TikTok connect timeout is still reported to the user as "this share link has expired".
 11. Dark mode is an unsigned first pass. **The product name is still open** (`L1-F1-T1`).
+12. **The camera movers are now eight.** `map-page-client.tsx:229` says so in its own docblock;
+   §3.9 of this file says six and `06` §9.2 says four. Three documents, three numbers, on the surface
+   the user touches every session. Found 2026-08-30 by `maps-geospatial` while ruling on path
+   ownership. And **`src/app/map/map-page-client.tsx` is owned by no agent** — it decides when the
+   camera moves and sits outside both map specialists' scopes, which is a hole in the middle of
+   `L1-F5`.
+13. **A fifth, unmirrored copy of `PEEK_PX`.** `map-surface.mapcn.tsx:1139` hard-codes `128px` inside
+   a Tailwind arbitrary value. `sheet-geometry.ts:24` documents four mirrors and
+   `tests/unit/shell/sheet-geometry.test.ts` pins them; this one imports nothing and no test sees it.
+   Move the peek and the zoom controls drift off the sheet silently.
+14. **There is no `.env.local` in this checkout** — only `.env.example`. `next dev`, the manual
+   harnesses and `db:push:*` all expect one, so "run the actual application" (`working-agreement.md`
+   §2) cannot currently be done here at all. Verified by filename only, never by reading contents.
 
 ## Decisions not to reopen
 
