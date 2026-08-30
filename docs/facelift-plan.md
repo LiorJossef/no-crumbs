@@ -121,6 +121,78 @@ a destination.
 
 **Demoable:** a new user's first session end to end, then the toggle.
 
+## 3a. Interaction, hover states and motion — and doing it in Tailwind
+
+Measured in the codebase 2026-08-30: **97** uses of `focus-visible:`, **4** of `active:`, **0** of
+`group-hover:`, **0** of `motion-safe:`, **163** arbitrary-value classes, and **36** registered
+`@theme` keys — all of them colours, radii and fonts. So the product acknowledges a keyboard well and
+a finger almost never, nothing on any screen responds to a hover somewhere else, and no utility exists
+for a shadow, a duration or an easing.
+
+### The state matrix
+
+Every interactive element owes all six columns. A blank cell is a bug, not a style choice — and
+**press** is the column this product is missing.
+
+| Element | Hover | Focus-visible | Press | Selected / on | Disabled |
+|---|---|---|---|---|---|
+| Primary button | mint darkens a step | 2px ring, 3px offset | `scale-[.985]`, shadow drops a level | — | 45%, no pointer |
+| Ghost / secondary | border → mint, tint wash | ring | `translate-y-px` | — | 45% |
+| Icon button | surface → `card-2` | ring | `scale-95` | ink to full contrast | 30% |
+| **List row** | row tints, **its pin lifts on the map** | inset ring | `scale-[.995]`, 90ms | left mint rule, tinted ground | — |
+| Tag chip | border 15% → 45% | ring | `scale-95` | fills with the **tag's own** colour | — |
+| Category chip | dot grows, label darkens | ring | `scale-95` | fills with **that category's** colour, not house mint | count 0 → 40% |
+| Nav tab | label to full ink | ring | `scale-95` | mint icon + label, `aria-current` | — |
+| Map pin | grows 1.1×, label appears | ring on the canvas focus proxy | — (no press on a canvas) | 1.28×, halo, sort-key to front | filtered out → 35% + shrink |
+| Input | border warms | mint border + 3px ring | — | — | muted ground |
+| Sheet handle | widens 34 → 44px | ring | tracks the drag | — | — |
+
+### The micro-animation list, closed
+
+| Name | What it does | Timing |
+|---|---|---|
+| `press` | Any pressable thing, within one frame | 90ms · standard |
+| `row ↔ pin` | Hover or press a row → its pin lifts, neighbours dim to 45%. *These are the same object* | 160ms |
+| `pin.select` | Scale to 1.28 with one expanding ring, then still | 220ms · emphasised |
+| `filter.settle` | Filtered-out pins fade and shrink; entering rows stagger, keyed on id | 180ms + 40ms |
+| `band.cross` | Pins cross-fade into their area pill instead of hard-swapping | 200ms |
+| `pins.land` | Camera flight, then staggered drop. Paint-only | 900ms + 60ms |
+| `sheet.stop` | Springs to the nearest stop. **Already correct — leave it** | spring |
+| `count.tick` | A changed count counts up, only where the number is the news | 400ms |
+| `enter` | Opacity + 4px rise. One rule, used everywhere, never elaborated | 140ms |
+
+**Everything else stays still.** No continuous pin pulsing, no parallax, no animated gradients, no
+spinner where the camera is already moving, no per-keystroke list animation. Under
+`prefers-reduced-motion` all nine collapse to the opacity change alone — not to nothing, because the
+pin just selected still has to be findable.
+
+### Use Tailwind for it
+
+1. **Register, and stop writing brackets.** Add shadows, easings, durations and the type scale to
+   `@theme`. Tailwind v4 generates a utility per key, so `shadow-[var(--shadow-elevated)]` — written
+   at eleven call sites — becomes `shadow-sheet`, and `duration-[220ms]` becomes `duration-base`. The
+   163 arbitrary values collapse into names a reviewer can check.
+2. **State in variants, not ternaries.** `aria-pressed:bg-tag-on`, `data-[state=open]:rotate-180`,
+   `aria-[current=true]:text-mint`. The DOM already carries the attributes: 21 `data-[` uses, exactly
+   one `aria-[`.
+3. **`group` is how the row talks to the pin.** Zero `group-hover:` today, which is exactly why
+   nothing responds to a hover elsewhere. Mark the row `group` and the disc, name and chevron move
+   together — the same mechanism carries the row↔pin coupling.
+4. **`motion-safe:`, not a global media query.** Eight `motion-reduce:`, zero `motion-safe:`.
+   Inverting it makes the accessible path the default: the un-prefixed state *is* the reduced case,
+   so an author cannot forget it.
+5. **Press feedback is one utility.** `active:scale-[.985]` on the shared button, row and chip
+   classes — roughly one line per component, and the most noticeable interaction fix available.
+6. **Entry without a library.** Tailwind v4 ships a `starting` variant over `@starting-style`, so an
+   enter animation is `starting:opacity-0 starting:translate-y-1` plus a transition. Confirm against
+   the installed 4.3.3 before relying on it; keep `motion` for the sheet and the landing, where a
+   spring is genuinely needed.
+
+**Order:** registration first, in stage 1 — one file, and it unblocks everything else. Then press
+feedback. Then `group` coupling, which is what makes the library and the map feel like one surface.
+The choreographed moments come last, in the stages that own those screens, because they are the only
+ones needing judgement rather than a utility.
+
 ## 4. Decisions, locked
 
 | # | Decision | Ruling |

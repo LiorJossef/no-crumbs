@@ -2032,6 +2032,7 @@ td .mono { font-size: 12.5px; color: var(--ink-3); }
         <a href="#verdict">Verdict</a>
         <a href="#direction">Direction</a>
         <a href="#system">System</a>
+        <a href="#interaction">Interaction</a>
         <a href="#mockups">Map</a>
         <a href="#import">Import</a>
         <a href="#surfaces">Surfaces</a>
@@ -2351,6 +2352,117 @@ td .mono { font-size: 12.5px; color: var(--ink-3); }
       collapses all six to an opacity change &mdash; not to nothing, because the pin that was just selected still has to be findable.</p>
   </div>
 </section>
+<section id="interaction">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Interaction</p>
+      <h2>Every state, every hover, and the utilities that make them cheap.</h2>
+      <p class="lede">Measured in the codebase today: <strong>97</strong> uses of
+        <code>focus-visible:</code> &mdash; focus is genuinely well handled &mdash; against <strong>4</strong> uses of
+        <code>active:</code> and <strong>zero</strong> uses of <code>group-hover:</code>. So the product acknowledges a
+        keyboard and almost never acknowledges a finger, and no element on any screen responds to a hover on a different
+        element. That is the whole interaction gap in two numbers.</p>
+    </div>
+
+    <h3 style="font-size:19px;margin-bottom:14px">The state matrix</h3>
+    <p class="small" style="max-width:70ch;margin-bottom:16px">Every interactive element owes all six columns. A blank
+      cell is a bug, not a style choice &mdash; and <em>press</em> is the column this product is missing.</p>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Element</th><th>Hover</th><th>Focus-visible</th><th>Press</th><th>Selected / on</th><th>Disabled</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Primary button</strong></td><td>mint darkens one step</td><td>2px ring, 3px offset</td><td><code>scale-[.985]</code> + shadow drops a level</td><td>&mdash;</td><td>45% opacity, no pointer</td></tr>
+          <tr><td><strong>Ghost / secondary</strong></td><td>border &rarr; mint, tint wash</td><td>same ring</td><td><code>translate-y-px</code></td><td>&mdash;</td><td>45% opacity</td></tr>
+          <tr><td><strong>Icon button</strong></td><td>surface raises to <code>card-2</code></td><td>same ring</td><td><code>scale-95</code></td><td>ink goes full contrast</td><td>30% opacity</td></tr>
+          <tr><td><strong>List row</strong></td><td>row tints, <strong>its pin lifts on the map</strong></td><td>ring inset, not outset</td><td><code>scale-[.995]</code>, 90ms</td><td>left mint rule, tinted ground</td><td>&mdash;</td></tr>
+          <tr><td><strong>Tag chip (filter)</strong></td><td>border deepens 15% &rarr; 45%</td><td>ring</td><td><code>scale-95</code></td><td>fills with the <em>tag's own</em> colour</td><td>&mdash;</td></tr>
+          <tr><td><strong>Category chip</strong></td><td>dot grows, label darkens</td><td>ring</td><td><code>scale-95</code></td><td><strong>fills with that category's colour</strong>, not house mint</td><td>count 0 &rarr; 40%</td></tr>
+          <tr><td><strong>Nav tab</strong></td><td>label to full ink</td><td>ring</td><td><code>scale-95</code></td><td>mint icon + label, <code>aria-current</code></td><td>&mdash;</td></tr>
+          <tr><td><strong>Map pin</strong></td><td>grows 1.1&times;, label appears</td><td>ring on the canvas focus proxy</td><td>&mdash; (no press state on a canvas)</td><td>1.28&times;, halo, sort-key to front</td><td>filtered out &rarr; 35% + shrink</td></tr>
+          <tr><td><strong>Input</strong></td><td>border warms</td><td>mint border + 3px ring</td><td>&mdash;</td><td>&mdash;</td><td>muted ground</td></tr>
+          <tr><td><strong>Sheet handle</strong></td><td>widens 34 &rarr; 44px</td><td>ring</td><td>tracks the drag</td><td>&mdash;</td><td>&mdash;</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="font-size:19px;margin:36px 0 14px">Micro-animations &mdash; the closed list</h3>
+    <div style="border:1px solid var(--line);border-radius:16px;padding:6px 20px;background:var(--raised)">
+      <div class="motion-row"><span class="k">press</span><span class="d">Any pressable thing, within one frame. The cheapest aliveness there is, and the one we do not have.</span><span class="t">90ms · standard</span></div>
+      <div class="motion-row"><span class="k">row &harr; pin</span><span class="d">Hovering or pressing a row lifts its pin and dims its neighbours to 45%. Says: <em>these are the same object.</em> Needs <code>group-hover:</code>, of which the app currently has none.</span><span class="t">160ms</span></div>
+      <div class="motion-row"><span class="k">pin.select</span><span class="d">Scale to 1.28 with one expanding ring, then still. Today it is a hard swap between two pre-rendered bitmaps.</span><span class="t">220ms · emphasised</span></div>
+      <div class="motion-row"><span class="k">filter.settle</span><span class="d">Filtered-out pins fade and shrink rather than vanishing; entering rows stagger 40ms apart, keyed on id. Says: <em>they are still there.</em></span><span class="t">180ms + 40ms stagger</span></div>
+      <div class="motion-row"><span class="k">band.cross</span><span class="d">Zooming out, pins cross-fade into their area pill rather than hard-swapping. The product explaining its own IA in one gesture.</span><span class="t">200ms</span></div>
+      <div class="motion-row"><span class="k">pins.land</span><span class="d">Post-confirm camera flight, then new pins drop in sequence. Paint-only, so no relayout and no re-collision.</span><span class="t">900ms + 60ms stagger</span></div>
+      <div class="motion-row"><span class="k">sheet.stop</span><span class="d">Springs to the nearest of peek / half / full rather than snapping. Already correct &mdash; leave it alone.</span><span class="t">spring</span></div>
+      <div class="motion-row"><span class="k">count.tick</span><span class="d">A changed count counts to its new value instead of cutting. Only where the number is the news: <em>3 places found</em>, the filter counts.</span><span class="t">400ms</span></div>
+      <div class="motion-row"><span class="k">enter</span><span class="d">Anything appearing: opacity plus a 4px rise. One rule, used everywhere, never elaborated.</span><span class="t">140ms</span></div>
+    </div>
+    <p class="small" style="margin-top:16px;max-width:70ch"><strong>Everything else stays still.</strong> No continuous
+      pin pulsing, no parallax on the sheet, no animated gradients, no spinner anywhere the camera is already moving, and
+      no per-keystroke list animation. Under <code>prefers-reduced-motion</code> all nine collapse to the opacity change
+      alone &mdash; not to nothing, because the pin that was just selected still has to be findable.</p>
+
+    <h3 style="font-size:19px;margin:36px 0 14px">Doing it in Tailwind, properly</h3>
+    <p class="lede" style="margin-bottom:20px;max-width:66ch">The reason the interaction layer is expensive today is that
+      <strong>the tokens are not registered as theme keys</strong>, so no utility exists for them and every call site
+      writes an arbitrary value instead. There are <strong>163 arbitrary-value classes</strong> in
+      <code>src/</code> and <strong>36</strong> registered <code>@theme</code> keys, all of them colours, radii and
+      fonts. Register the rest and the utilities appear.</p>
+
+    <div class="grid g2" style="gap:18px">
+      <div class="card">
+        <h3>1 &middot; Register, and stop writing brackets</h3>
+        <p>Add shadows, easings, durations and the type scale to <code>@theme</code> in
+          <code>globals.css</code>. Tailwind v4 generates a utility per key, so
+          <code>shadow-[var(--shadow-elevated)]</code> &mdash; written at eleven call sites &mdash; becomes
+          <code>shadow-sheet</code>, and <code>duration-[220ms]</code> becomes <code>duration-base</code>. The 163
+          arbitrary values collapse into named utilities that a reviewer can check at a glance.</p>
+      </div>
+      <div class="card">
+        <h3>2 &middot; State in variants, not in ternaries</h3>
+        <p>Selected states are currently assembled by concatenating class strings in JS. Use the variants instead:
+          <code>aria-pressed:bg-tag-on</code>, <code>data-[state=open]:rotate-180</code>,
+          <code>aria-[current=true]:text-mint</code>. The DOM already carries the attributes &mdash; there are 21
+          <code>data-[</code> uses and exactly one <code>aria-[</code>, so the pattern exists and is barely used.</p>
+      </div>
+      <div class="card">
+        <h3>3 &middot; <code>group</code> is how the row talks to the pin</h3>
+        <p>Zero uses of <code>group-hover:</code> in the codebase today, which is precisely why nothing on any screen
+          responds to a hover somewhere else. Mark the row <code>group</code>, then the disc, the name and the
+          chevron all react together &mdash; and the same mechanism carries the row&harr;pin coupling.</p>
+      </div>
+      <div class="card">
+        <h3>4 &middot; <code>motion-safe:</code>, not a global media query</h3>
+        <p>Eight <code>motion-reduce:</code> uses and zero <code>motion-safe:</code>. Inverting it makes the accessible
+          path the default: write the movement under <code>motion-safe:</code> and a component author cannot forget the
+          reduced case, because the un-prefixed state <em>is</em> the reduced case.</p>
+      </div>
+      <div class="card">
+        <h3>5 &middot; Press feedback is one utility</h3>
+        <p>Four <code>active:</code> uses in the whole product. Adding <code>active:scale-[.985]</code> to the shared
+          button, row and chip classes is close to a one-line change per component and is the single most noticeable
+          interaction fix available.</p>
+      </div>
+      <div class="card">
+        <h3>6 &middot; Entry without a library</h3>
+        <p>Tailwind v4 ships a <code>starting</code> variant over <code>@starting-style</code>, so an enter animation is
+          <code>starting:opacity-0 starting:translate-y-1</code> with a transition &mdash; no JS, no
+          <code>AnimatePresence</code>. Worth confirming against the installed 4.3.3 before it is relied on; keep
+          <code>motion</code> for the sheet and the choreographed landing, where a spring is genuinely needed.</p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:22px;border-color:color-mix(in srgb, var(--mint-mid) 30%, transparent);background:var(--glow-2)">
+      <h3>The order this happens in</h3>
+      <p style="font-size:15px">Registration first, in stage 1 &mdash; it is a single file and it unblocks everything
+        else. Then press feedback, which is one utility on three shared class strings. Then <code>group</code> coupling,
+        which is what makes the library and the map feel like one surface rather than two. The choreographed moments
+        &mdash; landing, band-crossing, the count tick &mdash; come last, in the stages that own those screens, because
+        they are the only ones that need judgement rather than a utility.</p>
+    </div>
+  </div>
+</section>
+
 <section id="mockups">
   <div class="wrap">
     <div class="sec-head">
