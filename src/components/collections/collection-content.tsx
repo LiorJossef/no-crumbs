@@ -59,7 +59,7 @@ import { cn } from '@/lib/utils';
  * above every screen title. Uppercasing is a Latin device with no Hebrew equivalent, so an RTL
  * chrome carries the label by weight and colour instead.
  */
-const KICKER =
+export const KICKER =
   'text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--mint-700)] rtl:normal-case rtl:tracking-normal';
 
 export type CollectionView = 'list' | 'place' | 'add' | 'share';
