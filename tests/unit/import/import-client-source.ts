@@ -43,8 +43,13 @@ export function importClientFiles(dir: string = IMPORT_CLIENT_DIR): readonly str
  * string quoted in a comment is by definition not rendered — matching on it would make a guard
  * fire on its own explanation.
  */
-export function importClientSource(options?: { readonly stripComments?: boolean }): string {
+export function importClientSource(options?: {
+  readonly stripComments?: boolean;
+  /** File paths to leave out, by exact path. See `DEV_ONLY_FILES`. */
+  readonly exclude?: readonly string[];
+}): string {
   return importClientFiles()
+    .filter((file) => !(options?.exclude ?? []).includes(file))
     .map((file) => {
       const source = readFileSync(file, 'utf8');
       return options?.stripComments === true
@@ -88,4 +93,28 @@ export function functionSource(functionName: string): string {
   return fileDefining(functionName)
     .slice(fileDefining(functionName).indexOf(`function ${functionName}(`))
     .split('\nfunction ')[0]!;
+}
+
+/**
+ * The files in this directory that exist **only** outside production, and are therefore allowed to
+ * contain things the shipped screens may not.
+ *
+ * There is exactly one, and its whole content is fixture data for the screenshot gates
+ * (`src/app/import/_lib/dev-screen.ts`). It legitimately holds a `ConfidenceBand` literal, because
+ * building a `ResolveResult` requires one — which the band-literal guard in
+ * `one-result-collapse.test.ts` otherwise bans across this directory, for the good reason that a
+ * second copy of `deriveResolution`'s mapping in the UI is how the screen and the server end up
+ * disagreeing about what was saved.
+ *
+ * **The exclusion is by name and it is pinned.** `assertDevOnlyFilesAreGuarded` below asserts that
+ * every excluded file really is folded out of a production build, so the list cannot quietly become
+ * a way to opt a shipped file out of a guard.
+ */
+export const DEV_ONLY_FILES = ['src/app/import/_lib/dev-screen.ts'] as const;
+
+/** Every file in `DEV_ONLY_FILES` carries the literal `NODE_ENV` comparison the bundler folds. */
+export function assertDevOnlyFilesAreGuarded(expect: (actual: unknown) => { toBe: (v: unknown) => void }): void {
+  for (const file of DEV_ONLY_FILES) {
+    expect(readFileSync(file, 'utf8').includes("process.env.NODE_ENV !== 'production'")).toBe(true);
+  }
 }

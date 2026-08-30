@@ -11,7 +11,12 @@ import {
   type CandidateResolutionView,
 } from '@/ui/import/candidate-resolution-view';
 
-import { functionSource, importClientSource } from './import-client-source';
+import {
+  assertDevOnlyFilesAreGuarded,
+  DEV_ONLY_FILES,
+  functionSource,
+  importClientSource,
+} from './import-client-source';
 
 /**
  * The review screen's single-confident-result collapse (`docs/ux-import-flatten.md` §3), and the
@@ -34,8 +39,12 @@ import { functionSource, importClientSource } from './import-client-source';
  */
 
 const CLIENT_SOURCE = importClientSource();
-/** The same files with comments stripped — for the assertions about what the *code* contains. */
-const CLIENT_CODE = importClientSource({ stripComments: true });
+/**
+ * The same files with comments stripped and the dev-only fixture module left out — for the
+ * assertions about what the *shipped code* contains. `import-client-source.ts` says why there is an
+ * exclusion at all and what stops it becoming a loophole; the test below pins it.
+ */
+const CLIENT_CODE = importClientSource({ stripComments: true, exclude: DEV_ONLY_FILES });
 
 function place(over: Partial<ResolvedPlace> = {}): ResolvedPlace {
   return {
@@ -154,6 +163,19 @@ describe('the review screen wires the collapse to that one band', () => {
     // contain, which is documentation of this rule rather than a breach of it. A guard that fires
     // on its own explanation teaches people to delete the explanation.
     expect(CLIENT_CODE).not.toContain("'preselect'");
+  });
+
+  it('excludes exactly one file from that ban, and only because it cannot ship', () => {
+    // The band literal is banned across `src/app/import/` because a second copy of
+    // `deriveResolution`'s mapping in the UI is how the screen and the server end up disagreeing.
+    // `_lib/dev-screen.ts` needs one to build a `ResolveResult` fixture for the screenshot gates,
+    // and is the only file exempt. The exemption is only defensible while that file genuinely
+    // cannot reach production, so that is asserted here rather than assumed — otherwise the list
+    // is a way to opt any file out of any guard in this directory.
+    expect(DEV_ONLY_FILES).toEqual(['src/app/import/_lib/dev-screen.ts']);
+    assertDevOnlyFilesAreGuarded(expect);
+    // And the ban really does still bite on that file's contents.
+    expect(importClientSource({ stripComments: true })).toContain("'preselect'");
   });
 
   it('keeps the save an explicit press', () => {

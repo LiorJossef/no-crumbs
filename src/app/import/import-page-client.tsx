@@ -64,6 +64,7 @@ import { useRouter } from 'next/navigation';
 import { decideCaptionSaveOutcome } from '@/domain/import/caption-save-outcome';
 import { IMPORT_ERROR_COPY } from '@/ui/import/import-error-copy';
 
+import { useDevScreen } from './_lib/dev-screen';
 import { useImportRun } from './_lib/use-import-run';
 import { ImportShell } from './screens/import-shell';
 import { PasteScreen } from './screens/paste-screen';
@@ -150,7 +151,7 @@ export function ImportPageClient({
    * all of this was one function body.
    */
   const {
-    screen,
+    screen: runScreen,
     url,
     setUrl,
     setTouched,
@@ -200,6 +201,19 @@ export function ImportPageClient({
     resetRun(options);
     setCaptionSave({ saving: false, error: null, partialNotice: null, statusByIndex: null });
   }
+
+  /**
+   * A screen forced by `/import?state=…`, or `null` — which it always is in production, where the
+   * branch is folded out of the bundle entirely (`_lib/dev-screen.ts`).
+   *
+   * A render-time override and nothing else. `run.screen` is untouched, so `submit`, `reset` and
+   * the in-flight ownership guard behave exactly as they do without it; this line is the whole
+   * integration. It exists so the quality gates can photograph the review screen, the fourteen
+   * failure screens and — the one that matters most — "no places found", which is the modal
+   * outcome of an import and which the harness could not reach at all.
+   */
+  const devScreen = useDevScreen();
+  const screen = devScreen ?? runScreen;
 
   /**
    * The one sentence the shell's always-mounted polite live region carries.

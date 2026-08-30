@@ -7,9 +7,14 @@ import { ImportPageClient } from './import-page-client';
 // (`src/app/map/page.tsx`): the middleware already redirects an unauthenticated visitor, but every
 // page that renders user-scoped UI still calls `getUser()` itself.
 //
-// This page is UI-only for now (see `import-page-client.tsx`'s header) — no real
-// `POST /api/imports` call, no `runImport` invocation. The client component owns every visual
-// state and a dev-only stepper to walk through them.
+// The client component owns every visual state. There was never a dev-only stepper to walk through
+// them, and "UI-only, no real `POST /api/imports` call" stopped being true when the probe route
+// shipped: `submit()` runs a real oEmbed fetch, a real caption extraction, a real `PlaceExtractor`
+// call and a real `PlaceResolver` pass. What replaced the stepper on 2026-08-31 is a
+// **development-only** URL seam — `/import?state=review|no-places|rail|error-<CODE>` — that exists
+// so the quality gates can photograph the screens an import otherwise only reaches by spending a
+// model call. It is folded out of a production build entirely; `_lib/dev-screen.ts` says how, and
+// `tests/unit/import/dev-screen.test.ts` asserts it.
 export default async function ImportPage() {
   const supabase = await createClient();
   const {
