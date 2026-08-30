@@ -37,21 +37,32 @@
  */
 
 import { createServer } from 'node:http';
-import { savedPlaceRows, profileRow, userRecord, sessionPayload, DEMO_USER_ID } from './fixtures.mjs';
+import {
+  savedPlaceRows,
+  profileRow,
+  userRecord,
+  sessionPayload,
+  collectionMemberRows,
+  collectionDetailRows,
+  collectionInviteRows,
+  invitePreviewRows,
+  DEMO_USER_ID,
+} from './fixtures.mjs';
 
 /** Tables the app reads (`grep -rn "\.from('" src/`), each with a fixture supplier. */
 function tableFixtures(placeCount) {
   return {
     saved_places: () => savedPlaceRows(placeCount),
     profiles: () => [profileRow()],
-    // Collections exist and have shipped, but the screenshot gates are written against the map,
-    // the import flow and the zero state. An empty index is a real, reachable product state, so
-    // this renders the collections zero screen rather than inventing collaborator fixtures whose
-    // shape nobody has checked.
-    collection_members: () => [],
-    collections: () => [],
+    // Collections were `[]` until 2026-08-31, on the grounds that inventing fixtures whose shape
+    // nobody had checked was worse than an admitted gap. The shapes are now **established from the
+    // code** — `SUMMARY_SELECT`, `DETAIL_SELECT` and their hand-written row interfaces in
+    // `src/app/collections/_lib/get-collections.ts` — which is the difference between a mirror and
+    // a guess, and it closes two of Q1's three holes.
+    collection_members: () => collectionMemberRows(placeCount),
+    collections: () => collectionDetailRows(placeCount),
+    collection_invites: () => collectionInviteRows(),
     collection_items: () => [],
-    collection_invites: () => [],
     sources: () => [],
     imports: () => [],
     extractions: () => [],
@@ -117,6 +128,19 @@ export function startStubSupabase(options = {}) {
     }
 
     // ---- PostgREST --------------------------------------------------------------
+    // PostgREST exposes a SECURITY DEFINER function as `POST /rest/v1/rpc/<name>`. The join screen
+    // is the only caller: `preview_collection_invite` (migration `0024`), whose five-column result
+    // is deliberately narrower than the collection itself.
+    if (url.pathname.startsWith('/rest/v1/rpc/')) {
+      const fn = url.pathname.slice('/rest/v1/rpc/'.length);
+      if (fn === 'preview_collection_invite') {
+        json(res, 200, invitePreviewRows());
+        return;
+      }
+      json(res, 200, []);
+      return;
+    }
+
     if (url.pathname.startsWith('/rest/v1/')) {
       const table = url.pathname.slice('/rest/v1/'.length);
       const fixtures = tableFixtures(placeCount);

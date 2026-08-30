@@ -222,3 +222,126 @@ export function authCookie(supabaseUrl, email = 'demo@example.com') {
   const value = `base64-${b64url(JSON.stringify(sessionPayload(email)))}`;
   return { name, value };
 }
+
+// ---------------------------------------------------------------------------
+// Collections
+//
+// Established from the code, not guessed: `SUMMARY_SELECT`, `DETAIL_SELECT` and the two loose
+// selects in `src/app/collections/_lib/get-collections.ts`, plus the `preview_collection_invite`
+// row shape declared in `src/app/collections/join/[token]/page.tsx`. Reading the select and its
+// hand-written row interface is what makes these fixtures a mirror rather than an invention —
+// those interfaces exist precisely because `supabase gen types` output is not in this repo, and
+// the file's own header says a drift between them fails loudly.
+//
+// The names follow the same rule as the places: invented, and unmistakably so.
+// ---------------------------------------------------------------------------
+
+export const DEMO_COLLECTION_ID = 'cccccccc-0000-4000-8000-000000000001';
+export const DEMO_INVITE_TOKEN = 'fixture-invite-token-0001';
+const OTHER_MEMBER_ID = '00000000-0000-4000-8000-000000000002';
+
+/**
+ * `collection_members` rows, shaped as the **superset** of the two selects that read this table:
+ * `SUMMARY_SELECT` (the index) and `getCollectionMemberships`'s narrower one (the ＋ menu).
+ *
+ * One fixture serves both because PostgREST returns only the columns a select asks for and this
+ * stub does not implement `select=` — so the extra keys are ignored by the caller that did not ask
+ * for them. That is a fidelity gap, and it is the right one to accept: the alternative is keying
+ * fixtures by query string, which would break the moment somebody reorders a select.
+ */
+export function collectionMemberRows(placeCount) {
+  const places = savedPlaceRows(Math.min(placeCount, 6));
+  return [
+    {
+      role: 'owner',
+      collection: {
+        id: DEMO_COLLECTION_ID,
+        name: 'Weekend list',
+        description: 'Places for the next few Saturdays.',
+        updated_at: '2026-08-29T18:00:00.000Z',
+        owner: { display_name: 'Demo' },
+        items: places.map((place, index) => ({
+          position: index,
+          place_id: place.place_id,
+          place: {
+            category: place.place.category,
+            provider_category: place.place.provider_category,
+          },
+        })),
+        members: [{ user_id: DEMO_USER_ID }, { user_id: OTHER_MEMBER_ID }],
+      },
+    },
+  ];
+}
+
+/** `collections` rows in `DETAIL_SELECT` shape — the `/collections/[id]` read. */
+export function collectionDetailRows(placeCount) {
+  const places = savedPlaceRows(Math.min(placeCount, 6));
+  return [
+    {
+      id: DEMO_COLLECTION_ID,
+      name: 'Weekend list',
+      description: 'Places for the next few Saturdays.',
+      owner_id: DEMO_USER_ID,
+      members: [
+        {
+          user_id: DEMO_USER_ID,
+          role: 'owner',
+          joined_at: '2026-08-01T09:00:00.000Z',
+          profile: { display_name: 'Demo' },
+        },
+        {
+          user_id: OTHER_MEMBER_ID,
+          role: 'editor',
+          joined_at: '2026-08-14T09:00:00.000Z',
+          profile: { display_name: 'Second Member' },
+        },
+      ],
+      items: places.map((place, index) => ({
+        id: `dddddddd-0000-4000-8000-${String(index).padStart(12, '0')}`,
+        place_id: place.place_id,
+        // Half the items carry a shared note, because the row renders differently with and without
+        // one and a fixture where every row is identical tests one of the two layouts.
+        note: index % 2 === 0 ? 'Added after the Saturday walk.' : null,
+        position: index,
+        added_by: index % 3 === 0 ? OTHER_MEMBER_ID : DEMO_USER_ID,
+        created_at: `2026-08-${String(10 + index).padStart(2, '0')}T12:00:00.000Z`,
+        place: {
+          name: place.place.name,
+          category: place.place.category,
+          provider_category: place.place.provider_category,
+          lat: place.place.lat,
+          lng: place.place.lng,
+          address_line: place.place.address_line,
+          locality: place.place.locality,
+        },
+        adder: { display_name: index % 3 === 0 ? 'Second Member' : 'Demo' },
+      })),
+    },
+  ];
+}
+
+/** `collection_invites` — owner-only by policy, so this is what the owner's share row reads. */
+export function collectionInviteRows() {
+  return [
+    {
+      token: DEMO_INVITE_TOKEN,
+      role: 'editor',
+      created_at: '2026-08-20T10:00:00.000Z',
+      expires_at: null,
+    },
+  ];
+}
+
+/** One row of the `preview_collection_invite` RPC (migration `0024`) — five fields, no more. */
+export function invitePreviewRows() {
+  return [
+    {
+      collection_id: DEMO_COLLECTION_ID,
+      collection_name: 'Weekend list',
+      inviter_name: 'Demo',
+      role: 'editor',
+      already_member: false,
+    },
+  ];
+}

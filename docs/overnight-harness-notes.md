@@ -53,6 +53,19 @@ The screenshot harness falls back to the system Google Chrome (`channel: 'chrome
 its manifest which binary took each picture, because a Chrome build and a Chromium build do not
 render identically and a pixel-level facelift review should not have to guess.
 
+**Resolved, and then run.** The orchestrator installed the matching Chromium on 2026-08-31 and the
+suite was run for the first time since `global-setup.ts` was wired — against commit `ddae298`,
+stub-backed, no `E2E_PASSWORD`, via `tests/harness/run-e2e.mjs`:
+
+> **10 passed, 44 skipped, exit code 0.**
+
+Six of those ten are the pre-existing signed-out smoke tier (three tests × two projects); the other
+four are the gate specs added tonight. So **before tonight this suite passed six tests, skipped
+forty-four, and exited green.** That is not a defect in `global-setup.ts` — this configuration is
+its environment 2, where skipping is the correct outcome against a deployment with no seeded demo
+user — but it is the number anyone quoting "the e2e suite is green" needs in front of them. **81% of
+this suite has still never been observed to run.**
+
 ### F3 — four of eight surfaces 500 on absent configuration; one degrades on purpose
 
 With no Supabase environment variables, `/` renders and `/map`, `/import`, `/collections` and
@@ -176,10 +189,10 @@ and the fallback browser is `/Applications/Google Chrome.app`.
 
 | Gate | Status | |
 |---|---|---|
-| **Q1** — every reachable screen, both viewports, 0/3/30 places | **Mostly measurable** | Six surfaces at both exact gate viewports, at 0/3/30/300. Signed-in ones are stub-backed. Not covered: `/collections/[id]` and `/collections/join/[token]`, which need collection fixtures whose shape nobody has verified — an unverified fixture is a worse artefact than an admitted gap. Also not covered: every import state past the empty field (§6). |
+| **Q1** — every reachable screen, both viewports, 0/3/30 places | **Measurable but for the import states** | Eight surfaces at both exact gate viewports, at 0/3/30/300 where the count matters. Signed-in ones are stub-backed. `/collections/[id]` and `/collections/join/[token]` were holes until 2026-08-31 and are now covered — see §8. The one hole left is every import state past the empty field (§6). |
 | **Q2** — the 90-second demo, no restarts | **NOT measurable** | The demo is a real TikTok fetch → oEmbed → LLM extraction → review → confirm → a database write. The stub renders each screen; it cannot run the flow, and a sequence of stub screenshots presented as "the demo" would be a fabrication. Q2 needs a real deployment with real credentials, driven by a human. |
 | **Q3** | not assessed here | |
-| **Q4** — it feels alive | **Partly measurable** | A still frame cannot show press feedback within one frame or hover→pin coupling. "Pins land rather than blink on" *is* measurable — a trace, or frames sampled during the settle — and the harness does not do it yet. Today Q4 is a person sitting in front of it. |
+| **Q4** — it feels alive | **Half measurable, and that half is now mechanical** | Press feedback within one frame and hover→pin coupling still need a person. "Pins land rather than blink on" is now measured by `tests/harness/measure-motion.mjs` — see §9, which includes the before-baseline W6-6 will be judged against. |
 
 ### The Docker block, stated rather than worked around
 
@@ -229,3 +242,86 @@ with no clutter, no overlap and no slowdown — one pill reading `Tel Aviv-Yafo 
 reading `300 in Israel`. So the "product dies at scale" case does not die. The open question is the
 opposite one: a user with 300 saved places opens the map and is shown a number, not their library.
 `/profile` at 300 is the surface that actually answers "what have I built here", and it holds up.
+
+## 8. The collection screens, and how their fixtures stopped being a guess
+
+`/collections/[id]` and `/collections/join/[token]` were an admitted hole in §5 on the grounds that
+their fixtures were unverified and an unverified fixture makes a worse artefact than a gap. That was
+the right call at the time and it is now unnecessary: the shapes are **established from the code**.
+
+`src/app/collections/_lib/get-collections.ts` declares `SUMMARY_SELECT` and `DETAIL_SELECT` next to
+hand-written `SummaryRow` and `DetailRow` interfaces — which exist precisely because
+`supabase gen types` output is not in this repository, and whose own header says a drift between the
+select and the interface fails loudly rather than silently. Mirroring those two interfaces is
+therefore not guessing; it is copying the same declaration the application reads through. The join
+screen's five-column `InvitePreview` comes from `preview_collection_invite` (migration `0024`), and
+its shape is declared in the page.
+
+Both render. The collection detail shows its name, `3 places · You and Second Member`, the search
+field, the item rows with their shared notes and the `＋ Add places` action. The join screen's
+**signed-out** state is the interesting one and is captured: it deliberately says less than
+`ux-collections.md` §5.3 asks for, because `0024` refuses `anon` the invite preview rather than
+create a token-guessable enumeration surface, and the page carries a long comment saying so. Both
+states are captured.
+
+One fidelity gap, stated: the stub does not implement `select=`, so it returns a **superset** row
+and lets each caller take the columns it asked for. A caller that asked for a column the fixture
+does not have would get `undefined` where PostgREST would have errored. Keying fixtures by query
+string would close that and would break the moment somebody reordered a select; the superset is the
+better trade, but it means **this stub cannot catch a select/interface drift**, which is exactly the
+class of bug those hand-written interfaces exist to catch. Only a real database does that.
+
+Observed while looking, not filed as a defect: at 390×844 the collection detail's `＋ Add places`
+button sits directly over the last visible list row, clipping it mid-row with no scrim or bottom
+padding between the two. Worth a glance from whoever owns that sheet.
+
+## 9. Q4, made mechanical — `tests/harness/measure-motion.mjs`
+
+W6-6's exit criterion is *"pins arrive in sequence after the flight; frame budget unchanged"*. Two
+claims, and until now neither was checkable by anyone but a person watching the screen. Both halves
+are now measured, and pointable at a commit the way the screenshot harness is, so Wave 8 can put a
+before against an after.
+
+**How.** A CDP screencast of `/map` from navigation to rest — not a loop of `page.screenshot()`,
+which costs tens of milliseconds on the same thread the animation runs on and would measure the
+sampler as much as the subject. Each screencast frame **is** a compositor paint, so the gaps in the
+series are data rather than sampling artefacts. Consecutive frames are diffed for the fraction of
+pixels that changed; the series is anchored on the single **largest** change, which is the frame
+where the map paints. `requestAnimationFrame` deltas are recorded across the same window.
+
+**The before-baseline, commit `1bc3e82`, 30 places, stub-backed:**
+
+| | 390×844 | 1440×900 |
+|---|---|---|
+| Map painted at | 1772 ms | 1551 ms |
+| Pixels changed by that paint | 51.1% | 42.1% |
+| Paints after it | **1** | **1** |
+| Visible change events after it | **0** | **0** |
+| Frame time max | 383.5 ms | 658.4 ms |
+| Frames over 33.3 ms | 8 | 10 |
+
+**Reading:** the map and its markers arrive together, in one fade, and nothing moves afterwards.
+There is no per-marker entrance today — which is the correct "before" for a package whose job is to
+add one. The filmstrip confirms the numbers rather than the other way round: frame 153 at 1769 ms
+shows the whole map ghosted and half-opaque with the summary pill already in place, and frame 154 at
+1772 ms shows it fully painted. It is a whole-surface fade, not an entrance.
+
+**Two numbers not to misread, and this matters more than the numbers themselves.**
+
+- **The median frame time is meaningless here.** Headless Chromium's `requestAnimationFrame` is not
+  locked to a display refresh, so an idle page reports ~8.3 ms. That is not "120 fps"; it is
+  "nothing was happening". The tool prints a `medianCaveat` beside it for that reason. Compare
+  `maxMs` and the over-budget counts between two runs of this tool. Do **not** compare either
+  against `facelift-plan.md` §2's *19.0 ms median / 60.5 ms p95*, which is a different measurement.
+- **The 2,000-pin run does not reproduce §2's stress condition.** Measured at 2,000 places: max
+  334 ms mobile, 317 ms desktop — *better* than the 30-place run. That is not a performance result,
+  it is an artefact of the camera: the home view sits under `HOME_LANDING_ZOOM`'s country-band
+  ceiling, so 2,000 pins collapse into **one** summary marker and 2,000 symbols are never drawn.
+  §2's number was 2,000 pins actually rendered. Reproducing it needs a camera at pin-band zoom over
+  a spread that does not cluster, and this tool does not do that yet. **Quoting the 2,000-pin number
+  as "2,000 pins are free" would be exactly wrong.**
+
+**What it cannot do**, and this is the boundary rather than a caveat: it can say pins appeared over
+400 ms in eleven steps rather than in one, and it can say no frame exceeded 33 ms. It cannot say
+whether the easing reads as a pin *landing* or as a pin *twitching*. Q4 keeps a person in it. This
+only removes the part where the person also had to be a stopwatch.

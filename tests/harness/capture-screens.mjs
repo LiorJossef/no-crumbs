@@ -44,7 +44,7 @@ import { fileURLToPath } from 'node:url';
 
 import { GATE_VIEWPORTS } from './viewports.mjs';
 import { startStubSupabase } from './stub-supabase.mjs';
-import { authCookie } from './fixtures.mjs';
+import { authCookie, DEMO_COLLECTION_ID, DEMO_INVITE_TOKEN } from './fixtures.mjs';
 import { exportCommit, buildApp, startApp } from './app-server.mjs';
 
 const REPO_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -98,6 +98,15 @@ const SCREENS = [
   { route: '/profile', name: 'profile', auth: ['in'], varyByPlaces: true },
   { route: '/collections', name: 'collections', auth: ['in'], varyByPlaces: false },
   { route: '/import', name: 'import', auth: ['in'], varyByPlaces: false },
+  // The two collection sub-routes were an admitted hole until 2026-08-31: their fixtures were
+  // unverified, and an unverified fixture makes a worse artefact than a gap. The shapes are now
+  // read off `DETAIL_SELECT`, its hand-written `DetailRow`, and the `InvitePreview` interface in
+  // the join page — so these are mirrors of the selects rather than guesses.
+  { route: `/collections/${DEMO_COLLECTION_ID}`, name: 'collection-detail', auth: ['in'], varyByPlaces: false },
+  // The join screen has two states and the *signed-out* one is the one that matters: it is what an
+  // invited stranger sees, and `0024` refuses `anon` the invite preview on purpose, so the screen
+  // deliberately says less than `ux-collections.md` §5.3 asks for. Both are captured.
+  { route: `/collections/join/${DEMO_INVITE_TOKEN}`, name: 'collection-join', auth: ['out', 'in'], varyByPlaces: false },
 ];
 
 function parseArgs(argv) {
