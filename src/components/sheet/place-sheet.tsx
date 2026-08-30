@@ -148,6 +148,23 @@ export interface PlaceSheetProps {
   readonly categoryFacets: readonly CategoryFacet[];
   readonly activeCategory: ProductCategory | null;
   readonly onToggleCategory: (category: ProductCategory) => void;
+  /**
+   * **How many places this list would show with the search and every filter cleared** — the
+   * denominator in `12 of 32`, ruled by `overnight-copy-deck.md` §4.3 condition 2.
+   *
+   * Not the library, not the viewport, and deliberately not anything this component can derive:
+   * `places` and `otherPlaces` both arrive already narrowed, so their sum is the *numerator*. The
+   * only honest source is the page, which holds the unfiltered list — and the check the deck gives
+   * a verifier is exactly that identity: clear the field, read the heading's count, it is the 32
+   * you just saw.
+   *
+   * **Optional, and absent means the count does not render.** A number beside a search field that
+   * was computed from a set this component only half has would be a confident wrong answer, which
+   * is the one thing this codebase will not ship. `map-page-client.tsx` is where it comes from and
+   * that file belongs to another lane tonight; until it passes this, the sighted count is not on
+   * screen and `map-shell.tsx`'s live region remains the only announcement of the same fact.
+   */
+  readonly unfilteredCount?: number;
   readonly selected: MapPlace | null;
   readonly onDeselect: () => void;
   /** Opens the import overlay in `map-page-client.tsx` (client state) rather than navigating to
@@ -180,6 +197,7 @@ export function PlaceSheet({
   categoryFacets,
   activeCategory,
   onToggleCategory,
+  unfilteredCount,
   selected,
   onDeselect,
   onAddTikTok,
@@ -230,6 +248,7 @@ export function PlaceSheet({
       categoryFacets={categoryFacets}
       activeCategory={activeCategory}
       onToggleCategory={onToggleCategory}
+      {...(unfilteredCount === undefined ? {} : { unfilteredCount })}
       stop={stop}
       // `half` for an empty library, `full` once there is a list. The empty state is a heading, a
       // line and one button — about 380 px — so opening it full gave a new user their first screen
@@ -259,6 +278,7 @@ function PlaceList({
   categoryFacets,
   activeCategory,
   onToggleCategory,
+  unfilteredCount,
   stop,
   onExpand,
   onAddTikTok,
@@ -279,6 +299,7 @@ function PlaceList({
   categoryFacets: readonly CategoryFacet[];
   activeCategory: ProductCategory | null;
   onToggleCategory: (category: ProductCategory) => void;
+  unfilteredCount?: number;
   stop: SheetStop;
   onExpand: () => void;
   onAddTikTok: () => void;
@@ -447,7 +468,21 @@ function PlaceList({
 
           {/* Hidden while the library is empty: there is nothing to search, and an inert field is a
               false affordance offering work that cannot produce a result. */}
-          {!libraryIsEmpty && <PlaceSearchField value={query} onChange={onQueryChange} />}
+          {!libraryIsEmpty && (
+            <div className="flex flex-col gap-1.5">
+              <PlaceSearchField value={query} onChange={onQueryChange} />
+              <ResultCount
+                shown={places.length + otherPlaces.length}
+                {...(unfilteredCount === undefined ? {} : { of: unfilteredCount })}
+                narrowing={
+                  isSearchActive(query) ||
+                  activeTag !== null ||
+                  notBeenOnly ||
+                  activeCategory !== null
+                }
+              />
+            </div>
+          )}
 
           {/* Above the list *and* above the empty state, so the one control that undoes a tag
               filter is on screen in the state where the filter has left nothing to look at. The
@@ -904,6 +939,52 @@ export function PlaceSearchField({
         </Button>
       )}
     </div>
+  );
+}
+
+/**
+ * **`12 of 32`, beside the search field — the same fact the live region already says, for the
+ * people who cannot hear it.**
+ *
+ * The sheet has announced how much of the library is in play since `filterSentence` shipped, and it
+ * announced it *only* to a screen reader (`map-shell.tsx`'s one live region). A sighted user typing
+ * into the field watched rows disappear with no number anywhere on screen.
+ *
+ * `overnight-copy-deck.md` §4.3 (C135) rules the string and three conditions, and each one is a
+ * line below:
+ *
+ *  1. **It renders only while something is narrowing.** `32 of 32` says nothing and competes with
+ *     the heading, which already carries a count. It appears at the moment the number means
+ *     something, which is also what makes it self-explanatory.
+ *  2. **The denominator is the post-clear count of the same list**, which this component cannot
+ *     derive — see `unfilteredCount`. No denominator, no count: a number that guessed would be a
+ *     confident wrong answer beside a control the user is actively driving.
+ *  3. **`aria-hidden`.** The sheet has exactly one live region and `filterSentence` already feeds
+ *     it the same fact as a sentence. Two announcements of one change is a defect, not redundancy.
+ *
+ * `N of M` is this product's existing way of saying how much of a set is in play —
+ * `import-page-client.tsx` renders `{selectedCount} of {saveableIndices.length} selected` — so this
+ * introduces a number, not a form. `0 of 32` needs no special string: the heading beside it already
+ * reads `Nothing matches "momos"` and offers `Clear search`.
+ */
+function ResultCount({
+  shown,
+  of,
+  narrowing,
+}: {
+  /** What the list is rendering: the scope's places plus the ones under `Everywhere else`, which
+   *  together are every match in the library. */
+  shown: number;
+  /** The same list with nothing narrowing it. Absent renders nothing at all. */
+  of?: number;
+  narrowing: boolean;
+}) {
+  if (!narrowing || of === undefined) return null;
+
+  return (
+    <p aria-hidden className="text-micro font-medium tabular-nums text-muted-foreground">
+      {shown} of {of}
+    </p>
   );
 }
 

@@ -1,5 +1,12 @@
 /**
- * **The reduced-motion arm, asserted where it is easiest to lose.**
+ * **The sheet's list chrome: what it animates, and what it counts.**
+ *
+ * Two subjects, one harness — `PlaceSheet` is expensive to stand up (three Server Action modules
+ * mocked, a full prop surface) and both blocks below are assertions about the chrome *above* the
+ * rows rather than about the rows themselves. The file is named for the first because that is what
+ * it was written for; the result count arrived with W5-5 and belongs to the same render.
+ *
+ * ## 1. The reduced-motion arm, asserted where it is easiest to lose
  *
  * `facelift-plan.md` §3a rule 4 inverts `motion-reduce:` into `motion-safe:`, and the reason is
  * mechanical rather than stylistic: with `motion-reduce:` the accessible path is a second thing the
@@ -69,7 +76,7 @@ function place(id: string, name: string): MapPlace {
 
 const places = [place('tlv-1', 'Miznon'), place('tlv-2', 'קפה לוינסקי')];
 
-function render(): string {
+function render(overrides: Record<string, unknown> = {}): string {
   return renderToStaticMarkup(
     createElement(PlaceSheet, {
       places,
@@ -99,6 +106,7 @@ function render(): string {
       onSelect: () => {},
       stop: 'half' as const,
       onExpand: () => {},
+      ...overrides,
     }),
   );
 }
@@ -127,5 +135,42 @@ describe('the area heading enters the way the design system says it enters', () 
     // during a frame that also resets the scroll and moves focus — the change a reduced-motion
     // user is most likely to miss entirely.
     expect(render()).not.toContain('motion-reduce:');
+  });
+});
+
+/**
+ * The visible result count (W5-5). The sheet has announced how much of the library is in play since
+ * `filterSentence` shipped and announced it only to a screen reader; this is the same fact for the
+ * people who cannot hear it.
+ */
+describe('the result count beside the search field', () => {
+  it('says how many of how many while something is narrowing', () => {
+    expect(render({ query: 'momos', unfilteredCount: 32 })).toContain('2 of 32');
+  });
+
+  it('stays away when nothing is narrowing', () => {
+    // `2 of 32` with an empty field is a number about nothing, competing with a heading that
+    // already carries a count.
+    expect(render({ unfilteredCount: 32 })).not.toContain('of 32');
+  });
+
+  it('renders nothing at all rather than guessing a denominator', () => {
+    // `places` and `otherPlaces` both arrive already narrowed, so their sum is the numerator. A
+    // denominator derived from them would be a confident wrong answer beside a control the user is
+    // actively driving. Absent `unfilteredCount`, the count does not render.
+    const markup = render({ query: 'momos' });
+    expect(markup).not.toMatch(/\d+ of \d+/);
+  });
+
+  it('is hidden from the accessibility tree, because the live region already says it', () => {
+    // The sheet has exactly one live region and `filterSentence` feeds it the same fact as a
+    // sentence. Two announcements of one change is a defect, not redundancy.
+    const markup = render({ query: 'momos', unfilteredCount: 32 });
+    expect(markup).toMatch(/<p aria-hidden="true"[^>]*>2 of 32<\/p>/);
+  });
+
+  it('appears for a tag and for the visit filter, not only for typed text', () => {
+    expect(render({ activeTag: 'wine', unfilteredCount: 32 })).toContain('2 of 32');
+    expect(render({ notBeenOnly: true, unfilteredCount: 32 })).toContain('2 of 32');
   });
 });
