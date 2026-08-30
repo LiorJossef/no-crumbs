@@ -19,6 +19,7 @@ import { describe, expect, it } from 'vitest';
 import { CategoryFilterBar } from '@/components/sheet/category-filter-bar';
 import type { CategoryFilterBarProps } from '@/components/sheet/category-filter-bar';
 import type { CategoryFacet } from '@/domain/places/category-filter';
+import { CATEGORY_COLOR } from '@/ui/place/palette';
 
 const FACETS: readonly CategoryFacet[] = [
   { category: 'restaurant', count: 6 },
@@ -150,6 +151,57 @@ describe('CategoryFilterBar — the state model', () => {
     for (const chip of buttons(render())) {
       expect(chip).toContain('type="button"');
     }
+  });
+});
+
+describe('CategoryFilterBar — the category colour does the work (W2-4)', () => {
+  it('fills a pressed chip with that category\'s own colour, not house mint', () => {
+    // `facelift-plan.md` §3a: "fills with **that category's** colour, not house mint". The chip
+    // sets `--tag-selected` on itself, and `CHIP_PRESSABLE`'s `aria-pressed:bg-tag-selected`
+    // resolves to exactly that variable — so the rule stays a variant and only the value is data.
+    const chips = buttons(render({ activeCategory: 'cafe' }));
+    expect(chips[2]).toContain('aria-pressed:bg-tag-selected');
+    expect(chips[2]).toContain('--tag-selected:#6F4A2B');
+  });
+
+  it('gives every category chip its colour, pressed or not', () => {
+    // The variable is set unconditionally: the dot reads it at rest, the fill reads it when
+    // pressed, and neither is a class string chosen by a ternary.
+    const chips = buttons(render());
+    expect(chips[1]).toContain('--tag-selected:#C2452F');
+    expect(chips[2]).toContain('--tag-selected:#6F4A2B');
+    expect(chips[3]).toContain('--tag-selected:#6D4FA8');
+  });
+
+  it('takes the colours from the palette module rather than from a literal in the component', () => {
+    // The same module `marker-style.ts` reads, which is why the chip, the row's disc and the pin
+    // cannot disagree about what a café is.
+    const chips = buttons(render());
+    expect(chips[2]).toContain(`--tag-selected:${CATEGORY_COLOR.cafe}`);
+  });
+
+  it('leaves the visit chip on house mint, because it is not about a kind of place', () => {
+    const chips = buttons(render({ notBeenOnly: true }));
+    expect(chips[0]).toContain('aria-pressed="true"');
+    expect(chips[0]).not.toContain('--tag-selected');
+  });
+
+  it('flips the dot to the chip\'s foreground when pressed, through a group variant', () => {
+    // A dot in the category's colour on a fill of the same colour is an invisible dot. This used
+    // to be `active && 'bg-current'` — the state computed twice, once into `aria-pressed` and once
+    // into a class string. Now the DOM attribute is the only source.
+    const chips = buttons(render({ activeCategory: 'cafe' }));
+    expect(chips[2]).toContain('group-aria-pressed/chip:bg-current');
+    expect(chips[2]).toContain('bg-(--chip-dot)');
+  });
+
+  it('still renders the count on every chip', () => {
+    // Half of W2-4's exit criterion, and it already shipped — asserted so it cannot be lost while
+    // the colour half is being built.
+    const chips = buttons(render());
+    expect(chips[1]).toContain('>6<');
+    expect(chips[2]).toContain('>4<');
+    expect(chips[3]).toContain('>1<');
   });
 });
 

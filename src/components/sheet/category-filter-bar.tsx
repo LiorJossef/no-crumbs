@@ -63,6 +63,7 @@
  * `transition-colors`, which triggers no layout.
  */
 
+import type { CSSProperties } from 'react';
 import { X } from 'lucide-react';
 
 import type { CategoryFacet } from '@/domain/places/category-filter';
@@ -70,15 +71,15 @@ import type { ProductCategory } from '@/domain/places/product-category';
 import { cn } from '@/lib/utils';
 import { categoryDisplay } from '@/ui/place/category-display';
 import { NOT_BEEN_FILTER_LABEL } from '@/ui/place/visit-state';
-import {
-  CHIP_PRESSABLE,
-  CHIP_PRESSABLE_ACTIVE,
-  CHIP_PRESSABLE_REST,
-} from './place-enrichment';
+import { CHIP_PRESSABLE } from './place-enrichment';
 
 /** The 44 px floor the merge exists to reach, plus the internal rhythm shared by every chip in the
- *  row. `min-h-11` overrides `CHIP_PRESSABLE`'s `min-h-8` through `cn`'s class merge. */
-const BAR_CHIP = 'min-h-11 shrink-0 gap-2';
+ *  row. `min-h-11` overrides `CHIP_PRESSABLE`'s `min-h-8` through `cn`'s class merge.
+ *
+ *  `group/chip` is what lets the dot inside a category chip see its own button's `aria-pressed`
+ *  without either of them being told about the other — named rather than bare, because these chips
+ *  sit inside a sheet that has other grouped containers and an unnamed group leaks upwards. */
+const BAR_CHIP = 'group/chip min-h-11 shrink-0 gap-2';
 
 /** The group's accessible name. A row of five bare toggle buttons in the middle of a sheet is five
  *  loose words unless something says what they are — the same reason `TagChipList` names itself. */
@@ -159,11 +160,10 @@ export function CategoryFilterBar({
           type="button"
           aria-pressed={notBeenOnly}
           onClick={onToggleNotBeen}
-          className={cn(
-            CHIP_PRESSABLE,
-            BAR_CHIP,
-            notBeenOnly ? CHIP_PRESSABLE_ACTIVE : CHIP_PRESSABLE_REST,
-          )}
+          // House mint when pressed, unlike the category chips below: `Not been yet` is a question
+          // about your own visits rather than about a kind of place, so there is no category whose
+          // colour it could honestly borrow.
+          className={cn(CHIP_PRESSABLE, BAR_CHIP)}
         >
           <span className="whitespace-nowrap">{NOT_BEEN_FILTER_LABEL}</span>
           {notBeenOnly && <X className="size-3.5 shrink-0" aria-hidden />}
@@ -205,20 +205,31 @@ function CategoryChip({
       // label-in-name rather than replacing what the chip says.
       aria-label={`${display.label}, ${countPhrase(count)}`}
       onClick={() => onToggle(category)}
-      className={cn(
-        CHIP_PRESSABLE,
-        BAR_CHIP,
-        active ? CHIP_PRESSABLE_ACTIVE : CHIP_PRESSABLE_REST,
-      )}
+      /**
+       * **The one place in this file where a colour comes from data rather than from a variant,
+       * and it is a knowing exception** (`ux-overnight-specs.md` OQ-8, accepted by the
+       * orchestrator). Run rule 6a says state comes from variants; four category colours would
+       * therefore be four hard-coded variants, which is a palette by another name and a fifth
+       * category could not be added without editing this component.
+       *
+       * So the *rule* stays a variant — `aria-pressed:bg-tag-selected` in `CHIP_PRESSABLE` — and
+       * only the value is data. `bg-tag-selected` compiles to `background-color:
+       * var(--tag-selected)`, so overriding that variable on this button alone is what makes a
+       * pressed Café chip café-brown instead of house mint. No literal: the value comes from
+       * `categoryDisplay`, which reads `ui/place/palette.ts` — the same module the map's own pin
+       * expressions read, which is why the chip, the row's disc and the pin cannot disagree.
+       */
+      style={{ '--tag-selected': display.color, '--chip-dot': display.color } as CSSProperties}
+      className={cn(CHIP_PRESSABLE, BAR_CHIP)}
     >
       {/* The pin's own colour, so a café is the same brown here, on the map and on the row. On the
-          pressed chip it becomes the chip's foreground instead: `other` is house mint and the
-          pressed fill is mint, so its dot would vanish into the fill. Same box either way, so
-          pressing a chip never shifts the ones beside it. */}
+          pressed chip it becomes the chip's foreground instead — now that the fill *is* the
+          category's colour, a dot in that same colour would be invisible against it, which is the
+          stronger form of the reason this line already existed (mint dot on a mint fill). Same box
+          either way, so pressing a chip never shifts the ones beside it. */}
       <span
         aria-hidden
-        className={cn('size-2 shrink-0 rounded-full', active && 'bg-current')}
-        {...(active ? {} : { style: { backgroundColor: display.color } })}
+        className="size-2 shrink-0 rounded-full bg-(--chip-dot) group-aria-pressed/chip:bg-current"
       />
       <span className="whitespace-nowrap">{display.label}</span>
       <span className="shrink-0 tabular-nums opacity-70">{count}</span>

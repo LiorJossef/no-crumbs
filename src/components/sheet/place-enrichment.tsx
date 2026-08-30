@@ -73,9 +73,9 @@ import { cn } from '@/lib/utils';
  * by `CHIP_PRESSABLE`, which only a chip inside a `TagFilterContext` ever gets.
  */
 const CHIP_BASE =
-  'inline-block max-w-full truncate rounded-full bg-[var(--tag)] font-bold text-[var(--tag-foreground)]';
+  'inline-block max-w-full truncate rounded-full bg-tag font-bold text-tag-foreground';
 const CHIP_DETAIL = 'px-2.5 py-1 text-xs leading-4';
-const CHIP_ROW = 'px-2 py-0.5 text-[11px] leading-4';
+const CHIP_ROW = 'px-2 py-0.5 text-micro leading-4';
 
 /**
  * A detail chip that is a control. `min-h-8` (32 px) rather than the label's 24 px: still short of
@@ -99,19 +99,33 @@ const CHIP_ROW = 'px-2 py-0.5 text-[11px] leading-4';
  * the only confirmation that a tap had landed was the list underneath changing. The 5% squeeze is
  * the acknowledgement, and it is `motion-safe:` — under reduced motion the fill change is the whole
  * of it, which is what the chip already had.
+ *
+ * ## One string, and the pressed state is a variant rather than a second string
+ *
+ * This used to be three constants — the shape, `CHIP_PRESSABLE_REST` and `CHIP_PRESSABLE_ACTIVE` —
+ * chosen between by a ternary at each of the three call sites. The DOM already carried
+ * `aria-pressed` on every one of them, so the state was being computed in JavaScript, written into
+ * an attribute, and then computed *again* to pick a class string. `aria-pressed:` reads the
+ * attribute that is already there (run rule 6a: state comes from variants, never from a class
+ * string assembled in a ternary), which means a chip cannot render pressed-looking while telling a
+ * screen reader it is not.
+ *
+ * **The fill is deliberately a token reference and not a fixed colour.** `bg-tag-selected` compiles
+ * to `background-color: var(--tag-selected)`, so a call site that sets `--tag-selected` on the
+ * button itself changes what "pressed" looks like for that chip alone — which is how the category
+ * filter bar fills a pressed chip with *that category's* colour instead of house mint. Every other
+ * chip inherits the mint from `:root` and nothing about them changes.
  */
 export const CHIP_PRESSABLE =
   'inline-flex min-h-8 max-w-full cursor-pointer items-center rounded-full border px-3 text-xs font-bold outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 ' +
+  'border-tag-foreground/15 bg-tag text-tag-foreground hover:border-tag-foreground/45 ' +
+  'aria-pressed:border-transparent aria-pressed:bg-tag-selected aria-pressed:text-tag-selected-foreground ' +
   PRESS_CHIP;
-export const CHIP_PRESSABLE_REST =
-  'border-[var(--tag-foreground)]/15 bg-[var(--tag)] text-[var(--tag-foreground)] hover:border-[var(--tag-foreground)]/45';
-export const CHIP_PRESSABLE_ACTIVE =
-  'border-transparent bg-[var(--tag-selected)] text-[var(--tag-selected-foreground)]';
 
 /** The kicker above a filter pill — `TAGGED`, `SHOWING`. Exported so a second filter cannot invent
  *  a slightly different micro-label beside the first. */
 export const FILTER_KICKER =
-  'shrink-0 text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase';
+  'shrink-0 text-micro font-bold tracking-[0.1em] text-muted-foreground uppercase';
 
 /**
  * The full tag set, for a detail view. Wraps freely — five tags on a 390 px phone is two lines, and
@@ -146,12 +160,9 @@ export function TagChipList({ tags }: { tags: readonly string[] }) {
               // and tapping the pressed one clears the filter.
               aria-pressed={isTagActive(filter.activeTag, tag)}
               onClick={() => filter.onToggleTag(tag)}
-              className={cn(
-                CHIP_PRESSABLE,
-                isTagActive(filter.activeTag, tag)
-                  ? CHIP_PRESSABLE_ACTIVE
-                  : CHIP_PRESSABLE_REST,
-              )}
+              // No ternary: `aria-pressed` above is the state, and `CHIP_PRESSABLE` carries both
+              // arms of it as variants.
+              className={CHIP_PRESSABLE}
             >
               {/* `dir="auto"` sits on the text rather than the button so the bidi isolate wraps
                   exactly the untrusted string, not the control's own box. */}
@@ -204,7 +215,7 @@ export function ActiveTagFilter({
         onClick={onClear}
         aria-label={`Clear the ${isolate(label)} tag filter`}
         className={cn(
-          'inline-flex min-h-9 min-w-0 cursor-pointer items-center gap-1.5 rounded-full bg-[var(--tag-selected)] px-3 text-xs font-bold text-[var(--tag-selected-foreground)] outline-none transition-colors hover:bg-[color-mix(in_oklch,var(--tag-selected),var(--foreground)_10%)] focus-visible:ring-3 focus-visible:ring-ring/50',
+          'inline-flex min-h-9 min-w-0 cursor-pointer items-center gap-1.5 rounded-full bg-tag-selected px-3 text-xs font-bold text-tag-selected-foreground outline-none transition-colors hover:bg-[color-mix(in_oklch,var(--tag-selected),var(--foreground)_10%)] focus-visible:ring-3 focus-visible:ring-ring/50',
           // It is chip-shaped, so it presses like one — and it is the only way out of a filter
           // that has emptied the list, which is the state where a tap that looks ignored is worst.
           PRESS_CHIP,
@@ -245,7 +256,7 @@ export function TagChipRow({ tags }: { tags: readonly string[] }) {
       ))}
       {overflow > 0 && (
         // Deliberately not a chip: a filled `+2` would read as a fourth tag called "+2".
-        <span className="shrink-0 text-[11px] font-bold leading-4 text-muted-foreground">
+        <span className="shrink-0 text-micro font-bold leading-4 text-muted-foreground">
           +{overflow}
         </span>
       )}
@@ -264,7 +275,7 @@ export function TagChipRow({ tags }: { tags: readonly string[] }) {
  */
 function Kicker({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase">
+    <p className="text-micro font-bold tracking-[0.1em] text-muted-foreground uppercase">
       {children}
     </p>
   );
