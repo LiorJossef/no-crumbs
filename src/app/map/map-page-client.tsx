@@ -812,7 +812,9 @@ export function MapPageClient({
   const [importSeedUrl, setImportSeedUrl] = useState<string | null>(null);
 
   function openImport(seedUrl: string | null = null) {
-    setImportSeedUrl(seedUrl);
+    // Guarded, not just typed: the surfaces that offer this as a plain `() => void` prop can pass
+    // it straight to `onClick`, which TypeScript accepts and React then calls with the mouse event.
+    setImportSeedUrl(typeof seedUrl === 'string' ? seedUrl : null);
     setLastImport(null);
     // An import that lands places the current filters exclude would save them into an invisible
     // list and fly the camera at pins that are filtered out. Starting an import is the user leaving

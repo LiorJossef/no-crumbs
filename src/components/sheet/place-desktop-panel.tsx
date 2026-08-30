@@ -118,7 +118,7 @@ export function PlaceDesktopPanel({
           <Button
             type="button"
             className="h-12 w-full gap-1.5 rounded-lg text-sm font-bold"
-            onClick={onAddTikTok}
+            onClick={() => onAddTikTok()}
           >
             <Plus className="size-4" aria-hidden />
             Add a TikTok
