@@ -48,7 +48,7 @@ import {
 import { savedPlaceRef } from '@/components/map/saved-place-ref';
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Plus, MapPin, ExternalLink, X, ChevronLeft, ChevronUp, Search } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button, PRESS_ROW } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { isSearchActive } from '@/domain/places/search';
@@ -340,7 +340,13 @@ function PlaceList({
                 ? `Show your places, and ${moreElsewhere} more from everywhere else`
                 : 'Show your places'
             }
-            className="flex min-w-0 flex-1 items-center gap-1 rounded-lg px-1 text-left text-sm font-medium text-muted-foreground"
+            className={cn(
+              'flex min-w-0 flex-1 items-center gap-1 rounded-lg px-1 text-left text-sm font-medium text-muted-foreground',
+              // The only control on the peek strip, and the one whose result — the sheet rising —
+              // takes a spring to arrive. Without a press this row looked inert for that whole
+              // beat.
+              PRESS_ROW,
+            )}
           >
             <span className="min-w-0 truncate">
               {/* The number carries the emphasis and the rest of the line stays quiet, exactly as it
@@ -659,7 +665,13 @@ export function PlaceRow({
         // `data-vaul-no-drag`: inside the mobile sheet, a press that begins on this row would
         // otherwise be read as the start of a sheet drag, and the tap would be swallowed.
         data-vaul-no-drag
-        className="flex min-h-16 w-full items-start gap-3 rounded-lg py-3.5 text-left transition-colors outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50"
+        // `PRESS_ROW` is the matrix's press column for a list row: a 1% squeeze at 90ms, which is
+        // the only confirmation a phone can give that the tap landed on *this* row before the
+        // camera starts flying. Shallower than a button's on purpose — see its docblock.
+        className={cn(
+          'flex min-h-16 w-full items-start gap-3 rounded-lg py-3.5 text-left transition-colors outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50',
+          PRESS_ROW,
+        )}
       >
         {body}
       </button>
@@ -1287,7 +1299,13 @@ export function PlaceDetail({
                       type="button"
                       data-vaul-no-drag
                       onClick={() => onSelectNearby(neighbour.id)}
-                      className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg text-left transition-colors outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50"
+                      className={cn(
+                        'flex min-h-11 w-full items-center justify-between gap-3 rounded-lg text-left transition-colors outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50',
+                        // The same row shape, so the same press. It swaps the whole detail view
+                        // under the finger, which is the one place a missing acknowledgement reads
+                        // as the app having lost the place you were looking at.
+                        PRESS_ROW,
+                      )}
                     >
                       <span className="line-clamp-1 text-sm font-semibold text-foreground">
                         <bdi>{neighbour.name}</bdi>

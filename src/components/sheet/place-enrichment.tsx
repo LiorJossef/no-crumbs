@@ -59,6 +59,7 @@ import { X } from 'lucide-react';
 import { tagDisplayLabel } from '@/domain/extraction/tags';
 import { splitRowTags } from '@/ui/place/enrichment';
 import { isTagActive, useTagFilter } from '@/ui/place/tag-filter';
+import { PRESS_CHIP } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 /**
@@ -92,9 +93,16 @@ const CHIP_ROW = 'px-2 py-0.5 text-[11px] leading-4';
  *
  * The border width never changes between states, so nothing reflows; the whole thing animates on
  * `border-color`/`background-color`, neither of which triggers layout.
+ *
+ * `PRESS_CHIP` is the sixth column the state matrix says every interactive element owes and this
+ * one did not have: on a phone, hover does not exist and focus-visible does not fire, so until now
+ * the only confirmation that a tap had landed was the list underneath changing. The 5% squeeze is
+ * the acknowledgement, and it is `motion-safe:` — under reduced motion the fill change is the whole
+ * of it, which is what the chip already had.
  */
 export const CHIP_PRESSABLE =
-  'inline-flex min-h-8 max-w-full cursor-pointer items-center rounded-full border px-3 text-xs font-bold outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50';
+  'inline-flex min-h-8 max-w-full cursor-pointer items-center rounded-full border px-3 text-xs font-bold outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 ' +
+  PRESS_CHIP;
 export const CHIP_PRESSABLE_REST =
   'border-[var(--tag-foreground)]/15 bg-[var(--tag)] text-[var(--tag-foreground)] hover:border-[var(--tag-foreground)]/45';
 export const CHIP_PRESSABLE_ACTIVE =
@@ -195,7 +203,12 @@ export function ActiveTagFilter({
         type="button"
         onClick={onClear}
         aria-label={`Clear the ${isolate(label)} tag filter`}
-        className="inline-flex min-h-9 min-w-0 cursor-pointer items-center gap-1.5 rounded-full bg-[var(--tag-selected)] px-3 text-xs font-bold text-[var(--tag-selected-foreground)] outline-none transition-colors hover:bg-[color-mix(in_oklch,var(--tag-selected),var(--foreground)_10%)] focus-visible:ring-3 focus-visible:ring-ring/50"
+        className={cn(
+          'inline-flex min-h-9 min-w-0 cursor-pointer items-center gap-1.5 rounded-full bg-[var(--tag-selected)] px-3 text-xs font-bold text-[var(--tag-selected-foreground)] outline-none transition-colors hover:bg-[color-mix(in_oklch,var(--tag-selected),var(--foreground)_10%)] focus-visible:ring-3 focus-visible:ring-ring/50',
+          // It is chip-shaped, so it presses like one — and it is the only way out of a filter
+          // that has emptied the list, which is the state where a tap that looks ignored is worst.
+          PRESS_CHIP,
+        )}
       >
         <span dir="auto" className="truncate">
           {label}

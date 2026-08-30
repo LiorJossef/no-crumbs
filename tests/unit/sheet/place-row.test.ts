@@ -139,3 +139,21 @@ describe('PlaceRow — the mark reaches a screen reader', () => {
     expect(markup).not.toContain('approximate location');
   });
 });
+
+describe('PlaceRow — the row acknowledges a tap', () => {
+  it('presses at the list-row depth, behind motion-safe', () => {
+    // W3-1. Selecting a row flies the camera, and on a phone there is no hover and no
+    // focus-visible: without this, the only confirmation that the tap landed on *this* row was the
+    // map starting to move a beat later. `motion-safe:` because the un-prefixed state is the
+    // reduced-motion case, where the row's own hover tint is the whole of it.
+    const markup = render(placeWith('google-places'));
+    expect(markup).toContain('motion-safe:active:scale-99');
+    expect(markup).toContain('motion-safe:duration-press');
+  });
+
+  it('gives a presentational row no press, because it is not pressable', () => {
+    // Without `onSelect` the row is an `<li>`, and a press state on something that cannot be
+    // pressed is the same false affordance the tag chips refuse.
+    expect(render(placeWith('google-places'), false)).not.toContain('active:scale');
+  });
+});
