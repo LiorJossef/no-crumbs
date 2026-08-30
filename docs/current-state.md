@@ -48,17 +48,20 @@ document before 2026-08-30.
 **Production is eight migrations ahead of staging.** Staging is the stale environment, so it is no
 longer a rehearsal for a production push.
 
-## What CI actually proves
+## CI is not running
 
-Four jobs. `verify` — lint, typecheck, layer guard, migration grants, the 1,959 unit tests.
-`build` — `next build`. `database` — `supabase start`, reset, the `0008` and `0024` policy suites,
-inventory. `e2e` — **four signed-out tests**.
+**There is no active GitHub workflow**, so nothing is being checked automatically. `npm run verify`
+locally is the only gate, and it covers one of the four jobs the workflow used to define.
 
-**The `e2e` check is not evidence.** It sets no `E2E_PASSWORD` and starts no Supabase, so seven of
-nine spec files skip and the job still reports green. Worse: `tests/e2e/global-setup.ts` exists and
-throws on exactly this configuration — the guard written to stop it — but `playwright.config.ts` has
-no `globalSetup` key, so it has never run. [PR #64](https://github.com/LiorJossef/P-002/pull/64)
-addresses the first half and is open and stale.
+The `e2e` job was never evidence even when it ran: it set no `E2E_PASSWORD` and started no Supabase,
+so seven of nine spec files skipped and the check reported green over four signed-out tests.
+`tests/e2e/global-setup.ts` was written to make that impossible and was itself dead code —
+`playwright.config.ts` had no `globalSetup` key. **It is wired now** (verified against all four
+environments it distinguishes), so it is ready for whatever workflow comes back.
+
+**Follow-up, owed: restore CI.** Whatever replaces the workflow, its e2e job must stand up a local
+Supabase, seed the demo user and pass `E2E_PASSWORD`, or the guard will fail it — which is the
+intended behaviour, not a bug to work around.
 
 ## Open, in impact order
 
@@ -68,8 +71,7 @@ addresses the first half and is open and stale.
 2. **`L1-F10` graded artefacts** — `test-specification.md`, `scale.md`, `deployment.md`,
    `how-the-system-works.md` do not exist; `security.md` is interim with 8 items owed. Largest
    submission gap.
-3. **The dead Playwright guard**, above. Verification machinery that reports success while proving
-   nothing is worse than none.
+3. **Restore CI**, and make its e2e job satisfy the now-wired guard (above).
 4. **Unverified code on `main` and in production**: the `{ kind: 'user' }` arm of `Framing`
    (`map-surface.mapcn.tsx`) was written as a minimal fix and never exercised in a browser.
 5. **Defect 1, undiagnosed** — production settled on a country view with no pin under a header
