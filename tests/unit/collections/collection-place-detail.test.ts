@@ -1,13 +1,20 @@
 /**
- * The privacy boundary of a place inside a collection, checked against the markup the component
+ * A place inside a collection, in both of its cases, checked against the markup the component
  * actually produces rather than against a prop.
  *
- * This is the test that would fail under the obvious refactor. `CollectionPlaceDetail` now renders
- * `PlaceDetail` — the same component `/map` uses — and that component knows how to draw the
- * adder's note, their tags, their visit state, the TikTok they saved it from, the caption it
- * quoted, the model's sentence and the match certainty. None of that may reach a collaborator. The
- * assertions below feed a `CollectionPlace` whose *other* fields carry those very strings, so a
- * component that started reading them would print them and be caught.
+ * `CollectionPlaceDetail` renders `PlaceDetail` — the same component `/map` uses — which knows how
+ * to draw a private note, tags, visit state, the TikTok a place was saved from, the caption it
+ * quoted, the model's sentence and the match certainty. Whether any of that appears turns on one
+ * thing: **whose `saved_places` row is in hand.**
+ *
+ *  - **Not the viewer's** (`library` holds no row for this place): none of it may appear, and no
+ *    control that writes to a saved place may render. The assertions feed a `CollectionPlace`
+ *    whose *other* fields carry those very strings, so a component that started reading them would
+ *    print them and be caught.
+ *  - **The viewer's own**: all of it must appear, and every write must be aimed at that row's id —
+ *    never at `itemId` (a collection item) or `placeId` (a shared place). `PlaceDetail`'s
+ *    `savedPlace` prop is captured on the way through so the id is asserted directly, because a
+ *    saved-place id reaches the markup only through controls that are not rendered on first paint.
  *
  * Rendered with `react-dom/server`: vitest runs in a `node` environment here, there is no jsdom
  * and no testing library, so nothing below can click. What is checked is what the server renders
@@ -44,12 +51,34 @@ vi.mock('@/app/actions/saved-places', () => ({
   updateSavedPlaceNote: vi.fn(),
 }));
 
+/**
+ * `PlaceDetail`, wrapped rather than replaced: the real component still renders (every markup
+ * assertion below is against its real output), and the `savedPlace` object it was handed is
+ * recorded on the way past. That object is the one thing this screen can get catastrophically
+ * wrong and still look right — an `itemId` in it aims five writes at a row nobody owns — and it
+ * never reaches the DOM, so there is nothing in the markup to assert on.
+ */
+const captured = vi.hoisted(() => ({ savedPlace: [] as unknown[] }));
+
+vi.mock('@/components/sheet/place-sheet', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/components/sheet/place-sheet')>();
+  return {
+    ...actual,
+    PlaceDetail: (props: Parameters<typeof actual.PlaceDetail>[0]) => {
+      captured.savedPlace.push(props.savedPlace);
+      return createElement(actual.PlaceDetail, props);
+    },
+  };
+});
+
 const { CollectionPlaceDetail } = await import(
   '@/components/collections/collection-place-detail'
 );
 
 import type { CollectionPlace } from '@/app/collections/_lib/get-collections';
 import type { CollectionRole } from '@/domain/collections/collection';
+import type { MapPlace } from '@/components/map/map-surface';
+import type { Spot } from '@/domain/places/spot';
 
 const PLACE: CollectionPlace = {
   itemId: 'item-1',
@@ -88,16 +117,77 @@ const PRIVATE_STRINGS: readonly string[] = [
   'Remove from your places',
 ];
 
-function render(role: CollectionRole = 'editor', overrides: Partial<CollectionPlace> = {}): string {
+/**
+ * The viewer's **own** save of the same place — `saved_places` id `saved-9`, deliberately unlike
+ * both `item-1` and `place-1` so a regression to either is visible in one assertion.
+ *
+ * Its note is the viewer's own words, not the adder's: reusing the adder's string here would make
+ * the two cases indistinguishable in the markup, which is the only thing these tests can read.
+ */
+const MY_SPOT: Spot = {
+  id: 'saved-9',
+  placeId: 'place-1',
+  name: 'Sycamore',
+  displayNameOverride: null,
+  canonicalName: 'Sycamore',
+  category: 'restaurant',
+  categoryIsOverridden: false,
+  lat: 51.47,
+  lng: -0.07,
+  addressLine: '35 Peckham Rye',
+  locality: 'London',
+  note: 'Sit at the counter',
+  sourceUrl: 'https://www.tiktok.com/@someone/video/900',
+  visitState: 'visited',
+  visitedAt: new Date('2026-08-01T09:00:00Z'),
+  savedAt: new Date('2026-07-01T09:00:00Z'),
+};
+
+const MINE: MapPlace = {
+  id: MY_SPOT.id,
+  name: MY_SPOT.name,
+  category: MY_SPOT.category,
+  lat: MY_SPOT.lat,
+  lng: MY_SPOT.lng,
+  note: MY_SPOT.note ?? '',
+  sourceUrl: MY_SPOT.sourceUrl,
+  visited: true,
+  detail: MY_SPOT,
+};
+
+/** Somebody else's place, in the viewer's library — a non-empty library that still holds no row
+ *  for `place-1`, so "not mine" is tested against a real library rather than against `[]`. */
+const SOMEWHERE_ELSE: MapPlace = {
+  ...MINE,
+  id: 'saved-other',
+  name: 'Kudu',
+  sourceUrl: undefined,
+  visited: false,
+  detail: { ...MY_SPOT, id: 'saved-other', placeId: 'place-2', name: 'Kudu' },
+};
+
+function render(
+  role: CollectionRole = 'editor',
+  overrides: Partial<CollectionPlace> = {},
+  library: readonly MapPlace[] = [SOMEWHERE_ELSE],
+): string {
+  captured.savedPlace.length = 0;
   return renderToStaticMarkup(
     createElement(CollectionPlaceDetail, {
       collectionId: 'collection-1',
       place: { ...PLACE, ...overrides },
       role,
       currentUserId: 'user-1',
+      library,
       onBack: () => {},
     }),
   );
+}
+
+/** The same screen, for a place the viewer has in their own library. `savedByMe` is set because
+ *  that is what the real query returns when the row exists — the two must agree. */
+function renderMine(overrides: Partial<CollectionPlace> = {}, own: MapPlace = MINE): string {
+  return render('editor', { savedByMe: true, ...overrides }, [SOMEWHERE_ELSE, own]);
 }
 
 describe('CollectionPlaceDetail — what a collaborator may see', () => {
@@ -118,12 +208,14 @@ describe('CollectionPlaceDetail — what a collaborator may see', () => {
     expect(markup).toContain('Remove from this collection');
   });
 
-  it('surfaces nothing from the adder’s own saved place', () => {
+  it('surfaces nothing from the adder’s own saved place, for a place the viewer does not have', () => {
+    // Scoped to that case on purpose. When the row *is* the viewer's own, several of these strings
+    // must appear — see the sibling below. The boundary is "not your row", never "not this screen".
     const markup = render();
     for (const secret of PRIVATE_STRINGS) expect(markup).not.toContain(secret);
   });
 
-  it('offers no control that writes to a saved place', () => {
+  it('offers no control that writes to a saved place, for a place the viewer does not have', () => {
     // The five writes the naive reuse would have aimed at `place.itemId`. `Category` is checked as
     // the editor's own label, which only that control renders.
     const markup = render();
@@ -132,6 +224,11 @@ describe('CollectionPlaceDetail — what a collaborator may see', () => {
     expect(markup).not.toContain('Your note');
     expect(markup).not.toContain('Remove from your places');
     expect(markup).not.toContain('Add to a collection');
+  });
+
+  it('hands `PlaceDetail` no saved-place row when the viewer has none', () => {
+    render();
+    expect(captured.savedPlace.at(-1)).toBeNull();
   });
 
   it('links out to Google Maps by name and address, with the wording of a lone action', () => {
@@ -147,6 +244,8 @@ describe('CollectionPlaceDetail — what a collaborator may see', () => {
   });
 
   it('reports a place the caller already has instead of offering to save it again', () => {
+    // `savedByMe` with no matching library row — the row exists but was not handed to this screen.
+    // The inert line is still the honest thing to say, because nothing here can act on that row.
     const markup = render('editor', { savedByMe: true });
     expect(markup).toContain('Already in your places');
     expect(markup).not.toContain('Save to your places');
@@ -165,6 +264,66 @@ describe('CollectionPlaceDetail — what a collaborator may see', () => {
     expect(markup).toContain('Back to the collection');
     // `PlaceDetail`'s own close affordance would be a second exit from one screen, and it would sit
     // inside the scrolling column rather than aligned with the collection list's back control.
+    expect(markup).not.toContain('Close place detail');
+  });
+});
+
+/**
+ * The other half of R1: a place the viewer saved themselves is *their* place, wherever they opened
+ * it from. Everything asserted here was previously suppressed unconditionally, which is the defect
+ * the ruling names — the viewer's own note, been mark, category and TikTok hidden from the viewer.
+ */
+describe('CollectionPlaceDetail — a place the viewer saved themselves', () => {
+  it('shows their own note, been mark, category control and TikTok', () => {
+    const markup = renderMine();
+    // The toggle's accessible name, which names the place as well as the state.
+    expect(markup).toContain('Been, Sycamore');
+    expect(markup).toContain('Your note');
+    expect(markup).toContain('Sit at the counter');
+    expect(markup).toContain('>Category<');
+    expect(markup).toContain('Open TikTok');
+    expect(markup).toContain('tiktok.com/@someone/video/900');
+  });
+
+  it('aims every write at the saved-place id, never at the collection item or the place', () => {
+    renderMine();
+    const savedPlace = captured.savedPlace.at(-1) as { id: string; visited: boolean; visitedAt?: Date };
+    expect(savedPlace).toEqual({
+      id: 'saved-9',
+      visited: true,
+      visitedAt: MY_SPOT.visitedAt,
+    });
+    // Said twice, and deliberately: these are the two ids on this screen that would look plausible
+    // and destroy somebody else's row.
+    expect(savedPlace.id).not.toBe('item-1');
+    expect(savedPlace.id).not.toBe('place-1');
+  });
+
+  it('omits `visitedAt` rather than passing it undefined when the row carries no timestamp', () => {
+    // `0006`'s CHECK allows a visited row with no timestamp, and `exactOptionalPropertyTypes` makes
+    // "absent" the only honest shape for it.
+    const withoutTimestamp: Spot = Object.fromEntries(
+      Object.entries(MY_SPOT).filter(([field]) => field !== 'visitedAt'),
+    ) as Spot;
+    renderMine({}, { ...MINE, detail: withoutTimestamp });
+    expect(captured.savedPlace.at(-1)).toEqual({ id: 'saved-9', visited: true });
+  });
+
+  it('drops the save control, because the been toggle now holds that position', () => {
+    const markup = renderMine();
+    expect(markup).not.toContain('Already in your places');
+    expect(markup).not.toContain('Save to your places');
+  });
+
+  it('still adds what the collection contributes, and nothing is reordered away', () => {
+    const markup = renderMine();
+    expect(markup).toContain('Added by');
+    expect(markup).toContain('Dana');
+    expect(markup).toContain('Shared note');
+    expect(markup).toContain('Everyone: book ahead');
+    expect(markup).toContain('Remove from this collection');
+    // Still the host's own back control, and still only one way out.
+    expect(markup).toContain('Back to the collection');
     expect(markup).not.toContain('Close place detail');
   });
 });
