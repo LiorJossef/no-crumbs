@@ -18,6 +18,7 @@ import {
   bandForZoom,
   COUNTRY_BAND_MAX,
   COUNTRY_LANDING_ZOOM,
+  HOME_LANDING_MIN_ZOOM,
   PIN_BAND_MIN,
   type ZoomBand,
 } from '@/components/map/zoom-bands';
@@ -76,5 +77,17 @@ describe('bandForZoom', () => {
   it('agrees with the country tap that its landing zoom is in the area band', () => {
     expect(bandForZoom(COUNTRY_LANDING_ZOOM.min)).toBe('area');
     expect(bandForZoom(COUNTRY_LANDING_ZOOM.max)).toBe('area');
+  });
+
+  /**
+   * §9.3's first criterion: a non-empty library never settles on a view with no individual pin in
+   * it. The home framing enforces that with a resting **floor**, and the floor is only worth having
+   * if it is inside the band the pin layer draws in — stated against `bandForZoom` rather than
+   * against 8.5, so tuning the bands moves it.
+   */
+  it('lands the home framing in the pin band, clear of where a country tap rests', () => {
+    expect(bandForZoom(HOME_LANDING_MIN_ZOOM)).toBe('pin');
+    expect(HOME_LANDING_MIN_ZOOM).toBeGreaterThanOrEqual(PIN_BAND_MIN);
+    expect(HOME_LANDING_MIN_ZOOM).toBeGreaterThan(COUNTRY_LANDING_ZOOM.max);
   });
 });

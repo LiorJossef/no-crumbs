@@ -32,6 +32,34 @@ export interface ViewportBounds {
 }
 
 /**
+ * **Where the camera opens when there is nothing to open on** (`current-state.md` §9.3: *"Zero
+ * places shows no bare world map: a plausible regional view"*).
+ *
+ * Until now the empty library had no camera at all: the page hands the surface
+ * `anchorCluster?.bounds`, an empty library has no anchor cluster, `boundsFor` then returned `null`
+ * and `MapcnMap` was constructed with no `center` and no `zoom` — so a brand-new account's first
+ * screen was MapLibre's own default, the whole globe at zoom 0 centred on the Atlantic. That is the
+ * backdrop to the paste field, which makes it the first thing the product ever says about itself.
+ *
+ * **It is a placeholder, and the region in it is a guess.** With no saved place there is no signal
+ * about where the user is, and nothing here reads a location — the geolocation prompt is a tap in
+ * `L1-F11` and must not become a page load. So this is one arbitrary metro area, chosen because it
+ * is the only one the product has been used in and the one both supported languages point at
+ * (`p002-hebrew-english-is-the-language-scope`). The real answer is a designed empty state, and the
+ * moment there is one saved place this constant is never read again.
+ *
+ * Sized so an honest fit of it already rests inside the pin band: the home framing applies
+ * `HOME_LANDING_MIN_ZOOM`, and a box wide enough to need clamping would be clamped to its own
+ * centre — which for a regional box is open sea.
+ */
+export const EMPTY_LIBRARY_BOUNDS: ViewportBounds = Object.freeze({
+  north: 32.3,
+  south: 31.9,
+  east: 35.1,
+  west: 34.6,
+});
+
+/**
  * Whether a place's pin anchor is inside the query rect.
  *
  * The **anchor point**, not the icon's bounding box and not its label: the anchor is the only thing

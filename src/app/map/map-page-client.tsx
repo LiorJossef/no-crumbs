@@ -112,7 +112,6 @@ import {
   toggleCategory,
 } from '@/domain/places/category-filter';
 import type { ProductCategory } from '@/domain/places/product-category';
-import { isSearchActive } from '@/domain/places/search';
 import { tagDisplayLabel } from '@/domain/extraction/tags';
 import { TagFilterContext, isSameTag, type TagFilter } from '@/ui/place/tag-filter';
 import { AnnounceContext, SILENT, latestSpoken, type Announcer } from '@/ui/place/announce';
@@ -130,10 +129,10 @@ import {
   scopeLabel,
   type ListScope,
 } from '@/ui/place/list-scope';
-import { elsewhereGroups } from '@/ui/place/elsewhere-groups';
 import { distancesFromUser, nearestArea, nearestFirst } from '@/ui/place/nearby';
 import { meanCentroid } from '@/domain/places/country-bucket';
 import { summariseByCountry } from '@/ui/place/library-summary';
+import { EMPTY_LIBRARY_BOUNDS } from '@/ui/place/viewport';
 import { ImportPageClient, type SaveOutcomeDetail } from '@/app/import/import-page-client';
 import { AddSheetHost } from '@/components/add/add-sheet-host';
 import { CollectionsContext, type CollectionsForPlace } from '@/ui/place/collections-context';
@@ -142,10 +141,6 @@ import { CollectionsContext, type CollectionsForPlace } from '@/ui/place/collect
  *  Without it a `polite` live region reads a new count on every keystroke, which is worse than
  *  silence — the user cannot hear the field they are typing into. */
 const ANNOUNCE_AFTER_MS = 500;
-
-/** One frozen empty map, so clearing the country-group overrides is not a fresh identity each
- *  time — the surfaces re-render on it. */
-const EMPTY_EXPANSION: ReadonlyMap<string, boolean> = new Map();
 
 export function MapPageClient({
   places,
@@ -224,9 +219,14 @@ export function MapPageClient({
    * stop: a list of who may move the camera is only worth having if it is complete, wherever the
    * mover happens to live. In the order they run:
    *
-   *  1. The initial framing — the *anchor area*, not the whole library (see the header).
+   *  1. The initial framing — the *anchor area*, not the whole library (see the header), come to
+   *     rest inside the **pin band** (`HOME_LANDING_MIN_ZOOM`) so the home view can never be
+   *     nothing but area bubbles, and falling back to `EMPTY_LIBRARY_BOUNDS` when there is no
+   *     anchor to open on.
    *  2. A finished import flies to the places it saved.
-   *  3. Selecting a place from the list flies to that place, and **holds** the scope.
+   *  3. Selecting a place from the list flies to that place, and **holds** the scope. It frames
+   *     into the band the *raised* sheet leaves visible, not into the whole viewport — the surface
+   *     reads `selected` for that, which is why 3 and 6 are one padding rule rather than two.
    *  4. Tapping an `Elsewhere` row — or the map's own area marker, which is the same gesture — flies
    *     to that area, and sets an **area** scope by hand.
    *  5. Tapping a country marker frames that country's areas, clamped inside the area band, and
@@ -235,6 +235,8 @@ export function MapPageClient({
    *     of the viewport the sheet is about to cover — otherwise the pin just tapped comes to rest
    *     behind it. It lives in the surface (`map-surface.mapcn.tsx`, `selectedOcclusionFraction`)
    *     because only the surface knows the projection, but it is a mover and belongs on this list.
+   *     It is the *pin-tap* case: when a framing request (2, 3, 4, 7) is issued in the same commit
+   *     that one wins, because the nudge can only measure where the pin is now.
    *  7. Revealing one saved place — a manual add, or a pick out of the `＋` sheet's search. See
    *     `revealSavedPlace`.
    *  8. Near me (`L1-F11`): an explicit tap on the map's locate control, once a position comes
@@ -282,32 +284,6 @@ export function MapPageClient({
    *  cafés over a map of thirty-one everything is worse than no filter at all. */
   const [activeCategory, setActiveCategory] = useState<ProductCategory | null>(null);
 
-  /**
-   * The area an explicit tap moved *away* from, so the way back is one tap.
-   *
-   * `Elsewhere` expands the country you are in and the country you came from
-   * (`elsewhere-groups.ts`), which is what makes an area switch reversible without a back chevron,
-   * a navigation stack or a second screen. Before this the switch was one-way: tap `Tokyo` from
-   * London and the route home was to find United Kingdom in the new section, open it, and tap
-   * London — three taps, two of them below the fold.
-   *
-   * **Written only by writer 2**, the explicit area tap. A pan that crosses a boundary (writer 4)
-   * does not write it, because a pan is not a navigation anyone is trying to undo; nor do the
-   * initial resolution or a finished import, which are arrivals rather than departures.
-   */
-  const [previousAreaId, setPreviousAreaId] = useState<string | null>(null);
-
-  /**
-   * Which country groups the user has explicitly opened or closed in `Elsewhere`.
-   *
-   * Only explicit toggles: the defaults live in `isCountryExpanded`, so this map is empty until
-   * someone presses something, and an empty map still renders the right thing. It is held here
-   * rather than in either surface because both render unconditionally — there is no JS media query
-   * anywhere on this page — and the sheet and the panel must not disagree about which group is open.
-   */
-  const [countryExpansion, setCountryExpansion] =
-    useState<ReadonlyMap<string, boolean>>(EMPTY_EXPANSION);
-
   /** Every cluster in the library. Keyed on `places`, so an import re-clusters once rather than on
    *  every render. */
   const clusters = useMemo(
@@ -351,7 +327,16 @@ export function MapPageClient({
     });
   }, [clusters, places]);
 
-  const initialBounds = anchorCluster?.bounds;
+  /**
+   * What the surface opens on. The anchor cluster's box, and — for a library with nothing in it —
+   * a designed regional view rather than nothing at all.
+   *
+   * Passing `undefined` here used to fall all the way through to MapLibre's constructor default,
+   * which is the whole globe at zoom 0 over the Atlantic: §9.3's *"zero places shows no bare world
+   * map"* criterion, still open since 2026-08-27. `EMPTY_LIBRARY_BOUNDS` says what it is a
+   * placeholder for.
+   */
+  const initialBounds = anchorCluster?.bounds ?? EMPTY_LIBRARY_BOUNDS;
 
   /**
    * The library's areas bucketed into countries — the top level of `ux-library-at-scale.md` §2's
@@ -532,12 +517,17 @@ export function MapPageClient({
     [countries, areas, activeCountryKey],
   );
 
-  /** The `Elsewhere` section: the other areas grouped by country, with what the current filters
-   *  left in each. Empty when the user has one area, which renders no section at all. */
-  const elsewhere = useMemo(
-    () =>
-      elsewhereGroups(countries, { activeAreaId, previousAreaId }, matchIds),
-    [countries, activeAreaId, previousAreaId, matchIds],
+  /**
+   * Everything the scope leaves out, in library order — the plain continuation that replaced the
+   * `Elsewhere` section (owner ruling 2026-08-30, `docs/ux-stable-area-list.md`:114).
+   *
+   * `matches` minus `inScope`, so it is narrowed by exactly the filters the rows above it are and
+   * can never name a place the map is not drawing. Empty under a global scope by construction,
+   * which is what removes the guard the peek row's `+N more` used to need.
+   */
+  const otherPlaces = useMemo(
+    () => matches.filter((place) => !listScope.memberIds.has(place.id)),
+    [matches, listScope],
   );
 
   // Both narrowings feed the header's noun, so a tag-filtered list reads `3 matches in London`
@@ -548,8 +538,6 @@ export function MapPageClient({
    *  the map draws every match. */
   const libraryHasVisited = useMemo(() => places.some((place) => place.visited), [places]);
 
-  const filtering =
-    isSearchActive(query) || activeTag !== null || notBeenOnly || activeCategory !== null;
   const heading = useMemo(
     () =>
       scopeHeading({
@@ -623,36 +611,26 @@ export function MapPageClient({
    * Writer 2 and camera mover 4: the only gesture that picks an area by hand, from an `Elsewhere`
    * row or from the map's own area marker (§2.4 — the marker is this writer, not a new one).
    *
-   * Three things it does that it did not:
+   * **It frames the places the filter left**, not the area's whole membership. Tapping an area
+   * marker under a search used to fly the camera to a box around all eighteen London places while
+   * the list showed one row; the camera and the list were answering different questions. It falls
+   * back to the whole area when the filter has left nothing there, because an empty box frames
+   * nothing at all.
    *
-   * 1. **It records where you came from**, so the country you just left opens in the new
-   *    `Elsewhere` and the way back is one tap. Only this writer does — see `previousAreaId`.
-   * 2. **It frames the places the filter left**, not the area's whole membership. Tapping
-   *    `London · 1 match` under a search used to fly the camera to a box around all eighteen London
-   *    places while the list showed one row; the camera and the list were answering different
-   *    questions. Falls back to the whole area when the filter has left nothing there, which the
-   *    row itself cannot express — `elsewhereGroups` drops an area with no matches — but a caller
-   *    can, and an empty box frames nothing at all.
-   * 3. **It clears the country-group overrides.** Both defaults have just moved (the active country
-   *    and the previous one), so a surviving toggle means the country you left stays open while the
-   *    one you arrived in is closed — stale state below the fold that nobody asked for and nobody
-   *    can see. Clearing also makes the list's shape after a switch a pure function of the new
-   *    area, which is the same property the scroll reset buys.
+   * It recorded the area you came from until 2026-08-30, and cleared the country-group overrides.
+   * Both existed for the `Elsewhere` section — the one to open the country you had just left, the
+   * other to stop a stale toggle surviving the switch — and both went with it.
    */
   const selectArea = useCallback(
     (areaId: string) => {
       const area = areas.find((candidate) => candidate.id === areaId);
       if (!area) return;
       const matching = area.members.filter((place) => matchIds.has(place.id));
-      // `null` under a country or global scope, which is right: you did not come from an area, so
-      // there is no area for `Elsewhere` to keep open as the way back.
-      setPreviousAreaId((current) => (activeAreaId === area.id ? current : activeAreaId));
       setScope(scopeForAreaTap(area.id));
       setSelectedId(null);
-      setCountryExpansion(EMPTY_EXPANSION);
       setFocusPlaceIds((matching.length > 0 ? matching : area.members).map((place) => place.id));
     },
-    [areas, activeAreaId, matchIds],
+    [areas, matchIds],
   );
 
   /**
@@ -672,10 +650,8 @@ export function MapPageClient({
    * what makes the tap expressible at all — the old model had one anchor and no way to say
    * "this country".
    *
-   * It clears the selection and the country-group overrides for the same reasons writer 2 does: the
-   * open place may be in another country entirely, and both `Elsewhere` defaults have just moved.
-   * `previousAreaId` is deliberately not written — a country tap is not a departure from an area,
-   * and there is nothing for the one-tap way back to point at.
+   * It clears the selection for the same reason writer 2 does: the open place may be in another
+   * country entirely.
    */
   const focusCountry = useCallback(
     (key: string) => {
@@ -683,7 +659,6 @@ export function MapPageClient({
       if (!country) return;
       setScope(scopeForCountryTap(country.key));
       setSelectedId(null);
-      setCountryExpansion(EMPTY_EXPANSION);
       setFocusBounds({
         bounds: country.bounds,
         minZoom: COUNTRY_LANDING_ZOOM.min,
@@ -713,22 +688,17 @@ export function MapPageClient({
    * the list keeps the area you were looking at rather than being handed one you are not in.
    *
    * The selection is cleared like movers 4 and 5 clear it — the open place is very likely somewhere
-   * else entirely — and `previousAreaId` is recorded on the same rule `selectArea` uses, so the
-   * area you were reading is one tap back in `Elsewhere`. Filters are deliberately **not** cleared:
-   * this is not an import, and "not been yet" plus near-me is the whole sentence the feature is for.
+   * else entirely. Filters are deliberately **not** cleared: this is not an import, and "not been
+   * yet" plus near-me is the whole sentence the feature is for.
    */
   const goToUserLocation = useCallback(
     (fix: UserFix) => {
       const area = nearestArea(areas, fix.point);
-      if (area !== null) {
-        setPreviousAreaId((current) => (activeAreaId === area.id ? current : activeAreaId));
-        setScope(scopeForAreaTap(area.id));
-        setCountryExpansion(EMPTY_EXPANSION);
-      }
+      if (area !== null) setScope(scopeForAreaTap(area.id));
       setSelectedId(null);
       setFocusBounds(nearMeCamera(fix));
     },
-    [areas, activeAreaId],
+    [areas],
   );
 
   const nearMe = useNearMe(goToUserLocation);
@@ -770,18 +740,6 @@ export function MapPageClient({
   const nearMeNoticeText = nearMe.noticeDismissed
     ? null
     : nearMeNotice(nearMe.state, userArea !== null);
-
-  /**
-   * A country group opened or closed.
-   *
-   * The **resolved** next state comes from the surface rather than being flipped from the map here,
-   * and that is not ceremony: the default a group falls back to differs by surface (the panel opens
-   * everything, the sheet opens two) and rises to `true` under any filter, so `!(overrides.get(key)
-   * ?? false)` would make the first press on an already-open group a silent no-op.
-   */
-  const toggleCountry = useCallback((key: string, expanded: boolean) => {
-    setCountryExpansion((current) => new Map(current).set(key, expanded));
-  }, []);
 
   /**
    * The camera's own writer, and the only one.
@@ -925,7 +883,7 @@ export function MapPageClient({
             // that and the pin the user just tapped can sit behind it. See camera mover 6.
             selectedOcclusionFraction={SHEET_HALF_FRACTION}
             onViewportChange={handleViewportChange}
-            {...(initialBounds ? { initialBounds } : {})}
+            initialBounds={initialBounds}
             {...(focusPlaceIds ? { focusPlaceIds } : {})}
             summaries={summaries}
             onAreaClick={selectArea}
@@ -984,14 +942,10 @@ export function MapPageClient({
             <PlaceSheet
               places={listed}
               heading={heading}
-              elsewhere={elsewhere}
-              countryExpansion={countryExpansion}
-              onToggleCountry={toggleCountry}
-              onSelectArea={selectArea}
+              otherPlaces={otherPlaces}
               activeAreaId={activeAreaId}
               libraryIsEmpty={places.length === 0}
               libraryHasVisited={libraryHasVisited}
-              filtering={filtering}
               query={query}
               onQueryChange={setQuery}
               activeTag={activeTag}
@@ -1037,14 +991,10 @@ export function MapPageClient({
           <PlaceDesktopPanel
             places={listed}
             heading={heading}
-            elsewhere={elsewhere}
-            countryExpansion={countryExpansion}
-            onToggleCountry={toggleCountry}
-            onSelectArea={selectArea}
+            otherPlaces={otherPlaces}
             activeAreaId={activeAreaId}
             libraryIsEmpty={places.length === 0}
               libraryHasVisited={libraryHasVisited}
-            filtering={filtering}
             query={query}
             onQueryChange={setQuery}
             activeTag={activeTag}

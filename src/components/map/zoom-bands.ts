@@ -46,6 +46,27 @@ export const COUNTRY_LANDING_ZOOM = {
   max: AREA_BAND_MAX - 0.5,
 } as const;
 
+/**
+ * Where the **home** framing is allowed to come to rest — the mirror image of the constant above,
+ * one band further in.
+ *
+ * §9.3's first acceptance criterion is that every non-empty library settles with at least one
+ * *individual* pin on screen: *"a view of nothing but cluster bubbles is a fail."* Below
+ * `PIN_BAND_MIN` the pin layer does not draw at all, so a home view that fits honestly and lands at
+ * z8.2 is that failure — which is what the owner photographed on 2026-08-30, five area pills over
+ * Israel with no pin among them.
+ *
+ * An honest fit has no floor of its own, and the margin it happens to leave is thin rather than
+ * safe: the owner's own library fits at z8.78 on a 390×844 phone, 0.28 of a zoom level above the
+ * band edge, and a shorter viewport (browser chrome on a small phone) or an anchor cluster more
+ * than ~37 km tall spends that margin and drops out of the band. The floor removes the class rather
+ * than the instance.
+ *
+ * The `0.15` margin is `COUNTRY_LANDING_ZOOM.min`'s, for the same reason: a landing exactly on a
+ * shared band edge is one rounding away from drawing the wrong layer.
+ */
+export const HOME_LANDING_MIN_ZOOM = PIN_BAND_MIN + 0.15;
+
 /** Which of the three bands a zoom falls in. */
 export type ZoomBand = 'country' | 'area' | 'pin';
 
