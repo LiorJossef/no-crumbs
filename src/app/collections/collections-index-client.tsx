@@ -18,6 +18,7 @@ import { ArrowLeft, ChevronRight, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CollectionCover } from '@/components/collections/collection-cover';
+import type { MapPlace } from '@/components/map/types';
 import { BottomNav, BOTTOM_NAV_HEIGHT_PX } from '@/components/nav/bottom-nav';
 import { memberLabel } from '@/domain/collections/collection';
 import { useCreateCollection } from '@/components/collections/use-create-collection';
@@ -26,9 +27,13 @@ import type { CollectionSummary } from './_lib/get-collections';
 export function CollectionsIndexClient({
   collections,
   libraryIsEmpty,
+  places,
 }: {
   collections: readonly CollectionSummary[];
   libraryIsEmpty: boolean;
+  /** The caller's saved places, for the bar's `＋` menu — this route hosts no menu of its own, and
+   *  that menu's search is a filter over exactly this array. */
+  places: readonly MapPlace[];
 }) {
   const [composing, setComposing] = useState(false);
   const [name, setName] = useState('');
@@ -51,7 +56,7 @@ export function CollectionsIndexClient({
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <BottomNav />
+      <BottomNav places={places} />
       {/* The back arrow is gone below `lg`, and that is the point of the bar rather than an
           omission. `BottomNav`'s Map tab goes exactly where the arrow went, and two controls to
           one destination — one of them a stack, one of them not — is the second navigation model

@@ -58,27 +58,37 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { Library, Map as MapIcon, Plus, UserRound } from 'lucide-react';
+import { Library, Loader2, Map as MapIcon, Plus, UserRound } from 'lucide-react';
 
 import type { MapPlace } from '@/components/map/types';
 import { cn } from '@/lib/utils';
 import { BOTTOM_NAV_HEIGHT_PX } from './bottom-nav-metrics';
 
 /**
- * Both loaded on press, not on paint.
+ * Both loaded on press, not on paint — and this is a **bundle-weight** decision, not a correctness
+ * one.
  *
- * Every route that draws this bar would otherwise carry the create sheet and the whole import
- * screen — the product's largest client module — in its first load, and `place-sheet.tsx` imports
- * this file for `BOTTOM_NAV_HEIGHT_PX`, so a static import here also drags the server actions
- * behind them into every module that reads that constant.
+ * `place-sheet.tsx` imports this file for `BOTTOM_NAV_HEIGHT_PX`, so whatever this module pulls
+ * in statically lands in that chunk too: the create sheet and the whole import screen, the
+ * product's largest client module, for one number.
+ *
+ * This comment used to claim a static import would also drag `server-only` in behind them. It
+ * would not, and `tests/unit/nav/bottom-nav-import-boundary.test.ts` measures it: walking the
+ * graph with both imports treated as static reaches no `server-only` module, because every chain
+ * into server code passes through `app/actions/manual-add.ts`, a `'use server'` boundary a client
+ * component may cross. `map-page-client.tsx` imports both statically and builds.
+ *
+ * Both carry a `loading:`. Without one the fallback is nothing at all, and the import branch below
+ * renders a full-screen container — measured at 390×844 with the chunk throttled, that was 5.4 s
+ * of a transparent `fixed inset-0` swallowing every tap with nothing on screen to explain it.
  */
 const AddSheetHost = dynamic(
   () => import('@/components/add/add-sheet-host').then((mod) => mod.AddSheetHost),
-  { ssr: false },
+  { ssr: false, loading: () => <CreateMenuPending /> },
 );
 const ImportPageClient = dynamic(
   () => import('@/app/import/import-page-client').then((mod) => mod.ImportPageClient),
-  { ssr: false },
+  { ssr: false, loading: () => <ImportPending /> },
 );
 
 /**
@@ -106,13 +116,15 @@ interface BottomNavProps {
    */
   readonly onAdd?: () => void;
   /**
-   * The library that menu should search, for a route that has one in hand but hosts no menu of its
-   * own — `/collections/[id]` loads the caller's saved places for its picker.
+   * The library that menu should search, for a route that hosts no menu of its own. Every such
+   * route loads it: `/collections/[id]` for its picker, `/collections` and `/profile` for this.
    *
    * Ignored when `onAdd` is passed, because that route is opening its own menu with its own
-   * library. Empty is the honest default for `/collections` and `/profile`, which load none: an
-   * empty search says "no matches" for places the user genuinely has, and offering to save one they
-   * already have is how a duplicate row gets written.
+   * library. The default is empty only so a caller with genuinely no library — a test, a future
+   * route — is expressible; **it is not a shape a real screen should ship in.** The menu's search
+   * is `Array.prototype.filter` over this array, so an empty one answers "nothing you've saved
+   * matches that" for places the user has, and the only action it then offers writes a duplicate
+   * row and spends one of 100 daily Google Places lookups doing it.
    */
   readonly places?: readonly MapPlace[];
 }
@@ -149,11 +161,20 @@ interface BottomNavProps {
 export function BottomNav({ onAdd, places = [] }: BottomNavProps) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  /** The menu is in the tree only after the `＋` has been pressed once, which is what makes the
+   *  dynamic import above true: mounted unconditionally, it would fetch its chunk on paint on every
+   *  route that draws this bar, and its `loading:` fallback would paint a sheet nobody opened. */
+  const [menuMounted, setMenuMounted] = useState(false);
   /** The link the user pressed `Add this TikTok` on, on a tab with no import overlay of its own.
    *  Never a draft — mounting the overlay with one spends a model call, which is
    *  `ImportPageClient.initialUrl`'s stated contract. */
   const [importUrl, setImportUrl] = useState<string | null>(null);
   const router = useRouter();
+
+  function openMenu() {
+    setMenuMounted(true);
+    setMenuOpen(true);
+  }
 
   // `startsWith`, so `/collections/[id]` and the join route keep the Collections tab lit rather
   // than lighting nothing. `/map` is exact — there is nothing below it.
@@ -181,7 +202,7 @@ export function BottomNav({ onAdd, places = [] }: BottomNavProps) {
           onSaved={() => router.push('/map')}
           onAddManually={() => {
             setImportUrl(null);
-            setMenuOpen(true);
+            openMenu();
           }}
         />
       </div>
@@ -217,12 +238,12 @@ export function BottomNav({ onAdd, places = [] }: BottomNavProps) {
           />
           <NavTab href="/profile" icon={UserRound} label="Profile" current={onProfile && 'page'} />
         </div>
-        <AddButton onAdd={onAdd ?? (() => setMenuOpen(true))} />
+        <AddButton onAdd={onAdd ?? openMenu} />
       </nav>
       {/* Outside the `<nav>`: a sheet is not navigation, and the bar's own `pointer-events-none`
           and `lg:hidden` are about the bar. Only for the tabs with no menu of their own — `/map`
           passes `onAdd` and opens its own, with its library in it. */}
-      {onAdd ? null : (
+      {onAdd || !menuMounted ? null : (
         <HostlessCreateMenu
           open={menuOpen}
           onOpenChange={setMenuOpen}
@@ -308,10 +329,15 @@ function AddButton({ onAdd }: { onAdd: () => void }) {
  * it supplied locally — an import overlay for a submitted link, and somewhere to send a place that
  * was just saved.
  *
- * The library is whatever the host route has in hand, and empty where it has none. `/collections`
- * and `/profile` load no places, so their search is an honest "no matches"; `/collections/[id]`
- * already loads the caller's saved places for its picker and passes them, because an empty search
- * there would deny places the user genuinely has and offer to save a duplicate.
+ * The library is whatever the host route has in hand, and every route that draws this menu now
+ * loads one — see `BottomNavProps.places` for what an empty one does to the search.
+ *
+ * **Where a picked or newly saved place goes.** `/map`, with that place revealed: it is the only
+ * surface that shows a pin, and arriving on the whole map with no camera move and no selection is
+ * indistinguishable from the tap having done nothing. The id travels as a query param because these
+ * are separate documents — the navigation unmounts this tree — and `map-page-client.tsx` consumes
+ * it once and strips it from the URL, so selection stays client state (`ux-architecture.md` §1.5)
+ * rather than becoming addressable. A reload restores no selection.
  */
 function HostlessCreateMenu({
   open,
@@ -331,9 +357,69 @@ function HostlessCreateMenu({
       open={open}
       onOpenChange={onOpenChange}
       places={places}
-      onSelectPlace={() => router.push('/map')}
+      onSelectPlace={(id) => router.push(revealHref(id))}
       onSubmitTikTok={onSubmitTikTok}
-      onManualSaved={() => router.push('/map')}
+      onManualSaved={(saved) => router.push(revealHref(saved.savedPlaceId))}
     />
+  );
+}
+
+/**
+ * `/map`, carrying which saved place to open on arrival. The param is a handoff, not state: the map
+ * clears it the moment it has read it.
+ *
+ * The cast is the one `sign-in/page.tsx` already makes for `?next=` — `typedRoutes` types the route
+ * literal and has nothing to say about a query string on it.
+ */
+function revealHref(savedPlaceId: string) {
+  return `/map?place=${encodeURIComponent(savedPlaceId)}` as '/map';
+}
+
+/**
+ * What the `＋` shows while the create sheet's chunk is in flight.
+ *
+ * Sheet-shaped and scrimmed, matching what is about to replace it, because the alternative is a
+ * press that appears to have done nothing for as long as the network takes. It is deliberately
+ * inert — the fallback has no props and therefore no way to reach `onOpenChange` — so it says what
+ * it is doing rather than offering a control that would not work.
+ */
+function CreateMenuPending() {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end">
+      <div className="absolute inset-0 bg-black/40" aria-hidden />
+      <div className="relative w-full rounded-t-2xl border-t border-border/70 bg-card pt-2.5 pb-[calc(env(safe-area-inset-bottom)+2rem)] shadow-[var(--shadow-elevated)]">
+        <span className="mx-auto block h-1 w-9 rounded-full bg-border" aria-hidden />
+        <p
+          role="status"
+          className="flex items-center justify-center gap-2 pt-6 text-sm font-medium text-muted-foreground"
+        >
+          <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />
+          Opening…
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The same, for the import screen — and this one is the reason both have a fallback. The branch
+ * that renders it early-returns a full-screen container, so with no fallback that container is
+ * transparent and empty while the chunk loads: every tap on the viewport lands on it, and nothing
+ * on screen accounts for it.
+ */
+function ImportPending() {
+  return (
+    <div
+      className="flex h-full w-full flex-col items-center justify-center gap-3"
+      style={{ background: 'var(--brand-wash)' }}
+    >
+      <Loader2
+        className="size-5 animate-spin text-[var(--mint-700)] motion-reduce:animate-none"
+        aria-hidden
+      />
+      <p role="status" className="text-sm font-medium text-muted-foreground">
+        Opening…
+      </p>
+    </div>
   );
 }

@@ -12,6 +12,8 @@ import { BottomNav } from '@/components/nav/bottom-nav';
 import { BOTTOM_NAV_HEIGHT_PX } from '@/components/nav/bottom-nav-metrics';
 import { flagEmoji, normaliseCountryCode } from '@/components/map/country-flag-image';
 import { categoryDisplay } from '@/ui/place/category-display';
+import { getSpots } from '@/app/map/_lib/get-spots';
+import { toMapPlace } from '@/app/map/_lib/to-map-place';
 import { getProfilePlaces } from './_lib/get-profile-places';
 import { accountIdentity, deriveProfileBreakdown, joinedLabel } from './_lib/profile-stats';
 
@@ -53,9 +55,15 @@ export default async function ProfilePage() {
   // `maybeSingle`, not `single`: the signup trigger creates the profile row (`0002`), and its own
   // header says the app must survive that trigger not existing on a hosted project. A missing row
   // costs a display name and a join date, not the page.
-  const [{ data: profile }, places] = await Promise.all([
+  // `getSpots` alongside `getProfilePlaces`, and the second query is not redundant: the profile
+  // read is deliberately narrow (its own header says so) while the bar's `＋` menu searches the
+  // same library array `/map` draws, so a match in that menu is a pin on the map. Without it the
+  // menu answers "nothing you've saved matches that" for places the user has, and offers to write
+  // a duplicate.
+  const [{ data: profile }, places, library] = await Promise.all([
     supabase.from('profiles').select('display_name, created_at').eq('id', user.id).maybeSingle(),
     getProfilePlaces(),
+    getSpots().then((spots) => spots.map(toMapPlace)),
   ]);
 
   const identity = accountIdentity({
@@ -67,7 +75,7 @@ export default async function ProfilePage() {
 
   return (
     <main className="min-h-dvh w-full bg-background">
-      <BottomNav />
+      <BottomNav places={library} />
 
       {/* The same header as `/collections`: the back arrow exists only at `lg`, where the bar does
           not render and there is otherwise no way back to the map. */}

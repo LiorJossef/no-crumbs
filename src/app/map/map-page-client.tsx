@@ -142,12 +142,26 @@ const ANNOUNCE_AFTER_MS = 500;
 export function MapPageClient({
   places,
   collections,
+  revealPlaceId,
 }: {
   places: readonly MapPlace[];
   /** The caller's editable collections and what is already in them. Passed to a context rather
    *  than down through props for the same reason `TagFilterContext` exists: one of the three hosts
    *  of `PlaceDetail` lives inside the map surface, which must not learn what a collection is. */
   collections: CollectionsForPlace;
+  /**
+   * One saved place to open on arrival, handed over by the create menu on a tab that has no map of
+   * its own (`components/nav/bottom-nav.tsx`). Absent on every other way in.
+   *
+   * It is a **handoff, not state**: consumed once, the URL is rewritten to `/map` in the same
+   * breath, and a reload restores no selection — so `ux-architecture.md` §1.5's "selection is
+   * client-only and never a URL in this slice" still holds for everything the user does on this
+   * page. It exists because the route boundary is a document boundary: `/collections` and
+   * `/profile` unmount this tree, so a picked or newly saved place has no other way to travel, and
+   * arriving on the whole map with no camera move and no detail open is indistinguishable from the
+   * tap having done nothing.
+   */
+  revealPlaceId?: string;
 }) {
   /**
    * The **id** of the open place, never the object.
@@ -768,8 +782,18 @@ export function MapPageClient({
    * small map pan" (ruling 5, reaffirmed 2026-08-29) as a property of the state machine rather than
    * a threshold someone has to tune.
    */
+  /** Declared above `handleViewportChange`, which writes the first of them: the surface reports
+   *  its viewport before this component's later hooks are reached. */
+  const [cameraAlive, setCameraAlive] = useState(false);
+  /** A ref, not state: it is spent exactly once and nothing renders from it. */
+  const pendingRevealId = useRef<string | null>(revealPlaceId ?? null);
+
   const handleViewportChange = useCallback(
     (bounds: LatLngBoundsHint, meta: ViewportChangeMeta) => {
+      // The first report is also the only signal this page gets that the map instance exists — it
+      // arrives through an imperative handle, on a commit that does not re-render the surface. See
+      // `revealPlaceId`'s effect, which cannot fly the camera before it.
+      setCameraAlive(true);
       setScope((current) =>
         scopeAfterCameraSettled({
           scope: current ?? GLOBAL_SCOPE,
@@ -871,6 +895,31 @@ export function MapPageClient({
     camera.framePlaces([savedPlaceId]);
     setSelectedId(savedPlaceId);
   }
+
+  /**
+   * The `?place=` handoff, spent (see the `revealPlaceId` prop).
+   *
+   * **Why it waits for `cameraAlive`.** The surface's focus effect early-returns when
+   * `mapRef.current` is still null and has no reason to run again — the instance arrives through an
+   * imperative handle, on a commit that re-renders nothing — so a framing requested during this
+   * page's first render is dropped for good. The first viewport report is proof the instance exists.
+   *
+   * The URL is rewritten before the reveal, through `history.replaceState` rather than
+   * `router.replace`: the App Router integrates with it (`linking-and-navigating.md`), and a real
+   * navigation here would re-render the page and fight the camera it is about to move. An id that
+   * is not in the library — a deleted place, a link someone kept — clears the URL and does nothing
+   * else, which is the honest answer to "that place is not yours".
+   */
+  useEffect(() => {
+    const id = pendingRevealId.current;
+    if (id === null || !cameraAlive) return;
+    pendingRevealId.current = null;
+    window.history.replaceState(null, '', '/map');
+    if (places.some((place) => place.id === id)) revealSavedPlace(id);
+    // `revealSavedPlace` is re-created every render and is deliberately not a dependency: the ref
+    // above makes this effect spend itself on the first run after the camera is alive.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cameraAlive, places]);
 
   return (
     // Every chip in every tree below reads its state from here — the sheet's detail, and the map's
