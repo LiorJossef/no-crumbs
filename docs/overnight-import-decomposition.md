@@ -14,11 +14,16 @@
 > behaviour identical; `npm run verify` green.*
 >
 > **Corrected on 2026-08-31 by its author, after contact with the code (`overnight-run-plan.md` §3
-> rule 7).** Three things below were wrong or were overtaken; each is corrected in place and marked
+> rule 7).** Five things below were wrong or were overtaken; each is corrected in place and marked
 > **[corrected 2026-08-31]**. Nothing else changed. In short: W1-6 landed **before** W1-4, not after
 > (§7); it removed **160** net lines rather than ~178 (§2.6); and **every line number in §1.1, §1.2,
 > §1.3 and §2 is now stale**, because they were measured on the pre-W1-6 file. They are kept as the
 > map of what moved where, not as coordinates to edit at — re-measure before step 4.
+>
+> Two more, both found while executing §7 and both corrected in place below: the contracts had to
+> come out **first**, not fourth (§7's step order); and the layer guard reaches `src/app/_lib`
+> specifically rather than "non-recursively" (§3.1). The plan's conclusions on both were right; its
+> stated reasons were not.
 >
 > **The measurement that frames everything below: 713 of the file's 2,482 lines are comment lines —
 > 29%.** This is not a big component with some notes on it. It is the design record of the product's
@@ -224,9 +229,18 @@ assuming.
 `eslint.config.mjs` restricts three zones — `src/domain/**`, `src/ui/**`, `src/integrations/**`.
 `src/app/**` is in none of them, so a new client component under `src/app/import/` may import from
 `@/domain`, `@/ui`, `@/components` and `@/lib` exactly as the current file does.
-`scripts/check-layer-guard.sh`'s half-4 `server-only` assertion runs `find src/app/_lib` — a
-non-recursive path that does **not** reach `src/app/import/_lib`, so these modules neither need nor
-should carry `import 'server-only'`. **They are client modules and every one of them must say so in
+`scripts/check-layer-guard.sh`'s half-4 `server-only` assertion runs `find src/app/_lib`, which does
+**not** reach `src/app/import/_lib`, so these modules neither need nor should carry
+`import 'server-only'`.
+
+> **[corrected 2026-08-31]** The reason above said "a non-recursive path". `find` *is* recursive;
+> what makes the assertion miss these files is that `LIB_FIXTURE_DIR` is the literal
+> `src/app/_lib`, a different directory. The conclusion holds and was checked by running
+> `npm run check:layers` against the split (green), but the stated mechanism was wrong — and it
+> matters, because it means **no guard anywhere would catch a secret-touching module put into
+> `src/app/import/_lib`**. That is a real, small hazard created by reusing the `_lib` name for a
+> client directory. It is recorded here and in each of those files' headers rather than fixed:
+> widening the guard is a change to the verification machinery and belongs to whoever owns it. **They are client modules and every one of them must say so in
 its first line of header**, because `_lib` means *server-only* everywhere else in `src/app/`.
 
 ### 3.2 The tree
@@ -642,6 +656,26 @@ any step below** — one writer at a time on this file, throughout.
 | 5 | **W6-1.3** — the review beat out | `screens/review/{review-screen,candidate-card}.tsx`, `_lib/save-extracted-candidates.ts` + the shell | same |
 | 6 | **W6-1.4** — contracts and chrome out | `_lib/{screen,probe-contract}.ts`, `screens/import-shell.tsx` + the shell | same |
 | 7 | **W6-1.5** — the run out | `_lib/use-import-run.ts` + the shell | `lint` · `typecheck` · `vitest run` · `npm run verify` · the e2e pass in §9 |
+
+> **[corrected 2026-08-31] The extraction ran in four commits, not five, and in a different order.**
+> The contracts (`_lib/screen.ts`, `_lib/probe-contract.ts`) came **first**, not sixth. The plan had
+> the leaf screens out at step 4 and the contracts at step 6, which cannot work: `rail-screen.tsx`
+> needs `RailState` and `no-places-screen.tsx` needs nothing from the shell, so extracting a screen
+> before its types exist means a type-only import cycle back into the component. Steps 6 and 7 were
+> then merged, because the chrome and the run are both edits to the same shell body and splitting
+> them bought no bisect resolution. What actually landed:
+>
+> | # | Commit | Writes |
+> |---|---|---|
+> | 1 | the guards re-pointed | `tests/unit/import/{import-client-source,import-error-copy,seed-links,one-result-collapse}` |
+> | 2 | the contracts out | `_lib/{probe-contract,screen}.ts` + the shell |
+> | 3 | the leaf screens out | `screens/{screen-kicker,paste-screen,rail-screen,no-places-screen,failure-screen}.tsx` + the shell |
+> | 4 | the review beat out | `screens/review/{review-screen,candidate-card}.tsx`, `_lib/save-extracted-candidates.ts` + the shell |
+> | 5 | the run and the chrome out | `_lib/use-import-run.ts`, `screens/import-shell.tsx` + the shell |
+>
+> One design change against §3.3: **`useImportRun` does not return `setScreen`.** Handing the setter
+> out would let a caller take the screen without the `stillCurrent()` gate, which is §4.2's whole
+> point; the shell reads `screen` and calls `submit`/`reset`, and sets no screens.
 
 > **[corrected 2026-08-31] The dispatch reversed steps 1 and 2: W1-6 landed first, then W1-4.**
 > §7.1's recommendation below was written to keep the behaviour change out of the restructure, and
