@@ -8,16 +8,17 @@
    ========================================================================= */
 :root {
   color-scheme: dark;
-  --bg:        #08100F;
-  --bg-deep:   #050B0A;
-  --raised:    #0F1A19;
-  --card:      #13201E;
-  --card-2:    #182725;
-  --line:      #1E302E;
-  --line-soft: #162523;
-  --ink:       #E9F3F1;
-  --ink-2:     #9DB4B0;
-  --ink-3:     #6A817E;
+  --bg:        #0D0B08;
+  --bg-deep:   #080706;
+  --raised:    #15120D;
+  --card:      #1A1611;
+  --card-2:    #211C15;
+  --line:      #2B241A;
+  --line-soft: #1F1A13;
+  --ink:       #F3EFE7;
+  --ink-2:     #ABA294;
+  --ink-3:     #7C7466;
+  --gold:      #F2C46B;
   --mint:      #A8ECE2;
   --mint-mid:  #5FD3C2;
   --mint-deep: #2E7A70;
@@ -48,19 +49,20 @@
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
     color-scheme: light;
-    --bg:        #F7F6F2;
-    --bg-deep:   #EFEDE6;
+    --bg:        #FAF9F6;
+    --bg-deep:   #F1EFE9;
     --raised:    #FFFFFF;
     --card:      #FFFFFF;
-    --card-2:    #FAF9F6;
-    --line:      #E3DFD7;
-    --line-soft: #EDEAE3;
-    --ink:       #14201E;
-    --ink-2:     #5C6C69;
-    --ink-3:     #8A9996;
-    --mint:      #2E7A70;
-    --mint-mid:  #3E9184;
-    --mint-deep: #215F56;
+    --card-2:    #F4F2EC;
+    --line:      #E7E3DC;
+    --line-soft: #EFECE5;
+    --ink:       #1B1B1A;
+    --ink-2:     #75716A;
+    --ink-3:     #9A958C;
+    --gold:      #B8801F;
+    --mint:      #215F56;
+    --mint-mid:  #2E7A70;
+    --mint-deep: #123B35;
     --glow:      rgba(46,122,112,.10);
     --glow-2:    rgba(46,122,112,.05);
     --cat-rest:  #D9482A;
@@ -77,19 +79,20 @@
 }
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg:        #F7F6F2;
-  --bg-deep:   #EFEDE6;
+  --bg:        #FAF9F6;
+  --bg-deep:   #F1EFE9;
   --raised:    #FFFFFF;
   --card:      #FFFFFF;
-  --card-2:    #FAF9F6;
-  --line:      #E3DFD7;
-  --line-soft: #EDEAE3;
-  --ink:       #14201E;
-  --ink-2:     #5C6C69;
-  --ink-3:     #8A9996;
-  --mint:      #2E7A70;
-  --mint-mid:  #3E9184;
-  --mint-deep: #215F56;
+  --card-2:    #F4F2EC;
+  --line:      #E7E3DC;
+  --line-soft: #EFECE5;
+  --ink:       #1B1B1A;
+  --ink-2:     #75716A;
+  --ink-3:     #9A958C;
+  --gold:      #B8801F;
+  --mint:      #215F56;
+  --mint-mid:  #2E7A70;
+  --mint-deep: #123B35;
   --glow:      rgba(46,122,112,.10);
   --glow-2:    rgba(46,122,112,.05);
   --cat-rest:  #D9482A;
@@ -282,18 +285,18 @@ td .mono { font-size: 12.5px; color: var(--ink-3); }
   --p-cafe:  #C67A1E;
   --p-bar:   #6D4FA8;
   --p-none:  #2E7A70;
-  --p-map1:  #EEF3EF;
-  --p-map2:  #E4EBE6;
+  --p-map1:  #F2EFE8;
+  --p-map2:  #E7E2D6;
   --p-road:  #FFFFFF;
-  --p-water: #CFE3E8;
+  --p-water: #C9DCE4;
   --p-shadow: 0 10px 30px -18px rgba(27,27,26,.45);
 }
 .mk[data-mode="night"] {
-  --p-bg:    #0D1614;
-  --p-card:  #14201E;
-  --p-line:  #22332F;
-  --p-ink:   #EDF5F2;
-  --p-dim:   #8FA6A1;
+  --p-bg:    #12100C;
+  --p-card:  #1A1712;
+  --p-line:  #2A241B;
+  --p-ink:   #F1EDE5;
+  --p-dim:   #A39B8D;
   --p-mint:  #A8ECE2;
   --p-mint7: #6FDCC9;
   --p-mint9: #A8ECE2;
@@ -302,10 +305,10 @@ td .mono { font-size: 12.5px; color: var(--ink-3); }
   --p-cafe:  #F7BE63;
   --p-bar:   #A992FF;
   --p-none:  #6FDCC9;
-  --p-map1:  #101B1A;
-  --p-map2:  #0B1413;
-  --p-road:  #1D2E2B;
-  --p-water: #0E2530;
+  --p-map1:  #101418;
+  --p-map2:  #0B0E11;
+  --p-road:  #202830;
+  --p-water: #0D1D26;
   --p-shadow: 0 12px 34px -16px rgba(0,0,0,.8);
 }
 
@@ -824,6 +827,46 @@ td .mono { font-size: 12.5px; color: var(--ink-3); }
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
   <clipPath id="mClip"><path d="M34 9C50 3 70 7 82 20 93 32 97 50 92 66 86 84 68 95 50 94 30 93 12 82 7 64 2 46 8 26 20 16 24 12 29 11 34 9Z"/></clipPath>
 </defs></svg>
+<style>
+/* ---------- polished chapter chrome ---------- */
+.progress { position:sticky; top:58px; z-index:55; height:2px; background:transparent; }
+.progress i { display:block; height:100%; width:0; background:linear-gradient(90deg, var(--mint-mid), var(--gold)); transition:width .12s linear; }
+@media (max-width:900px){ .progress { position:static; } }
+
+.chtab { display:inline-flex; align-items:baseline; gap:7px; }
+.chtab b { font-family:var(--mono); font-size:10px; font-weight:500; letter-spacing:.06em; opacity:.55; }
+.chtab[aria-current="true"] b { opacity:.85; }
+
+.cover { border-bottom:1px solid var(--line-soft); padding-block:clamp(44px,6vw,78px) clamp(22px,3vw,34px);
+  background:radial-gradient(120% 150% at 88% -40%, var(--glow) 0%, transparent 58%); }
+.cover-n { font-family:var(--mono); font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--mint-mid); }
+.cover-t { font-size:clamp(34px,5.6vw,68px); letter-spacing:-.035em; margin-top:12px; }
+.cover-b { font-size:clamp(16px,1.6vw,19px); color:var(--ink-2); max-width:56ch; margin-top:14px; line-height:1.55; }
+
+.subnav { display:flex; gap:6px; flex-wrap:wrap; margin-top:26px; }
+.subnav a { font-family:var(--mono); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--ink-3); padding:7px 11px; border-radius:999px; text-decoration:none; border:1px solid var(--line);
+  background:var(--raised); transition:color .16s, border-color .16s, background .16s; }
+.subnav a:hover { color:var(--ink); border-color:var(--mint-mid); text-decoration:none; }
+.subnav a[aria-current="true"] { color:var(--ink); border-color:var(--mint-mid); background:var(--glow-2); }
+
+.chapter > .cover + section { border-top:0; }
+
+.pager { border-top:1px solid var(--line-soft); padding-block:34px 8px; }
+.pager-in { display:flex; justify-content:space-between; gap:16px; align-items:stretch; }
+.pg { flex:0 1 auto; text-align:left; background:var(--raised); border:1px solid var(--line); border-radius:14px;
+  padding:14px 18px; cursor:pointer; display:flex; flex-direction:column; gap:4px; min-width:190px;
+  transition:border-color .18s, background .18s, transform .12s; font-family:var(--body); }
+.pg:hover { border-color:var(--mint-mid); background:var(--glow-2); }
+.pg:active { transform:translateY(1px); }
+.pg.right { text-align:right; align-items:flex-end; }
+.pg span { font-family:var(--mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); }
+.pg b { font-family:var(--display); font-weight:800; font-size:16px; letter-spacing:-.02em; color:var(--ink); }
+@media (max-width:560px){ .pg { min-width:0; flex:1; } .pg b { font-size:14px; } }
+
+/* the mascot's gold, used only as document chrome */
+.brand .rig svg { filter:drop-shadow(0 1px 2px rgba(0,0,0,.25)); }
+</style>
 <header class="top">
   <div class="wrap top-in">
     <span class="brand" style="gap:8px">
@@ -831,17 +874,18 @@ td .mono { font-size: 12.5px; color: var(--ink-3); }
       <span>No&nbsp;Crumbs</span>
     </span>
     <nav class="chbar" id="chbar">
-      <button type="button" class="chtab" data-ch="plan">The Plan</button>
-      <button type="button" class="chtab" data-ch="name">The Name</button>
-      <button type="button" class="chtab" data-ch="brand">The Brand</button>
-      <button type="button" class="chtab" data-ch="mascot">The Mascot</button>
-      <button type="button" class="chtab" data-ch="voice">The Voice</button>
+      <button type="button" class="chtab" data-ch="name"><b>01</b><span>The Name</span></button>
+      <button type="button" class="chtab" data-ch="brand"><b>02</b><span>The Brand</span></button>
+      <button type="button" class="chtab" data-ch="mascot"><b>03</b><span>The Mascot</span></button>
+      <button type="button" class="chtab" data-ch="voice"><b>04</b><span>The Voice</span></button>
+      <button type="button" class="chtab" data-ch="plan"><b>05</b><span>The Plan</span></button>
     </nav>
     <button class="theme-btn" id="themeBtn" type="button" aria-label="Switch between light and dark">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
     </button>
   </div>
 </header>
+<div class="progress" aria-hidden="true"><i id="progbar"></i></div>
 <section class="hero" style="padding-block:clamp(44px,6vw,86px) clamp(30px,4vw,52px);border-top:0">
   <canvas id="heroCanvas" aria-hidden="true"></canvas>
   <div class="hero-veil"></div>
@@ -851,17 +895,1151 @@ td .mono { font-size: 12.5px; color: var(--ink-3); }
       <span class="rig an-blink" data-crumb data-size="76" style="flex:none"></span>
       <h1 style="font-size:clamp(38px,6.4vw,84px)">No Crumbs</h1>
     </div>
-    <p class="lede" style="margin-top:22px;max-width:58ch">Everything from one day's work, in one place: the audit and
-      the five-stage facelift plan, how the name was chosen and what it beat, the identity, the mascot and its motion,
-      and the voice rules that govern every string in the product.</p>
+    <p class="lede" style="margin-top:22px;max-width:58ch">The identity first, the build plan last. How the name was
+      chosen and what it beat, the mark and the mascot, the rules that govern every string in the product &mdash; and
+      then the twelve findings and five stages that turn it into the thing on screen.
+      <span style="color:var(--ink-3)">Arrow keys move between chapters.</span></p>
     <div class="hero-meta">
       <span class="pill on">5 chapters</span>
-      <span class="pill">24 sections</span>
+      <span class="pill">27 sections</span>
       <span class="pill">Live mockups &amp; animations</span>
     </div>
   </div>
 </section>
+<div class="chapter" id="ch-name" hidden>
+  <div class="cover">
+    <div class="wrap">
+      <p class="cover-n">Chapter 01</p>
+      <h2 class="cover-t">The Name</h2>
+      <p class="cover-b">Thirty-four competitors, one failure-screen test, and the five that survived it.</p>
+      <nav class="subnav">
+        <a href="#landscape">Landscape</a>
+        <a href="#test">The test</a>
+        <a href="#shortlist">Shortlist</a>
+        <a href="#killed">Killed</a>
+      </nav>
+    </div>
+  </div>
+<section id="landscape">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">The landscape</p>
+      <h2>Seventeen products, and they have burned the whole vocabulary.</h2>
+      <p class="lede">These all do approximately what this product does &mdash; paste or share a TikTok or Reel, get a
+        place on a personal map. Two of them matter more than the rest: <strong>Plotline</strong>, which this repo already
+        cites as a structural inspiration for the bottom navigation, and <strong>Stasht</strong>, which is the closest
+        thing to a direct name collision I found.</p>
+    </div>
+
+    <div class="dead" style="margin-bottom:34px">
+      <div><p class="nm">Plotline</p><p class="rs">Share-sheet extraction to a travel map. <em>Already our nav inspiration.</em></p></div>
+      <div><p class="nm">Stasht</p><p class="rs">Map-first, source kept attached. <em>Nearest name collision.</em></p></div>
+      <div><p class="nm">Postcard</p><p class="rs">"Save anything from anywhere and add it to your map." <em>Closest positioning.</em></p></div>
+      <div><p class="nm">GeoTok</p><p class="rs">iOS food map from TikTok clips.</p></div>
+      <div><p class="nm">MunchMap</p><p class="rs">Restaurants and cafés to a personal map.</p></div>
+      <div><p class="nm">iCrave</p><p class="rs">Restaurants from TikTok and Reels.</p></div>
+      <div><p class="nm">Triply</p><p class="rs">Video to a usable list of places.</p></div>
+      <div><p class="nm">Rezz</p><p class="rs">Maps and categorises the spot automatically.</p></div>
+      <div><p class="nm">Drawer</p><p class="rs">Extracts name, location and what to order.</p></div>
+      <div><p class="nm">SpotFetch</p><p class="rs">Any post to saved travel locations.</p></div>
+      <div><p class="nm">Mapstr</p><p class="rs">Save and follow places. Long-established.</p></div>
+      <div><p class="nm">Mapbite</p><p class="rs">On the App Store.</p></div>
+      <div><p class="nm">Beli</p><p class="rs">Restaurant tracking and ranking. Large.</p></div>
+      <div><p class="nm">Rex</p><p class="rs">Restaurant discovery and saving.</p></div>
+      <div><p class="nm">Recco</p><p class="rs">Local food and places.</p></div>
+      <div><p class="nm">SpotSavor</p><p class="rs">On the App Store.</p></div>
+      <div><p class="nm">Keepza</p><p class="rs">"Restaurant black book."</p></div>
+      <div><p class="nm">Spots</p><p class="rs">Curated place lists on your personal map. <em>Ships under a candidate name.</em></p></div>
+      <div><p class="nm">Pin Drop</p><p class="rs">Personal private map for saved cafés and restaurants. <em>Ships under a candidate name.</em></p></div>
+      <div><p class="nm">TokSpot</p><p class="rs">TikTok places to a map.</p></div>
+    </div>
+
+    <div class="blocked" style="margin-bottom:34px;border-color:color-mix(in srgb, var(--warn) 40%, transparent);background:color-mix(in srgb, var(--warn) 8%, transparent);border-radius:16px;padding:20px 22px;border-width:1px;border-style:solid">
+      <h4 style="font-size:16px;color:var(--warn);font-family:var(--display);font-weight:800;margin:0">This one is a product finding, not a naming one</h4>
+      <p style="font-size:14px;color:var(--ink-2);margin-top:9px;line-height:1.55"><strong>Plotline</strong> is not a
+        peer &mdash; it is ahead. Share a TikTok, Reel, YouTube video or website and it extracts <em>every</em> place
+        mentioned onto a personal travel map: an "8 Best Coffee Shops in Melbourne" post becomes eight geocoded,
+        categorised, colour-coded pins. It adds itinerary building on top. It claims <strong>30,000+ users and 2M+ places
+        from 500,000+ social posts</strong>, and it runs an SEO content operation aimed at exactly the search terms this
+        product would want. It is iOS-only as of July 2026, with Android on a waitlist. Two of the specialists flagged
+        this independently and both said the same thing: this belongs in the product conversation, not this one. I agree,
+        and I am putting it in front of you now rather than at the bottom of a naming page.</p>
+    </div>
+
+    <h3 style="font-size:20px;margin-bottom:14px">Which means these words are gone</h3>
+    <p class="small" style="max-width:64ch;margin-bottom:18px">Every one of these roots is already carrying someone
+      else's product in this exact category. A name built from them is not distinctive, it is a footnote in someone
+      else's App Store search results.</p>
+    <div class="burn">
+      <span>map&#8203;*</span><span>spot&#8203;*</span><span>plot&#8203;*</span><span>stash / save</span><span>pin&#8203;*</span>
+      <span>geo&#8203;*</span><span>*&#8203;tok</span><span>munch / crave / savor</span><span>keep&#8203;za</span><span>&#8203;-ly / &#8203;-y</span>
+      <span class="ok">everything else</span>
+    </div>
+
+    <div class="card" style="margin-top:34px;border-color:color-mix(in srgb, var(--mint-mid) 30%, transparent);background:var(--glow-2)">
+      <h3>The strategy this forces, and it happens to be the right one anyway</h3>
+      <p style="font-size:15px">The reference tier you named &mdash; Linear, Notion, Hex, Asana &mdash; shares one naming
+        move: <strong>a real word used obliquely.</strong> None of them describes its mechanism. A line, an idea, a shape,
+        a yoga pose. They are ownable precisely because the word arrives from an adjacent world and the product gets to
+        define what it means there. That is now not just the most distinctive route available here &mdash; after the
+        seventeen above, it is the only one left.</p>
+    </div>
+  </div>
+</section>
+<section id="test">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">The test</p>
+      <h2>A name here is judged on the failure screen, not the logo.</h2>
+      <p class="lede">This is the rule the product lead set during the audit and it is the only one that reliably kills a
+        pretty name. At the measured extraction hit rate, <strong>"no places named" is the modal outcome of an
+        import</strong> &mdash; roughly three imports in four. So the most-read sentence in the entire product is not the
+        success line. It is the apology that must not sound like one.</p>
+    </div>
+
+    <div class="grid g3">
+      <div class="card">
+        <h3>1. The header</h3>
+        <p>The bare word, alone, in the shell. It has to look like a product at 13&nbsp;px uppercase and at 40&nbsp;px on
+          the sign-in hero, and it has to be findable in a browser tab at 16&nbsp;px.</p>
+      </div>
+      <div class="card">
+        <h3>2. The success line</h3>
+        <p>The confirm screen. <em>"3 places ___"</em>. Any name that needs a preposition and four extra words here is
+          paying rent on every import.</p>
+      </div>
+      <div class="card" style="border-color:color-mix(in srgb, var(--mint-mid) 34%, transparent);background:var(--glow-2)">
+        <h3>3. The failure line &mdash; the discriminator</h3>
+        <p><em>"Nothing to ___ from this post."</em> Matter-of-fact, blameless, offering a next move. This is the string
+          that disqualified <strong>Landed</strong>, which I recommended before the audit: pins land, but nothing
+          "un-lands", so the most-seen screen in the product has no sentence.</p>
+      </div>
+    </div>
+
+    <p class="small" style="margin-top:22px;max-width:70ch">The tone rules the brand document already binds us to:
+      state, don't perform &mdash; <em>"3 places found"</em>, never <em>"Great news!"</em>. Concrete over technical. And
+      the product never congratulates itself on the find, because the discovery was the user's. A name that can only be
+      shouted fails all three.</p>
+  </div>
+</section>
+<section id="shortlist">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">The shortlist</p>
+      <h2>Five that survived &mdash; and none of them survived clean.</h2>
+      <p class="lede">That is the honest headline. In 2026 there is no short, warm English word left that a consumer app
+        can have to itself; the question is not <em>which name is uncontested</em> but <strong>which collisions are
+        survivable</strong> &mdash; out of category, small, or dormant. Domain and trademark findings below are
+        search-and-DNS signals, not clearance. A real trademark search is owed before public use and is not owed before a
+        submission.</p>
+    </div>
+
+    <div class="wmbar" id="wmbar"><b>Set the wordmark in</b></div>
+
+    <div class="grid g2" style="gap:22px">
+      <div class="spec">
+        <div class="spec-word">
+          <span class="w">Kept</span>
+          <span class="n">01 &middot; Best writing, weakest mark</span>
+        </div>
+        <div class="spec-body">
+          <div class="strings">
+            <div class="str"><span class="k">Header</span><span class="v">Kept</span></div>
+            <div class="str"><span class="k">Success</span><span class="v">3 places kept</span></div>
+            <div class="str fail"><span class="k">Failure</span><span class="v">Nothing to keep in this one.</span></div>
+          </div>
+          <p class="why">Still the only candidate whose two most-shipped sentences are ordinary English, and the only one where the brand
+   word itself appears in the sentence shown three times in four. Research confirmed it has <strong>no collision in this
+   category at all</strong> &mdash; the three live iOS apps called <em>Kept</em> are a home-maintenance tracker, an
+   accountability app and a personal-finance app, all small and all elsewhere. <span class="mono">kept.app</span> is
+   parked with a &ldquo;Domain For Sale&rdquo; contact form, so it is buyable.</p>
+          <div class="verdicts"><span class="vd good">No in-category collision</span><span class="vd warn">kept.app for sale, not free</span><span class="vd warn">Google Keep confusion</span><span class="vd bad">&ldquo;Kept woman&rdquo; idiom</span></div>
+          <div>
+            <div class="tabprev"><i>K</i><span>Kept &mdash; your saved places</span></div>
+            <p class="tiny" style="margin-top:10px">Four letters, K and t ascenders against a p descender &mdash; an unusually strong silhouette for four
+   characters, and the p descender is a natural pin-tail hook. Lock it lowercase; all-caps throws the descender away.</p>
+          </div>
+        </div>
+      </div>
+      <div class="spec">
+        <div class="spec-word">
+          <span class="w">Larder</span>
+          <span class="n">02 &middot; Lowest measured risk</span>
+        </div>
+        <div class="spec-body">
+          <div class="strings">
+            <div class="str"><span class="k">Header</span><span class="v">Larder</span></div>
+            <div class="str"><span class="k">Success</span><span class="v">3 places in the larder</span></div>
+            <div class="str fail"><span class="k">Failure</span><span class="v">Nothing for the larder here.</span></div>
+          </div>
+          <p class="why">The only name in the whole exercise that came back <strong>LOW collision risk</strong> on a proper check.
+   The competing <em>Larders</em> are a recipe-sharing site, a grocery-expiry tracker and an Indian food-kiosk company
+   &mdash; all small, none in maps. <span class="mono">larder.app</span> does not resolve;
+   <span class="mono">larder.com</span> and <span class="mono">.co</span> are both listed for sale. The failure line is
+   the second best on the list. The objection is semantic and it is real: a larder holds food you own, and this holds
+   places you might go &mdash; including bars.</p>
+          <div class="verdicts"><span class="vd good">Lowest verified risk</span><span class="vd good">larder.app unregistered</span><span class="vd warn">Pantry semantics</span><span class="vd warn">Reads British</span></div>
+          <div>
+            <div class="tabprev"><i>L</i><span>Larder &mdash; your saved places</span></div>
+            <p class="tiny" style="margin-top:10px">Six letters, two ascenders, no descender. Long and horizontal &mdash; good on a sign-in hero, tight in a
+   16&nbsp;px tab.</p>
+          </div>
+        </div>
+      </div>
+      <div class="spec">
+        <div class="spec-word">
+          <span class="w">Noted</span>
+          <span class="n">03 &middot; The tone-perfect one, with an adjacent problem</span>
+        </div>
+        <div class="spec-body">
+          <div class="strings">
+            <div class="str"><span class="k">Header</span><span class="v">Noted.</span></div>
+            <div class="str"><span class="k">Success</span><span class="v">3 places noted.</span></div>
+            <div class="str fail"><span class="k">Failure</span><span class="v">Nothing to note in this one.</span></div>
+          </div>
+          <p class="why">The product lead&rsquo;s pick, and the argument is good: in a category where twenty names cluster around
+   <em>map</em>, <em>spot</em> and <em>pin</em>, signalling away from that cluster is an asset. <em>Noted.</em> with the
+   full stop <strong>is already a wordmark</strong>, and it enacts the brand&rsquo;s first tone rule &mdash; state,
+   don&rsquo;t perform &mdash; as a name. The problem I found afterwards is the one that killed <em>Folio</em>:
+   <span class="mono">notedapp.io</span> is a live note-taking app and <span class="mono">noted.app</span> is taken. The
+   note register is clear of our competitors and crowded with its own.</p>
+          <div class="verdicts"><span class="vd good">Clear of all 20 competitors</span><span class="vd good">The full stop is the mark</span><span class="vd bad">notedapp.io is live</span><span class="vd warn">noted.app taken</span></div>
+          <div>
+            <div class="tabprev"><i>N</i><span>Noted &mdash; your saved places</span></div>
+            <p class="tiny" style="margin-top:10px">Five letters, t and d ascenders, three round counters. The asset is the punctuation: the period is
+   distinctive, sets at any size, and doubles as a map dot.</p>
+          </div>
+        </div>
+      </div>
+      <div class="spec">
+        <div class="spec-word">
+          <span class="w">Dogear</span>
+          <span class="n">04 &middot; The best mark, the worst domain</span>
+        </div>
+        <div class="spec-body">
+          <div class="strings">
+            <div class="str"><span class="k">Header</span><span class="v">Dogear</span></div>
+            <div class="str"><span class="k">Success</span><span class="v">3 places dogeared</span></div>
+            <div class="str fail"><span class="k">Failure</span><span class="v">Nothing to dogear in this one.</span></div>
+          </div>
+          <p class="why">Nothing in maps, travel or restaurants uses it &mdash; the collisions are a dead IBM tool, a Chrome extension,
+   a book tracker and a Mozilla library. And it still hands you <strong>a logo for free</strong>: the fold is both
+   &ldquo;come back to this&rdquo; and a map fold, in a field of twenty products that all draw a pin. Two things hold it
+   back. <span class="mono">dogear.app</span> serves a React application shell titled <em>Dogear</em> &mdash; I could not
+   determine whether it has launched, but someone is building there. And the product lead&rsquo;s objection stands: you
+   dog-ear a page, not a place.</p>
+          <div class="verdicts"><span class="vd good">Nothing in maps uses it</span><span class="vd good">Free logo concept</span><span class="vd bad">dogear.app is occupied</span><span class="vd warn">Metaphor points at books</span></div>
+          <div>
+            <div class="tabprev"><i>D</i><span>Dogear &mdash; your saved places</span></div>
+            <p class="tiny" style="margin-top:10px">Six letters, one ascender and one descender &mdash; the most drawable word here and the only one with a
+   built-in glyph. <strong>Keep the fold even if you drop the name.</strong></p>
+          </div>
+        </div>
+      </div>
+      <div class="spec">
+        <div class="spec-word">
+          <span class="w">Mapt</span>
+          <span class="n">05 &middot; Most ownable, cannot speak</span>
+        </div>
+        <div class="spec-body">
+          <div class="strings">
+            <div class="str"><span class="k">Header</span><span class="v">Mapt</span></div>
+            <div class="str"><span class="k">Success</span><span class="v">3 places mapped</span></div>
+            <div class="str fail"><span class="k">Failure</span><span class="v">Nothing to map in this one.</span></div>
+          </div>
+          <p class="why">Carried over from your own brand document, and the research ranked it <strong>the most ownable of everything
+   tested</strong> &mdash; a distinctive coinage rather than a dictionary word, with the cleanest page one of any
+   candidate and no consumer-maps collision. It also has a Tel Aviv advantage nobody planned:
+   <strong>&#1502;&#1508;&#1514;</strong> is the Hebrew construct form of &ldquo;map&rdquo;, so a local reader hears
+   <em>map of&hellip;</em> waiting for its object. Against it: it sits in the one root twenty competitors already share,
+   a coined spelling cannot conjugate &mdash; so the brand never appears in either product sentence &mdash; and spoken
+   aloud it is heard as &ldquo;mapped&rdquo;, which costs a spelling every time.</p>
+          <div class="verdicts"><span class="vd good">Most ownable tested</span><span class="vd good">Reads as &#1502;&#1508;&#1514; in Hebrew</span><span class="vd warn">mapt.app is $3,379</span><span class="vd bad">Saturated map* root</span></div>
+          <div>
+            <div class="tabprev"><i>M</i><span>Mapt &mdash; your saved places</span></div>
+            <p class="tiny" style="margin-top:10px">Four letters, three ascenders and no descender &mdash; a picket-fence silhouette, very stable small. The
+   flattest and most technical-looking of the five.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:32px;border-color:color-mix(in srgb, var(--mint-mid) 30%, transparent);background:var(--glow-2)">
+      <h3>Where I actually land, having been wrong once already</h3>
+      <p style="font-size:15px">My first shortlist put <strong>Trove</strong> at number two on the strength of a domain
+        that did not resolve. That was a shallow check and it was wrong: <em>Trove Collective</em> is a place-lists app,
+        <span class="mono">troveapp.app</span> and <span class="mono">mytrovelist.com</span> both save-and-find-later,
+        and there are five-plus USPTO <em>Trove</em> filings in software classes. It is struck.</p>
+      <p style="font-size:15px;margin-top:12px">Which leaves a genuine two-way choice. <strong>Take Kept</strong> if you
+        want the product to write well &mdash; it is the only name whose failure sentence a person reads without
+        flinching, and its collisions are all in other categories. <strong>Take Larder</strong> if you want the safest
+        thing to own &mdash; it is the only name that came back low-risk on a proper check, and its
+        <span class="mono">.app</span> is genuinely unregistered. I would take <strong>Kept</strong>, and I would spend
+        the wordmark budget making a common word look like it belongs to you, which is exactly what Linear and Notion
+        both had to do.</p>
+      <p style="font-size:15px;margin-top:12px">The one thing I would <em>not</em> do is take <strong>Mapt</strong>
+        because the Hebrew reading is charming. It cannot appear in its own product copy, and that is the cost you pay
+        every day.</p>
+    </div>
+  </div>
+</section>
+<section id="killed">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Killed</p>
+      <h2>Including three of the four the brand document had on the table.</h2>
+      <p class="lede">The naming brief in <span class="mono">brand-and-product-foundation.md</span> &sect;3 kept four
+        candidates alive: <em>Pinned, Mapt, Placed, Dropp</em>. Three of them are built from roots that competitors have
+        since taken. That is not the document's fault &mdash; it was written on 2026-08-20 and the category moved &mdash;
+        but it does mean the shortlist could not simply be drawn from it.</p>
+    </div>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>Where it came from</th><th>Why it's dead</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Plotted</strong></td><td>My own shortlist, v1 of the plan</td><td><strong>Plotline</strong> is a direct competitor in this exact category &mdash; and is already cited in this repo as the inspiration for the bottom navigation. Naming ourselves one letter away from it is not a coincidence anyone would believe.</td></tr>
+          <tr><td><strong>Stash</strong></td><td>My own shortlist, v1</td><td><strong>Stasht</strong> ships today doing precisely this: share a TikTok, it pulls out the place, pins it, keeps the source attached.</td></tr>
+          <tr><td><strong>Haunt</strong></td><td>My own late idea &mdash; "your haunts" is the exact word for a place you return to</td><td><strong>"Haunt &mdash; Snap &amp; Save Places"</strong> is on the App Store. There is also a second app, <em>Hauntt</em>. Killed before it reached you.</td></tr>
+          <tr><td><strong>Folio</strong></td><td>The paper/binding direction</td><td><strong>Folio &mdash; Save now. Read later.</strong> is a shipping read-it-later app. That is the adjacent category, which is worse than a distant one.</td></tr>
+          <tr><td><strong>Mapt</strong></td><td>Brand document &sect;3</td><td>The <span class="mono">map*</span> root is carried by MunchMap, Mapstr, Mapbite and GeoTok. A coined spelling does not buy distinctiveness inside a saturated root &mdash; it buys a permanent spelling-it-out tax on top of one.</td></tr>
+          <tr><td><strong>Pinned</strong></td><td>Brand document &sect;3</td><td>The <span class="mono">pin*</span> root, plus the Pinterest adjacency the document already flagged. It was the strongest of the four and it is still a footnote in someone else's search results.</td></tr>
+          <tr><td><strong>Spots</strong></td><td>Product lead's proposal</td><td>SpotFetch and SpotSavor both ship. The word the codebase uses internally can stay internal.</td></tr>
+          <tr><td><strong>Landed</strong></td><td>My recommendation in v1 of the plan</td><td>Not a collision &mdash; it fails the failure test. Pins land; nothing un-lands. The most-read screen in the product would have no sentence.</td></tr>
+          <tr><td><strong>Trove</strong></td><td><strong>My own #2 recommendation, one draft ago</strong></td><td>I ranked it second because <span class="mono">trove.app</span> had no DNS record. That was a shallow check. <em>Trove Collective</em> is a place-lists app; <span class="mono">troveapp.app</span> and <span class="mono">mytrovelist.com</span> are both save-and-find-later products; there are five-plus USPTO <em>Trove</em> filings in software classes, an active <span class="mono">trove.com</span> business, a Trion MMO and Australia's national digital archive. Separately, the product lead objected on tone: treasure framing editorialises the find, and the brand rule is that the discovery is the user's.</td></tr>
+          <tr><td><strong>Spots</strong></td><td>Product lead's earlier proposal</td><td><em>Spots Inc.</em> already ships "Spots: Discover Amazing Places" &mdash; curated restaurant, café and bar lists on your personal map, updated June 2026, and its release notes advertise sharing posts from other platforms straight into those lists. Same product, same name, and it owns <span class="mono">spots.app</span>.</td></tr>
+          <tr><td><strong>Pindrop</strong></td><td>My alternatives list</td><td>Worse than I thought. Beyond Pindrop Security (300+ patents, on the mark since 2014) there is <strong>"Pin Drop &mdash; Places That Matter"</strong>, a personal private map for saving cafés and restaurants. That is our category and nearly our positioning sentence.</td></tr>
+          <tr><td><strong>Stow</strong></td><td>Product lead's revised #3</td><td><span class="mono">stow.app</span> serves a crypto product, <em>stow Group</em> is a warehouse-automation company acquiring robotics firms, and <strong>GNU Stow</strong> is a tool every developer already has an association with.</td></tr>
+          <tr><td><strong>Jot &middot; Earmark</strong></td><td>Product lead's revised #4 and #5</td><td><span class="mono">jot.app</span> serves a live app; <span class="mono">earmark.com</span> is an active product, alongside Earmark Inc. and Earmark CPE. Neither clears.</td></tr>
+          <tr><td><strong>Atlas &middot; Stash &middot; Almanac &middot; Placed</strong></td><td>Longlist</td><td>All HIGH or MEDIUM. <em>Atlas Obscura</em> ships a maps app with custom lists and a "Been There" tracker and <span class="mono">atlas.co</span> is an AI-native GIS company; <em>Stash</em> is a $425M consumer investing brand acquired by Grab in Feb 2026, and the word is entrenched drug slang; <em>Almanac</em> faces an immovable SEO incumbent; <em>Placed</em> was a location-analytics company bought by Snap then Foursquare.</td></tr>
+          <tr><td><strong>Banquette</strong></td><td>My own wildcard</td><td>Unclaimed, and still struck: it does not inflect, so both product sentences fall back to generic copy &mdash; the same test that killed <em>Landed</em>.</td></tr>
+          <tr><td><strong>Dropp</strong></td><td>Brand document &sect;3</td><td>Unchanged from the document's own assessment: the trend-styled doubled consonant dates exactly as fast as the <em>-It</em> construction it was meant to avoid.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+  <div class="pager"><div class="wrap pager-in"><span></span><button type="button" class="pg right" data-go="brand"><span>Chapter 02 &rarr;</span><b>The Brand</b></button></div></div>
+</div>
+<div class="chapter" id="ch-brand" hidden>
+  <div class="cover">
+    <div class="wrap">
+      <p class="cover-n">Chapter 02</p>
+      <h2 class="cover-t">The Brand</h2>
+      <p class="cover-b">A mascot that degrades into a map pin, and a colour rule that is a refusal.</p>
+      <nav class="subnav">
+        <a href="#mark">Mark</a>
+        <a href="#wordmark">Wordmark</a>
+        <a href="#colour">Colour</a>
+        <a href="#apps">Applications</a>
+        <a href="#ship">Shipping it</a>
+      </nav>
+    </div>
+  </div>
+<section id="mark">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">The mark</p>
+      <h2>A mascot that degrades into a map pin.</h2>
+      <p class="lede">You pointed me at Zoran Milic's work &mdash; soft rounded geometry, clean medium-weight outlines,
+        bright limited palettes, charm over realism. So this is a character, not an abstract mark. The thing that makes it
+        a <em>system</em> rather than a drawing is that the same silhouette works at every size: it is a mascot at
+        168&nbsp;px, a pin at 30&nbsp;px, and a legible blob at 16&nbsp;px. One shape, four jobs.</p>
+    </div>
+
+    <div class="grid g4 crumb-gold" style="gap:18px">
+      <div class="stage lite">
+        <svg viewBox="0 0 100 100" style="width:104px;height:104px"><use href="#crumbFace"/></svg>
+        <p class="cap">Mascot &middot; the character</p>
+      </div>
+      <div class="stage lite">
+        <svg viewBox="0 0 100 100" style="width:104px;height:104px;color:#2E7A70"><use href="#crumbPlain"/></svg>
+        <p class="cap">Silhouette &middot; the shape alone</p>
+      </div>
+      <div class="stage lite">
+        <svg viewBox="0 0 100 128" style="width:82px;height:105px;color:#E2542F"><use href="#crumbPin"/></svg>
+        <p class="cap">Map pin &middot; a crumb, not a teardrop</p>
+      </div>
+      <div class="stage lite">
+        <svg viewBox="0 0 120 60" style="width:112px;color:#2E7A70"><use href="#crumbTrail"/></svg>
+        <p class="cap">Trail &middot; loading, routes, empty states</p>
+      </div>
+    </div>
+
+    <div class="grid g2" style="margin-top:26px">
+      <div class="card">
+        <h3>Why the pin is the whole idea</h3>
+        <p>All thirty-four products in this category draw the same pin: a perfect teardrop with a circular head. It is the
+          Google Maps marker and it belongs to nobody. <strong>A crumb-shaped pin is instantly ours</strong> &mdash;
+          irregular, soft-cornered, recognisable at 15&nbsp;px, and it still takes the category colour so it keeps doing
+          its job as information. The mascot is not decoration bolted onto the product; it <em>is</em> the pin, wearing a
+          face on the surfaces that can afford one.</p>
+      </div>
+      <div class="card">
+        <h3>Where the face goes, and where it doesn't</h3>
+        <p>The face appears on <strong>brand</strong> surfaces &mdash; app icon, splash, sign-in, empty states, the link
+          preview. It never appears on the map. Thirty-one smiling faces scattered over Tel Aviv is a toy, not a tool, and
+          the moment a pin has eyes it stops being able to carry a category colour without looking ill. Face on the
+          chrome, silhouette on the data.</p>
+      </div>
+    </div>
+
+    <div class="grid g3" style="margin-top:26px">
+      <div class="card" style="border-color:color-mix(in srgb, var(--warn) 38%, transparent);background:color-mix(in srgb, var(--warn) 7%, transparent)">
+        <h3 style="color:var(--warn)">This overrules a written decision</h3>
+        <p>Flagging rather than quietly overwriting. <span class="mono">brand-and-product-foundation.md</span> scopes the
+          MVP as &ldquo;warm minimal&rdquo; and explicitly excludes an illustration style; Charter &sect;4 keeps
+          illustration systems off the current sprint. A mascot is exactly that. You are the product owner and this is
+          your call to make &mdash; I just want it recorded as a ruling, not discovered later as a contradiction.</p>
+      </div>
+      <div class="card">
+        <h3>What I can and can't draw</h3>
+        <p>This is a <em>constructed</em> vector character &mdash; correct geometry, correct weights, correct system
+          behaviour. It is not charm. Milic's work is charming because of proportion decisions a specialist makes by eye.
+          Treat this as a tight brief to hand an illustrator: the silhouette, the palette, the sizes it must survive, and
+          the rule that it has to work with the face removed.</p>
+      </div>
+      <div class="card">
+        <h3>The one thing to keep if you redraw it</h3>
+        <p>The silhouette. Everything in this system &mdash; pin, favicon, trail, icon &mdash; is the same closed path at
+          different sizes. An illustrator can change the face, the shading, the feet, the palette. If they change the
+          outline, you lose the pin and you are back to a teardrop like everyone else.</p>
+      </div>
+    </div>
+  </div>
+</section>
+<section id="wordmark">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Wordmark</p>
+      <h2>Two words, stacked, heavy, tight.</h2>
+      <p class="lede">Set in <strong>Archivo</strong> at 900, slightly condensed, with tracking pulled to
+        &minus;0.045em. Stacked is the primary: it makes a solid rectangle that sits beside the mascot without either
+        fighting the other, and it puts <em>No</em> and <em>Crumbs</em> on separate lines so the phrase reads as a phrase.
+        <strong>This is the only place Archivo appears.</strong> A wordmark is a drawn asset, not a typeface in the
+        product &mdash; so the signed-off &ldquo;Manrope only&rdquo; decision for UI survives intact.</p>
+    </div>
+
+    <div class="grid g3" style="gap:18px">
+      <div class="stage lite crumb-gold">
+        <div style="display:flex;align-items:center;gap:16px">
+          <svg viewBox="0 0 100 100" style="width:62px;height:62px;flex:none"><use href="#crumbFace"/></svg>
+          <span class="wm wm-lg" style="text-align:left">No<br>Crumbs</span>
+        </div>
+        <p class="cap">Primary lockup &middot; horizontal</p>
+      </div>
+      <div class="stage lite crumb-gold">
+        <svg viewBox="0 0 100 100" style="width:54px;height:54px"><use href="#crumbFace"/></svg>
+        <span class="wm" style="font-size:30px">No Crumbs</span>
+        <p class="cap">Stacked &middot; splash and icon</p>
+      </div>
+      <div class="stage lite">
+        <span class="wm" style="font-size:clamp(26px,4vw,40px)">No Crumbs</span>
+        <p class="cap">Wordmark alone &middot; inline, one line</p>
+      </div>
+    </div>
+
+    <div class="grid g2" style="margin-top:26px">
+      <div class="card">
+        <h3>The clear-space rule, in one number</h3>
+        <p>Leave the height of the <strong>O</strong> on every side of the lockup. Nothing crosses it. At the shell header
+          the mark sits at 22&nbsp;px with the wordmark at 15&nbsp;px, which is the smallest the pair may ever be set
+          together &mdash; below that, the mascot goes alone.</p>
+      </div>
+      <div class="card">
+        <h3>What it must never do</h3>
+        <p>No outline version, no gradient, no drop shadow on the wordmark, never stretched, never on a busy photograph,
+          and <strong>never over the live map</strong> &mdash; the map already carries pins in four colours and a
+          wordmark on top of it is noise. If the map needs the brand, it gets the mascot in the corner of the empty
+          state, not a logo bar.</p>
+      </div>
+    </div>
+  </div>
+</section>
+<section id="colour">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Colour</p>
+      <h2>The crumb is a shape, not a colour.</h2>
+      <p class="lede">This is the load-bearing decision in the whole identity, and it is a refusal. The obvious move is to
+        make toast-gold the brand colour. <strong>I am not doing that</strong>, because gold sits a few degrees from the
+        caf&eacute; category amber, and the entire point of the facelift's colour work is that on this map
+        <em>colour means what a place is</em>. A brand colour competing with that would undo it. So mint stays the only
+        brand colour, gold belongs to the mascot alone, and the two never appear on the same surface.</p>
+    </div>
+
+    <h3 style="font-size:17px;margin-bottom:12px">Brand &mdash; unchanged from the signed-off tokens</h3>
+    <div class="swatchset">
+      <div class="sw"><div class="chip" style="background:#A8ECE2"></div><div class="lbl"><b>Mint 400</b><code>#A8ECE2 &middot; primary</code></div></div>
+      <div class="sw"><div class="chip" style="background:#2E7A70"></div><div class="lbl"><b>Mint 700</b><code>#2E7A70 &middot; ring, ink</code></div></div>
+      <div class="sw"><div class="chip" style="background:#123B35"></div><div class="lbl"><b>Ink on mint</b><code>#123B35</code></div></div>
+      <div class="sw"><div class="chip" style="background:#FAF9F6"></div><div class="lbl"><b>Ground</b><code>#FAF9F6</code></div></div>
+      <div class="sw"><div class="chip" style="background:#1B1B1A"></div><div class="lbl"><b>Ink</b><code>#1B1B1A</code></div></div>
+    </div>
+
+    <h3 style="font-size:17px;margin:30px 0 12px">Mascot only &mdash; never used as UI colour</h3>
+    <div class="swatchset">
+      <div class="sw"><div class="chip" style="background:#F2C46B"></div><div class="lbl"><b>Crumb</b><code>#F2C46B &middot; body</code></div></div>
+      <div class="sw"><div class="chip" style="background:#E0A845"></div><div class="lbl"><b>Crust</b><code>#E0A845 &middot; underside</code></div></div>
+      <div class="sw"><div class="chip" style="background:#3A2A15"></div><div class="lbl"><b>Outline</b><code>#3A2A15</code></div></div>
+      <div class="sw"><div class="chip" style="background:#F0866A"></div><div class="lbl"><b>Blush</b><code>#F0866A &middot; 50%</code></div></div>
+    </div>
+
+    <h3 style="font-size:17px;margin:30px 0 12px">Information &mdash; what a place is, from the facelift plan</h3>
+    <div class="swatchset">
+      <div class="sw"><div class="chip" style="background:#D9482A"></div><div class="lbl"><b>Restaurant</b><code>persimmon</code></div></div>
+      <div class="sw"><div class="chip" style="background:#A66A18"></div><div class="lbl"><b>Caf&eacute;</b><code>amber</code></div></div>
+      <div class="sw"><div class="chip" style="background:#6A4BD0"></div><div class="lbl"><b>Bar</b><code>violet</code></div></div>
+      <div class="sw"><div class="chip" style="background:#2E7A70"></div><div class="lbl"><b>Uncategorised</b><code>house mint</code></div></div>
+    </div>
+
+    <p class="small" style="margin-top:18px;max-width:66ch">Read those three rows as three jobs. Row one is
+      <em>what you can press</em>. Row two is <em>who we are</em>, and it appears on maybe five screens. Row three is
+      <em>what a place is</em>, and it appears on every pin, chip and row in the product. Keeping them apart is what stops
+      a mascot from eating a design system.</p>
+  </div>
+</section>
+<section id="apps">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Applications</p>
+      <h2>Every asset the product currently doesn't have.</h2>
+      <p class="lede">The audit found <span class="mono">src/app</span> and <span class="mono">public/</span> carry no
+        favicon, no app icon, no manifest and no link preview &mdash; so a shared collection invite previews today as a
+        bare URL with a generic globe. These are the files that fixes it.</p>
+    </div>
+
+    <div class="grid g2" style="gap:20px">
+      <div class="appcard">
+        <div class="top"><h3>App icon &amp; favicon</h3>
+          <p>Mascot on mint, centred, with the face at roughly 70% of the tile so it survives the iOS corner mask. Below
+            32&nbsp;px the face is dropped and the silhouette carries it &mdash; two dot eyes at 16&nbsp;px turn to mud.</p></div>
+        <div class="show crumb-gold">
+          <div><div class="icon-tile" style="background:#A8ECE2"><svg viewBox="0 0 100 100" style="width:74px;height:74px"><use href="#crumbFace"/></svg></div><p class="pinlab">180px</p></div>
+          <div><div class="icon-tile sm" style="background:#A8ECE2"><svg viewBox="0 0 100 100" style="width:40px;height:40px"><use href="#crumbFace"/></svg></div><p class="pinlab">64px</p></div>
+          <div><div class="icon-tile xs" style="background:#A8ECE2"><svg viewBox="0 0 100 100" style="width:23px;height:23px;color:#123B35"><use href="#crumbPlain"/></svg></div><p class="pinlab">32px</p></div>
+          <div><div class="icon-tile fav" style="background:#A8ECE2"><svg viewBox="0 0 100 100" style="width:13px;height:13px;color:#123B35"><use href="#crumbPlain"/></svg></div><p class="pinlab">16px</p></div>
+        </div>
+      </div>
+
+      <div class="appcard">
+        <div class="top"><h3>The map pin</h3>
+          <p>The silhouette on a point, in the category's own colour, with a white aperture. Same geometry as the mascot,
+            face removed. The dashed ring stays the existing signal for a coordinate the model guessed rather than
+            matched.</p></div>
+        <div class="show">
+          <div class="pinrow">
+            <div><svg viewBox="0 0 100 128" style="width:44px;color:#D9482A"><use href="#crumbPin"/></svg><p class="pinlab">Restaurant</p></div>
+            <div><svg viewBox="0 0 100 128" style="width:44px;color:#A66A18"><use href="#crumbPin"/></svg><p class="pinlab">Caf&eacute;</p></div>
+            <div><svg viewBox="0 0 100 128" style="width:44px;color:#6A4BD0"><use href="#crumbPin"/></svg><p class="pinlab">Bar</p></div>
+            <div><svg viewBox="0 0 100 128" style="width:44px;color:#2E7A70"><use href="#crumbPin"/></svg><p class="pinlab">Uncategorised</p></div>
+            <div><svg viewBox="0 0 100 128" style="width:56px;color:#D9482A;filter:drop-shadow(0 3px 6px rgba(0,0,0,.28))"><use href="#crumbPin"/></svg><p class="pinlab">Selected</p></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="appcard">
+        <div class="top"><h3>Link preview</h3>
+          <p>The one asset with the highest ratio of effort to credibility. Per-collection previews render the
+            collection's own name and place count, so a shared invite arrives looking like an invitation.</p></div>
+        <div class="show">
+          <div class="og crumb-gold">
+            <div class="row"><svg viewBox="0 0 100 100" style="width:30px;height:30px"><use href="#crumbFace"/></svg><b>No&nbsp;Crumbs</b></div>
+            <div>
+              <p class="t">Tel Aviv eats</p>
+              <p class="s">12 places &middot; shared with you by Orel</p>
+            </div>
+            <div style="display:flex;gap:5px">
+              <svg viewBox="0 0 100 128" style="width:16px;color:#D9482A"><use href="#crumbPin"/></svg>
+              <svg viewBox="0 0 100 128" style="width:16px;color:#A66A18"><use href="#crumbPin"/></svg>
+              <svg viewBox="0 0 100 128" style="width:16px;color:#6A4BD0"><use href="#crumbPin"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="appcard">
+        <div class="top"><h3>Empty state &mdash; and the second thing this overrules</h3>
+          <p><strong>Correction to my own first draft.</strong> I wrote that this screen was owed. It is not: it ships at
+            <span class="mono">place-sheet.tsx:934</span> as <em>Your map starts here.</em> &mdash; and the code comment
+            above it explicitly refuses &ldquo;no empty-box illustration&rdquo;, along with carousels, checklists and
+            progress meters. Putting the mascot here contradicts a deliberate decision, so it is shown as a proposal, with
+            the shipping copy intact.</p></div>
+        <div class="show" style="flex-direction:column;gap:12px">
+          <div class="crumb-gold" style="display:flex;flex-direction:column;align-items:center;gap:10px">
+            <svg viewBox="0 0 100 100" style="width:66px;height:66px"><use href="#crumbFace"/></svg>
+            <p style="font-family:'Archivo',sans-serif;font-weight:900;font-stretch: normal;font-size:19px;letter-spacing:-.03em;color:#1B1B1A">Your map starts here.</p>
+            <p style="font-size:13px;color:#75716A;font-weight:500;text-align:center;max-width:32ch">Paste a TikTok link and the places it talks about land on your map.</p>
+            <span style="margin-top:4px;padding:10px 18px;border-radius:12px;background:#A8ECE2;color:#123B35;font-weight:800;font-size:13px">+ Add a TikTok</span>
+            <p style="font-size:10.5px;color:#A9A49B;margin-top:2px">Shipping copy, unchanged. Only the mascot is new &mdash; and it is the part to argue about.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:24px">
+      <h3>Loading, and the one animation this brand gets</h3>
+      <p>The trail. Three crumbs fading in left to right, then the mascot lands &mdash; used for the import wait and
+        nothing else. It is on-concept (the trail is the product), it takes about 700&nbsp;ms, and it replaces a generic
+        spinner on the one screen where the user waits seven to thirty-four seconds. <strong>One animation, one place.</strong>
+        Everything else in the product uses the six motion moments already specified in the facelift plan.</p>
+    </div>
+  </div>
+</section>
+<section id="ship">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Shipping it</p>
+      <h2>Where the name lands in the code.</h2>
+      <p class="lede">Small, and mostly files that do not exist yet. This is stage 1 of the facelift plan &mdash; the half
+        that was blocked on your decision is now unblocked.</p>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>File</th><th>Change</th><th>State</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">src/app/layout.tsx</td><td><code>title</code> and a <code>metadataBase</code>; the title is currently a sentence standing in for the missing name</td><td>Edit</td></tr>
+          <tr><td class="mono">src/app/page.tsx</td><td>Replace the <code>P-002</code> tracked-uppercase label beside the mark</td><td>Edit</td></tr>
+          <tr><td class="mono">src/components/brand/pin-mark.tsx</td><td>Replace Lucide's filled <code>MapPin</code> with the crumb silhouette</td><td>Rewrite</td></tr>
+          <tr><td class="mono">src/components/map/marker-images.ts</td><td>The rasterised pin bitmaps take the crumb outline, per category, plus selected</td><td>Edit</td></tr>
+          <tr><td class="mono">src/app/icon.svg</td><td>Favicon &mdash; silhouette on mint</td><td><strong>New</strong></td></tr>
+          <tr><td class="mono">src/app/apple-icon.png</td><td>180&times;180, mascot with face</td><td><strong>New</strong></td></tr>
+          <tr><td class="mono">src/app/opengraph-image.tsx</td><td>Link preview; a per-collection variant follows</td><td><strong>New</strong></td></tr>
+          <tr><td class="mono">src/app/manifest.ts</td><td>Name, icons, and a <code>theme_color</code> that is not off-white</td><td><strong>New</strong></td></tr>
+          <tr><td class="mono">docs/spec-no-places-found.md</td><td>No change &mdash; the no-places screen keeps every string it has</td><td>&mdash;</td></tr>
+          <tr><td class="mono">docs/brand-and-product-foundation.md</td><td>&sect;3 closes: the name is decided. Record the mascot as an owner ruling that overrides &ldquo;no illustration style&rdquo;</td><td>Edit</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="small" style="margin-top:20px;max-width:66ch">One blocker unchanged and it is not an engineering task:
+      GitHub Actions still cannot start a runner, so <span class="mono">merge:pr</span> refuses every PR and none of this
+      can land until the billing page is checked. It can all be built and reviewed on a branch in the meantime.</p>
+  </div>
+</section>
+  <div class="pager"><div class="wrap pager-in"><button type="button" class="pg" data-go="name"><span>&larr; Chapter 01</span><b>The Name</b></button><button type="button" class="pg right" data-go="mascot"><span>Chapter 03 &rarr;</span><b>The Mascot</b></button></div></div>
+</div>
+<div class="chapter" id="ch-mascot" hidden>
+  <div class="cover">
+    <div class="wrap">
+      <p class="cover-n">Chapter 03</p>
+      <h2 class="cover-t">The Mascot</h2>
+      <p class="cover-b">Eight moods bound to product states, five constructions, seven running animations.</p>
+      <nav class="subnav">
+        <a href="#moods">Moods</a>
+        <a href="#styles">Styles</a>
+        <a href="#motion">Motion</a>
+        <a href="#rules">Rules</a>
+      </nav>
+    </div>
+  </div>
+<section id="moods">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Moods</p>
+      <h2>Bound to states, not to emotions.</h2>
+      <p class="lede">The rule that keeps this from becoming decoration: a face may only exist if there is a screen that
+        needs it. Eight states, eight faces, no spares.</p>
+    </div>
+    <div class="mgrid">
+      <div class="mcell">
+        <span class="rig an-blink" data-crumb data-eyes="dot" data-mouth="smile" data-spark="0" data-size="84"></span>
+        <p class="nm">Idle</p>
+        <p class="st">Header, app icon, resting</p>
+      </div>
+      <div class="mcell">
+        <span class="rig an-scan" data-crumb data-eyes="dot" data-mouth="small" data-spark="0" data-size="84"></span>
+        <p class="nm">Reading</p>
+        <p class="st">Import running &mdash; &ldquo;Reading the TikTok&rdquo;</p>
+      </div>
+      <div class="mcell">
+        <span class="rig an-spark" data-crumb data-eyes="happy" data-mouth="grin" data-spark="1" data-size="84"></span>
+        <p class="nm">Found</p>
+        <p class="st">3 places added to your map</p>
+      </div>
+      <div class="mcell">
+        <span class="rig " data-crumb data-eyes="flat" data-mouth="flat" data-spark="0" data-size="84"></span>
+        <p class="nm">Nothing found</p>
+        <p class="st">No places in this one</p>
+      </div>
+      <div class="mcell">
+        <span class="rig " data-crumb data-eyes="closed" data-mouth="content" data-spark="0" data-size="84"></span>
+        <p class="nm">Been there</p>
+        <p class="st">A place marked as Been</p>
+      </div>
+      <div class="mcell">
+        <span class="rig an-blink" data-crumb data-eyes="wide" data-mouth="o" data-spark="0" data-size="84"></span>
+        <p class="nm">Near me</p>
+        <p class="st">Locating, near-me on</p>
+      </div>
+      <div class="mcell">
+        <span class="rig " data-crumb data-eyes="flat" data-mouth="wiggle" data-spark="0" data-size="84"></span>
+        <p class="nm">Offline</p>
+        <p class="st">Connection lost, retryable error</p>
+      </div>
+      <div class="mcell">
+        <span class="rig " data-crumb data-eyes="wink" data-mouth="smile" data-spark="0" data-size="84"></span>
+        <p class="nm">Saved</p>
+        <p class="st">A place added to a collection</p>
+      </div>
+    </div>
+
+    <div class="grid g2" style="margin-top:28px">
+      <div class="card" style="border-color:color-mix(in srgb, var(--mint-mid) 32%, transparent);background:var(--glow-2)">
+        <h3>The most important face is the neutral one</h3>
+        <p><strong>Nothing found</strong> is flat eyes and a flat mouth &mdash; not a frown, not a shrug, not a sad
+          droop. This is the screen a user hits on roughly three imports in four, and the tone rule is that it must be
+          matter-of-fact and never apologetic. A sad mascot turns the product's most common outcome into a small failure
+          eight times a week. Neutral says <em>that happens</em>, and moves on.</p>
+      </div>
+      <div class="card">
+        <h3>What is deliberately missing</h3>
+        <p>No angry face, no crying face, no confused face, no celebration beyond a single spark pair. The product has no
+          state that warrants them, and the moment the set has a face with no screen behind it, someone will find a screen
+          to put it on.</p>
+      </div>
+    </div>
+  </div>
+</section>
+<section id="styles">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Styles</p>
+      <h2>Five constructions, one silhouette.</h2>
+      <p class="lede">Pick one as primary and keep the rest as contexts, not as alternates. The outline is the same closed
+        path in every case &mdash; that is the thing an illustrator must not change.</p>
+    </div>
+    <div class="mgrid">
+      <div class="mcell">
+        <span class="rig " data-crumb data-size="84"></span>
+        <p class="nm">Outlined</p>
+        <p class="st">The default. Heavy dark keyline, flat fill &mdash; closest to the reference work. Best above 40&nbsp;px.</p>
+      </div>
+      <div class="mcell">
+        <span class="rig st-flat" data-crumb data-size="84"></span>
+        <p class="nm">Flat</p>
+        <p class="st">No keyline, warmer ink. Reads cleaner small and sits better inside an app-icon mask.</p>
+      </div>
+      <div class="mcell">
+        <span class="rig st-chunky" data-crumb data-size="84"></span>
+        <p class="nm">Chunky</p>
+        <p class="st">Thicker line, more toy-like. Strongest at large sizes and on merch; muddies below 32&nbsp;px.</p>
+      </div>
+      <div class="mcell">
+        <span class="rig st-mono" style="color:#2E7A70" data-crumb data-size="84"></span>
+        <p class="nm">Mono</p>
+        <p class="st">Silhouette only, takes <code>currentColor</code>. This is the pin, the favicon, and any single-colour context.</p>
+      </div>
+      <div class="mcell dk">
+        <span class="rig st-night" data-crumb data-size="84"></span>
+        <p class="nm">Night</p>
+        <p class="st">Same gold on a dark ground, deeper keyline so the edge does not glow. For the night map and dark mode.</p>
+      </div>
+    </div>
+  </div>
+</section>
+<section id="motion">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Motion</p>
+      <h2>Animated logos, and where each one is allowed.</h2>
+      <p class="lede">All seven are running on this page. The constraint that matters: none of them may imply progress the
+        product cannot measure. The import call is request/response with no percentage, so an animation that fills, counts
+        down or completes would be a lie told sixty times a day.</p>
+    </div>
+    <div class="bigrow">
+      <div class="loadbox">
+        <span class="rig an-bob" data-crumb data-size="74"></span>
+        <p class="lbl">Bob</p>
+        <p class="sub">Loading &middot; default</p>
+        <p class="st" style="max-width:24ch">The workhorse. Squash-and-stretch on a 1.15s loop. Use anywhere a spinner would have gone.</p>
+      </div>
+      <div class="loadbox">
+        <span class="rig an-wob" data-crumb data-size="74"></span>
+        <p class="lbl">Wobble</p>
+        <p class="sub">Busy &middot; long wait</p>
+        <p class="st" style="max-width:24ch">Calmer, slower, no vertical travel. For the import wait, which runs 7&ndash;34 seconds &mdash; a bounce that long becomes irritating.</p>
+      </div>
+      <div class="loadbox">
+        <span class="rig an-scan" data-eyes="dot" data-mouth="small" data-crumb data-size="74"></span>
+        <p class="lbl">Scan</p>
+        <p class="sub">Reading the TikTok</p>
+        <p class="st" style="max-width:24ch">Eyes track left to right. The only animation that says <em>working on your thing</em> rather than <em>working</em>.</p>
+      </div>
+      <div class="loadbox">
+        <span class="rig an-drop" data-eyes="happy" data-mouth="grin" data-crumb data-size="74"></span>
+        <p class="lbl">Land</p>
+        <p class="sub">Places added</p>
+        <p class="st" style="max-width:24ch">One-shot, not a loop. The success beat, matched to the pins dropping on the map.</p>
+      </div>
+      <div class="loadbox">
+        <span class="rig an-halo" data-eyes="wide" data-mouth="o" data-halo="1" data-crumb data-size="74"></span>
+        <p class="lbl">Halo</p>
+        <p class="sub">Locating &middot; near me</p>
+        <p class="st" style="max-width:24ch">A slow pulse behind the body. Reads as a signal, not as progress.</p>
+      </div>
+      <div class="loadbox">
+        <div class="trailwrap" style="height:74px;display:flex;align-items:flex-end;gap:9px">
+          <span class="d1" style="width:9px;height:9px;border-radius:99px;background:#E0A845;display:block"></span>
+          <span class="d2" style="width:12px;height:12px;border-radius:99px;background:#E8B457;display:block"></span>
+          <span class="d3" style="width:15px;height:15px;border-radius:99px;background:#EFBE64;display:block"></span>
+          <span class="rig" data-crumb data-size="46" style="margin-left:2px"></span>
+        </div>
+        <p class="lbl">Trail</p>
+        <p class="sub">Loading &middot; on-concept</p>
+        <p class="st" style="max-width:24ch">Three crumbs rise toward the character. The only animation that draws the brand idea rather than just moving the logo.</p>
+      </div>
+      <div class="loadbox">
+        <div class="eatwrap" style="height:74px;display:flex;align-items:center;gap:8px">
+          <span class="rig" data-crumb data-eyes="happy" data-mouth="grin" data-size="52"></span>
+          <span class="c1" style="width:11px;height:11px;border-radius:3px;background:#E0A845;display:block;transform:rotate(12deg)"></span>
+          <span class="c2" style="width:9px;height:9px;border-radius:3px;background:#E8B457;display:block;transform:rotate(-18deg)"></span>
+          <span class="c3" style="width:7px;height:7px;border-radius:2px;background:#EFBE64;display:block;transform:rotate(30deg)"></span>
+        </div>
+        <p class="lbl">Nibble</p>
+        <p class="sub">Loading &middot; playful</p>
+        <p class="st" style="max-width:24ch">Crumbs vanish one by one. Charming once, and it implies a countdown we cannot honour &mdash; so: marketing only, never the import rail.</p>
+      </div>
+    </div>
+
+    <div class="grid g3" style="margin-top:30px">
+      <div class="card"><h3>For the import wait, use Wobble</h3><p>Seven to thirty-four seconds is a long time to watch
+        something bounce. Wobble reads as patient; Bob reads as impatient by about second six.</p></div>
+      <div class="card"><h3>Land is one-shot</h3><p>It plays once, on confirm, timed to the pins dropping on the map. If it
+        loops it stops being an event and becomes wallpaper.</p></div>
+      <div class="card"><h3>Everything honours reduced motion</h3><p>Every animation on this page is disabled under
+        <span class="mono">prefers-reduced-motion</span>. The mascot stays; only the movement goes.</p></div>
+    </div>
+  </div>
+</section>
+<section id="rules">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Rules</p>
+      <h2>Six lines that keep a mascot from eating a product.</h2>
+    </div>
+    <div class="grid g3">
+      <div class="card"><h3>1 &middot; Face on chrome, silhouette on data</h3><p>The character appears on the shell. On the
+        map it is a pin in a category colour, with no face. Thirty-one smiling faces over Tel Aviv is a toy.</p></div>
+      <div class="card"><h3>2 &middot; One mascot per screen</h3><p>Never two, never a crowd, never a mascot beside a
+        wordmark that also contains it.</p></div>
+      <div class="card"><h3>3 &middot; It never speaks</h3><p>No speech bubbles, no first person, no name for the
+        character. The product's voice is the product's, and a talking mascot would break the tone rule that bans
+        performing.</p></div>
+      <div class="card"><h3>4 &middot; It never reacts to a place</h3><p>No approving face beside a restaurant, no
+        rating, no favourite. The discovery is the user's and we do not editorialise about it.</p></div>
+      <div class="card"><h3>5 &middot; Gold stays off the map</h3><p>The mascot's palette never appears where category
+        colour lives, or colour stops meaning what a place is.</p></div>
+      <div class="card"><h3>6 &middot; No new faces without a screen</h3><p>Adding a mood means naming the state it serves.
+        If there is no state, there is no face.</p></div>
+    </div>
+  </div>
+</section>
+  <div class="pager"><div class="wrap pager-in"><button type="button" class="pg" data-go="brand"><span>&larr; Chapter 02</span><b>The Brand</b></button><button type="button" class="pg right" data-go="voice"><span>Chapter 04 &rarr;</span><b>The Voice</b></button></div></div>
+</div>
+<div class="chapter" id="ch-voice" hidden>
+  <div class="cover">
+    <div class="wrap">
+      <p class="cover-n">Chapter 04</p>
+      <h2 class="cover-t">The Voice</h2>
+      <p class="cover-b">The name is the only joke. Every string after it states a fact and stops.</p>
+      <nav class="subnav">
+        <a href="#voice">Tone</a>
+        <a href="#jargon">Jargon</a>
+        <a href="#formatting">Mechanics</a>
+        <a href="#drift">Drift</a>
+        <a href="#checklist">Checklist</a>
+      </nav>
+    </div>
+  </div>
+<section id="voice">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Voice</p>
+      <h2>The joke is in the name. The copy stays straight.</h2>
+      <p class="lede">This is the rule that decides whether the name ages well or becomes exhausting. A funny name buys
+        you exactly one laugh, at install. Spend it there, then write like a product that has nothing to prove &mdash;
+        which is what the brand document already asks for: <em>state, don't perform.</em></p>
+    </div>
+
+    <div class="grid g3" style="margin-bottom:30px">
+      <div class="rule-card"><b>Rule 1</b><p><strong>The name is the only joke in the product.</strong> Every string
+        after it states a fact and stops. Not a style preference &mdash; the copy spec already bans idioms and wordplay in
+        every string, for translation. The name is exempt because it is a proper noun. Nothing else is.</p></div>
+      <div class="rule-card"><b>Rule 2</b><p>Never explain the pun. No &ldquo;because we leave no crumbs behind!&rdquo;
+        anywhere. If a line needs the joke explained, it is the wrong line.</p></div>
+      <div class="rule-card"><b>Rule 3</b><p>Add <strong>breadcrumb</strong> to the banned-vocabulary list on its own
+        merits &mdash; it is navigation-component vocabulary, which the copy rules already forbid.</p></div>
+    </div>
+
+    <div class="card" style="margin-bottom:30px;border-color:color-mix(in srgb, var(--mint-mid) 30%, transparent);background:var(--glow-2)">
+      <h3>The contradiction in the name, and how it resolves</h3>
+      <p style="font-size:15px">Worth stating plainly because someone will notice it: <em>no crumbs</em> means none are
+        left, but the trail idea needs crumbs to <em>exist</em>. Both readings survive only if they live on different
+        layers. <strong>The negation is the copy; the trail is the mark.</strong> The words always mean "that place was
+        flawless" &mdash; a judgement about somewhere you went. The trail only ever appears as a shape: the loading
+        animation, the empty state, the icon. They never meet in a sentence, so they never argue.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:26px;border-color:color-mix(in srgb, var(--crit) 38%, transparent);background:color-mix(in srgb, var(--crit) 7%, transparent)">
+      <h3 style="color:var(--crit)">Rejected: my own signature line</h3>
+      <p style="font-size:15px">I proposed <strong>&ldquo;No crumbs in this one.&rdquo;</strong> for the no-places screen
+        and called it the signature line. The product lead struck it, and was right on all four counts. It
+        <em>performs</em> &mdash; it substitutes the brand for the news, when the user needs to know what happened. The pun
+        half-works, which is worse than not working: on a product full of restaurants, &ldquo;no crumbs&rdquo; reads for a
+        beat as <em>no food places</em>, and a user disambiguating a joke on three imports in four stops finding it funny
+        around the third. It breaks the copy spec's own ban on wordplay, which exists for translation. And it costs the
+        concrete disclosure that teaches people what the product can and cannot do.</p>
+      <p style="font-size:15px;margin-top:12px"><strong>The screen already ships correct, and the rename changes nothing
+        on it &mdash; that is the name passing its health check, not a gap:</strong></p>
+      <div style="margin-top:14px;padding:16px 18px;border-radius:12px;background:var(--card-2);font-family:var(--mono);font-size:12.5px;line-height:1.75;color:var(--ink-2)">
+        <span style="color:var(--mint-mid)">Kicker</span>&nbsp;&nbsp; WE READ IT<br>
+        <span style="color:var(--mint-mid)">Heading</span>&nbsp; <span style="color:var(--ink);font-weight:700">No places in this one.</span><br>
+        <span style="color:var(--mint-mid)">Body</span>&nbsp;&nbsp;&nbsp;&nbsp; We read the caption, and it doesn't name a place we can<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; put on a map. Some TikToks only show the place on screen.<br>
+        <span style="color:var(--mint-mid)">Action</span>&nbsp;&nbsp; Search &rarr;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Try another TikTok
+      </div>
+    </div>
+
+    <h3 style="font-size:19px;margin-bottom:8px">The copy deck &mdash; three new strings, and that is all</h3>
+    <p class="small" style="max-width:66ch;margin-bottom:16px">A rename that rewrites the interface is a rename doing the
+      wrong job. Every other string in the product was already written to be true rather than clever, so the name arrives
+      and nothing has to move.</p>
+    <div class="tbl-wrap">
+      <table class="copy-tbl">
+        <thead><tr><th>Slot</th><th>String</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>title.default</td><td><strong>No Crumbs</strong></td><td><span class="vd good" style="font-family:var(--mono);font-size:10px;padding:3px 8px;border-radius:999px">new</span></td></tr>
+          <tr><td>title.template</td><td><strong>%s &middot; No Crumbs</strong></td><td><span class="vd good" style="font-family:var(--mono);font-size:10px;padding:3px 8px;border-radius:999px">new</span></td></tr>
+          <tr><td>description</td><td><strong>Paste a TikTok link and the place it names lands on your own private map. Organised by where, not by when.</strong></td><td><span class="vd good" style="font-family:var(--mono);font-size:10px;padding:3px 8px;border-radius:999px">new</span></td></tr>
+          <tr><td>landing kicker</td><td>A personal map</td><td>keep</td></tr>
+          <tr><td>landing headline</td><td>Your saved places, on one map.</td><td>keep</td></tr>
+          <tr><td>sign-in</td><td>Welcome back &middot; Your places are waiting.</td><td>keep</td></tr>
+          <tr><td>sign-up</td><td>Get started &middot; Save your first place.</td><td>keep</td></tr>
+          <tr><td>first run</td><td>Your map starts here.</td><td>keep &mdash; already ships</td></tr>
+          <tr><td>first run body</td><td>Paste a TikTok link and the places it talks about land on your map.</td><td>keep</td></tr>
+          <tr><td>first run CTA</td><td>Add a TikTok</td><td>keep</td></tr>
+          <tr><td>import success</td><td>{n} places added to your map. &middot; Added to your map.</td><td>keep</td></tr>
+          <tr><td>progress</td><td>Reading the TikTok&hellip; &middot; Finding the places&hellip;</td><td>keep</td></tr>
+          <tr><td>no places</td><td>No places in this one.</td><td>keep &mdash; see above</td></tr>
+          <tr><td>all filtered</td><td>No matches in {where}</td><td>keep</td></tr>
+          <tr><td>no search match</td><td>Nothing matches &ldquo;{query}&rdquo;</td><td>keep</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="font-size:19px;margin:34px 0 14px">Where the name may appear &mdash; the complete list</h3>
+    <div class="grid g2">
+      <div class="card" style="border-color:color-mix(in srgb, var(--ok) 32%, transparent)">
+        <h3 style="color:var(--ok)">Permitted</h3>
+        <p>The shell header wordmark. The landing and sign-in mark. The browser tab title. The meta description. The app
+          icon. The deck. <strong>That is the entire list.</strong></p>
+      </div>
+      <div class="card" style="border-color:color-mix(in srgb, var(--crit) 32%, transparent)">
+        <h3 style="color:var(--crit)">Banned</h3>
+        <p>Every failure and error string. Every toast &mdash; this is where brands break first. Empty and first-run
+          states. Place detail and the review screen, or anything describing <em>a place</em>: a crumb-flavoured
+          compliment about a restaurant is us editorialising about the user's own discovery. Collection default names and
+          invite copy. Nav labels, button labels, category labels. <strong>Never a verb.</strong></p>
+      </div>
+    </div>
+
+    <div class="grid g2" style="margin-top:26px">
+      <div class="card">
+        <h3>Tagline: none, in the product</h3>
+        <p>There is no surface for one. The landing page was deliberately pruned to a minimal sign-in and its subhead
+          already does that job; a tagline under the wordmark would be a second competing sentence on the only screen that
+          has one. For the deck, where a line is compulsory:
+          <strong>&ldquo;Organised by where, not when.&rdquo;</strong> &mdash; the ratified positioning's own six words,
+          already the strongest line the product owns. Held in reserve if a lockup ever demands one:
+          <em>Nothing gets lost.</em></p>
+      </div>
+      <div class="card">
+        <h3>The real cost, and it isn't dating</h3>
+        <p>&ldquo;Ate and left no crumbs&rdquo; peaked around 2023&ndash;24. It is not fresh, it is <em>familiar</em>
+          &mdash; which cuts both ways: it will not spike and it will not fall off a cliff, because it already had one. It
+          ages like <em>slay</em>, not like <em>rizz</em>. And what dates is copy leaning on the slang reading, which the
+          rules above already ban.</p>
+        <p style="margin-top:12px"><strong>The cost to price instead is category legibility.</strong> A negation that
+          reads food-adjacent makes a first-time hearer guess a recipe app or a cleaning product before a map. Every
+          introduction pays that. It is why the landing subhead must stay literal and must never be traded for a cleverer
+          line &mdash; accept the name, accept that constraint with it.</p>
+      </div>
+    </div>
+  </div>
+</section>
+<section id="jargon">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Jargon</p>
+      <h2>One word per thing, chosen once.</h2>
+      <p class="lede">Most product copy rots because two people call the same object two names. This is the canonical
+        vocabulary. The left column is what we say everywhere &mdash; interface, docs, support, the deck. The right column
+        is what we never say, including the words the database happens to use.</p>
+    </div>
+    <div class="tbl-wrap">
+      <table class="say">
+        <thead><tr><th>We say</th><th>Never</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td class="yes">place</td><td class="no">spot &middot; location &middot; venue &middot; POI &middot; entry &middot; item</td><td class="why">The product's noun. <em>Spot</em> is two competitors' brand names; <em>POI</em> and <em>entry</em> are database words.</td></tr>
+          <tr><td class="yes">your map</td><td class="no">the map &middot; dashboard &middot; home &middot; feed</td><td class="why">The possessive is the product. It is private, and saying so costs one word.</td></tr>
+          <tr><td class="yes">a TikTok</td><td class="no">a post &middot; a video &middot; content &middot; media</td><td class="why">TikTok is the only supported source. Naming it is the honest boundary, stated in the product rather than in a footnote.</td></tr>
+          <tr><td class="yes">link</td><td class="no">URL &middot; address &middot; permalink</td><td class="why">What a person copies is a link.</td></tr>
+          <tr><td class="yes">collection</td><td class="no">list &middot; board &middot; folder &middot; album</td><td class="why">Already shipped and already consistent. Do not introduce a second word for it.</td></tr>
+          <tr><td class="yes">Been &middot; Not been yet</td><td class="no">visited &middot; want to go &middot; wishlist &middot; bucket list</td><td class="why">Ratified. <em>Visited</em> is a system fact about a record; <em>been</em> is what a person says.</td></tr>
+          <tr><td class="yes">add</td><td class="no">import &middot; ingest &middot; sync &middot; scrape</td><td class="why">You add a place. Everything else describes our machinery.</td></tr>
+          <tr><td class="yes">found</td><td class="no">extracted &middot; detected &middot; identified &middot; parsed</td><td class="why">Banned vocabulary, and <em>found</em> is shorter and truer.</td></tr>
+          <tr><td class="yes">reading</td><td class="no">fetching &middot; processing &middot; analysing</td><td class="why">Already the shipped rail copy. Keep it.</td></tr>
+          <tr><td class="yes">matching</td><td class="no">geocoding &middot; resolving &middot; disambiguating</td><td class="why">Same. Nobody outside the codebase has geocoded anything.</td></tr>
+          <tr><td class="yes">category</td><td class="no">type &middot; kind &middot; cuisine</td><td class="why">There are exactly three, and they are what a venue <em>is</em>.</td></tr>
+          <tr><td class="yes">tag</td><td class="no">label &middot; keyword &middot; sub-tag</td><td class="why"><em>Sub-tag</em> is the taxonomy's internal word. Users see tags.</td></tr>
+          <tr><td class="yes">note</td><td class="no">comment &middot; description &middot; memo</td><td class="why">A note is the user's own sentence about a place.</td></tr>
+          <tr><td class="yes">near you</td><td class="no">nearby &middot; proximity &middot; within radius</td><td class="why">Second person, always.</td></tr>
+          <tr><td class="yes">shared with you</td><td class="no">collaborator &middot; member &middot; invited user</td><td class="why"><em>Member</em> is a table name. Nobody is a member of a list of restaurants.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="font-size:19px;margin:38px 0 14px">Banned outright</h3>
+    <p class="small" style="max-width:66ch;margin-bottom:16px">The first row is the ratified list from the copy deck. The
+      second row is what the new name adds &mdash; because a brand word used as a common noun is how a joke becomes a
+      tic.</p>
+    <div class="banned" style="margin-bottom:14px">
+      <span>metadata</span><span>LLM</span><span>AI</span><span>model</span><span>geocode</span><span>extraction</span>
+      <span>pipeline</span><span>parse</span><span>API</span><span>endpoint</span><span>payload</span><span>token</span>
+      <span>confidence score</span><span>retry queue</span><span>job</span><span>worker</span><span>&ldquo;oops&rdquo;</span>
+      <span>&ldquo;something went wrong&rdquo;</span>
+    </div>
+    <div class="banned">
+      <span class="soft">breadcrumb</span><span class="soft">crumb (as a noun for a place)</span>
+      <span class="soft">to crumb (as a verb)</span><span class="soft">crumby / crummy</span>
+      <span class="soft">&ldquo;no crumbs left!&rdquo;</span><span class="soft">hidden gem</span>
+      <span class="soft">bussin &middot; slaps &middot; ate</span>
+    </div>
+    <p class="small" style="margin-top:16px;max-width:66ch"><strong>breadcrumb</strong> is navigation-component
+      vocabulary and belongs on the existing banned list on its own merits. <strong>hidden gem</strong> is banned because
+      the discovery is the user's and it is not ours to editorialise. The slang row is banned because the name already
+      spent that budget.</p>
+  </div>
+</section>
+
+<section id="formatting">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Mechanics</p>
+      <h2>The small rules, so nobody has to ask twice.</h2>
+    </div>
+    <div class="grid g2" style="gap:18px;margin-bottom:30px">
+      <div class="card"><h3>Sentence case, everywhere</h3><p>Headings, buttons, labels, toasts. The only exceptions are
+        the wordmark and the 11&nbsp;px tracked uppercase kickers, which are a typographic device rather than writing.</p></div>
+      <div class="card"><h3>No exclamation marks. Ever.</h3><p>Not in success, not in onboarding, not in an empty state.
+        Confidence reads as brevity, and an exclamation mark is the product asking to be liked.</p></div>
+      <div class="card"><h3>Digits, always</h3><p><span class="mono">3 places</span>, never <em>three places</em>.
+        Pluralisation is written per string; never <span class="mono">place(s)</span>.</p></div>
+      <div class="card"><h3>One clause per string</h3><p>If a line needs a semicolon it needs to be two lines, or it needs
+        to be shorter. The failure strings are the test: every one of them is a sentence a person could say out loud.</p></div>
+      <div class="card"><h3>Dates and distances</h3><p><span class="mono">3 Aug</span> within the year,
+        <span class="mono">3 Aug 2025</span> otherwise. <span class="mono">320 m</span> under a kilometre,
+        <span class="mono">1.4 km</span> above, <span class="mono">12 km</span> above ten.</p></div>
+      <div class="card"><h3>In-progress takes an ellipsis</h3><p>A real <span class="mono">&hellip;</span> character, and
+        only while something is genuinely running: <em>Reading the TikTok&hellip;</em> Settled states drop it.</p></div>
+    </div>
+
+    <h3 style="font-size:19px;margin-bottom:14px">The voice, in four pairs</h3>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="pair">
+        <div><span class="tag">Never</span><p>Great news! We found 3 amazing places for you! 🎉</p><small>Performs, editorialises about places we have not been to, and celebrates our own machinery.</small></div>
+        <div><span class="tag">Always</span><p>3 places added to your map.</p><small>States what happened and stops.</small></div>
+      </div>
+      <div class="pair">
+        <div><span class="tag">Never</span><p>Oops! Something went wrong with the extraction pipeline.</p><small>Two banned words, an apology, and it tells the user about our architecture.</small></div>
+        <div><span class="tag">Always</span><p>We couldn't read this TikTok yet.</p><small>Says what failed, in their terms, and <em>yet</em> carries the retry.</small></div>
+      </div>
+      <div class="pair">
+        <div><span class="tag">Never</span><p>No crumbs in this one! 🍪</p><small>My own rejected line. Substitutes the brand for the news on the screen people see most.</small></div>
+        <div><span class="tag">Always</span><p>No places in this one.</p><small>The name does not need to appear for the product to sound like itself.</small></div>
+      </div>
+      <div class="pair">
+        <div><span class="tag">Never</span><p>You've unlocked 10 hidden gems! Keep exploring 🔥</p><small>Gamifies, editorialises, and rates places the user found and we did not.</small></div>
+        <div><span class="tag">Always</span><p>10 places saved.</p><small>The count is the fact. Nothing else is ours to say.</small></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="drift">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Found while writing this</p>
+      <h2>The copy deck and the shipped strings have drifted.</h2>
+      <p class="lede">A guidelines document's first job is to say which source wins. Right now two documents and the
+        running code disagree on the two most important screens in the product, and nobody would notice until they wrote
+        the third version.</p>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Screen</th><th>Copy deck says</th><th>Code ships</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>First run</strong><br><span class="mono">C94</span></td>
+            <td>Paste a TikTok you saved and we'll put its places on the map.</td>
+            <td>Paste a TikTok link and the places it talks about land on your map.</td>
+          </tr>
+          <tr>
+            <td><strong>No places found</strong><br><span class="mono">C70</span></td>
+            <td>We read it, but it doesn't name a place we can put on a map. Some TikToks only show the place on screen.</td>
+            <td>A third variant again in <span class="mono">spec-no-places-found.md</span> &sect;5.1, opening &ldquo;We read the caption&hellip;&rdquo;</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card" style="margin-top:20px;border-color:color-mix(in srgb, var(--mint-mid) 30%, transparent);background:var(--glow-2)">
+      <h3>The ruling I would make, for you to confirm</h3>
+      <p style="font-size:15px"><strong>The running code wins, and the deck gets updated to match it.</strong> Both shipped
+        strings are better than their specified versions &mdash; <em>land on your map</em> is the product's own best verb,
+        and the caption wording is more specific about what we actually read. The rule going forward: a string changes in
+        code and the deck follows in the same commit, or it does not change. Two sources of truth is how the third one
+        gets written.</p>
+    </div>
+  </div>
+</section>
+
+<section id="checklist">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="eyebrow">Before it ships</p>
+      <h2>Six questions for any new string.</h2>
+    </div>
+    <div class="chk">
+      <div><b>01</b><span>Does it state a fact and stop?<small>If there is an adjective about how good something is, cut it. If there is an exclamation mark, cut it.</small></span></div>
+      <div><b>02</b><span>Would the user say this word?<small>Check it against the vocabulary table. If the word is in the right-hand column, it does not ship.</small></span></div>
+      <div><b>03</b><span>Does it name our machinery?<small>Anything about models, pipelines, parsing or jobs is a leak. Say what happened, not how.</small></span></div>
+      <div><b>04</b><span>If it is a failure, does it offer the next move?<small>Blameless, no apology, and at least one action. This is three quarters of what people read.</small></span></div>
+      <div><b>05</b><span>Does it editorialise about a place?<small>We never call somewhere a gem, a must-visit or a find. The user made that judgement; we kept the record.</small></span></div>
+      <div><b>06</b><span>Does it contain the brand name?<small>Then it is almost certainly wrong. Six surfaces may carry it; nothing else may.</small></span></div>
+    </div>
+  </div>
+</section>
+  <div class="pager"><div class="wrap pager-in"><button type="button" class="pg" data-go="mascot"><span>&larr; Chapter 03</span><b>The Mascot</b></button><button type="button" class="pg right" data-go="plan"><span>Chapter 05 &rarr;</span><b>The Plan</b></button></div></div>
+</div>
 <div class="chapter" id="ch-plan" hidden>
+  <div class="cover">
+    <div class="wrap">
+      <p class="cover-n">Chapter 05</p>
+      <h2 class="cover-t">The Plan</h2>
+      <p class="cover-b">Twelve findings from six specialists, five stages, every one shippable on its own.</p>
+      <nav class="subnav">
+        <a href="#verdict">Verdict</a>
+        <a href="#direction">Direction</a>
+        <a href="#system">System</a>
+        <a href="#mockups">Map</a>
+        <a href="#import">Import</a>
+        <a href="#surfaces">Surfaces</a>
+        <a href="#feasible">Feasibility</a>
+        <a href="#plan">Stages</a>
+        <a href="#decisions">Decisions</a>
+      </nav>
+    </div>
+  </div>
 <section id="verdict">
   <div class="wrap">
     <div class="sec-head">
@@ -1942,1065 +3120,9 @@ td .mono { font-size: 12.5px; color: var(--ink-3); }
     </div>
   </div>
 </section>
+  <div class="pager"><div class="wrap pager-in"><button type="button" class="pg" data-go="voice"><span>&larr; Chapter 04</span><b>The Voice</b></button><span></span></div></div>
 </div>
-<div class="chapter" id="ch-name" hidden>
-<section id="landscape">
-  <div class="wrap">
-    <div class="sec-head">
-      <p class="eyebrow">The landscape</p>
-      <h2>Seventeen products, and they have burned the whole vocabulary.</h2>
-      <p class="lede">These all do approximately what this product does &mdash; paste or share a TikTok or Reel, get a
-        place on a personal map. Two of them matter more than the rest: <strong>Plotline</strong>, which this repo already
-        cites as a structural inspiration for the bottom navigation, and <strong>Stasht</strong>, which is the closest
-        thing to a direct name collision I found.</p>
-    </div>
 
-    <div class="dead" style="margin-bottom:34px">
-      <div><p class="nm">Plotline</p><p class="rs">Share-sheet extraction to a travel map. <em>Already our nav inspiration.</em></p></div>
-      <div><p class="nm">Stasht</p><p class="rs">Map-first, source kept attached. <em>Nearest name collision.</em></p></div>
-      <div><p class="nm">Postcard</p><p class="rs">"Save anything from anywhere and add it to your map." <em>Closest positioning.</em></p></div>
-      <div><p class="nm">GeoTok</p><p class="rs">iOS food map from TikTok clips.</p></div>
-      <div><p class="nm">MunchMap</p><p class="rs">Restaurants and cafés to a personal map.</p></div>
-      <div><p class="nm">iCrave</p><p class="rs">Restaurants from TikTok and Reels.</p></div>
-      <div><p class="nm">Triply</p><p class="rs">Video to a usable list of places.</p></div>
-      <div><p class="nm">Rezz</p><p class="rs">Maps and categorises the spot automatically.</p></div>
-      <div><p class="nm">Drawer</p><p class="rs">Extracts name, location and what to order.</p></div>
-      <div><p class="nm">SpotFetch</p><p class="rs">Any post to saved travel locations.</p></div>
-      <div><p class="nm">Mapstr</p><p class="rs">Save and follow places. Long-established.</p></div>
-      <div><p class="nm">Mapbite</p><p class="rs">On the App Store.</p></div>
-      <div><p class="nm">Beli</p><p class="rs">Restaurant tracking and ranking. Large.</p></div>
-      <div><p class="nm">Rex</p><p class="rs">Restaurant discovery and saving.</p></div>
-      <div><p class="nm">Recco</p><p class="rs">Local food and places.</p></div>
-      <div><p class="nm">SpotSavor</p><p class="rs">On the App Store.</p></div>
-      <div><p class="nm">Keepza</p><p class="rs">"Restaurant black book."</p></div>
-      <div><p class="nm">Spots</p><p class="rs">Curated place lists on your personal map. <em>Ships under a candidate name.</em></p></div>
-      <div><p class="nm">Pin Drop</p><p class="rs">Personal private map for saved cafés and restaurants. <em>Ships under a candidate name.</em></p></div>
-      <div><p class="nm">TokSpot</p><p class="rs">TikTok places to a map.</p></div>
-    </div>
-
-    <div class="blocked" style="margin-bottom:34px;border-color:color-mix(in srgb, var(--warn) 40%, transparent);background:color-mix(in srgb, var(--warn) 8%, transparent);border-radius:16px;padding:20px 22px;border-width:1px;border-style:solid">
-      <h4 style="font-size:16px;color:var(--warn);font-family:var(--display);font-weight:800;margin:0">This one is a product finding, not a naming one</h4>
-      <p style="font-size:14px;color:var(--ink-2);margin-top:9px;line-height:1.55"><strong>Plotline</strong> is not a
-        peer &mdash; it is ahead. Share a TikTok, Reel, YouTube video or website and it extracts <em>every</em> place
-        mentioned onto a personal travel map: an "8 Best Coffee Shops in Melbourne" post becomes eight geocoded,
-        categorised, colour-coded pins. It adds itinerary building on top. It claims <strong>30,000+ users and 2M+ places
-        from 500,000+ social posts</strong>, and it runs an SEO content operation aimed at exactly the search terms this
-        product would want. It is iOS-only as of July 2026, with Android on a waitlist. Two of the specialists flagged
-        this independently and both said the same thing: this belongs in the product conversation, not this one. I agree,
-        and I am putting it in front of you now rather than at the bottom of a naming page.</p>
-    </div>
-
-    <h3 style="font-size:20px;margin-bottom:14px">Which means these words are gone</h3>
-    <p class="small" style="max-width:64ch;margin-bottom:18px">Every one of these roots is already carrying someone
-      else's product in this exact category. A name built from them is not distinctive, it is a footnote in someone
-      else's App Store search results.</p>
-    <div class="burn">
-      <span>map&#8203;*</span><span>spot&#8203;*</span><span>plot&#8203;*</span><span>stash / save</span><span>pin&#8203;*</span>
-      <span>geo&#8203;*</span><span>*&#8203;tok</span><span>munch / crave / savor</span><span>keep&#8203;za</span><span>&#8203;-ly / &#8203;-y</span>
-      <span class="ok">everything else</span>
-    </div>
-
-    <div class="card" style="margin-top:34px;border-color:color-mix(in srgb, var(--mint-mid) 30%, transparent);background:var(--glow-2)">
-      <h3>The strategy this forces, and it happens to be the right one anyway</h3>
-      <p style="font-size:15px">The reference tier you named &mdash; Linear, Notion, Hex, Asana &mdash; shares one naming
-        move: <strong>a real word used obliquely.</strong> None of them describes its mechanism. A line, an idea, a shape,
-        a yoga pose. They are ownable precisely because the word arrives from an adjacent world and the product gets to
-        define what it means there. That is now not just the most distinctive route available here &mdash; after the
-        seventeen above, it is the only one left.</p>
-    </div>
-  </div>
-</section>
-<section id="test">
-  <div class="wrap">
-    <div class="sec-head">
-      <p class="eyebrow">The test</p>
-      <h2>A name here is judged on the failure screen, not the logo.</h2>
-      <p class="lede">This is the rule the product lead set during the audit and it is the only one that reliably kills a
-        pretty name. At the measured extraction hit rate, <strong>"no places named" is the modal outcome of an
-        import</strong> &mdash; roughly three imports in four. So the most-read sentence in the entire product is not the
-        success line. It is the apology that must not sound like one.</p>
-    </div>
-
-    <div class="grid g3">
-      <div class="card">
-        <h3>1. The header</h3>
-        <p>The bare word, alone, in the shell. It has to look like a product at 13&nbsp;px uppercase and at 40&nbsp;px on
-          the sign-in hero, and it has to be findable in a browser tab at 16&nbsp;px.</p>
-      </div>
-      <div class="card">
-        <h3>2. The success line</h3>
-        <p>The confirm screen. <em>"3 places ___"</em>. Any name that needs a preposition and four extra words here is
-          paying rent on every import.</p>
-      </div>
-      <div class="card" style="border-color:color-mix(in srgb, var(--mint-mid) 34%, transparent);background:var(--glow-2)">
-        <h3>3. The failure line &mdash; the discriminator</h3>
-        <p><em>"Nothing to ___ from this post."</em> Matter-of-fact, blameless, offering a next move. This is the string
-          that disqualified <strong>Landed</strong>, which I recommended before the audit: pins land, but nothing
-          "un-lands", so the most-seen screen in the product has no sentence.</p>
-      </div>
-    </div>
-
-    <p class="small" style="margin-top:22px;max-width:70ch">The tone rules the brand document already binds us to:
-      state, don't perform &mdash; <em>"3 places found"</em>, never <em>"Great news!"</em>. Concrete over technical. And
-      the product never congratulates itself on the find, because the discovery was the user's. A name that can only be
-      shouted fails all three.</p>
-  </div>
-</section>
-<section id="shortlist">
-  <div class="wrap">
-    <div class="sec-head">
-      <p class="eyebrow">The shortlist</p>
-      <h2>Five that survived &mdash; and none of them survived clean.</h2>
-      <p class="lede">That is the honest headline. In 2026 there is no short, warm English word left that a consumer app
-        can have to itself; the question is not <em>which name is uncontested</em> but <strong>which collisions are
-        survivable</strong> &mdash; out of category, small, or dormant. Domain and trademark findings below are
-        search-and-DNS signals, not clearance. A real trademark search is owed before public use and is not owed before a
-        submission.</p>
-    </div>
-
-    <div class="wmbar" id="wmbar"><b>Set the wordmark in</b></div>
-
-    <div class="grid g2" style="gap:22px">
-      <div class="spec">
-        <div class="spec-word">
-          <span class="w">Kept</span>
-          <span class="n">01 &middot; Best writing, weakest mark</span>
-        </div>
-        <div class="spec-body">
-          <div class="strings">
-            <div class="str"><span class="k">Header</span><span class="v">Kept</span></div>
-            <div class="str"><span class="k">Success</span><span class="v">3 places kept</span></div>
-            <div class="str fail"><span class="k">Failure</span><span class="v">Nothing to keep in this one.</span></div>
-          </div>
-          <p class="why">Still the only candidate whose two most-shipped sentences are ordinary English, and the only one where the brand
-   word itself appears in the sentence shown three times in four. Research confirmed it has <strong>no collision in this
-   category at all</strong> &mdash; the three live iOS apps called <em>Kept</em> are a home-maintenance tracker, an
-   accountability app and a personal-finance app, all small and all elsewhere. <span class="mono">kept.app</span> is
-   parked with a &ldquo;Domain For Sale&rdquo; contact form, so it is buyable.</p>
-          <div class="verdicts"><span class="vd good">No in-category collision</span><span class="vd warn">kept.app for sale, not free</span><span class="vd warn">Google Keep confusion</span><span class="vd bad">&ldquo;Kept woman&rdquo; idiom</span></div>
-          <div>
-            <div class="tabprev"><i>K</i><span>Kept &mdash; your saved places</span></div>
-            <p class="tiny" style="margin-top:10px">Four letters, K and t ascenders against a p descender &mdash; an unusually strong silhouette for four
-   characters, and the p descender is a natural pin-tail hook. Lock it lowercase; all-caps throws the descender away.</p>
-          </div>
-        </div>
-      </div>
-      <div class="spec">
-        <div class="spec-word">
-          <span class="w">Larder</span>
-          <span class="n">02 &middot; Lowest measured risk</span>
-        </div>
-        <div class="spec-body">
-          <div class="strings">
-            <div class="str"><span class="k">Header</span><span class="v">Larder</span></div>
-            <div class="str"><span class="k">Success</span><span class="v">3 places in the larder</span></div>
-            <div class="str fail"><span class="k">Failure</span><span class="v">Nothing for the larder here.</span></div>
-          </div>
-          <p class="why">The only name in the whole exercise that came back <strong>LOW collision risk</strong> on a proper check.
-   The competing <em>Larders</em> are a recipe-sharing site, a grocery-expiry tracker and an Indian food-kiosk company
-   &mdash; all small, none in maps. <span class="mono">larder.app</span> does not resolve;
-   <span class="mono">larder.com</span> and <span class="mono">.co</span> are both listed for sale. The failure line is
-   the second best on the list. The objection is semantic and it is real: a larder holds food you own, and this holds
-   places you might go &mdash; including bars.</p>
-          <div class="verdicts"><span class="vd good">Lowest verified risk</span><span class="vd good">larder.app unregistered</span><span class="vd warn">Pantry semantics</span><span class="vd warn">Reads British</span></div>
-          <div>
-            <div class="tabprev"><i>L</i><span>Larder &mdash; your saved places</span></div>
-            <p class="tiny" style="margin-top:10px">Six letters, two ascenders, no descender. Long and horizontal &mdash; good on a sign-in hero, tight in a
-   16&nbsp;px tab.</p>
-          </div>
-        </div>
-      </div>
-      <div class="spec">
-        <div class="spec-word">
-          <span class="w">Noted</span>
-          <span class="n">03 &middot; The tone-perfect one, with an adjacent problem</span>
-        </div>
-        <div class="spec-body">
-          <div class="strings">
-            <div class="str"><span class="k">Header</span><span class="v">Noted.</span></div>
-            <div class="str"><span class="k">Success</span><span class="v">3 places noted.</span></div>
-            <div class="str fail"><span class="k">Failure</span><span class="v">Nothing to note in this one.</span></div>
-          </div>
-          <p class="why">The product lead&rsquo;s pick, and the argument is good: in a category where twenty names cluster around
-   <em>map</em>, <em>spot</em> and <em>pin</em>, signalling away from that cluster is an asset. <em>Noted.</em> with the
-   full stop <strong>is already a wordmark</strong>, and it enacts the brand&rsquo;s first tone rule &mdash; state,
-   don&rsquo;t perform &mdash; as a name. The problem I found afterwards is the one that killed <em>Folio</em>:
-   <span class="mono">notedapp.io</span> is a live note-taking app and <span class="mono">noted.app</span> is taken. The
-   note register is clear of our competitors and crowded with its own.</p>
-          <div class="verdicts"><span class="vd good">Clear of all 20 competitors</span><span class="vd good">The full stop is the mark</span><span class="vd bad">notedapp.io is live</span><span class="vd warn">noted.app taken</span></div>
-          <div>
-            <div class="tabprev"><i>N</i><span>Noted &mdash; your saved places</span></div>
-            <p class="tiny" style="margin-top:10px">Five letters, t and d ascenders, three round counters. The asset is the punctuation: the period is
-   distinctive, sets at any size, and doubles as a map dot.</p>
-          </div>
-        </div>
-      </div>
-      <div class="spec">
-        <div class="spec-word">
-          <span class="w">Dogear</span>
-          <span class="n">04 &middot; The best mark, the worst domain</span>
-        </div>
-        <div class="spec-body">
-          <div class="strings">
-            <div class="str"><span class="k">Header</span><span class="v">Dogear</span></div>
-            <div class="str"><span class="k">Success</span><span class="v">3 places dogeared</span></div>
-            <div class="str fail"><span class="k">Failure</span><span class="v">Nothing to dogear in this one.</span></div>
-          </div>
-          <p class="why">Nothing in maps, travel or restaurants uses it &mdash; the collisions are a dead IBM tool, a Chrome extension,
-   a book tracker and a Mozilla library. And it still hands you <strong>a logo for free</strong>: the fold is both
-   &ldquo;come back to this&rdquo; and a map fold, in a field of twenty products that all draw a pin. Two things hold it
-   back. <span class="mono">dogear.app</span> serves a React application shell titled <em>Dogear</em> &mdash; I could not
-   determine whether it has launched, but someone is building there. And the product lead&rsquo;s objection stands: you
-   dog-ear a page, not a place.</p>
-          <div class="verdicts"><span class="vd good">Nothing in maps uses it</span><span class="vd good">Free logo concept</span><span class="vd bad">dogear.app is occupied</span><span class="vd warn">Metaphor points at books</span></div>
-          <div>
-            <div class="tabprev"><i>D</i><span>Dogear &mdash; your saved places</span></div>
-            <p class="tiny" style="margin-top:10px">Six letters, one ascender and one descender &mdash; the most drawable word here and the only one with a
-   built-in glyph. <strong>Keep the fold even if you drop the name.</strong></p>
-          </div>
-        </div>
-      </div>
-      <div class="spec">
-        <div class="spec-word">
-          <span class="w">Mapt</span>
-          <span class="n">05 &middot; Most ownable, cannot speak</span>
-        </div>
-        <div class="spec-body">
-          <div class="strings">
-            <div class="str"><span class="k">Header</span><span class="v">Mapt</span></div>
-            <div class="str"><span class="k">Success</span><span class="v">3 places mapped</span></div>
-            <div class="str fail"><span class="k">Failure</span><span class="v">Nothing to map in this one.</span></div>
-          </div>
-          <p class="why">Carried over from your own brand document, and the research ranked it <strong>the most ownable of everything
-   tested</strong> &mdash; a distinctive coinage rather than a dictionary word, with the cleanest page one of any
-   candidate and no consumer-maps collision. It also has a Tel Aviv advantage nobody planned:
-   <strong>&#1502;&#1508;&#1514;</strong> is the Hebrew construct form of &ldquo;map&rdquo;, so a local reader hears
-   <em>map of&hellip;</em> waiting for its object. Against it: it sits in the one root twenty competitors already share,
-   a coined spelling cannot conjugate &mdash; so the brand never appears in either product sentence &mdash; and spoken
-   aloud it is heard as &ldquo;mapped&rdquo;, which costs a spelling every time.</p>
-          <div class="verdicts"><span class="vd good">Most ownable tested</span><span class="vd good">Reads as &#1502;&#1508;&#1514; in Hebrew</span><span class="vd warn">mapt.app is $3,379</span><span class="vd bad">Saturated map* root</span></div>
-          <div>
-            <div class="tabprev"><i>M</i><span>Mapt &mdash; your saved places</span></div>
-            <p class="tiny" style="margin-top:10px">Four letters, three ascenders and no descender &mdash; a picket-fence silhouette, very stable small. The
-   flattest and most technical-looking of the five.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card" style="margin-top:32px;border-color:color-mix(in srgb, var(--mint-mid) 30%, transparent);background:var(--glow-2)">
-      <h3>Where I actually land, having been wrong once already</h3>
-      <p style="font-size:15px">My first shortlist put <strong>Trove</strong> at number two on the strength of a domain
-        that did not resolve. That was a shallow check and it was wrong: <em>Trove Collective</em> is a place-lists app,
-        <span class="mono">troveapp.app</span> and <span class="mono">mytrovelist.com</span> both save-and-find-later,
-        and there are five-plus USPTO <em>Trove</em> filings in software classes. It is struck.</p>
-      <p style="font-size:15px;margin-top:12px">Which leaves a genuine two-way choice. <strong>Take Kept</strong> if you
-        want the product to write well &mdash; it is the only name whose failure sentence a person reads without
-        flinching, and its collisions are all in other categories. <strong>Take Larder</strong> if you want the safest
-        thing to own &mdash; it is the only name that came back low-risk on a proper check, and its
-        <span class="mono">.app</span> is genuinely unregistered. I would take <strong>Kept</strong>, and I would spend
-        the wordmark budget making a common word look like it belongs to you, which is exactly what Linear and Notion
-        both had to do.</p>
-      <p style="font-size:15px;margin-top:12px">The one thing I would <em>not</em> do is take <strong>Mapt</strong>
-        because the Hebrew reading is charming. It cannot appear in its own product copy, and that is the cost you pay
-        every day.</p>
-    </div>
-  </div>
-</section>
-<section id="killed">
-  <div class="wrap">
-    <div class="sec-head">
-      <p class="eyebrow">Killed</p>
-      <h2>Including three of the four the brand document had on the table.</h2>
-      <p class="lede">The naming brief in <span class="mono">brand-and-product-foundation.md</span> &sect;3 kept four
-        candidates alive: <em>Pinned, Mapt, Placed, Dropp</em>. Three of them are built from roots that competitors have
-        since taken. That is not the document's fault &mdash; it was written on 2026-08-20 and the category moved &mdash;
-        but it does mean the shortlist could not simply be drawn from it.</p>
-    </div>
-
-    <div class="tbl-wrap">
-      <table>
-        <thead><tr><th>Name</th><th>Where it came from</th><th>Why it's dead</th></tr></thead>
-        <tbody>
-          <tr><td><strong>Plotted</strong></td><td>My own shortlist, v1 of the plan</td><td><strong>Plotline</strong> is a direct competitor in this exact category &mdash; and is already cited in this repo as the inspiration for the bottom navigation. Naming ourselves one letter away from it is not a coincidence anyone would believe.</td></tr>
-          <tr><td><strong>Stash</strong></td><td>My own shortlist, v1</td><td><strong>Stasht</strong> ships today doing precisely this: share a TikTok, it pulls out the place, pins it, keeps the source attached.</td></tr>
-          <tr><td><strong>Haunt</strong></td><td>My own late idea &mdash; "your haunts" is the exact word for a place you return to</td><td><strong>"Haunt &mdash; Snap &amp; Save Places"</strong> is on the App Store. There is also a second app, <em>Hauntt</em>. Killed before it reached you.</td></tr>
-          <tr><td><strong>Folio</strong></td><td>The paper/binding direction</td><td><strong>Folio &mdash; Save now. Read later.</strong> is a shipping read-it-later app. That is the adjacent category, which is worse than a distant one.</td></tr>
-          <tr><td><strong>Mapt</strong></td><td>Brand document &sect;3</td><td>The <span class="mono">map*</span> root is carried by MunchMap, Mapstr, Mapbite and GeoTok. A coined spelling does not buy distinctiveness inside a saturated root &mdash; it buys a permanent spelling-it-out tax on top of one.</td></tr>
-          <tr><td><strong>Pinned</strong></td><td>Brand document &sect;3</td><td>The <span class="mono">pin*</span> root, plus the Pinterest adjacency the document already flagged. It was the strongest of the four and it is still a footnote in someone else's search results.</td></tr>
-          <tr><td><strong>Spots</strong></td><td>Product lead's proposal</td><td>SpotFetch and SpotSavor both ship. The word the codebase uses internally can stay internal.</td></tr>
-          <tr><td><strong>Landed</strong></td><td>My recommendation in v1 of the plan</td><td>Not a collision &mdash; it fails the failure test. Pins land; nothing un-lands. The most-read screen in the product would have no sentence.</td></tr>
-          <tr><td><strong>Trove</strong></td><td><strong>My own #2 recommendation, one draft ago</strong></td><td>I ranked it second because <span class="mono">trove.app</span> had no DNS record. That was a shallow check. <em>Trove Collective</em> is a place-lists app; <span class="mono">troveapp.app</span> and <span class="mono">mytrovelist.com</span> are both save-and-find-later products; there are five-plus USPTO <em>Trove</em> filings in software classes, an active <span class="mono">trove.com</span> business, a Trion MMO and Australia's national digital archive. Separately, the product lead objected on tone: treasure framing editorialises the find, and the brand rule is that the discovery is the user's.</td></tr>
-          <tr><td><strong>Spots</strong></td><td>Product lead's earlier proposal</td><td><em>Spots Inc.</em> already ships "Spots: Discover Amazing Places" &mdash; curated restaurant, café and bar lists on your personal map, updated June 2026, and its release notes advertise sharing posts from other platforms straight into those lists. Same product, same name, and it owns <span class="mono">spots.app</span>.</td></tr>
-          <tr><td><strong>Pindrop</strong></td><td>My alternatives list</td><td>Worse than I thought. Beyond Pindrop Security (300+ patents, on the mark since 2014) there is <strong>"Pin Drop &mdash; Places That Matter"</strong>, a personal private map for saving cafés and restaurants. That is our category and nearly our positioning sentence.</td></tr>
-          <tr><td><strong>Stow</strong></td><td>Product lead's revised #3</td><td><span class="mono">stow.app</span> serves a crypto product, <em>stow Group</em> is a warehouse-automation company acquiring robotics firms, and <strong>GNU Stow</strong> is a tool every developer already has an association with.</td></tr>
-          <tr><td><strong>Jot &middot; Earmark</strong></td><td>Product lead's revised #4 and #5</td><td><span class="mono">jot.app</span> serves a live app; <span class="mono">earmark.com</span> is an active product, alongside Earmark Inc. and Earmark CPE. Neither clears.</td></tr>
-          <tr><td><strong>Atlas &middot; Stash &middot; Almanac &middot; Placed</strong></td><td>Longlist</td><td>All HIGH or MEDIUM. <em>Atlas Obscura</em> ships a maps app with custom lists and a "Been There" tracker and <span class="mono">atlas.co</span> is an AI-native GIS company; <em>Stash</em> is a $425M consumer investing brand acquired by Grab in Feb 2026, and the word is entrenched drug slang; <em>Almanac</em> faces an immovable SEO incumbent; <em>Placed</em> was a location-analytics company bought by Snap then Foursquare.</td></tr>
-          <tr><td><strong>Banquette</strong></td><td>My own wildcard</td><td>Unclaimed, and still struck: it does not inflect, so both product sentences fall back to generic copy &mdash; the same test that killed <em>Landed</em>.</td></tr>
-          <tr><td><strong>Dropp</strong></td><td>Brand document &sect;3</td><td>Unchanged from the document's own assessment: the trend-styled doubled consonant dates exactly as fast as the <em>-It</em> construction it was meant to avoid.</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</section>
-</div>
-<div class="chapter" id="ch-brand" hidden>
-<section id="mark">
-  <div class="wrap">
-    <div class="sec-head">
-      <p class="eyebrow">The mark</p>
-      <h2>A mascot that degrades into a map pin.</h2>
-      <p class="lede">You pointed me at Zoran Milic's work &mdash; soft rounded geometry, clean medium-weight outlines,
-        bright limited palettes, charm over realism. So this is a character, not an abstract mark. The thing that makes it
-        a <em>system</em> rather than a drawing is that the same silhouette works at every size: it is a mascot at
-        168&nbsp;px, a pin at 30&nbsp;px, and a legible blob at 16&nbsp;px. One shape, four jobs.</p>
-    </div>
-
-    <div class="grid g4 crumb-gold" style="gap:18px">
-      <div class="stage lite">
-        <svg viewBox="0 0 100 100" style="width:104px;height:104px"><use href="#crumbFace"/></svg>
-        <p class="cap">Mascot &middot; the character</p>
-      </div>
-      <div class="stage lite">
-        <svg viewBox="0 0 100 100" style="width:104px;height:104px;color:#2E7A70"><use href="#crumbPlain"/></svg>
-        <p class="cap">Silhouette &middot; the shape alone</p>
-      </div>
-      <div class="stage lite">
-        <svg viewBox="0 0 100 128" style="width:82px;height:105px;color:#E2542F"><use href="#crumbPin"/></svg>
-        <p class="cap">Map pin &middot; a crumb, not a teardrop</p>
-      </div>
-      <div class="stage lite">
-        <svg viewBox="0 0 120 60" style="width:112px;color:#2E7A70"><use href="#crumbTrail"/></svg>
-        <p class="cap">Trail &middot; loading, routes, empty states</p>
-      </div>
-    </div>
-
-    <div class="grid g2" style="margin-top:26px">
-      <div class="card">
-        <h3>Why the pin is the whole idea</h3>
-        <p>All thirty-four products in this category draw the same pin: a perfect teardrop with a circular head. It is the
-          Google Maps marker and it belongs to nobody. <strong>A crumb-shaped pin is instantly ours</strong> &mdash;
-          irregular, soft-cornered, recognisable at 15&nbsp;px, and it still takes the category colour so it keeps doing
-          its job as information. The mascot is not decoration bolted onto the product; it <em>is</em> the pin, wearing a
-          face on the surfaces that can afford one.</p>
-      </div>
-      <div class="card">
-        <h3>Where the face goes, and where it doesn't</h3>
-        <p>The face appears on <strong>brand</strong> surfaces &mdash; app icon, splash, sign-in, empty states, the link
-          preview. It never appears on the map. Thirty-one smiling faces scattered over Tel Aviv is a toy, not a tool, and
-          the moment a pin has eyes it stops being able to carry a category colour without looking ill. Face on the
-          chrome, silhouette on the data.</p>
-      </div>
-    </div>
-
-    <div class="grid g3" style="margin-top:26px">
-      <div class="card" style="border-color:color-mix(in srgb, var(--warn) 38%, transparent);background:color-mix(in srgb, var(--warn) 7%, transparent)">
-        <h3 style="color:var(--warn)">This overrules a written decision</h3>
-        <p>Flagging rather than quietly overwriting. <span class="mono">brand-and-product-foundation.md</span> scopes the
-          MVP as &ldquo;warm minimal&rdquo; and explicitly excludes an illustration style; Charter &sect;4 keeps
-          illustration systems off the current sprint. A mascot is exactly that. You are the product owner and this is
-          your call to make &mdash; I just want it recorded as a ruling, not discovered later as a contradiction.</p>
-      </div>
-      <div class="card">
-        <h3>What I can and can't draw</h3>
-        <p>This is a <em>constructed</em> vector character &mdash; correct geometry, correct weights, correct system
-          behaviour. It is not charm. Milic's work is charming because of proportion decisions a specialist makes by eye.
-          Treat this as a tight brief to hand an illustrator: the silhouette, the palette, the sizes it must survive, and
-          the rule that it has to work with the face removed.</p>
-      </div>
-      <div class="card">
-        <h3>The one thing to keep if you redraw it</h3>
-        <p>The silhouette. Everything in this system &mdash; pin, favicon, trail, icon &mdash; is the same closed path at
-          different sizes. An illustrator can change the face, the shading, the feet, the palette. If they change the
-          outline, you lose the pin and you are back to a teardrop like everyone else.</p>
-      </div>
-    </div>
-  </div>
-</section>
-<section id="wordmark">
-  <div class="wrap">
-    <div class="sec-head">
-      <p class="eyebrow">Wordmark</p>
-      <h2>Two words, stacked, heavy, tight.</h2>
-      <p class="lede">Set in <strong>Archivo</strong> at 900, slightly condensed, with tracking pulled to
-        &minus;0.045em. Stacked is the primary: it makes a solid rectangle that sits beside the mascot without either
-        fighting the other, and it puts <em>No</em> and <em>Crumbs</em> on separate lines so the phrase reads as a phrase.
-        <strong>This is the only place Archivo appears.</strong> A wordmark is a drawn asset, not a typeface in the
-        product &mdash; so the signed-off &ldquo;Manrope only&rdquo; decision for UI survives intact.</p>
-    </div>
-
-    <div class="grid g3" style="gap:18px">
-      <div class="stage lite crumb-gold">
-        <div style="display:flex;align-items:center;gap:16px">
-          <svg viewBox="0 0 100 100" style="width:62px;height:62px;flex:none"><use href="#crumbFace"/></svg>
-          <span class="wm wm-lg" style="text-align:left">No<br>Crumbs</span>
-        </div>
-        <p class="cap">Primary lockup &middot; horizontal</p>
-      </div>
-      <div class="stage lite crumb-gold">
-        <svg viewBox="0 0 100 100" style="width:54px;height:54px"><use href="#crumbFace"/></svg>
-        <span class="wm" style="font-size:30px">No Crumbs</span>
-        <p class="cap">Stacked &middot; splash and icon</p>
-      </div>
-      <div class="stage lite">
-        <span class="wm" style="font-size:clamp(26px,4vw,40px)">No Crumbs</span>
-        <p class="cap">Wordmark alone &middot; inline, one line</p>
-      </div>
-    </div>
-
-    <div class="grid g2" style="margin-top:26px">
-      <div class="card">
-        <h3>The clear-space rule, in one number</h3>
-        <p>Leave the height of the <strong>O</strong> on every side of the lockup. Nothing crosses it. At the shell header
-          the mark sits at 22&nbsp;px with the wordmark at 15&nbsp;px, which is the smallest the pair may ever be set
-          together &mdash; below that, the mascot goes alone.</p>
-      </div>
-      <div class="card">
-        <h3>What it must never do</h3>
-        <p>No outline version, no gradient, no drop shadow on the wordmark, never stretched, never on a busy photograph,
-          and <strong>never over the live map</strong> &mdash; the map already carries pins in four colours and a
-          wordmark on top of it is noise. If the map needs the brand, it gets the mascot in the corner of the empty
-          state, not a logo bar.</p>
-      </div>
-    </div>
-  </div>
-</section>
-<section id="colour">
-  <div class="wrap">
-    <div class="sec-head">
-      <p class="eyebrow">Colour</p>
-      <h2>The crumb is a shape, not a colour.</h2>
-      <p class="lede">This is the load-bearing decision in the whole identity, and it is a refusal. The obvious move is to
-        make toast-gold the brand colour. <strong>I am not doing that</strong>, because gold sits a few degrees from the
-        caf&eacute; category amber, and the entire point of the facelift's colour work is that on this map
-        <em>colour means what a place is</em>. A brand colour competing with that would undo it. So mint stays the only
-        brand colour, gold belongs to the mascot alone, and the two never appear on the same surface.</p>
-    </div>
-
-    <h3 style="font-size:17px;margin-bottom:12px">Brand &mdash; unchanged from the signed-off tokens</h3>
-    <div class="swatchset">
-      <div class="sw"><div class="chip" style="background:#A8ECE2"></div><div class="lbl"><b>Mint 400</b><code>#A8ECE2 &middot; primary</code></div></div>
-      <div class="sw"><div class="chip" style="background:#2E7A70"></div><div class="lbl"><b>Mint 700</b><code>#2E7A70 &middot; ring, ink</code></div></div>
-      <div class="sw"><div class="chip" style="background:#123B35"></div><div class="lbl"><b>Ink on mint</b><code>#123B35</code></div></div>
-      <div class="sw"><div class="chip" style="background:#FAF9F6"></div><div class="lbl"><b>Ground</b><code>#FAF9F6</code></div></div>
-      <div class="sw"><div class="chip" style="background:#1B1B1A"></div><div class="lbl"><b>Ink</b><code>#1B1B1A</code></div></div>
-    </div>
-
-    <h3 style="font-size:17px;margin:30px 0 12px">Mascot only &mdash; never used as UI colour</h3>
-    <div class="swatchset">
-      <div class="sw"><div class="chip" style="background:#F2C46B"></div><div class="lbl"><b>Crumb</b><code>#F2C46B &middot; body</code></div></div>
-      <div class="sw"><div class="chip" style="background:#E0A845"></div><div class="lbl"><b>Crust</b><code>#E0A845 &middot; underside</code></div></div>
-      <div class="sw"><div class="chip" style="background:#3A2A15"></div><div class="lbl"><b>Outline</b><code>#3A2A15</code></div></div>
-      <div class="sw"><div class="chip" style="background:#F0866A"></div><div class="lbl"><b>Blush</b><code>#F0866A &middot; 50%</code></div></div>
-    </div>
-
-    <h3 style="font-size:17px;margin:30px 0 12px">Information &mdash; what a place is, from the facelift plan</h3>
-    <div class="swatchset">
-      <div class="sw"><div class="chip" style="background:#D9482A"></div><div class="lbl"><b>Restaurant</b><code>persimmon</code></div></div>
-      <div class="sw"><div class="chip" style="background:#A66A18"></div><div class="lbl"><b>Caf&eacute;</b><code>amber</code></div></div>
-      <div class="sw"><div class="chip" style="background:#6A4BD0"></div><div class="lbl"><b>Bar</b><code>violet</code></div></div>
-      <div class="sw"><div class="chip" style="background:#2E7A70"></div><div class="lbl"><b>Uncategorised</b><code>house mint</code></div></div>
-    </div>
-
-    <p class="small" style="margin-top:18px;max-width:66ch">Read those three rows as three jobs. Row one is
-      <em>what you can press</em>. Row two is <em>who we are</em>, and it appears on maybe five screens. Row three is
-      <em>what a place is</em>, and it appears on every pin, chip and row in the product. Keeping them apart is what stops
-      a mascot from eating a design system.</p>
-  </div>
-</section>
-<section id="apps">
-  <div class="wrap">
-    <div class="sec-head">
-      <p class="eyebrow">Applications</p>
-      <h2>Every asset the product currently doesn't have.</h2>
-      <p class="lede">The audit found <span class="mono">src/app</span> and <span class="mono">public/</span> carry no
-        favicon, no app icon, no manifest and no link preview &mdash; so a shared collection invite previews today as a
-        bare URL with a generic globe. These are the files that fixes it.</p>
-    </div>
-
-    <div class="grid g2" style="gap:20px">
-      <div class="appcard">
-        <div class="top"><h3>App icon &amp; favicon</h3>
-          <p>Mascot on mint, centred, with the face at roughly 70% of the tile so it survives the iOS corner mask. Below
-            32&nbsp;px the face is dropped and the silhouette carries it &mdash; two dot eyes at 16&nbsp;px turn to mud.</p></div>
-        <div class="show crumb-gold">
-          <div><div class="icon-tile" style="background:#A8ECE2"><svg viewBox="0 0 100 100" style="width:74px;height:74px"><use href="#crumbFace"/></svg></div><p class="pinlab">180px</p></div>
-          <div><div class="icon-tile sm" style="background:#A8ECE2"><svg viewBox="0 0 100 100" style="width:40px;height:40px"><use href="#crumbFace"/></svg></div><p class="pinlab">64px</p></div>
-          <div><div class="icon-tile xs" style="background:#A8ECE2"><svg viewBox="0 0 100 100" style="width:23px;height:23px;color:#123B35"><use href="#crumbPlain"/></svg></div><p class="pinlab">32px</p></div>
-          <div><div class="icon-tile fav" style="background:#A8ECE2"><svg viewBox="0 0 100 100" style="width:13px;height:13px;color:#123B35"><use href="#crumbPlain"/></svg></div><p class="pinlab">16px</p></div>
-        </div>
-      </div>
-
-      <div class="appcard">
-        <div class="top"><h3>The map pin</h3>
-          <p>The silhouette on a point, in the category's own colour, with a white aperture. Same geometry as the mascot,
-            face removed. The dashed ring stays the existing signal for a coordinate the model guessed rather than
-            matched.</p></div>
-        <div class="show">
-          <div class="pinrow">
-            <div><svg viewBox="0 0 100 128" style="width:44px;color:#D9482A"><use href="#crumbPin"/></svg><p class="pinlab">Restaurant</p></div>
-            <div><svg viewBox="0 0 100 128" style="width:44px;color:#A66A18"><use href="#crumbPin"/></svg><p class="pinlab">Caf&eacute;</p></div>
-            <div><svg viewBox="0 0 100 128" style="width:44px;color:#6A4BD0"><use href="#crumbPin"/></svg><p class="pinlab">Bar</p></div>
-            <div><svg viewBox="0 0 100 128" style="width:44px;color:#2E7A70"><use href="#crumbPin"/></svg><p class="pinlab">Uncategorised</p></div>
-            <div><svg viewBox="0 0 100 128" style="width:56px;color:#D9482A;filter:drop-shadow(0 3px 6px rgba(0,0,0,.28))"><use href="#crumbPin"/></svg><p class="pinlab">Selected</p></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="appcard">
-        <div class="top"><h3>Link preview</h3>
-          <p>The one asset with the highest ratio of effort to credibility. Per-collection previews render the
-            collection's own name and place count, so a shared invite arrives looking like an invitation.</p></div>
-        <div class="show">
-          <div class="og crumb-gold">
-            <div class="row"><svg viewBox="0 0 100 100" style="width:30px;height:30px"><use href="#crumbFace"/></svg><b>No&nbsp;Crumbs</b></div>
-            <div>
-              <p class="t">Tel Aviv eats</p>
-              <p class="s">12 places &middot; shared with you by Orel</p>
-            </div>
-            <div style="display:flex;gap:5px">
-              <svg viewBox="0 0 100 128" style="width:16px;color:#D9482A"><use href="#crumbPin"/></svg>
-              <svg viewBox="0 0 100 128" style="width:16px;color:#A66A18"><use href="#crumbPin"/></svg>
-              <svg viewBox="0 0 100 128" style="width:16px;color:#6A4BD0"><use href="#crumbPin"/></svg>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="appcard">
-        <div class="top"><h3>Empty state &mdash; and the second thing this overrules</h3>
-          <p><strong>Correction to my own first draft.</strong> I wrote that this screen was owed. It is not: it ships at
-            <span class="mono">place-sheet.tsx:934</span> as <em>Your map starts here.</em> &mdash; and the code comment
-            above it explicitly refuses &ldquo;no empty-box illustration&rdquo;, along with carousels, checklists and
-            progress meters. Putting the mascot here contradicts a deliberate decision, so it is shown as a proposal, with
-            the shipping copy intact.</p></div>
-        <div class="show" style="flex-direction:column;gap:12px">
-          <div class="crumb-gold" style="display:flex;flex-direction:column;align-items:center;gap:10px">
-            <svg viewBox="0 0 100 100" style="width:66px;height:66px"><use href="#crumbFace"/></svg>
-            <p style="font-family:'Archivo',sans-serif;font-weight:900;font-stretch: normal;font-size:19px;letter-spacing:-.03em;color:#1B1B1A">Your map starts here.</p>
-            <p style="font-size:13px;color:#75716A;font-weight:500;text-align:center;max-width:32ch">Paste a TikTok link and the places it talks about land on your map.</p>
-            <span style="margin-top:4px;padding:10px 18px;border-radius:12px;background:#A8ECE2;color:#123B35;font-weight:800;font-size:13px">+ Add a TikTok</span>
-            <p style="font-size:10.5px;color:#A9A49B;margin-top:2px">Shipping copy, unchanged. Only the mascot is new &mdash; and it is the part to argue about.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card" style="margin-top:24px">
-      <h3>Loading, and the one animation this brand gets</h3>
-      <p>The trail. Three crumbs fading in left to right, then the mascot lands &mdash; used for the import wait and
-        nothing else. It is on-concept (the trail is the product), it takes about 700&nbsp;ms, and it replaces a generic
-        spinner on the one screen where the user waits seven to thirty-four seconds. <strong>One animation, one place.</strong>
-        Everything else in the product uses the six motion moments already specified in the facelift plan.</p>
-    </div>
-  </div>
-</section>
-<section id="ship">
-  <div class="wrap">
-    <div class="sec-head">
-      <p class="eyebrow">Shipping it</p>
-      <h2>Where the name lands in the code.</h2>
-      <p class="lede">Small, and mostly files that do not exist yet. This is stage 1 of the facelift plan &mdash; the half
-        that was blocked on your decision is now unblocked.</p>
-    </div>
-    <div class="tbl-wrap">
-      <table>
-        <thead><tr><th>File</th><th>Change</th><th>State</th></tr></thead>
-        <tbody>
-          <tr><td class="mono">src/app/layout.tsx</td><td><code>title</code> and a <code>metadataBase</code>; the title is currently a sentence standing in for the missing name</td><td>Edit</td></tr>
-          <tr><td class="mono">src/app/page.tsx</td><td>Replace the <code>P-002</code> tracked-uppercase label beside the mark</td><td>Edit</td></tr>
-          <tr><td class="mono">src/components/brand/pin-mark.tsx</td><td>Replace Lucide's filled <code>MapPin</code> with the crumb silhouette</td><td>Rewrite</td></tr>
-          <tr><td class="mono">src/components/map/marker-images.ts</td><td>The rasterised pin bitmaps take the crumb outline, per category, plus selected</td><td>Edit</td></tr>
-          <tr><td class="mono">src/app/icon.svg</td><td>Favicon &mdash; silhouette on mint</td><td><strong>New</strong></td></tr>
-          <tr><td class="mono">src/app/apple-icon.png</td><td>180&times;180, mascot with face</td><td><strong>New</strong></td></tr>
-          <tr><td class="mono">src/app/opengraph-image.tsx</td><td>Link preview; a per-collection variant follows</td><td><strong>New</strong></td></tr>
-          <tr><td class="mono">src/app/manifest.ts</td><td>Name, icons, and a <code>theme_color</code> that is not off-white</td><td><strong>New</strong></td></tr>
-          <tr><td class="mono">docs/spec-no-places-found.md</td><td>No change &mdash; the no-places screen keeps every string it has</td><td>&mdash;</td></tr>
-          <tr><td class="mono">docs/brand-and-product-foundation.md</td><td>&sect;3 closes: the name is decided. Record the mascot as an owner ruling that overrides &ldquo;no illustration style&rdquo;</td><td>Edit</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <p class="small" style="margin-top:20px;max-width:66ch">One blocker unchanged and it is not an engineering task:
-      GitHub Actions still cannot start a runner, so <span class="mono">merge:pr</span> refuses every PR and none of this
-      can land until the billing page is checked. It can all be built and reviewed on a branch in the meantime.</p>
-  </div>
-</section>
-</div>
-<div class="chapter" id="ch-mascot" hidden>
-<section id="moods">
-  <div class="wrap">
-    <div class="sec-head">
-      <p class="eyebrow">Moods</p>
-      <h2>Bound to states, not to emotions.</h2>
-      <p class="lede">The rule that keeps this from becoming decoration: a face may only exist if there is a screen that
-        needs it. Eight states, eight faces, no spares.</p>
-    </div>
-    <div class="mgrid">
-      <div class="mcell">
-        <span class="rig an-blink" data-crumb data-eyes="dot" data-mouth="smile" data-spark="0" data-size="84"></span>
-        <p class="nm">Idle</p>
-        <p class="st">Header, app icon, resting</p>
-      </div>
-      <div class="mcell">
-        <span class="rig an-scan" data-crumb data-eyes="dot" data-mouth="small" data-spark="0" data-size="84"></span>
-        <p class="nm">Reading</p>
-        <p class="st">Import running &mdash; &ldquo;Reading the TikTok&rdquo;</p>
-      </div>
-      <div class="mcell">
-        <span class="rig an-spark" data-crumb data-eyes="happy" data-mouth="grin" data-spark="1" data-size="84"></span>
-        <p class="nm">Found</p>
-        <p class="st">3 places added to your map</p>
-      </div>
-      <div class="mcell">
-        <span class="rig " data-crumb data-eyes="flat" data-mouth="flat" data-spark="0" data-size="84"></span>
-        <p class="nm">Nothing found</p>
-        <p class="st">No places in this one</p>
-      </div>
-      <div class="mcell">
-        <span class="rig " data-crumb data-eyes="closed" data-mouth="content" data-spark="0" data-size="84"></span>
-        <p class="nm">Been there</p>
-        <p class="st">A place marked as Been</p>
-      </div>
-      <div class="mcell">
-        <span class="rig an-blink" data-crumb data-eyes="wide" data-mouth="o" data-spark="0" data-size="84"></span>
-        <p class="nm">Near me</p>
-        <p class="st">Locating, near-me on</p>
-      </div>
-      <div class="mcell">
-        <span class="rig " data-crumb data-eyes="flat" data-mouth="wiggle" data-spark="0" data-size="84"></span>
-        <p class="nm">Offline</p>
-        <p class="st">Connection lost, retryable error</p>
-      </div>
-      <div class="mcell">
-        <span class="rig " data-crumb data-eyes="wink" data-mouth="smile" data-spark="0" data-size="84"></span>
-        <p class="nm">Saved</p>
-        <p class="st">A place added to a collection</p>
-      </div>
-    </div>
-
-    <div class="grid g2" style="margin-top:28px">
-      <div class="card" style="border-color:color-mix(in srgb, var(--mint-mid) 32%, transparent);background:var(--glow-2)">
-        <h3>The most important face is the neutral one</h3>
-        <p><strong>Nothing found</strong> is flat eyes and a flat mouth &mdash; not a frown, not a shrug, not a sad
-          droop. This is the screen a user hits on roughly three imports in four, and the tone rule is that it must be
-          matter-of-fact and never apologetic. A sad mascot turns the product's most common outcome into a small failure
-          eight times a week. Neutral says <em>that happens</em>, and moves on.</p>
-      </div>
-      <div class="card">
-        <h3>What is deliberately missing</h3>
-        <p>No angry face, no crying face, no confused face, no celebration beyond a single spark pair. The product has no
-          state that warrants them, and the moment the set has a face with no screen behind it, someone will find a screen
-          to put it on.</p>
-      </div>
-    </div>
-  </div>
-</section>
-<section id="styles">
-  <div class="wrap">
-    <div class="sec-head">
-      <p class="eyebrow">Styles</p>
-      <h2>Five constructions, one silhouette.</h2>
-      <p class="lede">Pick one as primary and keep the rest as contexts, not as alternates. The outline is the same closed
-        path in every case &mdash; that is the thing an illustrator must not change.</p>
-    </div>
-    <div class="mgrid">
-      <div class="mcell">
-        <span class="rig " data-crumb data-size="84"></span>
-        <p class="nm">Outlined</p>
-        <p class="st">The default. Heavy dark keyline, flat fill &mdash; closest to the reference work. Best above 40&nbsp;px.</p>
-      </div>
-      <div class="mcell">
-        <span class="rig st-flat" data-crumb data-size="84"></span>
-        <p class="nm">Flat</p>
-        <p class="st">No keyline, warmer ink. Reads cleaner small and sits better inside an app-icon mask.</p>
-      </div>
-      <div class="mcell">
-        <span class="rig st-chunky" data-crumb data-size="84"></span>
-        <p class="nm">Chunky</p>
-        <p class="st">Thicker line, more toy-like. Strongest at large sizes and on merch; muddies below 32&nbsp;px.</p>
-      </div>
-      <div class="mcell">
-        <span class="rig st-mono" style="color:#2E7A70" data-crumb data-size="84"></span>
-        <p class="nm">Mono</p>
-        <p class="st">Silhouette only, takes <code>currentColor</code>. This is the pin, the favicon, and any single-colour context.</p>
-      </div>
-      <div class="mcell dk">
-        <span class="rig st-night" data-crumb data-size="84"></span>
-        <p class="nm">Night</p>
-        <p class="st">Same gold on a dark ground, deeper keyline so the edge does not glow. For the night map and dark mode.</p>
-      </div>
-    </div>
-  </div>
-</section>
-<section id="motion">
-  <div class="wrap">
-    <div class="sec-head">
-      <p class="eyebrow">Motion</p>
-      <h2>Animated logos, and where each one is allowed.</h2>
-      <p class="lede">All seven are running on this page. The constraint that matters: none of them may imply progress the
-        product cannot measure. The import call is request/response with no percentage, so an animation that fills, counts
-        down or completes would be a lie told sixty times a day.</p>
-    </div>
-    <div class="bigrow">
-      <div class="loadbox">
-        <span class="rig an-bob" data-crumb data-size="74"></span>
-        <p class="lbl">Bob</p>
-        <p class="sub">Loading &middot; default</p>
-        <p class="st" style="max-width:24ch">The workhorse. Squash-and-stretch on a 1.15s loop. Use anywhere a spinner would have gone.</p>
-      </div>
-      <div class="loadbox">
-        <span class="rig an-wob" data-crumb data-size="74"></span>
-        <p class="lbl">Wobble</p>
-        <p class="sub">Busy &middot; long wait</p>
-        <p class="st" style="max-width:24ch">Calmer, slower, no vertical travel. For the import wait, which runs 7&ndash;34 seconds &mdash; a bounce that long becomes irritating.</p>
-      </div>
-      <div class="loadbox">
-        <span class="rig an-scan" data-eyes="dot" data-mouth="small" data-crumb data-size="74"></span>
-        <p class="lbl">Scan</p>
-        <p class="sub">Reading the TikTok</p>
-        <p class="st" style="max-width:24ch">Eyes track left to right. The only animation that says <em>working on your thing</em> rather than <em>working</em>.</p>
-      </div>
-      <div class="loadbox">
-        <span class="rig an-drop" data-eyes="happy" data-mouth="grin" data-crumb data-size="74"></span>
-        <p class="lbl">Land</p>
-        <p class="sub">Places added</p>
-        <p class="st" style="max-width:24ch">One-shot, not a loop. The success beat, matched to the pins dropping on the map.</p>
-      </div>
-      <div class="loadbox">
-        <span class="rig an-halo" data-eyes="wide" data-mouth="o" data-halo="1" data-crumb data-size="74"></span>
-        <p class="lbl">Halo</p>
-        <p class="sub">Locating &middot; near me</p>
-        <p class="st" style="max-width:24ch">A slow pulse behind the body. Reads as a signal, not as progress.</p>
-      </div>
-      <div class="loadbox">
-        <div class="trailwrap" style="height:74px;display:flex;align-items:flex-end;gap:9px">
-          <span class="d1" style="width:9px;height:9px;border-radius:99px;background:#E0A845;display:block"></span>
-          <span class="d2" style="width:12px;height:12px;border-radius:99px;background:#E8B457;display:block"></span>
-          <span class="d3" style="width:15px;height:15px;border-radius:99px;background:#EFBE64;display:block"></span>
-          <span class="rig" data-crumb data-size="46" style="margin-left:2px"></span>
-        </div>
-        <p class="lbl">Trail</p>
-        <p class="sub">Loading &middot; on-concept</p>
-        <p class="st" style="max-width:24ch">Three crumbs rise toward the character. The only animation that draws the brand idea rather than just moving the logo.</p>
-      </div>
-      <div class="loadbox">
-        <div class="eatwrap" style="height:74px;display:flex;align-items:center;gap:8px">
-          <span class="rig" data-crumb data-eyes="happy" data-mouth="grin" data-size="52"></span>
-          <span class="c1" style="width:11px;height:11px;border-radius:3px;background:#E0A845;display:block;transform:rotate(12deg)"></span>
-          <span class="c2" style="width:9px;height:9px;border-radius:3px;background:#E8B457;display:block;transform:rotate(-18deg)"></span>
-          <span class="c3" style="width:7px;height:7px;border-radius:2px;background:#EFBE64;display:block;transform:rotate(30deg)"></span>
-        </div>
-        <p class="lbl">Nibble</p>
-        <p class="sub">Loading &middot; playful</p>
-        <p class="st" style="max-width:24ch">Crumbs vanish one by one. Charming once, and it implies a countdown we cannot honour &mdash; so: marketing only, never the import rail.</p>
-      </div>
-    </div>
-
-    <div class="grid g3" style="margin-top:30px">
-      <div class="card"><h3>For the import wait, use Wobble</h3><p>Seven to thirty-four seconds is a long time to watch
-        something bounce. Wobble reads as patient; Bob reads as impatient by about second six.</p></div>
-      <div class="card"><h3>Land is one-shot</h3><p>It plays once, on confirm, timed to the pins dropping on the map. If it
-        loops it stops being an event and becomes wallpaper.</p></div>
-      <div class="card"><h3>Everything honours reduced motion</h3><p>Every animation on this page is disabled under
-        <span class="mono">prefers-reduced-motion</span>. The mascot stays; only the movement goes.</p></div>
-    </div>
-  </div>
-</section>
-<section id="rules">
-  <div class="wrap">
-    <div class="sec-head">
-      <p class="eyebrow">Rules</p>
-      <h2>Six lines that keep a mascot from eating a product.</h2>
-    </div>
-    <div class="grid g3">
-      <div class="card"><h3>1 &middot; Face on chrome, silhouette on data</h3><p>The character appears on the shell. On the
-        map it is a pin in a category colour, with no face. Thirty-one smiling faces over Tel Aviv is a toy.</p></div>
-      <div class="card"><h3>2 &middot; One mascot per screen</h3><p>Never two, never a crowd, never a mascot beside a
-        wordmark that also contains it.</p></div>
-      <div class="card"><h3>3 &middot; It never speaks</h3><p>No speech bubbles, no first person, no name for the
-        character. The product's voice is the product's, and a talking mascot would break the tone rule that bans
-        performing.</p></div>
-      <div class="card"><h3>4 &middot; It never reacts to a place</h3><p>No approving face beside a restaurant, no
-        rating, no favourite. The discovery is the user's and we do not editorialise about it.</p></div>
-      <div class="card"><h3>5 &middot; Gold stays off the map</h3><p>The mascot's palette never appears where category
-        colour lives, or colour stops meaning what a place is.</p></div>
-      <div class="card"><h3>6 &middot; No new faces without a screen</h3><p>Adding a mood means naming the state it serves.
-        If there is no state, there is no face.</p></div>
-    </div>
-  </div>
-</section>
-</div>
-<div class="chapter" id="ch-voice" hidden>
-<section id="voice">
-  <div class="wrap">
-    <div class="sec-head">
-      <p class="eyebrow">Voice</p>
-      <h2>The joke is in the name. The copy stays straight.</h2>
-      <p class="lede">This is the rule that decides whether the name ages well or becomes exhausting. A funny name buys
-        you exactly one laugh, at install. Spend it there, then write like a product that has nothing to prove &mdash;
-        which is what the brand document already asks for: <em>state, don't perform.</em></p>
-    </div>
-
-    <div class="grid g3" style="margin-bottom:30px">
-      <div class="rule-card"><b>Rule 1</b><p><strong>The name is the only joke in the product.</strong> Every string
-        after it states a fact and stops. Not a style preference &mdash; the copy spec already bans idioms and wordplay in
-        every string, for translation. The name is exempt because it is a proper noun. Nothing else is.</p></div>
-      <div class="rule-card"><b>Rule 2</b><p>Never explain the pun. No &ldquo;because we leave no crumbs behind!&rdquo;
-        anywhere. If a line needs the joke explained, it is the wrong line.</p></div>
-      <div class="rule-card"><b>Rule 3</b><p>Add <strong>breadcrumb</strong> to the banned-vocabulary list on its own
-        merits &mdash; it is navigation-component vocabulary, which the copy rules already forbid.</p></div>
-    </div>
-
-    <div class="card" style="margin-bottom:30px;border-color:color-mix(in srgb, var(--mint-mid) 30%, transparent);background:var(--glow-2)">
-      <h3>The contradiction in the name, and how it resolves</h3>
-      <p style="font-size:15px">Worth stating plainly because someone will notice it: <em>no crumbs</em> means none are
-        left, but the trail idea needs crumbs to <em>exist</em>. Both readings survive only if they live on different
-        layers. <strong>The negation is the copy; the trail is the mark.</strong> The words always mean "that place was
-        flawless" &mdash; a judgement about somewhere you went. The trail only ever appears as a shape: the loading
-        animation, the empty state, the icon. They never meet in a sentence, so they never argue.</p>
-    </div>
-
-    <div class="card" style="margin-bottom:26px;border-color:color-mix(in srgb, var(--crit) 38%, transparent);background:color-mix(in srgb, var(--crit) 7%, transparent)">
-      <h3 style="color:var(--crit)">Rejected: my own signature line</h3>
-      <p style="font-size:15px">I proposed <strong>&ldquo;No crumbs in this one.&rdquo;</strong> for the no-places screen
-        and called it the signature line. The product lead struck it, and was right on all four counts. It
-        <em>performs</em> &mdash; it substitutes the brand for the news, when the user needs to know what happened. The pun
-        half-works, which is worse than not working: on a product full of restaurants, &ldquo;no crumbs&rdquo; reads for a
-        beat as <em>no food places</em>, and a user disambiguating a joke on three imports in four stops finding it funny
-        around the third. It breaks the copy spec's own ban on wordplay, which exists for translation. And it costs the
-        concrete disclosure that teaches people what the product can and cannot do.</p>
-      <p style="font-size:15px;margin-top:12px"><strong>The screen already ships correct, and the rename changes nothing
-        on it &mdash; that is the name passing its health check, not a gap:</strong></p>
-      <div style="margin-top:14px;padding:16px 18px;border-radius:12px;background:var(--card-2);font-family:var(--mono);font-size:12.5px;line-height:1.75;color:var(--ink-2)">
-        <span style="color:var(--mint-mid)">Kicker</span>&nbsp;&nbsp; WE READ IT<br>
-        <span style="color:var(--mint-mid)">Heading</span>&nbsp; <span style="color:var(--ink);font-weight:700">No places in this one.</span><br>
-        <span style="color:var(--mint-mid)">Body</span>&nbsp;&nbsp;&nbsp;&nbsp; We read the caption, and it doesn't name a place we can<br>
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; put on a map. Some TikToks only show the place on screen.<br>
-        <span style="color:var(--mint-mid)">Action</span>&nbsp;&nbsp; Search &rarr;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Try another TikTok
-      </div>
-    </div>
-
-    <h3 style="font-size:19px;margin-bottom:8px">The copy deck &mdash; three new strings, and that is all</h3>
-    <p class="small" style="max-width:66ch;margin-bottom:16px">A rename that rewrites the interface is a rename doing the
-      wrong job. Every other string in the product was already written to be true rather than clever, so the name arrives
-      and nothing has to move.</p>
-    <div class="tbl-wrap">
-      <table class="copy-tbl">
-        <thead><tr><th>Slot</th><th>String</th><th></th></tr></thead>
-        <tbody>
-          <tr><td>title.default</td><td><strong>No Crumbs</strong></td><td><span class="vd good" style="font-family:var(--mono);font-size:10px;padding:3px 8px;border-radius:999px">new</span></td></tr>
-          <tr><td>title.template</td><td><strong>%s &middot; No Crumbs</strong></td><td><span class="vd good" style="font-family:var(--mono);font-size:10px;padding:3px 8px;border-radius:999px">new</span></td></tr>
-          <tr><td>description</td><td><strong>Paste a TikTok link and the place it names lands on your own private map. Organised by where, not by when.</strong></td><td><span class="vd good" style="font-family:var(--mono);font-size:10px;padding:3px 8px;border-radius:999px">new</span></td></tr>
-          <tr><td>landing kicker</td><td>A personal map</td><td>keep</td></tr>
-          <tr><td>landing headline</td><td>Your saved places, on one map.</td><td>keep</td></tr>
-          <tr><td>sign-in</td><td>Welcome back &middot; Your places are waiting.</td><td>keep</td></tr>
-          <tr><td>sign-up</td><td>Get started &middot; Save your first place.</td><td>keep</td></tr>
-          <tr><td>first run</td><td>Your map starts here.</td><td>keep &mdash; already ships</td></tr>
-          <tr><td>first run body</td><td>Paste a TikTok link and the places it talks about land on your map.</td><td>keep</td></tr>
-          <tr><td>first run CTA</td><td>Add a TikTok</td><td>keep</td></tr>
-          <tr><td>import success</td><td>{n} places added to your map. &middot; Added to your map.</td><td>keep</td></tr>
-          <tr><td>progress</td><td>Reading the TikTok&hellip; &middot; Finding the places&hellip;</td><td>keep</td></tr>
-          <tr><td>no places</td><td>No places in this one.</td><td>keep &mdash; see above</td></tr>
-          <tr><td>all filtered</td><td>No matches in {where}</td><td>keep</td></tr>
-          <tr><td>no search match</td><td>Nothing matches &ldquo;{query}&rdquo;</td><td>keep</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <h3 style="font-size:19px;margin:34px 0 14px">Where the name may appear &mdash; the complete list</h3>
-    <div class="grid g2">
-      <div class="card" style="border-color:color-mix(in srgb, var(--ok) 32%, transparent)">
-        <h3 style="color:var(--ok)">Permitted</h3>
-        <p>The shell header wordmark. The landing and sign-in mark. The browser tab title. The meta description. The app
-          icon. The deck. <strong>That is the entire list.</strong></p>
-      </div>
-      <div class="card" style="border-color:color-mix(in srgb, var(--crit) 32%, transparent)">
-        <h3 style="color:var(--crit)">Banned</h3>
-        <p>Every failure and error string. Every toast &mdash; this is where brands break first. Empty and first-run
-          states. Place detail and the review screen, or anything describing <em>a place</em>: a crumb-flavoured
-          compliment about a restaurant is us editorialising about the user's own discovery. Collection default names and
-          invite copy. Nav labels, button labels, category labels. <strong>Never a verb.</strong></p>
-      </div>
-    </div>
-
-    <div class="grid g2" style="margin-top:26px">
-      <div class="card">
-        <h3>Tagline: none, in the product</h3>
-        <p>There is no surface for one. The landing page was deliberately pruned to a minimal sign-in and its subhead
-          already does that job; a tagline under the wordmark would be a second competing sentence on the only screen that
-          has one. For the deck, where a line is compulsory:
-          <strong>&ldquo;Organised by where, not when.&rdquo;</strong> &mdash; the ratified positioning's own six words,
-          already the strongest line the product owns. Held in reserve if a lockup ever demands one:
-          <em>Nothing gets lost.</em></p>
-      </div>
-      <div class="card">
-        <h3>The real cost, and it isn't dating</h3>
-        <p>&ldquo;Ate and left no crumbs&rdquo; peaked around 2023&ndash;24. It is not fresh, it is <em>familiar</em>
-          &mdash; which cuts both ways: it will not spike and it will not fall off a cliff, because it already had one. It
-          ages like <em>slay</em>, not like <em>rizz</em>. And what dates is copy leaning on the slang reading, which the
-          rules above already ban.</p>
-        <p style="margin-top:12px"><strong>The cost to price instead is category legibility.</strong> A negation that
-          reads food-adjacent makes a first-time hearer guess a recipe app or a cleaning product before a map. Every
-          introduction pays that. It is why the landing subhead must stay literal and must never be traded for a cleverer
-          line &mdash; accept the name, accept that constraint with it.</p>
-      </div>
-    </div>
-  </div>
-</section>
-<section id="jargon">
-  <div class="wrap">
-    <div class="sec-head">
-      <p class="eyebrow">Jargon</p>
-      <h2>One word per thing, chosen once.</h2>
-      <p class="lede">Most product copy rots because two people call the same object two names. This is the canonical
-        vocabulary. The left column is what we say everywhere &mdash; interface, docs, support, the deck. The right column
-        is what we never say, including the words the database happens to use.</p>
-    </div>
-    <div class="tbl-wrap">
-      <table class="say">
-        <thead><tr><th>We say</th><th>Never</th><th>Why</th></tr></thead>
-        <tbody>
-          <tr><td class="yes">place</td><td class="no">spot &middot; location &middot; venue &middot; POI &middot; entry &middot; item</td><td class="why">The product's noun. <em>Spot</em> is two competitors' brand names; <em>POI</em> and <em>entry</em> are database words.</td></tr>
-          <tr><td class="yes">your map</td><td class="no">the map &middot; dashboard &middot; home &middot; feed</td><td class="why">The possessive is the product. It is private, and saying so costs one word.</td></tr>
-          <tr><td class="yes">a TikTok</td><td class="no">a post &middot; a video &middot; content &middot; media</td><td class="why">TikTok is the only supported source. Naming it is the honest boundary, stated in the product rather than in a footnote.</td></tr>
-          <tr><td class="yes">link</td><td class="no">URL &middot; address &middot; permalink</td><td class="why">What a person copies is a link.</td></tr>
-          <tr><td class="yes">collection</td><td class="no">list &middot; board &middot; folder &middot; album</td><td class="why">Already shipped and already consistent. Do not introduce a second word for it.</td></tr>
-          <tr><td class="yes">Been &middot; Not been yet</td><td class="no">visited &middot; want to go &middot; wishlist &middot; bucket list</td><td class="why">Ratified. <em>Visited</em> is a system fact about a record; <em>been</em> is what a person says.</td></tr>
-          <tr><td class="yes">add</td><td class="no">import &middot; ingest &middot; sync &middot; scrape</td><td class="why">You add a place. Everything else describes our machinery.</td></tr>
-          <tr><td class="yes">found</td><td class="no">extracted &middot; detected &middot; identified &middot; parsed</td><td class="why">Banned vocabulary, and <em>found</em> is shorter and truer.</td></tr>
-          <tr><td class="yes">reading</td><td class="no">fetching &middot; processing &middot; analysing</td><td class="why">Already the shipped rail copy. Keep it.</td></tr>
-          <tr><td class="yes">matching</td><td class="no">geocoding &middot; resolving &middot; disambiguating</td><td class="why">Same. Nobody outside the codebase has geocoded anything.</td></tr>
-          <tr><td class="yes">category</td><td class="no">type &middot; kind &middot; cuisine</td><td class="why">There are exactly three, and they are what a venue <em>is</em>.</td></tr>
-          <tr><td class="yes">tag</td><td class="no">label &middot; keyword &middot; sub-tag</td><td class="why"><em>Sub-tag</em> is the taxonomy's internal word. Users see tags.</td></tr>
-          <tr><td class="yes">note</td><td class="no">comment &middot; description &middot; memo</td><td class="why">A note is the user's own sentence about a place.</td></tr>
-          <tr><td class="yes">near you</td><td class="no">nearby &middot; proximity &middot; within radius</td><td class="why">Second person, always.</td></tr>
-          <tr><td class="yes">shared with you</td><td class="no">collaborator &middot; member &middot; invited user</td><td class="why"><em>Member</em> is a table name. Nobody is a member of a list of restaurants.</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <h3 style="font-size:19px;margin:38px 0 14px">Banned outright</h3>
-    <p class="small" style="max-width:66ch;margin-bottom:16px">The first row is the ratified list from the copy deck. The
-      second row is what the new name adds &mdash; because a brand word used as a common noun is how a joke becomes a
-      tic.</p>
-    <div class="banned" style="margin-bottom:14px">
-      <span>metadata</span><span>LLM</span><span>AI</span><span>model</span><span>geocode</span><span>extraction</span>
-      <span>pipeline</span><span>parse</span><span>API</span><span>endpoint</span><span>payload</span><span>token</span>
-      <span>confidence score</span><span>retry queue</span><span>job</span><span>worker</span><span>&ldquo;oops&rdquo;</span>
-      <span>&ldquo;something went wrong&rdquo;</span>
-    </div>
-    <div class="banned">
-      <span class="soft">breadcrumb</span><span class="soft">crumb (as a noun for a place)</span>
-      <span class="soft">to crumb (as a verb)</span><span class="soft">crumby / crummy</span>
-      <span class="soft">&ldquo;no crumbs left!&rdquo;</span><span class="soft">hidden gem</span>
-      <span class="soft">bussin &middot; slaps &middot; ate</span>
-    </div>
-    <p class="small" style="margin-top:16px;max-width:66ch"><strong>breadcrumb</strong> is navigation-component
-      vocabulary and belongs on the existing banned list on its own merits. <strong>hidden gem</strong> is banned because
-      the discovery is the user's and it is not ours to editorialise. The slang row is banned because the name already
-      spent that budget.</p>
-  </div>
-</section>
-
-<section id="formatting">
-  <div class="wrap">
-    <div class="sec-head">
-      <p class="eyebrow">Mechanics</p>
-      <h2>The small rules, so nobody has to ask twice.</h2>
-    </div>
-    <div class="grid g2" style="gap:18px;margin-bottom:30px">
-      <div class="card"><h3>Sentence case, everywhere</h3><p>Headings, buttons, labels, toasts. The only exceptions are
-        the wordmark and the 11&nbsp;px tracked uppercase kickers, which are a typographic device rather than writing.</p></div>
-      <div class="card"><h3>No exclamation marks. Ever.</h3><p>Not in success, not in onboarding, not in an empty state.
-        Confidence reads as brevity, and an exclamation mark is the product asking to be liked.</p></div>
-      <div class="card"><h3>Digits, always</h3><p><span class="mono">3 places</span>, never <em>three places</em>.
-        Pluralisation is written per string; never <span class="mono">place(s)</span>.</p></div>
-      <div class="card"><h3>One clause per string</h3><p>If a line needs a semicolon it needs to be two lines, or it needs
-        to be shorter. The failure strings are the test: every one of them is a sentence a person could say out loud.</p></div>
-      <div class="card"><h3>Dates and distances</h3><p><span class="mono">3 Aug</span> within the year,
-        <span class="mono">3 Aug 2025</span> otherwise. <span class="mono">320 m</span> under a kilometre,
-        <span class="mono">1.4 km</span> above, <span class="mono">12 km</span> above ten.</p></div>
-      <div class="card"><h3>In-progress takes an ellipsis</h3><p>A real <span class="mono">&hellip;</span> character, and
-        only while something is genuinely running: <em>Reading the TikTok&hellip;</em> Settled states drop it.</p></div>
-    </div>
-
-    <h3 style="font-size:19px;margin-bottom:14px">The voice, in four pairs</h3>
-    <div style="display:flex;flex-direction:column;gap:14px">
-      <div class="pair">
-        <div><span class="tag">Never</span><p>Great news! We found 3 amazing places for you! 🎉</p><small>Performs, editorialises about places we have not been to, and celebrates our own machinery.</small></div>
-        <div><span class="tag">Always</span><p>3 places added to your map.</p><small>States what happened and stops.</small></div>
-      </div>
-      <div class="pair">
-        <div><span class="tag">Never</span><p>Oops! Something went wrong with the extraction pipeline.</p><small>Two banned words, an apology, and it tells the user about our architecture.</small></div>
-        <div><span class="tag">Always</span><p>We couldn't read this TikTok yet.</p><small>Says what failed, in their terms, and <em>yet</em> carries the retry.</small></div>
-      </div>
-      <div class="pair">
-        <div><span class="tag">Never</span><p>No crumbs in this one! 🍪</p><small>My own rejected line. Substitutes the brand for the news on the screen people see most.</small></div>
-        <div><span class="tag">Always</span><p>No places in this one.</p><small>The name does not need to appear for the product to sound like itself.</small></div>
-      </div>
-      <div class="pair">
-        <div><span class="tag">Never</span><p>You've unlocked 10 hidden gems! Keep exploring 🔥</p><small>Gamifies, editorialises, and rates places the user found and we did not.</small></div>
-        <div><span class="tag">Always</span><p>10 places saved.</p><small>The count is the fact. Nothing else is ours to say.</small></div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section id="drift">
-  <div class="wrap">
-    <div class="sec-head">
-      <p class="eyebrow">Found while writing this</p>
-      <h2>The copy deck and the shipped strings have drifted.</h2>
-      <p class="lede">A guidelines document's first job is to say which source wins. Right now two documents and the
-        running code disagree on the two most important screens in the product, and nobody would notice until they wrote
-        the third version.</p>
-    </div>
-    <div class="tbl-wrap">
-      <table>
-        <thead><tr><th>Screen</th><th>Copy deck says</th><th>Code ships</th></tr></thead>
-        <tbody>
-          <tr>
-            <td><strong>First run</strong><br><span class="mono">C94</span></td>
-            <td>Paste a TikTok you saved and we'll put its places on the map.</td>
-            <td>Paste a TikTok link and the places it talks about land on your map.</td>
-          </tr>
-          <tr>
-            <td><strong>No places found</strong><br><span class="mono">C70</span></td>
-            <td>We read it, but it doesn't name a place we can put on a map. Some TikToks only show the place on screen.</td>
-            <td>A third variant again in <span class="mono">spec-no-places-found.md</span> &sect;5.1, opening &ldquo;We read the caption&hellip;&rdquo;</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <div class="card" style="margin-top:20px;border-color:color-mix(in srgb, var(--mint-mid) 30%, transparent);background:var(--glow-2)">
-      <h3>The ruling I would make, for you to confirm</h3>
-      <p style="font-size:15px"><strong>The running code wins, and the deck gets updated to match it.</strong> Both shipped
-        strings are better than their specified versions &mdash; <em>land on your map</em> is the product's own best verb,
-        and the caption wording is more specific about what we actually read. The rule going forward: a string changes in
-        code and the deck follows in the same commit, or it does not change. Two sources of truth is how the third one
-        gets written.</p>
-    </div>
-  </div>
-</section>
-
-<section id="checklist">
-  <div class="wrap">
-    <div class="sec-head">
-      <p class="eyebrow">Before it ships</p>
-      <h2>Six questions for any new string.</h2>
-    </div>
-    <div class="chk">
-      <div><b>01</b><span>Does it state a fact and stop?<small>If there is an adjective about how good something is, cut it. If there is an exclamation mark, cut it.</small></span></div>
-      <div><b>02</b><span>Would the user say this word?<small>Check it against the vocabulary table. If the word is in the right-hand column, it does not ship.</small></span></div>
-      <div><b>03</b><span>Does it name our machinery?<small>Anything about models, pipelines, parsing or jobs is a leak. Say what happened, not how.</small></span></div>
-      <div><b>04</b><span>If it is a failure, does it offer the next move?<small>Blameless, no apology, and at least one action. This is three quarters of what people read.</small></span></div>
-      <div><b>05</b><span>Does it editorialise about a place?<small>We never call somewhere a gem, a must-visit or a find. The user made that judgement; we kept the record.</small></span></div>
-      <div><b>06</b><span>Does it contain the brand name?<small>Then it is almost certainly wrong. Six surfaces may carry it; nothing else may.</small></span></div>
-    </div>
-  </div>
-</section>
-
-</div>
 <footer style="padding:48px 0 70px;border-top:1px solid var(--line-soft)"><div class="wrap" style="display:flex;flex-wrap:wrap;gap:18px;align-items:baseline;justify-content:space-between"><p class="tiny" style="max-width:62ch">Built 30&nbsp;August&nbsp;2026 against the code on <span class="mono">chore/project-scoped-claude-config</span>. Nothing here is implemented. Trademark and domain for <em>No Crumbs</em> are unverified.</p><p class="tiny mono">No Crumbs &middot; design system &middot; v1</p></div></footer>
 <script>
 window.CRUMB = (function () {
@@ -3232,15 +3354,65 @@ window.CRUMB = (function () {
 
   /* ---------- chapters ---------- */
   var tabs = [].slice.call(document.querySelectorAll('.chtab'));
+  var chapters = [].slice.call(document.querySelectorAll('.chapter'));
+  var ORDER = tabs.map(function (t) { return t.dataset.ch; });
+  var current = ORDER[0];
+
   function show(id) {
-    document.querySelectorAll('.chapter').forEach(function (c) { c.hidden = (c.id !== 'ch-' + id); });
+    if (ORDER.indexOf(id) < 0) id = ORDER[0];
+    current = id;
+    chapters.forEach(function (c) { c.hidden = (c.id !== 'ch-' + id); });
     tabs.forEach(function (t) { t.setAttribute('aria-current', String(t.dataset.ch === id)); });
     if (location.hash.slice(1) !== id) history.replaceState(null, '', '#' + id);
     window.scrollTo({ top: 0, behavior: 'auto' });
+    spy();
   }
   tabs.forEach(function (t) { t.addEventListener('click', function () { show(t.dataset.ch); }); });
-  var start = location.hash.slice(1);
-  show(tabs.some(function (t) { return t.dataset.ch === start; }) ? start : 'plan');
+  document.querySelectorAll('.pg').forEach(function (b) {
+    b.addEventListener('click', function () { show(b.dataset.go); });
+  });
+
+  /* subnav scrolls without stealing the chapter hash */
+  document.querySelectorAll('.subnav a').forEach(function (a) {
+    a.addEventListener('click', function (e) {
+      var el = document.getElementById(a.getAttribute('href').slice(1));
+      if (!el) return;
+      e.preventDefault();
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+
+  /* progress bar + subnav scrollspy */
+  var bar = document.getElementById('progbar');
+  function spy() {
+    var doc = document.documentElement;
+    var max = doc.scrollHeight - doc.clientHeight;
+    if (bar) bar.style.width = (max > 0 ? Math.min(100, (doc.scrollTop / max) * 100) : 0) + '%';
+    var ch = document.getElementById('ch-' + current);
+    if (!ch) return;
+    var links = ch.querySelectorAll('.subnav a'), best = null, bestTop = -1e9;
+    links.forEach(function (a) {
+      var el = document.getElementById(a.getAttribute('href').slice(1));
+      if (!el) return;
+      var top = el.getBoundingClientRect().top - 130;
+      if (top <= 0 && top > bestTop) { bestTop = top; best = a; }
+    });
+    links.forEach(function (a) { a.setAttribute('aria-current', String(a === best)); });
+  }
+  addEventListener('scroll', spy, { passive: true });
+  addEventListener('resize', spy);
+
+  /* left / right arrows move between chapters */
+  addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    var i = ORDER.indexOf(current);
+    if (e.key === 'ArrowRight' && i < ORDER.length - 1) show(ORDER[i + 1]);
+    if (e.key === 'ArrowLeft'  && i > 0)                show(ORDER[i - 1]);
+  });
+
+  show(location.hash.slice(1) || ORDER[0]);
 
   /* ---------- mascot ---------- */
   if (window.CRUMB) CRUMB.render('[data-crumb]');
