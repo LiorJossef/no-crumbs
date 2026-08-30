@@ -347,7 +347,7 @@ were claimed by nobody. So:
 | `docs/security.md` (orchestrator reviews), `docs/evidence/{security,licensing}/**` | `security-privacy` |
 | `docs/evidence/{deploy,vercel}/**` | `devops-vercel` |
 | `docs/evidence/**` — **by subdirectory**, one per agent | the matching agent |
-| `docs/ux-*.md`, `docs/spec-*.md`, the facelift plan and design-system HTML once they land | `ux-interaction` |
+| `docs/ux-*.md`, `docs/spec-*.md`, `docs/facelift-plan.md`, `docs/no-crumbs-design-system.html` | `ux-interaction` |
 | `docs/product-*.md`, `docs/mvp-plan.md`, `docs/00-project-charter.md` | `product-lead` |
 | `CLAUDE.md`, `docs/{current-state,execution-plan,working-agreement,git-workflow,01-agent-roster}.md`, `scripts/**` guards, `.claude/**`, `.github/**`, `.githooks/**`, `eslint.config.mjs`, `package.json`, everything unlisted | **the orchestrator** |
 
@@ -366,7 +366,7 @@ and the map itself contends at *file* level rather than directory level.
 | `src/components/map/**` (30 files) | `maps-geospatial` × `design-system-frontend` | A file-level partition, **adopted with corrections and three files serialised** — see below |
 | `src/components/shell/**` | the same two, and claimed by **neither** definition | Split by file: `map-shell.tsx` and `sheet-geometry.ts` to `design-system-frontend`, `use-map-shell.ts` to `maps-geospatial` — see below |
 | `src/app/map/map-page-client.tsx` | claimed by **neither**, and it holds the camera movers | **`maps-geospatial`**, ruled 2026-08-30. It is page composition, which is normally `design-system-frontend`'s, but it is also where the eight authorised camera movers live — and camera logic follows the camera owner, as it does for `use-map-shell.ts`. `design-system-frontend` proposes diffs for the composition |
-| The facelift plan and the rendered design-system HTML (arriving with PR #105) | `ux-interaction` × `design-system-frontend` | `ux-interaction` owns both; the builder reports status through the orchestrator. **Never concurrent** — a 4,000-line HTML file has no useful merge |
+| `docs/facelift-plan.md`, `docs/no-crumbs-design-system.html` | `ux-interaction` × `design-system-frontend` | `ux-interaction` owns both; the builder reports status through the orchestrator. **Never concurrent** — a 4,000-line HTML file has no useful merge |
 | `.github/workflows/` | `qa-reliability`'s definition × guardrails §4 15a | The guardrail wins: orchestrator only, both agents propose diffs |
 
 #### The map partition, as ruled
