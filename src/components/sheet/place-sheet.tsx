@@ -53,7 +53,7 @@ import { PRESS_ROW } from '@/lib/interaction';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { isSearchActive } from '@/domain/places/search';
-import { tagFacets } from '@/ui/place/tag-filter';
+import { tagFacets, type TagFacet } from '@/ui/place/tag-filter';
 import {
   BeenToggle,
   CategoryEditor,
@@ -331,28 +331,7 @@ function PlaceList({
   // An empty library is a different screen, not a different count.
   const headingText = libraryIsEmpty ? EMPTY_LIBRARY_HEADING : heading.text;
 
-  /**
-   * The tag vocabulary of everything currently matching, with counts — `growth-plan.md` §4's
-   * "there is no tag facet with counts, though categories have one".
-   *
-   * Counted over `places` **and** `otherPlaces` together, because that pair is exactly the library
-   * narrowed by every other filter: `otherPlaces` is documented as "every match the scope above
-   * leaves out". Counting only the in-scope rows would make each chip a claim about the area
-   * heading rather than about the library, and tapping it would then reveal places the count did
-   * not include — the same disagreement `categoryFacets` records against scoping its own counts to
-   * the active area.
-   *
-   * Empty while a tag is filtering, which is what makes every count above true: this list is
-   * already narrowed by that tag, so any other tag's number here would be its co-occurrence with
-   * the active one. `ActiveTagFilter` is the control on screen in that state.
-   */
-  const facets = useMemo(
-    () =>
-      activeTag !== null
-        ? []
-        : tagFacets([...places, ...otherPlaces], (place) => enrichmentOf(place.detail).tags),
-    [places, otherPlaces, activeTag],
-  );
+  const facets = useLibraryTagFacets(places, otherPlaces, activeTag);
 
   /**
    * What the peek row promises above the count in the header: how many more rows are down there.
@@ -557,6 +536,43 @@ function PlaceList({
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * The tag vocabulary of everything currently matching, with counts — `growth-plan.md` §4's
+ * "there is no tag facet with counts, though categories have one".
+ *
+ * A hook rather than four lines in each of the two hosts, for the reason `PlaceRow` is shared:
+ * the sheet and the desktop panel are two presentations of one library, and a facet computed from
+ * a slightly different set on each is how the phone and the desktop come to disagree about what
+ * the product holds.
+ *
+ * Counted over `places` **and** `otherPlaces` together, because that pair is exactly the library
+ * narrowed by every other filter: `otherPlaces` is documented as "every match the scope above
+ * leaves out". Counting only the in-scope rows would make each chip a claim about the area heading
+ * rather than about the library, and tapping it would then reveal places the count did not
+ * include — the same disagreement `categoryFacets` records against scoping its own counts to the
+ * active area.
+ *
+ * Empty while a tag is filtering, which is what makes every count it does return true: this list
+ * is already narrowed by that tag, so any other tag's number here would be its co-occurrence with
+ * the active one rather than its own. `ActiveTagFilter` is the control on screen in that state.
+ * **This is the half that wants the page's un-narrowed set** — the seam `categoryFacets` already
+ * has at `map-page-client.tsx`'s `facets` — and until that is threaded through, stepping aside is
+ * the honest arrangement rather than the complete one.
+ */
+export function useLibraryTagFacets(
+  places: readonly MapPlace[],
+  otherPlaces: readonly MapPlace[],
+  activeTag: string | null,
+): readonly TagFacet[] {
+  return useMemo(
+    () =>
+      activeTag !== null
+        ? []
+        : tagFacets([...places, ...otherPlaces], (place) => enrichmentOf(place.detail).tags),
+    [places, otherPlaces, activeTag],
   );
 }
 
@@ -983,7 +999,7 @@ export function PlaceSearchField({
  * introduces a number, not a form. `0 of 32` needs no special string: the heading beside it already
  * reads `Nothing matches "momos"` and offers `Clear search`.
  */
-function ResultCount({
+export function ResultCount({
   shown,
   of,
   narrowing,

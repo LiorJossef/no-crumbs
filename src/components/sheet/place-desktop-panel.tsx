@@ -29,8 +29,9 @@ import {
   EverywhereElse,
   PlaceRow,
   PlaceSearchField,
+  useLibraryTagFacets,
 } from './place-sheet';
-import { ActiveTagFilter } from './place-enrichment';
+import { ActiveTagFilter, TagFacetBar } from './place-enrichment';
 import { CategoryFilterBar } from './category-filter-bar';
 import type { CategoryFacet } from '@/domain/places/category-filter';
 import type { ProductCategory } from '@/domain/places/product-category';
@@ -92,6 +93,10 @@ export function PlaceDesktopPanel({
 }: PlaceDesktopPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  /** The identical computation the sheet does, through the identical hook — see
+   *  `useLibraryTagFacets` for why it is a hook rather than four lines in each host. */
+  const tagFacets = useLibraryTagFacets(places, otherPlaces, activeTag);
+
   /** The same scroll reset the sheet does, for the same reason and with the same timing — see
    *  `PlaceList`. A panel is shorter than a sheet at `full` but the arithmetic is identical. */
   useLayoutEffect(() => {
@@ -148,6 +153,11 @@ export function PlaceDesktopPanel({
             anyVisited={libraryHasVisited}
           />
         )}
+        {/* Under the category bar, exactly as on the phone. 1440x900 is one of the two gate
+              viewports and a facet that exists on one of them is a half-finished surface — the
+              same argument that makes `PlaceRow` shared. Renders nothing when the library carries
+              no tags, which is most libraries. */}
+        {!libraryIsEmpty && <TagFacetBar facets={tagFacets} />}
         {activeTag !== null && <ActiveTagFilter tag={activeTag} onClear={onClearTag} />}
         {/* See `AreaHeading.note`: the one line an achievement heading needs and a failed query
               does not. */}

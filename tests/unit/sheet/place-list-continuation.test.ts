@@ -43,6 +43,7 @@ vi.mock('@/app/actions/collections', () => ({
 const { PlaceDesktopPanel } = await import('@/components/sheet/place-desktop-panel');
 
 import { areaHeading, type AreaHeading } from '@/ui/place/active-area';
+import { TagFilterContext } from '@/ui/place/tag-filter';
 import type { MapPlace } from '@/components/map/types';
 
 function place(id: string, name: string, locality: string): MapPlace {
@@ -233,5 +234,69 @@ describe('the desktop heading enters the way the design system says it enters', 
     expect(markup).toContain('duration-enter');
     expect(markup).not.toContain('duration-140');
     expect(markup).not.toContain('motion-reduce:');
+  });
+});
+
+/**
+ * Desktop parity for the tag facet (W5-3). 1440x900 is one of the two quality-gate viewports, and
+ * a retrieval control that exists on the phone and not on the desktop is a half-finished surface —
+ * the same argument that makes `PlaceRow` shared between the two.
+ */
+describe('the tag facet reaches the desktop panel too', () => {
+  function tagged(place: MapPlace, tags: readonly string[]): MapPlace {
+    return { ...place, detail: { ...place.detail!, tags: [...tags] } };
+  }
+
+  /** The panel inside a live filter context, which is the only state the facet row draws in. */
+  function renderWithTags(tagLists: readonly string[][]): string {
+    const places = tagLists.map((tags, index) =>
+      tagged(place(`p-${index}`, `Place ${index}`, 'תל אביב-יפו'), tags),
+    );
+    return renderToStaticMarkup(
+      createElement(
+        TagFilterContext,
+        { value: { activeTag: null, onToggleTag: () => {} } },
+        createElement(PlaceDesktopPanel, {
+          places,
+          otherPlaces: [],
+          heading: areaHeading({
+            countInArea: places.length,
+            area: 'תל אביב-יפו',
+            searchQuery: '',
+            tagLabel: null,
+            matchesAnywhere: places.length,
+          }),
+          activeAreaId: 'tlv-1',
+          libraryIsEmpty: false,
+          libraryHasVisited: false,
+          query: '',
+          onQueryChange: () => {},
+          activeTag: null,
+          onClearTag: () => {},
+          notBeenOnly: false,
+          onToggleNotBeen: () => {},
+          categoryFacets: [],
+          activeCategory: null,
+          onToggleCategory: () => {},
+          onAddTikTok: () => {},
+          onSelect: () => {},
+        }),
+      ),
+    );
+  }
+
+  it('draws the same chips the sheet does, with the same counts', () => {
+    const markup = renderWithTags([['late night'], ['late night', 'wine'], ['wine'], ['wine']]);
+    expect(markup).toContain('aria-label="Filter by tag"');
+    // `wine` is on three places and `late night` on two, so the row is ordered by count and the
+    // singular/plural is exercised by neither — that is `tag-facet-bar.test.ts`'s job.
+    expect(markup).toContain('aria-label="⁨Wine⁩, 3 places"');
+    expect(markup).toContain('aria-label="⁨Late Night⁩, 2 places"');
+  });
+
+  it('draws no facet row for a library with no tags', () => {
+    // The default fixture carries none, which is also the majority of real libraries.
+    expect(renderWithTags([[], []])).not.toContain('Filter by tag');
+    expect(render({})).not.toContain('Filter by tag');
   });
 });
