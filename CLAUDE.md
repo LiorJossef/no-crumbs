@@ -79,12 +79,15 @@ in `.claude/agents/`, invocable by `subagent_type`, in three tiers (`docs/01-age
 evidence (`social-integration`, `security-privacy`, `devops-vercel`, `qa-reliability`, which also
 owns test harnesses); **Advise** rules and specifies, with no shell (`product-lead`,
 `ux-interaction`). Delegate meaningful implementation and investigation — decompose the task,
-delegate it with a task ID and a path scope, integrate, verify, commit.
+delegate it with a task ID and a write scope, integrate, verify, commit.
 
 You **own verification without personally executing every step**: decide what evidence is required,
 ensure it is independent, inspect it, and make the done/not-done call. The hard constraint is that
 **the agent that built a thing is never the sole source of evidence that it works.** No subagent
-delegates; every handoff routes back through you, and you serialise agents whose paths overlap.
+delegates; every handoff routes back through you, and **you dispatch in waves whose write scopes are
+disjoint** — the concurrency rule, `01-agent-roster.md` and `agent-guardrails.md` §8. Evidence about
+a change names the **commit** it was taken against, never "the working tree": under concurrency the
+tree holds several agents' half-finished work and proves nothing about any one of them.
 `docs/agent-guardrails.md` lists what a specialist must never do — commits, merges, deploys, hosted
 migration pushes and destructive database operations stay with you.
 
@@ -95,12 +98,16 @@ reading anyway — and never performatively. **You keep orchestration, integrati
 final verification**; delegating work never delegates accountability. When nothing fits and you do
 it yourself, say you checked.
 
-**Parallelise proactively — standing owner ruling, 2026-08-28, `working-agreement.md` §1.4.** In
-**every** session, look for the work that can genuinely run in parallel and dispatch it to the
-specialists while you continue the main thread: independent investigations, measurements against
-real rows, adversarial verification of what is already built, extraction or platform research,
-product/UX checks, test and harness work. No permission is needed per session, and the owner has
-given standing permission to change whatever agent configuration this requires. **Parallelism, not
+**Parallelise proactively — standing owner ruling, 2026-08-28, extended to concurrent dispatch on
+2026-08-30, `working-agreement.md` §1.4.** In **every** session, look for the work that can
+genuinely run in parallel and dispatch it to the specialists while you continue the main thread:
+independent investigations, measurements against real rows, adversarial verification of what is
+already built, extraction or platform research, product/UX checks, test and harness work. No
+permission is needed per session, and the owner has given standing permission to change whatever
+agent configuration this requires. Several specialists run **at once**, in waves: cut the write
+scopes until they are pairwise disjoint, check the exclusive resources (the local database, the
+migration number, the dev server, the provider budget), dispatch the wave in one message, then
+commit each scope as its own commit — disjointness is what keeps that possible. **Parallelism, not
 ceremony** — never spawn an agent to look busy, to duplicate what you are already doing, or to split
 work that is faster in one pass. **You own the lifecycle of everything you spawn:** track what is
 running, collect it, stop what no longer matters, and never end a session with background work
