@@ -2,10 +2,116 @@
 
 > **Read this section, then §9. Everything between them is history and is dated.**
 >
-> Last reconciled: **2026-08-30**, at the close of the near-me / basemap-context session.
+> Last reconciled: **2026-08-30**, at the close of the camera / Elsewhere session.
 > Read the section directly below first. The previous handoff is
 > [`handoff-2026-08-30-overnight-product-pass.md`](handoff-2026-08-30-overnight-product-pass.md).
 > Everything below the next two sections dates from 2026-08-29 or earlier.
+
+## Session close, 2026-08-30 (second half) — on `main`, 2 commits, **committed, NOT pushed**
+
+**Read this before the section below it**, which is now partly stale: that section says the work was
+"pushed, no CI, nothing landed". It landed. **PR #97 was merged to `main` on the owner's explicit
+instruction without CI**, and `main` auto-deploys, so all of it went to production immediately
+(`/healthz` served `ff7aa07`). The owner then found three defects in about five minutes. That is the
+governing lesson of this session.
+
+**This half's two commits are local only — deliberately not pushed.** One change in them is
+unverified (see below) and `main` deploys straight to production.
+
+**Still uncommitted and still the owner's:** `src/components/map/summary-style.ts` and its test —
+the marker-collision fix. It is what fixes the **overlapping area pills** the owner photographed.
+Its known open cost: a pill dropped by the collision index also becomes **untappable**, so 1 of 5
+adjacent areas is unreachable at z5–7. Owner asked twice to leave it alone. Do not commit it without
+a specific instruction.
+
+### What landed
+
+1. **Selecting a place put its pin behind the sheet** — the core interaction of the product, broken.
+   `/map` never passed `restingSheetFraction`, so the camera reserved `SHEET_PEEK_PX` = 128 px while
+   the sheet took 0.55 × 844 = 464 px; the pin landed 28 px *under* the sheet's top edge with its
+   body above the anchor. Padding is now selection-aware. A **second, compounding bug** in the same
+   interaction: the reveal nudge was declared *after* the focus effect, so it projected against the
+   pre-flight camera and its 320 ms `easeTo` cancelled the 1200 ms `fitBounds` (confirmed against
+   MapLibre's source — the last command in a commit wins). It now runs after the framing movers.
+2. **The home framing had a ceiling but no floor**, so a tall anchor box or short viewport could
+   settle below the pin band showing only area counts. Now `frameBounds` with `HOME_LANDING_MIN_ZOOM`.
+3. **Zero places got a camera** — §9.3 criterion, written and never discharged until now.
+4. **The Elsewhere country→city tree is deleted** (owner ruling), replaced by one hairline, one
+   `Everywhere else` heading, and the rest of the library as ordinary rows. **Isolated in its own
+   commit `d9cbdf2` so it is one `git revert` away** — the owner later said he had meant that
+   grouping should move somewhere else (probably collections) rather than vanish, then said to leave
+   it. If it comes back, revert that commit rather than rebuilding.
+5. **Six library-shape fixtures and 45 rule tests** — `tests/unit/map/library-shapes.ts`,
+   `camera-model.ts`, `camera-library-shapes.test.ts`. They assert product *rules*, not numbers, so
+   they survive tuning. They reproduced both defects before the fix.
+
+**Suite: 1922 passing, tsc and lint clean.** The selection fix was verified by me in a browser at
+390×812 — pin and label clear above the sheet, a neighbouring pin visible — not on tests alone.
+
+### Carry forward — read every one of these
+
+- **UNVERIFIED CODE IS IN THE TREE.** A `{ kind: 'user' }` arm on `Framing`
+  (`map-surface.mapcn.tsx:258` and `:624`) was written as the smallest change against defect 1 and
+  **was never exercised in a browser** — reproducing it needs a country tap, then a gesture, then a
+  resize. It type-checks and the suite is green. **Verify it or drop it before pushing.** This is
+  precisely why these two commits were not pushed.
+- **Defect 1 is NOT fixed and its cause is still unproven.** The owner photographed production
+  settling on an Israel/Jordan/Syria view with no pin, under a header reading
+  `3 places in תל אביב-יפו`. My "the camera fitted all five areas" theory was **measured and
+  disproved**: the anchored fit is z14.08 and even the union is z8.78, both above `PIN_BAND_MIN` 8.5.
+  The best remaining lead: `framing.current` records a country framing and `refitFramed` replays it
+  on **every** `ResizeObserver` hit for the life of the page — including a mobile Safari URL-bar
+  collapse — while the scope can return to an area without writing any camera. Not reproduced
+  locally.
+- **§9.3's "a readable place NAME on screen once the map settles" is still not met.** Pin labels are
+  gated at `LABEL_MIN_ZOOM = 14` in `marker-style.ts` and a normal home fit lands at z12–13. The knob
+  is that constant, but `text-allow-overlap` must become zoom-stepped at the same time or a dense
+  cluster becomes a pile.
+- `EMPTY_LIBRARY_BOUNDS` in `ui/place/viewport.ts` is a **guessed metro region** for the zero-place
+  camera. It needs an owner ruling; nothing may read a location on page load.
+- `AreaRow`, `areaRowCountText`, `areaRowAccessibleName` in `ui/place/active-area.ts` now have **no
+  caller** — a clean follow-up delete.
+- `docs/ux-stable-area-list.md` §43–44, §67, §107 now describe a UI that no longer exists.
+- **Seams the tests could not reach**, all because `place-sheet.tsx` and `map-surface.mapcn.tsx`
+  transitively import `server-only`: `SHEET_HALF_FRACTION`, `fitBoundsPadding`,
+  `FIT_BOUNDS_PADDING/MAX_ZOOM`, the chrome constants. Four literals are mirrored and drift-checked
+  in `camera-model.ts`. Moving `fitBoundsPadding` into `query-rect.ts` would let the tests call the
+  real function.
+
+### Owner rulings taken this session
+
+- **Documents wait until the product is ready.** Three doc-writing agents were killed 30 seconds in.
+- **Onboarding ships as part of rebranding**, not as a standalone L2 item — recorded in
+  `execution-plan.md`. `L1-F8-T1`'s zero-places state stays in L1 and is unaffected.
+- **No more Elsewhere-of-cities** (see item 4 and its caveat).
+- Features first, map polish second.
+
+### Next session — highest priority first
+
+1. **`L1-F8-T1`, the only unbuilt L1 product feature**: the account menu with **delete-my-data** and
+   the zero-places first-run state. Started this session and **killed on owner instruction** because
+   he wanted it in a fresh session; nothing was written. **Warning that will bite it:** `L2-F1-T6`
+   ownership transfer is not built and `collections.owner_id` is `on delete cascade`, so an owner
+   deleting their account destroys the collection for everyone in it.
+2. Verify-or-drop the `{ kind: 'user' }` arm, then push.
+3. Defect 1's `refitFramed` lead.
+4. `L1-F10` graded artefacts — `test-specification.md`, `scale.md`, `deployment.md` + README env
+   matrix, `how-the-system-works.md` do not exist and `security.md` is an interim file with 12 owed
+   items. Largest remaining submission gap.
+
+### How to work, per the owner, stated repeatedly and with increasing frustration
+
+Product first. Lean — reuse libraries, no new mechanisms. Use agents and parallelise. **Investigate
+the evidence before asserting a cause** — I asserted two wrong causes this session and both were
+disproved by measurement within minutes. **Discharge the acceptance criteria that already exist, and
+build synthetic fixtures rather than waiting for production data to expose a failure.** Verify the
+real user flow before saying anything is finished. Do not tune, polish or research past good enough.
+
+**The process failure to not repeat:** path serialisation across concurrent agents broke twice. One
+agent left `import-page-client.tsx` unparseable and another deleted a module a third still imported,
+which took the dev server down; both silently served **stale bundles** to whoever was verifying, and
+roughly half an hour of browser verification was meaningless as a result. Before trusting any
+screenshot, confirm the tree compiles.
 
 ## Session close, 2026-08-30 — `feat/near-me`, 5 commits, **pushed, no CI**
 

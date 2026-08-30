@@ -370,9 +370,16 @@ an unforked map style.
 No task breakdown until L1 closes, by design.
 
 **L2, in order:** the forked Protomaps style (D9b) · **the world-zoom country summary** (replaces the retired
-"clustering sophistication" item — see below) · category filter · onboarding that lands
-the first places · more ingested cities (an accuracy accelerator now, not a coverage requirement) ·
-the five motion moments · the 50-post pipeline evaluation and threshold re-fit · the OSM alias join.
+"clustering sophistication" item — see below) · category filter · more ingested cities (an accuracy
+accelerator now, not a coverage requirement) · the five motion moments · the 50-post pipeline
+evaluation and threshold re-fit · the OSM alias join.
+
+**Onboarding is no longer a free-standing L2 item — owner ruling, 2026-08-30.** It ships *as part of
+rebranding*, not before it. The reasoning is that the first-run experience is the most
+brand-dependent surface in the product, and building it against a name and visual identity that are
+both still open would mean building it twice. It stays in L2; it is now sequenced behind the brand
+work rather than beside the other items. **This does not cover `L1-F8-T1`'s zero-places state**,
+which is a designed empty map for a signed-in user with no saves and remains in L1.
 
 **L3:** Instagram · YouTube · audio transcription behind the `ContentExtractor` flag · a credentialed
 provider benchmark · alternate-name indexing.
