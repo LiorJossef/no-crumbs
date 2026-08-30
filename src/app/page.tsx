@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { createClient } from '@/app/_lib/supabase/server';
-import { DISPLAY_AXES } from '@/components/brand/display-type';
+import { DISPLAY_HEADING_AXES, DISPLAY_WORDMARK_AXES } from '@/components/brand/display-type';
 import { PinMark } from '@/components/brand/pin-mark';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -111,8 +111,8 @@ export default async function Home() {
               No `font-stretch` axis; §3.1 names an expanded width as a shipped bug.
             */}
             <span
-              className="font-display text-lg font-semibold tracking-tight text-foreground lg:text-xl"
-              style={DISPLAY_AXES}
+              className="font-display text-lg font-black tracking-tight text-foreground lg:text-xl"
+              style={DISPLAY_WORDMARK_AXES}
             >
               No Crumbs
             </span>
@@ -138,8 +138,8 @@ export default async function Home() {
                 moved except mobile leading, which the token puts at 1.12 — the extra room a serif
                 at 34px wants anyway. */}
             <h1
-              className="mt-2 font-display text-display font-extrabold tracking-tight text-foreground lg:text-hero"
-              style={DISPLAY_AXES}
+              className="mt-2 font-display text-display font-bold tracking-tight text-foreground lg:text-hero"
+              style={DISPLAY_HEADING_AXES}
             >
               {HEADLINE[0]}
               <br />
