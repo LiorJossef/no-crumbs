@@ -1,0 +1,335 @@
+#!/usr/bin/env node
+/**
+ * The screenshot harness: walk every reachable screen, at both gate viewports, at 0 / 3 / 30
+ * places, and write labelled PNGs plus a manifest that says exactly how each one was produced.
+ *
+ * ## What it is for
+ *
+ * `docs/overnight-run-plan.md` §8a Q1 asks for every reachable screen at 390×844 and 1440×900,
+ * signed out and signed in, at 0, 3 and 30 places. Six package exit criteria say "verified in a
+ * browser". None of that was checkable in this repository, because there is no `.env.local` and no
+ * Docker, so four of the eight surfaces returned 500 (measured at commit 55698ae). This makes it
+ * repeatable instead of impossible.
+ *
+ * ## Two modes, and the honesty rule that separates them
+ *
+ *   `--from-commit <sha>`   build that commit, run it against a stub Supabase, capture everything.
+ *   `--base-url <url>`      drive a real deployment. **Signed-out screens only.**
+ *
+ * Remote mode does not fabricate a session. There is no credential in this environment and none
+ * may be created, so the signed-in screens against a deployment are simply not taken — the manifest
+ * records them as `skipped: no credentials`, and a later reader can tell a gap from a result. A
+ * screenshot of a screen nobody saw is worse than an admitted hole.
+ *
+ * Everything captured in `--from-commit` mode against `/map`, `/profile`, `/collections` or
+ * `/import` is **stub-backed**: the rows come from `fixtures.mjs`, not from Postgres, and the
+ * manifest stamps `dataSource: "stub"` on every one. It is evidence about rendering — layout, the
+ * zero state, the camera at 30 pins, a radius, a contrast — and it is not evidence about a query,
+ * a join or an RLS policy. See `stub-supabase.mjs` for the full statement of what it does not prove.
+ *
+ * ## Usage
+ *
+ *   node tests/harness/capture-screens.mjs --from-commit HEAD --out docs/evidence/qa/screens/after
+ *   node tests/harness/capture-screens.mjs --base-url https://p-002-zeta.vercel.app --out docs/evidence/qa/screens/before
+ *   node tests/harness/capture-screens.mjs --from-commit HEAD --counts 0,3,30,300 --routes /map
+ *
+ * `PLAYWRIGHT_BASE_URL` is honoured as the default for `--base-url`, so this agrees with
+ * `playwright.config.ts` rather than inventing a second convention.
+ */
+
+import { chromium } from '@playwright/test';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import { GATE_VIEWPORTS } from './viewports.mjs';
+import { startStubSupabase } from './stub-supabase.mjs';
+import { authCookie } from './fixtures.mjs';
+import { exportCommit, buildApp, startApp } from './app-server.mjs';
+
+const REPO_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+const APP_PORT = 3187; // deliberately not 3000: another agent may be holding the dev server
+const STUB_PORT = 54387; // deliberately not 54321: not to be confused with a real local Supabase
+
+/**
+ * The screens, and whether the number of saved places changes what they show.
+ *
+ * `auth: 'out'` screens render with no session at all — they are the two that already work in a
+ * credential-less checkout, and the only two a deployment can be asked for honestly.
+ *
+ * `varyByPlaces: false` on `/import` and `/collections` is a claim worth stating: neither reads the
+ * saved-place count, so capturing them three times would produce three identical PNGs and make the
+ * output directory lie about how much was checked.
+ */
+const SCREENS = [
+  { route: '/', name: 'landing', auth: 'out', varyByPlaces: false },
+  { route: '/sign-in', name: 'sign-in', auth: 'out', varyByPlaces: false },
+  { route: '/map', name: 'map', auth: 'in', varyByPlaces: true },
+  { route: '/profile', name: 'profile', auth: 'in', varyByPlaces: true },
+  { route: '/collections', name: 'collections', auth: 'in', varyByPlaces: false },
+  { route: '/import', name: 'import', auth: 'in', varyByPlaces: false },
+];
+
+function parseArgs(argv) {
+  const args = {};
+  for (let i = 2; i < argv.length; i += 1) {
+    const token = argv[i];
+    if (!token.startsWith('--')) continue;
+    const key = token.slice(2);
+    const next = argv[i + 1];
+    if (next === undefined || next.startsWith('--')) {
+      args[key] = true;
+    } else {
+      args[key] = next;
+      i += 1;
+    }
+  }
+  return args;
+}
+
+/**
+ * Wait for a screen to stop moving.
+ *
+ * `networkidle` alone is not enough here and it matters why: the map is MapLibre over CARTO, so
+ * tiles keep arriving after the DOM settles, and the pins animate in (`W2-1` is literally a
+ * criterion about pins *at rest*). A fixed settle on top of network idle is crude but it is the
+ * thing that stops a screenshot catching a half-drawn basemap and being filed as a rendering
+ * defect. Errors while waiting are swallowed on purpose — a page that never reaches network idle
+ * should still be photographed, because that is itself the finding.
+ */
+async function settle(page, settleMs) {
+  try {
+    await page.waitForLoadState('networkidle', { timeout: 15_000 });
+  } catch {
+    /* a long-poll or a stuck tile request; photograph it anyway */
+  }
+  await page.waitForTimeout(settleMs);
+}
+
+async function capture({ browser, baseUrl, screen, viewportSpec, cookie, outDir, label, settleMs, fullPage }) {
+  const context = await browser.newContext({
+    viewport: viewportSpec.viewport,
+    deviceScaleFactor: viewportSpec.deviceScaleFactor,
+    isMobile: viewportSpec.isMobile,
+    hasTouch: viewportSpec.hasTouch,
+    baseURL: baseUrl,
+  });
+  const consoleErrors = [];
+  const pageErrors = [];
+  if (cookie) {
+    await context.addCookies([{ ...cookie, url: baseUrl, httpOnly: false, sameSite: 'Lax' }]);
+  }
+  const page = await context.newPage();
+  page.on('console', (message) => {
+    if (message.type() === 'error') consoleErrors.push(message.text());
+  });
+  page.on('pageerror', (error) => pageErrors.push(String(error)));
+
+  let status = null;
+  let error = null;
+  const file = `${label}--${screen.name}--${viewportSpec.id}.png`;
+  try {
+    const response = await page.goto(new URL(screen.route, baseUrl).href, {
+      waitUntil: 'domcontentloaded',
+      timeout: 45_000,
+    });
+    status = response?.status() ?? null;
+    await settle(page, settleMs);
+    await page.screenshot({ path: join(outDir, file), fullPage });
+  } catch (thrown) {
+    error = String(thrown);
+    // Still try for a picture of whatever is on screen — a broken screen is the most useful
+    // screenshot in the directory.
+    try {
+      await page.screenshot({ path: join(outDir, file) });
+    } catch {
+      /* nothing renderable */
+    }
+  }
+  const finalUrl = page.url();
+  await context.close();
+
+  return {
+    file,
+    route: screen.route,
+    finalUrl,
+    viewport: viewportSpec.id,
+    auth: screen.auth,
+    status,
+    error,
+    consoleErrors,
+    pageErrors,
+  };
+}
+
+/**
+ * Launch Chromium, falling back to the system Chrome when the bundled build is not downloaded.
+ *
+ * Measured at commit 55698ae: `playwright-core` is 1.62.1 and wants revision **1234**, while
+ * `~/Library/Caches/ms-playwright` holds only **1223** and **1228**. So `chromium.launch()` throws
+ * `Executable doesn't exist`. That is not just this harness's problem — **`npm run test:e2e`
+ * cannot run in this checkout either**, for the same reason, and that is a finding in its own
+ * right rather than something to paper over.
+ *
+ * The fallback is `channel: 'chrome'`, the Google Chrome already installed on this machine. It
+ * downloads nothing. It is also not the same binary CI uses, so the manifest records which one
+ * took the picture — a rendering difference between a Chrome build and a Chromium build is small
+ * but it is exactly the kind of thing a pixel-level facelift review would otherwise argue about.
+ */
+async function launchBrowser() {
+  try {
+    const browser = await chromium.launch();
+    return { browser, browserNote: 'Rendered with the bundled Playwright Chromium.' };
+  } catch (bundledError) {
+    const browser = await chromium.launch({ channel: 'chrome' });
+    return {
+      browser,
+      browserNote:
+        'Rendered with the SYSTEM Google Chrome (channel: "chrome"), because the bundled ' +
+        'Playwright Chromium revision is not downloaded in this environment. Original error: ' +
+        String(bundledError).split('\n')[0],
+    };
+  }
+}
+
+async function main() {
+  const args = parseArgs(process.argv);
+  const remoteBaseUrl = typeof args['base-url'] === 'string'
+    ? args['base-url']
+    : (process.env.PLAYWRIGHT_BASE_URL || null);
+  const fromCommit = typeof args['from-commit'] === 'string' ? args['from-commit'] : null;
+
+  if (!remoteBaseUrl && !fromCommit) {
+    console.error(
+      'capture-screens: pass --from-commit <sha|HEAD> to build and drive a commit locally, or ' +
+        '--base-url <url> to drive a deployment (signed-out screens only).',
+    );
+    process.exit(2);
+  }
+
+  const counts = String(args.counts ?? '0,3,30')
+    .split(',')
+    .map((n) => Number(n.trim()))
+    .filter((n) => Number.isFinite(n));
+  const routeFilter = typeof args.routes === 'string' ? args.routes.split(',').map((r) => r.trim()) : null;
+  const screens = routeFilter ? SCREENS.filter((s) => routeFilter.includes(s.route)) : SCREENS;
+  const settleMs = Number(args.settle ?? 2500);
+  const fullPage = args['full-page'] === true;
+
+  const outArg = typeof args.out === 'string' ? args.out : 'docs/evidence/qa/screens/run';
+  const outDir = isAbsolute(outArg) ? outArg : join(REPO_DIR, outArg);
+  mkdirSync(outDir, { recursive: true });
+
+  const manifest = {
+    takenAt: new Date().toISOString(),
+    mode: fromCommit ? 'local-build' : 'remote',
+    commit: null,
+    baseUrl: null,
+    dataSource: fromCommit ? 'stub' : 'live-deployment',
+    viewports: GATE_VIEWPORTS.map((v) => v.id),
+    placeCounts: fromCommit ? counts : [],
+    shots: [],
+    skipped: [],
+    notes: [],
+  };
+
+  let stub = null;
+  let server = null;
+  let appDir = null;
+
+  try {
+    let baseUrl;
+    if (fromCommit) {
+      appDir = join(
+        process.env.TMPDIR ?? '/tmp',
+        `no-crumbs-harness-${process.pid}`,
+      );
+      process.stderr.write(`[harness] exporting ${fromCommit} to ${appDir}\n`);
+      manifest.commit = exportCommit(REPO_DIR, fromCommit, appDir);
+
+      stub = await startStubSupabase({ port: STUB_PORT, places: counts[0] ?? 0 });
+      const env = {
+        NEXT_PUBLIC_SUPABASE_URL: stub.url,
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: 'stub-anon-key-not-a-secret',
+      };
+
+      process.stderr.write('[harness] building\n');
+      const build = buildApp(appDir, env);
+      if (!build.ok) {
+        manifest.notes.push('next build FAILED; no local screens captured');
+        writeFileSync(join(outDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+        process.stderr.write(build.output);
+        process.exit(1);
+      }
+
+      process.stderr.write('[harness] starting\n');
+      server = await startApp(appDir, APP_PORT, env);
+      baseUrl = server.url;
+      manifest.notes.push(
+        'Signed-in screens are STUB-BACKED: rows come from tests/harness/fixtures.mjs through ' +
+          'tests/harness/stub-supabase.mjs, not from Postgres. They evidence rendering only.',
+      );
+    } else {
+      baseUrl = remoteBaseUrl;
+      manifest.notes.push(
+        'Remote mode: signed-in screens were NOT captured. No credential exists in this ' +
+          'environment and none may be created, so they are recorded as skipped rather than faked.',
+      );
+    }
+    manifest.baseUrl = baseUrl;
+
+    const { browser, browserNote } = await launchBrowser();
+    manifest.notes.push(browserNote);
+    const cookie = fromCommit && stub ? authCookie(stub.url) : null;
+
+    for (const viewportSpec of GATE_VIEWPORTS) {
+      for (const screen of screens) {
+        if (screen.auth === 'in' && !fromCommit) {
+          manifest.skipped.push({
+            route: screen.route,
+            viewport: viewportSpec.id,
+            reason: 'signed-in screen, no credentials against a deployment',
+          });
+          continue;
+        }
+        const passes = screen.varyByPlaces ? counts : [counts[0] ?? 0];
+        for (const count of passes) {
+          if (stub) stub.setPlaceCount(count);
+          const label = screen.auth === 'out'
+            ? 'signed-out'
+            : `signed-in-${count}-places`;
+          process.stderr.write(`[harness] ${label} ${screen.route} @ ${viewportSpec.id}\n`);
+          const shot = await capture({
+            browser,
+            baseUrl,
+            screen,
+            viewportSpec,
+            cookie,
+            outDir,
+            label,
+            settleMs,
+            fullPage,
+          });
+          manifest.shots.push({ ...shot, placeCount: screen.varyByPlaces ? count : null });
+        }
+      }
+    }
+
+    await browser.close();
+  } finally {
+    if (server) await server.stop();
+    if (stub) await stub.close();
+    writeFileSync(join(outDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+  }
+
+  const broken = manifest.shots.filter((s) => s.error !== null || (s.status !== null && s.status >= 400));
+  process.stderr.write(
+    `\n[harness] ${manifest.shots.length} screenshots -> ${outDir}\n` +
+      `[harness] ${manifest.skipped.length} skipped, ${broken.length} with an error or a >=400 status\n`,
+  );
+  for (const shot of broken) {
+    process.stderr.write(`[harness]   BROKEN ${shot.file} status=${shot.status} ${shot.error ?? ''}\n`);
+  }
+}
+
+await main();

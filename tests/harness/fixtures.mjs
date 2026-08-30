@@ -1,0 +1,213 @@
+/**
+ * Fixture rows for the offline screenshot harness, shaped exactly as `saved_places` comes back
+ * from `SAVED_PLACES_SELECT` in `src/app/map/_lib/get-spots.ts`.
+ *
+ * These are **not** a substitute for the seeded database. They exist because this checkout has no
+ * `.env.local` and no Docker, so `/map`, `/import`, `/collections` and `/profile` 500 on
+ * `createServerClient(undefined!, undefined!)` and cannot be looked at at all. Every screenshot
+ * taken against these rows is stub-backed and must be labelled as such: it proves the *rendering*
+ * of a screen at a given place count, and it proves nothing about a query, a policy or a join.
+ *
+ * The place names and coordinates are real Tel Aviv venues so a 3-place and a 30-place map have
+ * a plausible spread rather than a synthetic grid — the 30-place camera fit is one of the things
+ * a screenshot is meant to catch, and evenly-spaced fake points would hide it.
+ */
+
+/** Real Tel Aviv venues, roughly in the density the product actually sees. */
+const SEED_PLACES = [
+  { name: 'Miznon', category: 'restaurant', lat: 32.0715, lng: 34.7681, locality: 'Tel Aviv-Yafo', provider: 'restaurant' },
+  { name: 'Anita La Mamma del Gelato', category: 'dessert', lat: 32.0562, lng: 34.7605, locality: 'Tel Aviv-Yafo', provider: 'ice_cream_shop' },
+  { name: 'Cafe Levinsky 41', category: 'cafe', lat: 32.0592, lng: 34.7719, locality: 'Tel Aviv-Yafo', provider: 'cafe' },
+  { name: 'Port Said', category: 'bar', lat: 32.0629, lng: 34.7745, locality: 'Tel Aviv-Yafo', provider: 'bar' },
+  { name: 'HaKosem', category: 'restaurant', lat: 32.0725, lng: 34.7735, locality: 'Tel Aviv-Yafo', provider: 'restaurant' },
+  { name: 'Bucke Bakery', category: 'bakery', lat: 32.0668, lng: 34.7702, locality: 'Tel Aviv-Yafo', provider: 'bakery' },
+  { name: 'Beit Kandinof', category: 'bar', lat: 32.0538, lng: 34.7530, locality: 'Yafo', provider: 'bar' },
+  { name: 'Tamara Yogurt', category: 'dessert', lat: 32.0801, lng: 34.7801, locality: 'Tel Aviv-Yafo', provider: 'dessert_shop' },
+  { name: 'Shakshukia', category: 'restaurant', lat: 32.0483, lng: 34.7520, locality: 'Yafo', provider: 'restaurant' },
+  { name: 'Cafe Xoho', category: 'cafe', lat: 32.0862, lng: 34.7752, locality: 'Tel Aviv-Yafo', provider: 'cafe' },
+  { name: 'Dalida', category: 'restaurant', lat: 32.0602, lng: 34.7688, locality: 'Tel Aviv-Yafo', provider: 'restaurant' },
+  { name: 'Casino San Remo', category: 'bar', lat: 32.0655, lng: 34.7712, locality: 'Tel Aviv-Yafo', provider: 'bar' },
+];
+
+const NOTES = [
+  'The pita is the point. Go before 13:00 or queue.',
+  null,
+  'Sit outside. The inside is loud and the tables are tiny.',
+  null,
+  'Ask for the one that is not on the menu.',
+];
+
+const WHY_GO = [
+  'A tiny counter doing one thing extremely well.',
+  null,
+  'Worth the walk for the courtyard alone.',
+  null,
+];
+
+const TAG_SETS = [
+  ['vegetarian', 'quick'],
+  null,
+  ['late night'],
+  ['brunch', 'outdoor seating'],
+  null,
+];
+
+const DISH_SETS = [
+  ['ratatouille pita'],
+  null,
+  ['pistachio gelato'],
+  null,
+];
+
+/** Deterministic pseudo-random in [0,1) from an integer, so a run is reproducible. */
+function jitter(index, salt) {
+  const x = Math.sin((index + 1) * 12.9898 + salt * 78.233) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+export const DEMO_USER_ID = '00000000-0000-4000-8000-000000000001';
+
+/**
+ * `count` saved-place rows in `SAVED_PLACES_SELECT` shape.
+ *
+ * Beyond `SEED_PLACES.length` the seeds repeat with a deterministic coordinate offset of up to
+ * ~0.02 degrees (roughly 2 km) and a numbered suffix, which is how 30 and 300 stay legible as
+ * "the same city, more of it" rather than 30 pins on 12 pixels.
+ */
+export function savedPlaceRows(count) {
+  const rows = [];
+  for (let i = 0; i < count; i += 1) {
+    const seed = SEED_PLACES[i % SEED_PLACES.length];
+    const cycle = Math.floor(i / SEED_PLACES.length);
+    const lat = seed.lat + (cycle === 0 ? 0 : (jitter(i, 1) - 0.5) * 0.04);
+    const lng = seed.lng + (cycle === 0 ? 0 : (jitter(i, 2) - 0.5) * 0.04);
+    const id = `aaaaaaaa-0000-4000-8000-${String(i).padStart(12, '0')}`;
+    const placeId = `bbbbbbbb-0000-4000-8000-${String(i).padStart(12, '0')}`;
+    const savedAt = new Date(Date.UTC(2026, 7, 30, 12, 0, 0) - i * 3_600_000).toISOString();
+    rows.push({
+      id,
+      place_id: placeId,
+      created_at: savedAt,
+      note: NOTES[i % NOTES.length],
+      visit_state: i % 4 === 0 ? 'visited' : 'want_to_go',
+      visited_at: i % 4 === 0 ? savedAt : null,
+      extracted_reason: i % 3 === 0 ? 'best sabich in the city, no debate' : null,
+      display_name: null,
+      category_override: null,
+      source_url: `https://www.tiktok.com/@fixture/video/${7000000000000000000 + i}`,
+      source_thumbnail_url: null,
+      tags: TAG_SETS[i % TAG_SETS.length],
+      why_go: WHY_GO[i % WHY_GO.length],
+      dishes: DISH_SETS[i % DISH_SETS.length],
+      place: {
+        name: cycle === 0 ? seed.name : `${seed.name} ${cycle + 1}`,
+        category: seed.category,
+        provider_category: seed.provider,
+        lat,
+        lng,
+        address_line: `${10 + (i % 80)} Fixture St`,
+        locality: seed.locality,
+        country_code: 'IL',
+        source_dataset: 'google_places',
+        resolution_score: 0.9,
+      },
+      saved_place_sources: [
+        {
+          added_at: savedAt,
+          source: {
+            platform: 'tiktok',
+            canonical_url: `https://www.tiktok.com/@fixture/video/${7000000000000000000 + i}`,
+            author_handle: `fixture${i % 5}`,
+            author_name: null,
+            thumbnail_url: null,
+          },
+        },
+      ],
+    });
+  }
+  return rows;
+}
+
+export function profileRow() {
+  return {
+    id: DEMO_USER_ID,
+    display_name: 'Demo',
+    created_at: '2026-06-01T09:00:00.000Z',
+  };
+}
+
+export function userRecord(email = 'demo@example.com') {
+  const now = Math.floor(Date.now() / 1000);
+  return {
+    id: DEMO_USER_ID,
+    aud: 'authenticated',
+    role: 'authenticated',
+    email,
+    email_confirmed_at: '2026-06-01T09:00:00.000Z',
+    phone: '',
+    confirmed_at: '2026-06-01T09:00:00.000Z',
+    last_sign_in_at: new Date(now * 1000).toISOString(),
+    app_metadata: { provider: 'email', providers: ['email'] },
+    user_metadata: {},
+    identities: [],
+    created_at: '2026-06-01T09:00:00.000Z',
+    updated_at: new Date(now * 1000).toISOString(),
+    is_anonymous: false,
+  };
+}
+
+/** base64url without padding — what auth-js's `stringFromBase64URL` expects. */
+function b64url(value) {
+  return Buffer.from(value, 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/**
+ * A structurally valid, deliberately unsigned JWT. The stub never verifies it and nothing else
+ * ever sees it; auth-js only parses it to read `exp`, so the three-part shape is the requirement,
+ * not the signature.
+ */
+export function fakeAccessToken(expiresAt) {
+  const header = b64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const payload = b64url(
+    JSON.stringify({
+      sub: DEMO_USER_ID,
+      aud: 'authenticated',
+      role: 'authenticated',
+      email: 'demo@example.com',
+      iss: 'stub',
+      iat: Math.floor(Date.now() / 1000),
+      exp: expiresAt,
+      session_id: '11111111-0000-4000-8000-000000000001',
+    }),
+  );
+  return `${header}.${payload}.${b64url('not-a-real-signature')}`;
+}
+
+/** The session payload @supabase/ssr stores in the auth cookie. */
+export function sessionPayload(email = 'demo@example.com') {
+  const expiresAt = Math.floor(Date.now() / 1000) + 60 * 60 * 24;
+  return {
+    access_token: fakeAccessToken(expiresAt),
+    token_type: 'bearer',
+    expires_in: 60 * 60 * 24,
+    expires_at: expiresAt,
+    refresh_token: 'stub-refresh-token',
+    user: userRecord(email),
+  };
+}
+
+/**
+ * The cookie @supabase/ssr will read the session back out of.
+ *
+ * The name is derived exactly as supabase-js derives it — `sb-${hostname.split('.')[0]}-auth-token`
+ * (see `defaultStorageKey` in `@supabase/supabase-js/dist/index.mjs`) — so for a stub on
+ * `http://127.0.0.1:<port>` the key is `sb-127-auth-token`. The value carries the `base64-` prefix
+ * that `decodeChunkedCookieValue` in `@supabase/ssr/dist/main/cookies.js` understands, which
+ * sidesteps every URL-encoding question a raw JSON cookie value would raise.
+ */
+export function authCookie(supabaseUrl, email = 'demo@example.com') {
+  const hostname = new URL(supabaseUrl).hostname;
+  const name = `sb-${hostname.split('.')[0]}-auth-token`;
+  const value = `base64-${b64url(JSON.stringify(sessionPayload(email)))}`;
+  return { name, value };
+}
