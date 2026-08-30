@@ -39,6 +39,13 @@ test.describe('the map page is reachable by assistive technology', () => {
     // And the consequence: role queries walk the accessibility tree, so these all returned zero
     // while `<main>` was hidden, even though the buttons were on screen and clickable by mouse.
     await expect(page.getByRole('button', { name: /add a tiktok/i }).first()).toBeAttached();
-    await expect(page.getByRole('button', { name: /sign out/i }).first()).toBeAttached();
+    // The search field, and not `Sign out`, which this used to assert. Signing out is no longer a
+    // control on this page — it moved inside `/profile` (owner ruling, 2026-08-29). The search
+    // field is the better stand-in anyway: the docblock above names it as one of the three that
+    // returned zero, and it is the only one of the three that exists at **both** project
+    // viewports, where the profile entry point is breakpoint-split by design.
+    await expect(
+      page.getByRole('searchbox', { name: /search your places/i }).first(),
+    ).toBeAttached();
   });
 });
