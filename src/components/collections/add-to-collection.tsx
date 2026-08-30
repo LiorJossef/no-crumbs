@@ -13,7 +13,17 @@
  * the only exit and nothing is ever left pending behind it.
  */
 
-import { useMemo, useOptimistic, useRef, useState, useTransition } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useOptimistic,
+  useRef,
+  useState,
+  useTransition,
+} from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Check, ChevronRight, FolderPlus, Plus } from 'lucide-react';
 
@@ -27,10 +37,37 @@ import {
 } from '@/app/actions/collections';
 import { cn } from '@/lib/utils';
 
+/** One pane's back control, drawn by whoever hosts the pane. */
+export interface HostedPaneBackControl {
+  readonly label: string;
+  readonly onBack: () => void;
+}
+
+/**
+ * A host that already draws a back-shaped control in its own header, and will draw this pane's
+ * instead of letting it draw a second one.
+ *
+ * `/collections/[id]` is the case: the place detail there is hosted under a `Back to the
+ * collection` arrow, so a picker with its own arrow puts two of them on screen at once — which
+ * `docs/ux-collections-as-scope.md` §2.2 forbids outright. `/map` provides nothing, its host
+ * affordance is an `×`, and the picker keeps its own arrow there.
+ */
+export const HostedPaneBackContext = createContext<{
+  readonly setBack: (back: HostedPaneBackControl | null) => void;
+} | null>(null);
+
 export function AddToCollection({ placeId }: { placeId: string | undefined }) {
   const [open, setOpen] = useState(false);
   const collections = useCollections();
   const triggerRef = useRef<HTMLButtonElement>(null);
+
+  // Stable, because a host may hold onto it: see `HostedPaneBackContext`.
+  const close = useCallback(() => {
+    setOpen(false);
+    // Focus goes back to what opened it; a back control that drops focus at the top of the
+    // document strands a keyboard user mid-task.
+    requestAnimationFrame(() => triggerRef.current?.focus({ preventScroll: true }));
+  }, []);
 
   // No provider, or a place we cannot identify (a row not built from a real saved place): show
   // nothing rather than a control that cannot work.
@@ -43,17 +80,7 @@ export function AddToCollection({ placeId }: { placeId: string | undefined }) {
   const { text, name } = addToCollectionLabel(names);
 
   if (open) {
-    return (
-      <CollectionPicker
-        placeId={placeId}
-        onBack={() => {
-          setOpen(false);
-          // Focus goes back to what opened it; a back control that drops focus at the top of the
-          // document strands a keyboard user mid-task.
-          requestAnimationFrame(() => triggerRef.current?.focus({ preventScroll: true }));
-        }}
-      />
-    );
+    return <CollectionPicker placeId={placeId} onBack={close} />;
   }
 
   return (
@@ -74,7 +101,12 @@ export function AddToCollection({ placeId }: { placeId: string | undefined }) {
   );
 }
 
-function CollectionPicker({ placeId, onBack }: { placeId: string; onBack: () => void }) {
+/** Named once: the host that borrows this control announces it with the same words. */
+const BACK_LABEL = 'Back to the place';
+
+/** Exported for the test that holds the one-back-control invariant: the picker opens on a press,
+ *  and there is no DOM in this suite to press with. */
+export function CollectionPicker({ placeId, onBack }: { placeId: string; onBack: () => void }) {
   const router = useRouter();
   const collections = useCollections();
   const serverIn = useMemo(
@@ -95,6 +127,13 @@ function CollectionPicker({ placeId, onBack }: { placeId: string; onBack: () => 
   const [name, setName] = useState('');
   const [, startTransition] = useTransition();
   const headingRef = useRef<HTMLParagraphElement>(null);
+  const host = useContext(HostedPaneBackContext);
+
+  useEffect(() => {
+    if (!host) return;
+    host.setBack({ label: BACK_LABEL, onBack });
+    return () => host.setBack(null);
+  }, [host, onBack]);
 
   function toggle(collectionId: string) {
     const wasIn = optimisticIn.includes(collectionId);
@@ -115,17 +154,21 @@ function CollectionPicker({ placeId, onBack }: { placeId: string; onBack: () => 
   return (
     <div className="flex flex-col">
       <div className="flex items-center gap-1 pb-1">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-lg"
-          aria-label="Back to the place"
-          onClick={onBack}
-          data-vaul-no-drag
-          className="-ml-2 size-11 shrink-0 rounded-full text-muted-foreground"
-        >
-          <ArrowLeft className="size-4" aria-hidden />
-        </Button>
+        {/* Nothing here when the host draws it: two back-shaped controls on one screen is the
+            ambiguity `ux-collections-as-scope.md` §2.2 exists to forbid. */}
+        {host ? null : (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-lg"
+            aria-label={BACK_LABEL}
+            onClick={onBack}
+            data-vaul-no-drag
+            className="-ms-2 size-11 shrink-0 rounded-full text-muted-foreground"
+          >
+            <ArrowLeft className="size-4" aria-hidden />
+          </Button>
+        )}
         <p ref={headingRef} tabIndex={-1} className="font-heading text-sm font-bold outline-none">
           Add to…
         </p>
