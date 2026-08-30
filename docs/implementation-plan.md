@@ -53,24 +53,22 @@ possible; milestones are always `MS9`.
 |----|----------|--------|-------------|
 | D1 | TikTok capability level and supported-content boundary | **CLOSED** — mechanism Level A (oEmbed, VERIFIED), product outcome **LEVEL B**: ~27% of genuine recommendations name a resolvable venue in caption text | `04` |
 | D1b | Instagram / YouTube status | **CLOSED** — both Deferred post-V1, with re-entry conditions recorded; no investigation performed, by design | `05` |
-| D2 | Map + places provider pair | **CLOSED** — MapLibre GL v5 + Protomaps (CC0 style) + our own resolver over Overture Maps places, Nominatim capped fallback. Security sign-off taken 2026-08-18 by splitting `06` §11 rather than answering it as a block: Q1 answered, Q2 narrowed to the milestone that first writes an ODbL-derived row, Q3–Q7 open but incapable of changing an Overture-only schema | `06` §11 |
-| D3 | Import execution model | **CLOSED** — one `POST /api/imports` Node Route Handler streaming NDJSON. No queue, no worker, no Realtime | `07` |
+| D2 | Map + places provider pair | **CLOSED, then amended twice** — MapLibre GL 6 (installed `^6.4.1`) + **CARTO** keyless vector basemap (Protomaps dropped 2026-08-21, `06` §2) + a `PlaceResolver` whose canonical source is **Google Places** (owner ruling 2026-08-28), with the Overture `poi_index` as the second adapter and the production default. Security sign-off taken 2026-08-18 by splitting `06` §11 rather than answering it as a block: Q1 answered, Q2 narrowed to the milestone that first writes an ODbL-derived row, Q3–Q7 open but incapable of changing an Overture-only schema | `06` §11 |
+| D3 | Import execution model | **CLOSED, not yet built** — one `POST /api/imports` Node Route Handler streaming NDJSON. No queue, no worker, no Realtime. The route is owed at L0-F6; `/api/imports/probe` is the request/response stand-in | `07` |
 | D4 | Confidence model | **CLOSED** — resolution evidence is the only gate (`06` §6.2). Extraction contributes no confidence signal; `modelConfidence` is stored for measurement only, plus one pre-resolution plausibility filter | `09` §5 |
 | D5 | Place identity and dedup | **CLOSED** — our own uuid; `(provider, provider_place_id)` as aliases; 75 m + normalised-name + country secondary merge guard | `08` |
 | D6 | PostGIS vs plain lat/lng | **CLOSED** — no PostGIS. Two `double precision` columns, bbox `BETWEEN`, Haversine refine. Scope clarified 2026-08-18: D6 is the *geometry* question. `pg_trgm` is permitted for the POI index's name prefilter (`10` §5) — it is not a geometry type, and `06` §5's cost model always assumed it | `08`, `10` |
-| D7 | LLM provider, model, abstraction shape | **CLOSED** — Anthropic `claude-haiku-4-5` in structured-output mode, one adapter behind the existing port; ~$0.003/import measured against a real caption, closing assumption B6. Escalation to `claude-sonnet-5` is one constant | `09` §2 |
+| D7 | LLM provider, model, abstraction shape | **CLOSED, amended** — structured-output extraction behind one port, with **two** adapters selected by `LLM_PROVIDER`: Anthropic `claude-haiku-4-5` (the default) and Gemini `gemini-3.5-flash-lite`, which is what measurement and local work run on. Per-import cost is **not measured**; the earlier ~$0.003 figure was derived from list pricing, not observed spend (`integrations/llm/cost.ts`) | `09` §2 |
 | D8 | Auth methods offered | **CLOSED** — Supabase Auth email + password only, judged on live-demo reliability; magic link rejected, OAuth deferred. One role, no RLS impact | `security.md` §2.5 |
 | D9 | Visual direction, map style, tokens | **PARTIALLY CLOSED, and split 2026-08-19 into D9a + D9b** because the two halves were sized as one and scheduled in two places. **D9a — the token values** (type, space, radius, elevation, motion, surfaces): not authored, owned by MS8. **D9b — the forked Protomaps style**: not authored, owned by the new MS8b. UX architecture, screens, states, copy deck and the five motion moments are specified and are not part of either | `technical-design.md` (written MS3; both halves still owed) |
 | D10 | Test strategy depth | **CLOSED (sized)** — four tiers and a 3 hd time-box, §13. The graded document is still written in MS13 | §13 → `test-specification.md` |
-| D11 | Rate limits and cost ceilings | **HALF-CLOSED** — provider-call ceilings exist (`06` §6.4: 7 lookups/import, 30 imports/user/day, Nominatim ≤1 rps / ≤200 day). The per-user limiter implementation and the monthly ceiling are not written up | `scale.md` (owed) |
-| D2b | **Global place resolution** | **CLOSED 2026-08-20** — two sources behind one `PlaceResolver` port: the Overture index for loaded regions (85%), Nominatim globally (63%), routed on the extraction's `cityHint`. Nominatim built now, a hosted OSM geocoder as a one-env-var escape hatch. Amends D2 by promoting its own out-of-region fallback into the MVP core; re-opens `06` §11 Q2, whose sign-off is owed before the adapter merges | `mvp-plan.md` §11, `06` §0/§11 |
+| D11 | Rate limits and cost ceilings | **HALF-CLOSED** — provider-call ceilings exist (`06` §6.4: 7 lookups/import, 30 imports/user/day; the Nominatim rate cap lapsed with D2b's supersession — Google Places' quota, currently 100/day, is the live ceiling). The per-user limiter implementation and the monthly ceiling are not written up | `scale.md` (owed) |
+| D2b | **Global place resolution** | **CLOSED 2026-08-20** — two sources behind one `PlaceResolver` port: the Overture index for loaded regions (85%), Nominatim globally (63%), routed on the extraction's `cityHint`. **Superseded 2026-08-28 by the Google ruling: the Nominatim adapter was never built, and global coverage is Google Places instead.** `nominatim` survives only as a provider enum value in `domain/types.ts`. Amends D2 by promoting its own out-of-region fallback into the MVP core; re-opens `06` §11 Q2, whose sign-off is owed before the adapter merges | `mvp-plan.md` §11, `06` §0/§11 |
 | D12 | Map shell and route topology | **CLOSED** — persistent `(map)` route-group layout owns one map instance; plain nested routes; no parallel/intercepting routes | `07` §11 |
 
-**Reading of the ledger:** every decision that would be expensive to reverse *after* code exists is
-now closed. MS1 shut five in one sitting, and the last one — D2's security sign-off — closed on
-2026-08-18 (§4). **The ledger has no open row.** Every milestone from MS5 onward builds on settled
-design; the next decision this project makes will be one it deliberately re-opens, not one it
-discovers.
+**Reading of the ledger:** every decision expensive to reverse *after* code exists is closed, and the
+two that moved since — D2's basemap and D2b's resolver — were **deliberately re-opened** by owner
+ruling, not discovered late. That is the mechanism working, not the ledger failing.
 
 ## 4. What MS1 closed, and how the last open decision was closed
 
@@ -156,36 +154,42 @@ integrations/ one adapter per port; vendor types and Zod schemas die here
 ```
 
 **Is a database used, and which central entities.** Yes — Supabase Postgres, source of truth, RLS
-enabled *and forced* on every table. Six central tables (`08` §3): `profiles`, `sources` (one row per
-platform post, global, cross-user cache), `extractions` (LLM output per source × extractor version),
-`places` (one physical place, our own uuid, global), `place_provider_refs` (provider-id aliases),
-`saved_places` (the user's library entry and the only place a user's edits live), plus `imports` (the
-record of one import run, holding pre-confirmation candidates as `jsonb`).
+enabled *and forced* on all 15 tables in `public` (asserted by `supabase/tests/inventory.sql` check 1).
+The core seven (`08` §3): `profiles`, `sources` (one row per platform post, global, cross-user cache),
+`extractions` (LLM output per source × extractor version), `places` (one physical place, our own uuid,
+global), `place_provider_refs` (aliases), `saved_places` (the user's library entry, and the only place
+a user's edits live) and `imports` (one import run). Around them `saved_place_sources`; the resolution
+tables `poi_index`, `poi_regions`, `place_lookups`; and the four collections tables (`0024`–`0026`).
 
-**Which pages.** All under one persistent route group so the map instance never unmounts (D12):
-`/map`, `/place/[id]`, `/import`, `/import/[importId]`, plus the anonymous surface (marketing + auth).
+**Which pages.** `/` (marketing), `/sign-in`, `/map`, `/import`, `/collections`, `/collections/[id]`,
+`/collections/join/[token]`, `/profile`. D12's persistent map route group is designed, not built:
+`/map` owns the map instance and place detail is a sheet over it, not a route.
 
 **Which API routes or server actions.**
-- `POST /api/imports` — Route Handler, Node runtime, `maxDuration = 60`; runs the pipeline and streams
-  NDJSON stage events. This is the only long-running request in the product.
-- `GET /api/imports/[id]` — reconnect / refresh-safe resume; returns the `ImportOutcome`.
-- Server Action `confirmImport` — the transactional save of the user's confirmed candidates.
-- Server Action `addPlace` — manual place addition (capability 13).
+- `POST /api/imports/probe` — Route Handler, Node runtime; runs canonicalise → oEmbed → caption → LLM
+  → resolve request/response, and writes `extractions` and `imports`.
+- `POST /api/imports/confirm` — Route Handler; turns reviewed candidates into `places` / `saved_places`,
+  deriving every stored fact server-side from the extraction row, never from the request body.
+- Server Actions in `src/app/actions/`: `manual-add.ts` (capability 13), `manual-add-choice.ts`,
+  `saved-places.ts`, `collections.ts`, `sign-out.ts`. Plus `GET /healthz` for liveness.
+- **Owed (L0-F6):** the streaming `POST /api/imports` and the refresh-safe `GET /api/imports/[id]`.
+  D3 is decided; `probe` carries none of its idempotency, retry or reconnect behaviour.
 - Everything else is a server-component read through Supabase under the user's JWT.
 
-**How data flows.** Browser posts a URL → route handler authenticates and rate-limits → domain
-`runImport(ports, input, ctx)` orchestrates: canonicalise (also the SSRF gate) → `SourceAdapter`
-(TikTok oEmbed) → `ContentExtractor` (caption) → `PlaceExtractor` (LLM, schema-constrained) →
-`PlaceResolver` (our Overture index, ≤7 lookups — `MAX_CANDIDATES = 7`) → confidence banding → events streamed to the
-client, rows written to `sources` / `extractions` / `imports` as they are produced → the user
-confirms in the review sheet → server action writes `places` (dedup) + `saved_places` → the map reads
-its own rows through RLS.
+**How data flows.** Browser posts a URL → route handler authenticates → canonicalise (also the SSRF
+gate) → `SourceAdapter` (TikTok oEmbed) → `ContentExtractor` (caption) → `PlaceExtractor` (LLM,
+schema-constrained) → `PlaceResolver` (Google Places, or the Overture `poi_index`, chosen by config;
+≤7 lookups — `MAX_CANDIDATES = 7`) → confidence banding → rows written to `sources` /
+`extractions` / `imports` → the user reviews → `/api/imports/confirm` writes `places` (dedup) +
+`saved_places` → the map reads its own rows through RLS. `runImport(ports, input, ctx)` and streamed
+stage events are the L0-F6 shape this is written toward.
 
 **Which users and permissions exist.** Exactly one authenticated role, the owner of their own map,
 plus the anonymous visitor who sees only marketing and auth. `anon` holds no grant on any table.
 Authorisation *is* RLS: global tables are membership-gated (a user reads a `places` row only if they
-hold a `saved_places` row pointing at it), users hold no write grant on any global table, and the two
-`SECURITY DEFINER` functions are granted to `service_role` only. This is `03`'s gap 1, answered.
+saved it, or share a collection containing it — the second arm added by `0024`), users hold no write
+grant on any global table, and the trusted-server `SECURITY DEFINER` functions are `service_role`
+only. This is `03`'s gap 1, answered.
 
 **Which external services, and why.**
 
@@ -194,10 +198,10 @@ hold a `saved_places` row pointing at it), users hold no write grant on any glob
 | Supabase (Postgres + Auth) | Required by the course; RLS makes authorisation a property of the database rather than of our code |
 | Vercel | Required by the course; fluid-compute defaults give the pipeline 300 s against a measured ~8 s need |
 | TikTok public oEmbed | The only permitted mechanism that returns an arbitrary public post's full caption with no auth, no key and no cost (VERIFIED, `04`) |
-| Overture Maps places (open data) | The only way to store a name and coordinates **forever**, which every credentialed places API forbids (`06` §1) |
-| Protomaps tiles + MapLibre GL | CC0 style we may fork and own, one attribution string, no credit card anywhere |
-| Nominatim (capped) | Out-of-region fallback only, rate-limited to policy and cached |
-| One LLM provider (D7, MS1) | Structured-output extraction of place names from caption prose; behind one port, one adapter |
+| Google Places | The canonical resolver since the owner ruling of 2026-08-28: the only source that recognises the venues our captions actually name. Behind the `PlaceResolver` port, responses cached in `place_lookups` |
+| Overture Maps places (open data) | The second `PlaceResolver` adapter, over our own `poi_index`; open data we may store **forever**, and the production default until the renderer moves (`06` §3.1 forbids Google content on a non-Google map) |
+| CARTO basemap + MapLibre GL 6 | Keyless free vector tiles, one attribution line, no credit card (D2 reopened 2026-08-21: Protomaps out, CARTO in) |
+| One LLM provider (D7) | Structured-output extraction of place names from caption prose; two adapters (Anthropic, Gemini) behind one port, selected by `LLM_PROVIDER` |
 
 ## 8. Data model and migration order
 
@@ -766,7 +770,7 @@ The R1/R2 pivot branches from `02` are closed by MS0's evidence. What remains is
 | 3 | Product specification | done | ✅ `product-specification.md` |
 | 4 | Technical design document | MS3 | ✅ `technical-design.md` |
 | 5 | Test specification | MS13 | pending |
-| 6 | Test code | MS13 | pending |
+| 6 | Test code | MS13 | ✅ 1959 unit tests in 107 files (`npx vitest run`, 2026-08-30) plus the two SQL policy suites `supabase/tests/inventory.sql` and `policies.sql`. The graded *specification* (artefact 5) is what is still owed |
 | 7 | Scale document | MS16 | pending |
 | 8 | Security document | MS14 | pending (interim file exists) |
 | 9 | Local run instructions | MS2 draft, MS16 final | pending — the MS2 draft exists (`README.md` §Local setup + the env-var matrix); MS16 owns the final pass |
@@ -776,9 +780,10 @@ The R1/R2 pivot branches from `02` are closed by MS0's evidence. What remains is
 
 Parked here so it stays out of the sprint (Charter §4): Instagram behind the existing `SourceAdapter`
 seam; YouTube if it proves near-free; audio transcription as a `ContentExtractor` implementation
-behind the flag that is already designed and defaulted off; collections and sharing; a credentialed
-places provider benchmarked against the open-data resolver; alternate-name indexing to fix the
-measured non-Latin-script resolution gap (`06` §7).
+behind the flag that is already designed and defaulted off; alternate-name indexing to fix the
+measured non-Latin-script resolution gap (`06` §7). Two rows left this list: a credentialed places
+provider (Google Places is now the canonical resolver) and collections and sharing (shipped
+2026-08-30 on an owner-instructed scope change, Charter §4).
 
 ---
 

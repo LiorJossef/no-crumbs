@@ -11,7 +11,7 @@ Labels: **VERIFIED** (tested, evidence committed) · **ASSUMED** (researched, un
 
 ## R0. The schedule is the dominant constraint
 
-The course deadline is **6 September 2026**. As of 18 August 2026 that is **19 calendar days**.
+The course deadline is **6 September 2026** — 7 calendar days from 30 August 2026.
 
 This is not a semester-long build; it is a sprint. Consequences, which every other decision in this
 repo must respect:
@@ -31,40 +31,27 @@ repo must respect:
 ## A. Technical unknowns (resolved by experiment, not reasoning)
 
 ### A1. TikTok content access — the single blocking dependency
-With manual caption entry removed, the entire product rests on one question: can a pasted public
-TikTok URL be turned into usable place-bearing text, server-side, from Vercel's IPs, through
-permitted mechanisms?
-
-Under investigation in [`04-tiktok-feasibility.md`](04-tiktok-feasibility.md). Mechanisms in scope:
-TikTok oEmbed; the official developer platform (Display API, Research API, Embed/Player APIs) and
-what each permits for an *arbitrary public creator post*; commercially available third-party data
-providers; any permitted subtitle/transcript access. Nothing is VERIFIED until tested against real
-URLs from a server context.
-
-Known shape of the risk: TikTok's official Display API is scoped to the authenticated user's own
-videos, which does not serve our use case; the public oEmbed endpoint is the most promising
-zero-auth mechanism but is undocumented as to caption completeness and rate limits. The verdict
-determines whether V1 exists in its current form.
-
-**Contingency, now that manual caption entry is withdrawn:** if TikTok reaches only LEVEL C, the
-options are (a) a compliant commercial data provider, (b) the smallest legitimate step toward
-media-level analysis (audio transcription of permitted content), or (c) a scope pivot. There is no
-user-effort fallback. This concentrates risk deliberately — the owner's call, recorded here so it is
-visible rather than implicit.
+**CLOSED (D1) — mechanism LEVEL A, product outcome LEVEL B.** Public oEmbed is VERIFIED from a server
+context and returns the full caption with no auth, key or cost ([`04`](04-tiktok-feasibility.md)); the
+Display API is scoped to the caller's own videos and never served this use case. The residual risk is
+yield, not access: only ~27% of recommendation captions name a resolvable venue, so **"no places
+found" is the modal outcome** and a designed surface. Audio transcription behind the
+`ContentExtractor` seam stays designed, flagged off and post-V1.
 
 ### A2. Places / map provider pairing
-Unknowns: POI coverage for small independent cafés and bars in Tokyo / Tel Aviv / London — the
-actual content genre, not landmarks; resolution accuracy from a bare name + city hint; what each
-provider's terms permit us to **store** long-term, given we must persist coordinates forever; and
-whether one provider's place data may be rendered on another's map. Under decision in
-[`06-map-and-places-decision.md`](06-map-and-places-decision.md).
+**CLOSED (D2), then amended twice.** MapLibre GL 6 + the keyless CARTO basemap (Protomaps dropped
+2026-08-21), and a `PlaceResolver` whose canonical source is **Google Places** (owner ruling
+2026-08-28) with the Overture `poi_index` as the second adapter. Coverage of small independent venues
+decided it, and is why the open-data-only answer did not survive. Two constraints carry forward from
+[`06`](06-map-and-places-decision.md): Google content may not be rendered on a non-Google map (§3.1,
+VERIFIED), which is why production still resolves via Overture; and only open data may be stored
+forever, which is why a Google-resolved row keeps its provenance.
 
 ### A3. Import execution model on Vercel
-Unknown: measured end-to-end latency of the real pipeline (TikTok acquisition + LLM + N resolution
-calls) versus the serverless execution limits on our plan. The charter previously assumed the
-pipeline must be asynchronous; that assumption is withdrawn pending measurement. Adopt the simplest
-mechanism that reliably fits — a job system must be *earned* by evidence, not inherited from a
-prior draft. Under decision in [`07-import-execution-model.md`](07-import-execution-model.md).
+**CLOSED (D3) — the pipeline fits in one request.** Measured latency sits well inside Vercel's limit,
+so the answer is one Node Route Handler streaming NDJSON stage events: no queue, no worker, no
+Realtime ([`07`](07-import-execution-model.md)). The route itself is still owed at L0-F6, with
+`/api/imports/probe` as the request/response stand-in.
 
 ### A4. Geospatial querying in Supabase
 **VERIFIED (2026-08-19) — no PostGIS.** Was: whether PostGIS earns its place at our scale
@@ -85,7 +72,8 @@ with correctness at all. Current position: it does not, and the confidence that 
 margin between the top two candidates. That position must be measured, not asserted.
 
 ### A6. Map performance and mobile behaviour
-Unknowns: clustering and frame rate with a few hundred markers on a mid-range Android device; the
+Unknowns: frame rate with a few hundred markers on a mid-range Android device (density clustering is
+out — removed by owner ruling at L1-F5-T5); the
 interaction between a full-screen map, a bottom sheet, iOS dynamic viewport units and safe areas;
 geolocation permission behaviour and indoor accuracy.
 
@@ -117,7 +105,7 @@ deployment during Milestone 0, not at the end.
 
 | # | Risk | Impact | Mitigation |
 |---|------|--------|-----------|
-| R0 | 19 days to deadline | Everything ships or nothing does | Dated plan with cut lines; TikTok spike first; documents time-boxed and written as we go |
+| R0 | 7 days to deadline | Everything ships or nothing does | Dated plan with cut lines; TikTok spike first; documents time-boxed and written as we go |
 | R1 | TikTok content access proves insufficient (LEVEL C) | The product premise collapses; no user-effort fallback remains | Priority-Zero spike in the first 48h; commercial-provider and transcription paths pre-scoped; pivot decision made early enough to matter |
 | R2 | The TikTok mechanism works locally but not from Vercel | Fails the "accessible via URL" requirement and the demo | Test from a preview deployment during Milestone 0, before any UI exists |
 | R3 | Provider licensing conflict (places data rendered on an incompatible map, or storage forbidden) | Late rework of the visual core, or a compliance problem in a graded project | Settle D2 before map code; wrap both providers behind our own interfaces so a swap stays contained |
@@ -129,7 +117,7 @@ deployment during Milestone 0, not at the end.
 | R9 | Location data is sensitive personal data | Privacy exposure in a graded security review | Live position never persisted server-side; RLS everywhere; no coordinates in URLs, logs or analytics |
 | R10 | Prompt injection via TikTok captions | LLM emits junk or attempts abuse | Extraction has no tools and no side effects; output schema-validated; captions are data, never instructions |
 | R11 | Duplicate places accumulate | The map degrades into noise | Dedup identity settled in D5 before any write path exists |
-| R11b | **Security deferred by owner.** M9 is a graded document that does not yet exist; 12 items are owed, 3 of them cheaper to answer before the code they govern is written (auth method, SSRF design, the OSM share-alike question that changes ingest) | A graded deliverable missing at submission, or late rework of ingest/auth | `security.md` §3 tracks every owed item; the membership gate — the only schema-shaped risk — is ruled and holds |
+| R11b | **Security deferred by owner.** M9 is a graded document that does not yet exist; **8 items are owed** (`security.md` §3 is the count of record — items 2, 8 and 9 are closed, item 5 is split, and item 3's SSRF work is built bar response-size caps) | A graded deliverable missing at submission, or late rework of ingest/auth | `security.md` §3 tracks every owed item; the membership gate — the only schema-shaped risk — is ruled and holds |
 | R12 | Student cannot explain a chosen component | Direct loss of marks under M11/R1 | ADR per decision; `how-the-system-works.md` maintained continuously; nothing adopted that cannot be justified in one sentence |
 
 ---
