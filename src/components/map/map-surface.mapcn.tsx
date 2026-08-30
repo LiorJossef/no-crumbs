@@ -62,6 +62,7 @@ import type { Map as MapLibreMap } from 'maplibre-gl';
 import { Map as MapcnMap, MapControls, MapPopup } from '@/components/ui/map';
 import { PlaceDetail } from '@/components/sheet/place-sheet';
 import type { FocusBoundsRequest, LatLngBoundsHint, MapPlace, MapSurfaceProps } from './types';
+import { savedPlaceRef } from './saved-place-ref';
 import { SummaryMarkerLayer } from './summary-marker-layer';
 import { toAreaFeatures, toCountryFeatures } from './summary-features';
 import { AREA_DISC_SPEC } from './summary-style';
@@ -1187,18 +1188,12 @@ export function MapSurfaceMapcn({
           onClose={() => onDeselect?.()}
           className="hidden max-w-none p-0 lg:block"
         >
-          {/* `MapPlace.id` is a `saved_places` id for every surface that renders this map. */}
+          {/* The write target comes from `selected.savedPlaceId`, never from `selected.id` — the
+              latter is a collection item id on `/collections/[id]`, and this surface is about to
+              be the shell that route renders too. No id, no mutations. */}
           <PlaceDetail
             place={selected}
-            savedPlace={{
-              id: selected.id,
-              visited: selected.visited,
-              // Same read as the mobile sheet's: `visitedAt` is on the joined `Spot`, not on the
-              // pin. Spread rather than an explicit `undefined` under `exactOptionalPropertyTypes`
-              // — a row marked been before the column was written has no timestamp, and absent is
-              // what that is.
-              ...(selected.detail?.visitedAt ? { visitedAt: selected.detail.visitedAt } : {}),
-            }}
+            savedPlace={savedPlaceRef(selected)}
             nearby={nearbyToSelected}
             onSelectNearby={(id) => {
               const neighbour = places.find((candidate) => candidate.id === id);

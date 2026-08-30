@@ -56,6 +56,17 @@ export interface MapPlace {
    */
   readonly visited: boolean;
   /**
+   * The viewer's own `saved_places` row for this pin, when this surface is genuinely rendering
+   * their saved rows. **Absent means they have none**, and a detail view opened from this pin must
+   * then render no mutation control at all (`savedPlace={null}`).
+   *
+   * Explicit rather than read off `id`, because `id` is not a saved-place id on every surface:
+   * `/collections/[id]` sets it to the *collection item* id so a pin click can open the right row.
+   * Taking the write target from `id` therefore aims `PlaceDetail`'s mutations at a row the viewer
+   * does not own. `savedPlaceRef` in `./saved-place-ref.ts` is the one place that answers this.
+   */
+  readonly savedPlaceId?: string;
+  /**
    * The full `Spot` this pin was built from, for the sheet/panel detail view
    * (`components/sheet/place-sheet.tsx`, `place-desktop-panel.tsx`). Optional and carried
    * end-to-end without being read: neither `MapSurface` (this port's real consumer) nor its three

@@ -222,9 +222,9 @@ describe('what you saved last cannot decide where the map opens', () => {
     const tokyo = TEL_AVIV_PLUS_TOKYO.places.find((place) => place.countryCode === 'JP');
     expect(tokyo).toBeDefined();
     expect(camera).not.toBeNull();
-    expect(inBand((camera as NonNullable<typeof camera>).screenOf(tokyo as FixturePlace), band)).toBe(
-      true,
-    );
+    expect(
+      inBand((camera as NonNullable<typeof camera>).screenOf(tokyo as FixturePlace), band),
+    ).toBe(true);
   });
 
   /**
@@ -234,10 +234,7 @@ describe('what you saved last cannot decide where the map opens', () => {
    */
   it("shows all five of the owner's areas, where the anchored camera showed one", () => {
     const home = homeCamera(FIVE_ISRAELI_AREAS, PHONE);
-    const anchor = fitCamera(
-      anchorClusterOf(FIVE_ISRAELI_AREAS)?.bounds as GeoBounds,
-      PHONE,
-    );
+    const anchor = fitCamera(anchorClusterOf(FIVE_ISRAELI_AREAS)?.bounds as GeoBounds, PHONE);
     const band = visibleBand(PHONE);
     // Counted in *clusters*, not locality strings: `Tel Aviv` and `תל אביב-יפו` are two spellings
     // of one area, and the whole point of clustering on coordinates is that they are one thing.
@@ -420,9 +417,7 @@ describe('every summary marker lands whole inside the visible map', () => {
    *  tuned. Longer name, wider pill; full-width script, wider still per character. */
   it('grows with the label, and measures scripts rather than counting characters', () => {
     const short = summaryPillFitAllowance([{ text: 'Israel  14', capped: true }]).x;
-    const long = summaryPillFitAllowance([
-      { text: 'Bosnia and Herzegovina  12', capped: true },
-    ]).x;
+    const long = summaryPillFitAllowance([{ text: 'Bosnia and Herzegovina  12', capped: true }]).x;
     expect(long).toBeGreaterThan(short);
 
     const latin = summaryPillFitAllowance([{ text: 'aaaa', capped: false }]).x;
@@ -481,10 +476,12 @@ describe('every summary marker lands whole inside the visible map', () => {
     const padding = framePadding(TINY, undefined, huge);
     expect(padding.left + padding.right).toBeLessThan(TINY.width);
     expect(padding.top + padding.bottom).toBeLessThan(TINY.height);
-    expect(fitCamera(initialBoundsFor(TWO_CITIES) as GeoBounds, TINY, {
-      maxZoom: HOME_LANDING_ZOOM.max,
-      markerAllowance: huge,
-    })).not.toBeNull();
+    expect(
+      fitCamera(initialBoundsFor(TWO_CITIES) as GeoBounds, TINY, {
+        maxZoom: HOME_LANDING_ZOOM.max,
+        markerAllowance: huge,
+      }),
+    ).not.toBeNull();
   });
 });
 
@@ -581,16 +578,16 @@ describe('the mirrored camera constants still match the surface', () => {
   });
 
   /**
-   * `SHEET_HALF_FRACTION` is mirrored too, and unlike the four above it is *exported* — from
-   * `place-sheet.tsx`, whose own header says it is exported because the camera needs it. It still
-   * cannot be imported here: that module transitively pulls in `server-only`, so the import fails
-   * at load. The copy is checked the same way until the constant has an importable home.
+   * `SHEET_HALF_FRACTION` used to be checked as source text, because `place-sheet.tsx` exported it
+   * and that module cannot be imported here. `NAV2` moved it to `components/shell/sheet-geometry`,
+   * which is `server-only`-free on purpose, so `camera-model.ts` now re-exports the real constant
+   * and there is nothing left to mirror. What is still worth pinning is that `place-sheet.tsx` has
+   * not quietly grown a second declaration of its own.
    */
-  it('holds the sheet stop the sheet actually moves to', () => {
+  it('holds the sheet stop the sheet actually moves to, and holds it once', () => {
     const SHEET_SOURCE = readFileSync('src/components/sheet/place-sheet.tsx', 'utf8');
-    expect(SHEET_SOURCE).toContain(
-      `export const SHEET_HALF_FRACTION = ${SHEET_HALF_FRACTION} as const;`,
-    );
+    expect(SHEET_SOURCE).toContain('export const SHEET_HALF_FRACTION = HALF_FRACTION;');
+    expect(SHEET_SOURCE).not.toMatch(/SHEET_HALF_FRACTION\s*=\s*0\.\d/);
   });
 
   /**

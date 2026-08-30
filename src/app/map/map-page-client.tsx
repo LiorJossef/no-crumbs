@@ -93,8 +93,10 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { MapSurface, type MapPlace } from '@/components/map/map-surface';
-import type { FocusBoundsRequest, MapSummaries } from '@/components/map/types';
+import type { MapPlace } from '@/components/map/map-surface';
+import { MapShell } from '@/components/shell/map-shell';
+import { useMapShell } from '@/components/shell/use-map-shell';
+import type { MapSummaries } from '@/components/map/types';
 import { COUNTRY_LANDING_ZOOM } from '@/components/map/zoom-bands';
 import type { LatLngBoundsHint, ViewportChangeMeta } from '@/components/map/types';
 import { ImportConfirmation } from '@/components/map/import-confirmation';
@@ -103,14 +105,9 @@ import { NearMeDistancesContext } from '@/components/map/near-me-context';
 import { distanceOrigin, nearMeCamera, nearMeNotice, type UserFix } from '@/components/map/near-me';
 import { useNearMe } from '@/components/map/use-near-me';
 import { PlaceSheet, SHEET_HALF_FRACTION } from '@/components/sheet/place-sheet';
-import { BottomNav } from '@/components/nav/bottom-nav';
 import { PlaceDesktopPanel } from '@/components/sheet/place-desktop-panel';
 import { filterByTag, filterByVisit, filterPlaces } from '@/components/map/filter-places';
-import {
-  categoryFacets,
-  filterByCategory,
-  toggleCategory,
-} from '@/domain/places/category-filter';
+import { categoryFacets, filterByCategory, toggleCategory } from '@/domain/places/category-filter';
 import type { ProductCategory } from '@/domain/places/product-category';
 import { tagDisplayLabel } from '@/domain/extraction/tags';
 import { TagFilterContext, isSameTag, type TagFilter } from '@/ui/place/tag-filter';
@@ -166,7 +163,8 @@ export function MapPageClient({
    * that existed to close the detail when a filter removed its place: a place that is not in
    * `matches` now simply has no `selected` to render.
    */
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const shell = useMapShell({ restingStop: 'peek' });
+  const { selectedId, setSelectedId } = shell;
   const [showImport, setShowImport] = useState(false);
   /**
    * The `＋` sheet. Owner's ruling, 2026-08-29: `＋` opens the same create menu everywhere, so this
@@ -198,18 +196,21 @@ export function MapPageClient({
   const [notBeenOnly, setNotBeenOnly] = useState(false);
   /**
    * What the last import saved. Two jobs, both of which the flow was missing entirely: it frames
-   * the camera on the places that were just added (`focusPlaceIds`), and it is the only thing on
+   * the camera on the places that were just added (`camera.framePlaces`), and it is the only thing on
    * screen that says the import worked. Cleared on dismissal, and also when a new import starts,
    * so a stale "8 places added" can never sit over a fresh run.
    */
   const [lastImport, setLastImport] = useState<SaveOutcomeDetail | null>(null);
   /**
-   * The one thing that moves the camera after the initial framing: "frame exactly these places".
-   * A single piece of state rather than one per caller, because the map keys the flight on the
-   * array's *identity* — so whoever wrote last wins, and a re-render that changes nothing cannot
-   * re-fly. It is deliberately never cleared: dismissing the post-import confirmation used to
-   * switch this prop back to something else, which the map reads as a brand-new request and
-   * answers by throwing the camera across the world.
+   * The one thing that moves the camera after the initial framing.
+   *
+   * **One slot, held by the shell** (`components/shell/use-map-shell.ts`), where it used to be two
+   * on this page — `focusPlaceIds` for the movers that frame a set of pins and `focusBounds` for
+   * the two that frame a box inside a zoom range. The map keys each flight on the *identity* of
+   * what it is handed, so whoever writes last wins and a re-render that changes nothing cannot
+   * re-fly; across two cells that was a property of the order two effects ran in rather than of the
+   * state. `camera.framePlaces` and `camera.frameBounds` are the two ways to write it, and every
+   * mover below goes through one of them.
    *
    * **The authorised camera movers, and there are exactly eight.** `06` §9.2 listed four, this file
    * grew to seven, and `docs/ux-stable-area-list.md` cut it back — the reconciliation `06` §9.2 was
@@ -255,11 +256,8 @@ export function MapPageClient({
    * from inside the registry component at a hard-coded zoom, which is a mover this list could never
    * have accounted for. It is off, and mover 8 replaces it.
    */
-  const [focusPlaceIds, setFocusPlaceIds] = useState<readonly string[] | null>(null);
-  /** Mover 5's request, held separately from `focusPlaceIds` because it frames a box rather than a
-   *  set of places and comes to rest inside a zoom range rather than under a ceiling. Keyed on
-   *  object identity by the surface, exactly as `focusPlaceIds` is. */
-  const [focusBounds, setFocusBounds] = useState<FocusBoundsRequest | null>(null);
+  const { camera } = shell;
+
   /**
    * **What the list is a list of** — the whole library, one country of it, or one ~50 km area
    * (`ui/place/list-scope.ts`, which owns every rule below and is where the argument lives).
@@ -274,7 +272,7 @@ export function MapPageClient({
    * survives an import landing in the area and a deletion from it. A `country` scope holds a
    * `CountrySummary.key`, stable in the same way.
    *
-   * **Six writers**, and they are the movers enumerated on `focusPlaceIds` plus the camera: the
+   * **Six writers**, and they are the movers enumerated on the camera slot plus the camera itself: the
    * default resolution, an `Elsewhere`/area-marker tap (4), a country-marker tap (5), a finished
    * import (2), near me (8), and a settled *user gesture that crossed a zoom band or an area
    * boundary*. It is never re-derived from settled bounds alone, which is what stops the camera
@@ -448,10 +446,7 @@ export function MapPageClient({
   /** The library narrowed by **every** filter. This is what the **pins** show — never narrowed by
    *  the scope, which would be circular. The list is this same array narrowed once more by the
    *  scope, so the pins and the rows can never disagree about what the filters did. */
-  const matches = useMemo(
-    () => filterPlaces(categoryMatches, query),
-    [categoryMatches, query],
-  );
+  const matches = useMemo(() => filterPlaces(categoryMatches, query), [categoryMatches, query]);
 
   /**
    * The chips, counted over the library narrowed by **every other filter but this one**.
@@ -467,11 +462,7 @@ export function MapPageClient({
    */
   const facets = useMemo(
     () =>
-      categoryFacets(
-        filterPlaces(visitMatches, query),
-        (place) => place.category,
-        activeCategory,
-      ),
+      categoryFacets(filterPlaces(visitMatches, query), (place) => place.category, activeCategory),
     [visitMatches, query, activeCategory],
   );
 
@@ -628,7 +619,7 @@ export function MapPageClient({
    *  re-selecting the same place does fly again. The active area is deliberately not touched. */
   function selectPlace(place: MapPlace) {
     setSelectedId(place.id);
-    setFocusPlaceIds([place.id]);
+    camera.framePlaces([place.id]);
   }
 
   /**
@@ -652,16 +643,16 @@ export function MapPageClient({
       const matching = area.members.filter((place) => matchIds.has(place.id));
       setScope(scopeForAreaTap(area.id));
       setSelectedId(null);
-      setFocusPlaceIds((matching.length > 0 ? matching : area.members).map((place) => place.id));
+      camera.framePlaces((matching.length > 0 ? matching : area.members).map((place) => place.id));
     },
-    [areas, matchIds],
+    [areas, matchIds, camera, setSelectedId],
   );
 
   /**
    * **Camera mover 5, and a writer of the scope** — tapping a country marker frames that country's
    * areas *and* makes the list a list of that country.
    *
-   * It is its own mover rather than a reuse of `focusPlaceIds` because it needs a zoom **floor** as
+   * It is its own arm of the focus slot rather than a reuse of `framePlaces` because it needs a zoom **floor** as
    * well as a ceiling: §2.4 requires the camera to come to rest inside the area band, so that a
    * country tap always lands on labelled area markers and never on an empty map or on pins.
    *
@@ -683,13 +674,13 @@ export function MapPageClient({
       if (!country) return;
       setScope(scopeForCountryTap(country.key));
       setSelectedId(null);
-      setFocusBounds({
+      camera.frameBounds({
         bounds: country.bounds,
         minZoom: COUNTRY_LANDING_ZOOM.min,
         maxZoom: COUNTRY_LANDING_ZOOM.max,
       });
     },
-    [countries],
+    [countries, camera, setSelectedId],
   );
 
   /**
@@ -720,9 +711,9 @@ export function MapPageClient({
       const area = nearestArea(areas, fix.point);
       if (area !== null) setScope(scopeForAreaTap(area.id));
       setSelectedId(null);
-      setFocusBounds(nearMeCamera(fix));
+      camera.frameBounds(nearMeCamera(fix));
     },
-    [areas],
+    [areas, camera, setSelectedId],
   );
 
   const nearMe = useNearMe(goToUserLocation);
@@ -803,10 +794,13 @@ export function MapPageClient({
    * list on mobile and closes the map popover on desktop. It is a state change, not a camera
    * change: `setSelected(null)` touches no camera mover, and neither does `setActiveTag`.
    */
-  const toggleTag = useCallback((tag: string) => {
-    setActiveTag((current) => (current !== null && isSameTag(current, tag) ? null : tag));
-    setSelectedId(null);
-  }, []);
+  const toggleTag = useCallback(
+    (tag: string) => {
+      setActiveTag((current) => (current !== null && isSameTag(current, tag) ? null : tag));
+      setSelectedId(null);
+    },
+    [setSelectedId],
+  );
 
   const clearTag = useCallback(() => setActiveTag(null), []);
 
@@ -874,7 +868,7 @@ export function MapPageClient({
     setNotBeenOnly(false);
     setActiveCategory(null);
     setScope(scopeForAreaTap(savedPlaceId));
-    setFocusPlaceIds([savedPlaceId]);
+    camera.framePlaces([savedPlaceId]);
     setSelectedId(savedPlaceId);
   }
 
@@ -884,179 +878,160 @@ export function MapPageClient({
     // need a filter prop threaded through a surface whose job is cameras and pins.
     <CollectionsContext value={collections}>
       <TagFilterContext value={tagFilter}>
-      {/* The been/not-been toggle is a leaf in the same three trees the tag chips are — the sheet's
+        {/* The been/not-been toggle is a leaf in the same three trees the tag chips are — the sheet's
           detail, the desktop map popover, and any future `PlaceDetail` host — so what it announces
           reaches the page's one live region the same way: through a context, not through a callback
           threaded across the map surface. */}
-      <AnnounceContext value={announcer}>
-        {/* Every `PlaceRow` in the sheet and in the desktop panel reads its distance from here.
+        <AnnounceContext value={announcer}>
+          {/* Every `PlaceRow` in the sheet and in the desktop panel reads its distance from here.
             `null` — no fix, a refused or revoked permission, or a fix too rough to measure from —
             is the state that makes a row render no distance at all, which is `L1-F11-T2`. */}
-        <NearMeDistancesContext value={distances}>
-        <div className="relative h-full w-full">
-          <MapSurface
-            places={matches}
-            // Selection only — tapping a pin must not move the camera under the finger that tapped
-            // it. `selectPlace` (camera mover 3) is for the list, where the pin may be off-screen.
-            onPlaceClick={(place) => {
-              setSelectedId(place.id);
-            }}
-            selected={selected}
-            onDeselect={() => {
-              setSelectedId(null);
-            }}
-            // Selecting a place raises the sheet to `half`; without this the camera does not know
-            // that and the pin the user just tapped can sit behind it. See camera mover 6.
-            selectedOcclusionFraction={SHEET_HALF_FRACTION}
-            onViewportChange={handleViewportChange}
-            initialBounds={initialBounds}
-            {...(focusPlaceIds ? { focusPlaceIds } : {})}
-            summaries={summaries}
-            onAreaClick={selectArea}
-            onCountryClick={focusCountry}
-            {...(focusBounds ? { focusBounds } : {})}
-            accessibleName={canvasName}
-            // The locate control sits in the surface's own control column because that is where a
-            // user looks for it; everything it means — the permission, the fix, the flight — is
-            // owned here. See camera mover 8.
-            controlSlot={
-              <NearMeControl
-                status={nearMe.state.status}
-                notice={nearMeNoticeText}
-                onRequest={nearMe.request}
-                onDismissNotice={nearMe.dismissNotice}
-              />
-            }
-          />
-
-          {/* The list and the pins both change silently as the user types, so the one thing a screen
-              reader user has no way to perceive is how many places are left. Rendered here, once, rather
-              than inside each surface: only one of the two is ever in the accessibility tree (the other
-              is `display: none` behind a breakpoint), but a single region cannot double-announce. */}
-          <p role="status" aria-live="polite" className="sr-only">
-            {spoken.message}
-          </p>
-          {lastImport && (
-            <ImportConfirmation
-              saved={lastImport.saved}
-              alreadySaved={lastImport.alreadySaved}
-              skipped={lastImport.skipped}
-              onDismiss={() => setLastImport(null)}
-            />
-          )}
-          {/* `PlaceSheet` is mobile-only (its content is `lg:hidden`) and rendered through a vaul
-              portal, which appends to `document.body` *after* this component's own subtree — so at
-              matched z-indices it paints on top of anything rendered here, regardless of DOM/JSX
-              order. That's invisible normally (the sheet coexists with the map fine), but it means
-              the sheet cannot simply share a z-index with the import overlay below: unmounting it
-              while the overlay is open is the only way to guarantee mobile gets the same opaque,
-              edge-to-edge takeover the standalone `/import` route always had, with no "Your places"
-              list bleeding through behind/around it. Desktop is unaffected — `PlaceDesktopPanel`
-              below is a plain (non-portaled) sibling that the overlay's higher z-index already
-              paints over correctly. */}
-          {/* The bar sits outside the `!showImport` guard's subtree for the same reason the sheet
-              sits inside it: the import overlay is a full takeover, and navigating away from a
-              half-finished import by tapping a tab is not a thing to offer. It renders only below
-              `lg` (its own class), where `PlaceDesktopPanel`'s always-visible column already gives
-              desktop everything the bar is for. */}
-          {/* `＋` opens the create menu, never the TikTok overlay directly — the 2026-08-29 ruling.
-              The TikTok arm inside the sheet still lands in that same overlay (`onSubmitTikTok`
-              below), so nothing about the import path changed; what changed is that it is now one
-              of two things the button can start rather than the only one. */}
-          {!showImport && <BottomNav onAdd={() => setAddOpen(true)} />}
-          {!showImport && (
-            <PlaceSheet
-              places={listed}
-              heading={heading}
-              otherPlaces={otherPlaces}
-              activeAreaId={activeAreaId}
-              libraryIsEmpty={places.length === 0}
-              libraryHasVisited={libraryHasVisited}
-              query={query}
-              onQueryChange={setQuery}
-              activeTag={activeTag}
-              onClearTag={clearTag}
-              notBeenOnly={notBeenOnly}
-              onToggleNotBeen={toggleNotBeen}
-              categoryFacets={facets}
-              activeCategory={activeCategory}
-              onToggleCategory={toggleCategoryFilter}
-              selected={selected}
+          <NearMeDistancesContext value={distances}>
+            <MapShell
+              shell={shell}
+              places={matches}
+              initialBounds={initialBounds}
+              // The sheet rests on the peek strip here, so the camera concedes 128px rather than a
+              // fraction of the viewport. A collection rests at `half` and concedes accordingly.
+              restingStop="peek"
+              // Selection only — tapping a pin must not move the camera under the finger that
+              // tapped it. `selectPlace` (camera mover 3) is for the list, where the pin may be
+              // off-screen.
+              onPlaceClick={(place) => {
+                setSelectedId(place.id);
+              }}
+              selectedPlace={selected}
               onDeselect={() => {
-              setSelectedId(null);
-            }}
-              onAddTikTok={openImport}
-              onSelect={selectPlace}
-            />
-          )}
-          {/* Rendered after `PlaceSheet` on purpose. Both are vaul drawers in body-level portals, so
-              paint order is mount order at equal z-index; this one is modal, sits a layer above
-              (`z-50` content over the sheet's `z-40`), and must be the thing the backdrop covers
-              rather than the thing covered by it.
-
-              **Not** under `!showImport`, unlike the sheet above it, and the difference is that
-              `PlaceSheet` is always open while this one renders nothing at all when `addOpen` is
-              false. Guarding it would mean unmounting a *modal* drawer mid-open on the one path
-              that raises the import overlay from inside it — and a modal drawer that never runs its
-              close effect is how `document.body` keeps a scroll lock and a `pointer-events: none`
-              nobody can see. Closing it normally and letting the overlay mount on top costs one
-              140 ms crossfade behind an opaque takeover. */}
-          <AddSheetHost
-            open={addOpen}
-            onOpenChange={setAddOpen}
-            places={places}
-            // The same reveal a manual save gets, and for the same reason: the user named a place,
-            // so a filter they set earlier must not be what decides whether they see it.
-            onSelectPlace={revealSavedPlace}
-            // The link is carried across and **submitted**: `initialUrl` runs the import on mount,
-            // so the sheet's `Add this TikTok` is the only Add between the ＋ and the save. This
-            // callback fires only on that press, which is the prop's stated contract.
-            onSubmitTikTok={(url) => openImport(url)}
-            onManualSaved={(saved) => revealSavedPlace(saved.savedPlaceId)}
-          />
-          <PlaceDesktopPanel
-            places={listed}
-            heading={heading}
-            otherPlaces={otherPlaces}
-            activeAreaId={activeAreaId}
-            libraryIsEmpty={places.length === 0}
-              libraryHasVisited={libraryHasVisited}
-            query={query}
-            onQueryChange={setQuery}
-            activeTag={activeTag}
-            onClearTag={clearTag}
-            notBeenOnly={notBeenOnly}
-            onToggleNotBeen={toggleNotBeen}
-            categoryFacets={facets}
-            activeCategory={activeCategory}
-            onToggleCategory={toggleCategoryFilter}
-            onAddTikTok={openImport}
-            onSelect={selectPlace}
-          />
-          {showImport && (
-            <ImportPageClient
-              {...(importSeedUrl === null ? {} : { initialUrl: importSeedUrl })}
-              onClose={() => setShowImport(false)}
-              // The recovery on the screen most imports end on. `NoPlacesScreen` withheld it while
-              // there was no manual-add surface to send anyone to; there is one now, and without
-              // this the modal outcome of an import is a dead end.
-              onAddManually={() => {
-                setShowImport(false);
-                setAddOpen(true);
+                setSelectedId(null);
               }}
-              onSaved={(outcome) => {
-                setLastImport(outcome);
-                setFocusPlaceIds(outcome.savedPlaceIds);
-                // Writer 3. Resolves itself once the refreshed rows arrive, so this does not wait
-                // on the data.
-                const first = outcome.savedPlaceIds[0];
-                if (first) setScope(scopeForAreaTap(first));
-              }}
+              // Selecting a place raises the sheet to `half`; without this the camera does not know
+              // that and the pin the user just tapped can sit behind it. See camera mover 6.
+              selectedOcclusionFraction={SHEET_HALF_FRACTION}
+              onViewportChange={handleViewportChange}
+              summaries={summaries}
+              onAreaClick={selectArea}
+              onCountryClick={focusCountry}
+              accessibleName={canvasName}
+              // The locate control sits in the surface's own control column because that is where a
+              // user looks for it; everything it means — the permission, the fix, the flight — is
+              // owned here. See camera mover 8.
+              controlSlot={
+                <NearMeControl
+                  status={nearMe.state.status}
+                  notice={nearMeNoticeText}
+                  onRequest={nearMe.request}
+                  onDismissNotice={nearMe.dismissNotice}
+                />
+              }
+              announcement={spoken.message}
+              floatingSlot={
+                lastImport ? (
+                  <ImportConfirmation
+                    saved={lastImport.saved}
+                    alreadySaved={lastImport.alreadySaved}
+                    skipped={lastImport.skipped}
+                    onDismiss={() => setLastImport(null)}
+                  />
+                ) : null
+              }
+              // `＋` opens the create menu, never the TikTok overlay directly — the 2026-08-29
+              // ruling. The TikTok arm inside the sheet still lands in that same overlay
+              // (`onSubmitTikTok` below), so nothing about the import path changed; what changed is
+              // that it is now one of two things the button can start rather than the only one.
+              onAdd={() => setAddOpen(true)}
+              sheetContent={(stop) => (
+                <PlaceSheet
+                  places={listed}
+                  heading={heading}
+                  otherPlaces={otherPlaces}
+                  activeAreaId={activeAreaId}
+                  libraryIsEmpty={places.length === 0}
+                  libraryHasVisited={libraryHasVisited}
+                  query={query}
+                  onQueryChange={setQuery}
+                  activeTag={activeTag}
+                  onClearTag={clearTag}
+                  notBeenOnly={notBeenOnly}
+                  onToggleNotBeen={toggleNotBeen}
+                  categoryFacets={facets}
+                  activeCategory={activeCategory}
+                  onToggleCategory={toggleCategoryFilter}
+                  selected={selected}
+                  onDeselect={() => {
+                    setSelectedId(null);
+                  }}
+                  onAddTikTok={openImport}
+                  onSelect={selectPlace}
+                  stop={stop}
+                  onExpand={shell.sheet.goTo}
+                />
+              )}
+              panelContent={
+                <PlaceDesktopPanel
+                  places={listed}
+                  heading={heading}
+                  otherPlaces={otherPlaces}
+                  activeAreaId={activeAreaId}
+                  libraryIsEmpty={places.length === 0}
+                  libraryHasVisited={libraryHasVisited}
+                  query={query}
+                  onQueryChange={setQuery}
+                  activeTag={activeTag}
+                  onClearTag={clearTag}
+                  notBeenOnly={notBeenOnly}
+                  onToggleNotBeen={toggleNotBeen}
+                  categoryFacets={facets}
+                  activeCategory={activeCategory}
+                  onToggleCategory={toggleCategoryFilter}
+                  onAddTikTok={openImport}
+                  onSelect={selectPlace}
+                />
+              }
+              /* Not guarded by the overlay, unlike the sheet, and the difference is that `PlaceSheet`
+               is always open while this renders nothing at all when `addOpen` is false. Guarding it
+               would mean unmounting a *modal* drawer mid-open on the one path that raises the
+               import overlay from inside it. See `MapShell`'s header. */
+              modalSlot={
+                <AddSheetHost
+                  open={addOpen}
+                  onOpenChange={setAddOpen}
+                  places={places}
+                  // The same reveal a manual save gets, and for the same reason: the user named a
+                  // place, so a filter they set earlier must not be what decides whether they see it.
+                  onSelectPlace={revealSavedPlace}
+                  // The link is carried across and **submitted**: `initialUrl` runs the import on
+                  // mount, so the sheet's `Add this TikTok` is the only Add between the ＋ and the
+                  // save. This callback fires only on that press, which is the prop's contract.
+                  onSubmitTikTok={(url) => openImport(url)}
+                  onManualSaved={(saved) => revealSavedPlace(saved.savedPlaceId)}
+                />
+              }
+              overlay={
+                showImport ? (
+                  <ImportPageClient
+                    {...(importSeedUrl === null ? {} : { initialUrl: importSeedUrl })}
+                    onClose={() => setShowImport(false)}
+                    // The recovery on the screen most imports end on. `NoPlacesScreen` withheld it
+                    // while there was no manual-add surface to send anyone to; there is one now, and
+                    // without this the modal outcome of an import is a dead end.
+                    onAddManually={() => {
+                      setShowImport(false);
+                      setAddOpen(true);
+                    }}
+                    onSaved={(outcome) => {
+                      setLastImport(outcome);
+                      camera.framePlaces(outcome.savedPlaceIds);
+                      // Writer 3. Resolves itself once the refreshed rows arrive, so this does not
+                      // wait on the data.
+                      const first = outcome.savedPlaceIds[0];
+                      if (first) setScope(scopeForAreaTap(first));
+                    }}
+                  />
+                ) : null
+              }
             />
-          )}
-        </div>
-        </NearMeDistancesContext>
-      </AnnounceContext>
+          </NearMeDistancesContext>
+        </AnnounceContext>
       </TagFilterContext>
     </CollectionsContext>
   );
@@ -1124,9 +1099,7 @@ function filterSentence(
   // match` is true and useless when the user asked "what have I still got to do", and with no
   // query and no tag there is nothing for `match` to be about.
   if (notBeenOnly && activeTag === null && query === '') {
-    return count === 0
-      ? "You've been to all of them."
-      : `${count} ${noun} still to go.`;
+    return count === 0 ? "You've been to all of them." : `${count} ${noun} still to go.`;
   }
 
   // With another filter on, the visit filter becomes a qualifier on the sentence that filter
