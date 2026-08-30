@@ -21,10 +21,18 @@
  * language. Same visual result, no blast radius on `/map`.
  */
 
-import { useMemo, useRef, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Check, ChevronLeft, MoreHorizontal, Plus, Users } from 'lucide-react';
+import {
+  ArrowLeft,
+  Check,
+  ChevronLeft,
+  ChevronUp,
+  MoreHorizontal,
+  Plus,
+  Users,
+} from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -78,6 +86,16 @@ export interface CollectionContentProps {
    * since it hit the same wall.
    */
   readonly stop?: SheetStop;
+  /** Pull the sheet open from the peek line. Absent in the `lg+` panel, which never peeks. */
+  readonly onExpand?: () => void;
+  /**
+   * Claims the one focus move a route-level scope change is allowed (`ux-collections-as-scope.md`
+   * §6): entering a collection replaces the whole list, so focus goes to its `<h2>`. Returns
+   * `true` to the first caller for a given collection and `false` to every later one — this
+   * component is mounted twice at once (the sheet and the `lg+` panel, one of them displayed) and
+   * it re-mounts whenever a pushed pane closes, which is explicitly *not* a scope change.
+   */
+  readonly claimHeadingFocus?: () => boolean;
 }
 
 export function CollectionContent(props: CollectionContentProps) {
@@ -93,6 +111,18 @@ export function CollectionContent(props: CollectionContentProps) {
 function CollectionBody(props: CollectionContentProps) {
   const { collection, currentUserId, view, onViewChange, selectedItemId, onSelectItem } = props;
   const selected = collection.places.find((place) => place.itemId === selectedItemId) ?? null;
+
+  // At `peek` there are 114 px of column and the scope is the only thing worth spending them on
+  // (§3 of the ruling). Ahead of the view switch, so a sheet dragged down over an open pane still
+  // says which collection it is rather than clipping that pane to one line of its header.
+  if (props.stop === 'peek') {
+    return (
+      <CollectionPeekLine
+        collection={collection}
+        {...(props.onExpand ? { onExpand: props.onExpand } : {})}
+      />
+    );
+  }
 
   if (view === 'share') {
     return (
@@ -140,6 +170,52 @@ function CollectionBody(props: CollectionContentProps) {
   return <CollectionList {...props} />;
 }
 
+/**
+ * The whole sheet at `peek`: which collection this is, and that there is more one drag up.
+ *
+ * The count carries the emphasis and the rest of the line stays quiet — the same treatment the
+ * saved list's peek row gives `18 in London`, because this is that row in a different scope
+ * (`ux-collections-as-scope.md` §3). The name is the **collection's**, never the area's: a
+ * collection is not geography, and naming the city its pins happen to sit in would be the one
+ * fact on screen contradicting the list underneath.
+ */
+function CollectionPeekLine({
+  collection,
+  onExpand,
+}: {
+  collection: CollectionDetail;
+  onExpand?: (() => void) | undefined;
+}) {
+  const count = collection.places.length;
+
+  return (
+    <div className="flex min-h-0 flex-col px-5 pt-3.5">
+      <div className="flex items-center" style={{ paddingBottom: `${BOTTOM_NAV_HEIGHT_PX}px` }}>
+        <button
+          type="button"
+          onClick={onExpand}
+          aria-label={`Show ${collection.name}`}
+          className="flex min-w-0 flex-1 items-center gap-1 rounded-lg px-1 text-left text-sm font-medium text-muted-foreground"
+        >
+          <span className="min-w-0 truncate">
+            {count === 0 ? (
+              'Nothing in this collection yet'
+            ) : (
+              <>
+                <span className="font-heading font-extrabold text-foreground">{count}</span> in{' '}
+                {/* Isolated: a Hebrew collection name otherwise drags the count into its own run
+                    and the line reads back-to-front. */}
+                <bdi>{collection.name}</bdi>
+              </>
+            )}
+          </span>
+          <ChevronUp className="size-4 shrink-0 opacity-60" aria-hidden />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function CollectionList({
   collection,
   currentUserId,
@@ -147,9 +223,29 @@ function CollectionList({
   onViewChange,
   onSelectItem,
   stop,
+  claimHeadingFocus,
 }: CollectionContentProps) {
   const [query, setQuery] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+
+  /**
+   * The one focus move §6 asks for: entering a collection is a route-level scope change, and the
+   * list under the heading has changed completely.
+   *
+   * `checkVisibility` before claiming, not after: this component is in the document twice at once
+   * (the sheet, `lg:hidden`; the panel, `hidden lg:block`) and only one of them is displayed.
+   * Calling `focus()` on the hidden one is a silent no-op that would still have consumed the
+   * claim, leaving nothing focused at all.
+   */
+  useEffect(() => {
+    const heading = headingRef.current;
+    if (!heading?.checkVisibility()) return;
+    if (!claimHeadingFocus?.()) return;
+    // No scroll: the sheet is mid-animation into its resting stop and a scroll-into-view here
+    // fights it.
+    heading.focus({ preventScroll: true });
+  }, [claimHeadingFocus]);
 
   const matches = useMemo(() => filterPlaces(pins, query), [pins, query]);
   const editable = canEdit(collection.role);
@@ -198,7 +294,11 @@ function CollectionList({
           </Button>
         </div>
 
-        <h2 className="line-clamp-2 font-heading text-base font-bold">
+        <h2
+          ref={headingRef}
+          tabIndex={-1}
+          className="line-clamp-2 font-heading text-base font-bold outline-none"
+        >
           <bdi>{collection.name}</bdi>
         </h2>
         <button

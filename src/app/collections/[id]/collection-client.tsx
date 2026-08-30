@@ -14,7 +14,7 @@
  * only narrowing is the search box inside `CollectionContent`, and it never moves the camera.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { type MapPlace } from '@/components/map/map-surface';
 import { boundsOfPoints } from '@/components/map/bounds';
@@ -57,6 +57,22 @@ export function CollectionClient({
    *  a collection is small and hand-made, and seeing all of it is the point. */
   const initialBounds = useMemo(() => boundsOfPoints(collection.places), [collection.places]);
 
+  /**
+   * Entering a collection moves focus to the sheet's `<h2>` — `ux-collections-as-scope.md` §6,
+   * because the list beneath it changed completely.
+   *
+   * Keyed on the collection's id rather than on a mount, and held in a ref rather than in state so
+   * claiming it is not a render. The heading re-mounts every time a pushed pane closes, and that
+   * is not a scope change; and the heading exists twice at once, in the sheet and in the `lg+`
+   * panel, so the claim is what stops the hidden one taking the move and dropping it.
+   */
+  const focusedCollection = useRef<string | null>(null);
+  const claimHeadingFocus = useCallback(() => {
+    if (focusedCollection.current === collection.id) return false;
+    focusedCollection.current = collection.id;
+    return true;
+  }, [collection.id]);
+
   useRefitOnChange(pins, camera.framePlaces);
 
   /**
@@ -87,6 +103,8 @@ export function CollectionClient({
       pins={pins}
       view={view}
       {...(stop ? { stop } : {})}
+      claimHeadingFocus={claimHeadingFocus}
+      onExpand={() => shell.sheet.goTo('half')}
       onViewChange={(next) => {
         setView(next);
         // Pushing a panel raises the sheet to full, from wherever it was. Measured at `half`: the
