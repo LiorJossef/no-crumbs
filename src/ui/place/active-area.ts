@@ -74,6 +74,21 @@ export const ALL_BEEN_LIBRARY_NOTE =
  *  something in them, so this line points at them rather than at the import. */
 export const ALL_BEEN_AREA_NOTE = 'Your other areas still have places waiting.';
 
+/**
+ * Wrap user-supplied text so the characters *after* it keep their own direction.
+ *
+ * `<bdi>` in a string, for the places that cannot use the tag: an `aria-label` is an attribute, so
+ * the only isolation available is the Unicode one. Measured in a browser — `רעננה, 1 place, open
+ * this area` renders as `1 ,הננער place, open this area`, with the comma and the count dragged
+ * inside the Hebrew run and reversed. Isolating the name puts them back.
+ *
+ * Only needed where something follows the name. A heading that *ends* with it
+ * (`3 places in תל אביב-יפו`) already renders correctly and is deliberately left alone.
+ */
+export function isolate(text: string): string {
+  return `\u2068${text}\u2069`;
+}
+
 /** The same absence, in a row that is *not* the area you are looking at — `this area` would be a
  *  lie there, and `Unnamed area` reads like a defect rather than an honest gap. */
 export const UNNAMED_OTHER_AREA_LABEL = 'Another area';
@@ -282,7 +297,7 @@ export function areaRowCountText(count: number, filtering: boolean): string {
  * group's own name has to agree with.
  */
 export function areaRowAccessibleName(row: AreaRow, filtering: boolean): string {
-  return `${row.label}, ${areaRowCountText(row.count, filtering)}, open this area`;
+  return `${isolate(row.label)}, ${areaRowCountText(row.count, filtering)}, open this area`;
 }
 
 /** Everything the header needs to say what the list is. Shape-compatible with what the sheet's peek
@@ -444,7 +459,7 @@ export function areaHeadingSentence(heading: AreaHeading): string {
  * all 12` is the difference between "there might be more out there" and "this is everything here".
  */
 export function mapAccessibleName(heading: AreaHeading, area: string | null): string {
-  const where = area ?? UNNAMED_AREA_LABEL;
+  const where = isolate(area ?? UNNAMED_AREA_LABEL);
   if (heading.count === null) return `Map of your saved places in ${where}.`;
   return `Map of your saved places in ${where}. The list below names all ${heading.count}.`;
 }

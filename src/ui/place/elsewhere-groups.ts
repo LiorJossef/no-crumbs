@@ -30,7 +30,7 @@
  * they stand on their own, unflagged, sorted last however many there are.
  */
 
-import { UNNAMED_OTHER_AREA_LABEL, type Area, type AreaRow } from './active-area';
+import { isolate, UNNAMED_OTHER_AREA_LABEL, type Area, type AreaRow } from './active-area';
 import { countryKey, type CountrySummary } from './library-summary';
 
 /**
@@ -229,5 +229,5 @@ export function countryGroupAccessibleName(
       ? 'place'
       : 'places';
   const areas = entry.areas.length === 1 ? '1 area' : `${entry.areas.length} areas`;
-  return `${entry.label}, ${entry.count} ${noun} in ${areas}, ${expanded ? 'collapse' : 'expand'}`;
+  return `${isolate(entry.label)}, ${entry.count} ${noun} in ${areas}, ${expanded ? 'collapse' : 'expand'}`;
 }
