@@ -97,6 +97,16 @@ REQUIRED_DENY = [
     ("Bash(supabase secrets:*)",   "agent-guardrails.md §2.5 — never touch staging or production"),
     ("Read(./.env.local)",         "agent-guardrails.md §3.9 — .env.local holds real secrets"),
     ("Read(./.env)",               "agent-guardrails.md §3.9 — .env.local holds real secrets"),
+    # Denying Read() alone is not enough and the first version of this file got that wrong.
+    # §3.9 names `cat` and `grep` specifically, and an allowed shell reads a denied file happily.
+    ("Bash(cat .env:*)",           "agent-guardrails.md §3.9 — names cat explicitly; Read() deny does not cover the shell"),
+    ("Bash(grep .env:*)",          "agent-guardrails.md §3.9 — names grep explicitly"),
+    ("Bash(source .env:*)",        "agent-guardrails.md §3.9 — never source .env.local"),
+    # --no-verify walks straight past .githooks/pre-push, which is the ONLY protection on main.
+    ("Bash(git push --no-verify:*)",   "agent-guardrails.md §1.3 — never pass --no-verify"),
+    ("Bash(git commit --no-verify:*)", "agent-guardrails.md §1.3 — never pass --no-verify"),
+    ("Bash(git config:*)",             "agent-guardrails.md §1.3 — never change git config or core.hooksPath"),
+    ("Bash(git push -u origin main:*)", "git-workflow.md §9.3 — pushing directly to main, via the -u form"),
 ]
 REQUIRED_ASK = [
     ("Bash(npm run db:push:staging:*)", "git-workflow.md §9.3 — db:push is deliberate and announced"),

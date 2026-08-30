@@ -28,6 +28,16 @@ jobs:
       # ALL on new tables to anon and authenticated by default and the migration role cannot stop
       # them, so a local `db reset` proves nothing here. See docs/ms4-database.md §2.3.
       - run: npm run check:migrations
+      # These three ran only in local `npm run verify` until 2026-08-30, which meant the job named
+      # "lint · typecheck · layer guard · unit" was a strict subset of the local filter it was
+      # supposed to backstop. A guard that runs only on the machine that wrote the change is not a
+      # gate. check:schema is the one whose absence already cost us: docs/git-workflow.md §9.2
+      # records two real defects that hid behind a green local verify.
+      - run: npm run check:schema
+      - run: npm run check:agents
+      # Proves main is still protected and the committed permission posture still encodes
+      # git-workflow.md §9.3 — see docs/claude-code-setup.md.
+      - run: npm run check:claude
       - run: npm run test
 
   build:
