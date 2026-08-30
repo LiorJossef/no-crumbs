@@ -17,9 +17,15 @@ The arithmetic of a first session, measured rather than guessed:
 |---|---|
 | Places before the map is useful | **~20** (Charter §2) |
 | Posts that yield any place | **~27%** |
-| Places per import, averaged over all imports | **~0.9** (`04` §194, 3 of 11 posts yielding 10 places; n=11) |
+| Places per import, averaged over all imports | **0.63–0.91** (`04` §194 / E7: 10 places from 3 successful posts; n=11) |
 | Places per *successful* import | **~3.3**, capped at 7 |
-| Imports to reach 20 places | **~22**, of which ~16 end on the no-places screen |
+| Pastes to reach **five** places | **6 to 19 — and the range is the finding** |
+| Pastes ending on the no-places screen | **~13 of every 18, on every model** |
+
+The spread is the shape of the data, not sloppiness. The three successful posts yielded `1, 1, 8` —
+**one caption supplies 80% of the sample's places.** Median hit → ~19 pastes to five places; mean hit
+→ ~6. With n=3 hits neither end is solid. What survives every model is the failure count, and that is
+the number the product is actually judged on.
 
 Two consequences the team had not stated before:
 
@@ -29,6 +35,12 @@ Two consequences the team had not stated before:
 2. **The library does not arrive as a trickle. It arrives in bursts.** A listicle adds 3–7 places in
    one city on one day, separated by long runs of zero. That shape breaks different things than a
    steady stream does — see §3.
+3. **And the decisive argument is emotional, not arithmetic.** Eighteen sequential paste-wait-confirm
+   cycles with thirteen failure screens *reads as a broken product*. The identical 27% inside a queue
+   — a hundred links in, twenty-seven places out, failures summarised as one line — *reads as a
+   success*. Nothing about the extraction changed. **Bulk import does not merely raise places per
+   interaction; it hides a failure rate we cannot yet fix.** That is why input work outranks feature
+   work here.
 
 ## 2. Four defects found while looking, all verified in the code
 
@@ -37,6 +49,7 @@ Two consequences the team had not stated before:
 | **G1** | **The zero-state screen was designed, specified, and never built.** `showImport` is `useState(false)`; `ux-map-is-the-query.md` §5 specifies the empty-library screen — regional map from the browser timezone, import overlay auto-opened — with **"no new components and no permission prompt"**, and line 6 of that same document admits the overlay is unbuilt. The first screen a new user sees is one sentence and a plus button | `map-page-client.tsx:170` |
 | **G2** | **A post naming 13 places yields zero places, not twelve.** `ExtractionEnvelopeSchema` caps `candidates` at 12; `safeParse` fails the whole envelope, and the item-by-item salvage runs only *after* the envelope parses. Total loss, silently | `domain/extraction/schema.ts:401,458,463` |
 | **G3** | **Our best real listicle loses its last place by one.** The `exploringlondon` post names 8 venues; `MAX_CANDIDATES = 7`. The 8th is extracted, never resolved, shown capped. `GEMINI_MAX_CANDIDATES = 8` caps the model schema too, so there is no headroom to widen into | `domain/import/pipeline.ts`, `gemini.place-extractor.ts:70` |
+| **G5** | **The candidate the resolver never saw is the one that saves silently.** A `capped` candidate is correctly excluded from the resolver chip and the pin-provenance line — the code is explicit that "we never looked" is not "we looked and found nothing". But `willSave` returns `effectivePick(…) !== null \|\| modelHasCoordinates`, and a capped candidate has no pick — so whenever the model produced coordinates it arrives **pre-ticked** and saves an `llm_guess` pin. The card carrying the least provenance is the one nothing verified | `candidate-resolution-view.ts:201,319` |
 | **G4** | **An Instagram link becomes a place name.** `universal-input.ts` classifies any non-TikTok URL as `kind: 'text'`, which `manualAddSeed` hands to manual add, so the Add sheet offers `Add "https://www.instagram.com/reel/D…" manually`. `/import` handles the identical URL correctly. Two surfaces, opposite behaviours | `universal-input.ts:45-47` vs `import-page-client.tsx:429` |
 
 ## 3. What bursts break, in the order they break
@@ -81,8 +94,10 @@ tag only if you already happened to see it on a place.
 |---|---|---|---|
 | 1 | **Ship the specified zero-state** (G1) | The first screen, already designed, no new components | S |
 | 2 | **Fix G2 and G4** | Two silent correctness bugs on the two ways in | S |
-| 3 | **Raise the candidate cap past 8** (G3) | Our best listicle currently loses a place to an off-by-one | S |
-| 4 | **Seed the first session from a shared collection** | The join flow already ships (`collections/join/[token]`); it needs curated content and an entry point. This is the only path that makes the map non-empty *before* the first import | S–M |
+| 3 | **Raise both caps to 8** (G3) | One constant; captures our only real listicle whole and stops the pipeline cap and the model-schema cap disagreeing. Ten costs three more sequential paid lookups and is a separate decision | S |
+| 4 | **Seed from a starter collection** | **The fastest legitimate route from zero to five places is not an import path at all.** Every import path is a 27% lottery; joining a collection is one tap, N places, zero failures — and the join flow already ships, unused for this | S–M |
+| 4b | **Repeated manual add as a first-class onboarding path** | The other deterministic path, also already shipped: one place per action, ~100% success, no model call, no quota, no platform terms | S |
+| 4c | **A tag facet with counts** | Tags are the only field that actually separates places — `category` measured four values across twenty rows, fourteen of them `restaurant`. Categories have a facet; tags do not | S |
 | 5 | **Thumbnail + elapsed time on the list row** | Twenty identical grey rows become twenty posts | S |
 | 6 | **Sort control** — recently saved · nearest · A–Z | Batch writes break recency; the list has one order and three legitimate questions | S |
 | 7 | **A neighbourhood band (~1.5 km)** | The first thing bursts break | M |

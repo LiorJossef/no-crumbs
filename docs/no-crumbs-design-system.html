@@ -3156,9 +3156,15 @@ td .mono { font-size: 12.5px; color: var(--ink-3); }
     <div class="verdict">
       <div><p class="n">~20</p><p class="k">places before the map beats a note</p></div>
       <div><p class="n">27%</p><p class="k">of posts yield any place at all</p></div>
-      <div><p class="n">0.9</p><p class="k">places per import, averaged over all imports</p></div>
-      <div><p class="n">~22</p><p class="k">imports to reach twenty &mdash; sixteen of them ending in nothing</p></div>
+      <div><p class="n">6&ndash;19</p><p class="k">pastes to reach five places &mdash; the range <em>is</em> the finding</p></div>
+      <div><p class="n">13/18</p><p class="k">pastes ending on the no-places screen, on every model</p></div>
     </div>
+    <p class="small" style="margin-top:16px;max-width:70ch">The spread is not sloppiness, it is the shape of the data.
+      The measured sample yielded ten places from three successful posts, distributed <span class="mono">1, 1, 8</span>
+      &mdash; <strong>one caption supplies eighty per cent of the places in the whole sample.</strong> Take the median
+      hit and it is nineteen pastes to five places; take the mean and it is six. With n=3 hits, neither end is solid.
+      What survives every model is the second number: <strong>roughly thirteen of every eighteen pastes end on the
+      no-places screen</strong>, and that barely moves whichever yield you assume.</p>
     <div class="grid g2" style="margin-top:26px">
       <div class="card"><h3>At three places, everything we built is inert</h3><p>Search, filters, near me, been / not
         been yet &mdash; every retrieval feature is correct and useless without density. The map is worse than a note
@@ -3166,6 +3172,15 @@ td .mono { font-size: 12.5px; color: var(--ink-3); }
       <div class="card"><h3>The library arrives in bursts, not a trickle</h3><p>A listicle adds three to seven places in
         one city on one day, then nothing for a week. That shape breaks different things than a steady stream does
         &mdash; and it breaks them sooner. See <em>Bursts</em>.</p></div>
+      <div class="card" style="grid-column:1/-1;border-color:color-mix(in srgb, var(--mint-mid) 32%, transparent);background:var(--glow-2)">
+        <h3>The strongest argument in the whole exercise, and it is emotional rather than arithmetic</h3>
+        <p style="font-size:15px">Eighteen sequential paste&ndash;wait&ndash;confirm cycles with thirteen failure screens
+          <strong>reads as a broken product</strong>. The identical twenty-seven per cent inside a queue &mdash; a
+          hundred links in, twenty-seven places out, the failures summarised as one line &mdash; <strong>reads as a
+          success</strong>. Nothing about the extraction changed. <strong>Bulk import does not merely raise places per
+          interaction; it hides a failure rate we cannot yet fix.</strong> That is a product argument, not an
+          integration one, and it is why the input work outranks the feature work.</p>
+      </div>
     </div>
   </div>
 </section>
@@ -3193,9 +3208,11 @@ td .mono { font-size: 12.5px; color: var(--ink-3); }
         <span class="idx">G2</span>
         <div><h4>A post naming thirteen places yields zero places, not twelve</h4>
           <p><code>ExtractionEnvelopeSchema</code> caps candidates at 12. <code>safeParse</code> fails the
-            <em>whole envelope</em>, and the item-by-item salvage runs only after the envelope parses. The post is lost
-            silently, and it is exactly the kind of post &mdash; a long listicle &mdash; that would have been worth the
-            most.</p></div>
+            <em>whole envelope</em>, and the item-by-item salvage runs only after the envelope parses. Above the cap the
+            behaviour is a <strong>cliff, not a truncation</strong> &mdash; and <em>&ldquo;12 Best Coffee Shops in
+            Melbourne&rdquo;</em> is an entirely ordinary caption format. The 12 exists as a flood guard against a model
+            emitting forty hashtags as places; a higher envelope bound that truncates to the candidate cap keeps the
+            guard and removes the cliff.</p></div>
         <span class="sev hi">Correctness</span>
       </div>
       <div class="find">
@@ -3214,6 +3231,17 @@ td .mono { font-size: 12.5px; color: var(--ink-3); }
             manually</em>. The <code>/import</code> route handles the identical URL correctly, with its own screen. Two
             surfaces, opposite behaviours.</p></div>
         <span class="sev md">Correctness</span>
+      </div>
+      <div class="find">
+        <span class="idx">G5</span>
+        <div><h4>The candidate the resolver never saw is the one that saves silently</h4>
+          <p>A <code>capped</code> candidate is correctly excluded from the resolver chip and from the pin-provenance
+            line &mdash; the code is explicit that <em>&ldquo;we never looked&rdquo; is not &ldquo;we looked and found
+            nothing&rdquo;</em>. But <code>willSave</code> returns <code>effectivePick(&hellip;) !== null ||
+            modelHasCoordinates</code>, and a capped candidate has no pick &mdash; so whenever the model produced
+            coordinates it arrives <strong>pre-ticked</strong> and saves a model-guessed pin. The card on that screen
+            carrying the least information about where its pin came from is the one nothing ever verified.</p></div>
+        <span class="sev hi">Honesty</span>
       </div>
     </div>
   </div>
@@ -3288,12 +3316,14 @@ td .mono { font-size: 12.5px; color: var(--ink-3); }
         <tbody>
           <tr><td>1</td><td><strong>Ship the specified zero-state</strong></td><td>The first screen, already designed, no new components</td><td>S</td></tr>
           <tr><td>2</td><td><strong>Fix G2 and G4</strong></td><td>Two silent correctness bugs, one on each way in</td><td>S</td></tr>
-          <tr><td>3</td><td><strong>Raise the candidate cap past 8</strong></td><td>The best listicle we have loses a place to an off-by-one</td><td>S</td></tr>
-          <tr><td>4</td><td><strong>Seed the first session from a shared collection</strong></td><td>The join flow already ships. It needs curated content and an entry point &mdash; the only path that makes the map non-empty <em>before</em> the first import</td><td>S&ndash;M</td></tr>
-          <tr><td>5</td><td><strong>Thumbnail and elapsed time on the row</strong></td><td>Twenty identical grey rows become twenty posts</td><td>S</td></tr>
-          <tr><td>6</td><td><strong>Sort control</strong> &mdash; recent · nearest · A&ndash;Z</td><td>Batch writes break recency; one order, three legitimate questions</td><td>S</td></tr>
-          <tr><td>7</td><td><strong>A ~1.5&nbsp;km neighbourhood band</strong></td><td>The first thing bursts break</td><td>M</td></tr>
-          <tr><td>8</td><td><strong>&ldquo;This is an ad&rdquo; disclosure</strong></td><td>One of three venue-naming posts in the corpus is a paid promotion, saved indistinguishably from a friend's tip. Extends the existing attribution line; displaces nothing</td><td>S</td></tr>
+          <tr><td>3</td><td><strong>Raise both caps to 8</strong></td><td>One constant, it captures our only real listicle whole, and it stops the pipeline cap and the model-schema cap disagreeing. Ten is a separate decision costing three more sequential paid lookups</td><td>S</td></tr>
+          <tr><td>4</td><td><strong>Seed the first session from a starter collection</strong></td><td><strong>The fastest legitimate route from zero to five places is not an import path at all.</strong> Every import path is a lottery at 27%; joining a collection is one tap, N places, zero failures &mdash; and the join flow already ships, unused for this. Owner-curated from their own imports, so our data, our provenance, no platform risk, no quota</td><td>S&ndash;M</td></tr>
+          <tr><td>5</td><td><strong>Make repeated manual add a first-class onboarding path</strong></td><td>Also already shipped, and the other deterministic one: one place per action, ~100% success, no model call, no quota, no platform terms</td><td>S</td></tr>
+          <tr><td>6</td><td><strong>A tag facet with counts</strong></td><td>Tags are the only field that actually separates places &mdash; <code>category</code> measured four values across twenty rows, fourteen of them <em>restaurant</em>. Categories have a facet; tags, which do the real work, have none</td><td>S</td></tr>
+          <tr><td>7</td><td><strong>Thumbnail and elapsed time on the row</strong></td><td>Twenty identical grey rows become twenty posts. <code>MapPlace.detail</code> already carries the whole record to the row &mdash; every gap here is a render, not a rewire</td><td>S</td></tr>
+          <tr><td>8</td><td><strong>Sort control</strong> &mdash; recent · nearest · A&ndash;Z</td><td>Batch writes break recency; one order, three legitimate questions</td><td>S</td></tr>
+          <tr><td>9</td><td><strong>A ~1.5&nbsp;km neighbourhood band</strong></td><td>The first thing bursts break</td><td>M</td></tr>
+          <tr><td>10</td><td><strong>&ldquo;This is an ad&rdquo; disclosure</strong></td><td>One of three venue-naming posts in the corpus is a paid promotion, saved indistinguishably from a friend's tip. Extends the existing attribution line; displaces nothing</td><td>S</td></tr>
         </tbody>
       </table>
     </div>
@@ -3337,8 +3367,10 @@ td .mono { font-size: 12.5px; color: var(--ink-3); }
           <strong>A price filter</strong> is the right idea from the wrong source &mdash; only 2 of 16 captions carry
           price. The real source is the resolver field mask, which requests five fields and not
           <code>priceLevel</code>.<br><br>
-          <strong>The PWA share target</strong> is <strong>Android only and unavailable on iOS</strong>, and requires the
-          user to install the app first. Worth building; not the iOS answer it looks like.
+          <strong>The PWA share target</strong> is <strong>Android only and unavailable on iOS</strong>, requires the
+          user to install the app first, and delivers <strong>0.63 places per interaction</strong> &mdash; so on the
+          places-per-interaction test it is the least defensible of the build-worthy paths. The repo's own capture
+          evidence reached the same verdict by another route: <em>a polish item wearing an adoption item's clothes</em>.
           <strong>Instagram</strong> is unavailable; <strong>YouTube</strong> is assumed possible and unproven.</p>
       </div>
       <div class="card">
