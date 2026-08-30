@@ -28,8 +28,14 @@ several of the original rules quietly depended on.
 
    In both modes, staging is **an explicit list of paths**, never `git add -A`, `git add .` or
    `git add -a`, because with more than one agent running those sweep another agent's unreviewed,
-   unfinished work into a commit. (`git add -A`, `git add .` and `git add --all` are `deny` in
-   `.claude/settings.json`, and the orchestrator is one of the parties they were denied to.)
+   unfinished work into a commit.
+
+   **This one is on you, not on the harness.** Those three were `deny` rules for about an hour on
+   2026-08-30 and were removed the same evening, when the owner cut the deny list to the 23 rules
+   `check-claude-config.sh` asserts by name. Nothing refuses a bulk stage now. It remains the single
+   most destructive ordinary command in run mode — it is how one agent's half-written file ends up
+   inside another agent's atomic commit — and it is now prose in two documents rather than a rule
+   the machine holds.
 
    **Branch switching is the sharp edge.** `git switch` and `git checkout -b` rewrite the working
    tree under every other running agent, which makes them strictly more destructive than the `reset`

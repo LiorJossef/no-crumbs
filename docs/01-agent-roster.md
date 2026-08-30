@@ -193,7 +193,8 @@ easy to miss.
    This is what makes **run mode** possible at all (`agent-guardrails.md` §1a): when agents commit
    their own packages onto a single shared branch, disjointness is the only thing standing between
    atomic history and two agents silently consuming each other's work. Bulk staging is banned in
-   both modes for the same reason, and it is banned in the harness rather than merely asked for.
+   both modes for the same reason — and as of 2026-08-30 that ban is **prose, not enforcement**: the
+   deny rules that held it were removed with the rest of the unasserted list.
 
 Lose disjointness and you lose the ability to commit, review or revert one agent's work
 independently. That is why it is a hard constraint rather than a preference, and why the answer to
