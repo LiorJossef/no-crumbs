@@ -74,6 +74,7 @@ import { nearbyDistanceLabel, nearbyPlaces, type NearbyPlace } from '@/ui/place/
 import {
   APPROXIMATE_ROW_ANNOTATION,
   locationCertainty,
+  savedElapsedLine,
   savedOnLine,
   visitedOnLine,
 } from '@/ui/place/location-certainty';
@@ -546,6 +547,14 @@ export function PlaceRow({
   const approximateLabel = certainty?.isApproximate === true ? certainty.label : null;
   const rowName = rowAccessibleName(place.name, tags, place.visited);
   /**
+   * `Saved 3 days ago`, against the reader's own clock. `new Date()` at render rather than a
+   * prop: this is a phrase about *now*, so a value threaded down from the page would be the moment
+   * the page rendered, which on a sheet that stays open is a different moment.
+   */
+  const savedElapsed = place.detail?.savedAt
+    ? savedElapsedLine(place.detail.savedAt, new Date())
+    : null;
+  /**
    * How far this place is from **the user** (`L1-F11-T2`), or `null`, which is the normal case.
    *
    * Read from a context rather than taken as a prop so the three hosts of this row do not each have
@@ -560,6 +569,16 @@ export function PlaceRow({
   // inside it that is not in the name is announced nowhere at all. Both annotations qualify the pin
   // rather than the place, so both come last; the distance first, because it is the one the user
   // asked for by pressing a control.
+  // **`savedElapsed` is deliberately not here**, and the rule it follows is the one this name
+  // already had rather than a new one. `rowAccessibleName` carries the name, the tags and the been
+  // mark; the visible `Category · Locality` line and the note are *not* announced, because
+  // `aria-label` replaces the content and this name is "which row do I want open", not "read me
+  // the row". The tags are in it because without them twenty rows differ only by name. Elapsed
+  // time is the opposite case: it is identical or near-identical across every row saved in one
+  // afternoon, which is precisely the objection `savedOnLine`'s docblock raised against putting a
+  // date on a row at all — visually it is answered by being quiet, and a screen reader has no
+  // quiet. It becomes worth announcing when W5-2's sort control can order by it; that package owns
+  // the decision and this comment is the handoff.
   const annotations = [
     ...(distanceLabel === null ? [] : [`${distanceLabel} away`]),
     ...(approximateLabel === null ? [] : [APPROXIMATE_ROW_ANNOTATION]),
@@ -567,31 +586,11 @@ export function PlaceRow({
 
   const body = (
     <>
-      {/* The row's own pin, in the category's colour — the same colour the map draws it. Two
-          surfaces showing one place used to agree on nothing but its name; now a brown cup on the
-          map and a brown row are visibly the same café.
-
-          A dashed ring when the coordinate is the model's own guess. The mark belongs here and not
-          beside the text: this disc *is* the pin, so the uncertainty is drawn on the thing it is
-          about, it costs the city name no width on a 375 px row, and running down a list the
-          dashed ring reads against the solid ones above and below it. Tried trailing the category
-          line first — a lone dashed circle after `Restaurant · ת״א` attaches to nothing and reads
-          as a smudge. */}
-      <span
-        aria-hidden
-        title={approximateLabel ?? undefined}
-        style={{
-          backgroundColor: `${category.color}1F`,
-          color: category.color,
-          ...(approximateLabel === null ? {} : { borderColor: category.color }),
-        }}
-        className={cn(
-          'mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full',
-          approximateLabel !== null && 'border border-dashed',
-        )}
-      >
-        <MapPin className="size-4" />
-      </span>
+      <RowMedia
+        thumbnailUrl={place.detail?.sourceThumbnailUrl}
+        color={category.color}
+        approximateLabel={approximateLabel}
+      />
       <div className="flex min-w-0 flex-col gap-0.5 pt-0.5 text-left">
         {/* `<bdi>` isolates a Hebrew or Arabic name inside this LTR row without right-aligning the
             row itself, and `line-clamp-1` replaces `truncate` because an ellipsis on an RTL string
@@ -623,6 +622,17 @@ export function PlaceRow({
         {tags.length > 0 && <TagChipRow tags={tags} />}
         {place.note && (
           <p className="line-clamp-1 text-sm font-medium text-muted-foreground">{place.note}</p>
+        )}
+        {/* When you saved it, as elapsed time — the fact the library was ordered by and never
+            showed (`growth-plan.md` §4: `created_at` was rendered as an absolute date, on the
+            detail only). Last and quietest on the row: it is what makes the most-recently-saved
+            order legible, not a reason to open one row rather than another.
+
+            Absent rather than empty where there is no `savedAt`, which is every row rendered from
+            a collection's shared place: those carry the place's facts and none of the viewer's own,
+            so a saved time there would be a fact about somebody else. */}
+        {place.detail?.savedAt && (
+          <p className="text-micro font-medium text-muted-foreground/70">{savedElapsed}</p>
         )}
       </div>
       {/* Trailing, aligned with the name, and only ever present while a real fix is held. `ms-auto`
@@ -685,6 +695,108 @@ export function PlaceRow({
         {body}
       </button>
     </li>
+  );
+}
+
+/**
+ * **The row's leading square: the post's own still, or the category pin when there is not one.**
+ *
+ * `source_thumbnail_url` has been on `Spot` since `0016` and reached the detail view only
+ * (`growth-plan.md` §4 lists it as "detail only — **not on any list row**"). Twenty rows that
+ * differ by name and a coloured disc are twenty rows a person reads; twenty rows that carry the
+ * frame they saved are twenty things a person recognises. That is the whole of W5-1's first half.
+ *
+ * **The fallback is part of the feature, not a nicety.** These are signed TikTok CDN URLs with an
+ * expiry we do not store (`SpotSource.media`, `Spot.sourceThumbnailUrl` — roughly six months), and
+ * the majority of the library predates the column entirely. So there are three states and all three
+ * are ordinary: an image, no image, and an image that 404s halfway down a scroll. The last one
+ * falls back to the pin disc — `failed` is per mount and never retried, exactly like
+ * `SourceMediaThumbnail` on the detail — rather than leaving a broken-image glyph or a hole where a
+ * row's identity should be.
+ *
+ * **One box size for both**, 44 px, so the text column starts at the same x on every row. A list
+ * whose leading element is 32 px on some rows and 48 px on others has a ragged left edge, which is
+ * the most visible kind of misalignment in a vertical list. The shapes differ inside it — a
+ * `rounded-lg` still, a `rounded-full` pin — because they are different kinds of thing and the
+ * shape is what says so.
+ *
+ * `referrerPolicy="no-referrer"` is load-bearing and the reason is privacy rather than politeness:
+ * without it every row on screen sends a `Referer` to TikTok's CDN, which would let TikTok
+ * correlate its own signed URLs with the device asking for them — "which posts this person saved".
+ * The detail view's own thumbnail carries the same attribute for the same reason; on a list it is
+ * twenty requests instead of one.
+ *
+ * `loading="lazy"` and `decoding="async"`: a 30-row library is 30 network images, and the ones
+ * below the fold must not compete with the map's own tiles for the first paint.
+ */
+function RowMedia({
+  thumbnailUrl,
+  color,
+  approximateLabel,
+}: {
+  thumbnailUrl: string | undefined;
+  /** The category's colour, from `categoryDisplay` — the same value the map paints the pin. */
+  color: string;
+  /** Non-null when the coordinate is the model's own guess, and then also the tooltip. */
+  approximateLabel: string | null;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  /* The dashed ring when the coordinate is the model's own guess. The mark belongs on this box and
+     not beside the text: it is drawn on the thing the uncertainty is about, it costs the city name
+     no width on a 375 px row, and running down a list the dashed ring reads against the solid ones
+     above and below it. Tried trailing the category line first — a lone dashed circle after
+     `Restaurant · ת״א` attaches to nothing and reads as a smudge. */
+  const approximate = approximateLabel !== null;
+
+  if (thumbnailUrl !== undefined && !failed) {
+    return (
+      <span
+        aria-hidden
+        title={approximateLabel ?? undefined}
+        style={approximate ? { borderColor: color } : undefined}
+        className={cn(
+          'mt-0.5 block size-11 shrink-0 overflow-hidden rounded-lg bg-muted',
+          approximate && 'border border-dashed',
+        )}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element -- an arbitrary, expiring, signed
+            third-party CDN URL: `next/image` would proxy every one of them through our own
+            optimizer, which is a cost and a second place the referrer question would have to be
+            answered. The detail view's `SourceMediaThumbnail` is a plain `<img>` for the same
+            reason. */}
+        <img
+          src={thumbnailUrl}
+          alt=""
+          referrerPolicy="no-referrer"
+          loading="lazy"
+          decoding="async"
+          onError={() => setFailed(true)}
+          className="size-full object-cover"
+        />
+      </span>
+    );
+  }
+
+  /* The row's own pin, in the category's colour — the same colour the map draws it. Two surfaces
+     showing one place used to agree on nothing but its name; a brown cup on the map and a brown
+     row are visibly the same café. */
+  return (
+    <span
+      aria-hidden
+      title={approximateLabel ?? undefined}
+      style={{
+        backgroundColor: `${color}1F`,
+        color,
+        ...(approximate ? { borderColor: color } : {}),
+      }}
+      className={cn(
+        'mt-0.5 flex size-11 shrink-0 items-center justify-center rounded-full',
+        approximate && 'border border-dashed',
+      )}
+    >
+      <MapPin className="size-5" />
+    </span>
   );
 }
 

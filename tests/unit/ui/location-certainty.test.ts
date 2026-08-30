@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { locationCertainty, savedOnLine, visitedOnLine } from '@/ui/place/location-certainty';
+import {
+  locationCertainty,
+  savedElapsedLine,
+  savedOnLine,
+  visitedOnLine,
+} from '@/ui/place/location-certainty';
 
 describe('locationCertainty', () => {
   it('says plainly that a model-guessed coordinate is approximate, and what that costs', () => {
@@ -101,5 +106,77 @@ describe('visitedOnLine', () => {
     expect(visitedOnLine(new Date('2026-08-24T10:00:00Z'), new Date('2026-08-29T10:00:00Z'))).toBe(
       'Marked as been in אוגוסט',
     );
+  });
+});
+
+/**
+ * The full C130 ladder from `docs/overnight-copy-deck.md` §4.1, rung by rung.
+ *
+ * Every rung, not a sample: the copy deck's own reason for writing all twelve out is that a rung
+ * with no string is a rung a caller invents at the boundary, and the boundaries are exactly where
+ * an elapsed-time helper goes wrong (59 vs 60 seconds, 6 vs 7 days, 34 vs 35, this year vs last).
+ *
+ * `now` is a fixed instant rather than the clock, which is what makes any of this assertable.
+ */
+describe('savedElapsedLine — the row\'s elapsed time', () => {
+  const now = new Date('2026-08-31T12:00:00Z');
+  const ago = (ms: number) => new Date(now.getTime() - ms);
+  const SECOND = 1000;
+  const MINUTE = 60 * SECOND;
+  const HOUR = 60 * MINUTE;
+  const DAY = 24 * HOUR;
+
+  it('reads "just now" under a minute, and at the boundary', () => {
+    expect(savedElapsedLine(now, now)).toBe('Saved just now');
+    expect(savedElapsedLine(ago(59 * SECOND), now)).toBe('Saved just now');
+    expect(savedElapsedLine(ago(60 * SECOND), now)).toBe('Saved 1 minute ago');
+  });
+
+  it('clamps a future timestamp rather than narrating clock skew', () => {
+    // The row is computed against the reader's own clock and the value was written by Postgres.
+    // Skew between the two is real; `in 2 hours` would be the product reporting its own plumbing.
+    expect(savedElapsedLine(new Date(now.getTime() + 2 * HOUR), now)).toBe('Saved just now');
+  });
+
+  it('counts minutes, then hours, then days, with the singular written out', () => {
+    // `voice-and-vocabulary.md` §5 bans `place(s)`; the same rule governs `minute(s)`.
+    expect(savedElapsedLine(ago(12 * MINUTE), now)).toBe('Saved 12 minutes ago');
+    expect(savedElapsedLine(ago(59 * MINUTE), now)).toBe('Saved 59 minutes ago');
+    expect(savedElapsedLine(ago(HOUR), now)).toBe('Saved 1 hour ago');
+    expect(savedElapsedLine(ago(5 * HOUR), now)).toBe('Saved 5 hours ago');
+    expect(savedElapsedLine(ago(23 * HOUR), now)).toBe('Saved 23 hours ago');
+    expect(savedElapsedLine(ago(DAY), now)).toBe('Saved 1 day ago');
+    expect(savedElapsedLine(ago(3 * DAY), now)).toBe('Saved 3 days ago');
+    expect(savedElapsedLine(ago(6 * DAY), now)).toBe('Saved 6 days ago');
+  });
+
+  it('reaches every week rung, which is why the ladder ends at 35 days and not 30', () => {
+    expect(savedElapsedLine(ago(7 * DAY), now)).toBe('Saved 1 week ago');
+    expect(savedElapsedLine(ago(13 * DAY), now)).toBe('Saved 1 week ago');
+    expect(savedElapsedLine(ago(14 * DAY), now)).toBe('Saved 2 weeks ago');
+    expect(savedElapsedLine(ago(28 * DAY), now)).toBe('Saved 4 weeks ago');
+    expect(savedElapsedLine(ago(34 * DAY), now)).toBe('Saved 4 weeks ago');
+  });
+
+  it('hands off to the date at 35 days, in the format §5 fixes', () => {
+    // `Saved 5 months ago` is vaguer than `Saved 3 Aug`, no shorter, and invents a rung. The date
+    // is short-month per `voice-and-vocabulary.md` §5 — `3 Aug` within the year.
+    expect(savedElapsedLine(ago(35 * DAY), now)).toBe('Saved 27 Jul');
+    expect(savedElapsedLine(new Date('2026-01-03T09:00:00Z'), now)).toBe('Saved 3 Jan');
+  });
+
+  it('adds the year once it is not this one', () => {
+    expect(savedElapsedLine(new Date('2025-08-03T09:00:00Z'), now)).toBe('Saved 3 Aug 2025');
+  });
+
+  it('never uses a word where the ladder uses a digit', () => {
+    // No `yesterday`, no `last week`. One word form inside a numeric ladder is a special case a
+    // verifier has to remember and a translator has to restructure.
+    for (const days of [1, 2, 6, 7, 8, 20, 34]) {
+      const line = savedElapsedLine(ago(days * DAY), now);
+      expect(line).not.toContain('yesterday');
+      expect(line).not.toContain('last');
+      expect(line).toMatch(/\d/);
+    }
   });
 });

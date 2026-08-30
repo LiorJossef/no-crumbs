@@ -75,6 +75,12 @@ function placeWith(sourceDataset: SourceDataset | null): MapPlace {
   };
 }
 
+/** The same place, plus the post's own still — `saved_places.source_thumbnail_url`, denormalised
+ *  by `0016` and until now rendered on the detail view only. */
+function withThumbnail(place: MapPlace, url: string): MapPlace {
+  return { ...place, detail: { ...place.detail!, sourceThumbnailUrl: url } };
+}
+
 function render(place: MapPlace, interactive = true): string {
   return renderToStaticMarkup(
     createElement(PlaceRow, { place, ...(interactive ? { onSelect: () => {} } : {}) }),
@@ -155,5 +161,54 @@ describe('PlaceRow — the row acknowledges a tap', () => {
     // Without `onSelect` the row is an `<li>`, and a press state on something that cannot be
     // pressed is the same false affordance the tag chips refuse.
     expect(render(placeWith('google-places'), false)).not.toContain('active:scale');
+  });
+});
+
+describe('PlaceRow — the post, on the row (W5-1)', () => {
+  const THUMB = 'https://p16-sign.tiktokcdn.example/fixture.jpeg?x-expires=1';
+
+  it('renders the source thumbnail where the category disc was', () => {
+    // `growth-plan.md` §4: the column was queried, mapped and reached a renderer that ignored it.
+    // Twenty rows that differ by name and a coloured disc are twenty rows a person reads.
+    const markup = render(withThumbnail(placeWith('google-places'), THUMB));
+    expect(markup).toContain(`src="${THUMB}"`);
+    expect(markup).not.toContain('lucide-map-pin');
+  });
+
+  it('keeps the referrer off TikTok\'s CDN on every row', () => {
+    // Not politeness: without it each row tells TikTok which device asked for its signed URL,
+    // which is "which posts this person saved". The detail view carries the same attribute; a list
+    // makes it twenty requests instead of one.
+    expect(render(withThumbnail(placeWith('google-places'), THUMB))).toContain(
+      'referrerPolicy="no-referrer"',
+    );
+  });
+
+  it('falls back to the category disc when there is no thumbnail at all', () => {
+    // The majority state: nothing was backfilled, so every place saved before `0016` has none.
+    const markup = render(placeWith('google-places'));
+    expect(markup).toContain('lucide-map-pin');
+    expect(markup).not.toContain('<img');
+  });
+
+  it('keeps the approximate ring on whichever of the two is drawn', () => {
+    // The mark is about the coordinate, so it has to survive the thing it is drawn on being
+    // replaced. A thumbnail that swallowed the ring would delete the row\'s one honest qualifier.
+    expect(render(withThumbnail(placeWith('llm-guess'), THUMB))).toContain('border-dashed');
+    expect(render(placeWith('llm-guess'))).toContain('border-dashed');
+  });
+
+  it('shows when it was saved, as elapsed time', () => {
+    // The fixture is saved 2026-08-01 and the ladder is a function of the reader\'s clock, so the
+    // assertion is on the shape rather than on a rung that would rot.
+    expect(render(placeWith('google-places'))).toMatch(/Saved (just now|\d+ \w+ ago|\d+ \w{3})/);
+  });
+
+  it('says nothing about a saved time it does not have', () => {
+    // A collection\'s rows carry the place\'s facts and none of the viewer\'s own. A saved time
+    // there would be a fact about somebody else.
+    const withoutDetail: MapPlace = { ...placeWith('google-places') };
+    delete (withoutDetail as { detail?: unknown }).detail;
+    expect(render(withoutDetail)).not.toContain('Saved');
   });
 });
