@@ -109,10 +109,15 @@ export function PlaceDesktopPanel({
               anywhere on `/map` — it answers a question about owning things, and this screen is for
               finding one. */}
         {/* Keyed and faded exactly as the sheet's `h2` is — one change of scope, one motion, on
-              both surfaces. See `PlaceList` for why it keys on the area and not on the count. */}
+              both surfaces. See `PlaceList` for why it keys on the area and not on the count, and
+              for why the reduced-motion arm is now the fade rather than nothing at all: under
+              `prefers-reduced-motion` the nine animations collapse to the opacity change, because
+              the thing that just changed still has to be findable. Opacity is unconditional, the
+              4 px rise is `motion-safe:`, and `duration-enter` is the token `duration-140` was a
+              second way of saying. */}
         <h1
           key={activeAreaId ?? 'no-area'}
-          className="animate-in fade-in-0 duration-140 font-heading text-2xl font-extrabold tracking-tight text-foreground outline-none motion-reduce:animate-none"
+          className="animate-in fade-in-0 duration-enter motion-safe:slide-in-from-bottom-1 font-heading text-2xl font-extrabold tracking-tight text-foreground outline-none"
         >
           {libraryIsEmpty ? EMPTY_LIBRARY_HEADING : heading.text}
         </h1>

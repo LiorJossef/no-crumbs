@@ -220,3 +220,18 @@ describe('an empty scope escapes through the rows below it', () => {
     expect(withoutRows).not.toContain('border-t border-border/70');
   });
 });
+
+describe('the desktop heading enters the way the design system says it enters', () => {
+  it('fades for everyone and rises only for a pointer user', () => {
+    // W3-3, and the panel is the reason it matters twice: this heading and the sheet's are one
+    // change of scope on two surfaces, so a reduced-motion arm that differs between them is the
+    // phone and the desktop disagreeing about what the product does.
+    const markup = render({});
+    expect(markup).toContain('animate-in');
+    expect(markup).toContain('fade-in-0');
+    expect(markup).toContain('motion-safe:slide-in-from-bottom-1');
+    expect(markup).toContain('duration-enter');
+    expect(markup).not.toContain('duration-140');
+    expect(markup).not.toContain('motion-reduce:');
+  });
+});
