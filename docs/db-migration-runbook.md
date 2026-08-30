@@ -1,9 +1,15 @@
 # Database migration runbook — staging and production
 
-> Owner: `devops-vercel`. Written 2026-08-19 as MS1–MS4 audit task 7.
+> **CURRENT.** This is live operational procedure — follow it. Owner: `devops-vercel`.
+> Written 2026-08-19 as MS1–MS4 audit task 7; §6's applied-state table re-measured 2026-08-30.
+>
 > **Scope:** how a migration reaches a hosted Supabase project, and what happens when one goes wrong.
-> Nothing in this file has been executed against staging or production by its author — see §6 for
-> exactly what is proven and what is not.
+> §1–§5 are the procedure and are correct. §6 records what has actually been run against a hosted
+> project, and its table is measured, not remembered.
+>
+> The header used to say "nothing in this file has been executed against staging or production".
+> That has been false since 2026-08-26: staging is at `0018` and production at `0026`, both pushed
+> through these scripts.
 
 ## 1. The commands
 
@@ -184,12 +190,28 @@ the operator types.
 remote, `inventory.sql` 15/15 PASS. The paragraph below therefore describes the state *before* that
 push, and the container range `0001`–`0011` above is simply the range that existed when it was run.
 
-**Authoritative applied state, as of 2026-08-26 — supersedes the 2026-08-19 table below:**
+**Applied state — MEASURED 2026-08-30 with `npm run db:status:staging` and `npm run db:status:prod`,
+which is the only way this table should ever be filled in.** The previous version of it was copied
+forward by hand from 2026-08-26 and had both projects wrong, in opposite directions.
 
-| Project | Applied through | Proven by |
+| Project | Applied through | Missing |
 |---|---|---|
-| `p-002-staging` (`jfuqjzubphfhfleqnkno`) | **`0018`** | 2026-08-26 push, ledger local == remote with no remote-only row, `inventory.sql` **15/15 PASS**, plus 22 behavioural assertions from `0008_policy_tests.sql` and a signed-in run of `/map` at both breakpoints |
-| `p-002-prod` (`vtboskegexinvhasghri`) | `0009` | MS4. **Still `0009`** — the push was deferred by the owner on 2026-08-26 because `PROD_DATABASE_URL` is unset, and `db-push.sh` will not start a push it cannot prove |
+| `p-002-staging` (`jfuqjzubphfhfleqnkno`) | **`0018`** | `0019`–`0030` — eleven migrations |
+| `p-002-prod` (`vtboskegexinvhasghri`) | **`0026`** | `0028`, `0029`, `0030` — the taxonomy alignment |
+
+**Production is eight migrations AHEAD of staging, and every document in this repository said the
+opposite until this was measured.** Staging is now the stale environment, so it is no longer a
+rehearsal for a production push — pushing `0019`–`0030` to staging exercises eleven migrations that
+production has already taken eight of. Treat staging as needing a catch-up of its own.
+
+Two things follow. Migration `0027` does not exist in any environment or on disk; the sequence goes
+`0026` → `0028` and that gap is unexplained. And `PROD_DATABASE_URL` **is** set, so the 2026-08-26
+reason for deferring the production push no longer holds.
+
+**Do not hand-edit this table.** Run the two status scripts and paste what they say, or delete the
+table and let the scripts be the answer. A table of migration numbers maintained by memory is how
+this file came to state, authoritatively, that production was seventeen migrations behind when it
+was three.
 
 **Staging had drifted, and the drift is worth reading before the next push.** On 2026-08-26 the
 ledger carried `0016` under version **`0019`** (the tel-aviv branch renumbered the same file, so the
@@ -208,8 +230,10 @@ on its first check. Run the inventory, not just the status.
 `0014` were applied **nowhere**, which is what made MS5 task 1's in-place edit of `0010` legal under
 `08` §9.
 
-**NOT verified as of the entry below, i.e. before task 13:** no `db push`, no `link`, and no write of
-any kind against `p-002-staging` or `p-002-prod`. The pre-check (`migration list --project-ref`) was observed once
+**The paragraph below is from before task 13 and is kept only for what it records about the CLI.**
+Its headline claim — that no push or write had ever run against a hosted project — stopped being
+true on 2026-08-26 for staging and has since stopped being true for production, which is at `0026`.
+Read it for the `Initialising login role…` observation, not for verification status. The pre-check (`migration list --project-ref`) was observed once
 against staging read-only and reported `0011` local-only, which is expected; that call also printed
 `Initialising login role…`, i.e. the CLI provisions its own login role when given `--project-ref`.
 The push path itself, the confirmation prompt against a real target, and the whole of §4's recovery
