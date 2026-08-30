@@ -59,7 +59,7 @@ import { X } from 'lucide-react';
 import { tagDisplayLabel } from '@/domain/extraction/tags';
 import { splitRowTags } from '@/ui/place/enrichment';
 import { isTagActive, useTagFilter, type TagFacet } from '@/ui/place/tag-filter';
-import { PRESS_CHIP } from '@/components/ui/button';
+import { PRESS_CHIP } from '@/lib/interaction';
 import { cn } from '@/lib/utils';
 
 /**

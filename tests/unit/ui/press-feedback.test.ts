@@ -23,7 +23,8 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
-import { Button, PRESS_BUTTON, PRESS_CHIP, PRESS_ROW } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
+import { PRESS_BUTTON, PRESS_CHIP, PRESS_ROW } from '@/lib/interaction';
 import { CHIP_PRESSABLE } from '@/components/sheet/place-enrichment';
 
 const ALL = { PRESS_BUTTON, PRESS_CHIP, PRESS_ROW };

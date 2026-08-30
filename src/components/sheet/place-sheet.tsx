@@ -48,7 +48,8 @@ import {
 import { savedPlaceRef } from '@/components/map/saved-place-ref';
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Plus, MapPin, ExternalLink, X, ChevronLeft, ChevronUp, Search } from 'lucide-react';
-import { Button, PRESS_ROW } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
+import { PRESS_ROW } from '@/lib/interaction';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { isSearchActive } from '@/domain/places/search';
