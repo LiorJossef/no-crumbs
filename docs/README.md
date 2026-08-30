@@ -12,8 +12,9 @@
 | 3 | [`execution-plan.md`](execution-plan.md) | The ladder and the running status: Level → Feature → Task, with an exit criterion per task. |
 | 4 | [`working-agreement.md`](working-agreement.md) | How this project is built, and which decisions are the owner's. |
 | 5 | [`facelift-plan.md`](facelift-plan.md) | The five-stage visual rebuild, locked 2026-08-30: twelve audited findings, the map capability matrix, the decisions and the landing strategy while CI is down. |
-| 6 | [`voice-and-vocabulary.md`](voice-and-vocabulary.md) | Binding on every user-facing string: the tone rule, where the name may appear, the vocabulary table and the banned words. |
-| 7 | [`no-crumbs-design-system.html`](no-crumbs-design-system.html) | The same material rendered — audit, name, brand, mascot and voice — with live mockups and the running motion set. Open it in a browser. |
+| 6 | [`growth-plan.md`](growth-plan.md) | From demo to product: the first-session arithmetic, four verified defects, what bursts break, and what we already query but never render. |
+| 7 | [`voice-and-vocabulary.md`](voice-and-vocabulary.md) | Binding on every user-facing string: the tone rule, where the name may appear, the vocabulary table and the banned words. |
+| 8 | [`no-crumbs-design-system.html`](no-crumbs-design-system.html) | The same material rendered — audit, name, brand, mascot and voice — with live mockups and the running motion set. Open it in a browser. |
 
 `../CLAUDE.md` sits above all of them and wins where they disagree.
 
