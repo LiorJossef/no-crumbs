@@ -156,8 +156,10 @@ export const POI_GROUP_COLORS: Readonly<Record<PoiGroup, string>> = {
  * therefore *kept* — the conservative measure costs nothing, and trading a low-vision floor to buy
  * a colour-vision one would have been the wrong shape of fix even if it had worked.
  *
- * **The ceiling was the whole cost, and it was this file's own invention.** Releasing it takes the
- * worst ink-to-pin distance from *infeasible* to **12.0** in an unconstrained search. It is now
+ * **The ceiling was the whole cost, and it was this file's own invention.** Released on the ruling
+ * of **2026-08-31**, which is recorded here rather than only in a commit message because the thing
+ * it guards against is someone reading a relaxed bound in six months and restoring it. Releasing it
+ * takes the worst ink-to-pin distance from *infeasible* to **12.0** in an unconstrained search. It is now
  * `label`'s own lightness — **L\* 87.4**, the basemap's near-white place names, the brightest ink
  * CARTO draws. *"A POI label may be as bright as the map's other labels and no brighter"* survives
  * a basemap retune; `62.0` never did, because it was a number rather than a rule.

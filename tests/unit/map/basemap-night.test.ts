@@ -353,6 +353,15 @@ describe('the POI groups at night', () => {
     // this repository's own invention and it boxed the palette into L* 56.5-62.0 — 5.5 points —
     // which is the whole reason the CVD assertion below could not be met from inside this file.
     //
+    // **Released on the ruling of 2026-08-31**, after the measurement that made it a free choice
+    // rather than a trade: relaxing the AA floor instead buys −0.2, releasing this buys +12.0 from
+    // *infeasible*. What the old bound protected — "the pins are the data, the basemap is ground" —
+    // did not stop being true and is asserted in the next test, in chroma, where it holds without
+    // competing for the one axis colour-vision separation needs.
+    //
+    // **So do not restore it.** A tighter number here does not tighten anything; it re-breaks a
+    // colour-vision repair to satisfy a bound that was never the requirement.
+    //
     // `label` is the basemap's near-white place names, the brightest ink CARTO draws. "A POI label
     // may be as bright as the map's other labels and no brighter" survives a basemap retune; a
     // number does not, which is why this reads the tint rather than a literal.
