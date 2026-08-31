@@ -707,3 +707,60 @@ absolute values are an upper bound and nothing else.**
 - Nothing here touches the import screens' contrast or targets: those need `--dev`, and dev-mode
   captures are excluded from every claim in this repository.
 - Stub-backed throughout: real colour, real layout, fixture data.
+
+## 15. The night map, looked at
+
+**Commit `f993322`** — the pin commit, so all three colours moved together. 48 captures, both themes
+side by side, both gate viewports, 0/3/30/300 places, production path, stub-backed. `--theme` on
+`capture-screens.mjs` drives `colorScheme`, the same device switch a real user has, and **every
+capture records the theme the document actually resolved to**: 0 of 48 disagreed with the filename.
+That check exists because a dark capture that silently rendered light would be the same failure as
+the unhydrated screenshots and the `signed-out` shot that read `Signed in as` — honest pixels, lying
+filename, three times now.
+
+### The verdict: it reads as a designed screen
+
+Against the three questions asked:
+
+**1. Do the pins separate?** Yes, and at 300 places they separate *better than in light*. The three
+category colours are unambiguous against the slate ground and against each other — amber café,
+salmon restaurant, violet bar — where the light theme's brown-and-brick pair is the muddier of the
+two. Pins sitting on the road network still read: the road is desaturated grey and the pin bodies
+are saturated, so the 2.70:1 worst case with light bodies does not reproduce visually with night
+ones. Visited pins render at reduced emphasis and stay distinguishable rather than disappearing.
+
+**2. Is the basemap legible as geography?** Yes, and both deliberate inversions work. Roads are
+lighter than the land and read as a network at a glance; the label halo is dark and the labels sit
+*in* the ground rather than on paper laid over it. Water is a deep navy that never reads as land,
+parks are a dark green that never reads as water.
+
+**3. Does it look like one product?** Yes. Warm near-black chrome against cool slate basemap holds
+as two materials rather than two mistakes, and the mint CTA is the only saturated thing on the
+screen, which is what makes it the action.
+
+### Two dark-specific findings
+
+**D1 — MEDIUM. The basemap's POI labels did not lift with the rest of the palette.** At z13 the POI
+labels (`בית ביאליק`, `מרכז רפואי`, `היכל העצמאות`) render in a dark maroon-red against the slate
+ground and are markedly harder to read than the street and district labels beside them. The same
+role is red in light too, where red on near-white is fine — so this is the one POI colour that was
+carried over rather than re-derived for night. It is the weakest element in the night basemap and
+the only thing on that screen that looks unfinished. Not measurable by
+`audit-a11y.mjs`: it is canvas text, which that tool never scores.
+
+**D2 — LOW.** On the zero-places dark map the bottom-nav labels and the nav pill's border sit very
+close to the sheet's own value; the bar nearly disappears against it.
+
+### A correction to my own Q1 finding
+
+**S2 is fixed, and I am retracting it.** At `fb69916` the mark rendered as a featureless teal disc
+at all three sizes it ships at, and I reported that as a high-severity finding after a third read.
+At `f993322` **the mark has a face** — eyes and a smile, legible at 36px, in *both* themes. It was
+fixed between the Q1 sweep and this one. The finding was true when written and is not true now.
+
+### What this does not cover
+
+- The import screens are absent: they need `--dev`, and dev-mode captures stay out of every claim.
+- Contrast on the landing and sign-in gradients is still unscored in either theme (§14).
+- Canvas text — every basemap label, including D1 — is never machine-scored. D1 is an eye finding.
+- Stub-backed throughout.

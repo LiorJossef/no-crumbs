@@ -159,13 +159,17 @@ async function settle(page, settleMs) {
   await page.waitForTimeout(settleMs);
 }
 
-async function capture({ browser, baseUrl, screen, viewportSpec, cookie, outDir, label, settleMs, fullPage, authState }) {
+async function capture({ browser, baseUrl, screen, viewportSpec, cookie, outDir, label, settleMs, fullPage, authState, theme }) {
   const context = await browser.newContext({
     viewport: viewportSpec.viewport,
     deviceScaleFactor: viewportSpec.deviceScaleFactor,
     isMobile: viewportSpec.isMobile,
     hasTouch: viewportSpec.hasTouch,
     baseURL: baseUrl,
+    // The theme provider's default preference is `system` (`src/lib/theme.ts`), so emulating the
+    // device setting is the switch a real user actually has — truer than seeding `localStorage`,
+    // and it exercises the no-flash script rather than bypassing it.
+    colorScheme: theme,
   });
   const consoleErrors = [];
   const pageErrors = [];
@@ -225,6 +229,17 @@ async function capture({ browser, baseUrl, screen, viewportSpec, cookie, outDir,
     })
     .catch(() => false);
 
+  /**
+   * What the document *actually* resolved to.
+   *
+   * A dark capture that silently rendered light is the same class of failure as the unhydrated
+   * captures and the signed-out screenshot that said "Signed in as": honest pixels, lying filename.
+   * The theme is applied by JavaScript, so it can fail to apply for the same reasons hydration can.
+   */
+  const resolvedTheme = await page
+    .evaluate(() => (document.documentElement.classList.contains('dark') ? 'dark' : 'light'))
+    .catch(() => null);
+
   let expectMet = null;
   if (screen.notExpect) {
     const text = await page.evaluate(() => document.body.innerText).catch(() => '');
@@ -240,6 +255,9 @@ async function capture({ browser, baseUrl, screen, viewportSpec, cookie, outDir,
     viewport: viewportSpec.id,
     auth: authState,
     status,
+    theme,
+    resolvedTheme,
+    themeAsAsked: resolvedTheme === null ? null : resolvedTheme === theme,
     hydrated,
     expectMet,
     error,
@@ -308,6 +326,8 @@ async function main() {
   const screens = routeFilter
     ? SCREENS.filter((s) => routeFilter.includes(s.route) || routeFilter.includes(s.name))
     : SCREENS;
+  const themeArg = typeof args.theme === 'string' ? args.theme : 'light';
+  const themes = themeArg === 'both' ? ['light', 'dark'] : [themeArg];
   const settleMs = Number(args.settle ?? 2500);
   const fullPage = args['full-page'] === true;
 
@@ -329,6 +349,7 @@ async function main() {
      */
     buildMode: fromCommit ? (devMode ? 'next dev' : 'next build + next start') : 'deployed build',
     viewports: GATE_VIEWPORTS.map((v) => v.id),
+    themes,
     placeCounts: fromCommit ? counts : [],
     shots: [],
     skipped: [],
@@ -393,6 +414,7 @@ async function main() {
     manifest.notes.push(browserNote);
     const cookie = fromCommit && stub ? authCookie(stub.url) : null;
 
+    for (const theme of themes) {
     for (const viewportSpec of GATE_VIEWPORTS) {
       for (const screen of screens) {
         if (screen.requiresDev && !devMode) {
@@ -426,7 +448,10 @@ async function main() {
             // separated from its directory the moment somebody drags one into a document — so the
             // word travels *in the filename*, where it cannot be lost.
             const source = manifest.dataSource === 'stub' ? 'stub' : 'live';
-            const label = `${devMode ? `${source}-dev` : source}--${
+            // The theme rides in the filename for the same reason the data source does: a PNG gets
+            // separated from its manifest the moment somebody drags one into a document.
+            const themeTag = theme === 'dark' ? '-dark' : '';
+            const label = `${devMode ? `${source}-dev` : source}${themeTag}--${
               authState === 'out' ? 'signed-out' : `signed-in-${count}-places`
             }`;
             process.stderr.write(`[harness] ${label} ${screen.route} @ ${viewportSpec.id}\n`);
@@ -442,6 +467,7 @@ async function main() {
               settleMs,
               fullPage,
               authState,
+              theme,
             });
             manifest.shots.push({
               ...shot,
@@ -450,6 +476,7 @@ async function main() {
           }
         }
       }
+    }
     }
 
     await browser.close();
@@ -464,7 +491,8 @@ async function main() {
       s.error !== null ||
       (s.status !== null && s.status >= 400) ||
       s.hydrated === false ||
-      s.expectMet === false,
+      s.expectMet === false ||
+      s.themeAsAsked === false,
   );
   process.stderr.write(
     `\n[harness] ${manifest.shots.length} screenshots -> ${outDir}\n` +
@@ -476,6 +504,9 @@ async function main() {
       shot.status !== null && shot.status >= 400 ? `status ${shot.status}` : null,
       shot.hydrated === false ? 'REACT DID NOT HYDRATE — this is server HTML, not the product' : null,
       shot.expectMet === false ? 'screen did not change: the seam did not fire' : null,
+      shot.themeAsAsked === false
+        ? `asked for ${shot.theme}, document resolved ${shot.resolvedTheme}`
+        : null,
     ]
       .filter(Boolean)
       .join('; ');
