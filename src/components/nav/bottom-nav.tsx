@@ -400,7 +400,16 @@ function CreateMenuPending() {
           role="status"
           className="flex items-center justify-center gap-2 pt-6 text-sm font-medium text-muted-foreground"
         >
-          <Loader2 className="size-4 motion-safe:animate-spin" aria-hidden />
+          {/* **Hidden under reduced motion rather than frozen**, and that is the whole of the
+              inversion here rather than a mechanical prefix. `motion-safe:animate-spin` alone
+              leaves a *stationary* `Loader2` on screen for anyone who asked for less motion, and
+              that glyph is a three-quarter arc: still, it does not read as a spinner at rest, it
+              reads as a rendering artefact. Measured on `/sign-in` at 390x844 — the same shape of
+              spinner, computed `animation-name: spin` under `prefers-reduced-motion: reduce`.
+              `Opening…` is right beside it and carries the whole meaning on its own, so the
+              reduced arm is the word alone. §3a's "collapse to the opacity change, not to
+              nothing" is satisfied by the text, which never leaves. */}
+          <Loader2 className="hidden size-4 motion-safe:block motion-safe:animate-spin" aria-hidden />
           Opening…
         </p>
       </div>
@@ -420,8 +429,10 @@ function ImportPending() {
       className="flex h-full w-full flex-col items-center justify-center gap-3"
       style={{ background: 'var(--brand-wash)' }}
     >
+      {/* Same rule as `CreateMenuPending` above: no glyph at all under reduced motion rather than
+          a frozen one, with `Opening…` directly below carrying the state. */}
       <Loader2
-        className="size-5 motion-safe:animate-spin text-brand"
+        className="hidden size-5 text-brand motion-safe:block motion-safe:animate-spin"
         aria-hidden
       />
       <p role="status" className="text-sm font-medium text-muted-foreground">
