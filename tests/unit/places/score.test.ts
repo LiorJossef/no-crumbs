@@ -38,6 +38,8 @@ import {
   scorePlace,
   addressScore,
   parseAddress,
+  nameIsEstablished,
+  weakestTokenCoverage
 } from '@/domain/places/score';
 import { SCORING } from '@/domain/places/scoring-constants';
 
@@ -349,6 +351,47 @@ describe('scoreCandidates', () => {
     expect(result.confidence.band).toBe('no_match');
     expect(result.regionsSearched).toEqual([]);
     expect(result.candidatesPrefiltered).toBe(0);
+  });
+});
+
+describe('nameIsEstablished — the bilingual dependency, pinned', () => {
+  // **The guard's Hebrew safety is entirely load-bearing on `forms`, and that is invisible from
+  // its signature.** A Hebrew caption against a Latin-scripted venue shares no tokens at all:
+  // `טרטוריה אונה` against `Trattoria Una` covers at **0.000**. What saves it is that
+  // `scoreCandidates` passes `queryForms(query.text, query.textVariants)` and this function takes
+  // the max across them, so the Latin variant scores 1.000 and carries the row.
+  //
+  // Replayed against `docs/evidence/places/recognition-scoreboard-run.json` — the owner's own
+  // 16-row, Hebrew-heavy, human-adjudicated corpus, which these changes were **not** fitted to:
+  // with variants, all five Hebrew→Latin matches pass and the one adjudicated-wrong row
+  // (`בל עמי` → `בל בוי`, recorded `not_found`) is blocked at 0.800.
+  //
+  // Anyone "simplifying" this to read only `top.place.name` silently deletes every Hebrew match in
+  // the product. That is what this test exists to stop.
+  const HEBREW_TO_LATIN: readonly (readonly [string, string, string])[] = [
+    ['טרטוריה אונה', 'Trattoria Una', 'Trattoria Una'],
+    ['מתחת לעץ', 'Under the Tree', 'Under the Tree'],
+    ['קוהי', 'Kohi', 'Kohi Coffee Shop'],
+    ['קפה אירופה', 'Cafe Europa', 'Cafe Europa'],
+    ['רוסטיקו', 'Rustico', 'Rustico'],
+  ];
+
+  it('blocks every Hebrew→Latin match when the variant is withheld', () => {
+    for (const [hebrew, , candidateName] of HEBREW_TO_LATIN) {
+      expect(weakestTokenCoverage(hebrew, candidateName), hebrew).toBe(0);
+    }
+  });
+
+  it('passes every one of them once the variant is supplied, as scoreCandidates supplies it', () => {
+    for (const [hebrew, variant, candidateName] of HEBREW_TO_LATIN) {
+      const top = { place: { name: candidateName, altNames: [] } } as never;
+      expect(nameIsEstablished(top, [hebrew, variant]), hebrew).toBe(true);
+    }
+  });
+
+  it('still blocks the adjudicated-wrong Hebrew row with its variant present', () => {
+    const top = { place: { name: 'בל בוי', altNames: [] } } as never;
+    expect(nameIsEstablished(top, ['בל עמי', 'Bel Ami'])).toBe(false);
   });
 });
 
