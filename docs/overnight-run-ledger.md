@@ -149,3 +149,61 @@ screen it reached is not the screen it came from (`notExpect`), and **the harnes
 Its author's own conclusion is the one to carry: *a harness that cannot fail cannot be evidence — and
 mine could not, twice.* That is also §7's rule arriving from the other direction: a builder's own
 green result is the least reliable evidence available, demonstrated on itself.
+
+
+---
+
+## Closing state — 2026-08-31 03:20
+
+**`npm run verify` green.** 148 test files, **2,492 tests**, against a 2,017 / 114 baseline.
+**120 commits**, 95 files under `src/` (+11,589 / −2,875). **PR #109 open**; all four CI jobs failed
+in 2–3 seconds having executed no steps, exactly as `overnight-run-plan.md` §9 predicted. Nothing
+merged, nothing attempted.
+
+### Packages
+
+**Closed and built: 46 of 49.** Waves 0–7 complete apart from the three below. Wave 8 ran as W8-1
+(`verify` green), W8-2 (lint and layer guard inside it), W8-3 (the suite, +475 tests, no skipped or
+`todo` tests added), W8-4 (the four gates — Q1 pass, Q2 unmeasurable, Q3 pass, Q4 partial), W8-5 (Q1's
+S2, S4, S5, S6, S7 and the dark-mode D1 fixed the same night), W8-6 (contrast/focus/44px measured;
+the device half unmeasurable), W8-7 (documents reconciled) and W8-8 (this and the report).
+
+**Not closed, and why:**
+
+| ID | State | Why |
+|---|---|---|
+| **W2-1 / W1-1** browser clause | built, partially verified | The zero-state's **import overlay auto-open** was not implemented — the sheet resting at `half` was, and works. Whether that was a reasoned deviation or a miss is **unanswered**: the lane went idle without replying to three asks |
+| **Q2** | could not be run | No credentials, no local database, and faking it was refused |
+| **W7-6** device half | could not be run | No device, no hardware compositor. Software GL gives a ranking, not a frame rate |
+
+### On verification, stated plainly
+
+**§7's per-package protocol did not run as written.** Two `qa-reliability` verifiers were dispatched
+with exit criteria only, as §7 step 2 requires; **both went idle without reporting**, and both were
+chased twice. The "verified by" column above therefore reads `pending` for most rows and that is not
+a formality — it is the honest state.
+
+What did happen instead, and it is real evidence rather than a substitute story:
+
+- **Q1**: an independent 42-capture walkthrough by an agent that built none of the production code,
+  producing twelve ranked findings, four of which were fixed the same night.
+- **Q3**: an independent verdict by an agent that built none of the UI, which wrote its own probe when
+  the screenshots could not reach the card the gate was about, and proved its three commits
+  byte-identical over the surface it judged.
+- **W7-6**: 28 measured page-runs across both themes, plus 12 frame-rate runs.
+- **The lead read every diff as it landed** and photographed every visual claim — which is how the
+  mark-as-a-disc, the two-numbers contradiction and the night `housenumber` layer were found.
+
+**Six defects were caught by an agent checking its own instrument**, not its own output: two batches
+of mislabelled or unhydrated screenshots, a fabricated 2.33:1 contrast failure on the flagship CTA
+that WCAG exempts outright, a 16px checkbox flagged when its wrapping label *is* the hit area, a
+"dark is broken" report that was an unasserted `str.replace`, and a label-tier zero that meant
+"the property is absent" rather than "the tiering decided".
+
+### Loose in the tree at close
+
+`reduced-motion-probe.mjs`, untracked at the repository root and **not gitignored** — so a wildcard
+`git add` would sweep it. Two lanes disclaimed it on evidence; it drives the dev-only `?state=` seam
+and starts the app with `{ dev: true }`, which points at the import lane. Left in place rather than
+deleted: it is another agent's work and deleting it is what the guardrails forbid. **Worth clearing
+before the next run.**
