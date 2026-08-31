@@ -16,15 +16,47 @@
  * - **Not a link.** `/map` is the shell; a wordmark that navigated would be a second door to
  *   somewhere, and the account chip beside it already had to be argued down to one (`page.tsx`).
  *   It states where you are and stops.
- * - **No face.** `brand-and-product-foundation.md` §3.1 rule 2 is *face on chrome, silhouette on
- *   data*, and it names the surfaces that get one: the app icon, the splash, sign-in and the link
- *   preview. This is chrome sitting **over** the data surface and is on none of those lists, so it
- *   takes `PinMark`'s faceless default — which is the default precisely so that a face stays
- *   something a surface has to ask for.
- * - **Not a second copy of the lockup.** The mark, the gap and the type are `/` and `/sign-in`'s,
- *   because two surfaces drawing one brand differently is how a brand drifts. What differs is the
- *   *chip* around it, which is this map's own floating-control material — the same hairline,
- *   translucent card and blur the account chip opposite it uses.
+ * - **No mark — the type is the whole lockup here**, and this replaces an argument about the
+ *   mark's *face* with a measurement about the mark itself. See below.
+ * - **Not a second copy of the landing lockup**, and since the mark went it is not a copy at all.
+ *   The type is `/` and `/sign-in`'s — Fraunces through `DISPLAY_WORDMARK_AXES`, so the one thing
+ *   still drawn here is drawn identically, because two surfaces setting one name differently is how
+ *   a brand drifts. What differs is the *chip* around it, which is this map's own floating-control
+ *   material: the same hairline, translucent card and blur the account chip opposite it uses.
+ *
+ * ## Why there is no mark, and it is a measurement rather than a preference
+ *
+ * This carried `PinMark` at 24px until 2026-08-31. The mascot lane rasterised the real `CRUMB_PATH`
+ * at 16× and measured its radius at 720 angles, against four known-answer cases that abort the run
+ * if any fails — a true circle at 0.094px (the instrument's zero), a square at 31.3px (its full
+ * scale), the crumb at 168px reproducing the 4.6% already recorded in `pin-mark.tsx`, and
+ * scale-invariance.
+ *
+ * | CSS box | ink radius | peak-to-peak irregularity |
+ * |---|---|---|
+ * | 16px | 7.11 | 0.375px |
+ * | **24px — what was here** | 10.67 | **0.547px** |
+ * | 48px | | crosses 1px here |
+ * | 168px | 74.71 | 3.313px |
+ *
+ * **At 24px the entire crumb-ness of the crumb is 0.547 of a pixel**, spread around the whole
+ * circumference, s.d. 0.123px. Beside a true circle of the same mean radius, pixel-zoomed, the two
+ * are indistinguishable up to and including 64px. `pin-mark.tsx` already records the same property
+ * from the other direction — *"this mark is not a crumb that is hard to make out; it is a disc"* —
+ * and §3.1 rule 1 forbids changing the outline to fix it.
+ *
+ * So the disc carried no brand. **The product should not draw a mark that means nothing**, and both
+ * ways of making it mean something were checked and ruled out: legibility needs ~150px, which is
+ * absurd in a map header, and the face is barred by §3.1 rule 5 rather than by size — this chip sits
+ * over the live map, the face is gold, and gold stays off the map. A mint-faced disc is what
+ * iteration 1 shipped and what the owner called *"the brand is totally missing"*.
+ *
+ * **This is the record of why the mark went, and it supersedes the paragraph that used to explain
+ * why it had no face.** That argument was correct and is now moot: there is nothing here to give a
+ * face to. Owner's ruling stands on the type — it is legible at any size and it is what answers the
+ * original complaint. Whether the name belongs over the live map at all is a `working-agreement.md`
+ * §7 product judgement and is with the owner; **do not restructure this component around its
+ * possible removal.**
  *
  * ## Why it is a client component when `page.tsx` is not
  *
@@ -40,7 +72,6 @@
 
 import { useState } from 'react';
 
-import { PinMark } from '@/components/brand/pin-mark';
 import { DISPLAY_WORDMARK_AXES } from '@/components/brand/display-type';
 import { claimEntrance, ENTRANCE_BEATS, useEntranceBeat } from '@/components/map/entrance';
 
@@ -72,10 +103,13 @@ export function ShellWordmark() {
     // `post-login-entrance.test.ts` asserts the two still say the same thing. Clear of the panel,
     // the chip is the map's own floating chrome — the mirror of the account chip in the opposite
     // corner, in the same material.
+    //
+    // `px-4` where the mark's removal left an asymmetric `pl-2.5 pr-4`: that 2.5 was the optical
+    // inset a round mark wants against a pill's own curve, and with nothing round in the chip it
+    // was just a lighter left edge. `gap-2` goes with it — there is one child.
     <div
-      className="animate-in fade-in-0 duration-enter motion-safe:slide-in-from-bottom-1 pointer-events-none absolute left-3 top-[calc(env(safe-area-inset-top)+0.75rem)] z-30 flex h-11 items-center gap-2 rounded-full border border-border/70 bg-card/85 pl-2.5 pr-4 shadow-sheet backdrop-blur-md lg:left-[calc(clamp(320px,26vw,392px)_+_1rem)] lg:top-4"
+      className="animate-in fade-in-0 duration-enter motion-safe:slide-in-from-bottom-1 pointer-events-none absolute left-3 top-[calc(env(safe-area-inset-top)+0.75rem)] z-30 flex h-11 items-center rounded-full border border-border/70 bg-card/85 px-4 shadow-sheet backdrop-blur-md lg:left-[calc(clamp(320px,26vw,392px)_+_1rem)] lg:top-4"
     >
-      <PinMark className="size-6" />
       <span
         className="font-display text-base font-black tracking-tight text-foreground"
         style={DISPLAY_WORDMARK_AXES}

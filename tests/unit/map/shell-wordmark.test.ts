@@ -76,12 +76,28 @@ describe('the shell header wordmark', () => {
     expect(WORDMARK_CODE.match(/No Crumbs/g)).toHaveLength(1);
   });
 
-  /** No face: §3.1 rule 2 is *face on chrome, silhouette on data*, and it names the four surfaces
-   *  that get one — the app icon, the splash, sign-in and the link preview. A wordmark floating
-   *  over the map is on none of them, so it takes `PinMark`'s faceless default. */
-  it('takes the faceless mark', () => {
-    expect(WORDMARK_CODE).toContain('<PinMark className="size-6" />');
-    expect(WORDMARK_CODE).not.toContain('face');
+  /**
+   * **No mark, and it is a measurement rather than a preference.** This carried `PinMark` at 24px
+   * until 2026-08-31. Rasterised at 16× and measured at 720 angles — against four known-answer
+   * cases that abort the run if any fails — the crumb's peak-to-peak irregularity at a 24px CSS box
+   * is **0.547px** on a 10.67px ink radius, s.d. 0.123px, and it does not cross a whole pixel until
+   * ~48px. Beside a true circle of the same mean radius it is indistinguishable to 64px.
+   *
+   * So the disc carried no brand, and the product should not draw a mark that means nothing.
+   * Legibility needs ~150px, absurd in a map header; the face is barred by §3.1 rule 5 rather than
+   * by size, because this chip sits over the live map and gold stays off the map.
+   *
+   * The assertion is on `PinMark` rather than on the pixel numbers because the numbers are not this
+   * file's to hold — `pin-mark.tsx` records the same property of the outline from the other
+   * direction, and §3.1 rule 1 forbids changing that outline. What this guards is the *decision*:
+   * no mark comes back into this lockup without the ruling being reopened.
+   */
+  it('draws no mark, only the type', () => {
+    expect(WORDMARK_CODE).not.toContain('PinMark');
+    expect(WORDMARK_CODE).not.toContain('<svg');
+    // The type is still `/` and `/sign-in`'s, which is the half of the lockup that survived.
+    expect(WORDMARK_CODE).toContain('DISPLAY_WORDMARK_AXES');
+    expect(WORDMARK_CODE).toContain('font-display');
   });
 
   /**
