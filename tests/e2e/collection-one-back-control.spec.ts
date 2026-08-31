@@ -11,8 +11,8 @@ import { expect, test, type Page } from '@playwright/test';
  *
  * Two facts a unit test cannot reach, both of which this file exists for:
  *
- *  1. `/collections/[id]` mounts its content **twice** — once in the vaul drawer, once in the
- *     `lg+` panel — so a `renderToStaticMarkup` count is double and a naive `getByRole` count is
+ *  1. a collection mounts its content **twice** — once in the vaul drawer, once in the `lg+`
+ *     panel — so a `renderToStaticMarkup` count is double and a naive `getByRole` count is
  *     whatever the breakpoint happens to hide. Only a browser knows which copy is on screen.
  *  2. the picker's back control is drawn by a *different component* than the one that owns the
  *     picker (`HostedPaneBackContext`), so the invariant only exists once both are mounted and the
@@ -22,9 +22,22 @@ import { expect, test, type Page } from '@playwright/test';
 const EMAIL = process.env.E2E_EMAIL ?? 'demo@example.com';
 const PASSWORD = process.env.E2E_PASSWORD;
 
-/** Names that are, or could be mistaken for, "go back". The Map/Collections/Profile tabs are not
- *  here: they name a destination, which is the whole reason the ruling allows them everywhere. */
+/** Names that are, or could be mistaken for, "go back". Persistent navigation is not here: a tab
+ *  and a view switch name a *destination*, which is the whole reason the ruling allows them
+ *  everywhere. See `NAVIGATION_LANDMARKS`. */
 const BACK_SHAPED = /^(back\b|collections$)/i;
+
+/**
+ * The two `<nav>`s that are navigation rather than a way out of a pane, excluded from the count.
+ *
+ * `Main` is `BottomNav`. **`Places and collections` is the drawer's view switch** (owner,
+ * 2026-08-31, `map-shell.tsx`'s `DrawerViewSwitch`), which took over the job the `Collections` tab
+ * used to do — so it inherits the tab's exemption for the tab's reason, verbatim: it is on every
+ * collections surface on purpose, its `Collections` segment names where it goes, and it carries
+ * `aria-current` rather than a back arrow. Counting it would make §2.2 fail on the list view for a
+ * control the ruling explicitly permits.
+ */
+const NAVIGATION_LANDMARKS = ['nav[aria-label="Main"]', 'nav[aria-label="Places and collections"]'];
 
 async function signIn(page: Page): Promise<void> {
   for (let attempt = 0; attempt < 4; attempt += 1) {
@@ -50,12 +63,13 @@ async function signIn(page: Page): Promise<void> {
  * be excluded exactly the way a screen reader excludes it.
  */
 async function visibleControlNames(page: Page): Promise<string[]> {
-  return page.evaluate(() =>
+  return page.evaluate((landmarks) =>
     [...document.querySelectorAll('a,button,[role="button"]')]
       .filter((element) => {
-        // The three tabs are destinations, not back controls, and the ruling puts them on every
-        // route on purpose — so the bar is not part of the count.
-        if (element.closest('nav[aria-label="Main"]') !== null) return false;
+        // Persistent navigation names destinations, not a way back, and the ruling puts it on
+        // every route on purpose — so neither the bar nor the drawer's view switch is part of the
+        // count.
+        if (landmarks.some((selector) => element.closest(selector) !== null)) return false;
         const box = element.getBoundingClientRect();
         const styles = getComputedStyle(element);
         return box.width > 0 && box.height > 0 && styles.visibility !== 'hidden';
@@ -63,6 +77,7 @@ async function visibleControlNames(page: Page): Promise<string[]> {
       .map((element) =>
         (element.getAttribute('aria-label') ?? element.textContent ?? '').replace(/\s+/g, ' ').trim(),
       ),
+  NAVIGATION_LANDMARKS,
   );
 }
 
@@ -76,7 +91,11 @@ async function openFirstCollection(page: Page): Promise<void> {
   const first = page.getByRole('link', { name: /\d+ places?/ }).first();
   await expect(first).toBeVisible({ timeout: 15_000 });
   await first.click();
-  await page.waitForURL(/\/collections\/[0-9a-f-]{36}/, { timeout: 15_000 });
+  // `?collection=<id>`, not `/collections/<id>`: the index and a collection are one route segment
+  // since 2026-08-31 (`app/collections/_lib/drawer-view.ts`), which is what stops the drawer being
+  // torn down and rebuilt on this tap. The path form still resolves — it is a redirect shim — and
+  // matching it here would let a regression back to two segments pass.
+  await page.waitForURL(/\/collections\?collection=[0-9a-f-]{36}/, { timeout: 15_000 });
   await page.waitForTimeout(2500);
 }
 
@@ -114,10 +133,14 @@ test.describe('one back control, at every step inside a collection', () => {
     // 1. The list. No arrow at layer 0 — the kicker up-link, which says where it goes.
     const onList = await backShaped(page);
     expect(onList, 'the list header carries exactly the up-link').toEqual(['Collections']);
-    // Scoped outside the bar: the Collections *tab* shares this name by design, and is a
-    // destination rather than a back control.
+    // Scoped outside both navigation landmarks: the drawer's `Collections` segment shares this
+    // name by design, and is a destination rather than a back control. (The bar carried a
+    // `Collections` tab until 2026-08-31 and was excluded here for the same reason; it now holds
+    // Map and Profile, so that half of the selector is belt to the switch's braces.)
     const upLink = page
-      .locator('a[aria-label="Collections"]:not(nav[aria-label="Main"] a)')
+      .locator(
+        'a[aria-label="Collections"]:not(nav[aria-label="Main"] a):not(nav[aria-label="Places and collections"] a)',
+      )
       .locator('visible=true');
     await expect(upLink).toHaveAttribute('href', '/collections');
     // ≥44 px, and leading: it stands where the deleted arrow stood.
