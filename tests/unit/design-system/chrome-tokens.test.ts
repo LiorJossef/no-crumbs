@@ -102,6 +102,29 @@ function declarations(selector: ':root' | '.dark'): Map<string, string> {
   return out;
 }
 
+/**
+ * Source with every comment removed.
+ *
+ * **Three guards in this repository have now been fooled by prose, all on the same day**, and the
+ * failure is always the same shape: a regex over raw source cannot tell a comment from a call site.
+ * `bg-white/55` quoted in a file header tripped the composition guard; four mascot hex literals
+ * quoted in a doc comment pushed `K12` from 26 to 27; and the assertion below tripped on
+ * `--chrome-panel-wash` being *named in the comment explaining why it was removed*.
+ *
+ * The existing guards work around this by asking authors never to quote the thing — `page.tsx` and
+ * `error.tsx` both carry a paragraph describing old class names in words for exactly that reason.
+ * That is a real cost: **the clearest thing a comment can say about a removed token is its name.**
+ * Stripping comments first is four lines and it lets both the guard and the prose be correct.
+ *
+ * Deliberately narrow: it strips block comments (which covers the JSX `{...}` form) and `//` to
+ * end of line. A `//` inside a string literal would be over-stripped, which can only ever make
+ * this assertion weaker on a line that is not a call site for a custom property; nothing in
+ * `src/` reads a URL out of a class string.
+ */
+function withoutComments(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+}
+
 function sources(): { path: string; source: string }[] {
   return readdirSync(SRC, { recursive: true, encoding: 'utf8' })
     .filter((name) => name.endsWith('.ts') || name.endsWith('.tsx'))
@@ -234,8 +257,12 @@ describe('every chrome composition token answers in both themes', () => {
      */
     expect(declarations(':root').get('--chrome-panel-wash')).toBeUndefined();
     expect(declarations('.dark').get('--chrome-panel-wash')).toBeUndefined();
-    const stage = readFileSync(path.join(SRC, 'components/brand/chrome-stage.tsx'), 'utf8');
-    expect(stage).not.toContain('--chrome-panel-wash');
+    // Comments stripped first, so the component may still *name* the token in the paragraph that
+    // explains why it went — see `withoutComments`. What is forbidden is a call site.
+    const offenders = sources()
+      .filter(({ source }) => withoutComments(source).includes('--chrome-panel-wash'))
+      .map(({ path: p }) => p);
+    expect(offenders).toEqual([]);
   });
 
   it('keeps --panel-raised distinct from --panel, which is a different surface', () => {
