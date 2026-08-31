@@ -217,10 +217,29 @@ export function CollectionsIndexList({
               </Button>
             </div>
           </form>
+        ) : collections.length === 0 ? (
+          /* **The zero-collection state's only action, at the product's primary CTA weight.**
+             `ux-sparse-panel-2026-08-31.md` §2/§3: at zero collections this is the one interactive
+             thing below the heading, not "add one more" to an existing list — the dashed muted row
+             below reads as the latter and is wrong here. Same `Button`/`default` variant as
+             `NoPlacesYet`'s `Add a TikTok link` button and this file's own `composing` form's `Create`
+             button, so the three primary actions on this page stay one visual family rather than
+             drifting per screen. */
+          <Button
+            type="button"
+            onClick={() => setComposing(true)}
+            data-vaul-no-drag
+            className="mt-2 h-12 w-full gap-2 rounded-lg text-sm font-bold"
+          >
+            <Plus className="size-5" aria-hidden />
+            New collection
+          </Button>
         ) : (
           /* A row in the list rather than a button under it. It reads as "and one more, which you
              make yourself" — the same shape as the collections above it, so it is found by the eye
              already scanning them rather than by a separate sweep to the bottom of the screen.
+             Correct only once there is something above it to add one more *to* — the zero-collection
+             branch above uses the primary CTA instead.
 
              The bar's ＋ is not this control and must never become it: a button in persistent
              chrome has to mean one thing on every screen it appears on. */
