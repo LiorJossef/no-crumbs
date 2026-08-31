@@ -62,9 +62,9 @@ screen. Both landed fence-first or spec-first, deliberately.
 
 ---
 
-## 3. Sixteen instruments lied, and they fall into three families
+## 3. Seventeen instruments lied, and they fall into three families
 
-Iteration 1 recorded eleven. This iteration found sixteen more. **They are not eleven mistakes and
+Iteration 1 recorded eleven. This iteration found seventeen more. **They are not eleven mistakes and
 sixteen mistakes — they are one mistake with three shapes**, and naming the shapes is worth more
 than the count.
 
@@ -91,6 +91,13 @@ wrong question is only visible when you run it against a case whose answer you a
   a confident wrong one, on a surface where white is the flattering assumption.
 - **`vitest run | tail -3` cut off the summary line**, so the absence of a failure read as a pass.
   A truncated pipe is an instrument that cannot fail.
+- **`addInitScript` serialises the function and runs it in the page — it does not capture Node
+  scope.** A closed-over constant threw a `ReferenceError` on frame 1, the sampler stopped, and
+  **every mark after the throw reported `never`.** The smoke run said the desktop panel never painted
+  on a commit where it paints at 137 ms. An instrument that says *never* when it means *I stopped
+  looking* is the truncated-pipe failure pointed at a measurement instead of a test result — and this
+  one would have reported a **product defect that does not exist**, which is the direction that gets
+  acted on.
 - **`globals.css` has two `@media (prefers-reduced-motion)` blocks.** Taking the first match
   asserted the entrance's collapse against the mascot's rules — *"it failed loudly this time only
   because the selector happened to be absent; on a block carrying a similar declaration it would
