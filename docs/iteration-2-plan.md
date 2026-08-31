@@ -313,17 +313,35 @@ geometry says the gap is 2.5 device pixels wide. The windows are now derived fro
 and a new known-answer case asserts that a *merged* verdict has sampled at least one pixel: **an
 instrument that can only say no is not measuring either.**
 
-**The face is what makes gold safe here, and this is the argument the ruling turns on:** `MASCOT_GOLD`
-sits ΔE00 **11.5** from the light café and **11.7** from the night café, and 29.7–61.0 from every
-other category colour; if the night-café proposal lands at `#FEB843` that closes to **6.3**. **That
-gap closing is an argument for the face, not against it — at ΔE 6.3 a faceless gold disc really
-would be ambiguous with a café pin, and a faced one still cannot be.** §3.1 rule 2's *"face on
-chrome, silhouette on data"* is doing exactly the disambiguation it was written for, and asking for
-the face rather than merely for gold is what turns a rule violation into a rule application.
+**The reason this ruling was granted for was overstated, and the narrowing is recorded here rather
+than edited away.** It was granted on: *a faceless gold disc would be ambiguous with a café pin, and
+a faced one cannot be.* Photographed against a real café pin in the same frame on the night map,
+that claims more than it can carry — and it names the wrong mechanism.
 
-Stated honestly against it: photographed on the night map, the chip's gold and the café pin **do**
-read as one pigment family, separated by shape rather than by colour. Both are true, and the ruling
-was made with that picture in hand.
+**Measured off the photograph rather than off the tokens** (390×844, dark, `9a95444` + the chip):
+the mascot's modal body is `#F2C46B`, the café pin's is `#C99A55`, rendered ΔE00 **11.7** — the
+paint matches the token arithmetic exactly. **26** of the mascot's ~1100 body pixels fall within 18
+RGB units of the café token, against **1903** of the pin's, and those 26 are crust shading.
+Near-neighbours, **not the same colour**; the two objects do not merge. Token distances for the
+record: gold is ΔE00 11.5 from the light café, 11.7 from the night café, 29.7–61.0 from every other
+category colour, closing to 6.3 if the night café moves to `#FEB843`.
+
+**What separates them is the tail and the card ground, not the face.** A faceless gold disc in this
+chip would also not be mistaken for a pin — pins have points, and this one sits in a pill beside a
+wordmark. It would simply be **meaningless**, which is measurement 1's argument and **not** a
+disambiguation argument. The two must stay apart in the record, or the next reader takes the face
+for a safety measure when it is a legibility one.
+
+**The narrow claim the face does earn is about the aperture:**
+
+> The category pin carries a ground-coloured aperture — a single dark mark, sitting almost exactly
+> where a face would be — so the pin is itself faintly face-like. *Two warm circles each carrying
+> one dark mark* would be the ambiguous pair. A real face, two eyes and a mouth, is what makes the
+> mascot unmistakably a **character** rather than a pin drawn differently.
+
+That is a claim about **shape**, which the colour merely sets up, and it is the one the pixels
+support. It also survives the night-café proposal closing the gap to ΔE 6.3, because a narrowing
+colour distance does not touch it. **The ruling holds; only its stated reason changes.**
 
 **The fence's scope was read before the ruling, and it excludes this file deliberately.**
 `chrome-tokens.test.ts:285` and `:339` scope it to `components/map/`, `ui/place/` and anything

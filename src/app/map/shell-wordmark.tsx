@@ -108,22 +108,37 @@
  * filter chip. This chip is none of the four — it has its own ground (`bg-card/85`, hairline, blur),
  * which is the same card material `/sign-in` carries gold on already.
  *
- * **And §3.1 rule 2 does the disambiguation: *"face on chrome, silhouette on data."*** The pin is
- * the faceless silhouette on a tail. A faced crumb cannot be misread as a pin, because the face is
- * precisely what the brand system reserved for chrome — which is why this asks for the *face* and
- * not merely for gold. Measured at `9a95444`, `MASCOT_GOLD` sits ΔE00 **11.5** from the light café
- * and **11.7** from the night café, and 29.7–61.0 from every other category colour; if the night
- * café moves to `#FEB843` that closes to 6.3.
+ * **The reason recorded here was overstated for one commit, and this is the narrower one the
+ * photograph supports.** `42221cd` said the face does the disambiguation — that a faceless gold
+ * disc would be ambiguous with a café pin and a faced one cannot be. Measured against a real café
+ * pin in the same frame on the night map, that claims more than it can carry, and it claims the
+ * wrong mechanism.
  *
- * **That gap closing is the argument for the face rather than against it, and it is what carried
- * the ruling:** at ΔE 6.3 a *faceless* gold disc really would be ambiguous with a café pin, and a
- * *faced* one still cannot be. The face is not the risky half of this request — it is the property
- * that makes it safe, and asking for the face rather than merely for gold is what turns a rule
- * violation into a rule application.
+ * **Measured off the photograph, not off the tokens** (`i3brand-outlined32-m-dark.png`, 390×844,
+ * dark): this mascot's modal body is `#F2C46B`, the café pin's is `#C99A55`, rendered ΔE00 **11.7**
+ * — the paint matches the token arithmetic exactly, no drift. **26** of the mascot's ~1100 body
+ * pixels fall within 18 RGB units of the café token, against **1903** of the pin's; those 26 are
+ * crust shading. Near-neighbours, **not the same colour**, and the two objects do not merge.
  *
- * Stated honestly against that: photographed on the night map, this chip's gold and the café pin
- * do read as one pigment family, separated by shape and not by colour. Both are true, and the
- * ruling was made with that picture in hand.
+ * **What actually separates them is the tail and the card ground, not the face.** A *faceless* gold
+ * disc in this chip would also not be mistaken for a pin — pins have points, and this sits in a
+ * pill beside a wordmark. It would simply be **meaningless**, which is the `mono` argument above
+ * and **not** a disambiguation argument. Keeping the two apart is the point of this paragraph: the
+ * next reader should not come away thinking the face is a safety measure when it is a legibility
+ * one.
+ *
+ * **The narrow claim the face does earn is about the aperture.** The category pin carries a
+ * ground-coloured aperture — a single dark mark, sitting almost exactly where a face would be — so
+ * the pin is itself faintly face-like. *Two warm circles each carrying one dark mark* is the
+ * genuinely ambiguous pair, and it is the pair that would exist if this mark were faceless. Two
+ * eyes and a mouth are what make the mascot unmistakably a **character** rather than a pin drawn
+ * differently. That is a claim about shape, which the colour merely sets up, and it survives the
+ * night-café proposal closing `MASCOT_GOLD` to ΔE 6.3 of `#FEB843` — the colour gap narrowing does
+ * not touch it.
+ *
+ * For the record, the token distances the ruling was granted against, measured at `9a95444`:
+ * `MASCOT_GOLD` sits ΔE00 **11.5** from the light café, **11.7** from the night café, and
+ * 29.7–61.0 from every other category colour.
  *
  * **The fence's scope was read before the ruling and it excludes this file deliberately.**
  * `chrome-tokens.test.ts:285` and `:339` scope it to `components/map/`, `ui/place/` and anything
