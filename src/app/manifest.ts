@@ -25,9 +25,12 @@ import { BRAND_SURFACE } from '@/components/brand/brand-colors';
  * in `app/layout.tsx`'s `viewport` export for the same reason. The literal comes from
  * `components/brand/brand-colors.ts`, which is what keeps the two in step.
  *
- * The icons are the two files next to this one. Next serves `icon.svg` and `apple-icon.png` from
- * the `app/` metadata conventions; `purpose: 'maskable'` on the PNG is what stops Android drawing
- * a white plate behind it and then cropping our tile inside it.
+ * The icons are the two files next to this one. `icon.svg` is a static asset and is served at its
+ * own name; `apple-icon.tsx` is a generated image route, so its URL is **`/apple-icon`, with no
+ * extension** — checked against the running server rather than assumed, because the two conventions
+ * do not produce the same shape of URL and the wrong one is a manifest that silently references
+ * nothing. `purpose: 'maskable'` on the PNG is what stops Android drawing a white plate behind it
+ * and then cropping our tile inside it.
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -41,7 +44,7 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: BRAND_SURFACE,
     icons: [
       { src: '/icon.svg', sizes: 'any', type: 'image/svg+xml' },
-      { src: '/apple-icon.png', sizes: '180x180', type: 'image/png', purpose: 'maskable' },
+      { src: '/apple-icon', sizes: '180x180', type: 'image/png', purpose: 'maskable' },
     ],
   };
 }

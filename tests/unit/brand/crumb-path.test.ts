@@ -29,6 +29,8 @@ const CONSUMERS = [
   'src/components/brand/pin-mark.tsx',
   'src/components/map/marker-images.ts',
   'src/app/opengraph-image.tsx',
+  'src/app/apple-icon.tsx',
+  'src/app/global-error.tsx',
 ];
 
 describe('the crumb outline', () => {
