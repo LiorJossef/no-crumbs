@@ -1315,6 +1315,156 @@
     --sidebar-ring: var(--mint-400);
 }
 
+/*
+ * ## The device's own dark preference, for a visitor whose JavaScript never ran
+ *
+ * **Measured gap:** with scripting off, this product rendered light whatever the device asked for.
+ * The *stored* preference lives in `localStorage` and genuinely cannot work without JavaScript —
+ * `app/profile/theme-choice.tsx` correctly hides itself there. But the **device's** preference
+ * needs no JavaScript at all, and `theme.ts`'s own `DEFAULT_PREFERENCE` is `'system'`. Without JS,
+ * `'system'` is the only preference that exists, so honouring it is implementing the default this
+ * product already declares rather than adding behaviour.
+ *
+ * ### `:root:not([data-theme])` is an exact "the script did not run" seam, not an approximation
+ *
+ * This is the part that has to be right, because the failure mode is a user whose stored choice is
+ * **Light**, on a **dark** device, getting a dark page — or a flash of one.
+ *
+ * `THEME_INIT_SCRIPT` writes three things, and the one that matters here is `data-theme`. It is
+ * written on **both** branches — `"light"` and `"dark"` — never only on the dark one. Evaluated
+ * against a stub DOM across all ten combinations of stored preference (`light`, `dark`, `system`,
+ * absent, corrupt) x device scheme, `data-theme` is present in ten of ten. So with scripting on the
+ * attribute is always there and this rule never matches; with scripting off it is never there and
+ * this rule is the only opinion on the page. The two cases are disjoint by construction rather than
+ * by luck.
+ *
+ * **And there is no flash**, for the same reason the `.dark` class does not flash: the script is
+ * synchronous, in `<head>`, before `<body>` — the browser cannot paint before it runs. Whatever
+ * this rule would have said is decided before the first frame, not corrected after it.
+ *
+ * **One case changes behaviour with scripting on, and the change is a fix.** When `localStorage`
+ * throws — site data blocked, a partitioned iframe — the script's `try/catch` swallows the whole
+ * body and `data-theme` is never written. Those users were getting light on a dark device. They now
+ * get dark, which is what `ThemeProvider` independently resolves to a moment later
+ * (`readStoredPreference` returns `DEFAULT_PREFERENCE` on throw), so the two agree and nothing
+ * flashes back.
+ *
+ * ### Specificity, stated because it is load-bearing
+ *
+ * `:root:not([data-theme])` is (0,2,0) and beats `:root` (0,1,0), which is what lets it override the
+ * light palette wherever it applies. It is also above `.dark` (0,1,0) — which is harmless, because
+ * the two can never match the same element, and if they somehow did they would paint the same
+ * palette. Do not lower it to `html:not([data-theme])`: that is (0,1,1) and would lose to `:root`.
+ *
+ * ### The duplication below is deliberate, and it is guarded
+ *
+ * CSS has no way to say *"these declarations apply for `.dark`, or under this media query"* in one
+ * rule: a media query wraps whole rules, so a selector list cannot have one member gated by it. The
+ * alternatives were rewriting all 75 roles as `light-dark()` — which would restructure the entire
+ * token layer and the two suites that parse it — or a server-read cookie in `layout.tsx`, which is
+ * a heavier change in another lane's file. So this is a copy, and it follows the rule this file
+ * already applies to `--chrome-mark-glow` and `--mascot-keyline`: **a deliberate duplication is
+ * only allowed with a test that makes drift impossible.** `tests/unit/ui/no-js-dark.test.ts`
+ * compares the two blocks declaration for declaration and fails on any difference.
+ *
+ * **Edit `.dark` above, never this block, and let the test tell you to copy it down.**
+ *
+ * `color-scheme` is the one declaration here that `.dark` does not carry, and the test asserts that
+ * exception by name. With scripting on it is an inline style written by `applyTheme`; with
+ * scripting off nothing writes it, and without it a dark page keeps white scrollbars, white form
+ * controls and a white overscroll — the single most obvious tell that a dark mode was painted on
+ * rather than declared.
+ */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme]) {
+        color-scheme: dark;
+        --background: #131312;
+        --foreground: #F4F2EC;
+        --card: #201F1C;
+        --card-foreground: #F4F2EC;
+        --popover: #201F1C;
+        --popover-foreground: #F4F2EC;
+        --border: #332F2A;
+        --input: #332F2A;
+        --muted: #201F1C;
+        --muted-foreground: #A8A29A;
+        --primary: var(--mint-400);
+        --primary-foreground: var(--ink-on-mint);
+        --secondary: #2A2825;
+        --secondary-foreground: #F4F2EC;
+        --accent: #222A28;
+        --accent-foreground: #F4F2EC;
+        --ring: var(--mint-400);
+        --destructive: oklch(0.704 0.191 22.216);
+        --brand: var(--mint-400);
+        --brand-foreground: var(--ink-on-mint);
+        --brand-tint: var(--mint-600);
+        --card-2: #2A2825;
+        --success: #4FB27A;
+        --success-foreground: #0B1F13;
+        --warning: #D2913F;
+        --warning-foreground: #241605;
+        --info: #6FA9DE;
+        --info-foreground: #08192A;
+        --tag: #24302E;
+        --tag-foreground: var(--mint-300);
+        --tag-selected: var(--mint-400);
+        --tag-selected-foreground: var(--ink-on-mint);
+        --category-restaurant: #E8735C;
+        --category-cafe: #C99A55;
+        --category-bar: #A288E0;
+        --category-uncategorised: #5FC3B4;
+        --on-category: var(--background);
+        --pin: var(--mint-400);
+        --pin-selected: var(--mint-300);
+        --pin-halo: #131312;
+        --wash-from: #1D2C2A;
+        --wash-to: transparent;
+        --row-selected-from: #1D2C2A;
+        --row-selected-to: transparent;
+        --brand-wash:
+            radial-gradient(130% 110% at 115% -15%, rgba(70, 155, 142, 0.20) 0%, rgba(70, 155, 142, 0) 58%),
+            radial-gradient(120% 130% at -15% 118%, rgba(33, 95, 86, 0.16) 0%, rgba(33, 95, 86, 0) 62%),
+            radial-gradient(90% 90% at 45% 40%, rgba(46, 122, 112, 0.12) 0%, rgba(46, 122, 112, 0) 70%),
+            var(--background);
+        --panel: rgba(32, 31, 28, 0.55);
+        --scrim: rgba(0, 0, 0, 0.62);
+        --chrome-accent: var(--indigo-400);
+        --chrome-mesh:
+            radial-gradient(72% 58% at 4% -8%, rgba(91, 108, 255, 0.38) 0%, rgba(91, 108, 255, 0) 62%),
+            radial-gradient(66% 56% at 104% 2%, rgba(46, 122, 112, 0.44) 0%, rgba(46, 122, 112, 0) 60%),
+            radial-gradient(84% 68% at 98% 106%, rgba(59, 73, 209, 0.40) 0%, rgba(59, 73, 209, 0) 66%),
+            radial-gradient(62% 52% at -10% 102%, rgba(70, 155, 142, 0.32) 0%, rgba(70, 155, 142, 0) 64%),
+            var(--background);
+        --chrome-bloom-a: radial-gradient(closest-side, rgba(91, 108, 255, 0.40) 0%, rgba(91, 108, 255, 0) 100%);
+        --chrome-bloom-b: radial-gradient(closest-side, rgba(70, 155, 142, 0.42) 0%, rgba(70, 155, 142, 0) 100%);
+        --chrome-glow: radial-gradient(closest-side, rgba(91, 108, 255, 0.44) 0%, rgba(91, 108, 255, 0) 100%);
+        --chrome-mark-glow: radial-gradient(closest-side, rgba(224, 168, 69, 0.62) 0%, rgba(224, 168, 69, 0) 100%);
+        --mascot-keyline: #6B4A1E;
+        --chrome-edge: linear-gradient(90deg, rgba(91, 108, 255, 0) 0%, rgba(91, 108, 255, 0.95) 24%, rgba(168, 236, 226, 0.9) 62%, rgba(168, 236, 226, 0) 100%);
+        --chrome-edge-spark: linear-gradient(90deg, rgba(168, 236, 226, 0) 0%, rgba(168, 236, 226, 1) 50%, rgba(168, 236, 226, 0) 100%);
+        --chrome-grain-strength: 0.14;
+        --panel-raised: rgba(32, 31, 28, 0.88);
+        --tint-strength: 26%;
+        --shadow-raised: 0 1px 2px -1px rgba(0, 0, 0, 0.55), 0 2px 6px -4px rgba(0, 0, 0, 0.60);
+        --shadow-sheet: 0 14px 28px -18px rgba(0, 0, 0, 0.75);
+        --shadow-overlay: 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+        --chart-1: oklch(0.87 0 0);
+        --chart-2: oklch(0.556 0 0);
+        --chart-3: oklch(0.439 0 0);
+        --chart-4: oklch(0.371 0 0);
+        --chart-5: oklch(0.269 0 0);
+        --sidebar: #201F1C;
+        --sidebar-foreground: #F4F2EC;
+        --sidebar-primary: var(--mint-400);
+        --sidebar-primary-foreground: var(--ink-on-mint);
+        --sidebar-accent: #222A28;
+        --sidebar-accent-foreground: #F4F2EC;
+        --sidebar-border: #332F2A;
+        --sidebar-ring: var(--mint-400);
+    }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
