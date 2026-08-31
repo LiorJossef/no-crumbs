@@ -37,7 +37,7 @@ Measured at `HEAD` with §4's own commands.
 | **K4** | `@theme` keys ≥ 60 | 36 | **89** | **met** |
 | **K5** | Arbitrary values ≤ 60 | 166 | **17** | **met** |
 | **K6** | Raw `var(--mint-N)` ≤ 10 | 75 | **0** | **met** |
-| **K7** | `active:` ≥ 3 shared class strings | 3 | **9**, three shared constants | **met** |
+| **K7** | `active:` ≥ 3 shared class strings | 3 | **9**, four shared constants | **met — but see below** |
 | **K8** | `group-hover:` > 0, coupling works | 0 | **7** — see the note below | **met** |
 | **K9** | `motion-safe:` > 0, every animation has a reduced arm | 0 | **67**, and `motion-reduce:` 10 → **1**, which is inside a comment | **met** |
 | **K10** | `loading.tsx` for three routes | 0 | **3** | **met** |
@@ -117,6 +117,16 @@ of stub-backed screenshots captioned "the demo" would have been a fabrication**,
 would have produced them said so before I had to. Q2 needs a real deployment, real credentials and a
 person, and it is the first thing I would do in the morning.
 
+**Per-package verification did run, and my first draft of this report said it had not.** Both
+`qa-reliability` verifiers delivered full verdicts; their reports arrived in one batch after I had
+written that they went idle. **`verify-w1a`** passed W1-2 and W1-3 from `git archive` exports with its
+own fixtures, drove both real adapters, and caught a precision error in the exit criterion itself (the
+pipeline never sets `resolution.status === 'capped'`; the type is `{ status: 'unresolved', reason:
+'capped' }`, so asserting on `status` is vacuously true). **`verify-wave`** returned seven passes and
+one fail across Waves 0–4 — and its W0-3 evidence is the strongest single artefact of the night: **24
+gate screens captured at the parent commit and at the commit, diffed pixel by pixel, max channel delta
+0 on every pixel of all 24 pairs.**
+
 **Q3 is the gate §8a says outranks the others, and the way it was judged matters.** The screenshots
 could not answer its fourth claim: the candidate list is an internal scroll container, so the
 `capped` card — the one the claim exists to check — is **below the fold in every capture at both
@@ -152,12 +162,32 @@ frame rate.
    good. The named repair is `growth-plan.md` §5.7's ~1.5 km neighbourhood band, which this run did
    not fund and which I refused to start unverified at 3am on top of the camera work that had just
    landed.
-4. **Per-package independent verification did not run as §7 describes.** Two verification agents were
-   dispatched and both went idle without reporting; I chased both twice. What replaced it: Q1's
-   independent 42-capture walkthrough, Q3's independent verdict, the reliability agent's measured
-   harnesses, and the lead reading **every diff as it landed** and photographing the visual claims.
-   That is real independent evidence and it caught real defects — **but it is not the per-package
-   ledger the protocol asks for, and the ledger's "verified by" column reflects that honestly.**
+4. **W3-1's exit criterion is not met, and I reported it as met.** An independent verifier failed its
+   second half — *every pressable thing acknowledges within one frame* — by forcing `:active` through
+   CDP over every visible pressable at 390×844: **12 of 12 controls on `/collections`, 10 of 11 on
+   `/map`**. Re-measured at HEAD the nav tabs are fixed, but the **`＋` Create FAB** still has no
+   press, and `src/app/collections/**` and `src/components/collections/**` contain **no `PRESS_*` and
+   no `active:` at all**. Both are reopened and dispatched.
+
+   **K7 is met and the criterion is not, and those are different statements.** K7 counts shared class
+   strings; the criterion counts coverage. This is the clearest case in the run of a grep passing
+   while the thing it stands for fails — the same shape as K8, which passed in the code while its own
+   command read zero. **Two of the fourteen numeric targets turned out not to measure what they
+   name.**
+
+4b. **Two gaps caused by a file I never granted.** `place-desktop-panel.tsx` was requested **five
+   times** by the map lane. At 1440×900 the list is that component, not `PlaceSheet`, so **K8's
+   browser half cannot fire at the gate viewport** (the DOM half is measured working; the panel's rows
+   receive no `onHover`) and **W5-2 is invisible on desktop**, photographed as absent. Two optional
+   props and two spreads. Granted at 03:30. **An orchestration failure, not a build one.**
+
+4c. **W1-1's overlay auto-open was deliberately dropped, and the reason is that shipping it would have
+   failed the criterion it was meant to satisfy.** `ImportPageClient` renders a full-bleed
+   `--brand-wash` at `<lg`, so auto-opening puts the paste field on a gradient with **the map
+   completely covered on a phone** — K13 asks for the paste field *and* a framed map. The lane put
+   three options to me before writing code, recommended shipping the resting-at-`half` half, said it
+   would build that absent a reply, and **I never replied.** The specification and the KPI disagreed;
+   the lane chose correctly.
 5. **`src/components/ui/map.tsx` was ruled out of scope** — 2,000 vendored lines holding 12 of the 25
    remaining hard-coded colours, two hand-rolled icon buttons and three unguarded `animate-pulse`
    dots. Opening it at 3am was the wrong trade. It is owed work.
