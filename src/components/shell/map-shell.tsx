@@ -33,6 +33,24 @@
  *    `document.body` holding a scroll lock and a `pointer-events: none` nobody can see. It also has
  *    to be the thing the backdrop covers rather than the thing covered by it, and at equal
  *    z-indices paint order is mount order.
+ *
+ * ## Mount versus reveal — the rule the entrance may not break
+ *
+ * **The post-login entrance (`I2-7`) governs where these surfaces *are*. It may never govern
+ * whether they exist.** Content that is mounted can be translated off screen, faded, occluded or
+ * slid, and it is still in the accessibility tree, still found by find-in-page, still readable by
+ * anything that is not a pair of eyes. Content that is not mounted is none of those things, and
+ * withholding *it* is not choreography — it is an outage with a timer on it.
+ *
+ * That distinction was missed until 2026-08-31: both the sheet and the `lg+` panel were behind
+ * `{listArrived && …}`, so the desktop place list did not exist in the document for **2467 / 2613 /
+ * 2509 ms** at 1440×900 (measured against `5c3d3a9`; `docs/evidence/i2/screens/map-arrival--1440x900--t1500ms.png`
+ * is the picture of it). The entrance's own beat is 900 ms, and the other 1.5 s is that the clock's
+ * zero is the camera framing rather than the mount — so the beat, faithfully implemented, landed at
+ * two and a half seconds.
+ *
+ * The sheet now mounts on the first render and is held at vaul's own off-screen resting transform
+ * until its beat; the panel takes no beat at all. Both reasons are at their call sites below.
  */
 
 import type { ReactNode } from 'react';
@@ -154,14 +172,18 @@ export interface MapShellProps {
   /**
    * **Play the post-login entrance on this mount** (`I2-7`, `components/map/entrance.ts`).
    *
-   * The shell's own beat is the sheet: it is withheld until 900 ms on the entrance's clock and then
-   * mounts, which is a rise from off-screen rather than an appearance — vaul's snap-point CSS puts
-   * `Drawer.Content` at `translate3d(0, 100%, 0)` until the active snap point is applied, over its
-   * own 0.5 s transition. The `lg+` panel takes the same beat, because it is what a desktop has
-   * instead of a sheet.
+   * The shell's own beat is the sheet, and it is beat 4 of the owner's table verbatim — *"900 ms,
+   * sheet rises to its stop"*. The sheet is mounted from the first render and **held at vaul's own
+   * off-screen resting transform** (`translate3d(0, 100%, 0)`) until the beat, when it is given its
+   * snap point and rises over vaul's 0.5 s transition. So the list is in the document, and in the
+   * accessibility tree, the whole time; what the beat withholds is a position on screen.
    *
-   * **`BottomNav` deliberately does not take it.** It is navigation, and holding a way out of a
-   * surface back for the sake of a flourish is the one thing an entrance may not do.
+   * **Two things deliberately do not take it**, and both are the same rule — an entrance may not
+   * withhold the way *out* of a surface or the *content* of one:
+   *
+   * - **`BottomNav`.** It is navigation.
+   * - **The `lg+` panel.** Beat 4 names a *sheet*, and a desktop has none; the panel is where a
+   *   desktop user reads their library. See its call site for the measurement that settled this.
    *
    * Passed straight through to the surface as well, where it drives the camera and the pins. A
    * scope with no entrance — `/collections/[id]` — omits it and renders exactly as it always did.
@@ -202,10 +224,15 @@ export function MapShell({
   useNonModalBackground(true);
 
   const restingFraction = restingSheetFractionFor(restingStop);
-  /** `true` immediately for every scope that is not playing an entrance, so the two list surfaces
-   *  below are unguarded in the ordinary case rather than guarded by something that is always
-   *  true. */
-  const listArrived = useEntranceBeat(ENTRANCE_BEATS.sheet, entrance);
+  /**
+   * **Whether the sheet's beat has arrived.** `true` immediately for every scope that is not
+   * playing an entrance.
+   *
+   * **It governs where the sheet *is*, never whether it exists.** See this file's header, `Mount
+   * versus reveal`: the two list surfaces below are mounted on the first render regardless, and the
+   * only thing this decides is whether the sheet has been given its snap point yet.
+   */
+  const sheetArrived = useEntranceBeat(ENTRANCE_BEATS.sheet, entrance);
 
   return (
     <div className="relative h-full w-full">
@@ -249,7 +276,7 @@ export function MapShell({
           {/* At `full` the map is not meaningfully visible; a tap on the remaining strip collapses
               the sheet rather than reaching the map underneath. A non-modal drawer has no vaul
               overlay to repurpose, so this is the only thing standing in for that rule. */}
-          {listArrived && shell.sheet.stop === 'full' && (
+          {sheetArrived && shell.sheet.stop === 'full' && (
             <button
               type="button"
               aria-label="Collapse the places sheet"
@@ -258,19 +285,27 @@ export function MapShell({
             />
           )}
 
-          {/* **The sheet's beat, and it is a mount rather than a class.** vaul puts
+          {/* **The sheet's beat, and it is the snap point rather than the mount.** vaul puts
               `Drawer.Content` at `translate3d(0, 100%, 0)` while it has no active snap point
-              (`vaul/dist/index.mjs:62`, `[data-vaul-snap-points=true][data-vaul-drawer-direction=bottom]`)
-              and transitions `transform` over 0.5 s, so mounting it at the beat *is* the rise — no
-              second animation, and nothing for the entrance and the drag gesture to disagree about.
-              `listArrived` is unconditionally `true` for a scope with no entrance. */}
-          {listArrived && (
+              (`vaul/dist/index.mjs:62`, `[data-vaul-snap-points=true][data-vaul-drawer-direction=bottom]`,
+              and `data-vaul-snap-points` is `isOpen && hasSnapPoints` at `:1402` — it does not
+              depend on the active point) and transitions `transform` over 0.5 s. Withholding the
+              *point* therefore buys the same rise the mount used to, with the sheet's whole content
+              already in the document.
+
+              `useControllableState` reads `prop !== undefined` (`vaul/dist/index.mjs:485`), so
+              `null` is a controlled null rather than a fallback to `snapPoints[0]`; the effect at
+              `:608` is guarded on `activeSnapPoint || activeSnapPointProp` and does not fire until
+              the real point arrives, at which point `snapToPoint` sets the inline transform and the
+              0.5 s transition runs. No second animation, and nothing for the entrance and the drag
+              gesture to disagree about. `sheetArrived` is unconditionally `true` for a scope with no
+              entrance. */}
           <Drawer.Root
             open
             modal={false}
             dismissible={false}
             snapPoints={SNAP_POINTS}
-            activeSnapPoint={shell.sheet.snap}
+            activeSnapPoint={sheetArrived ? shell.sheet.snap : null}
             setActiveSnapPoint={shell.sheet.setSnap}
             snapToSequentialPoint
           >
@@ -310,7 +345,6 @@ export function MapShell({
               </Drawer.Content>
             </Drawer.Portal>
           </Drawer.Root>
-          )}
         </>
       )}
 
@@ -320,20 +354,25 @@ export function MapShell({
           map underneath stays reachable everywhere else. Its materials are the sign-in screen's
           desktop split rather than a two-column layout.
 
-          The panel takes the sheet's beat, because it is what a desktop has instead of a sheet, and
-          the `enter` rule rather than a rise of its own: `animate-in fade-in-0 duration-enter` with
-          the 4 px displacement behind `motion-safe:`, exactly as `place-desktop-panel.tsx` and
-          `place-sheet.tsx` already write it. `slide-in-from-left-2` and not `-bottom-1` because
-          this panel's own edge is the left one — the displacement is along the axis the surface
-          arrives on. Under reduced motion every beat is due at once (`entrance.ts`), so what is
-          left is the opacity change, which is what §3a asks the nine to collapse to. */}
-      {listArrived && (
+          **It takes no beat, and that is a correction rather than a preference.** It was given the
+          sheet's, on the reasoning that it is what a desktop has instead of a sheet — but
+          `iteration-2-plan.md` §2.2 ruling 2's beat 4 is *"the sheet rises to its stop"*, and at
+          `lg+` there is no sheet: `Drawer.Content` above is `lg:hidden`. So the beat had no subject
+          here, and what it actually governed was the only surface on which a desktop user can read
+          their library. Measured at 1440×900 against `5c3d3a9`, that cost **2467 / 2613 / 2509 ms**
+          — the clock's zero is the camera framing (~1.5 s), so the nominal 900 ms beat landed at
+          ~2.5 s, and the same ruling's last sentence is *"it may not delay the map being usable"*.
+
+          What it keeps is the `enter` rule, which is what it had before the entrance existed:
+          `animate-in fade-in-0 duration-enter` with the 4 px displacement behind `motion-safe:`,
+          exactly as `place-desktop-panel.tsx` and `place-sheet.tsx` already write it.
+          `slide-in-from-left-2` and not `-bottom-1` because this panel's own edge is the left one —
+          the displacement is along the axis the surface arrives on. */}
       <div className="pointer-events-none absolute inset-0 z-20 hidden lg:block">
         <div className="pointer-events-auto animate-in fade-in-0 duration-enter motion-safe:slide-in-from-left-2 absolute inset-y-0 left-0 flex w-[clamp(320px,26vw,392px)] flex-col border-r border-border/70 bg-card/85 backdrop-blur-md">
           {panelContent}
         </div>
       </div>
-      )}
 
       {overlay}
     </div>

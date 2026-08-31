@@ -18,10 +18,24 @@
  * | 900 ms | the sheet rises to its stop |
  * | 1100 ms | the header wordmark fades in |
  *
+ * ## What a beat is allowed to withhold, and it is never a mount
+ *
+ * **A beat governs where a surface is. It may never govern whether the surface exists.** Mounted
+ * content that is translated off screen, faded or occluded is still in the accessibility tree and
+ * still found by find-in-page; content that is not mounted is not there for anybody, and holding
+ * *that* back is not choreography.
+ *
+ * The rule is written here because it was broken here. `map-shell.tsx` put both the sheet and the
+ * `lg+` panel behind `{listArrived && …}` until 2026-08-31, and since this clock's zero is the
+ * camera framing rather than the mount, the 900 ms beat put the desktop place list into the
+ * document at **2467 / 2613 / 2509 ms** at 1440×900 (measured against `5c3d3a9`). The sheet is now
+ * mounted from the first render and held at vaul's own off-screen transform; the panel takes no
+ * beat, because beat 4 names a *sheet* and a desktop has none.
+ *
  * ## Why the clock is a module singleton and not a prop
  *
  * The four beats are read in four different places — `map-surface.mapcn.tsx` (the camera),
- * `place-marker-layer.tsx` (the pins), `map-shell.tsx` (the sheet and the desktop panel) and
+ * `place-marker-layer.tsx` (the pins), `map-shell.tsx` (the sheet's snap point) and
  * `/map`'s own header (the wordmark) — and three of them are not on a path from the fourth.
  * Threading a timestamp through `MapShell` to the two that are, and through nothing to the two
  * that are not, would give the entrance two clocks; two clocks are two answers to *when did this
@@ -88,8 +102,11 @@ export const ENTRANCE_ZOOM_LIFT = 2.6;
 /**
  * How long the page will wait for the map to frame the library before starting the clock anyway.
  *
- * The sheet and the wordmark are *withheld* until their beats, so a clock that never starts is a
- * map with no list and no brand on it for the life of the page. The camera can fail to frame —
+ * The sheet's position and the wordmark are *withheld* until their beats, so a clock that never
+ * starts is a phone with the list parked off screen and no brand on either viewport for the life of
+ * the page. (The desktop panel no longer depends on it at all, and the sheet's content is in the
+ * document either way — that is the whole point of the mount/reveal rule above. This floor is what
+ * is left of the exposure, and it is still worth having.) The camera can fail to frame —
  * `fitTo`'s docblock records an impossible fit that silently does nothing, and a WebGL context can
  * fail to come up at all — and none of those failures says anything on screen.
  *
@@ -212,8 +229,10 @@ export function prefersReducedMotion(): boolean {
  *
  * The initial value is `false` for an armed entrance on both the server and the hydrating client,
  * which is what keeps the two renders agreeing. The cost is stated rather than hidden: a document
- * whose JavaScript never runs would show `/map` with no sheet and no wordmark — but `/map` is a
- * WebGL canvas fed by a client component, so that document has no map either.
+ * whose JavaScript never runs would show `/map` with the sheet parked off screen and no wordmark —
+ * but `/map` is a WebGL canvas fed by a client component, so that document has no map either. What
+ * such a document *does* now have is the desktop panel and the sheet's markup, which is the
+ * difference between a beat and an outage.
  */
 export function useEntranceBeat(beat: number, enabled: boolean): boolean {
   const [arrived, setArrived] = useState(false);

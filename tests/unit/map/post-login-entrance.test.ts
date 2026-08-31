@@ -407,20 +407,57 @@ describe('the pins that land are the real pins', () => {
 });
 
 describe('what the entrance may not delay', () => {
+  /** The shell's JSX, with the file header cut off. Every assertion below is about what the
+   *  component *renders*; the header discusses the defect these tests exist to pin, by name, and a
+   *  `not.toContain` run over the whole file would be matching prose. */
+  const SHELL_BODY = SHELL.slice(SHELL.indexOf('export function MapShell('));
+
   /** Navigation is not part of the show. Holding a way out of a surface back for the sake of a
    *  flourish is the one thing an entrance may not do. */
   it('never withholds the bottom nav', () => {
-    const guarded = SHELL.slice(SHELL.indexOf('{overlay ? null : ('), SHELL.indexOf('{modalSlot}'));
+    const guarded = SHELL_BODY.slice(
+      SHELL_BODY.indexOf('{overlay ? null : ('),
+      SHELL_BODY.indexOf('{modalSlot}'),
+    );
     expect(guarded).toContain('<BottomNav');
-    expect(guarded.indexOf('<BottomNav')).toBeLessThan(guarded.indexOf('{listArrived && ('));
+    expect(guarded.slice(0, guarded.indexOf('<BottomNav'))).not.toContain('sheetArrived');
   });
 
-  /** The sheet's rise is vaul's own snap-point transition, taken by mounting at the beat — not a
-   *  second animation this file invents, which the drag gesture would then have to share the
-   *  transform with. */
-  it('rises the sheet by mounting it at its beat', () => {
-    expect(SHELL).toContain('useEntranceBeat(ENTRANCE_BEATS.sheet, entrance)');
-    expect(SHELL).toContain('{listArrived && (');
+  /**
+   * **Mount versus reveal.** A beat may govern where a surface is; it may never govern whether the
+   * surface exists. Both list surfaces were behind `{listArrived && …}` until 2026-08-31, and
+   * because this clock's zero is the camera framing, the 900 ms beat put the desktop place list
+   * into the document at 2467 / 2613 / 2509 ms at 1440×900 (against `5c3d3a9`).
+   *
+   * The sheet's rise is still vaul's own snap-point transition — not a second animation this file
+   * invents, which the drag gesture would then have to share the transform with. What changed is
+   * that the transition is bought by withholding the **snap point** rather than the mount:
+   * `useControllableState` treats a `null` prop as a controlled null (`vaul/dist/index.mjs:485`),
+   * and the CSS resting transform is keyed on `data-vaul-snap-points`, which is `isOpen &&
+   * hasSnapPoints` (`:1402`) and so does not depend on the active point.
+   */
+  it('mounts the sheet at first paint and rises it by its snap point at the beat', () => {
+    expect(SHELL_BODY).toContain('useEntranceBeat(ENTRANCE_BEATS.sheet, entrance)');
+    expect(SHELL_BODY).toContain('activeSnapPoint={sheetArrived ? shell.sheet.snap : null}');
+    // The mount itself is unguarded — no beat stands between the render and `<Drawer.Root`.
+    const beforeDrawer = SHELL_BODY.slice(
+      SHELL_BODY.indexOf('{overlay ? null : ('),
+      SHELL_BODY.indexOf('<Drawer.Root'),
+    );
+    expect(beforeDrawer).not.toMatch(/\{sheetArrived && \($/m);
+  });
+
+  /**
+   * **The `lg+` panel takes no beat at all**, and that is the ruling read literally rather than a
+   * concession. Beat 4 is *"the sheet rises to its stop"*; `Drawer.Content` is `lg:hidden`, so at
+   * `lg+` beat 4 has no subject — and what the synthesised desktop copy of it actually governed was
+   * the only surface a desktop user can read their library on. `iteration-2-plan.md` §2.2 ruling
+   * 2's own last sentence: *"it may not delay the map being usable."*
+   */
+  it('never withholds the desktop panel', () => {
+    const panel = SHELL_BODY.slice(SHELL_BODY.indexOf('{modalSlot}'));
+    expect(panel).toContain('{panelContent}');
+    expect(panel).not.toContain('sheetArrived');
   });
 
   /** Every scope that is not playing an entrance renders exactly as it did — `/collections/[id]`
