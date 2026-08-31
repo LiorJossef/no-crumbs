@@ -101,9 +101,10 @@
  */
 
 import { useEffect, useId, useRef, useState } from 'react';
-import { ArrowUpRight, ChevronDown, Link2 } from 'lucide-react';
+import { ArrowUpRight, ChevronDown } from 'lucide-react';
 
 import { CrumbMascot } from '@/components/brand/crumb-mascot';
+import { PlatformMark } from '@/components/brand/platform-mark';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ENTER_REVEAL, ENTER_SCREEN, LEAVE_REVEAL, REVEAL_BEAT } from '@/lib/interaction';
@@ -303,11 +304,12 @@ export function NoPlacesScreen({
             className="size-12 shrink-0 rounded-lg object-cover"
           />
         ) : (
+          // The platform, not a chain link — the same stand-in the rail and the review screen use.
           <span
             aria-hidden
             className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-card-2 text-muted-foreground"
           >
-            <Link2 className="size-4" />
+            <PlatformMark className="size-5" />
           </span>
         )}
         <div className="flex min-w-0 flex-col gap-0.5">

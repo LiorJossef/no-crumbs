@@ -23,9 +23,10 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Check, Link2, Loader2 } from 'lucide-react';
+import { Check, Loader2 } from 'lucide-react';
 
 import { CrumbTrail } from '@/components/brand/crumb-trail';
+import { PlatformMark } from '@/components/brand/platform-mark';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ENTER_SCREEN } from '@/lib/interaction';
@@ -96,7 +97,7 @@ export function RailScreen({
           A second indicator beside it would also be a second mascot on one screen, which
           `#rules` rule 2 forbids outright.
         */}
-        <ScreenKicker icon={<Link2 className="size-3.5" aria-hidden />} label="Working on it" />
+        <ScreenKicker icon={<PlatformMark className="size-4" />} label="Working on it" />
         <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">
           Adding your TikTok
         </h1>
@@ -192,11 +193,15 @@ export function RailScreen({
                 className="size-12 shrink-0 rounded-md object-cover"
               />
             ) : (
+              // The stand-in for a thumbnail that did not arrive. It says *a TikTok* rather than
+              // *a link*, which is the one thing this square can honestly claim: the post is being
+              // read, we just have no still of it. `size-5` because the mark is portrait and this
+              // is a 48px square with nothing else in it.
               <span
                 aria-hidden
                 className="flex size-12 shrink-0 items-center justify-center rounded-md bg-card-2 text-muted-foreground"
               >
-                <Link2 className="size-4" />
+                <PlatformMark className="size-5" />
               </span>
             )}
             <p className="min-w-0 truncate text-sm font-semibold text-foreground">

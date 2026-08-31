@@ -20,7 +20,7 @@
  */
 
 import { useLayoutEffect, useRef } from 'react';
-import { Plus } from 'lucide-react';
+import { PlatformMark } from '@/components/brand/platform-mark';
 import { Button } from '@/components/ui/button';
 import {
   ClearSearchEscape,
@@ -165,7 +165,9 @@ export function PlaceDesktopPanel({
           className="h-12 w-full gap-1.5 rounded-lg text-sm font-bold"
           onClick={() => onAddTikTok()}
         >
-          <Plus className="size-4" aria-hidden />
+          {/* The platform rather than `Plus`, matching the sheet's copy of this button — the
+              verb is already in the label and the glyph's one job is naming what gets added. */}
+          <PlatformMark className="size-4" />
           Add a TikTok
         </Button>
         {/* Hidden while the library is empty: there is nothing to search, and an inert field is a

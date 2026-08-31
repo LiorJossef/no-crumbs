@@ -13,8 +13,8 @@
  */
 
 import { useId } from 'react';
-import { Link2 } from 'lucide-react';
 
+import { PlatformMark } from '@/components/brand/platform-mark';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -65,7 +65,11 @@ export function PasteScreen({
       }}
     >
       <div className="flex flex-col gap-2 pb-8">
-        <ScreenKicker icon={<Link2 className="size-3.5" aria-hidden />} label="Add a place" />
+        {/* The platform, not a chain link. `size-4` rather than `Link2`'s `size-3.5`: the mark is
+            portrait, so at the same box it carries about half the ink of the Lucide glyph it
+            replaced and reads as a smaller icon in the same disc. Compared at both sizes inside
+            the 28px disc before choosing. */}
+        <ScreenKicker icon={<PlatformMark className="size-4" />} label="Add a place" />
         <h1 className="font-heading text-3xl font-extrabold tracking-tight text-foreground">
           Add a TikTok
         </h1>

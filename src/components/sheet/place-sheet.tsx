@@ -47,7 +47,8 @@ import {
 } from '@/components/shell/sheet-geometry';
 import { savedPlaceRef } from '@/components/map/saved-place-ref';
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Plus, MapPin, ExternalLink, X, ChevronLeft, ChevronUp, Search } from 'lucide-react';
+import { MapPin, ExternalLink, X, ChevronLeft, ChevronUp, Search } from 'lucide-react';
+import { PlatformMark } from '@/components/brand/platform-mark';
 import { Button } from '@/components/ui/button';
 import { PRESS_ROW } from '@/lib/interaction';
 import { Input } from '@/components/ui/input';
@@ -1383,7 +1384,10 @@ export function NoPlacesYet({ onAddTikTok }: { onAddTikTok: () => void }) {
         className="h-12 w-full gap-1.5 rounded-lg text-sm font-bold"
         onClick={() => onAddTikTok()}
       >
-        <Plus className="size-4" aria-hidden />
+        {/* The platform rather than `Plus`. The verb is already in the label, so the glyph's one
+            job is naming what gets added — and this button is a first-run user's first sight of
+            the thing the product is built around. */}
+        <PlatformMark className="size-4" />
         Add a TikTok
       </Button>
     </div>
@@ -1788,6 +1792,14 @@ export function PlaceDetail({
                 data-vaul-no-drag
                 className="flex items-center gap-1.5 text-sm font-bold text-brand underline-offset-4 hover:underline"
               >
+                {/* The platform leads and `ExternalLink` still trails, because the two glyphs say
+                    different things: *what this is* and *this leaves the product*. The Google Maps
+                    link beside it carries only the second, which is the honest asymmetry — one of
+                    these destinations is the thing the place came from and the other is a lookup.
+
+                    `gap-1.5` is unchanged and the mark is `size-4` against the arrow's `size-3.5`:
+                    a portrait glyph at the arrow's box reads a size smaller than it is. */}
+                <PlatformMark className="size-4" />
                 Open TikTok
                 <ExternalLink className="size-3.5" aria-hidden />
               </a>
