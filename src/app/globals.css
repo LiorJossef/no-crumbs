@@ -1809,20 +1809,46 @@
         animation-delay: 80ms, 680ms;
     }
 
+    /*
+     * **`data-chrome-motion`, deliberately not a third `data-entrance` value, and the reason is a
+     * contract rather than a namespace preference.**
+     *
+     * `[data-entrance]` means one specific thing in this file: *a staggered beat of the card's
+     * arrival*, carrying the shared duration, the shared easing, the `--enter-step` delay and — the
+     * load-bearing part — `animation-fill-mode: both`, so that the element's resting state is the
+     * **end** of its animation and the page reveals itself with no JavaScript. Every one of those
+     * beats ends fully opaque, which is what lets the reduced-motion block collapse the lot of them
+     * to one fade with a single rule.
+     *
+     * Neither of the two below is that. They override every property of the shared rule, they are
+     * not part of the stagger, they opt out of the shared collapse, and one of them **ends at
+     * `opacity: 0` by design** and the other never ends at all. They share the mechanism and not
+     * the meaning, and an attribute is a claim about meaning.
+     *
+     * This was found by an instrument rather than by argument, which is why it is written down:
+     * `verify-i2.mjs`'s reduced-motion probe counts `[data-entrance]` elements sitting under 0.99
+     * opacity at rest, because *"anything still invisible at rest is the failure mode this probe
+     * exists for"* — the blank front door. Filed under `data-entrance`, a decorative strip that is
+     * *supposed* to be invisible made that counter read 1 on `/` and `/sign-in`. Nothing was broken
+     * and the gate could no longer say so, which is the more expensive of the two outcomes.
+     */
+
     /* The sweep. `both` so the strip is at the first keyframe (opacity 0, off to the left) before
-     * its delay elapses rather than sitting visible in the middle of the edge until it starts —
-     * the same property that makes this whole entrance safe without JavaScript. */
-    [data-entrance='edge-spark'] {
+     * its delay elapses rather than sitting visible in the middle of the edge until it starts. */
+    [data-chrome-motion='edge-sweep'] {
         animation-name: chrome-edge-sweep;
         animation-duration: 880ms;
         animation-delay: 720ms;
         animation-timing-function: var(--ease-emphasised);
         animation-iteration-count: 1;
+        animation-fill-mode: both;
     }
 
     /* The halo's breath starts after the mark's own arrival has finished (180 + 460 ms), so the two
-     * never overlap and the character does not appear to pulse while it is still landing. */
-    [data-entrance='mark-halo'] {
+     * never overlap and the character does not appear to pulse while it is still landing.
+     * `fill-mode: none` so it sits at its natural full opacity until then rather than at the
+     * keyframe's floor. */
+    [data-chrome-motion='mark-breathe'] {
         animation-name: chrome-mark-breathe;
         animation-duration: 7s;
         animation-delay: 700ms;
@@ -1859,24 +1885,30 @@
          * to nothing*, because the pin that was just selected still has to be findable. Both
          * elements below fail that rule's premise rather than its letter.
          *
-         * **`edge-spark`** ends at `opacity: 0`. Its whole existence is the travel, so the generic
+         * **The sweep** ends at `opacity: 0`. Its whole existence is the travel, so the generic
          * collapse — `chrome-enter-fade`, which ends at `opacity: 1` — would park a bright blob in
          * the middle of the card's top edge and leave it there for the rest of the session. The
          * thing that has to stay findable is the **edge**, and the edge is a separate element that
-         * never moves. So the spark does not run and is not painted.
+         * never moves.
          *
-         * **`mark-halo`** is a loop, and a loop has nothing to keep findable. Collapsing it to an
+         * `display: none` rather than `opacity: 0`, and the difference is honesty rather than
+         * pixels: both paint nothing, and only one of them *says* nothing is there. A transparent
+         * element is a thing present at zero alpha, which is indistinguishable from a defect to
+         * anything that inspects the page — including the reduced-motion gate, which is exactly how
+         * this pair of rules got its attribute renamed above.
+         *
+         * **The breath** is a loop, and a loop has nothing to keep findable. Collapsing it to an
          * opacity change would produce exactly the continuous pulse §3a bans in its next sentence.
          * Same ruling as the mascot's own loops higher up this file: **the loop stops and the light
          * stays** — `animation: none` leaves the halo at its natural full opacity, which is more
          * light than the animated version averages, not less.
          */
-        [data-entrance='edge-spark'] {
+        [data-chrome-motion='edge-sweep'] {
             animation: none;
-            opacity: 0;
+            display: none;
         }
 
-        [data-entrance='mark-halo'] {
+        [data-chrome-motion='mark-breathe'] {
             animation: none;
         }
     }

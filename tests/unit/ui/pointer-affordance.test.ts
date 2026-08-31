@@ -200,7 +200,7 @@ describe('the primary CTA answers a pointer with light', () => {
 describe('the entrance gains a closing beat, and the mark gains a breath', () => {
   it('sweeps the lit edge exactly once', () => {
     expect(css).toContain('@keyframes chrome-edge-sweep');
-    const rule = css.match(/\[data-entrance='edge-spark'\]\s*\{[^}]*\}/)?.[0] ?? '';
+    const rule = css.match(/\[data-chrome-motion='edge-sweep'\]\s*\{[^}]*\}/)?.[0] ?? '';
     expect(rule).toContain('animation-name: chrome-edge-sweep');
     expect(rule).toContain('animation-iteration-count: 1');
   });
@@ -221,8 +221,8 @@ describe('the entrance gains a closing beat, and the mark gains a breath', () =>
     // middle of the card's top edge for the rest of the session. The halo is a loop, and a loop
     // collapsed to an opacity change is the continuous pulse the motion rules ban outright.
     const reduced = css.slice(css.indexOf('prefers-reduced-motion'));
-    expect(reduced).toMatch(/\[data-entrance='edge-spark'\]\s*\{\s*animation: none;\s*opacity: 0;/);
-    expect(reduced).toMatch(/\[data-entrance='mark-halo'\]\s*\{\s*animation: none;/);
+    expect(reduced).toMatch(/\[data-chrome-motion='edge-sweep'\]\s*\{\s*animation: none;\s*display: none;/);
+    expect(reduced).toMatch(/\[data-chrome-motion='mark-breathe'\]\s*\{\s*animation: none;/);
   });
 
   it('puts both hooks in the rendered card, so the rules have something to target', () => {
@@ -233,7 +233,20 @@ describe('the entrance gains a closing beat, and the mark gains a breath', () =>
     const markup = renderToStaticMarkup(
       createElement(ChromeStage, { editorial: null, form: null }),
     );
-    expect(markup).toContain('data-entrance="edge-spark"');
-    expect(markup).toContain('data-entrance="mark-halo"');
+    expect(markup).toContain('data-chrome-motion="edge-sweep"');
+    expect(markup).toContain('data-chrome-motion="mark-breathe"');
+
+    /*
+     * And neither is a `data-entrance`, which is a contract rather than a naming preference.
+     * `[data-entrance]` means *a staggered beat of the arrival that ends fully opaque*; the shared
+     * rule gives every one of them `animation-fill-mode: both` and the reduced-motion block
+     * collapses the lot to one fade on that basis. These two override every property of that rule
+     * and opt out of the collapse — one ends at `opacity: 0` by design and the other never ends.
+     * Filed under `data-entrance` they made `verify-i2.mjs`'s reduced-motion probe report an
+     * `invisibleAtRest` element on `/` and `/sign-in`, which is that gate's name for the blank
+     * front door. Nothing was broken and the gate could no longer say so.
+     */
+    expect(markup).not.toContain('data-entrance="edge-spark"');
+    expect(markup).not.toContain('data-entrance="mark-halo"');
   });
 });

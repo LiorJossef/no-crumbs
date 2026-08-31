@@ -104,14 +104,16 @@ export function ChromeStage({
                * word for word.
                *
                * The 720 ms delay, the 880 ms duration and the reduced-motion collapse are all in
-               * `globals.css` under `[data-entrance='edge-spark']`, which is where every other beat
-               * of this sequence lives. **It is a CSS animation and not a Motion variant**, for the
+               * `globals.css`, under `data-chrome-motion` rather than `data-entrance` — that
+               * attribute means *a staggered beat of the arrival that ends fully opaque*, and this
+               * is neither staggered nor opaque at the end. The token file carries the argument.
+               * **It is a CSS animation and not a Motion variant**, for the
                * reason that file records at length: a variant's initial state is written into the
                * server HTML and only hydration removes it, and that is how this screen once shipped
                * a blank front door.
                */}
               <div
-                data-entrance="edge-spark"
+                data-chrome-motion="edge-sweep"
                 className="absolute inset-y-0 left-0 w-1/3"
                 style={{ background: 'var(--chrome-edge-spark)' }}
               />
@@ -156,8 +158,8 @@ export function ChromeStage({
                      * back.
                      */}
                     {/*
-                     * `data-entrance="mark-halo"` breathes the light, **opacity only and never
-                     * scale** — see `globals.css`. The paragraph above is the reason: this box was
+                     * `data-chrome-motion="mark-breathe"` breathes the light, **opacity only and
+                     * never scale** — see `globals.css`. The paragraph above is the reason: this box was
                      * cut back to match the lockup's gap exactly so it stops where the wordmark
                      * begins, and any scale animation would grow it back over the ink and rebuild
                      * the defect the measurement removed. Keeping the two facts adjacent is the
@@ -165,7 +167,7 @@ export function ChromeStage({
                      */}
                     <span
                       aria-hidden
-                      data-entrance="mark-halo"
+                      data-chrome-motion="mark-breathe"
                       className="pointer-events-none absolute -inset-3 lg:-inset-4"
                       style={{ background: 'var(--chrome-mark-glow)' }}
                     />
