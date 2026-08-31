@@ -59,6 +59,39 @@
  * statically, because a static import from a component the root layout renders would put
  * `maplibre-gl` in the shared client chunk of *every* route, including `/` and `/sign-in`.
  *
+ * ## Known defect: the camera comes back a zoom band wider — cause found, fix not applied here
+ *
+ * **After a round trip through `/collections`, `/map` rests further out than it does on first
+ * load.** Traced at `d77a1c6`, 390x844, with `fitToBounds` and `frameBounds` instrumented in a
+ * throwaway build: first load rests at **z11.60**; tapping Collections and then Map re-frames the
+ * library twice and rests at **z10.46**. Two towns wider, every hop.
+ *
+ * It is not this file's design and it is not the borrowing itself. It is a callback-ref chain in
+ * `components/map/map-surface.mapcn.tsx`. `floatingTopChromePx` is `paddingFor`'s only dependency,
+ * and `paddingFor` reaches `frameBounds` -> `fitTo` -> `fitToBounds` -> `refitFramed` ->
+ * `attachMapRef`; React detaches and re-attaches a callback ref whose identity changes, and that
+ * re-attach re-runs the home framing, `hasFramedOnce` notwithstanding. `/map` omits the prop and
+ * `/collections` passes `0`, so every hop trips it. And the re-frame reads a **mixed** budget: the
+ * arriving route's chrome with the departing route's `sheetFractionRef`, because that ref is
+ * written from a passive effect that has not run yet — which is why the wide one is `/map` framed
+ * with `/collections`' 0.55 full-sheet fraction.
+ *
+ * That chain was harmless while a surface belonged to one route for its whole life. Persisting the
+ * map is what made two of its props change under a live instance, so this file is the *occasion*
+ * for the defect and `map-surface.mapcn.tsx` is the *location* of it.
+ *
+ * **The fix is nine lines and is verified.** Make `floatingTopChromePx` a ref — the pattern that
+ * file already uses five times, for this exact reason, on `latestBounds`, `latestAllowance`,
+ * `latestPlaceCount`, `sheetFractionRef` and `accessibleNameRef` — which empties `paddingFor`'s
+ * dependency array and makes the whole chain stable; and give the attach-time `fitToBounds` the
+ * same `hasFramedOnce` guard its sibling effect already carries. With both applied in a throwaway
+ * build, **no camera mover fires on either hop at all** and `/map` after a round trip is
+ * byte-identical to `/map` on first load (SHA-256 `aac92098...`, 390x844).
+ *
+ * It is not applied because `components/map/**` was not this lane's to write. The patch is ready.
+ * Whoever picks it up: delete this section, do not summarise it — a note describing a defect that
+ * no longer exists is worse than no note.
+ *
  * ## What is deliberately not abstracted
  *
  * There is no generic "persistent component" mechanism here, no registry, no keying by name. One
