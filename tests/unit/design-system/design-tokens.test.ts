@@ -93,6 +93,23 @@ function rootDeclarations(): Map<string, string> {
   return declarations;
 }
 
+/** The `.dark` block, read the same way `rootDeclarations` reads `:root`. A composition token that
+ *  is declared once is a token that only has one theme's answer, which is the whole defect. */
+function darkDeclarations(): Map<string, string> {
+  const source = readFileSync(GLOBALS, 'utf8');
+  const block = /^\.dark \{([\s\S]*?)^\}/m.exec(source);
+  if (block?.[1] === undefined) throw new Error('no .dark block in globals.css');
+  const withoutComments = block[1].replace(/\/\*[\s\S]*?\*\//g, '');
+  const declarations = new Map<string, string>();
+  for (const line of withoutComments.split('\n')) {
+    const declaration = /^\s*(--[a-z0-9-]+)\s*:\s*(.+);\s*$/i.exec(line);
+    if (declaration?.[1] !== undefined && declaration[2] !== undefined) {
+      declarations.set(declaration[1], declaration[2].trim());
+    }
+  }
+  return declarations;
+}
+
 describe('globals.css registers the scales Tailwind generates utilities from', () => {
   it('defines --radius-md, the token four button sizes reference and nothing declared', () => {
     // The bug this file exists for. `button.tsx` writes `min(var(--radius-md), 10px)` and
@@ -169,6 +186,41 @@ describe('globals.css registers the scales Tailwind generates utilities from', (
     ];
     const css = await build(roles);
     for (const utility of roles) expect(() => rule(css, utility), utility).not.toThrow();
+  });
+
+  it('gives the two translucent surfaces a utility, in the namespace that generates one', async () => {
+    /*
+     * `--radius-md`'s failure mode, applied to composition. `backdrop-blur` resolves against
+     * **`--blur-*`**, not `--backdrop-blur-*`: the natural-looking key would register with no
+     * error, generate no class, and leave the panel unblurred in a way that reads as a design
+     * choice. So this compiles the classes the two panels actually write.
+     */
+    const css = await build(['bg-panel', 'bg-scrim', 'backdrop-blur-panel']);
+    expect(rule(css, 'bg-panel')).toContain('var(--panel)');
+    expect(rule(css, 'bg-scrim')).toContain('var(--scrim)');
+    expect(rule(css, 'backdrop-blur-panel')).toContain('var(--panel-blur)');
+  });
+
+  it('answers every composition token in both themes', () => {
+    /*
+     * The point of a composition token is that it has *two* values. `bg-white/55` had one, and the
+     * one it had put the sign-in panel at 1.18:1 in dark. A `--panel` declared only in `:root` is
+     * the same bug with a better name, and it would pass every other assertion in this file.
+     *
+     * `--panel-blur` is the deliberate exception and is asserted as one: a blur radius is a
+     * geometry, and 10px is 10px in either theme. Stating that here is what stops someone adding a
+     * dark value "for symmetry" and someone else later reading its absence as an oversight.
+     */
+    const root = rootDeclarations();
+    const dark = darkDeclarations();
+    for (const token of ['--panel', '--scrim', '--tint-strength', '--panel-blur']) {
+      expect(root.get(token), `${token} in :root`).toBeDefined();
+    }
+    for (const token of ['--panel', '--scrim', '--tint-strength']) {
+      expect(dark.get(token), `${token} in .dark`).toBeDefined();
+      expect(dark.get(token), `${token} is the same in both themes`).not.toBe(root.get(token));
+    }
+    expect(dark.get('--panel-blur'), '--panel-blur is a geometry, not a colour').toBeUndefined();
   });
 
   it('does not paint success in the brand colour', () => {
