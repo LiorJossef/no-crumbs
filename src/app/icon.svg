@@ -9,16 +9,27 @@
     `src/components/brand/brand-colors.ts` holds the same two values with a unit test asserting
     that all three copies agree.
 
-    The path below is M34 9C50 3 70 7 82 20 93 32 97 50 92 66 86 84 68 95 50 94 30 93 12 82 7 64 2 46 8 26 20 16 24 12 29 11 34 9Z_PATH from `src/components/brand/crumb-path.ts`, character for
-    character. `brand-and-product-foundation.md` section 3.1 rule 1: one closed path is the mascot
-    at 168px, the pin at 30px and this at 16px, and if the outline changes the pin is lost. An
+    The path below is CRUMB_PATH from `src/components/brand/crumb-path.ts`, character for
+    character. (That sentence used to contain the path itself, spliced in where the constant's
+    name should have been by an edit that matched too broadly — the comment named the wrong thing
+    while the drawing stayed right.)
+
+    `brand-and-product-foundation.md` section 3.1 rule 1: one closed path is the mascot at 168px,
+    the pin at 30px and this at 16px, and if the outline changes the pin is lost. An
     `.svg` cannot import, so `tests/unit/brand/crumb-path.test.ts` asserts the copy instead. Do not
     edit the path here. Edit the module and let the test fail.
 
-    No face. The design system drops it below 32px, where two dot eyes turn to mud, and a favicon
-    spends most of its life at 16px. The tile carries the contrast the shape cannot at that size:
-    a floating mark on a browser tab's own background disappears, and a filled tile with an 11.5:1
-    shape on it does not.
+    No face, and this is the one asset the gold-on-mint reversal does *not* change. §`apps` draws
+    the 180px and 64px tiles as the gold character and the 32px and 16px ones as exactly this —
+    the plain silhouette in `ink-on-mint` on the mint tile — because below 32px the face is dropped
+    and the silhouette carries it: *"two dot eyes at 16px turn to mud."* A favicon spends most of
+    its life at 16px. The tile also carries the contrast the shape cannot at that size: a floating
+    mark on a browser tab's own background disappears, and a filled tile with an 11.5:1 shape on it
+    does not.
+
+    In the mascot system this is the **Mono** construction — silhouette only, one colour — which is
+    what `crumb-mascot-markup.ts` builds for the map pin from the same geometry. The favicon cannot
+    import it, so the outline is restated here and asserted instead.
   -->
   <rect width="100" height="100" rx="22" fill="#A8ECE2"/>
   <g transform="translate(50 50) scale(0.74) translate(-49.7 -50.15)">
