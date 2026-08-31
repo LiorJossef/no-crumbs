@@ -160,7 +160,7 @@ export function ImportFailureScreen({
           <Icon className="size-6" aria-hidden />
         </span>
         <div className="flex flex-col items-center gap-1.5">
-          <p className="text-[11px] font-bold tracking-[0.14em] text-brand uppercase">
+          <p className="text-micro font-bold tracking-[0.14em] text-brand uppercase">
             {copy.kicker}
           </p>
           <h1
@@ -235,7 +235,7 @@ export function ImportFailureScreen({
             Omitted pre-submit: no request was made, so there is nothing on the other end to look
             up, and a code with no record behind it is noise. */}
         {rawCode !== null && (
-          <p className="pt-1 text-center text-[11px] font-medium text-muted-foreground/70">
+          <p className="pt-1 text-center text-micro font-medium text-muted-foreground/70">
             Reference: {rawCode}
           </p>
         )}

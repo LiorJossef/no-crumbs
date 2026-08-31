@@ -147,7 +147,7 @@ export function ExtractedCandidateRow({
           <bdi>{title}</bdi>
         </p>
         {chip ? (
-          <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold', chip.className)}>
+          <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-micro font-bold', chip.className)}>
             {chip.label}
           </span>
         ) : (
@@ -182,7 +182,7 @@ export function ExtractedCandidateRow({
           caption's own wording for the name ("The caption called it …") directly under the name
           it resolved to, the verbatim caption fragment under that, and a duplicate warning naming
           a pin the user is about to harmlessly re-save. */}
-      <p className="line-clamp-1 text-[13px] font-medium text-muted-foreground">
+      <p className="line-clamp-1 text-caption font-medium text-muted-foreground">
         <bdi>{candidateMeta(candidate)}</bdi>
       </p>
       {isHashtagOnly(caption, candidate) && (
@@ -229,7 +229,7 @@ export function ExtractedCandidateRow({
           <p
             id={`${optionsId}-label`}
             className={cn(
-              'text-[11px] font-bold tracking-[0.08em] uppercase',
+              'text-micro font-bold tracking-[0.08em] uppercase',
               view.kind === 'matched' ? 'text-brand' : 'text-foreground',
             )}
           >
@@ -266,7 +266,7 @@ export function ExtractedCandidateRow({
                     {isChosen && <span className="size-2 rounded-full bg-brand" />}
                   </span>
                   <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="line-clamp-1 text-[13px] font-bold text-foreground">
+                    <span className="line-clamp-1 text-caption font-bold text-foreground">
                       <bdi>{option.name}</bdi>
                     </span>
                     {/* The address, not the name, is what tells two branches of a chain apart —

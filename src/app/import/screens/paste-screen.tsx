@@ -136,7 +136,7 @@ export function PasteScreen({
         <div className="flex flex-col gap-2.5 pt-6">
           <p
             id={seedsLabelId}
-            className="text-[11px] font-bold tracking-[0.14em] text-muted-foreground uppercase"
+            className="text-micro font-bold tracking-[0.14em] text-muted-foreground uppercase"
           >
             Or try one of these
           </p>
@@ -146,7 +146,7 @@ export function PasteScreen({
                 <button
                   type="button"
                   onClick={() => onSeed(seed.url)}
-                  className="flex h-11 items-center rounded-full border border-input bg-background px-4 text-[13px] font-semibold text-muted-foreground transition-colors hover:border-brand hover:text-brand motion-reduce:transition-none"
+                  className="flex h-11 items-center rounded-full border border-input bg-background px-4 text-caption font-semibold text-muted-foreground transition-colors hover:border-brand hover:text-brand motion-reduce:transition-none"
                 >
                   {seed.label}
                 </button>

@@ -106,7 +106,7 @@ export function ImportShell({
           // capped height with its own scroll (so a future 3-stage rail grows the card rather than
           // forcing full-viewport height), rounded corners on all sides, hairline border + elevation.
           isOverlay &&
-            'lg:relative lg:mx-0 lg:my-0 lg:w-[clamp(420px,34vw,480px)] lg:max-w-none lg:flex-none lg:max-h-[min(52rem,calc(100vh-4rem))] lg:justify-start lg:overflow-hidden lg:rounded-2xl lg:border lg:border-border/70 lg:bg-card lg:px-8 lg:py-10 lg:shadow-[var(--shadow-elevated)]',
+            'lg:relative lg:mx-0 lg:my-0 lg:w-[clamp(420px,34vw,480px)] lg:max-w-none lg:flex-none lg:max-h-[min(52rem,calc(100vh-4rem))] lg:justify-start lg:overflow-hidden lg:rounded-2xl lg:border lg:border-border/70 lg:bg-card lg:px-8 lg:py-10 lg:shadow-sheet',
           // Desktop (`lg+`), standalone `/import` route (no map behind it).
           //
           // This used to be a flush right-docked, full-height panel, and with no map behind it that
@@ -114,7 +114,7 @@ export function ImportShell({
           // the product, on a screen whose whole content is one input. It is now the same centred
           // card the overlay uses, so the two ways into this flow look like one flow.
           !isOverlay &&
-            'lg:relative lg:my-auto lg:w-[clamp(420px,34vw,480px)] lg:max-w-none lg:flex-none lg:max-h-[min(52rem,calc(100vh-4rem))] lg:justify-start lg:overflow-hidden lg:rounded-2xl lg:border lg:border-border/70 lg:bg-card lg:px-8 lg:py-10 lg:shadow-[var(--shadow-elevated)]',
+            'lg:relative lg:my-auto lg:w-[clamp(420px,34vw,480px)] lg:max-w-none lg:flex-none lg:max-h-[min(52rem,calc(100vh-4rem))] lg:justify-start lg:overflow-hidden lg:rounded-2xl lg:border lg:border-border/70 lg:bg-card lg:px-8 lg:py-10 lg:shadow-sheet',
         )}
       >
         {isOverlay ? (

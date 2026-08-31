@@ -22,7 +22,7 @@ export function ScreenKicker({ icon, label }: { icon: ReactNode; label: string }
       <span className="flex size-7 items-center justify-center rounded-full bg-accent text-brand">
         {icon}
       </span>
-      <p className="text-[11px] font-bold tracking-[0.14em] text-brand uppercase">{label}</p>
+      <p className="text-micro font-bold tracking-[0.14em] text-brand uppercase">{label}</p>
     </div>
   );
 }

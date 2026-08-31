@@ -57,7 +57,7 @@ export function NoPlacesScreen({
           <MapPin className="size-6" aria-hidden />
         </span>
         <div className="flex flex-col items-center gap-1.5">
-          <p className="text-[11px] font-bold tracking-[0.14em] text-brand uppercase">All done</p>
+          <p className="text-micro font-bold tracking-[0.14em] text-brand uppercase">All done</p>
           <h1 className="font-heading text-xl font-extrabold tracking-tight text-foreground">
             {hadCaption ? 'No places named' : 'Nothing to read'}
           </h1>

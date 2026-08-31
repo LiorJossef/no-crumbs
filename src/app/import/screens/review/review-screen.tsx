@@ -284,7 +284,7 @@ export function CaptionPreviewScreen({
               aria-expanded={captionOpen}
               aria-controls={captionId}
               onClick={() => setCaptionOpen((open) => !open)}
-              className="flex h-6 items-center gap-1 text-[13px] font-medium text-muted-foreground"
+              className="flex h-6 items-center gap-1 text-caption font-medium text-muted-foreground"
             >
               {captionOpen ? 'Hide the caption' : 'Show the caption'}
               <ChevronDown
@@ -307,7 +307,7 @@ export function CaptionPreviewScreen({
       {probe.caption !== null && captionOpen && (
         <div
           id={captionId}
-          className="mb-3 max-h-38 shrink-0 overflow-y-auto overscroll-contain rounded-lg bg-muted/50 p-3 text-[13px] leading-relaxed font-medium text-muted-foreground"
+          className="mb-3 max-h-38 shrink-0 overflow-y-auto overscroll-contain rounded-lg bg-muted/50 p-3 text-caption leading-relaxed font-medium text-muted-foreground"
         >
           {probe.caption}
         </div>
@@ -324,14 +324,14 @@ export function CaptionPreviewScreen({
             `n >= 1` here. */}
         {n >= 2 && statusByIndex === null && (
           <div className="flex shrink-0 items-center justify-between">
-            <p className="text-[13px] font-medium text-muted-foreground">
+            <p className="text-caption font-medium text-muted-foreground">
               {selectedCount} of {saveableIndices.length} selected
             </p>
             <button
               type="button"
               disabled={frozen}
               onClick={() => setSelected(allSelected ? new Set() : new Set(saveableIndices))}
-              className="flex h-11 items-center text-[13px] font-bold text-brand disabled:opacity-50"
+              className="flex h-11 items-center text-caption font-bold text-brand disabled:opacity-50"
             >
               {allSelected ? 'Deselect all' : 'Select all'}
             </button>
