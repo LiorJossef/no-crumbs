@@ -548,6 +548,26 @@
      * dark, within a point or two of `--card` in both, which is the surface every contrast number
      * in this file was taken against.
      */
+    /*
+     * **The ground's own shadow**, and the reason it is a role rather than an inline `color-mix`.
+     *
+     * Light needed a dark end and the only deep pigments in the palette are the mint ramp — which
+     * is exactly what it may not use, because mint is the CTA and a ground cannot wear the button's
+     * colour. So depth comes from shading instead of from a hue, and shading is what this names.
+     *
+     * `--muted-foreground` rather than `--foreground`, and the difference is visible: `#1B1B1A` is
+     * effectively neutral (R−B of 1), so a wash of it turns the bottom of the page grey, which
+     * reads as a smudge on warm paper rather than as its shadow. `--muted-foreground` is `#75716A`,
+     * a warm grey with R−B of 11 — the tone the design system already uses for secondary ink, which
+     * is to say the colour this paper's own shadow already is. Composited at the alphas below it
+     * lands around `rgb(192,189,184)`, warm side of neutral, and the page still reads as paper.
+     *
+     * A reference, not a copy: if the ink is ever retuned the shadow follows it, which is the whole
+     * argument for the role layer. **It is not a brand colour and must not become one** — nothing
+     * here may be pressed, and no component may reach for `--chrome-shade` as ink or as a fill.
+     */
+    --chrome-shade: var(--muted-foreground);
+
     --indigo-200: #DFE2FF;
     --indigo-400: #5B6CFF;
     --indigo-600: #3B49D1;
@@ -555,15 +575,56 @@
 
     --chrome-accent: var(--indigo-600);
 
+    /*
+     * **Light's depth is the paper's own shadow, not more mint — and that is a functional rule
+     * rather than a tonal preference.**
+     *
+     * The first attempt at giving light a dark end reached for the only deep pigments the palette
+     * has, which are the mint ramp, and it worked: the ground gained range and the card lifted off
+     * it. It also broke something more important, and measured rather than noticed:
+     *
+     *     light   CTA rgb(168,236,226) L*89   ground rgb(201,238,232) L*91   Δhue 0°   ΔL* 3
+     *     dark    CTA rgb(168,236,226) L*89   ground rgb(32,53,50)   L*20   Δhue 0°   ΔL* 68
+     *
+     * **The primary action and the page were the same colour, three lightness points apart.** The
+     * `Sign in` button stopped separating from the ground by colour and separated only by being a
+     * rounded rectangle. `no-crumbs-design-system.html` §The system says *"no second accent
+     * competing with mint for 'press this'"* — written about an accent, but a ground does the same
+     * damage by a different route, and the rule's reason survives its subject. Mint cannot both
+     * carry the ground's depth and mark the action.
+     *
+     * So the depth comes from `--chrome-shade` — see its own note above — which is **the paper's
+     * own shadow.** It introduces no pigment, competes with no signal, and it keeps the page warm
+     * because the warmth was never in the wash — `--background` is `#FAF9F6` and a neutral shade
+     * over warm paper is warm paper in shadow.
+     *
+     * **And there is no mint in this ground at all, which is the part to leave alone.** A reduced
+     * mint touch was tried first and still left 12.2% of the page within ΔE 15 of the button's own
+     * fill. Removing it takes that to near zero and states the rule cleanly: on the light chrome
+     * surfaces **mint appears only on things you press or follow** — the CTA, the kicker pill, the
+     * links — and the ground is lavender, warm shade and paper. The lavender is the admitted indigo
+     * at the alpha it already had, and indigo is safe here precisely because nothing indigo is
+     * pressable, which is the same test §The system's rule applies to an accent.
+     *
+     * `color-mix()` rather than a hand-computed `rgba()`, so the shade *is* `--foreground` rather
+     * than a copy of it that can drift. The percentage inside is an alpha and this file is the one
+     * place an alpha belongs — `token-call-sites.test.ts` deliberately does not read `globals.css`
+     * for exactly that reason.
+     */
     --chrome-mesh:
         radial-gradient(72% 58% at 4% -8%, rgba(91, 108, 255, 0.26) 0%, rgba(91, 108, 255, 0) 62%),
-        radial-gradient(66% 56% at 104% 2%, rgba(168, 236, 226, 0.85) 0%, rgba(168, 236, 226, 0) 60%),
-        radial-gradient(74% 62% at 97% 99%, rgba(33, 95, 86, 0.52) 0%, rgba(33, 95, 86, 0) 68%),
-        radial-gradient(62% 52% at -10% 102%, rgba(168, 236, 226, 0.70) 0%, rgba(168, 236, 226, 0) 64%),
-        radial-gradient(92% 96% at 50% 46%, rgba(33, 95, 86, 0.30) 0%, rgba(33, 95, 86, 0) 78%),
+        radial-gradient(74% 62% at 97% 99%, color-mix(in srgb, var(--chrome-shade) 62%, transparent) 0%, transparent 68%),
+        radial-gradient(62% 52% at -10% 102%, color-mix(in srgb, var(--chrome-shade) 44%, transparent) 0%, transparent 64%),
+        radial-gradient(92% 96% at 50% 46%, color-mix(in srgb, var(--chrome-shade) 30%, transparent) 0%, transparent 78%),
         var(--background);
     --chrome-bloom-a: radial-gradient(closest-side, rgba(91, 108, 255, 0.30) 0%, rgba(91, 108, 255, 0) 100%);
-    --chrome-bloom-b: radial-gradient(closest-side, rgba(168, 236, 226, 0.72) 0%, rgba(168, 236, 226, 0) 100%);
+    /* The second bloom follows the mesh onto the warm shade, and it is the one that was still
+     * costing the CTA its separation after the mesh had been cleaned. It is a *large* drifting
+     * disc, so a pale mint here put roughly a seventh of the page in the button's own hue family
+     * even with no mint left in the mesh at all — measured, and only visible once the competing-area
+     * metric was tightened to require real chroma rather than mere lightness. Same rule as the
+     * mesh: on light chrome, mint is for things you press or follow. */
+    --chrome-bloom-b: radial-gradient(closest-side, color-mix(in srgb, var(--chrome-shade) 34%, transparent) 0%, transparent 100%);
     /*
      * **The pool the card sits in, and in light it darkens rather than lights.**
      *
@@ -579,7 +640,7 @@
      * colour under and around the card so a white object lifts off it. Same job — *make the card an
      * object* — opposite mechanism, which is what a composition token with two values is for.
      */
-    --chrome-glow: radial-gradient(closest-side, rgba(33, 95, 86, 0.34) 0%, rgba(33, 95, 86, 0) 100%);
+    --chrome-glow: radial-gradient(closest-side, color-mix(in srgb, var(--chrome-shade) 38%, transparent) 0%, transparent 100%);
     /*
      * **The halo behind the mark, and it is the mascot's own light rather than the brand's.**
      *
