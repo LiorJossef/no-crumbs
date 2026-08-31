@@ -122,9 +122,16 @@ describe('the mark itself', () => {
      * everything else. Two weights with no rule are two icons, and the way that erodes is one
      * author reaching for the heavier one because it looks better on their screen.
      *
-     * Two call sites, and they are the same button drawn twice — the mobile sheet's empty state
-     * and the desktop panel's header. Both are `Add a TikTok link`; nothing else in the product is
-     * the primary call to action.
+     * **Three call sites, and the list moved once already.** It was written naming two — the
+     * mobile sheet's empty state and the desktop panel's header, the same button drawn twice — and
+     * `add-sheet.tsx` arrived within the hour. That one is the arm the map's `＋` routes through,
+     * so it is the *live* primary rather than a third copy of the invitation.
+     *
+     * **The guard firing on it was the ratchet working, and extending the list is what a ratchet
+     * on an enumeration is for** — with the reason in the commit, which is the standing rule for
+     * every ceiling in this repository. It is not the same thing as the single-source rule above:
+     * that one is a hard zero and may not be extended, because the whole point of it is that the
+     * trademark ruling costs one file.
      */
     const heavy = sources(['.tsx'])
       .filter(({ path }) => path !== 'components/brand/platform-mark.tsx')
@@ -132,6 +139,7 @@ describe('the mark itself', () => {
       .map(({ path }) => path)
       .sort();
     expect(heavy).toEqual([
+      'components/add/add-sheet.tsx',
       'components/sheet/place-desktop-panel.tsx',
       'components/sheet/place-sheet.tsx',
     ]);

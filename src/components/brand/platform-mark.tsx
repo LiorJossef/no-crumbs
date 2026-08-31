@@ -79,11 +79,17 @@
  *
  * ## Two weights, and the rule is one sentence
  *
- * **`solid` marks the action; `outline` marks everything else.** There is exactly one role for the
- * heavy weight — the product's primary call to action, `Add a TikTok link` — and every other
- * surface takes the light one: the flow's kickers, the paste field's affordance, the three
- * thumbnail fallbacks, the source link. A second weight earns its place by having a rule; without
- * one it is two icons.
+ * **`solid` marks the action; `outline` marks everything else.** One role for the heavy weight —
+ * **a primary mint button whose action is adding a TikTok link** — and every other surface takes
+ * the light one: the flow's kickers, the two field affordances, the three thumbnail fallbacks, the
+ * source link. A second weight earns its place by having a rule; without one it is two icons.
+ *
+ * There are **three** such buttons and `platform-mark.test.ts` enumerates them, so a fourth surface
+ * reaching for the heavy weight fails rather than ships. It was written naming one and the third
+ * arrived within the hour — `add-sheet.tsx`, which is the arm the map's `＋` actually routes
+ * through and therefore the live one. The guard firing is the ratchet working; extending an
+ * enumeration with the reason recorded is what it is for, and it is not the same thing as the
+ * single-source rule above, which may not be extended at all.
  *
  * **`outline`** is Lucide's construction — a 24 unit box, `stroke-width: 2`, round caps and joins —
  * because it sits inline beside Lucide glyphs (`ArrowUpRight` on the source link, `ChevronDown` on
@@ -101,9 +107,15 @@
  * It keeps the glyph **centred with the label**, not pinned left with the label centred. That
  * second composition is the social-sign-in button shape — and it is the shape of the one button
  * TikTok actually licenses, `Continue with TikTok`, measured in its own developer pack at 315×44.
- * Borrowing a layout in order to evoke a platform whose mark we may not use is trade dress with
- * deniability, which is a worse position than using the mark. The glyph, the weight and the
- * placement are ours; the word is the permitted use.
+ *
+ * **And that licence is the stronger half of the argument, not the optics.** Developer Terms II.2
+ * grants the logo licence only where a TikTok product *requires* the mark, and the documented
+ * required-use case is the Login Kit / Share Kit button. **So the social-sign-in silhouette is
+ * specifically the silhouette of an integration we do not have** — a button copying it moves us
+ * toward implying the one thing the licence would have covered and we were never granted. That is
+ * trade dress with deniability, which is a worse position than using the mark outright.
+ *
+ * The glyph, the weight and the placement are ours; the word is the permitted use.
  */
 
 export function PlatformMark({

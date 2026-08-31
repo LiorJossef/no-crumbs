@@ -63,6 +63,7 @@ import {
   X,
 } from 'lucide-react';
 
+import { PlatformMark } from '@/components/brand/platform-mark';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -594,10 +595,34 @@ export function AddPlacePane({
         className="flex flex-col gap-2 px-5"
       >
         <div className="relative">
-          <Search
-            className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden
-          />
+          {/*
+            **The leading glyph is state, not decoration**, and that is the whole reason a platform
+            mark is allowed to be here at all.
+
+            This field is a search box at least as often as it is a link box — it takes a TikTok
+            link, a place name, or a query against your own library, which is why the resting glyph
+            is `Search`. A platform mark pinned here permanently would claim the field only accepts
+            one of the three, which is a false affordance.
+
+            So it swaps on `isLink`, which is `input.kind === 'tiktok'` — the same value that
+            decides whether the submit button below exists. The field is saying *I recognise this
+            as a TikTok link*, at the moment it becomes true, and the two halves of that moment
+            cannot disagree because they read one boolean. An Instagram or YouTube URL is a
+            different `kind` and takes the `unsupportedLink` branch, so it never gets this mark —
+            which is the same fence the failure screen's `open_link` carries.
+
+            **`text-brand`, where the paste screen's copy of this glyph is `text-muted-foreground`,
+            and the difference is exactly the argument.** There the mark is a constant affordance
+            and a saturated glyph would read as a state the field is in; here it *is* the state.
+          */}
+          {isLink ? (
+            <PlatformMark className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-brand" />
+          ) : (
+            <Search
+              className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden
+            />
+          )}
           <Input
             ref={inputRef}
             value={value}
@@ -699,8 +724,16 @@ export function AddPlacePane({
           <Button
             type="submit"
             disabled={busy}
-            className="h-12 w-full rounded-lg text-base font-bold"
+            className="h-12 w-full gap-2 rounded-lg text-base font-bold"
           >
+            {/* The solid weight, because this is a primary mint button that adds a TikTok link —
+                the same role `place-sheet.tsx` and `place-desktop-panel.tsx` carry, and the arm the
+                map's `＋` actually routes through. `platform-mark.test.ts` enumerates the three, so
+                a fourth surface reaching for the heavy weight fails rather than ships.
+
+                Not while `busy`: `Adding…` is a progress state and the glyph would sit beside a
+                sentence about our own machinery rather than about the platform. */}
+            {!busy && <PlatformMark variant="solid" className="size-5" />}
             {busy ? 'Adding…' : 'Add this TikTok'}
           </Button>
         )}
