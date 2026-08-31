@@ -190,7 +190,7 @@ export function AddSheet(props: AddSheetProps) {
         {/* The backdrop. Compositor-only (`opacity`), painted by vaul's own enter/exit animation,
             and the map keeps rendering underneath it — nothing here unmounts or resizes the
             canvas, so there is no re-render storm behind the sheet. */}
-        <Drawer.Overlay className="fixed inset-0 z-40 bg-black/40" />
+        <Drawer.Overlay className="fixed inset-0 z-40 bg-scrim" />
         <Drawer.Content
           data-testid="add-sheet"
           data-pane={state.pane}

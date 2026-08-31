@@ -404,7 +404,7 @@ export function ExtractedCandidateRow({
             className={cn(
               'mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md border-2 motion-safe:transition-colors',
               selected
-                ? 'border-brand bg-brand text-white'
+                ? 'border-brand bg-brand text-brand-foreground'
                 : 'border-border bg-transparent',
             )}
           >

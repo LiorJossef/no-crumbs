@@ -160,7 +160,7 @@ export default async function Home() {
         {/* Action panel — thumb-zone block on mobile, a full-height frosted panel behind a single
             hairline edge at `lg+`. Same geometry as sign-in's form panel so the two screens line
             up when a visitor moves between them. */}
-        <div className="relative mt-auto flex w-full flex-col gap-4 px-6 pb-8 pt-10 lg:mt-0 lg:w-[clamp(360px,32vw,460px)] lg:flex-none lg:justify-center lg:border-l lg:border-border/70 lg:bg-white/55 lg:px-10 lg:py-0 lg:backdrop-blur-[10px]">
+        <div className="relative mt-auto flex w-full flex-col gap-4 px-6 pb-8 pt-10 lg:mt-0 lg:w-[clamp(360px,32vw,460px)] lg:flex-none lg:justify-center lg:border-l lg:border-border/70 lg:bg-panel lg:px-10 lg:py-0 lg:backdrop-blur-panel">
           <div className="w-full lg:mx-auto lg:max-w-80">
             {/* The numerals use `--tag` / `--tag-foreground`, whose whole definition is "a label,
                 never an action" — which is what a step number is. No new colour is introduced. */}

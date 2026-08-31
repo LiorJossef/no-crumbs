@@ -420,7 +420,7 @@ function revealHref(savedPlaceId: string) {
 function CreateMenuPending() {
   return (
     <div className="fixed inset-0 z-50 flex items-end">
-      <div className="absolute inset-0 bg-black/40" aria-hidden />
+      <div className="absolute inset-0 bg-scrim" aria-hidden />
       <div className="relative w-full rounded-t-2xl border-t border-border/70 bg-card pt-2.5 pb-[calc(env(safe-area-inset-bottom)+2rem)] shadow-sheet">
         <span className="mx-auto block h-1 w-9 rounded-full bg-border" aria-hidden />
         <p

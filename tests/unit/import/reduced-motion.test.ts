@@ -128,7 +128,7 @@ describe('a spinner is hidden under reduced motion, never frozen', () => {
     const rail = byPath('src/app/import/screens/rail-screen.tsx');
     expect(rail).toContain('size-1.5 rounded-full bg-current motion-safe:hidden');
     // And the three states stay visually distinct without any motion at all.
-    expect(rail).toContain("status === 'done' && 'border-brand bg-brand text-white'");
+    expect(rail).toContain("status === 'done' && 'border-brand bg-brand text-brand-foreground'");
     expect(rail).toContain("status === 'active' && 'border-brand bg-transparent text-brand'");
     expect(rail).toContain("status === 'pending' && 'border-border bg-transparent text-muted-foreground'");
   });

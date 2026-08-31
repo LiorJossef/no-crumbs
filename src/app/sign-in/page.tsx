@@ -161,7 +161,7 @@ export default function SignInPage() {
         {/* Form — thumb-zone bottom sheet on mobile (pushed down by the hero's flex-1), a
             full-height frosted panel with a single hairline edge on desktop. */}
         <div
-          className="relative mt-auto flex w-full flex-col gap-4 px-6 pb-8 pt-6 lg:mt-0 lg:h-auto lg:w-[clamp(360px,32vw,460px)] lg:flex-none lg:justify-center lg:border-l lg:border-border/70 lg:bg-white/55 lg:px-10 lg:py-0 lg:backdrop-blur-[10px]"
+          className="relative mt-auto flex w-full flex-col gap-4 px-6 pb-8 pt-6 lg:mt-0 lg:h-auto lg:w-[clamp(360px,32vw,460px)] lg:flex-none lg:justify-center lg:border-l lg:border-border/70 lg:bg-panel lg:px-10 lg:py-0 lg:backdrop-blur-panel"
         >
           <div className="w-full lg:mx-auto lg:max-w-[320px]">
             <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4 lg:gap-5">

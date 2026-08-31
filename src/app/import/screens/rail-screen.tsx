@@ -216,7 +216,7 @@ function RailStep({
         <span
           className={cn(
             'flex size-8 shrink-0 items-center justify-center rounded-full border-2 motion-safe:transition-colors',
-            status === 'done' && 'border-brand bg-brand text-white',
+            status === 'done' && 'border-brand bg-brand text-brand-foreground',
             status === 'active' && 'border-brand bg-transparent text-brand',
             status === 'pending' && 'border-border bg-transparent text-muted-foreground',
           )}
