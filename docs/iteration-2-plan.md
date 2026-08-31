@@ -144,7 +144,7 @@ render, one layer up.
 
 ---
 
-## 2.3 Two further owner rulings, 2026-08-31 — both override a written rule, so both are recorded here
+## 2.3 Four further owner rulings, 2026-08-31 — each overrides a written rule, so each is recorded here
 
 **Ruling 3 — the mascot's gold is admitted to the chrome grounds.**
 
@@ -200,6 +200,156 @@ expression is the product being charming at the user about its own failure, whic
 measures zero curvature and every other stroked mouth is ≥ 3 away — asserted, because four units is
 too small to leave to a reviewer's eye across a retune.
 
+**Ruling 5 — the theme is the user's choice, and it is a setting on `/profile`.**
+
+> *"add theme toggle (profile settings)"*
+
+This overrides `facelift-plan.md` §4 decision 3 — **no dark-mode toggle: a signed pass, or none** —
+and §4 of this document, which repeated it as *"the signature is still the owner's."* **The owner
+asking for the control is that signature**, and it is being read as one rather than as an
+instruction that skipped a gate, because the pass the decision was waiting for has since been run:
+measured on painted pixels at `0fa25ab` with `contrast-render.mjs` (12/12 known-answer cases),
+**both themes score 0 AA failures across 464 scored strings**, and the thinnest margin in the
+product moved from 4.57 to 4.78. I2-1 and I2-2 are what bought that. The palette is worth exposing
+now; before them it demonstrably was not, which is the whole content of decision 3.
+
+**The one constraint that came with the ruling, and it is not a matter of taste: three states —
+light, dark, system — never a two-way switch.** `src/lib/theme.ts` already stores
+`'light' | 'dark' | 'system'` and defaults to `'system'`, and the reason the third value exists is
+that it is **not a third appearance** — it is the absence of a choice. A binary toggle has nowhere
+to put it, so its first press writes a resolved `'dark'` over "follow my device" and nothing reads
+`prefers-color-scheme` for that person again. The loss is silent, permanent, and reaches only the
+people who touched the setting once. It ships green.
+
+So it is a radio group over `THEME_PREFERENCES`, which is also what the codebase already
+recommended: `nextPreference`'s docblock — written for the two-state flip, and still uncalled —
+says *"'follow my device' is a thing you choose once from a menu rather than something you land on
+by pressing a button twice."* The ruling and the recorded reasoning agree; this is the one place in
+this iteration where a document was found to be **ahead** of the change rather than stale behind it.
+
+**What was verified, in a browser, and what could not be.** 46 checks at 390×844 and 1440×900 in
+both device schemes: the explicit choice beating the device, the return to `system`, the live
+`matchMedia` subscription with no reload, cross-tab propagation, `ArrowRight` moving the choice, a
+44px target, `.dark` on the root at `DOMContentLoaded`, and **no highlight at all in the server
+render** — because the preference is `localStorage`, the server does not know it, and painting the
+default would put the highlight on *System* for a user whose choice is *Dark*. An empty control is
+not a lie and a wrong one is.
+
+**The residual, recorded rather than worked around: with JavaScript disabled the product renders
+light whatever the device says.** The control hides itself there, because it cannot function — the
+preference is `localStorage` and the class is written by a script. Closing that needs either a
+`@media (prefers-color-scheme: dark)` block in `globals.css` or a server-read cookie in
+`app/layout.tsx`, and both are single-writer files held elsewhere. It is a one-file change whenever
+someone owns that file, and it is not a defect in the control.
+
+**Ruling 6 — the mascot is on the main page.**
+
+> *"the branding mascot should be part of the platform, main page"*
+
+This settles a conflict the documents had with each other and could not settle themselves, which
+`iteration-2-record.md` §6 lists as **still open, owner's**. `no-crumbs-design-system.html`
+§`wordmark` forbids the lockup over the live map in terms — *"the map already carries pins in four
+colours and a wordmark on top of it is noise"* — while `voice-and-vocabulary.md` §2 makes the shell
+header wordmark **surface 1 of six**, and this product's signed-in shell *is* the map, so there was
+never a header to put it in.
+
+**It is closer to `#wordmark`'s own alternative than to an override of it.** The document objects to
+a **logo bar** and, in the same sentence, offers the thing that belongs there instead: *"if the map
+needs the brand, it gets **the mascot** in the corner of the empty state, not a logo bar."* What
+ships is a 44px corner chip, `pointer-events-none`, the mirror of the account chip opposite. The
+`empty state` half of that sentence is the part being set aside, and it is set aside for a reason
+the sentence could not have known: a user with places would see no brand at all, which is the
+complaint the ruling answers.
+
+**Two measurements decide the mark. One of them contradicts a number in a document; the other
+contradicts the eye estimate that was in this ruling's first draft.**
+
+**Measurement 1 — `mono` is not an option at any size that fits a 44px chip.** The silhouette is a
+filled disc at 20, 22, 24, 26, 28, 32 **and 36 px**, photographed at 1:1 CSS pixels in both themes.
+That is the 0.547px finding of 2026-08-31 arriving from the other side. Every value `currentColor`
+could take is ink — a grey disc, which is the mark removed that morning rebuilt in a different
+shade — or a brand/category hue, and mint is out on its own terms because the uncategorised pin is
+mint-family. **"Mascot on the main page, no gold" resolves to "a grey disc."**
+
+**Measurement 2 — the face reads far smaller than anyone estimated, including me.** This ruling's
+first draft carried an eyeballed table claiming *"a smudge to 24px, eyes separate at 26–28 with the
+mouth still closed up, reads at 32."* Measured, that is wrong: the mouth clears bar from **22px**
+and the eyes resolve as two objects from **20px**, the smallest size tested.
+
+The instrument rasterises the **real** `crumbMascotMarkup` output — the modules loaded unmodified,
+nothing re-transcribed — against two conditions fixed before anything was rendered: **feature
+contrast ≥ 3:1** (WCAG 2.2 SC 1.4.11, the bar for a graphical object that must be perceived to
+understand the content, measured locally so shine/blush/crust are handled by geometry) and **the
+eyes stay two objects** (ink fraction peaks ≥ 0.5 in each eye and falls < 0.5 between them).
+
+| CSS box, 1× | left eye | right eye | mouth | two eyes? |
+|---|---|---|---|---|
+| 20 px | 5.75:1 | 5.64:1 | 4.07:1 | yes |
+| 22 px | 6.10:1 | 7.14:1 | 3.57:1 | yes |
+| **26 px — the size asked about** | 9.68:1 | 8.47:1 | **4.67:1** | **yes** |
+| **32 px — shipped** | 9.68:1 | 8.47:1 | **7.26:1** | yes |
+| 40 px | 9.68:1 | 8.47:1 | 8.35:1 | yes |
+
+At 2× and 3× every row is at the 8.47:1 ceiling from 20px. **So the argument does not collapse — it
+strengthens**, and 32px ships as a judgement inside a passing range rather than as a measured floor:
+the mouth is the weakest feature, 26px leaves it at 4.67:1 against a 3:1 bar where 32px has 7.26:1,
+and 32 is `CRUMB_FACE_MIN_PX`, so shipping it re-argues no constant the repository already holds.
+That constant is now known to be **conservative** for `outlined` on a card ground; it is the
+app-icon row's number and a corner mask is the harder case.
+
+`#wordmark`'s *"at the shell header the mark sits at 22px"* is **not** where 32 came from. It is the
+same paragraph family as `#mark`'s *"legible blob at 16px"*, which §5 of the record lists as
+measurably false; it happens to be survivable for a *faced* mark, which is two questions landing
+near each other rather than the document being right. **Re-run the ladder before taking a size from
+it.**
+
+**The instrument was wrong first, in the shape §3 already names, and that is worth recording.** Its
+first version sampled the gap between the eyes in a **fixed number of device pixels** (±4). At a
+26px box the eye centres are five device pixels apart, so the loop iterated **zero times**, left its
+`gapMin` at the initialiser, and reported *"eyes merged"* for every size below 40px **without having
+read a single pixel between them** — a confident table, six passing known-answer cases beside it,
+and an answer produced by an empty loop. It was caught by asking why 26px would fail when the
+geometry says the gap is 2.5 device pixels wide. The windows are now derived from artboard units,
+and a new known-answer case asserts that a *merged* verdict has sampled at least one pixel: **an
+instrument that can only say no is not measuring either.**
+
+**The face is what makes gold safe here, and this is the argument the ruling turns on:** `MASCOT_GOLD`
+sits ΔE00 **11.5** from the light café and **11.7** from the night café, and 29.7–61.0 from every
+other category colour; if the night-café proposal lands at `#FEB843` that closes to **6.3**. **That
+gap closing is an argument for the face, not against it — at ΔE 6.3 a faceless gold disc really
+would be ambiguous with a café pin, and a faced one still cannot be.** §3.1 rule 2's *"face on
+chrome, silhouette on data"* is doing exactly the disambiguation it was written for, and asking for
+the face rather than merely for gold is what turns a rule violation into a rule application.
+
+Stated honestly against it: photographed on the night map, the chip's gold and the café pin **do**
+read as one pigment family, separated by shape rather than by colour. Both are true, and the ruling
+was made with that picture in hand.
+
+**The fence's scope was read before the ruling, and it excludes this file deliberately.**
+`chrome-tokens.test.ts:285` and `:339` scope it to `components/map/`, `ui/place/` and anything
+containing `basemap` — the pins, the category palette, the tiles. **That is the data layer, which is
+what ruling 3 fenced.** `src/app/map/` is route composition and sits outside it by design rather
+than by oversight, which is what makes "it touches card, not tile" hold in the guard as well as in
+prose. `crumb-mascot.test.ts`'s own rule-5 check names two files and covers neither. Recorded in
+terms so the next reader of that directory finds the reasoning instead of inferring a hole — this
+project's most-repeated failure, and it costs one sentence. **The permission is the ruling; a
+guard's silence is not evidence either way.**
+
+**And the ruling admits the mascot to one chip on one route, which is now asserted.** The argument
+above is about a single element and does not generalise: a mascot behind the sheet, beside the
+account chip or on the post-import strip would each need this reopened, and none of them would fail
+the fence. `shell-wordmark.test.ts` counts `<CrumbMascot` across every `.tsx` under `src/app/map/`
+and requires exactly one, in `shell-wordmark.tsx` — verified failing against a second file before
+being trusted.
+
+**And the guard that should have caught the mark's return did not.** `shell-wordmark.test.ts`
+asserted `not.toContain('PinMark')` and `not.toContain('<svg')` under a docblock reading *"no mark
+comes back into this lockup without the ruling being reopened"*; a `<CrumbMascot>` is neither
+spelling, and the assertion passed unchanged through the change it existed to stop. It is now
+pointed at the decision — the character may be here, the faceless disc may not, in any spelling —
+and it was made to fail against `construction="mono"` before being trusted. This is §3's *matching a
+spelling while being read as matching a value*, arriving on a guard instead of on an instrument.
+
 ---
 
 ## 3. The packages
@@ -238,8 +388,12 @@ judged through a 1.18:1 panel.
 - **No new colour on the map's data.** Category colour is the encoding and it was retuned on
   measurement in iteration 1 (`ΔE 14.8 → 20.1`). It does not move for taste.
 - **No motion on pins beyond the nine.** The list is closed for the data surface.
-- **No dark-mode toggle.** `facelift-plan.md` §4 decision 3 is unchanged: a signed pass, or none.
-  I2-1 and I2-2 make the palette *worth* signing off; the signature is still the owner's.
+- ~~**No dark-mode toggle.**~~ **Superseded by ruling 5 (§2.3), 2026-08-31.** This read
+  *"`facelift-plan.md` §4 decision 3 is unchanged: a signed pass, or none. I2-1 and I2-2 make the
+  palette worth signing off; the signature is still the owner's."* Both halves came true in order:
+  I2-1 and I2-2 landed, the pass measured 0 AA failures across 464 strings in both themes, and the
+  owner signed by asking for the control. Struck rather than deleted — the condition it named is
+  what made the ruling grantable.
 - **No new product.** Nothing here adds a feature. It is the same product, dressed correctly.
 - **Not the neighbourhood band.** S1 remains the top functional finding and is out of this
   iteration's scope, as it was out of the last one's.
