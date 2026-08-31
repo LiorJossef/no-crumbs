@@ -496,7 +496,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   } catch (e) {
     // Not `INTERNAL`: a body we cannot parse is the caller's mistake, not our bug, and re-sending
     // the identical bytes fails identically — so `retryable: true` was a straight lie. The closed
-    // 14-code set (`07` §9) has no "bad request envelope" member; `MALFORMED_URL` is the honest
+    // 13-code set (`07` §9) has no "bad request envelope" member; `MALFORMED_URL` is the honest
     // one, because from the caller's side what happened is that no usable link arrived.
     return fail(malformedUrl('request body was not valid JSON', e));
   }
@@ -769,7 +769,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // side effect, not a fault: an aborted `fetch` surfaces as `UPSTREAM_TIMEOUT`, so stamping the
     // row with it would file every user `Cancel` as a TikTok outage — a lie of exactly the kind
     // this route was just fixed to stop telling, written into the audit record rather than the
-    // response. The closed 14-code set (`07` §9) has no member for "the caller left", and a call
+    // response. The closed 13-code set (`07` §9) has no member for "the caller left", and a call
     // site does not get to invent one, so the honest move is to record nothing: the row stays
     // `processing` and `expires_at` sweeps it, which is already what an abandoned tab does. Tidier
     // would be to write *a* code; none of them would be true.

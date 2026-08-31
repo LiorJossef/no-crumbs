@@ -10,7 +10,7 @@
  *
  * `ImportPageClient` holds every visual state in React and reaches each one only by running a real
  * import. The screenshot harness (`tests/harness/capture-screens.mjs`) therefore photographs an
- * empty paste field and nothing else: not the review screen, not the fourteen failure screens, and
+ * empty paste field and nothing else: not the review screen, not the thirteen failure screens, and
  * **not "no places found", which `mvp-plan.md` calls the modal outcome of an import** and therefore
  * the surface the product most needs to be judged on. A gate that cannot see a screen cannot fail
  * it.

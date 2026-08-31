@@ -44,7 +44,7 @@
  * Same auth (the belt-and-suspenders `getUser()`, required because this holds a service-role client
  * that bypasses RLS), the same server-side `canonicaliseTikTokUrl` re-check (the SSRF-relevant
  * allow-list only means anything on the server about to make the call), the same
- * `{ error: { code, retryable } }` envelope, the same fourteen `DomainErrorCode`s and the same
+ * `{ error: { code, retryable } }` envelope, the same thirteen `DomainErrorCode`s and the same
  * status map. **No new error code**, so `domain/errors.ts` and `ui/import/import-error-copy.ts` are
  * untouched and no UI contract changes.
  */

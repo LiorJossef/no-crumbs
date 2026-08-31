@@ -209,7 +209,7 @@ export function ImportPageClient({
    *
    * A render-time override and nothing else. `run.screen` is untouched, so `submit`, `reset` and
    * the in-flight ownership guard behave exactly as they do without it; this line is the whole
-   * integration. It exists so the quality gates can photograph the review screen, the fourteen
+   * integration. It exists so the quality gates can photograph the review screen, the thirteen
    * failure screens and — the one that matters most — "no places found", which is the modal
    * outcome of an import and which the harness could not reach at all.
    */

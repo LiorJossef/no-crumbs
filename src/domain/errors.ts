@@ -2,10 +2,12 @@
  * The closed error taxonomy (`07` §9, L0-F1-T1). `DomainError` is the only thing an integration
  * adapter or a pipeline stage may throw across the app-layer seam: no provider error object,
  * message, status code or stack ever reaches the client. Everything else in `07`'s table collapses
- * to one of these 14 codes.
+ * to one of these 13 codes.
  *
  * Rules this file obeys:
- *  - **Closed set.** `DomainErrorCode` has exactly the 14 members `07` §9 names. Adding a 15th is a
+ *  - **Closed set.** `DomainErrorCode` has exactly the 13 members `07` §9 names, minus the retired
+ *    `PHOTO_POST` (photo posts are ordinary posts now — see `canonicalise-tiktok-url.ts`).
+ *    Adding a 14th is a
  *    decision for that document, not a call site.
  *  - **No code is reachable only by typing a raw string.** Every member of `DomainErrorCode` has
  *    exactly one constructor function below that produces it, and every constructor fixes that

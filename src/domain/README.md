@@ -13,7 +13,7 @@ Populated per `docs/07-import-execution-model.md` §10 and `docs/11-resolver-voc
   (`recordStage`/`finish` only — see the file's own note on why `getOrCreateImport`/`loadCached`
   are not here yet), and the `Ports` bundle `runImport` takes. All six are shaped only as far as
   `import/pipeline.ts` calls them; real adapters are L0-F4, not this task.
-- `errors.ts` — the closed 14-code `DomainError` union (`07` §9, L0-F1-T1). Every code has a named
+- `errors.ts` — the closed 13-code `DomainError` union (`07` §9, L0-F1-T1). Every code has a named
   constructor that fixes its `retryable` value; `NO_PLACES_FOUND` is deliberately not here — it is
   `import/events.ts`'s `ImportOutcome` kind `'no_places'`, a success, not a failure.
 - `import/events.ts` — `ImportEvent`, the NDJSON stage sequence `runImport` (L0-F1-T3) emits and

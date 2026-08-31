@@ -423,7 +423,7 @@ two booleans. Copy lives in one client-side map (UX §12), so the wire format ca
 | `MALFORMED_URL` | canonicaliser | pre-A | no | F1 inline |
 | `UNSUPPORTED_URL` | canonicaliser (profile / tag / music / live) | pre-A | no | "That's a profile, not a post" |
 | `SHORT_LINK_UNRESOLVED` | short-link resolver (incl. the 302→homepage→200 trap) | A1 | no | "This share link has expired" |
-| `PHOTO_POST` | canonicaliser, `kind=photo` | pre-A | no | treated as `POST_UNAVAILABLE` copy until 04 §5 category L has a specimen |
+| ~~`PHOTO_POST`~~ | **RETIRED 2026-08-28** (PR #57). A photo/carousel post is an ordinary post: oEmbed 400s the `/photo/` URL form but answers the `/video/` form for the same id, so the canonicaliser rewrites rather than rejects (`canonicalise-tiktok-url.ts` §photo). **The union is 13 codes, not 14** — every count in this section reads one too high until it is corrected. | — | — | — |
 | `POST_UNAVAILABLE` | oEmbed 400 after our validation passed | A2 | **once** | **F9** — the single honest state. Private / deleted / region-locked are indistinguishable (VERIFIED) and we do not guess |
 | `UPSTREAM_TIMEOUT` | our `AbortSignal` | A1/A2 | yes | F9 with `Retry` primary |
 | `RATE_LIMITED_UPSTREAM` | reserved — **no 429 ever observed** from TikTok | A2 | yes | same copy as timeout; kept so a future TikTok change surfaces as a distinct log code |

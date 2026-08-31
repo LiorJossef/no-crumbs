@@ -9,7 +9,7 @@
  * them and `ux-architecture` §5.4's `This TikTok isn't public…` row is deliberately unused).
  *
  * Why a `Record<DomainErrorCode, …>` and not a lookup with a default: the previous screen rendered
- * one apologetic template for all fourteen codes, so `NO_CAPTION` (we read the post perfectly well;
+ * one apologetic template for all thirteen codes, so `NO_CAPTION` (we read the post perfectly well;
  * it has no caption) and `UNSUPPORTED_URL` (a profile link, which can never work) both told the
  * user we couldn't read their TikTok and offered them a retry. A total record makes a fifteenth
  * code a **compile error** rather than a silent regression to that generic screen.

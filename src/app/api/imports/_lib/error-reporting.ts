@@ -103,7 +103,7 @@ export const HTTP_STATUS_BY_ERROR_CODE = {
  *
  * `07` §7.1 says "an `error_code = 'INTERNAL'` is the one line that should page a human". That
  * sentence only means anything if a human is not also paged for every mistyped link and every
- * logged-out request. Reporting all fourteen codes at `console.error` would put a user's typo in
+ * logged-out request. Reporting all thirteen codes at `console.error` would put a user's typo in
  * the same Vercel bucket as a service-role misconfiguration — the same dilution as the blanket 502
  * this module exists to remove, one layer up.
  *

@@ -57,7 +57,7 @@ import {
  * was sent. There was a second — `rawCode`, `null` pre-submit for the same reason — and it went
  * with the `Reference:` line it existed to print; see the comment at the bottom of this file.
  *
- * What this replaced on the post-attempt side: one screen for all fourteen codes, headed
+ * What this replaced on the post-attempt side: one screen for all thirteen codes, headed
  * "Couldn't read that TikTok / Something went wrong" with the raw code in 11px grey and one
  * action, "Try another link". Everything the user reads now comes from
  * `ui/import/import-error-copy.ts`; this component owns only the layout, the mark, the wiring of

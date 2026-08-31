@@ -22,7 +22,7 @@
  *    the tell: a URL that *parses* but whose host is not TikTok's — Instagram, YouTube, a spoofed
  *    look-alike, anything — is `UNSUPPORTED_HOST`, "a recognised link, just not one we read".
  *    Input that does not even parse as an absolute `http(s)` URL is `MALFORMED_URL`, "not a link at
- *    all". These are already two different codes in the closed 14-code union
+ *    all". These are already two different codes in the closed 13-code union
  *    (`domain/errors.ts`); this file's job is routing into the right one, not inventing a third.
  *    `brand-and-product-foundation.md` §1's manual-add redirect is exactly `UNSUPPORTED_HOST`'s UI
  *    state; `MALFORMED_URL`'s is inline validation copy (`07` §9).
