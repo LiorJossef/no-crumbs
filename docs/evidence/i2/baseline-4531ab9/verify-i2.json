@@ -1,0 +1,1909 @@
+{
+  "takenAt": "2026-08-31T08:40:31.967Z",
+  "commit": "4531ab9eff8598ac1106b6d75600cef8ee0ebe16",
+  "commitish": "4531ab9",
+  "places": 12,
+  "dataSource": "stub (tests/harness/stub-supabase.mjs) — layout and colour are real, rows are not",
+  "buildMode": "git archive <sha> -> next build -> next start",
+  "instrument": {
+    "contrastSelfTest": {
+      "ok": true,
+      "checks": [
+        {
+          "case": "c1.median",
+          "why": "plain hex ink on plain hex ground",
+          "expected": 4,
+          "got": 4,
+          "ok": true
+        },
+        {
+          "case": "c2.median",
+          "why": "ink alpha composited on the ground",
+          "expected": 3.95,
+          "got": 4,
+          "ok": true
+        },
+        {
+          "case": "c3.median",
+          "why": "ancestor opacity composited",
+          "expected": 3.95,
+          "got": 3.98,
+          "ok": true
+        },
+        {
+          "case": "c4.median",
+          "why": "ink authored in oklab — the regex case",
+          "expected": 21,
+          "got": 21,
+          "ok": true
+        },
+        {
+          "case": "c5.median",
+          "why": "ground authored in oklab — the silent-white case",
+          "expected": 21,
+          "got": 21,
+          "ok": true
+        },
+        {
+          "case": "c6.min",
+          "why": "gradient: the unreadable end is found",
+          "expected": 1,
+          "got": 1,
+          "ok": true
+        },
+        {
+          "case": "c6.max",
+          "why": "gradient: the readable end is found",
+          "expected": 21,
+          "got": 21,
+          "ok": true
+        },
+        {
+          "case": "c7.median",
+          "why": "color-mix ink, the canonical 4.48 near-miss",
+          "expected": 4.48,
+          "got": 4.54,
+          "ok": true
+        },
+        {
+          "case": "c8.median",
+          "why": "white on white is 1:1, not a pass",
+          "expected": 1,
+          "got": 1,
+          "ok": true
+        },
+        {
+          "case": "c8.verdict",
+          "why": "a 1:1 string is reported as a failure",
+          "expected": "fail",
+          "got": "fail",
+          "ok": true
+        },
+        {
+          "case": "coverage",
+          "why": "all eight constructed strings were scored, none skipped",
+          "expected": 8,
+          "got": 8,
+          "ok": true
+        }
+      ],
+      "summaryFromMeasure": 8
+    }
+  },
+  "browser": "bundled Playwright Chromium",
+  "contrast": [
+    {
+      "theme": "light",
+      "resolvedTheme": "light",
+      "viewport": "390x844",
+      "route": "landing",
+      "mapPresent": false,
+      "totalTextElements": 14,
+      "scored": 14,
+      "pass": 14,
+      "fail": [],
+      "exemptInactive": 0,
+      "occluded": 0,
+      "unresolvableInk": [],
+      "pseudoTextNodesNotScored": 0,
+      "overCanvasScored": 0,
+      "worst": [
+        {
+          "selector": "p.mt-3.max-w-xs.text-sm",
+          "text": "Paste a TikTok link and the place lands on your map. Organised by wher",
+          "p5": 4.54,
+          "required": 4.5
+        },
+        {
+          "selector": "p.mt-3.truncate.text-center",
+          "text": "Signed in as",
+          "p5": 4.54,
+          "required": 4.5
+        },
+        {
+          "selector": "p.mt-6.text-center.text-xs",
+          "text": "Works with TikTok links today.",
+          "p5": 4.54,
+          "required": 4.5
+        },
+        {
+          "selector": "p.text-micro.font-bold.tracking-[0.14em]",
+          "text": "A personal map",
+          "p5": 4.8,
+          "required": 4.5
+        },
+        {
+          "selector": "span.flex.size-6.shrink-0",
+          "text": "1",
+          "p5": 6.45,
+          "required": 4.5
+        },
+        {
+          "selector": "span.flex.size-6.shrink-0",
+          "text": "2",
+          "p5": 6.45,
+          "required": 4.5
+        },
+        {
+          "selector": "span.flex.size-6.shrink-0",
+          "text": "3",
+          "p5": 6.45,
+          "required": 4.5
+        },
+        {
+          "selector": "a.group/button.inline-flex.shrink-0",
+          "text": "Open your map →",
+          "p5": 9.26,
+          "required": 4.5
+        }
+      ]
+    },
+    {
+      "theme": "light",
+      "resolvedTheme": "light",
+      "viewport": "390x844",
+      "route": "sign-in",
+      "mapPresent": false,
+      "totalTextElements": 10,
+      "scored": 10,
+      "pass": 10,
+      "fail": [],
+      "exemptInactive": 0,
+      "occluded": 0,
+      "unresolvableInk": [],
+      "pseudoTextNodesNotScored": 0,
+      "overCanvasScored": 0,
+      "worst": [
+        {
+          "selector": "p.relative.z-10.mt-3",
+          "text": "Sign in to pick up your saved map right where you left it.",
+          "p5": 4.53,
+          "required": 4.5
+        },
+        {
+          "selector": "label.flex.items-center.gap-2",
+          "text": "Email",
+          "p5": 4.54,
+          "required": 4.5
+        },
+        {
+          "selector": "span",
+          "text": "Remember me",
+          "p5": 4.54,
+          "required": 4.5
+        },
+        {
+          "selector": "button.mt-1.flex.min-h-11",
+          "text": "New here?",
+          "p5": 4.54,
+          "required": 4.5
+        },
+        {
+          "selector": "label.flex.items-center.gap-2",
+          "text": "Password",
+          "p5": 4.58,
+          "required": 4.5
+        },
+        {
+          "selector": "p.relative.z-10.mt-4",
+          "text": "Welcome back",
+          "p5": 4.8,
+          "required": 4.5
+        },
+        {
+          "selector": "span.font-bold.text-brand",
+          "text": "Create an account",
+          "p5": 4.82,
+          "required": 4.5
+        },
+        {
+          "selector": "button.group/button.inline-flex.shrink-0",
+          "text": "Sign in →",
+          "p5": 9.26,
+          "required": 4.5
+        }
+      ]
+    },
+    {
+      "theme": "light",
+      "resolvedTheme": "light",
+      "viewport": "390x844",
+      "route": "map",
+      "mapPresent": true,
+      "totalTextElements": 9,
+      "scored": 8,
+      "pass": 7,
+      "fail": [
+        {
+          "selector": "span.min-w-0.truncate",
+          "text": "in Israel",
+          "fontPx": 14,
+          "weight": 500,
+          "large": false,
+          "declaredColor": "rgb(117, 113, 106)",
+          "ink": {
+            "r": 117,
+            "g": 113,
+            "b": 106,
+            "a": 1
+          },
+          "unresolvable": false,
+          "inactive": false,
+          "occludedBy": null,
+          "overCanvas": true,
+          "samples": 969,
+          "min": 4.06,
+          "p5": 4.06,
+          "median": 4.85,
+          "max": 4.85,
+          "required": 4.5,
+          "backgroundBuckets": 2,
+          "dominantBackground": "rgb(248, 248, 248)",
+          "verdict": "fail"
+        }
+      ],
+      "exemptInactive": 0,
+      "occluded": 1,
+      "unresolvableInk": [],
+      "pseudoTextNodesNotScored": 0,
+      "overCanvasScored": 8,
+      "worst": [
+        {
+          "selector": "span.min-w-0.truncate",
+          "text": "in Israel",
+          "p5": 4.06,
+          "required": 4.5
+        },
+        {
+          "selector": "div.maplibregl-ctrl-attrib-inner",
+          "text": "©  , ©   contributors",
+          "p5": 4.61,
+          "required": 4.5
+        },
+        {
+          "selector": "a",
+          "text": "CARTO",
+          "p5": 4.61,
+          "required": 4.5
+        },
+        {
+          "selector": "a",
+          "text": "OpenStreetMap",
+          "p5": 4.61,
+          "required": 4.5
+        },
+        {
+          "selector": "span.max-w-full.truncate.text-micro",
+          "text": "Collections",
+          "p5": 4.82,
+          "required": 4.5
+        },
+        {
+          "selector": "span.max-w-full.truncate.text-micro",
+          "text": "Profile",
+          "p5": 4.82,
+          "required": 4.5
+        },
+        {
+          "selector": "span.max-w-full.truncate.text-micro",
+          "text": "Map",
+          "p5": 16.37,
+          "required": 4.5
+        },
+        {
+          "selector": "span.font-heading.font-extrabold.text-foreground",
+          "text": "12",
+          "p5": 17.24,
+          "required": 4.5
+        }
+      ]
+    },
+    {
+      "theme": "light",
+      "resolvedTheme": "light",
+      "viewport": "390x844",
+      "route": "collections",
+      "mapPresent": true,
+      "totalTextElements": 13,
+      "scored": 10,
+      "pass": 10,
+      "fail": [],
+      "exemptInactive": 0,
+      "occluded": 3,
+      "unresolvableInk": [],
+      "pseudoTextNodesNotScored": 0,
+      "overCanvasScored": 10,
+      "worst": [
+        {
+          "selector": "span.max-w-full.truncate.text-micro",
+          "text": "Map",
+          "p5": 4.82,
+          "required": 4.5
+        },
+        {
+          "selector": "span.max-w-full.truncate.text-micro",
+          "text": "Profile",
+          "p5": 4.82,
+          "required": 4.5
+        },
+        {
+          "selector": "h2.px-1.pb-1.pt-4",
+          "text": "Yours",
+          "p5": 4.85,
+          "required": 4.5
+        },
+        {
+          "selector": "span",
+          "text": "6 places",
+          "p5": 4.85,
+          "required": 4.5
+        },
+        {
+          "selector": "span",
+          "text": "·",
+          "p5": 4.85,
+          "required": 4.5
+        },
+        {
+          "selector": "bdi",
+          "text": "2 people",
+          "p5": 4.85,
+          "required": 4.5
+        },
+        {
+          "selector": "bdi",
+          "text": "Places for the next few Saturdays.",
+          "p5": 4.85,
+          "required": 4.5
+        },
+        {
+          "selector": "button.mt-2.flex.min-h-14",
+          "text": "New collection",
+          "p5": 4.85,
+          "required": 4.5
+        }
+      ]
+    },
+    {
+      "theme": "light",
+      "resolvedTheme": "light",
+      "viewport": "390x844",
+      "route": "profile",
+      "mapPresent": false,
+      "totalTextElements": 33,
+      "scored": 33,
+      "pass": 33,
+      "fail": [],
+      "exemptInactive": 0,
+      "occluded": 0,
+      "unresolvableInk": [],
+      "pseudoTextNodesNotScored": 0,
+      "overCanvasScored": 0,
+      "worst": [
+        {
+          "selector": "p.truncate.text-sm.text-muted-foreground",
+          "text": "demo@example.com",
+          "p5": 4.61,
+          "required": 4.5
+        },
+        {
+          "selector": "p.text-xs.text-muted-foreground",
+          "text": "Joined June 2026",
+          "p5": 4.61,
+          "required": 4.5
+        },
+        {
+          "selector": "h2#library-total.text-[11px].font-bold.uppercase",
+          "text": "Your library",
+          "p5": 4.61,
+          "required": 4.5
+        },
+        {
+          "selector": "h2#countries.text-[11px].font-bold.uppercase",
+          "text": "Where you save",
+          "p5": 4.61,
+          "required": 4.5
+        },
+        {
+          "selector": "h2#categories.text-[11px].font-bold.uppercase",
+          "text": "What you save",
+          "p5": 4.61,
+          "required": 4.5
+        },
+        {
+          "selector": "h2#your-account.text-[11px].font-bold.uppercase",
+          "text": "Your account",
+          "p5": 4.61,
+          "required": 4.5
+        },
+        {
+          "selector": "button.group/button.inline-flex.shrink-0",
+          "text": "Delete my data",
+          "p5": 4.61,
+          "required": 4.5
+        },
+        {
+          "selector": "p.mt-1.text-center.text-xs",
+          "text": "This removes your places, your collections and your account.",
+          "p5": 4.61,
+          "required": 4.5
+        }
+      ]
+    },
+    {
+      "theme": "light",
+      "resolvedTheme": "light",
+      "viewport": "1440x900",
+      "route": "landing",
+      "mapPresent": false,
+      "totalTextElements": 14,
+      "scored": 14,
+      "pass": 14,
+      "fail": [],
+      "exemptInactive": 0,
+      "occluded": 0,
+      "unresolvableInk": [],
+      "pseudoTextNodesNotScored": 0,
+      "overCanvasScored": 0,
+      "worst": [
+        {
+          "selector": "p.mt-3.max-w-xs.text-sm",
+          "text": "Paste a TikTok link and the place lands on your map. Organised by wher",
+          "p5": 4.58,
+          "required": 4.5
+        },
+        {
+          "selector": "p.mt-3.truncate.text-center",
+          "text": "Signed in as",
+          "p5": 4.73,
+          "required": 4.5
+        },
+        {
+          "selector": "p.mt-6.text-center.text-xs",
+          "text": "Works with TikTok links today.",
+          "p5": 4.73,
+          "required": 4.5
+        },
+        {
+          "selector": "p.text-micro.font-bold.tracking-[0.14em]",
+          "text": "A personal map",
+          "p5": 4.8,
+          "required": 4.5
+        },
+        {
+          "selector": "span.flex.size-6.shrink-0",
+          "text": "1",
+          "p5": 6.45,
+          "required": 4.5
+        },
+        {
+          "selector": "span.flex.size-6.shrink-0",
+          "text": "2",
+          "p5": 6.45,
+          "required": 4.5
+        },
+        {
+          "selector": "span.flex.size-6.shrink-0",
+          "text": "3",
+          "p5": 6.45,
+          "required": 4.5
+        },
+        {
+          "selector": "a.group/button.inline-flex.shrink-0",
+          "text": "Open your map →",
+          "p5": 9.26,
+          "required": 4.5
+        }
+      ]
+    },
+    {
+      "theme": "light",
+      "resolvedTheme": "light",
+      "viewport": "1440x900",
+      "route": "sign-in",
+      "mapPresent": false,
+      "totalTextElements": 10,
+      "scored": 10,
+      "pass": 10,
+      "fail": [],
+      "exemptInactive": 0,
+      "occluded": 0,
+      "unresolvableInk": [],
+      "pseudoTextNodesNotScored": 0,
+      "overCanvasScored": 0,
+      "worst": [
+        {
+          "selector": "p.relative.z-10.mt-3",
+          "text": "Sign in to pick up your saved map right where you left it.",
+          "p5": 4.54,
+          "required": 4.5
+        },
+        {
+          "selector": "label.flex.items-center.gap-2",
+          "text": "Email",
+          "p5": 4.71,
+          "required": 4.5
+        },
+        {
+          "selector": "label.flex.items-center.gap-2",
+          "text": "Password",
+          "p5": 4.72,
+          "required": 4.5
+        },
+        {
+          "selector": "span",
+          "text": "Remember me",
+          "p5": 4.73,
+          "required": 4.5
+        },
+        {
+          "selector": "button.mt-1.flex.min-h-11",
+          "text": "New here?",
+          "p5": 4.73,
+          "required": 4.5
+        },
+        {
+          "selector": "p.relative.z-10.mt-4",
+          "text": "Welcome back",
+          "p5": 4.8,
+          "required": 4.5
+        },
+        {
+          "selector": "span.font-bold.text-brand",
+          "text": "Create an account",
+          "p5": 4.95,
+          "required": 4.5
+        },
+        {
+          "selector": "button.group/button.inline-flex.shrink-0",
+          "text": "Sign in →",
+          "p5": 9.26,
+          "required": 4.5
+        }
+      ]
+    },
+    {
+      "theme": "light",
+      "resolvedTheme": "light",
+      "viewport": "1440x900",
+      "route": "map",
+      "mapPresent": true,
+      "totalTextElements": 86,
+      "scored": 83,
+      "pass": 32,
+      "fail": [
+        {
+          "selector": "span.shrink-0.tabular-nums.opacity-70",
+          "text": "5",
+          "fontPx": 12,
+          "weight": 700,
+          "large": false,
+          "declaredColor": "rgb(33, 95, 86)",
+          "ink": {
+            "r": 33,
+            "g": 95,
+            "b": 86,
+            "a": 0.7
+          },
+          "unresolvable": false,
+          "inactive": false,
+          "occludedBy": null,
+          "overCanvas": true,
+          "samples": 510,
+          "min": 3.32,
+          "p5": 3.32,
+          "median": 3.32,
+          "max": 3.32,
+          "required": 4.5,
+          "backgroundBuckets": 1,
+          "dominantBackground": "rgb(216, 240, 232)",
+          "verdict": "fail"
+        },
+        {
+          "selector": "span.shrink-0.tabular-nums.opacity-70",
+          "text": "4",
+          "fontPx": 12,
+          "weight": 700,
+          "large": false,
+          "declaredColor": "rgb(33, 95, 86)",
+          "ink": {
+            "r": 33,
+            "g": 95,
+            "b": 86,
+            "a": 0.7
+          },
+          "unresolvable": false,
+          "inactive": false,
+          "occludedBy": null,
+          "overCanvas": true,
+          "samples": 510,
+          "min": 3.32,
+          "p5": 3.32,
+          "median": 3.32,
+          "max": 3.32,
+          "required": 4.5,
+          "backgroundBuckets": 1,
+          "dominantBackground": "rgb(216, 240, 232)",
+          "verdict": "fail"
+        },
+        {
+          "selector": "span.shrink-0.tabular-nums.opacity-70",
+          "text": "3",
+          "fontPx": 12,
+          "weight": 700,
+          "large": false,
+          "declaredColor": "rgb(33, 95, 86)",
+          "ink": {
+            "r": 33,
+            "g": 95,
+            "b": 86,
+            "a": 0.7
+          },
+          "unresolvable": false,
+          "inactive": false,
+          "occludedBy": null,
+          "overCanvas": true,
+          "samples": 510,
+          "min": 3.32,
+          "p5": 3.32,
+          "median": 3.32,
+          "max": 3.32,
+          "required": 4.5,
+          "backgroundBuckets": 1,
+          "dominantBackground": "rgb(216, 240, 232)",
+          "verdict": "fail"
+        },
+        {
+          "selector": "span.shrink-0.tabular-nums.opacity-70",
+          "text": "3",
+          "fontPx": 12,
+          "weight": 700,
+          "large": false,
+          "declaredColor": "rgb(33, 95, 86)",
+          "ink": {
+            "r": 33,
+            "g": 95,
+            "b": 86,
+            "a": 0.7
+          },
+          "unresolvable": false,
+          "inactive": false,
+          "occludedBy": null,
+          "overCanvas": true,
+          "samples": 510,
+          "min": 3.32,
+          "p5": 3.32,
+          "median": 3.32,
+          "max": 3.32,
+          "required": 4.5,
+          "backgroundBuckets": 1,
+          "dominantBackground": "rgb(216, 240, 232)",
+          "verdict": "fail"
+        },
+        {
+          "selector": "span.shrink-0.tabular-nums.opacity-70",
+          "text": "3",
+          "fontPx": 12,
+          "weight": 700,
+          "large": false,
+          "declaredColor": "rgb(33, 95, 86)",
+          "ink": {
+            "r": 33,
+            "g": 95,
+            "b": 86,
+            "a": 0.7
+          },
+          "unresolvable": false,
+          "inactive": false,
+          "occludedBy": null,
+          "overCanvas": true,
+          "samples": 510,
+          "min": 3.32,
+          "p5": 3.32,
+          "median": 3.32,
+          "max": 3.32,
+          "required": 4.5,
+          "backgroundBuckets": 1,
+          "dominantBackground": "rgb(216, 240, 232)",
+          "verdict": "fail"
+        },
+        {
+          "selector": "span.shrink-0.tabular-nums.opacity-70",
+          "text": "2",
+          "fontPx": 12,
+          "weight": 700,
+          "large": false,
+          "declaredColor": "rgb(33, 95, 86)",
+          "ink": {
+            "r": 33,
+            "g": 95,
+            "b": 86,
+            "a": 0.7
+          },
+          "unresolvable": false,
+          "inactive": false,
+          "occludedBy": null,
+          "overCanvas": true,
+          "samples": 510,
+          "min": 3.32,
+          "p5": 3.32,
+          "median": 3.32,
+          "max": 3.32,
+          "required": 4.5,
+          "backgroundBuckets": 1,
+          "dominantBackground": "rgb(216, 240, 232)",
+          "verdict": "fail"
+        },
+        {
+          "selector": "span.shrink-0.tabular-nums.opacity-70",
+          "text": "2",
+          "fontPx": 12,
+          "weight": 700,
+          "large": false,
+          "declaredColor": "rgb(33, 95, 86)",
+          "ink": {
+            "r": 33,
+            "g": 95,
+            "b": 86,
+            "a": 0.7
+          },
+          "unresolvable": false,
+          "inactive": false,
+          "occludedBy": null,
+          "overCanvas": true,
+          "samples": 510,
+          "min": 3.32,
+          "p5": 3.32,
+          "median": 3.32,
+          "max": 3.32,
+          "required": 4.5,
+          "backgroundBuckets": 1,
+          "dominantBackground": "rgb(216, 240, 232)",
+          "verdict": "fail"
+        },
+        {
+          "selector": "span.shrink-0.tabular-nums.opacity-70",
+          "text": "2",
+          "fontPx": 12,
+          "weight": 700,
+          "large": false,
+          "declaredColor": "rgb(33, 95, 86)",
+          "ink": {
+            "r": 33,
+            "g": 95,
+            "b": 86,
+            "a": 0.7
+          },
+          "unresolvable": false,
+          "inactive": false,
+          "occludedBy": null,
+          "overCanvas": true,
+          "samples": 510,
+          "min": 3.32,
+          "p5": 3.32,
+          "median": 3.32,
+          "max": 3.32,
+          "required": 4.5,
+          "backgroundBuckets": 1,
+          "dominantBackground": "rgb(216, 240, 232)",
+          "verdict": "fail"
+        },
+        {
+          "selector": "span.inline-flex.shrink-0.items-center",
+          "text": "Been",
+          "fontPx": 16,
+          "weight": 700,
+          "large": false,
+          "declaredColor": "rgb(255, 255, 255)",
+          "ink": {
+            "r": 255,
+            "g": 255,
+            "b": 255,
+            "a": 1
+          },
+          "unresolvable": false,
+          "inactive": false,
+          "occludedBy": null,
+          "overCanvas": true,
+          "samples": 3432,
+          "min": 1.06,
+          "p5": 1.06,
+          "median": 5.08,
+          "max": 5.08,
+          "required": 4.5,
+          "backgroundBuckets": 14,
+          "dominantBackground": "rgb(40, 120, 112)",
+          "verdict": "fail"
+        },
+        {
+          "selector": "p.text-micro.font-medium.text-muted-foreground/70",
+          "text": "Saved 20 hours ago",
+          "fontPx": 11,
+          "weight": 500,
+          "large": false,
+          "declaredColor": "oklab(0.550039 0.0017039 0.0116345 / 0.7)",
+          "ink": {
+            "r": 116.81564245810058,
+            "g": 112.5418994413408,
+            "b": 105.41899441340784,
+            "a": 0.7019607843137253
+          },
+          "unresolvable": false,
+          "inactive": false,
+          "occludedBy": null,
+          "overCanvas": true,
+          "samples": 1515,
+          "min": 2.68,
+          "p5": 2.68,
+          "median": 2.68,
+          "max": 2.68,
+          "required": 4.5,
+          "backgroundBuckets": 1,
+          "dominantBackground": "rgb(240, 248, 248)",
+          "verdict": "fail"
+        },
+        {
+          "selector": "p.text-micro.font-medium.text-muted-foreground/70",
+          "text": "Saved 21 hours ago",
+          "fontPx": 11,
+          "weight": 500,
+          "large": false,
+          "declaredColor": "oklab(0.550039 0.0017039 0.0116345 / 0.7)",
+          "ink": {
+            "r": 116.81564245810058,
+            "g": 112.5418994413408,
+            "b": 105.41899441340784,
+            "a": 0.7019607843137253
+          },
+          "unresolvable": false,
+          "inactive": false,
+          "occludedBy": null,
+          "overCanvas": true,
+          "samples": 1470,
+          "min": 2.68,
+          "p5": 2.68,
+          "median": 2.68,
+          "max": 2.68,
+          "required": 4.5,
+          "backgroundBuckets": 1,
+          "dominantBackground": "rgb(240, 248, 248)",
+          "verdict": "fail"
+        },
+        {
+          "selector": "p.text-micro.font-medium.text-muted-foreground/70",
+          "text": "Saved 22 hours ago",
+          "fontPx": 11,
+          "weight": 500,
+          "large": false,
+          "declaredColor": "oklab(0.550039 0.0017039 0.0116345 / 0.7)",
+          "ink": {
+            "r": 116.81564245810058,
+            "g": 112.5418994413408,
+            "b": 105.41899441340784,
+            "a": 0.7019607843137253
+          },
+          "unresolvable": false,
+          "inactive": false,
+          "occludedBy": null,
+          "overCanvas": true,
+          "samples": 1500,
+          "min": 2.68,
+          "p5": 2.68,
+          "median": 2.68,
+          "max": 2.68,
+          "required": 4.5,
+          "backgroundBuckets": 1,
+          "dominantBackground": "rgb(240, 248, 248)",
+          "verdict": "fail"
+        }
+      ],
+      "exemptInactive": 0,
+      "occluded": 3,
+      "unresolvableInk": [],
+      "pseudoTextNodesNotScored": 0,
+      "overCanvasScored": 44,
+      "worst": [
+        {
+          "selector": "span.inline-flex.shrink-0.items-center",
+          "text": "Been",
+          "p5": 1.06,
+          "required": 4.5
+        },
+        {
+          "selector": "p.text-micro.font-medium.text-muted-foreground/70",
+          "text": "Saved 20 hours ago",
+          "p5": 2.68,
+          "required": 4.5
+        },
+        {
+          "selector": "p.text-micro.font-medium.text-muted-foreground/70",
+          "text": "Saved 21 hours ago",
+          "p5": 2.68,
+          "required": 4.5
+        },
+        {
+          "selector": "p.text-micro.font-medium.text-muted-foreground/70",
+          "text": "Saved 22 hours ago",
+          "p5": 2.68,
+          "required": 4.5
+        },
+        {
+          "selector": "span.shrink-0.tabular-nums.opacity-70",
+          "text": "5",
+          "p5": 3.32,
+          "required": 4.5
+        },
+        {
+          "selector": "span.shrink-0.tabular-nums.opacity-70",
+          "text": "4",
+          "p5": 3.32,
+          "required": 4.5
+        },
+        {
+          "selector": "span.shrink-0.tabular-nums.opacity-70",
+          "text": "3",
+          "p5": 3.32,
+          "required": 4.5
+        },
+        {
+          "selector": "span.shrink-0.tabular-nums.opacity-70",
+          "text": "3",
+          "p5": 3.32,
+          "required": 4.5
+        }
+      ]
+    },
+    {
+      "theme": "light",
+      "resolvedTheme": "light",
+      "viewport": "1440x900",
+      "route": "collections",
+      "mapPresent": true,
+      "totalTextElements": 11,
+      "scored": 11,
+      "pass": 11,
+      "fail": [],
+      "exemptInactive": 0,
+      "occluded": 0,
+      "unresolvableInk": [],
+      "pseudoTextNodesNotScored": 0,
+      "overCanvasScored": 11,
+      "worst": [
+        {
+          "selector": "h2.px-1.pb-1.pt-4",
+          "text": "Yours",
+          "p5": 4.57,
+          "required": 4.5
+        },
+        {
+          "selector": "span",
+          "text": "6 places",
+          "p5": 4.57,
+          "required": 4.5
+        },
+        {
+          "selector": "span",
+          "text": "·",
+          "p5": 4.57,
+          "required": 4.5
+        },
+        {
+          "selector": "bdi",
+          "text": "2 people",
+          "p5": 4.57,
+          "required": 4.5
+        },
+        {
+          "selector": "bdi",
+          "text": "Places for the next few Saturdays.",
+          "p5": 4.57,
+          "required": 4.5
+        },
+        {
+          "selector": "button.mt-2.flex.min-h-14",
+          "text": "New collection",
+          "p5": 4.57,
+          "required": 4.5
+        },
+        {
+          "selector": "div.maplibregl-ctrl-attrib-inner",
+          "text": "©  , ©   contributors",
+          "p5": 4.61,
+          "required": 4.5
+        },
+        {
+          "selector": "a",
+          "text": "CARTO",
+          "p5": 4.61,
+          "required": 4.5
+        }
+      ]
+    },
+    {
+      "theme": "light",
+      "resolvedTheme": "light",
+      "viewport": "1440x900",
+      "route": "profile",
+      "mapPresent": false,
+      "totalTextElements": 30,
+      "scored": 30,
+      "pass": 30,
+      "fail": [],
+      "exemptInactive": 0,
+      "occluded": 0,
+      "unresolvableInk": [],
+      "pseudoTextNodesNotScored": 0,
+      "overCanvasScored": 0,
+      "worst": [
+        {
+          "selector": "p.truncate.text-sm.text-muted-foreground",
+          "text": "demo@example.com",
+          "p5": 4.61,
+          "required": 4.5
+        },
+        {
+          "selector": "p.text-xs.text-muted-foreground",
+          "text": "Joined June 2026",
+          "p5": 4.61,
+          "required": 4.5
+        },
+        {
+          "selector": "h2#library-total.text-[11px].font-bold.uppercase",
+          "text": "Your library",
+          "p5": 4.61,
+          "required": 4.5
+        },
+        {
+          "selector": "h2#countries.text-[11px].font-bold.uppercase",
+          "text": "Where you save",
+          "p5": 4.61,
+          "required": 4.5
+        },
+        {
+          "selector": "h2#categories.text-[11px].font-bold.uppercase",
+          "text": "What you save",
+          "p5": 4.61,
+          "required": 4.5
+        },
+        {
+          "selector": "h2#your-account.text-[11px].font-bold.uppercase",
+          "text": "Your account",
+          "p5": 4.61,
+          "required": 4.5
+        },
+        {
+          "selector": "button.group/button.inline-flex.shrink-0",
+          "text": "Delete my data",
+          "p5": 4.61,
+          "required": 4.5
+        },
+        {
+          "selector": "p.mt-1.text-center.text-xs",
+          "text": "This removes your places, your collections and your account.",
+          "p5": 4.61,
+          "required": 4.5
+        }
+      ]
+    },
+    {
+      "theme": "dark",
+      "resolvedTheme": "dark",
+      "viewport": "390x844",
+      "route": "landing",
+      "mapPresent": false,
+      "totalTextElements": 14,
+      "scored": 14,
+      "pass": 14,
+      "fail": [],
+      "exemptInactive": 0,
+      "occluded": 0,
+      "unresolvableInk": [],
+      "pseudoTextNodesNotScored": 0,
+      "overCanvasScored": 0,
+      "worst": [
+        {
+          "selector": "p.mt-3.max-w-xs.text-sm",
+          "text": "Paste a TikTok link and the place lands on your map. Organised by wher",
+          "p5": 6.75,
+          "required": 4.5
+        },
+        {
+          "selector": "p.mt-3.truncate.text-center",
+          "text": "Signed in as",
+          "p5": 6.96,
+          "required": 4.5
+        },
+        {
+          "selector": "p.mt-6.text-center.text-xs",
+          "text": "Works with TikTok links today.",
+          "p5": 7.06,
+          "required": 4.5
+        },
+        {
+          "selector": "a.group/button.inline-flex.shrink-0",
+          "text": "Open your map →",
+          "p5": 9.26,
+          "required": 4.5
+        },
+        {
+          "selector": "span.flex.size-6.shrink-0",
+          "text": "1",
+          "p5": 10.88,
+          "required": 4.5
+        },
+        {
+          "selector": "span.flex.size-6.shrink-0",
+          "text": "2",
+          "p5": 10.88,
+          "required": 4.5
+        },
+        {
+          "selector": "span.flex.size-6.shrink-0",
+          "text": "3",
+          "p5": 10.88,
+          "required": 4.5
+        },
+        {
+          "selector": "p.text-micro.font-bold.tracking-[0.14em]",
+          "text": "A personal map",
+          "p5": 13.21,
+          "required": 4.5
+        }
+      ]
+    },
+    {
+      "theme": "dark",
+      "resolvedTheme": "dark",
+      "viewport": "390x844",
+      "route": "sign-in",
+      "mapPresent": false,
+      "totalTextElements": 10,
+      "scored": 10,
+      "pass": 10,
+      "fail": [],
+      "exemptInactive": 0,
+      "occluded": 0,
+      "unresolvableInk": [],
+      "pseudoTextNodesNotScored": 0,
+      "overCanvasScored": 0,
+      "worst": [
+        {
+          "selector": "p.relative.z-10.mt-3",
+          "text": "Sign in to pick up your saved map right where you left it.",
+          "p5": 6.75,
+          "required": 4.5
+        },
+        {
+          "selector": "label.flex.items-center.gap-2",
+          "text": "Email",
+          "p5": 6.88,
+          "required": 4.5
+        },
+        {
+          "selector": "label.flex.items-center.gap-2",
+          "text": "Password",
+          "p5": 6.89,
+          "required": 4.5
+        },
+        {
+          "selector": "span",
+          "text": "Remember me",
+          "p5": 6.97,
+          "required": 4.5
+        },
+        {
+          "selector": "button.mt-1.flex.min-h-11",
+          "text": "New here?",
+          "p5": 7.01,
+          "required": 4.5
+        },
+        {
+          "selector": "button.group/button.inline-flex.shrink-0",
+          "text": "Sign in →",
+          "p5": 9.26,
+          "required": 4.5
+        },
+        {
+          "selector": "p.relative.z-10.mt-4",
+          "text": "Welcome back",
+          "p5": 13.21,
+          "required": 4.5
+        },
+        {
+          "selector": "span.font-bold.text-brand",
+          "text": "Create an account",
+          "p5": 13.52,
+          "required": 4.5
+        }
+      ]
+    },
+    {
+      "theme": "dark",
+      "resolvedTheme": "dark",
+      "viewport": "390x844",
+      "route": "map",
+      "mapPresent": true,
+      "totalTextElements": 9,
+      "scored": 8,
+      "pass": 8,
+      "fail": [],
+      "exemptInactive": 0,
+      "occluded": 1,
+      "unresolvableInk": [],
+      "pseudoTextNodesNotScored": 0,
+      "overCanvasScored": 8,
+      "worst": [
+        {
+          "selector": "span.min-w-0.truncate",
+          "text": "in Israel",
+          "p5": 5.65,
+          "required": 4.5
+        },
+        {
+          "selector": "span.max-w-full.truncate.text-micro",
+          "text": "Collections",
+          "p5": 6.51,
+          "required": 4.5
+        },
+        {
+          "selector": "span.max-w-full.truncate.text-micro",
+          "text": "Profile",
+          "p5": 6.51,
+          "required": 4.5
+        },
+        {
+          "selector": "div.maplibregl-ctrl-attrib-inner",
+          "text": "©  , ©   contributors",
+          "p5": 7.35,
+          "required": 4.5
+        },
+        {
+          "selector": "a",
+          "text": "CARTO",
+          "p5": 7.35,
+          "required": 4.5
+        },
+        {
+          "selector": "a",
+          "text": "OpenStreetMap",
+          "p5": 7.35,
+          "required": 4.5
+        },
+        {
+          "selector": "span.max-w-full.truncate.text-micro",
+          "text": "Map",
+          "p5": 14.72,
+          "required": 4.5
+        },
+        {
+          "selector": "span.font-heading.font-extrabold.text-foreground",
+          "text": "12",
+          "p5": 14.72,
+          "required": 4.5
+        }
+      ]
+    },
+    {
+      "theme": "dark",
+      "resolvedTheme": "dark",
+      "viewport": "390x844",
+      "route": "collections",
+      "mapPresent": true,
+      "totalTextElements": 13,
+      "scored": 10,
+      "pass": 10,
+      "fail": [],
+      "exemptInactive": 0,
+      "occluded": 3,
+      "unresolvableInk": [],
+      "pseudoTextNodesNotScored": 0,
+      "overCanvasScored": 10,
+      "worst": [
+        {
+          "selector": "span.max-w-full.truncate.text-micro",
+          "text": "Map",
+          "p5": 6.51,
+          "required": 4.5
+        },
+        {
+          "selector": "span.max-w-full.truncate.text-micro",
+          "text": "Profile",
+          "p5": 6.51,
+          "required": 4.5
+        },
+        {
+          "selector": "h2.px-1.pb-1.pt-4",
+          "text": "Yours",
+          "p5": 6.51,
+          "required": 4.5
+        },
+        {
+          "selector": "span",
+          "text": "6 places",
+          "p5": 6.51,
+          "required": 4.5
+        },
+        {
+          "selector": "span",
+          "text": "·",
+          "p5": 6.51,
+          "required": 4.5
+        },
+        {
+          "selector": "bdi",
+          "text": "2 people",
+          "p5": 6.51,
+          "required": 4.5
+        },
+        {
+          "selector": "bdi",
+          "text": "Places for the next few Saturdays.",
+          "p5": 6.51,
+          "required": 4.5
+        },
+        {
+          "selector": "button.mt-2.flex.min-h-14",
+          "text": "New collection",
+          "p5": 6.51,
+          "required": 4.5
+        }
+      ]
+    },
+    {
+      "theme": "dark",
+      "resolvedTheme": "dark",
+      "viewport": "390x844",
+      "route": "profile",
+      "mapPresent": false,
+      "totalTextElements": 33,
+      "scored": 33,
+      "pass": 33,
+      "fail": [],
+      "exemptInactive": 0,
+      "occluded": 0,
+      "unresolvableInk": [],
+      "pseudoTextNodesNotScored": 0,
+      "overCanvasScored": 0,
+      "worst": [
+        {
+          "selector": "dt.mt-0.5.text-xs.text-muted-foreground",
+          "text": "Places",
+          "p5": 6.51,
+          "required": 4.5
+        },
+        {
+          "selector": "dt.mt-0.5.text-xs.text-muted-foreground",
+          "text": "City",
+          "p5": 6.51,
+          "required": 4.5
+        },
+        {
+          "selector": "dt.mt-0.5.text-xs.text-muted-foreground",
+          "text": "Country",
+          "p5": 6.51,
+          "required": 4.5
+        },
+        {
+          "selector": "p.border-t.border-border.px-3",
+          "text": "been   not been yet",
+          "p5": 6.51,
+          "required": 4.5
+        },
+        {
+          "selector": "span",
+          "text": "·",
+          "p5": 6.51,
+          "required": 4.5
+        },
+        {
+          "selector": "span.max-w-full.truncate.text-micro",
+          "text": "Map",
+          "p5": 6.59,
+          "required": 4.5
+        },
+        {
+          "selector": "span.max-w-full.truncate.text-micro",
+          "text": "Collections",
+          "p5": 6.59,
+          "required": 4.5
+        },
+        {
+          "selector": "p.truncate.text-sm.text-muted-foreground",
+          "text": "demo@example.com",
+          "p5": 7.35,
+          "required": 4.5
+        }
+      ]
+    },
+    {
+      "theme": "dark",
+      "resolvedTheme": "dark",
+      "viewport": "1440x900",
+      "route": "landing",
+      "mapPresent": false,
+      "totalTextElements": 14,
+      "scored": 14,
+      "pass": 14,
+      "fail": [],
+      "exemptInactive": 0,
+      "occluded": 0,
+      "unresolvableInk": [],
+      "pseudoTextNodesNotScored": 0,
+      "overCanvasScored": 0,
+      "worst": [
+        {
+          "selector": "p.mt-3.truncate.text-center",
+          "text": "Signed in as",
+          "p5": 6.77,
+          "required": 4.5
+        },
+        {
+          "selector": "p.mt-6.text-center.text-xs",
+          "text": "Works with TikTok links today.",
+          "p5": 6.82,
+          "required": 4.5
+        },
+        {
+          "selector": "p.mt-3.max-w-xs.text-sm",
+          "text": "Paste a TikTok link and the place lands on your map. Organised by wher",
+          "p5": 6.85,
+          "required": 4.5
+        },
+        {
+          "selector": "a.group/button.inline-flex.shrink-0",
+          "text": "Open your map →",
+          "p5": 9.26,
+          "required": 4.5
+        },
+        {
+          "selector": "span.flex.size-6.shrink-0",
+          "text": "1",
+          "p5": 10.88,
+          "required": 4.5
+        },
+        {
+          "selector": "span.flex.size-6.shrink-0",
+          "text": "2",
+          "p5": 10.88,
+          "required": 4.5
+        },
+        {
+          "selector": "span.flex.size-6.shrink-0",
+          "text": "3",
+          "p5": 10.88,
+          "required": 4.5
+        },
+        {
+          "selector": "p.text-micro.font-bold.tracking-[0.14em]",
+          "text": "A personal map",
+          "p5": 13.21,
+          "required": 4.5
+        }
+      ]
+    },
+    {
+      "theme": "dark",
+      "resolvedTheme": "dark",
+      "viewport": "1440x900",
+      "route": "sign-in",
+      "mapPresent": false,
+      "totalTextElements": 10,
+      "scored": 10,
+      "pass": 10,
+      "fail": [],
+      "exemptInactive": 0,
+      "occluded": 0,
+      "unresolvableInk": [],
+      "pseudoTextNodesNotScored": 0,
+      "overCanvasScored": 0,
+      "worst": [
+        {
+          "selector": "label.flex.items-center.gap-2",
+          "text": "Email",
+          "p5": 6.63,
+          "required": 4.5
+        },
+        {
+          "selector": "label.flex.items-center.gap-2",
+          "text": "Password",
+          "p5": 6.71,
+          "required": 4.5
+        },
+        {
+          "selector": "span",
+          "text": "Remember me",
+          "p5": 6.76,
+          "required": 4.5
+        },
+        {
+          "selector": "button.mt-1.flex.min-h-11",
+          "text": "New here?",
+          "p5": 6.82,
+          "required": 4.5
+        },
+        {
+          "selector": "p.relative.z-10.mt-3",
+          "text": "Sign in to pick up your saved map right where you left it.",
+          "p5": 6.84,
+          "required": 4.5
+        },
+        {
+          "selector": "button.group/button.inline-flex.shrink-0",
+          "text": "Sign in →",
+          "p5": 9.26,
+          "required": 4.5
+        },
+        {
+          "selector": "span.font-bold.text-brand",
+          "text": "Create an account",
+          "p5": 12.96,
+          "required": 4.5
+        },
+        {
+          "selector": "p.relative.z-10.mt-4",
+          "text": "Welcome back",
+          "p5": 13.21,
+          "required": 4.5
+        }
+      ]
+    },
+    {
+      "theme": "dark",
+      "resolvedTheme": "dark",
+      "viewport": "1440x900",
+      "route": "map",
+      "mapPresent": true,
+      "totalTextElements": 86,
+      "scored": 83,
+      "pass": 39,
+      "fail": [
+        {
+          "selector": "h1.animate-in.fade-in-0.duration-enter",
+          "text": "12 places in Israel",
+          "fontPx": 24,
+          "weight": 800,
+          "large": true,
+          "declaredColor": "rgb(244, 242, 236)",
+          "ink": {
+            "r": 244,
+            "g": 242,
+            "b": 236,
+            "a": 1
+          },
+          "unresolvable": false,
+          "inactive": false,
+          "occludedBy": null,
+          "overCanvas": true,
+          "samples": 1092,
+          "min": 2.49,
+          "p5": 2.49,
+          "median": 15.1,
+          "max": 15.1,
+          "required": 3,
+          "backgroundBuckets": 25,
+          "dominantBackground": "rgb(24, 24, 24)",
+          "verdict": "fail"
+        },
+        {
+          "selector": "span.inline-flex.shrink-0.items-center",
+          "text": "Been",
+          "fontPx": 16,
+          "weight": 700,
+          "large": false,
+          "declaredColor": "rgb(18, 59, 53)",
+          "ink": {
+            "r": 18,
+            "g": 59,
+            "b": 53,
+            "a": 1
+          },
+          "unresolvable": false,
+          "inactive": false,
+          "occludedBy": null,
+          "overCanvas": true,
+          "samples": 3432,
+          "min": 1.15,
+          "p5": 1.37,
+          "median": 9.26,
+          "max": 9.26,
+          "required": 4.5,
+          "backgroundBuckets": 14,
+          "dominantBackground": "rgb(168, 232, 224)",
+          "verdict": "fail"
+        },
+        {
+          "selector": "p.text-micro.font-medium.text-muted-foreground/70",
+          "text": "Saved 20 hours ago",
+          "fontPx": 11,
+          "weight": 500,
+          "large": false,
+          "declaredColor": "oklab(0.714938 0.00342384 0.0129662 / 0.7)",
+          "ink": {
+            "r": 168.1005586592179,
+            "g": 162.40223463687155,
+            "b": 153.854748603352,
+            "a": 0.7019607843137253
+          },
+          "unresolvable": false,
+          "inactive": false,
+          "occludedBy": null,
+          "overCanvas": true,
+          "samples": 1515,
+          "min": 3.99,
+          "p5": 3.99,
+          "median": 3.99,
+          "max": 3.99,
+          "required": 4.5,
+          "backgroundBuckets": 1,
+          "dominantBackground": "rgb(24, 24, 24)",
+          "verdict": "fail"
+        },
+        {
+          "selector": "p.text-micro.font-medium.text-muted-foreground/70",
+          "text": "Saved 21 hours ago",
+          "fontPx": 11,
+          "weight": 500,
+          "large": false,
+          "declaredColor": "oklab(0.714938 0.00342384 0.0129662 / 0.7)",
+          "ink": {
+            "r": 168.1005586592179,
+            "g": 162.40223463687155,
+            "b": 153.854748603352,
+            "a": 0.7019607843137253
+          },
+          "unresolvable": false,
+          "inactive": false,
+          "occludedBy": null,
+          "overCanvas": true,
+          "samples": 1470,
+          "min": 3.99,
+          "p5": 3.99,
+          "median": 3.99,
+          "max": 3.99,
+          "required": 4.5,
+          "backgroundBuckets": 1,
+          "dominantBackground": "rgb(24, 24, 24)",
+          "verdict": "fail"
+        },
+        {
+          "selector": "p.text-micro.font-medium.text-muted-foreground/70",
+          "text": "Saved 22 hours ago",
+          "fontPx": 11,
+          "weight": 500,
+          "large": false,
+          "declaredColor": "oklab(0.714938 0.00342384 0.0129662 / 0.7)",
+          "ink": {
+            "r": 168.1005586592179,
+            "g": 162.40223463687155,
+            "b": 153.854748603352,
+            "a": 0.7019607843137253
+          },
+          "unresolvable": false,
+          "inactive": false,
+          "occludedBy": null,
+          "overCanvas": true,
+          "samples": 1500,
+          "min": 3.99,
+          "p5": 3.99,
+          "median": 3.99,
+          "max": 3.99,
+          "required": 4.5,
+          "backgroundBuckets": 1,
+          "dominantBackground": "rgb(24, 24, 24)",
+          "verdict": "fail"
+        }
+      ],
+      "exemptInactive": 0,
+      "occluded": 3,
+      "unresolvableInk": [],
+      "pseudoTextNodesNotScored": 0,
+      "overCanvasScored": 44,
+      "worst": [
+        {
+          "selector": "span.inline-flex.shrink-0.items-center",
+          "text": "Been",
+          "p5": 1.37,
+          "required": 4.5
+        },
+        {
+          "selector": "h1.animate-in.fade-in-0.duration-enter",
+          "text": "12 places in Israel",
+          "p5": 2.49,
+          "required": 3
+        },
+        {
+          "selector": "p.text-micro.font-medium.text-muted-foreground/70",
+          "text": "Saved 20 hours ago",
+          "p5": 3.99,
+          "required": 4.5
+        },
+        {
+          "selector": "p.text-micro.font-medium.text-muted-foreground/70",
+          "text": "Saved 21 hours ago",
+          "p5": 3.99,
+          "required": 4.5
+        },
+        {
+          "selector": "p.text-micro.font-medium.text-muted-foreground/70",
+          "text": "Saved 22 hours ago",
+          "p5": 3.99,
+          "required": 4.5
+        },
+        {
+          "selector": "span.shrink-0.tabular-nums.opacity-70",
+          "text": "5",
+          "p5": 6.17,
+          "required": 4.5
+        },
+        {
+          "selector": "span.shrink-0.tabular-nums.opacity-70",
+          "text": "4",
+          "p5": 6.17,
+          "required": 4.5
+        },
+        {
+          "selector": "span.shrink-0.tabular-nums.opacity-70",
+          "text": "3",
+          "p5": 6.17,
+          "required": 4.5
+        }
+      ]
+    },
+    {
+      "theme": "dark",
+      "resolvedTheme": "dark",
+      "viewport": "1440x900",
+      "route": "collections",
+      "mapPresent": true,
+      "totalTextElements": 11,
+      "scored": 11,
+      "pass": 11,
+      "fail": [],
+      "exemptInactive": 0,
+      "occluded": 0,
+      "unresolvableInk": [],
+      "pseudoTextNodesNotScored": 0,
+      "overCanvasScored": 11,
+      "worst": [
+        {
+          "selector": "h2.px-1.pb-1.pt-4",
+          "text": "Yours",
+          "p5": 6.68,
+          "required": 4.5
+        },
+        {
+          "selector": "span",
+          "text": "6 places",
+          "p5": 6.68,
+          "required": 4.5
+        },
+        {
+          "selector": "span",
+          "text": "·",
+          "p5": 6.68,
+          "required": 4.5
+        },
+        {
+          "selector": "bdi",
+          "text": "2 people",
+          "p5": 6.68,
+          "required": 4.5
+        },
+        {
+          "selector": "bdi",
+          "text": "Places for the next few Saturdays.",
+          "p5": 6.68,
+          "required": 4.5
+        },
+        {
+          "selector": "button.mt-2.flex.min-h-14",
+          "text": "New collection",
+          "p5": 6.68,
+          "required": 4.5
+        },
+        {
+          "selector": "div.maplibregl-ctrl-attrib-inner",
+          "text": "©  , ©   contributors",
+          "p5": 7.35,
+          "required": 4.5
+        },
+        {
+          "selector": "a",
+          "text": "CARTO",
+          "p5": 7.35,
+          "required": 4.5
+        }
+      ]
+    },
+    {
+      "theme": "dark",
+      "resolvedTheme": "dark",
+      "viewport": "1440x900",
+      "route": "profile",
+      "mapPresent": false,
+      "totalTextElements": 30,
+      "scored": 30,
+      "pass": 30,
+      "fail": [],
+      "exemptInactive": 0,
+      "occluded": 0,
+      "unresolvableInk": [],
+      "pseudoTextNodesNotScored": 0,
+      "overCanvasScored": 0,
+      "worst": [
+        {
+          "selector": "dt.mt-0.5.text-xs.text-muted-foreground",
+          "text": "Places",
+          "p5": 6.51,
+          "required": 4.5
+        },
+        {
+          "selector": "dt.mt-0.5.text-xs.text-muted-foreground",
+          "text": "City",
+          "p5": 6.51,
+          "required": 4.5
+        },
+        {
+          "selector": "dt.mt-0.5.text-xs.text-muted-foreground",
+          "text": "Country",
+          "p5": 6.51,
+          "required": 4.5
+        },
+        {
+          "selector": "p.border-t.border-border.px-3",
+          "text": "been   not been yet",
+          "p5": 6.51,
+          "required": 4.5
+        },
+        {
+          "selector": "span",
+          "text": "·",
+          "p5": 6.51,
+          "required": 4.5
+        },
+        {
+          "selector": "p.truncate.text-sm.text-muted-foreground",
+          "text": "demo@example.com",
+          "p5": 7.35,
+          "required": 4.5
+        },
+        {
+          "selector": "p.text-xs.text-muted-foreground",
+          "text": "Joined June 2026",
+          "p5": 7.35,
+          "required": 4.5
+        },
+        {
+          "selector": "h2#library-total.text-[11px].font-bold.uppercase",
+          "text": "Your library",
+          "p5": 7.35,
+          "required": 4.5
+        }
+      ]
+    }
+  ],
+  "brand": [],
+  "entrance": [],
+  "reduced": [],
+  "notes": []
+}
