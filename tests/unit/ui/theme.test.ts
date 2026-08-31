@@ -11,6 +11,9 @@
  * `environment: 'node'`, so there is no DOM — the fakes below are the smallest thing the script
  * actually touches, which is also a precise statement of its dependencies.
  */
+import { execSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -25,6 +28,8 @@ import {
   nextPreference,
   preferenceFromStorage,
   resolveTheme,
+  systemTheme,
+  themeFromDocument,
   type ThemePreference,
 } from '@/lib/theme';
 
@@ -179,5 +184,92 @@ describe('the type guards', () => {
     expect(isThemePreference('system')).toBe(true);
     expect(isTheme('dark')).toBe(true);
     expect(isThemePreference('dark')).toBe(true);
+  });
+});
+
+describe('themeFromDocument — the one implementation of the precedence (W7-2)', () => {
+  function root(options: { classes?: readonly string[]; attribute?: string } = {}) {
+    const classes = new Set(options.classes ?? []);
+    return {
+      classList: { contains: (c: string) => classes.has(c) },
+      getAttribute: (name: string) =>
+        name === THEME_ATTRIBUTE ? (options.attribute ?? null) : null,
+    } as unknown as HTMLElement;
+  }
+
+  it('prefers the class over the attribute', () => {
+    // Both are written by `applyTheme`, so they agree in this product — but a third party that
+    // sets only one must still get a definite answer, and the order has to be somewhere.
+    expect(themeFromDocument(root({ classes: [DARK_CLASS], attribute: 'light' }))).toBe('dark');
+    expect(themeFromDocument(root({ classes: ['light'], attribute: 'dark' }))).toBe('light');
+  });
+
+  it('falls back to the attribute when there is no class', () => {
+    expect(themeFromDocument(root({ attribute: 'dark' }))).toBe('dark');
+    expect(themeFromDocument(root({ attribute: 'light' }))).toBe('light');
+  });
+
+  it('says null when the document has expressed nothing', () => {
+    // Not `'light'`. `country-flag-image.ts` uses the difference: it checks that the CSS variables
+    // it is about to read belong to the theme it was asked to rasterise, and "no opinion" is not
+    // evidence either way — it has to fall through to the fallback tokens instead.
+    expect(themeFromDocument(root())).toBeNull();
+    expect(themeFromDocument(root({ attribute: 'midnight' }))).toBeNull();
+    expect(themeFromDocument(null)).toBeNull();
+    expect(themeFromDocument(undefined)).toBeNull();
+  });
+
+  it('agrees with applyTheme, which is what writes the thing it reads', () => {
+    // The round trip is the property that matters: whatever `applyTheme` puts on the document,
+    // `themeFromDocument` reads back. These two are the write and the read of one contract.
+    for (const theme of ['light', 'dark'] as const) {
+      const classes = new Set<string>();
+      const attrs = new Map<string, string>();
+      const node = {
+        classList: {
+          toggle: (c: string, on: boolean) => (on ? classes.add(c) : classes.delete(c)),
+          contains: (c: string) => classes.has(c),
+        },
+        setAttribute: (k: string, v: string) => attrs.set(k, v),
+        getAttribute: (k: string) => attrs.get(k) ?? null,
+        style: { colorScheme: '' },
+      } as unknown as HTMLElement;
+      applyTheme(node, theme);
+      expect(themeFromDocument(node)).toBe(theme);
+    }
+  });
+});
+
+describe('systemTheme', () => {
+  it('is light where there is no device to ask', () => {
+    // A server, or a browser without `matchMedia`. The same fallback `resolveTheme` uses: light is
+    // the signed theme, so it is what the product falls back to rather than a guess.
+    const saved = globalThis.window;
+    // @ts-expect-error -- deleting the global is the only way to model "no window" in node.
+    delete globalThis.window;
+    expect(systemTheme()).toBe('light');
+    if (saved !== undefined) globalThis.window = saved;
+  });
+});
+
+/**
+ * The consolidation itself, asserted structurally — because the thing W7-2 fixes is not a behaviour
+ * anyone can observe today. All three copies were *correct*; the risk was the next person adding a
+ * rule to two of them. A grep is the only test that can catch that, so it is the test.
+ */
+describe('nobody re-implements the precedence', () => {
+  const SRC = fileURLToPath(new URL('../../../src', import.meta.url));
+
+  it('reads the theme class in exactly one module', () => {
+    const hits = execSync(
+      `grep -rln "classList.contains" ${JSON.stringify(SRC)} --include=*.ts --include=*.tsx || true`,
+      { encoding: 'utf8' },
+    )
+      .split('\n')
+      .filter(Boolean)
+      .map((file) => file.replace(`${SRC}/`, ''));
+    // `lib/theme.ts` and nothing else. The three map modules subscribe to changes themselves —
+    // that is legitimately per-consumer — but none of them decides what the answer is any more.
+    expect(hits).toEqual(['lib/theme.ts']);
   });
 });

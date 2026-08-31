@@ -133,3 +133,51 @@ export const THEME_INIT_SCRIPT = `(function(){try{var p=localStorage.getItem(${J
 )},d);r.setAttribute(${JSON.stringify(
   THEME_ATTRIBUTE,
 )},d?"dark":"light");r.style.colorScheme=d?"dark":"light";}catch(e){}})();`;
+
+/**
+ * **What theme the document is actually in, read off the document — the one implementation.**
+ *
+ * Three modules had their own copy of this precedence before W7-2: `components/ui/map.tsx`,
+ * `components/map/use-disc-theme.ts` and `components/map/country-flag-image.ts`. All three were
+ * *correct*, and identically so, which is exactly what made the duplication easy to miss and
+ * dangerous to keep: the next person to add a rule — an `only-dark` class, a third attribute value,
+ * a container-scoped theme — fixes two of three and ships a map whose pills disagree with its
+ * basemap. **This is a consolidation, not a repair.** Nothing here behaves differently from what it
+ * replaced.
+ *
+ * `null` when the document expresses nothing, so a caller can tell "no opinion" from "light" and
+ * decide whether to fall back to the device. `country-flag-image.ts` needs that distinction: it
+ * uses the answer to check that the CSS variables it is about to read belong to the theme it was
+ * asked to rasterise, and a document with no opinion is not evidence either way.
+ *
+ * Takes the element rather than reaching for `document`, so it is testable without a DOM and so a
+ * caller cannot be wrong about which document it means.
+ */
+export function themeFromDocument(root: HTMLElement | null | undefined): Theme | null {
+  if (!root) return null;
+  if (root.classList.contains(DARK_CLASS)) return 'dark';
+  if (root.classList.contains('light')) return 'light';
+  const attribute = root.getAttribute(THEME_ATTRIBUTE);
+  return isTheme(attribute) ? attribute : null;
+}
+
+/** The device's own preference, and `'light'` where there is no device to ask — a server, or a
+ *  browser too old for `matchMedia`. The same fallback `resolveTheme` uses, for the same reason. */
+export function systemTheme(): Theme {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return 'light';
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+/**
+ * The full precedence, for anything that has to paint *now* and is not a React component: the
+ * document if it has said anything, the device otherwise.
+ *
+ * This is what a canvas rasteriser and a map style want. A React component should prefer
+ * `useTheme()` from `components/theme/theme-provider`, which subscribes rather than samples — but
+ * both answer with this same rule, because `applyTheme` is what writes the document that this
+ * reads.
+ */
+export function currentTheme(): Theme {
+  return themeFromDocument(typeof document === 'undefined' ? null : document.documentElement)
+    ?? systemTheme();
+}

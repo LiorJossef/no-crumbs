@@ -17,20 +17,21 @@
  */
 
 import { useCallback, useSyncExternalStore } from 'react';
+import { currentTheme } from '@/lib/theme';
 import type { DiscTheme } from './country-flag-image';
 
-function read(): DiscTheme {
-  if (typeof document === 'undefined') return 'light';
-  const root = document.documentElement;
-  if (root.classList.contains('dark')) return 'dark';
-  if (root.classList.contains('light')) return 'light';
-  const attr = root.dataset.theme;
-  if (attr === 'dark' || attr === 'light') return attr;
-  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  }
-  return 'light';
-}
+/**
+ * **The read is `lib/theme`'s now; only the subscription is local.** W7-2: this file,
+ * `country-flag-image.ts` and `components/ui/map.tsx` each carried their own copy of the same
+ * class-then-attribute-then-device precedence. All three were correct and identical, which is what
+ * made the duplication easy to miss — the next person to add a rule would have fixed two of three
+ * and shipped a map whose pills disagreed with its basemap. Nothing about the answer changed.
+ *
+ * The *subscription* stays here because it is genuinely this consumer's problem: a bitmap has to be
+ * redrawn, so it needs to know the moment the theme moves rather than the next time something
+ * happens to render.
+ */
+const read = (): DiscTheme => currentTheme();
 
 export function useDiscTheme(): DiscTheme {
   const subscribe = useCallback((onChange: () => void) => {

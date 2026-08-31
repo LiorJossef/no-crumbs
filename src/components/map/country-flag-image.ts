@@ -53,6 +53,8 @@
  */
 
 /** The two themes the tokens below are mirrored for. */
+import { themeFromDocument } from '@/lib/theme';
+
 export type DiscTheme = 'light' | 'dark';
 
 export interface CountryDiscSpec {
@@ -297,18 +299,20 @@ function defaultCreateCanvas(): HTMLCanvasElement | null {
   return document.createElement('canvas');
 }
 
-/** The same rule `components/ui/map.tsx` uses, so the pill and the basemap never disagree. */
+/**
+ * The same rule `components/ui/map.tsx` and `use-disc-theme.ts` use, so the pill and the basemap
+ * never disagree — and since W7-2 that is enforced by them calling the same function rather than by
+ * three copies happening to stay in step.
+ *
+ * **`themeFromDocument` and not `currentTheme`**, and the difference is the whole point of this
+ * call site: `null` here means "the document has expressed no opinion", which is not the same as
+ * "light". It is used below to check that the CSS variables about to be read belong to the theme
+ * this rasteriser was asked for, and a document with no opinion is not evidence either way — so it
+ * has to fall through to the fallback tokens rather than read variables that may be the other
+ * theme's.
+ */
 function documentTheme(): DiscTheme | null {
-  if (typeof document === 'undefined') return null;
-  const root = document.documentElement;
-  if (root.classList.contains('dark')) return 'dark';
-  if (root.classList.contains('light')) return 'light';
-  const attr = root.dataset.theme;
-  if (attr === 'dark' || attr === 'light') return attr;
-  if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  }
-  return null;
+  return themeFromDocument(typeof document === 'undefined' ? null : document.documentElement);
 }
 
 function readVar(styles: CSSStyleDeclaration, name: string): string | null {

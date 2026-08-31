@@ -31,6 +31,7 @@ import { createPortal } from "react-dom";
 import { X, Minus, Plus, Locate, Maximize, Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { systemTheme, themeFromDocument } from "@/lib/theme";
 
 if (typeof window !== "undefined" && !MapLibreGL.getWorkerUrl()) {
   MapLibreGL.setWorkerUrl(
@@ -92,25 +93,20 @@ function mergeHoverPaint<T extends Record<string, unknown>>(
 
 type Theme = "light" | "dark";
 
-// Check the document for an explicit theme (works with next-themes, etc.).
-// Covers both `attribute="class"` (the default) and `attribute="data-theme"`.
-function getDocumentTheme(): Theme | null {
-  if (typeof document === "undefined") return null;
-  const root = document.documentElement;
-  if (root.classList.contains("dark")) return "dark";
-  if (root.classList.contains("light")) return "light";
-  const dataTheme = root.dataset.theme;
-  if (dataTheme === "dark" || dataTheme === "light") return dataTheme;
-  return null;
-}
+// **The read is `lib/theme`'s; this file only keeps its own subscription.** W7-2: this component,
+// `components/map/use-disc-theme.ts` and `components/map/country-flag-image.ts` each carried an
+// identical copy of the same class-then-attribute-then-device precedence. Three correct copies is
+// how a map ends up with pills in one theme and a basemap in the other: the next person to add a
+// rule fixes the two they can find. A consolidation, not a repair — nothing here answers
+// differently from what it replaced, including the `next-themes` conventions the original comment
+// named, because `applyTheme` writes both the class and `data-theme`.
+//
+// This is the one edit this vendored file is in scope for (orchestrator ruling); everything else in
+// it stays as it came.
+const getDocumentTheme = (): Theme | null =>
+  themeFromDocument(typeof document === "undefined" ? null : document.documentElement);
 
-// Get system preference
-function getSystemTheme(): Theme {
-  if (typeof window === "undefined") return "light";
-  return window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
-}
+const getSystemTheme = (): Theme => systemTheme();
 
 function useResolvedTheme(themeProp?: "light" | "dark"): Theme {
   const [detectedTheme, setDetectedTheme] = useState<Theme>(
