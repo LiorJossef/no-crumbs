@@ -131,7 +131,17 @@ describe('the crumb outline', () => {
       expect(source, `${file} restates the outline instead of importing it`).not.toContain(
         OUTLINE_SIGNATURE,
       );
-      expect(source, `${file} does not read the shared outline`).toMatch(/crumb-path/);
+      // Two routes to the shared outline, and both are one step: the geometry directly, or the
+      // drawing that is built from it. I2-W added the second — `crumb-mascot-markup.ts` is where
+      // the face, the shading and the palette stopped being written once per renderer — and the
+      // module itself is asserted below to read `crumb-path`, so the chain has no gap.
+      expect(source, `${file} does not read the shared outline`).toMatch(
+        /crumb-path|crumb-mascot/,
+      );
     }
+    expect(
+      readFileSync('src/components/brand/crumb-mascot-markup.ts', 'utf8'),
+      'the drawing should build from the shared geometry rather than restate it',
+    ).toMatch(/from '\.\/crumb-path'/);
   });
 });

@@ -75,25 +75,172 @@ export const CRUMB_HEAD_CENTRE = {
 } as const;
 
 /**
+ * **The aperture** — the light hole in the pin's head, and the thing that makes a crumb read as a
+ * marker rather than as a blob of colour.
+ *
+ * `#crumbPin` in `docs/no-crumbs-design-system.html` draws it as `r = 17` at 95% opacity in the
+ * head's centre: *"the silhouette on a point, in the category's own colour, with a white aperture.
+ * Same geometry as the mascot, face removed."*
+ *
+ * `r = 17` against a head that is 89 units wide is **38% of the head's width**, so at the map's
+ * 26px head it is a 10px hole — smaller than the 14px `glyphBox` the category glyph used, and the
+ * ring of colour around it correspondingly thicker. That ratio is the reason the aperture can carry
+ * a category colour where a glyph cannot: what the eye reads at 15px is the *area* of colour, and
+ * an aperture takes 14% of the head where a glyph took 29%.
+ */
+export const CRUMB_PIN_APERTURE = { r: 17, opacity: 0.95 } as const;
+
+/* -------------------------------------------------------------------------- */
+/* The face                                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
  * The face — and where it may appear is a rule, not a preference.
  *
  * `brand-and-product-foundation.md` §3.1 rule 2: **face on chrome, silhouette on data.** It goes on
- * the app icon, the splash and the link preview. It never goes on the map — *"thirty-one smiling
- * faces over a city is a toy, and a pin with eyes cannot carry a category colour"* — and the design
- * system drops it below 32px, where two dot eyes turn to mud.
+ * the app icon, the splash, sign-in and the link preview. It never goes on the map — *"thirty-one
+ * smiling faces over a city is a toy, and a pin with eyes cannot carry a category colour"* — and
+ * the design system drops it below 32px, where two dot eyes turn to mud.
  *
- * Authored in the same 100-square as `CRUMB_PATH`, so a call site places the crumb once and the
- * face rides along. The eyes are ellipses rather than circles: taller than they are wide is what
- * keeps the character from reading as startled.
+ * **What is here is the whole rig, not one smile, and that is the correction W-I2 made.** Iteration
+ * 1 read the markdown companions rather than `docs/no-crumbs-design-system.html`, and shipped two
+ * dot eyes and one smile as *the* face. The rendered system draws **eight moods**, each bound to a
+ * product state, out of **six eye sets and seven mouths** — chapter 03, `#moods`, and the `CRUMB`
+ * rig at the foot of that file. Every path below is copied from it character for character.
+ *
+ * The eyes are ellipses rather than circles: taller than they are wide is what keeps the character
+ * from reading as startled.
  */
-export const CRUMB_EYES = [
-  { cx: 36, cy: 42, rx: 5.4, ry: 6.6 },
-  { cx: 58, cy: 41, rx: 5.4, ry: 6.6 },
+
+/**
+ * One drawn feature of the face, in the same 100-square as `CRUMB_PATH`.
+ *
+ * A discriminated union rather than raw SVG strings because three renderers consume this and only
+ * one of them is an SVG: `<canvas>` in the map's marker routine, satori in the two image routes,
+ * and the DOM. `stroke` and `fill` carry a path; `ellipse` and `glint` carry numbers, so a canvas
+ * can draw them without parsing anything.
+ *
+ * `glint` is separated from `ellipse` because it is the one feature that is **not** ink — it is the
+ * white catchlight, and the Mono construction drops it while keeping the shape.
+ */
+export type CrumbFeature =
+  | { readonly kind: 'ellipse'; readonly cx: number; readonly cy: number; readonly rx: number; readonly ry: number }
+  | { readonly kind: 'glint'; readonly cx: number; readonly cy: number; readonly r: number }
+  | { readonly kind: 'stroke'; readonly d: string }
+  | { readonly kind: 'fill'; readonly d: string };
+
+/** The catchlight on the body — a rotated ellipse, drawn clipped to the outline like the crust. */
+export const CRUMB_SHINE = { cx: 26, cy: 26, rx: 15, ry: 10, rotate: -24 } as const;
+
+/** The blush. Two ellipses at 50%, and the Flat construction lifts them to 60% because it has no
+ *  keyline to carry the edge. */
+export const CRUMB_CHEEKS = [
+  { cx: 26.5, cy: 54, rx: 11, ry: 7.5 },
+  { cx: 63.5, cy: 52, rx: 12, ry: 8 },
 ] as const;
 
-/** The smile, drawn as a stroke. Not a closed shape — a filled mouth reads as a shout. */
-export const CRUMB_SMILE_PATH = 'M40 60c3.4 4 10.4 4 14-.4';
-export const CRUMB_SMILE_WIDTH = 4;
+/** The six eye sets. `#moods` uses each of them at least once; none is a spare. */
+export const CRUMB_EYE_SETS = {
+  dot: [
+    { kind: 'ellipse', cx: 36, cy: 42, rx: 5.4, ry: 6.6 },
+    { kind: 'ellipse', cx: 58, cy: 41, rx: 5.4, ry: 6.6 },
+    { kind: 'glint', cx: 38, cy: 39.4, r: 1.9 },
+    { kind: 'glint', cx: 60, cy: 38.4, r: 1.9 },
+  ],
+  wide: [
+    { kind: 'ellipse', cx: 36, cy: 42, rx: 7, ry: 8.4 },
+    { kind: 'ellipse', cx: 58, cy: 41, rx: 7, ry: 8.4 },
+    { kind: 'glint', cx: 38.6, cy: 38.8, r: 2.5 },
+    { kind: 'glint', cx: 60.6, cy: 37.8, r: 2.5 },
+  ],
+  happy: [
+    { kind: 'stroke', d: 'M30.5 45Q36 37.6 41.5 45' },
+    { kind: 'stroke', d: 'M52.5 44Q58 36.6 63.5 44' },
+  ],
+  closed: [
+    { kind: 'stroke', d: 'M30.5 41Q36 46.4 41.5 41' },
+    { kind: 'stroke', d: 'M52.5 40Q58 45.4 63.5 40' },
+  ],
+  flat: [
+    { kind: 'stroke', d: 'M31 42.5H41' },
+    { kind: 'stroke', d: 'M53 41.5H63' },
+  ],
+  wink: [
+    { kind: 'stroke', d: 'M30.5 45Q36 37.6 41.5 45' },
+    { kind: 'ellipse', cx: 58, cy: 41, rx: 5.4, ry: 6.6 },
+    { kind: 'glint', cx: 60, cy: 38.4, r: 1.9 },
+  ],
+} as const satisfies Record<string, readonly CrumbFeature[]>;
+
+export type CrumbEyes = keyof typeof CRUMB_EYE_SETS;
+
+/**
+ * The seven mouths.
+ *
+ * `grin` is the only filled one, and it is filled because it is the *open* mouth — every other
+ * mouth is a stroke, because a filled line reads as a shout.
+ */
+export const CRUMB_MOUTHS = {
+  smile: { kind: 'stroke', d: 'M40 59.5q7 6 14-.4' },
+  content: { kind: 'stroke', d: 'M42 60.5q5 3.6 10 0' },
+  grin: { kind: 'fill', d: 'M36 57.5Q47 71 58 57.5Z' },
+  flat: { kind: 'stroke', d: 'M42 62h11' },
+  o: { kind: 'ellipse', cx: 47, cy: 62, rx: 3.4, ry: 4.2 },
+  wiggle: { kind: 'stroke', d: 'M40 62q3.2-3.6 6.4 0t6.4 0' },
+  small: { kind: 'stroke', d: 'M44 61.5q3 2.4 6 0' },
+} as const satisfies Record<string, CrumbFeature>;
+
+export type CrumbMouth = keyof typeof CRUMB_MOUTHS;
+
+/** The one celebration the system has, and there is no second one. Two four-pointed sparks. */
+export const CRUMB_SPARKS = [
+  { d: 'M16 14l2 5 5 2-5 2-2 5-2-5-5-2 5-2z', originX: 16, originY: 20 },
+  { d: 'M86 22l1.6 4 4 1.6-4 1.6-1.6 4-1.6-4-4-1.6 4-1.6z', originX: 86, originY: 28 },
+] as const;
+
+/** The locating pulse. Behind the body, in the body's own colour at 20%: a signal, not progress. */
+export const CRUMB_HALO = { cx: 50, cy: 50, r: 46, opacity: 0.2 } as const;
+
+/**
+ * **Eight moods, eight product states, and the binding is the rule.** `#moods`: *"a face may only
+ * exist if there is a screen that needs it."* Adding a mood means naming the state it serves; if
+ * there is no state, there is no face. Deliberately absent: angry, crying, confused, and any
+ * celebration beyond the single spark pair.
+ *
+ * **`nothingFound` is the load-bearing one.** Flat eyes, flat mouth — not a frown, not a droop.
+ * This is the outcome of roughly three imports in four at LEVEL B's hit rate, and *"a sad mascot
+ * turns the product's most common outcome into a small failure eight times a week."* Neutral says
+ * *that happens*, and moves on. `voice-and-vocabulary.md`'s never-apologetic rule, drawn.
+ *
+ * `state` is not documentation. It is the screen the mood is allowed on, and a mood with no screen
+ * behind it is the defect `#rules` rule 6 names.
+ */
+export const CRUMB_MOODS = {
+  idle: { eyes: 'dot', mouth: 'smile', state: 'Header, app icon, resting' },
+  reading: { eyes: 'dot', mouth: 'small', state: 'Import running — “Reading the TikTok”' },
+  found: { eyes: 'happy', mouth: 'grin', spark: true, state: 'Places added to your map' },
+  nothingFound: { eyes: 'flat', mouth: 'flat', state: 'No places in this one' },
+  beenThere: { eyes: 'closed', mouth: 'content', state: 'A place marked as Been' },
+  nearMe: { eyes: 'wide', mouth: 'o', halo: true, state: 'Locating, near-me on' },
+  offline: { eyes: 'flat', mouth: 'wiggle', state: 'Connection lost, retryable error' },
+  saved: { eyes: 'wink', mouth: 'smile', state: 'A place added to a collection' },
+} as const satisfies Record<
+  string,
+  { eyes: CrumbEyes; mouth: CrumbMouth; spark?: boolean; halo?: boolean; state: string }
+>;
+
+export type CrumbMood = keyof typeof CRUMB_MOODS;
+
+/**
+ * The artboard the mascot is drawn into, and it is **not** `0 0 100 100`.
+ *
+ * The keyline is a 4.5-unit stroke (7 on Chunky) and a stroke straddles its path, so an outline
+ * that reaches `x = 2` puts ink at `x = -1.5`. Drawn in the authoring square it is clipped on all
+ * four sides; the rig in the design system uses `-8 -8 116 116` for exactly this reason and so does
+ * this. The consequence is real and worth stating: at a fixed CSS box the faced mark is ~14%
+ * smaller than the faceless silhouette, because it is reserving room for its own edge.
+ */
+export const CRUMB_ARTBOARD = { minX: -8, minY: -8, size: 116 } as const;
 
 /** The smallest size the face survives at, per the design system's own icon row. */
 export const CRUMB_FACE_MIN_PX = 32;

@@ -3,19 +3,18 @@ import { ImageResponse } from 'next/og';
 import {
   BRAND_INK,
   BRAND_INK_MUTED,
-  BRAND_INK_ON_MINT,
   BRAND_MINT,
   BRAND_SURFACE,
 } from '@/components/brand/brand-colors';
 import {
-  CRUMB_EYES,
   CRUMB_HEAD_CENTRE,
   CRUMB_PATH,
+  CRUMB_PIN_APERTURE,
   CRUMB_PIN_TAIL_PATH,
-  CRUMB_SMILE_PATH,
-  CRUMB_SMILE_WIDTH,
+  CRUMB_PIN_VIEWBOX_HEIGHT,
   CRUMB_VIEWBOX,
 } from '@/components/brand/crumb-path';
+import { crumbMascotDataUri } from '@/components/brand/crumb-mascot-markup';
 import { CATEGORY_COLOR } from '@/ui/place/palette';
 
 /**
@@ -44,6 +43,15 @@ import { CATEGORY_COLOR } from '@/ui/place/palette';
  * preview is named in that list, and at 132px there is room for it — this is the one surface in the
  * product where the mascot is a mascot rather than a shape.
  *
+ * **And it is the gold character, not the mint one, which reverses what shipped here.** This file
+ * drew the mark in `BRAND_INK_ON_MINT` with mint features on §3.1 rule 3's grounds — mint is the
+ * only brand colour, gold belongs to the mascot alone, the two never share a surface. That reading
+ * came from the markdown companions. `docs/no-crumbs-design-system.html` §`apps` **draws** the link
+ * preview with the gold character on it, exactly as it draws the app icon, and the team lead's
+ * ruling against gold-on-mint was withdrawn on 2026-08-31. Rule 3's real force is rule 5 — gold
+ * stays off the map — and this is not the map. The drawing is `crumb-mascot-markup.ts`'s, so the
+ * preview, the home-screen icon and the in-app mark are one drawing rather than three.
+ *
  * ## The three pins are the product, in one line
  *
  * They are the actual category colours from `ui/place/palette.ts`, in the actual pin shape. A
@@ -55,25 +63,19 @@ export const alt = 'No Crumbs — your saved places, on one map';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
-/** The mark, with a face, as a data URI. */
-function crumbFaceImage(fill: string, faceFill: string): string {
-  const eyes = CRUMB_EYES.map(
-    (eye) => `<ellipse cx="${eye.cx}" cy="${eye.cy}" rx="${eye.rx}" ry="${eye.ry}" fill="${faceFill}"/>`,
-  ).join('');
-  const svg =
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${CRUMB_VIEWBOX} ${CRUMB_VIEWBOX}">` +
-    `<path d="${CRUMB_PATH}" fill="${fill}"/>${eyes}` +
-    `<path d="${CRUMB_SMILE_PATH}" fill="none" stroke="${faceFill}" stroke-width="${CRUMB_SMILE_WIDTH}" stroke-linecap="round"/>` +
-    `</svg>`;
-  return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
-}
-
-/** A map pin, faceless, in a category colour — exactly what the map draws. */
+/**
+ * A map pin, faceless, in a category colour — exactly what the map draws.
+ *
+ * The aperture is the design system's own: `r = 17` at 95%, in the head's centre. It is drawn in
+ * the page's warm near-white rather than pure white, because that is what sits under it here; on
+ * the map the same hole takes `palette.labelHalo`, which is the ground in both themes.
+ */
 function crumbPinImage(fill: string): string {
   const svg =
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${CRUMB_VIEWBOX} 128">` +
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${CRUMB_VIEWBOX} ${CRUMB_PIN_VIEWBOX_HEIGHT}">` +
     `<path d="${CRUMB_PIN_TAIL_PATH}" fill="${fill}"/><path d="${CRUMB_PATH}" fill="${fill}"/>` +
-    `<circle cx="${CRUMB_HEAD_CENTRE.x}" cy="${CRUMB_HEAD_CENTRE.y}" r="17" fill="${BRAND_SURFACE}"/>` +
+    `<circle cx="${CRUMB_HEAD_CENTRE.x}" cy="${CRUMB_HEAD_CENTRE.y}" r="${CRUMB_PIN_APERTURE.r}" ` +
+    `fill="${BRAND_SURFACE}" opacity="${CRUMB_PIN_APERTURE.opacity}"/>` +
     `</svg>`;
   return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
 }
@@ -156,7 +158,16 @@ export default async function OpengraphImage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
           {/* An `<img>` on purpose: satori renders one, there is no DOM here, and `next/image` is
               a component this renderer cannot run. */}
-          <img src={crumbFaceImage(BRAND_INK_ON_MINT, BRAND_MINT)} width={132} height={132} alt="" />
+          <img
+            src={crumbMascotDataUri({ mood: 'idle', construction: 'outlined' })}
+            // 172, not 132. The outlined artboard is 116 units and the crumb's ink is 89 of them,
+            // so the box has to be ~30% larger than the mark it is meant to draw — see
+            // `apple-icon.tsx`, which had the same error. 172 puts 132px of crumb beside the
+            // 86px wordmark, which is the proportion this layout was set to.
+            width={172}
+            height={172}
+            alt=""
+          />
           <span
             style={{
               fontFamily: 'Fraunces',
