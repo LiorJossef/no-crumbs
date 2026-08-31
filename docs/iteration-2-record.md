@@ -263,6 +263,22 @@ That generalises past git. Every claim in this record that survived scrutiny cam
 the SHA or the pixel behind it; every claim that had to be withdrawn was a sentence about having
 looked.
 
+**A comment whose premises are all true and whose conclusion is wrong survives every check that
+verifies its premises.** This run counted nine stale comments — claims that *were* true and whose
+world moved. The locate spinner's was a third shape and the more dangerous one: `motion-safe:animate-spin`
+really was there, `aria-busy={locating}` really was there, and the conclusion drawn from them — *the
+still glyph is the state change* — did not follow. **An auditor checking that line would confirm the
+guard, confirm the `aria-busy`, and move on.** A false premise is caught by reading; a false
+conclusion from true premises is caught only by rendering the thing.
+
+**And it was settled by citation before it was settled by measurement, which is the same failure one
+level up.** `rail-screen.tsx`'s *"no arc frozen mid-rotation"* is a general claim about spinners; the
+comment made a specific claim about *this* control. A citation cannot answer that. The measurement
+could, and gave a better reason than the citation had: **three of that button's four states are 16px
+hollow rings, and a stopped spinner is a fourth 16px hollow ring with pieces missing** — so against
+its own idle glyph, which is a circle with ticks, it reads as that glyph rendered badly rather than
+as a different state. The thing it is confusable with is one tap away on the same button.
+
 **A clean number with its limits stated beside it is worth more than a clean number.** *0 failures
 at `214bb0f`* is a statement about 376 scored strings — not about the 78 rows below the fold, the 12
 occluded, or the six that were **not measured rather than passed**.
