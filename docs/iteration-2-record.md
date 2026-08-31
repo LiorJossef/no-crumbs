@@ -240,6 +240,19 @@ measurement found no colour collision to rescue. The ruling was right; its reaso
 then quoted the motivating claim back **twice**, in consecutive messages, in the direction that
 flattered the ruling — which is what this failure looks like from the inside.
 
+**Not every catch is discipline, and the difference matters when a package runs long.** One lane
+caught three of its own wrong numbers in a single package. Two — an arithmetic rest-percentage and a
+sub-pixel travel value — were caught by **instruments it chose to build**. The third, a screenshot
+script that photographed the rest pose twice and reported a working feature as broken, was caught
+**by accident**: a separate probe happened to be passing at the same moment and the contradiction was
+too loud to ignore. In its own words: *if the probe hadn't existed I would have rebuilt a working
+feature. That one wasn't discipline, it was redundancy — and redundancy is the part that's easy to
+cut when a package is running long.*
+
+**So "the cost is deciding to look" is two-thirds of it.** The remaining third is having a second
+thing looking at the same question for a different reason, which reads as waste right up until it is
+the only reason a false negative was caught.
+
 **A clean number with its limits stated beside it is worth more than a clean number.** *0 failures
 at `214bb0f`* is a statement about 376 scored strings — not about the 78 rows below the fold, the 12
 occluded, or the six that were **not measured rather than passed**.
