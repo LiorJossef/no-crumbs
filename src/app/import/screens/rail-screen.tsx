@@ -82,7 +82,12 @@ export function RailScreen({
   return (
     <div className="flex flex-1 flex-col">
       <div className="flex flex-col gap-1 pb-10">
-        <ScreenKicker icon={<Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden />} label="Working on it" />
+        {/* `hidden` + `motion-safe:block`: a frozen `Loader2` arc reads as a rendering artefact,
+            and `Working on it` beside it never leaves, so the state stays findable without it. */}
+        <ScreenKicker
+          icon={<Loader2 className="hidden size-3.5 motion-safe:block motion-safe:animate-spin" aria-hidden />}
+          label="Working on it"
+        />
         <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">
           Adding your TikTok
         </h1>
@@ -210,20 +215,38 @@ function RailStep({
       <div className="flex flex-col items-center">
         <span
           className={cn(
-            'flex size-8 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
+            'flex size-8 shrink-0 items-center justify-center rounded-full border-2 motion-safe:transition-colors',
             status === 'done' && 'border-brand bg-brand text-white',
             status === 'active' && 'border-brand bg-transparent text-brand',
             status === 'pending' && 'border-border bg-transparent text-muted-foreground',
           )}
         >
           {status === 'done' && <Check className="size-4" aria-hidden />}
-          {status === 'active' && <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />}
+          {/*
+            The one spinner in this flow that may **not** simply be hidden under reduced motion.
+
+            Everywhere else a label beside the spinner carries the state, so removing the glyph
+            costs nothing. Here the glyph *is* the state — check, spinner, dot is a three-way
+            indicator — and hiding it would leave the running step's circle emptier than the
+            pending step's, which has a dot. The active step would read as *less* marked than the
+            one that has not started.
+
+            So the reduced form is the dot the system already uses for "not done", inheriting
+            `text-brand` from the active circle rather than `pending`'s muted grey. Three states,
+            three appearances, no arc frozen mid-rotation.
+          */}
+          {status === 'active' && (
+            <>
+              <Loader2 className="hidden size-4 motion-safe:block motion-safe:animate-spin" aria-hidden />
+              <span className="size-1.5 rounded-full bg-current motion-safe:hidden" aria-hidden />
+            </>
+          )}
           {status === 'pending' && <span className="size-1.5 rounded-full bg-current" aria-hidden />}
         </span>
         {!isLast && (
           <span
             className={cn(
-              'my-1 w-0.5 flex-1 transition-colors',
+              'my-1 w-0.5 flex-1 motion-safe:transition-colors',
               status === 'done' ? 'bg-brand' : 'bg-border',
             )}
             aria-hidden

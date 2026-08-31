@@ -100,9 +100,19 @@ describe('S7 — the rail’s fact slot carries news or nothing', () => {
     expect(code(RAIL)).toContain("status === 'done' && fact");
   });
 
-  it('leaves the running indication to the spinner, which is not a claim', () => {
-    // An empty fact slot beside a spinning label is honest — something is running and we have
-    // nothing to report about it yet. That is the state the fallback was papering over.
-    expect(code(RAIL)).toContain("status === 'active' && <Loader2");
+  it('leaves the running indication to the step glyph, which is not a claim', () => {
+    /*
+     * An empty fact slot beside a running step is honest — something is happening and we have
+     * nothing to report about it yet. That is what the restated label was papering over.
+     *
+     * The glyph gained a second form when W3-3 inverted the flow's motion: a spinner under
+     * `motion-safe:`, and the system's "not done" dot under reduced motion, because hiding it
+     * outright would leave the active step's circle emptier than the pending step's. Both are a
+     * *state*, not a claim about what the server sent — which is the distinction this file is
+     * about.
+     */
+    expect(code(RAIL)).toContain("status === 'active' && (");
+    expect(code(RAIL)).toContain('motion-safe:block motion-safe:animate-spin');
+    expect(code(RAIL)).toContain('bg-current motion-safe:hidden');
   });
 });

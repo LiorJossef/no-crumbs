@@ -287,7 +287,14 @@ export function AddByName({
             }}
             className="h-12 w-full gap-1.5 rounded-lg text-base font-bold"
           >
-            {saving && <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />}
+            {/* `hidden` + `motion-safe:block`, never a bare `motion-safe:animate-spin`: prefixing
+                alone leaves a stationary three-quarter arc under `prefers-reduced-motion`, which
+                reads as a rendering artefact rather than as a paused spinner. `Adding…` beside it
+                never leaves, so the state stays findable — which is the requirement, not that a
+                glyph stays on screen. */}
+            {saving && (
+              <Loader2 className="hidden size-4 motion-safe:block motion-safe:animate-spin" aria-hidden />
+            )}
             {saving ? ADD_PENDING : ADD}
           </Button>
           {phase.kind !== 'saving' && (
@@ -341,11 +348,13 @@ export function AddByName({
             disabled={pending || query.trim() === ''}
             className="h-12 shrink-0 gap-1.5 rounded-lg px-4 text-base font-bold"
           >
-            {/* The spinner is the full-motion form; with reduced motion it is removed and the
-                label alone carries the pending state, which is a complete equivalent rather than
-                a shorter animation. */}
+            {/* The spinner is the full-motion form; with reduced motion it is removed and
+                `Searching…` alone carries the pending state, which is a complete equivalent rather
+                than a shorter animation. Written as `hidden motion-safe:block` rather than
+                `motion-reduce:hidden` so the un-prefixed state **is** the reduced one — forgetting
+                the modifier can then only cost someone an animation, never impose one. */}
             {pending && (
-              <Loader2 className="size-4 animate-spin motion-reduce:hidden" aria-hidden />
+              <Loader2 className="hidden size-4 motion-safe:block motion-safe:animate-spin" aria-hidden />
             )}
             {pending ? SUBMIT_PENDING : SUBMIT}
           </Button>

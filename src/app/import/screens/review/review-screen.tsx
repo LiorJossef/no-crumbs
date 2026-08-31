@@ -289,7 +289,7 @@ export function CaptionPreviewScreen({
               {captionOpen ? 'Hide the caption' : 'Show the caption'}
               <ChevronDown
                 className={cn(
-                  'size-3.5 transition-transform motion-reduce:transition-none',
+                  'size-3.5 motion-safe:transition-transform',
                   captionOpen && 'rotate-180',
                 )}
                 aria-hidden
@@ -451,7 +451,11 @@ export function CaptionPreviewScreen({
               disabled={saving || selectedCount === 0}
               className="h-14 w-full gap-1.5 rounded-lg text-base font-bold"
             >
-              {saving && <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />}
+              {/* `hidden` + `motion-safe:block`: a frozen three-quarter arc reads as a rendering
+                  artefact, and `Saving…` beside it never leaves. */}
+              {saving && (
+                <Loader2 className="hidden size-4 motion-safe:block motion-safe:animate-spin" aria-hidden />
+              )}
               {saving ? 'Saving…' : saveButtonLabel(selectedCount)}
             </Button>
             {selectedCount === 0 && (

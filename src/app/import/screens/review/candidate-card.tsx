@@ -402,7 +402,7 @@ export function ExtractedCandidateRow({
           <span
             aria-hidden
             className={cn(
-              'mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md border-2 transition-colors motion-reduce:transition-none',
+              'mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md border-2 motion-safe:transition-colors',
               selected
                 ? 'border-brand bg-brand text-white'
                 : 'border-border bg-transparent',

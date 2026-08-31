@@ -122,7 +122,7 @@ export function ImportShell({
             type="button"
             onClick={onLeave}
             aria-label="Close and return to map"
-            className="absolute left-5 top-[calc(env(safe-area-inset-top)+2rem)] z-20 flex size-9 items-center justify-center rounded-full bg-accent text-brand transition-colors hover:bg-accent/80 lg:left-6 lg:top-6"
+            className="absolute left-5 top-[calc(env(safe-area-inset-top)+2rem)] z-20 flex size-9 items-center justify-center rounded-full bg-accent text-brand hover:bg-accent/80 motion-safe:transition-colors lg:left-6 lg:top-6"
           >
             <X className="size-4" aria-hidden />
           </button>
@@ -130,7 +130,7 @@ export function ImportShell({
           <Link
             href="/map"
             aria-label="Close and return to map"
-            className="absolute left-5 top-[calc(env(safe-area-inset-top)+2rem)] z-20 flex size-9 items-center justify-center rounded-full bg-accent text-brand transition-colors hover:bg-accent/80 lg:left-6 lg:top-6"
+            className="absolute left-5 top-[calc(env(safe-area-inset-top)+2rem)] z-20 flex size-9 items-center justify-center rounded-full bg-accent text-brand hover:bg-accent/80 motion-safe:transition-colors lg:left-6 lg:top-6"
           >
             <X className="size-4" aria-hidden />
           </Link>

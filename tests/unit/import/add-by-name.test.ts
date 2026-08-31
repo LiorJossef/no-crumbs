@@ -168,9 +168,17 @@ describe('the states, and the one that is not an error', () => {
   });
 
   it('has a reduced-motion equivalent for the pending state rather than nothing', () => {
-    // Suppressing the spinner alone would leave a reduced-motion user with no pending indicator.
-    // The label carries it instead.
-    expect(BLOCK_CODE).toContain('motion-reduce:hidden');
+    /*
+     * Suppressing the spinner alone would leave a reduced-motion user with no pending indicator;
+     * the label carries it instead.
+     *
+     * This asserted `motion-reduce:hidden` until W3-3 inverted the whole flow. The property is
+     * identical and the spelling is the better one: with `hidden` + `motion-safe:block` the
+     * un-prefixed state **is** the reduced case, so an author who forgets the modifier can only
+     * cost someone an animation rather than impose one. `reduced-motion.test.ts` pins the shape
+     * across every spinner in the flow; this pins that *this* one still pairs with its label.
+     */
+    expect(BLOCK_CODE).toContain('hidden size-4 motion-safe:block motion-safe:animate-spin');
     expect(BLOCK_CODE).toContain('SUBMIT_PENDING');
   });
 });

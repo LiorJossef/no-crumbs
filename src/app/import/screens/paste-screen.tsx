@@ -146,7 +146,7 @@ export function PasteScreen({
                 <button
                   type="button"
                   onClick={() => onSeed(seed.url)}
-                  className="flex h-11 items-center rounded-full border border-input bg-background px-4 text-caption font-semibold text-muted-foreground transition-colors hover:border-brand hover:text-brand motion-reduce:transition-none"
+                  className="flex h-11 items-center rounded-full border border-input bg-background px-4 text-caption font-semibold text-muted-foreground hover:border-brand hover:text-brand motion-safe:transition-colors"
                 >
                   {seed.label}
                 </button>

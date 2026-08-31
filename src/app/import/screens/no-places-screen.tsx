@@ -237,7 +237,10 @@ export function NoPlacesScreen({
               {captionOpen ? 'Hide the caption' : 'Show the caption'}
               <ChevronDown
                 className={cn(
-                  'size-3.5 transition-transform duration-base ease-standard motion-reduce:transition-none',
+                  // `duration-*` and `ease-*` ride the same variant: without a transition property
+                  // they are inert anyway, and prefixing them says so rather than leaving two
+                  // classes that look like they are doing something under reduced motion.
+                  'size-3.5 motion-safe:transition-transform motion-safe:duration-base motion-safe:ease-standard',
                   captionOpen && 'rotate-180',
                 )}
                 aria-hidden
