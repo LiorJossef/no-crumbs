@@ -79,38 +79,57 @@ export function PasteScreen({
       </div>
 
       <div className="flex flex-col gap-2">
-        <Input
-          autoFocus
-          inputMode="url"
-          // A URL is not prose: autocapitalising it, autocorrecting it or underlining it in red are
-          // all a phone keyboard trying to help with something it cannot help with. `go` turns the
-          // return key into the action, which is what makes the form above reachable on a phone.
-          enterKeyHint="go"
-          autoCapitalize="off"
-          autoCorrect="off"
-          spellCheck={false}
-          placeholder="Paste a TikTok link"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          onPaste={(event) => {
-            // What TikTok's share sheet copies is `caption … link … #hashtags`, not a bare link,
-            // and rejecting that as "That doesn't look like a TikTok link" was a lie — the link is
-            // right there. Read on paste only, never while typing: rewriting a field under a
-            // moving cursor is worse than not helping. `extract-pasted-url.ts` states plainly that
-            // it is not part of the SSRF boundary; whatever it picks still goes through the full
-            // host allow-list.
-            const pasted = event.clipboardData.getData('text');
-            if (!pasteWasNarrowed(pasted)) return;
-            event.preventDefault();
-            setUrl(extractPastedUrl(pasted));
-          }}
-          onBlur={() => setTouched(true)}
-          aria-invalid={showInvalid || undefined}
-          className={cn(
-            'h-12 rounded-lg border-2 px-4 text-base font-medium',
-            showInvalid ? 'border-destructive' : 'border-input',
-          )}
-        />
+        {/*
+          The field says what it takes, in the shape `PlaceSearchField` already uses one screen
+          away: a `relative` wrapper, the mark pinned at `left-4`, and the input's leading padding
+          opened to clear it. Same construction, so this is the product's one adornment pattern
+          rather than a second one.
+
+          **`text-muted-foreground`, not `text-brand`, and that is the whole difference between
+          this and the kicker above.** The kicker's mark is a label — it names the screen, in the
+          brand's colour. This one is an affordance on a control, and a saturated glyph inside an
+          input reads as a state the field is in. Muted also keeps it from competing with the
+          `border-2 border-input` the field wears at rest and the `border-destructive` it wears
+          when the link is wrong; the mark is a constant and must not look like it changed.
+
+          `pl-11` rather than the search field's `pl-10`: this input carries `border-2`, so the
+          same visual gap needs one more step of padding.
+        */}
+        <div className="relative">
+          <PlatformMark className="absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            autoFocus
+            inputMode="url"
+            // A URL is not prose: autocapitalising it, autocorrecting it or underlining it in red are
+            // all a phone keyboard trying to help with something it cannot help with. `go` turns the
+            // return key into the action, which is what makes the form above reachable on a phone.
+            enterKeyHint="go"
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+            placeholder="Paste a TikTok link"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            onPaste={(event) => {
+              // What TikTok's share sheet copies is `caption … link … #hashtags`, not a bare link,
+              // and rejecting that as "That doesn't look like a TikTok link" was a lie — the link is
+              // right there. Read on paste only, never while typing: rewriting a field under a
+              // moving cursor is worse than not helping. `extract-pasted-url.ts` states plainly that
+              // it is not part of the SSRF boundary; whatever it picks still goes through the full
+              // host allow-list.
+              const pasted = event.clipboardData.getData('text');
+              if (!pasteWasNarrowed(pasted)) return;
+              event.preventDefault();
+              setUrl(extractPastedUrl(pasted));
+            }}
+            onBlur={() => setTouched(true)}
+            aria-invalid={showInvalid || undefined}
+            className={cn(
+              'h-12 rounded-lg border-2 pr-4 pl-11 text-base font-medium',
+              showInvalid ? 'border-destructive' : 'border-input',
+            )}
+          />
+        </div>
         {showInvalid && (
           <p className={cn('text-sm font-semibold text-destructive', ENTER_NEWS)}>
             That doesn&rsquo;t look like a TikTok link.

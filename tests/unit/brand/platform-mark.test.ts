@@ -28,6 +28,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { PlatformMark } from '@/components/brand/platform-mark';
+import { ImportFailureScreen } from '@/app/import/screens/failure-screen';
 import { BRAND_MINT } from '@/components/brand/brand-colors';
 import { CATEGORY_COLOR, CATEGORY_COLOR_DARK } from '@/ui/place/palette';
 
@@ -128,6 +129,46 @@ describe('one file, every surface', () => {
       expect(source, path).toContain("from '@/components/brand/platform-mark'");
       expect(source, path).not.toMatch(/data-platform-mark/);
     }
+  });
+});
+
+describe('the mark never contradicts the screen it is on', () => {
+  /*
+   * The failure screen renders `open_tiktok` and `open_link` through **one** anchor, and the two
+   * differ only in what they mean: *here is your TikTok back* against *here is the link back, and
+   * the whole news is that it is not a TikTok*. `UNSUPPORTED_HOST`'s headline is
+   * `That link isn't a TikTok.` — a platform mark on the button under it would be the screen
+   * disagreeing with itself.
+   *
+   * A rendered assertion rather than a source grep, because what is being checked is a property of
+   * the *branch that runs*, and the branch is one line inside a shared `if`. Driven through
+   * `createElement` for the reason `place-detail.test.ts` states: vitest runs in a `node`
+   * environment here, with no jsdom and no testing library.
+   */
+  const screen = (code: string) =>
+    renderToStaticMarkup(
+      createElement(ImportFailureScreen, {
+        code: code as never,
+        retryable: true,
+        url: 'https://www.tiktok.com/@fixture/video/7000000000000000000',
+        onRetrySameUrl: () => {},
+        onTryAnother: () => {},
+        onBackToMap: () => {},
+        onSignIn: () => {},
+      }),
+    );
+
+  it('marks `Open the TikTok`', () => {
+    // `POST_UNAVAILABLE`'s actions are retry / open_tiktok / another_tiktok.
+    const markup = screen('POST_UNAVAILABLE');
+    expect(markup).toContain('Open the TikTok');
+    expect(markup).toContain('data-platform-mark');
+  });
+
+  it('leaves `Open the original link` unmarked, on the screen that says it is not a TikTok', () => {
+    const markup = screen('UNSUPPORTED_HOST');
+    expect(markup).toMatch(/Open the (original )?link/);
+    expect(markup).not.toContain('data-platform-mark');
   });
 });
 
