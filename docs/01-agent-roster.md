@@ -1,6 +1,6 @@
 # Expert Agent Roster
 
-Eleven specialists, each defined as a real invocable subagent in
+Twelve specialists, each defined as a real invocable subagent in
 [`.claude/agents/`](../.claude/agents/), callable by `subagent_type`.
 
 **Restructured 2026-08-27 into three tiers.** Until then every definition was written in an
@@ -32,6 +32,7 @@ the orchestrator's job is to find the work that can. What makes that safe is not
 | 9 | Security / Privacy Engineer | `security-privacy` | Probe | Auth boundaries, RLS review, secrets, abuse, untrusted input, location privacy |
 | 10 | QA / Reliability Engineer | `qa-reliability` | Probe | Independent verification, regression hunting, harnesses and test infrastructure |
 | 11 | DevOps / Vercel Engineer | `devops-vercel` | Probe | Environments, deploy diagnosis, env vars, observability, production readiness |
+| 12 | Product Reviewer | `product-reviewer` | Probe | The standing product audit: reviews the built product and returns the top five improvements, ranked |
 
 Every agent loads [`current-state.md`](current-state.md),
 [`working-agreement.md`](working-agreement.md) §2 and §7, and its own rows in
@@ -125,6 +126,25 @@ Android Chrome, not just a desktop emulator.
 per environment, migration flow against Supabase, preview deploys that do not touch production data,
 build health and CI, error/latency observability on the import pipeline, and cost ceilings and alerts.
 Defines what "production ready" means for this project and confirms it before launch.
+
+**12. Product Reviewer** — The standing audit. Opens the built product as an experienced outsider
+would, uses it, measures it, and returns **exactly five** improvements ranked by value and spanning
+effort from an afternoon to a real feature. Five is the constraint that forces the judgement: a list
+of twelve is a defect dump that hands the ranking back to the orchestrator.
+
+Distinct from the two roles it sits between. `product-lead` decides **what is in scope**;
+`ux-interaction` specifies **how a screen behaves**; the Reviewer says **what is worth doing next**,
+about the product that actually exists rather than the one on the plan. It owns no source file and
+never implements — a two-line fix is reported as a two-line fix, and the orchestrator dispatches it.
+
+It is bound by the standing product rulings rather than free to relitigate them. Anything that
+asserts what the user did not confirm — ratings, "open now", trending, a social feed — is refused in
+advance by `product-edge-2026-08-31.md`, because the refusal *is* the differentiator. A reviewer
+proposing one is contradicting a ruling, not improving the product. It may challenge a ruling
+explicitly, with the evidence that would overturn it, **outside the five**.
+
+Its reviews are dated artefacts (`docs/product-review-<date>.md`), never overwritten. A review is
+evidence of what was true on a day, and the trend across them is worth more than any single list.
 
 ## Roles considered and deliberately folded in
 
