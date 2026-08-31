@@ -207,7 +207,7 @@ export function NoPlacesScreen({
         ) : (
           <span
             aria-hidden
-            className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"
+            className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-card-2 text-muted-foreground"
           >
             <Link2 className="size-4" />
           </span>
@@ -259,7 +259,7 @@ export function NoPlacesScreen({
           role="group"
           aria-label="The TikTok’s caption"
           dir="auto"
-          className="mb-4 max-h-38 min-h-0 shrink overflow-y-auto overscroll-contain rounded-lg bg-muted/50 p-3 text-caption leading-relaxed font-medium text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="mb-4 max-h-38 min-h-0 shrink overflow-y-auto overscroll-contain rounded-lg bg-card-2 p-3 text-caption leading-relaxed font-medium text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {probe.caption}
         </div>
@@ -269,6 +269,7 @@ export function NoPlacesScreen({
           destination rather than a dead end, and it is what makes the recovery reachable from
           **every** entry point rather than only where a host passed an opener. */}
       <AddByName
+        className="mt-auto"
         sourceId={probe.sourceId}
         cityHint={probe.emptyReason === 'area_only' ? (probe.cityHint ?? null) : null}
         onSubmitted={() => setCaptionOpen(false)}

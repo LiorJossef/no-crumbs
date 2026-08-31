@@ -159,6 +159,11 @@ export function ExtractedCandidateRow({
           // exclusive to `settled`, so a caption pin can never be mistaken for a verified one at a
           // glance — which is the exit criterion, read cold.
           //
+          // `bg-card-2`, not `bg-muted`: `--muted` and `--background` are the same value in this
+          // palette (#FAF9F6), so a muted pill has no pill at all — the defect
+          // `components/ui/skeleton.tsx` records for `--accent` on `--card`, one token across.
+          // Caught by looking at the rendered screen, not at the diff.
+          //
           // `shrink-0` and no `truncate`: `From the map data` is seventeen characters in an 11px
           // pill, and this codebase has already shipped the clipped version of this exact sentence
           // once (`candidate-resolution-view.ts`'s note on 208px into a 180px box). It takes the
@@ -169,7 +174,7 @@ export function ExtractedCandidateRow({
                 'shrink-0 rounded-full px-2 py-0.5 text-micro font-bold',
                 badge.tone === 'settled' && 'bg-accent text-brand',
                 badge.tone === 'caption' && 'bg-warning/10 text-warning',
-                badge.tone === 'needs_pick' && 'bg-muted text-foreground',
+                badge.tone === 'needs_pick' && 'bg-card-2 text-foreground',
               )}
             >
               {badge.label}

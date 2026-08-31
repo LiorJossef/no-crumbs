@@ -121,7 +121,7 @@ export function RailScreen({
             ) : (
               <span
                 aria-hidden
-                className="flex size-12 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground"
+                className="flex size-12 shrink-0 items-center justify-center rounded-md bg-card-2 text-muted-foreground"
               >
                 <Link2 className="size-4" />
               </span>

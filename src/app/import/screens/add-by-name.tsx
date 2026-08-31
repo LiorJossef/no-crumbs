@@ -52,6 +52,7 @@ import { Loader2, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 
 /** What a completed add hands back, so the host can close the flow and fly the camera exactly as it
  *  does after a confirm. A save from here is not a lesser save. */
@@ -91,11 +92,17 @@ type Phase =
   | { readonly kind: 'save_failed'; readonly results: readonly SearchResult[]; readonly query: string; readonly chosen: SearchResult };
 
 export function AddByName({
+  className,
   sourceId,
   cityHint,
   onSubmitted,
   onAdded,
 }: {
+  /** The caller pins this block to the bottom of its column (`mt-auto`), which is §4.1's whole
+   *  point: the primary control belongs in the thumb zone, it rises with the software keyboard's
+   *  own scroll-into-view rather than ending up under it, and a field in the action zone under a
+   *  sentence naming what it is for reads as an offer rather than as a form. */
+  className?: string;
   /** The `sources.id` this import fetched. A place added here is linked to the TikTok it came
    *  from — the product's "which post made me save this?" question must have a real answer, and
    *  this is the reason inlining the search beats routing to a standalone add screen. */
@@ -201,7 +208,7 @@ export function AddByName({
   const saving = phase.kind === 'saving';
 
   return (
-    <div className="flex min-h-0 shrink-0 flex-col gap-2 border-t border-border/70 pt-4">
+    <div className={cn('flex min-h-0 shrink-0 flex-col gap-2 border-t border-border/70 pt-4', className)}>
       {/*
         Announced once, politely, from a region that is always mounted — a live region created in
         the same commit as its first message is not reliably announced. Never `assertive`, and
@@ -344,7 +351,7 @@ export function AddByName({
           </Button>
         </div>
         {cityHint !== null && scoped && (
-          <span className="flex w-fit items-center gap-1 rounded-full bg-muted px-3 py-1 text-micro font-bold text-foreground">
+          <span className="flex w-fit items-center gap-1 rounded-full bg-card-2 px-3 py-1 text-micro font-bold text-foreground">
             Near <bdi>{cityHint}</bdi>
             <button
               type="button"

@@ -263,7 +263,7 @@ export function CaptionPreviewScreen({
         ) : (
           <span
             aria-hidden
-            className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"
+            className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-card-2 text-muted-foreground"
           >
             <Link2 className="size-4" />
           </span>
@@ -307,7 +307,7 @@ export function CaptionPreviewScreen({
       {probe.caption !== null && captionOpen && (
         <div
           id={captionId}
-          className="mb-3 max-h-38 shrink-0 overflow-y-auto overscroll-contain rounded-lg bg-muted/50 p-3 text-caption leading-relaxed font-medium text-muted-foreground"
+          className="mb-3 max-h-38 shrink-0 overflow-y-auto overscroll-contain rounded-lg bg-card-2 p-3 text-caption leading-relaxed font-medium text-muted-foreground"
         >
           {probe.caption}
         </div>
