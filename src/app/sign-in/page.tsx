@@ -297,7 +297,15 @@ export default function SignInPage() {
                  * switches the whole form between sign-in and sign-up, not an inline link inside a
                  * sentence — WCAG 2.5.8's inline-link exemption does not reach it, and it is the
                  * only way a new user gets to the account they do not have yet. */
-                className="mt-1 flex min-h-11 items-center justify-center text-center text-sm font-medium text-muted-foreground"
+                /*
+                 * `gap-1` is load-bearing, not spacing taste. This became a flex row to reach the
+                 * 44px target (W7-6), and **whitespace between flex items is discarded** — so the
+                 * literal space in `New here? <span>` stopped rendering and the line read
+                 * "New here?Create an account" on the product's front door. The gap restores a
+                 * word-space between the two items. Do not remove it without making the text a
+                 * single text node again.
+                 */
+                className="mt-1 flex min-h-11 items-center justify-center gap-1 text-center text-sm font-medium text-muted-foreground"
               >
                 {isSignUp ? (
                   <>
