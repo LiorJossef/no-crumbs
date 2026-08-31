@@ -179,6 +179,20 @@ among figures that were all measurements — nothing distinguished them, and the
 caught by recomputing from the JSON rather than by re-reading the prose. The fix is not more care at
 writing time; it is recomputing from data at reading time.
 
+**A thin margin reported on one element is a *biased* sample, not a small one.** A row clearing AA
+by 0.07 turned out to be eight strings tied at that value — the whole secondary layer of the place
+panel — and the token's actual worst case was a **failure** at 4.30 on a ground no visited screen
+showed. The eight tied strings were findable from the report; the failing ground was only findable by
+enumerating what the token actually lands on. A margin is biased toward the surfaces the harness
+happens to walk.
+
+**Repeated local workarounds are evidence of an unmoved root cause — and the workarounds may still be
+right.** One token was compensated for twice without being moved: a panel opacity went 0.86 → 0.92 →
+0.95, each step correct and documented. But 0.95 remains correct *after* the root cause moved,
+because the second raise had an independent second reason. **The pattern says go look for a root
+cause. It does not say the compensations were wrong**, and using it that way would delete good work.
+The notes were annotated rather than reverted for exactly this reason.
+
 **A clean number with its limits stated beside it is worth more than a clean number.** *0 failures
 at `214bb0f`* is a statement about 376 scored strings — not about the 78 rows below the fold, the 12
 occluded, or the six that were **not measured rather than passed**.
@@ -257,6 +271,15 @@ Six, and they are recorded because the concurrency rule is what made the rest of
 6. **Write scopes that left the mascot rig connected to nothing** — the most consequential, because
    the other five cost minutes and this one had the owner believing the brand was missing from a
    product that already contained every piece of it.
+
+A seventh — misattributing an untracked harness file to the wrong lane — is **deliberately not
+counted with the others**, at that lane's own insistence, and the distinction is the useful part. The
+wrong path was a claim about the tree that a read would have settled. Authorship is not in the tree:
+**`git status` carries no author for an untracked file**, so the inference was the only signal
+available, and it was reasonable and wrong. What settled it was the file's header saying *"I"* and
+meaning someone else — a convention, not a mechanism. The cheap fix is a convention rather than a
+caution: **an untracked file in a shared directory should name its lane in its header**, so the next
+dispatcher reads instead of infers and the read returns an answer.
 
 Two lanes lost scratchpad tools to filename collisions before a naming convention was set. Three
 times a lane reported a red working tree caused by another lane's in-flight work; each report was
