@@ -1,28 +1,40 @@
 # The edge — a ruling, not a positioning line
 
-> Owner: `product-lead`. Date: **2026-08-31**. Task `i6-edge`, dispatched by the orchestrator against
-> the owner's question: *what is the edge of this product? What makes it unique?*
+> Owner: `product-lead`. Date: **2026-08-31, amended 2026-08-31**. Task `i6-edge`, dispatched by the
+> orchestrator against the owner's question: *what is the edge of this product? What makes it
+> unique?* **Amendment** dispatched against the competitor audit at
+> [`evidence/competitors/01-assertion-audit-2026-08-31.md`](evidence/competitors/01-assertion-audit-2026-08-31.md)
+> (`social-integration`, `dd97234`), which tested this document's own §4 item 1 against itself.
 >
-> **Base:** read against `1b79e9c` on `no-crumbs-implementation`. Written scope: this file only.
+> **Base:** read against `1b79e9c` on `no-crumbs-implementation`; amendment read against `dd97234`.
+> Written scope: this file only.
 >
 > Bar set by the dispatch, and I am holding myself to it: an edge statement must be **falsifiable** —
 > untrue for a competitor who shipped something different. A sentence that survives any competitor's
 > shape is a description, not an edge. Everything below is graded VERIFIED / ASSUMED / UNAVAILABLE
-> against competitors, per house rules, because I have not run a competitor audit — I have read this
-> repo, not their apps.
+> against competitors, per house rules. The original version of this document graded its competitor
+> claims ASSUMED because I have no shell and ran no audit; one now exists, and §0 and §2 are rewritten
+> against it rather than left standing on the assumption.
 
-## The one sentence
+## The one sentence — revised against the audit
 
-> **No Crumbs's edge is not the extraction, not the map, and not a feature — it is that it refuses to
-> assert anything about a place beyond what the user confirmed and what open data can store forever,
-> in a category where the other 34 named competitors compete by adding exactly the things that
-> refusal excludes: fabricated confidence, ratings, "open now," engagement mechanics, and a social
-> layer.**
+> **No Crumbs's edge is not the refusal to assert unverified facts by itself — that refusal is real,
+> it holds strongly against the broad dining/trip slice of the category (Beli, Mapstr, mio, Plotline,
+> all VERIFIED to ship ratings, feeds, or trending as marketed identity), and it is also, on the
+> audit's own finding, the norm among the three competitors who do exactly our job with nothing
+> bundled around it (GeoTok, TokSpot, Stasht show no marketing evidence of asserting anything
+> unconfirmed, and two of the three are single-player by default). Against the competitors we would
+> actually be chosen over or against, restraint is not the edge — it is table stakes we happen to
+> also meet. The edge that would separate us from those three is `place_mentions`: keeping what a
+> TikTok named and we could not place, instead of discarding it. It is designed, migrated, and
+> unread by any code in `src/`. Until it ships and gets used, this product's sharpest available edge
+> does not exist yet.**
 
-That sentence is contradicted the moment any one of three things is shown true (§4). It is currently
-**half built**: the refusal is real and shipped; the other half of it — treating a failed match as
-retained value instead of silently discarding it — is designed and not live. Stated honestly rather
-than rounded up, because rounding it up is exactly the mistake this ruling exists to catch.
+This reverses the original document's framing, and says so rather than hiding it: that version called
+the refusal "half" of a "half-built" edge, with the retain-what-failed piece as the completion of it.
+The audit shows the built half is the **less** distinctive one against the competitors closest to us,
+and the unbuilt half is doing more of the differentiating work — not completing the claim, carrying
+it. §2 below is rewritten to state that plainly rather than in a footnote, per the dispatch.
 
 ## 1. What I rejected, and why
 
@@ -55,6 +67,17 @@ specifically, permanently linked forward to a completion mark — may still be t
 audited it and will not spend the owner's trust asserting it. Filed under §4 as a thing that would
 need checking, not adopted as the edge.
 
+**TikTok-only, added on the audit's evidence.** Not considered in the original pass because nothing
+in the repo positions it as a virtue beyond "the only VERIFIED access mechanism" (`mvp-plan.md` §2) —
+correctly, on this finding. The audit shows **Stasht saves from Instagram, X, Pinterest, TikTok and
+the general web while showing the same marketing-page restraint on assertions** — the broadest
+platform coverage of any competitor checked, held with the same UNAVAILABLE caveat as everything else
+on that page. If that holds up, our single-field, TikTok-only constraint is not a narrower, more
+honest version of what Stasht does; it is simply narrower. **Ruling: "one link, one field" stays a
+correct description of a scope decision forced by `04-tiktok-feasibility.md`'s VERIFIED/UNAVAILABLE
+split, and must not be reframed as a virtue or a differentiator in the positioning.** It was never
+proposed as one here; flagged so it is not proposed as one later on the strength of this document.
+
 **Collections and sharing.** Real, shipped, and deliberately narrow — named invitees only, no
 discovery, no public profile (`00-project-charter.md` §1, unchanged). It is retrieval for two people,
 not a network. It does not compound with more users the way an edge usually does, and I am not
@@ -80,22 +103,40 @@ step, the fixed "info" boundary, the no-places screen's honest three recoveries)
 failed* half is not, and saying otherwise would be exactly the "convert uncertainty into certainty"
 mistake `CLAUDE.md`'s working agreement exists to prevent.
 
-**Ruling: it is not currently the edge. It is the single highest-leverage thing that would complete
-it, conditional on one thing I cannot verify from here** — that users actually return to a kept
-mention and resolve it, rather than the list becoming a second graveyard
+**Ruling, revised against the audit: it is not currently the edge, and it is now the primary
+candidate for the edge rather than a completion of one already established.** The original version of
+this ruling treated the refusal-to-assert half as the edge and the retain-what-failed half as filling
+it out. The audit inverts that: against Beli/Mapstr/mio/Plotline the refusal half does the work, but
+those four are not who a user picks between when deciding whether to use *this specific kind of
+product* — GeoTok, TokSpot and Stasht are, and against them the refusal half is unremarkable. So the
+retain-what-failed half is not optional polish on an edge that already exists; on the narrow, correct
+comparison set, **it is the only candidate left that could make the edge sentence true at all.**
+
+This is still conditional on one thing I cannot verify from here — that users actually return to a
+kept mention and resolve it, rather than the list becoming a second graveyard
 (`product-ruling-after-the-save.md` §1's own prior failure mode, which `entity-proposal.md` §E1
 already names and designs against with a hard *no background retry, no queue* rule). Built and
-unused, it is a rationalisation. Built and used, it is the other half of the sentence in §0. I am not
-adjudicating which it will be — nobody can, before it ships — but I am refusing to credit it in
-advance.
+unused, it is a rationalisation with nothing behind it. Built and used, it is the whole of the edge,
+not half of one. I am not adjudicating which it will be — nobody can, before it ships — but I am
+refusing to credit it in advance, and the audit does not let me credit it as *already differentiating*
+either: the audit is explicit that **no competitor's no-match failure path could be established from
+a primary source** — GeoTok's swipe-deck is a recovery UI for an *ambiguous* match, not a *zero-
+result* one, and every other competitor is UNAVAILABLE on this question outright. That is the honest
+state of the strongest form of this claim: **untested, not refuted.** Nobody publishes what happens
+when their product fails, which is exactly the axis this half of the edge turns on, so the absence of
+counter-evidence is not evidence for us either. It becomes checkable only once `place_mentions` ships
+and someone runs the same kind of audit against us that `social-integration` just ran against them.
 
-**One correction to my own prior document while I'm here.** `entity-proposal.md` §9 ranked E1 behind
-`L1-F10` (the four missing graded documents) on a schedule argument. That ranking is about the
-*submission deadline*, which is not mine to override and I am not touching it. But it should not be
-read as ranking E1 low on *product* impact — on the reading in this document, E1 is not a nice-to-
-have at L2, it is the thing that makes the edge statement true rather than half-true. Both things are
-correct at once: ship the graded documents first because the deadline is not negotiable, and then
-build E1 first among the discretionary work, not third or fourth.
+**One correction to my own prior document while I'm here, sharpened after the audit.** `entity-
+proposal.md` §9 ranked E1 behind `L1-F10` (the four missing graded documents) on a schedule argument.
+That ranking is about the *submission deadline*, which is not mine to override and I am not touching
+it. But it should not be read as ranking E1 low on *product* impact — and after the audit, "low" is
+too weak a word. On the reading in this document, E1 is not the thing that completes an edge that
+already exists at L2 priority; against the competitors we would actually be judged against, **it is
+the only thing that would create one.** Both schedule facts are correct at once: ship the graded
+documents first because the deadline is not negotiable, and then build E1 first among the
+discretionary work — not third or fourth, and not because it is cheap, but because nothing else left
+on the page is a candidate for differentiation against GeoTok, TokSpot or Stasht at all.
 
 ## 3. Who is the second user
 
@@ -117,15 +158,22 @@ later, it has to be evaluated against this document specifically, not slipped in
 
 ## 4. The three things most likely to make this false
 
-1. **The category is not as dishonest as I have assumed.** I have not audited Beli, Mapstr, Plotline,
-   or the other 31 named competitors for fabricated confidence, invented ratings, or engagement
-   mechanics — I inferred it from the fact that a pure conversion-and-retrieval product is a thin
-   value proposition on its own, which is a reasonable prior and not evidence. **What would falsify
-   it:** a `social-integration` pass over 4–5 named competitors' actual screens, labelled VERIFIED /
-   ASSUMED / UNAVAILABLE per house rules, checking specifically for (a) invented confidence or
-   ratings not sourced from the platform, (b) return-trigger mechanics (streaks, notifications,
-   digests), (c) any cross-user ranking or "trending" surface. If most of them already refuse these
-   too, the edge shrinks to "we also refuse them," which is parity, not an edge.
+1. **FIRED, partially — audited 2026-08-31 by `social-integration`,
+   [`evidence/competitors/01-assertion-audit-2026-08-31.md`](evidence/competitors/01-assertion-audit-2026-08-31.md).**
+   Originally: "the category is not as dishonest as I have assumed." Result, precisely: **VERIFIED
+   false for the broad slice, and the closest evidence available to true for the narrow one.** Beli,
+   Mapstr, mio and Plotline are all VERIFIED to assert unconfirmed facts (Beli's Match Score and
+   friend rating, mio's invented opening hours, Plotline's Trending) and ship social/discovery
+   mechanics as marketed identity, not a bolt-on — the refusal genuinely separates us from that group.
+   But **GeoTok, TokSpot and Stasht — the three competitors doing exactly our job, nothing else
+   bundled around it — show no marketing evidence of asserting anything unconfirmed, and two of the
+   three are explicitly single-player by default** (TokSpot's own copy: *"Your saved spots are
+   private to you"*). Held at **UNAVAILABLE-leaning-true rather than VERIFIED**, correctly — a
+   marketing page silent on a feature is not proof the shipped app lacks it — but it is enough to
+   withdraw "the category" as the comparison set this claim can lean on. **The correct reading, and
+   this is why §0 and §2 above are rewritten rather than footnoted:** against the three products a
+   user actually chooses between when picking *this specific kind of app*, restraint reads as category
+   norm, and the differentiation has to come from somewhere else — which is §0's revised sentence.
 
 2. **`place_mentions` never gets a reader, or gets one nobody uses.** Covered in full in §2. If E1
    ships and the kept-mention list behaves like the graveyard `product-ruling-after-the-save.md` §1
@@ -153,12 +201,14 @@ schedule convenience — with the one hard exception that the deadline is not a 
 1. **Nothing changes about `L1-F10` (the four graded documents) or the deadline order.** The
    submission is 6 September; that ranking is fixed and is not a product-edge question.
 
-2. **After that, `E1` (`place_mentions` UI) moves up.** Not because it is cheap — it isn't, per its
-   own L2 sizing — but because it is the only piece of unbuilt work in the repo that turns the edge
-   sentence in §0 from half-true to true. Its own acceptance criteria (`entity-proposal.md` §9.1,
-   revised §10) already hold; nothing here changes them. One addition I am placing on it: whoever
-   ships it should also instrument the fraction that gets resolved vs. dismissed vs. ignored, because
-   that number is what §4 item 2 needs and nobody else has reason to collect it.
+2. **After that, `E1` (`place_mentions` UI) moves up, harder than the original pass had it.** Not
+   because it is cheap — it isn't, per its own L2 sizing — but because, against the competitors we
+   are actually compared to, it is now the only candidate left in the repo that could make the edge
+   sentence in §0 true rather than merely restate a category norm. Its own acceptance criteria
+   (`entity-proposal.md` §9.1, revised §10) already hold; nothing here changes them. One addition I am
+   placing on it: whoever ships it should also instrument the fraction that gets resolved vs.
+   dismissed vs. ignored, because that number is what §4 item 2 needs and nobody else has reason to
+   collect it.
 
 3. **`E2`'s screen (retrieval by creator) is worth building on the same logic, ranked below E1.** It
    strengthens the provenance axis the edge depends on — "which account told you this, and did you
@@ -181,10 +231,14 @@ schedule convenience — with the one hard exception that the deadline is not a 
    product from a plain one. If the schedule forces a choice between polish and E1 once `L1-F10`
    closes, E1 wins on this document's own logic.
 
-6. **A competitor audit is owed before this document is treated as settled**, per §4 item 1. It is
-   not mine to run — I have no shell — and it is not a blocker to acting on §5's ordering, but it is a
-   blocker to claiming §0's sentence with any more confidence than "ASSUMED." Routed to the
-   orchestrator to assign, most naturally to `social-integration`.
+6. **The competitor audit landed** (`social-integration`, `dd97234`) and is the reason §0 and §2 read
+   as they do now rather than as originally written. **What is still owed, and it is the same request
+   narrowed:** the audit could not establish any competitor's actual no-match failure behaviour from a
+   primary source, and it could not get past a marketing page into GeoTok's, TokSpot's or Stasht's
+   shipped app to check for assertions that just aren't marketed. Closing either gap needs an account
+   and a bad link, which is out of the marketing-page method's bounds — still routed to
+   `social-integration` if the owner wants it deepened, but it is no longer a blocker to §0's sentence
+   at its current, narrowed scope, only to a broader one.
 
 ## 6. Where I disagree with `brand-and-product-foundation.md`
 
@@ -193,17 +247,23 @@ Not a contradiction — a gap, flagged rather than silently patched, per the dis
 §1's positioning line — *"turns a pasted link into a pin on their own private map… organised by
 where, not when"* — describes the **mechanism** (geography replaces a chronological feed). It is
 correct and it is not what makes the product worth trusting; a competitor can copy "organise by
-location" in a sprint. This document's edge is about **what the product refuses to claim**, which is
-a different axis entirely and does not appear anywhere in §1's positioning or its long form. I am not
-proposing a rewrite of the positioning copy — that is a voice-and-vocabulary decision I do not own —
-but the deck and the spec should not describe this product as differentiated *because* it is
-geographic. It should describe it as differentiated because it does not lie to the user about a place,
-and geography is how that honesty gets retrieved. If the owner wants the positioning line itself
-changed to carry that, it is a naming/voice decision for `ux-interaction` and the owner, not a scope
-call I am making here.
+location" in a sprint. This document's edge, before the audit, was about **what the product refuses to
+claim**. **After the audit, the disagreement is sharper, not softer:** the refusal-to-claim axis does
+not appear in §1's positioning either, and now I know it would not carry the weight §1 needs on its
+own — against GeoTok, TokSpot and Stasht it is not a claim a competitor *could* copy in a sprint, it
+is one they already meet. The thing that could actually ground a differentiated positioning line is
+`place_mentions`, once it exists and gets used — "we keep the ones we couldn't find, not just the ones
+we could" is a sentence none of the three closest competitors' marketing pages make. I am not
+proposing that line either — it isn't true yet, and shipping copy ahead of the feature it describes is
+exactly the "convert uncertainty into certainty" mistake this whole document exists to avoid. I am
+flagging that **§1's positioning has no candidate edge to lean on today that survives the narrow
+competitor set**, and won't until E1 ships. If the owner wants the positioning line revisited once it
+does, that is a naming/voice decision for `ux-interaction` and the owner, not a scope call I am making
+here.
 
 ## Change log
 
 | Date | Change |
 |---|---|
 | 2026-08-31 | Created, `i6-edge`, in answer to the owner's question "what is the edge of this product?" Ruled: the edge is not the extraction, the resolution, the map, or completion state — all rejected on falsifiability grounds, with the Beli comparison specifically breaking the "nobody holds both halves" claim in `entity-proposal.md` §E2. The edge is a refusal to assert anything unverified, currently **half built**: the refusal itself ships today (review step, the fixed "info" boundary, the no-places screen); the "retain what failed instead of discarding it" half does not — `place_mentions` (migration `0031`) exists on disk and is read by nothing in `src/`, confirmed by grep. Ruled single-player is deliberate and load-bearing to the edge, not a gap. Three falsifiers named, each with the evidence that would settle it. Roadmap implication: `L1-F10` stays first on schedule grounds; `E1` moves up on product-edge grounds once it closes, ahead of L2 map polish; any feature asserting something unverified (ratings, "open now," trending) is refused categorically rather than case by case; a competitor audit is owed and routed to `social-integration` via the orchestrator. Flagged, not silently patched: `brand-and-product-foundation.md` §1 positions the product on mechanism (geography vs. chronology), not on the refusal-to-assert axis this document rules is the actual edge. |
+| 2026-08-31 | **Amended against `evidence/competitors/01-assertion-audit-2026-08-31.md`** (`social-integration`, `dd97234`), which tested §4 item 1 against itself. **§4 item 1 fired, partially.** Against the broad dining/trip slice (Beli, Mapstr, mio, Plotline) the refusal-to-assert claim is VERIFIED and holds strongly — all four ship ratings, feeds or trending as marketed identity, not a bolt-on. Against the narrow slice of competitors doing exactly our job (GeoTok, TokSpot, Stasht), the audit found no marketing evidence of asserting unconfirmed facts and two of the three explicitly single-player by default — restraint reads as **category norm**, not differentiation, on that comparison (held at UNAVAILABLE-leaning-true, not VERIFIED, per the audit's own discipline). **§0's sentence rewritten rather than merely narrowed**, per the dispatch's instruction to state the sharper consequence rather than bury it: the built half (refusal-to-assert) is now the *less* distinctive half against our real competitors, and the unbuilt half (`place_mentions`) is the only remaining candidate that could make the edge true — not completing an edge that already exists, but the sole thing that would create one. Held as untested rather than refuted: the audit could not establish any competitor's actual no-match failure behaviour from a primary source, so the strongest form of this claim stays open until E1 ships and gets audited the same way. Two new facts folded in: **Stasht saves from more platforms than we do while showing the same restraint**, so TikTok-only cannot be positioned as a virtue either, only as a scope decision forced by `04`'s VERIFIED/UNAVAILABLE split; and §6's disagreement with `brand-and-product-foundation.md` is sharpened to note the positioning has no candidate edge to lean on today, pending E1. `L1-F10`-first ordering and the single-player ruling are unaffected and were not revisited. |
