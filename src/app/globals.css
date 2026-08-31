@@ -606,6 +606,20 @@
      * at the alpha it already had, and indigo is safe here precisely because nothing indigo is
      * pressable, which is the same test §The system's rule applies to an accent.
      *
+     * **The warm end is the mascot's gold, admitted by owner ruling 2026-08-31 under indigo's
+     * fence.** It is the one warm pigment this brand owns, it sits **102°** from mint so it cannot
+     * repeat the collision the shade was introduced to fix, and it is why this ground can be warm
+     * without inventing a colour. `--chrome-shade` still carries the *depth* and gold carries the
+     * *warmth*; keeping those two jobs in two tokens is what stops either being asked to do both,
+     * which is the mistake mint was making.
+     *
+     * It is placed top-right, diagonally opposite the shade and **away from the card's mark**. That
+     * is deliberate rather than compositional taste: `MASCOT_CRUST` is 4° from `MASCOT_GOLD`, so
+     * gold near the lockup would put the mark's halo and the ground into one hue family and the
+     * halo would stop reading as light coming off the character. It is the one thing this ruling
+     * could have made worse, so it is measured rather than assumed — see the commit for the numbers
+     * either side.
+     *
      * `color-mix()` rather than a hand-computed `rgba()`, so the shade *is* `--foreground` rather
      * than a copy of it that can drift. The percentage inside is an alpha and this file is the one
      * place an alpha belongs — `token-call-sites.test.ts` deliberately does not read `globals.css`
@@ -613,7 +627,9 @@
      */
     --chrome-mesh:
         radial-gradient(72% 58% at 4% -8%, rgba(91, 108, 255, 0.26) 0%, rgba(91, 108, 255, 0) 62%),
+        radial-gradient(70% 60% at 104% 0%, rgba(242, 196, 107, 0.72) 0%, transparent 60%),
         radial-gradient(74% 62% at 97% 99%, color-mix(in srgb, var(--chrome-shade) 62%, transparent) 0%, transparent 68%),
+        radial-gradient(66% 56% at -8% 104%, rgba(224, 168, 69, 0.34) 0%, transparent 62%),
         radial-gradient(62% 52% at -10% 102%, color-mix(in srgb, var(--chrome-shade) 44%, transparent) 0%, transparent 64%),
         radial-gradient(92% 96% at 50% 46%, color-mix(in srgb, var(--chrome-shade) 30%, transparent) 0%, transparent 78%),
         var(--background);
