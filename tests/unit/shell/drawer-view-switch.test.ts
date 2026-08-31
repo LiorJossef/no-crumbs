@@ -143,6 +143,43 @@ describe('what it does under prefers-reduced-motion', () => {
     expect(places).toContain('href=');
     expect(places).toContain('focus-visible:ring-3');
   });
+
+  /**
+   * **The view change itself is an opacity ramp, and that is a fact about which enter variables are
+   * set rather than about the keyframe's property list.**
+   *
+   * Worth pinning, because a browser reports it misleadingly. `tw-animate-css`'s `enter` keyframe
+   * is a single `from` block that *always* names `opacity`, `transform` and `filter`
+   * (`node_modules/tw-animate-css/dist/tw-animate.css`), so `Animation.effect.getKeyframes()` on
+   * this element lists all three — measured, at both motion settings. What decides whether any of
+   * them moves is the `--tw-enter-*` custom properties, whose `@property` initial values are the
+   * identity transform and `blur(0)`. `fade-in-0` sets **only** `--tw-enter-opacity`.
+   *
+   * So the assertion is the absence of the other utilities. Add `slide-in-from-bottom-1` here and
+   * the animation starts translating — including for a user who asked for less motion, because
+   * there is deliberately no `motion-safe:` branch: a single 0→1 opacity ramp *is* the thing rule 3
+   * says a view transition should collapse to, it is not a pulse, and branching would mean two
+   * behaviours to keep honest instead of one.
+   */
+  it('changes view with opacity and nothing else, at every motion setting', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { fileURLToPath } = await import('node:url');
+    const drawer = readFileSync(
+      fileURLToPath(
+        new URL('../../../src/app/collections/collections-drawer-client.tsx', import.meta.url),
+      ),
+      'utf8',
+    );
+    const wrapper = /<div key=\{key\} className="([^"]*)"/.exec(drawer)?.[1];
+    expect(wrapper, 'the keyed view wrapper is where the transition lives').toBeDefined();
+    expect(wrapper).toContain('animate-in');
+    expect(wrapper).toContain('fade-in-0');
+    for (const displacement of ['slide-in-', 'zoom-in', 'spin-in', 'blur-in', 'motion-safe:', 'motion-reduce:']) {
+      expect(wrapper, `${displacement} would make the view change more than an opacity ramp`).not.toContain(
+        displacement,
+      );
+    }
+  });
 });
 
 describe('the hrefs each surface passes', () => {
