@@ -76,8 +76,22 @@ export default async function ProfilePage() {
   // the authority: `deleteAccount` re-runs the same check twice regardless
   // (`overnight-deletion-review.md` §3.3), because between this render and that action a stranger
   // holding an invite token can join a collection this answer just cleared.
-  const [{ data: profile }, places, library, deletionBlock] = await Promise.all([
+  // `profile_names` is its own query rather than an embedded join, and that is not a style choice:
+  // it has no foreign key *from* `profiles`, so PostgREST has no relationship to embed through —
+  // the key points the other way, `profile_names.profile_id → profiles.id`.
+  //
+  // **It fails soft, on purpose.** `0035` is the migration that creates this table and it is not
+  // applied everywhere yet; where it is missing the query returns `42P01` rather than throwing, and
+  // `names?.first_name` is then `undefined`, which `accountIdentity` reads as "no name" — the same
+  // state the eight pre-`0035` accounts are in permanently. A missing name costs a line on this
+  // page, never the page, which is the rule the `profiles` read above already follows.
+  //
+  // No row filter beyond `profile_id`: `profile_names_select_own` is the authority and it is keyed
+  // on `auth.uid()`, so this can only ever return the caller's own name. The `eq` is there so the
+  // planner has an index condition, not as the access control.
+  const [{ data: profile }, { data: names }, places, library, deletionBlock] = await Promise.all([
     supabase.from('profiles').select('display_name, created_at').eq('id', user.id).maybeSingle(),
+    supabase.from('profile_names').select('first_name').eq('profile_id', user.id).maybeSingle(),
     getProfilePlaces(),
     getSpots().then((spots) => spots.map(toMapPlace)),
     checkDeletionBlocked(),
@@ -88,6 +102,7 @@ export default async function ProfilePage() {
   const blocking = deletionBlock.ok ? deletionBlock.blocking : [];
 
   const identity = accountIdentity({
+    firstName: (names as { first_name: string | null } | null)?.first_name ?? null,
     displayName: profile?.display_name ?? null,
     email: user.email ?? null,
   });
@@ -139,11 +154,31 @@ export default async function ProfilePage() {
                 `מאיה` — shapes right-to-left, while the column it sits in stays left-aligned like
                 the email under it. On the `<p>` it also flipped the paragraph's alignment, which
                 left the name floating away from the avatar. */}
-            <p className="truncate font-heading text-lg font-bold tracking-tight">
-              <span dir="auto">{identity.title}</span>
-            </p>
-            {identity.subtitle ? (
-              <p className="truncate text-sm text-muted-foreground">{identity.subtitle}</p>
+            {/* **The name line renders only when there is a name**, and this is the fix to the
+                owner's long-standing "the profile screen shows a demo email" report. It used to
+                render `identity.title`, which fell through to the email address when
+                `display_name` was null — which it is for every account that predates `0035`. The
+                email is still here, one line down, styled as what it is. `accountIdentity`'s
+                header carries the whole root cause. */}
+            {identity.name !== null ? (
+              <p className="truncate font-heading text-lg font-bold tracking-tight">
+                <span dir="auto">{identity.name}</span>
+              </p>
+            ) : null}
+            {identity.account !== null ? (
+              /* Two weights for one slot: muted underneath a name, ink when it is carrying the
+                 block alone. An account with no name is not a broken row — it is the honest
+                 answer to *which account is this*, at the size an address deserves rather than at
+                 the size a name does. */
+              <p
+                className={
+                  identity.name !== null
+                    ? 'truncate text-sm text-muted-foreground'
+                    : 'truncate text-sm font-medium text-foreground'
+                }
+              >
+                {identity.account}
+              </p>
             ) : null}
             {joined ? <p className="text-xs text-muted-foreground">{joined}</p> : null}
           </div>

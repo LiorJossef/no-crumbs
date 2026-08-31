@@ -235,32 +235,75 @@ export function deriveProfileBreakdown(places: readonly ProfilePlace[]): Profile
 }
 
 export interface AccountIdentity {
-  /** The strongest name we hold. Never invented — see below. */
-  readonly title: string;
-  /** The email, when it is not already the title. */
-  readonly subtitle: string | null;
+  /**
+   * The name to print **as a name**, or null when we hold none. Nothing else is ever promoted into
+   * this slot — see below, because something was.
+   */
+  readonly name: string | null;
+  /**
+   * The line beneath it: the address this account signs in with. `Your account` only when there is
+   * neither a name nor an email, so the block is never blank; null when there is a name and no
+   * email, because the name has already said whose account this is.
+   */
+  readonly account: string | null;
 }
 
 /**
- * **We hold a display name or we hold nothing.** `profiles.display_name` (migration `0002`) is
- * nullable and is only ever populated from the signup metadata, so most accounts have none — the
- * local database has one of three. When it is absent the email is shown *as* the identity rather
- * than being split, initial-capped or otherwise dressed up into a name the user never gave us.
+ * Who this account is, on the one screen where the product is talking to **you** about **you**.
+ *
+ * ## The bug this replaced, which was a fallback working exactly as written
+ *
+ * Until 2026-09-01 this function took a display name and an email, and when the display name was
+ * absent it returned **the email address as the `title`** — rendered beside the avatar at
+ * `text-lg font-bold`, in the slot a name goes in. `profiles.display_name` is null for all eight
+ * local accounts and has been for the life of the product (nothing ever wrote it: the only writer
+ * is the invite-join prompt, and none of the eight has ever joined a collection by link), so **that
+ * branch was not the edge case, it was the only case.** The owner reported the symptom weeks ago as
+ * *"the profile screen shows a demo email"* — `demo@example.com` is the first of those eight rows —
+ * and it was never root-caused, because nothing was failing: a `??` chain was doing precisely what
+ * it said, one slot further up the page than it should have been.
+ *
+ * An email address is not a name. Putting one where a name goes states something false about the
+ * user in the largest type on their own account screen. So the email keeps its place on this
+ * screen — it is the useful answer to *which account am I signed in as* — and it never takes the
+ * name's.
+ *
+ * ## Where the name comes from, in order
+ *
+ * 1. **`profile_names.first_name`** (`0035`) — the private name, given at sign-up, readable by its
+ *    owner and by nobody else. This is what the product calls you, and this screen is the product
+ *    talking to you.
+ * 2. **`profiles.display_name`** — the label the user confirmed for collection peers to see. Second
+ *    rather than first because it answers a different question (*what should other people call
+ *    me*), but it is still a name this user typed about themselves, so addressing them by it on
+ *    their own screen claims nothing they did not already say. It is the only name the eight
+ *    pre-`0035` accounts can ever acquire without a new surface.
+ * 3. **Nothing.** Never the email, never its local part, never a split or an initial-cap of either.
+ *
+ * The reverse direction — `first_name` reaching a peer — is closed in the schema rather than here:
+ * `0035` writes no trigger onto `profiles` and grants no peer any read of `profile_names`.
+ *
+ * `last_name` is not read. It is stored because the owner asked for it and, as `0035`'s own column
+ * comment records, it has no consumer anywhere in `src/`. That tension is the owner's to resolve
+ * and is left visible rather than quietly closed by rendering a full name here.
  */
 export function accountIdentity(input: {
+  readonly firstName?: string | null;
   readonly displayName?: string | null;
   readonly email?: string | null;
 }): AccountIdentity {
+  const firstName = (input.firstName ?? '').trim();
   const displayName = (input.displayName ?? '').trim();
   const email = (input.email ?? '').trim();
 
-  if (displayName !== '') {
-    return { title: displayName, subtitle: email === '' ? null : email };
-  }
-  if (email !== '') return { title: email, subtitle: null };
-  // Reachable only if Supabase hands back a session with no email at all. Better than an empty
-  // heading, and it still claims nothing.
-  return { title: 'Your account', subtitle: null };
+  const name = firstName !== '' ? firstName : displayName !== '' ? displayName : null;
+  if (name !== null) return { name, account: email === '' ? null : email };
+
+  // No name at all: the eight accounts that predate `0035`, and anyone who signs up through a path
+  // that does not collect one. The email carries the block on its own — as an address, which is
+  // what `/profile` styles it as — and `Your account` is the last resort for a session Supabase
+  // handed back with no email either. It claims nothing.
+  return { name: null, account: email === '' ? 'Your account' : email };
 }
 
 /**

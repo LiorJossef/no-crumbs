@@ -56,6 +56,7 @@ import { createClient } from '@/lib/supabase/client';
 import { DEFAULT_AFTER_SIGN_IN, safeReturnPath } from '@/domain/auth/return-path';
 import { AUTH_CALLBACK_PATH, RESET_REQUEST_PATH } from '@/app/auth/_lib/routes';
 import type { Mode } from './mode';
+import { NAME_MAX_LENGTH, signUpNames } from './name-fields';
 import { ChromeGround } from '@/components/brand/chrome-ground';
 import { ChromeItem, ChromeKicker, ChromeStage } from '@/components/brand/chrome-stage';
 import { DISPLAY_HEADING_AXES } from '@/components/brand/display-type';
@@ -97,6 +98,22 @@ function authErrorMessage(error: AuthError, mode: Mode): string {
   }
 }
 
+/**
+ * **The field label, defined once because there are now four of them.**
+ *
+ * It was written inline on `Email` and `Password`, which was fine at two. The name fields make it
+ * four, and `token-call-sites.test.ts` counts `tracking-[0.1em]` as an arbitrary value against a
+ * whole-repo budget — so four copies of one treatment spend four slots on one decision. One
+ * constant spends one, and it is the same rule `MEMBER_NAME_MAX_LENGTH`'s docblock states about
+ * numbers: a value with two definitions has none.
+ *
+ * The `group-focus-within/field:text-foreground` half is the label brightening when its field is
+ * focused; the measurement behind the colour, and why it is `--foreground` rather than indigo, is
+ * on the email field below and has not moved.
+ */
+const FIELD_LABEL =
+  'text-micro font-bold tracking-[0.1em] text-muted-foreground uppercase motion-safe:transition-colors group-focus-within/field:text-foreground';
+
 /** The `?next=` this visitor arrived with, already reduced to a path we have agreed to return to.
  *  Read off `location` for the reason the submit handler's comment gives at length. */
 function currentReturnPath(): string {
@@ -133,6 +150,10 @@ export function SignInScreen({
 }) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>(initialMode);
+  // Sign-up only, and kept across a toggle to sign-in and back: switching mode by accident should
+  // not cost someone the name they already typed.
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
@@ -146,6 +167,22 @@ export function SignInScreen({
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+
+    /*
+     * The name check runs **before** `setPending(true)` and before any network call, because
+     * nothing has been attempted yet: this is the form reading its own fields. Putting it after
+     * would flash `Working…` on the button for a round trip that never happens.
+     *
+     * Sign-in is untouched by it. There are no name fields on that side of the toggle, and a
+     * returning user who once signed up without one — every account that predates `0035` — must
+     * never be stopped at the door over data we did not ask them for.
+     */
+    const names = isSignUp ? signUpNames({ firstName, lastName }) : null;
+    if (names && !names.ok) {
+      setMessage(names.message);
+      return;
+    }
+
     setPending(true);
     setMessage(null);
 
@@ -176,7 +213,37 @@ export function SignInScreen({
            * on the invite they came from. It is re-checked against `safeReturnPath` at the callback
            * — never trusted for having survived a round trip through an email.
            */
-          options: { emailRedirectTo: confirmationRedirect() },
+          /*
+           * **`data`, and without it the whole name chain is inert.**
+           *
+           * `options.data` is what GoTrue writes to `auth.users.raw_user_meta_data`, and that
+           * column is the only thing `public.handle_new_user()` can read: it runs inside the
+           * `auth.users` INSERT, where there is no session, no request and no other source of
+           * anything the user typed. Until this argument existed the call passed
+           * `emailRedirectTo` alone, so `raw_user_meta_data` was `{}` on **every account this
+           * product has ever created** — which is why `profiles.display_name` is null for all
+           * eight local rows and why `actions/collections.ts:522` carries a comment about it.
+           * `0035` can create the `profile_names` row, and correctly creates nothing, without
+           * this line.
+           *
+           * `first_name` / `last_name` are the keys that function checks first, ahead of the OIDC
+           * `given_name` / `family_name` a future social provider would send and ahead of its
+           * last-resort split of a single string. It clamps both to 80 itself; `signUpNames` has
+           * already done the same, and neither is relying on the other.
+           *
+           * **It does not send `display_name`.** That column is the label collection peers see,
+           * `0035` deliberately issues no DDL against `profiles` and adds no new route into it,
+           * and a name typed here to personalise the product is not consent to show it to
+           * strangers in a shared collection. The peer-visible label stays the one thing the user
+           * confirms for themselves, in the prompt that already exists.
+           */
+          /* Spread rather than `data: names?.data`, because `exactOptionalPropertyTypes` is on and
+             `data?: object` will not take an explicit `undefined`. The key is absent on sign-in,
+             which is the branch that never reaches here anyway. */
+          options: {
+            emailRedirectTo: confirmationRedirect(),
+            ...(names === null ? {} : { data: names.data }),
+          },
         })
       : await supabase.auth.signInWithPassword({ email, password });
 
@@ -277,10 +344,111 @@ export function SignInScreen({
               * means, so it works on a phone where there is no pointer at all. Nothing on this
               * screen is hover-only.
               */}
+            {isSignUp && (
+              /*
+               * **The name fields, sign-up only.**
+               *
+               * `0035`'s R2 hands required-ness to this form, and `name-fields.ts` carries the
+               * ruling and the argument: **first name required, last name optional.** The two
+               * decisions are visible here as the two things a form can say — the first field has
+               * `required`, the second is labelled `Optional`.
+               *
+               * Marked rather than merely permissive. A form that silently accepts an empty field
+               * teaches people to distrust the ones it does enforce, and the marker sits in the
+               * label row where a screen reader reaches it, not in a placeholder that vanishes the
+               * moment somebody types.
+               *
+               * `grid-cols-2` at every width, which is the one thing here that is taste. Given and
+               * family name are one question, and stacking them puts two 48px rows and two labels
+               * between `Get started` and the email field on a phone — the front door's whole job
+               * is to end. They are short fields; neither needs the full column.
+               *
+               * `step={4}`, the same beat as the email block below rather than a new one. The
+               * entrance is a fixed 45ms-per-step stagger with no cap, so a new step would lengthen
+               * the sign-up entrance and — because this block does not render on sign-in — leave a
+               * gap in the sequence there. Name and email arriving together is also the right
+               * grouping: who you are, then how you get back in.
+               *
+               * `dir="auto"` on both inputs. The local database's own display name is `מאיה`, and
+               * a Hebrew given name typed into an LTR field puts the caret and the punctuation on
+               * the wrong side. This is the same call `/profile` already makes on the rendered
+               * name, made one step earlier, at the point the name is typed.
+               */
+              <ChromeItem step={4} className="grid grid-cols-2 gap-3">
+                {/* The `group/field` label brightening is the email and password fields' — see
+                    their comment for the measurement and for why it is `--foreground` and not
+                    indigo. */}
+                <div className="group/field flex flex-col gap-1.5">
+                  <Label
+                    htmlFor="first-name"
+                    className={FIELD_LABEL}
+                  >
+                    First name
+                  </Label>
+                  <Input
+                    id="first-name"
+                    type="text"
+                    required
+                    dir="auto"
+                    autoComplete="given-name"
+                    maxLength={NAME_MAX_LENGTH}
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    className="h-12 rounded-lg border-border bg-background px-4 text-sm font-medium text-foreground lg:h-13 lg:px-4.5 lg:text-reading"
+                  />
+                </div>
+
+                <div className="group/field flex flex-col gap-1.5">
+                  {/* `items-baseline`, so the 11px marker sits on the label's baseline rather than
+                      being centred against it — both are `text-micro`, so the row is one line high
+                      either way and the first field's label line still matches this one's. */}
+                  <div className="flex items-baseline justify-between gap-2">
+                    <Label
+                      htmlFor="last-name"
+                      className={FIELD_LABEL}
+                    >
+                      Last name
+                    </Label>
+                    {/*
+                      * Not `uppercase`: the labels are a tracked-caps typographic device and this
+                      * is a word being read. Sentence case, per `voice-and-vocabulary.md` §5.
+                      *
+                      * `leading-none` to match `Label`'s own, and it is load-bearing rather than
+                      * tidying. `text-micro` carries `--leading-micro`, which makes an 11px span
+                      * **16px tall against the label's 14** — measured at 390x844, and it put the
+                      * two inputs at `y: 402` and `y: 404`. Two adjacent fields two pixels out of
+                      * line is the kind of thing nobody can name and everybody sees.
+                      *
+                      * `aria-describedby` on the input rather than the word sitting loose beside
+                      * it: `required` is absent on this field, so a screen reader announcing
+                      * nothing is the only other signal, and *nothing* is not a signal.
+                      */}
+                    <span
+                      id="last-name-optional"
+                      className="text-micro font-medium leading-none text-muted-foreground"
+                    >
+                      Optional
+                    </span>
+                  </div>
+                  <Input
+                    id="last-name"
+                    type="text"
+                    dir="auto"
+                    aria-describedby="last-name-optional"
+                    autoComplete="family-name"
+                    maxLength={NAME_MAX_LENGTH}
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    className="h-12 rounded-lg border-border bg-background px-4 text-sm font-medium text-foreground lg:h-13 lg:px-4.5 lg:text-reading"
+                  />
+                </div>
+              </ChromeItem>
+            )}
+
             <ChromeItem step={4} className="group/field flex flex-col gap-1.5">
               <Label
                 htmlFor="email"
-                className="text-micro font-bold tracking-[0.1em] text-muted-foreground uppercase motion-safe:transition-colors group-focus-within/field:text-foreground"
+                className={FIELD_LABEL}
               >
                 Email
               </Label>
@@ -307,7 +475,7 @@ export function SignInScreen({
               <div className="group/field flex flex-col gap-1.5">
                 <Label
                   htmlFor="password"
-                  className="text-micro font-bold tracking-[0.1em] text-muted-foreground uppercase motion-safe:transition-colors group-focus-within/field:text-foreground"
+                  className={FIELD_LABEL}
                 >
                   Password
                 </Label>

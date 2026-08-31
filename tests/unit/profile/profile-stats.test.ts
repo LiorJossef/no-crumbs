@@ -226,33 +226,76 @@ describe('deriveProfileBreakdown', () => {
   });
 });
 
+/**
+ * These assertions were rewritten on 2026-09-01, and the ones they replaced were not weakened —
+ * they were the specification of a reported bug.
+ *
+ * The old suite asserted `accountIdentity({ displayName: null, email: 'demo@example.com' })` →
+ * `{ title: 'demo@example.com' }`, and `title` is rendered beside the avatar at `text-lg font-bold`:
+ * the slot a name goes in. Since `profiles.display_name` is null for every account this product has
+ * created, that branch was the *only* branch, and it is the owner's standing report that the profile
+ * screen shows a demo email. The tests below pin the opposite rule — **the email never enters the
+ * name slot** — plus the three-tier name source `0035` introduced.
+ */
 describe('accountIdentity', () => {
-  it('prefers the display name and keeps the email beneath it', () => {
-    expect(accountIdentity({ displayName: 'מאיה', email: 'demo@example.com' })).toEqual({
-      title: 'מאיה',
-      subtitle: 'demo@example.com',
+  it('addresses you by the private first name, with the email beneath it', () => {
+    // `profile_names.first_name` (`0035`) is what the product calls you. This screen is the only
+    // place it is rendered, and it is rendered to its owner.
+    expect(
+      accountIdentity({ firstName: 'מאיה', displayName: null, email: 'demo@example.com' }),
+    ).toEqual({ name: 'מאיה', account: 'demo@example.com' });
+  });
+
+  it('prefers the first name over the display name when it has both', () => {
+    // They answer different questions — *what should the product call me* and *what should other
+    // people call me* — and on your own screen the first one wins.
+    expect(
+      accountIdentity({ firstName: 'Maya', displayName: 'M.', email: 'demo@example.com' }),
+    ).toEqual({ name: 'Maya', account: 'demo@example.com' });
+  });
+
+  it('falls back to the display name, which is the only name a pre-0035 account can acquire', () => {
+    expect(
+      accountIdentity({ firstName: null, displayName: 'Maya', email: 'demo@example.com' }),
+    ).toEqual({ name: 'Maya', account: 'demo@example.com' });
+  });
+
+  it('never promotes the email into the name slot', () => {
+    // The regression this file exists to hold. Eight local accounts are in exactly this state and
+    // the schema permits it forever, so this is the common case rather than the edge one.
+    const identity = accountIdentity({
+      firstName: null,
+      displayName: null,
+      email: 'demo@example.com',
+    });
+    expect(identity.name).toBeNull();
+    expect(identity.account).toBe('demo@example.com');
+  });
+
+  it('treats blank names as no name at all', () => {
+    // `profile_names` normalises `''` to null on write (`normalise_profile_names`), but whitespace
+    // can still arrive from `display_name`, which has no such trigger.
+    expect(
+      accountIdentity({ firstName: '  ', displayName: '   ', email: 'demo@example.com' }).name,
+    ).toBeNull();
+  });
+
+  it('trims a name rather than rendering the padding', () => {
+    expect(accountIdentity({ firstName: '  Maya  ', email: 'demo@example.com' }).name).toBe('Maya');
+  });
+
+  it('drops the second line when a named account has no email', () => {
+    // The name has already said whose account this is; `Your account` under it would be noise.
+    expect(accountIdentity({ firstName: 'Maya', email: null })).toEqual({
+      name: 'Maya',
+      account: null,
     });
   });
 
-  it('shows the email itself when no display name was ever given', () => {
-    // `profiles.display_name` is nullable and only ever populated from signup metadata, so this is
-    // the common case, not the edge one. Nothing is derived from the email to stand in for a name.
-    expect(accountIdentity({ displayName: null, email: 'demo@example.com' })).toEqual({
-      title: 'demo@example.com',
-      subtitle: null,
-    });
-  });
-
-  it('treats a blank display name as no display name', () => {
-    expect(accountIdentity({ displayName: '   ', email: 'demo@example.com' }).title).toBe(
-      'demo@example.com',
-    );
-  });
-
-  it('falls back to a claim-free title when there is neither', () => {
-    expect(accountIdentity({ displayName: null, email: null })).toEqual({
-      title: 'Your account',
-      subtitle: null,
+  it('falls back to a claim-free line when there is neither a name nor an email', () => {
+    expect(accountIdentity({ firstName: null, displayName: null, email: null })).toEqual({
+      name: null,
+      account: 'Your account',
     });
   });
 });
