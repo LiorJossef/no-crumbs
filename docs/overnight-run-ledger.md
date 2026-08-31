@@ -46,6 +46,23 @@ Every published number reproduced. No correction owed to §4.
 | **W4-2** | `0be1cf7` | design-system-frontend | pending | built | The crumb silhouette replaces the teardrop |
 | **W4-3** | `66747c2` | design-system-frontend | pending | built | Pins take the crumb outline in the same bitmap box. **Deliberate deviation from `no-crumbs-design-system.html`, agreed with the lead:** the design draws a plain white aperture, but dropping the category glyph would leave **colour as the sole carrier of category** — an accessibility regression, and a bad one on a palette where two of four colours were measured at ΔE 14.8 until tonight. §3.1's *face on chrome, silhouette on data* holds either way: a fork is not a face |
 | **W6-1** | `7d27903` `1aaa246` `f7de729` `795f909` | nextjs-architect | pending | built | The 2,482-line client split by beat. Largest file now **452 lines** (`review-screen.tsx`), `import-page-client.tsx` **2,482 -> 395**. Four commits rather than one, each independently typecheckable |
+| **W1-5** | `83aa37b` | lead | pending | built | G4. New `kind: 'unsupported-link'`. **The existing test caught a flaw in the fix**: the first draft returned `none` on Go, and *"never returns `none` while there is something in the field"* rejected it — a dead Enter key is the regression the module was written to close. Go now opens manual add **blank**, which misses both failures at once. A **schemeless** bare domain stays `text` deliberately: `canonicaliseTikTokUrl('kolamba.co.uk')` returns `MALFORMED_URL`, byte-identical to `Kolamba`, so separating them means guessing a dot makes a URL — and that guess costs a place called `St. John` its name. The product may decline to read a link; it may not decide a place name is one |
+| **W2-3** | `1eb78f5` `66747c2` | maps-geospatial | pending | built | Labels tiered by how much room a pin has, not by one zoom. Follow-up keeps a pin's name out from under the zoom controls — found in a screenshot, not by a criterion |
+| **W2-5** | `cb464f2` | maps-geospatial | pending | built | The zero-places map framed from the browser time zone. **This commit also swept three files it did not own** — see *The staging incident* below |
+| **W3-1** (moved) | `9af9ab5` | design-system-frontend | pending | built | Press constants relocated to `src/lib/interaction.ts`, the spec's path — a chip importing `PRESS_CHIP` from `button.tsx` would have made the constants look button-specific |
+| **W3-3** | `d3cafc4` `30145d2` `979ebcc` | design-system-frontend | pending | built | `motion-reduce:` 10 -> 0 inside the lane; `motion-safe:` 0 -> 11+. **The finding worth more than the package:** a bare `transition-all` on the button base was running the hover fade and press translate **only for users who had asked for reduced motion**, because `PRESS_BEAT`'s `motion-safe:transition` already superseded it for everyone else. The inversion failing in exactly the direction it exists to prevent. Deleted, not prefixed |
+| **W3-4** | `9514757` + | design-system-frontend | pending | partial | The button's matrix columns. Three files granted mid-package (`input.tsx`, `saved-place-edits.tsx`, `bottom-nav.tsx`); `ui/map.tsx` ruled **out of scope tonight** — 2,000 vendored lines holding 12 of the 26 hard-coded colours |
+| **W4-4** | `2f01d93` | design-system-frontend | pending | built | `icon.svg`, `apple-icon.png`, `opengraph-image.tsx`, `manifest.ts`. **K11 0 -> 4.** One shared crumb path across all three sizes, mechanically enforced by `tests/unit/brand/crumb-path.test.ts`; `icon.svg` is the one legitimate copy (a static asset cannot import) so the test asserts it character-for-character |
+| **W5-1** | `a6d7cf9` `f9acc17` | design-system-frontend | pending | built | Thumbnail and elapsed time on the row. Follow-up: a thumbnail that fails **before hydration** still falls back to the category disc |
+| **W5-3** | `c9068c8` `03bb9c9` | design-system-frontend | pending | built | Tag facet with counts, mobile and desktop. No tag rendered that no place carries; the facet row is **absent** rather than disabled when the library has no tags |
+| **W5-4** | `08d8a0b` | design-system-frontend | pending | built | **K10 0 -> 3.** `loading.tsx` for `/collections`, `/collections/[id]`, `/profile` |
+| **W5-5** | `db3a7bc` `5169413` | design-system-frontend | pending | built | `12 of 32` visible, mobile and desktop |
+| **W5-6** | `9e5ca3b` | design-system-frontend | pending | built | The description renders. **But no code path can put one in that column** — `createCollection(name, '')`, and the rename form has no field. Copy owed before the ten-line fix; routed to `product-lead` |
+| **W6-2** | `b644385` | nextjs-architect | pending | built | The post on screen in ~1s while extraction runs. **Two round trips, no stream, and no better fake in place of one.** The rail's `source: 'done'` now fires when the fetch **resolves**; the old flag flipped right after the fetch was *issued*, behind a comment calling it "the honest approximation" — **deleted, not kept beside the real one.** Sequential rather than parallel on a measured reason: the adapter is cache-through on `public.sources`, so parallel calls would both miss a cold cache and double upstream cost for no latency gain. One `AbortController` over both; an abort in the preview arm is rethrown, not swallowed. A preview failure is silent and the probe stays the sole authority on failure, so two responses can never disagree |
+| **W7-5** | `71ded3d` | design-system-frontend | pending | built | `error.tsx`, `not-found.tsx`, `global-error.tsx` brought into the family |
+| — | `f71b9d8` | lead | — | landed | **A verification guard had gone blind.** The assertion that `P-002` never reaches a user matched `title:\s*'([^']+)'`; W4-1 correctly made `metadata.title` a `{ default, template }` object, the regex stopped matching, and the guard could no longer see the string it guards. It failed loudly only because an `expect(title).toBeDefined()` written as an afterthought was there. Now reads every quoted string in the block |
+| — | `7a63020` | lead | — | landed | K12 repair: two hex literals inside a comment took the count to 28 against a ceiling of 26. Reasoning kept, literals dropped — a hex pasted into a comment does not move when the ramp does, and W0-2 retuned one the same night. **Not fixed by teaching the guard to skip comments** |
+| — | `362c7a5` | lead | — | landed | `--radius-xs`, `--secondary-hover`, `--tag-selected-hover`, plus the sign-in sweep (10 -> 2 brackets). Records why `rounded-md` is **not** the answer for the four clamped button radii — Spec 2 §2.0 proposes it, and it would restyle four sizes 10/12px -> 14px, on the four W0-1 had just repaired |
 
 ## Wave 0 close gate
 
@@ -93,3 +110,42 @@ it is that the map never shows the user anything they saved, at any library size
 underneath are good — clean CARTO tiles, correct attribution lifted clear of the sheet, a confident
 mint `＋`. What is missing is the user's own content, which is exactly what `facelift-plan.md` §1
 means by "the product is disciplined, not sloppy; what is missing is ambition".
+
+## The staging incident — 2026-08-31 01:40
+
+`cb464f2` ("feat(map): frame the zero-places map from the browser time zone") **carried three files
+its author did not own and its message does not mention**: `tests/harness/measure-motion.mjs`,
+`tests/harness/app-server.mjs`, `docs/overnight-harness-notes.md`. Their author had staged exactly
+those three by name and was about to commit; the other agent's commit landed in between and took them.
+
+This is the hazard §7b sets in its only block quote — *never `-a`, never `add .`, never `add -A`*.
+
+**Ruling: no history fix.** Nothing is lost (content byte-identical at HEAD, tree clean for those
+paths), and `revert`, `reset` and `rebase` are all forbidden by `git-workflow.md` §9.3 and would be
+actively dangerous with four agents mid-write. The commit stands, misattributed, and is recorded here
+instead. The agent whose work was taken **did not attempt a fix** and reported it immediately, which
+was the correct call.
+
+**The general lesson, which is sharper than the incident:** *staging by explicit path does not protect
+you if a concurrent agent stages by wildcard.* Rule 2 only works if **every** agent follows it — one
+agent's shortcut silently costs another agent their authorship, and the cost is invisible until
+someone reads the history.
+
+## Two harness self-catches, both worth more than the artefacts they corrected
+
+**1. Ten screenshots labelled `signed-out` showed `Signed in as demo@example.com`.** The session
+cookie was attached to every browser context. Every pixel honest, the filename a lie. Status 200, no
+errors, manifest clean — **nothing could have caught it but opening the file.**
+
+**2. Ten dev-mode screenshots of five different `?state=` screens were all the same idle paste
+screen.** Next 16's dev server returns **403 on its own `_next/static/chunks/*`** when driven
+cross-origin at `127.0.0.1`, so React never hydrated and the seam's effect never ran; the
+server-rendered HTML painted perfectly and photographed beautifully. Diagnosed by grepping the served
+chunk for the compiled guard and finding it correctly folded to *enabled* — the code was fine and was
+never running.
+
+Both are now mechanically guarded: every capture asserts a React root exists (`hydrated`) and that the
+screen it reached is not the screen it came from (`notExpect`), and **the harness exits non-zero**.
+Its author's own conclusion is the one to carry: *a harness that cannot fail cannot be evidence — and
+mine could not, twice.* That is also §7's rule arriving from the other direction: a builder's own
+green result is the least reliable evidence available, demonstrated on itself.
