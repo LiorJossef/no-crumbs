@@ -1054,7 +1054,28 @@ export function MapPageClient({
   /** Declared above `handleViewportChange`, which writes the first of them: the surface reports
    *  its viewport before this component's later hooks are reached. */
   const [cameraAlive, setCameraAlive] = useState(false);
-  /** A ref, not state: it is spent exactly once and nothing renders from it. */
+  /**
+   * The reveal handoff, **read from the URL rather than snapshotted at mount**.
+   *
+   * It was `useRef(revealPlaceId ?? null)`, and that was correct for exactly as long as every way
+   * of arriving with a `?place=` was a *different route*: `/collections` and `/profile` unmounted
+   * this component, so the ref was rebuilt with the new value every time.
+   *
+   * The collections views are search params on this segment now, so a reveal from one of them —
+   * tapping a library pin behind the collections index, or picking a place in the `＋` menu — is a
+   * navigation that **does not remount anything**. The ref would keep its mount-time `null` and the
+   * handoff would silently do nothing: the URL would change, the camera would not move, and the tap
+   * would be indistinguishable from having missed.
+   *
+   * The URL is the honest source because it is what the push actually changed, and it is
+   * self-clearing: the effect below strips the param, so a second commit finds nothing to do and a
+   * *second* push re-arms it without needing a nonce. `window.location.search` rather than
+   * `useSearchParams` for the reason `import/_lib/dev-screen.ts` gives — this value is wanted once,
+   * imperatively, and the hook would put this tree inside a Suspense boundary it does not need.
+   *
+   * `revealPlaceId` still arrives as a server prop and still seeds it, so the very first commit of
+   * a cold load has the id in hand before any effect runs.
+   */
   const pendingRevealId = useRef<string | null>(revealPlaceId ?? null);
 
   const handleViewportChange = useCallback(
@@ -1212,16 +1233,30 @@ export function MapPageClient({
     return () => clearTimeout(timer);
   }, [pendingReveal, places]);
 
+  /**
+   * **No dependency array, and the URL is the guard.**
+   *
+   * A dep array cannot express "a push happened" any more: the prop is the same string it was
+   * before the push on a repeat reveal, and leaning on `places` changing identity would be relying
+   * on the server handing back a fresh array — true today, and not a thing to build on. Running
+   * after every commit and asking the URL is cheap (one `URLSearchParams` parse) and cannot miss.
+   *
+   * It is idempotent by construction: the first run that finds a `place` param removes it, so
+   * every later commit early-returns until another push puts one back.
+   */
   useEffect(() => {
-    const id = pendingRevealId.current;
-    if (id === null || !cameraAlive) return;
+    if (!cameraAlive) return;
+    const url = new URL(window.location.href);
+    const id = pendingRevealId.current ?? url.searchParams.get('place');
+    if (id === null) return;
     pendingRevealId.current = null;
-    window.history.replaceState(null, '', '/map');
+    // **Only the `place` param is dropped.** Rewriting to a bare `/map` would delete
+    // `?view=collections` along with it and throw the user out of the view they are in — the same
+    // string that was harmless while this was the only param this route had.
+    url.searchParams.delete('place');
+    window.history.replaceState(null, '', `${url.pathname}${url.search}`);
     if (places.some((place) => place.id === id)) revealSavedPlace(id);
-    // `revealSavedPlace` is re-created every render and is deliberately not a dependency: the ref
-    // above makes this effect spend itself on the first run after the camera is alive.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cameraAlive, places]);
+  });
 
   /**
    * **The collections side of the drawer, as the handful of shell props it overrides.**
