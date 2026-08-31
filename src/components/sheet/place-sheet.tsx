@@ -681,7 +681,7 @@ export function useLibraryTagFacets(
  * Every string is `overnight-copy-deck.md` §4.2 — `Sort`, `Recently saved`, `Nearest`, `A–Z`, the
  * last with an en dash. None is written here.
  */
-function SortControl({
+export function SortControl({
   order,
   orders,
   onChange,

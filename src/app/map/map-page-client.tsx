@@ -1257,6 +1257,15 @@ export function MapPageClient({
                   onToggleCategory={toggleCategoryFilter}
                   onAddTikTok={openImport}
                   onSelect={selectPlace}
+                  // The row↔pin coupling and the sort control, on the surface both were designed
+                  // for: at `lg+` the list and the map are side by side. Same props, same
+                  // components, same state as the sheet — two surfaces over one library must not
+                  // offer different controls.
+                  onHover={setHoveredId}
+                  selectedId={selectedId}
+                  sortOrder={sortOrder}
+                  sortOrders={sortOrders}
+                  onChangeSort={chooseOrder}
                 />
               }
               /* Not guarded by the overlay, unlike the sheet, and the difference is that `PlaceSheet`

@@ -151,6 +151,30 @@ describe('the type scale is reached for by name', () => {
 describe('the hover crosses to the canvas', () => {
   /** The whole path, in order. Each link is a place the coupling could silently stop, and the
    *  canvas half is dead code without every one of them. */
+  it('reaches both list surfaces, not just the phone one', () => {
+    const PANEL = readFileSync('src/components/sheet/place-desktop-panel.tsx', 'utf8');
+    // **1440×900 renders the desktop panel, not the sheet**, so a coupling wired only into
+    // `PlaceSheet` cannot fire at one of the two gate viewports — which is exactly what happened,
+    // and why K8's browser criterion could not be met while the DOM half provably worked.
+    expect(PANEL).toContain('readonly onHover?: (placeId: string | null) => void;');
+    expect(PANEL).toContain('{...(onHover ? { onHover } : {})}');
+    expect(PANEL).toContain('selected={selectedId === place.id}');
+    expect(PAGE).toContain('onHover={setHoveredId}');
+    // Both call sites, one state cell: two surfaces over one library must not disagree about
+    // which place is being pointed at.
+    expect(PAGE.match(/onHover=\{setHoveredId\}/g) ?? []).toHaveLength(2);
+  });
+
+  /** The same rule for the sort control: a facet that exists on one gate viewport and not the
+   *  other is a half-finished surface, and it is the same shared component in both. */
+  it('offers the sort control on both surfaces, from one component', () => {
+    const PANEL = readFileSync('src/components/sheet/place-desktop-panel.tsx', 'utf8');
+    const SHEET_SRC = readFileSync('src/components/sheet/place-sheet.tsx', 'utf8');
+    expect(SHEET_SRC).toContain('export function SortControl(');
+    expect(PANEL).toContain('<SortControl order={sortOrder} orders={sortOrders} onChange={onChangeSort} />');
+    expect(PAGE.match(/onChangeSort=\{chooseOrder\}/g) ?? []).toHaveLength(2);
+  });
+
   it('runs list → page → shell → surface', () => {
     expect(SHEET).toContain('onHover?: (placeId: string | null) => void;');
     expect(PAGE).toContain('const [hoveredId, setHoveredId] = useState<string | null>(null);');

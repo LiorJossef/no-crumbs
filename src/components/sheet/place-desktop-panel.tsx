@@ -30,8 +30,10 @@ import {
   PlaceRow,
   PlaceSearchField,
   ResultCount,
+  SortControl,
   useLibraryTagFacets,
 } from './place-sheet';
+import { DEFAULT_PLACE_ORDER, type PlaceOrder } from './place-order';
 import { ActiveTagFilter, TagFacetBar } from './place-enrichment';
 import { CategoryFilterBar } from './category-filter-bar';
 import type { CategoryFacet } from '@/domain/places/category-filter';
@@ -77,6 +79,25 @@ export interface PlaceDesktopPanelProps {
   /** Selecting from the list. On desktop the detail then opens in the map's own pin-anchored
    *  popover — this panel is not a detail surface (§1.4) and does not become one. */
   readonly onSelect: (place: MapPlace) => void;
+  /**
+   * **The row↔pin coupling** (`W3-2`), and this is the surface it was designed for: at `lg+` the
+   * list and the map are side by side, so pointing at a row and watching its pin lift is the whole
+   * argument that they are one object rather than two lists of the same places. Below `lg` the
+   * sheet covers the map and the same callback is mostly a keyboard affordance.
+   *
+   * Optional, like the sheet's, so a host that lists places without a map mounts this unchanged.
+   */
+  readonly onHover?: (placeId: string | null) => void;
+  /** The open place's id, so its row draws the selected state and says `aria-current`. */
+  readonly selectedId?: string | null;
+  /**
+   * `W5-2`, the sort control. It shipped into `PlaceSheet` alone, which meant it was **invisible at
+   * 1440×900** — the gate viewport renders this component, not the sheet. Same three props, same
+   * shape, and `sortOrders` shorter than two renders nothing.
+   */
+  readonly sortOrder?: PlaceOrder;
+  readonly sortOrders?: readonly PlaceOrder[];
+  readonly onChangeSort?: (order: PlaceOrder) => void;
 }
 
 export function PlaceDesktopPanel({
@@ -98,6 +119,11 @@ export function PlaceDesktopPanel({
   unfilteredCount,
   onAddTikTok,
   onSelect,
+  onHover,
+  selectedId,
+  sortOrder = DEFAULT_PLACE_ORDER,
+  sortOrders = [],
+  onChangeSort,
 }: PlaceDesktopPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -182,6 +208,13 @@ export function PlaceDesktopPanel({
               viewports and a facet that exists on one of them is a half-finished surface — the
               same argument that makes `PlaceRow` shared. Renders nothing when the library carries
               no tags, which is most libraries. */}
+        {/* `W5-2`, and the same component the sheet renders rather than a second one. It shipped
+              into `PlaceSheet` alone and was therefore **invisible at 1440×900**, which is a gate
+              viewport — a control that exists on one of the two is a half-finished surface, the
+              same argument that makes `PlaceRow` and the filter bar shared. */}
+        {!libraryIsEmpty && onChangeSort !== undefined && sortOrders.length > 1 && (
+          <SortControl order={sortOrder} orders={sortOrders} onChange={onChangeSort} />
+        )}
         {!libraryIsEmpty && <TagFacetBar facets={tagFacets} />}
         {activeTag !== null && <ActiveTagFilter tag={activeTag} onClear={onClearTag} />}
         {/* See `AreaHeading.note`: the one line an achievement heading needs and a failed query
@@ -200,14 +233,26 @@ export function PlaceDesktopPanel({
             {!heading.empty && (
               <ul>
                 {places.map((place) => (
-                  <PlaceRow key={place.id} place={place} onSelect={onSelect} />
+                  <PlaceRow
+                    key={place.id}
+                    place={place}
+                    onSelect={onSelect}
+                    {...(onHover ? { onHover } : {})}
+                    selected={selectedId === place.id}
+                  />
                 ))}
               </ul>
             )}
             {/* The same continuation the sheet renders, from the same array. The panel used to
                   differ here — it opened every country group where the sheet opened two — and with
                   the groups gone there is nothing left for the two surfaces to disagree about. */}
-            <EverywhereElse places={otherPlaces} flush={heading.empty} onSelect={onSelect} />
+            <EverywhereElse
+              places={otherPlaces}
+              flush={heading.empty}
+              onSelect={onSelect}
+              {...(onHover ? { onHover } : {})}
+              {...(selectedId === undefined ? {} : { selectedId })}
+            />
           </div>
           {/* Pinned to the bottom of the panel, out of the scroll — see `PlaceList`. */}
           <div className="shrink-0 px-6 pb-6">
