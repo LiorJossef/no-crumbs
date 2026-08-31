@@ -19,10 +19,12 @@
  * helper called from the same `.map()` would break the rules of hooks — and not always loudly.
  */
 
-import { useId, useState } from 'react';
-import { ArrowUpRight, Check, ChevronDown, Crosshair, MapPinOff } from 'lucide-react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { ArrowUpRight, Check, ChevronDown, Crosshair, MapPinOff, Pencil } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
+import { ENTER_REVEAL, LEAVE_REVEAL, REVEAL_BEAT, TINT_BEAT } from '@/lib/interaction';
+import { NOTE_MAX_LENGTH } from '@/domain/places/note';
 import { isolate } from '@/ui/place/active-area';
 import {
   candidateMeta,
@@ -60,6 +62,14 @@ export const STATUS_CHIP: Record<ItemStatus, { readonly label: string; readonly 
 };
 
 /**
+ * Shown once the note gets close enough to the limit that the number is useful rather than noise —
+ * the same threshold, for the same reason, as the place sheet's editor
+ * (`components/sheet/saved-place-edits.tsx`). Nobody writing "before 10, get the pistachio one"
+ * will ever see it; somebody pasting a paragraph will.
+ */
+const COUNTER_VISIBLE_FROM = NOTE_MAX_LENGTH - 200;
+
+/**
  * One candidate, as a decision rather than a readout.
  *
  * Two zones separated by a hairline: above it, what we believe this place is; below it, how sure
@@ -74,12 +84,14 @@ export function ExtractedCandidateRow({
   caption,
   view,
   pick,
+  note,
   selected,
   frozen,
   status,
   collapsed,
   onToggle,
   onPick,
+  onNoteChange,
 }: {
   candidate: PlaceCandidate;
   /** The post's caption, which is where "is this name only in a hashtag?" is decided. */
@@ -88,6 +100,9 @@ export function ExtractedCandidateRow({
   view: CandidateResolutionView;
   /** The user's explicit shortlist choice, or `null` for "they haven't chosen". */
   pick: number | null;
+  /** The note as typed, raw and untrimmed — `''` for "nothing written". Owned by the screen, not
+   *  by this card, so it survives a re-render and is there when Save assembles the request. */
+  note: string;
   selected: boolean;
   frozen: boolean;
   status: ItemStatus | null;
@@ -97,6 +112,7 @@ export function ExtractedCandidateRow({
   collapsed: boolean;
   onToggle: () => void;
   onPick: (optionIndex: number) => void;
+  onNoteChange: (value: string) => void;
 }) {
   // The name the SAVE will write, never the model's guess at it — `savedPlaceName` explains why the
   // two used to differ on screen. Falls back to the caption's reading when nothing resolved.
@@ -135,6 +151,20 @@ export function ExtractedCandidateRow({
    * has not gone; it is `settlednessLine` in the row this vacated.
    */
   const badge = provenanceBadge(isSaveable(candidate), view, pick);
+
+  /** The note's own disclosure, closed on arrival. See `noteRow` for why it may not be an
+   *  always-open field, and why the text itself lives in the screen rather than here. */
+  const noteId = useId();
+  const [noteOpen, setNoteOpen] = useState(false);
+  const noteRef = useRef<HTMLTextAreaElement>(null);
+  const noteText = note.trim();
+
+  // Tapping `Add a note` is a request to type, so the field takes the caret — and on a phone that
+  // is what raises the keyboard, which is the whole difference between one tap and two. Fires on
+  // the open transition only; on mount `noteOpen` is false and this does nothing.
+  useEffect(() => {
+    if (noteOpen) noteRef.current?.focus();
+  }, [noteOpen]);
 
   const body = (
     <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
@@ -297,6 +327,137 @@ export function ExtractedCandidateRow({
   );
 
   /**
+   * The user's own sentence, written at the one moment they still know why they are saving.
+   *
+   * The note is the only field in this whole request the user authors
+   * (`domain/import/confirm.ts`), it is **searchable** afterwards (`domain/places/search.ts`), and
+   * until now it existed only in the place sheet — days later, when the reason has gone and
+   * re-watching the video is the only way to recover it. This is the same field, offered while it
+   * is still free.
+   *
+   * **A disclosure, never an open textarea.** `ui-review-2026-08-31.md` finding 11 already names
+   * this screen the least responsive surface in the product; a stack of open fields on a
+   * four-candidate review would make the worst screen worse. Closed, it is one 44px text button.
+   * It borrows the shortlist's own `Not this place?` idiom rather than inventing a second
+   * disclosure vocabulary two rows apart, and the beats are `interaction.ts`'s named ones — so the
+   * chevron turns in at 200ms and out at 140, and a reduced-motion reader gets the panel's fade
+   * with none of its travel (`ENTER_REVEAL`'s opacity arm is deliberately unprefixed).
+   *
+   * **Optional, and it has to read that way.** No asterisk, no "required", brand-coloured link
+   * weight rather than a filled control: the screen's job is deciding what to save, and a note
+   * that looks compulsory would make people think they owe it a sentence.
+   *
+   * **The rule where the note meets the tickbox**, which is the one place these two could fight:
+   *
+   *  - A note is only ever saved *with* its place. There is no other row it could go on.
+   *  - So writing one **ticks the place** — the same rule `pick()` already applies to choosing a
+   *    shortlist entry, and for the same reason: an authored decision about this card that left it
+   *    unticked would be silently discarded at Save. Only on the empty → non-empty transition, so
+   *    a user who deliberately unticks a card they already annotated can keep typing without the
+   *    tick springing back.
+   *  - Unticking never deletes what they wrote. The text stays, stays visible, and the card says
+   *    plainly that it is not going anywhere until the place is selected.
+   *
+   * Not offered on a card that cannot be saved, and not after a save has reported outcomes — in
+   * both of those states there is no request left for a note to ride on.
+   */
+  const noteRow = saveable && status === null && (
+    <div
+      className={cn(
+        'flex flex-col gap-1',
+        // The hairline and the inset belong to the card. Collapsed, there is no card to sit
+        // inside, so this block takes the screen's own margin — the same split `shortlist` makes.
+        !collapsed && 'border-t border-border/60 px-4 pb-2',
+      )}
+    >
+      <button
+        type="button"
+        disabled={frozen}
+        aria-expanded={noteOpen}
+        aria-controls={noteId}
+        onClick={() => setNoteOpen((open) => !open)}
+        className="flex h-11 w-fit items-center gap-1.5 text-xs font-bold text-brand outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
+      >
+        <Pencil className="size-3.5 shrink-0" aria-hidden />
+        {noteOpen ? 'Your note' : noteText === '' ? 'Add a note' : 'Edit your note'}
+        <ChevronDown
+          className={cn('size-3.5 shrink-0', noteOpen ? `${REVEAL_BEAT} rotate-180` : LEAVE_REVEAL)}
+          aria-hidden
+        />
+      </button>
+
+      {noteOpen ? (
+        <div id={noteId} className={cn('flex flex-col gap-1', ENTER_REVEAL)}>
+          <textarea
+            ref={noteRef}
+            // `dir="auto"`: a note is free-form prose and Tel Aviv is a target city, so it is
+            // routinely Hebrew — the same treatment the place sheet's editor and the shared
+            // collection note already carry.
+            dir="auto"
+            rows={2}
+            // The database's own limit, restated (`domain/places/note.ts`). Enforced here rather
+            // than validated afterwards, so the field cannot reach a state that disables Save —
+            // one fewer way for this screen to end with a dead primary button.
+            maxLength={NOTE_MAX_LENGTH}
+            value={note}
+            disabled={frozen}
+            aria-label="Your note"
+            onChange={(event) => onNoteChange(event.target.value)}
+            onKeyDown={(event) => {
+              // Escape closes the field, and stops there: the shell also listens for it, and an
+              // Escape meant for a textarea should never close the import.
+              // Enter does NOT close — a note is prose, and stealing Enter makes a second line
+              // impossible to type (`saved-place-edits.tsx` settled this).
+              if (event.key === 'Escape') {
+                event.stopPropagation();
+                setNoteOpen(false);
+              }
+            }}
+            placeholder="Why are you saving this?"
+            className={cn(
+              // Restated from the place sheet's editor rather than shared: a `<textarea>` cannot
+              // be an `<Input>`, and that file's copy is the only other one in the tree.
+              // `TINT_BEAT` is the border warming under a pointer — the micro tier, named.
+              TINT_BEAT,
+              // `text-base` up to `md`, and it is not a style choice: iOS Safari zooms the
+              // viewport on focusing any field under 16px, and this one sits inside a scroll
+              // region on the screen a phone user reaches most often.
+              'w-full resize-y rounded-lg border border-input bg-background px-2.5 py-2 text-base leading-relaxed outline-none hover:border-ring/60 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 md:text-sm',
+            )}
+          />
+          {/* Absent rather than invisible until it matters. The sheet's editor holds the line to
+              stop its Save row jumping; there is no row under this one to jump, and every pixel
+              on this screen is contested. */}
+          {noteText.length >= COUNTER_VISIBLE_FROM && (
+            <p className="text-end text-micro font-medium text-muted-foreground">
+              {noteText.length.toLocaleString()} / {NOTE_MAX_LENGTH.toLocaleString()}
+            </p>
+          )}
+        </div>
+      ) : (
+        noteText !== '' && (
+          // Closed, the note is still on the card. It is the one thing here the user wrote, and
+          // hiding it behind the affordance that wrote it would make `Edit your note` a button
+          // whose subject is invisible — and would hide the note this card is about to not save.
+          // `whitespace-pre-wrap` because `validateNote` preserves newlines.
+          <p
+            dir="auto"
+            className="line-clamp-2 text-xs leading-relaxed font-medium whitespace-pre-wrap text-foreground"
+          >
+            {noteText}
+          </p>
+        )
+      )}
+
+      {/* The deselect rule, said out loud on the one card it is true of. Nothing was lost — the
+          text is right there — and the sentence names the single action that saves it. */}
+      {!selected && noteText !== '' && (
+        <p className="text-xs font-semibold text-warning">Select this place to save your note.</p>
+      )}
+    </div>
+  );
+
+  /**
    * What this row says now that the badge above it carries provenance (W6-4).
    *
    * **The collapsed layout is the exception, and it is not a fork.** That layout deletes the card,
@@ -374,6 +535,7 @@ export function ExtractedCandidateRow({
         )}
         {pinRow}
         {shortlist}
+        {noteRow}
       </li>
     );
   }
@@ -433,6 +595,8 @@ export function ExtractedCandidateRow({
       {shortlist}
 
       {pinRow}
+
+      {noteRow}
     </li>
   );
 }

@@ -38,6 +38,7 @@ import {
   saveButtonLabel,
   skippedNotice,
 } from '@/domain/import/candidate-presentation';
+import { NOTE_MAX_LENGTH, validateNote } from '@/domain/places/note';
 import {
   arrivesTicked,
   collapsesToOneResult,
@@ -101,6 +102,20 @@ export function CaptionPreviewScreen({
    * `0` we invented would make the row read as a human choice it never was.
    */
   const [picks, setPicks] = useState<ReadonlyMap<number, number>>(() => new Map());
+
+  /**
+   * What the user wrote about each candidate, keyed by candidate index, raw and untrimmed.
+   *
+   * The one field in the confirm request the user authors (`domain/import/confirm.ts`), and the
+   * only reason this screen is worth interrupting: `domain/places/search.ts` searches notes, so a
+   * sentence typed here is what finds the place three weeks later. The schema has always carried
+   * it; the client sent `null` and the screen had nowhere to type.
+   *
+   * Held here rather than in the card so it survives whatever the card does with its own local
+   * disclosure state, and so Save can read every candidate's note at once. Absent means "nothing
+   * written" — the same distinction `note.ts` keeps between `null` and `''`, one layer up.
+   */
+  const [notes, setNotes] = useState<ReadonlyMap<number, string>>(() => new Map());
 
   /** The resolver's answer per candidate, derived once. `resolutionView` is the only mapping —
    *  the band itself comes from `deriveResolution`, the same function the confirm route uses. */
@@ -166,6 +181,26 @@ export function CaptionPreviewScreen({
   function pick(candidateIndex: number, optionIndex: number) {
     setPicks((current) => new Map(current).set(candidateIndex, optionIndex));
     setSelected((current) => (current.has(candidateIndex) ? current : new Set(current).add(candidateIndex)));
+  }
+
+  /**
+   * Writing a note is the same kind of act as picking a shortlist entry — a decision about *this*
+   * place — so it ticks the card, exactly as `pick` above does and for the same reason: a note on
+   * an unticked card is thrown away at Save, and nothing would have said so.
+   *
+   * **Only on the empty → non-empty transition.** A user who annotates a card and then decides
+   * against saving it can carry on editing without the tick springing back under their thumb;
+   * that is the difference between a rule and a fight. Unticking never clears the text — the card
+   * keeps showing it and says what it would take to save it.
+   */
+  function writeNote(candidateIndex: number, value: string) {
+    const wasEmpty = (notes.get(candidateIndex) ?? '').trim() === '';
+    setNotes((current) => new Map(current).set(candidateIndex, value));
+    if (wasEmpty && value.trim() !== '') {
+      setSelected((current) =>
+        current.has(candidateIndex) ? current : new Set(current).add(candidateIndex),
+      );
+    }
   }
 
   // Counted over the saveable set rather than `selected.size`, so the number on the button is
@@ -408,8 +443,10 @@ export function CaptionPreviewScreen({
               frozen={frozen}
               status={statusByIndex?.get(i) ?? null}
               collapsed={collapsed}
+              note={notes.get(i) ?? ''}
               onToggle={() => toggle(i)}
               onPick={(optionIndex) => pick(i, optionIndex)}
+              onNoteChange={(value) => writeNote(i, value)}
             />
           ))}
         </ul>
@@ -469,6 +506,7 @@ export function CaptionPreviewScreen({
                     .map((candidateIndex) => ({
                       candidateIndex,
                       optionIndex: picks.get(candidateIndex) ?? null,
+                      note: confirmedNote(notes.get(candidateIndex) ?? ''),
                     })),
                 )
               }
@@ -503,4 +541,21 @@ export function CaptionPreviewScreen({
       </div>
     </div>
   );
+}
+
+/**
+ * A note as the request carries it: trimmed, and `null` rather than `''` when nothing was written.
+ *
+ * `validateNote` is the place sheet's rule, imported rather than restated — one note rule for both
+ * entry points, which is the whole reason that module exists rather than three lines inside a
+ * server action. Its failing branch is unreachable from here (the textarea carries
+ * `maxLength={NOTE_MAX_LENGTH}`, and trimming only shortens), and it is handled anyway by clamping
+ * rather than dropping: silently discarding what somebody typed is the one outcome this field must
+ * never have.
+ */
+function confirmedNote(raw: string): string | null {
+  const validated = validateNote(raw);
+  if (validated.ok) return validated.value;
+  const clamped = raw.trim().slice(0, NOTE_MAX_LENGTH);
+  return clamped === '' ? null : clamped;
 }

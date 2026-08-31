@@ -32,6 +32,17 @@ export type ItemStatus = 'saved' | 'already_saved' | 'skipped' | 'failed';
 export interface CandidatePick {
   readonly candidateIndex: number;
   readonly optionIndex: number | null;
+  /**
+   * The user's own sentence about this place — the one field in the whole request that is not a
+   * position into something the server already stored (`domain/import/confirm.ts`'s header).
+   *
+   * Already trimmed, and `null` rather than `''` for "they wrote nothing": `saved_places.note` is
+   * nullable and `Spot.note` is `undefined` when absent, so an empty string would be a second
+   * representation of the same state (`domain/places/note.ts`). The review screen normalises it
+   * through `validateNote` before it gets here, which is the same rule the place sheet's editor
+   * applies days later — one note rule, two entry points.
+   */
+  readonly note: string | null;
 }
 
 /**
@@ -105,13 +116,16 @@ export async function saveExtractedCandidates(
   // comes from the extraction row the probe route wrote. The indices line up because the probe
   // route persisted exactly the array it returned — the same plausibility-filtered candidates,
   // in the same order.
-  const items = picks.map(({ candidateIndex, optionIndex }) => ({
+  const items = picks.map(({ candidateIndex, optionIndex, note }) => ({
     candidateIndex,
     // A position in the shortlist the *server* stored for this candidate, never a place fact.
     // `null` leaves the server's own policy in charge: auto-accept under `preselect`, and the
     // unchanged `llm_guess` path under `confirm` (`chooseResolvedPlace`).
     optionIndex,
-    note: null,
+    // Was hardcoded `null` from the day this request was written, on a schema that has always
+    // accepted the field — `confirm.ts` calls it "the only field in this request the user
+    // authors" and the client authored nothing. The review screen fills it now.
+    note,
   }));
 
   const res = await fetch('/api/imports/confirm', {
