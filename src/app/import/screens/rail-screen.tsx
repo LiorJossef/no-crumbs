@@ -82,7 +82,7 @@ export function RailScreen({
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="flex flex-col gap-1 pb-10">
+      <div className="flex flex-col gap-1">
         {/*
           **The kicker has no spinner any more, and that is the point of this change.**
 
@@ -125,8 +125,45 @@ export function RailScreen({
           this screen is the sentence and the rail, and a centred character would make the
           character the subject.
         */}
-        <CrumbTrail className="crumb-anim-wobble mt-5 w-40" mood="reading" />
       </div>
+
+      {/*
+        **Three flexible joints, so the slack is distributed instead of pooling above the pinned
+        action.**
+
+        Measured at 390x844: the gap between the last step and `Cancel` was **174px, 20.6% of the
+        viewport** — one contiguous void on the longest-dwell screen in the product, which somebody
+        looks at for up to thirty-four seconds. `iteration-2-plan.md`'s `I2-5` criterion is *"no
+        screen carries a stretched gap above a pinned action"*; it was written about the landing
+        screens and this screen had the shape it forbids.
+
+        **Nothing was invented to fill it** — that rule holds, and there is nothing honest to put
+        here anyway: the rail may claim no stage the server did not send. What changed is where the
+        emptiness goes. Three `flex-1` joints share it — under the header, under the trail, above
+        `Cancel` — so 174 in one place becomes about 71 in three, and 71px of air between blocks is
+        rhythm rather than a hole.
+
+        The header stays top-anchored, because a title belongs where titles go, and the trail ends
+        up floating between two of the joints with air on both sides, which suits the one thing on
+        this screen a person is actually watching.
+
+        **They collapse to nothing when there is no slack**, which is the reason this is three
+        spacers rather than a centred block: at 667px tall the content already fills the column, and
+        `justify-center` on an overflowing flex column pushes content off *both* ends, including the
+        heading.
+
+        **The floors are why they are `min-h-*` and not bare `flex-1`.** Without them the first
+        version of this collapsed to nothing on desktop, where the shell card is sized to its
+        content and there is no slack at all — measured at 1440x900, the trail ended up wedged
+        between the wait line and the post card with no air. A joint that distributes slack must
+        still be a joint when there is none. 20/32/32 is roughly the fixed padding this screen
+        carried before, so the no-slack case is where it was and only the slack case changed.
+      */}
+      <div className="min-h-5 flex-1" />
+
+      <CrumbTrail className="crumb-anim-wobble w-40" mood="reading" />
+
+      <div className="min-h-8 flex-1" />
 
       {/* The post, once the server has actually sent it (`RailState.post`, W6-2). Its visual
           language is the review screen's source row on purpose: the same 48px still, the same
@@ -194,7 +231,9 @@ export function RailScreen({
         ))}
       </ol>
 
-      <div className="mt-auto flex flex-col gap-2 pt-10">
+      <div className="min-h-8 flex-1" />
+
+      <div className="flex flex-col gap-2">
         <Button type="button" variant="ghost" onClick={onCancel} className="h-11 w-full rounded-lg text-sm font-bold">
           Cancel
         </Button>
