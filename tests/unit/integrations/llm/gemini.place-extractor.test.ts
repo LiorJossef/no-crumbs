@@ -212,13 +212,29 @@ describe('geminiPlaceExtractor', () => {
     ).rejects.toMatchObject({ code: 'EXTRACTOR_UNAVAILABLE' });
   });
 
-  it('throws EXTRACTOR_UNAVAILABLE on a non-OK HTTP response', async () => {
-    const fetchImpl = async () => jsonResponse({ error: 'rate limited' }, 429);
+  it('throws EXTRACTOR_UNAVAILABLE on a non-OK HTTP response that is not a quota refusal', async () => {
+    const fetchImpl = async () => jsonResponse({ error: 'upstream is unwell' }, 500);
     const extractor = geminiPlaceExtractor({ apiKey: 'test-key', fetchImpl: fetchImpl as typeof fetch });
 
     await expect(
       extractor.extract([{ kind: 'caption', text: 'anything', origin: 'tiktok-oembed-title' }], ctx()),
     ).rejects.toMatchObject({ code: 'EXTRACTOR_UNAVAILABLE' });
+  });
+
+  it('throws EXTRACTOR_QUOTA_EXHAUSTED on 429, because a retry cannot clear the day’s budget', async () => {
+    // This test used to send 429 and assert `EXTRACTOR_UNAVAILABLE`, whose copy offers a retry.
+    // Gemini's 429 is the shared daily budget gone, so that retry fails identically every time —
+    // the product was offering a button it could not honour. `fd40c2f` changed the behaviour and
+    // this assertion had been left behind at HEAD.
+    //
+    // **`anthropic.place-extractor.ts` must not gain this branch.** Its 429 is a short per-minute
+    // limit a retry genuinely clears. Same status code, opposite meaning.
+    const fetchImpl = async () => jsonResponse({ error: 'rate limited' }, 429);
+    const extractor = geminiPlaceExtractor({ apiKey: 'test-key', fetchImpl: fetchImpl as typeof fetch });
+
+    await expect(
+      extractor.extract([{ kind: 'caption', text: 'anything', origin: 'tiktok-oembed-title' }], ctx()),
+    ).rejects.toMatchObject({ code: 'EXTRACTOR_QUOTA_EXHAUSTED' });
   });
 
   it('throws EXTRACTOR_INVALID_OUTPUT when the response contains no text part', async () => {
