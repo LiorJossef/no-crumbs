@@ -7,6 +7,7 @@ import { getCollectionMemberships } from '@/app/collections/_lib/get-collections
 import { getSpots } from './_lib/get-spots';
 import { toMapPlace } from './_lib/to-map-place';
 import { MapPageClient } from './map-page-client';
+import { ShellWordmark } from './shell-wordmark';
 
 // Placeholder for the real map (a separate task). Belt-and-suspenders auth check: the middleware
 // already redirects an unauthenticated visitor server-side, but every doc under docs/ that
@@ -42,6 +43,13 @@ export default async function MapPage({
 
   return (
     <main className="relative h-dvh w-full overflow-hidden">
+      {/* **The brand, on the one surface it was missing from** (`I2-8`). `voice-and-vocabulary.md`
+          §2's surface 1 is *the shell header wordmark*, specified before iteration 1 and never
+          built — so the name lived on `/`, `/sign-in`, the three error screens and the join page,
+          and vanished the moment anyone signed in. It is the opposite corner from the account chip
+          below, which is the only other thing floating over this map's top band. */}
+      <ShellWordmark />
+
       {/* The map is the shell (ux-architecture §1.1) — no solid app-bar sits above it. Account
           state floats as a single quiet, translucent chip in the safe-area-aware corner, matching
           the "floating controls, 44px, translucent scrim" language in §1.3 and sign-in's own
