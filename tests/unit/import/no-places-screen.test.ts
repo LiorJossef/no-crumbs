@@ -93,10 +93,21 @@ describe('the server derives the case, and sends a conclusion rather than its wo
   });
 
   it('does not re-run the filter to reconstruct the case on a cache hit', () => {
-    // `filterPlausible` runs in the non-cached branch only, so a cache hit is always
-    // `nothing_named`. Reconstructing it would change what the user sees between two identical
+    // `filterPlausible` must not run on the cache-hit path: a cache hit is always `nothing_named`,
+    // and reconstructing the case there would change what the user sees between two identical
     // imports, which is worse than the coarser answer.
-    expect((ROUTE.match(/filterPlausible\(/g) ?? []).length).toBe(1);
+    //
+    // **Asserted against the cache-hit arm, not by counting call sites.** This test used to assert
+    // `filterPlausible` appeared exactly once in the file, and that broke the moment a legitimate
+    // second site appeared — the caption-less branch, which reads the importer's note on a post
+    // that has no caption at all and is nowhere near the cached path. A tally cannot tell those
+    // apart. It is the same weakness a prompt test hit today, counting delimiters instead of
+    // locating the note, and passing while the note sat outside the fence.
+    const arm = ROUTE.slice(ROUTE.indexOf('if (cached !== null) {'));
+    const cacheHitBranch = arm.slice(0, arm.indexOf('} else {'));
+    expect(cacheHitBranch, 'the cache-hit arm must not re-filter').not.toContain('filterPlausible');
+    // And it must still run where the model actually produced candidates.
+    expect(ROUTE).toContain('filterPlausible(');
   });
 
   it('is derived on the screen from the enum, never re-derived from the candidates', () => {

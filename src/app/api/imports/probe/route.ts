@@ -140,13 +140,24 @@ import type { PlaceCandidate } from '@/domain/types';
  * a capability. When there is no key, there is no note reader, and the import proceeds exactly as
  * it does today.
  */
-async function readNote(note: string, ctx: OpCtx): Promise<readonly PlaceCandidate[]> {
+async function readNote(
+  note: string,
+  ctx: OpCtx,
+): Promise<{
+  readonly candidates: readonly PlaceCandidate[];
+  /** What ran, so a note-only extraction can be persisted and therefore confirmed. `extractions`
+   *  requires a model and a prompt version; without them `persistExtraction` returns null, the
+   *  response carries no `extractionId`, and the user is shown a place they cannot save. */
+  readonly version: string | null;
+  readonly promptVersion: string | null;
+}> {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (apiKey === undefined || apiKey === '') return [];
+  if (apiKey === undefined || apiKey === '') return { candidates: [], version: null, promptVersion: null };
+  const reader = noteExtractor({ apiKey });
   try {
-    const found = await noteExtractor({ apiKey }).extract(note, ctx.signal);
+    const found = await reader.extract(note, ctx.signal);
     ctx.log.event('extraction.note', { returned: found.length });
-    return found.map((n) => ({
+    const mapped = found.map((n) => ({
       rawName: n.rawName,
       // Everything else is a property of the caption, and a note does not carry it. Null is the
       // honest value: not "we looked and there was none", but "this source cannot answer that".
@@ -158,9 +169,10 @@ async function readNote(note: string, ctx: OpCtx): Promise<readonly PlaceCandida
       evidence: n.evidence,
       schemaVersion: EXTRACTION_SCHEMA_VERSION,
     })) as readonly PlaceCandidate[];
+    return { candidates: mapped, version: reader.version, promptVersion: reader.promptVersion };
   } catch (e) {
     console.warn(JSON.stringify({ event: 'extraction.note', outcome: 'failed', cause: describeCause(e) }));
-    return [];
+    return { candidates: [], version: null, promptVersion: null };
   }
 }
 
@@ -647,7 +659,38 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     /** How many candidates the plausibility gate dropped for naming only a city or a country.
      *  Zero on a cache hit, where the gate does not re-run — see `emptyReason` below. */
     let droppedAreaOnly = 0;
-    const captionHash = caption === null ? null : sha256(caption);
+    /**
+     * The extraction cache key's input side. **The note is part of it**, and that is the whole
+     * reason the note feature works at all.
+     *
+     * Without this the second probe — the one the no-places screen sends when someone types what
+     * they saw — hashes to the same value as the first, hits the cached row, and returns the
+     * note-free answer. The person's sentence is read by nothing and they are told "we read that
+     * too, and it doesn't name a place either", every time, truthfully about a read that never
+     * happened. Found by the session building that screen, against the live route.
+     *
+     * Folding it into the hash rather than bypassing the cache keeps every downstream mechanism
+     * correct for free: the miss runs the extractor *and* the note reader, `persistExtraction`
+     * writes a row whose `input_hash` matches what produced it, and `/api/imports/confirm` reads
+     * back a row that actually contains the candidate the user is about to save. A bypass would
+     * have had to re-derive all three.
+     */
+    const captionHash =
+      caption === null
+        ? null
+        : sha256(userNote === null ? caption : `${caption}\n\n${userNote}`);
+
+    // A post with no caption at all still deserves the note. `NO_CAPTION` is the outcome for a post
+    // we could read perfectly and which said nothing — and a person who watched it may know the
+    // name. Handled before the caption block because that block is guarded on the caption existing.
+    if (caption === null && userNote !== null) {
+      stage = 'extract';
+      const noteOnly = await readNote(userNote, ctx);
+      candidates = filterPlausible(noteOnly.candidates, userNote).kept;
+      // So the row persists and the place the user just named can actually be saved.
+      extractorVersion = noteOnly.version;
+      promptVersion = noteOnly.promptVersion;
+    }
 
     if (caption !== null) {
       stage = 'extract';
@@ -681,7 +724,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         // measured at zero across four iterations (`user-note-attempt-2026-09-01.md`). Additive and
         // best-effort: a note that fails to read must never cost the caption's candidates, which
         // are already in hand.
-        const noteCandidates = userNote === null ? [] : await readNote(userNote, ctx);
+        const noteCandidates = userNote === null ? [] : (await readNote(userNote, ctx)).candidates;
         msExtract = Date.now() - extractStartedAt;
         const plausible = filterPlausible(
           [...extracted.candidates, ...noteCandidates],
