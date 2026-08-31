@@ -59,6 +59,15 @@ import { cn } from '@/lib/utils';
  * above every screen title. Uppercasing is a Latin device with no Hebrew equivalent, so an RTL
  * chrome carries the label by weight and colour instead.
  */
+/**
+ * The gap between the last row of a collection and the pinned `Add places` footer above the bar.
+ *
+ * 12px, which is the footer's own `pt-3` — the space above the button and the space below the last
+ * row are deliberately the same number, so the button reads as sitting in a band rather than
+ * clamped onto the list.
+ */
+const LIST_END_GAP_PX = 12;
+
 export const KICKER =
   'text-[11px] font-bold uppercase tracking-[0.14em] text-brand rtl:normal-case rtl:tracking-normal';
 
@@ -367,9 +376,17 @@ function CollectionList({
         // Only when nothing is pinned below it. With the footer there, this list ends at the
         // footer's top edge and the bar is the footer's problem; paying here as well would be 68 px
         // of dead white between the last row and a button.
+        //
+        // **But not zero, which is what it was.** Measured at 390x844 with six places: at maximum
+        // scroll the last row's bottom edge lands on 704.99 and the container's bottom lands on
+        // 704.99 — the row is fully readable and touching the footer's hairline with nothing
+        // between them, which reads as a row that has been cut rather than one that has ended.
+        // `LIST_END_GAP_PX` is the footer's own `pt-3`, mirrored, so the gap above the button and
+        // the gap below the last row are the same number. It is a gap, not the bar's height; the
+        // paragraph above is still the reason this is not 68.
         style={{
-          scrollPaddingBottom: hasFooter ? 0 : barPx,
-          paddingBottom: hasFooter ? 0 : barPx,
+          scrollPaddingBottom: hasFooter ? LIST_END_GAP_PX : barPx,
+          paddingBottom: hasFooter ? LIST_END_GAP_PX : barPx,
         }}
       >
         {collection.places.length === 0 ? (
