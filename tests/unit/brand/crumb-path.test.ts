@@ -77,6 +77,31 @@ describe('the crumb outline', () => {
     expect(svg).toContain(CRUMB_PATH);
   });
 
+  it('keeps the face off the map', () => {
+    // `brand-and-product-foundation.md` §3.1 rule 2, second half, and it is absolute: *face on
+    // chrome, silhouette on data*. Thirty-one smiling faces over a city is a toy, and a pin with
+    // eyes cannot carry a category colour. The face constants exist and are used — by the app
+    // icon, the link preview and the two chrome marks — so the thing worth asserting is not that
+    // they are unused but that the map never reaches them.
+    const map = readFileSync('src/components/map/marker-images.ts', 'utf8');
+    expect(map).not.toContain('CRUMB_EYES');
+    expect(map).not.toContain('CRUMB_SMILE');
+  });
+
+  it('puts the face only where rule 2 names', () => {
+    // Chrome: the landing and sign-in mark (one surface in `voice-and-vocabulary.md` §2), the app
+    // icon and the link preview. Not the error screens — they are on neither list, and a mascot
+    // grinning at somebody whose screen just failed is its own defect.
+    for (const file of ['src/app/page.tsx', 'src/app/sign-in/page.tsx']) {
+      expect(readFileSync(file, 'utf8'), `${file} should carry the faced mark`).toContain(
+        '<PinMark face',
+      );
+    }
+    for (const file of ['src/app/error.tsx', 'src/app/not-found.tsx']) {
+      expect(readFileSync(file, 'utf8'), `${file} must not`).not.toContain('<PinMark face');
+    }
+  });
+
   it('appears as a literal in exactly one file', () => {
     for (const file of CONSUMERS) {
       const source = readFileSync(file, 'utf8');

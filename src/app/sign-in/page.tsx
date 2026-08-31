@@ -134,7 +134,7 @@ export default function SignInPage() {
               single step and not the other. `voice-and-vocabulary.md` §2 permits it on both — they
               are one surface in its list, *the landing and sign-in mark*. */}
           <div className="relative z-10 flex items-center gap-2.5">
-            <PinMark className="size-7.5 lg:size-9" />
+            <PinMark face className="size-7.5 lg:size-9" />
             <span
               className="font-display text-lg font-black tracking-tight text-foreground lg:text-xl"
               style={DISPLAY_WORDMARK_AXES}

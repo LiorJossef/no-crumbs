@@ -1,4 +1,10 @@
-import { CRUMB_PATH, CRUMB_VIEWBOX } from './crumb-path';
+import {
+  CRUMB_EYES,
+  CRUMB_PATH,
+  CRUMB_SMILE_PATH,
+  CRUMB_SMILE_WIDTH,
+  CRUMB_VIEWBOX,
+} from './crumb-path';
 
 /**
  * The mint crumb — the product's mark, on the four surfaces that are chrome rather than data:
@@ -19,18 +25,34 @@ import { CRUMB_PATH, CRUMB_VIEWBOX } from './crumb-path';
  *
  * Three things about the treatment, each of them a rule rather than a taste:
  *
- *  - **No face.** §3.1 rule 2 puts the face on chrome and the silhouette on data, and the app icon
- *    and link preview are where it goes. This mark renders at 30px on a phone and the design system
- *    drops the face below 32px — two dot eyes at that size turn to mud. So the wordmark beside it
- *    does the naming and the shape does the rest.
+ *  - **The face is opt-in, and where it goes is §3.1 rule 2 rather than a preference.** *Face on
+ *    chrome, silhouette on data*, and the surfaces rule 2 names are the app icon, the splash,
+ *    **sign-in** and the link preview. `voice-and-vocabulary.md` §2 treats *the landing and sign-in
+ *    mark* as one surface, so the landing page inherits it. Those two pass `face`; `error.tsx` and
+ *    `not-found.tsx` are on neither list and do not — a mascot grinning at somebody whose screen
+ *    just failed is its own defect, and the default here is faceless so that stays the thing you
+ *    have to ask for.
+ *
+ *    **This reverses what this file said until W7-4.** It argued the face out on the grounds that
+ *    the design system drops it below 32px and this renders at 30. That threshold is about the
+ *    *favicon*, which is 16px, and the argument does not survive the measurement below: at 30px the
+ *    outline carries 0.61px of irregularity and two eyes and a mouth carry a face. Rendered at 24,
+ *    30, 36, 44 and 64px on the brand wash, at device pixel ratio 3, and looked at — legible at
+ *    every one of them, including 24. `--accent` for the features rather than `--brand-tint`:
+ *    measured side by side, the near-white is crisper at 24 and 30px.
+ *
+ *    The map keeps no face and rule 2's second half is absolute about it — thirty-one smiling faces
+ *    over a city is a toy, and a pin with eyes cannot carry a category colour. `marker-images.ts`
+ *    does not import these constants and a unit test holds it to that.
  *  - **No gold.** §3.1 rule 3 refuses toast-gold as a brand colour: it sits a few degrees from the
  *    café category amber, and on this map colour means *what a place is*. Mint is the only brand
  *    colour, gold belongs to the mascot alone, and the two never share a surface — which is why the
  *    mascot appears here in the brand palette rather than in its own. Palette is one of the four
  *    things §3.1 rule 1 lets vary; the outline is not.
- *  - **One flat fill.** The old mark's `--accent` aperture is gone with the teardrop it belonged
- *    to. A teardrop needs the aperture to read as a marker; a crumb does not, and a hole in this
- *    outline reads as a doughnut. `--brand` is the whole palette of this component now.
+ *  - **Two roles, and no third.** `--brand` is the body and `--accent` is the face. The teardrop's
+ *    circular *aperture* is still gone and is not coming back: a teardrop needs one to read as a
+ *    marker, a crumb does not, and a hole in this outline reads as a doughnut. What `--accent`
+ *    draws now is a face, which is a different thing in the same colour.
  *
  * ## Measured: at the sizes this renders, the silhouette is a circle
  *
@@ -65,7 +87,7 @@ import { CRUMB_PATH, CRUMB_VIEWBOX } from './crumb-path';
  * The colour is `--brand`, a semantic role rather than a ramp step or a literal, so a token repass
  * — including the dark-mode pass that is still owed — moves the mark with everything else.
  */
-export function PinMark({ className }: { className?: string }) {
+export function PinMark({ className, face = false }: { className?: string; face?: boolean }) {
   return (
     <svg
       viewBox={`0 0 ${CRUMB_VIEWBOX} ${CRUMB_VIEWBOX}`}
@@ -73,6 +95,28 @@ export function PinMark({ className }: { className?: string }) {
       aria-hidden="true"
     >
       <path d={CRUMB_PATH} fill="var(--brand)" />
+      {face ? (
+        <>
+          {CRUMB_EYES.map((eye) => (
+            <ellipse
+              key={eye.cx}
+              cx={eye.cx}
+              cy={eye.cy}
+              rx={eye.rx}
+              ry={eye.ry}
+              fill="var(--accent)"
+            />
+          ))}
+          {/* A stroke, not a closed shape: a filled mouth reads as a shout. */}
+          <path
+            d={CRUMB_SMILE_PATH}
+            fill="none"
+            stroke="var(--accent)"
+            strokeWidth={CRUMB_SMILE_WIDTH}
+            strokeLinecap="round"
+          />
+        </>
+      ) : null}
     </svg>
   );
 }

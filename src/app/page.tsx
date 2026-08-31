@@ -93,7 +93,7 @@ export default async function Home() {
             mobile, vertically centred in a flex-1 left panel at `lg+`. Mirrors `/sign-in`. */}
         <div className="relative flex flex-1 flex-col px-6 pt-14 lg:justify-center lg:px-[clamp(48px,7vw,110px)] lg:pt-0">
           <div className="relative z-10 flex items-center gap-2.5">
-            <PinMark className="h-[30px] w-[30px] lg:h-9 lg:w-9" />
+            <PinMark face className="size-7.5 lg:size-9" />
             {/*
               The wordmark. The name is **decided** — No Crumbs, owner, 2026-08-30,
               `brand-and-product-foundation.md` §3 — and this is one of the six surfaces
