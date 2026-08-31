@@ -3,8 +3,12 @@
  * Runs the REAL shipped extractor over the 16 committed oEmbed captions.
  * No TikTok calls: captions are already saved in the evidence file.
  */
+import { describe, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { createPlaceExtractor } from '@/integrations/llm/place-extractor-factory';
+import { createPlaceResolver, placeResolverEnv, resolverProviderFor } from '@/integrations/places/place-resolver-factory';
+import { serviceRoleClient } from '@/integrations/supabase/service-role-client';
+import { buildResolveQuery, deriveResolution } from '@/domain/import/pipeline';
 import type { OpCtx } from '@/domain/ports';
 
 const EXPECTED: Record<string, 'place_recommendation' | 'place_question' | 'not_a_place'> = {
@@ -32,10 +36,17 @@ const ctx: OpCtx = {
   log: { event: () => {} },
 };
 
-async function main() {
+describe('E2-T3-EVAL — postIntent accuracy and end-to-end yield', () => {
+  it('runs the real extractor and resolver over the 16 committed captions', async () => {
   const raw = JSON.parse(readFileSync('docs/evidence/tiktok/oembed-set1-raw.json', 'utf8')) as any[];
   const extractor = createPlaceExtractor(process.env as never);
-  console.log(`extractor ${extractor.version} · prompt ${extractor.promptVersion}\n`);
+  const db = serviceRoleClient();
+  const resolver = createPlaceResolver(placeResolverEnv(), db);
+  const { provider, reason } = resolverProviderFor(placeResolverEnv());
+  console.log(`extractor ${extractor.version} · prompt ${extractor.promptVersion}`);
+  console.log(`resolver  ${provider} (${reason})\n`);
+  let lookups = 0, resolved = 0, ambiguous = 0, unresolved = 0;
+  const postsWithAPlace = new Set<string>();
 
   let correct = 0, n = 0, nulls = 0;
   const confusion: Record<string, Record<string, number>> = {};
@@ -49,10 +60,21 @@ async function main() {
     if (expected === undefined) { console.log(`  ?? no label for @${handle}`); continue; }
 
     let got: string | null = null, cands = -1, err = '';
+    const detail: string[] = [];
     try {
       const r = await extractor.extract([{ kind: 'caption', text: caption, origin: 'tiktok-oembed-title' }], ctx);
       got = (r as any).postIntent ?? null;
       cands = r.candidates.length;
+      for (const c of r.candidates) {
+        lookups += 1;
+        const res = deriveResolution(await resolver.resolve(buildResolveQuery(c, r.cityHint), ctx));
+        if (res.status === 'resolved') { resolved += 1; postsWithAPlace.add(handle); }
+        else if (res.status === 'ambiguous') { ambiguous += 1; postsWithAPlace.add(handle); }
+        else unresolved += 1;
+        const top = res.status === 'resolved' ? res.place.name : res.status === 'ambiguous' ? res.options[0]?.name ?? '?' : '—';
+        detail.push(`      ${c.rawName}  ->  ${res.status}  ${top}`);
+        await new Promise((r) => setTimeout(r, 250));
+      }
     } catch (e) { err = e instanceof Error ? e.message : String(e); }
 
     n += 1;
@@ -61,14 +83,18 @@ async function main() {
     if (ok) correct += 1;
     (confusion[expected] ??= {})[String(got)] = ((confusion[expected] ??= {})[String(got)] ?? 0) + 1;
     rows.push(`${ok ? '✓' : '✗'} @${handle.padEnd(24)} expected ${expected.padEnd(20)} got ${String(got).padEnd(20)} candidates=${cands}${err ? '  ERR ' + err.slice(0, 60) : ''}`);
+    detail.forEach((d) => rows.push(d));
     await new Promise((r) => setTimeout(r, 400));
   }
 
   rows.forEach((r) => console.log(r));
   console.log(`\naccuracy ${correct}/${n} = ${((correct / n) * 100).toFixed(0)}%   nulls ${nulls}`);
+  console.log(`\nEND TO END — the number the product is judged on`);
+  console.log(`  posts yielding at least one matched place: ${postsWithAPlace.size}/${n}`);
+  console.log(`  provider lookups spent: ${lookups}  (resolved ${resolved}, shortlist ${ambiguous}, no match ${unresolved})`);
   console.log('\nconfusion (expected → got):');
   for (const [exp, got] of Object.entries(confusion)) {
     console.log(`  ${exp.padEnd(20)} ${JSON.stringify(got)}`);
   }
-}
-main().catch((e) => { console.error(e); process.exit(1); });
+  }, 600_000);
+});
