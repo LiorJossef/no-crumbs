@@ -101,9 +101,9 @@ describe('the refusal', () => {
     const source = readFileSync(UI, 'utf8');
     for (const string of [
       'Delete my data',
-      'This removes your places, your collections and your account.',
+      'This removes your places, anything you kept for later, your collections and your account.',
       'Delete your account?',
-      'Your places, your collections and your account are removed. This can’t be undone.',
+      'Your places, anything you kept for later, your collections and your account are removed. This can’t be undone.',
       'Delete my account',
       'Deleting…',
       'Couldn’t delete your account. Try again in a moment.',

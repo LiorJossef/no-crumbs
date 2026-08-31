@@ -75,15 +75,16 @@ begin
     raise exception 'FAIL 1: RLS not enabled+forced on: %', v;
   end if;
   -- 9 through 0009; 11 from 0010 (poi_regions, poi_index); 15 from 0024 (collections,
-  -- collection_members, collection_items, collection_invites). The count is asserted, not just the
-  -- flags: a table nobody designed is exactly the thing this check exists to notice.
+  -- collection_members, collection_items, collection_invites); 16 from 0031 (place_mentions). The
+  -- count is asserted, not just the flags: a table nobody designed is exactly the thing this check
+  -- exists to notice.
   if (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace
-       where n.nspname = 'public' and c.relkind = 'r') <> 15 then
-    raise exception 'FAIL 1: expected 15 tables in public, found %',
+       where n.nspname = 'public' and c.relkind = 'r') <> 16 then
+    raise exception 'FAIL 1: expected 16 tables in public, found %',
       (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace
         where n.nspname = 'public' and c.relkind = 'r');
   end if;
-  raise notice 'PASS 1  fifteen tables, RLS enabled and forced on every one';
+  raise notice 'PASS 1  sixteen tables, RLS enabled and forced on every one';
 end $$;
 
 -- ── 2. the policy set is exactly the designed one, in both directions ───────────────────────
@@ -236,7 +237,33 @@ begin
     ('places','places_select_if_in_shared_collection','SELECT','authenticated',
        'place_is_in_my_collection(id)',''),
     ('profiles','profiles_select_collection_peers','SELECT','authenticated',
-       'shares_a_collection_with(id)','')
+       'shares_a_collection_with(id)',''),
+
+    -- ── 0031: place_mentions, E1. THREE policies, and the fourth's absence is deliberate: there is
+    -- NO INSERT POLICY because there is no INSERT grant (check 4/5), the shape `imports` has had
+    -- since 0003 B7 and `collection_members` since 0024. A mention is written by
+    -- record_place_mention(), SECURITY DEFINER and granted to service_role alone. An INSERT policy
+    -- appearing here means someone also granted INSERT, or is about to: with no grant the policy is
+    -- unreachable, and with a grant it is a standing permission nobody reviewed.
+    --
+    -- Every qual is `user_id = (select auth.uid())` and there is no second arm, no membership
+    -- predicate and no helper function — a mention is import history in its purest form (a record
+    -- that you pasted a post and what we thought was in it), so it must not become readable through
+    -- a shared collection or an invite token. 0024:579-581 already refuses to disclose which post
+    -- someone saved a place from; security-ruling-e1-caption-retention.md §4 upgrades that from a
+    -- scope line to a veto condition for this table. A predicate here naming any collection_* table,
+    -- or a new arm on sources_select_via_membership / the extractions policy above, is that veto
+    -- being broken.
+    --
+    -- The UPDATE policy carries a with_check as well as a qual. It is not redundant: the only
+    -- UPDATE-grantable column today is `dismissed`, so re-parenting is already impossible by grant —
+    -- the with_check is what keeps it impossible if the grant is ever widened.
+    ('place_mentions','place_mentions_select_own','SELECT','authenticated',
+       '(user_id = (select auth.uid()))',''),
+    ('place_mentions','place_mentions_update_own','UPDATE','authenticated',
+       '(user_id = (select auth.uid()))','(user_id = (select auth.uid()))'),
+    ('place_mentions','place_mentions_delete_own','DELETE','authenticated',
+       '(user_id = (select auth.uid()))','')
     -- place_lookups deliberately has no policy at all: deny-all server-side cache (R11)
   )
   select string_agg(msg, '; ' order by msg) into v from (
@@ -252,7 +279,38 @@ begin
      where a.cmd <> e.cmd or a.roles <> e.roles or a.q <> e.q or a.w <> e.w
   ) d;
   if v is not null then raise exception 'FAIL 2: policy drift: %', v; end if;
-  raise notice 'PASS 2  thirty-three policies, exact name/command/role/qual/with_check match (place_lookups, poi_regions and poi_index deliberately have none)';
+
+  -- ── condition 12 (0031): place_mentions has exactly THREE policies, and the fourth's absence is
+  -- an asserted fact rather than an omission ────────────────────────────────────────────────────
+  -- DELIBERATELY REDUNDANT with the both-directions comparison above, which already reports a
+  -- fourth as `UNEXPECTED place_mentions.<name>`. Do not delete it as duplication: the count is the
+  -- thing being asserted, and a generic UNEXPECTED line does not tell the next reader WHY three is
+  -- the designed number. It is this:
+  --
+  --   A MISSING POLICY IS A DENY, AND IT FAILS LOUDLY, IN DEVELOPMENT. RLS is enabled *and forced*
+  --   on every table in this schema, so if a later migration grants INSERT on place_mentions
+  --   without an INSERT policy, the very first insert anyone tries returns zero rows / 42501, on a
+  --   local container, immediately.
+  --
+  --   A POLICY WITHOUT A GRANT DOES THE OPPOSITE. It sits inert and unreadable as a control, and
+  --   then activates SILENTLY — and activates as PERMISSION — the moment an unrelated change adds
+  --   the grant, with nobody re-reading the predicate.
+  --
+  -- So three is not a convention and not a shortfall against the ruling's §4 "four" (superseded by
+  -- its own author: the four contradicted the precedent that same section cites — `imports` 0003 B7
+  -- and `collection_members` 0024, both of which have no INSERT grant AND no INSERT policy). Three
+  -- is the arrangement whose failure mode is the safe one.
+  --
+  -- Behavioural half, when a container exists: M5f (authenticated holds no INSERT) and M12d (this
+  -- same count, read under RLS) in supabase/tests/0031_place_mentions_policy_tests.sql.
+  if (select count(*) from pg_policies
+       where schemaname = 'public' and tablename = 'place_mentions') <> 3 then
+    raise exception 'FAIL 2: place_mentions has % policies, expected exactly three (select/update/delete own). There is deliberately NO INSERT POLICY, because there is no INSERT grant: a mention is written only by record_place_mention(), which is SECURITY DEFINER and granted to service_role alone. A fourth policy here means either the INSERT grant has been widened, or a policy is now sitting inert waiting to become permission the moment somebody widens it',
+      (select count(*) from pg_policies
+        where schemaname = 'public' and tablename = 'place_mentions');
+  end if;
+
+  raise notice 'PASS 2  thirty-six policies, exact name/command/role/qual/with_check match, and place_mentions has exactly three (place_lookups, poi_regions and poi_index deliberately have none)';
 end $$;
 
 -- ── 3. anon holds nothing at all (08 §5.1) ──────────────────────────────────────────────────
@@ -354,7 +412,17 @@ begin
     -- list means a removed member can delete their own tombstone and rejoin as a stranger.
     ('collection_members','SELECT'),
     ('collection_items','SELECT'), ('collection_items','DELETE'),
-    ('collection_invites','SELECT'), ('collection_invites','DELETE')
+    ('collection_invites','SELECT'), ('collection_invites','DELETE'),
+    -- 0031: DELETE ONLY, and the omissions are the design. There is no column-level DELETE in
+    -- Postgres, so this one is table-level by construction and is bounded by
+    -- place_mentions_delete_own; the ruling permits it because, unlike `imports`, a mention is not
+    -- an audit record and the user must be able to remove one. No table-level SELECT (the read is a
+    -- named column list, check 5, so a column added later arrives ungranted — the discipline
+    -- `extractions` does NOT have, which is why extractions.candidates.evidence is browser-readable
+    -- today). No table-level UPDATE (only `dismissed` is writable). And NO INSERT AT ALL, at either
+    -- level: a mention is created by record_place_mention() on the server, so an INSERT appearing
+    -- here or in check 5 means a browser can mint mentions naming any source_id it likes.
+    ('place_mentions','DELETE')
     -- deliberately absent: every write on sources/extractions/places/place_provider_refs (global
     -- tables are server-written); INSERT and DELETE on imports (R10, start_import only); anything
     -- at all on place_lookups (R11); table-level SELECT on sources (R8 — columns only, below) and,
@@ -488,7 +556,13 @@ begin
                               -- column list through unremarked, which on collection_invites means
                               -- a client-suppliable `token`.
                               'collections', 'collection_members',
-                              'collection_items', 'collection_invites'))
+                              'collection_items', 'collection_invites',
+                              -- 0031: named so its SELECT list is asserted in full and so an
+                              -- INSERT column grant on it would show up as UNEXPECTED. The
+                              -- `privilege_type = 'UPDATE'` arm alone would see only `dismissed`
+                              -- and would let a `grant insert (raw_name, ...)` through unremarked —
+                              -- which is the whole no-INSERT-grant decision, undone silently.
+                              'place_mentions'))
   ), expected(t, c, p) as (values
     -- profiles: display name only
     ('profiles','display_name','UPDATE'),
@@ -566,7 +640,35 @@ begin
     -- from viewer to editor after it has been sent.
     ('collection_invites','revoked_at','UPDATE'),
     ('collection_invites','collection_id','INSERT'), ('collection_invites','role','INSERT'),
-    ('collection_invites','expires_at','INSERT'), ('collection_invites','created_by','INSERT')
+    ('collection_invites','expires_at','INSERT'), ('collection_invites','created_by','INSERT'),
+
+    -- ── 0031: place_mentions, E1. Fifteen SELECT entries and exactly ONE UPDATE entry.
+    -- `dismissed` is the only column a browser may write, on any statement, and that single line is
+    -- acceptance criterion 5: `raw_name`, every hint and `reason` are the model's extraction of a
+    -- third party's post, so an UPDATE of them from a browser must fail at the DATABASE with 42501,
+    -- not in the UI. "The text is the post's, and is immutable" is a grant, not a policy — it holds
+    -- independently of whether the RLS predicate is right.
+    -- A SECOND ENTRY UNDER place_mentions IN THE UPDATE COLUMN, OR ANY ENTRY AT ALL WITH
+    -- privilege_type = 'INSERT', IS A REGRESSION AND NOT A TIDY-UP:
+    --   raw_name / *_hint / reason  UPDATE-able  -> a user can rewrite provenance after the fact
+    --   user_id / source_id         UPDATE-able  -> a mention can be given away, or re-attributed
+    --                                               to a post the user never pasted
+    --   saved_place_id              UPDATE-able  -> "this became a place" becomes forgeable; it is
+    --                                               written only by close_place_mention()
+    --   anything                    INSERT-able  -> the no-INSERT-grant decision is gone, and with
+    --                                               it the only thing making a mention the product
+    --                                               of a deliberate server action
+    -- `id`, `created_at` and `updated_at` are readable but not writable, for the reason 0024 states
+    -- everywhere: a client-chosen primary key and a backdated row.
+    ('place_mentions','dismissed','UPDATE'),
+    ('place_mentions','id','SELECT'), ('place_mentions','user_id','SELECT'),
+    ('place_mentions','source_id','SELECT'), ('place_mentions','external_url','SELECT'),
+    ('place_mentions','raw_name','SELECT'), ('place_mentions','city_hint','SELECT'),
+    ('place_mentions','country_hint','SELECT'), ('place_mentions','area_hint','SELECT'),
+    ('place_mentions','address_hint','SELECT'), ('place_mentions','category_hint','SELECT'),
+    ('place_mentions','reason','SELECT'), ('place_mentions','dismissed','SELECT'),
+    ('place_mentions','saved_place_id','SELECT'), ('place_mentions','created_at','SELECT'),
+    ('place_mentions','updated_at','SELECT')
   )
   select string_agg(format('%s %s.%s(%s)', kind, t, c, p), ', ' order by t, c, p) into v from (
     select 'UNEXPECTED' kind, a.t, a.c, a.p from actual a
@@ -939,7 +1041,15 @@ begin
   -- the other regression worth catching.
   with expected(n) as (values
     ('resolve_place'), ('merge_places'), ('start_import'),
-    ('place_survivor_id'), ('place_name_key'), ('km_between')
+    ('place_survivor_id'), ('place_name_key'), ('km_between'),
+    -- 0031's two writers. `authenticated` holds no INSERT on place_mentions and no grant on
+    -- saved_place_id, so these are the ONLY way a mention is created or closed. If a later migration
+    -- recreates either and forgets the service_role grant, "keep for later" stops working at runtime
+    -- with a privilege error and check 6 — which is exhaustive only about the browser roles — says
+    -- nothing. They are deliberately absent from check 6's expected set: neither is granted to anon
+    -- or authenticated, and both would be an escalation if they were (they write columns the caller
+    -- holds no grant on, security.md §1 invariant 1).
+    ('record_place_mention'), ('close_place_mention')
   ), actual as (
     select p.proname::text n, p.oid
       from pg_proc p join pg_namespace ns on ns.oid = p.pronamespace
@@ -955,7 +1065,7 @@ begin
   if v is not null then
     raise exception 'FAIL 9c: service_role cannot execute the trusted-server function(s): %', v;
   end if;
-  raise notice 'PASS 9c service_role can execute all six server-side functions the pipeline and the repair path need';
+  raise notice 'PASS 9c service_role can execute all eight server-side functions the pipeline, the repair path and the mention writers need';
 end $$;
 
 -- ── 9d. TRUNCATE for `service_role`: only where a migration actually asked for it ─────────────

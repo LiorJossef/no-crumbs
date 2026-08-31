@@ -452,7 +452,7 @@ decision about what the code does — see §10.
 | **C140** | Section heading | `Your account` |
 | **C141** | Sign-out button | `Sign out` — **already ships** (`profile/page.tsx:215`), unchanged |
 | **C142** | Delete entry point | `Delete my data` |
-| **C143** | Line under it | `This removes your places, your collections and your account.` |
+| **C143** | Line under it | `This removes your places, anything you kept for later, your collections and your account.` |
 
 `Delete my data` is `brand-and-product-foundation.md` §6's own phrase for this control and it is the
 right one: it describes what leaves, not what happens to a row. C143 states the scope in one clause
@@ -470,7 +470,7 @@ The user owns no collection that anyone else is in.
 | id | Element | String |
 |---|---|---|
 | **C144** | Dialog heading | `Delete your account?` |
-| **C145** | Dialog body | `Your places, your collections and your account are removed. This can’t be undone.` |
+| **C145** | Dialog body | `Your places, anything you kept for later, your collections and your account are removed. This can’t be undone.` |
 | **C146** | Confirm | `Delete my account` |
 | **C147** | Cancel | `Cancel` |
 | **C148** | In progress | `Deleting…` |

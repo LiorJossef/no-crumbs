@@ -52,9 +52,11 @@ import { Button } from '@/components/ui/button';
 const COPY = {
   heading: 'Your account',
   entry: 'Delete my data',
-  entryLine: 'This removes your places, your collections and your account.',
+  entryLine:
+    'This removes your places, anything you kept for later, your collections and your account.',
   confirmHeading: 'Delete your account?',
-  confirmBody: 'Your places, your collections and your account are removed. This can’t be undone.',
+  confirmBody:
+    'Your places, anything you kept for later, your collections and your account are removed. This can’t be undone.',
   confirm: 'Delete my account',
   deleting: 'Deleting…',
   cancel: 'Cancel',
