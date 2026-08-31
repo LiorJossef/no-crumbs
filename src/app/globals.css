@@ -1376,3 +1376,143 @@
     animation: crumb-appear 140ms ease-out 1 both;
   }
 }
+
+/*
+ * ## The signature entrance, executed by CSS rather than by JavaScript
+ *
+ * **This used to be Motion variants, and it server-rendered a blank front door.**
+ *
+ * Motion writes a variant's initial state into the server HTML, which is correct and is what stops
+ * a flash of finished layout. It also means `/` and `/sign-in` shipped **10 and 11 inline
+ * `opacity: 0` declarations**, the card among them, and the only thing that removed them was React
+ * hydrating. Measured by aborting every `.js` request with scripting still enabled — the shape of a
+ * slow connection, a chunk that 404s, or any hydration error — **minimum opacity 0 and 0 of 7
+ * controls visible on `/sign-in`.** A blank page on the product's front door.
+ *
+ * The `<noscript>` override that was here handled scripting *off* correctly and could never handle
+ * this: scripting is *on*, so the `<noscript>` path is not taken, and the code that would reveal
+ * the content is the code that failed. It is gone, because this needs no fallback rather than a
+ * better one.
+ *
+ * **A CSS animation cannot fail this way.** It is declared by the stylesheet, runs on the
+ * compositor's own timeline, needs no framework, and `animation-fill-mode: both` means the resting
+ * state is the *end* of the animation rather than something a script has to apply. If the
+ * stylesheet loads, the page reveals itself; if the stylesheet does not load, the page was never
+ * hidden. There is no third case. That is the same reasoning `iteration-2-plan.md` ruling 2 applies
+ * to the map — an entrance may not decide whether the product exists.
+ *
+ * The numbers are unchanged and still specified in `components/brand/chrome-motion.ts`, which is
+ * now the *specification* and no longer the executor: 60 ms for the card, children 45 ms apart from
+ * 180 ms, everything `opacity` and `transform` only.
+ *
+ * **`--enter-step` is the stagger**, set inline by `ChromeItem` because the beats are composed
+ * across two columns and `nth-child` restarts in each. Reduced motion is a media query rather than
+ * a hook, which is the other half of the same win: no render-time branch on a device preference, so
+ * the server and the client cannot disagree about it.
+ */
+@keyframes chrome-enter-card {
+    from { opacity: 0; transform: translateY(18px) scale(0.985); }
+    to { opacity: 1; transform: none; }
+}
+
+@keyframes chrome-enter-item {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: none; }
+}
+
+/* The mark is the one element with overshoot, standing in for the spring it had: it is the
+ * product's face and the first thing on the screen, so it lands with a little weight. */
+@keyframes chrome-enter-mark {
+    0% { opacity: 0; transform: scale(0.62) rotate(-12deg); }
+    68% { opacity: 1; transform: scale(1.045) rotate(2.5deg); }
+    100% { opacity: 1; transform: none; }
+}
+
+@keyframes chrome-enter-bloom {
+    from { opacity: 0; transform: scale(0.92); }
+    to { opacity: 1; transform: none; }
+}
+
+/* The ambient field. `alternate` rather than a loop because a bloom that snaps back to its start
+ * is a cut, and a cut is the one thing an ambient layer must never be. */
+@keyframes chrome-drift-a {
+    from { transform: translate3d(-2vmax, 0, 0) scale(0.94); }
+    to { transform: translate3d(4vmax, 5vmax, 0) scale(1.06); }
+}
+
+@keyframes chrome-drift-b {
+    from { transform: translate3d(2vmax, 1vmax, 0) scale(1.05); }
+    to { transform: translate3d(-4vmax, -4vmax, 0) scale(0.95); }
+}
+
+@keyframes chrome-enter-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@layer components {
+    [data-entrance] {
+        animation-duration: 340ms;
+        animation-timing-function: var(--ease-standard);
+        animation-fill-mode: both;
+        animation-delay: calc(180ms + var(--enter-step, 0) * 45ms);
+    }
+
+    [data-entrance='card'] {
+        animation-name: chrome-enter-card;
+        animation-duration: 420ms;
+        animation-delay: 60ms;
+        animation-timing-function: var(--ease-emphasised);
+    }
+
+    [data-entrance='item'] {
+        animation-name: chrome-enter-item;
+    }
+
+    [data-entrance='mark'] {
+        animation-name: chrome-enter-mark;
+        animation-duration: 460ms;
+        animation-delay: 180ms;
+    }
+
+    /* Two animations on one element: it arrives, then it drifts for as long as the page is open.
+     * The drift's delay is the enter's duration, so the two never overlap and neither snaps. */
+    [data-entrance='bloom-a'],
+    [data-entrance='bloom-b'] {
+        animation-duration: 600ms, 24s;
+        animation-timing-function: var(--ease-standard), ease-in-out;
+        animation-delay: 0ms, 600ms;
+        animation-iteration-count: 1, infinite;
+        animation-direction: normal, alternate;
+    }
+
+    [data-entrance='bloom-a'] {
+        animation-name: chrome-enter-bloom, chrome-drift-a;
+    }
+
+    [data-entrance='bloom-b'] {
+        animation-name: chrome-enter-bloom, chrome-drift-b;
+        animation-delay: 80ms, 680ms;
+    }
+
+    /*
+     * `facelift-plan.md` §3a — the nine collapse **to the opacity change, not to nothing**. Every
+     * transform goes, the stagger goes, the ambient drift stops outright, and what is left is a
+     * 140 ms fade. `--duration-enter` is that number; it is written here rather than referenced
+     * because `animation-duration` inside a media query resolves the custom property the same way
+     * and the token would only add a hop.
+     */
+    @media (prefers-reduced-motion: reduce) {
+        [data-entrance],
+        [data-entrance='card'],
+        [data-entrance='mark'],
+        [data-entrance='bloom-a'],
+        [data-entrance='bloom-b'] {
+            animation-name: chrome-enter-fade;
+            animation-duration: var(--duration-enter);
+            animation-delay: 0ms;
+            animation-iteration-count: 1;
+            animation-timing-function: linear;
+        }
+    }
+}

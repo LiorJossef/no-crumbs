@@ -101,11 +101,11 @@ export default async function Home() {
       <ChromeStage
         editorial={
           <>
-            <ChromeItem>
+            <ChromeItem step={1}>
               <ChromeKicker>{KICKER}</ChromeKicker>
             </ChromeItem>
 
-            <ChromeItem>
+            <ChromeItem step={2}>
               {/* The one editorial heading on this screen, so it takes the display face with the
                   wordmark in the lockup above it — §3.1's split is `h1`/`h2` and the wordmark in
                   Fraunces, everything functional in Manrope. Leaving this in Manrope would have put
@@ -133,7 +133,7 @@ export default async function Home() {
               </h1>
             </ChromeItem>
 
-            <ChromeItem>
+            <ChromeItem step={3}>
               <p className="max-w-xs text-sm font-medium leading-snug text-muted-foreground lg:max-w-md lg:text-base">
                 {SUBHEAD}
               </p>
@@ -144,7 +144,7 @@ export default async function Home() {
           <div className="flex flex-col">
             {/* The numerals use `--tag` / `--tag-foreground`, whose whole definition is "a label,
                 never an action" — which is what a step number is. No new colour is introduced. */}
-            <ChromeItem>
+            <ChromeItem step={4}>
               <ol className="mb-7 flex flex-col gap-3 lg:mb-8">
                 {STEPS.map((step, index) => (
                   <li key={step} className="flex items-center gap-3">
@@ -160,7 +160,7 @@ export default async function Home() {
               </ol>
             </ChromeItem>
 
-            <ChromeItem className="flex flex-col">
+            <ChromeItem step={5} className="flex flex-col">
               {user ? (
                 <>
                   <Link

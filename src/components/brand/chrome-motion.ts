@@ -1,21 +1,38 @@
 import type { Transition, Variants } from 'motion/react';
 
 /**
- * **The signature entrance** — one orchestrated page-load moment for `/sign-in` and `/`
- * (`iteration-2-plan.md` §3, `I2-6`), kept in one file so the two screens cannot drift into two
- * different arrivals.
+ * **The signature entrance, as a specification. `globals.css` is the executor.**
  *
- * ## Why the numbers live here and not in `globals.css`
+ * One orchestrated page-load moment for `/sign-in` and `/` (`iteration-2-plan.md` §3, `I2-6`), kept
+ * in one file so the two screens cannot drift into two different arrivals.
  *
- * They live in *both*, and that is deliberate, for the same reason `src/ui/place/palette.ts`
- * duplicates the category colours: **Motion evaluates a transition in JavaScript and cannot resolve
- * a CSS custom property.** A `transition: { ease: 'var(--ease-emphasised)' }` is not a slow spring,
- * it is an unparseable string. `globals.css` needs its copy because `duration-*`/`ease-*` utilities
- * are what the CSS half of the product animates with.
+ * ## This file used to run the entrance, and running it in JavaScript shipped a blank front door
  *
- * Neither copy is redundant and **neither may be deleted to "fix the duplication"**.
- * `tests/unit/design-system/chrome-tokens.test.ts` asserts the two sides agree; that test is the
- * whole of what stops them drifting, exactly as `palette-tokens.test.ts` is for the palette.
+ * These variants drove Motion components. Motion writes a variant's initial state into the server
+ * HTML — correct, and what stops a flash of finished layout — so `/` and `/sign-in` shipped **10 and
+ * 11 inline `opacity: 0` declarations**, the card among them, and the only thing that removed them
+ * was React hydrating. Measured by aborting every `.js` request with scripting still *enabled*, the
+ * shape of a slow connection or a hydration error: **minimum opacity 0, 0 of 7 controls visible.**
+ * The `<noscript>` fallback could not help, because scripting was on and the code that would have
+ * revealed the content was the code that failed.
+ *
+ * The entrance is now `@keyframes` in `globals.css`, driven by `data-entrance` attributes. A CSS
+ * animation needs no framework, and `animation-fill-mode: both` makes the resting state the *end*
+ * of the animation rather than something a script must apply: if the stylesheet loads the page
+ * reveals itself, and if it does not the page was never hidden. There is no third case.
+ *
+ * ## So what is this file still for
+ *
+ * **The numbers and the argument**, in one place a reader can find, and the shape assertion in
+ * `tests/unit/design-system/chrome-tokens.test.ts` — which is worth keeping for a reason that
+ * outlived the executor: it holds every variant to `opacity` and `transform` only. A `height` or a
+ * `filter` in this sequence would survive `prefers-reduced-motion` untouched, and the media query in
+ * `globals.css` that collapses the entrance can only collapse what it can name.
+ *
+ * **The values are duplicated into `globals.css` and nothing yet guards the pair.** That is the
+ * `palette.ts` arrangement without `palette-tokens.test.ts`, and it is a known gap rather than an
+ * oversight: the test file belongs to another lane as of 2026-08-31 and the assertion has to be
+ * added there. Until it is, changing a number here changes documentation and not behaviour.
  *
  * ## The sequence, and the one hard constraint on it
  *

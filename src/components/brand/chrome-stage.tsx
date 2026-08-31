@@ -1,15 +1,7 @@
 'use client';
 
-import type { ReactNode } from 'react';
-import { MotionConfig, motion } from 'motion/react';
-
+import type { CSSProperties, ReactNode } from 'react';
 import { ChromeMark } from './chrome-mark';
-import {
-  CARD_VARIANTS,
-  ITEM_VARIANTS,
-  MARK_VARIANTS,
-  STAGE_VARIANTS,
-} from './chrome-motion';
 import { DISPLAY_WORDMARK_AXES } from './display-type';
 
 /**
@@ -77,45 +69,8 @@ export function ChromeStage({
   form: ReactNode;
 }) {
   return (
-    /* `reducedMotion="user"` rather than a render-time `useReducedMotion()` branch: it collapses
-     * the entrance to its opacity ramp — §3a's rule exactly — without the two renders disagreeing.
-     * `chrome-motion.ts` records what the branch cost, including a hydration mismatch that only
-     * appeared for reduced-motion users. */
-    <MotionConfig reducedMotion="user">
-      {/* `px-5` at the base breakpoint, not `px-4`. At 390 the card was 358 wide and the ground
-          survived as a 16px frame, which reads as a white card with a tinted border rather than as
-          an object on a ground. The horizontal margin is the cheap half of the fix; the expensive
-          half is that light's ground now has range at all, which is what makes 20px of it register.
-          Not taken further: every extra pixel here comes off a 390px form, and the vertical bands
-          above and below the card are 75px and 74px, which is where the ground actually reads on a
-          phone. */}
-      <motion.div
-        variants={STAGE_VARIANTS}
-        initial="hidden"
-        animate="shown"
-        className="relative z-10 flex min-h-dvh w-full items-center justify-center px-5 py-8 sm:px-6 lg:px-10 lg:py-12"
-      >
-        {/*
-         * **The entrance's resting state, for a browser that will never run it.**
-         *
-         * Motion renders the `hidden` variant into the server HTML — `opacity: 0` on the card and on
-         * every item — which is correct and is what stops a flash of finished layout before the
-         * animation starts. With scripting off it is also the *final* state: `page.tsx`'s own header
-         * argues that the landing screen is the one screen that must render when everything else is
-         * broken, and an invisible one does not clear that bar. Four lines of `<noscript>` put every
-         * animated element back at rest.
-         */}
-        <noscript>
-          <style>
-            {'[data-entrance]{opacity:1!important;transform:none!important}'}
-          </style>
-        </noscript>
-
-        <motion.div
-          data-entrance
-          variants={CARD_VARIANTS}
-          className="relative w-full max-w-md lg:max-w-5xl"
-        >
+    <div className="relative z-10 flex min-h-dvh w-full items-center justify-center px-5 py-8 sm:px-6 lg:px-10 lg:py-12">
+      <div data-entrance="card" className="relative w-full max-w-md lg:max-w-5xl">
           {/* The glow the card sits in. Sized past the card on every side so what shows is the
             falloff rather than an edge, and painted before the card in source order so it is
             behind it without either of them needing a z-index. */}
@@ -140,14 +95,12 @@ export function ChromeStage({
                 the reading surface; a sweep behind the headline is *on* it. The divider tells the
                 two halves apart, which is what a divider is for. */}
               <section className="relative flex flex-col justify-center gap-5 px-6 pb-8 pt-9 lg:gap-6 lg:px-11 lg:py-14">
-                <motion.div
-                  data-entrance
-                  variants={ITEM_VARIANTS}
+                <div
+                  data-entrance="item"
                   className="relative flex items-center gap-3 lg:gap-4"
                 >
-                  <motion.span
-                    data-entrance
-                    variants={MARK_VARIANTS}
+                  <span
+                    data-entrance="mark"
                     className="relative flex shrink-0 items-center justify-center"
                   >
                     {/*
@@ -180,7 +133,7 @@ export function ChromeStage({
                       style={{ background: 'var(--chrome-mark-glow)' }}
                     />
                     <ChromeMark className="relative size-11 lg:size-14" />
-                  </motion.span>
+                  </span>
                   {/*
                    * Two flex items rather than one text node with a `<br>`, and the words do not
                    * run together — worth checking rather than assuming, because the *opposite* case
@@ -205,7 +158,7 @@ export function ChromeStage({
                     <span>No</span>
                     <span>Crumbs</span>
                   </span>
-                </motion.div>
+                </div>
 
                 <div className="relative flex flex-col gap-3 lg:gap-4">
                   {editorial}
@@ -221,31 +174,38 @@ export function ChromeStage({
                 {form}
               </section>
             </div>
-          </div>
-        </motion.div>
-      </motion.div>
-    </MotionConfig>
+        </div>
+      </div>
+    </div>
   );
 }
 
 /**
  * One step of the entrance. Wrap anything that should arrive in its own beat.
  *
- * A plain `motion.div` with no `initial`/`animate` of its own, so it inherits `hidden`/`shown` from
- * whichever `ChromeStage` is above it in the React tree — that is how the stagger reaches through
- * the ordinary `<div>`s a page composes with.
+ * A plain `<div>` carrying `data-entrance="item"`; the animation is `globals.css`'s and needs no
+ * JavaScript, which is the point — see that file's entrance block for the blank front door this
+ * replaced.
  */
 export function ChromeItem({
   children,
   className,
+  step = 0,
 }: {
   children: ReactNode;
   className?: string;
+  /** Which beat of the entrance this is. Set explicitly rather than derived from `nth-child`,
+   *  because the beats run across two columns and `nth-child` restarts inside each one. */
+  step?: number;
 }) {
   return (
-    <motion.div data-entrance variants={ITEM_VARIANTS} className={className}>
+    <div
+      data-entrance="item"
+      className={className}
+      style={{ '--enter-step': step } as CSSProperties}
+    >
       {children}
-    </motion.div>
+    </div>
   );
 }
 

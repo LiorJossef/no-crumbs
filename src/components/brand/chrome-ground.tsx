@@ -1,9 +1,5 @@
 'use client';
 
-import { MotionConfig, motion } from 'motion/react';
-
-import { BLOOM_DRIFT } from './chrome-motion';
-
 /**
  * **The atmosphere the two chrome surfaces stand on** — `/sign-in` and `/`, which are one step
  * apart in the demo path and have to read as one product.
@@ -29,9 +25,10 @@ import { BLOOM_DRIFT } from './chrome-motion';
  * `aria-hidden` and `pointer-events-none` throughout: none of it is content and none of it may
  * ever intercept a tap meant for the form behind it.
  *
- * `reducedMotion="user"` rather than a `useReducedMotion()` branch — the drift is `x`/`y`/`scale`,
- * so the preference stops it outright and leaves the fade in place. See `chrome-motion.ts` for the
- * two ways the branch was wrong, one of which only appeared in a reduced-motion console.
+ * **Nothing here needs JavaScript.** The arrival and the drift are both CSS animations declared in
+ * `globals.css`, and `prefers-reduced-motion` is a media query rather than a hook — so the blooms
+ * cannot be left invisible by a hydration that never happens, which is the defect this whole
+ * entrance was rebuilt around.
  *
  * **Geometry is inline `style` rather than `w-[70vmax]`.** These four numbers are viewport-relative
  * sizes on a decorative element, not design tokens, and writing them as arbitrary Tailwind values
@@ -40,14 +37,14 @@ import { BLOOM_DRIFT } from './chrome-motion';
  */
 export function ChromeGround() {
   return (
-    <MotionConfig reducedMotion="user">
+    <>
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 overflow-hidden"
         style={{ background: 'var(--chrome-mesh)' }}
       >
-        <motion.div
-          data-entrance
+        <div
+          data-entrance="bloom-a"
           className="absolute rounded-full"
           style={{
             background: 'var(--chrome-bloom-a)',
@@ -56,22 +53,9 @@ export function ChromeGround() {
             left: '-26vmax',
             top: '-30vmax',
           }}
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{
-            opacity: 1,
-            scale: [0.94, 1.06],
-            x: ['-2vmax', '4vmax'],
-            y: ['0vmax', '5vmax'],
-          }}
-          transition={{
-            opacity: { duration: 0.6 },
-            scale: BLOOM_DRIFT,
-            x: BLOOM_DRIFT,
-            y: BLOOM_DRIFT,
-          }}
         />
-        <motion.div
-          data-entrance
+        <div
+          data-entrance="bloom-b"
           className="absolute rounded-full"
           style={{
             background: 'var(--chrome-bloom-b)',
@@ -79,19 +63,6 @@ export function ChromeGround() {
             height: '68vmax',
             right: '-22vmax',
             bottom: '-26vmax',
-          }}
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{
-            opacity: 1,
-            scale: [1.05, 0.95],
-            x: ['2vmax', '-4vmax'],
-            y: ['1vmax', '-4vmax'],
-          }}
-          transition={{
-            opacity: { duration: 0.6, delay: 0.08 },
-            scale: BLOOM_DRIFT,
-            x: BLOOM_DRIFT,
-            y: BLOOM_DRIFT,
           }}
         />
         <div
@@ -102,6 +73,6 @@ export function ChromeGround() {
           }}
         />
       </div>
-    </MotionConfig>
+    </>
   );
 }

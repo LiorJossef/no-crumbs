@@ -153,11 +153,11 @@ export default function SignInPage() {
       <ChromeStage
         editorial={
           <>
-            <ChromeItem>
+            <ChromeItem step={1}>
               <ChromeKicker>{kicker}</ChromeKicker>
             </ChromeItem>
 
-            <ChromeItem>
+            <ChromeItem step={2}>
               {/* Fraunces, `SOFT` 44 / `WONK` on, matching `/` — see the file header.
                   `text-display lg:text-display-lg` is the design system's Display step at both ends
                   of its own range; `--text-title` was here and took the name of that document's
@@ -173,7 +173,7 @@ export default function SignInPage() {
               </h1>
             </ChromeItem>
 
-            <ChromeItem>
+            <ChromeItem step={3}>
               <p className="max-w-xs text-sm font-medium leading-snug text-muted-foreground lg:max-w-sm lg:text-base">
                 {subhead}
               </p>
@@ -182,7 +182,7 @@ export default function SignInPage() {
         }
         form={
           <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4 lg:gap-5">
-            <ChromeItem className="flex flex-col gap-1.5">
+            <ChromeItem step={4} className="flex flex-col gap-1.5">
               <Label
                 htmlFor="email"
                 className="text-micro font-bold tracking-[0.1em] text-muted-foreground uppercase"
@@ -206,7 +206,7 @@ export default function SignInPage() {
               />
             </ChromeItem>
 
-            <ChromeItem className="flex flex-col gap-4 lg:gap-5">
+            <ChromeItem step={5} className="flex flex-col gap-4 lg:gap-5">
               <div className="flex flex-col gap-1.5">
                 <Label
                   htmlFor="password"
@@ -276,7 +276,7 @@ export default function SignInPage() {
               )}
             </AnimatePresence>
 
-            <ChromeItem className="flex flex-col">
+            <ChromeItem step={6} className="flex flex-col">
               <Button
                 type="submit"
                 disabled={pending}
