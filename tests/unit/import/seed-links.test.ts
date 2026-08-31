@@ -110,7 +110,7 @@ describe('a seed takes the same path as a paste', () => {
    * prefetch, no warm-up, nothing that fires without a user having pressed something.
    *
    * This used to be "no effect may call `submit`", which was the right rule expressed as the
-   * shape it happened to take. On 2026-08-30 the `＋` sheet's `Add this TikTok` stopped needing a
+   * shape it happened to take. On 2026-08-30 the `＋` sheet's `Add this TikTok link` stopped needing a
    * second `Add` in the overlay, and the only way to run a link the user submitted in another
    * component is a mount effect. **The rule did not change; the shape did.** So the assertion is
    * restated to pin what actually matters, and it is deliberately stricter than the one it

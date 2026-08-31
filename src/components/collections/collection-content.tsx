@@ -864,7 +864,7 @@ function AddPlacesPanel({
       <div className="min-h-0 flex-1 overflow-y-auto px-4">
         {library.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">
-            You have no saved places yet. Import a TikTok first.
+            Nothing saved yet. Paste a TikTok link and your places show up here.
           </p>
         ) : (
           <ul>

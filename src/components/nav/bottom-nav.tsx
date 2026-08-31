@@ -189,7 +189,7 @@ export function BottomNav({ onAdd, places = [] }: BottomNavProps) {
    *  dynamic import above true: mounted unconditionally, it would fetch its chunk on paint on every
    *  route that draws this bar, and its `loading:` fallback would paint a sheet nobody opened. */
   const [menuMounted, setMenuMounted] = useState(false);
-  /** The link the user pressed `Add this TikTok` on, on a tab with no import overlay of its own.
+  /** The link the user pressed `Add this TikTok link` on, on a tab with no import overlay of its own.
    *  Never a draft — mounting the overlay with one spends a model call, which is
    *  `ImportPageClient.initialUrl`'s stated contract. */
   const [importUrl, setImportUrl] = useState<string | null>(null);

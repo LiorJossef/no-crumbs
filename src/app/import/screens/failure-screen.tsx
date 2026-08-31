@@ -205,7 +205,7 @@ export function ImportFailureScreen({
                     one distinction this pair exists to carry: `UNSUPPORTED_HOST`'s whole news is
                     that the pasted link is not a TikTok, and a TikTok glyph on the button that
                     hands it back would contradict the headline above it. Same leading-mark,
-                    trailing-arrow composition as `Open TikTok` on the place detail. */}
+                    trailing-arrow composition as `Open on TikTok` on the place detail. */}
                 {action === 'open_tiktok' && <PlatformMark className="size-4" />}
                 {label}
                 <ArrowUpRight className="size-4" aria-hidden />

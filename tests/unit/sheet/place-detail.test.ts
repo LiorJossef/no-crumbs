@@ -183,16 +183,16 @@ describe('PlaceDetail — the slots', () => {
 });
 
 describe('PlaceDetail — the Google Maps link', () => {
-  it('is a bare noun beside Open TikTok, and names the action when it is alone', () => {
+  it('is a bare noun beside Open on TikTok, and names the action when it is alone', () => {
     // Beside a second destination the pair reads as a list; alone, a bare noun stops looking like
     // something to press. Same fact drives its target size, which a static string cannot check.
     const paired = render(SAVED, { id: 'saved-1', visited: false });
-    expect(paired).toContain('Open TikTok');
+    expect(paired).toContain('Open on TikTok');
     expect(paired).toContain('>Google Maps<');
     expect(paired).not.toContain('Open in Google Maps');
 
     const alone = render(UNSAVED, null);
-    expect(alone).not.toContain('Open TikTok');
+    expect(alone).not.toContain('Open on TikTok');
     expect(alone).toContain('Open in Google Maps');
   });
 });

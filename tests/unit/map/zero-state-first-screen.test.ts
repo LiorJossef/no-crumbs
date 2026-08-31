@@ -4,7 +4,7 @@
  *
  * The defect this covers was photographed at 390×844 against a library with nothing in it: the
  * sheet rested on the **peek** strip, which collapses to the single line `Your map starts here. ⌃`,
- * so the sentence explaining what the product does and the `Add a TikTok` button underneath it
+ * so the sentence explaining what the product does and the `Add a TikTok link` button underneath it
  * were both inside the sheet and off screen. At 1440×900 all three showed, because the desktop
  * panel is not a sheet. The only visible way forward on a phone was the `＋` in the tab bar — on
  * the screen a demo starts on, and on the screen a failed import returns to.

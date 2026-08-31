@@ -222,7 +222,7 @@ describe('NoPlacesScreen — the modal outcome has its recovery back', () => {
      *
      * What is **gone** is the variant switch this used to assert
      * (`variant={onAddManually ? 'outline' : 'default'}`). It existed because `Add a place you
-     * know` was the screen's primary recovery, so its absence had to promote `Try another TikTok`
+     * know` was the screen's primary recovery, so its absence had to promote `Try another TikTok link`
      * into the empty slot. W6-5 made the add-by-name field the primary recovery, and the field
      * depends on no host — so nothing is withheld when this prop is absent, and there is no slot
      * left to promote anything into. This one is now a ghost secondary either way.

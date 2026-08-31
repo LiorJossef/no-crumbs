@@ -195,7 +195,7 @@ describe('the copy and the markup obey the screen’s rules', () => {
       'Try a different name.',
       'Add to my map →',
       'Adding…',
-      'We’ll link it to this TikTok.',
+      'We’ll link it to this TikTok video.',
       'Back to results',
       'Search everywhere instead',
     ]) {

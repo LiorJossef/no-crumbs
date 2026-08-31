@@ -168,7 +168,7 @@ export function PlaceDesktopPanel({
           {/* The sheet's copy of this button carries the argument for the solid weight, the 20px
               size and the centred composition; the two must not drift. */}
           <PlatformMark variant="solid" className="size-5" />
-          Add a TikTok
+          Add a TikTok link
         </Button>
         {/* Hidden while the library is empty: there is nothing to search, and an inert field is a
               false affordance. The heading and the one line above it are the whole screen. */}

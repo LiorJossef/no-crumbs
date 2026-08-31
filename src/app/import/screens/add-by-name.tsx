@@ -78,7 +78,7 @@ const UNAVAILABLE = 'Search isn’t working right now. Try again in a moment.';
 const TRY_ANOTHER_NAME = 'Try a different name.';
 const ADD = 'Add to my map →';
 const ADD_PENDING = 'Adding…';
-const ADD_PROVENANCE = 'We’ll link it to this TikTok.';
+const ADD_PROVENANCE = 'We’ll link it to this TikTok video.';
 const BACK_TO_RESULTS = 'Back to results';
 const REMOVE_SCOPE = 'Search everywhere instead';
 

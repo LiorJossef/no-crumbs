@@ -68,7 +68,7 @@ test.describe('the failure screen is never a dead end', () => {
     await page.waitForLoadState('networkidle');
     await page.getByPlaceholder('Paste a TikTok link').fill(MISSING);
     await page.getByRole('button', { name: 'Add →' }).click();
-    await expect(page.getByRole('heading', { name: 'Adding your TikTok' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Adding your TikTok link' })).toBeVisible();
     await page.getByRole('button', { name: /cancel/i }).click();
     await expect(page.getByPlaceholder('Paste a TikTok link')).toBeVisible();
 
@@ -82,7 +82,7 @@ test.describe('the failure screen is never a dead end', () => {
       'a cancelled import must not produce a failure screen to be dead on',
     ).toHaveCount(0);
     await expect(page.getByPlaceholder('Paste a TikTok link')).toBeVisible();
-    expect(headline, 'the user stays where Cancel put them').toBe('Add a TikTok');
+    expect(headline, 'the user stays where Cancel put them').toBe('Add a TikTok link');
   });
 
   test('Retry on a failure screen actually re-runs the import', async ({ page }) => {
@@ -142,7 +142,7 @@ test.describe('the failure screen is never a dead end', () => {
     expect(body).toContain('Reference: SOME_CODE_WE_DO_NOT_KNOW');
   });
 
-  test('Try another TikTok returns to an empty field, not the link that just failed', async ({ page }) => {
+  test('Try another TikTok link returns to an empty field, not the link that just failed', async ({ page }) => {
     // `import-error-copy.ts` already states the contract — "`another_tiktok` returns to F0 with an
     // empty, focused field" — and the screen did not honour it: both it and `Retry` called `reset()`
     // with no `clearUrl`, so the two actions left the field in the same state and the one promising
@@ -154,7 +154,7 @@ test.describe('the failure screen is never a dead end', () => {
     await field.fill(MISSING);
     await page.getByRole('button', { name: 'Add →' }).click();
 
-    const tryAnother = page.getByRole('button', { name: 'Try another TikTok' });
+    const tryAnother = page.getByRole('button', { name: 'Try another TikTok link' });
     await expect(tryAnother).toBeVisible({ timeout: 30_000 });
     await tryAnother.click();
 

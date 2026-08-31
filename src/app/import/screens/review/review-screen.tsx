@@ -280,7 +280,7 @@ export function CaptionPreviewScreen({
             rel="noreferrer"
             className="flex items-center gap-1 truncate text-sm font-semibold text-brand"
           >
-            {probe.authorHandle ? `@${probe.authorHandle}’s TikTok` : 'This TikTok'}
+            {probe.authorHandle ? `@${probe.authorHandle}’s TikTok video` : 'This TikTok video'}
             <ArrowUpRight className="size-3.5 shrink-0" aria-hidden />
           </a>
           {probe.caption !== null && (

@@ -128,7 +128,7 @@ describe('IMPORT_ERROR_COPY — recovery actions', () => {
 
   it('gives RATE_LIMITED_LOCAL no retry and no second link to try', () => {
     // §5.4: "You've added a lot of TikToks in the last few minutes. Try again shortly." The limit
-    // is per user, so `Try another TikTok` fails identically — offering it would be a lie.
+    // is per user, so `Try another TikTok link` fails identically — offering it would be a lie.
     expect(IMPORT_ERROR_COPY.RATE_LIMITED_LOCAL.actions).toEqual(['back_to_map']);
   });
 
@@ -151,7 +151,7 @@ describe('IMPORT_ERROR_COPY — recovery actions', () => {
   });
 
   it('calls a non-TikTok link what it is', () => {
-    // UNSUPPORTED_HOST is the Instagram/YouTube case. Labelling its escape "Open the TikTok" —
+    // UNSUPPORTED_HOST is the Instagram/YouTube case. Labelling its escape "Open on TikTok" —
     // which is what a single shared `open_tiktok` action would have done — contradicts the very
     // sentence above the button.
     expect(IMPORT_ERROR_COPY.UNSUPPORTED_HOST.actions).toContain('open_link');

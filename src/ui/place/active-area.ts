@@ -68,7 +68,7 @@ export const ALL_BEEN_HEADING = "You've been to all of them";
 /** Under that heading when the whole library is done: the achievement, then the way forward. The
  *  filter's own pill is the way *back* and is already on screen, so this line does not repeat it. */
 export const ALL_BEEN_LIBRARY_NOTE =
-  'Nothing left on your list. Paste a TikTok and it starts filling up again.';
+  'Nothing left on your list. Paste a TikTok link and it starts filling up again.';
 
 /** Under it when only this area is done. The `Elsewhere` rows below name the areas that still have
  *  something in them, so this line points at them rather than at the import. */

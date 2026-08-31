@@ -60,7 +60,7 @@ test.describe('a cancelled import cannot take the screen back', () => {
 
     await page.getByPlaceholder('Paste a TikTok link').fill(CACHED);
     await page.getByRole('button', { name: 'Add →' }).click();
-    await expect(page.getByRole('heading', { name: 'Adding your TikTok' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Adding your TikTok link' })).toBeVisible();
 
     await page.getByRole('button', { name: /cancel/i }).click();
     await expect(page.getByPlaceholder('Paste a TikTok link')).toBeVisible();

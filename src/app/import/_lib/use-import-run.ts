@@ -276,8 +276,8 @@ async function submit(target: string = url) {
             source: 'done',
             // The real handle off the real response, never the pasted URL.
             sourceFact: previewBody.authorHandle
-              ? `Read @${previewBody.authorHandle}'s TikTok`
-              : 'Read the TikTok',
+              ? `Read @${previewBody.authorHandle}’s video`
+              : 'Read the video',
             extract: 'active',
             post: previewBody,
           },
@@ -310,7 +310,7 @@ async function submit(target: string = url) {
       rail: {
         ...RAIL_IDLE,
         source: 'done',
-        sourceFact: body.authorHandle ? `Read @${body.authorHandle}'s TikTok` : 'Read the TikTok',
+        sourceFact: body.authorHandle ? `Read @${body.authorHandle}’s video` : 'Read the video',
         extract: 'done',
         // Sentence and number from the same call, so they cannot say different things.
         extractFact: railExtractFact(n),

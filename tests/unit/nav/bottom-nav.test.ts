@@ -72,7 +72,7 @@ describe('the ＋ means one thing on every tab', () => {
     const markup = markupAt('/collections?collection=abc-123');
     expect(markup).toContain('aria-label="Create"');
     expect(markup).not.toContain('href="/import"');
-    expect(markup).not.toContain('Add a TikTok');
+    expect(markup).not.toContain('Add a TikTok link');
   });
 });
 

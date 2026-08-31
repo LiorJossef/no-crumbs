@@ -517,7 +517,7 @@ describe('the line under an achievement heading', () => {
       matchesAnywhere: 0,
     });
     expect(heading.note).toBe(
-      'Nothing left on your list. Paste a TikTok and it starts filling up again.',
+      'Nothing left on your list. Paste a TikTok link and it starts filling up again.',
     );
   });
 

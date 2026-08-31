@@ -136,7 +136,7 @@ function copyFor(
     return {
       kicker: 'No caption',
       headline: 'This one has no caption.',
-      body: 'We opened it fine — there’s just no caption to read. Some TikToks only show the place on screen.',
+      body: 'We opened it fine — there’s just no caption to read. Some TikTok videos only show the place on screen.',
     };
   }
   if (emptyReason === 'area_only' && cityHint !== null) {
@@ -156,7 +156,7 @@ function copyFor(
   return {
     kicker: 'We read it',
     headline: 'No places in this one.',
-    body: 'We read the caption, and it doesn’t name a place we can put on a map. Some TikToks only show the place on screen.',
+    body: 'We read the caption, and it doesn’t name a place we can put on a map. Some TikTok videos only show the place on screen.',
   };
 }
 
@@ -210,10 +210,10 @@ export function NoPlacesScreen({
   }, []);
 
   const sourceLabel = probe.authorHandle
-    ? `@${probe.authorHandle}’s TikTok`
+    ? `@${probe.authorHandle}’s TikTok video`
     : probe.authorName
-      ? `${probe.authorName}’s TikTok`
-      : 'This TikTok';
+      ? `${probe.authorName}’s TikTok video`
+      : 'This TikTok video';
 
   return (
     <div className={cn('flex min-h-0 flex-1 flex-col', ENTER_SCREEN)}>
@@ -313,7 +313,7 @@ export function NoPlacesScreen({
           </span>
         )}
         <div className="flex min-w-0 flex-col gap-0.5">
-          {/* `Open the original TikTok` appears **once**, here, and is not repeated as a footer
+          {/* `Open on TikTok` appears **once**, here, and is not repeated as a footer
               link (§4.3). It sits with the context it belongs to, and it closes one instance of the
               four-labels-for-one-action defect. It does not leave the flow — the screen is still
               here when they come back. */}
@@ -366,7 +366,7 @@ export function NoPlacesScreen({
           id={captionId}
           tabIndex={0}
           role="group"
-          aria-label="The TikTok’s caption"
+          aria-label="The video’s caption"
           dir="auto"
           className={cn(
             'max-h-38 min-h-0 shrink overflow-y-auto overscroll-contain rounded-lg bg-card-2 p-3 text-caption leading-relaxed font-medium text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring',

@@ -71,7 +71,7 @@ export function PasteScreen({
             the 28px disc before choosing. */}
         <ScreenKicker icon={<PlatformMark className="size-4" />} label="Add a place" />
         <h1 className="font-heading text-3xl font-extrabold tracking-tight text-foreground">
-          Add a TikTok
+          Add a TikTok link
         </h1>
         {/* C03, from the same module the failure copy comes from — `MALFORMED_URL`'s body is
             this exact sentence, and one of the two would eventually be edited alone. */}

@@ -217,7 +217,7 @@ export const CRUMB_HALO = { cx: 50, cy: 50, r: 46, opacity: 0.2 } as const;
  */
 export const CRUMB_MOODS = {
   idle: { eyes: 'dot', mouth: 'smile', state: 'Header, app icon, resting' },
-  reading: { eyes: 'dot', mouth: 'small', state: 'Import running — “Reading the TikTok”' },
+  reading: { eyes: 'dot', mouth: 'small', state: 'Import running — “Reading the video”' },
   found: { eyes: 'happy', mouth: 'grin', spark: true, state: 'Places added to your map' },
   nothingFound: { eyes: 'flat', mouth: 'flat', state: 'No places in this one' },
   beenThere: { eyes: 'closed', mouth: 'content', state: 'A place marked as Been' },

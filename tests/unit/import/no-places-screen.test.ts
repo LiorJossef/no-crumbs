@@ -40,14 +40,14 @@ describe('the three honest cases, verbatim from the spec', () => {
     expect(CODE).toContain("kicker: 'No caption'");
     expect(CODE).toContain("headline: 'This one has no caption.'");
     expect(CODE).toContain(
-      'We opened it fine — there’s just no caption to read. Some TikToks only show the place on screen.',
+      'We opened it fine — there’s just no caption to read. Some TikTok videos only show the place on screen.',
     );
   });
 
   it('B — the caption named nothing, and it is the floor for anything unknown', () => {
     expect(CODE).toContain("headline: 'No places in this one.'");
     expect(CODE).toContain(
-      'We read the caption, and it doesn’t name a place we can put on a map. Some TikToks only show the place on screen.',
+      'We read the caption, and it doesn’t name a place we can put on a map. Some TikTok videos only show the place on screen.',
     );
     // A `null`/unrecognised reason falls through to B rather than throwing or blanking: a server
     // that predates the field and a cache hit both land there, and "we do not know so we do not
@@ -66,7 +66,7 @@ describe('the three honest cases, verbatim from the spec', () => {
   });
 
   it('deletes the sentence that edged toward defending the hit rate', () => {
-    // `That happens a lot.` shipped alongside `Some TikToks only show the place on screen.` Two
+    // `That happens a lot.` shipped alongside `Some TikTok videos only show the place on screen.` Two
     // normalising sentences is one too many, and the second is the one the owner ruling forbids.
     expect(CODE).not.toContain('That happens a lot');
   });
@@ -116,7 +116,7 @@ describe('the honesty bans (§11.6-9)', () => {
 
   it('offers no way to re-run the same link', () => {
     // §11.7. Re-reading a caption we have already read produces this same screen, and offering it
-    // would make the flow's worst loop the easiest thing on screen. `Try another TikTok` clears
+    // would make the flow's worst loop the easiest thing on screen. `Try another TikTok link` clears
     // the link rather than keeping it, which is the opposite of Cancel's rule and deliberately so.
     expect(RENDERED.toLowerCase()).not.toContain('retry');
     expect(RENDERED.toLowerCase()).not.toContain('try again');
@@ -157,10 +157,10 @@ describe('the post and its caption are on screen', () => {
   });
 
   it('names the post through the spec’s fallback chain, and links it exactly once', () => {
-    expect(CODE).toContain('`@${probe.authorHandle}’s TikTok`');
-    expect(CODE).toContain('`${probe.authorName}’s TikTok`');
-    expect(CODE).toContain("'This TikTok'");
-    // §4.3: one affordance per action. `Open the original TikTok` is not repeated in the footer,
+    expect(CODE).toContain('`@${probe.authorHandle}’s TikTok video`');
+    expect(CODE).toContain('`${probe.authorName}’s TikTok video`');
+    expect(CODE).toContain("'This TikTok video'");
+    // §4.3: one affordance per action. `Open on TikTok` is not repeated in the footer,
     // which closes one instance of the four-labels-for-one-action defect.
     expect((CODE.match(/href=\{probe\.canonicalUrl\}/g) ?? []).length).toBe(1);
     expect(CODE).not.toContain('Open the original TikTok');
@@ -188,7 +188,7 @@ describe('the post and its caption are on screen', () => {
     // stop is the correct price.
     expect(CODE).toContain('tabIndex={0}');
     expect(CODE).toContain('role="group"');
-    expect(CODE).toContain('aria-label="The TikTok’s caption"');
+    expect(CODE).toContain('aria-label="The video’s caption"');
   });
 });
 
@@ -236,7 +236,7 @@ describe('what is deliberately not on this screen (§4.4)', () => {
 });
 
 describe('both ways out, and both point somewhere that works', () => {
-  it('clears the link on `Try another TikTok`', () => {
+  it('clears the link on `Try another TikTok link`', () => {
     // A change from `Cancel`, deliberately. Cancel says nothing about the link being wrong so it
     // keeps it; this says the opposite — we read it, there is nothing in it — and a paste screen
     // pre-loaded with a link that produces this same screen again is the flow's worst loop. The

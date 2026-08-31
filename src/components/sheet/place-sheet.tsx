@@ -1394,7 +1394,7 @@ export function NoPlacesYet({ onAddTikTok }: { onAddTikTok: () => void }) {
             actually licenses — borrowing it to evoke a platform whose mark we may not use is trade
             dress with deniability. The composition is ours; the word is the permitted use. */}
         <PlatformMark variant="solid" className="size-5" />
-        Add a TikTok
+        Add a TikTok link
       </Button>
     </div>
   );
@@ -1806,7 +1806,7 @@ export function PlaceDetail({
                     `gap-1.5` is unchanged and the mark is `size-4` against the arrow's `size-3.5`:
                     a portrait glyph at the arrow's box reads a size smaller than it is. */}
                 <PlatformMark className="size-4" />
-                Open TikTok
+                Open on TikTok
                 <ExternalLink className="size-3.5" aria-hidden />
               </a>
             )}

@@ -202,7 +202,7 @@ export function parseDevScreen(raw: string | null | undefined): Screen | null {
       rail: {
         ...RAIL_IDLE,
         source: 'done',
-        sourceFact: 'Read @demo’s TikTok',
+        sourceFact: 'Read @demo’s video',
         extract: 'active',
         post: DEV_PROBE,
       },

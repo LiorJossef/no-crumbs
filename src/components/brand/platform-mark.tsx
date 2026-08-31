@@ -49,8 +49,8 @@
  * verified, that TikTok checked anything, or that this product has a relationship with TikTok —
  * Developer Terms III.3(o) and X make that a rule rather than a preference, and *"Powered by
  * TikTok"* and *"TikTok Partner"* are barred by both. That is why the mark is only ever drawn
- * beside a fact the product already states in words: `Open TikTok`, `@handle's TikTok`,
- * `Add a TikTok`.
+ * beside a fact the product already states in words: `Open on TikTok`, `@handle's TikTok video`,
+ * `Add a TikTok link`.
  *
  * **And never on a list row or over the creator's own still.** Attribution attaches to the surface
  * that displays the content — the detail card and the review screen, which carry it — and a row in

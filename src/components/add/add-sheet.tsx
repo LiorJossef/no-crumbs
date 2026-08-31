@@ -734,7 +734,7 @@ export function AddPlacePane({
                 Not while `busy`: `Adding…` is a progress state and the glyph would sit beside a
                 sentence about our own machinery rather than about the platform. */}
             {!busy && <PlatformMark variant="solid" className="size-5" />}
-            {busy ? 'Adding…' : 'Add this TikTok'}
+            {busy ? 'Adding…' : 'Add this TikTok link'}
           </Button>
         )}
       </form>

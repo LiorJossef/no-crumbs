@@ -80,8 +80,8 @@ describe('the mark itself', () => {
 
   it('is decorative, on every surface, with no label of its own', () => {
     /*
-     * Every call site names TikTok in words beside it — `Add a TikTok`, `Open TikTok`,
-     * `@handle's TikTok`. A mark that announced itself would be a second claim about the same
+     * Every call site names TikTok in words beside it — `Add a TikTok link`, `Open on TikTok`,
+     * `@handle's TikTok video`. A mark that announced itself would be a second claim about the same
      * fact, and the brief's constraint is that the mark may not assert anything the words do not:
      * not endorsement, not verification, not a relationship with TikTok.
      */
@@ -208,10 +208,10 @@ describe('the mark never contradicts the screen it is on', () => {
       }),
     );
 
-  it('marks `Open the TikTok`', () => {
+  it('marks `Open on TikTok`', () => {
     // `POST_UNAVAILABLE`'s actions are retry / open_tiktok / another_tiktok.
     const markup = screen('POST_UNAVAILABLE');
-    expect(markup).toContain('Open the TikTok');
+    expect(markup).toContain('Open on TikTok');
     expect(markup).toContain('data-platform-mark');
   });
 

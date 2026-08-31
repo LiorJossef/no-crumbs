@@ -109,7 +109,7 @@ const PRIVATE_STRINGS: readonly string[] = [
   'Been here', // their visit state, as a control
   'Been', // …and as a badge
   'Your note',
-  'Open TikTok',
+  'Open on TikTok',
   'Matched via',
   'Saved on',
   'Saved from',
@@ -281,7 +281,7 @@ describe('CollectionPlaceDetail — a place the viewer saved themselves', () => 
     expect(markup).toContain('Your note');
     expect(markup).toContain('Sit at the counter');
     expect(markup).toContain('>Category<');
-    expect(markup).toContain('Open TikTok');
+    expect(markup).toContain('Open on TikTok');
     expect(markup).toContain('tiktok.com/@someone/video/900');
   });
 

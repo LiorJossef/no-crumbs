@@ -14,7 +14,7 @@
  *
  * **S7.** The rail's second step read `Finding the places` above `Finding the places…` — a slot
  * filled rather than a fact reported. Step one is the contrast that makes it obvious:
- * `Reading the TikTok` above `Read @demo's TikTok` tells the user *which* TikTok and that it is
+ * `Reading the video` above `Read @demo's video` tells the user *which* video and that it is
  * done, which the label could not. This is the rule W6-2 is built on, one line down — **the rail
  * may claim no stage the server did not send** — and a line restating its own label is decoration
  * standing where a claim goes.
@@ -95,7 +95,7 @@ describe('S7 — the rail’s fact slot carries news or nothing', () => {
   });
 
   it('still reports a settled step’s real fact', () => {
-    // Step one's `Read @demo's TikTok` is the thing this rule protects, not a casualty of it: it
+    // Step one's `Read @demo's video` is the thing this rule protects, not a casualty of it: it
     // names *which* TikTok, which the label cannot, and it comes off the server's response.
     expect(code(RAIL)).toContain("status === 'done' && fact");
   });

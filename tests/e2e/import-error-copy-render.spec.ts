@@ -62,7 +62,7 @@ test.describe('every DomainErrorCode renders a usable failure screen', () => {
 
         const headline = page.locator('h1').first();
         await expect(headline).not.toHaveText('', { timeout: 20_000 });
-        await expect(headline).not.toHaveText('Add a TikTok');
+        await expect(headline).not.toHaveText('Add a TikTok link');
 
         const actions = (await page.locator('main button, main a').allInnerTexts())
           .map((t) => t.trim())

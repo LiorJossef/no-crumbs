@@ -43,7 +43,7 @@ import { ScreenKicker } from './screen-kicker';
  * ------------------------------------------------------------------------------------------- */
 
 const STAGE_LABEL: Record<PipelineStage, string> = {
-  source: 'Reading the TikTok',
+  source: 'Reading the video',
   extract: 'Finding the places',
   resolve: 'Matching locations',
 };
@@ -99,7 +99,7 @@ export function RailScreen({
         */}
         <ScreenKicker icon={<PlatformMark className="size-4" />} label="Working on it" />
         <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">
-          Adding your TikTok
+          Adding your TikTok link
         </h1>
         {/* `aria-live="polite"`: the line changes while the user is waiting and a screen reader
             user has no other way to learn that anything is still happening. */}
@@ -113,7 +113,7 @@ export function RailScreen({
           Its head wobbles rather than bobs, which is `#motion`'s explicit ruling for exactly this
           screen: *"seven to thirty-four seconds is a long time to watch something bounce. Wobble
           reads as patient; Bob reads as impatient by about second six."* The face is `reading` —
-          `#moods` binds that one to *"Import running — Reading the TikTok"* — so the character is
+          `#moods` binds that one to *"Import running — Reading the video"* — so the character is
           wearing the state the screen is in rather than a generic smile.
 
           **It claims nothing.** The dots loop; they do not fill, advance toward a total or
@@ -205,7 +205,7 @@ export function RailScreen({
               </span>
             )}
             <p className="min-w-0 truncate text-sm font-semibold text-foreground">
-              {rail.post.authorHandle ? `@${rail.post.authorHandle}’s TikTok` : 'This TikTok'}
+              {rail.post.authorHandle ? `@${rail.post.authorHandle}’s TikTok video` : 'This TikTok video'}
             </p>
           </div>
           {rail.post.caption !== null && (
