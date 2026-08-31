@@ -171,3 +171,52 @@ frame rate.
    one wrong one.
 8. **Nothing merged**, as expected: CI still cannot start a runner, so `merge:pr` correctly refuses.
    No attempt was made and none should be.
+
+
+---
+
+## 5. Documents corrected, and what was wrong with them
+
+| Document | What was wrong | Where it is fixed |
+|---|---|---|
+| `current-state.md` item **0a** | *"The home screen draws no pins."* **Understated.** At 0 places and at 300 the product showed the *same screen*, differing only by a number in a capsule | struck through, `80b4644` |
+| `current-state.md` item **1** | *"Ownership transfer was never built."* **Understated.** The DDL says it is **unexpressible** — `owner_id` is not a grantable column, `service_role` holds no privilege on those tables at all, and a one-owner index plus a policy refuse promotion. Three independent controls | corrected, `80b4644` |
+| `current-state.md` "Measured" | Tests recorded as 107 files / 1,959 | corrected to 148 / 2,489 on the branch; `main` unchanged at 114 / 2,017 |
+| `current-state.md` | *"The product name is still open"*, and *"None of it is implemented"* | both false since 2026-08-30 / this run |
+| `facelift-plan.md` **§4.6** | *"Archivo appears only in the wordmark."* Archivo was **retired the same day** by `brand-and-product-foundation.md` §3.1's second pass; the face is **Fraunces** | corrected, `80b4644` |
+| `overnight-run-plan.md` §8 **W1-3** | *"Raise `MAX_CANDIDATES` **and** `GEMINI_MAX_CANDIDATES` to 8."* The Gemini cap was **already 8** — a measured model ceiling, bisected live, where `maxItems` 9–12 all return `400 INVALID_ARGUMENT` | recorded in the ledger |
+| **K8's own command** | `grep -roh 'group-hover:'` cannot match Tailwind's **named-group** variant `group-hover/row:` — and the named form is the *correct* implementation, because rows nest inside other grouped containers on `/collections`, so a bare `group` would light up every row inside an outer hover | reported as met; command recorded as defective |
+| **K14 as written** | *"Home shows the user's own pins at rest with ≥3 places"* is **unachievable** — no camera shows three continents and three pins | reported against `OQ-5`'s restatement |
+| `ux-overnight-specs.md` Spec 2 **§2.0** | Proposes collapsing four button radii onto `rounded-md`. Written while `--radius-md` was undefined and those sizes rendered **square**; now that it is `0.875rem`, `rounded-md` would restyle them 10/12px → 14px | `--radius-xs` registered instead, `362c7a5` |
+| `pin-mark.tsx` docblock | Claimed the silhouette *"reads as a crumb at 30px and above"*. **Measured false** — 4.6% peak-to-peak, under one pixel below ~50px | corrected by its author, `c2cd998` |
+| `category-filter-bar.tsx` docblock | Claimed the clipped trailing chip *is* the affordance saying there is more. **Incidental** — it depends on where chip boundaries happen to land | corrected, `16e1fb3` |
+| `handleDragEnd` docblock | Claimed MapLibre's keyboard handler pans through the same drag machinery. **False against the installed 6.4.1** — `handler/keyboard.ts` calls `easeTo` directly and fires no `dragend` | corrected, `0609efa` |
+| `palette.ts` header | Read as though the CSS side were live. **No component read a `--category-*` token at all** — every category surface painted a literal through an inline style | corrected, `3b37bb1` |
+
+**Re-measured, unchanged: CI still cannot start a runner.** PR #109's four jobs fail in **2–3 seconds
+each** — `lint · typecheck · layer guard · unit`, `next build`, `playwright`, `migrations · RLS`.
+A job that fails in two seconds having executed no steps never began. `ci.yml` is correct; the cause
+is account-level. **No merge was attempted.**
+
+---
+
+## 6. The next three things
+
+1. **Run Q2 on a real deployment, with a person watching.** It is the only gate this run could not
+   touch, and it is the one that answers whether the thing is any good. Everything it needs exists:
+   the flow works end to end, the rail is honest, the payoff is held, provenance reads at a glance,
+   and the no-places screen is now a destination. **What is untested is the ninety seconds strung
+   together**, and no amount of stubbing substitutes for it.
+2. **Build the ~1.5 km neighbourhood band** (`growth-plan.md` §5.7). It is the fix for the run's
+   top-ranked finding: 300 places on a phone is an unreadable heap. W2-1 made that screen show the
+   user's library instead of a capsule; the third band is what makes it *readable*. It was
+   deliberately not started at 3am on top of camera work that had just landed, and that was the right
+   call — but it is the first real feature I would build.
+3. **Sign the dark palette off against the running map, and settle the mark.** Dark is measured,
+   reachable and following the device, with no toggle, exactly as §4 decision 3 requires — so signing
+   it off is now a person looking at a screen rather than reviewing a document. The mark needs the
+   same kind of look: the ratified outline is a circle at every size it ships at, the face carries it
+   on chrome today, and only the owner can decide whether the silhouette changes.
+
+**And one thing I would not do:** merge this before CI can run. The suite is green locally and
+`verify` covers one of CI's four jobs. That is evidence, not a pass.
