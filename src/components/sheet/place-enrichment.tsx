@@ -257,7 +257,23 @@ export function TagFacetBar({
         // One `lg:` variant does both, because the two hosts are already breakpoint-exclusive —
         // `PlaceSheet` is `lg:hidden` and `PlaceDesktopPanel` is `hidden lg:flex`, so each only
         // ever renders on the side of the breakpoint it belongs to.
-        '-m-1 flex gap-2 overflow-x-auto overscroll-x-contain p-1 lg:flex-wrap',
+        // On the phone the row genuinely scrolls, and `scroll-fade-x` is what says so. Measured at
+        // 390x844 with 300 places: the row's own docblock claims "what says there is more is the
+        // chip clipped at the trailing edge", and that turns out to be **incidental** — whether a
+        // partial chip shows depends on where the chip boundaries happen to fall, and at 300 places
+        // the tag row ends very nearly flush with two more chips off-screen and nothing saying so.
+        //
+        // `scroll-fade-x` comes from the pinned `shadcn/tailwind.css` already imported by
+        // `globals.css` — no new dependency — and it is **scroll-driven**
+        // (`animation-timeline: scroll(self inline)`), which is the property that makes it honest
+        // rather than decorative: the trailing edge fades only while there is actually more to
+        // reach, and a row that fits shows no fade at all. Browsers without scroll-driven
+        // animations fall back to a static edge fade, which over-promises slightly rather than
+        // under-promising, and that is the right direction to fail in.
+        //
+        // `lg:scroll-fade-none` because above `lg` the row wraps and there is nothing to scroll —
+        // a mask there would fade the last chip of a complete row for no reason.
+        '-m-1 flex gap-2 overflow-x-auto overscroll-x-contain p-1 scroll-fade-x lg:flex-wrap lg:scroll-fade-none',
         '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
         className,
       )}
