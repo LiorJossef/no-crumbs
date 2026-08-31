@@ -205,7 +205,16 @@ export default function SignInPage() {
               </div>
 
               {!isSignUp && (
-                <label className="flex items-start gap-2 text-sm font-medium text-muted-foreground">
+                /*
+                 * `min-h-11` (44px) on the label, not on the checkbox.
+                 *
+                 * W7-6 measured this row at 342 x 20 and the bar is 44. The checkbox itself is
+                 * 16 x 16, but a wrapping `<label>` **is** the hit area — the accessibility sweep's
+                 * own tool got that wrong first and flagged the 16px box, which is the visual size
+                 * and not the target. So the fix belongs on the row, and `items-start` stays so the
+                 * box keeps aligning to the first line when the hint wraps to a second.
+                 */
+                <label className="flex min-h-11 items-start gap-2 py-2 text-sm font-medium text-muted-foreground">
                   <input
                     type="checkbox"
                     checked={rememberMe}
@@ -284,7 +293,11 @@ export default function SignInPage() {
                   setMode((m) => (m === 'sign-up' ? 'sign-in' : 'sign-up'));
                   setMessage(null);
                 }}
-                className="mt-1 text-center text-sm font-medium text-muted-foreground"
+                /* `min-h-11` (44px): W7-6 measured this at 342 x 20. It is a real button that
+                 * switches the whole form between sign-in and sign-up, not an inline link inside a
+                 * sentence — WCAG 2.5.8's inline-link exemption does not reach it, and it is the
+                 * only way a new user gets to the account they do not have yet. */
+                className="mt-1 flex min-h-11 items-center justify-center text-center text-sm font-medium text-muted-foreground"
               >
                 {isSignUp ? (
                   <>
