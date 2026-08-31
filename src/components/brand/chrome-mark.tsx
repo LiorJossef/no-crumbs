@@ -3,12 +3,14 @@ import { PinMark } from './pin-mark';
 /**
  * **The seam the mascot arrives through.**
  *
- * What renders today is `PinMark face` — the mint silhouette with two dot eyes and a smile — and
- * that is *not* what `no-crumbs-design-system.html` specifies. §The mark and §The mascot describe a
- * gold crumb character: body `#F2C46B`, crust `#E0A845`, outline `#3A2A15`, blush `#F0866A` at 50%,
- * in five constructions, and §Applications draws the app icon as that character on a mint tile in
- * four separate sizes. §The mark names **sign-in** as one of the five surfaces the face belongs on,
- * so this is one of the screens it is owed.
+ * What renders through here today is `PinMark face`, and what that draws is not this lane's to
+ * decide. `no-crumbs-design-system.html` §The mark and §The mascot specify a gold crumb character
+ * in five constructions — its four colours are named in that document and, in code, in the mascot
+ * lane's own palette module, **deliberately not restated here**: `token-call-sites.test.ts` counts
+ * hex literals with a regex over the source and cannot tell a comment from a call site, so quoting
+ * four of them in this paragraph would put four colours on that ledger for nothing. §Applications
+ * draws the app icon as that character on a mint tile at four sizes, and §The mark names
+ * **sign-in** as one of the five surfaces the face belongs on, so this is a screen it is owed.
  *
  * **The mascot is a dedicated lane and is not built here.** This file exists so that when it lands
  * it lands in *one* place: both chrome surfaces render `ChromeStage`, `ChromeStage` renders this,

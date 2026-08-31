@@ -121,11 +121,37 @@ export const MARK_VARIANTS: Variants = {
 /**
  * The ambient field: two blooms that drift behind the card, forever, at a speed nobody watches.
  *
+ * ## This is a permitted exception, and the licence is written here so the next reader finds it
+ *
+ * **It is the only motion in the product that no closed list contains**, and that is worth stating
+ * plainly rather than leaving someone to discover it as a violation.
+ * `no-crumbs-design-system.html` §The system names six moments and says *"everything else stays
+ * still"*; `facelift-plan.md` §3a names nine and says the same. This is neither.
+ *
+ * It is licensed by `iteration-2-plan.md` §2.1, which is an owner ruling and postdates both lists:
+ * the system splits in two, and on **chrome** — sign-in, landing, the empty state, the edges —
+ * *"an entrance, an ambient field, a signature moment"* are permitted. Both closed lists are about
+ * the **data** surface, where colour is information and a thing that moves is saying something
+ * happened. Nothing here is on that surface.
+ *
+ * **Three conditions, ruled 2026-08-31, and it keeps its place only while all three hold:**
+ *
+ *  1. **Behind the reading surface, never on it.** The same distinction that removed
+ *     `--chrome-panel-wash`: the mesh, the blooms, the glow and the lit edge are painted *around*
+ *     the card; a gradient behind the headline was painted *on* it. A drifting light under ink
+ *     would be the panel wash's defect with a timeline attached.
+ *  2. **Ambient, never signalling.** It may not speed up, change colour, or respond to state. The
+ *     moment it means something, it is a tenth animation on a closed list rather than atmosphere.
+ *  3. **Dead under `prefers-reduced-motion`.** Measured, not assumed: the two `transform` values
+ *     are byte-identical 2.5 s apart with the preference set, and different without it.
+ *
+ * ## The implementation, and why it is cheap
+ *
  * `x`/`y`/`scale` only — compositor properties on two elements that paint a radial gradient and
  * nothing else, so a frame costs a transform and no repaint. `repeatType: 'mirror'` rather than a
  * loop because a bloom that snaps back to its start is a cut, and a cut is the one thing an ambient
- * layer must never be. All three are transforms, so `reducedMotion="user"` stops the drift outright
- * and leaves the blooms where they are.
+ * layer must never be. All three are transforms, which is what makes condition 3 automatic under
+ * `reducedMotion="user"` rather than something a branch has to remember.
  */
 export const BLOOM_DRIFT: Transition = {
   duration: 24,

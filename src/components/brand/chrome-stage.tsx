@@ -151,14 +151,21 @@ export function ChromeStage({
                     <ChromeMark className="relative size-11 lg:size-14" />
                   </motion.span>
                   {/*
-                   * Two flex items rather than one text node with a `<br>`, and the accessible name
-                   * survives it — worth stating here because the *opposite* case is a bug this page
-                   * has already shipped once, in the account-switch button's `gap-1`. There,
-                   * whitespace **between** flex items was discarded and "New here? Create an
-                   * account" lost its space. Here there is no whitespace to lose: accessible-name
-                   * computation appends a space between block-level children and flex items are
-                   * blockified, so this announces as one phrase. Read out of the accessibility
-                   * tree rather than assumed.
+                   * Two flex items rather than one text node with a `<br>`, and the words do not
+                   * run together — worth checking rather than assuming, because the *opposite* case
+                   * is a bug this page has already shipped once, in the account-switch button's
+                   * `gap-1`: whitespace **between** flex items was discarded and "New here? Create
+                   * an account" lost its space on the product's front door.
+                   *
+                   * **What was measured, stated as narrowly as it was taken.** In Chromium's
+                   * accessibility tree (`Accessibility.getFullAXTree` over CDP) at both gate
+                   * viewports, this is **two separate `StaticText` nodes, `No` and `Crumbs`** —
+                   * there is no `NoCrumbs` node anywhere in the tree — and `innerText` reads
+                   * `"No\nCrumbs"`, a line break rather than a join. That is the whole claim.
+                   * What an actual screen reader *utters* is not tested here and is not asserted:
+                   * a comment that says "announces as one phrase" would be stating an unmeasured
+                   * fact, which is the same defect class as the eight AA failures this file's
+                   * placeholder fix removed — something that reads as verified and is not.
                    */}
                   <span
                     className="flex flex-col font-display text-xl leading-none font-black tracking-tight text-foreground lg:text-2xl"
