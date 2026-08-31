@@ -199,9 +199,50 @@ export const BASEMAP_TINTS_NIGHT: Record<BasemapRole, Tint> = {
   //     so that figure is C\* scaled by √(L\*/100); raw C\* moves only 22.2 → 21.5.
   //
   // `saturation` at 0.95 is near its ceiling and that is the model, not a hack: at L = 0.10 the
-  // most chroma HSL can hold is `0.2 × S` (see `Tint.maxLightness`). **There is no headroom left in
-  // this row** — dropping `maxLightness` further collapses the coastline rather than deepening it.
-  water: { hue: 214, saturation: 0.95, maxLightness: 0.10 },
+  // most chroma HSL can hold is `0.2 × S` (see `Tint.maxLightness`).
+  //
+  // **All of the above is still true, and it did not finish the job.** That change bought its ΔE
+  // back by raising saturation 0.60 → 0.95 while it dropped the lightness, so raw C\* moved only
+  // 22.2 → 21.5 — the sentence its own comment already contained. Measured off a rendered
+  // 1440×900 dark frame at `6b87641`, segmented by re-rendering CARTO's style one layer class at a
+  // time: **the sea is still the frame's single largest source of colour.**
+  //
+  //   | region  | share of the visible map | colourfulness | share of the frame's total colour |
+  //   |---------|--------------------------|---------------|-----------------------------------|
+  //   | sea     | 26.8%                    | 5.79          | **55.5%**                         |
+  //   | ground  | 68.4%                    | 1.45          | 35.5%                             |
+  //   | parks   | 4.5%                     | 4.51          | 7.3%                              |
+  //   | the pins| 0.33%                    | 14.7          | **1.7%**                          |
+  //
+  // Per pixel the pins already win by 2.5×. What the sea wins is *mass*: 27% of the frame at four
+  // times the ground's colourfulness, on the one region with nothing in it. That is the owner's
+  // read, stated as the number that carries it.
+  //
+  // **Why it cannot be answered at L\* 7.3.** The coastline is the sea against the bare land
+  // polygon, the land is pinned at L\* 13.1 (`land`'s own row — it cannot rise, because the six
+  // night POI colours clear AA on it by 0.11), and a ΔE00 of 13 bought from lightness alone needs
+  // ≈22 L\* of separation, which does not exist under a land at 13.1. So every point of ΔE the sea
+  // does not take from lightness it must take from chroma. Swept over hue × saturation ×
+  // maxLightness at the shipped land value, holding the coastline at its shipped 13.25, the whole
+  // frontier is *"the sea gets darker"*:
+  //
+  //   | hue | maxLightness | colour    | L\*  | colourfulness | ΔE00(land) |
+  //   |-----|--------------|-----------|------|---------------|------------|
+  //   | 214 | 0.100        | `#011632` | 7.3  | 5.81          | 13.25      | ← shipped
+  //   | 220 | 0.0825       | `#000e2a` | 4.4  | 4.25          | 13.54      |
+  //   | 225 | 0.0725       | `#000925` | 3.0  | 3.24          | 13.30      | ← here
+  //   | 230 | 0.0700       | `#000623` | 2.3  | 2.78          | 13.46      |
+  //   | 240 | 0.0600       | `#00001e` | 0.9  | 1.56          | 13.53      |
+  //
+  // **225 is chosen on a criterion rather than on taste**: it is the first point at which the sea
+  // stops being the frame's largest source of colour. At 3 places it carries 36.9% of the frame's
+  // colourfulness against the ground's 42.1%; one step lighter (220) and it is still 44.3% against
+  // 38.5%. Further down the frontier keeps helping and costs the sea its last readable difference
+  // from the chrome it sits in (`--background` is L\* 5.9), which is the direction that turns a
+  // sea into a hole. The pin-on-sea contrast the change must not break **improves**: the weakest
+  // of the four category bodies goes 6.06 → 6.60:1, and the four stay ΔE00 23.18 from each other
+  // because nothing here touches them.
+  water: { hue: 225, saturation: 0.98, maxLightness: 0.0725 },
   /**
    * **Parks are ground, and get exactly the distinctness the sea gets — no more (I2-9).**
    *

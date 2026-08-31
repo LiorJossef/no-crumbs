@@ -69,6 +69,19 @@ function lightnessOf(value: string): number {
 }
 
 /**
+ * **How much colour a region reads as carrying**, which is not the same as its Lab chroma.
+ *
+ * C* alone overstates a near-black badly: a colour at L* 3 with C* 19 is, on screen, almost
+ * nothing, and a metric that ranks it above a park at L* 16 with C* 12 is ranking the wrong thing.
+ * Scaling by sqrt(L*) is the correction, and it is the definition `4531ab9` measured the sea with,
+ * so every number in `basemap-tint.ts`'s water row is on this scale and comparable to it.
+ */
+function colourfulness(value: string): number {
+  const [L, a, b] = lab(value);
+  return Math.hypot(a, b) * Math.sqrt(Math.max(L, 0) / 100);
+}
+
+/**
  * One colour drawn over another at `alpha`.
  *
  * Positron's park fills are not opaque — measured at ~2/3 against a rendered frame — so the tint
@@ -196,6 +209,19 @@ describe('the ground inverts', () => {
     // buy that coastline any more cheaply — so the separation moved to lightness instead. This is
     // the assertion that keeps it there.
     expect(lightnessOf(night('water'))).toBeLessThan(lightnessOf(night('land')));
+  });
+
+  it('stops the sea being the most colourful thing on the ground', () => {
+    // The defect the 2026-08-31 read was about, and the one the previous pass did not close: it
+    // bought its coastline back by raising saturation 0.60 -> 0.95 while it dropped the lightness,
+    // so raw C* moved only 22.2 -> 21.5 and the sea stayed the frame's largest source of colour —
+    // 55.5% of it, measured off a rendered 1440x900 dark frame at `6b87641`, over 27% of the map.
+    //
+    // The park is the bar for the same reason it is the bar for distinctness two tests down: both
+    // are regions of the ground, and the ground may not out-shout the pins. This fails on the
+    // 214/0.95/0.10 sea it replaces (5.81 against the park's 4.69).
+    const park = composited(night('green'), night('land'), 2 / 3);
+    expect(colourfulness(night('water'))).toBeLessThan(colourfulness(park));
   });
 
   it('keeps parks readable as parks — measured on the colour that reaches the frame', () => {
