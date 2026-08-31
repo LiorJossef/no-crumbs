@@ -15,6 +15,7 @@ import { categoryColorVar, categoryDisplay } from '@/ui/place/category-display';
 import { getSpots } from '@/app/map/_lib/get-spots';
 import { toMapPlace } from '@/app/map/_lib/to-map-place';
 import { AccountActions } from './account-actions';
+import { ThemeChoice } from './theme-choice';
 import { checkDeletionBlocked } from './_lib/deletion-block';
 import { getProfilePlaces } from './_lib/get-profile-places';
 import { accountIdentity, deriveProfileBreakdown, joinedLabel } from './_lib/profile-stats';
@@ -38,12 +39,20 @@ export const metadata = { title: 'Profile' };
  * The `Who you save from` section was removed on 2026-08-30 (owner). `creatorBreakdown` still
  * exists and is still tested; nothing renders it.
  *
- * **Still not a settings screen.** There are no settings to keep — no theme, no units, no
+ * **It now keeps exactly one setting, and the sentence that used to sit here was about to go
+ * stale rather than wrong.** It read *"there are no settings to keep — no theme, no units, no
  * notifications, no export yet — so this must not grow into the front door of a settings section
- * before there is something to settle.
+ * before there is something to settle."* The owner ruled a theme control onto this page on
+ * 2026-08-31, so there is now something to settle, and it is settled here rather than behind a new
+ * route. The rest of the sentence stands and is the part worth keeping: **one setting is not a
+ * settings section.** No units, no notifications, no export, and no `/settings` — the next one
+ * arrives beside `Appearance` under `Your account`, or it argues for a page of its own on its own
+ * merits.
  *
- * A server component all the way down: nothing is interactive except a form posting to the existing
- * `signOut` server action, so there is no state and no client island.
+ * **A server component down to two islands, and the count is the point.** The page reads four
+ * queries and renders text; `AccountActions` owns the delete confirmation and `ThemeChoice` owns a
+ * `localStorage` preference, which are the only two things here that a server cannot answer. Sign
+ * out is still a plain form posting to the `signOut` server action and needs no JavaScript at all.
  */
 export default async function ProfilePage() {
   const supabase = await createClient();
@@ -231,6 +240,15 @@ export default async function ProfilePage() {
             </ul>
           </section>
         ) : null}
+
+        {/* The one setting this page keeps (owner, 2026-08-31), above the account block rather
+            than below it: sign out and delete-my-data are the exits, and nothing belongs after the
+            way out. It is its own client island — the rest of this page is a server component all
+            the way down, and a `localStorage` preference is the only thing on it that cannot be. */}
+        <section aria-labelledby="appearance" className="mt-6" data-theme-choice>
+          <SectionHeading id="appearance">Appearance</SectionHeading>
+          <ThemeChoice labelledBy="appearance" />
+        </section>
 
         {/* The account block. Sign out is not `destructive` — it destroys nothing, and the
             palette's destructive role is reserved for the things that do. Neither is the delete

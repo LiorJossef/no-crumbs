@@ -46,6 +46,22 @@ export const THEME_ATTRIBUTE = 'data-theme';
  *  wants should follow the device rather than assert daylight. */
 export const DEFAULT_PREFERENCE: ThemePreference = 'system';
 
+/**
+ * **The three preferences, in the order a control must offer them**, and the reason this is a
+ * constant rather than three literals at the one call site that needs it.
+ *
+ * `ThemePreference` is a union, so a control can enumerate it — but only by writing the three
+ * strings out again, which is how a fourth value would arrive in the type and never reach the
+ * screen. Ordered, because the order is a decision: light and dark are the two appearances and
+ * `'system'` is the absence of a choice, so it sits at the end rather than in the middle where a
+ * user sweeping left-to-right would land on it between the two things it is not.
+ *
+ * **`as const satisfies readonly ThemePreference[]`** rather than a plain annotation: the `satisfies`
+ * keeps the literal tuple type — a consumer gets `'light' | 'dark' | 'system'` and not `string` —
+ * while still failing to compile if a value that is not a preference is added.
+ */
+export const THEME_PREFERENCES = ['light', 'dark', 'system'] as const satisfies readonly ThemePreference[];
+
 export function isTheme(value: unknown): value is Theme {
   return value === 'light' || value === 'dark';
 }
@@ -73,6 +89,14 @@ export function resolveTheme(preference: ThemePreference, systemPrefersDark: boo
  * control whose next state a user cannot predict, and "follow my device" is a thing you choose
  * once from a menu rather than something you land on by pressing a button twice. The *current*
  * appearance is what a person is looking at when they reach for it, so that is what it flips.
+ *
+ * **Nothing calls this, and that is the argument landing rather than the function rotting.** The
+ * owner asked for a theme control on 2026-08-31 and required it be three-state; the sentence above
+ * had already said where `'system'` belongs — *a thing you choose once from a menu* — so
+ * `app/profile/theme-choice.tsx` is a radio group over `THEME_PREFERENCES` and never a button that
+ * cycles. Kept, because the two-state flip is the right answer the moment a surface wants one
+ * press rather than three targets, and the reasoning for *not* cycling through `'system'` is worth
+ * more written down than deleted.
  */
 export function nextPreference(current: ThemePreference, systemPrefersDark: boolean): Theme {
   return resolveTheme(current, systemPrefersDark) === 'dark' ? 'light' : 'dark';
