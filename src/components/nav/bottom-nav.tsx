@@ -167,8 +167,10 @@ interface BottomNavProps {
 /**
  * **There is no count on any tab here, and none on the drawer's `Collections` switch either.**
  *
- * `CollectionsNavRow` carried one and was right to: it was a row in a list, where a trailing number
- * is how a row says how much is behind it. A tab is not a row. The destination is the same whether
+ * The `Collections` row in the desktop panel carried one and was right to: it was a row in a list,
+ * where a trailing number is how a row says how much is behind it. (That row was deleted on
+ * 2026-08-31, for the same reason this tab was — the drawer's switch reaches the view from the top
+ * of the same column.) A tab is not a row, and neither is a switch segment. The destination is the same whether
  * it says 2 or 12, a number beside a nav label reads as a notification badge, and Plotline's own
  * tabs carry none.
  *

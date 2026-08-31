@@ -78,10 +78,14 @@ import {
 
 /**
  * The list-row vocabulary, copied verbatim from `sheet/elsewhere-section.tsx` where the same two
- * strings define every navigational row in the product (and `CollectionsNavRow` matches them by
- * hand). Copied rather than imported because that file does not export them and it is outside this
- * task's path scope — **the right end state is one exported pair**, and this comment is the note
- * asking for it rather than a third row style pretending to be a new idea.
+ * strings define every navigational row in the product. Copied rather than imported because that
+ * file does not export them and it is outside this task's path scope — **the right end state is one
+ * exported pair**, and this comment is the note asking for it rather than a third row style
+ * pretending to be a new idea.
+ *
+ * (`CollectionsNavRow` matched them by hand and was the third wearer of this pair. It was deleted
+ * on 2026-08-31 — the drawer's `Places / Collections` switch reaches the same view from the top of
+ * the same column — so the count is two.)
  */
 const LEADING_SLOT = 'flex size-8 shrink-0 items-center justify-center';
 // The bare `transition-colors` this used to carry is gone, replaced by `PRESS_ROW` — which is
@@ -363,9 +367,8 @@ export const MENU_TITLE = 'Create';
  * The menu pane — the two things `＋` can make, as rows rather than as buttons.
  *
  * Rows, because that is the vocabulary the rest of the product uses for "pick one of these"
- * (`ElsewhereSection`, `CollectionsNavRow`), and because a row can carry the second line that
- * makes the choice obvious without a tooltip. Two big buttons would have been a third pattern for
- * the same job.
+ * (`ElsewhereSection`), and because a row can carry the second line that makes the choice obvious
+ * without a tooltip. Two big buttons would have been a third pattern for the same job.
  */
 export function AddMenu({
   Title = 'h2',

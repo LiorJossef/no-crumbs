@@ -257,6 +257,15 @@ export const ENTER_POPOVER =
  * drawer itself, and a pane that also rises fights the surface carrying it. A sideways shift says
  * *"further in"*, which is what a pane change means.
  *
+ * **One documented exception, and it is the boundary rather than a loophole.** The drawer's
+ * `Places / Collections` view switch (`app/map/collections-scope.tsx`) wears `ENTER_SCREEN`, rise
+ * and all. Both halves of the rule above fail there: the two views rest at the *same* stop, so the
+ * sheet is static through the whole animation and there is no vertical motion to fight; and they
+ * are **peers rather than a stack**, so *"further in"* would be the wrong sentence. What makes it
+ * an exception rather than a precedent is that both conditions are checkable — a pane arriving into
+ * a *moving* drawer still belongs here, and a second caller citing this one without re-deriving
+ * both is how a vocabulary erodes.
+ *
  * **This replaced a Motion component**, and the swap took `motion/react` out of `/map`'s bundle
  * entirely — the add sheet was its only importer on that route.
  */

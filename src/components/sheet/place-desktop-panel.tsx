@@ -38,7 +38,6 @@ import { ActiveTagFilter, TagFacetBar } from './place-enrichment';
 import { CategoryFilterBar } from './category-filter-bar';
 import type { CategoryFacet } from '@/domain/places/category-filter';
 import type { ProductCategory } from '@/domain/places/product-category';
-import { CollectionsNavRow } from '@/components/collections/collections-nav-row';
 import type { AreaHeading } from '@/ui/place/active-area';
 import type { MapPlace } from '@/components/map/types';
 
@@ -254,10 +253,17 @@ export function PlaceDesktopPanel({
               {...(selectedId === undefined ? {} : { selectedId })}
             />
           </div>
-          {/* Pinned to the bottom of the panel, out of the scroll — see `PlaceList`. */}
-          <div className="shrink-0 px-6 pb-6">
-            <CollectionsNavRow />
-          </div>
+          {/* **The `Collections` row that used to be pinned here is gone** (owner, 2026-08-31).
+              It was the only way into collections from this panel and it earned its place; the
+              drawer's `Places / Collections` switch now sits at the top of this same column and
+              reaches the same view, so the row had become a second control for one destination
+              ~700 px below the first.
+
+              It was also the slower one by then: it linked to the literal `/collections`, which is
+              a redirect shim, so pressing it went `/map` → `/collections` → `/map?view=collections`
+              — **two segment changes, and the drawer torn down and rebuilt on each**, which is the
+              flicker the route merge exists to remove. Repointing its href would have fixed that
+              and left the duplication. */}
         </>
       )}
     </>
