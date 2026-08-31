@@ -39,6 +39,18 @@
  * appear, and neither do "sorry", "oops", "failed" or "couldn't". Charter §6's banned aesthetic is
  * enforced by subtraction: type, one hairline, one caption panel.
  *
+ * **This is a guard, not only a sentence, and that is why it is worth reading twice.**
+ * `tests/unit/import/no-places-screen.test.ts` turns §4.4 into an assertion: this file may contain
+ * no illustration, no badge, no pill, no wrapping card and no mascot. On 2026-08-31 an attempt to
+ * place the design system's `nothingFound` face in the kicker row hit it, and the face was removed
+ * rather than the assertion. `#moods` does bind that face to **"No places in this one"** — this
+ * screen's headline word for word — so the two documents genuinely disagree; but the same design
+ * system declines the identical move on the map's empty state (*"Putting the mascot here
+ * contradicts a deliberate decision, so it is shown as a proposal, with the shipping copy
+ * intact"*), and `#ship` lists this spec as "No change". A build does not settle that, and it
+ * certainly does not settle it by editing the test. **If the owner rules for the face, the guard
+ * is what moves first.**
+ *
  * ## The variant this file is, and how finding 10 closes
  *
  * §5.4's **with-search** variant, which the spec says is the one to build now that manual add

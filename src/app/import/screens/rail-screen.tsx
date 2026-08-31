@@ -25,6 +25,7 @@
 import { useEffect, useState } from 'react';
 import { Check, Link2, Loader2 } from 'lucide-react';
 
+import { CrumbTrail } from '@/components/brand/crumb-trail';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { PipelineStage } from '@/domain/import/events';
@@ -82,12 +83,19 @@ export function RailScreen({
   return (
     <div className="flex flex-1 flex-col">
       <div className="flex flex-col gap-1 pb-10">
-        {/* `hidden` + `motion-safe:block`: a frozen `Loader2` arc reads as a rendering artefact,
-            and `Working on it` beside it never leaves, so the state stays findable without it. */}
-        <ScreenKicker
-          icon={<Loader2 className="hidden size-3.5 motion-safe:block motion-safe:animate-spin" aria-hidden />}
-          label="Working on it"
-        />
+        {/*
+          **The kicker has no spinner any more, and that is the point of this change.**
+
+          It used to carry a 14px `Loader2` behind `hidden motion-safe:block`, with the note that a
+          frozen arc reads as a rendering artefact. Both halves of that were right and both are
+          now moot: the trail below is the indicator, it is 160px rather than 14, and it is the
+          thing `#apps` reserves for this screen — *"it replaces a generic spinner on the one
+          screen where the user waits seven to thirty-four seconds."*
+
+          A second indicator beside it would also be a second mascot on one screen, which
+          `#rules` rule 2 forbids outright.
+        */}
+        <ScreenKicker icon={<Link2 className="size-3.5" aria-hidden />} label="Working on it" />
         <h1 className="font-heading text-2xl font-extrabold tracking-tight text-foreground">
           Adding your TikTok
         </h1>
@@ -96,6 +104,28 @@ export function RailScreen({
         <p aria-live="polite" className="text-sm font-medium text-muted-foreground">
           {railWaitLine(elapsedMs)}
         </p>
+        {/*
+          **The trail, and it is the one place in the product that gets it** (`#apps`: *"one
+          animation, one place"*).
+
+          Its head wobbles rather than bobs, which is `#motion`'s explicit ruling for exactly this
+          screen: *"seven to thirty-four seconds is a long time to watch something bounce. Wobble
+          reads as patient; Bob reads as impatient by about second six."* The face is `reading` —
+          `#moods` binds that one to *"Import running — Reading the TikTok"* — so the character is
+          wearing the state the screen is in rather than a generic smile.
+
+          **It claims nothing.** The dots loop; they do not fill, advance toward a total or
+          arrive. `#motion`'s constraint on the whole set is that no animation may imply progress
+          the product cannot measure, and this call is request/response with no percentage. The
+          same reason it is `aria-hidden` and carries no live region: the sentence above it is the
+          announcement, and a decorative loop that announced itself would be announcing something
+          it does not know.
+
+          Sized in `w-*` and left-aligned under the wait line rather than centred: the subject of
+          this screen is the sentence and the rail, and a centred character would make the
+          character the subject.
+        */}
+        <CrumbTrail className="crumb-anim-wobble mt-5 w-40" mood="reading" />
       </div>
 
       {/* The post, once the server has actually sent it (`RailState.post`, W6-2). Its visual
