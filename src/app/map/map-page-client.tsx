@@ -87,7 +87,7 @@
  * string — the library holds four spellings for two cities), and `anchorCluster` survives as
  * `preferredAreaId`'s fallback for the *list*, never as a camera.
  *
- * `showImport` is the same pattern one level up: "Add a TikTok" (in both `PlaceSheet` and
+ * `showImport` is the same pattern one level up: "Add a TikTok link" (in both `PlaceSheet` and
  * `PlaceDesktopPanel`) used to be a `router.push('/import')` — a real route change that unmounts
  * the map entirely, which is glaring at desktop widths where `/import` has no map behind it to
  * float over. `ImportPageClient` now renders as an overlay sibling here instead, so the map stays
@@ -289,7 +289,7 @@ export function MapPageClient({
    *
    * The zero-places screen is the one this page cannot afford to get wrong: photographed at
    * 390×844 with an empty library, the peek strip collapses to the single line
-   * `Your map starts here. ⌃`, so the sentence explaining what to do and the `Add a TikTok` button
+   * `Your map starts here. ⌃`, so the sentence explaining what to do and the `Add a TikTok link` button
    * underneath it are both *inside* the sheet and invisible. The only visible way forward on a
    * phone was the `＋` in the tab bar. At `half` all three are on screen and in the thumb zone,
    * which is what `ux-map-is-the-query.md` §5 asked for and what
@@ -1488,7 +1488,7 @@ export function MapPageClient({
                   // place, so a filter they set earlier must not be what decides whether they see it.
                   onSelectPlace={revealSavedPlace}
                   // The link is carried across and **submitted**: `initialUrl` runs the import on
-                  // mount, so the sheet's `Add this TikTok` is the only Add between the ＋ and the
+                  // mount, so the sheet's `Add this TikTok link` is the only Add between the ＋ and the
                   // save. This callback fires only on that press, which is the prop's contract.
                   onSubmitTikTok={(url) => openImport(url)}
                   onManualSaved={(saved) => revealSavedPlace(saved.savedPlaceId)}
