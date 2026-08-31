@@ -1,18 +1,17 @@
 /**
  * Two rules from `docs/ux-collections-as-scope.md`, held in markup.
  *
- * §3 / §5 item 3 — **no unlabelled back-shaped arrow at layer 0.** That rule was written when the
- * only way out of a collection was inside its own header, and §5 item 3's answer was a kicker that
- * *was* the up-link — `‹ COLLECTION`, saying where it went rather than saying "Back".
+ * §3 / §5 item 3 — **no unlabelled back-shaped arrow at layer 0.** The collection list's header
+ * leads with the product's kicker, and the kicker *is* the up-link: it says where it goes
+ * (`Collections`), it is not called "Back", and it stands in the slot the arrow used to hold.
  *
- * **The up-link is gone, and the rule it served is stronger for it.** That row is struck in the
- * document's own control table as of `151f65f`, with the switch written in as its replacement — the
- * spec moved first and this assertion follows it, which is the order the code got wrong once and
- * had reverted for. The
- * drawer's `Places / Collections` switch sits directly above this header and its `Collections`
- * segment reaches the same index, so the kicker had become a second control for one destination
- * ~44 px above itself. Layer 0 now carries **no** back-shaped control at all, which is what §3 was
- * reaching for; the assertion below is therefore an absence rather than a shape.
+ * **That link was deleted for one commit on 2026-08-31 and restored, and this assertion is one of
+ * the three records that got it back.** The drawer's `Places / Collections` switch reaches the same
+ * index from directly above this header, so the up-link is genuinely a second control for one
+ * destination — but it is a *specified* one, and a spec item is amended before the code, not after.
+ * If you are here because the duplication looks obvious: it is, it is recorded open with the
+ * measurement in `collection-content.tsx`, and moving §5 item 3 is the first step rather than the
+ * last.
  *
  * §2.2 — **at most one back-shaped control on screen at any moment.** Inside a collection the
  * place detail already draws one in its header, so the add-to-a-collection picker must not draw a
@@ -84,29 +83,23 @@ function listMarkup(): string {
 }
 
 describe('the collection list header', () => {
-  it("carries no way out of its own, because the drawer's switch is the way out", () => {
+  it('leads with a labelled up-link to the index, not a back arrow', () => {
     const markup = listMarkup();
-    // No link to the index from inside the header, by either URL — the search-param one or the
-    // redirect shim. `map-shell.tsx`'s `DrawerViewSwitch` is the only control that leaves.
-    expect(markup).not.toContain('href="/map?view=collections"');
-    expect(markup).not.toContain('href="/collections"');
-    expect(markup).not.toContain('aria-label="Collections"');
+    // `/map?view=collections`, not `/collections`. The index is a search-param view on `/map` since
+    // 2026-08-31 (`app/map/_lib/drawer-view.ts`); the old path is a redirect shim, and routing this
+    // control through it would cost a segment change on each leg — the drawer unmounted twice by
+    // the one control whose job is leaving a collection without losing it.
+    expect(markup).toContain('href="/map?view=collections"');
+    expect(markup).toContain('aria-label="Collections"');
+    expect(markup).toContain('Collection');
   });
 
-  it('names no control "Back", and draws no arrow where one used to be', () => {
-    const markup = listMarkup();
-    expect(markup).not.toMatch(/aria-label="[^"]*Back/i);
-    // `lucide-chevron-left` was the class on the deleted up-link's glyph. §3's original complaint
-    // was an unlabelled arrow at layer 0; this is that complaint, checked directly.
-    expect(markup).not.toContain('lucide-chevron-left');
+  it('names no control "Back"', () => {
+    expect(listMarkup()).not.toMatch(/aria-label="[^"]*Back/i);
   });
 
-  it("keeps the options menu, now on the heading's own row", () => {
-    const markup = listMarkup();
-    expect(markup).toContain('aria-label="Collection options"');
-    // The 44px target survives the move. Deleting the link alone would have recovered no height at
-    // all — this button is `size-11`, so the row it used to share kept its height either way.
-    expect(markup).toContain('size-11');
+  it('keeps the options menu in the same row, trailing', () => {
+    expect(listMarkup()).toContain('aria-label="Collection options"');
   });
 });
 
