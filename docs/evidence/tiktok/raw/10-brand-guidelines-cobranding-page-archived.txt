@@ -1,0 +1,95 @@
+# TikTok Brand and Use Guidelines — the "Co-branding" page. ARCHIVED PRIOR VERSION.
+# Snapshot 2025-04-04; retrieved 2026-08-31.
+Wayback: https://web.archive.org/web/20250404141414id_/https://tiktokbrandbook.com/api/document/page/3/78
+sha256 of archived response body (gzip): 6f406b7ab9eebe9c358d87d3875853110903c0f2276d21bb6854dcbe968e7b94
+==============================================================================
+
+## Co-branding
+
+The following section sets out when and how to create assets for co-branding and social.
+
+## In a container
+
+Square version for iOS app icon – circular version for Android app icon and Share icon.
+
+## Badge
+
+Use the black circular version as a sticker or badge where relevant to force clear space on partner communications.
+
+## Equally Weighted
+
+Ensure the TikTok signifier is optically the same height as a partner’s logo when they appear together, always use the note without the wordmark.
+
+## Spacing and Sizing
+
+If locking up with other logos, make sure we use correct measurements for spacing and sizing.
+
+## Wordmark
+
+Our primary co-branding lockup uses the TikTok wordmark – ensure there's enough space by using the margins and rules indicated below. Use the orientation best suited to the application.
+
+## Vertical
+
+The TikTok wordmark appears on top with margins and a rule separating it from the partner logo.
+
+## Horizontal
+
+The TikTok wordmark appears on the left – reading the TikTok logo first – with margins and a rule separating it from the partner logo.
+
+## Icon
+
+Our secondary co-branding lockup uses the TikTok icon – ensure there's enough space by using the margins and rules indicated below and only use if the partnering logo doesn't overpower.
+
+The TikTok icon appears on top with margins and a rule separating it from the partner logo.
+
+The TikTok icon appears on the left – reading the TikTok logo first – with margins and a rule separating it from the partner logo.
+
+## Multiple Logos
+
+If there are multiple partnership logos it's best to use our TikTok wordmark in a horizontal format.
+
+## Multiple logos
+
+The TikTok wordmark appears on the left – reading the TikTok logo first – with equal margins and rules separating it form the partner logos.
+
+## Tag Lockups
+
+Tag lockups should only be used in reference to the TikTok application in partnership with other apps icons. The Tag should always have a black background.
+
+## Vertical Tag Icon Lockup
+
+The TikTok Tag Icon appears on top with margins and a rule separating it from the partner icon.
+
+## Horizontal Tag Icon Lockup
+
+The TikTok Tag Icon appears on the left – reading the TikTok logo first – with margins and a rule separating it from the partner icon.
+
+## Vertical Tag Stacked Lockup
+
+The TikTok Tag Stacked appears on top with margins and a rule separating it from the partner icon.
+
+## Horizontal Tag Stacked Lockup
+
+## Do's and Don'ts
+
+When co-branding, it's important to follow these rules to ensure maximum legibility and brand attribution for both the TikTok brand and our partners.
+
+## Too close
+
+Don't position logos too close to the dividing line.
+
+## Unequal sizing
+
+Don't make one logo bigger than the other.
+
+## Change colors
+
+Don't change the colors of logos.
+
+## New lockups
+
+Don't create new types of lockup or partnerships.
+
+## Logo
+
+## Color

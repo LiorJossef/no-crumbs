@@ -1,0 +1,26 @@
+# TikTok Brand and Use Guidelines — the "legal" page, recovered from the Internet Archive.
+# ARCHIVED PRIOR VERSION. Page footer reads "Last modified on Fri, 19. Mar 2021 15:12".
+# Snapshot taken by the Internet Archive 2025-01-19; retrieved by us 2026-08-31.
+# The live document at tiktokbrandhub.com is gated and could not be read (see E9 section 2.3).
+# CMS placeholder "Lorem ipsum" filler between sections has been stripped; legal prose is verbatim.
+Wayback: https://web.archive.org/web/20250119225357id_/https://tiktokbrandbook.com/api/document/page/-/156
+sha256 of archived response body (gzip): 6227aebd1bed1e69fc27197fac1a17887faa7d04a4792ede84523583c707704f
+==============================================================================
+
+## Overview
+
+## Introduction
+
+These Brand Guidelines outline general rules for using TikTok's brand and assets. If you wish to refer to TikTok's brand, please follow these guidelines carefully as they set out what you can and cannot do. These Brand Guidelines should be read in conjunction with our Terms of Service , and TikTok may modify or amend these guidelines from time to time.
+
+## The TikTok Brand and Use Guidelines
+
+The TikTok brand consists of trademarks, trade and product names, logos, icons, symbols and designs owned or used by TikTok. In most cases, any use of the TikTok name requires our explicit permission. Without our explicit permission, you may only use our TikTok name in text where it is used to identify or refer to our platform or services e.g., "uploaded on TikTok" or "follow us on TikTok." Such use must be fair and in accordance with the terms of these Guidelines. Please note that you may not use our "TikTok" trademark or any other trademarks owned or used by TikTok (“TikTok Trademarks”) in a manner that is false or misleading, or in a manner likely to confuse consumers or the public about the source or origin of any products or services you may provide. Confusing uses include, among other things, uses that may cause people to think your activities emanate from TikTok, or vice versa, or that there is some sort of sponsorship, affiliation, relationship, or endorsement between you, your goods/services, and TikTok where none exists. Here are a few examples of what not to do. Do not use the TikTok Trademarks in connection with your brand identity, including in your brand name, trading name, company name, service name, product name, event name, domain name, social media account name or app name; Do not use the TikTok Trademarks on merchandise or other promotional products, such as clothing; Do not use the TikTok Trademarks as the distinctive or prominent feature in any promotional/advertising materials; Do not use any of the TikTok Trademarks as nouns or verbs (e.g., instead of “I made a TikTok” say “I made a video on the TikTok App”); Do not use the TikTok Trademarks in a way which could be regarded as derogatory, defamatory or disparaging of the TikTok brand; and Do not feature any of the TikTok Trademarks on materials associated with illegal activities. You may not use TikTok logos, icons, symbols, or designs, without our prior written permission.
+
+## TikTok Name and Logo Style Guidelines
+
+All uses of the name "TikTok" must be in the following form. There is no space between "Tik" and "Tok". Both letters "T" are upper case and all other letters lower case. Do not modify, abbreviate or translate the word "TikTok" into a different language or by using a non-Latin alphabet. Do not modify or abbreviate the brand name or use any variations or phonetic equivalents of the brand name (such as "Tiktok", "tiktok", "Tik Tok").
+
+## TikTok Logo
+
+If you have received our prior written permission to use the TikTok logo, the following rules apply. If you have not received our permission, you may not use the TikTok logo. Our logo is based on a simple 'note' icon and TikTok wordmark. It has been carefully constructed to maintain ownable characteristics – making it instantly recognizable at all sizes and in all contexts. Please refer to our logo do's and don'ts section for clarity.
