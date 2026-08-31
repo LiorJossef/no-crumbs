@@ -128,6 +128,10 @@
     --shadow-raised: var(--shadow-raised);
     --shadow-sheet: var(--shadow-sheet);
     --shadow-overlay: var(--shadow-overlay);
+    /* `shadow-cta-halo` — the primary CTA's hover on the chrome surfaces. Registered here for the
+     * same reason as the three above: so the one call site that wants it writes a utility name and
+     * not a bracket. Its value, and why it re-states the resting elevation, is on the token. */
+    --shadow-cta-halo: var(--shadow-cta-halo);
 
     /*
      * Motion: the nine-animation closed list, by name.
@@ -791,6 +795,56 @@
     --chrome-edge:
         linear-gradient(90deg, rgba(91, 108, 255, 0) 0%, rgba(91, 108, 255, 0.75) 24%, rgba(46, 122, 112, 0.85) 62%, rgba(46, 122, 112, 0) 100%);
     /*
+     * **The spark that runs along the lit edge once, as the entrance's closing beat.**
+     *
+     * The same 1px rule the token above paints, brightened over a third of its width and moved
+     * across it exactly once. It is the "one orchestrated moment" the sign-in brief asks for rather
+     * than a sixth scattered effect: the card rises, its children stagger in, and then the edge
+     * lights up left to right — the object finishing arriving rather than a decoration starting.
+     *
+     * `mint-700` on paper and `mint-400` at night, which is the same inversion `--chrome-edge`
+     * already carries in its own middle stop. Deliberately **not** white: on the near-white light
+     * card a white spark is the edge *disappearing* where the highlight is, which reads as a
+     * rendering fault rather than as light.
+     *
+     * It is a `transform` on a strip that paints one gradient, so a frame costs a composite and no
+     * repaint — and it plays once, so it is an event rather than wallpaper. `#motion`'s rule about
+     * Land applies to it word for word: *"If it loops it stops being an event and becomes
+     * wallpaper."*
+     */
+    --chrome-edge-spark:
+        linear-gradient(90deg, rgba(46, 122, 112, 0) 0%, rgba(46, 122, 112, 0.95) 50%, rgba(46, 122, 112, 0) 100%);
+    /*
+     * **What the primary CTA does when a pointer arrives, as a shadow rather than as a colour.**
+     *
+     * `Button`'s `default` variant already answers a hover with `bg-primary/80`, and on the sign-in
+     * card that is the one hover on the screen that is genuinely too quiet: the CTA is the largest
+     * mint object on a page whose whole job is to be pressed, and an 20% alpha step on a pale mint
+     * fill is a change most people will not see. This adds light *under* it instead, which is a
+     * property the fill cannot express.
+     *
+     * `--brand` (`--mint-700`) rather than `--primary` (`--mint-400`), and it is the same evidence
+     * `button.tsx` records for the outline variant's border: a `#A8ECE2` glow under a `#A8ECE2`
+     * button on a near-white card is invisible. The deep mint reads in both themes.
+     *
+     * A shadow, so it costs a repaint on one small element and never a layout. Nothing on this
+     * screen animates a layout-triggering property, which is the standing rule for a codebase that
+     * has a MapLibre canvas one route away.
+     *
+     * **It opens with `var(--shadow-raised)` on purpose.** `box-shadow` is not additive, so a
+     * `hover:` utility naming only the halo would *replace* the button's resting elevation and the
+     * control would flatten at the exact moment it is being reached for. The two are one value
+     * because they are one appearance.
+     *
+     * Named `--shadow-*` rather than `--chrome-*` so it registers in `@theme inline` beside the
+     * other three and the call site can write `hover:shadow-cta-halo` — a registered utility rather
+     * than `shadow-[var(…)]`, which run rule 6a makes a review failure and which this file's own
+     * `@theme` block exists to make unnecessary.
+     */
+    --shadow-cta-halo:
+        var(--shadow-raised),
+        0 8px 26px -8px color-mix(in srgb, var(--brand) 65%, transparent);
+    /*
      * Grain, as a tiled `feTurbulence` rather than a PNG: 160×160 of desaturated fractal noise,
      * ~1.2 kB, no network request, no dependency. It is painted with `mix-blend-mode: overlay`, so
      * mid-grey is neutral and only the deviation registers — which is why the SVG itself carries no
@@ -1216,6 +1270,14 @@
     --mascot-keyline: #6B4A1E;
     --chrome-edge:
         linear-gradient(90deg, rgba(91, 108, 255, 0) 0%, rgba(91, 108, 255, 0.95) 24%, rgba(168, 236, 226, 0.9) 62%, rgba(168, 236, 226, 0) 100%);
+    /* `mint-400`, following `--chrome-edge`'s own inversion in this theme: the light card's edge is
+     * the deep mint and the night card's is the pale one, so the spark is whichever of the two the
+     * line it runs along is already made of. */
+    --chrome-edge-spark:
+        linear-gradient(90deg, rgba(168, 236, 226, 0) 0%, rgba(168, 236, 226, 1) 50%, rgba(168, 236, 226, 0) 100%);
+    /* Not restated: `--shadow-cta-halo` is written as a `color-mix` over `--brand`, and `--brand`
+     * inverts to `--mint-400` under `.dark` on its own. A second literal here would be a copy that
+     * can drift, which is the arrangement `--chrome-shade` argues against at length. */
     --chrome-grain-strength: 0.14;
 
     /* `--card`'s own value at a card's alpha rather than a column's. Composited over the night mesh
@@ -1263,6 +1325,114 @@
   html {
     @apply font-sans;
     }
+
+  /*
+   * ## The pointer cursor, restored — and it is a correctness bug rather than polish
+   *
+   * **Tailwind v3 shipped `cursor: pointer` on `<button>` in preflight and v4 removed it**, on the
+   * grounds that the CSS spec's default for a button is `cursor: default`. Verified against the
+   * installed 4.3.3 rather than recalled: the string `cursor` appears **exactly once** in
+   * `node_modules/tailwindcss/preflight.css`, in a comment about Safari's number-input spin
+   * buttons. There is no rule. So every `<button>` in this product was showing an arrow.
+   *
+   * That is not a taste question. A hand is the one signal a pointer user has that a thing is
+   * pressable *before* they press it, and this product's controls lean hard on shape — the FAB, the
+   * nav tabs, the filter pills, the sheet handle, the icon buttons — none of which is underlined or
+   * blue.
+   *
+   * **Measured in a browser at commit `9a95444`**, seven routes x two themes x two gate viewports,
+   * reading `getComputedStyle().cursor` on every candidate rather than reading class strings:
+   *
+   *  | | `pointer` | `default` |
+   *  |---|---|---|
+   *  | `<button>` samples | 44 | **216** |
+   *  | distinct `<button>` elements | 21 | **53** |
+   *  | `<a href>` samples | 112 | 0 |
+   *
+   * The 21 that were already right are the six call sites that had remembered to write
+   * `cursor-pointer` themselves, which is the shape of the problem rather than an exception to it.
+   * The anchors were never affected: the UA stylesheet gives them a pointer and no framework has
+   * ever removed it.
+   *
+   * ## Why it is here and not on the `Button` primitive
+   *
+   * Because `Button` is not where the problem is. There are **60 raw `<button>` elements** across
+   * 24 files against 81 `<Button>` call sites, and the raw ones are the FAB, the nav tabs, the
+   * sheet handle and the map controls — the elements least likely to be routed through a primitive
+   * and most likely to be the next one somebody adds. A fix on the component covers 57% of the
+   * problem and leaves the other 43% to be remembered, forever, one author at a time. A fix in
+   * `base` covers the element.
+   *
+   * `@layer base` and not `@layer components` or a `@utility`, and the layer is the whole design:
+   * base loses to every Tailwind utility, so `cursor-default`, `cursor-not-allowed`, `cursor-grab`
+   * on the map and `disabled:cursor-default` in `candidate-card.tsx` all still win at the call site
+   * without `!important` anywhere. This is a floor, not a ceiling.
+   *
+   * ## The selector list, and the two things deliberately not in it
+   *
+   * `<a href>` is absent because the UA stylesheet already gives it a pointer; adding it here would
+   * be a rule that never changes anything, which is how a stylesheet stops being readable.
+   *
+   * There is no `[onclick]` / `div` catch-all either, and that one was decided by the measurement
+   * rather than by preference. Exactly **one** element in this product carries a React click
+   * handler without being a `<button>` or an `<a>` — the sheet's drag handle — and it is handled
+   * by name below because what it wants is `grab`, not `pointer`. A catch-all would have given it
+   * the wrong cursor while looking like it had found something.
+   *
+   * A `<label>` earns a pointer only when it wraps a **checkbox or radio**, because there clicking
+   * the label toggles a control; a label over a text field only moves focus into it, which is what
+   * a text cursor already promises. The sign-in screen's *Remember me* row is the checkbox case,
+   * and the row rather than the 16px box is the hit area.
+   */
+  button,
+  [role='button'],
+  summary,
+  select,
+  input:where([type='checkbox'], [type='radio'], [type='submit'], [type='button'], [type='reset']),
+  label:has(> input:where([type='checkbox'], [type='radio'])),
+  ::file-selector-button {
+    cursor: pointer;
+    }
+
+  /*
+   * An inactive control is not pressable, so it does not promise a press. `default` rather than
+   * `not-allowed`: the fields already write `disabled:cursor-not-allowed` as a utility and it still
+   * wins here, and on a `<Button>` this never renders at all — `disabled:pointer-events-none` means
+   * the cursor resolves against the parent. This exists for the controls that stay hit-testable
+   * while inert, which is the `aria-disabled` case.
+   */
+  button:disabled,
+  select:disabled,
+  input:disabled,
+  [aria-disabled='true'] {
+    cursor: default;
+    }
+
+  /*
+   * **The sheet's drag handle wants `grab`, and it is the one control in the product that does.**
+   *
+   * `[data-vaul-handle]` is vaul's own attribute (`node_modules/vaul/dist/index.mjs`, in the
+   * stylesheet it injects), so this reaches the handle in `shell/map-shell.tsx` and the one in
+   * `add/add-sheet.tsx` without either file having to know. Measured at `9a95444` it computed
+   * `cursor: auto` in both, on every route that mounts a sheet: an element you are meant to drag,
+   * offering the cursor of ordinary page text.
+   *
+   * `grab` rather than `pointer` because dragging is what it is for — the click-to-toggle is the
+   * secondary behaviour, and a hand-with-a-finger over a drag affordance promises the wrong
+   * gesture. `grabbing` while held, which is the pair the two cursors exist as.
+   *
+   * It is styled here rather than at either call site for the same reason as everything above:
+   * there are two handles today and the third one should not have to remember.
+   */
+  [data-vaul-handle],
+  [data-vaul-handle-hitarea] {
+    cursor: grab;
+    }
+  [data-vaul-handle]:active,
+  [data-vaul-handle]:has([data-vaul-handle-hitarea]:active) {
+    cursor: grabbing;
+    }
+
   .maplibregl-popup-content {
     @apply bg-transparent! shadow-none! p-0! rounded-none!;
     }
@@ -1546,6 +1716,54 @@
     to { opacity: 1; }
 }
 
+/*
+ * **The closing beat of the entrance: the card's lit edge lights up, once, left to right.**
+ *
+ * The owner's note on `/sign-in` was *"more alived"*, and the brief's own instruction is that **one
+ * orchestrated moment beats scattered effects**. This is that moment. The entrance already ends
+ * silently at ~790 ms with the last form field settling; the sweep runs from 720 ms to 1.6 s so it
+ * overlaps the tail rather than starting after a gap, and the arrival reads as one gesture that
+ * finishes on the object rather than on its contents.
+ *
+ * Both properties are compositor-only, and the strip paints exactly one gradient. It plays **once**
+ * — `1 both`, never `infinite`, for the reason `#motion` gives about Land: a repeating event is not
+ * an event.
+ *
+ * The percentages ramp the opacity inside the travel rather than fading the strip in a second
+ * declaration, so there is one animation and one clock. It ends at 0, which is the resting state:
+ * nothing is left on the edge afterwards.
+ */
+@keyframes chrome-edge-sweep {
+    0% { opacity: 0; transform: translateX(-110%); }
+    16% { opacity: 1; }
+    78% { opacity: 1; }
+    100% { opacity: 0; transform: translateX(220%); }
+}
+
+/*
+ * **The halo behind the mark breathes**, and it is the one thing on the card still moving after the
+ * entrance ends.
+ *
+ * Licensed by the same paragraph as the two ambient blooms (`chrome-motion.ts`, and
+ * `iteration-2-plan.md` §2.1's chrome/data split), and it is held to the identical three
+ * conditions:
+ *
+ *  1. **Behind the reading surface, never on it.** `--chrome-mark-glow`'s own box was cut back to
+ *     match the lockup's gap precisely so it stops where the wordmark begins — see
+ *     `chrome-stage.tsx`. This animates **opacity only** and never `scale`, because a scale would
+ *     grow that box back over the ink and rebuild the defect that measurement removed.
+ *  2. **Ambient, never signalling.** It does not respond to state, does not change speed and does
+ *     not change colour. At 7 s it is slower than anyone watches.
+ *  3. **Dead under `prefers-reduced-motion`**, below, where the loop stops and the halo stays lit.
+ *
+ * 0.72 to 1 rather than 0 to 1: at the bottom of the range the light is still there. A halo that
+ * goes out and comes back is a blink, and a blink is a signal.
+ */
+@keyframes chrome-mark-breathe {
+    0%, 100% { opacity: 0.72; }
+    50% { opacity: 1; }
+}
+
 @layer components {
     [data-entrance] {
         animation-duration: 340ms;
@@ -1591,6 +1809,28 @@
         animation-delay: 80ms, 680ms;
     }
 
+    /* The sweep. `both` so the strip is at the first keyframe (opacity 0, off to the left) before
+     * its delay elapses rather than sitting visible in the middle of the edge until it starts —
+     * the same property that makes this whole entrance safe without JavaScript. */
+    [data-entrance='edge-spark'] {
+        animation-name: chrome-edge-sweep;
+        animation-duration: 880ms;
+        animation-delay: 720ms;
+        animation-timing-function: var(--ease-emphasised);
+        animation-iteration-count: 1;
+    }
+
+    /* The halo's breath starts after the mark's own arrival has finished (180 + 460 ms), so the two
+     * never overlap and the character does not appear to pulse while it is still landing. */
+    [data-entrance='mark-halo'] {
+        animation-name: chrome-mark-breathe;
+        animation-duration: 7s;
+        animation-delay: 700ms;
+        animation-timing-function: ease-in-out;
+        animation-iteration-count: infinite;
+        animation-fill-mode: none;
+    }
+
     /*
      * `facelift-plan.md` §3a — the nine collapse **to the opacity change, not to nothing**. Every
      * transform goes, the stagger goes, the ambient drift stops outright, and what is left is a
@@ -1609,6 +1849,35 @@
             animation-delay: 0ms;
             animation-iteration-count: 1;
             animation-timing-function: linear;
+        }
+
+        /*
+         * **Two collapses that are not the fade, and each one is the fade being wrong rather than
+         * an exemption from it.**
+         *
+         * The rule this file already states twice: §3a's nine collapse *to the opacity change, not
+         * to nothing*, because the pin that was just selected still has to be findable. Both
+         * elements below fail that rule's premise rather than its letter.
+         *
+         * **`edge-spark`** ends at `opacity: 0`. Its whole existence is the travel, so the generic
+         * collapse — `chrome-enter-fade`, which ends at `opacity: 1` — would park a bright blob in
+         * the middle of the card's top edge and leave it there for the rest of the session. The
+         * thing that has to stay findable is the **edge**, and the edge is a separate element that
+         * never moves. So the spark does not run and is not painted.
+         *
+         * **`mark-halo`** is a loop, and a loop has nothing to keep findable. Collapsing it to an
+         * opacity change would produce exactly the continuous pulse §3a bans in its next sentence.
+         * Same ruling as the mascot's own loops higher up this file: **the loop stops and the light
+         * stays** — `animation: none` leaves the halo at its natural full opacity, which is more
+         * light than the animated version averages, not less.
+         */
+        [data-entrance='edge-spark'] {
+            animation: none;
+            opacity: 0;
+        }
+
+        [data-entrance='mark-halo'] {
+            animation: none;
         }
     }
 }

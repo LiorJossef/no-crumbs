@@ -182,10 +182,34 @@ export default function SignInPage() {
         }
         form={
           <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4 lg:gap-5">
-            <ChromeItem step={4} className="flex flex-col gap-1.5">
+            {/*
+              * `group/field`, and the label brightens when the field it names is focused.
+              *
+              * Measured at commit 9a95444 with a real pointer at 1440x900, both themes: these two
+              * labels and the `Remember me` row were **inert** — background, colour, border,
+              * opacity, shadow, transform and text-decoration all byte-identical hovered and not.
+              * The `Input` primitive answered a hover on its own border and a focus with its ring;
+              * nothing said which field you were *in* beyond a 1px edge.
+              *
+              * `text-foreground` and deliberately **not** `text-chrome-accent`. Indigo is licensed
+              * on chrome and it was the first thing tried, and it fails at night. Computed — from
+              * the token values against the composited card colours this file's own tokens state,
+              * `rgb(250,251,251)` in light and `rgb(33,33,37)` in dark — `--chrome-accent` resolves
+              * to `--indigo-600` on paper at **6.62:1** and to `--indigo-400` at night at
+              * **3.85:1**, against a 4.5 bar for 11px bold ink. `--foreground` is 16.63 and 14.33.
+              *
+              * So indigo stays where it costs nothing — the grounds, the edges, the kicker's dot —
+              * and ink that has to be read takes the ink colour. A focus state whose whole job is
+              * to say *you are here* is the last place to spend a contrast ratio on a hue.
+              *
+              * `focus-within`, not `focus-visible`: this fires when the field is focused by any
+              * means, so it works on a phone where there is no pointer at all. Nothing on this
+              * screen is hover-only.
+              */}
+            <ChromeItem step={4} className="group/field flex flex-col gap-1.5">
               <Label
                 htmlFor="email"
-                className="text-micro font-bold tracking-[0.1em] text-muted-foreground uppercase"
+                className="text-micro font-bold tracking-[0.1em] text-muted-foreground uppercase motion-safe:transition-colors group-focus-within/field:text-foreground"
               >
                 Email
               </Label>
@@ -207,10 +231,12 @@ export default function SignInPage() {
             </ChromeItem>
 
             <ChromeItem step={5} className="flex flex-col gap-4 lg:gap-5">
-              <div className="flex flex-col gap-1.5">
+              {/* The same `group/field` pairing as the email field above; its comment carries the
+                  measurement and the reason the colour is `--foreground` rather than indigo. */}
+              <div className="group/field flex flex-col gap-1.5">
                 <Label
                   htmlFor="password"
-                  className="text-micro font-bold tracking-[0.1em] text-muted-foreground uppercase"
+                  className="text-micro font-bold tracking-[0.1em] text-muted-foreground uppercase motion-safe:transition-colors group-focus-within/field:text-foreground"
                 >
                   Password
                 </Label>
@@ -237,7 +263,17 @@ export default function SignInPage() {
                  * and not the target. So the fix belongs on the row, and `items-start` stays so the
                  * box keeps aligning to the first line when the hint wraps to a second.
                  */
-                <label className="flex min-h-11 items-start gap-2 py-2 text-sm font-medium text-muted-foreground">
+                /*
+                 * The row answers a pointer and a keyboard, which it did not: measured inert at
+                 * 9a95444, and the base cursor rule now gives it the hand a checkbox label earns.
+                 *
+                 * The keyboard arm is a `has-` variant over the checkbox's *focus-visible* state
+                 * rather than `focus-within`, and the difference matters here: clicking the row
+                 * focuses the checkbox, so `focus-within` would leave the row lit after a mouse
+                 * click and make it look permanently active. `focus-visible` is the browser's own
+                 * judgement about whether the focus came from a keyboard.
+                 */
+                <label className="flex min-h-11 items-start gap-2 py-2 text-sm font-medium text-muted-foreground motion-safe:transition-colors hover:text-foreground has-[:focus-visible]:text-foreground">
                   <input
                     type="checkbox"
                     checked={rememberMe}
@@ -277,10 +313,31 @@ export default function SignInPage() {
             </AnimatePresence>
 
             <ChromeItem step={6} className="flex flex-col">
+              {/*
+                * **`hover:shadow-cta-halo` — the one hover on this screen that was genuinely too
+                * quiet, and the fix is light rather than more colour.**
+                *
+                * `Button`'s `default` variant answers a hover with `bg-primary/80`. On this card
+                * that is a 20% alpha step on a pale mint fill and most people will not see it, on
+                * the largest mint object on a page whose entire job is to be pressed. The halo adds
+                * light *under* the button, which is a thing the fill cannot say.
+                *
+                * The token restates the resting `--shadow-raised` inside itself — `box-shadow` is
+                * not additive, so a hover naming only the glow would flatten the control at the
+                * moment it is reached for. See `--shadow-cta-halo` in `globals.css`.
+                *
+                * **No `hover:-translate-y-px`, and that is deliberate.** The base variant already
+                * carries `active:translate-y-px` and `active:shadow-none`, so the press is a sink
+                * plus the glow collapsing — a complete beat. A hover lift would put two rules on
+                * one custom property whose relative order Tailwind decides, for a one-pixel gain.
+                *
+                * The palette is untouched: `--brand` is the mint the CTA is already made of. The
+                * owner's *more alive* is answered here with responsiveness, not with a new pigment.
+                */}
               <Button
                 type="submit"
                 disabled={pending}
-                className="h-12 w-full rounded-lg text-base font-bold lg:h-13 lg:text-reading"
+                className="h-12 w-full rounded-lg text-base font-bold hover:shadow-cta-halo lg:h-13 lg:text-reading"
               >
                 {pending ? (
                   <>
@@ -330,16 +387,41 @@ export default function SignInPage() {
                  * word-space between the two items. Do not remove it without making the text a
                  * single text node again.
                  */
-                className="mt-3 flex min-h-11 items-center justify-center gap-1 text-center text-sm font-medium text-muted-foreground"
+                /*
+                 * **This control answered nothing at all**, which the audit at 9a95444 measured
+                 * rather than inferred: hovered and unhovered were byte-identical across all nine
+                 * properties, and it had no focus treatment either. It is the only route a new user
+                 * has to the account they do not have yet, sitting under the CTA looking like a
+                 * caption.
+                 *
+                 * The response is an underline on the actionable word, which is what
+                 * `brand-and-product-foundation.md` already says this control *is*: *"secondary /
+                 * toggle actions are plain text, muted by default, with the actionable word set in
+                 * bold mint-700 inline rather than styled as a second button."* A background or a
+                 * border would make it the second button that sentence forbids; an underline is the
+                 * affordance the word already had and was not showing.
+                 *
+                 * `group/switch` so hovering anywhere on the 44px row underlines the word, not only
+                 * the word itself — the row is the target, per W7-6.
+                 *
+                 * `focus-visible:ring-3 focus-visible:ring-ring/50` is the product's focus
+                 * treatment, and this button was rendering the browser's default outline instead.
+                 */
+                className="group/switch mt-3 flex min-h-11 items-center justify-center gap-1 rounded-lg text-center text-sm font-medium text-muted-foreground outline-none motion-safe:transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
               >
                 {isSignUp ? (
                   <>
                     Have an account?{' '}
-                    <span className="font-bold text-brand">Sign in</span>
+                    <span className="font-bold text-brand underline-offset-4 group-hover/switch:underline group-focus-visible/switch:underline">
+                      Sign in
+                    </span>
                   </>
                 ) : (
                   <>
-                    New here? <span className="font-bold text-brand">Create an account</span>
+                    New here?{' '}
+                    <span className="font-bold text-brand underline-offset-4 group-hover/switch:underline group-focus-visible/switch:underline">
+                      Create an account
+                    </span>
                   </>
                 )}
               </button>

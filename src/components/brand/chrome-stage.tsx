@@ -85,9 +85,37 @@ export function ChromeStage({
               Colour that costs no contrast, because nothing is read on it. */}
             <div
               aria-hidden
-              className="pointer-events-none absolute inset-x-0 top-0 h-px"
+              className="pointer-events-none absolute inset-x-0 top-0 h-px overflow-hidden"
               style={{ background: 'var(--chrome-edge)' }}
-            />
+            >
+              {/*
+               * **The entrance's closing beat: the edge lights up, once, left to right.**
+               *
+               * The owner asked for `/sign-in` to be *more alive*, and the brief's own instruction
+               * is that one orchestrated moment beats scattered effects. The entrance previously
+               * ended silently — the last form field settled at ~790 ms and nothing acknowledged
+               * that the object had finished arriving. This is that acknowledgement, and it is
+               * deliberately on the **card** rather than on any of its contents: the thing that
+               * arrived is the card.
+               *
+               * A third of the edge's width, painting one gradient, moved with `transform`. Nothing
+               * here is read, so it costs no contrast; nothing here is layout, so it costs no
+               * reflow. It runs `1`, never `infinite` — `#motion`'s rule about Land applies to it
+               * word for word.
+               *
+               * The 720 ms delay, the 880 ms duration and the reduced-motion collapse are all in
+               * `globals.css` under `[data-entrance='edge-spark']`, which is where every other beat
+               * of this sequence lives. **It is a CSS animation and not a Motion variant**, for the
+               * reason that file records at length: a variant's initial state is written into the
+               * server HTML and only hydration removes it, and that is how this screen once shipped
+               * a blank front door.
+               */}
+              <div
+                data-entrance="edge-spark"
+                className="absolute inset-y-0 left-0 w-1/3"
+                style={{ background: 'var(--chrome-edge-spark)' }}
+              />
+            </div>
 
             <div className="grid lg:grid-cols-2">
               {/* No wash on this half. There was one, and §The system bans decorative gradients on
@@ -127,8 +155,17 @@ export function ChromeStage({
                      * the text begins. Keep them equal: raising one without the other puts this
                      * back.
                      */}
+                    {/*
+                     * `data-entrance="mark-halo"` breathes the light, **opacity only and never
+                     * scale** — see `globals.css`. The paragraph above is the reason: this box was
+                     * cut back to match the lockup's gap exactly so it stops where the wordmark
+                     * begins, and any scale animation would grow it back over the ink and rebuild
+                     * the defect the measurement removed. Keeping the two facts adjacent is the
+                     * point of writing it here rather than only in the stylesheet.
+                     */}
                     <span
                       aria-hidden
+                      data-entrance="mark-halo"
                       className="pointer-events-none absolute -inset-3 lg:-inset-4"
                       style={{ background: 'var(--chrome-mark-glow)' }}
                     />
