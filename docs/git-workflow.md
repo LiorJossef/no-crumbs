@@ -109,7 +109,25 @@ left exactly as it is. Conventional Commits start with the next commit.
 4. Confirm every staged file belongs to the same logical change.
 5. Confirm no secrets, credentials, generated junk, debugging artifacts or unrelated user changes are
    staged.
-6. Stage intentionally (`git add <path>`), never blanket-stage the working tree.
+6. **Scope the commit itself: `git commit -m "..." -- <paths>`.** Not `git add <path>` followed by a
+   bare `git commit`.
+
+   **`git add <path>` names the *index*. Only `git commit -- <paths>` names the *commit*.** A bare
+   `git commit` takes the whole index — including anything a concurrently-running agent staged there,
+   which you did not write, did not review, and will not see in your own `git diff --staged` unless
+   you thought to look for it. `git commit -- <paths>` reads those paths from the working tree and
+   ignores the index entirely, so there is nothing to leak in.
+
+   **This rule previously read "stage intentionally (`git add <path>`), never blanket-stage the
+   working tree", and that is insufficient under concurrency — it names the wrong command as the
+   safety.** On 2026-08-31 it failed twice in one session, by two different agents, both of whom
+   followed it: `a1343be` (`feat(motion)`) carries four collections paths including a 387-line
+   deletion, and `30afd6b` (`test(harness)`) deletes a collections component. The second was
+   committed roughly two hours after its author read the post-mortem of the first. **Knowing the
+   failure by name did not prevent it; only changing the command does.**
+
+   Checking the index before committing — `git diff-index --cached HEAD` — is a useful habit and it
+   is *not* this rule. It detects the hazard while leaving the mechanism in place.
 
 Unrelated changes stay untouched and out of the commit. If a change cannot pass an expected check,
 do not commit it as complete — explain the blocker.
