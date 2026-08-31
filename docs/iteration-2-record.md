@@ -173,16 +173,24 @@ The number that survived constraint was 8.8, not the 10.3 first reported. **An i
 improves a number by relaxing an unnamed constraint is the flattering-direction case again** — and it
 is hardest to see inside your own optimisation.
 
+**A predicted number and a measured number look identical once they are written down.** Four
+percentages in a commit body were arithmetic done *before* the after-frame was rendered, sitting
+among figures that were all measurements — nothing distinguished them, and they were wrong. They were
+caught by recomputing from the JSON rather than by re-reading the prose. The fix is not more care at
+writing time; it is recomputing from data at reading time.
+
 **A clean number with its limits stated beside it is worth more than a clean number.** *0 failures
 at `214bb0f`* is a statement about 376 scored strings — not about the 78 rows below the fold, the 12
 occluded, or the six that were **not measured rather than passed**.
 
 ---
 
-## 5. The documents were wrong four times
+## 5. Recorded reasoning went stale five times
 
-Every one was correct about a narrower case than its reader assumed — the same shape as §3.2,
-arriving on a specification instead of an instrument.
+Four in documents and **one in code**, which is what makes it a general finding rather than a
+documentation problem. Every one was correct about the case it was written against and wrong about
+the case that now exists — the same shape as §3.2, arriving on a specification instead of an
+instrument.
 
 1. **The café colour argument** describes `#8A5A3B`, a value iteration 1 had already retuned away.
    Worse: the value the document *draws* fails the repo's existing colour-vision guard.
@@ -195,6 +203,20 @@ arriving on a specification instead of an instrument.
 4. **`#mark`'s "legible blob at 16px"** is measurably false for the faceless silhouette. At 24px the
    entire crumb-ness of the crumb is **0.547 of a pixel**; it is indistinguishable from a true circle
    up to 64px.
+
+5. **The default list scope was a flat constant**, and its recorded rationale — *the camera opens on
+   the whole library, and naming one city over a view of countries is the broken control the owner
+   rejected* — is **still true**. Its *premise* went stale: the opening view is not a view of
+   countries for the normal library, because the camera fits the library's own box and one city fits
+   deep in the pin band. The header said `3 places in Israel` over a street-level view of Tel Aviv,
+   and the map's accessible name said it too. **Nothing in the chain was broken; the composition was
+   wrong**, which is why it was findable only by driving the product and not by reading it.
+
+**The prospective form of this is cheap and was used once.** `docs/evidence/map/`'s coastline
+specification states that its own frontier table is measured against a bound with 0.005 of headroom
+that has already moved once mid-task, and instructs whoever builds it to **re-run the sweep rather
+than trust the table**. A document that names the conditions under which it decays is the only kind
+that does not quietly become one of the five above.
 
 **Two rules were re-recorded rather than merely overridden**, because a rule stated as a measurement
 decays when the measurement moves. §3.1 rule 3 became *"gold and category colour never share a
