@@ -237,6 +237,17 @@
       "caption": "ad The hidden restaurants you NEED to know about ❤️ You guys know we love sharing hidden gems around London and these restaurants are exactly that - hidden away and absolute gems! You can get 50% off food at ALL OF THESE restaurants if you book them through @firsttableuk and it’s only £3 to book your first “First Table” when you sign up with code EXPLORING - book for 2-4 people at an off-peak dining time and get rewarded with 50% off the food bill (drinks are a regular price). It’s a no brainer. 🧠 SAVE THIS for hidden restaurants, all with 50% off food: ✨ La Nonna in Market Row, Brixton for delicious artisan pasta ✨ MBER London, underground on Pudding Lane for incredible pan-Asian sharing plates ✨ The Life Goddess for beautiful Greek dishes  ✨ The Laughing Yak Nepalese kitchen tucked away in Market Peckham  ✨ Sycamore Restaurant for seasonal Italian plates inside Middle Eighty Hotel in Covent Garden ✨ Tokii London, East meets West inside The Prince Akatoki London Hotel in Marylebone  ✨ Kiaans Tooting pan-Asian inside Tooting Market ✨ Jones Family Kitchen - hidden inside Eccleston Yards in Belgravia ❤️ Which one are you checking out first? #firsttable #halfpricefood #londonrestaurants #hiddenlondon #londonguide",
       "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s6-a9dd7456c4833eb5.json",
       "notes": "E7 row 15: eight restaurants named with neighbourhoods. The ideal case, and the only 8-venue post in the set."
+    },
+    {
+      "url": "https://www.tiktok.com/@sivanskitchen/video/7573466599361924382",
+      "externalId": "7573466599361924382",
+      "class": "futile",
+      "classSource": "draft",
+      "places": [],
+      "placesSource": "draft",
+      "caption": "The best place in all of Tel Aviv 🇮🇱  Come hungry with money to spend, and enjoy every bite 😋 Should we tour Shuk Machne Yehuda in Jerusalem ?  Let me know in the comments below ⬇️  #sivanskitchen #fyp #shukhacarmel #telaviv #explorepage  ",
+      "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s6-15c114ea45fb08e8.json",
+      "draftNote": "DRAFT (the caption produced no candidate; postIntent=place_question). A caption cannot tell `recoverable` from `futile` — that needs someone who watched the video. Correct `class` if wrong, then set `classSource` to \"owner\". Until you do, this row is reported as unadjudicated and counts toward nothing."
     }
   ]
 }
