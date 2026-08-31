@@ -296,3 +296,34 @@ not answer. At 1440×900 the list is that component, not `PlaceSheet`, so:
 
 Two optional props, a destructure and two spreads. Granted at 03:30. **This is an orchestration
 failure, not a build one** — the request was specific, repeated, and correct each time.
+
+
+## W3-1 — CLOSED, 2026-08-31 03:50
+
+`544f7ec` (the `＋` FAB takes `PRESS_BUTTON`, with the shadow dropping one level rather than to
+nothing, because a floating action button that lands flat reads as switched off rather than pushed)
+and `1186817` (21 raw `<button>`/`<Link>` elements across the collections surfaces, plus **seven bare
+`transition-colors` deleted rather than prefixed** — each reachable only under
+`prefers-reduced-motion`, which is the third instance of that shape tonight).
+
+**Confirmed by driven measurement at `1186817`, both gate viewports: 33 PRESS, 0 owned failures.**
+Three matrix depths correctly assigned by element kind — `0.95` chips and icon buttons, `0.98` the FAB
+and `Add places`, `0.99` all six list rows and the collection cards.
+
+## The three gaps that were mine — CLOSED
+
+| Gap | Closed by |
+|---|---|
+| `place-desktop-panel.tsx`, asked for five times and never granted | `1538c71` — **K8 photographed at 1440×900**: the pointed-at pin lifted, enlarged and named, every other pin visibly dimmed, and the sort control on screen with `Recently saved` pressed. `SortControl` is now **exported and shared** rather than reimplemented, with a test asserting each writer appears exactly twice so a third list surface cannot grow its own idea of which place is being pointed at |
+| W3-1's second half | above |
+| W1-1's auto-open | **not closed** — a reasoned deviation, recorded. Needs `import-shell.tsx` (~15 lines in a 147-line file that already carries a `variant` prop) |
+
+## Owed against `src/components/ui/map.tsx`, ruled out of scope
+
+The pile against that one vendored file, all measured rather than assumed: 12 of the 25 remaining
+hard-coded colours · two hand-rolled icon buttons · three unguarded `animate-pulse` dots · **`Zoom in`
+/ `Zoom out`, which genuinely have no press** (clean negative — the press landed, `:active` resolved,
+`PRESS_CHIP` absent, nothing moved) · **the MapLibre keyboard focus stop**, which draws no ring and was
+declined deliberately with the remedy written down, because *"a focus ring aimed at the wrong element
+is worse than an admitted gap."* The two CARTO/OpenStreetMap attribution links stay untouched: vendor
+licence chrome.
