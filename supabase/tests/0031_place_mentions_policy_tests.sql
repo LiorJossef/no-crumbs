@@ -182,6 +182,17 @@ select public.resolve_place('overture','ovt-m31-b','Mention Fixture Place B',
 -- `authenticated` is granted, so it passes for the right reason.
 set constraints all immediate;
 
+-- **This is not a one-shot discharge — it changes the mode for the rest of the transaction, and it
+-- is never restored to deferred.** Every `save_place` below therefore evaluates
+-- `saved_places_provenance_required` at statement time rather than at commit.
+--
+-- This file survives that only because both its `save_place` calls pass a null source id. **The
+-- first import-origin save added to this file will abort with "origin=import but no source"** —
+-- the constraint firing inside `save_place`, before the `saved_place_sources` row that satisfies it
+-- has been written. Found the hard way by `0034`'s harness, whose first run failed exactly that way.
+--
+-- If you add one, re-defer around it rather than restructuring the fixture.
+
 -- ── M0b: the POSITIVE half — a mention is created by the server writer ────────────────────────
 -- Called as the privileged role, which is how the server action reaches it: record_place_mention is
 -- granted to `service_role` alone. Everything M5–M8 asserts is refused would be satisfied by a
