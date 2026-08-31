@@ -304,6 +304,18 @@ several of the original rules quietly depended on.
     replacing, and treat a refused edit as information — it means someone moved, and the right next
     step is to re-read rather than to force.
 
+29. **Verify the environment; the orchestrator's description of it is a hypothesis.** Three briefs
+    on 2026-08-31 described the local stack wrongly, in three different directions: one said the
+    mail catcher captures mail (it was not running), one said auxiliary services were stopped when
+    Postgres alone was up, and one said Postgres alone was up when Kong, PostgREST and auth were
+    also running. **Each error changed what verification was possible** — the last one nearly cost a
+    lane the ability to exercise RLS through a real anon-key client, which is the difference between
+    testing a policy and mocking one.
+
+    So: run the check, do not read the brief. `docker ps`, `npx supabase status`, a probe request.
+    Say what you actually found, especially when it contradicts the dispatch — every lane that did
+    so today was right, and the orchestrator was wrong three times out of three.
+
 ## 8. Concurrency — when more than one agent is running
 
 Rules 26–31 apply whenever the orchestrator has dispatched more than one specialist that has not yet
