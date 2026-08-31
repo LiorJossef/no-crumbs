@@ -36,6 +36,7 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import { Trash2, Pencil, Check } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   deleteSavedPlace,
   setSavedPlaceVisited,
@@ -355,15 +356,22 @@ export function CategoryEditor({
  */
 export function RenameTrigger({ onStart }: { onStart: () => void }) {
   return (
-    <button
+    // A `<Button variant="ghost" size="icon-lg">` rather than a hand-rolled `<button>`: the hover,
+    // the focus ring and the disabled step were restated here in this component's own words, which
+    // is three chances to drift from the six columns `facelift-plan.md` §3a's matrix owes an icon
+    // button. The className now carries position and shape only. `size-icon-lg` is the same 36px
+    // this always was, and `data-vaul-no-drag` passes straight through.
+    <Button
       type="button"
+      variant="ghost"
+      size="icon-lg"
       aria-label="Rename this place"
       onClick={onStart}
       data-vaul-no-drag
-      className="mt-1 flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      className="mt-1 shrink-0 rounded-full text-muted-foreground"
     >
       <Pencil className="size-3.5" aria-hidden />
-    </button>
+    </Button>
   );
 }
 
@@ -413,7 +421,13 @@ export function NameEditor({
       <label htmlFor={`name-${savedPlaceId}`} className={SECTION_LABEL}>
         Name
       </label>
-      <input
+      {/* `Input` rather than a hand-rolled `<input>` that restated its whole class string. The
+          invalid styling was the reason it was hand-rolled and is now the reason it does not need
+          to be: `aria-invalid` is already on the element, and `Input`'s own
+          `aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20`
+          reads it — so the `!validation.ok && '…'` string this used to assemble is gone (rule 6a),
+          and the field cannot look valid while announcing itself invalid. */}
+      <Input
         id={`name-${savedPlaceId}`}
         ref={inputRef}
         dir="auto"
@@ -434,10 +448,7 @@ export function NameEditor({
         aria-invalid={!validation.ok || undefined}
         aria-describedby={error ? `name-error-${savedPlaceId}` : undefined}
         data-vaul-no-drag
-        className={cn(
-          'h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-base transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50',
-          !validation.ok && 'border-destructive ring-3 ring-destructive/20',
-        )}
+        className="h-11"
       />
       {error && (
         <p id={`name-error-${savedPlaceId}`} role="alert" className="text-xs font-medium text-destructive">
@@ -567,7 +578,10 @@ export function NoteEditor({
         aria-describedby={error ? `note-error-${savedPlaceId}` : undefined}
         placeholder="Why did you save this?"
         className={cn(
-          'w-full resize-y rounded-lg border border-input bg-transparent px-2.5 py-2 text-base leading-relaxed transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 md:text-sm',
+          // A `<textarea>` cannot be an `<Input>`, so row 9's hover is restated here rather than
+          // inherited. It is the one duplicate of that chrome left in this file, and it is
+          // structural rather than an oversight.
+          'w-full resize-y rounded-lg border border-input bg-transparent px-2.5 py-2 text-base leading-relaxed motion-safe:transition-colors outline-none hover:border-ring/60 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 md:text-sm',
           tooLong && 'border-destructive ring-3 ring-destructive/20',
         )}
       />

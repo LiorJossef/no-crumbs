@@ -24,6 +24,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { PRESS_BUTTON, PRESS_CHIP, PRESS_ROW } from '@/lib/interaction';
 import { CHIP_PRESSABLE } from '@/components/sheet/place-enrichment';
 
@@ -94,6 +95,31 @@ describe('the state matrix, row by row, on the button (W3-4)', () => {
     const markup = renderToStaticMarkup(createElement(Button, {}, 'Add a TikTok'));
     expect(markup).not.toMatch(/(?<!motion-safe:)transition-all/);
     expect(markup).toContain('motion-safe:transition');
+  });
+});
+
+describe('the input, which owed the matrix a hover (W3-4)', () => {
+  it('warms its border on hover', () => {
+    // Row 9's one blank cell. Focus and disabled were already right; hover did not exist, so on a
+    // pointer device nothing said "this is a target" until the caret was already in it.
+    const markup = renderToStaticMarkup(createElement(Input, { 'aria-label': 'Name' }));
+    expect(markup).toContain('hover:border-ring/60');
+  });
+
+  it('keeps its focus and disabled columns exactly as they were', () => {
+    const markup = renderToStaticMarkup(createElement(Input, { 'aria-label': 'Name' }));
+    expect(markup).toContain('focus-visible:border-ring');
+    expect(markup).toContain('focus-visible:ring-3');
+    expect(markup).toContain('disabled:bg-input/50');
+  });
+
+  it('reads its invalid state from the attribute, so a caller needs no ternary', () => {
+    // This is what let `saved-place-edits.tsx`'s rename field stop assembling
+    // `!validation.ok && 'border-destructive …'` by hand: the styling follows `aria-invalid`, so
+    // the field cannot look valid while announcing itself invalid.
+    const markup = renderToStaticMarkup(createElement(Input, { 'aria-label': 'Name' }));
+    expect(markup).toContain('aria-invalid:border-destructive');
+    expect(markup).toContain('aria-invalid:ring-destructive/20');
   });
 });
 
