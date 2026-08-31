@@ -59,6 +59,11 @@
  * The container carries `-m-1 p-1` so the 3 px `focus-visible` ring is inside the scroll box rather
  * than clipped by it, while the chips still line up with whatever padding the parent has.
  *
+ * **The row scrolls below `lg` and wraps at and above it** — see the class string for the
+ * measurement that forced the split. Everything in the paragraph above is about the phone, where
+ * the row genuinely is a scroll container; on the desktop panel it is a wrapping row and the drag
+ * and overscroll guards are inert rather than wrong.
+ *
  * No motion. The bar is state, not an event; the only animation is `CHIP_PRESSABLE`'s own
  * `transition-colors`, which triggers no layout.
  */
@@ -150,7 +155,23 @@ export function CategoryFilterBar({
         // pointer device it drew a grey track straight across the hairline between this row and
         // the first place. What says "there is more" is the chip clipped at the trailing edge,
         // which is the affordance a horizontal chip row carries everywhere else.
-        '-m-1 flex gap-2 overflow-x-auto overscroll-x-contain p-1',
+        // **Scrolls on a phone, wraps on a desktop**, and the split is a Q1 finding rather than a
+        // preference. Measured at 1440x900 with 300 places: this row overflowed the panel and cut
+        // `Restaurant 10` off mid-count with no affordance — and a clipped count is not a smaller
+        // truth, it is a false one (W2-4's exit criterion is that counts render). At 3 places
+        // everything fitted, which is why every small fixture passed: the defect only exists in the
+        // case the product is actually for.
+        //
+        // A horizontal scroll is right on a phone — it is the pattern, the gesture exists, and
+        // vertical space in a sheet is the scarcest thing there is. It is wrong in a 500px panel on
+        // a desktop, where vertical space is free and the gesture mostly is not: a mouse wheel
+        // scrolls a horizontal container in no browser by default, so the clipped chips were not
+        // merely unlabelled, they were unreachable.
+        //
+        // One `lg:` variant does both, because the two hosts are already breakpoint-exclusive —
+        // `PlaceSheet` is `lg:hidden` and `PlaceDesktopPanel` is `hidden lg:flex`, so each only
+        // ever renders on the side of the breakpoint it belongs to.
+        '-m-1 flex gap-2 overflow-x-auto overscroll-x-contain p-1 lg:flex-wrap',
         '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
         className,
       )}

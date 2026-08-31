@@ -246,6 +246,29 @@ describe('CategoryFilterBar — accessibility', () => {
   });
 });
 
+describe('CategoryFilterBar — it has to survive a large library (Q1, S5)', () => {
+  it('wraps at lg and scrolls below it', () => {
+    // Measured at 1440x900 with 300 places: the row overflowed the desktop panel and cut
+    // `Restaurant 10` off mid-count, with no affordance and — on a mouse — no gesture to reach it.
+    // At 3 places everything fitted, which is why every small fixture passed. A phone still
+    // scrolls: vertical space in a sheet is the scarcest thing there is.
+    const markup = render();
+    expect(markup).toContain('lg:flex-wrap');
+    expect(markup).toContain('overflow-x-auto');
+  });
+
+  it('never truncates a chip, however many there are', () => {
+    // A chip reading `Restaurant 10…` is not a smaller truth, it is a false one — W2-4's exit
+    // criterion is that counts render. Nothing in this row may clip its own text.
+    const wide = Array.from({ length: 3 }, (_, i) => FACETS[i]!).map((facet) => facet);
+    for (const chip of buttons(render({ facets: wide }))) {
+      expect(chip).not.toContain('truncate');
+      expect(chip).not.toContain('text-ellipsis');
+      expect(chip).toContain('whitespace-nowrap');
+    }
+  });
+});
+
 describe('CategoryFilterBar — the gestures it must not steal', () => {
   it('marks the scroll row so a horizontal swipe is not read as a sheet drag', () => {
     expect(render()).toContain('data-vaul-no-drag');
