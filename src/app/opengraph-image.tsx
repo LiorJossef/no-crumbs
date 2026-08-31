@@ -81,30 +81,47 @@ function crumbPinImage(fill: string): string {
 /**
  * One weight of one face, fetched from the same host `next/font` already builds against.
  *
- * **This is a build-time fetch, not a runtime one.** The route has no request-time input, so Next
- * renders it once during `next build` and serves a static PNG; a visitor's browser never talks to
- * Google. That is the same trade `app/layout.tsx` already makes for Manrope and Fraunces, which is
- * the argument for it: it adds a fetch, not a new kind of dependency.
+ * **This runs at build time and never at request time, and reading it as per-request is the
+ * mistake to avoid.** The route takes no request-time input — no `params`, no `searchParams`, no
+ * cookies, no `headers()` — so Next renders it once during `next build` and serves a static PNG
+ * from then on. A visitor's browser never talks to Google, and no visitor ever waits on these two
+ * requests. That is why it is not worth "optimising" into a committed binary on latency grounds,
+ * and why it is not something to panic about on privacy grounds: it is the same trade
+ * `app/layout.tsx` already makes for Manrope and Fraunces. It adds a fetch, not a new kind of
+ * dependency. **If a request-time API is ever added to this file that stops being true**, and the
+ * fetch becomes per-request — that is the thing to check before adding one.
  *
- * **It returns `null` rather than throwing, and that is the whole design.** If the network is
- * unavailable at build time the preview renders in satori's bundled Geist instead of Fraunces —
- * visibly not our wordmark, but a preview that exists — and the build stays green. A brand asset is
- * not worth failing a deploy over.
+ * **It returns `null` rather than throwing.** With no network at build time the preview renders in
+ * satori's bundled Geist instead of Fraunces — visibly not our wordmark, but a preview that
+ * exists — and the build stays green. A brand asset is not worth failing a deploy over.
+ *
+ * **The degraded path announces itself**, which is the difference between a fallback and a silent
+ * one. It writes a line to the build log naming the face that did not arrive, and
+ * `opengraph-image.alt.txt` is not the place a human would look, so the log is. A link preview in
+ * the wrong typeface is the kind of defect nobody reports and everybody sees.
  *
  * The axis instance is requested by name: `SOFT` 60 and `WONK` 1 are the wordmark's setting
  * (`components/brand/display-type.ts`), and satori takes a static file, so the variable axes have
  * to be resolved on Google's side rather than ours.
  */
 async function fetchFont(family: string): Promise<ArrayBuffer | null> {
+  const name = family.split(':')[0] ?? family;
   try {
     const css = await fetch(`https://fonts.googleapis.com/css2?family=${family}&display=swap`, {
       // Without a browser UA the API answers in `woff2`, which satori cannot parse.
       headers: { 'User-Agent': 'Mozilla/5.0' },
     }).then((response) => response.text());
     const url = /src:\s*url\((https:[^)]+\.(?:ttf|otf))\)/.exec(css)?.[1];
-    if (url === undefined) return null;
+    if (url === undefined) {
+      console.warn(`[opengraph-image] no ttf/otf for ${name}; the link preview falls back to Geist`);
+      return null;
+    }
     return await fetch(url).then((response) => response.arrayBuffer());
-  } catch {
+  } catch (thrown) {
+    console.warn(
+      `[opengraph-image] could not fetch ${name}; the link preview falls back to Geist`,
+      thrown instanceof Error ? thrown.message : thrown,
+    );
     return null;
   }
 }
