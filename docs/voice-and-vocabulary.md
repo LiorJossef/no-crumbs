@@ -53,7 +53,7 @@ what we never say, **including words the database happens to use**.
 |---|---|---|
 | **place** | spot · location · venue · POI · entry · item | The product's noun. *Spot* is two competitors' brand names; *POI* and *entry* are database words |
 | **your map** | the map · dashboard · home · feed | The possessive is the product. It is private, and saying so costs one word |
-| **a TikTok** | a post · a video · content · media | TikTok is the only supported source. Naming it is the honest boundary, carried in the product rather than in a footnote |
+| **a TikTok link** · **a TikTok video** | a post · content · media · **and “a TikTok”, “TikToks”, “this TikTok” — the bare noun** | TikTok is the only supported source, and naming it is still the honest boundary — carried in the product rather than in a footnote. But the name is an adjective, never a noun: **`Add a TikTok link`**, not `Add a TikTok`. See §3.1 |
 | **link** | URL · address · permalink | What a person copies is a link |
 | **collection** | list · board · folder · album | Already shipped and already consistent. Do not introduce a second word |
 | **Been** / **Not been yet** | visited · want to go · wishlist · bucket list | Ratified in `ui/place/visit-state.ts`. *Visited* is a system fact about a record; *been* is what a person says |
@@ -66,6 +66,40 @@ what we never say, **including words the database happens to use**.
 | **note** | comment · description · memo | A note is the user's own sentence about a place |
 | **near you** | nearby · proximity · within radius | Second person, always |
 | **shared with you** | collaborator · member · invited user | *Member* is a table name. Nobody is a member of a list of restaurants |
+
+### 3.1 The TikTok row is an adjective — amended 2026-08-31
+
+The original row ratified **“a TikTok”** as our noun, reasoning that TikTok is the only supported
+source and naming it is the honest boundary. **That reasoning survives intact and is why the word
+stays on our most-read screens.** What changed is the grammar, not the honesty: `Add a TikTok link`
+names the boundary exactly as squarely as `Add a TikTok` did, in one more word.
+
+The trigger is TikTok's Brand and Use Guidelines — *“Always use TikTok as an adjective, never as a
+noun or verb”* — recorded in
+[`docs/evidence/tiktok/09-brand-mark-and-attribution-2026-08-31.md`](evidence/tiktok/09-brand-mark-and-attribution-2026-08-31.md)
+§10. Hold its status honestly: **VERIFIED that TikTok published it, NOT verified that it is
+current.** It was retrieved from an archived revision; the live guidelines hub is behind a
+request-access form. That is weaker evidence than the logo rule in the same document, which has live
+corroboration, and the two are deliberately not averaged.
+
+We follow it anyway, and the reason is not legal caution. **It is a genuinely better sentence.**
+`Add a TikTok` asks the reader to parse a proper noun as a count noun and silently supply the missing
+word; `Add a TikTok link` says what the person is actually about to paste. The rewrite costs one
+word on eleven strings and buys clarity on every one of them — we would take it with no guideline at
+all.
+
+**The test, which outlives the guideline:** *does the word point at the platform, or has it become
+the name of the thing?* Pointing is fine — `saved from TikTok`, `Open on TikTok`, `Paste a TikTok
+link`. Becoming the thing is not — `a TikTok`, `TikToks`, `this TikTok`. A plural settles itself:
+you can only pluralise a count noun, so **`Some TikToks…` is always wrong** and becomes
+`Some TikTok videos…`.
+
+The verb half of the clause needs no work: we have never shipped *“TikTok it”* or *“TikToking”*,
+and §4 already bans that register.
+
+**Attribution is untouched by this row.** Creator handle, video description and a link back to the
+original are required beside embedded content and are already shipped — a copy pass must not cost
+any of the three.
 
 ## 4. Banned outright
 
