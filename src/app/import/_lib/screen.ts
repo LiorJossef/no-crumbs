@@ -8,8 +8,8 @@
  * slice of; it lives apart from the shell because three of Wave 6's packages widen it and would
  * otherwise all be edits to the same 2,300-line file.
  *
- * **W6-3** adds `PAYOFF_HOLD_MS` beside `RAIL_IDLE`. **W6-5** changes the `no_places` variant to
- * `{ kind: 'no_places'; probe: ProbeSuccess }` (`spec-no-places-found.md` §10.1).
+ * **W6-5** changes the `no_places` variant to `{ kind: 'no_places'; probe: ProbeSuccess }`
+ * (`spec-no-places-found.md` §10.1).
  */
 
 import type { DomainErrorCode } from '@/domain/errors';
@@ -32,6 +32,14 @@ export interface RailState {
   readonly extractFact: string | null; // C13/C14/C15
   readonly candidateProgress: { readonly index: number; readonly total: number } | null; // C18
   /**
+   * The candidate count `extractFact` was built from, or `null` before the probe has answered.
+   *
+   * Both come from `ui/import/rail-extract-fact.ts` and are set in the same statement, so the
+   * sentence and the number the rail counts up to cannot disagree — `1 places found` is the drift
+   * this field would otherwise invite, and it is invisible to anyone testing with three candidates.
+   */
+  readonly extractCount: number | null;
+  /**
    * The post itself, once `/api/imports/source-preview` has actually answered — never before, and
    * never inferred from anything (W6-2).
    *
@@ -52,8 +60,31 @@ export const RAIL_IDLE: RailState = {
   sourceFact: null,
   extractFact: null,
   candidateProgress: null,
+  extractCount: null,
   post: null,
 };
+
+/**
+ * How long the settled payoff stays on screen before the landing screen replaces it (W6-3).
+ *
+ * `3 places found` was computed and overwritten on the next statement, so React batched the two
+ * into one commit and **the fact the whole wait was for rendered for zero frames.** This is the
+ * dwell that makes it a beat.
+ *
+ * **It holds a fact the server actually sent**, which is the whole reason it is allowed: nothing
+ * about the rail's claims changes, only how long the true one is legible. A timer that *advanced*
+ * a stage would be the opposite thing and is forbidden (`facelift-plan.md` §4 decision 4).
+ *
+ * **It applies at every count, including zero** (`overnight-copy-deck.md` §9.2, binding). The
+ * counting component does not mount at zero — a tick from 0 to 0 is the product animating nothing —
+ * but the hold does, so the modal outcome of an import arrives on the same beat, at the same pace,
+ * as a success, and only the true sentence differs. Rushing to it is how the most common outcome
+ * starts reading as the failure mode.
+ *
+ * 700ms against `count.tick`'s 400ms: the climb finishes with time to be read as a settled result
+ * rather than cutting away mid-count.
+ */
+export const PAYOFF_HOLD_MS = 700;
 
 /** The screens this page can be in. `paste` covers both the empty field and an inline-invalid
  *  field (C06) — that is copy, not a screen change. */

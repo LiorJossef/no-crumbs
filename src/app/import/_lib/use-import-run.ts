@@ -42,8 +42,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { canonicaliseTikTokUrl } from '@/domain/source/canonicalise-tiktok-url';
 import { toDomainErrorCode, type PreSubmitErrorCode } from '@/ui/import/import-error-copy';
 
+import { railExtractFact } from '@/ui/import/rail-extract-fact';
+
+import { hold } from './hold';
 import type { ProbeErrorBody, ProbeSuccess, SourcePreview } from './probe-contract';
-import { RAIL_IDLE, type Screen } from './screen';
+import { PAYOFF_HOLD_MS, RAIL_IDLE, type Screen } from './screen';
 
 /** What the shell needs in order to render and drive one run. */
 export interface ImportRun {
@@ -306,7 +309,9 @@ async function submit(target: string = url) {
         source: 'done',
         sourceFact: body.authorHandle ? `Read @${body.authorHandle}'s TikTok` : 'Read the TikTok',
         extract: 'done',
-        extractFact: n === 0 ? 'No places named' : n === 1 ? '1 place found' : `${n} places found`,
+        // Sentence and number from the same call, so they cannot say different things.
+        extractFact: railExtractFact(n),
+        extractCount: n,
         // The post stays on the rail through the payoff beat. `body` is a `ProbeSuccess`, which
         // extends `SourcePreview`, so this is the same object shape the preview supplied — falling
         // back to it means a rail whose preview failed still gets the post at this point rather
@@ -314,6 +319,31 @@ async function submit(target: string = url) {
         post: preview ?? body,
       },
     });
+
+    /*
+     * The payoff, held (W6-3).
+     *
+     * The two `setScreen` calls either side of this used to be adjacent statements in the same
+     * `async` continuation, so React batched them into one commit and `3 places found` — the fact
+     * the whole 7-34s wait was for — **rendered for zero frames.** The `await` is the entire fix:
+     * it ends the batch.
+     *
+     * It holds a fact the server actually sent, so nothing the rail claims changes; only how long
+     * the true one is legible. The hold applies at every count including zero
+     * (`overnight-copy-deck.md` §9.2) — the counter does not mount at zero, but the beat does, so
+     * the modal outcome of an import is arrived at on the same rhythm as a success.
+     */
+    await hold(PAYOFF_HOLD_MS, probe.signal);
+    /*
+     * Re-checked **after** the hold, not only before it.
+     *
+     * A Cancel during those 700ms must leave the screen where the user left it. Without this
+     * re-check the landing screen arrives after the user has gone back to paste — which is
+     * `import-cancel-stale-response.spec.ts`'s exact bug class, with a new window to fire in that
+     * did not exist before this package.
+     */
+    if (!stillCurrent()) return;
+
     // The modal outcome of an import gets its own screen. It had one all along — `NoPlacesScreen`
     // was written, reviewed and never constructed, so every zero-candidate import fell through to
     // the review screen and rendered a source row, one muted sentence and a half-empty card. At

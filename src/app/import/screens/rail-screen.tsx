@@ -28,9 +28,11 @@ import { Check, Link2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { PipelineStage } from '@/domain/import/events';
+import { railExtractFactParts } from '@/ui/import/rail-extract-fact';
 import { railWaitLine } from '@/ui/import/rail-wait-line';
 
 import type { RailState, StageStatus } from '../_lib/screen';
+import { CountTick } from './count-tick';
 import { ScreenKicker } from './screen-kicker';
 
 /* ------------------------------------------------------------------------------------------- *
@@ -145,6 +147,12 @@ export function RailScreen({
             fact={
               stage === 'source' ? rail.sourceFact : stage === 'extract' ? rail.extractFact : null
             }
+            /* The count, for the one step where the number is the news (W6-3). `null` everywhere
+               else, and `null` at zero — `railExtractFactParts` returns `null` there, so no
+               counting component mounts on the modal outcome of an import. The hold still does
+               (`overnight-copy-deck.md` §9.2): same beat, same pace, only the true sentence
+               differs. */
+            countParts={stage === 'extract' ? railExtractFactParts(rail.extractCount ?? 0) : null}
             progress={stage === 'resolve' ? rail.candidateProgress : null}
             isLast={i === stages.length - 1}
           />
@@ -164,12 +172,16 @@ function RailStep({
   stage,
   status,
   fact,
+  countParts,
   progress,
   isLast,
 }: {
   stage: PipelineStage;
   status: StageStatus;
   fact: string | null;
+  /** The number to count up to and the words after it, or `null` where there is no number to count
+   *  — every stage but `extract`, and `extract` when nothing was found. */
+  countParts: { readonly count: number; readonly rest: string } | null;
   progress: { readonly index: number; readonly total: number } | null;
   isLast: boolean;
 }) {
@@ -214,7 +226,22 @@ function RailStep({
         >
           {STAGE_LABEL[stage]}
         </p>
-        {status === 'done' && fact && <p className="text-sm font-medium text-muted-foreground">{fact}</p>}
+        {status === 'done' && fact && (
+          <p className="text-sm font-medium text-muted-foreground">
+            {countParts === null ? (
+              fact
+            ) : (
+              <>
+                {/* The whole settled sentence, for the accessibility tree only. A digit stepping
+                    through 0, 1, 2, 3 is four announcements of a number changing for decorative
+                    reasons, so the tick beside this is `aria-hidden` and this is what is read. */}
+                <span className="sr-only">{fact}</span>
+                <CountTick value={countParts.count} className="font-bold text-brand" />
+                <span aria-hidden> {countParts.rest}</span>
+              </>
+            )}
+          </p>
+        )}
         {status === 'active' && activeCopy && (
           <p className="text-sm font-medium text-brand">{activeCopy}</p>
         )}

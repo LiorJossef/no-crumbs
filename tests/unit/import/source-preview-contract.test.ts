@@ -78,10 +78,16 @@ describe('the two responses are one shape', () => {
 
 describe('the rail claims no stage the server did not send', () => {
   it('advances nothing on a timer', () => {
-    // The one mechanical way to fake a streamed stage, and the shape the deleted "honest
-    // approximation" would come back as. The rail's own elapsed-time interval lives in
-    // `rail-screen.tsx` and drives a wait *sentence*, never a stage — which is why this asserts
-    // against the run module rather than the screen.
+    /*
+     * The one mechanical way to fake a streamed stage, and the shape the deleted "honest
+     * approximation" would come back as.
+     *
+     * The run module contains **no timer at all**: W6-3's payoff hold is `_lib/hold.ts`, whose own
+     * header records the distinction — it delays a *transition* between two states the server
+     * already produced, and may never advance a stage. `payoff-hold.test.ts` asserts that nothing
+     * after the hold touches a stage. The rail's elapsed-time interval lives in `rail-screen.tsx`
+     * and drives a wait *sentence*, never a stage, which is why this reads the run module.
+     */
     expect(code(RUN)).not.toMatch(/setTimeout|setInterval|requestAnimationFrame/);
   });
 
