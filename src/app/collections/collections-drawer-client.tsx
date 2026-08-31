@@ -39,6 +39,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { type MapPlace } from '@/components/map/map-surface';
 import { boundsOfPoints } from '@/components/map/bounds';
@@ -92,6 +93,7 @@ export function CollectionsDrawerClient({
 }) {
   const shell = useMapShell({ restingStop: 'half' });
   const { camera, selectedId, setSelectedId } = shell;
+  const router = useRouter();
 
   /**
    * The per-collection state, reset **during render** when the drawer changes scope.
@@ -143,6 +145,25 @@ export function CollectionsDrawerClient({
     if (collectionId === null || focusedCollection.current === collectionId) return false;
     focusedCollection.current = collectionId;
     return true;
+  }, [collectionId]);
+  /**
+   * **Leaving a collection releases the claim**, and this line is the whole of what merging the two
+   * routes cost the focus move.
+   *
+   * The ref used to be reset for free: `/collections/[id]` was its own segment, so going back to
+   * the index unmounted the component that held it. Nothing unmounts now, so without this the
+   * sequence *collection A → index → collection A* finds `focusedCollection.current` still holding
+   * A's id, the claim is refused, and the second entry lands with focus wherever the tapped row
+   * left it — silently, and only on the second visit, which is the shape of bug that survives a
+   * demo.
+   *
+   * In an effect on the parent rather than in the render-phase reset above, because a ref written
+   * during render is what React forbids. There is no ordering hazard: the index has no claimer, so
+   * this runs on the way *out* and the next entry's claim is a separate commit. Entering B directly
+   * from A needs no reset — the ids already differ.
+   */
+  useEffect(() => {
+    if (collectionId === null) focusedCollection.current = null;
   }, [collectionId]);
 
   /**
@@ -246,14 +267,30 @@ export function CollectionsDrawerClient({
            are context behind a list of collections and a place detail has nowhere to go. Both
            details stay in the sheet and the panel, where they are complete. */
         selectedPlace={null}
-        {...(detail === null
-          ? {}
-          : {
-              onPlaceClick: (place: MapPlace) => {
+        onPlaceClick={
+          detail === null
+            ? /* **On the index, a pin is a way to the place it draws.**
+                 It was inert, and that was defensible while the sheet rested at `full` and the map
+                 behind it was 0 % visible — nobody could reach a pin to be disappointed by. Resting
+                 at `half` puts 45 % of the screen back on the map, and a visible pin that answers a
+                 tap with nothing is worse than no pin.
+     
+                 It reveals the place on `/map` rather than opening a detail here, which is the
+                 handoff `bottom-nav.tsx`'s create menu already makes for the same reason: `/map` is
+                 the only surface that draws a saved place's full detail, and this drawer's two
+                 views are collections. Every pin here is one of the caller's own saved rows and
+                 carries `savedPlaceId` (`map/_lib/to-map-place.ts`), so the id is the right one.
+                 A real navigation, deliberately — it is a change of destination the user asked for,
+                 not a change of view. */
+              (place: MapPlace) => {
+                const savedPlaceId = place.savedPlaceId ?? place.id;
+                router.push(`/map?place=${encodeURIComponent(savedPlaceId)}` as '/map');
+              }
+            : (place: MapPlace) => {
                 selectItem(place.id);
                 setPane('place');
-              },
-            })}
+              }
+        }
         /* **The canvas says what is on it.** `ui-review-2026-08-31.md` §1 finding 3 measured this
            surface announcing itself as the bare word `Map` — the surface's own default, because
            neither collections route passed a name at all. The index shows the library; a collection
