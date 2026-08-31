@@ -280,10 +280,32 @@ the night café moves to within ΔE 6.3 of the gold *by design*.
 
 ## 6. Still open
 
-- **The wordmark over the live map** — `#wordmark` forbids it in terms and names an alternative;
-  `voice-and-vocabulary.md` §2 makes it surface 1 of six, and this product's signed-in shell *is* the
-  map. No measurement settles it. **Owner's.** The lockup on `/collections`, `/collections/<id>` and
-  `/profile` is deliberately unbuilt behind it.
+- ~~**The wordmark over the live map.**~~ **Settled 2026-08-31 by owner ruling 6** — *"the branding
+  mascot should be part of the platform, main page"*, which is closer to `#wordmark`'s **own**
+  alternative than to what shipped: that document objects to a *logo bar* and offers the mascot as
+  what belongs there instead. The faced mascot is in the chip at 32px. The lockup on
+  `/collections`, `/collections/<id>` and `/profile` **remains deliberately unbuilt** — the ruling
+  named the main page and nothing else.
+
+  **The reason recorded with the ruling was overstated and has been narrowed** (`b60bbd2`). It read
+  *"a faceless gold disc would be ambiguous with a café pin, and a faced one cannot be."* Measured
+  against a real pin: rendered ΔE00 **11.7**, and **26 of ~1100** mascot body pixels within 18 RGB
+  units of the café token against **1903** of the pin's — near-neighbours, not one colour. **The tail
+  and the card ground do the disambiguating; the face is a legibility argument, not a safety one**,
+  and collapsing the two would mislead the next reader. What survives: *the café pin's dark aperture
+  sits where a face would be, so the pin is itself faintly face-like — two warm circles each carrying
+  one dark mark is the ambiguous pair, and two eyes and a mouth is what makes the mascot a character
+  rather than a pin drawn differently.*
+
+  **That replacement is stronger than the sentence it replaces, not merely narrower**: it is a claim
+  about *shape*, so it survives the night-café proposal closing `MASCOT_GOLD` to ΔE 6.3 of `#FEB843`.
+  The original would have needed re-arguing the moment that palette moved.
+- ~~**A dark-mode toggle.**~~ **Settled 2026-08-31 by owner ruling 5.** `facelift-plan.md` §4's *"a
+  signed pass, or none"* is discharged — the owner asking for it **is** the signature, and both
+  themes measure 0 AA failures across 464 scored strings. Shipped three-state (light / dark /
+  system), because a binary toggle silently destroys the system preference with no way back.
+  **Residual:** with JavaScript off the product renders light whatever the device asks, since the
+  preference lives in `localStorage`.
 - **The night category pair**, proposal A applying.
 - **Visited pins at `icon-opacity: 0.45`** collapse to deuteranopic ΔE 3.6 — a property of the fade,
   not the palette, so the light-side repair does not reach it.
