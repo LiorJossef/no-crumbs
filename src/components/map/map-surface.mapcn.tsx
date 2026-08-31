@@ -538,6 +538,49 @@ export function MapSurfaceMapcn({
       selected === null ? restingSheetFraction : (selectedOcclusionFraction ?? restingSheetFraction);
   }, [selected, restingSheetFraction, selectedOcclusionFraction]);
 
+  /**
+   * **`floatingTopChromePx`, as a ref, for the same reason as the five refs above it.**
+   *
+   * It used to be `paddingFor`'s only dependency, and through `paddingFor` it reached `frameBounds`,
+   * `fitTo`, `fitToBounds`, `refitFramed` and finally `attachMapRef` — so a change to it detached
+   * and re-attached the callback ref, and **the re-attach re-runs the home framing**, which
+   * `hasFramedOnce` did not stop because that guard sat on the sibling effect below and not on the
+   * attach-time call.
+   *
+   * That was inert for as long as a surface belonged to one route for its whole life: nothing ever
+   * changed this prop on a live instance. `components/shell/persistent-map.tsx` changed the
+   * lifetime — one MapLibre instance now outlives the route that borrowed it — and `/map` omits
+   * this prop while `/collections` passes `0`, so from that point **every tab hop re-framed the
+   * library**.
+   *
+   * Worse, it re-framed against a **mixed** budget. `sheetFractionRef` is written from a passive
+   * effect, and the ref re-attach happens before that effect runs, so the fit read the *arriving*
+   * route's chrome with the *departing* route's sheet fraction. Traced at 390×844 with this
+   * function instrumented, `d77a1c6`:
+   *
+   * | | `sheetFraction` | `chrome` | rest |
+   * |---|---|---|---|
+   * | load `/map` | `null` | `null` | z11.60 |
+   * | tap Collections | `null` | `0` | z11.60 |
+   * | tap Map | **`0.55`** | `null` | **z10.46** |
+   *
+   * `/map` framed with `/collections`' full-sheet fraction — a whole zoom band out, two towns
+   * wider, every time. With this ref and the guard below, **no camera mover fires on either hop at
+   * all** and `/map` after a round trip is byte-identical to `/map` on first load (SHA-256
+   * `aac92098…`, 390×844) — which is the standard a camera should be held to, because "looks the
+   * same" is what a whole band of drift looks like.
+   *
+   * A prop change is not a camera mover — this file already says exactly that of `places` — so the
+   * fix is the pattern already used five times here (`latestBounds`, `latestAllowance`,
+   * `latestPlaceCount`, `sheetFractionRef`, `accessibleNameRef`) rather than a new guard.
+   * `tests/unit/map/framing-stability.test.ts` pins the dependency array empty, because the whole
+   * nature of this defect is that it was invisible until somebody changed a lifetime assumption.
+   */
+  const topChromeRef = useRef(floatingTopChromePx);
+  useEffect(() => {
+    topChromeRef.current = floatingTopChromePx;
+  }, [floatingTopChromePx]);
+
   /** The padding a fit has to leave for whatever chrome is over the map right now, measured
    *  against the container the camera is actually in. Read by every mover, so none of them can
    *  frame against a different idea of the visible band than the others. */
@@ -549,11 +592,11 @@ export function MapSurfaceMapcn({
         container.clientWidth,
         container.clientHeight,
         sheetFractionRef.current,
-        floatingTopChromePx,
+        topChromeRef.current,
         markerAllowance
       );
     },
-    [floatingTopChromePx]
+    []
   );
 
   const fitTo = useCallback(
@@ -1194,7 +1237,16 @@ export function MapSurfaceMapcn({
       });
       observer.observe(container);
       observers.set(instance, observer);
-      whenReady(instance, () => fitToBounds(instance));
+      // **The same guard its sibling effect below already carries**, and closing that asymmetry is
+      // half the fix above: the effect at `[bounds, fitToBounds]` returns early once the library has
+      // been framed, and this call — reached whenever React re-attaches the callback ref — did not.
+      // With `attachMapRef` now stable this cannot fire twice anyway; it is here so that a
+      // dependency creeping back into the chain costs a missed re-frame rather than a silently
+      // re-framed camera, which is the failure mode that took an instrumented build to see.
+      whenReady(instance, () => {
+        if (hasFramedOnce.current) return;
+        fitToBounds(instance);
+      });
       // `moveend` only — no `move`, no `render`, no rAF. `resize` too, because the insets are
       // viewport-dependent: crossing `lg` changes which edge the chrome covers. `dragend` and
       // `zoomend` carry no rect of their own; they only record that the move about to be reported

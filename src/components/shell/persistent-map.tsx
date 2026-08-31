@@ -59,38 +59,26 @@
  * statically, because a static import from a component the root layout renders would put
  * `maplibre-gl` in the shared client chunk of *every* route, including `/` and `/sign-in`.
  *
- * ## Known defect: the camera comes back a zoom band wider — cause found, fix not applied here
+ * ## What persisting the map made true of everything below it
  *
- * **After a round trip through `/collections`, `/map` rests further out than it does on first
- * load.** Traced at `d77a1c6`, 390x844, with `fitToBounds` and `frameBounds` instrumented in a
- * throwaway build: first load rests at **z11.60**; tapping Collections and then Map re-frames the
- * library twice and rests at **z10.46**. Two towns wider, every hop.
+ * **A prop on `MapSurface` can now change under a live MapLibre instance.** It could not before:
+ * a surface belonged to one route for its whole life, so every prop the route passed was constant
+ * from mount to unmount, and a good deal of `map-surface.mapcn.tsx` quietly relies on that — the
+ * six refs it keeps (`latestBounds`, `latestAllowance`, `latestPlaceCount`, `sheetFractionRef`,
+ * `accessibleNameRef`, `topChromeRef`) all exist to keep a value out of a `useCallback`'s
+ * dependency array, because a callback ref whose identity changes is detached and re-attached by
+ * React, and the re-attach re-runs the camera's home framing.
  *
- * It is not this file's design and it is not the borrowing itself. It is a callback-ref chain in
- * `components/map/map-surface.mapcn.tsx`. `floatingTopChromePx` is `paddingFor`'s only dependency,
- * and `paddingFor` reaches `frameBounds` -> `fitTo` -> `fitToBounds` -> `refitFramed` ->
- * `attachMapRef`; React detaches and re-attaches a callback ref whose identity changes, and that
- * re-attach re-runs the home framing, `hasFramedOnce` notwithstanding. `/map` omits the prop and
- * `/collections` passes `0`, so every hop trips it. And the re-frame reads a **mixed** budget: the
- * arriving route's chrome with the departing route's `sheetFractionRef`, because that ref is
- * written from a passive effect that has not run yet — which is why the wide one is `/map` framed
- * with `/collections`' 0.55 full-sheet fraction.
+ * That assumption held for as long as it was written and stopped holding the day this file landed.
+ * `/map` omits `floatingTopChromePx` and `/collections` passes `0`, so the first version of the
+ * persistent map re-framed the library on **every tab hop** — and against a mixed budget, since one
+ * of the two occlusion inputs was read from a ref and the other from the prop. `/map` came back at
+ * z10.46 where first load rested at z11.60. **This file was the occasion; the surface was the
+ * location.** Both halves are fixed there, with the trace, and
+ * `tests/unit/map/framing-stability.test.ts` pins the chain stable.
  *
- * That chain was harmless while a surface belonged to one route for its whole life. Persisting the
- * map is what made two of its props change under a live instance, so this file is the *occasion*
- * for the defect and `map-surface.mapcn.tsx` is the *location* of it.
- *
- * **The fix is nine lines and is verified.** Make `floatingTopChromePx` a ref — the pattern that
- * file already uses five times, for this exact reason, on `latestBounds`, `latestAllowance`,
- * `latestPlaceCount`, `sheetFractionRef` and `accessibleNameRef` — which empties `paddingFor`'s
- * dependency array and makes the whole chain stable; and give the attach-time `fitToBounds` the
- * same `hasFramedOnce` guard its sibling effect already carries. With both applied in a throwaway
- * build, **no camera mover fires on either hop at all** and `/map` after a round trip is
- * byte-identical to `/map` on first load (SHA-256 `aac92098...`, 390x844).
- *
- * It is not applied because `components/map/**` was not this lane's to write. The patch is ready.
- * Whoever picks it up: delete this section, do not summarise it — a note describing a defect that
- * no longer exists is worse than no note.
+ * The rule that falls out, for anyone adding to the surface: **a prop change is not a camera
+ * mover.** The surface already said that of `places`; persistence is what made it true of the rest.
  *
  * ## What is deliberately not abstracted
  *
