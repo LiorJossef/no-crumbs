@@ -124,12 +124,34 @@ export function NearMeControl({
             // seconds, for a user who has asked the system for less motion.
             //
             // Guarding it is only honest because the rotation is not what carries the meaning. The
-            // glyph itself changes — `Locate` becomes `Loader2` — and `aria-busy` says so to a
-            // screen reader, so under reduced motion the control still visibly and audibly reads as
-            // *working*; it simply does not spin. That is §3a's rule that the animations collapse
-            // to the state change rather than to nothing, applied to the one case where the state
-            // change is a different icon rather than an opacity.
-            <Loader2 className="size-4 motion-safe:animate-spin" aria-hidden />
+            // glyph itself changes and `aria-busy` says so to a screen reader, so under reduced
+            // motion the control still visibly and audibly reads as *working*; it simply does not
+            // spin. That is §3a's rule that the animations collapse to the state change rather than
+            // to nothing, applied to the one case where the state change is a different icon rather
+            // than an opacity.
+            //
+            // **What the paragraph above used to claim, and why it was half wrong.** It named the
+            // still glyph as `Loader2` and called that the state change. The `motion-safe:` guard
+            // and the `aria-busy` are real and were always here — but the *visual* half was not:
+            // with the preference set the class does not apply and a `Loader2` is a three-quarter
+            // arc stopped mid-rotation, which this repository classifies as a rendering artefact by
+            // name. `rail-screen.tsx` says it directly — *"no arc frozen mid-rotation"* — and
+            // `globals.css` records what the naive `hidden motion-safe:block` cost when it was
+            // applied there without a fallback: a 28px empty circle on the longest wait in the
+            // product. Measured here in both arms before changing anything: one 16px glyph,
+            // `animation-name: none`.
+            //
+            // So the arc is hidden and a filled dot takes its place, which is `rail-screen.tsx`'s
+            // own pair rather than a second opinion about it. The dot is not any of this control's
+            // other three glyphs — `Locate`, `LocateOff`, `LocateFixed` — which is what makes it
+            // read as a fourth state rather than as an icon that failed to load.
+            <>
+              <Loader2
+                className="hidden size-4 motion-safe:block motion-safe:animate-spin"
+                aria-hidden
+              />
+              <span className="size-1.5 rounded-full bg-current motion-safe:hidden" aria-hidden />
+            </>
           ) : refused ? (
             // A struck-through locator, so the state is legible without opening the notice and
             // survives the notice being dismissed. Shape, never colour alone.
