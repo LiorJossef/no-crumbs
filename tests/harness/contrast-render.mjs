@@ -437,11 +437,15 @@ const SCORE = async ({ probes, plate, plateAfter, targets, scale, aaNormal, aaLa
     let maxDiff = 0;
     let totalPixels = 0;
     let differingPixels = 0;
+    let wantedPixels = 0;
+    let insidePixels = 0;
     for (const rect of rects) {
       const x0 = Math.max(0, Math.round(rect.x * scale));
       const y0 = Math.max(0, Math.round(rect.y * scale));
       const w = Math.min(B.canvas.width - x0, Math.round(rect.w * scale));
       const h = Math.min(B.canvas.height - y0, Math.round(rect.h * scale));
+      wantedPixels += Math.round(rect.w * scale) * Math.round(rect.h * scale);
+      insidePixels += Math.max(0, w) * Math.max(0, h);
       if (w <= 0 || h <= 0) continue;
       const b = B.ctx.getImageData(x0, y0, w, h).data;
       const b2 = B2.ctx.getImageData(x0, y0, w, h).data;
@@ -477,6 +481,24 @@ const SCORE = async ({ probes, plate, plateAfter, targets, scale, aaNormal, aaLa
 
     if (tiles.length === 0) {
       scored.push({ ...t, rects: undefined, paddingBox: undefined, verdict: 'no-pixels' });
+      continue;
+    }
+    // **Mostly outside the photograph.** The screenshot is the viewport, and the desktop `/map`
+    // panel is a scrolling list, so a row at the fold has a line box that is largely off the
+    // bottom. Its remaining sliver contains no glyph, which used to be reported as
+    // `no-glyph-pixels` — a verdict that reads like a defect and is not one.
+    //
+    // Measured: at 1440x900 the `Brunch` and `Outdoor Seating` chips sit at y=898.8 with a 15px
+    // line box, so 1.2px of 15 is inside the frame and `maxProbeDiff` over that sliver is **0**.
+    // It cost a routed ticket to the wrong lane to find that out, so the class gets its own name.
+    if (wantedPixels > 0 && insidePixels / wantedPixels < 0.5) {
+      scored.push({
+        ...t,
+        rects: undefined,
+        paddingBox: undefined,
+        insideViewport: Number((insidePixels / wantedPixels).toFixed(3)),
+        verdict: 'below-the-fold',
+      });
       continue;
     }
     const coverage = totalPixels ? differingPixels / totalPixels : 0;
@@ -524,7 +546,20 @@ const SCORE = async ({ probes, plate, plateAfter, targets, scale, aaNormal, aaLa
       // No glyph anywhere inside the padding box, under *either* probe colour. The element claims
       // text and paints none where this says it should be — a covered node, or a rect that does not
       // describe it. Not a pass, and reported so a reader can see it was not checked.
-      scored.push({ ...t, rects: undefined, paddingBox: undefined, verdict: 'no-glyph-pixels' });
+      // Carry the geometry out with it. Three instruments disagreed about `12 places in Israel`
+      // and every answer was a guess because none of them said *where* it had looked.
+      scored.push({
+        ...t,
+        verdict: 'no-glyph-pixels',
+        diagnostic: {
+          paddingBox: t.paddingBox,
+          lineRects: t.rects,
+          clippedRects: rects,
+          maxProbeDiff: maxDiff,
+        },
+        rects: undefined,
+        paddingBox: undefined,
+      });
       continue;
     }
 
@@ -588,17 +623,49 @@ const SCORE = async ({ probes, plate, plateAfter, targets, scale, aaNormal, aaLa
 export async function measureContrast(browser, page, { scale }) {
   const collected = await page.evaluate(COLLECT);
 
-  // **Freeze before either shot.** The glyph mask is a diff between two screenshots, so anything
-  // that moves between them registers as ink. `chrome-ground.tsx` drifts two blooms forever, which
-  // is exactly such a thing. Pausing every `Animation` in the document — Motion drives these
-  // through the Web Animations API — makes the pair differ in the glyphs and nowhere else.
-  // `SCORE` does not take this on trust: it refuses to score any element whose rects differ over
-  // more than 60% of their area, which is what a misaligned pair looks like.
-  const paused = await page.evaluate(() => {
+  // **Settle before any shot, and settle two kinds of animation two different ways.**
+  //
+  // The glyph mask is a diff between screenshots, so anything that moves between them registers as
+  // ink. The first version of this paused every running `Animation`, and pausing was wrong for half
+  // of them: an element **mid-fade** freezes at a partial opacity, and a partial opacity is exactly
+  // the thing being measured. `/map`'s `12 places in Israel` is `animate-in fade-in-0`, and across
+  // three versions of this instrument it produced three different answers — 2.49:1, then
+  // `unstable-background`, then `no-glyph-pixels` — and not one of them was a measurement of the
+  // heading as a reader sees it.
+  //
+  // So: an animation that **ends** is allowed to end, and one that **never ends** is paused. The
+  // test is its computed timing rather than its name — `iterations: Infinity` is
+  // `chrome-ground.tsx`'s two ambient blooms, which are licensed to run forever and must be stopped
+  // because nothing else will stop them. `finished` is raced against a deadline so a long
+  // transition cannot hang the run, and `.catch` swallows the rejection an animation throws when it
+  // is cancelled mid-flight by a re-render.
+  const settled = await page.evaluate(async (deadlineMs) => {
     const running = document.getAnimations().filter((a) => a.playState === 'running');
-    for (const a of running) a.pause();
-    return running.length;
-  });
+    const endless = [];
+    const finite = [];
+    for (const a of running) {
+      let iterations = 1;
+      let duration = 0;
+      try {
+        const timing = a.effect?.getComputedTiming?.() ?? {};
+        iterations = Number(timing.iterations ?? 1);
+        duration = Number(timing.duration ?? 0);
+      } catch {
+        /* an effect that will not describe itself is treated as finite */
+      }
+      if (!Number.isFinite(iterations) || !Number.isFinite(duration)) endless.push(a);
+      else finite.push(a);
+    }
+    for (const a of endless) a.pause();
+    await Promise.race([
+      Promise.all(finite.map((a) => a.finished.catch(() => {}))),
+      new Promise((r) => setTimeout(r, deadlineMs)),
+    ]);
+    // Anything still going after the deadline is paused rather than left to move under the camera.
+    const stubborn = document.getAnimations().filter((a) => a.playState === 'running');
+    for (const a of stubborn) a.pause();
+    return { finiteAwaited: finite.length, endlessPaused: endless.length, pausedAfterDeadline: stubborn.length };
+  }, 3000);
 
   const shoot = async (css) => {
     const handle = await page.addStyleTag({ content: css });
@@ -631,7 +698,7 @@ export async function measureContrast(browser, page, { scale }) {
   await ctx.close();
 
   return {
-    animationsPaused: paused,
+    animations: settled,
     totalTextElements: collected.targets.length,
     scored: scored.length,
     pass: scored.filter((s) => s.verdict === 'pass').length,
@@ -640,6 +707,7 @@ export async function measureContrast(browser, page, { scale }) {
     // element whose mask could not be trusted is one this run did not check.
     maskUnreliable: scored.filter((s) => s.verdict === 'mask-unreliable').length,
     noGlyphPixels: scored.filter((s) => s.verdict === 'no-glyph-pixels').length,
+    belowTheFold: scored.filter((s) => s.verdict === 'below-the-fold').length,
     unstableBackground: scored.filter((s) => s.verdict === 'unstable-background').length,
     exemptInactive: collected.targets.filter((t) => t.inactive).length,
     occluded: collected.targets.filter((t) => !t.inactive && t.occludedBy).length,
@@ -668,6 +736,7 @@ export async function measureContrast(browser, page, { scale }) {
       backgroundBuckets: s.backgroundBuckets,
       overCanvas: s.overCanvas,
       verdict: s.verdict,
+      ...(s.diagnostic ? { diagnostic: s.diagnostic } : {}),
     })),
     // And everything that was *not* scored, with the reason, so the skips are auditable.
     skipped: collected.targets
