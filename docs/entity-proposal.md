@@ -533,7 +533,19 @@ put the longest phrase next to *and your account*, where it reads as a garden pa
 | | now | after `0031` |
 |---|---|---|
 | `entryLine` | `This removes your places, your collections and your account.` | `This removes your places, anything you kept for later, your collections and your account.` |
-| `confirmBody` | `Your places, your collections and your account are removed. This can't be undone.` | `Your places, anything you kept for later, your collections and your account are removed. This can't be undone.` |
+| `confirmBody` | `Your places, your collections and your account are removed. This can’t be undone.` | `Your places, anything you kept for later, your collections and your account are removed. This can’t be undone.` |
+
+**Copy these two strings exactly, including the apostrophe.** `account-actions.tsx` uses the
+typographic apostrophe `’` (U+2019) throughout — `can’t`, `Couldn’t` — and a straight `'` pasted in
+from a document is a silent style regression that no test catches. This table now carries the
+correct character; an earlier draft of it did not.
+
+**Both strings and their deck rows move in the same commit as the code.**
+`voice-and-vocabulary.md` §6 is explicit: *a string changes in code and the deck follows in the same
+commit, or it does not change.* So `account-actions.tsx:55,57` and `ux-architecture.md` §12's C143 /
+C145 are one change, landing with `0031` — not a docs commit of mine and not a follow-up. I own the
+words; I do not own either file, and splitting them across two commits is how the deck drifted from
+the code the first time (§6's own finding).
 
 Checked against `voice-and-vocabulary.md`: sentence case, no exclamation, no banned word, no brand
 name, one clause plus the existing second sentence, and it keeps the two strings parallel — they are
