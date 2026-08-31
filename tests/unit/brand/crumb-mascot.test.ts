@@ -263,3 +263,103 @@ describe('motion', () => {
     expect(animations).not.toContain('trail');
   });
 });
+
+describe('the neutral face stays neutral', () => {
+  /**
+   * **The condition the owner's 2026-08-31 ruling was granted under, asserted rather than trusted.**
+   *
+   * `nothingFound` is on the modal outcome of an import — roughly 73% of them — and `#moods` is
+   * explicit about why it is flat rather than sad: *"a sad mascot turns the product's most common
+   * outcome into a small failure eight times a week. Neutral says that happens, and moves on."* The
+   * strongest argument made against putting a face there at all was that a mascot at the moment the
+   * user did not get what they wanted reads as the product being charming at them about its own
+   * failure. **A rueful mouth is what would realise that**, and it is four units of curvature away.
+   *
+   * That is too small a distance to leave to a reviewer's eye across a future retune, so it is a
+   * number here.
+   */
+
+  /**
+   * The control point's offset from the chord, in the authoring square, for a stroked mouth.
+   * Positive is downward in SVG coordinates, which is a smile; 0 is a straight line; negative
+   * curves up, which is a frown. `null` when the path holds no curve command at all.
+   *
+   * **`null` rather than 0, and the two regexes are case-sensitive**, because both shortcuts bit
+   * on the first draft. The relative matcher carried `/i`, so it matched the absolute `Q47 71` and
+   * returned 71 as if it were an offset. And returning 0 for an unparsed path makes the instrument
+   * report *flat* for every shape it cannot read — the failure mode that matters here, since flat
+   * is the answer these tests are protecting.
+   *
+   * The separator is `[\s,]*` rather than `[ ,]+` because SVG lets a minus sign be its own
+   * separator: `q3.2-3.6` is two numbers, and requiring whitespace silently unparsed `wiggle`.
+   */
+  const curvature = (d: string): number | null => {
+    const relative = /q\s*(-?[\d.]+)[\s,]*(-?[\d.]+)/.exec(d);
+    if (relative?.[2] !== undefined) return Number(relative[2]);
+    const absolute = /M\s*(-?[\d.]+)[\s,]*(-?[\d.]+)\s*Q\s*(-?[\d.]+)[\s,]*(-?[\d.]+)/.exec(d);
+    if (absolute?.[2] !== undefined && absolute[4] !== undefined) {
+      return Number(absolute[4]) - Number(absolute[2]);
+    }
+    return /[hlv]/i.test(d) ? 0 : null;
+  };
+
+  it('measures curvature the way the drawing means it', () => {
+    // The instrument first, on paths whose answer is readable off the path data by hand: `smile`
+    // is `q7 6 14-.4`, so 6 units down; `content` is `q5 3.6 10 0`, 3.6; `grin` is `Q47 71` from
+    // `M36 57.5`, so 13.5; `flat` is `h11`, a horizontal lineto with no curve at all.
+    expect(curvature('M40 59.5q7 6 14-.4')).toBe(6);
+    expect(curvature('M42 60.5q5 3.6 10 0')).toBe(3.6);
+    expect(curvature('M36 57.5Q47 71 58 57.5Z')).toBe(13.5);
+    expect(curvature('M42 62h11')).toBe(0);
+    // A minus sign as its own separator, which is `wiggle`, and which an earlier version could not
+    // read — and silently called flat.
+    expect(curvature('M40 62q3.2-3.6 6.4 0t6.4 0')).toBe(-3.6);
+    // A frown, which the set does not contain — the instrument has to be able to see one.
+    expect(curvature('M42 62q5 -3.6 10 0')).toBe(-3.6);
+    // And a shape it genuinely cannot read must say so rather than answer "flat".
+    expect(curvature('M0 0A5 5 0 0 1 10 10')).toBeNull();
+  });
+
+  it('draws “nothing found” with no curve in it at all', () => {
+    const mood = CRUMB_MOODS.nothingFound;
+    const mouth = CRUMB_MOUTHS[mood.mouth];
+    expect(mouth.kind, 'the neutral mouth became a filled shape').toBe('stroke');
+    expect(curvature((mouth as { d: string }).d), 'the neutral mouth gained a curve').toBe(0);
+    for (const eye of CRUMB_EYE_SETS[mood.eyes]) {
+      expect(eye.kind, 'the neutral eyes stopped being strokes').toBe('stroke');
+      expect(curvature((eye as { d: string }).d), 'a neutral eye gained a curve').toBe(0);
+    }
+  });
+
+  it('keeps it distinguishable from the moods either side of it', () => {
+    /*
+     * The failure this catches is not "someone drew a frown" — it is a retune that narrows the gap
+     * until deadpan and content are the same face at 48px, which is the size it renders at on the
+     * no-places screen. Rendered against `beenThere` at 48/56/64/84px and looked at, they separate;
+     * this is what stops that from quietly stopping being true.
+     */
+    const of = (name: keyof typeof CRUMB_MOUTHS) => {
+      const value = curvature((CRUMB_MOUTHS[name] as { d: string }).d ?? '');
+      expect(value, `${name} could not be measured`).not.toBeNull();
+      return value as number;
+    };
+    expect(Math.abs(of('content') - of('flat'))).toBeGreaterThanOrEqual(3);
+    expect(Math.abs(of('smile') - of('flat'))).toBeGreaterThanOrEqual(3);
+    // Every stroked mouth has to be readable, so an unparsed one cannot hide among them.
+    for (const [name, mouth] of Object.entries(CRUMB_MOUTHS)) {
+      if (mouth.kind !== 'stroke') continue;
+      expect(curvature(mouth.d), `${name} could not be measured`).not.toBeNull();
+    }
+  });
+
+  it('contains no downturned mouth anywhere in the set', () => {
+    // `wiggle` is the one mouth that leaves the baseline upward, and it is the *offline* face — a
+    // squiggle, not a frown; its second arc returns. Every other stroked mouth curves down or not
+    // at all. A new mouth with a net upward curve would be a frown, and there is no product state
+    // that warrants one: `#moods` lists no angry, crying or sad face on purpose.
+    for (const [name, mouth] of Object.entries(CRUMB_MOUTHS)) {
+      if (mouth.kind !== 'stroke' || name === 'wiggle') continue;
+      expect(curvature(mouth.d) ?? -1, `${name} curves upward`).toBeGreaterThanOrEqual(0);
+    }
+  });
+});

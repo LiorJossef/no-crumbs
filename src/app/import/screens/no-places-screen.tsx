@@ -215,6 +215,46 @@ export function NoPlacesScreen({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      {/*
+        **Two flexible joints, above and below, so the slack is distributed instead of pooling
+        above the pinned recovery.**
+
+        Measured at 390x844: **223px between the caption panel and the add-by-name block, 26.4% of
+        the viewport**, as one contiguous void — on the *modal* outcome of an import, which more
+        users see than see the success path. Same defect as the rail screen's, fixed the same way in
+        `cc9f6ce`, on the screen next door. **Nothing was invented to fill it**: §4.4 still governs
+        what may be here and the answer is still type, one hairline, one field, one caption panel.
+
+        **The joints go outside the claim-and-evidence pair, not between them**, and that is the
+        whole design decision. Splitting the slack evenly at the obvious seam — claim | evidence |
+        recovery — was tried first and measured 119px in each: it put a void between *"We read the
+        caption, and it doesn't name a place"* and the caption that is the evidence for it. This
+        screen exists because it used to make that claim and give the user no way to check
+        (§4.2). Separating a claim from its evidence to improve the rhythm would spend the
+        screen's reason on its spacing.
+
+        So the pair floats together between one joint above and one below, and the fixed `pb-4`
+        between them is unchanged.
+
+        **The two joints are equal, and the top consequently reads a little airier than the bottom**
+        — the shell already puts ~90px between the ✕ and the first line, so the *visual* split is
+        about 200 above against 111 below rather than 111/111. Weighting them 1:2 fixes that and was
+        built; it needs `flex-[2]`, and this screen's own guard bans arbitrary Tailwind values
+        outright — *"everything else is a named token"* — with no `flex-2` in the scale to reach for
+        instead. The guard is right and the imbalance is small, so the joints stay equal and the
+        reason is written down rather than worked around. `AddByName` keeps its place in the thumb zone (§4.1) — it lost
+        `mt-auto`, not its position: with no slack left to take, the lower joint holds it exactly
+        where `mt-auto` did.
+
+        **Floors, not bare `flex-1`.** The rail's first attempt collapsed to nothing wherever there
+        was no slack and wedged the content together; a joint that distributes slack has to still be
+        a joint when there is none. And joints rather than a centred block for the reason that bit
+        there too: `justify-center` on an overflowing flex column pushes content off **both** ends,
+        and this screen overflows readily — the caption panel is `max-h-38` and a 2,000-character
+        caption fills it.
+      */}
+      <div className="min-h-2 flex-1" />
+
       <div className="flex shrink-0 flex-col gap-1 pb-4">
         {/*
           The kicker row. `gap-2.5` and **no margin utility on the mascot** — §11.21 bans bare
@@ -319,17 +359,18 @@ export function NoPlacesScreen({
           role="group"
           aria-label="The TikTok’s caption"
           dir="auto"
-          className="mb-4 max-h-38 min-h-0 shrink overflow-y-auto overscroll-contain rounded-lg bg-card-2 p-3 text-caption leading-relaxed font-medium text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="max-h-38 min-h-0 shrink overflow-y-auto overscroll-contain rounded-lg bg-card-2 p-3 text-caption leading-relaxed font-medium text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {probe.caption}
         </div>
       )}
 
+      <div className="min-h-8 flex-1" />
+
       {/* The add-by-name recovery, in the thumb zone (§4.1). It is the reason this screen is a
           destination rather than a dead end, and it is what makes the recovery reachable from
           **every** entry point rather than only where a host passed an opener. */}
       <AddByName
-        className="mt-auto"
         sourceId={probe.sourceId}
         cityHint={probe.emptyReason === 'area_only' ? (probe.cityHint ?? null) : null}
         onSubmitted={() => setCaptionOpen(false)}
