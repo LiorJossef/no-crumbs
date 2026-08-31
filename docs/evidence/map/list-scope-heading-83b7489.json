@@ -1,0 +1,167 @@
+{
+  "commit": "83b7489d2f94c29060796b0a183f47c17d6cae9a",
+  "takenAt": "2026-08-31T10:06:01.256Z",
+  "viewport": "1440x900",
+  "theme": "dark",
+  "cases": [
+    {
+      "places": 0,
+      "steps": [
+        {
+          "step": "at rest, no gesture",
+          "heading": "Your map starts here.",
+          "mapAccessibleName": null,
+          "elsewhereHeadings": [],
+          "firstRows": []
+        }
+      ]
+    },
+    {
+      "places": 3,
+      "steps": [
+        {
+          "step": "at rest, no gesture",
+          "heading": "3 places in Israel",
+          "mapAccessibleName": "Map of your saved places in ⁨Israel⁩. The list below names all 3.",
+          "elsewhereHeadings": [],
+          "firstRows": [
+            "Sabich Counter No. 1Restaurant · Tel Aviv-YafoBeenVegetarianQuickThe pita is the point. Go before 13:00 or queue.Saved 22 hours ago",
+            "Gelato Window No. 2Café · Tel Aviv-YafoSaved 23 hours ago",
+            "Filter Coffee Bar No. 3Café · Tel Aviv-YafoLate NightSit outside. The inside is loud and the tables are tiny.Saved 1 day ago"
+          ]
+        },
+        {
+          "step": "after a 40px user drag (pin band)",
+          "heading": "3 places in Tel Aviv-Yafo",
+          "mapAccessibleName": "Map of your saved places in ⁨Tel Aviv-Yafo⁩. The list below names all 3.",
+          "elsewhereHeadings": [],
+          "firstRows": [
+            "Sabich Counter No. 1Restaurant · Tel Aviv-YafoBeenVegetarianQuickThe pita is the point. Go before 13:00 or queue.Saved 22 hours ago",
+            "Gelato Window No. 2Café · Tel Aviv-YafoSaved 23 hours ago",
+            "Filter Coffee Bar No. 3Café · Tel Aviv-YafoLate NightSit outside. The inside is loud and the tables are tiny.Saved 1 day ago"
+          ]
+        },
+        {
+          "step": "after zooming out 6 (crosses into the area band)",
+          "heading": "3 places in Tel Aviv-Yafo",
+          "mapAccessibleName": "Map of your saved places in ⁨Tel Aviv-Yafo⁩. The list below names all 3.",
+          "elsewhereHeadings": [],
+          "firstRows": [
+            "Sabich Counter No. 1Restaurant · Tel Aviv-YafoBeenVegetarianQuickThe pita is the point. Go before 13:00 or queue.Saved 22 hours ago",
+            "Gelato Window No. 2Café · Tel Aviv-YafoSaved 23 hours ago",
+            "Filter Coffee Bar No. 3Café · Tel Aviv-YafoLate NightSit outside. The inside is loud and the tables are tiny.Saved 1 day ago"
+          ]
+        },
+        {
+          "step": "after zooming out 5 more (crosses into the country band)",
+          "heading": "3 places in Israel",
+          "mapAccessibleName": "Map of your saved places in ⁨Israel⁩. The list below names all 3.",
+          "elsewhereHeadings": [],
+          "firstRows": [
+            "Sabich Counter No. 1Restaurant · Tel Aviv-YafoBeenVegetarianQuickThe pita is the point. Go before 13:00 or queue.Saved 22 hours ago",
+            "Gelato Window No. 2Café · Tel Aviv-YafoSaved 23 hours ago",
+            "Filter Coffee Bar No. 3Café · Tel Aviv-YafoLate NightSit outside. The inside is loud and the tables are tiny.Saved 1 day ago"
+          ]
+        }
+      ]
+    },
+    {
+      "places": 30,
+      "steps": [
+        {
+          "step": "at rest, no gesture",
+          "heading": "30 places in Israel",
+          "mapAccessibleName": "Map of your saved places in ⁨Israel⁩. The list below names all 30.",
+          "elsewhereHeadings": [],
+          "firstRows": [
+            "Sabich Counter No. 1Restaurant · Tel Aviv-YafoBeenVegetarianQuickThe pita is the point. Go before 13:00 or queue.Saved 22 hours ago",
+            "Gelato Window No. 2Café · Tel Aviv-YafoSaved 23 hours ago",
+            "Filter Coffee Bar No. 3Café · Tel Aviv-YafoLate NightSit outside. The inside is loud and the tables are tiny.Saved 1 day ago"
+          ]
+        },
+        {
+          "step": "after a 40px user drag (pin band)",
+          "heading": "30 places in Tel Aviv-Yafo",
+          "mapAccessibleName": "Map of your saved places in ⁨Tel Aviv-Yafo⁩. The list below names all 30.",
+          "elsewhereHeadings": [],
+          "firstRows": [
+            "Sabich Counter No. 1Restaurant · Tel Aviv-YafoBeenVegetarianQuickThe pita is the point. Go before 13:00 or queue.Saved 22 hours ago",
+            "Gelato Window No. 2Café · Tel Aviv-YafoSaved 23 hours ago",
+            "Filter Coffee Bar No. 3Café · Tel Aviv-YafoLate NightSit outside. The inside is loud and the tables are tiny.Saved 1 day ago"
+          ]
+        },
+        {
+          "step": "after zooming out 6 (crosses into the area band)",
+          "heading": "30 places in Tel Aviv-Yafo",
+          "mapAccessibleName": "Map of your saved places in ⁨Tel Aviv-Yafo⁩. The list below names all 30.",
+          "elsewhereHeadings": [],
+          "firstRows": [
+            "Sabich Counter No. 1Restaurant · Tel Aviv-YafoBeenVegetarianQuickThe pita is the point. Go before 13:00 or queue.Saved 22 hours ago",
+            "Gelato Window No. 2Café · Tel Aviv-YafoSaved 23 hours ago",
+            "Filter Coffee Bar No. 3Café · Tel Aviv-YafoLate NightSit outside. The inside is loud and the tables are tiny.Saved 1 day ago"
+          ]
+        },
+        {
+          "step": "after zooming out 5 more (crosses into the country band)",
+          "heading": "30 places in Israel",
+          "mapAccessibleName": "Map of your saved places in ⁨Israel⁩. The list below names all 30.",
+          "elsewhereHeadings": [],
+          "firstRows": [
+            "Sabich Counter No. 1Restaurant · Tel Aviv-YafoBeenVegetarianQuickThe pita is the point. Go before 13:00 or queue.Saved 22 hours ago",
+            "Gelato Window No. 2Café · Tel Aviv-YafoSaved 23 hours ago",
+            "Filter Coffee Bar No. 3Café · Tel Aviv-YafoLate NightSit outside. The inside is loud and the tables are tiny.Saved 1 day ago"
+          ]
+        }
+      ]
+    },
+    {
+      "places": 300,
+      "steps": [
+        {
+          "step": "at rest, no gesture",
+          "heading": "300 places in Israel",
+          "mapAccessibleName": "Map of your saved places in ⁨Israel⁩. The list below names all 300.",
+          "elsewhereHeadings": [],
+          "firstRows": [
+            "Sabich Counter No. 1Restaurant · Tel Aviv-YafoBeenVegetarianQuickThe pita is the point. Go before 13:00 or queue.Saved 22 hours ago",
+            "Gelato Window No. 2Café · Tel Aviv-YafoSaved 23 hours ago",
+            "Filter Coffee Bar No. 3Café · Tel Aviv-YafoLate NightSit outside. The inside is loud and the tables are tiny.Saved 1 day ago"
+          ]
+        },
+        {
+          "step": "after a 40px user drag (pin band)",
+          "heading": "300 places in Tel Aviv-Yafo",
+          "mapAccessibleName": "Map of your saved places in ⁨Tel Aviv-Yafo⁩. The list below names all 300.",
+          "elsewhereHeadings": [],
+          "firstRows": [
+            "Sabich Counter No. 1Restaurant · Tel Aviv-YafoBeenVegetarianQuickThe pita is the point. Go before 13:00 or queue.Saved 22 hours ago",
+            "Gelato Window No. 2Café · Tel Aviv-YafoSaved 23 hours ago",
+            "Filter Coffee Bar No. 3Café · Tel Aviv-YafoLate NightSit outside. The inside is loud and the tables are tiny.Saved 1 day ago"
+          ]
+        },
+        {
+          "step": "after zooming out 6 (crosses into the area band)",
+          "heading": "300 places in Tel Aviv-Yafo",
+          "mapAccessibleName": "Map of your saved places in ⁨Tel Aviv-Yafo⁩. The list below names all 300.",
+          "elsewhereHeadings": [],
+          "firstRows": [
+            "Sabich Counter No. 1Restaurant · Tel Aviv-YafoBeenVegetarianQuickThe pita is the point. Go before 13:00 or queue.Saved 22 hours ago",
+            "Gelato Window No. 2Café · Tel Aviv-YafoSaved 23 hours ago",
+            "Filter Coffee Bar No. 3Café · Tel Aviv-YafoLate NightSit outside. The inside is loud and the tables are tiny.Saved 1 day ago"
+          ]
+        },
+        {
+          "step": "after zooming out 5 more (crosses into the country band)",
+          "heading": "300 places in Israel",
+          "mapAccessibleName": "Map of your saved places in ⁨Israel⁩. The list below names all 300.",
+          "elsewhereHeadings": [],
+          "firstRows": [
+            "Sabich Counter No. 1Restaurant · Tel Aviv-YafoBeenVegetarianQuickThe pita is the point. Go before 13:00 or queue.Saved 22 hours ago",
+            "Gelato Window No. 2Café · Tel Aviv-YafoSaved 23 hours ago",
+            "Filter Coffee Bar No. 3Café · Tel Aviv-YafoLate NightSit outside. The inside is loud and the tables are tiny.Saved 1 day ago"
+          ]
+        }
+      ]
+    }
+  ]
+}

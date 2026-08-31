@@ -5,6 +5,14 @@ Raw third-party response samples land here (see docs/02-risks-and-unknowns.md).
 hand adjudication behind every accuracy number in `docs/06-map-and-places-decision.md`.
 See `places/README.md`. No numbers exist for Google/Mapbox/Foursquare APIs — no keys.
 
+## map/ — the two map findings of 2026-08-31
+The night sea's colourfulness (`e0c773b`) and the default list scope (`9634759`). Both taken against
+named commits, both behind a change that landed, both with the instrument's own known-answer checks
+written down. Text and small JSON only — the frames are hundreds of PNGs and are reproducible from
+the probes named in each document rather than kept. `night-sea-colourfulness-2026-08-31.md` also
+carries the framing finding that shipped as **no code**, and the specification for the coastline
+layer that is not built. See `map/README.md`.
+
 ## licensing/ — verbatim third-party terms excerpts
 `mapbox-product-terms-2026-07-excerpt.txt` — §1.4 attribution, §2.7 Geocoding/POI restrictions,
 §2.8 Mapping API caching + Qualified Renderer.
