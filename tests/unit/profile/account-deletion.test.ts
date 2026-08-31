@@ -92,7 +92,12 @@ describe('the refusal', () => {
     const source = code(UI);
     // Every blocking collection is a link to itself, which is where both of the moves the copy
     // names already live. No new action is built for the refusal.
-    expect(source).toContain('/collections/${collection.id}');
+    //
+    // The href is built by `collectionsHref` rather than interpolated here: a collection lives at
+    // `?collection=<id>` on the index's own segment since 2026-08-31, and the old path form is a
+    // redirect shim that would cost a segment change — the drawer torn down and rebuilt — on each
+    // leg of the way to a collection this screen is asking the user to go and empty.
+    expect(source).toContain('collectionsHref({ kind: \'collection\', id: collection.id })');
     expect(source).not.toContain('deleteCollection');
     expect(source).not.toContain('removeMember');
   });

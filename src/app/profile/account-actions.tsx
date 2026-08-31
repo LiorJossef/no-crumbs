@@ -5,6 +5,7 @@ import Link from 'next/link';
 
 import { deleteAccount } from '@/app/actions/account';
 import type { BlockingCollection } from '@/app/profile/_lib/blocking-collections';
+import { collectionsHref } from '@/app/collections/_lib/drawer-view';
 import { InlineConfirm } from '@/components/collections/collection-content';
 import { Button } from '@/components/ui/button';
 
@@ -92,7 +93,11 @@ export function AccountActions({ blocking }: { blocking: readonly BlockingCollec
           {blocked.map((collection) => (
             <li key={collection.id} className="border-b border-border/60 last:border-b-0">
               <Link
-                href={`/collections/${collection.id}` as `/collections/${string}`}
+                // `collectionsHref`, not the `/collections/<id>` path: that form is a redirect
+                // shim now, and going through it costs a segment change on each leg — the drawer
+                // torn down and rebuilt twice to reach a collection this screen is asking the user
+                // to go and empty.
+                href={collectionsHref({ kind: 'collection', id: collection.id }) as '/collections'}
                 className="flex min-h-11 items-center rounded-lg px-1 text-sm font-medium underline-offset-2 hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
               >
                 <bdi className="line-clamp-2">{collection.name}</bdi>

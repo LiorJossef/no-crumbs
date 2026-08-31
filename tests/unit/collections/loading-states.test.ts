@@ -1,35 +1,54 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
 /**
- * The app directory had **no `loading.tsx` and no `<Suspense>` anywhere** before W5-4, so every tab
- * change waited on the server with the previous screen frozen under it. These assertions are the
- * cheap half of that package: the files exist, and the one animation they introduce respects
- * `prefers-reduced-motion`.
+ * **There is no `loading.tsx` in this app, and that is a rule rather than an omission.**
  *
- * Source text rather than rendering. `vitest.config.ts` runs in node with no DOM, and what is being
- * asserted is a property of the class strings — which is also where this regresses: `animate-pulse`
- * is one word shorter than `motion-safe:animate-pulse` and the shorter one is what a person types.
+ * This file used to assert the opposite. `08a8b0b` added loading states to the three routes that
+ * had none — a real gap, honestly identified — and they were deleted on 2026-08-31 because of what
+ * they do to a visitor with JavaScript disabled.
+ *
+ * ## The measurement, at `022a18c`, 1440×900, `javaScriptEnabled: false`
+ *
+ * | route | has `loading.tsx` | painted text |
+ * |---|---|---|
+ * | `/map` | no | **3,416 characters** — the wordmark, the view switch, all 30 places |
+ * | `/collections` | yes | **0** |
+ * | `/profile` | yes | **7** — the `h1`, over 13 skeleton placeholders and nothing else |
+ *
+ * Same shell, same components, same data. `loading.tsx` creates a Suspense boundary; Next streams
+ * the fallback first and swaps in the real content with an **inline script**; with JavaScript off
+ * that swap never runs. The page's real markup is in the document the whole time, inside
+ * `<div hidden>` — **where `querySelector` finds it and a human never does.** That is the part that
+ * makes this worse than an ordinary gap: it is a defect shaped to pass an automated check, and
+ * this project has now shipped that shape three times (a blank sign-in screen, a map unusable for
+ * 2.4 s, and this).
+ *
+ * ## The trade, stated so it does not have to be re-derived
+ *
+ * Without the boundary the server holds the response until the query resolves. **A `<Link>`
+ * navigation then keeps the current screen on screen** until the new one is ready, which is better
+ * than a skeleton and is what the owner asked for on 2026-08-31 (*"dont make the page flicker"*).
+ * The cost falls on a hard navigation — typing the URL, or a cold open — where the browser waits on
+ * TTFB instead of painting a skeleton.
+ *
+ * **Skeleton-for-JS-users against nothing-for-no-JS-users is not a close trade.** If a future
+ * change makes it one — a route whose data genuinely cannot be awaited, say — the answer is a
+ * boundary *plus* a no-JS path, not a boundary alone, and this test is where to say so.
+ *
+ * Source text rather than rendering: `vitest.config.ts` runs in node with no DOM, and every claim
+ * below is about the file tree or about class strings.
  */
 
-/**
- * **Two, not three, since 2026-08-31.**
- *
- * `src/app/collections/[id]/loading.tsx` is gone because the route it belonged to is gone: the
- * index and a collection are one segment with a search param between them
- * (`app/collections/_lib/drawer-view.ts`), and `[id]` is now a `redirect()` that renders no UI and
- * therefore has nothing to show while it does it. `src/app/collections/loading.tsx` covers both
- * views.
- */
-const LOADING_FILES = ['src/app/profile/loading.tsx', 'src/app/collections/loading.tsx'];
+const APP = fileURLToPath(new URL('../../../src/app/', import.meta.url));
 
 /**
  * The file with its comments removed.
  *
- * Both assertions below are about *class strings*, and both docblocks quote the very things they
- * forbid — `animate-pulse` and the two hex values the palette choice is argued from. Matching over
- * the comments would make the explanation of a rule fail the rule.
+ * The assertion below is about *class strings*, and the docblock in `skeleton.tsx` quotes the very
+ * thing it forbids. Matching over the comments would make the explanation of a rule fail the rule.
  */
 function code(file: string): string {
   return readFileSync(file, 'utf8')
@@ -37,56 +56,49 @@ function code(file: string): string {
     .replace(/^\s*\/\/.*$/gm, '');
 }
 
-const SKELETON_SOURCES = [
-  'src/components/ui/skeleton.tsx',
-  'src/components/collections/collections-skeleton.tsx',
-  ...LOADING_FILES,
-];
-
-describe('the loading states', () => {
-  it.each(LOADING_FILES)('%s exists and default-exports a component', (file) => {
-    expect(existsSync(file), `${file} is missing`).toBe(true);
-    expect(readFileSync(file, 'utf8')).toMatch(/export default function \w+Loading\(/);
-  });
-
-  it('animates only under `motion-safe`', () => {
-    for (const file of SKELETON_SOURCES) {
-      // Every `animate-pulse` must be preceded by the variant. The design system carries a closed
-      // list of nine micro-animations and a reduced-motion answer for each; a placeholder that
-      // pulses for two seconds regardless is the one kind of motion nobody chose.
-      for (const match of code(file).match(/[\w:-]*animate-pulse/g) ?? []) {
-        expect(match, `${file} animates outside motion-safe`).toBe('motion-safe:animate-pulse');
-      }
-    }
-  });
-
-  it('draws placeholders in a token, never a literal', () => {
-    for (const file of SKELETON_SOURCES) {
-      expect(code(file).match(/#[0-9A-Fa-f]{6}/g), `${file} hard-codes a colour`).toBeNull();
-    }
-  });
-
-  /**
-   * The skeleton has to come to rest where the sheet will, and both numbers that decides moved on
-   * 2026-08-31: the collections drawer now rests at `half` rather than `full`, and it draws a
-   * 56 px Places / Collections switch above its list. Neither is visible to
-   * `CollectionsShellSkeleton`, which reproduces the sheet's chrome by hand — so the loading file
-   * is where the two are held together, and this is what stops them drifting back apart.
-   */
-  it('rests where the collections drawer rests, with the switch band reserved', () => {
-    const loading = code('src/app/collections/loading.tsx');
-    expect(loading).toContain('restingStop="half"');
-    expect(loading).not.toContain('restingStop="full"');
-    expect(loading).toContain('VIEW_SWITCH_HEIGHT_PX');
-    expect(code('src/app/collections/collections-drawer-client.tsx')).toContain(
-      "useMapShell({ restingStop: 'half' })",
+describe('no route withholds itself behind a streamed boundary', () => {
+  it('has no loading.tsx anywhere under src/app', () => {
+    const found = readdirSync(APP, { recursive: true, encoding: 'utf8' }).filter((entry) =>
+      /(^|\/)loading\.tsx$/.test(entry),
     );
+    expect(
+      found,
+      'a loading.tsx makes its route a frozen skeleton with JavaScript disabled — see this file',
+    ).toEqual([]);
   });
 
-  it('hides every placeholder from the accessibility tree', () => {
-    // Six grey rectangles are worth nothing to a screen-reader user, and Next's own route announcer
+  it('still has the two routes those files belonged to', () => {
+    // Deleting a loading state must never be the same commit as deleting a route. If this fails,
+    // the assertion above is passing for the wrong reason.
+    expect(existsSync(`${APP}collections/page.tsx`)).toBe(true);
+    expect(existsSync(`${APP}profile/page.tsx`)).toBe(true);
+  });
+});
+
+describe('the placeholder primitives that survive', () => {
+  /**
+   * `Skeleton` still ships: `import/screens/review/candidate-card.tsx` draws one *inside* a screen
+   * that is already on the page, which is a different thing from withholding the page. So its two
+   * rules still bind.
+   */
+  const SKELETON = fileURLToPath(new URL('../../../src/components/ui/skeleton.tsx', import.meta.url));
+
+  it('animates only under motion-safe', () => {
+    // The design system carries a closed list of nine micro-animations and a reduced-motion answer
+    // for each; a placeholder that pulses for two seconds regardless is the one kind of motion
+    // nobody chose.
+    for (const match of code(SKELETON).match(/[\w:-]*animate-pulse/g) ?? []) {
+      expect(match, 'the skeleton animates outside motion-safe').toBe('motion-safe:animate-pulse');
+    }
+  });
+
+  it('draws in a token, never a literal', () => {
+    expect(code(SKELETON).match(/#[0-9A-Fa-f]{6}/g), 'the skeleton hard-codes a colour').toBeNull();
+  });
+
+  it('is hidden from the accessibility tree', () => {
+    // Grey rectangles are worth nothing to a screen-reader user, and Next's own route announcer
     // already says the new page's title when the real content arrives.
-    const skeleton = readFileSync('src/components/ui/skeleton.tsx', 'utf8');
-    expect(skeleton).toMatch(/aria-hidden/);
+    expect(readFileSync(SKELETON, 'utf8')).toMatch(/aria-hidden/);
   });
 });
