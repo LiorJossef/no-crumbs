@@ -55,10 +55,37 @@ Three consequences, and they are not cosmetic:
    refusal-to-assert principle is tested hardest, so it is the fastest way to lose the edge rather
    than a growth lever to add later.
 
-**The ruling rests on an assumption it could not test** — that the category really does compete by
-asserting. `i6-competitors` is testing it against primary sources, instructed to look hardest for the
-competitor that *does* exercise restraint. If that audit finds one, this section is wrong and §8 is
-re-derived. The dependency is stated rather than buried because a roadmap has already moved on it.
+### 1.2 The audit fired, and the ruling reversed itself — `dd97234`, `2f2ddb7`
+
+It found the counterexample. The refusal holds strongly against Beli, Mapstr, mio and Plotline — all
+VERIFIED to assert unconfirmed facts and ship real social layers. It is **category norm** against
+**GeoTok, TokSpot and Stasht**, the three products doing exactly our job with nothing bundled, and the
+ones a user actually chooses between. TokSpot's own copy: *"Your saved spots are private to you."*
+
+So §1.1 above was wrong in an important way, and the edge document has been amended rather than
+trimmed:
+
+> **The shipped half is table stakes. The unshipped half is the edge.**
+
+`place_mentions` is no longer "the completion of an existing edge". It is **the only remaining
+candidate that would create one.** Restraint and single-player do not separate this product from its
+three closest competitors; keeping what we could not place might, and nothing else on the roadmap
+does.
+
+Two consequences:
+
+- **§4 is not second. It is the iteration.** Everything else on the owner's list is polish on a
+  product whose differentiator is currently unbuilt. That is not an argument for skipping the polish —
+  the owner asked for it and it is real work — but it settles what gets the best thinking.
+- **TikTok-only is not a virtue and must not be positioned as one.** Stasht saves from Instagram, X,
+  Pinterest and the general web while showing the same restraint. Our boundary is a scope decision
+  forced by the feasibility split, nothing more.
+
+**What is still untested rather than refuted:** no competitor's actual no-match behaviour could be
+reached from any primary source — nobody publishes their failure path, which is exactly the axis this
+turns on. The strongest form of the claim has no counter-evidence *and* no supporting evidence, and
+only becomes checkable once E1 ships and someone audits us the same way. That is a reason to build it
+and watch, not a reason to assume it works.
 
 ---
 
@@ -264,9 +291,11 @@ later.
 
 Revised against the edge ruling. Still provisional where §1 says so.
 
-1. **RTL (§2)** — foundation, and it sizes itself from the audit.
-2. **Entities (§4)** — promoted. On the edge ruling this is the item that completes the
-   differentiator, not a leftover schema task.
+1. **Entities (§4)** — **the iteration.** Not a leftover schema task and not the completion of an
+   existing edge: on the amended ruling (§1.2) it is the only candidate that would *create* one.
+   Gets the best thinking and the most review.
+2. **RTL (§2)** — foundation, and it sizes itself from the audit. Runs alongside rather than before,
+   since the mentions surface renders Hebrew place names too and the two meet there.
 3. **Profile menu + desktop `＋` (§5.1, §7)** — one navigation change, not two, and it closes the last
    unbuilt L1 product feature.
 4. **Sign-in background (§5.2)** — self-contained, no dependencies, slots anywhere.
