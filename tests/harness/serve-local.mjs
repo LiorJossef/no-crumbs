@@ -112,7 +112,8 @@ async function main() {
   const line = '─'.repeat(64);
   console.log(`\n${line}`);
   console.log(`  ${b('Open')}   ${mint(app.url)}`);
-  console.log(`  ${b('Sign in')} any email and password — the stub accepts anything`);
+  console.log(`  ${b('Sign in')} any email and password — the stub accepts anything,`);
+  console.log(`           ${dim('and signs you in as the address you typed, not as a fixture')}`);
   console.log(`${line}`);
   console.log(`
   ${b('Worth looking at')}

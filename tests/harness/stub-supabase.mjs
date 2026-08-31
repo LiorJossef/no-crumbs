@@ -27,6 +27,12 @@
  * `fixtures.mjs`. Any evidence produced with this must say "stub-backed" on it. It is a way to
  * *see* the product, not a way to verify it end to end.
  *
+ * ## Identity
+ *
+ * Any credentials are accepted — but **the email that is accepted is the email that comes back**,
+ * on the session, on `/auth/v1/user`, and on the `profiles` row `/profile` renders. See the GoTrue
+ * block below for what that fixed and why it mattered.
+ *
  * ## Fidelity, stated plainly
  *
  * PostgREST's query language is not implemented. `select=`, embedded resources, `eq.`, `order` and
@@ -42,6 +48,7 @@ import {
   profileRow,
   userRecord,
   sessionPayload,
+  DEMO_EMAIL,
   collectionMemberRows,
   collectionDetailRows,
   collectionInviteRows,
@@ -50,10 +57,10 @@ import {
 } from './fixtures.mjs';
 
 /** Tables the app reads (`grep -rn "\.from('" src/`), each with a fixture supplier. */
-function tableFixtures(placeCount) {
+function tableFixtures(placeCount, email) {
   return {
     saved_places: () => savedPlaceRows(placeCount),
-    profiles: () => [profileRow()],
+    profiles: () => [profileRow(email)],
     // Collections were `[]` until 2026-08-31, on the grounds that inventing fixtures whose shape
     // nobody had checked was worse than an admitted gap. The shapes are now **established from the
     // code** — `SUMMARY_SELECT`, `DETAIL_SELECT` and their hand-written row interfaces in
@@ -70,6 +77,51 @@ function tableFixtures(placeCount) {
   };
 }
 
+/**
+ * The JSON body of a request, or `{}`. `POST /auth/v1/token` is the only place the stub has ever
+ * needed to *read* what the app sent, and it is the whole of the identity fix: the email is in
+ * there and nowhere else.
+ */
+function readJson(req) {
+  return new Promise((resolve) => {
+    const chunks = [];
+    req.on('data', (c) => chunks.push(c));
+    req.on('end', () => {
+      try {
+        resolve(JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'));
+      } catch {
+        resolve({});
+      }
+    });
+    req.on('error', () => resolve({}));
+  });
+}
+
+/**
+ * The `email` claim out of an `Authorization: Bearer <jwt>` header, or `null`.
+ *
+ * Per-request and therefore **authoritative over anything the process remembers**: the browser can
+ * hold a session cookie that outlives this process (restart the stub, the cookie survives), and a
+ * remembered variable would then answer with the default while the token in hand says otherwise.
+ * The token is the only thing that travels with the request.
+ *
+ * `null` on anything that is not a three-part JWT with a string `email` — which is the common case,
+ * because supabase-js sends the anon key in this header when there is no session, and the anon key
+ * here is the literal string `stub-anon-key-not-a-secret`.
+ */
+function identityFromBearer(req) {
+  const header = req.headers.authorization ?? '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  try {
+    const claims = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+    return typeof claims.email === 'string' && claims.email !== '' ? claims.email : null;
+  } catch {
+    return null;
+  }
+}
+
 function json(res, status, body) {
   const payload = JSON.stringify(body);
   res.writeHead(status, {
@@ -84,15 +136,33 @@ function json(res, status, body) {
  * Start the stub.
  *
  * @param {{ port?: number, places?: number, email?: string, onRequest?: (method: string, url: string) => void }} options
+ *   `email` is the **default** identity, used only for requests that state none of their own.
  * @returns {Promise<{ url: string, port: number, setPlaceCount: (n: number) => void, requests: string[], close: () => Promise<void> }>}
  */
 export function startStubSupabase(options = {}) {
   let placeCount = options.places ?? 0;
-  const email = options.email ?? 'demo@example.com';
+  /**
+   * The identity a request gets when it carries no token of its own — a cookie-seeding harness, or
+   * the first paint before anyone has signed in. `options.email` overrides it for a whole run.
+   */
+  const defaultEmail = options.email ?? DEMO_EMAIL;
+  /**
+   * Who signed in through the form, most recently.
+   *
+   * This exists **only** as the fallback for a request whose bearer token carries no email;
+   * `identityFromBearer` wins wherever it can answer. A stub that trusted this variable alone would
+   * be right about the last person to submit the form rather than about the request in front of it,
+   * which is the same class of error as the bug it is here to fix — a right answer to a
+   * neighbouring question (`iteration-2-record.md` §3.1).
+   */
+  let signedInEmail = defaultEmail;
   /** Every path the app actually asked for, so an unhandled one is visible rather than silent. */
   const requests = [];
 
-  const server = createServer((req, res) => {
+  /** Who this request is for: its own token first, the last form submission second. */
+  const identityFor = (req) => identityFromBearer(req) ?? signedInEmail;
+
+  const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', 'http://127.0.0.1');
     requests.push(`${req.method} ${url.pathname}`);
     options.onRequest?.(req.method ?? 'GET', url.pathname + url.search);
@@ -108,17 +178,35 @@ export function startStubSupabase(options = {}) {
     }
 
     // ---- GoTrue -----------------------------------------------------------------
+    //
+    // **The identity submitted to the form is the identity returned, everywhere.** The stub used to
+    // accept any credentials and then answer with `demo@example.com` regardless, so `/profile` —
+    // which reads `user.email` off the real session, correctly — showed a person smoke-testing
+    // somebody else's address after they had typed their own. It was reported as a product bug and
+    // it never was one. Fixture *places* are meant to look invented; the signed-in identity is not,
+    // because a rig that misreports who you are costs the reader their trust in every other thing
+    // it shows them.
     if (url.pathname === '/auth/v1/user') {
-      // The bearer token is not checked. The stub's whole security model is that it listens on
-      // loopback, holds no real data, and is started and killed by the harness.
-      json(res, 200, userRecord(email));
+      // The token's signature is still not checked — the stub's security model is that it listens
+      // on loopback, holds no real data, and is started and killed by the harness. Its `email`
+      // claim is read, which is a different thing from trusting it.
+      json(res, 200, userRecord(identityFor(req)));
       return;
     }
-    if (url.pathname === '/auth/v1/token') {
-      json(res, 200, sessionPayload(email));
+    if (url.pathname === '/auth/v1/token' || url.pathname === '/auth/v1/signup') {
+      // `grant_type=password` and `signup` both carry `{ email, password }`. `refresh_token` does
+      // not carry an email at all, and must not reset the identity to the default — hence the
+      // fallback rather than an assignment.
+      const body = await readJson(req);
+      const submitted = typeof body.email === 'string' ? body.email.trim() : '';
+      if (submitted !== '') signedInEmail = submitted;
+      json(res, 200, sessionPayload(signedInEmail));
       return;
     }
     if (url.pathname === '/auth/v1/logout') {
+      // Back to the default, so the next person through the form is not silently answered with the
+      // last one's address.
+      signedInEmail = defaultEmail;
       res.writeHead(204).end();
       return;
     }
@@ -143,7 +231,7 @@ export function startStubSupabase(options = {}) {
 
     if (url.pathname.startsWith('/rest/v1/')) {
       const table = url.pathname.slice('/rest/v1/'.length);
-      const fixtures = tableFixtures(placeCount);
+      const fixtures = tableFixtures(placeCount, identityFor(req));
       const supplier = fixtures[table];
       if (!supplier) {
         // Deliberately not a 404. An unmapped table is a gap in this stub, not a bug in the app,

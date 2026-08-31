@@ -79,6 +79,18 @@ function jitter(index, salt) {
 export const DEMO_USER_ID = '00000000-0000-4000-8000-000000000001';
 
 /**
+ * The identity a harness gets when it never states one — a screenshot run, a measurement, anything
+ * that seeds a cookie rather than typing into the form.
+ *
+ * It is a **fallback, not a fact about the signed-in person.** Every function below takes an
+ * `email`, and `serve-local.mjs` threads the address actually submitted through the stub's
+ * `/auth/v1/token` route, because a rig that answers with somebody else's address after a person
+ * types their own is an instrument lying to its user. The fixture *places* stay obviously
+ * synthetic (`Sabich Counter No. 1`); the signed-in identity does not get to be.
+ */
+export const DEMO_EMAIL = 'demo@example.com';
+
+/**
  * `count` saved-place rows in `SAVED_PLACES_SELECT` shape.
  *
  * Beyond `SEED_PLACES.length` the seeds repeat with a deterministic coordinate offset of up to
@@ -139,15 +151,37 @@ export function savedPlaceRows(count) {
   return rows;
 }
 
-export function profileRow() {
+/**
+ * The `profiles` row. `display_name` is **derived from the signed-in address**, not invented:
+ * `accountIdentity` puts it on the first line of `/profile` with the email under it, so a constant
+ * here would print somebody else's name over the reader's own address — the identity lie in a
+ * second place, one line up from where it was found.
+ *
+ * `demo@example.com` still yields exactly `Demo`, so every screenshot taken before this change
+ * still renders the same two lines.
+ */
+export function profileRow(email = DEMO_EMAIL) {
   return {
     id: DEMO_USER_ID,
-    display_name: 'Demo',
+    display_name: displayNameFromEmail(email),
     created_at: '2026-06-01T09:00:00.000Z',
   };
 }
 
-export function userRecord(email = 'demo@example.com') {
+/**
+ * `orel@arbitrip.com` → `Orel`. A stand-in for the display name a real signup trigger would have
+ * written, and the *only* invention here is the capital letter — the word itself is the reader's.
+ * An address with no usable local part yields `null`, and `accountIdentity` then promotes the email
+ * to the title rather than heading the screen with something made up.
+ */
+export function displayNameFromEmail(email) {
+  const local = String(email ?? '').split('@')[0]?.trim() ?? '';
+  if (local === '') return null;
+  const word = local.split(/[._+-]/).filter(Boolean)[0] ?? local;
+  return word.charAt(0).toUpperCase() + word.slice(1);
+}
+
+export function userRecord(email = DEMO_EMAIL) {
   const now = Math.floor(Date.now() / 1000);
   return {
     id: DEMO_USER_ID,
@@ -176,15 +210,20 @@ function b64url(value) {
  * A structurally valid, deliberately unsigned JWT. The stub never verifies it and nothing else
  * ever sees it; auth-js only parses it to read `exp`, so the three-part shape is the requirement,
  * not the signature.
+ *
+ * The `email` claim is **not** decoration. `stub-supabase.mjs` reads it back out on
+ * `GET /auth/v1/user` so that a token minted for one identity can never answer with another's —
+ * see `identityFromBearer` there, and the header note on why the address a person typed has to
+ * survive the round trip.
  */
-export function fakeAccessToken(expiresAt) {
+export function fakeAccessToken(expiresAt, email = DEMO_EMAIL) {
   const header = b64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
   const payload = b64url(
     JSON.stringify({
       sub: DEMO_USER_ID,
       aud: 'authenticated',
       role: 'authenticated',
-      email: 'demo@example.com',
+      email,
       iss: 'stub',
       iat: Math.floor(Date.now() / 1000),
       exp: expiresAt,
@@ -195,10 +234,10 @@ export function fakeAccessToken(expiresAt) {
 }
 
 /** The session payload @supabase/ssr stores in the auth cookie. */
-export function sessionPayload(email = 'demo@example.com') {
+export function sessionPayload(email = DEMO_EMAIL) {
   const expiresAt = Math.floor(Date.now() / 1000) + 60 * 60 * 24;
   return {
-    access_token: fakeAccessToken(expiresAt),
+    access_token: fakeAccessToken(expiresAt, email),
     token_type: 'bearer',
     expires_in: 60 * 60 * 24,
     expires_at: expiresAt,
@@ -216,7 +255,7 @@ export function sessionPayload(email = 'demo@example.com') {
  * that `decodeChunkedCookieValue` in `@supabase/ssr/dist/main/cookies.js` understands, which
  * sidesteps every URL-encoding question a raw JSON cookie value would raise.
  */
-export function authCookie(supabaseUrl, email = 'demo@example.com') {
+export function authCookie(supabaseUrl, email = DEMO_EMAIL) {
   const hostname = new URL(supabaseUrl).hostname;
   const name = `sb-${hostname.split('.')[0]}-auth-token`;
   const value = `base64-${b64url(JSON.stringify(sessionPayload(email)))}`;
