@@ -31,7 +31,7 @@ import { createPortal } from "react-dom";
 import { X, Minus, Plus, Locate, Maximize, Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils"
-import { ENTER_POPOVER, TINT_BEAT } from "@/lib/interaction";
+import { ENTER_POPOVER, PRESS_CHIP, TINT_BEAT } from "@/lib/interaction";
 import { systemTheme, themeFromDocument } from "@/lib/theme";
 
 if (typeof window !== "undefined" && !MapLibreGL.getWorkerUrl()) {
@@ -640,7 +640,15 @@ function PopupCloseButton({ onClick }: { onClick: () => void }) {
       type="button"
       onClick={onClick}
       aria-label="Close popup"
-      className="focus-visible:ring-ring hover:bg-muted text-foreground absolute top-1 right-1 z-10 inline-flex size-5 cursor-pointer items-center justify-center rounded-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset"
+      // `PRESS_CHIP`, and the bare `transition-colors` goes rather than gaining a duration: a 20px
+      // target is exactly the case its docblock names, where the gentler button scale would not be
+      // visible at all — and `PRESS_BEAT`'s `motion-safe:transition` already carries colour, so a
+      // second declaration only meant a second duration for the same fade. This was the last
+      // control in `components/ui/` with no press column and no named timing.
+      className={cn(
+        'focus-visible:ring-ring hover:bg-muted text-foreground absolute top-1 right-1 z-10 inline-flex size-5 cursor-pointer items-center justify-center rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-inset',
+        PRESS_CHIP,
+      )}
     >
       <X className="size-3.5" />
     </button>
