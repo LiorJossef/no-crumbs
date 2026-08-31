@@ -159,6 +159,22 @@ describe('the night palette, written twice and pinned together', () => {
     const noJs = declarations(noJsBlock().body);
 
     expect(dark.size, 'the `.dark` block should not be empty').toBeGreaterThan(50);
+
+    /*
+     * **Two assertions, and the first one is the one that matters — which is not obvious.**
+     *
+     * The per-token value comparison below is the assertion people write for a duplication, and on
+     * its own it is **blind to the likeliest drift**: a role added to one block and not the other.
+     * It iterates `dark`, so a token missing from the copy reads as `undefined` against a value and
+     * *would* fail — but a token added to the **copy** and not to `.dark` is never visited at all,
+     * and passes silently. The key-array equality catches both directions, and pins the order too.
+     *
+     * Mutation-checked in all four directions rather than reasoned: a role added to `.dark` only,
+     * a role added to the copy only, a one-character value change, and `color-scheme: dark`
+     * deleted. Four mutations, four failures. The two added-role cases are the pair that the value
+     * loop alone does not fully cover, which is why both assertions are here and neither is
+     * redundant.
+     */
     expect([...noJs.keys()]).toEqual([...dark.keys()]);
     for (const [name, value] of dark) {
       expect(noJs.get(name), `${name} differs between \`.dark\` and the no-JS block`).toBe(value);
