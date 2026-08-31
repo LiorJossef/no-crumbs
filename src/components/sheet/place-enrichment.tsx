@@ -273,7 +273,14 @@ export function TagFacetBar({
         //
         // `lg:scroll-fade-none` because above `lg` the row wraps and there is nothing to scroll —
         // a mask there would fade the last chip of a complete row for no reason.
-        '-m-1 flex gap-2 overflow-x-auto overscroll-x-contain p-1 scroll-fade-x lg:flex-wrap lg:scroll-fade-none',
+        //
+        // `scroll-fade-4` (16px) rather than the utility's default `min(12%, 40px)`, and this is
+        // the second thing the screenshot corrected. At the default the fade reached far enough
+        // into the trailing chip to dim its **count** — `Restaurant 100` and `Outdoor Seating 60`
+        // both went pale — which is most of the way back to the truncation this package exists to
+        // remove. 16px is a soft edge on the container rather than a wash over content: it still
+        // reads as "there is more", and the number stays a number.
+        '-m-1 flex gap-2 overflow-x-auto overscroll-x-contain p-1 scroll-fade-x scroll-fade-4 lg:flex-wrap lg:scroll-fade-none',
         '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
         className,
       )}
