@@ -16,6 +16,7 @@
  * round-trips a candidate through this shape and asserts `ExtractionResultSchema` accepts it.
  */
 
+import { POST_INTENTS } from '@/domain/extraction/schema';
 import { MAX_TAGS_PER_CANDIDATE } from '@/domain/extraction/tags';
 import { PRIMARY_CATEGORIES } from '@/domain/places/taxonomy';
 
@@ -69,7 +70,7 @@ export const MAX_OUTPUT_TOKENS = 8192;
 export const EXTRACTION_JSON_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['candidates', 'cityHint'],
+  required: ['candidates', 'cityHint', 'postIntent'],
   properties: {
     candidates: {
       type: 'array',
@@ -182,5 +183,18 @@ export const EXTRACTION_JSON_SCHEMA = {
       },
     },
     cityHint: { type: ['string', 'null'], maxLength: 80 },
+    /**
+     * v5 (2026-08-31, E2-T3): what kind of post this is, so the ~73% of imports that find no
+     * place can say something better than "nothing found". Response-level, because the case it
+     * exists for — a genuine recommendation whose venue is only spoken — has no candidate to
+     * hang it on.
+     *
+     * `null` is a member of the enum for the same reason it is on `categoryHint`: the model must
+     * be able to decline, and an enum that cannot say so makes it pick one anyway. It is also the
+     * value the Zod side falls back to for anything unrecognised, so the two agree — see
+     * `domain/extraction/schema.ts`'s `LenientPostIntentSchema`. About ten output tokens; no
+     * change to `MAX_OUTPUT_TOKENS`, which has ~28% headroom.
+     */
+    postIntent: { type: ['string', 'null'], enum: [...POST_INTENTS, null] },
   },
 } as const;

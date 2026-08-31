@@ -74,6 +74,9 @@ import type { PlaceCandidate } from '../types';
  *   removed, which is precisely why the version had to move: a v3 row and a v4 row have the same
  *   *shape* and different *vocabularies*, so nothing but this number stops a cached v3 candidate
  *   being read back as if the model had been asked the new question.
+ * v4 → v5 (2026-08-31, E2-T3): added `postIntent` at the **response** level — not on the
+ *   candidate, which is why `CANDIDATE_FIELD_PROVENANCE` below does not grow a key. See
+ *   `PostIntentSchema`.
  *
  * ## v3, and why it is not the `nameAliases` the owner cut from v2
  *
@@ -99,7 +102,7 @@ import type { PlaceCandidate } from '../types';
  * deterministic transliterator measured on 2026-08-27 reached 47% recall and failed on exactly that
  * class, which is why this is the model's job and not a function's.
  */
-export const EXTRACTION_SCHEMA_VERSION = 4;
+export const EXTRACTION_SCHEMA_VERSION = 5;
 
 /** `places/category-hint.ts`'s `ExtractedCategoryHint` — the owner's three primary categories —
  *  as a Zod enum.
@@ -377,6 +380,90 @@ export const RawPlaceCandidateSchema = z.object({
 export type RawPlaceCandidate = z.infer<typeof RawPlaceCandidateSchema>;
 
 /* ------------------------------------------------------------------------------------------- *
+ * postIntent (v5) — what kind of post this was
+ * ------------------------------------------------------------------------------------------- */
+
+/**
+ * The three things a post can be, as far as this product cares.
+ *
+ *  - `place_recommendation` — the post recommends one or more real places, **whether or not the
+ *    caption names any of them**. A voice-over listing six Tokyo spots under the caption
+ *    "6 Must Try Spots in Tokyo" is this, and it yields zero candidates.
+ *  - `place_question` — the post is *about* places, names none, and is not trying to: "what's the
+ *    best X?", "drop your recs below", a name deliberately withheld to drive comments.
+ *  - `not_a_place` — not about places at all. A cat video.
+ */
+export const POST_INTENTS = ['place_recommendation', 'place_question', 'not_a_place'] as const;
+
+export type PostIntent = (typeof POST_INTENTS)[number];
+
+/**
+ * What kind of post this was, asked of the model directly. Response-level, not per candidate:
+ * it describes the post, and the interesting case has no candidates to hang it on.
+ *
+ * ## What it is for
+ *
+ * ~73% of imports find no place, and every one of them reaches one screen that says nothing was
+ * found. Those imports are not alike — a genuine recommendation whose venue is only spoken, a
+ * "drop your recs below" question where no venue exists anywhere, and a cat video are three
+ * different things to say to a person, and the engine could not tell them apart. The measured
+ * alternatives are all bad: the best available trigger, "the extractor returned zero candidates",
+ * runs at 0.33–0.57 precision (`docs/evidence/extraction/transcription-and-media-feasibility-
+ * 2026-08-28.md` §3). Asking the model costs about ten output tokens and no extra request.
+ *
+ * ## The constraint, which is the whole design and is deliberate
+ *
+ * **This value may only ever ADD an explanation. It must never suppress, drop, filter, gate or
+ * reorder a candidate, and no code path may branch on it to withhold a place.**
+ *
+ * The reason is the error budget. This is one unmeasured classification from a model that is
+ * already wrong about other things, and it arrives next to candidates that went through
+ * `plausibility.ts`, `grounding.ts` and a human review screen. If a wrong `not_a_place` could
+ * suppress a candidate, one bad classification would cost a real place silently — the failure this
+ * product least tolerates. Wired as an explanation only, the worst a wrong classification can cost
+ * is a slightly-off sentence on a screen the user is already reading, next to whatever we found.
+ * That asymmetry is why the field is allowed in at all before its accuracy is known.
+ *
+ * ## `caption_inference`, and why it is not in `CANDIDATE_FIELD_PROVENANCE`
+ *
+ * It is the model's reading of what the caption says, so it belongs to the `caption_inference`
+ * class — but that map is keyed on `RawPlaceCandidate` and this is not a candidate field. The map
+ * stays exactly as wide as the candidate, and this comment carries the classification instead.
+ *
+ * ## Accuracy is unmeasured
+ *
+ * Nothing here has been run against a live model. The parse, the absence handling and the
+ * unrecognised-value handling are tested; whether the model *classifies correctly* is not known
+ * and needs a labelled set and a live run. Do not present this value to a user as a fact about
+ * the post without that measurement.
+ */
+export const PostIntentSchema = z.enum(POST_INTENTS);
+
+/** `value` if it is one of the three, `null` for anything else — a missing key, an explicit
+ *  `null`, a string the model invented, a number, an object. See `LenientPostIntentSchema`. */
+export function coercePostIntent(value: unknown): PostIntent | null {
+  return typeof value === 'string' && (POST_INTENTS as readonly string[]).includes(value)
+    ? (value as PostIntent)
+    : null;
+}
+
+/**
+ * How `postIntent` is read on every parse: **never strictly**.
+ *
+ * `extractions` is cached on `(source_id, model, prompt_version)`, and while the v4 → v5 bump
+ * means no pre-v5 row can be read back under this prompt version, that is a guarantee about the
+ * cache key rather than about this schema — and this schema is also what parses the model's live
+ * reply. A model that omits the key, sends `null`, or invents a fourth value must not cost the
+ * caption its candidates. So absence, `null` and any unrecognised value all yield `null`, and
+ * nothing else in the response is affected.
+ *
+ * That is a deliberate departure from the rest of this file, where a field the model got wrong
+ * fails the candidate. It follows from the constraint above: a field that may only add an
+ * explanation has no business being able to fail a parse.
+ */
+const LenientPostIntentSchema = z.unknown().optional().transform(coercePostIntent);
+
+/* ------------------------------------------------------------------------------------------- *
  * The two candidate limits
  * ------------------------------------------------------------------------------------------- */
 
@@ -432,6 +519,10 @@ export const FLOOD_GUARD_CANDIDATES = CANDIDATE_CAP * 2;
 export const ExtractionResultSchema = z.object({
   candidates: z.array(RawPlaceCandidateSchema).max(CANDIDATE_CAP),
   cityHint: boundedText(80).nullable(),
+  /** v5. Lenient by construction — see `LenientPostIntentSchema`. A response that omits it is
+   *  still a well-formed response, which is the one place this reference shape is deliberately
+   *  looser than the schema the model is handed. */
+  postIntent: LenientPostIntentSchema,
 });
 
 export type ExtractionResult = z.infer<typeof ExtractionResultSchema>;
@@ -449,6 +540,10 @@ export type ExtractionResult = z.infer<typeof ExtractionResultSchema>;
 const ExtractionEnvelopeSchema = z.object({
   candidates: z.array(z.unknown()).max(FLOOD_GUARD_CANDIDATES),
   cityHint: boundedText(80).nullable(),
+  /** v5, and it cannot fail: absent, `null` and unrecognised all read as `null`
+   *  (`LenientPostIntentSchema`). A post-intent the model got wrong must never be the reason a
+   *  caption's candidates are lost. */
+  postIntent: LenientPostIntentSchema,
 });
 
 /** A response parsed item by item: the candidates that were valid, plus an honest count of the
@@ -457,6 +552,12 @@ const ExtractionEnvelopeSchema = z.object({
 export interface PartialExtractionResult {
   readonly candidates: readonly RawPlaceCandidate[];
   readonly cityHint: string | null;
+  /**
+   * What kind of post the model said this was, or `null`. See `PostIntentSchema` — in particular
+   * the constraint that this may only ever add an explanation, never withhold a candidate. It is
+   * carried alongside `candidates`, never applied to them.
+   */
+  readonly postIntent: PostIntent | null;
   /** How many elements of `candidates` failed `RawPlaceCandidateSchema`. */
   readonly dropped: number;
   /**
@@ -565,6 +666,9 @@ export function parseExtractionResultPartial(value: unknown): PartialExtractionP
     value: {
       candidates: carried,
       cityHint: envelope.data.cityHint,
+      // Carried, never applied. `carried` above was computed without consulting it, and nothing in
+      // this function may change that (`PostIntentSchema`).
+      postIntent: envelope.data.postIntent,
       dropped: total - kept.length,
       truncated: kept.length - carried.length,
       total,

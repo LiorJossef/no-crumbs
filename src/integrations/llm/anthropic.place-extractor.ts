@@ -189,7 +189,11 @@ export function anthropicPlaceExtractor(config: {
 
       const candidates = postProcessCandidates(parsed.value.candidates.map(toPlaceCandidate), caption, ctx);
 
-      return { candidates, cityHint: parsed.value.cityHint };
+      // `postIntent` is passed straight through, unread. It is an explanation for the screen the
+      // ~73% no-place imports land on, and by design nothing here — not the parse, not
+      // `postProcessCandidates`, not this return — may let it change which candidates survive
+      // (`domain/extraction/schema.ts`'s `PostIntentSchema`).
+      return { candidates, cityHint: parsed.value.cityHint, postIntent: parsed.value.postIntent };
     },
   };
 }

@@ -347,12 +347,13 @@ describe('schema versioning', () => {
     expect(PROMPT_VERSION).toContain(`s${EXTRACTION_SCHEMA_VERSION}`);
   });
 
-  it('is on v4, under the prompt that widened the hashtag rule to category-plus-number names', () => {
+  it('is on v5, under the prompt that added postIntent', () => {
     // Spelled out rather than derived, so moving the schema or the prompt is a deliberate edit
-    // here too. `p14` is a prose-only change (the `#בראסרי18` miss), so the schema half stays at
-    // `s4` — the two halves move independently, which is why the key has two of them.
-    expect(EXTRACTION_SCHEMA_VERSION).toBe(4);
-    expect(PROMPT_VERSION).toBe('p14-s4');
+    // here too. `p15`/`s5` move together (E2-T3): the prompt asks a new question *and* the
+    // response shape grew a field to carry the answer, which is the case the two-part key exists
+    // for. Contrast `p13` -> `p14`, a prose-only change that left the schema half at `s4`.
+    expect(EXTRACTION_SCHEMA_VERSION).toBe(5);
+    expect(PROMPT_VERSION).toBe('p15-s5');
   });
 
   it('keeps PROMPT_VERSION storable in the extractions column', () => {

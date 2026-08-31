@@ -353,3 +353,74 @@ describe('anthropicPlaceExtractor', () => {
     expect(extractor.promptVersion).toBe(PROMPT_VERSION);
   });
 });
+
+/**
+ * `postIntent` (v5, E2-T3) at the adapter seam — the same five properties the Gemini adapter is
+ * held to, because the two share `parseExtractionResultPartial` and must not drift.
+ */
+describe('anthropicPlaceExtractor — postIntent', () => {
+  async function extractWith(input: Record<string, unknown>, caption = 'Cafe Fiori was great') {
+    const fetchImpl = async () => toolUseResponse(input);
+    const extractor = anthropicPlaceExtractor({ apiKey: 'test-key', fetchImpl: fetchImpl as typeof fetch });
+    return extractor.extract([{ kind: 'caption', text: caption, origin: 'tiktok-oembed-title' }], ctx());
+  }
+
+  it('returns the model\'s postIntent unchanged', async () => {
+    const result = await extractWith({
+      candidates: [candidate('Cafe Fiori', 'Cafe Fiori was great')],
+      cityHint: null,
+      postIntent: 'place_question',
+    });
+    expect(result.postIntent).toBe('place_question');
+    expect(result.candidates).toHaveLength(1);
+  });
+
+  it('returns place_recommendation with zero candidates — the case the field exists for', async () => {
+    const result = await extractWith({ candidates: [], cityHint: null, postIntent: 'place_recommendation' });
+    expect(result.candidates).toEqual([]);
+    expect(result.postIntent).toBe('place_recommendation');
+  });
+
+  it('returns null when the reply omits postIntent, and still returns the candidates', async () => {
+    const result = await extractWith({
+      candidates: [candidate('Cafe Fiori', 'Cafe Fiori was great')],
+      cityHint: null,
+    });
+    expect(result.postIntent).toBeNull();
+    expect(result.candidates).toHaveLength(1);
+  });
+
+  it('returns null for an unrecognised value rather than failing the extraction', async () => {
+    const result = await extractWith({
+      candidates: [candidate('Cafe Fiori', 'Cafe Fiori was great')],
+      cityHint: null,
+      postIntent: 42,
+    });
+    expect(result.postIntent).toBeNull();
+    expect(result.candidates).toHaveLength(1);
+  });
+
+  it('keeps two real venues on a reply the model labelled not_a_place', async () => {
+    const result = await extractWith({
+      candidates: [candidate('Cafe Fiori', 'Cafe Fiori'), candidate('Kohi', 'Kohi')],
+      cityHint: null,
+      postIntent: 'not_a_place',
+    }, 'Cafe Fiori and Kohi, both great');
+    expect(result.candidates).toHaveLength(2);
+    expect(result.postIntent).toBe('not_a_place');
+  });
+
+  it('sends postIntent in the forced tool\'s input schema', async () => {
+    let capturedBody: Record<string, unknown> | undefined;
+    const fetchImpl = async (_url: string | URL | Request, init?: RequestInit) => {
+      capturedBody = JSON.parse(init?.body as string);
+      return toolUseResponse({ candidates: [], cityHint: null, postIntent: null });
+    };
+    const extractor = anthropicPlaceExtractor({ apiKey: 'test-key', fetchImpl: fetchImpl as typeof fetch });
+    await extractor.extract([{ kind: 'caption', text: 'a cat', origin: 'tiktok-oembed-title' }], ctx());
+
+    const tools = capturedBody?.tools as { input_schema: { required: string[]; properties: Record<string, unknown> } }[];
+    expect(tools[0]?.input_schema.required).toContain('postIntent');
+    expect(Object.keys(tools[0]?.input_schema.properties ?? {})).toContain('postIntent');
+  });
+});

@@ -21,6 +21,7 @@
  */
 
 import type { ClassifiedShortLink } from './source/canonicalise-tiktok-url';
+import type { PostIntent } from './extraction/schema';
 import type {
   ContentPart,
   ImportId,
@@ -130,7 +131,21 @@ export interface PlaceExtractor {
   extract(
     parts: readonly ContentPart[],
     ctx: OpCtx,
-  ): Promise<{ readonly candidates: readonly PlaceCandidate[]; readonly cityHint: string | null }>;
+  ): Promise<{
+    readonly candidates: readonly PlaceCandidate[];
+    readonly cityHint: string | null;
+    /**
+     * What kind of post this was — a recommendation, a question about places, or not about places
+     * at all — or `null` when the model did not say (`extraction/schema.ts`'s `PostIntentSchema`).
+     *
+     * **Explanation only, by design.** A caller may use this to say something better than "nothing
+     * found" on the ~73% of imports that find no place. A caller may not suppress, drop, filter,
+     * gate or reorder a candidate on it: it is one unmeasured model classification, and a wrong
+     * one must cost a slightly-off sentence, never a real place. It is returned beside
+     * `candidates` rather than folded into them precisely so that nothing has to trust it.
+     */
+    readonly postIntent: PostIntent | null;
+  }>;
 }
 
 /**

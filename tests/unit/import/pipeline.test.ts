@@ -159,7 +159,7 @@ function makePorts(overrides: Partial<Ports> = {}): Ports {
   const extractor: PlaceExtractor = {
     version: 'v1',
     promptVersion: 'p1',
-    extract: async () => ({ candidates: [oneCandidate], cityHint: 'Tokyo' }),
+    extract: async () => ({ candidates: [oneCandidate], cityHint: 'Tokyo', postIntent: null }),
   };
   const store: ImportStore = {
     recordStage: async () => {},
@@ -233,7 +233,7 @@ describe('runImport — the golden path (07 §5)', () => {
 describe('runImport — NO_PLACES_FOUND is a success, not an error (07 §9)', () => {
   it('zero candidates from extraction ends the sequence after the extract stage, kind: no_places', async () => {
     const ports = makePorts({
-      extractor: { version: 'v1', promptVersion: 'p1', extract: async () => ({ candidates: [], cityHint: null }) },
+      extractor: { version: 'v1', promptVersion: 'p1', extract: async () => ({ candidates: [], cityHint: null, postIntent: null }) },
     });
     const events = await collect(ports, makeInput());
 
@@ -259,7 +259,7 @@ describe('runImport — MAX_CANDIDATES = 8 is enforced (07 §7)', () => {
     }));
     let resolveCalls = 0;
     const ports = makePorts({
-      extractor: { version: 'v1', promptVersion: 'p1', extract: async () => ({ candidates: tenCandidates, cityHint: null }) },
+      extractor: { version: 'v1', promptVersion: 'p1', extract: async () => ({ candidates: tenCandidates, cityHint: null, postIntent: null }) },
       resolver: {
         provider: 'overture',
         resolve: async () => {
@@ -318,7 +318,7 @@ describe('runImport — MAX_CANDIDATES = 8 is enforced (07 §7)', () => {
       extractor: {
         version: 'v1',
         promptVersion: 'p1',
-        extract: async () => ({ candidates: eightCandidates, cityHint: 'London' }),
+        extract: async () => ({ candidates: eightCandidates, cityHint: 'London', postIntent: null }),
       },
       resolver: {
         provider: 'overture',
@@ -356,7 +356,7 @@ describe('runImport — partial success is first-class (07 §8)', () => {
     const twoCandidates: PlaceCandidate[] = [oneCandidate, { ...oneCandidate, rawName: 'Unknown Place' }];
     let call = 0;
     const ports = makePorts({
-      extractor: { version: 'v1', promptVersion: 'p1', extract: async () => ({ candidates: twoCandidates, cityHint: 'Tokyo' }) },
+      extractor: { version: 'v1', promptVersion: 'p1', extract: async () => ({ candidates: twoCandidates, cityHint: 'Tokyo', postIntent: null }) },
       resolver: {
         provider: 'overture',
         resolve: async () => {

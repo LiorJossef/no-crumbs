@@ -394,3 +394,87 @@ describe('geminiPlaceExtractor', () => {
     expect(geminiExtractorVersion('other-model')).not.toBe(geminiExtractorVersion('gemini-3.5-flash-lite'));
   });
 });
+
+/**
+ * `postIntent` (v5, E2-T3) at the adapter seam. What is tested here is that the value crosses the
+ * boundary untouched and that it never touches the candidates — not that the model classifies
+ * correctly, which is unmeasured and needs a live run against a labelled set.
+ */
+describe('geminiPlaceExtractor — postIntent', () => {
+  async function extractWith(body: Record<string, unknown>, caption = 'Cafe Fiori was great') {
+    const fetchImpl = async () => generateContentResponse(body);
+    const extractor = geminiPlaceExtractor({ apiKey: 'test-key', fetchImpl: fetchImpl as typeof fetch });
+    return extractor.extract([{ kind: 'caption', text: caption, origin: 'tiktok-oembed-title' }], ctx());
+  }
+
+  it('returns the model\'s postIntent unchanged', async () => {
+    const result = await extractWith({
+      candidates: [candidate('Cafe Fiori', 'Cafe Fiori was great')],
+      cityHint: null,
+      postIntent: 'place_recommendation',
+    });
+    expect(result.postIntent).toBe('place_recommendation');
+    expect(result.candidates.map((c: PlaceCandidate) => c.rawName)).toEqual(['Cafe Fiori']);
+  });
+
+  it('returns place_recommendation with zero candidates — the case the field exists for', async () => {
+    // A caption that names nothing under a video recommending real venues out loud. This is the
+    // ~73% no-place import that is NOT a dead end, and before this field nothing could say so.
+    const result = await extractWith({ candidates: [], cityHint: null, postIntent: 'place_recommendation' });
+    expect(result.candidates).toEqual([]);
+    expect(result.postIntent).toBe('place_recommendation');
+  });
+
+  it('returns null when the reply omits postIntent, and still returns the candidates', async () => {
+    // A `p14`-shaped reply, or a model that simply dropped the key. Neither may cost the caption
+    // its places.
+    const result = await extractWith({
+      candidates: [candidate('Cafe Fiori', 'Cafe Fiori was great')],
+      cityHint: null,
+    });
+    expect(result.postIntent).toBeNull();
+    expect(result.candidates.map((c: PlaceCandidate) => c.rawName)).toEqual(['Cafe Fiori']);
+  });
+
+  it('returns null for an unrecognised value rather than failing the extraction', async () => {
+    const result = await extractWith({
+      candidates: [candidate('Cafe Fiori', 'Cafe Fiori was great')],
+      cityHint: null,
+      postIntent: 'food_review',
+    });
+    expect(result.postIntent).toBeNull();
+    expect(result.candidates).toHaveLength(1);
+  });
+
+  it('keeps two real venues on a reply the model labelled not_a_place', async () => {
+    // Constraint 1 at the seam: this field may only ever add an explanation. A wrong
+    // classification must cost a slightly-off sentence, never a place.
+    const result = await extractWith({
+      candidates: [candidate('Cafe Fiori', 'Cafe Fiori'), candidate('Kohi', 'Kohi')],
+      cityHint: null,
+      postIntent: 'not_a_place',
+    }, 'Cafe Fiori and Kohi, both great');
+    expect(result.candidates.map((c: PlaceCandidate) => c.rawName)).toEqual(['Cafe Fiori', 'Kohi']);
+    expect(result.postIntent).toBe('not_a_place');
+  });
+
+  it('sends postIntent in the responseSchema, with null stripped from the enum for Gemini', async () => {
+    // Gemini's `responseSchema` takes a restricted OpenAPI subset: `type: ['string','null']`
+    // becomes `type: 'string', nullable: true`, and a `null` enum member is not legal there.
+    // `toGeminiSchema` does that conversion, and this asserts the new field went through it.
+    let capturedInit: RequestInit | undefined;
+    const fetchImpl = async (_url: string | URL | Request, init?: RequestInit) => {
+      capturedInit = init;
+      return generateContentResponse({ candidates: [], cityHint: null, postIntent: null });
+    };
+    const extractor = geminiPlaceExtractor({ apiKey: 'test-key', fetchImpl: fetchImpl as typeof fetch });
+    await extractor.extract([{ kind: 'caption', text: 'a cat', origin: 'tiktok-oembed-title' }], ctx());
+
+    const body = JSON.parse(capturedInit?.body as string);
+    const sent = body.generationConfig.responseSchema.properties.postIntent;
+    expect(sent.type).toBe('string');
+    expect(sent.nullable).toBe(true);
+    expect(sent.enum).toEqual(['place_recommendation', 'place_question', 'not_a_place']);
+    expect(body.generationConfig.responseSchema.required).toContain('postIntent');
+  });
+});

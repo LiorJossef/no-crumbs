@@ -53,7 +53,7 @@ import type { PlaceCandidate } from '../types';
  * coincidence — it is the same number, and when v3 lands this union gains a member and every
  * `switch` on it that forgot to grows a compile error.
  */
-export type StoredSchemaVersion = 1 | 2 | 3 | 4;
+export type StoredSchemaVersion = 1 | 2 | 3 | 4 | 5;
 
 /** One stored candidate plus the schema it was written under. The pairing is the point: see this
  *  file's header for why the version cannot be inferred from the candidate's own fields. */
@@ -134,9 +134,25 @@ export function parseStoredCandidates(raw: unknown): StoredCandidatesOutcome {
   for (const element of asArray.data) {
     const resolution = parseResolution(element);
 
-    const v4 = RawPlaceCandidateSchema.safeParse(element);
-    if (v4.success) {
-      candidates.push({ candidate: toPlaceCandidate(v4.data), schemaVersion: 4, resolution });
+    const v5 = RawPlaceCandidateSchema.safeParse(element);
+    if (v5.success) {
+      // **v5 moved this rung rather than adding one, and that is correct rather than lazy.**
+      // v5 added `postIntent`, which is a property of the *response* and not of a candidate, so a
+      // v5 candidate is byte-identical to a v4 one and no shape test could tell them apart. The
+      // rung therefore reports the current version rather than gaining a sibling that would never
+      // match.
+      //
+      // Two things make this safe rather than a lie. `StoredCandidate.schemaVersion` answers
+      // "which shape did this row have", and the answer is genuinely the same for both. And the
+      // cache key pins `prompt_version` (`p14-s4` -> `p15-s5`), so a row written under v4 can
+      // never be read back under the v5 key in the first place — the gate in `probe/route.ts` is
+      // belt to that key's braces, not the only barrier.
+      //
+      // What this line must never do is lag `EXTRACTION_SCHEMA_VERSION`. That gate compares the
+      // two, so a stale number here turns every cache hit into a miss and buys a fresh paid model
+      // call on every repeat import — the same failure the comment at `probe/route.ts` records,
+      // pointing the other way.
+      candidates.push({ candidate: toPlaceCandidate(v5.data), schemaVersion: 5, resolution });
       continue;
     }
 
@@ -193,7 +209,7 @@ export function parseStoredCandidates(raw: unknown): StoredCandidatesOutcome {
 
     // Report the *current-shape* failure. It is the one a developer needs: "this row is not
     // v1/v2/v3 either" is noise once we already know it is not the current shape.
-    return { kind: 'invalid', cause: v4.error };
+    return { kind: 'invalid', cause: v5.error };
   }
 
   return { kind: 'ok', candidates };

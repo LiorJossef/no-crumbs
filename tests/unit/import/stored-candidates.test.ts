@@ -41,12 +41,13 @@ describe('parseStoredCandidates', () => {
 
     expect(result.kind).toBe('ok');
     if (result.kind !== 'ok') return;
-    // v3 and v4 are the same *shape* — v4 narrowed two vocabularies and added no field — so a
-    // ladder that reads shapes cannot tell them apart when the values are legal under both. This
-    // row's `restaurant` is, so it reads as 4. That is not a defect to fix here: the cache key
-    // pins `prompt_version`, so a genuine v3 row is never served under the current prompt, and the
-    // version is only load-bearing where a *key* is absent.
-    expect(result.candidates[0]?.schemaVersion).toBe(4);
+    // v3, v4 and v5 are the same *candidate* shape — v4 narrowed two vocabularies and added no
+    // field, and v5's `postIntent` belongs to the response rather than to a candidate — so a
+    // ladder that reads shapes cannot tell them apart when the values are legal under all three.
+    // This row's `restaurant` is, so it reads as the current version. That is not a defect to fix
+    // here: the cache key pins `prompt_version`, so a genuine v3 row is never served under the
+    // current prompt, and the version is only load-bearing where a *key* is absent.
+    expect(result.candidates[0]?.schemaVersion).toBe(5);
     expect(result.candidates[0]?.candidate.nameVariants).toEqual(['Kohi']);
   });
 
