@@ -298,6 +298,23 @@ describe('components reach for roles, not for the ramp', () => {
      * a *doc comment*, and the workaround the repo adopted was to stop naming colours in comments.
      * That is a guard making the codebase worse.
      *
+     * **Stripping comments here reverses an explicit earlier ruling, so the reasoning is recorded
+     * rather than left to be re-litigated from it.** The ruling was that a guard asserting *a thing
+     * is not used* should strip comments, but `K12` is a budget on *authored colour*, where quoting
+     * a hex in prose is the author's choice and citing a token name is better prose anyway. The
+     * boundary was drawn deliberately and it does not survive the measurement: **10 of the 25 lines
+     * this counted were comments**, so the authored-colour budget was 40% documentation — a KPI
+     * measuring authored colour *plus prose about colour* while being read as the first. That is
+     * the same defect the rest of this file fixes, sitting inside the one guard exempted from the
+     * fix.
+     *
+     * The concern behind the ruling is real: a hex quoted in a comment can rot away from the value
+     * it describes. **The answer to that is a drift guard tying the comment to the constant, not a
+     * budget that counts prose** — this repository now has three of those
+     * (`palette-tokens.test.ts`, and the halo and keyline guards in `chrome-tokens.test.ts`), and a
+     * comment is the cheapest place a measurement can live where the next reader will find it.
+     * Overturned on the measurement, 2026-08-31.
+     *
      * **This is a change to what K12 measures**, so the number here and the 26 in
      * `overnight-run-plan.md` §4 no longer describe the same quantity. The docs are not this
      * package's to edit; the discrepancy is reported rather than silently absorbed.
