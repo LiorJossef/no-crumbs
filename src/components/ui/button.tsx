@@ -40,8 +40,25 @@ const buttonVariants = cva(
         // *is* its affordance, so warming that border is the cheapest true signal it has; the 5%
         // fill is the wash, deliberately far below `default`'s solid mint so the two never read as
         // the same button. `hover:text-foreground` stays — the label darkens with it.
+        //
+        // **`border-brand`, not `border-primary`, and that is a deviation from
+        // `ux-overnight-specs.md` §2.1 taken on evidence.** `--primary` is `--mint-400`
+        // (`#A8ECE2`); measured in a real browser at 1440x900, the hover *applied* and computed to
+        // `rgb(168, 236, 226)` — and a 1px band of it on a `#FAF9F6` surface is invisible at panel
+        // width. A hover nobody can perceive satisfies the letter of the spec and fails its
+        // purpose, which is a state the user can see. `--brand` is `--mint-700` (`#2E7A70`), the
+        // same family two steps down, and it reads. The wash stays at 5% of `--primary`, because
+        // that one is a tint rather than an edge and 5% of the deep mint would be a smudge.
+        //
+        // **A verifier cannot check this at 390x844, by construction.** Tailwind wraps every
+        // `hover:` utility in `@media (hover: hover)`, and a touch context reports `hover: none`,
+        // so the whole hover column of §3a's matrix is unreachable on the mobile gate viewport.
+        // Measured: at 390x844 this button's border stays `--border` and its background stays
+        // `--background`, which is correct behaviour and looks exactly like a missing feature.
+        // Check hover states at 1440x900 or with a real pointer; a screenshot of the phone proves
+        // nothing either way.
         outline:
-          "border-border bg-background hover:border-primary hover:bg-primary/5 hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+          "border-border bg-background hover:border-brand hover:bg-primary/5 hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary-hover aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
         ghost:

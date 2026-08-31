@@ -70,7 +70,10 @@ describe('the state matrix, row by row, on the button (W3-4)', () => {
     // §3a: "border → mint, tint wash". An outlined control's border *is* its affordance, and this
     // was the one hover in the table answered with a grey.
     const markup = renderToStaticMarkup(createElement(Button, { variant: 'outline' }, 'Clear'));
-    expect(markup).toContain('hover:border-primary');
+    // `border-brand` (`--mint-700`), not `border-primary` (`--mint-400`): the pale mint applied
+    // correctly and was invisible on a `#FAF9F6` surface. Measured, then changed — see the
+    // variant's comment.
+    expect(markup).toContain('hover:border-brand');
     expect(markup).toContain('hover:bg-primary/5');
     // Far below `default`'s solid mint, so the two never read as the same button.
     expect(markup).not.toContain('hover:bg-primary/80');
