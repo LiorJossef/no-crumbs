@@ -301,3 +301,41 @@ the tool rather than annotated.
 had twice been unable to fail, is the most useful thing produced tonight — and it is §7's rule
 arriving from the other direction: *a builder's own green result is the least reliable evidence
 available*, demonstrated on itself, three times.
+
+
+---
+
+## 8. Closed after the corrections — 2026-08-31 03:30
+
+The three gaps above were reopened and closed within the hour.
+
+| Gap | Closed by | State |
+|---|---|---|
+| **W3-1's second half** — the `＋` FAB had no press | `544f7ec` | `PRESS_BUTTON`, not `PRESS_CHIP`: a filled primary with a shadow to drop is the matrix's primary row, not the chip's |
+| **W3-1's second half** — collections had *no* press feedback at all | `1186817` | Six files. Its own new guard then caught a **bare `transition-*` surviving beside a `motion-safe:` press** — the same shape deleted from the button base earlier, found by a test written in the same commit |
+| **K8's browser half and W5-2's desktop half** — `place-desktop-panel.tsx` | `1538c71` | Two optional props and two spreads. The coupling and the sort control now reach the desktop list |
+
+**Final measurement, `npm run verify` green:**
+
+| | baseline | final |
+|---|---|---|
+| Tests | 2,017 / 114 files | **2,501 / 149 files** |
+| `@theme` keys | 36 | **89** |
+| Arbitrary values | 166 | **16** |
+| Raw `var(--mint-N)` | 75 | **0** |
+| `active:` | 3 | **18**, across 11 files |
+| `group-hover:` | 0 | **7** |
+| `motion-safe:` | 0 | **73** |
+| Hard-coded hex in `*.tsx` | 26 | **25** |
+
+**The correction that matters more than the numbers.** Two of the fourteen numeric targets did not
+measure what they name. **K8's command could not match the correct implementation** — Tailwind puts a
+named group's name before the colon, and the specification *mandates* the named form because rows nest
+inside grouped containers on `/collections`, so building to spec made the counter read zero. **K7
+counted shared class strings while its package's criterion counted coverage** — three constants
+existed and passed the grep while twelve of twelve controls on `/collections` acknowledged nothing.
+
+In both cases the grep was green and the product was wrong, and in both cases it took a person or an
+independent agent *looking at the running screen* to find it. That is the same lesson §7 of this
+report draws from six defects, arriving from the direction of the instruments rather than the code:
+**a measurement is a claim about a thing, and the two can come apart silently.**
