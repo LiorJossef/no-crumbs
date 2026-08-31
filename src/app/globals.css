@@ -558,12 +558,28 @@
     --chrome-mesh:
         radial-gradient(72% 58% at 4% -8%, rgba(91, 108, 255, 0.26) 0%, rgba(91, 108, 255, 0) 62%),
         radial-gradient(66% 56% at 104% 2%, rgba(168, 236, 226, 0.85) 0%, rgba(168, 236, 226, 0) 60%),
-        radial-gradient(84% 68% at 98% 106%, rgba(91, 108, 255, 0.28) 0%, rgba(91, 108, 255, 0) 66%),
+        radial-gradient(74% 62% at 97% 99%, rgba(33, 95, 86, 0.52) 0%, rgba(33, 95, 86, 0) 68%),
         radial-gradient(62% 52% at -10% 102%, rgba(168, 236, 226, 0.70) 0%, rgba(168, 236, 226, 0) 64%),
+        radial-gradient(92% 96% at 50% 46%, rgba(33, 95, 86, 0.30) 0%, rgba(33, 95, 86, 0) 78%),
         var(--background);
     --chrome-bloom-a: radial-gradient(closest-side, rgba(91, 108, 255, 0.30) 0%, rgba(91, 108, 255, 0) 100%);
     --chrome-bloom-b: radial-gradient(closest-side, rgba(168, 236, 226, 0.72) 0%, rgba(168, 236, 226, 0) 100%);
-    --chrome-glow: radial-gradient(closest-side, rgba(91, 108, 255, 0.26) 0%, rgba(91, 108, 255, 0) 100%);
+    /*
+     * **The pool the card sits in, and in light it darkens rather than lights.**
+     *
+     * This is the token where the two themes stop being the same idea at two alphas, and the reason
+     * is that "glow" describes what it does at night and not what it does on paper. In dark the
+     * card is a near-black panel and an indigo glow behind it *lifts* the surround, so the card
+     * reads as an object with light behind it. In light the card is near-white, and the same indigo
+     * lifted the ground toward white exactly where the card most needed something to sit against —
+     * measured, the card's top edge separated from its own surround by **ΔE 6.9** at 1440x900,
+     * against 14.8 for the same edge at night.
+     *
+     * So on paper it is the deep mint, and it works the other way round: it puts a soft shadow of
+     * colour under and around the card so a white object lifts off it. Same job — *make the card an
+     * object* — opposite mechanism, which is what a composition token with two values is for.
+     */
+    --chrome-glow: radial-gradient(closest-side, rgba(33, 95, 86, 0.34) 0%, rgba(33, 95, 86, 0) 100%);
     /*
      * **The halo behind the mark, and it is the mascot's own light rather than the brand's.**
      *
@@ -625,9 +641,17 @@
      * from taste. The light theme's `--muted-foreground` clears AA by 0.01 on bare `--background`,
      * so the card is the only thing standing between the subhead and the mesh — and a more opaque
      * card is a *better* lever than a weaker mesh, because it buys the ink its headroom without
-     * taking any colour off the ground around it. Measured over the mesh, 0.92 composites to
-     * `rgb(253,253,255)` and 20px of backdrop blur still reads as frosted rather than as paint. */
-    --panel-raised: rgba(255, 255, 255, 0.92);
+     * taking any colour off the ground around it.
+     *
+     * **0.95, raised from 0.92 when light's ground got its range.** Giving the mesh a genuinely
+     * deep end put a darker field under the card, and at 0.92 that came straight through: the
+     * worst light ink went 4.61 to 4.58 against a 4.5 bar. Three points is not a failure and it is
+     * not headroom either, and this file has now twice watched a 4.5-something value fail when
+     * something moved underneath it. Three more points of white buys it back and *also* lifts the
+     * card further off the ground, which is the thing the ground was deepened for — the only cost
+     * is frost, and frost is a night-time effect. Measured over the deepened mesh, 0.95 composites
+     * to `rgb(250,251,251)` and the worst light ink returns to 4.7. */
+    --panel-raised: rgba(255, 255, 255, 0.95);
     --panel-raised-blur: 20px;
 
     /*

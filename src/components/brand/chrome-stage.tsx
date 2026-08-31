@@ -82,11 +82,18 @@ export function ChromeStage({
      * `chrome-motion.ts` records what the branch cost, including a hydration mismatch that only
      * appeared for reduced-motion users. */
     <MotionConfig reducedMotion="user">
+      {/* `px-5` at the base breakpoint, not `px-4`. At 390 the card was 358 wide and the ground
+          survived as a 16px frame, which reads as a white card with a tinted border rather than as
+          an object on a ground. The horizontal margin is the cheap half of the fix; the expensive
+          half is that light's ground now has range at all, which is what makes 20px of it register.
+          Not taken further: every extra pixel here comes off a 390px form, and the vertical bands
+          above and below the card are 75px and 74px, which is where the ground actually reads on a
+          phone. */}
       <motion.div
         variants={STAGE_VARIANTS}
         initial="hidden"
         animate="shown"
-        className="relative z-10 flex min-h-dvh w-full items-center justify-center px-4 py-8 sm:px-6 lg:px-10 lg:py-12"
+        className="relative z-10 flex min-h-dvh w-full items-center justify-center px-5 py-8 sm:px-6 lg:px-10 lg:py-12"
       >
         {/*
          * **The entrance's resting state, for a browser that will never run it.**
