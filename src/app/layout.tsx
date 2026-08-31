@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { Fraunces, Manrope } from 'next/font/google';
 import { cn } from '@/lib/utils';
+import { THEME_INIT_SCRIPT } from '@/lib/theme';
+import { ThemeProvider } from '@/components/theme/theme-provider';
 
 // Self-hosted via next/font — no runtime request to Google Fonts. Manrope carries both headings
 // (--font-heading) and body text (--font-sans) at different weights, per the finalized L1-F1-T2
@@ -88,6 +90,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={cn(
         'font-sans',
         manropeHeading.variable,
@@ -95,7 +98,28 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         fraunces.variable,
       )}
     >
-      <body>{children}</body>
+      <head>
+        {/*
+         * The no-flash script, rendered synchronously before anything paints.
+         *
+         * The theme class is applied by JavaScript, so without this the first frame of every page
+         * load is the light theme — a white flash before a dark screen, on every navigation, for
+         * exactly the people who asked for dark. It has to run before the browser paints, which
+         * means before React hydrates and before any effect, so it cannot be an effect and cannot
+         * import `resolveTheme`. `src/lib/theme.ts` restates the precedence in hand-written JS for
+         * that reason, and `tests/unit/ui/theme.test.ts` pins the two against each other by
+         * evaluating the string — because if they drift, the page paints one theme before
+         * hydration and another after, which gets reported as "dark mode is janky" rather than as
+         * a logic bug.
+         */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
+      {/* `suppressHydrationWarning` on `<html>` above: the script mutates `class`, `data-theme`
+          and `style.colorScheme` on the root element before React sees it, so the server's markup
+          and the client's first read differ by design. */}
+      <body>
+        <ThemeProvider>{children}</ThemeProvider>
+      </body>
     </html>
   );
 }
