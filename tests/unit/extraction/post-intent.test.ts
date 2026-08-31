@@ -1,6 +1,11 @@
+import { readFileSync, readdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
 import { describe, expect, it } from 'vitest';
 
+import { parseStoredCandidates } from '@/domain/import/stored-candidates';
 import {
+  EXTRACTION_SCHEMA_VERSION,
   ExtractionResultSchema,
   POST_INTENTS,
   coercePostIntent,
@@ -238,5 +243,138 @@ describe('postIntent never changes the candidate list', () => {
       response([{ rawName: 'x' }, { rawName: 'y' }], 'place_recommendation'),
     );
     expect(parsed.ok).toBe(false);
+  });
+});
+
+/* ------------------------------------------------------------------------------------------- *
+ * Constraint 2, on the path where breaking it costs money
+ * ------------------------------------------------------------------------------------------- */
+
+/**
+ * The tests above cover the *response* parse. This one covers the **cached row** parse, which is
+ * the one a future reader is most likely to undo and the only one with a bill attached.
+ *
+ * `extractions.candidates` holds candidate objects and nothing else — `postIntent` is
+ * response-level, so it was never stored and a `p14-s4` row is byte-identical to a `p15-s5` one.
+ * The failure mode is therefore not a parse error, it is silence: if the v5 bump made a stored row
+ * stop reading back, `probe/route.ts` would answer every repeat import with a cache miss and buy a
+ * fresh paid model call for a caption we have already read. Nothing would look broken.
+ */
+const P14_STORED_ROW = {
+  rawName: 'Cafe Fiori',
+  cityHint: 'Tel Aviv',
+  countryHint: 'Israel',
+  areaHint: 'Florentin',
+  categoryHint: 'cafe',
+  addressHint: 'Yom Tov St 20',
+  evidence: 'Cafe Fiori 📍 Yom Tov St 20, Tel Aviv-Yafo',
+  modelConfidence: 0.95,
+  identifiedName: 'Cafe Fiori',
+  nameVariants: ['קפה פיורי'],
+  tags: ['Specialty Coffee'],
+  dishes: ['cortado'],
+  whyGo: { text: 'Small specialty coffee bar on Yom Tov Street.', groundedIn: 'Yom Tov St 20' },
+  coordinates: { lat: 32.0596, lng: 34.7654 },
+};
+
+describe('a cached extraction row written before postIntent existed', () => {
+  it('reads back with every candidate intact after the v4 -> v5 bump', () => {
+    // Three candidates, none of which carries a `postIntent` key, because no stored candidate ever
+    // did or ever will. All three must survive.
+    const stored = [
+      P14_STORED_ROW,
+      { ...P14_STORED_ROW, rawName: 'Kohi', identifiedName: 'Kohi Coffee Shop' },
+      { ...P14_STORED_ROW, rawName: 'Rustico', identifiedName: 'Rustico' },
+    ];
+    for (const row of stored) expect('postIntent' in row).toBe(false);
+
+    const result = parseStoredCandidates(stored);
+    expect(result.kind).toBe('ok');
+    if (result.kind !== 'ok') return;
+    expect(result.candidates.map((c) => c.candidate.rawName)).toEqual(['Cafe Fiori', 'Kohi', 'Rustico']);
+    // Not merely present — unchanged. The enrichment a user paid for is still on the row.
+    expect(result.candidates[0]?.candidate.nameVariants).toEqual(['קפה פיורי']);
+    expect(result.candidates[0]?.candidate.whyGo?.text).toBe('Small specialty coffee bar on Yom Tov Street.');
+  });
+
+  it('is reported at the current schema version, so the cache gate does not turn every hit into a miss', () => {
+    // `probe/route.ts` compares this against `EXTRACTION_SCHEMA_VERSION`. A ladder that still said
+    // 4 after the bump would fail that comparison on a perfectly good row — a paid re-call per
+    // repeat import, silently. This assertion is derived from the constant on purpose: it must
+    // keep holding at v6 without anyone remembering to edit it.
+    const result = parseStoredCandidates([P14_STORED_ROW]);
+    expect(result.kind).toBe('ok');
+    if (result.kind !== 'ok') return;
+    expect(result.candidates[0]?.schemaVersion).toBe(EXTRACTION_SCHEMA_VERSION);
+  });
+
+  it('does not fail a stored row that somehow carries a postIntent key', () => {
+    // Nothing writes one, but `z.object` strips unknown keys and a hand-edited or future row must
+    // not be a 500 on the confirm path.
+    const result = parseStoredCandidates([{ ...P14_STORED_ROW, postIntent: 'not_a_place' }]);
+    expect(result.kind).toBe('ok');
+    if (result.kind !== 'ok') return;
+    expect(result.candidates[0]?.candidate.rawName).toBe('Cafe Fiori');
+  });
+});
+
+/* ------------------------------------------------------------------------------------------- *
+ * Constraint 1, structurally
+ * ------------------------------------------------------------------------------------------- */
+
+/**
+ * The behavioural tests above show that `postIntent` does not change the candidate list *today*,
+ * for the inputs they try. This one shows something stronger and cheaper to trust: **nothing that
+ * returns candidates reads the field at all.**
+ *
+ * It is the same shape of guard as `tests/unit/shell/one-shell.test.ts`, and it strips comments
+ * first for the same reason that file does — every site involved here explains itself in prose,
+ * and a whole-file grep would match the explanation rather than the code, firing on the
+ * documentation of its own success.
+ */
+const SRC = fileURLToPath(new URL('../../../src/', import.meta.url));
+
+/** The six places `postIntent` may appear in **code**. Each is a declaration, a request, a type or
+ *  a pass-through; not one of them is a decision. */
+const ALLOWED = [
+  // Declares the field, the three values and the lenient reader.
+  'domain/extraction/schema.ts',
+  // The port's return type.
+  'domain/ports.ts',
+  // Asks the model for it: the prompt text, and the JSON Schema the reply is shaped by.
+  'integrations/llm/prompt.ts',
+  'integrations/llm/json-schema.ts',
+  // Hand it back, unread, beside the candidates.
+  'integrations/llm/anthropic.place-extractor.ts',
+  'integrations/llm/gemini.place-extractor.ts',
+];
+
+function sourceFiles(): string[] {
+  return readdirSync(SRC, { recursive: true, encoding: 'utf8' }).filter(
+    (name) => name.endsWith('.ts') || name.endsWith('.tsx'),
+  );
+}
+
+function code(relative: string): string {
+  return readFileSync(SRC + relative, 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|[^:])\/\/.*$/gm, '$1');
+}
+
+describe('no code path can withhold a place because of postIntent', () => {
+  it('is read in exactly six files, none of which decides anything', () => {
+    const readers = sourceFiles().filter((name) => code(name).includes('postIntent'));
+    expect(readers.sort()).toEqual([...ALLOWED].sort());
+  });
+
+  it('is absent from every file that filters, resolves, stores or renders a candidate', () => {
+    // The import pipeline, the confirm/probe routes, the review screen. If `postIntent` ever
+    // appears in one of these, someone is branching on an unmeasured model classification on the
+    // path that decides which places a user gets to keep — the one thing this field may not do.
+    const decidingLayers = ['domain/import/', 'domain/places/', 'app/', 'components/'];
+    for (const name of sourceFiles()) {
+      if (!decidingLayers.some((layer) => name.startsWith(layer))) continue;
+      expect(code(name), name).not.toContain('postIntent');
+    }
   });
 });
