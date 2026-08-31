@@ -106,6 +106,7 @@ import { ArrowUpRight, ChevronDown, Link2 } from 'lucide-react';
 import { CrumbMascot } from '@/components/brand/crumb-mascot';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { ENTER_REVEAL, ENTER_SCREEN, LEAVE_REVEAL, REVEAL_BEAT } from '@/lib/interaction';
 import { IMPORT_ERROR_ACTION_LABEL } from '@/ui/import/import-error-copy';
 
 import type { ProbeSuccess } from '../_lib/probe-contract';
@@ -214,7 +215,7 @@ export function NoPlacesScreen({
       : 'This TikTok';
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className={cn('flex min-h-0 flex-1 flex-col', ENTER_SCREEN)}>
       {/*
         **Two flexible joints, above and below, so the slack is distributed instead of pooling
         above the pinned recovery.**
@@ -334,11 +335,17 @@ export function NoPlacesScreen({
               {captionOpen ? 'Hide the caption' : 'Show the caption'}
               <ChevronDown
                 className={cn(
-                  // `duration-*` and `ease-*` ride the same variant: without a transition property
-                  // they are inert anyway, and prefixing them says so rather than leaving two
-                  // classes that look like they are doing something under reduced motion.
-                  'size-3.5 motion-safe:transition-transform motion-safe:duration-base motion-safe:ease-standard',
-                  captionOpen && 'rotate-180',
+                  'size-3.5',
+                  // `duration-*` and `ease-*` ride the same `motion-safe:` variant as the
+                  // transition property, which is what `REVEAL_BEAT` and `LEAVE_REVEAL` package:
+                  // without a transition property they are inert anyway, and prefixing them says
+                  // so rather than leaving two classes that look like they are doing something
+                  // under reduced motion.
+                  //
+                  // This chevron used to run at `duration-base` (220ms) and the identical chevron
+                  // on the review screen at Tailwind's unnamed 150ms default. One control, two
+                  // screens, two timings, neither chosen. Both are now the small tier.
+                  captionOpen ? `${REVEAL_BEAT} rotate-180` : LEAVE_REVEAL,
                 )}
                 aria-hidden
               />
@@ -359,7 +366,10 @@ export function NoPlacesScreen({
           role="group"
           aria-label="The TikTok’s caption"
           dir="auto"
-          className="max-h-38 min-h-0 shrink overflow-y-auto overscroll-contain rounded-lg bg-card-2 p-3 text-caption leading-relaxed font-medium text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className={cn(
+            'max-h-38 min-h-0 shrink overflow-y-auto overscroll-contain rounded-lg bg-card-2 p-3 text-caption leading-relaxed font-medium text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            ENTER_REVEAL,
+          )}
         >
           {probe.caption}
         </div>

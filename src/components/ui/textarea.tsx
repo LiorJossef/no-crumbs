@@ -1,6 +1,7 @@
 import * as React from 'react';
 
 import { cn } from '@/lib/utils';
+import { TINT_BEAT } from '@/lib/interaction';
 
 /**
  * Multi-line text, for the one thing in this product that is prose rather than a label.
@@ -18,8 +19,13 @@ import { cn } from '@/lib/utils';
  *    `Input`, and two fields in one form must not have two radii.
  *  - `hover:border-ring/60`, which `Input` carries and explains: a field is a target you aim at
  *    before you commit to it, and on a pointer device the border is the only thing that can say so.
- *  - `motion-safe:transition-colors` rather than a bare `transition-[color,box-shadow]`, which is
- *    both the repo's reduced-motion rule and one fewer arbitrary value.
+ *  - `TINT_BEAT` rather than a bare `transition-[color,box-shadow]`, which is both the repo's
+ *    reduced-motion rule and one fewer arbitrary value. It was a bare
+ *    `motion-safe:transition-colors` until the motion scale landed: correct about the preference,
+ *    and silent about the duration, so the border warmed over Tailwind's unnamed 150ms default
+ *    rather than over the 140ms the system calls `enter`. `Input` beside it now reads the same
+ *    constant, which is the point — two fields in one form must not have two timings any more than
+ *    they may have two radii.
  *  - No `shadow-xs`. Elevation in this system is three named steps and none of them is a field.
  *
  * `field-sizing-content` is kept, and it is the reason this is worth vendoring rather than styling a
@@ -31,7 +37,8 @@ function Textarea({ className, ...props }: React.ComponentProps<'textarea'>) {
     <textarea
       data-slot="textarea"
       className={cn(
-        'flex field-sizing-content min-h-16 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-base outline-none motion-safe:transition-colors hover:border-ring/60 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:aria-invalid:ring-destructive/40',
+        TINT_BEAT,
+        'flex field-sizing-content min-h-16 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-base outline-none hover:border-ring/60 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:aria-invalid:ring-destructive/40',
         className,
       )}
       {...props}

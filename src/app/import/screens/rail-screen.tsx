@@ -28,6 +28,7 @@ import { Check, Link2, Loader2 } from 'lucide-react';
 import { CrumbTrail } from '@/components/brand/crumb-trail';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { ENTER_SCREEN } from '@/lib/interaction';
 import type { PipelineStage } from '@/domain/import/events';
 import { railExtractFactParts } from '@/ui/import/rail-extract-fact';
 import { railWaitLine } from '@/ui/import/rail-wait-line';
@@ -81,7 +82,7 @@ export function RailScreen({
   }, []);
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div className={cn('flex flex-1 flex-col', ENTER_SCREEN)}>
       <div className="flex flex-col gap-1">
         {/*
           **The kicker has no spinner any more, and that is the point of this change.**

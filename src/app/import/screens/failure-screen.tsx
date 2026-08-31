@@ -23,6 +23,7 @@ import {
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { ENTER_SCREEN } from '@/lib/interaction';
 import type { DomainErrorCode } from '@/domain/errors';
 import {
   IMPORT_ERROR_ACTION_LABEL,
@@ -152,7 +153,7 @@ export function ImportFailureScreen({
   }
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div className={cn('flex flex-1 flex-col', ENTER_SCREEN)}>
       <div className="flex flex-1 flex-col items-center justify-center gap-5 text-center">
         <span className="flex size-14 items-center justify-center rounded-full bg-accent text-brand">
           <Icon className="size-6" aria-hidden />

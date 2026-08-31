@@ -156,6 +156,8 @@
     --transition-duration-tick: var(--duration-tick);
     --transition-duration-flight: var(--duration-flight);
     --transition-duration-stagger-pin: var(--duration-stagger-pin);
+    --transition-duration-surface: var(--duration-surface);
+    --transition-duration-screen: var(--duration-screen);
     --ease-standard: var(--ease-standard);
     --ease-emphasised: var(--ease-emphasised);
     --ease-exit: var(--ease-exit);
@@ -987,6 +989,32 @@
     --duration-tick: 400ms;
     --duration-flight: 900ms;
     --duration-stagger-pin: 60ms;
+
+    /*
+     * **Two more, and they are the first entries here that the closed list of nine does not
+     * contain.** Owner mandate, 2026-08-31: *"opening/closing popups, modals, moving between pages,
+     * and basically every transition should include animation. from micro to more dominant."* The
+     * nine are the **data** surface's vocabulary — `iteration-2-plan.md` §2.1 splits the system in
+     * two, and on chrome an entrance is permitted. Neither of these may ever appear on a pin, a
+     * basemap layer or a filter chip; that fence is the same one indigo and the mascot's gold carry.
+     *
+     * `--duration-surface` is a surface that **arrives on its own** — the desktop import card and
+     * its scrim, a dialog, a modal. Distinct from `--duration-base`, which is what a surface's
+     * *contents* ride when something else is already carrying them: the add sheet's pane change
+     * stays at 220ms because vaul's own spring is opening the drawer underneath it, and a pane that
+     * takes 300ms lags behind the surface it is inside. **A tier named for what it does should be
+     * timed by what it carries**, which is why these are two numbers and not one.
+     *
+     * `--duration-screen` is one screen replacing another — the import flow's paste → rail →
+     * review, which is the product's only multi-step journey and the closest thing it has to moving
+     * between pages. It is deliberately not `--duration-tick`: 400ms was close enough to borrow and
+     * `count.tick` is a counting-up animation, so a screen transition written against it would read
+     * as a count at every call site.
+     *
+     * Both are consumed only through `src/lib/interaction.ts`, never at a call site.
+     */
+    --duration-surface: 300ms;
+    --duration-screen: 440ms;
 
     /* Standard for anything that just moves; emphasised for the one thing the user is watching
      * (`pin.select`, `pins.land`), which needs to leave quickly and arrive slowly; exit for

@@ -156,7 +156,10 @@ const CHIP_ROW = 'px-2 py-0.5 text-micro leading-4';
  * wins on specificity and does not depend on which is emitted first.
  */
 export const CHIP_PRESSABLE =
-  'inline-flex min-h-8 max-w-full cursor-pointer items-center rounded-full border px-3 text-xs font-bold outline-none motion-safe:transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 ' +
+  // No `motion-safe:transition-colors`: `PRESS_CHIP` below carries `PRESS_BEAT`'s
+  // `motion-safe:transition`, whose property list already contains colour. Two declarations meant
+  // two durations for one fade — 90ms for pointer users and 150ms wherever the later rule won.
+  'inline-flex min-h-8 max-w-full cursor-pointer items-center rounded-full border px-3 text-xs font-bold outline-none focus-visible:ring-3 focus-visible:ring-ring/50 ' +
   'border-tag-foreground/15 bg-tag text-tag-foreground hover:border-tag-foreground/45 ' +
   'aria-pressed:border-transparent aria-pressed:bg-tag-selected aria-pressed:text-tag-selected-foreground ' +
   'aria-pressed:hover:border-tag-selected-foreground/45 ' +
@@ -403,7 +406,7 @@ export function ActiveTagFilter({
         onClick={onClear}
         aria-label={`Clear the ${isolate(label)} tag filter`}
         className={cn(
-          'inline-flex min-h-9 min-w-0 cursor-pointer items-center gap-1.5 rounded-full bg-tag-selected px-3 text-xs font-bold text-tag-selected-foreground outline-none motion-safe:transition-colors hover:bg-tag-selected-hover focus-visible:ring-3 focus-visible:ring-ring/50',
+          'inline-flex min-h-9 min-w-0 cursor-pointer items-center gap-1.5 rounded-full bg-tag-selected px-3 text-xs font-bold text-tag-selected-foreground outline-none hover:bg-tag-selected-hover focus-visible:ring-3 focus-visible:ring-ring/50',
           // It is chip-shaped, so it presses like one — and it is the only way out of a filter
           // that has emptied the list, which is the state where a tap that looks ignored is worst.
           PRESS_CHIP,

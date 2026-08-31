@@ -841,7 +841,7 @@ export function PlaceRow({
         <div className="flex min-w-0 items-center gap-1.5">
           {/* The muted line is the one that lifts, not the name: the name is already
               `text-foreground`, so brightening it would be a change with nowhere to go. */}
-          <p className="line-clamp-1 text-xs font-medium text-muted-foreground motion-safe:transition-colors motion-safe:duration-couple group-hover/row:text-foreground/80">
+          <p className="line-clamp-1 text-xs font-medium text-muted-foreground motion-safe:transition-colors motion-safe:duration-couple motion-safe:ease-standard group-hover/row:text-foreground/80">
             <bdi>{secondLine ?? categoryLocalityLine(place.category, locality)}</bdi>
           </p>
           {place.visited && <BeenBadge />}
@@ -882,7 +882,7 @@ export function PlaceRow({
           // the selectable row. A plain `<li>` has no label to be announced instead of, so hiding
           // the distance there would delete it rather than de-duplicate it.
           aria-hidden={onSelect !== undefined}
-          className="ms-auto shrink-0 pt-1 text-xs font-medium tabular-nums text-muted-foreground motion-safe:transition-colors motion-safe:duration-couple group-hover/row:text-foreground"
+          className="ms-auto shrink-0 pt-1 text-xs font-medium tabular-nums text-muted-foreground motion-safe:transition-colors motion-safe:duration-couple motion-safe:ease-standard group-hover/row:text-foreground"
         >
           {distanceLabel}
         </span>
@@ -949,7 +949,12 @@ export function PlaceRow({
         // the only confirmation a phone can give that the tap landed on *this* row before the
         // camera starts flying. Shallower than a button's on purpose — see its docblock.
         className={cn(
-          'relative flex min-h-16 w-full items-start gap-3 rounded-lg py-3.5 text-left motion-safe:transition-colors outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50',
+          // No `motion-safe:transition-colors` here: `PRESS_ROW` carries `PRESS_BEAT`'s
+          // `motion-safe:transition`, whose property list already contains colour, so a second
+          // declaration only meant a second duration for the same fade. Deleted rather than
+          // prefixed — the move `button.tsx`, `bottom-nav.tsx`, `share-panel.tsx` and
+          // `add-to-collection.tsx` all made, and the two places in this file that had not.
+          'relative flex min-h-16 w-full items-start gap-3 rounded-lg py-3.5 text-left outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50',
           // **A named group, never a bare `group`.** These rows nest inside other grouped
           // containers on `/collections`, and an unnamed group would let a parent's hover light up
           // every row inside it.
@@ -1824,7 +1829,7 @@ export function PlaceDetail({
                       data-vaul-no-drag
                       onClick={() => onSelectNearby(neighbour.id)}
                       className={cn(
-                        'flex min-h-11 w-full items-center justify-between gap-3 rounded-lg text-left motion-safe:transition-colors outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50',
+                        'flex min-h-11 w-full items-center justify-between gap-3 rounded-lg text-left outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50',
                         // The same row shape, so the same press. It swaps the whole detail view
                         // under the finger, which is the one place a missing acknowledgement reads
                         // as the app having lost the place you were looking at.

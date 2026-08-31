@@ -30,6 +30,7 @@ import Link from 'next/link';
 import { X } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
+import { COUPLE_TINT, ENTER_MODAL, ENTER_SCRIM } from '@/lib/interaction';
 
 export function ImportShell({
   variant,
@@ -67,6 +68,14 @@ export function ImportShell({
         // on top. `<main>` itself becomes the flex-centring context and the scrim; the inner div
         // below is the card. Mobile is untouched — these are all `lg:` additions.
         isOverlay && 'lg:flex lg:items-center lg:justify-center lg:overflow-y-auto lg:bg-foreground/35 lg:p-10 lg:backdrop-blur-[2px]',
+        // The medium tier, overlay only: this plane arrives over a live map, so it fades in rather
+        // than cutting over it. `ENTER_SCRIM` is opacity and nothing else — a 2% zoom on a
+        // viewport-sized element would show a ring of un-dimmed map down every edge — and the card
+        // below carries the same 300ms with the scale, so the two read as one event.
+        //
+        // Not on the standalone `/import` route: there this element *is* the page, it arrives by
+        // navigation, and a page that fades itself in is the entrance `globals.css` already owns.
+        isOverlay && ENTER_SCRIM,
       )}
     >
       {/* The gradient backdrop, split out from `<main>` itself: at `lg+` in overlay mode
@@ -115,6 +124,10 @@ export function ImportShell({
           // card the overlay uses, so the two ways into this flow look like one flow.
           !isOverlay &&
             'lg:relative lg:my-auto lg:w-[clamp(420px,34vw,480px)] lg:max-w-none lg:flex-none lg:max-h-[min(52rem,calc(100vh-4rem))] lg:justify-start lg:overflow-hidden lg:rounded-2xl lg:border lg:border-border/70 lg:bg-card lg:px-8 lg:py-10 lg:shadow-sheet',
+          // The card that lands on the scrim above, at the scrim's own duration. See `ENTER_MODAL`
+          // for why a modal scales rather than slides, and `ENTER_SCRIM` for why only this half of
+          // the pair does.
+          isOverlay && ENTER_MODAL,
         )}
       >
         {/*
@@ -142,7 +155,7 @@ export function ImportShell({
             aria-label="Close and return to map"
             className="group absolute -m-1 left-5 top-[calc(env(safe-area-inset-top)+2rem)] z-20 flex size-11 items-center justify-center lg:left-6 lg:top-6"
           >
-            <span className="flex size-9 items-center justify-center rounded-full bg-accent text-brand group-hover:bg-accent/80 motion-safe:transition-colors">
+            <span className={cn('flex size-9 items-center justify-center rounded-full bg-accent text-brand group-hover:bg-accent/80', COUPLE_TINT)}>
               <X className="size-4" aria-hidden />
             </span>
           </button>
@@ -152,7 +165,7 @@ export function ImportShell({
             aria-label="Close and return to map"
             className="group absolute -m-1 left-5 top-[calc(env(safe-area-inset-top)+2rem)] z-20 flex size-11 items-center justify-center lg:left-6 lg:top-6"
           >
-            <span className="flex size-9 items-center justify-center rounded-full bg-accent text-brand group-hover:bg-accent/80 motion-safe:transition-colors">
+            <span className={cn('flex size-9 items-center justify-center rounded-full bg-accent text-brand group-hover:bg-accent/80', COUPLE_TINT)}>
               <X className="size-4" aria-hidden />
             </span>
           </Link>

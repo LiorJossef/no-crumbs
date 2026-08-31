@@ -64,6 +64,7 @@ import {
 } from '@/domain/places/product-category';
 import { SECTION_LABEL } from '@/ui/place/section-label';
 import { cn } from '@/lib/utils';
+import { PRESS_BUTTON, PRESS_CHIP, TINT_BEAT } from '@/lib/interaction';
 
 /** Shown once the note gets close enough to the limit that the number is useful rather than noise. */
 const COUNTER_VISIBLE_FROM = NOTE_MAX_LENGTH - 200;
@@ -151,7 +152,14 @@ export function BeenToggle({
         // read as the start of a sheet drag and the tap would be swallowed.
         data-vaul-no-drag
         className={cn(
-          'flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border text-sm font-bold outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
+          // The matrix's press column, which this control did not have. It is the one action in
+          // the detail view whose result is a colour change *on itself*, so without a press the
+          // only confirmation a tap landed was the same thing that confirms the write succeeded —
+          // and the two are ~200ms apart. `PRESS_BUTTON` rather than `PRESS_ROW`: it is a button,
+          // full width or not. The bare `transition-colors` goes rather than gaining a prefix,
+          // because `PRESS_BEAT`'s `motion-safe:transition` already carries colour.
+          'flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border text-sm font-bold outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+          PRESS_BUTTON,
           pending && 'opacity-50',
           visited
             ? 'border-transparent bg-accent text-brand'
@@ -292,7 +300,8 @@ export function CategoryEditor({
                   choose(value);
                 }}
                 className={cn(
-                  'rounded-full px-2.5 py-1 text-xs font-bold transition-colors disabled:opacity-50',
+                  'rounded-full px-2.5 py-1 text-xs font-bold disabled:opacity-50',
+                  PRESS_CHIP,
                   active
                     ? 'bg-accent text-brand'
                     : 'bg-muted text-foreground hover:bg-accent',
@@ -581,7 +590,11 @@ export function NoteEditor({
           // A `<textarea>` cannot be an `<Input>`, so row 9's hover is restated here rather than
           // inherited. It is the one duplicate of that chrome left in this file, and it is
           // structural rather than an oversight.
-          'w-full resize-y rounded-lg border border-input bg-transparent px-2.5 py-2 text-base leading-relaxed motion-safe:transition-colors outline-none hover:border-ring/60 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 md:text-sm',
+          // `TINT_BEAT` rather than a bare `motion-safe:transition-colors`: the border warming
+          // under a pointer is the micro tier, and it ran at Tailwind's unnamed 150ms default
+          // until the scale gave it a name.
+          TINT_BEAT,
+          'w-full resize-y rounded-lg border border-input bg-transparent px-2.5 py-2 text-base leading-relaxed outline-none hover:border-ring/60 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 md:text-sm',
           tooLong && 'border-destructive ring-3 ring-destructive/20',
         )}
       />

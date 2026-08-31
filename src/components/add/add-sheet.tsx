@@ -44,7 +44,6 @@
  */
 
 import { Drawer } from 'vaul';
-import { motion, useReducedMotion } from 'motion/react';
 import {
   useEffect,
   useId,
@@ -67,6 +66,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { ENTER_NEWS, ENTER_SURFACE, PRESS_ROW } from '@/lib/interaction';
 import { COLLECTION_NAME_MAX_LENGTH } from '@/domain/collections/collection';
 import { IMPORT_ERROR_COPY } from '@/ui/import/import-error-copy';
 import {
@@ -84,8 +84,13 @@ import {
  * asking for it rather than a third row style pretending to be a new idea.
  */
 const LEADING_SLOT = 'flex size-8 shrink-0 items-center justify-center';
-const ROW_BASE =
-  'flex w-full items-center gap-3 rounded-lg py-2.5 text-left transition-colors outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50';
+// The bare `transition-colors` this used to carry is gone, replaced by `PRESS_ROW` — which is
+// `button.tsx`'s own move. `PRESS_BEAT`'s `motion-safe:transition` carries colour *and* transform
+// on one declaration with one duration, so an un-prefixed `transition-colors` beside it did
+// nothing but run the hover fade for users who had asked for reduced motion. The press itself is
+// the matrix's missing column: every row in this sheet is a target a thumb lands on, and none of
+// them acknowledged the landing.
+const ROW_BASE = `flex w-full items-center gap-3 rounded-lg py-2.5 text-left outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50 ${PRESS_ROW}`;
 
 export type AddPane = 'menu' | 'place' | 'collection';
 
@@ -242,41 +247,51 @@ export function AddSheet(props: AddSheetProps) {
 }
 
 /**
- * The pane crossfade. `opacity` and `transform` only — nothing here triggers layout, and nothing
- * here animates the drawer's own height, because vaul measures the content to compute its drag
- * geometry and an animating height would move the target under the user's thumb.
+ * The pane change, which is the medium tier of the motion scale (`lib/interaction.ts`).
  *
- * 140 ms and `mode="wait"`, so the two panes are never on screen at once saying two different
- * things. With reduced motion it is a straight swap in one frame: this fires alongside a focus
- * move, and two simultaneous changes with reduced motion on should be zero animation, not a
- * shorter one.
+ * `opacity` and `transform` only — nothing here triggers layout, and nothing here animates the
+ * drawer's own height, because vaul measures the content to compute its drag geometry and an
+ * animating height would move the target under the user's thumb.
+ *
+ * `ENTER_SURFACE`: 220 ms on the emphasised curve, fading and shifting 8px in from the trailing
+ * edge. Sideways rather than upward because inside a drawer the vertical axis belongs to the
+ * drawer, and a pane that also rises fights the surface carrying it. Under
+ * `prefers-reduced-motion` the shift drops and the fade stays, which is §3a's *"collapse to the
+ * opacity change, not to nothing"* — this fires alongside a focus move, and a 220 ms cross-fade
+ * carries none of the vestibular risk a translate does.
+ *
+ * ## This was two Motion components and a hook, and dropping them is the point
+ *
+ * It rendered a `<motion.div>` whose `initial`/`animate` came from `useReducedMotion()`. Three
+ * things go away with it:
+ *
+ *  1. **`motion/react` leaves `/map`'s bundle.** This file was its only importer on that route —
+ *     `chrome-motion.ts` is imported by nothing in `src/` any more and `sign-in/page.tsx` is a
+ *     different entry. Measured below in the task's report, not asserted here.
+ *  2. **A render-time branch on a device preference.** `useReducedMotion()` reads `matchMedia`
+ *     synchronously on the client and returns `false` on the server; `chrome-motion.ts`'s header
+ *     records what that cost on `/sign-in` — two renders emitting different `style` attributes and
+ *     React logging a hydration mismatch on the product's front door, for reduced-motion users
+ *     only. This tree is portalled and never server-rendered, so it did not have that bug; it had
+ *     the shape of it, which is the thing worth removing.
+ *  3. **A fourteenth duration.** `0.14` written as a JavaScript number is not on the closed list
+ *     and no guard could see it. It is now `--duration-base` by name.
+ *
+ * The exit is still a straight replacement rather than an animation, and that has not changed:
+ * `key` alone gives the remount and the enter, which is the half a user perceives. It used to be
+ * an `<AnimatePresence mode="wait">` and it did not work — measured in a browser, not reasoned.
+ * Choosing `Add a place` set `state.pane` correctly (`data-pane="place"`) while the rendered child
+ * stayed the menu, settled at `opacity: 1; transform: none`, indefinitely: the old pane never
+ * exited, so under `mode="wait"` the new one never mounted. The create menu's only two actions
+ * were both dead. `LEAVE_SURFACE` exists in the vocabulary for surfaces that can hold a leaving
+ * element mounted; this one cannot, and an exit animation on a pane change is not worth a state
+ * machine that can strand the whole feature.
  */
 function PaneSwitch({ pane, children }: { pane: AddPane; children: ReactNode }) {
-  const reduced = useReducedMotion();
-  const shift = reduced ? 0 : 12;
-
-  // The incoming pane animates; the outgoing one is simply replaced.
-  //
-  // This was an `<AnimatePresence mode="wait">` and it did not work — measured in a browser, not
-  // reasoned. Choosing `Add a place` set `state.pane` correctly (`data-pane="place"`) while the
-  // rendered child stayed the menu, settled at `opacity: 1; transform: none`, indefinitely: the
-  // old pane never exited, so under `mode="wait"` the new one never mounted. The create menu's
-  // only two actions were both dead, which is the sort of thing that only shows up when a
-  // committed-but-unwired component is finally rendered.
-  //
-  // `key` alone gives the remount and the enter animation, which is the half a user perceives. An
-  // exit animation on a 140 ms pane change inside a sheet is not worth a state machine that can
-  // strand the whole feature.
   return (
-    <motion.div
-      key={pane}
-      initial={{ opacity: 0, x: shift }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: reduced ? 0 : 0.14, ease: 'easeOut' }}
-      className="flex min-h-0 flex-col"
-    >
+    <div key={pane} className={cn('flex min-h-0 flex-col', ENTER_SURFACE)}>
       {children}
-    </motion.div>
+    </div>
   );
 }
 
@@ -735,7 +750,10 @@ export function AddPlacePane({
           disabled={busy}
           onClick={() => onAddManually(manualAddSeed(input))}
           data-vaul-no-drag
-          className="mt-1 flex min-h-12 w-full items-center gap-2 rounded-lg px-1 text-left text-sm font-bold text-brand transition-colors outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50"
+          className={cn(
+            'mt-1 flex min-h-12 w-full items-center gap-2 rounded-lg px-1 text-left text-sm font-bold text-brand outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50',
+            PRESS_ROW,
+          )}
         >
           <Plus className="size-4 shrink-0" aria-hidden />
           <span className="line-clamp-1">{manualAddLabel(input)}</span>
@@ -813,7 +831,7 @@ export function NewCollectionPane({
           className="h-12 rounded-lg border-2 border-input px-4 text-base font-medium"
         />
         {error !== null && (
-          <p id={errorId} role="alert" className="text-sm font-medium text-destructive">
+          <p id={errorId} role="alert" className={cn('text-sm font-medium text-destructive', ENTER_NEWS)}>
             {error}
           </p>
         )}

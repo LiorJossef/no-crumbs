@@ -18,6 +18,7 @@ import { Link2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { ENTER_NEWS, ENTER_SCREEN } from '@/lib/interaction';
 import { extractPastedUrl, pasteWasNarrowed } from '@/domain/source/extract-pasted-url';
 import { COPY_LINK_INSTRUCTION } from '@/ui/import/import-error-copy';
 import { IMPORT_SEED_LINKS } from '@/ui/import/seed-links';
@@ -57,7 +58,7 @@ export function PasteScreen({
     // phone keyboard both did nothing at all. Every seed button below is `type="button"`, so none
     // of them submits it.
     <form
-      className="flex flex-1 flex-col"
+      className={cn('flex flex-1 flex-col', ENTER_SCREEN)}
       onSubmit={(event) => {
         event.preventDefault();
         if (canSubmit) onSubmit();
@@ -107,7 +108,7 @@ export function PasteScreen({
           )}
         />
         {showInvalid && (
-          <p className="text-sm font-semibold text-destructive">
+          <p className={cn('text-sm font-semibold text-destructive', ENTER_NEWS)}>
             That doesn&rsquo;t look like a TikTok link.
           </p>
         )}
@@ -115,7 +116,7 @@ export function PasteScreen({
             this appears after an action rather than describing what is typed. The sentence is the
             one `/collections/join` already uses for the same stop. */}
         {showOffline && !showInvalid && (
-          <p role="status" className="text-sm font-semibold text-destructive">
+          <p role="status" className={cn('text-sm font-semibold text-destructive', ENTER_NEWS)}>
             You&rsquo;re offline. Check your connection and try again.
           </p>
         )}

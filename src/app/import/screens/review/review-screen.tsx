@@ -29,6 +29,7 @@ import { ArrowUpRight, ChevronDown, Link2, Loader2, SearchCheck } from 'lucide-r
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { ENTER_NEWS, ENTER_REVEAL, ENTER_SCREEN, LEAVE_REVEAL, REVEAL_BEAT } from '@/lib/interaction';
 import {
   candidateMeta,
   candidateTitle,
@@ -209,7 +210,7 @@ export function CaptionPreviewScreen({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className={cn('flex min-h-0 flex-1 flex-col', ENTER_SCREEN)}>
       <div className="flex shrink-0 flex-col gap-1 pb-4">
         <ScreenKicker
           icon={<SearchCheck className="size-3.5" aria-hidden />}
@@ -296,8 +297,14 @@ export function CaptionPreviewScreen({
               {captionOpen ? 'Hide the caption' : 'Show the caption'}
               <ChevronDown
                 className={cn(
-                  'size-3.5 motion-safe:transition-transform',
-                  captionOpen && 'rotate-180',
+                  'size-3.5',
+                  // The scale's small tier, and its one asymmetry: 200ms on the standard curve
+                  // turning down, 140ms on the accelerating one turning back. A panel opening is
+                  // the user asking to see something; a panel closing is the user asking for the
+                  // space back, and should not be made to wait for it. The timing comes from the
+                  // *arriving* class, which is why the two branches carry different beats rather
+                  // than one beat and a conditional rotate.
+                  captionOpen ? `${REVEAL_BEAT} rotate-180` : LEAVE_REVEAL,
                 )}
                 aria-hidden
               />
@@ -314,7 +321,13 @@ export function CaptionPreviewScreen({
       {probe.caption !== null && captionOpen && (
         <div
           id={captionId}
-          className="mb-3 max-h-38 shrink-0 overflow-y-auto overscroll-contain rounded-lg bg-card-2 p-3 text-caption leading-relaxed font-medium text-muted-foreground"
+          className={cn(
+            'mb-3 max-h-38 shrink-0 overflow-y-auto overscroll-contain rounded-lg bg-card-2 p-3 text-caption leading-relaxed font-medium text-muted-foreground',
+            // It arrives rather than appears. There is no matching exit: the panel unmounts, and
+            // holding it mounted to animate it out would put a `display:none` scroll region with a
+            // tab stop in the tree for the 99% of the time it is closed.
+            ENTER_REVEAL,
+          )}
         >
           {probe.caption}
         </div>
@@ -400,12 +413,12 @@ export function CaptionPreviewScreen({
 
       <div className="mt-auto flex shrink-0 flex-col gap-2 border-t border-border/70 pt-4">
         {error && (
-          <p role="alert" className="text-center text-sm font-semibold text-destructive">
+          <p role="alert" className={cn('text-center text-sm font-semibold text-destructive', ENTER_NEWS)}>
             {error}
           </p>
         )}
         {partialNotice && (
-          <p role="status" className="text-center text-sm font-semibold text-foreground">
+          <p role="status" className={cn('text-center text-sm font-semibold text-foreground', ENTER_NEWS)}>
             {partialNotice}
           </p>
         )}

@@ -30,7 +30,8 @@ import {
 import { createPortal } from "react-dom";
 import { X, Minus, Plus, Locate, Maximize, Loader2 } from "lucide-react";
 
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils"
+import { ENTER_POPOVER, TINT_BEAT } from "@/lib/interaction";
 import { systemTheme, themeFromDocument } from "@/lib/theme";
 
 if (typeof window !== "undefined" && !MapLibreGL.getWorkerUrl()) {
@@ -222,10 +223,26 @@ type MapProps = {
 function DefaultLoader() {
   return (
     <div className="bg-background/50 absolute inset-0 z-10 flex items-center justify-center backdrop-blur-xs">
+      {/*
+        `motion-safe:animate-pulse`, not a bare `animate-pulse`, and this is the same fix
+        `skeleton.tsx` documents for the same reason: a continuous loop that ignores
+        `prefers-reduced-motion` is the one shape §3a bans outright. These three ran un-prefixed,
+        so a reduced-motion user got a two-second pulse loop on every map mount — the map is
+        `!isLoaded` until its style resolves, so this is not a rare path.
+
+        Under the preference they settle into three static dots, which still say *"something is
+        coming"* without the loop. Collapsing a loop to a *slower* loop is what the rule forbids
+        while appearing to obey it.
+
+        The two `[animation-delay:…]` values are left as they are. They are the stagger, they are
+        inert once the animation is gone, and replacing them would need a token the scale does not
+        have — worth noting that they are arbitrary values `K5` cannot see, because a bare
+        `[property:value]` does not match its `word-[` pattern.
+      */}
       <div className="flex gap-1">
-        <span className="bg-muted-foreground/60 size-1.5 animate-pulse rounded-full" />
-        <span className="bg-muted-foreground/60 size-1.5 animate-pulse rounded-full [animation-delay:150ms]" />
-        <span className="bg-muted-foreground/60 size-1.5 animate-pulse rounded-full [animation-delay:300ms]" />
+        <span className="bg-muted-foreground/60 size-1.5 rounded-full motion-safe:animate-pulse" />
+        <span className="bg-muted-foreground/60 size-1.5 rounded-full motion-safe:animate-pulse [animation-delay:150ms]" />
+        <span className="bg-muted-foreground/60 size-1.5 rounded-full motion-safe:animate-pulse [animation-delay:300ms]" />
       </div>
     </div>
   );
@@ -688,7 +705,7 @@ function MarkerPopup({
     <div
       className={cn(
         "bg-popover text-popover-foreground relative max-w-62 rounded-md border p-3 shadow-md",
-        "animate-in fade-in-0 zoom-in-95 duration-200 ease-out",
+        ENTER_POPOVER,
         className,
       )}
     >
@@ -760,7 +777,7 @@ function MarkerTooltip({
     <div
       className={cn(
         "bg-foreground text-background pointer-events-none rounded-md px-2 py-1 text-xs text-balance shadow-md",
-        "animate-in fade-in-0 zoom-in-95 duration-200 ease-out",
+        ENTER_POPOVER,
         className,
       )}
     >
@@ -865,7 +882,11 @@ function ControlButton({
         // 40px, not the registry's 32: these are the map's primary affordances on a phone and
         // 32 is under every touch-target floor. Still under 44 — the group would otherwise be
         // 132px of an 812px viewport — matching the 36-40px compromise the sheet chips took.
-        "flex size-10 items-center justify-center transition-colors",
+        // `TINT_BEAT` rather than a bare `transition-colors`: these are live controls — zoom and
+        // compass render on every map — and their hover fade ran at Tailwind's unnamed 150ms
+        // default rather than at the 140ms the scale calls `enter`.
+        TINT_BEAT,
+        "flex size-10 items-center justify-center",
         "first:rounded-t-md last:rounded-b-md",
         "hover:bg-accent dark:hover:bg-accent/40",
         "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset",
@@ -972,8 +993,33 @@ function MapControls({
             label="Find my location"
             disabled={waitingForLocation}
           >
+            {/*
+              The second un-prefixed loop in this file, found by the same guard as the loader dots
+              and answered the way the import rail already answers it: `hidden motion-safe:block`
+              on the arc, plus a **static fallback that keeps the button from going empty**.
+              `globals.css`'s own note records what happens without the second half — a
+              reduced-motion user got a 28px empty circle on the longest wait in the product.
+
+              The fallback is the `Locate` glyph the button wears at rest, not a frozen arc: a
+              three-quarter arc that never turns reads as a rendering artefact rather than as a
+              wait. `ControlButton`'s `disabled:opacity-50` carries the state alongside it.
+
+              **This is the one change in this lane that was not verified in a browser, and the
+              reason is worth writing down: `showLocate` is off in this product**, so
+              `map-surface.mapcn.tsx` renders `MapControls` with zoom and compass and no locate
+              button at all. The only "Find my location" control on `/map` is
+              `components/map/near-me-control.tsx`'s 44px one — measured, one button in the DOM,
+              not this 40px one. So this is correct-by-construction on a path nothing currently
+              renders, which is a weaker claim than the loader dots above and is stated as one.
+            */}
             {waitingForLocation ? (
-              <Loader2 className="size-4 animate-spin" />
+              <>
+                <Loader2
+                  className="hidden size-4 motion-safe:block motion-safe:animate-spin"
+                  aria-hidden
+                />
+                <Locate className="size-4 motion-safe:hidden" aria-hidden />
+              </>
             ) : (
               <Locate className="size-4" />
             )}
@@ -1115,7 +1161,7 @@ function MapPopup({
     <div
       className={cn(
         "bg-popover text-popover-foreground relative max-w-62 rounded-md border p-3 shadow-md",
-        "animate-in fade-in-0 zoom-in-95 duration-200 ease-out",
+        ENTER_POPOVER,
         className,
       )}
     >
