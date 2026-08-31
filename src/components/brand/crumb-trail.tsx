@@ -43,18 +43,25 @@ import { MASCOT_TRAIL } from './mascot-colors';
  * That is also why this carries no label and no live region. The sentence beside it says what is
  * happening; a decorative loop that announced itself would be announcing a thing it does not know.
  *
- * ## The drawn opacities are a light-ground assumption, and the night fix is in the stylesheet
+ * ## The drawn opacities hold in both themes, and the first answer here was wrong
  *
- * `#crumbTrail` fades the dots to 38%, 55% and 75%, which on paper reads as three crumbs receding.
- * **Rendered on the night ground it does the opposite**: opacity fades toward whatever is behind,
- * so on a near-black card the furthest dot goes nearly black and the trail loses its tail — looked
- * at, at 180px on `#131312`, not inferred. The drawing was made on one ground and the value is a
- * property of two.
+ * `#crumbTrail` fades the dots to 38%, 55% and 75%. This comment previously claimed that on the
+ * night ground *"the furthest dot goes nearly black and the trail loses its tail"*, and asked for a
+ * `.dark` rule to lift them. **That was an impression, not a measurement, and it was backwards.**
  *
- * The geometry stays the drawing's, and the theme answer is where this repo already puts theme
- * answers: `.dark .crumb-trail-dot` lifts the floor in `globals.css`, so the trail follows the
- * theme with no prop, no hook and no hydration hazard — the same reasoning as `categoryColorVar()`
- * over a theme-aware literal. **If that rule is ever removed, the tail goes with it.**
+ * Measured against the ground each dot actually sits on — cropped out of the running product at
+ * 390x844 in both themes, at the same scale — the dots come out at **2.26 / 2.42 / 2.53 : 1** on
+ * the night card and **1.30 / 1.37 / 1.44 : 1** on paper. Opacity fades toward what is behind, and
+ * what is behind at night is near-black, so 38% of gold is *lighter* than its ground by more than
+ * 38% of gold is darker than warm near-white. **The weaker theme is light, not dark**, and both
+ * read: the tail is legible in both crops.
+ *
+ * What produced the wrong call is worth keeping, because it is repeatable: the specimen put the
+ * dots beside a full-strength character, so the eye judged them *relative to the mascot* rather
+ * than against their own ground, and "dim next to the bright thing" was recorded as "invisible".
+ * The number that answers "can this be seen" is contrast against what is immediately behind it.
+ *
+ * So there is no theme rule, and the absence is deliberate rather than pending.
  */
 export function CrumbTrail({
   className,
