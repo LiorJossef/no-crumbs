@@ -70,11 +70,18 @@ export const ENTRANCE_DESCENT_MS = ENTRANCE_BEATS.ground - ENTRANCE_BEATS.camera
  * resolved is where this stops, and the constraint that the entrance may not land somewhere
  * prettier than the library deserves is structural rather than a promise.
  *
- * 2.6 is a little over one zoom band (`zoom-bands.ts`: 4.0 wide for `area`, and the descent has to
- * read as travel rather than as a nudge) and short of the two that would put a one-city library out
- * over open sea on the way in. A library resting in the pin band therefore starts in the area band
- * and crosses one boundary on the way down, which is `band.cross` — an existing, closed-list
- * animation — rather than a new one.
+ * 2.6 is enough to read as travel rather than as a nudge, and short of the two zoom bands
+ * (`zoom-bands.ts`: `area` is 4.0 wide) that would put a one-city library out over open sea on the
+ * way in.
+ *
+ * **Whether it crosses a band boundary is a property of the library, not of this number**, and the
+ * distinction is worth writing down because an earlier version of this comment got it wrong. It
+ * claimed a pin-band library "starts in the area band and crosses one boundary on the way down".
+ * Measured on the 30-place fixture at 390×844, which rests at z11.605: the altitude is z9.005,
+ * still inside the pin band, and no boundary is crossed at all. A library resting nearer the floor
+ * — anywhere under `PIN_BAND_MIN + ENTRANCE_ZOOM_LIFT` — does cross one, and what it sees there is
+ * `band.cross`, an existing entry on §3a's closed list rather than a new animation. Both are fine;
+ * neither was designed for, and the honest statement is that this constant does not decide it.
  */
 export const ENTRANCE_ZOOM_LIFT = 2.6;
 

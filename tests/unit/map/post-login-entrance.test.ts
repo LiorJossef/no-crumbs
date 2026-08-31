@@ -101,13 +101,16 @@ describe('the beats are the owner ruling, and derived from one table', () => {
   });
 
   /**
-   * **One zoom band of lift, and not two.** The descent has to read as travel rather than as a
-   * nudge, so it is wider than nothing; a library resting in the pin band starts one band up and
-   * crosses one boundary on the way down, which is `band.cross` — already on §3a's closed list —
-   * rather than a new animation. Two bands would put a one-city library out over open sea on the
-   * way in, which is the map claiming a geography it does not have.
+   * **Under two zoom bands of lift, and enough to read as travel.** Two bands would put a one-city
+   * library out over open sea on the way in, which is the map claiming a geography it does not
+   * have.
+   *
+   * It deliberately does **not** assert that a boundary is crossed. Whether one is is a property of
+   * where the library rests, not of this constant: the 30-place fixture rests at z11.605 and lifts
+   * to z9.005, both in the pin band, so nothing is crossed — an earlier version of the constant's
+   * own docblock claimed otherwise and the filmstrip disproved it.
    */
-  it('lifts about one band, never two', () => {
+  it('lifts under two bands, and enough to read as travel', () => {
     const band = AREA_BAND_MAX - AREA_BAND_MIN;
     expect(ENTRANCE_ZOOM_LIFT).toBeGreaterThan(1);
     expect(ENTRANCE_ZOOM_LIFT).toBeLessThan(2 * band);
