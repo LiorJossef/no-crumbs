@@ -14,6 +14,8 @@ import { flagEmoji, normaliseCountryCode } from '@/components/map/country-flag-i
 import { categoryDisplay } from '@/ui/place/category-display';
 import { getSpots } from '@/app/map/_lib/get-spots';
 import { toMapPlace } from '@/app/map/_lib/to-map-place';
+import { AccountActions } from './account-actions';
+import { checkDeletionBlocked } from './_lib/deletion-block';
 import { getProfilePlaces } from './_lib/get-profile-places';
 import { accountIdentity, deriveProfileBreakdown, joinedLabel } from './_lib/profile-stats';
 
@@ -60,11 +62,21 @@ export default async function ProfilePage() {
   // same library array `/map` draws, so a match in that menu is a pin on the map. Without it the
   // menu answers "nothing you've saved matches that" for places the user has, and offers to write
   // a duplicate.
-  const [{ data: profile }, places, library] = await Promise.all([
+  // `checkDeletionBlocked` rides along with the other three rather than running when the control is
+  // tapped, so the delete flow opens the correct branch with no round trip. It is a courtesy, not
+  // the authority: `deleteAccount` re-runs the same check twice regardless
+  // (`overnight-deletion-review.md` §3.3), because between this render and that action a stranger
+  // holding an invite token can join a collection this answer just cleared.
+  const [{ data: profile }, places, library, deletionBlock] = await Promise.all([
     supabase.from('profiles').select('display_name, created_at').eq('id', user.id).maybeSingle(),
     getProfilePlaces(),
     getSpots().then((spots) => spots.map(toMapPlace)),
+    checkDeletionBlocked(),
   ]);
+  // A check that could not run yields no blocking collections *here* and a refusal *there*: the
+  // action fails closed and says so. Offering the control and failing honestly beats hiding the
+  // one control on this page a user has a right to.
+  const blocking = deletionBlock.ok ? deletionBlock.blocking : [];
 
   const identity = accountIdentity({
     displayName: profile?.display_name ?? null,
@@ -207,14 +219,22 @@ export default async function ProfilePage() {
           </section>
         ) : null}
 
-        {/* The only account action there is. Not `destructive` — signing out destroys nothing, and
-            the palette's destructive role is reserved for the things that do. */}
-        <form action={signOut} className="mt-8">
-          <Button type="submit" variant="outline" size="lg" className="h-12 w-full text-base">
-            <LogOut className="size-4" aria-hidden />
-            Sign out
-          </Button>
-        </form>
+        {/* The account block. Sign out is not `destructive` — it destroys nothing, and the
+            palette's destructive role is reserved for the things that do. Neither is the delete
+            *entry point*, which opens a confirmation; the confirm button inside it gets the
+            destructive variant, and it is the only thing on this page that does. */}
+        <section aria-labelledby="your-account" className="mt-8">
+          <SectionHeading id="your-account">Your account</SectionHeading>
+          <form action={signOut} className="mt-2">
+            <Button type="submit" variant="outline" size="lg" className="h-12 w-full text-base">
+              <LogOut className="size-4" aria-hidden />
+              Sign out
+            </Button>
+          </form>
+          <div className="mt-2">
+            <AccountActions blocking={blocking} />
+          </div>
+        </section>
       </div>
     </main>
   );

@@ -677,6 +677,7 @@ function MenuRow({
 
 export function InlineConfirm({
   prompt,
+  body,
   confirmLabel,
   pending,
   error,
@@ -684,6 +685,13 @@ export function InlineConfirm({
   onCancel,
 }: {
   prompt: string;
+  /** A second line under the prompt, for a consequence the prompt has no room to state.
+   *
+   *  Optional because the three collection call sites do not need one: `Delete "X"? Everyone loses
+   *  it.` says the consequence in the prompt. Account deletion cannot — its prompt is a question
+   *  and its consequence is two clauses — so rather than a fourth confirm component, this is one
+   *  optional line. */
+  body?: string;
   confirmLabel: string;
   pending: boolean;
   error: string | null;
@@ -695,6 +703,7 @@ export function InlineConfirm({
       <p dir="auto" className="text-sm font-medium">
         {prompt}
       </p>
+      {body ? <p className="mt-1 text-sm text-muted-foreground">{body}</p> : null}
       {error ? (
         <p role="alert" className="mt-1 text-sm text-destructive">
           {error}
