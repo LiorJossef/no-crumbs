@@ -4,14 +4,19 @@
 > **Base commit `2cf6b83`** on `no-crumbs-implementation`.
 > **Artefacts:** [`supabase/migrations/0032_repoint_saved_place.sql`](../supabase/migrations/0032_repoint_saved_place.sql),
 > [`supabase/tests/0032_repoint_saved_place_policy_tests.sql`](../supabase/tests/0032_repoint_saved_place_policy_tests.sql).
-> **Status: written and proven locally, NOT APPLIED anywhere.** `repoint_saved_place` does not exist
-> in the local container — every proof below ran inside a transaction that was rolled back, and the
-> database is byte-for-byte the state this lane found it in. Applying it, and pushing it, are the
-> orchestrator's.
+> **Reviewed and committed.** `security-privacy` returned **permit under conditions, no veto**
+> (`security-ruling-repoint-place-2026-08-31.md`); `0032` was committed at `de7e4b9` with the
+> reviewed sha256 `293e8b98…` re-checked before staging.
 >
-> **This ruling has not been reviewed.** `agent-guardrails.md` §5 rule 20 puts the review with
-> `security-privacy`, and §9 V1 says the migration is frozen while that happens. This lane has
-> stopped.
+> **Second pass, same day — `0033` discharges conditions C3 and C4**, and §7 below records C7.
+> `supabase/migrations/0033_repoint_does_not_falsify_attribution.sql`. `0032` is **not edited**
+> (rule 17, forward-fix only); `0033` replaces the function body under the identical signature.
+>
+> **Status: `0032` and `0033` are NOT APPLIED to the local database.** Verified rather than assumed:
+> `supabase_migrations.schema_migrations` tops out at **`0031`** and `repoint_saved_place` does not
+> exist in `supabase_db_P-002`. Every proof in this document ran inside a transaction that applied
+> the migrations and rolled back, and the database is byte-for-byte the state this lane found it in.
+> Applying, and pushing, are the orchestrator's.
 
 ---
 
@@ -101,8 +106,8 @@ false of INSERT. Worth a look on its own terms; nothing here depends on the outc
 | `source_url` / `source_thumbnail_url` (`0016`) | Facts about the SOURCE, on the save. Untouched. (R2c) |
 | The source row itself | Still readable through `sources_select_via_membership`, executed as the user. (R2c2) |
 | `note`, `display_name`, `category_override`, `visit_state`, `visited_at` | The user's overlay. The entire point. (R2b) |
-| `tags`, `dishes`, `why_go` (`0019`) | The caption's claims about the venue the caption named. A re-point corrects which row that NAME resolved to; it does not make the caption say something else. (R2b) |
-| `extracted_reason` (`0015`/`0017`) | Same reasoning, and `0017`'s insert-only posture means it could not be rewritten here even if that were wanted. (R2b) |
+| ~~`tags`, `dishes`, `why_go`~~ | **Overturned by `0033`. These are now CLEARED.** See §7.1 — the reasoning below was wrong about which claim they make. |
+| ~~`extracted_reason`~~ | **Overturned by `0033`. Now CLEARED.** The insert-only posture was the accurate part; the conclusion drawn from it was not. |
 | `origin`, and the provenance invariant | `saved_places_provenance_required` fires `after insert or update OF origin`; a re-point touches neither. Executed with `SET CONSTRAINTS ALL IMMEDIATE` rather than reasoned about, because the failure mode is a COMMIT-time abort on the real path. (R2d) |
 | `place_provider_refs` | Belongs to the `places` rows on both sides; a save does not address it. |
 
@@ -149,8 +154,9 @@ projects. Assertion **R0c** names that dependency so the break is a red CI job i
 **Can:**
 
 - Move **their own** save onto a different `places` row, by name, through a server action that
-  resolves the name itself. The note, name override, category override, been-mark, visit date, tags,
-  dishes, why-go, extracted reason, TikTok link and thumbnail all come with it.
+  resolves the name itself. The note, name override, category override, been-mark, visit date,
+  TikTok link and thumbnail all come with it. **Since `0033`, the caption-derived fields do not** —
+  see §7.1.
 - Do it twice. Re-pointing onto the row the save already names returns that id and **does not write
   the row at all** (R5 — measured by `ctid`, see §6).
 - Name a place that has since been merged away and still land on the survivor (R6).
@@ -289,3 +295,128 @@ check a reader expects and its weakness written down.
 
 The general shape, and it is `0024`'s failure-first rule earning its keep: **an assertion about
 "nothing was written" needs an instrument that is not frozen by the transaction the test runs in.**
+
+
+---
+
+# 7. Second pass — conditions C3, C4 and C7
+
+> Added 2026-08-31 after `security-privacy`'s review. `0033` is the artefact for C3 and C4; C7 is
+> recorded here because it is a `docs/security.md` amendment and that file is `security-privacy`'s
+> to edit, not this lane's.
+
+## 7.1 C3 — the quote must not outlive the place
+
+**I was wrong in §2.2, and the error is worth naming precisely because the mechanism I described was
+right.** `extracted_reason`, `tags`, `why_go` and `dishes` do survive a re-point structurally, and I
+argued they *should*, on the grounds that "a re-point corrects which row that NAME resolved to; it
+does not make the caption say something else." That sentence is true and it is not the question. The
+question is what the row then **asserts**, and `security-privacy` answered it by looking at the
+shipped component instead of the schema:
+
+`src/components/sheet/place-sheet.tsx:1700-1710` renders `extracted_reason` as a `<blockquote>` with
+the creator's `@handle` as its `<figcaption>` **directly beneath**. Measured on real rows (V4d, V4e):
+a save re-pointed from `Ha Kosem` onto `Kohi בית קפה יפני` kept the quote `📍Ha Kosem` and the tag
+`middle eastern`. The sheet would then show a venue header saying *Kohi*, a quote saying *"Ha
+Kosem"*, and *@handle* credited under it. TikTok Developer Terms **III.3(n)** forbids **falsifying**
+a label of origin, not only deleting one, and
+`docs/evidence/tiktok/09-brand-mark-and-attribution-2026-08-31.md` §5 records this product as
+currently compliant with no gap. The feature would open one.
+
+**Two claims were tangled in that overlay and only one is falsified:**
+
+| Claim | After a re-point | Handling |
+|---|---|---|
+| *"You saved this from @handle's TikTok"* | **Still true.** The video really is where the save came from. | Kept, unconditionally — C3 requires it in either branch |
+| *"@handle's video named THIS place"* | **False.** | Cleared |
+
+**Ruled: clear, in the function, in the same statement as the move.** Clearing in the UI would leave
+a false row that the next reader, export or surface renders anyway — the same instinct that chose a
+resolver-mediated write over a column grant in §2.1. `0033` does the move and the clear in **one
+`UPDATE`**, so there is no window, not one statement wide, in which the row names one venue and
+quotes another.
+
+**The four columns, and why each is caption-derived rather than user-authored** — every one carries a
+`0019`/`0015` column comment that says so in the schema's own words: `extracted_reason` is *"a
+VERBATIM caption substring"*; `tags` are *"derived by the extractor from the source post"*; `why_go`
+is *"one model-written sentence saying why this post recommended this place"*; `dishes` are *"named
+dishes or items the post called out"*. None carries a client write grant on any statement, so a
+migration was always going to be required — which is exactly what C3 predicted.
+
+**And a no-op clears nothing.** III.3(n) forbids falsifying *or deleting* an attribution, and a user
+tapping "yes, this pin is right" must not cost them the creator's words. `0033`'s idempotent early
+return is now load-bearing for that, not only for `updated_at`. Asserted by **R5b**, which is
+deliberately ordered **before** R5 so a clear-on-every-call regression reports the attribution
+consequence rather than a `ctid` change (measured: with R5 first, the run never reached R5b).
+
+**This needs no UI change to be correct**, which is worth stating because it makes the database fix
+complete on its own: `place-sheet.tsx:1804-1805` already renders a standalone **`Saved from
+{authorLabel}`** line when the quote is null and a handle exists. Clearing does not remove the credit
+from the screen — it demotes it from "@handle said this about this venue" to "you saved this from
+@handle", which is precisely the surviving true claim. **R2g** asserts that exact row state (quote
+null, `source_url`, `source_thumbnail_url` and `author_handle` all present) and refuses to pass if
+the fixture has no handle to see.
+
+**What this destroys, said plainly.** The four values are gone; there is no audit table, the function
+does not return them, and re-pointing back does not restore the quote. C3 named that cost in advance
+("clearing destroys evidence and suppressing hides a credit") and the owner chose this branch. The
+mitigation belongs to the server action (C1): **read the four columns immediately before calling and
+log them.** The signature was deliberately not widened to return them — a return-type change needs
+`drop function`, which drops the ACL the whole verdict rests on, for a convenience one `select`
+already provides.
+
+## 7.2 C4 — and there are three refusals, not two
+
+C4 is right that `0032`'s header names the wrong site: the leaked-grant call fails at
+`place_survivor_id`, not "at the inner UPDATE". C4 asks for **two** independent refusals to be
+stated. **Measured while making the assertion falsifiable: there are three.**
+
+| # | Control | Denial |
+|---|---|---|
+| 1 | no `EXECUTE` on `place_survivor_id` | `permission denied for function place_survivor_id` |
+| 2 | no `SELECT` on `places.merged_into_place_id` (`0012`) | `permission denied for table places` |
+| 3 | no `UPDATE` on `saved_places.place_id` | `permission denied for table saved_places` |
+
+They fire in that order and each is independently sufficient. (2) exists because `place_survivor_id`
+is itself `SECURITY INVOKER` and reads a column `0012` withholds — so granting `authenticated`
+EXECUTE on it, which looks like a harmless read helper, does **not** open the feature. **R9e** leaks
+(1) and the `repoint_saved_place` EXECUTE grant simultaneously and watches the call still be refused
+with the row unmoved.
+
+**How the third one was found, because the method matters more than the fact.** My first R9c asserted
+`insufficient_privilege` and **passed with the control it names actually removed** — refusal 2
+produced the same SQLSTATE. Every C4 assertion now checks *which object was denied*, not just the
+condition. This is `0008_policy_tests.sql` P17's bug class and P25a-vi/vii's, reproduced exactly, and
+it is the second vacuous assertion this task has produced (§6 is the first). Both were caught by
+sabotage and neither by review.
+
+## 7.3 C7 — the self-grant reaches `place_provider_refs`, recorded
+
+`security-privacy` §1.1: the `saved_places` INSERT self-grant (§2.1 above) reaches
+**`place_provider_refs`**, not only `places`. `ppr_select_if_place_saved` (`0006:155`) carries the
+same membership predicate as `places_select_if_saved`, so inserting a save that names a place uuid
+also hands over that venue's Google **`provider_place_id`**. `security.md` A§1's *"the gate reaches
+nothing else"* is a statement about `places`' column grant and does not cover this; §5.3's table
+records `place_provider_refs` as **0**, measured without the self-grant, so it understates the reach.
+
+**Severity: low, and acceptable at university scale — but it must be written down.** The disclosed
+value is a Google place id for a venue whose uuid the caller was already given. It is not
+user-attributable and it is the same identifier a Google Places lookup returns to anyone. It is
+nonetheless a Google-content identifier on a route the residual-risk register does not name, and
+`06` §3.1 makes anything on that surface worth being explicit about.
+
+**Pre-existing at HEAD. Neither `0032` nor `0033` opens or widens it**, and it did not bear on the
+verdict. Recorded here because this is where the next person reading about the self-grant will look.
+**The `docs/security.md` §3.3 / A§1 and §11 amendments C7 actually asks for are `security-privacy`'s
+to write** — `agent-guardrails.md` §4 rule 15a names that file's editor, and it is not this lane.
+
+## 7.4 Still outstanding from the review, and not this lane's
+
+- **C1** — the server action, which is where the "the caller resolved this id" contract is actually
+  held. `src/` is outside this scope. It should also carry C3's logging mitigation (§7.1).
+- **C6** — `package.json` must chain `db:test:0032`. Still not done at the time of writing; the
+  suite is now **34 assertions** and includes every proof that C3 and C4 were discharged. A policy
+  suite nothing runs is a policy suite that silently stops being true.
+- **C5** — the three `docs/security.md` amendments, `security-privacy`'s file.
+- The `collection_items` stranding (§5.1) and the same gap in `merge_places` (§5.2), both accepted as
+  disclosed.

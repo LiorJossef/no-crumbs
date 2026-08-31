@@ -1,5 +1,13 @@
--- 0032_repoint_saved_place_policy_tests.sql — the authorisation and integrity proof for `0032`
--- (`repoint_saved_place`), task `r1-pin`, round 1 finding 2.
+-- 0032_repoint_saved_place_policy_tests.sql — the authorisation and integrity proof for
+-- `repoint_saved_place`: `0032` (the function) and `0033` (the attribution fix).
+-- Task `r1-pin`, round 1 finding 2, extended for conditions C3 and C4 of
+-- `docs/security-ruling-repoint-place-2026-08-31.md`.
+--
+-- THE FILE NAME SAYS `0032` AND IT COVERS TWO MIGRATIONS. Kept rather than renamed: `0033` replaces
+-- `0032`'s function body under the identical signature, so there is one function under test and one
+-- suite for it, and `package.json`'s `db:test:0032` — which is condition C6 and is the
+-- orchestrator's line to write — should not have to move because a forward-fix landed. Anything
+-- numbered above `0033` that touches this function belongs in here too.
 --
 -- Same posture as 0008 / 0024 / 0031 and the same deliberate deviation from `08` §3.8: this file
 -- creates fixture users in `auth.users`, so it is a TEST and never a migration. Everything happens
@@ -49,13 +57,16 @@
 --   R0c           the INVOKER dependency, named so a future revoke fails here rather than in prod.
 --   R1            THE FINDING, EXECUTED: `authenticated` cannot write `place_id` by any route.
 --   R2            the re-point itself, and everything it carries.
+--   R2f, R2g      CONDITION C3, EXECUTED: the caption-derived overlay is cleared by the move, and
+--                 the credit that is owed unconditionally is still there and still readable.
 --   R3            the cross-user refusals, both directions.
 --   R4            the duplicate refusal — and that nothing was merged or deleted.
---   R5            idempotence, including that a no-op does not move `updated_at`.
+--   R5, R5b       idempotence — a no-op writes nothing, and in particular clears nothing.
 --   R6            merge chains: a re-point lands on the survivor, never on a tombstone.
 --   R7            the argument guards.
 --   R8            the grant posture, read from the catalogue as well as behaved.
 --   R9            THE INVOKER PROPERTY, EXECUTED.
+--   R9c, R9d      CONDITION C4, EXECUTED: the TWO independent refusals, separately.
 --
 -- FAILURE-FIRST is this file type's standard (0024's header) and the state of it here is recorded
 -- honestly at the foot of the file, in "WHAT THIS FILE DOES NOT PROVE". Read that before treating
@@ -75,7 +86,7 @@ begin
                   where n.nspname = 'public' and p.proname = 'repoint_saved_place') then
     raise exception 'FAIL setup: public.repoint_saved_place does not exist — apply 0032 first';
   end if;
-  raise notice 'PASS setup 0032 is applied';
+  raise notice 'PASS setup repoint_saved_place exists (0032). R2f additionally requires 0033: if it fails while everything else passes, 0033 is the migration that is missing, not a policy';
 end $$;
 
 -- ── fixtures, as the privileged role ──────────────────────────────────────────────────────────
@@ -104,11 +115,14 @@ select public.start_import(:'b', 'tiktok', '79320000000000042',
 select id as src_a from public.sources where platform_source_id = '79320000000000041' \gset
 select id as src_b from public.sources where platform_source_id = '79320000000000042' \gset
 
--- A thumbnail, so R2c has something to prove survived. `start_import` does not set one — the
--- oEmbed fetch does, later — and the denormalised copy on the save is taken from here.
+-- A thumbnail and an author handle, so R2c and R2g have something to prove survived.
+-- `start_import` sets neither — the oEmbed fetch does, later — and the denormalised copy on the
+-- save is taken from here. `author_handle` is what `place-sheet.tsx:1520` turns into `authorLabel`,
+-- the figcaption under the caption quote, so without it R2g cannot see a credit at all.
 update public.sources
-   set thumbnail_url = 'https://p16.tiktokcdn.test/r32-a.jpg'
- where id = :'src_a';
+   set thumbnail_url = 'https://p16.tiktokcdn.test/r32-a.jpg',
+       author_handle = '@r32creator'
+ where id in (:'src_a', :'src_b');
 
 -- Five places, deliberately in five different countries and thousands of kilometres apart, so that
 -- `resolve_place` step 2's 75 m near-duplicate guard (0011 defect 5) cannot silently merge any two
@@ -194,10 +208,16 @@ select public.apply_saved_place_extraction(:'sp_a', :'a',
 select set_config('request.jwt.claims',
        '{"sub":"b0000000-0000-4000-8000-000000000032","role":"authenticated"}', true);
 set local role authenticated;
-select public.save_place(:'p_wrong', :'src_b', 'B saved the same wrong pin.') as sp_b \gset
+-- B's save carries a caption quote too, and that is R5b's whole point: by the time R5 runs, A's
+-- quote has already been cleared by the R2 move, so A cannot show that a NO-OP clears nothing.
+-- B's save is still un-moved at that point and still carries one.
+select public.save_place(:'p_wrong', :'src_b', 'B saved the same wrong pin.',
+                         'the sabich is the one to get') as sp_b \gset
 set constraints all immediate;
 set constraints all deferred;
 reset role;
+select public.apply_saved_place_extraction(:'sp_b', :'b',
+         array['middle eastern'], 'Worth the queue at lunch.', array['sabich']);
 
 select set_config('r32.sp_a', :'sp_a', true),
        set_config('r32.sp_b', :'sp_b', true);
@@ -224,6 +244,18 @@ begin
     raise exception 'FAIL R0b: the fixture has no provenance link — R2c would pass vacuously';
   end if;
   raise notice 'PASS R0b  A''s save points at the wrong pin and carries the FULL overlay: note, display_name, category_override, visit_state, visited_at, extracted_reason, tags, why_go, dishes, source_url, source_thumbnail_url, one source link';
+end $$;
+
+-- B's save is a fixture for R5b, and it needs the same caption-derived columns populated or R5b
+-- passes on a row that had nothing to clear.
+do $$
+declare r public.saved_places%rowtype;
+begin
+  select * into r from public.saved_places where id = current_setting('r32.sp_b')::uuid;
+  if r.extracted_reason is null or r.tags is null or r.why_go is null or r.dishes is null then
+    raise exception 'FAIL R0b2: B''s fixture save carries no caption-derived overlay — R5b would prove nothing';
+  end if;
+  raise notice 'PASS R0b2 B''s save carries a quote and enrichment of its own: R5b has something a no-op could wrongly destroy';
 end $$;
 
 -- ── R0c: the dependency SECURITY INVOKER creates, asserted by name ────────────────────────────
@@ -319,6 +351,20 @@ begin
   raise notice 'PASS R2   the save moved from the wrong pin to the right one, and the call returned the place it vacated';
 end $$;
 
+-- ── R2b: the USER-AUTHORED overlay survives ───────────────────────────────────────────────────
+-- THIS ASSERTION CHANGED, AND THE CHANGE IS NOT A RELAXATION — READ BEFORE TOUCHING IT.
+-- Until `0033` this block also asserted that `extracted_reason`, `tags`, `why_go` and `dishes`
+-- SURVIVED a re-point, and it passed. `security-privacy` then measured what that means on real rows:
+-- a save re-pointed from `Ha Kosem` onto `Kohi בית קפה יפני` kept the quote `📍Ha Kosem` and the tag
+-- `middle eastern`, while `place-sheet.tsx:1700-1710` renders that quote with the creator's `@handle`
+-- as its figcaption — a falsified label of origin under TikTok Developer Terms III.3(n). That is
+-- condition C3, the one blocking condition on `0032`'s verdict, and the owner ruled: clear.
+--
+-- So the four caption-derived columns moved OUT of this assertion and INTO R2f, where the opposite
+-- is now asserted. `agent-guardrails.md` §4 rule 16 forbids weakening an assertion to make a change
+-- pass; this is the other thing — a ruled behaviour change, with the old expectation inverted rather
+-- than deleted, and R2f is strictly the stronger claim (it asserts a specific end state, where the
+-- old line asserted only that nothing happened).
 do $$
 declare r public.saved_places%rowtype;
 begin
@@ -332,15 +378,56 @@ begin
   if r.visit_state <> 'visited' or r.visited_at is null then
     raise exception 'FAIL R2b: the been-mark did not survive';
   end if;
-  if r.extracted_reason <> 'the pistachio croissant is unreal' then
-    raise exception 'FAIL R2b: extracted_reason did not survive — the caption did not change, only which row its name resolved to';
+  raise notice 'PASS R2b  everything the USER authored or did survived: note, display_name, category_override, visit_state, visited_at';
+end $$;
+
+-- ── R2f: CONDITION C3 — the caption-derived overlay does NOT survive the move ─────────────────
+-- Four columns, asserted one at a time rather than as a single conjunction. The combined form would
+-- report PASS with three of the four still populated the moment any one of them started failing to
+-- clear, and `0008_policy_tests.sql`'s P25a-vi/vii records exactly that bug class being found in
+-- this repo by a sabotage pass. Each `raise` also says WHY the field is a falsification and not
+-- merely stale, because the next person to read it will be deciding whether to keep it.
+do $$
+declare r public.saved_places%rowtype;
+begin
+  select * into r from public.saved_places where id = current_setting('r32.sp_a')::uuid;
+  if r.extracted_reason is not null then
+    raise exception 'FAIL R2f-a: extracted_reason survived the move and still reads %. It is a VERBATIM caption substring rendered as a blockquote with the creator''s @handle as its figcaption (place-sheet.tsx:1700-1710), so on a re-pointed save it credits a creator for naming a venue they did not name — TikTok Developer Terms III.3(n), do not falsify a label of origin. Apply 0033', r.extracted_reason;
   end if;
-  if r.tags is distinct from array['bakery','pastry']
-     or r.why_go <> 'The pistachio croissant sells out by ten.'
-     or r.dishes is distinct from array['pistachio croissant'] then
-    raise exception 'FAIL R2b: the 0019 enrichment did not survive';
+  if r.tags is not null then
+    raise exception 'FAIL R2f-b: tags survived the move and still read %. 0019''s column comment: "derived by the extractor from the source post" — they describe the OLD venue', r.tags;
   end if;
-  raise notice 'PASS R2b  every user-owned and extraction-owned column survived: note, display_name, category_override, visit_state, visited_at, extracted_reason, tags, why_go, dishes';
+  if r.why_go is not null then
+    raise exception 'FAIL R2f-c: why_go survived the move and still reads %. 0019: "one model-written sentence saying why this post recommended this place" — this post recommended a different place', r.why_go;
+  end if;
+  if r.dishes is not null then
+    raise exception 'FAIL R2f-d: dishes survived the move and still read %. 0019: "named dishes or items the post called out" — called out about somewhere else', r.dishes;
+  end if;
+  raise notice 'PASS R2f  the move cleared all four caption-derived columns — extracted_reason, tags, why_go, dishes — in the same statement that moved the row: no window in which the save names one venue and quotes another';
+end $$;
+
+-- ── R2g: and the credit that is owed UNCONDITIONALLY is still there ───────────────────────────
+-- C3 requires the link, the handle and the thumbnail to survive in EITHER branch. This is the pair
+-- that makes the ruling coherent rather than a deletion: "@handle's video named this place" is gone,
+-- "you saved this from @handle's video" is not. Asserted as the exact database state that makes
+-- `place-sheet.tsx:1804-1805` render its standalone `Saved from {authorLabel}` line — quote null,
+-- handle and link present — which is why C3 needs no UI change to be satisfied.
+do $$
+declare r public.saved_places%rowtype; v_handle text;
+begin
+  select * into r from public.saved_places where id = current_setting('r32.sp_a')::uuid;
+  select s.author_handle into v_handle
+    from public.sources s where s.id = current_setting('r32.src_a')::uuid;
+  if r.source_url is null or r.source_thumbnail_url is null then
+    raise exception 'FAIL R2g: the clear took the source link with it — that half of the credit is owed unconditionally (C3), whatever happened to the quote';
+  end if;
+  if v_handle is null then
+    raise exception 'FAIL R2g: the fixture source carries no author_handle, so this assertion cannot see a credit at all and would pass vacuously';
+  end if;
+  if not (r.extracted_reason is null and r.source_url is not null and v_handle is not null) then
+    raise exception 'FAIL R2g: the row is not in the state that renders "Saved from @handle" — quote must be null while the handle and link remain';
+  end if;
+  raise notice 'PASS R2g  quote gone, credit kept: source_url, source_thumbnail_url and the creator handle all intact — exactly the row state that makes the sheet fall back to "Saved from @handle" instead of crediting a quote about another venue';
 end $$;
 
 do $$
@@ -526,6 +613,42 @@ begin
   raise notice 'PASS R4   re-pointing onto a place the user already holds is refused with 23505, and BOTH saves are intact — nothing merged, nothing deleted, both notes kept';
 end $$;
 
+-- R5b IS DELIBERATELY FIRST, and the ordering is an assertion in itself. A "clear on every call"
+-- regression trips BOTH of these — R5 sees the write through `ctid`, R5b sees what the write
+-- destroyed — and psql stops at the first. Measured (sabotage T2): with R5 first, the run reported
+-- a `ctid` change and never reached R5b at all, so the terms consequence never appeared. The
+-- mechanical failure is the cheaper message; the attribution failure is the one someone needs to
+-- read. So the expensive one goes first.
+
+-- ── R5b: AND A NO-OP CLEARS NOTHING ───────────────────────────────────────────────────────────
+-- The other half of III.3(n), which forbids falsifying **or deleting** an attribution. `0033` clears
+-- the caption-derived overlay because the place changed; when the place does NOT change, nothing the
+-- caption said became false and destroying the quote would be the same offence from the other side.
+-- The user tapping "yes, this pin is right" must not cost them the creator's words.
+--
+-- Run against B's save, which has not been moved yet and still carries a quote. A's cannot serve:
+-- R2 already cleared it, so "still there afterwards" would be unfalsifiable on A.
+do $$
+declare v_ret uuid; r_before public.saved_places%rowtype; r_after public.saved_places%rowtype;
+begin
+  select * into r_before from public.saved_places where id = current_setting('r32.sp_b')::uuid;
+  v_ret := public.repoint_saved_place(
+             current_setting('r32.b')::uuid,
+             current_setting('r32.sp_b')::uuid,
+             r_before.place_id);                     -- the row it already names
+  select * into r_after from public.saved_places where id = current_setting('r32.sp_b')::uuid;
+  if v_ret is distinct from r_before.place_id then
+    raise exception 'FAIL R5b: a no-op re-point of B''s save returned %', v_ret;
+  end if;
+  if r_after.extracted_reason is distinct from r_before.extracted_reason
+     or r_after.tags   is distinct from r_before.tags
+     or r_after.why_go is distinct from r_before.why_go
+     or r_after.dishes is distinct from r_before.dishes then
+    raise exception 'FAIL R5b: a no-op re-point destroyed the caption-derived overlay. The place did not change, so nothing the caption said became false — this is III.3(n)''s "or DELETE any author attributions" half, and it is the failure a clear-on-every-call version of 0033 would produce every time a user confirmed a pin that was already right';
+  end if;
+  raise notice 'PASS R5b  a no-op re-point clears NOTHING: the quote, tags, why_go and dishes are all still there, because the venue never changed';
+end $$;
+
 -- ═══ R5: IDEMPOTENCE — AND THAT THE NO-OP DOES NOT WRITE THE ROW ══════════════════════════════
 -- THE OBVIOUS ASSERTION HERE IS VACUOUS AND WAS MEASURED TO BE. The first version of this block
 -- compared `updated_at` across the call. It passed with the early return REMOVED, because
@@ -685,7 +808,103 @@ begin
   end if;
   raise notice 'PASS R9   EVEN WITH EXECUTE GRANTED TO authenticated the call is refused (42501) and the row does not move — SECURITY INVOKER means a leaked grant is a broken feature, not an escalation';
 end $$;
+
+-- ── R9c–R9f: CONDITION C4 — the refusals, measured apart, and THERE ARE THREE ────────────────
+-- `0032`'s header named ONE refusal site and named the wrong one: it said the leaked-grant call
+-- "would fail with 42501 at the inner UPDATE". It fails EARLIER, at `place_survivor_id`, because
+-- that call comes first in the body. C4 asked for that to be restated as TWO independent refusals.
+--
+-- **Measured here: there are three.** The third was found while making R9c falsifiable, which is
+-- the only reason it is known — granting `authenticated` EXECUTE on `place_survivor_id` did NOT
+-- make R9c fail, and an assertion that survives the removal of the control it names is not an
+-- assertion. The reason is that `place_survivor_id` is `SECURITY INVOKER` and reads
+-- `places.merged_into_place_id`, a column `0012` deliberately withholds from `authenticated`. So:
+--
+--   1. no EXECUTE on `place_survivor_id`            -> permission denied for FUNCTION (R9c)
+--   2. no SELECT on `places.merged_into_place_id`   -> permission denied for TABLE    (R9c2)
+--   3. no UPDATE on `saved_places.place_id`         -> permission denied for TABLE    (R9d)
+--
+-- Each is independently sufficient and they fire in that order. R9e then leaks TWO of the three at
+-- once and watches the call still be refused, which is the strongest form of the claim `0032` was
+-- trying to make and got half right. `0033`'s header carries the corrected text, because `0032` is
+-- frozen (`agent-guardrails.md` §5 rule 17) and its file is not edited.
+--
+-- THE MESSAGE TEXT IS PART OF EACH ASSERTION, not decoration. `insufficient_privilege` alone cannot
+-- tell these three apart — that is exactly how the first version of R9c passed with its own control
+-- removed — so each block checks WHICH object was denied. This is the `0008_policy_tests.sql` P17
+-- lesson ("two of them passed at first with the trigger they were supposed to be testing dropped")
+-- in its most literal form.
+do $$
+begin
+  begin
+    perform public.place_survivor_id(current_setting('r32.p_right')::uuid);
+    raise exception 'FAIL R9c: authenticated executed place_survivor_id. This is the FIRST of three refusals that make repoint_saved_place safe under a leaked EXECUTE grant (review V3a)';
+  exception when insufficient_privilege then
+    if sqlerrm not like '%function%place_survivor_id%' then
+      raise exception 'FAIL R9c: refused, but for the wrong reason (%). Refusal 1 is the missing EXECUTE grant; if the denial names a table instead, the EXECUTE grant has been added and only refusals 2 and 3 are left standing', sqlerrm;
+    end if;
+    raise notice 'PASS R9c  refusal 1 of 3: no EXECUTE on place_survivor_id — "%" — this is the one that actually fires, and 0032''s header named a different one', sqlerrm;
+  end;
+end $$;
+
+-- Leak refusal 1 and watch refusal 2 hold. This is also R9c's falsification test, run inline rather
+-- than kept in a sabotage log: with the grant added, R9c's message check above would no longer match.
+-- `authenticated` cannot grant on a function it does not own, so step out of the role for the two
+-- ACL statements and step back in. `request.jwt.claims` was set with `is_local = true` and survives
+-- the round trip, so `auth.uid()` is unchanged on re-entry.
 reset role;
+grant execute on function public.place_survivor_id(uuid) to authenticated;
+set local role authenticated;
+do $$
+begin
+  begin
+    perform public.place_survivor_id(current_setting('r32.p_right')::uuid);
+    raise exception 'FAIL R9c2: WITH EXECUTE GRANTED, authenticated ran place_survivor_id. Refusal 2 — the missing SELECT on places.merged_into_place_id (0012) — is gone, and the leaked-grant property now rests on the place_id UPDATE grant alone';
+  exception when insufficient_privilege then
+    if sqlerrm not like '%places%' then
+      raise exception 'FAIL R9c2: refused, but not by the places column grant (%)', sqlerrm;
+    end if;
+    raise notice 'PASS R9c2 refusal 2 of 3: even WITH EXECUTE granted, place_survivor_id is refused — "%" — because it is SECURITY INVOKER and reads places.merged_into_place_id, which 0012 withholds', sqlerrm;
+  end;
+end $$;
+
+do $$
+begin
+  begin
+    update public.saved_places
+       set place_id = current_setting('r32.p_winner')::uuid
+     where id = current_setting('r32.sp_a')::uuid;
+    raise exception 'FAIL R9d: authenticated UPDATEd place_id directly. This is refusal 3 (review V3a2), independently sufficient, and the one 0032''s header named';
+  exception when insufficient_privilege then
+    raise notice 'PASS R9d  refusal 3 of 3: no UPDATE on saved_places.place_id — "%"', sqlerrm;
+  end;
+end $$;
+
+-- ── R9e: TWO of the three leaked at once, and the feature is STILL refused ────────────────────
+-- EXECUTE on `repoint_saved_place` (granted above R9) and EXECUTE on `place_survivor_id` (granted
+-- above R9c2). Both mistakes made, by two different migrations, and the answer is still 42501.
+do $$
+declare v_before uuid; v_after uuid;
+begin
+  select place_id into v_before from public.saved_places where id = current_setting('r32.sp_a')::uuid;
+  begin
+    perform public.repoint_saved_place(
+              current_setting('r32.a')::uuid,
+              current_setting('r32.sp_a')::uuid,
+              current_setting('r32.p_winner')::uuid);
+    raise exception 'FAIL R9e: with EXECUTE leaked on BOTH repoint_saved_place and place_survivor_id, authenticated moved its own save. The remaining refusals are not sufficient and the INVOKER property is gone';
+  exception when insufficient_privilege then
+    null;
+  end;
+  select place_id into v_after from public.saved_places where id = current_setting('r32.sp_a')::uuid;
+  if v_after is distinct from v_before then
+    raise exception 'FAIL R9e: the row moved despite the refusal';
+  end if;
+  raise notice 'PASS R9e  TWO of the three refusals leaked at once and the call is still refused, row unmoved — the property degrades gracefully rather than resting on any single grant';
+end $$;
+
+reset role;
+revoke execute on function public.place_survivor_id(uuid) from authenticated;
 
 revoke execute on function public.repoint_saved_place(uuid, uuid, uuid) from authenticated;
 
@@ -707,6 +926,16 @@ rollback;
 --    a known, named consequence of 0032's scope — see 0032's header and
 --    `docs/db-ruling-repoint-place-2026-08-31.md` §5 — not something this suite silently missed.
 --    An assertion here would freeze a behaviour that is expected to change once that gap is ruled on.
+--  * **THE RENDERED SHEET.** C3's acceptance is written in terms of what the sheet shows, and a
+--    psql script cannot see a sheet. R2f and R2g prove the DATABASE state that makes the correct
+--    render inevitable — quote null, handle and link present — and `place-sheet.tsx:1700-1710` and
+--    `:1804-1805` are the two places where that state becomes the `Saved from @handle` fallback
+--    instead of a quote with a credit. **Someone still has to look at it.** That assertion belongs
+--    to the UI suite, against the server action that does not exist yet (condition C1).
+--  * **That the four cleared values are recoverable.** They are not. There is no audit table and
+--    this function does not return them; `0033`'s header says so and puts the mitigation on the
+--    server action (read them immediately before calling, and log them). A re-point followed by a
+--    re-point back does not restore the quote, and nothing here pretends otherwise.
 --  * **Concurrency.** R4's `unique_violation` handler covers the race between the duplicate check
 --    and the UPDATE; a psql script is one session and cannot exercise it. The two-connection harness
 --    named at P23 in `0008_policy_tests.sql` is what would.
