@@ -1669,8 +1669,20 @@
 /* -------------------------------------------------------------------------- */
 
 /**
- * **The seven animations of `docs/no-crumbs-design-system.html` chapter 03, and the two of them
- * this product has a screen for.**
+ * **The seven animations of `docs/no-crumbs-design-system.html` chapter 03, and the three of them
+ * this product has a screen for today.**
+ *
+ * *"The two of them this product has a screen for"* is what this line said until 2026-08-31, and
+ * the count was the smaller problem. It read as a **scoping decision** and it was not one: the
+ * product had a screen for Land — the post-import confirmation — and the animation simply had no
+ * call site, so the header recorded an absence as if it were a boundary and stopped anyone from
+ * looking (`docs/product-review-2026-08-31-r2.md`, delight §2). Land is wired now, in
+ * `components/map/import-confirmation.tsx`.
+ *
+ * **Three is a backlog, not a boundary either.** `halo` has a state waiting for it (`nearMe`, the
+ * locating fix) and `bob` and `scan` do not have one yet. Those are findings on the review's list
+ * and are dispatched deliberately; wiring an animation because it exists is how a mascot becomes
+ * wallpaper, which is the same failure `#rules` rule 6 names for moods.
  *
  * The rig has been in `src/components/brand/` since I2-W and every hook it emits — `crumb-all`,
  * `crumb-eyes`, `crumb-halo`, `crumb-spark-1/2`, `crumb-trail-dot-*` — was targeted by nothing.
@@ -1836,13 +1848,28 @@
 }
 
 /* The spark pair rides with Land rather than with the `found` mood, so motion stays opt-in: a face
-   that twinkled merely by existing would be an animation nobody asked a call site for. */
+   that twinkled merely by existing would be an animation nobody asked a call site for.
+
+   **`1 both`, for the same reason the body above is `1 both`, and it was `infinite` until
+   2026-08-31.** The rule was written four lines up and broken immediately under it: the body landed
+   once and the sparks twinkled forever, which is precisely the wallpaper `#motion` forbids. It was
+   invisible because nothing used Land — the defect and the animation's first call site were one
+   commit apart, so this is fixed *before* the swap rather than discovered by it
+   (`docs/product-review-2026-08-31-r2.md`, delight §3.1).
+
+   `both` matters as much as `1` here: `crumb-spark`'s first and last frames are both `opacity: 0`,
+   so the fill holds the sparks invisible before their offset and invisible again afterwards. Drop
+   it and the pair would flash on at rest, which is the same defect wearing the opposite sign.
+
+   The pair outlasts the body deliberately — the body settles at 0.78s, spark-1 peaks 0.32–0.8s and
+   spark-2 0.67–1.15s — so the celebration ends on the sparks rather than on the landing. The
+   durations are `#motion`'s own and are not retuned here. */
 .crumb-anim-land .crumb-spark-1 {
-  animation: crumb-spark 1.6s ease-in-out infinite;
+  animation: crumb-spark 1.6s ease-in-out 1 both;
   transform-origin: 16px 20px;
 }
 .crumb-anim-land .crumb-spark-2 {
-  animation: crumb-spark 1.6s ease-in-out 0.35s infinite;
+  animation: crumb-spark 1.6s ease-in-out 0.35s 1 both;
   transform-origin: 86px 28px;
 }
 
@@ -1863,9 +1890,24 @@
  * **nothing re-renders and nothing touches layout** — a pointer move sets two variables and the
  * compositor does the rest.
  *
- * The lengths are SVG user units, so the travel is a fraction of the 100-unit body and is identical
- * at 44px and 56px. `2.4` and `1.8` keep the pupils inside the face at full deflection; Scan's own
- * range is `-2.6` to `3.2`, which is the same neighbourhood arrived at independently.
+ * The lengths are SVG user units, so the travel is a fraction of the body and is proportionally
+ * identical at 44px and 56px. They are `TRAVEL_X = 5` and `TRAVEL_Y = 3.2`, in `crumb-aware.tsx`,
+ * and this comment is not free to restate them — it said `2.4` and `1.8` until 2026-08-31, which
+ * were **measured and rejected**, not current.
+ *
+ * The rejection is the part worth keeping: the outlined artboard is 116 units wide, so at a 44px
+ * mark one unit is 0.379 CSS px and 2.4 units is **0.91 px** — sub-pixel at the smaller of the two
+ * chrome sizes, and photographed at the two extremes the frames were indistinguishable. 5.0 is
+ * 1.90 px at 44px and 2.41 at 56px, which crosses a whole pixel on a 1× display.
+ *
+ * Scan's own `-2.6 … 3.2` sweep looks like a precedent for the smaller numbers and is not one: it
+ * moves continuously, so motion carries it, where a static offset has to be legible standing still.
+ * The vertical stays smaller than the horizontal because a face that tracks as far up as sideways
+ * reads as startled rather than attentive.
+ *
+ * A comment that quotes a value it does not own is a value written twice, and the reader who tunes
+ * this next would have read the rejected pair as the shipped one and reverted the fix
+ * (`docs/product-review-2026-08-31-r2.md`, delight §3.2).
  *
  * **The transition is asymmetric on purpose.** `crumb-aware.tsx` shortens it on enter so the eyes
  * *snap* to you — that is the "notice" half of the request — and the 260ms here is the unhurried

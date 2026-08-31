@@ -321,6 +321,33 @@ describe('the mascot\u2019s gold is admitted to chrome and fenced off the data s
     MASCOT_INK_NIGHT,
   ];
 
+  /**
+   * **The one file under `components/map/` that draws the character, named rather than pattern-
+   * matched** — the post-import confirmation strip, 2026-08-31.
+   *
+   * The fence's own words are the four things gold may never be: *"a pin, a category surface, a
+   * basemap layer or a filter chip."* The directory is a **proxy** for that list, chosen so a new
+   * file inherits the rule instead of being born outside it, and the proxy is right about almost
+   * everything in the directory. This strip is none of the four: it is a `role="status"` receipt
+   * floating in a `bg-card/95` pill with its own hairline and blur — the identical card material
+   * `/sign-in` and the shell wordmark already carry gold on, and the shell wordmark already floats
+   * a 32px gold mascot over this very map under owner ruling 6.
+   *
+   * So the permission is not new and the collision the fence prevents is not available here: there
+   * is no category colour on this surface to be confused with, which is the whole content of *"on
+   * this map colour means what a place is."*
+   *
+   * **The exemption is one clause wide.** This file is still checked for a pasted hex and for
+   * `--chrome-*`, which are the two routes a real violation takes — a gold literal in a MapLibre
+   * paint expression would not mention the mascot anywhere, and that is the 2am failure this exists
+   * for. All it may do is *import the component*, and the list below is asserted to be exactly one
+   * entry long, so a second file cannot join it by accident: adding one is a visible, deliberate
+   * act with a ruling behind it. A `components/map/` file that reaches `mascot-colors` for a raw
+   * palette constant is still an offender however it is named — `crumb-mascot` is the drawing, and
+   * the drawing is what carries the fence's own keyline token.
+   */
+  const CHROME_OVER_THE_MAP = ['components/map/import-confirmation.tsx'];
+
   it('never reaches the map, the category palette or the basemap', () => {
     /*
      * **This is a superset of `crumb-mascot.test.ts`'s rule-5 assertion and does not replace it.**
@@ -342,11 +369,27 @@ describe('the mascot\u2019s gold is admitted to chrome and fenced off the data s
     const hexes = new RegExp(MASCOT_PALETTE.map((h) => h.slice(1)).join('|'), 'i');
     const offenders = dataSurfaces
       .filter(
-        ({ source }) =>
-          /mascot-colors|crumb-mascot/.test(source) || hexes.test(source) || /--chrome-/.test(source),
+        ({ path: p, source }) =>
+          (/mascot-colors/.test(source) && CHROME_OVER_THE_MAP.includes(p)) ||
+          (/mascot-colors|crumb-mascot/.test(source) && !CHROME_OVER_THE_MAP.includes(p)) ||
+          hexes.test(source) ||
+          /--chrome-/.test(source),
       )
       .map(({ path: p }) => p);
     expect(offenders).toEqual([]);
+  });
+
+  it('exempts exactly one file, and it is the one the ruling named', () => {
+    /*
+     * The exemption above is the fence's only hole, so its size is asserted separately from its
+     * effect. A list that grew to three without anyone noticing is how a fence becomes a formality
+     * — and the failure would otherwise be silent, because a longer list makes *fewer* tests fail.
+     *
+     * The file is also checked to exist: an exemption for a path that has been renamed away is a
+     * hole with nothing behind it, which reads as a rule and enforces nothing.
+     */
+    expect(CHROME_OVER_THE_MAP).toEqual(['components/map/import-confirmation.tsx']);
+    expect(sources().map(({ path: p }) => p)).toContain(CHROME_OVER_THE_MAP[0]);
   });
 
   it('gives the keyline a themed token that cannot drift from the character', () => {
