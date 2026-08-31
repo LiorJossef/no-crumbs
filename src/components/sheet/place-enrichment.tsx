@@ -309,7 +309,7 @@ export function ActiveTagFilter({
         onClick={onClear}
         aria-label={`Clear the ${isolate(label)} tag filter`}
         className={cn(
-          'inline-flex min-h-9 min-w-0 cursor-pointer items-center gap-1.5 rounded-full bg-tag-selected px-3 text-xs font-bold text-tag-selected-foreground outline-none motion-safe:transition-colors hover:bg-[color-mix(in_oklch,var(--tag-selected),var(--foreground)_10%)] focus-visible:ring-3 focus-visible:ring-ring/50',
+          'inline-flex min-h-9 min-w-0 cursor-pointer items-center gap-1.5 rounded-full bg-tag-selected px-3 text-xs font-bold text-tag-selected-foreground outline-none motion-safe:transition-colors hover:bg-tag-selected-hover focus-visible:ring-3 focus-visible:ring-ring/50',
           // It is chip-shaped, so it presses like one — and it is the only way out of a filter
           // that has emptied the list, which is the state where a tap that looks ignored is worst.
           PRESS_CHIP,

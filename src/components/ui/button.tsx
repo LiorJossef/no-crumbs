@@ -43,26 +43,36 @@ const buttonVariants = cva(
         outline:
           "border-border bg-background hover:border-primary hover:bg-primary/5 hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
+          "bg-secondary text-secondary-foreground hover:bg-secondary-hover aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
         ghost:
           "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
         destructive:
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
         link: "text-primary underline-offset-4 hover:underline",
       },
+      // **The four radius clamps are gone and the sizes are unchanged.** They read
+      // `min(var(--radius-md), 10px)` and `min(var(--radius-md), 12px)`, which W0-1 found were
+      // rendering *square* because `--radius-md` did not exist; it now does, at `0.875rem`, so the
+      // clamps were resolving to exactly 10px and 12px. `--radius-xs` is 10px and `--radius-sm` is
+      // 12px, so `rounded-xs`/`rounded-sm` are the same pixels as named steps rather than as
+      // arithmetic over a step one size up.
+      //
+      // Not `rounded-md`, which `ux-overnight-specs.md` §2.0 suggests: that is `--radius-md` in
+      // full, 14px, and would restyle these four sizes on the way past — on the very sizes W0-1
+      // just repaired. The orchestrator has recorded the spec correction.
       size: {
         default:
           "h-8 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
-        xs: "h-6 gap-1 rounded-[min(var(--radius-md),10px)] px-2 text-xs in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
+        xs: "h-6 gap-1 rounded-xs px-2 text-xs in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
+        sm: "h-7 gap-1 rounded-sm px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
         lg: "h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
         // `ICON_BUTTON` is the chip's 5% press rather than the filled button's 1.5% — at 24–36px a
         // 1.5% squeeze is under half a pixel and invisible — plus the matrix's 30% disabled step.
         // Both land after `variant` in cva's own order, so an icon-sized `default` button resolves
         // to these rather than to the base's numbers.
         icon: `size-8 ${ICON_BUTTON}`,
-        "icon-xs": `size-6 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-lg [&_svg:not([class*='size-'])]:size-3 ${ICON_BUTTON}`,
-        "icon-sm": `size-7 rounded-[min(var(--radius-md),12px)] in-data-[slot=button-group]:rounded-lg ${ICON_BUTTON}`,
+        "icon-xs": `size-6 rounded-xs in-data-[slot=button-group]:rounded-lg [&_svg:not([class*='size-'])]:size-3 ${ICON_BUTTON}`,
+        "icon-sm": `size-7 rounded-sm in-data-[slot=button-group]:rounded-lg ${ICON_BUTTON}`,
         "icon-lg": `size-9 ${ICON_BUTTON}`,
       },
     },

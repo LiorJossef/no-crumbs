@@ -42,7 +42,7 @@ export function BeenBadge({ className }: { className?: string }) {
     <span
       aria-hidden
       className={cn(
-        'inline-flex shrink-0 items-center gap-1 rounded-full bg-[var(--tag-selected)] px-1.5 py-0.5 text-[11px] font-bold leading-4 text-[var(--tag-selected-foreground)]',
+        'inline-flex shrink-0 items-center gap-1 rounded-full bg-tag-selected px-1.5 py-0.5 text-micro font-bold leading-4 text-tag-selected-foreground',
         className,
       )}
     >
