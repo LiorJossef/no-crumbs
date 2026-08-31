@@ -68,6 +68,20 @@ export interface ProbeSuccess extends SourcePreview {
    * (`domain/import/resolution-record.ts`), and the screen must not say the same thing for both.
    */
   readonly candidates: readonly ProbeCandidate[];
+  /**
+   * Why this import produced no candidates. Non-null only when `candidates` is empty.
+   *
+   * Derived server-side (`api/imports/probe/route.ts`), and deliberately an enum rather than the
+   * drop counts it comes from: `PlausibilityResult.dropped` is count-only for logs, and the
+   * response carries the conclusion, not the working. One enum is the same discipline as "the
+   * browser may never send a place fact", in the other direction (`spec-no-places-found.md` §3.4).
+   *
+   * `null` from a server that predates the field, which reads as case B — the honest floor.
+   */
+  readonly emptyReason?: 'no_caption' | 'nothing_named' | 'area_only' | null;
+  /** The extraction's own city hint: the only thing we know about *where* when we know nothing
+   *  about *what*. Null on a cache hit, where nothing persists it. */
+  readonly cityHint?: string | null;
 }
 
 /** A probe candidate: what the model extracted, plus what the resolver made of it. Matches the

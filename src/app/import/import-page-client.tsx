@@ -371,10 +371,9 @@ export function ImportPageClient({
 
       {screen.kind === 'no_places' && (
         <NoPlacesScreen
-          authorHandle={screen.authorHandle}
-          url={screen.canonicalUrl}
-          hadCaption={screen.hadCaption}
+          probe={screen.probe}
           onRetry={() => reset({ clearUrl: true })}
+          onBackToMap={backToMap}
           onAddManually={onAddManually ?? null}
         />
       )}

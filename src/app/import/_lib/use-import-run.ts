@@ -349,14 +349,7 @@ async function submit(target: string = url) {
     // the review screen and rendered a source row, one muted sentence and a half-empty card. At
     // LEVEL B's hit rate that is the screen most imports end on.
     setScreen(
-      n === 0
-        ? {
-            kind: 'no_places',
-            authorHandle: body.authorHandle,
-            canonicalUrl: body.canonicalUrl,
-            hadCaption: body.caption !== null,
-          }
-        : { kind: 'caption_preview', probe: body },
+      n === 0 ? { kind: 'no_places', probe: body } : { kind: 'caption_preview', probe: body },
     );
   } catch {
     // A user pressing Cancel is not an internal error. An abort lands here as a DOMException,

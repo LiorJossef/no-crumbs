@@ -7,7 +7,7 @@ import {
 } from '@/domain/errors';
 import { canonicaliseTikTokUrl } from '@/domain/source/canonicalise-tiktok-url';
 
-import { importClientSource } from './import-client-source';
+import { functionSource, importClientSource } from './import-client-source';
 import {
   IMPORT_ERROR_ACTION_LABEL,
   IMPORT_ERROR_COPY,
@@ -355,23 +355,62 @@ describe('the pre-submit codes are the same map, not a second one', () => {
     );
   }
 
+  /**
+   * The one file exempt from the *kicker* half of the guard below, and only from that half.
+   *
+   * `spec-no-places-found.md` §5.1 gives the no-places screen's case-A kicker as `No caption`,
+   * which is `NO_CAPTION`'s kicker word for word — a collision between two ordinary words, on two
+   * screens governed by two different documents. It is the exact false positive `rendersLiterally`
+   * above was written to reduce and cannot catch: a two-word kicker will keep colliding with
+   * ordinary prose, and the alternative — reading a *success* screen's copy out of the failure map
+   * — would couple it to an entry `spec-no-places-found.md` §10.7 records as very likely dead.
+   *
+   * The exemption is narrow on purpose and it is paid for: the file is still checked against every
+   * headline, every body and every action label (the long, distinctive strings that the guard
+   * actually exists for), and a test below asserts that `failure-screen.tsx` — the file the guard
+   * is really about — is still covered by all four.
+   */
+  const KICKER_EXEMPT = ['src/app/import/screens/no-places-screen.tsx'];
+  const CLIENT_SOURCE_MINUS_EXEMPT = importClientSource({
+    stripComments: true,
+    exclude: KICKER_EXEMPT,
+  });
+
   it('does not hard-code any of the map’s strings back into the component', () => {
     // The actual regression guard. `RedirectScreen` used to own its own words; anything typed
     // into the component again — a headline, a body, a kicker, an action label — fails here.
     for (const code of CODES) {
       const { kicker, headline, body } = IMPORT_ERROR_COPY[code];
-      for (const [what, string] of [['kicker', kicker], ['headline', headline], ['body', body]] as const) {
+      for (const [what, string] of [['headline', headline], ['body', body]] as const) {
         expect(
           rendersLiterally(CLIENT_SOURCE, string),
           `the import client hard-codes ${code}'s ${what}: "${string}"`,
         ).toBe(false);
       }
+      expect(
+        rendersLiterally(CLIENT_SOURCE_MINUS_EXEMPT, kicker),
+        `the import client hard-codes ${code}'s kicker: "${kicker}"`,
+      ).toBe(false);
     }
     for (const label of Object.values(IMPORT_ERROR_ACTION_LABEL)) {
       expect(
         rendersLiterally(CLIENT_SOURCE, label),
         `the import client hard-codes the action label "${label}"`,
       ).toBe(false);
+    }
+  });
+
+  it('still covers the failure screen itself, which is what the guard is about', () => {
+    // The kicker exemption must not quietly become an exemption for the file that renders the copy
+    // map. `functionSource` throws unless exactly one file defines `ImportFailureScreen`, so this
+    // also fails if the decomposition ever duplicates it.
+    const failureScreen = functionSource('ImportFailureScreen');
+    expect(KICKER_EXEMPT).toEqual(['src/app/import/screens/no-places-screen.tsx']);
+    for (const code of CODES) {
+      const { kicker, headline, body } = IMPORT_ERROR_COPY[code];
+      for (const string of [kicker, headline, body]) {
+        expect(rendersLiterally(failureScreen, string), `${code}: "${string}"`).toBe(false);
+      }
     }
   });
 

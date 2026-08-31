@@ -39,7 +39,9 @@
  * ```
  * /import?state=rail
  * /import?state=review
- * /import?state=no-places
+ * /import?state=no-places                  case B, the modal arrival
+ * /import?state=no-places-a                case A, no caption at all
+ * /import?state=no-places-c                case C, an area but no venue
  * /import?state=error-POST_UNAVAILABLE      any DomainErrorCode
  * /import?state=redirect-UNSUPPORTED_HOST   any PreSubmitErrorCode
  * ```
@@ -203,12 +205,16 @@ export function parseDevScreen(raw: string | null | undefined): Screen | null {
     };
   }
   if (raw === 'review') return { kind: 'caption_preview', probe: DEV_PROBE };
-  if (raw === 'no-places') {
+  // Case B, the modal arrival. `no-places-a` and `no-places-c` are the other two honest cases —
+  // three screens, because they are three different true statements and the gate judges each.
+  if (raw === 'no-places') return { kind: 'no_places', probe: { ...DEV_PROBE, emptyReason: 'nothing_named' } };
+  if (raw === 'no-places-a') {
+    return { kind: 'no_places', probe: { ...DEV_PROBE, caption: null, emptyReason: 'no_caption' } };
+  }
+  if (raw === 'no-places-c') {
     return {
       kind: 'no_places',
-      authorHandle: DEV_PROBE.authorHandle,
-      canonicalUrl: DEV_PROBE.canonicalUrl,
-      hadCaption: true,
+      probe: { ...DEV_PROBE, emptyReason: 'area_only', cityHint: 'Tel Aviv' },
     };
   }
   if (raw.startsWith('error-')) {

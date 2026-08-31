@@ -8,8 +8,6 @@
  * slice of; it lives apart from the shell because three of Wave 6's packages widen it and would
  * otherwise all be edits to the same 2,300-line file.
  *
- * **W6-5** changes the `no_places` variant to `{ kind: 'no_places'; probe: ProbeSuccess }`
- * (`spec-no-places-found.md` §10.1).
  */
 
 import type { DomainErrorCode } from '@/domain/errors';
@@ -98,16 +96,19 @@ export type Screen =
    */
   | { readonly kind: 'redirect'; readonly reason: PreSubmitErrorCode }
   | { readonly kind: 'rail'; readonly rail: RailState }
-  | {
-      readonly kind: 'no_places';
-      readonly authorHandle: string | null;
-      /** The canonical URL, never the `url` state: a share-sheet paste is a caption with a link
-       *  somewhere inside it, and `Open the original TikTok` has to be an href. */
-      readonly canonicalUrl: string;
-      /** Whether there was a caption to read at all. "We read it and it named nothing" and "there
-       *  was nothing to read" are different facts and this screen says which. */
-      readonly hadCaption: boolean;
-    }
+  /**
+   * The modal outcome of an import — ~73% of them at LEVEL B's hit rate — and a success state,
+   * never an error.
+   *
+   * It carries the **whole** `ProbeSuccess` (`spec-no-places-found.md` §10.1). It used to carry
+   * three scalars pulled out of it, which could not express the three honest cases (no caption /
+   * nothing named / an area but no venue) and could not feed the caption panel or a search scoped
+   * to the city. Every one of those needs a different field of the same response, and copying them
+   * out one at a time is how the screen and the review screen end up disagreeing about the post
+   * they are both describing. The canonical URL in particular must come from here and never from
+   * the `url` state: a share-sheet paste is a caption with a link somewhere inside it.
+   */
+  | { readonly kind: 'no_places'; readonly probe: ProbeSuccess }
   /** The real-fetch slice's landing screen (this task): no LLM has run, so this is deliberately
    *  not `no_places` or `results` — both of those imply extraction happened. Shows the raw
    *  caption plainly, once the real `SourceAdapter` + `ContentExtractor` have run. */

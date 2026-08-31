@@ -587,6 +587,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
      * papered over; persisting it is a schema change and this task owns no migration.
      */
     let extractionCityHint: string | null = null;
+    /** How many candidates the plausibility gate dropped for naming only a city or a country.
+     *  Zero on a cache hit, where the gate does not re-run — see `emptyReason` below. */
+    let droppedAreaOnly = 0;
     const captionHash = caption === null ? null : sha256(caption);
 
     if (caption !== null) {
@@ -618,8 +621,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         const extractStartedAt = Date.now();
         const extracted = await extractor.extract(parts, ctx);
         msExtract = Date.now() - extractStartedAt;
-        candidates = filterPlausible(extracted.candidates, caption).kept;
+        const plausible = filterPlausible(extracted.candidates, caption);
+        candidates = plausible.kept;
         extractionCityHint = extracted.cityHint;
+        // Kept for `emptyReason` below, and for nothing else. `PlausibilityResult.dropped` is
+        // documented as count-only for logs (`07` §7.1) and **the counts must not leave the
+        // server** (`spec-no-places-found.md` §3.4 note 1) — the response carries one enum. That is
+        // the same discipline as "the browser may never send a place fact", in the other direction.
+        droppedAreaOnly = plausible.dropped.city_or_country_only;
       }
     }
 
@@ -695,6 +704,37 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       candidates: storedCandidates,
     });
 
+    /**
+     * Why this import produced no candidates — the only thing the no-places screen needs that it
+     * cannot derive from what it already has (`spec-no-places-found.md` §3.4).
+     *
+     * Three honest cases, and the order below is the derivation:
+     *
+     *  - **`no_caption`** — we opened the post fine and there was no text. That is a fact about the
+     *    post's shape, not about our reading, and a user who pastes three caption-less posts learns
+     *    something from it that "the caption named nothing" would hide.
+     *  - **`area_only`** — the caption named a city and no venue. The **one** sub-case worth
+     *    surfacing, because it is checkable (a place name, not a confidence judgement) and because
+     *    it changes what we can offer: it scopes the search. Every other drop reason collapses into
+     *    `nothing_named` — §3.2 measures `evidence_not_in_caption` firing four times and being wrong
+     *    four times out of four, and a screen that reported that filter's opinion as a fact about
+     *    the user's post would be dressing a measured-wrong signal as a finding.
+     *  - **`nothing_named`** — the modal case, and the floor.
+     *
+     * **A cache hit is always `nothing_named`**, because `filterPlausible` does not re-run on one
+     * and the drop counts do not exist. That is the honest floor rather than a gap: we do not know,
+     * so we do not claim. Re-running the filter to reconstruct it would change what the user sees
+     * between two identical imports, which is worse than the coarser answer.
+     */
+    const emptyReason: 'no_caption' | 'nothing_named' | 'area_only' | null =
+      caption === null
+        ? 'no_caption'
+        : candidates.length > 0
+          ? null
+          : droppedAreaOnly > 0 && extractionCityHint !== null
+            ? 'area_only'
+            : 'nothing_named';
+
     return NextResponse.json({
       sourceId: raw.id,
       /** Null only when persisting the extraction failed; the client must not offer a save then. */
@@ -705,6 +745,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       canonicalUrl: raw.canonicalUrl,
       thumbnailUrl: raw.thumbnailUrl,
       caption,
+      emptyReason,
+      /**
+       * The extraction's own city hint — the only thing we know about *where* when we know nothing
+       * about *what*. Null on a cache hit for the same reason `emptyReason` is coarse there:
+       * `extractions` has no column for it (recorded in `current-state.md` §5.6), so it survives
+       * only on a fresh extraction.
+       */
+      cityHint: extractionCityHint,
       /**
        * Each candidate with its `resolution` attached. Additive: the client types these as
        * `PlaceCandidate[]` and ignores the extra key, so this response stays backwards compatible
