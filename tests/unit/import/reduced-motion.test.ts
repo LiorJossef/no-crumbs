@@ -107,6 +107,9 @@ describe('a spinner is hidden under reduced motion, never frozen', () => {
     const pairs: readonly (readonly [string, string])[] = [
       ['src/app/import/screens/add-by-name.tsx', 'ADD_PENDING'],
       ['src/app/import/screens/add-by-name.tsx', 'SUBMIT_PENDING'],
+      // The recall field's read. Measured under `prefers-reduced-motion: reduce`: the button reads
+      // `Reading…` and no spinner node renders at all.
+      ['src/app/import/screens/add-by-note.tsx', 'SUBMIT_PENDING'],
       ['src/app/import/screens/rail-screen.tsx', 'label="Working on it"'],
       ['src/app/import/screens/review/review-screen.tsx', "'Saving…'"],
     ];

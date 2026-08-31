@@ -114,16 +114,38 @@ describe('the honesty bans (§11.6-9)', () => {
     }
   });
 
-  it('offers no way to re-run the same link', () => {
-    // §11.7. Re-reading a caption we have already read produces this same screen, and offering it
-    // would make the flow's worst loop the easiest thing on screen. `Try another TikTok link` clears
-    // the link rather than keeping it, which is the opposite of Cancel's rule and deliberately so.
+  it('offers no way to re-run a read whose inputs have not changed', () => {
+    /*
+     * **§11.7, amended 2026-09-01, and the amendment is the reason this test was rewritten rather
+     * than left passing.**
+     *
+     * It read *"offers no way to re-run the same link"* and asserted three things about this file.
+     * The recall field (`add-by-note.tsx`, §4.5) re-runs the link — with a sentence the person just
+     * wrote, which is a different input — and because that field is a *different file*, every
+     * assertion below would have gone on passing while the criterion it enforces had materially
+     * moved. A guard that keeps passing after its subject changes is not a guard, and the mascot
+     * precedent three blocks down is the same species: the document was amended first, then the
+     * guard, then the code.
+     *
+     * The rule §11.7 was always protecting is unchanged and is now stated as such (§6.9.1): **no
+     * affordance may re-run a read whose inputs have not changed.** It is enforced in
+     * `add-by-note.tsx` by a disabled submit and asserted in `add-by-note.test.ts`, in both
+     * directions.
+     *
+     * What stays true of *this* file, and is still worth pinning:
+     */
+    // No retry vocabulary on the screen itself. `Try another TikTok link` clears the link rather
+    // than keeping it, which is the opposite of Cancel's rule and deliberately so.
     expect(RENDERED.toLowerCase()).not.toContain('retry');
     expect(RENDERED.toLowerCase()).not.toContain('try again');
-    // And no mechanism for it either: nothing here can reach `submit`, and the forward action is
-    // read from the shared label map rather than being a second literal.
+    // And no mechanism of its own: this screen cannot reach `submit`, so the only path back to the
+    // route is the guarded one, and the forward action is read from the shared label map rather
+    // than being a second literal.
     expect(CODE).not.toContain('submit');
     expect(CODE).toContain('IMPORT_ERROR_ACTION_LABEL.another_tiktok');
+    // The one control that re-runs it does so through a prop it cannot call itself, and the guard
+    // for it lives with the control.
+    expect(CODE).toContain('onRead={onReadNote}');
   });
 
   it('shows no number, percentage, band or count anywhere, including in an aria-label', () => {

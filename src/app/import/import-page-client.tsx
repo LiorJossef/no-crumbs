@@ -169,6 +169,7 @@ export function ImportPageClient({
     canSubmit,
     submit,
     submitSeed,
+    submitNote,
     abort: abortInFlightProbe,
     reset: resetRun,
   } = useImportRun(initialUrl);
@@ -408,6 +409,7 @@ export function ImportPageClient({
           onBackToMap={backToMap}
           onAddManually={onAddManually ?? null}
           onAdded={addedFromNoPlaces}
+          onReadNote={submitNote}
         />
       )}
 

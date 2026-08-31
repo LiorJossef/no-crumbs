@@ -112,6 +112,7 @@ import { IMPORT_ERROR_ACTION_LABEL } from '@/ui/import/import-error-copy';
 
 import type { ProbeSuccess } from '../_lib/probe-contract';
 import { AddByName, type AddByNameOutcome } from './add-by-name';
+import { AddByNote, type ReadNoteOutcome } from './add-by-note';
 
 /**
  * The kicker, headline and body for one arrival (`spec-no-places-found.md` §5.1, verbatim).
@@ -166,6 +167,7 @@ export function NoPlacesScreen({
   onBackToMap,
   onAddManually,
   onAdded,
+  onReadNote,
 }: {
   probe: ProbeSuccess;
   /** `Try another TikTok link`. Clears the link — see the note on the button. */
@@ -181,6 +183,10 @@ export function NoPlacesScreen({
   /** A place was added from this screen. The host closes the flow and flies the camera, exactly as
    *  it does after a confirm — a save from here is not a lesser save. */
   onAdded: (outcome: AddByNameOutcome) => void;
+  /** Reads the link once more with a sentence the user wrote beside it (§6.9). It takes the screen
+   *  to the review beat when that names somewhere, and resolves with the outcome when it does not
+   *  — which is why this screen hands it straight to `AddByNote` and never branches on it. */
+  onReadNote: (note: string) => Promise<ReadNoteOutcome>;
 }) {
   const headingId = useId();
   const bodyId = useId();
@@ -388,6 +394,22 @@ export function NoPlacesScreen({
         onSubmitted={() => setCaptionOpen(false)}
         onAdded={onAdded}
       />
+
+      {/*
+        The second recovery, for the answer that is a sentence rather than a name (§4.5).
+
+        **Under the name search, not above it, and it is an ordering by strength of outcome.** A
+        person who has the name is better served by the field above: an exact provider result, no
+        model in the path, and one step fewer. This one is for the answer that does not fit in a
+        search box — *"the donut stall in the shuk, Roladin"* carries the disambiguation a bare name
+        would lose, and a sentence may name two places where a search names one.
+
+        **No second hairline.** §4.4's sentence is "type, one hairline, one field and one caption
+        panel", and the field count is the only part of it this change moves. Rendered inside the
+        sibling's region rather than under a rule of its own, the two read as one recovery block
+        with two ways in — which is what they are.
+      */}
+      <AddByNote className="pt-1" onRead={onReadNote} onSubmitted={() => setCaptionOpen(false)} />
 
       <div className="flex shrink-0 flex-col gap-2 pt-3">
         {/* Still offered where a host has a `＋` sheet, and now secondary: that sheet searches the

@@ -44,6 +44,8 @@ import { toDomainErrorCode, type PreSubmitErrorCode } from '@/ui/import/import-e
 
 import { railExtractFact } from '@/ui/import/rail-extract-fact';
 
+import type { ReadNoteOutcome } from '../screens/add-by-note';
+
 import { hold } from './hold';
 import type { ProbeErrorBody, ProbeSuccess, SourcePreview } from './probe-contract';
 import { PAYOFF_HOLD_MS, RAIL_IDLE, type Screen } from './screen';
@@ -60,6 +62,21 @@ export interface ImportRun {
   readonly canSubmit: boolean;
   readonly submit: (target?: string) => Promise<void>;
   readonly submitSeed: (seedUrl: string) => void;
+  /**
+   * Read the same link again **with a sentence the user just wrote beside it**, from the no-places
+   * screen (`spec-no-places-found.md` §6.9).
+   *
+   * Not `submit` with an extra argument, and the difference is the whole reason it is its own
+   * function: `submit` runs the rail, and there is no rail to run here. The post is already on
+   * screen, its caption is already read, and the only thing that can change is whether the new
+   * sentence names somewhere. Putting the user back through a progress rail to say that would be
+   * theatre over a cached read.
+   *
+   * It resolves with what happened rather than always taking the screen. `places` is the one
+   * outcome that navigates; every other one leaves the user exactly where they were, with the
+   * sentence still in the field, and the caller renders it.
+   */
+  readonly submitNote: (note: string) => Promise<ReadNoteOutcome>;
   /** Aborts the in-flight probe without touching the screen — what the ✕ needs, and half of what
    *  `reset` does. */
   readonly abort: () => void;
@@ -370,6 +387,76 @@ async function submit(target: string = url) {
 }
 
 /**
+ * One more read of the same link, with the user's own sentence added to it.
+ *
+ * ## Why this is not the retry the no-places screen forbids
+ *
+ * `spec-no-places-found.md` §1 bans a retry on that screen, and its reason is mechanical: *"a retry
+ * re-reads the same caption and returns the same nothing."* That holds, and this does not breach
+ * it, because **the input changed** — a sentence from the person who watched the video, which is
+ * the one source of a venue name a caption-less post has. §6.9 restates the rule in the form that
+ * survives: no affordance may re-run a read whose inputs have not changed, which is enforced in
+ * `AddByNote` by disabling the button on an unedited sentence.
+ *
+ * ## What it deliberately does not do
+ *
+ * **No source-preview round trip.** That request exists to fill the rail with the post while the
+ * model runs; the post is already on screen here, and issuing it again would be a second call to
+ * TikTok for something already in hand.
+ *
+ * **No rail.** See `submitNote`'s doc on the interface.
+ *
+ * **No `setScreen` when nothing came back.** Re-setting `no_places` with a fresh `probe` would
+ * remount the screen and take the user's sentence, the caption's open state and the outcome message
+ * with it — a screen resetting itself under someone who just typed into it. The response differs
+ * from the one already on screen in nothing a user can see, so the honest move is to leave it.
+ *
+ * The in-flight guard is `inFlightProbe`, shared with `submit`, so the ✕ still aborts this and one
+ * tap still costs at most one model call.
+ */
+async function submitNote(note: string): Promise<ReadNoteOutcome> {
+  const text = note.trim();
+  if (text === '') return 'abandoned';
+  // No link, nothing to re-read. Unreachable from the real flow — every route to `no_places` runs
+  // through `submit`, which has a canonicalised URL — but the `?state=` screenshot seam mounts the
+  // screen with no run behind it, and posting `url: ''` would spend a round trip to be told so.
+  if (url.trim() === '') return 'unavailable';
+  // Checked before the request rather than after it, so an offline read costs nothing and says the
+  // true thing immediately — the same rule the paste field and the name search both follow.
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return 'offline';
+  if (inFlightProbe.current !== null) return 'abandoned';
+  const probe = new AbortController();
+  inFlightProbe.current = probe;
+  const stillCurrent = () => inFlightProbe.current === probe;
+
+  try {
+    const res = await fetch('/api/imports/probe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      // The route bounds and fences this itself (charter R10) — it is our own user rather than a
+      // creator, which makes it more reliable about intent and no safer as input.
+      body: JSON.stringify({ url, note: text }),
+      signal: probe.signal,
+    });
+    const body = (await res.json()) as ProbeSuccess | ProbeErrorBody;
+    // A response that lost its race sets nothing at all, exactly as in `submit`.
+    if (!stillCurrent()) return 'abandoned';
+    if (!res.ok || 'error' in body) return 'unavailable';
+    if (body.candidates.length === 0) return 'nothing';
+    // The one outcome that moves: the review beat, reached by the same route with the same shape,
+    // so everything downstream — the picker, the note field, the confirm — is the code a caption
+    // with places already runs.
+    setScreen({ kind: 'caption_preview', probe: body });
+    return 'places';
+  } catch {
+    if (!stillCurrent()) return 'abandoned';
+    return 'unavailable';
+  } finally {
+    if (stillCurrent()) inFlightProbe.current = null;
+  }
+}
+
+/**
  * A tap on one of the paste screen's seed suggestions (`ui/import/seed-links.ts`).
  *
  * Three lines, and all three matter. `setUrl` puts the seed in the field so every screen after
@@ -430,6 +517,7 @@ useEffect(() => {
     canSubmit,
     submit,
     submitSeed,
+    submitNote,
     abort: abortInFlightProbe,
     reset,
   };
