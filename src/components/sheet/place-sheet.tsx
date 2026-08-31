@@ -769,7 +769,7 @@ export function PlaceRow({
    * qualifier rather than a warning, and its meaning is carried by shape, never by colour alone.
    *
    * Its cost, stated: a glyph is not self-describing. What makes it decodable is one tap away —
-   * the detail view's `Approximate location — worked out from the post…` — plus the tooltip on a
+   * the detail view's `Approximate location — worked out from the video…` — plus the tooltip on a
    * pointer device and `APPROXIMATE_ROW_ANNOTATION` in the row's accessible name.
    */
   const certainty = locationCertainty(place.detail?.provenance?.sourceDataset);

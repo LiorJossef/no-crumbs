@@ -47,7 +47,7 @@ export function locationCertainty(
       return {
         label: 'Approximate location',
         detail:
-          'Worked out from the post rather than matched to a map listing, so it can be a street or two off.',
+          'Worked out from the video rather than matched to a map listing, so it can be a street or two off.',
         isApproximate: true,
       };
     case 'google-places':

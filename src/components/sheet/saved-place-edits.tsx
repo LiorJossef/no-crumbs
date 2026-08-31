@@ -244,7 +244,7 @@ export function CategoryEditor({
   /** Whether this place came from a TikTok at all.
    *
    *  Only the sentence under the value depends on it, and only so that it stops being false: a
-   *  manually added place has no post, and the line read `Bar · worked out from the post` on the
+   *  manually added place has no video behind it, and the line read `Bar · worked out from the video` on the
    *  first one ever saved. Its category came from the map listing's own type, which is a different
    *  claim and a better one. */
   fromAPost: boolean;
@@ -338,7 +338,7 @@ export function CategoryEditor({
           )}
           {category !== null && !isOverridden && (
             <span className="text-muted-foreground">
-              {fromAPost ? ' · worked out from the post' : ' · from the map listing'}
+              {fromAPost ? ' · worked out from the video' : ' · from the map listing'}
             </span>
           )}
         </p>
