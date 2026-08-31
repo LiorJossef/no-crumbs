@@ -69,6 +69,7 @@ import { useImportRun } from './_lib/use-import-run';
 import { ImportShell } from './screens/import-shell';
 import { PasteScreen } from './screens/paste-screen';
 import { RailScreen } from './screens/rail-screen';
+import type { AddByNameOutcome } from './screens/add-by-name';
 import { NoPlacesScreen } from './screens/no-places-screen';
 import { ImportFailureScreen } from './screens/failure-screen';
 import { CaptionPreviewScreen } from './screens/review/review-screen';
@@ -318,6 +319,30 @@ export function ImportPageClient({
     }
   }
 
+  /**
+   * A place added by name from the no-places screen (`spec-no-places-found.md` §6.8).
+   *
+   * It leaves the flow exactly as a confirm does, camera flight included — a save from that screen
+   * is not a lesser save, and the whole point of inlining the search there rather than routing to a
+   * standalone add screen is that the place keeps its link to the TikTok it came from.
+   *
+   * The counts are shaped to say what actually happened: one place, and `alreadySaved` reported
+   * rather than dressed up, because `save_place` is idempotent and claiming a fresh save for a
+   * place the user already had is the small lie this codebase keeps refusing to tell. The link is
+   * cleared on the way out for the same reason `Try another TikTok` clears it — this one is spent.
+   */
+  function addedFromNoPlaces(outcome: AddByNameOutcome) {
+    backToMapWithFreshData({
+      saved: 1,
+      skipped: 0,
+      failed: 0,
+      alreadySaved: outcome.alreadySaved ? 1 : 0,
+      savedPlaceIds: [outcome.savedPlaceId],
+      statusByIndex: new Map(),
+    });
+    reset({ clearUrl: true });
+  }
+
   /** The explicit "Continue to map" action shown only after a `partial_failure` — the successful
    *  saves are real, so this proceeds exactly like a clean success once the user has seen the
    *  which/how-many-failed message. */
@@ -375,6 +400,7 @@ export function ImportPageClient({
           onRetry={() => reset({ clearUrl: true })}
           onBackToMap={backToMap}
           onAddManually={onAddManually ?? null}
+          onAdded={addedFromNoPlaces}
         />
       )}
 

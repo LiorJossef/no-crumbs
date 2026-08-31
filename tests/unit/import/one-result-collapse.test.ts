@@ -216,11 +216,20 @@ describe('NoPlacesScreen — the modal outcome has its recovery back', () => {
   });
 
   it('renders it only where there is a manual-add surface to open', () => {
-    // The rule that removed the dead button in the first place, kept: guarded on the prop, so the
-    // standalone `/import` route (no `＋` sheet) shows `Try another TikTok` as its primary rather
-    // than a button naming a destination it cannot reach.
+    /*
+     * The rule that removed the dead button in the first place, kept: guarded on the prop, so a
+     * surface with no `＋` sheet never shows a button naming a destination it cannot reach.
+     *
+     * What is **gone** is the variant switch this used to assert
+     * (`variant={onAddManually ? 'outline' : 'default'}`). It existed because `Add a place you
+     * know` was the screen's primary recovery, so its absence had to promote `Try another TikTok`
+     * into the empty slot. W6-5 made the add-by-name field the primary recovery, and the field
+     * depends on no host — so nothing is withheld when this prop is absent, and there is no slot
+     * left to promote anything into. This one is now a ghost secondary either way.
+     */
     expect(NO_PLACES_SOURCE).toContain('{onAddManually && (');
-    expect(NO_PLACES_SOURCE).toContain("variant={onAddManually ? 'outline' : 'default'}");
+    expect(NO_PLACES_SOURCE).not.toContain("variant={onAddManually ?");
+    expect(NO_PLACES_SOURCE).toContain('<AddByName');
   });
 
   it('is threaded from the page component, not left as an unused prop', () => {

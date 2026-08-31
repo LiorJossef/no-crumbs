@@ -46,6 +46,10 @@
  * /import?state=redirect-UNSUPPORTED_HOST   any PreSubmitErrorCode
  * ```
  *
+ * The no-places screens are the ones this matters most for: they are ~73% of imports, and the
+ * harness could not reach any of them. All three honest cases are here, because they are three
+ * different true statements and each is judged separately.
+ *
  * The fixtures below are the input to a *design* judgement, so they are shaped to exercise the
  * hierarchy rather than to look tidy: three candidates in three different resolution states — one
  * matched to map data, one ambiguous with a real shortlist, one past the cap that nobody looked up.

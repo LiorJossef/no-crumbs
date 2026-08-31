@@ -39,19 +39,22 @@
  * appear, and neither do "sorry", "oops", "failed" or "couldn't". Charter §6's banned aesthetic is
  * enforced by subtraction: type, one hairline, one caption panel.
  *
- * ## The variant this file is
+ * ## The variant this file is, and how finding 10 closes
  *
- * §5.4's **no-search** variant: primary `Try another TikTok`, secondary `Back to the map`. The
- * second exit is deliberate rather than an inconsistency — with no field in the footer it would
- * otherwise hold one button, and the ✕ is a 36px target in the top-left corner of an 812pt screen,
- * the hardest place on the device for a right thumb.
+ * §5.4's **with-search** variant, which the spec says is the one to build now that manual add
+ * exists. The add-by-name block is in the thumb zone (§4.1: reach, keyboard occlusion, and because
+ * a field in the action zone under a sentence naming what it is for reads as an offer rather than
+ * a form), and `Try another TikTok` is the ghost secondary beneath it.
  *
- * **The add-by-name block (§5.2) is not built yet**, and until it is, `onAddManually` is how the
- * manual-add recovery is reached where a host provides one. Finding 10 — the standalone `/import`
- * route silently withholding that recovery — is closed by the block, not by this file, because the
- * `＋` sheet the prop opens exists only on `/map`. `onAddManually` therefore stays a prop that may
- * be `null` and the button renders only where its destination exists: a recovery only ever points
- * somewhere that works.
+ * **That block is what closes finding 10.** The standalone `/import` route silently withheld this
+ * screen's primary recovery, because `onAddManually` opens the `＋` sheet and that sheet exists
+ * only on `/map`. A field on this screen has no host to depend on, so the recovery is now present
+ * on **every** entry point by construction rather than by a prop somebody remembered to thread.
+ *
+ * `onAddManually` is kept, and is now the *secondary* offer where a host has one: the `＋` sheet
+ * searches the user's own library first, which the field here deliberately does not. It stays a
+ * prop that may be `null` and renders only where its destination exists — a recovery only ever
+ * points somewhere that works — but nothing is withheld when it is absent any more.
  */
 
 import { useEffect, useId, useRef, useState } from 'react';
@@ -62,6 +65,7 @@ import { cn } from '@/lib/utils';
 import { IMPORT_ERROR_ACTION_LABEL } from '@/ui/import/import-error-copy';
 
 import type { ProbeSuccess } from '../_lib/probe-contract';
+import { AddByName, type AddByNameOutcome } from './add-by-name';
 
 /**
  * The kicker, headline and body for one arrival (`spec-no-places-found.md` §5.1, verbatim).
@@ -115,6 +119,7 @@ export function NoPlacesScreen({
   onRetry,
   onBackToMap,
   onAddManually,
+  onAdded,
 }: {
   probe: ProbeSuccess;
   /** `Try another TikTok`. Clears the link — see the note on the button. */
@@ -122,10 +127,14 @@ export function NoPlacesScreen({
   /** The same exit the ✕ takes. Rendered as a button too, because the ✕ alone is out of thumb
    *  reach on a tall phone (§5.4). */
   onBackToMap: () => void;
-  /** Opens the host's manual-add surface, where the host has one. `null` is not a degradation to
-   *  hide but the honest state of a surface with no manual add to reach, and the button renders
-   *  accordingly rather than naming a destination it cannot go to. */
+  /** Opens the host's manual-add surface, where the host has one — now the *secondary* offer,
+   *  because the field below reaches the same recovery from every entry point. `null` is not a
+   *  degradation to hide but the honest state of a surface with no `＋` sheet to open, and the
+   *  button renders accordingly rather than naming a destination it cannot go to. */
   onAddManually: (() => void) | null;
+  /** A place was added from this screen. The host closes the flow and flies the camera, exactly as
+   *  it does after a confirm — a save from here is not a lesser save. */
+  onAdded: (outcome: AddByNameOutcome) => void;
 }) {
   const headingId = useId();
   const bodyId = useId();
@@ -256,15 +265,26 @@ export function NoPlacesScreen({
         </div>
       )}
 
-      <div className="mt-auto flex shrink-0 flex-col gap-2 border-t border-border/70 pt-4">
-        {/* §5.3's hierarchy, and it only exists where the destination does. The user has a place in
-            mind — they watched the video — and this is the one action that ends with it on their
-            map; trying another link starts the whole wait again. */}
+      {/* The add-by-name recovery, in the thumb zone (§4.1). It is the reason this screen is a
+          destination rather than a dead end, and it is what makes the recovery reachable from
+          **every** entry point rather than only where a host passed an opener. */}
+      <AddByName
+        sourceId={probe.sourceId}
+        cityHint={probe.emptyReason === 'area_only' ? (probe.cityHint ?? null) : null}
+        onSubmitted={() => setCaptionOpen(false)}
+        onAdded={onAdded}
+      />
+
+      <div className="flex shrink-0 flex-col gap-2 pt-3">
+        {/* Still offered where a host has a `＋` sheet, and now secondary: that sheet searches the
+            user's own library first, which the field above deliberately does not. Nothing is
+            withheld when it is absent — the field is the recovery. */}
         {onAddManually && (
           <Button
             type="button"
+            variant="ghost"
             onClick={onAddManually}
-            className="h-12 w-full gap-1.5 rounded-lg text-base font-bold"
+            className="h-11 w-full rounded-lg text-sm font-bold"
           >
             Add a place you know
           </Button>
@@ -277,18 +297,15 @@ export function NoPlacesScreen({
             failure screens. */}
         <Button
           type="button"
-          variant={onAddManually ? 'outline' : 'default'}
+          variant="ghost"
           onClick={onRetry}
-          className={cn(
-            'w-full gap-1.5 rounded-lg font-bold',
-            onAddManually ? 'h-11 text-sm' : 'h-12 text-base',
-          )}
+          className="h-11 w-full gap-1.5 rounded-lg text-sm font-bold"
         >
           {IMPORT_ERROR_ACTION_LABEL.another_tiktok}
         </Button>
-        {/* The second way out, and it is the correct answer here rather than a defect: without a
-            field in this footer it holds one button, and the ✕ is a 36px target in the top-left
-            corner — the single hardest place on the device for a right thumb. */}
+        {/* The second way out, and it is the correct answer here rather than a defect: the ✕ is a
+            36px target in the top-left corner — the single hardest place on the device for a right
+            thumb — and this screen is where a user who has run out of ideas actually is. */}
         <Button
           type="button"
           variant="ghost"

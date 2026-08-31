@@ -233,12 +233,26 @@ describe('both ways out, and both point somewhere that works', () => {
     expect(CODE).toContain('onClick={onBackToMap}');
   });
 
-  it('shows the manual-add primary only where its destination exists', () => {
-    // A recovery only ever points somewhere that works. `null` is not a degradation to hide but
-    // the honest state of a surface with no manual add to reach.
+  it('shows the host’s manual-add offer only where its destination exists', () => {
+    // A recovery only ever points somewhere that works, and `null` is the honest state of a
+    // surface with no `＋` sheet. It is a secondary now: the field is the recovery, so its absence
+    // withholds nothing and there is no slot to promote another button into.
     expect(CODE).toContain('{onAddManually && (');
-    expect(CODE).toContain("variant={onAddManually ? 'outline' : 'default'}");
+    expect(CODE).not.toContain("variant={onAddManually ?");
     expect(CODE).toContain('onClick={onAddManually}');
+  });
+
+  it('closes finding 10 by not depending on a host at all', () => {
+    // The standalone `/import` route silently withheld this screen's primary recovery, because the
+    // only one on offer opened a `＋` sheet that exists on `/map` and nowhere else. The field has
+    // no host to be missing, so the recovery is present on **every** entry point by construction
+    // rather than by a prop somebody remembered to thread.
+    expect(CODE).toContain('<AddByName');
+    expect(CODE).toContain('sourceId={probe.sourceId}');
+    // And the page component that mounts the standalone route still passes no `onAddManually` —
+    // correctly, because there is no `＋` sheet there. That is no longer a withheld recovery.
+    const page = readFileSync('src/app/import/page.tsx', 'utf8');
+    expect(page).not.toContain('onAddManually');
   });
 
   it('takes the post as one object rather than three scalars pulled out of it', () => {
