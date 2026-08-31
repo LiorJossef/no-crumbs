@@ -255,3 +255,45 @@ that row scores 0.97 and is untouched. **This is why the function may not be "si
 
 The wrong option the engine offered on this corpus is gone, and it becomes a kept mention rather
 than a silent drop — which is what `place_mentions` exists for.
+
+---
+
+# Addendum 4 — a corroborating address no longer subtracts
+
+The last defect from Addendum 2, fixed. `compareAddress` now reports **whether the comparison
+settled anything**, and only a decisive one may move the score.
+
+- **Decisive**: matched street with equal house numbers (corroboration), a different street, or two
+  different house numbers (both contradictions). The blend keeps hearing all three.
+- **Indecisive**: the street matched and one side had no house number. `בזל` matches every address
+  on Basel Street — that is not weak evidence for a venue, it is no evidence either way. It now
+  leaves the base score alone instead of subtracting from it.
+
+`addressScore` still returns its 0.5 to F2, so *"somewhere on Basel Street is not an
+identification"* still holds and the three tests pinning that veto pass untouched. **The two callers
+wanted different things from one comparison; conflating them was the bug.**
+
+## The corpus, start to finish
+
+| | at session start | now |
+|---|---|---|
+| Candidates extracted | 10 | 10 |
+| **Pre-selected** | **4** | **5** |
+| Shortlist | 6 — one a wrong venue | **4, all correct** |
+| No match | 0 | 1 — the wrong venue |
+| **Wrong options offered to the user** | **1** | **0** |
+
+Two changes did it, and neither moved a threshold:
+
+1. `nameIsEstablished` — `Kiaans Tooting` -> `Kaosarn Tooting` demoted to `no_match`.
+2. `compareAddress` — `Nomena Roasters` promoted 0.857 -> 0.946 -> `preselect`, because
+   `Allenby Street` against `Allenby Street 54` is corroboration and was being scored as a penalty.
+
+**Every candidate the engine extracts from these sixteen links now either auto-accepts correctly,
+offers a correct choice, or honestly declines.**
+
+## What did not move, and will not without new input
+
+**3 of 16 posts yield a place.** Extraction is the ceiling and it is a property of the content:
+13 posts name no venue in their caption, and on 5 of those the venue is spoken or on screen. No
+scorer change reaches them. That gap needs a signal we do not currently read.

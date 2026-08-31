@@ -457,25 +457,74 @@ function streetSimilarity(
  *     house number is not weak evidence, it is conclusive: `דיזנגוף 99` is not `דיזנגוף 163`.
  *  5. A number missing on either side → the street score, halved.
  */
+export interface AddressComparison {
+  /** What `addressScore` reports, unchanged. `null` means no comparison was possible. */
+  readonly score: number | null;
+  /**
+   * Did the comparison actually settle anything?
+   *
+   * `false` for the street-matched-but-a-house-number-is-missing case, and **that distinction is
+   * the whole reason this type exists.** A street-only match is not weak evidence for the venue,
+   * it is *no evidence either way*: `בזל` matches every address on Basel Street. Reporting it as
+   * a 0.5 and blending it is what made a corroborating address subtract.
+   *
+   * `true` for a matched street with equal house numbers (corroboration), for a different street,
+   * and for two different house numbers (both contradictions). Those three are decisive and the
+   * blend should keep hearing them.
+   */
+  readonly decisive: boolean;
+}
+
+/**
+ * `addressScore` plus whether the comparison settled anything. See `AddressComparison.decisive`.
+ *
+ * Split out on 2026-08-31 because two callers want different things from one comparison, and
+ * conflating them cost real matches. `addressIsDecisive` (F2) needs the **score**, and correctly
+ * refuses to auto-accept on a street with no number — *"somewhere on Basel Street"* is not an
+ * identification, and `score.test.ts` pins that. `scorePlace` needs the **verdict**, because
+ * blending an indecisive 0.5 into a name that already matched can only ever subtract.
+ *
+ * The arithmetic, since it is short and it is the whole argument: the blend is
+ * `0.8·base + 0.2·address`, so a street-only 0.5 raises the total only when `base < 0.5`, which is
+ * far below `confirmScore` (0.80) — below anything a user is ever shown. Above that floor it is a
+ * pure penalty, and at its best (a perfect street against a perfect name) it pulled 1.000 to 0.900,
+ * under the 0.92 gate.
+ *
+ * Measured on a real import: the caption `Nomena Roasters, Allenby Street` against Google's
+ * `Allenby Street 54`. The street matches exactly; the caption simply did not state a number. For
+ * that, the candidate was demoted 0.946 -> 0.857 and sent to the user to confirm. **A corroborating
+ * address made the answer worse.**
+ */
+export function compareAddress(
+  addressHint: string | null | undefined,
+  candidateAddress: string | null | undefined,
+): AddressComparison {
+  const query = parseAddress(addressHint);
+  const candidate = parseAddress(candidateAddress);
+  if (query === null || candidate === null) return { score: null, decisive: false };
+
+  const queryScripts = scriptsOf(query.streetTokens);
+  const candidateScripts = scriptsOf(candidate.streetTokens);
+  if (![...queryScripts].some((script) => candidateScripts.has(script))) {
+    return { score: null, decisive: false };
+  }
+
+  const street = streetSimilarity(query.streetTokens, candidate.streetTokens);
+  if (street < SCORING.address.streetMatch) return { score: 0, decisive: true };
+
+  if (query.houseNumber !== null && candidate.houseNumber !== null) {
+    return query.houseNumber === candidate.houseNumber
+      ? { score: street, decisive: true }
+      : { score: 0, decisive: true };
+  }
+  return { score: street * SCORING.address.streetOnly, decisive: false };
+}
+
 export function addressScore(
   addressHint: string | null | undefined,
   candidateAddress: string | null | undefined,
 ): number | null {
-  const query = parseAddress(addressHint);
-  const candidate = parseAddress(candidateAddress);
-  if (query === null || candidate === null) return null;
-
-  const queryScripts = scriptsOf(query.streetTokens);
-  const candidateScripts = scriptsOf(candidate.streetTokens);
-  if (![...queryScripts].some((script) => candidateScripts.has(script))) return null;
-
-  const street = streetSimilarity(query.streetTokens, candidate.streetTokens);
-  if (street < SCORING.address.streetMatch) return 0;
-
-  if (query.houseNumber !== null && candidate.houseNumber !== null) {
-    return query.houseNumber === candidate.houseNumber ? street : 0;
-  }
-  return street * SCORING.address.streetOnly;
+  return compareAddress(addressHint, candidateAddress).score;
 }
 
 /**
@@ -562,9 +611,13 @@ export function scorePlace(
     SCORING.total.name * name.nameScore +
     SCORING.total.category * category +
     SCORING.total.datasetConfidence * place.datasetConfidence;
-  const address = addressScore(addressHint, place.addressLine);
+  // Only a comparison that settled something may move the score. An indecisive one — the street
+  // matched and one side had no house number — leaves `base` alone rather than subtracting from it.
+  // `addressScore` still reports its 0.5 to F2, which is where that value belongs.
+  const comparison = compareAddress(addressHint, place.addressLine);
+  const address = comparison.score;
   const score =
-    address === null
+    address === null || !comparison.decisive
       ? base
       : (1 - SCORING.address.weight) * base + SCORING.address.weight * address;
   return {
