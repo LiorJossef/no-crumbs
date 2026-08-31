@@ -143,9 +143,33 @@ export function ChromeStage({
                     variants={MARK_VARIANTS}
                     className="relative flex shrink-0 items-center justify-center"
                   >
+                    {/*
+                     * **The halo's box may not reach the wordmark, and the number that guarantees
+                     * that is the gap beside it.**
+                     *
+                     * This was `-inset-7` — 28px of glow around a 44px mark — against a `gap-3`,
+                     * so the box overran the wordmark's leading edge by exactly 28 − 12 = 16px on a
+                     * phone and 28 − 16 = 12px on a desktop. `closest-side` reaches zero alpha at
+                     * the *box* edge, and the text starts *inside* the box, so it was painting
+                     * there: measured on painted pixels under the first characters of `No`, with
+                     * all ink turned transparent, **18 units per channel in light and 33 in dark**
+                     * against the same row clear of the mark. Not nil, which is what it was
+                     * assumed to be before it was measured.
+                     *
+                     * That is a decorative gradient under ink — the same thing that removed
+                     * `--chrome-panel-wash` from the section around this one, smaller and harder to
+                     * see. It never cost a contrast ratio, because the wordmark is `--foreground`
+                     * at 14.7:1 on this material, and that is exactly why it survived a sweep that
+                     * found 0 failures across 120 strings. The rule is about where a gradient is,
+                     * not about whether it currently happens to be affordable.
+                     *
+                     * So the inset now matches the gap at each breakpoint and the box stops where
+                     * the text begins. Keep them equal: raising one without the other puts this
+                     * back.
+                     */}
                     <span
                       aria-hidden
-                      className="pointer-events-none absolute -inset-7"
+                      className="pointer-events-none absolute -inset-3 lg:-inset-4"
                       style={{ background: 'var(--chrome-mark-glow)' }}
                     />
                     <ChromeMark className="relative size-11 lg:size-14" />
