@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { createClient } from '@/app/_lib/supabase/server';
 import { Button } from '@/components/ui/button';
 import { emailLocalPart, isInviteRole } from '@/domain/collections/collection';
+import { collectionsHref } from '@/app/collections/_lib/drawer-view';
 import { JoinClient, JoinShell } from './join-client';
 
 export const metadata = { title: 'Join a collection' };
@@ -100,7 +101,9 @@ export default async function JoinCollectionPage({
   // Already in — including the owner opening their own link. Straight through, with no
   // "you're already in" message: it tells them nothing they cannot see on the next screen.
   if (preview.already_member) {
-    redirect(`/collections/${preview.collection_id}`);
+    // The canonical URL, not the `/collections/<id>` shim — see `join-client.tsx`'s
+    // `enterCollection` for why one redirect is better than two.
+    redirect(collectionsHref({ kind: 'collection', id: preview.collection_id }) as '/collections');
   }
 
   const { data: profile } = await supabase

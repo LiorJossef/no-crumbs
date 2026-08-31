@@ -25,6 +25,7 @@ import { PinMark } from '@/components/brand/pin-mark';
 import { NamePrompt } from '@/components/collections/name-prompt';
 import { joinCollection } from '@/app/actions/collections';
 import { memberLabel, type InviteRole } from '@/domain/collections/collection';
+import { collectionsHref } from '@/app/collections/_lib/drawer-view';
 
 /** §5.2's third line. Two roles, two sentences, and neither is a list of permissions. */
 export function roleSentence(role: InviteRole): string {
@@ -85,7 +86,12 @@ export function JoinClient({
   const inviter = memberLabel({ displayName: inviterName, isYou: false });
 
   function enterCollection() {
-    router.push(`/collections/${collectionId}`);
+    // **The search-param form, not the path form.** `/collections/<id>` still works — it is a
+    // permanent redirect shim — but going through it costs a second navigation *and* a segment
+    // change on each leg, which is exactly the sheet remount the drawer merge removed
+    // (`app/collections/_lib/drawer-view.ts`). Arriving on a shared collection is the one moment a
+    // stranger judges this product, so it lands on the canonical URL directly.
+    router.push(collectionsHref({ kind: 'collection', id: collectionId }) as '/collections');
   }
 
   function performJoin() {
