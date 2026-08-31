@@ -26,7 +26,7 @@
  * small model's geographic recall, not something prompt wording can fix. `gemini-3.5-flash-lite`
  * on the exact same prompt/schema got every one of those venues right, repeatably.
  */
-import { extractorInvalidOutput, extractorUnavailable } from '@/domain/errors';
+import { extractorInvalidOutput, extractorQuotaExhausted, extractorUnavailable } from '@/domain/errors';
 import { CANDIDATE_CAP, parseExtractionResultPartial, toPlaceCandidate } from '@/domain/extraction/schema';
 import type { OpCtx, PlaceExtractor } from '@/domain/ports';
 import type { ContentPart } from '@/domain/types';
@@ -206,7 +206,18 @@ export function geminiPlaceExtractor(config: {
       }
 
       if (!response.ok) {
-        throw extractorUnavailable(`Gemini returned HTTP ${response.status}`);
+        // A 429 here is the shared daily budget being spent, not a transient fault — the calls do
+        // not come back within a retry's reach, so it carries its own code and its own screen
+        // (`product-ruling-quota-copy-2026-08-31.md` R4/§5). Every other non-OK status keeps
+        // `extractorUnavailable`, whose copy correctly offers a retry.
+        //
+        // **`anthropic.place-extractor.ts` is byte-similar here and must NOT get this.** Anthropic's
+        // 429 is a short per-minute rate limit that a retry genuinely clears; Gemini's is the day's
+        // budget gone. Same status code, opposite meaning — this is the line a build lane copies
+        // across without thinking.
+        throw response.status === 429
+          ? extractorQuotaExhausted(`Gemini returned HTTP ${response.status}`)
+          : extractorUnavailable(`Gemini returned HTTP ${response.status}`);
       }
 
       let json: unknown;

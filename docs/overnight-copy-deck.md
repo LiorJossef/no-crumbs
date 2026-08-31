@@ -889,6 +889,103 @@ Same pattern as §8: the orchestrator lands these.
 5. `grep -n "maxLength={500}"` finds nothing — the constant is imported.
 6. The field element is a `textarea`.
 
+## 13. The screen for a spent model allowance (`r2-quota`)
+
+> Ruled in [`product-ruling-quota-copy-2026-08-31.md`](product-ruling-quota-copy-2026-08-31.md) §3
+> and built in the same change. **The three strings are fixed by that ruling and are not this deck's
+> to improve** — each word was chosen against a measured fact, and paraphrasing any of them puts
+> back a promise the product cannot keep.
+
+### 13.1 Why this screen exists
+
+Every existing string for this state was false. When the model provider's daily allowance is spent,
+the failure collapses into `EXTRACTOR_UNAVAILABLE`, whose screen says *"That one's on us, not on the
+video. We've already got it, so a retry is quick."* with **`Retry` as the mint primary** — an
+invitation to discover, repeatedly, that it is not quick and will not work again today. The other
+candidate, the retired per-user rate-limit screen, blamed the user for someone else's usage.
+
+The state now has its own error code, `EXTRACTOR_QUOTA_EXHAUSTED`, so the news can be distinct.
+
+### 13.2 The strings
+
+| ID | Surface / state | String |
+|---|---|---|
+| **C170** | Can't find places today, headline | `We can’t find places right now.` |
+| **C171** | Can't find places today, body | `We read it fine. Try it again tomorrow.` |
+| **C172** | Can't find places today, actions | `Back to the map` — no retry, no second link |
+
+The kicker is `Not right now` and the mark is `waiting`, both from the ruling. Typographic
+apostrophes, matching every neighbouring entry.
+
+**Ids checked, not assumed.** `C170`–`C172` were re-grepped across `docs/` immediately before this
+edit, per the ruling's criterion 19: the highest allocated id elsewhere is `C163` (§12.3), and the
+three are free. No substitution was needed, so §9 of the ruling records none.
+
+### 13.3 Why each word
+
+**`find places`, not `read`.** §3 of `voice-and-vocabulary.md` assigns the two verbs to the two
+stages and the product ships both: `Reading the TikTok video…` (C09) is stage A, `Finding the
+places…` (C12) is stage B. Stage B is what failed, and *read* here would contradict the body one
+line below it.
+
+**`right now`, not `today`.** A provider ceiling can be per-minute as well as per-day, and nothing
+in the codebase reads the provider's error body to tell them apart. `right now` is true under either
+reading; `today` can be flatly false.
+
+**`tomorrow`, and it is deliberately conservative.** It is advice, not a claim about the world, and
+it is the only duration that cannot over-promise: it holds whether the ceiling was a day or a
+minute. A user who returns early finds it working, which is the harmless direction.
+
+**`We read it fine.` is the load-bearing sentence.** Every other screen in this family is about the
+link, so the user's trained response is to fetch a different one — which fails identically and
+wastes their afternoon. This is the one screen where that instinct is wrong, and four words turn it
+off. It is also *measured*: the extractor is stage B and the source fetch is stage A, so by the time
+this failure can be raised, oEmbed has already returned the caption.
+
+**What is deliberately not said.** Not that the allowance is *shared*, and not that an allowance
+exists: it leaks our machinery (§7.3), the user cannot act on it, and it invites exactly one
+follow-up — *shared with whom?* — whose honest answer, in front of a grader, is *with the agents
+that built this*. No apology, no cause, no brand name; a failure screen is not one of the six
+surfaces the name may appear on.
+
+### 13.4 One action, and the rule behind the two that are missing
+
+`Back to the map` alone. It renders as the mint primary because it is `actions[0]`, and that is
+correct — leaving *is* the recovery here, which is true on no other screen in this family.
+
+- **No `Retry`.** Same allowance, same second. Carried as `retryable: false` in the taxonomy and not
+  only in the copy table, so a server response cannot put the button back.
+- **No `Try another TikTok link`.** The next link spends the same empty allowance. The same lie in a
+  smaller font.
+- **No `Open on TikTok`, and this one is a repo rule rather than a preference.** Across the shipped
+  table, `open_tiktok` appears on exactly the codes where **the read failed**, and on none of the
+  three where it succeeded. Stated for the repo: *`open_tiktok` is offered exactly when we could not
+  read the video, never as a consolation when we could.*
+- **Manual add is deferred, not cut.** Two conditions, both from the ruling §8: the action must
+  actually be wired from the failure screen, and the second pool must be checked — `addPlaceManually`
+  spends Google Places' own 100/day, which can also be empty, and sending a user from one exhausted
+  pool to another is the same defect relocated.
+
+### 13.5 The documents that move with the strings, landed in the same change
+
+`voice-and-vocabulary.md` §6: *a string changes in code and the deck follows in the same commit, or
+it does not change.* Three edits, all inside §12.4 and nowhere else in that file:
+
+| # | Row | Change |
+|---|---|---|
+| 1 | **C67** — `You've added a lot of TikTok links in the last few minutes. Try again shortly.` | **Retired** in the C85/C98 style: the row stays, the string is struck, and the note records that it described a **per-user limit the product does not have** and, shown for the state that does occur, blamed the user for someone else's usage |
+| 2 | **C68** — `You've tried this a few times. Give it a few minutes.` | Retired, same style — and it promised a wait of minutes for a ceiling that can be a day |
+| 3 | **C170**, **C171**, **C172** | Added to the same table, verbatim from §13.2, each with the reason for its wording |
+
+Three more documents carried the retired code and were corrected in the same change, each only in
+the section that named it: `07-import-execution-model.md` §9's table row and its per-user-limit
+paragraph, `technical-design.md`'s copy of that table, and `security.md` R-1.
+
+**`security.md` R-1 stands and must not be read as closed by any of this.** No per-user limiter has
+been built, and nothing in this change — code, comment or document — claims one has. What changed
+there is one sentence of R-1's *evidence*, not its verdict: the code it cited as unreachable has
+been removed rather than left standing as a false signal that a limit is in place.
+
 ---
 
 ## Change log
@@ -898,3 +995,4 @@ Same pattern as §8: the orchestrator lands these.
 | 2026-08-31 | Created for the overnight run. Wrote final copy for seven surfaces (W4-1 identity, W1-5 the non-TikTok link, W1-4/W6-4 provenance, W5-1/W5-2/W5-5 the library, W7-4 deletion, W7-5 the edges confirmed unchanged, W6-5 confirmed frozen against its spec) with ids `C100`–`C155`. Corrected the run sheet's W4-1 criterion, which cited three strings in a section that has none. Recorded that W1-5 overrides a shipped owner ruling of 2026-08-29 and that the docblock stating it must be rewritten in the same commit. Found the `ux-architecture.md` §12 drift to be **eight rows, not two** — including `C98`, a row for a state `active-area.ts` records as gone and unreachable, and `C74`'s `How to turn it on`, an action nobody built. Two scope rulings: the tag facet may never show a tag no place carries and renders nothing when there are none; the held payoff count does not execute at N = 0, where the rail's existing `No places named` takes the same hold instead. Four decisions escalated to the owner, each with a conservative default the run can build against |
 | 2026-08-31 | **TikTok noun→adjective pass**, per [`tiktok-copy-pass-2026-08-31.md`](tiktok-copy-pass-2026-08-31.md) and `voice-and-vocabulary.md` §3.1. **C110** becomes `That link isn’t from TikTok.` — the repair is to the claim, not only the grammar. §7's frozen quotes of `spec-no-places-found.md` follow **the spec, which moved first**; §7.3's four-wordings table keeps its first three rows as the historical record and amends only the row that ships. §8 gains row 11: the pass moves **17 further §12 ids**, three of which are already rows above, so §12 takes **one** edit and not three. Also recorded there: **C31 is a drift row on its own** — the deck says `From @{handle}'s TikTok` and the shipped subline has no `From ` prefix |
 | 2026-08-31 | §12 added after W5-6 shipped a field no code path can fill. Ruled that **description survives** as the word for a collection's own line — §3's ban is scoped to a place's note, the word already ships in `validateCollectionDescription`'s error string, and `note` is the one alternative that must not be reused because a place inside a collection already has one. `C160` label, `C161` placeholder (an example, not an instruction; the obvious first draft used `ate`, which §4 bans). `C162`/`C163` recommended: a menu row saying `Rename` that opens a two-field form is mislabelled. Two rows owed to `voice-and-vocabulary.md` §3, not edited here |
+| 2026-08-31 | §13 added for `r2-quota`: the screen shown when the model provider's daily allowance is spent, which until now rendered `EXTRACTOR_UNAVAILABLE`'s *"a retry is quick"* with a `Retry` primary — false for the rest of the day. Three strings, `C170`–`C172`, **fixed by [`product-ruling-quota-copy-2026-08-31.md`](product-ruling-quota-copy-2026-08-31.md) §3 and not paraphrasable**; ids re-grepped across `docs/` immediately before writing, per that ruling's criterion 19, and free (highest allocated elsewhere: `C163`). Records the repo rule the ruling derived from the shipped table — *`open_tiktok` is offered exactly when we could not read the video* — and, in §13.5, the C67/C68 retirement rows owed to `ux-architecture.md` §12.4, which this lane does not hold |

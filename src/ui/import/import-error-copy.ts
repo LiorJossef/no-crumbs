@@ -181,18 +181,6 @@ export const IMPORT_ERROR_COPY: Record<DomainErrorCode, ImportErrorCopy> = {
     actions: ['retry', 'another_tiktok'],
   },
 
-  /** §5.4's rate-limit row, C67 verbatim as the body: no numbers, no "429". **No retry button** —
-   *  §5.4 is explicit, and a retry would only hit the same limiter. `another_tiktok` is withheld
-   *  for the same reason: the limit is per user, not per link, so the next link fails identically.
-   *  The one honest move left is to leave and come back, so that is the only action. */
-  RATE_LIMITED_LOCAL: {
-    kicker: 'One moment',
-    headline: 'Give it a few minutes.', // from C68
-    body: 'You’ve added a lot of TikTok links in the last few minutes. Try again shortly.', // C67
-    icon: 'waiting',
-    actions: ['back_to_map'],
-  },
-
   /** `07` §9 routes this to an **F10 variant**, not F9: "This post has no caption to read". Nothing
    *  is broken — we opened the post fine. So the primary action is forward (§5.3: "retrying the
    *  same URL will produce the same answer and offering it would be a lie about our capability"),
@@ -224,6 +212,32 @@ export const IMPORT_ERROR_COPY: Record<DomainErrorCode, ImportErrorCopy> = {
     body: 'That one’s on us, not on the video. We’ve already got it, so a retry is quick.',
     icon: 'our-side',
     actions: ['retry', 'another_tiktok'],
+  },
+
+  /** The day's allowance of model calls is spent (`product-ruling-quota-copy-2026-08-31.md` §3;
+   *  deck rows C170–C172). Three word choices are the ruling's, not this file's, and each is a
+   *  fact rather than a preference:
+   *
+   *   - **`find places`, not `read`.** The read succeeded — this is stage B, the one the product
+   *     already calls `Finding the places…` (C12). Writing *read* here would contradict the body
+   *     one line below it.
+   *   - **`right now`, not `today`.** A provider ceiling can be per-minute as well as per-day and
+   *     nothing in this codebase reads which; `right now` is true under either. The body's
+   *     `tomorrow` is advice and is the only duration that cannot over-promise in either case.
+   *   - **`We read it fine.`** is the load-bearing sentence. Every other screen in this family is
+   *     about the link, so the trained response is to go and fetch a different one — which fails
+   *     identically. This is the one screen where that instinct is wrong.
+   *
+   *  No retry and no `another_tiktok`: both spend the same empty allowance, and `retryable: false`
+   *  in the taxonomy is what stops a server response putting the button back. No `open_tiktok`
+   *  either, by the rule this table already follows — it is offered exactly where **the read
+   *  failed**, never as a consolation where it succeeded. Leaving *is* the recovery here. */
+  EXTRACTOR_QUOTA_EXHAUSTED: {
+    kicker: 'Not right now',
+    headline: 'We can’t find places right now.', // C170
+    body: 'We read it fine. Try it again tomorrow.', // C171
+    icon: 'waiting',
+    actions: ['back_to_map'], // C172
   },
 
   /** `07` §9: "redirect to sign-in, pasted URL preserved". C76 as the headline. The body does not
@@ -275,7 +289,7 @@ export function toDomainErrorCode(raw: string): DomainErrorCode {
  *    sends `retryable: false` for a code the table calls retryable — a stage that has spent its
  *    one retry — we do not put a button on screen the server has already said will not work. Not
  *    symmetric: `retryable: true` never *adds* a retry to a code whose news makes retrying
- *    pointless (`NO_CAPTION`, `UNSUPPORTED_URL`, `RATE_LIMITED_LOCAL`).
+ *    pointless (`NO_CAPTION`, `UNSUPPORTED_URL`, `EXTRACTOR_QUOTA_EXHAUSTED`).
  * 2. **A link out of the product is never the primary.** `open_tiktok` / `open_link` are honesty,
  *    not recovery. No entry leads with one, but dropping a `retry` can promote one —
  *    `POST_UNAVAILABLE` with `retryable: false` is exactly that case — so the first real recovery

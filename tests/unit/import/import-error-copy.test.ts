@@ -77,9 +77,13 @@ describe('IMPORT_ERROR_COPY — codes that must read differently do', () => {
     // NO_CAPTION is an F10 variant in 07 §9, not F9: the post was opened successfully.
     // EXTRACTOR_* are our own step failing after a clean read. None may borrow F9's headline.
     const f9Headline = IMPORT_ERROR_COPY.POST_UNAVAILABLE.headline;
-    for (const code of ['NO_CAPTION', 'EXTRACTOR_UNAVAILABLE', 'EXTRACTOR_INVALID_OUTPUT'] as const) {
+    for (const code of ['NO_CAPTION', 'EXTRACTOR_UNAVAILABLE', 'EXTRACTOR_INVALID_OUTPUT', 'EXTRACTOR_QUOTA_EXHAUSTED'] as const) {
       expect(IMPORT_ERROR_COPY[code].headline, code).not.toBe(f9Headline);
     }
+    // EXTRACTOR_QUOTA_EXHAUSTED goes further than not borrowing F9's headline: it says the read
+    // worked, in as many words, because the trained response to every other screen in this family
+    // is to go and fetch a different link — which fails identically and wastes the afternoon.
+    expect(IMPORT_ERROR_COPY.EXTRACTOR_QUOTA_EXHAUSTED.body).toContain('We read it fine.');
   });
 
   it('keeps UNSUPPORTED_URL distinct from a read failure', () => {
@@ -118,18 +122,60 @@ describe('IMPORT_ERROR_COPY — recovery actions', () => {
     for (const code of CODES) {
       const retryableInTaxonomy = DOMAIN_ERROR_CONSTRUCTORS[code]().retryable;
       const offersRetry = IMPORT_ERROR_COPY[code].actions.includes('retry');
-      // One documented exception: RATE_LIMITED_LOCAL... is not one. It is `retryable: false` in
-      // the taxonomy precisely because §5.4 forbids a retry button, so the two agree.
+      // There is no exception, and `EXTRACTOR_QUOTA_EXHAUSTED` is the case that could have been
+      // one: it is `retryable: false` in the taxonomy precisely so that no screen, and nothing
+      // downstream of a server response, can put a retry button on a state a retry cannot fix.
       expect(offersRetry, `${code}: retryable=${retryableInTaxonomy}, offersRetry=${offersRetry}`).toBe(
         retryableInTaxonomy,
       );
     }
   });
 
-  it('gives RATE_LIMITED_LOCAL no retry and no second link to try', () => {
-    // §5.4: "You've added a lot of TikToks in the last few minutes. Try again shortly." The limit
-    // is per user, so `Try another TikTok link` fails identically — offering it would be a lie.
-    expect(IMPORT_ERROR_COPY.RATE_LIMITED_LOCAL.actions).toEqual(['back_to_map']);
+  it('gives EXTRACTOR_QUOTA_EXHAUSTED exactly one way out, and it is not a second attempt', () => {
+    // `product-ruling-quota-copy-2026-08-31.md` R2. Both re-runs — the same link and a different
+    // one — spend the same empty allowance, so either button would be the same lie in a smaller
+    // font. Leaving is the recovery, and it is the only screen in this family where that is true.
+    expect(IMPORT_ERROR_COPY.EXTRACTOR_QUOTA_EXHAUSTED.actions).toEqual(['back_to_map']);
+  });
+
+  it('states the quota screen exactly as the ruling fixes it, apostrophes included', () => {
+    // Byte-identical to §3. These three strings are not this file's to improve: each word was
+    // ruled against a measured fact (the read *did* succeed; a provider ceiling may be per-minute
+    // rather than per-day), and paraphrasing any of them reintroduces a promise we cannot keep.
+    const copy = IMPORT_ERROR_COPY.EXTRACTOR_QUOTA_EXHAUSTED;
+    expect(copy.kicker).toBe('Not right now');
+    expect(copy.headline).toBe('We can\u2019t find places right now.');
+    expect(copy.body).toBe('We read it fine. Try it again tomorrow.');
+    expect(copy.icon).toBe('waiting');
+  });
+
+  it('offers the quota screen no retry, no second link and no trip to TikTok', () => {
+    // The last of the three is a repo rule the shipped table already follows, stated by the ruling
+    // §4: `open_tiktok` appears on exactly the codes where **the read failed**, and is absent from
+    // all three where it succeeded. Here it succeeded — pointing at the video would imply the
+    // video is the problem, one line under a sentence saying it is not.
+    const { actions } = IMPORT_ERROR_COPY.EXTRACTOR_QUOTA_EXHAUSTED;
+    for (const forbidden of ['retry', 'another_tiktok', 'open_tiktok', 'open_link'] as const) {
+      expect(actions, forbidden).not.toContain(forbidden);
+    }
+    // And no label for any of them can reach the screen either way.
+    const rendered = actions.map((action) => IMPORT_ERROR_ACTION_LABEL[action]);
+    for (const label of ['Retry', 'Try another TikTok link', 'Open on TikTok', 'Open the original link']) {
+      expect(rendered, label).not.toContain(label);
+    }
+  });
+
+  it('keeps the transient extractor failures exactly as they were — only the quota case split off', () => {
+    // The point of a new code was that the *other* two keep their retry. If this ever fails, the
+    // fix widened past the branch it was for.
+    for (const code of ['EXTRACTOR_UNAVAILABLE', 'EXTRACTOR_INVALID_OUTPUT'] as const) {
+      const copy = IMPORT_ERROR_COPY[code];
+      expect(copy.kicker, code).toBe('On our side');
+      expect(copy.headline, code).toBe('We read it, but couldn\u2019t work out the places.');
+      expect(copy.body, code).toBe('That one\u2019s on us, not on the video. We\u2019ve already got it, so a retry is quick.');
+      expect(copy.icon, code).toBe('our-side');
+      expect(copy.actions, code).toEqual(['retry', 'another_tiktok']);
+    }
   });
 
   it('sends NOT_AUTHENTICATED to sign-in rather than to another link', () => {
@@ -197,7 +243,9 @@ describe('importErrorActions — the server’s retryable wins over the table', 
   it('never adds a Retry the table withheld, even when the server says retryable', () => {
     expect(importErrorActions('NO_CAPTION', true)).not.toContain('retry');
     expect(importErrorActions('UNSUPPORTED_URL', true)).not.toContain('retry');
-    expect(importErrorActions('RATE_LIMITED_LOCAL', true)).not.toContain('retry');
+    // The one that matters most here: a server sending `retryable: true` — a stale deploy, a
+    // proxy, a future bug — must not be able to restore a button the ruling removed.
+    expect(importErrorActions('EXTRACTOR_QUOTA_EXHAUSTED', true)).toEqual(['back_to_map']);
   });
 
   it('still leaves a way out for every code with retry suppressed', () => {

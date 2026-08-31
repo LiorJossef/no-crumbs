@@ -334,9 +334,15 @@ partial success structural rather than exceptional.
   lookups happen at confirmation time, for selected candidates only**, which halves provider spend on
   the common path where the user saves 2 of 3.
 - `MAX_LLM_CALLS_PER_IMPORT = 2` (one attempt plus one transport retry).
-- Per-user rate limit: values owned by D11; the architectural hook is that the limit is checked in the
-  route handler *before* `getOrCreateImport`, and a rejection is the domain error `RATE_LIMITED_LOCAL`,
-  never a raw limiter message (UX §5.1).
+- Per-user rate limit: **not built, and no longer has a reserved code.** Values are owned by D11 and
+  the architectural hook is unchanged — the limit is checked in the route handler *before*
+  `getOrCreateImport`, and a rejection is a domain error rather than a raw limiter message (UX §5.1).
+  What changed on 2026-08-31 is that the code it would have raised was retired rather than kept
+  waiting: a written screen and a 429 for a limiter nobody was building read, to anyone scanning the
+  taxonomy or a green test suite, as a shipped capability (`security.md` R-1, which **stands**). The
+  code comes back **with its producer, in the same commit**, on the day the limiter is written. Note
+  that a per-user limit would not fix the ceiling that actually binds: the model and Places
+  allowances are global, so one user can exhaust everyone's.
 
 **Cancellation** is cooperative and checkpointed. The client's `Cancel` aborts the `fetch`; the
 handler observes `request.signal`, and the orchestrator checks the signal **between** stages only —
@@ -427,10 +433,11 @@ two booleans. Copy lives in one client-side map (UX §12), so the wire format ca
 | `POST_UNAVAILABLE` | oEmbed 400 after our validation passed | A2 | **once** | **F9** — the single honest state. Private / deleted / region-locked are indistinguishable (VERIFIED) and we do not guess |
 | `UPSTREAM_TIMEOUT` | our `AbortSignal` | A1/A2 | yes | F9 with `Retry` primary |
 | `RATE_LIMITED_UPSTREAM` | reserved — **no 429 ever observed** from TikTok | A2 | yes | same copy as timeout; kept so a future TikTok change surfaces as a distinct log code |
-| `RATE_LIMITED_LOCAL` | our own per-user limiter, in the route handler | pre-A | later | "You've tried this a few times. Give it a few minutes." |
+| ~~`RATE_LIMITED_LOCAL`~~ | **RETIRED 2026-08-31** ([`product-ruling-quota-copy-2026-08-31.md`](product-ruling-quota-copy-2026-08-31.md) R4). The per-user limiter it named **was never built** (`security.md` R-1), so the code had a written screen and a 429 and nothing in `src/` ever constructed it — a capability claim the product could not honour. It was also the nearest thing to the state that *does* occur, so it was being shown for a shared exhaustion and blaming the user for someone else's usage. **When the limiter is built the code comes back with its producer, in the same commit** — the only order that was ever correct. The union stays **13**: this row out, `EXTRACTOR_QUOTA_EXHAUSTED` in. | — | — | — |
 | `NO_CAPTION` | content extractor: oEmbed 200 but no usable text | A/B seam | no | F10 variant: "This post has no caption to read" → manual place search |
 | `EXTRACTOR_UNAVAILABLE` | LLM adapter: transport, 5xx, quota, timeout | B | yes | F9 with `Retry` (cheap — source is cached) |
 | `EXTRACTOR_INVALID_OUTPUT` | Zod parse of LLM structured output fails after 1 reprompt | B | yes | F9 |
+| `EXTRACTOR_QUOTA_EXHAUSTED` | LLM adapter: the provider answered correctly and **declined** — the day's allowance is spent (Gemini HTTP 429). **Added 2026-08-31**; split out of `EXTRACTOR_UNAVAILABLE`, whose "a retry is quick" was false for the rest of the day | B | **no** | Its own screen: `We can't find places right now.` / `We read it fine. Try it again tomorrow.` — one action, `Back to the map`. 503, not 429: the caller may not have spent a single call of the allowance |
 | `NOT_AUTHENTICATED` | route handler | pre-A | n/a | redirect to sign-in, pasted URL preserved |
 | `INTERNAL` | anything unmapped; the union's floor | any | yes | F9 generic. **An `INTERNAL` in the logs is a bug report, always** |
 

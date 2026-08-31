@@ -1046,14 +1046,28 @@ assertion. **No veto is exercised.**
 **R-1 · No rate limiting on any endpoint.** *What an attacker does:* signs up and posts to
 `/api/imports/probe` in a loop. *What they get:* one TikTok oEmbed call and one **paid model call**
 per request, at our expense, plus unbounded rows in `sources` / `extractions` / `imports`. There is
-no per-user limit, no global limit and no cost ceiling in code. `RATE_LIMITED_LOCAL` exists as an
-error code with shipped UI copy (`domain/errors.ts:175`, `ui/import/import-error-copy.ts:188`) and
-**nothing in `src/` ever constructs it** — grep confirms zero call sites. *Minimum fix:* a per-user
-counter over `imports` (the table, the index `imports_user_recent_idx` and the error code all already
-exist) checked before the model call. *Why it is not a launch blocker at this size:* sign-up is
-required, the user population is the owner plus an examiner, and the model in use is the cheapest
-tier. *What changes it:* the first public sign-up link. **This is the residue of owed item 11
-(Charter D11) and it is the largest one.**
+no per-user limit, no global limit and no cost ceiling in code. **Corrected 2026-08-31:** the
+sentence that stood here — *"`RATE_LIMITED_LOCAL` exists as an error code with shipped UI copy … and
+nothing in `src/` ever constructs it"* — was true when written and is no longer, because that code
+has been **retired** for exactly the reason it recorded
+([`product-ruling-quota-copy-2026-08-31.md`](product-ruling-quota-copy-2026-08-31.md) R4). **R-1
+itself stands, undiminished:** the limiter is still not built, and retiring the code it would have
+raised removes a false signal of capability rather than the exposure. If anything the finding is now
+easier to read, since nothing in the taxonomy suggests a limit is in place.
+`tests/unit/errors-have-producers.test.ts` is the standing guard that a code cannot again claim a
+capability nothing ships. *Minimum fix:* a per-user counter over `imports` (the table and the index
+`imports_user_recent_idx` already exist; **the error code no longer does and comes back with its
+producer in the same commit**) checked before the model call. *Why it is not a launch blocker at
+this size:* sign-up is required, the user population is the owner plus an examiner, and the model in
+use is the cheapest tier. *What changes it:* the first public sign-up link. **This is the residue of
+owed item 11 (Charter D11) and it is the largest one.**
+
+**R-1 does not depend on the thumbnail-expiry figure, and this is stated rather than left to be
+inferred.** A shorter expiry than the schema's VERIFIED six months was re-derived from `x-expires`
+on 2026-08-31 and is being re-graded elsewhere; that number is **not repeated here**, because R-1's
+verdict turns on the *model* call each request spends, not on how long a signed image URL survives.
+A shorter expiry makes the refresh path hotter, which is a cost and correctness question for that
+route — and it does not make this exposure larger or smaller by one request.
 
 **R-2 · Third-party personal data retained indefinitely, with no deletion path at all.**
 `sources.content_text` (the creator's caption), `author_handle` and `author_name` are the TikTok
