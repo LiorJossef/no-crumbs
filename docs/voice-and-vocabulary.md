@@ -94,6 +94,21 @@ link`. Becoming the thing is not — `a TikTok`, `TikToks`, `this TikTok`. A plu
 you can only pluralise a count noun, so **`Some TikToks…` is always wrong** and becomes
 `Some TikTok videos…`.
 
+**First reference carries the adjective; a later one on the same surface need not.** `a TikTok
+video` establishes what we are talking about — a second mention two lines down may say `the video`,
+because that is how English refers back, and repeating the full form twice in one viewport reads as
+a legal notice rather than a sentence. This is the one place bare *video* is allowed, and it is
+allowed as an **anaphor**, never as a synonym: it may only refer back to a TikTok video already named
+on that screen. A surface that says `video` without ever having said `TikTok video` has broken the
+row above, not used this clause. (The original never column banned *a video* outright; that ban was
+about using it as a **substitute** for naming the source, which this does not do.)
+
+**Where the possessive is the problem, rewrite the sentence.** `not your TikTok’s` admits no
+adjective repair — `not your TikTok video’s` is a stacked possessive nobody says aloud, and
+`not TikTok’s` changes the claim from *your post is fine* to *the company is not at fault*. When the
+compliant options are all worse, the sentence itself is the thing to change. §3's rule is one word
+per thing, not one shape per sentence.
+
 The verb half of the clause needs no work: we have never shipped *“TikTok it”* or *“TikToking”*,
 and §4 already bans that register.
 
