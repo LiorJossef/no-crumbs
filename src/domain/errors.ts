@@ -12,6 +12,12 @@
  *    code's `retryable` value from the table — a call site cannot construct, say, `INTERNAL` and
  *    claim it is retryable when the taxonomy says otherwise, because `retryable` is not a
  *    parameter anywhere.
+ *  - **These messages are diagnostics, and `voice-and-vocabulary.md` does not bind them.** They
+ *    are read in logs and by us, never by a user: the client receives `body.error.code` and renders
+ *    `ui/import/import-error-copy.ts`, which is where the vocabulary rules apply. That is why five
+ *    of the strings below say *post* while every user-facing string says *video* — §3 bans *post*
+ *    as a word a user reads, and TikTok's own URL taxonomy is the right register for a log line.
+ *    Asked and answered twice on 2026-08-31; the first sentence of this docblock is the proof.
  *  - **`NO_PLACES_FOUND` is not here.** It is a successful outcome (`ImportOutcome`'s
  *    `kind: 'no_places'`, `domain/import/events.ts`), not a member of this union — see the note at
  *    the bottom of `07` §9. Modelling the modal result (~73%, `04` §4) as an error would poison

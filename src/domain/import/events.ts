@@ -22,7 +22,7 @@ import type { Candidate, ImportId, PlaceId, SourceView } from '../types';
 export type PipelineStage = 'source' | 'extract' | 'resolve';
 
 /** The fact each stage settles into, supplied by the server, never a status string (`07` §4):
- *  `Read @handle's TikTok`, `3 places found`. Keyed by stage so a `source`-done event cannot
+ *  `Read @handle's video`, `3 places found`. Keyed by stage so a `source`-done event cannot
  *  accidentally carry an `extract` fact. */
 export interface StageFact {
   readonly source: { readonly authorHandle: string | null };
