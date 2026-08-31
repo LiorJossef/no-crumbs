@@ -324,8 +324,33 @@ export function CaptionPreviewScreen({
             `n >= 1` here. */}
         {n >= 2 && statusByIndex === null && (
           <div className="flex shrink-0 items-center justify-between">
+            {/*
+              **The denominator is the headline's number, and that is the whole point of it.**
+
+              It used to be `saveableIndices.length`, which produced `3 places found` in the H1 and
+              `1 of 2 selected` in the line directly beneath it — two true statements whose
+              relationship the screen never accounted for. A reader is told there are three, then
+              that there are two, and cannot tell whether the product lost one, is hiding one, or
+              is broken. That is §8a's Q3 one layer up from a false claim: not a lie, but two counts
+              silently changing population between adjacent lines.
+
+              The candidate that fell out was **not** the capped one — that is saveable and merely
+              arrives unticked (W1-4). It was an `ambiguous` card with a real shortlist and no model
+              pin: `willSave` is false for it until the user picks, so it was in the headline and
+              not in the denominator. Both populations are now the same one, and each card accounts
+              for itself in the badge slot W6-4 promoted — `Needs your pick` on that card, `Not
+              checked` on the capped one.
+
+              `Select all` therefore settles at `2 of 3` here rather than `2 of 2`, with the toggle
+              reading `Deselect all`. That is the honest reading: everything that *can* be selected
+              is, and the third card says on its face why it is not among them. Making the headline
+              say 2 instead would be the other way of squaring the numbers, and it is the one
+              `resolution-record.ts` forbids — a capped candidate is kept and visible rather than
+              silently dropped, and W1-4 was entirely about not letting the least-verified card
+              disappear into a default.
+            */}
             <p className="text-caption font-medium text-muted-foreground">
-              {selectedCount} of {saveableIndices.length} selected
+              {selectedCount} of {n} selected
             </p>
             <button
               type="button"
