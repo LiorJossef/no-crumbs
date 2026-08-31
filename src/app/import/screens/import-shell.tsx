@@ -67,7 +67,24 @@ export function ImportShell({
         // both read as backgrounded context) with a single centred, capped-height card floating
         // on top. `<main>` itself becomes the flex-centring context and the scrim; the inner div
         // below is the card. Mobile is untouched — these are all `lg:` additions.
-        isOverlay && 'lg:flex lg:items-center lg:justify-center lg:overflow-y-auto lg:bg-foreground/35 lg:p-10 lg:backdrop-blur-[2px]',
+        isOverlay && 'lg:flex lg:items-center lg:justify-center lg:overflow-y-auto lg:bg-foreground/35 lg:backdrop-blur-[2px]',
+        // **This padding is the card's height budget, and it is the only place that number is
+        // written.** The card below takes `lg:max-h-full`, which resolves against *this* element's
+        // content box, so the two can no longer disagree — and they did: the card capped itself at
+        // `min(52rem, 100vh-4rem)` = 832px inside a scrim padded `p-10`, whose content box at
+        // 900px is 820px, so the tallest screen in the flow overflowed its own scrim by 12px and
+        // made `<main>` scroll.
+        //
+        // `p-5` rather than `p-10`, on **both** variants (the standalone route had no `lg:`
+        // padding at all and centred on `my-auto`, which is the same 4rem by another route).
+        // The review screen is the only screen here whose content exceeds the cap, and at
+        // 1440 × 900 a laptop has just **56px more height than a phone** — so every pixel of
+        // chrome above 56 is a pixel on which the desktop shows *less of the decision than the
+        // phone does*, which is what it was doing (`product-review-2026-08-31-r3.md` finding 4:
+        // candidate scroller `clientHeight` 371 desktop against 409 mobile). 20px still reads as
+        // a floating card — horizontally the scrim is ~480px on each side of a 480px card — and
+        // it is the widest inset the arithmetic leaves.
+        'lg:p-5',
         // The medium tier, overlay only: this plane arrives over a live map, so it fades in rather
         // than cutting over it. `ENTER_SCRIM` is opacity and nothing else — a 2% zoom on a
         // viewport-sized element would show a ring of un-dimmed map down every edge — and the card
@@ -114,8 +131,14 @@ export function ImportShell({
           // floating card centred over the dimmed map + list, not a docked panel — fixed width,
           // capped height with its own scroll (so a future 3-stage rail grows the card rather than
           // forcing full-viewport height), rounded corners on all sides, hairline border + elevation.
+          //
+          // **The width ruling is `ux-import-review-screen.md` §5.2 and it is deliberate**: *"The
+          // card stays `clamp(420px, 34vw, 480px)`. Do not widen it, do not go two-column, do not
+          // add a caption pane on the side. This is a task, not a dashboard."* Honoured. What that
+          // section did **not** rule on is the card's height, and that is where the desktop was
+          // losing to the phone — see `<main>` above and `lg:max-h-full` / `lg:py-8` below.
           isOverlay &&
-            'lg:relative lg:mx-0 lg:my-0 lg:w-[clamp(420px,34vw,480px)] lg:max-w-none lg:flex-none lg:max-h-[min(52rem,calc(100vh-4rem))] lg:justify-start lg:overflow-hidden lg:rounded-2xl lg:border lg:border-border/70 lg:bg-card lg:px-8 lg:py-10 lg:shadow-sheet',
+            'lg:relative lg:mx-0 lg:my-0 lg:w-[clamp(420px,34vw,480px)] lg:max-w-none lg:flex-none lg:max-h-full lg:justify-start lg:overflow-hidden lg:rounded-2xl lg:border lg:border-border/70 lg:bg-card lg:px-8 lg:py-8 lg:shadow-sheet',
           // Desktop (`lg+`), standalone `/import` route (no map behind it).
           //
           // This used to be a flush right-docked, full-height panel, and with no map behind it that
@@ -123,7 +146,23 @@ export function ImportShell({
           // the product, on a screen whose whole content is one input. It is now the same centred
           // card the overlay uses, so the two ways into this flow look like one flow.
           !isOverlay &&
-            'lg:relative lg:my-auto lg:w-[clamp(420px,34vw,480px)] lg:max-w-none lg:flex-none lg:max-h-[min(52rem,calc(100vh-4rem))] lg:justify-start lg:overflow-hidden lg:rounded-2xl lg:border lg:border-border/70 lg:bg-card lg:px-8 lg:py-10 lg:shadow-sheet',
+            'lg:relative lg:my-auto lg:w-[clamp(420px,34vw,480px)] lg:max-w-none lg:flex-none lg:max-h-full lg:justify-start lg:overflow-hidden lg:rounded-2xl lg:border lg:border-border/70 lg:bg-card lg:px-8 lg:py-8 lg:shadow-sheet',
+          // **Two numbers in those strings changed together and neither is a taste call.**
+          //
+          // `lg:max-h-full` replaces `lg:max-h-[min(52rem,calc(100vh-4rem))]`. The `52rem` half was
+          // a constant dressed as a viewport rule: at 832px it binds below a 896px viewport and at
+          // *every* viewport above it, so a laptop, a 27" monitor and a 900px window all got the
+          // same 832px card and the extra height was declined. A percentage against `<main>`'s
+          // padding box is the same intent expressed once, and it cannot drift out of step with
+          // the scrim the way a second literal did.
+          //
+          // `lg:py-8` replaces `lg:py-10`. The mobile column spends 56px on vertical padding
+          // (`2rem` top, `1.5rem` bottom); the desktop card spent 80px, on a viewport with only
+          // 56px more height to give. 32px now matches this card's own `lg:px-8`, so the inset is
+          // square, and the 16px goes to the candidate list.
+          //
+          // The other four screens in this flow are content-height, so `max-h` never binds on them
+          // and the only thing they see is the 16px.
           // The card that lands on the scrim above, at the scrim's own duration. See `ENTER_MODAL`
           // for why a modal scales rather than slides, and `ENTER_SCRIM` for why only this half of
           // the pair does.
