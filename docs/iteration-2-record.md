@@ -420,7 +420,19 @@ commit. That single discipline is why six scope errors cost minutes rather than 
 
 > **What I get wrong is cascade resolution rules stated from memory.**
 
-One lane, two instances, same shape, **and both took under a minute to settle in a browser.** That is worth more than either fix: not *"I make mistakes"* but a named class with a named cheap test. The lead's own equivalent — eleven coordination errors, every one *an assertion about the tree made from inference where reading would have settled it* — is the same discipline applied to a different surface.
+Four instances by the end of the day — specificity twice, custom-property substitution scope once,
+and a **mixed denominator** once, where a figure measured on three routes was reported beside one
+measured on seven. That last is the same failure in a different medium: *a qualifier dropped off a
+number*, caught by re-reading two JSON files rather than by opening a browser — **which makes it the
+version most likely to be skipped, because it feels like something you already know.**
+
+**And two of the four were in fixes already handed over, which is the half that matters: a wrong
+answer travels further once someone else repeats it.** Both were repeated — by the lead, back to the
+lane that had already retracted them. A claim that has been relayed is harder to withdraw than one
+that has only been made, because withdrawing it now contradicts two people instead of one.
+
+One lane, four instances, same shape, **and each took under a minute to settle in a browser or in a
+file already open.** That is worth more than either fix: not *"I make mistakes"* but a named class with a named cheap test. The lead's own equivalent — eleven coordination errors, every one *an assertion about the tree made from inference where reading would have settled it* — is the same discipline applied to a different surface.
 
 ### 8.3 Still open
 
