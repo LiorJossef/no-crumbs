@@ -36,7 +36,7 @@ import { Skeleton } from '@/components/ui/skeleton';
  */
 export default function ProfileLoading() {
   return (
-    <main className="min-h-dvh w-full bg-background">
+    <main className="flex min-h-dvh w-full flex-col bg-background">
       <BottomNav />
 
       <header
@@ -51,7 +51,7 @@ export default function ProfileLoading() {
 
       <div
         aria-hidden
-        className="mx-auto w-full max-w-[560px] px-4"
+        className="mx-auto my-auto w-full max-w-140 px-4"
         style={{
           paddingBottom: `calc(${BOTTOM_NAV_HEIGHT_PX}px + env(safe-area-inset-bottom) + 1.5rem)`,
         }}

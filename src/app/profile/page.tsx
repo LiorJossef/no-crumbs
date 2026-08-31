@@ -86,7 +86,12 @@ export default async function ProfilePage() {
   const { stats, countries, categories } = deriveProfileBreakdown(places);
 
   return (
-    <main className="min-h-dvh w-full bg-background">
+    // `flex flex-col` so the block below can take `my-auto`. At zero places this page is a third
+    // of a phone screen with two thirds of nothing under it — the pattern the Q1 sweep found on six
+    // mobile screens and ruled on. A column that genuinely *ends* is centred in what is left rather
+    // than anchored to the top with a long tail; when the library fills the lists back in, the
+    // content exceeds the space and `my-auto` collapses to nothing, so nothing moves at scale.
+    <main className="flex min-h-dvh w-full flex-col bg-background">
       <BottomNav places={library} />
 
       {/* The same header as `/collections`: the back arrow exists only at `lg`, where the bar does
@@ -106,7 +111,7 @@ export default async function ProfilePage() {
       </header>
 
       <div
-        className="mx-auto w-full max-w-[560px] px-4"
+        className="mx-auto my-auto w-full max-w-140 px-4"
         style={{
           paddingBottom: `calc(${BOTTOM_NAV_HEIGHT_PX}px + env(safe-area-inset-bottom) + 1.5rem)`,
         }}

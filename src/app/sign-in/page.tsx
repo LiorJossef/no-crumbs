@@ -16,6 +16,7 @@ import { Loader2 } from 'lucide-react';
 import type { AuthError } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/client';
 import { safeReturnPath } from '@/domain/auth/return-path';
+import { DISPLAY_WORDMARK_AXES } from '@/components/brand/display-type';
 import { PinMark } from '@/components/brand/pin-mark';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -126,7 +127,21 @@ export default function SignInPage() {
         {/* Editorial / hero column — top-aligned + pinned by the form's mt-auto on mobile,
             vertically centered in a flex-1 left panel on desktop. */}
         <div className="relative flex flex-1 flex-col px-6 pt-14 lg:justify-center lg:px-[clamp(48px,7vw,110px)] lg:pt-0">
-          <PinMark className="relative z-10 h-[30px] w-[30px] lg:h-9 lg:w-9" />
+          {/* The mark and the name, the same lockup `/` carries eight lines into its own file, and
+              for the reason that file gives: landing and sign-in are one step apart in the demo
+              path, and if they do not read as one product that is the first thing anyone notices.
+              This surface carried the mark alone until now, so the name appeared on one side of a
+              single step and not the other. `voice-and-vocabulary.md` §2 permits it on both — they
+              are one surface in its list, *the landing and sign-in mark*. */}
+          <div className="relative z-10 flex items-center gap-2.5">
+            <PinMark className="size-7.5 lg:size-9" />
+            <span
+              className="font-display text-lg font-black tracking-tight text-foreground lg:text-xl"
+              style={DISPLAY_WORDMARK_AXES}
+            >
+              No Crumbs
+            </span>
+          </div>
 
           <p className="relative z-10 mt-4 text-micro font-bold tracking-[0.14em] text-brand uppercase lg:mt-6 lg:text-caption">
             {kicker}
