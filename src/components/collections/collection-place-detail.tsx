@@ -70,14 +70,22 @@ import {
 } from '@/app/actions/collections';
 import type { CollectionPlace } from '@/app/collections/_lib/get-collections';
 import type { CollectionRole } from '@/domain/collections/collection';
+import { PRESS_CHIP } from '@/lib/interaction';
+import { cn } from '@/lib/utils';
 import type { MapPlace } from '@/components/map/map-surface';
 import type { PlaceDetailFacts, SharedOnlyPlaceFacts } from '@/domain/places/spot';
 
 /** The quiet mint text action, as used for the external links and the note affordance in the
  *  standard detail view. `min-h-11` is the one addition: the note's affordance sits alone in
  *  whitespace on a phone rather than in that view's dense row of links. */
-const TEXT_ACTION =
-  'inline-flex min-h-11 items-center gap-1.5 rounded text-sm font-bold text-brand underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50';
+/** Every inline text action on this surface. `PRESS_CHIP` is on the constant rather than at the
+ *  call sites so a fourth one cannot be added without it — the shape a small target needs, since
+ *  a 5% squeeze that would be violent on a full-width row is what makes a text control visibly
+ *  respond to a finger. */
+const TEXT_ACTION = cn(
+  'inline-flex min-h-11 items-center gap-1.5 rounded text-sm font-bold text-brand underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50',
+  PRESS_CHIP,
+);
 
 export function CollectionPlaceDetail({
   collectionId,
@@ -445,7 +453,7 @@ function SharedNote({
             setEditing(false);
           }}
           onBlur={commit}
-          className="mt-2 w-full rounded-lg border border-input bg-card px-3 py-2 text-base outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
+          className="mt-2 w-full rounded-lg border border-input bg-card px-3 py-2 text-base outline-none motion-safe:transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
         />
       ) : note ? (
         <p dir="auto" className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-foreground">

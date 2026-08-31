@@ -35,6 +35,7 @@ import {
   createCollection,
   removePlaceFromCollection,
 } from '@/app/actions/collections';
+import { PRESS_ROW } from '@/lib/interaction';
 import { cn } from '@/lib/utils';
 
 /** One pane's back control, drawn by whoever hosts the pane. */
@@ -89,7 +90,13 @@ export function AddToCollection({ placeId }: { placeId: string | undefined }) {
       type="button"
       onClick={() => setOpen(true)}
       data-vaul-no-drag
-      className="flex min-h-12 w-full items-center gap-2.5 rounded-lg px-1 text-left text-sm font-medium transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      className={cn(
+        // The bare `transition-colors` goes rather than gaining a prefix — `PRESS_BEAT` carries
+        // colour and transform together, so an un-prefixed one beside it would reach only the
+        // users who asked for less motion.
+        'flex min-h-12 w-full items-center gap-2.5 rounded-lg px-1 text-left text-sm font-medium hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+        PRESS_ROW,
+      )}
     >
       <FolderPlus className="size-4 shrink-0 text-muted-foreground" aria-hidden />
       <span className="flex min-w-0 flex-1 items-baseline gap-1">
@@ -226,7 +233,10 @@ export function CollectionPicker({ placeId, onBack }: { placeId: string; onBack:
           type="button"
           onClick={() => setComposing(true)}
           data-vaul-no-drag
-          className="flex min-h-11 items-center gap-2.5 border-b border-border/70 px-1 text-left text-sm font-medium transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          className={cn(
+            'flex min-h-11 items-center gap-2.5 border-b border-border/70 px-1 text-left text-sm font-medium hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+            PRESS_ROW,
+          )}
         >
           <Plus className="size-4 shrink-0 text-muted-foreground" aria-hidden />
           New collection
@@ -245,7 +255,10 @@ export function CollectionPicker({ placeId, onBack }: { placeId: string; onBack:
                   aria-checked={isIn}
                   onClick={() => toggle(collection.id)}
                   data-vaul-no-drag
-                  className="flex min-h-11 w-full items-center gap-2.5 px-1 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                  className={cn(
+                    'flex min-h-11 w-full items-center gap-2.5 px-1 text-left hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+                    PRESS_ROW,
+                  )}
                 >
                   <span
                     aria-hidden

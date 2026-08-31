@@ -17,6 +17,8 @@ import Link from 'next/link';
 import { ChevronRight, Library } from 'lucide-react';
 
 import { useCollections } from '@/ui/place/collections-context';
+import { PRESS_ROW } from '@/lib/interaction';
+import { cn } from '@/lib/utils';
 
 export function CollectionsNavRow() {
   const collections = useCollections();
@@ -28,7 +30,10 @@ export function CollectionsNavRow() {
     <Link
       href="/collections"
       data-vaul-no-drag
-      className="flex min-h-11 items-center gap-2.5 border-t border-border/70 px-1 py-3 text-sm font-medium transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+      className={cn(
+        'flex min-h-11 items-center gap-2.5 border-t border-border/70 px-1 py-3 text-sm font-medium hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+        PRESS_ROW,
+      )}
     >
       <Library className="size-4 shrink-0 text-muted-foreground" aria-hidden />
       <span className="flex-1">Collections</span>

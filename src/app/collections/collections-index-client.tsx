@@ -26,6 +26,7 @@ import Link from 'next/link';
 import { ChevronLeft, ChevronRight, ChevronUp, Plus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { PRESS_CHIP, PRESS_ROW } from '@/lib/interaction';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { CollectionCover } from '@/components/collections/collection-cover';
@@ -95,6 +96,7 @@ export function CollectionsIndexClient({
             className={cn(
               KICKER,
               'mx-4 -ms-2 inline-flex min-h-11 w-fit shrink-0 items-center gap-1 rounded-full px-2 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+              PRESS_CHIP,
             )}
           >
             <ChevronLeft className="size-3.5 shrink-0 rtl:rotate-180" aria-hidden />
@@ -159,7 +161,10 @@ function CollectionsList({
             type="button"
             onClick={onExpand}
             aria-label="Show your collections"
-            className="flex min-w-0 flex-1 items-center gap-1 rounded-lg px-1 text-left text-sm font-medium text-muted-foreground"
+            className={cn(
+              'flex min-w-0 flex-1 items-center gap-1 rounded-lg px-1 text-left text-sm font-medium text-muted-foreground',
+              PRESS_ROW,
+            )}
           >
             <span className="min-w-0 truncate">
               {collections.length === 0 ? (
@@ -272,7 +277,14 @@ function CollectionsList({
             type="button"
             onClick={() => setComposing(true)}
             data-vaul-no-drag
-            className="mt-2 flex min-h-14 w-full items-center gap-3 rounded-xl border border-dashed border-border px-3 text-left text-sm font-medium text-muted-foreground transition-colors hover:border-border/70 hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            className={cn(
+              // No un-prefixed `transition-colors` beside a `motion-safe:` press: `PRESS_BEAT`'s
+              // `motion-safe:transition` carries colour *and* transform for everyone else, so an
+              // un-prefixed one here would be reachable only by the users who asked for less
+              // motion — a hover fade that exists for exactly the audience that did not want it.
+              'mt-2 flex min-h-14 w-full items-center gap-3 rounded-xl border border-dashed border-border px-3 text-left text-sm font-medium text-muted-foreground hover:border-border/70 hover:bg-muted/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+              PRESS_ROW,
+            )}
           >
             <span
               aria-hidden
@@ -323,7 +335,12 @@ function Section({
               // The accessible name carries every fact the colour strip cannot (§8.4).
               aria-label={rowAccessibleName(collection)}
               data-vaul-no-drag
-              className="flex min-h-[76px] items-center gap-3 rounded-lg px-1 py-3.5 transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+              className={cn(
+                // Same reasoning as the composer row above: the bare `transition-colors` goes
+                // rather than gaining a prefix, because `PRESS_BEAT` supersedes it.
+                'flex min-h-19 items-center gap-3 rounded-lg px-1 py-3.5 hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+                PRESS_ROW,
+              )}
             >
               <div className="flex min-w-0 flex-1 flex-col gap-1">
                 {/* Two bidi rules, and they are separable. `<bdi>` isolates the name's own

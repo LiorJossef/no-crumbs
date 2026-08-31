@@ -59,6 +59,7 @@ import {
 } from '@/app/actions/collections';
 import type { CollectionDetail } from '@/app/collections/_lib/get-collections';
 import type { MapPlace } from '@/components/map/map-surface';
+import { PRESS_CHIP, PRESS_ROW } from '@/lib/interaction';
 import { cn } from '@/lib/utils';
 
 /**
@@ -211,7 +212,10 @@ function CollectionPeekLine({
           type="button"
           onClick={onExpand}
           aria-label={`Show ${collection.name}`}
-          className="flex min-w-0 flex-1 items-center gap-1 rounded-lg px-1 text-left text-sm font-medium text-muted-foreground"
+          className={cn(
+            'flex min-w-0 flex-1 items-center gap-1 rounded-lg px-1 text-left text-sm font-medium text-muted-foreground',
+            PRESS_ROW,
+          )}
         >
           <span className="min-w-0 truncate">
             {count === 0 ? (
@@ -291,6 +295,7 @@ function CollectionList({
             className={cn(
               KICKER,
               '-ms-2 inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full px-2 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+              PRESS_CHIP,
             )}
           >
             <ChevronLeft className="size-3.5 shrink-0 rtl:rotate-180" aria-hidden />
@@ -322,7 +327,10 @@ function CollectionList({
           onClick={() => onViewChange('share')}
           aria-label="Who is in this collection"
           data-vaul-no-drag
-          className="mt-0.5 flex min-h-6 flex-wrap items-center gap-x-1.5 rounded text-start text-[13px] text-muted-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          className={cn(
+            'mt-0.5 flex min-h-6 flex-wrap items-center gap-x-1.5 rounded text-start text-caption text-muted-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+            PRESS_CHIP,
+          )}
         >
           {/* Separate elements with a literal separator, never one interpolated string: a count and
               a Hebrew name in one line of text reorder around each other. `whitespace-nowrap` so the
@@ -666,7 +674,11 @@ function MenuRow({
       onClick={onClick}
       data-vaul-no-drag
       className={cn(
-        'flex min-h-11 items-center px-3 text-left text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 not-last:border-b not-last:border-border/70',
+        // The bare `transition-colors` goes rather than gaining a `motion-safe:` prefix:
+        // `PRESS_BEAT` already carries colour and transform together for everyone else, so an
+        // un-prefixed one beside it would be reachable *only* under `prefers-reduced-motion`.
+        'flex min-h-11 items-center px-3 text-left text-sm font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 not-last:border-b not-last:border-border/70',
+        PRESS_ROW,
         destructive ? 'text-destructive' : 'text-foreground',
       )}
     >
@@ -825,7 +837,10 @@ function AddPlacesPanel({
                     aria-pressed={isIn || isPicked}
                     onClick={() => placeId && toggle(placeId)}
                     data-vaul-no-drag
-                    className="flex min-h-16 w-full items-center gap-3 rounded-lg py-3.5 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-60"
+                    className={cn(
+                      'flex min-h-16 w-full items-center gap-3 rounded-lg py-3.5 text-left hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-60',
+                      PRESS_ROW,
+                    )}
                   >
                     <span
                       aria-hidden

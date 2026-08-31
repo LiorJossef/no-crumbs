@@ -40,6 +40,7 @@ import {
   type InviteRole,
 } from '@/domain/collections/collection';
 import type { CollectionInvite, CollectionMember } from '@/app/collections/_lib/get-collections';
+import { PRESS_CHIP, PRESS_ROW } from '@/lib/interaction';
 import { cn } from '@/lib/utils';
 
 // ── pure helpers, exported so they can be tested without a DOM ────────────────────────────────
@@ -339,7 +340,11 @@ function OwnerLinkSection({
                 aria-checked={selected}
                 onClick={() => setSelectedRole(option)}
                 className={cn(
-                  'h-12 flex-1 rounded-lg border text-sm font-bold transition-colors',
+                  // `transition-colors` goes rather than gaining a prefix: `PRESS_BEAT` carries
+                  // colour and transform together for everyone else, so an un-prefixed one beside
+                  // it would be reachable only under `prefers-reduced-motion`.
+                  'h-12 flex-1 rounded-lg border text-sm font-bold',
+                  PRESS_CHIP,
                   'focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
                   selected
                     ? 'border-transparent bg-primary text-primary-foreground'
@@ -467,14 +472,20 @@ function OwnerLinkSection({
             <button
               type="button"
               onClick={() => setConfirming('replace')}
-              className="flex min-h-11 items-center text-sm font-bold text-muted-foreground underline-offset-4 hover:underline"
+              className={cn(
+                'flex min-h-11 items-center text-sm font-bold text-muted-foreground underline-offset-4 hover:underline',
+                PRESS_CHIP,
+              )}
             >
               Replace link
             </button>
             <button
               type="button"
               onClick={() => setConfirming('off')}
-              className="flex min-h-11 items-center text-sm font-bold text-muted-foreground underline-offset-4 hover:underline"
+              className={cn(
+                'flex min-h-11 items-center text-sm font-bold text-muted-foreground underline-offset-4 hover:underline',
+                PRESS_CHIP,
+              )}
             >
               Turn the link off
             </button>
@@ -600,7 +611,10 @@ function MemberRow({
             type="button"
             disabled={pending || member.role === 'editor'}
             onClick={() => setRole('editor')}
-            className="flex min-h-11 items-center text-sm font-medium disabled:text-muted-foreground"
+            className={cn(
+              'flex min-h-11 items-center text-sm font-medium disabled:text-muted-foreground',
+              PRESS_ROW,
+            )}
           >
             Can edit
           </button>
@@ -608,14 +622,20 @@ function MemberRow({
             type="button"
             disabled={pending || member.role === 'viewer'}
             onClick={() => setRole('viewer')}
-            className="flex min-h-11 items-center text-sm font-medium disabled:text-muted-foreground"
+            className={cn(
+              'flex min-h-11 items-center text-sm font-medium disabled:text-muted-foreground',
+              PRESS_ROW,
+            )}
           >
             Can view
           </button>
           <button
             type="button"
             onClick={() => setConfirmingRemoval(true)}
-            className="flex min-h-11 items-center text-sm font-bold text-destructive"
+            className={cn(
+              'flex min-h-11 items-center text-sm font-bold text-destructive',
+              PRESS_ROW,
+            )}
           >
             Remove from collection
           </button>
@@ -699,7 +719,10 @@ function LeaveCollection({
             setError(null);
             setConfirming(true);
           }}
-          className="flex min-h-11 items-center self-start text-sm font-bold text-muted-foreground underline-offset-4 hover:text-destructive hover:underline"
+          className={cn(
+            'flex min-h-11 items-center self-start text-sm font-bold text-muted-foreground underline-offset-4 hover:text-destructive hover:underline',
+            PRESS_CHIP,
+          )}
         >
           Leave collection
         </button>
