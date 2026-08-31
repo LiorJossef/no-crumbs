@@ -5,7 +5,7 @@ import Link from 'next/link';
 
 import { deleteAccount } from '@/app/actions/account';
 import type { BlockingCollection } from '@/app/profile/_lib/blocking-collections';
-import { collectionHref } from '@/app/map/_lib/drawer-view';
+import { INDEX_VIEW, collectionHref, drawerHref } from '@/app/map/_lib/drawer-view';
 import { InlineConfirm } from '@/components/collections/collection-content';
 import { Button } from '@/components/ui/button';
 
@@ -108,7 +108,10 @@ export function AccountActions({ blocking }: { blocking: readonly BlockingCollec
 
         <div className="mt-3 flex gap-2">
           <Button
-            render={<Link href="/collections" />}
+            // `drawerHref`, not the literal: `/collections` is a redirect shim, and routing this
+            // through it costs a segment change on each leg — the drawer torn down and rebuilt on
+            // the way to the screen this copy is sending the user to.
+            render={<Link href={drawerHref(INDEX_VIEW) as '/map'} />}
             nativeButton={false}
             size="lg"
             className="h-11 flex-1"
