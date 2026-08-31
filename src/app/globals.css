@@ -613,7 +613,15 @@
      * *warmth*; keeping those two jobs in two tokens is what stops either being asked to do both,
      * which is the mistake mint was making.
      *
-     * It is placed top-right, diagonally opposite the shade and **away from the card's mark**. That
+     * The low band is `MASCOT_CRUST` rather than `MASCOT_GOLD`, centred at 116% so what shows is the
+     * falloff rather than the bloom, and **listed last so the shade paints over it**. That order is
+     * the whole of how this is warmth *below* the card rather than *behind* it: the neutral shade
+     * still owns the ring the card's bottom edge separates against, and the gold only reaches where
+     * the shade has already fallen off. Measured either side, the bottom edge is the strongest of
+     * the four at ΔE 19.1 and warming it trades directly against that, so the edge is the stop
+     * condition and the numbers are in the commit.
+     *
+     * The top-right bloom is placed diagonally opposite the shade and **away from the card's mark**. That
      * is deliberate rather than compositional taste: `MASCOT_CRUST` is 4° from `MASCOT_GOLD`, so
      * gold near the lockup would put the mark's halo and the ground into one hue family and the
      * halo would stop reading as light coming off the character. It is the one thing this ruling
@@ -632,6 +640,7 @@
         radial-gradient(66% 56% at -8% 104%, rgba(224, 168, 69, 0.34) 0%, transparent 62%),
         radial-gradient(62% 52% at -10% 102%, color-mix(in srgb, var(--chrome-shade) 44%, transparent) 0%, transparent 64%),
         radial-gradient(92% 96% at 50% 46%, color-mix(in srgb, var(--chrome-shade) 30%, transparent) 0%, transparent 78%),
+        radial-gradient(96% 46% at 50% 116%, rgba(224, 168, 69, 0.46) 0%, transparent 66%),
         var(--background);
     --chrome-bloom-a: radial-gradient(closest-side, rgba(91, 108, 255, 0.30) 0%, rgba(91, 108, 255, 0) 100%);
     /* The second bloom follows the mesh onto the warm shade, and it is the one that was still
