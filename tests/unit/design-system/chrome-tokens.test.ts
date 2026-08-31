@@ -16,11 +16,20 @@
  *  - **A composition token with one value.** `--panel` was `bg-white/55` — a pigment and an alpha,
  *    correct on paper and 1.18:1 at night. A chrome token that is declared only in `:root` is that
  *    bug with a better name.
- *  - **The motion constants drifting from the CSS ones.** Motion cannot resolve a custom property,
- *    so `chrome-motion.ts` carries its own copy of the two easings. This is the `palette.ts`
- *    arrangement and it needs `palette-tokens.test.ts`'s counterpart. The same block also holds the
- *    entrance to opacity-and-transform only, which is the precondition for `reducedMotion="user"`
- *    meaning anything: a `height` or a `filter` in a variant survives the preference untouched.
+ *  - **The motion constants drifting from the CSS ones.** A stylesheet cannot import a TypeScript
+ *    constant, so `chrome-motion.ts` and `globals.css` hold the entrance's numbers twice. This is
+ *    the `palette.ts` arrangement and it needs `palette-tokens.test.ts`'s counterpart: since
+ *    `9a5609d` the CSS side is what actually runs, so an unguarded pair means **changing a number in
+ *    the specification changes documentation and not behaviour**. Every value that exists on both
+ *    sides is now tied. The same block also holds the entrance to opacity-and-transform only, which
+ *    is the precondition for the reduced-motion collapse meaning anything: a `height` or a `filter`
+ *    in a variant survives the preference untouched.
+ *
+ * **All four are the same failure**, which is worth stating once here rather than four times below:
+ * a value that is correct in one place and unenforced in another, and a guard that matches a
+ * spelling while being read as matching a value, are the same bug seen from two ends. So every
+ * assertion in this file says what it *cannot* see beside what it checks, and none of them was
+ * trusted until it had been made to fail against a deliberate one-character drift.
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
@@ -30,11 +39,13 @@ import { compile } from 'tailwindcss';
 import { describe, expect, it } from 'vitest';
 
 import {
+  BLOOM_DRIFT,
   CARD_VARIANTS,
   EASE_EMPHASISED,
   EASE_STANDARD,
   ITEM_VARIANTS,
   MARK_VARIANTS,
+  STAGE_VARIANTS,
 } from '@/components/brand/chrome-motion';
 import {
   MASCOT_BLUSH,
@@ -140,6 +151,96 @@ function sources(): { path: string; source: string }[] {
     .filter((name) => name.endsWith('.ts') || name.endsWith('.tsx'))
     .map((name) => ({ path: name, source: readFileSync(path.join(SRC, name), 'utf8') }));
 }
+
+/* ---------------------------------------------------------------------------------------------- *
+ * Reading a *rule* out of `globals.css`, as opposed to a token.
+ *
+ * `declarations()` above reads `:root` and `.dark`, which are flat. The entrance is not: its rules
+ * live inside `@layer components`, its keyframes have nested stop blocks, and the reduced-motion
+ * collapse restates four of the same selectors inside an `@media`. A per-line regex reads all of
+ * that as a soup, so these three walk braces instead.
+ * ---------------------------------------------------------------------------------------------- */
+
+/** The stylesheet with `/* *\/` comments gone. Not the TS stripper above — CSS has no `//`, and
+ *  running that one over a stylesheet would eat the `//` in a `url()`. */
+function stylesheet(): string {
+  return readFileSync(GLOBALS, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+}
+
+/**
+ * The brace-balanced body of a block whose header matches — and, where `contains` is given, of the
+ * **first such block that contains it**.
+ *
+ * `contains` is not a convenience. `globals.css` has *two* `@media (prefers-reduced-motion: reduce)`
+ * blocks: the mascot's at line 1403 and the entrance's at 1546. Taking the first match silently
+ * asserted the entrance's collapse against the mascot's rules, which is how the first draft of this
+ * guard failed — loudly, because the selector was absent, and it could just as easily have been
+ * quietly, on a block that happened to contain a similar declaration.
+ */
+function cssBlock(source: string, header: RegExp, contains?: RegExp): string {
+  const scan = new RegExp(header.source, header.flags.includes('g') ? header.flags : `${header.flags}g`);
+  for (let match = scan.exec(source); match !== null; match = scan.exec(source)) {
+    const open = source.indexOf('{', match.index);
+    if (open === -1) continue;
+    let depth = 0;
+    for (let i = open; i < source.length; i += 1) {
+      if (source[i] === '{') depth += 1;
+      else if (source[i] === '}') {
+        depth -= 1;
+        if (depth !== 0) continue;
+        const body = source.slice(open + 1, i);
+        if (contains === undefined || contains.test(body)) return body;
+        break;
+      }
+    }
+  }
+  throw new Error(
+    `globals.css has no block matching ${String(header)}${contains ? ` containing ${String(contains)}` : ''}`,
+  );
+}
+
+/** `property: value` pairs from a declaration body, whitespace collapsed. */
+function cssDeclarations(body: string): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const match of body.matchAll(/([a-z-]+)\s*:\s*([^;{}]+);/gi)) {
+    if (match[1] && match[2]) out.set(match[1], match[2].replace(/\s+/g, ' ').trim());
+  }
+  return out;
+}
+
+/** One stop of a `@keyframes` block — `from`, `to`, or a percentage. */
+function keyframeStop(name: string, stop: string): Map<string, string> {
+  const frames = cssBlock(stylesheet(), new RegExp(String.raw`@keyframes\s+${name}\b`));
+  return cssDeclarations(cssBlock(frames, new RegExp(String.raw`(^|\s)${stop}\s*\{`)));
+}
+
+/**
+ * An entrance rule, read **outside** the reduced-motion media query.
+ *
+ * That block restates `[data-entrance]`, `card`, `mark` and both blooms as one group selector, so a
+ * naive search for `[data-entrance='card']` can land in either place depending only on which comes
+ * first in the file. Cutting the media query out first makes which one is being asserted a
+ * statement rather than an accident.
+ */
+function entranceRule(selector: RegExp): Map<string, string> {
+  const source = stylesheet();
+  const reduced = cssBlock(source, /@media \(prefers-reduced-motion: reduce\)/, /\[data-entrance\]/);
+  return cssDeclarations(cssBlock(source.replace(reduced, ''), selector));
+}
+
+/** The reduced-motion collapse, which is the one rule that must be read from inside it. */
+function reducedMotionRule(): Map<string, string> {
+  const reduced = cssBlock(stylesheet(), /@media \(prefers-reduced-motion: reduce\)/, /\[data-entrance\]/);
+  return cssDeclarations(cssBlock(reduced, /\[data-entrance\]/));
+}
+
+/** `'420ms, 24s'` as `['420ms', '24s']` — `animation-*` is a comma-separated list on the blooms,
+ *  which carry the arrival and the drift on one element. */
+const layered = (value: string | undefined): string[] =>
+  (value ?? '').split(',').map((part) => part.trim());
+
+/** Seconds, as Motion writes them, into the milliseconds CSS writes. `0.045` -> `45ms`. */
+const ms = (seconds: number): string => `${Math.round(seconds * 1000)}ms`;
 
 /** The image tokens: gradients and a data URI, so they have no Tailwind namespace and are read
  *  through `var()` in an inline `style`. Every one is a composition value and needs two answers. */
@@ -429,16 +530,174 @@ describe('every chrome composition token answers in both themes', () => {
   });
 });
 
+/**
+ * **`chrome-motion.ts` is the specification and `globals.css` is the executor, and until now
+ * nothing tied the pair.**
+ *
+ * The entrance moved from Motion variants to `@keyframes` in `9a5609d`, because Motion writes a
+ * variant's initial state into the server HTML and `/sign-in` therefore shipped 11 inline
+ * `opacity: 0` declarations that only hydration removed — a blank front door whenever a chunk
+ * failed. The numbers stayed where they were and were copied into the stylesheet.
+ *
+ * That is the `ui/place/palette.ts` arrangement: a duplication that is *deliberate and necessary*,
+ * because a stylesheet cannot import a TypeScript constant. What `palette.ts` also has is
+ * `palette-tokens.test.ts`. This is that test for this pair, and without it **changing a number in
+ * `chrome-motion.ts` changes documentation and not behaviour** — which the file says about itself,
+ * honestly, and which a note cannot fix.
+ *
+ * ## What each side is allowed to be
+ *
+ * Not string equality. Motion counts in seconds and CSS in milliseconds; Motion says
+ * `repeatType: 'mirror'` where CSS says `animation-direction: alternate`; Motion's resting state is
+ * `{ y: 0, scale: 1 }` where CSS's is `transform: none`. So each assertion converts and then
+ * compares, and the conversion is the part worth reading.
+ *
+ * ## What this cannot see, which is the standing requirement on a guard in this repo
+ *
+ * It reads the two files as **text**. It does not know whether a rule is reachable, whether a
+ * selector matches anything, or whether `[data-entrance='card']` is on the element the card is
+ * drawn on. A stylesheet that agreed with this file perfectly and was attached to nothing would
+ * pass every assertion below. The measurement that answers *that* question is a browser, and it is
+ * `I2-6`'s exit criterion rather than this file's.
+ *
+ * It also asserts only the values that exist **on both sides**. The mark's `68%` overshoot keyframe
+ * has no counterpart in `MARK_VARIANTS` — it stands in for a spring, which has no keyframes — so
+ * nothing here pins it. That is a real hole and it is the honest kind: it cannot drift *from* the
+ * specification, because the specification does not contain it.
+ */
 describe('the entrance constants agree with the stylesheet they were copied from', () => {
   const bezier = (value: string) =>
     (/cubic-bezier\(([^)]+)\)/.exec(value)?.[1] ?? '')
       .split(',')
       .map((n) => Number(n.trim()));
 
+  /** The properties this pair actually shares, read off a `Variants` without a cast at every use. */
+  interface Beat {
+    readonly opacity?: number;
+    readonly y?: number;
+    readonly scale?: number;
+    readonly rotate?: number;
+    readonly transition?: {
+      readonly duration?: number;
+      readonly delayChildren?: number;
+      readonly staggerChildren?: number;
+    };
+  }
+  const beat = (variants: typeof CARD_VARIANTS, state: 'hidden' | 'shown'): Beat =>
+    variants[state] as Beat;
+
   it('matches --ease-emphasised and --ease-standard', () => {
     const root = declarations(':root');
     expect(bezier(root.get('--ease-emphasised') ?? '')).toEqual([...EASE_EMPHASISED]);
     expect(bezier(root.get('--ease-standard') ?? '')).toEqual([...EASE_STANDARD]);
+  });
+
+  it('reads those two eases in the rules, rather than restating the control points', () => {
+    // The assertion above ties the arrays to the tokens; this ties the tokens to the rules. Without
+    // it both could be right and the card could still be animating on a bezier written by hand.
+    expect(entranceRule(/\[data-entrance='card'\]/).get('animation-timing-function'))
+      .toBe('var(--ease-emphasised)');
+    expect(entranceRule(/^\s*\[data-entrance\]\s*\{/m).get('animation-timing-function'))
+      .toBe('var(--ease-standard)');
+  });
+
+  it('gives the card the geometry and the timing CARD_VARIANTS specifies', () => {
+    const hidden = beat(CARD_VARIANTS, 'hidden');
+    const from = keyframeStop('chrome-enter-card', 'from');
+    expect(from.get('opacity')).toBe(String(hidden.opacity));
+    expect(from.get('transform')).toBe(`translateY(${hidden.y}px) scale(${hidden.scale})`);
+    // `transform: none` is the identity, which is what `shown: { y: 0, scale: 1 }` means. Asserted
+    // rather than assumed: a `to` that forgot the transform would leave the card 18px low forever,
+    // which is the exact defect `chrome-motion.ts` records from the Motion era.
+    const to = keyframeStop('chrome-enter-card', 'to');
+    expect(to.get('opacity')).toBe(String(beat(CARD_VARIANTS, 'shown').opacity));
+    expect(to.get('transform')).toBe('none');
+
+    const rule = entranceRule(/\[data-entrance='card'\]/);
+    expect(rule.get('animation-duration')).toBe(ms(beat(CARD_VARIANTS, 'shown').transition?.duration ?? 0));
+    // The card's delay is the stage's `delayChildren`: the stage paints nothing and exists only to
+    // hold this beat, so in CSS it has no element and its one number lands here.
+    expect(rule.get('animation-delay')).toBe(ms(beat(STAGE_VARIANTS, 'shown').transition?.delayChildren ?? 0));
+  });
+
+  it('gives each staggered child ITEM_VARIANTS’ geometry, duration and stagger', () => {
+    const hidden = beat(ITEM_VARIANTS, 'hidden');
+    const from = keyframeStop('chrome-enter-item', 'from');
+    expect(from.get('opacity')).toBe(String(hidden.opacity));
+    expect(from.get('transform')).toBe(`translateY(${hidden.y}px)`);
+    expect(keyframeStop('chrome-enter-item', 'to').get('transform')).toBe('none');
+
+    const rule = entranceRule(/^\s*\[data-entrance\]\s*\{/m);
+    expect(rule.get('animation-duration')).toBe(ms(beat(ITEM_VARIANTS, 'shown').transition?.duration ?? 0));
+
+    /*
+     * `calc(180ms + var(--enter-step, 0) * 45ms)` is two of the specification's numbers composed:
+     * the children begin at the stage's delay plus the card's `delayChildren`, and they are
+     * `staggerChildren` apart. Both are pulled back out of the `calc` and compared, so a change to
+     * either side is caught — and so that the 180 is visibly *derived* rather than a third number
+     * somebody would have to keep in step by hand.
+     */
+    const calc = /calc\(\s*(\d+)ms\s*\+\s*var\(--enter-step,\s*0\)\s*\*\s*(\d+)ms\s*\)/.exec(
+      rule.get('animation-delay') ?? '',
+    );
+    expect(calc, `animation-delay is ${rule.get('animation-delay') ?? '(absent)'}`).not.toBeNull();
+    const stageDelay = beat(STAGE_VARIANTS, 'shown').transition?.delayChildren ?? 0;
+    const cardChildren = beat(CARD_VARIANTS, 'shown').transition?.delayChildren ?? 0;
+    expect(`${calc?.[1]}ms`).toBe(ms(stageDelay + cardChildren));
+    expect(`${calc?.[2]}ms`).toBe(ms(beat(CARD_VARIANTS, 'shown').transition?.staggerChildren ?? 0));
+  });
+
+  it('gives the mark MARK_VARIANTS’ starting scale and rotation, on the children’s beat', () => {
+    const hidden = beat(MARK_VARIANTS, 'hidden');
+    const start = keyframeStop('chrome-enter-mark', '0%');
+    expect(start.get('opacity')).toBe(String(hidden.opacity));
+    expect(start.get('transform')).toBe(`scale(${hidden.scale}) rotate(${hidden.rotate}deg)`);
+    expect(keyframeStop('chrome-enter-mark', '100%').get('transform')).toBe('none');
+
+    const stageDelay = beat(STAGE_VARIANTS, 'shown').transition?.delayChildren ?? 0;
+    const cardChildren = beat(CARD_VARIANTS, 'shown').transition?.delayChildren ?? 0;
+    expect(entranceRule(/\[data-entrance='mark'\]/).get('animation-delay'))
+      .toBe(ms(stageDelay + cardChildren));
+  });
+
+  it('drifts the blooms for BLOOM_DRIFT’s duration, forever, mirrored', () => {
+    /*
+     * One element, two animations: it arrives and then it drifts. `animation-*` is therefore a
+     * comma-separated list and the drift is the **second** component of each — which is why these
+     * are read positionally rather than by string equality on the whole declaration.
+     *
+     * `repeatType: 'mirror'` and `animation-direction: alternate` are the same instruction in two
+     * vocabularies, and the mapping is asserted rather than assumed because getting it wrong is
+     * silent: a bloom that loops instead of mirroring snaps back to its start every 24 s, and a cut
+     * is the one thing `chrome-motion.ts` says an ambient layer must never be.
+     */
+    const rule = entranceRule(/\[data-entrance='bloom-a'\],\s*\[data-entrance='bloom-b'\]/);
+    expect(layered(rule.get('animation-duration'))[1]).toBe(`${BLOOM_DRIFT.duration ?? 0}s`);
+    expect(layered(rule.get('animation-iteration-count'))[1]).toBe(
+      BLOOM_DRIFT.repeat === Infinity ? 'infinite' : String(BLOOM_DRIFT.repeat),
+    );
+    expect(layered(rule.get('animation-direction'))[1]).toBe(
+      BLOOM_DRIFT.repeatType === 'mirror' ? 'alternate' : 'normal',
+    );
+  });
+
+  it('collapses to the fade, and names no keyframe that carries a transform', () => {
+    /*
+     * The other half of the shape assertion below. That one holds the *specification* to properties
+     * a preference can drop; this holds the *executor* to actually dropping them — a media query
+     * cannot collapse what it does not name, and the four selectors it restates are exactly the
+     * four that carry a transform.
+     *
+     * `chrome-enter-fade` is asserted to be the only name, and then asserted to contain no
+     * transform, so the collapse cannot be defeated by pointing it at a keyframe that moves.
+     */
+    const reduced = reducedMotionRule();
+    expect(reduced.get('animation-name')).toBe('chrome-enter-fade');
+    expect(reduced.get('animation-iteration-count')).toBe('1');
+    expect(reduced.get('animation-delay')).toBe('0ms');
+    for (const stop of ['from', 'to']) {
+      expect(keyframeStop('chrome-enter-fade', stop).has('transform'), stop).toBe(false);
+    }
   });
 
   it('animates opacity and transforms only, so reduced motion has something to drop', () => {
