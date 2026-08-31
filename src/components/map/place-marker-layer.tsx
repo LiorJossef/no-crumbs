@@ -49,7 +49,7 @@
  * Everything visual is in `./marker-style.ts` and `./marker-images.ts`.
  */
 
-import { useEffect, useId, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef } from 'react';
 import type { GeoJSONSource, MapMouseEvent } from 'maplibre-gl';
 import { useMap } from '@/components/ui/map';
 
@@ -57,6 +57,9 @@ import { buildPinImages } from './marker-images';
 import {
   LABEL_TIER_ZOOMS,
   labelTierFor,
+  LAND_STAGGER_MS,
+  LAND_WAVES,
+  landOrderFor,
   metresPerPixel,
   LABEL_CLEARANCE_PX,
   pinIconImageExpression,
@@ -75,8 +78,14 @@ import { useStyleReady } from './use-style-ready';
 const METRES_PER_DEGREE = 111320;
 
 /**
- * **Which zoom each pin's name is allowed to appear at** — the per-feature half of `W2-3`'s label
- * tiering (`marker-style.ts`, `LABEL_TIER_ZOOMS`).
+ * **The two per-feature numbers the pin layer draws from**, stamped in one pass over the library:
+ * `labelZoom` (`W2-3`) and `landOrder` (`W6-6`).
+ *
+ * They share a pass because they share the arithmetic — both need every pin's coordinates in
+ * metres against the others — and because both change on exactly the same key: the library, or a
+ * filter over it. Neither is recomputed on a selection, a hover, a camera move or a re-render.
+ *
+ * ## `labelZoom` — the per-feature half of `W2-3`'s label tiering (`LABEL_TIER_ZOOMS`)
  *
  * A pin's name is drawn at the first tier by which its **nearest neighbour** is
  * `LABEL_CLEARANCE_PX` away on screen, so the thing that decides is the library's own geometry: a
@@ -101,8 +110,14 @@ const METRES_PER_DEGREE = 111320;
  * A pin with no neighbour inside the 3×3 window gets `Infinity`, which `labelTierFor` reads as *no
  * zoom is needed* and answers with the lowest tier. That is correct rather than approximate: a
  * neighbour outside the window is by construction further than the coarsest tier's clearance.
+ *
+ * ## `landOrder` — which wave the pin arrives in (`landOrderFor`)
+ *
+ * Nearest the library's centroid first, radiating outward, in `LAND_WAVES` equal-sized rank
+ * buckets. The reasoning is on `landOrderFor`; what belongs here is that it is a **feature**
+ * property, which is what lets the whole landing be a paint expression and cost no relayout.
  */
-export function withLabelZooms(data: PlaceFeatureCollection): GeoJSON.FeatureCollection {
+export function withPinFeatureProps(data: PlaceFeatureCollection): GeoJSON.FeatureCollection {
   const features = data.features;
   if (features.length === 0) return data as GeoJSON.FeatureCollection;
 
@@ -150,6 +165,11 @@ export function withLabelZooms(data: PlaceFeatureCollection): GeoJSON.FeatureCol
     return best;
   };
 
+  const landOrder = landOrderFor(features.map((feature) => ({
+    lat: feature.geometry.coordinates[1] ?? 0,
+    lng: feature.geometry.coordinates[0] ?? 0,
+  })));
+
   return {
     type: 'FeatureCollection',
     features: features.map((feature, index) => ({
@@ -157,6 +177,7 @@ export function withLabelZooms(data: PlaceFeatureCollection): GeoJSON.FeatureCol
       properties: {
         ...feature.properties,
         labelZoom: labelTierFor(nearestMetres(index), lats[index] ?? 0),
+        landOrder: landOrder[index] ?? 0,
       },
     })),
   };
@@ -340,7 +361,7 @@ export function PlaceMarkerLayer({
   /** The features with their label tier stamped on. Memoised on `data`, so the grid scan costs
    *  nothing on a selection, a re-render or a camera move — only on a library or filter change,
    *  which is the same key the source is written on. */
-  const labelled = useMemo(() => withLabelZooms(data), [data]);
+  const labelled = useMemo(() => withPinFeatureProps(data), [data]);
 
   // The source's only writer, and the selection effect below is the layer's. Both run after the
   // creation effect in the same commit, so the layers are never rendered from stale state.
@@ -357,6 +378,111 @@ export function PlaceMarkerLayer({
   }, [map, styleReady, pinLayerId, selectedId]);
 
   /**
+   * **`pins.land`: the library arrives in waves, not all at once** (`W6-6`,
+   * `facelift-plan.md` §3a — 900 ms flight, then 60 ms per wave, *paint-only*).
+   *
+   * Measured before this existed, at 30 places: the map and every one of its markers arrived
+   * together in **one whole-surface fade, with zero visible change events afterwards** — there was
+   * no per-marker entrance at all.
+   *
+   * ## Why this shape and not the obvious one
+   *
+   * The obvious mechanism is a per-pin transition delay. MapLibre has none: a paint transition is
+   * **one value for the whole layer**, so `icon-opacity-transition` cannot be staggered per
+   * feature. And the obvious *animation* — pins physically dropping — is `icon-translate`, which is
+   * a paint property MapLibre does not allow to be data-driven (the same wall
+   * `pin-highlight-layer.tsx` hit, and why that is a layer of its own). A per-pin drop would need
+   * one layer per pin.
+   *
+   * So the landing is a **staggered fade over a per-feature `landOrder`**, which is exactly what
+   * `facelift-plan.md` §2 means by *"no per-feature primitive; achievable paint-only over a
+   * per-feature `order`"*. Eight waves, each flipping one rank bucket's gate from 0 to 1, and the
+   * layer's own `icon-opacity-transition` turning each flip into a fade rather than a pop. Sixteen
+   * `setPaintProperty` calls for the whole arrival, whatever the library size — no relayout, no
+   * re-collision, and nothing per frame.
+   *
+   * ## Once, on arrival
+   *
+   * Guarded by a ref rather than keyed on `data`, because `data` changes on **every keystroke in
+   * the search box** — a landing that replayed on each filter would be the animated list §3a bans
+   * by name. It runs when this layer first has something to draw and never again for the life of
+   * the mount.
+   *
+   * ## Reduced motion drops the sequence, not the fade
+   *
+   * §3a's rule is that the nine collapse *to the opacity change alone, not to nothing*. Here the
+   * opacity change **is** the animation, so what a reduced-motion user loses is the **sequencing** —
+   * a cascade spreading across the screen is motion however each individual step is drawn. They get
+   * every pin at once, faded in by the same transition. Read once, at landing time: the setting is
+   * not something a user changes mid-arrival.
+   */
+  const hasLanded = useRef(false);
+
+  /**
+   * **The one writer of the two opacity properties**, because two things drive them and they
+   * compose rather than take turns: the landing gate (`W6-6`) and the row↔pin dim (`W3-2`).
+   *
+   * Written as one function over two refs rather than as two effects each calling
+   * `setPaintProperty`, and that is a fix for a real ordering bug rather than tidiness. React runs
+   * effects in declaration order, so on mount the landing effect would set wave 0 and the hover
+   * effect — which also runs on mount, with `hoveredId` null — would immediately overwrite it with
+   * an ungated expression. Every pin would pop in and the stagger would never be seen. A later
+   * hover mid-landing would do the same thing. One writer reading both refs cannot get that wrong.
+   */
+  const landGate = useRef<number | null>(null);
+  const hoveredIdRef = useRef(hoveredId);
+  const applyOpacity = useCallback(() => {
+    if (!map || !map.getLayer(pinLayerId)) return;
+    map.setPaintProperty(pinLayerId, 'icon-opacity', pinOpacityExpression(
+      VISITED_PIN_OPACITY,
+      hoveredIdRef.current,
+      landGate.current,
+    ) as never);
+    map.setPaintProperty(pinLayerId, 'text-opacity', pinOpacityExpression(
+      VISITED_LABEL_OPACITY,
+      hoveredIdRef.current,
+      landGate.current,
+    ) as never);
+  }, [map, pinLayerId]);
+
+  useEffect(() => {
+    if (!map || !styleReady || !map.getLayer(pinLayerId)) return;
+    if (hasLanded.current || labelled.features.length === 0) return;
+    hasLanded.current = true;
+
+    const paint = (through: number | null) => {
+      landGate.current = through;
+      applyOpacity();
+    };
+
+    const reduced =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced) {
+      // `null` is "no gate at all" rather than "the last wave": it leaves the expression in the
+      // exact shape it has for the rest of the session, so a reduced-motion user's map is not a
+      // second code path that could drift.
+      paint(null);
+      return;
+    }
+
+    // Wave 0 before the first timer, so the innermost pins are on screen in the frame the layer
+    // first draws rather than 60ms into it. Starting from an empty map would read as a stall.
+    paint(0);
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    for (let wave = 1; wave < LAND_WAVES; wave += 1) {
+      timers.push(setTimeout(() => paint(wave), wave * LAND_STAGGER_MS));
+    }
+    // …and one more to retire the gate entirely once every wave has arrived, so nothing in the
+    // rest of the session evaluates a landing expression it has finished with.
+    timers.push(setTimeout(() => paint(null), LAND_WAVES * LAND_STAGGER_MS));
+    return () => {
+      for (const timer of timers) clearTimeout(timer);
+    };
+  }, [map, styleReady, pinLayerId, labelled, applyOpacity]);
+
+  /**
    * The dim half of the row↔pin coupling, and its own effect rather than part of the one above.
    *
    * The selection effect writes **layout** properties, which re-lay-out and re-collide the whole
@@ -368,16 +494,10 @@ export function PlaceMarkerLayer({
    * here is a value and MapLibre animates between the two.
    */
   useEffect(() => {
-    if (!map || !styleReady || !map.getLayer(pinLayerId)) return;
-    map.setPaintProperty(pinLayerId, 'icon-opacity', pinOpacityExpression(
-      VISITED_PIN_OPACITY,
-      hoveredId,
-    ) as never);
-    map.setPaintProperty(pinLayerId, 'text-opacity', pinOpacityExpression(
-      VISITED_LABEL_OPACITY,
-      hoveredId,
-    ) as never);
-  }, [map, styleReady, pinLayerId, hoveredId]);
+    hoveredIdRef.current = hoveredId;
+    if (!styleReady) return;
+    applyOpacity();
+  }, [styleReady, hoveredId, applyOpacity]);
 
   return null;
 }

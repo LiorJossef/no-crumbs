@@ -233,8 +233,21 @@ export const VISITED_LABEL_OPACITY = 0.55;
 export function pinOpacityExpression(
   visitedOpacity = VISITED_PIN_OPACITY,
   hoveredId: string | null = null,
+  landedThrough: number | null = null,
 ): unknown[] {
   const own: unknown[] = ['case', ['to-boolean', ['get', 'visited']], visitedOpacity, 1];
+  if (landedThrough !== null) {
+    // **`pins.land`'s gate** (`W6-6`). Multiplied onto whatever the pin's resting opacity would
+    // otherwise be, rather than replacing it, so a visited pin lands *as a visited pin* and the
+    // hover dim below still composes on top. A pin whose wave has not arrived is at 0 and is not
+    // yet drawn; `icon-opacity-transition` turns each wave's flip into a fade rather than a pop.
+    return ['*', hoveredId === null ? own : linkedOpacity(own, hoveredId, visitedOpacity), [
+      'case',
+      ['<=', ['coalesce', ['get', 'landOrder'], 0], landedThrough],
+      1,
+      0,
+    ]];
+  }
   if (hoveredId === null) return own;
   // **The row↔pin coupling's dim half** (`W3-2`, `ux-overnight-specs.md` §2.2). Pointing at a row
   // in the list quietens every pin except its own, so the two surfaces read as one thing.
@@ -249,6 +262,14 @@ export function pinOpacityExpression(
   // compositor and never re-lays-out or re-collides a symbol. That is the whole reason hover can
   // afford to change at pointer rate; see `pin-highlight-layer.tsx` for the alternative that
   // cannot.
+  return linkedOpacity(own, hoveredId, visitedOpacity);
+}
+
+/** The hover arm, factored out so the landing gate can multiply onto it rather than choosing
+ *  between the two. `own` is unused in the result today and is taken anyway: it is what the arm
+ *  replaces, and a future dim that wants to preserve the visited distinction needs it in scope. */
+function linkedOpacity(own: unknown[], hoveredId: string, visitedOpacity: number): unknown[] {
+  void own;
   return ['case', ['==', ['get', 'id'], hoveredId], 0, visitedOpacity];
 }
 
@@ -271,6 +292,59 @@ export const LINKED_DIM_OPACITY = VISITED_PIN_OPACITY;
 /** How long the dim and the lift take, in milliseconds — `--duration-link`, expressed here because
  *  a MapLibre transition is read by the GL renderer and cannot resolve a CSS custom property. */
 export const LINK_TRANSITION_MS = 160;
+
+/**
+ * **`pins.land`: how many waves the pins arrive in** (`facelift-plan.md` §3a, 900 ms + 60 ms).
+ *
+ * A fixed count rather than one wave per pin, and that is the whole sizing decision. One wave per
+ * pin makes the landing a function of library size — thirty places would take 1.8 s and two
+ * thousand would take two minutes — so the arrival would get slower exactly as the map got busier.
+ * Eight waves at `LAND_STAGGER_MS` is **480 ms for any library**, which is inside the 500 ms a
+ * page-load animation may take before it stops reading as arrival and starts reading as lag.
+ */
+export const LAND_WAVES = 8;
+
+/** `--duration-stagger-pin`. The gap between waves, written here because a MapLibre paint
+ *  transition is read by the GL renderer and cannot resolve a CSS custom property. */
+export const LAND_STAGGER_MS = 60;
+
+/**
+ * **Which wave each pin lands in: nearest the middle first, radiating outward.**
+ *
+ * The order is a rank by distance from the library's own centroid, bucketed into `LAND_WAVES`
+ * equal-sized groups. Radiating outward rather than by save date or by array index, because the
+ * camera has just come to rest framing this box — so the middle is where the user is already
+ * looking, and an arrival that starts there and spreads reads as the map filling in. A landing
+ * ordered by `created_at` would start at an arbitrary corner and look like a list loading.
+ *
+ * **Equal-sized buckets, not equal-distance ones.** A library with one outlier would otherwise put
+ * 29 pins in wave 0 and one in wave 7, i.e. no stagger and then a straggler. Rank buckets make the
+ * *number* of pins per wave constant, which is what makes the cadence even whatever the shape.
+ *
+ * Pure, and takes points rather than features, so the rule is testable without GeoJSON.
+ */
+export function landOrderFor(points: readonly { lat: number; lng: number }[]): number[] {
+  const count = points.length;
+  if (count === 0) return [];
+  const meanLat = points.reduce((sum, p) => sum + p.lat, 0) / count;
+  const meanLng = points.reduce((sum, p) => sum + p.lng, 0) / count;
+  const cos = Math.max(Math.cos((meanLat * Math.PI) / 180), 1e-6);
+  const ranked = points
+    .map((point, index) => {
+      const dLat = point.lat - meanLat;
+      const dLng = (point.lng - meanLng) * cos;
+      return { index, distance: dLat * dLat + dLng * dLng };
+    })
+    // Ties broken by index so the order is deterministic: two places at one address must not swap
+    // waves between renders, or the landing flickers on a re-mount.
+    .sort((a, b) => a.distance - b.distance || a.index - b.index);
+
+  const order = new Array<number>(count).fill(0);
+  ranked.forEach((entry, rank) => {
+    order[entry.index] = Math.min(LAND_WAVES - 1, Math.floor((rank * LAND_WAVES) / count));
+  });
+  return order;
+}
 
 /** The id of the one-feature layer that draws the pointed-at pin. */
 export const PIN_HIGHLIGHT_LAYER_SUFFIX = 'pin-highlight';
