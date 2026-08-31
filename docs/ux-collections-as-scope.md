@@ -92,13 +92,14 @@ this forbids the depth version.
 | **Map tab** | bottom bar | your whole map, scope cleared | every route, every sheet stop |
 | ~~**Collections tab**~~ | ~~bottom bar~~ | superseded 2026-08-31 — see below | — |
 | **`Places` / `Collections` switch** | sheet header, leading, layer 0 | the two views of the drawer | at `half`/`full`; **not at `peek`**, where 128 px minus a 68 px floating bar leaves 46 against the switch's 56 |
-| ~~**`Collections` up-link**~~ | ~~sheet header~~ | superseded 2026-08-31 — see below | — |
+| **`Collections` up-link** | sheet header, leading, layer 0 in collection scope only | the collections index | when the sheet is at `half`/`full` — **still shipping; see the open proposal below** |
 | **Pane back arrow** | sheet header, leading, layer 1 | dismiss this pane, return to the list under it | while a pane is open |
 | **OS / browser back** | — | the previous document | always |
 
-**Two rows were superseded on 2026-08-31 by the owner's instruction that *"the collection / places
-navigation should be inside the drawer"*, and both are struck rather than deleted so the reasoning
-survives.**
+**One row was superseded on 2026-08-31 by the owner's instruction that *"the collection / places
+navigation should be inside the drawer"*, and it is struck rather than deleted so the reasoning
+survives. The up-link row is **not** superseded — it was removed at `cea513c` and restored at
+`1db0294`, because removing it is a change to this document and the document had not moved.**
 
 **The `Collections` tab** left the bottom bar because the switch reaches the same view from inside
 the drawer, and two routes to one surface is how a nav becomes something nobody trusts. `BottomNav`
@@ -106,11 +107,31 @@ is `Map · Profile`. The cost, measured rather than assumed: **from a resting `/
 collections is now two taps** — the strip, then `Collections` — because the switch does not render at
 `peek`.
 
-**The `Collections` up-link** left the collection header because it duplicated the switch ~700 px
-below it in the same column, and cost **~44 px of a list window that is about 1.4 rows at `half`**.
-It also predated the merge onto one route segment: while `/collections/<id>` was its own segment the
-up-link was the only way back that did not cost a document, and after the merge it was a second
-control to a view one search param away.
+**The `Collections` up-link is an open proposal, not a decision, and this is the measurement it
+needs.** It duplicates the switch ~700 px below it in the same column, and it predates the merge onto
+one route segment: while `/collections/<id>` was its own segment the up-link was the only way back
+that did not cost a document, and after the merge it is a second control to a view one search param
+away.
+
+**What removing it actually buys, measured at 390×844 inside a collection at `half`** — and the
+first figure corrects an estimate read off a screenshot:
+
+| | with the up-link | without |
+|---|---|---|
+| rows **fully** visible | **0** | **1** |
+| rows partly visible | 1 | 2 |
+| heading top | y=500 | y=456 |
+
+**Not one row is fully readable today.** The 44 px is the row's own `min-h-11`.
+
+**And the trap for whoever takes it: deleting the link alone recovers none of that.** The options
+button beside it is `size-11`, so the row keeps its height either way — the height only returns if
+that button moves onto the heading's row. **A one-line deletion will look like it did the job and
+will not have.**
+
+Moving this row is the first step, not the last. Three records currently say the control exists on
+purpose — this table, §5 item 3, and a rendered assertion in
+`tests/unit/collections/collection-scope-chrome.test.ts` — and they move in that order.
 
 **The invariant below is unchanged and is now easier to hold**, because the slot it governed has one
 occupant instead of two. The switch is not a back-shaped control — it is a destination pair, the same
