@@ -92,6 +92,27 @@ describe('the server derives the case, and sends a conclusion rather than its wo
     expect(response).toContain('cityHint: extractionCityHint');
   });
 
+  it('makes the note part of the extraction cache key, or the field is inert', () => {
+    // **This is the assertion that would have caught a feature shipped broken.** The note field
+    // was committed working and was not: `readNote` sat in the cache-miss arm while the key was
+    // `sha256(caption)`, and the no-places screen's read is by definition a *second* probe of the
+    // same link. The first persists its extraction even at zero candidates — deliberately, because
+    // "no places" is the modal outcome and a cache hit worth having — so the second hashed
+    // identically, took the cached arm, and never read the note. The user typed a sentence and was
+    // told "we read that too, and it doesn't name a place either": truthful about a read that
+    // never happened.
+    const hashLine = ROUTE.slice(ROUTE.indexOf('const captionHash ='), ROUTE.indexOf('const captionHash =') + 400);
+    expect(hashLine, 'the note must be hashed with the caption').toContain('userNote');
+  });
+
+  it('reads the note on a post with no caption at all', () => {
+    // `NO_CAPTION` means we read the post perfectly and it said nothing — which is exactly where a
+    // person who watched the video is worth most. The first version guarded the whole extraction
+    // block on the caption existing, so that case could never reach the note reader.
+    const before = ROUTE.slice(0, ROUTE.indexOf('if (caption !== null) {'));
+    expect(before, 'a caption-less post must still reach readNote').toContain('readNote');
+  });
+
   it('does not re-run the filter to reconstruct the case on a cache hit', () => {
     // `filterPlausible` must not run on the cache-hit path: a cache hit is always `nothing_named`,
     // and reconstructing the case there would change what the user sees between two identical
