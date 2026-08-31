@@ -104,6 +104,12 @@ import { useMapShell } from '@/components/shell/use-map-shell';
 import type { SheetStop } from '@/components/shell/sheet-geometry';
 import type { MapSummaries } from '@/components/map/types';
 import { COUNTRY_LANDING_ZOOM } from '@/components/map/zoom-bands';
+import {
+  claimEntrance,
+  ENTRANCE_CLOCK_FLOOR_MS,
+  spendEntrance,
+  startEntranceClock,
+} from '@/components/map/entrance';
 import type { LatLngBoundsHint, ViewportChangeMeta } from '@/components/map/types';
 import { ImportConfirmation } from '@/components/map/import-confirmation';
 import { NearMeControl } from '@/components/map/near-me-control';
@@ -269,6 +275,41 @@ export function MapPageClient({
    * under a user who has just imported.
    */
   const [restingStop] = useState<SheetStop>(() => (places.length === 0 ? 'half' : 'peek'));
+  /**
+   * **Whether this arrival plays the post-login entrance** (`I2-7`, `iteration-2-plan.md` §2.2
+   * ruling 2, `components/map/entrance.ts`).
+   *
+   * `pins.land` and the reveal-into-flight were both built here and both wired to import-confirm
+   * alone, so signing in landed on a map that had already finished arriving. This is the one line
+   * that points the same choreography at the event it was always for; everything the entrance
+   * *does* is in `entrance.ts` and in the three surfaces that read its clock.
+   *
+   * **Once per page load, not once per mount**, and the claim/spend split is what makes that safe
+   * on the server as well as in the browser — see `claimEntrance`. Coming back to `/map` from
+   * `/collections` remounts this component and gets no entrance, which is the rule: a choreographed
+   * arrival on a surface you are *returning* to is a nag, and it delays it.
+   *
+   * It is **not** a ninth camera mover. The descent is a prelude to mover 1's own answer — the
+   * honest fit runs first and the camera is read back off it — so the eight above are still eight
+   * and still complete.
+   */
+  const [entrance] = useState(claimEntrance);
+  useEffect(spendEntrance, []);
+  /**
+   * The floor under the entrance clock.
+   *
+   * The sheet and the wordmark are *withheld* until their beats, and the clock's zero is the map
+   * framing the library — which can fail to happen at all: `fitTo`'s docblock records an impossible
+   * fit that silently does nothing, and a WebGL context can fail to come up. Without this, one of
+   * those leaves the page with no list and no brand on it for good, and nothing on screen saying
+   * why. Idempotent, so on every ordinary load the camera has already started the clock and this
+   * does nothing. See `ENTRANCE_CLOCK_FLOOR_MS`.
+   */
+  useEffect(() => {
+    if (!entrance) return;
+    const timer = setTimeout(startEntranceClock, ENTRANCE_CLOCK_FLOOR_MS);
+    return () => clearTimeout(timer);
+  }, [entrance]);
   const shell = useMapShell({ restingStop });
   const { selectedId, setSelectedId } = shell;
   const [showImport, setShowImport] = useState(false);
@@ -1150,6 +1191,10 @@ export function MapPageClient({
               shell={shell}
               places={matches}
               initialBounds={initialBounds}
+              // The camera, the pins, the sheet and the desktop panel all read one clock from here.
+              // The wordmark is the fifth beat and reads the same clock from `page.tsx`, which is a
+              // Server Component and cannot be handed a boolean by this one.
+              entrance={entrance}
               // The sheet rests on the peek strip here, so the camera concedes 128px rather than a
               // fraction of the viewport. A collection rests at `half` and concedes accordingly —
               // and so does this page while the library is empty, because the zero-state sheet

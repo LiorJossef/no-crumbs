@@ -83,6 +83,15 @@ import {
   ZERO_STATE_ZOOM,
 } from './zoom-bands';
 import { summaryPillFitAllowance, type SummaryPillLabel } from './country-flag-image';
+import {
+  ENTRANCE_BEATS,
+  ENTRANCE_CLOCK_FLOOR_MS,
+  ENTRANCE_DESCENT_MS,
+  ENTRANCE_ZOOM_LIFT,
+  entranceDelayMs,
+  prefersReducedMotion,
+  startEntranceClock,
+} from './entrance';
 
 // Called at module scope, not in an effect. MapLibre applies the plugin when a tile's glyphs are
 // first shaped, so it has to be in place before any `Map` is constructed — an effect in this
@@ -392,6 +401,7 @@ export function MapSurfaceMapcn({
   onViewportChange,
   controlSlot,
   hoveredPlaceId,
+  entrance = false,
 }: MapSurfaceProps) {
   const data = useMemo(() => toPlaceFeatures(places), [places]);
   /** The open pin's neighbours, for the popover's `Nearby` section. Same rule as the mobile
@@ -631,6 +641,95 @@ export function MapSurfaceMapcn({
   );
 
   /**
+   * **Whether this mount owes the post-login descent**, spent by the first home framing.
+   *
+   * A ref for the same reason `latestBounds` is one: `beginEntranceDescent` is a transitive
+   * dependency of `attachMapRef` through `fitToBounds`, and a callback ref whose identity changes
+   * is detached and re-attached by React — which re-frames the library and rebuilds the
+   * `ResizeObserver`. Reading the prop directly would make that happen the first time the entrance
+   * was spent.
+   */
+  const entrancePending = useRef(entrance);
+  const descentTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  useEffect(
+    () => () => {
+      for (const timer of descentTimers.current) clearTimeout(timer);
+    },
+    []
+  );
+
+  /**
+   * **The descent** (`I2-7`) — the prelude to camera mover 1, never a substitute for it.
+   *
+   * Called *after* the home framing has already put the camera exactly where an honest fit answers,
+   * and the ordering is the whole design. The resting camera is read back off the map rather than
+   * recomputed, so the descent's destination is literally the answer `settleZoom` gave; the
+   * entrance cannot land somewhere prettier than the library deserves, because it has no
+   * opportunity to decide where to land. Everything it does is lift off that answer and come back
+   * down to it.
+   *
+   * **Nothing here is allowed to leave the camera somewhere else.** The lift is a `jumpTo` and the
+   * return is an `easeTo` to the values just read, so the resting transform is identical to the one
+   * the same commit produces with the entrance off — which is what makes `06` §9.2's list of movers
+   * still complete at eight.
+   *
+   * **Reduced motion skips the flight entirely rather than shortening it**, and that is a
+   * correctness point rather than a preference: MapLibre's `easeTo` sets its own duration to 0 under
+   * `prefers-reduced-motion` unless a caller passes `essential`, so a lift followed by an
+   * instantaneous return would be a hard cut to altitude and back — motion, and worse motion than
+   * the descent. The collapse §3a specifies lives in the opacity beats, where it belongs.
+   *
+   * ## Where the clock's zero is, and this was measured rather than reasoned
+   *
+   * **The lift is applied here; the clock starts on the first `idle` after it.** The first version
+   * started the clock at framing time, which is `whenReady` — and `whenReady` fires on `styledata`
+   * and `sourcedata`, long before a tile has been drawn. Filmed at 390×844 against the local
+   * harness, the sheet rose at its 900 ms beat over a **blank map**, and the map itself did not
+   * paint until ~2.6 s. Every beat of the choreography had run out before there was anything to
+   * choreograph.
+   *
+   * That is `W6-6`'s own lesson arriving through a different door — *a stagger nobody can see is a
+   * stagger that is not there* — and it takes `W6-6`'s own answer. `idle` is MapLibre's statement
+   * that the camera has stopped and every requested tile is in, so the first one after the lift is
+   * the frame in which the ground exists, at altitude, with the descent still to come.
+   *
+   * **And a floor under that**, for the reason the landing's own floor exists: a tile request that
+   * never resolves would otherwise leave the camera parked at altitude for the life of the page,
+   * looking at a library from two bands too far out with nothing on screen saying why.
+   */
+  const beginEntranceDescent = useCallback((map: MapLibreMap) => {
+    if (!entrancePending.current) return;
+    entrancePending.current = false;
+    if (prefersReducedMotion()) {
+      // No flight at all, and the clock starts now: with every beat due at once (`entrance.ts`),
+      // the sheet, the panel and the wordmark fade in together and nothing is withheld.
+      startEntranceClock();
+      return;
+    }
+    const center = map.getCenter();
+    const zoom = map.getZoom();
+    // `Math.max(…, 0)` rather than the map's own `minZoom`: the transform clamps a request it
+    // cannot honour, and the descent returns to the reading above either way, so an over-lifted
+    // altitude costs a shorter flight and never a wrong resting place.
+    map.jumpTo({ center, zoom: Math.max(zoom - ENTRANCE_ZOOM_LIFT, 0) });
+
+    let armed = false;
+    const arm = () => {
+      if (armed) return;
+      armed = true;
+      map.off('idle', arm);
+      startEntranceClock();
+      descentTimers.current.push(
+        setTimeout(() => {
+          map.easeTo({ center, zoom, duration: ENTRANCE_DESCENT_MS });
+        }, entranceDelayMs(ENTRANCE_BEATS.camera))
+      );
+    };
+    map.once('idle', arm);
+    descentTimers.current.push(setTimeout(arm, ENTRANCE_CLOCK_FLOOR_MS));
+  }, []);
+
+  /**
    * **Camera mover 1: the home framing.** The whole library's box, framed as tightly as the library
    * allows — the overview, and the zoom is a consequence rather than an input.
    *
@@ -701,6 +800,10 @@ export function MapSurfaceMapcn({
       const frameHome = (request: FocusBoundsRequest) => {
         frameBounds(map, request, false);
         framing.current = { kind: 'home' };
+        // After the framing, never instead of it, and never before it — see `beginEntranceDescent`.
+        // A resize that re-decides the home view later finds the entrance already spent, so the
+        // descent cannot replay and a re-fit mid-flight simply lands the camera at rest.
+        beginEntranceDescent(map);
       };
 
       // Nothing saved: there is no library to fit, so there is nothing for a fit to answer. The
@@ -763,7 +866,7 @@ export function MapSurfaceMapcn({
       const zoom = settleZoom(padded?.zoom ?? HOME_LANDING_ZOOM.min);
       frameHome({ bounds, minZoom: zoom, maxZoom: zoom, markerAllowancePx: allowance });
     },
-    [frameBounds, paddingFor]
+    [beginEntranceDescent, frameBounds, paddingFor]
   );
 
   /**
@@ -1342,6 +1445,11 @@ export function MapSurfaceMapcn({
         // going blank below z8.5 with nothing drawn in their place — see `place-marker-layer.tsx`.
         replacedBelowZoom={hasSummaryBands ? PIN_BAND_MIN : null}
         hoveredId={hoveredPlaceId ?? null}
+        // The pin beat of the same choreography the camera above is playing. Read from the prop
+        // rather than from `entrancePending`, which the framing spends: this layer's own landing is
+        // guarded once by `hasLanded`, and it must not change its mind about the entrance between
+        // being told about it and `idle` arriving.
+        entrance={entrance}
         onPlaceClick={(id) => {
           const place = places.find((candidate) => candidate.id === id);
           // Selection lives with the caller (`map-page-client.tsx`'s `selected` state) — this

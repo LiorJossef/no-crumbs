@@ -340,6 +340,24 @@ export interface MapSurfaceProps {
    * Omitted, the column holds only whatever the surface draws itself.
    */
   readonly controlSlot?: ReactNode;
+  /**
+   * **Play the post-login entrance on this mount** (`I2-7`, `components/map/entrance.ts`).
+   *
+   * A surface answers it by descending into its home framing from altitude and by holding the pin
+   * landing back until the ground has settled under it. `false`, or absent, is the behaviour every
+   * surface had before: the camera frames the library instantly and the pins land on `idle` the way
+   * `W6-6` left them.
+   *
+   * **It is not a ninth camera mover and it may not become one**, and the mechanism is what makes
+   * that true rather than the promise: the honest fit runs *first*, the resting camera is read back
+   * off the map, and the descent's destination is that reading. So the entrance changes how the
+   * camera arrives at mover 1's answer and never what that answer is. A surface is free to ignore
+   * it — `map-surface.mock.tsx` does, and renders identically with or without it.
+   *
+   * A boolean rather than a timestamp because the clock is a document-scoped singleton the surface
+   * starts itself; see `entrance.ts` for why the zero is the framing rather than the mount.
+   */
+  readonly entrance?: boolean;
 }
 
 /**

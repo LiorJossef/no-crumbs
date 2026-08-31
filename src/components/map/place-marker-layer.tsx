@@ -75,6 +75,12 @@ import {
 import type { PlaceFeatureCollection } from './place-features';
 import { styleTextFont } from './style-text-font';
 import { useStyleReady } from './use-style-ready';
+import {
+  ENTRANCE_BEATS,
+  entranceDelayMs,
+  prefersReducedMotion,
+  whenEntranceStarts,
+} from './entrance';
 
 /** Metres per degree of latitude. Constant enough at this scale; longitude is scaled by `cos φ`. */
 const METRES_PER_DEGREE = 111320;
@@ -227,6 +233,15 @@ interface PlaceMarkerLayerProps {
    */
   readonly hoveredId?: string | null;
   readonly onPlaceClick?: (placeId: string) => void;
+  /**
+   * **The post-login entrance is playing** (`I2-7`, `./entrance.ts`).
+   *
+   * It changes two things about the landing and nothing else. Wave 0 is **not** painted on arrival,
+   * so no eighth of the library pops in at altitude while the camera is still descending; and the
+   * waves are held until the entrance's pin beat, so a warm tile cache cannot start them before the
+   * ground has settled — which is W6-6's own defect arriving through a different door.
+   */
+  readonly entrance?: boolean;
 }
 
 export function PlaceMarkerLayer({
@@ -235,6 +250,7 @@ export function PlaceMarkerLayer({
   replacedBelowZoom,
   hoveredId = null,
   onPlaceClick,
+  entrance = false,
 }: PlaceMarkerLayerProps) {
   const { map } = useMap();
   const styleReady = useStyleReady(map);
@@ -469,11 +485,7 @@ export function PlaceMarkerLayer({
       applyOpacity();
     };
 
-    const reduced =
-      typeof window !== 'undefined' &&
-      typeof window.matchMedia === 'function' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduced) {
+    if (prefersReducedMotion()) {
       // `null` is "no gate at all" rather than "the last wave": it leaves the expression in the
       // exact shape it has for the rest of the session, so a reduced-motion user's map is not a
       // second code path that could drift.
@@ -482,7 +494,12 @@ export function PlaceMarkerLayer({
     }
 
     // Wave 0 immediately, so the innermost pins are on screen in the frame the layer first draws.
-    paint(0);
+    //
+    // **Except during the entrance** (`I2-7`), where `-1` means *nothing has landed yet*: the
+    // camera is about to descend from altitude, and an eighth of the library appearing part-way
+    // down reads as pins arriving twice. The gate expression takes it without a branch — every
+    // `landOrder` is `>= 0`, so `<= -1` is false for all of them and every pin is at 0.
+    paint(entrance ? -1 : 0);
 
     const timers: ReturnType<typeof setTimeout>[] = [];
     let started = false;
@@ -500,15 +517,41 @@ export function PlaceMarkerLayer({
      * when no transition is running and every requested tile has loaded, which is exactly the
      * moment the landing is supposed to begin. `once`, because a later idle is a user's pan.
      */
-    const start = () => {
-      if (started) return;
-      started = true;
-      for (let wave = 1; wave < LAND_WAVES; wave += 1) {
+    const run = () => {
+      // From wave 0 during the entrance, because wave 0 was withheld above; from wave 1 otherwise,
+      // because it is already on screen.
+      for (let wave = entrance ? 0 : 1; wave < LAND_WAVES; wave += 1) {
         timers.push(setTimeout(() => paint(wave), wave * LAND_STAGGER_MS));
       }
       // …and one more to retire the gate entirely once every wave has arrived, so nothing in the
       // rest of the session evaluates a landing expression it has finished with.
       timers.push(setTimeout(() => paint(null), LAND_WAVES * LAND_STAGGER_MS));
+    };
+    /**
+     * **The entrance's pin beat is a second floor under `idle`, in the other direction.**
+     *
+     * `idle` answers *"the camera has stopped and the tiles are in"*, which is the right signal
+     * and stays the trigger. What it cannot answer is *"and the descent has finished"*: the
+     * entrance's first `idle` is the frame the ground appears **at altitude**, with 600 ms of
+     * descent still to come (`map-surface.mapcn.tsx`), and waves run under that camera are waves
+     * nobody sees — W6-6's own measured defect, reached by a different route.
+     *
+     * So during an entrance the waves are hung off the shared clock rather than off this `idle`,
+     * through `whenEntranceStarts`, and **not** off `entranceDelayMs` alone: the two `idle`
+     * listeners are registered independently, so this one can win the race and read a clock that
+     * has not started yet — which would answer 0 and start the landing immediately.
+     */
+    let unsubscribeClock: (() => void) | null = null;
+    const start = () => {
+      if (started) return;
+      started = true;
+      if (!entrance) {
+        run();
+        return;
+      }
+      unsubscribeClock = whenEntranceStarts(() => {
+        timers.push(setTimeout(run, entranceDelayMs(ENTRANCE_BEATS.pins)));
+      });
     };
     map.once('idle', start);
 
@@ -519,6 +562,11 @@ export function PlaceMarkerLayer({
      * — those pins stay invisible for the life of the page, and the user is looking at a map
      * missing most of their places with nothing on screen saying so.
      *
+     * **During an entrance it is the whole library rather than seven eighths of it**, because wave
+     * 0 is withheld too — so this floor matters more there, not less. It is still bounded by the
+     * same number, and the entrance's own clock carries a floor of its own
+     * (`ENTRANCE_CLOCK_FLOOR_MS`) so that waiting on the clock cannot wait forever either.
+     *
      * So the landing is *started* by whichever arrives first. Chosen well clear of the settle times
      * this map actually shows (1.6 s at 390×844 and 2.0 s at 1440×900, measured) so it is a
      * fallback rather than a second schedule.
@@ -527,9 +575,10 @@ export function PlaceMarkerLayer({
 
     return () => {
       map.off('idle', start);
+      unsubscribeClock?.();
       for (const timer of timers) clearTimeout(timer);
     };
-  }, [map, styleReady, pinLayerId, labelled, applyOpacity]);
+  }, [map, styleReady, pinLayerId, labelled, applyOpacity, entrance]);
 
   /**
    * The dim half of the row↔pin coupling, and its own effect rather than part of the one above.

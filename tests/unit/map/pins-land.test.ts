@@ -29,6 +29,7 @@ import { toPlaceFeatures } from '@/components/map/place-features';
 import type { MapPlace } from '@/components/map/types';
 
 const LAYER = readFileSync('src/components/map/place-marker-layer.tsx', 'utf8');
+const ENTRANCE = readFileSync('src/components/map/entrance.ts', 'utf8');
 
 function ring(count: number, radius: number) {
   return Array.from({ length: count }, (_, index) => ({
@@ -196,13 +197,24 @@ describe('what the landing is allowed to cost', () => {
     expect(LAND_SETTLE_FALLBACK_MS).toBeGreaterThan(2500);
   });
 
-  /** Reduced motion loses the **sequencing**, not the fade: a cascade spreading across the screen
-   *  is motion however each step is drawn. §3a's rule is that the nine collapse to the opacity
-   *  change alone — here that change *is* the animation, so what goes is the stagger. */
+  /**
+   * Reduced motion loses the **sequencing**, not the fade: a cascade spreading across the screen
+   * is motion however each step is drawn. §3a's rule is that the nine collapse to the opacity
+   * change alone — here that change *is* the animation, so what goes is the stagger.
+   *
+   * The media query itself moved to `entrance.ts` under `I2-7`, so that the entrance's own beats
+   * and this landing cannot come to disagree about what a reduced-motion user asked for. The rule
+   * is unchanged and so is what is asserted: the check is made **before** any wave is painted, and
+   * the answer is the un-gated expression rather than nothing.
+   */
   it('drops the sequence under reduced motion, and keeps the pins', () => {
-    const code = LAYER.slice(LAYER.indexOf('const reduced ='), LAYER.indexOf('paint(0);'));
-    expect(code).toContain("matchMedia('(prefers-reduced-motion: reduce)')");
+    const code = LAYER.slice(
+      LAYER.indexOf('if (prefersReducedMotion())'),
+      LAYER.indexOf('paint(entrance ? -1 : 0);'),
+    );
+    expect(code).not.toBe('');
     expect(code).toContain('paint(null)');
+    expect(ENTRANCE).toContain("matchMedia('(prefers-reduced-motion: reduce)')");
   });
 
   /** The fade each wave rides on is the layer's own transition, declared once — so a wave is a

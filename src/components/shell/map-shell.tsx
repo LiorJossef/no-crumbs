@@ -39,6 +39,7 @@ import type { ReactNode } from 'react';
 import { Drawer } from 'vaul';
 
 import { MapSurface, type MapPlace } from '@/components/map/map-surface';
+import { ENTRANCE_BEATS, useEntranceBeat } from '@/components/map/entrance';
 import type { LatLngBoundsHint, MapSummaries, ViewportChangeMeta } from '@/components/map/types';
 import { BottomNav } from '@/components/nav/bottom-nav';
 import { useNonModalBackground } from '@/components/sheet/use-non-modal-background';
@@ -150,6 +151,22 @@ export interface MapShellProps {
   readonly modalSlot?: ReactNode;
   /** The one thing this document's single live region is saying. */
   readonly announcement?: string;
+  /**
+   * **Play the post-login entrance on this mount** (`I2-7`, `components/map/entrance.ts`).
+   *
+   * The shell's own beat is the sheet: it is withheld until 900 ms on the entrance's clock and then
+   * mounts, which is a rise from off-screen rather than an appearance — vaul's snap-point CSS puts
+   * `Drawer.Content` at `translate3d(0, 100%, 0)` until the active snap point is applied, over its
+   * own 0.5 s transition. The `lg+` panel takes the same beat, because it is what a desktop has
+   * instead of a sheet.
+   *
+   * **`BottomNav` deliberately does not take it.** It is navigation, and holding a way out of a
+   * surface back for the sake of a flourish is the one thing an entrance may not do.
+   *
+   * Passed straight through to the surface as well, where it drives the camera and the pins. A
+   * scope with no entrance — `/collections/[id]` — omits it and renders exactly as it always did.
+   */
+  readonly entrance?: boolean;
 }
 
 export function MapShell({
@@ -177,6 +194,7 @@ export function MapShell({
   overlay,
   modalSlot,
   announcement,
+  entrance = false,
 }: MapShellProps) {
   // `modal={false}` does not reach Radix through vaul 1.1.2, so without this the drawer marks
   // `<main>` `aria-hidden` and hides the whole application from assistive technology. Called here,
@@ -184,6 +202,10 @@ export function MapShell({
   useNonModalBackground(true);
 
   const restingFraction = restingSheetFractionFor(restingStop);
+  /** `true` immediately for every scope that is not playing an entrance, so the two list surfaces
+   *  below are unguarded in the ordinary case rather than guarded by something that is always
+   *  true. */
+  const listArrived = useEntranceBeat(ENTRANCE_BEATS.sheet, entrance);
 
   return (
     <div className="relative h-full w-full">
@@ -204,6 +226,7 @@ export function MapShell({
         {...(accessibleName ? { accessibleName } : {})}
         {...(hoveredPlaceId === undefined ? {} : { hoveredPlaceId })}
         {...(controlSlot ? { controlSlot } : {})}
+        {...(entrance ? { entrance } : {})}
       />
 
       {/* The list and the pins both change silently, so the one thing a screen reader user cannot
@@ -226,7 +249,7 @@ export function MapShell({
           {/* At `full` the map is not meaningfully visible; a tap on the remaining strip collapses
               the sheet rather than reaching the map underneath. A non-modal drawer has no vaul
               overlay to repurpose, so this is the only thing standing in for that rule. */}
-          {shell.sheet.stop === 'full' && (
+          {listArrived && shell.sheet.stop === 'full' && (
             <button
               type="button"
               aria-label="Collapse the places sheet"
@@ -235,6 +258,13 @@ export function MapShell({
             />
           )}
 
+          {/* **The sheet's beat, and it is a mount rather than a class.** vaul puts
+              `Drawer.Content` at `translate3d(0, 100%, 0)` while it has no active snap point
+              (`vaul/dist/index.mjs:62`, `[data-vaul-snap-points=true][data-vaul-drawer-direction=bottom]`)
+              and transitions `transform` over 0.5 s, so mounting it at the beat *is* the rise — no
+              second animation, and nothing for the entrance and the drag gesture to disagree about.
+              `listArrived` is unconditionally `true` for a scope with no entrance. */}
+          {listArrived && (
           <Drawer.Root
             open
             modal={false}
@@ -280,6 +310,7 @@ export function MapShell({
               </Drawer.Content>
             </Drawer.Portal>
           </Drawer.Root>
+          )}
         </>
       )}
 
@@ -287,12 +318,22 @@ export function MapShell({
 
       {/* A `pointer-events-auto` island inside a `pointer-events-none` full-bleed wrapper, so the
           map underneath stays reachable everywhere else. Its materials are the sign-in screen's
-          desktop split rather than a two-column layout. */}
+          desktop split rather than a two-column layout.
+
+          The panel takes the sheet's beat, because it is what a desktop has instead of a sheet, and
+          the `enter` rule rather than a rise of its own: `animate-in fade-in-0 duration-enter` with
+          the 4 px displacement behind `motion-safe:`, exactly as `place-desktop-panel.tsx` and
+          `place-sheet.tsx` already write it. `slide-in-from-left-2` and not `-bottom-1` because
+          this panel's own edge is the left one — the displacement is along the axis the surface
+          arrives on. Under reduced motion every beat is due at once (`entrance.ts`), so what is
+          left is the opacity change, which is what §3a asks the nine to collapse to. */}
+      {listArrived && (
       <div className="pointer-events-none absolute inset-0 z-20 hidden lg:block">
-        <div className="pointer-events-auto absolute inset-y-0 left-0 flex w-[clamp(320px,26vw,392px)] flex-col border-r border-border/70 bg-card/85 backdrop-blur-md">
+        <div className="pointer-events-auto animate-in fade-in-0 duration-enter motion-safe:slide-in-from-left-2 absolute inset-y-0 left-0 flex w-[clamp(320px,26vw,392px)] flex-col border-r border-border/70 bg-card/85 backdrop-blur-md">
           {panelContent}
         </div>
       </div>
+      )}
 
       {overlay}
     </div>
