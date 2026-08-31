@@ -80,12 +80,17 @@ describe('E2-T3-EVAL — postIntent accuracy and end-to-end yield', () => {
       cands = r.candidates.length;
       for (const c of r.candidates) {
         lookups += 1;
-        const res = deriveResolution(await resolver.resolve(buildResolveQuery(c, r.cityHint), ctx));
+        const raw = await resolver.resolve(buildResolveQuery(c, r.cityHint), ctx);
+        const res = deriveResolution(raw);
         if (res.status === 'resolved') { resolved += 1; postsWithAPlace.add(handle); }
         else if (res.status === 'ambiguous') { ambiguous += 1; postsWithAPlace.add(handle); }
         else unresolved += 1;
-        const top = res.status === 'resolved' ? res.place.name : res.status === 'ambiguous' ? res.options[0]?.name ?? '?' : '—';
-        detail.push(`      ${c.rawName}  ->  ${res.status}  ${top}`);
+        const { band, score, margin } = raw.confidence;
+        const top3 = raw.shortlist.slice(0, 3).map((p) => `${p.place.name}[${p.score.toFixed(3)}]`).join('  ');
+        detail.push(
+          `      ${c.rawName.padEnd(24)} ${band.padEnd(9)} score=${score.toFixed(3)} margin=${margin === null ? ' null' : margin.toFixed(3)}`,
+        );
+        detail.push(`         top: ${top3}`);
         await new Promise((r) => setTimeout(r, 250));
       }
     } catch (e) { err = e instanceof Error ? e.message : String(e); }

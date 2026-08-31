@@ -131,3 +131,71 @@ The sixteenth call returned **HTTP 429** from Gemini — the free tier's rate li
 adding a resolver round trip per candidate bunched the calls. It is a harness artefact, not a product
 one: an import makes one extraction call. It does mean `@emshelx`'s intent was not re-measured in
 this run, so the first run's result stands for that row.
+
+---
+
+# Addendum 2 — why six of ten need a human, and why my own recommendation was wrong
+
+Third run, same ten candidates, now printing score, margin and the top three. **Zero new lookups**
+where the cache served them.
+
+| candidate | matched to | band | score | margin |
+|---|---|---|---|---|
+| MBER London | MBER | **preselect** | 1.000 | null |
+| The Life Goddess | The Life Goddess | **preselect** | 1.000 | 0.120 |
+| The Laughing Yak | The Laughing Yak | **preselect** | 1.000 | null |
+| Tokii London | TOKii | **preselect** | 1.000 | null |
+| Jones Family Kitchen | The Jones Family Kitchen | confirm | 0.908 | null |
+| Kiaans Tooting | **Kaosarn Tooting** | confirm | 0.887 | 0.088 |
+| La Nonna | La Nonna (Pasta fresca) | confirm | 0.864 | null |
+| Nomena Roasters | Nomena | confirm | 0.857 | null |
+| Sycamore Restaurant | Sycamore Covent Garden | confirm | 0.857 | null |
+| Cafe Fiori | Cafe fiori | confirm | **0.800** | 0.168 |
+
+## Three findings, and the first two kill my own proposal
+
+**1. Every one of the six fails the *score* gate, not the margin gate.** I recommended normalising
+casing and leading articles and leaving the thresholds alone. `normalise()` **already lowercases** —
+`Cafe Fiori` and `Cafe fiori` produce byte-identical output. Casing was never the cause, and margin
+is comfortable everywhere it exists (0.088–0.168 against a 0.05 gate).
+
+**2. The score ranks a wrong venue above a right one.** `Kiaans Tooting` matched **`Kaosarn
+Tooting`** — a different restaurant — at **0.887**, while the correct `Cafe fiori` sits at **0.800**.
+So lowering the score gate promotes the wrong answer *before* it promotes several right ones. The
+band is not over-cautious; the score carries no signal that separates these two cases, and any
+threshold move trades a real save for a wrong pin. **Leave the thresholds alone** — that half of my
+recommendation survives, for a reason I had not found.
+
+**3. The real defect: supplying a correct address makes the result worse.**
+
+`address.weight` is **0.2**, and `Cafe Fiori` scored **exactly 0.800**. That is `0.8 × 1.000 + 0.2 ×
+0.000` — a **perfect** name match, an address comparison that scored **zero**, and a 20% weight
+dragging it under the 0.92 gate.
+
+The caption is `Cafe Fiori 📍 Yom Tov St 20, Tel Aviv-Yafo`. It is the *ideal* caption: name, street,
+city, all present. `07-caption-content-scoring.md` files it as one of only three `sufficient` posts
+in the whole corpus. **The one post that gives us everything is demoted to a manual confirmation
+because it gave us the address.** A caption that had omitted the street would have scored 1.000 and
+pre-selected.
+
+That is worth stating plainly: on this evidence the address arm is not corroborating, it is
+penalising, and it penalises hardest exactly where the caption is richest.
+
+## What this means for the unplaced-mentions surface
+
+Asked by the session building `place_mentions`: **how many of the ten would become
+`match_too_weak`?** On these thresholds, **zero** — every candidate cleared `confirmScore`, so all
+six shortlists reach the user as a choice rather than as a kept-for-later mention. The surface is
+therefore *not* currently being fed our own near-misses from this sample.
+
+But the margin is thin and the direction is the wrong one: `Cafe Fiori` at 0.800 is the closest to
+the `no_match` floor, and it is a **correct** match held down by the address arm. **If the address
+penalty is left alone and thresholds ever rise, the first rows to fall into `match_too_weak` are the
+correct ones with the richest captions.** That is the failure mode worth designing against.
+
+## Next, and it is one experiment rather than a change
+
+Establish why the address comparison scored 0 on `Yom Tov St 20` before touching a weight. Either
+Google returns a form our parser cannot read, or the comparison is right and the venue's registered
+address genuinely differs. **Those two have opposite fixes**, and the ten candidates here are enough
+to tell them apart.
