@@ -320,7 +320,15 @@ several of the original rules quietly depended on.
     carries five assertions of the form *"count(*) over a whole table equals N"* — its extraction
     fixture check is `count(*) from public.extractions <> 1`. That is true only immediately after a
     `db:reset`. On 2026-09-01, with three real extraction rows left by end-to-end verification, it
-    failed at setup, and four of five policy files failed the same way.
+    failed at setup.
+
+    **Correction, and it is the sharper half.** I first reported that *four of five* policy files
+    failed this way. Only `0008` does — `0024` passes 43, `0031` 38, `0032` 34, `0034` 17 and `0035`
+    21, all green on a used database. My failure-detector was `grep -ciE "FAIL|ERROR"`, and it
+    matched the word `FAIL` inside **`0031`'s own success banner**: *"if you see this line and no
+    FAIL above, every assertion passed."* A detector that finds failure by finding a word will find
+    it on the line that says there is none. Count `NOTICE:  PASS` and real `ERROR` lines separately,
+    and never let a substring stand in for an outcome.
 
     **Nothing was broken.** The tests were asserting a global fact about a database that had since
     been used for its actual purpose. Read that failure as *the fixture's precondition is gone*, not
