@@ -253,6 +253,16 @@ cut when a package is running long.*
 thing looking at the same question for a different reason, which reads as waste right up until it is
 the only reason a false negative was caught.
 
+**"I checked and it is committed" and "I checked and it is not" are the same sentence until one of
+them carries output.** A lane and this lead spent two rounds disagreeing about whether fifteen files
+were in history. Both had looked; only one had pasted the command. The resolution was not that
+somebody was careless — it was that **a narrative report of a check is indistinguishable from an
+unchecked assertion**, and the cost of making it distinguishable is one line of shell.
+
+That generalises past git. Every claim in this record that survived scrutiny came with the command,
+the SHA or the pixel behind it; every claim that had to be withdrawn was a sentence about having
+looked.
+
 **A clean number with its limits stated beside it is worth more than a clean number.** *0 failures
 at `214bb0f`* is a statement about 376 scored strings — not about the 78 rows below the fold, the 12
 occluded, or the six that were **not measured rather than passed**.
