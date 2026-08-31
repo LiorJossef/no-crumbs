@@ -163,7 +163,11 @@ describe('the post and its caption are on screen', () => {
     // §4.3: one affordance per action. `Open on TikTok` is not repeated in the footer,
     // which closes one instance of the four-labels-for-one-action defect.
     expect((CODE.match(/href=\{probe\.canonicalUrl\}/g) ?? []).length).toBe(1);
-    expect(CODE).not.toContain('Open the original TikTok');
+    // Named as the label that exists now, not the one this guard was written against: it used
+    // to forbid `Open the original TikTok`, a wording the product deleted, so it was guarding a
+    // string nobody could reintroduce. The affordance to keep off this screen is the one the
+    // failure screens carry.
+    expect(CODE).not.toContain('Open on TikTok');
   });
 
   it('expands the caption by default and never persists that', () => {

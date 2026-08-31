@@ -4,7 +4,7 @@
  * `ADD-2` — the one creation sheet, opened by the `＋` in the bottom nav.
  *
  * The owner's ruling (2026-08-29) is that `＋` means the same thing on every screen. It was briefly
- * contextual — `Add a TikTok` on `/map`, `New collection` on `/collections` — and that was
+ * contextual — `Add a TikTok link` on `/map`, `New collection` on `/collections` — and that was
  * rejected: a button that changes what it does when the page under it changes is a button you have
  * to read before you can press. So `＋` opens **this**, everywhere, and the choice is made inside
  * the sheet where it can be seen. There is deliberately no route-awareness anywhere in this file.
@@ -507,7 +507,7 @@ export function AddPlacePane({
   const isLink = input.kind === 'tiktok';
   /**
    * A link we recognised and cannot read (W1-5, growth defect G4). Kept separate from `isLink`
-   * deliberately: widening `isLink` would put `Add this TikTok` under an Instagram URL, which is
+   * deliberately: widening `isLink` would put `Add this TikTok link` under an Instagram URL, which is
    * the opposite of the news this state exists to deliver.
    */
   const unsupportedLink = input.kind === 'unsupported-link';

@@ -33,7 +33,7 @@
  *    express. The only id ever placed in it here is the viewer's own saved-place id, read off
  *    their own library row.
  *  - **the facts object.** Every private block in `PlaceDetail` — the thumbnail, the caption quote,
- *    the model's sentence, the tags, `Open TikTok`, the match-certainty line, the saved-on line —
+ *    the model's sentence, the tags, `Open on TikTok`, the match-certainty line, the saved-on line —
  *    renders only when its field is present. For a place the viewer does not own, what is passed
  *    is a `SharedOnlyPlaceFacts` literal, whose type pins each of those keys to `never`: the
  *    boundary is a property of the data rather than of a `readOnly` flag somebody has to remember,

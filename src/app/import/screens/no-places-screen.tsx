@@ -87,7 +87,7 @@
  * §5.4's **with-search** variant, which the spec says is the one to build now that manual add
  * exists. The add-by-name block is in the thumb zone (§4.1: reach, keyboard occlusion, and because
  * a field in the action zone under a sentence naming what it is for reads as an offer rather than
- * a form), and `Try another TikTok` is the ghost secondary beneath it.
+ * a form), and `Try another TikTok link` is the ghost secondary beneath it.
  *
  * **That block is what closes finding 10.** The standalone `/import` route silently withheld this
  * screen's primary recovery, because `onAddManually` opens the `＋` sheet and that sheet exists
@@ -123,7 +123,7 @@ import { AddByName, type AddByNameOutcome } from './add-by-name';
  * and a third sentence makes the screen wordy — the disclosure survives on A and B, which together
  * are the overwhelming majority of arrivals.
  *
- * `That happens a lot.` is deliberately absent. It shipped, alongside `Some TikToks only show the
+ * `That happens a lot.` is deliberately absent. It shipped, alongside `Some TikTok videos only show the
  * place on screen.`, and two normalising sentences is one too many — the second is the one that
  * edges toward defending the hit rate, which the owner ruling forbids. The capability fact stays;
  * the reassurance goes.
@@ -168,7 +168,7 @@ export function NoPlacesScreen({
   onAdded,
 }: {
   probe: ProbeSuccess;
-  /** `Try another TikTok`. Clears the link — see the note on the button. */
+  /** `Try another TikTok link`. Clears the link — see the note on the button. */
   onRetry: () => void;
   /** The same exit the ✕ takes. Rendered as a button too, because the ✕ alone is out of thumb
    *  reach on a tall phone (§5.4). */

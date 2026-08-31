@@ -39,7 +39,7 @@
  * the bar is not persistent, floating over `full` and it steals the bottom of the list at the one
  * stop the list exists for.
  *
- * It is settled by **moving the import action out of the sheet**. `Add a TikTok` was a 48 px button
+ * It is settled by **moving the import action out of the sheet**. `Add a TikTok link` was a 48 px button
  * in the peek row; as the `＋` circle here it leaves the peek row carrying one line of text, which
  * frees the bottom of the 128 px peek band for this bar. So:
  *
@@ -154,7 +154,7 @@ interface BottomNavProps {
 /**
  * **The `＋` means one thing on every screen, and it must stay that way.**
  *
- * It was briefly contextual — `Add a TikTok` on `/map`, `New collection` on `/collections` — to
+ * It was briefly contextual — `Add a TikTok link` on `/map`, `New collection` on `/collections` — to
  * resolve a visual collision with that page's own create button. That was the wrong fix and the
  * owner named it: the same circle, in the same place, doing two different jobs depending on the tab
  * is a mode, and people learn a control in persistent chrome by its gesture and its position, not

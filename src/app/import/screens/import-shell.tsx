@@ -110,7 +110,7 @@ export function ImportShell({
           // content, so the inner `overflow-y-auto` list never scrolls and the footer is pushed
           // off the bottom of the viewport instead.
           'relative z-10 mx-auto flex w-full min-h-0 max-w-md flex-1 flex-col px-5 pt-[calc(env(safe-area-inset-top)+2rem)] pb-[calc(env(safe-area-inset-bottom)+1.5rem)]',
-          // Desktop (`lg+`), overlay mode only (the map's "Add a TikTok" flow): a
+          // Desktop (`lg+`), overlay mode only (the map's "Add a TikTok link" flow): a
           // floating card centred over the dimmed map + list, not a docked panel — fixed width,
           // capped height with its own scroll (so a future 3-stage rail grows the card rather than
           // forcing full-viewport height), rounded corners on all sides, hairline border + elevation.

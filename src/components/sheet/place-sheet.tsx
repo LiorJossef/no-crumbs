@@ -399,7 +399,7 @@ function PlaceList({
         /*
          * One line, and the bar underneath it carries everything else.
          *
-         * This row used to hold the heading and a 48 px `Add a TikTok`, and briefly a third
+         * This row used to hold the heading and a 48 px `Add a TikTok link`, and briefly a third
          * Collections slot as well. Both of those are now in `BottomNav`, which is the owner's
          * 2026-08-29 ruling: destinations and the primary action live in persistent chrome, not in
          * the sheet. What is left here is the one thing that is genuinely about *this* sheet —
@@ -428,7 +428,7 @@ function PlaceList({
               // It costs no vertical space that was doing anything else. `PEEK_PX` is 128 and must
               // not move — it is mirrored in four places, one of them a licence condition, and it
               // sets the camera's bottom budget — but the strip already had the room: dropping the
-              // `Add a TikTok` button into `BottomNav` freed the lower half of the band, and this
+              // `Add a TikTok link` button into `BottomNav` freed the lower half of the band, and this
               // only claims the height the row was already sitting in.
               'flex min-h-11 min-w-0 flex-1 items-center gap-1 rounded-lg px-1 text-left text-sm font-medium text-muted-foreground',
               // The only control on the peek strip, and the one whose result — the sheet rising —
@@ -1369,7 +1369,7 @@ export function EmptyLibraryLine() {
 
 /**
  * The sheet's empty-library body: the line, then the product's primary action full-width in the
- * thumb zone. The desktop panel does not use this — it already carries `Add a TikTok` in its header
+ * thumb zone. The desktop panel does not use this — it already carries `Add a TikTok link` in its header
  * block, and a second copy of the same button would be the only thing on that screen twice.
  *
  * Nothing else appears here on purpose: no carousel, no checklist, no progress meter, no `0 places`,
@@ -1555,7 +1555,7 @@ export function PlaceDetail({
 
   /**
    * Whether the Google Maps link is the only external action on the card, which decides both its
-   * wording and its target size. Beside `Open TikTok` the pair reads as a list of destinations and
+   * wording and its target size. Beside `Open on TikTok` the pair reads as a list of destinations and
    * a bare noun is enough; alone in whitespace a bare noun stops looking like something to press,
    * and it needs its own 44 px rather than borrowing the row's.
    */
@@ -1767,7 +1767,7 @@ export function PlaceDetail({
             isOverridden={detail?.categoryIsOverridden ?? false}
             // A place with no TikTok behind it was added by hand, so nothing was "worked out from
             // the post" — there is no post. `tiktokUrl` rather than a new field: the same value
-            // already decides whether this card offers `Open TikTok`, so the two cannot disagree.
+            // already decides whether this card offers `Open on TikTok`, so the two cannot disagree.
             fromAPost={Boolean(tiktokUrl)}
           />
         )}

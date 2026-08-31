@@ -95,7 +95,7 @@ describe('the state matrix, row by row, on the button (W3-4)', () => {
     // W3-3. `transition-all` here ran the hover fade and the press translate *only* for users who
     // had asked for reduced motion, because `PRESS_BEAT` supersedes it for everyone else — the
     // inversion failing in the exact direction it exists to prevent.
-    const markup = renderToStaticMarkup(createElement(Button, {}, 'Add a TikTok'));
+    const markup = renderToStaticMarkup(createElement(Button, {}, 'Add a TikTok link'));
     expect(markup).not.toMatch(/(?<!motion-safe:)transition-all/);
     expect(markup).toContain('motion-safe:transition');
   });
@@ -130,7 +130,7 @@ describe('the strings reach the DOM', () => {
   it('presses a primary button, and drops its shadow a level', () => {
     // `shadow-raised` exists so `active:shadow-none` has somewhere to fall from: a press that only
     // shrinks reads as a rendering glitch rather than as a press.
-    const markup = renderToStaticMarkup(createElement(Button, {}, 'Add a TikTok'));
+    const markup = renderToStaticMarkup(createElement(Button, {}, 'Add a TikTok link'));
     expect(markup).toContain('motion-safe:active:scale-98');
     expect(markup).toContain('shadow-raised');
     expect(markup).toContain('active:shadow-none');

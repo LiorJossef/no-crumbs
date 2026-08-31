@@ -97,7 +97,7 @@ export type { CandidatePick, ItemStatus, SaveOutcomeDetail };
 
 export interface ImportPageClientProps {
   /** Set when this component is rendered as an overlay on top of the persistent map
-   *  (`map-page-client.tsx`'s "Add a TikTok" flow) rather than mounted at the standalone `/import`
+   *  (`map-page-client.tsx`'s "Add a TikTok link" flow) rather than mounted at the standalone `/import`
    *  route. Swaps the full-viewport (`min-h-dvh`) shell for one that fills its (absolutely
    *  positioned) overlay container instead, and swaps the close affordance from a real navigation
    *  (`<Link href="/map">`, which would unmount the map) to a plain state-closer. Omitting this
@@ -329,7 +329,7 @@ export function ImportPageClient({
    * The counts are shaped to say what actually happened: one place, and `alreadySaved` reported
    * rather than dressed up, because `save_place` is idempotent and claiming a fresh save for a
    * place the user already had is the small lie this codebase keeps refusing to tell. The link is
-   * cleared on the way out for the same reason `Try another TikTok` clears it — this one is spent.
+   * cleared on the way out for the same reason `Try another TikTok link` clears it — this one is spent.
    */
   function addedFromNoPlaces(outcome: AddByNameOutcome) {
     backToMapWithFreshData({

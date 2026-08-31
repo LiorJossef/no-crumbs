@@ -66,7 +66,7 @@ import {
  * One thing deliberately gone with it: the pre-submit screen's primary action read `Add manually →`
  * under the headline `Add it by hand instead`, and it called `reset()` — back to an empty paste
  * field. S8 manual add is `L1-F7-T1` and does not exist, so that button named a destination it
- * could not reach. The action it actually performs is `Try another TikTok`, and that is now what it
+ * could not reach. The action it actually performs is `Try another TikTok link`, and that is now what it
  * says.
  * ------------------------------------------------------------------------------------------- */
 
@@ -97,7 +97,7 @@ export function ImportFailureScreen({
    *  reference to nothing helps nobody. */
   retryable: boolean;
   /** The URL the user pasted — still in state, which is what makes `Retry` (same link) and
-   *  `Open the TikTok` (here is your thing back, §5.1) possible without asking the server. */
+   *  `Open on TikTok` (here is your thing back, §5.1) possible without asking the server. */
   url: string;
   onRetrySameUrl: () => void;
   onTryAnother: () => void;
@@ -115,7 +115,7 @@ export function ImportFailureScreen({
    * the same sentence `retryable` already means, which is why it folds in here rather than
    * becoming a third parameter. An action whose precondition is unmet should not render: the
    * alternative is a mint primary button that does nothing when pressed, which is exactly the dead
-   * end this screen exists to remove. `Open the TikTok` / `Open the original link` drop themselves
+   * end this screen exists to remove. `Open on TikTok` / `Open the original link` drop themselves
    * on the same condition further down.
    *
    * With the abort in `submit()` this is now belt-and-braces — `reset()` is the only thing that
@@ -177,7 +177,7 @@ export function ImportFailureScreen({
       <div className="flex flex-col gap-2 pt-8">
         {actions.map((action) => {
           const label = IMPORT_ERROR_ACTION_LABEL[action];
-          // `Open the TikTok` is a real navigation to a third-party page, so it is an anchor with
+          // `Open on TikTok` is a real navigation to a third-party page, so it is an anchor with
           // the same affordance as everywhere else in this flow, not a button that calls
           // `window.open`. When the field is somehow empty there is nothing to open, and the
           // action is dropped rather than rendered dead.

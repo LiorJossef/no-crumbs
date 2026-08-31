@@ -172,7 +172,7 @@ function reset(options?: { readonly clearUrl?: boolean }) {
  * rather than a second function because a seed must not get its own code path. `setUrl(seed)`
  * lands a render too late to be read out of state here, so the URL is passed in; everything
  * downstream (validation, the request body, the rail, the review screen, every failure screen,
- * `Retry`, `Open the TikTok`) is the same code reading the same state a paste produces.
+ * `Retry`, `Open on TikTok`) is the same code reading the same state a paste produces.
  *
  * Deliberately **not** bound straight to a button's `onClick`: with a defaulted first parameter
  * that would pass a `MouseEvent` as `target`, and TypeScript would not catch it through a
@@ -213,7 +213,7 @@ async function submit(target: string = url) {
    * said so.
    *
    * **What this deleted, and why it had to go.** There used to be one request, and the rail flipped
-   * `source: 'done'` with the fact `'Read the TikTok'` immediately after the fetch was *issued* —
+   * `source: 'done'` with the fact `'Read the video'` immediately after the fetch was *issued* —
    * a comment here called it "the honest approximation" available with one round trip, which it
    * was. With two it is no longer needed, and `facelift-plan.md` §5 and the run's rule 3 forbid a
    * stage claim the server did not send. It is not kept alongside the real one.
@@ -373,7 +373,7 @@ async function submit(target: string = url) {
  * A tap on one of the paste screen's seed suggestions (`ui/import/seed-links.ts`).
  *
  * Three lines, and all three matter. `setUrl` puts the seed in the field so every screen after
- * this one behaves as if it had been pasted — `Retry` re-runs it, `Open the TikTok` opens it,
+ * this one behaves as if it had been pasted — `Retry` re-runs it, `Open on TikTok` opens it,
  * the review screen's source row points at it. `setTouched` matches what a real paste-and-submit
  * leaves behind. Then the ordinary `submit`: same route, same model call, same review-and-confirm
  * step. **A seed never writes a place without the user confirming**, because there is no seed
@@ -389,7 +389,7 @@ function submitSeed(seedUrl: string) {
 }
 
 /**
- * A link that arrived already submitted runs itself, so `Add this TikTok` is the only `Add`.
+ * A link that arrived already submitted runs itself, so `Add this TikTok link` is the only `Add`.
  *
  * `inFlightProbe` already refuses a *concurrent* second call, but it is cleared when the first
  * finishes — it cannot stop a re-mount from spending a second model call minutes later. This ref
