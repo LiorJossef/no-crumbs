@@ -30,7 +30,8 @@
  * camera framing rather than the mount, the 900 ms beat put the desktop place list into the
  * document at **2467 / 2613 / 2509 ms** at 1440×900 (measured against `5c3d3a9`). The sheet is now
  * mounted from the first render and held at vaul's own off-screen transform; the panel takes no
- * beat, because beat 4 names a *sheet* and a desktop has none.
+ * beat, because beat 4 names a *sheet* and a desktop has none. `map-shell.tsx`'s header states
+ * exactly what that buys on each viewport, and it is deliberately not the same claim on both.
  *
  * ## Why the clock is a module singleton and not a prop
  *

@@ -51,6 +51,20 @@
  *
  * The sheet now mounts on the first render and is held at vaul's own off-screen resting transform
  * until its beat; the panel takes no beat at all. Both reasons are at their call sites below.
+ *
+ * **What each viewport actually gains, measured rather than asserted.** Read out of Chromium's own
+ * accessibility tree at t=1200 ms, at `a72e9cd`, 390×844:
+ *
+ * - **At `lg+` the panel is the whole win.** It is mounted *and* painted from the first render, so
+ *   the thirty rows are in the document and in the accessibility tree throughout — measured 137 /
+ *   138 / 141 ms against 4445 / 3016 / 3072 ms at `5c3d3a9`, alternating runs.
+ * - **Below `lg` the win is the sheet, not the rows.** The held sheet is in the accessibility tree
+ *   — `aria-hidden` unset, `inert` false, exposed as a dialog whose control reads *"Show your
+ *   places · 30 in Israel"* — from ~274 ms rather than ~3.7 s. Its **rows** are still not there,
+ *   and that is `place-sheet.tsx`'s own design rather than anything the entrance does: at `peek` it
+ *   renders one line and no list, before this change and after it. The row text a DOM probe finds
+ *   at ~28 ms on a phone is the `lg+` panel's, inside a `display:none` container, and it is not in
+ *   the accessibility tree there. Do not restate that as "the list is always available on mobile".
  */
 
 import type { CSSProperties, ReactNode } from 'react';
@@ -197,8 +211,9 @@ export interface MapShellProps {
    * The shell's own beat is the sheet, and it is beat 4 of the owner's table verbatim — *"900 ms,
    * sheet rises to its stop"*. The sheet is mounted from the first render and **held at vaul's own
    * off-screen resting transform** (`translate3d(0, 100%, 0)`) until the beat, when it is given its
-   * snap point and rises over vaul's 0.5 s transition. So the list is in the document, and in the
-   * accessibility tree, the whole time; what the beat withholds is a position on screen.
+   * snap point and rises over vaul's 0.5 s transition. What the beat withholds is a position on
+   * screen, not a mount — see this file's header for exactly what that buys on each viewport, which
+   * is not the same thing on both.
    *
    * **Two things deliberately do not take it**, and both are the same rule — an entrance may not
    * withhold the way *out* of a surface or the *content* of one:
