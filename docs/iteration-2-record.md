@@ -262,6 +262,18 @@ the night café moves to within ΔE 6.3 of the gold *by design*.
 - **Two tag chips report no glyph inside their padding box** in either theme — a layout defect that
   scored as a pass under the old instrument.
 - **`#moods`' `beenThere` contradicts `#rules` rule 4.** Data-only and asserted so, pending a ruling.
+- **The entrance does not run to the owner's table, and the gap is larger than the defect just
+  repaired.** Ruling 2 puts the wordmark at **1100 ms**. Measured, it lands at **2907–4934 ms**, with
+  the 4 s `ENTRANCE_CLOCK_FLOOR_MS` firing on some runs. The cause is that **the entrance's zero is
+  1.5–3 s away**: under `prefers-reduced-motion` the clock starts at framing with no lift and the
+  wordmark lands at **224–311 ms**; under no-preference the camera `jumpTo`s 2.6 zoom levels out and
+  waits for the first `idle` — a fresh tile set over roughly 6× the ground area.
+
+  That the lift costs a tile round trip is a **hypothesis nobody isolated**; the 224 ms against
+  2907 ms gap is measured. The product is *usable* throughout — the list now paints at 124 ms — so
+  this is fidelity rather than a defect, but it means the choreography the owner approved is not the
+  one that plays. It lives in `map-surface.mapcn.tsx:beginEntranceDescent`, and it is the next lever
+  on this surface.
 - **The harness can only measure a commit, and that is a tooling gap that manufactures bad history.**
   `verify-i2.mjs` exports a commit rather than a tree — correctly, since measuring a shared working
   tree is what this run proved worthless. But it makes a throwaway commit the cheapest path to a
