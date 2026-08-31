@@ -57,6 +57,7 @@ import { buildPinImages } from './marker-images';
 import {
   LABEL_TIER_ZOOMS,
   labelTierFor,
+  LAND_SETTLE_FALLBACK_MS,
   LAND_STAGGER_MS,
   LAND_WAVES,
   landOrderFor,
@@ -467,17 +468,52 @@ export function PlaceMarkerLayer({
       return;
     }
 
-    // Wave 0 before the first timer, so the innermost pins are on screen in the frame the layer
-    // first draws rather than 60ms into it. Starting from an empty map would read as a stall.
+    // Wave 0 immediately, so the innermost pins are on screen in the frame the layer first draws.
     paint(0);
+
     const timers: ReturnType<typeof setTimeout>[] = [];
-    for (let wave = 1; wave < LAND_WAVES; wave += 1) {
-      timers.push(setTimeout(() => paint(wave), wave * LAND_STAGGER_MS));
-    }
-    // …and one more to retire the gate entirely once every wave has arrived, so nothing in the
-    // rest of the session evaluates a landing expression it has finished with.
-    timers.push(setTimeout(() => paint(null), LAND_WAVES * LAND_STAGGER_MS));
+    let started = false;
+    /**
+     * **The landing waits for the map to settle, and this was measured rather than assumed.**
+     *
+     * The first version started the waves as soon as the layer had data, and
+     * `measure-motion.mjs` reported the arrival as **zero visible change events** — identical to
+     * the before. The whole 480 ms had already run while the basemap tiles were still loading, so
+     * by the frame the map actually appeared every pin was at full opacity. §3a says *"camera
+     * flight, **then** staggered drop"*, and the ordering is the animation: a stagger nobody can
+     * see is a stagger that is not there.
+     *
+     * `idle` is MapLibre's own answer to "the camera has stopped and the tiles are in" — it fires
+     * when no transition is running and every requested tile has loaded, which is exactly the
+     * moment the landing is supposed to begin. `once`, because a later idle is a user's pan.
+     */
+    const start = () => {
+      if (started) return;
+      started = true;
+      for (let wave = 1; wave < LAND_WAVES; wave += 1) {
+        timers.push(setTimeout(() => paint(wave), wave * LAND_STAGGER_MS));
+      }
+      // …and one more to retire the gate entirely once every wave has arrived, so nothing in the
+      // rest of the session evaluates a landing expression it has finished with.
+      timers.push(setTimeout(() => paint(null), LAND_WAVES * LAND_STAGGER_MS));
+    };
+    map.once('idle', start);
+
+    /**
+     * **And a floor under it, because the failure mode is silent and severe.** Wave 0 is already
+     * painted, so seven eighths of the library is transparent until something starts the waves. If
+     * `idle` never comes — a tile request that never resolves, a style reload, a backgrounded tab
+     * — those pins stay invisible for the life of the page, and the user is looking at a map
+     * missing most of their places with nothing on screen saying so.
+     *
+     * So the landing is *started* by whichever arrives first. Chosen well clear of the settle times
+     * this map actually shows (1.6 s at 390×844 and 2.0 s at 1440×900, measured) so it is a
+     * fallback rather than a second schedule.
+     */
+    timers.push(setTimeout(start, LAND_SETTLE_FALLBACK_MS));
+
     return () => {
+      map.off('idle', start);
       for (const timer of timers) clearTimeout(timer);
     };
   }, [map, styleReady, pinLayerId, labelled, applyOpacity]);

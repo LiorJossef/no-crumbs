@@ -309,6 +309,20 @@ export const LAND_WAVES = 8;
 export const LAND_STAGGER_MS = 60;
 
 /**
+ * How long the landing will wait for the map to settle before starting anyway.
+ *
+ * The waves are triggered by MapLibre's `idle`, which is its own answer to *"the camera has stopped
+ * and the tiles are in"*. This is the floor under that: wave 0 is painted the moment the layer
+ * draws, so seven eighths of the library is transparent until something starts the sequence, and a
+ * tile request that never resolves would otherwise leave those pins invisible for the life of the
+ * page with nothing on screen saying so.
+ *
+ * Well clear of the settle times this map actually shows — 1.6 s at 390×844 and 2.0 s at 1440×900,
+ * measured with `tests/harness/measure-motion.mjs` — so it is a fallback and not a second schedule.
+ */
+export const LAND_SETTLE_FALLBACK_MS = 4000;
+
+/**
  * **Which wave each pin lands in: nearest the middle first, radiating outward.**
  *
  * The order is a rank by distance from the library's own centroid, bucketed into `LAND_WAVES`

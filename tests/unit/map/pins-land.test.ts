@@ -15,6 +15,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 import {
+  LAND_SETTLE_FALLBACK_MS,
   LAND_STAGGER_MS,
   LAND_WAVES,
   landOrderFor,
@@ -167,6 +168,32 @@ describe('what the landing is allowed to cost', () => {
   it('runs once for the life of the mount, not on every filter', () => {
     expect(LAYER).toContain('const hasLanded = useRef(false);');
     expect(LAYER).toContain('if (hasLanded.current || labelled.features.length === 0) return;');
+  });
+
+  /**
+   * **The landing waits for the map to settle, and this is the assertion that keeps it waiting.**
+   * The first version started the waves as soon as the layer had data, and `measure-motion.mjs`
+   * reported the arrival as *zero visible change events* — identical to the before, because the
+   * whole 480 ms ran while the basemap tiles were still loading. §3a says *camera flight, **then**
+   * staggered drop*, and the ordering is the animation.
+   */
+  it('starts on the map settling, not on the layer having data', () => {
+    const code = LAYER.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+    expect(code).toContain("map.once('idle', start)");
+    expect(code).toContain("map.off('idle', start)");
+  });
+
+  /**
+   * **And a floor under that, because the failure mode is silent and severe.** Wave 0 is painted
+   * the moment the layer draws, so seven eighths of the library is transparent until something
+   * starts the sequence. If `idle` never comes, those pins stay invisible for the life of the page
+   * and the user is looking at a map missing most of their places with nothing saying so.
+   */
+  it('starts anyway if the map never settles', () => {
+    expect(LAYER).toContain('setTimeout(start, LAND_SETTLE_FALLBACK_MS)');
+    // Well clear of the settle times this map actually shows, so it is a fallback and not a
+    // second schedule: 1.6s at 390x844 and 2.0s at 1440x900, measured.
+    expect(LAND_SETTLE_FALLBACK_MS).toBeGreaterThan(2500);
   });
 
   /** Reduced motion loses the **sequencing**, not the fade: a cascade spreading across the screen
