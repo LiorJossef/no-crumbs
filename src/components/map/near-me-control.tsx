@@ -130,21 +130,36 @@ export function NearMeControl({
             // to nothing, applied to the one case where the state change is a different icon rather
             // than an opacity.
             //
-            // **What the paragraph above used to claim, and why it was half wrong.** It named the
-            // still glyph as `Loader2` and called that the state change. The `motion-safe:` guard
-            // and the `aria-busy` are real and were always here — but the *visual* half was not:
-            // with the preference set the class does not apply and a `Loader2` is a three-quarter
-            // arc stopped mid-rotation, which this repository classifies as a rendering artefact by
-            // name. `rail-screen.tsx` says it directly — *"no arc frozen mid-rotation"* — and
-            // `globals.css` records what the naive `hidden motion-safe:block` cost when it was
-            // applied there without a fallback: a 28px empty circle on the longest wait in the
-            // product. Measured here in both arms before changing anything: one 16px glyph,
-            // `animation-name: none`.
+            // **What the paragraph above used to claim, and why it was two-thirds right.** The
+            // `motion-safe:` guard and the `aria-busy` are real and were always here. What did not
+            // follow was the visual conclusion — that a still `Loader2` reads as the state. With
+            // the preference set the class does not apply and the glyph is a three-quarter arc
+            // stopped mid-rotation.
             //
-            // So the arc is hidden and a filled dot takes its place, which is `rail-screen.tsx`'s
-            // own pair rather than a second opinion about it. The dot is not any of this control's
-            // other three glyphs — `Locate`, `LocateOff`, `LocateFixed` — which is what makes it
-            // read as a fourth state rather than as an icon that failed to load.
+            // **Settled by rendering it rather than by citing the precedent, because the precedent
+            // is about spinners in general and this is a claim about this control.** All four of
+            // its states, at 6x device scale in the real 44px button, under `reduce`:
+            //
+            // | state | glyph | silhouette |
+            // |---|---|---|
+            // | idle | `Locate` | 16px hollow ring, four ticks |
+            // | busy, before | `Loader2` stopped | **16px hollow ring with a gap, no ticks** |
+            // | refused | `LocateOff` | 16px ring, struck through |
+            // | located | `LocateFixed` | 16px ring, four ticks, filled centre |
+            //
+            // Three of the four are 16px rings, and the stopped arc is a fourth 16px ring *with
+            // pieces missing*. Against `Locate` — which is itself a circle — it does not read as a
+            // different state; it reads as this control's own idle glyph rendered badly. That is
+            // the specific confusion, and it is worse than the generic "a frozen spinner looks
+            // broken" that `rail-screen.tsx`'s *"no arc frozen mid-rotation"* and `globals.css`'s
+            // 28px-empty-circle note describe, because here the thing it is confusable with is one
+            // tap away on the same button.
+            //
+            // The filled dot is the only candidate that shares no construction with any of them:
+            // 6x6 measured against their 16x16, solid where all four are outlines. It is closest to
+            // `LocateFixed`'s filled centre and still separated by an outer ring, four ticks and
+            // 2.7x of diameter. That is what makes it a fourth state rather than a damaged first
+            // one — and it is `rail-screen.tsx`'s own pair, not a second opinion about it.
             <>
               <Loader2
                 className="hidden size-4 motion-safe:block motion-safe:animate-spin"
