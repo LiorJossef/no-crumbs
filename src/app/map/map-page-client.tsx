@@ -260,6 +260,21 @@ export function MapPageClient({
    * this page's state too.
    */
   const [addOpen, setAddOpen] = useState(false);
+  /**
+   * **Which row the pointer is on** — the row↔pin coupling (`W3-2`, `facelift-plan.md` §3a:
+   * *"pins and rows are the same object"*). Lifted here because it is produced by the list and
+   * consumed by the map, and this page is the only thing that holds both.
+   *
+   * **It is not a ninth camera mover and must never become one.** The list above enumerates the
+   * eight, and the rule that keeps that list meaningful is that anything moving the camera is on
+   * it. This moves no camera: pointing at a row is not asking to go there, and a map that flew
+   * every time a pointer crossed a row would be unusable with a mouse. It changes two paint
+   * properties and draws one extra symbol.
+   *
+   * No throttle. Hover changes at human rate and `setState` with an identical value bails out
+   * before rendering, so the guard would cost more than it saves.
+   */
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   /** The one tag narrowing the library, as stored (lowercase, normalised), or `null`. Set by a chip
    *  in any place's detail view through `TagFilterContext`, cleared by the pill above the list, by
@@ -1056,6 +1071,9 @@ export function MapPageClient({
               onAreaClick={selectArea}
               onCountryClick={focusCountry}
               accessibleName={canvasName}
+              // Straight through to the surface, which quietens every other pin and draws this one
+              // lifted and named. See `hoveredId` — not a camera mover.
+              hoveredPlaceId={hoveredId}
               // The locate control sits in the surface's own control column because that is where a
               // user looks for it; everything it means — the permission, the fix, the flight — is
               // owned here. See camera mover 8.
@@ -1106,6 +1124,10 @@ export function MapPageClient({
                   }}
                   onAddTikTok={openImport}
                   onSelect={selectPlace}
+                  // The row half of the coupling. `PlaceRow` guards `pointerenter` on
+                  // `pointerType === 'mouse'`, so a tap on a phone never reaches this.
+                  onHover={setHoveredId}
+                  selectedId={selectedId}
                   stop={stop}
                   onExpand={shell.sheet.goTo}
                 />

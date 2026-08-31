@@ -28,6 +28,7 @@
 import { Locate, LocateFixed, LocateOff, Loader2, X } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
+import { PRESS_CHIP } from '@/lib/interaction';
 import type { NearMeStatus } from './near-me';
 
 export interface NearMeControlModel {
@@ -59,14 +60,22 @@ export function NearMeControl({
       {notice !== null && (
         <div
           role="status"
-          className="flex max-w-[min(17rem,calc(100vw-2rem))] items-start gap-1.5 rounded-lg border border-border/70 bg-card/95 py-1.5 pl-2.5 pr-1.5 shadow-[var(--shadow-elevated)] backdrop-blur-md"
+          className="flex max-w-[min(17rem,calc(100vw-2rem))] items-start gap-1.5 rounded-lg border border-border/70 bg-card/95 py-1.5 pl-2.5 pr-1.5 shadow-sheet backdrop-blur-md"
         >
           <p className="pt-0.5 text-xs font-medium text-muted-foreground">{notice}</p>
           <button
             type="button"
             aria-label="Dismiss"
             onClick={onDismissNotice}
-            className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className={cn(
+              'flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground outline-none',
+              'hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring',
+              // Matrix row 3. `PRESS_CHIP`'s 5% is the icon-button value: on a 24px target the
+              // gentler button scale is not visible at all. `PRESS_BEAT` carries the colour
+              // transition too, so the un-prefixed `transition-colors` this replaced is not lost —
+              // it moves inside the same declaration and gains a named duration.
+              PRESS_CHIP,
+            )}
           >
             <X className="size-3.5" aria-hidden />
           </button>
@@ -86,14 +95,28 @@ export function NearMeControl({
           aria-pressed={status === 'located'}
           className={cn(
             // 40px, matching `MapControls`' own buttons; see their note on the 44px floor.
-            'flex size-10 items-center justify-center transition-colors',
+            'flex size-10 items-center justify-center outline-none',
             'hover:bg-accent dark:hover:bg-accent/40',
-            'focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset',
+            'focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-inset',
+            // Matrix row 3, and the column this control has never had: a press. It is the one
+            // affordance on the map that starts a ten-second wait, so the frame in which the tap
+            // is acknowledged is the only feedback there is until the notice or the flight arrives.
+            PRESS_CHIP,
             status === 'located' && 'text-brand',
           )}
         >
           {locating ? (
-            <Loader2 className="size-4 animate-spin" aria-hidden />
+            // **`motion-safe:` on a spinner, and the state survives without it.** This was the one
+            // unguarded animation left on the map: a continuous rotation, running for up to ten
+            // seconds, for a user who has asked the system for less motion.
+            //
+            // Guarding it is only honest because the rotation is not what carries the meaning. The
+            // glyph itself changes — `Locate` becomes `Loader2` — and `aria-busy` says so to a
+            // screen reader, so under reduced motion the control still visibly and audibly reads as
+            // *working*; it simply does not spin. That is §3a's rule that the animations collapse
+            // to the state change rather than to nothing, applied to the one case where the state
+            // change is a different icon rather than an opacity.
+            <Loader2 className="size-4 motion-safe:animate-spin" aria-hidden />
           ) : refused ? (
             // A struck-through locator, so the state is legible without opening the notice and
             // survives the notice being dismissed. Shape, never colour alone.

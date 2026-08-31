@@ -174,6 +174,14 @@ export interface PlaceSheetProps {
   /** Selecting from the list, which the map's canvas-drawn pins cannot offer to a keyboard user —
    *  see `PlaceRow`'s header for why this stopped being optional at `L1-F7-T2`. */
   readonly onSelect: (place: MapPlace) => void;
+  /**
+   * **The pointer moved onto or off a row** — the DOM half of the row↔pin coupling (`W3-2`).
+   * Lifted to the page, which hands it to the map so the pointed-at pin lifts and its neighbours
+   * quieten. Attention, not intent: it never selects and never moves the camera.
+   */
+  readonly onHover?: (placeId: string | null) => void;
+  /** The open place's id, so the row for it can draw the selected state and say `aria-current`. */
+  readonly selectedId?: string | null;
   /** Which stop the shell's sheet is at. Supplied rather than owned: the drawer, its snap points
    *  and the rise-to-half-on-select rule all moved to `components/shell` when `/collections/[id]`
    *  stopped keeping a second copy of them (`ux-collections-as-scope.md` §5 item 9). */
@@ -203,6 +211,8 @@ export function PlaceSheet({
   onDeselect,
   onAddTikTok,
   onSelect,
+  onHover,
+  selectedId,
   stop,
   onExpand,
 }: PlaceSheetProps) {
@@ -259,6 +269,8 @@ export function PlaceSheet({
       onExpand={() => onExpand(libraryIsEmpty ? 'half' : 'full')}
       onAddTikTok={onAddTikTok}
       onSelect={onSelect}
+      {...(onHover ? { onHover } : {})}
+      {...(selectedId === undefined ? {} : { selectedId })}
     />
   );
 }
@@ -284,6 +296,8 @@ function PlaceList({
   onExpand,
   onAddTikTok,
   onSelect,
+  onHover,
+  selectedId,
 }: {
   places: readonly MapPlace[];
   heading: AreaHeading;
@@ -305,6 +319,10 @@ function PlaceList({
   onExpand: () => void;
   onAddTikTok: () => void;
   onSelect?: (place: MapPlace) => void;
+  /** See `PlaceSheetProps.onHover` — threaded rather than contextual because it is one callback to
+   *  one owner, and a context would make the coupling look like something any subtree may join. */
+  onHover?: (placeId: string | null) => void;
+  selectedId?: string | null;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -521,12 +539,20 @@ function PlaceList({
                 {!heading.empty && (
                   <ul>
                     {places.map((place) => (
-                      <PlaceRow key={place.id} place={place} {...(onSelect ? { onSelect } : {})} />
+                      <PlaceRow
+                        key={place.id}
+                        place={place}
+                        {...(onSelect ? { onSelect } : {})}
+                        {...(onHover ? { onHover } : {})}
+                        selected={selectedId === place.id}
+                      />
                     ))}
                   </ul>
                 )}
                 <EverywhereElse
                   places={otherPlaces}
+                  {...(onHover ? { onHover } : {})}
+                  {...(selectedId === undefined ? {} : { selectedId })}
                   flush={heading.empty}
                   {...(onSelect ? { onSelect } : {})}
                 />
@@ -602,10 +628,32 @@ export function useLibraryTagFacets(
 export function PlaceRow({
   place,
   onSelect,
+  onHover,
+  selected = false,
   secondLine,
 }: {
   place: MapPlace;
   onSelect?: (place: MapPlace) => void;
+  /**
+   * **The pointer is on this row, or has left it** — the DOM half of the row↔pin coupling
+   * (`W3-2`, `facelift-plan.md` §3a: *"pins and rows are the same object"*). The page lifts it to
+   * the map, which quietens every other pin and draws this one lifted and named.
+   *
+   * Fired from `pointerenter`/`pointerleave` **and** from `focus`/`blur`, because a keyboard user
+   * arrowing down the list is pointing at a row just as much as a mouse is, and the coupling is
+   * exactly as useful to them.
+   *
+   * It reports attention, never intent: it does not select, does not persist, and **must never
+   * move the camera** — see `map-page-client.tsx`, where the eight authorised movers are
+   * enumerated and this is deliberately not one of them.
+   */
+  onHover?: (placeId: string | null) => void;
+  /**
+   * Whether this row is the open place. Draws the mint rule on the inline-start edge and a tinted
+   * ground, and carries `aria-current="true"` — which is both the accessible fact and the hook the
+   * styling reads, so the state is announced and drawn from one source rather than two.
+   */
+  selected?: boolean;
   /** Overrides the `Category · Locality` line. A collection's rows are built from a `places` row
    *  rather than from the caller's own `Spot`, so they have a locality to show and no `detail` to
    *  read it from; the alternative was putting `locality` on the map port, which exists precisely
@@ -698,7 +746,9 @@ export function PlaceRow({
             qualifies rather than under the name competing with it. The line truncates; the badge
             does not shrink, because a half-drawn state marker is worse than a shorter city name. */}
         <div className="flex min-w-0 items-center gap-1.5">
-          <p className="line-clamp-1 text-xs font-medium text-muted-foreground">
+          {/* The muted line is the one that lifts, not the name: the name is already
+              `text-foreground`, so brightening it would be a change with nowhere to go. */}
+          <p className="line-clamp-1 text-xs font-medium text-muted-foreground motion-safe:transition-colors motion-safe:duration-couple group-hover/row:text-foreground/80">
             <bdi>{secondLine ?? categoryLocalityLine(place.category, locality)}</bdi>
           </p>
           {place.visited && <BeenBadge />}
@@ -733,7 +783,7 @@ export function PlaceRow({
           // the selectable row. A plain `<li>` has no label to be announced instead of, so hiding
           // the distance there would delete it rather than de-duplicate it.
           aria-hidden={onSelect !== undefined}
-          className="ms-auto shrink-0 pt-1 text-xs font-medium tabular-nums text-muted-foreground"
+          className="ms-auto shrink-0 pt-1 text-xs font-medium tabular-nums text-muted-foreground motion-safe:transition-colors motion-safe:duration-couple group-hover/row:text-foreground"
         >
           {distanceLabel}
         </span>
@@ -754,6 +804,30 @@ export function PlaceRow({
       <button
         type="button"
         onClick={() => onSelect(place)}
+        // **The pointer half of the coupling, and the `mouse` guard is the whole of what makes it
+        // safe on a phone.** A touch tap emits `pointerenter` before it emits `click`, so without
+        // the check every tap would dim the entire map for the frame between the finger landing and
+        // the camera starting to fly — a defect that is invisible on a desktop and ruins the
+        // product on the device it was designed for first. `pointerType` is `'mouse'`, `'touch'` or
+        // `'pen'`; only the first has a pointer that can rest somewhere without committing to it.
+        //
+        // `pointerleave` is *not* guarded, and that asymmetry is deliberate: it clears state, so
+        // running it for a touch that never set anything costs nothing, while skipping it after a
+        // pointer type changes mid-session would strand a highlight on the map.
+        onPointerEnter={(event) => {
+          if (event.pointerType === 'mouse') onHover?.(place.id);
+        }}
+        onPointerLeave={() => onHover?.(null)}
+        // Focus is the keyboard's pointer. A user arrowing down this list gets the same coupling a
+        // mouse user gets, which is the difference between the map being a picture beside the list
+        // and the map being the other half of it.
+        onFocus={() => onHover?.(place.id)}
+        onBlur={() => onHover?.(null)}
+        // The open place, said once. `aria-current` is the accessible fact *and* the hook the
+        // selected styling reads (`aria-[current=true]:` below), so there is no second source of
+        // truth to fall out of step with it. `"true"` rather than `"location"`: the list is not a
+        // navigation, and a row is not a page.
+        {...(selected ? { 'aria-current': 'true' as const } : {})}
         // The accessible name says what happens, not what the row contains — a screen reader user
         // hears the name twice otherwise (once as the button label, once as its content).
         //
@@ -776,7 +850,16 @@ export function PlaceRow({
         // the only confirmation a phone can give that the tap landed on *this* row before the
         // camera starts flying. Shallower than a button's on purpose — see its docblock.
         className={cn(
-          'flex min-h-16 w-full items-start gap-3 rounded-lg py-3.5 text-left motion-safe:transition-colors outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50',
+          'relative flex min-h-16 w-full items-start gap-3 rounded-lg py-3.5 text-left motion-safe:transition-colors outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50',
+          // **A named group, never a bare `group`.** These rows nest inside other grouped
+          // containers on `/collections`, and an unnamed group would let a parent's hover light up
+          // every row inside it.
+          'group/row',
+          // The open place: a tinted ground and a 2px rule on the inline-start edge. `start-0`
+          // rather than `left-0` because this list renders Hebrew names and the rule belongs on the
+          // edge the text starts at — the same reason the distance uses `ms-auto`.
+          'aria-[current=true]:bg-primary/8',
+          'aria-[current=true]:before:absolute aria-[current=true]:before:inset-y-2 aria-[current=true]:before:start-0 aria-[current=true]:before:w-0.5 aria-[current=true]:before:rounded-full aria-[current=true]:before:bg-primary',
           PRESS_ROW,
         )}
       >
@@ -845,6 +928,12 @@ function RowMedia({
         style={approximate ? { borderColor: color } : undefined}
         className={cn(
           'mt-0.5 block size-11 shrink-0 overflow-hidden rounded-lg bg-muted',
+          // The row's leading square grows a little while the pointer is on the row — the same
+          // 160ms the pin on the map lifts in, so the two halves of the coupling read as one
+          // gesture rather than two effects that happen to fire together. `group-hover/row:`
+          // reaches in from `PlaceRow`'s button; a plain `group` would also catch the grouped
+          // containers this row nests inside on `/collections`.
+          'motion-safe:transition-transform motion-safe:duration-couple motion-safe:ease-standard group-hover/row:scale-110',
           approximate && 'border border-dashed',
         )}
       >
@@ -895,6 +984,9 @@ function RowMedia({
       }}
       className={cn(
         'mt-0.5 flex size-11 shrink-0 items-center justify-center rounded-full',
+        // Same lift as the thumbnail arm above, for the same reason — a row has one leading square
+        // and it behaves the same way whichever of the two it is drawing.
+        'motion-safe:transition-transform motion-safe:duration-couple motion-safe:ease-standard group-hover/row:scale-110',
         approximate && 'border border-dashed',
       )}
     >
@@ -1065,10 +1157,16 @@ export function EverywhereElse({
   places,
   flush = false,
   onSelect,
+  onHover,
+  selectedId,
 }: {
   places: readonly MapPlace[];
   flush?: boolean;
   onSelect?: (place: MapPlace) => void;
+  /** The coupling reaches these rows too: they are ordinary `PlaceRow`s and a place outside the
+   *  current area is exactly the one whose pin the user most needs pointing out. */
+  onHover?: (placeId: string | null) => void;
+  selectedId?: string | null;
 }) {
   if (places.length === 0) return null;
 
@@ -1079,7 +1177,13 @@ export function EverywhereElse({
       </h3>
       <ul>
         {places.map((place) => (
-          <PlaceRow key={place.id} place={place} {...(onSelect ? { onSelect } : {})} />
+          <PlaceRow
+            key={place.id}
+            place={place}
+            {...(onSelect ? { onSelect } : {})}
+            {...(onHover ? { onHover } : {})}
+            selected={selectedId === place.id}
+          />
         ))}
       </ul>
     </section>
