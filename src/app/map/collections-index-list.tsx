@@ -111,11 +111,38 @@ export function CollectionsIndexList({
     );
   }
 
+  /*
+   * **The page's title, restored rather than reinvented.** `ui-review-2026-08-31.md` finding 14:
+   * this view rendered `<h2>Yours</h2>` — a section heading — with nothing above it, on every
+   * library size and both viewports. That is the first demotion's other cost: `<h1>Collections</h1>`
+   * did not survive the move from a standalone document into the drawer (see this file's own
+   * header), and nothing replaced it. `EmptyIndex` has the same gap — no heading at all, in any
+   * state, is worse than the section case the review measured.
+   *
+   * `PlaceDesktopPanel`/`PlaceSheet` are the parity to match, not a new decision: that pair already
+   * carries the identical view's title as `<h1>` in the `lg+` panel (`stop === undefined`) and
+   * `<h2>` in the sheet, at `text-2xl` against `text-xl` — the size step is the only difference, and
+   * a screen reader user gets the correct document outline at either breakpoint from source alone,
+   * with no media query. Two instances render at once here too (this file's own note above), so the
+   * same split is what keeps the sheet's `<h2>` from creating a second `<h1>` next to the panel's.
+   */
+  const IndexHeading = stop === undefined ? 'h1' : 'h2';
+
   return (
     <div
       {...(stop ? { style: { height: STOP_TO_CONTENT_HEIGHT[stop] } } : {})}
       className="flex min-h-0 flex-1 flex-col"
     >
+      <div className="shrink-0 px-4 pb-1 pt-3.5">
+        <IndexHeading
+          className={cn(
+            'font-heading font-extrabold tracking-tight text-foreground',
+            stop === undefined ? 'text-2xl' : 'text-xl',
+          )}
+        >
+          Collections
+        </IndexHeading>
+      </div>
       <div
         data-vaul-no-drag
         className="min-h-0 flex-1 overflow-y-auto px-4"

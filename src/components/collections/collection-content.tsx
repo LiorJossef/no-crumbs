@@ -249,6 +249,8 @@ function CollectionList({
   const [query, setQuery] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
+  // See the heading's own comment below for why this tracks `stop` rather than a breakpoint.
+  const HeadingTag = stop === undefined ? 'h1' : 'h2';
 
   /**
    * The one focus move §6 asks for: entering a collection is a route-level scope change, and the
@@ -339,13 +341,30 @@ function CollectionList({
           </Button>
         </div>
 
-        <h2
+        {/*
+         * **`<h1>` in the `lg+` panel, `<h2>` in the sheet — not a new decision.**
+         * `ui-review-2026-08-31.md` finding 14: this rendered `<h2>Weekend list</h2>` with nothing
+         * above it, so the collection's own name — already the loudest, most specific text on the
+         * screen — was never the document's title.
+         *
+         * The tag matches `stop`, the same signal `barPx` above already reads to tell the sheet
+         * instance from the panel instance, because that *is* the question: this component is in
+         * the document twice at once (see `claimHeadingFocus`'s comment) and only one instance is
+         * displayed at a given breakpoint, so exactly one `<h1>` ever reaches the accessibility
+         * tree. A visually-hidden `<h1>` stacked above this text would have duplicated it instead of
+         * promoting it — the workaround the review's own framing warned against.
+         *
+         * The size is untouched. This is a tag change, not a redesign: `text-base` already reads
+         * correctly as a collection's title in the space this row has, and `PlaceDesktopPanel`'s
+         * larger `text-2xl` belongs to a different view with a different amount of chrome above it.
+         */}
+        <HeadingTag
           ref={headingRef}
           tabIndex={-1}
           className="line-clamp-2 font-heading text-base font-bold outline-none"
         >
           <bdi>{collection.name}</bdi>
-        </h2>
+        </HeadingTag>
         <button
           type="button"
           onClick={() => onViewChange('share')}
