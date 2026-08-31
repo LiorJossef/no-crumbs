@@ -33,6 +33,37 @@ title card is where the creator writes the hook — *"6 Must Try Spots in Tokyo"
 IN TEL AVIV"*. By construction it is the one frame that withholds the answer, because withholding it
 is what makes you keep watching.
 
+## The cost, measured — and this is the argument the first version of this file was missing
+
+From Gemini's own `usageMetadata` across all 16 posts, not estimated:
+
+| | input tokens per call |
+|---|---|
+| `p15`, text only | 7,434 |
+| `p16` with a frame attached | **8,481** |
+
+**≈ +2,250 tokens per import against `p15`, about +35%** — and it is charged on **every** import,
+including the ~73% that find nothing and the ones with no frame worth reading.
+
+**More than half of that increase is text, not image.** The frame itself is ≈ +1,000 tokens; the
+prompt rules written to make it *safe* — the overlay-versus-scenery distinction, the provenance
+field, the "a title card is not a recommendation" guidance — are ≈ +1,250, and the system prompt
+grew 20% (23,098 → 27,646 characters) to carry them.
+
+That is the shape of the whole result: **the safety instructions cost more than the signal was
+worth.** A capability that needs a fifth of the prompt to keep it from inventing places, and then
+finds nothing, is not a capability worth its tokens.
+
+It cannot be converted to dollars here: `GEMINI_FLASH_LITE_PRICE_PER_1M` is undefined in this repo
+and `cost.ts` logs `costModel: "unmeasured"` for this model. The token count is the honest unit.
+
+## The one thing that did work, and it is worth keeping in mind
+
+`@muchmorethanmatcha`'s `Cafe Fiori` moved from evidence source `caption` to **`both`** — the
+caption named it and the frame **corroborated** it (`frameText: "CAFE FIORI"`). That is the best
+possible outcome for a candidate and it changed no band. Corroboration, not discovery, is what a
+cover frame is actually good for — and this corpus had exactly one opportunity for it.
+
 ## Why it was reverted rather than kept behind a flag
 
 The change cost a `ContentPart` union, a `frameText` field, a schema version bump, a prompt version
