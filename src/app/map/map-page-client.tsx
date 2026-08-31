@@ -138,7 +138,7 @@ import { clusterByProximity, pickAnchorCluster } from '@/domain/places/clusters'
 import { buildAreas, mapAccessibleName } from '@/ui/place/active-area';
 import {
   activeCountryKey as ringedCountryKeyFor,
-  GLOBAL_SCOPE,
+  defaultScope,
   resolveScopeOrFallback,
   scopeAfterCameraSettled,
   scopeAreaId,
@@ -587,13 +587,20 @@ export function MapPageClient({
   /**
    * The scope as stored, with the page's default filled in while nothing has been chosen.
    *
-   * **The default is global**, and it is the list's half of the 2026-08-30 home-view reversal: the
-   * camera now opens on the whole library, and a header reading `1 in Jerusalem` over a view of
-   * countries is the same broken control the owner rejected when a country tap left the list
-   * behind. `fallbackScope`'s anchor area is still the answer for a *deleted* scope — that is
+   * **The default is `defaultScope(areas)`** — global, except that a library which is one area is
+   * that area. It used to be a flat `GLOBAL_SCOPE`, as the list's half of the 2026-08-30 home-view
+   * reversal: the camera opens on the whole library, and a header reading `1 in Jerusalem` over a
+   * view of countries is the same broken control the owner rejected when a country tap left the
+   * list behind. That is still true and it is still why two or more areas open global. Its premise
+   * is that the opening view is a view of countries, and for the normal library — everything in one
+   * city — it is not: the fit lands in the pin band and the header read `3 places in Israel` over a
+   * street map of Tel Aviv until the user touched the map. `list-scope.ts`'s `defaultScope` carries
+   * the measurement and the argument.
+   *
+   * `fallbackScope`'s anchor area is still the answer for a *deleted* scope — that is
    * `resolveScopeOrFallback` below, which keeps taking `preferredAreaId`.
    */
-  const storedScope = useMemo(() => scope ?? GLOBAL_SCOPE, [scope]);
+  const storedScope = useMemo(() => scope ?? defaultScope(areas), [scope, areas]);
 
   /**
    * **The scope resolved against the library as it is right now** — the areas, the places and the
@@ -1017,7 +1024,10 @@ export function MapPageClient({
       setCameraAlive(true);
       setScope((current) =>
         scopeAfterCameraSettled({
-          scope: current ?? GLOBAL_SCOPE,
+          // The same default the render path fills in, never a second copy of it: with a one-area
+          // library these disagreeing would mean the first settled report handing the list a scope
+          // the page was not showing.
+          scope: current ?? defaultScope(areas),
           zoom: meta.zoom,
           userInitiated: meta.userInitiated,
           areas,

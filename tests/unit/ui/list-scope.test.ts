@@ -32,6 +32,7 @@ import { NO_COUNTRY_KEY, summariseByCountry, type CountrySummary } from '@/ui/pl
 import {
   GLOBAL_SCOPE,
   activeCountryKey,
+  defaultScope,
   fallbackScope,
   resolveScope,
   resolveScopeOrFallback,
@@ -228,6 +229,69 @@ describe('resolveScope', () => {
     expect(
       resolveScope(withoutIsrael, countriesOf(withoutIsrael), scopeForCountryTap('IL')),
     ).toBeNull();
+  });
+});
+
+describe('defaultScope — what the page opens on before anything is chosen', () => {
+  it('gives a one-area library that area, not its country', () => {
+    // The defect, in one line. Measured at `83b7489` with the three Tel Aviv fixtures: the header
+    // read `3 places in Israel` over a street map of Tel Aviv, and a 40 px drag with no data change
+    // made it `3 places in Tel Aviv-Yafo`. This is the default agreeing with what the machinery
+    // already produced the moment the user touched anything.
+    const oneCity = areasOf(telAvivPlaces);
+    expect(defaultScope(oneCity)).toEqual(scopeForAreaTap(areaNamed('Tel Aviv-Yafo', oneCity).id));
+  });
+
+  it('says the same thing the first user gesture would have said', () => {
+    // The property, rather than the value: a default that disagrees with `scopeAfterCameraSettled`
+    // is a header that changes when you touch the map. Asserted through the real transition so it
+    // cannot pass by two copies of one constant agreeing with each other.
+    const oneCity = areasOf(telAvivPlaces);
+    const afterAGesture = scopeAfterCameraSettled({
+      scope: GLOBAL_SCOPE,
+      zoom: ZOOM.pin,
+      userInitiated: true,
+      areas: oneCity,
+      countries: countriesOf(oneCity),
+      rect: rectAround(TEL_AVIV),
+    });
+    expect(sameScope(defaultScope(oneCity), afterAGesture)).toBe(true);
+  });
+
+  it('names the area rather than the country in the heading, and counts the same places', () => {
+    const oneCity = areasOf(telAvivPlaces);
+    const resolved = resolveScope(oneCity, countriesOf(oneCity), defaultScope(oneCity));
+    const global = resolveScope(oneCity, countriesOf(oneCity), GLOBAL_SCOPE);
+    expect(scopeLabel(resolved!)).toBe('Tel Aviv-Yafo');
+    expect(scopeLabel(global!)).toBe('Israel');
+    // The half that makes the change safe: with one area the two scopes hold the same places, so
+    // nothing but the label moved. A default that changed the list would be a different fix.
+    expect(resolved!.count).toBe(global!.count);
+    expect([...resolved!.memberIds].sort()).toEqual([...global!.memberIds].sort());
+  });
+
+  it('keeps a two-area library global, because the camera really does open on both', () => {
+    // London and Bristol are one country and two areas. `restoredScope` promotes that pair to a
+    // country rather than to an area, so global — which reads `the United Kingdom` — is already
+    // what a gesture would produce, and there is nothing to correct.
+    const england = areasOf([...londonPlaces, ...bristolPlaces]);
+    expect(defaultScope(england)).toBe(GLOBAL_SCOPE);
+  });
+
+  it('keeps the whole four-area library global', () => {
+    expect(defaultScope(areas)).toBe(GLOBAL_SCOPE);
+  });
+
+  it('keeps an empty library global, which is the only answer a library with no areas has', () => {
+    expect(defaultScope([])).toBe(GLOBAL_SCOPE);
+  });
+
+  it('gives a one-area library with no agreed city name that area anyway', () => {
+    // `this area` rather than a country name, and that is deliberate. The alternative special-cases
+    // the label into a state-machine decision and reintroduces the exact inconsistency this fixes:
+    // the user pans, `restoredScope` hands them the area, and the header changes under them.
+    const nameless = areasOf(orphanPlaces);
+    expect(defaultScope(nameless)).toEqual(scopeForAreaTap(areaNamed(null, nameless).id));
   });
 });
 

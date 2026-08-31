@@ -205,6 +205,47 @@ export function resolveScope<T>(
 }
 
 /**
+ * **The scope a page opens on, before the user has chosen anything.**
+ *
+ * A library with exactly one area is that area, and everything else is global.
+ *
+ * ## Why this is a derivation and not the constant it replaces
+ *
+ * The default was `GLOBAL_SCOPE` flat, on the reasoning that the camera opens on the whole library
+ * and a header naming one city over a view of countries is the broken control the owner already
+ * rejected once. That reasoning is sound and it has a premise: that the opening view *is* a view of
+ * countries. It is, for a library that spans them. It is not for the normal one — the camera fits
+ * the library's own box, and a library in one city fits deep in the **pin** band (measured z14.69
+ * at 1440x900 with three Tel Aviv places), where the map is drawing streets and the header said
+ * `3 places in Israel`.
+ *
+ * So the constant was the same defect in the other direction, and the machinery to see it already
+ * existed: `scopeAfterCameraSettled` corrects it on the *first user gesture of any size*, because a
+ * global scope in the pin band resolves through `restoredScope` to the area under the camera.
+ * Measured at `83b7489`: at rest the header read `3 places in Israel`, and a 40 px drag — no data
+ * change, barely a camera change — made it `3 places in Tel Aviv-Yafo`. A header that depends on
+ * whether you have touched the map is not a header.
+ *
+ * **This asserts nothing new**, which is the property that makes it safe rather than a nicer
+ * sentence. With one area, the global scope and that area's scope hold *identically the same
+ * places*, so every consumer — the member ids, the count, the `Elsewhere` rows, the filtered list —
+ * is unchanged by construction, and only the label moves, to the more specific of two true names.
+ * It is the same argument `scopeLabel` already makes for the countryless bucket: the shortcut is
+ * sound whenever the label speaks for everything under it.
+ *
+ * Two or more areas keep the global default. There the camera really does open on a box spanning
+ * them, `restoredScope` would promote a country rather than an area anyway, and `in Israel` or
+ * `in 3 countries` is what the map is showing.
+ *
+ * `null` is still the caller's "nothing chosen yet" — this is what that resolves to, so it stays a
+ * derivation during render rather than an effect that paints one frame of the wrong list first.
+ */
+export function defaultScope<T>(areas: readonly Area<T>[]): ListScope {
+  const only = areas.length === 1 ? areas[0] : undefined;
+  return only === undefined ? GLOBAL_SCOPE : scopeForAreaTap(only.id);
+}
+
+/**
  * Where the list goes when the stored scope named something deleted: the caller's preferred area if
  * it still exists, else global.
  *
