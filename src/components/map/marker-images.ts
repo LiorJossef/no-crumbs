@@ -35,7 +35,9 @@ import {
   CRUMB_PIN_TAIL_PATH,
 } from '@/components/brand/crumb-path';
 
-import type { PinKey } from './marker-style';
+import type { Theme } from '@/lib/theme';
+import { placePalette, type PlacePalette } from '@/ui/place/palette';
+import { UNCATEGORISED_PIN, type PinKey } from './marker-style';
 import {
   CATEGORY_ORDER,
   CATEGORY_STYLES,
@@ -175,12 +177,37 @@ function crumbTransform(geometry: PinGeometry) {
   };
 }
 
+/**
+ * The three colours a pin is made of, resolved for one theme.
+ *
+ * The glyph shape stays `CATEGORY_STYLES`' — a fork is a fork at night — but every *colour* comes
+ * from `placePalette`, which is the module both the DOM and the GL side read (W7-3). Resolving
+ * them together is the point: a pin whose body followed the theme while its ring did not would be
+ * worse than one that ignored the theme entirely.
+ */
+function pinColors(category: PinKey, palette: PlacePalette): { body: string; ring: string; ink: string } {
+  return {
+    body: category === UNCATEGORISED_PIN ? palette.uncategorised : palette.category[category],
+    // The ring separates the pin from whatever is under it, so it is the ground rather than a
+    // fixed white: on paper white is the ground, at night `#131312` is. A white ring on a night
+    // basemap is a bright outline around every pin — the loudest thing on the map, and drawn
+    // around the one object that was already legible.
+    ring: palette.labelHalo,
+    // The glyph sits **on the body**, so it takes the ink chosen with the fill. At night the
+    // bodies invert to light colours and a white glyph measures 2.1–3.0:1 against them; the same
+    // AA failure `--on-category` fixed for the pressed filter chip, in the place it matters most.
+    ink: palette.onCategory,
+  };
+}
+
 function drawPin(
   ctx: CanvasRenderingContext2D,
   category: PinKey,
-  geometry: PinGeometry
+  geometry: PinGeometry,
+  palette: PlacePalette
 ): void {
-  const { color, glyph } = CATEGORY_STYLES[category];
+  const { glyph } = CATEGORY_STYLES[category];
+  const { body: color, ring, ink } = pinColors(category, palette);
   const { ringWidth, glyphBox } = geometry;
   const { scale, offsetX, offsetY } = crumbTransform(geometry);
 
@@ -197,7 +224,7 @@ function drawPin(
   ctx.translate(offsetX, offsetY);
   ctx.scale(scale, scale);
 
-  // The white ring is a stroke laid down *before* the fill: a stroke straddles its path, so
+  // The ring is a stroke laid down *before* the fill: a stroke straddles its path, so
   // filling over it leaves exactly half the width standing proud of the body. It is also what
   // covers the internal seam where the two subpaths cross.
   //
@@ -210,7 +237,7 @@ function drawPin(
   ctx.shadowOffsetY = PIN.shadowOffsetY;
   ctx.lineWidth = (ringWidth * 2) / scale;
   ctx.lineJoin = 'round';
-  ctx.strokeStyle = '#FFFFFF';
+  ctx.strokeStyle = ring;
   ctx.stroke(body);
   ctx.restore();
 
@@ -231,7 +258,7 @@ function drawPin(
   ctx.save();
   ctx.translate(headX - glyphBox / 2, headY - glyphBox / 2);
   ctx.scale(glyphBox / GLYPH_VIEWBOX, glyphBox / GLYPH_VIEWBOX);
-  ctx.fillStyle = '#FFFFFF';
+  ctx.fillStyle = ink;
   ctx.lineCap = 'round';
   GLYPHS[glyph](ctx);
   ctx.restore();
@@ -246,8 +273,16 @@ function drawPin(
  *
  * Returns `[]` when the canvas cannot be obtained (jsdom, a headless context with no 2D backend)
  * so a caller can degrade to no icons instead of throwing during render.
+ *
+ * **`theme` defaults to light, so nothing changes until a caller opts in** —
+ * `place-marker-layer.tsx` still calls this with one argument. That is deliberate rather than
+ * timid: a pin is three colours and they have to move together. Flipping the ring to the night
+ * ground while the body stayed a light-theme literal would draw a dark ring around a dark body on
+ * a dark map, which is worse than the white ring it replaced. The day this takes a theme is the
+ * day `marker-style.ts` has night bodies to give it.
  */
-export function buildPinImages(pixelRatio: number): PinImage[] {
+export function buildPinImages(pixelRatio: number, theme: Theme = 'light'): PinImage[] {
+  const palette = placePalette(theme);
   const images: PinImage[] = [];
 
   for (const category of CATEGORY_ORDER) {
@@ -259,7 +294,7 @@ export function buildPinImages(pixelRatio: number): PinImage[] {
       const ctx = canvas.getContext('2d');
       if (!ctx) return [];
       ctx.scale(pixelRatio, pixelRatio);
-      drawPin(ctx, category, geometry);
+      drawPin(ctx, category, geometry, palette);
       images.push({
         id: pinImageId(category, selected),
         data: ctx.getImageData(0, 0, canvas.width, canvas.height),
