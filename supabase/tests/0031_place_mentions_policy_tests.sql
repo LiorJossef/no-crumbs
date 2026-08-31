@@ -145,6 +145,43 @@ select public.resolve_place('overture','ovt-m31-b','Mention Fixture Place B',
                             -33.8688, 151.2093, 'restaurant', 'restaurant', null,
                             'Sydney', null, 'AU', '{}'::jsonb) as p_b \gset
 
+-- DISCHARGE THE FIXTURE'S DEFERRED TRIGGERS HERE, AS THE PRIVILEGED ROLE, AND DO NOT MOVE IT.
+--
+-- `places_alias_required` (0005, tightened by 0013) is a CONSTRAINT TRIGGER, `deferrable initially
+-- deferred`, and `assert_place_has_alias()` is NOT `security definer`. So it does not run when the
+-- row is inserted — it runs at COMMIT, or at the first `set constraints all immediate` anywhere
+-- later in this transaction, **with the privileges of whatever role is in effect at that moment**.
+-- The two inserts above queue one event each and nothing here discharges them.
+--
+-- What that cost, before this line existed: the first discharge in the file was M9's
+-- `set constraints all immediate`, issued while impersonating `authenticated`. It therefore ran
+-- these two fixture events as `authenticated`, and `assert_place_has_alias()` reads
+-- `places.merged_into_place_id` — a column 0012 deliberately withholds from `authenticated` under
+-- a column-level grant. The file aborted at M9 with `permission denied for table places`, having
+-- passed 26 of its 38 assertions, and the failure was an artefact of WHEN the discharge happened,
+-- not of any policy.
+--
+-- This is NOT a product defect, and that was established by execution rather than by reading:
+--   * `resolve_place` is the only function in `public` whose body inserts into `places`, it is
+--     `security definer`, and `authenticated` holds no EXECUTE on it — the call is refused with
+--     `permission denied for function resolve_place`. `authenticated` also holds no INSERT on the
+--     table itself. So no transaction that `authenticated` can start ever inserts a `places` row.
+--   * The real path — `service_role` inserts and `service_role` is still the role at COMMIT —
+--     discharges this trigger without complaint.
+--   * `security definer` does NOT protect a deferred trigger: the queued event runs under the role
+--     in effect at discharge, not the one that queued it. The only thing standing between this
+--     harness artefact and a live production defect is that `authenticated` cannot execute
+--     `resolve_place`. **If a future migration grants it, this becomes real** — and it will surface
+--     as a failure at COMMIT of every save that creates a place, which is the worst place to find
+--     it. Treat that grant as forbidden.
+--
+-- Discharging here, before any `set local role`, is what keeps the three `set constraints all
+-- immediate` calls in M9 and M10 honest: with the fixture backlog already cleared, each of those
+-- discharges only the events `authenticated` itself just caused, under `authenticated`, which is
+-- exactly what a PostgREST commit does — and `saved_places_provenance_required` reads only columns
+-- `authenticated` is granted, so it passes for the right reason.
+set constraints all immediate;
+
 -- ── M0b: the POSITIVE half — a mention is created by the server writer ────────────────────────
 -- Called as the privileged role, which is how the server action reaches it: record_place_mention is
 -- granted to `service_role` alone. Everything M5–M8 asserts is refused would be satisfied by a
