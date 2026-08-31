@@ -181,7 +181,10 @@ describe('the hover crosses to the canvas', () => {
     expect(PAGE).toContain('onHover={setHoveredId}');
     expect(PAGE).toContain('hoveredPlaceId={hoveredId}');
     expect(SHELL).toContain('readonly hoveredPlaceId?: string | null;');
-    expect(SHELL).toContain('{...(hoveredPlaceId === undefined ? {} : { hoveredPlaceId })}');
+    // An object spread rather than a JSX one since 2026-08-31: `MapShell` builds the surface's
+    // props and hands them to `PersistentMapSlot`, which is what keeps the map alive across a tab
+    // change (`components/shell/persistent-map.tsx`). Same prop, same conditional, one hop further.
+    expect(SHELL).toContain('...(hoveredPlaceId === undefined ? {} : { hoveredPlaceId }),');
   });
 
   /**

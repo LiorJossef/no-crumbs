@@ -4,6 +4,7 @@ import { Fraunces, Manrope } from 'next/font/google';
 import { cn } from '@/lib/utils';
 import { THEME_INIT_SCRIPT } from '@/lib/theme';
 import { ThemeProvider } from '@/components/theme/theme-provider';
+import { MapCanvasHost } from '@/components/shell/persistent-map';
 
 // Self-hosted via next/font — no runtime request to Google Fonts. Manrope carries both headings
 // (--font-heading) and body text (--font-sans) at different weights, per the finalized L1-F1-T2
@@ -118,7 +119,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           and `style.colorScheme` on the root element before React sees it, so the server's markup
           and the client's first read differ by design. */}
       <body>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          {children}
+          {/* **The one MapLibre instance, mounted above every route so a tab change cannot destroy
+              it** (`I3-NAV`). It renders `null` until a route's `MapShell` publishes a surface, and
+              it portals into a container it owns rather than into this position — so nothing about
+              the document's structure, its paint order or its server payload changes here. The
+              measurement that forced it, and the four contexts it has to carry across the seam, are
+              in `components/shell/persistent-map.tsx`.
+
+              Inside `ThemeProvider` because the surface's basemap tint reads the resolved theme,
+              and after `{children}` because a portal's *content* paints in the order its container
+              sits in the document, not in the order the portal is declared. */}
+          <MapCanvasHost />
+        </ThemeProvider>
       </body>
     </html>
   );

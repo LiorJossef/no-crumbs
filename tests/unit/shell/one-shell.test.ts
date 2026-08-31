@@ -81,8 +81,21 @@ describe('one MapSurface call site', () => {
     }
   });
 
-  it('is actually in the shell', () => {
-    expect(code(`${SHELL}map-shell.tsx`)).toContain('<MapSurface');
+  /**
+   * **The call site moved inside the shell directory on 2026-08-31 and did not leave it.**
+   *
+   * `persistent-map.tsx` renders `MapSurface` once, from the root layout, so that a tab change
+   * stops destroying the MapLibre instance — measured at `9a95444` as one new WebGL context and
+   * 13-16 re-requested tiles per `/map` <-> `/collections` hop. `MapShell` now renders the slot
+   * that borrows it.
+   *
+   * The guard above is unchanged and still says what it always said: no route mounts the map. This
+   * one keeps the other half honest — that the single call site exists, and is in `components/shell/`
+   * — and it names both halves so neither can quietly disappear.
+   */
+  it('is actually in the shell, as the one surface the shell mounts for every route', () => {
+    expect(code(`${SHELL}persistent-map.tsx`)).toContain('<MapSurface');
+    expect(code(`${SHELL}map-shell.tsx`)).toContain('<PersistentMapSlot');
   });
 });
 

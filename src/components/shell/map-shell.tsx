@@ -67,10 +67,11 @@
  *   the accessibility tree there. Do not restate that as "the list is always available on mobile".
  */
 
-import type { CSSProperties, ReactNode } from 'react';
+import { useMemo, type CSSProperties, type ReactNode } from 'react';
 import { Drawer } from 'vaul';
 
-import { MapSurface, type MapPlace } from '@/components/map/map-surface';
+import type { MapPlace } from '@/components/map/map-surface';
+import { PersistentMapSlot, useAdoptionRefit } from './persistent-map';
 import { ENTRANCE_BEATS, useEntranceBeat } from '@/components/map/entrance';
 import type { LatLngBoundsHint, MapSummaries, ViewportChangeMeta } from '@/components/map/types';
 import { BottomNav } from '@/components/nav/bottom-nav';
@@ -271,26 +272,48 @@ export function MapShell({
    */
   const sheetArrived = useEntranceBeat(ENTRANCE_BEATS.sheet, entrance);
 
+  /**
+   * The framing a mount used to give this scope for free, now that the map does not remount at a
+   * route boundary. `restingStop` and `floatingTopChromePx` are in the key beside the pins because
+   * they are the surface's fit padding: `/map` and `/collections` show the same thirty places and
+   * frame them completely differently, one behind a peek strip and one behind a full-height sheet.
+   * `persistent-map.tsx` has the filmstrip that established that.
+   */
+  const framingBudget = `${restingStop}|${floatingTopChromePx ?? 'default'}`;
+  useAdoptionRefit(
+    useMemo(() => places.map((place) => place.id), [places]),
+    framingBudget,
+    shell.camera.framePlaces,
+  );
+
   return (
     <div className="relative h-full w-full">
-      <MapSurface
-        places={places}
-        selected={selectedPlace}
-        {...(onPlaceClick ? { onPlaceClick } : {})}
-        {...(onDeselect ? { onDeselect } : {})}
-        {...(selectedOcclusionFraction === undefined ? {} : { selectedOcclusionFraction })}
-        {...(onViewportChange ? { onViewportChange } : {})}
-        {...(initialBounds ? { initialBounds } : {})}
-        {...focusProps(shell.focus)}
-        {...(summaries ? { summaries } : {})}
-        {...(onAreaClick ? { onAreaClick } : {})}
-        {...(onCountryClick ? { onCountryClick } : {})}
-        {...(restingFraction === undefined ? {} : { restingSheetFraction: restingFraction })}
-        {...(floatingTopChromePx === undefined ? {} : { floatingTopChromePx })}
-        {...(accessibleName ? { accessibleName } : {})}
-        {...(hoveredPlaceId === undefined ? {} : { hoveredPlaceId })}
-        {...(controlSlot ? { controlSlot } : {})}
-        {...(entrance ? { entrance } : {})}
+      {/* **The map is not this component's to mount** (`I3-NAV`). It is rendered once, from the
+          root layout, and each route borrows it — see `persistent-map.tsx` for the measurement that
+          forced this and for what hoisting it costs. What stays here is the box it occupies and the
+          props it is showing; the surface's own API is unchanged, which is why neither collections
+          route needed a line. */}
+      <PersistentMapSlot
+        framingBudget={framingBudget}
+        surface={{
+          places,
+          selected: selectedPlace,
+          ...(onPlaceClick ? { onPlaceClick } : {}),
+          ...(onDeselect ? { onDeselect } : {}),
+          ...(selectedOcclusionFraction === undefined ? {} : { selectedOcclusionFraction }),
+          ...(onViewportChange ? { onViewportChange } : {}),
+          ...(initialBounds ? { initialBounds } : {}),
+          ...focusProps(shell.focus),
+          ...(summaries ? { summaries } : {}),
+          ...(onAreaClick ? { onAreaClick } : {}),
+          ...(onCountryClick ? { onCountryClick } : {}),
+          ...(restingFraction === undefined ? {} : { restingSheetFraction: restingFraction }),
+          ...(floatingTopChromePx === undefined ? {} : { floatingTopChromePx }),
+          ...(accessibleName ? { accessibleName } : {}),
+          ...(hoveredPlaceId === undefined ? {} : { hoveredPlaceId }),
+          ...(controlSlot ? { controlSlot } : {}),
+          ...(entrance ? { entrance } : {}),
+        }}
       />
 
       {/* The list and the pins both change silently, so the one thing a screen reader user cannot
