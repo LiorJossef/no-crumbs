@@ -401,6 +401,41 @@
     --scrim: rgba(0, 0, 0, 0.40);
 
     /*
+     * **How strongly a category colour tints a surface it is being used as the ground of.**
+     *
+     * The row disc is the only reader today (`ui/place/category-display.ts`'s `categoryTintVar`),
+     * and it is a token rather than a number for the same reason `--panel` and `--scrim` above are:
+     * **a percentage inside `color-mix(… N%, transparent)` is an alpha, not a constant.** It
+     * composites against whatever is behind it, so one number cannot mean one thing in two themes.
+     * `K12` cannot see it either — there is no hex literal anywhere in the expression, which is how
+     * it survived a whole run that was looking for exactly this class of bug.
+     *
+     * **The ceiling is the glyph, and it is the constraint nobody stated.** The disc carries a pin
+     * painted in the *same* category colour as its ground, so every point of tint the ground gains
+     * it takes from the glyph. Measured on painted pixels, worst of the four categories, both
+     * themes — the pin against its own disc:
+     *
+     *      %     12     18     22     26     30     36     42
+     *   light  4.22   3.87   3.66   3.45   3.23   2.94   2.67
+     *    dark  4.65   4.22   3.93   3.68   3.41   3.07   2.72
+     *
+     * WCAG non-text wants 3.0, so the hard ceiling is 30% in light and 36% in dark — and the
+     * ceiling is *lower* in light, which is the opposite of where the tint needs to go. 22 and 26
+     * are the pair that leaves the glyph the **same** headroom in both themes (3.66 and 3.68), and
+     * that symmetry is the reason they are these two numbers rather than two picked ones.
+     *
+     * 12% in either theme is where this started and it reads as a grey circle with a coloured pin
+     * in it: a café disc at 12% composites to `rgb(237,233,229)` on the light card and
+     * `rgb(52,46,34)` on the dark one, which are a neutral warm-grey and a dark olive. At 22 / 26
+     * they are `rgb(223,215,208)` and `rgb(75,63,42)` — a warm taupe and an amber-brown, and the
+     * category is legible from the disc rather than only from the pin inside it.
+     *
+     * Not registered in `@theme inline`: it is a *component* of a colour, not a colour, so there is
+     * no `bg-tint-strength` to generate and Tailwind has no namespace for it.
+     */
+    --tint-strength: 22%;
+
+    /*
      * Elevation, as three named steps instead of one string copied into brackets.
      *
      * `--shadow-elevated` was the only shadow in the system and it was reached for as
@@ -715,6 +750,11 @@
      */
     --panel: rgba(32, 31, 28, 0.55);
     --scrim: rgba(0, 0, 0, 0.62);
+    /* Four points above light's, and the reason is not "dark needs more": it is that both values
+     * are set from the *glyph* ceiling in `:root`, and that ceiling is higher here (36% against
+     * light's 30%) because the night category colours are the lifted ones. Same headroom, different
+     * number. */
+    --tint-strength: 26%;
 
     /* Rule 3's other half. The light values are 10-28% black, which over `#131312` is
      * indistinguishable from no shadow at all; these are the same three steps at the alpha a dark

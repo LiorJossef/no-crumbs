@@ -79,7 +79,11 @@ import type { CategoryFacet } from '@/domain/places/category-filter';
 import type { ProductCategory } from '@/domain/places/product-category';
 import type { PlaceDetailFacts } from '@/domain/places/spot';
 import { enrichmentOf, rowAccessibleName, whyGoEarnsItsPlace } from '@/ui/place/enrichment';
-import { categoryColorVar, categoryLocalityLine } from '@/ui/place/category-display';
+import {
+  categoryColorVar,
+  categoryLocalityLine,
+  categoryTintVar,
+} from '@/ui/place/category-display';
 import { savedPlaceMapsUrl } from '@/ui/place/maps-link';
 import { nearbyDistanceLabel, nearbyPlaces, type NearbyPlace } from '@/ui/place/nearby';
 import {
@@ -813,6 +817,7 @@ export function PlaceRow({
       <RowMedia
         thumbnailUrl={place.detail?.sourceThumbnailUrl}
         color={categoryColorVar(place.category)}
+        tint={categoryTintVar(place.category)}
         approximateLabel={approximateLabel}
       />
       <div className="flex min-w-0 flex-col gap-0.5 pt-0.5 text-left">
@@ -991,6 +996,7 @@ export function PlaceRow({
 function RowMedia({
   thumbnailUrl,
   color,
+  tint,
   approximateLabel,
 }: {
   thumbnailUrl: string | undefined;
@@ -1009,6 +1015,15 @@ function RowMedia({
    * split; this is the DOM half of it.
    */
   color: string;
+  /**
+   * The same colour as a **ground** rather than as ink — `categoryTintVar`, which wraps the token
+   * above in a `color-mix()` whose strength is `--tint-strength`.
+   *
+   * A second prop rather than a strength passed down, because the composition rule belongs in the
+   * presentation layer with the palette it composes: `category-display.ts` decides what a tinted
+   * category looks like, and this component only paints what it is handed.
+   */
+  tint: string;
   /** Non-null when the coordinate is the model's own guess, and then also the tooltip. */
   approximateLabel: string | null;
 }) {
@@ -1079,10 +1094,13 @@ function RowMedia({
       aria-hidden
       title={approximateLabel ?? undefined}
       style={{
-        // `color-mix` rather than the `${color}1F` hex-alpha suffix this used to append: a
-        // `var(--category-cafe)` is a reference, not eight characters of hex, so a suffix would
-        // produce `var(--category-cafe)1F` and no colour at all. 12% is what `1F` (31/255) was.
-        backgroundColor: `color-mix(in oklab, ${color} 12%, transparent)`,
+        // `categoryTintVar` rather than a `color-mix()` written here, and rather than the
+        // `${color}1F` hex-alpha suffix that preceded it: a `var(--category-cafe)` is a reference,
+        // not eight characters of hex, so a suffix would produce `var(--category-cafe)1F` and no
+        // colour at all. The `12%` that replaced `1F` (31/255) was the second half of the same
+        // mistake — a percentage inside a colour function is an alpha, and an alpha composites
+        // against whatever is behind it. `--tint-strength` is that number, per theme.
+        backgroundColor: tint,
         color,
         ...(approximate ? { borderColor: color } : {}),
       }}

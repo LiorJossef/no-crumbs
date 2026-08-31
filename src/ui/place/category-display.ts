@@ -120,3 +120,23 @@ export function categoryLocalityLine(
 export function categoryColorVar(category: string | null | undefined): string {
   return isKnownCategory(category) ? CATEGORY_COLOR_VAR[category] : UNCATEGORISED_COLOR_VAR;
 }
+
+/**
+ * **The category's colour as a tinted ground** — the row's disc, and anything else that wants the
+ * colour as a surface rather than as ink.
+ *
+ * The strength is `--tint-strength` and not a number, and that is the whole point of the function
+ * existing. A percentage inside a `color-mix()` is not a constant: it is an alpha, and an alpha
+ * composites against whatever is behind it. 12% was picked against a near-white card, where it
+ * reads as a wash; the same 12% of a lifted night colour over `#201F1C` is a dark olive that
+ * carries no category at all (`iteration-2-plan.md` §1.3, measured). One number cannot be right in
+ * both themes, so the number is a token and `globals.css` sets it per theme.
+ *
+ * `in oklab` rather than `in srgb`: mixing toward transparent in a perceptual space keeps the hue
+ * where it was at low strengths instead of drifting it, which is exactly the range this is used in.
+ *
+ * Total, like its two neighbours: anything outside the taxonomy tints in the uncategorised token.
+ */
+export function categoryTintVar(category: string | null | undefined): string {
+  return `color-mix(in oklab, ${categoryColorVar(category)} var(--tint-strength), transparent)`;
+}
