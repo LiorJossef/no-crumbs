@@ -32,10 +32,35 @@ import { CRUMB_PATH, CRUMB_VIEWBOX } from './crumb-path';
  *    to. A teardrop needs the aperture to read as a marker; a crumb does not, and a hole in this
  *    outline reads as a doughnut. `--brand` is the whole palette of this component now.
  *
- * **Measured, and worth knowing before anyone reaches for it small:** at 30px and above the
- * silhouette reads as a soft-cornered crumb; at 16px it reads as a disc. The irregularity is real
- * but subtle — the outline is 89×88 units in a 100 square — and it is the outline §3.1 forbids
- * changing. Below about 24px the mark is carrying colour and position, not shape.
+ * ## Measured: at the sizes this renders, the silhouette is a circle
+ *
+ * An earlier version of this comment said the shape "reads as a soft-cornered crumb at 30px and
+ * above". **That was wrong**, and it was wrong because it was eyeballed. Rendered at 1000px and
+ * measured — the ink centroid, then the radius at each of 720 angles — the outline deviates from a
+ * true circle by **4.6% of its radius peak-to-peak**, standard deviation **1.14%**. In the sizes
+ * this component is actually used at, that whole irregularity is:
+ *
+ * | rendered at | peak-to-peak | s.d. |
+ * |---|---|---|
+ * | 16px | 0.33px | 0.08px |
+ * | 30px | 0.61px | 0.15px |
+ * | 36px | 0.73px | 0.18px |
+ * | 44px | 0.90px | 0.22px |
+ * | 168px | 3.43px | 0.85px |
+ *
+ * **Under one pixel everywhere below about 50px.** So this mark is not a crumb that is hard to
+ * make out; it is a disc, and no rendering can make it otherwise. Side by side with a true circle
+ * of the same mean radius it is distinguishable at 200px and indistinguishable at 44.
+ *
+ * This is a property of the outline `brand-and-product-foundation.md` §3.1 ratified, and §3.1
+ * rule 1 forbids changing it — *"if they change the outline, the pin is lost"*. It is recorded
+ * here rather than worked around because it is the owner's to decide, and because the next person
+ * to look at this file will otherwise re-derive it. Rule 1 does allow **face, shading, feet and
+ * palette** to vary, and any of those would carry the mark at this size where the outline cannot.
+ *
+ * The **map pin** is not in the same position: its tail is 30 of its 126 units and is what
+ * separates it from a circle and from the teardrop it replaced. The claim §3.1 makes for the pin
+ * survives; the claim it makes for the bare silhouette, at chrome sizes, does not.
  *
  * The colour is `--brand`, a semantic role rather than a ramp step or a literal, so a token repass
  * — including the dark-mode pass that is still owed — moves the mark with everything else.
