@@ -379,6 +379,27 @@ Six, and they are recorded because the concurrency rule is what made the rest of
    the other five cost minutes and this one had the owner believing the brand was missing from a
    product that already contained every piece of it.
 
+**A twelfth, and it is the one this document already names.** `a1343be` was committed as
+`feat(motion)` and contains **20 files, not 16**: the motion lane's fifteen plus its test, and four
+of the collections lane's — a 387-line deletion and three renames — which were sitting **staged** in
+the index. The command was `git add <paths>` followed by `git commit` with **no pathspec**. `git add`
+names the *index*; only `git commit -- <paths>` scopes the *commit*.
+
+That is verbatim the mechanism recorded in iteration 1 and re-diagnosed by this lead after
+misattributing it once — *"the real mechanism was `git commit` with no pathspec committing the whole
+index"* — committed by the person who wrote it down, inside a commit message asserting that explicit
+pathspecs are the discipline. **Knowing a failure by name is not protection from it.**
+
+The harm is not to the code, which is correct in both halves. It is that **the subject is false about
+half its contents**: anyone bisecting a collections regression will not look inside `feat(motion)`,
+and the collections lane's file move is now split across a commit it did not author and did not know
+it was in. It was caught by that lane checking the index before staging, not by the person who made
+it.
+
+Not repaired by rewriting: `git-workflow.md` §9.3 puts history rewrites behind a specific instruction
+each time and the project deny list enforces it. Recorded forward instead, which is the same standard
+applied to a `wip:` subject earlier today.
+
 A seventh — misattributing an untracked harness file to the wrong lane — is **deliberately not
 counted with the others**, at that lane's own insistence, and the distinction is the useful part. The
 wrong path was a claim about the tree that a read would have settled. Authorship is not in the tree:
