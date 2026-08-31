@@ -68,7 +68,11 @@ export function NearMeControl({
             aria-label="Dismiss"
             onClick={onDismissNotice}
             className={cn(
-              'flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground outline-none',
+              // 44px of target around a 14px glyph: the box is `size-11` and the mark inside it is
+              // unchanged, so the notice does not grow a heavy button in its corner. Was `size-6`
+              // (24px), which is a dismissal a thumb misses on the one surface that exists to be
+              // dismissed.
+              'flex size-11 shrink-0 items-center justify-center rounded-full text-muted-foreground outline-none',
               'hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring',
               // Matrix row 3. `PRESS_CHIP`'s 5% is the icon-button value: on a 24px target the
               // gentler button scale is not visible at all. `PRESS_BEAT` carries the colour
@@ -94,8 +98,17 @@ export function NearMeControl({
           aria-busy={locating}
           aria-pressed={status === 'located'}
           className={cn(
-            // 40px, matching `MapControls`' own buttons; see their note on the 44px floor.
-            'flex size-10 items-center justify-center outline-none',
+            // **44px, which is the floor and not a preference.** This was `size-10` — 40px —
+            // "matching `MapControls`' own buttons", and matching a control that is itself under
+            // the bar is how a whole column of them stays under it. W7-6 measured it at 40×40
+            // across both gate viewports and both themes, and this control appears on every screen
+            // with a map on it, which is most of the product.
+            //
+            // The visible consequence, stated because it will be noticed: mapcn's own zoom buttons
+            // (`components/ui/map.tsx`, a 2,000-line vendored file that is out of scope) are still
+            // 40px, so the two control groups in that corner differ by 4px until that file is
+            // fixed. A ragged edge for one release is a smaller cost than a target a thumb misses.
+            'flex size-11 items-center justify-center outline-none',
             'hover:bg-accent dark:hover:bg-accent/40',
             'focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-inset',
             // Matrix row 3, and the column this control has never had: a press. It is the one

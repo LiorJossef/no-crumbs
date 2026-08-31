@@ -79,7 +79,7 @@ import type { CategoryFacet } from '@/domain/places/category-filter';
 import type { ProductCategory } from '@/domain/places/product-category';
 import type { PlaceDetailFacts } from '@/domain/places/spot';
 import { enrichmentOf, rowAccessibleName, whyGoEarnsItsPlace } from '@/ui/place/enrichment';
-import { categoryDisplay, categoryLocalityLine } from '@/ui/place/category-display';
+import { categoryColorVar, categoryLocalityLine } from '@/ui/place/category-display';
 import { savedPlaceMapsUrl } from '@/ui/place/maps-link';
 import { nearbyDistanceLabel, nearbyPlaces, type NearbyPlace } from '@/ui/place/nearby';
 import {
@@ -415,7 +415,17 @@ function PlaceList({
                 : 'Show your places'
             }
             className={cn(
-              'flex min-w-0 flex-1 items-center gap-1 rounded-lg px-1 text-left text-sm font-medium text-muted-foreground',
+              // **`min-h-11`, and it is the 44px floor rather than a layout tweak.** W7-6 measured
+              // this at 350 × 20: wide enough, and less than half the height it needs. It is the
+              // control that opens the library on a phone, so it is on the path of every session,
+              // and 20px of it is one line of `text-sm` with nothing around it.
+              //
+              // It costs no vertical space that was doing anything else. `PEEK_PX` is 128 and must
+              // not move — it is mirrored in four places, one of them a licence condition, and it
+              // sets the camera's bottom budget — but the strip already had the room: dropping the
+              // `Add a TikTok` button into `BottomNav` freed the lower half of the band, and this
+              // only claims the height the row was already sitting in.
+              'flex min-h-11 min-w-0 flex-1 items-center gap-1 rounded-lg px-1 text-left text-sm font-medium text-muted-foreground',
               // The only control on the peek strip, and the one whose result — the sheet rising —
               // takes a spring to arrive. Without a press this row looked inert for that whole
               // beat.
@@ -741,7 +751,6 @@ export function PlaceRow({
 }) {
   const locality = place.detail?.locality;
   const { tags } = enrichmentOf(place.detail);
-  const category = categoryDisplay(place.category);
   /**
    * Whether this row's pin is the model's own guess — 65–470 m out, median 327 m. The detail view
    * has said so since `location-certainty.ts` shipped and the row said nothing, so twenty-one of
@@ -803,7 +812,7 @@ export function PlaceRow({
     <>
       <RowMedia
         thumbnailUrl={place.detail?.sourceThumbnailUrl}
-        color={category.color}
+        color={categoryColorVar(place.category)}
         approximateLabel={approximateLabel}
       />
       <div className="flex min-w-0 flex-col gap-0.5 pt-0.5 text-left">
@@ -985,7 +994,20 @@ function RowMedia({
   approximateLabel,
 }: {
   thumbnailUrl: string | undefined;
-  /** The category's colour, from `categoryDisplay` — the same value the map paints the pin. */
+  /**
+   * The category's colour as a **CSS variable reference** — `var(--category-cafe)` — not a literal.
+   *
+   * `categoryColorVar` rather than `categoryDisplay(...).color`, and the difference is the whole of
+   * how this disc follows the theme. Those tokens have always carried both themes and have always
+   * switched under `.dark`; they were simply read by nothing, so a literal hex here painted a
+   * daylight brown on a night surface. A `var()` follows the theme with no hook, no context, no
+   * prop and no re-render.
+   *
+   * The map's pin keeps the literal, and that is not an inconsistency: a MapLibre paint expression
+   * is evaluated by the GL renderer and cannot resolve a custom property, so the GL side takes
+   * `placePalette` and every DOM side takes the `var()`. `ui/place/palette.ts`'s header states the
+   * split; this is the DOM half of it.
+   */
   color: string;
   /** Non-null when the coordinate is the model's own guess, and then also the tooltip. */
   approximateLabel: string | null;
@@ -1057,7 +1079,10 @@ function RowMedia({
       aria-hidden
       title={approximateLabel ?? undefined}
       style={{
-        backgroundColor: `${color}1F`,
+        // `color-mix` rather than the `${color}1F` hex-alpha suffix this used to append: a
+        // `var(--category-cafe)` is a reference, not eight characters of hex, so a suffix would
+        // produce `var(--category-cafe)1F` and no colour at all. 12% is what `1F` (31/255) was.
+        backgroundColor: `color-mix(in oklab, ${color} 12%, transparent)`,
         color,
         ...(approximate ? { borderColor: color } : {}),
       }}

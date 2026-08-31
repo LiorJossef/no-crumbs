@@ -90,6 +90,13 @@ function render(place: MapPlace, interactive = true): string {
 /** The mark is a dashed ring on the row's own pin disc — the element the uncertainty is about —
  *  rather than a glyph trailing the category line. Asserted as the class rather than as an icon
  *  name so the assertion survives a change of icon and fails on a change of meaning. */
+/** The row as a reader sees it: tags and attributes stripped, entities left alone. Used where a
+ *  rule is about what is *on screen* rather than about what is in the DOM — a colour inside a
+ *  `style` attribute is not something anybody reads. */
+function textOf(markup: string): string {
+  return markup.replace(/<[^>]*>/g, ' ');
+}
+
 describe('PlaceRow — an approximate pin says so', () => {
   it('marks a row whose coordinate is the model reading a caption', () => {
     const markup = render(placeWith('llm-guess'));
@@ -113,7 +120,17 @@ describe('PlaceRow — an approximate pin says so', () => {
 
   it('never puts a confidence number on the row', () => {
     // The review screen bans them by rule; `resolution_score` is a diagnostic, not a probability.
-    expect(render(placeWith('llm-guess'))).not.toMatch(/\d+\s*%/);
+    //
+    // **Asserted against the row's visible text, not its markup**, and the narrowing is a
+    // correction rather than a relaxation: the rule is about what a *reader* sees, and the markup
+    // form caught a `12%` inside `color-mix(in oklab, var(--category-restaurant) 12%, transparent)`
+    // — the disc's tint, which is a colour and has never been a claim about anything. A percentage
+    // in a style attribute is invisible to the person this rule protects. What it still forbids is
+    // the thing it was written for: a number followed by a percent sign anywhere a user can read
+    // one.
+    expect(textOf(render(placeWith('llm-guess')))).not.toMatch(/\d+\s*%/);
+    // And the diagnostic itself never reaches the row in any form, markup included.
+    expect(render(placeWith('llm-guess'))).not.toContain('resolution_score');
   });
 });
 
