@@ -74,7 +74,11 @@ export default async function MapPage({
         aria-label={`Your profile, signed in as ${user.email ?? 'this account'}`}
         className="absolute right-3 top-[calc(env(safe-area-inset-top)+0.75rem)] z-30 hidden h-11 items-center gap-1.5 rounded-full border border-border/70 bg-card/85 pl-3.5 pr-3 shadow-[var(--shadow-elevated)] backdrop-blur-md transition-colors hover:bg-card focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 lg:right-4 lg:top-4 lg:flex"
       >
-        <span className="max-w-[9rem] truncate text-xs font-bold text-foreground sm:max-w-[14rem]">
+        {/* `leading-5`: `truncate` clips to the line-height, `text-xs` sets it to 16px, and this
+            font's inline box at 12px is 17px. Same one-pixel shave `place-enrichment.tsx` records,
+            and an account identifier is the last string in the product that should be guessing
+            which alphabet it will be handed. */}
+        <span className="max-w-[9rem] truncate text-xs font-bold leading-5 text-foreground sm:max-w-[14rem]">
           {user.email}
         </span>
         <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />

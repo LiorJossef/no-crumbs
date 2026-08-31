@@ -300,7 +300,16 @@ export function TagFacetBar({
           onClick={() => filter.onToggleTag(tag)}
           className={cn(CHIP_PRESSABLE, 'min-h-11 shrink-0 gap-2')}
         >
-          <span dir="auto" className="max-w-40 truncate">
+          {/* **`leading-5`, for the reason `bottom-nav.tsx` records at length.** `truncate` clips to
+              the content box, which is the line-height; `text-xs` sets that to 16px while the
+              inline box this font paints at 12px is **17px**, so 1px is shaved off the top.
+
+              Latin lowercase never reaches it — released and diffed at dsf 3, zero pixels change.
+              **Tall ink does**: substituting Hebrew with lower diacritics, an accented capital or a
+              brace removes **18 device pixels, worst channel delta 488**. That is not a hypothetical
+              here. These labels are model output from arbitrary captions, which is why this element
+              carries `dir="auto"` and why the accessible name isolates it. */}
+          <span dir="auto" className="max-w-40 truncate leading-5">
             {label}
           </span>
           {/* **`font-normal` rather than `opacity-70`, and the swap is the point.** The count has to

@@ -297,7 +297,17 @@ function NavTab({
           a media query in JavaScript — `map-page-client.tsx` forbids the latter outright. The
           threshold still holds at three tabs: `Collections` at 11 px measures ~63 px against 73 px
           of content width at 375 and ~57 px at 320, which is where it would start to truncate. */}
-      <span className="max-w-full truncate text-micro leading-none max-[359px]:sr-only">
+      {/* **`leading-4` and not `leading-none`, and it is a clipping fix rather than a spacing
+          preference.** `truncate` is `overflow: hidden`, which clips to the *content box* — and the
+          content box is the line-height. At `leading-none` that box is 11px while this font's
+          inline box at 11px is **15px**, so 2px was being shaved off each end. Photographed at
+          390x844 dark, dsf 3, by re-rendering with the clip released and diffing: **20 device
+          pixels of fully opaque ink, worst channel delta 628** — the descender of the `p` in `Map`,
+          cut off square. Latin, as shipped, with no substitution needed to provoke it.
+
+          The tab has the room. It is `h-11` with a 16px icon and a 2px gap, so the stack goes from
+          29px to 34px inside 44px and `justify-center` keeps it centred. */}
+      <span className="max-w-full truncate text-micro leading-4 max-[359px]:sr-only">
         {label}
       </span>
     </Link>
