@@ -348,6 +348,29 @@ the real-press run gave a false *failure*. Neither was trustworthy alone. The fa
 more dangerous of the two — **nobody re-checks a green** — but the correction was volunteered by the
 agent whose own result it overturned, unprompted except by being asked to check.
 
+### The convergence, which is the sharpest form of all of it
+
+**One measurement — does a control acknowledge a press — defeated three different agents in three
+different ways on the same night.**
+
+| Agent | Method | Failure |
+|---|---|---|
+| the independent verifier | CDP `forcePseudoState` + `getComputedStyleForNode` | **false pass** — every element with any `scale` declaration reads `scale: 1`, and an absence was reported as a change |
+| the design lane | real `mouse.down()` | **false failure** — the sheet was painting over the control, `boundingBox()` was still valid, and the press landed on a list row |
+| the collections lane | CDP `forcePseudoState`, again | **would not fire at all** — no effect through either `getComputedStyleForNode` or `Runtime.callFunctionOn`, on a surface known to press |
+
+And a fourth in the same family, from the third agent's own tooling: its first stylesheet walk reported
+**zero** `active` rules on every route, including one whose press had shipped hours earlier. In modern
+Chrome a `CSSStyleRule` **also exposes `cssRules`** under CSS nesting, so an
+`if (r.cssRules) … else if (r.selectorText)` walk skips every style rule in the sheet. Corrected, it
+finds 25.
+
+**The third agent did the right thing with a broken instrument:** it reported what it could actually
+establish — the rules are in the stylesheet the page loaded, *and* every visible pressable carries the
+matching class — said plainly that this composes to the answer but is weaker than driving the
+pseudo-state, and asked for the working instrument to be pointed at its commit rather than reporting a
+number it had not taken.
+
 **Eight instruments, one night, on a codebase whose tests were green throughout.** That is the run's
 real finding about itself: **the measurements needed as much verification as the code did**, and two
 of the fourteen KPIs turned out not to measure what they name.
