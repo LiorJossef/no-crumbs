@@ -1,0 +1,25 @@
+# Extracted <script src> tags from GET https://www.tiktok.com/player/v1/7245648559981350186 (no query params)
+# Retrieved 2026-08-31, server-side curl, desktop UA, no auth/cookies sent on request.
+
+<script src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/tiktok_privacy_protection_framework/loader/1.0.0.951/index.js" data-region="sg" data-env="production" data-business="goofy-deploy-app-83833" async crossorigin="anonymous" data-sw="/sw.js" data-sw_version="1.0.0.89,2.0.0.4" nonce="argus-csp-token">
+<script id="tiktok-web-mssdk" src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/webmssdk/1.0.0.347/webmssdk.js">
+<script defer  src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/tiktok_4d_playback/static/js/route-manifest-main.1b349bc9.js">
+<script defer="defer" src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/tiktok_4d_playback/static/js/builder-runtime.12a3bae094.js">
+<script defer="defer" src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/tiktok_4d_playback/static/js/lib-react.b24368ee1a.js">
+<script defer="defer" src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/tiktok_4d_playback/static/js/lib-router.3dd79c9a5f.js">
+<script defer="defer" src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/tiktok_4d_playback/static/js/lib-polyfill.b8f6681029.js">
+<script defer="defer" src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/tiktok_4d_playback/static/js/522.4dca616fee.js">
+<script defer="defer" src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/tiktok_4d_playback/static/js/main.5275b7f0f1.js">
+<script src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/tiktok-infra/csp/sdk-pre/slardar.web.pre.js">
+<script src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/tiktok-infra/csp/sdk-pre/tea.pre.js">
+<script async src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/log-sdk/collect/5.2/oversea/collect.js">
+<script defer="true" src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/tiktok_4d_playback/static/js/async/781.2c183cc70d.js">
+<script defer="true" src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/tiktok_4d_playback/static/js/async/27.48e0ded1a9.js">
+<script defer="true" src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/tiktok_4d_playback/static/js/async/355.efbfdc03ee.js">
+<script defer="true" src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/tiktok_4d_playback/static/js/async/65.5f8c7ca4e5.js">
+<script defer="true" src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/tiktok_4d_playback/static/js/async/(itemId)/page.136766a2dd.js">
+<script defer="true" src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/tiktok_4d_playback/static/js/async/argus-builder-strategy.5ffe7b71ae.js">
+<script defer="true" src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/tiktok_4d_playback/static/js/async/73.42e10e9fa3.js">
+<script defer="true" src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/tiktok_4d_playback/static/js/async/322.293b521d45.js">
+<script defer="true" src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/tiktok_4d_playback/static/js/async/938.3af7302712.js">
+<script defer="true" src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/tiktok_4d_playback/static/js/async/ItemPage.24edd2485f.js">

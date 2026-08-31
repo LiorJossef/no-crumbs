@@ -1,0 +1,32 @@
+# Extracted <video> and <script src> tags from GET https://www.tiktok.com/embed/v2/7245648559981350186
+# Retrieved 2026-08-31, server-side curl, desktop UA, no auth/cookies sent on request.
+
+## <video> tags
+<video data-testid="play-video-blur" src="https://v16m.tiktokcdn.com/cfe2ef2f1c0578ac28b877e07bef9eda/6a986ff9/video/tos/alisg/tos-alisg-ve-37c799-sg/ocJN1NrhtUIMRMyyA4QUItTf1NWhggCpBziAwg/?a=1233&amp;bti=ODszNWYuMDE6&amp;&amp;bt=1511&amp;ft=-_sz_mKuPD12NzgRRn-Ux~KvWY6e3wv25BcAp&amp;mime_type=video_mp4&amp;rc=Zmc1NjQ5OmQ0OThmaGgzNkBpM2ZwNzw6ZmR1bDMzZzczNEA1Yy9gY2M1NS8xYTBiXjMyYSNlLW1wcjQwXzNgLS1kMS9zcw%3D%3D&amp;vvpl=1&amp;l=20260901024923CF36FDD2816D4E7D915C&amp;btag=e00090000&amp;sp_exp=hash_v0" poster="https://p19-common-sign.tiktokcdn.com/tos-useast5-p-0068-tx/b8fd5250ee2846e0a8c19e0208caa2ea~tplv-tiktokx-origin.image?dr=14575&amp;x-expires=1788372000&amp;x-signature=6z6exNSzUiGB%2FNsbaQfY0gto7t4%3D&amp;t=4d5b0474&amp;ps=13740610&amp;shp=81f88b70&amp;shcp=43f4a2f9&amp;idc=my2" muted="" playsinline="" data-e2e="Player-index-EmbedPlayerVideoBlur" class="css-miszvl e1hu91t73">
+<video data-testid="play-video" src="https://v16m.tiktokcdn.com/cfe2ef2f1c0578ac28b877e07bef9eda/6a986ff9/video/tos/alisg/tos-alisg-ve-37c799-sg/ocJN1NrhtUIMRMyyA4QUItTf1NWhggCpBziAwg/?a=1233&amp;bti=ODszNWYuMDE6&amp;&amp;bt=1511&amp;ft=-_sz_mKuPD12NzgRRn-Ux~KvWY6e3wv25BcAp&amp;mime_type=video_mp4&amp;rc=Zmc1NjQ5OmQ0OThmaGgzNkBpM2ZwNzw6ZmR1bDMzZzczNEA1Yy9gY2M1NS8xYTBiXjMyYSNlLW1wcjQwXzNgLS1kMS9zcw%3D%3D&amp;vvpl=1&amp;l=20260901024923CF36FDD2816D4E7D915C&amp;btag=e00090000&amp;sp_exp=hash_v0" poster="https://p19-common-sign.tiktokcdn.com/tos-useast5-p-0068-tx/b8fd5250ee2846e0a8c19e0208caa2ea~tplv-tiktokx-origin.image?dr=14575&amp;x-expires=1788372000&amp;x-signature=6z6exNSzUiGB%2FNsbaQfY0gto7t4%3D&amp;t=4d5b0474&amp;ps=13740610&amp;shp=81f88b70&amp;shcp=43f4a2f9&amp;idc=my2" preload="auto" playsinline="" data-e2e="Player-index-EmbedPlayerVideoItem" class="css-ukfjzf e1hu91t71">
+
+## <script src> tags
+<script src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/tiktok_privacy_protection_framework/loader/1.0.0.951/index.js" crossorigin="anonymous" async data-business="tiktok.web.embed" data-sw="/embed/sw.js" data-env="production" data-region="sg" data-dangerously-disable-cookie-banner="true" data-sw_version="1.0.0.89,2.0.0.4">
+<script data-rh="true" src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/tiktok-infra/csp/sdk-pre/slardar.web.pre.js" data-e2e="src-theme-template-script-6">
+<script data-rh="true" src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/embed/static/frontity-public-path.js" data-e2e="src-theme-template-script-8">
+<script data-rh="true" src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/webmssdk/1.0.0.223/webmssdk.js" data-e2e="src-theme-template-script-9">
+<script data-rh="true" src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/embed/static/mssdk-init.js" data-e2e="src-theme-template-script-11">
+<script async type="module" data-chunk="tiktok-embed" src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/embed/static/tiktok-embed.module.1f1ab0fbe45bcde2a3be.js">
+<script async type="module" data-chunk="vendors~PlaylistError~ProfileError~VideoError~home~playlistCard" src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/embed/static/vendors~PlaylistError~ProfileError~VideoError~home~playlistCard.module.78ab3f85dbc5606f943d.js">
+<script async type="module" data-chunk="vendors~home" src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/embed/static/vendors~home.module.e3bdd904b30c47b213f5.js">
+<script async type="module" data-chunk="home" src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/embed/static/home.module.e8413884c008a4e7cc89.js">
+<script async nomodule data-chunk="tiktok-embed" src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/embed/static/tiktok-embed.es5.caf18be93d855a3f2cb3.js">
+<script async nomodule data-chunk="vendors~PlaylistError~ProfileError~VideoError~home~playlistCard" src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/embed/static/vendors~PlaylistError~ProfileError~VideoError~home~playlistCard.es5.44104fa2bebd7896ccd2.js">
+<script async nomodule data-chunk="vendors~home" src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/embed/static/vendors~home.es5.211281c50f92dde1cf11.js">
+<script async nomodule data-chunk="home" src="https://sf16-website-login.neutral.ttwstatic.com/obj/tiktok_web_login_static/embed/static/home.es5.3aa17b74af75b7669847.js">
+
+## Distinct external hosts referenced in document body
+p16-common-sign.tiktokcdn.com
+p16-sign-sg.tiktokcdn.com
+p19-common-sign.tiktokcdn.com
+sf16-music-sign.tiktokcdn.com
+sf16-website-login.neutral.ttwstatic.com
+snssdk1233.onelink.me
+v16m.tiktokcdn.com
+www.tiktok.com
+www.w3.org
