@@ -23,9 +23,11 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   ArrowLeft,
   Check,
+  ChevronLeft,
   ChevronUp,
   MoreHorizontal,
   Plus,
@@ -62,6 +64,11 @@ import { PRESS_CHIP, PRESS_ROW } from '@/lib/interaction';
 import { cn } from '@/lib/utils';
 
 /**
+ * The product's kicker: 11 px, tracked, mint — the same treatment `import-page-client.tsx` draws
+ * above every screen title. Uppercasing is a Latin device with no Hebrew equivalent, so an RTL
+ * chrome carries the label by weight and colour instead.
+ */
+/**
  * The gap between the last row of a collection and the pinned `Add places` footer above the bar.
  *
  * 12px, which is the footer's own `pt-3` — the space above the button and the space below the last
@@ -70,18 +77,6 @@ import { cn } from '@/lib/utils';
  */
 const LIST_END_GAP_PX = 12;
 
-/**
- * The product's kicker: 11 px, tracked, mint — the same treatment `import-page-client.tsx` draws
- * above every screen title. Uppercasing is a Latin device with no Hebrew equivalent, so an RTL
- * chrome carries the label by weight and colour instead.
- *
- * **Nothing in this file wears it any more.** It dressed the `‹ COLLECTION` up-link, which the
- * drawer's view switch made redundant on 2026-08-31. It is kept exported rather than deleted
- * because it is the *product's* kicker rather than this header's — one declaration of a treatment
- * `import-page-client.tsx` also draws — and a second copy appearing the next time a surface needs
- * one is the drift it exists to prevent. If nothing has claimed it by the time somebody reads
- * this, delete it; an unused export is cheap and a duplicated token is not.
- */
 export const KICKER =
   'text-[11px] font-bold uppercase tracking-[0.14em] text-brand rtl:normal-case rtl:tracking-normal';
 
@@ -292,33 +287,44 @@ function CollectionList({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="shrink-0 px-4 pb-2 pt-1">
-        {/**
-          * **The kicker row is gone, and with it the whole 44 px it occupied.**
-          *
-          * `ux-collections-as-scope.md` §5 item 3 replaced an unlabelled back arrow with a kicker
-          * that *was* the up-link — `‹ COLLECTION`, saying where it went. That was the right answer
-          * while it was the only way out. The drawer's `Places / Collections` switch now sits
-          * directly above this header and its `Collections` segment goes to the same index, so the
-          * link had become a second control for one destination, ~44 px above itself (owner,
-          * 2026-08-31, and the switch is the owner's own instruction).
-          *
-          * **Deleting the link alone would have recovered nothing**: the options button beside it
-          * is `size-11`, so the row kept its height either way. The height comes back because the
-          * button moved onto the heading's row, which is where a single trailing action belongs.
-          * That matters here more than it would elsewhere — at `half` this list's window is about
-          * 1.4 rows, and 44 px is most of another one.
-          *
-          * `items-start` and not `items-center`: the name wraps to two lines, and a `⋯` that drifts
-          * down the block as the name gets longer reads as misaligned rather than as centred.
-          */}
-        <div className="flex items-start gap-1">
-          <h2
-            ref={headingRef}
-            tabIndex={-1}
-            className="line-clamp-2 min-w-0 flex-1 font-heading text-base font-bold outline-none"
+        {/* The kicker row, and the up-link *is* the kicker: it says where it goes, in the slot the
+            unlabelled back arrow used to occupy, so nothing has to be relearned. */}
+        <div className="flex items-center gap-1">
+          <Link
+            /* **`drawerHref`, not the literal `/collections`.** All three of the drawer's views are
+               search params on `/map` since 2026-08-31 (`app/map/_lib/drawer-view.ts`), and the
+               literal is a redirect shim: going through it would cost a *segment* change on each
+               leg, which unmounts the drawer — the exact thing this route shape exists to prevent,
+               reintroduced by the one control whose job is leaving a collection.
+
+               **It sits directly under the drawer's `Collections` switch segment, which goes to
+               the same place, and it stays anyway** — orchestrator ruling, 2026-08-31, reversing an
+               instruction to delete it that was given without knowing this control is
+               `ux-collections-as-scope.md` §5 item 3. It was deleted for one commit and restored:
+               **a spec item is amended before the code, not after**, which is the sequence this
+               project used for the no-places mascot and is not waived because the change is one
+               line.
+
+               The cost of keeping it is measured rather than argued, so whoever moves the spec has
+               the number. At 390×844 inside a collection at `half`, with the up-link's row present
+               versus removed: **0 rows fully visible against 1, and 1 partly visible against 2**;
+               the heading sits at y=500 rather than y=456. That 44px is the row's own `min-h-11`,
+               and deleting the *link* alone recovers none of it — the options button beside it is
+               `size-11`, so the row keeps its height either way. The height only comes back if that
+               button moves onto the heading's row.
+
+               Recorded open, with the reason. */
+            href={drawerHref(INDEX_VIEW) as '/map'}
+            aria-label="Collections"
+            className={cn(
+              KICKER,
+              '-ms-2 inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full px-2 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+              PRESS_CHIP,
+            )}
           >
-            <bdi>{collection.name}</bdi>
-          </h2>
+            <ChevronLeft className="size-3.5 shrink-0 rtl:rotate-180" aria-hidden />
+            Collection
+          </Link>
           <Button
             type="button"
             variant="ghost"
@@ -327,13 +333,19 @@ function CollectionList({
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((open) => !open)}
             data-vaul-no-drag
-            // `-mt-2` pulls the 44px target's optical centre up to the heading's first line; the
-            // target itself keeps all 44px, which is the number that matters to a thumb.
-            className="-me-2 -mt-2 size-11 shrink-0 rounded-full text-muted-foreground"
+            className="ms-auto size-11 shrink-0 rounded-full text-muted-foreground"
           >
             <MoreHorizontal className="size-4" aria-hidden />
           </Button>
         </div>
+
+        <h2
+          ref={headingRef}
+          tabIndex={-1}
+          className="line-clamp-2 font-heading text-base font-bold outline-none"
+        >
+          <bdi>{collection.name}</bdi>
+        </h2>
         <button
           type="button"
           onClick={() => onViewChange('share')}
