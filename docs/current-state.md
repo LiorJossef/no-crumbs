@@ -1,7 +1,12 @@
 # Current state — the cold-start document
 
 > **CURRENT.** Everything here was verified against the running system or the code on
-> **2026-08-30**. If it is wrong, that is a defect — fix it in the same branch as the change that
+> **2026-08-31**, after the overnight facelift-and-growth run. That run's own record is
+> [`overnight-run-report.md`](overnight-run-report.md), its per-package ledger is
+> [`overnight-run-ledger.md`](overnight-run-ledger.md), and the branch is
+> `no-crumbs-implementation` — **not merged**, because CI still cannot start a runner (item 0).
+>
+> Earlier state was verified on **2026-08-30**. If it is wrong, that is a defect — fix it in the same branch as the change that
 > made it wrong.
 >
 > This file used to be 1,241 lines of stacked session notes, and its first section warned about
@@ -20,7 +25,15 @@ a resolved place and a saved row; the map shows it; the library finds it again.
 **The product is named.** **No Crumbs**, owner decision 2026-08-30 — `brand-and-product-foundation.md`
 §3 is closed, §3.1 records the mascot ruling, [`voice-and-vocabulary.md`](voice-and-vocabulary.md)
 governs every string, and [`facelift-plan.md`](facelift-plan.md) is the plan of record for the visual
-rebuild. None of it is implemented.
+rebuild.
+
+**Implemented on `no-crumbs-implementation`, 2026-08-31, and not on `main`.** The product had been
+shipping its repo codename `P-002` to users — in the tab, in every bookmark and beside the mark. It
+now carries the name, a mark, a favicon, an app icon, a manifest and a link preview. **One finding
+for the owner:** the ratified crumb outline deviates from a true circle by 4.6% of its radius, which
+is under one pixel at every size the mark ships at, so at chrome sizes **it is a circle** — measured,
+with a rendering bug ruled out first. §3.1 rule 1 forbids changing the outline, so rule 2's *face on
+chrome* carries the mark instead. See the run report, §4 decision 1.
 
 **Live** at `https://p-002-zeta.vercel.app`, auto-deployed from `main`.
 `/healthz` → `{"ok":true,"stage":"production","commit":"99324dd"}`.
@@ -30,8 +43,13 @@ filter and pressable tag chips · place detail · TikTok import with review and 
 by name · been / not been yet · near me · collections including shared collections · a profile page.
 
 **Not built:** the streaming import route (`L0-F6`) — `/api/imports/probe` is still the
-request/response stand-in — and `L1-F8-T1`, the account menu with delete-my-data. That is the last
-unbuilt L1 product feature.
+request/response stand-in, and the overnight run deliberately did **not** fund a substitute:
+`W6-2` split the source fetch into a second honest round trip instead, so the post is on screen in
+about a second while extraction runs underneath, and the rail still claims no stage the server did
+not send.
+
+**`L1-F8-T1` is built** on `no-crumbs-implementation` (`642cab0`) — the account menu, sign-out and
+delete-my-data. It was the last unbuilt L1 product feature.
 
 **Superseded rather than delivered:** D2b's two-source global resolver. Google Places is the
 canonical provider (15/16 top-1); Nominatim was never built and no adapter exists in `src/`.
@@ -43,7 +61,7 @@ document before 2026-08-30.
 
 | | |
 |---|---|
-| Tests | 107 files, 1,959 passing (`npx vitest run`) |
+| Tests | **146 files, 2,460 passing** on `no-crumbs-implementation` (`npx vitest run`). `main` is unchanged at 114 files / 2,017 — the run's baseline, tagged `pre-facelift` |
 | Migrations on disk | 29 — `0001`–`0030`, `0027` does not exist |
 | Staging database | `0018` — missing `0019`–`0030` |
 | Production database | `0026` — missing `0028`–`0030` |
@@ -98,14 +116,16 @@ on its first step. The same absence left `core.hooksPath` unset — see
 
 ## Open, in impact order
 
-0a. **The home screen draws no pins at all.** Found 2026-08-30 by two specialists independently and
-   verified against the code. Pins render at `PIN_BAND_MIN = 8.5` (`place-marker-layer.tsx`); the home
-   camera rests at `HOME_LANDING_ZOOM.max = 8.0` (`zoom-bands.ts`), deliberately half a band inside the
-   area band, because "a landing exactly on `AREA_BAND_MAX` is one rounding away from drawing pins".
-   The consequence is that the first five seconds of a map product contain **zero of the user's
-   places** — a stock basemap and grey area capsules. This supersedes item 7 below, which understates
-   it by a whole band. Owned by [`facelift-plan.md`](facelift-plan.md) stage 2, where it is the first
-   task.
+0a. ~~**The home screen draws no pins at all.**~~ **FIXED on `no-crumbs-implementation`, 2026-08-31**
+   (`5cd7ce8`, package W2-1). It was worse than this entry said: at 0 places and at 300 the product
+   showed *the same screen*, differing only by a number in a capsule. The repair keeps the box and
+   deletes the ceiling — the 2026-08-30 reversal made two changes and only one answered the owner's
+   complaint, since widening the camera box from the anchor cluster to the whole library is
+   order-independent and fixes "it opened on the Jerusalem Hotel" on its own. `settleZoom` replaces
+   the ceiling with a 0.15 guard window resolved **outward**, because zooming out never crops.
+   **This partly reverses an owner ruling and is flagged for the owner** — report §4 decision 2.
+   Note that removing a ceiling is not restoring a floor: a floor would discard the box and put a
+   Tel Aviv + Tokyo library over open sea.
 0. **GitHub Actions cannot start a runner** (above). It is item zero because it blocks *landing*,
    not building: `merge:pr` refuses a PR whose checks are absent or failing, so every finished
    feature queues behind it. Owner action, not an engineering task — check
@@ -113,9 +133,15 @@ on its first step. The same absence left `core.hooksPath` unset — see
    correct. **Re-measured 2026-08-30 evening: unchanged** — the four jobs still report `steps=0`, a job
    that never began. `#101` and `#102` merged regardless, which means the `merge:pr` gate was
    **bypassed rather than passed**; do not assume anything on `main` is verified by CI.
-1. **`L1-F8-T1`** — account menu, delete-my-data, and the zero-places first-run state. Blocked by
-   nothing. **Trap:** `collections.owner_id` is `on delete cascade` and ownership transfer was never
-   built, so deleting an account destroys shared collections for everyone in them.
+1. ~~**`L1-F8-T1`**~~ — **BUILT on `no-crumbs-implementation`, 2026-08-31** (`642cab0`), to a ruling
+   written before the code existed ([`overnight-deletion-review.md`](overnight-deletion-review.md)).
+   The trap was real and is worse than recorded: **no role reachable from this application can write
+   `collections.owner_id` at all** — `0024` grants `authenticated` update on `(name, description)`
+   only, revokes everything on those tables from `service_role` and never grants it back, and adds a
+   one-owner index plus a policy refusing promotion. So transfer is not *missing*, it is
+   **unexpressible** without a migration. Deletion therefore **refuses** while the user owns a
+   collection somebody else is in, listing the blocking collections and offering actions the user
+   already holds grants for. The zero-places first run shipped separately (`04ba93b`).
 2. **`L1-F10` graded artefacts** — `test-specification.md`, `scale.md`, `deployment.md`,
    `how-the-system-works.md` do not exist; `security.md` is interim with 8 items owed. Largest
    submission gap.
