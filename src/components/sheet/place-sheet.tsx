@@ -43,10 +43,18 @@
 import {
   HALF_FRACTION,
   STOP_TO_CONTENT_HEIGHT,
+  floatingBarClearancePx,
   type SheetStop,
 } from '@/components/shell/sheet-geometry';
 import { savedPlaceRef } from '@/components/map/saved-place-ref';
-import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import { MapPin, ExternalLink, X, ChevronLeft, ChevronUp, Search } from 'lucide-react';
 import { PlatformMark } from '@/components/brand/platform-mark';
 import { Button } from '@/components/ui/button';
@@ -242,20 +250,45 @@ export function PlaceSheet({
 
   if (selected) {
     return (
-      <PlaceDetail
-        place={selected}
-        /* The write target comes from `selected.savedPlaceId`, never from `selected.id` — the two
-           differ on any surface whose pins are not saved rows, and `savedPlaceRef` is the one place
-           that answers it. Every pin on this route carries one (`map/page.tsx`'s `toMapPlace`), so
-           the detail keeps all six of its mutations. */
-        savedPlace={savedPlaceRef(selected)}
-        nearby={nearbyToSelected}
-        onSelectNearby={(id) => {
-          const neighbour = places.find((candidate) => candidate.id === id);
-          if (neighbour) onSelect(neighbour);
-        }}
-        onClose={onDeselect}
-      />
+      /*
+       * **The same sized box `PlaceList` below already gets, and it is a bug fix rather than
+       * symmetry.**
+       *
+       * `PlaceDetail`'s root is `min-h-0 flex-1 overflow-y-auto` — a scroll column that only
+       * scrolls if something above it bounds its height. Rendered bare it had nothing to bound it:
+       * vaul's `Drawer.Content` is `h-full` and positions the sheet by *translating* it, so at
+       * `half` this column measured 772 px tall inside an 844 px viewport whose top 452 px the map
+       * still occupies. `scrollHeight === clientHeight`, `overflow-y-auto` inert, and 380 px of the
+       * card — `Add to a collection`, `Open on TikTok`, `Remove from your places` — laid out,
+       * painted, reported visible and reachable only by first dragging the sheet to `full`. That is
+       * the failure `STOP_TO_CONTENT_HEIGHT` was written to fix, fixed for the list and never
+       * applied to the detail beside it.
+       *
+       * `map-shell.tsx` deliberately declines to impose the height on `sheetContent`, so the stop
+       * has to be spent by whoever renders into it. Both arms of this branch now spend it.
+       */
+      <div style={{ height: STOP_TO_CONTENT_HEIGHT[stop] }} className="flex min-h-0 flex-col">
+        <PlaceDetail
+          place={selected}
+          /* What `BottomNav` costs the bottom of this column. Passed rather than assumed inside
+             `PlaceDetail`, because that card has four hosts and only the ones the shell puts in a
+             sheet have a bar floating over their last 68 px — the `lg+` map popover does not.
+             Without it `Been here` rests underneath the nav pill and a real touch at its visual
+             centre navigates to `/profile`, which was measured rather than imagined. */
+          floatingBarPx={floatingBarClearancePx(stop)}
+          /* The write target comes from `selected.savedPlaceId`, never from `selected.id` — the two
+             differ on any surface whose pins are not saved rows, and `savedPlaceRef` is the one
+             place that answers it. Every pin on this route carries one (`map/page.tsx`'s
+             `toMapPlace`), so the detail keeps all six of its mutations. */
+          savedPlace={savedPlaceRef(selected)}
+          nearby={nearbyToSelected}
+          onSelectNearby={(id) => {
+            const neighbour = places.find((candidate) => candidate.id === id);
+            if (neighbour) onSelect(neighbour);
+          }}
+          onClose={onDeselect}
+        />
+      </div>
     );
   }
 
@@ -1642,6 +1675,7 @@ export function PlaceDetail({
   onSelectNearby,
   onClose,
   variant = 'sheet',
+  floatingBarPx = 0,
   primaryAction,
   footer,
 }: {
@@ -1698,6 +1732,25 @@ export function PlaceDetail({
    *  rather than this view's `px-5`, because that column has to line up with the list rows behind
    *  the same arrow and a 4 px sideways shift on every open is more visible than the difference. */
   variant?: 'sheet' | 'panel' | 'popover' | 'hosted';
+  /**
+   * How much of this column's bottom a **floating overlay** covers, in pixels — `BottomNav`, for
+   * every host that is a sheet on a phone. Added to the column's own bottom padding and to its
+   * `scroll-padding-bottom`, so the last control clears the bar instead of ending under it and a
+   * scroll-into-view lands somewhere visible.
+   *
+   * **A prop rather than something this component works out, because it cannot.** The bar is
+   * `lg:hidden` and this card has four hosts across both breakpoints: the phone sheet always has
+   * one, the `lg+` map popover never does, and `hosted` is mounted twice at once — in the
+   * collection sheet where the bar is there, and in the `lg+` panel where it is not. Only the host
+   * knows which, and `floatingBarClearancePx(stop)` in `sheet-geometry.ts` is the one place that
+   * turns that knowledge into this number.
+   *
+   * `0` by default, which is the honest answer for a host that has not been taught to ask — and it
+   * is why `/collections/[id]`'s `hosted` column still ends `Remove from this collection` under the
+   * bar today. That fix is one argument in `collection-content.tsx` and belongs to that surface's
+   * own change.
+   */
+  floatingBarPx?: number;
   /**
    * Rendered where `BeenToggle` sits — the "what does this do to *your* library" position.
    *
@@ -1807,12 +1860,34 @@ export function PlaceDetail({
 
   return (
     <div
+      /*
+       * The floating bar's height, handed to the padding below as a custom property rather than as
+       * a `padding-bottom` of its own.
+       *
+       * Inline because the number is `BOTTOM_NAV_HEIGHT_PX` arriving through the host, and
+       * Tailwind's arbitrary values take a literal — a hand-written `68` here is exactly the drift
+       * `bottom-nav-metrics.ts` exists to prevent. A *variable* rather than the padding itself
+       * because the three variant classes below each own their own bottom spacing, and one inline
+       * `padding-bottom` would beat all three and flatten the difference between a phone sheet, a
+       * hosted column and a 288 px popover.
+       *
+       * `scroll-padding-bottom` goes with it: without it a scroll-into-view — the note editor
+       * opening, a focus move — parks its target flush against the container's bottom edge, which
+       * is the edge the bar is painted over.
+       */
+      style={
+        {
+          '--floating-bar': `${floatingBarPx}px`,
+          scrollPaddingBottom: `${floatingBarPx}px`,
+        } as CSSProperties
+      }
       className={cn(
-        'flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-3.5',
+        'flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 pb-[calc(env(safe-area-inset-bottom)+var(--floating-bar,0px)+1.25rem)] pt-3.5',
         isPopover && 'max-h-[min(70vh,26rem)] w-72 gap-4 px-0 pb-0 pt-0',
         // The host's gutter and its own top spacing — see the `variant` docblock for why 4 px
         // matters here and why the top padding belongs to the header row above this column.
-        isHosted && 'px-4 pb-[calc(env(safe-area-inset-bottom)+2rem)] pt-1',
+        isHosted &&
+          'px-4 pb-[calc(env(safe-area-inset-bottom)+var(--floating-bar,0px)+2rem)] pt-1',
       )}
     >
       {thumb && <SourceMediaThumbnail thumb={thumb} />}

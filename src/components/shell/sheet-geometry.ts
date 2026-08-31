@@ -11,6 +11,8 @@
  * product, and `ux-collections-as-scope.md` §5 item 8 is what asked for it.
  */
 
+import { BOTTOM_NAV_HEIGHT_PX } from '@/components/nav/bottom-nav-metrics';
+
 /** The three stops, everywhere. A shell that grew a fourth would be a different component. */
 export type SheetStop = 'peek' | 'half' | 'full';
 
@@ -91,12 +93,49 @@ export const SNAP_POINTS: Array<`${number}px` | number> = [SNAP_PEEK, HALF_FRACT
  *
  * `VIEW_SWITCH_PX` joins the handle at `half` and `full` and is absent at `peek` — see its own
  * comment for why that asymmetry is the honest description rather than an oversight.
+ *
+ * **`BottomNav` is deliberately not subtracted here, and that is the half of this that keeps
+ * catching people.** Each of these numbers puts the *bottom* of the content box exactly on the
+ * bottom of the viewport — at `half` the drawer's top is at 45dvh and 14 + 56 + (55dvh − 70) lands
+ * on 100dvh — and the floating bar is painted over that box's last 68 px rather than above it.
+ * Taking it out of the height as well as out of the scroll column's padding, which is where every
+ * consumer already pays it, would subtract it twice and end every list 68 px short. So the rule is
+ * split: **this map owns the box, `floatingBarClearancePx` owns what the bar costs inside it**, and
+ * a column that scrolls has to spend the second one or its last control ends up under the bar. See
+ * that function for the defect that came of a column spending neither.
  */
 export const STOP_TO_CONTENT_HEIGHT: Record<SheetStop, string> = {
   peek: `calc(${PEEK_PX}px - ${HANDLE_PX}px)`,
   half: `calc(${Math.round(HALF_FRACTION * 1000) / 10}dvh - ${HANDLE_PX + VIEW_SWITCH_PX}px)`,
   full: `calc(100dvh - ${HANDLE_PX + VIEW_SWITCH_PX}px)`,
 };
+
+/**
+ * What the floating `BottomNav` costs the bottom of a scrolling column inside the sheet, in pixels.
+ *
+ * **The generalisation of a measured defect** (product review 2026-08-31 round 3, finding 1): the
+ * place detail's column was the one column in the product that spent neither this nor
+ * `STOP_TO_CONTENT_HEIGHT`, and the two failures compounded. Un-capped, it was `flex-1` inside an
+ * `h-full` `Drawer.Content` translated down the screen, so `scrollHeight === clientHeight`
+ * (measured 772 = 772 at 390×844) and its own `overflow-y-auto` was inert — 380 px of the card sat
+ * below the viewport with no way to scroll to it. Un-padded, `Been here` came to rest at y 790–834
+ * with the bar occupying 776–844, and a real touch at its centre navigated to `/profile`. Five of
+ * five hit-test points across the button's width returned an element it did not contain.
+ *
+ * So the rule the sheet's geometry now states out loud: **a floating overlay is part of the layout
+ * budget of every surface it floats over, not of the surface that declares it.** The number is
+ * `BottomNav`'s own, imported rather than re-typed — a hand-written `68` beside a constant five
+ * other surfaces read is the next defect, not a simplification.
+ *
+ * `undefined` is the `lg+` panel rather than a missing stop, and it is worth 0: `stop` is what the
+ * shell passes to content it puts in *the sheet*, and `BottomNav` is `lg:hidden`, so the absence of
+ * a stop is exactly the absence of the bar. `collection-content.tsx` already open-codes this
+ * conditional; this is where it belongs, and asking a media query in JavaScript instead would be a
+ * second, weaker way of asking the same question.
+ */
+export function floatingBarClearancePx(stop: SheetStop | undefined): number {
+  return stop === undefined ? 0 : BOTTOM_NAV_HEIGHT_PX;
+}
 
 /** Which stop a vaul snap value is. Anything unrecognised is `peek`, which is where the sheet
  *  starts and the only stop that is safe to be wrong about. */

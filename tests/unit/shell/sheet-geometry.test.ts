@@ -23,10 +23,12 @@ import {
   STOP_TO_CONTENT_HEIGHT,
   STOP_TO_SNAP,
   VIEW_SWITCH_HEIGHT_PX,
+  floatingBarClearancePx,
   restingSheetFractionFor,
   snapToStop,
 } from '@/components/shell/sheet-geometry';
 import { SHEET_PEEK_PX } from '@/components/map/query-rect';
+import { BOTTOM_NAV_HEIGHT_PX } from '@/components/nav/bottom-nav-metrics';
 
 const repoFile = (relative: string) =>
   readFileSync(fileURLToPath(new URL(`../../../${relative}`, import.meta.url)), 'utf8');
@@ -140,5 +142,71 @@ describe('what a resting stop costs the camera', () => {
     // behind L2-COLL-CAM-2. There is no honest framing behind a full sheet; the useful one is what
     // the user sees when they drag it down.
     expect(restingSheetFractionFor('full')).toBe(HALF_FRACTION);
+  });
+});
+
+/**
+ * The floating bar, and the two halves of the budget it is split across.
+ *
+ * The defect these pin (product review 2026-08-31 round 3, finding 1): `/map`'s place detail spent
+ * *neither* half. `Been here` came to rest at y 790–834 with the bar occupying 776–844, five of
+ * five hit-test points across its width returned an element the button did not contain, and a real
+ * touch at its visual centre navigated to `/profile` instead of marking the place been. The whole
+ * `been / not been yet` feature — one of the five things the MVP boundary says this product stores
+ * — was unreachable on the primary platform.
+ */
+describe('what the floating BottomNav costs a column inside the sheet', () => {
+  it('is the bar\'s own height at every stop, not a number typed here', () => {
+    // Imported rather than re-declared. A hand-written `68` beside a constant five surfaces read is
+    // the next defect: `bottom-nav.tsx`'s own docblock says the labels stay stacked precisely so
+    // this number does not move for a layout preference.
+    for (const stop of ['peek', 'half', 'full'] as const) {
+      expect(floatingBarClearancePx(stop), stop).toBe(BOTTOM_NAV_HEIGHT_PX);
+    }
+    expect(BOTTOM_NAV_HEIGHT_PX).toBe(68);
+  });
+
+  it('is nothing without a stop, because that is the lg+ panel and the bar is lg:hidden', () => {
+    // `stop` is what the shell passes to content it puts in *the sheet*. Its absence is not a
+    // missing argument; it is the desktop panel, where `BottomNav` does not render at all.
+    expect(floatingBarClearancePx(undefined)).toBe(0);
+  });
+
+  /**
+   * **The other half, and the reason the obvious fix is wrong.**
+   *
+   * Reading the defect as "`STOP_TO_CONTENT_HEIGHT` forgot the nav" invites subtracting 68 there
+   * too. It must not: each of those numbers already puts the *bottom* of the content box exactly on
+   * the bottom of the viewport, and every scrolling consumer — the saved list, the collections
+   * index, a collection's list, its add-places panel — already pays the bar in its own
+   * `padding-bottom`. Subtracting it in both places would end every list in the product 68 px
+   * short, which is the failure `STOP_TO_CONTENT_HEIGHT` exists to prevent, arriving from the third
+   * side.
+   */
+  it('is not also subtracted from the content height, which would pay for the bar twice', () => {
+    for (const stop of ['peek', 'half', 'full'] as const) {
+      expect(STOP_TO_CONTENT_HEIGHT[stop], stop).not.toContain(`${BOTTOM_NAV_HEIGHT_PX}px`);
+    }
+    // The whole subtraction at `half` and `full` is still the handle plus the view switch, and
+    // `peek` is still the handle alone.
+    expect(STOP_TO_CONTENT_HEIGHT.half).toBe('calc(55dvh - 70px)');
+    expect(STOP_TO_CONTENT_HEIGHT.peek).toBe(`calc(${PEEK_PX}px - 14px)`);
+  });
+
+  /**
+   * The place detail is inside a box again — the half of the defect that made the first half
+   * unfixable on its own.
+   *
+   * `PlaceDetail`'s root is `min-h-0 flex-1 overflow-y-auto`, and `PlaceSheet` used to render it
+   * bare into a `h-full` `Drawer.Content` that vaul *translates* down the screen. Measured at
+   * 390×844: `clientHeight` 772, `scrollHeight` 772, `overflow-y-auto` inert, and 380 px of the
+   * card below the viewport with no way to scroll to it. Read out of the source because
+   * `place-sheet.tsx` pulls `server-only` in through its Server Actions, which is the same reason
+   * the module under test here is React-free in the first place.
+   */
+  it('is spent by the place detail, together with the content height it sits in', () => {
+    const sheet = repoFile('src/components/sheet/place-sheet.tsx');
+    expect(sheet).toContain('style={{ height: STOP_TO_CONTENT_HEIGHT[stop] }}');
+    expect(sheet).toContain('floatingBarPx={floatingBarClearancePx(stop)}');
   });
 });
