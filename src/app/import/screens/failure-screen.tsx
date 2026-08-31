@@ -51,9 +51,9 @@ import {
  * not we tried. The codes whose copy *does* claim an attempt ("We couldn't read this TikTok yet")
  * are exactly the ones the client can never reach pre-submit. A test pins that property.
  *
- * The two real differences are props, not forks: `rawCode` is `null` pre-submit (nothing was sent,
- * so there is no server-side record for a support reference to point at), and `retryable` is
- * `false` there for the same reason.
+ * The one real difference is a prop, not a fork: `retryable` is `false` pre-submit, because nothing
+ * was sent. There was a second — `rawCode`, `null` pre-submit for the same reason — and it went
+ * with the `Reference:` line it existed to print; see the comment at the bottom of this file.
  *
  * What this replaced on the post-attempt side: one screen for all fourteen codes, headed
  * "Couldn't read that TikTok / Something went wrong" with the raw code in 11px grey and one
@@ -82,7 +82,6 @@ const IMPORT_ERROR_ICON: Record<ImportErrorIcon, typeof Link2Off> = {
 
 export function ImportFailureScreen({
   code,
-  rawCode,
   retryable,
   url,
   onRetrySameUrl,
@@ -94,7 +93,6 @@ export function ImportFailureScreen({
   /** What the server actually sent. Equal to `code` for all 14 real codes; shown small, for a
    *  support conversation, never as the user's explanation. `null` when no request was made — a
    *  reference to nothing helps nobody. */
-  rawCode: string | null;
   retryable: boolean;
   /** The URL the user pasted — still in state, which is what makes `Retry` (same link) and
    *  `Open the TikTok` (here is your thing back, §5.1) possible without asking the server. */
@@ -230,15 +228,27 @@ export function ImportFailureScreen({
             </Button>
           );
         })}
-        {/* Support handle, not an explanation. Small, muted, last, and never the thing that tells
-            the user what happened — which is exactly what it was before this screen had copy.
-            Omitted pre-submit: no request was made, so there is nothing on the other end to look
-            up, and a code with no record behind it is noise. */}
-        {rawCode !== null && (
-          <p className="pt-1 text-center text-micro font-medium text-muted-foreground/70">
-            Reference: {rawCode}
-          </p>
-        )}
+        {/*
+          **There is no `Reference:` line here, and its absence is the decision.**
+
+          It read `Reference: POST_UNAVAILABLE` — a raw SCREAMING_SNAKE enum shown to a person as
+          if it were information for them. `voice-and-vocabulary.md` §4 bans machinery vocabulary
+          outright, and it was also the one place on this screen still using
+          `text-muted-foreground/70`, which `spec-no-places-found.md` §8.3 rules below the bar.
+
+          It was kept on the stated grounds that a user could quote it in a support message. That
+          turned out not to survive contact with what it actually was: **a class, not an instance.**
+          Every user who hits this failure quotes the same eleven characters, so it correlates to
+          nothing — while the headline above already says the same thing in English. The value that
+          *would* correlate is the `importId`, and `failureResponse` in the probe route deliberately
+          does not put it on the wire (its comment gives the branded-type reason) because "the
+          correlation id lives in the log line above, which is where `07` §7.1 puts it".
+
+          So it was for us, we already have it — one structured `console.error` per failure carrying
+          the code, the stage and the import id — and it does not belong on the screen. If a
+          user-quotable reference is wanted, it is the `importId`, and that is a route change and a
+          new string rather than something to re-add here.
+        */}
       </div>
     </div>
   );

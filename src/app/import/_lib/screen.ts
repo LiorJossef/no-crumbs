@@ -119,13 +119,19 @@ export type Screen =
    *
    * `code` is a `DomainErrorCode`, not a `string`, and that is the whole point: it is narrowed
    * once at the fetch seam by `toDomainErrorCode`, so the screen's copy lookup is total by the
-   * type system rather than by a default branch. `rawCode` keeps whatever the server actually
-   * sent, purely so a support conversation can quote it — the two are identical for all 14 real
-   * codes, and differ only when something outside the taxonomy answered.
+   * type system rather than by a default branch.
+   *
+   * **There was a `rawCode` beside it**, holding whatever the server actually sent, and it existed
+   * "purely so a support conversation can quote it" — which the failure screen printed as
+   * `Reference: POST_UNAVAILABLE`. That line came off the screen on 2026-08-31 (Q1 finding S6: a
+   * raw enum is `voice-and-vocabulary.md` §4's machinery vocabulary, and a code shared by every
+   * user who hits that failure correlates to nothing anyway), and the field went with it rather
+   * than being kept as data nothing reads. What the server sent is not lost: the route writes one
+   * structured `console.error` per failure carrying the code, the stage and the import id, which is
+   * where `07` §7.1 puts the correlation id in the first place.
    */
   | {
       readonly kind: 'probe_error';
       readonly code: DomainErrorCode;
-      readonly rawCode: string;
       readonly retryable: boolean;
     };

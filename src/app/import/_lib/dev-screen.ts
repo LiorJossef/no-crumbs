@@ -223,12 +223,7 @@ export function parseDevScreen(raw: string | null | undefined): Screen | null {
   }
   if (raw.startsWith('error-')) {
     const code = raw.slice('error-'.length);
-    // `rawCode` is the same string rather than a fabricated support reference: this screen never
-    // made a request, so there is no server-side record for a `Reference:` line to point at, and
-    // inventing one would be the screenshot asserting something the product cannot.
-    return isDomainErrorCode(code)
-      ? { kind: 'probe_error', code, rawCode: code, retryable: true }
-      : null;
+    return isDomainErrorCode(code) ? { kind: 'probe_error', code, retryable: true } : null;
   }
   if (raw.startsWith('redirect-')) {
     const code = raw.slice('redirect-'.length);

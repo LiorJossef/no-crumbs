@@ -143,7 +143,10 @@ export function ExtractedCandidateRow({
             this screen — the ruling the saved-place list and popover already made
             (`place-sheet.tsx`): a Hebrew name in an LTR row is flipped by the chip beside it, and
             an ellipsis on an RTL string clips the *start*, which is the half that identifies it. */}
-        <p className="line-clamp-1 font-heading text-[15px] font-bold text-foreground">
+        {/* `text-reading` (0.96875rem) rather than `text-[15px]`. **Not a pure rename** — it is
+            half a pixel larger — but it is the registered scale for this size class, five other
+            call sites already use it, and 15 was this card's own number rather than the system's. */}
+        <p className="line-clamp-1 font-heading text-reading font-bold text-foreground">
           <bdi>{title}</bdi>
         </p>
         {chip ? (

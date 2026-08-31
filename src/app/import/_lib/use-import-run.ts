@@ -295,9 +295,12 @@ async function submit(target: string = url) {
     if (!stillCurrent()) return;
 
     if (!res.ok || 'error' in body) {
+      // Narrowed once, here, and the un-narrowed string is not carried onto the screen: the server
+      // has already logged what it actually sent (`07` §7.1), and this client had no honest use for
+      // a copy of it once the `Reference:` line went (see `_lib/screen.ts`).
       const rawCode = 'error' in body ? body.error.code : 'INTERNAL';
       const retryable = 'error' in body ? body.error.retryable : true;
-      setScreen({ kind: 'probe_error', code: toDomainErrorCode(rawCode), rawCode, retryable });
+      setScreen({ kind: 'probe_error', code: toDomainErrorCode(rawCode), retryable });
       return;
     }
 
@@ -358,7 +361,7 @@ async function submit(target: string = url) {
     if (!stillCurrent()) return;
     // The network layer failed before any `DomainError` existed — no code came off the wire, so
     // `INTERNAL` is ours to assert (`07` §9's floor), not a fallback for an unrecognised code.
-    setScreen({ kind: 'probe_error', code: 'INTERNAL', rawCode: 'INTERNAL', retryable: true });
+    setScreen({ kind: 'probe_error', code: 'INTERNAL', retryable: true });
   } finally {
     // Only if we still own it: a `Cancel` or a later submit has already replaced the ref, and
     // clearing it here would unlock a guard that is legitimately held by someone else.

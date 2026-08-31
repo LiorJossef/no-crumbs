@@ -185,11 +185,24 @@ function RailStep({
   progress: { readonly index: number; readonly total: number } | null;
   isLast: boolean;
 }) {
+  /**
+   * What the fact line says while a step is running — and it is `null` unless the server has sent
+   * something to say.
+   *
+   * It used to fall back to `${STAGE_LABEL[stage]}…`, so step two read `Finding the places` above
+   * `Finding the places…`: a slot filled rather than a fact reported. Step one is the contrast that
+   * makes it obvious — `Reading the TikTok` above `Read @demo's TikTok` tells the user *which*
+   * TikTok and that it is done, which the label could not.
+   *
+   * This is the same rule W6-2 is built on, one line down: **the rail may claim no stage the server
+   * did not send**, and a line that restates its own label is decoration standing where a claim
+   * goes. An empty slot is honest; the spinner beside the label already says it is running. The
+   * `progress` branch stays because a count *is* a fact — it arrives with the streaming route,
+   * which is also when `resolve` rejoins `stages`.
+   */
   const activeCopy =
-    status === 'active'
-      ? progress
-        ? `Matching locations… ${progress.index} of ${progress.total}`
-        : `${STAGE_LABEL[stage]}…`
+    status === 'active' && progress
+      ? `Matching locations… ${progress.index} of ${progress.total}`
       : null;
 
   return (

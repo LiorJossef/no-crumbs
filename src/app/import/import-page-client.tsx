@@ -380,7 +380,6 @@ export function ImportPageClient({
         // retry (`importErrorActions` withholds `retry` on all three of these codes anyway).
         <ImportFailureScreen
           code={screen.reason}
-          rawCode={null}
           retryable={false}
           url={url}
           onRetrySameUrl={() => void submit()}
@@ -420,7 +419,6 @@ export function ImportPageClient({
       {screen.kind === 'probe_error' && (
         <ImportFailureScreen
           code={screen.code}
-          rawCode={screen.rawCode}
           retryable={screen.retryable}
           url={url}
           onRetrySameUrl={() => void submit()}
