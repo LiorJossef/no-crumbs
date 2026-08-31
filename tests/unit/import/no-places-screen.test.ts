@@ -193,8 +193,29 @@ describe('the post and its caption are on screen', () => {
 });
 
 describe('what is deliberately not on this screen (§4.4)', () => {
-  it('has no illustration, mascot, badge, pill or wrapping card', () => {
-    for (const banned of ['rounded-full px-', 'Sparkles', 'Illustration', 'mascot']) {
+  it('has no illustration, badge, pill or wrapping card', () => {
+    /*
+     * **`'mascot'` was the fifth entry here and was removed on 2026-08-31 by owner ruling.**
+     *
+     * §4.4 read "No empty-state mascot" and this assertion is what made that executable. It did
+     * its job: a `nothingFound` face was built into the kicker row on 2026-08-31 and this line
+     * stopped it, which is why the question reached the owner as a decision instead of landing as
+     * a diff. The ruling was granted knowing that — see `spec-no-places-found.md` §4.4.1, which
+     * records both sides, including that the design system's own `#apps` **declines** the identical
+     * move on the map's empty state.
+     *
+     * **The ruling admits one specific thing and the rest of §4.4 is untouched.** The list below is
+     * shorter by exactly one entry. What it still forbids is the aesthetic §4.4 exists to exclude:
+     * an illustration, a badge, a pill, a card wrapping the whole screen. The face is allowed
+     * *inline with the kicker*, at kicker size, because that leaves §4.4's stated reason true — the
+     * screen is type, one hairline, one field and one caption panel. A centred illustration would
+     * not, and `'Illustration'` below is still the line that says so.
+     *
+     * The removal is its own commit for the reason `working-agreement.md` §1.2 gives: a weakened
+     * gate is invisible until something else fails, so it may never be a side effect of the change
+     * it permits.
+     */
+    for (const banned of ['rounded-full px-', 'Sparkles', 'Illustration']) {
       expect(CODE, banned).not.toContain(banned);
     }
   });
