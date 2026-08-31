@@ -700,6 +700,32 @@
      * before a glow registers on it, which is an alpha and not a colour.
      */
     --chrome-mark-glow: radial-gradient(closest-side, rgba(224, 168, 69, 0.42) 0%, rgba(224, 168, 69, 0) 100%);
+
+    /*
+     * **The mascot's keyline, and it is the one part of the character that follows the theme.**
+     *
+     * Its argument lives on `MASCOT_KEYLINE_LIGHT`/`_DARK` in `components/brand/mascot-colors.ts`,
+     * which is where the decision is made; this is the copy the DOM can read, because a stylesheet
+     * cannot import a constant. `tests/unit/design-system/chrome-tokens.test.ts` asserts the two
+     * agree in **both** themes — the same arrangement the halo above already carries, and for the
+     * same reason: this value has been wrong twice by being tuned against a mark that then changed.
+     *
+     * The short version of why it is themed at all: `MASCOT_GOLD` against `--card` is **1.63:1** in
+     * light, so the outline is what gives the shape an edge there, and **10.11:1** in dark, where
+     * the body separates itself and the keyline is only drawing the character. Outlined was
+     * therefore rendering as very nearly Flat on dark — one construction drawing two different
+     * characters. `MASCOT_KEYLINE_DARK` takes the dark rim from ΔE00 11.9 to 23.9.
+     *
+     * **This is fidelity, not accessibility.** The first report of it called the keyline
+     * near-invisible and the crumb a gold disc without an edge; measured, it is a quiet rim rather
+     * than an absent one and the character was legible on dark throughout. Recorded because a token
+     * that arrives labelled as an accessibility fix gets defended differently from one labelled as
+     * a drawing correction.
+     *
+     * **Light is deliberately unchanged.** Taking the warm value to both themes would cost light the
+     * edge it is the only theme to actually need.
+     */
+    --mascot-keyline: #3A2A15;
     /* The lit top edge of the card: the two brand colours as a single 1px rule, which is colour
      * that costs no contrast because nothing is read on it. */
     --chrome-edge:
@@ -1118,6 +1144,12 @@
      * glow that a near-white one carries easily, so the pigment is held and the alpha moves. The
      * indigo that was here read as a bruise behind the gold character rather than as light. */
     --chrome-mark-glow: radial-gradient(closest-side, rgba(224, 168, 69, 0.62) 0%, rgba(224, 168, 69, 0) 100%);
+
+    /* `MASCOT_KEYLINE_DARK`, which is `MASCOT_INK_FLAT`'s value under a second name on purpose —
+     * two decisions that happen to agree, so that moving one re-argues the other rather than
+     * dragging it. See `:root` for why the keyline is themed and the mascot module for the
+     * measurements. */
+    --mascot-keyline: #6B4A1E;
     --chrome-edge:
         linear-gradient(90deg, rgba(91, 108, 255, 0) 0%, rgba(91, 108, 255, 0.95) 24%, rgba(168, 236, 226, 0.9) 62%, rgba(168, 236, 226, 0) 100%);
     --chrome-grain-strength: 0.14;

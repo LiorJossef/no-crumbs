@@ -43,6 +43,8 @@ import {
   MASCOT_INK,
   MASCOT_INK_FLAT,
   MASCOT_INK_NIGHT,
+  MASCOT_KEYLINE_DARK,
+  MASCOT_KEYLINE_LIGHT,
 } from '@/components/brand/mascot-colors';
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
@@ -244,6 +246,23 @@ describe('the mascot\u2019s gold is admitted to chrome and fenced off the data s
       )
       .map(({ path: p }) => p);
     expect(offenders).toEqual([]);
+  });
+
+  it('gives the keyline a themed token that cannot drift from the character', () => {
+    /*
+     * `--mascot-keyline` is the DOM's copy of `MASCOT_KEYLINE_LIGHT`/`_DARK`; the decision is made
+     * in `mascot-colors.ts` and a stylesheet cannot import a constant. Same arrangement as the
+     * halo, and needed for the same reason — this value has already been wrong twice by being
+     * tuned against a mark that then changed underneath it.
+     *
+     * **Both themes are asserted and they must differ.** The keyline is the one part of the
+     * character that follows the theme: `MASCOT_GOLD` is 1.63:1 on the light card, so the outline
+     * is what gives the shape an edge there, and 10.11:1 on the dark one, where the body separates
+     * itself. A single value would put Outlined back to rendering as very nearly Flat on dark.
+     */
+    expect(declarations(':root').get('--mascot-keyline')).toBe(MASCOT_KEYLINE_LIGHT);
+    expect(declarations('.dark').get('--mascot-keyline')).toBe(MASCOT_KEYLINE_DARK);
+    expect(MASCOT_KEYLINE_LIGHT).not.toBe(MASCOT_KEYLINE_DARK);
   });
 
   it('is spelled by identity wherever chrome uses it, so it cannot drift from the character', () => {
