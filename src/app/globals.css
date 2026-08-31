@@ -1825,6 +1825,29 @@
   transform-origin: 50px 94px;
 }
 
+/**
+ * **Awareness — the eyes follow the pointer.** Owner: *"hovering it should make him notice, maybe
+ * follow with eyes?"*
+ *
+ * The transform rides on `.crumb-eyes`, which is the group Scan already moves, so this is the
+ * existing geometry driven from a different source rather than a second way to move a face. Two
+ * custom properties are written by `crumb-aware.tsx` on the wrapper and inherit down to the group;
+ * **nothing re-renders and nothing touches layout** — a pointer move sets two variables and the
+ * compositor does the rest.
+ *
+ * The lengths are SVG user units, so the travel is a fraction of the 100-unit body and is identical
+ * at 44px and 56px. `2.4` and `1.8` keep the pupils inside the face at full deflection; Scan's own
+ * range is `-2.6` to `3.2`, which is the same neighbourhood arrived at independently.
+ *
+ * **The transition is asymmetric on purpose.** `crumb-aware.tsx` shortens it on enter so the eyes
+ * *snap* to you — that is the "notice" half of the request — and the 260ms here is the unhurried
+ * return to centre on leave. A single symmetric duration reads as either twitchy or asleep.
+ */
+.crumb-aware .crumb-eyes {
+  transform: translate(var(--crumb-eye-x, 0px), var(--crumb-eye-y, 0px));
+  transition: transform var(--crumb-eye-ease, 260ms) cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
 /* Halo — a slow pulse behind the body. Reads as a signal, not as progress. */
 .crumb-anim-halo .crumb-halo {
   animation: crumb-halo 1.9s ease-in-out infinite;
@@ -1877,6 +1900,29 @@
 
   .crumb-anim-land .crumb-all {
     animation: crumb-appear 140ms ease-out 1 both;
+  }
+
+  /*
+   * **The eyes do not follow the pointer, and this one needs saying rather than assuming.**
+   *
+   * Every other rule in this block switches off a *loop* — something the product started on its
+   * own. Awareness is different in kind: it is a response to the user's own pointer, and there is a
+   * real argument that direct manipulation is exempt because the user caused it and can stop it.
+   *
+   * It is switched off anyway, and the reason is WCAG 2.2 SC **2.3.3 Animation from Interactions**,
+   * which is about exactly this class — motion triggered by interaction, disableable unless the
+   * motion is essential to the function. A mascot's glance is decorative by definition, so it is
+   * not essential, so it goes. A head that follows a cursor is motion the user asked not to
+   * receive, and "but you moved the mouse" is not consent.
+   *
+   * `crumb-aware.tsx` also declines to attach its listeners at all under the same preference, and
+   * subscribes to it so a mid-session change takes effect. Two mechanisms because they fail
+   * differently: this one holds if the script never runs, that one stops the work rather than
+   * merely hiding its result.
+   */
+  .crumb-aware .crumb-eyes {
+    transform: none;
+    transition: none;
   }
 }
 
