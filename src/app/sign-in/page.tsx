@@ -235,7 +235,25 @@ export default function SignInPage() {
               >
                 {pending ? (
                   <>
-                    <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                    {/*
+                     * `hidden motion-safe:block`, not the mechanical `motion-safe:animate-spin`.
+                     *
+                     * The bare `animate-spin` here really did run for people who asked for less
+                     * motion — measured on a real build at 390x844 with the context set to
+                     * `prefers-reduced-motion: reduce`, `animationName: spin`, and there is no
+                     * global override anywhere in the stylesheet.
+                     *
+                     * But merely guarding it is worse than it looks: `Loader2` is a three-quarter
+                     * arc, so a *stationary* one does not read as a paused spinner, it reads as a
+                     * rendering artefact — and on this button, already at 45% disabled opacity, as
+                     * a faint stray mark beside the word. So the glyph goes entirely and
+                     * `Working…` carries the state, which it was doing anyway. §3a's "collapse to
+                     * the opacity change, not to nothing" is satisfied by text that never leaves.
+                     */}
+                    <Loader2
+                      className="hidden size-4 motion-safe:block motion-safe:animate-spin"
+                      aria-hidden="true"
+                    />
                     Working…
                   </>
                 ) : isSignUp ? (
