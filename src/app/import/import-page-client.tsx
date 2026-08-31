@@ -116,11 +116,19 @@ export interface ImportPageClientProps {
    * a second button, also called `Add`, for the same intent: two taps named the same thing, and
    * the overlay's own comment blamed a prop that by then existed.
    *
-   * **The contract, and it is load-bearing: only pass this for a link the user pressed a submit
-   * button on.** It costs one model call against a hard daily budget the moment this mounts, so it
-   * is not "prefill the field" — `AddSheetHost.onSubmitTikTok` is the only caller and it fires
-   * only on that press. Seeded as `touched` too, so a seeded link that turns out to be invalid
-   * says so immediately rather than waiting for a first edit.
+   * **The contract, and it is load-bearing: only pass this for a link the user submitted.** It
+   * costs one model call against a hard daily budget the moment this mounts, so it is not "prefill
+   * the field". Two callers qualify, and both are a deliberate act on a specific link:
+   * `AddSheetHost.onSubmitTikTok`, which fires only on the button press, and `/import?url=…`
+   * (`page.tsx`'s `sharedImportUrl`), where the link was handed to this route from outside the
+   * product — a share sheet, a Shortcut, a bookmarklet. Seeded as `touched` too, so a seeded link
+   * that turns out to be invalid says so immediately rather than waiting for a first edit.
+   *
+   * A reload of `/import?url=…` re-runs the import rather than re-spending the model call:
+   * `extractions` is keyed on `(source_id, model, prompt_version)` with an input hash, so the
+   * second run is a cache hit (`api/imports/probe/route.ts`). That is why the seam does not strip
+   * the parameter after submitting — stripping it would cost the user their link on a reload to
+   * buy back a cost the cache already refunds.
    */
   readonly initialUrl?: string;
   /**
