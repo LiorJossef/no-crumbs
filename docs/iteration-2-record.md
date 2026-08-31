@@ -422,6 +422,19 @@ and the collections lane's file move is now split across a commit it did not aut
 it was in. It was caught by that lane checking the index before staging, not by the person who made
 it.
 
+**And it happened again, two hours later, to a different lane that had read this account.** `30afd6b`
+(`test(harness)`) deletes a collections component the same way. That lane had written *"explicit
+pathspecs"* in three of its own reports and used `git diff-index --cached` as a check all session —
+and its diagnosis is the one that fixed the cause: **checking the index is detecting the hazard while
+leaving the mechanism in place.**
+
+**The mechanism was the project's own rule.** `git-workflow.md` §5.6 read *"stage intentionally
+(`git add <path>`), never blanket-stage the working tree"* — which names **staging** as the
+protection when the exposure is the **commit**. Both of us followed it. Amended at `e296b93` to
+`git commit -m "..." -- <paths>`, which reads the paths from the working tree and ignores the index
+entirely. **Two people knowing a failure by name prevented nothing; changing the command is the only
+thing that could have.**
+
 Not repaired by rewriting: `git-workflow.md` §9.3 puts history rewrites behind a specific instruction
 each time and the project deny list enforces it. Recorded forward instead, which is the same standard
 applied to a `wip:` subject earlier today.
