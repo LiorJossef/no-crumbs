@@ -76,7 +76,6 @@ import { PersistentMapSlot, useAdoptionRefit } from './persistent-map';
 import { ENTRANCE_BEATS, useEntranceBeat } from '@/components/map/entrance';
 import type { LatLngBoundsHint, MapSummaries, ViewportChangeMeta } from '@/components/map/types';
 import { BottomNav } from '@/components/nav/bottom-nav';
-import { useNonModalBackground } from '@/components/sheet/use-non-modal-background';
 import {
   SNAP_POINTS,
   STOP_TO_SNAP,
@@ -84,6 +83,7 @@ import {
   restingSheetFractionFor,
   type SheetStop,
 } from './sheet-geometry';
+import { NonModalDrawerScope, useNonModalDrawerTabRelease } from './non-modal-drawer';
 import { focusProps, type MapShellState } from './use-map-shell';
 import { PRESS_CHIP } from '@/lib/interaction';
 import { cn } from '@/lib/utils';
@@ -348,10 +348,12 @@ export function MapShell({
   announcement,
   entrance = false,
 }: MapShellProps) {
-  // `modal={false}` does not reach Radix through vaul 1.1.2, so without this the drawer marks
-  // `<main>` `aria-hidden` and hides the whole application from assistive technology. Called here,
-  // once, rather than in each sheet — see `use-non-modal-background.ts` for the measurement.
-  useNonModalBackground(true);
+  // `modal={false}` does not reach Radix through vaul 1.1.2. Left alone, the drawer hides `<main>`
+  // from assistive technology, traps the keyboard below `lg`, and squats on the slot that lets a
+  // genuine modal disable pointer events behind it. `non-modal-drawer.tsx` enumerates all five
+  // behaviours the dropped prop gates and which of them still bite; the two halves of the repair
+  // are the scope below and this ref.
+  const releaseTabRef = useNonModalDrawerTabRelease();
 
   const restingFraction = restingSheetFractionFor(restingStop);
   /**
@@ -466,47 +468,52 @@ export function MapShell({
             setActiveSnapPoint={shell.sheet.setSnap}
             snapToSequentialPoint
           >
-            <Drawer.Portal>
-              {/* `lg:hidden` — the panel below replaces this surface entirely above the
-                  breakpoint; there is no drag, no snap points, no sheet chrome. */}
-              <Drawer.Content
-                data-testid="place-sheet"
-                {...(sheetArrived ? {} : { style: ENTRANCE_HOLD_STYLE })}
-                className="fixed inset-x-0 bottom-0 z-40 flex h-full max-h-[100dvh] flex-col rounded-t-2xl border-t border-border/70 bg-card shadow-[var(--shadow-elevated)] outline-none lg:hidden"
-              >
-                {/* **The handle, matrix row 10.** It was inert: a 36 px bar that said "this is a
-                    sheet" and never acknowledged being touched. It now widens to 44 px and darkens
-                    on hover and on press — the matrix's 34→44 — so the one affordance that moves
-                    the whole surface responds like the rest of the product.
+            <NonModalDrawerScope>
+              <Drawer.Portal>
+                {/* `lg:hidden` — the panel below replaces this surface entirely above the
+                    breakpoint; there is no drag, no snap points, no sheet chrome. */}
+                <Drawer.Content
+                  data-testid="place-sheet"
+                  // Half two of the repair: Radix loops Tab inside `Drawer.Content` whether or not
+                  // the dialog is modal, so the scope above is not enough on its own.
+                  ref={releaseTabRef}
+                  {...(sheetArrived ? {} : { style: ENTRANCE_HOLD_STYLE })}
+                  className="fixed inset-x-0 bottom-0 z-40 flex h-full max-h-[100dvh] flex-col rounded-t-2xl border-t border-border/70 bg-card shadow-[var(--shadow-elevated)] outline-none lg:hidden"
+                >
+                  {/* **The handle, matrix row 10.** It was inert: a 36 px bar that said "this is a
+                      sheet" and never acknowledged being touched. It now widens to 44 px and darkens
+                      on hover and on press — the matrix's 34→44 — so the one affordance that moves
+                      the whole surface responds like the rest of the product.
 
-                    **`active:` rather than a drag-coupled state, and that is a checked fact rather
-                    than a concession.** Spec 2 §2.1 row 10 allows coupling to a dragging state *if*
-                    vaul exposes one on `Drawer.Content`, and says not to assert that it does without
-                    looking. It does not: vaul 1.1.2 adds a **class**, `vaul-dragging`
-                    (`node_modules/vaul/dist/index.mjs:452`, applied at :1057 and removed at :1217
-                    and :1224), not a data attribute — so there is no `group-data-[…]` to couple to,
-                    and reaching for it through an arbitrary class variant would be a bracket for a
-                    50 ms difference. `active:` covers the press, which is the beat that matters.
+                      **`active:` rather than a drag-coupled state, and that is a checked fact rather
+                      than a concession.** Spec 2 §2.1 row 10 allows coupling to a dragging state *if*
+                      vaul exposes one on `Drawer.Content`, and says not to assert that it does without
+                      looking. It does not: vaul 1.1.2 adds a **class**, `vaul-dragging`
+                      (`node_modules/vaul/dist/index.mjs:452`, applied at :1057 and removed at :1217
+                      and :1224), not a data attribute — so there is no `group-data-[…]` to couple to,
+                      and reaching for it through an arbitrary class variant would be a bracket for a
+                      50 ms difference. `active:` covers the press, which is the beat that matters.
 
-                    `transition-[width,background-color]` and not `transition-all`: the handle sits
-                    on a surface vaul transforms on every drag frame, and animating `transform` here
-                    would fight the drag it is supposed to be acknowledging. */}
-                <Drawer.Handle
-                  className={cn(
-                    'mx-auto mt-2.5 h-1 w-9 shrink-0 rounded-full bg-border',
-                    'motion-safe:transition-[width,background-color] motion-safe:duration-press motion-safe:ease-standard',
-                    'hover:w-11 hover:bg-muted-foreground/40 active:w-11 active:bg-muted-foreground/60',
-                    'focus-visible:ring-3 focus-visible:ring-ring/50 outline-none',
-                  )}
-                />
-                {/* **Not at `peek`**, and `sheet-geometry.ts` subtracts its height at exactly the
-                    two stops it renders at. The peek band is 128 px with a 68 px `BottomNav`
-                    floating over its lower half, so it holds one line; the switch there would be
-                    that line, and the count the peek row exists to say would have nowhere to go. */}
-                {shell.sheet.stop === 'peek' ? null : <DrawerViewSwitch views={views} />}
-                {sheetContent(shell.sheet.stop)}
-              </Drawer.Content>
-            </Drawer.Portal>
+                      `transition-[width,background-color]` and not `transition-all`: the handle sits
+                      on a surface vaul transforms on every drag frame, and animating `transform` here
+                      would fight the drag it is supposed to be acknowledging. */}
+                  <Drawer.Handle
+                    className={cn(
+                      'mx-auto mt-2.5 h-1 w-9 shrink-0 rounded-full bg-border',
+                      'motion-safe:transition-[width,background-color] motion-safe:duration-press motion-safe:ease-standard',
+                      'hover:w-11 hover:bg-muted-foreground/40 active:w-11 active:bg-muted-foreground/60',
+                      'focus-visible:ring-3 focus-visible:ring-ring/50 outline-none',
+                    )}
+                  />
+                  {/* **Not at `peek`**, and `sheet-geometry.ts` subtracts its height at exactly the
+                      two stops it renders at. The peek band is 128 px with a 68 px `BottomNav`
+                      floating over its lower half, so it holds one line; the switch there would be
+                      that line, and the count the peek row exists to say would have nowhere to go. */}
+                  {shell.sheet.stop === 'peek' ? null : <DrawerViewSwitch views={views} />}
+                  {sheetContent(shell.sheet.stop)}
+                </Drawer.Content>
+              </Drawer.Portal>
+            </NonModalDrawerScope>
           </Drawer.Root>
         </>
       )}

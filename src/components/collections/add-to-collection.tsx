@@ -5,7 +5,7 @@
  *
  * Two states in one component: a row that reports which collections this place is in, and — when
  * opened — the picker that replaces the detail's content in place. The picker is **not** a dialog
- * stacked over the sheet, for the reason `use-non-modal-background.ts` records: a second overlay
+ * stacked over the sheet, for the reason `shell/non-modal-drawer.tsx` records: a second overlay
  * over the vaul drawer is how `<main>` gets marked `aria-hidden` and the map page disappears from
  * the accessibility tree.
  *
