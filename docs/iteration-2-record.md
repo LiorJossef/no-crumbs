@@ -255,6 +255,19 @@ the night café moves to within ΔE 6.3 of the gold *by design*.
 - **Two tag chips report no glyph inside their padding box** in either theme — a layout defect that
   scored as a pass under the old instrument.
 - **`#moods`' `beenThere` contradicts `#rules` rule 4.** Data-only and asserted so, pending a ruling.
+- **The harness can only measure a commit, and that is a tooling gap that manufactures bad history.**
+  `verify-i2.mjs` exports a commit rather than a tree — correctly, since measuring a shared working
+  tree is what this run proved worthless. But it makes a throwaway commit the cheapest path to a
+  measurement, and it produced one (`0fa25ab`, subject `wip: token probe`, unamendable within the
+  minute because two lanes landed on top). Two lanes hit this friction; the other worked around it by
+  building and serving two commits simultaneously.
+
+  **The fix is harder than "copy-out instead of `git stash`"** — `stash` is deny-listed, so copy-out
+  is the mechanism, but a copy-out reproduces the tree *including* what is uncommitted, which under
+  concurrency means every other lane's half-finished work. Measuring that is precisely the thing the
+  commit requirement exists to prevent. So it needs copy-out **plus a way to declare which paths are
+  yours**, or the tool trades an honest history for a dishonest measurement. That is a design
+  decision, not a mechanism, and it is cheap at the start and expensive to retrofit.
 
 ---
 
@@ -279,7 +292,11 @@ wrong path was a claim about the tree that a read would have settled. Authorship
 available, and it was reasonable and wrong. What settled it was the file's header saying *"I"* and
 meaning someone else — a convention, not a mechanism. The cheap fix is a convention rather than a
 caution: **an untracked file in a shared directory should name its lane in its header**, so the next
-dispatcher reads instead of infers and the read returns an answer.
+dispatcher reads instead of infers and the read returns an answer. **With a limit, or it decays into
+ceremony**: the line earns its keep only while the file is untracked. Once it lands, `git log`
+answers authorship better than a header can, and a header claiming an owner will be wrong the first
+time somebody else edits it — which is §5's failure exactly, recorded reasoning going stale because
+the world moved and the prose did not. Name the lane while untracked; let the line go when it lands.
 
 Two lanes lost scratchpad tools to filename collisions before a naming convention was set. Three
 times a lane reported a red working tree caused by another lane's in-flight work; each report was
