@@ -14,7 +14,10 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { withLabelZooms } from '@/components/map/place-marker-layer';
+// Renamed from `withLabelZooms` when `W6-6` added `landOrder` beside `labelZoom`: the function
+// stamps every per-feature property the pin layer needs, not just the label tier, and the old name
+// had stopped describing it. This file still tests only the label half — `landOrder` has its own.
+import { withPinFeatureProps } from '@/components/map/place-marker-layer';
 import {
   LABEL_ALL_ZOOM,
   LABEL_CLEARANCE_PX,
@@ -36,7 +39,7 @@ function northOf(id: string, metres: number): MapPlace {
 }
 
 function tiersOf(places: readonly MapPlace[]): number[] {
-  return withLabelZooms(toPlaceFeatures(places)).features.map(
+  return withPinFeatureProps(toPlaceFeatures(places)).features.map(
     (feature) => feature.properties?.labelZoom as number,
   );
 }
@@ -90,13 +93,13 @@ describe('a pin is named once it has room', () => {
   });
 
   it('leaves an empty library alone', () => {
-    expect(withLabelZooms(toPlaceFeatures([])).features).toHaveLength(0);
+    expect(withPinFeatureProps(toPlaceFeatures([])).features).toHaveLength(0);
   });
 
   /** The properties the pins are actually drawn from have to survive the stamping, or the tiering
    *  would silently delete the category and every pin would fall back to the house icon. */
   it('adds the tier without losing anything the layer draws from', () => {
-    const [feature] = withLabelZooms(toPlaceFeatures([northOf('a', 0)])).features;
+    const [feature] = withPinFeatureProps(toPlaceFeatures([northOf('a', 0)])).features;
     expect(feature?.properties).toMatchObject({
       id: 'a',
       name: 'place a',
@@ -143,7 +146,7 @@ describe('the frame budget the ladder has to keep', () => {
     );
     const features = toPlaceFeatures(places);
     const started = performance.now();
-    withLabelZooms(features);
+    withPinFeatureProps(features);
     expect(performance.now() - started).toBeLessThan(120);
   });
 
