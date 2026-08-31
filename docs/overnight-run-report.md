@@ -302,6 +302,25 @@ had twice been unable to fail, is the most useful thing produced tonight — and
 arriving from the other direction: *a builder's own green result is the least reliable evidence
 available*, demonstrated on itself, three times.
 
+**And a seventh, which is the only one caught by a peer rather than by its own author — and the only
+one that produces false *passes*.** The independent audit of press feedback drove CDP's
+`forcePseudoState` and read `CSS.getComputedStyleForNode`. Under that path **every element carrying
+any `scale` declaration returns `scale: 1`**, so `scale-95` and `scale-98` are indistinguishable and
+the measurement cannot read depth at all — and it reported a *change* on at least one control that a
+real mouse press shows has none.
+
+Its headline finding was still a true positive: the `＋` FAB genuinely had no press, and the
+collections surfaces genuinely had none at all. But **a method that can report an absence as a pass is
+categorically more dangerous than one that reports a presence as a failure**, because the first kind
+closes a gate and the second kind only wastes an hour. The re-test uses a real `mouse.down()`, which
+has its own trap worth writing down: releasing the pointer *away* from the element to avoid activating
+it is a **drag**, and a drag inside the sheet is a vaul gesture that closes it and detaches every row.
+Press only what you can afford to activate, and release in place.
+
+**Seven instruments, one night, on a codebase whose tests were green throughout.** That is the run's
+real finding about itself: **the measurements needed as much verification as the code did**, and two
+of the fourteen KPIs turned out not to measure what they name.
+
 
 ---
 
