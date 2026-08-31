@@ -570,32 +570,43 @@
      */
 
     /*
-     * **The category colours DO move, and the pins do not follow them yet — read this before
-     * shipping a toggle.**
+     * **The category night values — measured, correct, and READ BY NOTHING YET. Do not mistake
+     * these for a working dark category palette.**
      *
-     * `--category-*` are the DOM half of a deliberate duplication: `src/ui/place/palette.ts` holds
-     * the same values as literals because MapLibre's style expressions cannot resolve a custom
-     * property, and `tests/unit/ui/palette-tokens.test.ts` asserts the two agree. That test reads
-     * the `:root` block only, so these overrides do not break it — but they do mean that **in dark
-     * mode a café row is this brown and a café pin is still the light one** until W7-3 gives the
-     * map a night palette of its own. That is a known, bounded inconsistency owned by W7-3, not a
-     * silent one.
+     * I wrote them expecting them to theme the row disc and the chip dot, photographed the result,
+     * and saw both still painted in the light colours. The reason is worth recording, because it
+     * is not what the duplication comment in `palette.ts` leads you to expect: **no component
+     * anywhere in `src/` reads a `--category-*` token.** Every DOM surface that paints a category —
+     * the row's disc, the filter chip's dot, the profile page's swatch — goes through
+     * `categoryDisplay()`, which returns a literal from `src/ui/place/palette.ts` and is applied as
+     * an inline `style`. Grep for `--category-` outside this file: the only hit is a sentence
+     * inside `palette.ts`'s own header.
      *
-     * They have to move. Measured on `--card`, the light values are café 2.2:1 and bar 2.7:1 — a
-     * café disc on a night row is very nearly invisible. Lifted, all four clear AA as ink
-     * (5.5–7.8:1) and, more importantly, they keep separating from each other: the worst pair is
-     * restaurant/café at **ΔE 23.2**, which is better than the light set's own worst pair (20.1
-     * after W0-2 retuned café for exactly this confusion). Hue identity is preserved — a café is
-     * still brown, a bar is still purple.
+     * So these four are a **contract, not a style source**. Their job in `:root` is to be the thing
+     * `tests/unit/ui/palette-tokens.test.ts` compares the literals against; overriding them here
+     * changes what nothing does. They are kept rather than deleted because the values are the
+     * measured half of W7-3's job and throwing them away would mean measuring them twice — but
+     * until `categoryDisplay()` becomes theme-aware, **dark mode paints light-mode categories on
+     * both the rows and the pins**, consistently with each other and wrongly with the ground.
+     *
+     * The measurement, so W7-3 does not repeat it. On `--card`, the light values are café **2.2:1**
+     * and bar **2.7:1** — a café disc on a night row is very nearly invisible, which is the defect
+     * these fix. Lifted, all four clear AA as ink (5.5–7.8:1) and they keep separating from each
+     * other: the worst pair is restaurant/café at **ΔE 23.2**, better than the light set's own
+     * worst pair (20.1, after W0-2 retuned café for exactly this confusion). Hue identity is
+     * preserved — a café is still brown, a bar is still purple.
      */
     --category-restaurant: #E8735C;
     --category-cafe: #C99A55;
     --category-bar: #A288E0;
     --category-uncategorised: #5FC3B4;
 
-    /* Same duplication, same caveat as the categories above: the DOM half moves now, the GL half
-     * follows in W7-3. A white halo is the correct ring around a pin on paper and the wrong one on
-     * a night basemap, where the ground is what the halo has to separate the label from. */
+    /* Same caveat as the categories above, and for the same reason: `--pin*` is read by nothing
+     * either — `marker-style.ts` imports `PIN_LABEL_HALO` and friends from `palette.ts` as
+     * literals, because a GL style expression cannot resolve a custom property at all. These are
+     * the measured night values waiting for W7-3 to make that module theme-aware. A white halo is
+     * the correct ring around a pin on paper and the wrong one on a night basemap, where the
+     * ground is what the halo has to separate the label from. */
     --pin: var(--mint-400);
     --pin-selected: var(--mint-300);
     --pin-halo: #131312;
