@@ -135,7 +135,7 @@ import {
  * change either; the parse, the absence handling and the unrecognised-value handling are tested,
  * and the classification itself needs a labelled set and a live run.
  */
-export const PROMPT_VERSION = `p15-s${EXTRACTION_SCHEMA_VERSION}`;
+export const PROMPT_VERSION = `p16-s${EXTRACTION_SCHEMA_VERSION}`;
 
 /** Role, single task, and the negative-case framing that `09` §4.2 calls "the single most
  *  important line in the prompt": most captions name no venue, and an empty list is correct. */
@@ -421,6 +421,15 @@ one of: place_recommendation, place_question, not_a_place — or null if you gen
   in "POV: You try to order coffee in Tel Aviv" the subject is the joke, not somewhere to go.
 - Choose place_recommendation over place_question when the post both recommends and asks: a list
   of four spots ending "what did I miss?" is a recommendation.
+- **A question about what to cover NEXT is not what this post is about.** Creators end a
+  recommendation by asking where to go in a future video, and that trailing question is about a
+  different place, often a different city. Judge the post by what it is showing you, not by whether
+  its last sentence has a question mark. Measured on a real caption: "The best place in all of Tel
+  Aviv 🇮🇱 Come hungry with money to spend, and enjoy every bite 😋 Should we tour Shuk Machne
+  Yehuda in Jerusalem? Let me know in the comments below ⬇️" is a **place_recommendation** — it is
+  recommending somewhere in Tel Aviv and asking about Jerusalem next. Reading it as place_question
+  is the failure this rule exists to stop, and it is expensive: place_question is what tells us not
+  to look any harder at a post whose venue is in the video.
 
 **"postIntent" NEVER changes the candidate list.** Decide the candidates first, on their own
 merits, and then say what kind of post it was. A post you called not_a_place does not lose a place

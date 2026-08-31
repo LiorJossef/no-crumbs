@@ -122,6 +122,9 @@ describe('PROMPT_VERSION', () => {
     expect(PROMPT_VERSION.startsWith('p13-')).toBe(false);
     expect(PROMPT_VERSION.startsWith('p14-')).toBe(false);
     // Both halves move for `p15`: a new question *and* a new response field to carry the answer.
-    expect(PROMPT_VERSION).toBe('p15-s5');
+    // `p16` (2026-08-31): prompt text only — the schema is unchanged at `s5`, so only the left
+    // half moves. The rule added is that a trailing question about *where to go next* does not make
+    // a recommendation into a question, measured on a real caption that was misread as one.
+    expect(PROMPT_VERSION).toBe('p16-s5');
   });
 });

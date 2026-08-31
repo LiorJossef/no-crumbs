@@ -1,7 +1,7 @@
 {
   "_comment": "Machine record of a tests/manual/owner-corpus.manual.ts run. Regenerated on every run. Corpus: tests/manual/owner-corpus.json. Draft rows are excluded from every rate.",
-  "run_at": "2026-08-31T21:45:12.336Z",
-  "base_commit": "8bfdd6daa49113eea9eec9eaa38424646a16b30a",
+  "run_at": "2026-08-31T21:58:52.586Z",
+  "base_commit": "fa0d9a2db2291a285a500e488710b83d48cd484e",
   "resolver": "resolver selected by the shipped factory is \"overture\" (stage \"(unset)\" is treated as production; Google Places may not be paired with a non-Google map (06 §3.1)); this harness measures Google only",
   "extractor": null,
   "intents": [
@@ -29,7 +29,7 @@
   "sample_composition": {
     "owner": 0,
     "e7": 10,
-    "draft": 0
+    "draft": 1
   },
   "metrics_owner": {
     "byClass": {
@@ -78,7 +78,7 @@
         "intentCorrect": 0
       }
     },
-    "unadjudicated": 0,
+    "unadjudicated": 1,
     "notGraded": {},
     "intentConfusion": {},
     "intentExplicit": {
@@ -118,26 +118,26 @@
         "intentCorrect": 3
       },
       "recoverable": {
-        "posts": 3,
-        "graded": 3,
-        "placeGraded": 2,
-        "yieldedCorrect": 0,
-        "wrongPreselect": 0,
-        "wrongShortlist": 0,
-        "extractionMisses": 2,
-        "intentGraded": 3,
-        "intentCorrect": 3
-      },
-      "futile": {
-        "posts": 3,
-        "graded": 3,
+        "posts": 4,
+        "graded": 4,
         "placeGraded": 3,
         "yieldedCorrect": 0,
         "wrongPreselect": 0,
         "wrongShortlist": 0,
+        "extractionMisses": 2,
+        "intentGraded": 4,
+        "intentCorrect": 4
+      },
+      "futile": {
+        "posts": 2,
+        "graded": 2,
+        "placeGraded": 2,
+        "yieldedCorrect": 0,
+        "wrongPreselect": 0,
+        "wrongShortlist": 0,
         "extractionMisses": 0,
-        "intentGraded": 3,
-        "intentCorrect": 2
+        "intentGraded": 2,
+        "intentCorrect": 1
       },
       "not-a-place": {
         "posts": 1,
@@ -151,7 +151,7 @@
         "intentCorrect": 1
       }
     },
-    "unadjudicated": 0,
+    "unadjudicated": 1,
     "notGraded": {},
     "intentConfusion": {
       "place_recommendation": {
@@ -166,25 +166,25 @@
       }
     },
     "intentExplicit": {
-      "correct": 0,
-      "n": 0
+      "correct": 1,
+      "n": 1
     },
     "intentDerived": {
-      "correct": 9,
-      "n": 10
+      "correct": 8,
+      "n": 9
     },
     "gates": {
       "G1 zero-candidates": {
-        "tp": 3,
-        "fp": 4,
+        "tp": 4,
+        "fp": 3,
         "fn": 0,
         "tn": 3
       },
       "G2 zero-candidates AND postIntent=place_recommendation": {
         "tp": 3,
         "fp": 1,
-        "fn": 0,
-        "tn": 6
+        "fn": 1,
+        "tn": 5
       }
     }
   },
@@ -383,13 +383,13 @@
       "url": "https://www.tiktok.com/@gadderhq/video/7205629856716000517",
       "externalId": "7205629856716000517",
       "caption": "What’s the best hidden gem restaurant in London? 💎🤫👀 Comment below👇👇 #deinfluencing #londonrestaurants #hiddengems #secretspot ",
-      "ownerClass": "futile",
+      "ownerClass": "recoverable",
       "classAdjudicated": true,
       "sample": "e7",
       "truePlaces": [],
       "postIntent": "place_question",
       "expectedIntent": "place_question",
-      "expectedIntentSource": "derived",
+      "expectedIntentSource": "explicit",
       "rawCandidateNames": [],
       "keptCandidateNames": [],
       "droppedByPlausibility": {
@@ -515,6 +515,37 @@
         "Tokii London",
         "Kiaans Tooting",
         "Jones Family Kitchen"
+      ],
+      "droppedByPlausibility": {
+        "hashtag_or_handle": 0,
+        "city_or_country_only": 0,
+        "generic_words_only": 0,
+        "evidence_not_in_caption": 0,
+        "duplicate": 0
+      },
+      "resolveStatus": "not_attempted",
+      "resolveDetail": "resolver selected by the shipped factory is \"overture\" (stage \"(unset)\" is treated as production; Google Places may not be paired with a non-Google map (06 §3.1)); this harness measures Google only",
+      "offered": [],
+      "extractionMisses": [],
+      "status": "ok",
+      "statusDetail": null
+    },
+    {
+      "url": "https://www.tiktok.com/@sivanskitchen/video/7573466599361924382",
+      "externalId": "7573466599361924382",
+      "caption": "The best place in all of Tel Aviv 🇮🇱  Come hungry with money to spend, and enjoy every bite 😋 Should we tour Shuk Machne Yehuda in Jerusalem ?  Let me know in the comments below ⬇️  #sivanskitchen #fyp #shukhacarmel #telaviv #explorepage  ",
+      "ownerClass": null,
+      "classAdjudicated": false,
+      "sample": null,
+      "truePlaces": null,
+      "postIntent": "place_recommendation",
+      "expectedIntent": null,
+      "expectedIntentSource": null,
+      "rawCandidateNames": [
+        "Shuk HaCarmel"
+      ],
+      "keptCandidateNames": [
+        "Shuk HaCarmel"
       ],
       "droppedByPlausibility": {
         "hashtag_or_handle": 0,

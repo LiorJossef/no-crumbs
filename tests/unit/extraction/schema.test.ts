@@ -353,7 +353,8 @@ describe('schema versioning', () => {
     // response shape grew a field to carry the answer, which is the case the two-part key exists
     // for. Contrast `p13` -> `p14`, a prose-only change that left the schema half at `s4`.
     expect(EXTRACTION_SCHEMA_VERSION).toBe(5);
-    expect(PROMPT_VERSION).toBe('p15-s5');
+    // `p16` moves alone (2026-08-31): a prompt-text-only change, schema still `s5`.
+    expect(PROMPT_VERSION).toBe('p16-s5');
   });
 
   it('keeps PROMPT_VERSION storable in the extractions column', () => {

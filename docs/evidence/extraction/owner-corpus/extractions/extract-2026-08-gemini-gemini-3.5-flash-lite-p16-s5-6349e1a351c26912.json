@@ -3,11 +3,11 @@
   "cityHint": "Tel Aviv",
   "postIntent": "place_recommendation",
   "extractorVersion": "2026-08-gemini-gemini-3.5-flash-lite",
-  "promptVersion": "p16-s6",
+  "promptVersion": "p16-s5",
   "captionSha": "6349e1a351c26912056b32c02424fd78b82a1be4c70674cfa6826afecc645c2d",
-  "inputTokens": 7313,
-  "outputTokens": 31,
+  "inputTokens": 6386,
+  "outputTokens": 22,
   "costUsd": 0,
   "costModel": "unmeasured",
-  "extractedAt": "2026-08-31T21:44:17.468Z"
+  "extractedAt": "2026-08-31T21:56:03.844Z"
 }

@@ -297,3 +297,57 @@ offers a correct choice, or honestly declines.**
 **3 of 16 posts yield a place.** Extraction is the ceiling and it is a property of the content:
 13 posts name no venue in their caption, and on 5 of those the venue is spoken or on screen. No
 scorer change reaches them. That gap needs a signal we do not currently read.
+
+---
+
+# Addendum 5 — a prompt fix found by the owner's own link, and the gate's real ceiling
+
+## The miss
+
+The owner supplied a live link — `@sivanskitchen`, Tel Aviv — and the engine returned **zero
+candidates** with `postIntent = place_question`. The caption:
+
+> *"The best place in all of Tel Aviv 🇮🇱 Come hungry with money to spend, and enjoy every bite 😋
+> Should we tour Shuk Machne Yehuda in Jerusalem? Let me know in the comments below ⬇️
+> #sivanskitchen #shukhacarmel #telaviv"*
+
+That is a **recommendation**. The model matched the question-post pattern on the trailing sentence —
+but that question is about **a different city, for a future video**. The existing rule covered a post
+that *"both recommends and asks"* about the same thing; it did not cover asking about what to cover
+next.
+
+Expensive, because `place_question` is precisely what tells the engine **not to look any harder** at
+a post whose venue is in the video.
+
+## The fix, and what it recovered
+
+One rule added at `p16`, with the owner's caption as the worked example: *judge the post by what it
+is showing you, not by whether its last sentence has a question mark.*
+
+| | before (`p15`) | after (`p16`) |
+|---|---|---|
+| `postIntent` | `place_question` | **`place_recommendation`** |
+| candidates | **0** | **1 — `Shuk HaCarmel`** |
+
+Re-run over the whole corpus, `postIntent` accuracy is unchanged at **9/10** and no row regressed.
+So the rule bought a real recovery on a real link and cost nothing measurable.
+
+## The finding that matters more: the gate has a ceiling no threshold can lift
+
+Re-labelling `@gadderhq` from `futile` to `recoverable` — justified by its transcript, where the
+creator names eight restaurants aloud — exposed something the earlier numbers hid.
+
+Its caption is *"What's the best hidden gem restaurant in London? 💎 Comment below"*. The model
+answers `place_question`, and **the model is right about the caption.** The class is `recoverable`,
+and that is right about the **post**. Both are correct and they disagree, because:
+
+> **`postIntent` describes the caption. The class describes the post.**
+
+That distinction was invisible while the only `recoverable` posts in the sample had
+recommendation-shaped captions. The consequence is a hard limit, now measured: the escalation gate's
+recall falls from **1.00 to 0.75** once the corpus contains a recoverable post with a question-shaped
+caption, and **no threshold recovers it** — the only signal the gate has says *question*, truthfully.
+
+**A caption-only gate cannot reach a post that withholds its recommendation until the audio.** That
+is not a tuning problem, and it is the clearest statement yet of why reading past the caption is the
+only remaining lever.

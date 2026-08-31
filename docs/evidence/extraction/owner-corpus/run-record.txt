@@ -3,14 +3,15 @@
 OWNER CORPUS — the engine, graded
 ====================================================================================================
 
-   10 case(s): 0 labelled by the owner, 10 carrying the borrowed E7 labels, 0 still draft.
+   11 case(s): 0 labelled by the owner, 10 carrying the borrowed E7 labels, 1 still draft.
    Draft rows are printed above by name and count toward nothing.
 
    ** NO OWNER-LABELLED POSTS. Every number below is from the borrowed sample this **
    ** corpus exists to replace, and none of it is evidence about the product.      **
 
-   There is nothing to adjudicate: no draft rows either. Paste your own links into
-   tests/manual/owner-corpus-links.txt and run the seeder — see the corpus `_readme`.
+   The one remaining step: open /Users/MrJossef/SourceTree/LiorJossef/P-002/tests/manual/owner-corpus.json, read each
+   caption next to its draft class, correct the class where it is wrong, and change
+   `"classSource": "draft"` to `"owner"`. Then re-run this file. It costs nothing.
 
 
 ----------------------------------------------------------------------------------------------------
@@ -27,8 +28,8 @@ SAMPLE: e7 — the BORROWED 16-post web-search set (docs/evidence/tiktok/07-capt
    PER CLASS
    class          posts  graded  place-graded  yielded>=1 correct   wrong preselect  wrong shortlist  extraction misses  intent
    sufficient       3       3             0           0/0 (n/a)                0                0                  0      3/3
-   recoverable      3       3             2            0/2 (0%)                0                0                  2      3/3
-   futile           3       3             3            0/3 (0%)                0                0                  0      2/3
+   recoverable      4       4             3            0/3 (0%)                0                0                  2      4/4
+   futile           2       2             2            0/2 (0%)                0                0                  0      1/2
    not-a-place      1       1             1            0/1 (0%)                0                0                  0      1/1
 
    `place-graded` counts only cases whose true places are ruled on AND whose lookups all ran.
@@ -39,7 +40,7 @@ SAMPLE: e7 — the BORROWED 16-post web-search set (docs/evidence/tiktok/07-capt
                           0 shortlisted   <- a ranking annoyance, not a lie
 
    postIntent accuracy:  9/10 (90%)
-     on explicit `expectedIntent` labels: 0/0   on labels DERIVED from the class: 9/10
+     on explicit `expectedIntent` labels: 1/1   on labels DERIVED from the class: 8/9
      The derived half rests on INTENT_FOR_CLASS, a documented default and not a hand label.
      Where it disagrees with the owner, set `expectedIntent` on that row.
    confusion (expected → got):
@@ -49,8 +50,8 @@ SAMPLE: e7 — the BORROWED 16-post web-search set (docs/evidence/tiktok/07-capt
 
    ESCALATION GATE — positive class "recoverable" (the only class a transcript could rescue)
    gate                                                    tp  fp  fn  tn   prec  recall
-   G1 zero-candidates                                      3   4   0   3   0.43  1.00
-   G2 zero-candidates AND postIntent=place_recommendation  3   1   0   6   0.75  1.00
+   G1 zero-candidates                                      4   3   0   3   0.57  1.00
+   G2 zero-candidates AND postIntent=place_recommendation  3   1   1   5   0.75  0.75
    G2 is G1 with `postIntent` added. The difference between the two rows IS the value of
    that field: if G2 does not beat G1 on precision, the field is not earning its tokens.
 

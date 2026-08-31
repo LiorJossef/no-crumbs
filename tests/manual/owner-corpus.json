@@ -99,7 +99,7 @@
       ],
       "placesSource": "e7",
       "caption": "Nothing like a shuk coffee shop ☕️ @cafe fiori  Cafe Fiori 📍 Yom Tov St 20, Tel Aviv-Yafo #coffeetogo #cafefiori #telaviv",
-      "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s6-6bec83da4b144598.json",
+      "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s5-6bec83da4b144598.json",
       "notes": "E7 row 7: \"Cafe Fiori 📍 Yom Tov St 20, Tel Aviv-Yafo\" — name + street + city in the caption."
     },
     {
@@ -114,7 +114,7 @@
       ],
       "placesSource": "e7",
       "caption": "Nomena Roasters, placed on Allenby Street in Tel Aviv. Is a very special boutique place, that looks like perfume store and in fact the scent of the coffee is one of the best home perfumes you can have. Greate coffee and brownies, aesthetic interior, no wifi and amazing Telavivian vibe.  #coffeetiktok #coffeetime #telavivian #telavivlife #telavivcityguide #telavivguide #telavivianstyle #annazwiefka #telavivfood #wheretoeat #israelifood #foodplaces #israel🇮🇱 #wheretovisit #wheretogo #girlwhotravels #coffeelovers #coffeeplace @Anna Zwiefka ",
-      "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s6-be172ab2227189c1.json",
+      "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s5-be172ab2227189c1.json",
       "notes": "E7 row 9: \"Nomena Roasters, placed on Allenby Street in Tel Aviv\" — name + street + city."
     },
     {
@@ -129,7 +129,7 @@
       ],
       "placesSource": "e7",
       "caption": "The best coffee in Tel Aviv is only 9 shekels?! They also have some of the best pizza… #yallabikes #telaviv ",
-      "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s6-bd269891c9811a8b.json",
+      "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s5-bd269891c9811a8b.json",
       "notes": "E7 row 8 and its \"finding that matters\": the venue (Simhovich Cafe) is spoken/on-screen and absent from the caption. A caption-only engine cannot reach it; that is the point of the class."
     },
     {
@@ -144,7 +144,7 @@
       ],
       "placesSource": "e7",
       "caption": "coffee in tlv > #bh #thankyouhashem #coffee #telaviv #ביתקפה #תלאביב ☕️☁️",
-      "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s6-6349e1a351c26912.json",
+      "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s5-6349e1a351c26912.json",
       "notes": "E7 row 12: the venue (Nomena Café) is on-screen only; the caption is \"coffee in tlv >\" plus Hebrew hashtags."
     },
     {
@@ -155,7 +155,7 @@
       "places": [],
       "placesSource": "draft",
       "caption": "6 Must try spots in Tokyo Japan! Tokyo food scene was amazing and stay tuned for me to drop my top bites of Kyoto! #japanesefood #japantravel #travelfoodie #streetfood #udon #pizza #pancakes #travelfood ",
-      "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s6-d0d4d18aa9f45e3e.json",
+      "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s5-d0d4d18aa9f45e3e.json",
       "notes": "E7 row 1: \"6 Must try spots in Tokyo Japan!\" — the six venues are in-video and E7 does not name them, so `places` stays draft and this row is deliberately unadjudicated for place yield."
     },
     {
@@ -166,19 +166,21 @@
       "places": [],
       "placesSource": "e7",
       "caption": "Drop cafe recs below pls #telaviv #telavivlife #americanabroad #aroma #aliyah #coffeetiktok ",
-      "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s6-ac7ca33020937a78.json",
+      "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s5-ac7ca33020937a78.json",
       "notes": "E7 row 6: \"Drop cafe recs below pls\" — the post asks the audience. No venue exists to find."
     },
     {
       "url": "https://www.tiktok.com/@gadderhq/video/7205629856716000517",
       "externalId": "7205629856716000517",
-      "class": "futile",
+      "class": "recoverable",
       "classSource": "e7",
       "places": [],
       "placesSource": "e7",
       "caption": "What’s the best hidden gem restaurant in London? 💎🤫👀 Comment below👇👇 #deinfluencing #londonrestaurants #hiddengems #secretspot ",
-      "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s6-0b220d7f35b11eb4.json",
-      "notes": "E7 row 14: \"What's the best hidden gem restaurant in London?\" — a question post."
+      "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s5-0b220d7f35b11eb4.json",
+      "notes": "E7 row 14: \"What's the best hidden gem restaurant in London?\" — a question post.",
+      "classNote": "RE-LABELLED 2026-08-31 with direct evidence, overriding E7 which filed this `futile`. E7 judged the answer to be nowhere. TikTok’s own auto-caption track for this post has the creator answering their own question aloud and naming eight restaurants — Ishbela, Taturo, Saba, Tokyo ICCO, Jinsei Yakitori, John Balcom, hoppers, Bodega Negra — three of which resolve to real London venues. Transcript fixture: tests/manual/fixtures/transcripts/tiktok-auto-captions.json. See docs/evidence/extraction/transcript-lift-2026-08-31.md. NOTE ON `expectedIntent`: the class and the intent legitimately disagree here, and that is not a defect in either. `postIntent` describes the CAPTION, which genuinely is a question — \"What is the best hidden gem restaurant in London? Comment below\". The class describes the POST, which is a recommendation because the creator answers aloud. The default class→intent mapping cannot express that, so the override says it explicitly. The consequence is the finding: the escalation gate CANNOT reach a recoverable post whose caption is question-shaped, at any threshold, because the only signal it has says question.",
+      "expectedIntent": "place_question"
     },
     {
       "url": "https://www.tiktok.com/@emshelx/video/7541775954906041622",
@@ -188,7 +190,7 @@
       "places": [],
       "placesSource": "e7",
       "caption": "my Italian friend told me not to make a tiktok about this london restaurant because he knows its the best Italian restaurant in London and wants to actually be able to get a reservation oops, save this for londons best hidden gem restaurant - where to eat in London - Knightsbridge restaurants - Italian food in London - London restaurant guide - London date night #londonrestaurant #londonrestaurants #londonfood #londonfoodie #londonfoodspots           ",
-      "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s6-b376f3fe07c36504.json",
+      "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s5-b376f3fe07c36504.json",
       "notes": "E7 row 16: the name is deliberately withheld in caption AND speech to drive comments. SEO keyword salad only."
     },
     {
@@ -199,7 +201,7 @@
       "places": [],
       "placesSource": "e7",
       "caption": "before sleep talk.....very cute couple....#cats #fyp ",
-      "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s6-a210762226296257.json",
+      "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s5-a210762226296257.json",
       "notes": "E7 row 3: cats. A control post."
     },
     {
@@ -235,19 +237,24 @@
       ],
       "placesSource": "e7",
       "caption": "ad The hidden restaurants you NEED to know about ❤️ You guys know we love sharing hidden gems around London and these restaurants are exactly that - hidden away and absolute gems! You can get 50% off food at ALL OF THESE restaurants if you book them through @firsttableuk and it’s only £3 to book your first “First Table” when you sign up with code EXPLORING - book for 2-4 people at an off-peak dining time and get rewarded with 50% off the food bill (drinks are a regular price). It’s a no brainer. 🧠 SAVE THIS for hidden restaurants, all with 50% off food: ✨ La Nonna in Market Row, Brixton for delicious artisan pasta ✨ MBER London, underground on Pudding Lane for incredible pan-Asian sharing plates ✨ The Life Goddess for beautiful Greek dishes  ✨ The Laughing Yak Nepalese kitchen tucked away in Market Peckham  ✨ Sycamore Restaurant for seasonal Italian plates inside Middle Eighty Hotel in Covent Garden ✨ Tokii London, East meets West inside The Prince Akatoki London Hotel in Marylebone  ✨ Kiaans Tooting pan-Asian inside Tooting Market ✨ Jones Family Kitchen - hidden inside Eccleston Yards in Belgravia ❤️ Which one are you checking out first? #firsttable #halfpricefood #londonrestaurants #hiddenlondon #londonguide",
-      "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s6-a9dd7456c4833eb5.json",
+      "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s5-a9dd7456c4833eb5.json",
       "notes": "E7 row 15: eight restaurants named with neighbourhoods. The ideal case, and the only 8-venue post in the set."
     },
     {
       "url": "https://www.tiktok.com/@sivanskitchen/video/7573466599361924382",
       "externalId": "7573466599361924382",
-      "class": "futile",
+      "class": "sufficient",
       "classSource": "draft",
-      "places": [],
+      "places": [
+        {
+          "name": "Shuk HaCarmel",
+          "note": "DRAFT — the model's own guess"
+        }
+      ],
       "placesSource": "draft",
       "caption": "The best place in all of Tel Aviv 🇮🇱  Come hungry with money to spend, and enjoy every bite 😋 Should we tour Shuk Machne Yehuda in Jerusalem ?  Let me know in the comments below ⬇️  #sivanskitchen #fyp #shukhacarmel #telaviv #explorepage  ",
-      "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s6-15c114ea45fb08e8.json",
-      "draftNote": "DRAFT (the caption produced no candidate; postIntent=place_question). A caption cannot tell `recoverable` from `futile` — that needs someone who watched the video. Correct `class` if wrong, then set `classSource` to \"owner\". Until you do, this row is reported as unadjudicated and counts toward nothing."
+      "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s5-15c114ea45fb08e8.json",
+      "draftNote": "DRAFT (the extractor produced 1 plausible candidate(s) from the caption alone). A caption cannot tell `recoverable` from `futile` — that needs someone who watched the video. Correct `class` if wrong, then set `classSource` to \"owner\". Until you do, this row is reported as unadjudicated and counts toward nothing."
     }
   ]
 }
