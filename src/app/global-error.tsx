@@ -6,10 +6,10 @@ import {
   BRAND_INK_MUTED,
   BRAND_INK_ON_MINT,
   BRAND_MINT,
-  BRAND_MINT_DEEP,
   BRAND_SURFACE,
 } from '@/components/brand/brand-colors';
-import { CRUMB_PATH, CRUMB_VIEWBOX } from '@/components/brand/crumb-path';
+import { crumbMascotMarkup, crumbMascotViewBox } from '@/components/brand/crumb-mascot-markup';
+import { MASCOT_KEYLINE_LIGHT } from '@/components/brand/mascot-colors';
 
 /**
  * The last resort: the boundary for a failure in the root layout itself, which is the one place
@@ -128,18 +128,49 @@ export default function GlobalError({
             margin: '0 auto',
           }}
         >
-          {/* The crumb, drawn from the shared path. Thirty pixels, the size it is on `/`,
-              `/sign-in`, `error.tsx` and `not-found.tsx` — so the one screen that cannot load the
-              product's stylesheet still opens with the product's mark. */}
+          {/*
+           * **The character, in the mood this screen is in** — and it is drawn here without
+           * importing a component, which is the rule this file exists to keep.
+           *
+           * `crumb-mascot-markup.ts` is a pure function of two leaf constant modules and its own
+           * header says it was written so that this file could use it: *"it is a pure function of
+           * constants, which is also what lets `app/global-error.tsx` keep its rule about leaf
+           * modules that cannot throw."* No React, no icon package, no stylesheet, no side effect
+           * at import time. The affordance was designed in advance; this is the first call site to
+           * take it.
+           *
+           * **`offline`, matching `error.tsx`.** `#moods` binds it to *"connection lost, retryable
+           * error"* and this is the retryable error of last resort. Flat eyes, wiggle mouth — not a
+           * frown. `not-found.tsx` keeps the silhouette, because a 404 is not an error the product
+           * had; see `pin-mark.tsx`.
+           *
+           * **Two things this screen cannot have, and both are consequences of having no
+           * stylesheet.** The keyline is passed as `MASCOT_KEYLINE_LIGHT` rather than as
+           * `--mascot-keyline`, because an unresolved `var()` makes the whole declaration invalid
+           * and the outline would vanish — the exact failure `MASCOT_KEYLINE_VAR`'s fallback exists
+           * to prevent, arriving here where there is no cascade to fall back through. And there is
+           * no `crumb-anim-stir`: the class has no rule without `globals.css`, so this mark is
+           * still. That is correct rather than a limitation — the root layout has failed, and a
+           * mascot doing an idle animation on top of that would be the product performing
+           * liveliness it does not have.
+           *
+           * The viewBox comes from the same module, because `outlined` pads the artboard for its
+           * keyline and the square would clip it on all four sides.
+           */}
           <svg
-            viewBox={`0 0 ${CRUMB_VIEWBOX} ${CRUMB_VIEWBOX}`}
-            width="30"
-            height="30"
+            viewBox={crumbMascotViewBox('outlined')}
+            width="34"
+            height="34"
             aria-hidden="true"
             style={{ display: 'block', marginBottom: '20px' }}
-          >
-            <path d={CRUMB_PATH} fill={BRAND_MINT_DEEP} />
-          </svg>
+            dangerouslySetInnerHTML={{
+              __html: crumbMascotMarkup({
+                mood: 'offline',
+                construction: 'outlined',
+                keyline: MASCOT_KEYLINE_LIGHT,
+              }),
+            }}
+          />
 
           <h1
             style={{

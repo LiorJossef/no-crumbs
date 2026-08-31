@@ -29,7 +29,7 @@ import { useEffect } from 'react';
 import Link from 'next/link';
 
 import { DISPLAY_HEADING_AXES } from '@/components/brand/display-type';
-import { PinMark } from '@/components/brand/pin-mark';
+import { CrumbMascot } from '@/components/brand/crumb-mascot';
 import { Button } from '@/components/ui/button';
 
 /** Exported so the wording is assertable as data — the test runner has no DOM. */
@@ -86,7 +86,34 @@ export default function ShellError({
           content to put there. Mobile keeps the shared shape — hero at the top, action in the
           thumb zone via `mt-auto` — and desktop centres the same column. */}
       <div className="w-full lg:max-w-105">
-        <PinMark className="size-7.5 lg:size-9" />
+        {/*
+         * **The face, and the mood is a claim about this screen rather than decoration.**
+         *
+         * `#moods` binds `offline` to *"connection lost, retryable error"*, and this is the
+         * retryable error boundary — it ships a reset action, which is the *retryable* half stated
+         * in code. Flat eyes and a wiggle mouth: not a frown, not an apology. The voice rule that
+         * governs the no-places screen governs here too — *never apologetic, never cute* — and a
+         * neutral face is what says *that happened* and stops.
+         *
+         * **This overrides a recorded decision in `pin-mark.tsx`**, which said `error.tsx` and
+         * `not-found.tsx` *"are on neither list and call `PinMark` directly, which is what keeps
+         * them off it"*. That sentence is about §3.1 rule 2's face surfaces — app icon, splash,
+         * sign-in, link preview — and it was right when the only alternative was the `idle` face,
+         * which would have been a resting mark on a failure screen. `offline` is not a resting
+         * mark; it is a mood the design system bound to this exact state, and `#moods`' own rule is
+         * that a face may exist where a screen needs it. Noted at `pin-mark.tsx` too, so the two do
+         * not disagree.
+         *
+         * **`not-found.tsx` deliberately does not get this.** A 404 is not an error the product
+         * had — it is a URL that does not exist — and no mood is bound to it. Wearing `offline`
+         * there would claim a connection problem that did not happen, which is the one constraint
+         * on this whole package: no mood may assert more than the product knows.
+         *
+         * `animation="stir"` is the idle state, not a reaction to the failure: 17 s, 85.6% of it
+         * at rest. A character that holds still on an error screen reads as a picture; one that
+         * stirs occasionally reads as still being there.
+         */}
+        <CrumbMascot mood="offline" animation="stir" className="size-7.5 lg:size-9" />
 
         {/* Assertive: this content swaps in without a navigation, so nothing else announces it. */}
         <div role="alert">

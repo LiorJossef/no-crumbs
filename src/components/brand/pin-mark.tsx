@@ -66,6 +66,18 @@ import { MASCOT_KEYLINE_VAR } from './mascot-colors';
  *
  * The **map pin** is not in the same position: its tail is 30 of its 126 units and is what
  * separates it from a circle and from the teardrop it replaced.
+ *
+ * **Amended 2026-08-31: `error.tsx` no longer calls this.** The note above said the failure screens
+ * *"are on neither list and call `PinMark` directly, which is what keeps them off it"* — correct
+ * about §3.1 rule 2's face surfaces, and correct while the only face on offer was `idle`, which
+ * would have put a resting mark on a screen that is not resting. `#moods` binds **`offline`** to
+ * *"connection lost, retryable error"*, and the error boundary is exactly that, so it now draws
+ * `CrumbMascot` in that mood. `global-error.tsx` follows it, inline.
+ *
+ * **`not-found.tsx` still calls this and still gets the silhouette.** A 404 is not an error the
+ * product had, no mood is bound to it, and a face there would assert a failure that did not
+ * happen. The two failure screens differing is the point rather than drift: the face marks *the
+ * product having a problem*, and a missing URL is not one.
  */
 export function PinMark({ className, face = false }: { className?: string; face?: boolean }) {
   const construction = face ? 'outlined' : 'mono';
