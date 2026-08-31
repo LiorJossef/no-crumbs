@@ -36,12 +36,13 @@ import type { PlaceCandidate } from '@/domain/types';
 import {
   effectivePick,
   pickRequiredNotice,
-  resolutionChip,
+  provenanceBadge,
   resolutionExplanation,
   resolutionHeadline,
   resolutionOptions,
   resolverPinLine,
   savedPlaceName,
+  settlednessLine,
   willSave,
   type CandidateResolutionView,
 } from '@/ui/import/candidate-resolution-view';
@@ -126,7 +127,14 @@ export function ExtractedCandidateRow({
    * has to be reachable, or that card can never be saved and the screen never says why.
    */
   const showsShortlist = options.length > 1 || (options.length > 0 && chosen === null);
-  const badge = resolutionChip(view, pick);
+  /**
+   * The badge now answers **"where did this pin come from?"** (W6-4).
+   *
+   * It used to carry settledness in an 11px mint pill while provenance sat at the bottom of the
+   * card in 12px grey — `facelift-plan.md` §1: the hierarchy inverted the epistemics. Settledness
+   * has not gone; it is `settlednessLine` in the row this vacated.
+   */
+  const badge = provenanceBadge(isSaveable(candidate), view, pick);
 
   const body = (
     <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
@@ -143,16 +151,25 @@ export function ExtractedCandidateRow({
             {chip.label}
           </span>
         ) : (
-          // The resolver's state, in the same slot the post-save outcome uses — never both, and
-          // never the same colour: a matched candidate is the only one that gets the mint accent,
-          // so an ambiguous one can never be mistaken for a settled one at a glance.
+          // Where the pin came from, in the same slot the post-save outcome uses — never both.
+          //
+          // Three tones, and `caption` is the one that had to stop being the quiet one. A pin the
+          // model guessed is not a lesser version of a matched pin, it is a different kind of
+          // claim, and painting it grey is what made it the quietest thing on the card. Mint stays
+          // exclusive to `settled`, so a caption pin can never be mistaken for a verified one at a
+          // glance — which is the exit criterion, read cold.
+          //
+          // `shrink-0` and no `truncate`: `From the map data` is seventeen characters in an 11px
+          // pill, and this codebase has already shipped the clipped version of this exact sentence
+          // once (`candidate-resolution-view.ts`'s note on 208px into a 180px box). It takes the
+          // width it needs and the name beside it clamps instead. It may never truncate.
           badge !== null && (
             <span
               className={cn(
-                'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold',
-                badge.tone === 'settled'
-                  ? 'bg-accent text-brand'
-                  : 'bg-muted text-foreground',
+                'shrink-0 rounded-full px-2 py-0.5 text-micro font-bold',
+                badge.tone === 'settled' && 'bg-accent text-brand',
+                badge.tone === 'caption' && 'bg-warning/10 text-warning',
+                badge.tone === 'needs_pick' && 'bg-muted text-foreground',
               )}
             >
               {badge.label}
@@ -271,10 +288,31 @@ export function ExtractedCandidateRow({
     </div>
   );
 
+  /**
+   * What this row says now that the badge above it carries provenance (W6-4).
+   *
+   * **The collapsed layout is the exception, and it is not a fork.** That layout deletes the card,
+   * the tickbox, the name and the badge slot — the screen's own H1 carries the name — so this row
+   * is the only place provenance can live there, and it keeps `resolverPinLine`'s long form.
+   * `collapsesToOneResult` only ever returns true for a `matched` view, so the sentence it renders
+   * is always `Pin from the map data`; the collapse can never be the thing that hides a guess.
+   *
+   * On the full card this row takes what the badge gave up: settledness, so a user who read three
+   * addresses and chose one still sees that their choice took. When there is no settledness to
+   * report and no pin either, it falls back to what it has always said about a candidate with
+   * nowhere to go.
+   */
+  const pinLine = collapsed
+    ? (resolverPinLine(view, pick, isSaveable(candidate)) ?? locationLine(candidate))
+    : (settlednessLine(view, pick) ?? (saveable ? null : locationLine(candidate)));
+
   const pinRow = (
     <div
       className={cn(
-        'flex items-center justify-between gap-2',
+        'flex items-center gap-2',
+        // The Maps link keeps its edge when there is no line beside it, rather than sliding left
+        // into the space and changing the card's geometry per state.
+        pinLine === null ? 'justify-end' : 'justify-between',
         !collapsed && 'border-t border-border/60 px-4 py-1.5',
       )}
     >
@@ -282,10 +320,19 @@ export function ExtractedCandidateRow({
           removes the whole message — measured at 412 px, "Approximate pin from the caption"
           rendered as "Approximate pin from the ca…". Wrapping costs a few pixels of height and
           never costs meaning. */}
-      <span className="flex min-w-0 items-center gap-1.5 text-xs font-medium leading-tight text-muted-foreground">
-        <Crosshair className="size-3.5 shrink-0" aria-hidden />
-        {resolverPinLine(view, pick, isSaveable(candidate)) ?? locationLine(candidate)}
-      </span>
+      {pinLine !== null && (
+        <span className="flex min-w-0 items-center gap-1.5 text-xs font-medium leading-tight text-muted-foreground">
+          {/* The crosshair means "this is about where the pin is". Settledness is about the
+              decision, not the coordinate, so it gets the tick instead — the same mark the
+              tickbox and the saved-outcome chip already use for "this one is answered". */}
+          {collapsed || settlednessLine(view, pick) === null ? (
+            <Crosshair className="size-3.5 shrink-0" aria-hidden />
+          ) : (
+            <Check className="size-3.5 shrink-0" aria-hidden />
+          )}
+          {pinLine}
+        </span>
+      )}
       <a
         href={googleMapsSearchUrl(candidate, chosenOption)}
         target="_blank"

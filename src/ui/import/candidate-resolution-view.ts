@@ -422,6 +422,114 @@ export function resolutionChip(
   return null;
 }
 
+/**
+ * The badge beside the candidate's name — the one-glance answer to **"where did this pin come
+ * from?"** (W6-4, `overnight-copy-deck.md` §3.2).
+ *
+ * ## What changed, and why it is a correctness fix rather than a restyle
+ *
+ * The badge used to carry `resolutionChip`'s *settledness* in an 11px mint pill while provenance
+ * sat at the bottom of the card in 12px grey. `facelift-plan.md` §1 called that out: the hierarchy
+ * inverted the epistemics. The loudest thing on the card was how settled we were; the quietest was
+ * whether anything had verified it. The two swap here — settledness demotes to the line this
+ * vacates (`settlednessLine`), and it does not disappear, because a user who picked an option must
+ * still see that their pick took.
+ *
+ * **None of the underlying logic moved.** The band is still `deriveResolution`'s, the three
+ * provenances are still `resolverPinLine`'s three, and `not_attempted`/`capped` are still not
+ * `no_match`. What changed is which slot renders which.
+ *
+ * ## The five labels
+ *
+ * | id | When | Label | Tone |
+ * |---|---|---|---|
+ * | C120 | a picked or auto-accepted shortlist entry | `From the map data` | settled |
+ * | C121 | options exist, none picked, no model pin | `Needs your pick` | needs-pick |
+ * | C122 | `failed`/`unresolved`/`ambiguous`, saving the model's coordinate | `From the caption` | caption |
+ * | C123 | `capped`/`not_attempted` | `Not checked` | caption |
+ * | C124 | `unresolved` with no coordinate at all | `No match` | needs-pick |
+ *
+ * **C120 and C122 are a matched pair.** They are the two answers to one question, and it is the
+ * parallel that makes the difference legible at a glance; shortening one and not the other destroys
+ * it. If the pair ever cannot fit, both go short together — `Map data` / `Caption` — never one of
+ * each. A test pins that they carry the same `From the ` prefix or neither does.
+ *
+ * **C121 keeps `resolutionChip`'s own words**, read from it rather than repeated, because it is not
+ * provenance at all — it is the absence of one — and it already ships, already tests and is already
+ * right.
+ *
+ * **`caption` is its own tone, not the quiet one.** A pin the model guessed is not a lesser version
+ * of a matched pin, it is a different kind of claim, and painting it grey is what made it the
+ * quietest thing on the card in the first place.
+ *
+ * **`null` for a `failed` lookup with no model coordinate.** There is no honest five-word answer
+ * for it: `No match` would say we looked and found nothing, which is precisely what `failed` is
+ * not, and the copy deck specifies no sixth string. `lookupFailureNotice` already states that case
+ * at screen level and the card's own line still says the pin is missing. Recorded as a gap rather
+ * than filled by inventing a string.
+ *
+ * There is no confidence number, band, bar or percentage in any of this, and there may never be —
+ * the score behind these bands is an internal ranking and rendering it would dress it as a finding.
+ */
+export function provenanceBadge(
+  modelHasCoordinates: boolean,
+  view: CandidateResolutionView,
+  pick: number | null,
+): { readonly label: string; readonly tone: 'settled' | 'caption' | 'needs_pick' } | null {
+  // C120. A picked or auto-accepted shortlist entry: the venue's own coordinate, 11 m out for
+  // HaKosem against 65-470 m for the model's guess.
+  if (effectivePick(view, pick) !== null) return { label: 'From the map data', tone: 'settled' };
+
+  // C121. Read off `resolutionChip` rather than restated: one set of words for one state.
+  const chip = resolutionChip(view, pick);
+  if (chip !== null && chip.tone === 'needs_pick' && !modelHasCoordinates) {
+    return { label: chip.label, tone: 'needs_pick' };
+  }
+
+  // C122. The degraded path (owner ruling §1.3, 2026-08-28), and only where the place database
+  // genuinely gave us nothing: `failed` (no answer), `unresolved` (an answer of "no such place"),
+  // and `ambiguous` with a model pin — the one card that would save a guess while the provider's
+  // own rows sat unpicked above it.
+  if (
+    modelHasCoordinates &&
+    (view.kind === 'failed' || view.kind === 'unresolved' || view.kind === 'ambiguous')
+  ) {
+    return { label: 'From the caption', tone: 'caption' };
+  }
+
+  // C123. Its own words, before C124's, because these two were never put to the resolver and
+  // "we never looked" is not "we looked and found nothing" (`resolution-record.ts`). It is the
+  // same distinction `resolverPinLine` draws with C125's second sentence.
+  if (view.kind === 'capped' || view.kind === 'not_attempted') {
+    return { label: 'Not checked', tone: 'caption' };
+  }
+
+  // C124. We looked, and there was nothing there.
+  if (view.kind === 'unresolved') return { label: 'No match', tone: 'needs_pick' };
+
+  return null;
+}
+
+/**
+ * Where settledness went when provenance took the badge (W6-4).
+ *
+ * `Matched` and `Your pick` are the same two labels `resolutionChip` has always produced, in the
+ * line the provenance vacated. They demote rather than vanish: a user who read three addresses and
+ * chose one must still be able to see that their choice took, and the card's largest text is the
+ * name the save will write, not a status.
+ *
+ * `null` for everything else. `Needs your pick` is deliberately **not** here — it moved to the
+ * badge (C121), because "we have not settled this" is what the badge slot is for and repeating it
+ * twice on one card would make the unsettled state the loudest thing on the screen.
+ */
+export function settlednessLine(
+  view: CandidateResolutionView,
+  pick: number | null,
+): string | null {
+  const chip = resolutionChip(view, pick);
+  return chip !== null && chip.tone === 'settled' ? chip.label : null;
+}
+
 /** What an `ambiguous` candidate needs before it can be saved, once it has no model pin to fall
  *  back on. Null whenever the save would go through as things stand. */
 export function pickRequiredNotice(
