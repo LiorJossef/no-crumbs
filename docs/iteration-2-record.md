@@ -232,6 +232,14 @@ because the second raise had an independent second reason. **The pattern says go
 cause. It does not say the compensations were wrong**, and using it that way would delete good work.
 The notes were annotated rather than reverted for exactly this reason.
 
+**A ruling should rest on the claim that survived the photograph, not on the one that motivated it.**
+The motivating claim is the dangerous one: **it is what everybody remembers, it is what gets quoted
+back, and it reads as settled precisely because it did the persuading.** Ruling 6 was granted on *"a
+faceless gold disc would be ambiguous with a café pin, and a faced one cannot be"* — and the
+measurement found no colour collision to rescue. The ruling was right; its reason was not. The lead
+then quoted the motivating claim back **twice**, in consecutive messages, in the direction that
+flattered the ruling — which is what this failure looks like from the inside.
+
 **A clean number with its limits stated beside it is worth more than a clean number.** *0 failures
 at `214bb0f`* is a statement about 376 scored strings — not about the 78 rows below the fold, the 12
 occluded, or the six that were **not measured rather than passed**.
