@@ -27,16 +27,38 @@ This is the only item on the list that needs the owner rather than the team.
 
 ## 1. The three questions being answered now
 
-| Lane | Question | What it can change |
-|---|---|---|
-| `i6-edge` | **What is this product's edge?** | The order of everything below |
-| `i6-embed` | May we embed TikTok playback, in what shape, at what privacy cost? | Whether item 6 exists as described |
-| `i6-rtl` | How does Hebrew actually render today? | The size of item 2 |
+| Lane | Question | What it can change | Status |
+|---|---|---|---|
+| `i6-edge` | **What is this product's edge?** | The order of everything below | **Answered — `9779925`** |
+| `i6-competitors` | Is the category actually as assertion-heavy as the edge ruling assumes? | Whether the edge ruling holds at all | Running |
+| `i6-embed` | May we embed TikTok playback, in what shape, at what privacy cost? | Whether item 6 exists as described | Running |
+| `i6-rtl` | How does Hebrew actually render today? | The size of item 2 | Running |
 
-The edge question is not decoration. If the answer is *"the edge is that we keep what we could not
-place"*, then §4 (entities) is the iteration's centre and the login background is garnish. If the
-answer is *"the edge is the map as a personal artefact"*, the ordering below is roughly right. **I am
-not going to pretend that ordering is settled before its input lands.**
+### 1.1 The edge ruling, and what it does to this plan
+
+`docs/product-edge-2026-08-31.md`: the edge is the product's **refusal to assert anything about a
+place beyond what the user confirmed and what open data can store forever**, in a category that
+differentiates by adding exactly what that refusal excludes. **It is half built** — the refusal ships
+(review step, fixed info boundary, honest no-places screen); *retaining what failed instead of
+discarding it* does not.
+
+Three consequences, and they are not cosmetic:
+
+1. **§4 stops being "finish a table" and becomes the item that completes the differentiator.** It
+   moves ahead of L2 polish. It does not move ahead of `L1-F10`, which is a deadline rather than a
+   scope call — see §8.1.
+2. **Any feature that asserts something unverified is now refused categorically, not case by case.**
+   Ratings, "open now", trending, a leaderboard. Shipping one would not merely add scope, it would
+   contradict the ruling. This is a standing filter on every future request, including ones that
+   sound harmless.
+3. **Single-player is now a ruled position, not an unfinished state.** A discovery layer is where a
+   refusal-to-assert principle is tested hardest, so it is the fastest way to lose the edge rather
+   than a growth lever to add later.
+
+**The ruling rests on an assumption it could not test** — that the category really does compete by
+asserting. `i6-competitors` is testing it against primary sources, instructed to look hardest for the
+competitor that *does* exercise restraint. If that audit finds one, this section is wrong and §8 is
+re-derived. The dependency is stated rather than buried because a roadmap has already moved on it.
 
 ---
 
@@ -203,15 +225,30 @@ later.
 
 ## 8. Ordering
 
-Provisional, and §1 says which parts move.
+Revised against the edge ruling. Still provisional where §1 says so.
 
-1. **Now, in parallel:** the three questions in §1.
-2. **RTL (§2)** — foundation, and it sizes itself from the audit.
-3. **Profile menu + desktop `＋` (§5.1, §7)** — one navigation change, not two, and it closes L1.
-4. **Entities (§4)** — position decided by the edge ruling; potentially the centre of the iteration.
-5. **Sign-in background (§5.2)** — self-contained, no dependencies, can slot anywhere.
-6. **Polish and motion (§3)** — continuous, and partly a cleanup of what iteration 5 measured.
-7. **TikTok preview (§6)** — only after `i6-embed`, and only in whatever shape is permitted.
+1. **RTL (§2)** — foundation, and it sizes itself from the audit.
+2. **Entities (§4)** — promoted. On the edge ruling this is the item that completes the
+   differentiator, not a leftover schema task.
+3. **Profile menu + desktop `＋` (§5.1, §7)** — one navigation change, not two, and it closes the last
+   unbuilt L1 product feature.
+4. **Sign-in background (§5.2)** — self-contained, no dependencies, slots anywhere.
+5. **Polish and motion (§3)** — continuous, and partly a cleanup of what iteration 5 measured.
+6. **TikTok preview (§6)** — only after `i6-embed`, and only in whatever shape is permitted.
 
 **Concurrency:** §2, §5.2 and §4 have disjoint write scopes and can run as one wave. §5.1 and §7 are
 the same files and must be one lane. §3 overlaps everything and goes last or in the gaps.
+
+### 8.1 Two things above this plan that the owner owns
+
+**`L1-F10` — graded artefacts and submission.** The edge ruling puts it first, and it is not in this
+plan because the owner asked for a UI/UX iteration and this is a course deadline, not a product
+feature. **Not silently reordered around.** If it has a date, it outranks everything here and the
+owner is the only one who knows.
+
+**A gap between the ruling and the positioning.** `brand-and-product-foundation.md` §1 positions the
+product on **mechanism** — geography replaces chronology. That is true, and it is copyable in a
+sprint; it is a different axis from the refusal-to-assert claim the edge ruling identifies as the
+actual moat. `i6-edge` flagged this as a gap rather than a contradiction and did not touch the
+positioning copy, correctly: §3 of that document is closed, and positioning is owner and
+`voice-and-vocabulary` territory. **Recorded as an open decision, not a proposed edit.**
