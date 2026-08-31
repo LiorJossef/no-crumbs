@@ -19,6 +19,33 @@
 > real production call site (`src/integrations/tiktok/oembed-source-adapter.ts:167`) alongside its
 > definition, while `rateLimitedLocal` returns its definition, the error map, and two tests that
 > construct it themselves. The pattern fires; the absence is real.
+>
+> **Amended mid-round.** The owner widened the brief to include craft (alignment and position) and
+> delight (the mascot). Those two sections **are** photographed and measured in a browser, against
+> the dev server on `112cb77` at `http://localhost:4311`: **390x844 and 1440x900 layout viewports**
+> at `deviceScaleFactor: 2`, **both themes**, headless Chromium through the repo's own Playwright.
+> The layout viewport is named because `ui-review-2026-08-31.md` §5 records an emulated phone's
+> 417px *visual* viewport hiding 27 of 28 overflowing pixels; every number below is asserted
+> against 390. **Only the signed-out surfaces could be photographed** — the local database is
+> stopped, so `/import`, `/map`, `/profile` and `/collections` all answer `307` to `/sign-in`, and
+> no signed-in surface was seen. The craft pass is therefore a complete sweep of the **seven
+> message-and-chrome surfaces** and says nothing about the rest of the product.
+>
+> **That instrument was made to fail too.** The painted-pixel probe behind craft finding C8 returns
+> the clip's own left edge — a wrong answer — at threshold 40, and a stable one at 80 and 120; its
+> control is the `h1`, whose ink is known to reach its box, and which the probe reports at exactly
+> its box edge. A probe that cannot be made to lie has not been checked.
+>
+> **The dev server serves the working tree, not `112cb77`, and the tree is moving** — other lanes
+> hold ~50 modified files. So before trusting a pixel: `git status --porcelain` over
+> `src/components/brand/`, `src/app/globals.css`, `src/app/page.tsx`, `src/app/sign-in/`,
+> `src/app/auth/`, `src/app/collections/join/`, `src/app/not-found.tsx`,
+> `src/components/ui/button.tsx` and `src/components/map/import-confirmation.tsx` returns
+> **nothing** — none of the files composing the seven measured surfaces is modified, so what was
+> photographed is `112cb77`. (`src/app/import/page.tsx` *is* modified, and `/import` was not
+> measured: it answers `307` without a database.) Two of the modified paths are
+> `tests/unit/app/proxy-matcher.test.ts` and `tests/unit/import/signed-out-share.test.ts`, which are
+> new and unattributed here — **finding 3 may already be in hand in another lane.**
 
 ---
 
@@ -115,6 +142,12 @@ three components carrying their own `<h2>`; the desktop list guillotining its la
 `ux-architecture.md`'s stale strings; the missing desktop entry point for manual add and new
 collection. None of them displaces anything below.
 
+**One delight finding won a slot on merit** — number 5 — and it displaced the finding that had been
+fifth, which is recorded under it rather than deleted. Craft and alignment findings are **not** in
+this list: they are in their own unranked section after it, because ten items each worth 4px would
+otherwise crowd out a capability gap, and collectively they are the thing that decides whether this
+product reads as made or assembled.
+
 ### 1. Saving a place from a second TikTok destroys the note you wrote about the first
 
 | | |
@@ -167,16 +200,246 @@ collection. None of them displaces anything below.
 
 ---
 
-### 5. Every picture in the library expires at once, and nothing goes and gets it back
+### 5. The one moment this product exists for is marked with a check mark from an icon set
+
+*Promoted into the five on the owner's widened brief, and it displaced a real finding — see the
+note under this table for what it pushed out and why I think that ranking is right.*
 
 | | |
 |---|---|
-| **What** | The thumbnail that tells you which TikTok a place came from is still there in six months. |
-| **Why it matters** | This is a product whose thesis is a map built up **over months**, and which deliberately ships no return triggers — so the user comes back after long gaps by design. The thumbnail is the recognition cue: it is what makes a row in a list a memory of a video rather than a name and a category. It is a signed CDN URL with a roughly six-month life, so the failure is not gradual and not per-row; a library built through the autumn goes visually blank across a whole season of saves at roughly the same time. What the product does about it is hide the evidence: `onError` sets `failed` and returns `null`, permanently for that mount. Nothing re-fetches, nothing records that the picture was ever there, and nothing tells the user. From the outside it does not look like an expiring link. It looks like the app lost their stuff. |
-| **Evidence** | **Measured (static), and the expiry is VERIFIED by the repo's own grading.** `supabase/migrations/0003_sources.sql:28`: *"Signed, ~6-month-expiring CDN URL (VERIFIED). **Never treat as permanent** (security-privacy Q6)."* The column is plain `text` with no expiry timestamp beside it, and `src/domain/places/spot.ts:54-57` carries a typed `expiresAt` field it always sets to `null` because *"no expiry timestamp is stored, so there is nothing truthful to put there yet."* `src/app/map/_lib/get-spots.ts:159` sets it. `src/components/sheet/place-sheet.tsx:1954-1968` is the whole response: hide it. Nothing in `src/` re-calls oEmbed for an existing source — the only oEmbed caller is the import path. |
-| **Known?** | **Partly, and I am raising it anyway.** The expiry is documented in three files; what is nowhere is the consequence or a plan. "Never treat as permanent" was honoured to the extent of not showing a broken-image icon, which is the smallest possible reading of that instruction. |
-| **Effort** | **A few days.** The cheap version needs no storage and no ToS question: when a thumbnail fails to load, ask the server to re-run oEmbed for that `source_id` and update `sources.thumbnail_url` — the oEmbed adapter, the source row and the write path all exist, and oEmbed is the VERIFIED access mechanism this product is already built on. Store `thumbnail_fetched_at` while you are there so the `expiresAt` the type already has stops being a lie. Caching the image bytes ourselves is the expensive version and needs `security-privacy` on TikTok's terms first; do not start there. |
-| **What would change my mind** | A measurement that the URLs do not in fact expire, or expire far longer than six months — one `curl -I` against a stored `thumbnail_url` older than the window would settle it, and I could not run it because there is no database to read a URL out of. If they last years, this drops out entirely and the six-month figure in `0003` should be corrected rather than carried. |
+| **What** | When a place lands on your map, the character the product is named after is the thing that tells you. |
+| **Why it matters** | Every other beat in this product is honest about being ordinary — the no-places screen is deliberately neutral, the failure copy deliberately refuses to apologise, the review screen deliberately refuses to celebrate. That restraint is correct, and it is exactly what makes the *one* success worth marking: a TikTok became a pin, which is the entire proposition. What marks it today is a **lucide `Check` glyph in a 24px disc**, the same check mark in every product ever made, on a strip that auto-dismisses. Meanwhile the mascot has a mood for this state, an animation for this state, and a spark pair drawn for this state, all three shipped and all three unused. This is not "add an animation": it is the product declining to use the identity it built, at the only moment it has earned one. |
+| **Evidence** | **Measured (static), and photographed for the surrounding surfaces.** `src/components/map/import-confirmation.tsx:26,77` — `import { Check, X } from 'lucide-react'` and `<Check className="size-3.5" aria-hidden />`. That component is the whole post-import confirmation (`map-page-client.tsx:1391`). Against it: `CRUMB_MOODS.found` (`src/components/brand/crumb-path.ts`) is `{ eyes: 'happy', mouth: 'grin', spark: true, state: 'Places added to your map' }`; `CRUMB_SPARKS` is *"the one celebration the system has, and there is no second one"*; `.crumb-anim-land` in `globals.css` is the one-shot landing beat. **`mood="found"` appears nowhere in `src/`** — the only four moods any call site uses are `idle`, `reading`, `nothingFound` and `offline` (grep over `src/`, and the same grep returns all four of those with call sites, which is the control). Four of eight moods and five of seven animations are drawn, styled, tested and unreachable. |
+| **Effort** | **An afternoon, and most of it is a component swap.** `<CrumbMascot mood="found" animation="land" className="size-6" />` in place of `<Check />`, plus the spark-loop defect in the delight section below (`.crumb-anim-land .crumb-spark-1/2` are `infinite` under a comment that forbids exactly that), plus a decision about `alreadySaved` — a re-import that added nothing should not get the celebration, and `ImportConfirmation` already receives the number it needs to tell. |
+| **What would change my mind** | An `ux-interaction` ruling that the confirmation strip is deliberately quiet because it lands over a map that is simultaneously flying the camera to the new pins, and that two events at once is one too many. That is a real argument and it would move this to the `nearMe` or `beenThere` moment instead of killing it — the finding is *the moods are unreachable*, not *this specific strip*. |
+
+**What this displaced, recorded rather than dropped: every thumbnail in the library expires at
+roughly the same time and nothing re-fetches.** `supabase/migrations/0003_sources.sql:28` grades the
+CDN URL *"Signed, ~6-month-expiring (VERIFIED). **Never treat as permanent**"*; `spot.ts:54-57`
+carries an `expiresAt` it always sets to `null` because no timestamp is stored; and the entire
+response is `place-sheet.tsx:1954-1968`, which hides the broken image. For a product whose thesis is
+a map built over months, with no return triggers by ruling, a whole season of saves losing its
+pictures at once does not read as an expiring link — it reads as the app losing your stuff. A few
+days: on load failure, re-run oEmbed for that `source_id` and store `thumbnail_fetched_at`.
+**I ranked it sixth rather than fifth deliberately**, and the reasoning is the honest part: its harm
+is six months away on a product that has not launched, while the success beat is missing every
+single time anyone completes the core loop, and its assets already exist and are already tested.
+On value-per-hour it is not close. If the owner disagrees, this is the one to swap back in.
+
+---
+
+## The craft pass — alignment and position
+
+Unranked, and every one of them measured or photographed. Screenshots and the three probe scripts
+are in the session scratchpad; the numbers below are reproducible from the files and lines named.
+
+**Read the shape before the list.** Six of the ten are on **two files** — `chrome-stage.tsx` and the
+collection-join page — and they are two different kinds of problem. `ChromeStage`'s are *systemic*:
+one wrong property on a shared component, wrong identically on all five screens that use it, and
+each is a one-line fix that repairs five surfaces at once. The join page's are *local*: it does not
+use the shared component, so every value on it was re-decided by hand and four of them came out
+different from the family. **That is the generalisable point of this whole section** — the product
+is not sloppy, it has one screen outside the system, and everything outside a system drifts.
+
+### C1. Six screens scroll 28px sideways on every phone · **measured** · 390 layout viewport, both themes
+
+`document.documentElement.scrollWidth` is **418** against a 390 layout viewport on `/`, `/sign-in`,
+`/sign-in?mode=sign-up`, `/auth/reset`, `/auth/reset?state=expired` and `/auth/new-password`. It is
+**0** on `/collections/join/<token>` and `/nope`, which is the control: the same probe on the same
+run returns no overflow for the two screens that do not use `ChromeStage`.
+
+The culprit is one element, and it is decorative: `src/components/brand/chrome-stage.tsx:79`, the
+card's glow, `-inset-x-12` (−48px each side) with no clipping ancestor. Its box measures `left=-28,
+right=418`, which is the 418 exactly. The two `rounded-full` blooms reach further still (to x=607)
+and cause no scroll, because `ChromeGround`'s wrapper is `overflow-hidden` — so the fix is already
+demonstrated one component away.
+
+**Known, and I am raising it because the shape changed.** `ui-review-2026-08-31.md` finding 5 filed
+this on `/` and `/sign-in`; my 28 is the same 28. What is new is that **four of the six screens did
+not exist this morning** — `5fd987c` built them on the shared component and they inherited the
+defect, which is what a systemic defect does when the system is used correctly. Effort: one class.
+
+### C2. The identity lockup's vertical position is a function of how many lines the subhead wraps to · **measured** · 1440x900
+
+At 1440, the mark sits **57px** below the card's top edge on `/`, `/auth/reset` and
+`/auth/new-password`, **79.5px** on `/sign-in?mode=sign-up`, and **132.5px** on `/sign-in`. In
+absolute terms it is at `y=315.52` on `/` and `/sign-in` and at `y=326.52` on the other three — so
+**toggling the sign-in screen between its two modes moves the product's mark down 11px**, and that
+toggle is a control on the screen itself.
+
+The cause is `chrome-stage.tsx:127`, `justify-center` on the editorial section. The mark is the
+first item in a column that is vertically centred against a form column of a different height, so
+whether the subhead wraps to one line or two moves the logo. (`sign-in`'s subhead is 44px tall,
+`sign-up`'s is 22px; the difference is 22px and the mark moves by half of it.)
+
+The `justify-center` is deliberate and its comment gives a good reason — it removed 80px of dead
+space under the landing CTA. The defect is that it centres the column **containing the identity**
+rather than only the column that needed it. `lg:justify-start` on the editorial half with the mark
+pinned to the card's top padding keeps both properties.
+
+### C3. The invite screen's headline uses the display size token and overrides its leading · **measured** · both viewports
+
+Every 34px display headline in the product renders at **38.08px** leading (`text-display`).
+`/collections/join/<token>` renders at **42.5px** — `1.25`, i.e. `leading-tight` — because the
+element is `font-display text-display leading-tight` (`src/app/collections/join/[token]/page.tsx`,
+the `h1` in the signed-out branch). Same font, same size, same weight, same role as `not-found`'s
+headline, 4.4px more leading. Deleting one class fixes it. This landed **this morning**, in the same
+commit that fixed the screen's typeface — the fix joined the family for face and size and then
+opted out of its leading.
+
+### C4. The invite screen's primary action is a different size from every other primary action · **measured** · both viewports
+
+| surface | CTA height at 390 | at 1440 | label size |
+|---|---|---|---|
+| `/`, `/sign-in`, `/sign-in?mode=sign-up`, `/auth/reset`, `/auth/new-password` | 48 | 52 | 16 → 15.5px |
+| `/nope` (not-found) | 48 | 52 | 16 → 15.5px |
+| **`/collections/join/<token>`** | **56** | **56** | **16 → 16px** |
+
+`h-14 w-full text-base` on the join page against `h-12 lg:h-13` everywhere else. Two divergences on
+one control: 8px taller on a phone, and it does not take the desktop type step-down its six
+siblings take. Everything else about the button family is exact — border-radius is `16px` on all
+seven, the label is Manrope 700 on all seven — which is what makes this one stand out rather than
+disappear.
+
+### C5. The invite screen mixes text alignment inside one column · **measured** · both viewports
+
+In a single 384px column (342px at 390), `computedStyle.textAlign` is `start` for the headline, the
+subhead and the CTA, and **`center`** for the two lines under it — *"You'll come straight back
+here."* and *"Already have an account? Sign in"*. Same column, same width, two alignments, no rule
+distinguishing them. Photographed at 1440 light: the ragged left edge under a hard left rail is
+visible without measuring.
+
+### C6. The invite screen's mark does not take a desktop step, and is still faceless · **measured** · both viewports
+
+`<PinMark className="h-[30px] w-[30px] shrink-0" />` — an arbitrary pixel value, 30px at both
+breakpoints. `not-found.tsx:52` uses `size-7.5 lg:size-9`, so 30 → 36. The mark is also **faceless**:
+no `face` prop, so it renders as a plain filled disc. That half is `ui-review-2026-08-31.md`
+finding 7 and is **still live** — `error.tsx` was fixed (it now renders `CrumbMascot mood="offline"`),
+`not-found.tsx` and the join screen were not.
+
+### C7. On the product's only acquisition surface, the mark is stranded and the frame is mostly empty · **photographed** · 1440x900 and 390x844, both themes
+
+The mark is pinned to the top-left of the *viewport* (`x=24`) while the content block is centred
+(`x=528` at 1440) — **504px apart**, with nothing in between. At 390 the disc sits at `y≈56` and the
+headline starts at `y=465.5`, so **roughly 400px of empty screen** separates the product's only
+identity mark from the first word a stranger reads. Photographed in both themes at both viewports.
+
+This is the composition half of `ui-review` findings 7 and 8, still live. It is in the craft pass
+rather than the five because the *words* on this screen were fixed this morning and are now good;
+what is left is where things sit. It is also the cheapest of the seven to fix well, because the
+product already owns the answer: `ChromeStage` is a centred card with the lockup inside it, and this
+screen is the one message surface that does not use it.
+
+### C8. The mark's ink sits 5px right of the rail everything beside it aligns to · **measured, painted pixels** · 1440x900 light
+
+Every element in `/sign-in`'s editorial column has its box at `x=253`: the mark, the kicker pill,
+the headline, the subhead. Scanning painted pixels in a screenshot clip, the **headline's ink begins
+at x=253** (its control — a Fraunces cap reaches its box edge) and the **mark's ink begins at
+x=258**. Five pixels.
+
+It is not a bug and it is not an accident: `CRUMB_ARTBOARD` is `-8 -8 116 116`, reserving room for
+the keyline's straddle, and `CRUMB_BOUNDS.minX` is `5.2`, so the ink is inset `(5.2+8)/116 = 11.4%`
+of the box, less about half the 4.5-unit keyline — **5.3px predicted at a 56px box, 5 measured.**
+The arithmetic and the pixels agree, which is what makes this actionable rather than a hunch.
+
+This is the classic optical-alignment case: a shape whose bounding box is not its silhouette,
+box-aligned against type. Whether to nudge it is `design-system-frontend`'s call, and the *right*
+fix is a negative inline start of `(CRUMB_ARTBOARD.minX + CRUMB_BOUNDS.minX)/116` of the box —
+derived from the constants, so it cannot drift from the shape, exactly as `CRUMB_HEAD_CENTRE`
+already is. At the 44px phone mark the same fraction is 4.1px.
+
+### C9. Two secondary actions on one screen, two alignments · **measured** · both viewports
+
+On `/sign-in`, *"Forgot your password? **Reset it**"* is `text-align: start` and begins at `x=45`,
+on the rail every other element on the screen sits on. *"New here? **Create an account**"* is
+`text-align: center` in the same 300px column. Both are secondary actions, one screen apart in the
+eye's travel. One of the two is wrong and I have no evidence which; naming the pair is the finding.
+
+### C10. The divider between the two halves is asymmetric at one breakpoint and symmetric at the other · **measured** · 390 vs 1440
+
+`chrome-stage.tsx:127` and `:212`: at mobile the editorial half is `pb-8 pt-9` and the form half is
+`pb-8 pt-7`, so the four vertical paddings of the card are **36 / 32 / 28 / 32**; at `lg` both
+halves are `py-14`, so all four are **56**. Measured on `/sign-in` at 390, the gap across the
+divider is 61px total (32 above + 1px rule + 28 below). A 4px asymmetry can be an optical decision
+about text above a rule versus a label below one — but an optical decision that exists at one
+breakpoint and vanishes at the other is a leftover, not a decision.
+
+---
+
+## Delight, and the mascot
+
+The brief asks for three separate things. They are separated.
+
+### 1. What it does today — read, not guessed
+
+| | |
+|---|---|
+| **Moods defined** | **Eight** (`crumb-path.ts` `CRUMB_MOODS`), each bound to a named product state, out of six eye sets and seven mouths. `#moods`' rule is *"a face may only exist if there is a screen that needs it."* |
+| **Moods used** | **Four.** `idle` — `/map`'s shell chip, the OG image, the apple icon, and `ChromeMark` on `/`, `/sign-in`, `/auth/reset`, `/auth/new-password`. `reading` — the trail on the import rail. `nothingFound` — the no-places screen. `offline` — `error.tsx` and `global-error.tsx`. |
+| **Animations defined** | **Seven** in `globals.css` — bob, wobble, scan, land, stir, halo, plus the awareness transform. |
+| **Animations used** | **Two.** `stir` (the map chip and `error.tsx`) and `wobble` (the import trail). `bob`, `scan`, `land` and `halo` are targeted by no call site. |
+| **Awareness** | `CrumbAware` writes two custom properties from a `requestAnimationFrame`, the transform lands on `.crumb-eyes`, no React re-render and no layout. Mouse only — a tap would leave the eyes frozen off-centre, so touch gets nothing deliberately. Reduced motion detaches the listeners rather than hiding the result, and subscribes to changes rather than sampling once. |
+| **Restraint** | `stir` is 17s and a measured 85.6% still. `land` is `1 both`, never `infinite`, *"if it loops it stops being an event and becomes wallpaper."* The map is excluded from bob and from any opacity pulse because both are already the map's own pin language. |
+
+The rig is better than the product's use of it. That is the whole shape of this section.
+
+### 2. What it should notice and does not
+
+1. **A place landing on your map.** `found` + `land` + the spark pair, all drawn, all unused; the
+   moment is a lucide check mark. This is finding 5 above.
+2. **Locating.** `nearMe` is `{ eyes: 'wide', mouth: 'o', halo: true, state: 'Locating, near-me on' }`
+   and `.crumb-anim-halo` is *"a slow pulse behind the body — a signal, not progress"*, which is
+   precisely what a GPS fix is. `components/map/near-me.ts` is a full state machine with named
+   `GeolocationPositionError` cases and no mascot anywhere near it.
+3. **A place marked Been.** `beenThere` is closed eyes and a content mouth — the quietest face in
+   the set, drawn for the quietest act in the product. `setSavedPlaceVisited` ships; the face does
+   not appear.
+4. **A place added to a collection.** `saved` (the wink) is bound to exactly that state in the
+   table. Collections shipped; the wink never runs.
+5. **A failure the mascot has no mood for.** `IMPORT_ERROR_COPY` carries roughly fifteen error
+   states, each with its own `icon` from a separate icon vocabulary (`waiting`, `our-side`,
+   `link-off`, `no-caption`). The mascot's only failure mood is `offline`, and it is spent on the
+   React error boundary. The most common failure surfaces in the product run an icon system that
+   has nothing to do with the character.
+
+**The comment that is quietly apologising**, and it is the one to fix first because it is what stops
+anyone looking: `globals.css`'s mascot block is headed *"The seven animations … **and the two of
+them this product has a screen for**."* That sentence reads as a scoping decision and it is not one
+— the product has a screen for `land` (the save confirmation), a screen for `halo` (near-me), and
+two more moods with shipped states. The header records an absence as a fact about the product. Two
+of eight is a backlog, written as a boundary.
+
+### 3. What it does that it should not — the one nobody looks for
+
+1. **The celebration loops forever, four lines under the rule forbidding it.**
+   `globals.css`: `.crumb-anim-land .crumb-all { animation: crumb-land 0.78s … 1 both; }` — one
+   shot, correct — immediately followed by
+   `.crumb-anim-land .crumb-spark-1 { animation: crumb-spark 1.6s ease-in-out infinite; }` and the
+   same for `-2`. The body lands once and the sparks twinkle **indefinitely**, on a comment block
+   whose own words are *"**one-shot**, `1 both`, never `infinite`. `#motion`: 'If it loops it stops
+   being an event and becomes wallpaper.'"* It is invisible today because nothing uses `land` — and
+   it fires the instant anyone implements finding 5, which is exactly the wrong moment to discover
+   it. Two words.
+2. **The stylesheet documents the eye travel that was measured and rejected.** The `.crumb-aware`
+   block says the lengths are *"`2.4` and `1.8`"* and that they *"keep the pupils inside the face at
+   full deflection."* The shipped values are `TRAVEL_X = 5` and `TRAVEL_Y = 3.2`
+   (`crumb-aware.tsx`), raised **because 2.4 units is 0.91 CSS px at a 44px mark — sub-pixel, and
+   photographed as indistinguishable at the two extremes.** The stylesheet now records the abandoned
+   numbers as current, beside the rule that justifies them. The next person to tune this reads the
+   comment and reverts the fix.
+3. **`offline` is bound to a state that is not the state it is used on.** The mood table says the
+   `state` field *"is not documentation. It is the screen the mood is allowed on"*, and binds
+   `offline` to *"Connection lost, retryable error."* `error.tsx` is the React error boundary — a
+   component that threw, which is neither. Small, but it is the table's own rule, and the table is
+   the thing keeping eight faces from becoming twelve.
+
+**And the reverse, checked for and not found.** There is no surface where the mascot performs during
+a moment that should be quiet. The strongest evidence is the hardest case: the no-places screen is
+the modal outcome of an import at LEVEL B's hit rate, the user sees it three times in four, and it
+renders `nothingFound` with **no animation prop at all** — flat eyes, flat mouth, dead still, on the
+screen where a sad or busy mascot would turn the product's most common outcome into a small failure
+eight times a week. That restraint is the best decision in the whole mascot system and nothing
+proposed above should touch it.
 
 ---
 
@@ -229,15 +492,55 @@ between a place whose source link is stable and one that changes when PostgREST 
 also, incidentally, the line that made finding 1's sibling behaviour legible — the many-to-many is
 real, the render is one, and the file says so instead of pretending the relationship is 1:1.
 
+**6. The chrome family's spacing scale is exact, and I went looking for a break in it and failed.**
+Measured across `/`, `/sign-in`, `/sign-in?mode=sign-up`, `/auth/reset` and `/auth/new-password` at
+both viewports: the card's inner inset is **25px** at 390 and **45px** at 1440 on *every* screen and
+*every* element — mark, kicker, headline, subhead, field, button — and both numbers are the token
+plus the card's 1px border, not a stray value. The primary action's distance to the card's bottom
+edge is **33px on all five**. The editorial rhythm is `gap-5` between the lockup and the block and
+`gap-3` inside it, measured at 20 and 12 at 390 and 24 and 16 at 1440, on all five. Border-radius on
+the primary action is `16px` on all **seven** message surfaces including the two that do not share
+the component. C2 and C10 are the only two breaks I found in that family, and they are properties of
+one shared component rather than drift — which is the difference between a system with two bugs and
+no system.
+
+**7. `CrumbAware` is the best-argued piece of interaction code in the repository.**
+`src/components/brand/crumb-aware.tsx`. Not a `useState` per `pointermove` (sixty renders a second of
+an inlined SVG subtree), not a `window` listener (it would fight MapLibre for the main thread on a
+drag), coalesced to one write per frame, asymmetric ease so the eyes *snap* to you and drift back.
+Touch is refused outright with a stated reason — a tap fires `pointerenter` and then nothing, so a
+phone would get one glance and then a character staring fixedly off to one side. Reduced motion
+**detaches the listeners** rather than hiding the result, and subscribes to the media query rather
+than sampling it once. And the teardown comment records a real bug found in a browser that no unit
+test in this repository could have seen. Every one of those is a decision someone could have skipped
+and nobody would have noticed.
+
+**8. The mascot's numbers are derived, not typed.**
+`CRUMB_HEAD_CENTRE` is computed from `CRUMB_BOUNDS` *"so it cannot drift from the shape it sits in"*;
+`CRUMB_BOUNDS` itself was read off the alpha channel at 10x rather than eyeballed; `CRUMB_ARTBOARD`
+is `-8 -8 116 116` because a 4.5-unit keyline straddles its path and the docblock states the
+consequence — the faced mark is ~14% smaller than the silhouette at a fixed box. That discipline is
+why craft finding C8's predicted 5.3px and measured 5px agree: the shape is described well enough
+that a reviewer can compute what a screenshot will show before taking it.
+
 ---
 
 ## What this round did not check
 
-- **Any pixel.** No browser was driven, by instruction. Both breakpoints and both themes are unchecked.
-- **Any database row.** The local Supabase stack is stopped and there is no `psql`. Three of the five
-  findings name a query that would sharpen or kill them, and all three are unrun: the multi-source
-  count (finding 1), `source_dataset` distribution (finding 2, still owed from round 1), and a
-  `curl -I` against a stored thumbnail (finding 5).
+- **Any signed-in pixel, which is most of the product.** The local Supabase stack is stopped, so
+  `/import`, `/map`, `/profile` and `/collections` all answer `307` to `/sign-in`. The craft pass
+  covers the seven signed-out message-and-chrome surfaces completely and says **nothing** about the
+  map, the sheet, the review screen, the rail, the collections list or the profile — which is where
+  the owner's question about cross-screen rhythm has the most surface to be wrong on. **A second
+  craft pass against a running database would be worth more than this one was.**
+- **The mascot in motion.** Every animation claim above is read from `globals.css` and its call
+  sites. Nothing was recorded, so the spark-loop defect (delight §3.1) is proven from the CSS
+  declaration rather than from watching it, and it cannot be watched today because no call site
+  uses `land`.
+- **Any database row.** No `psql`, and the stack is down. Three findings name a query that would
+  sharpen or kill them and all three are unrun: the multi-source count (finding 1),
+  `source_dataset` distribution (finding 2, still owed from round 1), and a `curl -I` against a
+  stored thumbnail (the displaced sixth).
 - **Anything hosted**, per `agent-guardrails.md` §2 — including the one owner action this round
   identified, the Supabase Redirect URLs allow-list that decides whether `5fd987c` works in
   production at all.
