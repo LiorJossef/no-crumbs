@@ -90,11 +90,30 @@ describe('it refuses every shape of open redirect', () => {
   it('refuses a same-origin path nobody chose as a destination', () => {
     // `return-path.ts` is an allow-list of destinations, not a same-origin check. A callback that
     // could land on any route in the product would make that decision for every route added later.
-    for (const path of ['/import', '/profile', '/collections', '/auth/new-password']) {
-      expect(callbackDestination(new URLSearchParams([['next', path]]), 'exchanged')).toBe(
+    for (const path of ['/profile', '/collections', '/auth/new-password', '/map/x']) {
+      expect(callbackDestination(new URLSearchParams([['next', path]]), 'exchanged'), path).toBe(
         DEFAULT_AFTER_SIGN_IN,
       );
     }
+  });
+
+  it('returns to the share seam with its link, which the allow-list gained on 2026-08-31', () => {
+    // `/import` was in the list above until the share seam's payload was made to survive sign-in.
+    // It matters most *here*: in production, signing up needs an email confirmation, so a
+    // first-time user arriving from a share leaves the product entirely and comes back through
+    // this route — the longest gap in the flow and the one where the link is most surely gone.
+    //
+    // The `url` value is attacker-influenced by construction, exactly as it is at `/import?url=`
+    // itself, and it is carried rather than judged: `canonicaliseTikTokUrl` is the boundary and it
+    // runs on arrival. What this route may never do is leave the origin, which the case above
+    // covers for every hostile spelling.
+    const REAL = 'https://www.tiktok.com/@joelleuzyel/video/7259010845558983978';
+    const to = callbackDestination(
+      new URLSearchParams([['next', `/import?url=${encodeURIComponent(REAL)}`]]),
+      'exchanged',
+    );
+    expect(to.startsWith('/import?')).toBe(true);
+    expect(new URLSearchParams(to.split('?')[1]).get('url')).toBe(REAL);
   });
 
   it('cannot be talked into a destination through `type` either', () => {

@@ -1,7 +1,12 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/app/_lib/supabase/server';
+import { SIGN_IN_PATH } from '@/app/auth/_lib/routes';
+import { DEFAULT_AFTER_SIGN_IN, safeReturnPath } from '@/domain/auth/return-path';
 import { extractPastedUrl } from '@/domain/source/extract-pasted-url';
 import { ImportPageClient } from './import-page-client';
+
+/** This route's own path, spelled once — it is both where we are and where we ask to come back to. */
+const IMPORT_PATH = '/import';
 
 /**
  * The one parameter this route reads, spelled once.
@@ -64,6 +69,45 @@ export function sharedImportUrl(raw: string | string[] | undefined): string | nu
   return candidates.find((value) => /^https?:\/\//iu.test(value)) ?? (candidates[0] as string);
 }
 
+/**
+ * Where a signed-out arrival is sent, **carrying whatever it arrived with**.
+ *
+ * ## What this used to do, and why that was the wrong end of the trade
+ *
+ * It was `redirect('/sign-in')`, under a comment admitting the link was lost. The reasoning was
+ * sound at the time — `safeReturnPath` allow-listed one destination, and passing a `next` it would
+ * silently drop is a promise the codebase does not keep — but the cost lands on the seam's most
+ * likely first use: a share fires the product from nothing, so it arrives at a cold session far
+ * more often than a normal visit does, and the user is handed back the eight-step copy-paste the
+ * share target exists to remove, at the moment they are trying the product for the first time.
+ *
+ * `safeReturnPath` now allow-lists `/import` with `url`, so the `next` is one it will honour.
+ *
+ * ## The one property that makes it safe to build a URL here
+ *
+ * **This function decides nothing.** It re-serialises the `url` values it was handed onto
+ * `/import` and hands the result to `safeReturnPath`, which is the single decider of what a return
+ * path may be; if it refuses — an over-long share blob is the realistic way — we ask for no `next`
+ * at all and the visitor lands on the map, which is what happens today. So this route cannot
+ * promise a destination sign-in will not honour, and it cannot become a second opinion about what
+ * a TikTok link is: the value is opaque here, and `sharedImportUrl` and `canonicaliseTikTokUrl`
+ * judge it on the way back exactly as they judge it on the way in.
+ *
+ * Values are `append`ed rather than `set`, so a Chromium share that sent both `url` and `text`
+ * comes back with both and `sharedImportUrl` picks between them on arrival, as it would have.
+ */
+export function signedOutDestination(raw: string | string[] | undefined): string {
+  const values = raw === undefined ? [] : Array.isArray(raw) ? raw : [raw];
+  const carried = new URLSearchParams();
+  for (const value of values) carried.append(SHARED_URL_PARAM, value);
+
+  const query = carried.toString();
+  const back = safeReturnPath(query.length === 0 ? IMPORT_PATH : `${IMPORT_PATH}?${query}`);
+  if (back === DEFAULT_AFTER_SIGN_IN) return SIGN_IN_PATH;
+
+  return `${SIGN_IN_PATH}?${new URLSearchParams({ next: back }).toString()}`;
+}
+
 // S6, `docs/ux-architecture.md` §12.1 / `docs/mvp-plan.md` §5 (L0-F1-T1/T2/T3) /
 // `docs/execution-plan.md` L1-F2-T1/T2. Same belt-and-suspenders auth check as `/map`
 // (`src/app/map/page.tsx`): the middleware already redirects an unauthenticated visitor, but every
@@ -91,16 +135,17 @@ export default async function ImportPage({
   } = await supabase.auth.getUser();
 
   if (!user) {
-    // **A share arriving signed-out loses its link.** `?next=` would carry it, but
-    // `domain/auth/return-path.ts`'s `safeReturnPath` allow-lists exactly one destination shape
-    // today — a collection invite — so anything else is silently dropped to `/map` and passing it
-    // would be a promise this codebase does not keep. Widening that allow-list is a domain change
-    // and is not this task's to make.
-    redirect('/sign-in');
+    // **A share arriving signed-out keeps its link.** `signedOutDestination` puts it in a `?next=`
+    // that `safeReturnPath` has already agreed to honour — see its header for why building a URL
+    // here is safe, and `domain/auth/return-path.ts` for the allow-list that is the actual gate.
+    // The cast is the one `collections/page.tsx` and `bottom-nav.tsx` already make: `typedRoutes`
+    // types the route literal and has nothing to say about a query string on it.
+    redirect(signedOutDestination((await searchParams)[SHARED_URL_PARAM]) as '/sign-in');
   }
 
-  // Awaited after the auth check, not before it: nothing about the query string should be read on
-  // behalf of a visitor who is about to be redirected.
+  // Awaited after the auth check, not before it. The query string is read on a signed-out
+  // visitor's behalf in exactly one way — to hand it back to them after they sign in — and never
+  // to decide anything about a request that is about to be redirected.
   const shared = sharedImportUrl((await searchParams)[SHARED_URL_PARAM]);
 
   // Conditional spread rather than `initialUrl={shared ?? undefined}`: `exactOptionalPropertyTypes`
