@@ -129,6 +129,22 @@ left exactly as it is. Conventional Commits start with the next commit.
    Checking the index before committing — `git diff-index --cached HEAD` — is a useful habit and it
    is *not* this rule. It detects the hazard while leaving the mechanism in place.
 
+7. **Do not put anything in the shared index you are not committing this second. Prefer `rm` and `mv`
+   over `git rm` and `git mv`.**
+
+   This is the other half of §5.6 and it protects the *other* agent. `git commit -- <paths>` stops
+   *you* sweeping up someone else's staged work; it does nothing to stop *your* staged work being
+   swept into *their* commit. **`git rm` and `git mv` write the shared index immediately**, so a
+   deletion or a rename you make hours before you commit sits there the whole time, invisible in your
+   own reports and available to anyone who commits without a pathspec.
+
+   That is how both 2026-08-31 leaks actually happened: one lane's `git rm`/`git mv` results were in
+   the index, and two other commits took them. Plain `rm` and `mv` leave the change in the working
+   tree, where `git commit -- <paths>` records it correctly and nobody else can reach it.
+
+   **Neither half is sufficient alone.** §5.6 without §5.7 leaves your work in a shared object;
+   §5.7 without §5.6 leaves you sweeping up theirs.
+
 Unrelated changes stay untouched and out of the commit. If a change cannot pass an expected check,
 do not commit it as complete — explain the blocker.
 
