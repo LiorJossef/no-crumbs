@@ -547,3 +547,130 @@ that a reviewer can compute what a screenshot will show before taking it.
 
 Nothing was written outside this file. No database row, temporary file or running process was left
 behind. No `src/` file was modified and nothing was committed or staged.
+
+
+---
+
+# Addendum — the queries, run against the local database
+
+> Added after the round, when the orchestrator pointed out that the Postgres container is up even
+> though the Supabase services report stopped: `docker exec supabase_db_P-002 psql -U postgres`.
+> All statements below are `select` only. No row was written, no DDL was issued, and one outbound
+> `HEAD` was made to a TikTok CDN URL that TikTok itself issued — reported as a status code, never
+> as a URL.
+>
+> **Note on the two sections above.** The craft pass (§ *The craft pass*, ten findings) and the
+> mascot audit (§ *Delight, and the mascot*, three parts) were appended when the widened brief
+> arrived and are already in this file. Nothing in this addendum replaces them.
+
+## What the sample actually is, before any number is read off it
+
+**The local database was reset at 16:33 UTC today.** Six of its eight `places` rows share the
+timestamp `2026-08-31 16:33:58.290799+00` — one transaction, which is `supabase/seed.sql`, whose own
+header calls its contents *"fabricated"*. The other two were written by the real pipeline this
+evening (18:32 and 18:40).
+
+So the population is **six fabricated rows and two real ones**, two hours old. That governs every
+number below and it is the reason three of the four queries settle nothing. Reporting them anyway,
+including where they look like they support me and do not.
+
+| Query | Result | What it settles |
+|---|---|---|
+| `select version from supabase_migrations.schema_migrations order by version desc` | tops out at **`0031`** | **Settled.** `0032`/`0033` are committed and unapplied. Finding 2's evidence is now measured here rather than attributed to the orchestrator. |
+| `select source_dataset, count(*) from places group by 1` | **6 null, 2 `google-places`**, zero `llm-guess` | **Does not settle finding 2.** The 31-row library `location-certainty.ts:8-11` measured 21/31 against no longer exists on this machine. |
+| `select saved_place_id, count(*) from saved_place_sources group by 1 having count(*) > 1` | **0 rows**; 8 links over 8 distinct saves | **Does not settle finding 1.** A two-hour-old database with two real imports cannot show a repeat save. |
+| `select count(*) filter (where note is not null …) from saved_places` | **1 of 8** | Nothing. Seeded. |
+
+**The one real signal, and it is too small to act on.** Both places imported through the *current*
+pipeline this evening resolved to `google-places`, at `resolution_score` **1.0** and **0.907**. That
+is the direction finding 2's *what would change my mind* pointed at — new saves resolving properly
+rather than guessing — and **n = 2**. It is not evidence, it is a hint that the re-measurement is
+worth doing on a real library. Finding 2's ranking stands, and the query it needs is still owed
+against a library that has one.
+
+**A second, unlooked-for observation from the same query, offered as a question rather than a
+finding.** Six of the eight rows carry `place_provider_refs.provider = 'overture'` and
+`places.source_dataset = null`. `locationCertainty()` returns **`null`** for a null dataset — no
+label at all — while `'overture-places'` has a perfectly good label written for it (*"Matched in
+Overture Maps"*). On this database that is a seed that does not set the column, and it proves
+nothing about the write path. **It is worth one grep by whoever owns the resolver**: if the
+application's Overture path also leaves `source_dataset` null, then the honest-provenance label the
+product is proudest of is silently absent on every Overture save, and the seed is telling us so by
+accident.
+
+---
+
+## The finding that reversed on measurement, and it is the important part of this addendum
+
+**I ranked the thumbnail expiry sixth and said its harm was "six months away on a product that has
+not launched." That was wrong by roughly ninety times, and the number that makes it wrong is stored
+in the product's own database.**
+
+The stored TikTok thumbnail URLs carry an `x-expires` parameter. Decoded from the three real rows,
+against their own `fetched_at`:
+
+| fetched | `x-expires` | window |
+|---|---|---|
+| 2026-08-31 16:48:51Z | 2026-09-02 16:00:00Z | **47.19 h** |
+| 2026-08-31 18:31:54Z | 2026-09-02 18:00:00Z | **47.47 h** |
+| 2026-08-31 18:40:24Z | 2026-09-02 18:00:00Z | **47.33 h** |
+
+**Under 48 hours, not ~6 months.** Recomputed independently in Python from the raw epoch integers
+rather than trusting the SQL arithmetic: the observed values are `1788364800` and `1788372000`,
+where a 180-day window from the same fetch would be `1803746931`. The three cluster on a round
+UTC hour, which is the signature of a short bucketed signing window.
+
+**Control, so the reading is not a broken probe.** A `HEAD` against the oldest of the three returns
+`status=200 content_type=image/jpeg` — the URL is real, the host is reachable, and the image serves,
+because it has not expired yet. What could **not** be tested is the other side: there is no expired
+specimen on this machine, so whether an expired URL returns 403 or something else is unobserved.
+`docs/evidence/tiktok/08-engine2-access-surface-2026-08-31.md:912` records the same gap.
+
+### What this overturns
+
+1. **A VERIFIED grading is wrong.** `supabase/migrations/0003_sources.sql:28` reads *"Signed,
+   ~6-month-expiring CDN URL (**VERIFIED**). Never treat as permanent."* House rules say design may
+   only depend on VERIFIED, and this one is off by about 90×. Its origin is
+   `docs/evidence/tiktok/01-oembed-field-inventory.md:21` — *"`x-expires` observed ≈ 6 months out"* —
+   so it was measured once and either TikTok changed the window or the original reading was wrong.
+   **I cannot tell which**, and the difference matters: one is a re-grade, the other is a method
+   defect. The evidence file should be re-run rather than edited.
+2. **A domain docblock is wrong in both halves.** `src/domain/places/spot.ts:54-57` says the column
+   is *"a signed URL with a known expiry window (~6 months) but **no expiry timestamp is stored**, so
+   there is nothing truthful to put there yet."* The timestamp **is** stored — it is inside the URL,
+   as `x-expires`, and a regex on a string the product already holds yields it. `MediaRef.expiresAt`
+   can be populated today, with no fetch and no migration.
+3. **A decision was taken on the wrong input.** `technical-design.md:635` decision 6 —
+   *"hot-link a signed 6-month URL or copy the bytes"* — and `04-tiktok-feasibility.md:64,341`.
+   At six months, hot-linking is obviously right. At 48 hours it is obviously wrong, and the choice
+   is now between copying the bytes (a ToS question for `security-privacy`, and the reason that
+   decision was deferred) and not showing a thumbnail on a place older than two days. **That is an
+   owner-and-security decision, not an implementation one, and it should be re-taken rather than
+   inherited.**
+4. **A live lane is designing on the wrong number right now.**
+   `docs/evidence/tiktok/08-engine2-access-surface-2026-08-31.md` (untracked, written today) repeats
+   *"`x-expires` ≈ 6 months"* at lines 477, 803 and 849, including in a recommendation. Whoever owns
+   that document should see this before it is acted on.
+
+### What it means for the product, and for my own ranking
+
+**Every saved place loses its picture about two days after it is saved.** Not in six months — this
+week, last week, and every week since the feature shipped. `place-sheet.tsx:1954-1968` hides a failed
+image permanently for that mount, so it fails silently and looks like the app losing your things
+rather than like a link going stale. The library the owner has been building is very likely already
+blank except for whatever was imported in the last 48 hours; I could not check, because the database
+that would show it was reset this afternoon.
+
+**So the five as filed are stale on this point, and the honest revision is:**
+
+> This belongs at **#2**, above the re-point and below the note overwrite. It is silent, total,
+> ongoing loss of a field the product renders, it is already happening, and unlike the re-point it
+> has no reviewed artefact waiting. **It displaces the mascot success beat out of the five** — which
+> is the same call I made in the other direction three hours ago, on a number that turns out to have
+> been wrong. The mascot finding is still worth an afternoon and still stands as written; it is no
+> longer top-five.
+
+The first move is not the fix. It is one grep and one re-measurement: confirm `x-expires` on a
+freshly fetched oEmbed response from a second post, and re-grade `0003`'s comment and
+`01-oembed-field-inventory.md` from that. **A VERIFIED claim that is 90× out is worse than the
+thumbnails**, because it is the input to decisions nobody will re-derive.
