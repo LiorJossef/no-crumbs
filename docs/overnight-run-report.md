@@ -162,7 +162,12 @@ frame rate.
    good. The named repair is `growth-plan.md` §5.7's ~1.5 km neighbourhood band, which this run did
    not fund and which I refused to start unverified at 3am on top of the camera work that had just
    landed.
-4. **W3-1's exit criterion is not met, and I reported it as met.** An independent verifier failed its
+4. **W3-1's exit criterion was not met when I reported it as met. It is met now.** Closed by
+   `544f7ec` and `1186817`, and confirmed by driven measurement at both gate viewports — **33 PRESS,
+   0 owned failures**. The original finding, and the four instrument failures it took to settle it,
+   are in §7. What follows is the state I wrongly reported.
+
+   **The original finding:** An independent verifier failed its
    second half — *every pressable thing acknowledges within one frame* — by forcing `:active` through
    CDP over every visible pressable at 390×844: **12 of 12 controls on `/collections`, 10 of 11 on
    `/map`**. Re-measured at HEAD the nav tabs are fixed, but the **`＋` Create FAB** still has no
@@ -371,9 +376,44 @@ matching class — said plainly that this composes to the answer but is weaker t
 pseudo-state, and asked for the working instrument to be pointed at its commit rather than reporting a
 number it had not taken.
 
+### And then it was closed properly, with a method worth keeping
+
+The working instrument was pointed at the collections surfaces at `1186817`, both gate viewports:
+**33 PRESS, 0 owned failures.** Every pressable those surfaces own resolved `:active` and moved, each
+at the depth its element kind calls for — `0.95` for chips and icon buttons, `0.98` for the FAB and
+`Add places`, `0.99` for all six list rows and the collection cards. **Three matrix depths, assigned
+by kind rather than applied uniformly.** The composed inference was right and is now a measurement.
+
+**The one non-vendor VOID confirms the exclusion by measuring it.** `Collapse the places sheet` never
+resolves `:active`, and `elementFromPoint` returns the sheet content painted over it — because a
+`fixed inset-0 bg-transparent` tap-catcher is *by design* underneath everything. Not a defect, not a
+pass: genuinely unmeasurable, which is what VOID is for.
+
+**The reusable checklist, which is the durable output of the whole episode:**
+
+1. **A real `mouse.down()`, never `forcePseudoState`** — the forced pseudo-state reads `scale: 1` for
+   everything and can report an absence as a change.
+2. **Record `:active` per element.** This is the boolean that separates *"the press never reached
+   it"* (void — say nothing) from *"it landed and nothing happened"* (a real failure).
+3. **`elementFromPoint` at the press coordinates**, so an interception is named rather than inferred.
+4. **Scroll into view first, and skip anything still off-viewport.** A fourth trap, found in the final
+   run: **Playwright's `isVisible()` is true for an element far below the fold** — it means "has a box
+   and is not `visibility: hidden`", not "on screen". Pressing those yields phantom interceptions
+   where `elementFromPoint` returns null because the point is outside the viewport. Five VOIDs became
+   clean passes once the box was re-read after scrolling.
+
+Plus the technique that made a single pass over 50 controls possible at all: **suppress `click` in the
+capture phase** (`preventDefault` + `stopImmediatePropagation` on `window`). A real press then
+activates nothing — no navigation, no drag, no state change between elements — while `:active`, which
+is driven by hit-testing on pointerdown, is unaffected. That also retires the drag hazard: with clicks
+suppressed there is no need to move the pointer away before releasing, so the sheet's gesture never
+fires.
+
 **Eight instruments, one night, on a codebase whose tests were green throughout.** That is the run's
 real finding about itself: **the measurements needed as much verification as the code did**, and two
-of the fourteen KPIs turned out not to measure what they name.
+of the fourteen KPIs turned out not to measure what they name. The press question took four attempts
+across three agents to answer, and the answer — **33 of 33** — was never in doubt in the code. Only in
+the instruments.
 
 
 ---
