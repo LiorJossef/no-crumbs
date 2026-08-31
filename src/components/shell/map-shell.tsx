@@ -406,6 +406,14 @@ export function MapShell({
           — the clock's zero is the camera framing (~1.5 s), so the nominal 900 ms beat landed at
           ~2.5 s, and the same ruling's last sentence is *"it may not delay the map being usable"*.
 
+          **If you are here because a beat looks missing on desktop: it is not, and this is not a
+          trim of the owner's choreography.** The ruling is the owner's and nobody here may shorten
+          it. Beats 1, 2, 3 and 5 all still play at `lg+`, and beat 4 still plays everywhere it has
+          a subject. What stopped is applying *a sheet's* beat to something that is not a sheet —
+          the desktop behaviour was never in the owner's table at all, it was a synthesis someone
+          made by analogy. Restoring it would not restore a beat; it would re-hide the library for
+          two and a half seconds.
+
           What it keeps is the `enter` rule, which is what it had before the entrance existed:
           `animate-in fade-in-0 duration-enter` with the 4 px displacement behind `motion-safe:`,
           exactly as `place-desktop-panel.tsx` and `place-sheet.tsx` already write it.
