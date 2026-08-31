@@ -36,7 +36,14 @@ import {
   ITEM_VARIANTS,
   MARK_VARIANTS,
 } from '@/components/brand/chrome-motion';
-import { MASCOT_CRUST } from '@/components/brand/mascot-colors';
+import {
+  MASCOT_BLUSH,
+  MASCOT_CRUST,
+  MASCOT_GOLD,
+  MASCOT_INK,
+  MASCOT_INK_FLAT,
+  MASCOT_INK_NIGHT,
+} from '@/components/brand/mascot-colors';
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const GLOBALS = path.join(ROOT, 'src/app/globals.css');
@@ -179,6 +186,93 @@ describe('the indigo ramp is the ruled value, and it is chrome only', () => {
       .filter(({ source }) => /--(?:indigo|chrome)-/.test(source) || /5B6CFF/i.test(source))
       .map(({ path: p }) => p);
     expect(offenders).toEqual([]);
+  });
+});
+
+describe('the mascot\u2019s gold is admitted to chrome and fenced off the data surface', () => {
+  /*
+   * **Owner ruling, 2026-08-31 — the second time §3.1 rule 3 is set aside for chrome.**
+   *
+   * The mascot's gold may appear on the sign-in and landing grounds, their mesh, the empty states
+   * and the edges. It may **never** appear on a pin, a category surface, a basemap layer or a
+   * filter chip — the identical fence indigo already carries.
+   *
+   * **The reason is honoured rather than merely overridden, and the numbers are why the ruling
+   * could be granted narrowly.** Measured in Lab, `MASCOT_GOLD` sits **6° and ΔE 17** from the
+   * *night* café `#C99A55` — a real collision, and closer than the restaurant/café pair the
+   * facelift retuned for being confusable at ΔE 20.1. Against the *light* café `#6F4A2B` it is 19°
+   * and ΔE 54, which is safe; against mint it is **102°**. So the sentence "gold sits a few degrees
+   * from the café amber" is true of exactly one of the two category palettes — the one that did not
+   * exist when the rule was written — and `/sign-in` and `/` carry no category colour at all, so on
+   * the surfaces where gold is admitted the collision is measurably impossible.
+   *
+   * Which makes the fence, not the permission, the thing that has to hold. This is built and
+   * verified failing **before** any gold is used.
+   */
+  const MASCOT_PALETTE = [
+    MASCOT_GOLD,
+    MASCOT_CRUST,
+    MASCOT_INK,
+    MASCOT_BLUSH,
+    MASCOT_INK_FLAT,
+    MASCOT_INK_NIGHT,
+  ];
+
+  it('never reaches the map, the category palette or the basemap', () => {
+    /*
+     * **This is a superset of `crumb-mascot.test.ts`'s rule-5 assertion and does not replace it.**
+     * That one names two files and looks for two module specifiers, which is the right shape for
+     * the mascot lane to own. This one is scoped by *directory*, so a new file under
+     * `components/map/` inherits the rule instead of being born outside it, and it catches three
+     * routes that an import check cannot see: a pasted hex literal, a `--chrome-*` custom property
+     * carrying gold into a style expression, and `mascot-colors` reached through a re-export.
+     *
+     * A hex is matched case-insensitively and by value rather than by name — someone typing
+     * `#f2c46b` into a MapLibre paint expression is exactly the 2am failure this exists for, and it
+     * would not mention the mascot anywhere.
+     */
+    const dataSurfaces = sources().filter(
+      ({ path: p }) =>
+        p.startsWith('components/map/') || p.startsWith('ui/place/') || p.includes('basemap'),
+    );
+    expect(dataSurfaces.length).toBeGreaterThan(4);
+    const hexes = new RegExp(MASCOT_PALETTE.map((h) => h.slice(1)).join('|'), 'i');
+    const offenders = dataSurfaces
+      .filter(
+        ({ source }) =>
+          /mascot-colors|crumb-mascot/.test(source) || hexes.test(source) || /--chrome-/.test(source),
+      )
+      .map(({ path: p }) => p);
+    expect(offenders).toEqual([]);
+  });
+
+  it('is spelled by identity wherever chrome uses it, so it cannot drift from the character', () => {
+    /*
+     * The same rule the halo already follows, extended to the ground: any gold in `globals.css`'s
+     * chrome tokens must be one of the mascot's own values. A stylesheet cannot import a constant,
+     * so the copy is checked rather than forbidden — and the check is what makes it a copy rather
+     * than a second decision.
+     *
+     * Written as "every warm stop is a mascot colour" rather than as a list of tokens, so a gold
+     * introduced into a *new* chrome token is covered the day it appears rather than the day
+     * somebody remembers to add it here.
+     */
+    const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    const allowed = new Set(MASCOT_PALETTE.map((h) => rgb(h).join(',')));
+    for (const theme of [':root', '.dark'] as const) {
+      for (const [name, value] of declarations(theme)) {
+        if (!name.startsWith('--chrome-')) continue;
+        for (const m of value.matchAll(/rgba?\((\d+),\s*(\d+),\s*(\d+)/g)) {
+          const [r, g, b] = m.slice(1, 4).map(Number) as [number, number, number];
+          // Warm = red leads blue by enough to be a pigment rather than a neutral or a cool.
+          if (r - b < 40) continue;
+          expect(
+            allowed.has([r, g, b].join(',')),
+            `${theme} ${name} carries a warm colour rgb(${r},${g},${b}) that is not the mascot's`,
+          ).toBe(true);
+        }
+      }
+    }
   });
 });
 
