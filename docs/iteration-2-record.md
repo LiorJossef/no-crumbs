@@ -432,7 +432,12 @@ leaving the mechanism in place.**
 (`git add <path>`), never blanket-stage the working tree"* — which names **staging** as the
 protection when the exposure is the **commit**. Both of us followed it. Amended at `e296b93` to
 `git commit -m "..." -- <paths>`, which reads the paths from the working tree and ignores the index
-entirely. **Two people knowing a failure by name prevented nothing; changing the command is the only
+entirely — **and completed at `5ed3a9b`, because that fix only protects the committer.** The lane
+that staged both leaked changes supplied the other half: **`git rm` and `git mv` write the shared
+index immediately**, so a deletion made hours before its commit sits there the whole time, invisible
+in its author's own reports and reachable by anyone committing without a pathspec. Plain `rm` and
+`mv` keep it in the working tree. *§5.6 without §5.7 leaves your work in a shared object; §5.7
+without §5.6 leaves you sweeping up theirs.* **Two people knowing a failure by name prevented nothing; changing the command is the only
 thing that could have.**
 
 Not repaired by rewriting: `git-workflow.md` §9.3 puts history rewrites behind a specific instruction
