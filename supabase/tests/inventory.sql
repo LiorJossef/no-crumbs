@@ -730,6 +730,14 @@ begin
     ('save_place','authenticated'),      -- the user-facing write, SECURITY INVOKER
     ('km_between','authenticated'),      -- the near-me query runs as the user
     ('apply_saved_place_source_link','authenticated'),
+    -- 0036. The ONLY write path to `saved_places.tags`. SECURITY DEFINER, returns void, and its
+    -- UPDATE carries `sp.user_id = (select auth.uid())` — inside §3.5's invariant 1 as security.md
+    -- restates it ("never grant a definer function whose result is not bounded by the caller's own
+    -- identity"), and the same shape as `apply_saved_place_source_link` two lines up. It is a
+    -- definer rather than an invoker because `authenticated` holds NO column grant on `tags`,
+    -- `tags_extracted` or `tags_confirmed_at`, which is the whole control: the words and the record
+    -- of who chose them cannot be written apart, because neither can be written directly at all.
+    ('set_saved_place_tags','authenticated'),
     -- 0019's four normalisers. Pure, IMMUTABLE, SECURITY INVOKER, no table access — the same class
     -- as km_between, and they are on this list for a MEASURED reason rather than a cautious one: a
     -- CHECK constraint's function call IS permission-checked against the writing role (an insert
@@ -798,7 +806,7 @@ begin
       left join actual a on a.n = e.n and a.role = e.role where a.n is null
   ) d;
   if v is not null then raise exception 'FAIL 6: function grant drift: %', v; end if;
-  raise notice 'PASS 6  only save_place, km_between, apply_saved_place_source_link, 0019''s four pure normalisers and 0024''s six collection entry points are reachable by a browser role; apply_saved_place_extraction is service_role only; anon has nothing';
+  raise notice 'PASS 6  only save_place, km_between, apply_saved_place_source_link, 0036''s set_saved_place_tags, 0019''s four pure normalisers and 0024''s six collection entry points are reachable by a browser role; apply_saved_place_extraction and repoint_saved_place are service_role only; anon has nothing';
 end $$;
 
 -- ── 6b. no function in `public` is overloaded, and resolve_place's argument list is the designed one ──
