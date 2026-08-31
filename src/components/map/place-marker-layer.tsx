@@ -52,6 +52,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef } from 'react';
 import type { GeoJSONSource, MapMouseEvent } from 'maplibre-gl';
 import { useMap } from '@/components/ui/map';
+import { useResolvedTheme } from '@/components/theme/theme-provider';
 
 import { buildPinImages } from './marker-images';
 import {
@@ -237,6 +238,9 @@ export function PlaceMarkerLayer({
 }: PlaceMarkerLayerProps) {
   const { map } = useMap();
   const styleReady = useStyleReady(map);
+  /** The one reader (W7-2). Both the bitmaps and the label paint below resolve from it, so a pin's
+   *  body, its ring and its name can never be drawn for two different themes. */
+  const theme = useResolvedTheme();
   const instanceId = useId().replace(/:/g, '');
   const sourceId = `places-${instanceId}`;
   const pinLayerId = `places-pins-${instanceId}`;
@@ -283,10 +287,19 @@ export function PlaceMarkerLayer({
 
     removeOurs();
 
-    for (const image of buildPinImages(window.devicePixelRatio || 1)) {
-      if (!map.hasImage(image.id)) {
-        map.addImage(image.id, image.data, { pixelRatio: image.pixelRatio });
-      }
+    // **Rebuilt when the theme moves, not only when the style loads.** A pin is a rasterised
+    // bitmap, so unlike a CSS-token'd node it cannot follow a theme after it is drawn — the same
+    // property `use-disc-theme.ts` exists for. `theme` is therefore in this effect's dependency
+    // list, and the images are *replaced* rather than skipped when they already exist: `hasImage`
+    // is true for last theme's bitmaps, so a plain add would keep the light pins on a dark map.
+    //
+    // This is reachable without an in-app toggle, which is why it is worth the two lines. No
+    // toggle ships (`facelift-plan.md` §4 decision 3), but the theme follows the device, and a
+    // device changes it on its own: macOS switches at sunset and iOS on a schedule, both while the
+    // app is open.
+    for (const image of buildPinImages(window.devicePixelRatio || 1, theme)) {
+      if (map.hasImage(image.id)) map.removeImage(image.id);
+      map.addImage(image.id, image.data, { pixelRatio: image.pixelRatio });
     }
 
     // Created empty on purpose. Seeding it from a ref written during render is the obvious
@@ -331,7 +344,7 @@ export function PlaceMarkerLayer({
       // read as a tuned floor that happens to be the bottom of the scale.
       ...pinLayerZoomRange(replacedBelowZoom),
       layout: pinLayerLayout(styleTextFont(map), selectedIdRef.current) as never,
-      paint: pinLayerPaint() as never,
+      paint: pinLayerPaint(theme) as never,
     });
 
     const openPlace = (event: MapMouseEvent) => {
@@ -357,7 +370,7 @@ export function PlaceMarkerLayer({
       map.off('mouseleave', pinLayerId, resetPointer);
       removeOurs();
     };
-  }, [map, styleReady, sourceId, pinLayerId, replacedBelowZoom]);
+  }, [map, styleReady, sourceId, pinLayerId, replacedBelowZoom, theme]);
 
   /** The features with their label tier stamped on. Memoised on `data`, so the grid scan costs
    *  nothing on a selection, a re-render or a camera move — only on a library or filter change,
