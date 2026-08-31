@@ -56,6 +56,8 @@ import {
 } from '@/components/collections/collection-content';
 import type { CollectionDetail, CollectionSummary } from '@/app/collections/_lib/get-collections';
 import { CollectionsIndexList } from './collections-index-list';
+import { ENTER_SCREEN } from '@/lib/interaction';
+import { cn } from '@/lib/utils';
 import { collectionCanvasName, type DrawerView } from './_lib/drawer-view';
 
 /** Exactly the `MapShell` props a collections view overrides. Nothing else about the shell changes
@@ -227,16 +229,27 @@ export function useCollectionsScope({
     );
 
   /**
-   * The view change, as one opacity ramp.
+   * The view change, at the motion scale's **large** tier.
    *
    * `key` remounts this subtree, which is correct — the views share no state worth carrying — and
-   * `animate-in fade-in-0` is what makes the swap read as a transition rather than as a repaint.
-   * **Opacity only, and no `motion-safe:` displacement**: a single 0→1 ramp is the opacity change
-   * reduced motion is supposed to collapse *to*, it is not a pulse, and there is no translation to
-   * clip against a height-capped column. `tests/unit/shell/drawer-view-switch.test.ts` holds it.
+   * `ENTER_SCREEN` is what makes the swap read as a transition rather than as a repaint. It is
+   * `lib/interaction.ts`'s dominant tier, *"the only tier the user is meant to consciously
+   * notice"*, and the whole list changing is the largest thing that happens inside this drawer.
+   * **Not a duration invented here**: one product, one vocabulary.
+   *
+   * **`ENTER_SURFACE`'s rule about the drawer's vertical axis does not bind here, and it is worth
+   * saying why rather than looking like an oversight.** That constant refuses a rise because a pane
+   * arriving *while the drawer is opening* fights the surface carrying it. A view switch moves no
+   * drawer: both views rest at the same stop, the sheet is static through the whole animation, and
+   * there is nothing for an 8 px rise to compete with. `ENTER_SURFACE`'s sideways *"further in"*
+   * would be the wrong sentence anyway — these two views are peers, not a stack.
+   *
+   * Rule 3 is satisfied the way the whole scale satisfies it: the fade carries no prefix and both
+   * transforms do, so `prefers-reduced-motion` gets a 440 ms cross-fade and a legible list rather
+   * than a cut — an opacity change, not nothing, and never a pulse.
    */
   const framed = (stop?: SheetStop) => (
-    <div key={key} className="animate-in fade-in-0 duration-enter flex min-h-0 flex-1 flex-col">
+    <div key={key} className={cn(ENTER_SCREEN, 'flex min-h-0 flex-1 flex-col')}>
       {content(stop)}
     </div>
   );

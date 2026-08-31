@@ -145,37 +145,47 @@ describe('what it does under prefers-reduced-motion', () => {
   });
 
   /**
-   * **The view change itself is an opacity ramp, and that is a fact about which enter variables are
-   * set rather than about the keyframe's property list.**
+   * **The view change wears the scale's `large` tier, and every transform in it is prefixed.**
    *
-   * Worth pinning, because a browser reports it misleadingly. `tw-animate-css`'s `enter` keyframe
-   * is a single `from` block that *always* names `opacity`, `transform` and `filter`
-   * (`node_modules/tw-animate-css/dist/tw-animate.css`), so `Animation.effect.getKeyframes()` on
-   * this element lists all three — measured, at both motion settings. What decides whether any of
-   * them moves is the `--tw-enter-*` custom properties, whose `@property` initial values are the
-   * identity transform and `blur(0)`. `fade-in-0` sets **only** `--tw-enter-opacity`.
+   * This assertion started life asserting the opposite — opacity and nothing else — because the
+   * view change was built before `lib/interaction.ts` grew a motion vocabulary. It reaches for
+   * `ENTER_SCREEN` now rather than keeping a private answer: one product, one scale, and a
+   * duration invented in a route file is how a codebase ends up with fourteen of them.
    *
-   * So the assertion is the absence of the other utilities. Add `slide-in-from-bottom-1` here and
-   * the animation starts translating — including for a user who asked for less motion, because
-   * there is deliberately no `motion-safe:` branch: a single 0→1 opacity ramp *is* the thing rule 3
-   * says a view transition should collapse to, it is not a pulse, and branching would mean two
-   * behaviours to keep honest instead of one.
+   * Rule 3 is satisfied the way the whole scale satisfies it, and **more strongly than the opacity
+   * ramp did**: the fade carries no prefix and both transforms do, so a reduced-motion user gets
+   * a full-length cross-fade and a legible list rather than a cut. What this test forbids is a
+   * transform that escapes the prefix — the failure `ENTER_POPOVER`'s docblock records finding in
+   * three shipped surfaces at once.
+   *
+   * Read from source rather than from a rendered animation, because a browser reports this
+   * misleadingly: `tw-animate-css`'s `enter` keyframe is a single `from` block that *always* names
+   * `opacity`, `transform` and `filter`, so `getKeyframes()` lists all three even when the
+   * `--tw-enter-*` custom properties leave two of them at identity. Measured at `022a18c`, at both
+   * motion settings.
    */
-  it('changes view with opacity and nothing else, at every motion setting', async () => {
+  it('changes view at the large tier, with every transform behind motion-safe', async () => {
     const { readFileSync } = await import('node:fs');
     const { fileURLToPath } = await import('node:url');
-    const drawer = readFileSync(
-      fileURLToPath(new URL('../../../src/app/map/collections-scope.tsx', import.meta.url)),
-      'utf8',
-    );
-    const wrapper = /<div key=\{key\} className="([^"]*)"/.exec(drawer)?.[1];
-    expect(wrapper, 'the keyed view wrapper is where the transition lives').toBeDefined();
-    expect(wrapper).toContain('animate-in');
-    expect(wrapper).toContain('fade-in-0');
-    for (const displacement of ['slide-in-', 'zoom-in', 'spin-in', 'blur-in', 'motion-safe:', 'motion-reduce:']) {
-      expect(wrapper, `${displacement} would make the view change more than an opacity ramp`).not.toContain(
-        displacement,
-      );
+    const at = (path: string) =>
+      readFileSync(fileURLToPath(new URL(`../../../${path}`, import.meta.url)), 'utf8');
+
+    const scope = at('src/app/map/collections-scope.tsx');
+    expect(scope, 'the view change reaches for the shared scale').toContain('ENTER_SCREEN');
+    expect(scope, 'and does not invent a duration beside it').not.toMatch(/duration-\[/);
+
+    const tier = /export const ENTER_SCREEN =\s*\n?\s*'([^']*)'/.exec(at('src/lib/interaction.ts'))?.[1];
+    expect(tier, 'ENTER_SCREEN is still a single class string').toBeDefined();
+    // The fade is what a reduced-motion user is left with, so it must not be prefixed...
+    expect(tier).toContain('fade-in-0');
+    expect(tier).not.toContain('motion-safe:fade-in');
+    // ...and every transform must be, or that user gets the motion they asked not to have.
+    for (const utility of (tier ?? '').split(/\s+/)) {
+      if (/(?:^|:)(?:slide-in|zoom-in|spin-in|blur-in)/.test(utility)) {
+        expect(utility, `${utility} runs regardless of prefers-reduced-motion`).toContain(
+          'motion-safe:',
+        );
+      }
     }
   });
 });
