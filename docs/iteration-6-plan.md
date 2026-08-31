@@ -269,6 +269,34 @@ looks like *play* and also means *hand a third party a tracking cookie* carries 
 so, and whether the exposure is per-press or per-session, which decides between a first-run
 interstitial and a permanent affordance.
 
+### 6.3 Ruled — conditional permit, `4443042`
+
+`security-privacy` holds the veto and did not exercise it. The feature ships **under conditions**,
+and they are acceptance criteria rather than advice: `docs/security-ruling-embed-playback-2026-08-31.md`
+§6 is a ten-item checklist, of which **1–4 and 10 are the gate.** A shipment missing any of those is
+vetoed.
+
+The condition that matters, and it is a better design than the thing it replaces: **the first click
+is the disclosure.** Two co-equal actions — *play here*, which says what it costs, and *open on
+TikTok instead*, which is the zero-disclosure path that already ships — persisted per browser so it
+is asked once rather than on every press. The person who pays the cost is then the one who chose it,
+knowingly, with a real alternative in the same interaction.
+
+Two findings not to lose in implementation:
+
+- **The sandbox hardening is not a mitigation for this risk and must not be documented as one.**
+  `allow-same-origin` is required for the player to function and is precisely the permission the
+  cookie depends on; `credentialless` reaches the cookie but is Chromium-only and does not touch the
+  SDK. The hardening ships because it defends a *different* class, and the ruling says so plainly
+  rather than letting a line item read as a fix.
+- **`docs/security.md` R-8 becomes false on shipment.** It frames the whole TikTok exposure as IP
+  address only via hot-linked images — true today, wrong the moment this lands. A new R-9 goes in the
+  **same** commit. This is gate item 10, and it is the one most likely to be skipped, because it is
+  the only item that is not code.
+
+**Not yet built, and not to be started before the owner has seen the conditions**, since one of them
+adds a first-run choice the owner did not ask for.
+
 ---
 
 ## 7. The carried defect that is not on the owner's list
