@@ -22,6 +22,7 @@ import {
   SNAP_POINTS,
   STOP_TO_CONTENT_HEIGHT,
   STOP_TO_SNAP,
+  VIEW_SWITCH_HEIGHT_PX,
   restingSheetFractionFor,
   snapToStop,
 } from '@/components/shell/sheet-geometry';
@@ -75,10 +76,51 @@ describe('the three stops', () => {
   it('derive the half content height from the fraction, with no float noise in the CSS', () => {
     // `0.55 * 100` is 55.00000000000001 in IEEE 754, and that string would reach the browser
     // verbatim. This is the assertion that stops someone "simplifying" the rounding away.
-    expect(STOP_TO_CONTENT_HEIGHT.half).toBe('calc(55dvh - 14px)');
+    expect(STOP_TO_CONTENT_HEIGHT.half).toBe('calc(55dvh - 70px)');
     expect(STOP_TO_CONTENT_HEIGHT.half).not.toContain('55.0');
+    expect(STOP_TO_CONTENT_HEIGHT.full).toBe('calc(100dvh - 70px)');
+  });
+
+  /**
+   * **The chrome each stop actually has above its content**, which is the only thing these three
+   * numbers describe.
+   *
+   * 14 px of drag handle everywhere, plus the drawer's Places / Collections switch at `half` and
+   * `full` — and **not** at `peek`, because `map-shell.tsx` does not render it there. The peek band
+   * is 128 px with a 68 px `BottomNav` floating over its lower half, so it holds one line and the
+   * switch would be that line.
+   *
+   * Subtracting the switch at a stop that does not draw it would push the last row of every list in
+   * the product 56 px below the bottom of the screen — laid out, painted, hit-testable and
+   * unreachable, which is the exact failure `STOP_TO_CONTENT_HEIGHT` was written to fix, arriving
+   * from the other side. So the asymmetry is the assertion.
+   */
+  it('reserve the view switch at half and full, and never at peek', () => {
+    expect(VIEW_SWITCH_HEIGHT_PX).toBe(56);
     expect(STOP_TO_CONTENT_HEIGHT.peek).toBe(`calc(${PEEK_PX}px - 14px)`);
-    expect(STOP_TO_CONTENT_HEIGHT.full).toBe('calc(100dvh - 14px)');
+    expect(STOP_TO_CONTENT_HEIGHT.peek).not.toContain(`${VIEW_SWITCH_HEIGHT_PX}`);
+    for (const stop of ['half', 'full'] as const) {
+      expect(STOP_TO_CONTENT_HEIGHT[stop], stop).toContain(`- ${14 + VIEW_SWITCH_HEIGHT_PX}px`);
+    }
+  });
+
+  /**
+   * The one number, read by two files.
+   *
+   * `map-shell.tsx` draws the switch and `sheet-geometry.ts` reserves its height, and nothing but
+   * this holds them together: a switch that grew a row would leave every list under it 56 px short
+   * with nothing failing anywhere. Read out of the source rather than rendered, because the shell
+   * needs vaul, a portal and a live map to render at all.
+   */
+  it('is the height map-shell actually gives the switch', () => {
+    const shell = readFileSync(
+      fileURLToPath(new URL('../../../src/components/shell/map-shell.tsx', import.meta.url)),
+      'utf8',
+    );
+    expect(shell).toContain('VIEW_SWITCH_HEIGHT_PX');
+    expect(shell).toContain('height: `${VIEW_SWITCH_HEIGHT_PX}px`');
+    // And it is withheld at `peek`, which is the other half of the asymmetry above.
+    expect(shell).toContain("shell.sheet.stop === 'peek' ? null : <DrawerViewSwitch");
   });
 });
 

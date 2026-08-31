@@ -20,6 +20,17 @@
  * error text is never part of it.
  */
 
+/**
+ * **There is one path to revalidate for the whole collections surface, and it is `/collections`.**
+ *
+ * These actions used to call `revalidatePath('/collections/' + id)` as well, because a collection
+ * was its own route segment. It is not any more: the index and one collection are one segment with
+ * a search param between them (`app/collections/_lib/drawer-view.ts`), and `revalidatePath`
+ * "operates on the route file structure, not the URL visible to users" — so the old form now names
+ * `app/collections/[id]/page.tsx`, which is a redirect and renders nothing anybody looks at. Five
+ * of the calls below were *only* that form; they would have stopped refreshing the surface the user
+ * is standing on, silently, with nothing failing.
+ */
 import { revalidatePath } from 'next/cache';
 
 import { createClient } from '@/app/_lib/supabase/server';
@@ -109,7 +120,6 @@ export async function updateCollection(
   if (count === 0) return { ok: false, message: NO_ACCESS };
 
   revalidatePath('/collections');
-  revalidatePath(`/collections/${collectionId}`);
   return { ok: true };
 }
 
@@ -192,7 +202,6 @@ export async function addPlacesToCollection(
 
   revalidatePath('/map');
   revalidatePath('/collections');
-  revalidatePath(`/collections/${collectionId}`);
   return { ok: true, added, alreadyThere };
 }
 
@@ -225,7 +234,6 @@ export async function removePlaceFromCollection(
 
   revalidatePath('/map');
   revalidatePath('/collections');
-  revalidatePath(`/collections/${collectionId}`);
   return { ok: true };
 }
 
@@ -242,13 +250,12 @@ export async function removeCollectionItem(
     .eq('id', itemId);
 
   if (error) {
-    console.error('removeCollectionItem failed', { itemId, code: error.code });
+    console.error('removeCollectionItem failed', { collectionId, itemId, code: error.code });
     return { ok: false, message: "Couldn't remove that place. Try again." };
   }
   if (count === 0) return { ok: false, message: GONE };
 
   revalidatePath('/collections');
-  revalidatePath(`/collections/${collectionId}`);
   return { ok: true };
 }
 
@@ -272,12 +279,12 @@ export async function updateCollectionItemNote(
     .eq('id', itemId);
 
   if (error) {
-    console.error('updateCollectionItemNote failed', { itemId, code: error.code });
+    console.error('updateCollectionItemNote failed', { collectionId, itemId, code: error.code });
     return { ok: false, message: "Couldn't save that note. Try again." };
   }
   if (count === 0) return { ok: false, message: NO_ACCESS };
 
-  revalidatePath(`/collections/${collectionId}`);
+  revalidatePath('/collections');
   return { ok: true };
 }
 
@@ -311,7 +318,7 @@ export async function reorderCollection(
     }
   }
 
-  revalidatePath(`/collections/${collectionId}`);
+  revalidatePath('/collections');
   return { ok: true };
 }
 
@@ -354,7 +361,7 @@ export async function createInvite(
     return { ok: false, message: NO_ACCESS };
   }
 
-  revalidatePath(`/collections/${collectionId}`);
+  revalidatePath('/collections');
   const row = data as { token: string; role: InviteRole };
   return { ok: true, token: row.token, role: row.role };
 }
@@ -376,7 +383,7 @@ export async function revokeInvite(collectionId: string): Promise<CollectionResu
     return { ok: false, message: NO_ACCESS };
   }
 
-  revalidatePath(`/collections/${collectionId}`);
+  revalidatePath('/collections');
   return { ok: true };
 }
 
@@ -436,7 +443,7 @@ export async function updateMemberRole(
   }
   if (count === 0) return { ok: false, message: NO_ACCESS };
 
-  revalidatePath(`/collections/${collectionId}`);
+  revalidatePath('/collections');
   return { ok: true };
 }
 
@@ -481,7 +488,6 @@ export async function removeMember(
   }
 
   revalidatePath('/collections');
-  revalidatePath(`/collections/${collectionId}`);
   return { ok: true };
 }
 

@@ -490,14 +490,14 @@ describe('what the entrance may not delay', () => {
     expect(panel).not.toContain('sheetArrived');
   });
 
-  /** Every scope that is not playing an entrance renders exactly as it did — `/collections/[id]`
-   *  mounts this same shell and passes nothing. */
+  /** Every scope that is not playing an entrance renders exactly as it did — the collections
+   *  drawer mounts this same shell and passes nothing. */
   it('is off by default for every other scope', () => {
     expect(SHELL).toContain('entrance = false,');
     expect(SURFACE).toContain('entrance = false,');
     expect(LAYER).toContain('entrance = false,');
     expect(
-      readFileSync('src/app/collections/[id]/collection-client.tsx', 'utf8'),
+      readFileSync('src/app/collections/collections-drawer-client.tsx', 'utf8'),
     ).not.toContain('entrance');
   });
 });

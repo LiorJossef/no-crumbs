@@ -154,18 +154,18 @@ describe('no scope chip over a collections map', () => {
    * 0, and `L2-COLL-CAM-2` measured what a phantom 100 px band did to the fit at 640×360 — 394 px
    * of padding in a 360 px container, and the lowest pin coming to rest under the sheet.
    */
-  it('is what both collections routes pass to the shell', () => {
-    for (const route of [
-      'app/collections/collections-index-client.tsx',
-      'app/collections/[id]/collection-client.tsx',
-    ]) {
-      expect(code(route), route).toContain('floatingTopChromePx={0}');
-    }
+  it('is what the collections drawer passes to the shell', () => {
+    // One component for both views since 2026-08-31 — the index and a collection are one route
+    // segment with a search param between them, so there is one call site rather than two.
+    expect(code('app/collections/collections-drawer-client.tsx')).toContain(
+      'floatingTopChromePx={0}',
+    );
   });
 });
 
 describe('the collections index is the sheet, not a page', () => {
-  const index = code('app/collections/collections-index-client.tsx');
+  const index = code('app/collections/collections-index-list.tsx');
+  const drawer = code('app/collections/collections-drawer-client.tsx');
 
   /** §5 item 1: the standalone document layout. */
   it('has no page column, no full-height document wrapper and no header element', () => {
@@ -187,6 +187,23 @@ describe('the collections index is the sheet, not a page', () => {
   });
 
   it('renders through the shell instead', () => {
-    expect(index).toContain('<MapShell');
+    expect(drawer).toContain('<MapShell');
+  });
+
+  /**
+   * **The index and a collection are one segment, and `[id]` is a redirect.**
+   *
+   * This is the structural claim the whole 2026-08-31 change rests on: a sibling segment change
+   * unmounts the drawer, so the two views cannot be two segments. Asserted here rather than only
+   * in `_lib/drawer-view.test.ts` because the failure mode is somebody re-creating a real page at
+   * `[id]` — which would pass every unit test of the parsing while quietly restoring the remount.
+   */
+  it('leaves nothing behind at the old segment but a redirect', () => {
+    const byPath = code('app/collections/[id]/page.tsx');
+    expect(byPath).toContain('redirect(');
+    expect(byPath).not.toContain('MapShell');
+    const files = readdirSync(`${SRC}app/collections/`, { recursive: true, encoding: 'utf8' });
+    expect(files).not.toContain('[id]/collection-client.tsx');
+    expect(files).not.toContain('collections-index-client.tsx');
   });
 });

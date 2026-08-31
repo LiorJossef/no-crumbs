@@ -28,9 +28,26 @@ export type SheetStop = 'peek' | 'half' | 'full';
  */
 export const PEEK_PX = 128;
 
-/** The drag handle above the sheet's content column (`mt-2.5 h-1`), which is the only other thing
- *  inside `Drawer.Content`. Subtracted from every content height below. */
+/** The drag handle above the sheet's content column (`mt-2.5 h-1`). Subtracted from every content
+ *  height below. */
 const HANDLE_PX = 14;
+
+/**
+ * The drawer's **Places / Collections** switch, which sits between the handle and the content
+ * (`map-shell.tsx`, `DrawerViewSwitch`): `mt-1` + an `h-11` track + `mb-2` = 4 + 44 + 8.
+ *
+ * **It is subtracted at `half` and `full` and not at `peek`, because it does not render at
+ * `peek`.** The peek band is 128 px with a 68 px `BottomNav` floating over its lower half, so
+ * there is one line of usable strip there and the switch would take all of it. Every stop's number
+ * has to describe what is actually in the sheet at that stop: a constant subtracted where nothing
+ * is drawn would push the last row of every list 56 px below the bottom of the screen, which is
+ * the exact failure `STOP_TO_CONTENT_HEIGHT` was written to fix, arriving from the other side.
+ */
+const VIEW_SWITCH_PX = 56;
+
+/** Exported so `map-shell.tsx` renders the switch at exactly the height reserved for it here, and
+ *  `tests/unit/shell/sheet-geometry.test.ts` can hold the two together. One number, two readers. */
+export const VIEW_SWITCH_HEIGHT_PX = VIEW_SWITCH_PX;
 
 /**
  * The stop a sheet rises to when something opens in it, as a fraction of the viewport.
@@ -71,11 +88,14 @@ export const SNAP_POINTS: Array<`${number}px` | number> = [SNAP_PEEK, HALF_FRACT
  * hand-written copy of a fraction that lives three lines away is the drift this module exists to
  * end. `Math.round` because `0.55 * 100` is `55.00000000000001` in IEEE 754 and that string would
  * reach the browser verbatim.
+ *
+ * `VIEW_SWITCH_PX` joins the handle at `half` and `full` and is absent at `peek` — see its own
+ * comment for why that asymmetry is the honest description rather than an oversight.
  */
 export const STOP_TO_CONTENT_HEIGHT: Record<SheetStop, string> = {
   peek: `calc(${PEEK_PX}px - ${HANDLE_PX}px)`,
-  half: `calc(${Math.round(HALF_FRACTION * 1000) / 10}dvh - ${HANDLE_PX}px)`,
-  full: `calc(100dvh - ${HANDLE_PX}px)`,
+  half: `calc(${Math.round(HALF_FRACTION * 1000) / 10}dvh - ${HANDLE_PX + VIEW_SWITCH_PX}px)`,
+  full: `calc(100dvh - ${HANDLE_PX + VIEW_SWITCH_PX}px)`,
 };
 
 /** Which stop a vaul snap value is. Anything unrecognised is `peek`, which is where the sheet

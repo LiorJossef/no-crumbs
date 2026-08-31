@@ -13,11 +13,16 @@ import { describe, expect, it } from 'vitest';
  * is one word shorter than `motion-safe:animate-pulse` and the shorter one is what a person types.
  */
 
-const LOADING_FILES = [
-  'src/app/profile/loading.tsx',
-  'src/app/collections/loading.tsx',
-  'src/app/collections/[id]/loading.tsx',
-];
+/**
+ * **Two, not three, since 2026-08-31.**
+ *
+ * `src/app/collections/[id]/loading.tsx` is gone because the route it belonged to is gone: the
+ * index and a collection are one segment with a search param between them
+ * (`app/collections/_lib/drawer-view.ts`), and `[id]` is now a `redirect()` that renders no UI and
+ * therefore has nothing to show while it does it. `src/app/collections/loading.tsx` covers both
+ * views.
+ */
+const LOADING_FILES = ['src/app/profile/loading.tsx', 'src/app/collections/loading.tsx'];
 
 /**
  * The file with its comments removed.
@@ -59,6 +64,23 @@ describe('the loading states', () => {
     for (const file of SKELETON_SOURCES) {
       expect(code(file).match(/#[0-9A-Fa-f]{6}/g), `${file} hard-codes a colour`).toBeNull();
     }
+  });
+
+  /**
+   * The skeleton has to come to rest where the sheet will, and both numbers that decides moved on
+   * 2026-08-31: the collections drawer now rests at `half` rather than `full`, and it draws a
+   * 56 px Places / Collections switch above its list. Neither is visible to
+   * `CollectionsShellSkeleton`, which reproduces the sheet's chrome by hand — so the loading file
+   * is where the two are held together, and this is what stops them drifting back apart.
+   */
+  it('rests where the collections drawer rests, with the switch band reserved', () => {
+    const loading = code('src/app/collections/loading.tsx');
+    expect(loading).toContain('restingStop="half"');
+    expect(loading).not.toContain('restingStop="full"');
+    expect(loading).toContain('VIEW_SWITCH_HEIGHT_PX');
+    expect(code('src/app/collections/collections-drawer-client.tsx')).toContain(
+      "useMapShell({ restingStop: 'half' })",
+    );
   });
 
   it('hides every placeholder from the accessibility tree', () => {

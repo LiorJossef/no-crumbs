@@ -1,17 +1,13 @@
 'use client';
 
 /**
- * The collections index — **the sheet's list, not a page.**
+ * The collections index — **a view of the drawer, not a page and no longer a route of its own.**
  *
- * It used to be a standalone document: a `flex min-h-dvh flex-col` wrapper, its own `<header>`, an
- * `<h1>Collections</h1>`, a `max-w-[560px]` column and a `lg`-only back arrow to the map, with no
- * map anywhere on it. `ux-collections-as-scope.md` §5 items 1, 2 and 4 delete all of that: this is
- * S4 with collections in it, rendered through the same shell `/map` and `/collections/[id]` render,
- * so dragging the sheet down leaves you looking at your own places rather than at nothing.
- *
- * The sheet rests at `full`, which means the initial fit happens entirely behind it. That is on
- * purpose — the framing is correct the moment the sheet is dragged down, and the alternative is
- * opening a list surface half-covered by a map nobody asked to look at yet.
+ * It has been demoted twice. First from a standalone document (its own `<header>`, an
+ * `<h1>Collections</h1>`, a `max-w-[560px]` column and no map anywhere) to the sheet's list, by
+ * `ux-collections-as-scope.md` §5 items 1, 2 and 4. Now from *the* thing `/collections` renders to
+ * one of two things `CollectionsDrawerClient` can put in the sheet — see `_lib/drawer-view.ts` for
+ * why the index and a collection are one route segment with a search param between them.
  *
  * Rows with hairline dividers rather than a card each — a bordered box per collection is card soup
  * at four collections, and `docs/ux-collections.md` §1.1 rules it out for that reason. The create
@@ -21,95 +17,23 @@
  */
 
 import { isolate } from '@/ui/place/active-area';
-import { useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, ChevronUp, Plus } from 'lucide-react';
+import { ChevronRight, ChevronUp, Plus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { PRESS_CHIP, PRESS_ROW } from '@/lib/interaction';
+import { PRESS_ROW } from '@/lib/interaction';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { CollectionCover } from '@/components/collections/collection-cover';
-import { KICKER } from '@/components/collections/collection-content';
-import { boundsOfPoints } from '@/components/map/bounds';
-import type { MapPlace } from '@/components/map/types';
 import { BOTTOM_NAV_HEIGHT_PX } from '@/components/nav/bottom-nav';
-import { MapShell } from '@/components/shell/map-shell';
 import { STOP_TO_CONTENT_HEIGHT, type SheetStop } from '@/components/shell/sheet-geometry';
-import { useMapShell } from '@/components/shell/use-map-shell';
 import { memberLabel } from '@/domain/collections/collection';
 import { useCreateCollection } from '@/components/collections/use-create-collection';
+import { collectionsHref } from './_lib/drawer-view';
 import type { CollectionSummary } from './_lib/get-collections';
 
-export function CollectionsIndexClient({
-  collections,
-  libraryIsEmpty,
-  places,
-}: {
-  collections: readonly CollectionSummary[];
-  libraryIsEmpty: boolean;
-  /** The caller's saved places. The pins on the map behind this list, and the array the bar's `＋`
-   *  menu searches — that menu's search is a filter over exactly this array. */
-  places: readonly MapPlace[];
-}) {
-  const shell = useMapShell({ restingStop: 'full' });
-  const initialBounds = useMemo(() => boundsOfPoints(places), [places]);
-
-  const list = (stop?: SheetStop) => (
-    <CollectionsList
-      collections={collections}
-      libraryIsEmpty={libraryIsEmpty}
-      {...(stop ? { stop } : {})}
-      onExpand={() => shell.sheet.goTo('full')}
-      idPrefix={stop ? 'sheet' : 'panel'}
-    />
-  );
-
-  return (
-    <MapShell
-      shell={shell}
-      places={places}
-      {...(initialBounds ? { initialBounds } : {})}
-      restingStop="full"
-      /* Nothing floats over this map's top edge, and §3 of the ruling forbids it ever doing so —
-         the account chip is `/map`'s and is `hidden lg:flex`, so neither collections route has ever
-         had top chrome. Charging the camera `/map`'s 100 px allowance for chrome that is not there
-         is what `L2-COLL-CAM-2` measured on the sibling route. */
-      floatingTopChromePx={0}
-      /* No map-drawn detail: these pins are the user's library shown as context behind a list of
-         collections, and tapping one here would open a place detail this surface has no room for.
-         The map is reachable in one drag, and the place is one tap from there. */
-      selectedPlace={null}
-      accessibleName="Your places"
-      createMenuPlaces={places}
-      sheetContent={(stop) => list(stop)}
-      panelContent={
-        <div className="flex min-h-0 flex-1 flex-col pt-4">
-          {/* The one exit to the map that exists at `lg+`, and it is not the arrow §5 item 2
-              deleted. Below `lg` the map is one drag down and `BottomNav`'s Map tab goes there,
-              which is why the ruling removed the arrow — but the bar does not render at `lg+` and
-              the panel is opaque over the map's left edge, so without this the desktop index is a
-              dead end. Shaped as the `[id]` route's up-link rather than as a second back arrow, so
-              the two collections routes carry the same control in the same place. */}
-          <Link
-            href="/map"
-            className={cn(
-              KICKER,
-              'mx-4 -ms-2 inline-flex min-h-11 w-fit shrink-0 items-center gap-1 rounded-full px-2 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-              PRESS_CHIP,
-            )}
-          >
-            <ChevronLeft className="size-3.5 shrink-0 rtl:rotate-180" aria-hidden />
-            Map
-          </Link>
-          {list()}
-        </div>
-      }
-    />
-  );
-}
-
-function CollectionsList({
+export function CollectionsIndexList({
   collections,
   libraryIsEmpty,
   stop,
@@ -141,7 +65,7 @@ function CollectionsList({
   const fieldId = `${idPrefix}-new-collection-name`;
 
   function submit() {
-    // Focus returns to the field only on failure — on success the route changes and there is
+    // Focus returns to the field only on failure — on success the drawer changes view and there is
     // nothing here to focus. `create` resolving `false` is that signal.
     void create(name).then((created) => {
       if (!created) fieldRef.current?.focus();
@@ -302,7 +226,8 @@ function CollectionsList({
 
 function EmptyIndex({ libraryIsEmpty }: { libraryIsEmpty: boolean }) {
   // Two lines of copy and nothing else. The `Go to your map` button that used to sit here is gone
-  // (§5 item 4): the Map tab is on screen, and the map itself is now one drag behind this list.
+  // (§5 item 4): the map is behind this list rather than a screen away, and the `New collection`
+  // row directly below is the action this state is missing.
   return (
     <div className="py-10 text-center">
       <p className="font-heading text-base font-bold">Nothing collected yet.</p>
@@ -324,14 +249,23 @@ function Section({
 }) {
   return (
     <section className="mb-6">
-      <h2 className="px-1 pb-1 pt-4 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+      <h2 className="px-1 pb-1 pt-4 text-micro font-bold uppercase tracking-wide text-muted-foreground">
         {title}
       </h2>
       <ul>
         {collections.map((collection) => (
           <li key={collection.id} className="border-b border-border/70 last:border-b-0">
             <Link
-              href={`/collections/${collection.id}` as `/collections/${string}`}
+              /* **A search param, not a segment** — `_lib/drawer-view.ts` has the measurement.
+                 `/collections?collection=<id>` is the same route file this row is rendered by, so
+                 the router re-renders the page in place and the drawer, the vaul root inside it
+                 and the live MapLibre instance behind it are all untouched. The old
+                 `/collections/<id>` was a sibling segment, and every tap on this row destroyed the
+                 sheet and let a new one animate up from the bottom of the screen.
+
+                 The cast is the one `bottom-nav.tsx` already makes for `/map?place=`: `typedRoutes`
+                 types the route literal and has nothing to say about a query string on it. */
+              href={collectionsHref({ kind: 'collection', id: collection.id }) as '/collections'}
               // The accessible name carries every fact the colour strip cannot (§8.4).
               aria-label={rowAccessibleName(collection)}
               data-vaul-no-drag
@@ -353,7 +287,7 @@ function Section({
                   <bdi>{collection.name}</bdi>
                 </p>
                 {/* Never one interpolated string: a count and an RTL name on one line reorder. */}
-                <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+                <p className="flex items-center gap-1.5 text-caption text-muted-foreground">
                   <span>{placeCountLabel(collection.placeCount)}</span>
                   {secondFact(collection) ? (
                     <>

@@ -1,7 +1,29 @@
 'use client';
 
 /**
- * The product's three destinations, and its one primary action, as a floating bar.
+ * The product's two destinations, and its one primary action, as a floating bar.
+ *
+ * ## It held three until 2026-08-31, and `Collections` moved into the drawer
+ *
+ * Owner: *"the collection / places navigation should be inside the drawer"*. That is a different
+ * claim from "there should be fewer tabs", and it is the right one. A tab says **which screen you
+ * are on**; Places and Collections are not two screens, they are two lists on the same screen —
+ * the same map, the same drawer, the same camera, with different rows in it. Sending that choice
+ * through the bar meant a route change, and a route change unmounted the sheet: measured at
+ * `c585ce7`, 390x844, tapping this bar's `Collections` tab replaced the element carrying
+ * `data-testid="place-sheet"` (1 -> 2 distinct nodes) and let vaul animate the new one up from the
+ * bottom of the screen, 844 -> 703 -> 458 -> 248 -> 129 -> 77 -> 25 -> 0 px. The switch now lives
+ * in `map-shell.tsx`'s `DrawerViewSwitch`, where changing view is not a change of screen.
+ *
+ * **What that costs, stated rather than buried:** from `/profile`, which has no drawer, reaching a
+ * collection is now two taps (Map, then Collections) where it was one. That is the price of the
+ * control living on the surface it acts on, and it is paid on the one screen in the product that
+ * is not the map.
+ *
+ * **Why `Map` stays a tab even though the switch's `Places` reaches the same list.** They are not
+ * the same control: `Map` is how a person on `/profile` gets back to the product, and it is the
+ * only thing in the bar that answers that. On the map itself it is a link to the route you are
+ * already on, which is the same cheap no-op it has always been.
  *
  * **This reverses `ux-navigation-structure-2026-08-29.md` §1, on the owner's instruction
  * (2026-08-29).** That ruling refused a bar and answered the reachability problem with a third slot
@@ -28,26 +50,25 @@
  *  - It does not steal from the list: the sheet's scroll container is padded by exactly this bar's
  *    height, so the last row clears it instead of hiding under it.
  *
- * ## Three destinations, and the third was ruled in by the owner
+ * ## Two destinations, and Profile was ruled in by the owner
  *
- * `/map`, `/collections` and `/profile`. This paragraph said **two** and named Profile in the
- * refusal list, on the grounds that we have no settings; the owner reversed that on 2026-08-29 and
- * asked for a profile page carrying basic account information, a few library stats and sign-out.
+ * `/map` and `/profile`. This paragraph once refused Profile on the grounds that we have no
+ * settings; the owner reversed that on 2026-08-29 and asked for a profile page carrying basic
+ * account information, a few library stats and sign-out.
  *
  * The reason the refusal was right and is now wrong is worth keeping, because it is what stops a
- * fourth tab: **an empty tab is a promise**, and a bar sized for destinations we do not have is the
- * template-SaaS shape Charter §6 bans. Profile stopped being empty the moment it had somewhere to
- * put sign-out — which was a permanent button over the map, a primary navigation action for
- * something people do about once a year. The rest of §4's list still binds: no Trips (Charter §1
- * declines itinerary planning), no References destination (a source link is a field on a saved
- * place, not an entity with a screen).
+ * third tab coming back: **an empty tab is a promise**, and a bar sized for destinations we do not
+ * have is the template-SaaS shape Charter §6 bans. Profile stopped being empty the moment it had
+ * somewhere to put sign-out — which was a permanent button over the map, a primary navigation
+ * action for something people do about once a year. The rest of §4's list still binds: no Trips
+ * (Charter §1 declines itinerary planning), no References destination (a source link is a field on
+ * a saved place, not an entity with a screen).
  *
- * **The labels moved under the icons, and only because three tabs made them.** Measured at the
- * 375 px reference viewport: the pill has 275 px of inner width, so a third tab leaves each one
- * 73 px of content — and `Collections` beside a 16 px icon needs about 102 px at `text-sm`. Every
- * phone width fails that, so a horizontal label could only ever have shipped truncated. Stacked at
- * 11 px it measures about 63 px and fits, inside the same 44 px tab height, so `BOTTOM_NAV_HEIGHT_PX`
- * does not move and neither does anything that reads it.
+ * **The labels stay under the icons.** They moved there when there were three tabs and 73 px of
+ * content width each; at two there is room for a horizontal label, and the stack is kept anyway
+ * because `BOTTOM_NAV_HEIGHT_PX` is read by five surfaces that pad themselves clear of this bar and
+ * a 68 px constant that moves for a layout preference is not worth the blast radius. The
+ * `max-[359px]:sr-only` threshold is now comfortably clear rather than marginal.
  *
  * `＋` is deliberately not a tab. It is an action, it changes nothing about where you are, and
  * Plotline separates it into its own circle for the same reason. It carries no `aria-current` and
@@ -58,7 +79,7 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { Library, Loader2, Map as MapIcon, Plus, UserRound } from 'lucide-react';
+import { Loader2, Map as MapIcon, Plus, UserRound } from 'lucide-react';
 
 import type { MapPlace } from '@/components/map/types';
 import { cn } from '@/lib/utils';
@@ -144,18 +165,18 @@ interface BottomNavProps {
  */
 
 /**
- * **There is no count on the Collections tab, and that is deliberate.**
+ * **There is no count on any tab here, and none on the drawer's `Collections` switch either.**
  *
  * `CollectionsNavRow` carried one and was right to: it was a row in a list, where a trailing number
  * is how a row says how much is behind it. A tab is not a row. The destination is the same whether
  * it says 2 or 12, a number beside a nav label reads as a notification badge, and Plotline's own
  * tabs carry none.
  *
- * There is also a correctness reason, which is what settled it. The two routes hold different sets:
+ * There is also a correctness reason, which is what settled it and which outlived the tab.
  * `CollectionsContext` under `/map` carries the collections you can **edit**, because that is what
  * the "add to a collection" picker needs, while the index lists every membership including the ones
- * you can only view. A viewer-role collection would make the same control say `2` on one page and
- * `3` on the next. A number that changes as you cross between the two routes it exists to join is
+ * you can only view. A viewer-role collection would make the same control say `2` in one view and
+ * `3` in the next. A number that changes as you cross between the two things it exists to join is
  * worse than no number.
  */
 
@@ -177,19 +198,13 @@ export function BottomNav({ onAdd, places = [] }: BottomNavProps) {
     setMenuOpen(true);
   }
 
-  // `startsWith`, so `/collections/[id]` and the join route keep the Collections tab lit rather
-  // than lighting nothing. `/map` is exact — there is nothing below it.
-  const onMap = pathname === '/map';
-  const onCollections = pathname.startsWith('/collections');
+  // **`/collections` lights the `Map` tab**, and that is the whole of what moving the switch into
+  // the drawer means here: the collections view is the map screen with different rows in its
+  // drawer, so the bar has to say you are on the map. Lighting nothing there — which is what an
+  // exact `=== '/map'` would do — would tell a screen reader user that they are on none of the
+  // product's destinations while looking at one of them.
+  const onMap = pathname === '/map' || pathname.startsWith('/collections');
   const onProfile = pathname === '/profile';
-
-  // `/collections/[id]` is a section match, not the current document, so the tab is `true` there
-  // and `page` only on the index itself.
-  const collectionsCurrent: NavCurrent = !onCollections
-    ? false
-    : pathname === '/collections'
-      ? 'page'
-      : 'true';
 
   if (importUrl !== null) {
     // The bar is not rendered beside it: a half-finished import is a takeover, and a tab out of one
@@ -230,14 +245,8 @@ export function BottomNav({ onAdd, places = [] }: BottomNavProps) {
               the cheapest correct answer for a two-destination bar: the browser handles the no-op,
               the control keeps its accessible name and its focus behaviour, and nothing has to
               model "pressed but inert". */}
-          <NavTab href="/map" icon={MapIcon} label="Map" current={onMap && 'page'} />
-          <NavTab
-            href="/collections"
-            icon={Library}
-            label="Collections"
-            current={collectionsCurrent}
-          />
-          <NavTab href="/profile" icon={UserRound} label="Profile" current={onProfile && 'page'} />
+          <NavTab href="/map" icon={MapIcon} label="Map" current={onMap} />
+          <NavTab href="/profile" icon={UserRound} label="Profile" current={onProfile} />
         </div>
         <AddButton onAdd={onAdd ?? openMenu} />
       </nav>
@@ -256,25 +265,29 @@ export function BottomNav({ onAdd, places = [] }: BottomNavProps) {
   );
 }
 
-/** `page` when this tab's route *is* the current document, `true` when the document merely lives
- *  under it, `false` when neither. The distinction is the whole reason this is not a boolean. */
-type NavCurrent = 'page' | 'true' | false;
-
+/**
+ * A tab is on or it is off, and there is no longer a third case.
+ *
+ * It used to carry `'page' | 'true' | false` so that `/collections/[id]` could light the
+ * `Collections` tab as a *section* rather than as the current document. There is no section tab
+ * any more — the two destinations are both leaves — and `aria-current="page"` is the honest value
+ * for each: `/collections` is the map screen, which is what `onMap` now says.
+ */
 function NavTab({
   href,
   icon: Icon,
   label,
   current,
 }: {
-  href: '/map' | '/collections' | '/profile';
+  href: '/map' | '/profile';
   icon: typeof MapIcon;
   label: string;
-  current: NavCurrent;
+  current: boolean;
 }) {
   return (
     <Link
       href={href}
-      {...(current === false ? {} : { 'aria-current': current })}
+      {...(current ? { 'aria-current': 'page' as const } : {})}
       className={cn(
         'flex h-11 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-full px-2 font-medium motion-safe:transition-colors',
         'focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',

@@ -68,6 +68,7 @@
  */
 
 import { useMemo, type CSSProperties, type ReactNode } from 'react';
+import Link from 'next/link';
 import { Drawer } from 'vaul';
 
 import type { MapPlace } from '@/components/map/map-surface';
@@ -79,10 +80,12 @@ import { useNonModalBackground } from '@/components/sheet/use-non-modal-backgrou
 import {
   SNAP_POINTS,
   STOP_TO_SNAP,
+  VIEW_SWITCH_HEIGHT_PX,
   restingSheetFractionFor,
   type SheetStop,
 } from './sheet-geometry';
 import { focusProps, type MapShellState } from './use-map-shell';
+import { PRESS_CHIP } from '@/lib/interaction';
 import { cn } from '@/lib/utils';
 
 /**
@@ -106,6 +109,83 @@ import { cn } from '@/lib/utils';
  * held sheet does not move at all until its beat.
  */
 const ENTRANCE_HOLD_STYLE = { '--snap-point-height': '100%' } as CSSProperties;
+
+/**
+ * **The drawer's two views, and the hrefs that address them.**
+ *
+ * Owner, 2026-08-31: *"the collection / places navigation should be inside the drawer"*. It used to
+ * be the `Collections` tab in `BottomNav`, and that tab is gone — a control that means "show me the
+ * other list" belongs on the surface holding the list, not in the bar that says which screen you
+ * are on. See `DrawerViewSwitch` for what replaces it and `bottom-nav.tsx` for what the bar keeps.
+ *
+ * **Hrefs, not callbacks, and that is requirement 2 of the dispatch rather than a preference.**
+ * Two real `<a href>`s make the switch work with hydration killed, which this product has shipped
+ * a blank screen by forgetting twice. Where the two hrefs differ only in their search params the
+ * router re-renders one page in place and nothing here unmounts; where they are different segments
+ * it is an ordinary navigation. The switch does not know or care which.
+ */
+export interface DrawerViews {
+  /** Which of the two the drawer is showing right now. */
+  readonly current: 'places' | 'collections';
+  readonly placesHref: string;
+  readonly collectionsHref: string;
+}
+
+/**
+ * The control itself — a segmented pair, rendered from two places: inside `Drawer.Content` below
+ * `lg`, and at the top of the left panel above it. One component, so the phone and the desktop
+ * cannot grow different navigation, which is `ui-review-2026-08-31.md` §1 finding 6's whole
+ * complaint about this product.
+ */
+function DrawerViewSwitch({ views }: { views: DrawerViews }) {
+  return (
+    // `<nav>`, because it is two links to two places, and labelled because the document already
+    // has one called `Main`. The label names the pair rather than the container: a screen reader
+    // user hears "Places and collections, navigation", which is what it is.
+    <nav
+      aria-label="Places and collections"
+      style={{ height: `${VIEW_SWITCH_HEIGHT_PX}px` }}
+      className="shrink-0 px-4 pt-1 pb-2"
+      data-vaul-no-drag
+    >
+      <div className="flex h-full items-center gap-1 rounded-full bg-muted/60 p-1">
+        <ViewTab href={views.placesHref} label="Places" active={views.current === 'places'} />
+        <ViewTab
+          href={views.collectionsHref}
+          label="Collections"
+          active={views.current === 'collections'}
+        />
+      </div>
+    </nav>
+  );
+}
+
+function ViewTab({ href, label, active }: { href: string; label: string; active: boolean }) {
+  return (
+    <Link
+      // `typedRoutes` types the route literal and has nothing to say about a query string on it —
+      // the same cast `bottom-nav.tsx` makes for `/map?place=`.
+      href={href as '/map'}
+      {...(active ? { 'aria-current': 'page' as const } : {})}
+      className={cn(
+        'flex h-full min-w-0 flex-1 items-center justify-center rounded-full px-3 text-sm font-medium',
+        'focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+        // Rest and hover unconditionally; the on state as a variant over the attribute that is
+        // already on the element — rule 6a, state comes from the DOM rather than from a class
+        // string assembled by a ternary, so a tab cannot look selected while telling a screen
+        // reader it is not.
+        'text-muted-foreground hover:text-foreground',
+        'aria-[current]:bg-card aria-[current]:text-foreground aria-[current]:shadow-raised',
+        // The chip's press, which is what `BottomNav`'s own tabs take: a target with no fill of its
+        // own, on a phone with no hover and no focus-visible to confirm the tap landed. Every part
+        // of it is behind `motion-safe:` already.
+        PRESS_CHIP,
+      )}
+    >
+      <span className="min-w-0 truncate">{label}</span>
+    </Link>
+  );
+}
 
 export interface MapShellProps {
   /** The shell's state, from `useMapShell` in the route that owns the scope. */
@@ -190,6 +270,17 @@ export interface MapShellProps {
   /** What goes inside the `lg+` left panel. The frame — width, hairline, blur, pointer-events
    *  islanding — is the shell's; this is only what sits in it. */
   readonly panelContent: ReactNode;
+  /**
+   * The drawer's own Places / Collections navigation.
+   *
+   * **Required, not optional, because the geometry is unconditional.**
+   * `STOP_TO_CONTENT_HEIGHT` subtracts `VIEW_SWITCH_HEIGHT_PX` at `half` and `full` for every
+   * sheet in the product. A caller that omitted the switch would get 56 px of reserved space with
+   * nothing drawn in it, and every list inside it would end 56 px short — laid out, painted and
+   * below the bottom of the screen, which is the failure `STOP_TO_CONTENT_HEIGHT` exists to
+   * prevent. Two components render this shell; both pass it.
+   */
+  readonly views: DrawerViews;
 
   // ---- chrome ----
   /** This scope's own create menu. Omitted lets `BottomNav` open the shared one itself. */
@@ -248,6 +339,7 @@ export function MapShell({
   controlSlot,
   sheetContent,
   panelContent,
+  views,
   onAdd,
   createMenuPlaces,
   floatingSlot,
@@ -407,6 +499,11 @@ export function MapShell({
                     'focus-visible:ring-3 focus-visible:ring-ring/50 outline-none',
                   )}
                 />
+                {/* **Not at `peek`**, and `sheet-geometry.ts` subtracts its height at exactly the
+                    two stops it renders at. The peek band is 128 px with a 68 px `BottomNav`
+                    floating over its lower half, so it holds one line; the switch there would be
+                    that line, and the count the peek row exists to say would have nowhere to go. */}
+                {shell.sheet.stop === 'peek' ? null : <DrawerViewSwitch views={views} />}
                 {sheetContent(shell.sheet.stop)}
               </Drawer.Content>
             </Drawer.Portal>
@@ -443,7 +540,20 @@ export function MapShell({
           `slide-in-from-left-2` and not `-bottom-1` because this panel's own edge is the left one —
           the displacement is along the axis the surface arrives on. */}
       <div className="pointer-events-none absolute inset-0 z-20 hidden lg:block">
-        <div className="pointer-events-auto animate-in fade-in-0 duration-enter motion-safe:slide-in-from-left-2 absolute inset-y-0 left-0 flex w-[clamp(320px,26vw,392px)] flex-col border-r border-border/70 bg-card/85 backdrop-blur-md">
+        <div
+          data-testid="shell-panel"
+          className="pointer-events-auto animate-in fade-in-0 duration-enter motion-safe:slide-in-from-left-2 absolute inset-y-0 left-0 flex w-[clamp(320px,26vw,392px)] flex-col border-r border-border/70 bg-card/85 backdrop-blur-md"
+        >
+          {/* **The desktop's answer to `ui-review-2026-08-31.md` §1 finding 6**, which measured
+              that a phone has a navigation model and a 1440 screen does not: `/collections` could
+              reach the map and nothing else, and a collection could reach neither the map nor the
+              profile. `BottomNav` is `lg:hidden`, so the switch in this panel is the only
+              persistent navigation a desktop user has — and it is the same control, in the same
+              order, with the same labels as the one in the sheet. One extra `pt-2` above it,
+              because there is no drag handle here to hold it off the panel's top edge. */}
+          <div className="pt-2">
+            <DrawerViewSwitch views={views} />
+          </div>
           {panelContent}
         </div>
       </div>

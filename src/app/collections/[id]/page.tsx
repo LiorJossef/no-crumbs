@@ -1,64 +1,36 @@
-import { notFound, redirect } from 'next/navigation';
+import { redirect } from 'next/navigation';
 
-import { createClient } from '@/app/_lib/supabase/server';
-import { getSpots } from '@/app/map/_lib/get-spots';
-import type { MapPlace } from '@/components/map/map-surface';
-import type { Spot } from '@/domain/places/spot';
-import { getCollection, getCollectionMemberships } from '../_lib/get-collections';
-import { CollectionClient } from './collection-client';
+import { collectionsHref } from '../_lib/drawer-view';
 
-/** The same `Spot` → `MapPlace` mapping `/map` does, for the picker's rows. Duplicated rather than
- *  exported from `map/page.tsx`, which is a route module, not a library. */
-function toMapPlace(spot: Spot): MapPlace {
-  return {
-    id: spot.id,
-    name: spot.name,
-    category: spot.category,
-    lat: spot.lat,
-    lng: spot.lng,
-    note: spot.note ?? '',
-    sourceUrl: spot.sourceUrl ?? spot.source?.canonicalUrl,
-    visited: spot.visitState === 'visited',
-    detail: spot,
-  };
-}
-
-export default async function CollectionPage({
+/**
+ * **A collection's old URL, kept working forever.**
+ *
+ * `/collections/<id>` was a route segment of its own until 2026-08-31, and that is exactly what
+ * made opening a collection destroy the drawer — a sibling segment change unmounts the whole
+ * subtree, sheet included (`_lib/drawer-view.ts` has the measurement). The view moved onto
+ * `/collections?collection=<id>`, which is the same segment and therefore not a mount at all.
+ *
+ * The path stays because it is in shared links, in the join flow's landing, in browser history and
+ * in anyone's bookmarks, and the one thing a URL may not do is stop working. A redirect rather than
+ * a `rewrite` in `next.config.ts`, so there is exactly one canonical URL for a collection and a
+ * reader of the address bar is never looking at the losing one.
+ *
+ * **No auth check and no existence check here**, deliberately: both belong to the page this hands
+ * off to, and duplicating the membership read would make *this* route an existence oracle for
+ * other people's collections — a 404 for a stranger and a redirect for a member is the difference
+ * `getCollection` exists to hide.
+ *
+ * `307`, which is what `redirect()` issues, rather than a permanent one: this is our routing, it
+ * may change again, and a `308` cached in somebody's browser forever is not a thing to hand out
+ * for an internal reshuffle.
+ */
+export default async function CollectionByPathPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/sign-in');
-
-  const collection = await getCollection(id);
-  // `getCollection` returns null both for a collection that does not exist and for one the caller
-  // is not a member of. Rendering the same 404 for both is deliberate: telling them apart would
-  // make this route an existence oracle for other people's collections.
-  if (!collection) notFound();
-
-  // Read alongside the library for the same reason `/map` does: the `Add to a collection` row has
-  // to say which collections a place is already in *before* it is tapped, so the answer has to be
-  // in hand when the detail renders. Without it the row renders nothing at all, and a place opened
-  // here would be missing a control it has on the map — which `R1` forbids.
-  const [library, collections] = await Promise.all([
-    getSpots().then((spots) => spots.map(toMapPlace)),
-    getCollectionMemberships(),
-  ]);
-
-  return (
-    <main className="relative h-dvh w-full overflow-hidden">
-      <CollectionClient
-        collection={collection}
-        library={library}
-        collections={collections}
-        currentUserId={user.id}
-      />
-    </main>
-  );
+  // The cast is the one `bottom-nav.tsx` already makes for `/map?place=`: `typedRoutes` types the
+  // route literal and has nothing to say about a query string on it.
+  redirect(collectionsHref({ kind: 'collection', id }) as '/collections');
 }

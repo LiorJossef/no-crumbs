@@ -1229,6 +1229,21 @@ export function MapPageClient({
               onAreaClick={selectArea}
               onCountryClick={focusCountry}
               accessibleName={canvasName}
+              /* **The drawer's own navigation** (owner, 2026-08-31). `BottomNav`'s `Collections`
+                 tab is gone; the switch lives here, on the surface it acts on. Both hrefs are real
+                 links, so the control works with hydration killed.
+
+                 `/collections` is still a different route segment from this one, so this direction
+                 is an ordinary navigation and the sheet does remount on it — the same hop the
+                 tab made. Merging the two segments is what removes that, and it needs
+                 `src/app/map/page.tsx` to carry the collections read; it is asked for and not
+                 taken. Inside collections the switch is already unmount-free, because the index and
+                 a collection are one segment (`app/collections/_lib/drawer-view.ts`). */
+              views={{
+                current: 'places',
+                placesHref: '/map',
+                collectionsHref: '/collections',
+              }}
               // Straight through to the surface, which quietens every other pin and draws this one
               // lifted and named. See `hoveredId` — not a camera mover.
               hoveredPlaceId={hoveredId}

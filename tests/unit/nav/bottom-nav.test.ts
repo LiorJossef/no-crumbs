@@ -2,10 +2,14 @@
  * The bar's `aria-current`, which is the one thing about it a screen reader user hears and a
  * sighted user does not.
  *
- * `/collections/[id]` is an *ancestor-section* match: the Collections tab is lit because the
- * document lives under it, not because it is that document. `aria-current="page"` there is a claim
- * that is simply false, and the fix is `"true"` — the weaker, accurate one
- * (`docs/ux-collections-as-scope.md` §3, §5 item 5).
+ * **The bar holds two tabs since 2026-08-31**, not three: `Collections` moved into the drawer, as
+ * `map-shell.tsx`'s `DrawerViewSwitch`, on the owner's instruction. So the *ancestor-section*
+ * case this file used to be mostly about — `/collections/[id]` lighting a Collections tab as
+ * `"true"` rather than as `"page"` — has no subject any more, and what replaces it is a claim
+ * worth more than the one it retires: **every collections URL lights `Map`**, because the
+ * collections view *is* the map screen with different rows in its drawer. A bar that lit nothing
+ * there would tell a screen reader user they are on none of the product's destinations while
+ * looking at one of them.
  *
  * Rendered with `react-dom/server`: vitest runs in a `node` environment here, so what is asserted
  * is the markup of the first paint, which is where this attribute lives.
@@ -35,20 +39,26 @@ function tab(markup: string, label: string): string {
 }
 
 describe('BottomNav aria-current', () => {
-  it('marks the collections index as the current page', () => {
-    expect(tab(markupAt('/collections'), 'Collections')).toContain('aria-current="page"');
+  it('holds two destinations, and Collections is not one of them', () => {
+    const markup = markupAt('/map');
+    expect(tab(markup, 'Map')).not.toBe('');
+    expect(tab(markup, 'Profile')).not.toBe('');
+    // The switch that replaced it lives in the drawer and is asserted in
+    // `tests/unit/shell/drawer-view-switch.test.ts`. Here the only claim is that the bar does not
+    // offer a second way to the same view.
+    expect(markup).not.toContain('href="/collections"');
+    expect(tab(markup, 'Collections')).toBe('');
   });
 
-  it('marks a collection as under the tab, not as the tab', () => {
-    const collections = tab(markupAt('/collections/abc-123'), 'Collections');
-    expect(collections).toContain('aria-current="true"');
-    expect(collections).not.toContain('aria-current="page"');
+  it('lights Map on every collections URL, because that is the screen you are on', () => {
+    for (const route of ['/collections', '/collections?collection=abc-123', '/collections/abc-123']) {
+      expect(tab(markupAt(route), 'Map'), route).toContain('aria-current="page"');
+    }
   });
 
-  it('leaves the tabs you are not on unmarked', () => {
-    const markup = markupAt('/collections/abc-123');
-    expect(tab(markup, 'Map')).not.toContain('aria-current');
-    expect(tab(markup, 'Profile')).not.toContain('aria-current');
+  it('leaves the tab you are not on unmarked', () => {
+    expect(tab(markupAt('/collections'), 'Profile')).not.toContain('aria-current');
+    expect(tab(markupAt('/profile'), 'Map')).not.toContain('aria-current');
   });
 
   it('still marks the map and the profile exactly', () => {
@@ -59,7 +69,7 @@ describe('BottomNav aria-current', () => {
 
 describe('the ＋ means one thing on every tab', () => {
   it('is a button that opens the create menu, never a link to /import', () => {
-    const markup = markupAt('/collections/abc-123');
+    const markup = markupAt('/collections?collection=abc-123');
     expect(markup).toContain('aria-label="Create"');
     expect(markup).not.toContain('href="/import"');
     expect(markup).not.toContain('Add a TikTok');
@@ -93,12 +103,14 @@ describe('BottomNav — the on state is the attribute, not a second variable', (
   });
 
   it('matches on the attribute rather than on one of its values', () => {
-    // This component passes `'page'` for the route you are on and `'true'` for a section within
-    // it. Both mean on, so an `aria-[current=page]` variant would leave the collections *detail*
-    // tab looking unselected while announcing itself as current.
-    const detail = tab(markupAt('/collections/abc'), 'Collections');
-    expect(detail).toContain('aria-current="true"');
-    expect(detail).toContain('aria-[current]:bg-muted');
+    // The variant is `aria-[current]:`, which matches on the attribute's *presence*. That is what
+    // let the third tab carry `'true'` for a section while still looking selected, and it is what
+    // will let a future value do the same — an `aria-[current=page]` variant would be a class
+    // string that has to be revisited every time the value changes, which is the coupling this
+    // block exists to forbid.
+    const onCollections = tab(markupAt('/collections?collection=abc'), 'Map');
+    expect(onCollections).toContain('aria-current="page"');
+    expect(onCollections).toContain('aria-[current]:bg-muted');
   });
 
   it('acknowledges a press, behind motion-safe', () => {
