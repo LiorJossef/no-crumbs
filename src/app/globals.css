@@ -564,13 +564,49 @@
     --chrome-bloom-a: radial-gradient(closest-side, rgba(91, 108, 255, 0.30) 0%, rgba(91, 108, 255, 0) 100%);
     --chrome-bloom-b: radial-gradient(closest-side, rgba(168, 236, 226, 0.72) 0%, rgba(168, 236, 226, 0) 100%);
     --chrome-glow: radial-gradient(closest-side, rgba(91, 108, 255, 0.26) 0%, rgba(91, 108, 255, 0) 100%);
-    /* The halo behind the mark, and it is a separate token from `--chrome-glow` because it is a
-     * different job at a different scale. Indigo behind a mint mascot on near-white desaturates to
-     * a grey disc with a visible boundary — photographed at 390x844 before this existed — so on
-     * paper the mark's halo is the brand's own mint and reads as light coming off the mark. At
-     * night indigo is right: the ground is already indigo-biased and a mint halo on a mint mark
-     * would be a smudge. */
-    --chrome-mark-glow: radial-gradient(closest-side, rgba(168, 236, 226, 0.75) 0%, rgba(168, 236, 226, 0) 100%);
+    /*
+     * **The halo behind the mark, and it is the mascot's own light rather than the brand's.**
+     *
+     * A separate token from `--chrome-glow` because it is a different job at a different scale, and
+     * it has now been wrong twice for the same reason — each time it was chosen against a mark that
+     * then changed underneath it.
+     *
+     * First it was indigo, which behind the old *mint* disc on near-white desaturated to a grey
+     * disc with a visible boundary. Then it was mint, which was right for a mint mark and became
+     * wrong the moment the mascot landed: `#E0A845` at 224,168,69 is a warm object and a pale mint
+     * halo sits at the opposite temperature, so what it drew around the gold crumb was a cyan-green
+     * **fringe** rather than light. Measured 40px out from the mark's centre at 390x844, the halo
+     * read `rgb(239,249,251)` against a `rgb(252,252,254)` card — cool, where the object it
+     * surrounds is warm. Owner-side ruling, 2026-08-31: warm it.
+     *
+     * So it is `MASCOT_CRUST` — the character's own darker underside — at a low alpha, and it reads
+     * as the light coming off the crumb instead of as a second colour behind it.
+     *
+     * **And the binding reason is a rule rather than the measurement.** Team-lead ruling,
+     * 2026-08-31: `brand-and-product-foundation.md` §3.1 rule 3 says mint and gold *never appear on
+     * the same surface*, and a mint glow drawn two pixels around a gold character is those two
+     * colours meeting at the closest distance the product can put them. The owner's override admits
+     * **indigo** to chrome; it says nothing about mint and gold, so rule 3 still binds here. That is
+     * why this is the crust in **both** themes rather than a light-only correction — the night
+     * value was indigo rather than mint and so never broke rule 3, but it read as a bruise behind a
+     * warm character rather than as light, which is the same defect the light one had with the
+     * temperature reversed.
+     *
+     * **This is the fourth deliberate literal-versus-token duplication in this codebase and it
+     * follows the same rule as the other three** (`ui/place/palette.ts`, `components/brand/
+     * brand-colors.ts`, `mascot-colors.ts`): the value is *decided* in `mascot-colors.ts`, which is
+     * the one place the character's palette lives, and this is a copy because a stylesheet cannot
+     * import a TypeScript constant. `tests/unit/design-system/chrome-tokens.test.ts` asserts the
+     * two agree. **Do not retune this hue here** — move `MASCOT_CRUST` and let the test fail.
+     *
+     * **`.dark` is the same hue at a higher alpha, and that is the exception this file otherwise
+     * argues against.** Every other composition token here carries two genuinely different values
+     * because a pigment that works on paper does not work on near-black. This one does not, and the
+     * reason is that it is not lighting a *surface* — it is lighting a **character**, and the
+     * character is the same object in both themes. What changes is how much light a ground needs
+     * before a glow registers on it, which is an alpha and not a colour.
+     */
+    --chrome-mark-glow: radial-gradient(closest-side, rgba(224, 168, 69, 0.42) 0%, rgba(224, 168, 69, 0) 100%);
     /* The lit top edge of the card: the two brand colours as a single 1px rule, which is colour
      * that costs no contrast because nothing is read on it. */
     --chrome-edge:
@@ -977,7 +1013,10 @@
     --chrome-bloom-a: radial-gradient(closest-side, rgba(91, 108, 255, 0.40) 0%, rgba(91, 108, 255, 0) 100%);
     --chrome-bloom-b: radial-gradient(closest-side, rgba(70, 155, 142, 0.42) 0%, rgba(70, 155, 142, 0) 100%);
     --chrome-glow: radial-gradient(closest-side, rgba(91, 108, 255, 0.44) 0%, rgba(91, 108, 255, 0) 100%);
-    --chrome-mark-glow: radial-gradient(closest-side, rgba(91, 108, 255, 0.50) 0%, rgba(91, 108, 255, 0) 100%);
+    /* `MASCOT_CRUST` again, at a higher alpha — see `:root`. A near-black ground swallows a warm
+     * glow that a near-white one carries easily, so the pigment is held and the alpha moves. The
+     * indigo that was here read as a bruise behind the gold character rather than as light. */
+    --chrome-mark-glow: radial-gradient(closest-side, rgba(224, 168, 69, 0.62) 0%, rgba(224, 168, 69, 0) 100%);
     --chrome-edge:
         linear-gradient(90deg, rgba(91, 108, 255, 0) 0%, rgba(91, 108, 255, 0.95) 24%, rgba(168, 236, 226, 0.9) 62%, rgba(168, 236, 226, 0) 100%);
     --chrome-grain-strength: 0.14;

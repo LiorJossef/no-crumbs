@@ -36,6 +36,7 @@ import {
   ITEM_VARIANTS,
   MARK_VARIANTS,
 } from '@/components/brand/chrome-motion';
+import { MASCOT_CRUST } from '@/components/brand/mascot-colors';
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const GLOBALS = path.join(ROOT, 'src/app/globals.css');
@@ -263,6 +264,47 @@ describe('every chrome composition token answers in both themes', () => {
       .filter(({ source }) => withoutComments(source).includes('--chrome-panel-wash'))
       .map(({ path: p }) => p);
     expect(offenders).toEqual([]);
+  });
+
+  it('lights the mark in the mascot\u2019s own crust, and does not restate its value', () => {
+    /*
+     * **The fourth deliberate literal-versus-token duplication, held to the same rule as the other
+     * three.**
+     *
+     * `--chrome-mark-glow` in light is the mascot's crust at a low alpha, because a halo should
+     * read as the light coming off the character rather than as a second colour behind it. A
+     * stylesheet cannot import a TypeScript constant, so `globals.css` carries a copy — exactly the
+     * arrangement `ui/place/palette.ts`, `brand-colors.ts` and `mascot-colors.ts` already carry,
+     * and exactly the arrangement `palette-tokens.test.ts` exists to keep honest.
+     *
+     * **This is what stops a silent inheritance across a lane boundary.** The character belongs to
+     * one lane and the light behind it to another, and this token has now been wrong twice for the
+     * same reason: each time it was chosen against a mark that later changed underneath it. If
+     * `MASCOT_CRUST` moves, this fails, and the halo is re-decided rather than left pointing at a
+     * colour the character no longer is.
+     *
+     * **Both themes**, which is the one place this file asserts a token is the *same* colour twice.
+     * Everywhere else two values are required, because a pigment tuned on paper does not survive
+     * near-black. A halo is the exception: it lights a **character** rather than a surface, and the
+     * character is the same object in both themes. Only the alpha moves, and the alpha is not
+     * asserted — a ground needs more light before a glow registers on it, and how much is a
+     * judgement made by looking.
+     */
+    const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    for (const theme of [':root', '.dark'] as const) {
+      const glow = declarations(theme).get('--chrome-mark-glow') ?? '';
+      const stops = [...glow.matchAll(/rgba\((\d+),\s*(\d+),\s*(\d+)/g)].map((m) =>
+        m.slice(1, 4).map(Number),
+      );
+      // A two-hue halo is a fringe, not a glow, so every stop is checked rather than the first.
+      expect(stops.length, `${theme} --chrome-mark-glow should be rgba() stops: ${glow}`).toBeGreaterThan(1);
+      for (const stop of stops) expect(stop, `${theme} --chrome-mark-glow`).toEqual(rgb(MASCOT_CRUST));
+    }
+    // Mint and gold may not meet: §3.1 rule 3, which the indigo override does not touch.
+    for (const theme of [':root', '.dark'] as const) {
+      const glow = declarations(theme).get('--chrome-mark-glow') ?? '';
+      expect(glow, `${theme} halo must not reach for the mint ramp`).not.toMatch(/var\(--mint|168,\s*236,\s*226/);
+    }
   });
 
   it('keeps --panel-raised distinct from --panel, which is a different surface', () => {
