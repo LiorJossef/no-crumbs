@@ -131,24 +131,27 @@ test.describe('one back control, at every step inside a collection', () => {
     await signIn(page);
     await openFirstCollection(page);
 
-    // 1. The list. No arrow at layer 0 — the kicker up-link, which says where it goes.
-    const onList = await backShaped(page);
-    expect(onList, 'the list header carries exactly the up-link').toEqual(['Collections']);
-    // Scoped outside both navigation landmarks: the drawer's `Collections` segment shares this
-    // name by design, and is a destination rather than a back control. (The bar carried a
-    // `Collections` tab until 2026-08-31 and was excluded here for the same reason; it now holds
-    // Map and Profile, so that half of the selector is belt to the switch's braces.)
-    const upLink = page
-      .locator(
-        'a[aria-label="Collections"]:not(nav[aria-label="Main"] a):not(nav[aria-label="Places and collections"] a)',
-      )
-      .locator('visible=true');
-    await expect(upLink).toHaveAttribute('href', '/map?view=collections');
-    // ≥44 px, and leading: it stands where the deleted arrow stood.
-    const upLinkBox = await upLink.boundingBox();
-    expect(upLinkBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+    // **1. The list, and layer 0 now carries none at all.**
+    //
+    // It used to carry exactly one: §5 item 3's `‹ COLLECTION` kicker, which replaced an unlabelled
+    // arrow with a link that said where it went. The drawer's `Places / Collections` switch reaches
+    // the same index from directly above this header (owner, 2026-08-31), so the kicker had become
+    // a second control for one destination and was deleted. §3 was reaching for *no back-shaped
+    // control at layer 0*; this is that, arrived at rather than approximated.
+    //
+    // The switch is not counted — see `NAVIGATION_LANDMARKS`. It names a destination, carries
+    // `aria-current`, and is on every view on purpose.
+    expect(await backShaped(page), 'layer 0 carries no back-shaped control').toEqual([]);
+    await expect(
+      page
+        .locator(
+          'a[aria-label="Collections"]:not(nav[aria-label="Main"] a):not(nav[aria-label="Places and collections"] a)',
+        )
+        .locator('visible=true'),
+      'and no up-link survives outside the switch',
+    ).toHaveCount(0);
 
-    // 2. A place. The up-link is *replaced* by the pane's back, not joined by it.
+    // 2. A place. The pane's back is the *first* back-shaped control on this journey, not a second.
     await press(page, /^Open /, 'label');
     await page.waitForTimeout(1500);
     expect(await backShaped(page)).toEqual(['Back to the collection']);
