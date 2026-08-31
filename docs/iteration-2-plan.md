@@ -343,6 +343,15 @@ That is a claim about **shape**, which the colour merely sets up, and it is the 
 support. It also survives the night-café proposal closing the gap to ΔE 6.3, because a narrowing
 colour distance does not touch it. **The ruling holds; only its stated reason changes.**
 
+**The general form, and it is why this is recorded rather than edited away: a ruling should rest on
+the claim that survived the photograph, not on the one that motivated it.** That distinction is the
+whole difference between a ruling and a rationalisation, and it is cheap to lose — the motivating
+claim is the one everybody remembers, it is the one that gets quoted back, and it is the one that
+reads as settled precisely because it did the persuading. Twice during this ruling the superseded
+version was restated as the finding, in the direction that flattered the decision, *after* the
+measurement had replaced it. Nothing was wrong with either reading; what was missing was a written
+record of which claim the evidence actually supports, which is what this section now is.
+
 **The fence's scope was read before the ruling, and it excludes this file deliberately.**
 `chrome-tokens.test.ts:285` and `:339` scope it to `components/map/`, `ui/place/` and anything
 containing `basemap` — the pins, the category palette, the tiles. **That is the data layer, which is
