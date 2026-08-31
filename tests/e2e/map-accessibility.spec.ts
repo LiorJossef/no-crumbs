@@ -45,7 +45,7 @@ test.describe('the map page is reachable by assistive technology', () => {
     // longer on this page at all — it lives inside `/profile` (owner ruling, 2026-08-29). And the
     // create control is named differently per breakpoint on purpose: below `lg` it is the `＋`,
     // which now opens the create menu and says `Create`, while the desktop panel keeps a literal
-    // `Add a TikTok` button. Asserting either name here would pass at one viewport and fail at the
+    // `Add a TikTok link` button. Asserting either name here would pass at one viewport and fail at the
     // other, which is exactly what it did.
     //
     // The map's canvas carries a real accessible name now (`mapAccessibleName`), so a role query
