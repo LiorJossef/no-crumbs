@@ -248,7 +248,19 @@
      * the old 11, still a warm grey rather than `--foreground`'s effectively neutral 1.
      *
      * **Dark does not move.** `#A8A29A` is 7.35 on `--background`, 6.51 on `--card` and 5.81 on
-     * `--card-2` — clear on every ground, so there is nothing here for a dark fix to buy.
+     * `--card-2` — clear on every ground, so there is nothing here for a dark fix to buy. This edit
+     * is one line inside `:root`; `.dark` declares its own `--muted-foreground` and is untouched,
+     * and `--chrome-shade` is declared once as a reference, so under `.dark` it re-resolves to the
+     * dark ink on its own.
+     *
+     * **Verified after, on painted pixels rather than on this table** (`contrast-render.mjs`, 12/12
+     * known-answer cases, at `0fa25ab`): **0 AA failures across 464 scored strings**, and the
+     * thinnest margin in the product moved from 4.57 to 4.78. The 4.57 was never one row — eight
+     * strings were tied there, the whole secondary layer of the place panel: `Search your places`,
+     * every `Restaurant · Tel Aviv-Yafo` subtitle, every note, every `Saved N hours ago`. They now
+     * sit at 5.06 together. The hierarchy was checked by eye at 1440×900 light with a 30-place
+     * library, which is where this ink is densest: the name still dominates the subtitle, and the
+     * subtitle still reads as quieter than the name.
      */
     --muted-foreground: #6E6A64;
 
