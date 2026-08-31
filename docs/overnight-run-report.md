@@ -220,3 +220,54 @@ is account-level. **No merge was attempted.**
 
 **And one thing I would not do:** merge this before CI can run. The suite is green locally and
 `verify` covers one of CI's four jobs. That is evidence, not a pass.
+
+
+---
+
+## 7. What this run actually taught, and it is one lesson with six instances
+
+**The defects that mattered most were invisible to the tests that covered them.** Not because the
+tests were wrong — because they were answering a narrower question than the one that mattered.
+
+1. **The scroll fade washed out the count it was guarding.** Every assertion about that chip row
+   passed at both fade sizes. Caught by looking at a screenshot the author had just taken. A count
+   faded to near-invisible is the same claim a truncated count makes, only more politely.
+2. **The night sea was invisible against the land** at ΔE 8.2 — on a product whose first screen *is*
+   a coastline. **WCAG contrast called it 1.11:1 and would call any two near-blacks roughly that**, so
+   the standard measurement could not tell a good sea from an invisible one. A ratio that is correct
+   and useless is more dangerous than none, because it looks like diligence.
+3. **A pin on a major road measured 2.70:1** — and neither the palette file nor the basemap file could
+   see it, because it is a property of the two together. A light-theme café body on that road would
+   have been **1.03:1**: not a dim pin, an absent one.
+4. **`--radius-md` was undefined**, and the consequence was worse than "an invalid radius": the
+   computed value resolved to `0` and `twMerge` stripped the class that would have rescued it, so
+   four button sizes were rendering **square**. Static analysis found the missing token; only a
+   browser found the squares.
+5. **A guard went blind.** The assertion that `P-002` never reaches a user matched `title:\s*'([^']+)'`;
+   `title` correctly became an object, the regex stopped matching, and the guard could no longer see
+   the string it guards. It failed loudly **only** because someone had written
+   `expect(title).toBeDefined()` as an afterthought.
+6. **The one that is sharpest, because it was invisible to *both* automated passes.** A basemap
+   `housenumber` layer was left exactly as the vendor drew it — the correct default for a layer that
+   matches no role — and on a near-black ground that tan became the brightest warm thing on the map,
+   dozens of times a frame, within a few degrees of the café pins. It is **canvas text, so the
+   accessibility harness cannot score it either.** A person looking at a zoomed-in night frame found
+   the symptom; the cause came from a *question* — *which layers match no role?* — which returned
+   exactly one of twenty-seven. **The reported symptom was a different layer from the actual cause**,
+   and chasing the report rather than the mechanism would have meant re-tinting a role that was
+   already correct.
+
+**The corollary, which is the process finding.** Four verification guards degraded in one night —
+one blind, one over-broad, one stale after a rename, one measuring a variant its own command could
+not match. None was anyone's fault and every one was caught. The reason they were caught is that
+**agents kept checking their own instruments**: a harness that shipped ten screenshots labelled
+`signed-out` showing a signed-in session, then ten more of five different screens that were all the
+same unhydrated page; a driver reporting "dark is broken" that turned out to be its own unasserted
+`str.replace`; a contrast tool reporting a fabricated 2.33:1 failure on the flagship CTA that WCAG
+exempts outright. Each was found by the agent that built it, reported against itself, and fixed in
+the tool rather than annotated.
+
+**A harness that cannot fail cannot be evidence.** That sentence, written by the agent whose harness
+had twice been unable to fail, is the most useful thing produced tonight — and it is §7's rule
+arriving from the other direction: *a builder's own green result is the least reliable evidence
+available*, demonstrated on itself, three times.
