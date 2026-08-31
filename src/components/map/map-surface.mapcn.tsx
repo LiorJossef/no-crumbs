@@ -566,9 +566,14 @@ export function MapSurfaceMapcn({
    *
    * `/map` framed with `/collections`' full-sheet fraction — a whole zoom band out, two towns
    * wider, every time. With this ref and the guard below, **no camera mover fires on either hop at
-   * all** and `/map` after a round trip is byte-identical to `/map` on first load (SHA-256
-   * `aac92098…`, 390×844) — which is the standard a camera should be held to, because "looks the
-   * same" is what a whole band of drift looks like.
+   * all** and `/map` after a round trip is byte-identical to `/map` on first load — SHA-256
+   * `63ef5f61…` for both screenshots, 390×844, measured against this commit rather than against the
+   * instrumented build the trace above came from. That is the standard a camera should be held to,
+   * because a whole band of drift is exactly what "looks the same" looks like.
+   *
+   * It also costs less than the persistence alone did: a camera that does not move needs no new
+   * tiles, so the return hop went from 4 tile requests and 5 requests total at `d77a1c6` to **0 and
+   * 1** here.
    *
    * A prop change is not a camera mover — this file already says exactly that of `places` — so the
    * fix is the pattern already used five times here (`latestBounds`, `latestAllowance`,
