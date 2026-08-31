@@ -100,7 +100,7 @@ export default async function Home() {
               `voice-and-vocabulary.md` §2 permits it on (surface 2, the landing mark).
 
               The treatment changed as well as the text, and that is the part worth recording. What
-              was here was `text-[13px] font-extrabold tracking-[0.2em] uppercase`, which is §5's
+              was here was the kicker's own 13px extrabold tracked uppercase, which is §5's
               **kicker** device: 11px tracked uppercase, a typographic label. A wordmark is not a
               kicker, and setting the two identically would have made the product's name read as
               one more small label on a page that already has one directly beneath it.
@@ -122,7 +122,7 @@ export default async function Home() {
               piece between the subhead and the thumb-zone action, not split either side of the
               headline. At `lg` the column as a whole is centred, so this only needs the gap. */}
           <div className="relative z-10 mt-10 lg:mt-8">
-            <p className="text-[11px] font-bold tracking-[0.14em] text-brand uppercase lg:text-[13px]">
+            <p className="text-micro font-bold tracking-[0.14em] text-brand uppercase lg:text-caption">
               {KICKER}
             </p>
 
@@ -132,11 +132,16 @@ export default async function Home() {
                 a serif word directly above a grotesque headline, which is the near-miss pairing
                 §3.1 retired Archivo over, reproduced inside one column.
 
-                `text-display lg:text-hero` rather than `text-[34px] lg:text-[clamp(40px,5.5vw,64px)]`:
-                W0 registered both sizes as tokens and they carry their own line-heights, so the
-                bracketed `leading-[1.05]` goes too. Three arbitrary values removed, no pixel
-                moved except mobile leading, which the token puts at 1.12 — the extra room a serif
-                at 34px wants anyway. */}
+                `text-display lg:text-hero` rather than the two bracketed pixel sizes that were
+                here: W0 registered both as tokens and they carry their own line-heights, so the
+                bracketed leading goes too. Three arbitrary values removed, no pixel moved except
+                mobile leading, which the token puts at 1.12 — the extra room a serif at 34px wants
+                anyway.
+
+                The old values are named in prose rather than quoted, and that is not fussiness:
+                `token-call-sites.test.ts` counts arbitrary-value classes with a regex over the
+                source and cannot tell a comment from a call site, so a bracket quoted here is a
+                bracket on the ledger. Same rule as the hex literals K12 counts. */}
             <h1
               className="mt-2 font-display text-display font-bold tracking-tight text-foreground lg:text-hero"
               style={DISPLAY_HEADING_AXES}
@@ -155,8 +160,8 @@ export default async function Home() {
         {/* Action panel — thumb-zone block on mobile, a full-height frosted panel behind a single
             hairline edge at `lg+`. Same geometry as sign-in's form panel so the two screens line
             up when a visitor moves between them. */}
-        <div className="relative mt-auto flex w-full flex-col gap-4 px-6 pb-8 pt-10 lg:mt-0 lg:w-[clamp(360px,32vw,460px)] lg:flex-none lg:justify-center lg:border-l lg:border-[rgba(231,227,220,0.7)] lg:bg-white/55 lg:px-10 lg:py-0 lg:backdrop-blur-[10px]">
-          <div className="w-full lg:mx-auto lg:max-w-[320px]">
+        <div className="relative mt-auto flex w-full flex-col gap-4 px-6 pb-8 pt-10 lg:mt-0 lg:w-[clamp(360px,32vw,460px)] lg:flex-none lg:justify-center lg:border-l lg:border-border/70 lg:bg-white/55 lg:px-10 lg:py-0 lg:backdrop-blur-[10px]">
+          <div className="w-full lg:mx-auto lg:max-w-80">
             {/* The numerals use `--tag` / `--tag-foreground`, whose whole definition is "a label,
                 never an action" — which is what a step number is. No new colour is introduced. */}
             <ol className="mb-7 flex flex-col gap-3 lg:mb-8">
@@ -164,7 +169,7 @@ export default async function Home() {
                 <li key={step} className="flex items-center gap-3">
                   <span
                     aria-hidden
-                    className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[var(--tag)] font-heading text-[11px] font-extrabold text-[var(--tag-foreground)]"
+                    className="flex size-6 shrink-0 items-center justify-center rounded-full bg-tag font-heading text-micro font-extrabold text-tag-foreground"
                   >
                     {index + 1}
                   </span>
@@ -179,7 +184,7 @@ export default async function Home() {
                   href="/map"
                   className={cn(
                     buttonVariants(),
-                    'h-12 w-full rounded-lg text-base font-bold lg:h-[52px] lg:text-[15.5px]',
+                    'h-12 w-full rounded-lg text-base font-bold lg:h-13 lg:text-reading',
                   )}
                 >
                   Open your map →
@@ -194,7 +199,7 @@ export default async function Home() {
                   href="/sign-in"
                   className={cn(
                     buttonVariants(),
-                    'h-12 w-full rounded-lg text-base font-bold lg:h-[52px] lg:text-[15.5px]',
+                    'h-12 w-full rounded-lg text-base font-bold lg:h-13 lg:text-reading',
                   )}
                 >
                   Sign in →
