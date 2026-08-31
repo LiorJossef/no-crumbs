@@ -62,10 +62,10 @@ screen. Both landed fence-first or spec-first, deliberately.
 
 ---
 
-## 3. Seventeen instruments lied, and they fall into three families
+## 3. Seventeen instruments lied, and they fall into four shapes
 
 Iteration 1 recorded eleven. This iteration found seventeen more. **They are not eleven mistakes and
-sixteen mistakes — they are one mistake with three shapes**, and naming the shapes is worth more
+sixteen mistakes — they are one mistake with four shapes**, and naming the shapes is worth more
 than the count.
 
 ### 3.1 A right answer to a neighbouring question
@@ -137,7 +137,39 @@ wrong question is only visible when you run it against a case whose answer you a
 - **A spread in CSS pixels divided by a mean in supersampled pixels** — exactly 16× out. Without a
   square as a known-answer case, it would have reported that a square is round.
 
-### 3.4 The one that is not an instrument
+### 3.4 And the reason all of this is hard to catch
+
+The instrument built to close §3.1's blind spot **needed three wrong rules before it was right, and
+all three looked obviously correct**:
+
+1. *Any non-`visible` overflow clips.* The nearest such ancestor on `/map` is the scrolling desktop
+   panel, so every row below the fold read as clipped by up to 1,004 px — **30 elements, up to 2,603
+   device pixels, not one of them a defect.** Caught by the asymmetry heuristic: numbers in the
+   thousands where the defect is a descender.
+2. *Exclude anything where `scrollWidth > clientWidth`.* That is the definition of `truncate`. It
+   excluded the entire population the tool exists to examine and reported a confident **0**.
+3. *Exclude anything where `scrollHeight > clientHeight`.* The subtle one: **an element whose ink is
+   shaved has `scrollHeight > clientHeight` precisely because it is being shaved.** The test cannot
+   tell a scroll container from its own quarry, and it excluded the bottom nav — the defect that
+   prompted the tool.
+
+The rule that survives is the computed value itself: `hidden` and `clip` shave, `auto` and `scroll`
+hand the reader a way to see the rest. Nothing else in the DOM separates them.
+
+**Rules 2 and 3 were caught only because a known answer already existed** — a defect another lane had
+already found. Rule 1 was caught by the asymmetry heuristic. **Neither a self-test nor the product
+would have found either**: the tool would have reported *0 clipped elements* and that would have read
+as good news.
+
+> **An instrument is most dangerous on the first run where nobody knows the answer — which is every
+> run that matters.**
+
+That is the fourth shape, and it is the one that makes the other three survivable only by accident:
+a self-test covers the cases you thought of, a diagnostic tells you where it looked, and a known
+answer catches the rest — but the run you actually need the instrument for is the one with no known
+answer in it.
+
+### 3.5 The one that is not an instrument
 
 **A perceptual bias, and it will recur regardless of tooling.** Twice, a warm element on a dark
 ground was called near-invisible from an impression, and twice the measurement contradicted it. Both
