@@ -311,6 +311,24 @@ rules stop meaning what they say. These six restore the meaning; they do not add
     orchestrator cannot tell your work from the agent that was running beside you, cannot revert you
     alone, and cannot know whether the thing that was reviewed is the thing being committed.
 
+32. **An idle notification is not an answer to your latest instruction — it may predate it.** A
+    lane's "done" report is a statement about the brief it was working on when it wrote the report,
+    and a message sent to a lane that is finishing races its completion. Observed 2026-08-31: a lane
+    was dispatched a new task, went idle seconds later, and its notification repeated the *previous*
+    brief in full — reading as a completed report for work that had not started. Nothing in the
+    message was false; it simply answered an older question.
+
+    **So the orchestrator verifies against the artefact, not the report.** `grep` the symbol, read
+    the file, check `git log` for the commit. One command settles it, and the failure it prevents is
+    the expensive kind: a task marked done, a file believed released, and a dependent lane dispatched
+    into a lock that was never lifted. This is not distrust of the lane — the lane reported honestly
+    about the wrong thing, which is precisely the case a trust-based check cannot catch.
+
+    The same asymmetry runs the other way: a lane that resumes on a new message may still be mid-edit
+    when you next look, so an untracked modification in the tree is not evidence of a rogue writer.
+    **Attribute it before you act on it** — `git status` carries no author, and under concurrency the
+    tree holds several agents' half-finished work (rule 31).
+
 ## 9. What never runs concurrently
 
 Five classes. `security-privacy` holds a veto on the first four and it is not overridable by the
