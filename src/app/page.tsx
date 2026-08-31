@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { createClient } from '@/app/_lib/supabase/server';
-import { DISPLAY_HEADING_AXES, DISPLAY_WORDMARK_AXES } from '@/components/brand/display-type';
-import { PinMark } from '@/components/brand/pin-mark';
+import { ChromeGround } from '@/components/brand/chrome-ground';
+import { ChromeItem, ChromeKicker, ChromeStage } from '@/components/brand/chrome-stage';
+import { DISPLAY_HEADING_AXES } from '@/components/brand/display-type';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -17,12 +18,19 @@ import { cn } from '@/lib/utils';
  * `app/healthz/route.ts`, which is the surface that is actually asserted on — a stage name is
  * operator information, not something a visitor has any use for.
  *
- * Composition follows `/sign-in` rather than inventing a second full-screen language: the same
- * `--brand-wash` atmosphere, the same mint `PinMark`, the same editorial stack (uppercase mint
- * kicker → extrabold two-line headline → muted subhead), and the same responsive logic — hero at
- * the top with the action pinned to the thumb zone on mobile, a genuine two-panel split at `lg+`
- * with the action in a frosted right-hand panel. Landing and sign-in are adjacent in the demo
- * path; if they do not read as one product, that is the first thing anyone notices.
+ * Composition is `ChromeStage`, the same component `/sign-in` renders — not "the same language" as
+ * it, the same object. Landing and sign-in are adjacent in the demo path; if they do not read as
+ * one product, that is the first thing anyone notices, and two files agreeing by convention is how
+ * that drifts.
+ *
+ * **This is also `I2-5`, the dead-space package.** Q1 finding S3 measured 45–60% of the mobile
+ * viewport empty across six screens, and this screen was one of the worst: mark and editorial
+ * pinned to the top, the three steps and the CTA pinned to the bottom by `mt-auto`, and a single
+ * stretched gap between them that grew with the phone. The fix is the composition the codebase
+ * already had an answer for — the desktop no-places screen is a centred card sized to its content —
+ * so the slack became the room around one object instead of a hole inside it. **Nothing was
+ * invented to fill space:** no section, no illustration, no testimonial. The content is the same
+ * six strings it was.
  *
  * No marketing claims, no counts, no testimonials, no screenshots: every line on this page is
  * either what the product does or the state the visitor is in.
@@ -87,138 +95,112 @@ export default async function Home() {
   const user = await currentUserOrNull();
 
   return (
-    <main className="relative min-h-dvh overflow-hidden" style={{ background: 'var(--brand-wash)' }}>
-      <div className="relative flex min-h-dvh flex-col lg:flex-row">
-        {/* Editorial column — top-aligned and pushed up by the action panel's `mt-auto` on
-            mobile, vertically centred in a flex-1 left panel at `lg+`. Mirrors `/sign-in`. */}
-        <div className="relative flex flex-1 flex-col px-6 pt-14 lg:justify-center lg:px-[clamp(48px,7vw,110px)] lg:pt-0">
-          <div className="relative z-10 flex items-center gap-2.5">
-            <PinMark face className="size-7.5 lg:size-9" />
-            {/*
-              The wordmark. The name is **decided** — No Crumbs, owner, 2026-08-30,
-              `brand-and-product-foundation.md` §3 — and this is one of the six surfaces
-              `voice-and-vocabulary.md` §2 permits it on (surface 2, the landing mark).
+    <main className="relative isolate min-h-dvh">
+      <ChromeGround />
 
-              The treatment changed as well as the text, and that is the part worth recording. What
-              was here was the kicker's own 13px extrabold tracked uppercase, which is §5's
-              **kicker** device: 11px tracked uppercase, a typographic label. A wordmark is not a
-              kicker, and setting the two identically would have made the product's name read as
-              one more small label on a page that already has one directly beneath it.
+      <ChromeStage
+        editorial={
+          <>
+            <ChromeItem>
+              <ChromeKicker>{KICKER}</ChromeKicker>
+            </ChromeItem>
 
-              So: Fraunces (`--font-display`, loaded in `app/layout.tsx`), `SOFT` 60 and `WONK` on
-              per §3.1, set as `No Crumbs` — not `NO CRUMBS`, not `no crumbs`. §5's "sentence case
-              everywhere" exempts the wordmark, and these are the only two capitals in the product.
-              No `font-stretch` axis; §3.1 names an expanded width as a shipped bug.
-            */}
-            <span
-              className="font-display text-lg font-black tracking-tight text-foreground lg:text-xl"
-              style={DISPLAY_WORDMARK_AXES}
-            >
-              No Crumbs
-            </span>
-          </div>
+            <ChromeItem>
+              {/* The one editorial heading on this screen, so it takes the display face with the
+                  wordmark in the lockup above it — §3.1's split is `h1`/`h2` and the wordmark in
+                  Fraunces, everything functional in Manrope. Leaving this in Manrope would have put
+                  a serif word directly above a grotesque headline, which is the near-miss pairing
+                  §3.1 retired Archivo over, reproduced inside one column.
 
-          {/* Top-aligned under the mark on mobile, exactly as on sign-in: the slack belongs in one
-              piece between the subhead and the thumb-zone action, not split either side of the
-              headline. At `lg` the column as a whole is centred, so this only needs the gap. */}
-          <div className="relative z-10 mt-10 lg:mt-8">
-            <p className="text-micro font-bold tracking-[0.14em] text-brand uppercase lg:text-caption">
-              {KICKER}
-            </p>
+                  `text-display lg:text-title`, both tokens. `text-hero` was here and is wrong now
+                  that the headline lives in a card column rather than in a full-bleed one: it is
+                  `clamp(2.5rem, 5.5vw, 4rem)`, so it reads the *viewport* and resolves to 64px at
+                  1440 — about 20px more than the column can set two words in.
 
-            {/* The one editorial heading on this screen, so it takes the display face with the
-                wordmark eight lines above it — §3.1's split is `h1`/`h2` and the wordmark in
-                Fraunces, everything functional in Manrope. Leaving this in Manrope would have put
-                a serif word directly above a grotesque headline, which is the near-miss pairing
-                §3.1 retired Archivo over, reproduced inside one column.
+                  The old values are named in prose rather than quoted, and that is not fussiness:
+                  `token-call-sites.test.ts` counts arbitrary-value classes with a regex over the
+                  source and cannot tell a comment from a call site, so a bracket quoted here is a
+                  bracket on the ledger. Same rule as the hex literals K12 counts. */}
+              <h1
+                className="font-display text-display font-bold tracking-tight text-foreground lg:text-title"
+                style={DISPLAY_HEADING_AXES}
+              >
+                {HEADLINE[0]}
+                <br />
+                {HEADLINE[1]}
+              </h1>
+            </ChromeItem>
 
-                `text-display lg:text-hero` rather than the two bracketed pixel sizes that were
-                here: W0 registered both as tokens and they carry their own line-heights, so the
-                bracketed leading goes too. Three arbitrary values removed, no pixel moved except
-                mobile leading, which the token puts at 1.12 — the extra room a serif at 34px wants
-                anyway.
-
-                The old values are named in prose rather than quoted, and that is not fussiness:
-                `token-call-sites.test.ts` counts arbitrary-value classes with a regex over the
-                source and cannot tell a comment from a call site, so a bracket quoted here is a
-                bracket on the ledger. Same rule as the hex literals K12 counts. */}
-            <h1
-              className="mt-2 font-display text-display font-bold tracking-tight text-foreground lg:text-hero"
-              style={DISPLAY_HEADING_AXES}
-            >
-              {HEADLINE[0]}
-              <br />
-              {HEADLINE[1]}
-            </h1>
-
-            <p className="mt-3 max-w-xs text-sm font-medium leading-snug text-muted-foreground lg:max-w-md lg:text-base">
-              {SUBHEAD}
-            </p>
-          </div>
-        </div>
-
-        {/* Action panel — thumb-zone block on mobile, a full-height frosted panel behind a single
-            hairline edge at `lg+`. Same geometry as sign-in's form panel so the two screens line
-            up when a visitor moves between them. */}
-        <div className="relative mt-auto flex w-full flex-col gap-4 px-6 pb-8 pt-10 lg:mt-0 lg:w-[clamp(360px,32vw,460px)] lg:flex-none lg:justify-center lg:border-l lg:border-border/70 lg:bg-panel lg:px-10 lg:py-0 lg:backdrop-blur-panel">
-          <div className="w-full lg:mx-auto lg:max-w-80">
+            <ChromeItem>
+              <p className="max-w-xs text-sm font-medium leading-snug text-muted-foreground lg:max-w-md lg:text-base">
+                {SUBHEAD}
+              </p>
+            </ChromeItem>
+          </>
+        }
+        form={
+          <div className="flex flex-col">
             {/* The numerals use `--tag` / `--tag-foreground`, whose whole definition is "a label,
                 never an action" — which is what a step number is. No new colour is introduced. */}
-            <ol className="mb-7 flex flex-col gap-3 lg:mb-8">
-              {STEPS.map((step, index) => (
-                <li key={step} className="flex items-center gap-3">
-                  <span
-                    aria-hidden
-                    className="flex size-6 shrink-0 items-center justify-center rounded-full bg-tag font-heading text-micro font-extrabold text-tag-foreground"
+            <ChromeItem>
+              <ol className="mb-7 flex flex-col gap-3 lg:mb-8">
+                {STEPS.map((step, index) => (
+                  <li key={step} className="flex items-center gap-3">
+                    <span
+                      aria-hidden
+                      className="flex size-6 shrink-0 items-center justify-center rounded-full bg-tag font-heading text-micro font-extrabold text-tag-foreground"
+                    >
+                      {index + 1}
+                    </span>
+                    <span className="text-sm font-medium text-foreground">{step}</span>
+                  </li>
+                ))}
+              </ol>
+            </ChromeItem>
+
+            <ChromeItem className="flex flex-col">
+              {user ? (
+                <>
+                  <Link
+                    href="/map"
+                    className={cn(
+                      buttonVariants(),
+                      'h-12 w-full rounded-lg text-base font-bold lg:h-13 lg:text-reading',
+                    )}
                   >
-                    {index + 1}
-                  </span>
-                  <span className="text-sm font-medium text-foreground">{step}</span>
-                </li>
-              ))}
-            </ol>
-
-            {user ? (
-              <>
-                <Link
-                  href="/map"
-                  className={cn(
-                    buttonVariants(),
-                    'h-12 w-full rounded-lg text-base font-bold lg:h-13 lg:text-reading',
-                  )}
-                >
-                  Open your map →
-                </Link>
-                <p className="mt-3 truncate text-center text-sm font-medium text-muted-foreground">
-                  Signed in as <span className="font-bold text-foreground">{user.email}</span>
-                </p>
-              </>
-            ) : (
-              <>
-                <Link
-                  href="/sign-in"
-                  className={cn(
-                    buttonVariants(),
-                    'h-12 w-full rounded-lg text-base font-bold lg:h-13 lg:text-reading',
-                  )}
-                >
-                  Sign in →
-                </Link>
-                <p className="mt-3 text-center text-sm font-medium text-muted-foreground">
-                  New here?{' '}
-                  <Link href="/sign-in" className="font-bold text-brand">
-                    Create an account
+                    Open your map →
                   </Link>
-                </p>
-              </>
-            )}
+                  <p className="mt-3 truncate text-center text-sm font-medium text-muted-foreground">
+                    Signed in as <span className="font-bold text-foreground">{user.email}</span>
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/sign-in"
+                    className={cn(
+                      buttonVariants(),
+                      'h-12 w-full rounded-lg text-base font-bold lg:h-13 lg:text-reading',
+                    )}
+                  >
+                    Sign in →
+                  </Link>
+                  <p className="mt-3 text-center text-sm font-medium text-muted-foreground">
+                    New here?{' '}
+                    <Link href="/sign-in" className="font-bold text-brand">
+                      Create an account
+                    </Link>
+                  </p>
+                </>
+              )}
 
-            <p className="mt-6 text-center text-xs font-medium text-muted-foreground lg:mt-8">
-              {BOUNDARY}
-            </p>
+              <p className="mt-6 text-center text-xs font-medium text-muted-foreground lg:mt-8">
+                {BOUNDARY}
+              </p>
+            </ChromeItem>
           </div>
-        </div>
-      </div>
+        }
+      />
     </main>
   );
 }
