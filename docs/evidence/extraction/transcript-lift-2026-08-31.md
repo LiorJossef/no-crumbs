@@ -60,14 +60,35 @@ partly reachable, and no amount of caption work would have found it.
 | `Jinsei Yakitori` | *unresolved* |
 | `John Balcom` | *unresolved* |
 
-**The dominant failure is the auto-caption mangling a proper noun.** `Ishbela` for *Ishbilia*
-survived because the scorer is fuzzy; `John Balcom` did not. This is the risk named in
-`engine2-cost-model-2026-08-31.md` §9 before any transcript existed — *"a 20% error rate that turns
-Simhovich into Simchovic is a total loss on the one token that mattered"* — now measured, in
-English, on a real corpus.
+**CORRECTED, later the same day. Mangling was *not* the dominant failure, and the first version of
+this section was wrong.** Scoring the four failures against their true names:
 
-`Pita Lila` is a real Tel Aviv venue and its failure is a resolver question, not a transcript one.
-Worth one investigation.
+| heard | true name | nameScore |
+|---|---|---|
+| `Tokyo ICCO` | Tokyo Icco | **1.000** |
+| `Jinsei Yakitori` | Jinsei Yakitori | **1.000** |
+| `Pita Lila` | Pita Lila | **1.000** |
+| `John Balcom` | — | 0.441 |
+
+Three of four are **perfect**. Only `John Balcom` is a genuine mangle. So the transcript did its job
+and the failures are downstream.
+
+**And one of them was my own guard.** `Pita Lila` retrieved Google's **`Pizza Lila`** at score
+**0.915** — the same venue; the creator says both names in one breath and the cover frame reads the
+second — and `nameIsEstablished`, added hours earlier at a 0.85 floor, demoted it to `no_match`.
+I had claimed that guard cost **zero** correct matches. That was true of the corpus it was measured
+on and false on the first new data it met.
+
+**The signal does not separate the classes.** Measured across everything we hold, the lowest
+*correct* match scores **0.827** and the highest *wrong* one **0.830**. There is no threshold that
+keeps every right answer and refuses every wrong one — the number chooses which error to make. The
+floor is now **0.81**: above the clearest wrong match on the live path (`Kaosarn Tooting`, 0.804),
+below `Pita Lila`. At that setting, across the seven adjudicated pairs, **2 wrong matches blocked,
+0 correct lost**, and one wrong match (`TLV-08`, golden set, 0.830) returns to the band it occupied
+before the guard existed.
+
+`Jinsei Yakitori` and `Tokyo ICCO` fail for a different reason again: Google returns `Junsei` at
+0.631 for the first, below the floor. That is retrieval, not scoring, and it is unfixed.
 
 ## Limits, and they are not small
 

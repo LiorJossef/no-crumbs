@@ -789,15 +789,16 @@ const REFIT_CASE_MOVES: readonly {
   {
     caseId: 'TLV-08',
     from: 'confirm',
-    to: 'no_match',
+    to: 'confirm',
     top1Was: 'אורליס רוטיסרי',
     top1Now: 'אולמי קונקורד',
     why: 'Orna and Ella is absent from Overture, so both rows are wrong. Two near-tied wrong rows ' +
-      'still swap at margin 0.0006 — what changed on 2026-08-31 is that the band now falls to ' +
-      '`no_match` instead of offering one of them. `nameIsEstablished` finds the weakest ' +
-      'distinctive token of `אורנה ואלה` covered at 0.752 against `אולמי קונקורד`, under the 0.85 ' +
-      'floor. Offering a shortlist here was offering a specific wrong venue for a venue the index ' +
-      'does not contain; `no_match` is the honest answer and `place_mentions` is where it lands.',
+      'swap at margin 0.0006; no verdict changes and the band does not move. ' +
+      '`nameIsEstablished` briefly took this to `no_match` on 2026-08-31 at a 0.85 floor — its ' +
+      'weakest token covers at 0.830 — and the floor came back down to 0.81 the same day, because ' +
+      '0.85 also threw away `Pita Lila` against Google`s `Pizza Lila` at 0.827: the same venue, ' +
+      'named both ways by the creator in one breath. **Correct and wrong overlap on this signal ' +
+      'and cannot be separated by it.** This row is the cost of keeping that real place.',
   },
   {
     caseId: 'TLV-10',
@@ -970,7 +971,7 @@ describe('the re-fit — 44 cases under the current SCORING.total', () => {
     );
   });
 
-  it('tallies 24 preselect / 15 confirm / 5 no_match under the current weights and guards', () => {
+  it('tallies 24 preselect / 16 confirm / 4 no_match under the current weights and guards', () => {
     // Recorded was 29/12/3; the previous re-fit held 29/11/4; RESOLVE-CONF-1 alone gives 31/10/3.
     // TRACK2-BRANCH's guard then returns seven of those auto-accepts to the user — TYO-02, TYO-04,
     // TYO-10, TYO-14, LDN-02, LDN-07, LDN-12, every one of them a bare chain name with a branch
@@ -981,14 +982,16 @@ describe('the re-fit — 44 cases under the current SCORING.total', () => {
     // per-configuration table, including the 30/11/3 variant that catches TYO-10 alone and why it
     // was refused.
     //
-    // 2026-08-31, `nameIsEstablished`: 17 confirm -> 15, 3 no_match -> 5. Both moves are cases
+    // 2026-08-31, `nameIsEstablished` at its final 0.81 floor: 17 confirm -> 16, 3 no_match -> 4.
+    // NEG-02 alone moves. TLV-08 moved too at the 0.85 floor this guard shipped with for an hour;
+    // 0.81 restores it, because 0.85 also cost a real place on the live path. The cases are
     // where the shortlist was offering a specific venue the caption did not name — TLV-08's query
     // is absent from Overture entirely, and NEG-02's caption is `best coffee ever`. **Preselect is
     // untouched at 24**, which is the property that matters: the guard only ever demotes, and it
     // demoted nothing that was being auto-accepted.
     const tally = { preselect: 0, confirm: 0, no_match: 0 };
     for (const caseId of caseIds) tally[resimulatedConfidence(caseId).band] += 1;
-    expect(tally).toEqual({ preselect: 24, confirm: 15, no_match: 5 });
+    expect(tally).toEqual({ preselect: 24, confirm: 16, no_match: 4 });
   });
 
   it('still auto-accepts nothing the adjudication did not call correct', () => {
