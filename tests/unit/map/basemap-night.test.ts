@@ -63,6 +63,43 @@ function luminance(value: string): number {
   return 0.2126 * channels[0]! + 0.7152 * channels[1]! + 0.0722 * channels[2]!;
 }
 
+/**
+ * Machado, Oliveira & Fernandes (2009) colour-vision simulation at severity 1.0.
+ *
+ * **The matrices operate on linear RGB**, and that is load-bearing rather than pedantic: applied to
+ * gamma-encoded sRGB instead — which many implementations do — the same matrices score the pair
+ * this instrument was validated on at 6.9 instead of 3.1. Validated by reproducing the figures the
+ * colour-vision proposal published for `CATEGORY_COLOR_DARK` exactly.
+ */
+const MACHADO = {
+  deutan: [
+    [0.367322, 0.860646, -0.227968],
+    [0.280085, 0.672501, 0.047413],
+    [-0.01182, 0.04294, 0.968881],
+  ],
+  protan: [
+    [0.152286, 1.052583, -0.204868],
+    [0.114503, 0.786281, 0.099216],
+    [-0.003882, -0.048116, 1.051998],
+  ],
+} as const;
+
+function simulateCvd(value: string, kind: keyof typeof MACHADO): string {
+  const lin = rgb(value).map((c) => (c / 255 <= 0.04045 ? c / 255 / 12.92 : Math.pow((c / 255 + 0.055) / 1.055, 2.4)));
+  const out = MACHADO[kind].map((row) => row[0]! * lin[0]! + row[1]! * lin[1]! + row[2]! * lin[2]!);
+  const [r, g, b] = out.map((v) => {
+    const c = v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(Math.max(v, 0), 1 / 2.4) - 0.055;
+    return Math.round(Math.min(1, Math.max(0, c)) * 255);
+  });
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+/** Lab chroma — how much colour a value carries, independent of how light it is. */
+function chromaOf(value: string): number {
+  const [, a, b] = lab(value);
+  return Math.hypot(a, b);
+}
+
 /** CIE L*, which is what "lighter than" should mean between two near-blacks. */
 function lightnessOf(value: string): number {
   return lab(value)[0];
@@ -311,18 +348,61 @@ describe('the POI groups at night', () => {
     }
   });
 
-  it('sits BELOW every pin in lightness, because the pins are the data and this is the ground', () => {
-    // I2-9, and the ordering nothing had ever asserted. All six shipped *above* the darkest pin
-    // (L* 64–69 against 61.8), so the basemap's own labels were the brighter layer on a surface
-    // whose entire subject is the user's saved places.
-    const darkestPin = Math.min(
-      ...Object.values(placePalette('dark').category).map((c) => lightnessOf(asRgb(c))),
-      lightnessOf(asRgb(placePalette('dark').uncategorised)),
-    );
+  it('is never brighter than the basemap\'s own place names, which is the ceiling', () => {
+    // **This replaces "below the darkest pin", and the replacement is the point.** That ceiling was
+    // this repository's own invention and it boxed the palette into L* 56.5-62.0 — 5.5 points —
+    // which is the whole reason the CVD assertion below could not be met from inside this file.
+    //
+    // `label` is the basemap's near-white place names, the brightest ink CARTO draws. "A POI label
+    // may be as bright as the map's other labels and no brighter" survives a basemap retune; a
+    // number does not, which is why this reads the tint rather than a literal.
+    const ceiling = lightnessOf(night('label'));
     for (const [group, color] of Object.entries(POI_GROUP_COLORS_NIGHT)) {
-      expect(lightnessOf(asRgb(color)), `night ${group} against the darkest pin`)
-        .toBeLessThan(darkestPin);
+      expect(lightnessOf(asRgb(color)), `night ${group} against the place-name ceiling`)
+        .toBeLessThanOrEqual(ceiling);
     }
+  });
+
+  it('still puts the pins above the ground — in chroma and area, where it was always true', () => {
+    // The ordering the old ceiling was reaching for, stated in the currency that actually delivers
+    // it. Pins are filled 26px discs; these are 11px glyphs. Saying it in *lightness* is what made
+    // it cost the one axis colour-vision separation also needs.
+    const pinChroma = [
+      ...Object.values(placePalette('dark').category),
+      placePalette('dark').uncategorised,
+    ].map((c) => chromaOf(asRgb(c)));
+    for (const [group, color] of Object.entries(POI_GROUP_COLORS_NIGHT)) {
+      expect(chromaOf(asRgb(color)), `night ${group} against the least chromatic pin`)
+        .toBeLessThan(Math.min(...pinChroma));
+    }
+  });
+
+  it('is not confusable with a pin for a deuteranope or a protanope either', () => {
+    // The defect the ceiling was hiding: `transit` against the `bar` pin measured **1.8**
+    // deuteranopic against 15.5 normal, and `food` against `outdoors` **2.2** — a restaurant label
+    // and a park label were one colour for roughly one man in twelve.
+    //
+    // Cleared against BOTH the bodies shipping today and the ones the colour-vision proposal moves
+    // them to, because that change lives in another module and has not landed.
+    const palette = placePalette('dark');
+    const bodies = [
+      ...Object.values(palette.category), palette.uncategorised,
+      '#D77E6B', '#FEB843', // the proposal's restaurant and cafe
+    ].map(asRgb);
+    for (const [group, color] of Object.entries(POI_GROUP_COLORS_NIGHT))
+      for (const vision of ['deutan', 'protan'] as const)
+        for (const body of bodies)
+          expect(deltaE(simulateCvd(asRgb(color), vision), simulateCvd(body, vision)),
+            `night ${group} vs a pin, ${vision}`).toBeGreaterThan(7);
+  });
+
+  it('keeps the six apart from each other under CVD as well, which is the legend', () => {
+    const values = Object.values(POI_GROUP_COLORS_NIGHT).map(asRgb);
+    for (let i = 0; i < values.length; i++)
+      for (let j = i + 1; j < values.length; j++)
+        for (const vision of ['deutan', 'protan'] as const)
+          expect(deltaE(simulateCvd(values[i]!, vision), simulateCvd(values[j]!, vision)),
+            `pair ${i}/${j}, ${vision}`).toBeGreaterThan(7);
   });
 
   it('is never confusable with a pin, which is the promise poi-style.ts makes in its header', () => {

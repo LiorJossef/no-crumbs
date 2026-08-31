@@ -140,21 +140,65 @@ export const POI_GROUP_COLORS: Readonly<Record<PoiGroup, string>> = {
  *     one colour for roughly one man in twelve.
  *   - `shopping` against `culture` — **4.4** protanopic.
  *
- * None of it is new and none of it is repairable here. The two floors above box this palette into
- * **L\* 56.5–62.0** — AA on the land underneath, below the darkest pin above — and deuteranopia
- * collapses hue onto one axis, so inside a 5.5-point lightness band there is nothing left to
- * separate with. Swept over every hue and every (L\*, C\*) in that band, the best any of the six
- * can reach against the pins is ΔE ~14.5, and **all six converge on the same teal to get it** —
- * six labels of one colour, which is not a legend. The repair has to come from the pins or from
- * the ceiling, and neither is this file's to move.
+ * None of it was new and none of it was repairable *at the time*. The two floors boxed this palette
+ * into **L\* 56.5–62.0** — AA on the land underneath, below the darkest pin above — and
+ * deuteranopia collapses hue onto one axis, so inside a 5.5-point lightness band there was nothing
+ * left to separate with. Under those floors the six could not hold ΔE 8 **from each other** under
+ * CVD, let alone from the pins: over-determined, not mistuned.
+ *
+ * ## The ceiling gave, and the values below are what that bought
+ *
+ * Two candidate reliefs were measured, and only one of them was worth anything.
+ *
+ * **AA is measured against the land here, and it did not have to be.** These labels carry a 1.25px
+ * halo at `#141518` (`basemap-tint-layer.tsx`), so their real background is L\* 6.8 rather than the
+ * land's 13.1, and the honest floor is L\* 52.5 rather than 56.5. Releasing it buys **−0.2**. It is
+ * therefore *kept* — the conservative measure costs nothing, and trading a low-vision floor to buy
+ * a colour-vision one would have been the wrong shape of fix even if it had worked.
+ *
+ * **The ceiling was the whole cost, and it was this file's own invention.** Releasing it takes the
+ * worst ink-to-pin distance from *infeasible* to **12.0** in an unconstrained search. It is now
+ * `label`'s own lightness — **L\* 87.4**, the basemap's near-white place names, the brightest ink
+ * CARTO draws. *"A POI label may be as bright as the map's other labels and no brighter"* survives
+ * a basemap retune; `62.0` never did, because it was a number rather than a rule.
+ *
+ * **What the ordering was for is still true and did not need lightness to say it.** "The pins are
+ * the data, the basemap is ground" is carried by chroma and area: pins are C\* 33–68 on 26px filled
+ * discs with glyphs and shadows, these are C\* 8–28 on 11px text, and a frame census put pin ink at
+ * 0.096% of the map against effectively nothing for these. Stating it in *lightness* was what made
+ * it cost the one axis CVD separation also needs.
+ *
+ * Measured across normal, deuteranopic and protanopic vision (Machado 2009, severity 1.0, matrices
+ * applied in linear RGB), against **both** the category bodies shipping today and the ones the
+ * colour-vision proposal moves them to, since that change has not landed:
+ *
+ * | | before | after |
+ * |---|---|---|
+ * | worst ink ↔ pin, every vision | **1.8** | **8.8** |
+ * | worst ink ↔ ink, every vision | **3.2** | **8.0** |
+ * | worst ink ↔ pin, normal only | 14.0 | 14.2 (floor 14) |
+ * | worst ink ↔ ink, normal only | 14.0 | 13.1 (floor 10.7) |
+ * | AA on the night land | 4.57 | 4.55 (floor 4.5) |
+ * | brightest ink | L\* 61.6 | L\* 87.0 (ceiling 87.4) |
+ *
+ * **8.8 and not the 12.0 the unconstrained sweep promised, because two of this file's reasons for
+ * existing are constraints and not free variables.** Five groups hold C\* ≥ 15 so the map still
+ * reads as a legend nobody has to be shown — an optimiser handed the chroma will spend it, and did,
+ * returning a grey `culture` and, in one pass, all six as the same teal. `civic` is the fallthrough
+ * every unmatched class lands on, so it is the most numerous label here and takes a chroma *ceiling*
+ * and an L\* ceiling instead; left free it came back as the brightest ink on the frame.
+ *
+ * **This is a mitigation and not a fix.** 8.8 is still under the 14 that normal vision holds. The
+ * pins and this palette share a small space and CVD compresses it, so getting past this needs
+ * `CATEGORY_COLOR_DARK` to move — `ui/place/palette.ts`, not here.
  */
 export const POI_GROUP_COLORS_NIGHT: Readonly<Record<PoiGroup, string>> = {
-  food: '#A2836F',
-  shopping: '#9E8EAA',
-  culture: '#DE70A7',
-  transit: '#6B96D6',
-  outdoors: '#5FA466',
-  civic: '#8C95A0',
+  food: '#FECAA7',
+  shopping: '#C4AED4',
+  culture: '#FFCCE2',
+  transit: '#B7D0FF',
+  outdoors: '#8FA78F',
+  civic: '#808A96',
 };
 
 /** The six for one theme. Light by default so every existing caller is unchanged until it opts in
