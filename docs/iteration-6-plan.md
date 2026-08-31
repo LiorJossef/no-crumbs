@@ -205,6 +205,43 @@ first-party player may be the one place their mark can legitimately appear on ou
 resolve the trademark tension rather than create it. It is an instinct, and `i6-embed` was told to
 test it rather than ratify it.
 
+### 6.1 Answered — `476674d`
+
+**Licensed, and it costs a new disclosure.** The instinct held: `II.2`'s logo licence is conditioned
+on the developer service *requiring* display of the mark, and TikTok's own hosted iframe rendering
+TikTok's own logo satisfies that condition — we never draw, redraw or possess the asset. It does
+**not** reopen any of `09`'s four refused surfaces, none of which is TikTok's own rendered document.
+
+Build on the **Embed Player** (`player/v1/{id}`), not the oEmbed blockquote: every one of our 16 real
+oEmbed captures carries `min-width: 325px` and runs ~578px tall, which is not a compact card. Autoplay
+is **muted-only** and TikTok ships a dedicated `AUTOPLAY_ERROR` because they expect it to fail.
+
+**The cost, measured rather than inferred.** Mounting either mechanism — before any click, before any
+play — sets a persistent `SameSite=None` cross-site-trackable TikTok cookie and loads a ~224KB
+ByteDance device-fingerprint SDK. **`referrerPolicy` does not reach any of it**: it suppresses one
+header on one image request, not a cookie set by the response or a script the embed's own document
+loads next. Today this product's only TikTok-facing surface tells TikTok nothing about what the user
+is looking at, and the surface in question records where a person goes.
+
+### 6.2 Owner ruling on the trigger — 2026-08-31
+
+**A small glyph button on the thumbnail, clicked.** Not hover, not autoplay on scroll, not
+mount-with-the-card.
+
+This independently matches what `i6-embed` recommended, and it removes the worst variant by design:
+no accidental mouse pass over a list row can mount anything, so the *"this device looked at post X"*
+leak on incidental hover does not arise.
+
+**It does not remove the cost, and the plan should not read as if it did.** A click gate changes
+*when* and *whether*, not *what*. A user who presses the glyph still hands TikTok the cookie and the
+fingerprint SDK. Deferring an exposure until it is asked for is meaningfully better than taking it
+unasked; it is not the same as not taking it.
+
+`security-privacy` holds the veto and is ruling on the residual — including whether a control that
+looks like *play* and also means *hand a third party a tracking cookie* carries an obligation to say
+so, and whether the exposure is per-press or per-session, which decides between a first-run
+interstitial and a permanent affordance.
+
 ---
 
 ## 7. The carried defect that is not on the owner's list
