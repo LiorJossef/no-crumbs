@@ -73,6 +73,8 @@ import {
 import { BeenBadge } from './visit-state';
 import { BOTTOM_NAV_HEIGHT_PX } from '@/components/nav/bottom-nav';
 import { CategoryFilterBar } from './category-filter-bar';
+import { CHIP_PRESSABLE } from './place-enrichment';
+import { DEFAULT_PLACE_ORDER, type PlaceOrder } from './place-order';
 import type { CategoryFacet } from '@/domain/places/category-filter';
 import type { ProductCategory } from '@/domain/places/product-category';
 import type { PlaceDetailFacts } from '@/domain/places/spot';
@@ -182,6 +184,11 @@ export interface PlaceSheetProps {
   readonly onHover?: (placeId: string | null) => void;
   /** The open place's id, so the row for it can draw the selected state and say `aria-current`. */
   readonly selectedId?: string | null;
+  /** `W5-2`. The order in force, the orders that may be offered, and the writer. Held by the page
+   *  because it is remembered across reloads and the sheet is not the only surface that lists. */
+  readonly sortOrder?: PlaceOrder;
+  readonly sortOrders?: readonly PlaceOrder[];
+  readonly onChangeSort?: (order: PlaceOrder) => void;
   /** Which stop the shell's sheet is at. Supplied rather than owned: the drawer, its snap points
    *  and the rise-to-half-on-select rule all moved to `components/shell` when `/collections/[id]`
    *  stopped keeping a second copy of them (`ux-collections-as-scope.md` §5 item 9). */
@@ -213,6 +220,11 @@ export function PlaceSheet({
   onSelect,
   onHover,
   selectedId,
+  // Optional, and defaulted rather than required, so a host that lists places without offering a
+  // sort — a collection, a test — mounts this component unchanged. `/map` always passes all three.
+  sortOrder = DEFAULT_PLACE_ORDER,
+  sortOrders = [],
+  onChangeSort,
   stop,
   onExpand,
 }: PlaceSheetProps) {
@@ -271,6 +283,9 @@ export function PlaceSheet({
       onSelect={onSelect}
       {...(onHover ? { onHover } : {})}
       {...(selectedId === undefined ? {} : { selectedId })}
+      sortOrder={sortOrder}
+      sortOrders={sortOrders}
+      {...(onChangeSort ? { onChangeSort } : {})}
     />
   );
 }
@@ -298,6 +313,9 @@ function PlaceList({
   onSelect,
   onHover,
   selectedId,
+  sortOrder,
+  sortOrders,
+  onChangeSort,
 }: {
   places: readonly MapPlace[];
   heading: AreaHeading;
@@ -323,6 +341,11 @@ function PlaceList({
    *  one owner, and a context would make the coupling look like something any subtree may join. */
   onHover?: (placeId: string | null) => void;
   selectedId?: string | null;
+  sortOrder: PlaceOrder;
+  /** Which orders the control may offer — `nearest` is in it only while a fix is held. Empty means
+   *  this host offers no sort at all, and `SortControl` then renders nothing. */
+  sortOrders: readonly PlaceOrder[];
+  onChangeSort?: (order: PlaceOrder) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -502,6 +525,13 @@ function PlaceList({
               anyVisited={libraryHasVisited}
             />
           )}
+          {/* Under the filters and above the list, because it shapes the *same* rows they narrow —
+              and a control that reorders a list belongs where the list starts, not in a menu
+              somewhere else. Hidden with the filters on an empty library for the same reason the
+              search field is: there is nothing to order. */}
+          {!libraryIsEmpty && onChangeSort !== undefined && sortOrders.length > 1 && (
+            <SortControl order={sortOrder} orders={sortOrders} onChange={onChangeSort} />
+          )}
           {/* Under the category bar rather than merged into it: a tag asks *what is this place
               like*, a category asks *what kind of thing is it*, and one row holding both would put
               two vocabularies in identical chips. Renders nothing at all when the library carries
@@ -625,6 +655,55 @@ export function useLibraryTagFacets(
  * `onSelect` is optional so the row stays a pure presentational element for any caller that wants
  * one; without it the row renders exactly as it did before, as a non-interactive `<li>`.
  */
+/**
+ * **The sort control** — `W5-2`. Three orders, two of which always exist.
+ *
+ * A row of `aria-pressed` chips rather than a `<select>`, because that is the vocabulary this list
+ * already speaks: the category bar and the visit chip above it are the same shape asking the same
+ * kind of question, and a native picker here would be the only dropdown in the product. The state
+ * lives on `aria-pressed`, so it is announced and styled from one fact — the rule
+ * `category-filter-bar.tsx` already follows.
+ *
+ * **`Nearest` is absent, not disabled, without a fix.** `availableOrders` decides; the reasoning is
+ * there, and it is the same rule `near-me.ts` follows when it hides a distance it cannot stand
+ * behind. A greyed-out `Nearest` invites the question the screen has no answer to.
+ *
+ * Every string is `overnight-copy-deck.md` §4.2 — `Sort`, `Recently saved`, `Nearest`, `A–Z`, the
+ * last with an en dash. None is written here.
+ */
+function SortControl({
+  order,
+  orders,
+  onChange,
+}: {
+  order: PlaceOrder;
+  orders: readonly PlaceOrder[];
+  onChange: (order: PlaceOrder) => void;
+}) {
+  // One option is not a choice. A library with no fix and a control offering only `Recently saved`
+  // and `A-Z` still has two, so this only fires if the list of orders is ever narrowed further.
+  if (orders.length < 2) return null;
+  return (
+    <div
+      role="group"
+      aria-label={SORT_LABEL}
+      className="flex items-center gap-1.5 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+    >
+      {orders.map((candidate) => (
+        <button
+          key={candidate}
+          type="button"
+          aria-pressed={candidate === order}
+          onClick={() => onChange(candidate)}
+          className={cn(CHIP_PRESSABLE, 'min-h-11 shrink-0')}
+        >
+          {SORT_OPTION_LABEL[candidate]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function PlaceRow({
   place,
   onSelect,
@@ -1206,6 +1285,18 @@ export function EverywhereElse({
  * the camera for a state no amount of panning can fix, and a first-run screen that reports on an
  * area is answering a question nobody has asked yet.
  */
+/** `C131`. The control's accessible name — it labels a group of chips, which have no visible
+ *  heading of their own because a word above three short chips costs more room than it earns. */
+export const SORT_LABEL = 'Sort';
+
+/** `C132`–`C134`, `overnight-copy-deck.md` §4.2. `A–Z` takes an **en dash**, matching the
+ *  product's typography elsewhere; it is not a hyphen and must not be normalised into one. */
+export const SORT_OPTION_LABEL: Record<PlaceOrder, string> = {
+  recent: 'Recently saved',
+  nearest: 'Nearest',
+  alpha: 'A\u2013Z',
+};
+
 export const EMPTY_LIBRARY_HEADING = 'Your map starts here.';
 
 /**

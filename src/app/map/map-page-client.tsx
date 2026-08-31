@@ -97,7 +97,7 @@
  * a second entry point onto the same client component, not a replacement for the route.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { MapPlace } from '@/components/map/map-surface';
 import { MapShell } from '@/components/shell/map-shell';
 import { useMapShell } from '@/components/shell/use-map-shell';
@@ -111,6 +111,16 @@ import { NearMeDistancesContext } from '@/components/map/near-me-context';
 import { distanceOrigin, nearMeCamera, nearMeNotice, type UserFix } from '@/components/map/near-me';
 import { useNearMe } from '@/components/map/use-near-me';
 import { PlaceSheet, SHEET_HALF_FRACTION } from '@/components/sheet/place-sheet';
+import {
+  availableOrders,
+  effectiveOrder,
+  getServerOrder,
+  getStoredOrder,
+  setStoredOrder,
+  sortPlaces,
+  subscribeStoredOrder,
+  type PlaceOrder,
+} from '@/components/sheet/place-order';
 import { PlaceDesktopPanel } from '@/components/sheet/place-desktop-panel';
 import { filterByTag, filterByVisit, filterPlaces } from '@/components/map/filter-places';
 import { categoryFacets, filterByCategory, toggleCategory } from '@/domain/places/category-filter';
@@ -903,11 +913,35 @@ export function MapPageClient({
     return origin === null ? null : distancesFromUser(origin, inScope);
   }, [nearMe.state, inScope]);
 
-  /** The list, nearest first while a fix is held — and `inScope` by identity the rest of the time,
-   *  which is every render before anyone presses the control. */
+  /**
+   * **`W5-2`: the order the user chose, or the one the product would have chosen anyway.**
+   *
+   * `null` is *nobody has chosen*, and the fallback in `effectiveOrder` is deliberately today's
+   * behaviour: `/map` has sorted nearest-first whenever a fix was held since `L1-F11-T2`, silently
+   * and with no way back. So the control does not introduce an order — it makes the one already in
+   * force visible and changeable, and a user who never opens it sees no change at all.
+   *
+   * **Read from storage after mount, never during render.** The list's DOM order is markup, so a
+   * server render that guessed the stored choice and got it wrong is a hydration mismatch. The cost
+   * is honest and small: a user who chose `A–Z` sees the default order for one frame. A cookie
+   * would fix that and needs the server component, which is not this package.
+   */
+  const chosenOrder = useSyncExternalStore(subscribeStoredOrder, getStoredOrder, getServerOrder);
+  const chooseOrder = useCallback((order: PlaceOrder) => setStoredOrder(order), []);
+  const sortOrders = useMemo(() => availableOrders(distances !== null), [distances]);
+  const sortOrder = useMemo(
+    () => effectiveOrder(chosenOrder, distances !== null),
+    [chosenOrder, distances],
+  );
+
+  /** The list in the order in force. `nearestFirst` still owns the distance ranking — this only
+   *  decides whether that is the ranking being asked for. */
   const listed = useMemo(
-    () => (distances === null ? inScope : nearestFirst(inScope, distances)),
-    [inScope, distances],
+    () =>
+      sortOrder === 'nearest' && distances !== null
+        ? nearestFirst(inScope, distances)
+        : sortPlaces(inScope, sortOrder, () => null),
+    [inScope, distances, sortOrder],
   );
 
   /** What the control says when it cannot do what it looks like it does, or when it worked and the
@@ -1197,6 +1231,9 @@ export function MapPageClient({
                   // `pointerType === 'mouse'`, so a tap on a phone never reaches this.
                   onHover={setHoveredId}
                   selectedId={selectedId}
+                  sortOrder={sortOrder}
+                  sortOrders={sortOrders}
+                  onChangeSort={chooseOrder}
                   stop={stop}
                   onExpand={shell.sheet.goTo}
                 />
