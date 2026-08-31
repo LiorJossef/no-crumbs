@@ -168,3 +168,45 @@ describe('the strings reach the DOM', () => {
     expect(CHIP_PRESSABLE).toContain('motion-safe:active:scale-95');
   });
 });
+
+
+/**
+ * **The pressed chip answers a pointer too**, which it did not until 2026-08-31.
+ *
+ * Measured in a browser at `9a95444` and again at `171a8f2`: the sort control's selected chip was
+ * inert across all nine properties a hover could move. The rest state's hover is a rim at 45% of the
+ * chip's ink; the pressed arm sets `aria-pressed:border-transparent`, and compiled against the real
+ * `globals.css` that rule is emitted **after** the hover rule at equal specificity, so the pressed
+ * chip's hover border resolved to transparent.
+ *
+ * Two properties are asserted here, and the second is the one that would have shipped a worse bug
+ * than it fixed.
+ */
+describe('the pressed chip', () => {
+  it('has a hover of its own, in its own ink', () => {
+    // The rest state's idea applied to the pressed state, at the same 45%: a rim in the chip's own
+    // foreground. Not a new treatment, and no reflow — the border width never changes.
+    expect(CHIP_PRESSABLE).toContain('aria-pressed:hover:border-tag-selected-foreground/45');
+  });
+
+  it('never reaches for `--tag-selected-hover`, which does not follow a per-chip fill', () => {
+    /*
+     * `--tag-selected-hover` is declared on `:root` as `color-mix(… var(--tag-selected) …)`, and a
+     * custom property's `var()` is substituted at computed-value time on the element that
+     * **declares** it — so the mix resolves once against house mint and inherits down already
+     * resolved. The category filter bar overrides `--tag-selected` on the button itself, which does
+     * not re-resolve it. Verified in a browser: a chip filled café-brown still reads the mint for
+     * that token. Hovering a pressed Café chip would have turned it mint.
+     *
+     * It stays correct for `TagFilterPill` (`place-enrichment.tsx`), which is house mint and never
+     * overrides the fill — so this bans it *from the shared chip string* and nowhere else.
+     */
+    expect(CHIP_PRESSABLE).not.toContain('tag-selected-hover');
+  });
+
+  it('keeps the pressed border transparent at rest', () => {
+    // The rim is the hover, not the resting state. A pressed chip with a permanent rim reads as a
+    // second, quieter kind of selection beside the fill that already says it.
+    expect(CHIP_PRESSABLE).toContain('aria-pressed:border-transparent');
+  });
+});

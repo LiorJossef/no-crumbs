@@ -115,11 +115,51 @@ const CHIP_ROW = 'px-2 py-0.5 text-micro leading-4';
  * button itself changes what "pressed" looks like for that chip alone — which is how the category
  * filter bar fills a pressed chip with *that category's* colour instead of house mint. Every other
  * chip inherits the mint from `:root` and nothing about them changes.
+ *
+ * ## The pressed chip had no hover at all, and the reason is an ordering rather than an omission
+ *
+ * Measured in a browser at commit `9a95444` and again at `171a8f2`: the sort control's selected
+ * chip was **inert** — background, colour, border, opacity, shadow, transform and text-decoration
+ * all byte-identical hovered and not. The rest state's hover is `border-tag-foreground/45`, and the
+ * pressed arm sets `aria-pressed:border-transparent`; compiled against the real `globals.css` the
+ * `aria-pressed` rule is emitted **after** the hover rule at equal specificity, so on a pressed chip
+ * the hover border resolved to transparent. An unpressed chip answered a pointer; the pressed one
+ * did not.
+ *
+ * That is the worst chip to lose, not a marginal one: **a sort control always has a current value**,
+ * so the one chip that never responded was the one always on screen.
+ *
+ * **The fix is the rest state's own idea applied to the pressed state** — a rim in the chip's own
+ * ink — rather than a second treatment. Unpressed: 15% of `--tag-foreground` at rest, 45% on hover.
+ * Pressed: transparent at rest, 45% of `--tag-selected-foreground` on hover. Same mechanism, same
+ * number, no reflow because the border width never changes, and `motion-safe:transition-colors`
+ * already carries `border-color`.
+ *
+ * **It is emphatically not `bg-tag-selected-hover`, and that is measured rather than argued.**
+ * `--tag-selected-hover` is declared on `:root` as `color-mix(… var(--tag-selected) …)`, and a
+ * custom property's `var()` is substituted at computed-value time **on the element that declares
+ * it** — so the mix is resolved once, against `:root`'s house mint, and inherits down already
+ * resolved. A category chip that overrides `--tag-selected` on itself does *not* re-resolve it.
+ * Verified in a browser: a chip filled café-brown reads back `oklch(0.805 0.062 184.7)` for that
+ * token, which is the mint. Hovering a pressed Café chip would have turned it **mint**, which is a
+ * worse defect than the missing hover it was meant to fix.
+ *
+ * `border-tag-selected-foreground/45` has no such problem, and for the same reason `bg-tag-selected`
+ * does not: `@theme inline` inlines the token at the utility, so the emitted rule is
+ * `border-color: color-mix(in oklab, var(--tag-selected-foreground) 45%, transparent)` — a `var()`
+ * evaluated on the chip, which is where the category bar's override lives. The bar sets
+ * `--tag-selected-foreground` to `--on-category` alongside the fill, so the rim follows the chip's
+ * own ink in both themes with nothing added here.
+ *
+ * Ordering is not load-bearing this time and that is worth stating, because it was last time: the
+ * new rule is `[aria-pressed="true"]:hover` at (0,3,0) against the pressed border's (0,2,0), so it
+ * wins on specificity and does not depend on which is emitted first.
  */
 export const CHIP_PRESSABLE =
   'inline-flex min-h-8 max-w-full cursor-pointer items-center rounded-full border px-3 text-xs font-bold outline-none motion-safe:transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 ' +
   'border-tag-foreground/15 bg-tag text-tag-foreground hover:border-tag-foreground/45 ' +
   'aria-pressed:border-transparent aria-pressed:bg-tag-selected aria-pressed:text-tag-selected-foreground ' +
+  'aria-pressed:hover:border-tag-selected-foreground/45 ' +
   PRESS_CHIP;
 
 /** The kicker above a filter pill — `TAGGED`, `SHOWING`. Exported so a second filter cannot invent
