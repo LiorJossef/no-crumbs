@@ -3,7 +3,7 @@
  *
  *  1. A URL that matches no route at all — Next routes every unmatched URL to the root
  *     `not-found.tsx` (`file-conventions/not-found`, "Good to know").
- *  2. `notFound()` from `collections/[id]/page.tsx`, which fires for a collection that does not
+ *  2. `notFound()` from `map/page.tsx`, which fires for a collection that does not
  *     exist **and** for one that exists but the caller is not a member of. That ambiguity is
  *     deliberate — `getCollection` returns null for both so the route cannot be used as an
  *     existence oracle for other people's collections — and it means this screen must not say
