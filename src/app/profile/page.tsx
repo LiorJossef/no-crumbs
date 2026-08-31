@@ -11,7 +11,7 @@ import { BottomNav } from '@/components/nav/bottom-nav';
 // the number 68. See `bottom-nav-metrics.ts` — it silently produced `padding-bottom: 0`.
 import { BOTTOM_NAV_HEIGHT_PX } from '@/components/nav/bottom-nav-metrics';
 import { flagEmoji, normaliseCountryCode } from '@/components/map/country-flag-image';
-import { categoryDisplay } from '@/ui/place/category-display';
+import { categoryColorVar, categoryDisplay } from '@/ui/place/category-display';
 import { getSpots } from '@/app/map/_lib/get-spots';
 import { toMapPlace } from '@/app/map/_lib/to-map-place';
 import { AccountActions } from './account-actions';
@@ -211,11 +211,19 @@ export default async function ProfilePage() {
                     count={facet.count}
                   >
                     {/* The same dot the list and the detail print, from the same table the map
-                        draws its pins from, so a café is one brown word-and-colour everywhere. */}
+                        draws its pins from, so a café is one brown word-and-colour everywhere.
+
+                        `categoryColorVar`, not `display.color`: the literal is the *light* value
+                        and `category-display.ts` says so at the field — it stays a literal because
+                        MapLibre and the OpenGraph image genuinely cannot resolve a custom property,
+                        and this is neither. The `--category-*` tokens already carried both themes
+                        and already switched under `.dark`; they were read by nothing here, so this
+                        swatch would have stayed a light-theme brown on the night map's own page.
+                        A `var()` follows the theme with no hook, no context and no re-render. */}
                     <span
                       aria-hidden
                       className="size-2.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: display.color }}
+                      style={{ backgroundColor: categoryColorVar(facet.category) }}
                     />
                   </Row>
                 );
