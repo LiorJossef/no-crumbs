@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import { MotionConfig, motion } from 'motion/react';
 
+import { ChromeMark } from './chrome-mark';
 import {
   CARD_VARIANTS,
   ITEM_VARIANTS,
@@ -10,7 +11,6 @@ import {
   STAGE_VARIANTS,
 } from './chrome-motion';
 import { DISPLAY_WORDMARK_AXES } from './display-type';
-import { PinMark } from './pin-mark';
 
 /**
  * **The first impression, as one object.**
@@ -46,13 +46,27 @@ import { PinMark } from './pin-mark';
  * composites to within a point or two of `--card` in both themes — is what buys the mesh the room
  * to be bold.
  *
- * ## The one lockup
+ * ## The one lockup, and it is the specified one
  *
  * The mark and the name are rendered *here* rather than by each page, because they were the same
  * eight lines in two files and `pin-mark.tsx`'s own header says why that is how a brand drifts.
- * `face` is on: `brand-and-product-foundation.md` §3.1 rule 2 puts the face on chrome, and
- * `voice-and-vocabulary.md` §2 treats *the landing and sign-in mark* as one surface — so the name
- * appears on both sides of a single step, or on neither.
+ * `ChromeMark` carries the face: §3.1 rule 2 puts the face on chrome, and `voice-and-vocabulary.md`
+ * §2 treats *the landing and sign-in mark* as one surface — so the name appears on both sides of a
+ * single step, or on neither. That file is also the seam the gold mascot arrives through; read it
+ * before changing anything about how the mark is drawn here.
+ *
+ * **The name is set stacked, and that is `no-crumbs-design-system.html` §Wordmark rather than a
+ * preference.** It names three constructions and the *primary* one is the mark beside `No` over
+ * `Crumbs` — *"stacked is the primary: it makes a solid rectangle that sits beside the mascot
+ * without either fighting the other, and it puts No and Crumbs on separate lines so the phrase
+ * reads as a phrase."* What shipped here first was the document's **third** variant, the wordmark
+ * alone on one line, with a mark put next to it. Fraunces at 900 with `SOFT` 60 and `WONK` on
+ * (`DISPLAY_WORDMARK_AXES`), `leading-none` so the two lines make the rectangle the document is
+ * describing, and no gradient, no outline and no drop shadow — §Wordmark forbids all three.
+ *
+ * Sizes clear the one stated minimum with room: *"at the shell header the mark sits at 22px with
+ * the wordmark at 15px, which is the smallest the pair may ever be set together."* Here it is
+ * 44/20 on a phone and 56/24 on a desktop.
  */
 export function ChromeStage({
   editorial,
@@ -114,20 +128,15 @@ export function ChromeStage({
             />
 
             <div className="grid lg:grid-cols-2">
+              {/* No wash on this half. There was one, and §The system bans decorative gradients on
+                content whatever hue they are — the mesh, the glow and the lit edge are all *around*
+                the reading surface; a sweep behind the headline is *on* it. The divider tells the
+                two halves apart, which is what a divider is for. */}
               <section className="relative flex flex-col justify-center gap-5 px-6 pb-8 pt-9 lg:gap-6 lg:px-11 lg:py-14">
-                {/* The editorial half's own tint, fading out by 45% — the strong end is behind the
-                  mark and the headline, which are `--foreground` at 10:1 or better; the weak end is
-                  behind the subhead, which is the ink with no headroom. */}
-                <div
-                  aria-hidden
-                  className="pointer-events-none absolute inset-0"
-                  style={{ background: 'var(--chrome-panel-wash)' }}
-                />
-
                 <motion.div
                   data-entrance
                   variants={ITEM_VARIANTS}
-                  className="relative flex items-center gap-3"
+                  className="relative flex items-center gap-3 lg:gap-4"
                 >
                   <motion.span
                     data-entrance
@@ -139,13 +148,24 @@ export function ChromeStage({
                       className="pointer-events-none absolute -inset-7"
                       style={{ background: 'var(--chrome-mark-glow)' }}
                     />
-                    <PinMark face className="relative size-11 lg:size-14" />
+                    <ChromeMark className="relative size-11 lg:size-14" />
                   </motion.span>
+                  {/*
+                   * Two flex items rather than one text node with a `<br>`, and the accessible name
+                   * survives it — worth stating here because the *opposite* case is a bug this page
+                   * has already shipped once, in the account-switch button's `gap-1`. There,
+                   * whitespace **between** flex items was discarded and "New here? Create an
+                   * account" lost its space. Here there is no whitespace to lose: accessible-name
+                   * computation appends a space between block-level children and flex items are
+                   * blockified, so this announces as one phrase. Read out of the accessibility
+                   * tree rather than assumed.
+                   */}
                   <span
-                    className="font-display text-xl font-black tracking-tight text-foreground lg:text-2xl"
+                    className="flex flex-col font-display text-xl leading-none font-black tracking-tight text-foreground lg:text-2xl"
                     style={DISPLAY_WORDMARK_AXES}
                   >
-                    No Crumbs
+                    <span>No</span>
+                    <span>Crumbs</span>
                   </span>
                 </motion.div>
 

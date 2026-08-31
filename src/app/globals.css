@@ -166,13 +166,33 @@
     --text-reading: var(--text-reading);
     --text-display: var(--text-display);
     --text-display--line-height: var(--leading-display);
-    /* The step between `display` and `hero`, added 2026-08-31 for the editorial headline inside a
-     * card. The pair either side of it were both cut for a full-bleed column: `display` is 34px,
-     * which is modest across a 900px-tall desktop screen, and `hero` is `clamp(2.5rem, 5.5vw, 4rem)`
-     * — viewport-relative, so at 1440 it resolves to 64px and overshoots a fixed-width card column
-     * by about 20px, wrapping a two-word line onto three. A card's column is not the viewport. */
-    --text-title: var(--text-title);
-    --text-title--line-height: var(--leading-title);
+    /*
+     * **Display's upper step, and it is the design system's number rather than one of ours.**
+     *
+     * `no-crumbs-design-system.html` §The system specifies six named steps, and its **Display** is
+     * `clamp(28px, 4vw, 40px)` — demonstrated on the string *"Your places are waiting."*, which is
+     * literally this product's sign-in headline. Its **Title** is a different step entirely, 22px,
+     * for a line like *"12 restaurants here"*.
+     *
+     * This replaced a `--text-title: 2.75rem` I added on 2026-08-31, which collided with that scale
+     * twice at once: it took the name of the 22px step and it was 44px, four *over* Display's cap.
+     * A token whose name means a different step is worse than no token.
+     *
+     * **Why an `lg` step rather than making `--text-display` the clamp.** The clamp is the whole
+     * range and adopting it would move both ends. The bottom end is a regression — at 390px `4vw`
+     * resolves to 15.6px, so every headline in the product would clamp to the 28px floor, six under
+     * the 34px they set today. And the top end silently reverses a decision that is written down:
+     * `error.tsx` and `not-found.tsx` read `--text-display` and their comment records that a 40px
+     * `lg` bump was **deliberately removed** — *"this column is capped at 420px on desktop and 34px
+     * already fills it, so the bump only made the failure louder."* A responsive `--text-display`
+     * would put that bump back on a failure screen without anybody editing the file.
+     *
+     * So: `--text-display` keeps 34px and its call sites keep their decisions, and the two chrome
+     * headlines that want the top of Display's range ask for it by name. Both ends are inside the
+     * specified range; neither is invented.
+     */
+    --text-display-lg: var(--text-display-lg);
+    --text-display-lg--line-height: var(--leading-display-lg);
     --text-hero: var(--text-hero);
     --text-hero--line-height: var(--leading-hero);
 }
@@ -465,9 +485,13 @@
      * ink by about a point and a half. Re-measured after doubling them: 112 strings, 0 failures,
      * worst 4.61:1.
      *
-     * `--chrome-panel-wash` is the tint on the editorial half of the card, and it fades out by 45%
-     * — the strong end is behind the mark and the headline, which are `--foreground` and carry
-     * 10:1 or better; the weak end is behind the subhead, which is the ink with no headroom.
+     * **There is deliberately no wash on the card's editorial half.** There was one —
+     * `--chrome-panel-wash`, a mint-to-nothing sweep in light and an indigo one at night — and it
+     * is gone because `no-crumbs-design-system.html` §The system bans *"decorative gradients on
+     * content"* outright, independently of which hue the gradient is. The mesh, the glow and the
+     * lit edge are all *around* the reading surface and stay; a gradient sitting behind the
+     * headline and the subhead is on it. The card's two halves are told apart by the divider they
+     * already had.
      *
      * `--panel-raised` is the **card** material, distinct from `--panel`, which is the full-height
      * column those two screens used to paint. A card is an object with an edge and a shadow and
@@ -499,13 +523,6 @@
      * night indigo is right: the ground is already indigo-biased and a mint halo on a mint mark
      * would be a smudge. */
     --chrome-mark-glow: radial-gradient(closest-side, rgba(168, 236, 226, 0.75) 0%, rgba(168, 236, 226, 0) 100%);
-    /* Mint only, and gone by 62%. The first version carried an indigo tail to 100% and it cost the
-     * subhead 0.03 of a ratio: measured at 390x844 the ink landed on `rgb(244,245,253)` — the blue
-     * is the tail — for **4.47:1** against a 4.5 bar, on both screens, in light only, because on a
-     * narrow card the section is tall and the subhead sits far enough down the 158° sweep to reach
-     * it. The tail was decoration under the one ink in this theme that has no headroom. */
-    --chrome-panel-wash:
-        linear-gradient(158deg, rgba(168, 236, 226, 0.26) 0%, rgba(168, 236, 226, 0.06) 38%, rgba(168, 236, 226, 0) 62%);
     /* The lit top edge of the card: the two brand colours as a single 1px rule, which is colour
      * that costs no contrast because nothing is read on it. */
     --chrome-edge:
@@ -663,8 +680,9 @@
     --text-reading: 0.96875rem;
     --text-display: 2.125rem;
     --leading-display: 1.12;
-    --text-title: 2.75rem;
-    --leading-title: 1.08;
+    /* The design system's Display cap, and its line height from the same demo. */
+    --text-display-lg: 2.5rem;
+    --leading-display-lg: 1.05;
     --text-hero: clamp(2.5rem, 5.5vw, 4rem);
     --leading-hero: 1.05;
 
@@ -912,8 +930,6 @@
     --chrome-bloom-b: radial-gradient(closest-side, rgba(70, 155, 142, 0.42) 0%, rgba(70, 155, 142, 0) 100%);
     --chrome-glow: radial-gradient(closest-side, rgba(91, 108, 255, 0.44) 0%, rgba(91, 108, 255, 0) 100%);
     --chrome-mark-glow: radial-gradient(closest-side, rgba(91, 108, 255, 0.50) 0%, rgba(91, 108, 255, 0) 100%);
-    --chrome-panel-wash:
-        linear-gradient(158deg, rgba(91, 108, 255, 0.22) 0%, rgba(91, 108, 255, 0.06) 45%, rgba(70, 155, 142, 0.10) 100%);
     --chrome-edge:
         linear-gradient(90deg, rgba(91, 108, 255, 0) 0%, rgba(91, 108, 255, 0.95) 24%, rgba(168, 236, 226, 0.9) 62%, rgba(168, 236, 226, 0) 100%);
     --chrome-grain-strength: 0.14;

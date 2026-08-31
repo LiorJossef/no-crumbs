@@ -158,11 +158,13 @@ export default function SignInPage() {
             </ChromeItem>
 
             <ChromeItem>
-              {/* Fraunces, `SOFT` 44 / `WONK` on, matching `/` — see the file header. `text-title`
-                  rather than `text-hero` because this headline lives inside a card column and the
-                  hero step is viewport-relative; see the token's own note in `globals.css`. */}
+              {/* Fraunces, `SOFT` 44 / `WONK` on, matching `/` — see the file header.
+                  `text-display lg:text-display-lg` is the design system's Display step at both ends
+                  of its own range; `--text-title` was here and took the name of that document's
+                  22px step while being 44px, four over Display's cap. See the token in
+                  `globals.css` for why the range is two utilities rather than one clamp. */}
               <h1
-                className="font-display text-display font-bold tracking-tight text-foreground lg:text-title"
+                className="font-display text-display font-bold tracking-tight text-foreground lg:text-display-lg"
                 style={DISPLAY_HEADING_AXES}
               >
                 {headline[0]}

@@ -112,17 +112,19 @@ export default async function Home() {
                   a serif word directly above a grotesque headline, which is the near-miss pairing
                   §3.1 retired Archivo over, reproduced inside one column.
 
-                  `text-display lg:text-title`, both tokens. `text-hero` was here and is wrong now
-                  that the headline lives in a card column rather than in a full-bleed one: it is
-                  `clamp(2.5rem, 5.5vw, 4rem)`, so it reads the *viewport* and resolves to 64px at
-                  1440 — about 20px more than the column can set two words in.
+                  `text-display lg:text-display-lg`, both tokens, and both are the design system's
+                  Display step — 34px and its specified 40px cap. `text-hero` was here and is wrong
+                  now that the headline lives in a card column rather than in a full-bleed one: it
+                  is `clamp(2.5rem, 5.5vw, 4rem)`, so it reads the *viewport* and resolves to 64px
+                  at 1440, about 24px past what the column can set two words in and 24px past
+                  anything that document specifies.
 
                   The old values are named in prose rather than quoted, and that is not fussiness:
                   `token-call-sites.test.ts` counts arbitrary-value classes with a regex over the
                   source and cannot tell a comment from a call site, so a bracket quoted here is a
                   bracket on the ledger. Same rule as the hex literals K12 counts. */}
               <h1
-                className="font-display text-display font-bold tracking-tight text-foreground lg:text-title"
+                className="font-display text-display font-bold tracking-tight text-foreground lg:text-display-lg"
                 style={DISPLAY_HEADING_AXES}
               >
                 {HEADLINE[0]}

@@ -103,12 +103,20 @@ describe('the crumb outline', () => {
      */
     const reachesTheFace = (file: string) => {
       const source = readFileSync(file, 'utf8');
-      return /<PinMark face/.test(source) || /<ChromeStage\b/.test(source);
+      return /<PinMark face|<ChromeMark\b|<ChromeStage\b/.test(source);
     };
+    // The chain, asserted link by link so a break anywhere fails rather than only at the ends:
+    // `chrome-mark.tsx` draws the faced mark, the stage renders the seam, the two permitted
+    // surfaces render the stage. `chrome-mark.tsx` is where the gold mascot lands, which is the
+    // reason the seam exists and the reason this assertion moved down one level.
+    expect(
+      readFileSync('src/components/brand/chrome-mark.tsx', 'utf8'),
+      'the mascot seam should draw the faced mark',
+    ).toContain('<PinMark face');
     expect(
       readFileSync('src/components/brand/chrome-stage.tsx', 'utf8'),
-      'the shared chrome lockup should carry the faced mark',
-    ).toContain('<PinMark face');
+      'the chrome lockup should reach the mark through the seam',
+    ).toContain('<ChromeMark');
     for (const file of ['src/app/page.tsx', 'src/app/sign-in/page.tsx']) {
       expect(reachesTheFace(file), `${file} should reach the faced mark`).toBe(true);
     }

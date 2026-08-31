@@ -116,7 +116,6 @@ const IMAGE_TOKENS = [
   '--chrome-bloom-b',
   '--chrome-glow',
   '--chrome-mark-glow',
-  '--chrome-panel-wash',
   '--chrome-edge',
 ];
 
@@ -170,12 +169,28 @@ describe('the chrome tokens are registered in the namespace that generates a uti
     expect(rule(css, 'backdrop-blur-panel-raised')).toContain('var(--panel-raised-blur)');
   });
 
-  it('generates text-title, and it carries its own line height', async () => {
-    // A 44px headline arriving at `1.5` is the defect the `--text-*--line-height` convention
-    // exists to prevent, and it is invisible in a diff.
-    const css = await build(['text-title']);
-    expect(rule(css, 'text-title')).toContain('var(--text-title)');
-    expect(rule(css, 'text-title')).toContain('var(--leading-title)');
+  it('generates text-display-lg at the design system\u2019s Display cap, with its line height', async () => {
+    // A headline arriving at `1.5` is the defect the `--text-*--line-height` convention exists to
+    // prevent, and it is invisible in a diff.
+    const css = await build(['text-display-lg']);
+    expect(rule(css, 'text-display-lg')).toContain('var(--text-display-lg)');
+    expect(rule(css, 'text-display-lg')).toContain('var(--leading-display-lg)');
+    // 2.5rem is 40px, which is `no-crumbs-design-system.html` §The system's Display cap verbatim.
+    expect(declarations(':root').get('--text-display-lg')).toBe('2.5rem');
+  });
+
+  it('does not carry a --text-title, because that name means 22px', () => {
+    /*
+     * **A ratchet on a name, not on a value.**
+     *
+     * `--text-title: 2.75rem` existed here for a few hours and was wrong twice over: the design
+     * system's **Title** step is 22px, for a line like *"12 restaurants here"*, and 44px is four
+     * over its **Display** cap — the step whose own demo string is *"Your places are waiting."*,
+     * this product's sign-in headline. A token that takes a specified name and means a different
+     * size is worse than no token, because every later reader is misled in the same direction.
+     */
+    expect(declarations(':root').get('--text-title')).toBeUndefined();
+    expect(declarations(':root').get('--leading-title')).toBeUndefined();
   });
 });
 
@@ -203,6 +218,24 @@ describe('every chrome composition token answers in both themes', () => {
     expect(declarations('.dark').get('--panel-raised-blur')).toBeUndefined();
     // The grain tile is noise, not pigment; `mix-blend-mode: overlay` is what makes it theme-aware.
     expect(declarations('.dark').get('--chrome-grain')).toBeUndefined();
+  });
+
+  it('has no gradient painted on the card\u2019s content half', () => {
+    /*
+     * `--chrome-panel-wash` was a mint-to-nothing sweep across the editorial half of the card in
+     * light and an indigo one at night. It is gone, and this is the ratchet that keeps it gone:
+     * `no-crumbs-design-system.html` §The system bans *"decorative gradients on content"* outright,
+     * and that ban is about **where** a gradient is rather than which hue it is — so re-adding it in
+     * mint, or in the house ramp, or at half the alpha, would be the same defect.
+     *
+     * The mesh, the two blooms, the glow and the lit edge all survive, and the distinction is worth
+     * stating because it is the whole rule: every one of those is painted *around* the reading
+     * surface. A sweep behind the headline and the subhead is painted *on* it.
+     */
+    expect(declarations(':root').get('--chrome-panel-wash')).toBeUndefined();
+    expect(declarations('.dark').get('--chrome-panel-wash')).toBeUndefined();
+    const stage = readFileSync(path.join(SRC, 'components/brand/chrome-stage.tsx'), 'utf8');
+    expect(stage).not.toContain('--chrome-panel-wash');
   });
 
   it('keeps --panel-raised distinct from --panel, which is a different surface', () => {
