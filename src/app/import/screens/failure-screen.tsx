@@ -21,6 +21,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 
+import { PlatformMark } from '@/components/brand/platform-mark';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ENTER_SCREEN } from '@/lib/interaction';
@@ -200,6 +201,12 @@ export function ImportFailureScreen({
                     : 'border border-input bg-background text-foreground',
                 )}
               >
+                {/* The platform mark on `open_tiktok` and **never** on `open_link`, which is the
+                    one distinction this pair exists to carry: `UNSUPPORTED_HOST`'s whole news is
+                    that the pasted link is not a TikTok, and a TikTok glyph on the button that
+                    hands it back would contradict the headline above it. Same leading-mark,
+                    trailing-arrow composition as `Open TikTok` on the place detail. */}
+                {action === 'open_tiktok' && <PlatformMark className="size-4" />}
                 {label}
                 <ArrowUpRight className="size-4" aria-hidden />
               </a>
