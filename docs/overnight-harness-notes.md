@@ -508,3 +508,108 @@ metro, so none of them has clearance and all of them tier to 14. **A 2,000-place
 across many cities would have clearance, would tier lower, and would draw labels at these zooms** —
 which is §2's 34.0 ms case. That library shape has not been measured. It is also not a shape this
 product produces today at that size, but it is the one to measure if anyone asks the question again.
+
+## 13. Q1 — the walkthrough gate
+
+**Commit `9e6231802fae132d7b9b7a17b5f41f3310615274`.** 32 screens on the production path (`next build` + `next start`) at 0, 3, 30
+and 300 places, plus 10 import states in dev mode, at **390×844 and 1440×900**. Every signed-in
+screen is stub-backed. Judged against `facelift-plan.md` §3a, `voice-and-vocabulary.md` and
+`no-crumbs-design-system.html` — not against memory of the old screens.
+
+The question was not "does it work" but **"does this look like a screen someone designed?"**
+
+### What I would fix before showing this to anyone
+
+**S1, S2, S4 and S6, in that order.** S1 alone would end a demo.
+
+### Findings, ranked
+
+**S1 — CRITICAL. 300 places on a phone is an unreadable heap.**
+At 390×844 with 300 saved places the map draws ~300 overlapping teardrop pins in a single mass
+covering the middle third of the screen. No place is identifiable, and none is individually
+tappable. There is no density handling *inside* the pin band — the band system swaps pins for area
+pills only below z8.5, and clustering was deliberately removed (`ac43eaa`). Desktop at 1440×900 is
+heavy but survivable because the canvas is four times the area. `overnight-run-plan.md` §8a says
+the product dies at scale; at 300 in one metro, on the primary target device, it does.
+
+**S2 — HIGH. The mark renders as a plain teal disc at every size it ships at.**
+Verified independently at three call sites: landing 390×844 (~36 px), landing 1440×900 (~44 px),
+sign-in 390×844 (~36 px). It is a solid filled circle — no pin silhouette, no outline, no mascot.
+**This is a third read and it agrees with the reporter, not with the builder's "irregular at 30px and
+up".** On the landing page it sits beside the wordmark, so the mark carries no meaning the words
+do not already carry; on sign-in it appears alone, where it reads as a bullet.
+
+**S3 — HIGH. A systemic dead-space pattern on mobile, across six screens.**
+Landing, sign-in, profile (0 places), collections (0 places), the import failure screen and the
+import no-places screen all put content in the top ~30% at 390×844 and leave **45–60% of the
+viewport empty**, with the action pinned to the bottom. Each is defensible alone as thumb-zone
+composition. Together they are the product's dominant visual impression on a phone, and it is of a
+screen nobody finished. The **desktop** no-places screen — a centred card, sized to its content —
+is the better answer and already exists in the codebase.
+
+**S4 — MEDIUM. `3 places found` sits directly above `1 of 2 selected`.**
+Confirmed, both viewports, and it **survived W6-4**. Two contradictory counts, one screen. Already
+routed; this is the independent verification.
+
+**S5 — MEDIUM. Filter chips clip at 1440×900 once the counts get wide.**
+At 300 places the chip row overflows the 500 px list panel: `Restaurant 10…` and `Outdoor Seating`
+are cut by the right edge with no wrap and no scroll affordance. At 3 places the same row wraps
+correctly, so this is count-dependent and invisible in a small fixture.
+
+**S6 — MEDIUM. A raw error enum is user-visible.**
+The failure screen prints `Reference: POST_UNAVAILABLE`. `voice-and-vocabulary.md` §4 bans
+machinery vocabulary outright, and a SCREAMING_SNAKE enum is machinery vocabulary in its purest
+form. Either a human-readable reference or nothing.
+
+**S7 — MEDIUM. The rail's second step repeats its own label.**
+`Finding the places` / `Finding the places…` — the title and the fact line beneath it are the same
+string. Step one does it correctly: `Reading the TikTok` / `Read @demo's TikTok`. The fact line is
+meant to carry what happened, and for step two it carries nothing.
+
+**S8 — LOW, needs a ruling rather than a fix. Relative dates.**
+List rows read `Saved 12 hours ago`. §5 specifies `3 Aug` within the year and `3 Aug 2025`
+otherwise; relative time is not in the vocabulary. Possibly a deliberate exception, but it is
+undocumented.
+
+**S9 — LOW. Two-clause strings, against §5's "one clause per string".**
+Profile zero state: *"Nothing saved yet. Paste a TikTok link and your map starts here."* Failure
+subhead: *"Some TikToks don't share enough for us to work with. It's worth a retry."* The no-places
+subhead runs to three.
+
+**S10 — LOW. `/profile` has no top safe-area inset at 390×844.**
+The `Profile` title sits flush against the viewport top edge. `/map` uses
+`env(safe-area-inset-top)` for its chrome; this route does not, so on a notched device the title
+would sit under the status bar.
+
+**S11 — LOW. Sign-in shows the mark without the wordmark; landing shows both.**
+Permitted by §2 — both are the same surface. But the two screens are adjacent on the demo path and
+`app/page.tsx`'s own docblock says that if they do not read as one product it is the first thing
+anyone notices.
+
+**S12 — INFORMATIONAL, not a defect.** The basemap's label script changes with zoom: Tel Aviv
+street labels render in Hebrew at z13 and in Latin at z11. CARTO behaviour, not ours.
+
+### Two corrections to the brief I was given
+
+**There is no auto-opened import overlay at 0 places.** `map-page-client.tsx:249` reads
+`restingStop = places.length === 0 ? 'half' : 'peek'`. The sheet rests at half with the headline,
+the subhead and `＋ Add a TikTok` all visible — which is the fix for the earlier zero-state finding
+and it works. Nothing opens over the map. The render and the code agree; the briefing did not.
+
+**No seventh surface for the name.** Across all 42 captures the name appears only as the landing
+wordmark. Sign-in carries the mark alone. §2 is not violated anywhere in this sweep.
+
+### What this sweep could not judge, stated so nobody reads it as coverage
+
+- **`/collections` shows `No places yet` for a collection my fixture fills.** The index reads
+  `collection_items`, which the stub returns empty. **A fixture artefact, not a finding** — the
+  count on that screen proves nothing either way.
+- **The zero-state map frames on London** because the harness sets no time zone and
+  `zeroStateBounds` falls back. A real user in Israel gets Tel Aviv. Not a defect.
+- **`no-places` is spec case B only** (`hadCaption: true` is hardcoded in the seam). Cases A and C
+  were not seen, and nothing here should be read as covering them.
+- **The import screens are dev-mode captures** and carry Next's own dev-indicator badge in the
+  corner. Not product UI.
+- **Every signed-in screen is stub-backed.** Layout and copy are trustworthy; nothing about a query,
+  a join or a policy is.
+- **Q2 remains unmeasurable in this environment**, unchanged from §5.
