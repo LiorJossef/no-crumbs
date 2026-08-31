@@ -18,6 +18,9 @@ import {
   CRUMB_MOODS,
   CRUMB_MOUTHS,
   CRUMB_PATH,
+  CRUMB_TRAIL_DOTS,
+  CRUMB_TRAIL_HEAD,
+  CRUMB_TRAIL_VIEWBOX,
   type CrumbMood,
 } from '@/components/brand/crumb-path';
 import {
@@ -28,6 +31,8 @@ import {
 import {
   CRUMB_CONSTRUCTIONS,
   MASCOT_GOLD,
+  MASCOT_TRAIL,
+  type CrumbAnimation,
   type CrumbConstruction,
 } from '@/components/brand/mascot-colors';
 
@@ -179,5 +184,82 @@ describe('one drawing, every renderer', () => {
     // The clip the crust is drawn against has to be inside the document, or a data-URI render
     // silently drops the shading.
     expect(svg).toContain('<clipPath id="crumbClip">');
+  });
+});
+
+describe('the trail', () => {
+  it('draws the shared outline rather than the drawing’s fourth path', () => {
+    /*
+     * `#crumbTrail` ends its trail with a 47-unit blob of its own that is **not** `CRUMB_PATH`.
+     * Reproducing it would put a second outline in a system whose whole premise is that there is
+     * one — §3.1 rule 1, *"if they change the outline, you lose the pin"*. So `crumb-trail.tsx`
+     * reaches for the shared geometry and places it in the box that blob occupied.
+     */
+    const source = readFileSync('src/components/brand/crumb-trail.tsx', 'utf8');
+    expect(source, 'the trail restates an outline').not.toContain('M34 9C50 3 70 7 82 20');
+    expect(source).toMatch(/crumb-mascot-markup/);
+    expect(source).toMatch(/CRUMB_TRAIL_HEAD/);
+  });
+
+  it('rises: each crumb is larger and less faded than the one behind it', () => {
+    // The diagonal and the two gradients are what make this read as a trail being followed rather
+    // than as three dots of a loading indicator — which is the generic thing it replaces.
+    for (let i = 1; i < CRUMB_TRAIL_DOTS.length; i += 1) {
+      const prev = CRUMB_TRAIL_DOTS[i - 1] as (typeof CRUMB_TRAIL_DOTS)[number];
+      const dot = CRUMB_TRAIL_DOTS[i] as (typeof CRUMB_TRAIL_DOTS)[number];
+      expect(dot.cx, 'a crumb sits left of the one behind it').toBeGreaterThan(prev.cx);
+      expect(dot.cy, 'the trail does not rise').toBeLessThan(prev.cy);
+      expect(dot.r).toBeGreaterThan(prev.r);
+      expect(dot.opacity).toBeGreaterThan(prev.opacity);
+    }
+    expect(MASCOT_TRAIL).toHaveLength(CRUMB_TRAIL_DOTS.length);
+  });
+
+  it('leaves the character room at the end of the box', () => {
+    const lastDot = CRUMB_TRAIL_DOTS[CRUMB_TRAIL_DOTS.length - 1] as (typeof CRUMB_TRAIL_DOTS)[number];
+    expect(CRUMB_TRAIL_HEAD.x).toBeGreaterThan(lastDot.cx + lastDot.r);
+    expect(CRUMB_TRAIL_HEAD.x + CRUMB_TRAIL_HEAD.width).toBeLessThanOrEqual(CRUMB_TRAIL_VIEWBOX.width);
+  });
+});
+
+describe('motion', () => {
+  it('gives a whole-body animation something to transform', () => {
+    // `transform-origin` on a group resolves in the element's own user space, so `50 94` is the
+    // bottom of the crumb whatever CSS box the caller gave the `<svg>`. Animating the `<svg>` would
+    // put the origin in CSS pixels and a 40px mark and a 168px one would squash about different
+    // points. The wrapper is always emitted, including for Mono — a conditional one means the
+    // animation classes silently do nothing on the constructions somebody tries first.
+    for (const construction of CONSTRUCTIONS) {
+      expect(crumbMascotMarkup({ mood: 'idle', construction })).toContain('<g class="crumb-all">');
+    }
+  });
+
+  it('emits a hook for every animation the set defines, and no orphan hook', () => {
+    /*
+     * The defect this exists to catch is the one the conformance audit found: a complete rig with
+     * `crumb-eyes`, `crumb-mouth`, `crumb-halo` and `crumb-spark-*` emitted into the DOM and **no
+     * stylesheet targeting any of them**. A hook with nothing on the other end is not a smaller
+     * version of a working animation; it is dead markup that reads as a working one.
+     */
+    const scan = crumbMascotMarkup({ mood: 'reading', construction: 'outlined' });
+    expect(scan, 'scan has no eyes to move').toContain('class="crumb-eyes"');
+    const halo = crumbMascotMarkup({ mood: 'nearMe', construction: 'outlined' });
+    expect(halo, 'halo has nothing to pulse').toContain('class="crumb-halo"');
+    const spark = crumbMascotMarkup({ mood: 'found', construction: 'outlined' });
+    expect(spark).toContain('crumb-spark-1');
+    expect(spark).toContain('crumb-spark-2');
+  });
+
+  it('does not build an animation with no screen behind it', () => {
+    /*
+     * `#rules` rule 6 for moods, applied to motion. **Nibble is deliberately absent** — `#motion`
+     * restricts it to marketing because *"it implies a countdown we cannot honour"*, and this
+     * product has no marketing surface. **Trail is absent from this union** for a different reason:
+     * it is three crumbs *and* a character, so it is `CrumbTrail`, not something the mascot does to
+     * itself. Neither absence is an oversight and this line is where that is recorded.
+     */
+    const animations: CrumbAnimation[] = ['none', 'bob', 'wobble', 'scan', 'land', 'halo'];
+    expect(animations).not.toContain('nibble');
+    expect(animations).not.toContain('trail');
   });
 });

@@ -1,6 +1,6 @@
 import { CRUMB_MOODS, type CrumbMood } from './crumb-path';
 import { crumbMascotMarkup, crumbMascotViewBox } from './crumb-mascot-markup';
-import type { CrumbConstruction } from './mascot-colors';
+import type { CrumbAnimation, CrumbConstruction } from './mascot-colors';
 
 /**
  * The character, for the DOM.
@@ -25,15 +25,32 @@ import type { CrumbConstruction } from './mascot-colors';
  * claim that this is the header, the app icon or a resting mark. Omit the face entirely by using
  * the `mono` construction, which is the silhouette and has no face by definition.
  *
+ * ## Motion is a class, not a prop that reaches into the drawing
+ *
+ * `animation` puts `crumb-anim-*` on the `<svg>`; the stylesheet targets the groups the markup
+ * emits (`crumb-all`, `crumb-eyes`, `crumb-halo`, `crumb-spark-*`). Two consequences that are the
+ * point rather than side effects: `prefers-reduced-motion` is answered **once**, in CSS, for every
+ * call site at once — seven animations would otherwise be seven chances to forget it — and the
+ * component stays a pure function of its props with no timers, no `useEffect` and nothing to run
+ * on the main thread. The transforms are compositor-friendly by construction.
+ *
+ * **`land` is one-shot and the others loop.** `#motion`: *"It plays once, on confirm, timed to the
+ * pins dropping on the map. If it loops it stops being an event and becomes wallpaper."*
+ *
  * ## Accessibility
  *
  * `aria-hidden` by default and that is almost always right: the mascot sits next to the wordmark or
  * a heading that already says the thing. A caller that is using the mascot *as* the message — an
  * empty state with no other graphic — passes `label`, which turns it into an `img` with a name.
+ *
+ * **A mascot is never the announcement of a state.** `aria-busy`, a live region or the visible
+ * sentence beside it carries that; a face that is the only signal of "working" is a signal a screen
+ * reader cannot see and a reduced-motion user gets a still frame of.
  */
 export function CrumbMascot({
   mood,
   construction = 'outlined',
+  animation = 'none',
   className,
   clipId,
   color,
@@ -41,6 +58,7 @@ export function CrumbMascot({
 }: {
   readonly mood: CrumbMood;
   readonly construction?: CrumbConstruction;
+  readonly animation?: CrumbAnimation;
   readonly className?: string;
   /** Only needed where `#rules` rule 2 is deliberately being set aside — a specimen sheet. */
   readonly clipId?: string;
@@ -51,7 +69,9 @@ export function CrumbMascot({
   return (
     <svg
       viewBox={crumbMascotViewBox(construction)}
-      className={className}
+      className={
+        animation === 'none' ? className : [className, `crumb-anim-${animation}`].filter(Boolean).join(' ')
+      }
       role={label === undefined ? undefined : 'img'}
       aria-label={label}
       aria-hidden={label === undefined ? true : undefined}

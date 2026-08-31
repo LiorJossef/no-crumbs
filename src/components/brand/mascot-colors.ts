@@ -58,6 +58,47 @@ export const MASCOT_INK_FLAT = '#6B4A1E';
 export const MASCOT_INK_NIGHT = '#20170B';
 
 /**
+ * **The trail's three crumbs**, and they are a ramp rather than three picks: the furthest crumb is
+ * the crust and each one after it steps toward the body, so the trail reads as the character
+ * gathering itself rather than as three objects of three colours. `#motion` draws exactly these.
+ *
+ * Not exported as a general "gold ramp": there is no other consumer and inventing one would invite
+ * gold onto a surface `#rules` rule 5 keeps it off.
+ */
+export const MASCOT_TRAIL = ['#E0A845', '#E8B457', '#EFBE64'] as const;
+
+/**
+ * **The seven animations, and where each one is allowed.** `#motion`'s constraint is the one that
+ * decides the set: *"none of them may imply progress the product cannot measure. The import call is
+ * request/response with no percentage, so an animation that fills, counts down or completes would
+ * be a lie told sixty times a day."*
+ *
+ *  - `bob` — the workhorse. Squash-and-stretch on a 1.15s loop, anywhere a spinner would have gone.
+ *  - `wobble` — **the import wait.** Calmer, slower, no vertical travel: *"seven to thirty-four
+ *    seconds is a long time to watch something bounce. Wobble reads as patient; Bob reads as
+ *    impatient by about second six."*
+ *  - `scan` — eyes track left to right. The only one that says *working on your thing* rather than
+ *    *working*.
+ *  - `land` — **one-shot, never a loop.** The success beat, timed to the pins dropping. *"If it
+ *    loops it stops being an event and becomes wallpaper."*
+ *  - `halo` — a slow pulse behind the body. Locating. Reads as a signal, not as progress.
+ *  - `none` — the resting mark, and the default.
+ *
+ * **`trail` is not in this union** because it is not a property of the character: it is three
+ * crumbs *and* a character, so it is a component of its own (`CrumbTrail`).
+ *
+ * **`nibble` is not built at all.** `#motion` lists it seventh and restricts it to marketing —
+ * *"it implies a countdown we cannot honour, so: marketing only, never the import rail."* This
+ * product has no marketing surface, so building it would be an animation with no screen behind it,
+ * which is `#rules` rule 6 in the same shape the mood rule takes. It arrives with the surface or
+ * not at all.
+ *
+ * `spark` is absent for a different reason: it is not one of the seven. It is the `found` mood's
+ * own decoration and rides with that mood rather than being chosen.
+ */
+export type CrumbAnimation = 'none' | 'bob' | 'wobble' | 'scan' | 'land' | 'halo';
+
+/**
  * **Five constructions, one silhouette** — §`styles`. Contexts, not alternates: pick by the surface,
  * never by taste, and the outline is identical in all five.
  *

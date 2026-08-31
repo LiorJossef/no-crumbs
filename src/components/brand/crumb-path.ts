@@ -242,5 +242,50 @@ export type CrumbMood = keyof typeof CRUMB_MOODS;
  */
 export const CRUMB_ARTBOARD = { minX: -8, minY: -8, size: 116 } as const;
 
+/* -------------------------------------------------------------------------- */
+/* The trail                                                                   */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * **The trail — three crumbs rising into the character**, and `#mark` gives it equal billing with
+ * the mascot, the silhouette and the pin: *"Trail · loading, routes, empty states."* One silhouette,
+ * four jobs, and until now three of the four were built.
+ *
+ * `#apps` makes it the product's **one** loading animation: *"Three crumbs fading in left to right,
+ * then the mascot lands — used for the import wait and nothing else. It is on-concept (the trail is
+ * the product), it takes about 700ms, and it replaces a generic spinner on the one screen where the
+ * user waits seven to thirty-four seconds. **One animation, one place.**"*
+ *
+ * ## The one place this deviates from the drawing, and why
+ *
+ * `#crumbTrail` in the design system draws its fourth element as **its own closed path** — a
+ * 47-unit blob that is *not* `CRUMB_PATH`. Reproducing it would put a second outline in the system
+ * and §3.1 rule 1 is unambiguous that there is one: *"if they change the outline, you lose the pin
+ * and you are back to a teardrop like everyone else."* So the character at the end of the trail is
+ * `CRUMB_PATH`, placed and scaled to the box the drawn blob occupies. The silhouette is identical
+ * to the mascot's, the pin's and the favicon's, which is the property the whole system rests on,
+ * and `tests/unit/brand/crumb-path.test.ts` can keep asserting it.
+ *
+ * The dots are the drawing's own, exactly: rising left to right on a diagonal, growing, and gaining
+ * opacity as they approach the character. That diagonal is the reason this reads as *a trail being
+ * followed* rather than as three dots of a loading indicator — which is precisely the generic thing
+ * it replaces.
+ */
+export const CRUMB_TRAIL_VIEWBOX = { width: 120, height: 60 } as const;
+
+/** The three crumbs, from `#crumbTrail`. Radius and opacity both climb toward the character. */
+export const CRUMB_TRAIL_DOTS = [
+  { cx: 8, cy: 50, r: 3.4, opacity: 0.38 },
+  { cx: 28, cy: 43, r: 4.6, opacity: 0.55 },
+  { cx: 51, cy: 33, r: 6, opacity: 0.75 },
+] as const;
+
+/**
+ * The box the character occupies at the end of the trail, measured off `#crumbTrail`'s own fourth
+ * path: x 70…117, y 0…52. `CRUMB_PATH` is scaled to that width and centred in that height, so the
+ * placement is the drawing's and the outline is the system's.
+ */
+export const CRUMB_TRAIL_HEAD = { x: 70, y: 0, width: 47, height: 52 } as const;
+
 /** The smallest size the face survives at, per the design system's own icon row. */
 export const CRUMB_FACE_MIN_PX = 32;

@@ -157,7 +157,18 @@ export function crumbMascotMarkup(options: CrumbMascotOptions = {}): string {
     }
   }
 
-  return out;
+  /*
+   * **`crumb-all` exists so a whole-body animation has something to transform**, and it wraps the
+   * drawing rather than the `<svg>` for a reason worth stating: `transform-origin` on an SVG group
+   * resolves in the element's own user space, so `50px 94px` means the bottom of the crumb no
+   * matter what CSS box the caller gave the `<svg>`. Animating the `<svg>` instead would put the
+   * origin in CSS pixels and a 40px mark and a 168px one would squash about different points.
+   *
+   * The group is always emitted, including for Mono and for the faceless mark: an unused wrapper
+   * costs one element, and a conditional one means the animation classes silently do nothing on
+   * exactly the constructions somebody will try them on first.
+   */
+  return `<g class="crumb-all">${out}</g>`;
 }
 
 /** A standalone `<svg>` document — what a data URI, a static file or an `<img>` needs. */
