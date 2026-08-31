@@ -280,11 +280,57 @@ and **the row must not change shape**. Do not build a layout that depends on the
 
 ### 4.4 What is deliberately not on this screen
 
-No illustration. No empty-state mascot. No card wrapping the whole thing. No gradient beyond the
-existing `--brand-wash`. No badge, chip or pill except case C's scope chip. No progress remnant from
-the rail. No "Did you know…" tip. No count of how many TikToks you have imported. No suggestion of
-another creator to try. Charter §6's banned aesthetic is enforced here by subtraction: the screen is
-type, one hairline, one field and one caption panel.
+No illustration. No card wrapping the whole thing. No gradient beyond the existing `--brand-wash`.
+No badge, chip or pill except case C's scope chip. No progress remnant from the rail. No "Did you
+know…" tip. No count of how many TikToks you have imported. No suggestion of another creator to
+try. Charter §6's banned aesthetic is enforced here by subtraction: the screen is type, one
+hairline, one field and one caption panel.
+
+#### 4.4.1 The mascot — **owner ruling, 2026-08-31, overriding this section**
+
+This section read **"No empty-state mascot"** until 2026-08-31. It no longer does. The exclusion is
+lifted for one specific thing — the `nothingFound` face from
+`docs/no-crumbs-design-system.html` §Moods — and for nothing else in the list above.
+
+**The document is amended rather than left standing while the code disagrees**, because the trouble
+this caused was precisely a spec whose enforcement outlived the agreement behind it: §4.4 had been
+compiled into a passing assertion in `tests/unit/import/no-places-screen.test.ts`, so the ban was
+not prose that could be read and weighed but a gate that silently stopped the change. That is the
+right behaviour for a guard and the wrong state for a document nobody had revisited.
+
+**The case for the face.** §Moods binds `nothingFound` to the state *"No places in this one"* —
+this screen's headline, word for word — under a rule that a face may only exist if there is a
+screen that needs it. At LEVEL B's hit rate this is the modal outcome of an import: the screen most
+users see most often, and until now the only major surface in the product with no brand presence at
+all.
+
+**The case against, which was not weak and is recorded because it constrains the build.** The same
+design system is not unanimous: §Ship lists this file as *"No change"*, and §Apps — drawing the
+sibling case, the map's empty state — **declines the identical move**: *"Putting the mascot here
+contradicts a deliberate decision, so it is shown as a proposal, with the shipping copy intact."*
+Two authored positions against one, and the one that actually drew an empty state said no. The
+substantive risk it names: a mascot at the moment the user did not get what they wanted can read as
+**the product being charming at them about its own failure**, which is the precise thing §4.4
+existed to prevent.
+
+**So the ruling is granted narrowly, and these four conditions are part of it:**
+
+1. **The neutral face only.** Flat eyes, flat mouth. Not rueful, not apologetic, not a shrug. §Moods
+   is explicit about why: *"a sad mascot turns the product's most common outcome into a small
+   failure eight times a week. Neutral says that happens, and moves on."* A face is the most
+   persuasive channel on the screen and therefore the loudest way to break the rule this whole
+   surface is built on — it reads **we did not find places**, never *there are none*, and it never
+   performs sympathy.
+2. **Inline with the kicker, not centred above the headline.** §4.4's *reason* survives intact and
+   governs: the screen is still type, one hairline, one field and one caption panel. A small mascot
+   on the kicker's own line leaves that sentence true. A large centred one makes it false and is
+   the empty-state illustration this section is actually about.
+3. **Everything else in §4.4 stands**, and the guard keeps asserting it: no illustration, no badge,
+   no pill, no wrapping card.
+4. **Every string is unchanged.** §5's copy is untouched by this ruling.
+
+**Reversible by design.** The ruling was granted so it could be seen running; the build keeps it a
+one-element removal.
 
 ---
 
