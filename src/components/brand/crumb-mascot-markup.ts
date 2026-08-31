@@ -59,6 +59,17 @@ export interface CrumbMascotOptions {
   /** Body fill override. Only for Mono, whose body is `currentColor` and whose colour is therefore
    *  the caller's — the pin passes a category colour here. */
   readonly color?: string;
+  /**
+   * Keyline override, and **the DOM passes a token here while the image routes do not.**
+   *
+   * The keyline is the one part of the character that follows the theme: it carries the shape's
+   * edge on paper, where gold is 1.63:1 against the card, and needs to be warmer on a dark ground
+   * to stay an edge at all. `MASCOT_KEYLINE_VAR` is what the DOM hands in. satori has no cascade
+   * and a `<canvas>` has no stylesheet, so `apple-icon`, `opengraph-image` and the map's marker
+   * routine take the construction's literal — the same split `ui/place/palette.ts` documents for
+   * the category colours.
+   */
+  readonly keyline?: string;
 }
 
 /**
@@ -136,7 +147,8 @@ export function crumbMascotMarkup(options: CrumbMascotOptions = {}): string {
   }
 
   if (palette.keyline !== null) {
-    out += `<path d="${CRUMB_PATH}" fill="none" stroke="${palette.keyline}" stroke-width="${n(palette.keylineWidth)}" stroke-linejoin="round"/>`;
+    const keyline = options.keyline ?? palette.keyline;
+    out += `<path d="${CRUMB_PATH}" fill="none" stroke="${keyline}" stroke-width="${n(palette.keylineWidth)}" stroke-linejoin="round"/>`;
   }
 
   if (showFace) {

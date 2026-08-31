@@ -1,4 +1,5 @@
 import { crumbMascotMarkup, crumbMascotViewBox } from './crumb-mascot-markup';
+import { MASCOT_KEYLINE_VAR } from './mascot-colors';
 
 /**
  * The product's mark, on the surfaces that are chrome rather than data: `/`, `/sign-in`,
@@ -76,7 +77,8 @@ export function PinMark({ className, face = false }: { className?: string; face?
       data-mark={face ? 'mascot' : 'silhouette'}
       dangerouslySetInnerHTML={{
         __html: face
-          ? crumbMascotMarkup({ mood: 'idle', construction: 'outlined' })
+          ? // The keyline follows the theme on a DOM surface; see `MASCOT_KEYLINE_VAR`.
+            crumbMascotMarkup({ mood: 'idle', construction: 'outlined', keyline: MASCOT_KEYLINE_VAR })
           : // Mono takes `currentColor`; the mark's colour is `--brand`, a semantic role rather
             // than a ramp step, so a token repass moves it with everything else.
             crumbMascotMarkup({ construction: 'mono', color: 'var(--brand)' }),

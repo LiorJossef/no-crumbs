@@ -1,6 +1,6 @@
 import { CRUMB_MOODS, type CrumbMood } from './crumb-path';
 import { crumbMascotMarkup, crumbMascotViewBox } from './crumb-mascot-markup';
-import type { CrumbAnimation, CrumbConstruction } from './mascot-colors';
+import { MASCOT_KEYLINE_VAR, type CrumbAnimation, type CrumbConstruction } from './mascot-colors';
 
 /**
  * The character, for the DOM.
@@ -81,6 +81,9 @@ export function CrumbMascot({
         __html: crumbMascotMarkup({
           mood,
           construction,
+          // The DOM's keyline follows the theme; see `MASCOT_KEYLINE_VAR`. The image routes take
+          // the literal, because neither satori nor a canvas can resolve a custom property.
+          keyline: MASCOT_KEYLINE_VAR,
           ...(clipId === undefined ? {} : { clipId }),
           ...(color === undefined ? {} : { color }),
         }),

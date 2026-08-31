@@ -54,8 +54,61 @@ export const MASCOT_SHINE = '#FFFFFF';
  *  near-black would read as a different, colder drawing. */
 export const MASCOT_INK_FLAT = '#6B4A1E';
 
-/** Night's deeper keyline, *"so the edge does not glow"* on a dark ground. */
+/**
+ * Night's deeper keyline, *"so the edge does not glow"* on a dark ground.
+ *
+ * **Measured 2026-08-31, and it is not the fix for a mascot on a dark card.** §`styles`' sentence
+ * protects against a keyline that is too *light* on the night **map**, where the ground is a
+ * basemap. On a dark **card** there is no glow to prevent, and going deeper removes the edge
+ * instead: against `--card` `#201F1C` this reads ΔE00 **6.3** where `MASCOT_INK` reads **11.9**.
+ * What Night improves is keyline-against-body — the character's internal drawing, 64.6 → 71.5 —
+ * which was never the question. Correct about a narrower case than its reader assumes.
+ */
 export const MASCOT_INK_NIGHT = '#20170B';
+
+/**
+ * **The keyline's two values, and why it is the one part of the character that follows the theme.**
+ *
+ * The keyline exists because gold on paper barely separates from it: `MASCOT_GOLD` against
+ * `--card` in light is **1.63:1**, ΔE00 26.3. Without an outline the shape's edge dissolves. On a
+ * dark card the same gold is **10.11:1**, ΔE00 71.3 — the body separates itself by a mile, and the
+ * keyline stops being what makes the character visible.
+ *
+ * **So this is a fidelity fix and not an accessibility one, and the distinction is worth keeping**
+ * because the first report of it — mine — overstated it as *"the keyline is near-invisible, so the
+ * crumb reads as a gold disc without an edge."* Measured, `MASCOT_INK` on the dark card is ΔE00
+ * **11.9**: a quiet rim, not an absent one, and the character is legible either way. What is
+ * actually wrong is that **Outlined renders as very nearly Flat on dark** — one construction
+ * drawing two different characters depending on the theme.
+ *
+ * `MASCOT_KEYLINE_DARK` doubles the edge, to **ΔE00 23.9**, and it is deliberately the same value
+ * as `MASCOT_INK_FLAT`: Flat's ink was chosen warm because a near-black reads as a colder drawing
+ * against gold, and that is the identical reason a keyline needs warmth to sit on a dark ground
+ * without going to charcoal. Two names for one value because they are two decisions that happen to
+ * agree — if either moves, the other should be re-argued rather than dragged along.
+ *
+ * **Light is untouched.** Swapping the whole keyline to the warm value would cost the light theme
+ * the edge it actually needs: rendered side by side on `#FFFFFF`, the warm rim is visibly softer
+ * than `MASCOT_INK`'s. Theming it is the point.
+ */
+export const MASCOT_KEYLINE_LIGHT = MASCOT_INK;
+export const MASCOT_KEYLINE_DARK = MASCOT_INK_FLAT;
+
+/**
+ * The token the DOM reads for it, with the light value as the literal fallback.
+ *
+ * **The fallback is not decoration.** An unresolved `var()` makes the whole declaration invalid, so
+ * a `stroke` that names a token which does not exist yet resolves to `none` and the keyline
+ * *vanishes* — the opposite of the defect being fixed. With the fallback this renders exactly as it
+ * does today until `--mascot-keyline` lands in `globals.css`, and follows the theme the moment it
+ * does. Safe in either order, which is what lets the component and the token land in separate
+ * commits held by separate lanes.
+ *
+ * The image routes do not use it: satori has no cascade and a `<canvas>` has no stylesheet, so
+ * `apple-icon`, `opengraph-image` and the map's marker routine take the literals above. That is the
+ * same split `ui/place/palette.ts` documents at length for the category colours.
+ */
+export const MASCOT_KEYLINE_VAR = `var(--mascot-keyline, ${MASCOT_KEYLINE_LIGHT})`;
 
 /**
  * **The trail's three crumbs**, and they are a ramp rather than three picks: the furthest crumb is

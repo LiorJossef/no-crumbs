@@ -31,6 +31,9 @@ import {
 import {
   CRUMB_CONSTRUCTIONS,
   MASCOT_GOLD,
+  MASCOT_KEYLINE_DARK,
+  MASCOT_KEYLINE_LIGHT,
+  MASCOT_KEYLINE_VAR,
   MASCOT_TRAIL,
   type CrumbAnimation,
   type CrumbConstruction,
@@ -361,5 +364,50 @@ describe('the neutral face stays neutral', () => {
       if (mouth.kind !== 'stroke' || name === 'wiggle') continue;
       expect(curvature(mouth.d) ?? -1, `${name} curves upward`).toBeGreaterThanOrEqual(0);
     }
+  });
+});
+
+describe('the themed keyline', () => {
+  it('carries a literal fallback, because an unresolved var() erases the stroke', () => {
+    /*
+     * **The hazard this guards is the opposite of the defect it fixes.** A `stroke` naming a custom
+     * property that is not defined yet makes the whole declaration invalid, and the computed value
+     * is `none` — measured in the running app: `var(--mascot-keyline)` computes to `none`, and
+     * `var(--mascot-keyline, #3A2A15)` computes to `rgb(58, 42, 21)`, identical to the literal.
+     *
+     * The token lives in `globals.css`, which is a different lane's file, so the component and the
+     * token land in separate commits and either order has to be safe. Without the fallback, the
+     * window between them is one where the character has no keyline at all.
+     */
+    expect(MASCOT_KEYLINE_VAR).toContain('--mascot-keyline');
+    expect(MASCOT_KEYLINE_VAR).toContain(MASCOT_KEYLINE_LIGHT);
+    expect(MASCOT_KEYLINE_VAR, 'no fallback — an undefined token would erase the keyline').toMatch(
+      /var\(--mascot-keyline,\s*#[0-9A-Fa-f]{6}\)/,
+    );
+  });
+
+  it('reaches the token from the DOM and the literal from the image routes', () => {
+    // satori has no cascade and a canvas has no stylesheet. The same split `ui/place/palette.ts`
+    // documents for the category colours, asserted rather than trusted to a reviewer.
+    for (const file of ['src/components/brand/crumb-mascot.tsx', 'src/components/brand/pin-mark.tsx']) {
+      expect(readFileSync(file, 'utf8'), `${file} does not theme its keyline`).toContain(
+        'MASCOT_KEYLINE_VAR',
+      );
+    }
+    for (const file of ['src/app/apple-icon.tsx', 'src/app/opengraph-image.tsx']) {
+      expect(readFileSync(file, 'utf8'), `${file} reaches a custom property it cannot resolve`)
+        .not.toContain('MASCOT_KEYLINE_VAR');
+    }
+  });
+
+  it('gives the dark ground a warmer edge than the light one', () => {
+    // The keyline is the one part of the character that follows the theme, and the reason is a
+    // measurement: gold is 1.63:1 against the light card and 10.11:1 against the dark one, so on
+    // paper the keyline carries the shape's edge and on a dark ground the body carries itself.
+    // `MASCOT_INK` on the dark card is ΔE00 11.9; the warm value is 23.9.
+    expect(MASCOT_KEYLINE_DARK).not.toBe(MASCOT_KEYLINE_LIGHT);
+    const warmth = (hex: string) =>
+      Number.parseInt(hex.slice(1, 3), 16) - Number.parseInt(hex.slice(5, 7), 16);
+    expect(warmth(MASCOT_KEYLINE_DARK)).toBeGreaterThan(warmth(MASCOT_KEYLINE_LIGHT));
   });
 });
