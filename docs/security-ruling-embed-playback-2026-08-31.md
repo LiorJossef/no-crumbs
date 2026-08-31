@@ -72,6 +72,21 @@ should ship; it is not, alone, the fix.
    `06`'s already-recorded note that this product's web surface is public despite the owner's own test
    IP being Israeli means EU visitors are a live population, not a hypothetical one.
 
+**Per-press or per-session? Answered directly, because it decides the shape.** `10` §4.1 measured the
+cookie lifetimes: `ttwid` at 1 year, `tt_chain_token` at 180 days, both `SameSite=None`. That is
+long enough that **the exposure is front-loaded onto the first press, not repeated evenly across
+presses.** The first press is where TikTok receives a device-fingerprint SDK execution *and* mints a
+durable, cross-site identifier that outlives the popover, the session, and very likely the visit. A
+second press inside the cookie's lifetime hands TikTok the *same* identifier back, plus a repeat SDK
+load — a real but categorically smaller increment, since no new linkage is created, only reuse of one
+already made. **This is why the right shape is a first-use interstitial the user can dismiss for good,
+not a permanent per-press affordance**: asking every time would nag for a decision that, after the
+first press, is no longer being made — the identifier already exists and is already TikTok's,
+regardless of what the tenth press's dialog says. Note the reverse consequence too: if a user says
+"Play here" once, that is not a one-time cost that resets — it is a standing grant good for up to a
+year, which is exactly why the first-press disclosure has to be accurate about what is being granted
+rather than soft-pedalled as "just this once."
+
 **What satisfies all three, and what does not:**
 
 - **Does not satisfy it:** a button captioned only "Play," a first-run toast the user can miss, a
