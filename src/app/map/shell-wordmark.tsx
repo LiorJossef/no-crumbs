@@ -16,47 +16,124 @@
  * - **Not a link.** `/map` is the shell; a wordmark that navigated would be a second door to
  *   somewhere, and the account chip beside it already had to be argued down to one (`page.tsx`).
  *   It states where you are and stops.
- * - **No mark — the type is the whole lockup here**, and this replaces an argument about the
- *   mark's *face* with a measurement about the mark itself. See below.
- * - **Not a second copy of the landing lockup**, and since the mark went it is not a copy at all.
- *   The type is `/` and `/sign-in`'s — Fraunces through `DISPLAY_WORDMARK_AXES`, so the one thing
- *   still drawn here is drawn identically, because two surfaces setting one name differently is how
- *   a brand drifts. What differs is the *chip* around it, which is this map's own floating-control
- *   material: the same hairline, translucent card and blur the account chip opposite it uses.
+ * - **Not a logo bar**, which is the thing `#wordmark` actually forbids on this surface. It is a
+ *   44px chip in a corner, the mirror of the account chip opposite, and the map stays draggable
+ *   through it.
+ * - **Not a second copy of the landing lockup.** The type is `/` and `/sign-in`'s — Fraunces
+ *   through `DISPLAY_WORDMARK_AXES` — and the mark is the same `CrumbMascot` the app icon and the
+ *   link preview draw, from one geometry module, because two surfaces setting one name or drawing
+ *   one character differently is how a brand drifts. What differs is the *chip* around them, which
+ *   is this map's own floating-control material: the same hairline, translucent card and blur the
+ *   account chip opposite it uses.
  *
- * ## Why there is no mark, and it is a measurement rather than a preference
+ * ## The mark is back, on the owner's ruling — and the size is a measurement, not a preference
+ *
+ * **Owner, 2026-08-31: *"the branding mascot should be part of the platform, main page."*** That
+ * settles an argument the design system had with itself. `no-crumbs-design-system.html`
+ * §`wordmark` forbids the lockup over the live map in terms — *"the map already carries pins in
+ * four colours and a wordmark on top of it is noise"* — and in the same sentence names the
+ * alternative: *"if the map needs the brand, it gets **the mascot** in the corner of the empty
+ * state, **not a logo bar**."* The document objects to a logo bar and offers the mascot. So this
+ * is not an override of `#wordmark` so much as the branch it recommended, taken.
+ *
+ * ### What was here before, and why it went
  *
  * This carried `PinMark` at 24px until 2026-08-31. The mascot lane rasterised the real `CRUMB_PATH`
  * at 16× and measured its radius at 720 angles, against four known-answer cases that abort the run
- * if any fails — a true circle at 0.094px (the instrument's zero), a square at 31.3px (its full
- * scale), the crumb at 168px reproducing the 4.6% already recorded in `pin-mark.tsx`, and
- * scale-invariance.
+ * if any fails. **At a 24px box the entire crumb-ness of the crumb is 0.547 of a pixel** on a
+ * 10.67px ink radius, s.d. 0.123px; beside a true circle of the same mean radius it is
+ * indistinguishable up to and including 64px. The disc carried no brand and was removed. That
+ * finding is unchanged and this does not reverse it — **it is the argument for the face.**
  *
- * | CSS box | ink radius | peak-to-peak irregularity |
- * |---|---|---|
- * | 16px | 7.11 | 0.375px |
- * | **24px — what was here** | 10.67 | **0.547px** |
- * | 48px | | crosses 1px here |
- * | 168px | 74.71 | 3.313px |
+ * ### The face reads, and the threshold is far lower than an eye estimate said
  *
- * **At 24px the entire crumb-ness of the crumb is 0.547 of a pixel**, spread around the whole
- * circumference, s.d. 0.123px. Beside a true circle of the same mean radius, pixel-zoomed, the two
- * are indistinguishable up to and including 64px. `pin-mark.tsx` already records the same property
- * from the other direction — *"this mark is not a crumb that is hard to make out; it is a disc"* —
- * and §3.1 rule 1 forbids changing the outline to fix it.
+ * **This paragraph previously carried an eyeballed table and the table was wrong.** It claimed the
+ * face was *"a smudge to 24px, eyes separate at 26-28 with the mouth still closed up, reads at
+ * 32"*. Measured, the mouth is present and above bar from **22px** and the eyes resolve as two
+ * objects from **20px**, the smallest size tested. Corrected here because the wrong version would
+ * have been read as a reason not to go below 32.
  *
- * So the disc carried no brand. **The product should not draw a mark that means nothing**, and both
- * ways of making it mean something were checked and ruled out: legibility needs ~150px, which is
- * absurd in a map header, and the face is barred by §3.1 rule 5 rather than by size — this chip sits
- * over the live map, the face is gold, and gold stays off the map. A mint-faced disc is what
- * iteration 1 shipped and what the owner called *"the brand is totally missing"*.
+ * The instrument (`i3brand-face-legibility.mjs`, against `9a95444`) rasterises the **real**
+ * `crumbMascotMarkup` output - the modules loaded unmodified, nothing re-transcribed - and applies
+ * two conditions fixed before anything was rendered:
  *
- * **This is the record of why the mark went, and it supersedes the paragraph that used to explain
- * why it had no face.** That argument was correct and is now moot: there is nothing here to give a
- * face to. Owner's ruling stands on the type — it is legible at any size and it is what answers the
- * original complaint. Whether the name belongs over the live map at all is a `working-agreement.md`
- * §7 product judgement and is with the owner; **do not restructure this component around its
- * possible removal.**
+ *  1. **Feature contrast >= 3:1**, the WCAG 2.2 SC 1.4.11 bar for a graphical object that must be
+ *     perceived to understand the content. Measured locally: darkest pixel in the feature against
+ *     the brightest in a 2px ring, so the shine, the blush and the crust are handled by geometry
+ *     rather than by a hand-picked reference point.
+ *  2. **The eyes stay two objects** - ink fraction along the row through the eye centres peaks
+ *     >= 0.5 inside each eye and falls < 0.5 between them.
+ *
+ * Six known-answer cases gate the run: `mono` (no face at all) must measure 1.00:1 on all three
+ * regions; 400px must clear 6:1; 4px must fail; eye separation must track 22/116 of the box; a
+ * *merged* verdict must have sampled at least one pixel between the eyes; and the verdict must
+ * depend on device pixels alone, so 40px at 1x and 20px at 2x agree.
+ *
+ * | CSS box, **1x** | left eye | right eye | mouth | two eyes? |
+ * |---|---|---|---|---|
+ * | 20 px | 5.75:1 | 5.64:1 | 4.07:1 | yes |
+ * | 22 px | 6.10:1 | 7.14:1 | 3.57:1 | yes |
+ * | 26 px | 9.68:1 | 8.47:1 | **4.67:1** | yes |
+ * | **32 px - shipped** | 9.68:1 | 8.47:1 | **7.26:1** | yes |
+ * | 40 px | 9.68:1 | 8.47:1 | 8.35:1 | yes |
+ *
+ * At 2x and 3x every row sits at the 8.47:1 ceiling from 20px up. The ink profile at 26px/1x is
+ * `[0 0.63 1 1 0.22 0 0.46 1 0.94 0.04 0]` - two peaks, a clean trough, two eyes.
+ *
+ * **So 26px passes, and the size is a judgement inside a passing range rather than a measurement.**
+ * 32px ships because the *mouth* is the weakest feature and 26px leaves it at 4.67:1 against a 3:1
+ * floor where 32px has 7.26:1, and because `CRUMB_FACE_MIN_PX` is 32, so shipping it re-argues no
+ * constant this repository already holds. That constant is now known to be **conservative** for
+ * `outlined` on a card ground - it is the app-icon row's number, and a corner mask is a harder case
+ * than a chip.
+ *
+ * ### What `mono` cannot do, which is the part that did not change
+ *
+ * The silhouette is a filled disc at 20, 22, 24, 26, 28, 32 **and 36 px**, photographed at 1:1 CSS
+ * pixels in both themes. That is the 0.547px finding arriving from the other side, and it is why
+ * there is no non-gold version of this: every value `currentColor` could take is ink (a grey disc -
+ * the mark removed this morning, rebuilt in a different shade) or a brand/category hue, and mint is
+ * out on its own terms because the uncategorised pin is mint-family.
+ *
+ * **`#wordmark`'s "at the shell header the mark sits at 22px" is not where this number came from.**
+ * It is the same paragraph family as `#mark`'s *"legible blob at 16px"*, which
+ * `iteration-2-record.md` §5 records as measurably false. It happens to be survivable for a *faced*
+ * mark, per the table above - but that is two different questions landing near each other, not the
+ * document being right. Re-run the ladder before taking a size from it.
+ *
+ * ### Gold on this surface, and the fence it is inside
+ *
+ * §3.1 rule 5 keeps gold off the map, re-recorded by ruling 3 as **"gold and category colour never
+ * share a surface"** with an enumerated fence: no pin, no category surface, no basemap layer, no
+ * filter chip. This chip is none of the four — it has its own ground (`bg-card/85`, hairline, blur),
+ * which is the same card material `/sign-in` carries gold on already.
+ *
+ * **And §3.1 rule 2 does the disambiguation: *"face on chrome, silhouette on data."*** The pin is
+ * the faceless silhouette on a tail. A faced crumb cannot be misread as a pin, because the face is
+ * precisely what the brand system reserved for chrome — which is why this asks for the *face* and
+ * not merely for gold. Measured at `9a95444`, `MASCOT_GOLD` sits ΔE00 **11.5** from the light café
+ * and **11.7** from the night café, and 29.7–61.0 from every other category colour; if the night
+ * café moves to `#FEB843` that closes to 6.3.
+ *
+ * **That gap closing is the argument for the face rather than against it, and it is what carried
+ * the ruling:** at ΔE 6.3 a *faceless* gold disc really would be ambiguous with a café pin, and a
+ * *faced* one still cannot be. The face is not the risky half of this request — it is the property
+ * that makes it safe, and asking for the face rather than merely for gold is what turns a rule
+ * violation into a rule application.
+ *
+ * Stated honestly against that: photographed on the night map, this chip's gold and the café pin
+ * do read as one pigment family, separated by shape and not by colour. Both are true, and the
+ * ruling was made with that picture in hand.
+ *
+ * **The fence's scope was read before the ruling and it excludes this file deliberately.**
+ * `chrome-tokens.test.ts:285` and `:339` scope it to `components/map/`, `ui/place/` and anything
+ * containing `basemap` - the pins, the category palette, the tiles. That is **the data layer**,
+ * which is exactly what ruling 3 fenced. `src/app/map/` is route composition and sits outside it by
+ * design rather than by oversight. Written down in terms, because the next reader finding an
+ * unfenced directory should find the reasoning instead of inferring a hole - this project's
+ * most-repeated failure, and it costs one sentence. `crumb-mascot.test.ts`'s own rule-5 check names
+ * two files and covers neither. **The permission here is the ruling; a guard's silence is not
+ * evidence either way.**
  *
  * ## Why it is a client component when `page.tsx` is not
  *
@@ -72,6 +149,7 @@
 
 import { useState } from 'react';
 
+import { CrumbMascot } from '@/components/brand/crumb-mascot';
 import { DISPLAY_WORDMARK_AXES } from '@/components/brand/display-type';
 import { claimEntrance, ENTRANCE_BEATS, useEntranceBeat } from '@/components/map/entrance';
 
@@ -104,12 +182,32 @@ export function ShellWordmark() {
     // the chip is the map's own floating chrome — the mirror of the account chip in the opposite
     // corner, in the same material.
     //
-    // `px-4` where the mark's removal left an asymmetric `pl-2.5 pr-4`: that 2.5 was the optical
-    // inset a round mark wants against a pill's own curve, and with nothing round in the chip it
-    // was just a lighter left edge. `gap-2` goes with it — there is one child.
+    // `pl-1.5 pr-4` rather than `px-4`: the asymmetry is the optical inset a round mark wants
+    // against a pill's own curve. 6px on a 32px circle in a 44px pill leaves the same visual gap
+    // the type's 16px right inset does; a symmetric `px-4` puts the circle visibly too far in.
     <div
-      className="animate-in fade-in-0 duration-enter motion-safe:slide-in-from-bottom-1 pointer-events-none absolute left-3 top-[calc(env(safe-area-inset-top)+0.75rem)] z-30 flex h-11 items-center rounded-full border border-border/70 bg-card/85 px-4 shadow-sheet backdrop-blur-md lg:left-[calc(clamp(320px,26vw,392px)_+_1rem)] lg:top-4"
+      className="animate-in fade-in-0 duration-enter motion-safe:slide-in-from-bottom-1 pointer-events-none absolute left-3 top-[calc(env(safe-area-inset-top)+0.75rem)] z-30 flex h-11 items-center gap-2 rounded-full border border-border/70 bg-card/85 pl-1.5 pr-4 shadow-sheet backdrop-blur-md lg:left-[calc(clamp(320px,26vw,392px)_+_1rem)] lg:top-4"
     >
+      {/*
+       * `size-8` is 32px. Measured, the floor is **26px** — the table in the header — so this is a
+       * judgement inside a passing range and not a measurement: the mouth is the weakest feature,
+       * and 32px gives it 7.26:1 where 26px leaves it at 4.67:1 against a 3:1 bar. It is also
+       * `CRUMB_FACE_MIN_PX`, so nothing already written down has to be re-argued to ship it.
+       * `outlined` rather than `flat` for this surface specifically: the chip is translucent over a
+       * live basemap, so the mark needs an edge of its own, and the keyline reads `--mascot-keyline`
+       * so it deepens at night instead of glowing. `flat` is the right pick inside an icon mask,
+       * which this is not.
+       *
+       * `mood="idle"` is a claim, not a default — `#moods` binds it to *"header, app icon,
+       * resting"*, and this is the header. `animation` is deliberately absent: the chip already
+       * fades in on the entrance's fifth beat, and `#motion` is explicit that a loop in a corner
+       * *"stops being an event and becomes wallpaper"*. A bobbing mascot over a map the user is
+       * reading is the wallpaper case exactly.
+       *
+       * No `label`, so it stays `aria-hidden`: the name is spelled out beside it, and a screen
+       * reader announcing a mascot and then the word it stands for reads the brand twice.
+       */}
+      <CrumbMascot mood="idle" construction="outlined" className="size-8 shrink-0" />
       <span
         className="font-display text-base font-black tracking-tight text-foreground"
         style={DISPLAY_WORDMARK_AXES}
