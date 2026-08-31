@@ -31,9 +31,19 @@ import { crumbMascotMarkup, crumbMascotViewBox } from './crumb-mascot-markup';
  * the mascot alone, and the two never share a surface*, therefore the mascot appears in the brand
  * palette. **The argument was sound and the premise was wrong.** It was taken from the markdown
  * companions; `docs/no-crumbs-design-system.html`, which is the drawing, specifies a **gold crumb
- * character** — body `#F2C46B`, crust `#E0A845`, keyline `#3A2A15`, blush `#F0866A` at 50% — and
- * draws it on mint tiles in `#apps` at four sizes. Nobody had opened it. The team lead's ruling
- * against gold-on-mint was withdrawn on 2026-08-31 once it was.
+ * character** — `MASCOT_GOLD` body, `MASCOT_CRUST` underside, `MASCOT_INK` keyline, `MASCOT_BLUSH`
+ * at 50%, all four in `./mascot-colors.ts` — and draws it on mint tiles in `#apps` at four sizes.
+ * Nobody had opened it. The team lead's ruling against gold-on-mint was withdrawn on 2026-08-31
+ * once it was.
+ *
+ * **Those four are named rather than quoted, and the reason is not only the `K12` hex ceiling.** A
+ * value pasted into a doc comment does not move when the palette does, and this file has proved
+ * that on itself twice: its own previous docblock asserted the silhouette *"reads as a soft-cornered
+ * crumb at 30px and above"*, which measurement showed to be false, and W0-2 retuned a category
+ * value the same night a comment quoted it. A constant name stays true across a retune; a hex is a
+ * snapshot that looks like a fact. The exception is a **historical** value — `palette.ts` quotes
+ * superseded hexes on purpose, because naming what a colour *was* is the one citation that must
+ * never move.
  *
  * Rule 3 is kept where it actually bites, which is rule 5: gold is not a UI colour, it never paints
  * a control, and it never goes on the map. `mascot-colors.ts` carries it, `brand-colors.ts` still

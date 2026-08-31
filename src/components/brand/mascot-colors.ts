@@ -33,7 +33,9 @@
  * three.
  */
 
-/** The body. `#F2C46B`, and the whole reason it may not also be the brand colour. */
+/** The body, and the whole reason gold may not also be the brand colour: it sits a few degrees
+ *  from the café category amber. The value is on the next line rather than in this sentence — a
+ *  hex quoted in prose is a snapshot that stops being true the moment the one below it moves. */
 export const MASCOT_GOLD = '#F2C46B';
 
 /** The crust — the darker underside, drawn clipped to the outline. */
