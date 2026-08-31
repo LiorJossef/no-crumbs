@@ -68,9 +68,19 @@ Iteration 1 recorded eleven. This iteration found sixteen more. **They are not e
 sixteen mistakes — they are one mistake with three shapes**, and naming the shapes is worth more
 than the count.
 
-### 3.1 A plausible default that silently answers the question being asked
+### 3.1 A right answer to a neighbouring question
 
-The largest family, and the most dangerous, because nothing looks broken.
+The largest family, and the most dangerous, because nothing looks broken. The sharpest statement of
+it came from the lane that hit it three times inside one commit, twice in its own drafts:
+
+> `pigmentOf` answered *"is this literal a colour"* when the caller asked *"is this utility named
+> white"*. The string check answered *"is this value a colour"* when the caller asked *"does this
+> value contain one"*. `cssBlock` answered *"the first block with this header"* when the caller asked
+> *"the entrance's"*. **None was a wrong answer. Each was a right answer to a neighbouring question —
+> which is why reading the regex could not find any of them, and running it found all three.**
+
+That is why this family survives review. A wrong answer is visible in the code; a right answer to the
+wrong question is only visible when you run it against a case whose answer you already know.
 
 - **`drawImage` at `imageSmoothingQuality: 'high'` is not a box filter.** It reproduced a box
   average exactly on a 2:1 case and diverged by 19 in green on a 4:1 one — centre-weighted, which
@@ -155,6 +165,13 @@ correction.**
 **A guard-verification method is only worth having if it can catch bugs in the guard being
 verified.** The appended-line method caught two bugs in the composition guard in its own author's
 hands, and a third in the drift guard. Neither was visible by reading the regex.
+
+**Never buy a new floor by quietly regressing an old one.** An optimiser handed a budget spends it:
+released to find colour-vision separation, one sweep returned all six basemap inks as the same teal,
+and the best figure it offered existed only by dropping a normal-vision floor that already shipped.
+The number that survived constraint was 8.8, not the 10.3 first reported. **An instrument that
+improves a number by relaxing an unnamed constraint is the flattering-direction case again** — and it
+is hardest to see inside your own optimisation.
 
 **A clean number with its limits stated beside it is worth more than a clean number.** *0 failures
 at `214bb0f`* is a statement about 376 scored strings — not about the 78 rows below the fold, the 12
