@@ -133,6 +133,73 @@ puts it and the pins that land must be the real pins. An entrance is chrome, and
 beautiful — but it may not imply the library is bigger, closer or better resolved than it is, and it
 may not delay the map being usable.
 
+**That last clause was enforced against this ruling on 2026-08-31, not merely quoted.** Independent
+measurement found the choreography delayed the desktop place list from 19 ms to **2,430–4,526 ms**:
+`map-shell.tsx` did not *hide* the sheet and panel until `listArrived`, it did not **mount** them —
+and the entrance's clock starts at the camera framing (~1.5 s), a term the table above does not
+contain, so the 900 ms beat landed at ~2.4 s. Fixed in `752d61e`; the sequence was not shortened,
+because the ruling approves it. **Content that depends on JavaScript to become visible is content
+that is conditionally absent** — the same defect was then found in the sign-in screen's server
+render, one layer up.
+
+---
+
+## 2.3 Two further owner rulings, 2026-08-31 — both override a written rule, so both are recorded here
+
+**Ruling 3 — the mascot's gold is admitted to the chrome grounds.**
+
+This overrides `brand-and-product-foundation.md` §3.1 rule 3 a second time, after indigo. Light mode
+had no warm pigment it was permitted to use and read grey; the alternatives put to the owner were
+keeping the rule and accepting that, or commissioning a new pigment.
+
+**Where gold may go:** the sign-in and landing grounds, their gradient mesh, the empty states, the
+edges. **Where it may never go:** any pin, any category surface, any basemap layer, any filter chip —
+the identical fence indigo carries, and it is now a **test** rather than a promise (`fffd985`,
+directory-scoped, matching hexes by *value* so a pasted `#f2c46b` in a paint expression is caught
+without mentioning the mascot anywhere).
+
+The rule's *reason* is honoured rather than merely set aside, and the measurement is why the ruling
+could be granted narrowly: gold is **102°** from mint — it cannot repeat the CTA collision that
+`0f23b38` fixed — but only **6°, ΔE 17** from the *night* café, which is closer than the
+restaurant/café pair the facelift retuned for being confusable. `/sign-in` and `/` carry **no
+category colour at all**, so on the surfaces where gold is admitted the collision is measurably
+impossible.
+
+**Rule 3 is re-recorded, and this is the substantive part.** It read as a claim about hue distance.
+Once the night café moves to `#FEB843` (ΔE 6.3 from `MASCOT_GOLD`) that distance becomes *intentional*,
+so the old wording would preserve a reason that had stopped being true. It now reads:
+
+> **Gold and category colour never share a surface.**
+
+A statement about surfaces, which is what the fence enforces and what stays true whatever the
+palettes do.
+
+**Ruling 4 — the mascot appears on the no-places screen.**
+
+This overrides `spec-no-places-found.md` §4.4, which forbade an empty-state mascot **by name**, in the
+document that screen's own code calls authoritative — and which a **passing unit test** already
+enforced. The status quo was therefore a decision someone had made executable, not an accident of
+prose, and the owner was told so before ruling.
+
+The design system contradicts itself here: `#moods` binds `nothingFound` to this screen's headline
+word for word, while `#ship` lists the spec as "No change" and `#apps` **declines the identical move**
+on the map's empty state. At a ~27% hit rate this screen is the *modal* import outcome rather than an
+error path, which is what carried the ruling.
+
+**Landed as three uncommitted-together commits, in this order and deliberately not collapsed:**
+`bf85ffb` amends the spec, `2d02ade` moves the guard alone, `853b6a0` builds the face. Amending the
+document *first* is the point — fixing the code while the spec still forbade it would have rebuilt the
+original defect one level down, which was a spec whose enforcement outlived the agreement behind it.
+
+**The conditions the ruling was granted under, and they bind whoever touches this next:** the face is
+inline with the kicker, never a centred illustration, so §4.4's stated reason — *type, one hairline,
+one field, one caption panel* — stays a true sentence; `'Illustration'` still asserts, so the ruling
+is a narrow exception rather than a hole in §4.4; and **the face must not perform sympathy.** A rueful
+expression is the product being charming at the user about its own failure, which is precisely what
+§4.4 existed to prevent and was the strongest argument made against this change. The neutral mouth
+measures zero curvature and every other stroked mouth is ≥ 3 away — asserted, because four units is
+too small to leave to a reviewer's eye across a retune.
+
 ---
 
 ## 3. The packages
