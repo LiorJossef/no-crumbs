@@ -53,7 +53,7 @@
  * until its beat; the panel takes no beat at all. Both reasons are at their call sites below.
  */
 
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { Drawer } from 'vaul';
 
 import { MapSurface, type MapPlace } from '@/components/map/map-surface';
@@ -69,6 +69,28 @@ import {
 } from './sheet-geometry';
 import { focusProps, type MapShellState } from './use-map-shell';
 import { cn } from '@/lib/utils';
+
+/**
+ * **Where a mounted-but-unarrived sheet sits, and why it has to be said out loud.**
+ *
+ * One animation frame after mount vaul flips `data-vaul-delayed-snap-points` to `true`
+ * (`vaul/dist/index.mjs:1443`), and from then on `Drawer.Content`'s transform is
+ * `translate3d(0, var(--snap-point-height, 0), 0)` — a variable vaul writes itself, as
+ * `snapPointsOffset[activeSnapPointIndex ?? 0]` (`:1462`).
+ *
+ * **With no active snap point that variable is invalid, and the fallback is `0` — which is the
+ * *top* of the screen.** `activeSnapPointIndex` is `snapPoints.findIndex(…)`, so a `null` active
+ * point makes it `-1`, and `-1 ?? 0` is `-1`, not `0`: vaul writes `undefinedpx`, CSS discards it,
+ * and `var(…, 0)` supplies the fallback. The sheet lands at `full`, covering the entire phone.
+ *
+ * That is not a deduction after the fact — it was photographed at 390×844, t=1500 ms, on the first
+ * attempt at this fix, which put the whole list over the map instead of under it.
+ *
+ * vaul spreads the caller's `style` **after** its own key (`:1461`), so this wins, and `100%` is the
+ * same value `--initial-transform` defaults to one frame earlier — so the two rules agree and the
+ * held sheet does not move at all until its beat.
+ */
+const ENTRANCE_HOLD_STYLE = { '--snap-point-height': '100%' } as CSSProperties;
 
 export interface MapShellProps {
   /** The shell's state, from `useMapShell` in the route that owns the scope. */
@@ -299,7 +321,11 @@ export function MapShell({
               the real point arrives, at which point `snapToPoint` sets the inline transform and the
               0.5 s transition runs. No second animation, and nothing for the entrance and the drag
               gesture to disagree about. `sheetArrived` is unconditionally `true` for a scope with no
-              entrance. */}
+              entrance.
+
+              **`ENTRANCE_HOLD_STYLE` is the other half of the null and it is not optional** — see
+              its own comment. Without it the sheet covers the whole phone one frame after mount,
+              which was photographed before it was reasoned about. */}
           <Drawer.Root
             open
             modal={false}
@@ -314,6 +340,7 @@ export function MapShell({
                   breakpoint; there is no drag, no snap points, no sheet chrome. */}
               <Drawer.Content
                 data-testid="place-sheet"
+                {...(sheetArrived ? {} : { style: ENTRANCE_HOLD_STYLE })}
                 className="fixed inset-x-0 bottom-0 z-40 flex h-full max-h-[100dvh] flex-col rounded-t-2xl border-t border-border/70 bg-card shadow-[var(--shadow-elevated)] outline-none lg:hidden"
               >
                 {/* **The handle, matrix row 10.** It was inert: a 36 px bar that said "this is a

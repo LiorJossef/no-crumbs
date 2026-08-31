@@ -448,6 +448,36 @@ describe('what the entrance may not delay', () => {
   });
 
   /**
+   * **A held sheet is off screen, not at the top of it**, and this is the assertion that would have
+   * caught the first attempt at this fix. Withholding the active snap point alone puts
+   * `Drawer.Content` at `translate3d(0, 0, 0)` one frame after mount — the whole phone covered by
+   * the list — and it was photographed at 390×844 before it was understood.
+   *
+   * Both halves are asserted, ours and vaul's, because the first is only correct while the second
+   * is true. A vaul upgrade that renames the variable, reorders the spread, or fixes
+   * `activeSnapPointIndex` to be `null` rather than `-1` should fail *here*, in 20 ms, and not in a
+   * screenshot somebody has to think about.
+   */
+  it('holds the unarrived sheet off screen rather than at the top of it', () => {
+    expect(SHELL_BODY).toContain("{ style: ENTRANCE_HOLD_STYLE }");
+    expect(SHELL).toContain("const ENTRANCE_HOLD_STYLE = { '--snap-point-height': '100%' }");
+
+    const vaul = readFileSync('node_modules/vaul/dist/index.mjs', 'utf8');
+    // 1. The transform a delayed-snap-points drawer takes, and its fallback of 0 = the top.
+    expect(vaul).toContain(
+      '[data-vaul-drawer][data-vaul-delayed-snap-points=true][data-vaul-drawer-direction=bottom]{transform:translate3d(0,var(--snap-point-height,0),0)}',
+    );
+    // 2. The caller's `style` is spread last, which is the only reason ours wins.
+    expect(vaul).toContain(
+      "'--snap-point-height': `${snapPointsOffset[activeSnapPointIndex != null ? activeSnapPointIndex : 0]}px`,\n            ...style",
+    );
+    // 3. And the index really is a `findIndex`, so a null active point is `-1` and not `null`.
+    expect(vaul).toContain(
+      '(_snapPoints_findIndex = snapPoints == null ? void 0 : snapPoints.findIndex((snapPoint)=>snapPoint === activeSnapPoint)) != null ? _snapPoints_findIndex : null',
+    );
+  });
+
+  /**
    * **The `lg+` panel takes no beat at all**, and that is the ruling read literally rather than a
    * concession. Beat 4 is *"the sheet rises to its stop"*; `Drawer.Content` is `lg:hidden`, so at
    * `lg+` beat 4 has no subject — and what the synthesised desktop copy of it actually governed was
