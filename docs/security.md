@@ -36,10 +36,34 @@ One sentence, because the rest of the document is only useful if this one is rig
 > **A user's saved places are a list of physical locations they intend to visit. That is future
 > location data about a named person, and it is the asset.**
 
-Everything else in the system is either public (a TikTok post, an open-data POI record) or
+Almost everything else in the system is either public (a TikTok post, an open-data POI record) or
 operational (a cache, an audit row). The design consequence is that the boundary between two users
 is the only boundary that matters, and it is placed in the database rather than in application code
 — because application code is where the mistake would be invisible.
+
+**There is now a second category, and it is stated here rather than left to be inferred from an
+inventory.** Since `0035` this product holds **a private personal fact that is not a location**: a
+user's given and family name, in `public.profile_names`, collected at sign-up so the product can
+address them by name. It is neither public nor operational, so the sentence above stopped being a
+complete partition the day that table was created.
+
+It is worth meeting as a category rather than as a row, because it behaves differently from the
+asset. Location data is *earned* — it accumulates as the user saves places, and its sensitivity is
+in the aggregate. A name is *given*, once, at the door, and it is identifying on its own. The two
+need different answers, and the answer this schema gives is:
+
+> **`first_name` and `last_name` are readable by their owner and by nothing else** — no peer policy,
+> no `anon` grant, **no `service_role` grant**, and no `SECURITY DEFINER` function reads the table.
+> What another user sees is `profiles.display_name`, a **separately chosen label** the user confirms
+> in a prompt, and nothing derives one from the other in either direction.
+
+That last clause is a control, not a description. The obvious build — deriving the visible label
+from the given name — was written, reviewed and rejected: a name typed into a sign-up form to
+personalise the product is not consent to show it to collaborators, and a trigger doing the copy
+makes the disclosure without ever asking. The principle is not new here; it is `emailLocalPart`'s,
+already shipped (`src/domain/collections/collection.ts:159-168`): *prefill, never fallback.* Proved
+by execution in §5.1 (`0035` `P0a`, `P4b`) and ruled on in
+[`security-ruling-profile-names-2026-08-31.md`](security-ruling-profile-names-2026-08-31.md).
 
 | Adversary | What they can do | Where they are stopped |
 |---|---|---|
@@ -48,10 +72,20 @@ is the only boundary that matters, and it is placed in the database rather than 
 | The TikTok creator whose caption we read | Write arbitrary text that our server fetches and sends to a language model | The extractor has no tools and no side effects; output is schema-validated and evidence is substring-checked (§8) |
 | Anyone who obtains a collection invite link | Join a collection and read what a collaborator reads | The token is a `gen_random_uuid()` bearer credential the client cannot choose; the link is revocable and expiring; a share discloses place identity only (§3.7) |
 | A curious operator with the repo | Read a secret out of the codebase | No secret is in the repo; `.env*` is gitignored and the project's own tool permissions deny reading it (§9) |
+| **Anyone at all, asking for another user's real name** | Any of the above, plus the full PostgREST filter/embed surface under their own JWT | **Nobody in this table can reach `profile_names`.** Own-row RLS, closed column grants, and a `revoke` that names `service_role` too. Executed against a live collection peer: §5.3 D1–D9 |
 
 **Explicitly out of scope, and said out loud:** we do not defend against a compromised Supabase
 project, a compromised Vercel account, or someone with the service-role key. That key bypasses RLS
 completely (§3.6). Its protection is placement and secrecy, not privilege.
+
+*One narrowing, because it is real:* the key bypasses **policies**, not **grants**. Measured on the
+running database at `0035`, `service_role` holds **no privilege at all** on six of the seventeen
+tables in `public` — `collections`, `collection_members`, `collection_items`, `collection_invites`
+(`0024`), `place_mentions` (`0031`) and `profile_names` (`0035`) — so a holder of that key gets
+`42501` on each, not a row (§5.3 D9). This does not reopen the paragraph above: eleven tables,
+including `saved_places` and `profiles`, are still fully readable with it, and that is where the
+asset lives. It means only that "the service-role key reads everything" is false in six specific
+places and should not be repeated as though it were not.
 
 ---
 
@@ -262,20 +296,71 @@ columns (`0003:114-116`) and `content_text` — the raw caption — is not among
 email and a `licence: do-not-cache` marker — is not. Executed: §5.3 A15/A16/A17 all return `42501`.
 
 **The rule that makes this durable: grants are column-scoped, so a column added by a later migration
-arrives ungranted.** `0031:384-388` states it and names the counter-example — `extractions` has a
+arrives ungranted.** `0031:384-388` states it and names one counter-example — `extractions` has a
 table-level `grant select` (`0004:33`), which is why `extractions.candidates`, including each
 candidate's `evidence` (a verbatim caption fragment), is browser-readable today to the user who
 imported that post. That is not a cross-user leak; it is recorded here because the discipline is
 only worth stating if the exception is stated too.
 
-The complete live matrix — 81 column grants to `authenticated` across eleven tables — is asserted by
-`inventory.sql` check 5 and was read back from the running database on 2026-08-31.
+#### The exception that *does* bite — read this before adding a column to any of four tables
+
+`extractions` is the **same-user** case: a table-level grant, but no policy that returns anybody
+else's row, so the exposure stops at the importer. There are four tables where the same table-level
+grant meets a policy that **does** return another user's row, and on those the composition is a
+disclosure rule nobody writes down:
+
+> **A table-level `SELECT` grant is column-blind. An RLS policy is row-blind. Compose them and every
+> column the table will *ever* have is readable by whoever the policy admits — including a column
+> added years later, by a migration that never mentions grants or policies at all.**
+
+Read back from the running database, these are the four:
+
+| table | policy | `USING` — who else's row it returns |
+|---|---|---|
+| `profiles` | `profiles_select_collection_peers` | `shares_a_collection_with(id)` — any collection peer |
+| `collection_members` | `collection_members_select_member` | `removed_at is null and collection_role(collection_id) is not null` — any active co-member |
+| `collection_items` | `collection_items_select_member` | `collection_role(collection_id) is not null` — any co-member |
+| `collection_invites` | `collection_invites_select_owner` | `collection_role(collection_id) = 'owner'` — the collection's owner |
+
+**If you are adding a column to one of those four, it is cross-user readable the moment it exists,
+and no review step will tell you.** The check takes ten seconds and needs no fixture, no user and no
+policy reasoning — ask Postgres directly, before you write the migration:
+
+```sql
+-- inside a transaction you will roll back
+alter table public.profiles add column my_new_column text;
+select has_column_privilege('authenticated', 'public.profiles', 'my_new_column', 'SELECT');
+--> t     -- the grant already covers a column that did not exist a second ago
+rollback;
+```
+
+Measured 2026-09-01, and the control is what makes it convincing: the same probe against
+`public.profile_names`, whose grants are column lists, returns **`f`**. That is the whole difference
+between a table-level grant and a closed one, in one boolean.
+
+**What to do about it, in preference order.** (1) Put the column somewhere else — a 1:1 satellite
+table with its own column-list grants, which is what `0035` did for `first_name`/`last_name` and why
+`public.profile_names` exists at all. (2) If it must live on the shared table, replace that table's
+table-level grant with a column list in the same migration — but note this withholds the column from
+its **own owner** too, because a column list is row-blind in the other direction, so it only works
+for columns nobody needs to read back. (3) Decide, out loud, that the disclosure is intended, and say
+so in the migration header. What is not acceptable is arriving at (3) by default.
+
+This is a standing property of the schema, not a fact about names. It is written here rather than in
+`0035`'s header because the person who needs it is adding a column to `collection_items` some other
+week, and nobody reads a migration about names to find out.
+
+The complete live matrix of real column grants to `authenticated` — now across **twelve** tables,
+`profile_names` contributing ten (`0035`) — is asserted by `inventory.sql` check 5, which reads
+`pg_attribute.attacl` rather than `information_schema`, because the latter also reports privileges
+*implied* by a table-level grant and would report the four tables above as fully column-granted when
+they hold no column grants at all.
 
 ### 3.5 The `SECURITY DEFINER` surface
 
 A `SECURITY DEFINER` function runs as its owner (`postgres`, which has `BYPASSRLS`), so **it is the
 one identified way to bypass every policy in §3.3.** There are **seventeen** of them out of
-thirty-four functions in `public` — counted from `pg_proc` on the running database at `0031`, not
+thirty-six functions in `public` — counted from `pg_proc` on the running database at `0035`, not
 from the migrations — and the rule that governs the whole set is A§1's invariant 1:
 
 > **Never `GRANT EXECUTE` a `SECURITY DEFINER` function returning global rows to `authenticated`.**
@@ -287,7 +372,7 @@ Applied, the surface splits into four groups:
 | `resolve_place`, `merge_places`, `start_import` (`0007`) | definer | **`service_role` only** | These return or mutate global rows. `authenticated` calling them over PostgREST is refused at the privilege layer before the body runs |
 | `record_place_mention`, `close_place_mention` (`0031`) | definer | `service_role` only | `authenticated` holds no INSERT on `place_mentions`; the server is the only writer |
 | `place_lookup_get` / `place_lookup_put` (`0023`) | **invoker** | `service_role` only | Do not need definer: `service_role` already holds the grants |
-| `handle_new_user` (`0002:40`), `add_collection_owner_membership` (`0024:277`) | definer | **nobody at all** | A trigger function is invoked by the executor, not the calling role, so it needs no grant. Leaving it ungranted keeps it off the browser-reachable RPC surface entirely (asserted by test C8b) |
+| `handle_new_user` (`0002:40`, extended `0035`), `add_collection_owner_membership` (`0024:277`) | definer | **nobody at all** | A trigger function is invoked by the executor, not the calling role, so it needs no grant. Leaving it ungranted keeps it off the browser-reachable RPC surface entirely (asserted by test C8b) |
 | `collection_role`, `can_edit_collection`, `place_is_in_my_collection`, `shares_a_collection_with` (`0024:208-269`) | definer | **`authenticated`** | Inside the rule: each returns a **boolean, or the caller's own role** — never a row. The single argument *is* the security control; none of them can be asked about anyone else |
 | `join_collection_via_token`, `preview_collection_invite` (`0024:457`, `521`) | definer | `authenticated` | The narrowest answers that make the join screen honest; §3.7 |
 | `end_collection_membership`, `restore_collection_membership` (`0026`) | definer | `authenticated` | Return `void`. Each opens with an `auth.uid()` guard and refuses uniformly with `42501` unless the caller is an **active** member with the right role; the owner's row is immovable and a second owner cannot be created |
@@ -297,6 +382,25 @@ Applied, the surface splits into four groups:
 
 Every one pins `set search_path = public, pg_temp`, which closes the classic definer-function
 hijack (a caller-controlled `search_path` resolving a table name to something they own).
+
+**`handle_new_user` is the only definer that touches `public.profile_names`, and it only writes.**
+Since `0035` it also creates the name row when sign-up supplied one, reading three tiers of
+`raw_user_meta_data` — `first_name`/`last_name`, then the OIDC `given_name`/`family_name`, then a
+single `full_name` split on the first space. Two properties keep it off the disclosure surface:
+**no definer function anywhere in `public` *reads* the table** (checked against `pg_proc.prosrc` on
+the running database, not against the migrations), and the `profiles` insert it performs is
+byte-identical to `0002`'s, so `0035` adds no new route into the column a collection peer can read.
+
+That function is also the product's largest **untrusted-input-into-a-definer** surface, since
+`raw_user_meta_data` is whatever the client sent to `auth.signUp`. It contains no `EXECUTE` and no
+`format()`, so injection is not merely refused but inexpressible; every value reaches the database
+as a plpgsql variable in a parameterised `INSERT`. Fifteen hostile sign-ups were pushed through real
+GoTrue on 2026-09-01 — 128 KB names, `U+202E` overrides, script tags, JSON type confusion, a
+`drop table` string — and all of them stored as inert text clamped to 80 characters, with no failed
+account creation. The one exception is not `0035`'s: **a raw `U+0000` anywhere in the metadata fails
+the sign-up with a `500`**, because `jsonb` refuses it inside the `auth.users` INSERT before any
+trigger runs. Reproduced on the `0002` path under a key `0035` never reads; unreachable through the
+product's own form. Graded in §11 as acceptable and documented.
 
 **`collection_removed_members` returns rows, is `SECURITY DEFINER`, and is granted to
 `authenticated`** — which is the shape invariant 1 warns about. It is nonetheless inside the rule's
@@ -414,7 +518,12 @@ create policy profiles_select_collection_peers on public.profiles
 **What a collaborator gets: the shared place identity — name, category, coordinates, address — and
 nothing whatsoever from the adder's private overlay.** `note`, `display_name`, `category_override`,
 `visit_state`, `visited_at`, `tags`, `why_go`, `extracted_reason` and `source_url` all stay behind
-`saved_places_select_own` and do **not** travel with a share. No matching policy is added to
+`saved_places_select_own` and do **not** travel with a share. **Nor do `profile_names.first_name`
+and `.last_name`** (`0035`): a share discloses a *place*, and since `0035` the schema also holds a
+person's real name, which is on its own table precisely so that this list does not have to grow by
+one every time somebody adds a column to `profiles` — see §3.4. What a peer sees of another person
+is `profiles.display_name`, a label they chose, or `A collaborator` when they have not. Executed:
+§5.3 D1–D10. No matching policy is added to
 `place_provider_refs`, `sources`, `extractions`, `saved_place_sources` or `saved_places`; in
 particular the **source TikTok of a shared place is not disclosed**, because which post someone
 saved a place from is part of their import history.
@@ -560,12 +669,40 @@ a cross-user access attempt fails.* Those tests exist, they are named below, and
 
 ### 5.1 The tests, named
 
-Three SQL suites, `npm run db:test` (= `db:test:0008 && db:test:0024 && db:test:0031`), run by the
-CI job **`migrations · RLS policy tests`** (`.github/workflows/ci.yml:93-124`) against a schema
-rebuilt from migration `0001` by `supabase db reset --no-seed`. Each suite is one transaction ending
-in `ROLLBACK`; each creates its own fixture users in `auth.users`, which is why they live in
-`supabase/tests/` and not in `supabase/migrations/` — a migration is applied to every environment,
-and these fixtures must never reach production.
+**Six** SQL suites, `npm run db:test` (= `db:test:0008 && db:test:0024 && db:test:0031 &&
+db:test:0032 && db:test:0034 && db:test:0035`), run by the CI job **`migrations · RLS policy
+tests`** (`.github/workflows/ci.yml:93-124`) against a schema rebuilt from migration `0001` by
+`supabase db reset --no-seed`. Each suite is one transaction ending in `ROLLBACK`; each creates its
+own fixture users in `auth.users`, which is why they live in `supabase/tests/` and not in
+`supabase/migrations/` — a migration is applied to every environment, and these fixtures must never
+reach production.
+
+> **The invocation is not portable, and a control that runs nowhere is worse than one that is
+> absent — because absence is visible and this is not.** Every `db:test:*` script shells out to a
+> bare `psql`, which resolves in CI and **does not exist on the development machine this project is
+> built on** (`which psql` → not found, measured 2026-09-01). So `npm run db:test` fails at its
+> first line locally, and a suite chained into it is a suite that has never run there. What works
+> locally is the container:
+>
+> ```bash
+> docker exec -i supabase_db_P-002 psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
+>   < supabase/tests/0035_profile_names_policy_tests.sql
+> ```
+>
+> This is recorded rather than fixed: the invocation is a package-script decision that touches every
+> lane. **Until it is fixed, "chained into `db:test`" means "runs in CI", not "runs".** Anyone
+> relying on one of these suites as a gate on a local change must invoke it the second way and say
+> that they did.
+
+A second property these suites need, and only some of them have: **they must pass against a database
+that has been used**, not only against one freshly `db:reset`. `db:verify` resets first, so the gap
+is invisible through that entry point. Measured 2026-09-01 against the live local database at `0035`
+with real rows in it: `0024` (43), `0031` (38), `0032` (34), `0034` (17) and `0035` (21) all pass;
+**`0008` fails at its setup**, because it asserts `count(*)` over whole tables, which is only true
+immediately after a reset. That is a defect in `0008`, not in the others, and it is named here so
+that a red line from `db:test` is read as the bug it is rather than as noise. `0035`'s file was
+written to avoid the trap — its one global read is a **lower bound** (`P1a`: "at least the 8
+measured pre-`0035` profiles"), and every other assertion names its own rows by id.
 
 They test the **policies**, not the client code: every read and write happens under
 `set role authenticated` with `request.jwt.claims` set, exactly as PostgREST would run it.
@@ -606,7 +743,28 @@ zero of A's, cannot update or delete them, and A's row survives unchanged) · `M
 holds nothing; neither writer is callable by `authenticated`) · `M14a`–`M14c` (the deletion cascade
 of §4.2, executed).
 
-**Failure-first, and it is the property that makes them worth anything.** Every assertion in `0008`
+**`supabase/tests/0035_profile_names_policy_tests.sql`** — a user's real name is their own, seven
+fixture users. `P0a`–`P0c` (the sign-up path, demonstrated: three metadata shapes and what lands,
+**including that a first name given at sign-up leaves the peer-visible label null**) · `P1a`–`P1c`
+(the eight pre-`0035` profiles still work and none was back-filled with an invented name) · `P2`
+(a user sets, reads and normalises their own) · **`P3a`–`P3f`** (nobody else can — including a
+collection peer, including a peer asking for the whole table, and including `anon`) · `P4a`/`P4b`
+(the two names are independent in **both** directions; `public.profiles` carries exactly one
+trigger) · `P5` (the column grants refuse re-parenting, back-dating and `DELETE`) · `P6` (the
+retention bound — the name dies with the account, by cascade) · `P7` (below).
+
+`P4b` deserves naming as a **control rather than an assertion**. The absence of a derivation from
+`first_name` to `display_name` is what keeps a private given name off the sharing surface (§1), so
+it is a security property, and a security property that only exists as a comment is not one. `P4b`
+asserts the trigger list on `public.profiles` is exactly `profiles_touch`; a future migration that
+adds the "helpful" derivation fails there, by name, with the reason attached.
+
+**Failure-first, and it is the property that makes them worth anything.** `0035`'s `P7` is the
+cleanest example in the suite: it adds a name column to `public.profiles` **inside the test
+transaction** and has the same collection peer read it back, proving that the design `0035` rejected
+really would have leaked — so `P3a` is known to be load-bearing rather than merely green. A control
+that reproduces the failure is the only thing that distinguishes a passing test from a test that
+cannot fail. Every assertion in `0008`
 was checked in both directions against a throwaway database — the fix reverted, the test *seen to
 fail*, the fix restored. Two of them passed at first with the trigger they were supposed to be
 testing dropped; that is recorded in the file where it happened. The same discipline was applied
@@ -687,6 +845,35 @@ definer functions granted to `authenticated` (§3.5). Fixture: victim **V** owns
 | C9/C10 | **M, after removal**, reads `collection_items` and `collections` | **0** and **0** — the read is lost at removal, not at next sign-in |
 | C11 | M redeems the *same still-live invite link* to get back in | Refused, `PT403` — a removal is not undone by a link |
 
+A fourth run targets **a user's real name**, and it is the first one in this section that goes
+through the **HTTP surface** rather than `set role authenticated`. Run 2026-09-01 against the local
+stack at migration `0035`. Two accounts were created through **`POST /auth/v1/signup` with the anon
+key** (`enable_confirmations = false` locally, so a real session comes back), then wired as
+collection peers — `shares_a_collection_with` returns `t`, so the peer read arm is live and the
+refusals below are not a fixture that simply never matched. Every request carries a genuine GoTrue
+access token through Kong on `127.0.0.1:54321`. The victim's name is `Dana Levi`.
+
+| # | What the attacker did | Result |
+|---|---|---|
+| D0a | *(positive half)* attacker reads **their own** `profile_names` row | `200` — `{"first_name":"Mallory","last_name":"Kane"}`. Without this, every refusal below is satisfied by a table nobody can read |
+| D0b | *(positive half)* peer reads the victim's `profiles` row | `200` — the peer policy is live |
+| D1 | `GET /profile_names?profile_id=eq.<victim>&select=*` | `200` **`[]`** |
+| D2 | `GET /profile_names?select=*` — the whole table | `200` — **exactly one row, their own** |
+| D3 | `GET /profiles?id=eq.<victim>&select=id,display_name,profile_names(first_name,last_name)` — **the embed** | `200` — `"profile_names": null` |
+| D4 | The reverse embed, `profile_names?select=*,profiles(id)` | `200` — own row only |
+| D5 | Embed through `collection_members` | `PGRST201`; re-aimed with an explicit FK, own row only |
+| D6 | Cardinality and `order=first_name.asc` side channels | own row only |
+| D7 | `PATCH /profile_names?profile_id=eq.<victim>` | `200` **0 rows matched** — victim's row unchanged |
+| D8 | `POST /profile_names` for the victim; re-parent own row onto the victim; `DELETE` the victim's row | `403` `42501` on all three |
+| D9 | As **`anon`**, and then with the **`service_role` key** | `401` `42501` and **`403` `42501`** |
+| D10 | Sign up with `{"first_name":"Dana","last_name":"Levi"}` and read the peer-visible label back | `display_name` is **null** — the given name is published nowhere; the peer sees `A collaborator` |
+
+**D9 is the row worth pausing on.** Everywhere else in this document, "someone with the service-role
+key" is out of scope because that key bypasses RLS. `profile_names` is the first table where that is
+not true: `0035` revokes from `service_role` and never grants it back, so the key gets `42501`. It is
+one table, and it does not change the paragraph in §1 — but it is a real narrowing rather than a
+restatement.
+
 **Nothing crossed the boundary.** The one property that did behave as an attacker would want — A22,
 self-granting read access to a POI row by saving a uuid you already hold — is the known, ruled,
 documented property of A§1, and it reaches thirteen non-personal columns of open-data POI content
@@ -695,8 +882,11 @@ and nothing else.
 **What this run does not prove.** It is one session, so it says nothing about concurrency (`P23`,
 above). It was run against a container, not against production — production is at `0026` and
 therefore does **not** yet carry `0028`–`0031`, so `place_mentions` does not exist there and the
-`0031` half of this evidence describes staging-and-forward, not what is live. And it tests the
-database, not the HTTP surface; §7 covers that separately.
+`0031` half of this evidence describes staging-and-forward, not what is live. And runs A, B and C
+test the database, not the HTTP surface; §7 covers that separately. **Run D is the exception** — it
+goes through Kong, GoTrue and PostgREST with real access tokens, which is why the embed rows (`D3`,
+`D4`, `D5`) are worth having: resource embedding is a PostgREST behaviour and cannot be attacked
+from `psql` at all.
 
 ---
 
@@ -1153,6 +1343,36 @@ the user who imported that post. Not a cross-user leak. It is the counter-exampl
 column-scoped discipline everywhere else (§3.4), and a column added to that table by a future
 migration would arrive granted.
 
+**R-12a · Four tables would arrive granted, and `extractions` is the mild case.** R-12 names the
+same-user table. The four that compose a table-level grant with a cross-user policy — `profiles`,
+`collection_members`, `collection_items`, `collection_invites` — are the ones where "a column added
+by a future migration arrives granted" means *granted to somebody else*. §3.4 carries the property,
+the ten-second `has_column_privilege` check that demonstrates it, and what to do instead. *Why it is
+not a launch blocker:* no such column exists today; the disclosure is latent, not live. *What
+changes it:* the next migration that adds a column to any of the four. **This is the finding, not
+`0035`; names are only how it was noticed.**
+
+**R-16 · A raw `U+0000` in sign-up metadata fails account creation with a `500`.** *What an attacker
+does:* posts to `/auth/v1/signup` with a NUL byte anywhere in `options.data`. *What they get:*
+`{"code":500,"msg":"Database error saving new user"}` and no account — for themselves only. `jsonb`
+refuses the byte inside the `auth.users` INSERT, before any trigger runs; reproduced on the `0002`
+path under a key `0035` never reads, so it long predates names. *Minimum fix:* reject control
+characters client-side in `name-fields.ts`, or accept it. *Why it is acceptable:* it is
+self-inflicted, affects no other user, and is unreachable through the product's own form.
+
+**R-17 · The name `CHECK` admits whitespace-lookalike names, and the repair is client-side.**
+`btrim()` in Postgres strips only `U+0020`, so `length(btrim(first_name)) between 1 and 80` accepts
+a first name of eighty non-breaking spaces, or a single TAB. Measured: `{"first_name": "<90 ×
+U+00A0>X"}` stored 80 `U+00A0` characters. **`src/app/sign-in/name-fields.ts` closes it — and that
+is a mitigation, not a repair, and the distinction is the point.** `tidy()` uses JavaScript
+`trim()` and `/\s+/`, both of which *do* treat `U+00A0` and TAB as whitespace, so the form refuses
+the field; the constraint underneath still accepts it. Anyone calling `/auth/v1/signup` or
+PostgREST directly bypasses the mitigation and the database will store the value. *Why it is
+acceptable:* what gets stored is private to that caller — `profile_names` is readable by nobody else
+(§5.3 D1–D9) — so the blast radius is a blank-looking name on the caller's own account screen.
+*Minimum fix, if it is ever more than cosmetic:* a `CHECK` on `regexp_replace(first_name,
+'[\s ]', '', 'g')` rather than on `btrim`.
+
 **R-13 · Environments are not at the same migration.** 31 files on disk (`0001`–`0031`, no `0027`),
 counted for this document; production `0026` and staging `0018` as measured on 2026-08-30 and
 recorded in `current-state.md` — **re-measure with `npm run db:status:prod` before submitting rather
@@ -1187,6 +1407,22 @@ since `.claude/settings.json` is a §4.15 guarded file.
 - **`preview_collection_invite` is callable by any signed-in user with any uuid.** It discloses
   nothing the caller could not learn from their own collections' member lists, and returns zero rows
   for a guess.
+- **`last_name` is collected and read by nothing.** No surface renders it, no function returns it.
+  That is a data-minimisation tension and it is the owner's call, taken deliberately
+  ([`db-ruling-profile-names-2026-08-31.md`](db-ruling-profile-names-2026-08-31.md) R1). Recorded as
+  a decision so it is not later mistaken for an oversight.
+- **The label prompt is reachable from one screen only.** `updateDisplayName`
+  (`app/actions/collections.ts:526`) is `display_name`'s only writer in `src/`, and its only caller
+  is `NamePrompt`, mounted at `app/collections/join/[token]/join-client.tsx`. So a user who never
+  joins by invite cannot set a label at all, which is why `display_name` is null on every account
+  today — not because nothing reads it (six render sites do) but because almost nothing can write
+  it. The failure mode is **less** disclosure, not more, so it is not a risk. **It becomes one the
+  moment that prompt is mounted on a second surface and prefilled from `first_name`: the prefill
+  must stay a confirm-before-save.** A prefill that saves without confirmation is the rejected
+  trigger (§1) wearing a different hat.
+- **No future policy on `profile_names` may have a qual other than `profile_id = (select
+  auth.uid())`.** The migration says so in a comment; `inventory.sql` check 2 is what makes it a
+  gate. Any change to that table returns to this document first.
 
 ---
 

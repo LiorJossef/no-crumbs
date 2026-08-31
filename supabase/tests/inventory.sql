@@ -62,7 +62,7 @@ begin
   end if;
 end $$;
 
--- ── 1. RLS is enabled AND forced on all fifteen tables ──────────────────────────────────────
+-- ── 1. RLS is enabled AND forced on all seventeen tables ────────────────────────────────────
 do $$
 declare v text;
 begin
@@ -75,16 +75,16 @@ begin
     raise exception 'FAIL 1: RLS not enabled+forced on: %', v;
   end if;
   -- 9 through 0009; 11 from 0010 (poi_regions, poi_index); 15 from 0024 (collections,
-  -- collection_members, collection_items, collection_invites); 16 from 0031 (place_mentions). The
-  -- count is asserted, not just the flags: a table nobody designed is exactly the thing this check
-  -- exists to notice.
+  -- collection_members, collection_items, collection_invites); 16 from 0031 (place_mentions);
+  -- 17 from 0035 (profile_names). The count is asserted, not just the flags: a table nobody
+  -- designed is exactly the thing this check exists to notice.
   if (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace
-       where n.nspname = 'public' and c.relkind = 'r') <> 16 then
-    raise exception 'FAIL 1: expected 16 tables in public, found %',
+       where n.nspname = 'public' and c.relkind = 'r') <> 17 then
+    raise exception 'FAIL 1: expected 17 tables in public, found %',
       (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace
         where n.nspname = 'public' and c.relkind = 'r');
   end if;
-  raise notice 'PASS 1  sixteen tables, RLS enabled and forced on every one';
+  raise notice 'PASS 1  seventeen tables, RLS enabled and forced on every one';
 end $$;
 
 -- ── 2. the policy set is exactly the designed one, in both directions ───────────────────────
@@ -123,6 +123,20 @@ begin
        '','(id = (select auth.uid()))'),
     ('profiles','profiles_update_own','UPDATE','authenticated',
        '(id = (select auth.uid()))','(id = (select auth.uid()))'),
+    -- 0035: the given and family name, deliberately NOT on `profiles`. There is no peer policy
+    -- here and that absence is the whole design — `profiles` carries a table-level SELECT grant
+    -- AND profiles_select_collection_peers below, and a name column added to that table would be
+    -- readable by every collection peer (asserted from the other side, as a reproduced control, by
+    -- P7 in supabase/tests/0035_profile_names_policy_tests.sql). A fourth policy appearing here,
+    -- and especially any policy on this table whose qual is not `= (select auth.uid())`, means a
+    -- user's legal name has been opened to somebody. No DELETE policy: there is no DELETE grant,
+    -- and a name row dies with its profile by cascade.
+    ('profile_names','profile_names_select_own','SELECT','authenticated',
+       '(profile_id = (select auth.uid()))',''),
+    ('profile_names','profile_names_insert_own','INSERT','authenticated',
+       '','(profile_id = (select auth.uid()))'),
+    ('profile_names','profile_names_update_own','UPDATE','authenticated',
+       '(profile_id = (select auth.uid()))','(profile_id = (select auth.uid()))'),
     -- sources: the shared post cache, readable only via an import OR a save (08 §2.2 rule 1)
     ('sources','sources_select_via_membership','SELECT','authenticated',
        '((exists (select 1 from imports i where ((i.source_id = sources.id) and (i.user_id = (select auth.uid()))))) or (exists (select 1 from saved_place_sources sps where ((sps.source_id = sources.id) and (sps.user_id = (select auth.uid()))))))',''),
@@ -310,7 +324,7 @@ begin
         where schemaname = 'public' and tablename = 'place_mentions');
   end if;
 
-  raise notice 'PASS 2  thirty-six policies, exact name/command/role/qual/with_check match, and place_mentions has exactly three (place_lookups, poi_regions and poi_index deliberately have none)';
+  raise notice 'PASS 2  thirty-nine policies, exact name/command/role/qual/with_check match, and place_mentions has exactly three (place_lookups, poi_regions and poi_index deliberately have none)';
 end $$;
 
 -- ── 3. anon holds nothing at all (08 §5.1) ──────────────────────────────────────────────────
@@ -557,6 +571,12 @@ begin
                               -- a client-suppliable `token`.
                               'collections', 'collection_members',
                               'collection_items', 'collection_invites',
+                              -- 0035: named so its SELECT and INSERT column lists are asserted in
+                              -- full, not only its UPDATE list. This table holds the one piece of
+                              -- directly identifying data in the schema; a widened grant on it is
+                              -- the thing most worth noticing, and the `privilege_type = 'UPDATE'`
+                              -- arm alone would see `first_name`/`last_name` and nothing else.
+                              'profile_names',
                               -- 0031: named so its SELECT list is asserted in full and so an
                               -- INSERT column grant on it would show up as UNEXPECTED. The
                               -- `privilege_type = 'UPDATE'` arm alone would see only `dismissed`
@@ -566,6 +586,16 @@ begin
   ), expected(t, c, p) as (values
     -- profiles: display name only
     ('profiles','display_name','UPDATE'),
+    -- 0035 profile_names: closed lists on all three verbs. `profile_id` is insertable and NOT
+    -- updatable (a name row cannot be re-parented onto another user); `created_at`/`updated_at`
+    -- are readable and not writable (the row's own record of itself, which a client that could
+    -- write could backdate); there is no DELETE grant at all.
+    ('profile_names','profile_id','SELECT'), ('profile_names','first_name','SELECT'),
+    ('profile_names','last_name','SELECT'), ('profile_names','created_at','SELECT'),
+    ('profile_names','updated_at','SELECT'),
+    ('profile_names','profile_id','INSERT'), ('profile_names','first_name','INSERT'),
+    ('profile_names','last_name','INSERT'),
+    ('profile_names','first_name','UPDATE'), ('profile_names','last_name','UPDATE'),
     -- imports: cancel and completion only (R7)
     ('imports','status','UPDATE'), ('imports','completed_at','UPDATE'),
     -- saved_places: the per-user overlay only — user_id, place_id, origin are not grantable
@@ -831,6 +861,13 @@ begin
     ('public.place_provider_refs','ppr_alias_retained_on_move'),
     ('public.saved_places','saved_places_provenance_required'),
     ('public.saved_place_sources','sps_provenance_preserved'),
+    -- 0035. Two, and the absence of a third is deliberate: there is NO trigger copying
+    -- profile_names.first_name into profiles.display_name. A name given to personalise the product
+    -- is not consent to show it to collaborators, so the private name and the peer-visible label
+    -- are independent objects. P4b in supabase/tests/0035_profile_names_policy_tests.sql asserts
+    -- the same absence from the `profiles` side.
+    ('public.profile_names','profile_names_normalise'),
+    ('public.profile_names','profile_names_touch'),
     ('public.profiles','profiles_touch'), ('public.sources','sources_touch'),
     ('public.imports','imports_touch'), ('public.places','places_touch'),
     ('public.saved_places','saved_places_touch')
@@ -842,7 +879,7 @@ begin
       where t.tgname = e.trg and not t.tgisinternal
         and t.tgrelid = e.tbl::regclass and t.tgenabled = 'O');
   if v is not null then raise exception 'FAIL 7: missing or disabled trigger(s): %', v; end if;
-  raise notice 'PASS 7  all eleven invariant/touch triggers exist and are enabled';
+  raise notice 'PASS 7  all thirteen invariant/touch triggers exist and are enabled';
 end $$;
 
 -- ── 7b. the four invariant triggers are CONSTRAINT triggers, deferred to COMMIT ──────────────
