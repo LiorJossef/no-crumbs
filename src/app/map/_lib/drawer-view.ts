@@ -1,88 +1,126 @@
 /**
- * **Which view the collections drawer is showing, as a value the URL can hold.**
+ * **Which of the drawer's three views is on screen, as a value the URL can hold.**
  *
- * The index and one collection used to be two *route segments* — `/collections` and
- * `/collections/[id]` — and the App Router has exactly one behaviour for a segment change: it
- * unmounts the outgoing subtree and mounts the incoming one. Both of those segments rendered
- * `MapShell`, so tapping a collection destroyed the drawer, the vaul `Drawer.Root` inside it and
- * every piece of state either held, then built a new one and let vaul play its 0.5 s rise from the
- * bottom of the screen. Measured at `c585ce7`, 390×844: the sheet element's identity changes
- * (1 → 2 distinct nodes carrying `data-testid="place-sheet"`) and the new one's top edge travels
- * 844 → 703 → 458 → 248 → 129 → 77 → 25 → 0 px over the next ~400 ms. That is the flicker, and no
- * amount of speed removes it, because the sheet genuinely is a different sheet.
+ * Places, the collections index, and one collection. They were **three route segments** — `/map`,
+ * `/collections`, `/collections/[id]` — and the App Router has exactly one behaviour for a segment
+ * change: it unmounts the outgoing subtree and mounts the incoming one. All three rendered
+ * `MapShell`, so every switch between them destroyed the drawer, the vaul `Drawer.Root` inside it
+ * and every piece of state either held, then built a new one and let vaul play its 0.5 s rise from
+ * the bottom of the screen.
  *
- * The two views are therefore **one segment and one search param**. `/collections` and
- * `/collections?collection=<id>` differ only in `searchParams`, which the router resolves by
- * re-rendering the same page in place: the client tree below it reconciles, `MapShell` is never
- * unmounted, and the drawer does not move.
+ * Measured at `c585ce7`, 390×844: the element carrying `data-testid="place-sheet"` changes identity
+ * (1 → 2 distinct nodes) and the new one's top edge travels 844 → 703 → 458 → 248 → 129 → 77 → 25 →
+ * 0 px over the next ~400 ms. That is the flicker, and no amount of speed removes it, because the
+ * sheet genuinely is a different sheet.
  *
- * ## Why a search param and not a parallel route or a shared layout
+ * ## One segment, and it is `/map`
  *
- * A shared layout does keep the drawer mounted across the two, but a layout only receives the
- * params of *its own* segment and above — so a layout over `[id]` cannot know which collection is
- * open, and the pins, the camera and the accessible name all depend on that. Publishing them
- * upward from the page needs an effect, which is a frame of the wrong pins on the map. A parallel
- * route has the same shape with more machinery.
+ * The three views are `/map`, `/map?view=collections` and
+ * `/map?view=collections&collection=<id>`. Same segment, so the router re-renders the page in
+ * place: the client tree below it reconciles, `MapShell` is never unmounted, and the drawer does
+ * not move. **Search params are not part of the segment cache key; a dynamic segment's value is** —
+ * `LayoutRouter` keys on it — which is why `/collections/[id]` remounted and this does not.
  *
- * ## What `/collections/[id]` is now
+ * `/map` is the segment rather than `/collections` because the map is the shell
+ * (`ux-architecture.md` §1.1) and `/map` is where post-login lands, where the create menu reveals a
+ * saved place, and what `MAP_ROUTES` already names.
  *
- * A redirect, kept forever. That path is in shared links, in the join flow's landing and in
- * anybody's history, and the one thing a URL may not do is stop working.
+ * **The cost is the URL, and it is stated rather than hidden:** a collection is addressed as
+ * `/map?view=collections&collection=<id>` and no longer as `/collections/<id>`.
+ * `collections/page.tsx` and `collections/[id]/page.tsx` are redirects, kept forever, so every
+ * shared link, the join flow's landing, browser history and anybody's bookmarks still resolve. The
+ * one thing a URL may not do is stop working.
+ *
+ * ## Why not the alternatives
+ *
+ * **A shared layout** keeps the drawer mounted across two child segments, but a layout only
+ * receives the params of *its own* segment and above — so a layout over `[id]` cannot know which
+ * collection is open, and the pins, the camera and the accessible name all depend on that.
+ * Publishing them upward from the page needs an effect, which is a frame of the wrong pins on the
+ * map. It also could not span `/map` without a route group that moves the whole `/map` tree.
+ *
+ * **Cross-route `window.history.pushState`** — the shallow-routing surface Next 16 documents —
+ * keeps the URL and the mounted tree in *disagreement*. `collection-content.tsx` calls
+ * `router.refresh()` in four places and `router.push('/collections')` in two; those would act on
+ * the router's tree, which is not the one the URL names. That is a corruption rather than a rough
+ * edge, and it would work in every manual test and fail on somebody's back button.
  *
  * React-free and free of any `server-only` import, so the parsing and the href construction are
  * unit-testable without a DOM — the same reason `sheet-geometry.ts` is shaped that way.
  */
 
-/** The search param that carries the open collection. Spelled out rather than `c`: it appears in
- *  shared links, and a URL a person reads should say what it addresses. */
+/** The param that selects the collections side of the drawer. */
+export const VIEW_PARAM = 'view';
+/** Its one value. A second value would be a fourth view, which is a different drawer. */
+export const COLLECTIONS_VIEW = 'collections';
+/** The param that carries the open collection. Spelled out rather than `c`: it appears in shared
+ *  links, and a URL a person reads should say what it addresses. */
 export const COLLECTION_PARAM = 'collection';
 
-/** What the drawer is showing. Two arms, because there are two, and a third would be a new view
- *  rather than a new flag on this one. */
+/** What the drawer is showing. Three arms, because there are three; a fourth would be a new view
+ *  rather than a new flag on one of these. */
 export type DrawerView =
+  | { readonly kind: 'places' }
   | { readonly kind: 'index' }
   | { readonly kind: 'collection'; readonly id: string };
 
+export const PLACES_VIEW: DrawerView = { kind: 'places' };
 export const INDEX_VIEW: DrawerView = { kind: 'index' };
+
+/** Whether this view is on the collections side of the switch — the one thing most callers need. */
+export function isCollectionsView(view: DrawerView): boolean {
+  return view.kind !== 'places';
+}
 
 /**
  * The view a request's `searchParams` asks for.
  *
+ * **Tolerant on the way in, canonical on the way out.** `?collection=<id>` alone resolves to that
+ * collection even without `view=collections`, because an id names a view unambiguously and a URL
+ * somebody trimmed by hand should still work. `drawerHref` always writes both, so the product
+ * itself only ever produces one shape.
+ *
  * A repeated param (`?collection=a&collection=b`) arrives as an array and is **rejected to the
- * index** rather than resolved to its first entry: it is not a URL this product ever writes, so
- * the only thing that produces one is somebody editing the address bar, and quietly picking one
- * arm of an ambiguous request is how a surface ends up asserting something the URL did not say.
- * An empty string is the same case.
+ * places view** rather than resolved to its first entry: it is not a URL this product writes, so
+ * the only thing that produces one is somebody editing the address bar, and quietly picking one arm
+ * of an ambiguous request is how a surface ends up asserting something the URL did not say. An
+ * empty or whitespace-only value is the same case.
  */
 export function viewFromSearchParams(
   params: Readonly<Record<string, string | string[] | undefined>>,
 ): DrawerView {
   const raw = params[COLLECTION_PARAM];
-  if (typeof raw !== 'string') return INDEX_VIEW;
-  const id = raw.trim();
-  if (id === '') return INDEX_VIEW;
-  return { kind: 'collection', id };
+  if (typeof raw === 'string' && raw.trim() !== '') {
+    return { kind: 'collection', id: raw.trim() };
+  }
+  return params[VIEW_PARAM] === COLLECTIONS_VIEW ? INDEX_VIEW : PLACES_VIEW;
 }
 
 /**
- * The href for a view — the one place that knows the URL shape.
+ * The href for a view — the one place that knows the URL shape, and therefore the one place a
+ * change to it has to be made.
  *
  * `encodeURIComponent` on the id even though every id this product writes is a UUID: the value
  * reaching here comes from a row, and a function that builds a URL out of data is the wrong place
  * to assume what the data looks like.
  */
-export function collectionsHref(view: DrawerView): string {
-  return view.kind === 'index'
-    ? '/collections'
-    : `/collections?${COLLECTION_PARAM}=${encodeURIComponent(view.id)}`;
+export function drawerHref(view: DrawerView): string {
+  if (view.kind === 'places') return '/map';
+  if (view.kind === 'index') return `/map?${VIEW_PARAM}=${COLLECTIONS_VIEW}`;
+  return `/map?${VIEW_PARAM}=${COLLECTIONS_VIEW}&${COLLECTION_PARAM}=${encodeURIComponent(view.id)}`;
+}
+
+/** One collection's href, which is what almost every caller wants. */
+export function collectionHref(id: string): string {
+  return drawerHref({ kind: 'collection', id });
 }
 
 /**
  * What the map canvas says it is showing, inside a collection.
  *
  * The canvas is unreachable to a screen reader, so its accessible name is the whole of what that
- * reader gets from it — and until now this surface passed none, so `MapSurface` left its default
- * and the map on every collection announced itself as the bare word `Map`
+ * reader gets from it — and until 2026-08-31 this surface passed none, so `MapSurface` left its
+ * default and the map on every collection announced itself as the bare word `Map`
  * (`ui-review-2026-08-31.md` §1 finding 3's shape). This is the same sentence `/map` builds in
  * `mapAccessibleName`, with the collection's name where that one has an area: what is on the map,
  * and the promise that the list beside it is complete.

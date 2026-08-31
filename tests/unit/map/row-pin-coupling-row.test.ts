@@ -179,7 +179,10 @@ describe('the hover crosses to the canvas', () => {
     expect(SHEET).toContain('onHover?: (placeId: string | null) => void;');
     expect(PAGE).toContain('const [hoveredId, setHoveredId] = useState<string | null>(null);');
     expect(PAGE).toContain('onHover={setHoveredId}');
-    expect(PAGE).toContain('hoveredPlaceId={hoveredId}');
+    // Gated on the view since 2026-08-31: the collections views are search params on this same
+    // segment and have no list of *places* to point at, so nothing is hovered there. The coupling
+    // itself is unchanged — the same state, the same prop, one condition in front of it.
+    expect(PAGE).toContain('hoveredPlaceId={inCollections ? null : hoveredId}');
     expect(SHELL).toContain('readonly hoveredPlaceId?: string | null;');
     // An object spread rather than a JSX one since 2026-08-31: `MapShell` builds the surface's
     // props and hands them to `PersistentMapSlot`, which is what keeps the map alive across a tab

@@ -1,11 +1,16 @@
-import { redirect } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import { createClient } from '@/app/_lib/supabase/server';
 import type { MapPlace } from '@/components/map/map-surface';
-import { getCollectionMemberships } from '@/app/collections/_lib/get-collections';
+import {
+  getCollection,
+  getCollectionMemberships,
+  getCollections,
+} from '@/app/collections/_lib/get-collections';
 import { getSpots } from './_lib/get-spots';
 import { toMapPlace } from './_lib/to-map-place';
+import { viewFromSearchParams } from './_lib/drawer-view';
 import { MapPageClient } from './map-page-client';
 import { ShellWordmark } from './shell-wordmark';
 
@@ -13,15 +18,56 @@ import { ShellWordmark } from './shell-wordmark';
 // already redirects an unauthenticated visitor server-side, but every doc under docs/ that
 // mentions Supabase Auth repeats the same rule — a page that renders user data must call
 // getUser() itself rather than trust a layer above it.
+/**
+ * The tab, the bookmark and the link preview.
+ *
+ * `/collections` carried `title: 'Collections'` before the merge, and losing it would have left
+ * every collections URL wearing the root default — *"No Crumbs — your saved places, on one map"* —
+ * which is a sentence about the places view. The two collections views share one title rather than
+ * naming the open collection: doing that needs a second `getCollection` for `generateMetadata`,
+ * because Supabase queries are not deduped across the two calls, and a tab title is not worth a
+ * round trip. `%s · No Crumbs` is the root template.
+ *
+ * The places view returns nothing, so it keeps the root default, which is written for it.
+ */
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const view = viewFromSearchParams(await searchParams);
+  return view.kind === 'places' ? {} : { title: 'Collections' };
+}
+
+/**
+ * **The whole app shell, on one route segment.**
+ *
+ * `/map` is the places view, `/map?view=collections` the collections index and
+ * `/map?view=collections&collection=<id>` one collection. They were three sibling segments until
+ * 2026-08-31, and the App Router's answer to a segment change is to unmount the outgoing subtree —
+ * which took the drawer, the vaul root inside it and every piece of state either held.
+ * `_lib/drawer-view.ts` has the measurement, the URL vocabulary and why the two alternatives are
+ * worse. `app/collections/page.tsx` and `app/collections/[id]/page.tsx` are redirects, kept
+ * forever.
+ */
 export default async function MapPage({
   searchParams,
 }: {
-  /** `?place=<saved place id>` — a handoff from the create menu on a tab with no map of its own
-   *  (`components/nav/bottom-nav.tsx`). Read here rather than with `useSearchParams` because this
-   *  page is already a Server Component with the value in hand, which is what the App Router docs
-   *  recommend and what keeps the client tree out of a Suspense boundary it does not otherwise
-   *  need. The client consumes it once and strips it from the URL. */
-  searchParams: Promise<{ place?: string }>;
+  /**
+   * Three params, and only one of them is state.
+   *
+   * `?view=` and `?collection=` **address the view** — back, forward and a deep link all have to
+   * work, which is the whole point of putting them in the URL rather than in a client state cell.
+   *
+   * `?place=<saved place id>` is a **handoff**, not state: the create menu on a view with no map
+   * detail of its own writes it (`components/nav/bottom-nav.tsx`), and the client consumes it once
+   * and strips it from the URL. Selection stays client state (`ux-architecture.md` §1.5).
+   *
+   * All three are read here rather than with `useSearchParams`, because this page is already a
+   * Server Component with the values in hand — what the App Router docs recommend, and what keeps
+   * the client tree out of a Suspense boundary it does not otherwise need.
+   */
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const supabase = await createClient();
   const {
@@ -32,13 +78,34 @@ export default async function MapPage({
     redirect('/sign-in');
   }
 
-  // Read alongside the library rather than lazily on first open: the "Add to a collection" row has
-  // to say which collections a place is already in *before* it is tapped, so the answer has to be
-  // in hand when the detail renders.
-  const [{ place: revealPlaceId }, [spots, collections]] = await Promise.all([
-    searchParams,
-    Promise.all([getSpots(), getCollectionMemberships()]),
+  const params = await searchParams;
+  const view = viewFromSearchParams(params);
+  const revealPlaceId = typeof params.place === 'string' ? params.place : undefined;
+
+  /**
+   * Every view's data, in parallel, and **the collections reads are skipped on the places view**.
+   *
+   * So `/map` makes exactly the two round trips it made before this segment absorbed collections;
+   * the extra ones are paid on the view that needs them, one RSC request after the switch is
+   * pressed. The library and the memberships are read on all three: the memberships answer "which
+   * collections is this place already in" before the `Add to a collection` row is tapped, and the
+   * library is the places view's pins, the index's pins, the `＋` menu's search and a collection's
+   * picker.
+   */
+  const [spots, memberships, collections, collection] = await Promise.all([
+    getSpots(),
+    getCollectionMemberships(),
+    view.kind === 'places' ? Promise.resolve([]) : getCollections(),
+    view.kind === 'collection' ? getCollection(view.id) : Promise.resolve(null),
   ]);
+
+  // `getCollection` returns null both for a collection that does not exist and for one the caller
+  // is not a member of. Rendering the same 404 for both is deliberate: telling them apart would
+  // make this route an existence oracle for other people's collections. An id that resolves to
+  // nothing is a 404 rather than a silent fall back to the map, for the same reason — a URL
+  // quietly showing you something it was not asked for is a surface answering a different question.
+  if (view.kind === 'collection' && collection === null) notFound();
+
   const mapPlaces: readonly MapPlace[] = spots.map(toMapPlace);
 
   return (
@@ -88,8 +155,12 @@ export default async function MapPage({
        *  §1.5 — it is never a URL in this slice — so it is lifted into a client component rather
        *  than living in this server component. */}
       <MapPageClient
+        view={view}
         places={mapPlaces}
-        collections={collections}
+        collections={memberships}
+        collectionSummaries={collections}
+        collection={collection}
+        currentUserId={user.id}
         {...(revealPlaceId ? { revealPlaceId } : {})}
       />
     </main>

@@ -23,7 +23,7 @@ import { useCallback, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { createCollection } from '@/app/actions/collections';
-import { collectionsHref } from '@/app/collections/_lib/drawer-view';
+import { collectionHref } from '@/app/map/_lib/drawer-view';
 
 export interface CreateCollectionState {
   /** In flight. Both callers disable their submit on it. */
@@ -66,7 +66,7 @@ export function useCreateCollection(): CreateCollectionState {
           // way into a collection you just made. `collectionsHref` owns the URL shape
           // (`app/collections/_lib/drawer-view.ts`), so this cannot drift from the row that links
           // to the same place.
-          router.push(collectionsHref({ kind: 'collection', id: result.id }) as '/collections');
+          router.push(collectionHref(result.id) as '/map');
           resolve(true);
         });
       }),

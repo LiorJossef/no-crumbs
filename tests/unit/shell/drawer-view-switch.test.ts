@@ -165,9 +165,7 @@ describe('what it does under prefers-reduced-motion', () => {
     const { readFileSync } = await import('node:fs');
     const { fileURLToPath } = await import('node:url');
     const drawer = readFileSync(
-      fileURLToPath(
-        new URL('../../../src/app/collections/collections-drawer-client.tsx', import.meta.url),
-      ),
+      fileURLToPath(new URL('../../../src/app/map/collections-scope.tsx', import.meta.url)),
       'utf8',
     );
     const wrapper = /<div key=\{key\} className="([^"]*)"/.exec(drawer)?.[1];
@@ -182,11 +180,16 @@ describe('what it does under prefers-reduced-motion', () => {
   });
 });
 
-describe('the hrefs each surface passes', () => {
+describe('the hrefs the one surface passes', () => {
   /**
-   * The switch is a dumb control: it renders what it is given. These are the two call sites, read
-   * from source, because a switch pointing at the view you are already on in both segments would
-   * pass every assertion above and navigate nowhere.
+   * The switch is a dumb control: it renders what it is given. This is its only call site, read
+   * from source, because a switch pointing at the view you are already on would pass every
+   * assertion above and navigate nowhere.
+   *
+   * **There is one call site rather than two, and that is the change.** Places and collections were
+   * two route clients each mounting a `MapShell`, which is why switching between them was a
+   * remount; they are one component and three search-param views now
+   * (`app/map/_lib/drawer-view.ts`).
    */
   const read = async (path: string) =>
     (await import('node:fs')).readFileSync(
@@ -194,15 +197,28 @@ describe('the hrefs each surface passes', () => {
       'utf8',
     );
 
-  it('are the two views, from both of the two surfaces that render the shell', async () => {
+  it('are the two views, built by the module that owns the URL shape', async () => {
     const map = await read('src/app/map/map-page-client.tsx');
-    expect(map).toContain("current: 'places'");
-    expect(map).toContain("collectionsHref: '/collections'");
-
-    const collections = await read('src/app/collections/collections-drawer-client.tsx');
-    expect(collections).toContain("current: 'collections'");
-    expect(collections).toContain("placesHref: '/map'");
+    // The `current` arm follows the URL rather than being hard-coded, which is what makes one call
+    // site able to serve three views.
+    expect(map).toContain("current: view.kind === 'places' ? 'places' : 'collections'");
+    expect(map).toContain("placesHref: drawerHref({ kind: 'places' })");
     // Inside a collection this is also the way up: the segment you are on links to the index.
-    expect(collections).toContain('collectionsHref: collectionsHref(INDEX_VIEW)');
+    expect(map).toContain("collectionsHref: drawerHref({ kind: 'index' })");
+    // And no literal URL, so the two hrefs cannot drift from the parser that reads them back.
+    expect(map).not.toContain("collectionsHref: '/collections'");
+  });
+
+  it('is the only place in src that mounts the shell', async () => {
+    const { readdirSync, readFileSync } = await import('node:fs');
+    const { fileURLToPath } = await import('node:url');
+    const src = fileURLToPath(new URL('../../../src/', import.meta.url));
+    const mounts = readdirSync(src, { recursive: true, encoding: 'utf8' }).filter(
+      (entry) =>
+        /\.tsx$/.test(entry) &&
+        !entry.endsWith('shell/map-shell.tsx') &&
+        readFileSync(`${src}${entry}`, 'utf8').includes('<MapShell'),
+    );
+    expect(mounts).toEqual(['app/map/map-page-client.tsx']);
   });
 });

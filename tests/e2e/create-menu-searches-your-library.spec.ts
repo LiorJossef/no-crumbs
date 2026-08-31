@@ -60,7 +60,9 @@ async function searchTheCreateMenu(page: Page, query: string): Promise<void> {
   await page.waitForTimeout(1000);
 }
 
-for (const route of ['/collections', '/profile'] as const) {
+// `/map?view=collections` rather than `/collections`: the drawer's views are search params on
+// `/map` since 2026-08-31, and driving the redirect shim would test the shim.
+for (const route of ['/map?view=collections', '/profile'] as const) {
   test.describe(`the ＋ on ${route} searches the library it claims to`, () => {
     test.skip(PASSWORD === undefined, 'set E2E_PASSWORD to run the signed-in checks');
     // Mobile only, and not a narrowing of what this spec found: `BottomNav` is `lg:hidden`, so the

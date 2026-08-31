@@ -33,9 +33,16 @@ describe('the sheet rests at half while the library is empty', () => {
   /**
    * The decision itself. Stated as `places.length === 0` rather than as a `libraryIsEmpty`
    * variable name so that renaming the variable cannot silently delete the branch.
+   *
+   * It gained a second arm on 2026-08-31: a cold entry on one of the drawer's collections views
+   * also opens at `half`, which is `ui-review-2026-08-31.md` §1 finding 1's fix — the collections
+   * index rested at `full`, so the map behind it was 0 % visible and 63.2 % of a 390×844 screen
+   * was empty. Both arms are asserted, because the zero-state one is what this file is for and a
+   * regression that dropped it while keeping the other would still read as "there is a branch".
    */
   it('chooses the resting stop from whether anything is saved', () => {
-    expect(PAGE).toContain("useState<SheetStop>(() => (places.length === 0 ? 'half' : 'peek'))");
+    expect(PAGE).toContain("isCollectionsView(view) || places.length === 0 ? 'half' : 'peek'");
+    expect(PAGE).toContain('useState<SheetStop>');
   });
 
   /**

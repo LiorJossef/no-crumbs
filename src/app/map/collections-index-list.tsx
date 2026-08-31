@@ -30,8 +30,8 @@ import { BOTTOM_NAV_HEIGHT_PX } from '@/components/nav/bottom-nav';
 import { STOP_TO_CONTENT_HEIGHT, type SheetStop } from '@/components/shell/sheet-geometry';
 import { memberLabel } from '@/domain/collections/collection';
 import { useCreateCollection } from '@/components/collections/use-create-collection';
-import { collectionsHref } from './_lib/drawer-view';
-import type { CollectionSummary } from './_lib/get-collections';
+import { collectionHref } from './_lib/drawer-view';
+import type { CollectionSummary } from '@/app/collections/_lib/get-collections';
 
 export function CollectionsIndexList({
   collections,
@@ -265,7 +265,7 @@ function Section({
 
                  The cast is the one `bottom-nav.tsx` already makes for `/map?place=`: `typedRoutes`
                  types the route literal and has nothing to say about a query string on it. */
-              href={collectionsHref({ kind: 'collection', id: collection.id }) as '/collections'}
+              href={collectionHref(collection.id) as '/map'}
               // The accessible name carries every fact the colour strip cannot (§8.4).
               aria-label={rowAccessibleName(collection)}
               data-vaul-no-drag

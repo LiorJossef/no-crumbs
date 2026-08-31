@@ -35,7 +35,9 @@ test.describe('the collections index', () => {
 
   test.beforeEach(async ({ page }) => {
     await signIn(page);
-    await page.goto('/collections');
+    // The canonical URL. `/collections` still resolves and is covered by the redirect assertion
+    // below, but driving the shim on every test would measure the redirect rather than the screen.
+    await page.goto('/map?view=collections');
     await page.waitForLoadState('networkidle');
     // The list is in the document twice — the sheet (`lg:hidden`) and the panel
     // (`hidden lg:block`) — so `.first()` is whichever the breakpoint happens to hide.
@@ -62,4 +64,15 @@ test.describe('the collections index', () => {
     await expect(page.locator('nav[aria-label="Main"]')).toHaveCount(1);
   });
 
+  /**
+   * **The old URL still works**, which is the half of the 2026-08-31 route merge that is easy to
+   * forget and impossible to recover: `/collections` is in browser history, in bookmarks, in the
+   * bar people learned and in anything anyone has shared. A restructure that quietly 404s
+   * previously-working links is a worse defect than the flicker it removed.
+   */
+  test('keeps the URL it used to live at, as a redirect', async ({ page }) => {
+    await page.goto('/collections');
+    await page.waitForURL('**/map?view=collections', { timeout: 15_000 });
+    await expect(page.getByText(/yours/i).locator('visible=true').first()).toBeVisible();
+  });
 });

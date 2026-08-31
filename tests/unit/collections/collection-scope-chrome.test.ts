@@ -77,7 +77,11 @@ function listMarkup(): string {
 describe('the collection list header', () => {
   it('leads with a labelled up-link to the index, not a back arrow', () => {
     const markup = listMarkup();
-    expect(markup).toContain('href="/collections"');
+    // `/map?view=collections`, not `/collections`. The index is a search-param view on `/map` since
+    // 2026-08-31 (`app/map/_lib/drawer-view.ts`); the old path is a redirect shim, and routing this
+    // control through it would cost a segment change on each leg — the drawer unmounted twice by
+    // the one control whose job is leaving a collection without losing it.
+    expect(markup).toContain('href="/map?view=collections"');
     expect(markup).toContain('aria-label="Collections"');
     expect(markup).toContain('Collection');
   });

@@ -1,14 +1,15 @@
 /**
- * **The collections drawer's two views, and the URL that addresses them.**
+ * **The drawer's three views, and the URL that addresses them.**
  *
  * The owner's ask on 2026-08-31 was *"the collection / places navigation should be inside the
- * drawer, dont make the page flicker"*, and the structural half of that is here: the index and one
- * collection stopped being two route segments. What this file pins is the contract that makes the
- * change safe rather than the change itself —
+ * drawer, dont make the page flicker"*, and the structural half of that is here: places, the
+ * collections index and one collection stopped being three route segments. What this file pins is
+ * the contract that makes the change safe rather than the change itself —
  *
  *  - a URL still addresses the view, so back, forward and a deep link all work;
  *  - the parse is total, so an address bar somebody typed into cannot produce a half-state;
- *  - the href is built in exactly one place, so the row, the redirect and the switch cannot drift.
+ *  - the href is built in exactly one place, so the switch, the row, the two redirect shims, the
+ *    join flow, the create hook and `/profile`'s list cannot drift apart.
  *
  * `_lib/drawer-view.ts` is React-free and imports nothing `server-only`, which is what lets all of
  * that be checked without a DOM. See `tests/unit/shell/drawer-view-switch.test.ts` for the control
@@ -19,62 +20,94 @@ import { describe, expect, it } from 'vitest';
 
 import {
   COLLECTION_PARAM,
+  COLLECTIONS_VIEW,
   INDEX_VIEW,
+  PLACES_VIEW,
+  VIEW_PARAM,
   collectionCanvasName,
-  collectionsHref,
+  collectionHref,
+  drawerHref,
+  isCollectionsView,
   viewFromSearchParams,
-} from '@/app/collections/_lib/drawer-view';
+} from '@/app/map/_lib/drawer-view';
 
 const ID = 'cccccccc-0000-4000-8000-000000000001';
+const COLLECTION = { kind: 'collection', id: ID } as const;
 
 describe('which view the URL asks for', () => {
-  it('is the index when the param is absent', () => {
-    expect(viewFromSearchParams({})).toEqual(INDEX_VIEW);
+  it('is the places view when neither param is there', () => {
+    expect(viewFromSearchParams({})).toEqual(PLACES_VIEW);
   });
 
-  it('is that collection when the param names one', () => {
-    expect(viewFromSearchParams({ [COLLECTION_PARAM]: ID })).toEqual({
-      kind: 'collection',
-      id: ID,
-    });
+  it('is the index when the view param names it', () => {
+    expect(viewFromSearchParams({ [VIEW_PARAM]: COLLECTIONS_VIEW })).toEqual(INDEX_VIEW);
   });
 
-  it('falls back to the index for every shape the product never writes', () => {
+  it('is that collection when the collection param names one', () => {
+    expect(
+      viewFromSearchParams({ [VIEW_PARAM]: COLLECTIONS_VIEW, [COLLECTION_PARAM]: ID }),
+    ).toEqual(COLLECTION);
+  });
+
+  it('accepts an id without the view param, because an id names a view unambiguously', () => {
+    // Tolerant on the way in, canonical on the way out: a URL somebody trimmed by hand still works,
+    // and `drawerHref` is what decides the shape the product itself writes.
+    expect(viewFromSearchParams({ [COLLECTION_PARAM]: ID })).toEqual(COLLECTION);
+  });
+
+  it('falls back to the places view for every shape the product never writes', () => {
     /**
      * A repeated param arrives as an array and an empty one arrives as `''`. Neither is reachable
      * from any link in the product, so the only thing that produces one is somebody editing the
      * address bar — and quietly resolving `?collection=a&collection=b` to `a` is how a surface
-     * ends up asserting something the URL did not say. The index is the honest answer: it is what
-     * `/collections` means, and it is the view that needs no id.
+     * ends up asserting something the URL did not say.
      */
     const shapes: (string | string[] | undefined)[] = [[ID, 'other'], [], '', '   ', undefined];
     for (const raw of shapes) {
-      expect(viewFromSearchParams({ [COLLECTION_PARAM]: raw }), String(raw)).toEqual(INDEX_VIEW);
+      expect(viewFromSearchParams({ [COLLECTION_PARAM]: raw }), String(raw)).toEqual(PLACES_VIEW);
     }
+    // And an unrecognised view value is not a fourth view.
+    expect(viewFromSearchParams({ [VIEW_PARAM]: 'trips' })).toEqual(PLACES_VIEW);
   });
 
-  it('ignores every other param, so a handoff on the URL cannot change the view', () => {
-    expect(viewFromSearchParams({ place: 'x', c: ID, id: ID })).toEqual(INDEX_VIEW);
+  it('ignores the reveal handoff, so a param that is state cannot change the view', () => {
+    // `?place=` is consumed once and stripped; it must never be read as "show me collections".
+    expect(viewFromSearchParams({ place: 'aaaa' })).toEqual(PLACES_VIEW);
+  });
+
+  it('says which side of the switch a view is on', () => {
+    expect(isCollectionsView(PLACES_VIEW)).toBe(false);
+    expect(isCollectionsView(INDEX_VIEW)).toBe(true);
+    expect(isCollectionsView(COLLECTION)).toBe(true);
   });
 });
 
 describe('the href', () => {
-  it('is the bare segment for the index — the same segment a collection is on', () => {
-    // The whole point: these two differ only in their search params, so the router re-renders one
-    // page in place rather than unmounting a subtree and mounting another.
-    expect(collectionsHref(INDEX_VIEW)).toBe('/collections');
-    expect(collectionsHref({ kind: 'collection', id: ID }).startsWith('/collections?')).toBe(true);
+  it('keeps all three views on one segment', () => {
+    // The whole point: these differ only in their search params, so the router re-renders one page
+    // in place rather than unmounting a subtree and mounting another. A dynamic *segment* would
+    // not do this — `LayoutRouter` keys on its value — which is what `/collections/[id]` was.
+    for (const href of [drawerHref(PLACES_VIEW), drawerHref(INDEX_VIEW), collectionHref(ID)]) {
+      expect(new URL(href, 'https://example.test').pathname, href).toBe('/map');
+    }
   });
 
-  it('names the param it is carrying', () => {
-    expect(collectionsHref({ kind: 'collection', id: ID })).toBe(`/collections?collection=${ID}`);
+  it('writes the canonical shape, with both params on a collection', () => {
+    expect(drawerHref(PLACES_VIEW)).toBe('/map');
+    expect(drawerHref(INDEX_VIEW)).toBe('/map?view=collections');
+    expect(collectionHref(ID)).toBe(`/map?view=collections&collection=${ID}`);
+  });
+
+  it('round-trips every view through the URL', () => {
+    for (const view of [PLACES_VIEW, INDEX_VIEW, COLLECTION]) {
+      const params = new URL(drawerHref(view), 'https://example.test').searchParams;
+      expect(viewFromSearchParams(Object.fromEntries(params)), drawerHref(view)).toEqual(view);
+    }
   });
 
   it('encodes the id rather than trusting what a row happened to hold', () => {
-    const href = collectionsHref({ kind: 'collection', id: 'a b&c=d#e' });
-    expect(href).toBe('/collections?collection=a%20b%26c%3Dd%23e');
-    // And it round-trips, which is the claim that matters — an id that survives the URL is an id
-    // the page can look up.
+    const href = collectionHref('a b&c=d#e');
+    expect(href).toBe('/map?view=collections&collection=a%20b%26c%3Dd%23e');
     const value = new URL(href, 'https://example.test').searchParams.get(COLLECTION_PARAM);
     expect(viewFromSearchParams({ [COLLECTION_PARAM]: value ?? undefined })).toEqual({
       kind: 'collection',
@@ -97,7 +130,9 @@ describe('what the map canvas says it is showing', () => {
   });
 
   it('does not claim a list over a collection with nothing in it', () => {
-    expect(collectionCanvasName('Weekend list', 0)).toBe('Map of Weekend list. It has no places yet.');
+    expect(collectionCanvasName('Weekend list', 0)).toBe(
+      'Map of Weekend list. It has no places yet.',
+    );
   });
 
   it('leaves the name unwrapped, because a screen reader reads the isolates aloud', () => {

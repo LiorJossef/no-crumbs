@@ -58,6 +58,7 @@ import {
   updateCollection,
 } from '@/app/actions/collections';
 import type { CollectionDetail } from '@/app/collections/_lib/get-collections';
+import { drawerHref, INDEX_VIEW } from '@/app/map/_lib/drawer-view';
 import type { MapPlace } from '@/components/map/map-surface';
 import { PRESS_CHIP, PRESS_ROW } from '@/lib/interaction';
 import { cn } from '@/lib/utils';
@@ -290,7 +291,18 @@ function CollectionList({
             unlabelled back arrow used to occupy, so nothing has to be relearned. */}
         <div className="flex items-center gap-1">
           <Link
-            href="/collections"
+            /* **`drawerHref`, not the literal `/collections`.** All three of the drawer's views are
+               search params on `/map` since 2026-08-31 (`app/map/_lib/drawer-view.ts`), and the
+               literal is a redirect shim: going through it would cost a *segment* change on each
+               leg, which unmounts the drawer — the exact thing this route shape exists to prevent,
+               reintroduced by the one control whose job is leaving a collection.
+
+               It sits directly under the drawer's `Collections` switch segment, which goes to the
+               same place. That is a duplication and it is deliberate for now: `ux-collections-as-
+               scope.md` §5 item 3 specifies this kicker as the way out, and deleting it is a UX
+               ruling rather than a mechanical fix. It costs ~44px of a list window that is about
+               1.4 rows at `half`, which is the argument for taking it. */
+            href={drawerHref(INDEX_VIEW) as '/map'}
             aria-label="Collections"
             className={cn(
               KICKER,
@@ -615,7 +627,7 @@ function CollectionMenu({
               setError(result.message);
               return;
             }
-            router.push('/collections');
+            router.push(drawerHref(INDEX_VIEW) as '/map');
           })
         }
       />
@@ -637,7 +649,7 @@ function CollectionMenu({
               setError(result.message);
               return;
             }
-            router.push('/collections');
+            router.push(drawerHref(INDEX_VIEW) as '/map');
           })
         }
       />

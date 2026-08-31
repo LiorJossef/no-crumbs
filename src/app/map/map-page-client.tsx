@@ -155,6 +155,9 @@ import { zeroStateBounds } from '@/ui/place/viewport';
 import { ImportPageClient, type SaveOutcomeDetail } from '@/app/import/import-page-client';
 import { AddSheetHost } from '@/components/add/add-sheet-host';
 import { CollectionsContext, type CollectionsForPlace } from '@/ui/place/collections-context';
+import type { CollectionDetail, CollectionSummary } from '@/app/collections/_lib/get-collections';
+import { drawerHref, isCollectionsView, type DrawerView } from './_lib/drawer-view';
+import { useCollectionsScope } from './collections-scope';
 
 /** How long the typing has to settle before the result count is announced to a screen reader.
  *  Without it a `polite` live region reads a new count on every keystroke, which is worse than
@@ -214,15 +217,41 @@ function browserTimeZone(): string | null {
 }
 
 export function MapPageClient({
+  view,
   places,
   collections,
+  collectionSummaries,
+  collection,
+  currentUserId,
   revealPlaceId,
 }: {
+  /**
+   * **Which of the drawer's three views the URL asks for** — places, the collections index, or one
+   * collection (`_lib/drawer-view.ts`).
+   *
+   * It is a prop rather than client state because a URL has to address the view: back, forward and
+   * a deep link all have to work, and state-only navigation that breaks the back button is a worse
+   * product than the flicker it would remove. It is resolved on the server, so the first paint is
+   * already the right view with no JavaScript involved.
+   *
+   * **Everything above this line runs on every view.** The places machinery — the filters, the
+   * areas, the sort, the import overlay — is hooks, and hooks cannot be conditional, so it is all
+   * evaluated while a collection is on screen. That is the price of one mount, it is cheap, and it
+   * is the thing to check first if this page ever gets slow.
+   */
+  view: DrawerView;
   places: readonly MapPlace[];
   /** The caller's editable collections and what is already in them. Passed to a context rather
    *  than down through props for the same reason `TagFilterContext` exists: one of the three hosts
    *  of `PlaceDetail` lives inside the map surface, which must not learn what a collection is. */
   collections: CollectionsForPlace;
+  /** Every collection the caller is in, for the index's list. Empty on the places view, which does
+   *  not read it — see `page.tsx`, where the query is skipped rather than thrown away. */
+  collectionSummaries: readonly CollectionSummary[];
+  /** The open collection, or `null`. The page 404s an id the caller cannot read, so `null` here
+   *  means "not a collection view", never "not allowed". */
+  collection: CollectionDetail | null;
+  currentUserId: string;
   /**
    * One saved place to open on arrival, handed over by the create menu on a tab that has no map of
    * its own (`components/nav/bottom-nav.tsx`). Absent on every other way in.
@@ -230,10 +259,13 @@ export function MapPageClient({
    * It is a **handoff, not state**: consumed once, the URL is rewritten to `/map` in the same
    * breath, and a reload restores no selection — so `ux-architecture.md` §1.5's "selection is
    * client-only and never a URL in this slice" still holds for everything the user does on this
-   * page. It exists because the route boundary is a document boundary: `/collections` and
-   * `/profile` unmount this tree, so a picked or newly saved place has no other way to travel, and
-   * arriving on the whole map with no camera move and no detail open is indistinguishable from the
-   * tap having done nothing.
+   * page.
+   *
+   * It exists because a picked or newly saved place has no other way to travel across a *view*
+   * change. The collections views no longer unmount this tree — they are search params on this
+   * segment — but `/profile` still does, and the reveal must survive either. Arriving on the whole
+   * map with no camera move and no detail open is indistinguishable from the tap having done
+   * nothing.
    */
   revealPlaceId?: string;
 }) {
@@ -274,7 +306,16 @@ export function MapPageClient({
    * two halves of one fact in agreement for the life of the page, and the sheet does not jump
    * under a user who has just imported.
    */
-  const [restingStop] = useState<SheetStop>(() => (places.length === 0 ? 'half' : 'peek'));
+  const [restingStop] = useState<SheetStop>(() =>
+    // **`half` for a cold entry on a collections view**, which is `ui-review-2026-08-31.md` §1
+    // finding 1's fix: the index rested at `full`, so the map behind it was 0 % visible and 63.2 %
+    // of a 390×844 screen was empty. `half` puts 45 % of the screen back on the map.
+    //
+    // Snapshotted with everything else here, which is what makes a *view* change never resize the
+    // sheet: the stop belongs to the mount, so the drawer stays wherever the user dragged it and
+    // switching views is one animation fewer to explain.
+    isCollectionsView(view) || places.length === 0 ? 'half' : 'peek',
+  );
   /**
    * **Whether this arrival plays the post-login entrance** (`I2-7`, `iteration-2-plan.md` §2.2
    * ruling 2, `components/map/entrance.ts`).
@@ -1182,6 +1223,29 @@ export function MapPageClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cameraAlive, places]);
 
+  /**
+   * **The collections side of the drawer, as the handful of shell props it overrides.**
+   *
+   * `null` on the places view. It is a hook, so it runs on every render regardless — see the `view`
+   * prop for what that costs and why it is the right trade against a second `MapShell`.
+   *
+   * Everything it does *not* return is shared by all three views on purpose: the camera's focus
+   * slot, the `＋` menu with this page's library in it, the locate control, the import overlay and
+   * the sheet's stop. One mount, one drawer, one map.
+   */
+  const collectionsScope = useCollectionsScope({
+    view,
+    shell,
+    collections: collectionSummaries,
+    library: places,
+    detail: collection,
+    currentUserId,
+  });
+  const inCollections = collectionsScope !== null;
+  /** The mount-time framing hint. A cold entry on a collection frames that collection; a *switch*
+   *  is not a mount, and `useCollectionsScope`'s own re-fit is what moves the camera then. */
+  const shellBounds = collectionsScope ? collectionsScope.initialBounds : initialBounds;
+
   return (
     // Every chip in every tree below reads its state from here — the sheet's detail, and the map's
     // own pin-anchored popover, which is rendered inside `components/map/**` and would otherwise
@@ -1199,8 +1263,8 @@ export function MapPageClient({
           <NearMeDistancesContext value={distances}>
             <MapShell
               shell={shell}
-              places={matches}
-              initialBounds={initialBounds}
+              places={collectionsScope?.places ?? matches}
+              {...(shellBounds ? { initialBounds: shellBounds } : {})}
               // The camera, the pins, the sheet and the desktop panel all read one clock from here.
               // The wordmark is the fifth beat and reads the same clock from `page.tsx`, which is a
               // Server Component and cannot be handed a boolean by this one.
@@ -1213,40 +1277,61 @@ export function MapPageClient({
               restingStop={restingStop}
               // Selection only — tapping a pin must not move the camera under the finger that
               // tapped it. `selectPlace` (camera mover 3) is for the list, where the pin may be
-              // off-screen.
-              onPlaceClick={(place) => {
-                setSelectedId(place.id);
-              }}
-              selectedPlace={selected}
+              // off-screen. A collections view answers a pin differently; see `collections-scope`.
+              onPlaceClick={
+                collectionsScope?.onPlaceClick ??
+                ((place) => {
+                  setSelectedId(place.id);
+                })
+              }
+              /* **No map-drawn detail on a collections view**, and it is not a flag: a collection's
+                 pins are collection items carrying no `savedPlaceId`, so the surface's `lg+`
+                 popover would render `PlaceDetail` with `savedPlace={null}` — losing the shared
+                 note, `Added by` and `Remove from this collection`, which is exactly the four-item
+                 list `ux-collections-as-scope.md` §4 says a collection must add. On the index a pin
+                 is a link to the places view rather than a detail. Both details stay in the sheet
+                 and the panel, where they are complete. */
+              selectedPlace={inCollections ? null : selected}
               onDeselect={() => {
                 setSelectedId(null);
               }}
               // Selecting a place raises the sheet to `half`; without this the camera does not know
               // that and the pin the user just tapped can sit behind it. See camera mover 6.
               selectedOcclusionFraction={SHEET_HALF_FRACTION}
-              onViewportChange={handleViewportChange}
-              summaries={summaries}
-              onAreaClick={selectArea}
-              onCountryClick={focusCountry}
-              accessibleName={canvasName}
+              /* **Four props that belong to the places view and to no other**, so they are spread
+                 rather than nulled: `exactOptionalPropertyTypes` makes `summaries={undefined}` an
+                 error, and it is right to — an absent prop and a prop set to nothing are different
+                 claims. The area summaries are computed from the *library*, so drawing them over a
+                 collection's six pins would mark areas the list does not contain; and with no
+                 markers on the map there is nothing for the two tap handlers to answer.
+                 `onViewportChange` goes with them because what it updates is the places view's own
+                 scope, which nothing is showing. */
+              {...(inCollections
+                ? {}
+                : {
+                    onViewportChange: handleViewportChange,
+                    summaries,
+                    onAreaClick: selectArea,
+                    onCountryClick: focusCountry,
+                  })}
+              accessibleName={collectionsScope?.accessibleName ?? canvasName}
               /* **The drawer's own navigation** (owner, 2026-08-31). `BottomNav`'s `Collections`
                  tab is gone; the switch lives here, on the surface it acts on. Both hrefs are real
-                 links, so the control works with hydration killed.
+                 links, so the control works with hydration killed — and both are `searchParams` on
+                 *this* segment, so pressing either re-renders this page in place and unmounts
+                 nothing (`_lib/drawer-view.ts`).
 
-                 `/collections` is still a different route segment from this one, so this direction
-                 is an ordinary navigation and the sheet does remount on it — the same hop the
-                 tab made. Merging the two segments is what removes that, and it needs
-                 `src/app/map/page.tsx` to carry the collections read; it is asked for and not
-                 taken. Inside collections the switch is already unmount-free, because the index and
-                 a collection are one segment (`app/collections/_lib/drawer-view.ts`). */
+                 Inside a collection the `Collections` segment is both current *and* the way up: its
+                 href is the index. */
               views={{
-                current: 'places',
-                placesHref: '/map',
-                collectionsHref: '/collections',
+                current: view.kind === 'places' ? 'places' : 'collections',
+                placesHref: drawerHref({ kind: 'places' }),
+                collectionsHref: drawerHref({ kind: 'index' }),
               }}
               // Straight through to the surface, which quietens every other pin and draws this one
-              // lifted and named. See `hoveredId` — not a camera mover.
-              hoveredPlaceId={hoveredId}
+              // lifted and named. See `hoveredId` — not a camera mover. A collections view has no
+              // list of *places* to point at, so nothing is hovered there.
+              hoveredPlaceId={inCollections ? null : hoveredId}
               // The locate control sits in the surface's own control column because that is where a
               // user looks for it; everything it means — the permission, the fix, the flight — is
               // owned here. See camera mover 8.
@@ -1258,9 +1343,16 @@ export function MapPageClient({
                   onDismissNotice={nearMe.dismissNotice}
                 />
               }
-              announcement={spoken.message}
+              // The search's result count, which is a fact about the places list. A collections
+              // view is not showing it, and a live region that speaks about a list nobody can see
+              // is worse than silence.
+              announcement={inCollections ? '' : spoken.message}
+              // The post-import confirmation belongs over the map it just added a pin to. It is
+              // suppressed on a collections view rather than left to `lastImport` alone, because
+              // the `＋` can start an import from any view and the strip would then float over a
+              // list of collections saying what happened somewhere else.
               floatingSlot={
-                lastImport ? (
+                lastImport && !inCollections ? (
                   <ImportConfirmation
                     saved={lastImport.saved}
                     alreadySaved={lastImport.alreadySaved}
@@ -1274,7 +1366,14 @@ export function MapPageClient({
               // (`onSubmitTikTok` below), so nothing about the import path changed; what changed is
               // that it is now one of two things the button can start rather than the only one.
               onAdd={() => setAddOpen(true)}
-              sheetContent={(stop) => (
+              /* One slot, three views. The collections views hand back their own content and this
+                 page's `PlaceSheet` is not built for them at all — no area heading, no tag chips,
+                 no been filter — which is why `collection-content.tsx` exists rather than
+                 `PlaceSheet` growing a `variant`. */
+              sheetContent={(stop) =>
+                collectionsScope
+                  ? collectionsScope.sheetContent(stop)
+                  : (
                 <PlaceSheet
                   places={listed}
                   heading={heading}
@@ -1307,8 +1406,10 @@ export function MapPageClient({
                   stop={stop}
                   onExpand={shell.sheet.goTo}
                 />
-              )}
+                    )
+              }
               panelContent={
+                collectionsScope?.panelContent ?? (
                 <PlaceDesktopPanel
                   places={listed}
                   heading={heading}
@@ -1337,6 +1438,7 @@ export function MapPageClient({
                   sortOrders={sortOrders}
                   onChangeSort={chooseOrder}
                 />
+                )
               }
               /* Not guarded by the overlay, unlike the sheet, and the difference is that `PlaceSheet`
                is always open while this renders nothing at all when `addOpen` is false. Guarding it

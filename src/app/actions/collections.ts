@@ -21,15 +21,18 @@
  */
 
 /**
- * **There is one path to revalidate for the whole collections surface, and it is `/collections`.**
+ * **There is one path to revalidate for the whole product, and it is `/map`.**
  *
- * These actions used to call `revalidatePath('/collections/' + id)` as well, because a collection
- * was its own route segment. It is not any more: the index and one collection are one segment with
- * a search param between them (`app/collections/_lib/drawer-view.ts`), and `revalidatePath`
- * "operates on the route file structure, not the URL visible to users" — so the old form now names
- * `app/collections/[id]/page.tsx`, which is a redirect and renders nothing anybody looks at. Five
- * of the calls below were *only* that form; they would have stopped refreshing the surface the user
- * is standing on, silently, with nothing failing.
+ * These actions used to call `revalidatePath('/collections')` and
+ * `revalidatePath('/collections/' + id)`, because the index and a collection were their own route
+ * segments. Neither is any more: all three of the drawer's views are search params on `/map`
+ * (`app/map/_lib/drawer-view.ts`), and `revalidatePath` **"operates on the route file structure,
+ * not the URL visible to users"** — so both old forms now name redirect files that render nothing
+ * anybody looks at.
+ *
+ * That is the failure mode worth naming, because nothing would have reported it: a write would
+ * succeed, the action would return `ok`, the path would be dutifully revalidated, and the surface
+ * the user is standing on would go on showing the old rows.
  */
 import { revalidatePath } from 'next/cache';
 
@@ -91,7 +94,7 @@ export async function createCollection(
   }
 
   // The owner's membership row is created by a trigger, not here — see 0024. Nothing to do.
-  revalidatePath('/collections');
+  revalidatePath('/map');
   return { ok: true, id: (data as { id: string }).id };
 }
 
@@ -119,7 +122,7 @@ export async function updateCollection(
   }
   if (count === 0) return { ok: false, message: NO_ACCESS };
 
-  revalidatePath('/collections');
+  revalidatePath('/map');
   return { ok: true };
 }
 
@@ -138,7 +141,7 @@ export async function deleteCollection(collectionId: string): Promise<Collection
   }
   if (count === 0) return { ok: false, message: NO_ACCESS };
 
-  revalidatePath('/collections');
+  revalidatePath('/map');
   return { ok: true };
 }
 
@@ -201,7 +204,6 @@ export async function addPlacesToCollection(
   }
 
   revalidatePath('/map');
-  revalidatePath('/collections');
   return { ok: true, added, alreadyThere };
 }
 
@@ -233,7 +235,6 @@ export async function removePlaceFromCollection(
   if (count === 0) return { ok: false, message: NO_ACCESS };
 
   revalidatePath('/map');
-  revalidatePath('/collections');
   return { ok: true };
 }
 
@@ -255,7 +256,7 @@ export async function removeCollectionItem(
   }
   if (count === 0) return { ok: false, message: GONE };
 
-  revalidatePath('/collections');
+  revalidatePath('/map');
   return { ok: true };
 }
 
@@ -284,7 +285,7 @@ export async function updateCollectionItemNote(
   }
   if (count === 0) return { ok: false, message: NO_ACCESS };
 
-  revalidatePath('/collections');
+  revalidatePath('/map');
   return { ok: true };
 }
 
@@ -318,7 +319,7 @@ export async function reorderCollection(
     }
   }
 
-  revalidatePath('/collections');
+  revalidatePath('/map');
   return { ok: true };
 }
 
@@ -361,7 +362,7 @@ export async function createInvite(
     return { ok: false, message: NO_ACCESS };
   }
 
-  revalidatePath('/collections');
+  revalidatePath('/map');
   const row = data as { token: string; role: InviteRole };
   return { ok: true, token: row.token, role: row.role };
 }
@@ -383,7 +384,7 @@ export async function revokeInvite(collectionId: string): Promise<CollectionResu
     return { ok: false, message: NO_ACCESS };
   }
 
-  revalidatePath('/collections');
+  revalidatePath('/map');
   return { ok: true };
 }
 
@@ -417,7 +418,7 @@ export async function joinCollection(token: string): Promise<JoinResult> {
       : { ok: false, message: 'That invite link is no longer valid. Ask for a new one.' };
   }
 
-  revalidatePath('/collections');
+  revalidatePath('/map');
   return { ok: true, collectionId: data };
 }
 
@@ -443,7 +444,7 @@ export async function updateMemberRole(
   }
   if (count === 0) return { ok: false, message: NO_ACCESS };
 
-  revalidatePath('/collections');
+  revalidatePath('/map');
   return { ok: true };
 }
 
@@ -487,7 +488,7 @@ export async function removeMember(
     return { ok: false, message: NO_ACCESS };
   }
 
-  revalidatePath('/collections');
+  revalidatePath('/map');
   return { ok: true };
 }
 
@@ -511,7 +512,6 @@ export async function saveCollectionPlace(placeId: string): Promise<CollectionRe
   }
 
   revalidatePath('/map');
-  revalidatePath('/collections');
   return { ok: true };
 }
 
@@ -541,6 +541,6 @@ export async function updateDisplayName(rawName: string): Promise<CollectionResu
     return { ok: false, message: "Couldn't save that name. Try again." };
   }
 
-  revalidatePath('/collections');
+  revalidatePath('/map');
   return { ok: true };
 }

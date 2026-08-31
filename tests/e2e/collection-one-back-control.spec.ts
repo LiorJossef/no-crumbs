@@ -87,15 +87,16 @@ async function backShaped(page: Page): Promise<string[]> {
 
 /** The first collection on the index, whatever the database happens to hold. */
 async function openFirstCollection(page: Page): Promise<void> {
-  await page.goto('/collections');
+  await page.goto('/map?view=collections');
   const first = page.getByRole('link', { name: /\d+ places?/ }).first();
   await expect(first).toBeVisible({ timeout: 15_000 });
   await first.click();
-  // `?collection=<id>`, not `/collections/<id>`: the index and a collection are one route segment
-  // since 2026-08-31 (`app/collections/_lib/drawer-view.ts`), which is what stops the drawer being
-  // torn down and rebuilt on this tap. The path form still resolves — it is a redirect shim — and
-  // matching it here would let a regression back to two segments pass.
-  await page.waitForURL(/\/collections\?collection=[0-9a-f-]{36}/, { timeout: 15_000 });
+  // **All three of the drawer's views are search params on `/map`** since 2026-08-31
+  // (`app/map/_lib/drawer-view.ts`), which is what stops the drawer being torn down and rebuilt on
+  // this tap: a dynamic segment's value is part of the router's cache key and a search param is
+  // not. `/collections/<id>` still resolves — it is a redirect shim, kept forever — and matching it
+  // here would let a regression back to two segments pass.
+  await page.waitForURL(/\/map\?view=collections&collection=[0-9a-f-]{36}/, { timeout: 15_000 });
   await page.waitForTimeout(2500);
 }
 
@@ -110,7 +111,7 @@ async function press(page: Page, name: RegExp, by: 'text' | 'label' = 'text'): P
   const target =
     by === 'label'
       ? page.getByRole('button', { name }).first()
-      // `:visible`, because `/collections/[id]` mounts its content twice — drawer and `lg+` panel —
+      // `:visible`, because a collection mounts its content twice — drawer and `lg+` panel —
       // and the copy the breakpoint hides is first in document order. Pressing that one opens a
       // picker nobody can see.
       : page.locator('button:visible').filter({ hasText: name }).first();
@@ -142,7 +143,7 @@ test.describe('one back control, at every step inside a collection', () => {
         'a[aria-label="Collections"]:not(nav[aria-label="Main"] a):not(nav[aria-label="Places and collections"] a)',
       )
       .locator('visible=true');
-    await expect(upLink).toHaveAttribute('href', '/collections');
+    await expect(upLink).toHaveAttribute('href', '/map?view=collections');
     // ≥44 px, and leading: it stands where the deleted arrow stood.
     const upLinkBox = await upLink.boundingBox();
     expect(upLinkBox?.height ?? 0).toBeGreaterThanOrEqual(44);

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { createClient } from '@/app/_lib/supabase/server';
 import { Button } from '@/components/ui/button';
 import { emailLocalPart, isInviteRole } from '@/domain/collections/collection';
-import { collectionsHref } from '@/app/collections/_lib/drawer-view';
+import { collectionHref } from '@/app/map/_lib/drawer-view';
 import { JoinClient, JoinShell } from './join-client';
 
 export const metadata = { title: 'Join a collection' };
@@ -103,7 +103,7 @@ export default async function JoinCollectionPage({
   if (preview.already_member) {
     // The canonical URL, not the `/collections/<id>` shim — see `join-client.tsx`'s
     // `enterCollection` for why one redirect is better than two.
-    redirect(collectionsHref({ kind: 'collection', id: preview.collection_id }) as '/collections');
+    redirect(collectionHref(preview.collection_id) as '/map');
   }
 
   const { data: profile } = await supabase

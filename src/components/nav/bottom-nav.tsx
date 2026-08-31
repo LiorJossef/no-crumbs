@@ -198,11 +198,14 @@ export function BottomNav({ onAdd, places = [] }: BottomNavProps) {
     setMenuOpen(true);
   }
 
-  // **`/collections` lights the `Map` tab**, and that is the whole of what moving the switch into
-  // the drawer means here: the collections view is the map screen with different rows in its
-  // drawer, so the bar has to say you are on the map. Lighting nothing there — which is what an
-  // exact `=== '/map'` would do — would tell a screen reader user that they are on none of the
-  // product's destinations while looking at one of them.
+  // **Every collections URL lights the `Map` tab**, because the collections views *are* the map
+  // screen with different rows in the drawer. Since the route merge they are search params on
+  // `/map`, so `pathname` already says `/map` and the first arm covers them.
+  //
+  // The `/collections` arm is kept for the redirect shims, which are a real if brief URL — a hard
+  // load of a shared link paints once at that path before the redirect lands. Lighting nothing
+  // there would tell a screen reader user that they are on none of the product's destinations
+  // while looking at one of them.
   const onMap = pathname === '/map' || pathname.startsWith('/collections');
   const onProfile = pathname === '/profile';
 
