@@ -119,19 +119,37 @@ describe('the seam the no-JS rule hangs off', () => {
     expect(DEFAULT_PREFERENCE).toBe('system');
   });
 
-  it('is selected on with exactly the attribute, and at a specificity that beats :root', () => {
+  it('is gated on the attribute being absent, and on nothing else', () => {
     const { selector } = noJsBlock();
-    expect(selector).toBe(':root:not([data-theme])');
+
     /*
-     * `:root:not([data-theme])` is (0,2,0) — `:root` plus `:not()` taking its argument's (0,1,0) —
-     * so it overrides the light palette on `:root` (0,1,0). `html:not([data-theme])` would be
-     * (0,1,1) and would *lose*, silently, which is the plausible wrong edit. It also sits above
-     * `.dark` (0,1,0), which is harmless: the script writes the class and the attribute together,
-     * so the two can never match the same element, and if they somehow did they would paint the
-     * same palette.
+     * **The two properties that are correctness**, and they are the only two asserted:
+     *
+     *  - it is gated on `:not([data-theme])`, which is the seam the test above proves is exact. A
+     *    rule that dropped the gate would paint every light-preferring user dark on a dark device.
+     *  - it never mentions `.dark`. The class is the runtime's channel and this is the fallback;
+     *    a selector that tried to be both would make the precedence depend on source order.
      */
-    expect(selector).not.toMatch(/^html/);
+    expect(selector).toContain(':not([data-theme])');
     expect(selector).not.toContain('.dark');
+
+    /*
+     * **`:root` rather than `html` is a house-style choice, not a specificity requirement, and an
+     * earlier version of this file said otherwise.**
+     *
+     * It claimed `html:not([data-theme])` "would be (0,1,1) and would lose, silently". That is
+     * wrong, and it was written from memory rather than measured. Specificity compares
+     * lexicographically on (ids, classes/attributes/pseudo-classes, elements): `:root` is (0,1,0)
+     * and `html:not([data-theme])` is (0,1,1) — tied on the middle column, ahead on the last. It
+     * **wins**. Checked in a browser with the `:root` rule written *last*, so source order would
+     * have given the opposite answer; both forms override the light palette.
+     *
+     * The form here is `:root:not([data-theme])` because the light palette next to it is written
+     * on `:root`, and the two should read as a pair. That is a preference, so it is asserted as
+     * one — pinning the exact string, with the reason stated as taste rather than dressed up as a
+     * trap that does not exist.
+     */
+    expect(selector).toBe(':root:not([data-theme])');
   });
 });
 

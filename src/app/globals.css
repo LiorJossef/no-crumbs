@@ -1354,7 +1354,16 @@
  * `:root:not([data-theme])` is (0,2,0) and beats `:root` (0,1,0), which is what lets it override the
  * light palette wherever it applies. It is also above `.dark` (0,1,0) — which is harmless, because
  * the two can never match the same element, and if they somehow did they would paint the same
- * palette. Do not lower it to `html:not([data-theme])`: that is (0,1,1) and would lose to `:root`.
+ * palette.
+ *
+ * **An earlier version of this paragraph added "do not lower it to `html:not([data-theme])`, that
+ * is (0,1,1) and would lose to `:root`". That is false**, and it was reasoned rather than measured.
+ * Specificity compares lexicographically on (ids, classes/attributes/pseudo-classes, elements):
+ * (0,1,1) ties `:root`'s (0,1,0) on the middle column and is *ahead* on the last, so it wins.
+ * Checked in a browser with the `:root` rule written last, so source order would have given the
+ * opposite answer. Both forms are correct; `:root` is used here because the light palette beside it
+ * is written on `:root` and the two should read as a pair. Recorded because a stated trap that does
+ * not exist is worse than no note: the next reader trusts it instead of checking.
  *
  * ### The duplication below is deliberate, and it is guarded
  *
