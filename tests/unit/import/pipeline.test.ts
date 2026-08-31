@@ -3,10 +3,10 @@ import { describe, expect, it } from 'vitest';
 import {
   DOMAIN_ERROR_CODES,
   extractorInvalidOutput,
+  extractorQuotaExhausted,
   extractorUnavailable,
   notAuthenticated,
   postUnavailable,
-  rateLimitedLocal,
   rateLimitedUpstream,
   shortLinkUnresolved,
   upstreamTimeout,
@@ -514,18 +514,18 @@ describe('runImport — every one of the 13 DomainErrorCodes is a reachable fail
     await expectFailed(ports, makeInput(), 'RATE_LIMITED_UPSTREAM');
   });
 
-  it('RATE_LIMITED_LOCAL — raised, in production, by the route handler before this pipeline is ' +
-    'ever invoked (07 §9); proven reachable here via a fake ImportStore to show runImport maps ' +
-    'any DomainError from any port uniformly, not by special-casing which stage raised it', async () => {
+  it('EXTRACTOR_QUOTA_EXHAUSTED — the model provider answers correctly and declines: the day\u2019s ' +
+    'allowance is spent, which is a different failure from the transient one beside it', async () => {
     const ports = makePorts({
-      store: {
-        recordStage: async () => {
-          throw rateLimitedLocal();
+      extractor: {
+        version: 'v1',
+        promptVersion: 'p1',
+        extract: async () => {
+          throw extractorQuotaExhausted();
         },
-        finish: async () => {},
       },
     });
-    await expectFailed(ports, makeInput(), 'RATE_LIMITED_LOCAL');
+    await expectFailed(ports, makeInput(), 'EXTRACTOR_QUOTA_EXHAUSTED');
   });
 
   it('NO_CAPTION — every content extractor declines or returns nothing usable', async () => {
@@ -560,7 +560,8 @@ describe('runImport — every one of the 13 DomainErrorCodes is a reachable fail
   });
 
   it('NOT_AUTHENTICATED — raised, in production, by the route handler pre-A (07 §9); proven ' +
-    'reachable here the same way as RATE_LIMITED_LOCAL, via a fake port, for the same reason', async () => {
+    'reachable here via a fake port, to show runImport maps any DomainError from any port ' +
+    'uniformly rather than special-casing which stage raised it', async () => {
     const ports = makePorts({ content: [{ id: 'caption', supports: () => true, extract: async () => {
       throw notAuthenticated();
     } }] });

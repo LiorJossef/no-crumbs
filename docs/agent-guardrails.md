@@ -288,6 +288,22 @@ several of the original rules quietly depended on.
     report the part that would widen it.** Flagging something legitimate costs one line in a report.
     The opposite error costs whatever the instruction was after.
 
+28. **A whole-file write clobbers; an exact-match edit refuses.** Both happened within two minutes
+    on 2026-08-31, in opposite directions, in the same shared test file.
+
+    One session rewrote `tests/unit/import/pipeline.test.ts` from a stale buffer and silently
+    reverted another lane's edits — restoring an import of a symbol that no longer existed, which
+    surfaced as two typecheck errors and two failures in a lane that had not touched the file. The
+    other lane, at almost the same moment, tried to replace a now-stale assertion in a file the first
+    session owned; **its edit refused to apply, because the text it expected was no longer there** —
+    the first session had already fixed it correctly, seconds earlier.
+
+    The mechanism is the whole lesson. **An exact-match edit is a concurrency check**: it asserts
+    what it believes the file says, and fails loudly when that belief is stale. A whole-file write
+    asserts nothing and cannot fail. So under concurrency, prefer the edit that names the text it is
+    replacing, and treat a refused edit as information — it means someone moved, and the right next
+    step is to re-read rather than to force.
+
 ## 8. Concurrency — when more than one agent is running
 
 Rules 26–31 apply whenever the orchestrator has dispatched more than one specialist that has not yet
