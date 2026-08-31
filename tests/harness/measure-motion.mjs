@@ -294,10 +294,21 @@ async function readCamera(page) {
     // Labels are `text-field` **inside the pin layer**, tiered per feature by `labelZoom`
     // (`marker-style.ts`), not a separate layer and not a global switch. So "labels on" is a count,
     // not a boolean — which is the axis `facelift-plan.md` §2's 19.0 ms vs 34.0 ms sits on.
+    //
+    // `pinsMissingLabelZoom` is not defensive padding — it is the difference between two
+    // conclusions that produce the identical number. On 2026-08-31 this probe reported "0 of 2,000
+    // labelled" against a commit that gated labels with one flat `LABEL_MIN_ZOOM = 14`; the pins
+    // carried **no `labelZoom` property at all**, so the count was zero because the property was
+    // absent, not because any tiering had decided anything. Reporting "the tiering thinned them"
+    // from that number would have been confidently wrong. So the absence is counted separately and
+    // the distinct values are carried out, and a reader can tell which story the zero is.
+    const labelZoomOf = (f) => (f.properties ? Number(f.properties.labelZoom) : NaN);
+    const pinsMissingLabelZoom = pins.filter((f) => !Number.isFinite(labelZoomOf(f))).length;
     const labelled = pins.filter((f) => {
-      const labelZoom = f.properties ? Number(f.properties.labelZoom) : NaN;
+      const labelZoom = labelZoomOf(f);
       return Number.isFinite(labelZoom) && zoom >= labelZoom;
     }).length;
+    const labelZoomValues = [...new Set(pins.map(labelZoomOf))].sort((a, b) => a - b);
 
     const byLayer = {};
     for (const feature of symbols) {
@@ -311,6 +322,8 @@ async function readCamera(page) {
       symbolsRendered: symbols.length,
       pinSymbolsRendered: pins.length,
       pinLabelsRendered: labelled,
+      pinsMissingLabelZoom,
+      labelZoomValues,
       byLayer,
       reason: null,
     };
@@ -504,7 +517,9 @@ async function main() {
         `[motion] ${m.viewport}: resting zoom ${m.camera.zoom ?? `unknown (${m.camera.reason})`}` +
         `${m.camera.band ? ` (${m.camera.band} band)` : ''}, ` +
         `${m.camera.pinSymbolsRendered ?? '?'} pin symbols drawn, ` +
-        `${m.camera.pinLabelsRendered ?? '?'} of them labelled\n`,
+        `${m.camera.pinLabelsRendered ?? '?'} labelled` +
+        `${m.camera.pinsMissingLabelZoom ? ` (${m.camera.pinsMissingLabelZoom} carry NO labelZoom — the zero is a missing property, not a tiering decision)` : ''}` +
+        `; labelZoom tiers present: ${JSON.stringify(m.camera.labelZoomValues ?? null)}\n`,
     );
   }
   process.stderr.write(`\n[motion] report -> ${join(outDir, 'motion.json')}\n`);

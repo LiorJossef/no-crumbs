@@ -462,3 +462,49 @@ selected`**, with two candidate cards visible. Whether the third candidate is de
 the selectable set (it is the past-the-cap card nobody looked up) or simply below the fold, the two
 numbers contradict each other on the same screen. W6-4 is about to rework this screen's provenance
 hierarchy, so it is worth deciding deliberately rather than inheriting.
+
+## 12. Re-measured after the label tiering landed (`1eb78f5`)
+
+§10 predicted that `1eb78f5` would move the 2,000-pin measurement onto `facelift-plan.md` §2's
+expensive axis, because `5cd7ce8` put the camera where the pins draw and the tiering puts labels
+where the camera now rests. It landed. Re-measured at `31699a9`.
+
+**It does not. The tiering thins 2,000 clustered pins to zero labels by its own mechanism, and the
+probe can now prove that is what happened rather than inferring it.**
+
+| | 390×844 30 | 1440×900 30 | 390×844 **2,000** | 1440×900 **2,000** |
+|---|---|---|---|---|
+| Resting zoom | 11.605 | 13.005 | 10.923 | 12.366 |
+| Pin symbols drawn | 30 | 30 | 2,000 | 2,000 |
+| **`labelZoom` tiers present** | **[13, 14]** | **[13, 14]** | **[14]** | **[14]** |
+| **Pin labels drawn** | 0 | **5** | **0** | **0** |
+| Frame time max | 850.0 ms | 792.9 ms | 766.3 ms | 518.2 ms |
+| Frames over 33.3 ms | 9 | 11 | 12 | 15 |
+
+**Why the zero is trustworthy this time.** §10's zero was produced by a commit that stamped no
+`labelZoom` at all — the count was zero because the property was *absent*, and calling that "the
+tiering thinned them" would have been confidently wrong. The probe now reports the distinct tier
+values and counts pins carrying no tier, so the two stories are distinguishable. At 30 places the
+tiers are `[13, 14]` and **five labels actually render at z13.005** — the mechanism is live and
+demonstrably produces labels. At 2,000 places in one metro every pin is pushed to `[14]`, because
+`labelTierFor` sends a pin with no `LABEL_CLEARANCE_PX` of room to `LABEL_ALL_ZOOM`, and the camera
+rests at 10.9–12.4. **The package defends itself by its own mechanism**, which is worth more than an
+argument that it would.
+
+**The frame budget did not regress, and the reason to trust that is not `maxMs`.** Against the
+pre-tiering 2,000-place run: frames over 33.3 ms went 11 → 12 on mobile and **17 → 15** on desktop.
+`maxMs` went 543 → 766 on mobile, which looks alarming until you notice that **the 30-place run on
+the same commit measured 850 ms — higher than the 2,000-place run.** A 30-pin map cannot cost more
+than a 2,000-pin one; that is the instrument's noise, not the product's. So `maxMs` is
+noise-dominated at this sample size and the over-budget counts are the number to read. They are
+flat. **No regression attributable to `1eb78f5`.**
+
+This also tempers §10's own before/after: the mobile 425 → 543 ms difference recorded there is
+inside the same noise band and should not be read as a cost of `5cd7ce8` either. The over-budget
+counts remain the honest signal in both comparisons.
+
+**The boundary of this result, stated because it is where it would break.** These 2,000 pins are one
+metro, so none of them has clearance and all of them tier to 14. **A 2,000-place library spread
+across many cities would have clearance, would tier lower, and would draw labels at these zooms** —
+which is §2's 34.0 ms case. That library shape has not been measured. It is also not a shape this
+product produces today at that size, but it is the one to measure if anyone asks the question again.
