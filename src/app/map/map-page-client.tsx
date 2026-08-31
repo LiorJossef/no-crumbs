@@ -162,6 +162,18 @@ const ANNOUNCE_AFTER_MS = 500;
 const EMPTY_MAP_ACCESSIBLE_NAME = 'A map. Nothing saved yet.';
 
 /**
+ * How long the import overlay will wait for the saved places to reach `places` before uncovering
+ * the map anyway — `W6-7`'s floor.
+ *
+ * The overlay is held so the map is revealed *into* the post-import flight rather than before it,
+ * and the release condition is the refreshed rows arriving. `router.refresh()` is a server round
+ * trip and can be slow, fail, or return rows that do not contain what was saved. Without this the
+ * confirm screen would sit there for the life of the page and an import that had **succeeded**
+ * would look hung. Two seconds is well past a warm refresh and short of reading as a stall.
+ */
+const REVEAL_HOLD_MAX_MS = 2000;
+
+/**
  * The browser's own IANA time zone, or `null` where there is no browser.
  *
  * The **only** location signal this page ever reads, and it is not a location: it is a formatting
@@ -300,6 +312,33 @@ export function MapPageClient({
    * so a stale "8 places added" can never sit over a fresh run.
    */
   const [lastImport, setLastImport] = useState<SaveOutcomeDetail | null>(null);
+  /**
+   * **The places an import just saved, held while the map catches up** — `W6-7`, the last beat of
+   * the demo.
+   *
+   * The sequence without this: the user confirms, `ImportPageClient` hands the outcome up, requests
+   * the flight and closes itself — all synchronously, in one commit. But the flight cannot happen
+   * yet. `focusPlaceIds` is guarded on the ids actually being present in `places`
+   * (`map-surface.mapcn.tsx`), and `places` only changes when `router.refresh()`'s round trip
+   * lands. So the overlay unmounted, the map was revealed **sitting exactly where it had been**,
+   * and a few hundred milliseconds later it set off. Confirm, then a still map, then a flight: three
+   * beats where the product means one.
+   *
+   * Holding the ids here makes the overlay wait for the same condition the surface waits for, so
+   * the map is uncovered **into** the flight rather than before it. Effects run children-first, so
+   * on the commit where the refreshed rows arrive the surface's focus effect flies and this page's
+   * then lets the overlay go — in that order, without either knowing about the other.
+   */
+  const [pendingReveal, setPendingReveal] = useState<readonly string[] | null>(null);
+  /**
+   * The same ids, as a ref, and both are needed rather than one.
+   *
+   * `onClose` fires in the *same synchronous handler* as `onSaved`, before React has re-rendered,
+   * so the state above is not yet visible to it — a close that read state would always see `null`
+   * and would always close. The ref is written in the handler and read in the handler. The state
+   * exists because the release below has to re-run when `places` changes, which a ref cannot do.
+   */
+  const pendingRevealRef = useRef<readonly string[] | null>(null);
   /**
    * The one thing that moves the camera after the initial framing.
    *
@@ -1017,6 +1056,36 @@ export function MapPageClient({
    * is not in the library — a deleted place, a link someone kept — clears the URL and does nothing
    * else, which is the honest answer to "that place is not yours".
    */
+  /**
+   * **Let the overlay go the moment the flight can happen, and not before.**
+   *
+   * The condition is deliberately the *same* one `map-surface.mapcn.tsx`'s focus effect uses — the
+   * saved ids being present in `places` — because the point is that the two happen together.
+   * Effects run children-first within a commit, so the surface flies and then this uncovers it.
+   *
+   * **And a floor under it, for the same reason the pin landing has one.** `router.refresh()` can
+   * fail, be slow, or return rows that do not include what was saved (a filter, a race, an RLS
+   * result nobody predicted). Without a timeout the confirm screen would sit there for the life of
+   * the page with no way out but the ✕ — the import would look hung at the exact moment it had in
+   * fact succeeded. Two seconds is well past a warm refresh and short enough not to read as a
+   * stall; when it fires, the map is revealed the old way, which is a worse beat and not a broken
+   * one.
+   */
+  useEffect(() => {
+    if (pendingReveal === null) return;
+    const release = () => {
+      pendingRevealRef.current = null;
+      setPendingReveal(null);
+      setShowImport(false);
+    };
+    if (pendingReveal.some((id) => places.some((place) => place.id === id))) {
+      release();
+      return;
+    }
+    const timer = setTimeout(release, REVEAL_HOLD_MAX_MS);
+    return () => clearTimeout(timer);
+  }, [pendingReveal, places]);
+
   useEffect(() => {
     const id = pendingRevealId.current;
     if (id === null || !cameraAlive) return;
@@ -1176,7 +1245,12 @@ export function MapPageClient({
                 showImport ? (
                   <ImportPageClient
                     {...(importSeedUrl === null ? {} : { initialUrl: importSeedUrl })}
-                    onClose={() => setShowImport(false)}
+                    // Called synchronously after `onSaved` on the confirm path, and on its own
+                    // when the user simply leaves. Only a save defers: closing by hand must always
+                    // close, immediately, or the ✕ would appear broken.
+                    onClose={() => {
+                      if (pendingRevealRef.current === null) setShowImport(false);
+                    }}
                     // The recovery on the screen most imports end on. `NoPlacesScreen` withheld it
                     // while there was no manual-add surface to send anyone to; there is one now, and
                     // without this the modal outcome of an import is a dead end.
@@ -1187,6 +1261,12 @@ export function MapPageClient({
                     onSaved={(outcome) => {
                       setLastImport(outcome);
                       camera.framePlaces(outcome.savedPlaceIds);
+                      // Hold the overlay until these reach `places`. `onClose` fires synchronously
+                      // straight after this, and reads the same ids to decide whether to go now.
+                      if (outcome.savedPlaceIds.length > 0) {
+                        pendingRevealRef.current = outcome.savedPlaceIds;
+                        setPendingReveal(outcome.savedPlaceIds);
+                      }
                       // Writer 3. Resolves itself once the refreshed rows arrive, so this does not
                       // wait on the data.
                       const first = outcome.savedPlaceIds[0];
