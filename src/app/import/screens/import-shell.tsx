@@ -117,28 +117,53 @@ export function ImportShell({
             'lg:relative lg:my-auto lg:w-[clamp(420px,34vw,480px)] lg:max-w-none lg:flex-none lg:max-h-[min(52rem,calc(100vh-4rem))] lg:justify-start lg:overflow-hidden lg:rounded-2xl lg:border lg:border-border/70 lg:bg-card lg:px-8 lg:py-10 lg:shadow-sheet',
         )}
       >
+        {/*
+            **36px circle, 44px hit area** — `spec-no-places-found.md` §4's own wording, and the
+            shape it asks for. The visual stays where it was and the target grows around it.
+
+            `size-11` with `-m-1` is how, and the negative margin is the whole trick: on an
+            absolutely positioned box, a −4px margin pulls the border box 4px up and left of its
+            `left`/`top`, so the 36px circle centred inside it lands on exactly the pixel it landed
+            on before. No inset value had to move, at either breakpoint, and nothing below shifted.
+
+            It was 36 × 36 — under this project's 44px bar (§8.3), and this is the **only** way off
+            the import flow at the top of the screen. `spec-no-places-found.md` §5.4 already knew:
+            it kept a second ghost `Back to the map` in that screen's footer because "the ✕ is a
+            36px target in the top-left corner of an 812pt screen". That second exit stays — 44px
+            in the hardest corner for a right thumb is still the hardest corner — but the reason it
+            was needed is now one problem smaller.
+
+            `group` so the hover still fires from the whole target rather than only from the circle.
+        */}
         {isOverlay ? (
           <button
             type="button"
             onClick={onLeave}
             aria-label="Close and return to map"
-            className="absolute left-5 top-[calc(env(safe-area-inset-top)+2rem)] z-20 flex size-9 items-center justify-center rounded-full bg-accent text-brand hover:bg-accent/80 motion-safe:transition-colors lg:left-6 lg:top-6"
+            className="group absolute -m-1 left-5 top-[calc(env(safe-area-inset-top)+2rem)] z-20 flex size-11 items-center justify-center lg:left-6 lg:top-6"
           >
-            <X className="size-4" aria-hidden />
+            <span className="flex size-9 items-center justify-center rounded-full bg-accent text-brand group-hover:bg-accent/80 motion-safe:transition-colors">
+              <X className="size-4" aria-hidden />
+            </span>
           </button>
         ) : (
           <Link
             href="/map"
             aria-label="Close and return to map"
-            className="absolute left-5 top-[calc(env(safe-area-inset-top)+2rem)] z-20 flex size-9 items-center justify-center rounded-full bg-accent text-brand hover:bg-accent/80 motion-safe:transition-colors lg:left-6 lg:top-6"
+            className="group absolute -m-1 left-5 top-[calc(env(safe-area-inset-top)+2rem)] z-20 flex size-11 items-center justify-center lg:left-6 lg:top-6"
           >
-            <X className="size-4" aria-hidden />
+            <span className="flex size-9 items-center justify-center rounded-full bg-accent text-brand group-hover:bg-accent/80 motion-safe:transition-colors">
+              <X className="size-4" aria-hidden />
+            </span>
           </Link>
         )}
         {/* Clearance below the close button, not just a same-height spacer: at `h-9` (36px) this
-            div was exactly the button's own height (`size-9`), so the heading that follows sat
-            flush against the button's bottom edge with zero gap. `h-14` (56px) leaves ~20px of
-            breathing room between the button and the kicker/heading below it, on both widths. */}
+            div was exactly the circle's own height, so the heading that follows sat flush against
+            its bottom edge with zero gap. `h-14` (56px) leaves ~20px of breathing room below the
+            36px circle on both widths — unchanged when the *target* grew to 44px above, because
+            the extra 4px is negative margin rather than layout, and the 16px that remains below
+            the hit box is still clear of the nearest thing under it, which is text and not a
+            target. */}
         <div className="h-14 shrink-0" aria-hidden />
         {children}
       </div>

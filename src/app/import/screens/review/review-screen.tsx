@@ -284,7 +284,14 @@ export function CaptionPreviewScreen({
               aria-expanded={captionOpen}
               aria-controls={captionId}
               onClick={() => setCaptionOpen((open) => !open)}
-              className="flex h-6 items-center gap-1 text-caption font-medium text-muted-foreground"
+              // `h-11`, not `h-6`. This was a **24px** target on the flagship confirm screen —
+              // above WCAG 2.5.8's AA minimum but under this project's own 44px bar (§8.3), and
+              // the no-places screen's copy of this exact row already used `h-11`. Plain height
+              // rather than the ✕'s negative-margin trick: this one sits 2px under the handle
+              // link, so growing the box outward would overlap an adjacent target, which §8.3
+              // also forbids. It costs the candidate list 20px and buys the two source rows being
+              // the same row.
+              className="flex h-11 items-center gap-1 text-caption font-medium text-muted-foreground"
             >
               {captionOpen ? 'Hide the caption' : 'Show the caption'}
               <ChevronDown
@@ -460,7 +467,8 @@ export function CaptionPreviewScreen({
             </Button>
             {selectedCount === 0 && (
               // The only state with a dead primary is the one state that most needs a
-              // thumb-reachable way out — the ✕ is a 36px target in the top-left corner.
+              // thumb-reachable way out — the ✕ is in the top-left corner, which is the hardest
+              // place on the device for a right thumb whatever its size.
               <Button
                 type="button"
                 variant="ghost"

@@ -307,9 +307,11 @@ export function NoPlacesScreen({
         >
           {IMPORT_ERROR_ACTION_LABEL.another_tiktok}
         </Button>
-        {/* The second way out, and it is the correct answer here rather than a defect: the ✕ is a
-            36px target in the top-left corner — the single hardest place on the device for a right
-            thumb — and this screen is where a user who has run out of ideas actually is. */}
+        {/* The second way out, and it is the correct answer here rather than a defect: the ✕ sits
+            in the top-left corner, which is the hardest place on the device for a right thumb
+            whatever its size — and this screen is where a user who has run out of ideas actually
+            is. (It was also a 36px target until W7-6; that is fixed, and this exit is still
+            right, because the reason was reach rather than size.) */}
         <Button
           type="button"
           variant="ghost"
