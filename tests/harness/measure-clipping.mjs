@@ -12,6 +12,19 @@
  * chips, which I classified `below-the-fold` and reported as *not* a defect, while another lane
  * asking a different question found live shipped ink being shaved on the bottom nav.
  *
+ * ## Two questions, and only one of them finds the bottom nav
+ *
+ * The distinction is the reason this file exists and it is easy to lose to a summary, so it is
+ * stated plainly. **I asked: does a glyph sit inside its own padding box?** Answer, for the two
+ * `/map` tag chips: no pixel of them is inside the photograph at all, because they are at the fold
+ * — so `below-the-fold`, and *not a defect*, which was correct. **Another lane asked: does a
+ * content box clip an inline box?** Answer, for `bottom-nav.tsx`: yes, an 11px content box around a
+ * 15px inline box, shaving live shipped Latin on every mobile screen.
+ *
+ * Both answers are right and they are independent. Only the second question finds a shaved
+ * descender, and no amount of care with the first one ever would have — which is why the second is
+ * an instrument rather than a field on the first.
+ *
  * The question a camera cannot answer is *what would have been painted*. So this asks it twice,
  * from two directions, and reports both:
  *
