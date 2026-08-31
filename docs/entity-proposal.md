@@ -451,9 +451,108 @@ shared collection · editing the post's words · a category on a mention · a me
 importing Instagram or YouTube content · a count of mentions anywhere the count of places appears ·
 and the scope creep to refuse by name: *"while we're in the review screen, let's also…"*.
 
+## 10. Re-check against `security-ruling-e1-caption-retention.md` (2026-08-31)
+
+The ruling approves E1, narrows it to the extraction rather than the caption, and adds ten
+conditions. Re-checked against §9.1 as asked.
+
+**Result: one criterion broke, and it broke on its mechanism rather than its property.** Eight hold
+unchanged, three hold with a refinement the ruling supplies, and seven are added. The four
+pre-committed properties all survive: point 3 never fired, so nothing was traded.
+
+### 10.1 The break
+
+**Criterion 1 is withdrawn and replaced.** It read *"advance the clock past `imports.expires_at` (or
+delete the `imports` row)"*, and the ruling's central finding is that **`imports.expires_at` has no
+enforcer** — no sweeper, no cron, no Edge Function, no `delete from imports` anywhere (F2). Advancing
+a clock past a default nothing reads proves nothing. My own criterion was built on the same stale
+premise the ruling was written to correct, which is worth saying plainly rather than quietly
+rewriting: I quoted the 24-hour bound as a fact and it was a comment.
+
+The property is unchanged — a mention's lifetime is not its import's — and it is now provable by
+structure rather than by a timer, because the ruling's table shape has **no FK to `imports` at all**:
+
+> **1a.** The mention table has **no `import_id`**, and **no TTL-shaped column** — no `expires_at`,
+> no `deleted_at`, no retention timestamp of any kind. Read from the DDL. A TTL here would rebuild
+> the defect under a new name (ruling §1), so its *absence* is the assertion.
+> **1b.** Deleting the `imports` row (as `postgres`, in the harness — `authenticated` holds no DELETE
+> grant on `imports` by design) leaves the mention present and readable by its owner.
+> **1c. D1 proven, not read.** Delete the `profiles` row and assert the mention is **gone**. This is
+> the only edge that removes it, and it is the whole of the retention bound, so it is verified by
+> execution or it is not verified.
+
+### 10.2 The eleven that stand
+
+| # | Status |
+|---|---|
+| 2 — no coordinates, cannot acquire them | **holds**, and gains the ruling's condition 9: assert **no resolver call and no `place_lookups` write** anywhere in the E1 path, on any schedule or trigger. A permitted `addressHint` is one provider call from being a coordinate, which is why this is now inside the veto rather than inside my design |
+| 3 — never counted as a place | **holds unchanged** |
+| 4 — never draws on the map | **holds unchanged** |
+| 5 — text immutable | **holds, refined.** The failure code is **`42501`**, and the UPDATE grant covers the dismissal/state column *only* — assert that `user_id`, `source_id`, the text and the `saved_places` pointer are all ungranted, not merely unused |
+| 6 — Instagram case, `sources.platform` not widened | **holds**, upgraded from an acceptance criterion to a veto condition (U3) |
+| 8 — resolving one closes it | **holds unchanged.** Note the pointer is server-written; there is no client grant on it |
+| 9 — dismissal is not deletion of what it came from | **holds unchanged**, and is structurally protected: `source_id` is `on delete restrict`, so removing a mention cannot reach `sources` |
+| 10 — banned vocabulary | **holds**, and gains the ruling's accuracy constraint: **quotation marks are honest around `rawName` and around nothing else.** A derived or normalised value rendered in quotes asserts a quotation we did not take |
+| 11 — empty state designed | **holds unchanged** |
+| 12 — one migration, `0031` | **holds, extended.** `supabase/tests/inventory.sql` is updated in the **same commit** (D3), and a policy-test file for the new table lands in it too |
+| 7 — cross-user read/delete | **holds**, and is now **condition Q**: executed as two real roles against a leased container, in a policy-test file landing with the migration. The ruling does not accept "the policy says so" as evidence, including from its own author. Neither do I |
+
+### 10.3 Seven criteria the ruling adds
+
+13. **`evidence` and `content_text` appear nowhere in the diff** — not in the migration, not in a
+    query, not in a type that reaches a component. This is the narrowing, asserted rather than
+    trusted.
+14. **No arm is added to `sources_select_via_membership`**, no policy on `sources` or `extractions`
+    names the mention table, and no policy in `0031` names any `collection_*` table. Inside the veto.
+15. **No `SECURITY DEFINER` function returning a mention row is granted to `authenticated`.**
+16. **No INSERT grant** — or, if one is granted, its `with check` requires an owning `imports` row
+    for the named `source_id`, the `sps_insert_own` shape.
+17. **No server-side `fetch` of the pasted URL, ever** (U1). Assert by grep across the E1 path: no
+    fetcher, no oEmbed call, no `og:` read. This is an arbitrary-URL column with no allow-list behind
+    it.
+18. **`check (<url> ~ '^https://')` exists at the database** (U2). Client-side validation does not
+    satisfy this; a stored `javascript:` URL rendered into an `href` is stored XSS.
+19. **The two deletion strings account for mentions, in the same commit** (condition 10). §10.4.
+
+### 10.4 Condition 10 discharged — the deletion copy
+
+Mine to write, so here it is rather than a note that someone should.
+
+**First, a scope ruling the copy depends on, and it is load-bearing beyond the copy: a mention is
+created by the user's action, never automatically.** The review screen's third action — *keep for
+later* — and the equivalent on the no-places screen are the only things that make one. This is
+compatible with the ruling's condition 5 (the tap calls a server action; the server inserts; no
+INSERT grant is needed), and it is what stops E1 becoming the second graveyard I flagged when I
+proposed it. An automatic mention on every failed import would accumulate at roughly three quarters
+of all imports, unasked for, and *"anything you kept"* would be a false description of it.
+
+**The two strings** (`src/app/profile/account-actions.tsx:55,57`; deck C143 / C145). The change is
+one clause in each, and the order matters — the new item goes second so the four-item list does not
+put the longest phrase next to *and your account*, where it reads as a garden path:
+
+| | now | after `0031` |
+|---|---|---|
+| `entryLine` | `This removes your places, your collections and your account.` | `This removes your places, anything you kept for later, your collections and your account.` |
+| `confirmBody` | `Your places, your collections and your account are removed. This can't be undone.` | `Your places, anything you kept for later, your collections and your account are removed. This can't be undone.` |
+
+Checked against `voice-and-vocabulary.md`: sentence case, no exclamation, no banned word, no brand
+name, one clause plus the existing second sentence, and it keeps the two strings parallel — they are
+deliberately parallel today and that should not be lost to a four-item list. No Oxford comma, matching
+the shipped strings.
+
+**One phrasing I rejected and why, so it is not re-proposed:** *"everything on your map"* is shorter
+and is **false** — criterion 4 says a mention never draws on the map, so a sentence that sweeps it up
+as map content contradicts the invariant the entity exists to hold. The enumerating form is longer and
+true, and the ruling is right that a sentence which lists nouns has to list the new one.
+
+**I concur that no separate retention notice is required.** A banner saying *we keep this until you
+delete your account*, on the one screen whose only control is that same deletion, is noise, and §7
+rule 1 would refuse it.
+
 ## Change log
 
 | Date | Change |
 |---|---|
 | 2026-08-31 | Created, `ENTITY-1`, in answer to the owner's request for 3–5 new entities. Four proposed and one refused. **E1, the mention we could not place** — ranked first because it is the only proposal that touches the ~73% modal import outcome, which today produces nothing at all: `imports.candidates` expires in 24 hours, so the user's intent is destroyed on a timer, and a non-TikTok link has no row anywhere because `sources.platform` is checked to `'tiktok'`. One entity, two producers, no relationship to `places` ever. **E2, the account that posted it** — recommended as a screen and *not* as a table, on the finding that a `creators` table earns its existence only on a durable key that survives a handle rename, which `0003`'s own header records as already drifting; the oEmbed author-id question is put to `social-integration` for a VERIFIED/ASSUMED/UNAVAILABLE label. **E3, a start point** — a private coordinate that is not a recommendation, ruled tap-to-place rather than provider-resolved so it carries no quota and no ToS surface, and it is the half of the trip idea that is genuinely a new noun. **E4, a note entry** — deferred to L3 behind evidence that Been and notes are used at all, rather than quietly reopening the visit-history cut made six days earlier. **E5, trips — recommended against**: a trip is a collection plus two dates, and the dates buy a message we have permanently refused to send and an itinerary Charter §1 refuses to build; the narrow acceptable version is two nullable columns on `collections` gated on a surface that does more than sort. Four ideas named as filters rather than entities so they stop being re-proposed. A `security-privacy` gate flagged on E1 that I cannot override — E1 turns a 24-hour display of caption-derived text into permanent retention, against `0003` R8 and the still-open Q4. One absent owner named: `map-page-client.tsx` is owned by no agent and E3 lands in it. Recommendation: **E1, after `L1-F10` and item 0, not before** |
+| 2026-08-31 | **§10 added: E1 re-checked against `security-ruling-e1-caption-retention.md`, which approves it, narrows it to the extraction rather than the caption, and adds ten conditions.** All four pre-committed properties survive; point 3 never fired, so nothing was traded. **One criterion broke — criterion 1, on its mechanism rather than its property.** It tested the horizon by advancing the clock past `imports.expires_at`, and the ruling's central finding is that that bound has no enforcer at all: my own criterion rested on the same stale premise the ruling was written to correct, and I had quoted the 24-hour hold as a fact when it was a comment. Replaced by three that prove the property structurally — no `import_id` and **no TTL-shaped column** on the table (its absence is the assertion, because a TTL would rebuild the defect under a new name), the mention outliving a deleted `imports` row, and **D1 proven by executing a profiles delete** rather than by reading the cascade. Eleven criteria stand, three with refinements the ruling supplies (`42501` named, the ungranted column list enumerated, criterion 7 upgraded to condition Q — executed as two real roles, not read from the policy). Seven added, covering the narrowing (`evidence` and `content_text` absent from the diff), the membership-policy prohibitions, the missing INSERT grant, and the non-TikTok arm's U1/U2. **Condition 10 discharged rather than noted:** the two deletion strings are amended in §10.4, and the copy depends on a scope ruling made here — **a mention is created by the user's action, never automatically**, which is what keeps *"anything you kept for later"* true and stops E1 accumulating at the ~73% failure rate into the second graveyard I flagged when I proposed it. *"Everything on your map"* rejected as shorter and false: criterion 4 says a mention never draws on the map |
 | 2026-08-31 | **Amended the same day on the orchestrator's reading, which is recorded beside mine rather than merged into it.** E1 may not be new scope at all: a core surface that discards its own content in twenty-four hours is the L1 import path unfinished on its modal branch, not an L2 addition — `mvp-plan.md` §2 already rules the no-places screen a core surface rather than an error path. The two readings agree on every design decision and disagree only on whether E1 sits inside L1 or competes at L2, which is a schedule call six days from the deadline and therefore the owner's; §9's precondition is explicitly marked as conditional on that answer, so a schedule preference is not presented as a scope ruling. **E2's finding is promoted to the front of its section:** `creatorBreakdown` is already computed at `profile-stats.ts:163` and rendered nowhere — the section that displayed it was deleted on 2026-08-30 and the computation stayed — so E2's screen is connecting work rather than new work, ranked third on impact and roughly **first on cost**, which §9 now says outright. **`L0-F6`'s non-dependency is stated rather than left to be inferred:** E1 consumes the import's outcome, not its stage events, so it is buildable against `/api/imports/probe` unchanged while the streaming route stays paused, and that sentence is owed to `execution-plan.md` |
