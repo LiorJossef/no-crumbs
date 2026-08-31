@@ -14,9 +14,9 @@
 
 ## 0. The shape of it
 
-97 commits. **88 files changed under `src/`** (+10,167 / −2,782) and **60 under `tests/`**
-(+8,087 / −143). Thirteen specialists dispatched across nine waves, four build lanes running
-concurrently against one shared working tree.
+**120 commits. 95 files changed under `src/`** (+11,589 / −2,875), and a comparable weight of tests.
+Thirteen specialist agents across nine waves, four build lanes running concurrently against one
+shared working tree, with the lead reading every diff as it landed.
 
 **The one-sentence version.** The product opened on the same screen whether you had saved nothing or
 three hundred places — a stock basemap and a number — and it now opens on your own places, under its
@@ -33,16 +33,16 @@ Measured at `HEAD` with §4's own commands.
 | # | Target | Baseline | Measured | Verdict |
 |---|---|---|---|---|
 | **K2** | `npm run verify` green | — | **green**, all 8 stages | **met** |
-| **K3** | Tests ≥ 2022 | 2017 / 114 files | **2411 / 142 files** | **met** |
-| **K4** | `@theme` keys ≥ 60 | 36 | **88** | **met** |
+| **K3** | Tests ≥ 2022 | 2017 / 114 files | **2489 / 148 files** | **met** |
+| **K4** | `@theme` keys ≥ 60 | 36 | **89** | **met** |
 | **K5** | Arbitrary values ≤ 60 | 166 | **17** | **met** |
 | **K6** | Raw `var(--mint-N)` ≤ 10 | 75 | **0** | **met** |
 | **K7** | `active:` ≥ 3 shared class strings | 3 | **9**, three shared constants | **met** |
-| **K8** | `group-hover:` > 0, coupling works | 0 | **5** — see the note below | **met** |
-| **K9** | `motion-safe:` > 0, every animation has a reduced arm | 0 | **41** | **met** |
+| **K8** | `group-hover:` > 0, coupling works | 0 | **7** — see the note below | **met** |
+| **K9** | `motion-safe:` > 0, every animation has a reduced arm | 0 | **67**, and `motion-reduce:` 10 → **1**, which is inside a comment | **met** |
 | **K10** | `loading.tsx` for three routes | 0 | **3** | **met** |
 | **K11** | Four brand asset files | 0 | **4** | **met** |
-| **K12** | Zero hard-coded colours added | 26 | **24** | **met** — went down |
+| **K12** | Zero hard-coded colours added | 26 | **25** | **met** — went down |
 | **K13** | First screen shows the paste field and a framed map | — | **partial** — see §3 | **partial** |
 | **K14** | Home shows the user's own pins at rest | — | **met**, restated — see below | **met** |
 
@@ -96,3 +96,78 @@ Nine, in the order I would want them.
    bundled face. Committing the binary is the owner's call.
 9. **Provider requests per import rose 7 → 8**, one more paid Google lookup, as the direct consequence
    of `W1-3` raising `MAX_CANDIDATES` so an eight-venue listicle survives whole.
+
+
+---
+
+## 1b. The four quality gates
+
+| Gate | Verdict | Judged by | Evidence |
+|---|---|---|---|
+| **Q1** the walkthrough | **PASS with twelve findings**, four of them fixed the same night | `qa-reliability` | 42 captures, both gate viewports, 0/3/30/300 places; `overnight-harness-notes.md` §13 |
+| **Q2** the demo runs clean | **COULD NOT BE RUN** | — | See below. Not a fail; an honest gap |
+| **Q3** nothing over-claims | **PASS, all four claims** | `security-privacy`, which built none of the UI | [`overnight-q3-verdict.md`](overnight-q3-verdict.md) |
+| **Q4** it feels alive | **PARTIAL** — the mechanical half passes, the judged half needs a person | `qa-reliability` | Motion traces, `overnight-harness-notes.md` §14 |
+
+**Q2 is the one gate this run could not honour, and the reason is structural.** The 90-second demo
+is a real TikTok fetch → oEmbed → an LLM call → a database write. This checkout has **no
+`.env.local`** — only `.env.example` — and reading any `.env*` file is on the project's harness deny
+list, which I did not lift. Docker is not running, so there is no local Supabase either. **A sequence
+of stub-backed screenshots captioned "the demo" would have been a fabrication**, and the agent that
+would have produced them said so before I had to. Q2 needs a real deployment, real credentials and a
+person, and it is the first thing I would do in the morning.
+
+**Q3 is the gate §8a says outranks the others, and the way it was judged matters.** The screenshots
+could not answer its fourth claim: the candidate list is an internal scroll container, so the
+`capped` card — the one the claim exists to check — is **below the fold in every capture at both
+viewports**, and `--full-page` does not reach it. *A gate judged on what fits in the frame would have
+passed the one card it was written for without ever seeing it.* A rendered-text probe was written
+instead. `HEAD` then moved six commits mid-review, and rather than gloss that the judge proved the
+entire import surface byte-identical across all three commits used, with a diff.
+
+**Q4's mechanical half passes and its judged half does not close.** Press feedback exists on the
+shared button, row and chip strings (`active:` 3 → 9, three named constants). Hovering a row lifts
+its pin (`group/row` + `group-hover/row:`). Filtering fades rather than deletes. Pins land in waves —
+measured against a *before* in which the map and its markers arrived in **one whole-surface fade with
+zero visible change events after it**, i.e. no per-marker entrance at all. Under
+`prefers-reduced-motion` everything collapses to opacity, and `motion-reduce:` went 10 → 1 (the
+survivor is inside a comment). **What a trace cannot say is whether it looks good.** That needs a
+person on a real device, and so does the 60fps half of W7-6 — software GL gives a ranking, not a
+frame rate.
+
+---
+
+## 3. What was not completed, and precisely why
+
+1. **Q2, the demo gate** — no credentials, no local database, and faking it was refused. Above.
+2. **The 60fps-on-a-real-device half of W7-6** — no device and no hardware compositor here. What
+   *was* measured is a comparison, and it retires a standing risk: with the sheet **open** over a
+   live map at 390×844, the over-budget frame count is roughly **half** the sheet-closed count
+   (67/73/61 against 123/130/123 over 16.7 ms), because the sheet covers half the viewport and
+   **canvas area dominates blur cost**. `facelift-plan.md` finding 12's mechanism is real; the fear
+   was misplaced.
+3. **S1 — 300 places on a phone is an unreadable heap.** The top-ranked Q1 finding. There is no
+   density handling inside the pin band and clustering was deliberately removed in `ac43eaa`. W2-1
+   turned that screen from *one capsule* into *300 pins*, which is unambiguously better and still not
+   good. The named repair is `growth-plan.md` §5.7's ~1.5 km neighbourhood band, which this run did
+   not fund and which I refused to start unverified at 3am on top of the camera work that had just
+   landed.
+4. **Per-package independent verification did not run as §7 describes.** Two verification agents were
+   dispatched and both went idle without reporting; I chased both twice. What replaced it: Q1's
+   independent 42-capture walkthrough, Q3's independent verdict, the reliability agent's measured
+   harnesses, and the lead reading **every diff as it landed** and photographing the visual claims.
+   That is real independent evidence and it caught real defects — **but it is not the per-package
+   ledger the protocol asks for, and the ledger's "verified by" column reflects that honestly.**
+5. **`src/components/ui/map.tsx` was ruled out of scope** — 2,000 vendored lines holding 12 of the 25
+   remaining hard-coded colours, two hand-rolled icon buttons and three unguarded `animate-pulse`
+   dots. Opening it at 3am was the wrong trade. It is owed work.
+6. **Landing and sign-in contrast is unscored in both themes** — their text sits on the `--brand-wash`
+   gradient, which has no single background colour, so 74 of the sweep's 80 indeterminate elements are
+   those two screens. They need a manual or pixel check.
+7. **The live regions were specified, not consolidated.** The audit's "four `aria-live` regions doing
+   the job of one" collided with a written decision that one of them is panel-local *on purpose*, and
+   most of the nineteen `role="alert"` uses are inline field errors that belong where they are. I
+   routed the ruling and told the build lane to touch none of them. Better four correct regions than
+   one wrong one.
+8. **Nothing merged**, as expected: CI still cannot start a runner, so `merge:pr` correctly refuses.
+   No attempt was made and none should be.
