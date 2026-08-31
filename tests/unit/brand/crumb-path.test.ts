@@ -117,7 +117,26 @@ describe('the crumb outline', () => {
       readFileSync('src/components/brand/chrome-stage.tsx', 'utf8'),
       'the chrome lockup should reach the mark through the seam',
     ).toContain('<ChromeMark');
-    for (const file of ['src/app/page.tsx', 'src/app/sign-in/page.tsx']) {
+    /*
+     * **`/sign-in` is a route file plus a client island as of `r1-auth`, so the chain there has one
+     * more link — and it is asserted rather than skipped.**
+     *
+     * The screen has to know which of its two audiences arrived before it renders a word (a first
+     * time invitee was being shown *"Your places are waiting."*), and that value comes from
+     * `?mode=`. Reading it on the client is either a Suspense boundary around the product's front
+     * door or a hydration mismatch, so the route reads `searchParams` and hands the island two
+     * props. The composition — and therefore the lockup — moved with the island.
+     *
+     * This assertion's own header says the property is *of the surface*, not of a file's import
+     * list. The surface is now two files, so both links are pinned: the route reaches its screen,
+     * and the screen reaches the stage. Dropping the route from the list instead would have left
+     * `/sign-in` able to stop rendering its own screen with this still green.
+     */
+    expect(
+      readFileSync('src/app/sign-in/page.tsx', 'utf8'),
+      'the sign-in route should reach its own screen',
+    ).toContain('<SignInScreen');
+    for (const file of ['src/app/page.tsx', 'src/app/sign-in/sign-in-client.tsx']) {
       expect(reachesTheFace(file), `${file} should reach the faced mark`).toBe(true);
     }
     for (const file of ['src/app/error.tsx', 'src/app/not-found.tsx']) {
