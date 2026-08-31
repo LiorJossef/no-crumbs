@@ -23,6 +23,8 @@
  */
 
 /** The families a basemap POI can belong to. One colour each. */
+import type { Theme } from '@/lib/theme';
+
 export type PoiGroup = 'food' | 'shopping' | 'culture' | 'transit' | 'outdoors' | 'civic';
 
 /**
@@ -66,6 +68,38 @@ export const POI_GROUP_COLORS: Readonly<Record<PoiGroup, string>> = {
   outdoors: '#3f7d44',
   civic: '#5a6b7d',
 };
+
+/**
+ * The same six, for a night basemap (W7-3).
+ *
+ * These are ink on the ground, so they invert for the same reason the label role does: measured
+ * against the night land (`#202225`), the light six land at **2.91–3.69:1** — every one of them
+ * below AA, on small text, which is the worst combination there is. Lifted, they sit at
+ * **5.78–6.77:1**.
+ *
+ * **Hue is preserved and only lightness moves**, which keeps the one thing these colours are for:
+ * `food` is still the warm one, `transit` still the blue one. Someone who has learned the map does
+ * not have to learn it again at night.
+ *
+ * The bar for keeping them apart from each other is deliberately *the light set's own worst pair*
+ * rather than a number invented here: the light six have `transit`/`civic` at ΔE 10.7 and ship that
+ * way, so a night set is honest if it is no worse. It is slightly better — the same pair at **11.7**
+ * — and every other pair is above 14.
+ */
+export const POI_GROUP_COLORS_NIGHT: Readonly<Record<PoiGroup, string>> = {
+  food: '#E0925A',
+  shopping: '#B98EE0',
+  culture: '#E677AE',
+  transit: '#7BA6E8',
+  outdoors: '#71B978',
+  civic: '#9AA8B8',
+};
+
+/** The six for one theme. Light by default so every existing caller is unchanged until it opts in
+ *  — `basemap-tint-layer.tsx` belongs to another lane. */
+export function poiGroupColors(theme: Theme = 'light'): Readonly<Record<PoiGroup, string>> {
+  return theme === 'dark' ? POI_GROUP_COLORS_NIGHT : POI_GROUP_COLORS;
+}
 
 /**
  * The zoom at which each class earns its label.
@@ -144,10 +178,11 @@ export function poiLabelClasses(): string[] {
  * neutral. Written here rather than inline in the layer so the grouping and the colour cannot
  * drift apart, and so a test can call it.
  */
-export function poiColorExpression(): unknown[] {
+export function poiColorExpression(theme: Theme = 'light'): unknown[] {
+  const colors = poiGroupColors(theme);
   const cases: unknown[] = [];
   for (const [group, classes] of Object.entries(POI_GROUPS) as [PoiGroup, readonly string[]][]) {
-    cases.push([...classes], POI_GROUP_COLORS[group]);
+    cases.push([...classes], colors[group]);
   }
-  return ['match', ['get', 'class'], ...cases, POI_GROUP_COLORS.civic];
+  return ['match', ['get', 'class'], ...cases, colors.civic];
 }

@@ -20,6 +20,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  POI_GROUP_COLORS,
+  POI_GROUP_COLORS_NIGHT,
+  poiColorExpression,
+  poiGroupColors,
+} from '@/components/map/poi-style';
+import {
   BASEMAP_TINTS,
   BASEMAP_TINTS_NIGHT,
   basemapTints,
@@ -55,23 +61,78 @@ function luminance(value: string): number {
   return 0.2126 * channels[0]! + 0.7152 * channels[1]! + 0.0722 * channels[2]!;
 }
 
-/** CIE76 ΔE — enough to separate "two different colours" from "two near-blacks", which is the only
- *  question asked here. `palette-tokens.test.ts` uses the full CIEDE2000 where the threshold is
- *  fine-grained; these are large adjacent fills and the distinction does not need it. */
+function lab(value: string): [number, number, number] {
+  const [r, g, bl] = rgb(value)
+    .map((c) => c / 255)
+    .map((c) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4))) as [number, number, number];
+  const x = (0.4124 * r + 0.3576 * g + 0.1805 * bl) / 0.95047;
+  const y = 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+  const z = (0.0193 * r + 0.1192 * g + 0.9505 * bl) / 1.08883;
+  const f = (t: number) => (t > 216 / 24389 ? Math.cbrt(t) : (841 / 108) * t + 4 / 29);
+  return [116 * f(y) - 16, 500 * (f(x) - f(y)), 200 * (f(y) - f(z))];
+}
+
+/**
+ * **CIEDE2000, the same metric `palette-tokens.test.ts` uses — and the choice is load-bearing here
+ * rather than pedantic.**
+ *
+ * I wrote this with the simple CIE76 distance first, and it ranked the two POI palettes *the other
+ * way round*: CIE76 says the night set's worst pair is 28.2 against the light set's 31.1 (night
+ * slightly worse), CIEDE2000 says 11.7 against 10.7 (night slightly better). The assertion below
+ * flipped depending on which one I used, which is precisely the situation where picking the
+ * convenient answer would be the wrong kind of easy.
+ *
+ * CIEDE2000 is the one to trust: it exists because CIE76 systematically mis-ranks exactly this kind
+ * of comparison — differences that are mostly lightness, and anything in the blues, both of which
+ * describe `transit`/`civic`. It is also already this repository's metric for the category palette,
+ * so using anything else here would mean two palettes judged by two standards.
+ */
 function deltaE(a: string, b: string): number {
-  const lab = (value: string): [number, number, number] => {
-    const [r, g, bl] = rgb(value)
-      .map((c) => c / 255)
-      .map((c) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4))) as [number, number, number];
-    const x = (0.4124 * r + 0.3576 * g + 0.1805 * bl) / 0.95047;
-    const y = 0.2126 * r + 0.7152 * g + 0.0722 * bl;
-    const z = (0.0193 * r + 0.1192 * g + 0.9505 * bl) / 1.08883;
-    const f = (t: number) => (t > 216 / 24389 ? Math.cbrt(t) : (841 / 108) * t + 4 / 29);
-    return [116 * f(y) - 16, 500 * (f(x) - f(y)), 200 * (f(y) - f(z))];
+  const [L1, a1, b1] = lab(a);
+  const [L2, a2, b2] = lab(b);
+  const C1 = Math.hypot(a1, b1);
+  const C2 = Math.hypot(a2, b2);
+  const Cb = (C1 + C2) / 2;
+  const G = 0.5 * (1 - Math.sqrt(Cb ** 7 / (Cb ** 7 + 25 ** 7)));
+  const A1 = a1 * (1 + G);
+  const A2 = a2 * (1 + G);
+  const Cp1 = Math.hypot(A1, b1);
+  const Cp2 = Math.hypot(A2, b2);
+  const hue = (x: number, y: number) => {
+    const deg = (Math.atan2(y, x) * 180) / Math.PI;
+    return deg < 0 ? deg + 360 : deg;
   };
-  const [l1, a1, b1] = lab(a);
-  const [l2, a2, b2] = lab(b);
-  return Math.hypot(l1 - l2, a1 - a2, b1 - b2);
+  const h1 = Cp1 === 0 ? 0 : hue(A1, b1);
+  const h2 = Cp2 === 0 ? 0 : hue(A2, b2);
+  const dL = L2 - L1;
+  const dC = Cp2 - Cp1;
+  let dh = 0;
+  if (Cp1 * Cp2 !== 0) {
+    dh = h2 - h1;
+    if (dh > 180) dh -= 360;
+    else if (dh < -180) dh += 360;
+  }
+  const dH = 2 * Math.sqrt(Cp1 * Cp2) * Math.sin((dh * Math.PI) / 360);
+  const Lb = (L1 + L2) / 2;
+  const Cbp = (Cp1 + Cp2) / 2;
+  let hb = h1 + h2;
+  if (Cp1 * Cp2 !== 0) hb = Math.abs(h1 - h2) > 180 ? (h1 + h2 + 360) / 2 : (h1 + h2) / 2;
+  const T =
+    1 -
+    0.17 * Math.cos(((hb - 30) * Math.PI) / 180) +
+    0.24 * Math.cos((2 * hb * Math.PI) / 180) +
+    0.32 * Math.cos(((3 * hb + 6) * Math.PI) / 180) -
+    0.2 * Math.cos(((4 * hb - 63) * Math.PI) / 180);
+  const SL = 1 + (0.015 * (Lb - 50) ** 2) / Math.sqrt(20 + (Lb - 50) ** 2);
+  const SC = 1 + 0.045 * Cbp;
+  const SH = 1 + 0.015 * Cbp * T;
+  const RT =
+    -2 *
+    Math.sqrt(Cbp ** 7 / (Cbp ** 7 + 25 ** 7)) *
+    Math.sin((60 * Math.exp(-(((hb - 275) / 25) ** 2)) * Math.PI) / 180);
+  return Math.sqrt(
+    (dL / SL) ** 2 + (dC / SC) ** 2 + (dH / SH) ** 2 + RT * (dC / SC) * (dH / SH),
+  );
 }
 
 /** One role, run through its own night tint from Positron's own colour. */
@@ -153,5 +214,55 @@ describe('the light behaviour is untouched', () => {
     for (const tint of Object.values(BASEMAP_TINTS)) {
       expect(tint.minLightness).toBeUndefined();
     }
+  });
+});
+
+describe('the POI groups at night', () => {
+  const NIGHT_LAND = 'rgb(32, 34, 37)'; // `#202225`, what `land` tints to.
+  const contrast = (a: string, b: string) => {
+    const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p) as [number, number];
+    return (x + 0.05) / (y + 0.05);
+  };
+  const asRgb = (h: string) =>
+    `rgb(${parseInt(h.slice(1, 3), 16)}, ${parseInt(h.slice(3, 5), 16)}, ${parseInt(h.slice(5, 7), 16)})`;
+
+  it('covers every group the light set does', () => {
+    expect(Object.keys(POI_GROUP_COLORS_NIGHT).sort()).toEqual(Object.keys(POI_GROUP_COLORS).sort());
+  });
+
+  it('reads at AA on the night ground, which the light six do not', () => {
+    // The light six measure 2.91–3.69:1 there — every one below AA, on small text. That is the
+    // defect this set exists to fix, so both halves are asserted: the old values fail, the new
+    // ones pass. Without the first half this is a test that would pass on the wrong palette.
+    for (const [group, color] of Object.entries(POI_GROUP_COLORS)) {
+      expect(contrast(asRgb(color), NIGHT_LAND), `light ${group} on night ground`).toBeLessThan(4.5);
+    }
+    for (const [group, color] of Object.entries(POI_GROUP_COLORS_NIGHT)) {
+      expect(contrast(asRgb(color), NIGHT_LAND), `night ${group}`).toBeGreaterThan(4.5);
+    }
+  });
+
+  it('stays at least as distinguishable as the light set it mirrors', () => {
+    // The bar is the light set's own worst pair rather than a number invented here: those six ship
+    // with `transit`/`civic` at ΔE 10.7, so a night set is honest if it is no worse.
+    const worst = (set: Readonly<Record<string, string>>) => {
+      const values = Object.values(set);
+      let lowest = Infinity;
+      for (let i = 0; i < values.length; i++) {
+        for (let j = i + 1; j < values.length; j++) {
+          lowest = Math.min(lowest, deltaE(asRgb(values[i]!), asRgb(values[j]!)));
+        }
+      }
+      return lowest;
+    };
+    expect(worst(POI_GROUP_COLORS_NIGHT)).toBeGreaterThanOrEqual(worst(POI_GROUP_COLORS));
+  });
+
+  it('builds the match expression from whichever set the theme asks for', () => {
+    expect(poiGroupColors()).toBe(POI_GROUP_COLORS);
+    expect(poiColorExpression()).toContain(POI_GROUP_COLORS.food);
+    expect(poiColorExpression('dark')).toContain(POI_GROUP_COLORS_NIGHT.food);
+    // The fallthrough is `civic` in both, and it is the last element.
+    expect(poiColorExpression('dark').at(-1)).toBe(POI_GROUP_COLORS_NIGHT.civic);
   });
 });
