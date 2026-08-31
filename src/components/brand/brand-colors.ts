@@ -48,8 +48,11 @@ export const BRAND_SURFACE = '#FAF9F6';
 /** `--foreground`. */
 export const BRAND_INK = '#1B1B1A';
 
-/** `--muted-foreground`. Body text that is not the headline; 4.6:1 on `BRAND_SURFACE`. */
-export const BRAND_INK_MUTED = '#75716A';
+/** `--muted-foreground`. Body text that is not the headline; **5.10:1** on `BRAND_SURFACE`, up from
+ *  `#75716A`'s 4.61 — see the token's own note in `globals.css` for why the ink moved rather than
+ *  the grounds under it. `brand-colors.test.ts` asserts this literal and that token still agree,
+ *  which is what caught this file: both call sites here render where a CSS variable cannot reach. */
+export const BRAND_INK_MUTED = '#6E6A64';
 
 /** `--border`. The hairline. */
 export const BRAND_HAIRLINE = '#E7E3DC';

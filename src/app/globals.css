@@ -214,7 +214,43 @@
     --border: #E7E3DC;
     --input: #E7E3DC;
     --muted: #FAF9F6;
-    --muted-foreground: #75716A;
+    /*
+     * **`#6E6A64`, down from `#75716A`, and it is a live AA failure rather than a tightened margin.**
+     *
+     * This file had already worked around this token twice without moving it. `--panel-raised` went
+     * 0.86 -> 0.92 -> 0.95 because *"the light theme's `--muted-foreground` clears AA by 0.01 on bare
+     * `--background`, so the card is the only thing standing between the subhead and the mesh"*, and
+     * the mesh note records the same ink at **4.51:1** against a 4.5 bar. Both are correct and both
+     * are compensations. The ink itself was the thing at the line.
+     *
+     * Measured on painted pixels, it is not only at the line — it is **under** it on a ground it
+     * demonstrably lands on, which no screen the harness visits happened to show:
+     *
+     * | light ground | `#75716A` | `#6E6A64` |
+     * |---|---|---|
+     * | `--card` `#FFFFFF` | 4.85 | 5.37 |
+     * | `--background` / `--muted` `#FAF9F6` | 4.61 | 5.10 |
+     * | the desktop place panel | 4.57 | 5.06 |
+     * | `--card-2` `#F3F1EB` | **4.30 — fails** | 4.76 |
+     *
+     * **Size cannot fix any of this and somebody will try.** WCAG's large-text exemption is >=24px,
+     * or >=18.66px when bold; the smallest ink here is 11px, so 11 -> 12px buys readability and
+     * *not one point* of contrast ratio. Nor can alpha: `text-muted-foreground/70` was the defect
+     * repaired in `214bb0f`, and dimming ink that is already the ramp's quiet step spends the
+     * contrast budget twice. The ink is the only lever left.
+     *
+     * L* 47.8 -> 45.0, a ΔE00 of 2.8 across 178 call sites: subtle per instance, and checked
+     * cumulatively on the place list and the sheet, where muted ink is densest.
+     *
+     * **`--chrome-shade` references this and therefore moves with it, by design** — *"a reference,
+     * not a copy: if the ink is ever retuned the shadow follows it."* At its five composite alphas
+     * the wash shifts ΔE00 0.5-1.6, and it keeps the property its own note names: R-B of 10 against
+     * the old 11, still a warm grey rather than `--foreground`'s effectively neutral 1.
+     *
+     * **Dark does not move.** `#A8A29A` is 7.35 on `--background`, 6.51 on `--card` and 5.81 on
+     * `--card-2` — clear on every ground, so there is nothing here for a dark fix to buy.
+     */
+    --muted-foreground: #6E6A64;
 
     --mint-100: #F1FBF9;
     --mint-200: #DAF5EF;
@@ -525,7 +561,10 @@
      * **The mesh can be this strong because nothing is read on it.** Measured on painted pixels at
      * commit 3954793, the light theme's two smallest inks have almost no headroom:
      * `--muted-foreground` lands at **4.51:1** and `--brand` as the kicker at **4.77:1**, against a
-     * 4.5 bar, and a 20% indigo bloom under either takes them to 3.66 and 3.82. That is the whole
+     * 4.5 bar, and a 20% indigo bloom under either takes them to 3.66 and 3.82. (`--muted-foreground`
+     * has since been taken to `#6E6A64` for a different failure — see its own note — so its half of
+     * that pair now measures better than the number above. The argument is unaffected: the mesh is
+     * still strong because nothing is read on it, and `--brand` still has 0.27 of headroom.) That is the whole
      * argument for the composition `ChromeStage` builds: **every string on both screens sits on
      * `--panel-raised`, and the mesh is what surrounds the card.** So the alphas here are set by
      * what the ground should look like rather than by what an ink can survive — the only thing the
@@ -750,7 +789,11 @@
     --chrome-grain-strength: 0.20;
 
     /* 0.92, not the 0.86 this started at, and the six points came from a measurement rather than
-     * from taste. The light theme's `--muted-foreground` clears AA by 0.01 on bare `--background`,
+     * from taste. **The premise below has since been repaired at the source** — `--muted-foreground`
+     * is `#6E6A64` and clears `--background` by 0.60 rather than 0.01 — so this opacity is no longer
+     * the only thing holding that ink up. It is kept: it was raised again at 0.95 for the mesh's own
+     * deep end, which is a separate reason and still true, and nothing is gained by walking it back.
+     * The light theme's `--muted-foreground` cleared AA by 0.01 on bare `--background`,
      * so the card is the only thing standing between the subhead and the mesh — and a more opaque
      * card is a *better* lever than a weaker mesh, because it buys the ink its headroom without
      * taking any colour off the ground around it.
