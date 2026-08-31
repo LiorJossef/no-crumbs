@@ -1,0 +1,228 @@
+# Iteration 2 — what was built, and what the instruments did
+
+> **Written 2026-08-31**, closing the iteration opened by [`iteration-2-plan.md`](iteration-2-plan.md)
+> after the owner smoke-tested the overnight run. Companion to
+> [`overnight-run-report.md`](overnight-run-report.md), which records iteration 1.
+>
+> The owner's direction was: *improve the login page dramatically, improve colours, add more
+> animations, add more colours, make it look sexy. The first impression is the login page. Then the
+> wow effect is the home page, post-login.* Their second was: *i see a lot of gaps. look at the
+> mascot look at everything.*
+
+---
+
+## 1. The finding that answered the complaint
+
+**`src/components/brand/crumb-mascot.tsx` had zero call sites.** `globals.css` had zero
+`@keyframes`. The animation hooks the markup builder emits — `crumb-eyes`, `crumb-mouth`,
+`crumb-halo`, `crumb-spark-1/2` — were targeted by no stylesheet anywhere.
+
+A complete, character-accurate rig existed: eight moods, six eye sets, seven mouths, five
+constructions, seven specified animations. **One mood rendered** — `idle`, faceless, on three
+surfaces. The import wait, the 7–34 second screen the design system reserves for Wobble, drew a
+Lucide spinner.
+
+That is the whole of *"the brand is totally missing"*, and it was found by a conformance audit
+against `no-crumbs-design-system.html` — the 3,839-line document `overnight-run-plan.md` §2 item 10
+instructed be **opened in a browser**, and which never was.
+
+**The sequencing matters and the fault is the lead's.** The rig was not unfinished. It was
+disconnected because the write scopes granted to the lane that built it contained the brand
+directory and **none of the screens the moods were bound to**. The audit found something real; what
+it found was the shape of the concurrency, not the shape of the work.
+
+The generalisation, from the lane that held it: **"the rig has zero call sites" and "the rig is
+unfinished" are indistinguishable from outside the lane that holds it.** An audit reading the tree
+cannot tell a component never wired from one wired to nothing on purpose, and neither can a report
+listing only what exists. *When a scope grant leaves something deliberately disconnected, say so in
+the report that hands it back, with the surfaces it is waiting on named.*
+
+---
+
+## 2. What shipped
+
+| | before | after |
+|---|---|---|
+| sign-in panel labels, dark | **1.18:1** | 0 AA failures, 120 strings, both themes |
+| `/map` text | **14 AA failures**, never measured at all | **0**, 376 strings scored |
+| mobile dead space | 27% / 36% pooled | 9% / 13–18% distributed |
+| post-login list arrives | **2,430–4,526 ms** | ~19 ms restored |
+| front door with hydration killed | **blank** — 0 of 7 controls visible | 7 of 7, identical to hydrated |
+| reduced-motion entrance | ~700 ms | **145 ms** |
+| night restaurant/café, deuteranopia | ΔE **3.1** | 17.6 (proposal A) |
+| light restaurant/café, deuteranopia | ΔE **3.4** as specified | 21.2 as shipped |
+| the import wait | a Lucide spinner | the character, with its trail |
+| the no-places screen | no face | the neutral face, curvature-guarded |
+| hex-literal budget | 25/26, and non-deterministic | re-tensioned, comments stripped |
+| composition guard | matched the **word** `white` | matches the **pigment**, 6 notations |
+
+**Two owner rulings**, both overriding a written rule, both recorded in `iteration-2-plan.md` §2.3:
+gold admitted to the chrome grounds under indigo's fence, and the mascot admitted to the no-places
+screen. Both landed fence-first or spec-first, deliberately.
+
+---
+
+## 3. Sixteen instruments lied, and they fall into three families
+
+Iteration 1 recorded eleven. This iteration found sixteen more. **They are not eleven mistakes and
+sixteen mistakes — they are one mistake with three shapes**, and naming the shapes is worth more
+than the count.
+
+### 3.1 A plausible default that silently answers the question being asked
+
+The largest family, and the most dangerous, because nothing looks broken.
+
+- **`drawImage` at `imageSmoothingQuality: 'high'` is not a box filter.** It reproduced a box
+  average exactly on a 2:1 case and diverged by 19 in green on a 4:1 one — centre-weighted, which
+  over-weights a pin's aperture against its ring, biasing the exact number being measured.
+- **A curvature parser returned `0` for any path it could not read** — reporting *flat* for every
+  shape it could not parse, on a test whose entire subject was flatness.
+- **An unparseable background fell through an ancestor walk and returned white** — not "no answer",
+  a confident wrong one, on a surface where white is the flattering assumption.
+- **`vitest run | tail -3` cut off the summary line**, so the absence of a failure read as a pass.
+  A truncated pipe is an instrument that cannot fail.
+- **`globals.css` has two `@media (prefers-reduced-motion)` blocks.** Taking the first match
+  asserted the entrance's collapse against the mascot's rules — *"it failed loudly this time only
+  because the selector happened to be absent; on a block carrying a similar declaration it would
+  have passed silently."* A passing drift guard guarding the wrong block is worse than none.
+
+### 3.2 A correct number answering a narrower question than its reader assumes
+
+- **ΔE00 is blind to colour-vision deficiency.** The specified restaurant/café pair measured 21.1,
+  above every floor in the repo, and **3.4 under deuteranopia** — the same colour for roughly one
+  man in twelve.
+- **`K12` counted "hex literals in eight prefixes" and was read as "untokenised colour."** It could
+  not see `tracking-[`, which alone is larger than everything it counted — 110 arbitrary values in
+  `.tsx`, 13 counted.
+- **The composition guard matched the word `white`.** `bg-[rgba(255,255,255,0.55)]` passed while
+  `bg-white/55` failed — identical composite, six characters of syntax apart. **The guard built in
+  this iteration's P0 specifically to fix `K12`'s blindness had `K12`'s blindness.**
+- **A hue-distance probe admitted unpigmented cream**, because the CTA is itself a pale mint, so it
+  reported 12.3% of the ground "near the button" after every trace of mint had been removed.
+- **A contrast probe sampled the card's own divider** and reported it as the card.
+- **An edge metric said dark's card boundary was weaker** while dark plainly read better — true, and
+  about the wrong thing: dark separates by shadow, glow and ground range, not by a step at the edge.
+  *"A useful floor, not a verdict."*
+
+### 3.3 Measuring something adjacent to the thing
+
+- **A signature joined across `[data-entrance]` can never settle**, because one bloom is
+  `repeat: Infinity`. First reading: 4,951 ms. Actual: 699–755 ms.
+- **A line box overlapping a 1px rule no glyph touches.** `in Israel` reported 4.06:1; the offending
+  pixels sat **four scanlines below the lowest pixel of any letter**. Real value 4.85. One bug
+  produced three of seventeen reported failures.
+- **44 of 84 text elements on desktop `/map` sit over the canvas and were never scored.** Not a
+  wrong number — a hole where a measurement was assumed to be.
+- **A mask of "where the render differs from a blank plate" erases itself** exactly where contrast is
+  worst, because white text on a white ground differs nowhere.
+- **`document.getAnimations().pause()` does not reach MapLibre's render loop.** Behind a translucent
+  blurred panel sits a *moving map*; a mask read moving pixels as letters and reported 48 failures.
+- **A spread in CSS pixels divided by a mean in supersampled pixels** — exactly 16× out. Without a
+  square as a known-answer case, it would have reported that a square is round.
+
+### 3.4 The one that is not an instrument
+
+**A perceptual bias, and it will recur regardless of tooling.** Twice, a warm element on a dark
+ground was called near-invisible from an impression, and twice the measurement contradicted it. Both
+times the error was the same, and the correct statement of it is narrow:
+
+> The failure was not *using the neighbour* as a reference. It was **reaching for a comparison
+> reference to answer a legibility question.** *Can this be seen* is answered against what is
+> immediately behind the thing. *Can these two be told apart* is answered against the neighbour —
+> and a rule saying "never use the neighbour" would break the pin and colour-vision measurements,
+> which are the two that went right.
+
+---
+
+## 4. Four rules worth keeping
+
+**When a number moves, check whether it moved everywhere or in one place.** A product change moves
+numbers on the surfaces it touched. An instrument change moves them on surfaces with a particular
+*physical* property — a canvas, a blur, a gradient, an animation — and those cut across features.
+48 failures was suspicious not because it was large but because four surfaces were bit-identical
+while one went 4 → 30.
+
+**And the corollary nobody applies: an instrument change that improves things everywhere at once
+deserves the same suspicion, because a number falling looks like progress.** Iteration 1's
+"11 → 0" was exactly that shape and it survived a full report cycle for exactly that reason.
+
+**Put the number in the sentence that names the defect, or say the sentence is unmeasured.** Not
+*"the keyline is near-invisible"* but *"the keyline reads faint to me on the dark card; unmeasured."*
+Both are true; only the second lets a lead route it as a question rather than as a fix. **A value
+labelled as an accessibility fix gets defended differently from one labelled as a drawing
+correction.**
+
+**A guard-verification method is only worth having if it can catch bugs in the guard being
+verified.** The appended-line method caught two bugs in the composition guard in its own author's
+hands, and a third in the drift guard. Neither was visible by reading the regex.
+
+**A clean number with its limits stated beside it is worth more than a clean number.** *0 failures
+at `214bb0f`* is a statement about 376 scored strings — not about the 78 rows below the fold, the 12
+occluded, or the six that were **not measured rather than passed**.
+
+---
+
+## 5. The documents were wrong four times
+
+Every one was correct about a narrower case than its reader assumed — the same shape as §3.2,
+arriving on a specification instead of an instrument.
+
+1. **The café colour argument** describes `#8A5A3B`, a value iteration 1 had already retuned away.
+   Worse: the value the document *draws* fails the repo's existing colour-vision guard.
+2. **The map pin's "white aperture"** is a light-theme assumption; the shipped ground-coloured
+   aperture is right.
+3. **`#styles`' Night construction** — *"deeper keyline so the edge does not glow"* — protects
+   against a keyline too light on the night **map**. On a dark **card** there is no glow to prevent
+   and going deeper removes the edge. Wiring it as instructed would have made the reported defect
+   **worse by ΔE 9**.
+4. **`#mark`'s "legible blob at 16px"** is measurably false for the faceless silhouette. At 24px the
+   entire crumb-ness of the crumb is **0.547 of a pixel**; it is indistinguishable from a true circle
+   up to 64px.
+
+**Two rules were re-recorded rather than merely overridden**, because a rule stated as a measurement
+decays when the measurement moves. §3.1 rule 3 became *"gold and category colour never share a
+surface"* — a statement about surfaces, which is what the fence enforces, and which stays true once
+the night café moves to within ΔE 6.3 of the gold *by design*.
+
+---
+
+## 6. Still open
+
+- **The wordmark over the live map** — `#wordmark` forbids it in terms and names an alternative;
+  `voice-and-vocabulary.md` §2 makes it surface 1 of six, and this product's signed-in shell *is* the
+  map. No measurement settles it. **Owner's.** The lockup on `/collections`, `/collections/<id>` and
+  `/profile` is deliberately unbuilt behind it.
+- **The night category pair**, proposal A applying.
+- **Visited pins at `icon-opacity: 0.45`** collapse to deuteranopic ΔE 3.6 — a property of the fade,
+  not the palette, so the light-side repair does not reach it.
+- **Colour-vision separation on the basemap labels tops out at ΔE 12.0** even with the lightness
+  ceiling released — a **mitigation, not a fix**. Getting past it needs the *pins* to move.
+- **`Saved N ago` clears AA by 0.07**, inside the measuring instrument's own error bar. *Not fixed so
+  much as no longer failing.*
+- **Two tag chips report no glyph inside their padding box** in either theme — a layout defect that
+  scored as a pass under the old instrument.
+- **`#moods`' `beenThere` contradicts `#rules` rule 4.** Data-only and asserted so, pending a ruling.
+
+---
+
+## 7. Coordination failures, all the lead's
+
+Six, and they are recorded because the concurrency rule is what made the rest of this work.
+
+1. `globals.css` granted exclusively to one lane, then a second sent into it. Resolved by timing,
+   not by design.
+2. `src/components/brand/**` granted to two lanes at once — twelve TS errors.
+3. A small request bundled under a large ruling and lost, blocking a lane on a five-minute token.
+4. **A wrong file path in a scope grant, given to two lanes.**
+5. A test file reassigned without reconciling an earlier standing instruction to write into it.
+6. **Write scopes that left the mascot rig connected to nothing** — the most consequential, because
+   the other five cost minutes and this one had the owner believing the brand was missing from a
+   product that already contained every piece of it.
+
+Two lanes lost scratchpad tools to filename collisions before a naming convention was set. Three
+times a lane reported a red working tree caused by another lane's in-flight work; each report was
+worth having, because *a red tree for a non-defect reason is how someone reaches the wrong
+conclusion ten minutes later*.
+
+**What worked**: every lane staged explicit pathspecs, so no lane's work ever entered another's
+commit. That single discipline is why six scope errors cost minutes rather than a day.
