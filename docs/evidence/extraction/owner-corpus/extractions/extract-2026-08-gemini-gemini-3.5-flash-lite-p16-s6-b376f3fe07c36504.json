@@ -1,0 +1,13 @@
+{
+  "candidates": [],
+  "cityHint": "London",
+  "postIntent": "place_recommendation",
+  "extractorVersion": "2026-08-gemini-gemini-3.5-flash-lite",
+  "promptVersion": "p16-s6",
+  "captionSha": "b376f3fe07c36504f3c48483ccf480fcb9216e3f597d6a171c49ea61170f18c2",
+  "inputTokens": 7371,
+  "outputTokens": 30,
+  "costUsd": 0,
+  "costModel": "unmeasured",
+  "extractedAt": "2026-08-31T21:44:24.388Z"
+}

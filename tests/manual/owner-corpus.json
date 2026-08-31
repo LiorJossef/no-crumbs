@@ -1,0 +1,242 @@
+{
+  "_readme": [
+    "OWNER-CORPUS — the labelled set every extraction number this project quotes is missing.",
+    "",
+    "Data only. The seeder that fills this file is tests/manual/owner-corpus-seed.manual.ts and the",
+    "grader that reads it is tests/manual/owner-corpus.manual.ts. Adding a link never means touching",
+    "either of them.",
+    "",
+    "WHY THIS FILE EXISTS.",
+    "Every number this project quotes about extraction — the ~27% caption hit rate, 'zero wrong",
+    "options', the postIntent accuracy — was measured on SIXTEEN TikToks found by web search. The",
+    "document that produced them says so about itself, in its own last paragraph:",
+    "  'These 16 URLs were found via web search, so they skew toward indexed/high-reach posts... This",
+    "   must be re-measured on the project owner's labelled set of real saved TikToks — that is the",
+    "   only sample whose distribution matches the actual product.'",
+    "   (docs/evidence/tiktok/07-caption-content-scoring.md)",
+    "That re-measurement has never happened. Until it does, every one of those numbers describes a",
+    "borrowed sample, and the engine has no defensible grade.",
+    "",
+    "HOW TO USE IT — three steps, and only the second one needs you.",
+    "",
+    "  1. Paste your links, one per line, into tests/manual/owner-corpus-links.txt. Use full",
+    "     /video/<id> links where you can: a vt.tiktok.com short link has to be resolved over the",
+    "     network, so a corpus of them cannot be replayed offline. Then:",
+    "",
+    "       set -a && . ./.env.local && set +a",
+    "       OWNER_CORPUS_MAX_MODEL_CALLS=60 npx vitest run \\",
+    "         tests/manual/owner-corpus-seed.manual.ts --config tests/manual/vitest.manual.config.ts",
+    "",
+    "     That fetches every caption, runs the real extractor over it, and writes this file back with",
+    "     a DRAFT guess pre-filled in every row. One model call per new link; re-running costs nothing",
+    "     for links already seeded.",
+    "",
+    "  2. Correct the drafts. For each case, read `caption` next to its draft `class`, and:",
+    "        - if the class is right, change \"classSource\": \"draft\" to \"owner\";",
+    "        - if it is wrong, fix `class` first, then change `classSource`.",
+    "     That is the whole job. Everything else in a case is optional.",
+    "",
+    "  3. Grade. This spends nothing and needs no keys:",
+    "",
+    "       npx vitest run tests/manual/owner-corpus.manual.ts \\",
+    "         --config tests/manual/vitest.manual.config.ts",
+    "",
+    "THE ONE LABEL: `class`. Four values, and the only one a caption alone can decide is the first.",
+    "",
+    "  sufficient    the caption names a place you could go and find.",
+    "  recoverable   a real recommendation whose venue the caption does NOT name — but the video",
+    "                does, on screen or out loud. This is the class that decides whether reading the",
+    "                video is worth building.",
+    "  futile        a place post where the name is nowhere: 'drop your recs below', 'comment for the",
+    "                name', a question. No amount of extra machinery can answer it.",
+    "  not-a-place   not about places at all.",
+    "",
+    "`recoverable` vs `futile` is the distinction the model cannot make and you can — it needs someone",
+    "who watched the video. It is also the one that decides the next quarter of engine work, so if you",
+    "are only sure about some rows, be sure about those.",
+    "",
+    "WHAT ONE LABEL BUYS. Three expectations follow from `class` with no extra typing:",
+    "  - the expected postIntent (sufficient/recoverable -> place_recommendation, futile ->",
+    "    place_question, not-a-place -> not_a_place). If that mapping is wrong for a row, set",
+    "    `expectedIntent` on it explicitly; the report counts explicit and derived labels separately.",
+    "  - whether escalating past the caption could ever pay — only `recoverable`.",
+    "  - for `futile` and `not-a-place`, the true place set is EMPTY by the definition of the class, so",
+    "    you never type a place name for those. Any place the engine offers on one of them is wrong.",
+    "",
+    "OPTIONAL: `places`. The venues the post really recommends, if you know them:",
+    "    \"places\": [{ \"name\": \"Cafe Fiori\" }], \"placesSource\": \"owner\"",
+    "A name is enough — no coordinates, no addresses. It is matched as a substring of the resolved",
+    "name after normalisation, so 'Cafe Fiori' accepts 'Cafe Fiori Tel Aviv-Yafo'. Add `pattern` (a",
+    "lowercase regex) when a venue goes by two names or two scripts. Until `placesSource` says",
+    "\"owner\", this row contributes to no place number in either direction.",
+    "",
+    "NOTHING IS EVER COUNTED AGAINST A GUESS. A row whose `classSource` is \"draft\" is printed by",
+    "name, reported as unadjudicated, and excluded from both sides of every rate. The seeder's",
+    "pre-filled guess is the model's opinion of itself and can never be the evidence that the model is",
+    "right.",
+    "",
+    "`classSource: \"e7\"` is a third value, and it is NOT yours. It marks the sixteen borrowed",
+    "web-search posts, hand-labelled on 2026-08-18 by watching them. They are real labels on the wrong",
+    "sample, so the report scores them in a separate block and never averages them with yours. Delete",
+    "those rows whenever you like; they are a control, not a dependency.",
+    "",
+    "COST. Captions and model replies are stored under docs/evidence/extraction/owner-corpus/ and are",
+    "committed, so a graded run replays with no network and no spend. Google Text Search answers are",
+    "NOT committed — Google's terms cap caching of coordinates at 30 days — so they live in the",
+    "gitignored docs/evidence/.local/. The consequence, stated plainly: the extraction and intent half",
+    "of this measurement can run in CI; the place-resolution half cannot."
+  ],
+  "cases": [
+    {
+      "url": "https://www.tiktok.com/@muchmorethanmatcha/video/7496222617053990175",
+      "externalId": "7496222617053990175",
+      "class": "sufficient",
+      "classSource": "e7",
+      "places": [
+        {
+          "name": "Cafe Fiori"
+        }
+      ],
+      "placesSource": "e7",
+      "caption": "Nothing like a shuk coffee shop ☕️ @cafe fiori  Cafe Fiori 📍 Yom Tov St 20, Tel Aviv-Yafo #coffeetogo #cafefiori #telaviv",
+      "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s6-6bec83da4b144598.json",
+      "notes": "E7 row 7: \"Cafe Fiori 📍 Yom Tov St 20, Tel Aviv-Yafo\" — name + street + city in the caption."
+    },
+    {
+      "url": "https://www.tiktok.com/@travel.by.ann/video/7395598157620497696",
+      "externalId": "7395598157620497696",
+      "class": "sufficient",
+      "classSource": "e7",
+      "places": [
+        {
+          "name": "Nomena Roasters"
+        }
+      ],
+      "placesSource": "e7",
+      "caption": "Nomena Roasters, placed on Allenby Street in Tel Aviv. Is a very special boutique place, that looks like perfume store and in fact the scent of the coffee is one of the best home perfumes you can have. Greate coffee and brownies, aesthetic interior, no wifi and amazing Telavivian vibe.  #coffeetiktok #coffeetime #telavivian #telavivlife #telavivcityguide #telavivguide #telavivianstyle #annazwiefka #telavivfood #wheretoeat #israelifood #foodplaces #israel🇮🇱 #wheretovisit #wheretogo #girlwhotravels #coffeelovers #coffeeplace @Anna Zwiefka ",
+      "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s6-be172ab2227189c1.json",
+      "notes": "E7 row 9: \"Nomena Roasters, placed on Allenby Street in Tel Aviv\" — name + street + city."
+    },
+    {
+      "url": "https://www.tiktok.com/@yallabikestlv/video/7494360070369709354",
+      "externalId": "7494360070369709354",
+      "class": "recoverable",
+      "classSource": "e7",
+      "places": [
+        {
+          "name": "Simhovich"
+        }
+      ],
+      "placesSource": "e7",
+      "caption": "The best coffee in Tel Aviv is only 9 shekels?! They also have some of the best pizza… #yallabikes #telaviv ",
+      "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s6-bd269891c9811a8b.json",
+      "notes": "E7 row 8 and its \"finding that matters\": the venue (Simhovich Cafe) is spoken/on-screen and absent from the caption. A caption-only engine cannot reach it; that is the point of the class."
+    },
+    {
+      "url": "https://www.tiktok.com/@alexandramoulavi/video/7347722826654305578",
+      "externalId": "7347722826654305578",
+      "class": "recoverable",
+      "classSource": "e7",
+      "places": [
+        {
+          "name": "Nomena"
+        }
+      ],
+      "placesSource": "e7",
+      "caption": "coffee in tlv > #bh #thankyouhashem #coffee #telaviv #ביתקפה #תלאביב ☕️☁️",
+      "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s6-6349e1a351c26912.json",
+      "notes": "E7 row 12: the venue (Nomena Café) is on-screen only; the caption is \"coffee in tlv >\" plus Hebrew hashtags."
+    },
+    {
+      "url": "https://www.tiktok.com/@briancantstopeating/video/7245648559981350186",
+      "externalId": "7245648559981350186",
+      "class": "recoverable",
+      "classSource": "e7",
+      "places": [],
+      "placesSource": "draft",
+      "caption": "6 Must try spots in Tokyo Japan! Tokyo food scene was amazing and stay tuned for me to drop my top bites of Kyoto! #japanesefood #japantravel #travelfoodie #streetfood #udon #pizza #pancakes #travelfood ",
+      "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s6-d0d4d18aa9f45e3e.json",
+      "notes": "E7 row 1: \"6 Must try spots in Tokyo Japan!\" — the six venues are in-video and E7 does not name them, so `places` stays draft and this row is deliberately unadjudicated for place yield."
+    },
+    {
+      "url": "https://www.tiktok.com/@marielleisrael/video/7448327861636943150",
+      "externalId": "7448327861636943150",
+      "class": "futile",
+      "classSource": "e7",
+      "places": [],
+      "placesSource": "e7",
+      "caption": "Drop cafe recs below pls #telaviv #telavivlife #americanabroad #aroma #aliyah #coffeetiktok ",
+      "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s6-ac7ca33020937a78.json",
+      "notes": "E7 row 6: \"Drop cafe recs below pls\" — the post asks the audience. No venue exists to find."
+    },
+    {
+      "url": "https://www.tiktok.com/@gadderhq/video/7205629856716000517",
+      "externalId": "7205629856716000517",
+      "class": "futile",
+      "classSource": "e7",
+      "places": [],
+      "placesSource": "e7",
+      "caption": "What’s the best hidden gem restaurant in London? 💎🤫👀 Comment below👇👇 #deinfluencing #londonrestaurants #hiddengems #secretspot ",
+      "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s6-0b220d7f35b11eb4.json",
+      "notes": "E7 row 14: \"What's the best hidden gem restaurant in London?\" — a question post."
+    },
+    {
+      "url": "https://www.tiktok.com/@emshelx/video/7541775954906041622",
+      "externalId": "7541775954906041622",
+      "class": "futile",
+      "classSource": "e7",
+      "places": [],
+      "placesSource": "e7",
+      "caption": "my Italian friend told me not to make a tiktok about this london restaurant because he knows its the best Italian restaurant in London and wants to actually be able to get a reservation oops, save this for londons best hidden gem restaurant - where to eat in London - Knightsbridge restaurants - Italian food in London - London restaurant guide - London date night #londonrestaurant #londonrestaurants #londonfood #londonfoodie #londonfoodspots           ",
+      "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s6-b376f3fe07c36504.json",
+      "notes": "E7 row 16: the name is deliberately withheld in caption AND speech to drive comments. SEO keyword salad only."
+    },
+    {
+      "url": "https://www.tiktok.com/@petsmeowwoof/video/7290074173500706079",
+      "externalId": "7290074173500706079",
+      "class": "not-a-place",
+      "classSource": "e7",
+      "places": [],
+      "placesSource": "e7",
+      "caption": "before sleep talk.....very cute couple....#cats #fyp ",
+      "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s6-a210762226296257.json",
+      "notes": "E7 row 3: cats. A control post."
+    },
+    {
+      "url": "https://www.tiktok.com/@exploringlondon/video/7346702347491446049",
+      "externalId": "7346702347491446049",
+      "class": "sufficient",
+      "classSource": "e7",
+      "places": [
+        {
+          "name": "La Nonna"
+        },
+        {
+          "name": "MBER"
+        },
+        {
+          "name": "The Life Goddess"
+        },
+        {
+          "name": "The Laughing Yak"
+        },
+        {
+          "name": "Sycamore"
+        },
+        {
+          "name": "Tokii"
+        },
+        {
+          "name": "Kiaans"
+        },
+        {
+          "name": "Jones Family Kitchen"
+        }
+      ],
+      "placesSource": "e7",
+      "caption": "ad The hidden restaurants you NEED to know about ❤️ You guys know we love sharing hidden gems around London and these restaurants are exactly that - hidden away and absolute gems! You can get 50% off food at ALL OF THESE restaurants if you book them through @firsttableuk and it’s only £3 to book your first “First Table” when you sign up with code EXPLORING - book for 2-4 people at an off-peak dining time and get rewarded with 50% off the food bill (drinks are a regular price). It’s a no brainer. 🧠 SAVE THIS for hidden restaurants, all with 50% off food: ✨ La Nonna in Market Row, Brixton for delicious artisan pasta ✨ MBER London, underground on Pudding Lane for incredible pan-Asian sharing plates ✨ The Life Goddess for beautiful Greek dishes  ✨ The Laughing Yak Nepalese kitchen tucked away in Market Peckham  ✨ Sycamore Restaurant for seasonal Italian plates inside Middle Eighty Hotel in Covent Garden ✨ Tokii London, East meets West inside The Prince Akatoki London Hotel in Marylebone  ✨ Kiaans Tooting pan-Asian inside Tooting Market ✨ Jones Family Kitchen - hidden inside Eccleston Yards in Belgravia ❤️ Which one are you checking out first? #firsttable #halfpricefood #londonrestaurants #hiddenlondon #londonguide",
+      "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s6-a9dd7456c4833eb5.json",
+      "notes": "E7 row 15: eight restaurants named with neighbourhoods. The ideal case, and the only 8-venue post in the set."
+    }
+  ]
+}

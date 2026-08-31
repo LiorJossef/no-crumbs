@@ -1,0 +1,13 @@
+{
+  "candidates": [],
+  "cityHint": "Tel Aviv",
+  "postIntent": "place_question",
+  "extractorVersion": "2026-08-gemini-gemini-3.5-flash-lite",
+  "promptVersion": "p16-s6",
+  "captionSha": "ac7ca33020937a7864e5abc6358651166c500ae9dd5d17cd8a387525f827b90d",
+  "inputTokens": 7308,
+  "outputTokens": 30,
+  "costUsd": 0,
+  "costModel": "unmeasured",
+  "extractedAt": "2026-08-31T21:44:21.099Z"
+}

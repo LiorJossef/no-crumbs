@@ -1,0 +1,534 @@
+{
+  "_comment": "Machine record of a tests/manual/owner-corpus.manual.ts run. Regenerated on every run. Corpus: tests/manual/owner-corpus.json. Draft rows are excluded from every rate.",
+  "run_at": "2026-08-31T21:45:12.336Z",
+  "base_commit": "8bfdd6daa49113eea9eec9eaa38424646a16b30a",
+  "resolver": "resolver selected by the shipped factory is \"overture\" (stage \"(unset)\" is treated as production; Google Places may not be paired with a non-Google map (06 §3.1)); this harness measures Google only",
+  "extractor": null,
+  "intents": [
+    "place_recommendation",
+    "place_question",
+    "not_a_place"
+  ],
+  "intent_for_class": {
+    "sufficient": "place_recommendation",
+    "recoverable": "place_recommendation",
+    "futile": "place_question",
+    "not-a-place": "not_a_place"
+  },
+  "escalation_positive_class": "recoverable",
+  "spend": {
+    "model_calls": 0,
+    "provider_lookups_live": 0,
+    "provider_lookups_replayed": 0,
+    "provider_lookups_refused_by_budget": 0,
+    "provider_lookups_missing_fixture": 0,
+    "provider_cost_usd_at_list_price": 0,
+    "provider_cost_note": "list price ~$32/1,000, first 5000/month free (06 §11) — DOCUMENTED, not billed",
+    "model_cost_note": "unmeasured: no verified per-token price for the shipped Gemini model (integrations/llm/cost.ts)"
+  },
+  "sample_composition": {
+    "owner": 0,
+    "e7": 10,
+    "draft": 0
+  },
+  "metrics_owner": {
+    "byClass": {
+      "sufficient": {
+        "posts": 0,
+        "graded": 0,
+        "placeGraded": 0,
+        "yieldedCorrect": 0,
+        "wrongPreselect": 0,
+        "wrongShortlist": 0,
+        "extractionMisses": 0,
+        "intentGraded": 0,
+        "intentCorrect": 0
+      },
+      "recoverable": {
+        "posts": 0,
+        "graded": 0,
+        "placeGraded": 0,
+        "yieldedCorrect": 0,
+        "wrongPreselect": 0,
+        "wrongShortlist": 0,
+        "extractionMisses": 0,
+        "intentGraded": 0,
+        "intentCorrect": 0
+      },
+      "futile": {
+        "posts": 0,
+        "graded": 0,
+        "placeGraded": 0,
+        "yieldedCorrect": 0,
+        "wrongPreselect": 0,
+        "wrongShortlist": 0,
+        "extractionMisses": 0,
+        "intentGraded": 0,
+        "intentCorrect": 0
+      },
+      "not-a-place": {
+        "posts": 0,
+        "graded": 0,
+        "placeGraded": 0,
+        "yieldedCorrect": 0,
+        "wrongPreselect": 0,
+        "wrongShortlist": 0,
+        "extractionMisses": 0,
+        "intentGraded": 0,
+        "intentCorrect": 0
+      }
+    },
+    "unadjudicated": 0,
+    "notGraded": {},
+    "intentConfusion": {},
+    "intentExplicit": {
+      "correct": 0,
+      "n": 0
+    },
+    "intentDerived": {
+      "correct": 0,
+      "n": 0
+    },
+    "gates": {
+      "G1 zero-candidates": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0
+      },
+      "G2 zero-candidates AND postIntent=place_recommendation": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 0,
+        "tn": 0
+      }
+    }
+  },
+  "metrics_e7": {
+    "byClass": {
+      "sufficient": {
+        "posts": 3,
+        "graded": 3,
+        "placeGraded": 0,
+        "yieldedCorrect": 0,
+        "wrongPreselect": 0,
+        "wrongShortlist": 0,
+        "extractionMisses": 0,
+        "intentGraded": 3,
+        "intentCorrect": 3
+      },
+      "recoverable": {
+        "posts": 3,
+        "graded": 3,
+        "placeGraded": 2,
+        "yieldedCorrect": 0,
+        "wrongPreselect": 0,
+        "wrongShortlist": 0,
+        "extractionMisses": 2,
+        "intentGraded": 3,
+        "intentCorrect": 3
+      },
+      "futile": {
+        "posts": 3,
+        "graded": 3,
+        "placeGraded": 3,
+        "yieldedCorrect": 0,
+        "wrongPreselect": 0,
+        "wrongShortlist": 0,
+        "extractionMisses": 0,
+        "intentGraded": 3,
+        "intentCorrect": 2
+      },
+      "not-a-place": {
+        "posts": 1,
+        "graded": 1,
+        "placeGraded": 1,
+        "yieldedCorrect": 0,
+        "wrongPreselect": 0,
+        "wrongShortlist": 0,
+        "extractionMisses": 0,
+        "intentGraded": 1,
+        "intentCorrect": 1
+      }
+    },
+    "unadjudicated": 0,
+    "notGraded": {},
+    "intentConfusion": {
+      "place_recommendation": {
+        "place_recommendation": 6
+      },
+      "place_question": {
+        "place_question": 2,
+        "place_recommendation": 1
+      },
+      "not_a_place": {
+        "not_a_place": 1
+      }
+    },
+    "intentExplicit": {
+      "correct": 0,
+      "n": 0
+    },
+    "intentDerived": {
+      "correct": 9,
+      "n": 10
+    },
+    "gates": {
+      "G1 zero-candidates": {
+        "tp": 3,
+        "fp": 4,
+        "fn": 0,
+        "tn": 3
+      },
+      "G2 zero-candidates AND postIntent=place_recommendation": {
+        "tp": 3,
+        "fp": 1,
+        "fn": 0,
+        "tn": 6
+      }
+    }
+  },
+  "cases": [
+    {
+      "url": "https://www.tiktok.com/@muchmorethanmatcha/video/7496222617053990175",
+      "externalId": "7496222617053990175",
+      "caption": "Nothing like a shuk coffee shop ☕️ @cafe fiori  Cafe Fiori 📍 Yom Tov St 20, Tel Aviv-Yafo #coffeetogo #cafefiori #telaviv",
+      "ownerClass": "sufficient",
+      "classAdjudicated": true,
+      "sample": "e7",
+      "truePlaces": [
+        {
+          "name": "Cafe Fiori"
+        }
+      ],
+      "postIntent": "place_recommendation",
+      "expectedIntent": "place_recommendation",
+      "expectedIntentSource": "derived",
+      "rawCandidateNames": [
+        "Cafe Fiori"
+      ],
+      "keptCandidateNames": [
+        "Cafe Fiori"
+      ],
+      "droppedByPlausibility": {
+        "hashtag_or_handle": 0,
+        "city_or_country_only": 0,
+        "generic_words_only": 0,
+        "evidence_not_in_caption": 0,
+        "duplicate": 0
+      },
+      "resolveStatus": "not_attempted",
+      "resolveDetail": "resolver selected by the shipped factory is \"overture\" (stage \"(unset)\" is treated as production; Google Places may not be paired with a non-Google map (06 §3.1)); this harness measures Google only",
+      "offered": [],
+      "extractionMisses": [],
+      "status": "ok",
+      "statusDetail": null
+    },
+    {
+      "url": "https://www.tiktok.com/@travel.by.ann/video/7395598157620497696",
+      "externalId": "7395598157620497696",
+      "caption": "Nomena Roasters, placed on Allenby Street in Tel Aviv. Is a very special boutique place, that looks like perfume store and in fact the scent of the coffee is one of the best home perfumes you can have. Greate coffee and brownies, aesthetic interior, no wifi and amazing Telavivian vibe.  #coffeetiktok #coffeetime #telavivian #telavivlife #telavivcityguide #telavivguide #telavivianstyle #annazwiefka #telavivfood #wheretoeat #israelifood #foodplaces #israel🇮🇱 #wheretovisit #wheretogo #girlwhotravels #coffeelovers #coffeeplace @Anna Zwiefka ",
+      "ownerClass": "sufficient",
+      "classAdjudicated": true,
+      "sample": "e7",
+      "truePlaces": [
+        {
+          "name": "Nomena Roasters"
+        }
+      ],
+      "postIntent": "place_recommendation",
+      "expectedIntent": "place_recommendation",
+      "expectedIntentSource": "derived",
+      "rawCandidateNames": [
+        "Nomena Roasters"
+      ],
+      "keptCandidateNames": [
+        "Nomena Roasters"
+      ],
+      "droppedByPlausibility": {
+        "hashtag_or_handle": 0,
+        "city_or_country_only": 0,
+        "generic_words_only": 0,
+        "evidence_not_in_caption": 0,
+        "duplicate": 0
+      },
+      "resolveStatus": "not_attempted",
+      "resolveDetail": "resolver selected by the shipped factory is \"overture\" (stage \"(unset)\" is treated as production; Google Places may not be paired with a non-Google map (06 §3.1)); this harness measures Google only",
+      "offered": [],
+      "extractionMisses": [],
+      "status": "ok",
+      "statusDetail": null
+    },
+    {
+      "url": "https://www.tiktok.com/@yallabikestlv/video/7494360070369709354",
+      "externalId": "7494360070369709354",
+      "caption": "The best coffee in Tel Aviv is only 9 shekels?! They also have some of the best pizza… #yallabikes #telaviv ",
+      "ownerClass": "recoverable",
+      "classAdjudicated": true,
+      "sample": "e7",
+      "truePlaces": [
+        {
+          "name": "Simhovich"
+        }
+      ],
+      "postIntent": "place_recommendation",
+      "expectedIntent": "place_recommendation",
+      "expectedIntentSource": "derived",
+      "rawCandidateNames": [],
+      "keptCandidateNames": [],
+      "droppedByPlausibility": {
+        "hashtag_or_handle": 0,
+        "city_or_country_only": 0,
+        "generic_words_only": 0,
+        "evidence_not_in_caption": 0,
+        "duplicate": 0
+      },
+      "resolveStatus": "complete",
+      "resolveDetail": "no candidate survived the plausibility gate, so nothing was looked up",
+      "offered": [],
+      "extractionMisses": [
+        "Simhovich"
+      ],
+      "status": "ok",
+      "statusDetail": null
+    },
+    {
+      "url": "https://www.tiktok.com/@alexandramoulavi/video/7347722826654305578",
+      "externalId": "7347722826654305578",
+      "caption": "coffee in tlv > #bh #thankyouhashem #coffee #telaviv #ביתקפה #תלאביב ☕️☁️",
+      "ownerClass": "recoverable",
+      "classAdjudicated": true,
+      "sample": "e7",
+      "truePlaces": [
+        {
+          "name": "Nomena"
+        }
+      ],
+      "postIntent": "place_recommendation",
+      "expectedIntent": "place_recommendation",
+      "expectedIntentSource": "derived",
+      "rawCandidateNames": [],
+      "keptCandidateNames": [],
+      "droppedByPlausibility": {
+        "hashtag_or_handle": 0,
+        "city_or_country_only": 0,
+        "generic_words_only": 0,
+        "evidence_not_in_caption": 0,
+        "duplicate": 0
+      },
+      "resolveStatus": "complete",
+      "resolveDetail": "no candidate survived the plausibility gate, so nothing was looked up",
+      "offered": [],
+      "extractionMisses": [
+        "Nomena"
+      ],
+      "status": "ok",
+      "statusDetail": null
+    },
+    {
+      "url": "https://www.tiktok.com/@briancantstopeating/video/7245648559981350186",
+      "externalId": "7245648559981350186",
+      "caption": "6 Must try spots in Tokyo Japan! Tokyo food scene was amazing and stay tuned for me to drop my top bites of Kyoto! #japanesefood #japantravel #travelfoodie #streetfood #udon #pizza #pancakes #travelfood ",
+      "ownerClass": "recoverable",
+      "classAdjudicated": true,
+      "sample": "e7",
+      "truePlaces": null,
+      "postIntent": "place_recommendation",
+      "expectedIntent": "place_recommendation",
+      "expectedIntentSource": "derived",
+      "rawCandidateNames": [],
+      "keptCandidateNames": [],
+      "droppedByPlausibility": {
+        "hashtag_or_handle": 0,
+        "city_or_country_only": 0,
+        "generic_words_only": 0,
+        "evidence_not_in_caption": 0,
+        "duplicate": 0
+      },
+      "resolveStatus": "complete",
+      "resolveDetail": "no candidate survived the plausibility gate, so nothing was looked up",
+      "offered": [],
+      "extractionMisses": [],
+      "status": "ok",
+      "statusDetail": null
+    },
+    {
+      "url": "https://www.tiktok.com/@marielleisrael/video/7448327861636943150",
+      "externalId": "7448327861636943150",
+      "caption": "Drop cafe recs below pls #telaviv #telavivlife #americanabroad #aroma #aliyah #coffeetiktok ",
+      "ownerClass": "futile",
+      "classAdjudicated": true,
+      "sample": "e7",
+      "truePlaces": [],
+      "postIntent": "place_question",
+      "expectedIntent": "place_question",
+      "expectedIntentSource": "derived",
+      "rawCandidateNames": [],
+      "keptCandidateNames": [],
+      "droppedByPlausibility": {
+        "hashtag_or_handle": 0,
+        "city_or_country_only": 0,
+        "generic_words_only": 0,
+        "evidence_not_in_caption": 0,
+        "duplicate": 0
+      },
+      "resolveStatus": "complete",
+      "resolveDetail": "no candidate survived the plausibility gate, so nothing was looked up",
+      "offered": [],
+      "extractionMisses": [],
+      "status": "ok",
+      "statusDetail": null
+    },
+    {
+      "url": "https://www.tiktok.com/@gadderhq/video/7205629856716000517",
+      "externalId": "7205629856716000517",
+      "caption": "What’s the best hidden gem restaurant in London? 💎🤫👀 Comment below👇👇 #deinfluencing #londonrestaurants #hiddengems #secretspot ",
+      "ownerClass": "futile",
+      "classAdjudicated": true,
+      "sample": "e7",
+      "truePlaces": [],
+      "postIntent": "place_question",
+      "expectedIntent": "place_question",
+      "expectedIntentSource": "derived",
+      "rawCandidateNames": [],
+      "keptCandidateNames": [],
+      "droppedByPlausibility": {
+        "hashtag_or_handle": 0,
+        "city_or_country_only": 0,
+        "generic_words_only": 0,
+        "evidence_not_in_caption": 0,
+        "duplicate": 0
+      },
+      "resolveStatus": "complete",
+      "resolveDetail": "no candidate survived the plausibility gate, so nothing was looked up",
+      "offered": [],
+      "extractionMisses": [],
+      "status": "ok",
+      "statusDetail": null
+    },
+    {
+      "url": "https://www.tiktok.com/@emshelx/video/7541775954906041622",
+      "externalId": "7541775954906041622",
+      "caption": "my Italian friend told me not to make a tiktok about this london restaurant because he knows its the best Italian restaurant in London and wants to actually be able to get a reservation oops, save this for londons best hidden gem restaurant - where to eat in London - Knightsbridge restaurants - Italian food in London - London restaurant guide - London date night #londonrestaurant #londonrestaurants #londonfood #londonfoodie #londonfoodspots           ",
+      "ownerClass": "futile",
+      "classAdjudicated": true,
+      "sample": "e7",
+      "truePlaces": [],
+      "postIntent": "place_recommendation",
+      "expectedIntent": "place_question",
+      "expectedIntentSource": "derived",
+      "rawCandidateNames": [],
+      "keptCandidateNames": [],
+      "droppedByPlausibility": {
+        "hashtag_or_handle": 0,
+        "city_or_country_only": 0,
+        "generic_words_only": 0,
+        "evidence_not_in_caption": 0,
+        "duplicate": 0
+      },
+      "resolveStatus": "complete",
+      "resolveDetail": "no candidate survived the plausibility gate, so nothing was looked up",
+      "offered": [],
+      "extractionMisses": [],
+      "status": "ok",
+      "statusDetail": null
+    },
+    {
+      "url": "https://www.tiktok.com/@petsmeowwoof/video/7290074173500706079",
+      "externalId": "7290074173500706079",
+      "caption": "before sleep talk.....very cute couple....#cats #fyp ",
+      "ownerClass": "not-a-place",
+      "classAdjudicated": true,
+      "sample": "e7",
+      "truePlaces": [],
+      "postIntent": "not_a_place",
+      "expectedIntent": "not_a_place",
+      "expectedIntentSource": "derived",
+      "rawCandidateNames": [],
+      "keptCandidateNames": [],
+      "droppedByPlausibility": {
+        "hashtag_or_handle": 0,
+        "city_or_country_only": 0,
+        "generic_words_only": 0,
+        "evidence_not_in_caption": 0,
+        "duplicate": 0
+      },
+      "resolveStatus": "complete",
+      "resolveDetail": "no candidate survived the plausibility gate, so nothing was looked up",
+      "offered": [],
+      "extractionMisses": [],
+      "status": "ok",
+      "statusDetail": null
+    },
+    {
+      "url": "https://www.tiktok.com/@exploringlondon/video/7346702347491446049",
+      "externalId": "7346702347491446049",
+      "caption": "ad The hidden restaurants you NEED to know about ❤️ You guys know we love sharing hidden gems around London and these restaurants are exactly that - hidden away and absolute gems! You can get 50% off food at ALL OF THESE restaurants if you book them through @firsttableuk and it’s only £3 to book your first “First Table” when you sign up with code EXPLORING - book for 2-4 people at an off-peak dining time and get rewarded with 50% off the food bill (drinks are a regular price). It’s a no brainer. 🧠 SAVE THIS for hidden restaurants, all with 50% off food: ✨ La Nonna in Market Row, Brixton for delicious artisan pasta ✨ MBER London, underground on Pudding Lane for incredible pan-Asian sharing plates ✨ The Life Goddess for beautiful Greek dishes  ✨ The Laughing Yak Nepalese kitchen tucked away in Market Peckham  ✨ Sycamore Restaurant for seasonal Italian plates inside Middle Eighty Hotel in Covent Garden ✨ Tokii London, East meets West inside The Prince Akatoki London Hotel in Marylebone  ✨ Kiaans Tooting pan-Asian inside Tooting Market ✨ Jones Family Kitchen - hidden inside Eccleston Yards in Belgravia ❤️ Which one are you checking out first? #firsttable #halfpricefood #londonrestaurants #hiddenlondon #londonguide",
+      "ownerClass": "sufficient",
+      "classAdjudicated": true,
+      "sample": "e7",
+      "truePlaces": [
+        {
+          "name": "La Nonna"
+        },
+        {
+          "name": "MBER"
+        },
+        {
+          "name": "The Life Goddess"
+        },
+        {
+          "name": "The Laughing Yak"
+        },
+        {
+          "name": "Sycamore"
+        },
+        {
+          "name": "Tokii"
+        },
+        {
+          "name": "Kiaans"
+        },
+        {
+          "name": "Jones Family Kitchen"
+        }
+      ],
+      "postIntent": "place_recommendation",
+      "expectedIntent": "place_recommendation",
+      "expectedIntentSource": "derived",
+      "rawCandidateNames": [
+        "La Nonna",
+        "MBER London",
+        "The Life Goddess",
+        "The Laughing Yak",
+        "Sycamore Restaurant",
+        "Tokii London",
+        "Kiaans Tooting",
+        "Jones Family Kitchen"
+      ],
+      "keptCandidateNames": [
+        "La Nonna",
+        "MBER London",
+        "The Life Goddess",
+        "The Laughing Yak",
+        "Sycamore Restaurant",
+        "Tokii London",
+        "Kiaans Tooting",
+        "Jones Family Kitchen"
+      ],
+      "droppedByPlausibility": {
+        "hashtag_or_handle": 0,
+        "city_or_country_only": 0,
+        "generic_words_only": 0,
+        "evidence_not_in_caption": 0,
+        "duplicate": 0
+      },
+      "resolveStatus": "not_attempted",
+      "resolveDetail": "resolver selected by the shipped factory is \"overture\" (stage \"(unset)\" is treated as production; Google Places may not be paired with a non-Google map (06 §3.1)); this harness measures Google only",
+      "offered": [],
+      "extractionMisses": [],
+      "status": "ok",
+      "statusDetail": null
+    }
+  ]
+}

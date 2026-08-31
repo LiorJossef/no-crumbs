@@ -1,0 +1,44 @@
+{
+  "candidates": [
+    {
+      "rawName": "Nomena Roasters",
+      "cityHint": "Tel Aviv",
+      "countryHint": "Israel",
+      "areaHint": null,
+      "categoryHint": "cafe",
+      "addressHint": "Allenby Street",
+      "evidence": "Nomena Roasters, placed on Allenby Street in Tel Aviv",
+      "frameText": null,
+      "modelConfidence": 0.99,
+      "identifiedName": "Nomena Roasters",
+      "nameVariants": [
+        "נומנה רואסט"
+      ],
+      "tags": [
+        "specialty coffee",
+        "bakery"
+      ],
+      "dishes": [
+        "brownies"
+      ],
+      "whyGo": {
+        "text": "Boutique coffee spot resembling a perfume store with great coffee and brownies.",
+        "groundedIn": "Nomena Roasters, placed on Allenby Street in Tel Aviv. Is a very special boutique place, that looks like perfume store"
+      },
+      "coordinates": {
+        "lat": 32.067,
+        "lng": 34.773
+      }
+    }
+  ],
+  "cityHint": "Tel Aviv",
+  "postIntent": "place_recommendation",
+  "extractorVersion": "2026-08-gemini-gemini-3.5-flash-lite",
+  "promptVersion": "p16-s6",
+  "captionSha": "be172ab2227189c1f2c702fe7585e0720708229be301ce1d38226b2a151c2caa",
+  "inputTokens": 7447,
+  "outputTokens": 309,
+  "costUsd": 0,
+  "costModel": "unmeasured",
+  "extractedAt": "2026-08-31T21:44:13.853Z"
+}

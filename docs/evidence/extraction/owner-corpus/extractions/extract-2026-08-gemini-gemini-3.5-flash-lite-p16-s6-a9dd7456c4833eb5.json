@@ -1,0 +1,212 @@
+{
+  "candidates": [
+    {
+      "rawName": "La Nonna",
+      "cityHint": "London",
+      "countryHint": "United Kingdom",
+      "areaHint": "Market Row, Brixton",
+      "categoryHint": "restaurant",
+      "addressHint": null,
+      "evidence": "La Nonna in Market Row, Brixton for delicious artisan pasta",
+      "frameText": null,
+      "modelConfidence": 0.95,
+      "identifiedName": "La Nonna",
+      "nameVariants": [],
+      "tags": [
+        "italian"
+      ],
+      "dishes": [],
+      "whyGo": {
+        "text": "Artisan pasta is served in Market Row.",
+        "groundedIn": "La Nonna in Market Row, Brixton for delicious artisan pasta"
+      },
+      "coordinates": {
+        "lat": 51.4623,
+        "lng": -0.1132
+      }
+    },
+    {
+      "rawName": "MBER London",
+      "cityHint": "London",
+      "countryHint": "United Kingdom",
+      "areaHint": "Pudding Lane",
+      "categoryHint": "restaurant",
+      "addressHint": null,
+      "evidence": "MBER London, underground on Pudding Lane for incredible pan-Asian sharing plates",
+      "frameText": null,
+      "modelConfidence": 0.95,
+      "identifiedName": "MBER",
+      "nameVariants": [],
+      "tags": [
+        "asian"
+      ],
+      "dishes": [],
+      "whyGo": {
+        "text": "Pan-Asian sharing plates are served underground on Pudding Lane.",
+        "groundedIn": "MBER London, underground on Pudding Lane for incredible pan-Asian sharing plates"
+      },
+      "coordinates": {
+        "lat": 51.5112,
+        "lng": -0.0864
+      }
+    },
+    {
+      "rawName": "The Life Goddess",
+      "cityHint": "London",
+      "countryHint": "United Kingdom",
+      "areaHint": null,
+      "categoryHint": "restaurant",
+      "addressHint": null,
+      "evidence": "The Life Goddess for beautiful Greek dishes",
+      "frameText": null,
+      "modelConfidence": 0.95,
+      "identifiedName": "The Life Goddess",
+      "nameVariants": [],
+      "tags": [
+        "mediterranean"
+      ],
+      "dishes": [],
+      "whyGo": {
+        "text": "Greek dishes are served here.",
+        "groundedIn": "The Life Goddess for beautiful Greek dishes"
+      },
+      "coordinates": {
+        "lat": 51.5152,
+        "lng": -0.1205
+      }
+    },
+    {
+      "rawName": "The Laughing Yak",
+      "cityHint": "London",
+      "countryHint": "United Kingdom",
+      "areaHint": "Market Peckham",
+      "categoryHint": "restaurant",
+      "addressHint": null,
+      "evidence": "The Laughing Yak Nepalese kitchen tucked away in Market Peckham",
+      "frameText": null,
+      "modelConfidence": 0.95,
+      "identifiedName": "The Laughing Yak",
+      "nameVariants": [],
+      "tags": [
+        "asian"
+      ],
+      "dishes": [],
+      "whyGo": {
+        "text": "A Nepalese kitchen is tucked away in Market Peckham.",
+        "groundedIn": "The Laughing Yak Nepalese kitchen tucked away in Market Peckham"
+      },
+      "coordinates": {
+        "lat": 51.4697,
+        "lng": -0.0682
+      }
+    },
+    {
+      "rawName": "Sycamore Restaurant",
+      "cityHint": "London",
+      "countryHint": "United Kingdom",
+      "areaHint": "Covent Garden",
+      "categoryHint": "restaurant",
+      "addressHint": null,
+      "evidence": "Sycamore Restaurant for seasonal Italian plates inside Middle Eighty Hotel in Covent Garden",
+      "frameText": null,
+      "modelConfidence": 0.95,
+      "identifiedName": "Sycamore Restaurant",
+      "nameVariants": [],
+      "tags": [
+        "italian"
+      ],
+      "dishes": [],
+      "whyGo": {
+        "text": "Seasonal Italian plates are served inside the Middle Eighty Hotel.",
+        "groundedIn": "Sycamore Restaurant for seasonal Italian plates inside Middle Eighty Hotel in Covent Garden"
+      },
+      "coordinates": {
+        "lat": 51.5132,
+        "lng": -0.1221
+      }
+    },
+    {
+      "rawName": "Tokii London",
+      "cityHint": "London",
+      "countryHint": "United Kingdom",
+      "areaHint": "Marylebone",
+      "categoryHint": "restaurant",
+      "addressHint": null,
+      "evidence": "Tokii London, East meets West inside The Prince Akatoki London Hotel in Marylebone",
+      "frameText": null,
+      "modelConfidence": 0.95,
+      "identifiedName": "Tokii",
+      "nameVariants": [],
+      "tags": [
+        "japanese"
+      ],
+      "dishes": [],
+      "whyGo": {
+        "text": "East meets West dining is located inside The Prince Akatoki London Hotel.",
+        "groundedIn": "Tokii London, East meets West inside The Prince Akatoki London Hotel in Marylebone"
+      },
+      "coordinates": {
+        "lat": 51.5181,
+        "lng": -0.1563
+      }
+    },
+    {
+      "rawName": "Kiaans Tooting",
+      "cityHint": "London",
+      "countryHint": "United Kingdom",
+      "areaHint": "Tooting Market",
+      "categoryHint": "restaurant",
+      "addressHint": null,
+      "evidence": "Kiaans Tooting pan-Asian inside Tooting Market",
+      "frameText": null,
+      "modelConfidence": 0.95,
+      "identifiedName": "Kiaans",
+      "nameVariants": [],
+      "tags": [
+        "asian"
+      ],
+      "dishes": [],
+      "whyGo": {
+        "text": "Pan-Asian food is served inside Tooting Market.",
+        "groundedIn": "Kiaans Tooting pan-Asian inside Tooting Market"
+      },
+      "coordinates": {
+        "lat": 51.4278,
+        "lng": -0.1684
+      }
+    },
+    {
+      "rawName": "Jones Family Kitchen",
+      "cityHint": "London",
+      "countryHint": "United Kingdom",
+      "areaHint": "Belgravia",
+      "categoryHint": "restaurant",
+      "addressHint": null,
+      "evidence": "Jones Family Kitchen - hidden inside Eccleston Yards in Belgravia",
+      "frameText": null,
+      "modelConfidence": 0.95,
+      "identifiedName": "Jones Family Kitchen",
+      "nameVariants": [],
+      "tags": [],
+      "dishes": [],
+      "whyGo": {
+        "text": "It is hidden inside Eccleston Yards in Belgravia.",
+        "groundedIn": "Jones Family Kitchen - hidden inside Eccleston Yards in Belgravia"
+      },
+      "coordinates": {
+        "lat": 51.4938,
+        "lng": -0.1478
+      }
+    }
+  ],
+  "cityHint": "London",
+  "postIntent": "place_recommendation",
+  "extractorVersion": "2026-08-gemini-gemini-3.5-flash-lite",
+  "promptVersion": "p16-s6",
+  "captionSha": "a9dd7456c4833eb5cff6fef02bcaec165a15cc5cbbe1765b9ca28e14d2ecb42c",
+  "inputTokens": 7565,
+  "outputTokens": 1846,
+  "costUsd": 0,
+  "costModel": "unmeasured",
+  "extractedAt": "2026-08-31T21:44:31.653Z"
+}

@@ -1,0 +1,66 @@
+
+====================================================================================================
+OWNER CORPUS — the engine, graded
+====================================================================================================
+
+   10 case(s): 0 labelled by the owner, 10 carrying the borrowed E7 labels, 0 still draft.
+   Draft rows are printed above by name and count toward nothing.
+
+   ** NO OWNER-LABELLED POSTS. Every number below is from the borrowed sample this **
+   ** corpus exists to replace, and none of it is evidence about the product.      **
+
+   There is nothing to adjudicate: no draft rows either. Paste your own links into
+   tests/manual/owner-corpus-links.txt and run the seeder — see the corpus `_readme`.
+
+
+----------------------------------------------------------------------------------------------------
+SAMPLE: e7 — the BORROWED 16-post web-search set (docs/evidence/tiktok/07-caption-content-scoring.md).
+        `07` documents its own bias: found via web search, skewed to indexed/high-reach
+        posts. Every number below is a property of that sample, not of the product.
+----------------------------------------------------------------------------------------------------
+
+   !! NOT YET A MEASUREMENT: 10 adjudicated case(s) in this sample. The document this
+      corpus replaces had n=16 and a wide confidence interval; a smaller n does not fix that.
+
+   cases in this sample: 10
+
+   PER CLASS
+   class          posts  graded  place-graded  yielded>=1 correct   wrong preselect  wrong shortlist  extraction misses  intent
+   sufficient       3       3             0           0/0 (n/a)                0                0                  0      3/3
+   recoverable      3       3             2            0/2 (0%)                0                0                  2      3/3
+   futile           3       3             3            0/3 (0%)                0                0                  0      2/3
+   not-a-place      1       1             1            0/1 (0%)                0                0                  0      1/1
+
+   `place-graded` counts only cases whose true places are ruled on AND whose lookups all ran.
+   For `futile` and `not-a-place` the true place set is empty by the definition of the class,
+   so any place offered on one of those posts is wrong — no place names have to be typed.
+
+   WRONG PLACES OFFERED:  0 pre-selected   <- must be 0
+                          0 shortlisted   <- a ranking annoyance, not a lie
+
+   postIntent accuracy:  9/10 (90%)
+     on explicit `expectedIntent` labels: 0/0   on labels DERIVED from the class: 9/10
+     The derived half rests on INTENT_FOR_CLASS, a documented default and not a hand label.
+     Where it disagrees with the owner, set `expectedIntent` on that row.
+   confusion (expected → got):
+     place_recommendation   {"place_recommendation":6}
+     place_question         {"place_question":2,"place_recommendation":1}
+     not_a_place            {"not_a_place":1}
+
+   ESCALATION GATE — positive class "recoverable" (the only class a transcript could rescue)
+   gate                                                    tp  fp  fn  tn   prec  recall
+   G1 zero-candidates                                      3   4   0   3   0.43  1.00
+   G2 zero-candidates AND postIntent=place_recommendation  3   1   0   6   0.75  1.00
+   G2 is G1 with `postIntent` added. The difference between the two rows IS the value of
+   that field: if G2 does not beat G1 on precision, the field is not earning its tokens.
+
+   SPEND THIS RUN
+     model calls:      0  (the grader never calls the model; the seeder does)
+     provider lookups: 0 live, 0 replayed from disk
+     estimated cost:   $0.000 at the DOCUMENTED Text Search (Pro) list price of ~$32/1,000 (06 §11).
+                       The first 5,000 lookups a month are free, so the real marginal cost
+                       of this run is $0 until that tier is gone.
+     model cost:       NOT PRICED. `integrations/llm/cost.ts` carries no verified per-token
+                       price for the shipped Gemini model and logs `costModel: "unmeasured"`.
+                       Token counts are in the seeded extraction fixtures.
+====================================================================================================
