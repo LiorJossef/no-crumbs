@@ -54,7 +54,8 @@ export type BasemapRole =
   | 'roadCase'
   | 'building'
   | 'label'
-  | 'labelHalo';
+  | 'labelHalo'
+  | 'houseNumber';
 
 /**
  * EXPERIMENT (exp/richer-basemap): the Mapbox Standard "Day" palette, read off the reference
@@ -80,6 +81,14 @@ export const BASEMAP_TINTS: Record<BasemapRole, Tint> = {
   // Cooler and near-neutral: Mapbox's place labels are dark slate, not brown ink.
   label: { hue: 250, saturation: 0.12 },
   labelHalo: { hue: 40, saturation: 0.08 },
+  /**
+   * **A no-op in light, on purpose.** `housenumber` was the one symbol layer `roleFor` matched
+   * nothing for, so it kept CARTO's own `#d2b17d` — which is `hsl(36.7, 0.486, 0.657)`. These are
+   * its own numbers, so the light map is unchanged to within rounding (`#d4b17b`), and the role
+   * exists only so that **night** has something to override. Changing the daytime tan is a
+   * separate decision from fixing the night, and this is the night's fix.
+   */
+  houseNumber: { hue: 36.7, saturation: 0.486 },
 };
 
 /**
@@ -91,6 +100,9 @@ export const BASEMAP_TINTS: Record<BasemapRole, Tint> = {
  * look untouched rather than wrong.
  */
 const ROLE_PATTERNS: readonly (readonly [RegExp, BasemapRole])[] = [
+  // Before the general `label` rule, which `housenumber` does not match anyway — it is first
+  // because it is the more specific statement and the ordering rule above says so.
+  [/^housenumber/, 'houseNumber'],
   [/label$|^watername|^place_|^roadname|^poi_/, 'label'],
   [/^background$|^landuse_residential$|^aeroway/, 'land'],
   [/^water|^waterway/, 'water'],
@@ -174,6 +186,21 @@ export const BASEMAP_TINTS_NIGHT: Record<BasemapRole, Tint> = {
   // A floor, not a cap: see `Tint.minLightness`.
   label: { hue: 220, saturation: 0.05, minLightness: 0.86 },
   labelHalo: { hue: 220, saturation: 0.10, maxLightness: 0.085 },
+  /**
+   * **The defect this role was added for, and it is a bigger one than it sounds.**
+   *
+   * `housenumber` is CARTO's `#d2b17d`, a warm tan. On near-white paper that is a whisper — which
+   * is why nobody noticed it was never being tinted. On a near-black ground it is the **brightest
+   * warm thing on the map**, there are dozens of them in a single frame, and they are within a few
+   * degrees of hue of the café pins. The user's own saved places stop being the subject of the
+   * surface, which is the one thing `poi-style.ts` says this basemap must never do.
+   *
+   * Cool, and deliberately dimmer than `label`'s 0.86: a house number is an annotation you read
+   * when you are already looking, not a name you navigate by. Above `building` (0.20) so it is
+   * legible against the block it sits on, well below the street names so the hierarchy CARTO
+   * designed survives the inversion.
+   */
+  houseNumber: { hue: 220, saturation: 0.05, minLightness: 0.46 },
 };
 
 /** The table for one theme. The light one is the default so that every existing caller — including

@@ -46,6 +46,7 @@ const POSITRON: Readonly<Record<BasemapRole, string>> = {
   building: '#f2f2f0',
   label: '#3d3d3d',
   labelHalo: '#ffffff',
+  houseNumber: '#d2b17d',
 };
 
 function rgb(value: string): [number, number, number] {
@@ -301,5 +302,46 @@ describe('a pin on a major road, which is the worst case on the night map', () =
     const asRgb = (h: string) =>
       `rgb(${parseInt(h.slice(1, 3), 16)}, ${parseInt(h.slice(3, 5), 16)}, ${parseInt(h.slice(5, 7), 16)})`;
     expect(contrast(asRgb(placePalette('light').category.cafe), road)).toBeLessThan(1.5);
+  });
+});
+
+/**
+ * `housenumber` — the layer that was never tinted at all, and the reason a role was added for it.
+ *
+ * It matched none of `ROLE_PATTERNS`, so it kept CARTO's own `#d2b17d`. On near-white paper that is
+ * a whisper, which is exactly why it went unnoticed; on a near-black ground it is the brightest
+ * warm thing on the map, dozens of times per frame, within a few degrees of hue of the café pins.
+ */
+describe('house numbers', () => {
+  const contrast = (a: string, b: string) => {
+    const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p) as [number, number];
+    return (x + 0.05) / (y + 0.05);
+  };
+
+  it('is left alone in daylight, to within rounding', () => {
+    // The light tint is CARTO's own hue and saturation, so this role exists only to give night
+    // something to override. If this drifts, the daytime map has been restyled by a night fix.
+    const light = tintColor(POSITRON.houseNumber, BASEMAP_TINTS.houseNumber);
+    const [r, g, b] = rgb(light);
+    expect(Math.abs(r - 0xd2)).toBeLessThanOrEqual(3);
+    expect(Math.abs(g - 0xb1)).toBeLessThanOrEqual(3);
+    expect(Math.abs(b - 0x7d)).toBeLessThanOrEqual(3);
+  });
+
+  it('is quieter than a street name at night, and still legible on a block', () => {
+    // A house number is an annotation you read when you are already looking, not a name you
+    // navigate by. The hierarchy CARTO designed has to survive the inversion.
+    const number = night('houseNumber');
+    expect(luminance(number)).toBeLessThan(luminance(night('label')));
+    expect(contrast(number, night('building'))).toBeGreaterThan(3);
+  });
+
+  it('stops being the loudest warm thing on the map', () => {
+    // The defect, stated as the assertion. CARTO's own tan against the night ground reads brighter
+    // than the street names do; the tinted one does not.
+    const untinted = 'rgb(210, 177, 125)'; // #d2b17d, as it shipped before this role existed
+    const land = night('land');
+    expect(contrast(untinted, land)).toBeGreaterThan(contrast(night('label'), land) * 0.5);
+    expect(contrast(night('houseNumber'), land)).toBeLessThan(contrast(untinted, land));
   });
 });
