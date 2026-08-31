@@ -185,11 +185,16 @@ with **the same message** for "not yours" and "does not exist", so it is not an 
 refuses to write `tags` once `tags_confirmed_at` is set. §3(b). Still `service_role`-only EXECUTE, so
 nothing a browser can call reaches either change.
 
-> Correction to `security.md` §3.5, for `security-privacy`: that table lists
-> `apply_saved_place_extraction` on the `SECURITY DEFINER` surface. **It is `SECURITY INVOKER`** —
-> `pg_proc.prosecdef` is `f`. It needs no definer, because its only caller is `service_role`, which
-> holds table-level ALL on `saved_places` and `BYPASSRLS` in its own right. Its `sp.user_id =
-> p_user_id` guard is therefore load-bearing exactly as `0019` says.
+> `apply_saved_place_extraction` is **`SECURITY INVOKER`** — `pg_proc.prosecdef` is `f`. It needs
+> no definer, because its only caller is `service_role`, which holds table-level ALL on
+> `saved_places` and `BYPASSRLS` in its own right. Its `sp.user_id = p_user_id` guard is therefore
+> load-bearing exactly as `0019` says.
+>
+> **Withdrawn:** an earlier draft of this block raised that as a *correction* to `security.md` §3.5,
+> claiming the table lists this function on the definer surface. **It does not.** §3.5 lists
+> `apply_saved_place_source_link` — a different function, one letter apart in a skim, which genuinely
+> *is* definer (`prosecdef = t`). The document is right as written and no edit is owed to it here.
+> The mode statement above stands on its own evidence; only the accusation was wrong.
 
 **`repoint_saved_place`** — this is the judgement call, and it is flagged rather than buried.
 `0033` clears `extracted_reason`, `tags`, `why_go` and `dishes` in the same UPDATE that moves

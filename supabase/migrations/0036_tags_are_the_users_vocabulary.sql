@@ -316,8 +316,11 @@ grant execute on function public.set_saved_place_tags(uuid, text[]) to authentic
 -- `pg_get_functiondef()` on the running container rather than retyped — this one carries three
 -- parameter DEFAULTS that a hand-written `create or replace` silently drops, which Postgres then
 -- refuses outright ("cannot remove parameter defaults from existing function"). It caught a second
--- error too: this function is **`SECURITY INVOKER`**, not definer. `security.md` §3.5 lists it
--- among the definer surface and that is wrong; it needs no definer because its only caller is
+-- error too: this function is **`SECURITY INVOKER`**, not definer. (An earlier draft of this
+-- comment claimed `security.md` §3.5 documents it as definer. It does not — §3.5 lists
+-- `apply_saved_place_source_link`, a different function, which genuinely is one. The mode
+-- statement below stands; the accusation against the document was a misread and is withdrawn.)
+-- It needs no definer because its only caller is
 -- `service_role`, which holds table-level ALL on `saved_places` and BYPASSRLS in its own right. The
 -- `sp.user_id = p_user_id` guard in the WHERE is therefore load-bearing exactly as `0019` says: no
 -- policy filters this row for that caller.
