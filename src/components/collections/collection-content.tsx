@@ -36,12 +36,19 @@ import {
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { PlaceRow, PlaceSearchField } from '@/components/sheet/place-sheet';
 import { BOTTOM_NAV_HEIGHT_PX } from '@/components/nav/bottom-nav';
 import { STOP_TO_CONTENT_HEIGHT, type SheetStop } from '@/components/shell/sheet-geometry';
 import { SharePanel } from '@/components/collections/share-panel';
 import { CollectionPlaceDetail } from '@/components/collections/collection-place-detail';
-import { canEdit, canManage, memberLabel } from '@/domain/collections/collection';
+import {
+  COLLECTION_DESCRIPTION_MAX_LENGTH,
+  COLLECTION_NAME_MAX_LENGTH,
+  canEdit,
+  canManage,
+  memberLabel,
+} from '@/domain/collections/collection';
 import { filterPlaces } from '@/components/map/filter-places';
 import { categoryLocalityLine } from '@/ui/place/category-display';
 import {
@@ -475,8 +482,13 @@ function EmptyCollection({
   );
 }
 
-/** Rename, leave and delete. Inline rather than a popover portal — the whole feature keeps every
- *  surface inside the sheet it was opened from. */
+/** Edit, share, leave and delete. Inline rather than a popover portal — the whole feature keeps
+ *  every surface inside the sheet it was opened from.
+ *
+ *  The row and its first label were both `Rename` until the description field existed. A control
+ *  named for one of the two things it edits is mislabelled, and `Edit` bare rather than
+ *  `Edit collection` because its siblings carry the noun only where they are destructive
+ *  (`Delete collection`, `Leave collection`); `Share` beside them is already bare. */
 function CollectionMenu({
   collection,
   currentUserId,
@@ -489,45 +501,72 @@ function CollectionMenu({
   onClose: () => void;
 }) {
   const router = useRouter();
-  const [renaming, setRenaming] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [name, setName] = useState(collection.name);
+  // `?? ''` here and nowhere else. The form's value is a string because a `<textarea>`'s is;
+  // `validateCollectionDescription` turns an empty one back into `null` on the way to the column,
+  // so a cleared description is `NULL` and never `''` — the same empty-means-null rule a saved
+  // place's note follows.
+  const [description, setDescription] = useState(collection.description ?? '');
   const [confirming, setConfirming] = useState<'delete' | 'leave' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  if (renaming) {
+  if (editing) {
     return (
       <form
         className="mt-2 flex flex-col gap-2 rounded-lg border border-border bg-muted/40 p-3"
         onSubmit={(event) => {
           event.preventDefault();
           startTransition(async () => {
-            const result = await updateCollection(
-              collection.id,
-              name,
-              collection.description ?? '',
-            );
+            const result = await updateCollection(collection.id, name, description);
             if (!result.ok) {
               setError(result.message);
               return;
             }
-            setRenaming(false);
+            setEditing(false);
             onClose();
             router.refresh();
           });
         }}
       >
-        <label htmlFor="rename-collection" className="text-sm font-medium">
-          Rename
+        <label htmlFor="edit-collection-name" className="text-sm font-medium">
+          Name
         </label>
         <Input
-          id="rename-collection"
+          id="edit-collection-name"
           autoFocus
           dir="auto"
           value={name}
           onChange={(event) => setName(event.target.value)}
-          maxLength={80}
+          maxLength={COLLECTION_NAME_MAX_LENGTH}
           className="h-11 text-base"
+          data-vaul-no-drag
+        />
+
+        <label htmlFor="edit-collection-description" className="mt-1 text-sm font-medium">
+          Description
+        </label>
+        {/* A `<textarea>`, not an `<Input>`, and that is the domain's decision rather than a
+            layout preference: `validateCollectionDescription`'s docblock says *"Newlines survive;
+            it is prose, not a label"*, and a single-line field silently forbids the newlines it
+            deliberately preserves.
+
+            No `(optional)` on the label. The name field carries no `(required)`, so qualifying one
+            and not the other only reads correctly to somebody who already knows the convention —
+            and the field saves blank, which teaches it for free.
+
+            The placeholder is an example rather than a restatement: the label already says what the
+            field is, so a placeholder saying it again is the field naming itself twice. What a
+            label cannot teach is the register, and one short concrete line does. */}
+        <Textarea
+          id="edit-collection-description"
+          dir="auto"
+          value={description}
+          onChange={(event) => setDescription(event.target.value)}
+          maxLength={COLLECTION_DESCRIPTION_MAX_LENGTH}
+          placeholder="Places from the Lisbon trip"
+          className="text-base"
           data-vaul-no-drag
         />
         {error ? (
@@ -544,7 +583,7 @@ function CollectionMenu({
             variant="ghost"
             size="lg"
             className="h-11"
-            onClick={() => setRenaming(false)}
+            onClick={() => setEditing(false)}
           >
             Cancel
           </Button>
@@ -602,7 +641,7 @@ function CollectionMenu({
       {canManage(collection.role) ? (
         <>
           <MenuRow label="Share" onClick={onShare} />
-          <MenuRow label="Rename" onClick={() => setRenaming(true)} />
+          <MenuRow label="Edit" onClick={() => setEditing(true)} />
           <MenuRow label="Delete collection" destructive onClick={() => setConfirming('delete')} />
         </>
       ) : (
