@@ -48,6 +48,7 @@ mine to assign; they are how the deck and the code stay pinned to each other aft
 | 8 | — | The §6 drift: corrections owed to `ux-architecture.md` §12 |
 | 9 | W5-3 · W6-3 | Two scope rulings |
 | 10 | — | What is genuinely the owner's decision |
+| 12 | W5-6 follow-up | The collection description field — and whether *description* survives |
 
 ---
 
@@ -755,8 +756,115 @@ may be stale — re-read it, trust your reading, and tell the orchestrator which
 
 ---
 
+## 12. W5-6 follow-up — the collection description field
+
+**Added 2026-08-31, after W5-6 shipped.** The description now renders on the index and on the
+collection header, and **no code path can put anything in the column**: `useCreateCollection` passes
+`''`, and the rename form passes `collection.description ?? ''` straight back
+(`collection-content.tsx:491`). The field is permanently empty. `updateCollection` already takes and
+validates a description and `0024` already grants the update, so the gap is a form field and the
+strings below.
+
+### 12.1 Does *description* survive as the word?
+
+**Yes, and the vocabulary table needs a row saying so.**
+
+`voice-and-vocabulary.md` §3 bans *description* in the **note** row, and reading that row's own *Why*
+settles it: *"a note is the user's own sentence about **a place**."* The ban is scoped to a place's
+note. A collection's description is a different object at a different level, and the table simply has
+no row for it — an absence, not a prohibition.
+
+Three things make keeping the word the right call rather than the lazy one:
+
+- **It already ships as a user-facing string.** `validateCollectionDescription`
+  (`domain/collections/collection.ts:91`) returns `That description is 12 characters too long. The
+  limit is 500.` Choosing a second word for the label would put the label and its own error message
+  in disagreement on first use, and fixing that means editing `domain/` — outside a ten-line commit.
+- **`note` is the one word that must not be reused here.** A place inside a collection already has a
+  shared note (`COLLECTION_ITEM_NOTE_MAX_LENGTH`, *"the shared note on one place"*). Calling the
+  collection's line a note too would put one word on two objects **on the same screen**, which is
+  exactly what §3's "one word per thing" exists to prevent — in the other direction.
+- **`About` was the alternative and it loses on the same ground.** It is a fine label and a fourth
+  name for a thing the column, the validator, the error message and two shipped docblocks already
+  call a description.
+
+### 12.2 The strings
+
+| id | Element | File / key | String |
+|---|---|---|---|
+| **C160** | Field label | `src/components/collections/collection-content.tsx`, the rename form's second `<label>` | `Description` |
+| **C161** | Field placeholder | same field | `Places from the Lisbon trip` |
+
+**No `(optional)` qualifier.** The name field carries no `(required)`, so qualifying one and not the
+other only reads correctly to someone who already knows the convention. The field saves blank and the
+user learns that for free — which is also why the label must not imply an incomplete collection, and
+`Description` does not.
+
+**C161 is an example, not an instruction.** The label already says what the field is; a placeholder
+repeating that (`What’s in this collection`) is the field saying its own name twice. An example shows
+the register — short, concrete, the owner's own sentence — which is the thing a label cannot teach.
+Checked against §3 and §4: no banned word. Note that `ate` is on §4's banned list, so the obvious
+first draft (`Places we ate on the Lisbon trip`) does not ship — a banned-word grep would flag it and
+the grep is right.
+
+### 12.3 One recommended extra word, and it is the lead's call
+
+The menu row that opens this form says **`Rename`** (`collection-content.tsx:588`), and so does the
+form's only label (`:504`). With a second field, both become wrong: a control named `Rename` that
+opens a form editing two things is mislabelled.
+
+**Recommended, three words total:**
+
+| id | Element | Currently | Becomes |
+|---|---|---|---|
+| **C162** | Menu row | `Rename` | `Edit` |
+| **C163** | First field label | `Rename` | `Name` |
+
+`Edit` bare rather than `Edit collection`: its siblings carry the noun (`Delete collection`, `Leave
+collection`) because they are destructive and need the object named; `Share` next to them is already
+bare. `Save` and `Cancel` are unchanged.
+
+**This is optional and the run can ship without it** — C160 and C161 alone meet the gap. But a form
+whose two sibling labels are a verb and a noun is a defect a reviewer will file later, and it is one
+word each.
+
+### 12.4 Three build notes that are not copy but prevent a real defect
+
+1. **It is a `<textarea>`, not an `<Input>`.** `validateCollectionDescription`'s docblock says
+   *"Newlines survive; it is prose, not a label."* A single-line input silently forbids the newlines
+   the domain deliberately preserves.
+2. **Import the limit, do not retype it.** `COLLECTION_DESCRIPTION_MAX_LENGTH` is exported and is
+   500. The name field beside it currently hard-codes `maxLength={80}` where
+   `COLLECTION_NAME_MAX_LENGTH` exists (`add-sheet.tsx` imports it correctly) — do not add a second
+   instance of that.
+3. **`<bdi>` and `dir="auto"` on the field**, matching the name input above it and the two render
+   sites W5-6 shipped. A Hebrew description typed into an LTR field is the ordinary case here.
+
+### 12.5 The rows `voice-and-vocabulary.md` §3 is owed
+
+**I have not edited that file** — it is not in tonight's write scope and another agent may hold it.
+Same pattern as §8: the orchestrator lands these.
+
+| # | Row | Currently says | Must say | Because |
+|---|---|---|---|---|
+| 1 | **note** | Why: `A note is the user's own sentence about a place` | `A note is the user's own sentence about a place. *description* is banned **as a word for a place's note** — a collection's own line is a different object and keeps the word; see the row below` | The ban reads as absolute and is not. Without this, the question gets re-asked every time someone meets `collections.description` |
+| 2 | **new row** | — | `**description** (a collection's) \| about · summary · bio · caption \| The collection's own line, written by its owner. Distinct from **note**, which belongs to a place. It is the column name, the validator's word, and already in a shipped error string` | One word per thing, and this thing had no row |
+
+### 12.6 Acceptance
+
+1. `updateCollection` receives the field's own value, not `collection.description ?? ''`.
+2. A description typed, saved and reloaded renders on both the index and the collection header.
+3. An empty description saves and renders nothing — no empty `<p>`, no placeholder text persisted.
+4. A 501-character description is refused with the validator's existing message; no second message
+   is written.
+5. `grep -n "maxLength={500}"` finds nothing — the constant is imported.
+6. The field element is a `textarea`.
+
+---
+
 ## Change log
 
 | Date | Change |
 |---|---|
 | 2026-08-31 | Created for the overnight run. Wrote final copy for seven surfaces (W4-1 identity, W1-5 the non-TikTok link, W1-4/W6-4 provenance, W5-1/W5-2/W5-5 the library, W7-4 deletion, W7-5 the edges confirmed unchanged, W6-5 confirmed frozen against its spec) with ids `C100`–`C155`. Corrected the run sheet's W4-1 criterion, which cited three strings in a section that has none. Recorded that W1-5 overrides a shipped owner ruling of 2026-08-29 and that the docblock stating it must be rewritten in the same commit. Found the `ux-architecture.md` §12 drift to be **eight rows, not two** — including `C98`, a row for a state `active-area.ts` records as gone and unreachable, and `C74`'s `How to turn it on`, an action nobody built. Two scope rulings: the tag facet may never show a tag no place carries and renders nothing when there are none; the held payoff count does not execute at N = 0, where the rail's existing `No places named` takes the same hold instead. Four decisions escalated to the owner, each with a conservative default the run can build against |
+| 2026-08-31 | §12 added after W5-6 shipped a field no code path can fill. Ruled that **description survives** as the word for a collection's own line — §3's ban is scoped to a place's note, the word already ships in `validateCollectionDescription`'s error string, and `note` is the one alternative that must not be reused because a place inside a collection already has one. `C160` label, `C161` placeholder (an example, not an instruction; the obvious first draft used `ate`, which §4 bans). `C162`/`C163` recommended: a menu row saying `Rename` that opens a two-field form is mislabelled. Two rows owed to `voice-and-vocabulary.md` §3, not edited here |

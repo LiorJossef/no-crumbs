@@ -11,9 +11,10 @@
 >
 > | # | Package | Surface |
 > |---|---|---|
-> | **Spec 1** | **W2-1** (+ **W2-5**) | What the overview *is*, as a decision procedure |
+> | **Spec 1** | **W2-1** (+ **W2-1b**, **W2-5**) | What the overview *is*, as a decision procedure |
 > | **Spec 2** | **W3-1 – W3-4** | The state matrix, made checkable by inspection |
 > | **Spec 3** | **W1-1** | The zero-state screen |
+> | **Spec 4** | **W3-4**, struck | The live regions — a ruling, added 2026-08-31 |
 >
 > Binding inputs, read in full: [`overnight-run-plan.md`](overnight-run-plan.md),
 > [`facelift-plan.md`](facelift-plan.md) §3a, [`voice-and-vocabulary.md`](voice-and-vocabulary.md),
@@ -21,8 +22,8 @@
 > [`current-state.md`](current-state.md) items 0a / 4 / 5 / 8,
 > [`spec-no-places-found.md`](spec-no-places-found.md) §5.
 >
-> **Nine owner questions are collected in §4.** Each is marked `OQ-n` where it arises. None of them
-> blocks building the rest.
+> **Ten owner questions are collected under *Owner questions* near the end.** Each is marked `OQ-n`
+> where it arises. None of them blocks building the rest.
 
 ---
 
@@ -49,8 +50,36 @@ ceiling was a second, separate change, and it is the one that produced defect 0a
 already fixes the reported symptom on its own: a union is order-independent, which is exactly what
 `tests/unit/map/camera-library-shapes.test.ts:192` now asserts.
 
-**The ruling this spec makes: keep the box, delete the ceiling.** See **OQ-1** — this reverses part
-of an owner decision that is six days old, so it is flagged rather than taken quietly.
+#### The distinction the whole ruling turns on: a **floor** is not a **ceiling**
+
+This has to be read slowly, because the obvious reading of "let home rest above `PIN_BAND_MIN`" is
+the one thing that genuinely does re-break the owner's complaint — and it is not what this spec
+says. `map-surface.mapcn.tsx:601-604` already states the trap in one sentence:
+
+> *"Either alone fails — a wide box with the old floor is zoomed straight back in on its own centre,
+> and a ceiling over the anchor box still opens on the city you saved in last."*
+
+| Shape | Israel-wide library (the owner's) | Israel + Tokyo |
+|---|---|---|
+| **Old: anchor box + floor 8.65** | opens on Tel Aviv. **The reported defect** | opens on Tel Aviv, Tokyo off screen |
+| **Today: whole box + ceiling 8.0** | rests at 8.0 → **four grey pills, no pins.** Defect 0a | rests at ~2 → flag discs. Correct |
+| **Restoring a floor over the whole box** | rests at 8.65 | box fits at ~2, `Math.max(2, 8.65)` → **8.65 over the centroid of Israel-plus-Tokyo, i.e. open sea.** This is what the docblock warns about, and it is worse than either |
+| **This spec: whole box, no clamp** | rests at **~9.7 — all 20 pins, four cities, one screen** | rests at ~2 → flag discs. Unchanged and correct |
+
+**Removing the ceiling is not restoring the floor.** A floor forces a minimum zoom and therefore
+throws away the box; removing the ceiling lets the box decide and clamps nothing. Run the owner's own
+library through it: four areas spanning ~47 km × 43 km, fitted into the phone's ~294 × 474 px visible
+band, comes to rest at **z ≈ 9.7** — every one of their places on screen, four cities legible as four
+cities, and nothing about *what you saved last* anywhere in the computation. That is
+*"open the map when you see the countries, not last added place"* satisfied for a library that has
+one country, which is the case the ruling's own docblock concedes it cannot serve: *"a one-country
+library cannot show 'countries' at all, so it lands on its area pills, which is as close as its own
+data gets."* Today, for the owner's library, that sentence cashes out as **four grey pills**.
+
+**The ruling this spec makes: keep the box, delete the ceiling** — and, separately and additionally,
+fix the band (§1.4a). See **OQ-1**: the reversal is dated **2026-08-30, i.e. yesterday**, which makes
+it the most recent camera decision in the repository and means this must be surfaced rather than
+taken quietly. (It is one day old, not nine — which argues for flagging it harder, not less.)
 
 ### 1.2 The principle
 
@@ -149,6 +178,125 @@ The residual cost, stated rather than hidden: a library whose natural fit is in 
 still opens without pins. That is a narrow window instead of the whole band, and it is bounded and
 nameable, which the current defect is not.
 
+### 1.4a The other half: the pin band is wrong too, and it is a separate fix
+
+**The hypothesis put to me: the camera is not the broken half — `PIN_BAND_MIN = AREA_BAND_MAX = 8.5`
+makes pins and area capsules mutually exclusive, and letting pins draw *underneath* the capsules
+gives the user their places at rest without moving the camera at all.**
+
+I evaluated it as an alternative to §1.3 and it is not one. I am ruling it in as an **addition**, and
+the distinction matters more than it sounds.
+
+**Where it does not carry the weight.** Run the owner's library through it with the ceiling left in
+place. Home rests at z8.0; at latitude 32 that is ~518 m/px, so Tel Aviv's nine places inside ~10 km
+occupy **19 px** — one pin-width. All four cities together span 320 px. What the user sees is four
+smudges, each under the grey pill that already tells them the count, and the only fact added is
+spatial distribution *within* an area, which at 19 px is nil. Every place name is unreadable, no
+individual place can be pointed at, and 3 places look the same as 30.
+
+That would satisfy K14's literal words — pins are drawn — while shipping a screen nobody designed.
+It is precisely the failure mode §8a's Q1 exists to catch, and I will not specify something whose
+main property is passing a grep. **The camera fix is the fix**; at z9.7 the same library resolves
+into four legible clusters of individual pins, which is the thing the defect says is missing.
+
+**Where it genuinely earns its place, and why I want it anyway.** Once the ceiling is gone, home
+rests in the area band only when the library's box *honestly* needs 4.5 ≤ z < 8.35 — a library
+spread over roughly 60–500 km. Two-to-four cities a few hundred km apart: London and Paris, three
+Italian cities, the US north-east. **For those libraries no camera can help** — that is what "the box
+does not fit above the pin band" means — and today they are the case that gets flag discs or grey
+pills and nothing else. The two fixes cover disjoint sets of libraries, which is exactly why they are
+both worth having:
+
+| Library's honest fit | Fixed by |
+|---|---|
+| `z ≥ 8.65` — one city, one metro, one small country | **§1.3, the camera.** Real pins, named |
+| `4.5 ≤ z < 8.35` — a few cities, a few hundred km | **§1.4a, the band.** Position, as texture, under the pill that names it |
+| `z < 4.5` — continental | Neither, and correctly: flag discs are the answer at world zoom |
+
+**And it is what makes `band.cross` coherent.** §3a asks for pins that *cross-fade into their area
+pill instead of hard-swapping*. Without a dust layer there is nothing to cross-fade — pins simply do
+not exist below 8.5, so the "fade" is a fade from nothing. With it, zooming in through the boundary
+is one continuous idea: dots become pins, the pill fades out, and the user sees that **these are the
+same objects**. The lead is right about that, and it is the strongest argument for the change.
+
+#### The specification — `W2-1b`, its own package
+
+**It is a `circle` layer, in its own file, and both of those are forced.**
+
+`tests/unit/map/no-density-clustering.test.ts:62-66` reads `place-marker-layer.tsx` **as text** and
+asserts it contains exactly one `map.addLayer(` and the string `type: 'circle'` nowhere. That guard
+is correct and must not be weakened. So the dust goes in **`src/components/map/pin-dust-layer.tsx`**,
+a new file following `summary-marker-layer.tsx`'s shape (`useMap`, `useStyleReady`,
+teardown-before-setup, one effect owning the data). It may share the pin layer's GeoJSON source
+only if that source is lifted; simplest and cheapest is its own source over the same
+`toPlaceFeatures` output.
+
+```ts
+// zoom-bands.ts — derived from two band edges, never written as numbers.
+/** Where the saved places are drawn as position-only dust, beneath the area pills that name them.
+ *  Not a fourth band: `bandForZoom` still owns which *summary* is drawn, and this range is stated
+ *  as two of its edges so tuning the bands moves it. */
+export const PIN_DUST_ZOOM = { min: AREA_BAND_MIN, max: PIN_BAND_MIN } as const;
+```
+
+| Property | Value | Why |
+|---|---|---|
+| layer type | `circle` | 2,000 instanced quads with no glyph shaping, no image atlas and no collision. The cheapest primitive that can carry position |
+| `minzoom` / `maxzoom` | `PIN_DUST_ZOOM.min` / `.max` | Exactly the area band. Not the country band: at z2 a dot sits behind the flag disc drawn at the same centroid |
+| `circle-radius` | `['interpolate', ['linear'], ['zoom'], 4.5, 2.5, 8.35, 4.5]` | Grows into the pin it is about to become |
+| `circle-color` | **one colour** — `UNCATEGORISED_COLOR` from `@/ui/place/palette` (W0-2 has landed; the module exists) | See below |
+| `circle-stroke-width` / `-color` | `1` / the background token | Answers `summary-marker-layer.tsx`'s "invisible against our own basemap" objection, and makes two overlapping dots read as two |
+| `circle-opacity` | `pinOpacityExpression()` | A place you have been to is quieter here too, by the same rule and the same expression |
+| labels | **none. No `text-field` at all** — not a gated one | See the budget note |
+| click handler | **none.** No `map.on('click', …)`, no `mouseenter` cursor | See the interaction note |
+
+**One colour, not four, and this is a real ruling against the grain.** Facelift decision #2 says the
+pin may change colour because colour is the map's only encoded fact. Finding 4 says two of the four
+category colours *already* fail to separate at full pin size. At a 3 px disc none of them separate,
+so four colours here would be a four-value encoding the eye cannot resolve — decoration wearing
+data's clothes, which is the one thing run rule 3 forbids. At this zoom the encoded fact is
+**position**, and nothing else. If the owner wants category colour down here, it needs the ~1.5 km
+neighbourhood band first, where a dot is big enough to mean something.
+
+**No click handler, and it is load-bearing.** `place-marker-layer.tsx`'s header notes that a symbol
+layer cannot answer a tap outside its band because placement only fills the collision index inside
+it — *"a **circle** layer would; see `inBand` and the area disc's own guard."* That sentence is about
+this exact hazard. Today a tap in the area band hits the area pill and flies to the area, which is
+correct; if the dust answered taps it would open an arbitrary one of nine overlapping places. **The
+dust is not a target.** No handler, no cursor change, nothing in the accessibility tree — the list
+remains the accessible representation of the map, unchanged.
+
+**The frame budget.** §2's measurement is 2,000 symbols with labels **gated** at 19.0 ms median /
+60.5 ms p95, and 34.0 ms / ~29 fps with labels forced on. Two things follow, and the first is the
+answer to the label question: **labels stay off entirely below `PIN_BAND_MIN`** — not gated by a
+`step` expression, but absent from the layer, because a `circle` layer has no text field to gate. So
+the 34 ms case is unreachable here by construction. My expectation is that 2,000 circles cost
+materially less than the 19.0 ms symbol case, because circles skip glyph shaping, the image atlas
+and symbol placement entirely — but that is **ASSUMED, not measured, and I cannot measure it.**
+W2-1b does not close until the harness that produced §2's numbers has been run against the area band
+at 2,000 places, on the same machine, and the number is in the ledger. If it regresses, the dust is
+the thing that goes, not the camera fix.
+
+**`bandForZoom` stays the one definition, and here is precisely how.** The invariant in
+`zoom-bands.ts` is that the three *summary* layers are exhaustive and mutually exclusive — there is
+no zoom at which two of them draw and none at which none does. The dust does not touch that: it is
+not a summary and not a band, it is a second rendering of the pins whose range is *derived from two
+band edges*. Three rules keep it from becoming a second definition:
+
+1. `PIN_DUST_ZOOM` is written as `{ min: AREA_BAND_MIN, max: PIN_BAND_MIN }` — **no numeral appears**,
+   so tuning a band edge moves the dust with it, in the same commit, automatically.
+2. `pin-dust-layer.tsx` imports `PIN_DUST_ZOOM` and nothing else from `zoom-bands.ts`. It never calls
+   `bandForZoom` and never compares a zoom itself.
+3. A test asserts the seam: `PIN_DUST_ZOOM.max === PIN_BAND_MIN` and
+   `PIN_DUST_ZOOM.min === AREA_BAND_MIN`, so "the dust ends exactly where the pins begin" is pinned
+   rather than remembered. Add a sentence to `bandForZoom`'s docblock saying the dust exists and why
+   it is not a fourth band — run rule 7 cuts both ways, and a reader who finds a fourth zoom range in
+   another file deserves to be told in this one.
+
+**Exit criterion.** With a library of 8 places across three cities ~200 km apart, the home map at
+rest shows three area pills **and** eight dots positioned under them, no labels, and tapping a dot
+does nothing while tapping a pill still flies to the area. Frame budget measured and recorded.
+
 ### 1.5 The six cases
 
 `n` = saved places · `B` = union of the **areas'** boxes (`map-page-client.tsx:367-370`, unchanged) ·
@@ -156,11 +304,12 @@ nameable, which the current defect is not.
 
 | Case | Camera | What draws | The sheet |
 |---|---|---|---|
-| **0 places** | `ZERO_STATE_ZOOM` (11) over the timezone region (§1.6). Not a fit — a fixed zoom at a centre | Basemap only. Real streets, no pins, no capsules | `Your map starts here.` + the line + `Add a TikTok`, resting at **`half`**. See Spec 3 |
+| **0 places** | `ZERO_STATE_ZOOM` (11) over the timezone region (§1.7). Not a fit — a fixed zoom at a centre | Basemap only. Real streets, no pins, no capsules, **no dust** | `Your map starts here.` + the line + `Add a TikTok`, resting at **`half`**. See Spec 3 |
 | **3 places, one city** | `z ≈ 11–13` → pin band | **3 pins**, named (W2-3 tiers the labels) | Global scope → `3 places in {City}` |
-| **3 places, three countries** | `B` spans continents → `z ≈ 1–3` → country band | **3 flag discs**, each reading `1` | `3 places in 3 countries` (`list-scope.ts` §365 already emits this) |
+| **3 places, three countries** | `B` spans continents → `z ≈ 1–3` → country band | **3 flag discs**, each reading `1`. No dust — a dot behind a flag disc is nothing | `3 places in 3 countries` (`list-scope.ts` §365 already emits this) |
+| **3 places, three cities ~200 km apart** | `z ≈ 6–8` → area band | **3 area pills + 3 dots** beneath them (§1.4a). The case only the band fix reaches | `3 places in {Country}` |
 | **30 places, one city** | `z ≈ 10–12` → pin band | **30 pins**; labels tiered so the nearest are named | `30 places in {City}` |
-| **30 places, several countries** | `z` in the country or low area band | Flag discs, or area pills for a one-country spread | `30 places in 4 countries` / `30 places in {Country}` |
+| **30 places, several countries** | `z` in the country or low area band | Flag discs; area pills **with dust** for a one-country spread | `30 places in 4 countries` / `30 places in {Country}` |
 | **300 places, one city** | `z ≈ 10–12` → pin band | **300 pins.** This is where the product dies and the answer is not the camera | `300 places in {City}` |
 
 **The 300-place case is not solved by this package and must not be pretended away.** At one city and
@@ -184,12 +333,19 @@ of hard-swapping"*. With §1.4 in place, **home never rests inside the transitio
 is only ever seen during a user's own pinch — which is exactly where it communicates something ("that
 pill is these pins").
 
-Mechanism, and it must be this one: **overlap the bands by the guard and drive opacity with a zoom
+**With §1.4a it becomes a real cross-fade rather than a fade from nothing**, and this is the argument
+for building the two together: the dust *is* the outgoing state. Zooming in through the boundary, the
+dots grow into pins, the pill fades out, and the three ramps say one thing — **these are the same
+objects at three fidelities**.
+
+Mechanism, and it must be this one: **overlap the ranges by the guard and drive opacity with a zoom
 `interpolate`.** No zoom listener, no React state, no re-render — the same property that makes the
 bands cost nothing today.
 
 - Pin layer: `minzoom = PIN_BAND_MIN - BAND_EDGE_GUARD` (8.35), and `icon-opacity` /`text-opacity`
   multiplied by `['interpolate', ['linear'], ['zoom'], 8.35, 0, 8.65, 1]`.
+- Dust layer: `maxzoom` stays `PIN_BAND_MIN`, and `circle-opacity` multiplied by the inverse ramp
+  over the same two stops, so the dots are gone by the time the pins are solid.
 - Area layer: `maxzoom = PIN_BAND_MIN + BAND_EDGE_GUARD` (8.65), and its `icon-opacity` multiplied by
   the inverse ramp.
 - Both are **paint** properties, so neither re-lays-out nor re-collides anything.
@@ -204,7 +360,14 @@ W6-6. Do not split it across both — two agents writing `marker-style.ts` is da
 
 ### 1.7 The zero-places region — ruling on `EMPTY_LIBRARY_BOUNDS` (W2-5)
 
-`src/ui/place/viewport.ts:34-60`. The docblock is wrong in two ways and the constant is a guess:
+Both ends re-read before ruling: the constant at `src/ui/place/viewport.ts:55` and its only consumer,
+the `initialBounds` memo at `map-page-client.tsx:367-370`. The consumer is the load-bearing half —
+**the zero-place region is delivered through the identical prop path as a real library's box**
+(`areas.length > 0 ? unionBounds(…) : EMPTY_LIBRARY_BOUNDS`), so the surface cannot tell the two
+apart by looking at the box. That is exactly why §1.3 selects the zero-state zoom on
+`places.length === 0` inside the surface rather than on the shape of what it was handed.
+
+The docblock is wrong in two ways and the constant is a guess:
 
 - it cites `HOME_LANDING_MIN_ZOOM`, which no longer exists;
 - it claims *"an honest fit of it already rests inside the pin band"*, which cannot happen — the box
@@ -261,6 +424,12 @@ agent, or three commits in wave order, never two at once.**
 `src/components/map/marker-style.ts` and `summary-style.ts` (only for `band.cross`) ·
 `src/ui/place/viewport.ts`.
 
+**Files (W2-1b, §1.4a).** New `src/components/map/pin-dust-layer.tsx` · `zoom-bands.ts`
+(`PIN_DUST_ZOOM` and one docblock sentence) · `map-surface.mapcn.tsx` (mounting it, guarded by the
+same `hasSummaryBands` expression that decides `replacedBelowZoom` — a surface with no bands has no
+pill for the dust to sit under, so `/collections/[id]` gets neither). **`place-marker-layer.tsx` is
+not opened by this package**, and the guard at `no-density-clustering.test.ts:62-66` is why.
+
 **Must not change:** the home *box* (the union of area boxes — that is the fix that stays); the
 `fitTo` path used by movers 2, 3, 7 and 8, which already frame into the pin band with their own
 ranges; `COUNTRY_LANDING_ZOOM` and its clamp; `pinLayerZoomRange`'s conditional floor and the
@@ -314,10 +483,17 @@ bracket, because rule 6a counts a bracket as a review failure.
 
 **Two flags for W0.**
 
-1. `button.tsx` writes `rounded-[min(var(--radius-md),10px)]` three times. Once `--radius-md` exists
-   the `min()` is dead weight and the whole expression should become `rounded-md` — **but check it in
-   a browser first**, because those three sizes have been rendering with an invalid radius since they
-   were written and "correct" will look like a change.
+1. ~~`button.tsx` writes `rounded-[min(var(--radius-md),10px)]` three times; once `--radius-md`
+   exists the `min()` is dead weight and the whole expression should become `rounded-md`.~~
+   **Corrected 2026-08-31, and the original was a trap.** That was written while `--radius-md` was
+   *undefined*, which made the `min()` collapse and those four sizes render square. W0-1 has since
+   defined `--radius-md` at **0.875rem (14px)**, so `rounded-md` would now render them at 14 px
+   instead of the 10 px and 12 px the `min()` was written to produce — **a restyle of four button
+   sizes disguised as a bracket cleanup, on the four sizes that had just been repaired.** The
+   registered escapes are `--radius-xs` (10 px) and `--radius-sm` (12 px, already present), so:
+   `size: xs` and `icon-xs` → `rounded-xs`; `size: sm` and `icon-sm` → `rounded-sm`. K5 is satisfied
+   either way; only one of them keeps the geometry. Check it in a browser regardless — these sizes
+   have never rendered correctly, so "correct" will look like a change.
 2. `place-sheet.tsx:396` and `place-desktop-panel.tsx:115` already use `duration-140`, a bare numeric
    duration. That compiles and is not a bracket, but it is a second way of saying `duration-enter`.
    Fold it in.
@@ -833,14 +1009,146 @@ centred card, `Your map starts here.` legible in the panel behind it.
 
 ---
 
-## §4 — Questions for the owner
+## Spec 4 — The live regions (ruling, and it is mostly "do not")
+
+> **Added 2026-08-31**, after a build agent refused to consolidate the live regions under W3-4 and
+> the refusal was escalated. **The agent was right.** All four regions and all twenty-nine role
+> attributes below were read; nothing here was run.
+
+### 4.1 The audit's sentence is wrong, and it is wrong by counting
+
+`facelift-plan.md`'s audit says **"four separate `aria-live` regions doing the job of one toast"**.
+That counted DOM attributes. Read, they are four different mechanisms doing four different jobs, and
+**not one of them should move into a toast**:
+
+| # | Where | What it actually is |
+|---|---|---|
+| 1 | `src/components/shell/map-shell.tsx:201` | `/map`'s **one** sr-only channel, with a ticketed ordering discipline in `src/ui/place/announce.ts` and two writers (the search count, a been/not-been mark) |
+| 2 | `src/app/import/screens/import-shell.tsx:94` | The import takeover's sr-only channel. Always mounted, carries the failure *body* while the focus move reads the headline — deliberately, so nothing is said twice |
+| 3 | `src/components/collections/share-panel.tsx:214` | A **component-owned** sr-only channel, with a written reason. See §4.3 |
+| 4 | `src/app/import/screens/rail-screen.tsx:89` | **Not a region at all.** It is the *visible* wait line, `railWaitLine(elapsedMs)`, marked `aria-live` on the element that already shows the text |
+
+Number 4 is the one that settles the argument. It is on-screen copy, in the flow of the layout, that
+a sighted user is reading while they wait. "Consolidating" it into a toast would **delete visible text
+from the screen** during the flagship flow's slowest moment. Any rule that recommends that is the
+wrong rule.
+
+### 4.2 The principle — three questions, in order
+
+The proposed principle — *a message about what the page just became belongs to the page's one region;
+a message about the control you are touching belongs beside that control* — is close, and it fails on
+two of the four: it cannot classify #4 at all (visible text is neither), and applied to #3 it says
+"use the page's region" on two surfaces where no such region exists. This is the refinement, and it
+is stated so a reviewer can apply it to a region that does not exist yet.
+
+**Q1 — Is the text visible on screen?**
+**Yes → it is not an announcement.** Put the live attribute on the element that already shows the
+text — `aria-live="polite"`, or `role="alert"` if it is an error — and stop. **Never mirror visible
+text into a separate sr-only region**: that is how a screen reader reads the same sentence twice.
+This alone covers #4, all seventeen inline field errors, `add-sheet.tsx:658,666`,
+`near-me-control.tsx:61`, `sign-in/page.tsx:219`, `bottom-nav.tsx:393,420` and
+`import-confirmation.tsx:72`. **Twenty-six of the twenty-nine role attributes are already correct by
+this test and must not be touched.**
+
+**Q2 — Would someone who cannot see the screen otherwise never learn it happened?**
+No → no region; the visible change is the feedback. Yes → it needs a channel. The bar is *perceivable
+without sight*, not *invisible*: marking a place been changes a badge and a pin's opacity, both real
+and both unreachable from where the user is, which is why `visit-state.ts` announces.
+
+**Q3 — Whose channel? One live region per interaction context that can be on screen alone.** Three
+tests, all of which must pass before a message may join an existing region:
+
+1. **Ownership** — is there exactly one place that always renders that region, on *every* surface
+   where these messages can originate? A component rendered on three surfaces where only one has a
+   provider fails this, and a channel that silently drops two thirds of its messages is worse than a
+   second region.
+2. **Concurrency** — can the two regions be mounted *and both change* in the same window? If yes they
+   must be one region. Mutually exclusive in time is not a conflict.
+3. **Ordering** — do two writers of one region need an order between them? Then they need a ticketed
+   channel (`announce.ts`), not a second region.
+
+Applied: **#1 keeps its two writers and its ticket** (ordering). **#2 stays separate from #1** —
+`/import` standalone has no map shell to borrow a region from, and while the overlay is open the
+map's writers are unreachable, so they are mutually exclusive in time. **#3 stays where it is**
+(§4.3). **#4 is not a region.** The correct count is *two page-level channels, one component-owned
+channel, and one live-marked visible line* — and the right number of merges is **zero**.
+
+**One watch item, and I could not check it.** `map-shell.tsx:201` renders its region *above* the
+`{overlay ? null : …}` ternary at `:207`, so it stays mounted underneath the import overlay. That is
+harmless today only because both of its writers — the search field and place detail — are unmounted
+while the overlay is open. It is one new writer away from two polite regions changing at once, and a
+finished import is the obvious candidate. **Someone with a browser and a screen reader should confirm
+the map's region stays silent for a whole import.** If it does not, the fix is to move the region
+inside the ternary, not to merge the two.
+
+### 4.3 `share-panel.tsx:208` — the comment stands, and it should be rewritten to say so
+
+The written reason is: *the panel is also rendered on surfaces that have no announcer provider — the
+join flow and the collections index — and a copy that silently announces nothing on two of three
+surfaces is worse than a second region that is only ever mounted while this panel is open.*
+
+**Honoured, not overturned.** It is exactly the ownership test in Q3, argued correctly before the
+test was written, and `§8.3`'s "use the shared one" was written for a component that lived on one
+surface. Two supporting facts: the region is mounted only while the panel is open, so it can never
+interleave with `/map`'s; and its messages are about a change *inside* the panel the user is looking
+at, not about what the page became.
+
+**One edit is owed, and it is a comment, not code.** The last line reads *"Flagged to the
+orchestrator."* — a flag that is now resolved. Replace that sentence with the ruling and its date;
+keep every other sentence. Run rule 7 forbids deleting a comment that explains *why*, and this one is
+right. Do it only in a package that already has the file open; it is not worth a commit of its own.
+
+### 4.4 What a toast is for, and what it must never swallow
+
+A toast, in this product, is **a visible transient message that is not attached to a control**. By
+that definition the product already has exactly one — `import-confirmation.tsx`, the auto-dismissing
+"places added" strip over the map, which already carries its own `role="status"` and its own written
+rationale for auto-dismissing.
+
+If a toast is ever vendored per §7c, these are its terms:
+
+- **It maps to `enter`** on the closed list of nine — opacity plus a 4 px rise, 140 ms, with
+  `motion-safe:` on the rise and the opacity unconditional (§2.3). It gets no bespoke motion, no
+  slide-in from the side, no stacking animation, no swipe-to-dismiss spring.
+- **It is its own live region**, mounted only while it is showing, and it does not read from or write
+  to `announce.ts`.
+- **It may never carry:** an inline field error (WCAG 3.3.1 wants the error identified in text
+  associated with the field; a message that disappears on a timer does not), a message about the
+  control the user is touching, the rail's wait line, or anything a sighted user needs to still be on
+  screen a moment later.
+- **Its only legitimate first job is to be the shared implementation of the confirmation strip that
+  already exists** — and that strip works, so this is a refactor with no user-visible outcome.
+
+**Replacing a working component that carries a written design rationale, in order to use a component
+because it is available, is what §7c calls a failed package.** That is the whole of the case against
+doing it.
+
+### 4.5 Scope — specify it, build nothing tonight
+
+**Ruling: out of scope for this run.** W3-4's "replace four `aria-live` regions with one toast" is
+**struck**, and the reason is not cost — it is that the change is wrong. What is owed instead:
+
+| Owed | Size | When |
+|---|---|---|
+| Correct `facelift-plan.md`'s audit line — "four regions doing the job of one toast" is inaccurate and would send the next reader to do the same wrong thing | one sentence | W8-7, with the other document corrections |
+| Rewrite `share-panel.tsx:212`'s stale flag as the ruling | one comment | opportunistically, or owed |
+| Confirm the map's region stays silent through an import, with a screen reader | one pass | W7-6 or W8-6, where the a11y sweep already lives |
+| A toast component, only if a second transient message ever needs one | — | not funded |
+
+Four correct regions beat one wrong one, and **nothing in `src/` should change tonight on account of
+this section.** If the run needs a `role`-attribute number for a KPI, the honest one is: 29
+attributes, 26 correct by inspection under §4.2, 3 examined individually and all 3 correct.
+
+---
+
+## Owner questions
 
 Each carries my recommendation. None blocks the rest of the work; build on the recommendation and
 record the answer when it comes.
 
 | # | Question | Recommendation |
 |---|---|---|
-| **OQ-1** | **Spec 1 removes the home zoom ceiling that was set by owner ruling on 2026-08-30.** A one-city library will now open **in the pin band** (z10–13, pins and names), not on area capsules. The part of the ruling that fixed the reported complaint — framing the *whole library* rather than the last save — is kept exactly | **Remove the ceiling.** The complaint was about which places the camera chose, and the union box answers it on its own. The ceiling is the sole cause of defect 0a, and *"far enough out to read as geography"* is the pin band for a library that lives in one city |
+| **OQ-1** | **Spec 1 removes the home zoom ceiling set by owner ruling on 2026-08-30 — yesterday, and the most recent camera decision in the repo.** A one-city library then opens **in the pin band** (z10–13, pins and names) rather than on area capsules. The part of the ruling that fixed the reported complaint — framing the *whole library* rather than the last save — is kept exactly, and **no floor is restored**: §1.1's table shows a floor is the one change that would re-break it | **Remove the ceiling, and additionally fix the band (§1.4a).** Three options were weighed: *(a)* ceiling only, which leaves defect 0a; *(b)* **band only** — pins drawn under the capsules with the camera untouched, which honours the ruling literally but resolves the owner's own library into four 19 px smudges under the pills that already count them: it passes K14's words and fails Q1; *(c)* **both**, which is what is specified. They fix disjoint sets of libraries — the camera serves anything that fits above z8.65, the band serves the few-hundred-km spread that no camera can serve — and the ruling's own docblock concedes that a one-country library "cannot show countries at all". For the owner's library the ceiling currently costs them every pin they own |
 | **OQ-2** | `Asia/Jerusalem` → **Tel Aviv** or **Jerusalem**? The zone is named for one city; the product has been used in the other | **Tel Aviv.** It is where today's `EMPTY_LIBRARY_BOUNDS` already points and it is the metro the corpus is in. Nothing on screen ever names it |
 | **OQ-3** | The zero-state card growing from `68dvh` to full height on submit — a beat, or a jump? | **Ship the transition** (220 ms, `ease-emphasised`, instant under reduced motion). Fall back to opening as a takeover from the first submit if it stutters on a device |
 | **OQ-4** | Auto-open the import overlay **once per page load** (my spec) or on **every** visit to `/map` while the library is empty? | **Once per load.** Re-opening over a user who just closed it is a nag, and the `Add a TikTok` button is right there |
@@ -849,18 +1157,21 @@ record the answer when it comes.
 | **OQ-7** | The **300-place case** is not fixed by W2-1 and cannot be — 300 pins in one city at z11 is an overlapping mat. The named repair is a ~1.5 km neighbourhood band (`growth-plan.md` §5.7), out of scope tonight | **Accept it as a recorded Q1 finding**, not a W2-1 failure. Nothing in this spec blocks the third band: it is two constants and one more guard window |
 | **OQ-8** | The pressed category chip filling with **the category's own colour** (W2-4) means the pressed state is data, not a variant. That is a deliberate exception to rule 6a's "state comes from variants" | **Take the exception.** Four category colours come from data; four variants would be a hard-coded palette by another name, and W0-2 exists to stop exactly that |
 | **OQ-9** | The `enter` fade (140 ms opacity) now plays for `prefers-reduced-motion` users, where today it is suppressed | **Correct as specified.** §3a's own rule is that the nine collapse *to the opacity change*, not to nothing |
+| **OQ-10** | **A run-plan item is struck.** W3-4's "replace four `aria-live` regions with one vendored toast" is specified out in Spec 4 — the four are four different mechanisms, one of them is visible on-screen copy, and seventeen of the nineteen `role="alert"` uses are inline field errors that WCAG 3.3.1 wants kept beside their field. `facelift-plan.md`'s audit line is inaccurate and is corrected in W8-7 | **Strike it and record it as owed.** Four correct regions beat one wrong one; no `src/` change tonight |
 
 ---
 
-## §5 — Notes for the orchestrator
+## Notes for the orchestrator
 
 **Path collisions I found while writing this.** Each is a serialise-or-lose:
 
 | File | Wanted by | Order |
 |---|---|---|
 | `src/ui/place/viewport.ts` | **W1-1**, **W2-1**, **W2-5** | W1-1 (wave 1) → W2-1 → W2-5, or fold W2-5 into W2-1 |
-| `src/components/map/map-surface.mapcn.tsx` | **W2-1**, **W2-2**, W6-6, W6-7 | W2-1 first — its `{ kind: 'home' }` framing removes one of W2-2's two replay paths |
+| `src/components/map/map-surface.mapcn.tsx` | **W2-1**, **W2-1b**, **W2-2**, W6-6, W6-7 | W2-1 first — its `{ kind: 'home' }` framing removes one of W2-2's two replay paths |
+| `src/components/map/zoom-bands.ts` | **W2-1**, **W2-1b** | same agent, or W2-1 then W2-1b. Both add exported constants to one 100-line file |
 | `src/components/map/marker-style.ts` | **W2-1** (`band.cross`), **W3-2** (`pinOpacityExpression`), W2-3 (labels) | one agent per wave; do not let W2-3 and W3-2 overlap |
+| `src/components/map/pin-dust-layer.tsx` (new) | **W2-1b** only | uncontended — and `place-marker-layer.tsx` must stay closed to this package |
 | `src/components/map/marker-images.ts` | **W4-3** (crumb silhouette), and W3-2 *only if* 1.1× resampling reads soft | W3-2 must report, not open it |
 | `src/components/sheet/place-sheet.tsx` | **W3-1, W3-2, W5-1, W5-2, W5-5** | five packages, one file — this is the run's hottest file and the throughput risk |
 | `src/app/import/import-page-client.tsx` | **W1-1** (the `presentation` prop), W1-4, W1-6, **W6-1** | W1-1's change is ~15 lines in the root element's `cn(...)`; land it before W6-1 decomposes the file, or rebase the prop onto the split |
