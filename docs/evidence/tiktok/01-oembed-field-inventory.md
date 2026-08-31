@@ -67,7 +67,22 @@ x-expires=1787212800  ->  2026-08-20T08:00:00Z
 ```
 
 Two days after the capture date. **So TikTok did not change the window: the original reading of
-this file's own raw data was wrong**, by a factor of about ninety. That distinction was worth
+this file's own raw data was wrong**, by a factor of about ninety.
+
+### The root cause, and it is a method defect rather than a typo
+
+**The repo read `cache-control: max-age=31536000` — a *caching* instruction about the asset — as if
+it were the deadline on the *signature*.** 31,536,000 seconds is one year, which is roughly where
+"≈ 6 months" came from. TikTok signs the real deadline into the URL itself, as `x-expires`, and the
+two say completely different things: how long a cache may keep a copy, versus when the CDN stops
+honouring the request at all.
+
+That distinction is general, so the correction is general too. **Every claim in this file derived
+from a response *header* rather than from the payload or the URL deserves the same re-derivation** —
+a header describing transport is not a fact about the resource. This one was VERIFIED, cited by a
+migration comment and by a design decision, and nothing downstream re-derived it for two weeks.
+
+Root cause found by the thumbnail-refresh session; the window re-measured independently here. That distinction was worth
 establishing rather than assuming, because a re-grade and a method defect have different
 consequences — and this is the second kind. Any other number in this evidence set derived the same
 way deserves the same re-derivation.

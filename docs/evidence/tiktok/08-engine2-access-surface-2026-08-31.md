@@ -800,7 +800,7 @@ what to run; it is ~30 minutes and it is overdue.
 
 **The cover image is the one new stability datum:** `cache-control: max-age=31536000` and served from
 Akamai, versus the JSON's `no-store`. If cover-frame work ever resumes, the image is CDN-cacheable
-and cheap; the `x-expires` on the signed URL (observed ≈ 6 months out) is the real expiry, and it
+and cheap; the `x-expires` on the signed URL (**~47 hours** — see the correction at the end of this file) is the real expiry, and it
 means **a `thumbnail_url` persisted in `sources` will 403 eventually.** Anything that stores that URL
 must treat it as perishable and re-fetch oEmbed, not cache the string forever. I did not measure an
 expired one; label ASSUMED, but the parameter is right there in the URL.
