@@ -52,6 +52,7 @@ import {
   collectionMemberRows,
   collectionDetailRows,
   collectionInviteRows,
+  collectionItemRows,
   invitePreviewRows,
   DEMO_USER_ID,
 } from './fixtures.mjs';
@@ -69,7 +70,10 @@ function tableFixtures(placeCount, email) {
     collection_members: () => collectionMemberRows(placeCount),
     collections: () => collectionDetailRows(placeCount),
     collection_invites: () => collectionInviteRows(),
-    collection_items: () => [],
+    // Not read by any page — `/collections/[id]` gets its items through `DETAIL_SELECT`'s embed on
+    // `collections`. Mirrored anyway so a future direct read is not silently empty; see the
+    // function's header in `fixtures.mjs`.
+    collection_items: () => collectionItemRows(placeCount),
     sources: () => [],
     imports: () => [],
     extractions: () => [],

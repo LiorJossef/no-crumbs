@@ -360,6 +360,29 @@ export function collectionDetailRows(placeCount) {
   ];
 }
 
+/**
+ * `collection_items` rows, as a **direct** read of the table rather than through the embed.
+ *
+ * These change nothing on any screen, and that is the point of writing them down. `/collections/[id]`
+ * does not read this table: it reads `collections` with `DETAIL_SELECT`, whose `items:collection_items
+ * ( … )` embed `collectionDetailRows` already supplies — which is why that route renders its six pins
+ * today and has done throughout this harness's life. The only direct readers are the mutation server
+ * actions in `src/app/actions/collections.ts` (add, remove, reorder), and this stub answers no writes,
+ * so nothing in the app reaches these rows yet.
+ *
+ * They exist so that the **next** page-level read of `collection_items` gets rows instead of a
+ * silently empty screen. `[]` was the honest answer while nobody could say what the shape was; the
+ * shape is now established from `DETAIL_SELECT` and mirrored here, so the honest answer has changed.
+ * The rows are derived from `collectionDetailRows` rather than restated, because two hand-written
+ * copies of one shape drift and one of them is always the stale one.
+ */
+export function collectionItemRows(placeCount) {
+  return collectionDetailRows(placeCount)[0].items.map((item) => ({
+    ...item,
+    collection_id: DEMO_COLLECTION_ID,
+  }));
+}
+
 /** `collection_invites` — owner-only by policy, so this is what the owner's share row reads. */
 export function collectionInviteRows() {
   return [
