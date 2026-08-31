@@ -108,3 +108,50 @@ The ceiling this project has quoted all month — *the caption names a venue in 
 ceiling on **the caption**, not on the post. The speech contains venues the caption omits, in at
 least two classes E7 counted as lost. Whether that is reachable in a shipping product is a separate
 question with a different answer.
+
+---
+
+# Addendum — the lever, priced end to end
+
+Re-run 2026-09-01 through the shipped pipeline, after the weakest-token floor came down to 0.81.
+Fixtures for the transcripts, live Gemini, live Google. 8 lookups.
+
+## What a transcript is worth, measured
+
+Of the six posts a transcript was captured for, five are genuine recommendation posts
+(`@zachmargs` is a comedy control).
+
+| | caption only | + transcript |
+|---|---|---|
+| Candidates extracted | 9 | **17** |
+| New candidates that resolved | — | **5 of 8** |
+| **Recommendation posts yielding ≥1 place** | **2 of 5** | **4 of 5** |
+
+**The hit rate on those posts doubles, 40% → 80%.** The one that still fails is `@emshelx`, where
+the creator withholds the name in the audio as well — genuinely unanswerable, and correctly so.
+
+`@gadderhq` alone goes from nothing to **four** matched London venues: Ishbilia, Saba Cafe, Hoppers
+Soho, La Bodega Negra. That is the post E7 filed as *futile — the answer nowhere*.
+
+## And the floor fix earned its keep
+
+`Pita Lila` → Google's `Pizza Lila` now **resolves to a shortlist**. At the 0.85 floor this guard
+shipped with for an hour, it was thrown away as `no_match`. Same data, same query, different
+constant — recorded because it is the clearest demonstration that the overlap documented in
+`scoring-constants.ts` is a real trade and not a theoretical one.
+
+## What still fails, and it is not the transcript
+
+Three new candidates did not resolve — `Tokyo ICCO`, `Jinsei Yakitori`, `John Balcom`. Two of the
+three score **1.000** against their true names, so the transcript did its job and **retrieval** is
+the failure: Google returns `Junsei` at 0.631 for `Jinsei Yakitori`. Only `John Balcom` (0.441) is a
+genuine ASR mangle.
+
+## The honest bound on all of this
+
+**Six transcripts, captured before the route began refusing.** Every attempt since — across several
+hours and three separate retries — returns `Unexpected response from webpage request`. So this
+number says what a transcript is worth **when you have one**; it says nothing about how often you
+can get one, and on current evidence the answer to that is *not reliably, and not at volume*.
+
+That is the whole remaining question for the engine, and it is not an engineering one.
