@@ -74,25 +74,61 @@ export const POI_GROUP_COLORS: Readonly<Record<PoiGroup, string>> = {
  *
  * These are ink on the ground, so they invert for the same reason the label role does: measured
  * against the night land (`#202225`), the light six land at **2.91–3.69:1** — every one of them
- * below AA, on small text, which is the worst combination there is. Lifted, they sit at
- * **5.78–6.77:1**.
+ * below AA, on small text, which is the worst combination there is. Lifted, they clear it —
+ * **4.53–5.30:1** after I2-9 pulled them back down under the pins.
  *
- * **Hue is preserved and only lightness moves**, which keeps the one thing these colours are for:
- * `food` is still the warm one, `transit` still the blue one. Someone who has learned the map does
- * not have to learn it again at night.
+ * **Hue is preserved**, which keeps the one thing these colours are for: `food` is still the warm
+ * one, `transit` still the blue one. Someone who has learned the map does not have to learn it
+ * again at night. Lightness and chroma both move; the first pass moved only lightness, and that is
+ * how two of the six ended up the same colour as a pin (see below).
  *
  * The bar for keeping them apart from each other is deliberately *the light set's own worst pair*
  * rather than a number invented here: the light six have `transit`/`civic` at ΔE 10.7 and ship that
- * way, so a night set is honest if it is no worse. It is slightly better — the same pair at **11.7**
- * — and every other pair is above 14.
+ * way, so a night set is honest if it is no worse.
+ *
+ * ## What that bar missed, and it is the one this file's own header promises (I2-9)
+ *
+ * The six were measured against the land and against **each other**. Nobody measured them against
+ * the pins — and the header two blocks up commits to exactly that: *"a saved café and a basemap
+ * café must not look like the same kind of thing, or the user's own library stops being the
+ * subject."* At night that promise was not being kept:
+ *
+ *   - **every one of the six sat *above* the darkest pin in lightness** (64–69 against L\* 61.8).
+ *     The basemap's own labels were the brighter layer.
+ *   - `shopping` `#B98EE0` against the `bar` pin `#A288E0`: **ΔE 5.3.** The same colour.
+ *   - `food` `#E0925A` against the `cafe` pin `#C99A55`: **ΔE 9.9** — and this one is a night
+ *     regression, because the light pair measures 17.9. It is also the worst possible instance:
+ *     the densest group, in the colour of the most common saved category.
+ *
+ * `shopping`/`bar` is **not** a night regression — the light theme ships that pair at ΔE 7.3, so
+ * the collision is inherited. The light set is left alone here on purpose; it is a separate ruling
+ * and a separate measurement. What the night set is held to is the same honesty rule this comment
+ * already used twice: **no worse than the light one.**
+ *
+ * ## The two floors added, and how these values were picked
+ *
+ * 1. **Every basemap label sits below the darkest pin in lightness.** The pins are the data; the
+ *    basemap is ground. That is an ordering, so it is stated as one rather than as a taste.
+ * 2. **No basemap label comes within ΔE 14 of any pin body** — roughly double the light set's own
+ *    worst cross-pair, which is what there was room for once floor 1 pinned the lightness band.
+ *
+ * Inside those, each value is the **nearest colour to the one it replaced** that holds them, at the
+ * same Lab hue, and no group was allowed to gain chroma: a quieting pass must not add colour to the
+ * ground, and "someone who has learned the map does not have to learn it again" applies to a retune
+ * as much as to a theme. So `culture` moves 2.2 and `food`, which was the defect, moves 13.3.
+ *
+ * Measured after: worst pin cross **5.3 → 14.0**; the six's own worst pair **11.7 → 14.0**, better
+ * than before and still above the light set's 10.7; AA on the night land **4.53–5.30**, down from
+ * 5.78–6.77 and still clear of 4.5 — which is the price, and it is the right one to pay. These are
+ * annotations you read once you are already looking, not the thing the screen is about.
  */
 export const POI_GROUP_COLORS_NIGHT: Readonly<Record<PoiGroup, string>> = {
-  food: '#E0925A',
-  shopping: '#B98EE0',
-  culture: '#E677AE',
-  transit: '#7BA6E8',
-  outdoors: '#71B978',
-  civic: '#9AA8B8',
+  food: '#A8826A',
+  shopping: '#9E8EAA',
+  culture: '#DE70A7',
+  transit: '#6B96D6',
+  outdoors: '#5FA466',
+  civic: '#8C95A0',
 };
 
 /** The six for one theme. Light by default so every existing caller is unchanged until it opts in

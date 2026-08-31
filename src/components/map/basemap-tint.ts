@@ -156,16 +156,71 @@ export type TintedPaintProperty = (typeof TINTED_PAINT_PROPERTIES)[number];
  * Water is darker than the land rather than lighter, which is the convention every night basemap
  * follows and the opposite of the daytime table's vivid sky blue: at night the sea is the quiet
  * part of the frame and the coastline reads as land ending, not as water beginning.
+ *
+ * **That sentence was written before the value delivered it (I2-9).** The sea shipped at L\* 16.8
+ * against an L\* 13.1 land — *lighter*, not darker — and the whole coastline was being carried by
+ * colour instead. It is true now; see the `water` row.
  */
 export const BASEMAP_TINTS_NIGHT: Record<BasemapRole, Tint> = {
   land: { hue: 220, saturation: 0.08, maxLightness: 0.135 },
   // **Measured, and the first draft of this was wrong.** At `L ≤ 0.10` the sea came out `#0f1924`
-  // against a `#202225` land: ΔE 8.2, a coastline you cannot see. Contrast ratio hides this — it
-  // reported 1.11:1 and would report roughly that for any two near-blacks — so the number that
-  // decides this row is perceptual distance, not luminance. This product's very first screen is a
-  // coastline; a night map whose sea reads as more land is not a map.
-  water: { hue: 214, saturation: 0.60, maxLightness: 0.18 },
-  green: { hue: 140, saturation: 0.32, maxLightness: 0.19 },
+  // against a `#202225` land: a coastline you cannot see. Contrast ratio hides this — it reported
+  // 1.11:1 and would report roughly that for any two near-blacks — so the number that decides this
+  // row is perceptual distance, not luminance. This product's very first screen is a coastline; a
+  // night map whose sea reads as more land is not a map. All of that still stands.
+  //
+  // **The ΔE figures it was tuned by did not (I2-9).** They were CIE76: 8.2 for that first draft
+  // and 20.3 for the fix. In CIEDE2000 — the metric `basemap-night.test.ts` argues for by name,
+  // *because CIE76 mis-ranks differences that are mostly lightness and anything in the blues*,
+  // which is this comparison exactly — they are **6.1** and **13.1**. So the fix was never the 2.5×
+  // overcorrection it looked like. It was 1.1 above the test's own floor of 12.
+  //
+  // **What the owner was actually looking at, measured off a rendered 1440×900 dark frame:** the
+  // sea was not the brightest thing (L\* 16.8, under buildings 20.7, road casings 21.7, parks 24.2
+  // and road fills 30.9). It was the *only coloured* thing. **27.3% of the map carried chroma > 18
+  // and 26.3 of those points were the sea** — 96% of the colour on a surface whose subject is the
+  // user's pins, spent on the one region with nothing in it.
+  //
+  // **And it could not be fixed by taking colour out of the sea.** Swept over hue × saturation ×
+  // lightness at the shipped land value, ΔE 13.1 is the *most* this parameterisation can buy;
+  // every point of chroma removed costs the coastline one for one. Raising the land instead makes
+  // it worse, not better, and the land cannot rise anyway — `roadFill` is pinned at 0.29 by the
+  // pin-on-a-motorway measurement below, and the land has to stay under it.
+  //
+  // So the separation is paid for in **lightness** instead, and the sea finally goes under the land
+  // the way the block comment above has always claimed. L\* 16.8 → **7.3**, and:
+  //
+  //   - coastline against the bare land polygon **13.1 → 13.3** (floor 12)
+  //   - coastline area-weighted across the *real* shoreline **14.8 → 15.1**, sampled 12 px inland
+  //     from every water pixel in a rendered frame. That measurement is also why this row is tuned
+  //     against the bare land polygon at all: **72% of the shoreline is that polygon**, the rest
+  //     parks and built-up mass, which score higher.
+  //   - perceived colourfulness **9.11 → 5.81**, a 36% drop. Lab C\* alone overstates a near-black,
+  //     so that figure is C\* scaled by √(L\*/100); raw C\* moves only 22.2 → 21.5.
+  //
+  // `saturation` at 0.95 is near its ceiling and that is the model, not a hack: at L = 0.10 the
+  // most chroma HSL can hold is `0.2 × S` (see `Tint.maxLightness`). **There is no headroom left in
+  // this row** — dropping `maxLightness` further collapses the coastline rather than deepening it.
+  water: { hue: 214, saturation: 0.95, maxLightness: 0.10 },
+  /**
+   * **Parks are ground, and get exactly the distinctness the sea gets — no more (I2-9).**
+   *
+   * They shipped as the second most colourful region on the map and the *lightest* large one after
+   * the roads: composited L\* 24.2 by the raw tint, C\* 13.1, brighter than the built fabric they
+   * sit among. A park at night is unlit ground; it should not out-shine the buildings.
+   *
+   * **The number this row was tuned by was measuring the wrong colour.** Positron draws its park
+   * fills at ~⅔ opacity, so what reaches the frame is the tint composited over the land — measured
+   * `#213629`, not the `#21402b` the tint returns. The shipped ΔE from land was therefore **14.8**,
+   * not the 19.4 the raw value scores, and a change judged on the raw value overshoots badly: the
+   * first attempt at this row landed the composited park at ΔE 9.6, below the floor and nearly
+   * invisible, while the raw value still read as passing.
+   *
+   * Composited: L\* 20.5 → **15.6**, C\* 13.1 → **11.9**, colourfulness 5.93 → **4.69**, ΔE from
+   * land 14.8 → **13.2** — within a tenth of the coastline's own 13.3, which is the bar. Both are
+   * regions of the ground that have to be identifiable and nothing more.
+   */
+  green: { hue: 140, saturation: 0.41, maxLightness: 0.13 },
   // The one role that must end up *above* the land, and by enough to read at a glance — but not so
   // far above it that a pin cannot sit on one.
   //

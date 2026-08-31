@@ -63,6 +63,25 @@ function luminance(value: string): number {
   return 0.2126 * channels[0]! + 0.7152 * channels[1]! + 0.0722 * channels[2]!;
 }
 
+/** CIE L*, which is what "lighter than" should mean between two near-blacks. */
+function lightnessOf(value: string): number {
+  return lab(value)[0];
+}
+
+/**
+ * One colour drawn over another at `alpha`.
+ *
+ * Positron's park fills are not opaque — measured at ~2/3 against a rendered frame — so the tint
+ * this module returns for `green` is never the colour anybody sees. Every assertion about a park
+ * has to run through here or it is grading the wrong pixel.
+ */
+function composited(fg: string, bg: string, alpha: number): string {
+  const [r1, g1, b1] = rgb(fg);
+  const [r2, g2, b2] = rgb(bg);
+  const mix = (a: number, b: number) => Math.round(alpha * a + (1 - alpha) * b);
+  return `rgb(${mix(r1, r2)}, ${mix(g1, g2)}, ${mix(b1, b2)})`;
+}
+
 function lab(value: string): [number, number, number] {
   const [r, g, bl] = rgb(value)
     .map((c) => c / 255)
@@ -170,8 +189,30 @@ describe('the ground inverts', () => {
     expect(deltaE(night('water'), night('land'))).toBeGreaterThan(12);
   });
 
-  it('keeps parks readable as parks', () => {
+  it('puts the sea UNDER the land, so the coastline is carried by value and not by colour', () => {
+    // I2-9. The sea shipped *lighter* than the land (L* 16.8 against 13.1) with the whole coastline
+    // resting on chroma, which made 26% of the frame the only coloured region on a map whose
+    // subject is the pins. Swept over hue x saturation x lightness, the old arrangement could not
+    // buy that coastline any more cheaply — so the separation moved to lightness instead. This is
+    // the assertion that keeps it there.
+    expect(lightnessOf(night('water'))).toBeLessThan(lightnessOf(night('land')));
+  });
+
+  it('keeps parks readable as parks — measured on the colour that reaches the frame', () => {
+    // Positron draws park fills at ~2/3 opacity, so the raw tint is not what anybody sees. Judging
+    // this row on the raw value overshoots: a park at raw dE 15 composites to 9.6, under the floor
+    // and nearly invisible, while the raw number still reads as a pass.
     expect(deltaE(night('green'), night('land'))).toBeGreaterThan(12);
+    expect(deltaE(composited(night('green'), night('land'), 2 / 3), night('land'))).toBeGreaterThan(12);
+  });
+
+  it('lets the ground be no more distinct than it has to be: a park is held to the sea\'s own bar', () => {
+    // Both are regions of the ground that have to be identifiable and nothing more. Pinning the
+    // park to the sea's number rather than to a floor of its own is what stops the next person
+    // tuning one of them in isolation.
+    const sea = deltaE(night('water'), night('land'));
+    const park = deltaE(composited(night('green'), night('land'), 2 / 3), night('land'));
+    expect(Math.abs(park - sea)).toBeLessThan(2);
   });
 });
 
@@ -242,6 +283,38 @@ describe('the POI groups at night', () => {
     for (const [group, color] of Object.entries(POI_GROUP_COLORS_NIGHT)) {
       expect(contrast(asRgb(color), NIGHT_LAND), `night ${group}`).toBeGreaterThan(4.5);
     }
+  });
+
+  it('sits BELOW every pin in lightness, because the pins are the data and this is the ground', () => {
+    // I2-9, and the ordering nothing had ever asserted. All six shipped *above* the darkest pin
+    // (L* 64–69 against 61.8), so the basemap's own labels were the brighter layer on a surface
+    // whose entire subject is the user's saved places.
+    const darkestPin = Math.min(
+      ...Object.values(placePalette('dark').category).map((c) => lightnessOf(asRgb(c))),
+      lightnessOf(asRgb(placePalette('dark').uncategorised)),
+    );
+    for (const [group, color] of Object.entries(POI_GROUP_COLORS_NIGHT)) {
+      expect(lightnessOf(asRgb(color)), `night ${group} against the darkest pin`)
+        .toBeLessThan(darkestPin);
+    }
+  });
+
+  it('is never confusable with a pin, which is the promise poi-style.ts makes in its header', () => {
+    // *"A saved café and a basemap café must not look like the same kind of thing, or the user's
+    // own library stops being the subject."* Measured before I2-9 it was not being kept: basemap
+    // `shopping` against the `bar` pin was ΔE 5.3, and `food` against the `cafe` pin was 9.9 —
+    // the latter a night regression, since the light pair measures 17.9.
+    const palette = placePalette('dark');
+    const pins = { ...palette.category, uncategorised: palette.uncategorised };
+    let worst = Infinity;
+    let worstPair = '';
+    for (const [group, color] of Object.entries(POI_GROUP_COLORS_NIGHT)) {
+      for (const [pin, body] of Object.entries(pins)) {
+        const d = deltaE(asRgb(color), asRgb(body));
+        if (d < worst) [worst, worstPair] = [d, `${group} <-> ${pin}`];
+      }
+    }
+    expect(worst, worstPair).toBeGreaterThan(14);
   });
 
   it('stays at least as distinguishable as the light set it mirrors', () => {
