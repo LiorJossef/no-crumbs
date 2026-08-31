@@ -316,6 +316,24 @@ several of the original rules quietly depended on.
     Say what you actually found, especially when it contradicts the dispatch — every lane that did
     so today was right, and the orchestrator was wrong three times out of three.
 
+30. **The policy tests assume a database nobody has used.** `supabase/tests/0008_policy_tests.sql`
+    carries five assertions of the form *"count(*) over a whole table equals N"* — its extraction
+    fixture check is `count(*) from public.extractions <> 1`. That is true only immediately after a
+    `db:reset`. On 2026-09-01, with three real extraction rows left by end-to-end verification, it
+    failed at setup, and four of five policy files failed the same way.
+
+    **Nothing was broken.** The tests were asserting a global fact about a database that had since
+    been used for its actual purpose. Read that failure as *the fixture's precondition is gone*, not
+    as *the policy regressed* — and do not reach for `db:reset` to make it pass. Reset is a
+    world-stopping operation (rule 30 above), it destroys other agents' evidence, and here it would
+    be destroying real rows to satisfy a test that could have scoped itself to its own fixture.
+
+    The right fix is to scope those five assertions to the rows the file created. Until then, run
+    them against a freshly reset database or read their failures with this in mind. And note the
+    invocation: `npm run db:test` shells out to a host `psql` that does not exist on every machine —
+    `docker exec supabase_db_P-002 psql -U postgres -f` runs the same file where the database
+    actually is.
+
 ## 8. Concurrency — when more than one agent is running
 
 Rules 26–31 apply whenever the orchestrator has dispatched more than one specialist that has not yet
