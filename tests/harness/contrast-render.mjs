@@ -209,6 +209,12 @@ const COLLECT = () => {
       inactive: el.disabled || el.closest('[disabled], [aria-disabled="true"], fieldset[disabled]') !== null,
       occludedBy: occlusion(el, box),
       overCanvas: false,
+      paddingBox: {
+        x: box.left + padL,
+        y: box.top + padT,
+        w: Math.max(1, box.width - padL - padR),
+        h: Math.max(1, box.height - padT - padB),
+      },
       rects: [
         {
           x: box.left + padL + 1,
@@ -243,6 +249,14 @@ const COLLECT = () => {
     const box = el.getBoundingClientRect();
     const ink = resolveColour(cs.color);
     const opacity = cumulativeOpacity(el);
+    // The padding box: the border box inset by the borders. A line box may legally extend past it
+    // — that is what produced `in Israel` at 4.06 — and nothing outside it is this element's ink.
+    const pad = {
+      x: box.left + (parseFloat(cs.borderLeftWidth) || 0),
+      y: box.top + (parseFloat(cs.borderTopWidth) || 0),
+      w: box.width - (parseFloat(cs.borderLeftWidth) || 0) - (parseFloat(cs.borderRightWidth) || 0),
+      h: box.height - (parseFloat(cs.borderTopWidth) || 0) - (parseFloat(cs.borderBottomWidth) || 0),
+    };
     const size = parseFloat(cs.fontSize);
     const weight = Number(cs.fontWeight) || 400;
     const inactive = el.closest('[disabled], [aria-disabled="true"], fieldset[disabled]') !== null;
@@ -259,6 +273,7 @@ const COLLECT = () => {
       unresolvable: ink === null,
       inactive,
       occludedBy,
+      paddingBox: pad,
       overCanvas: Array.from(document.querySelectorAll('canvas')).some((c) => {
         const q = c.getBoundingClientRect();
         return box.left < q.right && box.right > q.left && box.top < q.bottom && box.bottom > q.top;
@@ -287,31 +302,106 @@ const COLLECT = () => {
  * `fill="currentColor"` icon in the tree, changing the background this instrument exists to
  * photograph — a measurement that perturbs its own subject.
  */
-const HIDE_INK_CSS = `
+const inkCss = (fill) => `
 *, *::before, *::after, *::first-line, *::first-letter, *::placeholder, *::selection {
-  -webkit-text-fill-color: transparent !important;
+  -webkit-text-fill-color: ${fill} !important;
   -webkit-text-stroke-color: transparent !important;
-  text-decoration-color: transparent !important;
+  text-decoration-color: ${fill} !important;
   text-shadow: none !important;
   caret-color: transparent !important;
 }`;
+
+const HIDE_INK_CSS = inkCss('transparent');
+
+/**
+ * **Two probe colours, and the reason there are two rather than one.**
+ *
+ * The glyph mask has to answer *where is there a letter*, which is a question about geometry. The
+ * first version of it asked *where does the render differ from the plate*, which is a question
+ * about visibility — and those are the same question everywhere except the one place that matters.
+ * White text on a white ground differs from the plate nowhere, so the mask was empty and the worst
+ * contrast failure there is scored as no failure at all. The self-test caught it on two constructed
+ * cases: `#c8` (white on white) came back `no-glyph-pixels` instead of 1.00:1, and `#c6`'s minimum
+ * over a black-to-white gradient came back **9.15 instead of 1.00**, because the unreadable end of
+ * the gradient is exactly the end where the mask erased itself.
+ *
+ * So the ink is forced to a known colour and diffed against the plate. One colour is not enough —
+ * magenta text on a magenta ground has the same hole — so the mask is the **union** of a magenta
+ * pass and a green pass. No pixel can be close to both, so every glyph appears in at least one.
+ *
+ * The real ink is never in these shots. It comes from `COLLECT`, resolved by the browser's own
+ * parser, and is composited over the plate at the masked coordinates.
+ */
+const PROBE_INK = ['#FF00FF', '#00FF00'];
 
 /* -------------------------------------------------------------------------- */
 /* in-page (blank page): decode the plate and score                            */
 /* -------------------------------------------------------------------------- */
 
-const SCORE = async ({ png, targets, scale, aaNormal, aaLarge }) => {
-  const image = await new Promise((res, rej) => {
-    const img = new Image();
-    img.onload = () => res(img);
-    img.onerror = rej;
-    img.src = `data:image/png;base64,${png}`;
-  });
-  const canvas = document.createElement('canvas');
-  canvas.width = image.width;
-  canvas.height = image.height;
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  ctx.drawImage(image, 0, 0);
+/**
+ * Score the collected targets against the plate.
+ *
+ * Two images, not one, and the second one is the whole of this function's honesty.
+ *
+ * **`inked` is the page as it renders; `plate` is the same page with the glyphs hidden.** Where they
+ * differ, a glyph was painted. Where they agree, nothing was — and a ratio computed there is a
+ * ratio for a pixel no reader ever sees ink on.
+ *
+ * That distinction is not theoretical. Three of the seventeen failures this tool reported at
+ * `6499777` were the same artefact:
+ *
+ *  - **`in Israel`, 4.06:1.** The `Range` rect is a *line box* — ascent, descent and half-leading —
+ *    and at 390x844 it reached four scanlines past the lowest pixel of any letter, onto a 1px rule.
+ *    Every glyph row scored 4.85; one ruled row scored 4.06; the 5th percentile took the rule.
+ *  - **`Been` x2, 1.06 and 1.37.** Pixels outside the badge's rounded pill, in the rect's corners.
+ *    White on the badge's own `rgb(40, 120, 112)` is 5.24:1, which is what the median already said.
+ *
+ * Both are the same bug with two faces — *a box that contains the text* is not *the pixels the text
+ * is on* — and over-reporting is the failure a contrast tool can least afford, because a tool that
+ * cries wolf gets discounted and then the real fourteen go unrepaired.
+ *
+ * So a pixel is scored only if it satisfies **both**:
+ *
+ *  1. it lies inside the element's **padding box** — a cheap geometric guard that removes borders
+ *     and rules the line box overhangs; and
+ *  2. it is a **glyph core** — `inked` differs from `plate` by at least half of the largest
+ *     difference seen anywhere in this element's rects, and by at least 8/255. Antialiased edges
+ *     are partial coverage and WCAG does not ask for a ratio on them.
+ *
+ * The background is still read from the **plate**, at those same coordinates, so a gradient, a blur
+ * or the map is measured as what is actually behind the letter rather than as an average.
+ *
+ * **The mask is checked before it is trusted.** Glyphs are sparse: if more than 60% of a rect
+ * differs between the two shots, the images are not aligned — something moved between them — and
+ * the element is reported `mask-unreliable` rather than given a number. `measureContrast` pauses
+ * every running animation before either screenshot for exactly this reason.
+ *
+ * `backgroundBuckets` is kept, and deliberately: it is what made both artefacts findable. A flat
+ * ground reports 1, and `in Israel` reported 2 — the second bucket being the rule. That the second
+ * bucket held no ink is what this function now knows and the previous one did not.
+ */
+const SCORE = async ({ probes, plate, plateAfter, targets, scale, aaNormal, aaLarge }) => {
+  const load = (data) =>
+    new Promise((res, rej) => {
+      const img = new Image();
+      img.onload = () => res(img);
+      img.onerror = rej;
+      img.src = `data:image/png;base64,${data}`;
+    });
+  const draw = async (data) => {
+    const image = await load(data);
+    const canvas = document.createElement('canvas');
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(image, 0, 0);
+    return { canvas, ctx };
+  };
+
+  const M = [];
+  for (const p of probes) M.push(await draw(p));
+  const B = await draw(plate);
+  const B2 = await draw(plateAfter);
 
   const lum = (r, g, b) => {
     const f = (v) => {
@@ -326,62 +416,159 @@ const SCORE = async ({ png, targets, scale, aaNormal, aaLarge }) => {
     return (hi + 0.05) / (lo + 0.05);
   };
 
+  /** Clip `rect` to `box`, both in CSS pixels. Empty if they do not overlap. */
+  const clip = (rect, box) => {
+    const x0 = Math.max(rect.x, box.x);
+    const y0 = Math.max(rect.y, box.y);
+    const x1 = Math.min(rect.x + rect.w, box.x + box.w);
+    const y1 = Math.min(rect.y + rect.h, box.y + box.h);
+    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+  };
+
   const scored = [];
   for (const t of targets) {
-    const ratios = [];
-    const bgSeen = new Map();
-    for (const rect of t.rects) {
+    const rects = t.paddingBox
+      ? t.rects.map((r) => clip(r, t.paddingBox)).filter((r) => r.w > 0.5 && r.h > 0.5)
+      : t.rects;
+
+    // Pass 1: for every rect, pull the plate and each probe render, and take the union of the
+    // per-probe differences as the glyph signal.
+    const tiles = [];
+    let maxDiff = 0;
+    let totalPixels = 0;
+    let differingPixels = 0;
+    for (const rect of rects) {
       const x0 = Math.max(0, Math.round(rect.x * scale));
       const y0 = Math.max(0, Math.round(rect.y * scale));
-      const w = Math.min(canvas.width - x0, Math.round(rect.w * scale));
-      const h = Math.min(canvas.height - y0, Math.round(rect.h * scale));
+      const w = Math.min(B.canvas.width - x0, Math.round(rect.w * scale));
+      const h = Math.min(B.canvas.height - y0, Math.round(rect.h * scale));
       if (w <= 0 || h <= 0) continue;
-      const data = ctx.getImageData(x0, y0, w, h).data;
-      // Stride so a very wide paragraph does not cost a million ratio computations; the step is
-      // small enough that a gradient's darkest and lightest ends are both sampled.
-      const step = Math.max(1, Math.floor(Math.sqrt((w * h) / 900)));
-      for (let py = 0; py < h; py += step) {
-        for (let px = 0; px < w; px += step) {
+      const b = B.ctx.getImageData(x0, y0, w, h).data;
+      const b2 = B2.ctx.getImageData(x0, y0, w, h).data;
+      const probeData = M.map((m) => m.ctx.getImageData(x0, y0, w, h).data);
+      const signal = new Uint8ClampedArray(w * h);
+      const stable = new Uint8Array(w * h);
+      for (let i = 0, px = 0; i < b.length; i += 4, px += 1) {
+        // **Is this pixel the same in both plates?** The two are taken before and after the probe
+        // renders with the ink hidden in each, so anything that differs between them moved on its
+        // own and nothing computed from it describes a moment that existed.
+        const drift = Math.max(
+          Math.abs(b[i] - b2[i]),
+          Math.abs(b[i + 1] - b2[i + 1]),
+          Math.abs(b[i + 2] - b2[i + 2]),
+        );
+        stable[px] = drift < 8 ? 1 : 0;
+        let best = 0;
+        for (const a of probeData) {
+          const d = Math.max(
+            Math.abs(a[i] - b[i]),
+            Math.abs(a[i + 1] - b[i + 1]),
+            Math.abs(a[i + 2] - b[i + 2]),
+          );
+          if (d > best) best = d;
+        }
+        signal[px] = best;
+        if (stable[px] && best > maxDiff) maxDiff = best;
+        totalPixels += 1;
+        if (best >= 8) differingPixels += 1;
+      }
+      tiles.push({ b, signal, stable, w, h });
+    }
+
+    if (tiles.length === 0) {
+      scored.push({ ...t, rects: undefined, paddingBox: undefined, verdict: 'no-pixels' });
+      continue;
+    }
+    const coverage = totalPixels ? differingPixels / totalPixels : 0;
+    if (coverage > 0.6) {
+      scored.push({
+        ...t,
+        rects: undefined,
+        paddingBox: undefined,
+        glyphCoverage: Number(coverage.toFixed(3)),
+        verdict: 'mask-unreliable',
+      });
+      continue;
+    }
+
+    // Pass 2: score the glyph cores only.
+    const floor = Math.max(8, maxDiff * 0.5);
+    const ratios = [];
+    const bgSeen = new Map();
+    let unstableGlyphPixels = 0;
+    for (const { b, signal, stable, w, h } of tiles) {
+      for (let py = 0; py < h; py += 1) {
+        for (let px = 0; px < w; px += 1) {
           const i = (py * w + px) * 4;
-          const br = data[i];
-          const bg = data[i + 1];
-          const bb = data[i + 2];
-          const a = t.ink.a;
-          const fr = t.ink.r * a + br * (1 - a);
-          const fg = t.ink.g * a + bg * (1 - a);
-          const fb = t.ink.b * a + bb * (1 - a);
+          const j = py * w + px;
+          if (signal[j] < floor) continue;
+          if (!stable[j]) {
+            unstableGlyphPixels += 1;
+            continue;
+          }
+          const br = b[i];
+          const bg = b[i + 1];
+          const bb = b[i + 2];
+          const al = t.ink.a;
+          const fr = t.ink.r * al + br * (1 - al);
+          const fg = t.ink.g * al + bg * (1 - al);
+          const fb = t.ink.b * al + bb * (1 - al);
           ratios.push(ratio(lum(fr, fg, fb), lum(br, bg, bb)));
           const key = `${br >> 3},${bg >> 3},${bb >> 3}`;
           bgSeen.set(key, (bgSeen.get(key) ?? 0) + 1);
         }
       }
     }
+
     if (ratios.length === 0) {
-      scored.push({ ...t, verdict: 'no-pixels' });
+      // No glyph anywhere inside the padding box, under *either* probe colour. The element claims
+      // text and paints none where this says it should be — a covered node, or a rect that does not
+      // describe it. Not a pass, and reported so a reader can see it was not checked.
+      scored.push({ ...t, rects: undefined, paddingBox: undefined, verdict: 'no-glyph-pixels' });
       continue;
     }
-    ratios.sort((a, b) => a - b);
+
+    // A fifth of the glyph moving under its own steam is not a background, it is a video. The
+    // desktop `/map` panel is `bg-card/85` with a `backdrop-blur`, so what is behind its text is a
+    // blur of the **live WebGL canvas** — and `document.getAnimations()` does not reach MapLibre's
+    // render loop. Without this the mask reads moving map pixels as glyphs and the failure count on
+    // that one surface goes from 4 to 30 with nothing having changed in the product.
+    const unstableShare = unstableGlyphPixels / (unstableGlyphPixels + ratios.length || 1);
+    if (unstableShare > 0.2) {
+      scored.push({
+        ...t,
+        rects: undefined,
+        paddingBox: undefined,
+        unstableShare: Number(unstableShare.toFixed(3)),
+        verdict: 'unstable-background',
+      });
+      continue;
+    }
+
+    ratios.sort((x, y) => x - y);
     const at = (q) => ratios[Math.min(ratios.length - 1, Math.floor(q * ratios.length))];
     const required = t.large ? aaLarge : aaNormal;
-    // The judged number is the 5th percentile rather than the raw minimum: a line rect can clip a
-    // border or a divider by a pixel, and one such pixel is not what a reader sees. The raw min is
-    // reported beside it so a reader can tell a one-pixel artefact from a genuinely dark corner.
     const judged = at(0.05);
-    const dominant = [...bgSeen.entries()].sort((a, b) => b[1] - a[1])[0];
+    const dominant = [...bgSeen.entries()].sort((x, y) => y[1] - x[1])[0];
     scored.push({
       ...t,
       rects: undefined,
+      paddingBox: undefined,
       samples: ratios.length,
+      glyphCoverage: Number(coverage.toFixed(3)),
+      unstableShare: Number(unstableShare.toFixed(3)),
       min: Number(ratios[0].toFixed(2)),
       p5: Number(judged.toFixed(2)),
       median: Number(at(0.5).toFixed(2)),
       max: Number(ratios[ratios.length - 1].toFixed(2)),
       required,
-      // A background that is one colour across every sample is a flat ground; several is a
-      // gradient, a blur or the map. Reported because "3.9:1 over a gradient" and "3.9:1 over a
-      // flat panel" are different defects.
+      // A background that is one colour under every glyph pixel is a flat ground; several is a
+      // gradient, a blur or the map. Kept because it is what made the two artefacts above findable,
+      // and it now counts only buckets that actually sit under ink.
       backgroundBuckets: bgSeen.size,
-      dominantBackground: dominant ? `rgb(${dominant[0].split(',').map((v) => Number(v) * 8).join(', ')})` : null,
+      dominantBackground: dominant
+        ? `rgb(${dominant[0].split(',').map((v) => Number(v) * 8).join(', ')})`
+        : null,
       verdict: judged + 0.005 < required ? 'fail' : 'pass',
     });
   }
@@ -400,9 +587,31 @@ const SCORE = async ({ png, targets, scale, aaNormal, aaLarge }) => {
  */
 export async function measureContrast(browser, page, { scale }) {
   const collected = await page.evaluate(COLLECT);
-  const handle = await page.addStyleTag({ content: HIDE_INK_CSS });
-  const png = (await page.screenshot({ type: 'png' })).toString('base64');
-  await handle.evaluate((node) => node.remove());
+
+  // **Freeze before either shot.** The glyph mask is a diff between two screenshots, so anything
+  // that moves between them registers as ink. `chrome-ground.tsx` drifts two blooms forever, which
+  // is exactly such a thing. Pausing every `Animation` in the document — Motion drives these
+  // through the Web Animations API — makes the pair differ in the glyphs and nowhere else.
+  // `SCORE` does not take this on trust: it refuses to score any element whose rects differ over
+  // more than 60% of their area, which is what a misaligned pair looks like.
+  const paused = await page.evaluate(() => {
+    const running = document.getAnimations().filter((a) => a.playState === 'running');
+    for (const a of running) a.pause();
+    return running.length;
+  });
+
+  const shoot = async (css) => {
+    const handle = await page.addStyleTag({ content: css });
+    const png = (await page.screenshot({ type: 'png' })).toString('base64');
+    await handle.evaluate((node) => node.remove());
+    return png;
+  };
+  const plate = await shoot(HIDE_INK_CSS);
+  const probes = [];
+  for (const fill of PROBE_INK) probes.push(await shoot(inkCss(fill)));
+  // A second plate, after the probes. Any pixel that differs between the two moved on its own, and
+  // `SCORE` refuses to score a glyph that sits on more than a fifth of them.
+  const plateAfter = await shoot(HIDE_INK_CSS);
 
   const scorable = collected.targets.filter(
     (t) => t.ink && !t.unresolvable && !t.inactive && !t.occludedBy,
@@ -411,7 +620,9 @@ export async function measureContrast(browser, page, { scale }) {
   const blank = await ctx.newPage();
   await blank.goto('about:blank');
   const scored = await blank.evaluate(SCORE, {
-    png,
+    probes,
+    plate,
+    plateAfter,
     targets: scorable,
     scale,
     aaNormal: AA_NORMAL,
@@ -420,10 +631,16 @@ export async function measureContrast(browser, page, { scale }) {
   await ctx.close();
 
   return {
+    animationsPaused: paused,
     totalTextElements: collected.targets.length,
     scored: scored.length,
     pass: scored.filter((s) => s.verdict === 'pass').length,
     fail: scored.filter((s) => s.verdict === 'fail'),
+    // Neither a pass nor a failure, and both are reported rather than folded into a total: an
+    // element whose mask could not be trusted is one this run did not check.
+    maskUnreliable: scored.filter((s) => s.verdict === 'mask-unreliable').length,
+    noGlyphPixels: scored.filter((s) => s.verdict === 'no-glyph-pixels').length,
+    unstableBackground: scored.filter((s) => s.verdict === 'unstable-background').length,
     exemptInactive: collected.targets.filter((t) => t.inactive).length,
     occluded: collected.targets.filter((t) => !t.inactive && t.occludedBy).length,
     unresolvableInk: collected.targets
@@ -490,6 +707,11 @@ export async function selfTest(browser) {
     #c8 { color: #ffffff; background: #ffffff; }
     #c9 { background: #ffffff; border: 0; font-size: 16px; width: 300px; }
     #c9::placeholder { color: #767676; }
+    /* The 'in Israel' shape: a tall line box whose lower half overhangs a 1px rule that no glyph
+       touches. Scoring the rule is what reported 4.06 for text that measures 4.85.
+       (No backticks in here -- this whole block is a template literal.) */
+    #c10 { position: relative; background: #ffffff; color: #767676; font-size: 16px; line-height: 44px; width: 420px; padding: 0; }
+    #c10 i { position: absolute; left: 0; right: 0; bottom: 1px; height: 1px; background: #111111; }
   </style></head><body>
     <div id="c1">alpha bravo charlie</div>
     <div id="c2">alpha bravo charlie</div>
@@ -500,6 +722,7 @@ export async function selfTest(browser) {
     <div id="c7">alpha bravo charlie</div>
     <div id="c8">alpha bravo charlie</div>
     <input id="c9" placeholder="alpha bravo charlie">
+    <div id="c10">alpha bravo charlie<i></i></div>
   </body></html>`;
 
   const context = await browser.newContext({ viewport: { width: 800, height: 600 }, deviceScaleFactor: 1 });
@@ -514,14 +737,23 @@ export async function selfTest(browser) {
   const page2 = await context2.newPage();
   await page2.setContent(html, { waitUntil: 'load' });
   const collected = await page2.evaluate(COLLECT);
-  const handle = await page2.addStyleTag({ content: HIDE_INK_CSS });
-  const png = (await page2.screenshot({ type: 'png' })).toString('base64');
-  await handle.evaluate((n) => n.remove());
+  const shoot2 = async (css) => {
+    const h = await page2.addStyleTag({ content: css });
+    const png = (await page2.screenshot({ type: 'png' })).toString('base64');
+    await h.evaluate((n) => n.remove());
+    return png;
+  };
+  const plate = await shoot2(HIDE_INK_CSS);
+  const probes = [];
+  for (const fill of PROBE_INK) probes.push(await shoot2(inkCss(fill)));
+  const plateAfter = await shoot2(HIDE_INK_CSS);
   const blankCtx = await browser.newContext();
   const blank = await blankCtx.newPage();
   await blank.goto('about:blank');
   const rows = await blank.evaluate(SCORE, {
-    png,
+    probes,
+    plate,
+    plateAfter,
     targets: collected.targets.filter((t) => t.ink),
     scale: 1,
     aaNormal: AA_NORMAL,
@@ -553,6 +785,10 @@ export async function selfTest(browser) {
     { id: 'c7', field: 'median', expect: 4.48, tol: 0.08, why: 'color-mix ink, the canonical 4.48 near-miss' },
     { id: 'c8', field: 'median', expect: 1.0, tol: 0.03, why: 'white on white is 1:1, not a pass' },
     { id: 'c9::placeholder', field: 'median', expect: 4.48, tol: 0.08, why: 'placeholder ink, which has no text node at all' },
+    // The regression guard. `min`, not `median`: the artefact only ever showed up in the tail, which
+    // is why it survived a run whose medians were all correct.
+    { id: 'c10', field: 'min', expect: 4.48, tol: 0.10, why: 'a rule inside the line box that no glyph touches is not scored' },
+    { id: 'c10', field: 'median', expect: 4.48, tol: 0.10, why: '...and the glyphs themselves still are' },
   ];
 
   const checks = cases.map((c) => {
@@ -567,6 +803,17 @@ export async function selfTest(browser) {
     };
   });
 
+  // `c10`'s background must read as **one** colour. Two buckets is the artefact's signature: the
+  // white behind the letters, and the rule the line box overhung.
+  const c10 = by('c10');
+  checks.push({
+    case: 'c10.backgroundBuckets',
+    why: 'the rule is not counted as a background the text sits on',
+    expected: 1,
+    got: c10?.backgroundBuckets ?? null,
+    ok: c10?.backgroundBuckets === 1,
+  });
+
   // The `c8` row must also be a *failure*, not merely a low number.
   const c8 = by('c8');
   checks.push({
@@ -579,10 +826,10 @@ export async function selfTest(browser) {
   // And nothing may be silently dropped.
   checks.push({
     case: 'coverage',
-    why: 'all nine constructed strings were scored, none skipped',
-    expected: 9,
+    why: 'all ten constructed strings were scored, none skipped',
+    expected: 10,
     got: rows.length,
-    ok: rows.length === 9,
+    ok: rows.length === 10,
   });
 
   return { ok: checks.every((c) => c.ok), checks, summaryFromMeasure: result.scored };
