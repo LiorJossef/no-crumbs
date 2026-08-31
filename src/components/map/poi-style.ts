@@ -121,9 +121,35 @@ export const POI_GROUP_COLORS: Readonly<Record<PoiGroup, string>> = {
  * than before and still above the light set's 10.7; AA on the night land **4.53–5.30**, down from
  * 5.78–6.77 and still clear of 4.5 — which is the price, and it is the right one to pay. These are
  * annotations you read once you are already looking, not the thing the screen is about.
+ *
+ * ## `food` is `#A2836F` rather than `#A8826A`, and the reason is a pin that has not landed yet
+ *
+ * A colour-vision proposal against `CATEGORY_COLOR_DARK` moves the restaurant body toward a softer
+ * coral. Against that value `#A8826A` measures **ΔE 12.5** — the floor above, breached, by the one
+ * group whose whole defect this comment is about. `#A2836F` is 2.3 away from it, holds **14.0**
+ * there, and holds **15.2** against the body that ships today (up from 14.2), so it is the better
+ * value under *both* palettes and does not wait on anybody.
+ *
+ * ## What none of these floors can see, and it is a bigger hole than the one they closed
+ *
+ * **Every number above is normal-vision.** Simulated (Machado et al. 2009, severity 1.0), this
+ * layer's separations collapse:
+ *
+ *   - `transit` against the `bar` pin — **ΔE 1.8** deuteranopic, against 15.5 normal.
+ *   - `food` against `outdoors` — **2.2** deuteranopic. A restaurant label and a park label are
+ *     one colour for roughly one man in twelve.
+ *   - `shopping` against `culture` — **4.4** protanopic.
+ *
+ * None of it is new and none of it is repairable here. The two floors above box this palette into
+ * **L\* 56.5–62.0** — AA on the land underneath, below the darkest pin above — and deuteranopia
+ * collapses hue onto one axis, so inside a 5.5-point lightness band there is nothing left to
+ * separate with. Swept over every hue and every (L\*, C\*) in that band, the best any of the six
+ * can reach against the pins is ΔE ~14.5, and **all six converge on the same teal to get it** —
+ * six labels of one colour, which is not a legend. The repair has to come from the pins or from
+ * the ceiling, and neither is this file's to move.
  */
 export const POI_GROUP_COLORS_NIGHT: Readonly<Record<PoiGroup, string>> = {
-  food: '#A8826A',
+  food: '#A2836F',
   shopping: '#9E8EAA',
   culture: '#DE70A7',
   transit: '#6B96D6',
