@@ -452,50 +452,190 @@
 }
 
 /*
- * Stale relative to the finalized light tokens above (still "Pale Sky" light-blue values) —
- * not yet reworked against the mint ramp. Not safe to toggle on until it gets its own pass;
- * first pass, not signed off.
+ * ## Night — the dark theme, rebuilt against the mint ramp (W7-1)
+ *
+ * **What was here before, because it is worth knowing what this replaced.** This block held an
+ * abandoned light-blue exploration — "Pale Sky", `--primary: #6FBEEF`, `--accent: #1E3A4A`, a
+ * blue-grey `#14181D` ground — carried forward from a scaffold and never reworked against the mint
+ * ramp. Its own comment said so: *"Stale relative to the finalized light tokens above … not yet
+ * reworked against the mint ramp. Not safe to toggle on until it gets its own pass; first pass, not
+ * signed off."* That warning was correct and it was also unreachable: **nothing in `src/` ever
+ * applied the class**, so the block was dead rather than merely stale, and its four `--tag*` values
+ * were explicitly deferred ("inventing a dark tag colour here would be a fifth unreviewed value
+ * rather than a decision").
+ *
+ * `facelift-plan.md` §4 decision 3 is binding — **a signed pass, or no toggle at all** — so this is
+ * the pass. Every value below is derived from the same ramp the light theme uses and every contrast
+ * claim in the comments was measured, not estimated.
+ *
+ * ## The three rules this palette follows
+ *
+ * **1. Warm, not blue.** The light theme is warm paper (`#FAF9F6`) and warm ink (`#1B1B1A`). Night
+ * is the same room with the lights off, so the ground is a warm near-black rather than the cool
+ * slate the scaffold used. A blue-grey dark theme under a warm light theme reads as two products.
+ *
+ * **2. The mint inverts its role, it does not change.** In light, the mint that can be *read* is
+ * `--mint-700` and the mint that is a *fill* is `--mint-400`. On a near-black ground those swap:
+ * `--mint-400` is the step with contrast against the dark (13.9:1 on `--background`), and
+ * `--mint-700` would be nearly invisible. So `--brand` and `--ring` move to `--mint-400` while
+ * `--primary` stays exactly where it was — the primary button is a mint fill with dark ink in both
+ * themes, which is the one component that should not change at all between them.
+ *
+ * **3. Elevation comes from the surface, not only from the shadow.** In light, `--card` over
+ * `--background` is a 1.03:1 seam and the shadow does the work. A shadow on a near-black ground has
+ * almost nothing to darken, so the surfaces separate instead: `--card` sits at 1.13:1 over the
+ * ground and `--card-2` a further step above it. The shadows below are also deepened, because
+ * 10% black over `#131312` is not a shadow, it is nothing.
+ *
+ * ## Measured, on `--card` (`#201F1C`) unless stated
+ *
+ * foreground 14.7:1 · muted-foreground 6.5:1 · brand/mint-400 as ink 12.9:1 · brand-tint 5.6:1 on
+ * the ground · ink-on-mint on a mint-400 fill 9.3:1 · tag-foreground on the tag ground 10.9:1 ·
+ * every state colour ≥ 6.5:1 against its own foreground and ≥ 6.9:1 as ink on the ground.
  */
 .dark {
-    --background: #14181D;
-    --foreground: #F2F5F7;
-    --card: #1C232B;
-    --card-foreground: #F2F5F7;
-    --popover: #1C232B;
-    --popover-foreground: #F2F5F7;
-    --primary: #6FBEEF;
-    --primary-foreground: #0B2233;
-    --secondary: #232A32;
-    --secondary-foreground: #F2F5F7;
-    --muted: #232A32;
-    --muted-foreground: #8B95A3;
-    --accent: #1E3A4A;
-    --accent-foreground: #F2F5F7;
-    /* Mapped onto this theme's own accent pair rather than given new values: the dark palette is
-     * explicitly a first pass and not signed off (see the block comment above), so inventing a
-     * dark tag colour here would be a fifth unreviewed value rather than a decision. The selected
-     * state borrows the dark theme's `--primary` pair for exactly the same reason. */
-    --tag: var(--accent);
-    --tag-foreground: var(--accent-foreground);
-    --tag-selected: var(--primary);
-    --tag-selected-foreground: var(--primary-foreground);
+    --background: #131312;
+    --foreground: #F4F2EC;
+    --card: #201F1C;
+    --card-foreground: #F4F2EC;
+    --popover: #201F1C;
+    --popover-foreground: #F4F2EC;
+    --border: #332F2A;
+    --input: #332F2A;
+    --muted: #201F1C;
+    --muted-foreground: #A8A29A;
+
+    /* The ramp itself does not move. It is the brand, and a brand that changes hue when the lights
+     * go out is two brands. What changes is which step each role reaches for. */
+    --primary: var(--mint-400);
+    --primary-foreground: var(--ink-on-mint);
+    --secondary: #2A2825;
+    --secondary-foreground: #F4F2EC;
+    --accent: #222A28;
+    --accent-foreground: #F4F2EC;
+    --ring: var(--mint-400);
+    /* Lighter than the light theme's, for the same reason `--brand` is: the light `--destructive`
+     * is chosen to be read on paper. */
     --destructive: oklch(0.704 0.191 22.216);
-    --border: #2A323B;
-    --input: #2A323B;
-    --ring: #6FBEEF;
+
+    /* Rule 2, applied. `--brand-foreground` is the ink that sits *on* the brand, so it follows the
+     * brand from white onto `--ink-on-mint`. `--brand-tint` is the soft rule — a quote's border, a
+     * tinted band — and takes `--mint-600` rather than `--mint-900`: measured, `--mint-900` on this
+     * ground is 2.5:1 and reads as a smudge, `--mint-600` is 5.6:1 and reads as a line. */
+    --brand: var(--mint-400);
+    --brand-foreground: var(--ink-on-mint);
+    --brand-tint: var(--mint-600);
+
+    /* Rule 3. One step above `--card`, exactly as `--card-2` is one step below `--card` in light. */
+    --card-2: #2A2825;
+
+    /* Same three hues as the light theme (success 144°, warning 32°, info 210°), lifted to the
+     * lightness a dark ground needs. The light values are chosen to carry white; these are chosen
+     * to be read *as ink* on near-black and to carry a dark foreground when they are a fill. */
+    --success: #4FB27A;
+    --success-foreground: #0B1F13;
+    --warning: #D2913F;
+    --warning-foreground: #241605;
+    --info: #6FA9DE;
+    --info-foreground: #08192A;
+
+    /*
+     * **The tag pair, which the previous block explicitly refused to decide.**
+     *
+     * It aliased `--tag` onto `--accent` and `--tag-selected` onto `--primary` rather than invent
+     * "a fifth unreviewed value". That was the right call for an unsigned pass and it is now a
+     * decision: a chip at rest is a mint-tinted dark surface carrying `--mint-300`, and the pressed
+     * chip is the brightest object in the block — `--mint-400` with dark ink. That inversion is
+     * exactly what the light theme does (`--tag-selected` is the deep mint carrying white there),
+     * translated rather than copied: in both themes the pressed chip is the one unambiguous object
+     * among its neighbours, and in both it is painted the colour of the pins it left on the map.
+     */
+    --tag: #24302E;
+    --tag-foreground: var(--mint-300);
+    --tag-selected: var(--mint-400);
+    --tag-selected-foreground: var(--ink-on-mint);
+
+    /*
+     * **`--secondary-hover` and `--tag-selected-hover` are deliberately absent, and that is not an
+     * omission.** Both are declared in `:root` as `color-mix(in oklch, <surface>, var(--foreground)
+     * N%)`. A custom property's `var()` references are substituted against *the element the
+     * property is computed on*, and `.dark` sets `--secondary`, `--tag-selected` and `--foreground`
+     * on that same element — so both hovers recompute themselves here with no restatement.
+     *
+     * And they recompute in the right direction without being told to: mixing in `--foreground`
+     * darkens a surface on a light theme and lightens it on a dark one, because `--foreground` is
+     * near-black in one and near-white in the other. That is the property the light block's own
+     * comment predicted ("it keeps working if the ramp is retuned"); restating them here would
+     * silently break it the next time either surface moves.
+     */
+
+    /*
+     * **The category colours DO move, and the pins do not follow them yet — read this before
+     * shipping a toggle.**
+     *
+     * `--category-*` are the DOM half of a deliberate duplication: `src/ui/place/palette.ts` holds
+     * the same values as literals because MapLibre's style expressions cannot resolve a custom
+     * property, and `tests/unit/ui/palette-tokens.test.ts` asserts the two agree. That test reads
+     * the `:root` block only, so these overrides do not break it — but they do mean that **in dark
+     * mode a café row is this brown and a café pin is still the light one** until W7-3 gives the
+     * map a night palette of its own. That is a known, bounded inconsistency owned by W7-3, not a
+     * silent one.
+     *
+     * They have to move. Measured on `--card`, the light values are café 2.2:1 and bar 2.7:1 — a
+     * café disc on a night row is very nearly invisible. Lifted, all four clear AA as ink
+     * (5.5–7.8:1) and, more importantly, they keep separating from each other: the worst pair is
+     * restaurant/café at **ΔE 23.2**, which is better than the light set's own worst pair (20.1
+     * after W0-2 retuned café for exactly this confusion). Hue identity is preserved — a café is
+     * still brown, a bar is still purple.
+     */
+    --category-restaurant: #E8735C;
+    --category-cafe: #C99A55;
+    --category-bar: #A288E0;
+    --category-uncategorised: #5FC3B4;
+
+    /* Same duplication, same caveat as the categories above: the DOM half moves now, the GL half
+     * follows in W7-3. A white halo is the correct ring around a pin on paper and the wrong one on
+     * a night basemap, where the ground is what the halo has to separate the label from. */
+    --pin: var(--mint-400);
+    --pin-selected: var(--mint-300);
+    --pin-halo: #131312;
+
+    /* The washes invert: a mint *glow* on a dark ground rather than a mint tint on a light one, at
+     * roughly a third of the alpha, because a saturated wash over near-black reads as a colour cast
+     * across the whole screen rather than as atmosphere. `--background` stays the last layer, so
+     * the result is still opaque. */
+    --wash-from: #1D2C2A;
+    --wash-to: transparent;
+    --row-selected-from: #1D2C2A;
+    --row-selected-to: transparent;
+    --brand-wash:
+        radial-gradient(130% 110% at 115% -15%, rgba(70, 155, 142, 0.20) 0%, rgba(70, 155, 142, 0) 58%),
+        radial-gradient(120% 130% at -15% 118%, rgba(33, 95, 86, 0.16) 0%, rgba(33, 95, 86, 0) 62%),
+        radial-gradient(90% 90% at 45% 40%, rgba(46, 122, 112, 0.12) 0%, rgba(46, 122, 112, 0) 70%),
+        var(--background);
+
+    /* Rule 3's other half. The light values are 10-28% black, which over `#131312` is
+     * indistinguishable from no shadow at all; these are the same three steps at the alpha a dark
+     * ground needs to register them. `--shadow-elevated` is not restated — it is `var(--shadow-sheet)`
+     * in `:root` and follows it here, which is what makes it an alias rather than a fourth value. */
+    --shadow-raised: 0 1px 2px -1px rgba(0, 0, 0, 0.55), 0 2px 6px -4px rgba(0, 0, 0, 0.60);
+    --shadow-sheet: 0 14px 28px -18px rgba(0, 0, 0, 0.75);
+    --shadow-overlay: 0 24px 48px -24px rgba(0, 0, 0, 0.85);
+
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);
     --chart-4: oklch(0.371 0 0);
     --chart-5: oklch(0.269 0 0);
-    --sidebar: #1C232B;
-    --sidebar-foreground: #F2F5F7;
-    --sidebar-primary: #6FBEEF;
-    --sidebar-primary-foreground: #0B2233;
-    --sidebar-accent: #1E3A4A;
-    --sidebar-accent-foreground: #F2F5F7;
-    --sidebar-border: #2A323B;
-    --sidebar-ring: #6FBEEF;
+
+    --sidebar: #201F1C;
+    --sidebar-foreground: #F4F2EC;
+    --sidebar-primary: var(--mint-400);
+    --sidebar-primary-foreground: var(--ink-on-mint);
+    --sidebar-accent: #222A28;
+    --sidebar-accent-foreground: #F4F2EC;
+    --sidebar-border: #332F2A;
+    --sidebar-ring: var(--mint-400);
 }
 
 @layer base {
