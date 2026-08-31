@@ -101,6 +101,7 @@ import { serviceRoleClient } from '@/integrations/supabase/service-role-client';
 import { oembedSourceAdapter, canonicalUrlFor } from '@/integrations/tiktok/oembed-source-adapter';
 import { captionContentExtractor } from '@/integrations/tiktok/caption-content-extractor';
 import { createPlaceExtractor } from '@/integrations/llm/place-extractor-factory';
+import { noteExtractor } from '@/integrations/llm/note-extractor';
 import { createPlaceResolver, placeResolverEnv } from '@/integrations/places/place-resolver-factory';
 import { canonicaliseTikTokUrl } from '@/domain/source/canonicalise-tiktok-url';
 import { resolveCandidates } from '@/domain/import/resolve-candidates';
@@ -125,6 +126,43 @@ import {
 } from '@/app/api/imports/_lib/error-reporting';
 import type { OpCtx } from '@/domain/ports';
 import type { PlaceCandidate } from '@/domain/types';
+
+/**
+ * The importer's note, turned into candidates the rest of the pipeline can read.
+ *
+ * **Best-effort by construction.** The caption's candidates are already in hand by the time this
+ * runs, and a note that cannot be read is worth strictly less than losing them — so every failure
+ * here returns `[]` and is logged rather than thrown. That is the opposite of the caption
+ * extractor's contract, deliberately: the caption is the import, and the note is an addition to it.
+ *
+ * Only Gemini is wired. The note prompt was measured on it, `GEMINI_API_KEY` is what this
+ * environment has, and shipping an Anthropic path measured on nothing would be a claim rather than
+ * a capability. When there is no key, there is no note reader, and the import proceeds exactly as
+ * it does today.
+ */
+async function readNote(note: string, ctx: OpCtx): Promise<readonly PlaceCandidate[]> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (apiKey === undefined || apiKey === '') return [];
+  try {
+    const found = await noteExtractor({ apiKey }).extract(note, ctx.signal);
+    ctx.log.event('extraction.note', { returned: found.length });
+    return found.map((n) => ({
+      rawName: n.rawName,
+      // Everything else is a property of the caption, and a note does not carry it. Null is the
+      // honest value: not "we looked and there was none", but "this source cannot answer that".
+      cityHint: null, countryHint: null, areaHint: null, categoryHint: null, addressHint: null,
+      identifiedName: null, nameVariants: [], coordinates: null, modelConfidence: null,
+      tags: [], dishes: [], whyGo: null,
+      // The fragment of the NOTE that named it. `filterPlausible` is given the note alongside the
+      // caption so this survives the evidence gate.
+      evidence: n.evidence,
+      schemaVersion: EXTRACTION_SCHEMA_VERSION,
+    })) as readonly PlaceCandidate[];
+  } catch (e) {
+    console.warn(JSON.stringify({ event: 'extraction.note', outcome: 'failed', cause: describeCause(e) }));
+    return [];
+  }
+}
 
 /** `start_import`'s row shape (`supabase/migrations/0007_functions.sql`), which this route needs
  *  the id from so it can advance the row it opened. */
@@ -510,6 +548,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return fail(malformedUrl('request body had no "url" string'));
   }
 
+  /**
+   * What the person importing typed about what they saw, if the client sent any.
+   *
+   * **Optional, and its absence is the ordinary case** — every existing caller keeps working
+   * unchanged. It exists because on the modal outcome the importer is the only source of a venue
+   * name there is: `docs/evidence/extraction/note-extractor-2026-09-01.md` measures it recovering
+   * `@emshelx`, the post filed `futile` because the creator withholds the name in the caption
+   * *and* in the audio. Nothing else in the design reaches that.
+   *
+   * Bounded here rather than trusted: a note is a sentence, and anything longer is either a paste
+   * accident or someone using the field as a channel. It is fenced as untrusted input inside the
+   * extractor regardless (charter R10).
+   */
+  const rawNote =
+    typeof body === 'object' && body !== null && 'note' in body && typeof (body as { note: unknown }).note === 'string'
+      ? (body as { note: string }).note.trim().slice(0, 500)
+      : '';
+  const userNote = rawNote === '' ? null : rawNote;
+
   // Server-side re-validation — the SSRF-relevant allow-list check (04 §2/§7). Never trust the
   // client's own canonicalisation for the network hop this route is about to make.
   const canonicalised = canonicaliseTikTokUrl(url);
@@ -620,8 +677,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       } else {
         const extractStartedAt = Date.now();
         const extracted = await extractor.extract(parts, ctx);
+        // The note is read by a call of its own, never by the caption prompt — that was tried and
+        // measured at zero across four iterations (`user-note-attempt-2026-09-01.md`). Additive and
+        // best-effort: a note that fails to read must never cost the caption's candidates, which
+        // are already in hand.
+        const noteCandidates = userNote === null ? [] : await readNote(userNote, ctx);
         msExtract = Date.now() - extractStartedAt;
-        const plausible = filterPlausible(extracted.candidates, caption);
+        const plausible = filterPlausible(
+          [...extracted.candidates, ...noteCandidates],
+          // The gate grounds `evidence` in the text a human wrote. A note-sourced candidate quotes
+          // the note, so the note has to be part of that text or the gate deletes the person's own
+          // answer for not appearing in the caption that failed to contain it.
+          userNote === null ? caption : `${caption}\n\n${userNote}`,
+        );
         candidates = plausible.kept;
         extractionCityHint = extracted.cityHint;
         // Kept for `emptyReason` below, and for nothing else. `PlausibilityResult.dropped` is
