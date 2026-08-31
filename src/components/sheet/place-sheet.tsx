@@ -1667,10 +1667,15 @@ export function PlaceDetail({
             the whole time — `places.address_line`, already good enough to build the Google Maps
             link out of — and it is the one fact that answers "can I actually find this place".
             Above the caption quote, because it is checkable and the quote is not. */}
+        {/* `<bdi>` around the address text, not `dir="auto"` on this row: `dir="auto"` here
+            previously resolved the whole flex row's direction from the address, which for a
+            Hebrew address flipped the row to `rtl` and dragged the pin icon — fixed chrome — from
+            the left edge to the right. Same failure the heading's own comment above already names;
+            same fix (rtl audit, `docs/rtl-audit-2026-08-31.md` finding 2). */}
         {addressLine && (
-          <p dir="auto" className="flex items-start gap-2 text-sm text-foreground">
+          <p className="flex items-start gap-2 text-sm text-foreground">
             <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
-            <span>{addressLine}</span>
+            <bdi>{addressLine}</bdi>
           </p>
         )}
 
@@ -1681,7 +1686,17 @@ export function PlaceDetail({
             instead of by two competing labels.
 
             `dir="auto"` because this is a verbatim caption substring: a Hebrew quote rendered
-            left-to-right puts its punctuation on the wrong end of the sentence. */}
+            left-to-right puts its punctuation on the wrong end of the sentence.
+
+            `&ldquo;`/`&rdquo;`, not a plain `"`, and that choice is load-bearing, not decorative:
+            both are Unicode `Bidi_Mirrored` characters, so inside this `dir="auto"`-resolved RTL
+            run the browser swaps their *rendered shape* — the opening mark ends up looking like a
+            close-quote and vice versa — which is what lands the open mark on the visual right (the
+            RTL reading start) and the close mark on the visual left for a Hebrew quote. Nothing
+            here reasons about direction on purpose; it falls out of picking mirrored glyphs over
+            straight ones. Swap either entity for a plain `"` (not mirrored) and this silently goes
+            back to wrong with no visual signal in an LTR-only review (rtl audit,
+            `docs/rtl-audit-2026-08-31.md` finding 3). */}
         {shownQuote !== null && (
           <figure className="flex flex-col gap-1.5 border-l-2 border-brand-tint pl-3">
             <blockquote dir="auto" className="text-sm leading-relaxed text-foreground">

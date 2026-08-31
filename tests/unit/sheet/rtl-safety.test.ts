@@ -1,0 +1,213 @@
+/**
+ * **Guards against the two real defects `docs/rtl-audit-2026-08-31.md` found in `PlaceDetail`, and
+ * the one thing that made them cheap to introduce: a missing attribute rather than a wrong one.**
+ *
+ * Nobody typed a wrong value in either case — someone didn't type anything, and nothing noticed
+ * until Hebrew rows were driven through the running app. That is the exact failure shape a
+ * rendered-markup assertion catches (finding 1 and finding 2 below) and the exact failure shape
+ * `platform-mark.test.ts` was written to catch for the platform mark: a property that holds today
+ * only because everyone who has touched the file so far remembered it. This file follows that one
+ * for guard shape — one assertion per defect, each proved against a reintroduced copy of the bug it
+ * guards (see the header of each `describe` block) — and `collections-index-list.test.ts` for how a
+ * single component is driven through `react-dom/server` here: vitest runs in a `node` environment,
+ * there is no jsdom and no testing library, so nothing below can click, type, or open the note's
+ * `editing` state — only read the markup a first paint produces.
+ *
+ * **Finding 1 — the note.** `saved-place-edits.tsx`'s read paragraph and its edit `<textarea>` both
+ * need `dir="auto"`, matching `collection-place-detail.tsx`'s identical field, which already had it
+ * right. The read paragraph renders on `PlaceDetail`'s first paint whenever a note is present, so
+ * it is reachable the same way every other assertion in `place-detail.test.ts` reaches `PlaceDetail`
+ * — through `renderToStaticMarkup`. The `<textarea>` is not: it sits behind `NoteEditor`'s own
+ * `editing` state, which starts `false` and has no prop to force it, so a single static render can
+ * never paint it. That half is checked the way `platform-mark.test.ts`'s "one file, every surface"
+ * block checks properties a render cannot reach: against the component's own source, comments
+ * stripped, narrowed to the one `<textarea>` this file owns.
+ *
+ * **Finding 2 — the address row.** `place-sheet.tsx`'s address line needs the text isolated in
+ * `<bdi>`, not `dir="auto"` on the icon-and-text row that holds it — `dir="auto"` there let a
+ * Hebrew address flip the whole row to `rtl`, which drags the `MapPin` icon, fixed chrome, from the
+ * left edge to the right. Guarding this needs two assertions, not one: that the address text is
+ * inside a `<bdi>`, and — the one that actually matters, because this specific regression comes
+ * back by someone *adding* `dir="auto"` to the row, which reads as a fix — that the row itself
+ * carries no `dir` attribute at all.
+ */
+
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/app/_lib/supabase/server', () => ({ createClient: vi.fn() }));
+vi.mock('@/app/actions/saved-places', () => ({
+  deleteSavedPlace: vi.fn(),
+  setSavedPlaceVisited: vi.fn(),
+  updateSavedPlaceCategory: vi.fn(),
+  updateSavedPlaceName: vi.fn(),
+  updateSavedPlaceNote: vi.fn(),
+}));
+vi.mock('@/app/actions/collections', () => ({
+  addPlacesToCollection: vi.fn(),
+  createCollection: vi.fn(),
+  removePlaceFromCollection: vi.fn(),
+}));
+
+const { PlaceDetail } = await import('@/components/sheet/place-sheet');
+const { CollectionsContext } = await import('@/ui/place/collections-context');
+
+import type { DetailPlace } from '@/components/sheet/place-sheet';
+import type { Spot } from '@/domain/places/spot';
+
+/** Real Hebrew content, the shape `docs/rtl-audit-2026-08-31.md` drove through the running app:
+ *  `אבו חסן` / `רחוב שיף 1` / `הכי טעים בעיר, חובה לחזור` — a pure-Hebrew name, address and note,
+ *  seeded and removed during that audit and reproduced here as a fixture rather than a live row. */
+const NAME_HE = 'אבו חסן';
+const ADDRESS_HE = 'רחוב שיף 1';
+const NOTE_HE = 'הכי טעים בעיר, חובה לחזור';
+
+const OVERLAY: Spot = {
+  id: 'saved-1',
+  placeId: 'place-1',
+  name: NAME_HE,
+  displayNameOverride: null,
+  canonicalName: NAME_HE,
+  category: 'restaurant',
+  categoryIsOverridden: false,
+  lat: 32.0517,
+  lng: 34.7519,
+  addressLine: ADDRESS_HE,
+  locality: 'Tel Aviv-Yafo',
+  note: NOTE_HE,
+  visitState: 'want_to_go',
+  savedAt: new Date('2026-08-31T10:00:00Z'),
+};
+
+const SAVED: DetailPlace = {
+  name: NAME_HE,
+  category: 'restaurant',
+  lat: 32.0517,
+  lng: 34.7519,
+  // `sourceUrl` is `string | undefined` (never optional) on `DetailPlace`, so `undefined` must be
+  // written explicitly rather than omitted — `place-detail.test.ts`'s `UNSAVED` fixture does the
+  // same. `Spot.sourceUrl` above is genuinely optional (`?`), where `exactOptionalPropertyTypes`
+  // forbids the same explicit `undefined` and the key is left out instead.
+  sourceUrl: undefined,
+  detail: OVERLAY,
+};
+
+function render(place: DetailPlace): string {
+  return renderToStaticMarkup(
+    createElement(
+      CollectionsContext.Provider,
+      { value: { collections: [], byPlaceId: {} } },
+      createElement(PlaceDetail, {
+        place,
+        savedPlace: { id: 'saved-1', visited: false },
+        onClose: () => {},
+      }),
+    ),
+  );
+}
+
+/** The `<p …>text</p>` (or `<p …><bdi>text</bdi></p>`) that directly wraps `text` in `markup`, as
+ *  its own opening tag's attribute string — `null` if `text` is not found inside a `<p>`. Scoped to
+ *  the nearest enclosing `<p>` rather than the whole document, because `dir="auto"` legitimately
+ *  appears elsewhere on this screen (the category/locality line) and a blanket search across the
+ *  full markup would not tell one `<p>` from another. */
+function attributesOfParagraphContaining(markup: string, text: string): string | null {
+  const escaped = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // `<p(?=[\s>])` rather than `<p([^>]*)>`: the bare version also matches `<path …>`, the SVG
+  // element every icon in this markup uses, because "path" starts with "p" too and its `d`
+  // attribute string contains no `>` to stop the class at. The lookahead requires the character
+  // right after `p` to be whitespace or the tag's own close, which `path` never satisfies.
+  const match = markup.match(
+    new RegExp(`<p(?=[\\s>])([^>]*)>(?:(?!</p>)[\\s\\S])*?${escaped}(?:(?!</p>)[\\s\\S])*?</p>`),
+  );
+  return match ? match[1]! : null;
+}
+
+/** Comments blanked, line numbers kept — `platform-mark.test.ts`'s `withoutComments`, copied
+ *  rather than imported for the same reason it states: `vitest.config.ts` collects `*.test.ts`
+ *  only, so there is nowhere shared to put it. */
+function withoutComments(source: string): string {
+  const blank = (text: string): string => text.replace(/[^\n]/g, ' ');
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, blank)
+    .replace(/(^|[^:"'`\\])\/\/[^\n]*/g, (match, before: string) => before + blank(match.slice(before.length)));
+}
+
+const SAVED_PLACE_EDITS_SOURCE = withoutComments(
+  readFileSync(
+    fileURLToPath(new URL('../../../src/components/sheet/saved-place-edits.tsx', import.meta.url)),
+    'utf8',
+  ),
+);
+
+describe('the note carries its own reading direction (rtl audit finding 1)', () => {
+  it('sets dir="auto" on the read paragraph, reachable through a real render', () => {
+    const markup = render(SAVED);
+    const attrs = attributesOfParagraphContaining(markup, NOTE_HE);
+    expect(attrs, markup).not.toBeNull();
+    expect(attrs, markup).toContain('dir="auto"');
+
+    // Proves the assertion above is not vacuous: reverting `saved-place-edits.tsx`'s read
+    // paragraph to plain `<p className="…">{note}</p>` — the exact pre-fix shape — is what this
+    // test is written to catch, checked here by re-deriving the same match against that shape.
+    const preFix = markup.replace(
+      new RegExp(`<p dir="auto"([^>]*)>((?:(?!</p>)[\\s\\S])*?${NOTE_HE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:(?!</p>)[\\s\\S])*?)</p>`),
+      '<p$1>$2</p>',
+    );
+    const preFixAttrs = attributesOfParagraphContaining(preFix, NOTE_HE);
+    expect(preFixAttrs, preFix).not.toContain('dir="auto"');
+  });
+
+  it('sets dir="auto" on the edit textarea — checked against source, not a render', () => {
+    // `NoteEditor`'s edit branch is gated on local `editing` state with no prop to force it, so no
+    // single `renderToStaticMarkup` pass ever paints the `<textarea>`. Narrowed to the one
+    // `<textarea id={`note-${savedPlaceId}`}` block this file owns, so the match cannot drift onto
+    // `NameEditor`'s `<Input>` a few dozen lines above it.
+    const textareaBlock = SAVED_PLACE_EDITS_SOURCE.match(
+      /<textarea\s+id=\{`note-\$\{savedPlaceId\}`\}[\s\S]*?\/?>/,
+    );
+    expect(textareaBlock, SAVED_PLACE_EDITS_SOURCE).not.toBeNull();
+    expect(textareaBlock![0]).toMatch(/\bdir="auto"/);
+
+    // Proved against the reintroduced defect: strip the attribute from the matched block alone —
+    // the pre-fix shape — and confirm the same check now fails it.
+    const reverted = textareaBlock![0].replace(/\s*dir="auto"\n?\s*/, '\n        ');
+    expect(reverted).not.toMatch(/\bdir="auto"/);
+  });
+});
+
+describe('the address row keeps its icon fixed regardless of the address language (rtl audit finding 2)', () => {
+  it('isolates the address text in <bdi>, and puts no dir on the row that holds the pin icon', () => {
+    const markup = render(SAVED);
+    const attrs = attributesOfParagraphContaining(markup, ADDRESS_HE);
+    expect(attrs, markup).not.toBeNull();
+
+    // The regression that matters most: the row must carry no `dir` attribute at all. It comes
+    // back by someone *adding* `dir="auto"` here, which reads as a fix for exactly this class of
+    // defect and is the bug — so this asserts absence, not a specific wrong value.
+    expect(attrs, markup).not.toMatch(/\bdir=/);
+
+    // The text itself must still be isolated, or a mixed-script address (a Latin street number
+    // beside a Hebrew city, `docs/rtl-audit-2026-08-31.md`'s Rothschild fixture) reorders with
+    // whatever the row's own inherited direction happens to be.
+    const addressTag = markup.match(new RegExp(`<bdi>${ADDRESS_HE}</bdi>`));
+    expect(addressTag, markup).not.toBeNull();
+  });
+
+  it('is proved against the reintroduced defect: dir="auto" back on the row reads as a fix and is the bug', () => {
+    const markup = render(SAVED);
+    // Simulates the exact regression named above — someone "helpfully" restoring `dir="auto"` on
+    // the row — by adding it back to the rendered markup and re-running the same absence check.
+    // `class`, not `className`: `renderToStaticMarkup` writes the DOM attribute name, not the JSX
+    // prop name.
+    const regressed = markup.replace(
+      /(<p class="flex items-start gap-2 text-sm text-foreground")(>)/,
+      '$1 dir="auto"$2',
+    );
+    const attrs = attributesOfParagraphContaining(regressed, ADDRESS_HE);
+    expect(attrs, regressed).toMatch(/\bdir="auto"/);
+  });
+});

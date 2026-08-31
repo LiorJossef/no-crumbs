@@ -531,7 +531,13 @@ export function NoteEditor({
         {note ? (
           // `whitespace-pre-wrap`: the note is prose and `validateNote` deliberately preserves its
           // newlines, so rendering it collapsed would lose the shape the user typed.
-          <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground">{note}</p>
+          // `dir="auto"`: a note is free-form prose and Tel Aviv is a target city, so it is
+          // routinely Hebrew — matching the identical treatment of the shared collection note in
+          // `collection-place-detail.tsx`, the one sibling that already had this right (rtl audit,
+          // `docs/rtl-audit-2026-08-31.md` finding 1).
+          <p dir="auto" className="text-sm leading-relaxed whitespace-pre-wrap text-foreground">
+            {note}
+          </p>
         ) : (
           <p className="text-sm leading-relaxed text-muted-foreground">
             Nothing yet — why did you save this?
@@ -570,6 +576,7 @@ export function NoteEditor({
       <textarea
         id={`note-${savedPlaceId}`}
         ref={textareaRef}
+        dir="auto"
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={(event) => {
