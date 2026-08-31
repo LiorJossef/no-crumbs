@@ -15,6 +15,11 @@ governs is:
 |---|---|---|
 | `supabase/migrations/0035_names_at_sign_up.sql` | `568715167bdcda56e1d8165e80b1da98a0849c1869e23eec7f87afa804d3074c` | 2026-09-01 00:07:24 |
 | `supabase/tests/0035_profile_names_policy_tests.sql` | `2153e6a22135bf4ae333fbf0894eb63860f6da71159351d45f24271af9ec46aa` | 2026-09-01 00:09:38 |
+| `docs/db-ruling-profile-names-2026-08-31.md` | `202782d5650afa3d98c27abf3178155edc476a1793bf8a4987bebe5cf6143d3f` | 2026-09-01 00:13:06 |
+
+All three re-verified at 00:19:52 and unchanged since the mtimes above — the migration stable for
+twelve minutes, the set reconciled to v2. These are the hashes the orchestrator must re-check before
+staging.
 
 Base commit: `bf5110ee8c8df56da5a143107a8e9027ce3eb8d6`. Local database at migration `0031`
 (`0032`–`0034` are on disk and unapplied; `0035` does not depend on them — verified by applying it
@@ -147,6 +152,36 @@ character for character. **`0035` v2 adds no new route into the column another u
 (v1 did widen it, incidentally: v1's label expression read a third key, `name`, that `0002` does not.
 v2 dropped that too.)
 
+**Re-confirmed against the applied schema** after another lane applied `0035` locally, because a
+verdict taken on a rolled-back transaction is not a verdict on what is running. One real GoTrue
+sign-up carrying `{"first_name":"Dana","last_name":"Levi"}`:
+
+```
+first_name = Dana | last_name = Levi | display_name = <null>   label_is_null = t
+triggers on public.profiles: profiles_touch        (that is the whole list)
+```
+
+Probe account removed afterwards. **Item 3 is closed: the forename is published nowhere.** A peer
+sees what they see today — `memberLabel`'s `'A collaborator'` — and that is the status quo for all
+eight pre-`0035` accounts, not a state this migration creates.
+
+**One correction to a claim made in review, because it points at the two lines that actually needed
+reading.** It was reported that `0035` mentions `profiles` exactly once and that the mention is a
+comment. It mentions it twenty-four times, sixteen of them in comments and eight outside, and two of
+those eight are live SQL against the table:
+
+- `line 167` — `profile_id uuid primary key references public.profiles (id) on delete cascade`. The
+  foreign key. This is the satellite's whole retention bound and it is correct.
+- `line 297` — `insert into public.profiles (id, display_name)` inside `handle_new_user`. **This is
+  the one line in the file that can write the peer-visible column**, and it is the line the review
+  turns on. It is byte-identical to `0002`'s, verified against `pg_get_functiondef` read from the
+  running database before anything was applied.
+
+The conclusion drawn from the miscount — no DDL, no trigger, no grant or policy change against
+`profiles` — is correct, and I confirmed it independently. The reasoning is not: a file that writes
+`profiles` is not a file that leaves `profiles` alone, and "one mention, in a comment" would have
+meant nobody looked at line 297.
+
 The author's reasoning here is better than the brief's framing and better than my prior, and it
 should be said plainly: they found the answer already written in this repo, in the doc comment on
 `emailLocalPart` (`src/domain/collections/collection.ts:159-168`) — *"prefill, never fallback… the
@@ -275,6 +310,21 @@ falsifies an existing claim is worse than a refusal.**
 Already satisfied by `src/app/sign-in/name-fields.ts` as it stands (`tidy()` + *"Enter your first
 name."*), which I read but do not own. *Test: a sign-up submitting only whitespace is refused
 client-side and creates no `profile_names` row.* **Non-blocking — verify, do not rebuild.**
+
+**C4a — if the public label's prompt is ever prefilled from `first_name`, the prefill stays a
+confirm-before-save.** Measured, because the consent story rests on it: `display_name`'s only writer
+in `src/` is `updateDisplayName` (`app/actions/collections.ts:526`), and its only caller is
+`NamePrompt` (`components/collections/name-prompt.tsx:54`), which is mounted at exactly **one** site
+— `app/collections/join/[token]/join-client.tsx:141`, the invite-join screen. So today a user who
+never joins by invite has no way to set a label at all, and peers see `'A collaborator'`. That is
+why `display_name` is null on all eight accounts: not because nothing reads it (six render sites do)
+but because almost nothing can write it.
+
+The security consequence is benign in the current shape — the failure mode is *less* disclosure, not
+more — and it is not a condition on this commit. It becomes one the moment the prompt is mounted on
+a second surface: the follow-up the author recommends is prefilling it from `first_name`, and a
+prefill that saves without a confirmation is v1's trigger wearing a different hat. *Test: any new
+mount of `NamePrompt` still requires an explicit submit before `updateDisplayName` is called.*
 
 **C5 — no future migration may add a policy to `profile_names` whose qual is anything other than
 `profile_id = (select auth.uid())`, and none may add a peer-visible derivation of a name.** The
