@@ -92,6 +92,49 @@ to opacity and stays usable.
 
 ---
 
+## 2.2 Two owner rulings, 2026-08-31 — both override a written rule, so both are recorded here
+
+**Ruling 1 — a second brand colour enters, on chrome only: electric indigo `#5B6CFF`.**
+
+This overrides `brand-and-product-foundation.md` §3.1 rule 3, which reads *"Mint stays the only brand
+colour; gold belongs to the mascot alone; the two never share a surface."* The owner's direction was
+*add more colours*, and the alternatives were put to them: mint-only depth, or the mascot's gold split
+across surfaces. **Indigo was chosen and the rule is knowingly set aside for chrome.**
+
+The constraint that makes it safe, and it is the reason indigo rather than a warm accent: it collides
+with **none of the three category hues** — restaurant coral `#E8735C`, café amber `#C99A55`, bar
+lavender `#A288E0`. A warm accent would have sat a few degrees from the café amber, which is the exact
+collision §3.1 rule 3 was written to prevent. So the rule's *reasoning* is honoured even though its
+letter is not.
+
+**Where indigo may go:** the sign-in and landing grounds, their gradient mesh, the empty states, the
+edges. **Where it may never go:** any pin, any category surface, any basemap layer, the filter chips.
+The map keeps meaning what it means.
+
+**Ruling 2 — the post-login moment is the full choreography.**
+
+`pins.land` and the reveal-into-flight already exist and fire on import-confirm only, so a fresh
+sign-in simply arrives. The owner chose the full sequence over a camera-only version or none:
+
+| | |
+|---|---|
+| 0 ms | overlay holds, map mounted beneath |
+| 200 ms | camera begins its descent from altitude |
+| 600 ms | ground settles at the library's own box |
+| 700 ms | pins land — eight waves, 60 ms apart |
+| 900 ms | sheet rises to its stop |
+| 1100 ms | the header wordmark fades in |
+
+Under `prefers-reduced-motion` the whole sequence collapses to a single 140 ms opacity fade and stays
+legible — §3a's rule that the nine collapse *to the opacity change, not to nothing*.
+
+**The honesty constraint this does not get to break:** the camera must land where the real framing
+puts it and the pins that land must be the real pins. An entrance is chrome, and chrome may be
+beautiful — but it may not imply the library is bigger, closer or better resolved than it is, and it
+may not delay the map being usable.
+
+---
+
 ## 3. The packages
 
 Nine, in dependency order. **P0 is not design work** — it is the foundation, and no palette can be
@@ -109,7 +152,7 @@ judged through a 1.18:1 panel.
 
 | ID | Package | Exit criterion |
 |---|---|---|
-| **I2-4** | **Redesign `/sign-in`.** The signature surface. A second accent enters the palette here; the panel becomes a real material rather than white-at-55%; the mark is present and animated on entry | Every element clears AA in **both** themes, measured. The screen reads as designed rather than assembled, judged cold by someone who did not build it |
+| **I2-4** | **Redesign `/sign-in`.** The signature surface. **Electric indigo `#5B6CFF`** enters here per ruling 1; the panel becomes a real material rather than white-at-55%; the mark is present and animated on entry | Every element clears AA in **both** themes, measured. The screen reads as designed rather than assembled, judged cold by someone who did not build it |
 | **I2-5** | **The landing page's dead space.** Q1 finding S3: 45–60% of the mobile viewport is empty across six screens. The desktop no-places screen — a centred card sized to its content — is the answer already in the codebase | No screen carries a stretched gap above a pinned action; nothing invented to fill space |
 | **I2-6** | **A signature entrance.** One orchestrated page-load moment on `/sign-in` and `/`, not scattered effects. Under `prefers-reduced-motion` it collapses to opacity | It plays once, it is under 900ms, and it does not delay the field being focusable |
 
@@ -117,7 +160,7 @@ judged through a 1.18:1 panel.
 
 | ID | Package | Exit criterion |
 |---|---|---|
-| **I2-7** | **The post-login reveal, which is the missing moment.** `pins.land` and the reveal-into-flight already exist and are **wired to import-confirm only**. A fresh sign-in just arrives. Fire the same choreography on first paint of `/map`: the camera arrives, the pins land in waves, the sheet rises | Sign in → map is one continuous gesture. Measured with `measure-motion.mjs` against a before, the way W6-6 was |
+| **I2-7** | **The post-login reveal — the full choreography, per ruling 2.** `pins.land` and the reveal-into-flight already exist and are **wired to import-confirm only**. A fresh sign-in just arrives. Fire the same choreography on first paint of `/map`: the camera arrives, the pins land in waves, the sheet rises | Sign in → map is one continuous gesture. Measured with `measure-motion.mjs` against a before, the way W6-6 was |
 | **I2-8** | **The shell header wordmark** — surface 1 of the six, specified and never built | The name is present on the signed-in surfaces, and the six-surface rule still holds exactly |
 | **I2-9** | **The night map's temperature.** The owner's read is that the colours do not look good; the measured cause is that everything except the mint CTA is one cold value. Warm the chrome against the cool basemap — *chrome is brand, basemap is geography* already says this and the chrome never got its half | The three darks read as one system. Category separation on the night ground is unchanged from its measured ΔE ≥ 23.2 |
 
