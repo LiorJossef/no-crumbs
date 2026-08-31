@@ -45,16 +45,122 @@ export interface SpotProvenance {
  * reason to model it today.
  */
 export interface SpotSource {
+  /** `sources.id`. Granted to `authenticated` by `0003`'s column grant, and read here for exactly
+   *  one reason: it is the handle `POST /api/sources/thumbnail` takes when a thumbnail fails to
+   *  load. Without it the client can see a dead picture and has no way to name what died — which
+   *  is why "nothing in `src/` ever re-calls oEmbed for an existing source" was structurally true
+   *  rather than merely unbuilt. Never rendered. */
+  readonly id: string;
   /** The only value `sources.platform`'s CHECK allows today (migration `0003`). */
   readonly platform: 'tiktok';
   readonly canonicalUrl: string;
   readonly authorHandle?: string;
   readonly authorName?: string;
   /** `sources.thumbnail_url`, reshaped into the existing `MediaRef` port rather than a new one —
-   *  `kind: 'image'` (it is a thumbnail, never the source video itself) and `expiresAt: null`:
-   *  the column is a signed URL with a known *expiry window* (`~6 months`, `03` §comment) but no
-   *  expiry *timestamp* is stored, so there is nothing truthful to put there yet. */
+   *  `kind: 'image'` (it is a thumbnail, never the source video itself).
+   *
+   *  **`expiresAt` is a real timestamp now, and it is read out of the URL itself.** It used to be
+   *  a hard-coded `null` with a comment saying no expiry was stored, which made a typed field
+   *  structurally incapable of ever being anything but null. It was never true that nothing was
+   *  stored: TikTok signs this CDN URL and puts the signature's own deadline in its query string
+   *  as `x-expires`, a Unix timestamp in seconds. `signedUrlExpiry` parses it. Nothing is
+   *  inferred, nothing is derived from a window, and no column was added.
+   *
+   *  The window that comes out of it is **~47 hours, not ~6 months**. Measured 2026-08-31 against
+   *  all three real TikTok rows in the local database: fetched 16:48 → expires 2026-09-02 16:00;
+   *  fetched 18:31 and 18:40 → both expire 2026-09-02 18:00. `0003`'s column comment ("Signed,
+   *  ~6-month-expiring CDN URL (VERIFIED)") and `0016`'s restatement of it are wrong by roughly
+   *  90×, and every comment in this repo that repeats the six-month figure inherits the error.
+   *  Those two are migration files and not this lane's to edit; this is the correction, and it is
+   *  measured rather than assumed.
+   *
+   *  `null` where the URL carries no `x-expires` — a manual save, a non-TikTok URL, or a signing
+   *  scheme that changes. `null` means "unknown", never "does not expire". */
   readonly media?: MediaRef;
+}
+
+/**
+ * The deadline a signed CDN URL carries in its own query string, or `null` when it carries none.
+ *
+ * TikTok's thumbnail URLs look like
+ * `https://p16-common-sign.tiktokcdn.com/...~tplv-tiktokx-origin.image?dr=…&x-expires=1788364800&x-signature=…`,
+ * and `x-expires` is seconds since the epoch. This is the one expiry TikTok actually *tells* us,
+ * as opposed to `cache-control: max-age=31536000`, which the CDN also sends and which is a caching
+ * instruction about an asset rather than a deadline on a signature — reading the second as the
+ * first is how a URL that dies in two days looks like one that lives for a year.
+ *
+ * Total and non-throwing by construction: this is fed a `text` column that nothing constrains, so
+ * a malformed URL, an absent parameter, a non-numeric value and an implausible one all return
+ * `null` rather than a `Date` nobody can trust. The plausibility window is deliberately wide (the
+ * year 2000 to the year 2100) — it is there to reject `0`, `NaN`-adjacent junk and millisecond
+ * values pasted into a seconds field, not to second-guess a real timestamp.
+ *
+ * It does not, and must not, decide whether to *render* the image. See `RowMedia` in
+ * `components/sheet/place-sheet.tsx`: a past `expiresAt` is not permission to hide a picture that
+ * might still load, because if this parse is ever wrong the cost of being reactive is one failed
+ * request and the cost of being proactive is a blank library.
+ */
+export function signedUrlExpiry(url: string): Date | null {
+  let seconds: string | null;
+  try {
+    seconds = new URL(url).searchParams.get('x-expires');
+  } catch {
+    // `text` column, third-party value: not a URL is an ordinary answer, not an exception.
+    return null;
+  }
+  if (seconds === null || !/^[0-9]{1,12}$/.test(seconds)) return null;
+
+  const ms = Number(seconds) * 1000;
+  if (ms < PLAUSIBLE_EPOCH_MS_MIN || ms > PLAUSIBLE_EPOCH_MS_MAX) return null;
+  return new Date(ms);
+}
+
+/** 2000-01-01 and 2100-01-01. See `signedUrlExpiry` for why the window is this loose. */
+const PLAUSIBLE_EPOCH_MS_MIN = 946_684_800_000;
+const PLAUSIBLE_EPOCH_MS_MAX = 4_102_444_800_000;
+
+/** One thumbnail to render, with everything needed to ask for a fresh one when it dies. */
+export interface ThumbnailRef {
+  readonly url: string;
+  /** `sources.id`, or `null` when this URL came only from the frozen denormalized copy and there
+   *  is therefore no source row to re-fetch. A `null` here is what makes a thumbnail
+   *  unrefreshable, and it is honest: there is nothing to ask about. */
+  readonly sourceId: string | null;
+  /** From `signedUrlExpiry`. `null` = unknown. */
+  readonly expiresAt: Date | null;
+}
+
+/**
+ * Which of the two stored thumbnail URLs a surface should render — **the joined one first**.
+ *
+ * There are two copies of this value and they age differently. `sources.thumbnail_url` is the
+ * shared cache row, and it is the one a refresh can write to. `saved_places.source_thumbnail_url`
+ * is `0016`'s denormalized copy, filled once by `apply_saved_place_source_link` through a
+ * `coalesce` that makes every later call a no-op — `0016`'s own column comment calls the staleness
+ * a "KNOWN LIMITATION, accepted as out of scope here" and leaves refreshing it "for a future task".
+ *
+ * The detail view used to prefer the frozen copy, on the reasonable argument that it survives a
+ * join that did not resolve. Preferring the live row instead keeps that fallback exactly — the
+ * frozen copy is still what answers when there is no joined source — and buys the thing the
+ * ordering was costing: a refreshed `sources.thumbnail_url` is visible on the next load. Without
+ * the flip, refreshing the shared row would repair a value no screen reads, and every page load
+ * would re-discover the same dead URL and spend another upstream call on it.
+ *
+ * This is also why `0016`'s cache is not written by the refresh path at all: with the live row
+ * preferred, there is nothing to keep in sync, and refreshing a display cache would mean a
+ * user-triggered write to `saved_places` that only a migration could do properly.
+ */
+export function thumbnailOf(facts: PlaceDetailFacts | undefined): ThumbnailRef | null {
+  const source = facts?.source;
+  if (source?.media?.url) {
+    return { url: source.media.url, sourceId: source.id, expiresAt: source.media.expiresAt };
+  }
+  if (facts?.sourceThumbnailUrl) {
+    // No `sourceId`: this branch is reached precisely when there is no joined `sources` row, and
+    // the refresh route takes a source id, never a URL. Unrefreshable, and correctly so.
+    return { url: facts.sourceThumbnailUrl, sourceId: null, expiresAt: null };
+  }
+  return null;
 }
 
 /**
@@ -178,8 +284,12 @@ export interface Spot extends PlaceDetailFacts {
   readonly sourceUrl?: string;
   /** `saved_places.source_thumbnail_url` (migration `0016`), same first-source-only/denormalized
    *  relationship to `source?.media` that `sourceUrl` has to `source?.canonicalUrl` — a signed,
-   *  expiring TikTok CDN URL (`0016`'s column comment on `sources.thumbnail_url`) captured once at
-   *  save time and never refreshed here. */
+   *  expiring TikTok CDN URL captured once at save time and never refreshed.
+   *
+   *  **Read second, not first**, and only when there is no joined source at all: see
+   *  `thumbnailOf`. `0016`'s comment puts the expiry at ~6 months, inherited from `0003`; measured
+   *  2026-08-31 it is **~47 hours**, which is what turns "captured once and never refreshed" from
+   *  a slow decay into the normal state of every row older than two days. */
   readonly sourceThumbnailUrl?: string;
   readonly visitState: VisitState;
   readonly visitedAt?: Date;

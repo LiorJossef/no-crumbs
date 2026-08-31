@@ -23,6 +23,7 @@ import 'server-only';
 
 import { createClient } from '@/app/_lib/supabase/server';
 import { productCategoryFor } from '@/domain/places/product-category';
+import { signedUrlExpiry } from '@/domain/places/spot';
 import type { SpotProvenance, SpotSource } from '@/domain/places/spot';
 import type { EnrichedSpot } from '@/ui/place/enrichment';
 import type { SourceDataset } from '@/domain/types';
@@ -57,6 +58,7 @@ const SAVED_PLACES_SELECT = `
   saved_place_sources (
     added_at,
     source:sources (
+      id,
       platform,
       canonical_url,
       author_handle,
@@ -92,8 +94,9 @@ interface SavedPlaceRow {
    *  `saved_place_sources` → `sources` join below. Null for `origin = 'manual'` saves. */
   readonly source_url: string | null;
   /** `saved_places.source_thumbnail_url` (migration `0016`) — same first-source-only semantics as
-   *  `source_url`. A signed, expiring TikTok CDN URL (`0016`'s column comment); this read path
-   *  does not refresh it, it only passes through whatever was captured at save time. */
+   *  `source_url`. A signed, expiring TikTok CDN URL; this read path does not refresh it, it only
+   *  passes through whatever was captured at save time, and `thumbnailOf` prefers the joined
+   *  `sources.thumbnail_url` above precisely because that one *can* be refreshed. */
   readonly source_thumbnail_url: string | null;
   /** `saved_places.tags` (migration `0019`) — short free-form labels derived from the source post,
    *  stored already-normalised and lowercase. NULL is the only empty representation the column
@@ -128,6 +131,9 @@ interface SavedPlaceRow {
   readonly saved_place_sources: readonly {
     readonly added_at: string;
     readonly source: {
+      /** `sources.id`. In `0003`'s grant to `authenticated`, and the handle the thumbnail-refresh
+       *  route takes — see `SpotSource.id`. */
+      readonly id: string;
       readonly platform: 'tiktok';
       readonly canonical_url: string;
       readonly author_handle: string | null;
@@ -151,12 +157,24 @@ function earliestSource(row: SavedPlaceRow): SpotSource | undefined {
   if (!source) return undefined;
 
   return {
+    id: source.id,
     platform: source.platform,
     canonicalUrl: source.canonical_url,
     ...(source.author_handle !== null ? { authorHandle: source.author_handle } : {}),
     ...(source.author_name !== null ? { authorName: source.author_name } : {}),
+    // `expiresAt` was a hard-coded `null` here — the single line that made `SpotSource.media`'s
+    // typed expiry structurally unable to hold a value. It is parsed out of the URL's own
+    // `x-expires` parameter now (`signedUrlExpiry`), so it is measured rather than derived and
+    // needs no column. Still `null` for any URL that carries no such parameter, which means
+    // "unknown", not "permanent".
     ...(source.thumbnail_url !== null
-      ? { media: { kind: 'image' as const, url: source.thumbnail_url, expiresAt: null } }
+      ? {
+          media: {
+            kind: 'image' as const,
+            url: source.thumbnail_url,
+            expiresAt: signedUrlExpiry(source.thumbnail_url),
+          },
+        }
       : {}),
   };
 }

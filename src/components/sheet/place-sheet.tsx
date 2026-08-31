@@ -78,7 +78,7 @@ import { CHIP_PRESSABLE } from './place-enrichment';
 import { DEFAULT_PLACE_ORDER, type PlaceOrder } from './place-order';
 import type { CategoryFacet } from '@/domain/places/category-filter';
 import type { ProductCategory } from '@/domain/places/product-category';
-import type { PlaceDetailFacts } from '@/domain/places/spot';
+import { thumbnailOf, type PlaceDetailFacts, type ThumbnailRef } from '@/domain/places/spot';
 import { enrichmentOf, rowAccessibleName, whyGoEarnsItsPlace } from '@/ui/place/enrichment';
 import {
   categoryColorVar,
@@ -816,7 +816,7 @@ export function PlaceRow({
   const body = (
     <>
       <RowMedia
-        thumbnailUrl={place.detail?.sourceThumbnailUrl}
+        thumb={thumbnailOf(place.detail)}
         color={categoryColorVar(place.category)}
         tint={categoryTintVar(place.category)}
         approximateLabel={approximateLabel}
@@ -975,6 +975,213 @@ export function PlaceRow({
 }
 
 /**
+ * **Going and getting the picture back — the client half of `POST /api/sources/thumbnail`.**
+ *
+ * A TikTok thumbnail is a signed CDN URL whose signature dies **~47 hours** after it was fetched
+ * (measured 2026-08-31 off the `x-expires` parameter of all three real rows in the local database;
+ * `0003`'s "~6-month-expiring" comment is wrong by roughly 90×). Until this, the entire response
+ * was `onError` → hide, permanently for that mount, and nothing anywhere re-called oEmbed for an
+ * existing source. So a library goes blank two days after it was built, all of it at once, and it
+ * does not look like an expiring link — it looks like the app lost the user's stuff.
+ *
+ * ## Why this is a coordinator and not four lines in an `onError`
+ *
+ * `onError` does not fire once. It fires for **every row on screen**, during parse, before
+ * hydration, and the failures are perfectly correlated because the URLs all expired on the same
+ * afternoon. The naive version turns one scroll into one upstream call per row against a **500 a
+ * day shared with the import path, every agent and the owner**. Four rules, in this object:
+ *
+ *  1. **One request per `sourceId`, ever, per page load.** The outcome is memoised, so twenty rows
+ *     that share a source cost one request and nineteen map reads — and the nineteen get the
+ *     refreshed URL for free rather than each discovering it.
+ *  2. **Coalesced while in flight**, so rows that fail in the same tick join one request instead
+ *     of racing to make several.
+ *  3. **Serialised, concurrency 1.** Eight refreshes are eight sequential ~600 ms calls, not a
+ *     burst. A burst is what a shared quota notices.
+ *  4. **Hard-capped at `MAX_THUMBNAIL_REFRESHES_PER_PAGE` per page load.** Past it every caller is
+ *     answered `gone` without a request, and the row draws its category pin. So the client's own
+ *     worst case is a fixed 8 upstream calls per page load, whatever the library size.
+ *
+ * None of this is the real limit — a client is untrusted and can be made to say anything. The
+ * ceiling that binds is the route's, in `_lib/refresh-budget.ts` and in the durable per-source
+ * cooldown it reads out of Postgres. This exists so the *honest* client is not the thing that
+ * spends the budget.
+ *
+ * ## `gone` is one word for several endings, deliberately
+ *
+ * A refused budget, a 429, a network error, a post TikTok will not return, and a post with no
+ * thumbnail all come back as `gone`, because the row does the same thing for all of them: draw the
+ * category pin and stop asking. The distinction that matters is recorded where it can be acted on
+ * — on the `sources` row and in the route's log line — not carried into a component that has one
+ * fallback. What the user sees when a post is genuinely deleted is that same pin, and nothing
+ * else: no badge, no "this video was removed". oEmbed's 400 is opaque across deleted, private and
+ * region-locked (VERIFIED `04` §5), so a badge would assert a cause we cannot know; and everything
+ * that made the save worth having — name, address, note, category, the caption quote, the
+ * coordinates, the TikTok link — is ours and survives. The link is the honest artefact: pressing
+ * it shows TikTok's own message about its own post, which is TikTok's to give.
+ */
+export type ThumbnailRefreshOutcome =
+  | { readonly kind: 'url'; readonly url: string }
+  | { readonly kind: 'gone' };
+
+/** See rule 4 above. Roughly a screenful of rows plus the open detail view. */
+export const MAX_THUMBNAIL_REFRESHES_PER_PAGE = 8;
+
+const GONE: ThumbnailRefreshOutcome = { kind: 'gone' };
+
+/** What the coordinator needs from the network, narrowed to the three things it reads so a test
+ *  can supply it without a `Response`, a `fetch` polyfill or a jsdom this repo does not have. */
+export interface ThumbnailRefreshTransport {
+  (body: { readonly sourceId: string; readonly failedUrl: string }): Promise<{
+    readonly ok: boolean;
+    readonly status: number;
+    readonly body: unknown;
+  }>;
+}
+
+export interface ThumbnailRefresher {
+  /** Ask for a live URL to replace the one in `thumb`. Never rejects. */
+  refresh(thumb: ThumbnailRef): Promise<ThumbnailRefreshOutcome>;
+  /** Granted requests so far this page load. Diagnostics for tests; never read for a decision. */
+  spent(): number;
+}
+
+export function createThumbnailRefresher(options: {
+  readonly post: ThumbnailRefreshTransport;
+  readonly maxRequestsPerPage?: number;
+}): ThumbnailRefresher {
+  const max = options.maxRequestsPerPage ?? MAX_THUMBNAIL_REFRESHES_PER_PAGE;
+  const settled = new Map<string, ThumbnailRefreshOutcome>();
+  const inFlight = new Map<string, Promise<ThumbnailRefreshOutcome>>();
+  let spent = 0;
+  /** The serialisation chain (rule 3). Every link is made non-rejecting before it is chained on,
+   *  so one failure cannot poison the queue for every request behind it. */
+  let tail: Promise<void> = Promise.resolve();
+
+  async function ask(sourceId: string, failedUrl: string): Promise<ThumbnailRefreshOutcome> {
+    let response;
+    try {
+      response = await options.post({ sourceId, failedUrl });
+    } catch {
+      // Offline, aborted, CORS, anything. Not worth a second attempt this page load.
+      return GONE;
+    }
+    if (!response.ok) return GONE;
+
+    const body = (typeof response.body === 'object' && response.body !== null
+      ? response.body
+      : {}) as { status?: unknown; url?: unknown };
+    // `url !== failedUrl` is the guard that keeps a refresh from handing back the corpse: if the
+    // route answered with the same string the browser just failed on, retrying it is a second
+    // failed image request for a certain outcome.
+    if (body.status === 'ok' && typeof body.url === 'string' && body.url !== failedUrl) {
+      return { kind: 'url', url: body.url };
+    }
+    return GONE;
+  }
+
+  return {
+    refresh(thumb) {
+      // No `sources` row behind this URL — it came from `0016`'s frozen denormalized copy, and the
+      // route takes a source id, never a URL. Genuinely unrefreshable, and cheap to say so.
+      if (thumb.sourceId === null) return Promise.resolve(GONE);
+      const sourceId = thumb.sourceId;
+
+      const already = settled.get(sourceId);
+      if (already !== undefined) return Promise.resolve(already);
+
+      const running = inFlight.get(sourceId);
+      if (running !== undefined) return running;
+
+      if (spent >= max) return Promise.resolve(GONE);
+      spent += 1;
+
+      const failedUrl = thumb.url;
+      const run = tail.then(
+        () => ask(sourceId, failedUrl),
+        () => ask(sourceId, failedUrl),
+      );
+      tail = run.then(
+        () => undefined,
+        () => undefined,
+      );
+
+      const settling = run.then((outcome) => {
+        settled.set(sourceId, outcome);
+        inFlight.delete(sourceId);
+        return outcome;
+      });
+      inFlight.set(sourceId, settling);
+      return settling;
+    },
+
+    spent: () => spent,
+  };
+}
+
+/** The one per-tab instance. Module scope is the point: the caps in `createThumbnailRefresher` are
+ *  per page load, and a per-component instance would multiply them by the number of rows. */
+const thumbnailRefresher = createThumbnailRefresher({
+  post: async (body) => {
+    // Same-origin, so the session cookie rides along and no `Referer` reaches TikTok — the refresh
+    // never talks to the CDN, only to us. The `no-referrer` policy on the `<img>` elements below
+    // is untouched and stays the only thing that speaks to TikTok's servers.
+    const response = await fetch('/api/sources/thumbnail', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    let parsed: unknown = null;
+    try {
+      parsed = await response.json();
+    } catch {
+      parsed = null;
+    }
+    return { ok: response.ok, status: response.status, body: parsed };
+  },
+});
+
+/**
+ * The URL to draw and the handler to call when it fails — shared by the row's 44 px square and the
+ * detail view's banner, so the two cannot drift into different expiry behaviour.
+ *
+ * **Hiding first, then asking**, rather than leaving the dead image up during the round trip:
+ * the browser has already given up on it, so what is on screen is a broken-image glyph, and the
+ * fallback exists precisely to not show one. The picture returns if the answer brings one.
+ *
+ * The `state.base !== base` reset is React's documented adjust-state-during-render pattern, not a
+ * missing effect. It matters here because both hosts are recycled across places — the sheet's list
+ * re-renders rows with new props rather than remounting them, so state keyed to the previous
+ * place's URL would show one place's still on another place's row.
+ */
+function useRefreshableThumbnail(thumb: ThumbnailRef | null): {
+  url: string | null;
+  onFailure: () => void;
+} {
+  const base = thumb?.url ?? null;
+  const [state, setState] = useState<{ base: string | null; url: string | null }>(() => ({
+    base,
+    url: base,
+  }));
+  if (state.base !== base) setState({ base, url: base });
+  const url = state.base === base ? state.url : base;
+
+  return {
+    url,
+    onFailure: () => {
+      if (thumb === null || url === null) return;
+      const dead = url;
+      setState({ base, url: null });
+      void thumbnailRefresher.refresh({ ...thumb, url: dead }).then((outcome) => {
+        // `outcome.url !== dead` is checked again here and not only in `ask`: a memoised outcome
+        // from a *different* row can carry a URL that has since died for this one.
+        if (outcome.kind === 'url' && outcome.url !== dead) setState({ base, url: outcome.url });
+      });
+    },
+  };
+}
+
+/**
  * **The row's leading square: the post's own still, or the category pin when there is not one.**
  *
  * `source_thumbnail_url` has been on `Spot` since `0016` and reached the detail view only
@@ -985,10 +1192,13 @@ export function PlaceRow({
  * **The fallback is part of the feature, not a nicety.** These are signed TikTok CDN URLs with an
  * expiry we do not store (`SpotSource.media`, `Spot.sourceThumbnailUrl` — roughly six months), and
  * the majority of the library predates the column entirely. So there are three states and all three
- * are ordinary: an image, no image, and an image that 404s halfway down a scroll. The last one
- * falls back to the pin disc — `failed` is per mount and never retried, exactly like
- * `SourceMediaThumbnail` on the detail — rather than leaving a broken-image glyph or a hole where a
- * row's identity should be.
+ * are ordinary: an image, no image, and an image that 404s halfway down a scroll. **The last one
+ * is now the majority state of any library older than two days** (the signed URLs live ~47 hours),
+ * so it is no longer "hide it and never retry": `useRefreshableThumbnail` asks the server to
+ * re-run oEmbed for this source and swaps the fresh URL in if one comes back. The pin disc is
+ * still where it lands when nothing does — a refused budget, a deleted post, or a save with no
+ * `sources` row behind it — rather than a broken-image glyph or a hole where a row's identity
+ * should be.
  *
  * **One box size for both**, 44 px, so the text column starts at the same x on every row. A list
  * whose leading element is 32 px on some rows and 48 px on others has a ragged left edge, which is
@@ -1006,12 +1216,14 @@ export function PlaceRow({
  * below the fold must not compete with the map's own tiles for the first paint.
  */
 function RowMedia({
-  thumbnailUrl,
+  thumb,
   color,
   tint,
   approximateLabel,
 }: {
-  thumbnailUrl: string | undefined;
+  /** The URL to draw plus what is needed to ask for a live one — `thumbnailOf`'s output, which
+   *  prefers the joined `sources.thumbnail_url` (refreshable) over `0016`'s frozen copy (not). */
+  thumb: ThumbnailRef | null;
   /**
    * The category's colour as a **CSS variable reference** — `var(--category-cafe)` — not a literal.
    *
@@ -1039,7 +1251,7 @@ function RowMedia({
   /** Non-null when the coordinate is the model's own guess, and then also the tooltip. */
   approximateLabel: string | null;
 }) {
-  const [failed, setFailed] = useState(false);
+  const { url, onFailure } = useRefreshableThumbnail(thumb);
 
   /* The dashed ring when the coordinate is the model's own guess. The mark belongs on this box and
      not beside the text: it is drawn on the thing the uncertainty is about, it costs the city name
@@ -1048,7 +1260,7 @@ function RowMedia({
      `Restaurant · ת״א` attaches to nothing and reads as a smudge. */
   const approximate = approximateLabel !== null;
 
-  if (thumbnailUrl !== undefined && !failed) {
+  if (url !== null) {
     return (
       <span
         aria-hidden
@@ -1071,12 +1283,12 @@ function RowMedia({
             answered. The detail view's `SourceMediaThumbnail` is a plain `<img>` for the same
             reason. */}
         <img
-          src={thumbnailUrl}
+          src={url}
           alt=""
           referrerPolicy="no-referrer"
           loading="lazy"
           decoding="async"
-          onError={() => setFailed(true)}
+          onError={onFailure}
           /* **`onError` alone is not enough on a server-rendered list, and this was measured
              rather than reasoned.** The markup ships from the server with the `src` already on it,
              so the browser starts the request during parse — before React has hydrated and before
@@ -1090,7 +1302,7 @@ function RowMedia({
              zero `naturalWidth` is the DOM's way of saying "finished, and there is no image" — the
              only reliable read of a failure that already happened. */
           ref={(node) => {
-            if (node?.complete === true && node.naturalWidth === 0) setFailed(true);
+            if (node?.complete === true && node.naturalWidth === 0) onFailure();
           }}
           className="size-full object-cover"
         />
@@ -1516,7 +1728,12 @@ export function PlaceDetail({
   // `saved_place_sources` → `sources` join above didn't resolve one for any reason. `source`'s
   // fields remain the fallback for a save made before 0016 shipped.
   const tiktokUrl = detail?.sourceUrl ?? source?.canonicalUrl ?? place.sourceUrl;
-  const thumbnailUrl = detail?.sourceThumbnailUrl ?? source?.media?.url;
+  // `thumbnailOf` reverses what this line used to do. It preferred `sourceThumbnailUrl` — `0016`'s
+  // denormalized copy, filled once and never refreshed by anything, by that migration's own
+  // admission — over the joined `sources.thumbnail_url`, which is the row a refresh can actually
+  // write to. With the old order, repairing the shared row would have repaired a value no screen
+  // reads. The frozen copy is still the fallback when no source joined; see `thumbnailOf`.
+  const thumb = thumbnailOf(detail);
   const authorLabel = source?.authorHandle
     ? `@${source.authorHandle}`
     : (source?.authorName ?? null);
@@ -1598,7 +1815,7 @@ export function PlaceDetail({
         isHosted && 'px-4 pb-[calc(env(safe-area-inset-bottom)+2rem)] pt-1',
       )}
     >
-      {thumbnailUrl && <SourceMediaThumbnail url={thumbnailUrl} />}
+      {thumb && <SourceMediaThumbnail thumb={thumb} />}
 
       <div className={cn('flex items-start justify-between gap-3', isPopover && 'px-4 pt-3.5')}>
         <div className="flex min-w-0 flex-col gap-1">
@@ -1949,23 +2166,36 @@ export function PlaceDetail({
  * users' devices requested them — a privacy leak of "which posts this person saved," not just an
  * unnecessary header.
  *
- * The URL is a signed TikTok CDN link with a known-but-unstored expiry (`SpotSource.media`'s own
- * comment, and `Spot.sourceThumbnailUrl`'s — the two describe the same ~6-month expiry) —
- * `onError` swaps to an empty state permanently for this mount (`failed` state, not retried)
- * rather than leaving a broken-image icon on screen.
+ * The URL is a signed TikTok CDN link whose expiry **is** stored, in the URL itself: TikTok signs
+ * an `x-expires` into the query string and `signedUrlExpiry` reads it. Measured 2026-08-31 the
+ * window is **~47 hours**, not the ~6 months `0003`'s column comment claims, which is why a
+ * failure here is now a request for a fresh URL (`useRefreshableThumbnail`) rather than a
+ * permanent hide. It still hides when nothing comes back — see the coordinator's docblock for what
+ * the user sees when the post is genuinely gone, and why there is no badge saying so.
  */
-function SourceMediaThumbnail({ url }: { url: string }) {
-  const [failed, setFailed] = useState(false);
+function SourceMediaThumbnail({ thumb }: { thumb: ThumbnailRef }) {
+  const { url, onFailure } = useRefreshableThumbnail(thumb);
 
-  if (failed) return null;
+  if (url === null) return null;
 
   return (
     <div className="overflow-hidden rounded-lg bg-muted">
+      {/* eslint-disable-next-line @next/next/no-img-element -- same reason `RowMedia`'s carries the
+          rule: an arbitrary, expiring, signed third-party CDN URL, which `next/image` would proxy
+          through our own optimizer at a cost and open a second place the referrer question has to
+          be answered. */}
       <img
         src={url}
         alt=""
         referrerPolicy="no-referrer"
-        onError={() => setFailed(true)}
+        onError={onFailure}
+        /* Same pre-hydration hole `RowMedia`'s ref closes, and for a stronger reason here: this
+           banner is the first thing in a server-rendered detail panel, so its request is issued
+           during parse and an expired URL fails before any handler exists. Without this the
+           refresh would only ever fire for images that failed after hydration. */
+        ref={(node) => {
+          if (node?.complete === true && node.naturalWidth === 0) onFailure();
+        }}
         className="h-40 w-full object-cover"
       />
     </div>
