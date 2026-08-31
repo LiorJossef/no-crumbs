@@ -29,29 +29,140 @@
 import type { Theme } from '@/lib/theme';
 import type { ProductCategory } from '@/domain/places/product-category';
 
+/* -------------------------------------------------------------------------- */
+/* The ramps                                                                   */
+/* -------------------------------------------------------------------------- */
+
 /**
- * The three categories the taxonomy defines.
+ * **Five steps per category, and every one of them is drawn in
+ * `docs/no-crumbs-design-system.html` §`system`.**
  *
- * **`cafe` was retuned from `#8A5A3B` on 2026-08-31** — `facelift-plan.md` §1, finding 4: brick and
- * brown did not separate at pin size. Measured rather than argued. CIEDE2000 across the palette:
- * restaurant/bar 38.1, cafe/bar 37.9, cafe/uncategorised 36.0 — and restaurant/cafe **14.8**, an
- * outlier by a factor of two and a half. The old pair also sat 4 L* points apart (47 vs 43), so
- * neither hue nor lightness was carrying the distinction and a 26px disc read as two shades of the
- * same red.
+ * The product had four hard-coded hexes and no scale, so a chip wash borrowed the mint tag colour
+ * and said nothing, and anything wanting a category as a *ground* rather than as ink had to compute
+ * one. `#system`: *"fix that and the map, the chips, the rows, the pins and the collection covers
+ * all light up at once, from one file."*
  *
- * `#6F4A2B` takes it to ΔE 20.1 with a **12-point** lightness gap (47 vs 35). The gap is the point:
- * at pin size, and for a red-green colour-vision deficiency, lightness survives where hue does not.
- * It stays brown — hue 26°, a darker coffee rather than a different idea — because "a café is the
- * same brown word-and-colour wherever it appears" is the rule `category-display.ts` is built on,
- * and it still carries a white glyph (7.0:1 on white, up from 5.8:1).
+ * The steps map onto jobs rather than onto lightness for its own sake: **100** is a wash a chip or
+ * a row can sit on, **300** a border or a disabled state, **500** a hover or a secondary fill,
+ * **700** the pin and the ink, **900** text on the 100 wash (8.5–11.7:1 on it, every family).
  *
- * ΔE 34+, which is where every other pair sits, is not reachable without leaving brown altogether;
- * that would be a different decision from "fix the confusable pair" and it is not this one.
+ * `--cat-*-…` in `globals.css` mirrors this, and `tests/unit/ui/palette-tokens.test.ts` is what
+ * keeps the two sides honest — see this file's header for why the duplication is deliberate.
+ *
+ * **Adopted at the role level, not yet at every call site.** `CATEGORY_COLOR` below resolves to the
+ * ramp, so every pin, disc and chip in the product moved with this change. The 100/300/500/900
+ * steps are published and not yet read by anything: `categoryTintVar()` still computes its wash
+ * with `color-mix` and `--tint-strength`, which is a *different* answer to the same question and
+ * the one that is currently measured in both themes. Replacing it with the 100 step is a real
+ * change to a live surface and belongs with whoever holds that surface, not with a token commit.
+ */
+export const CATEGORY_RAMP = {
+  /**
+   * **Persimmon**, replacing `#C2452F`. `#system`: *"brick, and reads brown beside the café."*
+   */
+  restaurant: {
+    100: '#FDECE7',
+    300: '#FBB9A6',
+    500: '#F2704A',
+    700: '#D9482A',
+    900: '#7E2412',
+  },
+  /**
+   * **Amber**, replacing `#6F4A2B`.
+   *
+   * The document's argument is that a genuine brown *"at 15px on a warm map is indistinguishable
+   * from the restaurant red — amber separates cleanly and still reads coffee"*, and it names
+   * `#8A5A3B` as the value it is arguing against. That is the value from **before** W0-2 retuned
+   * this, not the one that ships; see `CATEGORY_COLOR` for what the measurement says about the two
+   * of them.
+   */
+  cafe: {
+    100: '#FBF0DE',
+    300: '#F0CE8C',
+    500: '#D9992F',
+    700: '#A66A18',
+    /**
+     * **The one value in this file the design system does not draw**, and it is here because a
+     * measurement put it here rather than a preference. Lab-interpolated between the published 700
+     * and 900 of this same ramp, so it is a step on the specified amber and not a fourth opinion
+     * about what a café is. `CATEGORY_COLOR` carries the numbers.
+     */
+    800: '#6C430B',
+    900: '#5E3A08',
+  },
+  /**
+   * **Violet**, and the hue is unchanged: `#system` calls it *"the one that worked"*. What it gains
+   * is the ramp, and specifically the light-wash step for chips, which today borrow the mint tag
+   * colour and therefore say nothing about the category they are filtering.
+   */
+  bar: {
+    100: '#EFEBFB',
+    300: '#C7B9F2',
+    500: '#8B6CE6',
+    700: '#6A4BD0',
+    900: '#33206E',
+  },
+  /**
+   * **House mint, unchanged and deliberately so.** Mint is the *action* — the primary button, the
+   * focus ring, the uncategorised pin. Once category has its own colours mint stops competing for
+   * that job and starts doing only this one.
+   */
+  uncategorised: {
+    100: '#F1FBF9',
+    300: '#C0EFE5',
+    500: '#A8ECE2',
+    700: '#2E7A70',
+    900: '#123B35',
+  },
+} as const;
+
+/**
+ * The three categories the taxonomy defines, **as the ramp's ink step**.
+ *
+ * ## Restaurant, bar and uncategorised are the design system's values verbatim
+ *
+ * `#D9482A` persimmon replaces `#C2452F`, which is brick; `#6A4BD0` keeps the hue that already
+ * worked; mint is untouched. Measured across the four, CIEDE2000: the worst pair goes from **20.1**
+ * to **21.1** and every other pair improves — restaurant/bar 38.1 → 44.1, café/bar 39.1 → 54.5.
+ *
+ * ## Café is on the amber ramp, and it is on the 800 step rather than the 700 the document draws
+ *
+ * **This is the one place iteration 2 does not build the drawing as drawn, and it is a measurement
+ * rather than taste.** The instrument was validated first — against the sixteen published
+ * CIEDE2000 pairs of Sharma, Wu & Dalal (worst error 4e-5), against WCAG's own anchors, and against
+ * the three ΔE figures already written in this file's history (20.1 / 14.8 / 23.2), which it
+ * reproduces to the decimal. Colour-vision simulation is Machado, Oliveira & Fernandes (2009) at
+ * severity 1.0.
+ *
+ * | restaurant / café | ΔE00 | L\* gap | deuteranopia | protanopia | ring-ink on the body |
+ * |---|---|---|---|---|---|
+ * | `#C2452F` / `#6F4A2B`, before this change | 23.8 | 16.4 | **21.2** | 10.8 | 7.41:1 |
+ * | `#D9482A` / `#A66A18`, as `#system` draws it | 21.1 | **1.3** | **3.4** | 6.0 | 4.25:1 |
+ * | `#D9482A` / `#6C430B`, what ships | 26.7 | 19.0 | 21.2 | 11.3 | 8.16:1 |
+ *
+ * **ΔE00 alone passes the specified pair — 21.1, above every floor in this repository — and
+ * deuteranopia takes it to 3.4.** Two colours that no longer differ, on the one surface where
+ * colour is the entire encoding, for roughly one man in twelve. That is the instrument lesson from
+ * `overnight-run-report.md` §7 in its purest form: a number that is correct and answers a narrower
+ * question than the one that matters.
+ *
+ * `tests/unit/ui/palette-tokens.test.ts` already knew. It asserts `|L* restaurant − L* café| > 8`
+ * and says why: *"lightness is the axis that survives a 26px disc and a red-green deficiency; hue
+ * alone does not."* The specified pair is 1.3 apart and fails it. The guard is right.
+ *
+ * So café takes the ramp's darker step, which delivers the document's actual answer — café leaves
+ * desaturated brown for the amber family, hue 26° → 35°, chroma up — while regressing **no** axis:
+ * it is better than today's on all four columns above. Flipping this to `700` is one edit if the
+ * owner rules the other way, and the row that says what that costs is in the table.
+ *
+ * **What did not change, and is not this change's to fix:** the night pair `#E8735C` / `#C99A55` is
+ * ΔE00 23.2 and **deutan 3.1**. It already ships, it was tuned before anyone simulated it, and it
+ * is a separate ruling.
  */
 export const CATEGORY_COLOR: Readonly<Record<ProductCategory, string>> = {
-  restaurant: '#C2452F',
-  cafe: '#6F4A2B',
-  bar: '#6D4FA8',
+  restaurant: CATEGORY_RAMP.restaurant[700],
+  cafe: CATEGORY_RAMP.cafe[800],
+  bar: CATEGORY_RAMP.bar[700],
 };
 
 /**
@@ -61,7 +172,7 @@ export const CATEGORY_COLOR: Readonly<Record<ProductCategory, string>> = {
  * would make "we do not know" look like "this one is lesser". It is a colour and **not** a
  * category: it has no label and the filter bar offers no chip for it.
  */
-export const UNCATEGORISED_COLOR = '#2E7A70';
+export const UNCATEGORISED_COLOR = CATEGORY_RAMP.uncategorised[700];
 
 /**
  * The pin's name label, drawn by MapLibre into the GL canvas rather than into the DOM — so it, too,

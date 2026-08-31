@@ -309,16 +309,64 @@
      * of what stops them drifting.
      *
      * `cafe` was retuned from `#8A5A3B` on 2026-08-31 — `facelift-plan.md` §1 finding 4, brick and
-     * brown not separating at pin size. The measurement and the argument live on `CATEGORY_COLOR`
-     * in `palette.ts` rather than being half-told in both places.
+     * brown not separating at pin size. It moved again on the same date, onto the amber ramp below.
+     * The measurement and the argument live on `CATEGORY_COLOR` in `palette.ts` rather than being
+     * half-told in both places, and that is where to read why café is the only role here that does
+     * not take its family's 700.
      *
      * Uncategorised is `--mint-700` written as a reference and not as a literal, because it *is*
      * the house mint: a place whose category we could not read is still one of the user's places,
      * and grey would make "we do not know" read as "this one is lesser".
+     *
+     * **The four ramps, from `docs/no-crumbs-design-system.html` §`system`.** The product had four
+     * hard-coded hexes and no scale, so a chip wash borrowed the mint tag colour and said nothing.
+     * 100 is a wash a chip or a row can sit on, 300 a border, 500 a hover or secondary fill, 700
+     * the pin and the ink, 900 text on the 100 wash — 8.5–11.7:1 on it, every family.
+     *
+     * **A different namespace from `--category-*` on purpose, and the reason is a guard rather
+     * than a preference.** `palette-tokens.test.ts` asserts the `--category-*` namespace is
+     * *exactly* the taxonomy's categories and nothing else, so a `--category-restaurant-100` would
+     * be an orphan by that rule — the same reason `--on-category` is not `--category-on`. `--cat-*`
+     * is the raw scale, `--category-*` is the role, and the role is what a component reads.
+     *
+     * **Light only, and that is a trap worth naming before somebody falls into it.** `.dark`
+     * overrides the four *roles* with the measured night values and does not restate the ramps, so
+     * `var(--cat-bar-100)` is the same near-white wash in both themes. Nothing reads a step today.
+     * Anything that starts to — a chip wash, a collection cover — needs a night ramp first, or it
+     * will paint a light wash on a near-black card and nothing will fail.
      */
-    --category-restaurant: #C2452F;
-    --category-cafe: #6F4A2B;
-    --category-bar: #6D4FA8;
+    --cat-restaurant-100: #FDECE7;
+    --cat-restaurant-300: #FBB9A6;
+    --cat-restaurant-500: #F2704A;
+    --cat-restaurant-700: #D9482A;
+    --cat-restaurant-900: #7E2412;
+
+    --cat-cafe-100: #FBF0DE;
+    --cat-cafe-300: #F0CE8C;
+    --cat-cafe-500: #D9992F;
+    --cat-cafe-700: #A66A18;
+    /* The one step the design system does not draw. Lab-interpolated between this ramp's own 700
+       and 900, so it is a darker amber rather than a fourth opinion about what a café is. It is the
+       role's value because `#A66A18` sits 1.3 L* from the persimmon and collapses to CIEDE2000 3.4
+       under simulated deuteranopia; `palette.ts` carries the table. One edit flips the role back. */
+    --cat-cafe-800: #6C430B;
+    --cat-cafe-900: #5E3A08;
+
+    --cat-bar-100: #EFEBFB;
+    --cat-bar-300: #C7B9F2;
+    --cat-bar-500: #8B6CE6;
+    --cat-bar-700: #6A4BD0;
+    --cat-bar-900: #33206E;
+
+    --cat-uncategorised-100: #F1FBF9;
+    --cat-uncategorised-300: #C0EFE5;
+    --cat-uncategorised-500: #A8ECE2;
+    --cat-uncategorised-700: #2E7A70;
+    --cat-uncategorised-900: #123B35;
+
+    --category-restaurant: var(--cat-restaurant-700);
+    --category-cafe: var(--cat-cafe-800);
+    --category-bar: var(--cat-bar-700);
     --category-uncategorised: var(--mint-700);
 
     /*
