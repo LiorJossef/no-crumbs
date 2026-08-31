@@ -1,0 +1,2025 @@
+{
+  "takenAt": "2026-08-31T10:34:31.917Z",
+  "commitish": "a811d01^",
+  "commit": "eb9e81199d536450e17e8bef03be13c13cefb3e1",
+  "minOverhangCssPx": 0.5,
+  "inkThresholdSummedChannels": 96,
+  "method": "geometry: text-node getClientRects() vs the content box of the nearest clipping ancestor. pixels: magenta-forced ink, rendered with and without `overflow: visible`, differenced in the vertical bands outside the content box only.",
+  "caveat": "Horizontal overhang is reported and never counted — releasing overflow releases the ellipsis with it, so a truncated label legitimately paints more characters.",
+  "results": [
+    {
+      "theme": "light",
+      "viewport": "390x844",
+      "deviceScaleFactor": 3,
+      "route": "landing",
+      "clippedElements": 0,
+      "overhangingElements": 0,
+      "elements": []
+    },
+    {
+      "theme": "light",
+      "viewport": "390x844",
+      "deviceScaleFactor": 3,
+      "route": "sign-in",
+      "clippedElements": 0,
+      "overhangingElements": 0,
+      "elements": []
+    },
+    {
+      "theme": "light",
+      "viewport": "390x844",
+      "deviceScaleFactor": 3,
+      "route": "map",
+      "clippedElements": 1,
+      "overhangingElements": 3,
+      "elements": [
+        {
+          "selector": "span.max-w-full.truncate.text-micro.leading-none",
+          "text": "Map",
+          "fontSize": "11px",
+          "lineHeight": "11px",
+          "clipper": "span.max-w-full.truncate.text-micro.leading-none",
+          "overhangCssPx": {
+            "top": 2,
+            "bottom": 2,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 20,
+          "perBand": {
+            "top": 0,
+            "bottom": 20
+          },
+          "worstChannelDelta": 263
+        },
+        {
+          "selector": "span.max-w-full.truncate.text-micro.leading-none",
+          "text": "Collections",
+          "fontSize": "11px",
+          "lineHeight": "11px",
+          "clipper": "span.max-w-full.truncate.text-micro.leading-none",
+          "overhangCssPx": {
+            "top": 2,
+            "bottom": 2,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "span.max-w-full.truncate.text-micro.leading-none",
+          "text": "Profile",
+          "fontSize": "11px",
+          "lineHeight": "11px",
+          "clipper": "span.max-w-full.truncate.text-micro.leading-none",
+          "overhangCssPx": {
+            "top": 2,
+            "bottom": 2,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        }
+      ]
+    },
+    {
+      "theme": "light",
+      "viewport": "390x844",
+      "deviceScaleFactor": 3,
+      "route": "collections",
+      "clippedElements": 1,
+      "overhangingElements": 3,
+      "elements": [
+        {
+          "selector": "span.max-w-full.truncate.text-micro.leading-none",
+          "text": "Map",
+          "fontSize": "11px",
+          "lineHeight": "11px",
+          "clipper": "span.max-w-full.truncate.text-micro.leading-none",
+          "overhangCssPx": {
+            "top": 2,
+            "bottom": 2,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 20,
+          "perBand": {
+            "top": 0,
+            "bottom": 20
+          },
+          "worstChannelDelta": 254
+        },
+        {
+          "selector": "span.max-w-full.truncate.text-micro.leading-none",
+          "text": "Collections",
+          "fontSize": "11px",
+          "lineHeight": "11px",
+          "clipper": "span.max-w-full.truncate.text-micro.leading-none",
+          "overhangCssPx": {
+            "top": 2,
+            "bottom": 2,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "span.max-w-full.truncate.text-micro.leading-none",
+          "text": "Profile",
+          "fontSize": "11px",
+          "lineHeight": "11px",
+          "clipper": "span.max-w-full.truncate.text-micro.leading-none",
+          "overhangCssPx": {
+            "top": 2,
+            "bottom": 2,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        }
+      ]
+    },
+    {
+      "theme": "light",
+      "viewport": "390x844",
+      "deviceScaleFactor": 3,
+      "route": "profile",
+      "clippedElements": 1,
+      "overhangingElements": 3,
+      "elements": [
+        {
+          "selector": "span.max-w-full.truncate.text-micro.leading-none",
+          "text": "Map",
+          "fontSize": "11px",
+          "lineHeight": "11px",
+          "clipper": "span.max-w-full.truncate.text-micro.leading-none",
+          "overhangCssPx": {
+            "top": 2,
+            "bottom": 2,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 20,
+          "perBand": {
+            "top": 0,
+            "bottom": 20
+          },
+          "worstChannelDelta": 255
+        },
+        {
+          "selector": "span.max-w-full.truncate.text-micro.leading-none",
+          "text": "Collections",
+          "fontSize": "11px",
+          "lineHeight": "11px",
+          "clipper": "span.max-w-full.truncate.text-micro.leading-none",
+          "overhangCssPx": {
+            "top": 2,
+            "bottom": 2,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "span.max-w-full.truncate.text-micro.leading-none",
+          "text": "Profile",
+          "fontSize": "11px",
+          "lineHeight": "11px",
+          "clipper": "span.max-w-full.truncate.text-micro.leading-none",
+          "overhangCssPx": {
+            "top": 2,
+            "bottom": 2,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        }
+      ]
+    },
+    {
+      "theme": "light",
+      "viewport": "390x844",
+      "deviceScaleFactor": 3,
+      "route": "collection-detail",
+      "clippedElements": 1,
+      "overhangingElements": 9,
+      "elements": [
+        {
+          "selector": "span.max-w-full.truncate.text-micro.leading-none",
+          "text": "Map",
+          "fontSize": "11px",
+          "lineHeight": "11px",
+          "clipper": "span.max-w-full.truncate.text-micro.leading-none",
+          "overhangCssPx": {
+            "top": 2,
+            "bottom": 2,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 20,
+          "perBand": {
+            "top": 0,
+            "bottom": 20
+          },
+          "worstChannelDelta": 254
+        },
+        {
+          "selector": "span.max-w-full.truncate.text-micro.leading-none",
+          "text": "Collections",
+          "fontSize": "11px",
+          "lineHeight": "11px",
+          "clipper": "span.max-w-full.truncate.text-micro.leading-none",
+          "overhangCssPx": {
+            "top": 2,
+            "bottom": 2,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "span.max-w-full.truncate.text-micro.leading-none",
+          "text": "Profile",
+          "fontSize": "11px",
+          "lineHeight": "11px",
+          "clipper": "span.max-w-full.truncate.text-micro.leading-none",
+          "overhangCssPx": {
+            "top": 2,
+            "bottom": 2,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 3
+        },
+        {
+          "selector": "bdi",
+          "text": "Restaurant · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Café · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Café · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 4
+        },
+        {
+          "selector": "bdi",
+          "text": "Bar · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Restaurant · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Café · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        }
+      ]
+    },
+    {
+      "theme": "light",
+      "viewport": "1440x900",
+      "deviceScaleFactor": 2,
+      "route": "landing",
+      "clippedElements": 0,
+      "overhangingElements": 0,
+      "elements": []
+    },
+    {
+      "theme": "light",
+      "viewport": "1440x900",
+      "deviceScaleFactor": 2,
+      "route": "sign-in",
+      "clippedElements": 0,
+      "overhangingElements": 0,
+      "elements": []
+    },
+    {
+      "theme": "light",
+      "viewport": "1440x900",
+      "deviceScaleFactor": 2,
+      "route": "map",
+      "clippedElements": 0,
+      "overhangingElements": 23,
+      "elements": [
+        {
+          "selector": "span.max-w-[9rem].truncate.text-xs.font-bold",
+          "text": "demo@example.com",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "span.max-w-[9rem].truncate.text-xs.font-bold",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "span.max-w-40.truncate",
+          "text": "Quick",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "span.max-w-40.truncate",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "span.max-w-40.truncate",
+          "text": "Vegetarian",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "span.max-w-40.truncate",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "span.max-w-40.truncate",
+          "text": "Brunch",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "span.max-w-40.truncate",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "span.max-w-40.truncate",
+          "text": "Late Night",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "span.max-w-40.truncate",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "span.max-w-40.truncate",
+          "text": "Outdoor Seating",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "span.max-w-40.truncate",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Restaurant · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Café · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Café · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Bar · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "p.text-micro.font-medium.text-muted-foreground",
+          "text": "Saved 1 day ago",
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "clipper": "main.relative.h-dvh.w-full.overflow-hidden",
+          "overhangCssPx": {
+            "top": 0,
+            "bottom": 33.81,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Restaurant · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "span.inline-flex.shrink-0.items-center.gap-1",
+          "text": "Been",
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "clipper": "main.relative.h-dvh.w-full.overflow-hidden",
+          "overhangCssPx": {
+            "top": 0,
+            "bottom": 108.75,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "p.text-micro.font-medium.text-muted-foreground",
+          "text": "Saved 1 day ago",
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "clipper": "main.relative.h-dvh.w-full.overflow-hidden",
+          "overhangCssPx": {
+            "top": 0,
+            "bottom": 146.75,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Café · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "p.text-micro.font-medium.text-muted-foreground",
+          "text": "Saved 1 day ago",
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "clipper": "main.relative.h-dvh.w-full.overflow-hidden",
+          "overhangCssPx": {
+            "top": 0,
+            "bottom": 277.69,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Bar · Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "p.text-micro.font-medium.text-muted-foreground",
+          "text": "Saved 1 day ago",
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "clipper": "main.relative.h-dvh.w-full.overflow-hidden",
+          "overhangCssPx": {
+            "top": 0,
+            "bottom": 364.63,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Café · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Restaurant · Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Café · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Restaurant · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Bar · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        }
+      ]
+    },
+    {
+      "theme": "light",
+      "viewport": "1440x900",
+      "deviceScaleFactor": 2,
+      "route": "collections",
+      "clippedElements": 0,
+      "overhangingElements": 0,
+      "elements": []
+    },
+    {
+      "theme": "light",
+      "viewport": "1440x900",
+      "deviceScaleFactor": 2,
+      "route": "profile",
+      "clippedElements": 0,
+      "overhangingElements": 0,
+      "elements": []
+    },
+    {
+      "theme": "light",
+      "viewport": "1440x900",
+      "deviceScaleFactor": 2,
+      "route": "collection-detail",
+      "clippedElements": 0,
+      "overhangingElements": 6,
+      "elements": [
+        {
+          "selector": "bdi",
+          "text": "Restaurant · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Café · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Café · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Bar · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Restaurant · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Café · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        }
+      ]
+    },
+    {
+      "theme": "dark",
+      "viewport": "390x844",
+      "deviceScaleFactor": 3,
+      "route": "landing",
+      "clippedElements": 0,
+      "overhangingElements": 0,
+      "elements": []
+    },
+    {
+      "theme": "dark",
+      "viewport": "390x844",
+      "deviceScaleFactor": 3,
+      "route": "sign-in",
+      "clippedElements": 0,
+      "overhangingElements": 0,
+      "elements": []
+    },
+    {
+      "theme": "dark",
+      "viewport": "390x844",
+      "deviceScaleFactor": 3,
+      "route": "map",
+      "clippedElements": 1,
+      "overhangingElements": 3,
+      "elements": [
+        {
+          "selector": "span.max-w-full.truncate.text-micro.leading-none",
+          "text": "Map",
+          "fontSize": "11px",
+          "lineHeight": "11px",
+          "clipper": "span.max-w-full.truncate.text-micro.leading-none",
+          "overhangCssPx": {
+            "top": 2,
+            "bottom": 2,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 20,
+          "perBand": {
+            "top": 0,
+            "bottom": 20
+          },
+          "worstChannelDelta": 481
+        },
+        {
+          "selector": "span.max-w-full.truncate.text-micro.leading-none",
+          "text": "Collections",
+          "fontSize": "11px",
+          "lineHeight": "11px",
+          "clipper": "span.max-w-full.truncate.text-micro.leading-none",
+          "overhangCssPx": {
+            "top": 2,
+            "bottom": 2,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "span.max-w-full.truncate.text-micro.leading-none",
+          "text": "Profile",
+          "fontSize": "11px",
+          "lineHeight": "11px",
+          "clipper": "span.max-w-full.truncate.text-micro.leading-none",
+          "overhangCssPx": {
+            "top": 2,
+            "bottom": 2,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        }
+      ]
+    },
+    {
+      "theme": "dark",
+      "viewport": "390x844",
+      "deviceScaleFactor": 3,
+      "route": "collections",
+      "clippedElements": 1,
+      "overhangingElements": 3,
+      "elements": [
+        {
+          "selector": "span.max-w-full.truncate.text-micro.leading-none",
+          "text": "Map",
+          "fontSize": "11px",
+          "lineHeight": "11px",
+          "clipper": "span.max-w-full.truncate.text-micro.leading-none",
+          "overhangCssPx": {
+            "top": 2,
+            "bottom": 2,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 20,
+          "perBand": {
+            "top": 0,
+            "bottom": 20
+          },
+          "worstChannelDelta": 481
+        },
+        {
+          "selector": "span.max-w-full.truncate.text-micro.leading-none",
+          "text": "Collections",
+          "fontSize": "11px",
+          "lineHeight": "11px",
+          "clipper": "span.max-w-full.truncate.text-micro.leading-none",
+          "overhangCssPx": {
+            "top": 2,
+            "bottom": 2,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "span.max-w-full.truncate.text-micro.leading-none",
+          "text": "Profile",
+          "fontSize": "11px",
+          "lineHeight": "11px",
+          "clipper": "span.max-w-full.truncate.text-micro.leading-none",
+          "overhangCssPx": {
+            "top": 2,
+            "bottom": 2,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        }
+      ]
+    },
+    {
+      "theme": "dark",
+      "viewport": "390x844",
+      "deviceScaleFactor": 3,
+      "route": "profile",
+      "clippedElements": 1,
+      "overhangingElements": 3,
+      "elements": [
+        {
+          "selector": "span.max-w-full.truncate.text-micro.leading-none",
+          "text": "Map",
+          "fontSize": "11px",
+          "lineHeight": "11px",
+          "clipper": "span.max-w-full.truncate.text-micro.leading-none",
+          "overhangCssPx": {
+            "top": 2,
+            "bottom": 2,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 20,
+          "perBand": {
+            "top": 0,
+            "bottom": 20
+          },
+          "worstChannelDelta": 482
+        },
+        {
+          "selector": "span.max-w-full.truncate.text-micro.leading-none",
+          "text": "Collections",
+          "fontSize": "11px",
+          "lineHeight": "11px",
+          "clipper": "span.max-w-full.truncate.text-micro.leading-none",
+          "overhangCssPx": {
+            "top": 2,
+            "bottom": 2,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "span.max-w-full.truncate.text-micro.leading-none",
+          "text": "Profile",
+          "fontSize": "11px",
+          "lineHeight": "11px",
+          "clipper": "span.max-w-full.truncate.text-micro.leading-none",
+          "overhangCssPx": {
+            "top": 2,
+            "bottom": 2,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        }
+      ]
+    },
+    {
+      "theme": "dark",
+      "viewport": "390x844",
+      "deviceScaleFactor": 3,
+      "route": "collection-detail",
+      "clippedElements": 1,
+      "overhangingElements": 9,
+      "elements": [
+        {
+          "selector": "span.max-w-full.truncate.text-micro.leading-none",
+          "text": "Map",
+          "fontSize": "11px",
+          "lineHeight": "11px",
+          "clipper": "span.max-w-full.truncate.text-micro.leading-none",
+          "overhangCssPx": {
+            "top": 2,
+            "bottom": 2,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 20,
+          "perBand": {
+            "top": 0,
+            "bottom": 20
+          },
+          "worstChannelDelta": 481
+        },
+        {
+          "selector": "span.max-w-full.truncate.text-micro.leading-none",
+          "text": "Collections",
+          "fontSize": "11px",
+          "lineHeight": "11px",
+          "clipper": "span.max-w-full.truncate.text-micro.leading-none",
+          "overhangCssPx": {
+            "top": 2,
+            "bottom": 2,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "span.max-w-full.truncate.text-micro.leading-none",
+          "text": "Profile",
+          "fontSize": "11px",
+          "lineHeight": "11px",
+          "clipper": "span.max-w-full.truncate.text-micro.leading-none",
+          "overhangCssPx": {
+            "top": 2,
+            "bottom": 2,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 4
+        },
+        {
+          "selector": "bdi",
+          "text": "Restaurant · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Café · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Café · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 7
+        },
+        {
+          "selector": "bdi",
+          "text": "Bar · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Restaurant · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Café · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        }
+      ]
+    },
+    {
+      "theme": "dark",
+      "viewport": "1440x900",
+      "deviceScaleFactor": 2,
+      "route": "landing",
+      "clippedElements": 0,
+      "overhangingElements": 0,
+      "elements": []
+    },
+    {
+      "theme": "dark",
+      "viewport": "1440x900",
+      "deviceScaleFactor": 2,
+      "route": "sign-in",
+      "clippedElements": 0,
+      "overhangingElements": 0,
+      "elements": []
+    },
+    {
+      "theme": "dark",
+      "viewport": "1440x900",
+      "deviceScaleFactor": 2,
+      "route": "map",
+      "clippedElements": 0,
+      "overhangingElements": 23,
+      "elements": [
+        {
+          "selector": "span.max-w-[9rem].truncate.text-xs.font-bold",
+          "text": "demo@example.com",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "span.max-w-[9rem].truncate.text-xs.font-bold",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "span.max-w-40.truncate",
+          "text": "Quick",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "span.max-w-40.truncate",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "span.max-w-40.truncate",
+          "text": "Vegetarian",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "span.max-w-40.truncate",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "span.max-w-40.truncate",
+          "text": "Brunch",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "span.max-w-40.truncate",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "span.max-w-40.truncate",
+          "text": "Late Night",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "span.max-w-40.truncate",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "span.max-w-40.truncate",
+          "text": "Outdoor Seating",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "span.max-w-40.truncate",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Restaurant · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Café · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Café · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Bar · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "p.text-micro.font-medium.text-muted-foreground",
+          "text": "Saved 1 day ago",
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "clipper": "main.relative.h-dvh.w-full.overflow-hidden",
+          "overhangCssPx": {
+            "top": 0,
+            "bottom": 33.81,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Restaurant · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "span.inline-flex.shrink-0.items-center.gap-1",
+          "text": "Been",
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "clipper": "main.relative.h-dvh.w-full.overflow-hidden",
+          "overhangCssPx": {
+            "top": 0,
+            "bottom": 108.75,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "p.text-micro.font-medium.text-muted-foreground",
+          "text": "Saved 1 day ago",
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "clipper": "main.relative.h-dvh.w-full.overflow-hidden",
+          "overhangCssPx": {
+            "top": 0,
+            "bottom": 146.75,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Café · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "p.text-micro.font-medium.text-muted-foreground",
+          "text": "Saved 1 day ago",
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "clipper": "main.relative.h-dvh.w-full.overflow-hidden",
+          "overhangCssPx": {
+            "top": 0,
+            "bottom": 277.69,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Bar · Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "p.text-micro.font-medium.text-muted-foreground",
+          "text": "Saved 1 day ago",
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "clipper": "main.relative.h-dvh.w-full.overflow-hidden",
+          "overhangCssPx": {
+            "top": 0,
+            "bottom": 364.63,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Café · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Restaurant · Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Café · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Restaurant · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Bar · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        }
+      ]
+    },
+    {
+      "theme": "dark",
+      "viewport": "1440x900",
+      "deviceScaleFactor": 2,
+      "route": "collections",
+      "clippedElements": 0,
+      "overhangingElements": 0,
+      "elements": []
+    },
+    {
+      "theme": "dark",
+      "viewport": "1440x900",
+      "deviceScaleFactor": 2,
+      "route": "profile",
+      "clippedElements": 0,
+      "overhangingElements": 0,
+      "elements": []
+    },
+    {
+      "theme": "dark",
+      "viewport": "1440x900",
+      "deviceScaleFactor": 2,
+      "route": "collection-detail",
+      "clippedElements": 0,
+      "overhangingElements": 6,
+      "elements": [
+        {
+          "selector": "bdi",
+          "text": "Restaurant · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Café · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Café · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Bar · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Restaurant · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        },
+        {
+          "selector": "bdi",
+          "text": "Café · Tel Aviv-Yafo",
+          "fontSize": "12px",
+          "lineHeight": "16px",
+          "clipper": "p.line-clamp-1.text-xs.font-medium.text-muted-foreground",
+          "overhangCssPx": {
+            "top": 1,
+            "bottom": 0,
+            "left": 0,
+            "right": 0
+          },
+          "clippedInkDevicePx": 0,
+          "perBand": {
+            "top": 0,
+            "bottom": 0
+          },
+          "worstChannelDelta": 0
+        }
+      ]
+    }
+  ]
+}
