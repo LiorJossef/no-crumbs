@@ -190,7 +190,13 @@ frame rate.
    the lane chose correctly.
 5. **`src/components/ui/map.tsx` was ruled out of scope** — 2,000 vendored lines holding 12 of the 25
    remaining hard-coded colours, two hand-rolled icon buttons and three unguarded `animate-pulse`
-   dots. Opening it at 3am was the wrong trade. It is owed work.
+   dots. Opening it at 3am was the wrong trade. It is owed work, and the pile against that one file
+   is now: those colours and dots, the **`Zoom in` / `Zoom out` controls, which genuinely have no
+   press** (measured cleanly — the press landed, `:active` resolved, nothing moved), and **the
+   MapLibre keyboard focus stop**, which draws no ring. That last one was declined deliberately rather
+   than missed: the element is created inside MapLibre's own container so only a descendant selector
+   reaches it, `globals.css` was not that lane's, and a Tailwind arbitrary variant would be a rule-6a
+   failure — *"a focus ring aimed at the wrong element is worse than an admitted gap."*
 6. **Landing and sign-in contrast is unscored in both themes** — their text sits on the `--brand-wash`
    gradient, which has no single background colour, so 74 of the sweep's 80 indeterminate elements are
    those two screens. They need a manual or pixel check.
@@ -317,7 +323,32 @@ has its own trap worth writing down: releasing the pointer *away* from the eleme
 it is a **drag**, and a drag inside the sheet is a vaul gesture that closes it and detaches every row.
 Press only what you can afford to activate, and release in place.
 
-**Seven instruments, one night, on a codebase whose tests were green throughout.** That is the run's
+**And then the re-test produced the eighth, in the opposite direction, which is what makes the pair
+worth keeping.** Challenged on one control, the peer re-ran it and found its *own* result had been
+false: `Find my location` presses correctly at `0.95`, and its earlier "no press" was recorded **with
+the sheet open, painting over the map controls.** The control's `boundingBox()` was still valid — it
+is laid out and in the DOM — so the press went to those coordinates and landed on a **list row**.
+`elementFromPoint` named the interceptor: `p.line-clamp-1.font-heading`, inside
+`Open Filter Coffee Bar No. 3`.
+
+**The fix is one boolean, and it is the reusable part of this whole section.** Record whether the
+element actually entered `:active` while the pointer was down:
+
+- **`:active` false → the press never reached the element.** The measurement is *void* — it says
+  nothing about the element, and must not be reported as either a pass or a failure.
+- **`:active` true and nothing moved → the element genuinely has no press.**
+
+With that field, `Zoom in` / `Zoom out` become a clean negative rather than an inference — the press
+landed, `:active` resolved on the button, `PRESS_CHIP` is absent, nothing moved — and
+`Find my location` a clean positive.
+
+**So both methods produced a false result on the same night, in opposite directions, and the
+difference between them was a single unrecorded boolean.** CDP-forced `:active` gave a false *pass*;
+the real-press run gave a false *failure*. Neither was trustworthy alone. The false pass remains the
+more dangerous of the two — **nobody re-checks a green** — but the correction was volunteered by the
+agent whose own result it overturned, unprompted except by being asked to check.
+
+**Eight instruments, one night, on a codebase whose tests were green throughout.** That is the run's
 real finding about itself: **the measurements needed as much verification as the code did**, and two
 of the fourteen KPIs turned out not to measure what they name.
 
