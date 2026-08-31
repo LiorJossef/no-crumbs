@@ -251,6 +251,19 @@ several of the original rules quietly depended on.
 25. Never convert uncertainty into certainty. Preserve source, provenance, evidence, and the
     extracted-vs-inferred distinction. An uncertain result beats a confidently wrong one.
 
+26. **A green unit suite does not cover a string change.** Observed 2026-08-31, on a 17-string copy
+    pass: nine unit assertions moved with the strings and `npm test` was green both before and
+    after — while **three e2e assertions and a manual harness would have failed at runtime**,
+    because a renamed label lives inside a `getByRole` name that only CI's e2e job ever exercises.
+    The pass would have landed green and broken CI.
+
+    The general shape: **ask which suite actually reads the thing you changed, not which suite you
+    habitually run.** A string is read by e2e selectors and accessible names; a token is read by
+    rendering; a migration is read by nothing local at all. `npm run verify` covers one of CI's four
+    jobs, so a green `verify` is evidence about that one job and silence about the other three.
+    Grep the changed literal across `tests/` — every directory of it — before reporting a copy or
+    label change as verified.
+
 ## 8. Concurrency — when more than one agent is running
 
 Rules 26–31 apply whenever the orchestrator has dispatched more than one specialist that has not yet
