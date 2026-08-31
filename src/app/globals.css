@@ -1195,3 +1195,168 @@
     @apply bg-transparent! dark:invert;
     }
 }
+/* -------------------------------------------------------------------------- */
+/* The mascot's motion                                                         */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * **The seven animations of `docs/no-crumbs-design-system.html` chapter 03, and the two of them
+ * this product has a screen for.**
+ *
+ * The rig has been in `src/components/brand/` since I2-W and every hook it emits — `crumb-all`,
+ * `crumb-eyes`, `crumb-halo`, `crumb-spark-1/2`, `crumb-trail-dot-*` — was targeted by nothing.
+ * A hook with no rule on the other end is not a smaller version of a working animation; it is dead
+ * markup that reads like one. This is the other end.
+ *
+ * **Why here and not in a CSS module beside the component.** A module was proposed and ruled
+ * against, correctly: this repo has zero `.module.css`, so introducing one buys a permanent second
+ * styling convention — every future rule needs a decision about which of two homes it belongs in —
+ * to solve a scheduling problem that is paid once. Keyframes are global in CSS whatever file they
+ * are written in, so the module would not even have scoped the thing that matters.
+ *
+ * **`transform-origin` is in the mascot's own user space**, which is why `crumb-mascot-markup.ts`
+ * wraps the drawing in `crumb-all` rather than letting these rules target the `<svg>`. `50px 94px`
+ * is the bottom of the crumb at 40px, at 168px and inside the trail's scaled group; on the `<svg>`
+ * it would be a CSS-pixel offset and a small mark and a large one would squash about different
+ * points.
+ *
+ * Every property animated here is `transform` or `opacity` — compositor-only, no layout, no paint.
+ * That is a hard rule on a screen that also holds a MapLibre canvas one route away.
+ */
+
+@keyframes crumb-bob {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  45% { transform: translateY(-8px) scale(0.97, 1.04); }
+  70% { transform: translateY(0) scale(1.05, 0.94); }
+  85% { transform: translateY(0) scale(1, 1); }
+}
+
+@keyframes crumb-wobble {
+  0%, 100% { transform: rotate(-5deg); }
+  50% { transform: rotate(5deg); }
+}
+
+@keyframes crumb-scan {
+  0%, 100% { transform: translateX(-2.6px); }
+  50% { transform: translateX(3.2px); }
+}
+
+@keyframes crumb-land {
+  0% { transform: translateY(-46px) scale(0.86, 1.16); opacity: 0; }
+  55% { transform: translateY(0) scale(1.12, 0.88); opacity: 1; }
+  75% { transform: translateY(-7px) scale(0.97, 1.04); }
+  100% { transform: translateY(0) scale(1, 1); opacity: 1; }
+}
+
+@keyframes crumb-halo {
+  0%, 100% { opacity: 0.18; transform: scale(1); }
+  50% { opacity: 0.42; transform: scale(1.14); }
+}
+
+@keyframes crumb-spark {
+  0%, 70%, 100% { opacity: 0; transform: scale(0.4); }
+  20%, 50% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes crumb-trail-dot {
+  0%, 100% { opacity: 0.18; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-5px); }
+}
+
+/** The success beat's fade, and the *only* thing that survives `prefers-reduced-motion` below. */
+@keyframes crumb-appear {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Bob — the workhorse, 1.15s. Not used on the import wait; see Wobble. */
+.crumb-anim-bob .crumb-all {
+  animation: crumb-bob 1.15s cubic-bezier(0.4, 0, 0.3, 1) infinite;
+  transform-origin: 50px 94px;
+}
+
+/* Wobble — the import wait, and `#motion` is explicit that this is not interchangeable with Bob:
+   *"seven to thirty-four seconds is a long time to watch something bounce. Wobble reads as
+   patient; Bob reads as impatient by about second six."* No vertical travel, 1.8s. */
+.crumb-anim-wobble .crumb-all {
+  animation: crumb-wobble 1.8s ease-in-out infinite;
+  transform-origin: 50px 90px;
+}
+
+/* Scan — the eyes track, the body does not move. The only one that says *working on your thing*
+   rather than *working*. */
+.crumb-anim-scan .crumb-eyes {
+  animation: crumb-scan 1.5s ease-in-out infinite;
+}
+
+/* Land — **one-shot**, `1 both`, never `infinite`. `#motion`: *"If it loops it stops being an
+   event and becomes wallpaper."* The design system's own page loops it only to demonstrate it. */
+.crumb-anim-land .crumb-all {
+  animation: crumb-land 0.78s cubic-bezier(0.3, 1.1, 0.4, 1) 1 both;
+  transform-origin: 50px 94px;
+}
+
+/* The spark pair rides with Land rather than with the `found` mood, so motion stays opt-in: a face
+   that twinkled merely by existing would be an animation nobody asked a call site for. */
+.crumb-anim-land .crumb-spark-1 {
+  animation: crumb-spark 1.6s ease-in-out infinite;
+  transform-origin: 16px 20px;
+}
+.crumb-anim-land .crumb-spark-2 {
+  animation: crumb-spark 1.6s ease-in-out 0.35s infinite;
+  transform-origin: 86px 28px;
+}
+
+/* Halo — a slow pulse behind the body. Reads as a signal, not as progress. */
+.crumb-anim-halo .crumb-halo {
+  animation: crumb-halo 1.9s ease-in-out infinite;
+  transform-origin: 50px 50px;
+}
+
+/* The trail's three crumbs, staggered 160ms apart so they read as one thing rising rather than as
+   three things blinking. No theme rule: measured on both grounds, the drawn opacities hold, and
+   the weaker theme is light — see `components/brand/crumb-trail.tsx`. */
+.crumb-trail-dot-1 { animation: crumb-trail-dot 1.25s ease-in-out infinite; }
+.crumb-trail-dot-2 { animation: crumb-trail-dot 1.25s ease-in-out 0.16s infinite; }
+.crumb-trail-dot-3 { animation: crumb-trail-dot 1.25s ease-in-out 0.32s infinite; }
+
+/**
+ * **Reduced motion, and this is not `facelift-plan.md` §3a applied literally — deliberately.**
+ *
+ * §3a says its nine moments *"collapse to the opacity change alone — not to nothing, because the
+ * pin just selected still has to be findable."* All nine are **one-shot state transitions**, and
+ * the opacity change is what preserves findability across them.
+ *
+ * These are mostly **loops**, and a loop has nothing to keep findable. Collapsing one to an opacity
+ * loop would produce a continuous pulse — which the same paragraph bans outright in its next
+ * sentence (*"no continuous pin pulsing"*) — while claiming to obey the rule. So:
+ *
+ *  - **the loops stop and the character stays.** That is still "not to nothing": the mascot is on
+ *    screen, in the mood the state calls for, holding still. The design system's own rig says the
+ *    same thing in one line — *"The mascot stays; only the movement goes."*
+ *  - **Land, the one one-shot here, collapses to a fade**, which is §3a exactly.
+ *
+ * This is also strictly better than what the import flow did before the trail. `hidden
+ * motion-safe:block` — the pattern used to avoid leaving a frozen spinner arc on screen — computes
+ * to `display: none` under `reduce`, and on the rail the label sat *outside* the icon circle, so a
+ * reduced-motion user got a 28px empty circle on the longest wait in the product. Measured on a
+ * live page with a control, not inferred. A still mascot is not a rendering artefact; a still
+ * three-quarter arc is, which is why that pattern existed and why it is not needed here.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .crumb-anim-bob .crumb-all,
+  .crumb-anim-wobble .crumb-all,
+  .crumb-anim-scan .crumb-eyes,
+  .crumb-anim-halo .crumb-halo,
+  .crumb-anim-land .crumb-spark-1,
+  .crumb-anim-land .crumb-spark-2,
+  .crumb-trail-dot-1,
+  .crumb-trail-dot-2,
+  .crumb-trail-dot-3 {
+    animation: none;
+  }
+
+  .crumb-anim-land .crumb-all {
+    animation: crumb-appear 140ms ease-out 1 both;
+  }
+}
