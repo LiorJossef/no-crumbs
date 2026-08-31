@@ -327,8 +327,9 @@ export function MapShell({
               (`vaul/dist/index.mjs:62`, `[data-vaul-snap-points=true][data-vaul-drawer-direction=bottom]`,
               and `data-vaul-snap-points` is `isOpen && hasSnapPoints` at `:1402` — it does not
               depend on the active point) and transitions `transform` over 0.5 s. Withholding the
-              *point* therefore buys the same rise the mount used to, with the sheet's whole content
-              already in the document.
+              *point* therefore buys the same rise the mount used to, with the sheet — and whatever
+              `sheetContent` renders at the current stop, which at `peek` is one line rather than
+              the list — already in the document and in the accessibility tree.
 
               `useControllableState` reads `prop !== undefined` (`vaul/dist/index.mjs:485`), so
               `null` is a controlled null rather than a fallback to `snapPoints[0]`; the effect at
