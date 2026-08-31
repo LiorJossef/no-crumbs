@@ -18,7 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 export default function CollectionsLoading() {
   return (
     <CollectionsShellSkeleton restingStop="full">
-      {/* The `YOURS` section heading's slot — `text-[11px]` uppercase, so 12px of ink. */}
+      {/* The `YOURS` section heading's slot — `text-micro` uppercase, so 12px of ink. */}
       <Skeleton className="mx-1 mt-4 mb-1 h-3 w-14" />
       <ul>
         <CollectionRowSkeleton />

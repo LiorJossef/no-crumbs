@@ -95,10 +95,16 @@ export default function ShellError({
           </p>
           {/* The display face, and the token type scale. `brand-and-product-foundation.md` §3.1
               gives `h1`/`h2` to Fraunces; a failure screen is still the product speaking. What was
-              here was `font-heading text-[34px] leading-[1.05] lg:text-[40px]` — three arbitrary
-              values for a size W0 registered as `--text-display` with its own line height. The
-              `lg` bump to 40px goes with them: this column is capped at 420px on desktop and 34px
-              already fills it, so the bump only made the failure louder. */}
+              here was `font-heading`, a bracketed 34px with a bracketed line height, and a
+              bracketed 40px at `lg` — three arbitrary values for a size W0 registered as
+              `--text-display` with its own line height. The `lg` bump to 40px goes with them: this
+              column is capped at 420px on desktop and 34px already fills it, so the bump only made
+              the failure louder.
+
+              The old classes are described rather than quoted. `token-call-sites.test.ts` counts
+              arbitrary-value classes with a regex over the source and cannot tell a comment from a
+              call site, so quoting them here would put back on the ledger exactly what this change
+              took off it. */}
           <h1
             className="mt-2 font-display text-display font-bold tracking-tight text-foreground"
             style={DISPLAY_HEADING_AXES}
