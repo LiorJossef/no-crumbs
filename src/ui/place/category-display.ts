@@ -13,16 +13,35 @@
 
 import { PRODUCT_CATEGORY_LABEL } from '@/domain/places/product-category';
 import type { ProductCategory } from '@/domain/places/product-category';
-import { CATEGORY_COLOR, UNCATEGORISED_COLOR } from '@/ui/place/palette';
+import {
+  CATEGORY_COLOR,
+  CATEGORY_COLOR_VAR,
+  UNCATEGORISED_COLOR,
+  UNCATEGORISED_COLOR_VAR,
+} from '@/ui/place/palette';
 
 export interface CategoryDisplay {
   /** Sentence case, the way it is written in a sentence — or `null` for a place we have no
    *  category for, which prints nothing rather than a word meaning "we would rather not say". */
   readonly label: string | null;
   /**
-   * The pin colour. Dark enough to carry a white glyph, and far enough apart in hue from its
-   * neighbours to stay distinguishable at pin size on a near-white map. Never null: every pin has
-   * to be drawn in something.
+   * The pin colour, **as a literal, in the light theme**. Dark enough to carry a white glyph, and
+   * far enough apart in hue from its neighbours to stay distinguishable at pin size on a near-white
+   * map. Never null: every pin has to be drawn in something.
+   *
+   * **A DOM surface should use `colorVar` instead.** This one stays because MapLibre and the
+   * OpenGraph image genuinely cannot resolve a custom property, and because
+   * `palette-tokens.test.ts` pins it as the light literal — that assertion is the contract between
+   * this module and the map's own copy of the palette.
+   */
+  /**
+   * The pin colour, **as a literal, in the light theme**. Never null: every pin has to be drawn in
+   * something.
+   *
+   * **A DOM surface should call `categoryColorVar()` instead.** This stays a literal because
+   * MapLibre and the OpenGraph image genuinely cannot resolve a custom property, and because
+   * `palette-tokens.test.ts` pins it as the light literal — that assertion is the contract between
+   * this module and the map's own copy of the palette.
    */
   readonly color: string;
 }
@@ -80,4 +99,24 @@ export function categoryLocalityLine(
     (part): part is string => Boolean(part)
   );
   return parts.join(' · ');
+}
+
+/**
+ * The category's colour **as a token reference**, for anything painting into the DOM.
+ *
+ * W7-1's finding is why this exists: **no component read a `--category-*` token.** Every disc and
+ * dot was a light-theme literal in an inline `style`, so a rebuilt dark palette themed nothing at
+ * all. A `var()` follows the theme with no hook, no context, no prop and no re-render — which is
+ * why the DOM wants this and the map wants `placePalette(theme)` from `palette.ts` instead.
+ *
+ * **A function rather than a field on `CategoryDisplay`**, and that is a concurrency decision as
+ * much as a design one: `components/map/marker-style.ts` builds a `CategoryStyle` that extends that
+ * interface, so a new required member is a compile error in a file another lane is holding. A
+ * sibling function adds the capability with no blast radius.
+ *
+ * Total, like `categoryDisplay`: anything outside the taxonomy resolves to the uncategorised token
+ * rather than to nothing, so a caller can always paint.
+ */
+export function categoryColorVar(category: string | null | undefined): string {
+  return isKnownCategory(category) ? CATEGORY_COLOR_VAR[category] : UNCATEGORISED_COLOR_VAR;
 }

@@ -67,7 +67,7 @@ const THEMED_ROLES = [
   'success', 'success-foreground', 'warning', 'warning-foreground', 'info', 'info-foreground',
   'tag', 'tag-foreground', 'tag-selected', 'tag-selected-foreground',
   'pin', 'pin-selected', 'pin-halo',
-  'category-restaurant', 'category-cafe', 'category-bar', 'category-uncategorised',
+  'category-restaurant', 'category-cafe', 'category-bar', 'category-uncategorised', 'on-category',
   'wash-from', 'wash-to', 'row-selected-from', 'row-selected-to', 'brand-wash',
   'shadow-raised', 'shadow-sheet', 'shadow-overlay',
 ].map((name) => `--${name}`);

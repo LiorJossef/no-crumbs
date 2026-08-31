@@ -161,23 +161,38 @@ describe('CategoryFilterBar — the category colour does the work (W2-4)', () =>
     // resolves to exactly that variable — so the rule stays a variant and only the value is data.
     const chips = buttons(render({ activeCategory: 'cafe' }));
     expect(chips[2]).toContain('aria-pressed:bg-tag-selected');
-    expect(chips[2]).toContain('--tag-selected:#6F4A2B');
+    expect(chips[2]).toContain('--tag-selected:var(--category-cafe)');
   });
 
   it('gives every category chip its colour, pressed or not', () => {
     // The variable is set unconditionally: the dot reads it at rest, the fill reads it when
     // pressed, and neither is a class string chosen by a ternary.
     const chips = buttons(render());
-    expect(chips[1]).toContain('--tag-selected:#C2452F');
-    expect(chips[2]).toContain('--tag-selected:#6F4A2B');
-    expect(chips[3]).toContain('--tag-selected:#6D4FA8');
+    expect(chips[1]).toContain('--tag-selected:var(--category-restaurant)');
+    expect(chips[2]).toContain('--tag-selected:var(--category-cafe)');
+    expect(chips[3]).toContain('--tag-selected:var(--category-bar)');
   });
 
-  it('takes the colours from the palette module rather than from a literal in the component', () => {
-    // The same module `marker-style.ts` reads, which is why the chip, the row's disc and the pin
-    // cannot disagree about what a café is.
+  it('paints through the token rather than an inline literal, so it can follow the theme', () => {
+    // **Changed by W7-1, and the chain is the point.** This used to assert the hex from
+    // `palette.ts` directly. An inline literal themes nothing — that is exactly how a rebuilt dark
+    // palette left every disc and dot light — so the chip now emits `var(--category-cafe)`.
+    //
+    // The old assertion's intent survives through a different link: the token and the literal are
+    // held equal by `tests/unit/ui/palette-tokens.test.ts`, which is the guard that exists to stop
+    // the two copies of this palette drifting. So the chip, the row's disc and the pin still cannot
+    // disagree about what a café is; the agreement is now enforced one level up.
     const chips = buttons(render());
-    expect(chips[2]).toContain(`--tag-selected:${CATEGORY_COLOR.cafe}`);
+    expect(chips[2]).toContain('var(--category-cafe)');
+    expect(chips[2]).not.toContain(CATEGORY_COLOR.cafe);
+  });
+
+  it('chooses the ink on the fill with the fill, in both themes', () => {
+    // The pressed chip inherited white from the mint chip it borrowed the variant from. On a dark
+    // ground the fills invert to light colours and white measures 2.1–3.0:1 against them, so the
+    // ink has to be chosen with the fill rather than inherited from a neighbour.
+    const chips = buttons(render({ activeCategory: 'cafe' }));
+    expect(chips[2]).toContain('--tag-selected-foreground:var(--on-category)');
   });
 
   it('leaves the visit chip on house mint, because it is not about a kind of place', () => {

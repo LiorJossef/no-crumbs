@@ -74,7 +74,7 @@ import { X } from 'lucide-react';
 import type { CategoryFacet } from '@/domain/places/category-filter';
 import type { ProductCategory } from '@/domain/places/product-category';
 import { cn } from '@/lib/utils';
-import { categoryDisplay } from '@/ui/place/category-display';
+import { categoryColorVar, categoryDisplay } from '@/ui/place/category-display';
 import { NOT_BEEN_FILTER_LABEL } from '@/ui/place/visit-state';
 import { CHIP_PRESSABLE } from './place-enrichment';
 
@@ -259,11 +259,26 @@ function CategoryChip({
        * So the *rule* stays a variant — `aria-pressed:bg-tag-selected` in `CHIP_PRESSABLE` — and
        * only the value is data. `bg-tag-selected` compiles to `background-color:
        * var(--tag-selected)`, so overriding that variable on this button alone is what makes a
-       * pressed Café chip café-brown instead of house mint. No literal: the value comes from
-       * `categoryDisplay`, which reads `ui/place/palette.ts` — the same module the map's own pin
-       * expressions read, which is why the chip, the row's disc and the pin cannot disagree.
+       * pressed Café chip café-brown instead of house mint.
+       *
+       * **A token reference, not a literal, and W7-1 is why.** This used to set `display.color`,
+       * which is a light-theme hex from `palette.ts` applied inline — and an inline literal themes
+       * nothing, which is exactly how a rebuilt dark palette left every disc and dot light.
+       * `categoryColorVar()` hands back `var(--category-cafe)`, so the chip follows `.dark` with no
+       * hook, no context and no re-render.
+       *
+       * `--tag-selected-foreground` moves with it. The pressed chip inherited white from the mint
+       * chip it borrowed the variant from; on a dark ground the fills invert to light colours and
+       * white measures 2.1–3.0:1 against them. `--on-category` is the ink chosen *with* the fill in
+       * both themes — 5.0–7.8:1 in light, 6.2–7.3:1 in dark.
        */
-      style={{ '--tag-selected': display.color, '--chip-dot': display.color } as CSSProperties}
+      style={
+        {
+          '--tag-selected': categoryColorVar(category),
+          '--tag-selected-foreground': 'var(--on-category)',
+          '--chip-dot': categoryColorVar(category),
+        } as CSSProperties
+      }
       className={cn(CHIP_PRESSABLE, BAR_CHIP)}
     >
       {/* The pin's own colour, so a café is the same brown here, on the map and on the row. On the

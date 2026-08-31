@@ -95,6 +95,7 @@
     --color-category-cafe: var(--category-cafe);
     --color-category-bar: var(--category-bar);
     --color-category-uncategorised: var(--category-uncategorised);
+    --color-on-category: var(--on-category);
 
     /* State. Not the brand — see `:root`. */
     --color-success: var(--success);
@@ -273,6 +274,29 @@
     --category-cafe: #6F4A2B;
     --category-bar: #6D4FA8;
     --category-uncategorised: var(--mint-700);
+
+    /*
+     * **The ink that sits on a category fill**, and it exists because the pressed filter chip was
+     * getting it by accident.
+     *
+     * That chip sets `--tag-selected` to the category's own colour (W2-4) and inherited
+     * `--tag-selected-foreground` — white — from the mint chip it borrowed the variant from. In
+     * light that is correct and measured: white on the three category fills is 5.0 / 7.8 / 6.3 : 1.
+     * In dark it is silently wrong, because the fills invert to light colours and the inherited
+     * foreground inverts to `--ink-on-mint`, which measures **4.13:1** on the dark restaurant —
+     * under AA, on 12px bold text, in the one chip whose whole job is to be unambiguous.
+     *
+     * Naming it makes the pair a decision rather than an inheritance: the fill and the ink on it
+     * are chosen together, in both themes, and a fifth category cannot arrive with only half of the
+     * answer.
+     *
+     * **`--on-category`, not `--category-on`**, and the name is deliberate rather than awkward:
+     * `tests/unit/ui/palette-tokens.test.ts` asserts that the `--category-*` namespace is *exactly*
+     * the taxonomy's categories and nothing else — "a token for every category the taxonomy
+     * defines, and no orphan". A fifth `--category-…` key, however sensible, is an orphan by that
+     * rule. The guard is right and the token is not a category, so the token moved.
+     */
+    --on-category: #FFFFFF;
 
     /*
      * A tag chip. `mint-200` rather than `mint-100` because a chip sits on `--card` (#FFFFFF) as
@@ -600,6 +624,12 @@
     --category-cafe: #C99A55;
     --category-bar: #A288E0;
     --category-uncategorised: #5FC3B4;
+    /* The ground, not `--ink-on-mint`. Measured on the three lifted fills: the near-black is
+     * 6.2 / 7.3 / 6.3 : 1 where `--ink-on-mint` is 4.1 / 4.8 / 4.2 — the latter fails AA on two of
+     * three, and this is 12px bold text on the one chip that has to read unambiguously. It also
+     * lands close to the light theme's own worst case (5.0:1), so the pressed chip is about as
+     * legible at night as it is in daylight rather than merely legal. */
+    --on-category: var(--background);
 
     /* Same caveat as the categories above, and for the same reason: `--pin*` is read by nothing
      * either — `marker-style.ts` imports `PIN_LABEL_HALO` and friends from `palette.ts` as
