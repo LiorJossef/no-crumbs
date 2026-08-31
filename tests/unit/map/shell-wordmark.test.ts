@@ -14,7 +14,8 @@
  * Its *timing* is the entrance's fifth beat (`I2-7`); the clock itself and the other four beats
  * are `post-login-entrance.test.ts`'s.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const WORDMARK = readFileSync('src/app/map/shell-wordmark.tsx', 'utf8');
@@ -77,27 +78,95 @@ describe('the shell header wordmark', () => {
   });
 
   /**
-   * **No mark, and it is a measurement rather than a preference.** This carried `PinMark` at 24px
-   * until 2026-08-31. Rasterised at 16× and measured at 720 angles — against four known-answer
-   * cases that abort the run if any fails — the crumb's peak-to-peak irregularity at a 24px CSS box
-   * is **0.547px** on a 10.67px ink radius, s.d. 0.123px, and it does not cross a whole pixel until
-   * ~48px. Beside a true circle of the same mean radius it is indistinguishable to 64px.
+   * **The mark is back, on the owner's ruling of 2026-08-31 — and this guard failed to notice.**
    *
-   * So the disc carried no brand, and the product should not draw a mark that means nothing.
-   * Legibility needs ~150px, absurd in a map header; the face is barred by §3.1 rule 5 rather than
-   * by size, because this chip sits over the live map and gold stays off the map.
+   * What stood here asserted `not.toContain('PinMark')` and `not.toContain('<svg')`, under a
+   * docblock whose stated purpose was *"no mark comes back into this lockup without the ruling
+   * being reopened."* The ruling was reopened, the mark came back — and **the assertion passed
+   * unchanged**, because a `<CrumbMascot>` is neither of the two spellings it knew. It was matching
+   * a spelling while being read as matching a decision, which `chrome-tokens.test.ts`'s header
+   * names as one bug seen from two ends. Recorded rather than quietly rewritten: the guard did not
+   * hold this change back, the ruling is what permitted it, and a guard that would have passed
+   * either way was never protecting anything.
    *
-   * The assertion is on `PinMark` rather than on the pixel numbers because the numbers are not this
-   * file's to hold — `pin-mark.tsx` records the same property of the outline from the other
-   * direction, and §3.1 rule 1 forbids changing that outline. What this guards is the *decision*:
-   * no mark comes back into this lockup without the ruling being reopened.
+   * So it is re-pointed at the decision instead of at two identifiers. **The mark that may be here
+   * is the character with its face**; what may not come back is the faceless disc, in any spelling.
+   *
+   * ## The measurement that removed the old mark is unchanged, and is the argument for this one
+   *
+   * `PinMark` at 24px was rasterised at 16× and measured at 720 angles, against four known-answer
+   * cases that abort the run if any fails: peak-to-peak irregularity **0.547px** on a 10.67px ink
+   * radius, s.d. 0.123px, indistinguishable from a true circle to 64px. The silhouette carries no
+   * brand at chip size and still does not. **The face is what carries it**, which is §3.1 rule 2 —
+   * *"face on chrome, silhouette on data"* — read forwards rather than as a restriction.
+   *
+   * ## 32px, and it is the second measurement rather than the design system's number
+   *
+   * Shot at 1:1 CSS pixels in this chip, both themes, at 20 · 22 · 24 · 26 · 28 · 32 · 36 px: the
+   * face is a smudge to 24, the eyes separate at 26–28 with the mouth still closed up, and it reads
+   * as a character at **32** — `CRUMB_FACE_MIN_PX` exactly. `#wordmark`'s *"at the shell header the
+   * mark sits at 22px"* comes from the same paragraph family as `#mark`'s *"legible blob at 16px"*,
+   * which `iteration-2-record.md` §5 records as measurably false. The class is asserted because
+   * Tailwind cannot read a constant and 32 is the floor, not a preference.
    */
-  it('draws no mark, only the type', () => {
+  it('draws the character, and never the faceless disc', () => {
+    expect(WORDMARK_CODE).toContain('<CrumbMascot');
+    // The face is the whole point: `mono` has none by definition, so it is the one construction
+    // this surface may not use — it is the 0.547px disc with a different fill.
+    expect(WORDMARK_CODE).not.toContain("construction=\"mono\"");
+    // `idle` is a claim about the surface (`#moods`: "header, app icon, resting"), not a default.
+    expect(WORDMARK_CODE).toContain('mood="idle"');
+    expect(WORDMARK_CODE).toContain('size-8');
+    // The disc that was removed does not return under its old name either.
     expect(WORDMARK_CODE).not.toContain('PinMark');
-    expect(WORDMARK_CODE).not.toContain('<svg');
-    // The type is still `/` and `/sign-in`'s, which is the half of the lockup that survived.
+    // The type is still `/` and `/sign-in`'s — the half of the lockup that never changed.
     expect(WORDMARK_CODE).toContain('DISPLAY_WORDMARK_AXES');
     expect(WORDMARK_CODE).toContain('font-display');
+  });
+
+  /**
+   * **The ruling admits the mascot to one chip on one route, and this is what holds it there.**
+   *
+   * A condition of the 2026-08-31 ruling, and the reason it is a condition: the argument that made
+   * gold safe on this surface is that a *brand chip with its own card ground* is none of the four
+   * things ruling 3's fence names. That argument is about **one element**, and it does not
+   * generalise to a second — a mascot behind the sheet, beside the account chip, or on the
+   * post-import strip would each need the ruling reopened, and none of them would fail
+   * `chrome-tokens.test.ts`, whose fence is scoped to `components/map/`, `ui/place/` and `basemap`
+   * and deliberately excludes route composition (`:285`, `:339`).
+   *
+   * So the count is asserted, over the whole directory rather than over this file, because a *new*
+   * file under `src/app/map/` is exactly how a second one would arrive — the same reason that other
+   * fence is written by directory. Comments stripped, so this docblock's own mentions do not count.
+   */
+  it('puts the mascot on exactly one surface under src/app/map/', () => {
+    const dir = 'src/app/map';
+    const uses = readdirSync(dir, { recursive: true, withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.tsx'))
+      .map((entry) => {
+        const file = path.join(entry.parentPath, entry.name);
+        const code = readFileSync(file, 'utf8')
+          .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+          .replace(/\/\*[\s\S]*?\*\//g, '')
+          .replace(/\/\/[^\n]*/g, '');
+        return { file, count: (code.match(/<CrumbMascot/g) ?? []).length };
+      })
+      .filter(({ count }) => count > 0);
+
+    expect(uses).toEqual([{ file: path.join(dir, 'shell-wordmark.tsx'), count: 1 }]);
+  });
+
+  /**
+   * **No loop in the corner of a map.** `#motion` is explicit that an animation that repeats
+   * *"stops being an event and becomes wallpaper"*, and this chip sits over a surface the user is
+   * reading. The entrance's fifth beat already gives it the one movement it is entitled to — a
+   * fade — and that is asserted separately below.
+   *
+   * Written against `animation=` rather than against the six names, so a seventh cannot arrive here
+   * by being new.
+   */
+  it('gives the mascot no animation of its own', () => {
+    expect(WORDMARK_CODE).not.toContain('animation=');
   });
 
   /**
