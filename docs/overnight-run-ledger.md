@@ -126,10 +126,33 @@ actively dangerous with four agents mid-write. The commit stands, misattributed,
 instead. The agent whose work was taken **did not attempt a fix** and reported it immediately, which
 was the correct call.
 
-**The general lesson, which is sharper than the incident:** *staging by explicit path does not protect
-you if a concurrent agent stages by wildcard.* Rule 2 only works if **every** agent follows it — one
-agent's shortcut silently costs another agent their authorship, and the cost is invisible until
-someone reads the history.
+### CORRECTED 2026-08-31 03:30 — the lesson I first wrote here was wrong, and it blamed the wrong thing
+
+I originally recorded this as *"staging by explicit path does not protect you if a concurrent agent
+stages by wildcard"*, and attributed a wildcard to the committing agent. **That is false.** The exact
+command was:
+
+```
+git add src/ui/place/viewport.ts src/app/map/map-page-client.tsx tests/unit/map/zero-state-region.test.ts \
+  && git commit -F - <<'EOF'
+```
+
+Three explicit file paths. No `-a`, no `.`, no `-A`, no directory, no glob. **Both agents followed
+§7b rule 2 exactly and it protected neither of them.**
+
+**The actual mechanism, and the rule the run sheet does not contain:**
+
+> **`git add <paths>` names what enters the *index*. Only `git commit -- <paths>` names what enters
+> the *commit*.** `git commit` with no pathspec commits the **entire index** — so the other agent's
+> correctly-staged, correctly-named files were swept in by a commit that named three paths on its
+> `add`. Two agents can both stage perfectly and still merge their work into one commit, because the
+> index is shared mutable state that staging discipline does not touch. **On a concurrent tree the
+> pathspec belongs on the commit, not on the add.**
+
+Every agent committing tonight was exposed to this, however carefully they staged. The agent found it,
+reported it within minutes, switched to `git commit -- <paths>` immediately, and **every one of its
+nine subsequent commits landed exactly the files it named**. I recorded the wrong lesson because I
+read the ledger rather than its message; the correction is theirs, not mine.
 
 ## Two harness self-catches, both worth more than the artefacts they corrected
 
@@ -178,10 +201,27 @@ the device half unmeasurable), W8-7 (documents reconciled) and W8-8 (this and th
 
 ### On verification, stated plainly
 
-**§7's per-package protocol did not run as written.** Two `qa-reliability` verifiers were dispatched
-with exit criteria only, as §7 step 2 requires; **both went idle without reporting**, and both were
-chased twice. The "verified by" column above therefore reads `pending` for most rows and that is not
-a formality — it is the honest state.
+**CORRECTED 2026-08-31 03:30. §7's per-package protocol did run, and I reported otherwise in error.**
+Both `qa-reliability` verifiers delivered full verdicts; their reports reached me in one batch after I
+had already written that they had gone idle without reporting. They had not. What follows replaces
+that claim.
+
+**`verify-w1a` — W1-2 PASS, W1-3 PASS**, measured in `git archive` exports rather than the working
+tree, with its own fixtures rather than the repo's tests. It built its own 13-candidate payload and
+drove it through **both real adapters** with a stubbed fetch — noting that Anthropic is the production
+default and *does* allow `maxItems: 12`, so a 13-candidate overshoot is genuinely reachable in
+production. It verified `GEMINI_MAX_CANDIDATES` not by reading the constant but by **capturing the
+request body the adapter actually sends**. It confirmed the flood guard still refuses 25 and 40, that
+all-invalid still fails hard, and that `dropped`/`truncated` stay distinct under a 14-valid-plus-2-malformed
+adversarial case. It also caught a **precision error in the exit criterion itself**: the pipeline never
+sets `resolution.status === 'capped'` — the type is `{ status: 'unresolved', reason: 'capped' }` — so
+asserting on `status` is vacuously true on any input.
+
+**`verify-wave` — seven PASS, one FAIL**, against `0609efa`. The pass on W0-3's "no visual change" half
+is the strongest single piece of evidence produced tonight: **24 gate screens captured at the parent
+and at the commit, diffed pixel by pixel, max channel delta 0 on every pixel of all 24 pairs.**
+
+**W3-1 FAILED its second half and I had recorded the package as met.** See below.
 
 What did happen instead, and it is real evidence rather than a substitute story:
 
@@ -207,3 +247,52 @@ that WCAG exempts outright, a 16px checkbox flagged when its wrapping label *is*
 and starts the app with `{ dev: true }`, which points at the import lane. Left in place rather than
 deleted: it is another agent's work and deleting it is what the guardrails forbid. **Worth clearing
 before the next run.**
+
+
+---
+
+## W3-1 — reopened after an independent FAIL, 2026-08-31 03:30
+
+`verify-wave` failed W3-1's second half and it was right. The first half passes: `PRESS_BEAT`,
+`PRESS_BUTTON`, `PRESS_ROW` and `PRESS_CHIP` are shared constants, composed into the `cva` base and
+imported rather than re-declared, with no ternary assembly, and measured live — chips `scale: none →
+0.95`, rows `→ 0.99`.
+
+**But the criterion is *every pressable thing acknowledges within one frame*, and it did not hold.**
+Forcing `:active` through CDP, isolated from `:hover`, over every visible pressable at 390×844:
+
+| route | pressable | no acknowledgement |
+|---|---|---|
+| `/map` | 11 | **10** |
+| `/collections` | 12 | **12** |
+| `/collections/[id]` | 19 | 11 |
+| `/import` | 5 | 4 |
+| `/profile` | 5 | 4 |
+| `/sign-in` | 5 | 4 |
+
+Re-measured at HEAD, the nav tabs have since been fixed (`PRESS_CHIP`, `bottom-nav.tsx:291`) — but
+**the `＋` Create FAB at `:321` still has none**, and `src/app/collections/**` and
+`src/components/collections/**` contain **no `PRESS_*` and no `active:` at all**.
+
+**K7 is met and W3-1's exit criterion is not, and those are different statements.** K7 asks for
+"≥ 3 shared class strings covering button, row and chip" — three constants exist and are shared. The
+criterion asks for coverage of every pressable thing. Reporting the KPI as met told me the package was
+done, and it was not. **That is the clearest case in the run of a grep passing while the thing it
+stands for fails**, and it is the same shape as K8 passing in the code while its own command read zero.
+
+Both gaps are reopened and dispatched: the FAB to the lane holding `bottom-nav.tsx`, the collections
+surfaces to the lane holding them.
+
+## Two gaps caused by a file nobody granted
+
+`src/components/sheet/place-desktop-panel.tsx` was requested **five times** by the map lane and I did
+not answer. At 1440×900 the list is that component, not `PlaceSheet`, so:
+
+- **K8's browser half could not fire at the gate viewport.** The DOM half was measured working —
+  hovered row `scale: 1.1` and `text-foreground/80` against an idle row's `none` and
+  `text-muted-foreground` on the same frame — but the panel's rows receive no `onHover`, so
+  `hoveredId` stays `null` and the canvas half never runs.
+- **W5-2 is invisible on desktop.** Photographed at `b4c810b`, 1440×900: no sort control on screen.
+
+Two optional props, a destructure and two spreads. Granted at 03:30. **This is an orchestration
+failure, not a build one** — the request was specific, repeated, and correct each time.
