@@ -171,6 +171,9 @@ export interface ScoringConstants {
     readonly preselectScore: number;
     readonly preselectMargin: number;
     readonly confirmScore: number;
+    /** The weakest distinctive query token must cover at least this well for a band above
+     *  `no_match` to stand. See `nameIsEstablished`. Measured on 44 golden cases + 10 live. */
+    readonly weakestToken: number;
   };
   /**
    * The branch guard (TRACK2-BRANCH, 2026-08-28): when the top-1 and a close rival are plausibly
@@ -428,7 +431,7 @@ export const SCORING: ScoringConstants = Object.freeze({
   extraTokenPenalty: Object.freeze({ perToken: 0.04, max: 0.15 }),
   substringCredit: 0.97,
   minDistinctiveTokenLength: 2,
-  bands: Object.freeze({ preselectScore: 0.92, preselectMargin: 0.05, confirmScore: 0.8 }),
+  bands: Object.freeze({ preselectScore: 0.92, preselectMargin: 0.05, confirmScore: 0.8, weakestToken: 0.85 }),
   branchGuard: Object.freeze({ rivalScoreBand: 0.12 }),
   samePlaceMetres: 75,
   decisive: Object.freeze({ rivalNameSeparation: 0.02 }),

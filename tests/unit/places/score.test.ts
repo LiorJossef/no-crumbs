@@ -368,6 +368,9 @@ describe('SCORING', () => {
       preselectScore: 0.92,
       preselectMargin: 0.05,
       confirmScore: 0.8,
+      // Added 2026-08-31 by `nameIsEstablished`, and not a prototype value — the prototype had no
+      // such gate. It is listed here so the shape assertion stays exhaustive.
+      weakestToken: 0.85,
     });
     expect(SCORING.defaultMaxResults).toBe(5);
     expect(Object.keys(SCORING.categoryTokens)).toEqual(['cafe', 'bar', 'restaurant']);

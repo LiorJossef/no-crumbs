@@ -9,6 +9,7 @@ import { createPlaceExtractor } from '@/integrations/llm/place-extractor-factory
 import { createPlaceResolver, placeResolverEnv, resolverProviderFor } from '@/integrations/places/place-resolver-factory';
 import { serviceRoleClient } from '@/integrations/supabase/service-role-client';
 import { buildResolveQuery, deriveResolution } from '@/domain/import/pipeline';
+import { addressScore } from '@/domain/places/score';
 import type { OpCtx } from '@/domain/ports';
 
 const EXPECTED: Record<string, 'place_recommendation' | 'place_question' | 'not_a_place'> = {
@@ -91,6 +92,16 @@ describe('E2-T3-EVAL — postIntent accuracy and end-to-end yield', () => {
           `      ${c.rawName.padEnd(24)} ${band.padEnd(9)} score=${score.toFixed(3)} margin=${margin === null ? ' null' : margin.toFixed(3)}`,
         );
         detail.push(`         top: ${top3}`);
+        // Recomputed through the exported function rather than read off the row: `RankedPlace`
+        // does not declare an `addressScore` field, and reading one that happens to exist at
+        // runtime is how a harness starts lying about a type.
+        const t0 = raw.shortlist[0];
+        if (c.addressHint !== null && t0 !== undefined) {
+          const addr = addressScore(c.addressHint, t0.place.addressLine);
+          detail.push(
+            `         addr: hint=${JSON.stringify(c.addressHint)} candidate=${JSON.stringify(t0.place.addressLine)} addressScore=${addr === null ? 'null' : addr.toFixed(3)}`,
+          );
+        }
         await new Promise((r) => setTimeout(r, 250));
       }
     } catch (e) { err = e instanceof Error ? e.message : String(e); }

@@ -199,3 +199,59 @@ Establish why the address comparison scored 0 on `Yom Tov St 20` before touching
 Google returns a form our parser cannot read, or the comparison is right and the venue's registered
 address genuinely differs. **Those two have opposite fixes**, and the ten candidates here are enough
 to tell them apart.
+
+---
+
+# Addendum 3 — the wrong option is gone
+
+A scorer guard, `nameIsEstablished`, landed after the diagnosis above. It asks one question the
+existing score cannot: **was the weakest distinctive token of the caption's name actually found in
+this candidate**, or did an average carry it?
+
+## Why a minimum, when `tokenCoverage` is a mean
+
+`streetSimilarity` in the same file is already a minimum, and its docblock says why — a mean lets one
+matching word carry a wrong street. Names have the identical failure, and it was measured on a real
+import: `Kiaans Tooting` matched **`Kaosarn Tooting`** at **0.887**, because `tooting` covers at
+1.000 and averages `kiaans`/`kaosarn` up. That score sat *above* four correct matches in the same
+run (0.857–0.864), so **no threshold could separate them** — the wrong venue reached the user as an
+option to tap.
+
+The guard changes no score. It caps a band, and only downward.
+
+## What it demotes, across everything we hold
+
+| set | rows | demoted | correct matches lost |
+|---|---|---|---|
+| 44-case golden benchmark | 44 | **2** | **0** |
+| Live end-to-end run | 10 | **1** | **0** |
+
+All three are wrong matches:
+
+- **`Kiaans Tooting` → `Kaosarn Tooting`** — a different restaurant on the same street.
+- **`TLV-08`**, `אורנה ואלה` → `אולמי קונקורד` — a venue the index does not contain at all, so the
+  shortlist was offering one of two wrong rows.
+- **`NEG-02`**, `best coffee ever` → `Bees Coffee` — a caption naming **no venue**, which was still
+  being offered a specific one. The ranking was never wrong here; the *offer* was.
+
+**Preselect is untouched at 24 on the golden set and 4 on the live run.** The guard demoted nothing
+that was being auto-accepted, which is the property that makes it safe to add this late.
+
+## The one case that nearly broke it, and why the implementation is what it is
+
+A bare Jaro-Winkler minimum demotes `Cafe Xoho` → `CafeXoho` — **the same venue, space removed** — at
+0.458 on its only distinctive token. That case is in the golden set. `nameScore` already handles it
+with a substring credit of 0.97, and the guard mirrors that loop exactly rather than reimplementing
+a simpler one. Without the credit the guard would have cost a correct high-confidence match; with it,
+that row scores 0.97 and is untouched. **This is why the function may not be "simplified" later.**
+
+## The live corpus, before and after
+
+| | before | after |
+|---|---|---|
+| Pre-selected | 4 | 4 |
+| Shortlist | 6 — **one a wrong venue** | **5, all correct** |
+| No match | 0 | 1 |
+
+The wrong option the engine offered on this corpus is gone, and it becomes a kept mention rather
+than a silent drop — which is what `place_mentions` exists for.

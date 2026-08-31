@@ -1053,6 +1053,79 @@ function exactNameBeatsFuzzyRival(ranked: readonly RankedPlace[], forms: readonl
  * signal that says the caption named no sibling branch, which the resolver does not currently
  * receive.
  */
+/**
+ * The weakest distinctive query token's coverage — the *minimum* of the per-token scores
+ * `nameScore` averages.
+ *
+ * **Why a minimum exists here when `tokenCoverage` is a mean.** `streetSimilarity` in this same
+ * file is a minimum, and its docblock says why: a mean lets one matching word carry a wrong
+ * street. Names have the identical failure and it was measured on a real import.
+ * `Kiaans Tooting` matched **`Kaosarn Tooting`** — a different restaurant on the same street — at
+ * **0.887**, because `tooting` covers at 1.000 and averages `kiaans`/`kaosarn` up. That score sat
+ * *above* four correct matches in the same run (0.857-0.864), so no threshold could separate them
+ * and the wrong venue reached the user as an option to tap.
+ *
+ * **This does not change any score.** It is read only by `nameIsEstablished` below, which caps a
+ * band. Scores, `tokenCoverage` and the 44-case benchmark's replayed columns are untouched.
+ *
+ * Mirrors `nameScore`'s per-token loop exactly, **including the substring credit**, and that is
+ * load-bearing rather than tidiness: without it `Cafe Xoho` against `CafeXoho` — the same venue
+ * with a space removed — scores 0.458 on its only distinctive token and would be demoted. With it,
+ * 0.97. That case is in the golden set and it is the reason this function may not be simplified
+ * into a bare Jaro-Winkler minimum.
+ */
+export function weakestTokenCoverage(queryText: string, candidateName: string): number {
+  const scoredTokens = queryTokens(queryText);
+  const candidateTokens = tokenise(candidateName);
+  const normalisedCandidate = normalise(candidateName);
+  if (scoredTokens.length === 0 || candidateTokens.length === 0) return 0;
+
+  let worst = 1;
+  for (const token of scoredTokens) {
+    let best = 0;
+    for (const candidateToken of candidateTokens) {
+      const similarity = jaroWinklerSimilarity(token, candidateToken);
+      if (similarity > best) best = similarity;
+    }
+    if (normalisedCandidate.includes(token) && SCORING.substringCredit > best) {
+      best = SCORING.substringCredit;
+    }
+    if (best < worst) worst = best;
+  }
+  return worst;
+}
+
+/**
+ * Did the caption's name actually turn up in this candidate, or did an average carry it?
+ *
+ * A band cap, never a promotion: a row failing this can only move **down**. Applied across the
+ * query's forms with `max`, exactly as `bestNameScoreAcrossForms` does, so a Hebrew caption whose
+ * Latin variant is the one that matches is judged on the form that matched.
+ *
+ * Measured at `SCORING.bands.weakestToken` = 0.85 against every case we hold: **44 golden cases
+ * plus the 10 candidates from a live end-to-end run. Four rows fail it, and all four are wrong
+ * matches** — the two above, plus `best coffee ever` -> `Bees Coffee` and `that little wine bar
+ * near the market` -> `Tirza wine bar`, both captions that name no venue at all and should never
+ * have offered the user a specific one. **No correct match in either set is demoted.**
+ */
+export function nameIsEstablished(
+  top: RankedPlace,
+  forms: readonly string[],
+): boolean {
+  const candidates = forms.length > 0 ? forms : [];
+  if (candidates.length === 0) return true;
+  let best = 0;
+  for (const form of candidates) {
+    const coverage = weakestTokenCoverage(form, top.place.name);
+    if (coverage > best) best = coverage;
+    for (const alias of top.place.altNames ?? []) {
+      const aliasCoverage = weakestTokenCoverage(form, alias);
+      if (aliasCoverage > best) best = aliasCoverage;
+    }
+  }
+  return best >= SCORING.bands.weakestToken;
+}
+
 export function confidenceOf(
   ranked: readonly RankedPlace[],
   soleCandidateMeaning: SoleCandidateMeaning = 'narrow-filter',
@@ -1087,6 +1160,15 @@ export function confidenceOf(
   } else if (top.score >= SCORING.bands.confirmScore || contradictedAddressOnly(top)) {
     band = 'confirm';
   } else {
+    band = 'no_match';
+  }
+
+  // The cap. A score can be carried over a gate by an average — `tooting` covering for `kiaans`
+  // against `kaosarn` — and this is the one check that asks whether the *weakest* part of the
+  // caption's name was found at all. It only ever demotes, and it demotes to `no_match` rather
+  // than to `confirm`, because a name we cannot establish is not a shortlist entry: it is a place
+  // we could not identify, which `place_mentions` already exists to keep honestly.
+  if (band !== 'no_match' && !nameIsEstablished(top, forms)) {
     band = 'no_match';
   }
   return { band, score: top.score, margin };
