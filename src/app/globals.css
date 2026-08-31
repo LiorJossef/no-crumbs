@@ -113,6 +113,17 @@
     --color-scrim: var(--scrim);
     --blur-panel: var(--panel-blur);
 
+    /* Chrome — the second brand colour and the raised material it grounds. `bg-chrome-accent`,
+     * `text-chrome-accent`, `bg-panel-raised`, `backdrop-blur-panel-raised`. Same `--blur-*`
+     * namespace trap as `--blur-panel` directly above, and for the same reason. The mesh, the
+     * glow, the grain and the lit edge are *images* rather than colours, so they have no Tailwind
+     * namespace to register under and are read through `var()` in an inline `style` — exactly as
+     * `--brand-wash` already is on the two surfaces that paint them. See `:root` for the values
+     * and for where indigo may and may not go. */
+    --color-chrome-accent: var(--chrome-accent);
+    --color-panel-raised: var(--panel-raised);
+    --blur-panel-raised: var(--panel-raised-blur);
+
     /* Elevation. */
     --shadow-raised: var(--shadow-raised);
     --shadow-sheet: var(--shadow-sheet);
@@ -155,6 +166,13 @@
     --text-reading: var(--text-reading);
     --text-display: var(--text-display);
     --text-display--line-height: var(--leading-display);
+    /* The step between `display` and `hero`, added 2026-08-31 for the editorial headline inside a
+     * card. The pair either side of it were both cut for a full-bleed column: `display` is 34px,
+     * which is modest across a 900px-tall desktop screen, and `hero` is `clamp(2.5rem, 5.5vw, 4rem)`
+     * — viewport-relative, so at 1440 it resolves to 64px and overshoots a fixed-width card column
+     * by about 20px, wrapping a two-word line onto three. A card's column is not the viewport. */
+    --text-title: var(--text-title);
+    --text-title--line-height: var(--leading-title);
     --text-hero: var(--text-hero);
     --text-hero--line-height: var(--leading-hero);
 }
@@ -401,6 +419,117 @@
     --scrim: rgba(0, 0, 0, 0.40);
 
     /*
+     * ## Chrome — electric indigo, and the material it grounds
+     *
+     * **Owner ruling, 2026-08-31 (`iteration-2-plan.md` §2.2, ruling 1).** A second brand colour
+     * enters the system: `--indigo-400` `#5B6CFF`. It **overrides**
+     * `brand-and-product-foundation.md` §3.1 rule 3 — *"mint stays the only brand colour"* — and it
+     * is knowingly set aside **for chrome only**.
+     *
+     * **The constraint that makes it safe is the reason it is indigo and not a warm accent.** Rule
+     * 3 exists because toast-gold sits a few degrees from the café amber, and on this map colour
+     * means *what a place is*. Indigo collides with none of the three category hues — restaurant
+     * `#E8735C`, café `#C99A55`, bar `#A288E0` — so the rule's reasoning survives even though its
+     * letter does not.
+     *
+     * **Where it may go:** the sign-in and landing grounds, their mesh, the empty states, the
+     * edges. **Where it may never go:** any pin, any category surface, any basemap layer, any
+     * filter chip. If a `--indigo-*` or `--chrome-*` reference ever appears under
+     * `components/map/`, `ui/place/` or `basemap-*`, that is the defect this paragraph names in
+     * advance. `tests/unit/design-system/chrome-tokens.test.ts` holds the line.
+     *
+     * The ramp inverts its roles exactly as the mint does (`.dark`'s rule 2): `--chrome-accent` is
+     * the step that can be *read*, which is `--indigo-600` on paper and `--indigo-400` at night.
+     *
+     * ### The four image tokens, and why they are images rather than colours
+     *
+     * `--chrome-mesh`, `--chrome-bloom-a/-b`, `--chrome-glow`, `--chrome-edge` and `--chrome-grain`
+     * are gradients and a data URI, so Tailwind has no namespace to register them under and they
+     * are read through `var()` in an inline `style` — the arrangement `--brand-wash` already uses
+     * on these same two surfaces.
+     *
+     * **Every alpha below is theme-specific and that is the whole point.** `--brand-wash`'s own
+     * comment predicted this: a saturated wash over near-black reads as a colour cast rather than
+     * as atmosphere, so the night mesh is not the day mesh at a different opacity — it is a
+     * different set of pigments (indigo and the *deep* mint) chosen for a ground that is emitting
+     * rather than reflecting.
+     *
+     * **The mesh can be this strong because nothing is read on it.** Measured on painted pixels at
+     * commit 3954793, the light theme's two smallest inks have almost no headroom:
+     * `--muted-foreground` lands at **4.51:1** and `--brand` as the kicker at **4.77:1**, against a
+     * 4.5 bar, and a 20% indigo bloom under either takes them to 3.66 and 3.82. That is the whole
+     * argument for the composition `ChromeStage` builds: **every string on both screens sits on
+     * `--panel-raised`, and the mesh is what surrounds the card.** So the alphas here are set by
+     * what the ground should look like rather than by what an ink can survive — the only thing the
+     * mesh reaches is the card's own material at 0.92/0.88, which changes the composite behind the
+     * ink by about a point and a half. Re-measured after doubling them: 112 strings, 0 failures,
+     * worst 4.61:1.
+     *
+     * `--chrome-panel-wash` is the tint on the editorial half of the card, and it fades out by 45%
+     * — the strong end is behind the mark and the headline, which are `--foreground` and carry
+     * 10:1 or better; the weak end is behind the subhead, which is the ink with no headroom.
+     *
+     * `--panel-raised` is the **card** material, distinct from `--panel`, which is the full-height
+     * column those two screens used to paint. A card is an object with an edge and a shadow and
+     * has to read as one thing over a coloured ground, so it is 0.86/0.88 rather than 0.55 —
+     * measured over the mesh it composites to `rgb(252,252,254)` in light and `rgb(33,33,37)` in
+     * dark, within a point or two of `--card` in both, which is the surface every contrast number
+     * in this file was taken against.
+     */
+    --indigo-200: #DFE2FF;
+    --indigo-400: #5B6CFF;
+    --indigo-600: #3B49D1;
+    --indigo-900: #232A63;
+
+    --chrome-accent: var(--indigo-600);
+
+    --chrome-mesh:
+        radial-gradient(72% 58% at 4% -8%, rgba(91, 108, 255, 0.26) 0%, rgba(91, 108, 255, 0) 62%),
+        radial-gradient(66% 56% at 104% 2%, rgba(168, 236, 226, 0.85) 0%, rgba(168, 236, 226, 0) 60%),
+        radial-gradient(84% 68% at 98% 106%, rgba(91, 108, 255, 0.28) 0%, rgba(91, 108, 255, 0) 66%),
+        radial-gradient(62% 52% at -10% 102%, rgba(168, 236, 226, 0.70) 0%, rgba(168, 236, 226, 0) 64%),
+        var(--background);
+    --chrome-bloom-a: radial-gradient(closest-side, rgba(91, 108, 255, 0.30) 0%, rgba(91, 108, 255, 0) 100%);
+    --chrome-bloom-b: radial-gradient(closest-side, rgba(168, 236, 226, 0.72) 0%, rgba(168, 236, 226, 0) 100%);
+    --chrome-glow: radial-gradient(closest-side, rgba(91, 108, 255, 0.26) 0%, rgba(91, 108, 255, 0) 100%);
+    /* The halo behind the mark, and it is a separate token from `--chrome-glow` because it is a
+     * different job at a different scale. Indigo behind a mint mascot on near-white desaturates to
+     * a grey disc with a visible boundary — photographed at 390x844 before this existed — so on
+     * paper the mark's halo is the brand's own mint and reads as light coming off the mark. At
+     * night indigo is right: the ground is already indigo-biased and a mint halo on a mint mark
+     * would be a smudge. */
+    --chrome-mark-glow: radial-gradient(closest-side, rgba(168, 236, 226, 0.75) 0%, rgba(168, 236, 226, 0) 100%);
+    /* Mint only, and gone by 62%. The first version carried an indigo tail to 100% and it cost the
+     * subhead 0.03 of a ratio: measured at 390x844 the ink landed on `rgb(244,245,253)` — the blue
+     * is the tail — for **4.47:1** against a 4.5 bar, on both screens, in light only, because on a
+     * narrow card the section is tall and the subhead sits far enough down the 158° sweep to reach
+     * it. The tail was decoration under the one ink in this theme that has no headroom. */
+    --chrome-panel-wash:
+        linear-gradient(158deg, rgba(168, 236, 226, 0.26) 0%, rgba(168, 236, 226, 0.06) 38%, rgba(168, 236, 226, 0) 62%);
+    /* The lit top edge of the card: the two brand colours as a single 1px rule, which is colour
+     * that costs no contrast because nothing is read on it. */
+    --chrome-edge:
+        linear-gradient(90deg, rgba(91, 108, 255, 0) 0%, rgba(91, 108, 255, 0.75) 24%, rgba(46, 122, 112, 0.85) 62%, rgba(46, 122, 112, 0) 100%);
+    /*
+     * Grain, as a tiled `feTurbulence` rather than a PNG: 160×160 of desaturated fractal noise,
+     * ~1.2 kB, no network request, no dependency. It is painted with `mix-blend-mode: overlay`, so
+     * mid-grey is neutral and only the deviation registers — which is why the SVG itself carries no
+     * opacity and the strength is a separate token. `%23` is `#`, which a data URI may not contain
+     * unencoded.
+     */
+    --chrome-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23g)'/%3E%3C/svg%3E");
+    --chrome-grain-strength: 0.20;
+
+    /* 0.92, not the 0.86 this started at, and the six points came from a measurement rather than
+     * from taste. The light theme's `--muted-foreground` clears AA by 0.01 on bare `--background`,
+     * so the card is the only thing standing between the subhead and the mesh — and a more opaque
+     * card is a *better* lever than a weaker mesh, because it buys the ink its headroom without
+     * taking any colour off the ground around it. Measured over the mesh, 0.92 composites to
+     * `rgb(253,253,255)` and 20px of backdrop blur still reads as frosted rather than as paint. */
+    --panel-raised: rgba(255, 255, 255, 0.92);
+    --panel-raised-blur: 20px;
+
+    /*
      * **How strongly a category colour tints a surface it is being used as the ground of.**
      *
      * The row disc is the only reader today (`ui/place/category-display.ts`'s `categoryTintVar`),
@@ -534,6 +663,8 @@
     --text-reading: 0.96875rem;
     --text-display: 2.125rem;
     --leading-display: 1.12;
+    --text-title: 2.75rem;
+    --leading-title: 1.08;
     --text-hero: clamp(2.5rem, 5.5vw, 4rem);
     --leading-hero: 1.05;
 
@@ -750,6 +881,48 @@
      */
     --panel: rgba(32, 31, 28, 0.55);
     --scrim: rgba(0, 0, 0, 0.62);
+
+    /*
+     * Chrome at night. The ramp does not move — `--indigo-400` is the ruled `#5B6CFF` in both
+     * themes, exactly as the mint ramp is one ramp — what changes is which step each role reaches
+     * for and how much pigment the ground can take.
+     *
+     * `--chrome-accent` follows the mint's rule 2 and inverts to `--indigo-400`: `--indigo-600` on
+     * this ground measures 3.1:1 and reads as a bruise, `--indigo-400` is 5.6:1 and reads as a
+     * colour.
+     *
+     * The mesh swaps its *pigments* rather than its opacity. The day mesh uses `--mint-400`, which
+     * is a pale fill and turns to a grey haze over near-black; the night mesh uses the deep
+     * `--mint-700`/`--mint-600`, which glow. Indigo roughly doubles, because the ink that has to
+     * survive it is `--muted-foreground` at 6.5:1 on `--card` rather than light's 4.51:1 — measured
+     * on painted pixels, the worst ink over the strongest bloom lands at 4.87:1.
+     *
+     * Grain drops to 0.14: `overlay` against a near-black ground lifts more than it darkens, and
+     * the day value visibly greyed the panel.
+     */
+    --chrome-accent: var(--indigo-400);
+
+    --chrome-mesh:
+        radial-gradient(72% 58% at 4% -8%, rgba(91, 108, 255, 0.38) 0%, rgba(91, 108, 255, 0) 62%),
+        radial-gradient(66% 56% at 104% 2%, rgba(46, 122, 112, 0.44) 0%, rgba(46, 122, 112, 0) 60%),
+        radial-gradient(84% 68% at 98% 106%, rgba(59, 73, 209, 0.40) 0%, rgba(59, 73, 209, 0) 66%),
+        radial-gradient(62% 52% at -10% 102%, rgba(70, 155, 142, 0.32) 0%, rgba(70, 155, 142, 0) 64%),
+        var(--background);
+    --chrome-bloom-a: radial-gradient(closest-side, rgba(91, 108, 255, 0.40) 0%, rgba(91, 108, 255, 0) 100%);
+    --chrome-bloom-b: radial-gradient(closest-side, rgba(70, 155, 142, 0.42) 0%, rgba(70, 155, 142, 0) 100%);
+    --chrome-glow: radial-gradient(closest-side, rgba(91, 108, 255, 0.44) 0%, rgba(91, 108, 255, 0) 100%);
+    --chrome-mark-glow: radial-gradient(closest-side, rgba(91, 108, 255, 0.50) 0%, rgba(91, 108, 255, 0) 100%);
+    --chrome-panel-wash:
+        linear-gradient(158deg, rgba(91, 108, 255, 0.22) 0%, rgba(91, 108, 255, 0.06) 45%, rgba(70, 155, 142, 0.10) 100%);
+    --chrome-edge:
+        linear-gradient(90deg, rgba(91, 108, 255, 0) 0%, rgba(91, 108, 255, 0.95) 24%, rgba(168, 236, 226, 0.9) 62%, rgba(168, 236, 226, 0) 100%);
+    --chrome-grain-strength: 0.14;
+
+    /* `--card`'s own value at a card's alpha rather than a column's. Composited over the night mesh
+     * it lands on `rgb(33,33,37)` — a couple of points off `--card` (`#201F1C`), which is the
+     * ground this whole block's contrast table was measured on. `--panel-raised-blur` is not
+     * restated: like `--panel-blur` it is a geometry, and 20px is 20px in either theme. */
+    --panel-raised: rgba(32, 31, 28, 0.88);
     /* Four points above light's, and the reason is not "dark needs more": it is that both values
      * are set from the *glyph* ceiling in `:root`, and that ceiling is higher here (36% against
      * light's 30%) because the night category colours are the lifted ones. Same headroom, different

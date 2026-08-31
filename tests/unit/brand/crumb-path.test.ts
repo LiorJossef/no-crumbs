@@ -89,16 +89,31 @@ describe('the crumb outline', () => {
   });
 
   it('puts the face only where rule 2 names', () => {
-    // Chrome: the landing and sign-in mark (one surface in `voice-and-vocabulary.md` §2), the app
-    // icon and the link preview. Not the error screens — they are on neither list, and a mascot
-    // grinning at somebody whose screen just failed is its own defect.
+    /*
+     * Chrome: the landing and sign-in mark (one surface in `voice-and-vocabulary.md` §2), the app
+     * icon and the link preview. Not the error screens — they are on neither list, and a mascot
+     * grinning at somebody whose screen just failed is its own defect.
+     *
+     * **Stated as a property of the surface rather than of a file's import list**, because the two
+     * pages do not have to draw the lockup themselves and as of I2-4 they do not: `ChromeStage` is
+     * the one composition both render, so that the mark and the name cannot drift between two
+     * screens one step apart in the demo path. A permitted surface therefore *reaches* the faced
+     * mark — directly or through the shared lockup — and a forbidden one reaches it by neither
+     * route. Asserting the component alone would go on passing if a page stopped rendering it.
+     */
+    const reachesTheFace = (file: string) => {
+      const source = readFileSync(file, 'utf8');
+      return /<PinMark face/.test(source) || /<ChromeStage\b/.test(source);
+    };
+    expect(
+      readFileSync('src/components/brand/chrome-stage.tsx', 'utf8'),
+      'the shared chrome lockup should carry the faced mark',
+    ).toContain('<PinMark face');
     for (const file of ['src/app/page.tsx', 'src/app/sign-in/page.tsx']) {
-      expect(readFileSync(file, 'utf8'), `${file} should carry the faced mark`).toContain(
-        '<PinMark face',
-      );
+      expect(reachesTheFace(file), `${file} should reach the faced mark`).toBe(true);
     }
     for (const file of ['src/app/error.tsx', 'src/app/not-found.tsx']) {
-      expect(readFileSync(file, 'utf8'), `${file} must not`).not.toContain('<PinMark face');
+      expect(reachesTheFace(file), `${file} must not reach the faced mark`).toBe(false);
     }
   });
 
