@@ -78,13 +78,23 @@ export default function ShellError({
 
   return (
     <main
-      className="relative flex min-h-dvh flex-col overflow-hidden px-6 pt-14 pb-8 lg:items-center lg:justify-center lg:pt-0"
+      className="relative flex min-h-dvh flex-col items-center justify-center overflow-hidden px-6 py-8"
       style={{ background: 'var(--brand-wash)' }}
     >
       {/* One column, not the two-panel split the other full-screen surfaces use: the split exists
           to hold an editorial column beside a form, and a failure screen has no second panel of
-          content to put there. Mobile keeps the shared shape — hero at the top, action in the
-          thumb zone via `mt-auto` — and desktop centres the same column. */}
+          content to put there.
+
+          Centred at every breakpoint, not only `lg:` — `chrome-stage.tsx` names the reason for
+          this shape once for `/` and `/sign-in`: "one object on the screen, sized to what is in
+          it, and the slack is the room around it rather than a stretched gap above a pinned
+          action." This was that split until 2026-08-31 — content pinned near the top, the action
+          pushed down to the bottom edge with an auto top margin — and on a tall phone the two read as unrelated:
+          `ui-review-2026-08-31.md` finding 12 measured ≈460px, 55% of a 390×844 screen, sitting
+          empty between them. Group-centring the two children removes the gap by construction
+          rather than by tuning it, and it is the one thing `lg+` already did correctly — this
+          just stops stopping at that breakpoint. `not-found.tsx` takes the identical fix for the
+          identical reason; see its own header rather than this comment repeating it. */}
       <div className="w-full lg:max-w-105">
         {/*
          * **The face, and the mood is a claim about this screen rather than decoration.**
@@ -144,7 +154,7 @@ export default function ShellError({
         </div>
       </div>
 
-      <div className="mt-auto w-full pt-10 lg:mt-0 lg:max-w-105">
+      <div className="w-full pt-10 lg:max-w-105">
         <Button
           onClick={() => retry()}
           className="h-12 w-full rounded-lg text-base font-bold lg:h-13 lg:text-reading"

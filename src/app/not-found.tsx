@@ -38,9 +38,16 @@ export const NOT_FOUND_COPY = {
 export default function NotFound() {
   return (
     <main
-      className="relative flex min-h-dvh flex-col overflow-hidden px-6 pt-14 pb-8 lg:items-center lg:justify-center lg:pt-0"
+      className="relative flex min-h-dvh flex-col items-center justify-center overflow-hidden px-6 py-8"
       style={{ background: 'var(--brand-wash)' }}
     >
+      {/* Centred at every breakpoint, not only `lg:` — the identical fix as `error.tsx`, made
+          for the identical reason; see that file's header rather than repeating the argument
+          here. Content pinned near the top with the action pushed to the bottom edge with an
+          auto top margin used to leave ≈460px, 55% of a 390×844 screen, empty between the two —
+          `ui-review-2026-08-31.md` finding 12. Group-centring the two children as one composed
+          statement removes that gap by construction, on both siblings, with one strategy rather
+          than two. */}
       <div className="w-full lg:max-w-105">
         <PinMark className="size-7.5 lg:size-9" />
 
@@ -70,7 +77,7 @@ export default function NotFound() {
         </p>
       </div>
 
-      <div className="mt-auto w-full pt-10 lg:mt-0 lg:max-w-105">
+      <div className="w-full pt-10 lg:max-w-105">
         <Link
           href="/map"
           className={cn(

@@ -172,3 +172,53 @@ describe('viewport', () => {
     expect(titles.some((t) => t?.includes('No Crumbs'))).toBe(true);
   });
 });
+
+describe('error.tsx and not-found.tsx compose as one statement, not two', () => {
+  /*
+   * `ui-review-2026-08-31.md` finding 12/16: mobile pinned the copy under the status bar and the
+   * action to the bottom edge via `mt-auto`, leaving ≈460px (≈55% of a 390×844 screen) of nothing
+   * between them, and the review read that split as two objects repelling each other rather than
+   * one screen. Desktop centred the same column via `lg:items-center lg:justify-center`, which the
+   * review's own finding 12 called a second, divergent strategy at the wide breakpoint.
+   *
+   * The fix is the same shape `chrome-stage.tsx` already uses for `/` and `/sign-in`: one strategy,
+   * every breakpoint — the two children of `<main>` are centred as a group, so the gap between them
+   * closes by construction instead of being tuned per screen. Source text, not a render: this file
+   * runs in a `node` environment (see the file header), so what is assertable is what is *written*.
+   */
+  const error = repoFile('src/app/error.tsx');
+  const notFound = repoFile('src/app/not-found.tsx');
+
+  it('centres unconditionally rather than pinning content top and actions bottom', () => {
+    for (const [name, source] of [
+      ['error.tsx', error],
+      ['not-found.tsx', notFound],
+    ] as const) {
+      // `mt-auto` is the push-to-the-bottom-edge that produced the gap; its absence is the fix.
+      expect(source, `${name} should not push its action block down with mt-auto`).not.toMatch(
+        /mt-auto/,
+      );
+      // Centring must apply at every breakpoint, not only behind an `lg:` prefix — a bare
+      // `lg:items-center` here would silently reopen the two-strategies split this guards against.
+      expect(source, `${name} should centre unconditionally`).toMatch(
+        /className="relative flex min-h-dvh flex-col items-center justify-center/,
+      );
+      expect(source, `${name} should not gate centring behind lg:`).not.toMatch(
+        /lg:items-center|lg:justify-center/,
+      );
+    }
+  });
+
+  it('the two failure screens use the identical wrapper, not a pair that happens to agree today', () => {
+    // A regex extracting the same shape from both files, rather than two separate assertions that
+    // could each be edited to keep passing while drifting apart from one another.
+    const wrapper = (source: string) =>
+      /className="relative flex min-h-dvh flex-col items-center justify-center overflow-hidden ([^"]+)"/.exec(
+        source,
+      )?.[1];
+    const errorWrapper = wrapper(error);
+    const notFoundWrapper = wrapper(notFound);
+    expect(errorWrapper, 'error.tsx main wrapper classes').toBeDefined();
+    expect(notFoundWrapper).toBe(errorWrapper);
+  });
+});
