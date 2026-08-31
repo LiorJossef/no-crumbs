@@ -1055,7 +1055,17 @@ export function PlaceSearchField({
           type="button"
           variant="ghost"
           size="icon"
-          aria-label="Clear search"
+          // **Two controls carried the identical accessible name.** This icon × clears the
+          // *field*; `ClearSearchEscape` further down clears the search **and** the scope, and its
+          // visible text is `Clear search`. Both can be on screen at once, so a screen-reader user
+          // tabbing heard "Clear search, button" twice with nothing to tell them apart — and the
+          // two do different things. It also cost another agent two build cycles when its own
+          // Playwright locator silently resolved to the wrong one.
+          //
+          // Only the `aria-label` is changed here. The visible string is `product-lead`'s call and
+          // is not in `overnight-copy-deck.md` yet, so inventing one would be putting words in the
+          // product's mouth to fix an accessibility bug that the label alone fixes.
+          aria-label="Clear the search field"
           onClick={() => onChange('')}
           className="absolute right-1.5 top-1/2 size-9 -translate-y-1/2 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
         >
@@ -1571,7 +1581,7 @@ export function PlaceDetail({
                 a quiet record of when, not something to act on. Absent — silently — when the row
                 carries no timestamp; `visitedOnLine` says why that is a real state. */}
             {visitedOn && (
-              <p className="text-center text-[11px] font-medium text-muted-foreground/70">
+              <p className="text-center text-micro font-medium text-muted-foreground/70">
                 {visitedOn}
               </p>
             )}
@@ -1660,7 +1670,7 @@ export function PlaceDetail({
             is the point — a section that is always full stops carrying information. */}
         {nearby !== undefined && nearby.length > 0 && (
           <div className="flex flex-col gap-1.5">
-            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+            <p className="text-micro font-bold uppercase tracking-[0.14em] text-muted-foreground">
               {nearby.length === 1 ? 'Also nearby' : `${nearby.length} more nearby`}
             </p>
             <ul className="flex flex-col">
@@ -1729,7 +1739,7 @@ export function PlaceDetail({
               </p>
             )}
             {detail?.savedAt && (
-              <p className="text-[11px] font-medium text-muted-foreground/70">
+              <p className="text-micro font-medium text-muted-foreground/70">
                 {savedOnLine(detail.savedAt, new Date())}
               </p>
             )}
@@ -1772,7 +1782,7 @@ function SourceMediaThumbnail({ url }: { url: string }) {
   if (failed) return null;
 
   return (
-    <div className="overflow-hidden rounded-[var(--radius)] bg-muted">
+    <div className="overflow-hidden rounded-lg bg-muted">
       <img
         src={url}
         alt=""

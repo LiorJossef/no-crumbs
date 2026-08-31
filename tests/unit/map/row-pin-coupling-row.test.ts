@@ -108,6 +108,46 @@ describe('the open place is drawn as the open place', () => {
   });
 });
 
+describe('the two Clear controls are distinguishable', () => {
+  /**
+   * **A real accessibility defect, and one that cost a peer two build cycles.** Two controls could
+   * be on screen at once carrying the identical accessible name `Clear search`: the search field's
+   * icon ×, and `ClearSearchEscape`. They do different things — one clears the field, the other
+   * clears the search *and* the scope — so a screen-reader user tabbing heard the same name twice
+   * with nothing to choose between them, and a Playwright locator silently resolved to whichever
+   * came first.
+   *
+   * Only the `aria-label` is fixed. The visible string is `product-lead`'s call and had not reached
+   * `overnight-copy-deck.md`, so it is left exactly as it is rather than invented.
+   */
+  it('does not give two different controls one name', () => {
+    expect(SHEET).toContain('aria-label="Clear the search field"');
+    expect(SHEET).not.toContain('aria-label="Clear search"');
+    // The visible string is untouched — this is the one the copy deck still owns.
+    expect(SHEET).toContain('Clear search');
+  });
+
+  /** Both the sheet and the desktop panel render a `ClearSearchEscape`, with CSS hiding one per
+   *  breakpoint. Recorded here because a locator without `:visible` resolves to the hidden node and
+   *  times out looking exactly like a product bug. */
+  it('renders that control on both surfaces, which a locator has to know', () => {
+    const PANEL = readFileSync('src/components/sheet/place-desktop-panel.tsx', 'utf8');
+    expect(SHEET).toContain('ClearSearchEscape');
+    expect(PANEL).toContain('ClearSearchEscape');
+  });
+});
+
+describe('the type scale is reached for by name', () => {
+  /** Four stranded brackets, run rule 6a. `--radius-lg` **is** `var(--radius)`
+   *  (`globals.css:64`), so that one is a rename with no computed-value change; the three 11px
+   *  sites join the two `text-micro` uses this file already had. */
+  it('has no arbitrary type or radius left in it', () => {
+    expect(SHEET).not.toContain('text-[11px]');
+    expect(SHEET).not.toContain('rounded-[var(--radius)]');
+    expect(readFileSync('src/app/globals.css', 'utf8')).toContain('--radius-lg: var(--radius);');
+  });
+});
+
 describe('the hover crosses to the canvas', () => {
   /** The whole path, in order. Each link is a place the coupling could silently stop, and the
    *  canvas half is dead code without every one of them. */
