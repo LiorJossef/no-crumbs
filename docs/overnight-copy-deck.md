@@ -190,7 +190,7 @@ matching it, not inventing a second wording.
 
 | id | Element | File / key | String |
 |---|---|---|---|
-| **C110** | Notice headline | `src/components/add/add-sheet.tsx`, new `UNSUPPORTED_LINK_COPY.headline` | `That link isn’t a TikTok.` |
+| **C110** | Notice headline | `src/components/add/add-sheet.tsx`, new `UNSUPPORTED_LINK_COPY.headline` | `That link isn’t from TikTok.` |
 | **C111** | Notice body | `UNSUPPORTED_LINK_COPY.body` | `We support TikTok links. Instagram and YouTube aren’t supported yet.` |
 | **C112** | Manual-add row | `manualAddLabel` in `src/components/add/universal-input.ts` | `Add a place manually` |
 | **C113** | Escape action | read from `IMPORT_ERROR_ACTION_LABEL.open_link` — **do not add a second literal** | `Open the original link` |
@@ -198,6 +198,14 @@ matching it, not inventing a second wording.
 C110 and C111 are `UNSUPPORTED_HOST`'s `headline` and `body` **verbatim**. That is the point: one
 piece of news, one wording, on both surfaces. `Not TikTok` (its `kicker`) does **not** come across —
 the sheet has no kicker slot and adding one for this is a new component for a two-line notice.
+
+> **C110 amended 2026-08-31** by the noun→adjective pass
+> ([`tiktok-copy-pass-2026-08-31.md`](tiktok-copy-pass-2026-08-31.md)). It was
+> `That link isn’t a TikTok.` The repair is to the *claim*, not only the grammar: a link is never
+> *a TikTok*, and what is actually wrong with it is where it came from. **The byte-equality test in
+> §2.5 is unchanged in form** — the constant moved, the assertion that both surfaces read it still
+> holds, and that is precisely what made this a one-line change instead of two.
+> `Not TikTok` did not move: it uses the proper noun as itself, not as a count noun.
 
 C112 needs no new code. `manualAddLabel` already returns `'Add a place manually'` for every kind
 that is not `text` (`universal-input.ts:97`), so a new non-`text` kind gets the generic label for
@@ -570,19 +578,29 @@ ever disagree, **the spec wins** and this table is wrong.
 
 | Case | Kicker | H1 | Body |
 |---|---|---|---|
-| **A** no caption | `NO CAPTION` | `This one has no caption.` | `We opened it fine — there’s just no caption to read. Some TikToks only show the place on screen.` |
-| **B** nothing named | `WE READ IT` | `No places in this one.` | `We read the caption, and it doesn’t name a place we can put on a map. Some TikToks only show the place on screen.` |
+| **A** no caption | `NO CAPTION` | `This one has no caption.` | `We opened it fine — there’s just no caption to read. Some TikTok videos only show the place on screen.` |
+| **B** nothing named | `WE READ IT` | `No places in this one.` | `We read the caption, and it doesn’t name a place we can put on a map. Some TikTok videos only show the place on screen.` |
 | **C** area only | `WE READ IT` | `No places in this one.` | `We read the caption. It points at {cityHint}, but doesn’t name the place itself.` |
+
+> **Amended 2026-08-31**, and the amendment is itself the rule working. `Some TikToks…` became
+> `Some TikTok videos…` **in the spec first**, and this table follows it — not the other way round.
+> §7's whole point is that the spec is the source; if this table had moved alone it would have become
+> the fourth wording of a string that already had four.
 
 ### 7.2 The add-by-name block (`spec-no-places-found.md` §5.2), unchanged
 
 `Know where this one is? Add it by name.` · `Search for a place` · `Search →` · `Searching…` ·
 `Near {cityHint}` · `Search everywhere instead` · `No places match "{query}."` + `Try a different
 name.` · `Search isn’t working right now. Try again in a moment.` · `You’re offline. Check your
-connection and try again.` · `Add to my map →` · `We’ll link it to this TikTok.` ·
+connection and try again.` · `Add to my map →` · `We’ll link it to this TikTok video.` ·
 `Back to results` · `Adding…` · `Couldn’t add that one. Try again.`
 
-Secondary: `Try another TikTok` and `Back to the map`, both read from `IMPORT_ERROR_ACTION_LABEL`.
+Secondary: `Try another TikTok link` and `Back to the map`, both read from
+`IMPORT_ERROR_ACTION_LABEL`.
+
+The source row's label chain is `@{authorHandle}’s TikTok video` → `{authorName}’s TikTok video` →
+`This TikTok video`, with `@handle on TikTok` as the **all-three-or-none** fallback if the long form
+truncates in the 48px row (`spec-no-places-found.md` §4.3).
 
 ### 7.3 Where the spec and the running code disagree — three places, flagged as asked
 
@@ -593,7 +611,11 @@ Secondary: `Try another TikTok` and `Back to the map`, both read from `IMPORT_ER
 | `ux-architecture.md` §12 **C70** | `We read it, but it doesn’t name a place we can put on a map. Some TikToks only show the place on screen.` |
 | `import-page-client.tsx:1367–1370` (live) | `We read @{handle}’s TikTok, but it doesn’t name a place we can put on a map. Some TikToks only show the place on screen.` |
 | `import-page-client.tsx:1803` (dead `n === 0` branch) | `This TikTok didn’t call out a specific spot by name. That happens a lot.` |
-| `spec-no-places-found.md` §5.1 case B | `We read the caption, and it doesn’t name a place we can put on a map. Some TikToks only show the place on screen.` |
+| `spec-no-places-found.md` §5.1 case B | `We read the caption, and it doesn’t name a place we can put on a map. Some TikTok videos only show the place on screen.` |
+
+The first three rows are quoted **as they stood on 2026-08-31 before the noun→adjective pass** — they
+are the historical record of the drift and are not rewritten. Only the spec row, which is the wording
+that ships, carries the amendment.
 
 **Ruling: W6-5 ships the spec's wording.** This is a deliberate exception to
 `voice-and-vocabulary.md` §6's *"the running code wins"*, and the reason is narrow: §6's ruling was
@@ -628,8 +650,8 @@ list.
 | # | Row | Currently says | Must say | Because |
 |---|---|---|---|---|
 | 1 | **C94** first run body | `Paste a TikTok you saved and we’ll put its places on the map.` | `Paste a TikTok link and the places it talks about land on your map.` | The shipped string (`place-sheet.tsx:823`, `EmptyLibraryLine`). §6's ruling, and *land on your map* is the product's own best verb |
-| 2 | **C70** F10 body | `We read it, but it doesn’t name a place we can put on a map. Some TikToks only show the place on screen.` | `We read the caption, and it doesn’t name a place we can put on a map. Some TikToks only show the place on screen.` | `spec-no-places-found.md` §5.1 case B. **The one place a spec beats the code** — §7.3 gives the reasoning. Add rows for cases A and C, which the deck has no ids for at all |
-| 3 | **C71** F10 actions | `Try another TikTok` · `Add a place you know` · `Open the TikTok` | `Try another TikTok` (secondary) · the embedded name search (primary) · `@{handle}’s TikTok ↗` in the source row | `spec-no-places-found.md` §4.3, §5.3 and §12. `Open the TikTok` appears **once**, at the top, not as a footer link |
+| 2 | **C70** F10 body | `We read it, but it doesn’t name a place we can put on a map. Some TikToks only show the place on screen.` | `We read the caption, and it doesn’t name a place we can put on a map. Some TikTok videos only show the place on screen.` | `spec-no-places-found.md` §5.1 case B. **The one place a spec beats the code** — §7.3 gives the reasoning. Add rows for cases A and C, which the deck has no ids for at all |
+| 3 | **C71** F10 actions | `Try another TikTok` · `Add a place you know` · `Open the TikTok` | `Try another TikTok link` (secondary) · the embedded name search (primary) · `@{handle}’s TikTok video ↗` in the source row | `spec-no-places-found.md` §4.3, §5.3 and §12. Opening the original appears **once**, at the top, not as a footer link |
 | 4 | **C98** empty area | `Nothing saved in this area.` + `Show all places` | **Retire the row entirely** | `active-area.ts:352`: the state *"is **gone**, and cannot recur: an area is defined by the places in it, so an unfiltered area always has at least one. That deletes the state `Show my places` existed to escape, and the button with it."* A deck row for an unreachable state is how it gets rebuilt |
 | 5 | **C80** sheet peek count | `{n} places saved` / `1 place saved` | `12 in London` · `12 in London · +20 more` — the short form from `areaHeading`, split into `heading.count` + `heading.shortRest` | `place-sheet.tsx:346–363`. The comment there names `20 places saved` as what it replaced. The deck is a generation behind |
 | 6 | **C84 · C85** sheet headings | `Near you` / `In this area` | Replace both with `areaHeading`'s family: `12 places in London` · `1 place in London` · `12 places in this area` · `3 matches in London` · `No matches in London` · `Nothing matches "momos"` · `Nothing tagged "Momos"` · `7 to go in London` · `You’ve been to all of them.` | `active-area.ts:343–368`. Two deck rows do not describe a nine-string family, and the visit filter's own nouns are load-bearing (the generic version produced `Nothing tagged ""`) |
@@ -649,10 +671,17 @@ list.
     correction: either the failure screens regain the action or the deck records the gate. **Not
     tonight** — no package owns it. Recorded so it is not lost.
 
+**11. Added 2026-08-31 — the noun→adjective pass adds a third stack to the same §12 edit.**
+[`tiktok-copy-pass-2026-08-31.md`](tiktok-copy-pass-2026-08-31.md) moves **17 more ids** (C01, C09,
+C10, C22, C31, C60, C61, C62, C66, C67, C70, C71, C81, C89, C91, C96, C99). Three of them — C62, C70,
+C71 — are already rows above, which is exactly why this must be **one §12 edit, not three**. C31 is
+also a drift row in its own right: the deck says `From @{handle}'s TikTok`, and the shipped subline
+(`review-screen.tsx:283`) has **no `From ` prefix** at all.
+
 **And the rule that stops this recurring**, from `voice-and-vocabulary.md` §6: *a string changes in
-code and the deck follows in the same commit, or it does not change.* Eight rows of drift is what
-happens without it. Every string this run writes must land in §12 in the same commit as its code —
-including every id in this document.
+code and the deck follows in the same commit, or it does not change.* Eight rows of drift, plus
+seventeen more found by a vocabulary amendment a day later, is what happens without it. Every string
+this run writes must land in §12 in the same commit as its code — including every id in this document.
 
 ---
 
@@ -867,4 +896,5 @@ Same pattern as §8: the orchestrator lands these.
 | Date | Change |
 |---|---|
 | 2026-08-31 | Created for the overnight run. Wrote final copy for seven surfaces (W4-1 identity, W1-5 the non-TikTok link, W1-4/W6-4 provenance, W5-1/W5-2/W5-5 the library, W7-4 deletion, W7-5 the edges confirmed unchanged, W6-5 confirmed frozen against its spec) with ids `C100`–`C155`. Corrected the run sheet's W4-1 criterion, which cited three strings in a section that has none. Recorded that W1-5 overrides a shipped owner ruling of 2026-08-29 and that the docblock stating it must be rewritten in the same commit. Found the `ux-architecture.md` §12 drift to be **eight rows, not two** — including `C98`, a row for a state `active-area.ts` records as gone and unreachable, and `C74`'s `How to turn it on`, an action nobody built. Two scope rulings: the tag facet may never show a tag no place carries and renders nothing when there are none; the held payoff count does not execute at N = 0, where the rail's existing `No places named` takes the same hold instead. Four decisions escalated to the owner, each with a conservative default the run can build against |
+| 2026-08-31 | **TikTok noun→adjective pass**, per [`tiktok-copy-pass-2026-08-31.md`](tiktok-copy-pass-2026-08-31.md) and `voice-and-vocabulary.md` §3.1. **C110** becomes `That link isn’t from TikTok.` — the repair is to the claim, not only the grammar. §7's frozen quotes of `spec-no-places-found.md` follow **the spec, which moved first**; §7.3's four-wordings table keeps its first three rows as the historical record and amends only the row that ships. §8 gains row 11: the pass moves **17 further §12 ids**, three of which are already rows above, so §12 takes **one** edit and not three. Also recorded there: **C31 is a drift row on its own** — the deck says `From @{handle}'s TikTok` and the shipped subline has no `From ` prefix |
 | 2026-08-31 | §12 added after W5-6 shipped a field no code path can fill. Ruled that **description survives** as the word for a collection's own line — §3's ban is scoped to a place's note, the word already ships in `validateCollectionDescription`'s error string, and `note` is the one alternative that must not be reused because a place inside a collection already has one. `C160` label, `C161` placeholder (an example, not an instruction; the obvious first draft used `ate`, which §4 bans). `C162`/`C163` recommended: a menu row saying `Rename` that opens a two-field form is mislabelled. Two rows owed to `voice-and-vocabulary.md` §3, not edited here |

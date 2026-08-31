@@ -1100,42 +1100,60 @@ differs. QA must run the golden path with reduced motion on.
 ## 12. Copy deck
 
 Every user-facing string in the flagship flow and the failure states. Strings not in this table do not
-ship. Banned in all copy: metadata, LLM, AI, model, geocode, extraction, pipeline, parse, API,
-endpoint, payload, token, confidence score, retry queue, job, worker, "oops", "something went wrong".
+ship.
+
+**Banned words:** [`voice-and-vocabulary.md`](voice-and-vocabulary.md) §4 holds the list, and it holds
+it alone. The list used to be duplicated here and the copy went out of date the day §4 added nine
+words to it — two copies of one list is how a third gets written.
+
+**Mechanics** — sentence case, no exclamation marks, digits always, per-string pluralisation, dates
+`3 Aug` / `3 Aug 2025`, distances `320 m` / `1.4 km` / `12 km` — are
+[`voice-and-vocabulary.md`](voice-and-vocabulary.md) §5, for the same reason.
+
+> **Reconciled 2026-08-31**, in one edit, from three stacks that all landed on this section at once:
+> the eight drift rows in [`overnight-copy-deck.md`](overnight-copy-deck.md) §8, that document's own
+> new ids, and the **TikTok noun→adjective pass**
+> ([`tiktok-copy-pass-2026-08-31.md`](tiktok-copy-pass-2026-08-31.md), 17 ids). They overlapped on
+> C62, C70 and C71, which is why this is one edit and not three.
+>
+> **The standing rule that makes another reconciliation unnecessary**
+> (`voice-and-vocabulary.md` §6): *a string changes in code and this deck follows in the same commit,
+> or it does not change.* Everything below was measured against the code, not carried forward — where
+> a row quotes a string, it quotes what actually ships.
 
 ### 12.1 Import
 
 | ID | Surface / state | String | Notes |
 |---|---|---|---|
-| C01 | F0 title | `Add a TikTok` | |
+| C01 | F0 title | `Add a TikTok link` | Was `Add a TikTok`. §3.1: the name is an adjective, never a noun. |
 | C02 | F0 placeholder | `Paste a TikTok link` | |
 | C03 | F0 helper | `Copy the link in TikTok — Share → Copy link.` | The only instruction in the product. |
 | C04 | F0 button | `Paste` | |
 | C05 | F1 submit | `Add` | |
-| C06 | F1 invalid | `That doesn't look like a TikTok link.` | On blur/submit only. |
+| C06 | F1 invalid | `That doesn't look like a TikTok link.` | **`MALFORMED_URL` only.** `UNSUPPORTED_HOST` and `UNSUPPORTED_URL` get their own screens — this sentence is false for all three of an Instagram link, a profile link and a photo post. The old note ("on blur/submit only") invited exactly the bug `use-import-run.ts` documents fixing. |
 | C07 | F1 offline | `You're offline. Check your connection and try again.` | |
 | C08 | F2–F5 cancel | `Cancel` | |
-| C09 | F3 active | `Reading the TikTok…` | |
-| C10 | F3 settled | `Read @{handle}'s TikTok` | Falls back to `Read the TikTok` with no handle. |
+| C09 | F3 active | `Reading the TikTok video…` | The verb `reading` is protected by §3; only the noun moved. |
+| C10 | F3 settled | `Read @{handle}'s TikTok video` | Falls back to `Read the TikTok video` with no handle. |
 | C11 | F3 reassurance (4s) | `Still reading — this one's taking a moment.` | |
 | C12 | F4 active | `Finding the places…` | |
-| C13 | F4 settled, N≥2 | `{n} places found` | |
+| C13 | F4 settled, N≥2 | `{n} places found` | Held ~700ms as the payoff beat. |
 | C14 | F4 settled, N=1 | `1 place found` | |
-| C15 | F4 settled, N=0 | `No places named` | Rail fact only; screen becomes F10. |
+| C15 | F4 settled, N=0 | `No places named` | Rail fact only; screen becomes F10. **Takes the same ~700ms hold as C13** — the count beat does not run at N=0, so the modal outcome arrives on the same beat as a success (`overnight-copy-deck.md` §9.2). |
 | C16 | F4 reassurance (5s) | `Almost there.` | |
 | C17 | F5 active | `Matching locations…` | |
 | C18 | F5 active, streamed | `Matching locations… {i} of {n}` | Only if per-candidate progress is real. |
 | C19 | F5 settled | `Ready to check` | |
 | C20 | F5 reassurance (6s) | `Checking a few possibilities.` | |
 | C21 | 12s, any stage | `Still going. You can leave this open.` | Replaces the stage reassurance. |
-| C22 | Degraded single-stage (§3.2b) | `Finding the places in this TikTok…` | Used only if stages cannot be streamed. |
+| C22 | Degraded single-stage (§3.2b) | `Finding the places in this TikTok video…` | Used only if stages cannot be streamed. |
 
 ### 12.2 Review
 
 | ID | Surface / state | String | Notes |
 |---|---|---|---|
 | C30 | S7 header | `{n} places found` / `1 place found` | |
-| C31 | S7 subline | `From @{handle}'s TikTok` | Tappable → opens TikTok. |
+| C31 | S7 subline | `@{handle}'s TikTok video` | Falls back to `This TikTok video`. Tappable → opens the video. **Two corrections in one row:** the noun, and the deck's `From ` prefix, which the shipped subline (`review-screen.tsx`) has never carried. |
 | C32 | Confident row trailing | `Not this` | |
 | C33 | Ambiguous row prompt | `Which one?` | |
 | C34 | Ambiguous row escape | `Search` | |
@@ -1165,53 +1183,68 @@ endpoint, payload, token, confidence score, retry queue, job, worker, "oops", "s
 
 ### 12.4 Failure
 
-| ID | Surface / state | String |
-|---|---|---|
-| C60 | F9 headline | `We couldn't read this TikTok yet.` |
-| C61 | F9 body | `Some TikToks don't share enough for us to work with. It's worth a retry.` |
-| C62 | F9 actions | `Retry` · `Open the TikTok` · `Add a place you know` |
-| C63 | F9 after repeated failure | `Still no luck with this one.` |
-| C64 | Timeout headline | `This is taking longer than usual.` |
-| C65 | Timeout actions | `Keep waiting` · `Start over` · `Add a place you already know` |
-| C66 | Private/removed video | `This TikTok isn't public, so we can't read it.` |
-| C67 | Rate limited | `You've added a lot of TikToks in the last few minutes. Try again shortly.` |
-| C68 | Repeated retry limit | `You've tried this a few times. Give it a few minutes.` |
-| C69 | F10 headline | `No places in this one.` |
-| C70 | F10 body | `We read it, but it doesn't name a place we can put on a map. Some TikToks only show the place on screen.` |
-| C71 | F10 actions | `Try another TikTok` · `Add a place you know` · `Open the TikTok` |
-| C72 | Save failed | `Couldn't save those places.` + `Try again` |
-| C73 | Map tiles failed | `Map is having trouble loading.` |
-| C74 | Location denied note | `Location is off, so we're showing this area instead.` + `How to turn it on` |
-| C75 | Location timeout | `Couldn't find your location.` |
-| C76 | Signed out mid-flow | `Sign in again to finish adding this.` |
+| ID | Surface / state | String | Notes |
+|---|---|---|---|
+| C60 | F9 headline | `We couldn't read this TikTok video yet.` | One word longer than the string it replaces, in the largest type in the failure family. Taken anyway: `this video` drops the platform on a screen whose whole subject is the platform's post, and `that link` is false — we read the link fine. |
+| C61 | F9 body | `Some TikTok videos don't share enough for us to work with. It's worth a retry.` | A plural settles the noun test outright: you can only pluralise a count noun. |
+| C62 | F9 actions | `Retry` · `Open on TikTok` | `Add a place you know` is **withheld while it has no destination from this screen** — `import-error-copy.ts`'s standing rule that a recovery only ever points somewhere that works. Manual add shipped 2026-08-30, so restoring it is a live question with no owner yet; recorded rather than silently dropped. |
+| C63 | F9 after repeated failure | `Still no luck with this one.` | |
+| C64 | Timeout headline | `This is taking longer than usual.` | |
+| C65 | Timeout actions | `Keep waiting` · `Start over` · `Add a place you already know` | Same gate as C62. |
+| C66 | Private/removed video | `This TikTok video isn't public, so we can't read it.` | Row is deliberately unused today (`import-error-copy.ts`). |
+| C67 | Rate limited | `You've added a lot of TikTok links in the last few minutes. Try again shortly.` | *Links* is also what they actually added. |
+| C68 | Repeated retry limit | `You've tried this a few times. Give it a few minutes.` | |
+| C69 | F10 headline | `No places in this one.` | Unchanged, and the rename to No Crumbs touched it nowhere — `voice-and-vocabulary.md` §2's health check. |
+| C70 | F10 body | `We read the caption, and it doesn't name a place we can put on a map. Some TikTok videos only show the place on screen.` | **The one row where a spec beats the running code** — `spec-no-places-found.md` §5.1 case B is ratified, owned and is what W6-5 builds. Cases A and C live there too and have no ids here. |
+| C71 | F10 actions | `Try another TikTok link` (secondary) · the embedded name search (primary) · `@{handle}'s TikTok video ↗` in the source row | `spec-no-places-found.md` §4.3, §5.3, §12. Opening the original appears **once**, at the top, never as a footer link. |
+| C72 | Save failed | `Couldn't save those places.` + `Try again` | |
+| C73 | Map tiles failed | `Map is having trouble loading.` | |
+| C74 | Location notices | `Location is off for this site. Pick an area from your list instead.` · `This browser can't share your location. Pick an area from your list instead.` · `Your location is only rough here, so distances are hidden.` | The shipped family (`near-me.ts`). **`How to turn it on` is deleted** — it never existed, and a deck row naming an unbuilt action is how it gets built by accident. |
+| C75 | Location timeout | `Couldn't find your location. Try again, or pick an area from your list.` | Shipped wording; the deck's shorter version offered no next move. |
+| C76 | Signed out mid-flow | `Sign in again to finish adding this.` | |
 
 ### 12.5 Map, detail, first run
 
-| ID | Surface | String |
-|---|---|---|
-| C80 | Sheet peek count | `{n} places saved` / `1 place saved` |
-| C81 | Sheet primary | `Add a TikTok` |
-| C82 | Map pill | `Near me` |
-| C83 | Map pill after pan | `Search this area` |
-| C84 | Sheet heading, near me | `Near you` |
-| C85 | Sheet heading, area | `In this area` |
-| C86 | Location pre-prompt title | `Show what's near you` |
-| C87 | Location pre-prompt body | `We'll use your location to sort your places by distance. It stays on your device — we never save it.` |
-| C88 | Location pre-prompt actions | `Use my location` · `Not now` |
-| C89 | Detail source block | `Saved from` / `Saved from {n} TikToks` |
-| C90 | Detail source, manual | `Added by you · {date}` |
-| C91 | Detail actions | `Directions` · `Remove` · `Open TikTok` |
-| C92 | Remove confirm | `Remove from map?` · `Remove` · `Cancel` |
-| C93 | First run headline | `Your map starts here.` |
-| C94 | First run body | `Paste a TikTok you saved and we'll put its places on the map.` |
-| C95 | First run tertiary | `Try an example` · `Add a place by name` |
-| C96 | First coach line | `Tap a pin to see the TikTok it came from.` |
-| C97 | Cluster label (SR) | `Group of {n} places, activate to zoom in` |
-| C98 | Empty area | `Nothing saved in this area.` + `Show all places` |
-| C99 | Empty near me | `Nothing saved near you yet.` + `Add a TikTok` |
+| ID | Surface | String | Notes |
+|---|---|---|---|
+| C80 | Sheet peek count | `12 in London` · `12 in London · +20 more` | The short form, given pre-split as `heading.count` + `heading.shortRest` so the row renders it and never parses it. The deck's old `{n} places saved` is a generation behind the code. |
+| C81 | Sheet primary | `Add a TikTok link` | Was `Add a TikTok`. |
+| C82 | Map pill | `Near me` | |
+| C83 | Map pill after pan | `Search this area` | |
+| C84 | Sheet heading | `12 places in London` · `1 place in London` · `12 places in this area` · `3 matches in London` · `1 match in London` · `3 matches in this area` · `No matches in London` · `Nothing matches "momos"` · `Nothing tagged "Momos"` · `7 to go in London` · `You've been to all of them.` | The shipped family, from `active-area.ts`'s `areaHeading`. Two deck rows never described eleven strings, and the visit filter's own nouns are load-bearing — the generic version produced `Nothing tagged ""`. |
+| C85 | — | **Retired**, folded into C84 | `Near you` / `In this area` were the two rows that stood in for the family above. |
+| C86 | Location pre-prompt title | `Show what's near you` | |
+| C87 | Location pre-prompt body | `We'll use your location to sort your places by distance. It stays on your device — we never save it.` | |
+| C88 | Location pre-prompt actions | `Use my location` · `Not now` | |
+| C89 | Detail source block | `Saved from` / `Saved from {n} TikTok videos` | |
+| C90 | Detail source, manual | `Added by you · {date}` | |
+| C91 | Detail actions | `Directions` · `Remove` · `Open on TikTok` | **One label for one action, product-wide.** This button had three names — `Open TikTok` here, `Open the TikTok` in the failure screens, `Open the post in TikTok` in the expired-link body. All three collapse to this. |
+| C92 | Remove confirm | `Remove from map?` · `Remove` · `Cancel` | |
+| C93 | First run headline | `Your map starts here.` | Shipped verbatim as `EMPTY_LIBRARY_HEADING`. |
+| C94 | First run body | `Paste a TikTok link and the places it talks about land on your map.` | The shipped string (`EmptyLibraryLine`) beats the deck's, and *land on your map* is the product's own best verb — `voice-and-vocabulary.md` §6's ruling, applied. |
+| C95 | First run tertiary | `Try an example` · `Add a place by name` | |
+| C96 | First coach line | `Tap a pin to see the TikTok video it came from.` | |
+| C97 | Cluster label (SR) | `Group of {n} places, activate to zoom in` | |
+| C98 | — | **Retired** | `Nothing saved in this area.` + `Show all places` described a state that **cannot occur**: an area is defined by the places in it, so an unfiltered area always has at least one (`active-area.ts`). That deleted the state and the button with it. A deck row for an unreachable state is how it gets rebuilt. |
+| C99 | Empty near me | `Nothing saved near you yet.` | The string ships (`near-me.ts`) as a notice. **The `Add a TikTok` action attached to it does not exist** — recorded rather than carried, per the same rule as C74. |
 
-Pluralisation is handled per-string, not by appending "(s)". Dates are `3 Aug` within the year and
-`3 Aug 2025` otherwise. Distances: `320 m` under 1km, `1.4 km` above, `12 km` above 10.
+### 12.6 What this reconciliation did not reach — owed, and named so it is not lost
+
+**§12 is now correct. §1–§11 of this document are not, and the gap is bigger than §12's was.**
+
+The noun→adjective sweep found roughly **35 further sites in §1–§11** carrying the bare noun. They
+are not all engineering prose — several are literal copy blocks that specify a string
+(`**Copy:** Title \`Add a TikTok\``, §2's F1; `Reading the TikTok…`, §F3; §5.1's and §5.3's mockups
+and action lists; §9's first-run panel; §7's `Saved from 2 TikToks`), plus a dozen ASCII mockups that
+draw the old wording inside a box.
+
+It was left deliberately rather than missed. Reconciling §1–§11 is a different and much larger edit
+than the one this section was scoped for, and doing it in the same pass would have buried a checkable
+17-id correction inside an unreviewable diff.
+
+**Two things follow.** Until it is done, **§12 is the only part of this document whose strings may be
+copied into code** — §1–§11's copy blocks are historical. And when it is done, the same rule applies
+as everywhere else: it lands as one edit, against the code, in one commit.
 
 ---
 

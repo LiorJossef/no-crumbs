@@ -201,10 +201,10 @@ overlay, `max-w-md`. Do not invent a second shell.
 │                                       │
 │ We read the caption, and it doesn't   │  15px medium, muted, max ~34ch
 │ name a place we can put on a map.     │  aria-describedby target of the H1
-│ Some TikToks only show the place on   │
-│ screen.                               │
+│ Some TikTok videos only show the      │
+│ place on screen.                      │
 │                                       │
-│ ┌──┐  @handle's TikTok  ↗             │  48px source row. Thumbnail slot never collapses.
+│ ┌──┐  @handle's TikTok video  ↗       │  48px source row. Thumbnail slot never collapses.
 │ │▓▓│  Hide the caption  ⌄             │  Both lines are 44px targets
 │ └──┘                                  │
 │ ┌───────────────────────────────────┐ │  ── SCROLL REGION (min-h-0, flex-1) ──
@@ -220,7 +220,7 @@ overlay, `max-w-md`. Do not invent a second shell.
 │ └───────────────────────┘ └─────────┘ │
 │ (Near Tel Aviv ✕)                     │  case C only — removable scope chip
 │                                       │
-│      Try another TikTok               │  h-11 ghost, mint text
+│      Try another TikTok link          │  h-11 ghost, mint text
 └───────────────────────────────────────┘
 ```
 
@@ -264,14 +264,20 @@ and the layout closes up.
 
 ### 4.3 One affordance per action
 
-`Open the original TikTok` appears **once**, as the source row's `@handle's TikTok ↗`. It is not
+Opening the original appears **once**, as the source row's `@handle's TikTok video ↗`. It is not
 repeated as a footer text link. This is a deliberate deviation from `ux-architecture` §5.3's action
 stack (§12), and it closes one instance of backlog §13's recorded defect: four different labels for
 one action across the product. Top placement is also the better placement — it sits with the context
 it belongs to, and it is the first thing the eye reaches.
 
-Fallback chain for the label: `@{authorHandle}'s TikTok` → `{authorName}'s TikTok` → `This TikTok`.
-All three are 44px, mint, with a trailing `↗`.
+Fallback chain for the label: `@{authorHandle}'s TikTok video` → `{authorName}'s TikTok video` →
+`This TikTok video`. All three are 44px, mint, with a trailing `↗`.
+
+> **Amended 2026-08-31** by the TikTok noun→adjective pass
+> ([`tiktok-copy-pass-2026-08-31.md`](tiktok-copy-pass-2026-08-31.md)). If the long form truncates at
+> 320px in this 48px row, the fallback is `@handle on TikTok` — **for all three arms together, never
+> a mix.** Two labels for one attribution is worse than either label. Attribution is unaffected
+> either way: the handle, the platform and the link back all survive both forms.
 
 **The thumbnail is optional to the layout.** Backlog §2.19 records that rendering
 `probe.thumbnailUrl` hotlinks TikTok's CDN and hands them the user's IP, UA and Referer on every
@@ -344,14 +350,22 @@ rendering of the Hebrew *content* the screen displays. §7 covers both.
 
 | Case | Kicker | H1 | Body |
 |---|---|---|---|
-| **A** no caption | `NO CAPTION` | `This one has no caption.` | `We opened it fine — there's just no caption to read. Some TikToks only show the place on screen.` |
-| **B** nothing named | `WE READ IT` | `No places in this one.` | `We read the caption, and it doesn't name a place we can put on a map. Some TikToks only show the place on screen.` |
+| **A** no caption | `NO CAPTION` | `This one has no caption.` | `We opened it fine — there's just no caption to read. Some TikTok videos only show the place on screen.` |
+| **B** nothing named | `WE READ IT` | `No places in this one.` | `We read the caption, and it doesn't name a place we can put on a map. Some TikTok videos only show the place on screen.` |
 | **C** area only | `WE READ IT` | `No places in this one.` | `We read the caption. It points at {cityHint}, but doesn't name the place itself.` |
+
+> **Amended 2026-08-31.** `Some TikToks…` became `Some TikTok videos…` in both bodies.
+> `voice-and-vocabulary.md` §3.1 puts the bare noun in the *never* column, and a plural settles it
+> outright: you can only pluralise a count noun. Nothing else in §5.1 moved — the H1s, the kickers
+> and case C are untouched, so §7.3's ban on rewriting this screen's strings still holds against
+> everything except the noun.
 
 Notes:
 
 - **B's H1 is C69 verbatim.** Its body is C70 restructured into two sentences so the capability
-  disclosure stands alone; the disclosure sentence is C70 verbatim.
+  disclosure stands alone; the disclosure sentence is C70 verbatim. **C70 itself moved in the same
+  pass** (`ux-architecture` §12.4), so "verbatim" stays true rather than silently becoming a claim
+  about a string that no longer exists.
 - **C drops the capability disclosure**, because C has already explained itself and a third sentence
   makes the screen wordy. The disclosure survives on A and B, which together are the overwhelming
   majority of arrivals, so §5.3's "the product's main capability disclosure" is not lost.
@@ -376,7 +390,7 @@ Notes:
 | Search unavailable | `Search isn't working right now. Try again in a moment.` |
 | Offline | `You're offline. Check your connection and try again.` |
 | Confirm card action | `Add to my map →` |
-| Confirm card, provenance line | `We'll link it to this TikTok.` |
+| Confirm card, provenance line | `We'll link it to this TikTok video.` |
 | Confirm card, back | `Back to results` |
 | Confirm, saving | `Adding…` |
 | Save failed | `Couldn't add that one. Try again.` |
@@ -388,11 +402,13 @@ headline). The placeholder and the zero-results pair are §8 / C45 verbatim.
 
 | Element | String |
 |---|---|
-| Forward action | `Try another TikTok` |
+| Forward action | `Try another TikTok link` |
 | Exit, when rendered as a button | `Back to the map` |
 
-`Try another TikTok` is `IMPORT_ERROR_ACTION_LABEL.another_tiktok` — read from that map, do not add a
-second literal. `Back to the map` is `IMPORT_ERROR_ACTION_LABEL.back_to_map`.
+`Try another TikTok link` is `IMPORT_ERROR_ACTION_LABEL.another_tiktok` — read from that map, do not
+add a second literal. `Back to the map` is `IMPORT_ERROR_ACTION_LABEL.back_to_map`. **This is why the
+noun→adjective pass cost this screen one line and not four:** every label it shows is read from that
+one map, so the label moved once and four call sites followed.
 
 ### 5.4 The two variants — build the with-search one
 
@@ -405,8 +421,8 @@ to honour is unchanged — **a recovery only ever points somewhere that works.**
 | | With place search | Without (today) |
 |---|---|---|
 | Offer line + field + Search | present, in the thumb zone | **absent entirely** — no greyed field, no "coming soon" |
-| Primary action | `Search →` (in the field row) | `Try another TikTok`, `h-12`, solid mint |
-| Secondary | `Try another TikTok`, `h-11` ghost | `Back to the map`, `h-11` ghost |
+| Primary action | `Search →` (in the field row) | `Try another TikTok link`, `h-12`, solid mint |
+| Secondary | `Try another TikTok link`, `h-11` ghost | `Back to the map`, `h-11` ghost |
 | Exit | ✕ top-left | ✕ top-left **and** the ghost `Back to the map` |
 
 The second exit in the no-search variant is deliberate: with no field, the footer would otherwise hold
@@ -436,12 +452,12 @@ the sentence that makes the transition read as a result rather than a jump.
 | Affordance | Behaviour | The link |
 |---|---|---|
 | ✕ (top-left) | `leaveImport()` — overlay closes in place, standalone route pushes `/map` | Discarded with the flow. No save happened, so no `router.refresh()` |
-| `Try another TikTok` | `reset({ clearUrl: true })` then focus the paste field | **Cleared.** §5.3: "returns to F0 with an empty field, focused" |
+| `Try another TikTok link` | `reset({ clearUrl: true })` then focus the paste field | **Cleared.** §5.3: "returns to F0 with an empty field, focused" |
 | `Back to the map` (ghost, no-search variant) | Same as ✕ | Discarded |
-| `@handle's TikTok ↗` | Opens the canonical URL in a new tab. Does **not** leave the flow | Kept — the screen is still there when they come back |
+| `@handle's TikTok video ↗` | Opens the canonical URL in a new tab. Does **not** leave the flow | Kept — the screen is still there when they come back |
 | A completed add | Leaves the flow exactly as a normal confirm does, including the camera flight to the new pin | Cleared |
 
-**The link must be cleared by `Try another TikTok`, and this is a change from today.** `reset()` was
+**The link must be cleared by `Try another TikTok link`, and this is a change from today.** `reset()` was
 correctly taught to *keep* the URL on Cancel (a cancel says nothing about the link being wrong). This
 action says the opposite: this link is finished, we read it, there is nothing in it. Returning the
 user to a paste screen pre-loaded with a link that will produce this same screen again is the flow's
@@ -551,7 +567,7 @@ creator handle and name, `cityHint`, and every place name in the search results.
 | Element | Requirement |
 |---|---|
 | Caption panel | `dir="auto"` on the panel. A Hebrew caption must render right-aligned and RTL inside an LTR screen, with no mixed-direction mangling of embedded Latin words and hashtags |
-| Handle / author name | `<bdi>` around the handle. `@handle's TikTok` puts an LTR token in an English possessive; without `<bdi>` a Hebrew display name reorders the whole line |
+| Handle / author name | `<bdi>` around the handle. `@handle's TikTok video` puts an LTR token in an English possessive; without `<bdi>` a Hebrew display name reorders the whole line |
 | `{cityHint}` in body copy and in the scope chip | `<bdi>` |
 | Search result name and address | `<bdi>` + `line-clamp`, **never** `truncate` — a Hebrew name truncated LTR clips its identifying start. This is backlog §5.6, already fixed on saved rows; do not reintroduce it here |
 | Query echoed in `No places match "{query}"` | `<bdi>` around the query |
@@ -562,9 +578,12 @@ creator handle and name, `cityHint`, and every place name in the search results.
 - **No idioms, no puns, no wordplay.** Every string above is literal.
 - **No string assembled from fragments in a fixed word order.** `{cityHint}` appears inside one
   complete sentence, not as `"It points at " + city + ", but"` concatenated in the component.
-- **The English possessive `'s` is the one construction that does not survive.** `@handle's TikTok`
-  has no direct Hebrew form; it becomes "הטיקטוק של @handle". Flagged, not fixed — it is the
-  shipped label across the product and changing it is a cross-surface decision, not this screen's.
+- **The English possessive `'s` is the one construction that does not survive.**
+  `@handle's TikTok video` has no direct Hebrew form; it becomes "סרטון הטיקטוק של @handle". Flagged,
+  not fixed — it is the shipped label across the product and changing it is a cross-surface decision,
+  not this screen's. The 2026-08-31 noun→adjective pass **lengthened** the construction rather than
+  removing it, so this flag is now slightly stronger than when it was written; `@handle on TikTok`
+  (§4.3's width fallback) would close it, which is a second reason to keep that option live.
 - **`Know where this one is?`** — "this one" needs a noun in Hebrew ("הסרטון הזה"). Translatable, but
   the register shifts from casual to explicit. Acceptable.
 - **The uppercase tracked kicker does not exist in Hebrew.** Hebrew has no case, so
@@ -594,16 +613,16 @@ block this screen.**
 
 1. H1 (programmatic on arrival, `tabIndex={-1}`, not in the tab ring afterwards)
 2. ✕ close
-3. `@handle's TikTok ↗`
+3. `@handle's TikTok video ↗`
 4. Caption toggle (`aria-expanded`, `aria-controls`)
-5. Caption panel — `tabIndex={0}`, `role="group"`, `aria-label="The TikTok's caption"`. It is a
+5. Caption panel — `tabIndex={0}`, `role="group"`, `aria-label="The TikTok video's caption"`. It is a
    scrollable region; a scrollable region no keyboard user can reach is a WCAG 2.1.1 failure, and one
    extra tab stop is the correct price
 6. Search field
 7. Scope chip remove (case C only)
 8. `Search →`
 9. Results, in order — each a `<button>` inside an `<li>`
-10. `Try another TikTok`
+10. `Try another TikTok link`
 11. `Back to the map` (no-search variant only)
 
 In the `confirm` state, focus moves to the confirm card's heading; `Back to results` restores focus to
@@ -711,7 +730,7 @@ Not code — the seams, so nobody has to ask.
    that exist.
 5. **`route.ts`** gains the two additive response fields of §3.4 and the derivation. Additive only —
    existing clients ignoring them must keep working.
-6. **Strings**: `Try another TikTok` and `Back to the map` are read from
+6. **Strings**: `Try another TikTok link` and `Back to the map` are read from
    `IMPORT_ERROR_ACTION_LABEL`. The new strings in §5 need copy-deck ids from me before this doc is
    treated as the source of truth for them; until then this document is the source.
 7. **`NO_CAPTION`'s entry in `IMPORT_ERROR_COPY` is very likely dead.** The route returns
@@ -747,7 +766,7 @@ pass/fail.
 8. **No number, percentage, band, bar or count** describing our confidence, our hit rate, or how many
    candidates were discarded appears anywhere, including in the DOM and including in `aria-label`s.
 9. No sentence explains, excuses or defends the extraction hit rate.
-10. `Try another TikTok` returns to a paste screen with an **empty, focused** field — verified by
+10. `Try another TikTok link` returns to a paste screen with an **empty, focused** field — verified by
     reading the field's value, not by looking at it.
 
 **The offer**
@@ -761,7 +780,7 @@ pass/fail.
     the place's detail screen showing the post.
 15. A place added here carries **no** `extracted_reason`, `tags`, `why_go` or `dishes`.
 16. In the no-search variant, no field, no greyed control and no "coming soon" is rendered, and the
-    footer's primary is `Try another TikTok`.
+    footer's primary is `Try another TikTok link`.
 17. Every action on screen reaches a destination that works. There is no button whose label names
     something the build does not have.
 
@@ -806,8 +825,8 @@ pass/fail.
 
 | Document | Ratified | This spec | Why |
 |---|---|---|---|
-| `ux-architecture` §5.3 | `Open the TikTok` as a tertiary footer text link | It appears once, in the source row at the top | Two affordances for one action on a small screen is backlog §13's recorded "four labels for one action" defect. Top placement sits with its context and is the first thing the eye reaches |
-| `ux-architecture` §5.3 | Primary = `Try another TikTok` | Primary = the name search, where it exists; `Try another TikTok` demotes to secondary | §5.3's rule is "forward, not retry". A name field is *more* forward than starting over: it honours the intent the user arrived with instead of discarding it. **[JUDGEMENT]** |
+| `ux-architecture` §5.3 | `Open on TikTok` as a tertiary footer text link | It appears once, in the source row at the top | Two affordances for one action on a small screen is backlog §13's recorded "four labels for one action" defect. Top placement sits with its context and is the first thing the eye reaches. The label itself was `Open the TikTok` until the 2026-08-31 pass, which also collapsed the product's **three** names for this one action into `Open on TikTok` |
+| `ux-architecture` §5.3 | Primary = `Try another TikTok link` | Primary = the name search, where it exists; `Try another TikTok link` demotes to secondary | §5.3's rule is "forward, not retry". A name field is *more* forward than starting over: it honours the intent the user arrived with instead of discarding it. **[JUDGEMENT]** |
 | `execution-plan` L1-F4-T1 exit criterion | *"The word 'error' and the word 'caption' appear nowhere on screen"* | "error" holds. **"caption" is used.** | "Caption" is not implementation vocabulary — it is TikTok's own user-facing word, it is absent from `ux-architecture` §12's banned list, and it already ships on the review screen. Avoiding it forces vaguer copy ("the text", "what it said"), which is less honest and less concrete. **[JUDGEMENT] — flagged for overrule; if it stands, cases A and B need a rewrite and the review screen needs one too** |
 | `ux-architecture` §12.4 C70 | One sentence | Split into two; the second is C70's disclosure verbatim | The disclosure is the load-bearing half and reads stronger standing alone |
 | Live copy (`import-page-client.tsx:1616`) | `That happens a lot.` | Deleted | Two normalising sentences is one too many, and this is the one that edges toward defending the hit rate, which the owner ruling in `current-state` §0.2.4 forbids |
@@ -855,4 +874,5 @@ Each of these was considered and is **not** in the spec above.
 
 | Date | Change |
 |---|---|
-| 2026-08-30 | Created for L2-NOPLACES-1. Decided: four cases (A no caption / B nothing named / C area only / D routed away) with the B-vs-C distinction surfaced **as behaviour, not as a label** and only for the one drop reason that is reliable and changes what we can offer; the caption **expanded by default** because it is the only content on the screen and the evidence for our own claim; an **embedded** place-name search in the thumb zone as the primary action, never autofocused, **one lookup per submit**, linked to the source TikTok and carrying no caption-derived provenance; two variants so the screen ships today without S8 and gains it as a props change; `Try another TikTok` **clearing the link**, which today it does not; a single `Open the TikTok` affordance in the source row; and a full reduced-motion equivalent including a text pending state. Three product judgements flagged for overrule: the search as primary over `Try another TikTok`, the caption expanded by default, and the use of the word "caption" against `execution-plan` L1-F4-T1's exit criterion |
+| 2026-08-30 | Created for L2-NOPLACES-1. Decided: four cases (A no caption / B nothing named / C area only / D routed away) with the B-vs-C distinction surfaced **as behaviour, not as a label** and only for the one drop reason that is reliable and changes what we can offer; the caption **expanded by default** because it is the only content on the screen and the evidence for our own claim; an **embedded** place-name search in the thumb zone as the primary action, never autofocused, **one lookup per submit**, linked to the source TikTok and carrying no caption-derived provenance; two variants so the screen ships today without S8 and gains it as a props change; `Try another TikTok` **clearing the link**, which today it does not; a single `Open the TikTok` affordance in the source row; and a full reduced-motion equivalent including a text pending state. Three product judgements flagged for overrule: the search as primary over `Try another TikTok`, the caption expanded by default, and the use of the word "caption" against `execution-plan` L1-F4-T1's exit criterion. *(The two labels in this row are quoted as they stood on 2026-08-30. Both moved in the 2026-08-31 pass below — a change log records what was decided, so it is not rewritten when a string later changes.)* |
+| 2026-08-31 | **TikTok noun→adjective pass** ([`tiktok-copy-pass-2026-08-31.md`](tiktok-copy-pass-2026-08-31.md)), landed here because this spec is authoritative for its screen and a spec that does not move disagrees with the code from the first commit. Changed: §5.1 cases A and B (`Some TikToks…` → `Some TikTok videos…`); §5.2's provenance line (`…to this TikTok.` → `…to this TikTok video.`); §5.3's forward action (`Try another TikTok` → `Try another TikTok link`) and every reference to it in §4, §6, §8 and §11; §4.3's whole fallback chain (`@{authorHandle}'s TikTok` → `@{authorHandle}'s TikTok video`, and the two arms below it), with `@handle on TikTok` recorded as the **all-three-or-none** width fallback; §8.1's caption `aria-label`; and §12's deviation row, where the label is now `Open on TikTok` because the pass collapsed the product's three names for that one action into one. **Nothing else moved** — the H1s, the kickers, case C, the search block and every acceptance criterion are untouched, so §7.3's "its strings do not change" still binds against everything except the noun. Engineering prose in §1, §2, §4.3, §6.8 and §13 that discusses TikTok without quoting a shipped string was **deliberately left alone**: sweeping it would be churn, and the drift this pass exists to prevent is between a quoted string and the code |
