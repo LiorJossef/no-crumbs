@@ -386,3 +386,44 @@ conclusion ten minutes later*.
 
 **What worked**: every lane staged explicit pathspecs, so no lane's work ever entered another's
 commit. That single discipline is why six scope errors cost minutes rather than a day.
+
+---
+
+## 8. Iteration 3 — the owner's seven, and what each turned out to be
+
+> **Added 2026-08-31**, after the owner reviewed iteration 2 and asked for a platform-wide pass:
+> *review all the platform [UI] every page, transition, animations, routing, seamless experience,
+> more alived login page, buttons should have proper hover cursor behavior, the branding mascot
+> should be part of the platform, main page, add theme toggle (profile settings)… changing menu from
+> places to collections, should be self contained seamless no page refresh. Introduce more entities,
+> trips? be creative i expect at least 3-5 new entities.*
+
+**Five of the seven were real defects with causes, not preferences.**
+
+| asked | what it actually was |
+|---|---|
+| buttons need hover cursors | **Tailwind v4 removed the default `cursor: pointer` on `<button>`.** The word `cursor` appears once in its base stylesheet, in a comment. 53 distinct buttons showed an arrow; now 0. |
+| collections should not feel like a refresh | **Not a missing `<Link>` and not a hard navigation.** Sibling routes with no shared layout, so a tab tore the map down: 1 new WebGL context, 16 tiles and 3 style fetches per hop, and the loading scrim returning over a rebuilt basemap for ~1.1 s. Now **1 request, 0 tiles**. |
+| the mascot belongs on the main page | Closer to `#wordmark`'s **own** alternative than to what shipped — that document forbids a *logo bar* and offers the mascot instead. |
+| add a theme toggle | Discharged `facelift-plan.md` §4's *"a signed pass, or none"*; the asking **is** the signature. Three-state, because a binary toggle destroys the `system` preference with no way back. |
+| why does profile show a demo email | **The product was right; the harness was lying.** The stub accepts any credentials and returns its fixture user, so the owner signed in as themselves and was shown someone else. |
+| 3–5 new entities, trips? | **Trips recommended against** — a trip is a collection plus two dates, and dates buy a message needing a channel this project has refused. The strongest proposal is a **defect**: at a ~73% miss rate the modal outcome produces nothing durable. |
+
+### 8.1 Four more failures, and one is a new species
+
+- **A fix relayed without being measured, which would have shipped a worse defect.** `--tag-selected-hover` is a `color-mix()` declared on `:root`, and **a custom property's `var()` is substituted at computed-value time on the element that *declares* it** — so it resolves once against house mint and inherits down already resolved. A per-chip override does not re-resolve it. Hovering a pressed Café chip would have turned it **mint**. Caught by its own author checking a suggestion already handed over.
+- **A false trap.** A committed guard justified its selector by claiming the alternative *"would lose on specificity and fail silently."* It would not: `(0,1,1)` ties `:root`'s `(0,1,0)` on attributes and **wins** on element type. **A false trap is worse than no trap** — it is a stated reason that gets trusted — and it was inside the guard written to prevent exactly that. The lead then repeated it twice while acknowledging it.
+- **Evidence that is true and unreproducible.** A docblock cited a verification hash taken from an *instrumented* build. The claim was correct and the measurement real, and **anyone who checked it would have got a different number and concluded the claim was a lie.**
+- **A test asserting a proxy instead of an invariant.** It counted occurrences of an identifier and expected 3; it found 6, and the test was wrong — one use is a function *parameter* and correct. *The invariant is not "the identifier appears rarely", it is "no closure captures it."*
+
+### 8.2 The named category
+
+> **What I get wrong is cascade resolution rules stated from memory.**
+
+One lane, two instances, same shape, **and both took under a minute to settle in a browser.** That is worth more than either fix: not *"I make mistakes"* but a named class with a named cheap test. The lead's own equivalent — eleven coordination errors, every one *an assertion about the tree made from inference where reading would have settled it* — is the same discipline applied to a different surface.
+
+### 8.3 Still open
+
+- **The entity is committed and unverified.** No SQL from it has executed anywhere: no Docker daemon, no `psql` on the machine. Condition Q and criterion 1c are marked UNEXECUTED in the migration header, the test banner and the commit subject, so no future green CI run can be read as evidence they passed.
+- **`/collections/[id]` has never been exercised in a browser** — the harness's `collection_items` fixture is `[]`, so the route renders with no pins and there is nothing for a camera to frame.
+- **`light-dark()`** would remove the night-palette duplication entirely — measured working, all four cases from one declaration — at the price of rewriting 75 roles and breaking two parsing suites. Scoped follow-up with a named owner, not a smuggled refactor.
