@@ -30,8 +30,20 @@ export interface Tint {
   readonly hue: number;
   readonly saturation: number;
   readonly maxLightness?: number;
+  /**
+   * A *floor*, and it exists for the night table (W7-3).
+   *
+   * Keeping each colour's own lightness is what makes the daytime re-tint safe, and a cap is enough
+   * to turn near-white into paper. Night needs the other direction as well: Positron's label ink is
+   * dark slate (L ≈ 0.25) and on a dark ground it has to become near-white, which no cap can do.
+   *
+   * Applied after `maxLightness`, so a role may state a band. Unset everywhere in the light table,
+   * where the behaviour is unchanged by construction.
+   */
+  readonly minLightness?: number;
 }
 
+import type { Theme } from '@/lib/theme';
 import { POI_TIER_FLOOR } from './poi-style';
 
 export type BasemapRole =
@@ -109,10 +121,70 @@ export const TINTED_PAINT_PROPERTIES = [
 
 export type TintedPaintProperty = (typeof TINTED_PAINT_PROPERTIES)[number];
 
-/** A halo is the paper showing through, not ink, so it takes the land's tint whatever the layer. */
-export function tintFor(role: BasemapRole, property: TintedPaintProperty): Tint {
-  if (property === 'text-halo-color') return BASEMAP_TINTS.labelHalo;
-  return BASEMAP_TINTS[role];
+/**
+ * **The night table. `chrome is brand, basemap is geography` — so the map stays cool.**
+ *
+ * The daytime table pushes everything warm because the product's paper is warm. Night does the
+ * opposite on purpose: the chrome around the map is a warm near-black (`--background` is `#131312`)
+ * and the map inside it is cool slate. That contrast is the rule, not an accident of taste — a
+ * night map tinted with the brand's mint would make the whole screen one material, and the thing a
+ * basemap has to stay is *geography under the product* rather than more product.
+ *
+ * Two structural differences from the light table, both forced by the ground moving:
+ *
+ * 1. **Roads are lighter than the land**, which is the inversion the whole table turns on. In
+ *    daylight the land is paper and roads are near-white lines *on* it, separated by a casing. At
+ *    night the land is nearly black and the roads have to be the light thing, or the street grid —
+ *    the part of a basemap a person actually navigates by — disappears entirely.
+ * 2. **`label` states a floor rather than a cap.** Positron's place labels are dark slate ink; a
+ *    cap cannot lighten them and on this ground they would be invisible. `labelHalo` is the mirror
+ *    image: on paper the halo is the paper showing through, at night it is the ground, so it caps
+ *    hard instead.
+ *
+ * Water is darker than the land rather than lighter, which is the convention every night basemap
+ * follows and the opposite of the daytime table's vivid sky blue: at night the sea is the quiet
+ * part of the frame and the coastline reads as land ending, not as water beginning.
+ */
+export const BASEMAP_TINTS_NIGHT: Record<BasemapRole, Tint> = {
+  land: { hue: 220, saturation: 0.08, maxLightness: 0.135 },
+  // **Measured, and the first draft of this was wrong.** At `L ≤ 0.10` the sea came out `#0f1924`
+  // against a `#202225` land: ΔE 8.2, a coastline you cannot see. Contrast ratio hides this — it
+  // reported 1.11:1 and would report roughly that for any two near-blacks — so the number that
+  // decides this row is perceptual distance, not luminance. This product's very first screen is a
+  // coastline; a night map whose sea reads as more land is not a map.
+  water: { hue: 214, saturation: 0.60, maxLightness: 0.18 },
+  green: { hue: 140, saturation: 0.32, maxLightness: 0.19 },
+  // The one role that must end up *above* the land, and by enough to read at a glance.
+  roadFill: { hue: 220, saturation: 0.05, maxLightness: 0.32 },
+  roadCase: { hue: 220, saturation: 0.07, maxLightness: 0.21 },
+  building: { hue: 220, saturation: 0.08, maxLightness: 0.20 },
+  // A floor, not a cap: see `Tint.minLightness`.
+  label: { hue: 220, saturation: 0.05, minLightness: 0.86 },
+  labelHalo: { hue: 220, saturation: 0.10, maxLightness: 0.085 },
+};
+
+/** The table for one theme. The light one is the default so that every existing caller — including
+ *  `basemap-tint-layer.tsx`, which belongs to another lane — keeps its exact behaviour until it
+ *  chooses to pass a theme. */
+export function basemapTints(theme: Theme = 'light'): Record<BasemapRole, Tint> {
+  return theme === 'dark' ? BASEMAP_TINTS_NIGHT : BASEMAP_TINTS;
+}
+
+/**
+ * A halo is the paper showing through, not ink, so it takes the halo tint whatever the layer —
+ * and at night "the paper" is the ground, which is why the night table caps it near black.
+ *
+ * `theme` is optional and defaults to light for the reason `basemapTints` gives: the application
+ * site is in another lane's file and must not change behaviour until it opts in.
+ */
+export function tintFor(
+  role: BasemapRole,
+  property: TintedPaintProperty,
+  theme: Theme = 'light',
+): Tint {
+  const tints = basemapTints(theme);
+  if (property === 'text-halo-color') return tints.labelHalo;
+  return tints[role];
 }
 
 interface Rgba {
@@ -191,7 +263,8 @@ function hslToRgb(hue: number, saturation: number, lightness: number): [number, 
 export function tintColor(value: string, tint: Tint): string {
   const parsed = parseColor(value);
   if (!parsed) return value;
-  const lightness = Math.min(lightnessOf(parsed), tint.maxLightness ?? 1);
+  const capped = Math.min(lightnessOf(parsed), tint.maxLightness ?? 1);
+  const lightness = Math.max(capped, tint.minLightness ?? 0);
   const [r, g, b] = hslToRgb(tint.hue, tint.saturation, lightness);
   return parsed.a >= 1 ? `rgb(${r}, ${g}, ${b})` : `rgba(${r}, ${g}, ${b}, ${parsed.a})`;
 }
