@@ -95,8 +95,30 @@ export function sharedImportUrl(raw: string | string[] | undefined): string | nu
  *
  * Values are `append`ed rather than `set`, so a Chromium share that sent both `url` and `text`
  * comes back with both and `sharedImportUrl` picks between them on arrival, as it would have.
+ *
+ * ## Why the return type is a template literal and not `string`
+ *
+ * `typedRoutes` is on, so `redirect()` takes a route the router can prove exists, and a `string`
+ * assembled at runtime is exactly the shape that fails it. The documented escape is `as Route`
+ * (`node_modules/next/dist/docs/…/05-config/02-typescript.md`, *"For non-literal strings, you need
+ * to manually cast with `as Route`"*) — and it is not needed here, which is better than using it.
+ *
+ * Next's generated `RouteImpl` (`.next/dev/types/link.d.ts`) is a union that already contains
+ * `` `${StaticRoutes}${SearchOrHash}` ``, so **`/sign-in` followed by any query string is a valid
+ * route type on its own**. Declaring that shape instead of `string` keeps the check switched on
+ * rather than casting it away: if `/sign-in` is ever renamed or deleted it leaves `StaticRoutes`,
+ * this type stops being assignable, and the build fails — which is the whole point of the feature
+ * and the thing a cast would have silenced. The query string was never something typed routes
+ * validated, so nothing is lost.
+ *
+ * Note for anyone copying this: the repo's older idiom is `as '/map'`
+ * (`collections/page.tsx:38`, `bottom-nav.tsx`, `sign-in-client.tsx`). That asserts a specific
+ * literal the value is *not* — it always carries a query string — so it is strictly weaker than
+ * both this and `as Route`.
  */
-export function signedOutDestination(raw: string | string[] | undefined): string {
+export function signedOutDestination(
+  raw: string | string[] | undefined,
+): typeof SIGN_IN_PATH | `${typeof SIGN_IN_PATH}?${string}` {
   const values = raw === undefined ? [] : Array.isArray(raw) ? raw : [raw];
   const carried = new URLSearchParams();
   for (const value of values) carried.append(SHARED_URL_PARAM, value);
@@ -138,9 +160,9 @@ export default async function ImportPage({
     // **A share arriving signed-out keeps its link.** `signedOutDestination` puts it in a `?next=`
     // that `safeReturnPath` has already agreed to honour — see its header for why building a URL
     // here is safe, and `domain/auth/return-path.ts` for the allow-list that is the actual gate.
-    // The cast is the one `collections/page.tsx` and `bottom-nav.tsx` already make: `typedRoutes`
-    // types the route literal and has nothing to say about a query string on it.
-    redirect(signedOutDestination((await searchParams)[SHARED_URL_PARAM]) as '/sign-in');
+    // No cast: `signedOutDestination` returns a template literal type that `typedRoutes` accepts
+    // on its own, so `/sign-in` is still checked against the real route table. See its header.
+    redirect(signedOutDestination((await searchParams)[SHARED_URL_PARAM]));
   }
 
   // Awaited after the auth check, not before it. The query string is read on a signed-out
