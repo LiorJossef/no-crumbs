@@ -77,16 +77,69 @@
  * gold fence in `chrome-tokens.test.ts`. The fence exists whether or not the pigment ever does,
  * because the next author to reach for a brand colour will reach for those two.
  *
- * ## Weight
+ * ## Two weights, and the rule is one sentence
  *
- * Lucide's construction — a 24 unit box, `stroke-width: 2`, round caps and joins — because this
- * sits inline beside Lucide glyphs (`ArrowUpRight` on the source link, `Plus` on the add button)
- * and a mark that is visibly heavier than its neighbours reads as a logo dropped into a toolbar.
- * The triangle is filled rather than stroked: at `size-3.5` a 3-stroke outline closes up into a
- * blob, and the play shape is the half of the mark that survives at 14px.
+ * **`solid` marks the action; `outline` marks everything else.** There is exactly one role for the
+ * heavy weight — the product's primary call to action, `Add a TikTok link` — and every other
+ * surface takes the light one: the flow's kickers, the paste field's affordance, the three
+ * thumbnail fallbacks, the source link. A second weight earns its place by having a rule; without
+ * one it is two icons.
+ *
+ * **`outline`** is Lucide's construction — a 24 unit box, `stroke-width: 2`, round caps and joins —
+ * because it sits inline beside Lucide glyphs (`ArrowUpRight` on the source link, `ChevronDown` on
+ * the caption disclosure) and a mark visibly heavier than its neighbours reads as a logo dropped
+ * into a toolbar. Its triangle is filled rather than stroked: at `size-3.5` a 3-stroke outline
+ * closes into a blob, and the play shape is the half of the mark that survives at 14px.
+ *
+ * **`solid`** is the same geometry filled, with the triangle knocked *out* through `evenodd` so the
+ * button's own ground shows through it. Compared against the outline weight on a real
+ * `#A8ECE2` / `#123B35` button at 16, 20 and 24px: the outline disappears into 14px bold text at
+ * button scale, and 24 is heavier than the label it sits beside. **20px at `gap-2` is what ships.**
+ *
+ * ## What the CTA deliberately does not do
+ *
+ * It keeps the glyph **centred with the label**, not pinned left with the label centred. That
+ * second composition is the social-sign-in button shape — and it is the shape of the one button
+ * TikTok actually licenses, `Continue with TikTok`, measured in its own developer pack at 315×44.
+ * Borrowing a layout in order to evoke a platform whose mark we may not use is trade dress with
+ * deniability, which is a worse position than using the mark. The glyph, the weight and the
+ * placement are ours; the word is the permitted use.
  */
 
-export function PlatformMark({ className }: { className?: string }) {
+export function PlatformMark({
+  className,
+  variant = 'outline',
+}: {
+  className?: string;
+  /** `solid` is reserved for the primary call to action. See the weight rule above. */
+  variant?: 'outline' | 'solid';
+}) {
+  if (variant === 'solid') {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        className={className}
+        aria-hidden="true"
+        data-platform-mark="neutral"
+        data-platform-weight="solid"
+        fill="currentColor"
+      >
+        {/* One path, `evenodd`: the frame is the outer subpath and the play triangle is the inner
+            one, so the triangle is a hole rather than a second shape in a second colour. That is
+            what keeps this weight `currentColor`-only like the other, and it is why the triangle
+            reads mint on the mint CTA without anything here knowing the button's ground. */}
+        <path
+          fillRule="evenodd"
+          d="M9 2h6a3.5 3.5 0 0 1 3.5 3.5v13A3.5 3.5 0 0 1 15 22H9a3.5 3.5 0 0 1-3.5-3.5v-13A3.5 3.5 0 0 1 9 2Zm1.4 6.6v6.8L16 12l-5.6-3.4Z"
+        />
+      </svg>
+    );
+  }
+
+  return renderOutline(className);
+}
+
+function renderOutline(className: string | undefined) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -95,6 +148,7 @@ export function PlatformMark({ className }: { className?: string }) {
       // it, and a second announcement would be the mark making a claim of its own.
       aria-hidden="true"
       data-platform-mark="neutral"
+      data-platform-weight="outline"
       fill="none"
       stroke="currentColor"
       strokeWidth={2}

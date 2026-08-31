@@ -162,12 +162,12 @@ export function PlaceDesktopPanel({
         {libraryIsEmpty && <EmptyLibraryLine />}
         <Button
           type="button"
-          className="h-12 w-full gap-1.5 rounded-lg text-sm font-bold"
+          className="h-12 w-full gap-2 rounded-lg text-sm font-bold"
           onClick={() => onAddTikTok()}
         >
-          {/* The platform rather than `Plus`, matching the sheet's copy of this button — the
-              verb is already in the label and the glyph's one job is naming what gets added. */}
-          <PlatformMark className="size-4" />
+          {/* The sheet's copy of this button carries the argument for the solid weight, the 20px
+              size and the centred composition; the two must not drift. */}
+          <PlatformMark variant="solid" className="size-5" />
           Add a TikTok
         </Button>
         {/* Hidden while the library is empty: there is nothing to search, and an inert field is a

@@ -1381,13 +1381,19 @@ export function NoPlacesYet({ onAddTikTok }: { onAddTikTok: () => void }) {
       <EmptyLibraryLine />
       <Button
         type="button"
-        className="h-12 w-full gap-1.5 rounded-lg text-sm font-bold"
+        className="h-12 w-full gap-2 rounded-lg text-sm font-bold"
         onClick={() => onAddTikTok()}
       >
-        {/* The platform rather than `Plus`. The verb is already in the label, so the glyph's one
-            job is naming what gets added — and this button is a first-run user's first sight of
-            the thing the product is built around. */}
-        <PlatformMark className="size-4" />
+        {/* **The primary call to action, and the one place the solid weight is used.** The
+            outline weight disappears into 14px bold text at button scale; measured against it on a
+            real mint button at 16/20/24px, 20 at `gap-2` is what holds its own without outweighing
+            the label. `size-4`/`gap-1.5` was the first pass and reads as a toolbar icon.
+
+            **Centred with the label, not pinned left.** Left-glyph/centred-label is the
+            social-sign-in shape and is the shape of `Continue with TikTok`, the one button TikTok
+            actually licenses — borrowing it to evoke a platform whose mark we may not use is trade
+            dress with deniability. The composition is ours; the word is the permitted use. */}
+        <PlatformMark variant="solid" className="size-5" />
         Add a TikTok
       </Button>
     </div>

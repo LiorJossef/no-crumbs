@@ -94,6 +94,48 @@ describe('the mark itself', () => {
     const markup = renderToStaticMarkup(createElement(PlatformMark, {}));
     expect(markup).toMatch(/data-platform-mark="(?:neutral|tiktok)"/);
   });
+
+  it('draws the solid weight in currentColor too, with the triangle as a hole', () => {
+    /*
+     * The solid weight's whole trick is `fill-rule: evenodd` on one path: the frame is the outer
+     * subpath and the play triangle is the inner one, so the triangle is a *hole* rather than a
+     * second shape in a second colour. That is what keeps this weight `currentColor`-only — and
+     * what lets the triangle read mint on the mint CTA without the component knowing the ground.
+     *
+     * A second `fill` on a second path would be the obvious way to draw the same picture and would
+     * quietly reintroduce a pigment. This fails if anyone does it.
+     */
+    const markup = renderToStaticMarkup(
+      createElement(PlatformMark, { variant: 'solid', className: 'size-5' }),
+    );
+    expect(markup).toContain('fill-rule="evenodd"');
+    for (const value of markup.matchAll(/(?:fill|stroke)="([^"]*)"/g)) {
+      expect(value[1], markup).toMatch(/^(?:currentColor|none)$/);
+    }
+    expect(markup).not.toMatch(/#[0-9A-Fa-f]{3,8}/);
+    expect(markup).toContain('aria-hidden="true"');
+  });
+
+  it('keeps the solid weight for the primary call to action and nothing else', () => {
+    /*
+     * **The rule that earns the second weight**: `solid` marks the action, `outline` marks
+     * everything else. Two weights with no rule are two icons, and the way that erodes is one
+     * author reaching for the heavier one because it looks better on their screen.
+     *
+     * Two call sites, and they are the same button drawn twice — the mobile sheet's empty state
+     * and the desktop panel's header. Both are `Add a TikTok link`; nothing else in the product is
+     * the primary call to action.
+     */
+    const heavy = sources(['.tsx'])
+      .filter(({ path }) => path !== 'components/brand/platform-mark.tsx')
+      .filter(({ source }) => /variant=\{?['"]solid/.test(source))
+      .map(({ path }) => path)
+      .sort();
+    expect(heavy).toEqual([
+      'components/sheet/place-desktop-panel.tsx',
+      'components/sheet/place-sheet.tsx',
+    ]);
+  });
 });
 
 describe('one file, every surface', () => {
