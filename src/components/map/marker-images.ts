@@ -179,6 +179,33 @@ function drawPin(
    *    the uncategorised one drew a plain dot — so at 15px the set was fork / cup / coupe / dot,
    *    two of which are a small pale blob with a handle.
    *
+   * ## And the question that was actually asked: does it hold at 15px?
+   *
+   * **Yes, and the glyph would not have.** Measured off production pixels — the real map at
+   * 1440×900, each category's pin located by its exact body colour, its own footprint cropped and
+   * integrated. Two readings, because a 15px pin is not one thing:
+   *
+   *  - **Resolved** — the body colour, which is what the coloured ring shows at 15px, where the
+   *    head is still ~10px across. Worst pair **ΔE00 26.7**, deuteranopia **21.2**, protanopia 11.3.
+   *  - **Integrated** — the whole footprint averaged to a single blob, which is the worst case and
+   *    what peripheral vision gets. Body is 40.9% of the footprint, so this desaturates hard: worst
+   *    pair **ΔE00 17.8** light and 17.2 night, deuteranopia 5.0 and 2.8.
+   *
+   * The truth is nearer the first: 15px is well above the resolution limit and the ring reads as
+   * colour. Looked at, not only computed — the three categories rendered at 39 (as painted), 26, 20
+   * and 15px are unmistakably red, brown and violet at every step. The aperture stays visible to
+   * about 20px and closes into a solid blob at 15.
+   *
+   * **The decisive number is the one about the glyph, and it is arithmetic from `pinGeometry`.**
+   * `glyphBox` is 14 units of a 52.5-unit bitmap, so at a 15px pin the glyph is **4.0px**. A 4px
+   * fork is mud. The glyph only helps at the sizes where colour already works, and it is gone at
+   * the size where colour gets hard — so it was never the fallback it looked like. That is why the
+   * argument for keeping it does not survive its own test rather than merely losing to the palette.
+   *
+   * The product does not paint a 15px pin, incidentally: `pinGeometry` is 37 × 52.5 CSS px and the
+   * ink measures 31 × 39. 15px is the design system's own phrase for what the silhouette must
+   * survive, so it is what was measured.
+   *
    * The dashed ring for a guessed coordinate is untouched: that is a *different* signal, it is a
    * ring rather than a fill, and it stays the thing that says the model guessed this one.
    *
