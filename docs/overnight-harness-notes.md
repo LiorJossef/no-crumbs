@@ -613,3 +613,97 @@ wordmark. Sign-in carries the mark alone. §2 is not violated anywhere in this s
 - **Every signed-in screen is stub-backed.** Layout and copy are trustworthy; nothing about a query,
   a join or a policy is.
 - **Q2 remains unmeasurable in this environment**, unchanged from §5.
+
+## 14. W7-6 — contrast, focus, 44px, and the frame rate with the sheet open
+
+**Commit `fb69916`.** 28 page-runs — seven routes × two gate viewports × **both themes** — on the
+production path, stub-backed. Plus 12 frame-rate runs on `/map`. Tools:
+`tests/harness/audit-a11y.mjs` and `tests/harness/measure-sheet-fps.mjs`.
+
+`.dark` is exercised through Playwright's `colorScheme` rather than by seeding `localStorage`,
+because the provider's default preference is `system` — so this drives the same path a real user's
+device setting drives. All 28 runs confirmed the document resolved to the theme asked for; zero
+mismatches.
+
+### Contrast at AA — PASS, in both themes, for everything this method can score
+
+**0 failures. 162 scored passes. 4 exempt. 80 indeterminate.**
+
+The 80 are the honest limit and they are not spread thinly: **74 of them are the landing and
+sign-in screens**, whose text sits on the `--brand-wash` gradient. An element over a gradient has no
+single background colour, so a ratio for it would be invented. On landing only 4 of 14 text
+elements were scorable. **Those two screens are not covered by this result and need a pixel-level
+or manual check.** Everywhere else indeterminate runs 0–4.
+
+**The tool was wrong first, and the correction matters.** Its first run reported the `/import`
+`Add →` button at **2.33:1** across all four theme/viewport combinations — the loudest number in the
+output. It is `disabled={!canSubmit}` (`paste-screen.tsx:164`) with an empty field, which is the
+only state the harness can reach without typing, and **WCAG 1.4.3 exempts text in an inactive
+component outright**. Scoring it would have put a fabricated AA failure on the flagship flow's
+primary CTA. The checker now detects `[disabled]` and counts those separately.
+
+### 44px touch targets — 5 genuine misses
+
+The raw count is 74, which is **instances across 28 page-runs, not 74 controls.** Deduped:
+
+| Control | Size | Where | Verdict |
+|---|---|---|---|
+| Map floating controls — locate, zoom in, zoom out | **40 × 40** | `near-me-control.tsx:98`, `ui/map.tsx:868` (`size-10`) | **Miss.** The largest group, on every screen with a map |
+| `Close and return to map` ✕ | **36 × 36** | `/import` | **Miss** |
+| `Show your places` — the sheet's peek toggle | **350 × 20** | `/map` | **Miss**, and the matrix asks the handle to widen 34 → 44 |
+| `Who is in this collection` | **227 × 24** | `/collections/[id]` | **Miss** |
+| `New here? Create an account`, and the `Remember me` label row | **342 × 20** | `/sign-in` | **Miss** (20px-tall rows) |
+| `Create an account` inline link | 124.7 × 19 | landing | Under the project's bar; **WCAG 2.5.8 exempts an inline link inside a sentence** |
+| `CARTO`, `OpenStreetMap` | 40.5 × 14, 85.4 × 14 | map attribution | Vendor-styled, legally required. Not ours |
+
+The tool was wrong here too: it first flagged sign-in's `Remember me` **checkbox at 16 × 16**, which
+is its visual size and not its target — it sits inside `<label class="flex items-start gap-2">`, and
+a wrapping label *is* the hit area. A `<label>` now counts as an enclosing control, which turns that
+row into the honest 342 × 20 above.
+
+### Focus-visible — PASS, with one vendor exception
+
+**146 keyboard stops across the 28 runs. Zero failed to match `:focus-visible`.** So the direct
+question — did W3-1/W3-4's new press and hover states swallow a ring — is answered: **no.** Nothing
+gained a state that hides focus.
+
+One distinct element draws no indicator: a `<span>` inside the map's own chrome, keyboard-reachable,
+matching `:focus-visible`, with `outline-style: none` and `box-shadow: none`. It is **MapLibre's**,
+not ours — but the state matrix does ask for a *ring on the canvas focus proxy*, and there isn't
+one, so a keyboard user tabbing through `/map` passes through an invisible stop.
+
+### The map's frame rate with the sheet open — PASS on mobile, not applicable on desktop
+
+Three repeats per condition, same build, same process. The interaction is a pan and a zoom on the
+canvas, because a still map composites once and would measure nothing.
+
+| 390×844 | over 16.7 ms | over 33.3 ms |
+|---|---|---|
+| Sheet **closed** | 123 · 130 · 123 | 112 · 86 · 109 |
+| Sheet **open** | **67 · 73 · 61** | **44 · 51 · 51** |
+
+**With the sheet open the map costs roughly half as many over-budget frames.** That is not a
+paradox: the open sheet covers about half the viewport, so there is far less canvas left to repaint.
+`facelift-plan.md` finding 12's worry — six `backdrop-blur` surfaces over a live WebGL canvas — is
+real as a mechanism but is **dominated by canvas area**, and the sheet reduces that area faster than
+its blur adds cost. The criterion holds.
+
+**Desktop has no such condition, and the harness said so rather than inventing one.** At 1440×900
+the library is a persistent left panel with no peek toggle, so `Show your places` does not exist;
+all three `sheet-open` runs reported `opened=false`, the harness refused to report them as an open
+state and exited non-zero. Those rows measure the closed state and are excluded.
+
+Absolute numbers are bad in **both** conditions — 123 of 151 frames over 16.7 ms with the sheet
+closed — because this is software GL in headless Chromium. **The comparison is the result; the
+absolute values are an upper bound and nothing else.**
+
+### What W7-6 could not measure here
+
+- **The 60 fps-on-a-real-device half cannot be run.** No device, no GPU, no hardware compositor.
+  Software GL gives a ranking, not a frame rate. This half of the criterion is **unmeasured** and
+  nothing above should be read as covering it.
+- **Landing and sign-in contrast is largely unscored** (74 of the 80 indeterminate results), because
+  their text sits on a gradient.
+- Nothing here touches the import screens' contrast or targets: those need `--dev`, and dev-mode
+  captures are excluded from every claim in this repository.
+- Stub-backed throughout: real colour, real layout, fixture data.
