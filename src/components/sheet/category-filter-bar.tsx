@@ -291,7 +291,13 @@ function CategoryChip({
         className="size-2 shrink-0 rounded-full bg-(--chip-dot) group-aria-pressed/chip:bg-current"
       />
       <span className="whitespace-nowrap">{display.label}</span>
-      <span className="shrink-0 tabular-nums opacity-70">{count}</span>
+      {/* **`font-normal` rather than `opacity-70`, and the swap is the point.** The count has to
+                read as secondary to the label, and alpha is the wrong instrument for that: measured on
+                painted pixels this chip's count was **3.32:1** at 12px bold, and the frontier is brutal —
+                0.85 is still 4.45, only 0.88 clears the bar, and 0.88 is not visibly quieter than 1.0.
+                So opacity here can be *failing* or it can be *invisible*; it cannot be the hierarchy it
+                was reaching for. Weight can: 700 → 400 is a step you can see, at the full 6.19:1. */}
+      <span className="shrink-0 tabular-nums font-normal">{count}</span>
     </button>
   );
 }

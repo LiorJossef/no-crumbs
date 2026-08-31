@@ -862,8 +862,14 @@ export function PlaceRow({
             Absent rather than empty where there is no `savedAt`, which is every row rendered from
             a collection's shared place: those carry the place's facts and none of the viewer's own,
             so a saved time there would be a fact about somebody else. */}
+        {/* **No `/70`, and it was the whole of a measured AA failure.** `--muted-foreground` is
+            already the quiet step in the ramp; dimming it again spends the contrast budget twice
+            and lands under the bar in *both* themes — measured on painted pixels, 2.68:1 light and
+            4.03:1 dark at 11px. Undimmed it is 4.61–4.85 light and 5.81–7.35 dark on every ground
+            this row sits on. Quiet comes from the token and from `text-micro`; alpha is the one
+            hierarchy device that costs legibility, so it is not the one to reach for. */}
         {place.detail?.savedAt && (
-          <p className="text-micro font-medium text-muted-foreground/70">{savedElapsed}</p>
+          <p className="text-micro font-medium text-muted-foreground">{savedElapsed}</p>
         )}
       </div>
       {/* Trailing, aligned with the name, and only ever present while a real fix is held. `ms-auto`
@@ -1715,7 +1721,7 @@ export function PlaceDetail({
                 a quiet record of when, not something to act on. Absent — silently — when the row
                 carries no timestamp; `visitedOnLine` says why that is a real state. */}
             {visitedOn && (
-              <p className="text-center text-micro font-medium text-muted-foreground/70">
+              <p className="text-center text-micro font-medium text-muted-foreground">
                 {visitedOn}
               </p>
             )}
@@ -1873,7 +1879,7 @@ export function PlaceDetail({
               </p>
             )}
             {detail?.savedAt && (
-              <p className="text-micro font-medium text-muted-foreground/70">
+              <p className="text-micro font-medium text-muted-foreground">
                 {savedOnLine(detail.savedAt, new Date())}
               </p>
             )}
