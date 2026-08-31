@@ -34,22 +34,53 @@
  *
  * ## What is deliberately not here (§4.4)
  *
- * No illustration, no mascot, no card around the whole thing, no badge or pill, no retry of the
- * same URL, no count of anything, no sentence defending the hit rate. The word "error" does not
- * appear, and neither do "sorry", "oops", "failed" or "couldn't". Charter §6's banned aesthetic is
- * enforced by subtraction: type, one hairline, one caption panel.
+ * No illustration, no card around the whole thing, no badge or pill, no retry of the same URL, no
+ * count of anything, no sentence defending the hit rate. The word "error" does not appear, and
+ * neither do "sorry", "oops", "failed" or "couldn't". Charter §6's banned aesthetic is enforced by
+ * subtraction: type, one hairline, one caption panel.
  *
- * **This is a guard, not only a sentence, and that is why it is worth reading twice.**
- * `tests/unit/import/no-places-screen.test.ts` turns §4.4 into an assertion: this file may contain
- * no illustration, no badge, no pill, no wrapping card and no mascot. On 2026-08-31 an attempt to
- * place the design system's `nothingFound` face in the kicker row hit it, and the face was removed
- * rather than the assertion. `#moods` does bind that face to **"No places in this one"** — this
- * screen's headline word for word — so the two documents genuinely disagree; but the same design
- * system declines the identical move on the map's empty state (*"Putting the mascot here
- * contradicts a deliberate decision, so it is shown as a proposal, with the shipping copy
- * intact"*), and `#ship` lists this spec as "No change". A build does not settle that, and it
- * certainly does not settle it by editing the test. **If the owner rules for the face, the guard
- * is what moves first.**
+ * **§4.4 is a guard as well as a sentence**, and `tests/unit/import/no-places-screen.test.ts`
+ * still asserts every item above. What it no longer asserts is the mascot — see below.
+ *
+ * ## The face, and the four conditions it is here under (§4.4.1)
+ *
+ * §4.4 read *"No empty-state mascot"* until 2026-08-31. **Owner ruling, 2026-08-31**, recorded in
+ * `spec-no-places-found.md` §4.4.1 with both sides: the exclusion is lifted for the `nothingFound`
+ * face and for nothing else on that list.
+ *
+ * It reached the owner as a decision rather than landing as a diff because the ban was executable.
+ * A first attempt at this hit the assertion, the face came out rather than the assertion, and the
+ * question went up as *two documents disagree **and one of them is already a passing test***. The
+ * spec was amended first, then the guard, then this — three commits, because a weakened gate may
+ * never be a side effect of the change it permits.
+ *
+ * **The case against was not weak, and it is what shapes the four conditions.** The design system
+ * is not unanimous with itself: `#ship` lists this spec as "No change", and `#apps` — drawing the
+ * sibling case, the map's empty state — **declines the identical move**, showing it only as a
+ * proposal with the shipping copy intact. Its substantive worry is the one to keep in view: a
+ * mascot at the moment the user did not get what they wanted can read as *the product being
+ * charming at them about its own failure*, which is precisely what §4.4 existed to prevent.
+ *
+ *  1. **The neutral face, and only that.** Flat eyes, flat mouth — not a frown, not a droop, not a
+ *     shrug. `#moods`: *"a sad mascot turns the product's most common outcome into a small failure
+ *     eight times a week. Neutral says that happens, and moves on."* That is
+ *     `voice-and-vocabulary.md`'s never-apologetic rule drawn instead of written, on the screen the
+ *     rule exists for. **A face is the most persuasive channel on this screen** and therefore the
+ *     loudest possible way to break the thing the whole surface is built on: it must read *we did
+ *     not find places*, never *there are none*, and it must never perform sympathy. Rendered
+ *     against `beenThere`'s closed arcs at 48/56/64/84px and looked at: it reads deadpan, not
+ *     rueful, and the two moods stay distinguishable at every one of those sizes.
+ *  2. **Inline with the kicker, never centred above the headline.** §4.4's *reason* survives the
+ *     ruling and governs the placement: the screen is still type, one hairline, one field and one
+ *     caption panel. A small mascot on the kicker's own line leaves that sentence true; a large
+ *     centred one makes it false and is the empty-state illustration §4.4 is actually about — which
+ *     is also why the guard still asserts `Illustration`.
+ *  3. **48px.** `#apps` drops the face below 32px — *"two dot eyes turn to mud"* — and the outlined
+ *     artboard is 116 units to a crumb of 89, so a 48px box is 37px of ink: clear of that floor,
+ *     and small enough to sit on the kicker's line.
+ *  4. **No string changes.** §5's copy is untouched.
+ *
+ * **One element, so the ruling stays revisitable** — it was granted so it could be seen running.
  *
  * ## The variant this file is, and how finding 10 closes
  *
@@ -72,6 +103,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { ArrowUpRight, ChevronDown, Link2 } from 'lucide-react';
 
+import { CrumbMascot } from '@/components/brand/crumb-mascot';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { IMPORT_ERROR_ACTION_LABEL } from '@/ui/import/import-error-copy';
@@ -184,7 +216,20 @@ export function NoPlacesScreen({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex shrink-0 flex-col gap-1 pb-4">
-        <p className="text-micro font-bold tracking-[0.14em] text-brand uppercase">{kicker}</p>
+        {/*
+          The kicker row. `gap-2.5` and **no margin utility on the mascot** — §11.21 bans bare
+          directional utilities on this screen because the caption can be Hebrew, and the first
+          attempt at this carried `-ml-1`, which would have nudged the wrong way in RTL. The guard
+          caught it; the ruling that admitted the face did not license the bug.
+
+          `aria-hidden`, with no label: the headline and the body sentence already say what
+          happened, and they are what the focus move announces (§8.2). A face is not evidence and
+          must not be read out as a second claim about the caption.
+        */}
+        <div className="flex items-center gap-2.5">
+          <CrumbMascot mood="nothingFound" className="size-12 shrink-0" />
+          <p className="text-micro font-bold tracking-[0.14em] text-brand uppercase">{kicker}</p>
+        </div>
         <h1
           id={headingId}
           ref={headingRef}
