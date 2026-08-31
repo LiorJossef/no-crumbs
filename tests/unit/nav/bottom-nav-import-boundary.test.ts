@@ -106,14 +106,36 @@ describe('bottom-nav.tsx keeps its two heavy children off the first paint', () =
 
   it('is a bundle-weight boundary and nothing more: the static graph is tiny', () => {
     const { reached } = walk(ENTRY, false);
-    // Three modules that ship code: itself, the metrics constant, and `lib/utils`. Anything larger
-    // means somebody hung real work off the bar — and `place-sheet.tsx` imports this file for one
-    // number, so whatever lands here lands there too.
+    // Four modules that ship code: itself, the metrics constant, `lib/utils`, and `lib/interaction`.
+    // Anything larger means somebody hung real work off the bar — and `place-sheet.tsx` imports
+    // this file for one number, so whatever lands here lands there too.
+    //
+    // **`lib/interaction.ts` was added by W3-4** (the nav tab's press treatment) and it is in the
+    // same category as the other two rather than an erosion of this bound: it declares four
+    // template strings of Tailwind class names, imports nothing at all, and has no runtime
+    // behaviour. The list is still exact equality, so a fifth module of any kind fails here.
     expect([...reached].map(rel).sort()).toEqual([
       'src/components/nav/bottom-nav-metrics.ts',
       'src/components/nav/bottom-nav.tsx',
+      'src/lib/interaction.ts',
       'src/lib/utils.ts',
     ]);
+  });
+
+  it('and everything the bar reaches is a leaf, which is what "tiny" actually means', () => {
+    // The assertion above is a list of names, so it survives a module being swapped for a
+    // same-named one that later grows a dependency tree. This is the property that list is a proxy
+    // for, measured rather than trusted: every module the bar reaches is an internal leaf, so the
+    // graph cannot deepen without the name list also changing.
+    //
+    // Added when `lib/interaction.ts` joined the list, precisely so that widening the bound came
+    // with a stronger check rather than a weaker one.
+    const { reached } = walk(ENTRY, false);
+    for (const file of reached) {
+      if (file === ENTRY) continue;
+      expect(edgesOf(file).static.map((spec) => resolveSpec(spec, file)).filter(Boolean), rel(file))
+        .toEqual([]);
+    }
   });
 });
 

@@ -62,6 +62,7 @@ import { Library, Loader2, Map as MapIcon, Plus, UserRound } from 'lucide-react'
 
 import type { MapPlace } from '@/components/map/types';
 import { cn } from '@/lib/utils';
+import { PRESS_CHIP } from '@/lib/interaction';
 import { BOTTOM_NAV_HEIGHT_PX } from './bottom-nav-metrics';
 
 /**
@@ -224,7 +225,7 @@ export function BottomNav({ onAdd, places = [] }: BottomNavProps) {
             should not sit in the control that says where you are. It also puts the one
             destructive-ish tap — the one that opens a full-screen takeover — a deliberate distance
             from the two that merely navigate. */}
-        <div className="pointer-events-auto flex min-w-0 flex-1 items-center gap-1 rounded-full border border-border/70 bg-card/90 p-1.5 shadow-[var(--shadow-elevated)] backdrop-blur-md">
+        <div className="pointer-events-auto flex min-w-0 flex-1 items-center gap-1 rounded-full border border-border/70 bg-card/90 p-1.5 shadow-sheet backdrop-blur-md">
           {/* A `<Link>` to the route you are already on, rather than a disabled control. It is
               the cheapest correct answer for a two-destination bar: the browser handles the no-op,
               the control keeps its accessible name and its focus behaviour, and nothing has to
@@ -270,18 +271,24 @@ function NavTab({
   label: string;
   current: NavCurrent;
 }) {
-  const active = current !== false;
-
   return (
     <Link
       href={href}
       {...(current === false ? {} : { 'aria-current': current })}
       className={cn(
-        'flex h-11 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-full px-2 font-medium transition-colors',
+        'flex h-11 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-full px-2 font-medium motion-safe:transition-colors',
         'focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-        active
-          ? 'bg-muted text-foreground'
-          : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+        // Rest and hover unconditionally; the on state as a variant over the attribute that is
+        // already on the element (rule 6a — state comes from the DOM, never from a class string
+        // assembled by a ternary). `aria-[current]` matches on the attribute's *presence* rather
+        // than on a value, because this component passes `'page'` for the route you are on and
+        // `'true'` for a section within it, and both mean on. A ternary here could render a tab
+        // looking selected while telling a screen reader it is not; this shape cannot.
+        'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+        'aria-[current]:bg-muted aria-[current]:text-foreground',
+        // The matrix's press for a nav tab is the chip's 5%: a 44px target with no fill of its own
+        // and, on a phone, no hover and no focus-visible to confirm the tap landed.
+        PRESS_CHIP,
       )}
     >
       <Icon className="size-4 shrink-0" aria-hidden />
@@ -290,7 +297,7 @@ function NavTab({
           a media query in JavaScript — `map-page-client.tsx` forbids the latter outright. The
           threshold still holds at three tabs: `Collections` at 11 px measures ~63 px against 73 px
           of content width at 375 and ~57 px at 320, which is where it would start to truncate. */}
-      <span className="max-w-full truncate text-[11px] leading-none max-[359px]:sr-only">
+      <span className="max-w-full truncate text-micro leading-none max-[359px]:sr-only">
         {label}
       </span>
     </Link>
@@ -311,7 +318,7 @@ function AddButton({ onAdd }: { onAdd: () => void }) {
   // `size-14`, taller than the 44 px tabs beside it, because it is its own surface rather than a
   // control inside one — it has to read as a peer of the pill, not as a chip that escaped it.
   const className =
-    'pointer-events-auto flex size-14 shrink-0 items-center justify-center rounded-full border border-border/70 bg-primary text-primary-foreground shadow-[var(--shadow-elevated)] backdrop-blur-md transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
+    'pointer-events-auto flex size-14 shrink-0 items-center justify-center rounded-full border border-border/70 bg-primary text-primary-foreground shadow-sheet backdrop-blur-md transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
 
   return (
     <button type="button" onClick={onAdd} aria-label={ADD_LABEL} className={className}>
@@ -387,13 +394,13 @@ function CreateMenuPending() {
   return (
     <div className="fixed inset-0 z-50 flex items-end">
       <div className="absolute inset-0 bg-black/40" aria-hidden />
-      <div className="relative w-full rounded-t-2xl border-t border-border/70 bg-card pt-2.5 pb-[calc(env(safe-area-inset-bottom)+2rem)] shadow-[var(--shadow-elevated)]">
+      <div className="relative w-full rounded-t-2xl border-t border-border/70 bg-card pt-2.5 pb-[calc(env(safe-area-inset-bottom)+2rem)] shadow-sheet">
         <span className="mx-auto block h-1 w-9 rounded-full bg-border" aria-hidden />
         <p
           role="status"
           className="flex items-center justify-center gap-2 pt-6 text-sm font-medium text-muted-foreground"
         >
-          <Loader2 className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />
+          <Loader2 className="size-4 motion-safe:animate-spin" aria-hidden />
           Opening…
         </p>
       </div>
@@ -414,7 +421,7 @@ function ImportPending() {
       style={{ background: 'var(--brand-wash)' }}
     >
       <Loader2
-        className="size-5 animate-spin text-brand motion-reduce:animate-none"
+        className="size-5 motion-safe:animate-spin text-brand"
         aria-hidden
       />
       <p role="status" className="text-sm font-medium text-muted-foreground">

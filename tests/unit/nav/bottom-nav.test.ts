@@ -65,3 +65,43 @@ describe('the ＋ means one thing on every tab', () => {
     expect(markup).not.toContain('Add a TikTok');
   });
 });
+
+/**
+ * The tab's *appearance* now comes from the same attribute the assertions above check, rather than
+ * from a class string picked by a ternary beside it (`facelift-plan.md` §3a rule 2, run rule 6a).
+ *
+ * That is worth its own block because the two used to be independent: `active` decided the classes
+ * and `current` decided the attribute, and nothing made them agree. A tab could render selected
+ * while telling a screen reader it was not — the defect this file exists to catch, arriving through
+ * the one door it was not watching.
+ */
+describe('BottomNav — the on state is the attribute, not a second variable', () => {
+  it('carries both arms as variants rather than a chosen string', () => {
+    const map = tab(markupAt('/map'), 'Map');
+    expect(map).toContain('aria-[current]:bg-muted');
+    expect(map).toContain('aria-[current]:text-foreground');
+    // The resting arm is unconditional, so it ships on every tab including the current one.
+    expect(map).toContain('text-muted-foreground');
+  });
+
+  it('renders the identical class string whether or not the tab is current', () => {
+    // The proof that no ternary survives: only the attribute differs between the two.
+    const onMap = tab(markupAt('/map'), 'Map');
+    const offMap = tab(markupAt('/profile'), 'Map');
+    const classOf = (html: string) => /class="([^"]*)"/.exec(html)?.[1];
+    expect(classOf(onMap)).toBe(classOf(offMap));
+  });
+
+  it('matches on the attribute rather than on one of its values', () => {
+    // This component passes `'page'` for the route you are on and `'true'` for a section within
+    // it. Both mean on, so an `aria-[current=page]` variant would leave the collections *detail*
+    // tab looking unselected while announcing itself as current.
+    const detail = tab(markupAt('/collections/abc'), 'Collections');
+    expect(detail).toContain('aria-current="true"');
+    expect(detail).toContain('aria-[current]:bg-muted');
+  });
+
+  it('acknowledges a press, behind motion-safe', () => {
+    expect(tab(markupAt('/map'), 'Map')).toContain('motion-safe:active:scale-95');
+  });
+});
