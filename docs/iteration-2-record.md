@@ -279,6 +279,16 @@ hollow rings, and a stopped spinner is a fourth 16px hollow ring with pieces mis
 its own idle glyph, which is a circle with ticks, it reads as that glyph rendered badly rather than
 as a different state. The thing it is confusable with is one tap away on the same button.
 
+**Check the specification at `HEAD`, not at the commit somebody cited.** `git show <cited-commit>:<file>`
+answers a question about the past. `git show HEAD:<file>` answers *"what does this specify"*. One
+character apart, and a lane that was deliberately verifying rather than trusting still got the wrong
+one: a message cited the commit that struck a spec row, the row was **un-struck twenty minutes
+later**, and acting on the cited snapshot cost a commit and its revert.
+
+**Citing a commit in an instruction is therefore a hazard, not a courtesy.** A SHA is the right way to
+name evidence — a measurement is *about* a commit — and the wrong way to name a rule, because a rule
+is only ever the current one. Name the file for a rule; name the SHA for a number.
+
 **A clean number with its limits stated beside it is worth more than a clean number.** *0 failures
 at `214bb0f`* is a statement about 376 scored strings — not about the 78 rows below the fold, the 12
 occluded, or the six that were **not measured rather than passed**.
