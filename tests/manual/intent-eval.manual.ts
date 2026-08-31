@@ -30,6 +30,17 @@ const EXPECTED: Record<string, 'place_recommendation' | 'place_question' | 'not_
   emshelx: 'place_question',                     // name deliberately withheld
 };
 
+/** The committed probe rows in `oembed-set1-raw.json`: a request envelope wrapping TikTok's own
+ *  oEmbed payload. Only the two fields this harness reads are modelled — the file carries timing
+ *  and header diagnostics besides, and typing those would be inventing a contract for data we
+ *  only ever read two keys out of. */
+interface OEmbedProbeRow {
+  readonly json?: {
+    readonly title?: string;
+    readonly author_unique_id?: string;
+  };
+}
+
 const ctx: OpCtx = {
   signal: new AbortController().signal,
   importId: null,
@@ -38,7 +49,9 @@ const ctx: OpCtx = {
 
 describe('E2-T3-EVAL — postIntent accuracy and end-to-end yield', () => {
   it('runs the real extractor and resolver over the 16 committed captions', async () => {
-  const raw = JSON.parse(readFileSync('docs/evidence/tiktok/oembed-set1-raw.json', 'utf8')) as any[];
+  const raw = JSON.parse(
+    readFileSync('docs/evidence/tiktok/oembed-set1-raw.json', 'utf8'),
+  ) as readonly OEmbedProbeRow[];
   const extractor = createPlaceExtractor(process.env as never);
   const db = serviceRoleClient();
   const resolver = createPlaceResolver(placeResolverEnv(), db);
@@ -53,8 +66,8 @@ describe('E2-T3-EVAL — postIntent accuracy and end-to-end yield', () => {
   const rows: string[] = [];
 
   for (const entry of raw) {
-    const caption: string | undefined = entry.json?.title;
-    const handle: string | undefined = entry.json?.author_unique_id;
+    const caption = entry.json?.title;
+    const handle = entry.json?.author_unique_id;
     if (caption === undefined || handle === undefined) continue;
     const expected = EXPECTED[handle];
     if (expected === undefined) { console.log(`  ?? no label for @${handle}`); continue; }
@@ -63,7 +76,7 @@ describe('E2-T3-EVAL — postIntent accuracy and end-to-end yield', () => {
     const detail: string[] = [];
     try {
       const r = await extractor.extract([{ kind: 'caption', text: caption, origin: 'tiktok-oembed-title' }], ctx);
-      got = (r as any).postIntent ?? null;
+      got = r.postIntent;
       cands = r.candidates.length;
       for (const c of r.candidates) {
         lookups += 1;
