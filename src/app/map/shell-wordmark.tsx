@@ -214,15 +214,33 @@ export function ShellWordmark() {
        * which this is not.
        *
        * `mood="idle"` is a claim, not a default — `#moods` binds it to *"header, app icon,
-       * resting"*, and this is the header. `animation` is deliberately absent: the chip already
-       * fades in on the entrance's fifth beat, and `#motion` is explicit that a loop in a corner
-       * *"stops being an event and becomes wallpaper"*. A bobbing mascot over a map the user is
-       * reading is the wallpaper case exactly.
+       * resting"*, and this is the header.
+       *
+       * **`animation="stir"`, and it is the only one of the seven allowed on this surface.** The
+       * owner asked for the mascot to be alive rather than a logo; §3a's rule on a data surface is
+       * that a thing which moves is a thing which changed. Those reconcile because the map's motion
+       * vocabulary is exactly two gestures — `icon-opacity` for the staggered landing fade and
+       * `icon-translate: [0,-3]` for the lift on one selected pin — and **`icon-rotate` appears
+       * nowhere in `components/map/`**. The stir rotates, so it cannot be confused with anything
+       * this map says. Bob would say *selected* on a loop; a halo pulse would say *landing*.
+       *
+       * `#motion`'s *"a loop in a corner stops being an event and becomes wallpaper"* is answered
+       * by the cycle rather than by abstention: 17 s, a measured **85.6%** of it the rest pose, two
+       * stirs at unequal gaps of 7.8 s and 6.7 s. Wallpaper is a loop that is mostly motion.
+       *
+       * **It is visible, which is the thing rotation could easily not have been.** The silhouette
+       * is a circle to within half a pixel at this size, so rotating it is nearly a no-op *for the
+       * outline* — what moves is the face, the crust and the catchlight. Measured on interior
+       * pixels only (the rim eroded 2px, because a near-circular outline reshuffling its own
+       * antialiasing is not movement anyone perceives): the 4.2° extreme changes **25.7%** of the
+       * mark's interior at 32px/1× with a mean channel delta of 49, and holds 21–26% at every size
+       * and device pixel ratio tested. `map-mascot-motion.test.ts`
+       * asserts both halves — the gesture, and the premise that the map never rotates a pin.
        *
        * No `label`, so it stays `aria-hidden`: the name is spelled out beside it, and a screen
        * reader announcing a mascot and then the word it stands for reads the brand twice.
        */}
-      <CrumbMascot mood="idle" construction="outlined" className="size-8 shrink-0" />
+      <CrumbMascot mood="idle" construction="outlined" animation="stir" className="size-8 shrink-0" />
       <span
         className="font-display text-base font-black tracking-tight text-foreground"
         style={DISPLAY_WORDMARK_AXES}

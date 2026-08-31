@@ -126,6 +126,15 @@ export const MASCOT_TRAIL = ['#E0A845', '#E8B457', '#EFBE64'] as const;
  * request/response with no percentage, so an animation that fills, counts down or completes would
  * be a lie told sixty times a day."*
  *
+ *  - `stir` — **the idle state, added 2026-08-31 on the owner's *"it should be alive! not just a
+ *    logo"*.** A 17s cycle, a measured 85.6% of it rest pose, two dissimilar stirs at unequal
+ *    gaps of 7.8s and 6.7s. It
+ *    is the only one of these licensed on the map, and the licence is a fact rather than a
+ *    judgement: it rotates, and rotation is the one gesture the data surface has never used —
+ *    `icon-rotate` appears nowhere in `components/map/`, whose whole motion vocabulary is
+ *    `icon-opacity` (the landing fade) and `icon-translate: [0,-3]` (the selected pin's lift). Bob
+ *    would say *selected* on a loop and a halo pulse would say *landing*; a rotation says nothing
+ *    that surface has ever said. `globals.css` carries the argument at the keyframe.
  *  - `bob` — the workhorse. Squash-and-stretch on a 1.15s loop, anywhere a spinner would have gone.
  *  - `wobble` — **the import wait.** Calmer, slower, no vertical travel: *"seven to thirty-four
  *    seconds is a long time to watch something bounce. Wobble reads as patient; Bob reads as
@@ -149,7 +158,7 @@ export const MASCOT_TRAIL = ['#E0A845', '#E8B457', '#EFBE64'] as const;
  * `spark` is absent for a different reason: it is not one of the seven. It is the `found` mood's
  * own decoration and rides with that mood rather than being chosen.
  */
-export type CrumbAnimation = 'none' | 'bob' | 'wobble' | 'scan' | 'land' | 'halo';
+export type CrumbAnimation = 'none' | 'stir' | 'bob' | 'wobble' | 'scan' | 'land' | 'halo';
 
 /**
  * **Five constructions, one silhouette** — §`styles`. Contexts, not alternates: pick by the surface,

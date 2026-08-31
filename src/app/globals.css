@@ -1704,6 +1704,76 @@
   40% { opacity: 1; transform: translateY(-5px); }
 }
 
+/**
+ * **The idle stir — "a gentle movement from time to time", read literally.**
+ *
+ * Owner, 2026-08-31: *"it should have idle state, when it has a gentle movement from time to time.
+ * it should be alive! not just a logo."* The two halves of that are in tension and the tension is
+ * the design: **a loop that is mostly stillness is alive; a loop that is mostly motion is a
+ * spinner.** `facelift-plan.md` §3a bans a continuous pulse outright, and Bob at 1.15s is a
+ * continuous pulse by any honest reading — it is the workhorse for *"anywhere a spinner would have
+ * gone"*, which is precisely the thing this is not.
+ *
+ * So the cycle is **17 seconds and 85.6% of it is the rest pose.** Two stirs, deliberately
+ * dissimilar, at deliberately unequal offsets.
+ *
+ * **85.6 is measured, not computed.** The stops below put 88% of the timeline at `rotate(0deg)`;
+ * sampling the *computed* transform at 340 phases through a negative `animation-delay` gives 85.6%
+ * below a quarter-degree, because `ease-in-out` spills motion past the stop boundaries. Peak
+ * rotation lands at 4.14° rather than the 4.2° written here for the same reason. The arithmetic
+ * figure was in this comment first and is corrected rather than kept: a number a reader would take
+ * for a measurement should be one.
+ *
+ * | | when | for | what |
+ * |---|---|---|---|
+ * | first | 5.5–12.5% | 1.19 s | a quick double-rock, left then right then settling |
+ * | gap | | **7.57 s** | |
+ * | second | 57–67.5% | 1.79 s | one slower lean right, unwinding |
+ * | gap | | **6.55 s** | |
+ *
+ * **The two gaps differ by a second and the two stirs differ in kind**, which is what stops it
+ * reading metronomic. A single stir on a fixed period is a metronome the moment anybody notices
+ * the period, and somebody looking at a sign-in screen for thirty seconds will.
+ *
+ * ## Rotation, and this is the map's motion boundary rather than a style choice
+ *
+ * **Owner ruling 6 put the mascot on `/map`, which is a data surface**, and §3a's rule there is
+ * that a thing that moves is a thing that changed. The question *"can a moving mascot be told
+ * apart from a pin's own motion"* has a structural answer, read out of the map lane's code rather
+ * than judged:
+ *
+ *  - `icon-opacity` — the pin landing is a **staggered fade**, eight waves over a per-feature
+ *    `landOrder` (`place-marker-layer.tsx`, which records that a per-pin drop was impossible
+ *    because `icon-translate` is not data-driven);
+ *  - `icon-translate: [0, -3]` — a 3px lift on **exactly one selected pin** (`marker-style.ts`).
+ *
+ * That is the whole vocabulary, and **`icon-rotate` appears nowhere in `components/map/`**.
+ * Therefore:
+ *
+ *  - **Bob may not go on the map.** `translateY(-8px)` with squash *is* the selected-pin lift, only
+ *    larger — a mascot bobbing on a loop says *something is selected*, sixty times a minute.
+ *  - **Halo, and any opacity pulse, may not either.** Opacity *is* the pin-landing language.
+ *  - **Rotation is unambiguous by construction**, because it is the one gesture that surface has
+ *    never used.
+ *
+ * `map-mascot-motion.test.ts` holds that boundary by parsing this rule's keyframes: the map-facing
+ * animation may contain no `translate` and no `opacity`. Read the sentence above before assuming
+ * "no bob on the map" was timidity.
+ *
+ * `transform-origin` is the crumb's base, so it pivots like something standing rather than
+ * spinning about its middle.
+ */
+@keyframes crumb-stir {
+  0%, 5.5% { transform: rotate(0deg); }
+  7.2% { transform: rotate(-4.2deg); }
+  9.1% { transform: rotate(2.8deg); }
+  10.8% { transform: rotate(-1.1deg); }
+  12.5%, 57% { transform: rotate(0deg); }
+  60.5% { transform: rotate(3.4deg); }
+  64% { transform: rotate(1.2deg); }
+  67.5%, 100% { transform: rotate(0deg); }
+}
+
 /** The success beat's fade, and the *only* thing that survives `prefers-reduced-motion` below. */
 @keyframes crumb-appear {
   from { opacity: 0; }
@@ -1748,6 +1818,13 @@
   transform-origin: 86px 28px;
 }
 
+/* Stir — the idle state, 17s, a measured 85.6% of it still. See the keyframe: rotation only, because rotation
+   is the one gesture the data surface has never used, and this animation is licensed on `/map`. */
+.crumb-anim-stir .crumb-all {
+  animation: crumb-stir 17s ease-in-out infinite;
+  transform-origin: 50px 94px;
+}
+
 /* Halo — a slow pulse behind the body. Reads as a signal, not as progress. */
 .crumb-anim-halo .crumb-halo {
   animation: crumb-halo 1.9s ease-in-out infinite;
@@ -1786,6 +1863,7 @@
  */
 @media (prefers-reduced-motion: reduce) {
   .crumb-anim-bob .crumb-all,
+  .crumb-anim-stir .crumb-all,
   .crumb-anim-wobble .crumb-all,
   .crumb-anim-scan .crumb-eyes,
   .crumb-anim-halo .crumb-halo,

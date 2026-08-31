@@ -157,16 +157,33 @@ describe('the shell header wordmark', () => {
   });
 
   /**
-   * **No loop in the corner of a map.** `#motion` is explicit that an animation that repeats
-   * *"stops being an event and becomes wallpaper"*, and this chip sits over a surface the user is
-   * reading. The entrance's fifth beat already gives it the one movement it is entitled to — a
-   * fade — and that is asserted separately below.
+   * **Reopened by the owner on 2026-08-31, and the guard narrows rather than disappears.**
    *
-   * Written against `animation=` rather than against the six names, so a seventh cannot arrive here
-   * by being new.
+   * This asserted `not.toContain('animation=')` under the reasoning that `#motion`'s *"a loop in a
+   * corner stops being an event and becomes wallpaper"* forbids any motion here. The owner then
+   * asked for the opposite in terms — *"add animations... it should have idle state, when it has a
+   * gentle movement from time to time. it should be alive! not just a logo."*
+   *
+   * **The old assertion was right about wallpaper and wrong about what causes it.** Wallpaper is a
+   * loop that is mostly *motion*; the stir is a 17s cycle, a measured 85.6% rest pose, which is what
+   * *"from time to time"* asks for read literally. And a blanket ban was the wrong shape anyway:
+   * it would have permitted `animation="halo"` the day somebody deleted the string, because it
+   * knew nothing about **which** animation.
+   *
+   * So it is re-pointed at the rule that survives, and it is stricter than the one it replaces:
+   * **the only animation this chip may carry is the one whose gesture the data surface has never
+   * used.** The map animates `icon-opacity` (the landing fade) and `icon-translate: [0,-3]` (one
+   * selected pin's lift) and nothing else; `icon-rotate` appears nowhere in `components/map/`. Bob
+   * translates, Halo and Land change opacity, Wobble rotates but is bound to the import wait, Scan
+   * moves the eyes on a 1.5s loop. Only `stir` is licensed here.
+   *
+   * The gesture itself, and the premise it depends on, are `map-mascot-motion.test.ts`'s — that
+   * file asserts the keyframe contains no `translate` and no `opacity`, and that the map lane still
+   * never rotates a pin. This one asserts the *set*: exactly one animation, and which.
    */
-  it('gives the mascot no animation of its own', () => {
-    expect(WORDMARK_CODE).not.toContain('animation=');
+  it('carries only the animation licensed on a data surface', () => {
+    const used = [...WORDMARK_CODE.matchAll(/animation="([a-z]+)"/g)].map((m) => m[1]);
+    expect(used).toEqual(['stir']);
   });
 
   /**
