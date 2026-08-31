@@ -19,6 +19,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
+import { placePalette } from '@/ui/place/palette';
 import {
   POI_GROUP_COLORS,
   POI_GROUP_COLORS_NIGHT,
@@ -264,5 +265,41 @@ describe('the POI groups at night', () => {
     expect(poiColorExpression('dark')).toContain(POI_GROUP_COLORS_NIGHT.food);
     // The fallthrough is `civic` in both, and it is the last element.
     expect(poiColorExpression('dark').at(-1)).toBe(POI_GROUP_COLORS_NIGHT.civic);
+  });
+});
+
+/**
+ * The one measurement that couples the two halves of W7-3, and the reason `roadFill` is `0.29`.
+ *
+ * A night pin body is a *light* colour and a major road is the lightest thing on the basemap, so
+ * the worst case on this map is a pin sitting on a motorway. Neither the palette nor the basemap can
+ * see that on its own — the palette is measured against the land, the basemap against itself — so
+ * without this assertion the number nobody owns is the number that fails.
+ */
+describe('a pin on a major road, which is the worst case on the night map', () => {
+  it('clears the 3:1 a graphical boundary needs', () => {
+    const road = tintColor(POSITRON.roadFill, BASEMAP_TINTS_NIGHT.roadFill);
+    const contrast = (a: string, b: string) => {
+      const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p) as [number, number];
+      return (x + 0.05) / (y + 0.05);
+    };
+    const asRgb = (h: string) =>
+      `rgb(${parseInt(h.slice(1, 3), 16)}, ${parseInt(h.slice(3, 5), 16)}, ${parseInt(h.slice(5, 7), 16)})`;
+    const palette = placePalette('dark');
+    for (const [category, body] of Object.entries(palette.category)) {
+      expect(contrast(asRgb(body), road), `${category} pin on a major road`).toBeGreaterThan(3);
+    }
+  });
+
+  it('and the light bodies would not, which is why the palette had to move too', () => {
+    // 1.03:1 for café. A light-theme pin on a night motorway is not a dim pin, it is an absent one.
+    const road = tintColor(POSITRON.roadFill, BASEMAP_TINTS_NIGHT.roadFill);
+    const contrast = (a: string, b: string) => {
+      const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p) as [number, number];
+      return (x + 0.05) / (y + 0.05);
+    };
+    const asRgb = (h: string) =>
+      `rgb(${parseInt(h.slice(1, 3), 16)}, ${parseInt(h.slice(3, 5), 16)}, ${parseInt(h.slice(5, 7), 16)})`;
+    expect(contrast(asRgb(placePalette('light').category.cafe), road)).toBeLessThan(1.5);
   });
 });

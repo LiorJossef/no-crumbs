@@ -154,8 +154,21 @@ export const BASEMAP_TINTS_NIGHT: Record<BasemapRole, Tint> = {
   // coastline; a night map whose sea reads as more land is not a map.
   water: { hue: 214, saturation: 0.60, maxLightness: 0.18 },
   green: { hue: 140, saturation: 0.32, maxLightness: 0.19 },
-  // The one role that must end up *above* the land, and by enough to read at a glance.
-  roadFill: { hue: 220, saturation: 0.05, maxLightness: 0.32 },
+  // The one role that must end up *above* the land, and by enough to read at a glance — but not so
+  // far above it that a pin cannot sit on one.
+  //
+  // **`0.29` rather than `0.32`, and the number was chosen by the pin rather than by the road.** A
+  // night pin body is a light colour and a major road is the lightest thing on the basemap, so the
+  // worst case on this whole map is a pin sitting on a motorway. Measured across the three
+  // category bodies: at `0.32` the weakest is **2.70:1**, under the 3:1 that a meaningful graphical
+  // boundary needs; at `0.29` it is **3.03:1**. The cost is the street grid's own separation from
+  // the land, 1.98:1 → 1.76:1, which is still an unmistakable difference in value.
+  //
+  // Going further keeps helping the pin (3.42 at `0.26`) and keeps costing the grid (1.56), so this
+  // is the least the pin needs rather than the most the road can give — the saved places are the
+  // subject of this surface and the basemap is what they sit on, but a night map whose streets have
+  // faded into the ground is not a map either.
+  roadFill: { hue: 220, saturation: 0.05, maxLightness: 0.29 },
   roadCase: { hue: 220, saturation: 0.07, maxLightness: 0.21 },
   building: { hue: 220, saturation: 0.08, maxLightness: 0.20 },
   // A floor, not a cap: see `Tint.minLightness`.

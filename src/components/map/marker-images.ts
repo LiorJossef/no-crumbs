@@ -35,7 +35,7 @@ import {
   CRUMB_PIN_TAIL_PATH,
 } from '@/components/brand/crumb-path';
 
-import type { Theme } from '@/lib/theme';
+import { currentTheme, type Theme } from '@/lib/theme';
 import { placePalette, type PlacePalette } from '@/ui/place/palette';
 import { UNCATEGORISED_PIN, type PinKey } from './marker-style';
 import {
@@ -274,14 +274,21 @@ function drawPin(
  * Returns `[]` when the canvas cannot be obtained (jsdom, a headless context with no 2D backend)
  * so a caller can degrade to no icons instead of throwing during render.
  *
- * **`theme` defaults to light, so nothing changes until a caller opts in** —
- * `place-marker-layer.tsx` still calls this with one argument. That is deliberate rather than
- * timid: a pin is three colours and they have to move together. Flipping the ring to the night
- * ground while the body stayed a light-theme literal would draw a dark ring around a dark body on
- * a dark map, which is worse than the white ring it replaced. The day this takes a theme is the
- * day `marker-style.ts` has night bodies to give it.
+ * **`theme` defaults to the document's own theme**, so the existing caller —
+ * `place-marker-layer.tsx`, which passes one argument — gets night pins on a night map without
+ * being edited. It was `'light'` for one commit, while `marker-style.ts` was still held: a pin is
+ * three colours and they have to move together, and flipping the ring alone would have drawn a
+ * dark ring around a light-theme body on a dark map, which is worse than the white ring it
+ * replaced. Now that all three come from `placePalette`, the default can tell the truth.
+ *
+ * **The limit, stated: this resolves once, when the images are built.** These are rasterised
+ * bitmaps, so unlike a CSS-token'd node they cannot follow a theme after they are drawn — the same
+ * property `use-disc-theme.ts` exists for. The head script fixes the theme before first paint and
+ * no toggle ships (`facelift-plan.md` §4 decision 3), so within a session this is always right. The
+ * day a toggle exists, `place-marker-layer.tsx` has to rebuild its images on a theme change, and
+ * that is a one-line dependency rather than a redesign.
  */
-export function buildPinImages(pixelRatio: number, theme: Theme = 'light'): PinImage[] {
+export function buildPinImages(pixelRatio: number, theme: Theme = currentTheme()): PinImage[] {
   const palette = placePalette(theme);
   const images: PinImage[] = [];
 

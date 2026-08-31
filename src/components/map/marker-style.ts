@@ -30,7 +30,8 @@
 import { PRODUCT_CATEGORY_ORDER } from '@/domain/places/product-category';
 import type { ProductCategory } from '@/domain/places/product-category';
 import { CATEGORY_DISPLAY } from '@/ui/place/category-display';
-import { PIN_LABEL_HALO, PIN_LABEL_INK, UNCATEGORISED_COLOR } from '@/ui/place/palette';
+import { currentTheme, type Theme } from '@/lib/theme';
+import { placePalette, UNCATEGORISED_COLOR } from '@/ui/place/palette';
 import { PIN_BAND_MIN } from './zoom-bands';
 
 /**
@@ -73,6 +74,10 @@ const GLYPH_BY_PIN: Record<PinKey, GlyphName> = {
   [UNCATEGORISED_PIN]: 'dot',
 };
 
+/** `color` here is the light literal and is **no longer painted from**: `marker-images.ts` resolves
+ *  every pin colour through `placePalette(theme)` (W7-3), and nothing else reads `CATEGORY_STYLES`
+ *  for a colour at all. It stays because `CategoryStyle` is the shape `categoryDisplay` defines and
+ *  a caller may still want the light value; the glyph is what this table is actually for now. */
 const UNCATEGORISED_STYLE: CategoryStyle = {
   label: null,
   color: UNCATEGORISED_COLOR,
@@ -415,12 +420,16 @@ export function pinHighlightLayerLayout(textFont: readonly string[]): Record<str
  * here — §3a's rule is that the nine animations collapse **to the opacity change**, not to nothing,
  * so the dim stays in both arms and the pin still has to be findable.
  */
-export function pinHighlightLayerPaint(reducedMotion: boolean): Record<string, unknown> {
+export function pinHighlightLayerPaint(
+  reducedMotion: boolean,
+  theme: Theme = currentTheme(),
+): Record<string, unknown> {
+  const palette = placePalette(theme);
   return {
     'icon-translate': [0, -3],
     'icon-translate-transition': { duration: reducedMotion ? 0 : LINK_TRANSITION_MS, delay: 0 },
-    'text-color': PIN_LABEL_INK,
-    'text-halo-color': PIN_LABEL_HALO,
+    'text-color': palette.labelInk,
+    'text-halo-color': palette.labelHalo,
     'text-halo-width': 1.6,
   };
 }
@@ -640,13 +649,17 @@ export function pinLayerLayout(
   };
 }
 
-export function pinLayerPaint(): Record<string, unknown> {
+export function pinLayerPaint(theme: Theme = currentTheme()): Record<string, unknown> {
+  const palette = placePalette(theme);
   return {
     // `--foreground` and `--background`, by name from the palette module — a `text-color` is a
     // MapLibre paint value and `var(--foreground)` would not parse. See `palette.ts`'s header for
     // why the duplication is deliberate.
-    'text-color': PIN_LABEL_INK,
-    'text-halo-color': PIN_LABEL_HALO,
+    //
+    // At night these invert: the halo is the thing that separates a pin's name from the ground, so
+    // a white halo — correct on paper — becomes a bright ring around every label on a dark map.
+    'text-color': palette.labelInk,
+    'text-halo-color': palette.labelHalo,
     'text-halo-width': 1.6,
     // A place you have been to is the same pin, quieter — see `pinOpacityExpression`. Both are
     // per-feature paint properties, so a mark re-evaluates them on the next `setData` without
