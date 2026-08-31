@@ -105,3 +105,47 @@ describe('BottomNav — the on state is the attribute, not a second variable', (
     expect(tab(markupAt('/map'), 'Map')).toContain('motion-safe:active:scale-95');
   });
 });
+
+/**
+ * The ＋ FAB's press — W3-1's one miss, found by an independent verifier forcing `:active` across
+ * every visible pressable rather than by reading the diff.
+ *
+ * It is the single most-pressed control in the product and the entry point to the create flow, and
+ * it had `hover:` and `focus-visible:` and nothing else. On a phone neither of those fires, so the
+ * only confirmation a tap had landed was the sheet arriving a beat later — exactly the gap W3-1
+ * exists to close.
+ */
+describe('BottomNav — the ＋ acknowledges a press', () => {
+  const fab = (markup: string) =>
+    /<button[^>]*aria-label="[^"]*"[^>]*>(?:(?!<\/button>)[\s\S])*?lucide-plus[\s\S]*?<\/button>/.exec(
+      markup,
+    )?.[0] ?? '';
+
+  it('takes the primary button\'s press, not the chip\'s', () => {
+    // It is `bg-primary text-primary-foreground` rendered round — the `default` variant's own fill.
+    // The size argument agrees: the matrix gives icon buttons 5% because at 24–36px 1.5% is under
+    // half a pixel, and at 56px 1.5% is 1.1px on every edge.
+    const button = fab(markupAt('/map'));
+    expect(button).toContain('motion-safe:active:scale-98');
+    expect(button).not.toContain('motion-safe:active:scale-95');
+  });
+
+  it('drops its shadow one level rather than to nothing', () => {
+    // It floats over the map. A floating action button that lands flat on press reads as having
+    // been switched off rather than pushed — which is why this differs from `default`'s
+    // `active:shadow-none`.
+    const button = fab(markupAt('/map'));
+    expect(button).toContain('shadow-sheet');
+    expect(button).toContain('active:shadow-raised');
+    expect(button).not.toContain('active:shadow-none');
+  });
+
+  it('carries no un-prefixed transition, so reduced motion is not the only branch left', () => {
+    // `transition-colors` was superseded by `PRESS_BUTTON`'s `motion-safe:transition` for every
+    // pointer user, so it survived *only* in the reduced-motion branch — the same shape as the
+    // `transition-all` deleted from the button base, reached from the other direction.
+    const button = fab(markupAt('/map'));
+    expect(button).not.toMatch(/(?<!motion-safe:)transition-colors/);
+    expect(button).toContain('motion-safe:transition');
+  });
+});

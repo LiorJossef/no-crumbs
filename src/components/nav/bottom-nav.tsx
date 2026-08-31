@@ -62,7 +62,7 @@ import { Library, Loader2, Map as MapIcon, Plus, UserRound } from 'lucide-react'
 
 import type { MapPlace } from '@/components/map/types';
 import { cn } from '@/lib/utils';
-import { PRESS_CHIP } from '@/lib/interaction';
+import { PRESS_BUTTON, PRESS_CHIP } from '@/lib/interaction';
 import { BOTTOM_NAV_HEIGHT_PX } from './bottom-nav-metrics';
 
 /**
@@ -317,8 +317,35 @@ function NavTab({
 function AddButton({ onAdd }: { onAdd: () => void }) {
   // `size-14`, taller than the 44 px tabs beside it, because it is its own surface rather than a
   // control inside one — it has to read as a peer of the pill, not as a chip that escaped it.
-  const className =
-    'pointer-events-auto flex size-14 shrink-0 items-center justify-center rounded-full border border-border/70 bg-primary text-primary-foreground shadow-sheet backdrop-blur-md transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
+  //
+  // **`PRESS_BUTTON`, not `PRESS_CHIP`, and this was W3-1's one miss.** The tabs beside it got a
+  // press and this did not, which left the single most-pressed control in the product — the entry
+  // point to the whole create flow — with no acknowledgement at all. On a phone there is no hover
+  // and no focus-visible, so the only confirmation a tap had landed was the sheet arriving a beat
+  // later.
+  //
+  // It takes the *primary button's* row of the matrix rather than the icon button's, because that
+  // is what it is: `bg-primary text-primary-foreground`, the same fill the `default` variant has,
+  // rendered round. The size argument points the same way — the matrix gives icon buttons 5%
+  // because "at 24–36px a 1.5% squeeze is under half a pixel", and at 56px 1.5% is 1.1px of travel
+  // on every edge of a large circle, which is comfortably perceptible.
+  //
+  // **The shadow drops one level rather than to nothing**, which is the difference between this
+  // and the `default` variant. `default` goes `shadow-raised` → none because it sits on the page;
+  // this floats over the map, and a floating action button that lands flat on press reads as
+  // having been switched off rather than pushed. `shadow-sheet` → `shadow-raised` is the matrix's
+  // "drops a level" said literally.
+  //
+  // `transition-colors` is **deleted, not prefixed**. With `PRESS_BUTTON`'s
+  // `motion-safe:transition` in the string it is superseded for every pointer user, so it survived
+  // only in the reduced-motion branch — the same shape as the `transition-all` removed from the
+  // button base in `979ebcc`, arrived at from the other direction. `motion-safe:transition`
+  // carries background-color anyway, so nothing is lost.
+  const className = cn(
+    'pointer-events-auto flex size-14 shrink-0 items-center justify-center rounded-full border border-border/70 bg-primary text-primary-foreground shadow-sheet backdrop-blur-md hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+    'active:shadow-raised',
+    PRESS_BUTTON,
+  );
 
   return (
     <button type="button" onClick={onAdd} aria-label={ADD_LABEL} className={className}>
