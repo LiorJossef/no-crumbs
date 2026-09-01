@@ -138,8 +138,16 @@ end $$;
 -- P1. THE PROFILES THAT PREDATE THIS MIGRATION
 -- ═══════════════════════════════════════════════════════════════════════════════════════════════
 -- A lower bound, not an equality: this file is designed to run against a database with real data.
--- Eight nameless profiles were MEASURED locally on 2026-08-31; the assertion is that none of them
--- acquired a name row and that they are all still readable.
+--
+-- **The bound is non-vacuity, not a census.** Its job is to stop the assertion below it passing on
+-- an empty set — zero pre-0035 profiles would mean zero of them acquired a name, which is true and
+-- proves nothing. Eight were measured locally on 2026-08-31; on 2026-09-01 the orchestrator deleted
+-- twelve probe accounts left behind by earlier lanes, `profiles` cascades from `auth.users`, and the
+-- count became two. **The measurement was destroyed, not the property.**
+--
+-- So the bound is now 1 and says why. Writing a measured count into an assertion makes the number
+-- load-bearing when only its being non-zero ever was — the same shape as `0008`'s whole-table
+-- counts, which fail on any database anyone has used.
 do $$
 declare n_old integer; n_named integer;
 begin
@@ -151,8 +159,8 @@ begin
   select count(*) into n_named from public.profiles p
     join public.profile_names pn on pn.profile_id = p.id
    where p.created_at < '2026-08-31 21:00:00+00';
-  if n_old < 8 then
-    raise exception 'FAIL P1a: expected at least the 8 measured pre-0035 profiles, found %', n_old;
+  if n_old < 1 then
+    raise exception 'FAIL P1a: no pre-0035 profiles at all, so the name-backfill assertion below would be vacuous';
   end if;
   if n_named <> 0 then
     raise exception 'FAIL P1a: % pre-existing profile(s) acquired a name row out of nowhere', n_named;
