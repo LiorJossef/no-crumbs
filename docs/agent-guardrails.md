@@ -420,6 +420,27 @@ rules stop meaning what they say. These six restore the meaning; they do not add
     **Attribute it before you act on it** — `git status` carries no author, and under concurrency the
     tree holds several agents' half-finished work (rule 31).
 
+31. **A write scope is not a unit of work. A feature is not disjoint.** Five review rounds each
+    produced the same finding wearing different clothes — the re-point function, tags, `why_go`,
+    "four halves shipped", `0037` — and every one reduces to: **the migration landed, the guard went
+    green, and no human could do the thing.**
+
+    The cause is not carelessness and it is not a missing test. It is the unit of dispatch. Waves are
+    made safe by pairwise-disjoint write scopes (rule 28 and §8), and **a feature is a migration plus
+    a server action plus a component plus a string.** So the rule that lets four lanes run at once
+    *guarantees* each of them ships a slice of one feature. Concurrency was bought with completeness,
+    and nothing in the process noticed because every lane's own report was true.
+
+    **So dispatch vertical slices, and buy concurrency by running several of them rather than by
+    splitting one into layers.** One lane owns the migration *and* the action *and* the control *and*
+    the proof — and its acceptance criterion is **a person doing the thing in a browser**, not a
+    green suite. A slice is still disjoint from another slice; it is only *layers* of one feature
+    that cannot be.
+
+    Where a slice genuinely cannot be one lane — a security veto, an exclusive resource, a review
+    that must be independent — say so and name who joins the halves, because "the other half is
+    someone's next task" is how four of them shipped in a week.
+
 ## 9. What never runs concurrently
 
 Five classes. `security-privacy` holds a veto on the first four and it is not overridable by the
