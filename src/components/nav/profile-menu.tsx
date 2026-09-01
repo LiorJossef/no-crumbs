@@ -60,7 +60,7 @@
  * the second reason it was not folded into this component.
  */
 
-import { useState, useTransition } from 'react';
+import { useLayoutEffect, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { Popover } from '@base-ui/react/popover';
 import { ChevronRight, LogOut, Settings, UserRound } from 'lucide-react';
@@ -181,19 +181,30 @@ export function ProfileMenu({
   }
 
   /**
-   * The mount-open case, and it is deliberately not an effect.
+   * The mount-open case, and why this is a layout effect rather than a render-phase call.
    *
-   * This component is mounted by the press that opens it, so the load has to start on the first
-   * render rather than one commit later — an effect would put a paint of the empty menu between
-   * the press and the request. `startTransition` outside an event handler is legal and is what
-   * React's own "adjusting state during render" pattern permits: the guard is a ref-shaped `useState`
-   * latch, so it runs exactly once and cannot loop.
+   * This component is mounted by the press that opens it, so the load must start before the browser
+   * paints or there is an empty menu on screen between the press and the request. That concern was
+   * right, and the first implementation answered it by calling `load()` **during render** — which
+   * React rejects: `startTransition` around a server action dispatches a Router update, and updating
+   * another component while rendering this one is invalid. It threw 12–17 times per press, the
+   * `Popover.Trigger` never committed, `aria-haspopup` was `null`, and the visible control was
+   * permanently the Suspense fallback. **The menu could not be opened at all, at either breakpoint.**
+   *
+   * `useLayoutEffect` keeps the property the render-phase call was reaching for — it runs after
+   * commit and *before* paint, so no empty frame reaches the screen — without doing work in a phase
+   * that forbids it. Adjusting state during render is legal; dispatching an update to a different
+   * component is not, and the two are easy to conflate.
    */
   const [loadStarted, setLoadStarted] = useState(false);
-  if (open && !loadStarted) {
-    setLoadStarted(true);
-    load();
-  }
+  useLayoutEffect(() => {
+    if (open && !loadStarted) {
+      setLoadStarted(true);
+      load();
+    }
+    // `load` is stable for this purpose: it only reads state setters, which React guarantees.
+     
+  }, [open, loadStarted]);
 
   return (
     <Popover.Root open={open} onOpenChange={onOpenChange}>
