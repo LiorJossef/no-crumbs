@@ -226,6 +226,8 @@ export function willSave(
  *    2026-08-28 (*resolution must never dead-end*). We looked, we got nothing back, and the card
  *    says `Pin from the caption` about the pin it is about to save. **Still ticked**, deliberately:
  *    this is not the defect, and un-ticking it would quietly repeal that ruling.
+ *  - a name the caption gives **only inside a hashtag** — **not** ticked. The prose never says the
+ *    creator went there, so nothing has established it is a recommendation.
  *  - `capped` / `not_attempted` with a model coordinate — **not** ticked. Not because the pin is
  *    worse than the one above it (it is the same model coordinate) but because nothing about it has
  *    been checked, and the default has to be the one that does not decide on the user's behalf.
@@ -238,8 +240,27 @@ export function willSave(
 export function arrivesTicked(
   modelHasCoordinates: boolean,
   view: CandidateResolutionView,
+  /**
+   * The caption named this place **only inside a hashtag** — `isHashtagOnly`, the same function the
+   * card's notice comes from. Defaults to `false` so no caller is silently changed.
+   *
+   * **Added 2026-09-01 for the same reason as `capped`, on a measured recurrence.** The caption of
+   * one sentence and 28 tags — `RICH-EXT-1` §4's specimen — produced `tsukjimarket`, which resolved
+   * to `Tsukiji Market` at **1.000 and pre-selected**. `filterPlausible` caps such a candidate's
+   * `modelConfidence` at 0.5 and the card writes "Only mentioned in a hashtag", and **neither of
+   * those reaches this decision**: `SCORING.total.datasetConfidence` is 0, so the cap gates
+   * nothing, and the notice is drawn beside a box that is already ticked. That file's own docblock
+   * says the intent was for such a candidate to arrive "as a labelled, capped candidate the user
+   * can reject, rather than as the confident find it used to be" — and pre-ticked *is* the
+   * confident find.
+   *
+   * The prose of that caption never says the creator went to Tsukiji. Nothing has checked that it
+   * is a recommendation at all, which is the exact test the `capped` rule above is drawn on.
+   */
+  hashtagOnly = false,
 ): boolean {
   if (view.kind === 'capped' || view.kind === 'not_attempted') return false;
+  if (hashtagOnly) return false;
   return willSave(modelHasCoordinates, view, null);
 }
 

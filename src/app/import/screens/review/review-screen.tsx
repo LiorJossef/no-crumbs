@@ -37,6 +37,7 @@ import {
   isSaveable,
   saveButtonLabel,
   skippedNotice,
+  isHashtagOnly,
 } from '@/domain/import/candidate-presentation';
 import { NOTE_MAX_LENGTH, validateNote } from '@/domain/places/note';
 import {
@@ -170,7 +171,7 @@ export function CaptionPreviewScreen({
     () =>
       new Set(
         probe.candidates
-          .map((c, i) => (arrivesTicked(isSaveable(c), views[i]!) ? i : -1))
+          .map((c, i) => (arrivesTicked(isSaveable(c), views[i]!, isHashtagOnly(probe.caption, c)) ? i : -1))
           .filter((i) => i >= 0),
       ),
   );

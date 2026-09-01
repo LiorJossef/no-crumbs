@@ -183,7 +183,20 @@ describe('the review screen seeds its selection from the arrival predicate', () 
   const SOURCE = importClientSource();
 
   it('reads the initial tick from `arrivesTicked`', () => {
-    expect(SOURCE).toContain('arrivesTicked(isSaveable(c), views[i]!)');
+    // Matched on the call rather than on its exact argument list. The literal
+    // `arrivesTicked(isSaveable(c), views[i]!)` was pinned here and broke the moment the predicate
+    // grew a third argument for hashtag-only candidates — a real improvement failing a test that
+    // was describing today's spelling rather than the property. What matters is that the seed
+    // comes from `arrivesTicked` and not from `willSave`, which the next test still pins.
+    expect(SOURCE).toMatch(/arrivesTicked\(\s*isSaveable\(c\),\s*views\[i\]!/);
+  });
+
+  it('passes the hashtag-only fact to the tick predicate, or the notice is drawn beside a ticked box', () => {
+    // Measured recurrence 2026-09-01: `RICH-EXT-1` §4's caption — one sentence, 28 tags — produced
+    // `tsukjimarket`, resolved to `Tsukiji Market` at 1.000 and **pre-selected**. The confidence
+    // cap in `filterPlausible` gates nothing (`SCORING.total.datasetConfidence` is 0) and the card's
+    // "Only mentioned in a hashtag" notice is drawn next to a box that is already ticked.
+    expect(SOURCE).toContain('isHashtagOnly(probe.caption, c)');
   });
 
   it('no longer seeds it from `willSave` with a null pick', () => {
@@ -203,5 +216,44 @@ describe('the review screen seeds its selection from the arrival predicate', () 
     // code out of `import-page-client.tsx`.
     expect(SOURCE.length).toBeGreaterThan(10_000);
     expect(SOURCE).toContain('function CaptionPreviewScreen(');
+  });
+});
+
+describe('a name the caption gives only in a hashtag does not arrive ticked', () => {
+  // The defect this closes, measured twice on the same specimen. `RICH-EXT-1` §4 (2026-08-28)
+  // recorded `#tsukijifishmarket` becoming a place at 0.95 confidence. The hashtag gate was built,
+  // and on 2026-09-01 the same caption produced `tsukjimarket` -> `Tsukiji Market` at **1.000,
+  // pre-selected**. The gate had worked exactly as designed and none of it reached the tick:
+  // `filterPlausible` caps `modelConfidence`, which `SCORING.total.datasetConfidence: 0` makes
+  // inert, and the card's notice is drawn beside a box already ticked.
+  //
+  // The prose of that caption never says the creator went to Tsukiji. That is the same test the
+  // `capped` rule is drawn on — nothing has established this is a recommendation — so it gets the
+  // same answer: shown, labelled, saveable in one tap, **not** decided on the user's behalf.
+  const matched: CandidateResolutionView = {
+    kind: 'matched',
+    options: [
+      {
+        index: 0,
+        name: 'Tsukiji Market',
+        detail: 'Tsukiji, Chuo City, Tokyo',
+        address: 'Tsukiji, Chuo City, Tokyo',
+        lat: 35.6654,
+        lng: 139.7707,
+      },
+    ],
+  };
+
+  it('is not ticked, however cleanly it resolved', () => {
+    expect(arrivesTicked(true, matched, true)).toBe(false);
+    expect(arrivesTicked(false, matched, true)).toBe(false);
+  });
+
+  it('is still ticked when the caption names it in prose', () => {
+    expect(arrivesTicked(true, matched, false)).toBe(true);
+  });
+
+  it('defaults to ticked when no caller says otherwise, so nothing silently changed', () => {
+    expect(arrivesTicked(true, matched)).toBe(true);
   });
 });
