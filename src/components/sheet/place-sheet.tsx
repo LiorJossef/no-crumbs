@@ -1954,7 +1954,62 @@ export function PlaceDetail({
       }
       className={cn(
         'flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 pb-[calc(env(safe-area-inset-bottom)+var(--floating-bar,0px)+1.25rem)] pt-3.5',
-        isPopover && 'max-h-[min(70vh,26rem)] w-72 gap-4 px-0 pb-0 pt-0',
+        // ## The popover's height is set by the *pin*, not by the viewport — measured, 2026-09-01
+        //
+        // `MapPopup` is a MapLibre `Popup` anchored to the selected place's lng/lat, and the map
+        // camera parks that pin at ~53 % of the window height. Measured at 1440x900: the popup
+        // resolves `maplibregl-popup-anchor-bottom` and grows **upward** from an anchor at
+        // `y 478`, so its bottom edge is nailed at `y 462` and every extra pixel of height is
+        // taken off the *top* of the window. Forcing the column taller, at that same camera:
+        // `440px` → card top `y 20`; `470px` → `y -10`; **`630px` (which is what `70vh` resolves
+        // to at 900, and what dropping the `26rem` arm would have let bind) → `y -170`** — the
+        // name, the picture and 170 px of card off the top of the screen, with no page scroll to
+        // reach them. The room this card actually has is ~half the window, not 70 % of it, and
+        // that is what `50vh` says. `28rem` is the ceiling so a 1600 px-tall display does not
+        // draw a 288 px-wide, 800 px-tall ribbon over the map; it binds above ~933 px of window.
+        //
+        // What this means for the height argument, and it is the part worth writing down: the
+        // recoverable height here was ~30 px, never the ~210 px a viewport-based reading of the
+        // cap suggests. **Height is not the lever on this surface — content and affordance are.**
+        // Hence the two changes beside this one: `w-80` rather than `w-72` (measured, a 288 px
+        // column wraps `Old North Espresso Bar` onto two lines and its tags onto two rows, a
+        // 170 px identity header against 114 px at 320 px) and a 112 px source still rather than
+        // 160 px (`compact`, below). Together those put `Been here` — the first control on the
+        // card — fully above the fold on all three of the longest saved places in this database,
+        // where before it was 5–85 px below it.
+        //
+        // `scroll-fade-b` is the sign that there is more, and it is the repo's own utility rather
+        // than a gradient invented here (`category-filter-bar.tsx` uses `scroll-fade-x` for the
+        // same job on the phone). Bottom-only and scroll-driven: measured, `--scroll-fade-b` is
+        // `24px` at `scrollTop 0` and **`0px`** at the end, so it never dims a last line the user
+        // has already reached, and it never appears on a card that does not scroll. Bottom-only
+        // rather than `scroll-fade-y` for the fallback: where `animation-timeline: scroll()` is
+        // unsupported the utility degrades to a *static* fade, and a permanent bottom fade reads
+        // as "more below" where a permanent top one would just dim the picture.
+        //
+        // `scrollbar-width: thin` is deliberately **not** a claim that a scrollbar is the
+        // affordance. Measured on this machine, Chromium draws overlay scrollbars: `offsetWidth`
+        // and `clientWidth` are both 320, so the bar costs no layout and is absent until a
+        // gesture starts — which is exactly the state the review filed, and why the fade is the
+        // load-bearing half. What this property buys is the other configuration: a system set to
+        // always-show scrollbars, or Windows/Linux, would otherwise put a ~15 px classic bar
+        // inside a 320 px card and over the full-bleed still's edge. Forcing a bar visible with
+        // `::-webkit-scrollbar` rules was rejected — it is hand-tuned geometry in a component,
+        // and a permanently painted bar in a small floating card is foreign on macOS.
+        //
+        // `overscroll-contain` keeps a wheel that reaches the end of the card from chaining into
+        // the map's own zoom.
+        //
+        // **What is still open, stated rather than hidden.** The fade is a mask, so it is loudest
+        // when the fold falls *through* something — on `HaKosem` it leaves `Add to a collection`
+        // half-drawn at the bottom edge, which is unmistakable. On `Café Florentin` the fold lands
+        // on `Been here`'s own last pixel, so all the fade has to work with is that button's
+        // bottom border, and the card reads more finished than it is. Making that case as loud as
+        // the other two means either a permanent affordance the popover does not have today, or
+        // the *preview versus detail* ruling the round-4 review names as `ux-interaction`'s call.
+        // It is not more tuning of this constant, which is how the surface got here.
+        isPopover &&
+          'max-h-[min(50vh,28rem)] w-80 gap-4 overscroll-contain px-0 pb-0 pt-0 scroll-fade-b scroll-fade-6 [scrollbar-width:thin]',
         // The host's gutter and its own top spacing — see the `variant` docblock for why 4 px
         // matters here and why the top padding belongs to the header row above this column.
         isHosted &&
@@ -1967,6 +2022,9 @@ export function PlaceDetail({
           // The popover's shell supplies the gutter and the radius; every other host gives this
           // column a 20 px gutter of its own and wants a rounded block inside it.
           fullBleed={isPopover}
+          // …and the popover is also the one host whose height is decided by something other than
+          // the content — see the `max-h` argument on the column above.
+          compact={isPopover}
           playLabel={playSourceLabel}
           {...(onPlaySource ? { onPlay: onPlaySource } : {})}
           {...(sourcePlayer === undefined ? {} : { player: sourcePlayer })}
@@ -2349,16 +2407,28 @@ export function PlaceDetail({
  *
  * The mechanism is a flex default, not a bug in either box. `PlaceDetail`'s root is a column flex
  * container, and at `variant="popover"` it is the only host that gives that container a **definite
- * height** (`max-h-[min(70vh,26rem)]` = 416 px against 684 px of content). A column flex item
- * shrinks to fit a definite container before the container is allowed to scroll, and an item's
- * automatic minimum size is normally its content — which is what stops every text block below from
- * collapsing. This wrapper carries `overflow-hidden`, and `overflow` other than `visible` sets that
- * automatic minimum to **zero**. So of all the card's children exactly one could absorb the whole
- * 268 px of overflow, and it did.
+ * height** — today `max-h-[min(50vh,28rem)]`, 448 px at a 900 px window, against 796–940 px of
+ * content on this database's own saved places. A column flex item shrinks to fit a definite
+ * container before the container is allowed to scroll, and an item's automatic minimum size is
+ * normally its content — which is what stops every text block below from collapsing. This wrapper
+ * carries `overflow-hidden`, and `overflow` other than `visible` sets that automatic minimum to
+ * **zero**. So of all the card's children exactly one could absorb the whole overflow, and it did.
  *
  * `shrink-0` is the fix and it belongs here rather than on the popover variant: any future host
  * that caps this column's height would reproduce it, and the picture is never the thing that should
  * give way.
+ *
+ * ## The band's height is a claim on a fixed budget, so the popover gets a smaller one
+ *
+ * Measured 2026-09-01 at 1440x900: this band is **160 px of a 416 px popover** — 38 % of the only
+ * detail surface the desktop map has — and it sits above every control on the card. It landed two
+ * days before that measurement and it is what pushed `Been here` from visible to 5–85 px below the
+ * fold on the three longest cards in this database. That is the whole of the argument for
+ * `compact`, and the argument was not *drop the picture*: a place saved from a video is recognised
+ * by its still faster than by its name, so the still keeps its position at the top of the card and
+ * gives up its size. 112 px is the largest band that leaves `Been here` above the fold on all
+ * three (measured: 435 / 437 / 399 against a 448 px card). Nothing outside the popover changes —
+ * a sheet and a hosted column are scrolled by a thumb that already knows there is more below.
  *
  * ## The seam for playback — a callback and a slot, and deliberately nothing else
  *
@@ -2381,6 +2451,7 @@ export function PlaceDetail({
 function SourceMediaThumbnail({
   thumb,
   fullBleed = false,
+  compact = false,
   onPlay,
   playLabel,
   player,
@@ -2392,6 +2463,12 @@ function SourceMediaThumbnail({
    * gutter and the picture is a rounded block inside it.
    */
   fullBleed?: boolean;
+  /**
+   * A 112 px band rather than 160 px, for the one host whose total height is fixed by something
+   * other than its content. See the `## The band's height is a claim on a fixed budget` paragraph
+   * above for why the still shrinks rather than moves or goes.
+   */
+  compact?: boolean;
   /** See the seam paragraph above. Undefined ⇒ no glyph at all, not a disabled one. */
   onPlay?: () => void;
   /** The glyph's accessible name. Required alongside `onPlay` so no wording is invented here. */
@@ -2434,7 +2511,7 @@ function SourceMediaThumbnail({
             ref={(node) => {
               if (node?.complete === true && node.naturalWidth === 0) onFailure();
             }}
-            className="h-40 w-full object-cover"
+            className={cn('w-full object-cover', compact ? 'h-28' : 'h-40')}
           />
           {onPlay !== undefined && playLabel !== undefined && (
             <button
