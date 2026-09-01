@@ -63,6 +63,7 @@ import {
 } from '@/app/actions/collections';
 import type { CollectionDetail } from '@/app/collections/_lib/get-collections';
 import { drawerHref, INDEX_VIEW } from '@/app/map/_lib/drawer-view';
+import { attemptWrite } from '@/ui/place/write-failure';
 import type { MapPlace } from '@/components/map/map-surface';
 import { PRESS_CHIP, PRESS_ROW } from '@/lib/interaction';
 import { cn } from '@/lib/utils';
@@ -548,7 +549,12 @@ function EmptyCollection({
  *  The row and its first label were both `Rename` until the description field existed. A control
  *  named for one of the two things it edits is mislabelled, and `Edit` bare rather than
  *  `Edit collection` because its siblings carry the noun only where they are destructive
- *  (`Delete collection`, `Leave collection`); `Share` beside them is already bare. */
+ *  (`Delete collection`, `Leave collection`); `Share` beside them is already bare.
+ *
+ *  All three writes go through `attemptWrite` (`ui/place/write-failure.ts`) rather than awaiting an
+ *  action directly. Before 2026-09-01 an offline `Save`, `Delete` or `Leave` rejected inside its
+ *  transition and React replaced the whole segment with `app/error.tsx` — taking the collection,
+ *  the list and, on the edit form, the name and description the user had just typed. */
 function CollectionMenu({
   collection,
   currentUserId,
@@ -579,9 +585,15 @@ function CollectionMenu({
         onSubmit={(event) => {
           event.preventDefault();
           startTransition(async () => {
-            const result = await updateCollection(collection.id, name, description);
-            if (!result.ok) {
-              setError(result.message);
+            // `keepsDraft`: this form holds a name and a description somebody typed. Neither
+            // failure closes it — a refusal is usually about the words in the fields, and silence
+            // wrote nothing at all — so the draft is on screen either way and the message says so.
+            const outcome = await attemptWrite(
+              () => updateCollection(collection.id, name, description),
+              { keepsDraft: true },
+            );
+            if (outcome.kind !== 'ok') {
+              setError(outcome.message);
               return;
             }
             setEditing(false);
@@ -662,12 +674,19 @@ function CollectionMenu({
         onCancel={() => setConfirming(null)}
         onConfirm={() =>
           startTransition(async () => {
-            const result = await deleteCollection(collection.id);
-            if (!result.ok) {
-              setError(result.message);
+            const outcome = await attemptWrite(() => deleteCollection(collection.id));
+            if (outcome.kind === 'ok') {
+              router.push(drawerHref(INDEX_VIEW) as '/map');
               return;
             }
-            router.push(drawerHref(INDEX_VIEW) as '/map');
+            // The two failures diverge here and nowhere else in this menu, exactly as they do on
+            // the saved place's own delete. A **refusal** is settled — the collection is gone, or
+            // this caller may not delete it — so there is nothing left to confirm and the step
+            // collapses back to the menu, which is where the message then appears. **Silence**
+            // settles nothing: the collection is still there, still the one they meant, so the
+            // confirmation stays open and `Delete` is one press away.
+            if (outcome.kind === 'refused') setConfirming(null);
+            setError(outcome.message);
           })
         }
       />
@@ -684,12 +703,15 @@ function CollectionMenu({
         onCancel={() => setConfirming(null)}
         onConfirm={() =>
           startTransition(async () => {
-            const result = await removeMember(collection.id, currentUserId);
-            if (!result.ok) {
-              setError(result.message);
+            const outcome = await attemptWrite(() => removeMember(collection.id, currentUserId));
+            if (outcome.kind === 'ok') {
+              router.push(drawerHref(INDEX_VIEW) as '/map');
               return;
             }
-            router.push(drawerHref(INDEX_VIEW) as '/map');
+            // Same split as the delete above, for the same reason: leaving is the destructive
+            // gesture a non-owner has, and a dropped signal must not cost them the two steps.
+            if (outcome.kind === 'refused') setConfirming(null);
+            setError(outcome.message);
           })
         }
       />
@@ -697,17 +719,49 @@ function CollectionMenu({
   }
 
   return (
-    <div className="mt-2 flex flex-col rounded-lg border border-border bg-muted/40">
-      {canManage(collection.role) ? (
-        <>
-          <MenuRow label="Share" onClick={onShare} />
-          <MenuRow label="Edit" onClick={() => setEditing(true)} />
-          <MenuRow label="Delete collection" destructive onClick={() => setConfirming('delete')} />
-        </>
-      ) : (
-        <MenuRow label="Leave collection" destructive onClick={() => setConfirming('leave')} />
-      )}
-    </div>
+    <>
+      <div className="mt-2 flex flex-col rounded-lg border border-border bg-muted/40">
+        {canManage(collection.role) ? (
+          <>
+            <MenuRow label="Share" onClick={onShare} />
+            {/* Each of these drops a stale message on the way: a sentence about the delete that
+                did not happen has no business sitting under an edit form. */}
+            <MenuRow
+              label="Edit"
+              onClick={() => {
+                setError(null);
+                setEditing(true);
+              }}
+            />
+            <MenuRow
+              label="Delete collection"
+              destructive
+              onClick={() => {
+                setError(null);
+                setConfirming('delete');
+              }}
+            />
+          </>
+        ) : (
+          <MenuRow
+            label="Leave collection"
+            destructive
+            onClick={() => {
+              setError(null);
+              setConfirming('leave');
+            }}
+          />
+        )}
+      </div>
+      {/* Where a *refused* delete or leave lands: the confirmation it was answering has collapsed,
+          so without this the server's reason would collapse with it and the press would look
+          ignored. An unreachable one keeps its confirmation and its message up there instead. */}
+      {error ? (
+        <p role="alert" className="mt-1 text-sm text-destructive">
+          {error}
+        </p>
+      ) : null}
+    </>
   );
 }
 
@@ -952,9 +1006,15 @@ function AddPlacesPanel({
           onClick={() =>
             startTransition(async () => {
               setError(null);
-              const result = await addPlacesToCollection(collection.id, [...picked]);
-              if (!result.ok) {
-                setError(result.message);
+              // No `keepsDraft`: what this panel holds is a set of ticks, not typed text, and
+              // *what you typed is still here* would be a sentence about something the user did
+              // not do. The ticks are kept all the same — `setPicked(new Set())` runs on `ok`
+              // only — so the retry is one press of the same button.
+              const outcome = await attemptWrite(() =>
+                addPlacesToCollection(collection.id, [...picked]),
+              );
+              if (outcome.kind !== 'ok') {
+                setError(outcome.message);
                 return;
               }
               setPicked(new Set());
