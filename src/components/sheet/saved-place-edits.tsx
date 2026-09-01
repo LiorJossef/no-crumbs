@@ -30,6 +30,26 @@
  * on success, so the server data is what updates the list and the pins — this file never edits a
  * local copy of the library, which means the screen can never disagree with the database about what
  * is saved.
+ *
+ * ## Every write goes through `attemptWrite`, and none of them `await`s an action directly
+ *
+ * Until 2026-09-01 all five did, bare, inside `startTransition`. A Server Action is a `fetch`, so
+ * an offline press produced a rejection rather than a result; React escalated it to
+ * `app/error.tsx`, and the whole segment went with it — map, seven pins, the open place, and on the
+ * note path the sentence the user had just typed. Measured offline at both breakpoints
+ * (`docs/product-review-2026-09-01-r5.md` §2 finding 1). Every action here already returned a
+ * `Result`; a `Result` simply cannot express *the server never answered*.
+ *
+ * `ui/place/write-failure.ts` holds that rule and the reasoning. What each control does with it is
+ * below and differs per control, because the two failures are not the same news:
+ *
+ *  - **`refused`** — the server said no. That is settled, so a control may act on it: the delete
+ *    confirmation collapses, because there is nothing left to confirm.
+ *  - **`unreachable`** — nothing was sent or nothing came back, so nothing was written and the
+ *    user's intent is untouched. Every control here keeps its exact state: the note and name
+ *    editors stay open with the draft in the field, the category row stays open on the chip that
+ *    was pressed, and the delete confirmation stays confirming, so one more press is the retry.
+ *    Tidying up after silence is what would turn a two-second signal drop into lost work.
  */
 
 import { useEffect, useRef, useState, useTransition } from 'react';
@@ -63,6 +83,7 @@ import {
   type ProductCategory,
 } from '@/domain/places/product-category';
 import { SECTION_LABEL } from '@/ui/place/section-label';
+import { attemptWrite } from '@/ui/place/write-failure';
 import { cn } from '@/lib/utils';
 import { PRESS_BUTTON, PRESS_CHIP, TINT_BEAT } from '@/lib/interaction';
 
@@ -129,12 +150,18 @@ export function BeenToggle({
     const ticket = announcer?.begin() ?? 0;
     setError(null);
     startTransition(async () => {
-      const result = await setSavedPlaceVisited(savedPlaceId, next);
-      if (result.ok) {
+      // Nothing to revert on a failure, because nothing moved: `visited` is a prop and the badge
+      // only changes when the revalidated row arrives. An unreachable press therefore leaves the
+      // control exactly as the user found it, saying why, with one press left to retry.
+      const outcome = await attemptWrite(() => setSavedPlaceVisited(savedPlaceId, next));
+      if (outcome.kind === 'ok') {
         announcer?.say(ticket, visitChangeAnnouncement(placeName, next));
         return;
       }
-      setError(result.message);
+      // Deliberately no announcement on failure: the ticket is spent, and the `role="alert"` below
+      // is already read. Announcing "marked as been" for a write that did not happen would be the
+      // one thing worse than silence.
+      setError(outcome.message);
     });
   }
 
@@ -256,12 +283,15 @@ export function CategoryEditor({
   function choose(next: ProductCategory | null) {
     setError(null);
     startTransition(async () => {
-      const result = await updateSavedPlaceCategory(savedPlaceId, next);
-      if (result.ok) {
+      const outcome = await attemptWrite(() => updateSavedPlaceCategory(savedPlaceId, next));
+      if (outcome.kind === 'ok') {
         setEditing(false);
         return;
       }
-      setError(result.message);
+      // The row stays open on either failure. Closing it would hide the chips behind a second
+      // press of `Change` at the exact moment the user wants to press one again, and on an
+      // unreachable write it would also imply something settled when nothing was written.
+      setError(outcome.message);
     });
   }
 
@@ -407,12 +437,17 @@ export function NameEditor({
   function save(value: string) {
     setError(null);
     startTransition(async () => {
-      const result = await updateSavedPlaceName(savedPlaceId, value);
-      if (result.ok) {
+      // `keepsDraft`: the field holds a name the user typed, so the message says it is still there
+      // rather than asking for a retry they can see is possible. `onDone()` is not called on
+      // failure — closing the editor is what would throw the typed name away.
+      const outcome = await attemptWrite(() => updateSavedPlaceName(savedPlaceId, value), {
+        keepsDraft: true,
+      });
+      if (outcome.kind === 'ok') {
         onDone();
         return;
       }
-      setError(result.message);
+      setError(outcome.message);
     });
   }
 
@@ -559,12 +594,19 @@ export function NoteEditor({
   function save() {
     setError(null);
     startTransition(async () => {
-      const result = await updateSavedPlaceNote(savedPlaceId, draft);
-      if (result.ok) {
+      // The one control on this screen where a failure could destroy something the user made. Two
+      // things keep the note: `attemptWrite` never throws, so the editor is not torn down with the
+      // segment, and `setEditing(false)` happens **only** on `ok`, so the `<textarea>` stays
+      // mounted with `draft` untouched. `keepsDraft` then says so on screen, because a person who
+      // has just watched a save fail has no reason to believe their words survived it.
+      const outcome = await attemptWrite(() => updateSavedPlaceNote(savedPlaceId, draft), {
+        keepsDraft: true,
+      });
+      if (outcome.kind === 'ok') {
         setEditing(false);
         return;
       }
-      setError(result.message);
+      setError(outcome.message);
     });
   }
 
@@ -675,13 +717,19 @@ export function RemoveSavedPlace({
   function remove() {
     setError(null);
     startTransition(async () => {
-      const result = await deleteSavedPlace(savedPlaceId);
-      if (result.ok) {
+      const outcome = await attemptWrite(() => deleteSavedPlace(savedPlaceId));
+      if (outcome.kind === 'ok') {
         onRemoved();
         return;
       }
-      setConfirming(false);
-      setError(result.message);
+      // The one place the two failures diverge. A **refusal** is settled news — the row is gone,
+      // or the caller is signed out — and there is nothing left to confirm, so the confirmation
+      // collapses and the message appears under the trigger. **Silence** settles nothing: the
+      // place is still there, still the one they meant to remove, so the confirmation stays open
+      // and `Remove` is one press away. Collapsing it would make a signal drop cost the user the
+      // whole two-step gesture again.
+      if (outcome.kind === 'refused') setConfirming(false);
+      setError(outcome.message);
     });
   }
 
@@ -743,6 +791,15 @@ export function RemoveSavedPlace({
           Cancel
         </Button>
       </div>
+      {/* The confirm step needs its own error slot now that it can stay open through a failure.
+          Before, every failure collapsed the step, so the one paragraph in the branch above was
+          enough; an unreachable delete that keeps the confirmation would otherwise set a message
+          nothing renders — a silent failure inside the fix for a silent failure. */}
+      {error && (
+        <p role="alert" className="text-xs font-medium text-destructive">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

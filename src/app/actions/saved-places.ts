@@ -45,6 +45,15 @@
  * distinguished: not signed in, the row is not there (deleted in another tab, or never theirs), and
  * everything else. What is *not* returned is the Postgres error text — that would leak schema
  * detail to the browser for no user benefit; it is thrown into the server log instead.
+ *
+ * ## The limit of that choice, and where it is handled
+ *
+ * `SavedPlaceResult` covers everything this file can *say*. It cannot cover this file never being
+ * reached: these are Server Actions, so the call is a `fetch`, and an offline phone gets a rejected
+ * promise rather than an `{ ok: false }`. That failure is not representable here and must not be
+ * faked here either — the truthful thing to do about it is decided in the browser, by
+ * `ui/place/write-failure.ts`, which every call site goes through. Adding an arm to this union for
+ * a case the server never observes would be a claim about the network made by the wrong process.
  */
 
 import { revalidatePath } from 'next/cache';
