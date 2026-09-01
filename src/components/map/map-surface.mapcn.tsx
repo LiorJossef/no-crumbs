@@ -1539,7 +1539,12 @@ export function MapSurfaceMapcn({
           longitude={selected.lng}
           latitude={selected.lat}
           onClose={() => onDeselect?.()}
-          className="hidden max-w-none p-0 lg:block"
+          // `overflow-hidden` so the shell's own `rounded-md` clips what it contains — specifically
+          // the source still, which is full-bleed here and would otherwise paint its square corners
+          // into the card's rounded ones. Safe rather than a new clip: `PlaceDetail` already puts
+          // its whole column inside its own `overflow-y-auto`, so nothing in this popover was ever
+          // able to escape its bounds anyway.
+          className="hidden max-w-none overflow-hidden p-0 lg:block"
         >
           {/* The write target comes from `selected.savedPlaceId`, never from `selected.id` — the
               latter is a collection item id on `/collections/[id]`, and this surface is about to

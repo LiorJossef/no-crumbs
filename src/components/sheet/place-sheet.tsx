@@ -55,10 +55,10 @@ import {
   type CSSProperties,
   type ReactNode,
 } from 'react';
-import { MapPin, ExternalLink, X, ChevronLeft, ChevronUp, Search } from 'lucide-react';
+import { MapPin, ExternalLink, X, ChevronLeft, ChevronUp, Play, Search } from 'lucide-react';
 import { PlatformMark } from '@/components/brand/platform-mark';
 import { Button } from '@/components/ui/button';
-import { PRESS_ROW } from '@/lib/interaction';
+import { PRESS_BEAT, PRESS_ROW } from '@/lib/interaction';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { isSearchActive } from '@/domain/places/search';
@@ -858,8 +858,19 @@ export function PlaceRow({
         {/* `<bdi>` isolates a Hebrew or Arabic name inside this LTR row without right-aligning the
             row itself, and `line-clamp-1` replaces `truncate` because an ellipsis on an RTL string
             in an LTR box clips the *start* of the name — the half that identifies it
-            (`docs/ux-library-at-scale.md` §4.2). */}
-        <p className="line-clamp-1 font-heading text-sm font-bold text-foreground">
+            (`docs/ux-library-at-scale.md` §4.2).
+
+            **`break-words` is what makes the clamp's ellipsis reachable, and its absence was a
+            silent cut.** `line-clamp-1` compiles to `-webkit-line-clamp`, whose ellipsis is drawn
+            where the text *wraps* to the line that is being clamped away. A name with no break
+            opportunity in it never wraps, so there is no second line, no ellipsis, and the glyph
+            at the edge is simply sliced in half. Measured at 390x844 with a 56-character
+            unbroken name: 159 px of ink outside a 294 px box, cut mid-letter, while the note line
+            directly underneath ellipsed correctly because it happened to contain spaces — two
+            truncation behaviours on one row, one of them saying nothing. `break-words` breaks only
+            a word that cannot fit a line on its own, so every name that already wrapped is
+            untouched, and none of this changes the `line-clamp`-over-`truncate` rule above. */}
+        <p className="line-clamp-1 break-words font-heading text-sm font-bold text-foreground">
           <bdi>{place.name}</bdi>
         </p>
         {/* The city sits next to the category rather than being left off: it is the second thing
@@ -875,7 +886,7 @@ export function PlaceRow({
         <div className="flex min-w-0 items-center gap-1.5">
           {/* The muted line is the one that lifts, not the name: the name is already
               `text-foreground`, so brightening it would be a change with nowhere to go. */}
-          <p className="line-clamp-1 text-xs font-medium text-muted-foreground motion-safe:transition-colors motion-safe:duration-couple motion-safe:ease-standard group-hover/row:text-foreground/80">
+          <p className="line-clamp-1 break-words text-xs font-medium text-muted-foreground motion-safe:transition-colors motion-safe:duration-couple motion-safe:ease-standard group-hover/row:text-foreground/80">
             <bdi>{secondLine ?? categoryLocalityLine(place.category, locality)}</bdi>
           </p>
           {place.visited && <BeenBadge />}
@@ -886,7 +897,9 @@ export function PlaceRow({
             deliberately no placeholder, no skeleton and no "no tags yet". */}
         {tags.length > 0 && <TagChipRow tags={tags} />}
         {place.note && (
-          <p className="line-clamp-1 text-sm font-medium text-muted-foreground">{place.note}</p>
+          <p className="line-clamp-1 break-words text-sm font-medium text-muted-foreground">
+            {place.note}
+          </p>
         )}
         {/* When you saved it, as elapsed time — the fact the library was ordered by and never
             showed (`growth-plan.md` §4: `created_at` was rendered as an absolute date, on the
@@ -1300,13 +1313,18 @@ function RowMedia({
         title={approximateLabel ?? undefined}
         style={approximate ? { borderColor: color } : undefined}
         className={cn(
+          // **The box never changes size, in any state.** The hover growth lives on the picture
+          // inside it (below), not here. Measured at 1440x900 with the scale on this element: on
+          // hover it went 44 px at x=24 to 48.4 px at x=21.8, so the still poked **2.2 px out of
+          // the row's own hover ground and out of the panel's 24 px gutter** on the leading edge,
+          // and 2.2 px past the row band above and below. One row out of alignment with every
+          // other row is the most visible kind of defect in a vertical list, and it is what the
+          // owner saw as the thumbnail "leaking out".
+          //
+          // Zooming the contents under a fixed mask is also the better shape mechanically: the
+          // `overflow-hidden` here starts doing real work, the transform lands on a leaf `<img>`
+          // rather than on a box that clips, and nothing the list measures ever moves.
           'mt-0.5 block size-11 shrink-0 overflow-hidden rounded-lg bg-muted',
-          // The row's leading square grows a little while the pointer is on the row — the same
-          // 160ms the pin on the map lifts in, so the two halves of the coupling read as one
-          // gesture rather than two effects that happen to fire together. `group-hover/row:`
-          // reaches in from `PlaceRow`'s button; a plain `group` would also catch the grouped
-          // containers this row nests inside on `/collections`.
-          'motion-safe:transition-transform motion-safe:duration-couple motion-safe:ease-standard group-hover/row:scale-110',
           approximate && 'border border-dashed',
         )}
       >
@@ -1337,7 +1355,21 @@ function RowMedia({
           ref={(node) => {
             if (node?.complete === true && node.naturalWidth === 0) onFailure();
           }}
-          className="size-full object-cover"
+          className={cn(
+            'size-full object-cover',
+            // The picture pushes in a little while the pointer is on the row — the same 160 ms the
+            // pin on the map lifts in, so the two halves of the coupling read as one gesture
+            // rather than two effects that happen to fire together. `group-hover/row:` reaches in
+            // from `PlaceRow`'s button; a plain `group` would also catch the grouped containers
+            // this row nests inside on `/collections`.
+            //
+            // On the picture and not on its box, so the row's leading square keeps its 44 px
+            // footprint in every state — see the box's own class list for the measurement that
+            // moved it here. `transition-transform` in Tailwind v4 declares
+            // `transform, translate, scale, rotate`, so it does animate the `scale` property
+            // `scale-110` sets; measured on the running app, `transition-duration: 0.16s`.
+            'motion-safe:transition-transform motion-safe:duration-couple motion-safe:ease-standard group-hover/row:scale-110',
+          )}
         />
       </span>
     );
@@ -1363,13 +1395,14 @@ function RowMedia({
       }}
       className={cn(
         'mt-0.5 flex size-11 shrink-0 items-center justify-center rounded-full',
-        // Same lift as the thumbnail arm above, for the same reason — a row has one leading square
-        // and it behaves the same way whichever of the two it is drawing.
-        'motion-safe:transition-transform motion-safe:duration-couple motion-safe:ease-standard group-hover/row:scale-110',
         approximate && 'border border-dashed',
       )}
     >
-      <MapPin className="size-5" />
+      {/* Same lift as the thumbnail arm above, on the same element type — the *contents* of the
+          leading square, never the square. A row has one leading square and it behaves the same
+          way whichever of the two it is drawing, and neither of them ever changes the 44 px the
+          text column starts after. */}
+      <MapPin className="size-5 motion-safe:transition-transform motion-safe:duration-couple motion-safe:ease-standard group-hover/row:scale-110" />
     </span>
   );
 }
@@ -1585,6 +1618,24 @@ export function EverywhereElse({
  * the camera for a state no amount of panning can fix, and a first-run screen that reports on an
  * area is answering a question nobody has asked yet.
  */
+/**
+ * The play glyph's accessible name — the button's only visible-to-assistive-tech text, since the
+ * control is a glyph on a photograph and has no label beside it.
+ *
+ * **`TikTok video`, the adjective form, not the bare noun.** `voice-and-vocabulary.md` §3.1 rules
+ * that the name is an adjective and never a noun, and §3's bare-*video* anaphor clause is not
+ * available here: it may only refer back to a TikTok video the same screen has already named, and
+ * an `aria-label` is read on its own with nothing before it.
+ *
+ * **Not in `overnight-copy-deck.md`, and this is flagged rather than quietly settled.** It has no
+ * `C` id because the copy for this control is decided with the first-press disclosure the security
+ * ruling requires, which is another lane's, and inventing a phrase for a gate that does not exist
+ * yet would put words in the product's mouth. This is the plainest compliant sentence for what the
+ * press expresses, held here as a default the host may override through `playSourceLabel` — see
+ * `PlaceDetail`'s prop.
+ */
+export const PLAY_SOURCE_LABEL = 'Play this TikTok video';
+
 /** `C131`. The control's accessible name — it labels a group of chips, which have no visible
  *  heading of their own because a word above three short chips costs more room than it earns. */
 export const SORT_LABEL = 'Sort';
@@ -1678,6 +1729,9 @@ export function PlaceDetail({
   floatingBarPx = 0,
   primaryAction,
   footer,
+  onPlaySource,
+  playSourceLabel = PLAY_SOURCE_LABEL,
+  sourcePlayer,
 }: {
   place: DetailPlace;
   /**
@@ -1732,6 +1786,23 @@ export function PlaceDetail({
    *  rather than this view's `px-5`, because that column has to line up with the list rows behind
    *  the same arrow and a 4 px sideways shift on every open is more visible than the difference. */
   variant?: 'sheet' | 'panel' | 'popover' | 'hosted';
+  /**
+   * **The play affordance's press — the seam, and the whole of what this file owns about playback.**
+   *
+   * Omitted, no glyph is drawn at all: an affordance that expresses an intent nothing acts on is
+   * worse than none. Supplied, a small button appears on the source still and this is what a press
+   * calls. It mounts nothing. `docs/security-ruling-embed-playback-2026-08-31.md` §6 permits the
+   * TikTok embed only behind a first-press gate offering *play here* and *open on TikTok instead*
+   * as two co-equal actions persisted per browser, and that gate belongs to whoever supplies this
+   * handler — not to the button that calls it. See `SourceMediaThumbnail`'s header.
+   */
+  onPlaySource?: () => void;
+  /** The glyph's accessible name, overridable so a host with different wording is not forced to
+   *  fork the component. The default is the one string this seam ships with. */
+  playSourceLabel?: string;
+  /** Rendered in the source still's place, in the same band, once the caller has a player to put
+   *  there. A slot rather than a boolean, so nothing about the player leaks into this file. */
+  sourcePlayer?: ReactNode;
   /**
    * How much of this column's bottom a **floating overlay** covers, in pixels — `BottomNav`, for
    * every host that is a sheet on a phone. Added to the column's own bottom padding and to its
@@ -1890,7 +1961,17 @@ export function PlaceDetail({
           'px-4 pb-[calc(env(safe-area-inset-bottom)+var(--floating-bar,0px)+2rem)] pt-1',
       )}
     >
-      {thumb && <SourceMediaThumbnail thumb={thumb} />}
+      {thumb && (
+        <SourceMediaThumbnail
+          thumb={thumb}
+          // The popover's shell supplies the gutter and the radius; every other host gives this
+          // column a 20 px gutter of its own and wants a rounded block inside it.
+          fullBleed={isPopover}
+          playLabel={playSourceLabel}
+          {...(onPlaySource ? { onPlay: onPlaySource } : {})}
+          {...(sourcePlayer === undefined ? {} : { player: sourcePlayer })}
+        />
+      )}
 
       <div className={cn('flex items-start justify-between gap-3', isPopover && 'px-4 pt-3.5')}>
         <div className="flex min-w-0 flex-col gap-1">
@@ -1909,7 +1990,14 @@ export function PlaceDetail({
                   left, so a mixed library would have a ragged edge. */}
               <h2
                 className={cn(
-                  'min-w-0 font-heading text-2xl font-extrabold tracking-tight text-foreground',
+                  // `break-words` for the same reason the row's name carries it, and here the
+                  // consequence was louder: measured at 1440x900 with a 56-character unbroken
+                  // name, the heading's ink ran **291 px past the popover's right edge**, straight
+                  // through the rename pencil and the close ×. `min-w-0` does not help — it lets
+                  // the *box* shrink, and an unbreakable word simply overflows whatever box it is
+                  // given. A 288 px popover is the narrowest column this heading is ever drawn in,
+                  // so it is where the defect surfaces first, not where it is unique.
+                  'min-w-0 break-words font-heading text-2xl font-extrabold tracking-tight text-foreground',
                   isPopover && 'text-lg',
                 )}
               >
@@ -2235,44 +2323,149 @@ export function PlaceDetail({
 }
 
 /**
- * The source post's thumbnail, at the top of the detail view. `referrerPolicy="no-referrer"` is
- * load-bearing, not decorative: without it the browser sends a `Referer` header to TikTok's CDN
- * on every image request, which would let TikTok correlate its own signed URLs with which of our
- * users' devices requested them — a privacy leak of "which posts this person saved," not just an
- * unnecessary header.
+ * **The source post's picture, at the top of the detail view — and the slot the player lands in.**
+ *
+ * `referrerPolicy="no-referrer"` is load-bearing, not decorative: without it the browser sends a
+ * `Referer` header to TikTok's CDN on every image request, which would let TikTok correlate its own
+ * signed URLs with which of our users' devices requested them — a privacy leak of "which posts this
+ * person saved," not just an unnecessary header. Every picture this product draws from that CDN
+ * carries it, on a list row and here.
  *
  * The URL is a signed TikTok CDN link whose expiry **is** stored, in the URL itself: TikTok signs
  * an `x-expires` into the query string and `signedUrlExpiry` reads it. Measured 2026-08-31 the
  * window is **~47 hours**, not the ~6 months `0003`'s column comment claims, which is why a
- * failure here is now a request for a fresh URL (`useRefreshableThumbnail`) rather than a
- * permanent hide. It still hides when nothing comes back — see the coordinator's docblock for what
- * the user sees when the post is genuinely gone, and why there is no badge saying so.
+ * failure here is a request for a fresh URL (`useRefreshableThumbnail`) rather than a permanent
+ * hide. It still renders **nothing at all** when nothing comes back, and that is the majority state
+ * of any library older than two days: no broken-image glyph, no grey placeholder, no badge saying
+ * the post is gone, and no reserved band that would make the card jump when a refresh lands late.
+ * A detail card whose first element is the name is a complete card — measured on two of this
+ * database's own saves, which have never had a live still.
+ *
+ * ## `shrink-0`, and it is the whole of why the popover looked as though it had no picture
+ *
+ * Measured at 1440x900 against the running app: inside the map popover this wrapper computed
+ * **`height: 0px`** while its `<img>` computed `height: 160px`, loaded, `complete`, `naturalWidth`
+ * 720. The picture was in the DOM, fetched from TikTok, and painted nowhere.
+ *
+ * The mechanism is a flex default, not a bug in either box. `PlaceDetail`'s root is a column flex
+ * container, and at `variant="popover"` it is the only host that gives that container a **definite
+ * height** (`max-h-[min(70vh,26rem)]` = 416 px against 684 px of content). A column flex item
+ * shrinks to fit a definite container before the container is allowed to scroll, and an item's
+ * automatic minimum size is normally its content — which is what stops every text block below from
+ * collapsing. This wrapper carries `overflow-hidden`, and `overflow` other than `visible` sets that
+ * automatic minimum to **zero**. So of all the card's children exactly one could absorb the whole
+ * 268 px of overflow, and it did.
+ *
+ * `shrink-0` is the fix and it belongs here rather than on the popover variant: any future host
+ * that caps this column's height would reproduce it, and the picture is never the thing that should
+ * give way.
+ *
+ * ## The seam for playback — a callback and a slot, and deliberately nothing else
+ *
+ * `docs/security-ruling-embed-playback-2026-08-31.md` §6 permits the TikTok embed **only** behind a
+ * first-press gate that offers *play here* and *open on TikTok instead* as two co-equal actions,
+ * persisted per browser. That gate, and the iframe behind it, are another lane's. This component
+ * owns the affordance and the space the player will occupy, and nothing further: **no iframe, no
+ * TikTok script, no request of any kind fires from anything below.**
+ *
+ *  - `onPlay` — pressed intent. The glyph renders only when a handler exists, so there is never a
+ *    control on screen that does nothing, and the press mounts nothing by itself.
+ *  - `player` — the slot. When the caller has something to show it replaces the still **inside the
+ *    same band**, so swapping a picture for a player is not a layout change. The glyph is not drawn
+ *    over a player: at that point the player owns its own transport.
+ *
+ * The glyph is absent when the picture is, which follows the owner's ruling literally — *a small
+ * glyph button on the thumbnail, clicked*. A card with no still keeps the `Open on TikTok` link it
+ * already has, which is the zero-disclosure path that already ships.
  */
-function SourceMediaThumbnail({ thumb }: { thumb: ThumbnailRef }) {
+function SourceMediaThumbnail({
+  thumb,
+  fullBleed = false,
+  onPlay,
+  playLabel,
+  player,
+}: {
+  thumb: ThumbnailRef;
+  /**
+   * Edge-to-edge and square-cornered, for a host that has no gutter of its own — the map popover,
+   * whose shell supplies both the padding and the radius. Everywhere else the card has a 20 px
+   * gutter and the picture is a rounded block inside it.
+   */
+  fullBleed?: boolean;
+  /** See the seam paragraph above. Undefined ⇒ no glyph at all, not a disabled one. */
+  onPlay?: () => void;
+  /** The glyph's accessible name. Required alongside `onPlay` so no wording is invented here. */
+  playLabel?: string;
+  /** Rendered in the band instead of the still. See the seam paragraph above. */
+  player?: ReactNode;
+}) {
   const { url, onFailure } = useRefreshableThumbnail(thumb);
 
-  if (url === null) return null;
+  // `null` as well as `undefined`, because `player` is a `ReactNode` and a caller that computes
+  // one conditionally will hand back `null` rather than omitting the prop. Without the second
+  // arm, a null player on a place whose picture is also gone renders an `<img>` with no `src` —
+  // the browser's broken-image glyph, which is the exact thing the absent state exists to avoid.
+  if ((player === undefined || player === null) && url === null) return null;
 
   return (
-    <div className="overflow-hidden rounded-lg bg-muted">
-      {/* eslint-disable-next-line @next/next/no-img-element -- same reason `RowMedia`'s carries the
-          rule: an arbitrary, expiring, signed third-party CDN URL, which `next/image` would proxy
-          through our own optimizer at a cost and open a second place the referrer question has to
-          be answered. */}
-      <img
-        src={url}
-        alt=""
-        referrerPolicy="no-referrer"
-        onError={onFailure}
-        /* Same pre-hydration hole `RowMedia`'s ref closes, and for a stronger reason here: this
-           banner is the first thing in a server-rendered detail panel, so its request is issued
-           during parse and an expired URL fails before any handler exists. Without this the
-           refresh would only ever fire for images that failed after hydration. */
-        ref={(node) => {
-          if (node?.complete === true && node.naturalWidth === 0) onFailure();
-        }}
-        className="h-40 w-full object-cover"
-      />
+    <div
+      className={cn(
+        // `relative` is what the glyph below is positioned against; `shrink-0` is what keeps this
+        // band from being the one child a height-capped column collapses. Both are structural.
+        'relative shrink-0 overflow-hidden bg-muted',
+        fullBleed ? 'rounded-none' : 'rounded-lg',
+      )}
+    >
+      {player ?? (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element -- same reason `RowMedia`'s carries
+              the rule: an arbitrary, expiring, signed third-party CDN URL, which `next/image` would
+              proxy through our own optimizer at a cost and open a second place the referrer
+              question has to be answered. */}
+          <img
+            src={url ?? undefined}
+            alt=""
+            referrerPolicy="no-referrer"
+            onError={onFailure}
+            /* Same pre-hydration hole `RowMedia`'s ref closes, and for a stronger reason here: this
+               banner is the first thing in a server-rendered detail panel, so its request is issued
+               during parse and an expired URL fails before any handler exists. Without this the
+               refresh would only ever fire for images that failed after hydration. */
+            ref={(node) => {
+              if (node?.complete === true && node.naturalWidth === 0) onFailure();
+            }}
+            className="h-40 w-full object-cover"
+          />
+          {onPlay !== undefined && playLabel !== undefined && (
+            <button
+              type="button"
+              onClick={onPlay}
+              aria-label={playLabel}
+              // `data-vaul-no-drag`: inside the mobile sheet a press that begins here would
+              // otherwise be read as the start of a sheet drag and the tap would be swallowed —
+              // the same attribute every other pressable inside the sheet carries.
+              data-vaul-no-drag
+              className={cn(
+                // The trailing-bottom corner, not the centre. A TikTok cover is a portrait frame
+                // whose subject sits centre-top, so a centred glyph lands on a face; this corner is
+                // the quietest part of the still and the one nearest the thumb on a phone. `end-`
+                // rather than `right-`, for the same reason the row's distance uses `ms-auto`.
+                'absolute bottom-2 end-2 flex size-11 items-center justify-center rounded-full',
+                // A solid ground rather than an alpha scrim: the ink behind it is an arbitrary
+                // photograph, and an alpha that reads on a dark frame disappears on a bright one.
+                // Both tokens carry both themes, so the pair is legible on either.
+                'bg-background text-foreground shadow-md',
+                'outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50',
+                PRESS_BEAT,
+              )}
+            >
+              {/* Filled, because an outlined triangle at 20 px on a photograph is the one glyph
+                  shape that reliably disappears into busy ink. */}
+              <Play className="size-5 fill-current" aria-hidden />
+            </button>
+          )}
+        </>
+      )}
     </div>
   );
 }
