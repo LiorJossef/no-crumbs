@@ -25,8 +25,9 @@ Production falls back to Overture behind a **ToS gate** — Google content may n
 non-Google map (`06` §3.1, VERIFIED). The gate is code on purpose; a Google renderer deletes it.
 
 **L1 is nearly complete and collections (L2) has shipped.** Not built: the streaming route
-(`L0-F6`, `/api/imports/probe` is the stand-in) and `L1-F8-T1`, the account menu with
-delete-my-data — the last unbuilt L1 product feature. D2b was **superseded, not completed**.
+(`L0-F6`, `/api/imports/probe` is the stand-in). **`L1-F8-T1` — the account menu with
+delete-my-data — was built on 2026-08-31 (`642cab0`)**, so the sentence that called it the last
+unbuilt L1 feature is retired; `docs/current-state.md` §51 and §136 are the record. D2b was **superseded, not completed**.
 Per-task status is `docs/execution-plan.md`; read `docs/current-state.md` first.
 
 The MVP boundary, and it is three decisions rather than a feature list: one link in one field;
