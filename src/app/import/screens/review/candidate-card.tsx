@@ -34,6 +34,8 @@ import {
   locationLine,
 } from '@/domain/import/candidate-presentation';
 import { googleMapsSearchUrl } from '@/domain/places/google-maps-search-url';
+import { deriveSavedPlaceEnrichment } from '@/domain/import/saved-place-enrichment';
+import { tagDisplayLabel } from '@/domain/extraction/tags';
 import type { PlaceCandidate } from '@/domain/types';
 import {
   effectivePick,
@@ -152,6 +154,58 @@ export function ExtractedCandidateRow({
    */
   const badge = provenanceBadge(isSaveable(candidate), view, pick);
 
+  /**
+   * **The tags this save will file the place under, shown before the save rather than after it.**
+   *
+   * Migration `0036` split one column into three: `tags_extracted` is what the model proposed,
+   * `tags` is the user's vocabulary, and `tags_confirmed_at` is `NULL` for as long as nobody has
+   * asserted it. Every tag in the database is currently in that unasserted state, and the reason is
+   * this card: tags were written on every import and rendered on **no** screen until the place was
+   * already on the map. `product-edge-2026-08-31.md` names refusing to assert what the user did not
+   * confirm as the property this product is built on, and a word filed under someone's library that
+   * they were never shown is exactly such an assertion.
+   *
+   * **Shown, not asked** — the ruling, and it is a ruling rather than a shortcut. Everything else on
+   * this card works this way: the category, the address, the resolved name and the pin are all
+   * *stated*, and pressing Save is what confirms them. Tags were the one fact on the card that was
+   * neither stated nor confirmable, so showing them brings them up to the screen's existing consent
+   * standard instead of inventing a second, higher one for a single field. A per-tag opt-out here
+   * would be a second decision per candidate on the surface `ui-review-2026-08-31.md` finding 11
+   * already measures as the least responsive in the product — and pruning a vocabulary is a
+   * considered act that belongs in the library, next to the place, not inside a flow somebody is
+   * trying to finish. The confirm route stamps `tags_confirmed_at` on exactly this basis, and only
+   * when this row rendered (see `api/imports/confirm/route.ts`).
+   *
+   * **Derived by the function the server writes with, not by a second reading of the candidate.**
+   * `deriveSavedPlaceEnrichment` is what `confirmOne` passes to `apply_saved_place_extraction`, so
+   * the chips below and the column cannot say different things — which is the entire basis on which
+   * the save is allowed to count as consent. A `candidate.tags` read here would look identical and
+   * would be free to drift.
+   *
+   * They render exactly as the library renders them — same token pair, same pill, same
+   * `tagDisplayLabel` — because "see what will be stored" is only true if this *is* what gets
+   * stored. `<span>`s rather than the sheet's `<ul>`: this block sits inside the tickbox
+   * `<button role="checkbox">`, a list inside a button is invalid markup, and being part of that
+   * control's accessible name is the correct outcome anyway — the thing the user presses names the
+   * tags it is going to write.
+   */
+  const proposedTags = deriveSavedPlaceEnrichment(candidate)?.tags ?? [];
+  const tagRow = proposedTags.length > 0 && (
+    <span className="mt-1 flex flex-wrap gap-1">
+      {proposedTags.map((tag) => (
+        <span
+          key={tag}
+          // Read by the browser measurement in `docs/`-filed evidence and by nothing in the app.
+          data-review-tag=""
+          dir="auto"
+          className="inline-block max-w-full truncate rounded-full bg-tag px-2 py-0.5 text-micro leading-4 font-bold text-tag-foreground"
+        >
+          {tagDisplayLabel(tag)}
+        </span>
+      ))}
+    </span>
+  );
+
   /** The note's own disclosure, closed on arrival. See `noteRow` for why it may not be an
    *  always-open field, and why the text itself lives in the screen rather than here. */
   const noteId = useId();
@@ -223,6 +277,7 @@ export function ExtractedCandidateRow({
       <p className="line-clamp-1 text-caption font-medium text-muted-foreground">
         <bdi>{candidateMeta(candidate)}</bdi>
       </p>
+      {tagRow}
       {isHashtagOnly(caption, candidate) && (
         <p className="mt-1 text-xs font-medium text-muted-foreground">Only mentioned in a hashtag.</p>
       )}
@@ -530,6 +585,11 @@ export function ExtractedCandidateRow({
   if (collapsed) {
     return (
       <li className="flex shrink-0 flex-col gap-1.5">
+        {/* The collapsed layout deletes the card and its `body`, so this is where the tags go: the
+            screen's own H1 and meta line sit directly above, which is the position they hold on the
+            full card too. Without this branch the one layout a *confident* single result gets would
+            be the only one that saved tags without showing them. */}
+        {tagRow}
         {isHashtagOnly(caption, candidate) && (
           <p className="text-xs font-medium text-muted-foreground">Only mentioned in a hashtag.</p>
         )}

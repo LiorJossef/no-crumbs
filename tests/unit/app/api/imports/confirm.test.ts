@@ -187,10 +187,23 @@ describe('confirm — schema v2 enrichment', () => {
       p_saved_place_id: 'saved-place-1',
     });
     // And the order that makes the second of those possible at all.
+    //
+    // `set_saved_place_tags` joined this list on 2026-09-01 (task `r3-tags-ui`): migration `0036`
+    // added `saved_places.tags_confirmed_at`, and this route stamps it once the review card has
+    // shown the user the tags the save is about to write. It is deliberately **last** — it records
+    // that the user asserted a vocabulary, so it may only run after the vocabulary is in the
+    // column. The stamp's own conditions, refusals and failure behaviour are
+    // `confirm-tag-confirmation.test.ts`'s; this line exists so a change to the *order* cannot pass
+    // unnoticed here.
+    //
+    // It is a call on the *user's* client, which this file's fake does not answer — so it throws,
+    // `confirmTags` swallows it, and the save is still reported as a save. That is the behaviour
+    // asserted deliberately in the other file, and it is why nothing else here moved.
     expect(rpcCalls.map((c) => c.fn)).toEqual([
       'resolve_place',
       'save_place',
       'apply_saved_place_extraction',
+      'set_saved_place_tags',
     ]);
   });
 
