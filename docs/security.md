@@ -1047,6 +1047,20 @@ mean hosting TikTok CDN content; hot-linking without `no-referrer` would send Ti
 page a user was looking at. This is the third option and it is the right one. The residue — TikTok's
 CDN sees the user's IP address — is risk **R-8**.
 
+**R-8 was the whole of the TikTok exposure until the embed shipped, and it is not any more.** Read
+R-8 as the *ambient* half: every thumbnail, on every render, anonymous, cookieless, no script. The
+embed is the *triggered* half — a cookie, an identifier and a third party's JavaScript, only ever on
+a deliberate press — and it is a different mechanism at a different magnitude, so it is **R-18**
+rather than a bigger R-8. Neither entry is complete on its own.
+
+**Embedded TikTok playback carries `sandbox`, `referrerpolicy="no-referrer"` and a `frame-src`
+allow-list entry, and none of the three reaches what R-18 is about.** They are here because they are
+free and because they close a real, different risk class — a third-party document we chose to embed
+opening windows, navigating our page away, submitting forms, raising dialogs, or being swapped for
+some other host. The sandbox in particular has to grant `allow-same-origin` for the player to run at
+all, and `allow-same-origin` *is* the permission the cookie depends on. **Do not read this paragraph
+as a mitigation of the paragraph below it.**
+
 ### 7.3 Open redirect
 
 The sign-in page accepts a `?next=` parameter so that someone arriving at a collection invite comes
@@ -1321,7 +1335,61 @@ scripts, and is why a partial one was not shipped.
 **R-8 · TikTok's CDN sees our users' IP addresses.** Thumbnails are hot-linked. `no-referrer` means
 TikTok learns nothing about *which page*, but a request is still made from the user's browser to
 TikTok. *Alternative:* proxy the bytes, which means hosting TikTok CDN content and paying for it.
-This is the deliberate choice between two imperfect options, and it answers `04` §8 Q6.
+This is the deliberate choice between two imperfect options, and it answers `04` §8 Q6. **Scope,
+narrowed 2026-09-01:** this entry covers the *ambient, image-only* surface. It was written when that
+was the entire TikTok exposure and it no longer is — see **R-18**, which is a different mechanism
+rather than more of this one.
+
+**R-18 · Playing a TikTok video in place hands TikTok a durable cross-site identifier and runs its
+device-fingerprint code in a page that also renders the user's saved places.** *Placed here rather
+than after R-17 because a reader who has just read R-8 is the reader who needs it; the register's
+numbering has never been its order.*
+
+*What happens:* pressing **Play here** mounts TikTok's Embed Player
+(`www.tiktok.com/player/v1/{id}`) in an iframe on the place surface. Measured
+([`evidence/tiktok/10-embed-playback-2026-08-31.md`](evidence/tiktok/10-embed-playback-2026-08-31.md)
+§4, and re-measured in a real browser on 2026-09-01 while building it): the document response sets
+**`ttwid`** (~1 year) and **`tt_chain_token`** (180 days), both `Domain=.tiktok.com`, `HttpOnly`,
+`Secure`, **`SameSite=None`** — the explicit marker for *usable in a third-party context* — plus a
+session-scoped `msToken`. The framed document then loads a **224 KB ByteDance `webmssdk.js`**
+device-fingerprint build and three telemetry SDKs, and issues **~76 requests to TikTok-controlled
+hosts** on a single press. None of that waits for the video to play; it is what mounting costs.
+
+*What the residual actually is, stated without the controls:* **from the first press until those
+cookies expire, TikTok holds an identifier that links this browser to this product and to any other
+site carrying TikTok code, and it holds a device fingerprint taken on a page that renders where a
+person has decided to go.** §10 of this document names that association as *the personal fact*. We
+cannot see the identifier, cannot revoke it, cannot scope it to one video and cannot time-limit it —
+it is set on `tiktok.com`, by TikTok, under `HttpOnly`. **Nothing in this product's control surface
+shortens that year.** A second press inside the lifetime is a smaller increment than the first,
+because it returns an identifier already minted rather than creating linkage; that is a reason the
+consent is asked once, not a reason the exposure is small.
+
+*What is genuinely load-bearing:* the exposure is **user-triggered and informed** rather than
+ambient. Nothing is mounted until a deliberate press, and the first press in a browser is the
+disclosure — two co-equal actions, *Play here* and *Open on TikTok*, neither defaulted, with the
+cookie's lifetime and the standing nature of the grant stated in the copy beside them
+(`src/components/embed/playback-copy.ts`). The refusal is a genuine zero-cost path and was measured
+as one: **0 requests from the page to any TikTok host**, before the press, after it, and across a
+reload. The answer is stored in this origin's `localStorage` under `no-crumbs.tiktok-playback`, so
+it is asked once per browser, and it is reversible from the panel in either direction. There is no
+server-side record of it and no account-level preference.
+
+*What is not load-bearing, and must not be read as if it were:* `sandbox`, `referrerpolicy` and
+`frame-src`. §7.2 says why. The one attribute that could reach the storage half —
+`credentialless` — is deliberately **not** shipped: Chromium-only, not Baseline, untested against
+this player, and it would leave the SDK execution untouched anyway.
+
+*Minimum fix, in order of how much it would actually buy:* (a) an account-level *never play here*
+that survives a cleared `localStorage`, which needs a migration; (b) a proven-in-all-three-engines
+`credentialless` mount, which closes the storage half only; (c) removing the feature, which is the
+only thing that closes it, and the owner ruled the trade worth making under the consent gate
+([`security-ruling-embed-playback-2026-08-31.md`](security-ruling-embed-playback-2026-08-31.md) §5).
+*Ruling:* conditional permit, §6 items 1–4 and 10 being the conditions. *GDPR/ePrivacy note:* the
+cookie is non-essential and cross-site-trackable, set by a third party through our page, so Art.
+5(3) consent is the frame this was built to — **ASSUMED**, not VERIFIED, and the same status §2 of
+the ruling gives it. No user-facing privacy policy exists yet; whoever writes one must scope this
+in rather than discover it.
 
 **R-9 · Prompt injection can still produce a plausible wrong place.** §8. The gates catch fabrication
 against the caption; they cannot catch a caption that genuinely names a venue chosen by an attacker.

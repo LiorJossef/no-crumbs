@@ -31,13 +31,33 @@ const buildEnv = {
  * strategy for Next's inline scripts, and half a CSP that has to be loosened on the first failure
  * is worse than none.
  *
+ * **`frame-src` is the one exception to that, and it is a tightening rather than half a CSP.**
+ * `frame-ancestors` says who may embed us; it says nothing about whom *we* may embed, so before
+ * this line the answer was "anyone". The TikTok embed
+ * (`security-ruling-embed-playback-2026-08-31.md` §6 item 8) makes that worth naming: one host,
+ * explicitly allow-listed, the same discipline `canonicalise-tiktok-url.ts` already applies to
+ * outbound TikTok hosts with its six-host `Set`. Nothing that worked before stops working — the
+ * app frames exactly one thing — and any *second* third-party frame now has to be added here
+ * deliberately.
+ *
+ * **It is not a mitigation of the embed's disclosure and must not be recorded as one.** The cookie
+ * and the fingerprint SDK are what TikTok's player is built to do once it is allowed to run at all;
+ * this directive only decides *which host* may be framed, never what that host does once framed.
+ * `docs/security.md` R-18 is where the residual lives.
+ *
+ * The value is `EMBED_PLAYER_FRAME_SRC` from `src/components/embed/embed-player-url.ts`, inlined
+ * here as a literal because `next.config.ts` is loaded outside the `@/` alias — and
+ * `tests/unit/embed/embed-player-url.test.ts` reads this file and asserts the two agree, plus that
+ * both equal the origin the iframe actually loads. A CSP entry that has quietly stopped matching
+ * the thing it constrains is a guard that cannot fail.
+ *
  * `Permissions-Policy` names `geolocation=(self)` rather than disabling it: the map's own locate
  * button uses it. Camera, microphone and payment are things this product will never ask for.
  */
 const SECURITY_HEADERS = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-  { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+  { key: 'Content-Security-Policy', value: "frame-ancestors 'none'; frame-src https://www.tiktok.com" },
   {
     key: 'Permissions-Policy',
     value: 'geolocation=(self), camera=(), microphone=(), payment=(), interest-cohort=()',
