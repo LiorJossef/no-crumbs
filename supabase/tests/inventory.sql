@@ -738,6 +738,18 @@ begin
     -- `tags_extracted` or `tags_confirmed_at`, which is the whole control: the words and the record
     -- of who chose them cannot be written apart, because neither can be written directly at all.
     ('set_saved_place_tags','authenticated'),
+    -- 0037. The two write paths to the other columns `0019` created, and they are DIFFERENT SHAPES
+    -- on purpose. `set_saved_place_dishes` is `set_saved_place_tags` one column to the right: a
+    -- dish name is a token from a closed vocabulary, so choosing among them is selection and the
+    -- user authors the list. `review_saved_place_why_go` takes a BOOLEAN and no text, because
+    -- editing a sentence is authorship, `note` is already the product's one user-authored prose
+    -- field, and whether a second one is inside the MVP boundary is open owner question OD-1 — so
+    -- the user may KEEP or REMOVE the model's sentence and authorship into it is inexpressible
+    -- rather than merely unimplemented. Both are SECURITY DEFINER for `set_saved_place_tags`'s
+    -- reason: `authenticated` holds no column grant on any of the five columns, so the decision and
+    -- the record of who made it cannot be written apart because neither can be written directly.
+    ('review_saved_place_why_go','authenticated'),
+    ('set_saved_place_dishes','authenticated'),
     -- 0019's four normalisers. Pure, IMMUTABLE, SECURITY INVOKER, no table access — the same class
     -- as km_between, and they are on this list for a MEASURED reason rather than a cautious one: a
     -- CHECK constraint's function call IS permission-checked against the writing role (an insert
@@ -806,7 +818,7 @@ begin
       left join actual a on a.n = e.n and a.role = e.role where a.n is null
   ) d;
   if v is not null then raise exception 'FAIL 6: function grant drift: %', v; end if;
-  raise notice 'PASS 6  only save_place, km_between, apply_saved_place_source_link, 0036''s set_saved_place_tags, 0019''s four pure normalisers and 0024''s six collection entry points are reachable by a browser role; apply_saved_place_extraction and repoint_saved_place are service_role only; anon has nothing';
+  raise notice 'PASS 6  only save_place, km_between, apply_saved_place_source_link, 0036''s set_saved_place_tags, 0037''s review_saved_place_why_go and set_saved_place_dishes, 0019''s four pure normalisers and 0024''s six collection entry points are reachable by a browser role; apply_saved_place_extraction and repoint_saved_place are service_role only; anon has nothing';
 end $$;
 
 -- ── 6b. no function in `public` is overloaded, and resolve_place's argument list is the designed one ──
