@@ -119,6 +119,14 @@ AGENT_REF_PATTERNS = [
     r"\b(?:spec|build|review|owned by|delegated to)\s+`([a-z][a-z-]+)`",
     r"^\|\s*`([a-z][a-z-]+)`\s*\|\s*(?:Build|Probe|Advise)\s*\|",   # the roster table
 ]
+# **SQL roles are not agents, and this is a category distinction rather than an allow-list.**
+# `owned by `postgres`` is how every migration ruling states object ownership, and the `owned by`
+# pattern above cannot tell that from `owned by `qa-reliability``. The four names below are the
+# complete set of roles this schema grants to — they are fixed by Postgres and Supabase, not by us,
+# so this cannot rot the way an exceptions list does: it does not grow as the repo grows, and a new
+# agent can never be called one of them because `check-agents` would reject the filename anyway.
+SQL_ROLES = {"postgres", "authenticated", "anon", "service_role"}
+
 KNOWN = set(agents)
 matched = set()
 for doc in ["CLAUDE.md"] + sorted(glob.glob("docs/*.md")):
@@ -128,6 +136,8 @@ for doc in ["CLAUDE.md"] + sorted(glob.glob("docs/*.md")):
         if only_in is not None and doc != only_in:
             continue
         for ref in re.findall(pattern, text, re.M):
+            if ref in SQL_ROLES:
+                continue
             matched.add(ref)
             if ref not in KNOWN:
                 bad(f"{doc} names `{ref}` as an agent, but {AGENT_DIR}/{ref}.md does not exist")
