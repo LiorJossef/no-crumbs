@@ -35,19 +35,26 @@ Three gaps, in order of how much they cost the grade:
 1. **n=10, borrowed.** Every yield number above is a property of the e7 web-search sample,
    which `07-caption-content-scoring.md` documents as skewed to indexed, high-reach posts.
    The owner sample is **n=1**. A 100% on three cases is not a recall figure.
-2. **Transcripts are unmeasured end to end.** The lift is real where it was measured
-   (9 → 16–18 candidates, zero false positives; `@gadderhq` 0 → 4 London venues), but
-   acquisition is blocked: TikTok refuses this machine's IP after ~35 requests, verified four
-   times, and still refuses with 456 valid cookies — so it is address/fingerprint-level, not
-   auth. `scripts/fetch-transcripts.sh` exists so the owner runs it under their own session.
-3. **`recoverable` is 0/3 by design and stays there** until 2 lands. That is the class the
-   whole Engine 2.0 ladder exists to rescue, and it is currently the class we cannot score.
+2. **Transcripts work, and are still unscoreable.** Measured live this session against the
+   real extractor and resolver (`transcript-lift-graded-2026-09-01.md`): 9 → 17 candidates,
+   **no hallucination on the negative control** (a `futile` post, 502 words of restaurant
+   speech, 0 candidates), **no regression** on the `sufficient` class, and 0 → 1 and 0 → 7 on
+   the two `recoverable` posts. What is missing is not capability but ground truth: one of
+   those posts is unlabelled and the other found a venue its label does not name. So the
+   thesis is evidenced and the metric still cannot move.
+3. **`recoverable` is 0/3, and the reason is labels rather than the engine.** That is the
+   class the whole Engine 2.0 ladder exists to rescue. The transcript fires on both posts in
+   it; neither has ground truth usable to score the result. See §4 of the transcript file —
+   and note the trap recorded there: labelling a post *from* its transcript and then grading
+   the transcript-fed extractor against those labels measures extraction fidelity, not
+   real-world correctness.
 
 ## What would move it
 
 Nothing in `src/`. Both remaining steps need the owner:
 
-- `./scripts/fetch-transcripts.sh chrome` — one command, the owner's own browser session.
+- `./scripts/fetch-transcripts.sh chrome` — one command, the owner's own browser session. The
+  six transcripts already held are enough to prove the path is safe; more are needed to score it.
 - ~50 links in `tests/manual/owner-corpus-links.txt` (13 there now). This is the single
   highest-value action available to the project: it converts every number above from a
   property of a borrowed sample into a property of the product.
