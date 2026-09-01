@@ -78,7 +78,7 @@
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { Loader2, Map as MapIcon, Plus, UserRound } from 'lucide-react';
 
 import type { MapPlace } from '@/components/map/types';
@@ -108,6 +108,31 @@ const AddSheetHost = dynamic(
   () => import('@/components/add/add-sheet-host').then((mod) => mod.AddSheetHost),
   { ssr: false, loading: () => <CreateMenuPending /> },
 );
+/**
+ * **The account menu, on the same terms as the two above and for the same reason.**
+ *
+ * `tests/unit/nav/bottom-nav-import-boundary.test.ts` holds this file's static graph at exactly
+ * four internal modules, because `place-sheet.tsx` imports it for one number and inherits whatever
+ * lands here. The menu reaches a `localStorage` radio group, the two-branch deletion flow and Base
+ * UI's popover; statically imported, all of that would ride into the sheet's chunk for a surface
+ * most sessions never open.
+ *
+ * **`React.lazy` rather than `next/dynamic`, and the difference is the fallback.** `dynamic`'s
+ * `loading` component takes no props, so it cannot render *this* tab — it would have to render a
+ * generic one, and the tab would lose its `aria-current` for as long as the chunk took. With
+ * `Suspense` the fallback is the very element that was just pressed, so nothing on screen moves
+ * while the chunk arrives.
+ *
+ * **The trigger lives inside the loaded module, not out here.** An anchored popup driven by an
+ * outside button double-toggles: Base UI dismisses on the outside press, the button's own click
+ * then reopens it, and the menu cannot be closed by the control that opened it. Handing
+ * `Popover.Trigger` the element solves that by construction, which is why `ProfileMenu` takes the
+ * button rather than a ref to it.
+ */
+const ProfileMenu = lazy(() =>
+  import('./profile-menu').then((mod) => ({ default: mod.ProfileMenu })),
+);
+
 const ImportPageClient = dynamic(
   () => import('@/app/import/import-page-client').then((mod) => mod.ImportPageClient),
   { ssr: false, loading: () => <ImportPending /> },
@@ -209,7 +234,11 @@ export function BottomNav({ onAdd, places = [] }: BottomNavProps) {
   // there would tell a screen reader user that they are on none of the product's destinations
   // while looking at one of them.
   const onMap = pathname === '/map' || pathname.startsWith('/collections');
-  const onProfile = pathname === '/profile';
+  // `/account` counts, and the reason is the same one that makes every collections URL light
+  // `Map`: the settings page is reached only from this control's menu, so a bar that marked
+  // nothing there would tell a screen reader user they are on none of the product's destinations
+  // while looking at one. See `ProfileTab` for why the attribute sits on a button.
+  const onProfile = pathname === '/profile' || pathname === '/account';
 
   if (importUrl !== null) {
     // The bar is not rendered beside it: a half-finished import is a takeover, and a tab out of one
@@ -251,7 +280,7 @@ export function BottomNav({ onAdd, places = [] }: BottomNavProps) {
               the control keeps its accessible name and its focus behaviour, and nothing has to
               model "pressed but inert". */}
           <NavTab href="/map" icon={MapIcon} label="Map" current={onMap} />
-          <NavTab href="/profile" icon={UserRound} label="Profile" current={onProfile} />
+          <ProfileTab current={onProfile} />
         </div>
         <AddButton onAdd={onAdd ?? openMenu} />
       </nav>
@@ -271,20 +300,117 @@ export function BottomNav({ onAdd, places = [] }: BottomNavProps) {
 }
 
 /**
- * A tab is on or it is off, and there is no longer a third case.
+ * One tab's appearance, as a string, because two elements now wear it: `Map` is a `<Link>` and
+ * `Profile` is the button that opens the account menu. Extracting it is what stops the bar growing
+ * two slightly different tabs.
  *
- * It used to carry `'page' | 'true' | false` so that `/collections/[id]` could light the
- * `Collections` tab as a *section* rather than as the current document. There is no section tab
- * any more — the two destinations are both leaves — and `aria-current="page"` is the honest value
- * for each: `/collections` is the map screen, which is what `onMap` now says.
+ * The `aria-` variants are the whole state model. Rest and hover apply unconditionally; the on
+ * state is a variant over an attribute that is already on the element (rule 6a — state comes from
+ * the DOM, never from a class string assembled by a ternary), so a tab cannot look selected while
+ * telling a screen reader it is not. `aria-[current]` matches on the attribute's *presence*.
+ * `aria-expanded` is the second one and belongs to the menu button alone: an open menu is a state
+ * of the control, and without it the trigger looks identical whether or not its popup is up.
  */
+const NAV_TAB_CLASS = cn(
+  'flex h-11 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-full px-2 font-medium motion-safe:transition-colors',
+  'focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+  'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+  'aria-[current]:bg-muted aria-[current]:text-foreground',
+  'aria-expanded:bg-muted aria-expanded:text-foreground',
+  // The matrix's press for a nav tab is the chip's 5%: a 44px target with no fill of its own
+  // and, on a phone, no hover and no focus-visible to confirm the tap landed.
+  PRESS_CHIP,
+);
+
+/**
+ * **The `Profile` slot is a menu button, not a destination** (owner, 2026-08-31: *"convert the
+ * profile page, into a profile popover menu when clicking the profile avatar"*).
+ *
+ * It was a `<Link href="/profile">`, and `/profile` is the last route segment outside
+ * `MAP_ROUTES` — so tapping it released the persistent MapLibre instance and rebuilt the whole map
+ * on the way back. `profile-menu.tsx` has the mechanism and the measurement. A menu that opens over
+ * the current route never navigates, so nothing is released.
+ *
+ * **`aria-current` stays, on a button.** ARIA allows it on any element and it is the honest answer
+ * on `/profile` and `/account`: those two pages belong to this control, and a bar that marked
+ * neither would leave a screen reader user on none of the product's destinations. It is not a claim
+ * that the button is a link.
+ *
+ * **The visible label stays the constant `Profile`.** A name here would be the failure mode the
+ * brief names — a product that says your name constantly — and worse, chrome is learned by position
+ * and label, so a label that differs per account is not a label. The name appears inside the menu,
+ * where it answers *which account is this*.
+ */
+function ProfileTab({ current }: { current: boolean }) {
+  /** The menu's chunk is fetched by the first press and never before — see `ProfileMenu` above. */
+  const [mounted, setMounted] = useState(false);
+
+  /**
+   * The tab itself, and it is one element used two ways: rendered plainly until the menu exists,
+   * then handed to `Popover.Trigger` as its `render` prop, which merges `aria-haspopup`,
+   * `aria-expanded` and its own click handling onto exactly this markup.
+   *
+   * `onClick` is attached only in the first state. Once the menu is mounted the popover owns the
+   * press, and a second handler here would mount what is already mounted.
+   *
+   * **`aria-current="true"`, never `"page"`.** `page` means *this link points at the document you
+   * are reading*, and this is not a link — it opens a menu. `true` is the generic member of the
+   * same attribute: *the current item within this set of related elements*, which is exactly what
+   * the account control is while you are on `/profile` or `/account`. The styling reads
+   * `aria-[current]`, which matches on the attribute's presence, so the highlight is unchanged and
+   * the claim is narrower.
+   */
+  const trigger = (
+    <button
+      type="button"
+      data-profile-trigger
+      {...(current ? { 'aria-current': 'true' as const } : {})}
+      {...(mounted ? {} : { onClick: () => setMounted(true) })}
+      className={NAV_TAB_CLASS}
+    >
+      <UserRound className="size-4 shrink-0" aria-hidden />
+      <span className="max-w-full truncate text-micro leading-4 max-[359px]:sr-only">Profile</span>
+    </button>
+  );
+
+  return (
+    <>
+      {/* Only parsed with scripting off, at which point the button cannot open anything. Same
+          mechanism `theme-choice.tsx` uses, for the same reason: a control that appears to offer
+          something it cannot do is worse than no control. */}
+      <noscript
+        dangerouslySetInnerHTML={{ __html: '<style>[data-profile-trigger]{display:none}</style>' }}
+      />
+      {mounted ? (
+        <Suspense fallback={trigger}>
+          {/* `initialOpen`, because the press that mounted this is the press that opens it. Every
+              press after the first goes through the popover's own trigger. */}
+          <ProfileMenu trigger={trigger} side="top" align="end" initialOpen />
+        </Suspense>
+      ) : (
+        trigger
+      )}
+      {/* The door with scripting off: a plain link to the page, which still exists and still holds
+          everything the menu holds. Rendered as markup rather than as JSX because `<noscript>`
+          children are parsed as text by React's server renderer. Text-only — a lucide glyph is a
+          React component and cannot be interpolated into a string — which is why this is a
+          fallback and not a second implementation. */}
+      <noscript
+        dangerouslySetInnerHTML={{
+          __html: `<a href="/profile" class="${NAV_TAB_CLASS}">Profile</a>`,
+        }}
+      />
+    </>
+  );
+}
+
 function NavTab({
   href,
   icon: Icon,
   label,
   current,
 }: {
-  href: '/map' | '/profile';
+  href: '/map';
   icon: typeof MapIcon;
   label: string;
   current: boolean;
@@ -293,21 +419,7 @@ function NavTab({
     <Link
       href={href}
       {...(current ? { 'aria-current': 'page' as const } : {})}
-      className={cn(
-        'flex h-11 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-full px-2 font-medium motion-safe:transition-colors',
-        'focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-        // Rest and hover unconditionally; the on state as a variant over the attribute that is
-        // already on the element (rule 6a — state comes from the DOM, never from a class string
-        // assembled by a ternary). `aria-[current]` matches on the attribute's *presence* rather
-        // than on a value, because this component passes `'page'` for the route you are on and
-        // `'true'` for a section within it, and both mean on. A ternary here could render a tab
-        // looking selected while telling a screen reader it is not; this shape cannot.
-        'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
-        'aria-[current]:bg-muted aria-[current]:text-foreground',
-        // The matrix's press for a nav tab is the chip's 5%: a 44px target with no fill of its own
-        // and, on a phone, no hover and no focus-visible to confirm the tap landed.
-        PRESS_CHIP,
-      )}
+      className={NAV_TAB_CLASS}
     >
       <Icon className="size-4 shrink-0" aria-hidden />
       {/* Visually hidden rather than removed under 360 px, so a narrow phone gets a bar of icons

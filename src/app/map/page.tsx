@@ -1,6 +1,4 @@
 import { notFound, redirect } from 'next/navigation';
-import Link from 'next/link';
-import { ChevronRight } from 'lucide-react';
 import { createClient } from '@/app/_lib/supabase/server';
 import type { MapPlace } from '@/components/map/map-surface';
 import {
@@ -13,6 +11,7 @@ import { toMapPlace } from './_lib/to-map-place';
 import { viewFromSearchParams } from './_lib/drawer-view';
 import { MapPageClient } from './map-page-client';
 import { ShellWordmark } from './shell-wordmark';
+import { AccountChip } from '@/components/nav/account-chip';
 
 // Placeholder for the real map (a separate task). Belt-and-suspenders auth check: the middleware
 // already redirects an unauthenticated visitor server-side, but every doc under docs/ that
@@ -122,13 +121,21 @@ export default async function MapPage({
           the "floating controls, 44px, translucent scrim" language in §1.3 and sign-in's own
           restraint (hairline border, no fill block, no shadow-heavy card).
 
-          **This chip is the *desktop* way into `/profile`, and it used to hold sign-out itself.**
-          The owner ruled on 2026-08-29 that logging out is not a primary navigation action, and
-          then that the chip must not be a second door to the same page on a phone: below `lg` the
-          way in is `BottomNav`'s Profile tab, and `hidden lg:flex` here is what stops the map's
-          main surface carrying both. Above `lg` the bar does not render at all, so the chip — the
-          only account-shaped thing on the desktop map — is the entry point there rather than a new
-          piece of chrome being invented for one.
+          **This chip is the *desktop* account control, and since 2026-08-31 it opens a menu rather
+          than a page.** It used to hold sign-out itself; the owner ruled on 2026-08-29 that logging
+          out is not a primary navigation action, and then that the chip must not be a second door
+          to the same page on a phone — below `lg` the way in is `BottomNav`'s account control, and
+          `hidden lg:flex` inside `AccountChip` is what stops the map's main surface carrying both.
+          Above `lg` the bar does not render at all, so this is the only account-shaped thing on the
+          desktop map.
+
+          **It was a `<Link href="/profile">` until today**, which meant the desktop half of the
+          owner's *"a profile popover menu when clicking the profile avatar"* still navigated away
+          from the map — and `persistent-map.tsx` releases the single MapLibre instance for any path
+          outside `MAP_ROUTES`, deliberately, so that sign-out cannot leave one account's pins in the
+          next screen's DOM. The menu opens over this route instead, which stays inside that rule
+          rather than asking for an exception to it. `components/nav/account-chip.tsx` holds the
+          chip's own markup, unchanged down to the class string.
 
           **`FLOATING_TOP_CHROME_MOBILE_PX` is deliberately not touched.** That 100 px of camera fit
           budget was sized for this chip plus the post-import confirmation strip that stacks under
@@ -136,20 +143,7 @@ export default async function MapPage({
           The effect is a slightly low fit, not a hidden pin; changing it is a camera change with
           `L2-COLL-CAM-2` already open against the same function, and the owner is taking it
           separately. */}
-      <Link
-        href="/profile"
-        aria-label={`Your profile, signed in as ${user.email ?? 'this account'}`}
-        className="absolute right-3 top-[calc(env(safe-area-inset-top)+0.75rem)] z-30 hidden h-11 items-center gap-1.5 rounded-full border border-border/70 bg-card/85 pl-3.5 pr-3 shadow-[var(--shadow-elevated)] backdrop-blur-md transition-colors hover:bg-card focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 lg:right-4 lg:top-4 lg:flex"
-      >
-        {/* `leading-5`: `truncate` clips to the line-height, `text-xs` sets it to 16px, and this
-            font's inline box at 12px is 17px. Same one-pixel shave `place-enrichment.tsx` records,
-            and an account identifier is the last string in the product that should be guessing
-            which alphabet it will be handed. */}
-        <span className="max-w-[9rem] truncate text-xs font-bold leading-5 text-foreground sm:max-w-[14rem]">
-          {user.email}
-        </span>
-        <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-      </Link>
+      <AccountChip email={user.email ?? null} />
 
       {/* Selection state (map pin → sheet detail, S5) is client-only per `docs/ux-architecture.md`
        *  §1.5 — it is never a URL in this slice — so it is lifted into a client component rather

@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, LogOut, UserRound } from 'lucide-react';
+import { ArrowLeft, LogOut, Settings, UserRound } from 'lucide-react';
 
 import { createClient } from '@/app/_lib/supabase/server';
 import { signOut } from '@/app/actions/sign-out';
@@ -291,6 +291,22 @@ export default async function ProfilePage() {
             destructive variant, and it is the only thing on this page that does. */}
         <section aria-labelledby="your-account" className="mt-8">
           <SectionHeading id="your-account">Your account</SectionHeading>
+          {/* **The way to `/account`, and this page is the only one that has to carry it.** The
+              account menu links there too, and the menu is how almost everyone will arrive — but
+              the menu is a popover and cannot open with scripting off, so this page is the no-JS
+              door to the whole account surface and a dead end without this row. `Settings` is a
+              button-shaped link rather than a nav row because it sits in a stack with `Sign out`
+              and `Delete my data`, and three controls in one column should be one shape. */}
+          <Button
+            render={<Link href="/account" />}
+            nativeButton={false}
+            variant="outline"
+            size="lg"
+            className="mt-2 h-12 w-full text-base"
+          >
+            <Settings className="size-4" aria-hidden />
+            Account settings
+          </Button>
           <form action={signOut} className="mt-2">
             <Button type="submit" variant="outline" size="lg" className="h-12 w-full text-base">
               <LogOut className="size-4" aria-hidden />

@@ -28,6 +28,7 @@ import {
   collectionHref,
   drawerHref,
   isCollectionsView,
+  swapDirection,
   viewFromSearchParams,
 } from '@/app/map/_lib/drawer-view';
 
@@ -142,5 +143,58 @@ describe('what the map canvas says it is showing', () => {
       'Map of שבת בתל אביב. The list below names all 3.',
     );
     expect(collectionCanvasName('שבת בתל אביב', 3)).not.toContain('⁨');
+  });
+});
+
+/**
+ * **Which way the drawer's swap is going** — `components/ui/view-swap.tsx` renders it, this decides
+ * it, and it is here rather than there because it is a fact about the *views* and not about the
+ * animation.
+ *
+ * The three views are laid out left-to-right and the product's own chrome already says so: the
+ * switch is a segmented pair with `Places` on the left and `Collections` on the right, and every
+ * row in the index carries a right-pointing chevron into the collection it names. Deeper is
+ * further right, so `forward` arrives from the right and `back` from the left.
+ *
+ * What this is guarding against is the defect the drawer actually shipped: `index → collection` and
+ * `collection → index` were the *same* 440 ms rise, so two moves that mean opposite things looked
+ * identical. Every pair below is asserted in both directions for that reason.
+ */
+describe('which way a view swap is going', () => {
+  it('goes forward into the collections side and back out of it', () => {
+    expect(swapDirection(PLACES_VIEW, INDEX_VIEW)).toBe('forward');
+    expect(swapDirection(INDEX_VIEW, PLACES_VIEW)).toBe('back');
+  });
+
+  it('goes forward into a collection and back to the index', () => {
+    expect(swapDirection(INDEX_VIEW, COLLECTION)).toBe('forward');
+    expect(swapDirection(COLLECTION, INDEX_VIEW)).toBe('back');
+  });
+
+  /** The switch reaches `Places` from inside a collection in one tap, skipping the index. Two steps
+   *  out is still out. */
+  it('goes back out of a collection all the way to the places view', () => {
+    expect(swapDirection(COLLECTION, PLACES_VIEW)).toBe('back');
+    expect(swapDirection(PLACES_VIEW, COLLECTION)).toBe('forward');
+  });
+
+  /**
+   * **A cold entry is an arrival, not a swap.** Landing on `/map?view=collections` from a shared
+   * link has nothing before it, and `forward` is the direction the switch's own geometry implies.
+   */
+  it('treats a first render as forward', () => {
+    expect(swapDirection(null, INDEX_VIEW)).toBe('forward');
+    expect(swapDirection(null, PLACES_VIEW)).toBe('forward');
+  });
+
+  /**
+   * Two collections sit at one depth. Nothing in the product links one to another today, and the
+   * answer is `forward` rather than a third `lateral` direction — which would put two constants in
+   * `lib/interaction.ts` with no call site, the thing that file's own header forbids.
+   */
+  it('treats two views at the same depth as forward', () => {
+    const other = { kind: 'collection', id: 'cccccccc-0000-4000-8000-000000000002' } as const;
+    expect(swapDirection(COLLECTION, other)).toBe('forward');
+    expect(swapDirection(PLACES_VIEW, PLACES_VIEW)).toBe('forward');
   });
 });
