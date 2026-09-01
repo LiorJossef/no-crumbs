@@ -176,11 +176,10 @@
       "classSource": "e7",
       "places": [],
       "placesSource": "e7",
+      "expectedIntent": "place_question",
       "caption": "What’s the best hidden gem restaurant in London? 💎🤫👀 Comment below👇👇 #deinfluencing #londonrestaurants #hiddengems #secretspot ",
       "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s5-0b220d7f35b11eb4.json",
-      "notes": "E7 row 14: \"What's the best hidden gem restaurant in London?\" — a question post.",
-      "classNote": "RE-LABELLED 2026-08-31 with direct evidence, overriding E7 which filed this `futile`. E7 judged the answer to be nowhere. TikTok’s own auto-caption track for this post has the creator answering their own question aloud and naming eight restaurants — Ishbela, Taturo, Saba, Tokyo ICCO, Jinsei Yakitori, John Balcom, hoppers, Bodega Negra — three of which resolve to real London venues. Transcript fixture: tests/manual/fixtures/transcripts/tiktok-auto-captions.json. See docs/evidence/extraction/transcript-lift-2026-08-31.md. NOTE ON `expectedIntent`: the class and the intent legitimately disagree here, and that is not a defect in either. `postIntent` describes the CAPTION, which genuinely is a question — \"What is the best hidden gem restaurant in London? Comment below\". The class describes the POST, which is a recommendation because the creator answers aloud. The default class→intent mapping cannot express that, so the override says it explicitly. The consequence is the finding: the escalation gate CANNOT reach a recoverable post whose caption is question-shaped, at any threshold, because the only signal it has says question.",
-      "expectedIntent": "place_question"
+      "notes": "E7 row 14: \"What's the best hidden gem restaurant in London?\" — a question post."
     },
     {
       "url": "https://www.tiktok.com/@emshelx/video/7541775954906041622",
@@ -255,6 +254,17 @@
       "caption": "The best place in all of Tel Aviv 🇮🇱  Come hungry with money to spend, and enjoy every bite 😋 Should we tour Shuk Machne Yehuda in Jerusalem ?  Let me know in the comments below ⬇️  #sivanskitchen #fyp #shukhacarmel #telaviv #explorepage  ",
       "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s5-15c114ea45fb08e8.json",
       "draftNote": "DRAFT (the extractor produced 1 plausible candidate(s) from the caption alone). A caption cannot tell `recoverable` from `futile` — that needs someone who watched the video. Correct `class` if wrong, then set `classSource` to \"owner\". Until you do, this row is reported as unadjudicated and counts toward nothing."
+    },
+    {
+      "url": "https://www.tiktok.com/@austintravelhacks/video/7641500459747839252",
+      "externalId": "7641500459747839252",
+      "class": "not-a-place",
+      "classSource": "draft",
+      "places": [],
+      "placesSource": "draft",
+      "caption": "PSA FOR EURO SUMMER: how to visualise your saved TikTok’s on a map 🌍",
+      "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s5-6e50204dbca3a124.json",
+      "draftNote": "DRAFT (the caption produced no candidate; postIntent=not_a_place). A caption cannot tell `recoverable` from `futile` — that needs someone who watched the video. Correct `class` if wrong, then set `classSource` to \"owner\". Until you do, this row is reported as unadjudicated and counts toward nothing."
     }
   ]
 }
