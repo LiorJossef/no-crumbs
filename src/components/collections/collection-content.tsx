@@ -39,7 +39,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { PlaceRow, PlaceSearchField } from '@/components/sheet/place-sheet';
 import { BOTTOM_NAV_HEIGHT_PX } from '@/components/nav/bottom-nav';
-import { STOP_TO_CONTENT_HEIGHT, type SheetStop } from '@/components/shell/sheet-geometry';
+import {
+  STOP_TO_CONTENT_HEIGHT,
+  floatingBarClearancePx,
+  type SheetStop,
+} from '@/components/shell/sheet-geometry';
 import { SharePanel } from '@/components/collections/share-panel';
 import { CollectionPlaceDetail } from '@/components/collections/collection-place-detail';
 import {
@@ -145,6 +149,7 @@ function CollectionBody(props: CollectionContentProps) {
   if (view === 'share') {
     return (
       <SharePanel
+        floatingBarPx={floatingBarClearancePx(props.stop)}
         collectionId={collection.id}
         collectionName={collection.name}
         role={collection.role}
@@ -159,6 +164,7 @@ function CollectionBody(props: CollectionContentProps) {
   if (view === 'add') {
     return (
       <AddPlacesPanel
+        floatingBarPx={floatingBarClearancePx(props.stop)}
         collection={collection}
         library={props.library}
         onDone={() => onViewChange('list')}
@@ -169,6 +175,7 @@ function CollectionBody(props: CollectionContentProps) {
   if (view === 'place' && selected) {
     return (
       <CollectionPlaceDetail
+        floatingBarPx={floatingBarClearancePx(props.stop)}
         collectionId={collection.id}
         place={selected}
         role={collection.role}
@@ -279,12 +286,14 @@ function CollectionList({
    * What the floating bar costs the bottom of this column — its height in the sheet, nothing in the
    * `lg+` panel, where `BottomNav` does not render at all.
    *
-   * Keyed on `stop` being present rather than on a breakpoint, because that *is* the distinction:
-   * `stop` is what the shell passes to the content it puts in the sheet. A media query in
-   * JavaScript would be a second, weaker way of asking the same question, and `map-page-client.tsx`
-   * forbids one outright.
+   * The conditional itself now lives in `sheet-geometry.ts` beside the handle and the view switch,
+   * which is where the rest of the sheet's budget is declared. It was written out here first and
+   * the reasoning is still the reasoning: it is keyed on `stop` being present rather than on a
+   * breakpoint, because that *is* the distinction — `stop` is what the shell passes to the content
+   * it puts in the sheet. A media query in JavaScript would be a second, weaker way of asking the
+   * same question, and `map-page-client.tsx` forbids one outright.
    */
-  const barPx = stop === undefined ? 0 : BOTTOM_NAV_HEIGHT_PX;
+  const barPx = floatingBarClearancePx(stop);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -803,10 +812,16 @@ function AddPlacesPanel({
   collection,
   library,
   onDone,
+  floatingBarPx,
 }: {
   collection: CollectionDetail;
   library: readonly MapPlace[];
   onDone: () => void;
+  /** What `BottomNav` covers at the bottom of this column — `floatingBarClearancePx(stop)`, and 0
+   *  in the `lg+` panel. The footer below is pinned to that bottom, so without it the confirm
+   *  button is painted behind the bar exactly as the list's `Add places` footer was before it was
+   *  given the same number. */
+  floatingBarPx: number;
 }) {
   const router = useRouter();
   const [query, setQuery] = useState('');
@@ -915,7 +930,14 @@ function AddPlacesPanel({
         )}
       </div>
 
-      <div className="shrink-0 border-t border-border/70 bg-card px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3">
+      <div
+        className="shrink-0 border-t border-border/70 bg-card px-4 pt-3"
+        // The bar's height, on the one element in this panel that is pinned to the bottom of the
+        // sheet. Same treatment and same reason as the list's `Add places` footer, which was
+        // measured behind the bar at 375×812 and fixed; this panel is the other half of that pair
+        // and was missed.
+        style={{ paddingBottom: `calc(env(safe-area-inset-bottom) + 0.75rem + ${floatingBarPx}px)` }}
+      >
         {error ? (
           <p role="alert" className="pb-2 text-sm text-destructive">
             {error}

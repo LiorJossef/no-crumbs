@@ -21,7 +21,14 @@
  */
 
 import { isolate } from '@/ui/place/active-area';
-import { useEffect, useRef, useState, useSyncExternalStore, useTransition } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  useTransition,
+  type CSSProperties,
+} from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Copy, MoreHorizontal } from 'lucide-react';
 
@@ -129,6 +136,7 @@ export function SharePanel({
   invite,
   currentUserId,
   onBack,
+  floatingBarPx,
 }: {
   collectionId: string;
   collectionName: string;
@@ -137,6 +145,17 @@ export function SharePanel({
   invite: CollectionInvite | null;
   currentUserId: string;
   onBack: () => void;
+  /**
+   * What `BottomNav` covers at the bottom of this scroll column, from
+   * `floatingBarClearancePx(stop)` in `sheet-geometry.ts`.
+   *
+   * Passed in rather than decided here: this panel renders in the collection's sheet, where the bar
+   * floats over its last 68 px, **and** in the `lg+` panel, where the bar does not render at all,
+   * and only `CollectionContent` knows which. The comment below already said the bottom pad clears
+   * the home indicator "or the last member row sits under it" — the bar is the other thing it has
+   * to clear, and it was not in the sum.
+   */
+  floatingBarPx: number;
 }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [status, setStatus] = useState('');
@@ -157,7 +176,18 @@ export function SharePanel({
       clears the home indicator, or the last member row sits under it.
     */
     <div
-      className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+2rem)]"
+      // The bar's height reaches the padding as a custom property rather than as its own
+      // `padding-bottom`, so the class below stays the one place this column's bottom spacing is
+      // written. Inline because the number is `BOTTOM_NAV_HEIGHT_PX` arriving through the host and
+      // Tailwind's arbitrary values take a literal. `scroll-padding-bottom` with it, so focusing a
+      // member row near the end does not park it behind the bar.
+      style={
+        {
+          '--floating-bar': `${floatingBarPx}px`,
+          scrollPaddingBottom: `${floatingBarPx}px`,
+        } as CSSProperties
+      }
+      className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+var(--floating-bar,0px)+2rem)]"
       data-vaul-no-drag
     >
       <div className="flex items-center gap-1">

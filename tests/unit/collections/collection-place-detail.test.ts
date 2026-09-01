@@ -74,6 +74,7 @@ vi.mock('@/components/sheet/place-sheet', async (importOriginal) => {
 const { CollectionPlaceDetail } = await import(
   '@/components/collections/collection-place-detail'
 );
+const { BOTTOM_NAV_HEIGHT_PX } = await import('@/components/nav/bottom-nav-metrics');
 
 import type { CollectionPlace } from '@/app/collections/_lib/get-collections';
 import type { CollectionRole } from '@/domain/collections/collection';
@@ -180,6 +181,11 @@ function render(
       currentUserId: 'user-1',
       library,
       onBack: () => {},
+      // The sheet's answer, which is the mount this file is about. Required and undefaulted for the
+      // same reason `savedPlace` is: this component is in the document twice at once — the sheet,
+      // where `BottomNav` floats over the last 68 px, and the `lg+` panel, where it does not render
+      // — and a component that guessed would be wrong on one of them.
+      floatingBarPx: BOTTOM_NAV_HEIGHT_PX,
     }),
   );
 }
@@ -313,6 +319,23 @@ describe('CollectionPlaceDetail — a place the viewer saved themselves', () => 
     const markup = renderMine();
     expect(markup).not.toContain('Already in your places');
     expect(markup).not.toContain('Save to your places');
+  });
+
+  /**
+   * The bar's height reaches the card it is about, and not by way of a constant typed here.
+   *
+   * Measured before it was wired, at 390×844 and at maximum scroll: `Remove from this collection`
+   * — the assertion two tests below is about the same control — came to rest at y 770–814 against
+   * a `BottomNav` occupying 776–844, with five of five hit-test points across its width returning
+   * an element the button did not contain. This is a rendering rather than a source read because
+   * the failure was a *value not arriving*, and only the markup can say that it does.
+   */
+  it('spends the floating bar’s height on its scroll column', () => {
+    const markup = renderMine();
+    expect(markup).toContain(`--floating-bar:${BOTTOM_NAV_HEIGHT_PX}px`);
+    expect(markup).toContain(`scroll-padding-bottom:${BOTTOM_NAV_HEIGHT_PX}px`);
+    // And the padding actually consumes it, rather than the variable sitting in the style unread.
+    expect(markup).toContain('var(--floating-bar,0px)');
   });
 
   it('still adds what the collection contributes, and nothing is reordered away', () => {

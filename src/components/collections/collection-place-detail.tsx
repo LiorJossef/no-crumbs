@@ -94,11 +94,23 @@ export function CollectionPlaceDetail({
   currentUserId,
   library,
   onBack,
+  floatingBarPx,
 }: {
   collectionId: string;
   place: CollectionPlace;
   role: CollectionRole;
   currentUserId: string;
+  /**
+   * What `BottomNav` covers at the bottom of this column, from `floatingBarClearancePx(stop)`.
+   *
+   * Passed down rather than decided here for the reason `PlaceDetail`'s own prop names: this
+   * component is mounted **twice at once** — in the collection's sheet, where the bar floats over
+   * the last 68 px, and in the `lg+` panel, where the bar does not render at all — and only
+   * `CollectionContent` knows which of the two it is building. Measured before it was wired, at
+   * 390×844 and at maximum scroll: `Remove from this collection` came to rest at y 770–814 against
+   * a bar occupying 776–844, five of five hit-test points blocked.
+   */
+  floatingBarPx: number;
   /** The viewer's **own** saved places — the same list the picker uses. Required, not optional:
    *  see the header for why an omitted library is a silently wrong screen rather than a safe one. */
   library: readonly MapPlace[];
@@ -211,6 +223,7 @@ export function CollectionPlaceDetail({
               : null
           }
           onClose={onBack}
+          floatingBarPx={floatingBarPx}
           variant="hosted"
           primaryAction={
             <div className="flex flex-col gap-3">

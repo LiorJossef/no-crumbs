@@ -131,7 +131,24 @@ export function CollectionsIndexList({
   return (
     <div
       {...(stop ? { style: { height: STOP_TO_CONTENT_HEIGHT[stop] } } : {})}
-      className="flex min-h-0 flex-1 flex-col"
+      /*
+       * **`flex-1` only where there is no height to override, and that is a bug fix rather than a
+       * tidy-up.** `flex-1` is `flex: 1 1 0%`, and a flex basis of `0%` replaces the main-axis
+       * `height` above it: with both on this element the inline `calc(55dvh - 70px)` was declared
+       * and then ignored, and the column took whatever the `h-full` `Drawer.Content` gave it.
+       * Measured at 390×844 with the drawer at `half`: declared height `calc(55dvh - 70px)`,
+       * computed height **772 px**, the scroller below `scrollHeight 726 === clientHeight 726` —
+       * inert — and its bottom at y 1224, 380 px below the screen. Every row past the first few,
+       * and `New collection` under them, was laid out, painted and reachable only by first
+       * dragging the sheet to `full`. It is the same failure `STOP_TO_CONTENT_HEIGHT` exists to
+       * prevent, arriving through a class that silently cancels it.
+       *
+       * The `lg+` panel still needs it: there is no stop and therefore no height there, its host
+       * (`collections-scope.tsx`'s `panelContent`) is a flex column, and without `flex-1` this
+       * column would size to its content and spill out of the panel instead of scrolling inside
+       * it. So the two are mutually exclusive by construction — a height, or a grow, never both.
+       */
+      className={cn('flex min-h-0 flex-col', stop === undefined && 'flex-1')}
     >
       <div className="shrink-0 px-4 pb-1 pt-3.5">
         <IndexHeading
