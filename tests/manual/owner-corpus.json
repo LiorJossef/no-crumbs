@@ -109,10 +109,12 @@
       "classSource": "e7",
       "places": [
         {
-          "name": "Nomena Roasters"
+          "name": "Nomena Roasters",
+          "pattern": "^nomena\\b",
+          "note": "Google's own name for this venue is `Nomena`, not `Nomena Roasters`. Same venue, corroborated by address: the caption says \"Nomena Roasters, placed on Allenby Street in Tel Aviv\" and the returned place is `Nomena @ Allenby Street 54`. `Nomena` is the distinctive token and `Roasters` is the trade suffix the provider drops. Recorded as a pattern on THIS label rather than as a suffix-stripping rule in the matcher, because the identical shape in the other direction is a genuine miss: `Fiori @ Aluf Kalman Magen 3` is NOT `Cafe Fiori @ Yishkon 36`, and a containment rule cannot tell the two apart."
         }
       ],
-      "placesSource": "e7",
+      "placesSource": "owner",
       "caption": "Nomena Roasters, placed on Allenby Street in Tel Aviv. Is a very special boutique place, that looks like perfume store and in fact the scent of the coffee is one of the best home perfumes you can have. Greate coffee and brownies, aesthetic interior, no wifi and amazing Telavivian vibe.  #coffeetiktok #coffeetime #telavivian #telavivlife #telavivcityguide #telavivguide #telavivianstyle #annazwiefka #telavivfood #wheretoeat #israelifood #foodplaces #israel🇮🇱 #wheretovisit #wheretogo #girlwhotravels #coffeelovers #coffeeplace @Anna Zwiefka ",
       "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s5-be172ab2227189c1.json",
       "notes": "E7 row 9: \"Nomena Roasters, placed on Allenby Street in Tel Aviv\" — name + street + city."
@@ -258,13 +260,14 @@
     {
       "url": "https://www.tiktok.com/@austintravelhacks/video/7641500459747839252",
       "externalId": "7641500459747839252",
-      "class": "not-a-place",
-      "classSource": "draft",
+      "class": "recoverable",
+      "classSource": "owner",
       "places": [],
       "placesSource": "draft",
       "caption": "PSA FOR EURO SUMMER: how to visualise your saved TikTok’s on a map 🌍",
       "extractionFixture": "extract-2026-08-gemini-gemini-3.5-flash-lite-p16-s5-6e50204dbca3a124.json",
-      "draftNote": "DRAFT (the caption produced no candidate; postIntent=not_a_place). A caption cannot tell `recoverable` from `futile` — that needs someone who watched the video. Correct `class` if wrong, then set `classSource` to \"owner\". Until you do, this row is reported as unadjudicated and counts toward nothing."
+      "draftNote": "DRAFT (the caption produced no candidate; postIntent=not_a_place). A caption cannot tell `recoverable` from `futile` — that needs someone who watched the video. Correct `class` if wrong, then set `classSource` to \"owner\". Until you do, this row is reported as unadjudicated and counts toward nothing.",
+      "notes": "Owner, 2026-08-31, giving this link in session: \"this video has a lot of places in London. transcription would nail it.\" The caption is meta — \"how to visualise your saved TikTok's on a map\" — which is why a caption-only reading drafted it `not-a-place`. That is the wrong class: places exist in the content and the caption does not name them, which is the definition of `recoverable`. Left with an empty `places` set: the owner stated that places are there but did not name them, so the case is class-graded and not place-graded."
     }
   ]
 }

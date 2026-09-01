@@ -1,7 +1,7 @@
 {
   "_comment": "Machine record of a tests/manual/owner-corpus.manual.ts run. Regenerated on every run. Corpus: tests/manual/owner-corpus.json. Draft rows are excluded from every rate.",
-  "run_at": "2026-08-31T21:58:52.586Z",
-  "base_commit": "fa0d9a2db2291a285a500e488710b83d48cd484e",
+  "run_at": "2026-09-01T10:26:55.611Z",
+  "base_commit": "23f5ae920a6c2ece3e49ce3479654e5c411f8a48",
   "resolver": "resolver selected by the shipped factory is \"overture\" (stage \"(unset)\" is treated as production; Google Places may not be paired with a non-Google map (06 §3.1)); this harness measures Google only",
   "extractor": null,
   "intents": [
@@ -27,7 +27,7 @@
     "model_cost_note": "unmeasured: no verified per-token price for the shipped Gemini model (integrations/llm/cost.ts)"
   },
   "sample_composition": {
-    "owner": 0,
+    "owner": 1,
     "e7": 10,
     "draft": 1
   },
@@ -45,14 +45,14 @@
         "intentCorrect": 0
       },
       "recoverable": {
-        "posts": 0,
-        "graded": 0,
+        "posts": 1,
+        "graded": 1,
         "placeGraded": 0,
         "yieldedCorrect": 0,
         "wrongPreselect": 0,
         "wrongShortlist": 0,
         "extractionMisses": 0,
-        "intentGraded": 0,
+        "intentGraded": 1,
         "intentCorrect": 0
       },
       "futile": {
@@ -80,18 +80,22 @@
     },
     "unadjudicated": 1,
     "notGraded": {},
-    "intentConfusion": {},
+    "intentConfusion": {
+      "place_recommendation": {
+        "not_a_place": 1
+      }
+    },
     "intentExplicit": {
       "correct": 0,
       "n": 0
     },
     "intentDerived": {
       "correct": 0,
-      "n": 0
+      "n": 1
     },
     "gates": {
       "G1 zero-candidates": {
-        "tp": 0,
+        "tp": 1,
         "fp": 0,
         "fn": 0,
         "tn": 0
@@ -99,7 +103,7 @@
       "G2 zero-candidates AND postIntent=place_recommendation": {
         "tp": 0,
         "fp": 0,
-        "fn": 0,
+        "fn": 1,
         "tn": 0
       }
     }
@@ -233,7 +237,9 @@
       "sample": "e7",
       "truePlaces": [
         {
-          "name": "Nomena Roasters"
+          "name": "Nomena Roasters",
+          "pattern": "^nomena\\b",
+          "note": "Google's own name for this venue is `Nomena`, not `Nomena Roasters`. Same venue, corroborated by address: the caption says \"Nomena Roasters, placed on Allenby Street in Tel Aviv\" and the returned place is `Nomena @ Allenby Street 54`. `Nomena` is the distinctive token and `Roasters` is the trade suffix the provider drops. Recorded as a pattern on THIS label rather than as a suffix-stripping rule in the matcher, because the identical shape in the other direction is a genuine miss: `Fiori @ Aluf Kalman Magen 3` is NOT `Cafe Fiori @ Yishkon 36`, and a containment rule cannot tell the two apart."
         }
       ],
       "postIntent": "place_recommendation",
@@ -556,6 +562,33 @@
       },
       "resolveStatus": "not_attempted",
       "resolveDetail": "resolver selected by the shipped factory is \"overture\" (stage \"(unset)\" is treated as production; Google Places may not be paired with a non-Google map (06 §3.1)); this harness measures Google only",
+      "offered": [],
+      "extractionMisses": [],
+      "status": "ok",
+      "statusDetail": null
+    },
+    {
+      "url": "https://www.tiktok.com/@austintravelhacks/video/7641500459747839252",
+      "externalId": "7641500459747839252",
+      "caption": "PSA FOR EURO SUMMER: how to visualise your saved TikTok’s on a map 🌍",
+      "ownerClass": "recoverable",
+      "classAdjudicated": true,
+      "sample": "owner",
+      "truePlaces": null,
+      "postIntent": "not_a_place",
+      "expectedIntent": "place_recommendation",
+      "expectedIntentSource": "derived",
+      "rawCandidateNames": [],
+      "keptCandidateNames": [],
+      "droppedByPlausibility": {
+        "hashtag_or_handle": 0,
+        "city_or_country_only": 0,
+        "generic_words_only": 0,
+        "evidence_not_in_caption": 0,
+        "duplicate": 0
+      },
+      "resolveStatus": "complete",
+      "resolveDetail": "no candidate survived the plausibility gate, so nothing was looked up",
       "offered": [],
       "extractionMisses": [],
       "status": "ok",

@@ -3,16 +3,56 @@
 OWNER CORPUS — the engine, graded
 ====================================================================================================
 
-   11 case(s): 0 labelled by the owner, 10 carrying the borrowed E7 labels, 1 still draft.
+   12 case(s): 1 labelled by the owner, 10 carrying the borrowed E7 labels, 1 still draft.
    Draft rows are printed above by name and count toward nothing.
 
-   ** NO OWNER-LABELLED POSTS. Every number below is from the borrowed sample this **
-   ** corpus exists to replace, and none of it is evidence about the product.      **
 
-   The one remaining step: open /Users/MrJossef/SourceTree/LiorJossef/P-002/tests/manual/owner-corpus.json, read each
-   caption next to its draft class, correct the class where it is wrong, and change
-   `"classSource": "draft"` to `"owner"`. Then re-run this file. It costs nothing.
+----------------------------------------------------------------------------------------------------
+SAMPLE: owner — the project owner's own saved TikToks. The distribution that matches the product.
+----------------------------------------------------------------------------------------------------
 
+   !! NOT YET A MEASUREMENT: 1 adjudicated case(s) in this sample. The document this
+      corpus replaces had n=16 and a wide confidence interval; a smaller n does not fix that.
+
+   cases in this sample: 1
+
+   PER CLASS
+   class          posts  graded  place-graded  yielded>=1 correct   wrong preselect  wrong shortlist  extraction misses  intent
+   sufficient       0       0             0           0/0 (n/a)                0                0                  0      0/0
+   recoverable      1       1             0           0/0 (n/a)                0                0                  0      0/1
+   futile           0       0             0           0/0 (n/a)                0                0                  0      0/0
+   not-a-place      0       0             0           0/0 (n/a)                0                0                  0      0/0
+
+   `place-graded` counts only cases whose true places are ruled on AND whose lookups all ran.
+   For `futile` and `not-a-place` the true place set is empty by the definition of the class,
+   so any place offered on one of those posts is wrong — no place names have to be typed.
+
+   WRONG PLACES OFFERED:  0 pre-selected   <- must be 0
+                          0 shortlisted   <- a ranking annoyance, not a lie
+
+   postIntent accuracy:  0/1 (0%)
+     on explicit `expectedIntent` labels: 0/0   on labels DERIVED from the class: 0/1
+     The derived half rests on INTENT_FOR_CLASS, a documented default and not a hand label.
+     Where it disagrees with the owner, set `expectedIntent` on that row.
+   confusion (expected → got):
+     place_recommendation   {"not_a_place":1}
+
+   ESCALATION GATE — positive class "recoverable" (the only class a transcript could rescue)
+   gate                                                    tp  fp  fn  tn   prec  recall
+   G1 zero-candidates                                      1   0   0   0   1.00  1.00
+   G2 zero-candidates AND postIntent=place_recommendation  0   0   1   0    n/a  0.00
+   G2 is G1 with `postIntent` added. The difference between the two rows IS the value of
+   that field: if G2 does not beat G1 on precision, the field is not earning its tokens.
+
+   SPEND THIS RUN
+     model calls:      0  (the grader never calls the model; the seeder does)
+     provider lookups: 0 live, 0 replayed from disk
+     estimated cost:   $0.000 at the DOCUMENTED Text Search (Pro) list price of ~$32/1,000 (06 §11).
+                       The first 5,000 lookups a month are free, so the real marginal cost
+                       of this run is $0 until that tier is gone.
+     model cost:       NOT PRICED. `integrations/llm/cost.ts` carries no verified per-token
+                       price for the shipped Gemini model and logs `costModel: "unmeasured"`.
+                       Token counts are in the seeded extraction fixtures.
 
 ----------------------------------------------------------------------------------------------------
 SAMPLE: e7 — the BORROWED 16-post web-search set (docs/evidence/tiktok/07-caption-content-scoring.md).
