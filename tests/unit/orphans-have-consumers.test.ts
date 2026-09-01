@@ -443,6 +443,15 @@ const EXEMPT_FUNCTIONS: readonly string[] = [
   // §4.4 ④. Live since 0032, five migrations and three review rounds old. `grep -rn repoint src/`
   // returns one hit and it is a CSS comment about a font variable.
   'repoint_saved_place',
+  // 0037, added 2026-09-01 — built the same day, and this guard caught them within the hour, which
+  // is the first thing it has done that nothing else could. Both are the write half of a finding
+  // whose read half is the actual fix: `why_go` must stop rendering unlabelled while
+  // `why_go_reviewed_at` is null, and `DISHES MENTIONED` must stop attributing an edited list to
+  // the post. Those are `src/` changes and they are the named follow-up, so these two are exempt
+  // **until that lane lands**, not indefinitely — the assertion below deletes the entry the day
+  // either acquires a caller.
+  'review_saved_place_why_go',
+  'set_saved_place_dishes',
 ];
 
 describe('the database-function guard itself', () => {
@@ -518,8 +527,10 @@ describe('every granted database function has a caller', () => {
       'merge_places',
       'record_place_mention',
       'repoint_saved_place',
+          'review_saved_place_why_go',
+      'set_saved_place_dishes',
     ]);
-    expect(EXEMPT_FUNCTIONS).toHaveLength(5);
+    expect(EXEMPT_FUNCTIONS).toHaveLength(7);
   });
 
   it('exempts nothing that now has a caller — every exemption expires on its own', () => {
