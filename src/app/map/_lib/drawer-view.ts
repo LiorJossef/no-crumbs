@@ -49,6 +49,8 @@
  * unit-testable without a DOM — the same reason `sheet-geometry.ts` is shaped that way.
  */
 
+import type { SwapDirection } from '@/components/ui/view-swap';
+
 /** The param that selects the collections side of the drawer. */
 export const VIEW_PARAM = 'view';
 /** Its one value. A second value would be a fourth view, which is a different drawer. */
@@ -132,4 +134,41 @@ export function collectionHref(id: string): string {
 export function collectionCanvasName(name: string, placeCount: number): string {
   if (placeCount === 0) return `Map of ${name}. It has no places yet.`;
   return `Map of ${name}. The list below names all ${placeCount}.`;
+}
+
+/**
+ * **How deep in the drawer a view sits**, which is the whole of what the swap animation needs to
+ * know.
+ *
+ * The three views are laid out left-to-right and the product's own chrome already says so: the
+ * switch is a segmented pair with `Places` on the left and `Collections` on the right
+ * (`components/shell/map-shell.tsx`), and every row in the index carries a right-pointing chevron
+ * into the collection it names. So *deeper* is *further right*, and a number per view is enough to
+ * derive both directions without a table of nine transitions.
+ *
+ * Not exported as a general fact about a view — it means nothing outside a transition, and a
+ * caller reaching for "how deep is this view" for any other reason is asking the wrong question.
+ */
+function viewDepth(view: DrawerView): number {
+  if (view.kind === 'places') return 0;
+  if (view.kind === 'index') return 1;
+  return 2;
+}
+
+/**
+ * Which way a swap between two views is going, for `components/ui/view-swap.tsx`.
+ *
+ * **Equal depth is `forward`**, and that is a decision rather than a fallthrough. The only pair at
+ * one depth is collection A → collection B, which nothing in the product currently links; if
+ * something ever does, a fresh collection arriving from the right is the right sentence for it, and
+ * the alternative — a third `lateral` direction — would put two constants in the motion vocabulary
+ * with no call site. `view-swap.tsx`'s `SwapDirection` records that argument at the type.
+ *
+ * `from` is nullable because the first render of a page has nothing before it. A cold entry on
+ * `/map?view=collections` is an arrival rather than a swap, and it takes `forward` for the same
+ * reason: it is the direction the switch's own geometry implies.
+ */
+export function swapDirection(from: DrawerView | null, to: DrawerView): SwapDirection {
+  if (from === null) return 'forward';
+  return viewDepth(to) < viewDepth(from) ? 'back' : 'forward';
 }

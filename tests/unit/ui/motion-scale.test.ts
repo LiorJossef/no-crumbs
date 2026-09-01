@@ -233,6 +233,8 @@ describe('the tiers are a scale', () => {
     const pairs = [
       ['ENTER_REVEAL', 'LEAVE_REVEAL'],
       ['ENTER_SURFACE', 'LEAVE_SURFACE'],
+      ['ENTER_VIEW_FORWARD', 'LEAVE_VIEW_FORWARD'],
+      ['ENTER_VIEW_BACK', 'LEAVE_VIEW_BACK'],
     ] as const;
     for (const [entrance, exit] of pairs) {
       expect(msOf(interaction[exit]), `${exit} against ${entrance}`).toBeLessThan(
@@ -263,6 +265,23 @@ describe('the tiers are a scale', () => {
   });
 });
 
+/**
+ * **A utility, not a substring** — and this pair replaces a regex that could not see either.
+ *
+ * The guard below was written as `/(?:^|:)fill-mode-/` against the *whole* class string, so it only
+ * ever matched a `fill-mode-*` at the very start of the string or immediately after a variant
+ * colon. `'animate-in fade-in-0 fill-mode-both duration-screen'` — the exact shape the rule exists
+ * to forbid — passed, because the utility it should have caught is preceded by a space. The same
+ * hole was in the `delay-` half.
+ *
+ * Found on 2026-09-01 while adding `fill-mode-forwards` to the two held exits: the change was
+ * expected to fail this assertion, it did not, and the reason it did not was the bug rather than a
+ * permission. Matching **per utility** rather than against the joined string is what makes the
+ * anchors mean what they read as, and it is how every other assertion in this file already works.
+ */
+const FILL_MODE = /^(?:[\w-]+:)*fill-mode-/;
+const DELAY = /^(?:[\w-]+:)*delay-/;
+
 describe('the entrances cannot hide anything', () => {
   /**
    * **The constraint the sign-in screen was rebuilt around, applied to every entrance in the
@@ -278,10 +297,43 @@ describe('the entrances cannot hide anything', () => {
    * none` renders the finished state, then snaps back to the start when the delay elapses — so the
    * guard is on both halves.
    */
-  it('sets no fill mode and no delay, so the resting state is the visible one', () => {
+  it('sets no fill mode and no delay on an entrance, so the resting state is the visible one', () => {
     for (const [name, value] of SCALE) {
-      expect(value, name).not.toMatch(/(?:^|:)fill-mode-/);
-      expect(value, name).not.toMatch(/(?:^|:)delay-/);
+      if (!value.includes('animate-in')) continue;
+      for (const utility of value.split(/\s+/)) {
+        expect(utility, `${utility} in ${name}`).not.toMatch(FILL_MODE);
+        expect(utility, `${utility} in ${name}`).not.toMatch(DELAY);
+      }
+    }
+  });
+
+  /**
+   * **The other half, and it is the opposite rule for the opposite reason.**
+   *
+   * An *exit* that runs to completion with `animation-fill-mode: none` returns its element to the
+   * pre-animation state on the final frame — full opacity, no displacement. For every exit in this
+   * vocabulary until 2026-09-01 that was harmless, because nothing kept a leaving element mounted
+   * long enough to reach the end of its own animation. `components/ui/view-swap.tsx` does exactly
+   * that, and the snap-back is a painted frame of the **outgoing** view at full opacity sitting on
+   * top of the incoming one — measured at 390×844 as the last both-layer frame of every swap, the
+   * flash the component exists to remove, arriving at the very end instead of the beginning.
+   *
+   * `forwards` rather than `both`: with no delay the two are identical, and `forwards` names the
+   * one thing that is wanted. The ban above still holds for every entrance, which is where the
+   * original argument applies — an entrance that pins a start state is an entrance that can hide
+   * content.
+   *
+   * Scoped to `LEAVE_VIEW_*` and not to every `LEAVE_*`, because it is a property of being **held**
+   * rather than of being an exit. `LEAVE_REVEAL` is a `transition`, which has no fill mode at all,
+   * and `LEAVE_SURFACE` has no call site that keeps its element mounted — its own docblock says so.
+   * Widening this to them would be asserting a fix for a defect they cannot have.
+   */
+  it('pins a held exit at its end state, so nothing snaps back before it is unmounted', () => {
+    const held = SCALE.filter(([name]) => name.startsWith('LEAVE_VIEW_'));
+    expect(held.length, 'the held-layer exits').toBeGreaterThan(0);
+    for (const [name, value] of held) {
+      expect(value.split(/\s+/), name).toContain('fill-mode-forwards');
+      for (const utility of value.split(/\s+/)) expect(utility, `${utility} in ${name}`).not.toMatch(DELAY);
     }
   });
 
@@ -325,6 +377,7 @@ describe('the vocabulary reaches the product', () => {
     'src/components/ui/input.tsx',
     'src/components/ui/map.tsx',
     'src/components/ui/textarea.tsx',
+    'src/components/ui/view-swap.tsx',
     'src/app/import/screens/paste-screen.tsx',
     'src/app/import/screens/rail-screen.tsx',
     'src/app/import/screens/no-places-screen.tsx',
@@ -368,6 +421,44 @@ describe('the vocabulary reaches the product', () => {
     // faded on the browser default, in the same 160 ms.
     expect(sheet.match(new RegExp(interaction.COUPLE_BEAT, 'g')) ?? []).toHaveLength(2);
     expect(sheet.match(new RegExp(interaction.COUPLE_TINT, 'g')) ?? []).toHaveLength(2);
+  });
+
+  /**
+   * **The view tier's four constants are two mirrored pairs**, and the mirroring is the whole
+   * design rather than a coincidence worth restating in prose.
+   *
+   * A shared axis reads as one plane moving only while the outgoing and the incoming go the *same*
+   * way: forward is `in-from-right` against `out-to-left`, back is `in-from-left` against
+   * `out-to-right`. Get one of the four backwards and the two layers cross over each other, which
+   * looks like a bug on a surface where the eye is following a list. It is exactly the sort of
+   * error that survives review, because each constant is individually plausible.
+   */
+  it('sends both layers of a view swap the same way along one axis', () => {
+    expect(interaction.ENTER_VIEW_FORWARD).toContain('motion-safe:slide-in-from-right-4');
+    expect(interaction.LEAVE_VIEW_FORWARD).toContain('motion-safe:slide-out-to-left-4');
+    expect(interaction.ENTER_VIEW_BACK).toContain('motion-safe:slide-in-from-left-4');
+    expect(interaction.LEAVE_VIEW_BACK).toContain('motion-safe:slide-out-to-right-4');
+
+    // And the two directions are genuinely opposite rather than two names for one animation —
+    // the defect the drawer actually shipped, where `index → collection` and `collection → index`
+    // were the same 440 ms rise.
+    expect(interaction.ENTER_VIEW_FORWARD).not.toBe(interaction.ENTER_VIEW_BACK);
+    expect(interaction.LEAVE_VIEW_FORWARD).not.toBe(interaction.LEAVE_VIEW_BACK);
+  });
+
+  /**
+   * **`ViewSwap` is the reason `motion/react` still is not on `/map`**, and this is the same claim
+   * the add sheet's assertion below makes, made where it is now most likely to be broken: the
+   * obvious implementation of a held-layer transition is `AnimatePresence`, SmoothUI ships exactly
+   * that, and the owner asked for SmoothUI. The component's header carries the argument; this is
+   * the part of it a diff cannot quietly reverse.
+   */
+  it('swaps the drawer\'s views without shipping a motion library to /map', () => {
+    const swap = sources.find(({ file }) => file.endsWith('view-swap.tsx'));
+    expect(swap?.source).toBeDefined();
+    expect(swap?.source).not.toContain("from 'motion/react'");
+    expect(swap?.source).toContain('ENTER_VIEW_FORWARD');
+    expect(swap?.source).toContain('LEAVE_VIEW_BACK');
   });
 
   /**

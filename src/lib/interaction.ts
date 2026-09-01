@@ -257,14 +257,10 @@ export const ENTER_POPOVER =
  * drawer itself, and a pane that also rises fights the surface carrying it. A sideways shift says
  * *"further in"*, which is what a pane change means.
  *
- * **One documented exception, and it is the boundary rather than a loophole.** The drawer's
- * `Places / Collections` view switch (`app/map/collections-scope.tsx`) wears `ENTER_SCREEN`, rise
- * and all. Both halves of the rule above fail there: the two views rest at the *same* stop, so the
- * sheet is static through the whole animation and there is no vertical motion to fight; and they
- * are **peers rather than a stack**, so *"further in"* would be the wrong sentence. What makes it
- * an exception rather than a precedent is that both conditions are checkable — a pane arriving into
- * a *moving* drawer still belongs here, and a second caller citing this one without re-deriving
- * both is how a vocabulary erodes.
+ * **The drawer's `Places / Collections` view switch used to be a documented exception here**, on
+ * the grounds that the two views rest at the same stop so a rise fights nothing. It is now the
+ * **view tier** below (`ENTER_VIEW_FORWARD` and its three siblings), which is a better answer to
+ * the same argument: a peer swap wants an axis of its own rather than a borrowed one.
  *
  * **This replaced a Motion component**, and the swap took `motion/react` out of `/map`'s bundle
  * entirely — the add sheet was its only importer on that route.
@@ -338,3 +334,83 @@ export const ENTER_SCREEN =
  */
 export const ENTER_NEWS =
   'animate-in fade-in-0 duration-base ease-emphasised transition-none motion-safe:slide-in-from-bottom-1'
+
+/* ------------------------------------------------------------------------------------------------
+ * Tier 5 — the view. One of a surface's peer views replaces another, along a shared axis.
+ * ---------------------------------------------------------------------------------------------- */
+
+/**
+ * **A shared-axis view swap: the tier for two views that live in one slot.**
+ *
+ * The drawer at `/map` holds three views — places, the collections index, one collection — in one
+ * `Drawer.Content`, addressed by search params so that switching never unmounts the map
+ * (`app/map/_lib/drawer-view.ts`). Until now the switch wore `ENTER_SCREEN`: a 440 ms rise on a
+ * freshly keyed subtree, with the outgoing list **gone in the same frame**. Nothing carried the
+ * eye, the sheet showed its own empty card for the length of the fade, and the two directions —
+ * *further in* and *back out* — looked identical.
+ *
+ * ## Why a horizontal axis, and why it is the control's own axis
+ *
+ * The switch is a segmented pair (`components/shell/map-shell.tsx`'s `DrawerViewSwitch`) with
+ * `Places` on the left and `Collections` on the right, and every row in the index carries a
+ * right-pointing chevron. The product's own chrome already says the three views are laid out
+ * left-to-right, so the swap moves along that line: **the deeper view arrives from the right and
+ * the shallower one arrives from the left.** A rise would be a third spatial claim on a surface
+ * that already makes one, and `ENTER_SURFACE`'s *"further in"* sideways shift cannot say which way
+ * because it only has one direction.
+ *
+ * This is where SmoothUI's `shared-axis-x` landed. Its **specification** transferred exactly — one
+ * axis, signed by direction; a decelerating entrance against an accelerating exit; the outgoing and
+ * incoming layers overlapping rather than sequenced — and its *implementation* did not, which
+ * `components/ui/view-swap.tsx` records in full: it is a Motion phrase-cycler on a timer, and
+ * putting `motion/react` back on `/map` to cross-fade a list reverses two measured rulings in this
+ * repository (this file's `ENTER_SURFACE`, and `components/brand/chrome-motion.ts`).
+ *
+ * ## 300 ms, which is one tier below what this swap used to take
+ *
+ * `--duration-surface`, the same beat `ENTER_MODAL` takes, and for the same reason: nothing is
+ * opening underneath a view swap either — the drawer is already at rest and stays at its stop — so
+ * the contents are not waiting on a surface. **440 ms was the right number for a hard cut** and is
+ * the wrong one for a hand-off: with the outgoing view held and leaving under its own beat there is
+ * something on screen for the whole transition, so the arrival no longer has to be long enough to
+ * be *noticed*. This is the product's most-used control, and 140 ms of that is now the entire gap
+ * rather than the entire event.
+ *
+ * The 4 px displacement of the tiers above becomes **16 px** (`-4`), because a whole list moving
+ * 4 px is a wobble rather than a direction. It is still small enough to stay inside the drawer's
+ * own clip once `ViewSwap` adds `overflow-x-clip`, which it does for exactly this.
+ *
+ * Reduced motion, as everywhere in this file: the fade is un-prefixed and the slide is not, so the
+ * preference gets a 300 ms cross-fade between two still compositions — §3a's *"the opacity change
+ * alone, not nothing"* — and the two directions become indistinguishable, which is correct. A
+ * direction is a *movement*, and movement is the thing that was asked not to happen.
+ */
+export const ENTER_VIEW_FORWARD =
+  'animate-in fade-in-0 duration-surface ease-emphasised transition-none motion-safe:slide-in-from-right-4'
+
+/** The same arrival, coming back out: from the left, because the view being returned to is the one
+ *  on the left of the switch. */
+export const ENTER_VIEW_BACK =
+  'animate-in fade-in-0 duration-surface ease-emphasised transition-none motion-safe:slide-in-from-left-4'
+
+/**
+ * The outgoing view while a deeper one arrives — 140 ms on the accelerating curve, the one exit
+ * speed the whole product leaves at.
+ *
+ * **This is the constant that makes the swap a swap.** It is only reachable because
+ * `ViewSwap` keeps the outgoing subtree mounted for one exit beat instead of letting React drop it
+ * with the key change; `LEAVE_SURFACE`'s note about needing the leaving element to stay mounted
+ * long enough is the same requirement, and this is the first call site in the product that actually
+ * satisfies it.
+ *
+ * It leaves **to the left** against an entrance from the right: two objects moving the same way
+ * along one axis, which is what makes the pair read as one plane sliding rather than as two
+ * unrelated animations.
+ */
+export const LEAVE_VIEW_FORWARD =
+  'animate-out fade-out-0 fill-mode-forwards duration-enter ease-exit transition-none motion-safe:slide-out-to-left-4'
+
+/** Its mirror: the deeper view leaving to the right as the shallower one comes back from the left. */
+export const LEAVE_VIEW_BACK =
+  'animate-out fade-out-0 fill-mode-forwards duration-enter ease-exit transition-none motion-safe:slide-out-to-right-4'
+
