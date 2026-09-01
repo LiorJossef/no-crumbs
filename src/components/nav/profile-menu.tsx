@@ -60,7 +60,7 @@
  * the second reason it was not folded into this component.
  */
 
-import { useLayoutEffect, useState, useTransition } from 'react';
+import { useLayoutEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { Popover } from '@base-ui/react/popover';
 import { ChevronRight, LogOut, Settings, UserRound } from 'lucide-react';
@@ -196,15 +196,25 @@ export function ProfileMenu({
    * that forbids it. Adjusting state during render is legal; dispatching an update to a different
    * component is not, and the two are easy to conflate.
    */
-  const [loadStarted, setLoadStarted] = useState(false);
+  /**
+   * A ref rather than state, and that is the whole point: this latch is never read while rendering,
+   * so it is not render state. As `useState` it made the effect set state in its own body — React
+   * flags it (`react-hooks/set-state-in-effect`) because it schedules a second render pass that
+   * produces identical output, and it had to name itself in the dependency array to do it, so the
+   * effect re-ran to discover it should do nothing.
+   *
+   * A ref keeps the once-only guarantee, drops the wasted pass, and lets the dependency array say
+   * what the effect actually depends on: `open`.
+   */
+  const loadStarted = useRef(false);
   useLayoutEffect(() => {
-    if (open && !loadStarted) {
-      setLoadStarted(true);
+    if (open && !loadStarted.current) {
+      loadStarted.current = true;
       load();
     }
     // `load` is stable for this purpose: it only reads state setters, which React guarantees.
      
-  }, [open, loadStarted]);
+  }, [open]);
 
   return (
     <Popover.Root open={open} onOpenChange={onOpenChange}>
