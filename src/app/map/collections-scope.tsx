@@ -56,8 +56,7 @@ import {
 } from '@/components/collections/collection-content';
 import type { CollectionDetail, CollectionSummary } from '@/app/collections/_lib/get-collections';
 import { CollectionsIndexList } from './collections-index-list';
-import { ViewSwap } from '@/components/ui/view-swap';
-import { collectionCanvasName, swapDirection, type DrawerView } from './_lib/drawer-view';
+import { collectionCanvasName, viewKey, type DrawerView } from './_lib/drawer-view';
 
 /** Exactly the `MapShell` props a collections view overrides. Nothing else about the shell changes
  *  between the three views, which is the claim this narrow type makes checkable. */
@@ -106,41 +105,26 @@ export function useCollectionsScope({
    */
   const key = viewKey(view);
   /**
-   * `from` is the view this one replaced, and it is here rather than in a ref for the reason the
-   * reset below is here: **this cell is the only thing in the product that sees both sides of a
-   * swap.** By the time anything renders, `view` is the new view and the old one is gone from every
-   * prop on the page — but this state was written under the old one, so `scope.key` *is* the
-   * previous view for exactly one render, which is the render that starts the animation.
+   * The reset runs on every view change including `places`, because the hook runs on every render
+   * of `/map` — so leaving a collection for the places list clears the pushed pane and the open
+   * place exactly as leaving it for the index does.
    *
-   * It survives every later render of the same view unchanged, which is what lets it be handed
-   * down as a plain prop: `ViewSwap` reads the direction only at the swap.
-   *
-   * `null` on the first render of the page — a cold entry on a collections URL is an arrival, not
-   * a swap. Note that the places view writes this cell too: the hook runs on every render of
-   * `/map`, so entering collections from the places list is a swap this can see, even though the
-   * places list itself is rendered by `map-page-client.tsx` and is not ours to animate out.
-   *
-   * **`view` is held beside `key` rather than parsed back out of it.** A first draft stored only
-   * the string and recovered the view with a `viewKey` inverse; that is one fact in two encodings
-   * with nothing keeping them in step, and the failure would have been a silently wrong *direction*
-   * — the least likely thing anyone would look at. The object is already in hand at the moment the
-   * cell is written, so keeping it costs a field and removes a function.
+   * **What this cell no longer holds is the transition.** It used to carry `from` and derive a
+   * `SwapDirection`, because it was the only thing in the product that saw both sides of a switch.
+   * That was true only while the swap was mounted here, and it was the defect: the hook returns
+   * `null` on the places view, so `places ↔ collections` had no host to hold the outgoing list.
+   * `map-page-client.tsx` owns the key and the direction now, above all three views. This is a
+   * scope reset again, which is all it ever should have been.
    */
-  const [scope, setScope] = useState({
-    key,
-    view,
-    from: null as DrawerView | null,
-    pane: 'list' as CollectionView,
-  });
+  const [scope, setScope] = useState({ key, pane: 'list' as CollectionView });
   const swapping = scope.key !== key;
   if (swapping) {
-    setScope({ key, view, from: scope.view, pane: 'list' });
+    setScope({ key, pane: 'list' });
     // The open place belongs to the view that was open. Clearing it also lets the shell put the
     // sheet back at its resting stop, which is where a newly entered scope should start.
     setSelectedId(null);
   }
   const pane = swapping ? 'list' : scope.pane;
-  const direction = swapDirection(swapping ? scope.view : scope.from, view);
 
   /**
    * The pins. The library on the index — the user's own places as context behind a list of
@@ -255,46 +239,6 @@ export function useCollectionsScope({
       />
     );
 
-  /**
-   * The view change, at the motion scale's **view** tier — a shared axis, signed by direction.
-   *
-   * This was a `key` on a plain `<div>` wearing `ENTER_SCREEN`: correct in that the views share no
-   * state worth carrying, and incomplete in that a `key` change drops the outgoing subtree **in the
-   * same commit**. So the incoming list faded up over the sheet's own empty card, `index →
-   * collection` and `collection → index` were the same 440 ms rise, and the one thing the eye
-   * needed — the list it was already reading — was not on screen for any of it.
-   *
-   * `ViewSwap` holds it: for one 140 ms exit beat the outgoing view is still there, absolutely
-   * positioned over the same box so nothing about the column's height depends on which of the two
-   * is taller, sliding out the way the incoming one is sliding in. Read `components/ui/view-swap.tsx`
-   * for the mechanism, what it took from SmoothUI's `shared-axis-x` and what it rejected.
-   *
-   * **What the direction actually says.** Going *further in* — places → the index, the index → a
-   * collection — arrives from the right, which is where the switch's `Collections` tab and every
-   * row's chevron already point. Coming *back out* arrives from the left. Two moves that mean
-   * opposite things now look opposite, which is the whole of what a direction buys.
-   *
-   * **Scroll position is not carried across, and that is now a rule rather than a side effect.**
-   * A `key` change used to lose it by construction; `ViewSwap` could preserve it and deliberately
-   * does not. The list you are arriving at is a different list — a different collection's places,
-   * or the index instead of a collection — so there is no offset in it that means anything about
-   * where you were. What the swap *does* keep is the outgoing view's own offset for the length of
-   * its exit: it is the same DOM, not a re-render, so it slides out exactly where you left it
-   * rather than snapping to the top first. The one case worth naming is `collection → index`,
-   * where the index's old offset is genuinely lost; at the sheet's `half` stop the index is one
-   * screen of rows, so there is nothing there to restore yet, and a restore built now would be a
-   * mechanism nobody can see working.
-   *
-   * Reduced motion is satisfied the way the whole scale satisfies it: the two fades carry no
-   * prefix and both slides do, so `prefers-reduced-motion` gets a 300 ms cross-fade between two
-   * still compositions — an opacity change, not nothing, and never a pulse.
-   */
-  const framed = (stop?: SheetStop) => (
-    <ViewSwap viewKey={key} direction={direction} className="flex min-h-0 flex-1 flex-col">
-      {content(stop)}
-    </ViewSwap>
-  );
-
   return {
     places: pins,
     initialBounds,
@@ -321,14 +265,14 @@ export function useCollectionsScope({
             selectItem(place.id);
             setPane('place');
           },
-    sheetContent: (stop: SheetStop) => framed(stop),
-    panelContent: <div className="flex min-h-0 flex-1 flex-col">{framed()}</div>,
+    /* **Unwrapped, and that is the change of 2026-09-01.** These two used to come back inside a
+       `ViewSwap` this file mounted, which meant the transition existed only where this hook returns
+       a value — everywhere except the places view, i.e. everywhere except the switch it was built
+       for. The swap is now `map-page-client.tsx`'s, wrapping the slot rather than one branch of it,
+       so these are content and nothing else. */
+    sheetContent: (stop: SheetStop) => content(stop),
+    panelContent: content(),
   };
-}
-
-/** One string per distinct drawer scope, for the state reset and the transition key. */
-function viewKey(view: DrawerView): string {
-  return view.kind === 'collection' ? `collection:${view.id}` : view.kind;
 }
 
 /**

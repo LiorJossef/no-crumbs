@@ -34,7 +34,7 @@ const ONE = 'collection-one';
 const ONE_REFRESHED = 'collection-one-after-an-edit';
 
 function atIndex(): SwapState {
-  return { key: 'index', node: INDEX, direction: 'forward', leaving: null };
+  return { key: 'index', node: INDEX, direction: 'forward', arrival: 'swap', leaving: null };
 }
 
 describe('a swap holds the view it is replacing', () => {
@@ -64,7 +64,7 @@ describe('a swap holds the view it is replacing', () => {
 
   it('carries the direction of this swap onto both layers', () => {
     const back = nextSwapState(
-      { key: 'collection:c1', node: ONE, direction: 'forward', leaving: null },
+      { key: 'collection:c1', node: ONE, direction: 'forward', arrival: 'swap', leaving: null },
       { key: 'index', node: INDEX, direction: 'back' },
     );
     expect(back.direction).toBe('back');
@@ -90,7 +90,7 @@ describe('everything that is not a swap', () => {
    */
   it('takes fresh children for the same view without starting a transition', () => {
     const after = nextSwapState(
-      { key: 'collection:c1', node: ONE, direction: 'forward', leaving: null },
+      { key: 'collection:c1', node: ONE, direction: 'forward', arrival: 'swap', leaving: null },
       { key: 'collection:c1', node: ONE_REFRESHED, direction: 'back' },
     );
     expect(after.node).toBe(ONE_REFRESHED);
@@ -136,5 +136,87 @@ describe('dropping the held layer', () => {
   it('is a no-op when nothing is leaving', () => {
     const state = atIndex();
     expect(withoutLeaving(state, 'index')).toBe(state);
+  });
+});
+
+/**
+ * **The places list is a view like the other two, and until 2026-09-01 the mounting said otherwise.**
+ *
+ * `nextSwapState` never knew the difference — it compares keys and holds nodes — so nothing here is
+ * a change to it. What these cases pin is the contract the *host* has to satisfy, because the
+ * defect was entirely one of where the component was mounted: `collections-scope.tsx` owned it and
+ * returns `null` on the places view, so on `places → collections` there was no host in the document
+ * to hold the outgoing list. Measured at `a468fb1` per frame at 1440×900: no leaving layer in any
+ * frame of either direction, and the incoming layer at `opacity 0.000` over an empty card.
+ *
+ * These fail on a regression that puts the swap back below the branch, because a host that only
+ * exists on the collections side can never produce the first of them.
+ */
+describe('places is a peer view, not the thing the swap happens beside', () => {
+  it('holds the places list on the way into collections', () => {
+    const after = nextSwapState(
+      { key: 'places', node: PLACES, direction: 'forward', arrival: 'mount', leaving: null },
+      { key: 'index', node: INDEX, direction: 'forward' },
+    );
+    expect(after.leaving).toEqual({ key: 'places', node: PLACES, direction: 'forward' });
+  });
+
+  it('holds the collections index on the way back to places, going the other way', () => {
+    const after = nextSwapState(atIndex(), { key: 'places', node: PLACES, direction: 'back' });
+    expect(after.leaving).toEqual({ key: 'index', node: INDEX, direction: 'back' });
+    expect(after.direction).toBe('back');
+  });
+
+  it('holds a collection on the way straight out to places', () => {
+    // `Places` is reachable from inside a collection — the switch is in the drawer at every depth —
+    // so `collection → places` is a real transition and skips the index.
+    const after = nextSwapState(
+      { key: 'collection:c1', node: ONE, direction: 'forward', arrival: 'swap', leaving: null },
+      { key: 'places', node: PLACES, direction: 'back' },
+    );
+    expect(after.leaving?.node).toBe(ONE);
+    expect(after.leaving?.direction).toBe('back');
+  });
+});
+
+/**
+ * **The first view a host shows plays no entrance**, which is what stopped hoisting the swap from
+ * putting a 300 ms slide-from-the-right on the product's main screen at every cold load of `/map`.
+ *
+ * A cold arrival already has the shell's own five beats. `drawer-view.ts`'s `swapDirection` has
+ * called that case *"an arrival rather than a swap"* since it was written; `arrival` is what makes
+ * the component agree, and the direction it seeds with animates nothing.
+ */
+describe('the mount is an arrival, not a swap', () => {
+  const mounted: SwapState = {
+    key: 'places',
+    node: PLACES,
+    direction: 'forward',
+    arrival: 'mount',
+    leaving: null,
+  };
+
+  it('stays a mount through fresh children for the same view', () => {
+    const refreshed = nextSwapState(mounted, {
+      key: 'places',
+      node: 'places-list-after-a-save',
+      direction: 'forward',
+    });
+    expect(refreshed.arrival).toBe('mount');
+  });
+
+  it('becomes a swap at the first key change', () => {
+    expect(nextSwapState(mounted, { key: 'index', node: INDEX, direction: 'forward' }).arrival).toBe(
+      'swap',
+    );
+  });
+
+  it('never goes back to being a mount', () => {
+    const first = nextSwapState(mounted, { key: 'index', node: INDEX, direction: 'forward' });
+    const back = nextSwapState(first, { key: 'places', node: PLACES, direction: 'back' });
+    expect(back.arrival).toBe('swap');
+    // Including on the return to the very view the host mounted with — that is a swap the user
+    // performed, and it is the one this whole finding was about.
+    expect(back.leaving?.key).toBe('index');
   });
 });

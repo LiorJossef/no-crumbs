@@ -145,18 +145,32 @@ describe('what it does under prefers-reduced-motion', () => {
   });
 
   /**
-   * **The view change wears the scale's `large` tier, and every transform in it is prefixed.**
+   * **The view change wears the scale's `view` tier, and every transform in it is prefixed.**
    *
    * This assertion started life asserting the opposite — opacity and nothing else — because the
-   * view change was built before `lib/interaction.ts` grew a motion vocabulary. It reaches for
-   * `ENTER_SCREEN` now rather than keeping a private answer: one product, one scale, and a
-   * duration invented in a route file is how a codebase ends up with fourteen of them.
+   * view change was built before `lib/interaction.ts` grew a motion vocabulary. It then asserted
+   * that `collections-scope.tsx` contained the string `ENTER_SCREEN`, and **that assertion was
+   * hollow for a week**: the view change stopped using `ENTER_SCREEN` the day `ViewSwap` landed,
+   * and this test went on passing because the constant's name survived in a docblock explaining
+   * what the code used to be. A guard that a comment can satisfy is the *"asserting a proxy
+   * instead of an invariant"* species `iteration-2-record.md` §8.1 names, and it was found by
+   * moving the code the proxy was pointed at.
    *
-   * Rule 3 is satisfied the way the whole scale satisfies it, and **more strongly than the opacity
-   * ramp did**: the fade carries no prefix and both transforms do, so a reduced-motion user gets
-   * a full-length cross-fade and a legible list rather than a cut. What this test forbids is a
-   * transform that escapes the prefix — the failure `ENTER_POPOVER`'s docblock records finding in
-   * three shipped surfaces at once.
+   * What replaces it is two claims that a comment cannot satisfy:
+   *
+   *  1. **the swap host is above the places/collections branch.** `map-page-client.tsx` is the one
+   *     component that renders all three views, and mounting the transition anywhere below it is
+   *     the defect of 2026-09-01: `collections-scope.tsx` held it and returns `null` on the places
+   *     view, so `places ↔ collections` — the drawer's most-pressed control — had no host in the
+   *     document to hold the outgoing list and cut instead of handing off;
+   *  2. **the beats are the scale's**, in `view-swap.tsx`, with no duration invented beside them.
+   *
+   * Rule 3 is satisfied the way the whole scale satisfies it: the fade carries no prefix and every
+   * transform does, so a reduced-motion user gets a full-length cross-fade between two still
+   * compositions rather than a cut. Measured in the browser at both settings on 2026-09-01 — under
+   * `reduce`, both layers hold `translateX 0.00 px` for every frame while opacity ramps `1 → 0` and
+   * `0 → 1`. What this test forbids is a transform that escapes the prefix, the failure
+   * `ENTER_POPOVER`'s docblock records finding in three shipped surfaces at once.
    *
    * Read from source rather than from a rendered animation, because a browser reports this
    * misleadingly: `tw-animate-css`'s `enter` keyframe is a single `from` block that *always* names
@@ -164,27 +178,55 @@ describe('what it does under prefers-reduced-motion', () => {
    * `--tw-enter-*` custom properties leave two of them at identity. Measured at `022a18c`, at both
    * motion settings.
    */
-  it('changes view at the large tier, with every transform behind motion-safe', async () => {
+  it('changes view at the view tier, with every transform behind motion-safe', async () => {
     const { readFileSync } = await import('node:fs');
     const { fileURLToPath } = await import('node:url');
     const at = (path: string) =>
       readFileSync(fileURLToPath(new URL(`../../../${path}`, import.meta.url)), 'utf8');
 
-    const scope = at('src/app/map/collections-scope.tsx');
-    expect(scope, 'the view change reaches for the shared scale').toContain('ENTER_SCREEN');
-    expect(scope, 'and does not invent a duration beside it').not.toMatch(/duration-\[/);
+    // Claim 1. Both slots, because the sheet and the `lg+` panel are two hosts and a swap that
+    // covers one of them is a swap that covers one breakpoint.
+    const page = at('src/app/map/map-page-client.tsx');
+    expect(page, 'the swap host is mounted above the places/collections branch').toMatch(
+      /sheetContent=\{\(stop\) => \(\s*<ViewSwap/,
+    );
+    expect(page, 'and over the desktop panel too').toMatch(/panelContent=\{\s*<ViewSwap/);
+    expect(
+      at('src/app/map/collections-scope.tsx'),
+      'and not back inside the branch, where it cannot see the places list',
+    ).not.toContain('<ViewSwap');
 
-    const tier = /export const ENTER_SCREEN =\s*\n?\s*'([^']*)'/.exec(at('src/lib/interaction.ts'))?.[1];
-    expect(tier, 'ENTER_SCREEN is still a single class string').toBeDefined();
-    // The fade is what a reduced-motion user is left with, so it must not be prefixed...
-    expect(tier).toContain('fade-in-0');
-    expect(tier).not.toContain('motion-safe:fade-in');
-    // ...and every transform must be, or that user gets the motion they asked not to have.
-    for (const utility of (tier ?? '').split(/\s+/)) {
-      if (/(?:^|:)(?:slide-in|zoom-in|spin-in|blur-in)/.test(utility)) {
-        expect(utility, `${utility} runs regardless of prefers-reduced-motion`).toContain(
-          'motion-safe:',
-        );
+    // Claim 2. The component that owns the transition reaches for the shared scale.
+    const swap = at('src/components/ui/view-swap.tsx');
+    for (const name of [
+      'ENTER_VIEW_FORWARD',
+      'ENTER_VIEW_BACK',
+      'LEAVE_VIEW_FORWARD',
+      'LEAVE_VIEW_BACK',
+    ]) {
+      expect(swap, `the view change reaches for ${name}`).toContain(name);
+    }
+    expect(swap, 'and does not invent a duration beside them').not.toMatch(/duration-\[/);
+
+    const interaction = at('src/lib/interaction.ts');
+    for (const name of [
+      'ENTER_VIEW_FORWARD',
+      'ENTER_VIEW_BACK',
+      'LEAVE_VIEW_FORWARD',
+      'LEAVE_VIEW_BACK',
+    ]) {
+      const tier = new RegExp(`export const ${name} =\\s*\\n?\\s*'([^']*)'`).exec(interaction)?.[1];
+      expect(tier, `${name} is still a single class string`).toBeDefined();
+      // The fade is what a reduced-motion user is left with, so it must not be prefixed...
+      expect(tier, `${name} still fades`).toMatch(/(?:^|\s)fade-(?:in|out)-0(?:\s|$)/);
+      expect(tier).not.toMatch(/motion-safe:fade-/);
+      // ...and every transform must be, or that user gets the motion they asked not to have.
+      for (const utility of (tier ?? '').split(/\s+/)) {
+        if (/(?:^|:)(?:slide-in|slide-out|zoom-in|zoom-out|spin-in|blur-in)/.test(utility)) {
+          expect(utility, `${utility} runs regardless of prefers-reduced-motion`).toContain(
+            'motion-safe:',
+          );
+        }
       }
     }
   });

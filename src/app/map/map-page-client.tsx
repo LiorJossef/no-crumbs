@@ -156,7 +156,14 @@ import { ImportPageClient, type SaveOutcomeDetail } from '@/app/import/import-pa
 import { AddSheetHost } from '@/components/add/add-sheet-host';
 import { CollectionsContext, type CollectionsForPlace } from '@/ui/place/collections-context';
 import type { CollectionDetail, CollectionSummary } from '@/app/collections/_lib/get-collections';
-import { drawerHref, isCollectionsView, type DrawerView } from './_lib/drawer-view';
+import {
+  drawerHref,
+  isCollectionsView,
+  swapDirection,
+  viewKey,
+  type DrawerView,
+} from './_lib/drawer-view';
+import { ViewSwap, type SwapDirection } from '@/components/ui/view-swap';
 import { useCollectionsScope } from './collections-scope';
 
 /** How long the typing has to settle before the result count is announced to a screen reader.
@@ -1281,6 +1288,16 @@ export function MapPageClient({
    *  is not a mount, and `useCollectionsScope`'s own re-fit is what moves the camera then. */
   const shellBounds = collectionsScope ? collectionsScope.initialBounds : initialBounds;
 
+  /**
+   * **Which view the drawer is showing and which way it just moved** — the two values the swap
+   * below needs, and the reason this file owns them rather than `collections-scope.tsx`.
+   *
+   * See `useDrawerSwap`. The short version is the finding it answers: the transition used to be
+   * mounted inside the collections branch, so it covered `index ↔ collection` and did not cover
+   * `places ↔ collections`, which is the switch a person presses every session.
+   */
+  const swap = useDrawerSwap(view);
+
   return (
     // Every chip in every tree below reads its state from here — the sheet's detail, and the map's
     // own pin-anchored popover, which is rendered inside `components/map/**` and would otherwise
@@ -1404,76 +1421,97 @@ export function MapPageClient({
               /* One slot, three views. The collections views hand back their own content and this
                  page's `PlaceSheet` is not built for them at all — no area heading, no tag chips,
                  no been filter — which is why `collection-content.tsx` exists rather than
-                 `PlaceSheet` growing a `variant`. */
-              sheetContent={(stop) =>
-                collectionsScope
-                  ? collectionsScope.sheetContent(stop)
-                  : (
-                <PlaceSheet
-                  places={listed}
-                  heading={heading}
-                  otherPlaces={otherPlaces}
-                  activeAreaId={activeAreaId}
-                  libraryIsEmpty={places.length === 0}
-                  libraryHasVisited={libraryHasVisited}
-                  query={query}
-                  onQueryChange={setQuery}
-                  activeTag={activeTag}
-                  onClearTag={clearTag}
-                  notBeenOnly={notBeenOnly}
-                  onToggleNotBeen={toggleNotBeen}
-                  categoryFacets={facets}
-                  activeCategory={activeCategory}
-                  onToggleCategory={toggleCategoryFilter}
-                  selected={selected}
-                  onDeselect={() => {
-                    setSelectedId(null);
-                  }}
-                  onAddTikTok={openImport}
-                  onSelect={selectPlace}
-                  // The row half of the coupling. `PlaceRow` guards `pointerenter` on
-                  // `pointerType === 'mouse'`, so a tap on a phone never reaches this.
-                  onHover={setHoveredId}
-                  selectedId={selectedId}
-                  sortOrder={sortOrder}
-                  sortOrders={sortOrders}
-                  onChangeSort={chooseOrder}
-                  stop={stop}
-                  onExpand={shell.sheet.goTo}
+                 `PlaceSheet` growing a `variant`.
+
+                 **The swap wraps the slot, not one arm of the branch** (2026-09-01). It was inside
+                 `useCollectionsScope`, which returns `null` on the places view — so the host was
+                 not in the document at the moment the places list left and could not hold it, and
+                 `places ↔ collections` cut while `index ↔ collection` handed off. Measured per
+                 frame at `a468fb1`: no leaving layer in any frame of either direction, and the
+                 incoming view at `opacity 0.000` over an empty card. Here, above the branch, all
+                 three views are peers in one host, which is what `_lib/drawer-view.ts`'s depths
+                 have said since it was written. */
+              sheetContent={(stop) => (
+                <ViewSwap
+                  viewKey={swap.key}
+                  direction={swap.direction}
+                  className="flex min-h-0 flex-1 flex-col"
+                >
+                  {collectionsScope ? (
+                    collectionsScope.sheetContent(stop)
+                  ) : (
+                    <PlaceSheet
+                      places={listed}
+                      heading={heading}
+                      otherPlaces={otherPlaces}
+                      activeAreaId={activeAreaId}
+                      libraryIsEmpty={places.length === 0}
+                      libraryHasVisited={libraryHasVisited}
+                      query={query}
+                      onQueryChange={setQuery}
+                      activeTag={activeTag}
+                      onClearTag={clearTag}
+                      notBeenOnly={notBeenOnly}
+                      onToggleNotBeen={toggleNotBeen}
+                      categoryFacets={facets}
+                      activeCategory={activeCategory}
+                      onToggleCategory={toggleCategoryFilter}
+                      selected={selected}
+                      onDeselect={() => {
+                        setSelectedId(null);
+                      }}
+                      onAddTikTok={openImport}
+                      onSelect={selectPlace}
+                      // The row half of the coupling. `PlaceRow` guards `pointerenter` on
+                      // `pointerType === 'mouse'`, so a tap on a phone never reaches this.
+                      onHover={setHoveredId}
+                      selectedId={selectedId}
+                      sortOrder={sortOrder}
+                      sortOrders={sortOrders}
+                      onChangeSort={chooseOrder}
+                      stop={stop}
+                      onExpand={shell.sheet.goTo}
                 />
-                    )
-              }
+                  )}
+                </ViewSwap>
+              )}
               panelContent={
-                collectionsScope?.panelContent ?? (
-                <PlaceDesktopPanel
-                  places={listed}
-                  heading={heading}
-                  otherPlaces={otherPlaces}
-                  activeAreaId={activeAreaId}
-                  libraryIsEmpty={places.length === 0}
-                  libraryHasVisited={libraryHasVisited}
-                  query={query}
-                  onQueryChange={setQuery}
-                  activeTag={activeTag}
-                  onClearTag={clearTag}
-                  notBeenOnly={notBeenOnly}
-                  onToggleNotBeen={toggleNotBeen}
-                  categoryFacets={facets}
-                  activeCategory={activeCategory}
-                  onToggleCategory={toggleCategoryFilter}
-                  onAddTikTok={openImport}
-                  onSelect={selectPlace}
-                  // The row↔pin coupling and the sort control, on the surface both were designed
-                  // for: at `lg+` the list and the map are side by side. Same props, same
-                  // components, same state as the sheet — two surfaces over one library must not
-                  // offer different controls.
-                  onHover={setHoveredId}
-                  selectedId={selectedId}
-                  sortOrder={sortOrder}
-                  sortOrders={sortOrders}
-                  onChangeSort={chooseOrder}
+                <ViewSwap
+                  viewKey={swap.key}
+                  direction={swap.direction}
+                  className="flex min-h-0 flex-1 flex-col"
+                >
+                  {collectionsScope?.panelContent ?? (
+                    <PlaceDesktopPanel
+                      places={listed}
+                      heading={heading}
+                      otherPlaces={otherPlaces}
+                      activeAreaId={activeAreaId}
+                      libraryIsEmpty={places.length === 0}
+                      libraryHasVisited={libraryHasVisited}
+                      query={query}
+                      onQueryChange={setQuery}
+                      activeTag={activeTag}
+                      onClearTag={clearTag}
+                      notBeenOnly={notBeenOnly}
+                      onToggleNotBeen={toggleNotBeen}
+                      categoryFacets={facets}
+                      activeCategory={activeCategory}
+                      onToggleCategory={toggleCategoryFilter}
+                      onAddTikTok={openImport}
+                      onSelect={selectPlace}
+                      // The row↔pin coupling and the sort control, on the surface both were designed
+                      // for: at `lg+` the list and the map are side by side. Same props, same
+                      // components, same state as the sheet — two surfaces over one library must not
+                      // offer different controls.
+                      onHover={setHoveredId}
+                      selectedId={selectedId}
+                      sortOrder={sortOrder}
+                      sortOrders={sortOrders}
+                      onChangeSort={chooseOrder}
                 />
-                )
+                  )}
+                </ViewSwap>
               }
               /* Not guarded by the overlay, unlike the sheet, and the difference is that `PlaceSheet`
                is always open while this renders nothing at all when `addOpen` is false. Guarding it
@@ -1534,6 +1572,46 @@ export function MapPageClient({
       </TagFilterContext>
     </CollectionsContext>
   );
+}
+
+/**
+ * **The drawer's view, as the two values `ViewSwap` takes: an identity and a direction.**
+ *
+ * ## Why it is here
+ *
+ * This is the only component that renders all three views. The places list is `PlaceSheet` /
+ * `PlaceDesktopPanel` above; the collections index and a collection come back from
+ * `useCollectionsScope`. A swap host has to be an ancestor of every view it swaps, so the state
+ * that sees both sides of a switch has to live above the branch too — and until 2026-09-01 it did
+ * not: `collections-scope.tsx` held it, and that hook returns `null` on the places view. The
+ * result was a transition that covered `index ↔ collection`, a pair involving one collection, and
+ * not `places ↔ collections`, the drawer's most-pressed control.
+ *
+ * ## The one thing it has to do, and why it is a render-phase cell
+ *
+ * By the time anything renders, `view` is the *new* view: the router has re-rendered the page and
+ * every prop describes where the user is going. The previous view exists nowhere on the page. So
+ * this cell is written under the old view and read under the new one — `cell.view` **is** the
+ * previous view for exactly one render, which is the render that starts the animation. React's own
+ * "adjust state when a prop changes" pattern, the same shape `useMapShell` and
+ * `useCollectionsScope` already use here; an effect would be a frame late, and a frame late is the
+ * empty frame the whole mechanism exists to remove.
+ *
+ * `from` survives every later render of the same view unchanged, so the direction can be handed
+ * down as a plain prop for as long as that view is on screen — `ViewSwap` reads it only at the
+ * swap. `null` on the first render: a cold entry is an arrival rather than a swap, and `ViewSwap`
+ * plays no entrance for one.
+ *
+ * `view` is held beside `key` rather than recovered from it. One fact in two encodings with
+ * nothing keeping them in step would fail as a silently wrong *direction*, which is the least
+ * likely thing anyone would look at; the object is already in hand when the cell is written.
+ */
+function useDrawerSwap(view: DrawerView): { key: string; direction: SwapDirection } {
+  const key = viewKey(view);
+  const [cell, setCell] = useState({ key, view, from: null as DrawerView | null });
+  const swapping = cell.key !== key;
+  if (swapping) setCell({ key, view, from: cell.view });
+  return { key, direction: swapDirection(swapping ? cell.view : cell.from, view) };
 }
 
 /**

@@ -75,6 +75,21 @@ export function isCollectionsView(view: DrawerView): boolean {
 }
 
 /**
+ * **One string per distinct view — the drawer's identity for it.**
+ *
+ * Two consumers, and keeping them on one function is the point: `map-page-client.tsx` hands it to
+ * `ViewSwap` as the key whose change *is* the transition, and `collections-scope.tsx` uses the same
+ * string to reset the per-collection state during render. A view is "the same view" for the
+ * animation exactly when it is the same view for the reset, and two encodings of that would drift.
+ *
+ * It lives here rather than in either caller because it is a fact about a `DrawerView`, and this is
+ * the file that owns what a `DrawerView` is. React-free, like everything else here.
+ */
+export function viewKey(view: DrawerView): string {
+  return view.kind === 'collection' ? `collection:${view.id}` : view.kind;
+}
+
+/**
  * The view a request's `searchParams` asks for.
  *
  * **Tolerant on the way in, canonical on the way out.** `?collection=<id>` alone resolves to that
@@ -146,6 +161,13 @@ export function collectionCanvasName(name: string, placeCount: number): string {
  * into the collection it names. So *deeper* is *further right*, and a number per view is enough to
  * derive both directions without a table of nine transitions.
  *
+ * **`places` is depth 0 and always was**, which is the part worth naming after 2026-09-01. This
+ * file has modelled all three views as peers since it was written; what did not match it was where
+ * `ViewSwap` was mounted — inside the collections branch, so the one switch a person presses every
+ * session, `places ↔ collections`, had no host in the document to hold the outgoing list. The swap
+ * now sits above the branch in `map-page-client.tsx` and this function finally answers for every
+ * pair it can already describe.
+ *
  * Not exported as a general fact about a view — it means nothing outside a transition, and a
  * caller reaching for "how deep is this view" for any other reason is asking the wrong question.
  */
@@ -166,7 +188,10 @@ function viewDepth(view: DrawerView): number {
  *
  * `from` is nullable because the first render of a page has nothing before it. A cold entry on
  * `/map?view=collections` is an arrival rather than a swap, and it takes `forward` for the same
- * reason: it is the direction the switch's own geometry implies.
+ * reason: it is the direction the switch's own geometry implies. That sentence is now load-bearing
+ * rather than decorative: `ViewSwap` plays **no view-tier entrance on its first render**, because
+ * an arrival already has the page's own entrance and a hand-off with nothing to hand off from is a
+ * slide for its own sake. So on a cold entry this value seeds the state and animates nothing.
  */
 export function swapDirection(from: DrawerView | null, to: DrawerView): SwapDirection {
   if (from === null) return 'forward';

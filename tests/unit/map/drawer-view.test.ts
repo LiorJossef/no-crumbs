@@ -30,6 +30,7 @@ import {
   isCollectionsView,
   swapDirection,
   viewFromSearchParams,
+  viewKey,
 } from '@/app/map/_lib/drawer-view';
 
 const ID = 'cccccccc-0000-4000-8000-000000000001';
@@ -196,5 +197,37 @@ describe('which way a view swap is going', () => {
     const other = { kind: 'collection', id: 'cccccccc-0000-4000-8000-000000000002' } as const;
     expect(swapDirection(COLLECTION, other)).toBe('forward');
     expect(swapDirection(PLACES_VIEW, PLACES_VIEW)).toBe('forward');
+  });
+});
+
+/**
+ * **The drawer's identity for a view**, and it has two consumers that must never disagree:
+ * `map-page-client.tsx` hands it to `ViewSwap` as the key whose change *is* the transition, and
+ * `collections-scope.tsx` uses the same string to decide that the scope changed and reset the
+ * pushed pane. A view is "the same view" for the animation exactly when it is the same view for the
+ * reset. It was a private function in `collections-scope.tsx` until 2026-09-01, when the swap moved
+ * above the places/collections branch and the two callers stopped being one file.
+ */
+describe('one string per view', () => {
+  it('separates the three views', () => {
+    const keys = [viewKey(PLACES_VIEW), viewKey(INDEX_VIEW), viewKey(COLLECTION)];
+    expect(new Set(keys).size).toBe(3);
+  });
+
+  it('separates two collections, because entering another one is a swap', () => {
+    const other = { kind: 'collection', id: 'cccccccc-0000-4000-8000-000000000002' } as const;
+    expect(viewKey(COLLECTION)).not.toBe(viewKey(other));
+  });
+
+  /** A collection id could collide with a view name only if the prefix were dropped, which is the
+   *  one way this function can be quietly wrong: `places` as a collection id would then read as the
+   *  places view and neither the transition nor the scope reset would fire. */
+  it('keeps a collection distinguishable from a view of the same name', () => {
+    expect(viewKey({ kind: 'collection', id: 'places' })).not.toBe(viewKey(PLACES_VIEW));
+    expect(viewKey({ kind: 'collection', id: 'index' })).not.toBe(viewKey(INDEX_VIEW));
+  });
+
+  it('is stable for the same view across renders', () => {
+    expect(viewKey({ kind: 'collection', id: ID })).toBe(viewKey(COLLECTION));
   });
 });

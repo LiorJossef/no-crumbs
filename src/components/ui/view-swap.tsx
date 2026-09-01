@@ -61,6 +61,22 @@
  * Holding the outgoing subtree. `LEAVE_SURFACE` has been in the vocabulary since the scale was
  * written, with a docblock saying it is *"only usable where the leaving element stays mounted long
  * enough to run it"* — and nothing in the product made that true. This is the mechanism that does.
+ *
+ * ## Where it has to be mounted, which is the whole of what went wrong the first time
+ *
+ * **Above every view it is meant to cover, and it is the one thing about this component that can be
+ * got wrong without the component being wrong.** Its first host was `app/map/collections-scope.tsx`,
+ * whose hook returns `null` on the places view — so on `places ↔ collections`, the switch a person
+ * presses every session, there was no host in the document at the moment the places list left, and
+ * nothing to hold it. Measured at `a468fb1`, per frame at 1440×900: `hosts 0` at +210 ms, then
+ * `hosts 2` at +291 ms with the incoming layer at `opacity 0.000` and **no leaving layer in any
+ * frame of either direction**. The transition was correct and it was mounted below the boundary it
+ * was written to cross.
+ *
+ * It now sits in `app/map/map-page-client.tsx`, which is the one file that renders all three views,
+ * and it wraps the drawer's **slot** rather than one branch of it. The rule that generalises:
+ * a swap host has to be an ancestor of every view it swaps, which means it cannot live in code that
+ * only runs for some of them.
  */
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
@@ -130,6 +146,22 @@ export interface SwapState {
   readonly node: ReactNode;
   /** The direction the current view arrived in, captured at the swap and not read again after it. */
   readonly direction: SwapDirection;
+  /**
+   * **How the current view got here, and it decides whether it plays an entrance at all.**
+   *
+   * `mount` is the first view this host ever showed — a cold load of `/map`, or of
+   * `/map?view=collections` from a shared link. There is nothing to hand off *from*, so the
+   * view-tier slide has no subject: the page's own entrance is what an arrival gets
+   * (`components/shell/map-shell.tsx`'s five beats), and stacking a 300 ms slide-from-the-right on
+   * top of it would animate the product's main screen for a transition that did not happen.
+   * `app/map/_lib/drawer-view.ts`'s `swapDirection` already called that case *"an arrival rather
+   * than a swap"*; this is the field that makes the component agree.
+   *
+   * It flips to `swap` at the first key change and never flips back, and it can only change on the
+   * same render that re-keys the current layer — so a class string never changes underneath a
+   * running animation.
+   */
+  readonly arrival: 'mount' | 'swap';
   /** The view on its way out, or `null` when nothing is leaving. */
   readonly leaving: (HeldView & { readonly direction: SwapDirection }) | null;
 }
@@ -163,6 +195,7 @@ export function nextSwapState(
     // The direction is read **at the swap**, so a caller may go on handing down the direction of
     // the last swap for as long as that view is on screen without re-triggering anything.
     direction: swapping ? next.direction : state.direction,
+    arrival: swapping ? 'swap' : state.arrival,
     leaving: swapping
       ? { key: state.key, node: state.node, direction: next.direction }
       : // Same view, fresh children — a `router.refresh()` after an edit. Nothing enters and
@@ -215,6 +248,7 @@ export function ViewSwap({
     key: viewKey,
     node: children,
     direction,
+    arrival: 'mount',
     leaving: null,
   }));
 
@@ -285,7 +319,14 @@ export function ViewSwap({
         key={current.key}
         data-view-layer="current"
         data-view-key={current.key}
-        className={cn('flex min-h-0 flex-1 flex-col', ENTER[current.direction])}
+        /* `data-view-arrival` so a per-frame probe can tell "this view chose not to animate" from
+           "the animation did not run", which are the same thing to a sampler and opposite things to
+           a reader. See `SwapState.arrival`. */
+        data-view-arrival={current.arrival}
+        className={cn(
+          'flex min-h-0 flex-1 flex-col',
+          current.arrival === 'swap' && ENTER[current.direction],
+        )}
       >
         {current.node}
       </div>
