@@ -130,7 +130,8 @@ import {
 } from '@/domain/import/provider-failure';
 import type { OpCtx, PlaceResolver } from '@/domain/ports';
 import { toCountryCode } from '@/domain/places/country-code';
-import { scoreCandidates } from '@/domain/places/score';
+import { distinctiveTokens, scoreCandidates } from '@/domain/places/score';
+import { normalise } from '@/domain/places/normalise';
 import type { RegionId, ResolveQuery, ResolveResult, ResolvedPlace } from '@/domain/types';
 import { cachedProviderRows, type PlaceLookupStore } from '@/integrations/places/lookup-cache';
 
@@ -400,6 +401,27 @@ export function toResolvedPlace(row: GooglePlaceRow): ResolvedPlace | null {
  * contract), and folding it into the query text would let a wrong or partial address suppress the
  * right venue instead of merely failing to corroborate it — recall must not depend on it.
  */
+/**
+ * The same query with its generic words dropped — `Tokyo ICCO` becomes `ICCO`, `Jinsei Yakitori`
+ * becomes `Jinsei`. Returns `null` when there is nothing to drop or nothing distinctive left.
+ *
+ * **The query builder and the scorer disagreed, and this is that seam.** `SCORING.generic` already
+ * knows `tokyo`, `cafe`, `restaurant` and the rest are not names — the scorer has filtered them out
+ * of `tokenCoverage` since the prototype. `buildTextQuery` sent the raw string anyway, so Google
+ * was ranking on words we had already decided did not identify anything.
+ *
+ * Measured 2026-09-01: `Tokyo ICCO London` returns **no_match at 0.754**, and `ICCO London` returns
+ * `ICCO Pizza - Soho` at **0.879, confirm**. Same venue, same provider, one generic word removed.
+ */
+export function narrowedTextQuery(query: ResolveQuery): string | null {
+  const distinctive = distinctiveTokens(query.text);
+  if (distinctive.length === 0) return null;
+  const narrowed = distinctive.join(' ');
+  if (normalise(narrowed) === normalise(query.text)) return null;
+  const city = query.cityHint?.trim();
+  return city !== undefined && city !== '' ? `${narrowed}, ${city}` : narrowed;
+}
+
 export function buildTextQuery(query: ResolveQuery): string {
   const city = query.cityHint?.trim();
   return city !== undefined && city !== '' ? `${query.text}, ${city}` : query.text;
@@ -447,8 +469,52 @@ export function googlePlaceResolver(
     provider: 'google',
 
     async resolve(query: ResolveQuery, ctx: OpCtx): Promise<ResolveResult> {
+      const first = await lookupAndScore(buildTextQuery(query), query, ctx);
+
+      // **A second look, and only ever after the first has already failed.**
+      //
+      // A `no_match` means the words we sent found nothing worth showing, and the commonest reason
+      // measured is that they were not all name: `Tokyo ICCO London` returns no_match at 0.754
+      // while `ICCO London` returns `ICCO Pizza - Soho` at 0.879. The generic word was doing the
+      // ranking damage, and `SCORING.generic` already knew it was generic.
+      //
+      // **Gated on `no_match` rather than applied to every query, and that gate is the whole
+      // safety argument.** Narrowing unconditionally was measured and rejected: `Cafe Fiori` in Tel
+      // Aviv resolves to `Cafe fiori` at 1.000, and narrowed to `Fiori` it resolves to a
+      // **different venue**, also at 1.000 — both auto-accept, so the change would silently move
+      // which place a user saves. `Jones Family Kitchen` also got worse (0.908 -> 0.888). Only a
+      // query that has already found nothing can be re-asked, so nothing that works can move.
+      if (first.confidence.band !== 'no_match') return first;
+      const narrowed = narrowedTextQuery(query);
+      if (narrowed === null) return first;
+
+      // **Scored against the question it asked, not the one that already failed.** Re-scoring the
+      // narrowed answer against the full text was measured first and buys nothing: `Tokyo ICCO`
+      // retrieves `ICCO Pizza - Soho` correctly but still scores 0.760 against "Tokyo ICCO",
+      // because the 0.45 `whole` term compares full strings and "Tokyo" is in both the query and
+      // nothing else. The retry then costs a lookup and moves no band.
+      //
+      // Judging it on the narrowed name is not laundering: `distinctiveTokens` is the scorer's own
+      // notion of which words identify a venue, and `tokenCoverage` has ignored the rest since the
+      // prototype. This makes `whole` agree with what `tokenCoverage` already believed.
+      const narrowedName = distinctiveTokens(query.text).join(' ');
+      const second = await lookupAndScore(narrowed, { ...query, text: narrowedName }, ctx);
+      ctx.log.event('places.resolve_narrowed', {
+        provider: 'google',
+        rescued: second.confidence.band !== 'no_match',
+      });
+      // Never worse: the first answer stands unless the narrowed one actually cleared a band.
+      return second.confidence.band === 'no_match' ? first : second;
+    },
+  };
+
+  async function lookupAndScore(
+    textQuery: string,
+    query: ResolveQuery,
+    ctx: OpCtx,
+  ): Promise<ResolveResult> {
       const params: GoogleTextSearchParams = {
-        textQuery: buildTextQuery(query),
+        textQuery,
         // `countryHint` is a country **name**, never a code: the prompt asks the model to copy the
         // caption's own location words, so it arrives as `United Kingdom`, `Czech Republic`,
         // `Israel` or `ישראל`. This line used to require `/^..$/` after an upper-case, which none
@@ -522,6 +588,5 @@ export function googlePlaceResolver(
       // `no_match` on an empty list is `scoreCandidates`' own construction, so there is one path to
       // it rather than two. `GLOBAL_REGION` rather than `[]`: see the header.
       return scoreCandidates(query, candidates, [GLOBAL_REGION], 'exhaustive-search');
-    },
-  };
+  }
 }

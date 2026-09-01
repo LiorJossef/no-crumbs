@@ -19,6 +19,7 @@ import type { OpCtx } from '@/domain/ports';
 import type { ResolveQuery } from '@/domain/types';
 import {
   buildTextQuery,
+  narrowedTextQuery,
   GLOBAL_REGION,
   GOOGLE_TIMEOUT_MS,
   languageCodeFor,
@@ -409,5 +410,31 @@ describe('googlePlaceResolver with a lookup store', () => {
     await resolver.resolve(query({ text: 'Palette Bistro' }), ctx);
 
     expect(seen).toHaveLength(2);
+  });
+});
+
+
+describe('narrowedTextQuery — the query builder and the scorer, agreeing at last', () => {
+  // `SCORING.generic` has known since the prototype that `tokyo`, `cafe` and `restaurant` do not
+  // identify a venue — `tokenCoverage` filters them out. `buildTextQuery` sent them to Google
+  // anyway, so the provider ranked on words we had already decided were not names. Measured
+  // 2026-09-01: `Tokyo ICCO London` returns no_match at 0.754; `ICCO London` returns
+  // `ICCO Pizza - Soho` at 0.879.
+  it('drops the generic words the scorer already ignores', () => {
+    expect(narrowedTextQuery(query({ text: 'Tokyo ICCO' }))).toContain('icco');
+  });
+
+  it('returns null when there is nothing generic to drop, so no second lookup is spent', () => {
+    expect(narrowedTextQuery(query({ text: 'Ottolenghi' }))).toBeNull();
+  });
+
+  it('returns null when every word is generic, rather than querying an empty name', () => {
+    expect(narrowedTextQuery(query({ text: 'the best coffee' }))).toBeNull();
+  });
+
+  it('keeps the city, which is what disambiguates the narrowed name', () => {
+    const narrowed = narrowedTextQuery(query({ text: 'Cafe Fiori' }));
+    expect(narrowed).toContain('fiori');
+    expect(narrowed, 'the city must survive the narrowing').toMatch(/,\s*\S/);
   });
 });
