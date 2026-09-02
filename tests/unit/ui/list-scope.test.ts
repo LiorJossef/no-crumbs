@@ -602,11 +602,16 @@ describe('scopeLabel', () => {
     );
   });
 
-  it('keeps the countryless label when the bucket has a real one', () => {
-    // The bucket takes the first area's own name where the areas can be named at all, and that is
-    // a place — so it is not lowercased.
+  it('says `another area` even where the bucket holds one named area', () => {
+    // Changed 2026-09-02 with `CountrySummary.label`. The bucket used to take the first area's own
+    // name, which is how a city came to be rendered as a peer of a country; a group we cannot name
+    // a country for now says exactly that, wherever it is read. The cost is visible here: a header
+    // that could have said `Kowloon` says `another area` instead. `scopeLabel` could recover it
+    // from `only.areas[0]`, which this test deliberately does not pretend has happened.
     const named = areasOf(city('nc', 3, NOWHERE, 'Kowloon', null));
-    expect(labelOf(scopeForCountryTap(NO_COUNTRY_KEY), named, countriesOf(named))).toBe('Kowloon');
+    expect(labelOf(scopeForCountryTap(NO_COUNTRY_KEY), named, countriesOf(named))).toBe(
+      UNNAMED_OTHER_AREA_LABEL.toLowerCase(),
+    );
   });
 
   it('counts the countries under a global scope', () => {
@@ -636,9 +641,13 @@ describe('scopeLabel', () => {
     expect(labelOf(GLOBAL_SCOPE, unplaced, buckets)).toBe('your library');
   });
 
-  it('still names a countryless bucket that is one area, because then it speaks for all of it', () => {
+  it('still speaks for a countryless bucket that is one area, without naming it a country', () => {
+    // Same change as above: the whole library is one unplaceable area, and the honest header is
+    // `3 places in another area` rather than a city standing in for a country.
     const single = areasOf(city('kwn', 3, { lat: 22.31, lng: 114.17 }, 'Kowloon', null));
-    expect(labelOf(GLOBAL_SCOPE, single, countriesOf(single))).toBe('Kowloon');
+    expect(labelOf(GLOBAL_SCOPE, single, countriesOf(single))).toBe(
+      UNNAMED_OTHER_AREA_LABEL.toLowerCase(),
+    );
   });
 });
 

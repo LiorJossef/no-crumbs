@@ -23,7 +23,6 @@
 
 import { clusterByProximity, type GeoCluster, type GeoPoint } from '@/domain/places/clusters';
 import { categoryFacets, type CategoryFacet } from '@/domain/places/category-filter';
-import { toCountryName } from '@/domain/places/country-code';
 import type { ProductCategory } from '@/domain/places/product-category';
 import { buildAreas } from '@/ui/place/active-area';
 import { summariseByCountry } from '@/ui/place/library-summary';
@@ -76,8 +75,9 @@ export interface ProfileStats {
 export interface CountryCount {
   /** ISO-3166 alpha-2, or `null` for the group whose places carry no usable country at all. */
   readonly countryCode: string | null;
-  /** The country's English name, or — where there is no code — the area's own name, which is the
-   *  honest label for a group we could not name a country for. */
+  /** The country's English name, or — where there is no code — `Another area`. Never a city's
+   *  name: a group we could not name a country for is a gap, and printing the city there would put
+   *  `חיפה` in the list as a peer of `Israel`. See `CountrySummary.label`. */
   readonly label: string;
   readonly count: number;
 }
@@ -127,17 +127,25 @@ function geography(places: readonly ProfilePlace[]): {
     toLocality: (place) => place.locality,
   });
 
-  const countries = summariseByCountry(areas, (place) => place.countryCode ?? null, toPoint).map(
+  const summaries = summariseByCountry(areas, (place) => place.countryCode ?? null, toPoint);
+
+  const countries = summaries.map(
     (summary): CountryCount => ({
       countryCode: summary.countryCode,
-      // `summariseByCountry` already falls back to the area's own name where there is no code;
-      // `toCountryName` is re-applied for nothing but clarity about where the name comes from.
-      label: toCountryName(summary.countryCode) ?? summary.label,
+      // `summariseByCountry` owns the label, including the countryless group's — which is
+      // `Another area`, never a city's name. See `CountrySummary.label`.
+      label: summary.label,
       count: summary.count,
     }),
   );
 
-  return { cities: areas.length, countries };
+  // **`cities` is counted off the same summaries the list renders, not off `areas`.** They differ
+  // whenever `bucketAreasByCountry` drops a bucket it cannot place a marker for (every member's
+  // coordinate invalid), and a headline saying `4 Cities` above three listed groups is exactly the
+  // contradiction this page must not be able to produce. One pass, one list, both numbers.
+  const cities = summaries.reduce((sum, summary) => sum + summary.areas.length, 0);
+
+  return { cities, countries };
 }
 
 export function countryBreakdown(places: readonly ProfilePlace[]): readonly CountryCount[] {
@@ -212,7 +220,9 @@ function statsFrom(
   return {
     saved: places.length,
     cities,
-    // The unnamed group is a gap, not a country, so it is listed and not counted.
+    // The countryless group is a gap, not a country: it is listed — under `Another area`, with no
+    // flag and sorted last — and it is not counted here. Both halves come from the one `countries`
+    // array above, so `N Countries` is always the number of *named* rows beneath it.
     countries: countries.filter((country) => country.countryCode !== null).length,
     been,
     notBeenYet: places.length - been,

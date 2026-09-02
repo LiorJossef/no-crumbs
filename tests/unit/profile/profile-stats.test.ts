@@ -121,11 +121,37 @@ describe('countryBreakdown', () => {
     );
   });
 
-  it('gives an area nothing can name its own label, and no flag', () => {
+  it('never lets a city stand in for a country', () => {
+    // Changed 2026-09-02, and it is the owner-reported defect. This row used to be labelled with
+    // the *area's* name, so the one Haifa save — `country_code` NULL — printed `חיפה` directly
+    // beneath `Israel` under `Where you save`, as if a city were a country. The countryless group
+    // is a gap: it says so, it carries no flag, and it is not counted in `N Countries`.
     const rows = countryBreakdown([
       place(LONDON.lat, LONDON.lng, { countryCode: null, locality: 'London' }),
     ]);
-    expect(rows).toEqual([{ countryCode: null, label: 'London', count: 1 }]);
+    expect(rows).toEqual([{ countryCode: null, label: 'Another area', count: 1 }]);
+  });
+
+  it('cannot contradict the numbers printed above it', () => {
+    // The two headline figures and this list come from one pass, so `N Cities` is the number of
+    // areas the list accounts for and `N Countries` is the number of *named* rows in it. Asserted
+    // on a library that deliberately holds a countryless area, because that is where they used to
+    // disagree: `4 Cities / 3 Countries` over four rows, one of which was a city.
+    const library = [
+      place(LONDON.lat, LONDON.lng, { countryCode: 'GB', locality: 'London' }),
+      place(TEL_AVIV.lat, TEL_AVIV.lng, { countryCode: 'IL', locality: 'Tel Aviv-Yafo' }),
+      place(32.8156, 34.9892, { countryCode: null, locality: 'חיפה' }),
+    ];
+    const breakdown = deriveProfileBreakdown(library);
+
+    expect(breakdown.stats.countries).toBe(
+      breakdown.countries.filter((row) => row.countryCode !== null).length,
+    );
+    expect(breakdown.countries).toHaveLength(3);
+    expect(breakdown.stats.countries).toBe(2);
+    // Every saved place is accounted for by exactly one listed row, and every area by one city.
+    expect(breakdown.countries.reduce((sum, row) => sum + row.count, 0)).toBe(library.length);
+    expect(breakdown.stats.cities).toBe(3);
   });
 
   it('sorts by count and puts the unnamed group last however big it is', () => {
