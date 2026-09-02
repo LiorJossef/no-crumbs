@@ -22,7 +22,7 @@
  * card (`locationLine`).
  */
 
-import { isHashtagOnlyEvidence } from '@/domain/extraction/plausibility';
+import { isHashtagOnlyEvidence, isTaggedAccountOnlyEvidence } from '@/domain/extraction/plausibility';
 import type { PlaceCandidate } from '../types';
 import { PRODUCT_CATEGORY_LABEL, isProductCategory } from '../places/product-category';
 
@@ -141,6 +141,16 @@ export function locationLine(candidate: PlaceCandidate): string {
  */
 export function isHashtagOnly(caption: string | null, candidate: PlaceCandidate): boolean {
   return caption !== null && isHashtagOnlyEvidence(caption, candidate.rawName, candidate.evidence);
+}
+
+/**
+ * The same statement for a **tagged account** (E-T3). `filterPlausible` now admits a tagged
+ * business (`@The Miners Coffee`) and strips the `@`, so by the time this card renders the
+ * candidate is indistinguishable from a name written in the prose. It isn't: the only evidence is
+ * a tag, and the screen says so for the same reason it says it about a hashtag.
+ */
+export function isTaggedAccountOnly(caption: string | null, candidate: PlaceCandidate): boolean {
+  return caption !== null && isTaggedAccountOnlyEvidence(caption, candidate.rawName);
 }
 
 /** The primary action's label, which is also the clearest statement of what pressing it does. */

@@ -4,6 +4,8 @@ import {
   evidenceFoundInCaption,
   filterPlausible,
   isHashtagOnlyEvidence,
+  isTaggedAccountOnlyEvidence,
+  taggedBusinessName,
 } from '@/domain/extraction/plausibility';
 import type { PlaceCandidate } from '@/domain/types';
 
@@ -379,5 +381,142 @@ describe('isHashtagOnlyEvidence — the hashtag-as-a-place regression (RICH-EXT-
       NOM_LIFE_CAPTION,
     );
     expect(result.kept[0]?.modelConfidence).toBeNull();
+  });
+});
+
+/**
+ * E-T3 — a tagged **business** is a venue; a tagged **account** is not.
+ *
+ * The caption these are cut from is real: `✨ Anwi Cafe ✨ Kro Bakery ✨ Kus Kolace ✨
+ * @The Miners Coffee` named four places and the product found three. This revises `09` §5.2
+ * category H, which said a `@handle` is never a venue "regardless of context"; the revision is
+ * written into that document, not only into this test.
+ */
+const FOUR_PLACE_CAPTION = '✨ Anwi Cafe ✨ Kro Bakery ✨ Kus Kolace ✨ @The Miners Coffee';
+
+describe('a tagged business', () => {
+  it('survives, with the @ stripped off the name', () => {
+    const result = filterPlausible(
+      [candidate({ rawName: '@The Miners Coffee', evidence: '@The Miners Coffee' })],
+      FOUR_PLACE_CAPTION,
+    );
+    expect(result.dropped.hashtag_or_handle).toBe(0);
+    expect(result.kept.map((c) => c.rawName)).toEqual(['The Miners Coffee']);
+  });
+
+  it('is the fourth place of a four-place caption, not the third', () => {
+    const result = filterPlausible(
+      [
+        candidate({ rawName: 'Anwi Cafe', evidence: 'Anwi Cafe' }),
+        candidate({ rawName: 'Kro Bakery', evidence: 'Kro Bakery' }),
+        candidate({ rawName: 'Kus Kolace', evidence: 'Kus Kolace' }),
+        candidate({ rawName: '@The Miners Coffee', evidence: '@The Miners Coffee' }),
+      ],
+      FOUR_PLACE_CAPTION,
+    );
+    expect(result.kept).toHaveLength(4);
+  });
+
+  it('arrives capped at 0.5 — the evidence is a tag, however sure the model says it is', () => {
+    const result = filterPlausible(
+      [candidate({ rawName: '@The Miners Coffee', evidence: '@The Miners Coffee', modelConfidence: 0.95 })],
+      FOUR_PLACE_CAPTION,
+    );
+    expect(result.kept[0]!.modelConfidence).toBe(0.5);
+  });
+
+  it('is capped even when the model drops the @ itself, because the caption decides', () => {
+    // The lesson `isHashtagOnlyEvidence` already learned: a guard that depends on the model
+    // formatting its answer correctly is not a guard.
+    const result = filterPlausible(
+      [candidate({ rawName: 'The Miners Coffee', evidence: '@The Miners Coffee', modelConfidence: 0.95 })],
+      FOUR_PLACE_CAPTION,
+    );
+    expect(result.kept[0]!.modelConfidence).toBe(0.5);
+  });
+
+  it('is NOT capped when the prose names it too', () => {
+    const caption = 'The Miners Coffee was the best of the trip — go say hi @The Miners Coffee';
+    const result = filterPlausible(
+      [candidate({ rawName: 'The Miners Coffee', evidence: 'The Miners Coffee', modelConfidence: 0.95 })],
+      caption,
+    );
+    expect(result.kept[0]!.modelConfidence).toBe(0.95);
+  });
+
+  it('still has to be a name — a tagged account that is only a city is dropped like any other', () => {
+    const result = filterPlausible(
+      [candidate({ rawName: '@Tel Aviv', cityHint: 'Tel Aviv' })],
+      'a day in @Tel Aviv',
+    );
+    expect(result.kept).toHaveLength(0);
+    expect(result.dropped.city_or_country_only).toBe(1);
+  });
+});
+
+describe('a bare creator handle is still never a venue', () => {
+  it.each([
+    '@someuser',
+    '@joelleuzyel',
+    '@nom_life',
+    '@the.miners.coffee',
+    '@TheMinersCoffee',
+    '@ ',
+  ])('drops %s', (rawName) => {
+    const result = filterPlausible([candidate({ rawName })], `credit ${rawName} for the find`);
+    expect(result.kept).toHaveLength(0);
+    expect(result.dropped.hashtag_or_handle).toBe(1);
+  });
+
+  it('drops a handle even when the caption is otherwise a list of venues', () => {
+    const caption = '✨ Anwi Cafe ✨ Kro Bakery ✨ filmed by @minerscoffee';
+    const result = filterPlausible([candidate({ rawName: '@minerscoffee' })], caption);
+    expect(result.kept).toHaveLength(0);
+    expect(result.dropped.hashtag_or_handle).toBe(1);
+  });
+
+  it('drops a URL whatever it points at', () => {
+    const result = filterPlausible(
+      [candidate({ rawName: 'https://theminerscoffee.example/menu' })],
+      'menu: https://theminerscoffee.example/menu',
+    );
+    expect(result.dropped.hashtag_or_handle).toBe(1);
+  });
+});
+
+describe('taggedBusinessName', () => {
+  it.each([
+    ['@The Miners Coffee', 'The Miners Coffee'],
+    ['  @Kro Bakery  ', 'Kro Bakery'],
+    ['@בית קנדינוף', 'בית קנדינוף'],
+    ['@むぎと オリーブ', 'むぎと オリーブ'],
+  ])('reads %s as the business %s', (raw, name) => {
+    expect(taggedBusinessName(raw)).toBe(name);
+  });
+
+  it.each(['@theminerscoffee', '@nom_life', '@', 'The Miners Coffee', '#the miners coffee'])(
+    'reads %s as not a business tag',
+    (raw) => {
+      expect(taggedBusinessName(raw)).toBeNull();
+    },
+  );
+});
+
+describe('isTaggedAccountOnlyEvidence', () => {
+  it('is true when the only mention is the tag', () => {
+    expect(isTaggedAccountOnlyEvidence(FOUR_PLACE_CAPTION, 'The Miners Coffee')).toBe(true);
+  });
+
+  it('is false when the prose names it as well', () => {
+    const caption = 'The Miners Coffee, again ☕️ @The Miners Coffee';
+    expect(isTaggedAccountOnlyEvidence(caption, 'The Miners Coffee')).toBe(false);
+  });
+
+  it('is false for a name the caption never carries at all', () => {
+    expect(isTaggedAccountOnlyEvidence(FOUR_PLACE_CAPTION, 'Anwi Cafe')).toBe(false);
+  });
+
+  it('ignores spacing and case on both sides', () => {
+    expect(isTaggedAccountOnlyEvidence('go to @TheMiners Coffee', 'the miners coffee')).toBe(true);
   });
 });

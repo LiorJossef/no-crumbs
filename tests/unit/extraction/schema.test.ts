@@ -354,7 +354,9 @@ describe('schema versioning', () => {
     // for. Contrast `p13` -> `p14`, a prose-only change that left the schema half at `s4`.
     expect(EXTRACTION_SCHEMA_VERSION).toBe(5);
     // `p16` moves alone (2026-08-31): a prompt-text-only change, schema still `s5`.
-    expect(PROMPT_VERSION).toBe('p16-s5');
+    // `p17` moves alone too (2026-09-02, E-T3): a tagged business stops being a handle, which is
+    // prompt text plus a plausibility gate — no new field, so the schema half stays at `s5`.
+    expect(PROMPT_VERSION).toBe('p17-s5');
   });
 
   it('keeps PROMPT_VERSION storable in the extractions column', () => {

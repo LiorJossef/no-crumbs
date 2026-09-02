@@ -5,6 +5,7 @@ import {
   candidateProvenance,
   candidateTitle,
   isSaveable,
+  isTaggedAccountOnly,
   locationLine,
   saveButtonLabel,
   showsEvidence,
@@ -145,5 +146,27 @@ describe('skippedNotice', () => {
   it('states the consequence before the button is pressed', () => {
     expect(skippedNotice(1)).toBe('1 of these has no location — it won’t be saved.');
     expect(skippedNotice(3)).toBe('3 of these have no location — they won’t be saved.');
+  });
+});
+
+describe('isTaggedAccountOnly', () => {
+  const caption = '✨ Anwi Cafe ✨ Kro Bakery ✨ Kus Kolace ✨ @The Miners Coffee';
+  const tagged: PlaceCandidate = { ...base, rawName: 'The Miners Coffee', identifiedName: null };
+
+  it('says so when the caption only tagged the business (E-T3)', () => {
+    // `filterPlausible` strips the `@`, so by render time this looks exactly like a prose name.
+    expect(isTaggedAccountOnly(caption, tagged)).toBe(true);
+  });
+
+  it('says nothing when the prose names it too', () => {
+    expect(isTaggedAccountOnly(`The Miners Coffee ☕️ ${caption}`, tagged)).toBe(false);
+  });
+
+  it('says nothing about a candidate read out of the prose', () => {
+    expect(isTaggedAccountOnly(caption, { ...base, rawName: 'Anwi Cafe' })).toBe(false);
+  });
+
+  it('is false with no caption to decide it on', () => {
+    expect(isTaggedAccountOnly(null, tagged)).toBe(false);
   });
 });
