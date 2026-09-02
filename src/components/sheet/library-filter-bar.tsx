@@ -71,10 +71,12 @@
  * component rather than a rewrite.
  */
 
-import { useCallback, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useId, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { Combobox as ComboboxPrimitive } from '@base-ui/react/combobox';
 import { Menu } from '@base-ui/react/menu';
-import { Check, ChevronDown, X } from 'lucide-react';
+import { Radio } from '@base-ui/react/radio';
+import { RadioGroup } from '@base-ui/react/radio-group';
+import { Check, ChevronDown } from 'lucide-react';
 
 import type { CategoryFacet } from '@/domain/places/category-filter';
 import type { ProductCategory } from '@/domain/places/product-category';
@@ -84,11 +86,44 @@ import { categoryColorVar, categoryDisplay } from '@/ui/place/category-display';
 import { tagDisplayLabel } from '@/domain/extraction/tags';
 import { isTagActive, type TagFacet } from '@/ui/place/tag-filter';
 import {
+  ComboboxChip,
+  ComboboxChips,
+  ComboboxChipsInput,
+  ComboboxCollection,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxItem,
+  ComboboxList,
+} from '@/components/ui/combobox';
+import { FILTER_KICKER } from './place-enrichment';
+import {
   VISIT_FILTERS,
   VISIT_FILTER_GROUP_LABEL,
   VISIT_FILTER_LABEL,
   type VisitFilter,
 } from '@/ui/place/visit-state';
+
+/**
+ * **Where a menu is drawn, and it is a host prop rather than a media query.**
+ *
+ * Owner, 2026-09-02: *"i think that on mobile the pop up doesnt feel good."* A floating layer
+ * inside a vaul drawer is a popup inside a popup, it competes with the sheet's drag listener, and
+ * it strands a narrow menu mid-screen. So the phone gets an **inline disclosure under the row that
+ * holds the pressed trigger**, pushing the list down, and the desktop keeps the **anchored
+ * popover**. A deliberate breakpoint split.
+ *
+ * **It must never be read from `matchMedia` at render time.** Both hosts are mounted in the DOM at
+ * once behind CSS gates — `place-sheet.tsx` inside `lg:hidden`, `place-desktop-panel.tsx` inside
+ * `hidden lg:block` — so the surface is constant per host and identical on the server and the
+ * client. `add-sheet.tsx:276-281` records what the alternative costs: a render-time `matchMedia`
+ * returns `false` on the server, the two renders emit different markup, and that hydration mismatch
+ * shipped on `/sign-in` once already.
+ */
+export type FilterSurface = 'inline' | 'popover';
+
+/** Which axis has its inline panel open. Only one at a time: two open panels would push the list
+ *  off a phone screen entirely. */
+type AxisKey = 'been' | 'category' | 'tags';
 
 /**
  * **The 44 px hit area, painted at 32.** `min-h-11` is the documented touch floor and it stays on
@@ -130,6 +165,13 @@ export const TRIGGER_PAINT_ACTIVE =
   // pill is `rgb(108, 67, 11)` at rest and gains a 2 px halo of the same brown at 45 % on hover.
   'group-hover/trigger:ring-2 group-hover/trigger:ring-tag-selected/45 group-hover/trigger:border-transparent';
 
+/** **The resting pill while its own inline panel is open.** On the phone the panel is full width
+ *  under the row, so the rotated chevron alone leaves the origin to be inferred — the measured
+ *  failure of the earlier inline attempt, where pressing `Category` at x97 made options appear at
+ *  x30. `--card-2` paints the origin instead. It is not applied to an active trigger, which already
+ *  carries a fill. */
+const TRIGGER_PAINT_OPEN = 'bg-card-2';
+
 /**
  * The sort trigger's ghost: the same button family, the same 32-in-44 target, the same radius, the
  * same chevron — and no border and no fill at rest, so one glance tells a reorder from a narrowing.
@@ -146,32 +188,65 @@ export const SORT_PAINT =
   'motion-safe:transition-colors motion-safe:duration-press';
 
 /**
- * The floating surface every menu here paints on, and there is exactly one of it.
+ * **The surface a menu paints on, and there is exactly one of it** — the desktop popup and the
+ * phone's inline panel wear the same border, radius, padding and elevation, so the split is where
+ * the list is drawn and not what it is.
  *
- * `w-max` — **the width is the content's**, not the row's and not the panel's. A two-row menu
- * stretched to a 500 px panel is what "goofy" meant: it reads as a dialog that lost its content
- * rather than as a small list. `p-1` for the same reason; a chunk of vertical padding around three
- * rows is the other half of it.
+ * `--popover` rather than `--card`: both resolve to `#FFFFFF` / `#201F1C` today, but `--popover` is
+ * the role that exists for this, and it is what lets a future menu ground move without moving every
+ * card. Over a live map canvas the hairline border does more work than the shadow — and there is no
+ * `backdrop-blur`, which is banned over the canvas, and no glow, which Charter §6 bans outright.
+ */
+const PANEL_SURFACE =
+  'rounded-lg border border-border/60 bg-popover p-1 shadow-raised outline-none';
+
+/**
+ * The floating half, on desktop. `w-max` — **the width is the content's**, not the row's and not
+ * the panel's: a two-row menu stretched to a 500 px panel reads as a dialog that lost its content.
  *
  * `--available-height` and `--transform-origin` come from the positioner, so a menu near the bottom
- * of a phone flips above its trigger and scrolls inside what is left rather than running off the
- * screen. One scroll container, always: nothing inside a popup carries its own `overflow-y`, because
- * two stacked tracks on a phone means the user cannot tell which one their thumb will grab.
+ * of the viewport flips above its trigger and scrolls inside what is left. One scroll container,
+ * always: nothing inside a popup carries its own `overflow-y`, because two stacked tracks means the
+ * user cannot tell which one their thumb will grab.
  *
- * Motion is a fade and a 4 px rise over `duration-enter` — no scale, no bounce, no height animation.
- * An overshoot on a menu is the single most "goofy"-reading thing available, and a height animation
- * inside a scrolling sheet is layout thrash for no information. Reduced motion keeps the fade, per
- * `facelift-plan.md` §3a.
+ * 16 px of radius, not 24: with 4 px of padding around 12 px rows the corners nest exactly
+ * (16 − 4 = 12 = `--radius-sm`), where 24 around 16 did not. Motion is a fade and a 4 px rise over
+ * `duration-enter` — no scale, because an overshoot on a menu is the single most goofy-reading
+ * thing available.
  */
 const MENU_POPUP =
-  'z-50 max-h-[min(20rem,var(--available-height))] w-max min-w-40 max-w-[calc(100vw-2rem)] origin-(--transform-origin) overflow-y-auto overscroll-contain rounded-xl border border-border/60 bg-card p-1 shadow-raised outline-none ' +
-  'data-open:animate-in data-open:fade-in-0 data-open:motion-safe:slide-in-from-top-1 data-closed:animate-out data-closed:fade-out-0 duration-enter';
+  cn(
+    PANEL_SURFACE,
+    'z-50 max-h-[min(20rem,var(--available-height))] w-max min-w-40 max-w-[calc(100vw-2rem)] origin-(--transform-origin) overflow-y-auto overscroll-contain ' +
+      'data-open:animate-in data-open:fade-in-0 data-open:motion-safe:slide-in-from-top-1 data-closed:animate-out data-closed:fade-out-0 duration-enter',
+  );
+
+/**
+ * **The inline half, on the phone.** Normal flow, full content width, no portal, no scrim, no fixed
+ * positioning — it pushes the list down rather than covering it, which is the whole point of the
+ * split.
+ *
+ * `order-last` with `w-full` is what puts it under **its own row** rather than under the whole
+ * header: flex lays wrapped items out by `order` first, so the panel takes the line below the
+ * triggers while `Clear` and the triggers after it stay where they were.
+ *
+ * The height cap is `dvh`, not `vh`, because the sheet already reasons in `100dvh` and the iOS URL
+ * bar moves `vh` under it. 45 % leaves the first list row visible with the tag panel open. No
+ * height animation, ever: layout thrash inside a scrolling sheet for no information.
+ */
+const INLINE_PANEL =
+  cn(
+    PANEL_SURFACE,
+    'order-last mt-1.5 w-full max-h-[45dvh] overflow-y-auto overscroll-contain ' +
+      'animate-in fade-in-0 motion-safe:slide-in-from-top-1 duration-enter',
+  );
 
 /**
  * **One row of a menu.** No fill, no border and no elevation at rest; the highlight is a full-width
  * ground, and what says "this one" is the indicator and a weight rather than a filled pill.
  *
- * **40 px of paint inside a 44 px target**, the same technique the triggers use. The indicator
+ * **40 px of paint inside a 44 px target**, the same technique the triggers use. 12 px of radius,
+ * which is the panel's 16 minus its 4 px of padding, so the corners nest. The indicator
  * column is always present (`keepMounted`) so the label sits at the same inline offset in every row
  * of every menu, and the count is in an end-aligned column that cannot jitter. Logical properties
  * throughout — both swap edges under RTL, and half this library is Hebrew.
@@ -191,8 +266,12 @@ const MENU_ROW = 'group/row flex min-h-11 cursor-pointer select-none items-cente
  * a 2 % step on white, which is the same defect wearing mint.
  */
 const MENU_ROW_PAINT =
-  'flex h-10 w-full items-center gap-2 rounded-lg px-2 text-xs font-medium text-foreground ' +
-  'group-data-highlighted/row:bg-card-2 motion-safe:transition-colors motion-safe:duration-press';
+  'flex h-10 w-full items-center gap-2 rounded-sm px-2 text-xs font-medium text-foreground ' +
+  // `data-highlighted` is Base UI's, on the menu rows; `group-hover` is what the inline radio rows
+  // have instead, and both land on the same ground so one list cannot feel different from the other.
+  'group-data-highlighted/row:bg-card-2 group-hover/row:bg-card-2 ' +
+  'group-focus-visible/row:ring-3 group-focus-visible/row:ring-ring/50 ' +
+  'motion-safe:transition-colors motion-safe:duration-press';
 
 /** One header row: wraps, never scrolls, and carries no vertical gap of its own. */
 const HEADER_ROW = 'flex flex-wrap items-center gap-x-1.5';
@@ -247,6 +326,8 @@ export interface LibraryFilterBarProps {
    * active value, a Hebrew category name or a three-digit count pushed it to wrap anyway.
    */
   readonly belowRow?: ReactNode;
+  /** Where this host's menus are drawn. Constant per host — never read from `matchMedia`. */
+  readonly surface?: FilterSurface;
   className?: string;
 }
 
@@ -262,8 +343,17 @@ export function LibraryFilterBar({
   onToggleTag,
   onClearTags,
   belowRow,
+  surface = 'popover',
   className,
 }: LibraryFilterBarProps) {
+  // **Only one inline panel at a time**, and the bar is where that has to live: two open panels
+  // would push the list off a phone screen entirely. On the popover surface this is unused — Base
+  // UI's outside-press already closes one menu when another trigger is pressed.
+  const [openAxis, setOpenAxis] = useState<AxisKey | null>(null);
+  const openState = (key: AxisKey) => ({
+    open: openAxis === key,
+    onOpenChange: (next: boolean) => setOpenAxis(next ? key : null),
+  });
   // One category is not a choice: every place is a restaurant, so a `Restaurant 12` row is a
   // control whose selected and unselected states show the same twelve places.
   const showCategories = facets.length > 1;
@@ -300,20 +390,25 @@ export function LibraryFilterBar({
             axis={VISIT_FILTER_GROUP_LABEL}
             value={visitFilter === 'all' ? null : VISIT_FILTER_LABEL[visitFilter]}
             active={visitFilter !== 'all'}
+            surface={surface}
+            axisClear={visitFilter === 'all' ? null : () => onChangeVisitFilter('all')}
+            {...openState('been')}
           >
-            <Menu.RadioGroup
+            <AxisRows
+              surface={surface}
+              groupLabel={VISIT_FILTER_GROUP_LABEL}
               value={visitFilter}
-              onValueChange={(next) => onChangeVisitFilter(next as VisitFilter)}
-            >
-              {VISIT_FILTERS.map((filter) => (
-                <MenuRadioRow
-                  key={filter}
-                  value={filter}
-                  label={VISIT_FILTER_LABEL[filter]}
-                  selected={filter === visitFilter}
-                />
-              ))}
-            </Menu.RadioGroup>
+              options={VISIT_FILTERS.map((filter) => ({
+                value: filter,
+                label: VISIT_FILTER_LABEL[filter],
+              }))}
+              onChange={(next) => {
+                onChangeVisitFilter(next as VisitFilter);
+                // Single-select closes on choose — RULED. On the popover surface `closeOnClick`
+                // does it; inline there is no menu to close itself.
+                setOpenAxis(null);
+              }}
+            />
           </MenuAxis>
         )}
 
@@ -324,6 +419,9 @@ export function LibraryFilterBar({
             count={activeCategory === null ? null : categoryCount}
             active={activeCategory !== null}
             dot={activeCategory !== null}
+            surface={surface}
+            axisClear={activeCategory === null ? null : () => onToggleCategory(activeCategory)}
+            {...openState('category')}
             {...(activeCategory === null
               ? {}
               : {
@@ -335,38 +433,42 @@ export function LibraryFilterBar({
                   } as CSSProperties,
                 })}
           >
-            <Menu.RadioGroup
+            <AxisRows
+              surface={surface}
+              groupLabel="Category"
               value={activeCategory ?? 'all'}
-              onValueChange={(next) => {
+              options={[
+                { value: 'all', label: ALL_CATEGORIES_LABEL },
+                ...facets.map(({ category, count }) => ({
+                  value: category,
+                  label: categoryDisplay(category).label ?? category,
+                  count,
+                  // The chip was only ever the container; the colour is the load-bearing part, and
+                  // it survives the move to a list as this dot.
+                  dotVar: categoryColorVar(category),
+                })),
+              ]}
+              onChange={(next) => {
+                setOpenAxis(null);
                 if (next === 'all') {
                   if (activeCategory !== null) onToggleCategory(activeCategory);
                   return;
                 }
                 if (next !== activeCategory) onToggleCategory(next as ProductCategory);
               }}
-            >
-              <MenuRadioRow
-                value="all"
-                label={ALL_CATEGORIES_LABEL}
-                selected={activeCategory === null}
-              />
-              {facets.map(({ category, count }) => (
-                <MenuRadioRow
-                  key={category}
-                  value={category}
-                  label={categoryDisplay(category).label ?? category}
-                  count={count}
-                  selected={category === activeCategory}
-                  // The chip was only ever the container; the colour is the load-bearing part, and it
-                  // survives the move to a list as this dot.
-                  dotVar={categoryColorVar(category)}
-                />
-              ))}
-            </Menu.RadioGroup>
+            />
           </MenuAxis>
         )}
 
-        {showTags && <TagsAxis facets={tagFacets} activeTags={activeTags} onToggle={onToggleTag} />}
+        {showTags && (
+          <TagsAxis
+            facets={tagFacets}
+            activeTags={activeTags}
+            onToggle={onToggleTag}
+            surface={surface}
+            {...openState('tags')}
+          />
+        )}
 
         {/* **Only while something is on.** A permanently visible `Clear` is a dead control eating the
             width this row exists to save. It clears all three filter axes and deliberately does not
@@ -398,13 +500,21 @@ export function LibraryFilterBar({
 }
 
 /**
- * **One axis: a trigger that states its own value, and the anchored menu it opens.**
+ * **One axis: a trigger that states its own value, and the list it opens.**
  *
- * `Menu.Root` owns open/close, the anchoring, Escape, focus return to its own trigger and closing on
- * an outside press — including a press on another axis's trigger, which is what keeps two menus from
- * ever being open at once. None of that is re-derived here.
+ * Two surfaces, one object. On `popover`, `Menu.Root` owns open/close, the anchoring, Escape, focus
+ * return to its own trigger and closing on an outside press — including a press on another axis's
+ * trigger, which is what keeps two menus from being open at once. On `inline` the panel is a
+ * sibling in normal flow and the *bar* owns which axis is open, because two inline panels at once
+ * would push the list off a phone.
  *
- * Exported because the sort control is one of these: same trigger family, same rows, same popup, and
+ * **`aria-expanded` and `aria-controls` are written here rather than left to the library.** Base UI
+ * puts `aria-haspopup` on a closed `Menu.Trigger` and nothing else, and it only wires
+ * `aria-controls` while the popup is mounted — so at rest a screen reader was told there is a menu
+ * but not that it is closed. The id comes from `useId()`: both hosts are mounted in the DOM at once
+ * behind CSS gates, so a hard-coded one is a duplicate-id bug in every single render.
+ *
+ * Exported because the sort control is one of these: same trigger family, same rows, same panel, and
  * `tone="sort"` is the only difference — a ghost fill and a printed `Sort:` label.
  */
 export function MenuAxis({
@@ -415,6 +525,10 @@ export function MenuAxis({
   active = false,
   dot = false,
   tone = 'filter',
+  surface = 'popover',
+  open: controlledOpen,
+  onOpenChange,
+  axisClear,
   style,
   children,
 }: {
@@ -432,11 +546,71 @@ export function MenuAxis({
   /** `filter` narrows the library and wears the bordered pill; `sort` reorders it and wears a
    *  ghost with the axis printed. Same component, same target, same rows. */
   tone?: 'filter' | 'sort';
+  surface?: FilterSurface;
+  /** Inline only: the bar holds the open axis, so opening one panel closes the other. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Inline only: this axis's own clear, on the kicker line, when the axis is narrowing something. */
+  axisClear?: (() => void) | null;
   style?: CSSProperties;
   children: ReactNode;
 }) {
+  const panelId = useId();
+  const uncontrolled = useState(false);
+  const open = controlledOpen ?? uncontrolled[0];
+  const setOpen = onOpenChange ?? uncontrolled[1];
+
+  const label =
+    tone === 'sort'
+      ? `${accessibleAxis ?? axis}, ${value ?? ''}`
+      : value === null
+        ? `${axis}, showing all`
+        : `${axis}, ${value}`;
+
+  const face = (
+    <TriggerFace
+      axis={axis}
+      value={value}
+      count={count}
+      active={active}
+      dot={dot}
+      tone={tone}
+      open={open}
+    />
+  );
+
+  if (surface === 'inline') {
+    return (
+      <>
+        <button
+          type="button"
+          data-vaul-no-drag
+          {...(tone === 'filter' ? { 'aria-pressed': active } : {})}
+          aria-expanded={open}
+          aria-controls={panelId}
+          aria-label={label}
+          onClick={() => setOpen(!open)}
+          style={style}
+          className={cn(TRIGGER_TARGET, PRESS_CHIP)}
+        >
+          {face}
+        </button>
+        {open && (
+          <InlinePanel
+            id={panelId}
+            axis={axis}
+            axisClear={axisClear ?? null}
+            onEscape={() => setOpen(false)}
+          >
+            {children}
+          </InlinePanel>
+        )}
+      </>
+    );
+  }
+
   return (
-    <Menu.Root>
+    <Menu.Root open={open} onOpenChange={setOpen}>
       <Menu.Trigger
         // Inside the mobile sheet a press that begins here would otherwise be read as the start of
         // a sheet drag and the tap swallowed — the same reason every row and the field carry it.
@@ -444,26 +618,151 @@ export function MenuAxis({
         // `aria-pressed` on the filter axes because they are also a state; the sort has no "off",
         // so a pressed bit there would announce something it does not have.
         {...(tone === 'filter' ? { 'aria-pressed': active } : {})}
-        aria-label={
-          tone === 'sort'
-            ? `${accessibleAxis ?? axis}, ${value ?? ''}`
-            : value === null
-              ? `${axis}, showing all`
-              : `${axis}, ${value}`
-        }
+        aria-expanded={open}
+        aria-controls={panelId}
+        aria-label={label}
         style={style}
         className={cn(TRIGGER_TARGET, PRESS_CHIP)}
       >
-        <TriggerFace axis={axis} value={value} count={count} active={active} dot={dot} tone={tone} />
+        {face}
       </Menu.Trigger>
       <Menu.Portal>
         <Menu.Positioner side="bottom" align="start" sideOffset={6} className="z-50 outline-none">
-          <Menu.Popup data-vaul-no-drag aria-label={accessibleAxis ?? axis} className={MENU_POPUP}>
+          <Menu.Popup
+            id={panelId}
+            data-vaul-no-drag
+            aria-label={accessibleAxis ?? axis}
+            className={MENU_POPUP}
+          >
             {children}
           </Menu.Popup>
         </Menu.Positioner>
       </Menu.Portal>
     </Menu.Root>
+  );
+}
+
+/**
+ * **The phone's panel: the same list, in normal flow, under its own row.**
+ *
+ * Not a modal. No portal, no scrim, nothing trapped — `Tab` leaves it normally and it stays open,
+ * because it makes no modal claim. Escape closes it and returns to the trigger, which is not
+ * optional: `product-review-2026-09-01-r5.md` G1 found the profile popover shipped without either,
+ * and this must not be the second surface to do it.
+ *
+ * **The kicker is what says where the panel came from.** Full width under the row means the panel
+ * cannot sit beneath the exact pill that was pressed, so the axis word is printed on its first line
+ * and the pressed trigger stays painted open. That, together with the panel being under *its own*
+ * row rather than under the whole header, is the answer to the earlier inline attempt's measured
+ * failure — press `Category` at x97, options appear at x30 under two unrelated controls.
+ */
+function InlinePanel({
+  id,
+  axis,
+  axisClear,
+  onEscape,
+  children,
+}: {
+  id: string;
+  axis: string;
+  axisClear: (() => void) | null;
+  onEscape: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      id={id}
+      data-vaul-no-drag
+      onKeyDown={(event) => {
+        if (event.key !== 'Escape') return;
+        event.stopPropagation();
+        onEscape();
+      }}
+      className={INLINE_PANEL}
+    >
+      <div className="flex items-center justify-between gap-2 px-2 pt-1 pb-1.5">
+        <span className={FILTER_KICKER}>{axis}</span>
+        {axisClear !== null && (
+          <button
+            type="button"
+            data-vaul-no-drag
+            onClick={axisClear}
+            className="shrink-0 cursor-pointer rounded-sm text-xs font-medium text-muted-foreground underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            {CLEAR_LABEL}
+          </button>
+        )}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * **The rows of a single-choice axis, on whichever surface is asking.**
+ *
+ * One options list, two primitives, because neither can do the other's job: `Menu.RadioGroup` is
+ * the right thing inside a floating menu and cannot be rendered in flow, and Base UI's `RadioGroup`
+ * is a real `role="radiogroup"` with roving focus and arrow keys that needs no popup at all. Both
+ * paint the identical row, so the two surfaces cannot drift apart, and neither hand-rolls a roving
+ * tabindex or an outside-click listener.
+ */
+export interface AxisOption {
+  readonly value: string;
+  readonly label: string;
+  readonly count?: number | null;
+  readonly dotVar?: string | null;
+}
+
+export function AxisRows({
+  surface,
+  value,
+  options,
+  onChange,
+  groupLabel,
+}: {
+  surface: FilterSurface;
+  value: string;
+  options: readonly AxisOption[];
+  onChange: (next: string) => void;
+  groupLabel: string;
+}) {
+  if (surface === 'popover') {
+    return (
+      <Menu.RadioGroup value={value} onValueChange={(next) => onChange(String(next))}>
+        {options.map((option) => (
+          <MenuRadioRow key={option.value} {...option} selected={option.value === value} />
+        ))}
+      </Menu.RadioGroup>
+    );
+  }
+  return (
+    <RadioGroup
+      aria-label={groupLabel}
+      value={value}
+      onValueChange={(next) => onChange(String(next))}
+      className="flex flex-col"
+    >
+      {options.map((option) => (
+        <Radio.Root
+          key={option.value}
+          value={option.value}
+          data-vaul-no-drag
+          className={MENU_ROW}
+          // The panel stays open for `Tags` and closes for the single-choice axes; the bar decides,
+          // via `onChange`, so this component never learns which axis it is drawing.
+        >
+          <RowFace {...option} selected={option.value === value}>
+            <Radio.Indicator
+              keepMounted
+              className="flex size-3.5 shrink-0 items-center justify-center data-[unchecked]:invisible"
+            >
+              <Check aria-hidden className="size-3.5 text-brand" />
+            </Radio.Indicator>
+          </RowFace>
+        </Radio.Root>
+      ))}
+    </RadioGroup>
   );
 }
 
@@ -476,6 +775,7 @@ function TriggerFace({
   active,
   dot,
   tone = 'filter',
+  open = false,
 }: {
   axis: string;
   value: string | null;
@@ -483,9 +783,16 @@ function TriggerFace({
   active: boolean;
   dot: boolean;
   tone?: 'filter' | 'sort';
+  open?: boolean;
 }) {
   return (
-    <span className={cn(tone === 'sort' ? SORT_PAINT : TRIGGER_PAINT, active && tone === 'filter' && TRIGGER_PAINT_ACTIVE)}>
+    <span
+      className={cn(
+        tone === 'sort' ? SORT_PAINT : TRIGGER_PAINT,
+        active && tone === 'filter' && TRIGGER_PAINT_ACTIVE,
+        open && !active && TRIGGER_PAINT_OPEN,
+      )}
+    >
       {tone === 'sort' && (
         // The axis word, on screen at rest. The control used to be two bare values with nothing
         // naming what they did — and `A–Z` reads as a filter for names beginning with A as easily
@@ -503,16 +810,71 @@ function TriggerFace({
       {count !== null && <span className="shrink-0 tabular-nums font-normal">{count}</span>}
       {/* `size-3`, not `size-3.5`: at 12 px text a 14 px chevron is the largest thing in the pill
           and reads as a caret pointing at nothing. */}
+      {/* Rotated from the state rather than from `data-popup-open`, because the inline surface has
+          no popup to carry that attribute. Under reduced motion it still *ends* rotated: the
+          transition is dropped, never the state — it is the open indicator. */}
       <ChevronDown
         aria-hidden
-        className="size-3 shrink-0 opacity-70 motion-safe:transition-transform group-data-popup-open/trigger:rotate-180"
+        className={cn(
+          'size-3 shrink-0 opacity-70 motion-safe:transition-transform motion-safe:duration-cross',
+          open && 'rotate-180',
+        )}
       />
     </span>
   );
 }
 
-/** A row of a radio menu: the indicator, an optional colour dot, the label, and the count on the
- *  far edge. Exported so the sort menu is built from the same row as the filter menus. */
+/**
+ * **What a row looks like, on either surface.** The indicator column, an optional colour dot, the
+ * label, and the count on the far edge. The indicator is passed in, because the menu's and the
+ * radio group's indicators are different components saying the same thing.
+ *
+ * Logical properties throughout: the indicator column, the count column and the truncation all swap
+ * edges under RTL, and half this library is Hebrew. `dir="auto"` wraps the untrusted label and
+ * nothing else — on the row's own box it would flip the count relative to its own label.
+ */
+function RowFace({
+  label,
+  count = null,
+  selected,
+  dotVar = null,
+  children,
+}: {
+  label: string;
+  count?: number | null;
+  selected: boolean;
+  dotVar?: string | null;
+  children: ReactNode;
+}) {
+  return (
+    <span className={MENU_ROW_PAINT}>
+      {children}
+      {dotVar !== null && (
+        /* The chip was only ever the container; the colour is the load-bearing part, and it
+           survives the move to a list as this dot. A token reference, never a hex. */
+        <span
+          aria-hidden
+          className="size-2 shrink-0 rounded-full"
+          style={{ backgroundColor: dotVar }}
+        />
+      )}
+      <span dir="auto" className={cn('min-w-0 flex-1 truncate text-start', selected && 'font-bold')}>
+        {label}
+      </span>
+      {count !== null && (
+        <span className="shrink-0 ps-3 tabular-nums font-normal text-muted-foreground">{count}</span>
+      )}
+    </span>
+  );
+}
+
+/** A row of a floating radio menu. Exported so the sort menu is built from the same row as the
+ *  filter menus.
+ *
+ *  **`closeOnClick` is set, and its default is `false`.** Owner, 2026-09-02: *"maybe we should do
+ *  that for one option select it will close the menu"* — they checked and reported that the menus
+ *  did not close, and this is why: Base UI keeps a radio menu open on choose unless told otherwise.
+ *  Closing returns focus to the trigger, which has just changed to show the pick. */
 export function MenuRadioRow({
   value,
   label,
@@ -527,35 +889,18 @@ export function MenuRadioRow({
   dotVar?: string | null;
 }) {
   return (
-    <Menu.RadioItem value={value} className={MENU_ROW}>
-      <span className={MENU_ROW_PAINT}>
+    <Menu.RadioItem value={value} closeOnClick className={MENU_ROW}>
+      <RowFace label={label} count={count} selected={selected} dotVar={dotVar}>
         {/* `keepMounted` so the column exists in every row and the labels line up at one inline
-            offset across all four menus. */}
+            offset across all four menus. `visibility: hidden` paints nothing — it is reserved
+            space, not a drawn empty box, which is what the owner rejected on the tag rows. */}
         <Menu.RadioItemIndicator
           keepMounted
           className="flex size-3.5 shrink-0 items-center justify-center data-[unchecked]:invisible"
         >
           <Check aria-hidden className="size-3.5 text-brand" />
         </Menu.RadioItemIndicator>
-        {dotVar !== null && (
-          <span
-            aria-hidden
-            className="size-2 shrink-0 rounded-full"
-            style={{ backgroundColor: dotVar }}
-          />
-        )}
-        <span
-          dir="auto"
-          className={cn('min-w-0 flex-1 truncate text-start', selected && 'font-bold')}
-        >
-          {label}
-        </span>
-        {count !== null && (
-          <span className="shrink-0 ps-3 tabular-nums font-normal text-muted-foreground">
-            {count}
-          </span>
-        )}
-      </span>
+      </RowFace>
     </Menu.RadioItem>
   );
 }
@@ -583,11 +928,18 @@ function TagsAxis({
   facets,
   activeTags,
   onToggle,
+  surface,
+  open,
+  onOpenChange,
 }: {
   facets: readonly TagFacet[];
   activeTags: readonly string[];
   onToggle: (tag: string) => void;
+  surface: FilterSurface;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }) {
+  const panelId = useId();
   const byTag = useMemo(() => new Map(facets.map((facet) => [facet.tag, facet])), [facets]);
   const items = useMemo(() => facets.map((facet) => facet.tag), [facets]);
   const labelOf = useCallback(
@@ -608,6 +960,136 @@ function TagsAxis({
 
   const [query, setQuery] = useState('');
   const value = activeTags.length === 1 ? labelOf(activeTags[0] ?? '') : null;
+  const label =
+    activeTags.length === 0
+      ? 'Tags, showing all'
+      : `Tags, ${activeTags.map((tag) => labelOf(tag)).join(', ')}`;
+
+  const face = (
+    <TriggerFace
+      axis="Tags"
+      value={value}
+      count={activeTags.length > 1 ? activeTags.length : null}
+      active={activeTags.length > 0}
+      dot={false}
+      open={open}
+    />
+  );
+
+  /** The chip rail, the field and the list — identical on both surfaces, because the split is
+   *  where the list is drawn and not what it is. */
+  const body = (
+    <>
+      <ComboboxChips className="mb-1 min-h-9 rounded-sm border-border/70 bg-background px-1.5 py-1 text-xs">
+        {activeTags.map((tag) => (
+          <ComboboxChip
+            key={tag}
+            className="h-6 gap-0.5 rounded-full bg-tag-selected ps-2 pe-1 text-tag-selected-foreground"
+            removeLabel={`Remove the ${labelOf(tag)} tag filter`}
+          >
+            {/* `dir="auto"` on the label rather than the chip: these are model output from
+                arbitrary captions and half this library is Hebrew, so the isolate has to wrap
+                exactly the untrusted string and not the control's own box. */}
+            <span dir="auto" className="truncate">
+              {labelOf(tag)}
+            </span>
+          </ComboboxChip>
+        ))}
+        <ComboboxChipsInput
+          placeholder={activeTags.length === 0 ? TAG_SEARCH_PLACEHOLDER : ''}
+          aria-label={TAG_SEARCH_PLACEHOLDER}
+          data-vaul-no-drag
+          // Tags are lowercase normalised strings and half this library is Hebrew, so autocorrect
+          // is actively wrong here.
+          inputMode="search"
+          enterKeyHint="done"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          className="min-h-7 px-1 text-xs font-medium placeholder:text-muted-foreground"
+        />
+        {activeTags.length > 0 && (
+          <ComboboxPrimitive.Clear
+            aria-label={CLEAR_TAGS_ACCESSIBLE_NAME}
+            className="inline-flex h-7 shrink-0 cursor-pointer items-center rounded-sm px-1.5 text-xs font-medium text-muted-foreground underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            {CLEAR_LABEL}
+          </ComboboxPrimitive.Clear>
+        )}
+      </ComboboxChips>
+
+      {/* One short line, no apology, and it names nothing it cannot stand behind. */}
+      <ComboboxEmpty>{NO_TAGS_MATCH_LINE}</ComboboxEmpty>
+
+      <ComboboxList>
+        <ComboboxCollection>
+          {(tag: string) => (
+            <ComboboxItem key={tag} value={tag} className={MENU_ROW}>
+              <RowFace
+                label={labelOf(tag)}
+                count={byTag.get(tag)?.count ?? 0}
+                selected={isTagActive(activeTags, tag)}
+              >
+                {/* **A check only when checked** — owner, 2026-09-02. The column is kept mounted so
+                    the labels do not shift sideways the moment one is ticked, but nothing is drawn
+                    in an unchecked row: reserved space, not an empty box. */}
+                <ComboboxPrimitive.ItemIndicator
+                  keepMounted
+                  className="flex size-3.5 shrink-0 items-center justify-center data-[unchecked]:invisible"
+                >
+                  <Check aria-hidden className="size-3.5 text-brand" />
+                </ComboboxPrimitive.ItemIndicator>
+              </RowFace>
+            </ComboboxItem>
+          )}
+        </ComboboxCollection>
+      </ComboboxList>
+    </>
+  );
+
+  if (surface === 'inline') {
+    return (
+      // `inline` renders the list in normal flow instead of in the component's own popup, and the
+      // library's own note says to pass `open` unconditionally with it. What the trigger toggles is
+      // whether the panel is mounted at all, which is why the open state lives in the bar.
+      <ComboboxPrimitive.Root
+        multiple
+        inline
+        open
+        items={items}
+        value={[...activeTags]}
+        onValueChange={apply}
+        inputValue={query}
+        onInputValueChange={setQuery}
+        itemToStringLabel={labelOf}
+      >
+        <button
+          type="button"
+          data-vaul-no-drag
+          aria-pressed={activeTags.length > 0}
+          aria-expanded={open}
+          aria-controls={panelId}
+          aria-label={label}
+          onClick={() => onOpenChange(!open)}
+          className={cn(TRIGGER_TARGET, PRESS_CHIP)}
+        >
+          {face}
+        </button>
+        {open && (
+          <InlinePanel
+            id={panelId}
+            axis="Tags"
+            // The axis's own clear is `Combobox.Clear` inside the chip rail; a second one on the
+            // kicker line would be two controls for one action.
+            axisClear={null}
+            onEscape={() => onOpenChange(false)}
+          >
+            {body}
+          </InlinePanel>
+        )}
+      </ComboboxPrimitive.Root>
+    );
+  }
 
   return (
     <ComboboxPrimitive.Root
@@ -618,102 +1100,23 @@ function TagsAxis({
       inputValue={query}
       onInputValueChange={setQuery}
       itemToStringLabel={labelOf}
+      open={open}
+      onOpenChange={onOpenChange}
     >
       <ComboboxPrimitive.Trigger
         data-vaul-no-drag
         aria-pressed={activeTags.length > 0}
-        aria-label={
-          activeTags.length === 0
-            ? 'Tags, showing all'
-            : `Tags, ${activeTags.map((tag) => labelOf(tag)).join(', ')}`
-        }
+        aria-expanded={open}
+        aria-controls={panelId}
+        aria-label={label}
         className={cn(TRIGGER_TARGET, PRESS_CHIP)}
       >
-        <TriggerFace
-          axis="Tags"
-          value={value}
-          count={activeTags.length > 1 ? activeTags.length : null}
-          active={activeTags.length > 0}
-          dot={false}
-        />
+        {face}
       </ComboboxPrimitive.Trigger>
 
-      <ComboboxPrimitive.Portal>
-        <ComboboxPrimitive.Positioner
-          side="bottom"
-          align="start"
-          sideOffset={6}
-          className="z-50 outline-none"
-        >
-          <ComboboxPrimitive.Popup
-            data-vaul-no-drag
-            className={cn(MENU_POPUP, 'w-64 max-w-[calc(100vw-2rem)]')}
-          >
-            <ComboboxPrimitive.Chips className="mb-1 flex min-h-9 flex-wrap items-center gap-1 rounded-lg border border-border/70 bg-background px-1.5 py-1">
-              {activeTags.map((tag) => (
-                <ComboboxPrimitive.Chip
-                  key={tag}
-                  className="flex h-6 min-w-0 items-center gap-0.5 rounded-full bg-tag-selected ps-2 pe-1 text-xs font-medium text-tag-selected-foreground"
-                >
-                  {/* `dir="auto"` on the label rather than the chip: these are model output from
-                      arbitrary captions and half this library is Hebrew, so the isolate has to wrap
-                      exactly the untrusted string and not the control's own box. */}
-                  <span dir="auto" className="truncate">
-                    {labelOf(tag)}
-                  </span>
-                  <ComboboxPrimitive.ChipRemove
-                    aria-label={`Remove the ${labelOf(tag)} tag filter`}
-                    className="flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-full opacity-70 outline-none hover:opacity-100 focus-visible:ring-3 focus-visible:ring-ring/50"
-                  >
-                    <X aria-hidden className="size-3" />
-                  </ComboboxPrimitive.ChipRemove>
-                </ComboboxPrimitive.Chip>
-              ))}
-              <ComboboxPrimitive.Input
-                placeholder={activeTags.length === 0 ? TAG_SEARCH_PLACEHOLDER : ''}
-                aria-label={TAG_SEARCH_PLACEHOLDER}
-                className="min-h-7 min-w-16 flex-1 bg-transparent px-1 text-xs font-medium outline-none placeholder:text-muted-foreground"
-              />
-              {activeTags.length > 0 && (
-                <ComboboxPrimitive.Clear
-                  aria-label={CLEAR_TAGS_ACCESSIBLE_NAME}
-                  className="inline-flex h-7 shrink-0 cursor-pointer items-center rounded-md px-1.5 text-xs font-medium text-muted-foreground underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
-                >
-                  {CLEAR_LABEL}
-                </ComboboxPrimitive.Clear>
-              )}
-            </ComboboxPrimitive.Chips>
-
-            {/* One short line, no apology, and it names nothing it cannot stand behind. */}
-            <ComboboxPrimitive.Empty className="px-2 py-3 text-xs font-medium text-muted-foreground empty:m-0 empty:p-0">
-              {NO_TAGS_MATCH_LINE}
-            </ComboboxPrimitive.Empty>
-
-            <ComboboxPrimitive.List>
-              <ComboboxPrimitive.Collection>
-                {(tag: string) => (
-                  <ComboboxPrimitive.Item key={tag} value={tag} className={MENU_ROW}>
-                    <span className={MENU_ROW_PAINT}>
-                      <ComboboxPrimitive.ItemIndicator
-                        keepMounted
-                        className="flex size-3.5 shrink-0 items-center justify-center data-[unchecked]:invisible"
-                      >
-                        <Check aria-hidden className="size-3.5 text-brand" />
-                      </ComboboxPrimitive.ItemIndicator>
-                      <span dir="auto" className="min-w-0 flex-1 truncate text-start">
-                        {labelOf(tag)}
-                      </span>
-                      <span className="shrink-0 ps-3 tabular-nums font-normal text-muted-foreground">
-                        {byTag.get(tag)?.count ?? 0}
-                      </span>
-                    </span>
-                  </ComboboxPrimitive.Item>
-                )}
-              </ComboboxPrimitive.Collection>
-            </ComboboxPrimitive.List>
-          </ComboboxPrimitive.Popup>
-        </ComboboxPrimitive.Positioner>
-      </ComboboxPrimitive.Portal>
+      <ComboboxContent id={panelId} data-vaul-no-drag className={cn(MENU_POPUP, 'w-64')}>
+        {body}
+      </ComboboxContent>
     </ComboboxPrimitive.Root>
   );
 }

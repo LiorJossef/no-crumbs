@@ -80,8 +80,7 @@ import {
 import { BeenBadge } from './visit-state';
 import { NO_BEEN_PLACES_LINE, type VisitFilter } from '@/ui/place/visit-state';
 import { BOTTOM_NAV_HEIGHT_PX } from '@/components/nav/bottom-nav';
-import { LibraryFilterBar, MenuAxis, MenuRadioRow } from './library-filter-bar';
-import { Menu } from '@base-ui/react/menu';
+import { AxisRows, LibraryFilterBar, MenuAxis, type FilterSurface } from './library-filter-bar';
 import { DEFAULT_PLACE_ORDER, type PlaceOrder } from './place-order';
 import {
   extraSources,
@@ -615,6 +614,11 @@ function PlaceList({
               screen in the state where the filter has left nothing to look at. */}
           {!libraryIsEmpty && !selecting && (
             <LibraryFilterBar
+              // **The phone gets inline disclosure, not a floating popup** — owner, 2026-09-02:
+              // *"i think that on mobile the pop up doesnt feel good."* This host is inside a vaul
+              // drawer, where a floating layer is a popup inside a popup and fights the drag
+              // listener. A constant, never a `matchMedia` read: both hosts render on the server.
+              surface="inline"
               facets={categoryFacets}
               activeCategory={activeCategory}
               onToggleCategory={onToggleCategory}
@@ -628,6 +632,7 @@ function PlaceList({
               belowRow={
                 onChangeSort !== undefined ? (
                   <SortControl
+                    surface="inline"
                     order={sortOrder}
                     orders={sortOrders}
                     onChange={onChangeSort}
@@ -834,6 +839,7 @@ export function SortControl({
   orders,
   onChange,
   listLength,
+  surface = 'popover',
 }: {
   order: PlaceOrder;
   orders: readonly PlaceOrder[];
@@ -841,7 +847,12 @@ export function SortControl({
   /** How many rows the list is actually rendering. Below `SORT_MIN_PLACES` the control is absent:
    *  a list you can read in one screen is already in an order you can see. */
   listLength: number;
+  /** The same split every other axis takes: inline on the phone, anchored on the desktop. A sort
+   *  that floated while the filters beside it disclosed inline would be a fifth mechanism. */
+  surface?: FilterSurface;
 }) {
+  const [open, setOpen] = useState(false);
+
   // One option is not a choice. A library with no fix still has two, so this only fires if the
   // list of orders is ever narrowed further.
   if (orders.length < 2) return null;
@@ -855,18 +866,54 @@ export function SortControl({
       axis={SORT_LABEL}
       accessibleAxis={SORT_BY_LABEL}
       value={SORT_OPTION_LABEL[current]}
+      surface={surface}
+      open={open}
+      onOpenChange={setOpen}
     >
-      <Menu.RadioGroup value={current} onValueChange={(next) => onChange(next as PlaceOrder)}>
-        {orders.map((candidate) => (
-          <MenuRadioRow
-            key={candidate}
-            value={candidate}
-            label={SORT_OPTION_LABEL[candidate]}
-            selected={candidate === current}
-          />
-        ))}
-      </Menu.RadioGroup>
+      <SortOptions
+        surface={surface}
+        current={current}
+        orders={orders}
+        onChange={(next) => {
+          setOpen(false);
+          onChange(next);
+        }}
+      />
     </MenuAxis>
+  );
+}
+
+/**
+ * **The orders, as menu rows — not as a second set of buttons.** Owner, 2026-09-02: *"I don't like
+ * the interaction pattern of opening a dropdown and then showing another group of large buttons
+ * inside it."* These are the same rows the three filter axes offer, from the same component, so a
+ * reorder and a narrowing cannot end up looking like two different products.
+ *
+ * `Nearest` is absent rather than greyed when there is no fix — `availableOrders` decides, upstream
+ * of here — so this never draws a row it cannot honour.
+ */
+function SortOptions({
+  surface,
+  current,
+  orders,
+  onChange,
+}: {
+  surface: FilterSurface;
+  current: PlaceOrder;
+  orders: readonly PlaceOrder[];
+  onChange: (order: PlaceOrder) => void;
+}) {
+  return (
+    <AxisRows
+      surface={surface}
+      groupLabel={SORT_BY_LABEL}
+      value={current}
+      options={orders.map((candidate) => ({
+        value: candidate,
+        label: SORT_OPTION_LABEL[candidate],
+      }))}
+      onChange={(next) => onChange(next as PlaceOrder)}
+    />
   );
 }
 

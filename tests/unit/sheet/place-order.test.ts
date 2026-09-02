@@ -232,10 +232,16 @@ describe('the sort control is not a filter chip', () => {
   });
 
   it('is the same component as the filter triggers, told apart by label and fill', () => {
-    // Consistency of mechanism, difference of label: one `Dropdown` family, so the sort control
+    // Consistency of mechanism, difference of label: one trigger family, so the sort control
     // cannot drift away from the 32-in-44 target, the pill radius or the surface hover. `tone`
     // is the only difference, and it swaps a bordered pill for a ghost.
-    expect(CONTROL).toContain('<Dropdown');
+    //
+    // **The name changed and the assertion followed it.** This read `<Dropdown` when it was
+    // written; the component is `MenuAxis` and always was — `place-sheet.tsx` carried a comment
+    // naming a `Dropdown` that never existed, which `ux-menus-and-dropdowns.md` §14 item 9 rules
+    // on ("pick `MenuAxis`; a comment naming a component that does not exist is how the next
+    // agent loses an hour"). Same assertion, real name.
+    expect(CONTROL).toContain('<MenuAxis');
     expect(CONTROL).toContain('tone="sort"');
   });
 
@@ -255,8 +261,15 @@ describe('the sort control is not a filter chip', () => {
   it('hovers on a surface, never on the text colour', () => {
     // `hover:text-brand` is a *link* hover on something that is not a link: the label flicked to
     // mint and nothing else moved, which is why it read as broken rather than as pressable.
+    //
+    // **The class is `bg-primary/15`, not `bg-muted`,** and that is a correction to this assertion
+    // rather than a weakening of it. `--muted` is `#FAF9F6` in light — the sheet's own ground — so
+    // a `bg-muted` hover is a zero-contrast change on exactly the surface this control sits on,
+    // which is the defect `ux-menus-and-dropdowns.md` §5.2 measures for the menu rows. The ghost
+    // has only a ground to spend, so it washes at 15 % where the bordered pill washes at 5 % and
+    // spends the rest of its signal on the border.
     const BAR = readFileSync('src/components/sheet/library-filter-bar.tsx', 'utf8');
-    expect(BAR).toContain('group-hover/trigger:bg-muted');
+    expect(BAR).toContain('group-hover/trigger:bg-primary/15');
     expect(SHEET).not.toContain('hover:text-brand');
   });
 
@@ -272,8 +285,17 @@ describe('the sort control is not a filter chip', () => {
   });
 
   it('offers its orders as menu rows rather than a second set of buttons', () => {
+    // Owner, 2026-09-02: "I don't like the interaction pattern of opening a dropdown and then
+    // showing another group of large buttons inside it."
     expect(CONTROL).toContain('<SortOptions');
-    expect(SHEET).toContain('type="radio"');
+    // **`type="radio"` is not what this asserts any more.** It was written expecting native radio
+    // inputs in this file; the rows come from `AxisRows`, the one row component the three filter
+    // axes also use, which is a stronger version of the same claim — the sort *cannot* be a second
+    // set of buttons, because it is not drawing its own rows at all. (Base UI's radio group does
+    // render a real `<input type="radio">`, in the library, not here.)
+    expect(CONTROL).toContain('<AxisRows');
+    expect(CONTROL).not.toContain('<button');
+    expect(CONTROL).not.toContain('<Button');
   });
 
   it('is absent from a list short enough to read at a glance', () => {

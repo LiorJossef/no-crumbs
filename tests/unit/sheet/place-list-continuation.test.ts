@@ -301,8 +301,15 @@ describe('the tag facet reaches the desktop panel too', () => {
     // user opens it. What desktop parity means now is that the panel is *reachable* here — the
     // chips themselves are asserted against the panel directly in `library-filter-bar.test.ts`,
     // because this repo's `react-dom/server` setup cannot press anything.
+    //
+    // **The trigger is `Tags`, not `Filter`.** This assertion was written against the single
+    // collapsed `Filter` trigger, which the owner reversed the same day: "maybe we should have a
+    // dropdown for each of the filters instead of having it in one place / cause they are not
+    // related" (`feedback-round-3-work-plan.md` §5.1). The claim is unchanged — the tags are
+    // behind one closed disclosure on the desktop panel, exactly as on the phone — and the name
+    // is the one the ruling produced.
     const markup = renderWithTags([['late night'], ['late night', 'wine'], ['wine'], ['wine']]);
-    expect(markup).toContain('aria-label="Filter, showing all"');
+    expect(markup).toContain('aria-label="Tags, showing all"');
     expect(markup).toContain('aria-expanded="false"');
     // And the row it replaces is genuinely gone rather than merely restyled.
     expect(markup).not.toContain('aria-label="Filter by tag"');
