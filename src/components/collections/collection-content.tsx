@@ -23,11 +23,9 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import {
   ArrowLeft,
   Check,
-  ChevronLeft,
   ChevronUp,
   MoreHorizontal,
   Plus,
@@ -93,8 +91,10 @@ import { cn } from '@/lib/utils';
  */
 const LIST_END_GAP_PX = 12;
 
-export const KICKER =
-  'text-[11px] font-bold uppercase tracking-[0.14em] text-brand rtl:normal-case rtl:tracking-normal';
+/* The `KICKER` class this file exported was the up-link's own styling and nothing else imported
+   it. It goes with the row (`ux-collections-as-scope.md` §5 item 3, amended 2026-09-02); the
+   product's other kicker is `FILTER_KICKER` in `place-enrichment.tsx`, which is a different
+   token and a different job. */
 
 export type CollectionView = 'list' | 'place' | 'add' | 'share';
 
@@ -416,58 +416,22 @@ function CollectionList({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="shrink-0 px-4 pb-2 pt-1">
-        {/* The kicker row, and the up-link *is* the kicker: it says where it goes, in the slot the
-            unlabelled back arrow used to occupy, so nothing has to be relearned. */}
-        <div className="flex items-center gap-1">
-          <Link
-            /* **`drawerHref`, not the literal `/collections`.** All three of the drawer's views are
-               search params on `/map` since 2026-08-31 (`app/map/_lib/drawer-view.ts`), and the
-               literal is a redirect shim: going through it would cost a *segment* change on each
-               leg, which unmounts the drawer — the exact thing this route shape exists to prevent,
-               reintroduced by the one control whose job is leaving a collection.
+        {/* **No kicker row, and no `Collections` up-link** — `ux-collections-as-scope.md` §5 item
+            3, amended 2026-09-02, and the document moved before this file did, which is the
+            sequence that restored the link at `1db0294` when it did not.
 
-               **It sits directly under the drawer's `Collections` switch segment, which goes to
-               the same place, and it stays anyway** — orchestrator ruling, 2026-08-31, reversing an
-               instruction to delete it that was given without knowing this control is
-               `ux-collections-as-scope.md` §5 item 3. It was deleted for one commit and restored:
-               **a spec item is amended before the code, not after**, which is the sequence this
-               project used for the no-places mascot and is not waived because the change is one
-               line.
+            The row cost a measured 44 px — its own `min-h-11` — at 390×844 inside a collection at
+            `half`, and deleting it moves everything below up by 36 (see the button below for the
+            other 8). It bought
+            a second control to a destination already one tap away and directly above it: since
+            2026-08-31 the drawer's `Places / Collections` switch renders above this header at
+            `half` and `full`, and inside a collection its `Collections` segment is both current and
+            the way up — the same `/map?view=collections` href the up-link carried. The Map tab
+            covers `peek`, where the up-link never rendered.
 
-               The cost of keeping it is measured rather than argued, so whoever moves the spec has
-               the number. At 390×844 inside a collection at `half`, with the up-link's row present
-               versus removed: **0 rows fully visible against 1, and 1 partly visible against 2**;
-               the heading sits at y=500 rather than y=456. That 44px is the row's own `min-h-11`,
-               and deleting the *link* alone recovers none of it — the options button beside it is
-               `size-11`, so the row keeps its height either way. The height only comes back if that
-               button moves onto the heading's row.
-
-               Recorded open, with the reason. */
-            href={drawerHref(INDEX_VIEW) as '/map'}
-            aria-label="Collections"
-            className={cn(
-              KICKER,
-              '-ms-2 inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full px-2 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-              PRESS_CHIP,
-            )}
-          >
-            <ChevronLeft className="size-3.5 shrink-0 rtl:rotate-180" aria-hidden />
-            Collection
-          </Link>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-lg"
-            aria-label="Collection options"
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((open) => !open)}
-            data-vaul-no-drag
-            className="ms-auto size-11 shrink-0 rounded-full text-muted-foreground"
-          >
-            <MoreHorizontal className="size-4" aria-hidden />
-          </Button>
-        </div>
-
+            The `⋯` moves onto the heading's row rather than disappearing with it. That move *is*
+            the fix: the button is `size-11`, so deleting the link alone would have left the row
+            standing at its full height and recovered nothing. */}
         {/*
          * **`<h1>` in the `lg+` panel, `<h2>` in the sheet — not a new decision.**
          * `ui-review-2026-08-31.md` finding 14: this rendered `<h2>Weekend list</h2>` with nothing
@@ -485,13 +449,43 @@ function CollectionList({
          * correctly as a collection's title in the space this row has, and `PlaceDesktopPanel`'s
          * larger `text-2xl` belongs to a different view with a different amount of chrome above it.
          */}
-        <HeadingTag
-          ref={headingRef}
-          tabIndex={-1}
-          className="line-clamp-2 font-heading text-base font-bold outline-none"
-        >
-          <bdi>{collection.name}</bdi>
-        </HeadingTag>
+        <div className="flex items-center gap-1">
+          <HeadingTag
+            ref={headingRef}
+            tabIndex={-1}
+            className="min-w-0 flex-1 line-clamp-2 font-heading text-base font-bold outline-none"
+          >
+            <bdi>{collection.name}</bdi>
+          </HeadingTag>
+          {/* Trailing on the heading's row, in the slot the kicker row's copy of it held.
+              **Both margins are negative and that is the whole economy of this move.** A 44 px
+              target on a row whose text is 24 px tall would make the row 44 px, and the deletion
+              above would have bought 24 px instead of the row it was worth. `-my-1.5` lets the
+              button keep its full 44 px hit area while contributing 32 px of layout, so the header
+              recovers **36 px net** — measured at 390×844 at `half`, `London 2026`, 15 places: the
+              heading's top moves 500 → 460, the search field 558 → 522 and the first place row
+              614 → 578. It is 36 and not 44 because hosting a 44 px target on the heading's row
+              costs something; the audit's estimate assumed it cost nothing, and the honest number
+              is the one written down.
+
+              The 2 px by which the button's box overlaps the view switch above is the switch's own
+              `pb-2` padding, not its track: both segments hit-test on their centre *and* on their
+              bottom edge with the button in place. `-me-2` pulls the glyph's optical edge back to
+              the column's padding while the target stays 44 px. `ms-auto` is left off deliberately
+              — `flex-1` on the heading already decides the position, and one rule should. */}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-lg"
+            aria-label="Collection options"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((open) => !open)}
+            data-vaul-no-drag
+            className="-me-2 -my-1.5 size-11 shrink-0 rounded-full text-muted-foreground"
+          >
+            <MoreHorizontal className="size-4" aria-hidden />
+          </Button>
+        </div>
         <button
           type="button"
           onClick={() => onViewChange('share')}
@@ -513,23 +507,13 @@ function CollectionList({
           </span>
         </button>
 
-        {/* The collection's own description, which has been read from the database and carried on
-            `CollectionDetail` since collections shipped and never drawn (`growth-plan.md` §4).
-
-            It sits *below* the count and members line rather than between that line and the name.
-            The count line is a control — it opens the share view — and putting prose between a
-            heading and its own button separates the two things that belong together. Under it, the
-            description reads as what it is: the owner's sentence about the collection, not part of
-            its identity.
-
-            `line-clamp-3` because this is a sheet header over a list: the description is worth
-            three lines of it and not more, and the limit is 500 characters. `<bdi>` rather than
-            `dir="auto"`, matching the heading directly above — see the index row for why. */}
-        {collection.description ? (
-          <p className="mt-1.5 line-clamp-3 text-caption text-muted-foreground">
-            <bdi>{collection.description}</bdi>
-          </p>
-        ) : null}
+        {/* **The description is drawn on the index row, and only there** (overwhelm audit §7 item
+            14, and §4d's rule that a string lives in exactly one place). It sat here as a 3-line
+            clamp directly above the first place row, on the surface whose header already spends its
+            budget on a heading, a members line and a search field — and it is the same string the
+            row you tapped to get here already shows. `collections-index-list.tsx` keeps its
+            `line-clamp-1` copy, which is where a description does its work: choosing which
+            collection to open. */}
 
         {menuOpen ? (
           <CollectionMenu
