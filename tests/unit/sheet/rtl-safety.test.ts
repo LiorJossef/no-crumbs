@@ -156,7 +156,7 @@ const SAVED_PLACE_EDITS_SOURCE = withoutComments(
 const LATIN_WITH_HE_NOTE: DetailPlace = {
   ...SAVED,
   name: 'Abu Hassan',
-  detail: { ...OVERLAY, name: 'Abu Hassan', canonicalName: 'Abu Hassan', addressLine: 'Shivtei Israel 1' },
+  detail: { ...OVERLAY, canonicalName: 'Abu Hassan', addressLine: 'Shivtei Israel 1' },
 };
 
 const PLACE_SHEET_SOURCE = withoutComments(
@@ -199,7 +199,7 @@ describe('the note carries its own reading direction (rtl audit finding 1)', () 
     // Proves the assertion above is not vacuous: with a Latin note there is no `rtl` anywhere.
     const latinNote = render({
       ...LATIN_WITH_HE_NOTE,
-      detail: { ...OVERLAY, name: 'Abu Hassan', canonicalName: 'Abu Hassan', note: 'best in town' },
+      detail: { ...OVERLAY, canonicalName: 'Abu Hassan', note: 'best in town' },
     });
     expect(latinNote).not.toContain('dir="rtl"');
   });

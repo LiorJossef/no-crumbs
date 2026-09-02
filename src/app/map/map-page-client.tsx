@@ -103,7 +103,7 @@ import { MapShell } from '@/components/shell/map-shell';
 import { useMapShell } from '@/components/shell/use-map-shell';
 import type { SheetStop } from '@/components/shell/sheet-geometry';
 import type { MapSummaries } from '@/components/map/types';
-import { COUNTRY_LANDING_ZOOM } from '@/components/map/zoom-bands';
+import { COUNTRY_LANDING_ZOOM, PIN_BAND_MIN } from '@/components/map/zoom-bands';
 import {
   claimEntrance,
   ENTRANCE_CLOCK_FLOOR_MS,
@@ -1158,6 +1158,12 @@ export function MapPageClient({
       // `revealPlaceId`'s effect, which cannot fly the camera before it.
       setCameraAlive(true);
       lastZoomRef.current = meta.zoom;
+      // **Zooming out past the pin band closes the open place.** Below `PIN_BAND_MIN` the pins are
+      // replaced by the summary bands, so the card stays anchored to a pin that is no longer drawn
+      // and floats over open water attached to nothing. Only on a user-initiated move: a framing
+      // request that dips through the band on its way somewhere must not close the card it was
+      // opened for.
+      if (meta.userInitiated && meta.zoom < PIN_BAND_MIN) selectId(null);
       setScope((current) =>
         scopeAfterCameraSettled({
           // The same default the render path fills in, never a second copy of it: with a one-area
@@ -1172,7 +1178,7 @@ export function MapPageClient({
         }),
       );
     },
-    [areas, countries],
+    [areas, countries, selectId],
   );
 
   /**

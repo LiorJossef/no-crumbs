@@ -34,7 +34,7 @@ const { CollectionsContext } = await import('@/ui/place/collections-context');
 import type { DetailPlace } from '@/components/sheet/place-sheet';
 import type { Spot } from '@/domain/places/spot';
 
-const OVERLAY: Spot = {
+const OVERLAY = {
   id: 'saved-1',
   placeId: 'place-1',
   name: 'Sycamore',
@@ -53,7 +53,7 @@ const OVERLAY: Spot = {
   sourceUrl: 'https://www.tiktok.com/@someone/video/1',
   visitState: 'want_to_go',
   savedAt: new Date('2026-08-01T10:00:00Z'),
-};
+} as Spot;
 
 const FROM_A_POST: DetailPlace = {
   name: 'Sycamore',
@@ -68,7 +68,7 @@ const FROM_A_POST: DetailPlace = {
  *  at all, so the card must draw exactly one hairline. */
 const MANUAL: DetailPlace = {
   name: 'The corner bakery',
-  category: 'bakery',
+  category: 'cafe',
   lat: 51.47,
   lng: -0.07,
   sourceUrl: undefined,
@@ -78,7 +78,7 @@ const MANUAL: DetailPlace = {
     whyGo: undefined,
     dishes: [],
     sourceUrl: undefined,
-  },
+  } as unknown as Spot,
 };
 
 function render(place: DetailPlace, savedPlace: { id: string; visited: boolean } | null): string {
@@ -112,8 +112,8 @@ describe('the card is three bands and two hairlines', () => {
       detail: {
         ...MANUAL.detail!,
         note: undefined,
-        savedAt: undefined as unknown as Date,
-      },
+        savedAt: undefined,
+      } as unknown as Spot,
     };
     expect(hairlines(render(seenOnly, null))).toBe(0);
   });
