@@ -10,8 +10,32 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  reporter: process.env.CI ? 'github' : 'list',
+  // Two reporters in CI, and the second is not decoration. `ci.yml`'s `upload-artifact` step
+  // uploads `playwright-report/`, and the `github` reporter never writes that directory — so the
+  // step has been dead for as long as it has existed. Measured on run 33661142026 (2026-09-02):
+  // 24 tests failed, `trace: 'on-first-retry'` recorded a trace for every one of them, and the
+  // upload logged "No files were found with the provided path: playwright-report/". Every one of
+  // those failures then had to be reconstructed from the raw job log.
+  //
+  // `open: 'never'` because a reporter that launches a browser is a hang on a runner.
+  reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
   use: {
+    /**
+     * **Driving a `next dev` server: use `http://localhost:<port>`, never `http://127.0.0.1:<port>`.**
+     *
+     * Measured 2026-09-02 against `next dev -p 4311`: every request for `/_next/static/chunks/*.js`
+     * returned **403** when the page was loaded from `127.0.0.1`, and 200 from `localhost` — Next's
+     * dev-server cross-origin protection does not treat the two as the same origin. The app then
+     * never hydrates, so every `click` on a `type="submit"` button submits the form *natively*
+     * (`GET /sign-in?`), and every signed-in spec dies with `could not sign in after four attempts`
+     * against credentials that authenticate fine on the wire. It reads exactly like a broken login.
+     *
+     * The default below stays `127.0.0.1` because it is the address `webServer` boots and probes,
+     * and that path runs `next start` — a production server, which has no such check and where
+     * `localhost` risks resolving to `::1` against a server bound to IPv4. So: the default is right
+     * for the built path CI takes, and anyone pointing this suite at a dev server must set
+     * `PLAYWRIGHT_BASE_URL=http://localhost:<port>` by hand.
+     */
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${PORT}`,
     trace: 'on-first-retry',
   },

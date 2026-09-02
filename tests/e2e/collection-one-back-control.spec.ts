@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { signInAsDemoUser } from './_lib/sign-in';
+
 /**
  * `docs/ux-collections-as-scope.md` §2.2, held in a real accessibility tree:
  * **at most one back-shaped control is on screen at any moment.**
@@ -40,19 +42,7 @@ const BACK_SHAPED = /^(back\b|collections$)/i;
 const NAVIGATION_LANDMARKS = ['nav[aria-label="Main"]', 'nav[aria-label="Places and collections"]'];
 
 async function signIn(page: Page): Promise<void> {
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    await page.goto('/sign-in');
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(700);
-    await page.getByPlaceholder('you@example.com').fill(EMAIL);
-    await page.getByPlaceholder('At least 6 characters').fill(PASSWORD as string);
-    await page.getByRole('button', { name: /sign in/i }).click();
-    try {
-      await page.waitForURL('**/map', { timeout: 20_000 });
-      return;
-    } catch { /* dev-mode hydration race; the other specs retry the same way */ }
-  }
-  throw new Error('could not sign in after four attempts');
+  await signInAsDemoUser(page, EMAIL, PASSWORD as string);
 }
 
 /**
@@ -100,9 +90,24 @@ async function openFirstCollection(page: Page): Promise<void> {
   await page.waitForTimeout(2500);
 }
 
-/** The `Add to a collection` row inside an open place detail, whose label carries a count. */
+/**
+ * The `Add to a collection` row inside an open place detail, whose label carries a count.
+ *
+ * **The `Collections` prefix is not optional slack, it is the row's section label.** When this row
+ * became a `DETAIL_FIELD_ROW` — the same shape as `Category` and `Your note` — it gained a
+ * `SECTION_LABEL` span above its value, so the button's text content changed from
+ * `Add to a collection` to `CollectionsAdd to a collection`. The old anchored regex matched
+ * nothing, and CI run 33661142026 reported `toHaveCount(1)` receiving **0** on both projects, for a
+ * control that is present and working. Verified at `4ca68e6`, before that redesign: the same test
+ * passes there, which is what pins the cause to the label rather than to the picker.
+ *
+ * Still anchored, and `toHaveCount(1)` is still the assertion, so this cannot quietly widen into
+ * matching some other button that happens to contain the word "In".
+ */
+const PICKER_TRIGGER = /^(Collections\s*)?(In\b|Add to a collection)/;
+
 function pickerTrigger(page: Page) {
-  return page.locator('button').filter({ hasText: /^(In\b|Add to a collection)/ }).first();
+  return page.locator('button').filter({ hasText: PICKER_TRIGGER }).first();
 }
 
 /** Presses it wherever it is in the column. The sheet rests at `half`, so this row is often below
@@ -156,7 +161,7 @@ test.describe('one back control, at every step inside a collection', () => {
     // 3. The picker. It borrows the header's control rather than drawing a second one.
     const trigger = pickerTrigger(page);
     await expect(trigger).toHaveCount(1);
-    await press(page, /^(In\b|Add to a collection)/);
+    await press(page, PICKER_TRIGGER);
     await page.waitForTimeout(1200);
     await expect(
       page.getByRole('button', { name: 'New collection' }),
@@ -193,7 +198,7 @@ test.describe('the map is untouched by the borrowing', () => {
 
     // `/map` provides no host control, so the picker must draw one.
     await expect(pickerTrigger(page)).toHaveCount(1);
-    await press(page, /^(In\b|Add to a collection)/);
+    await press(page, PICKER_TRIGGER);
     await page.waitForTimeout(1500);
     await expect(page.getByRole('button', { name: 'New collection' })).toBeVisible();
     expect(await backShaped(page)).toEqual(['Back to the place']);

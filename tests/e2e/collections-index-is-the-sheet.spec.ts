@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { signInAsDemoUser } from './_lib/sign-in';
+
 /**
  * `docs/ux-collections-as-scope.md` §5 items 1, 2 and 4: **the collections index is S4 with
  * collections in it, not a second page.**
@@ -15,19 +17,7 @@ const EMAIL = process.env.E2E_EMAIL ?? 'demo@example.com';
 const PASSWORD = process.env.E2E_PASSWORD;
 
 async function signIn(page: Page): Promise<void> {
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    await page.goto('/sign-in');
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(700);
-    await page.getByPlaceholder('you@example.com').fill(EMAIL);
-    await page.getByPlaceholder('At least 6 characters').fill(PASSWORD as string);
-    await page.getByRole('button', { name: /sign in/i }).click();
-    try {
-      await page.waitForURL('**/map', { timeout: 20_000 });
-      return;
-    } catch { /* dev-mode hydration race; every other spec retries the same way */ }
-  }
-  throw new Error('could not sign in after four attempts');
+  await signInAsDemoUser(page, EMAIL, PASSWORD as string);
 }
 
 test.describe('the collections index', () => {

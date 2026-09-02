@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { signInAsDemoUser } from './_lib/sign-in';
+
 /**
  * **This spec is a finding, and at the time of writing it is RED on `/collections` and `/profile`.**
  * Do not weaken it to green; the fix is a prop, not an assertion.
@@ -23,19 +25,7 @@ const EMAIL = process.env.E2E_EMAIL ?? 'demo@example.com';
 const PASSWORD = process.env.E2E_PASSWORD;
 
 async function signIn(page: Page): Promise<void> {
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    await page.goto('/sign-in');
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(700);
-    await page.getByPlaceholder('you@example.com').fill(EMAIL);
-    await page.getByPlaceholder('At least 6 characters').fill(PASSWORD as string);
-    await page.getByRole('button', { name: /sign in/i }).click();
-    try {
-      await page.waitForURL('**/map', { timeout: 20_000 });
-      return;
-    } catch { /* dev-mode hydration race */ }
-  }
-  throw new Error('could not sign in after four attempts');
+  await signInAsDemoUser(page, EMAIL, PASSWORD as string);
 }
 
 /** A place the signed-in user demonstrably has, taken off `/map`'s own list. */
@@ -56,7 +46,16 @@ async function searchTheCreateMenu(page: Page, query: string): Promise<void> {
   await page.waitForTimeout(1500);
   await page.getByRole('button', { name: /Add a place/ }).click();
   await page.waitForTimeout(1000);
-  await page.locator('input:visible').first().fill(query);
+  // **Named, not positional.** `input:visible` resolved to the first visible `<input>` in the
+  // document, and on `/profile` that is the theme switcher's radio — `<input type="radio"
+  // aria-hidden="true" tabindex="-1" value="light">`, which Playwright counts as visible and cannot
+  // fill. Measured on CI run 33661142026: `locator.fill: Input of type "radio" cannot be filled`,
+  // on the `/profile` arm only, which is why the `/map?view=collections` arm went on passing.
+  // The control this test is about carries an accessible name (`add-sheet.tsx`'s `FIELD_LABEL`);
+  // ask for it by name and the arm cannot drift onto a neighbour again.
+  await page
+    .getByRole('textbox', { name: 'Paste a TikTok link or search your places' })
+    .fill(query);
   await page.waitForTimeout(1000);
 }
 
