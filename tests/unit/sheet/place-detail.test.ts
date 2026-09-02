@@ -227,7 +227,7 @@ describe('PlaceDetail — the action row', () => {
 describe('PlaceDetail — how approximate is said', () => {
   it('marks the address rather than explaining the pipeline underneath the card', () => {
     const markup = render(
-      { ...SAVED, detail: { ...OVERLAY, provenance: { sourceDataset: 'llm-guess' } } },
+      { ...SAVED, detail: { ...OVERLAY, provenance: { sourceDataset: 'llm-guess', resolutionScore: null } } },
       { id: 'saved-1', visited: false },
     );
     expect(markup).toContain('Approximate location');
@@ -241,7 +241,7 @@ describe('PlaceDetail — how approximate is said', () => {
 
   it('keeps the Google attribution where a provider was actually used', () => {
     const markup = render(
-      { ...SAVED, detail: { ...OVERLAY, provenance: { sourceDataset: 'google-places' } } },
+      { ...SAVED, detail: { ...OVERLAY, provenance: { sourceDataset: 'google-places', resolutionScore: 0.86 } } },
       { id: 'saved-1', visited: false },
     );
     expect(markup).toContain('Matched on Google Maps');
