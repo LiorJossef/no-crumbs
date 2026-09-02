@@ -57,6 +57,7 @@ import { supabasePlaceStore } from '@/integrations/supabase/place-store';
 import { DomainError } from '@/domain/errors';
 import type { OpCtx } from '@/domain/ports';
 import type { ResolveQuery, ResolveResult } from '@/domain/types';
+import { resolvedCountryCode } from '@/domain/places/resolved-country';
 import { optionDetail } from '@/ui/import/candidate-resolution-view';
 import { validateManualName } from '@/app/actions/manual-add-choice';
 
@@ -203,7 +204,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         // from `places.provider_category`, so the provider's own type for the venue is what the
         // pin and the row use — the same choice `manual-add.ts` makes and for the same reason.
         category: null,
-        countryCode: null,
+        // The provider's own country, validated, and there is nothing else it could be: this path
+        // has no extraction and therefore no `countryHint` to fall back to, which is why it used to
+        // hard-code `null` on **every** search-then-save. A countryless row is what puts a city in
+        // the map's country bucket beside a country (round-3 feedback §3.1); `resolvedCountryCode`
+        // is total, so a provider that states none still writes `null` — the same value as before,
+        // reached honestly.
+        countryCode: resolvedCountryCode(chosen.place),
         resolutionScore: chosen.score,
       },
       {
