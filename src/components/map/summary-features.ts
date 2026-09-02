@@ -17,6 +17,7 @@
  * section renders as rows.
  */
 
+import { UNNAMED_OTHER_AREA_LABEL } from '@/ui/place/active-area';
 import { countryDiscImageId, type DiscTheme } from './country-flag-image';
 import type { MapAreaSummary, MapCountrySummary } from './types';
 
@@ -97,13 +98,20 @@ export function toCountryFeatures(
  * what is drawn from the camera alone (§2.1). Filtering these by anything would put React state
  * back in the middle of a zoom, which is the one thing the declarative bands exist to avoid.
  */
+/** Whitespace as well as `null`: a locality of `' '` reaches the pill as an empty text field and
+ *  is indistinguishable from no name at all. */
+function areaLabel(label: string | null): string {
+  const trimmed = (label ?? '').trim();
+  return trimmed === '' ? UNNAMED_OTHER_AREA_LABEL : trimmed;
+}
+
 export function toAreaFeatures(areas: readonly MapAreaSummary[]): AreaFeatureCollection {
   return {
     type: 'FeatureCollection',
     features: areas.map((area) => ({
       type: 'Feature',
       geometry: { type: 'Point', coordinates: [area.lng, area.lat] },
-      properties: { id: area.id, label: area.label ?? '', count: area.count },
+      properties: { id: area.id, label: areaLabel(area.label), count: area.count },
     })),
   };
 }
