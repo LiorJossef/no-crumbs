@@ -38,6 +38,6 @@ describe('an area marker always carries a noun', () => {
   });
 
   it('says the same word the list and /profile say for the same gap', () => {
-    expect(UNNAMED_OTHER_AREA_LABEL).toBe('Another area');
+    expect(UNNAMED_OTHER_AREA_LABEL).toBe('Other');
   });
 });

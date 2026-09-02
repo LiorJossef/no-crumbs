@@ -104,7 +104,7 @@ describe('summariseByCountry', () => {
 
     expect(unflagged?.key).toBe(NO_COUNTRY_KEY);
     // The area has no locality either, so the honest label is the shipped "we cannot name it" one.
-    expect(unflagged?.label).toBe('Another area');
+    expect(unflagged?.label).toBe('Other');
     expect(unflagged?.count).toBe(4);
   });
 

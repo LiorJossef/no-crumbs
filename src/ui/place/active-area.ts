@@ -127,8 +127,19 @@ export function isolate(text: string): string {
 }
 
 /** The same absence, in a row that is *not* the area you are looking at — `this area` would be a
- *  lie there, and `Unnamed area` reads like a defect rather than an honest gap. */
-export const UNNAMED_OTHER_AREA_LABEL = 'Another area';
+ *  lie there, and `Unnamed area` reads like a defect rather than an honest gap.
+ *
+ *  **`Other` rather than `Another area`, and the short word is load-bearing.** A country pill is
+ *  whole at the frame's edge only if it draws at most 112 px (`summary-style.ts`), and this bucket
+ *  has no flag to trade its name for the way `c78c787` let the flagged ones do. Measured at
+ *  390x844: `Another area  1` draws 154.9 px, `Unknown  1` 130.1, `Another  1` 120.6, `Other  1`
+ *  **104.7**. Only a word of five letters or fewer fits.
+ *
+ *  **Temporary, on the owner's own framing (2026-09-02).** The rows landing here are not genuinely
+ *  unnameable — the one in the owner's library is a city in Israel whose locality we failed to
+ *  resolve. The fix is the geography backfill, not a shorter fallback; when a row carries its
+ *  locality it never reaches this constant at all. Do not treat `Other` as the answer. */
+export const UNNAMED_OTHER_AREA_LABEL = 'Other';
 
 /** One of the user's areas: a coordinate cluster of their saved places, plus the presentation
  *  facts the list needs. Generic over the caller's place type, exactly as `clusterByProximity` is,
