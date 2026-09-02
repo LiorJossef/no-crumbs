@@ -80,6 +80,21 @@ describe('deriveProfileStats', () => {
     expect(stats.cities).toBe(1);
   });
 
+  it('splits two named cities inside the 50 km radius, exactly as the map does', () => {
+    // The defect this file did not catch, found 2026-09-02 against the owner's 60 rows.
+    // `map-page-client.tsx` hands `clusterByProximity` a `toLocality` projection — the veto that
+    // stops a 50 km join from swallowing every town it reaches — and this page's `clusters()` did
+    // not. So `/profile` printed `4 Cities` while the map one tab away drew twelve named pills.
+    // Kfar Saba is 22 km from Tel Aviv: inside the radius, and a different city by name.
+    const stats = deriveProfileStats([
+      place(32.0725, 34.782, { locality: 'Tel Aviv-Yafo', countryCode: 'IL' }),
+      place(32.175, 34.9, { locality: 'כפר סבא', countryCode: 'IL' }),
+    ]);
+    expect(stats.cities).toBe(2);
+    // And still one country: the veto splits areas, never countries.
+    expect(stats.countries).toBe(1);
+  });
+
   it('splits two cities 3,500 km apart', () => {
     const stats = deriveProfileStats([place(LONDON.lat, LONDON.lng), place(TEL_AVIV.lat, TEL_AVIV.lng)]);
     expect(stats.cities).toBe(2);

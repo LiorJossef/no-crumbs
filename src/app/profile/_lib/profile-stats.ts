@@ -52,12 +52,15 @@ export interface ProfileCreator {
 export interface ProfileStats {
   readonly saved: number;
   /**
-   * **Coordinate clusters, never `places.locality`.** The local library holds six distinct
-   * locality strings for two cities — `London`, `Tel Aviv-Yafo`, `Tel Aviv`, `תל אביב - יפו`,
-   * `תל אביב-יפו`, `ת״א` — so `count(distinct locality)` would print `6 cities` to someone who has
-   * saved places in two. That is the failure `current-state` §9.1 rules against, and
-   * `clusterByProximity` at its default 50 km radius is the primitive already in the tree for it: a
-   * single-link cluster of that radius is one metropolitan area by construction.
+   * **Coordinate clusters, never `count(distinct places.locality)`.** The local library holds six
+   * distinct locality strings for one city — `Tel Aviv-Yafo`, `Tel Aviv`, `תל אביב - יפו`,
+   * `תל אביב-יפו`, `ת״א` and its variants — so counting strings would print a number nobody could
+   * reconcile with their own map. `clusterByProximity` is the primitive already in the tree for it.
+   *
+   * The clustering is the map's, veto and all — see `clusters()`. A cluster is one city: proximity
+   * joins, and a *differing* locality name vetoes the join, so `כפר סבא` stays its own area rather
+   * than being absorbed by Tel Aviv 25 km away. That is what makes this number and the pills on the
+   * map the same fact.
    */
   readonly cities: number;
   /** Distinct countries, by the same plurality rule the map's band uses — so a place with no
@@ -108,9 +111,19 @@ function toPoint(place: ProfilePlace): GeoPoint {
  * The library's clusters. `clusterByProximity` drops items whose coordinate is invalid, so a broken
  * row cannot mint a phantom city at Null Island; it stays counted in `saved`, which is what the
  * user's library actually contains.
+ *
+ * **`toLocality` is passed, and its absence was this page's real defect** (found 2026-09-02). The
+ * header above claims these numbers come out of the same chain the map runs. They did not:
+ * `map-page-client.tsx` hands `clusterByProximity` the locality projection — the veto that stops a
+ * 50 km join from swallowing every city inside it — and this call omitted it. On the owner's own
+ * 60 rows that is 4 clusters here against 12 on the map: `/profile` said `4 Cities` while the map
+ * one tab away drew twelve named pills, `הרצליה` and `כפר סבא` and `ראשון לציון` among them. Both
+ * numbers were honest and they described different groupings, which is the exact failure the
+ * one-pass rule was written to prevent — it was enforced inside this file and not across the two
+ * files that matter.
  */
 function clusters(places: readonly ProfilePlace[]): readonly GeoCluster<ProfilePlace>[] {
-  return clusterByProximity(places, toPoint);
+  return clusterByProximity(places, toPoint, { toLocality: (place) => place.locality });
 }
 
 /**
@@ -125,6 +138,9 @@ function geography(places: readonly ProfilePlace[]): {
     toId: (place) => place.id,
     toPoint,
     toLocality: (place) => place.locality,
+    // Names an area whose members carry no locality at all after the country they do agree on, so
+    // `Cities` never counts a group this page cannot put a word to. Never a grouping input.
+    toCountryCode: (place) => place.countryCode ?? null,
   });
 
   const summaries = summariseByCountry(areas, (place) => place.countryCode ?? null, toPoint);
