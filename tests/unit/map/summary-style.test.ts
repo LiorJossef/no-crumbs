@@ -144,30 +144,48 @@ describe('the bands stay declarative and stay symbol layers', () => {
     // A country that vanishes at world zoom is a country's worth of saved places the user cannot
     // see, and there is no zoom below the country band to recover it at.
     expect(country()['icon-allow-overlap']).toBe(true);
-    expect(country()['icon-ignore-placement']).toBe(true);
     expect(country()['text-allow-overlap']).toBe(true);
-    expect(country()['text-ignore-placement']).toBe(true);
   });
 
-  it('lets the area band collide, because neighbouring cities stack into unreadable mush', () => {
-    // Owner report, 2026-08-30: Ra'anana and Herzliya project 4.9 px apart at z7 under a ~125 px
-    // pill, so overlap-always drew every Sharon city as one illegible pile of text. MapLibre's own
-    // placement hides the loser until zooming in makes room — and z8.5 always makes room, because
-    // it ends the band. Measured before and after in the browser; see the task's evidence.
-    expect(area()['icon-allow-overlap']).toBe(false);
-    expect(area()['icon-ignore-placement']).toBe(false);
-    expect(area()['text-allow-overlap']).toBe(false);
-    expect(area()['text-ignore-placement']).toBe(false);
+  it('still lets everything else see the pill it must not displace', () => {
+    // `ignore-placement` was true alongside `allow-overlap` until 2026-09-02, on the assumption
+    // that the two together spelled "never dropped". They do not: read in the installed 6.4.1,
+    // `placeCollisionBox` (`maplibre-gl-dev.mjs:6976`) skips the hit test whenever the overlap mode
+    // is `always`, so `allow-overlap` alone is the whole guarantee, while `insertCollisionBox`
+    // (:7131) files the box in `ignoredGrid` rather than `grid` when `ignore-placement` is true —
+    // and `ignoredGrid` is read only by `queryRenderedSymbols` (:7111), never by placement. So the
+    // flag cost the basemap's own labels the ability to step aside from our pills and bought
+    // nothing. Both bands are `false`; both are still undroppable.
+    for (const layout of [country(), area()]) {
+      expect(layout['icon-ignore-placement']).toBe(false);
+      expect(layout['text-ignore-placement']).toBe(false);
+      expect(layout['icon-allow-overlap']).toBe(true);
+      expect(layout['text-allow-overlap']).toBe(true);
+    }
   });
 
-  it('lets the busier marker win, in whichever direction the band needs', () => {
-    // Two different mechanisms read this key in opposite orders, so the two bands cannot share it.
-    // Draw order: `symbol_bucket.ts` sorts ascending and buffers in that order, so a *higher* key
-    // lands on top — what the country band, which never collides, wants.
+  it('never lets an area be dropped for colliding either — the hierarchy decides, not the index', () => {
+    // Reversed 2026-09-02 (`W2B-OVERLAP`). The area band ran with MapLibre's placement on from
+    // 2026-08-30, on the argument that the loser was recovered by zooming in "because z8.5 ends the
+    // band". Measured against the owner's own library, it was not: Tel Aviv and Herzliya first have
+    // room at z8.4, inside `settleZoom`'s guard window, so seven of twelve areas drew at no zoom in
+    // the band at all and 18 of 58 saved places were neither visible nor counted.
+    //
+    // `area-band-layout.ts` answers that question before the features reach MapLibre, by absorbing
+    // an area that does not fit into the neighbour that displaced it and adding its places to that
+    // neighbour's count. The pills in a step do not overlap by construction, so there is nothing
+    // for the collision index to resolve — and turning it off is what guarantees it can never again
+    // delete a marker the layout intended to draw.
+    expect(area()['icon-allow-overlap']).toBe(true);
+    expect(area()['text-allow-overlap']).toBe(true);
+  });
+
+  it('lets the busier marker draw on top, in both bands', () => {
+    // `symbol_bucket.ts` sorts ascending and buffers in that order, so a *higher* key lands on top.
+    // Neither band collides now, so this is draw order alone and the two bands share it again; the
+    // area band's negated key went with its placement (see above).
     expect(country()['symbol-sort-key']).toEqual(['get', 'count']);
-    // Placement: `pauseable_placement.ts:45` also sorts ascending, but first-placed *wins*, so the
-    // area band has to negate the count for the fullest area to be the one that survives.
-    expect(area()['symbol-sort-key']).toEqual(['-', 0, ['get', 'count']]);
+    expect(area()['symbol-sort-key']).toEqual(['get', 'count']);
   });
 });
 
@@ -189,13 +207,9 @@ describe('the area band and the country band are one object', () => {
     // identical apart from where the image id comes from until the country band gained the flag
     // cap's centring offset, and then until the area band started colliding. Each exception is
     // asserted on its own above; everything *else* must still be equal, field for field.
-    const collision = [
-      'icon-allow-overlap',
-      'icon-ignore-placement',
-      'text-allow-overlap',
-      'text-ignore-placement',
-      'symbol-sort-key',
-    ];
+    // Emptied on 2026-09-02: the area band stopped colliding, so the two bands differ in the image
+    // id and the cap alone once more — which is what this assertion was written to protect.
+    const collision: string[] = [];
     const strip = (layout: Record<string, unknown>) =>
       Object.fromEntries(Object.entries(layout).filter(([k]) => !collision.includes(k)));
     const { 'icon-image': countryIcon, 'text-offset': offset, ...countryRest } = country();

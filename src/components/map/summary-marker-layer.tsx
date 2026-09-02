@@ -33,7 +33,7 @@
  * name now lives inside the pill's text field, which is the same field the country band uses.
  */
 
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useMemo, useRef } from 'react';
 import type { GeoJSONSource, MapMouseEvent } from 'maplibre-gl';
 import { useMap } from '@/components/ui/map';
 
@@ -45,11 +45,12 @@ import {
   type DiscTheme,
 } from './country-flag-image';
 import { styleTextFont } from './style-text-font';
+import { AREA_BAND_STEPS, layoutAreaBand } from './area-band-layout';
 import {
-  AREA_BAND_ZOOM,
   AREA_DISC_SPEC,
   AREA_LAYER_ID,
   areaLayerLayout,
+  areaStepFilter,
   COUNTRY_BAND_ZOOM,
   COUNTRY_LAYER_ID,
   countryLayerLayout,
@@ -79,11 +80,19 @@ export function SummaryMarkerLayer({
 }: SummaryMarkerLayerProps) {
   const { map } = useMap();
   const styleReady = useStyleReady(map);
+  /** The band's hierarchy, resolved once per library rather than per frame — see
+   *  `area-band-layout.ts`. Memoised on `areas` alone, which is the same key the source is
+   *  written on, so a pan, a tap or a re-render never recomputes a layout. */
+  const bandAreas = useMemo(() => layoutAreaBand(areas), [areas]);
   const instanceId = useId().replace(/:/g, '');
   const countrySourceId = `country-summary-${instanceId}`;
   const areaSourceId = `area-summary-${instanceId}`;
   const countryLayerId = `${COUNTRY_LAYER_ID}-${instanceId}`;
-  const areaLayerId = `${AREA_LAYER_ID}-${instanceId}`;
+  /** One layer per pre-computed step (`area-band-layout.ts`), all over the one area source. */
+  const areaLayerIds = useMemo(
+    () => AREA_BAND_STEPS.map((_, index) => `${AREA_LAYER_ID}-${index}-${instanceId}`),
+    [instanceId],
+  );
 
   // Held in refs so the listeners, attached once with the layers, always call the current handlers
   // rather than the ones that existed at mount.
@@ -99,7 +108,7 @@ export function SummaryMarkerLayer({
 
     const removeOurs = () => {
       try {
-        for (const id of [areaLayerId, countryLayerId]) {
+        for (const id of [...areaLayerIds, countryLayerId]) {
           if (map.getLayer(id)) map.removeLayer(id);
         }
         for (const id of [areaSourceId, countrySourceId]) {
@@ -120,13 +129,17 @@ export function SummaryMarkerLayer({
 
     // The area band goes in first so the country pills, which are bigger and never share a zoom
     // with it, sit above it in the layer order — and so a future band never has to be re-ordered.
-    map.addLayer({
-      id: areaLayerId,
-      type: 'symbol',
-      source: areaSourceId,
-      ...AREA_BAND_ZOOM,
-      layout: areaLayerLayout(font, countryDiscImageId(AREA_DISC_SPEC, theme)) as never,
-      paint: summaryLayerPaint(tokens) as never,
+    AREA_BAND_STEPS.forEach((step, index) => {
+      map.addLayer({
+        id: areaLayerIds[index] as string,
+        type: 'symbol',
+        source: areaSourceId,
+        minzoom: step.minzoom,
+        maxzoom: step.maxzoom,
+        filter: areaStepFilter(index) as never,
+        layout: areaLayerLayout(font, countryDiscImageId(AREA_DISC_SPEC, theme)) as never,
+        paint: summaryLayerPaint(tokens) as never,
+      });
     });
     map.addLayer({
       id: countryLayerId,
@@ -147,7 +160,7 @@ export function SummaryMarkerLayer({
     // as its label — where a 15 px circle was a 32 px target and would have needed the query padded
     // out to compensate.
     const openArea = (event: MapMouseEvent) => {
-      const feature = map.queryRenderedFeatures(event.point, { layers: [areaLayerId] })[0];
+      const feature = map.queryRenderedFeatures(event.point, { layers: [...areaLayerIds] })[0];
       const id = feature?.properties?.id;
       if (typeof id === 'string') onAreaClickRef.current?.(id);
     };
@@ -165,23 +178,27 @@ export function SummaryMarkerLayer({
       map.getCanvas().style.cursor = '';
     };
 
-    map.on('click', areaLayerId, openArea);
+    for (const id of areaLayerIds) map.on('click', id, openArea);
     map.on('click', countryLayerId, openCountry);
     map.on('mouseenter', countryLayerId, pointer);
     map.on('mouseleave', countryLayerId, resetPointer);
-    map.on('mouseenter', areaLayerId, pointer);
-    map.on('mouseleave', areaLayerId, resetPointer);
+    for (const id of areaLayerIds) {
+      map.on('mouseenter', id, pointer);
+      map.on('mouseleave', id, resetPointer);
+    }
 
     return () => {
-      map.off('click', areaLayerId, openArea);
+      for (const id of areaLayerIds) map.off('click', id, openArea);
       map.off('click', countryLayerId, openCountry);
       map.off('mouseenter', countryLayerId, pointer);
       map.off('mouseleave', countryLayerId, resetPointer);
-      map.off('mouseenter', areaLayerId, pointer);
-      map.off('mouseleave', areaLayerId, resetPointer);
+      for (const id of areaLayerIds) {
+        map.off('mouseenter', id, pointer);
+        map.off('mouseleave', id, resetPointer);
+      }
       removeOurs();
     };
-  }, [map, styleReady, theme, countrySourceId, areaSourceId, countryLayerId, areaLayerId]);
+  }, [map, styleReady, theme, countrySourceId, areaSourceId, countryLayerId, areaLayerIds]);
 
   /**
    * The images and the data, in one effect and in this order.
@@ -217,8 +234,8 @@ export function SummaryMarkerLayer({
       }
     }
     (map.getSource(countrySourceId) as GeoJSONSource | undefined)?.setData(countries);
-    (map.getSource(areaSourceId) as GeoJSONSource | undefined)?.setData(areas);
-  }, [map, styleReady, discs, theme, countries, areas, countrySourceId, areaSourceId]);
+    (map.getSource(areaSourceId) as GeoJSONSource | undefined)?.setData(bandAreas);
+  }, [map, styleReady, discs, theme, countries, bandAreas, countrySourceId, areaSourceId]);
 
   return null;
 }

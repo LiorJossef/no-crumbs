@@ -104,17 +104,31 @@ function pillLayout(textFont: readonly string[]): Record<string, unknown> {
     // outright (`maplibre-gl/src/symbol/shaping.ts:635-637`) and centres the icon on the text, so
     // there is no anchor here to be quietly disregarded.
     'icon-text-fit': 'width',
-    // The country band's default: never dropped, for anything. A country that vanishes at world
-    // zoom is a country's worth of saved places the user cannot see. The area band overrides all
-    // four of these — see `areaLayerLayout`.
+    // **Never dropped, for anything.** A country that vanishes at world zoom is a country's worth
+    // of saved places the user cannot see, and since 2026-09-02 the same is true of an area — see
+    // `areaLayerLayout` and `area-band-layout.ts`.
+    //
+    // `allow-overlap` alone is what carries that guarantee, and `ignore-placement` is **not** part
+    // of it. Read in the installed 6.4.1 rather than assumed
+    // (`maplibre-gl/dist/maplibre-gl-dev.mjs`): `placeCollisionBox` at :6976 skips the hit test
+    // entirely when `overlapMode === 'always'`, so an allow-overlap symbol is `placeable` whatever
+    // else is on screen; `insertCollisionBox` at :7131-7132 then files its box in `ignoredGrid`
+    // instead of `grid` **iff `ignore-placement` is true**, and `ignoredGrid` is only ever read by
+    // `queryRenderedSymbols` (:7111), never by `hitTest` during placement.
+    //
+    // So `ignore-placement: true` bought this layer nothing and cost every *other* label — the
+    // basemap's own city names included — the ability to see our pill and step aside from it. It is
+    // false here for that reason. It does **not** de-conflict two pills in this layer from each
+    // other: they are both allow-overlap, so neither consults the grid, and that is what
+    // `area-band-layout.ts` exists to do geometrically.
     'icon-allow-overlap': true,
-    'icon-ignore-placement': true,
+    'icon-ignore-placement': false,
     'text-font': [...textFont],
     'text-size': SUMMARY_TEXT_PX,
     'text-anchor': 'center',
     'text-max-width': NO_WRAP_EMS,
     'text-allow-overlap': true,
-    'text-ignore-placement': true,
+    'text-ignore-placement': false,
     // Where two markers overlap, the one holding more places is drawn on top. `symbol_bucket.ts`
     // sorts **ascending** and buffers in that order, so a *higher* key is drawn later and therefore
     // above — the count goes in as-is. (This is the opposite of what reads naturally, which is why
@@ -208,20 +222,22 @@ export function areaLayerLayout(
     // that knows the theme.
     'icon-image': pillImageId,
     'text-field': labelAndCount(),
-    // **The area band collides; the country band does not.** Neighbouring cities are a few pixels
-    // apart across this whole band — Ra'anana and Herzliya are 4.9 px apart at z7, under a pill
-    // ~125 px wide — so overlap-always drew them as one unreadable stack of text. Turning MapLibre's
-    // own placement back on is the whole fix: the loser is hidden until zooming in makes room, which
-    // it always does, because z8.5 ends the band. A country has no such recovery, which is why the
-    // two bands differ here.
-    'icon-allow-overlap': false,
-    'icon-ignore-placement': false,
-    'text-allow-overlap': false,
-    'text-ignore-placement': false,
-    // Placement is first-come-first-served in **ascending** sort-key order
-    // (`pauseable_placement.ts:45`), the opposite of the draw order `pillLayout` documents, so the
-    // key is negated: the area holding the most places is placed first and is the one that survives.
-    'symbol-sort-key': ['-', 0, ['get', 'count']],
+    // **Neither band collides any more, and for the area band that is a reversal.** It ran with
+    // MapLibre's placement on from 2026-08-30, because neighbouring cities are a few pixels apart
+    // across this whole band — Ra'anana and Herzliya are 4.9 px apart at z7 under a pill ~125 px
+    // wide — and overlap-always drew them as one unreadable stack of text. The comment here said
+    // the loser was "hidden until zooming in makes room, which it always does, because z8.5 ends
+    // the band". Measured on 2026-09-02 against the owner's own library: it does not. Tel Aviv and
+    // Herzliya first have room at z8.4, inside the window `settleZoom` keeps a camera out of, so
+    // seven of twelve areas were drawn at **no** zoom in the band and 18 saved places were neither
+    // visible nor counted anywhere on the map.
+    //
+    // `area-band-layout.ts` now decides that question by absorbing an area that does not fit into
+    // the neighbour that displaced it, and adding its places to that neighbour's count. The pills
+    // handed to this layer therefore do not overlap **by construction**, at any zoom in the step
+    // the layer draws — so there is no collision left for MapLibre to resolve, and nothing it can
+    // silently drop. The unreadable stack the flags were turned on for cannot occur either: it was
+    // overlapping pills, and there are none.
     // No `text-offset`: a capless pill's leading and trailing insets are equal, so it is already
     // centred on the area's own coordinate. See `CAPPED_PILL_CENTRING_EM`.
   };
@@ -247,6 +263,18 @@ export function summaryLayerPaint(tokens: DiscTokens): Record<string, unknown> {
  */
 export const COUNTRY_BAND_ZOOM = { maxzoom: COUNTRY_BAND_MAX } as const;
 export const AREA_BAND_ZOOM = { minzoom: AREA_BAND_MIN, maxzoom: AREA_BAND_MAX } as const;
+
+/**
+ * Which of `area-band-layout.ts`'s pre-computed layouts a layer draws.
+ *
+ * A **static** filter on a feature property, not a `['zoom']` comparison: the zoom stays where §2.1
+ * put it, in `minzoom`/`maxzoom`, where MapLibre owns the swap and no React state changes on a
+ * pinch. The area band is now four layers over one source instead of one, which is the same
+ * mechanism the three bands already use, one level down.
+ */
+export function areaStepFilter(step: number): unknown[] {
+  return ['==', ['get', 'step'], step];
+}
 
 /** The marker's tap target, in CSS pixels — the whole pill, height included. §6 floors it at 44. */
 export const SUMMARY_TAP_TARGET_PX = SUMMARY_PILL.height + 2 * SUMMARY_PILL.shadowPad;
