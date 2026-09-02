@@ -30,7 +30,9 @@ fail**, so `merge:pr` correctly refuses the PR:
 | `playwright` | ❌ | The job starts **no Supabase** and passes no env, so the dev server loops `Error: Your project's URL and Key are required to create a Supabase client!`. The now-wired `global-setup.ts` guard is doing exactly what it was written to do |
 | `migrations · RLS policy tests` | ❌ | `supabase/tests/0035_profile_names_policy_tests.sql:169` raises `FAIL P1a: no pre-0035 profiles at all, so the name-backfill assertion below would be vacuous` — on a clean CI rebuild that precondition **can never hold**. A test-design defect, not a policy defect |
 
-Neither is a product bug and both are small. **This is Lane 0 and it precedes every other lane.**
+Neither is a product bug and both are small. **This is Lane 0. Owner ruling 2026-09-02: it runs
+alongside the product work rather than ahead of it** — the feedback lanes are built and verified on
+this branch, and landing is a separate clock.
 
 **b. The local database is not the schema on disk.** 36 migration files (`0001`–`0037`, no `0027`);
 the local container's applied head is `0027`, and `0021`–`0023` plus `0028`–`0037` are **not
@@ -78,7 +80,16 @@ Dispatched as **vertical slices**, per `agent-guardrails.md` §8 rule 31 — one
 action, the control and the proof. Write scopes are pairwise disjoint **within a wave**; where two
 lanes want the same file they are sequenced instead of split.
 
-### Lane 0 — Land the work · `qa-reliability` + `devops-vercel` · **NOW, blocks all**
+### Lane 0 — Land the work · `qa-reliability` + `devops-vercel` · **runs alongside, blocks nothing**
+
+**Owner ruling, 2026-09-02: Lane 0 stays in the plan but does not gate the feedback lanes.** The
+product work happens on `no-crumbs-implementation` and is verified there, against the running app and
+the real local database. Landing is a separate concern with a separate clock; treating a red CI job
+as a reason not to fix a place card would trade four days of product work for a workflow file.
+
+What that costs, stated plainly so it is a choice and not an accident: the feedback fixes reach a
+user only when #109 merges, so Lane 0 still has to finish before 6 September — it just finishes in
+parallel, and it is the one lane that may be picked up and put down between the others.
 
 | Task | Detail |
 |---|---|
@@ -238,19 +249,35 @@ on an answer.
 ## 5. Sequencing
 
 ```
-Lane 0  ─────────────────────────────►  #109 green, merged, local DB at 0037
-                                        │
-        ┌───────────────────────────────┴─────────────────────────────┐
-Wave 1  │  A geography · B place card · C filter row · D map · E import · G collections
-        └───────────────────────────────┬─────────────────────────────┘
-                                        │  each lane commits its own scope
-Wave 2  ────────────────────────────────►  F mobile fit · the deck
+        ┌──────────────────────────────────────────────────────────────┐
+Wave 1  │  B place card · C filter row · D map · E import · G sources   │  ← starts now
+        │  A geography (adapter + presentation; backfill held)          │
+        └───────────────────────────────┬──────────────────────────────┘
+                                        │  orchestrator commits each scope as it lands
+Wave 2  ────────────────────────────────►  F mobile fit · A's backfill · the deck
+Lane 0  ────────────── alongside, whenever a lane is between waves ──────►  #109 green and merged
 Post-submission ────────────────────────►  §1.6/§11.1 unification · §1.1 map glyphs · §6.5 · §9.1 · §10.1
 ```
 
-Exclusive resources, held by exactly one lane each: **migration `0038` → Lane A**; the local
-database catch-up → **Lane 0, orchestrator only**; `place-sheet.tsx` + `saved-place-edits.tsx` →
-**Lane B for the whole wave**; provider quota → **no lane spends it without a ruling on §6.5**.
+**Wave 1 write scopes, pairwise disjoint:**
+
+| Lane | Owns, exclusively |
+|---|---|
+| A | `src/integrations/google/**`, `src/domain/places/**`, `src/ui/place/library-summary.ts`, `src/app/profile/_lib/**` |
+| B | `src/components/sheet/place-sheet.tsx`, `saved-place-edits.tsx`, `visit-state.tsx`, `place-desktop-panel.tsx`, `src/ui/place/location-certainty.ts` |
+| C | `src/components/sheet/category-filter-bar.tsx`, `src/ui/place/visit-state.ts` |
+| D | `src/components/map/**`, `src/app/map/map-page-client.tsx` |
+| E | `src/domain/extraction/**`, `src/domain/import/**`, `src/integrations/llm/prompt.ts`, `src/app/import/**`, `src/ui/import/**` |
+| G | `src/app/map/_lib/get-spots.ts`, `src/app/actions/**`, `src/components/collections/**` |
+
+Exclusive resources: **migration `0038` → Lane A, and A's backfill waits for wave 2** because the
+local container is behind the schema on disk and a backfill cannot be verified against the wrong
+schema; **the local database catch-up → orchestrator only, between waves** (world-stopping, and no
+lane may run `db:reset`, `supabase start|stop` or `npm install` while a peer is live); **provider
+quota → no lane spends it without a ruling on §6.5**.
+
+**Held pending an owner decision, and the lane proceeds without them:** D-T3 (fly-to on pin tap) and
+C-T2's chosen shape. Neither blocks the rest of its lane.
 
 ## 6. The bar for calling any of this done
 
