@@ -59,7 +59,7 @@
 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { Map as MapLibreMap } from 'maplibre-gl';
-import { Map as MapcnMap, MapControls, MapPopup } from '@/components/ui/map';
+import { Map as MapcnMap, MapControls, MapPopup, useMap } from '@/components/ui/map';
 import { PlaceDetail } from '@/components/sheet/place-sheet';
 import type { FocusBoundsRequest, LatLngBoundsHint, MapPlace, MapSurfaceProps } from './types';
 import { savedPlaceRef } from './saved-place-ref';
@@ -230,6 +230,30 @@ const COUNTRY_FLIGHT_MS = 600;
  * phone the margin is thin enough that a phantom 100 px is the difference. See `clampFitPadding`,
  * which is explicit that surviving the clamp is not the same as clearing the sheet.
  */
+/**
+ * **Clicking the map where nothing is dismisses the open place.**
+ *
+ * This is what `closeOnClick` used to do implicitly on the popup, and doing it here is what makes
+ * it correct: the pin layer's own click fires in the same dispatch, and the caller's `onDeselect`
+ * already ignores a click that selected something (`map-page-client.tsx`'s `pinTapInFlight`). So a
+ * pin tap selects, a bare-map click deselects, and re-tapping the selected pin keeps its card —
+ * three behaviours out of one listener rather than three special cases.
+ */
+function BackgroundDismiss({ onDeselect }: { onDeselect: () => void }) {
+  const { map } = useMap();
+
+  useEffect(() => {
+    if (!map) return;
+    const onClick = () => onDeselect();
+    map.on('click', onClick);
+    return () => {
+      map.off('click', onClick);
+    };
+  }, [map, onDeselect]);
+
+  return null;
+}
+
 function fitBoundsPadding(
   viewportWidth: number,
   containerWidth: number,
@@ -1525,6 +1549,7 @@ export function MapSurfaceMapcn({
           if (place && onPlaceClick) onPlaceClick(place);
         }}
       />
+      {onDeselect && <BackgroundDismiss onDeselect={onDeselect} />}
       {/* The lifted, named pin for whichever row the pointer is on. Mounted *after* the pin layer,
           which is what puts it above — MapLibre draws in the order layers are added, and the
           highlight has to be on top of the neighbour it overlaps. It answers no pointer events, so
@@ -1548,6 +1573,12 @@ export function MapSurfaceMapcn({
           key={selected.id}
           longitude={selected.lng}
           latitude={selected.lat}
+          // MapLibre's own `closeOnClick` removed this popup's DOM on *any* map click, including
+          // the click that selected a pin — so a tap read as select-then-dismiss, and re-tapping
+          // the pin already selected left the place selected with no card. Dismissal is explicit
+          // now, in `BackgroundDismiss`, which is the same event routed through the caller's guard
+          // instead of around it.
+          closeOnClick={false}
           onClose={() => onDeselect?.()}
           // `overflow-hidden` so the shell's own `rounded-md` clips what it contains — specifically
           // the source still, which is full-bleed here and would otherwise paint its square corners
