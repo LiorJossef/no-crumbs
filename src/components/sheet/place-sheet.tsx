@@ -2189,6 +2189,10 @@ export function PlaceDetail({
       {thumb && (
         <SourceMediaThumbnail
           thumb={thumb}
+          // The been mark belongs on the frame as well as in the row: the frame is the biggest
+          // thing on the card, and a state you have to read a caption line to learn is a state the
+          // screen is whispering. Owner, 2026-09-02: "add the been badge on the map list an frame."
+          visited={savedRow?.visited === true}
           // The popover's shell supplies the gutter and the radius; every other host gives this
           // column a 20 px gutter of its own and wants a rounded block inside it.
           fullBleed={isPopover}
@@ -2734,11 +2738,14 @@ function SourceMediaThumbnail({
   thumb,
   fullBleed = false,
   compact = false,
+  visited = false,
   onPlay,
   playLabel,
   player,
 }: {
   thumb: ThumbnailRef;
+  /** Whether this place carries the been mark. Drawn over the frame, in the one free corner. */
+  visited?: boolean;
   /**
    * Edge-to-edge and square-cornered, for a host that has no gutter of its own — the map popover,
    * whose shell supplies both the padding and the radius. Everywhere else the card has a 20 px
@@ -2775,6 +2782,13 @@ function SourceMediaThumbnail({
         fullBleed ? 'rounded-none' : 'rounded-lg',
       )}
     >
+      {/* **The leading-top corner, because every other corner is taken.** The play control sits at
+          `bottom-2 end-2` and a TikTok cover puts its subject centre-top, so this is the corner
+          that collides with nothing. `BeenBadge` unchanged — no variant, no second colour, no
+          scrim: `bg-accent` is a *solid* ground rather than an alpha, which is the same argument
+          the play button's own comment makes about being legible over an arbitrary photograph, and
+          `shadow-raised` is what lifts it off a bright frame. `start-`, not `left-`. */}
+      {visited && <BeenBadge className="absolute top-2 start-2 z-10 shadow-raised" />}
       {player ?? (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element -- same reason `RowMedia`'s carries
