@@ -27,7 +27,12 @@ import { devScreensEnabled, parseDevScreen } from '@/app/import/_lib/dev-screen'
 const HONOURED = [
   'rail',
   'review',
+  // The two H2 states. They exist because nobody had seen either on a screen: reaching them for
+  // real needs a second import of a video you have already saved from, which no harness can stage.
+  'review-added',
+  'review-added-one',
   'no-places',
+  'no-places-added',
   ...DOMAIN_ERROR_CODES.map((code) => `error-${code}`),
   ...PRE_SUBMIT_ERROR_CODES.map((code) => `redirect-${code}`),
 ];

@@ -155,7 +155,15 @@ export interface PriorSaveNotice {
   readonly names: readonly string[];
   /** `null` when every prior save is named in `names`. */
   readonly more: string | null;
-  readonly tail: string;
+  /**
+   * The sentence after the list, and `null` when there is nothing true left to say.
+   *
+   * Nullable since H2-T2. On the review screen the tail's job is to explain the unticked cards
+   * *below*; the no-places screen has no cards below, so a tail there could only either point at
+   * something that is not on the screen or restate the headline. Saying nothing is the honest
+   * option, and making it representable is cheaper than inventing a fourth sentence.
+   */
+  readonly tail: string | null;
 }
 
 /**
@@ -167,6 +175,34 @@ export function priorSaveNotice(
   saves: readonly PriorSave[],
   markedCount: number,
 ): PriorSaveNotice | null {
+  const shape = noticeShape(saves);
+  if (shape === null) return null;
+
+  return {
+    ...shape,
+    // Three endings, because there are three different true things to say. The first two describe
+    // the list below; the third refuses to, because nothing below matches — which is exactly what
+    // happens when the model re-spells a venue between prompt versions, and the person needs to
+    // know that before they add `Kiaans Tooting` beside their `Kiaans`.
+    tail:
+      markedCount === 0
+        ? 'Nothing found this time matches those names, so check before you add.'
+        : markedCount === 1
+          ? 'It’s not selected below. Select it to add it again.'
+          : 'They’re not selected below. Select one to add it again.',
+  };
+}
+
+/**
+ * The lead sentence and the list, which are identical on every screen that says this.
+ *
+ * One statement of the fact, two callers: the review screen adds a tail about the cards below it,
+ * the no-places screen has no cards and adds nothing. Written once because two spellings of "3
+ * places are already on your map from this TikTok video" would be two strings to keep true.
+ */
+function noticeShape(
+  saves: readonly PriorSave[],
+): Omit<PriorSaveNotice, 'tail'> | null {
   if (saves.length === 0) return null;
 
   const names = saves.slice(0, NAMES_SHOWN).map((s) => s.label);
@@ -179,17 +215,28 @@ export function priorSaveNotice(
         : `${saves.length} places are already on your map from this TikTok video:`,
     names,
     more: remaining > 0 ? `and ${remaining} more` : null,
-    // Three endings, because there are three different true things to say. The first two describe
-    // the list below; the third refuses to, because nothing below matches — which is exactly what
-    // happens when the model re-spells a venue between prompt versions, and the person needs to
-    // know that before they add `Kiaans Tooting` beside their `Kiaans`.
-    tail:
-      markedCount === 0
-        ? 'Nothing found this time matches those names, so check before you add.'
-        : markedCount === 1
-          ? 'It’s not selected below. Select it to add it again.'
-          : 'They’re not selected below. Select one to add it again.',
   };
+}
+
+/**
+ * The same notice for an import that found **nothing** — the modal outcome of this product, where
+ * it does the most work it will ever do (H2-T2).
+ *
+ * A re-import of a video you have already added lands on a screen headlined "No places in this
+ * one." with a caption panel under it and no explanation of why you have been here before. The
+ * fact that three of your places came from this exact video is the difference between a blank and
+ * an answer, and it is already on the probe response — nothing new is read to say it.
+ *
+ * **No tail, deliberately.** The review screen's three endings all describe the cards below the
+ * notice, and there are none here. "Nothing found this time matches those names" is the closest
+ * fit and it is wrong on this screen twice over: it implies something was found, on a screen whose
+ * headline says nothing was. The lead and the names are the whole statement.
+ */
+export function emptyImportPriorSaveNotice(
+  saves: readonly PriorSave[],
+): PriorSaveNotice | null {
+  const shape = noticeShape(saves);
+  return shape === null ? null : { ...shape, tail: null };
 }
 
 /** The mark on a card whose name is already on the map from this same video. */

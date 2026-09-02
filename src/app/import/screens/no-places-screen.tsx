@@ -108,6 +108,7 @@ import { PlatformMark } from '@/components/brand/platform-mark';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ENTER_REVEAL, ENTER_SCREEN, LEAVE_REVEAL, REVEAL_BEAT } from '@/lib/interaction';
+import { emptyImportPriorSaveNotice } from '@/domain/import/prior-saves';
 import { IMPORT_ERROR_ACTION_LABEL } from '@/ui/import/import-error-copy';
 
 import type { ProbeSuccess } from '../_lib/probe-contract';
@@ -202,6 +203,24 @@ export function NoPlacesScreen({
   const [captionOpen, setCaptionOpen] = useState(true);
 
   const { kicker, headline, body } = copyFor(probe.emptyReason ?? null, probe.cityHint ?? null);
+
+  /**
+   * What this person already added **from this same TikTok video** (H2-T2).
+   *
+   * This screen is the modal outcome of the product, and a re-paste of a video someone has already
+   * added lands here with `No places in this one.` and no account of why they have been here
+   * before. `priorSaves` already rides the probe response for the review screen, so this is the
+   * same fact reaching the screen that most needs it — no extra read, no new notion of sameness.
+   *
+   * `emptyImportPriorSaveNotice` rather than the review screen's `priorSaveNotice`: all three of
+   * that one's endings describe the cards below the notice, and this screen has none. Its lead and
+   * its list are the whole statement here.
+   *
+   * **It is not a correction and not a warning.** The headline stays true — we read this caption
+   * and it names no place. This says the person's earlier reading of the same video is on their
+   * map, which is the difference between a blank and an answer.
+   */
+  const priorNotice = emptyImportPriorSaveNotice(probe.priorSaves ?? []);
 
   /**
    * The arrival is announced by the focus move, not by a live region (§8.2).
@@ -380,6 +399,39 @@ export function NoPlacesScreen({
           )}
         >
           {probe.caption}
+        </div>
+      )}
+
+      {/*
+        Under the caption panel, and that placement is the argument for it: the claim is the
+        headline, the caption is the evidence for it, and this is the third thing that is true —
+        read in that order it explains the screen instead of contradicting it.
+
+        **Type, not a panel.** §4.4's sentence is "type, one hairline, one field and one caption
+        panel", and the review screen's bordered warning box would break it and mis-colour the
+        news besides: nothing here went wrong, and a place already being on your map is the one
+        piece of good news this screen has. Names are `<bdi>` and the sentence arrives in parts for
+        the same reason they do next door — half of them are Hebrew, and a joined string lets the
+        bidi algorithm move the comma.
+      */}
+      {priorNotice && (
+        <div className={cn('pt-3', ENTER_REVEAL)}>
+          <p className="text-caption font-medium text-muted-foreground">{priorNotice.lead}</p>
+          {/* One name per line, and no comma anywhere. The review screen sets the same names in a
+              comma-separated run and needs `<bdi>` around each to stop the bidi algorithm moving
+              the punctuation; giving each its own line removes the punctuation instead, which is
+              the stronger fix on the screen that shows the longest Hebrew in the product (§7.3).
+              `<bdi>` stays regardless — a Hebrew name still sits inside LTR chrome. */}
+          <ul className="flex flex-col">
+            {priorNotice.names.map((name, i) => (
+              <li key={name + String(i)} className="text-caption font-bold text-foreground">
+                <bdi>{name}</bdi>
+              </li>
+            ))}
+            {priorNotice.more !== null && (
+              <li className="text-caption font-medium text-muted-foreground">{priorNotice.more}</li>
+            )}
+          </ul>
         </div>
       )}
 

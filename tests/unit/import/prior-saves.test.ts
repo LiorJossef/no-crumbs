@@ -40,6 +40,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ALREADY_ADDED_LINE,
   alreadyAddedFromSource,
+  emptyImportPriorSaveNotice,
   priorSaveKeys,
   priorSaveNotice,
   type PriorSave,
@@ -143,9 +144,13 @@ describe('the notice the screen leads with', () => {
 describe('the strings pass `docs/voice-and-vocabulary.md`', () => {
   const strings = [
     ALREADY_ADDED_LINE,
-    ...[priorSaveNotice(RAGATZI, 1)!, priorSaveNotice(LONDON, 5)!, priorSaveNotice(LONDON, 0)!].flatMap(
-      (n) => [n.lead, n.tail, n.more ?? ''],
-    ),
+    ...[
+      priorSaveNotice(RAGATZI, 1)!,
+      priorSaveNotice(LONDON, 5)!,
+      priorSaveNotice(LONDON, 0)!,
+      emptyImportPriorSaveNotice(RAGATZI)!,
+      emptyImportPriorSaveNotice(LONDON)!,
+    ].flatMap((n) => [n.lead, n.tail ?? '', n.more ?? '']),
   ];
 
   it('never says import, ingest, spot, venue, POI, or the banned machinery words', () => {
@@ -169,6 +174,67 @@ describe('the strings pass `docs/voice-and-vocabulary.md`', () => {
     expect(lead).toContain('TikTok video');
     expect(lead).not.toMatch(/TikTok(?!\s+video)/);
     expect(ALREADY_ADDED_LINE).toBe('Already added from this video');
+  });
+});
+
+/**
+ * H2-T2 — the same fact on the screen ~73% of imports land on.
+ *
+ * A re-paste of a video someone has already added lands on `No places in this one.` with no
+ * account of why they have been here before. `priorSaves` is already on the probe response, so
+ * this is wiring rather than new data.
+ */
+describe('the notice on the no-places screen', () => {
+  it('says nothing when this video has never been added from — the common path', () => {
+    expect(emptyImportPriorSaveNotice([])).toBeNull();
+  });
+
+  it('is the same lead and the same list as the review screen’s, to the character', () => {
+    // One fact, one spelling. If these ever drift, two screens are describing the same rows in two
+    // different sentences and one of them is going to be updated without the other.
+    for (const saves of [RAGATZI, LONDON]) {
+      const empty = emptyImportPriorSaveNotice(saves)!;
+      const review = priorSaveNotice(saves, 0)!;
+      expect(empty.lead).toBe(review.lead);
+      expect(empty.names).toEqual(review.names);
+      expect(empty.more).toBe(review.more);
+    }
+  });
+
+  it('turns the blank into an explanation, counting rather than listing eighteen names', () => {
+    const notice = emptyImportPriorSaveNotice(LONDON)!;
+    expect(notice.lead).toBe('5 places are already on your map from this TikTok video:');
+    expect(notice.names).toEqual(['Kiaans', 'La Nonna Brixton', 'The Laughing Yak']);
+    expect(notice.more).toBe('and 2 more');
+  });
+
+  it('has no tail, because every one of the review screen’s three endings would be false here', () => {
+    /*
+     * The two "not selected below" endings point at cards, and this screen has none. The third —
+     * `Nothing found this time matches those names` — implies something *was* found, on a screen
+     * whose headline is `No places in this one.`. There is no fourth true sentence, so the notice
+     * stops after the list rather than inventing one.
+     */
+    expect(emptyImportPriorSaveNotice(RAGATZI)!.tail).toBeNull();
+    expect(emptyImportPriorSaveNotice(LONDON)!.tail).toBeNull();
+  });
+
+  it('is wired into the screen as type rather than as the review screen’s warning panel', () => {
+    const SCREEN = readFileSync('src/app/import/screens/no-places-screen.tsx', 'utf8');
+    const CODE = SCREEN.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    expect(CODE).toContain('emptyImportPriorSaveNotice(probe.priorSaves ?? [])');
+    // §4.4: type, one hairline, one field, one caption panel. A bordered box would break that
+    // sentence, and warning colour would mis-describe news that is not a warning.
+    expect(CODE).not.toContain('border-warning');
+    expect(CODE).not.toContain('bg-warning');
+    // §8.2: the arrival is announced by the focus move. A live region here would announce this
+    // after the headline as if it were a second, competing claim.
+    expect(CODE).not.toContain('role="status"');
+    // Half of these names are Hebrew and they sit in an English comma-separated sentence.
+    // One name per line rather than a comma-separated run: the punctuation a bidi algorithm can
+    // move is simply not there, on the screen that shows the most Hebrew in the product.
+    expect(CODE).toContain('<bdi>{name}</bdi>');
+    expect(CODE).not.toContain("{i > 0 && ', '}");
   });
 });
 

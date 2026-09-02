@@ -42,6 +42,10 @@
  * /import?state=no-places                  case B, the modal arrival
  * /import?state=no-places-a                case A, no caption at all
  * /import?state=no-places-c                case C, an area but no venue
+ * /import?state=review-added               every place on it already added from this video (H2-T1)
+ * /import?state=review-added-one           the same, on the one-candidate post the 2026-08-29
+ *                                          ruling was actually about — which also collapses
+ * /import?state=no-places-added            case B on a video already added from (H2-T2)
  * /import?state=error-POST_UNAVAILABLE      any DomainErrorCode
  * /import?state=redirect-UNSUPPORTED_HOST   any PreSubmitErrorCode
  * ```
@@ -174,6 +178,30 @@ const DEV_PROBE: ProbeSuccess = {
   ],
 };
 
+/**
+ * The two H2 states, which are the ones nobody had seen on a screen.
+ *
+ * Lane H's report said so outright: its notice, its card mark and the button state they produce
+ * were asserted in source-text tests and never looked at. Reaching either one for real needs a
+ * second import of a video you have already saved from, which the harness cannot stage — so the
+ * fixture stages it instead, and one of the three names is Hebrew because half of this product's
+ * place names are and the notice sets them in a comma-separated English sentence.
+ *
+ * `priorSaves` names all three candidates, so every card is marked and the review screen's primary
+ * becomes the way back to the map rather than a dead `Select a place to save`.
+ */
+const ALREADY_ADDED_CANDIDATES: readonly ProbeCandidate[] = [
+  DEV_PROBE.candidates[0]!,
+  candidate({ rawName: 'רגאצי', cityHint: 'רעננה' }),
+  DEV_PROBE.candidates[2]!,
+];
+
+const DEV_PRIOR_SAVES = [
+  { placeName: 'HaKosem', label: 'HaKosem' },
+  { placeName: 'רגאצי', label: 'רגאצי' },
+  { placeName: 'Miznon', label: 'Miznon' },
+];
+
 function isDomainErrorCode(value: string): value is DomainErrorCode {
   return (DOMAIN_ERROR_CODES as readonly string[]).includes(value);
 }
@@ -209,9 +237,37 @@ export function parseDevScreen(raw: string | null | undefined): Screen | null {
     };
   }
   if (raw === 'review') return { kind: 'caption_preview', probe: DEV_PROBE };
+  // H2-T1. Every candidate already on the map from this same video, so nothing arrives ticked and
+  // the screen must say something true about why.
+  if (raw === 'review-added') {
+    return {
+      kind: 'caption_preview',
+      probe: { ...DEV_PROBE, candidates: ALREADY_ADDED_CANDIDATES, priorSaves: DEV_PRIOR_SAVES },
+    };
+  }
   // Case B, the modal arrival. `no-places-a` and `no-places-c` are the other two honest cases —
   // three screens, because they are three different true statements and the gate judges each.
   if (raw === 'no-places') return { kind: 'no_places', probe: { ...DEV_PROBE, emptyReason: 'nothing_named' } };
+  // The single-candidate re-paste, which is the exact shape the owner rejected a global duplicate
+  // check for on 2026-08-29: one place, already saved, nothing to do and no explanation. It also
+  // takes the *collapsed* layout, which has no checkbox on it at all.
+  if (raw === 'review-added-one') {
+    return {
+      kind: 'caption_preview',
+      probe: {
+        ...DEV_PROBE,
+        candidates: [DEV_PROBE.candidates[0]!],
+        priorSaves: [DEV_PRIOR_SAVES[0]!],
+      },
+    };
+  }
+  // H2-T2. The modal outcome, on a video this person has already added three places from.
+  if (raw === 'no-places-added') {
+    return {
+      kind: 'no_places',
+      probe: { ...DEV_PROBE, emptyReason: 'nothing_named', priorSaves: DEV_PRIOR_SAVES },
+    };
+  }
   if (raw === 'no-places-a') {
     return { kind: 'no_places', probe: { ...DEV_PROBE, caption: null, emptyReason: 'no_caption' } };
   }
