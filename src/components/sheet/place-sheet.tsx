@@ -62,6 +62,7 @@ import { PRESS_BEAT, PRESS_BUTTON, PRESS_ROW } from '@/lib/interaction';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { isSearchActive } from '@/domain/places/search';
+import { tagKey } from '@/domain/extraction/tags';
 import { tagFacets, type TagFacet } from '@/ui/place/tag-filter';
 import {
   BeenToggle,
@@ -151,6 +152,9 @@ export interface PlaceSheetProps {
   /** The area the list is showing. Not rendered — it is what the scroll reset and the heading's
    *  crossfade key on, both of which mark the one legitimate change of scope. */
   readonly activeAreaId: string | null;
+  /** **The whole library, unfiltered**, so the tag list's rows and their order cannot move while
+   *  you filter. Only the counts beside them are live. See `useLibraryTagFacets`. */
+  readonly libraryPlaces?: readonly MapPlace[];
   /** Nothing saved, ever — a different screen, not a different string. */
   readonly libraryIsEmpty: boolean;
   /** Anything in the **whole library** is marked been. The `Not been yet` chip's precondition, and
@@ -216,6 +220,7 @@ export function PlaceSheet({
   heading,
   otherPlaces,
   activeAreaId,
+  libraryPlaces,
   libraryIsEmpty,
   libraryHasVisited,
   query,
@@ -300,6 +305,7 @@ export function PlaceSheet({
       heading={heading}
       otherPlaces={otherPlaces}
       activeAreaId={activeAreaId}
+      {...(libraryPlaces === undefined ? {} : { libraryPlaces })}
       libraryIsEmpty={libraryIsEmpty}
       libraryHasVisited={libraryHasVisited}
       query={query}
@@ -336,6 +342,7 @@ function PlaceList({
   heading,
   otherPlaces,
   activeAreaId,
+  libraryPlaces,
   libraryIsEmpty,
   libraryHasVisited,
   query,
@@ -363,6 +370,7 @@ function PlaceList({
   heading: AreaHeading;
   otherPlaces: readonly MapPlace[];
   activeAreaId: string | null;
+  libraryPlaces?: readonly MapPlace[];
   libraryIsEmpty: boolean;
   libraryHasVisited: boolean;
   query: string;
@@ -415,7 +423,7 @@ function PlaceList({
   // An empty library is a different screen, not a different count.
   const headingText = libraryIsEmpty ? EMPTY_LIBRARY_HEADING : heading.text;
 
-  const facets = useLibraryTagFacets(places, otherPlaces, activeTags);
+  const facets = useLibraryTagFacets(places, otherPlaces, activeTags, libraryPlaces);
 
   /** Nothing at all to show — the scope's places *and* the continuation under `Everywhere else`
    *  are both empty, which is the only state in which a filter's own empty line is the truth. */
@@ -766,18 +774,50 @@ export function useLibraryTagFacets(
   places: readonly MapPlace[],
   otherPlaces: readonly MapPlace[],
   activeTags: readonly string[],
+  /**
+   * The **whole** library, unfiltered. What it buys is the one thing the owner asked for:
+   * *"we should not remove the tags from the list, its weird behavior that it changes places
+   * everytime."*
+   *
+   * Which rows exist and what order they are in is computed from this and nothing else, so it
+   * cannot move while you filter; only the numbers beside them are live. Absent, the list falls
+   * back to the filtered set, which is the old behaviour and the reason it moved.
+   */
+  libraryPlaces?: readonly MapPlace[],
 ): readonly TagFacet[] {
-  return useMemo(
+  const tagsOf = (place: MapPlace) => enrichmentOf(place.detail).tags;
+  const matching = useMemo(() => [...places, ...otherPlaces], [places, otherPlaces]);
+
+  // The vocabulary and its order: every tag in the library, most-used-in-the-library first.
+  //
+  // **Why the library's counts and not the alphabet.** Both are stable under filtering, which is
+  // the whole requirement; most-used-first is the more useful of the two for aiming at a list you
+  // scan rather than read, and it is the order this list has always had. Alphabetical would also
+  // have to answer which alphabet — half these tags are Hebrew, and `tag-filter.ts` records why a
+  // locale-aware comparison is a non-deterministic bar. This order changes only when the library
+  // itself changes, which is a thing the user did.
+  const vocabulary = useMemo(
     () =>
-      tagFacets(
-        [...places, ...otherPlaces],
-        (place) => enrichmentOf(place.detail).tags,
-        activeTags,
-        Number.POSITIVE_INFINITY,
-        1,
-      ),
-    [places, otherPlaces, activeTags],
+      libraryPlaces === undefined
+        ? null
+        : tagFacets(libraryPlaces, tagsOf, activeTags, Number.POSITIVE_INFINITY, 1),
+    [libraryPlaces, activeTags],
   );
+
+  const live = useMemo(
+    () => tagFacets(matching, tagsOf, activeTags, Number.POSITIVE_INFINITY, 1),
+    [matching, activeTags],
+  );
+
+  return useMemo(() => {
+    if (vocabulary === null) return live;
+    const counts = new Map(live.map((facet) => [tagKey(facet.tag), facet.count]));
+    // **A tag that currently matches nothing keeps its row and reads `0`.** Dropping it is the
+    // behaviour being complained about: a row that vanishes as you narrow is a row you cannot aim
+    // at, and the tag is still in the library — the filter is what is hiding it, and the way back
+    // is `Clear`, one row up.
+    return vocabulary.map((facet) => ({ ...facet, count: counts.get(tagKey(facet.tag)) ?? 0 }));
+  }, [vocabulary, live]);
 }
 
 /**

@@ -377,7 +377,12 @@ export function LibraryFilterBar({
   const group = useMemo(() => ({ open: openPanel, setOpen: setOpenPanel }), [openPanel]);
   // One category is not a choice: every place is a restaurant, so a `Restaurant 12` row is a
   // control whose selected and unselected states show the same twelve places.
-  const showCategories = facets.length > 1;
+  //
+  // The second clause is the same rule the visit axis already states, and it matters for the same
+  // reason: a filter combination that narrows the library to one category — or to none — would
+  // otherwise delete the control that undoes the filter now hiding everything else. A control that
+  // disappears when you use it is the defect this whole header refuses.
+  const showCategories = facets.length > 1 || activeCategory !== null;
   const showVisit = anyVisited || visitFilter !== 'all';
   const showTags = tagFacets.length > 0 || activeTags.length > 0;
   const anythingActive = activeCategory !== null || visitFilter !== 'all' || activeTags.length > 0;
@@ -1082,9 +1087,6 @@ function TagsAxis({
                 count={byTag.get(tag)?.count ?? 0}
                 selected={isTagActive(activeTags, tag)}
               >
-                {/* **A check only when checked** — owner, 2026-09-02. The column is kept mounted so
-                    the labels do not shift sideways the moment one is ticked, but nothing is drawn
-                    in an unchecked row: reserved space, not an empty box. */}
                 {/* **A check only when checked**, which is the one thing the owner asked for by
                     name. `keepMounted` with `data-[unchecked]:invisible` — the menu's idiom — put a
                     check on *every* tag row: the combobox's attribute is `data-selected`

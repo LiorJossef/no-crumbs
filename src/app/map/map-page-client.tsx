@@ -1494,6 +1494,9 @@ export function MapPageClient({
                       heading={heading}
                       otherPlaces={otherPlaces}
                       activeAreaId={activeAreaId}
+                      // The whole library, so the tag list's rows and their order hold still
+                      // while the user filters — `useLibraryTagFacets` carries the argument.
+                      libraryPlaces={places}
                       libraryIsEmpty={places.length === 0}
                       libraryHasVisited={libraryHasVisited}
                       query={query}
@@ -1538,6 +1541,9 @@ export function MapPageClient({
                       heading={heading}
                       otherPlaces={otherPlaces}
                       activeAreaId={activeAreaId}
+                      // The whole library, so the tag list's rows and their order hold still
+                      // while the user filters — `useLibraryTagFacets` carries the argument.
+                      libraryPlaces={places}
                       libraryIsEmpty={places.length === 0}
                       libraryHasVisited={libraryHasVisited}
                       query={query}

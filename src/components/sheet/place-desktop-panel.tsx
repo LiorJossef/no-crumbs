@@ -58,6 +58,9 @@ export interface PlaceDesktopPanelProps {
    *  two surfaces cannot disagree about what is outside the scope. */
   readonly otherPlaces: readonly MapPlace[];
   readonly activeAreaId: string | null;
+  /** **The whole library, unfiltered**, so the tag list's rows and their order cannot move while
+   *  you filter. Only the counts beside them are live. See `useLibraryTagFacets`. */
+  readonly libraryPlaces?: readonly MapPlace[];
   readonly libraryIsEmpty: boolean;
   /** See `PlaceSheetProps` — library-wide, because the chip filters the map as well as this list. */
   readonly libraryHasVisited: boolean;
@@ -108,6 +111,7 @@ export function PlaceDesktopPanel({
   heading,
   otherPlaces,
   activeAreaId,
+  libraryPlaces,
   libraryIsEmpty,
   libraryHasVisited,
   query,
@@ -147,7 +151,7 @@ export function PlaceDesktopPanel({
 
   /** The identical computation the sheet does, through the identical hook — see
    *  `useLibraryTagFacets` for why it is a hook rather than four lines in each host. */
-  const tagFacets = useLibraryTagFacets(places, otherPlaces, activeTags);
+  const tagFacets = useLibraryTagFacets(places, otherPlaces, activeTags, libraryPlaces);
 
   /** The same scroll reset the sheet does, for the same reason and with the same timing — see
    *  `PlaceList`. A panel is shorter than a sheet at `full` but the arithmetic is identical. */
