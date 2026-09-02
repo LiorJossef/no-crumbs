@@ -73,6 +73,27 @@ import { boundsCentre, withinBounds, type ViewportBounds } from './viewport';
 export const UNNAMED_AREA_LABEL = 'this area';
 
 /**
+ * **The heading when the filters match nothing anywhere** — and it deliberately says nothing about
+ * that.
+ *
+ * Owner ruling, 2026-09-02, twice and emphatically. It replaces `Nothing tagged "Asian +
+ * Desserts"`, which was the *same fact* the list itself now states, said a control row earlier: the
+ * list carries `NO_FILTER_MATCHES_LINE` with the button that undoes it, where the reader's eye
+ * already is. A header that repeats it is one sentence too many, and it was the half the owner
+ * objected to.
+ *
+ * So the header goes back to its actual job — naming what you are looking at. `Your places` is true
+ * under every filter combination, needs no per-axis wording, and cannot go stale when a fourth axis
+ * is added. It carries no count, because the only count it could carry is zero and a bare zero in a
+ * heading is the state this whole family exists to avoid.
+ *
+ * The two headings that survive beside it are the two that say something the generic line cannot:
+ * `Nothing matches "momos"` quotes what the reader typed and owns the `Clear search` control, and
+ * `ALL_BEEN_HEADING` reports an achievement rather than a failed query.
+ */
+export const LIBRARY_HEADING = 'Your places';
+
+/**
  * The heading when the `Not been yet` filter has nothing left to show.
  *
  * A completed library is an achievement, not an error, so this is written as one — and it never
@@ -402,7 +423,16 @@ export interface AreaHeading {
  * `3 matches in London` · `1 match in London` · `3 matches in this area`
  * `No matches in London` — the filters match somewhere, just not here; the rows below say where.
  * `Nothing matches "momos"` — the search matches nowhere in the library. Offers `Clear search`.
- * `Nothing tagged "Momos"` — the chip matches nowhere. Its pill above is the way out.
+ * `Your places` — the filters match nowhere. The *list* explains that, with the button that undoes
+ *   it; see `LIBRARY_HEADING`. This is the branch `Nothing tagged "Momos"` used to hold.
+ *
+ * **The nowhere branch is no longer gated on `filtering`**, and that is a fix rather than a
+ * widening. A category or a `Been there` filter matching nothing anywhere reaches this function as
+ * no search, no tag and `notBeenOnly === false` — indistinguishable from no filters at all — so it
+ * fell through to `No matches in <where>`, a failure sentence in the header for two of the four
+ * axes. `matchesAnywhere === 0 && countInArea === 0` is the honest test: nothing is listed here and
+ * nothing is listed anywhere, whatever emptied it. An empty *library* lands here too and is
+ * unaffected: both hosts override the heading with `EMPTY_LIBRARY_HEADING` before it is drawn.
  *
  * `Nothing saved in this area` is **gone**, and cannot recur: an area is defined by the places in
  * it, so an unfiltered area always has at least one. That deletes the state `Show my places`
@@ -441,14 +471,14 @@ export function areaHeading(input: {
   /** The visit filter, alone. The only case that earns its own vocabulary — see the header. */
   const visitOnly = notBeenOnly && searchQuery === '' && tagLabel === null;
 
-  if (filtering && matchesAnywhere === 0) {
-    // Search wins the sentence when both are on: it is the thing the user typed, and the tag's own
-    // pill is on screen immediately above with its own clear control.
+  if (matchesAnywhere === 0 && countInArea === 0) {
+    // Search wins the sentence when both are on: it is the thing the user typed, and it is the one
+    // state with a control of its own up here.
     const text = visitOnly
       ? ALL_BEEN_HEADING
       : searchQuery !== ''
         ? `Nothing matches "${searchQuery}"`
-        : `Nothing tagged "${tagLabel ?? ''}"`;
+        : LIBRARY_HEADING;
     return {
       text,
       count: null,

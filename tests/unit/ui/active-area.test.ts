@@ -21,6 +21,7 @@ import {
   areaRowCountText,
   buildAreas,
   dominantArea,
+  LIBRARY_HEADING,
   mapAccessibleName,
   resolveArea,
   UNNAMED_AREA_LABEL,
@@ -384,14 +385,37 @@ describe('areaHeading', () => {
     expect(heading.escape).toBe('clear-search');
   });
 
-  it('names the tag when the chip is what matched nothing, and leaves its pill to clear it', () => {
+  /**
+   * Owner ruling, 2026-09-02: the heading names the library, the *list* says the filters matched
+   * nothing. `Nothing tagged "Momos"` said in the header what `NO_FILTER_MATCHES_LINE` now says a
+   * control row lower, beside the button that undoes it — the same fact twice, and the header half
+   * is the one the owner objected to.
+   */
+  it('names the library, not the failure, when a tag matched nothing', () => {
     const heading = areaHeading({
       ...base,
       countInArea: 0,
       tagLabel: 'Momos',
       matchesAnywhere: 0,
     });
-    expect(heading.text).toBe('Nothing tagged "Momos"');
+    expect(heading.text).toBe(LIBRARY_HEADING);
+    expect(heading.text).not.toContain('Momos');
+    expect(heading.empty).toBe(true);
+    expect(heading.escape).toBeNull();
+    // No second sentence up here either: the list carries the explanation and the way out.
+    expect(heading.note).toBeNull();
+  });
+
+  /**
+   * The axes `areaHeading` cannot see. A category chip and `Been there` arrive as no search, no
+   * tag and `notBeenOnly === false` — identical to no filters at all — so before this they fell
+   * through to `No matches in London`, which is a failure sentence in the header for two of the
+   * four filter axes. `matchesAnywhere === 0 && countInArea === 0` catches all four.
+   */
+  it('says the same thing for a filter axis it cannot name', () => {
+    const heading = areaHeading({ ...base, countInArea: 0, matchesAnywhere: 0 });
+    expect(heading.text).toBe(LIBRARY_HEADING);
+    expect(heading.empty).toBe(true);
     expect(heading.escape).toBeNull();
   });
 
