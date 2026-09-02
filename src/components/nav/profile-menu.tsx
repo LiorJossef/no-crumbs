@@ -261,19 +261,51 @@ export function ProfileMenu({
         <Popover.Positioner
           side={side}
           align={align}
-          sideOffset={8}
+          /*
+           * Round-3 feedback §7.3, *"the profile popover feels awkward on mobile"*, measured at
+           * 390×844: with a flat `8` the popup's bottom edge came to rest at **y 775 against a bar
+           * whose top is 776** — one pixel. The offset is measured from the *trigger*, and the
+           * bar's tab sits 6 px inside a pill that is itself 6 px inside the bar's box, so eight
+           * pixels of anchor offset buys one pixel of visible separation and the menu reads as
+           * something growing out of the bar rather than floating above it.
+           *
+           * Only the `top` side has that problem. The `lg+` chip opens `bottom` from a control
+           * with nothing under it, where 8 is right and always has been.
+           */
+          sideOffset={side === 'top' ? 20 : 8}
           // Keeps the popup off the safe-area edges on a phone, where it is nearly viewport-wide.
           collisionPadding={12}
           className="z-50"
         >
           <Popover.Popup
             className={cn(
-              // `min(20rem, …)` rather than a fixed width: at 320 px the popup would touch both
-              // edges of a 360 px phone, and `Appearance`'s three segments need every pixel of the
-              // rest. `--available-height` is Base UI's own measurement of the room between the
-              // anchor and the viewport edge, so the menu scrolls rather than overflowing when the
-              // delete flow expands into its blocked branch.
-              'flex w-[min(20rem,calc(100vw-1.5rem))] max-h-[min(32rem,var(--available-height))] flex-col overflow-y-auto overscroll-contain',
+              /*
+               * **Viewport-width below `lg`, 20 rem above it — round-3 feedback §7.3.**
+               *
+               * The old `min(20rem, calc(100vw - 1.5rem))` resolved to a flat 320 px on a 390 px
+               * phone, and 320 px is the size at which *where* the card sits starts to matter. It
+               * is anchored `align="end"` on the bar's `Profile` tab, whose right edge is at
+               * x 312, so it wanted x −8…312 and the collision boundary pushed it to **12…332 —
+               * a 12 px gutter on the left and 58 px on the right**. Nothing was clipped and
+               * nothing overlapped; it just sat visibly off-centre over a symmetrical bar, which
+               * is what "awkward" turned out to mean when it was measured.
+               *
+               * Alignment is the wrong lever for it: `center` on the same anchor only mirrors the
+               * lopsidedness (58 left, 12 right), because the trigger is not in the middle of the
+               * screen and no `align` value can put a 320 px card there. Width is the lever — at
+               * `100vw − 1.5rem` both edges are decided by `collisionPadding` instead of by the
+               * anchor, so the card is symmetric by construction on every phone width.
+               *
+               * It stays a *compact popover*, which §12.2 says the owner likes and which this is
+               * not allowed to trade away: same card, same radius, same scrim, same height. It
+               * gains 46 px of width, which goes to `Appearance`'s three segments (92 px → 107 px
+               * each, measured).
+               *
+               * `--available-height` is Base UI's own measurement of the room between the anchor
+               * and the viewport edge, so the menu scrolls rather than overflowing when the delete
+               * flow expands into its blocked branch.
+               */
+              'flex w-[calc(100vw-1.5rem)] max-h-[min(32rem,var(--available-height))] flex-col overflow-y-auto overscroll-contain lg:w-80',
               'rounded-2xl border border-border/70 bg-card p-3 shadow-[var(--shadow-elevated)] outline-none',
               ENTER_POPOVER,
             )}
