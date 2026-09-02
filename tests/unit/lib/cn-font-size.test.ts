@@ -53,8 +53,8 @@ describe('cn keeps custom font sizes apart from text colours', () => {
     const css = readFileSync('src/app/globals.css', 'utf8');
     const declared = new Set(
       [...css.matchAll(/--text-([a-z][a-z0-9-]*)\s*:/g)]
-        .map((m) => m[1])
-        .filter((name) => !name.endsWith('--line-height')),
+        .map((m) => m[1] ?? '')
+        .filter((name) => name !== '' && !name.endsWith('--line-height')),
     );
     expect(declared.size).toBeGreaterThan(0);
     for (const token of declared) {

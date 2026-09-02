@@ -19,7 +19,7 @@
  * so the map underneath (and the floating account chip above it) stay reachable everywhere else.
  */
 
-import { useLayoutEffect, useRef } from 'react';
+import { useLayoutEffect, useMemo, useRef } from 'react';
 import { PlatformMark } from '@/components/brand/platform-mark';
 import { Button } from '@/components/ui/button';
 import {
@@ -33,6 +33,14 @@ import {
   useLibraryTagFacets,
 } from './place-sheet';
 import { DEFAULT_PLACE_ORDER, type PlaceOrder } from './place-order';
+import {
+  BulkDeleteControl,
+  BulkDeleteNotice,
+  EnterSelectionButton,
+  SelectablePlaceRow,
+  SelectionToolbar,
+  useLibrarySelection,
+} from './library-selection';
 import { ActiveTagFilter } from './place-enrichment';
 import { LibraryFilterBar } from './library-filter-bar';
 import { NO_BEEN_PLACES_LINE, type VisitFilter } from '@/ui/place/visit-state';
@@ -123,6 +131,20 @@ export function PlaceDesktopPanel({
 }: PlaceDesktopPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  /** The identical selection the sheet runs, through the identical hook and over the identical
+   *  pair of arrays — see `PlaceList`. The sheet and this panel are two presentations of one
+   *  library, and a bulk delete that behaved differently at 1440 than at 390 would be a second
+   *  product with the same rows in it. */
+  const selectableIds = useMemo(
+    () =>
+      [...places, ...otherPlaces].flatMap((place) =>
+        place.savedPlaceId === undefined ? [] : [place.savedPlaceId],
+      ),
+    [places, otherPlaces],
+  );
+  const selection = useLibrarySelection(selectableIds);
+  const selecting = selection.selecting;
+
   /** The identical computation the sheet does, through the identical hook — see
    *  `useLibraryTagFacets` for why it is a hook rather than four lines in each host. */
   const tagFacets = useLibraryTagFacets(places, otherPlaces, activeTags);
@@ -150,14 +172,33 @@ export function PlaceDesktopPanel({
               the thing that just changed still has to be findable. Opacity is unconditional, the
               4 px rise is `motion-safe:`, and `duration-enter` is the token `duration-140` was a
               second way of saying. */}
-        <h1
-          key={activeAreaId ?? 'no-area'}
-          className="animate-in fade-in-0 duration-enter motion-safe:slide-in-from-bottom-1 font-heading text-2xl font-extrabold tracking-tight text-foreground outline-none"
-        >
-          {libraryIsEmpty ? EMPTY_LIBRARY_HEADING : heading.text}
-        </h1>
+        {/* The heading and the `Select` trigger share one line here too, so the two surfaces enter
+            selection the same way. */}
+        <div className="flex items-center gap-2">
+          <h1
+            key={activeAreaId ?? 'no-area'}
+            className="min-w-0 flex-1 animate-in fade-in-0 duration-enter motion-safe:slide-in-from-bottom-1 font-heading text-2xl font-extrabold tracking-tight text-foreground outline-none"
+          >
+            {libraryIsEmpty ? EMPTY_LIBRARY_HEADING : heading.text}
+          </h1>
+          {!libraryIsEmpty && !selecting && selectableIds.length > 0 && (
+            <EnterSelectionButton onEnter={selection.enter} />
+          )}
+        </div>
         {libraryIsEmpty && <EmptyLibraryLine />}
-        <Button
+        {/* Replaced while picking, for the reason `PlaceList` states: two ways of narrowing a list
+            you are counting is a way to lose track of what is counted. `Add a TikTok link` goes with
+            them — a primary action that starts a different task has no business under a selection
+            toolbar. */}
+        {selecting ? (
+          <>
+            <SelectionToolbar selection={selection} />
+            <BulkDeleteControl selection={selection} />
+          </>
+        ) : (
+          <BulkDeleteNotice notice={selection.notice} />
+        )}
+        {!selecting && <Button
           type="button"
           className="h-12 w-full gap-2 rounded-lg text-sm font-bold"
           onClick={() => onAddTikTok()}
@@ -166,7 +207,7 @@ export function PlaceDesktopPanel({
               size and the centred composition; the two must not drift. */}
           <PlatformMark variant="solid" className="size-5" />
           Add a TikTok link
-        </Button>
+        </Button>}
         {/* Hidden while the library is empty: there is nothing to search, and an inert field is a
               false affordance. The heading and the one line above it are the whole screen. */}
         {/* **The `12 of 32` counter is gone**, on both surfaces at once
@@ -174,11 +215,11 @@ export function PlaceDesktopPanel({
             sighted users, in the band the owner asked us to empty, restating what the heading and
             the list already say. The screen-reader announcement is a separate live region in
             `map-shell.tsx` and is untouched. */}
-        {!libraryIsEmpty && <PlaceSearchField value={query} onChange={onQueryChange} />}
+        {!libraryIsEmpty && !selecting && <PlaceSearchField value={query} onChange={onQueryChange} />}
         {/* **One row, not three**, exactly as on the phone — the same component, so the two
             surfaces cannot offer different controls over one library. The sort control rides in
             its `trailing` slot rather than on a line of its own. */}
-        {!libraryIsEmpty && (
+        {!libraryIsEmpty && !selecting && (
           <LibraryFilterBar
             facets={categoryFacets}
             activeCategory={activeCategory}
@@ -202,7 +243,9 @@ export function PlaceDesktopPanel({
             }
           />
         )}
-        {activeTags.length > 0 && <ActiveTagFilter tags={activeTags} onClear={onClearTag} />}
+        {activeTags.length > 0 && !selecting && (
+          <ActiveTagFilter tags={activeTags} onClear={onClearTag} />
+        )}
         {/* See `AreaHeading.note`: the one line an achievement heading needs and a failed query
               does not. */}
         {/* `Been` with nothing to show gets its own line — the same rule and the same string the
@@ -230,15 +273,24 @@ export function PlaceDesktopPanel({
             )}
             {!heading.empty && (
               <ul>
-                {places.map((place) => (
-                  <PlaceRow
-                    key={place.id}
-                    place={place}
-                    onSelect={onSelect}
-                    {...(onHover ? { onHover } : {})}
-                    selected={selectedId === place.id}
-                  />
-                ))}
+                {places.map((place) =>
+                  selecting && place.savedPlaceId !== undefined ? (
+                    <SelectablePlaceRow
+                      key={place.id}
+                      place={place}
+                      checked={selection.picked.has(place.savedPlaceId)}
+                      onToggle={() => selection.toggle(place.savedPlaceId as string)}
+                    />
+                  ) : (
+                    <PlaceRow
+                      key={place.id}
+                      place={place}
+                      {...(selecting ? {} : { onSelect })}
+                      {...(onHover ? { onHover } : {})}
+                      selected={selectedId === place.id}
+                    />
+                  ),
+                )}
               </ul>
             )}
             {/* The same continuation the sheet renders, from the same array. The panel used to
@@ -247,7 +299,7 @@ export function PlaceDesktopPanel({
             <EverywhereElse
               places={otherPlaces}
               flush={heading.empty}
-              onSelect={onSelect}
+              {...(selecting ? { selection } : { onSelect })}
               {...(onHover ? { onHover } : {})}
               {...(selectedId === undefined ? {} : { selectedId })}
             />

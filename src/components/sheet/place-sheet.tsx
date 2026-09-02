@@ -55,7 +55,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from 'react';
-import { MapPin, X, ChevronLeft, ChevronUp, Play, Search } from 'lucide-react';
+import { ArrowUpRight, MapPin, X, ChevronLeft, ChevronUp, Play, Search } from 'lucide-react';
 import { PlatformMark } from '@/components/brand/platform-mark';
 import { Button } from '@/components/ui/button';
 import { PRESS_BEAT, PRESS_BUTTON, PRESS_ROW } from '@/lib/interaction';
@@ -83,6 +83,21 @@ import { BOTTOM_NAV_HEIGHT_PX } from '@/components/nav/bottom-nav';
 import { LibraryFilterBar, MenuAxis, MenuRadioRow } from './library-filter-bar';
 import { Menu } from '@base-ui/react/menu';
 import { DEFAULT_PLACE_ORDER, type PlaceOrder } from './place-order';
+import {
+  extraSources,
+  moreSourcesLine,
+  openSourceLabel,
+  sourceCreatorLabel,
+} from './place-sources';
+import {
+  BulkDeleteControl,
+  BulkDeleteNotice,
+  EnterSelectionButton,
+  SelectablePlaceRow,
+  SelectionToolbar,
+  useLibrarySelection,
+  type LibrarySelection,
+} from './library-selection';
 import type { CategoryFacet } from '@/domain/places/category-filter';
 import type { ProductCategory } from '@/domain/places/product-category';
 import { thumbnailOf, type PlaceDetailFacts, type ThumbnailRef } from '@/domain/places/spot';
@@ -418,6 +433,29 @@ function PlaceList({
    */
   const moreElsewhere = otherPlaces.length;
 
+  /**
+   * **Multi-select and bulk delete** (`deleteSavedPlaces`' render half, round 3 §8.2).
+   *
+   * Keyed on `savedPlaceId` and not on `place.id`, because the action deletes `saved_places` rows:
+   * the two are the same value on `/map` — every pin here *is* one of the caller's saves — and a
+   * host whose pins are not saved rows contributes nothing to this array and gets no `Select`
+   * control at all. That is the same rule `savedPlaceRef` holds for the detail's six mutations, and
+   * it is stated rather than inferred for the same reason.
+   *
+   * Over `places` **and** `otherPlaces`, which together are exactly what the scroll renders — see
+   * `useLibraryTagFacets` for the same argument about the same pair. `Select all` over one of them
+   * would pick a subset of what is on screen.
+   */
+  const selectableIds = useMemo(
+    () =>
+      [...places, ...otherPlaces].flatMap((place) =>
+        place.savedPlaceId === undefined ? [] : [place.savedPlaceId],
+      ),
+    [places, otherPlaces],
+  );
+  const selection = useLibrarySelection(selectableIds);
+  const selecting = selection.selecting;
+
   return (
     <div
       style={{ height: STOP_TO_CONTENT_HEIGHT[stop] }}
@@ -523,12 +561,21 @@ function PlaceList({
               change a reduced-motion user is most likely to miss. So the fade is unconditional and
               only the 4 px rise is `motion-safe:`. That is the whole of the inversion: opacity is
               everyone's, transform is the pointer user's bonus. */}
-          <h2
-            key={activeAreaId ?? 'no-area'}
-            className="animate-in fade-in-0 duration-enter motion-safe:slide-in-from-bottom-1 font-heading text-xl font-extrabold tracking-tight text-foreground outline-none"
-          >
-            {headingText}
-          </h2>
+          {/* The heading and the control that turns the rows into checkboxes share one line, so
+              selection costs **zero vertical pixels** on a header the owner measured at 46% of a
+              375x812 viewport. Absent while selecting — the toolbar below replaces it — and absent
+              when there is nothing whose `saved_places` row this list could delete. */}
+          <div className="flex items-center gap-2">
+            <h2
+              key={activeAreaId ?? 'no-area'}
+              className="min-w-0 flex-1 animate-in fade-in-0 duration-enter motion-safe:slide-in-from-bottom-1 font-heading text-xl font-extrabold tracking-tight text-foreground outline-none"
+            >
+              {headingText}
+            </h2>
+            {!libraryIsEmpty && !selecting && selectableIds.length > 0 && (
+              <EnterSelectionButton onEnter={selection.enter} />
+            )}
+          </div>
 
           {/* Hidden while the library is empty: there is nothing to search, and an inert field is a
               false affordance offering work that cannot produce a result. */}
@@ -538,7 +585,25 @@ function PlaceList({
               countries`) and the list under it already say. The live region that announces the
               same fact to a screen reader is a different mechanism in a different file
               (`map-shell.tsx`) and is untouched. */}
-          {!libraryIsEmpty && <PlaceSearchField value={query} onChange={onQueryChange} />}
+          {/* **The search field and the filter bar are replaced while picking, not hidden beside
+              the toolbar.** Two ways of narrowing a list you are counting is a way to lose track of
+              what is counted — the same swap `collection-content.tsx` makes, and the one thing the
+              two multi-selects deliberately share. Everything else about them diverges; see
+              `bulk-delete.ts`. */}
+          {selecting ? (
+            <>
+              <SelectionToolbar selection={selection} />
+              {/* At the top of the list rather than in a pinned footer, which is where the
+                  collection's bulk *unlink* lives. Two bulk removals that look alike is the
+                  confusability `ux-two-removals-one-screen.md` §2.3 exists to remove, and where the
+                  button is, is the first thing a thumb learns. */}
+              <BulkDeleteControl selection={selection} />
+            </>
+          ) : (
+            <BulkDeleteNotice notice={selection.notice} />
+          )}
+
+          {!libraryIsEmpty && !selecting && <PlaceSearchField value={query} onChange={onQueryChange} />}
 
           {/* **One row, not three.** Measured at 375x812 on the owner's own library, the header
               drew the visit chip and three category chips at y190, two sort chips at y248 and ten
@@ -549,7 +614,7 @@ function PlaceList({
 
               Above the list *and* above the empty state, so the control that undoes a filter is on
               screen in the state where the filter has left nothing to look at. */}
-          {!libraryIsEmpty && (
+          {!libraryIsEmpty && !selecting && (
             <LibraryFilterBar
               facets={categoryFacets}
               activeCategory={activeCategory}
@@ -573,7 +638,9 @@ function PlaceList({
               }
             />
           )}
-          {activeTags.length > 0 && <ActiveTagFilter tags={activeTags} onClear={onClearTag} />}
+          {activeTags.length > 0 && !selecting && (
+            <ActiveTagFilter tags={activeTags} onClear={onClearTag} />
+          )}
 
           {/* The one line some empty headings need — see `AreaHeading.note`. Above the scroll area
               rather than inside it, so it sits with the heading it explains rather than where the
@@ -622,15 +689,26 @@ function PlaceList({
                 )}
                 {!heading.empty && (
                   <ul>
-                    {places.map((place) => (
-                      <PlaceRow
-                        key={place.id}
-                        place={place}
-                        {...(onSelect ? { onSelect } : {})}
-                        {...(onHover ? { onHover } : {})}
-                        selected={selectedId === place.id}
-                      />
-                    ))}
+                    {places.map((place) =>
+                      /* Tap-to-open is **replaced**, never fought: while picking there is no row
+                         that is both "open me" and "pick me", and no long-press to discover. */
+                      selecting && place.savedPlaceId !== undefined ? (
+                        <SelectablePlaceRow
+                          key={place.id}
+                          place={place}
+                          checked={selection.picked.has(place.savedPlaceId)}
+                          onToggle={() => selection.toggle(place.savedPlaceId as string)}
+                        />
+                      ) : (
+                        <PlaceRow
+                          key={place.id}
+                          place={place}
+                          {...(onSelect && !selecting ? { onSelect } : {})}
+                          {...(onHover ? { onHover } : {})}
+                          selected={selectedId === place.id}
+                        />
+                      ),
+                    )}
                   </ul>
                 )}
                 <EverywhereElse
@@ -638,7 +716,8 @@ function PlaceList({
                   {...(onHover ? { onHover } : {})}
                   {...(selectedId === undefined ? {} : { selectedId })}
                   flush={heading.empty}
-                  {...(onSelect ? { onSelect } : {})}
+                  {...(onSelect && !selecting ? { onSelect } : {})}
+                  {...(selecting ? { selection } : {})}
                 />
               </div>
             </>
@@ -1588,6 +1667,7 @@ export function EverywhereElse({
   onSelect,
   onHover,
   selectedId,
+  selection,
 }: {
   places: readonly MapPlace[];
   flush?: boolean;
@@ -1596,6 +1676,10 @@ export function EverywhereElse({
    *  current area is exactly the one whose pin the user most needs pointing out. */
   onHover?: (placeId: string | null) => void;
   selectedId?: string | null;
+  /** Present only while the library is being picked over. These rows are in the same scroll and in
+   *  the same `Select all`, so leaving them as ordinary rows would make the toolbar's count a claim
+   *  about half the list. Absent — the normal case — nothing here changes. */
+  selection?: LibrarySelection;
 }) {
   if (places.length === 0) return null;
 
@@ -1607,15 +1691,24 @@ export function EverywhereElse({
         Everywhere else
       </h3>
       <ul>
-        {places.map((place) => (
-          <PlaceRow
-            key={place.id}
-            place={place}
-            {...(onSelect ? { onSelect } : {})}
-            {...(onHover ? { onHover } : {})}
-            selected={selectedId === place.id}
-          />
-        ))}
+        {places.map((place) =>
+          selection !== undefined && place.savedPlaceId !== undefined ? (
+            <SelectablePlaceRow
+              key={place.id}
+              place={place}
+              checked={selection.picked.has(place.savedPlaceId)}
+              onToggle={() => selection.toggle(place.savedPlaceId as string)}
+            />
+          ) : (
+            <PlaceRow
+              key={place.id}
+              place={place}
+              {...(onSelect ? { onSelect } : {})}
+              {...(onHover ? { onHover } : {})}
+              selected={selectedId === place.id}
+            />
+          ),
+        )}
       </ul>
     </section>
   );
@@ -1872,6 +1965,10 @@ export function PlaceDetail({
   // write to. With the old order, repairing the shared row would have repaired a value no screen
   // reads. The frozen copy is still the fallback when no source joined; see `thumbnailOf`.
   const thumb = thumbnailOf(detail);
+  /** Every linked source after the one this card is already built from. `[]` for a manual save,
+   *  for a place with a single source, and for a collection peer (who never receives the array at
+   *  all). See `place-sources.ts`. */
+  const extra = extraSources(detail?.sources);
   const authorLabel = source?.authorHandle
     ? `@${source.authorHandle}`
     : (source?.authorName ?? null);
@@ -2337,6 +2434,68 @@ export function PlaceDetail({
             is not rendered. A sentence that carries something new — a dish that sells out, an
             opening time, who it is for — clears the bar and is shown. See
             `ui/place/enrichment.ts`'s `whyGoEarnsItsPlace` for the rule and the threshold. */}
+        {/* **Every other TikTok link behind this place**, which the card used to drop on the floor.
+            `saved_place_sources` is many-to-many and `save_place` keeps both rows on a second
+            paste, so nothing was ever lost in the database; what was lost was here — the still, the
+            quote, the credit and the pill above are all `sources[0]`, and until now that was the
+            whole card. Round 3 §5.1 reported it as "keeps only the latest", which is the opposite
+            of the mechanism: it keeps the *earliest*.
+
+            **One source draws nothing at all.** `extraSources` is `sources.slice(1)`, so the common
+            case is byte-identical to the card that shipped — a single source is not turned into a
+            list of one. Earliest-linked first, continuing the order the head is drawn from; see
+            `place-sources.ts` for why not newest-first.
+
+            **Attribution, not decoration.** Developer Terms III.3(n) forbids deleting author
+            attributions, so every row carries the creator *and* links back to the post
+            (`docs/evidence/tiktok/09-brand-mark-and-attribution-2026-08-31.md` §5). The third part
+            of TikTok's own definition, the description, is stored per *save* rather than per
+            source, so it stays on the headline quote above rather than being invented here.
+            `PlatformMark` is our own neutral glyph — §7.1: the word, the `@handle`, the link and a
+            glyph of our own drawing are the entire permitted palette, and no TikTok mark may enter
+            `src/`.
+
+            **Own library only.** A collection peer never receives this array — `getSpots` reads it
+            under `sps_select_own` and migration `0024` refused the read policy that would widen it
+            — so on `/collections/[id]` `sources` is absent and this renders nothing by
+            construction, not by a flag. */}
+        {extra.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <p className="text-xs font-medium text-muted-foreground">
+              {moreSourcesLine(extra.length)}
+            </p>
+            <ul className="flex flex-col">
+              {extra.map((extraSource) => (
+                <li key={extraSource.id}>
+                  <a
+                    href={extraSource.canonicalUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    data-vaul-no-drag
+                    // The ratified sentence with the creator in it: three links all announced
+                    // `Open on TikTok` name no destination between them.
+                    aria-label={openSourceLabel(extraSource)}
+                    className={cn(
+                      'flex min-h-11 w-full items-center gap-2 rounded-lg px-1 text-sm font-medium text-brand outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50',
+                      PRESS_ROW,
+                    )}
+                  >
+                    <PlatformMark className="size-4 shrink-0" />
+                    {/* `<bdi>` because a handle sits inside a line this list renders in Hebrew as
+                        often as in English, and `line-clamp-1 break-words` for the same reason
+                        `PlaceRow`'s name carries them rather than `truncate`. */}
+                    <span className="line-clamp-1 break-words">
+                      <bdi>{sourceCreatorLabel(extraSource)}</bdi>
+                    </span>
+                    {/* `ms-auto`, never `ml-auto`: this row is rendered in an RTL column too. */}
+                    <ArrowUpRight className="ms-auto size-3.5 shrink-0 opacity-70" aria-hidden />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {shownWhyGo !== null && <WhyGoLine whyGo={shownWhyGo} />}
 
         {/* The dishes the post named. Last of the three content blocks because it is a list to
