@@ -67,11 +67,20 @@ const persisted = {
  */
 let cachedExtractionRow: Record<string, unknown> | null = null;
 
+/**
+ * What this user has already added from this source. Empty by default — the common path, and the
+ * one every other test in this file wants. Lane H's tests set their own.
+ */
+let priorSaveLinks: Record<string, unknown>[] = [];
+let priorSaveRows: Record<string, unknown>[] = [];
+
 function resetPersisted() {
   persisted.extractions.length = 0;
   persisted.importUpdates.length = 0;
   persisted.extractionUpdates.length = 0;
   cachedExtractionRow = null;
+  priorSaveLinks = [];
+  priorSaveRows = [];
   resolveMock.mockReset();
   // Default: every candidate resolves to nothing. Tests that care set their own answers, and a
   // test that forgets gets the conservative outcome rather than a silent auto-accept.
@@ -121,6 +130,22 @@ vi.mock('@/integrations/supabase/service-role-client', () => ({
             return { eq: async () => ({ error: null }) };
           },
         };
+      }
+      // Lane H's "you already added from this video" read. Two selects, best-effort, and it must
+      // never be able to fail an import — the empty default is the common path.
+      if (table === 'saved_place_sources') {
+        const chain = {
+          eq: () => chain,
+          order: async () => ({ data: priorSaveLinks, error: null }),
+        };
+        return { select: () => chain };
+      }
+      if (table === 'saved_places') {
+        const chain = {
+          eq: () => chain,
+          in: async () => ({ data: priorSaveRows, error: null }),
+        };
+        return { select: () => chain };
       }
       throw new Error(`unexpected table ${table}`);
     },
@@ -822,5 +847,61 @@ describe('POST /api/imports/probe — honest failures', () => {
     } finally {
       spy.mockRestore();
     }
+  });
+});
+
+/**
+ * Lane H — round-3 feedback §6.1. The response has to carry what this person already added from
+ * this same source, because the review screen needs it at the moment it seeds its selection and
+ * there is no second round trip in which to ask.
+ *
+ * The measured cause is re-adding one video: source `7532812892819721479` on the local database
+ * holds one extraction, one candidate, **three** `imports` rows and two saved `רגאצי` rows 2.7 km
+ * apart, written 29 s apart by two separate imports.
+ */
+describe('POST /api/imports/probe — what was already added from this video', () => {
+  beforeEach(() => {
+    resetPersisted();
+    // The candidates are beside the point here; what matters is the field beside them.
+    extractMock.mockResolvedValue({ candidates: [], cityHint: null });
+  });
+
+  it('returns nothing for a source this user has never added from', async () => {
+    const res = await postProbe();
+    const body = (await res.json()) as { priorSaves: unknown[] };
+    expect(res.status).toBe(200);
+    expect(body.priorSaves).toEqual([]);
+  });
+
+  it('returns the place’s own name and the user’s label, oldest first', async () => {
+    priorSaveLinks = [
+      { saved_place_id: 'sp-2', added_at: '2026-09-01T21:13:38Z' },
+      { saved_place_id: 'sp-1', added_at: '2026-09-01T21:13:09Z' },
+    ];
+    priorSaveRows = [
+      { id: 'sp-1', display_name: null, places: { name: 'רגאצי' } },
+      { id: 'sp-2', display_name: 'the pizza one', places: { name: 'רגאצי' } },
+    ];
+
+    const res = await postProbe();
+    const body = (await res.json()) as { priorSaves: { placeName: string; label: string }[] };
+    // The link query's order is the answer's order — an `in()` gives none, and the two queries
+    // would otherwise disagree about which was added first.
+    expect(body.priorSaves).toEqual([
+      { placeName: 'רגאצי', label: 'the pizza one' },
+      { placeName: 'רגאצי', label: 'רגאצי' },
+    ]);
+  });
+
+  it('never fails an import when the read fails', async () => {
+    // A save whose place row did not come back is dropped rather than rendered as a blank name,
+    // and the request still answers 200 with its candidates.
+    priorSaveLinks = [{ saved_place_id: 'sp-9', added_at: '2026-09-01T00:00:00Z' }];
+    priorSaveRows = [{ id: 'sp-9', display_name: null, places: null }];
+
+    const res = await postProbe();
+    const body = (await res.json()) as { priorSaves: unknown[] };
+    expect(res.status).toBe(200);
+    expect(body.priorSaves).toEqual([]);
   });
 });

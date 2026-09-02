@@ -37,6 +37,7 @@ import {
 import { googleMapsSearchUrl } from '@/domain/places/google-maps-search-url';
 import { deriveSavedPlaceEnrichment } from '@/domain/import/saved-place-enrichment';
 import { tagDisplayLabel } from '@/domain/extraction/tags';
+import { ALREADY_ADDED_LINE } from '@/domain/import/prior-saves';
 import type { PlaceCandidate } from '@/domain/types';
 import {
   effectivePick,
@@ -92,6 +93,7 @@ export function ExtractedCandidateRow({
   frozen,
   status,
   collapsed,
+  alreadyAdded,
   onToggle,
   onPick,
   onNoteChange,
@@ -113,6 +115,18 @@ export function ExtractedCandidateRow({
    *  carries this candidate's name and meta, so the card drops its own chrome, its tickbox and
    *  that name. Only ever true for a `matched` view — see `collapsesToOneResult`. */
   collapsed: boolean;
+  /**
+   * This person already added a place with this name **from this same TikTok video**
+   * (`domain/import/prior-saves.ts`). The card says so and the screen leaves it unticked; it is
+   * never a refusal — the tickbox works, and picking a shortlist row or writing a note still ticks
+   * it, because both are decisions about this place.
+   *
+   * **Not the global duplicate warning the owner rejected on 2026-08-29.** That one fired on any
+   * place already anywhere on the map, said nothing, and left a single-candidate post with a dead
+   * primary button. This is scoped to one source, is what round-3 feedback §6.1 measured, and the
+   * screen leads with a sentence naming what was added before.
+   */
+  alreadyAdded: boolean;
   onToggle: () => void;
   onPick: (optionIndex: number) => void;
   onNoteChange: (value: string) => void;
@@ -286,6 +300,14 @@ export function ExtractedCandidateRow({
       <p className="line-clamp-1 text-caption font-medium text-muted-foreground">
         <bdi>{candidateMeta(candidate)}</bdi>
       </p>
+      {/* Above the tags and the evidence note, not in the badge slot: that slot answers "where did
+          this pin come from?" and is already spoken for on every card. This answers a different
+          question — "have I done this already?" — and it is the reason the box below it is
+          unticked, so it sits where a reason sits. Warning-toned rather than grey because it is
+          news, and grey is what made the rejected 2026-08-29 version invisible. */}
+      {alreadyAdded && status === null && (
+        <p className="text-xs font-bold text-warning">{ALREADY_ADDED_LINE}</p>
+      )}
       {tagRow}
       {evidenceNote !== null && (
         <p className="mt-1 text-xs font-medium text-muted-foreground">{evidenceNote}</p>

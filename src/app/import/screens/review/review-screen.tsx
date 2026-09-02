@@ -39,6 +39,11 @@ import {
   skippedNotice,
   isHashtagOnly,
 } from '@/domain/import/candidate-presentation';
+import {
+  alreadyAddedFromSource,
+  priorSaveKeys,
+  priorSaveNotice,
+} from '@/domain/import/prior-saves';
 import { NOTE_MAX_LENGTH, validateNote } from '@/domain/places/note';
 import {
   arrivesTicked,
@@ -135,6 +140,29 @@ export function CaptionPreviewScreen({
    * model coordinate. It is recomputed as picks change, because picking an option is exactly what
    * turns an unsaveable `ambiguous` candidate into a saveable one.
    */
+  /**
+   * The identity spellings of everything this person already added **from this same TikTok video**
+   * — the measured cause of round-3 feedback §6.1, which is re-adding one video and not two
+   * candidates of one extraction. `domain/import/prior-saves.ts` carries the rows and the argument.
+   */
+  const priorKeys = useMemo(() => priorSaveKeys(probe.priorSaves ?? []), [probe.priorSaves]);
+
+  /**
+   * Whether the name **this card would write** is already on the map from this video.
+   *
+   * Recomputed rather than memoised on `picks`, because picking another shortlist row changes the
+   * name the save writes and therefore changes the answer: pick your existing `רגאצי` and the card
+   * says so; pick the other branch of the chain and it stops saying so, correctly.
+   */
+  function alreadyAdded(i: number): boolean {
+    const candidate = probe.candidates[i];
+    if (candidate === undefined) return false;
+    return alreadyAddedFromSource(
+      priorKeys,
+      savedPlaceName(views[i]!, picks.get(i) ?? null) ?? candidateTitle(candidate),
+    );
+  }
+
   const saveableIndices = useMemo(
     () =>
       probe.candidates
@@ -171,7 +199,15 @@ export function CaptionPreviewScreen({
     () =>
       new Set(
         probe.candidates
-          .map((c, i) => (arrivesTicked(isSaveable(c), views[i]!, isHashtagOnly(probe.caption, c)) ? i : -1))
+          .map((c, i) =>
+            arrivesTicked(isSaveable(c), views[i]!, isHashtagOnly(probe.caption, c)) &&
+            !alreadyAddedFromSource(
+              priorKeys,
+              savedPlaceName(views[i]!, null) ?? candidateTitle(c),
+            )
+              ? i
+              : -1,
+          )
           .filter((i) => i >= 0),
       ),
   );
@@ -216,6 +252,21 @@ export function CaptionPreviewScreen({
   ).length;
   const allSelected = selectedCount === saveableIndices.length && saveableIndices.length > 0;
   const frozen = statusByIndex !== null || saving;
+
+  /**
+   * The screen-level "you have been here before" notice.
+   *
+   * Suppressed once a save has reported per-card outcomes: that state's job is to say what just
+   * happened, and a sentence about what happened last week would be read as part of it.
+   *
+   * `markedCount` decides its last sentence, and that is the point of passing it. With matches it
+   * can talk about the list below; with none — which is what a prompt-version bump produces, the
+   * model re-spelling one venue as `Kiaans Tooting` — it says so instead of pointing at cards that
+   * are not marked.
+   */
+  const markedCount = probe.candidates.filter((_, i) => alreadyAdded(i)).length;
+  const priorNotice =
+    statusByIndex === null ? priorSaveNotice(probe.priorSaves ?? [], markedCount) : null;
 
   /**
    * One candidate, and the resolver settled it — so the screen states the result instead of asking
@@ -373,6 +424,31 @@ export function CaptionPreviewScreen({
         </div>
       )}
 
+      {priorNotice && (
+        <div
+          role="status"
+          className={cn(
+            'mb-3 shrink-0 rounded-lg border border-warning/25 bg-warning/10 px-3 py-2.5 text-caption font-medium text-foreground',
+            ENTER_NEWS,
+          )}
+        >
+          {/* Names are `<bdi>`-wrapped and the sentence arrives in parts for the reason every name
+              on this screen does: half of them are Hebrew, and a joined string puts an RTL run
+              beside LTR punctuation and lets the bidi algorithm move the comma. */}
+          <p>
+            {priorNotice.lead}{' '}
+            {priorNotice.names.map((name, i) => (
+              <span key={name + String(i)}>
+                {i > 0 && ', '}
+                <bdi className="font-bold">{name}</bdi>
+              </span>
+            ))}
+            {priorNotice.more !== null && `, ${priorNotice.more}`}
+          </p>
+          <p className="mt-0.5 text-muted-foreground">{priorNotice.tail}</p>
+        </div>
+      )}
+
       <div className="flex min-h-0 flex-1 flex-col gap-3">
         {/* No zero-candidate arm, and it is unreachable two ways. `submit()` sends every
             zero-candidate probe to `NoPlacesScreen` instead, so this component is only ever
@@ -444,6 +520,7 @@ export function CaptionPreviewScreen({
               frozen={frozen}
               status={statusByIndex?.get(i) ?? null}
               collapsed={collapsed}
+              alreadyAdded={alreadyAdded(i)}
               note={notes.get(i) ?? ''}
               onToggle={() => toggle(i)}
               onPick={(optionIndex) => pick(i, optionIndex)}
