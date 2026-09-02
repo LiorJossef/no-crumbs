@@ -8,6 +8,7 @@ import type { BlockingCollection } from '@/app/profile/_lib/blocking-collections
 import { INDEX_VIEW, collectionHref, drawerHref } from '@/app/map/_lib/drawer-view';
 import { InlineConfirm } from '@/components/collections/collection-content';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 /**
  * `Delete my data` — the last unbuilt L1 product feature (`L1-F8-T1`), and the two screens behind
@@ -71,7 +72,23 @@ const COPY = {
   blockedAction: 'Open my collections',
 } as const;
 
-export function AccountActions({ blocking }: { blocking: readonly BlockingCollection[] }) {
+export function AccountActions({
+  blocking,
+  align = 'center',
+}: {
+  blocking: readonly BlockingCollection[];
+  /**
+   * How the entry control's label sits, and it follows the host's other controls rather than
+   * having an opinion of its own.
+   *
+   * On `/profile` the entry is the third of three full-width buttons and all three centre, which
+   * is the page's own rule that *three controls in one column should be one shape*. In the account
+   * menu the control directly above it is `Sign out`, drawn `justify-start` — so a centred label
+   * there was the one thing in a ten-row menu that did not line up. The words and the two-step
+   * behaviour are untouched either way.
+   */
+  align?: 'center' | 'start';
+}) {
   const [view, setView] = useState<'idle' | 'confirm' | 'blocked'>('idle');
   const [blocked, setBlocked] = useState<readonly BlockingCollection[]>(blocking);
   const [error, setError] = useState<string | null>(null);
@@ -164,7 +181,10 @@ export function AccountActions({ blocking }: { blocking: readonly BlockingCollec
         type="button"
         variant="ghost"
         size="lg"
-        className="h-12 w-full text-base text-muted-foreground"
+        className={cn(
+          'h-12 w-full text-base text-muted-foreground',
+          align === 'start' && 'justify-start px-2',
+        )}
         onClick={() => setView(blocking.length > 0 ? 'blocked' : 'confirm')}
       >
         {COPY.entry}
@@ -172,7 +192,11 @@ export function AccountActions({ blocking }: { blocking: readonly BlockingCollec
       {/* The scope, before the user commits to a confirmation rather than inside it. A destructive
           control whose blast radius is only revealed after you press it is one people press to find
           out what it does. */}
-      <p className="mt-1 text-center text-xs text-muted-foreground">{COPY.entryLine}</p>
+      {/* `text-start`, not `text-center`: every other line on `/profile` and in the account menu
+          is aligned to the leading edge, and one centred paragraph under a stack of left-aligned
+          buttons read as a different surface. Logical, so an RTL locale aligns it right. The words
+          and the behaviour are untouched — this control is destructive and its copy is deliberate. */}
+      <p className="mt-1 text-start text-xs text-muted-foreground">{COPY.entryLine}</p>
     </>
   );
 }

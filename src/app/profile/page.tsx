@@ -289,8 +289,12 @@ export default async function ProfilePage() {
             palette's destructive role is reserved for the things that do. Neither is the delete
             *entry point*, which opens a confirmation; the confirm button inside it gets the
             destructive variant, and it is the only thing on this page that does. */}
-        <section aria-labelledby="your-account" className="mt-8">
-          <SectionHeading id="your-account">Your account</SectionHeading>
+        {/* **Labelled, not headed.** The three controls under this are full-width buttons that
+            name themselves — `Account settings`, `Sign out`, `Delete my data` — so the kicker over
+            them was a heading that restated its own stack (overwhelm audit §5c). The section keeps
+            its accessible name so the landmark and the document outline are unchanged; only the
+            drawn label goes. */}
+        <section aria-label="Your account" className="mt-8">
           {/* **The way to `/account`, and this page is the only one that has to carry it.** The
               account menu links there too, and the menu is how almost everyone will arrive — but
               the menu is a popover and cannot open with scripting off, so this page is the no-JS

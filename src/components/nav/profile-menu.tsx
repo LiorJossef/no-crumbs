@@ -88,7 +88,6 @@ const COPY = {
   library: 'Your library',
   libraryHint: 'Where you save, and what',
   settings: 'Account settings',
-  settingsHint: 'Your name',
   appearance: 'Appearance',
   signOut: 'Sign out',
   /** The last stop in the focus trap, and the only way out for a touch screen reader. Never
@@ -318,7 +317,7 @@ export function ProfileMenu({
                 label={COPY.library}
                 hint={data === null ? COPY.libraryHint : libraryLine(data)}
               />
-              <MenuLink href="/account" label={COPY.settings} hint={COPY.settingsHint} icon />
+              <MenuLink href="/account" label={COPY.settings} icon />
             </div>
 
             {/* The one setting the product keeps, in the same position it holds on `/profile` — the
@@ -327,7 +326,9 @@ export function ProfileMenu({
                 decoration: `ThemeChoice` renders a `<noscript><style>` that hides every element
                 carrying it, because a `localStorage` control cannot work with scripting off. */}
             <section aria-labelledby="menu-appearance" className="mt-3" data-theme-choice>
-              <SectionHeading id="menu-appearance">{COPY.appearance}</SectionHeading>
+              <SectionHeading id="menu-appearance" visuallyHidden>
+                {COPY.appearance}
+              </SectionHeading>
               <ThemeChoice labelledBy="menu-appearance" />
             </section>
 
@@ -353,7 +354,7 @@ export function ProfileMenu({
                   about not asking the question wrongly first. */}
               {data === null ? null : (
                 <div className="mt-1">
-                  <AccountActions blocking={data.blocking} />
+                  <AccountActions blocking={data.blocking} align="start" />
                 </div>
               )}
             </div>
@@ -432,9 +433,6 @@ function Identity({ data, failed }: { data: ProfileMenuData | null; failed: bool
                 {data.account}
               </p>
             )}
-            {data.joined === null ? null : (
-              <p className="truncate text-micro text-muted-foreground">{data.joined}</p>
-            )}
           </>
         )}
       </div>
@@ -457,7 +455,9 @@ function MenuLink({
 }: {
   href: '/profile' | '/account';
   label: string;
-  hint: string;
+  /** Omitted where the label is the whole answer — `Account settings` names its own destination
+   *  and the subtitle under it only described the next screen's contents. */
+  hint?: string;
   icon?: boolean;
 }) {
   return (
@@ -472,17 +472,42 @@ function MenuLink({
       {icon ? <Settings className="size-4 shrink-0 text-muted-foreground" aria-hidden /> : null}
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-sm font-bold text-foreground">{label}</span>
-        <span className="truncate text-xs text-muted-foreground tabular-nums">{hint}</span>
+        {hint === undefined ? null : (
+          <span className="truncate text-xs text-muted-foreground tabular-nums">{hint}</span>
+        )}
       </span>
       <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
     </Link>
   );
 }
 
-/** The same heading `/profile` uses, so the two surfaces label one section one way. */
-function SectionHeading({ id, children }: { id: string; children: string }) {
+/**
+ * The same heading `/profile` uses, so the two surfaces label one section one way.
+ *
+ * `visuallyHidden` is how the menu drops the kicker without dropping the name. Three theme
+ * segments sitting under `Sign out` in a ten-row card do not need a section label drawn on the
+ * screen — but `ThemeChoice` is a `radiogroup` and points its `aria-labelledby` here, so the
+ * element has to stay in the accessibility tree. The page keeps it visible, where it separates two
+ * real sections.
+ */
+function SectionHeading({
+  id,
+  children,
+  visuallyHidden = false,
+}: {
+  id: string;
+  children: string;
+  visuallyHidden?: boolean;
+}) {
   return (
-    <h2 id={id} className="px-1 text-micro font-bold uppercase tracking-wide text-muted-foreground">
+    <h2
+      id={id}
+      className={
+        visuallyHidden
+          ? 'sr-only'
+          : 'px-1 text-micro font-bold uppercase tracking-wide text-muted-foreground'
+      }
+    >
       {children}
     </h2>
   );
