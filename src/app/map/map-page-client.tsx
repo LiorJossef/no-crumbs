@@ -386,6 +386,32 @@ export function MapPageClient({
    * before rendering, so the guard would cost more than it saves.
    */
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+
+  /**
+   * **Selecting a place clears the highlight channel, and every path into a selection goes through
+   * here.** Reported by the owner: pick A from the list, then tap B on the map, and A stays lifted
+   * and named beside the newly selected B.
+   *
+   * `selectedId` is single-valued, so two pins can never be *selected* at once — the residual is
+   * `hoveredId`, which is a second, independent way of marking a pin. A row's `onFocus` sets it
+   * (focus is the keyboard's pointer, `place-sheet.tsx`), a click both focuses the row and selects
+   * it, and nothing afterwards takes it back: the map canvas is a different surface, so leaving the
+   * row does not necessarily blur it, and on a touch device there is no pointer to leave with.
+   *
+   * The rule is that **selection wins**: the newly opened place is the marked one, and any earlier
+   * pointer- or focus-mark is stale the moment a different place opens. That covers deselection
+   * too, which is why this takes `null` — closing a place must not leave its pin lifted either.
+   *
+   * Not a camera mover, and it must not become one: it changes what is drawn, never where the map
+   * is looking. The eight movers are unchanged by this (`docs/current-state.md` item 12).
+   */
+  const selectId = useCallback(
+    (id: string | null) => {
+      setSelectedId(id);
+      setHoveredId(null);
+    },
+    [setSelectedId],
+  );
   const [query, setQuery] = useState('');
   /** The one tag narrowing the library, as stored (lowercase, normalised), or `null`. Set by a chip
    *  in any place's detail view through `TagFilterContext`, cleared by the pill above the list, by
@@ -884,7 +910,7 @@ export function MapPageClient({
   /** Camera mover 3. A fresh array each time, because the flight is keyed on array identity — so
    *  re-selecting the same place does fly again. The active area is deliberately not touched. */
   function selectPlace(place: MapPlace) {
-    setSelectedId(place.id);
+    selectId(place.id);
     camera.framePlaces([place.id]);
   }
 
@@ -908,10 +934,10 @@ export function MapPageClient({
       if (!area) return;
       const matching = area.members.filter((place) => matchIds.has(place.id));
       setScope(scopeForAreaTap(area.id));
-      setSelectedId(null);
+      selectId(null);
       camera.framePlaces((matching.length > 0 ? matching : area.members).map((place) => place.id));
     },
-    [areas, matchIds, camera, setSelectedId],
+    [areas, matchIds, camera, selectId],
   );
 
   /**
@@ -939,14 +965,14 @@ export function MapPageClient({
       const country = countries.find((candidate) => candidate.key === key);
       if (!country) return;
       setScope(scopeForCountryTap(country.key));
-      setSelectedId(null);
+      selectId(null);
       camera.frameBounds({
         bounds: country.bounds,
         minZoom: COUNTRY_LANDING_ZOOM.min,
         maxZoom: COUNTRY_LANDING_ZOOM.max,
       });
     },
-    [countries, camera, setSelectedId],
+    [countries, camera, selectId],
   );
 
   /**
@@ -976,10 +1002,10 @@ export function MapPageClient({
     (fix: UserFix) => {
       const area = nearestArea(areas, fix.point);
       if (area !== null) setScope(scopeForAreaTap(area.id));
-      setSelectedId(null);
+      selectId(null);
       camera.frameBounds(nearMeCamera(fix));
     },
-    [areas, camera, setSelectedId],
+    [areas, camera, selectId],
   );
 
   const nearMe = useNearMe(goToUserLocation);
@@ -1121,9 +1147,9 @@ export function MapPageClient({
   const toggleTag = useCallback(
     (tag: string) => {
       setActiveTag((current) => (current !== null && isSameTag(current, tag) ? null : tag));
-      setSelectedId(null);
+      selectId(null);
     },
-    [setSelectedId],
+    [selectId],
   );
 
   const clearTag = useCallback(() => setActiveTag(null), []);
@@ -1193,7 +1219,7 @@ export function MapPageClient({
     setActiveCategory(null);
     setScope(scopeForAreaTap(savedPlaceId));
     camera.framePlaces([savedPlaceId]);
-    setSelectedId(savedPlaceId);
+    selectId(savedPlaceId);
   }
 
   /**
@@ -1333,7 +1359,7 @@ export function MapPageClient({
               onPlaceClick={
                 collectionsScope?.onPlaceClick ??
                 ((place) => {
-                  setSelectedId(place.id);
+                  selectId(place.id);
                 })
               }
               /* **No map-drawn detail on a collections view**, and it is not a flag: a collection's
@@ -1345,7 +1371,7 @@ export function MapPageClient({
                  and the panel, where they are complete. */
               selectedPlace={inCollections ? null : selected}
               onDeselect={() => {
-                setSelectedId(null);
+                selectId(null);
               }}
               // Selecting a place raises the sheet to `half`; without this the camera does not know
               // that and the pin the user just tapped can sit behind it. See camera mover 6.
@@ -1458,7 +1484,7 @@ export function MapPageClient({
                       onToggleCategory={toggleCategoryFilter}
                       selected={selected}
                       onDeselect={() => {
-                        setSelectedId(null);
+                        selectId(null);
                       }}
                       onAddTikTok={openImport}
                       onSelect={selectPlace}
