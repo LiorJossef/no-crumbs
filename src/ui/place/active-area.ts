@@ -566,3 +566,7 @@ export const NO_FILTER_MATCHES_LINE = 'No places match these filters.';
 /** The way out, beside the line above. Names what it clears, because the row's own `Clear` sits in
  *  a group of three triggers where a bare `Clear` takes its meaning from its neighbours. */
 export const CLEAR_FILTERS_LABEL = 'Clear filters';
+
+/** The second line of the empty filter state — what to do, under what happened. Plain, no apology,
+ *  and it names the action the button performs rather than describing the miss again. */
+export const NO_FILTER_MATCHES_HINT = 'Try removing one of them.';

@@ -56,6 +56,7 @@ import {
   type ReactNode,
 } from 'react';
 import { ArrowUpRight, MapPin, X, ChevronLeft, ChevronUp, Play, Search } from 'lucide-react';
+import { CrumbMascot } from '@/components/brand/crumb-mascot';
 import { PlatformMark } from '@/components/brand/platform-mark';
 import { Button } from '@/components/ui/button';
 import { PRESS_BEAT, PRESS_BUTTON, PRESS_ROW } from '@/lib/interaction';
@@ -121,6 +122,7 @@ import { AddToCollection } from '@/components/collections/add-to-collection';
 import { formatCaptionQuote, quoteAddsSomething } from '@/ui/place/caption-quote';
 import {
   CLEAR_FILTERS_LABEL,
+  NO_FILTER_MATCHES_HINT,
   NO_FILTER_MATCHES_LINE,
   isolate,
   type AreaHeading,
@@ -1746,8 +1748,25 @@ export function PlaceSearchField({
  */
 export function ClearFiltersEscape({ onClearFilters }: { onClearFilters: () => void }) {
   return (
-    <div className="flex flex-col items-start gap-3 py-6">
-      <p className="text-sm font-medium text-muted-foreground">{NO_FILTER_MATCHES_LINE}</p>
+    <div className="flex flex-col items-center gap-4 px-6 py-12 text-center">
+      {/* **A composed empty state, not a sentence with a face next to it** — owner, 2026-09-02:
+          *"do something like the 'page not working' but for filter."* So it takes the shape that
+          pattern has everywhere: mark, then what happened, then what to do, stacked and centred in
+          the space that has nothing in it.
+
+          `nothingFound` is flat-eyed and flat-mouthed — neutral, not sad. That matters more here
+          than on the import screen `no-places-screen.tsx` borrows it from: this state is common
+          and self-inflicted (you ticked two tags), so the mascot must not read as the product
+          being disappointed *at* you. It is `size-16` rather than that screen's `size-12` because
+          here it is the composition's anchor rather than a kicker beside a caption, and §11.21
+          bans bare margin utilities on it, so the column's `gap` does every bit of the spacing. */}
+      <CrumbMascot mood="nothingFound" className="size-16 shrink-0" />
+      <div className="flex flex-col gap-1">
+        <p className="font-heading text-base font-extrabold text-foreground">
+          {NO_FILTER_MATCHES_LINE}
+        </p>
+        <p className="text-sm font-medium text-muted-foreground">{NO_FILTER_MATCHES_HINT}</p>
+      </div>
       <Button
         type="button"
         variant="outline"
