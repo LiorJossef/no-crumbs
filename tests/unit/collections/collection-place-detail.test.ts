@@ -257,6 +257,37 @@ describe('CollectionPlaceDetail — what a collaborator may see', () => {
     expect(markup).not.toContain('Save to your places');
   });
 
+  /**
+   * **The empty shared note is the same one control the standard card wears** (lane B2-T3,
+   * 2026-09-02).
+   *
+   * It used to be a bordered panel holding a `SHARED NOTE` kicker, a pencil link and a line of
+   * prose reading `Nothing yet — everyone here will see what you write.`, while the private note
+   * on `PlaceDetail` answered the identical state with one dashed `Add a note` pill. Round 3's
+   * §1.6/§11.1 is exactly that: one object rendered as two, on two screens a user moves between.
+   *
+   * The *shared* qualifier stays in the words — a shared note and a private one have different
+   * audiences, and flattening that would be a lie rather than a unification. Only the shape is
+   * shared, through `ADD_NOTE_PILL`.
+   */
+  it('answers an empty shared note with one offer, not a panel about nothing', () => {
+    const markup = render('editor', { note: null });
+    expect(markup).toContain('Add a shared note');
+    // The three things the panel used to spend on saying a field is empty.
+    expect(markup).not.toContain('Nothing yet');
+    expect(markup).not.toContain('Shared note<');
+    expect(markup).toContain('border-dashed');
+  });
+
+  it('still draws the full section once there is a note to read', () => {
+    // The offer replaces the *empty* state only. A written shared note keeps its kicker and its
+    // `Edit`, because then there is something for a heading to name.
+    const markup = render();
+    expect(markup).toContain('Shared note');
+    expect(markup).toContain('Everyone: book ahead');
+    expect(markup).not.toContain('Add a shared note');
+  });
+
   it('gives a viewer no way to change the collection', () => {
     const markup = render('viewer');
     expect(markup).not.toContain('Remove from this collection');

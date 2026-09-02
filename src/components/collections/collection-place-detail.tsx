@@ -61,6 +61,7 @@ import {
   type HostedPaneBackControl,
 } from '@/components/collections/add-to-collection';
 import { PlaceDetail } from '@/components/sheet/place-sheet';
+import { ADD_NOTE_PILL } from '@/components/sheet/saved-place-edits';
 import { canEdit, memberLabel, FORMER_MEMBER_LABEL } from '@/domain/collections/collection';
 import { SECTION_LABEL } from '@/ui/place/section-label';
 import {
@@ -70,7 +71,7 @@ import {
 } from '@/app/actions/collections';
 import type { CollectionPlace } from '@/app/collections/_lib/get-collections';
 import type { CollectionRole } from '@/domain/collections/collection';
-import { PRESS_CHIP } from '@/lib/interaction';
+import { PRESS_BUTTON, PRESS_CHIP } from '@/lib/interaction';
 import { cn } from '@/lib/utils';
 import type { MapPlace } from '@/components/map/map-surface';
 import type { PlaceDetailFacts, SharedOnlyPlaceFacts } from '@/domain/places/spot';
@@ -391,6 +392,13 @@ function SharedNote({
 
   const fieldId = `shared-note-${itemId}`;
 
+  function openEditor() {
+    setValue(note ?? '');
+    setError(null);
+    cancelled.current = false;
+    setEditing(true);
+  }
+
   function commit() {
     if (cancelled.current) {
       cancelled.current = false;
@@ -413,6 +421,39 @@ function SharedNote({
     });
   }
 
+  // **The same empty state the standard card wears, because it is the same object.**
+  //
+  // This branch used to draw a bordered card containing a `SHARED NOTE` kicker, a pencil link
+  // reading `Add a shared note` and a line of prose reading `Nothing yet — everyone here will see
+  // what you write.` — three elements and a panel to say a field is empty, while the private note
+  // on the standard detail view answers the identical state with one dashed pill. That is round
+  // 3's §1.6/§11.1 in miniature: one object, two appearances, on two screens a user moves between.
+  //
+  // The offer is the whole state. The *shared* qualifier stays in the words because a shared note
+  // and a private one are different fields with different audiences, and `ADD_NOTE_PILL` carries
+  // only the shape. Who may see it is said by the placeholder once the editor is open, which is
+  // where it is actionable, rather than by a permanent line of prose about nothing.
+  if (!editing && !note) {
+    return (
+      <div className="flex flex-col items-start gap-1">
+        <button
+          type="button"
+          data-vaul-no-drag
+          onClick={openEditor}
+          className={cn(ADD_NOTE_PILL, PRESS_BUTTON)}
+        >
+          <Plus className="size-4 shrink-0" aria-hidden />
+          Add a shared note
+        </button>
+        {error ? (
+          <p role="alert" className="text-xs font-medium text-destructive">
+            {error}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <section className="rounded-lg border border-border/70 bg-muted/40 p-3">
       <div className="flex items-center justify-between gap-2">
@@ -429,16 +470,11 @@ function SharedNote({
           <button
             type="button"
             data-vaul-no-drag
-            onClick={() => {
-              setValue(note ?? '');
-              setError(null);
-              cancelled.current = false;
-              setEditing(true);
-            }}
+            onClick={openEditor}
             className={`${TEXT_ACTION} -my-1 shrink-0 text-xs`}
           >
             <Pencil className="size-3" aria-hidden />
-            {note ? 'Edit' : 'Add a shared note'}
+            Edit
           </button>
         ) : null}
       </div>
@@ -472,12 +508,7 @@ function SharedNote({
         <p dir="auto" className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-foreground">
           {note}
         </p>
-      ) : (
-        // Editors only — a viewer with no note returned above.
-        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-          Nothing yet — everyone here will see what you write.
-        </p>
-      )}
+      ) : null}
 
       {error ? (
         <p role="alert" className="mt-1.5 text-sm text-destructive">
