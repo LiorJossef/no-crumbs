@@ -64,10 +64,11 @@ function answered(
 }
 
 describe('resolutionView', () => {
-  it('maps the preselect band to `matched` and still offers the whole shortlist', () => {
+  it('maps the preselect band to `matched` and still offers the rivals of the top row', () => {
     // The top entry auto-accepts on save, but `chooseResolvedPlace` honours an explicit pick here
-    // too — "the top entry is a default, not a verdict" — so hiding the rest would remove a choice
-    // the server is willing to take.
+    // too — "the top entry is a default, not a verdict" — so hiding a *close* rival would remove a
+    // choice the server is willing to take. Rows far below the top are cut instead (E-T1); both
+    // rows here score 0.9, so both stay.
     const view = resolutionView(answered('preselect', [ranked(), ranked({ providerPlaceId: 'gers-2' })]));
     expect(view.kind).toBe('matched');
     expect(resolutionOptions(view)).toHaveLength(2);
