@@ -305,6 +305,17 @@ unowned now, so wave 2 closes them first.
 > Every item below is reachable from the screen; the data and engine work moves behind it.
 
 ```
+Wave 2-0  *** FIRST, AND IT IS A REGRESSION WE SHIPPED ***
+         · THE FILTERS BREAK SCROLLING ON MOBILE. Owner, 2026-09-02:
+           "its so bad on mobile those filters you cant even scroll!!!!!!!!!"
+           Deferred to wave 2 on the owner's instruction, not fixed on the spot.
+           Undiagnosed - reproduce at 390x844 on the real library first.
+           Prime suspect is `cbfbb67`, the mobile inline disclosure: the panel is
+           content rather than an overlay, so it may be sizing the scroll column
+           out, or `data-vaul-no-drag` may be fighting the drawer's drag listener.
+           Verify with TOUCH emulation - desktop was verified working, so a mouse
+           check will not see it. Full note: handoff-2026-09-02-waves.md.
+
 Wave 2a  THE FILTER AND TAG SURFACE — the sidebar the owner photographed
          · the category chip trigger (§1.3's remaining half)
          · the Been / Not been yet interaction (§1.4) — spec is written and costed

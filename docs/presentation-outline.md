@@ -1,5 +1,12 @@
 # Presentation outline — No Crumbs
 
+> **SUPERSEDED 2026-09-02 by [`presentation-deck.md`](presentation-deck.md), which is the graded
+> artefact (M11, M12 item 10) and the file to build the slides from and speak.** This outline is kept
+> as the record of how the story was first shaped, and it is **not maintained**. Several of its
+> numbers are now stale — the unit-test counts, the migration count, the policy-assertion count, and
+> the claim that CI has not started a runner since 29 August (`current-state.md` records that as
+> stale). The deck's closing section lists every change and why. Read the deck instead.
+>
 > **Course requirement M11**: 10–15 minutes, followed by short interview-style questions.
 > The document warns: *"it is not enough that the app works — you must know how and why it works."*
 >
