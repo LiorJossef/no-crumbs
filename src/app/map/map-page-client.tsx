@@ -579,6 +579,11 @@ export function MapPageClient({
         toId: (place: MapPlace) => place.id,
         toPoint: (place: MapPlace) => place,
         toLocality: (place: MapPlace) => place.detail?.locality ?? null,
+        // Without this an area whose rows all carry a null locality has no name at all, and the
+        // map draws its count alone — a bare `4` over Prague. `buildAreas` falls back to the
+        // country by the same plurality rule the header uses, so the pill reads `Czechia 4` until
+        // the backfill gives those rows their real locality.
+        toCountryCode: (place: MapPlace) => place.detail?.countryCode ?? null,
       }),
     [clusters],
   );
