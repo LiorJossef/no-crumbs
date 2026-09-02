@@ -6,6 +6,10 @@
 > `supabase-database` — dispatched concurrently at that same commit. Nothing was written and no
 > provider quota was spent.
 >
+> **The feedback was gathered locally on `no-crumbs-implementation`** (owner, 2026-09-02), not
+> against production. So every item is live code on this branch, none of it is already-fixed drift,
+> and the file:line triage below is aimed at the code that was actually being used.
+>
 > This is a **triage plan, not a backlog**. The feedback holds ~45 distinct items and the course
 > deadline is **6 September 2026** — four days. Items below are marked **NOW**, **IF TIME** or
 > **DEFERRED**, and every deferral says why.
@@ -108,7 +112,7 @@ items as sub-tasks, so it is one dispatch rather than five.
 
 | Task | Detail |
 |---|---|
-| B-T1 | Compact action row under the source quote — TikTok · Maps · **Been** — replacing the full-width blocks. `saved-place-edits.tsx:168-198` |
+| B-T1 | Compact action row under the source quote — TikTok · Maps · **Been** — replacing the full-width blocks. The ask is the *size and weight* of the control, not its wording. `saved-place-edits.tsx:168-198` |
 | B-T2 | `Approximate location ~` as a small label beside the address; retire the process sentence. `src/ui/place/location-certainty.ts:48-51`, `place-sheet.tsx:2342-2355` |
 | B-T3 | Empty note becomes `+ Add note`. `saved-place-edits.tsx:549-580` |
 | B-T4 | Remove the rename pencil from the UI. Keep `saved_places.display_name` and its server action — this is a UI removal, not a data change. `saved-place-edits.tsx:396-529`. **The `<bdi>` at `place-sheet.tsx:2062` and its comment must survive** — the pencil is the fixed-chrome reference in the RTL audit |
@@ -129,7 +133,7 @@ Covers **§1.3, §1.4**. Recorded twice already by independent reviews — 372 p
 | Task | Detail |
 |---|---|
 | C-T1 | Collapse the chip row behind one compact trigger that opens the existing chips in a popover/sheet. **Not a native `<select>`** — that would drop the pressed chip filling with its own category colour, which `facelift-plan.md:144` locks and which is load-bearing across pins, chips and counts |
-| C-T2 | Re-specify the Been / Not-been-yet control so include-vs-exclude-vs-clear is legible without the `x`. **This reverses a written decision** — see §4 |
+| C-T2 | **Re-specify the Been / Not-been-yet interaction.** `ux-interaction` writes the spec before anything is built. The complaint is the interaction model, not the wording: at a glance the control does not say whether you are *including* been places, *excluding* them, or *showing everything*, and the `x` that appears when it is active reads as "close this" rather than "clear this filter". The three states must be distinguishable without pressing anything, and clearing must be obvious. **This reverses a written decision** — see §4. Keep the ratified words **Been** / **Not been yet**; they are not what is wrong |
 
 **Scope:** `category-filter-bar.tsx`, `src/ui/place/visit-state.ts`. Nothing in `place-sheet.tsx`.
 
@@ -216,18 +220,18 @@ on an answer.
    move the camera under the finger that tapped it"*) and adds a ninth camera mover. Real
    trade-off: consistency with the list versus the map jumping under your thumb on mobile.
    *Recommendation: a gentle ease that keeps the tapped pin under the finger, not a full re-frame.*
-2. **§1.4 — the Been / Not-been-yet control.** Today's single-control model was chosen deliberately
-   to reach the 44 px touch floor. Changing it is legitimate but should be re-specified, not
-   patched. Note the label stays **Been** — `voice-and-vocabulary.md` §3 bans *visited*, and a unit
-   test asserts it, so the owner's suggested `Visited` pill ships as a `Been` pill.
+2. **§1.4 — the Been / Not-been-yet control.** Today's single-control model — one control, press the
+   pressed one to clear — was chosen deliberately to reach the 44 px touch floor, and it is what
+   makes the three states hard to tell apart. Replacing it means either giving the filter more room
+   in a row that is already the density complaint of §1.3, or moving it out of that row entirely.
+   Both are legitimate; they are different products. *Recommendation: `ux-interaction` specs both,
+   the owner picks.* The words **Been** / **Not been yet** stay — they are ratified and they are not
+   what the feedback is about.
 3. **§1.3 — a dropdown would cost the category colour system.** *Recommendation: compact trigger
    opening the existing chips, keeping the colours.* Confirm that is acceptable.
 4. **§6.5 — spend 2 Google calls per candidate to turn an address into a business?** Against a
    100/day cap. *Recommendation: not before submission.*
 5. **§9.2 — auth method.** *Recommendation: no change before 6 September.*
-6. **Which build was tested?** Production is 417 commits behind this branch. If the feedback came
-   from production rather than local or a preview, a handful of items may already be fixed on the
-   branch and the triage above would be aimed at the wrong code.
 
 ---
 
