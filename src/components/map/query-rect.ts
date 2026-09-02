@@ -38,13 +38,20 @@ export function leftPanelWidthPx(viewportWidth: number): number {
   return Math.min(392, Math.max(320, viewportWidth * 0.26));
 }
 
-// The sheet's peek height, mirrored from `PEEK_PX` in `src/components/sheet/place-sheet.tsx`.
+// The sheet's peek height, mirrored from `PEEK_PX` in `src/components/shell/sheet-geometry.ts`.
 // That module does not export it and this task does not own that file, so the value is duplicated
 // here with the coupling named rather than reached for: if the sheet's peek stop changes, this
 // must change with it, exactly as `leftPanelWidthPx` above documents its coupling to
 // `PlaceDesktopPanel`. The sheet adds `env(safe-area-inset-bottom)` on top of this number in CSS,
 // so the occluded strip is this plus the inset — see `safeAreaInsetBottomPx`.
-export const SHEET_PEEK_PX = 128;
+// **128 until 2026-09-02.** It grew to 156 because the peek row's 44 px button was sitting 14 px
+// behind the floating `BottomNav`; the band, not the row, was what had to give. That is a camera
+// change as much as a spacing one — this is the bottom of the query rect, so 28 px more of the
+// container is now counted as covered and the pins in it drop out of the visible list. Which is
+// correct: they are behind the sheet. The upper bound on this number comes from the other
+// consumer: `clampFitPadding` must still leave a bottom padding deeper than this strip on a
+// 320 px-tall landscape phone, which caps it at 158.
+export const SHEET_PEEK_PX = 156;
 
 /**
  * `env(safe-area-inset-bottom)` in pixels, which JavaScript cannot read directly — the only way to
@@ -91,7 +98,7 @@ export function safeAreaInsetBottomPx(): number {
  *
  * `bottomOcclusionPx` overrides the sub-`lg` sheet height for a surface whose sheet **rests**
  * somewhere other than the peek stop: `/collections/[id]` opens at the half stop and stays there, so
- * the chrome permanently over its map is ~55% of the viewport rather than 128 px. It replaces
+ * the chrome permanently over its map is ~55% of the viewport rather than 156 px. It replaces
  * `SHEET_PEEK_PX` only — `safe-area-inset-bottom` is still added on top of it, because the sheet
  * sits on that inset whatever stop it is at — and the `lg+` branch has no sheet to override.
  */
@@ -226,7 +233,7 @@ function clampPaddingAxis(start: number, end: number, extent: number): [number, 
  * the inset rectangle.
  *
  * **Not** `getBounds()` plus arithmetic on the returned lat/lngs. Degrees are not linear in screen
- * pixels: subtracting a "128 px worth of latitude" is wrong at every zoom, wrong near the poles
+ * pixels: subtracting a "156 px worth of latitude" is wrong at every zoom, wrong near the poles
  * where Mercator stretches, and meaningless under a rotated or pitched camera, where the visible
  * region is a trapezoid rather than an axis-aligned box. Unprojecting the corners asks the camera
  * itself, so it stays correct under all three.

@@ -19,6 +19,7 @@ import { describe, expect, it } from 'vitest';
 import {
   HALF_FRACTION,
   PEEK_PX,
+  PEEK_ROW_PADDING_BOTTOM,
   SNAP_POINTS,
   STOP_TO_CONTENT_HEIGHT,
   STOP_TO_SNAP,
@@ -34,9 +35,49 @@ const repoFile = (relative: string) =>
   readFileSync(fileURLToPath(new URL(`../../../${relative}`, import.meta.url)), 'utf8');
 
 describe('PEEK_PX and its mirrors', () => {
-  it('is still 128', () => {
+  it('is 156 — the sum of what the band actually holds', () => {
     // Spelled out rather than compared to itself: the ruling names the number, so the test does.
-    expect(PEEK_PX).toBe(128);
+    // 128 until 2026-09-02 (W2-E), when the band was measured against its own contents and did not
+    // fit: the 44 px button came to rest at y 746-790 with `BottomNav` occupying 776-844, so its
+    // lower 14 px were behind an opaque fixed bar. The assertion below is the arithmetic rather
+    // than a second hand-typed number, and 158 is the ceiling the camera puts on it.
+    expect(PEEK_PX).toBe(156);
+  });
+
+  it('holds the handle, a 44px target with air on both sides, and the whole floating bar', () => {
+    const HANDLE_AND_BORDER_PX = 16; // measured: 1 border + 10 `mt-2.5` + a 4-5 px `h-1` handle
+    const TOUCH_FLOOR_PX = 44; // `min-h-11` on the peek row's button, and not negotiable
+    const AIR_PX = 14; // above the button, and again below it
+    expect(PEEK_PX).toBe(
+      HANDLE_AND_BORDER_PX + AIR_PX + TOUCH_FLOOR_PX + AIR_PX + BOTTOM_NAV_HEIGHT_PX,
+    );
+    // And the ceiling, which is the camera's: `clampFitPadding` scales `/map`'s padding box down on
+    // a viewport too short for it, and `query-rect.test.ts` requires the scaled bottom padding to
+    // stay deeper than this strip. At 568x320 that holds only up to 158.
+    expect(PEEK_PX).toBeLessThanOrEqual(158);
+    // The half of it the row itself spends, and the reason a flat `68px` was not enough: the bar's
+    // own height is `calc(68px + env(safe-area-inset-bottom))`, so a row padded by the bare number
+    // sits under a home indicator by the whole inset.
+    // `+ 2` because the content column overhangs the bottom of the viewport by exactly that:
+    // `HANDLE_PX` (14) undercounts the sheet's real chrome (16). So 84 px of padding buys 14 px of
+    // air, which is what the browser measures.
+    expect(PEEK_ROW_PADDING_BOTTOM).toBe(
+      `calc(${BOTTOM_NAV_HEIGHT_PX + AIR_PX + 2}px + env(safe-area-inset-bottom))`,
+    );
+    expect(PEEK_ROW_PADDING_BOTTOM).toContain('env(safe-area-inset-bottom)');
+  });
+
+  /**
+   * The padding only does anything because the row it is on fills the column and hangs off its
+   * bottom edge. Top-anchored — which is what it was — a `padding-bottom` positions nothing at all,
+   * which is why the old flat 68 px left the button 14 px behind the bar while looking correct in
+   * the source. Read out of `place-sheet.tsx` for the same reason every other assertion in this
+   * file does: it pulls `server-only` in through its Server Actions and cannot be imported here.
+   */
+  it('is spent by a row that is bottom-aligned, or the padding positions nothing', () => {
+    const sheet = repoFile('src/components/sheet/place-sheet.tsx');
+    expect(sheet).toContain('className="flex min-h-0 flex-1 items-end"');
+    expect(sheet).toContain('style={{ paddingBottom: PEEK_ROW_PADDING_BOTTOM }}');
   });
 
   it('is the same number the camera spends on its bottom budget', () => {
@@ -89,7 +130,7 @@ describe('the three stops', () => {
    *
    * 14 px of drag handle everywhere, plus the drawer's Places / Collections switch at `half` and
    * `full` — and **not** at `peek`, because `map-shell.tsx` does not render it there. The peek band
-   * is 128 px with a 68 px `BottomNav` floating over its lower half, so it holds one line and the
+   * is 156 px with a 68 px `BottomNav` floating over its lower half, so it holds one line and the
    * switch would be that line.
    *
    * Subtracting the switch at a stop that does not draw it would push the last row of every list in
@@ -100,7 +141,12 @@ describe('the three stops', () => {
   it('reserve the view switch at half and full, and never at peek', () => {
     expect(VIEW_SWITCH_HEIGHT_PX).toBe(56);
     expect(STOP_TO_CONTENT_HEIGHT.peek).toBe(`calc(${PEEK_PX}px - 14px)`);
-    expect(STOP_TO_CONTENT_HEIGHT.peek).not.toContain(`${VIEW_SWITCH_HEIGHT_PX}`);
+    // Asserted as the *subtraction* rather than as the substring `56`, which the assertion said
+    // until 2026-09-02 and which stopped meaning anything the moment `PEEK_PX` became 156: a
+    // digit-run match on a number that also appears in the operand is a coincidence detector, not
+    // a guard. What must never happen is the switch being taken off a stop that does not draw it.
+    expect(STOP_TO_CONTENT_HEIGHT.peek).not.toContain(`- ${14 + VIEW_SWITCH_HEIGHT_PX}px`);
+    expect(STOP_TO_CONTENT_HEIGHT.peek).toContain('- 14px');
     for (const stop of ['half', 'full'] as const) {
       expect(STOP_TO_CONTENT_HEIGHT[stop], stop).toContain(`- ${14 + VIEW_SWITCH_HEIGHT_PX}px`);
     }
@@ -128,7 +174,8 @@ describe('the three stops', () => {
 
 describe('what a resting stop costs the camera', () => {
   it('is undefined at peek, so the surface keeps its own pixel budget', () => {
-    // Not an omission: 128px is a fixed strip and `128 / containerHeight` differs on every phone.
+    // Not an omission: the peek band is a fixed strip and `PEEK_PX / containerHeight` differs on
+    // every phone.
     expect(restingSheetFractionFor('peek')).toBeUndefined();
   });
 

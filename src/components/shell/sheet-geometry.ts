@@ -21,14 +21,67 @@ export type SheetStop = 'peek' | 'half' | 'full';
  * point's own element (vaul only takes a bare px number for the snap point itself), so the sheet's
  * *drag* stop stays a stable number while the visual bottom padding still respects the inset.
  *
- * **This number may not move.** It is mirrored in three other places, and one of them is a licence
- * condition: `globals.css`'s `.maplibregl-ctrl-attrib` padding keeps CARTO's and OSM's attribution
- * clear of the sheet at `peek`, and `query-rect.ts`'s `SHEET_PEEK_PX` is the camera's bottom budget.
- * Neither can import this module — CSS cannot, and `components/map` importing `components/sheet`
- * would invert the direction those two already depend in — so they stay mirrored, and
+ * **128 until 2026-09-02, and it did not fit.** Measured in the running app at 390×844: the band's
+ * lower 68 px belong to the floating `BottomNav`, which is `position: fixed` and opaque across the
+ * full width, so the usable strip was 60 px. The one control in it — the row that opens the library,
+ * held at the 44 px touch floor — came to rest at y 746–790 against a bar occupying 776–844, so its
+ * **last 14 px were behind the bar** and a touch there hit the nav. There was nothing to rebalance
+ * inside 128: the button is already at the floor and the chrome above it is a drag handle.
+ *
+ * So the band is now written as the sum of what is actually in it, and it is bounded from **both**
+ * sides — which is the part worth reading before changing it again:
+ *
+ * | 16 px | sheet border + drag handle (`mt-2.5 h-1`: 1 px border, 10 px margin, a 4–5 px bar) |
+ * | 14 px | air |
+ * | 44 px | the peek row's button — the touch floor, and not negotiable |
+ * | 14 px | air |
+ * | 68 px | `BOTTOM_NAV_HEIGHT_PX`, painted over the bottom of the band |
+ *
+ * **And an upper bound of 158, from the camera.** `clampFitPadding` scales `/map`'s whole padding
+ * box down when it does not fit, and `query-rect.test.ts` asserts the scaled bottom padding is
+ * still deeper than this strip so no fitted pin lands under the sheet. On the shortest viewport
+ * that suite tests — 568×320, a phone in landscape — that holds only while `PEEK_PX ≤ 158`. 156 is
+ * the largest 4 px-grid value inside [152, 158], and 152 is where the air drops to 12.
+ *
+ * Measured after the change at 390×844: handle bottom 704, button 718–762, bar top 776 — 14 px of
+ * air above and 14 px below.
+ *
+ * **It is mirrored in three other places**, and one of them is a licence condition: `globals.css`'s
+ * `.maplibregl-ctrl-attrib` padding keeps CARTO's and OSM's attribution clear of the sheet at
+ * `peek`, and `query-rect.ts`'s `SHEET_PEEK_PX` is the camera's bottom budget — so moving this
+ * number changes which pins the list counts as visible, not only the spacing. Neither can import
+ * this module — CSS cannot, and `components/map` importing `components/sheet` would invert the
+ * direction those two already depend in — so they stay mirrored, and
  * `tests/unit/shell/sheet-geometry.test.ts` is what stops the four drifting apart.
  */
-export const PEEK_PX = 128;
+export const PEEK_PX = 156;
+
+/**
+ * The air the peek row keeps between its button and the floating bar below it.
+ *
+ * Exported as the whole `padding-bottom` rather than as a number, because the other half of the
+ * same defect was that the row spent `BOTTOM_NAV_HEIGHT_PX` flat while the bar's own height is
+ * `calc(68px + env(safe-area-inset-bottom))` — so on a device with a home indicator the row sat
+ * under the bar by the whole inset. JavaScript cannot read `env()`, so the inset has to travel in
+ * the CSS string; the bar's height and this padding are now the same expression plus the air.
+ *
+ * The row that spends it is `flex-1` and **bottom-aligned**, which is what makes the inset actually
+ * move the button: a top-anchored row ignores its own `padding-bottom` entirely, which is why the
+ * old flat 68 px was doing nothing at all. Bottom-aligned, the gap to the bar is constant at any
+ * inset, and it is the air *above* the button that the inset eats — the safe direction to degrade.
+ *
+ * **Inert today, and worth saying so:** `app/layout.tsx` sets no `viewportFit: 'cover'`, so every
+ * `env(safe-area-inset-bottom)` in this product currently resolves to 0. This makes the row correct
+ * for the day that changes; it is not evidence that anything was observed to move.
+ */
+const PEEK_ROW_AIR_PX = 16;
+// 16 rather than the 14 the table above measures, and the 2 px are not a fudge: `HANDLE_PX`
+// undercounts the sheet's chrome by exactly that (it counts the handle and not the 1 px border or
+// the 1 px the 4 px bar rounds up to at DPR 2), so the content column overhangs the bottom of the
+// viewport by 2 px. Padding from the column's own edge therefore costs 2 px more than it buys.
+
+export const PEEK_ROW_PADDING_BOTTOM =
+  `calc(${BOTTOM_NAV_HEIGHT_PX + PEEK_ROW_AIR_PX}px + env(safe-area-inset-bottom))` as const;
 
 /** The drag handle above the sheet's content column (`mt-2.5 h-1`). Subtracted from every content
  *  height below. */
@@ -39,7 +92,7 @@ const HANDLE_PX = 14;
  * (`map-shell.tsx`, `DrawerViewSwitch`): `mt-1` + an `h-11` track + `mb-2` = 4 + 44 + 8.
  *
  * **It is subtracted at `half` and `full` and not at `peek`, because it does not render at
- * `peek`.** The peek band is 128 px with a 68 px `BottomNav` floating over its lower half, so
+ * `peek`.** The peek band is 156 px with a 68 px `BottomNav` floating over its lower half, so
  * there is one line of usable strip there and the switch would take all of it. Every stop's number
  * has to describe what is actually in the sheet at that stop: a constant subtracted where nothing
  * is drawn would push the last row of every list 56 px below the bottom of the screen, which is
@@ -148,9 +201,9 @@ export function snapToStop(snap: number | string | null): SheetStop {
 /**
  * What a scope resting at `stop` costs the camera, as `MapSurfaceProps.restingSheetFraction`.
  *
- * `undefined` for `peek`, which is not an omission: the surface's own default is the 128 px peek
+ * `undefined` for `peek`, which is not an omission: the surface's own default is the 156 px peek
  * strip (`query-rect.ts`'s `SHEET_PEEK_PX`), and a fraction is the wrong shape for a fixed strip —
- * `128 / containerHeight` differs on every phone, and the surface already resolves the pixel form
+ * `156 / containerHeight` differs on every phone, and the surface already resolves the pixel form
  * against the container it actually has.
  *
  * `full` returns the **half** fraction rather than `1`. A sheet covering the whole container has no
@@ -161,7 +214,7 @@ export function snapToStop(snap: number | string | null): SheetStop {
  * Deriving this here rather than letting each route pass a number is the fix for the failure
  * `/collections/[id]`'s old copy recorded: the camera used to read the fraction back out of
  * `SNAP_POINTS` by index, so reordering the stops made it `undefined`, the conditional spread
- * dropped the prop, the camera silently reverted to a 128 px budget, and no test failed.
+ * dropped the prop, the camera silently reverted to the peek pixel budget, and no test failed.
  */
 export function restingSheetFractionFor(stop: SheetStop): number | undefined {
   return stop === 'peek' ? undefined : HALF_FRACTION;

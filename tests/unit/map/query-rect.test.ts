@@ -63,16 +63,17 @@ describe('queryRectFrom — an uninset rect is the whole canvas', () => {
 
 describe('queryRectFrom — insets come off the correct edge, exactly', () => {
   it('takes a bottom inset off the south edge and nothing else (the mobile case)', () => {
-    // 128 px of sheet peek = 1.28° at this fake zoom, off the *south* edge because y grows
-    // downward and this module must not confuse the two.
+    // The sheet peek comes off the *south* edge because y grows downward, and this module must not
+    // confuse the two. Derived from the constant rather than written out: the number is mirrored in
+    // four files and a literal here made this test a fifth mirror that drifted silently.
     const rect = queryRectFrom(linearUnproject, 1000, 1000, {
       ...NO_INSETS,
       bottom: SHEET_PEEK_PX,
     });
-    // `toBeCloseTo` on the moved edge only: 1000 - 128 pixels through a float multiply lands on
-    // 1.2799999999999994, which is floating point, not a geometry bug. The unmoved edges are exact.
+    // `toBeCloseTo` on the moved edge only: the height through a float multiply lands a hair off,
+    // which is floating point, not a geometry bug. The unmoved edges are exact.
     expect(rect).not.toBeNull();
-    expect(rect!.south).toBeCloseTo(1.28, 10);
+    expect(rect!.south).toBeCloseTo(SHEET_PEEK_PX / 100, 10);
     expect(rect!.north).toBe(10);
     expect(rect!.west).toBe(0);
     expect(rect!.east).toBe(10);
@@ -287,16 +288,19 @@ describe('clampFitPadding — the padding box can exceed the container, and must
   });
 
   // `/map` passes neither `restingSheetFraction` nor `floatingTopChromePx`, so its padding below
-  // `lg` is a flat 48 + 100 of chrome on top and 48 + 128 of peek strip underneath: 324 px, fixed,
-  // whatever the viewport is. Both tests below are regression guards on that box, and they are two
-  // tests rather than one because the answer genuinely differs by container height — a phone in
-  // landscape is shorter than 324 + 48 and the clamp *does* engage there.
+  // `lg` is a flat 48 + 100 of chrome on top and 48 + the peek strip underneath, fixed whatever the
+  // viewport is. Both tests below are regression guards on that box, and they are two tests rather
+  // than one because the answer genuinely differs by container height — a phone in landscape is
+  // shorter than the box plus the band, and the clamp *does* engage there.
   const MAP_PADDING = { top: 48 + 100, bottom: 48 + SHEET_PEEK_PX, left: 48, right: 48 };
+  /** Every number below is derived: the strip is mirrored in four files and has moved once. */
+  const MAP_PADDING_HEIGHT = MAP_PADDING.top + MAP_PADDING.bottom;
+  /** The shortest container that fits the whole box and still clears the band. */
+  const NO_CLAMP_ABOVE_PX = MAP_PADDING_HEIGHT + MIN_FIT_BAND_PX;
 
-  it("leaves /map's own padding untouched wherever 324 px of it fits", () => {
-    // 324 px of padding needs 372 px of height to clear MIN_FIT_BAND_PX, so every device at least
-    // 372 px tall is a no-op. That includes both landscape entries here, but only just: 812x375
-    // clears the budget by 3 px.
+  it("leaves /map's own padding untouched on any container tall enough to hold it", () => {
+    // Every portrait device is a no-op. Landscape phones are not, and they moved to the test below
+    // when the peek strip grew — the boundary is `NO_CLAMP_ABOVE_PX`, asserted rather than assumed.
     for (const [w, h] of [
       [320, 568],
       [360, 640],
@@ -304,25 +308,27 @@ describe('clampFitPadding — the padding box can exceed the container, and must
       [375, 812],
       [390, 844],
       [430, 932],
-      [667, 375],
-      [812, 375],
     ] as const) {
+      expect(h, `${w}x${h} belongs in this test`).toBeGreaterThanOrEqual(NO_CLAMP_ABOVE_PX);
       expect(clampFitPadding(MAP_PADDING, w, h), `${w}x${h}`).toEqual(MAP_PADDING);
     }
   });
 
-  it("clamps /map's padding on a landscape phone under 372 px tall, and the peek strip still clears", () => {
+  it("clamps /map's padding on a landscape phone too short to hold it, and the peek strip still clears", () => {
     // The half of the device range the guard above cannot cover, and used to imply it did. A
     // Pixel/Galaxy-class phone in landscape is 360 px tall and an iPhone SE is 320, both under the
     // 372 px `/map`'s own padding needs, so the clamp engages and the assertion has to be about
     // what survives rather than about nothing happening. What must survive is the peek strip: the
-    // scaled-down bottom padding is still deeper than the 128 px of sheet it exists to clear, so no
+    // scaled-down bottom padding is still deeper than the sheet strip it exists to clear, so no
     // fitted pin lands underneath it. That is a property of these numbers, not a guarantee
     // `clampFitPadding` makes — see its doc comment.
     for (const [w, h] of [
       [640, 360],
       [568, 320],
+      [667, 375],
+      [812, 375],
     ] as const) {
+      expect(h, `${w}x${h} belongs in this test`).toBeLessThan(NO_CLAMP_ABOVE_PX);
       const clamped = clampFitPadding(MAP_PADDING, w, h);
       expect(clamped, `${w}x${h} should clamp`).not.toEqual(MAP_PADDING);
       expect(clamped.top + clamped.bottom, `${w}x${h}`).toBeCloseTo(h - MIN_FIT_BAND_PX, 6);

@@ -10,7 +10,8 @@
  * does not reimplement that logic, it only supplies snap points and content.
  *
  * Three stops per §6.5/§1.3, as pixel/fraction snap points vaul understands directly:
- *  - `peek`: a fixed px height (120px + safe-area-bottom) — the viewport heading + Add action.
+ *  - `peek`: a fixed px height (`PEEK_PX`, 156) — one line: the viewport heading, which opens the
+ *    sheet. The bar floats over its lower 68 px and the row is padded clear of it.
  *  - `half`: 55% of the viewport — the saved-places list, or (S5) a selected place's detail.
  *  - `full`: 100% — search field + full list.
  *
@@ -42,6 +43,7 @@
 
 import {
   HALF_FRACTION,
+  PEEK_ROW_PADDING_BOTTOM,
   STOP_TO_CONTENT_HEIGHT,
   floatingBarClearancePx,
   type SheetStop,
@@ -498,12 +500,34 @@ function PlaceList({
          * the sheet. What is left here is the one thing that is genuinely about *this* sheet —
          * what the list below is, and that it can be pulled up.
          *
-         * That is also what pays for the bar. `PEEK_PX` is 128 and is mirrored in four places, one
-         * of them a licence condition; it sets the camera's bottom budget too, so it must not move.
-         * Dropping the button frees the lower half of the band for the bar to sit in, and the
-         * padding below matches `BOTTOM_NAV_HEIGHT_PX` so the line never sits behind it.
+         * That is also what pays for the bar. `PEEK_PX` is mirrored in four places, one of them a
+         * licence condition, and it sets the camera's bottom budget — so it moves through
+         * `sheet-geometry.ts` and all four together, never here.
+         *
+         * **`min-h-0 flex-1 items-end`, and all three words are the fix** (W2-E). This row spent a flat
+         * `BOTTOM_NAV_HEIGHT_PX` of `padding-bottom` while sitting at its own content height at
+         * the *top* of the column — so the padding positioned nothing at all, the button came to
+         * rest at y 746–790 under a bar occupying 776–844, and its lower 14 px were unpressable.
+         * Filling the column and aligning to its bottom edge is what makes the padding load-bearing:
+         * the button now hangs off the bottom of the strip at a fixed distance from the bar, and
+         * `PEEK_ROW_PADDING_BOTTOM` carries the `env(safe-area-inset-bottom)` the bar's own height
+         * has always carried, so a home indicator moves the two together instead of sliding the bar
+         * up over the line.
+         *
+         * **`min-h-0` is what makes that second half true, and it is not decoration.** A flex item's
+         * automatic minimum size is its content, so without it the row simply grew past the column
+         * — measured with a 34 px inset emulated over CDP: the row became 162 px tall inside a
+         * 128 px box, went back to being top-anchored, and the button ended 20 px *under* the bar,
+         * which is the defect this row started with. With it the row shrinks, the button stays
+         * glued 14 px above the bar at any inset, and what the inset eats is the air above — the
+         * safe direction. Past ~30 px of inset the button's box starts above the sheet's top edge;
+         * its background is transparent and its text is centred, so nothing paints on the map, and
+         * no device can reach that state today anyway (see `PEEK_ROW_PADDING_BOTTOM`).
          */
-        <div className="flex items-center" style={{ paddingBottom: `${BOTTOM_NAV_HEIGHT_PX}px` }}>
+        <div
+          className="flex min-h-0 flex-1 items-end"
+          style={{ paddingBottom: PEEK_ROW_PADDING_BOTTOM }}
+        >
           <button
             type="button"
             onClick={onExpand}
@@ -518,11 +542,9 @@ function PlaceList({
               // control that opens the library on a phone, so it is on the path of every session,
               // and 20px of it is one line of `text-sm` with nothing around it.
               //
-              // It costs no vertical space that was doing anything else. `PEEK_PX` is 128 and must
-              // not move — it is mirrored in four places, one of them a licence condition, and it
-              // sets the camera's bottom budget — but the strip already had the room: dropping the
-              // `Add a TikTok link` button into `BottomNav` freed the lower half of the band, and this
-              // only claims the height the row was already sitting in.
+              // It is the floor the whole band is now sized around: `PEEK_PX` grew 128 → 156 on
+              // 2026-09-02 precisely because 44 px plus the bar plus a drag handle does not fit in
+              // 128, and the button is the one term in that sum that may not shrink.
               'flex min-h-11 min-w-0 flex-1 items-center gap-1 rounded-lg px-1 text-left text-sm font-medium text-muted-foreground',
               // The only control on the peek strip, and the one whose result — the sheet rising —
               // takes a spring to arrive. Without a press this row looked inert for that whole

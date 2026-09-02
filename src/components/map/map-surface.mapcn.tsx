@@ -1484,7 +1484,7 @@ export function MapSurfaceMapcn({
           group cannot drift apart at a breakpoint. `MapControls` is taken out of its own corner by
           `relative bottom-auto right-auto`, which `cn`'s tailwind-merge resolves against the
           `absolute bottom-* right-*` it applies itself. */}
-      <div className="absolute right-2 z-10 flex flex-col items-end gap-1.5 bottom-[calc(128px+env(safe-area-inset-bottom)+3rem)] lg:bottom-10">
+      <div className="absolute right-2 z-10 flex flex-col items-end gap-1.5 bottom-[calc(156px+env(safe-area-inset-bottom)+3rem)] lg:bottom-10">
         {controlSlot}
         <MapControls
           showZoom

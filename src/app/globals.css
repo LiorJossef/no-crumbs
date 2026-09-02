@@ -1640,13 +1640,13 @@
    * ever see is a compliance defect rather than a cosmetic one — and a zoom button you cannot
    * press is a plain bug.
    *
-   * `SHEET_PEEK_PX` (128) plus the safe-area inset the sheet sits on, plus a little air. Mirrored
+   * `SHEET_PEEK_PX` (156) plus the safe-area inset the sheet sits on, plus a little air. Mirrored
    * from `components/map/query-rect.ts`, which mirrors it from the sheet — the coupling is named
    * in both places rather than reached for.
    */
   .maplibregl-ctrl-bottom-right,
   .maplibregl-ctrl-bottom-left {
-    padding-bottom: calc(128px + env(safe-area-inset-bottom) + 0.25rem);
+    padding-bottom: calc(156px + env(safe-area-inset-bottom) + 0.25rem);
     }
   @media (min-width: 64rem) {
     .maplibregl-ctrl-bottom-right,
