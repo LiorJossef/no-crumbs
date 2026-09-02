@@ -1,10 +1,19 @@
 # Current state — the cold-start document
 
-> **CURRENT.** Everything here was verified against the running system or the code on
-> **2026-08-31**, after the overnight facelift-and-growth run. That run's own record is
-> [`overnight-run-report.md`](overnight-run-report.md), its per-package ledger is
-> [`overnight-run-ledger.md`](overnight-run-ledger.md), and the branch is
-> `no-crumbs-implementation` — **not merged**, because CI still cannot start a runner (item 0).
+> **CURRENT to 2026-09-02.** The UI-density session ran that day and added **21 commits** to
+> `no-crumbs-implementation`; its record is
+> [`handoff-2026-09-02-ui-density.md`](handoff-2026-09-02-ui-density.md) and the decisions behind it
+> are [`feedback-round-3-work-plan.md`](feedback-round-3-work-plan.md) §5.1. **Read the handoff
+> before acting on anything below** — it carries the nine inherited test failures, the two features
+> committed but not verified in a browser, and what must not be restarted from scratch.
+>
+> The layer beneath was verified on **2026-08-31**, after the overnight facelift-and-growth run
+> ([`overnight-run-report.md`](overnight-run-report.md), ledger
+> [`overnight-run-ledger.md`](overnight-run-ledger.md)). The branch is `no-crumbs-implementation` and
+> is **still not merged** — but no longer for the reason this file used to give: **item 0's "the
+> runner cannot start" is STALE.** Runners work; CI was red for two small, real reasons, both since
+> fixed, and the owner has since taken CI out of scope entirely (`feedback-round-3-work-plan.md`
+> Lane 0). What blocks the merge now is simply that PR #109 has not been landed.
 >
 > Earlier state was verified on **2026-08-30**. If it is wrong, that is a defect — fix it in the same branch as the change that
 > made it wrong.
@@ -61,11 +70,13 @@ document before 2026-08-30.
 
 | | |
 |---|---|
-| Tests | **146 files, 2,460 passing** on `no-crumbs-implementation` (`npx vitest run`). `main` is unchanged at 114 files / 2,017 — the run's baseline, tagged `pre-facelift` |
-| Migrations on disk | 29 — `0001`–`0030`, `0027` does not exist |
-| Staging database | `0018` — missing `0019`–`0030` |
-| Production database | `0026` — missing `0028`–`0030` |
-| Git | `main` == `origin/main` == `7ca82bc`, tree clean |
+| Tests | **219 files, 3,540 passing and 9 FAILING** on `no-crumbs-implementation`, measured 2026-09-02. The 9 are inherited from `abc1771` and are named in the handoff — **build them green, do not edit them green** |
+| `tsc --noEmit` | **4 errors**, all typed-route `Link` complaints. Pre-existing baseline, confirmed at three separate commits. `npm run verify` runs bare `tsc` and will fail on them |
+| Migrations on disk | **36** — `0001`–`0037`, `0027` does not exist. (This file previously said 29; that was measured against `0030`) |
+| Local database | applied head `0027`; **`0021`–`0023` and `0028`–`0037` are NOT applied**, plus a phantom `0027` row with no file. **13 behind disk.** Anything "verified locally" about saves, collections, profiles or tags is measured against the wrong schema. The clean repair destroys the owner's local saves — orchestrator only, on a specific instruction |
+| Staging database | `0018` — **last measured 2026-08-30 against 29 files. Re-measure before planning any push** |
+| Production database | `0026` — same caveat |
+| Git | `no-crumbs-implementation` is **417+ commits ahead of `main`**; `main` serves production. Tree clean at `3a948da` |
 | Open PRs | #72, #64, #22 — green from runs before 2026-08-29 21:52, all 153–424 commits behind `main`; plus #101 (project-contained Claude config), whose checks could not start |
 | Git hooks | `core.hooksPath` must be `.githooks`. It was **unset** on 2026-08-30 — `main` was unprotected. `npm run check:claude` now fails if that recurs |
 
@@ -114,7 +125,58 @@ at all until `npm install` has: measured 2026-08-30, `node_modules/` was absent,
 on its first step. The same absence left `core.hooksPath` unset — see
 [`claude-code-setup.md`](claude-code-setup.md).
 
+## What changed on 2026-09-02, and the one finding worth carrying
+
+**The session's purpose was the owner's instruction:** *"top priority is that the ui will feel nice
+and friendly and not overwhelming by a lot of tags or buttons or texts."* Eleven surfaces got
+quieter. The import loading screen lost **237 px of empty slack on an 844 px viewport** (28.1%, and
+it is the first thing you see after pasting a link); the collection header lost a row that was a
+duplicate of a control directly above it, taking fully visible list rows from **1 to 2**; the
+account menu went 469 → 437 px and 16 → 13 lines of text.
+
+**The finding that generalises: `cn()` was silently deleting every custom type size in the product**
+(`e4ad42b`). `tailwind-merge` classifies a `text-*` utility by its value, and anything it does not
+recognise as a size is filed as a **colour** — so `text-micro` shared a conflict group with
+`text-brand`, the merge kept the last one, and the size vanished. This had been true for as long as
+those seven tokens existed, across 65 call sites. It looked local because a plain `className` string
+never passes through the merge: 224 elements on `/map` rendered correctly and only the composed ones
+broke. It surfaced because the owner said the `Been` badge "looks weird" — it was rendering at 16 px
+against the 11 px its component asks for.
+
+**The rule to take from it: a class present in the source is not a class present on the element.**
+When something looks wrong and the source looks right, read the computed style. `utils.ts` now names
+the seven sizes and a test reads them out of `globals.css`, so adding a `--text-*` token without
+registering it fails a test rather than quietly resizing something months later.
+
+**Two lanes were stopped mid-task by the owner and committed in that state rather than discarded:**
+
+- **`abc1771` — the filter row.** Real work landed: three rows of controls became one, 16 pills
+  became 3 triggers, and the first place row moved **y370 → y265** at 375×812, so the header band
+  fell from 46% of the viewport to about 33%. **Unfinished:** the menus do not anchor to their
+  triggers, mobile should not use a floating popup at all, tags is not on the shadcn Combobox
+  (`2386f46`), the active trigger has no hover, sort hit-tests 32 px against a 44 px floor, and
+  close-on-select was never built. **Ten owner rulings now exist for it** in
+  `feedback-round-3-work-plan.md` §5.1 — the lane churned because this product has **no menu or
+  dropdown specification**, so give the next attempt those rulings and write
+  `docs/ux-menus-and-dropdowns.md` before restarting.
+- **`4bc04d0` — wave 1's two orphaned features**, every TikTok source on a place card and
+  multi-select + bulk delete in Places. Both had shipped a working data layer during wave 1 and were
+  never rendered. **It compiles, `/map` renders and ~45 new tests pass, but NOBODY HAS USED IT.** No
+  two-source card was opened and no real delete was run. Unit tests and a compile are not the §2 bar.
+
 ## Open, in impact order
+
+0z. **The three items with no slack, and none of them is a UI problem.** Submission is **6 September
+   2026**. (a) The **10–15 minute presentation deck** does not exist —
+   `presentation-outline.md` is 207 lines of outline, it is graded, it competes with no other lane
+   for files, and it cannot be rescued in an hour on the day. (b) **PR #109 has not landed**, so 21
+   commits of 2026-09-02's work and everything before it reach no user. (c) The **local database is
+   13 migrations behind disk**, which blocks the geography backfill and invalidates local
+   verification of saves, collections and tags.
+
+0y. **Verify `4bc04d0` in a browser.** See above — it is committed and unproven.
+
+
 
 0a. ~~**The home screen draws no pins at all.**~~ **FIXED on `no-crumbs-implementation`, 2026-08-31**
    (`5cd7ce8`, package W2-1). It was worse than this entry said: at 0 places and at 300 the product
