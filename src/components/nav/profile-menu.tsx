@@ -311,7 +311,7 @@ export function ProfileMenu({
           >
             <Identity data={data} failed={failed} />
 
-            <div className="mt-2 flex flex-col gap-1">
+            <div className="mt-3 flex flex-col gap-1">
               <MenuLink
                 href="/profile"
                 label={COPY.library}
@@ -325,7 +325,10 @@ export function ProfileMenu({
                 becoming two different accounts of one surface. `data-theme-choice` is not
                 decoration: `ThemeChoice` renders a `<noscript><style>` that hides every element
                 carrying it, because a `localStorage` control cannot work with scripting off. */}
-            <section aria-labelledby="menu-appearance" className="mt-3" data-theme-choice>
+            {/* `mt-1` and not the sections' `mt-3`: `ThemeChoice`'s control brings its own
+                `mt-2`, and its heading is `sr-only` here so it does not absorb it. 4 + 8 is the
+                same 12 every other section gets. Moves if that component's margin does. */}
+            <section aria-labelledby="menu-appearance" className="mt-1" data-theme-choice>
               <SectionHeading id="menu-appearance" visuallyHidden>
                 {COPY.appearance}
               </SectionHeading>
@@ -399,7 +402,7 @@ export function libraryLine(data: ProfileMenuData): string {
  */
 function Identity({ data, failed }: { data: ProfileMenuData | null; failed: boolean }) {
   return (
-    <div className="flex items-center gap-3 px-1 py-1">
+    <div className="flex items-center gap-3 px-2 py-1">
       <span
         aria-hidden
         className="flex size-11 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"
