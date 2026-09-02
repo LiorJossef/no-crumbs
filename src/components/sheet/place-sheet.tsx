@@ -119,7 +119,12 @@ import {
 import { AddToCollection } from '@/components/collections/add-to-collection';
 
 import { formatCaptionQuote, quoteAddsSomething } from '@/ui/place/caption-quote';
-import { isolate, type AreaHeading } from '@/ui/place/active-area';
+import {
+  CLEAR_FILTERS_LABEL,
+  NO_FILTER_MATCHES_LINE,
+  isolate,
+  type AreaHeading,
+} from '@/ui/place/active-area';
 import type { MapPlace } from '@/components/map/types';
 import { useNearMeDistance } from '@/components/map/near-me-context';
 
@@ -428,6 +433,10 @@ function PlaceList({
   /** Nothing at all to show — the scope's places *and* the continuation under `Everywhere else`
    *  are both empty, which is the only state in which a filter's own empty line is the truth. */
   const listIsEmpty = places.length + otherPlaces.length === 0;
+  /** Whether any of the three narrowing axes is on — the same three `Clear` resets, and
+   *  deliberately not the sort or the search, neither of which can empty the list in a way
+   *  `Clear filters` would undo. Search has its own escape one line above. */
+  const filtersAreOn = activeCategory !== null || visitFilter !== 'all' || activeTags.length > 0;
 
   /**
    * What the peek row promises above the count in the header: how many more rows are down there.
@@ -666,8 +675,14 @@ function PlaceList({
           {!libraryIsEmpty && listIsEmpty && visitFilter === 'been' ? (
             <p className="text-sm font-medium text-muted-foreground">{NO_BEEN_PLACES_LINE}</p>
           ) : (
+            /* **The heading does not explain an empty list.** Owner, 2026-09-02. `heading.note`
+               still carries the notes that are *about the scope* rather than about a filter having
+               emptied it, so it is kept — but when filters are on and nothing matched, the
+               sentence belongs in the list, where `ClearFiltersEscape` puts it with the button
+               that undoes it. Rendering both would say it twice, a control row apart. */
             !libraryIsEmpty &&
-            heading.note !== null && (
+            heading.note !== null &&
+            !(filtersAreOn && places.length === 0) && (
               <p className="text-sm font-medium text-muted-foreground">{heading.note}</p>
             )
           )}
@@ -698,6 +713,20 @@ function PlaceList({
               >
                 {heading.escape === 'clear-search' && (
                   <ClearSearchEscape onClearSearch={() => onQueryChange('')} />
+                )}
+                {/* **The filters emptied the list, so the list says so** — owner, 2026-09-02. This
+                    sits where the first row would have been, not in the heading: the reader is
+                    looking at the space that has nothing in it, and an explanation a control row
+                    above it is an explanation somewhere else. Search already worked this way one
+                    line up; the two empty results now behave alike. */}
+                {filtersAreOn && heading.escape !== 'clear-search' && places.length === 0 && (
+                  <ClearFiltersEscape
+                    onClearFilters={() => {
+                      if (activeCategory !== null) onToggleCategory(activeCategory);
+                      if (visitFilter !== 'all') onChangeVisitFilter('all');
+                      if (activeTags.length > 0) onClearTags();
+                    }}
+                  />
                 )}
                 {!heading.empty && (
                   <ul>
@@ -1696,6 +1725,41 @@ export function PlaceSearchField({
 
 /** The one control that undoes a search matching nothing anywhere. A tag filter is undone by its
  *  own pill above the list, so it gets no second control here. */
+/**
+ * **What a filter combination that matches nothing says, and where it says it.**
+ *
+ * Owner ruling, 2026-09-02: the message belongs *where the places are*, not in the header, and it
+ * is one generic sentence with a way out — not a line naming the axes that emptied it. The header
+ * already carries a count and a scope; making it also carry the failure put the explanation a
+ * whole control row away from the space it was explaining, and the reader's eye is on the empty
+ * list, not on the heading.
+ *
+ * Generic on purpose. `Nothing tagged "Brunch + Desserts"` reads as a report about tags, so a
+ * category or a visit filter doing the same thing produced a different sentence — three ways to
+ * say one thing, and each one a string to keep true. One sentence covers every combination and
+ * cannot go stale when an axis is added.
+ *
+ * The button is the whole point: `active-area.ts:79` records that an empty state without the
+ * clearing affordance *in it* is a dead end, and the filter row's own `Clear` is above the fold
+ * only sometimes. This is the same escape hatch `ClearSearchEscape` gives the search case, in the
+ * same place, so the two empty results behave alike.
+ */
+export function ClearFiltersEscape({ onClearFilters }: { onClearFilters: () => void }) {
+  return (
+    <div className="flex flex-col items-start gap-3 py-6">
+      <p className="text-sm font-medium text-muted-foreground">{NO_FILTER_MATCHES_LINE}</p>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={onClearFilters}
+        className="h-11 rounded-lg px-4 text-sm font-bold"
+      >
+        {CLEAR_FILTERS_LABEL}
+      </Button>
+    </div>
+  );
+}
+
 export function ClearSearchEscape({ onClearSearch }: { onClearSearch: () => void }) {
   return (
     <div className="flex flex-col items-start py-6">

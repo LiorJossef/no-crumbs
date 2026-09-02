@@ -23,6 +23,7 @@ import { useLayoutEffect, useMemo, useRef } from 'react';
 import { PlatformMark } from '@/components/brand/platform-mark';
 import { Button } from '@/components/ui/button';
 import {
+  ClearFiltersEscape,
   ClearSearchEscape,
   EMPTY_LIBRARY_HEADING,
   EmptyLibraryLine,
@@ -134,6 +135,8 @@ export function PlaceDesktopPanel({
   onChangeSort,
 }: PlaceDesktopPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  /** The three narrowing axes, and deliberately not sort or search — see the sheet's copy of this. */
+  const filtersAreOn = activeCategory !== null || visitFilter !== 'all' || activeTags.length > 0;
 
   /** The identical selection the sheet runs, through the identical hook and over the identical
    *  pair of arrays — see `PlaceList`. The sheet and this panel are two presentations of one
@@ -259,7 +262,8 @@ export function PlaceDesktopPanel({
           <p className="text-sm font-medium text-muted-foreground">{NO_BEEN_PLACES_LINE}</p>
         ) : (
           !libraryIsEmpty &&
-          heading.note !== null && (
+          heading.note !== null &&
+          !(filtersAreOn && places.length === 0) && (
             <p className="text-sm font-medium text-muted-foreground">{heading.note}</p>
           )
         )}
@@ -274,6 +278,20 @@ export function PlaceDesktopPanel({
           <div ref={scrollRef} className="mt-4 min-h-0 flex-1 overflow-y-auto px-4">
             {heading.escape === 'clear-search' && (
               <ClearSearchEscape onClearSearch={() => onQueryChange('')} />
+            )}
+            {/* Same rule as the sheet: the filters emptied the list, so the *list* says so, with
+                the button that undoes it. This host is the one that gets forgotten — the Been
+                badge and the no-matches line were both built in `place-sheet.tsx` alone — so it is
+                worth saying plainly that these two files each render their own column and a fix to
+                one is not a fix to the other. */}
+            {filtersAreOn && heading.escape !== 'clear-search' && places.length === 0 && (
+              <ClearFiltersEscape
+                onClearFilters={() => {
+                  if (activeCategory !== null) onToggleCategory(activeCategory);
+                  if (visitFilter !== 'all') onChangeVisitFilter('all');
+                  if (activeTags.length > 0) onClearTags();
+                }}
+              />
             )}
             {!heading.empty && (
               <ul>

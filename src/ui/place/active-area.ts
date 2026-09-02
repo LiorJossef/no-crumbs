@@ -518,3 +518,21 @@ export function mapAccessibleName(heading: AreaHeading, area: string | null): st
   if (heading.count === null) return `Map of your saved places in ${where}.`;
   return `Map of your saved places in ${where}. The list below names all ${heading.count}.`;
 }
+
+/**
+ * **One sentence for every filter combination that matches nothing.**
+ *
+ * Owner ruling, 2026-09-02. The specific forms this replaces — `Nothing tagged "Brunch +
+ * Desserts"`, `No matches in your library` — each read as a report about the axis that emptied the
+ * list, so every axis needed its own wording and every new axis would need another. This says the
+ * only thing the reader needs, which is that the filters, not the library, are why the space is
+ * empty. `voice-and-vocabulary.md`: plain, no apology, no exclamation.
+ *
+ * It is rendered *in the list*, by `ClearFiltersEscape`, with the button that undoes it — never in
+ * the heading. The heading counts and scopes; it does not explain an absence a control row away.
+ */
+export const NO_FILTER_MATCHES_LINE = 'No places match these filters.';
+
+/** The way out, beside the line above. Names what it clears, because the row's own `Clear` sits in
+ *  a group of three triggers where a bare `Clear` takes its meaning from its neighbours. */
+export const CLEAR_FILTERS_LABEL = 'Clear filters';
