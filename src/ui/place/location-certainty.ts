@@ -26,8 +26,17 @@ import type { SourceDataset } from '@/domain/types';
 
 export interface LocationCertainty {
   readonly label: string;
-  /** One sentence on what the label means for the person reading it. Absent when the label is
-   *  already the whole story. */
+  /**
+   * What the label means for the person reading it, said as a consequence rather than as a
+   * process. Absent when the label is already the whole story.
+   *
+   * **It is a qualifier, not a paragraph.** This used to read *"Worked out from the video rather
+   * than matched to a map listing, so it can be a street or two off"* and the detail view printed
+   * it in full, which is two lines of our machinery on the card a person opens to decide whether
+   * to go somewhere. Round 3 of the owner's feedback filed the card as scrolling past its own
+   * primary actions, and this sentence was one of the blocks pushing them down. The mark beside
+   * the address now carries the fact; this carries the cost, on a pointer device, in six words.
+   */
   readonly detail?: string;
   /** Whether this is the uncertain kind, for callers that want to mark it rather than describe
    *  it (a row, an accessible name). */
@@ -46,8 +55,7 @@ export function locationCertainty(
     case 'llm-guess':
       return {
         label: 'Approximate location',
-        detail:
-          'Worked out from the video rather than matched to a map listing, so it can be a street or two off.',
+        detail: 'Could be a street or two off.',
         isApproximate: true,
       };
     case 'google-places':

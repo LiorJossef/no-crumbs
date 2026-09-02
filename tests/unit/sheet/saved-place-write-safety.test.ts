@@ -83,10 +83,15 @@ function componentSource(source: string, name: string): string {
   return source.slice(start, next === -1 ? source.length : next);
 }
 
+/**
+ * The actions this component file calls. **`updateSavedPlaceName` is deliberately not here**: the
+ * rename pencil left the UI on 2026-09-02 (lane B-T4) and the action, the column and its grant all
+ * stayed, so there is nothing in this file for it to be awaited bare *in*. Adding a UI for it again
+ * puts the name back on this list and back inside the four assertions below.
+ */
 const ACTIONS = [
   'setSavedPlaceVisited',
   'updateSavedPlaceCategory',
-  'updateSavedPlaceName',
   'updateSavedPlaceNote',
   'deleteSavedPlace',
 ] as const;
@@ -95,7 +100,7 @@ describe('no Server Action is awaited bare', () => {
   it('awaits nothing but attemptWrite', () => {
     // The one assertion that would have caught the original defect, and the only one whose
     // coverage does not decay: a control added later is inside it without anyone remembering.
-    expect(awaitedIdentifiers(SOURCE)).toEqual(['attemptWrite', 'attemptWrite', 'attemptWrite', 'attemptWrite', 'attemptWrite']);
+    expect(awaitedIdentifiers(SOURCE)).toEqual(['attemptWrite', 'attemptWrite', 'attemptWrite', 'attemptWrite']);
   });
 
   it('catches the bug put back', () => {
@@ -109,7 +114,7 @@ describe('no Server Action is awaited bare', () => {
     expect(awaitedIdentifiers(reverted)).toContain('updateSavedPlaceNote');
   });
 
-  it('routes all five actions through attemptWrite, each exactly once', () => {
+  it('routes all four actions through attemptWrite, each exactly once', () => {
     for (const action of ACTIONS) {
       const calls = [...SOURCE.matchAll(new RegExp(`\\b${action}\\s*\\(`, 'g'))];
       const wrapped = [...SOURCE.matchAll(new RegExp(`attemptWrite\\(\\(\\) =>\\s*${action}\\s*\\(`, 'g'))];
@@ -122,13 +127,13 @@ describe('no Server Action is awaited bare', () => {
   });
 });
 
-describe('keepsDraft is on exactly the two controls that hold text', () => {
-  it('the note and the name pass it; the toggle, the category and the delete do not', () => {
+describe('keepsDraft is on exactly the one control that holds text', () => {
+  it('the note passes it; the toggle, the category and the delete do not', () => {
+    // It was two until the rename editor left the UI. The rule did not change — a control that
+    // holds a draft says so on failure — the file simply has one such control now.
     const noteSave = bodyOf(SOURCE, 'function save() {');
-    const nameSave = bodyOf(SOURCE, 'function save(value: string) {');
 
     expect(noteSave).toContain('keepsDraft: true');
-    expect(nameSave).toContain('keepsDraft: true');
 
     // Not a matter of taste: `keepsDraft` chooses between *Try again* and *What you typed is still
     // here*, and promising a draft on a toggle would be a claim about something that does not
@@ -139,7 +144,7 @@ describe('keepsDraft is on exactly the two controls that hold text', () => {
 
     // And nowhere else in the file, so the count is the ruling rather than a coincidence of where
     // the two happen to sit.
-    expect([...SOURCE.matchAll(/keepsDraft/g)]).toHaveLength(2);
+    expect([...SOURCE.matchAll(/keepsDraft/g)]).toHaveLength(1);
   });
 });
 
@@ -169,12 +174,16 @@ describe('the note survives a failed save', () => {
   });
 });
 
-describe('the name editor keeps what was typed', () => {
-  it('calls onDone only on ok', () => {
-    const nameSave = bodyOf(SOURCE, 'function save(value: string) {');
-    const okBranch = nameSave.slice(nameSave.indexOf("outcome.kind === 'ok'"));
-    expect([...nameSave.matchAll(/onDone\(\)/g)]).toHaveLength(1);
-    expect(okBranch).toContain('onDone()');
+describe('the rename editor is gone from the UI and the write path is not', () => {
+  it('leaves no rename control behind in this file', () => {
+    // Lane B-T4 removed `RenameTrigger` and `NameEditor`. The assertion is on the component file
+    // only: `updateSavedPlaceName`, `saved_places.display_name` and `domain/places/display-name.ts`
+    // are deliberately untouched, so a renamed row keeps its name and restoring the control is a
+    // component rather than a migration.
+    expect(SOURCE).not.toContain('export function NameEditor');
+    expect(SOURCE).not.toContain('export function RenameTrigger');
+    expect(SOURCE).not.toContain('Rename this place');
+    expect(SOURCE).not.toContain('updateSavedPlaceName');
   });
 });
 

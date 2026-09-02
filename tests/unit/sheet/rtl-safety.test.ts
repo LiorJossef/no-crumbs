@@ -203,8 +203,11 @@ describe('the address row keeps its icon fixed regardless of the address languag
     // the row — by adding it back to the rendered markup and re-running the same absence check.
     // `class`, not `className`: `renderToStaticMarkup` writes the DOM attribute name, not the JSX
     // prop name.
+    // Matched on the `<p>` that holds the `MapPin`, not on its exact class string: the row gained
+    // `flex-wrap` when the approximate mark moved onto it (lane B-T2), and a literal class match
+    // is a proof that quietly stops proving anything the next time the row is restyled.
     const regressed = markup.replace(
-      /(<p class="flex items-start gap-2 text-sm text-foreground")(>)/,
+      /(<p class="flex flex-wrap items-start[^"]*")(>)/,
       '$1 dir="auto"$2',
     );
     const attrs = attributesOfParagraphContaining(regressed, ADDRESS_HE);

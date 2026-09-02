@@ -227,7 +227,11 @@ export function PlaceDesktopPanel({
 
       {libraryIsEmpty ? null : (
         <>
-          <div ref={scrollRef} className="mt-4 min-h-0 flex-1 overflow-y-auto px-6">
+          {/* `px-4`, not the header's `px-6`: `PlaceRow` now carries `ps-2.5` of its own, so a row's
+                name still lands ~26 px from the panel edge — level with the heading above it — while
+                the selected rule and the hover ground sit *outside* the text rather than under it.
+                The list is the one child of this column whose content has its own inset. */}
+          <div ref={scrollRef} className="mt-4 min-h-0 flex-1 overflow-y-auto px-4">
             {heading.escape === 'clear-search' && (
               <ClearSearchEscape onClearSearch={() => onQueryChange('')} />
             )}

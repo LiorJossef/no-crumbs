@@ -53,15 +53,13 @@
  */
 
 import { useEffect, useRef, useState, useTransition } from 'react';
-import { Trash2, Pencil, Check } from 'lucide-react';
+import { Trash2, Pencil, Plus, Check } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   deleteSavedPlace,
   setSavedPlaceVisited,
   updateSavedPlaceCategory,
-  updateSavedPlaceName,
   updateSavedPlaceNote,
 } from '@/app/actions/saved-places';
 import { useAnnouncer } from '@/ui/place/announce';
@@ -72,11 +70,6 @@ import {
   visitToggleAccessibleName,
 } from '@/ui/place/visit-state';
 import { NOTE_MAX_LENGTH, isNoteUnchanged, validateNote } from '@/domain/places/note';
-import {
-  DISPLAY_NAME_MAX_LENGTH,
-  isDisplayNameUnchanged,
-  validateDisplayName,
-} from '@/domain/places/display-name';
 import {
   PRODUCT_CATEGORY_LABEL,
   PRODUCT_CATEGORY_ORDER,
@@ -89,6 +82,31 @@ import { PRESS_BUTTON, PRESS_CHIP, TINT_BEAT } from '@/lib/interaction';
 
 /** Shown once the note gets close enough to the limit that the number is useful rather than noise. */
 const COUNTER_VISIBLE_FROM = NOTE_MAX_LENGTH - 200;
+
+/**
+ * **The one shape the card's three primary actions share** — `Open on TikTok`, `Google Maps` and
+ * `Been here` — exported because the first two are anchors in `place-sheet.tsx` and only the third
+ * lives here. Two files drawing "the same pill" from two class strings is how the row comes to have
+ * two heights.
+ *
+ * Why a pill and not the full-width block this was: the block was 44 px tall and the width of the
+ * card, and there were two more like it underneath (the note, the remove). Three full-width blocks
+ * is a form, and a saved place is not a form — round 3 of the owner's feedback measured the primary
+ * actions *below the fold* on both viewports. Side by side they cost one 44 px band instead of
+ * three, which is what buys the card its zero-scroll shape.
+ *
+ * `min-h-11` is not negotiable and is why the row is pills rather than text links: 44 px is the
+ * touch floor, and this is the row a person presses on a phone. The height is spent once for all
+ * three.
+ *
+ * `px-3` is measured, not chosen: at `px-3.5` the three pills are 353 px against the 350 px a
+ * 390 px phone gives this card, so the row wrapped into two 44 px bands and gave back most of what
+ * it had just saved. At `px-3`, with no trailing arrow on the Google Maps pill, they are 333 px and
+ * the row is one band with 17 px of slack. The labels are fixed strings, so that number is the same
+ * on every place in the library rather than a lucky fixture.
+ */
+export const DETAIL_ACTION_PILL =
+  'inline-flex min-h-11 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full border px-3 text-sm font-bold outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
 
 /**
  * "I've been here" — the one control that lets the library resolve rather than only grow.
@@ -166,7 +184,7 @@ export function BeenToggle({
   }
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col items-start gap-1.5">
       <button
         type="button"
         aria-pressed={visited}
@@ -185,7 +203,12 @@ export function BeenToggle({
           // and the two are ~200ms apart. `PRESS_BUTTON` rather than `PRESS_ROW`: it is a button,
           // full width or not. The bare `transition-colors` goes rather than gaining a prefix,
           // because `PRESS_BEAT`'s `motion-safe:transition` already carries colour.
-          'flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border text-sm font-bold outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+          //
+          // **The width is gone and the words are not.** This was `w-full rounded-lg`; it is now
+          // the shared pill, third in a row beside the two links. `voice-and-vocabulary.md` §3
+          // ratifies `Been here` / `Been`, so the size and the weight changed and the string did
+          // not — the complaint was never the wording.
+          DETAIL_ACTION_PILL,
           PRESS_BUTTON,
           pending && 'opacity-50',
           visited
@@ -384,149 +407,24 @@ export function CategoryEditor({
 }
 
 /**
- * Renaming a saved place.
+ * **The rename control is gone from the UI, and `saved_places.display_name` is not.**
  *
- * A pencil beside the name rather than a row in the controls block below: this edits the *identity*
- * on the card, and a control that changes the biggest word on the screen belongs next to that word.
- * Everything else in this file is a fact about the place; this is what it is called.
+ * `RenameTrigger` (a pencil beside the name) and `NameEditor` (the inline field it opened) lived
+ * here until 2026-09-02. The owner's round-3 feedback removed them from the card: a control that
+ * one person in a hundred touches was permanent chrome next to the biggest word on the screen, on
+ * the surface whose whole complaint was that the things people *do* use had been pushed below the
+ * fold.
  *
- * Clearing the field restores the real name, and the reset control says that name out loud rather
- * than being an unlabelled "reset" — the user has to be able to see what they are going back to.
+ * **This is a UI removal, not a data change.** The column, `updateSavedPlaceName` in
+ * `app/actions/saved-places.ts`, `domain/places/display-name.ts` and `0018`'s column grant all
+ * stay exactly as they are, so every renamed row keeps its name, `detail.displayNameOverride`
+ * still reaches the card, and putting the control back is a component rather than a migration.
+ *
+ * One thing the pencil was carrying that the card still needs: it was the *fixed chrome* the RTL
+ * audit measured `<bdi>` against on the name heading (`docs/rtl-audit-2026-08-31.md` findings 2
+ * and 4). The heading keeps its `<bdi>` and its comment — the close × is chrome beside the same
+ * name, and a Hebrew name with no isolation would still drag the identity block's alignment.
  */
-export function RenameTrigger({ onStart }: { onStart: () => void }) {
-  return (
-    // A `<Button variant="ghost" size="icon-lg">` rather than a hand-rolled `<button>`: the hover,
-    // the focus ring and the disabled step were restated here in this component's own words, which
-    // is three chances to drift from the six columns `facelift-plan.md` §3a's matrix owes an icon
-    // button. The className now carries position and shape only. `size-icon-lg` is the same 36px
-    // this always was, and `data-vaul-no-drag` passes straight through.
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon-lg"
-      aria-label="Rename this place"
-      onClick={onStart}
-      data-vaul-no-drag
-      className="mt-1 shrink-0 rounded-full text-muted-foreground"
-    >
-      <Pencil className="size-3.5" aria-hidden />
-    </Button>
-  );
-}
-
-export function NameEditor({
-  savedPlaceId,
-  displayNameOverride,
-  canonicalName,
-  onDone,
-}: {
-  savedPlaceId: string;
-  displayNameOverride: string | null;
-  canonicalName: string;
-  onDone: () => void;
-}) {
-  const [draft, setDraft] = useState(displayNameOverride ?? '');
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
-
-  function save(value: string) {
-    setError(null);
-    startTransition(async () => {
-      // `keepsDraft`: the field holds a name the user typed, so the message says it is still there
-      // rather than asking for a retry they can see is possible. `onDone()` is not called on
-      // failure — closing the editor is what would throw the typed name away.
-      const outcome = await attemptWrite(() => updateSavedPlaceName(savedPlaceId, value), {
-        keepsDraft: true,
-      });
-      if (outcome.kind === 'ok') {
-        onDone();
-        return;
-      }
-      setError(outcome.message);
-    });
-  }
-
-  const validation = validateDisplayName(draft);
-  const unchanged = isDisplayNameUnchanged(draft, displayNameOverride);
-
-  return (
-    <form
-      className="flex w-full flex-col gap-2"
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (!unchanged && validation.ok) save(draft);
-      }}
-    >
-      <label htmlFor={`name-${savedPlaceId}`} className={SECTION_LABEL}>
-        Name
-      </label>
-      {/* `Input` rather than a hand-rolled `<input>` that restated its whole class string. The
-          invalid styling was the reason it was hand-rolled and is now the reason it does not need
-          to be: `aria-invalid` is already on the element, and `Input`'s own
-          `aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20`
-          reads it — so the `!validation.ok && '…'` string this used to assemble is gone (rule 6a),
-          and the field cannot look valid while announcing itself invalid. */}
-      <Input
-        id={`name-${savedPlaceId}`}
-        ref={inputRef}
-        dir="auto"
-        value={draft}
-        onChange={(event) => setDraft(event.target.value)}
-        onKeyDown={(event) => {
-          // Escape cancels. Unlike the note, Enter *does* submit — this is a single-line label, so
-          // there is no second line for Enter to be needed for.
-          if (event.key === 'Escape') {
-            event.stopPropagation();
-            onDone();
-          }
-        }}
-        disabled={pending}
-        maxLength={DISPLAY_NAME_MAX_LENGTH}
-        enterKeyHint="done"
-        placeholder={canonicalName}
-        aria-invalid={!validation.ok || undefined}
-        aria-describedby={error ? `name-error-${savedPlaceId}` : undefined}
-        data-vaul-no-drag
-        className="h-11"
-      />
-      {error && (
-        <p id={`name-error-${savedPlaceId}`} role="alert" className="text-xs font-medium text-destructive">
-          {error}
-        </p>
-      )}
-      <div className="flex flex-wrap items-center gap-2">
-        <Button type="submit" size="sm" disabled={pending || unchanged || !validation.ok}>
-          {pending ? 'Saving…' : 'Save'}
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          disabled={pending}
-          onClick={onDone}
-        >
-          Cancel
-        </Button>
-        {displayNameOverride !== null && (
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() => save('')}
-            className="text-xs font-bold text-brand underline-offset-4 hover:underline disabled:opacity-50"
-          >
-            Use{' '}
-            <bdi>{canonicalName}</bdi>
-          </button>
-        )}
-      </div>
-    </form>
-  );
-}
 
 export function NoteEditor({
   savedPlaceId,
@@ -545,6 +443,43 @@ export function NoteEditor({
     if (editing) textareaRef.current?.focus();
   }, [editing]);
 
+  function open() {
+    setDraft(note ?? '');
+    setError(null);
+    setEditing(true);
+  }
+
+  // **The empty state is one control, not a section.** It used to be a `YOUR NOTE` kicker, an
+  // `Add a note` link opposite it and a full line of placeholder prose — three elements and ~56 px
+  // to say that a field is empty, on the card whose primary actions round 3 measured below the
+  // fold. A heading over nothing is a section that is not there yet; the offer is the whole state.
+  // The words are the same words (`voice-and-vocabulary.md` §3: *note*, never *comment* or
+  // *memo*), one glyph shorter, and the pencil goes with them — you cannot edit what is not
+  // written, so `Plus` is the honest verb and `Pencil` stays on the filled state below.
+  if (!editing && !note) {
+    return (
+      <div className="flex flex-col items-start gap-1">
+        <button
+          type="button"
+          onClick={open}
+          data-vaul-no-drag
+          className={cn(
+            'flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full border border-dashed border-input px-3.5 text-sm font-bold text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50',
+            PRESS_BUTTON,
+          )}
+        >
+          <Plus className="size-4 shrink-0" aria-hidden />
+          Add a note
+        </button>
+        {error && (
+          <p role="alert" className="text-xs font-medium text-destructive">
+            {error}
+          </p>
+        )}
+      </div>
+    );
+  }
+
   if (!editing) {
     return (
       <div className="flex flex-col gap-1">
@@ -552,32 +487,26 @@ export function NoteEditor({
           <p className={SECTION_LABEL}>Your note</p>
           <button
             type="button"
-            onClick={() => {
-              setDraft(note ?? '');
-              setError(null);
-              setEditing(true);
-            }}
+            onClick={open}
             className="flex items-center gap-1 text-xs font-bold text-brand underline-offset-4 hover:underline"
           >
             <Pencil className="size-3" aria-hidden />
-            {note ? 'Edit' : 'Add a note'}
+            Edit
           </button>
         </div>
-        {note ? (
-          // `whitespace-pre-wrap`: the note is prose and `validateNote` deliberately preserves its
-          // newlines, so rendering it collapsed would lose the shape the user typed.
-          // `dir="auto"`: a note is free-form prose and Tel Aviv is a target city, so it is
-          // routinely Hebrew — matching the identical treatment of the shared collection note in
-          // `collection-place-detail.tsx`, the one sibling that already had this right (rtl audit,
-          // `docs/rtl-audit-2026-08-31.md` finding 1).
-          <p dir="auto" className="text-sm leading-relaxed whitespace-pre-wrap text-foreground">
-            {note}
-          </p>
-        ) : (
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            Nothing yet — why did you save this?
-          </p>
-        )}
+        {/* `whitespace-pre-wrap`: the note is prose and `validateNote` deliberately preserves its
+            newlines, so rendering it collapsed would lose the shape the user typed.
+            `dir="auto"`: a note is free-form prose and Tel Aviv is a target city, so it is
+            routinely Hebrew — matching the identical treatment of the shared collection note in
+            `collection-place-detail.tsx`, the one sibling that already had this right (rtl audit,
+            `docs/rtl-audit-2026-08-31.md` finding 1).
+
+            No empty arm any more: a note-less place returns the compact offer above and never
+            reaches this branch, so the placeholder prose that used to sit here — *Nothing yet —
+            why did you save this?* — has nowhere to render. */}
+        <p dir="auto" className="text-sm leading-relaxed whitespace-pre-wrap text-foreground">
+          {note}
+        </p>
         {error && (
           <p role="alert" className="text-xs font-medium text-destructive">
             {error}
