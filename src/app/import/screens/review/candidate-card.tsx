@@ -30,6 +30,7 @@ import {
   candidateMeta,
   candidateTitle,
   isHashtagOnly,
+  isTaggedAccountOnly,
   isSaveable,
   locationLine,
 } from '@/domain/import/candidate-presentation';
@@ -189,6 +190,14 @@ export function ExtractedCandidateRow({
    * control's accessible name is the correct outcome anyway — the thing the user presses names the
    * tags it is going to write.
    */
+  /** Where the caption actually named this place, when it named it only in a tag. One line, one
+   *  fact, and never two at once — a name inside a hashtag is not also a tagged account. */
+  const evidenceNote: string | null = isHashtagOnly(caption, candidate)
+    ? 'Only mentioned in a hashtag.'
+    : isTaggedAccountOnly(caption, candidate)
+      ? 'Only mentioned as a tagged account.'
+      : null;
+
   const proposedTags = deriveSavedPlaceEnrichment(candidate)?.tags ?? [];
   const tagRow = proposedTags.length > 0 && (
     <span className="mt-1 flex flex-wrap gap-1">
@@ -278,8 +287,8 @@ export function ExtractedCandidateRow({
         <bdi>{candidateMeta(candidate)}</bdi>
       </p>
       {tagRow}
-      {isHashtagOnly(caption, candidate) && (
-        <p className="mt-1 text-xs font-medium text-muted-foreground">Only mentioned in a hashtag.</p>
+      {evidenceNote !== null && (
+        <p className="mt-1 text-xs font-medium text-muted-foreground">{evidenceNote}</p>
       )}
     </div>
   );
@@ -318,18 +327,18 @@ export function ExtractedCandidateRow({
           </button>
         ) : (
         <>
-        <div className="flex flex-col gap-0.5">
-          <p
-            id={`${optionsId}-label`}
-            className={cn(
-              'text-micro font-bold tracking-[0.08em] uppercase',
-              view.kind === 'matched' ? 'text-brand' : 'text-foreground',
-            )}
-          >
+        {/* One line, not a stacked block (E-T4, feedback round 3 §2.7). The words are unchanged —
+            they are ruled copy — but the treatment was an 11px uppercase tracked label over a
+            second sentence, inside a modal the same feedback calls dense. Uppercase + letter-
+            spacing is the loudest type this screen owns and it was spending it on a question that
+            already has a radio group under it. Sentence case, one row, the explanation trailing in
+            muted weight: the same two facts, one block instead of two. */}
+        <p id={`${optionsId}-label`} className="text-xs leading-5 font-medium text-muted-foreground">
+          <span className={cn('font-bold', view.kind === 'matched' ? 'text-brand' : 'text-foreground')}>
             {resolutionHeadline(view)}
-          </p>
-          <p className="text-xs font-medium text-muted-foreground">{resolutionExplanation(view)}</p>
-        </div>
+          </span>{' '}
+          {resolutionExplanation(view)}
+        </p>
         <ul id={optionsId} role="radiogroup" aria-labelledby={`${optionsId}-label`} className="flex flex-col gap-1">
           {options.map((option) => {
             const isChosen = chosen === option.index;
@@ -346,7 +355,12 @@ export function ExtractedCandidateRow({
                     // 390px viewport far more often than it fits on one, and a clipped address
                     // is the one thing this control exists to show.
                     'flex min-h-11 w-full items-start gap-2.5 rounded-lg border px-3 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default',
-                    isChosen ? 'border-brand bg-accent/40' : 'border-border/60 bg-background',
+                    // The unchosen rows keep the border's *metrics* and drop its ink (E-T4): a
+                    // stack of outlined boxes inside an outlined card inside a modal is the
+                    // density the feedback is about, and the radio dot already says these are
+                    // options. `border-transparent` rather than removing the border, so nothing
+                    // shifts by a pixel when a row becomes the chosen one.
+                    isChosen ? 'border-brand bg-accent/40' : 'border-transparent bg-card-2/60',
                   )}
                 >
                   <span
@@ -590,8 +604,8 @@ export function ExtractedCandidateRow({
             full card too. Without this branch the one layout a *confident* single result gets would
             be the only one that saved tags without showing them. */}
         {tagRow}
-        {isHashtagOnly(caption, candidate) && (
-          <p className="text-xs font-medium text-muted-foreground">Only mentioned in a hashtag.</p>
+        {evidenceNote !== null && (
+          <p className="text-xs font-medium text-muted-foreground">{evidenceNote}</p>
         )}
         {pinRow}
         {shortlist}
