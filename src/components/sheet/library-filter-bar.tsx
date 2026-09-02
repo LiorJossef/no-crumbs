@@ -74,6 +74,7 @@
 import {
   createContext,
   useCallback,
+  useEffect,
   useRef,
   useContext,
   useId,
@@ -81,6 +82,7 @@ import {
   useState,
   type CSSProperties,
   type ReactNode,
+  type RefObject,
 } from 'react';
 import { Combobox as ComboboxPrimitive } from '@base-ui/react/combobox';
 import { Menu } from '@base-ui/react/menu';
@@ -622,6 +624,8 @@ export function MenuAxis({
     setOpen(false);
     triggerRef.current?.focus();
   }, [setOpen]);
+  /** Closing without claiming focus — see `InlinePanel`'s `onOutsidePress`. */
+  const dismiss = useCallback(() => setOpen(false), [setOpen]);
 
   const label =
     tone === 'sort'
@@ -674,6 +678,8 @@ export function MenuAxis({
             axis={axis}
             axisClear={axisClear ?? null}
             onEscape={close}
+            onOutsidePress={dismiss}
+            triggerRef={triggerRef}
           >
             <AxisCloseContext.Provider value={close}>{children}</AxisCloseContext.Provider>
           </InlinePanel>
@@ -734,17 +740,47 @@ function InlinePanel({
   axis,
   axisClear,
   onEscape,
+  onOutsidePress,
+  triggerRef,
   children,
 }: {
   id: string;
   axis: string;
   axisClear: (() => void) | null;
   onEscape: () => void;
+  /** Dismissal by a press elsewhere. Separate from `onEscape` because it must **not** move focus:
+   *  the press has already landed on whatever the user meant to touch. */
+  onOutsidePress: () => void;
+  /** So a press on the trigger is not counted as outside. Without it the trigger stops closing the
+   *  panel: the dismissal fires on `pointerdown` and the `click` that follows re-opens it. */
+  triggerRef: RefObject<HTMLButtonElement | null>;
   children: ReactNode;
 }) {
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // A press anywhere else closes it. The floating half gets this from Base UI's `Menu.Root`; the
+  // inline half is plain DOM with nothing watching.
+  //
+  // **`click`, not `pointerdown`.** Closing removes up to 310 px from the middle of the column, so
+  // a `pointerdown` dismissal moves the layout between finger-down and finger-up — a tap on `Sort`
+  // closed the panel, slid a place row under the finger and opened that place. `click` runs after
+  // the browser has decided what was pressed, and capture still beats that control's own handler.
+  useEffect(() => {
+    function onDocumentClick(event: MouseEvent) {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (panelRef.current?.contains(target) === true) return;
+      if (triggerRef.current?.contains(target) === true) return;
+      onOutsidePress();
+    }
+    document.addEventListener('click', onDocumentClick, true);
+    return () => document.removeEventListener('click', onDocumentClick, true);
+  }, [onOutsidePress, triggerRef]);
+
   return (
     <div
       id={id}
+      ref={panelRef}
       data-vaul-no-drag
       onKeyDown={(event) => {
         if (event.key !== 'Escape') return;
@@ -1023,6 +1059,7 @@ function TagsAxis({
     onOpenChange(false);
     triggerRef.current?.focus();
   }, [onOpenChange]);
+  const dismiss = useCallback(() => onOpenChange(false), [onOpenChange]);
   const byTag = useMemo(() => new Map(facets.map((facet) => [facet.tag, facet])), [facets]);
   const items = useMemo(() => facets.map((facet) => facet.tag), [facets]);
   const labelOf = useCallback(
@@ -1176,6 +1213,8 @@ function TagsAxis({
             // kicker line would be two controls for one action.
             axisClear={null}
             onEscape={closeToTrigger}
+            onOutsidePress={dismiss}
+            triggerRef={triggerRef}
           >
             {body}
           </InlinePanel>
