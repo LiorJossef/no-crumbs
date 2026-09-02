@@ -18,12 +18,10 @@ import {
   BASEMAP_LABEL_FONT,
   LABEL_ZOOM_RANGES,
   POI_LABEL_LAYER_ID,
-  TINTED_PAINT_PROPERTIES,
-  roleFor,
   tintColor,
   tintFor,
-  tintPaintValue,
 } from './basemap-tint';
+import { applyBasemapTint, paintSnapshotFor } from './basemap-tint-pass';
 import { poiColorExpression, POI_TIERS, type PoiTier } from './poi-style';
 import { useStyleReady } from './use-style-ready';
 
@@ -78,28 +76,12 @@ export function BasemapTint() {
     // the washed-out look — the eight numbers were. Revert = restore that table.
     if (!TINT_ENABLED) return;
 
-    for (const layer of map.getStyle().layers ?? []) {
-      // Our own POI layer is exempt. It carries a `match` on `class` rather than a flat colour
-      // (`poi-style.ts`), and the tint's job is to push a colour to one hue — run over this layer
-      // it would collapse six families back to one. It used to be *deliberately* included, which
-      // was right when the layer was a single grey.
-      if (layer.id.startsWith(POI_LABEL_LAYER_ID)) continue;
-      const role = roleFor(layer.id);
-      if (!role) continue;
-      const paint = (layer as { paint?: Record<string, unknown> }).paint;
-      if (!paint) continue;
-
-      for (const property of TINTED_PAINT_PROPERTIES) {
-        if (!(property in paint)) continue;
-        const tintedValue = tintPaintValue(paint[property], tintFor(role, property, theme));
-        try {
-          map.setPaintProperty(layer.id, property, tintedValue as never);
-        } catch {
-          // A property this layer type does not accept, or a style mid-reload. The layer keeps
-          // CARTO's own colour, which is the right thing to fall back to.
-        }
-      }
-    }
+    // **From CARTO's own paint, never from the live style.** `basemap-tint-pass.ts` holds the loop
+    // and the reason: this effect re-runs on every theme change against a style that was never
+    // reloaded, so reading live paint here meant tinting a tinted colour — and the two tables do
+    // not compose back. Dark → light could not restore the light map. The snapshot is per map
+    // instance and outlives this component's mounts.
+    applyBasemapTint(map, theme, paintSnapshotFor(map));
   }, [map, styleReady, theme]);
 
   return null;

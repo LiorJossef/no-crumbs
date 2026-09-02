@@ -88,9 +88,11 @@ const COPY = {
   library: 'Your library',
   libraryHint: 'Where you save, and what',
   settings: 'Account settings',
-  settingsHint: 'Your name',
   appearance: 'Appearance',
   signOut: 'Sign out',
+  /** The last stop in the focus trap, and the only way out for a touch screen reader. Never
+   *  visible: sighted users close this menu by pressing outside it or by pressing Escape. */
+  close: 'Close this menu',
   loading: 'Loading your account…',
   failed: 'Couldn’t load your account.',
 } as const;
@@ -217,7 +219,29 @@ export function ProfileMenu({
   }, [open]);
 
   return (
-    <Popover.Root open={open} onOpenChange={onOpenChange}>
+    <Popover.Root
+      open={open}
+      onOpenChange={onOpenChange}
+      /**
+       * Focus stays inside the menu; everything else about the page keeps working.
+       *
+       * Measured on 2026-09-01 at 1440×900: the popup announces `role="dialog"` and then lets you
+       * Tab straight out of it. Four tabs walk the menu and the fifth lands on `Map of your saved
+       * places`, `Toggle attribution`, `CARTO`, `OpenStreetMap` — the map underneath. `aria-modal`
+       * was `null`, so it was a dialog by name only.
+       *
+       * The scrim comment below argues, correctly, that a full-viewport wash at desktop widths
+       * would be a modal claim this menu does not make. That reasoning covers the *scrim*, and it
+       * was quietly taken to cover focus as well — but they are separate choices and only the first
+       * was ever made. `'trap-focus'` is exactly the difference: focus is contained, while page
+       * scroll stays unlocked and pointer interaction outside the menu keeps working, so nothing
+       * the scrim decision protects is given up.
+       *
+       * `true` is the wrong instrument here. It would lock document scroll and disable outside
+       * pointer interaction, which on a phone is most of the screen and on desktop is a live map.
+       */
+      modal="trap-focus"
+    >
       {/* **No `aria-label` from here, and that is a rule rather than an omission.** The trigger
           owns its own accessible name: the bar's tab is visibly labelled `Profile`, and overriding
           that with a name would break WCAG 2.5.3 — the accessible name has to contain the visible
@@ -236,32 +260,64 @@ export function ProfileMenu({
         <Popover.Positioner
           side={side}
           align={align}
-          sideOffset={8}
+          /*
+           * Round-3 feedback §7.3, *"the profile popover feels awkward on mobile"*, measured at
+           * 390×844: with a flat `8` the popup's bottom edge came to rest at **y 775 against a bar
+           * whose top is 776** — one pixel. The offset is measured from the *trigger*, and the
+           * bar's tab sits 6 px inside a pill that is itself 6 px inside the bar's box, so eight
+           * pixels of anchor offset buys one pixel of visible separation and the menu reads as
+           * something growing out of the bar rather than floating above it.
+           *
+           * Only the `top` side has that problem. The `lg+` chip opens `bottom` from a control
+           * with nothing under it, where 8 is right and always has been.
+           */
+          sideOffset={side === 'top' ? 20 : 8}
           // Keeps the popup off the safe-area edges on a phone, where it is nearly viewport-wide.
           collisionPadding={12}
           className="z-50"
         >
           <Popover.Popup
             className={cn(
-              // `min(20rem, …)` rather than a fixed width: at 320 px the popup would touch both
-              // edges of a 360 px phone, and `Appearance`'s three segments need every pixel of the
-              // rest. `--available-height` is Base UI's own measurement of the room between the
-              // anchor and the viewport edge, so the menu scrolls rather than overflowing when the
-              // delete flow expands into its blocked branch.
-              'flex w-[min(20rem,calc(100vw-1.5rem))] max-h-[min(32rem,var(--available-height))] flex-col overflow-y-auto overscroll-contain',
+              /*
+               * **Viewport-width below `lg`, 20 rem above it — round-3 feedback §7.3.**
+               *
+               * The old `min(20rem, calc(100vw - 1.5rem))` resolved to a flat 320 px on a 390 px
+               * phone, and 320 px is the size at which *where* the card sits starts to matter. It
+               * is anchored `align="end"` on the bar's `Profile` tab, whose right edge is at
+               * x 312, so it wanted x −8…312 and the collision boundary pushed it to **12…332 —
+               * a 12 px gutter on the left and 58 px on the right**. Nothing was clipped and
+               * nothing overlapped; it just sat visibly off-centre over a symmetrical bar, which
+               * is what "awkward" turned out to mean when it was measured.
+               *
+               * Alignment is the wrong lever for it: `center` on the same anchor only mirrors the
+               * lopsidedness (58 left, 12 right), because the trigger is not in the middle of the
+               * screen and no `align` value can put a 320 px card there. Width is the lever — at
+               * `100vw − 1.5rem` both edges are decided by `collisionPadding` instead of by the
+               * anchor, so the card is symmetric by construction on every phone width.
+               *
+               * It stays a *compact popover*, which §12.2 says the owner likes and which this is
+               * not allowed to trade away: same card, same radius, same scrim, same height. It
+               * gains 46 px of width, which goes to `Appearance`'s three segments (92 px → 107 px
+               * each, measured).
+               *
+               * `--available-height` is Base UI's own measurement of the room between the anchor
+               * and the viewport edge, so the menu scrolls rather than overflowing when the delete
+               * flow expands into its blocked branch.
+               */
+              'flex w-[calc(100vw-1.5rem)] max-h-[min(32rem,var(--available-height))] flex-col overflow-y-auto overscroll-contain lg:w-80',
               'rounded-2xl border border-border/70 bg-card p-3 shadow-[var(--shadow-elevated)] outline-none',
               ENTER_POPOVER,
             )}
           >
             <Identity data={data} failed={failed} />
 
-            <div className="mt-2 flex flex-col gap-1">
+            <div className="mt-3 flex flex-col gap-1">
               <MenuLink
                 href="/profile"
                 label={COPY.library}
                 hint={data === null ? COPY.libraryHint : libraryLine(data)}
               />
-              <MenuLink href="/account" label={COPY.settings} hint={COPY.settingsHint} icon />
+              <MenuLink href="/account" label={COPY.settings} icon />
             </div>
 
             {/* The one setting the product keeps, in the same position it holds on `/profile` — the
@@ -269,8 +325,13 @@ export function ProfileMenu({
                 becoming two different accounts of one surface. `data-theme-choice` is not
                 decoration: `ThemeChoice` renders a `<noscript><style>` that hides every element
                 carrying it, because a `localStorage` control cannot work with scripting off. */}
-            <section aria-labelledby="menu-appearance" className="mt-3" data-theme-choice>
-              <SectionHeading id="menu-appearance">{COPY.appearance}</SectionHeading>
+            {/* `mt-1` and not the sections' `mt-3`: `ThemeChoice`'s control brings its own
+                `mt-2`, and its heading is `sr-only` here so it does not absorb it. 4 + 8 is the
+                same 12 every other section gets. Moves if that component's margin does. */}
+            <section aria-labelledby="menu-appearance" className="mt-1" data-theme-choice>
+              <SectionHeading id="menu-appearance" visuallyHidden>
+                {COPY.appearance}
+              </SectionHeading>
               <ThemeChoice labelledBy="menu-appearance" />
             </section>
 
@@ -296,10 +357,18 @@ export function ProfileMenu({
                   about not asking the question wrongly first. */}
               {data === null ? null : (
                 <div className="mt-1">
-                  <AccountActions blocking={data.blocking} />
+                  <AccountActions blocking={data.blocking} align="start" />
                 </div>
               )}
             </div>
+
+            {/* The way out, and it is required rather than decorative: with `modal="trap-focus"`
+                Base UI asks for a `Close` inside the popup so a touch screen reader — which has no
+                Escape key and cannot press "outside" a trap — is not sealed in. Visually hidden
+                because sighted users already have two doors, the scrim and Escape, and a third
+                visible button would be a control that says nothing the surface does not. It sits
+                last so it is the end of the tab cycle rather than something to tab past. */}
+            <Popover.Close className="sr-only">{COPY.close}</Popover.Close>
           </Popover.Popup>
         </Popover.Positioner>
       </Popover.Portal>
@@ -333,7 +402,7 @@ export function libraryLine(data: ProfileMenuData): string {
  */
 function Identity({ data, failed }: { data: ProfileMenuData | null; failed: boolean }) {
   return (
-    <div className="flex items-center gap-3 px-1 py-1">
+    <div className="flex items-center gap-3 px-2 py-1">
       <span
         aria-hidden
         className="flex size-11 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"
@@ -367,9 +436,6 @@ function Identity({ data, failed }: { data: ProfileMenuData | null; failed: bool
                 {data.account}
               </p>
             )}
-            {data.joined === null ? null : (
-              <p className="truncate text-micro text-muted-foreground">{data.joined}</p>
-            )}
           </>
         )}
       </div>
@@ -392,7 +458,9 @@ function MenuLink({
 }: {
   href: '/profile' | '/account';
   label: string;
-  hint: string;
+  /** Omitted where the label is the whole answer — `Account settings` names its own destination
+   *  and the subtitle under it only described the next screen's contents. */
+  hint?: string;
   icon?: boolean;
 }) {
   return (
@@ -407,17 +475,42 @@ function MenuLink({
       {icon ? <Settings className="size-4 shrink-0 text-muted-foreground" aria-hidden /> : null}
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-sm font-bold text-foreground">{label}</span>
-        <span className="truncate text-xs text-muted-foreground tabular-nums">{hint}</span>
+        {hint === undefined ? null : (
+          <span className="truncate text-xs text-muted-foreground tabular-nums">{hint}</span>
+        )}
       </span>
       <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
     </Link>
   );
 }
 
-/** The same heading `/profile` uses, so the two surfaces label one section one way. */
-function SectionHeading({ id, children }: { id: string; children: string }) {
+/**
+ * The same heading `/profile` uses, so the two surfaces label one section one way.
+ *
+ * `visuallyHidden` is how the menu drops the kicker without dropping the name. Three theme
+ * segments sitting under `Sign out` in a ten-row card do not need a section label drawn on the
+ * screen — but `ThemeChoice` is a `radiogroup` and points its `aria-labelledby` here, so the
+ * element has to stay in the accessibility tree. The page keeps it visible, where it separates two
+ * real sections.
+ */
+function SectionHeading({
+  id,
+  children,
+  visuallyHidden = false,
+}: {
+  id: string;
+  children: string;
+  visuallyHidden?: boolean;
+}) {
   return (
-    <h2 id={id} className="px-1 text-micro font-bold uppercase tracking-wide text-muted-foreground">
+    <h2
+      id={id}
+      className={
+        visuallyHidden
+          ? 'sr-only'
+          : 'px-1 text-micro font-bold uppercase tracking-wide text-muted-foreground'
+      }
+    >
       {children}
     </h2>
   );

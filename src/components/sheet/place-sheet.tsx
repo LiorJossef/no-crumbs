@@ -10,7 +10,8 @@
  * does not reimplement that logic, it only supplies snap points and content.
  *
  * Three stops per §6.5/§1.3, as pixel/fraction snap points vaul understands directly:
- *  - `peek`: a fixed px height (120px + safe-area-bottom) — the viewport heading + Add action.
+ *  - `peek`: a fixed px height (`PEEK_PX`, 156) — one line: the viewport heading, which opens the
+ *    sheet. The bar floats over its lower 68 px and the row is padded clear of it.
  *  - `half`: 55% of the viewport — the saved-places list, or (S5) a selected place's detail.
  *  - `full`: 100% — search field + full list.
  *
@@ -42,6 +43,7 @@
 
 import {
   HALF_FRACTION,
+  PEEK_ROW_PADDING_BOTTOM,
   STOP_TO_CONTENT_HEIGHT,
   floatingBarClearancePx,
   type SheetStop,
@@ -55,35 +57,50 @@ import {
   type CSSProperties,
   type ReactNode,
 } from 'react';
-import { MapPin, ExternalLink, X, ChevronLeft, ChevronUp, Play, Search } from 'lucide-react';
+import { ArrowUpRight, MapPin, X, ChevronLeft, ChevronUp, Play, Search } from 'lucide-react';
+import { CrumbMascot } from '@/components/brand/crumb-mascot';
 import { PlatformMark } from '@/components/brand/platform-mark';
 import { Button } from '@/components/ui/button';
-import { PRESS_BEAT, PRESS_ROW } from '@/lib/interaction';
+import { PRESS_BEAT, PRESS_BUTTON, PRESS_ROW } from '@/lib/interaction';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { isSearchActive } from '@/domain/places/search';
+import { tagKey } from '@/domain/extraction/tags';
 import { tagFacets, type TagFacet } from '@/ui/place/tag-filter';
 import {
   BeenToggle,
   CategoryEditor,
-  NameEditor,
+  DETAIL_ACTION_PILL,
   NoteEditor,
   RemoveSavedPlace,
-  RenameTrigger,
 } from './saved-place-edits';
 import {
   ActiveTagFilter,
   DishLine,
   TagChipList,
   TagChipRow,
-  TagFacetBar,
   WhyGoLine,
 } from './place-enrichment';
 import { BeenBadge } from './visit-state';
+import { NO_BEEN_PLACES_LINE, type VisitFilter } from '@/ui/place/visit-state';
 import { BOTTOM_NAV_HEIGHT_PX } from '@/components/nav/bottom-nav';
-import { CategoryFilterBar } from './category-filter-bar';
-import { CHIP_PRESSABLE } from './place-enrichment';
+import { AxisRows, LibraryFilterBar, MenuAxis, type FilterSurface } from './library-filter-bar';
 import { DEFAULT_PLACE_ORDER, type PlaceOrder } from './place-order';
+import {
+  extraSources,
+  moreSourcesLine,
+  openSourceLabel,
+  sourceCreatorLabel,
+} from './place-sources';
+import {
+  BulkDeleteControl,
+  BulkDeleteNotice,
+  EnterSelectionButton,
+  SelectablePlaceRow,
+  SelectionToolbar,
+  useLibrarySelection,
+  type LibrarySelection,
+} from './library-selection';
 import type { CategoryFacet } from '@/domain/places/category-filter';
 import type { ProductCategory } from '@/domain/places/product-category';
 import { thumbnailOf, type PlaceDetailFacts, type ThumbnailRef } from '@/domain/places/spot';
@@ -105,7 +122,14 @@ import {
 import { AddToCollection } from '@/components/collections/add-to-collection';
 
 import { formatCaptionQuote, quoteAddsSomething } from '@/ui/place/caption-quote';
-import { isolate, type AreaHeading } from '@/ui/place/active-area';
+import { SECTION_LABEL } from '@/ui/place/section-label';
+import {
+  CLEAR_FILTERS_LABEL,
+  NO_FILTER_MATCHES_HINT,
+  NO_FILTER_MATCHES_LINE,
+  isolate,
+  type AreaHeading,
+} from '@/ui/place/active-area';
 import type { MapPlace } from '@/components/map/types';
 import { useNearMeDistance } from '@/components/map/near-me-context';
 
@@ -138,6 +162,9 @@ export interface PlaceSheetProps {
   /** The area the list is showing. Not rendered — it is what the scroll reset and the heading's
    *  crossfade key on, both of which mark the one legitimate change of scope. */
   readonly activeAreaId: string | null;
+  /** **The whole library, unfiltered**, so the tag list's rows and their order cannot move while
+   *  you filter. Only the counts beside them are live. See `useLibraryTagFacets`. */
+  readonly libraryPlaces?: readonly MapPlace[];
   /** Nothing saved, ever — a different screen, not a different string. */
   readonly libraryIsEmpty: boolean;
   /** Anything in the **whole library** is marked been. The `Not been yet` chip's precondition, and
@@ -147,40 +174,28 @@ export interface PlaceSheetProps {
   readonly libraryHasVisited: boolean;
   readonly query: string;
   readonly onQueryChange: (query: string) => void;
-  /** The tag currently narrowing the library, as stored — `null` when no chip is active. A second
-   *  filter dimension rather than text written into `query`; `src/ui/place/tag-filter.ts` says why.
-   *  Rendered here as the dismissible pill above the list, and applied upstream so the pins are
-   *  narrowed by the same predicate in the same frame. */
-  readonly activeTag: string | null;
-  /** One tap to clear, from the pill. Chips themselves toggle through the `TagFilterContext`. */
-  readonly onClearTag: () => void;
-  /** Whether the library is narrowed to places the user has not been to yet. A third filter
-   *  dimension beside the tag and the search box, applied upstream so the pins and the rows are
-   *  narrowed by the same predicate in the same frame. */
-  readonly notBeenOnly: boolean;
-  readonly onToggleNotBeen: () => void;
+  /** The tags currently narrowing the library, as stored — empty when nothing is selected. Several
+   *  at once since 2026-09-02, composing as AND. A filter dimension of its own rather than text
+   *  written into `query`; `src/ui/place/tag-filter.ts` says why. Rendered here as the dismissible
+   *  pills above the list, and applied upstream so the pins are narrowed by the same predicate in
+   *  the same frame. */
+  readonly activeTags: readonly string[];
+  /** One tap to clear one tag, from its pill. The list inside the filter panel toggles them. */
+  readonly onClearTag: (tag: string) => void;
+  /** Toggle one tag from the filter panel's list. */
+  readonly onToggleTag: (tag: string) => void;
+  /** Every tag off at once — `Clear all` inside the panel. */
+  readonly onClearTags: () => void;
+  /** How the library is narrowed by the user's own visits — `all`, `not-been` or `been`. A third
+   *  filter dimension beside the tag and the search box, applied upstream so the pins and the rows
+   *  are narrowed by the same predicate in the same frame. */
+  readonly visitFilter: VisitFilter;
+  readonly onChangeVisitFilter: (filter: VisitFilter) => void;
   /** The categories the library actually holds, with counts, already narrowed by every other
    *  filter. Computed on the page rather than here because the same filter narrows the pins. */
   readonly categoryFacets: readonly CategoryFacet[];
   readonly activeCategory: ProductCategory | null;
   readonly onToggleCategory: (category: ProductCategory) => void;
-  /**
-   * **How many places this list would show with the search and every filter cleared** — the
-   * denominator in `12 of 32`, ruled by `overnight-copy-deck.md` §4.3 condition 2.
-   *
-   * Not the library, not the viewport, and deliberately not anything this component can derive:
-   * `places` and `otherPlaces` both arrive already narrowed, so their sum is the *numerator*. The
-   * only honest source is the page, which holds the unfiltered list — and the check the deck gives
-   * a verifier is exactly that identity: clear the field, read the heading's count, it is the 32
-   * you just saw.
-   *
-   * **Optional, and absent means the count does not render.** A number beside a search field that
-   * was computed from a set this component only half has would be a confident wrong answer, which
-   * is the one thing this codebase will not ship. `map-page-client.tsx` is where it comes from and
-   * that file belongs to another lane tonight; until it passes this, the sighted count is not on
-   * screen and `map-shell.tsx`'s live region remains the only announcement of the same fact.
-   */
-  readonly unfilteredCount?: number;
   readonly selected: MapPlace | null;
   readonly onDeselect: () => void;
   /** Opens the import overlay in `map-page-client.tsx` (client state) rather than navigating to
@@ -215,18 +230,20 @@ export function PlaceSheet({
   heading,
   otherPlaces,
   activeAreaId,
+  libraryPlaces,
   libraryIsEmpty,
   libraryHasVisited,
   query,
   onQueryChange,
-  activeTag,
+  activeTags,
   onClearTag,
-  notBeenOnly,
-  onToggleNotBeen,
+  onToggleTag,
+  onClearTags,
+  visitFilter,
+  onChangeVisitFilter,
   categoryFacets,
   activeCategory,
   onToggleCategory,
-  unfilteredCount,
   selected,
   onDeselect,
   onAddTikTok,
@@ -298,18 +315,20 @@ export function PlaceSheet({
       heading={heading}
       otherPlaces={otherPlaces}
       activeAreaId={activeAreaId}
+      {...(libraryPlaces === undefined ? {} : { libraryPlaces })}
       libraryIsEmpty={libraryIsEmpty}
       libraryHasVisited={libraryHasVisited}
       query={query}
       onQueryChange={onQueryChange}
-      activeTag={activeTag}
+      activeTags={activeTags}
       onClearTag={onClearTag}
-      notBeenOnly={notBeenOnly}
-      onToggleNotBeen={onToggleNotBeen}
+      onToggleTag={onToggleTag}
+      onClearTags={onClearTags}
+      visitFilter={visitFilter}
+      onChangeVisitFilter={onChangeVisitFilter}
       categoryFacets={categoryFacets}
       activeCategory={activeCategory}
       onToggleCategory={onToggleCategory}
-      {...(unfilteredCount === undefined ? {} : { unfilteredCount })}
       stop={stop}
       // `half` for an empty library, `full` once there is a list. The empty state is a heading, a
       // line and one button — about 380 px — so opening it full gave a new user their first screen
@@ -333,18 +352,20 @@ function PlaceList({
   heading,
   otherPlaces,
   activeAreaId,
+  libraryPlaces,
   libraryIsEmpty,
   libraryHasVisited,
   query,
   onQueryChange,
-  activeTag,
+  activeTags,
   onClearTag,
-  notBeenOnly,
-  onToggleNotBeen,
+  onToggleTag,
+  onClearTags,
+  visitFilter,
+  onChangeVisitFilter,
   categoryFacets,
   activeCategory,
   onToggleCategory,
-  unfilteredCount,
   stop,
   onExpand,
   onAddTikTok,
@@ -359,18 +380,20 @@ function PlaceList({
   heading: AreaHeading;
   otherPlaces: readonly MapPlace[];
   activeAreaId: string | null;
+  libraryPlaces?: readonly MapPlace[];
   libraryIsEmpty: boolean;
   libraryHasVisited: boolean;
   query: string;
   onQueryChange: (query: string) => void;
-  activeTag: string | null;
-  onClearTag: () => void;
-  notBeenOnly: boolean;
-  onToggleNotBeen: () => void;
+  activeTags: readonly string[];
+  onClearTag: (tag: string) => void;
+  onToggleTag: (tag: string) => void;
+  onClearTags: () => void;
+  visitFilter: VisitFilter;
+  onChangeVisitFilter: (filter: VisitFilter) => void;
   categoryFacets: readonly CategoryFacet[];
   activeCategory: ProductCategory | null;
   onToggleCategory: (category: ProductCategory) => void;
-  unfilteredCount?: number;
   stop: SheetStop;
   onExpand: () => void;
   onAddTikTok: () => void;
@@ -410,7 +433,15 @@ function PlaceList({
   // An empty library is a different screen, not a different count.
   const headingText = libraryIsEmpty ? EMPTY_LIBRARY_HEADING : heading.text;
 
-  const facets = useLibraryTagFacets(places, otherPlaces, activeTag);
+  const facets = useLibraryTagFacets(places, otherPlaces, activeTags, libraryPlaces);
+
+  /** Nothing at all to show — the scope's places *and* the continuation under `Everywhere else`
+   *  are both empty, which is the only state in which a filter's own empty line is the truth. */
+  const listIsEmpty = places.length + otherPlaces.length === 0;
+  /** Whether any of the three narrowing axes is on — the same three `Clear` resets, and
+   *  deliberately not the sort or the search, neither of which can empty the list in a way
+   *  `Clear filters` would undo. Search has its own escape one line above. */
+  const filtersAreOn = activeCategory !== null || visitFilter !== 'all' || activeTags.length > 0;
 
   /**
    * What the peek row promises above the count in the header: how many more rows are down there.
@@ -423,9 +454,41 @@ function PlaceList({
    */
   const moreElsewhere = otherPlaces.length;
 
+  /**
+   * **Multi-select and bulk delete** (`deleteSavedPlaces`' render half, round 3 §8.2).
+   *
+   * Keyed on `savedPlaceId` and not on `place.id`, because the action deletes `saved_places` rows:
+   * the two are the same value on `/map` — every pin here *is* one of the caller's saves — and a
+   * host whose pins are not saved rows contributes nothing to this array and gets no `Select`
+   * control at all. That is the same rule `savedPlaceRef` holds for the detail's six mutations, and
+   * it is stated rather than inferred for the same reason.
+   *
+   * Over `places` **and** `otherPlaces`, which together are exactly what the scroll renders — see
+   * `useLibraryTagFacets` for the same argument about the same pair. `Select all` over one of them
+   * would pick a subset of what is on screen.
+   */
+  const selectableIds = useMemo(
+    () =>
+      [...places, ...otherPlaces].flatMap((place) =>
+        place.savedPlaceId === undefined ? [] : [place.savedPlaceId],
+      ),
+    [places, otherPlaces],
+  );
+  const selection = useLibrarySelection(selectableIds);
+  const selecting = selection.selecting;
+
   return (
     <div
-      style={{ height: STOP_TO_CONTENT_HEIGHT[stop] }}
+      style={
+        {
+          height: STOP_TO_CONTENT_HEIGHT[stop],
+          // The same number, published so anything inside the sheet can size itself against *this
+          // column* instead of against the viewport. `dvh` is a lie in here: at `half` the column
+          // is `55dvh - 70px`, so a child capped at `45dvh` claims 96 % of it and leaves the list
+          // nothing. The inline filter panel in `library-filter-bar.tsx` is the reader.
+          '--sheet-content-height': STOP_TO_CONTENT_HEIGHT[stop],
+        } as CSSProperties
+      }
       className="flex min-h-0 flex-col gap-3.5 px-5 pt-3.5"
     >
       {stop === 'peek' ? (
@@ -438,12 +501,34 @@ function PlaceList({
          * the sheet. What is left here is the one thing that is genuinely about *this* sheet —
          * what the list below is, and that it can be pulled up.
          *
-         * That is also what pays for the bar. `PEEK_PX` is 128 and is mirrored in four places, one
-         * of them a licence condition; it sets the camera's bottom budget too, so it must not move.
-         * Dropping the button frees the lower half of the band for the bar to sit in, and the
-         * padding below matches `BOTTOM_NAV_HEIGHT_PX` so the line never sits behind it.
+         * That is also what pays for the bar. `PEEK_PX` is mirrored in four places, one of them a
+         * licence condition, and it sets the camera's bottom budget — so it moves through
+         * `sheet-geometry.ts` and all four together, never here.
+         *
+         * **`min-h-0 flex-1 items-end`, and all three words are the fix** (W2-E). This row spent a flat
+         * `BOTTOM_NAV_HEIGHT_PX` of `padding-bottom` while sitting at its own content height at
+         * the *top* of the column — so the padding positioned nothing at all, the button came to
+         * rest at y 746–790 under a bar occupying 776–844, and its lower 14 px were unpressable.
+         * Filling the column and aligning to its bottom edge is what makes the padding load-bearing:
+         * the button now hangs off the bottom of the strip at a fixed distance from the bar, and
+         * `PEEK_ROW_PADDING_BOTTOM` carries the `env(safe-area-inset-bottom)` the bar's own height
+         * has always carried, so a home indicator moves the two together instead of sliding the bar
+         * up over the line.
+         *
+         * **`min-h-0` is what makes that second half true, and it is not decoration.** A flex item's
+         * automatic minimum size is its content, so without it the row simply grew past the column
+         * — measured with a 34 px inset emulated over CDP: the row became 162 px tall inside a
+         * 128 px box, went back to being top-anchored, and the button ended 20 px *under* the bar,
+         * which is the defect this row started with. With it the row shrinks, the button stays
+         * glued 14 px above the bar at any inset, and what the inset eats is the air above — the
+         * safe direction. Past ~30 px of inset the button's box starts above the sheet's top edge;
+         * its background is transparent and its text is centred, so nothing paints on the map, and
+         * no device can reach that state today anyway (see `PEEK_ROW_PADDING_BOTTOM`).
          */
-        <div className="flex items-center" style={{ paddingBottom: `${BOTTOM_NAV_HEIGHT_PX}px` }}>
+        <div
+          className="flex min-h-0 flex-1 items-end"
+          style={{ paddingBottom: PEEK_ROW_PADDING_BOTTOM }}
+        >
           <button
             type="button"
             onClick={onExpand}
@@ -458,11 +543,9 @@ function PlaceList({
               // control that opens the library on a phone, so it is on the path of every session,
               // and 20px of it is one line of `text-sm` with nothing around it.
               //
-              // It costs no vertical space that was doing anything else. `PEEK_PX` is 128 and must
-              // not move — it is mirrored in four places, one of them a licence condition, and it
-              // sets the camera's bottom budget — but the strip already had the room: dropping the
-              // `Add a TikTok link` button into `BottomNav` freed the lower half of the band, and this
-              // only claims the height the row was already sitting in.
+              // It is the floor the whole band is now sized around: `PEEK_PX` grew 128 → 156 on
+              // 2026-09-02 precisely because 44 px plus the bar plus a drag handle does not fit in
+              // 128, and the button is the one term in that sum that may not shrink.
               'flex min-h-11 min-w-0 flex-1 items-center gap-1 rounded-lg px-1 text-left text-sm font-medium text-muted-foreground',
               // The only control on the peek strip, and the one whose result — the sheet rising —
               // takes a spring to arrive. Without a press this row looked inert for that whole
@@ -528,70 +611,118 @@ function PlaceList({
               change a reduced-motion user is most likely to miss. So the fade is unconditional and
               only the 4 px rise is `motion-safe:`. That is the whole of the inversion: opacity is
               everyone's, transform is the pointer user's bonus. */}
-          <h2
-            key={activeAreaId ?? 'no-area'}
-            className="animate-in fade-in-0 duration-enter motion-safe:slide-in-from-bottom-1 font-heading text-xl font-extrabold tracking-tight text-foreground outline-none"
-          >
-            {headingText}
-          </h2>
+          {/* The heading and the control that turns the rows into checkboxes share one line, so
+              selection costs **zero vertical pixels** on a header the owner measured at 46% of a
+              375x812 viewport. Absent while selecting — the toolbar below replaces it — and absent
+              when there is nothing whose `saved_places` row this list could delete. */}
+          <div className="flex items-center gap-2">
+            <h2
+              key={activeAreaId ?? 'no-area'}
+              className="min-w-0 flex-1 animate-in fade-in-0 duration-enter motion-safe:slide-in-from-bottom-1 font-heading text-xl font-extrabold tracking-tight text-foreground outline-none"
+            >
+              {headingText}
+            </h2>
+            {!libraryIsEmpty && !selecting && selectableIds.length > 0 && (
+              <EnterSelectionButton onEnter={selection.enter} />
+            )}
+          </div>
 
           {/* Hidden while the library is empty: there is nothing to search, and an inert field is a
               false affordance offering work that cannot produce a result. */}
-          {!libraryIsEmpty && (
-            <div className="flex flex-col gap-1.5">
-              <PlaceSearchField value={query} onChange={onQueryChange} />
-              <ResultCount
-                shown={places.length + otherPlaces.length}
-                {...(unfilteredCount === undefined ? {} : { of: unfilteredCount })}
-                narrowing={
-                  isSearchActive(query) ||
-                  activeTag !== null ||
-                  notBeenOnly ||
-                  activeCategory !== null
-                }
-              />
-            </div>
+          {/* **The `12 of 32` counter is gone** (`ux-overwhelm-audit-2026-09-02.md` §7). It was
+              `aria-hidden`, so it existed for sighted users only, in exactly the band the owner
+              asked us to empty — and it restated what the heading above it (`58 places in 3
+              countries`) and the list under it already say. The live region that announces the
+              same fact to a screen reader is a different mechanism in a different file
+              (`map-shell.tsx`) and is untouched. */}
+          {/* **The search field and the filter bar are replaced while picking, not hidden beside
+              the toolbar.** Two ways of narrowing a list you are counting is a way to lose track of
+              what is counted — the same swap `collection-content.tsx` makes, and the one thing the
+              two multi-selects deliberately share. Everything else about them diverges; see
+              `bulk-delete.ts`. */}
+          {selecting ? (
+            <>
+              <SelectionToolbar selection={selection} />
+              {/* At the top of the list rather than in a pinned footer, which is where the
+                  collection's bulk *unlink* lives. Two bulk removals that look alike is the
+                  confusability `ux-two-removals-one-screen.md` §2.3 exists to remove, and where the
+                  button is, is the first thing a thumb learns. */}
+              <BulkDeleteControl selection={selection} />
+            </>
+          ) : (
+            <BulkDeleteNotice notice={selection.notice} />
           )}
 
-          {/* Above the list *and* above the empty state, so the one control that undoes a tag
-              filter is on screen in the state where the filter has left nothing to look at. The
-              same rule is what puts the `Not been yet` chip here: it is both the way in and the way
-              out of the filter, so it has to survive the state where the filter emptied the list. */}
-          {/* One horizontal-scroll row, not two stacked ones: the category chips and the visit
-              chip are the same kind of control asking the same kind of question, and the merge is
-              also what lifts `Not been yet` from the 36 px its own file names as a compromise to
-              the 44 px floor. Categories had nowhere to live before this — the only way to narrow
-              by kind was to open a place and tap a tag chip inside its detail view, which is a
-              retrieval control hidden inside a reading surface. */}
-          {!libraryIsEmpty && (
-            <CategoryFilterBar
+          {!libraryIsEmpty && !selecting && <PlaceSearchField value={query} onChange={onQueryChange} />}
+
+          {/* **Two rows, not three.** Measured at 375x812 on the owner's own library, the header
+              drew the visit chip and three category chips at y190, two sort chips at y248 and ten
+              tag chips at y306, with the first place at y370 — 46 % of the viewport spent on
+              controls. Each axis now lives behind its own named trigger on row 1, and the order
+              behind one ghost trigger on row 2; `library-filter-bar.tsx` carries the argument.
+
+              Above the list *and* above the empty state, so the control that undoes a filter is on
+              screen in the state where the filter has left nothing to look at. */}
+          {!libraryIsEmpty && !selecting && (
+            <LibraryFilterBar
+              // **The phone gets inline disclosure, not a floating popup** — owner, 2026-09-02:
+              // *"i think that on mobile the pop up doesnt feel good."* This host is inside a vaul
+              // drawer, where a floating layer is a popup inside a popup and fights the drag
+              // listener. A constant, never a `matchMedia` read: both hosts render on the server.
+              surface="inline"
+              // Opening a panel at `half` would be dividing 83 px between a menu and the list it
+              // narrows. The sheet goes to `full` first, and only from a stop that is not already
+              // there — see `onPanelOpen`.
+              {...(stop === 'full' ? {} : { onPanelOpen: onExpand })}
               facets={categoryFacets}
               activeCategory={activeCategory}
               onToggleCategory={onToggleCategory}
-              notBeenOnly={notBeenOnly}
-              onToggleNotBeen={onToggleNotBeen}
+              visitFilter={visitFilter}
+              onChangeVisitFilter={onChangeVisitFilter}
               anyVisited={libraryHasVisited}
+              tagFacets={facets}
+              activeTags={activeTags}
+              onToggleTag={onToggleTag}
+              onClearTags={onClearTags}
+              belowRow={
+                onChangeSort !== undefined ? (
+                  <SortControl
+                    surface="inline"
+                    order={sortOrder}
+                    orders={sortOrders}
+                    onChange={onChangeSort}
+                    listLength={places.length + otherPlaces.length}
+                  />
+                ) : undefined
+              }
             />
           )}
-          {/* Under the filters and above the list, because it shapes the *same* rows they narrow —
-              and a control that reorders a list belongs where the list starts, not in a menu
-              somewhere else. Hidden with the filters on an empty library for the same reason the
-              search field is: there is nothing to order. */}
-          {!libraryIsEmpty && onChangeSort !== undefined && sortOrders.length > 1 && (
-            <SortControl order={sortOrder} orders={sortOrders} onChange={onChangeSort} />
+          {activeTags.length > 0 && !selecting && (
+            <ActiveTagFilter tags={activeTags} onClear={onClearTag} />
           )}
-          {/* Under the category bar rather than merged into it: a tag asks *what is this place
-              like*, a category asks *what kind of thing is it*, and one row holding both would put
-              two vocabularies in identical chips. Renders nothing at all when the library carries
-              no tags, which is most libraries — see `TagFacetBar`. */}
-          {!libraryIsEmpty && <TagFacetBar facets={facets} />}
-          {activeTag !== null && <ActiveTagFilter tag={activeTag} onClear={onClearTag} />}
 
           {/* The one line some empty headings need — see `AreaHeading.note`. Above the scroll area
               rather than inside it, so it sits with the heading it explains rather than where the
-              first row would have been. */}
-          {!libraryIsEmpty && heading.note !== null && (
-            <p className="text-sm font-medium text-muted-foreground">{heading.note}</p>
+              first row would have been.
+
+              **`Been` with nothing to show gets its own line**, because that empty result only
+              became reachable when the visit filter grew a third state: the area heading is built
+              from `notBeenOnly`, which `been` is not, so without this the screen would go quiet
+              about the one filter that emptied it. The control that undoes it is above this line,
+              which is the rule the whole header already holds itself to. */}
+          {!libraryIsEmpty && listIsEmpty && visitFilter === 'been' ? (
+            <p className="text-sm font-medium text-muted-foreground">{NO_BEEN_PLACES_LINE}</p>
+          ) : (
+            /* **The heading does not explain an empty list.** Owner, 2026-09-02. `heading.note`
+               still carries the notes that are *about the scope* rather than about a filter having
+               emptied it, so it is kept — but when filters are on and nothing matched, the
+               sentence belongs in the list, where `ClearFiltersEscape` puts it with the button
+               that undoes it. Rendering both would say it twice, a control row apart. */
+            !libraryIsEmpty &&
+            heading.note !== null &&
+            !(filtersAreOn && places.length === 0) && (
+              <p className="text-sm font-medium text-muted-foreground">{heading.note}</p>
+            )
           )}
 
           {libraryIsEmpty ? (
@@ -601,30 +732,62 @@ function PlaceList({
               <div
                 ref={scrollRef}
                 data-vaul-no-drag
-                className="min-h-0 flex-1 overflow-y-auto"
-                // Exactly the bar's height, so the last row clears it instead of ending underneath
-                // it. This is what pays for `BottomNav` floating over the sheet at `half` and
-                // `full` — the ruling it reverses was right that a bar painted over a scrolling
-                // list steals the bottom of the list, and this is the price rather than a denial.
-                style={{
-                  scrollPaddingBottom: BOTTOM_NAV_HEIGHT_PX,
-                  paddingBottom: BOTTOM_NAV_HEIGHT_PX,
-                }}
+                // Exactly the bar's height **and the inset under it**, as a margin rather than as
+                // padding — the same correction round-3 §7.1 forced on the place card below, for
+                // the same reason. Padding only moves the *last* row clear once you have scrolled
+                // to the end; the column's box still ran to the bottom of the screen, so every row
+                // in between slid under a `bg-card/90 backdrop-blur-md` pill and was rendered
+                // blurred rather than clipped. A margin ends the box where the bar begins and the
+                // overflow clip does the work at every scroll position. It costs nothing: the
+                // 68 px comes off the box and stops being spent on padding, so the last row rests
+                // at the same y it always did.
+                //
+                // `env(safe-area-inset-bottom)` is new here and is a defect fix of its own. The
+                // bar's own height is `calc(68px + env(safe-area-inset-bottom))`; this column
+                // paid the 68 and not the inset, so on a notched phone the last row sat under the
+                // bar by the whole inset. Simulated at 34 px: the row's title was behind the pill.
+                className="mb-[calc(env(safe-area-inset-bottom)+var(--floating-bar,0px))] min-h-0 flex-1 overflow-y-auto"
+                style={{ '--floating-bar': `${BOTTOM_NAV_HEIGHT_PX}px` } as CSSProperties}
               >
                 {heading.escape === 'clear-search' && (
                   <ClearSearchEscape onClearSearch={() => onQueryChange('')} />
                 )}
+                {/* **The filters emptied the list, so the list says so** — owner, 2026-09-02. This
+                    sits where the first row would have been, not in the heading: the reader is
+                    looking at the space that has nothing in it, and an explanation a control row
+                    above it is an explanation somewhere else. Search already worked this way one
+                    line up; the two empty results now behave alike. */}
+                {filtersAreOn && heading.escape !== 'clear-search' && places.length === 0 && (
+                  <ClearFiltersEscape
+                    onClearFilters={() => {
+                      if (activeCategory !== null) onToggleCategory(activeCategory);
+                      if (visitFilter !== 'all') onChangeVisitFilter('all');
+                      if (activeTags.length > 0) onClearTags();
+                    }}
+                  />
+                )}
                 {!heading.empty && (
                   <ul>
-                    {places.map((place) => (
-                      <PlaceRow
-                        key={place.id}
-                        place={place}
-                        {...(onSelect ? { onSelect } : {})}
-                        {...(onHover ? { onHover } : {})}
-                        selected={selectedId === place.id}
-                      />
-                    ))}
+                    {places.map((place) =>
+                      /* Tap-to-open is **replaced**, never fought: while picking there is no row
+                         that is both "open me" and "pick me", and no long-press to discover. */
+                      selecting && place.savedPlaceId !== undefined ? (
+                        <SelectablePlaceRow
+                          key={place.id}
+                          place={place}
+                          checked={selection.picked.has(place.savedPlaceId)}
+                          onToggle={() => selection.toggle(place.savedPlaceId as string)}
+                        />
+                      ) : (
+                        <PlaceRow
+                          key={place.id}
+                          place={place}
+                          {...(onSelect && !selecting ? { onSelect } : {})}
+                          {...(onHover ? { onHover } : {})}
+                          selected={selectedId === place.id}
+                        />
+                      ),
+                    )}
                   </ul>
                 )}
                 <EverywhereElse
@@ -632,7 +795,8 @@ function PlaceList({
                   {...(onHover ? { onHover } : {})}
                   {...(selectedId === undefined ? {} : { selectedId })}
                   flush={heading.empty}
-                  {...(onSelect ? { onSelect } : {})}
+                  {...(onSelect && !selecting ? { onSelect } : {})}
+                  {...(selecting ? { selection } : {})}
                 />
               </div>
             </>
@@ -659,25 +823,68 @@ function PlaceList({
  * include — the same disagreement `categoryFacets` records against scoping its own counts to the
  * active area.
  *
- * Empty while a tag is filtering, which is what makes every count it does return true: this list
- * is already narrowed by that tag, so any other tag's number here would be its co-occurrence with
- * the active one rather than its own. `ActiveTagFilter` is the control on screen in that state.
- * **This is the half that wants the page's un-narrowed set** — the seam `categoryFacets` already
- * has at `map-page-client.tsx`'s `facets` — and until that is threaded through, stepping aside is
- * the honest arrangement rather than the complete one.
+ * **Every tag, with no cap and no floor, and the counts are co-occurrence counts on purpose.**
+ * This used to return `[]` the moment a tag was filtering, because the list it counts over is
+ * already narrowed by that tag and every other tag's number would then be its co-occurrence with
+ * the active one rather than its own. With a *single* tag chip row that was the honest arrangement.
+ * With a **multi-select** list it is exactly the number the user needs: `Wine 3` beside a selected
+ * `Brunch` says "three of your brunch places are also wine", which is precisely what ticking it
+ * produces. So the list stays on screen and the counts stay true — of the set in front of you.
+ *
+ * The cap and the floor are both opted out of (`Number.POSITIVE_INFINITY`, `1`). A capped
+ * *searchable* list would hide tags the user can no longer reach by searching for them, which is
+ * the one thing the list exists to allow; and a singleton tag in a searchable list is findable
+ * rather than noisy. `MAX_TAG_FACETS` and `MIN_TAG_FACET_COUNT` survive for any caller that is
+ * still a row.
  */
 export function useLibraryTagFacets(
   places: readonly MapPlace[],
   otherPlaces: readonly MapPlace[],
-  activeTag: string | null,
+  activeTags: readonly string[],
+  /**
+   * The **whole** library, unfiltered. What it buys is the one thing the owner asked for:
+   * *"we should not remove the tags from the list, its weird behavior that it changes places
+   * everytime."*
+   *
+   * Which rows exist and what order they are in is computed from this and nothing else, so it
+   * cannot move while you filter; only the numbers beside them are live. Absent, the list falls
+   * back to the filtered set, which is the old behaviour and the reason it moved.
+   */
+  libraryPlaces?: readonly MapPlace[],
 ): readonly TagFacet[] {
-  return useMemo(
+  const tagsOf = (place: MapPlace) => enrichmentOf(place.detail).tags;
+  const matching = useMemo(() => [...places, ...otherPlaces], [places, otherPlaces]);
+
+  // The vocabulary and its order: every tag in the library, most-used-in-the-library first.
+  //
+  // **Why the library's counts and not the alphabet.** Both are stable under filtering, which is
+  // the whole requirement; most-used-first is the more useful of the two for aiming at a list you
+  // scan rather than read, and it is the order this list has always had. Alphabetical would also
+  // have to answer which alphabet — half these tags are Hebrew, and `tag-filter.ts` records why a
+  // locale-aware comparison is a non-deterministic bar. This order changes only when the library
+  // itself changes, which is a thing the user did.
+  const vocabulary = useMemo(
     () =>
-      activeTag !== null
-        ? []
-        : tagFacets([...places, ...otherPlaces], (place) => enrichmentOf(place.detail).tags),
-    [places, otherPlaces, activeTag],
+      libraryPlaces === undefined
+        ? null
+        : tagFacets(libraryPlaces, tagsOf, activeTags, Number.POSITIVE_INFINITY, 1),
+    [libraryPlaces, activeTags],
   );
+
+  const live = useMemo(
+    () => tagFacets(matching, tagsOf, activeTags, Number.POSITIVE_INFINITY, 1),
+    [matching, activeTags],
+  );
+
+  return useMemo(() => {
+    if (vocabulary === null) return live;
+    const counts = new Map(live.map((facet) => [tagKey(facet.tag), facet.count]));
+    // **A tag that currently matches nothing keeps its row and reads `0`.** Dropping it is the
+    // behaviour being complained about: a row that vanishes as you narrow is a row you cannot aim
+    // at, and the tag is still in the library — the filter is what is hiding it, and the way back
+    // is `Clear`, one row up.
+    return vocabulary.map((facet) => ({ ...facet, count: counts.get(tagKey(facet.tag)) ?? 0 }));
+  }, [vocabulary, live]);
 }
 
 /**
@@ -704,53 +911,111 @@ export function useLibraryTagFacets(
  * one; without it the row renders exactly as it did before, as a non-interactive `<li>`.
  */
 /**
- * **The sort control** — `W5-2`. Three orders, two of which always exist.
+ * **The sort control** — `W5-2`, rebuilt twice on 2026-09-02 and the second time for a reason worth
+ * writing down.
  *
- * A row of `aria-pressed` chips rather than a `<select>`, because that is the vocabulary this list
- * already speaks: the category bar and the visit chip above it are the same shape asking the same
- * kind of question, and a native picker here would be the only dropdown in the product. The state
- * lives on `aria-pressed`, so it is announced and styled from one fact — the rule
- * `category-filter-bar.tsx` already follows.
+ * It began as a row of `CHIP_PRESSABLE` chips at `min-h-11`, byte-identical to the category chips —
+ * and **one of them was always pressed**, because a sort always has a current value. So the header
+ * showed two filled pills meaning two unrelated things, while a pressed chip in this product means
+ * *this is narrowing your library*. It then became a native `<select>`, which fixed the shape and
+ * introduced three new defects the owner caught immediately: `appearance-none` does not stop a
+ * native select taking the platform's own focus chrome, it opens the **operating system's** menu
+ * rather than the app's, and — the regression — `h-8` on the select itself made it the smallest
+ * touch target in the product, 32 px flat, while every control beside it painted 32 inside a 44 px
+ * band.
  *
- * **`Nearest` is absent, not disabled, without a fix.** `availableOrders` decides; the reasoning is
- * there, and it is the same rule `near-me.ts` follows when it hides a distance it cannot stand
- * behind. A greyed-out `Nearest` invites the question the screen has no answer to.
+ * So it is now the **same component as the filter triggers** (`Dropdown`, `tone="sort"`): one
+ * `<button>` opening the app's own menu, the same 32-in-44 target, the same pill radius, the same
+ * surface hover — never a text-colour flick, which is what made the old one read as broken. The two
+ * meanings are told apart by the label and the fill, not by the mechanism: `Sort:` is printed on
+ * screen, and the trigger is a ghost where a filter trigger is a bordered pill.
  *
- * Every string is `overnight-copy-deck.md` §4.2 — `Sort`, `Recently saved`, `Nearest`, `A–Z`, the
- * last with an en dash. None is written here.
+ * **The axis word is visible at rest**, which it never was before today. Two bare values named
+ * nothing, and `A–Z` reads as a filter for names beginning with A as easily as it reads as an
+ * ordering.
+ *
+ * **Gated on the list being long enough to need it.** Sorting five rows you can see at once is a
+ * control that costs a permanent 44 px to answer a question nobody has.
+ *
+ * **`Nearest` is absent, not disabled, without a fix.** `availableOrders` decides; a greyed-out
+ * `Nearest` invites the question the screen has no answer to. Every string is
+ * `overnight-copy-deck.md` §4.2 and none is written here.
  */
 export function SortControl({
   order,
   orders,
   onChange,
+  listLength,
+  surface = 'popover',
 }: {
   order: PlaceOrder;
   orders: readonly PlaceOrder[];
   onChange: (order: PlaceOrder) => void;
+  /** How many rows the list is actually rendering. Below `SORT_MIN_PLACES` the control is absent:
+   *  a list you can read in one screen is already in an order you can see. */
+  listLength: number;
+  /** The same split every other axis takes: inline on the phone, anchored on the desktop. A sort
+   *  that floated while the filters beside it disclosed inline would be a fifth mechanism. */
+  surface?: FilterSurface;
 }) {
-  // One option is not a choice. A library with no fix and a control offering only `Recently saved`
-  // and `A-Z` still has two, so this only fires if the list of orders is ever narrowed further.
+  // One option is not a choice. A library with no fix still has two, so this only fires if the
+  // list of orders is ever narrowed further.
   if (orders.length < 2) return null;
+  if (listLength < SORT_MIN_PLACES) return null;
+
+  const current = orders.includes(order) ? order : (orders[0] as PlaceOrder);
+
   return (
-    <div
-      role="group"
-      aria-label={SORT_LABEL}
-      className="flex items-center gap-1.5 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+    <MenuAxis
+      tone="sort"
+      axis={SORT_LABEL}
+      accessibleAxis={SORT_BY_LABEL}
+      value={SORT_OPTION_LABEL[current]}
+      surface={surface}
     >
-      {orders.map((candidate) => (
-        <button
-          key={candidate}
-          type="button"
-          aria-pressed={candidate === order}
-          onClick={() => onChange(candidate)}
-          className={cn(CHIP_PRESSABLE, 'min-h-11 shrink-0')}
-        >
-          {SORT_OPTION_LABEL[candidate]}
-        </button>
-      ))}
-    </div>
+      <SortOptions surface={surface} current={current} orders={orders} onChange={onChange} />
+    </MenuAxis>
   );
 }
+
+/**
+ * **The orders, as menu rows — not as a second set of buttons.** Owner, 2026-09-02: *"I don't like
+ * the interaction pattern of opening a dropdown and then showing another group of large buttons
+ * inside it."* These are the same rows the three filter axes offer, from the same component, so a
+ * reorder and a narrowing cannot end up looking like two different products.
+ *
+ * `Nearest` is absent rather than greyed when there is no fix — `availableOrders` decides, upstream
+ * of here — so this never draws a row it cannot honour.
+ */
+function SortOptions({
+  surface,
+  current,
+  orders,
+  onChange,
+}: {
+  surface: FilterSurface;
+  current: PlaceOrder;
+  orders: readonly PlaceOrder[];
+  onChange: (order: PlaceOrder) => void;
+}) {
+  return (
+    <AxisRows
+      surface={surface}
+      groupLabel={SORT_BY_LABEL}
+      value={current}
+      options={orders.map((candidate) => ({
+        value: candidate,
+        label: SORT_OPTION_LABEL[candidate],
+      }))}
+      onChange={(next) => onChange(next as PlaceOrder)}
+    />
+  );
+}
+
+/** How long the list has to be before an order control earns its 44 px. Five rows fit on a phone
+ *  at `full`; eight is the first length where the thing you are looking for is plausibly below the
+ *  fold, which is the only state where re-ordering is faster than reading. */
+export const SORT_MIN_PLACES = 8;
 
 export function PlaceRow({
   place,
@@ -802,8 +1067,11 @@ export function PlaceRow({
    * qualifier rather than a warning, and its meaning is carried by shape, never by colour alone.
    *
    * Its cost, stated: a glyph is not self-describing. What makes it decodable is one tap away —
-   * the detail view's `Approximate location — worked out from the video…` — plus the tooltip on a
-   * pointer device and `APPROXIMATE_ROW_ANNOTATION` in the row's accessible name.
+   * the detail view's `~ Approximate location` mark beside the address, which carries
+   * `Could be a street or two off.` on its own `title` — plus the tooltip on a pointer device here
+   * and `APPROXIMATE_ROW_ANNOTATION` in the row's accessible name. (This paragraph named the
+   * retired sentence `Approximate location — worked out from the video…` until 2026-09-02; B-T2
+   * replaced the wording on the detail view without updating the comment that pointed at it.)
    */
   const certainty = locationCertainty(place.detail?.provenance?.sourceDataset);
   const approximateLabel = certainty?.isApproximate === true ? certainty.label : null;
@@ -1001,7 +1269,12 @@ export function PlaceRow({
           // declaration only meant a second duration for the same fade. Deleted rather than
           // prefixed — the move `button.tsx`, `bottom-nav.tsx`, `share-panel.tsx` and
           // `add-to-collection.tsx` all made, and the two places in this file that had not.
-          'relative flex min-h-16 w-full items-start gap-3 rounded-lg py-3.5 text-left outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50',
+          // **`ps-2.5` is what puts the selected rule beside the row rather than on top of it.**
+          // The rule below is `before:start-0` on a row that had no inline padding at all, so at
+          // 2 px wide it was painted *over* the first column of the thumbnail — measured on the
+          // desktop panel, where the list content sat flush against it. 10 px of inline-start
+          // padding is the gap; `pe-1` keeps the trailing distance off the panel's own edge.
+          'relative flex min-h-16 w-full items-start gap-3 rounded-lg py-3.5 ps-2.5 pe-1 text-left outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50',
           // **A named group, never a bare `group`.** These rows nest inside other grouped
           // containers on `/collections`, and an unnamed group would let a parent's hover light up
           // every row inside it.
@@ -1488,54 +1761,60 @@ export function PlaceSearchField({
   );
 }
 
+/** The one control that undoes a search matching nothing anywhere. A tag filter is undone by its
+ *  own pill above the list, so it gets no second control here. */
 /**
- * **`12 of 32`, beside the search field — the same fact the live region already says, for the
- * people who cannot hear it.**
+ * **What a filter combination that matches nothing says, and where it says it.**
  *
- * The sheet has announced how much of the library is in play since `filterSentence` shipped, and it
- * announced it *only* to a screen reader (`map-shell.tsx`'s one live region). A sighted user typing
- * into the field watched rows disappear with no number anywhere on screen.
+ * Owner ruling, 2026-09-02: the message belongs *where the places are*, not in the header, and it
+ * is one generic sentence with a way out — not a line naming the axes that emptied it. The header
+ * already carries a count and a scope; making it also carry the failure put the explanation a
+ * whole control row away from the space it was explaining, and the reader's eye is on the empty
+ * list, not on the heading.
  *
- * `overnight-copy-deck.md` §4.3 (C135) rules the string and three conditions, and each one is a
- * line below:
+ * Generic on purpose. `Nothing tagged "Brunch + Desserts"` reads as a report about tags, so a
+ * category or a visit filter doing the same thing produced a different sentence — three ways to
+ * say one thing, and each one a string to keep true. One sentence covers every combination and
+ * cannot go stale when an axis is added.
  *
- *  1. **It renders only while something is narrowing.** `32 of 32` says nothing and competes with
- *     the heading, which already carries a count. It appears at the moment the number means
- *     something, which is also what makes it self-explanatory.
- *  2. **The denominator is the post-clear count of the same list**, which this component cannot
- *     derive — see `unfilteredCount`. No denominator, no count: a number that guessed would be a
- *     confident wrong answer beside a control the user is actively driving.
- *  3. **`aria-hidden`.** The sheet has exactly one live region and `filterSentence` already feeds
- *     it the same fact as a sentence. Two announcements of one change is a defect, not redundancy.
- *
- * `N of M` is this product's existing way of saying how much of a set is in play —
- * `import-page-client.tsx` renders `{selectedCount} of {saveableIndices.length} selected` — so this
- * introduces a number, not a form. `0 of 32` needs no special string: the heading beside it already
- * reads `Nothing matches "momos"` and offers `Clear search`.
+ * The button is the whole point: `active-area.ts:79` records that an empty state without the
+ * clearing affordance *in it* is a dead end, and the filter row's own `Clear` is above the fold
+ * only sometimes. This is the same escape hatch `ClearSearchEscape` gives the search case, in the
+ * same place, so the two empty results behave alike.
  */
-export function ResultCount({
-  shown,
-  of,
-  narrowing,
-}: {
-  /** What the list is rendering: the scope's places plus the ones under `Everywhere else`, which
-   *  together are every match in the library. */
-  shown: number;
-  /** The same list with nothing narrowing it. Absent renders nothing at all. */
-  of?: number;
-  narrowing: boolean;
-}) {
-  if (!narrowing || of === undefined) return null;
-
+export function ClearFiltersEscape({ onClearFilters }: { onClearFilters: () => void }) {
   return (
-    <p aria-hidden className="text-micro font-medium tabular-nums text-muted-foreground">
-      {shown} of {of}
-    </p>
+    <div className="flex flex-col items-center gap-4 px-6 py-12 text-center">
+      {/* **A composed empty state, not a sentence with a face next to it** — owner, 2026-09-02:
+          *"do something like the 'page not working' but for filter."* So it takes the shape that
+          pattern has everywhere: mark, then what happened, then what to do, stacked and centred in
+          the space that has nothing in it.
+
+          `nothingFound` is flat-eyed and flat-mouthed — neutral, not sad. That matters more here
+          than on the import screen `no-places-screen.tsx` borrows it from: this state is common
+          and self-inflicted (you ticked two tags), so the mascot must not read as the product
+          being disappointed *at* you. It is `size-16` rather than that screen's `size-12` because
+          here it is the composition's anchor rather than a kicker beside a caption, and §11.21
+          bans bare margin utilities on it, so the column's `gap` does every bit of the spacing. */}
+      <CrumbMascot mood="nothingFound" className="size-16 shrink-0" />
+      <div className="flex flex-col gap-1">
+        <p className="font-heading text-base font-extrabold text-foreground">
+          {NO_FILTER_MATCHES_LINE}
+        </p>
+        <p className="text-sm font-medium text-muted-foreground">{NO_FILTER_MATCHES_HINT}</p>
+      </div>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={onClearFilters}
+        className="h-11 rounded-lg px-4 text-sm font-bold"
+      >
+        {CLEAR_FILTERS_LABEL}
+      </Button>
+    </div>
   );
 }
 
-/** The one control that undoes a search matching nothing anywhere. A tag filter is undone by its
- *  own pill above the list, so it gets no second control here. */
 export function ClearSearchEscape({ onClearSearch }: { onClearSearch: () => void }) {
   return (
     <div className="flex flex-col items-start py-6">
@@ -1581,6 +1860,7 @@ export function EverywhereElse({
   onSelect,
   onHover,
   selectedId,
+  selection,
 }: {
   places: readonly MapPlace[];
   flush?: boolean;
@@ -1589,24 +1869,39 @@ export function EverywhereElse({
    *  current area is exactly the one whose pin the user most needs pointing out. */
   onHover?: (placeId: string | null) => void;
   selectedId?: string | null;
+  /** Present only while the library is being picked over. These rows are in the same scroll and in
+   *  the same `Select all`, so leaving them as ordinary rows would make the toolbar's count a claim
+   *  about half the list. Absent — the normal case — nothing here changes. */
+  selection?: LibrarySelection;
 }) {
   if (places.length === 0) return null;
 
   return (
     <section className={flush ? '' : 'mt-5 border-t border-border/70 pt-4'}>
-      <h3 className="px-1 pb-1.5 font-heading text-sm font-extrabold tracking-tight text-foreground">
+      {/* `px-2.5` follows `PlaceRow`'s own inline padding, so the heading still lines up
+          with the names under it now that the rows are inset off the selected rule. */}
+      <h3 className="px-2.5 pb-1.5 font-heading text-sm font-extrabold tracking-tight text-foreground">
         Everywhere else
       </h3>
       <ul>
-        {places.map((place) => (
-          <PlaceRow
-            key={place.id}
-            place={place}
-            {...(onSelect ? { onSelect } : {})}
-            {...(onHover ? { onHover } : {})}
-            selected={selectedId === place.id}
-          />
-        ))}
+        {places.map((place) =>
+          selection !== undefined && place.savedPlaceId !== undefined ? (
+            <SelectablePlaceRow
+              key={place.id}
+              place={place}
+              checked={selection.picked.has(place.savedPlaceId)}
+              onToggle={() => selection.toggle(place.savedPlaceId as string)}
+            />
+          ) : (
+            <PlaceRow
+              key={place.id}
+              place={place}
+              {...(onSelect ? { onSelect } : {})}
+              {...(onHover ? { onHover } : {})}
+              selected={selectedId === place.id}
+            />
+          ),
+        )}
       </ul>
     </section>
   );
@@ -1636,9 +1931,14 @@ export function EverywhereElse({
  */
 export const PLAY_SOURCE_LABEL = 'Play this TikTok video';
 
-/** `C131`. The control's accessible name — it labels a group of chips, which have no visible
- *  heading of their own because a word above three short chips costs more room than it earns. */
+/** `C131`. **The visible axis word**, printed before the current value: `Sort: Recently saved`.
+ *  It used to be an `aria-label` on a group of chips and nothing else — so the word existed only
+ *  in the accessibility tree, and on screen the control was two unexplained values. */
 export const SORT_LABEL = 'Sort';
+
+/** The control's accessible name, and the visible `Sort` is contained in it — the axis stated as a
+ *  verb phrase, because "Sort" alone read out before a value announces as a command. */
+export const SORT_BY_LABEL = 'Sort by';
 
 /** `C132`–`C134`, `overnight-copy-deck.md` §4.2. `A–Z` takes an **en dash**, matching the
  *  product's typography elsewhere; it is not a hyphen and must not be normalised into one. */
@@ -1728,6 +2028,7 @@ export function PlaceDetail({
   variant = 'sheet',
   floatingBarPx = 0,
   primaryAction,
+  fields,
   footer,
   onPlaySource,
   playSourceLabel = PLAY_SOURCE_LABEL,
@@ -1831,6 +2132,16 @@ export function PlaceDetail({
    * asked by somebody who has no row yet.
    */
   primaryAction?: ReactNode;
+  /**
+   * The host's own **field rows**, rendered flush at the end of band 3's field-row list — after
+   * `Your note` and before the record lines.
+   *
+   * A second slot rather than more `footer`, because position is what makes the field row read as
+   * one list: `/collections/[id]`'s `Shared note` is the same shape as the note directly above it
+   * and belongs in the same run, while `Remove from this collection` is a destructive action and
+   * belongs at the very bottom beside the other one. One slot could not put them in both places.
+   */
+  fields?: ReactNode;
   /** Rendered last, below the provenance block and the destructive action. The collection route
    *  puts the shared note and `Remove from this collection` here. */
   footer?: ReactNode;
@@ -1858,6 +2169,10 @@ export function PlaceDetail({
   // write to. With the old order, repairing the shared row would have repaired a value no screen
   // reads. The frozen copy is still the fallback when no source joined; see `thumbnailOf`.
   const thumb = thumbnailOf(detail);
+  /** Every linked source after the one this card is already built from. `[]` for a manual save,
+   *  for a place with a single source, and for a collection peer (who never receives the array at
+   *  all). See `place-sources.ts`. */
+  const extra = extraSources(detail?.sources);
   const authorLabel = source?.authorHandle
     ? `@${source.authorHandle}`
     : (source?.authorName ?? null);
@@ -1880,7 +2195,25 @@ export function PlaceDetail({
   });
 
   const certainty = locationCertainty(provenance?.sourceDataset);
-  const [renaming, setRenaming] = useState(false);
+
+  /**
+   * `~ Approximate location`, the whole of what the card now says about a model-guessed pin.
+   *
+   * Resolved here rather than inline because it has two render sites and one meaning: beside the
+   * address when there is one, on its own line when there is not. `title` carries the consequence
+   * (*Could be a street or two off.*) for a pointer device — the label alone is what a phone gets,
+   * and it is enough to stop somebody treating the pin as a doorway.
+   */
+  const approximateMark =
+    certainty?.isApproximate === true ? (
+      <span
+        {...(certainty.detail ? { title: certainty.detail } : {})}
+        className="mt-px shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
+      >
+        <span aria-hidden>~ </span>
+        {certainty.label}
+      </span>
+    ) : null;
 
   const isPopover = variant === 'popover';
   const isHosted = variant === 'hosted';
@@ -1893,14 +2226,6 @@ export function PlaceDetail({
    *  CHECK), but this prop is an object a caller assembles, and a date printed under a button
    *  reading `Been here` would be the screen contradicting itself. */
   const visitedOn = savedRow?.visited ? visitedOnLine(savedRow.visitedAt, new Date()) : null;
-
-  /**
-   * Whether the Google Maps link is the only external action on the card, which decides both its
-   * wording and its target size. Beside `Open on TikTok` the pair reads as a list of destinations and
-   * a bare noun is enough; alone in whitespace a bare noun stops looking like something to press,
-   * and it needs its own 44 px rather than borrowing the row's.
-   */
-  const mapsLinkAlone = !tiktokUrl;
 
   // Resolved here rather than inline so the JSX below carries no cast: `whyGoEarnsItsPlace` already
   // rejects null/blank, but TypeScript cannot see that through a boolean.
@@ -1920,6 +2245,14 @@ export function PlaceDetail({
   // name, address and city above it do not. Measured on this database: `📍האחים, אבן גבירול 26` is
   // the name, a comma and the address — quoting it under a heading was a labelled block that
   // repeated the two lines directly above it.
+  /**
+   * Whether band 2 and band 3 have anything in them at all.
+   *
+   * Each band draws its own hairline as its top border, so an empty band takes its rule with it —
+   * which is the point. A manual add has no post, so it shows **one** hairline and no gap where
+   * band 2 would have been; a place you have not saved, seen inside a collection, shows no band 3.
+   * A rule with nothing under it is exactly the floating fragment this change exists to remove.
+   */
   const quote = formatCaptionQuote(reason);
   const shownQuote = quoteAddsSomething(quote, {
     name: place.name,
@@ -1929,31 +2262,56 @@ export function PlaceDetail({
     ? quote
     : null;
 
+  const hasBand2 =
+    shownQuote !== null || shownWhyGo !== null || dishes.length > 0 || extra.length > 0;
+  const hasBand3 =
+    savedPlace !== null ||
+    fields !== undefined ||
+    footer !== undefined ||
+    (nearby !== undefined && nearby.length > 0) ||
+    (certainty !== null && !certainty.isApproximate) ||
+    detail?.savedAt !== undefined;
+
   return (
     <div
       /*
-       * The floating bar's height, handed to the padding below as a custom property rather than as
-       * a `padding-bottom` of its own.
+       * The floating bar's height, handed to the **margin** below as a custom property.
+       *
+       * ## Padding was the wrong shape for this, and the owner is the one who caught it
+       *
+       * Round-3 feedback §7.1: *"text continues behind/under the navigation instead of ending
+       * cleanly above it."* Until 2026-09-02 this bar was paid for with `padding-bottom`, which
+       * buys exactly one thing — that the **last** control clears the bar once you have scrolled
+       * all the way down. It buys nothing at all for the other 90 % of the scroll, because the
+       * column's own box still ended at the bottom of the screen and `BottomNav`'s pill is
+       * `bg-card/90 backdrop-blur-md`: every line between the fold and the end of the card slid
+       * under a translucent bar and was rendered blurred and unreadable rather than clipped.
+       * Measured at 390×844, `half`, on `Bread - Lehi 2`: `Saved from @danielle___tal` sat at
+       * y 764–784 against a bar occupying 776–844.
+       *
+       * A margin ends the box where the bar begins, so the overflow clip does the work at every
+       * scroll position instead of only the last one. **It costs no readable pixels**: the column
+       * loses the 68 px it could never legibly use and stops spending them again on padding, so
+       * the last line comes to rest at the same y it did before (measured: 758 both ways).
+       *
+       * `scroll-padding-bottom` went with the padding. It existed so a scroll-into-view did not
+       * park its target under the bar; with the box ending above the bar there is no such edge
+       * left to park against.
        *
        * Inline because the number is `BOTTOM_NAV_HEIGHT_PX` arriving through the host, and
        * Tailwind's arbitrary values take a literal — a hand-written `68` here is exactly the drift
-       * `bottom-nav-metrics.ts` exists to prevent. A *variable* rather than the padding itself
-       * because the three variant classes below each own their own bottom spacing, and one inline
-       * `padding-bottom` would beat all three and flatten the difference between a phone sheet, a
-       * hosted column and a 288 px popover.
-       *
-       * `scroll-padding-bottom` goes with it: without it a scroll-into-view — the note editor
-       * opening, a focus move — parks its target flush against the container's bottom edge, which
-       * is the edge the bar is painted over.
+       * `bottom-nav-metrics.ts` exists to prevent. A *variable* rather than the margin itself
+       * because the three variant classes below each own their own bottom spacing, and the two
+       * hosts with no bar (`lg+` popover, `lg+` panel) pass `0` and correctly get no margin: the
+       * `env()` term is all that is left there, and it is 0 on a desktop too.
        */
       style={
         {
           '--floating-bar': `${floatingBarPx}px`,
-          scrollPaddingBottom: `${floatingBarPx}px`,
         } as CSSProperties
       }
       className={cn(
-        'flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 pb-[calc(env(safe-area-inset-bottom)+var(--floating-bar,0px)+1.25rem)] pt-3.5',
+        'mb-[calc(env(safe-area-inset-bottom)+var(--floating-bar,0px))] flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-5 pt-3.5',
         // ## The popover's height is set by the *pin*, not by the viewport — measured, 2026-09-01
         //
         // `MapPopup` is a MapLibre `Popup` anchored to the selected place's lng/lat, and the map
@@ -1979,7 +2337,7 @@ export function PlaceDetail({
         // where before it was 5–85 px below it.
         //
         // `scroll-fade-b` is the sign that there is more, and it is the repo's own utility rather
-        // than a gradient invented here (`category-filter-bar.tsx` uses `scroll-fade-x` for the
+        // than a gradient invented here (`library-filter-bar.tsx` uses `scroll-fade-x` for the
         // same job on the phone). Bottom-only and scroll-driven: measured, `--scroll-fade-b` is
         // `24px` at `scrollTop 0` and **`0px`** at the end, so it never dims a last line the user
         // has already reached, and it never appears on a card that does not scroll. Bottom-only
@@ -2009,16 +2367,20 @@ export function PlaceDetail({
         // the *preview versus detail* ruling the round-4 review names as `ux-interaction`'s call.
         // It is not more tuning of this constant, which is how the surface got here.
         isPopover &&
-          'max-h-[min(50vh,28rem)] w-80 gap-4 overscroll-contain px-0 pb-0 pt-0 scroll-fade-b scroll-fade-6 [scrollbar-width:thin]',
+          'max-h-[min(50vh,28rem)] w-80 overscroll-contain px-0 pb-0 pt-0 scroll-fade-b scroll-fade-6 [scrollbar-width:thin]',
         // The host's gutter and its own top spacing — see the `variant` docblock for why 4 px
         // matters here and why the top padding belongs to the header row above this column.
         isHosted &&
-          'px-4 pb-[calc(env(safe-area-inset-bottom)+var(--floating-bar,0px)+2rem)] pt-1',
+          'px-4 pb-8 pt-1',
       )}
     >
       {thumb && (
         <SourceMediaThumbnail
           thumb={thumb}
+          // The been mark belongs on the frame as well as in the row: the frame is the biggest
+          // thing on the card, and a state you have to read a caption line to learn is a state the
+          // screen is whispering. Owner, 2026-09-02: "add the been badge on the map list an frame."
+          visited={savedRow?.visited === true}
           // The popover's shell supplies the gutter and the radius; every other host gives this
           // column a 20 px gutter of its own and wants a rounded block inside it.
           fullBleed={isPopover}
@@ -2031,41 +2393,44 @@ export function PlaceDetail({
         />
       )}
 
-      <div className={cn('flex items-start justify-between gap-3', isPopover && 'px-4 pt-3.5')}>
+      <div
+        className={cn(
+          'flex items-start justify-between gap-3',
+          // 12 px under the still, which is a group-to-group step like every other one in band 1.
+          // The popover's still is full-bleed against the card's top edge, so there the same 12 px
+          // is the column's own top padding rather than this block's margin.
+          thumb && !isPopover && 'mt-3',
+          isPopover && 'px-4 pt-3',
+        )}
+      >
         <div className="flex min-w-0 flex-col gap-1">
-          {renaming && savedRow ? (
-            <NameEditor
-              key={`name-${savedRow.id}`}
-              savedPlaceId={savedRow.id}
-              displayNameOverride={detail?.displayNameOverride ?? null}
-              canonicalName={detail?.canonicalName ?? place.name}
-              onDone={() => setRenaming(false)}
-            />
-          ) : (
-            <div className="flex min-w-0 items-start gap-1">
-              {/* `<bdi>` rather than `dir="auto"` on the heading: a Hebrew name would otherwise
-                  right-align the whole identity block while the category line under it stayed
-                  left, so a mixed library would have a ragged edge. */}
-              <h2
-                className={cn(
-                  // `break-words` for the same reason the row's name carries it, and here the
-                  // consequence was louder: measured at 1440x900 with a 56-character unbroken
-                  // name, the heading's ink ran **291 px past the popover's right edge**, straight
-                  // through the rename pencil and the close ×. `min-w-0` does not help — it lets
-                  // the *box* shrink, and an unbreakable word simply overflows whatever box it is
-                  // given. A 288 px popover is the narrowest column this heading is ever drawn in,
-                  // so it is where the defect surfaces first, not where it is unique.
-                  'min-w-0 break-words font-heading text-2xl font-extrabold tracking-tight text-foreground',
-                  isPopover && 'text-lg',
-                )}
-              >
-                <bdi>{place.name}</bdi>
-              </h2>
-              {/* Beside the name, not in the controls block below: this is the one control that
-                  changes the biggest word on the screen, and it belongs next to that word. */}
-              {savedRow && <RenameTrigger onStart={() => setRenaming(true)} />}
-            </div>
-          )}
+          <div className="flex min-w-0 items-start gap-1">
+            {/* `<bdi>` rather than `dir="auto"` on the heading: a Hebrew name would otherwise
+                right-align the whole identity block while the category line under it stayed
+                left, so a mixed library would have a ragged edge.
+
+                **Still load-bearing with the rename pencil gone** (removed 2026-09-02,
+                `saved-place-edits.tsx` carries the reasoning). The RTL audit
+                (`docs/rtl-audit-2026-08-31.md` findings 2 and 4) measured this rule against the
+                pencil as the fixed chrome beside the name; the close × in the same row is that
+                chrome now, and `קפה קיוסק Rothschild` still has to reorder inside the heading
+                without dragging the identity block's alignment with it. */}
+            <h2
+              className={cn(
+                // `break-words` for the same reason the row's name carries it, and here the
+                // consequence was louder: measured at 1440x900 with a 56-character unbroken
+                // name, the heading's ink ran **291 px past the popover's right edge**, straight
+                // through the close ×. `min-w-0` does not help — it lets
+                // the *box* shrink, and an unbreakable word simply overflows whatever box it is
+                // given. A 288 px popover is the narrowest column this heading is ever drawn in,
+                // so it is where the defect surfaces first, not where it is unique.
+                'min-w-0 break-words font-heading text-2xl font-extrabold tracking-tight text-foreground',
+                isPopover && 'text-lg',
+              )}
+            >
+              <bdi>{place.name}</bdi>
+            </h2>
+          </div>
           <p dir="auto" className="text-sm font-medium text-muted-foreground">
             {categoryLocalityLine(place.category, locality)}
           </p>
@@ -2100,281 +2465,449 @@ export function PlaceDetail({
         )}
       </div>
 
-      <div className={cn('flex flex-col gap-5', isPopover && 'gap-4 px-4 pb-4')}>
-        {/* The street address, which this view did not show at all until now. It was in the data
-            the whole time — `places.address_line`, already good enough to build the Google Maps
-            link out of — and it is the one fact that answers "can I actually find this place".
-            Above the caption quote, because it is checkable and the quote is not. */}
-        {/* `<bdi>` around the address text, not `dir="auto"` on this row: `dir="auto"` here
-            previously resolved the whole flex row's direction from the address, which for a
-            Hebrew address flipped the row to `rtl` and dragged the pin icon — fixed chrome — from
-            the left edge to the right. Same failure the heading's own comment above already names;
-            same fix (rtl audit, `docs/rtl-audit-2026-08-31.md` finding 2). */}
-        {addressLine && (
-          <p className="flex items-start gap-2 text-sm text-foreground">
-            <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
-            <bdi>{addressLine}</bdi>
-          </p>
-        )}
+      <div className={cn('flex flex-col', isPopover && 'px-4 pb-4')}>
+        {/* **Band 1 — the place.** Identity, address, the action band, the collection host's
+            primary action: what this place *is*, and the one-press things you can do with it.
+            12 px between its groups, which is the whole vertical vocabulary inside a band. */}
+        <div className="mt-3 flex flex-col gap-3">
+          {/* The street address, which this view did not show at all until now. It was in the data
+              the whole time — `places.address_line`, already good enough to build the Google Maps
+              link out of — and it is the one fact that answers "can I actually find this place".
+              Above the caption quote, because it is checkable and the quote is not. */}
+          {/* `<bdi>` around the address text, not `dir="auto"` on this row: `dir="auto"` here
+              previously resolved the whole flex row's direction from the address, which for a
+              Hebrew address flipped the row to `rtl` and dragged the pin icon — fixed chrome — from
+              the left edge to the right. Same failure the heading's own comment above already names;
+              same fix (rtl audit, `docs/rtl-audit-2026-08-31.md` finding 2). */}
+          {/* **The approximate mark is a label beside the address, not a sentence under the card.**
+              It used to be `Approximate location — Worked out from the video rather than matched to a
+              map listing, so it can be a street or two off.`, two lines of our own machinery filed
+              with the provenance at the very bottom. It is a qualifier on one fact — *this address*
+              — so it belongs on that fact's line, where it is read at the moment it matters and
+              costs no vertical band of its own. The plain sentence survives as the `title` for a
+              pointer device; `location-certainty.ts` holds the wording.
 
-        {/* What the creator actually wrote, as a quotation rather than as a labelled field.
-            A rule and a pair of quote marks say "someone else's words" faster than the kicker
-            reading FROM THE POST did, and they leave the model's own sentence below free to be
-            plain text — which is the whole extracted-versus-inferred distinction, carried by shape
-            instead of by two competing labels.
-
-            `dir="auto"` because this is a verbatim caption substring: a Hebrew quote rendered
-            left-to-right puts its punctuation on the wrong end of the sentence.
-
-            `&ldquo;`/`&rdquo;`, not a plain `"`, and that choice is load-bearing, not decorative:
-            both are Unicode `Bidi_Mirrored` characters, so inside this `dir="auto"`-resolved RTL
-            run the browser swaps their *rendered shape* — the opening mark ends up looking like a
-            close-quote and vice versa — which is what lands the open mark on the visual right (the
-            RTL reading start) and the close mark on the visual left for a Hebrew quote. Nothing
-            here reasons about direction on purpose; it falls out of picking mirrored glyphs over
-            straight ones. Swap either entity for a plain `"` (not mirrored) and this silently goes
-            back to wrong with no visual signal in an LTR-only review (rtl audit,
-            `docs/rtl-audit-2026-08-31.md` finding 3). */}
-        {shownQuote !== null && (
-          <figure className="flex flex-col gap-1.5 border-l-2 border-brand-tint pl-3">
-            <blockquote dir="auto" className="text-sm leading-relaxed text-foreground">
-              &ldquo;{shownQuote}&rdquo;
-            </blockquote>
-            {authorLabel && (
-              <figcaption className="text-xs font-medium text-muted-foreground">
-                {authorLabel}
-              </figcaption>
-            )}
-          </figure>
-        )}
-
-        {/* And *then*, quieter, the model's own sentence — never above the quote, never at the same
-            weight, and only when it says something the quote and the tags do not.
-
-            This is a judgement call, and it is one `if` to remove. `why_go` is generated prose;
-            `extracted_reason` is a verbatim substring of the caption. Keeping that difference
-            legible is this codebase's central invariant, and printing a paraphrase directly beside
-            the thing it paraphrases is the fastest way to destroy it — the two read as one claim
-            made twice, and the user cannot tell which half the creator actually wrote. Measured on
-            the London caption: the model's "Discover a Nepalese kitchen tucked away in the market."
-            sat above tags reading `nepalese, market stall` and a quote reading "…Nepalese kitchen
-            tucked away in Market Peckham". It contributes exactly one word those two do not, so it
-            is not rendered. A sentence that carries something new — a dish that sells out, an
-            opening time, who it is for — clears the bar and is shown. See
-            `ui/place/enrichment.ts`'s `whyGoEarnsItsPlace` for the rule and the threshold. */}
-        {shownWhyGo !== null && <WhyGoLine whyGo={shownWhyGo} />}
-
-        {/* The dishes the post named. Last of the three content blocks because it is a list to
-            skim rather than something to read, and because it is the one most often empty. */}
-        <DishLine dishes={dishes} />
-
-        {/* The one control the product wants the user to come back and use — see
-            `saved-place-edits.tsx` for why it leads the controls block rather than sitting up in
-            the identity header. `key` on the saved place's id so a pending transition from the
-            previously selected place can never land on this one. */}
-        {savedRow && (
-          /* The toggle and the date it produced, in one block rather than as two children of the
-             `gap-5` column — 20 px between a control and the caption that qualifies it reads as
-             two unrelated things. `gap-1.5` is the toggle's own internal rhythm (it uses the same
-             for its error line). */
-          <div className="flex flex-col gap-1.5">
-            <BeenToggle
-              key={`been-${savedRow.id}`}
-              savedPlaceId={savedRow.id}
-              placeName={place.name}
-              visited={savedRow.visited}
-            />
-            {/* The one thing the database has always held about a been mark and no screen said.
-                Same 11px muted weight as `Saved on …` below, because it is the same kind of fact:
-                a quiet record of when, not something to act on. Absent — silently — when the row
-                carries no timestamp; `visitedOnLine` says why that is a real state. */}
-            {visitedOn && (
-              <p className="text-center text-micro font-medium text-muted-foreground">
-                {visitedOn}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* The same position, for a host whose caller has no row to toggle: on
-            `/collections/[id]` this is `Added by …` and `Save to your places`. */}
-        {primaryAction}
-
-        {/* Directly under `BeenToggle` and above `CategoryEditor`: been/not-been and "which list is
-            this in" are both statements about the user's *intent* with the place, while category
-            and note are corrections to what we got wrong. Grouping the two intent controls keeps
-            the correction block intact underneath. Renders nothing outside a `CollectionsContext`
-            provider, so the desktop popover and any test host are unaffected. */}
-        {savedRow && (
-          <AddToCollection key={`collections-${savedRow.id}`} placeId={detail?.placeId} />
-        )}
-
-        {/* The user's own word for what this place is. Below the prose blocks rather than beside
-            the category line above, because that line is the most-read thing on the card and this
-            is a control most people touch once — `saved-place-edits.tsx` has the argument. */}
-        {savedRow && (
-          <CategoryEditor
-            key={`category-${savedRow.id}`}
-            savedPlaceId={savedRow.id}
-            category={place.category}
-            isOverridden={detail?.categoryIsOverridden ?? false}
-            // A place with no TikTok behind it was added by hand, so nothing was "worked out from
-            // the post" — there is no post. `tiktokUrl` rather than a new field: the same value
-            // already decides whether this card offers `Open on TikTok`, so the two cannot disagree.
-            fromAPost={Boolean(tiktokUrl)}
-          />
-        )}
-
-        {/* `L1-F7-T2`. The note used to render read-only, and a place you saved was a place you
-            were stuck with. `key` on the saved place's id is what resets a half-typed draft when
-            the selection changes — the editor deliberately does not sync from props in an effect,
-            which would discard typing every time the server revalidated. */}
-        {savedRow && <NoteEditor key={savedRow.id} savedPlaceId={savedRow.id} note={note} />}
-
-        {/* Two external actions, presented as plain text links — same weight as `reason`/`note`
-            above, no border/fill box. The panel (or sheet) is already the container; a bordered
-            chip pair inside it was a box nested inside a box. `authorLabel` (if any) is a caption
-            above the pair, not squeezed into either action itself. */}
-        <div className="flex flex-col gap-2">
-          {/* Only when the quote did not already carry it — the attribution belongs with the
-              words it attributes, and printing it twice on one card is the kind of repetition that
-              makes a detail view feel padded. */}
-          {authorLabel && shownQuote === null && (
-            <p className="text-xs font-medium text-muted-foreground">Saved from {authorLabel}</p>
+              `flex-wrap` because the mark is the one thing on this row that may not fit beside a
+              long address, and the row must wrap rather than squeeze the address it qualifies.
+              The mark is **not** inside the `<bdi>`: it is our word about the address, not part of
+              it, and putting it inside the isolate would let a Hebrew address reorder it. */}
+          {addressLine && (
+            <p className="flex flex-wrap items-start gap-x-2 gap-y-1 text-sm text-foreground">
+              <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+              <bdi>{addressLine}</bdi>
+              {approximateMark}
+            </p>
           )}
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-            {tiktokUrl && (
-              <a
-                href={tiktokUrl}
-                target="_blank"
-                rel="noreferrer"
-                data-vaul-no-drag
-                className="flex items-center gap-1.5 text-sm font-bold text-brand underline-offset-4 hover:underline"
-              >
-                {/* The platform leads and `ExternalLink` still trails, because the two glyphs say
-                    different things: *what this is* and *this leaves the product*. The Google Maps
-                    link beside it carries only the second, which is the honest asymmetry — one of
-                    these destinations is the thing the place came from and the other is a lookup.
+          {/* A guessed pin with no address at all is a real row — `llm-guess` fills a coordinate and
+              often nothing else — and the mark is the *only* thing the card says about it, so it
+              cannot be a child of a block that does not render. */}
+          {!addressLine && approximateMark !== null && <p>{approximateMark}</p>}
 
-                    `gap-1.5` is unchanged and the mark is `size-4` against the arrow's `size-3.5`:
-                    a portrait glyph at the arrow's box reads a size smaller than it is. */}
-                <PlatformMark className="size-4" />
-                Open on TikTok
-                <ExternalLink className="size-3.5" aria-hidden />
-              </a>
-            )}
-            <a
-              href={googleMapsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              data-vaul-no-drag
-              className={cn(
-                'flex items-center gap-1.5 text-sm font-bold text-brand underline-offset-4 hover:underline',
-                mapsLinkAlone && 'min-h-11',
+          {/* **The card's primary actions, in one 44 px band, above the source quote.**
+
+              This replaced two full-width blocks and a text-link pair spread over ~150 px and three
+              positions on the card — `Been here` up here, `Open on TikTok` / `Google Maps` five
+              blocks lower, past the note. Round 3 of the owner's feedback measured the result: on a
+              390x844 phone the things a person opens a saved place *to do* were all below the fold,
+              and the card scrolled. Round 5 had accepted that and softened it with a scroll mask on
+              the popover; this reverses that decision deliberately rather than by accident.
+
+              **Above the quote rather than below it, and that is a deviation from the suggestion in
+              the owner's §2.2, taken on purpose** (2026-09-02). The requirement in that item is that
+              primary actions are not buried; the suggested position was written while the complaint
+              was about full-width blocks, and the two came apart once the blocks became pills. The
+              quote costs 68 px plus a 20 px gap, and that is the single largest block still standing
+              between the identity and the actions. Measured on `The Laughing Yak` at 390x844: the
+              band's bottom edge moved from 933 to 846 against a scroll column ending at 846. At
+              1440x900 the popover's slack under the band went 39 px → 122 px, still one unwrapped
+              band at 288 px of column, and the quote stayed fully on screen below it.
+
+              **It does not reach zero-scroll at the sheet's `half` stop, and nothing available here
+              does.** `BottomNav` is `position: fixed`, `z-50`, and covers `y 776–844` at 390x844, so
+              the honest fold at `half` is 776 and not the column's own 846 — a 324 px budget, not
+              394. Across eight saved places the band clears 776 on one of them. Shrinking the still
+              to 112 px, the other lever on the table, buys 48 px against a 53–92 px deficit, so it
+              would spend a measured round-4 ruling and still not arrive. What is left deletes
+              something — the still, the tags, or the `half` stop itself — and each of those is a
+              product decision rather than a layout one.
+
+              The quote is deliberately not the thing that moved *down and out*: it is why the place
+              is in the library, it is still the first prose on the card, and it is fully visible at
+              every host except the one where nothing is. Controls before the reason is a real cost;
+              the reason being unreachable behind the controls was a bigger one.
+
+              Three pills, `flex-wrap`, all at the 44 px touch floor via `DETAIL_ACTION_PILL` — one
+              shape from one string in `saved-place-edits.tsx`, because the third of them is the
+              `Been` toggle and it lives in that file with the other Server-Action writes.
+
+              **The words did not change and are not the fix.** `voice-and-vocabulary.md` §3 ratifies
+              `Been` / `Not been yet`, and `Open on TikTok` survives as each link's accessible name —
+              the visible label is the destination alone because the pill's icon already says
+              *leaves the product*, and three verbs in one row is a row of sentences. */}
+          {/* Unconditional: `Google Maps` is the one action every host of this view offers, saved or
+              not — a place seen inside a collection is still a place you want directions to. */}
+          <div className="flex flex-col items-start gap-2">
+              {/* Only when the quote did not already carry it — the attribution belongs with the
+                  words it attributes, and printing it twice on one card is the kind of repetition
+                  that makes a detail view feel padded. */}
+              {authorLabel && shownQuote === null && (
+                <p className="text-xs font-medium text-muted-foreground">Saved from {authorLabel}</p>
               )}
-            >
-              {mapsLinkAlone ? 'Open in Google Maps' : 'Google Maps'}
-              <ExternalLink className="size-3.5" aria-hidden />
-            </a>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {tiktokUrl && (
+                  <a
+                    href={tiktokUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    data-vaul-no-drag
+                    // The ratified sentence, kept where it costs no pixels: `aria-label` replaces the
+                    // content, so a screen-reader user still hears `Open on TikTok` while the pill
+                    // shows the mark and the destination.
+                    aria-label="Open on TikTok"
+                    title="Open on TikTok"
+                    className={cn(DETAIL_ACTION_PILL, PRESS_BUTTON, 'border-input text-brand hover:bg-muted')}
+                  >
+                    {/* **The one pill with no word on it, and the reason is the desktop popover.**
+                        The popover is `w-80` with a 16 px gutter, so this row gets 288 px; with
+                        `TikTok` written out the three pills are 333 px, they wrap, and `Been here`
+                        lands under the popover's own 50vh cap — which is the exact defect round 4
+                        filed and round 5 papered over with a scroll mask. Without the word they are
+                        281 px and the row is one 44 px band on both viewports.
+
+                        It is an honest icon-only control rather than a squeeze: the mark is TikTok's
+                        own, the card above it is a TikTok still with the creator's handle under it,
+                        and the ratified `Open on TikTok` is on both `aria-label` and `title`, so
+                        neither a screen reader nor a hovering pointer loses the sentence. */}
+                    <PlatformMark className="size-4" />
+                  </a>
+                )}
+                <a
+                  href={googleMapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-vaul-no-drag
+                  aria-label="Open in Google Maps"
+                  className={cn(DETAIL_ACTION_PILL, PRESS_BUTTON, 'border-input text-brand hover:bg-muted')}
+                >
+                  {/* Named in full, never `Maps`: the pill is a link into Google's product and the
+                      same attribution rule that keeps `Matched on Google Maps` in the provenance
+                      line applies to the button that goes there.
+
+                      **No trailing `ExternalLink`, and the reason is arithmetic rather than taste.**
+                      Measured at 390x844: with the arrow the three pills are 353 px against 350 px of
+                      card, so the row wrapped to two bands — 94 px for a row whose entire purpose is
+                      to cost one. Without it they are 333 px and the row is a single 44 px band. The
+                      arrow was saying *this leaves the product* on a pill that already says `Google
+                      Maps` beside one wearing TikTok's own mark. */}
+                  Google Maps
+                </a>
+                {/* The one control the product wants the user to come back and use — see
+                    `saved-place-edits.tsx`. `key` on the saved place's id so a pending transition
+                    from the previously selected place can never land on this one. */}
+                {savedRow && (
+                  <BeenToggle
+                    key={`been-${savedRow.id}`}
+                    savedPlaceId={savedRow.id}
+                    placeName={place.name}
+                    visited={savedRow.visited}
+                  />
+                )}
+              </div>
+              {/* The one thing the database has always held about a been mark and no screen said.
+                  Same 11px muted weight as `Saved on …` below, because it is the same kind of fact:
+                  a quiet record of when, not something to act on. Absent — silently — when the row
+                  carries no timestamp; `visitedOnLine` says why that is a real state. Start-aligned
+                  now rather than centred: it sits under a row of pills, not under a full-width
+                  button, so a centred line would point at nothing. */}
+              {visitedOn && (
+                <p className="text-micro font-medium text-muted-foreground">{visitedOn}</p>
+              )}
+              {/* The same position, for a host whose caller has no row to toggle: on
+                  `/collections/[id]` this is `Added by …` and `Save to your places`. It keeps its own
+                  full width — it is that card's single primary action, not one of three. */}
           </div>
+          {primaryAction && <div className="w-full">{primaryAction}</div>}
         </div>
 
-        {/* What else of yours is around here — the library's own retrieval question, asked at the
-            scale of one place. Below the external links and above the provenance line: it is a
-            fact about the library rather than about this place, so it belongs after everything
-            this card is actually about. Renders nothing when there is nothing within a walk, which
-            is the point — a section that is always full stops carrying information. */}
-        {nearby !== undefined && nearby.length > 0 && (
-          <div className="flex flex-col gap-1.5">
-            <p className="text-micro font-bold uppercase tracking-[0.14em] text-muted-foreground">
-              {nearby.length === 1 ? 'Also nearby' : `${nearby.length} more nearby`}
-            </p>
-            <ul className="flex flex-col">
-              {nearby.map((neighbour) => (
-                <li key={neighbour.id}>
-                  {/* A button when the host can open it, plain text when it cannot — a row that
-                      looks pressable and does nothing is worse than one that never offered. */}
-                  {onSelectNearby ? (
-                    <button
-                      type="button"
-                      data-vaul-no-drag
-                      onClick={() => onSelectNearby(neighbour.id)}
-                      className={cn(
-                        'flex min-h-11 w-full items-center justify-between gap-3 rounded-lg text-left outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50',
-                        // The same row shape, so the same press. It swaps the whole detail view
-                        // under the finger, which is the one place a missing acknowledgement reads
-                        // as the app having lost the place you were looking at.
-                        PRESS_ROW,
+        {/* **Band 2 — from the post**, and it disappears whole, hairline included, for a place
+            added by hand. A rule with nothing under it is the floating fragment this change
+            exists to remove. The rule is this band's own top border rather than a sibling
+            element, so 20 px above and 20 px below cannot drift apart (16 at the popover). */}
+        {hasBand2 && (
+          <div
+            className={cn(
+              'mt-5 flex flex-col gap-3 border-t border-border/60 pt-5',
+              isPopover && 'mt-4 pt-4',
+            )}
+          >
+            {/* What the creator actually wrote, as a quotation rather than as a labelled field.
+                A rule and a pair of quote marks say "someone else's words" faster than the kicker
+                reading FROM THE POST did, and they leave the model's own sentence below free to be
+                plain text — which is the whole extracted-versus-inferred distinction, carried by shape
+                instead of by two competing labels.
+
+                `dir="auto"` because this is a verbatim caption substring: a Hebrew quote rendered
+                left-to-right puts its punctuation on the wrong end of the sentence.
+
+                `&ldquo;`/`&rdquo;`, not a plain `"`, and that choice is load-bearing, not decorative:
+                both are Unicode `Bidi_Mirrored` characters, so inside this `dir="auto"`-resolved RTL
+                run the browser swaps their *rendered shape* — the opening mark ends up looking like a
+                close-quote and vice versa — which is what lands the open mark on the visual right (the
+                RTL reading start) and the close mark on the visual left for a Hebrew quote. Nothing
+                here reasons about direction on purpose; it falls out of picking mirrored glyphs over
+                straight ones. Swap either entity for a plain `"` (not mirrored) and this silently goes
+                back to wrong with no visual signal in an LTR-only review (rtl audit,
+                `docs/rtl-audit-2026-08-31.md` finding 3). */}
+            {/* And *then*, quieter, the model's own sentence — never above the quote, never at the same
+                weight, and only when it says something the quote and the tags do not.
+
+                This is a judgement call, and it is one `if` to remove. `why_go` is generated prose;
+                `extracted_reason` is a verbatim substring of the caption. Keeping that difference
+                legible is this codebase's central invariant, and printing a paraphrase directly beside
+                the thing it paraphrases is the fastest way to destroy it — the two read as one claim
+                made twice, and the user cannot tell which half the creator actually wrote. Measured on
+                the London caption: the model's "Discover a Nepalese kitchen tucked away in the market."
+                sat above tags reading `nepalese, market stall` and a quote reading "…Nepalese kitchen
+                tucked away in Market Peckham". It contributes exactly one word those two do not, so it
+                is not rendered. A sentence that carries something new — a dish that sells out, an
+                opening time, who it is for — clears the bar and is shown. See
+                `ui/place/enrichment.ts`'s `whyGoEarnsItsPlace` for the rule and the threshold. */}
+            {shownQuote !== null ? (
+              <figure className="flex flex-col gap-2 border-l-2 border-brand-tint pl-3">
+                <blockquote dir="auto" className="text-sm leading-relaxed text-foreground">
+                  &ldquo;{shownQuote}&rdquo;
+                </blockquote>
+                {authorLabel && (
+                  <figcaption className="text-xs font-medium text-muted-foreground">
+                    {authorLabel}
+                  </figcaption>
+                )}
+                {/* The model's sentence is the quote's *sibling*, inside the same rule and at the same
+                    start inset — 8 px under the attribution rather than alone in 20 px of air. It reads
+                    as "and here is what that amounts to", which is what it is. Still unlabelled: the
+                    shape is the whole extracted-versus-inferred distinction, and a caption on the
+                    paraphrase would invite it to be read as another extracted claim. */}
+                {shownWhyGo !== null && <WhyGoLine whyGo={shownWhyGo} />}
+              </figure>
+            ) : (
+              // No quote to sit under: band 2's first block, no rule, no indent.
+              shownWhyGo !== null && <WhyGoLine whyGo={shownWhyGo} />
+            )}
+
+            {/* The dishes the post named. Last of the three content blocks because it is a list to
+                skim rather than something to read, and because it is the one most often empty. */}
+            <DishLine dishes={dishes} />
+
+            {/* **Every other TikTok link behind this place**, which the card used to drop on the floor.
+                `saved_place_sources` is many-to-many and `save_place` keeps both rows on a second
+                paste, so nothing was ever lost in the database; what was lost was here — the still, the
+                quote, the credit and the pill above are all `sources[0]`, and until now that was the
+                whole card. Round 3 §5.1 reported it as "keeps only the latest", which is the opposite
+                of the mechanism: it keeps the *earliest*.
+
+                **One source draws nothing at all.** `extraSources` is `sources.slice(1)`, so the common
+                case is byte-identical to the card that shipped — a single source is not turned into a
+                list of one. Earliest-linked first, continuing the order the head is drawn from; see
+                `place-sources.ts` for why not newest-first.
+
+                **Attribution, not decoration.** Developer Terms III.3(n) forbids deleting author
+                attributions, so every row carries the creator *and* links back to the post
+                (`docs/evidence/tiktok/09-brand-mark-and-attribution-2026-08-31.md` §5). The third part
+                of TikTok's own definition, the description, is stored per *save* rather than per
+                source, so it stays on the headline quote above rather than being invented here.
+                `PlatformMark` is our own neutral glyph — §7.1: the word, the `@handle`, the link and a
+                glyph of our own drawing are the entire permitted palette, and no TikTok mark may enter
+                `src/`.
+
+                **Own library only.** A collection peer never receives this array — `getSpots` reads it
+                under `sps_select_own` and migration `0024` refused the read policy that would widen it
+                — so on `/collections/[id]` `sources` is absent and this renders nothing by
+                construction, not by a flag. */}
+            {extra.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <p className={SECTION_LABEL}>{moreSourcesLine(extra.length)}</p>
+                <ul className="flex flex-col">
+                  {extra.map((extraSource) => (
+                    <li key={extraSource.id}>
+                      <a
+                        href={extraSource.canonicalUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        data-vaul-no-drag
+                        // The ratified sentence with the creator in it: three links all announced
+                        // `Open on TikTok` name no destination between them.
+                        aria-label={openSourceLabel(extraSource)}
+                        className={cn(
+                          'flex min-h-11 w-full items-center gap-2 rounded-lg px-1 text-sm font-medium text-brand outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50',
+                          PRESS_ROW,
+                        )}
+                      >
+                        <PlatformMark className="size-4 shrink-0" />
+                        {/* `<bdi>` because a handle sits inside a line this list renders in Hebrew as
+                            often as in English, and `line-clamp-1 break-words` for the same reason
+                            `PlaceRow`'s name carries them rather than `truncate`. */}
+                        <span className="line-clamp-1 break-words">
+                          <bdi>{sourceCreatorLabel(extraSource)}</bdi>
+                        </span>
+                        {/* `ms-auto`, never `ml-auto`: this row is rendered in an RTL column too. */}
+                        <ArrowUpRight className="ms-auto size-3.5 shrink-0 opacity-70" aria-hidden />
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* **Band 3 — yours.** The fields you can edit, what is near it in your library, the two
+            record lines, and the way out. Same rule, same 20 px, same disappearing act: a place
+            you have not saved, seen inside a collection, shows no band 3 at all. */}
+        {hasBand3 && (
+          <div
+            className={cn(
+              'mt-5 flex flex-col gap-3 border-t border-border/60 pt-5',
+              isPopover && 'mt-4 pt-4',
+            )}
+          >
+            {/* **The field rows, flush.** `Add to a collection`, `Category`, `Your note` and the
+                host's own fields are one shape (`DETAIL_FIELD_ROW`) and they stack with no gap and
+                no separator: a run of 48 px rows reads as a structured list, where 20 px between
+                each is what made them read as floating fragments. Nothing else in this column is
+                spaced at 0. */}
+            <div className="flex flex-col">
+                {/* Directly under `BeenToggle` and above `CategoryEditor`: been/not-been and "which list is
+                  this in" are both statements about the user's *intent* with the place, while category
+                  and note are corrections to what we got wrong. Grouping the two intent controls keeps
+                  the correction block intact underneath. Renders nothing outside a `CollectionsContext`
+                  provider, so the desktop popover and any test host are unaffected. */}
+              {savedRow && (
+                <AddToCollection key={`collections-${savedRow.id}`} placeId={detail?.placeId} />
+              )}
+
+              {/* The user's own word for what this place is. Below the prose blocks rather than beside
+                  the category line above, because that line is the most-read thing on the card and this
+                  is a control most people touch once — `saved-place-edits.tsx` has the argument. */}
+              {savedRow && (
+                <CategoryEditor
+                  key={`category-${savedRow.id}`}
+                  savedPlaceId={savedRow.id}
+                  category={place.category}
+                  isOverridden={detail?.categoryIsOverridden ?? false}
+                  // A place with no TikTok behind it was added by hand, so nothing was "worked out from
+                  // the post" — there is no post. `tiktokUrl` rather than a new field: the same value
+                  // already decides whether this card offers `Open on TikTok`, so the two cannot disagree.
+                  fromAPost={Boolean(tiktokUrl)}
+                />
+              )}
+
+              {/* `L1-F7-T2`. The note used to render read-only, and a place you saved was a place you
+                  were stuck with. `key` on the saved place's id is what resets a half-typed draft when
+                  the selection changes — the editor deliberately does not sync from props in an effect,
+                  which would discard typing every time the server revalidated. */}
+              {savedRow && <NoteEditor key={savedRow.id} savedPlaceId={savedRow.id} note={note} />}
+
+              {/* The host's own fields, in the same flush list rather than below the removal:
+                  `/collections/[id]` puts `Shared note` here, which is the same field as the note
+                  above it with a different audience, and it has to sit with the rest of the list
+                  for that to read. */}
+              {fields}
+            </div>
+
+            {/* What else of yours is around here — the library's own retrieval question, asked at the
+                scale of one place. Below the external links and above the provenance line: it is a
+                fact about the library rather than about this place, so it belongs after everything
+                this card is actually about. Renders nothing when there is nothing within a walk, which
+                is the point — a section that is always full stops carrying information. */}
+            {nearby !== undefined && nearby.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <p className={SECTION_LABEL}>
+                  {nearby.length === 1 ? 'Also nearby' : `${nearby.length} more nearby`}
+                </p>
+                <ul className="flex flex-col">
+                  {nearby.map((neighbour) => (
+                    <li key={neighbour.id}>
+                      {/* A button when the host can open it, plain text when it cannot — a row that
+                          looks pressable and does nothing is worse than one that never offered. */}
+                      {onSelectNearby ? (
+                        <button
+                          type="button"
+                          data-vaul-no-drag
+                          onClick={() => onSelectNearby(neighbour.id)}
+                          className={cn(
+                            'flex min-h-11 w-full items-center justify-between gap-3 rounded-lg text-left outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50',
+                            // The same row shape, so the same press. It swaps the whole detail view
+                            // under the finger, which is the one place a missing acknowledgement reads
+                            // as the app having lost the place you were looking at.
+                            PRESS_ROW,
+                          )}
+                        >
+                          <span className="line-clamp-1 text-sm font-semibold text-foreground">
+                            <bdi>{neighbour.name}</bdi>
+                          </span>
+                          <span className="shrink-0 text-xs font-medium text-muted-foreground">
+                            {nearbyDistanceLabel(neighbour.km)}
+                          </span>
+                        </button>
+                      ) : (
+                        <p className="flex min-h-11 items-center justify-between gap-3 text-sm">
+                          <span className="line-clamp-1 font-semibold text-foreground">
+                            <bdi>{neighbour.name}</bdi>
+                          </span>
+                          <span className="shrink-0 text-xs font-medium text-muted-foreground">
+                            {nearbyDistanceLabel(neighbour.km)}
+                          </span>
+                        </p>
                       )}
-                    >
-                      <span className="line-clamp-1 text-sm font-semibold text-foreground">
-                        <bdi>{neighbour.name}</bdi>
-                      </span>
-                      <span className="shrink-0 text-xs font-medium text-muted-foreground">
-                        {nearbyDistanceLabel(neighbour.km)}
-                      </span>
-                    </button>
-                  ) : (
-                    <p className="flex min-h-11 items-center justify-between gap-3 text-sm">
-                      <span className="line-clamp-1 font-semibold text-foreground">
-                        <bdi>{neighbour.name}</bdi>
-                      </span>
-                      <span className="shrink-0 text-xs font-medium text-muted-foreground">
-                        {nearbyDistanceLabel(neighbour.km)}
-                      </span>
-                    </p>
-                  )}
-                </li>
-              ))}
-            </ul>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Where this pin came from, and when you saved it. Both were facts the database held and
+                no screen said: the first was a dataset slug at 11px (`Matched via llm-guess`) that
+                twenty-one of thirty-one places carried and nobody could read, and the second was in the
+                ORDER BY and nowhere else. `location-certainty.ts` has the argument for why the
+                confidence percentage that used to sit here is gone.
+
+                The wrapper itself is conditional because an empty one is invisible but not free: it is
+                a flex child in a `gap-5` column, so on a surface that has neither fact — a place seen
+                from inside a collection — it opens a 20 px hole above the footer. */}
+            {/* **The approximate half of this has moved up beside the address** (2026-09-02) and what
+                is left here is the attribution: `Matched on Google Maps`, which Google's terms require
+                and which is a claim about the pin's provenance rather than a warning about it. Printing
+                both here would have said `Approximate location` twice on one card. */}
+            {((certainty && !certainty.isApproximate) || detail?.savedAt) && (
+              <div className="flex flex-col gap-1">
+                {certainty && !certainty.isApproximate && (
+                  <p className="text-micro font-medium text-muted-foreground">
+                    {certainty.label}
+                  </p>
+                )}
+                {detail?.savedAt && (
+                  <p className="text-micro font-medium text-muted-foreground">
+                    {savedOnLine(detail.savedAt, new Date())}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Last, and quiet. The destructive action belongs below everything the user might have
+                opened this detail to read, not competing with it. `onClose` is the deselect the
+                caller already passes — the map page's own render-time guard would drop the selection
+                once the revalidated list arrives, but that would leave the detail open over a place
+                that is already gone for the length of the round trip. */}
+            {savedRow && (
+              <RemoveSavedPlace savedPlaceId={savedRow.id} placeName={place.name} onRemoved={onClose} />
+            )}
+
+            {/* Last of all, and the host's to fill: `/collections/[id]` puts the shared note and
+                `Remove from this collection` here — both statements about *this collection*, which is
+                why they sit below everything this view says about the place itself. */}
+            {footer}
           </div>
         )}
-
-        {/* Where this pin came from, and when you saved it. Both were facts the database held and
-            no screen said: the first was a dataset slug at 11px (`Matched via llm-guess`) that
-            twenty-one of thirty-one places carried and nobody could read, and the second was in the
-            ORDER BY and nowhere else. `location-certainty.ts` has the argument for why the
-            confidence percentage that used to sit here is gone.
-
-            The wrapper itself is conditional because an empty one is invisible but not free: it is
-            a flex child in a `gap-5` column, so on a surface that has neither fact — a place seen
-            from inside a collection — it opens a 20 px hole above the footer. */}
-        {(certainty || detail?.savedAt) && (
-          <div className="flex flex-col gap-1">
-            {certainty && (
-              <p
-                className={cn(
-                  'text-xs font-medium',
-                  certainty.isApproximate ? 'text-foreground' : 'text-muted-foreground',
-                )}
-              >
-                {certainty.label}
-                {certainty.detail && (
-                  <span className="font-normal text-muted-foreground"> — {certainty.detail}</span>
-                )}
-              </p>
-            )}
-            {detail?.savedAt && (
-              <p className="text-micro font-medium text-muted-foreground">
-                {savedOnLine(detail.savedAt, new Date())}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Last, and quiet. The destructive action belongs below everything the user might have
-            opened this detail to read, not competing with it. `onClose` is the deselect the
-            caller already passes — the map page's own render-time guard would drop the selection
-            once the revalidated list arrives, but that would leave the detail open over a place
-            that is already gone for the length of the round trip. */}
-        {savedRow && (
-          <RemoveSavedPlace savedPlaceId={savedRow.id} placeName={place.name} onRemoved={onClose} />
-        )}
-
-        {/* Last of all, and the host's to fill: `/collections/[id]` puts the shared note and
-            `Remove from this collection` here — both statements about *this collection*, which is
-            why they sit below everything this view says about the place itself. */}
-        {footer}
       </div>
     </div>
   );
@@ -2452,11 +2985,14 @@ function SourceMediaThumbnail({
   thumb,
   fullBleed = false,
   compact = false,
+  visited = false,
   onPlay,
   playLabel,
   player,
 }: {
   thumb: ThumbnailRef;
+  /** Whether this place carries the been mark. Drawn over the frame, in the one free corner. */
+  visited?: boolean;
   /**
    * Edge-to-edge and square-cornered, for a host that has no gutter of its own — the map popover,
    * whose shell supplies both the padding and the radius. Everywhere else the card has a 20 px
@@ -2493,6 +3029,13 @@ function SourceMediaThumbnail({
         fullBleed ? 'rounded-none' : 'rounded-lg',
       )}
     >
+      {/* **The leading-top corner, because every other corner is taken.** The play control sits at
+          `bottom-2 end-2` and a TikTok cover puts its subject centre-top, so this is the corner
+          that collides with nothing. `BeenBadge` unchanged — no variant, no second colour, no
+          scrim: `bg-accent` is a *solid* ground rather than an alpha, which is the same argument
+          the play button's own comment makes about being legible over an arbitrary photograph, and
+          `shadow-raised` is what lifts it off a bright frame. `start-`, not `left-`. */}
+      {visited && <BeenBadge className="absolute top-2 start-2 z-10 shadow-raised" />}
       {player ?? (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element -- same reason `RowMedia`'s carries

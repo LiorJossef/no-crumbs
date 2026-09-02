@@ -16,7 +16,8 @@
  * rendered it bare into a `h-full` `Drawer.Content` that vaul *translates* down the screen, so
  * `clientHeight` and `scrollHeight` were both 772 and the scroller was inert. 380 px of the card
  * sat below the viewport with no way to scroll to it. `tests/unit/shell/sheet-geometry.test.ts`
- * holds that half; this file holds the padding.
+ * holds that half; this file holds the clearance — which was padding until round-3 feedback §7.1
+ * showed padding only ever fixed the last line, and is a margin from 2026-09-02.
  *
  * ## Why these are string assertions on markup
  *
@@ -80,30 +81,45 @@ function render(props: { floatingBarPx?: number; variant?: 'sheet' | 'popover' |
 }
 
 describe('the floating bar’s share of the place detail’s bottom', () => {
-  it('reaches the scroll column as a custom property and as scroll-padding', () => {
+  it('reaches the scroll column as a custom property', () => {
     const markup = render({ floatingBarPx: floatingBarClearancePx('half') });
-    // The variable the padding below consumes, and the scroll padding that keeps a
-    // `scrollIntoView` — the note editor opening, a focus move — from parking its target flush
-    // against the edge the bar is painted over.
     expect(markup).toContain(`--floating-bar:${BOTTOM_NAV_HEIGHT_PX}px`);
-    expect(markup).toContain(`scroll-padding-bottom:${BOTTOM_NAV_HEIGHT_PX}px`);
   });
 
-  it('is spent by the padding rather than sitting in the style unread', () => {
-    // The assertion that would have failed if the variable were declared and the class still
-    // carried the old `calc(env(safe-area-inset-bottom)+1.25rem)`. Tailwind escapes the arbitrary
-    // value into the class name, so this is the class the element actually gets.
+  it('is spent as a margin, so the box ends where the bar begins', () => {
+    // **Round-3 feedback §7.1, and the reason this file changed on 2026-09-02.** The bar used to
+    // be paid for with `padding-bottom`, which buys exactly one thing: that the *last* control
+    // clears the bar once you have scrolled to the end. The column's box still ran to the bottom
+    // of the screen, so every line between the fold and the end of the card slid under a
+    // `bg-card/90 backdrop-blur-md` pill and was painted blurred rather than clipped — the owner's
+    // *"text continues behind/under the navigation"*. Measured at 390×844, `half`, mid-scroll: the
+    // `CATEGORY` kicker and the `Change` link rendered over the nav.
+    //
+    // A margin ends the box at the bar's top edge and the overflow clip does the work at every
+    // scroll position. It costs no readable pixels — the 68 px comes off the box and stops being
+    // spent on padding, so the last line rests at the same y (measured 758 both ways).
     const markup = render({ floatingBarPx: BOTTOM_NAV_HEIGHT_PX });
     expect(markup).toContain('var(--floating-bar,0px)');
+    // Tailwind escapes the arbitrary value into the class name, so this is the class the element
+    // actually gets. `mb-`, not `pb-`, is the whole fix.
+    expect(markup).toMatch(/class="[^"]*mb-\[calc\(env\(safe-area-inset-bottom\)\+var\(--floating-bar,0px\)\)\]/);
+  });
+
+  it('no longer declares scroll-padding-bottom, because there is no covered edge left', () => {
+    // It existed so a `scrollIntoView` — the note editor opening, a focus move — did not park its
+    // target flush against the edge the bar was painted over. With the box ending above the bar
+    // that edge is gone, and a scroll padding equal to the bar would now over-scroll by 68 px.
+    const markup = render({ floatingBarPx: BOTTOM_NAV_HEIGHT_PX });
+    expect(markup).not.toContain('scroll-padding-bottom');
   });
 
   it('is zero for a host that has not been taught to ask, and changes nothing there', () => {
     // `0` rather than a thrown error or a default of 68: the `lg+` map popover genuinely has no bar
     // over it, and the `hosted` column is mounted at both breakpoints at once. A component that
-    // guessed would be wrong on one of them.
+    // guessed would be wrong on one of them. The margin then resolves to the safe-area inset
+    // alone, which is 0 on a desktop — no phantom padding on the popover, measured at 1440×900.
     const markup = render({});
     expect(markup).toContain('--floating-bar:0px');
-    expect(markup).toContain('scroll-padding-bottom:0px');
   });
 
   it('never hard-codes the bar’s height into a class name', () => {

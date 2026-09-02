@@ -19,23 +19,32 @@
  * so the map underneath (and the floating account chip above it) stay reachable everywhere else.
  */
 
-import { useLayoutEffect, useRef } from 'react';
+import { useLayoutEffect, useMemo, useRef } from 'react';
 import { PlatformMark } from '@/components/brand/platform-mark';
 import { Button } from '@/components/ui/button';
 import {
+  ClearFiltersEscape,
   ClearSearchEscape,
   EMPTY_LIBRARY_HEADING,
   EmptyLibraryLine,
   EverywhereElse,
   PlaceRow,
   PlaceSearchField,
-  ResultCount,
   SortControl,
   useLibraryTagFacets,
 } from './place-sheet';
 import { DEFAULT_PLACE_ORDER, type PlaceOrder } from './place-order';
-import { ActiveTagFilter, TagFacetBar } from './place-enrichment';
-import { CategoryFilterBar } from './category-filter-bar';
+import {
+  BulkDeleteControl,
+  BulkDeleteNotice,
+  EnterSelectionButton,
+  SelectablePlaceRow,
+  SelectionToolbar,
+  useLibrarySelection,
+} from './library-selection';
+import { ActiveTagFilter } from './place-enrichment';
+import { LibraryFilterBar } from './library-filter-bar';
+import { NO_BEEN_PLACES_LINE, type VisitFilter } from '@/ui/place/visit-state';
 import type { CategoryFacet } from '@/domain/places/category-filter';
 import type { ProductCategory } from '@/domain/places/product-category';
 import type { AreaHeading } from '@/ui/place/active-area';
@@ -50,28 +59,27 @@ export interface PlaceDesktopPanelProps {
    *  two surfaces cannot disagree about what is outside the scope. */
   readonly otherPlaces: readonly MapPlace[];
   readonly activeAreaId: string | null;
+  /** **The whole library, unfiltered**, so the tag list's rows and their order cannot move while
+   *  you filter. Only the counts beside them are live. See `useLibraryTagFacets`. */
+  readonly libraryPlaces?: readonly MapPlace[];
   readonly libraryIsEmpty: boolean;
   /** See `PlaceSheetProps` — library-wide, because the chip filters the map as well as this list. */
   readonly libraryHasVisited: boolean;
   readonly query: string;
   readonly onQueryChange: (query: string) => void;
-  /** The tag currently narrowing the library, or `null`. Same prop, same pill and same behaviour as
-   *  the mobile sheet — the two surfaces present one filter, not two. */
-  readonly activeTag: string | null;
-  readonly onClearTag: () => void;
-  /** Whether the library is narrowed to places the user has not been to yet. Same prop, same chip
-   *  and same behaviour as the mobile sheet — the two surfaces present one filter, not two. */
-  readonly notBeenOnly: boolean;
-  readonly onToggleNotBeen: () => void;
+  /** The tags currently narrowing the library, composing as AND. Same props, same pills and same
+   *  behaviour as the mobile sheet — the two surfaces present one filter, not two. */
+  readonly activeTags: readonly string[];
+  readonly onClearTag: (tag: string) => void;
+  readonly onToggleTag: (tag: string) => void;
+  readonly onClearTags: () => void;
+  /** How the library is narrowed by the user's own visits. Same prop, same control and same
+   *  behaviour as the mobile sheet — the two surfaces present one filter, not two. */
+  readonly visitFilter: VisitFilter;
+  readonly onChangeVisitFilter: (filter: VisitFilter) => void;
   readonly categoryFacets: readonly CategoryFacet[];
   readonly activeCategory: ProductCategory | null;
   readonly onToggleCategory: (category: ProductCategory) => void;
-  /** How many places this list would show with the search and every filter cleared — the
-   *  denominator in `12 of 32`. Same prop, same meaning and same optionality as
-   *  `PlaceSheetProps.unfilteredCount`, which carries the reasoning: absent renders no count at
-   *  all, because a denominator derived from the already-narrowed props would be a confident wrong
-   *  answer about a number the user can check against the list in front of them. */
-  readonly unfilteredCount?: number;
   /** Opens the import overlay in `map-page-client.tsx` (client state) rather than navigating to
    *  the standalone `/import` route, so the map underneath this panel stays mounted. */
   readonly onAddTikTok: () => void;
@@ -104,18 +112,20 @@ export function PlaceDesktopPanel({
   heading,
   otherPlaces,
   activeAreaId,
+  libraryPlaces,
   libraryIsEmpty,
   libraryHasVisited,
   query,
   onQueryChange,
-  activeTag,
+  activeTags,
   onClearTag,
-  notBeenOnly,
-  onToggleNotBeen,
+  onToggleTag,
+  onClearTags,
+  visitFilter,
+  onChangeVisitFilter,
   categoryFacets,
   activeCategory,
   onToggleCategory,
-  unfilteredCount,
   onAddTikTok,
   onSelect,
   onHover,
@@ -125,10 +135,26 @@ export function PlaceDesktopPanel({
   onChangeSort,
 }: PlaceDesktopPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  /** The three narrowing axes, and deliberately not sort or search — see the sheet's copy of this. */
+  const filtersAreOn = activeCategory !== null || visitFilter !== 'all' || activeTags.length > 0;
+
+  /** The identical selection the sheet runs, through the identical hook and over the identical
+   *  pair of arrays — see `PlaceList`. The sheet and this panel are two presentations of one
+   *  library, and a bulk delete that behaved differently at 1440 than at 390 would be a second
+   *  product with the same rows in it. */
+  const selectableIds = useMemo(
+    () =>
+      [...places, ...otherPlaces].flatMap((place) =>
+        place.savedPlaceId === undefined ? [] : [place.savedPlaceId],
+      ),
+    [places, otherPlaces],
+  );
+  const selection = useLibrarySelection(selectableIds);
+  const selecting = selection.selecting;
 
   /** The identical computation the sheet does, through the identical hook — see
    *  `useLibraryTagFacets` for why it is a hook rather than four lines in each host. */
-  const tagFacets = useLibraryTagFacets(places, otherPlaces, activeTag);
+  const tagFacets = useLibraryTagFacets(places, otherPlaces, activeTags, libraryPlaces);
 
   /** The same scroll reset the sheet does, for the same reason and with the same timing — see
    *  `PlaceList`. A panel is shorter than a sheet at `full` but the arithmetic is identical. */
@@ -153,14 +179,33 @@ export function PlaceDesktopPanel({
               the thing that just changed still has to be findable. Opacity is unconditional, the
               4 px rise is `motion-safe:`, and `duration-enter` is the token `duration-140` was a
               second way of saying. */}
-        <h1
-          key={activeAreaId ?? 'no-area'}
-          className="animate-in fade-in-0 duration-enter motion-safe:slide-in-from-bottom-1 font-heading text-2xl font-extrabold tracking-tight text-foreground outline-none"
-        >
-          {libraryIsEmpty ? EMPTY_LIBRARY_HEADING : heading.text}
-        </h1>
+        {/* The heading and the `Select` trigger share one line here too, so the two surfaces enter
+            selection the same way. */}
+        <div className="flex items-center gap-2">
+          <h1
+            key={activeAreaId ?? 'no-area'}
+            className="min-w-0 flex-1 animate-in fade-in-0 duration-enter motion-safe:slide-in-from-bottom-1 font-heading text-2xl font-extrabold tracking-tight text-foreground outline-none"
+          >
+            {libraryIsEmpty ? EMPTY_LIBRARY_HEADING : heading.text}
+          </h1>
+          {!libraryIsEmpty && !selecting && selectableIds.length > 0 && (
+            <EnterSelectionButton onEnter={selection.enter} />
+          )}
+        </div>
         {libraryIsEmpty && <EmptyLibraryLine />}
-        <Button
+        {/* Replaced while picking, for the reason `PlaceList` states: two ways of narrowing a list
+            you are counting is a way to lose track of what is counted. `Add a TikTok link` goes with
+            them — a primary action that starts a different task has no business under a selection
+            toolbar. */}
+        {selecting ? (
+          <>
+            <SelectionToolbar selection={selection} />
+            <BulkDeleteControl selection={selection} />
+          </>
+        ) : (
+          <BulkDeleteNotice notice={selection.notice} />
+        )}
+        {!selecting && <Button
           type="button"
           className="h-12 w-full gap-2 rounded-lg text-sm font-bold"
           onClick={() => onAddTikTok()}
@@ -169,79 +214,105 @@ export function PlaceDesktopPanel({
               size and the centred composition; the two must not drift. */}
           <PlatformMark variant="solid" className="size-5" />
           Add a TikTok link
-        </Button>
+        </Button>}
         {/* Hidden while the library is empty: there is nothing to search, and an inert field is a
               false affordance. The heading and the one line above it are the whole screen. */}
-        {!libraryIsEmpty && (
-          <div className="flex flex-col gap-1.5">
-            <PlaceSearchField value={query} onChange={onQueryChange} />
-            {/* The same count the sheet shows, from the same component. It is the one fact this
-                surface has only ever said out loud — `map-shell.tsx`'s live region — and a
-                sighted desktop user watching rows disappear had no number anywhere on screen. */}
-            <ResultCount
-              shown={places.length + otherPlaces.length}
-              {...(unfilteredCount === undefined ? {} : { of: unfilteredCount })}
-              narrowing={
-                query.trim() !== '' ||
-                activeTag !== null ||
-                notBeenOnly ||
-                activeCategory !== null
-              }
-            />
-          </div>
-        )}
-        {/* Inside the header block, under the field and above whatever the list turns out to be,
-              so the controls that undo a filter are present in the empty state too. */}
-        {/* The same bar the sheet renders. Two surfaces offering different filter controls over
-              one library is how the phone and the desktop come to disagree about what the product
-              can do — `PlaceRow` is shared for exactly this reason. */}
-        {!libraryIsEmpty && (
-          <CategoryFilterBar
+        {/* **The `12 of 32` counter is gone**, on both surfaces at once
+            (`ux-overwhelm-audit-2026-09-02.md` §7) — it was `aria-hidden`, so it spoke only to
+            sighted users, in the band the owner asked us to empty, restating what the heading and
+            the list already say. The screen-reader announcement is a separate live region in
+            `map-shell.tsx` and is untouched. */}
+        {!libraryIsEmpty && !selecting && <PlaceSearchField value={query} onChange={onQueryChange} />}
+        {/* **Two rows, not three walls of chips**, exactly as on the phone — the same component,
+            so the two surfaces cannot offer different controls over one library. Row 1 narrows,
+            row 2 sorts; the sort control rides in `belowRow`. */}
+        {!libraryIsEmpty && !selecting && (
+          <LibraryFilterBar
             facets={categoryFacets}
             activeCategory={activeCategory}
             onToggleCategory={onToggleCategory}
-            notBeenOnly={notBeenOnly}
-            onToggleNotBeen={onToggleNotBeen}
+            visitFilter={visitFilter}
+            onChangeVisitFilter={onChangeVisitFilter}
             anyVisited={libraryHasVisited}
+            tagFacets={tagFacets}
+            activeTags={activeTags}
+            onToggleTag={onToggleTag}
+            onClearTags={onClearTags}
+            belowRow={
+              onChangeSort !== undefined ? (
+                <SortControl
+                  order={sortOrder}
+                  orders={sortOrders}
+                  onChange={onChangeSort}
+                  listLength={places.length + otherPlaces.length}
+                />
+              ) : undefined
+            }
           />
         )}
-        {/* Under the category bar, exactly as on the phone. 1440x900 is one of the two gate
-              viewports and a facet that exists on one of them is a half-finished surface — the
-              same argument that makes `PlaceRow` shared. Renders nothing when the library carries
-              no tags, which is most libraries. */}
-        {/* `W5-2`, and the same component the sheet renders rather than a second one. It shipped
-              into `PlaceSheet` alone and was therefore **invisible at 1440×900**, which is a gate
-              viewport — a control that exists on one of the two is a half-finished surface, the
-              same argument that makes `PlaceRow` and the filter bar shared. */}
-        {!libraryIsEmpty && onChangeSort !== undefined && sortOrders.length > 1 && (
-          <SortControl order={sortOrder} orders={sortOrders} onChange={onChangeSort} />
+        {activeTags.length > 0 && !selecting && (
+          <ActiveTagFilter tags={activeTags} onClear={onClearTag} />
         )}
-        {!libraryIsEmpty && <TagFacetBar facets={tagFacets} />}
-        {activeTag !== null && <ActiveTagFilter tag={activeTag} onClear={onClearTag} />}
         {/* See `AreaHeading.note`: the one line an achievement heading needs and a failed query
               does not. */}
-        {!libraryIsEmpty && heading.note !== null && (
-          <p className="text-sm font-medium text-muted-foreground">{heading.note}</p>
+        {/* `Been` with nothing to show gets its own line — the same rule and the same string the
+            sheet uses, because that empty result only became reachable when the visit filter grew
+            a third state and the area heading is built from the old boolean. */}
+        {!libraryIsEmpty && places.length + otherPlaces.length === 0 && visitFilter === 'been' ? (
+          <p className="text-sm font-medium text-muted-foreground">{NO_BEEN_PLACES_LINE}</p>
+        ) : (
+          !libraryIsEmpty &&
+          heading.note !== null &&
+          !(filtersAreOn && places.length === 0) && (
+            <p className="text-sm font-medium text-muted-foreground">{heading.note}</p>
+          )
         )}
       </div>
 
       {libraryIsEmpty ? null : (
         <>
-          <div ref={scrollRef} className="mt-4 min-h-0 flex-1 overflow-y-auto px-6">
+          {/* `px-4`, not the header's `px-6`: `PlaceRow` now carries `ps-2.5` of its own, so a row's
+                name still lands ~26 px from the panel edge — level with the heading above it — while
+                the selected rule and the hover ground sit *outside* the text rather than under it.
+                The list is the one child of this column whose content has its own inset. */}
+          <div ref={scrollRef} className="mt-4 min-h-0 flex-1 overflow-y-auto px-4">
             {heading.escape === 'clear-search' && (
               <ClearSearchEscape onClearSearch={() => onQueryChange('')} />
             )}
+            {/* Same rule as the sheet: the filters emptied the list, so the *list* says so, with
+                the button that undoes it. This host is the one that gets forgotten — the Been
+                badge and the no-matches line were both built in `place-sheet.tsx` alone — so it is
+                worth saying plainly that these two files each render their own column and a fix to
+                one is not a fix to the other. */}
+            {filtersAreOn && heading.escape !== 'clear-search' && places.length === 0 && (
+              <ClearFiltersEscape
+                onClearFilters={() => {
+                  if (activeCategory !== null) onToggleCategory(activeCategory);
+                  if (visitFilter !== 'all') onChangeVisitFilter('all');
+                  if (activeTags.length > 0) onClearTags();
+                }}
+              />
+            )}
             {!heading.empty && (
               <ul>
-                {places.map((place) => (
-                  <PlaceRow
-                    key={place.id}
-                    place={place}
-                    onSelect={onSelect}
-                    {...(onHover ? { onHover } : {})}
-                    selected={selectedId === place.id}
-                  />
-                ))}
+                {places.map((place) =>
+                  selecting && place.savedPlaceId !== undefined ? (
+                    <SelectablePlaceRow
+                      key={place.id}
+                      place={place}
+                      checked={selection.picked.has(place.savedPlaceId)}
+                      onToggle={() => selection.toggle(place.savedPlaceId as string)}
+                    />
+                  ) : (
+                    <PlaceRow
+                      key={place.id}
+                      place={place}
+                      {...(selecting ? {} : { onSelect })}
+                      {...(onHover ? { onHover } : {})}
+                      selected={selectedId === place.id}
+                    />
+                  ),
+                )}
               </ul>
             )}
             {/* The same continuation the sheet renders, from the same array. The panel used to
@@ -250,7 +321,7 @@ export function PlaceDesktopPanel({
             <EverywhereElse
               places={otherPlaces}
               flush={heading.empty}
-              onSelect={onSelect}
+              {...(selecting ? { selection } : { onSelect })}
               {...(onHover ? { onHover } : {})}
               {...(selectedId === undefined ? {} : { selectedId })}
             />

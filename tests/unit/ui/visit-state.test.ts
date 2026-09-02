@@ -10,10 +10,14 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  ALL_FILTER_LABEL,
   BEEN_ACTION_LABEL,
+  BEEN_FILTER_LABEL,
   BEEN_ROW_ANNOTATION,
   BEEN_STATE_LABEL,
   NOT_BEEN_FILTER_LABEL,
+  VISIT_FILTERS,
+  VISIT_FILTER_LABEL,
   visitChangeAnnouncement,
   visitToggleAccessibleName,
 } from '@/ui/place/visit-state';
@@ -26,6 +30,7 @@ const EVERY_STRING = [
   BEEN_STATE_LABEL,
   BEEN_ROW_ANNOTATION,
   NOT_BEEN_FILTER_LABEL,
+  BEEN_FILTER_LABEL,
   ALL_BEEN_HEADING,
   visitToggleAccessibleName('Anat Bakery', true),
   visitToggleAccessibleName('Anat Bakery', false),
@@ -45,6 +50,41 @@ describe('the schema never reaches the screen', () => {
     for (const string of EVERY_STRING) {
       expect(string.toLowerCase()).toContain('been');
     }
+  });
+});
+
+/**
+ * **The filter's three option labels**, changed on 2026-09-02 and asserted here so they cannot
+ * drift back. The owner: *"you called the filter BEEN and the options are all/been/not been / it
+ * not intuitive"* — the axis was named with the same word as one of its own answers. `Been there`
+ * is the ratified word with the subject a menu row needs; `All places` exists **only** as a row,
+ * because a filter button labelled `All` names the absence of itself.
+ * `voice-and-vocabulary.md` §3 records both.
+ */
+describe('the visit filter names its three options without colliding with its own axis', () => {
+  it('offers exactly All places, Not been yet and Been there, in that order', () => {
+    expect(VISIT_FILTERS.map((filter) => VISIT_FILTER_LABEL[filter])).toEqual([
+      'All places',
+      'Not been yet',
+      'Been there',
+    ]);
+  });
+
+  it('never offers the bare axis word as one of its own answers', () => {
+    for (const filter of VISIT_FILTERS) {
+      expect(VISIT_FILTER_LABEL[filter]).not.toBe(BEEN_STATE_LABEL);
+    }
+  });
+
+  it('keeps the ratified words inside the new ones', () => {
+    // `Not been yet` is unchanged, and `Been there` extends the ratified `Been` rather than
+    // replacing it — the badge and the toggle still say the bare word.
+    expect(NOT_BEEN_FILTER_LABEL).toBe('Not been yet');
+    expect(BEEN_FILTER_LABEL.startsWith(BEEN_STATE_LABEL)).toBe(true);
+  });
+
+  it('names the neutral row with its subject rather than as a bare `All`', () => {
+    expect(ALL_FILTER_LABEL).toBe('All places');
   });
 });
 

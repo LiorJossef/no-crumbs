@@ -23,11 +23,9 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import {
   ArrowLeft,
   Check,
-  ChevronLeft,
   ChevronUp,
   MoreHorizontal,
   Plus,
@@ -45,6 +43,15 @@ import {
   type SheetStop,
 } from '@/components/shell/sheet-geometry';
 import { SharePanel } from '@/components/collections/share-panel';
+import { addersIn, adderFilterIsUseful, type Adder } from '@/components/collections/added-by';
+import {
+  TAKE_OUT_CONFIRM_LABEL,
+  TAKE_OUT_LABEL,
+  selectionCountLabel,
+  takeOutBody,
+  takeOutOutcomeMessage,
+  takeOutPrompt,
+} from '@/components/collections/bulk-removal';
 import { CollectionPlaceDetail } from '@/components/collections/collection-place-detail';
 import {
   COLLECTION_DESCRIPTION_MAX_LENGTH,
@@ -58,9 +65,11 @@ import { categoryLocalityLine } from '@/ui/place/category-display';
 import {
   addPlacesToCollection,
   deleteCollection,
+  removeCollectionItems,
   removeMember,
   updateCollection,
 } from '@/app/actions/collections';
+import type { BulkRemoveResult } from '@/app/actions/collections';
 import type { CollectionDetail } from '@/app/collections/_lib/get-collections';
 import { drawerHref, INDEX_VIEW } from '@/app/map/_lib/drawer-view';
 import { attemptWrite } from '@/ui/place/write-failure';
@@ -82,8 +91,10 @@ import { cn } from '@/lib/utils';
  */
 const LIST_END_GAP_PX = 12;
 
-export const KICKER =
-  'text-[11px] font-bold uppercase tracking-[0.14em] text-brand rtl:normal-case rtl:tracking-normal';
+/* The `KICKER` class this file exported was the up-link's own styling and nothing else imported
+   it. It goes with the row (`ux-collections-as-scope.md` §5 item 3, amended 2026-09-02); the
+   product's other kicker is `FILTER_KICKER` in `place-enrichment.tsx`, which is a different
+   token and a different job. */
 
 export type CollectionView = 'list' | 'place' | 'add' | 'share';
 
@@ -256,6 +267,19 @@ function CollectionList({
 }: CollectionContentProps) {
   const [query, setQuery] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
+  /** Which person's places the list is narrowed to (`collection_items.added_by`), or `null` for
+   *  everyone. Client-side over `collection.places`, which already carries the adder and their
+   *  display name — see `added-by.ts`. */
+  const [addedBy, setAddedBy] = useState<string | null>(null);
+  /** Whether the list is in selection mode. Off by default and entered from the options menu:
+   *  browsing is what this screen is for, and a checkbox on every row all the time would make
+   *  picking the loudest thing about a list you mostly read. */
+  const [selecting, setSelecting] = useState(false);
+  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
+  const [confirmingTakeOut, setConfirmingTakeOut] = useState(false);
+  const [takeOutError, setTakeOutError] = useState<string | null>(null);
+  const [takeOutNotice, setTakeOutNotice] = useState<string | null>(null);
+  const [takingOut, startTakeOut] = useTransition();
   const headingRef = useRef<HTMLHeadingElement>(null);
   // See the heading's own comment below for why this tracks `stop` rather than a breakpoint.
   const HeadingTag = stop === undefined ? 'h1' : 'h2';
@@ -278,8 +302,101 @@ function CollectionList({
     heading.focus({ preventScroll: true });
   }, [claimHeadingFocus]);
 
-  const matches = useMemo(() => filterPlaces(pins, query), [pins, query]);
   const editable = canEdit(collection.role);
+
+  const adders = useMemo(
+    () => addersIn(collection, currentUserId),
+    [collection, currentUserId],
+  );
+  const showAdderFilter = adderFilterIsUseful(adders);
+
+  /** `collection_items.id` → the item, so the two client-side filters below can ask about the row
+   *  behind a pin. `pins` is a `MapPlace[]` whose `id` is the item id (`collections-scope.tsx`);
+   *  it carries the shared place facts and none of the collection's own. */
+  const itemsById = useMemo(
+    () => new Map(collection.places.map((place) => [place.itemId, place])),
+    [collection.places],
+  );
+
+  const matches = useMemo(() => {
+    const searched = filterPlaces(pins, query);
+    if (addedBy === null) return searched;
+    // `=== addedBy` covers the no-adder bucket too: its key is the literal `null` that
+    // `collection_items.added_by` holds, not a sentinel string.
+    return searched.filter((place) => (itemsById.get(place.id)?.addedBy ?? null) === addedBy);
+  }, [pins, query, addedBy, itemsById]);
+
+  /** Only ever the items still in the collection, so a selection cannot outlive a row that has
+   *  been taken out in another tab. The filter and the search deliberately do *not* prune it: a
+   *  pick is an explicit act, and narrowing the list is not a way of undoing one. */
+  const selected = useMemo(
+    () => [...picked].filter((itemId) => itemsById.has(itemId)),
+    [picked, itemsById],
+  );
+  const allSelectedAreMine = selected.every(
+    (itemId) => itemsById.get(itemId)?.savedByMe === true,
+  );
+  /** Whether every row currently on screen is picked — what turns `Select all` into `Clear`. */
+  const allVisiblePicked =
+    matches.length > 0 && matches.every((place) => picked.has(place.id));
+
+  function leaveSelection() {
+    setSelecting(false);
+    setPicked(new Set());
+    setConfirmingTakeOut(false);
+    setTakeOutError(null);
+  }
+
+  function togglePick(itemId: string) {
+    setTakeOutNotice(null);
+    setPicked((current) => {
+      const next = new Set(current);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  }
+
+  function takeSelectionOut() {
+    const ids = selected;
+    if (ids.length === 0) return;
+    setTakeOutError(null);
+    startTakeOut(async () => {
+      // `attemptWrite` and not a bare await: an offline take-out rejects inside the transition and
+      // React replaces the whole segment with `app/error.tsx`, taking the list and the selection
+      // with it. Every other write on this screen already goes through it.
+      //
+      // The counts are caught on the way past rather than returned by `attemptWrite`, whose `ok`
+      // arm is deliberately payload-free (`ui/place/write-failure.ts` is shared by every write in
+      // the product and belongs to another lane this wave). One local, one assignment, no widened
+      // shared type.
+      //
+      // `.then` and not `await` inside the callback, deliberately: `write-failure-collections.test`
+      // scans this file for `await <action>(` and there must be none, because that shape is what
+      // every one of the nine reported sites looked like. The rejection path is identical — the
+      // promise is still returned into `attemptWrite`'s `try` — so this keeps the guard honest
+      // rather than widening its allow-list to admit a call it cannot tell apart from a bare one.
+      const answer: { value: BulkRemoveResult | null } = { value: null };
+      const outcome = await attemptWrite(() =>
+        removeCollectionItems(collection.id, ids).then((result) => {
+          answer.value = result;
+          return result;
+        }),
+      );
+      if (outcome.kind !== 'ok') {
+        // A refused take-out collapses its confirm — the answer is on screen instead — while an
+        // unreachable one keeps it, so the press is not lost with the message. Same split as the
+        // menu's delete and leave.
+        if (outcome.kind === 'refused') setConfirmingTakeOut(false);
+        setTakeOutError(outcome.message);
+        return;
+      }
+      setTakeOutNotice(
+        answer.value?.ok === true ? takeOutOutcomeMessage(answer.value) : null,
+      );
+      leaveSelection();
+    });
+  }
   /** Whether the pinned `Add places` footer is drawn. Whichever element is *last* in the column is
    *  the one that has to clear the floating bar, and it is one or the other, never both. */
   const hasFooter = editable && collection.places.length > 0;
@@ -299,58 +416,22 @@ function CollectionList({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="shrink-0 px-4 pb-2 pt-1">
-        {/* The kicker row, and the up-link *is* the kicker: it says where it goes, in the slot the
-            unlabelled back arrow used to occupy, so nothing has to be relearned. */}
-        <div className="flex items-center gap-1">
-          <Link
-            /* **`drawerHref`, not the literal `/collections`.** All three of the drawer's views are
-               search params on `/map` since 2026-08-31 (`app/map/_lib/drawer-view.ts`), and the
-               literal is a redirect shim: going through it would cost a *segment* change on each
-               leg, which unmounts the drawer — the exact thing this route shape exists to prevent,
-               reintroduced by the one control whose job is leaving a collection.
+        {/* **No kicker row, and no `Collections` up-link** — `ux-collections-as-scope.md` §5 item
+            3, amended 2026-09-02, and the document moved before this file did, which is the
+            sequence that restored the link at `1db0294` when it did not.
 
-               **It sits directly under the drawer's `Collections` switch segment, which goes to
-               the same place, and it stays anyway** — orchestrator ruling, 2026-08-31, reversing an
-               instruction to delete it that was given without knowing this control is
-               `ux-collections-as-scope.md` §5 item 3. It was deleted for one commit and restored:
-               **a spec item is amended before the code, not after**, which is the sequence this
-               project used for the no-places mascot and is not waived because the change is one
-               line.
+            The row cost a measured 44 px — its own `min-h-11` — at 390×844 inside a collection at
+            `half`, and deleting it moves everything below up by 36 (see the button below for the
+            other 8). It bought
+            a second control to a destination already one tap away and directly above it: since
+            2026-08-31 the drawer's `Places / Collections` switch renders above this header at
+            `half` and `full`, and inside a collection its `Collections` segment is both current and
+            the way up — the same `/map?view=collections` href the up-link carried. The Map tab
+            covers `peek`, where the up-link never rendered.
 
-               The cost of keeping it is measured rather than argued, so whoever moves the spec has
-               the number. At 390×844 inside a collection at `half`, with the up-link's row present
-               versus removed: **0 rows fully visible against 1, and 1 partly visible against 2**;
-               the heading sits at y=500 rather than y=456. That 44px is the row's own `min-h-11`,
-               and deleting the *link* alone recovers none of it — the options button beside it is
-               `size-11`, so the row keeps its height either way. The height only comes back if that
-               button moves onto the heading's row.
-
-               Recorded open, with the reason. */
-            href={drawerHref(INDEX_VIEW) as '/map'}
-            aria-label="Collections"
-            className={cn(
-              KICKER,
-              '-ms-2 inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full px-2 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-              PRESS_CHIP,
-            )}
-          >
-            <ChevronLeft className="size-3.5 shrink-0 rtl:rotate-180" aria-hidden />
-            Collection
-          </Link>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-lg"
-            aria-label="Collection options"
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((open) => !open)}
-            data-vaul-no-drag
-            className="ms-auto size-11 shrink-0 rounded-full text-muted-foreground"
-          >
-            <MoreHorizontal className="size-4" aria-hidden />
-          </Button>
-        </div>
-
+            The `⋯` moves onto the heading's row rather than disappearing with it. That move *is*
+            the fix: the button is `size-11`, so deleting the link alone would have left the row
+            standing at its full height and recovered nothing. */}
         {/*
          * **`<h1>` in the `lg+` panel, `<h2>` in the sheet — not a new decision.**
          * `ui-review-2026-08-31.md` finding 14: this rendered `<h2>Weekend list</h2>` with nothing
@@ -368,13 +449,43 @@ function CollectionList({
          * correctly as a collection's title in the space this row has, and `PlaceDesktopPanel`'s
          * larger `text-2xl` belongs to a different view with a different amount of chrome above it.
          */}
-        <HeadingTag
-          ref={headingRef}
-          tabIndex={-1}
-          className="line-clamp-2 font-heading text-base font-bold outline-none"
-        >
-          <bdi>{collection.name}</bdi>
-        </HeadingTag>
+        <div className="flex items-center gap-1">
+          <HeadingTag
+            ref={headingRef}
+            tabIndex={-1}
+            className="min-w-0 flex-1 line-clamp-2 font-heading text-base font-bold outline-none"
+          >
+            <bdi>{collection.name}</bdi>
+          </HeadingTag>
+          {/* Trailing on the heading's row, in the slot the kicker row's copy of it held.
+              **Both margins are negative and that is the whole economy of this move.** A 44 px
+              target on a row whose text is 24 px tall would make the row 44 px, and the deletion
+              above would have bought 24 px instead of the row it was worth. `-my-1.5` lets the
+              button keep its full 44 px hit area while contributing 32 px of layout, so the header
+              recovers **36 px net** — measured at 390×844 at `half`, `London 2026`, 15 places: the
+              heading's top moves 500 → 460, the search field 558 → 522 and the first place row
+              614 → 578. It is 36 and not 44 because hosting a 44 px target on the heading's row
+              costs something; the audit's estimate assumed it cost nothing, and the honest number
+              is the one written down.
+
+              The 2 px by which the button's box overlaps the view switch above is the switch's own
+              `pb-2` padding, not its track: both segments hit-test on their centre *and* on their
+              bottom edge with the button in place. `-me-2` pulls the glyph's optical edge back to
+              the column's padding while the target stays 44 px. `ms-auto` is left off deliberately
+              — `flex-1` on the heading already decides the position, and one rule should. */}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-lg"
+            aria-label="Collection options"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((open) => !open)}
+            data-vaul-no-drag
+            className="-me-2 -my-1.5 size-11 shrink-0 rounded-full text-muted-foreground"
+          >
+            <MoreHorizontal className="size-4" aria-hidden />
+          </Button>
+        </div>
         <button
           type="button"
           onClick={() => onViewChange('share')}
@@ -396,23 +507,13 @@ function CollectionList({
           </span>
         </button>
 
-        {/* The collection's own description, which has been read from the database and carried on
-            `CollectionDetail` since collections shipped and never drawn (`growth-plan.md` §4).
-
-            It sits *below* the count and members line rather than between that line and the name.
-            The count line is a control — it opens the share view — and putting prose between a
-            heading and its own button separates the two things that belong together. Under it, the
-            description reads as what it is: the owner's sentence about the collection, not part of
-            its identity.
-
-            `line-clamp-3` because this is a sheet header over a list: the description is worth
-            three lines of it and not more, and the limit is 500 characters. `<bdi>` rather than
-            `dir="auto"`, matching the heading directly above — see the index row for why. */}
-        {collection.description ? (
-          <p className="mt-1.5 line-clamp-3 text-caption text-muted-foreground">
-            <bdi>{collection.description}</bdi>
-          </p>
-        ) : null}
+        {/* **The description is drawn on the index row, and only there** (overwhelm audit §7 item
+            14, and §4d's rule that a string lives in exactly one place). It sat here as a 3-line
+            clamp directly above the first place row, on the surface whose header already spends its
+            budget on a heading, a members line and a search field — and it is the same string the
+            row you tapped to get here already shows. `collections-index-list.tsx` keeps its
+            `line-clamp-1` copy, which is where a description does its work: choosing which
+            collection to open. */}
 
         {menuOpen ? (
           <CollectionMenu
@@ -422,14 +523,82 @@ function CollectionList({
               setMenuOpen(false);
               onViewChange('share');
             }}
+            /* Absent unless there is something to select and the viewer may edit — an owner-only
+               menu section would hide it from editors, who are exactly the people whose items
+               these are. */
+            {...(editable && collection.places.length > 0
+              ? {
+                  onSelectPlaces: () => {
+                    setMenuOpen(false);
+                    setTakeOutNotice(null);
+                    // Both narrowings are dropped on the way in, because selection mode hides the
+                    // controls that set them: a list still filtered by a search box that is no
+                    // longer on screen is a list whose `Select all` picks a number the user cannot
+                    // see, which is the worst possible way to start a delete.
+                    setQuery('');
+                    setAddedBy(null);
+                    setSelecting(true);
+                  },
+                }
+              : {})}
             onClose={() => setMenuOpen(false)}
           />
         ) : null}
 
-        {collection.places.length > 0 ? (
+        {collection.places.length > 0 && !selecting ? (
           <div className="mt-2">
             <PlaceSearchField value={query} onChange={setQuery} label="Search this collection" />
           </div>
+        ) : null}
+
+        {/* Who put it here (§8.1). Below the search rather than beside it: they narrow the same
+            list and stacking them keeps each control full width on a 390 px phone. Drawn only when
+            two or more people have added something — see `adderFilterIsUseful`. */}
+        {showAdderFilter && !selecting ? (
+          <AddedByFilter adders={adders} value={addedBy} onChange={setAddedBy} />
+        ) : null}
+
+        {/* The selection toolbar replaces the search and the filter while it is up. Two ways of
+            narrowing a list you are picking from is a way to lose track of what is picked. */}
+        {selecting ? (
+          <div className="mt-2 flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-11 px-3 text-sm font-semibold"
+              onClick={leaveSelection}
+              data-vaul-no-drag
+            >
+              Cancel
+            </Button>
+            <p aria-live="polite" className="min-w-0 flex-1 text-sm font-medium text-muted-foreground">
+              {selectionCountLabel(selected.length)}
+            </p>
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-11 px-3 text-sm font-semibold"
+              onClick={() => {
+                setTakeOutNotice(null);
+                // Over `matches`, which in selection mode is the whole collection — see
+                // `onSelectPlaces`, which drops the search and the filter on the way in. Anchoring
+                // it to what is on screen rather than to `collection.places` keeps it honest if
+                // that ever changes.
+                setPicked(allVisiblePicked ? new Set() : new Set(matches.map((place) => place.id)));
+              }}
+              data-vaul-no-drag
+            >
+              {allVisiblePicked ? 'Clear' : 'Select all'}
+            </Button>
+          </div>
+        ) : null}
+
+        {/* Only ever says something a clean run would not: a take-out that removed everything it
+            was asked to is confirmed by the rows leaving the list. */}
+        {takeOutNotice ? (
+          <p role="status" className="mt-2 text-sm text-muted-foreground">
+            {takeOutNotice}
+          </p>
         ) : null}
       </div>
 
@@ -461,21 +630,37 @@ function CollectionList({
           <EmptyCollection collection={collection} onAdd={() => onViewChange('add')} />
         ) : matches.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">
-            Nothing in this collection matches that.
+            {/* Two different empties, and they are not the same news. A search that matched
+                nothing is about the words; a filter that matched nothing is about the person, and
+                telling someone their collaborator's places "don't match that" when they typed
+                nothing is a screen blaming a search box that is not on screen. */}
+            {addedBy !== null && query.trim() === ''
+              ? 'Nothing in this collection from them.'
+              : 'Nothing in this collection matches that.'}
           </p>
         ) : (
           <ul>
-            {matches.map((place) => (
-              <PlaceRow
-                key={place.id}
-                place={place}
-                secondLine={secondLineFor(collection, place.id)}
-                onSelect={() => {
-                  onSelectItem(place.id);
-                  onViewChange('place');
-                }}
-              />
-            ))}
+            {matches.map((place) =>
+              selecting ? (
+                <SelectableRow
+                  key={place.id}
+                  name={place.name}
+                  secondLine={secondLineFor(collection, place.id)}
+                  checked={picked.has(place.id)}
+                  onToggle={() => togglePick(place.id)}
+                />
+              ) : (
+                <PlaceRow
+                  key={place.id}
+                  place={place}
+                  secondLine={secondLineFor(collection, place.id)}
+                  onSelect={() => {
+                    onSelectItem(place.id);
+                    onViewChange('place');
+                  }}
+                />
+              ),
+            )}
           </ul>
         )}
       </div>
@@ -494,19 +679,212 @@ function CollectionList({
             paddingBottom: `calc(env(safe-area-inset-bottom) + 0.75rem + ${barPx}px)`,
           }}
         >
-          <Button
-            type="button"
-            size="lg"
-            className="h-12 w-full text-base"
-            onClick={() => onViewChange('add')}
-            data-vaul-no-drag
-          >
-            <Plus className="size-4" aria-hidden />
-            Add places
-          </Button>
+          {selecting ? (
+            confirmingTakeOut ? (
+              /* The shallower of the product's two confirms, deliberately (`ux-two-removals-one-
+                 screen.md` §2.4): one line, two buttons, no autofocus. The irreversible delete —
+                 which lives on the place detail and nowhere near this control — names its place,
+                 enumerates what is lost, says it cannot be undone and focuses Cancel. That
+                 inequality is the safety mechanism, and a bulk unlink does not get to borrow the
+                 heavier one just because it names six rows. */
+              <InlineConfirm
+                prompt={takeOutPrompt(selected.length)}
+                body={takeOutBody({
+                  count: selected.length,
+                  allSavedByViewer: allSelectedAreMine,
+                })}
+                confirmLabel={TAKE_OUT_CONFIRM_LABEL}
+                pending={takingOut}
+                error={takeOutError}
+                onCancel={() => {
+                  setConfirmingTakeOut(false);
+                  setTakeOutError(null);
+                }}
+                onConfirm={takeSelectionOut}
+              />
+            ) : (
+              /* **Not `variant="destructive"`, and that is the ruling rather than a preference.**
+                 Unlinking destroys nothing of the viewer's: the place stays in `places`, and their
+                 own save of it — note, tags, Been mark — is untouched. Red here would teach that
+                 this control and the irreversible delete are the same weight, which is the exact
+                 confusion §2.3 removes. Red appears on this screen only inside the confirm above,
+                 on its confirm button. */
+              <Button
+                type="button"
+                size="lg"
+                variant="outline"
+                className="h-12 w-full text-base"
+                disabled={selected.length === 0}
+                onClick={() => {
+                  setTakeOutError(null);
+                  setConfirmingTakeOut(true);
+                }}
+                data-vaul-no-drag
+              >
+                {TAKE_OUT_LABEL}
+              </Button>
+            )
+          ) : (
+            <Button
+              type="button"
+              size="lg"
+              className="h-12 w-full text-base"
+              onClick={() => onViewChange('add')}
+              data-vaul-no-drag
+            >
+              <Plus className="size-4" aria-hidden />
+              Add places
+            </Button>
+          )}
         </div>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Who put it here — a row of chips over `collection_items.added_by` (§8.1).
+ *
+ * A `radiogroup` and not a set of toggles: the list is narrowed to one person at a time, which is
+ * what the question "who added this" actually asks. Multi-select would be a second filter language
+ * on a screen that already has a search box.
+ *
+ * The count rides on each chip because it is the reason to press one — `Maya 11` says where the
+ * places are before you tap. It is `aria-hidden` inside the label rather than in it: the chip's
+ * accessible name is the person, and a screen reader reading "Maya 11" as a name is a worse
+ * sentence than a sighted user's glance is a better one.
+ */
+function AddedByFilter({
+  adders,
+  value,
+  onChange,
+}: {
+  adders: readonly Adder[];
+  value: string | null;
+  onChange: (userId: string | null) => void;
+}) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Show places added by"
+      // `-mx-4 px-4` so the strip scrolls edge to edge on a phone while its first chip still lines
+      // up with the heading above it. `no-scrollbar` is not available here; the strip is short
+      // enough that the native bar is the honest affordance.
+      className="-mx-4 mt-2 flex gap-2 overflow-x-auto px-4 pb-1"
+    >
+      <AddedByChip
+        label="Everyone"
+        selected={value === null}
+        onSelect={() => onChange(null)}
+      />
+      {adders.map((adder) => (
+        <AddedByChip
+          key={adder.userId ?? 'unattributed'}
+          label={adder.label}
+          count={adder.count}
+          selected={value === adder.userId}
+          onSelect={() => onChange(adder.userId)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function AddedByChip({
+  label,
+  count,
+  selected,
+  onSelect,
+}: {
+  label: string;
+  count?: number;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      onClick={onSelect}
+      data-vaul-no-drag
+      className={cn(
+        'flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-sm font-semibold',
+        PRESS_CHIP,
+        'focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+        selected
+          ? 'border-transparent bg-primary text-primary-foreground'
+          : 'border-border bg-card text-muted-foreground hover:bg-muted',
+      )}
+    >
+      <bdi>{label}</bdi>
+      {count === undefined ? null : (
+        <span aria-hidden className="text-xs font-medium tabular-nums opacity-80">
+          {count}
+        </span>
+      )}
+    </button>
+  );
+}
+
+/**
+ * One row while the list is picking rather than browsing.
+ *
+ * **Its own row and not `PlaceRow` with a checkbox bolted on**, for one reason that is about
+ * meaning rather than layout: `PlaceRow`'s `selected` prop renders `aria-current="true"`, which
+ * says *this is the row you have open*. In a multi-select that is a different claim from *this row
+ * is picked*, and reusing it would announce six open rows. `role="checkbox"` says the true thing,
+ * and the whole row is the hit area rather than a 24 px box beside it.
+ *
+ * It shows the name and the `Category · Locality` line and stops. Tags, thumbnails and the been
+ * badge are what you read a list for; while you are picking, they are what makes six rows hard to
+ * count.
+ */
+function SelectableRow({
+  name,
+  secondLine,
+  checked,
+  onToggle,
+}: {
+  name: string;
+  secondLine: string;
+  checked: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <li className="border-b border-border/70 last:border-b-0">
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={checked}
+        onClick={onToggle}
+        data-vaul-no-drag
+        className={cn(
+          'flex min-h-16 w-full items-center gap-3 py-3.5 text-left focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+          PRESS_ROW,
+        )}
+      >
+        <span
+          aria-hidden
+          className={cn(
+            'flex size-6 shrink-0 items-center justify-center rounded-full border-2',
+            checked ? 'border-transparent bg-primary text-primary-foreground' : 'border-border',
+          )}
+        >
+          {checked ? <Check className="size-3.5" /> : null}
+        </span>
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="line-clamp-1 break-words font-heading text-sm font-bold text-foreground">
+            <bdi>{name}</bdi>
+          </span>
+          {secondLine ? (
+            <span className="line-clamp-1 break-words text-xs font-medium text-muted-foreground">
+              <bdi>{secondLine}</bdi>
+            </span>
+          ) : null}
+        </span>
+      </button>
+    </li>
   );
 }
 
@@ -559,11 +937,15 @@ function CollectionMenu({
   collection,
   currentUserId,
   onShare,
+  onSelectPlaces,
   onClose,
 }: {
   collection: CollectionDetail;
   currentUserId: string;
   onShare: () => void;
+  /** Enters selection mode. Absent when there is nothing to select or the viewer may not edit —
+   *  the row is then not drawn at all rather than drawn disabled. */
+  onSelectPlaces?: () => void;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -721,6 +1103,11 @@ function CollectionMenu({
   return (
     <>
       <div className="mt-2 flex flex-col rounded-lg border border-border bg-muted/40">
+        {/* Above the owner-only block so an editor, who sees only `Leave collection` below,
+            still gets the one control that acts on the items they put here. `Select places` and
+            not `Remove places`: what it starts is a selection, and what the selection can do is
+            decided by the control it reveals. */}
+        {onSelectPlaces ? <MenuRow label="Select places" onClick={onSelectPlaces} /> : null}
         {canManage(collection.role) ? (
           <>
             <MenuRow label="Share" onClick={onShare} />

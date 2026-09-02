@@ -602,15 +602,62 @@ describe('scopeLabel', () => {
     );
   });
 
-  it('keeps the countryless label when the bucket has a real one', () => {
-    // The bucket takes the first area's own name where the areas can be named at all, and that is
-    // a place — so it is not lowercased.
+  it('says `another area` even where the bucket holds one named area', () => {
+    // Changed 2026-09-02 with `CountrySummary.label`. The bucket used to take the first area's own
+    // name, which is how a city came to be rendered as a peer of a country; a group we cannot name
+    // a country for now says exactly that, wherever it is read. The cost is visible here: a header
+    // that could have said `Kowloon` says `another area` instead. `scopeLabel` could recover it
+    // from `only.areas[0]`, which this test deliberately does not pretend has happened.
     const named = areasOf(city('nc', 3, NOWHERE, 'Kowloon', null));
-    expect(labelOf(scopeForCountryTap(NO_COUNTRY_KEY), named, countriesOf(named))).toBe('Kowloon');
+    expect(labelOf(scopeForCountryTap(NO_COUNTRY_KEY), named, countriesOf(named))).toBe(
+      UNNAMED_OTHER_AREA_LABEL.toLowerCase(),
+    );
   });
 
-  it('counts the countries under a global scope', () => {
-    expect(labelOf(GLOBAL_SCOPE)).toBe('3 countries');
+  it('counts the countries under a global scope when every group is one', () => {
+    const allNamed = areasOf([...londonPlaces, ...telAvivPlaces]);
+    expect(labelOf(GLOBAL_SCOPE, allNamed, countriesOf(allNamed))).toBe('2 countries');
+  });
+
+  it('gives up the count entirely once one group is not a country', () => {
+    // **Changed 2026-09-02, and it reverses the second half of the same day's fix.** That fix
+    // stopped the countryless bucket being *counted* — `2 countries`, not `3` — and an audit of
+    // the running product then found the sentence still contradicting the screen: `58 places in
+    // 3 countries` over a map drawing four capsules and a `/profile` listing four rows. Not
+    // counting the bucket was necessary and was not sufficient, because the sentence is about all
+    // 58 places and one of them is in none of the countries it names. No value of N makes it true.
+    //
+    // The fixture is the owner's library in miniature: two real countries and one place whose
+    // country the resolver never established.
+    const mixed = areasOf([
+      ...londonPlaces,
+      ...telAvivPlaces,
+      ...city('kwn', 1, { lat: 22.31, lng: 114.17 }, 'Kowloon', null),
+    ]);
+    const buckets = countriesOf(mixed);
+    expect(buckets).toHaveLength(3);
+    expect(labelOf(GLOBAL_SCOPE, mixed, buckets)).toBe('your library');
+  });
+
+  it('says the number again as soon as every place has a country', () => {
+    // The fallback is a response to a data gap, not a permanent retreat: `A-T2`'s backfill closes
+    // it, and this asserts that the header comes back on its own rather than needing a second fix.
+    const resolved = areasOf([
+      ...londonPlaces,
+      ...telAvivPlaces,
+      ...city('kwn', 1, { lat: 22.31, lng: 114.17 }, 'Kowloon', 'HK'),
+    ]);
+    expect(labelOf(GLOBAL_SCOPE, resolved, countriesOf(resolved))).toBe('3 countries');
+  });
+
+  it('falls back to `your library` for one country beside a countryless bucket', () => {
+    // `1 countries` is not the repair, and the single-country shortcut is only sound when the
+    // label speaks for everything under it — here it does not, because the list also holds Kowloon.
+    const oneAndOther = areasOf([
+      ...londonPlaces,
+      ...city('kwn', 1, { lat: 22.31, lng: 114.17 }, 'Kowloon', null),
+    ]);
+    expect(labelOf(GLOBAL_SCOPE, oneAndOther, countriesOf(oneAndOther))).toBe('your library');
   });
 
   it('names the single country instead of saying `1 country`', () => {
@@ -636,9 +683,13 @@ describe('scopeLabel', () => {
     expect(labelOf(GLOBAL_SCOPE, unplaced, buckets)).toBe('your library');
   });
 
-  it('still names a countryless bucket that is one area, because then it speaks for all of it', () => {
+  it('still speaks for a countryless bucket that is one area, without naming it a country', () => {
+    // Same change as above: the whole library is one unplaceable area, and the honest header is
+    // `3 places in another area` rather than a city standing in for a country.
     const single = areasOf(city('kwn', 3, { lat: 22.31, lng: 114.17 }, 'Kowloon', null));
-    expect(labelOf(GLOBAL_SCOPE, single, countriesOf(single))).toBe('Kowloon');
+    expect(labelOf(GLOBAL_SCOPE, single, countriesOf(single))).toBe(
+      UNNAMED_OTHER_AREA_LABEL.toLowerCase(),
+    );
   });
 });
 
@@ -656,7 +707,9 @@ describe('scopeHeading', () => {
 
   it('is `areaHeading` with a different `where`, not a second copy table', () => {
     expect(headingFor(scopeForCountryTap('GB'), 18).text).toBe('18 places in the United Kingdom');
-    expect(headingFor(GLOBAL_SCOPE, library.length).text).toBe('29 places in 3 countries');
+    // `your library`, not `2 countries`: this fixture holds two orphan places, so a country count
+    // would be a sentence about 29 places that is only true of 27. See `scopeLabel`.
+    expect(headingFor(GLOBAL_SCOPE, library.length).text).toBe('29 places in your library');
     expect(headingFor(scopeForAreaTap(london.id), 12).text).toBe('12 places in London');
   });
 

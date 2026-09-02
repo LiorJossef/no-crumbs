@@ -10,6 +10,28 @@
 > [`implementation-plan.md`](implementation-plan.md) remains the decision ledger and the M3
 > architecture answer.
 
+## Status as of 2026-09-02 — read this before trusting a row below
+
+**The ladder below is accurate about what each feature *is*. It is NOT a live status board**, and it
+does not know about the two rounds of owner product feedback that have driven the work since
+2026-09-01. Those live in [`feedback-round-3-work-plan.md`](feedback-round-3-work-plan.md), and the
+running state is [`current-state.md`](current-state.md) with
+[`handoff-2026-09-02-ui-density.md`](handoff-2026-09-02-ui-density.md) beside it.
+
+What a reader of this file most needs to know, which no row below says:
+
+| | |
+|---|---|
+| **Wave 1 of round-3 feedback** | Lanes A (geography), B (place card), D (map) and E (import engine) are **complete**. Lane G's two features are **committed but unverified** (`4bc04d0`). Lane C (the filter row) is **stopped mid-redesign** (`abc1771`) |
+| **The filter row is parked, not abandoned** | Ten owner rulings for it are in `feedback-round-3-work-plan.md` §5.1. It churned through ten corrections in one session because **this product has no menu or dropdown specification** — `docs/ux-menus-and-dropdowns.md` should be written before it resumes |
+| **9 tests fail on the branch** | Inherited from `abc1771`, named in the handoff. Three are real regressions; five describe behaviour never built; one is an unreachable module. **Build them green, never edit them green** |
+| **Not in this ladder at all, and the highest risk on the board** | The **10–15 minute presentation deck** (M11, M12 item 10). Submission is **6 September 2026**. `presentation-outline.md` is an outline, not a deck. Every other graded artefact exists |
+| **Also not here** | **PR #109 has not landed.** The ladder can be entirely green and reach no user until it does |
+
+**Superseded rows to be aware of:** `L1-F8-T1` was built 2026-08-31 (`642cab0`), so anything calling
+it the last unbuilt L1 feature is stale. D2b under `L0-F3` was **superseded, not completed** — the
+Google Places ruling of 2026-08-28 replaced its two-source design, and Nominatim was never built.
+
 ## Conventions
 
 - **IDs are stable.** `L0-F3` is a feature, `L0-F3-T2` a task. A deferral is written "L1-F6-T2 → L2"

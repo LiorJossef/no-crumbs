@@ -59,15 +59,20 @@
 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { Map as MapLibreMap } from 'maplibre-gl';
-import { Map as MapcnMap, MapControls, MapPopup } from '@/components/ui/map';
+import { Map as MapcnMap, MapControls, MapPopup, useMap } from '@/components/ui/map';
 import { PlaceDetail } from '@/components/sheet/place-sheet';
 import type { FocusBoundsRequest, LatLngBoundsHint, MapPlace, MapSurfaceProps } from './types';
 import { savedPlaceRef } from './saved-place-ref';
 import { SummaryMarkerLayer } from './summary-marker-layer';
-import { toAreaFeatures, toCountryFeatures } from './summary-features';
-import { AREA_DISC_SPEC } from './summary-style';
+import { countryPillSpecs, toAreaFeatures, toCountryFeatures } from './summary-features';
 import { useDiscTheme } from './use-disc-theme';
-import { clampFitPadding, LG_BREAKPOINT_PX, mapOcclusionInsets, queryRectFrom } from './query-rect';
+import {
+  affordableMarkerAllowance,
+  clampFitPadding,
+  LG_BREAKPOINT_PX,
+  mapOcclusionInsets,
+  queryRectFrom,
+} from './query-rect';
 import { LABEL_FIT_ALLOWANCE, pinGeometry } from './marker-style';
 import { nearbyPlaces } from '@/ui/place/nearby';
 import { BasemapTint } from './basemap-tint-layer';
@@ -224,6 +229,30 @@ const COUNTRY_FLIGHT_MS = 600;
  * phone the margin is thin enough that a phantom 100 px is the difference. See `clampFitPadding`,
  * which is explicit that surviving the clamp is not the same as clearing the sheet.
  */
+/**
+ * **Clicking the map where nothing is dismisses the open place.**
+ *
+ * This is what `closeOnClick` used to do implicitly on the popup, and doing it here is what makes
+ * it correct: the pin layer's own click fires in the same dispatch, and the caller's `onDeselect`
+ * already ignores a click that selected something (`map-page-client.tsx`'s `pinTapInFlight`). So a
+ * pin tap selects, a bare-map click deselects, and re-tapping the selected pin keeps its card —
+ * three behaviours out of one listener rather than three special cases.
+ */
+function BackgroundDismiss({ onDeselect }: { onDeselect: () => void }) {
+  const { map } = useMap();
+
+  useEffect(() => {
+    if (!map) return;
+    const onClick = () => onDeselect();
+    map.on('click', onClick);
+    return () => {
+      map.off('click', onClick);
+    };
+  }, [map, onDeselect]);
+
+  return null;
+}
+
 function fitBoundsPadding(
   viewportWidth: number,
   containerWidth: number,
@@ -254,12 +283,16 @@ function fitBoundsPadding(
   const topChrome =
     floatingTopChromePx ??
     (viewportWidth < LG_BREAKPOINT_PX ? FLOATING_TOP_CHROME_MOBILE_PX : FLOATING_TOP_CHROME_PX);
+  // Only the part of the allowance this container can afford. A phone cannot afford a 206 px
+  // country pill and pays none of it, which is the whole of `W2-B`'s root cause — see
+  // `affordableMarkerAllowance`.
+  const allowance = affordableMarkerAllowance(markerAllowance, containerWidth, containerHeight);
   return clampFitPadding(
     {
-      top: FIT_BOUNDS_PADDING + topChrome + occlusion.top + markerAllowance.y,
-      bottom: FIT_BOUNDS_PADDING + occlusion.bottom + markerAllowance.y,
-      left: FIT_BOUNDS_PADDING + occlusion.left + markerAllowance.x,
-      right: FIT_BOUNDS_PADDING + occlusion.right + markerAllowance.x,
+      top: FIT_BOUNDS_PADDING + topChrome + occlusion.top + allowance.y,
+      bottom: FIT_BOUNDS_PADDING + occlusion.bottom + allowance.y,
+      left: FIT_BOUNDS_PADDING + occlusion.left + allowance.x,
+      right: FIT_BOUNDS_PADDING + occlusion.right + allowance.x,
     },
     containerWidth,
     containerHeight
@@ -425,19 +458,18 @@ export function MapSurfaceMapcn({
    * `minzoom` was applied unconditionally that second surface simply emptied as you zoomed out.
    */
   const hasSummaryBands = summaries !== undefined;
-  // Every disc either band's features can reference: one per country in the state it is drawn in,
-  // plus the plain flagless disc the *area* band draws on. Derived from the same list the features
-  // are, so an `icon-image` id can never be referenced without its image having been offered to
-  // `addImage` in the same commit — a symbol that names a missing image draws no icon, and with a
-  // count in the same layer it would degrade to a bare number floating on the map.
+  // Every disc the *country* band's features can reference, in the state each is drawn in. Derived
+  // from the same list the features are, so an `icon-image` id can never be referenced without its
+  // image having been offered to `addImage` in the same commit — a symbol that names a missing
+  // image draws no icon at all.
+  //
+  // The area band's pills are not here: they carry the area's name and its **laid-out** count, and
+  // that count is decided by `area-band-layout.ts` inside `SummaryMarkerLayer`, which builds and
+  // adds them there.
   const discs = useMemo(
-    () => [
-      AREA_DISC_SPEC,
-      ...(summaries?.countries ?? []).map((country) => ({
-        countryCode: country.countryCode,
-        ...(country.key === summaries?.activeCountryKey ? { active: true } : {}),
-      })),
-    ],
+    // Both label states, because a resize swaps `icon-image` between them and an id whose image
+    // was never added draws nothing at all.
+    () => countryPillSpecs(summaries?.countries ?? [], summaries?.activeCountryKey ?? null),
     [summaries]
   );
   /**
@@ -1474,7 +1506,7 @@ export function MapSurfaceMapcn({
           group cannot drift apart at a breakpoint. `MapControls` is taken out of its own corner by
           `relative bottom-auto right-auto`, which `cn`'s tailwind-merge resolves against the
           `absolute bottom-* right-*` it applies itself. */}
-      <div className="absolute right-2 z-10 flex flex-col items-end gap-1.5 bottom-[calc(128px+env(safe-area-inset-bottom)+3rem)] lg:bottom-10">
+      <div className="absolute right-2 z-10 flex flex-col items-end gap-1.5 bottom-[calc(156px+env(safe-area-inset-bottom)+3rem)] lg:bottom-10">
         {controlSlot}
         <MapControls
           showZoom
@@ -1515,6 +1547,7 @@ export function MapSurfaceMapcn({
           if (place && onPlaceClick) onPlaceClick(place);
         }}
       />
+      {onDeselect && <BackgroundDismiss onDeselect={onDeselect} />}
       {/* The lifted, named pin for whichever row the pointer is on. Mounted *after* the pin layer,
           which is what puts it above — MapLibre draws in the order layers are added, and the
           highlight has to be on top of the neighbour it overlaps. It answers no pointer events, so
@@ -1538,6 +1571,12 @@ export function MapSurfaceMapcn({
           key={selected.id}
           longitude={selected.lng}
           latitude={selected.lat}
+          // MapLibre's own `closeOnClick` removed this popup's DOM on *any* map click, including
+          // the click that selected a pin — so a tap read as select-then-dismiss, and re-tapping
+          // the pin already selected left the place selected with no card. Dismissal is explicit
+          // now, in `BackgroundDismiss`, which is the same event routed through the caller's guard
+          // instead of around it.
+          closeOnClick={false}
           onClose={() => onDeselect?.()}
           // `overflow-hidden` so the shell's own `rounded-md` clips what it contains — specifically
           // the source still, which is full-bleed here and would otherwise paint its square corners

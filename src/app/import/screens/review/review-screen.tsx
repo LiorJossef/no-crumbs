@@ -32,13 +32,20 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ENTER_NEWS, ENTER_REVEAL, ENTER_SCREEN, LEAVE_REVEAL, REVEAL_BEAT } from '@/lib/interaction';
 import {
+  ALREADY_ADDED_ALL_LINE,
   candidateMeta,
   candidateTitle,
+  everyPlaceAlreadyAdded,
   isSaveable,
   saveButtonLabel,
   skippedNotice,
   isHashtagOnly,
 } from '@/domain/import/candidate-presentation';
+import {
+  alreadyAddedFromSource,
+  priorSaveKeys,
+  priorSaveNotice,
+} from '@/domain/import/prior-saves';
 import { NOTE_MAX_LENGTH, validateNote } from '@/domain/places/note';
 import {
   arrivesTicked,
@@ -135,6 +142,29 @@ export function CaptionPreviewScreen({
    * model coordinate. It is recomputed as picks change, because picking an option is exactly what
    * turns an unsaveable `ambiguous` candidate into a saveable one.
    */
+  /**
+   * The identity spellings of everything this person already added **from this same TikTok video**
+   * — the measured cause of round-3 feedback §6.1, which is re-adding one video and not two
+   * candidates of one extraction. `domain/import/prior-saves.ts` carries the rows and the argument.
+   */
+  const priorKeys = useMemo(() => priorSaveKeys(probe.priorSaves ?? []), [probe.priorSaves]);
+
+  /**
+   * Whether the name **this card would write** is already on the map from this video.
+   *
+   * Recomputed rather than memoised on `picks`, because picking another shortlist row changes the
+   * name the save writes and therefore changes the answer: pick your existing `רגאצי` and the card
+   * says so; pick the other branch of the chain and it stops saying so, correctly.
+   */
+  function alreadyAdded(i: number): boolean {
+    const candidate = probe.candidates[i];
+    if (candidate === undefined) return false;
+    return alreadyAddedFromSource(
+      priorKeys,
+      savedPlaceName(views[i]!, picks.get(i) ?? null) ?? candidateTitle(candidate),
+    );
+  }
+
   const saveableIndices = useMemo(
     () =>
       probe.candidates
@@ -171,7 +201,15 @@ export function CaptionPreviewScreen({
     () =>
       new Set(
         probe.candidates
-          .map((c, i) => (arrivesTicked(isSaveable(c), views[i]!, isHashtagOnly(probe.caption, c)) ? i : -1))
+          .map((c, i) =>
+            arrivesTicked(isSaveable(c), views[i]!, isHashtagOnly(probe.caption, c)) &&
+            !alreadyAddedFromSource(
+              priorKeys,
+              savedPlaceName(views[i]!, null) ?? candidateTitle(c),
+            )
+              ? i
+              : -1,
+          )
           .filter((i) => i >= 0),
       ),
   );
@@ -218,6 +256,42 @@ export function CaptionPreviewScreen({
   const frozen = statusByIndex !== null || saving;
 
   /**
+   * The screen-level "you have been here before" notice.
+   *
+   * Suppressed once a save has reported per-card outcomes: that state's job is to say what just
+   * happened, and a sentence about what happened last week would be read as part of it.
+   *
+   * `markedCount` decides its last sentence, and that is the point of passing it. With matches it
+   * can talk about the list below; with none — which is what a prompt-version bump produces, the
+   * model re-spelling one venue as `Kiaans Tooting` — it says so instead of pointing at cards that
+   * are not marked.
+   */
+  const markedCount = probe.candidates.filter((_, i) => alreadyAdded(i)).length;
+  const priorNotice =
+    statusByIndex === null ? priorSaveNotice(probe.priorSaves ?? [], markedCount) : null;
+
+  /**
+   * **Every place on this screen is already on the map from this same video, and nothing is
+   * ticked** — H2-T1, and the state lane H left with a dead button on it.
+   *
+   * `Select a place to save` is true only when the reason nothing is selected is that the user has
+   * not chosen. Here the reason is that *we* unticked everything, because they already have it, so
+   * the button was blaming the person for our own default and offering no way forward. That
+   * pairing — a dead primary and a false explanation — is precisely why the owner rejected a
+   * global duplicate check on 2026-08-29.
+   *
+   * The answer is not a better disabled label. There is nothing to save, the user's job here is
+   * done, and the honest primary is the way back to their map. Everything that made the previous
+   * behaviour information rather than a block survives untouched: the cards are still listed, the
+   * checkboxes still work, `Select all` still reaches them, and ticking one brings Save straight
+   * back as the primary — which is what makes this a statement rather than a refusal.
+   */
+  const nothingLeftToAdd =
+    statusByIndex === null &&
+    selectedCount === 0 &&
+    everyPlaceAlreadyAdded(n, markedCount);
+
+  /**
    * One candidate, and the resolver settled it — so the screen states the result instead of asking
    * a question with one legal answer (`ux-import-flatten.md` §3). The band is `collapsesToOneResult`'s
    * and therefore `deriveResolution`'s; this screen adds no threshold of its own.
@@ -225,11 +299,29 @@ export function CaptionPreviewScreen({
    * Suppressed once a save has reported per-card outcomes: that state's whole job is a status chip
    * on a card, and the collapsed layout has no card.
    *
-   * What it does not touch is the decision. Save is still one explicit press and still says
-   * `Nothing is saved until you tap Save.` — the collapse removes the sub-decisions (Charter §3
+   * What it does not touch is the decision. Save is still one explicit press and the screen still
+   * says `Nothing is saved yet.` — the collapse removes the sub-decisions (Charter §3
    * invariant 2).
    */
-  const collapsed = statusByIndex === null && collapsesToOneResult(views);
+  /**
+   * …and **not when that one result is already on the map from this same video** (H2-T1).
+   *
+   * The collapsed layout deletes the card, and with it the checkbox: `candidate-card.tsx`'s
+   * `if (collapsed)` branch renders the pin line, the shortlist and the note row, and no selection
+   * control at all. That is right when the screen's job is "state the result, offer to save it" —
+   * there is one place and one button.
+   *
+   * It is wrong here, and it was wrong on a screen before it was wrong in the abstract: at
+   * `?state=review-added-one`, 390x844, the notice read *"It's not selected below. Select it to add
+   * it again"* above a layout with nothing to select. Two ways out of that, and only one of them
+   * keeps the 2026-08-29 ruling — rewriting the sentence would make the screen truthful by
+   * withdrawing the offer, while un-collapsing gives the sentence back the control it names. The
+   * card layout is the one that can say *this is already yours, add it anyway if you mean to*.
+   *
+   * Keyed on `markedCount`, which does not move when the user ticks the box, so the screen cannot
+   * change layout under their thumb.
+   */
+  const collapsed = statusByIndex === null && collapsesToOneResult(views) && markedCount === 0;
   /** The name the save will write, exactly as the card derives it — so the H1 and the request can
    *  never name different places, and picking another row re-titles the screen. */
   const soleTitle =
@@ -249,13 +341,22 @@ export function CaptionPreviewScreen({
   return (
     <div className={cn('flex min-h-0 flex-1 flex-col', ENTER_SCREEN)}>
       <div className="flex shrink-0 flex-col gap-1 pb-4">
-        <ScreenKicker
-          icon={<SearchCheck className="size-3.5" aria-hidden />}
-          // The kicker carries the count and the H1 carries the name: at N = 1 the count is not
-          // information — the screen shows one place — and "Review & confirm" names a process
-          // rather than the result (`ux-import-flatten.md` §5).
-          label={collapsed ? '1 place found' : 'Review & confirm'}
-        />
+        {/*
+          **One kicker, and only on the collapsed card.**
+
+          At N = 1 the H1 is the place's own name, so the kicker is the only thing on screen that
+          says how many were found — it is information. At N >= 2 the H1 already reads `3 places
+          found` and the kicker read `Review & confirm` directly above it: a label naming the
+          process over a heading naming the result, two lines saying one thing on the densest
+          screen in the product (`ux-overwhelm-audit-2026-09-02.md` §3c #1). The file had already
+          made this call once, for the count, and kept the process word; this finishes it.
+        */}
+        {collapsed && (
+          <ScreenKicker
+            icon={<SearchCheck className="size-3.5" aria-hidden />}
+            label="1 place found"
+          />
+        )}
         <h1
           id={headingId}
           className={cn(
@@ -373,6 +474,39 @@ export function CaptionPreviewScreen({
         </div>
       )}
 
+      {priorNotice && (
+        <div
+          role="status"
+          className={cn(
+            // **Neutral, not warning-tinted.** Coming back to a video you have already added from
+            // is news, and H2-T1 measured what happens when it is made invisible — but it is not a
+            // caution, and `--warning` is the token this product spends on things that need care.
+            // At the top of the review screen it was the loudest block above the fold, louder than
+            // the H1 and the primary. `bg-card-2` is the same quiet surface the caption panel two
+            // rows up already uses, so the two pieces of context read as one tier.
+            //
+            // Tighter, too: `py-2` and `leading-snug`, which is where most of its height went.
+            'mb-3 shrink-0 rounded-lg bg-card-2 px-3 py-2 text-caption leading-snug font-medium text-foreground',
+            ENTER_NEWS,
+          )}
+        >
+          {/* Names are `<bdi>`-wrapped and the sentence arrives in parts for the reason every name
+              on this screen does: half of them are Hebrew, and a joined string puts an RTL run
+              beside LTR punctuation and lets the bidi algorithm move the comma. */}
+          <p>
+            {priorNotice.lead}{' '}
+            {priorNotice.names.map((name, i) => (
+              <span key={name + String(i)}>
+                {i > 0 && ', '}
+                <bdi className="font-bold">{name}</bdi>
+              </span>
+            ))}
+            {priorNotice.more !== null && `, ${priorNotice.more}`}
+          </p>
+          <p className="mt-0.5 text-muted-foreground">{priorNotice.tail}</p>
+        </div>
+      )}
+
       <div className="flex min-h-0 flex-1 flex-col gap-3">
         {/* No zero-candidate arm, and it is unreachable two ways. `submit()` sends every
             zero-candidate probe to `NoPlacesScreen` instead, so this component is only ever
@@ -383,35 +517,22 @@ export function CaptionPreviewScreen({
             anything that splits this request in two has to re-establish them before assuming
             `n >= 1` here. */}
         {n >= 2 && statusByIndex === null && (
-          <div className="flex shrink-0 items-center justify-between">
-            {/*
-              **The denominator is the headline's number, and that is the whole point of it.**
+          /*
+            **`Select all` alone, and the count it used to sit beside is gone.**
 
-              It used to be `saveableIndices.length`, which produced `3 places found` in the H1 and
-              `1 of 2 selected` in the line directly beneath it — two true statements whose
-              relationship the screen never accounted for. A reader is told there are three, then
-              that there are two, and cannot tell whether the product lost one, is hiding one, or
-              is broken. That is §8a's Q3 one layer up from a false claim: not a lie, but two counts
-              silently changing population between adjacent lines.
+            The line read `1 of 3 selected` next to a control whose own label already reports the
+            state — `Select all` when nothing is, `Deselect all` when everything is — over three
+            tickboxes the reader can see. It was the screen counting its own checkboxes out loud
+            (`ux-overwhelm-audit-2026-09-02.md` §3c #7).
 
-              The candidate that fell out was **not** the capped one — that is saveable and merely
-              arrives unticked (W1-4). It was an `ambiguous` card with a real shortlist and no model
-              pin: `willSave` is false for it until the user picks, so it was in the headline and
-              not in the denominator. Both populations are now the same one, and each card accounts
-              for itself in the badge slot W6-4 promoted — `Needs your pick` on that card, `Not
-              checked` on the capped one.
-
-              `Select all` therefore settles at `2 of 3` here rather than `2 of 2`, with the toggle
-              reading `Deselect all`. That is the honest reading: everything that *can* be selected
-              is, and the third card says on its face why it is not among them. Making the headline
-              say 2 instead would be the other way of squaring the numbers, and it is the one
-              `resolution-record.ts` forbids — a capped candidate is kept and visible rather than
-              silently dropped, and W1-4 was entirely about not letting the least-verified card
-              disappear into a default.
-            */}
-            <p className="text-caption font-medium text-muted-foreground">
-              {selectedCount} of {n} selected
-            </p>
+            **The denominator ruling it carried survives in the test, not here.** When this screen
+            renders a count of what is selected it must use `n`, the headline's number, never
+            `saveableIndices.length` — `3 places found` above `1 of 2 selected` is two true counts
+            over two silently different populations. That is pinned by
+            `tests/unit/import/review-screen-counts.test.ts`, which now guards the shape's absence
+            and the fixture that made it wrong.
+          */
+          <div className="flex shrink-0 items-center justify-end">
             <button
               type="button"
               disabled={frozen}
@@ -444,6 +565,7 @@ export function CaptionPreviewScreen({
               frozen={frozen}
               status={statusByIndex?.get(i) ?? null}
               collapsed={collapsed}
+              alreadyAdded={alreadyAdded(i)}
               note={notes.get(i) ?? ''}
               onToggle={() => toggle(i)}
               onPick={(optionIndex) => pick(i, optionIndex)}
@@ -478,6 +600,24 @@ export function CaptionPreviewScreen({
           >
             Continue to map →
           </Button>
+        ) : nothingLeftToAdd ? (
+          <>
+            {/* The statement the button used to make badly, made as a sentence instead — and above
+                the control, so it reads as the reason rather than as a caption on it. Not
+                `role="status"`: it is on screen from the first paint, and a live region would
+                announce it a second time after the notice at the top of the screen already said
+                which places these are. */}
+            <p className="text-center text-sm font-semibold text-foreground">
+              {ALREADY_ADDED_ALL_LINE}
+            </p>
+            <Button
+              type="button"
+              onClick={onContinue}
+              className="h-14 w-full gap-1.5 rounded-lg text-base font-bold"
+            >
+              {IMPORT_ERROR_ACTION_LABEL.back_to_map} →
+            </Button>
+          </>
         ) : saveableIndices.length === 0 ? (
           <>
             <Button
@@ -534,8 +674,22 @@ export function CaptionPreviewScreen({
                 {IMPORT_ERROR_ACTION_LABEL.back_to_map}
               </Button>
             )}
+            {/*
+              **Charter §3 invariant 2, in the fewest words that still carry it.**
+
+              It read `Nothing is saved until you tap Save.` directly under a 56px button reading
+              `Save 2 places` — a sentence explaining a button by naming the button
+              (`ux-overwhelm-audit-2026-09-02.md` §3c #11). What may not be deleted is the *fact*:
+              a person has to be able to tell that nothing has been written yet, and the collapsed
+              card is the state most likely to read as already done.
+
+              `Nothing is saved yet.` keeps the fact and drops the instruction the button above it
+              is already giving. It stays unconditional, and it stays the visible half of the
+              invariant `tests/unit/import/one-result-collapse.test.ts` guards — that test asserts
+              this literal *and* that no effect in this component can call the save.
+            */}
             <p className="text-center text-xs font-medium text-muted-foreground">
-              Nothing is saved until you tap Save.
+              Nothing is saved yet.
             </p>
           </>
         )}

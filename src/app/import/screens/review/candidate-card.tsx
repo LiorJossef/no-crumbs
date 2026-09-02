@@ -30,12 +30,14 @@ import {
   candidateMeta,
   candidateTitle,
   isHashtagOnly,
+  isTaggedAccountOnly,
   isSaveable,
   locationLine,
 } from '@/domain/import/candidate-presentation';
 import { googleMapsSearchUrl } from '@/domain/places/google-maps-search-url';
 import { deriveSavedPlaceEnrichment } from '@/domain/import/saved-place-enrichment';
 import { tagDisplayLabel } from '@/domain/extraction/tags';
+import { ALREADY_ADDED_LINE } from '@/domain/import/prior-saves';
 import type { PlaceCandidate } from '@/domain/types';
 import {
   effectivePick,
@@ -72,6 +74,15 @@ export const STATUS_CHIP: Record<ItemStatus, { readonly label: string; readonly 
 const COUNTER_VISIBLE_FROM = NOTE_MAX_LENGTH - 200;
 
 /**
+ * How many proposed tags a card shows before the rest become a count.
+ *
+ * Three, matching the library row's own fold (`splitRowTags`), so the review screen and the place
+ * it becomes do not disagree about how many tags fit on one line. See `tagRow` for why the
+ * remainder is a `+N` and not a silent truncation.
+ */
+const MAX_PROPOSED_TAGS_SHOWN = 3;
+
+/**
  * One candidate, as a decision rather than a readout.
  *
  * Two zones separated by a hairline: above it, what we believe this place is; below it, how sure
@@ -91,6 +102,7 @@ export function ExtractedCandidateRow({
   frozen,
   status,
   collapsed,
+  alreadyAdded,
   onToggle,
   onPick,
   onNoteChange,
@@ -112,6 +124,18 @@ export function ExtractedCandidateRow({
    *  carries this candidate's name and meta, so the card drops its own chrome, its tickbox and
    *  that name. Only ever true for a `matched` view — see `collapsesToOneResult`. */
   collapsed: boolean;
+  /**
+   * This person already added a place with this name **from this same TikTok video**
+   * (`domain/import/prior-saves.ts`). The card says so and the screen leaves it unticked; it is
+   * never a refusal — the tickbox works, and picking a shortlist row or writing a note still ticks
+   * it, because both are decisions about this place.
+   *
+   * **Not the global duplicate warning the owner rejected on 2026-08-29.** That one fired on any
+   * place already anywhere on the map, said nothing, and left a single-candidate post with a dead
+   * primary button. This is scoped to one source, is what round-3 feedback §6.1 measured, and the
+   * screen leads with a sentence naming what was added before.
+   */
+  alreadyAdded: boolean;
   onToggle: () => void;
   onPick: (optionIndex: number) => void;
   onNoteChange: (value: string) => void;
@@ -189,20 +213,62 @@ export function ExtractedCandidateRow({
    * control's accessible name is the correct outcome anyway — the thing the user presses names the
    * tags it is going to write.
    */
+  /** Where the caption actually named this place, when it named it only in a tag. One line, one
+   *  fact, and never two at once — a name inside a hashtag is not also a tagged account. */
+  const evidenceNote: string | null = isHashtagOnly(caption, candidate)
+    ? 'Only mentioned in a hashtag.'
+    : isTaggedAccountOnly(caption, candidate)
+      ? 'Only mentioned as a tagged account.'
+      : null;
+
   const proposedTags = deriveSavedPlaceEnrichment(candidate)?.tags ?? [];
+  /**
+   * **Three chips, then a count** (`ux-overwhelm-audit-2026-09-02.md` §7 item 13).
+   *
+   * **The audit's premise is wrong and the cap is kept anyway, which needs saying.** It counts
+   * "0-6 tag pills" per card and multiplies them by three cards; the real ceiling is **two**.
+   * `normaliseTags` truncates to `MAX_TAGS_PER_CANDIDATE` (= `MAX_SUB_TAGS_PER_PLACE` = 2) before
+   * anything is stored, so no candidate the probe returns can carry a third tag, and this slice
+   * does not bind on any data the product can currently produce. Verified by reading
+   * `domain/extraction/tags.ts:84,247`, not by watching a screen — the pills are simply not the
+   * density the audit measured, and the screen it photographed shows at most six across three
+   * cards, not eighteen.
+   *
+   * It stays because it costs one `slice` and it is the taxonomy cap's only downstream guard: that
+   * ceiling is a product decision that has already moved once (five to two), and the row it feeds
+   * is the one place where growing it silently would file words under someone's library that this
+   * card never showed them. `tests/unit/import/review-tags.test.ts` pins the two numbers against
+   * each other so a future raise has to look here.
+   *
+   * **The consent argument above survives, and the `+N` is why.** It requires the tags to be
+   * *shown* before the save writes them, not to be shown all at once, and a silent truncation
+   * would fail it — a word filed under someone's library that they were never told about is the
+   * assertion this card exists to refuse. `+2` is telling them: the count is exact, it is inside
+   * the same tickbox and therefore inside the control's accessible name, and the full list is on
+   * the place the moment it is saved. What is deliberately not here is a disclosure control —
+   * this block sits inside a `<button role="checkbox">`, so a nested button is invalid markup,
+   * and a second tap target per card is the density the audit is about.
+   */
+  const shownTags = proposedTags.slice(0, MAX_PROPOSED_TAGS_SHOWN);
+  const hiddenTagCount = proposedTags.length - shownTags.length;
   const tagRow = proposedTags.length > 0 && (
     <span className="mt-1 flex flex-wrap gap-1">
-      {proposedTags.map((tag) => (
+      {shownTags.map((tag) => (
         <span
           key={tag}
           // Read by the browser measurement in `docs/`-filed evidence and by nothing in the app.
           data-review-tag=""
           dir="auto"
-          className="inline-block max-w-full truncate rounded-full bg-tag px-2 py-0.5 text-micro leading-4 font-bold text-tag-foreground"
+          className="inline-block max-w-full truncate rounded-full bg-tag px-2 py-0.5 text-micro leading-4 font-medium text-tag-foreground"
         >
           {tagDisplayLabel(tag)}
         </span>
       ))}
+      {hiddenTagCount > 0 && (
+        <span className="inline-block px-1 py-0.5 text-micro leading-4 font-medium text-muted-foreground">
+          +{hiddenTagCount}
+        </span>
+      )}
     </span>
   );
 
@@ -258,7 +324,12 @@ export function ExtractedCandidateRow({
           badge !== null && (
             <span
               className={cn(
-                'shrink-0 rounded-full px-2 py-0.5 text-micro font-bold',
+                // **`font-medium`, not `font-bold`.** This is a label on the name beside it, and it
+                // was set heavier than the name it labels — `From the map data` in bold beside
+                // `HaKosem` in bold reads as two headings on one row. The three tones are
+                // untouched: mint stays exclusive to `settled` and the caption pin keeps its amber,
+                // because the tone is the claim and only the weight was the shouting.
+                'shrink-0 rounded-full px-2 py-0.5 text-micro font-medium',
                 badge.tone === 'settled' && 'bg-accent text-brand',
                 badge.tone === 'caption' && 'bg-warning/10 text-warning',
                 badge.tone === 'needs_pick' && 'bg-card-2 text-foreground',
@@ -277,9 +348,17 @@ export function ExtractedCandidateRow({
       <p className="line-clamp-1 text-caption font-medium text-muted-foreground">
         <bdi>{candidateMeta(candidate)}</bdi>
       </p>
+      {/* Above the tags and the evidence note, not in the badge slot: that slot answers "where did
+          this pin come from?" and is already spoken for on every card. This answers a different
+          question — "have I done this already?" — and it is the reason the box below it is
+          unticked, so it sits where a reason sits. Warning-toned rather than grey because it is
+          news, and grey is what made the rejected 2026-08-29 version invisible. */}
+      {alreadyAdded && status === null && (
+        <p className="text-xs font-medium text-warning">{ALREADY_ADDED_LINE}</p>
+      )}
       {tagRow}
-      {isHashtagOnly(caption, candidate) && (
-        <p className="mt-1 text-xs font-medium text-muted-foreground">Only mentioned in a hashtag.</p>
+      {evidenceNote !== null && (
+        <p className="mt-1 text-xs font-medium text-muted-foreground">{evidenceNote}</p>
       )}
     </div>
   );
@@ -318,18 +397,23 @@ export function ExtractedCandidateRow({
           </button>
         ) : (
         <>
-        <div className="flex flex-col gap-0.5">
-          <p
-            id={`${optionsId}-label`}
-            className={cn(
-              'text-micro font-bold tracking-[0.08em] uppercase',
-              view.kind === 'matched' ? 'text-brand' : 'text-foreground',
-            )}
-          >
+        {/* One line, not a stacked block (E-T4, feedback round 3 §2.7). The words are unchanged —
+            they are ruled copy — but the treatment was an 11px uppercase tracked label over a
+            second sentence, inside a modal the same feedback calls dense. Uppercase + letter-
+            spacing is the loudest type this screen owns and it was spending it on a question that
+            already has a radio group under it. Sentence case, one row, the explanation trailing in
+            muted weight: the same two facts, one block instead of two. */}
+        {/* `font-semibold`, and the muted colour on the matched card: the heading half of this line
+            was heavier and darker than the option names it introduces, which are `text-caption
+            font-bold`. A label may not outweigh its content. The ambiguous card keeps
+            `text-foreground` — there the line is a question the user has to answer before the card
+            can be saved, and it is the only thing on the card that says so. */}
+        <p id={`${optionsId}-label`} className="text-xs leading-5 font-medium text-muted-foreground">
+          <span className={cn('font-semibold', view.kind === 'matched' ? 'text-brand' : 'text-foreground')}>
             {resolutionHeadline(view)}
-          </p>
-          <p className="text-xs font-medium text-muted-foreground">{resolutionExplanation(view)}</p>
-        </div>
+          </span>{' '}
+          {resolutionExplanation(view)}
+        </p>
         <ul id={optionsId} role="radiogroup" aria-labelledby={`${optionsId}-label`} className="flex flex-col gap-1">
           {options.map((option) => {
             const isChosen = chosen === option.index;
@@ -346,7 +430,12 @@ export function ExtractedCandidateRow({
                     // 390px viewport far more often than it fits on one, and a clipped address
                     // is the one thing this control exists to show.
                     'flex min-h-11 w-full items-start gap-2.5 rounded-lg border px-3 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default',
-                    isChosen ? 'border-brand bg-accent/40' : 'border-border/60 bg-background',
+                    // The unchosen rows keep the border's *metrics* and drop its ink (E-T4): a
+                    // stack of outlined boxes inside an outlined card inside a modal is the
+                    // density the feedback is about, and the radio dot already says these are
+                    // options. `border-transparent` rather than removing the border, so nothing
+                    // shifts by a pixel when a row becomes the chosen one.
+                    isChosen ? 'border-brand bg-accent/40' : 'border-transparent bg-card-2/60',
                   )}
                 >
                   <span
@@ -590,8 +679,8 @@ export function ExtractedCandidateRow({
             full card too. Without this branch the one layout a *confident* single result gets would
             be the only one that saved tags without showing them. */}
         {tagRow}
-        {isHashtagOnly(caption, candidate) && (
-          <p className="text-xs font-medium text-muted-foreground">Only mentioned in a hashtag.</p>
+        {evidenceNote !== null && (
+          <p className="text-xs font-medium text-muted-foreground">{evidenceNote}</p>
         )}
         {pinRow}
         {shortlist}

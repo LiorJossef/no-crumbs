@@ -38,13 +38,20 @@ export function leftPanelWidthPx(viewportWidth: number): number {
   return Math.min(392, Math.max(320, viewportWidth * 0.26));
 }
 
-// The sheet's peek height, mirrored from `PEEK_PX` in `src/components/sheet/place-sheet.tsx`.
+// The sheet's peek height, mirrored from `PEEK_PX` in `src/components/shell/sheet-geometry.ts`.
 // That module does not export it and this task does not own that file, so the value is duplicated
 // here with the coupling named rather than reached for: if the sheet's peek stop changes, this
 // must change with it, exactly as `leftPanelWidthPx` above documents its coupling to
 // `PlaceDesktopPanel`. The sheet adds `env(safe-area-inset-bottom)` on top of this number in CSS,
 // so the occluded strip is this plus the inset — see `safeAreaInsetBottomPx`.
-export const SHEET_PEEK_PX = 128;
+// **128 until 2026-09-02.** It grew to 156 because the peek row's 44 px button was sitting 14 px
+// behind the floating `BottomNav`; the band, not the row, was what had to give. That is a camera
+// change as much as a spacing one — this is the bottom of the query rect, so 28 px more of the
+// container is now counted as covered and the pins in it drop out of the visible list. Which is
+// correct: they are behind the sheet. The upper bound on this number comes from the other
+// consumer: `clampFitPadding` must still leave a bottom padding deeper than this strip on a
+// 320 px-tall landscape phone, which caps it at 158.
+export const SHEET_PEEK_PX = 156;
 
 /**
  * `env(safe-area-inset-bottom)` in pixels, which JavaScript cannot read directly — the only way to
@@ -91,7 +98,7 @@ export function safeAreaInsetBottomPx(): number {
  *
  * `bottomOcclusionPx` overrides the sub-`lg` sheet height for a surface whose sheet **rests**
  * somewhere other than the peek stop: `/collections/[id]` opens at the half stop and stays there, so
- * the chrome permanently over its map is ~55% of the viewport rather than 128 px. It replaces
+ * the chrome permanently over its map is ~55% of the viewport rather than 156 px. It replaces
  * `SHEET_PEEK_PX` only — `safe-area-inset-bottom` is still added on top of it, because the sheet
  * sits on that inset whatever stop it is at — and the `lg+` branch has no sheet to override.
  */
@@ -128,6 +135,49 @@ export function mapOcclusionInsets(
  * breathing room a fit already reserves: a band narrower than that is not a frame either way.
  */
 export const MIN_FIT_BAND_PX = 48;
+
+/**
+ * The largest share of one axis a **marker allowance** may spend on itself.
+ *
+ * The allowance is half a marker's width (or height), reserved on *both* sides of the fitted box,
+ * so a marker costs `2 × allowance` of the axis. That is cheap for a 206 px country pill on a
+ * 1440 px desktop — 14% — and ruinous for the same pill on a 390 px phone, where it is 53%.
+ *
+ * Measured on the owner's 58-place library at 390×844: the home fit is z2.556 without the
+ * allowance and z0.806 with it — the whole Earth, four country pills stacked on each other.
+ *
+ * So an allowance is **all or nothing per axis**. A partial one is the option that buys nothing:
+ * the marker is clipped either way and the fit has paid for it. Where the axis cannot afford the
+ * marker the honest frame is the box, and the pill gives way — the rule `LABEL_FIT_ALLOWANCE`
+ * already applies to a pin's label, stated for the axis instead of the band.
+ *
+ * A third is a judgement: loose enough that no desktop fit changes (206 px of pill against a
+ * 480 px budget at 1440 wide), tight enough that a phone never spends more.
+ */
+export const MAX_MARKER_ALLOWANCE_SHARE = 1 / 3;
+
+/**
+ * The part of a marker allowance the container can actually afford, per axis.
+ *
+ * `0` on an axis whose marker does not fit the share above — see `MAX_MARKER_ALLOWANCE_SHARE` for
+ * why dropping it entirely beats scaling it down. Non-finite and negative inputs collapse to zero
+ * here rather than travelling on into the camera.
+ */
+export function affordableMarkerAllowance(
+  allowance: { readonly x: number; readonly y: number },
+  containerWidth: number,
+  containerHeight: number
+): { readonly x: number; readonly y: number } {
+  const afford = (value: number, extent: number): number => {
+    if (!Number.isFinite(value) || value <= 0) return 0;
+    if (!Number.isFinite(extent) || extent <= 0) return 0;
+    return 2 * value <= extent * MAX_MARKER_ALLOWANCE_SHARE ? value : 0;
+  };
+  return {
+    x: afford(allowance.x, containerWidth),
+    y: afford(allowance.y, containerHeight),
+  };
+}
 
 /**
  * Shrink a `fitBounds` padding box until `MIN_FIT_BAND_PX` of map survives on both axes.
@@ -183,7 +233,7 @@ function clampPaddingAxis(start: number, end: number, extent: number): [number, 
  * the inset rectangle.
  *
  * **Not** `getBounds()` plus arithmetic on the returned lat/lngs. Degrees are not linear in screen
- * pixels: subtracting a "128 px worth of latitude" is wrong at every zoom, wrong near the poles
+ * pixels: subtracting a "156 px worth of latitude" is wrong at every zoom, wrong near the poles
  * where Mercator stretches, and meaningless under a rotated or pitched camera, where the visible
  * region is a trapezoid rather than an axis-aligned box. Unprojecting the corners asks the camera
  * itself, so it stays correct under all three.

@@ -148,6 +148,30 @@ end $$;
 -- So the bound is now 1 and says why. Writing a measured count into an assertion makes the number
 -- load-bearing when only its being non-zero ever was — the same shape as `0008`'s whole-table
 -- counts, which fail on any database anyone has used.
+--
+-- ═══ AND THE BOUND NOW SUPPLIES ITS OWN ROW — added 2026-09-02 ═══════════════════════════════
+-- The lower bound was still reading AMBIENT data, and CI has none: the `database` job rebuilds the
+-- schema from 0001 with `--no-seed`, so `profiles` holds exactly the three fixtures P0 just made,
+-- all of them post-cutoff. `n_old` was 0 and P1a raised — a green suite locally, a red one in CI,
+-- and the failure said the assertion would be vacuous, which was true and was nobody's regression.
+--
+-- The property under test was never "this database has legacy rows". It is "a profile that predates
+-- 0035 does not acquire a name out of nowhere". So the file makes such a profile itself and stops
+-- depending on the environment for it. `up` is created the way every other fixture here is —
+-- through `on_auth_user_created` — with `{}` metadata so it takes no `profile_names` row, and its
+-- `profiles.created_at` is then backdated behind the cutoff. Everything rolls back.
+--
+-- This also gives P1c a deterministic subject. It used to reach for the oldest real user's row and
+-- SKIP when there was none; it now finds `up` first on any database, which is why the header's
+-- "the one place this file touches a real user's row" is no longer true — and that is a repair, not
+-- a loss. A fixture proves the property; a stranger's row only proved the property AND that the
+-- stranger existed.
+\set up '10000000-0000-4000-8000-000000000035'
+
+insert into auth.users (id, email, raw_user_meta_data) values
+  (:'up', 'names-legacy@example.test', '{}'::jsonb);
+update public.profiles set created_at = '2026-08-01 00:00:00+00' where id = :'up';
+
 do $$
 declare n_old integer; n_named integer;
 begin

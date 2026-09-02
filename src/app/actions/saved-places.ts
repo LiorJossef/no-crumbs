@@ -108,6 +108,67 @@ export async function deleteSavedPlace(savedPlaceId: string): Promise<SavedPlace
 }
 
 /**
+ * The outcome of a delete that names more than one row.
+ *
+ * A count rather than a boolean, because a bulk delete under RLS has a genuine middle: `.in()`
+ * matches the caller's own rows and silently matches zero of anybody else's, so ten ids can come
+ * back as seven deleted with no error anywhere. Reporting that as `ok: true` would hide it and
+ * reporting it as `ok: false` would deny the seven — so the caller gets the number and decides
+ * what to say.
+ *
+ * `requested` is echoed back so the caller does not have to remember the length of the array it
+ * sent in order to know whether the answer was partial.
+ */
+export type BulkDeleteResult =
+  | { readonly ok: true; readonly deleted: number; readonly requested: number }
+  | { readonly ok: false; readonly message: string };
+
+/**
+ * Deletes several of the caller's saved places in one statement.
+ *
+ * **The same delete as `deleteSavedPlace`, widened from `.eq` to `.in`, and nothing else.** No
+ * `SECURITY DEFINER` RPC and no loop: `saved_places_delete_own` (`0006`) is evaluated per row, so
+ * an id the caller does not own contributes zero rows to `count` and no error — partial success is
+ * a property of the policy, not something this function has to compute. Adding a bulk RPC would
+ * move the authorisation decision out of the policy and into a function body, which is the one
+ * thing `deleteSavedPlace`'s header argues against.
+ *
+ * **This is the irreversible removal**, the same one `deleteSavedPlace` performs: it removes
+ * `saved_places` rows and the notes, tags and Been marks on them, cascades `saved_place_sources`,
+ * and never touches `places`. It is deliberately not the same action as taking places out of a
+ * collection (`removeCollectionItems`) — see `docs/ux-two-removals-one-screen.md`; one control
+ * must never do both.
+ */
+export async function deleteSavedPlaces(
+  savedPlaceIds: readonly string[],
+): Promise<BulkDeleteResult> {
+  const ids = [...new Set(savedPlaceIds)];
+  // Not an error and not a round trip. An empty selection is a caller-side state, and PostgREST
+  // would turn `.in('id', [])` into a delete matching everything's complement — cheap to get wrong,
+  // so it never reaches the database.
+  if (ids.length === 0) return { ok: true, deleted: 0, requested: 0 };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, message: NOT_SIGNED_IN };
+
+  const { error, count } = await supabase
+    .from('saved_places')
+    .delete({ count: 'exact' })
+    .in('id', ids);
+
+  if (error) {
+    console.error('deleteSavedPlaces failed', { requested: ids.length, code: error.code });
+    return { ok: false, message: FAILED_DELETE };
+  }
+
+  revalidatePath('/map');
+  return { ok: true, deleted: count ?? 0, requested: ids.length };
+}
+
+/**
  * Sets (or clears) the caller's own note on a saved place.
  *
  * The note is the *only* user-writable text here. `0015` deliberately keeps `extracted_reason`

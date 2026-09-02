@@ -116,6 +116,7 @@ import {
   notAuthenticated,
   type DomainErrorCode,
 } from '@/domain/errors';
+import { readPriorSaves } from '@/app/api/imports/_lib/prior-saves';
 import {
   describeCause,
   httpStatusFor,
@@ -846,6 +847,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             ? 'area_only'
             : 'nothing_named';
 
+    /**
+     * What this user has already added from this same source (lane H, round-3 feedback §6.1).
+     *
+     * Read here rather than in a server action because this request is the only thing that knows
+     * `raw.id`, and the review screen needs the answer at the moment it seeds its selection, not a
+     * round trip later — `_lib/prior-saves.ts` carries the full argument. Awaited after the
+     * bookkeeping writes so a slow read costs nothing that was already earned, and best-effort by
+     * construction: it returns `[]` on any failure and can never fail an import.
+     */
+    const priorSaves = await readPriorSaves(db, { sourceId: raw.id, userId: user.id });
+
     return NextResponse.json({
       sourceId: raw.id,
       /** Null only when persisting the extraction failed; the client must not offer a save then. */
@@ -870,6 +882,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
        * while carrying everything a review screen needs to show what was matched and what was not.
        */
       candidates: storedCandidates,
+      /** Oldest first. Empty on the common path and on any read failure — a notice, not a gate. */
+      priorSaves,
     });
   } catch (e) {
     // `String(e)` as the message was the old shape; the cause is kept as a real `cause` now and

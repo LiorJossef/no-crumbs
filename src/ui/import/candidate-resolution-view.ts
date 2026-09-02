@@ -30,6 +30,7 @@
  *     kinds and different words.
  */
 
+import { offerableShortlist } from '@/domain/import/offerable-shortlist';
 import { deriveResolution } from '@/domain/import/pipeline';
 import type { StoredFailureReason, StoredResolution } from '@/domain/import/resolution-record';
 import type { RankedPlace, ResolvedPlace } from '@/domain/types';
@@ -126,7 +127,11 @@ export function resolutionView(resolution: StoredResolution | null): CandidateRe
   const derived = deriveResolution(resolution.result);
   if (derived.status === 'unresolved') return { kind: 'unresolved' };
 
-  const options = resolution.result.shortlist.map(toOption);
+  // Not the whole shortlist (E-T1): the rows within a score band of the top. Under `confirm` the
+  // band is decided on the top row alone, so rows 2..5 used to arrive with no floor at all and a
+  // weak name plus a city hint offered five unrelated venues as five equally likely answers.
+  // `offerableShortlist` is a prefix, so an option's index is still its stored shortlist index.
+  const options = offerableShortlist(resolution.result.shortlist).map(toOption);
   // An empty shortlist cannot produce `resolved`/`ambiguous` from `deriveResolution`, but a view
   // with a picker and no options would be a dead control, so the impossible case is stated.
   if (options.length === 0) return { kind: 'unresolved' };

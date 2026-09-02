@@ -40,7 +40,7 @@ import {
   useTransition,
 } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Check, ChevronRight, FolderPlus, Plus } from 'lucide-react';
+import { ArrowLeft, Check, ChevronRight, Plus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,6 +48,11 @@ import { addToCollectionLabel, useCollections } from '@/ui/place/collections-con
 import { addPlacesToCollection, removePlaceFromCollection } from '@/app/actions/collections';
 import { attemptCreateCollection } from '@/components/collections/use-create-collection';
 import { attemptWrite } from '@/ui/place/write-failure';
+import {
+  DETAIL_FIELD_ROW,
+  DETAIL_FIELD_VALUE,
+} from '@/components/sheet/saved-place-edits';
+import { SECTION_LABEL } from '@/ui/place/section-label';
 import { PRESS_ROW } from '@/lib/interaction';
 import { cn } from '@/lib/utils';
 
@@ -98,25 +103,32 @@ export function AddToCollection({ placeId }: { placeId: string | undefined }) {
   }
 
   return (
+    // The same field row as `Category` and `Your note` — label above value, one trailing glyph.
+    // The chevron is the one that means *pressing replaces the pane*, which is exactly what this
+    // control does and what the two pencil rows below it do not. The leading folder glyph went
+    // with the boxed row: a decoration on one of three otherwise identical rows is what made them
+    // read as three different kinds of thing.
     <button
       ref={triggerRef}
       type="button"
       onClick={() => setOpen(true)}
       data-vaul-no-drag
-      className={cn(
-        // The bare `transition-colors` goes rather than gaining a prefix — `PRESS_BEAT` carries
-        // colour and transform together, so an un-prefixed one beside it would reach only the
-        // users who asked for less motion.
-        'flex min-h-12 w-full items-center gap-2.5 rounded-lg px-1 text-left text-sm font-medium hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-        PRESS_ROW,
-      )}
+      className={cn(DETAIL_FIELD_ROW, PRESS_ROW)}
     >
-      <FolderPlus className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-      <span className="flex min-w-0 flex-1 items-baseline gap-1">
-        <span className="shrink-0">{text}</span>
-        {name ? <bdi className="min-w-0 truncate">{name}</bdi> : null}
+      <span className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className={SECTION_LABEL}>Collections</span>
+        <span
+          className={cn(
+            DETAIL_FIELD_VALUE,
+            'flex min-w-0 items-baseline gap-1',
+            names.length > 0 ? 'text-foreground' : 'text-muted-foreground',
+          )}
+        >
+          <span className="shrink-0">{text}</span>
+          {name ? <bdi className="min-w-0 truncate">{name}</bdi> : null}
+        </span>
       </span>
-      <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+      <ChevronRight className="size-3 shrink-0 text-muted-foreground" aria-hidden />
     </button>
   );
 }

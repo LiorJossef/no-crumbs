@@ -103,7 +103,7 @@ import { MapShell } from '@/components/shell/map-shell';
 import { useMapShell } from '@/components/shell/use-map-shell';
 import type { SheetStop } from '@/components/shell/sheet-geometry';
 import type { MapSummaries } from '@/components/map/types';
-import { COUNTRY_LANDING_ZOOM } from '@/components/map/zoom-bands';
+import { COUNTRY_LANDING_ZOOM, PIN_BAND_MIN } from '@/components/map/zoom-bands';
 import {
   claimEntrance,
   ENTRANCE_CLOCK_FLOOR_MS,
@@ -129,6 +129,7 @@ import {
 } from '@/components/sheet/place-order';
 import { PlaceDesktopPanel } from '@/components/sheet/place-desktop-panel';
 import { filterByTag, filterByVisit, filterPlaces } from '@/components/map/filter-places';
+import { NO_BEEN_PLACES_LINE, type VisitFilter } from '@/ui/place/visit-state';
 import { categoryFacets, filterByCategory, toggleCategory } from '@/domain/places/category-filter';
 import type { ProductCategory } from '@/domain/places/product-category';
 import { tagDisplayLabel } from '@/domain/extraction/tags';
@@ -386,11 +387,37 @@ export function MapPageClient({
    * before rendering, so the guard would cost more than it saves.
    */
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+
+  /**
+   * **Selecting a place clears the highlight channel, and every path into a selection goes through
+   * here.** Reported by the owner: pick A from the list, then tap B on the map, and A stays lifted
+   * and named beside the newly selected B.
+   *
+   * `selectedId` is single-valued, so two pins can never be *selected* at once — the residual is
+   * `hoveredId`, which is a second, independent way of marking a pin. A row's `onFocus` sets it
+   * (focus is the keyboard's pointer, `place-sheet.tsx`), a click both focuses the row and selects
+   * it, and nothing afterwards takes it back: the map canvas is a different surface, so leaving the
+   * row does not necessarily blur it, and on a touch device there is no pointer to leave with.
+   *
+   * The rule is that **selection wins**: the newly opened place is the marked one, and any earlier
+   * pointer- or focus-mark is stale the moment a different place opens. That covers deselection
+   * too, which is why this takes `null` — closing a place must not leave its pin lifted either.
+   *
+   * Not a camera mover, and it must not become one: it changes what is drawn, never where the map
+   * is looking. The eight movers are unchanged by this (`docs/current-state.md` item 12).
+   */
+  const selectId = useCallback(
+    (id: string | null) => {
+      setSelectedId(id);
+      setHoveredId(null);
+    },
+    [setSelectedId],
+  );
   const [query, setQuery] = useState('');
   /** The one tag narrowing the library, as stored (lowercase, normalised), or `null`. Set by a chip
    *  in any place's detail view through `TagFilterContext`, cleared by the pill above the list, by
    *  tapping the same chip again, or by starting an import. */
-  const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [activeTags, setActiveTags] = useState<readonly string[]>([]);
   /**
    * The been / not-been narrowing (`L1-F12`): show only what is still outstanding.
    *
@@ -403,7 +430,14 @@ export function MapPageClient({
    * Not a camera mover. Turning it on can leave an area with nothing in it, and the answer to that
    * is a written heading (`ALL_BEEN_HEADING`), never a flight somewhere else.
    */
-  const [notBeenOnly, setNotBeenOnly] = useState(false);
+  const [visitFilter, setVisitFilter] = useState<VisitFilter>('all');
+  /** The old boolean, derived rather than stored, for the two pure helpers this page hands it to —
+   *  `areaHeading` and `scopeHeading` in `src/ui/place/*`, which speak `notBeenOnly` and belong to
+   *  another lane. `been` is deliberately *not* folded into it: those helpers' strings ("still to
+   *  go", "You've been to all of them") are about the outstanding half of the library and would be
+   *  false about the other one. In the `been` state the heading is the plain area heading and the
+   *  sheet prints its own line under it. */
+  const notBeenOnly = visitFilter === 'not-been';
   /**
    * What the last import saved. Two jobs, both of which the flow was missing entirely: it frames
    * the camera on the places that were just added (`camera.framePlaces`), and it is the only thing on
@@ -449,13 +483,14 @@ export function MapPageClient({
    * state. `camera.framePlaces` and `camera.frameBounds` are the two ways to write it, and every
    * mover below goes through one of them.
    *
-   * **The authorised camera movers, and there are exactly eight.** `06` §9.2 listed four, this file
+   * **The authorised camera movers, and there are exactly nine.** `06` §9.2 listed four, this file
    * grew to seven, and `docs/ux-stable-area-list.md` cut it back — the reconciliation `06` §9.2 was
    * owed is this comment. It said *five* until 2026-08-29 while a sixth was already running and
-   * documented in `map-surface.mapcn.tsx`, and it said *six* until `L1-F11` while mover 7 was
-   * already written thirty lines below it — which is exactly the drift a list like this exists to
-   * stop: a list of who may move the camera is only worth having if it is complete, wherever the
-   * mover happens to live. In the order they run:
+   * documented in `map-surface.mapcn.tsx`, it said *six* until `L1-F11` while mover 7 was
+   * already written thirty lines below it, and it said *eight* until the owner reversed the pin-tap
+   * rule on 2026-09-02 — which is exactly the drift a list like this exists to stop: a list of who
+   * may move the camera is only worth having if it is complete, wherever the mover happens to live.
+   * In the order they run:
    *
    *  1. The initial framing — **the whole library**, come to rest wherever that box honestly fits
    *     and never inside the guard window around the band boundary (`settleZoom`), so a one-metro
@@ -477,14 +512,24 @@ export function MapPageClient({
    *     of the viewport the sheet is about to cover — otherwise the pin just tapped comes to rest
    *     behind it. It lives in the surface (`map-surface.mapcn.tsx`, `selectedOcclusionFraction`)
    *     because only the surface knows the projection, but it is a mover and belongs on this list.
-   *     It is the *pin-tap* case: when a framing request (2, 3, 4, 7) is issued in the same commit
-   *     that one wins, because the nudge can only measure where the pin is now.
+   *     When a framing request (2, 3, 4, 7, 9) is issued in the same commit that one wins, because
+   *     the nudge can only measure where the pin is now and cannot reason about where a flight is
+   *     going. It *was* the pin-tap case; since mover 9 a pin tap on this route issues a framing
+   *     request too, so 6 now only reaches the map where 9 declines — a collections view, whose
+   *     `onPlaceClick` moves no camera, and the defensive arm where no viewport has been reported
+   *     yet. Its docblock in `map-surface.mapcn.tsx` still describes the tap rule as it stood
+   *     before the reversal; that text is the surface owner's to correct.
    *  7. Revealing one saved place — a manual add, or a pick out of the `＋` sheet's search. See
    *     `revealSavedPlace`.
    *  8. Near me (`L1-F11`): an explicit tap on the map's locate control, once a position comes
    *     back, flies to the user's own point and sets an **area** scope. See `goToUserLocation`. A
    *     denial, a timeout or an unsupported browser moves nothing at all — there is no camera path
    *     out of this mover that does not start with a real position.
+   *  9. **Tapping a pin flies to it** (owner, 2026-09-02, reversing the rule this file stated at
+   *     `onPlaceClick`). It is a **recentre and not a re-frame**: the zoom the camera is already at
+   *     is held exactly, so the scale around the tapped pin never changes and the map cannot lurch
+   *     out from under the thumb that tapped it — the failure the old rule was protecting against,
+   *     which the reversal does not oblige us to accept. See `focusPin`.
    *
    * Three are gone, all of them for the same reason — narrowing must never navigate. A settled
    * search no longer flies to its matches, clearing the search no longer returns to a cluster, and
@@ -545,6 +590,11 @@ export function MapPageClient({
         toId: (place: MapPlace) => place.id,
         toPoint: (place: MapPlace) => place,
         toLocality: (place: MapPlace) => place.detail?.locality ?? null,
+        // Without this an area whose rows all carry a null locality has no name at all, and the
+        // map draws its count alone — a bare `4` over Prague. `buildAreas` falls back to the
+        // country by the same plurality rule the header uses, so the pill reads `Czechia 4` until
+        // the backfill gives those rows their real locality.
+        toCountryCode: (place: MapPlace) => place.detail?.countryCode ?? null,
       }),
     [clusters],
   );
@@ -681,14 +731,14 @@ export function MapPageClient({
   /** The library narrowed by the active tag chip, before the search box sees it. Its own `useMemo`
    *  rather than one fused expression so that typing does not re-run the tag pass and tapping a
    *  chip does not re-run it per keystroke. */
-  const tagMatches = useMemo(() => filterByTag(places, activeTag), [places, activeTag]);
+  const tagMatches = useMemo(() => filterByTag(places, activeTags), [places, activeTags]);
 
   /** The tag-narrowed library, narrowed again to what is still outstanding. Before the search box
    *  and after the chip purely so each pass memoises on its own input; the three compose as AND and
    *  the order between them cannot change the result. */
   const visitMatches = useMemo(
-    () => filterByVisit(tagMatches, notBeenOnly),
-    [tagMatches, notBeenOnly],
+    () => filterByVisit(tagMatches, visitFilter),
+    [tagMatches, visitFilter],
   );
 
   /** The same library narrowed to one category. Its own pass for the same memoisation reason as
@@ -814,11 +864,11 @@ export function MapPageClient({
         scope: listScope,
         countInScope: inScope.length,
         searchQuery: query.trim(),
-        tagLabel: activeTag === null ? null : tagDisplayLabel(activeTag),
+        tagLabel: tagFilterLabel(activeTags),
         notBeenOnly,
         matchesAnywhere: matches.length,
       }),
-    [inScope, listScope, query, activeTag, notBeenOnly, matches],
+    [inScope, listScope, query, activeTags, notBeenOnly, matches],
   );
 
   // The canvas is unreachable to a screen reader, so the honest thing for it to say is what it is
@@ -854,7 +904,7 @@ export function MapPageClient({
   const selected: MapPlace | null =
     selectedId === null ? null : (matches.find((place) => place.id === selectedId) ?? null);
 
-  const filterAnnouncement = useResultAnnouncement(query, activeTag, notBeenOnly, matches.length);
+  const filterAnnouncement = useResultAnnouncement(query, activeTags, visitFilter, matches.length);
 
   /**
    * The page's one spoken line, and the ordering rule that lets two writers share it.
@@ -884,7 +934,7 @@ export function MapPageClient({
   /** Camera mover 3. A fresh array each time, because the flight is keyed on array identity — so
    *  re-selecting the same place does fly again. The active area is deliberately not touched. */
   function selectPlace(place: MapPlace) {
-    setSelectedId(place.id);
+    selectId(place.id);
     camera.framePlaces([place.id]);
   }
 
@@ -908,10 +958,10 @@ export function MapPageClient({
       if (!area) return;
       const matching = area.members.filter((place) => matchIds.has(place.id));
       setScope(scopeForAreaTap(area.id));
-      setSelectedId(null);
+      selectId(null);
       camera.framePlaces((matching.length > 0 ? matching : area.members).map((place) => place.id));
     },
-    [areas, matchIds, camera, setSelectedId],
+    [areas, matchIds, camera, selectId],
   );
 
   /**
@@ -939,14 +989,14 @@ export function MapPageClient({
       const country = countries.find((candidate) => candidate.key === key);
       if (!country) return;
       setScope(scopeForCountryTap(country.key));
-      setSelectedId(null);
+      selectId(null);
       camera.frameBounds({
         bounds: country.bounds,
         minZoom: COUNTRY_LANDING_ZOOM.min,
         maxZoom: COUNTRY_LANDING_ZOOM.max,
       });
     },
-    [countries, camera, setSelectedId],
+    [countries, camera, selectId],
   );
 
   /**
@@ -976,10 +1026,10 @@ export function MapPageClient({
     (fix: UserFix) => {
       const area = nearestArea(areas, fix.point);
       if (area !== null) setScope(scopeForAreaTap(area.id));
-      setSelectedId(null);
+      selectId(null);
       camera.frameBounds(nearMeCamera(fix));
     },
-    [areas, camera, setSelectedId],
+    [areas, camera, selectId],
   );
 
   const nearMe = useNearMe(goToUserLocation);
@@ -1085,12 +1135,35 @@ export function MapPageClient({
    */
   const pendingRevealId = useRef<string | null>(revealPlaceId ?? null);
 
+  /**
+   * **The zoom the camera last came to rest at**, and the only thing camera mover 9 needs that this
+   * page does not already hold.
+   *
+   * A ref rather than state because nothing renders from it: it is read once, inside a tap handler,
+   * and a re-render on every settled pan would cost the whole list a reconciliation to change a
+   * number nobody is looking at.
+   *
+   * It is written from the report the surface already sends, so it inherits that report's 120 ms
+   * trailing debounce (`VIEWPORT_DEBOUNCE_MS`). The staleness that buys is bounded by one camera
+   * rest: the worst case is a tap landing inside the debounce window of a pinch, and the zoom held
+   * is then the one the user had a tenth of a second earlier, which is not a zoom they can see the
+   * camera return to.
+   */
+  const lastZoomRef = useRef<number | null>(null);
+
   const handleViewportChange = useCallback(
     (bounds: LatLngBoundsHint, meta: ViewportChangeMeta) => {
       // The first report is also the only signal this page gets that the map instance exists — it
       // arrives through an imperative handle, on a commit that does not re-render the surface. See
       // `revealPlaceId`'s effect, which cannot fly the camera before it.
       setCameraAlive(true);
+      lastZoomRef.current = meta.zoom;
+      // **Zooming out past the pin band closes the open place.** Below `PIN_BAND_MIN` the pins are
+      // replaced by the summary bands, so the card stays anchored to a pin that is no longer drawn
+      // and floats over open water attached to nothing. Only on a user-initiated move: a framing
+      // request that dips through the band on its way somewhere must not close the card it was
+      // opened for.
+      if (meta.userInitiated && meta.zoom < PIN_BAND_MIN) selectId(null);
       setScope((current) =>
         scopeAfterCameraSettled({
           // The same default the render path fills in, never a second copy of it: with a one-area
@@ -1105,12 +1178,99 @@ export function MapPageClient({
         }),
       );
     },
-    [areas, countries],
+    [areas, countries, selectId],
   );
 
   /**
-   * A chip tap. The active tag turns the filter off, any other tag replaces it — one tap either
-   * way, which is the whole interaction.
+   * **A pin tap and the popover's own dismissal arrive on the same click, and the pin has to win.**
+   *
+   * Measured on 2026-09-02 at 390x844, instrumented: one tap on a pin produced `selectId(<id>)`
+   * from the pin layer and then `selectId(null)` — through `MapPopup`'s `onClose`, MapLibre's
+   * `Popup.remove`, MapLibre's own `closeOnClick`. React batches both into one commit, the second
+   * wins, and **the tap closes the place instead of opening it.**
+   *
+   * That is not new and it is not mover 9's: `map-surface.mapcn.tsx` hides the popover below `lg`
+   * with a Tailwind class on its shell, so on a phone the MapLibre `Popup` instance still exists,
+   * still listens, and still eats every map click while a place is open. It is why tapping pin B
+   * while place A is open used to leave nothing open at all — the case the owner named.
+   *
+   * A ref rather than a timer, and it is not a heuristic: MapLibre fires both listeners
+   * synchronously inside one `click` dispatch, so a microtask reset is exactly the scope "the same
+   * event". It is also order-robust — if the two ever fired the other way round the selection
+   * would simply land second and win on its own.
+   *
+   * The narrow fix on purpose. The alternative is `closeOnClick: false` on the popover, which is a
+   * file this task does not own *and* a behaviour change everywhere: click-empty-map-to-dismiss is
+   * wanted on desktop. This excludes exactly one click — the one that selected something.
+   */
+  const pinTapInFlight = useRef(false);
+  const deselect = useCallback(() => {
+    if (pinTapInFlight.current) return;
+    selectId(null);
+  }, [selectId]);
+
+  /**
+   * **Camera mover 9 — tapping a pin flies to it.** Owner ruling, 2026-09-02, reversing the rule
+   * this file stated at `onPlaceClick`: *"selection only — tapping a pin must not move the camera
+   * under the finger that tapped it."*
+   *
+   * **The concern that rule was protecting is still real, so this is not mover 3.** A list row may
+   * name a place that is off-screen, in another country, in another zoom band, so mover 3 fits it —
+   * `fitBounds` under a ceiling of 15, which changes the zoom and throws the surrounding context
+   * away. A *pin* is different in a way that is worth using: it can only be tapped when it is
+   * already drawn, and pins are only drawn in the pin band, so the place is on screen and at a
+   * scale the user chose. Re-fitting it would answer a question nobody asked and is exactly the
+   * lurch the old rule named.
+   *
+   * So mover 9 holds the zoom **exactly** — a zero-extent box at the pin with `minZoom` equal to
+   * `maxZoom`, which is `focusBounds`' `cameraForBounds` → clamp → `easeTo` path saying *"centre
+   * here, rest at exactly this zoom"*. The same request shape near me (mover 8) already uses; no
+   * new mechanism, and the surface's resize path replays it for free. What changes is the centre
+   * and nothing else, over a 600 ms ease rather than a flight's arc.
+   *
+   * **The sheet is handled by the request, not around it.** `frameBounds` pads with the surface's
+   * live occlusion (`sheetFractionRef`, written from an effect declared before every framing
+   * effect), so the pin comes to rest in the middle of the band the *raised* sheet leaves visible —
+   * the same padding rule movers 3 and 6 share, applied to a degenerate box.
+   *
+   * **It cannot race mover 6.** Both are answers to the same commit — `selectId` and this request
+   * are batched into one update — and the surface runs its effects in declaration order, with the
+   * reveal nudge declared first and `easeTo` calling `stop()` on whatever preceded it. A framing
+   * request therefore outranks the nudge, which is the rule already written on mover 6.
+   *
+   * **`prefers-reduced-motion` needs no branch**: `easeTo` sets its own duration to 0 under it
+   * unless a caller passes `essential`, and nothing on this path does. The camera arrives, it does
+   * not travel.
+   */
+  const focusPin = useCallback(
+    (place: MapPlace) => {
+      // See `deselect`: this is the whole guard, and it means "inside this event dispatch".
+      pinTapInFlight.current = true;
+      queueMicrotask(() => {
+        pinTapInFlight.current = false;
+      });
+      selectId(place.id);
+      const zoom = lastZoomRef.current;
+      // No settled report yet means no honest zoom to hold. It should be unreachable — a pin the
+      // user can tap is a pin the camera has already settled around — so it degrades to mover 3's
+      // fit rather than to silence, which keeps the ruling true on the path we cannot see.
+      if (zoom === null) {
+        camera.framePlaces([place.id]);
+        return;
+      }
+      camera.frameBounds({
+        bounds: { north: place.lat, south: place.lat, east: place.lng, west: place.lng },
+        minZoom: zoom,
+        maxZoom: zoom,
+      });
+    },
+    [camera, selectId],
+  );
+
+  /**
+   * A tag tap, from a chip in a place's detail or a row in the filter panel's list. An active tag
+   * comes off, any other goes on — one tap either way, and **several may be on at once**
+   * (owner, 2026-09-02), composing as AND downstream.
    *
    * **It deselects, and that is the point.** The chip lives in a place's detail view, so without
    * this the user taps `Hidden Gem` and keeps looking at the one place they already had open while
@@ -1120,13 +1280,22 @@ export function MapPageClient({
    */
   const toggleTag = useCallback(
     (tag: string) => {
-      setActiveTag((current) => (current !== null && isSameTag(current, tag) ? null : tag));
-      setSelectedId(null);
+      setActiveTags((current) =>
+        current.some((active) => isSameTag(active, tag))
+          ? current.filter((active) => !isSameTag(active, tag))
+          : [...current, tag],
+      );
+      selectId(null);
     },
-    [setSelectedId],
+    [selectId],
   );
 
-  const clearTag = useCallback(() => setActiveTag(null), []);
+  const clearTag = useCallback(
+    (tag: string) =>
+      setActiveTags((current) => current.filter((active) => !isSameTag(active, tag))),
+    [],
+  );
+  const clearTags = useCallback(() => setActiveTags([]), []);
 
   /** A category chip. Pressing the pressed one clears, pressing any other replaces — the same one
    *  tap either way the tag chips give, so the product does not hold two state models for one
@@ -1136,17 +1305,17 @@ export function MapPageClient({
     setActiveCategory((current) => toggleCategory(current, category));
   }, []);
 
-  /** The been/not-been narrowing, on or off. Unlike a tag chip this does **not** deselect: the
-   *  control lives in the list's own header rather than inside a place's detail, so there is no
-   *  open place standing between the user and the answer they just asked for. */
-  const toggleNotBeen = useCallback(() => setNotBeenOnly((current) => !current), []);
+  /** The visit narrowing — `all`, `not-been` or `been`. Unlike a tag chip this does **not**
+   *  deselect: the control lives in the list's own header rather than inside a place's detail, so
+   *  there is no open place standing between the user and the answer they just asked for. */
+  const chooseVisitFilter = useCallback((filter: VisitFilter) => setVisitFilter(filter), []);
 
   /** Memoised so every chip in the tree does not re-render on an unrelated state change — the
    *  context value is the only thing standing between this page's state and a leaf in the map's
    *  own popover. */
   const tagFilter = useMemo<TagFilter>(
-    () => ({ activeTag, onToggleTag: toggleTag }),
-    [activeTag, toggleTag],
+    () => ({ activeTags, onToggleTag: toggleTag }),
+    [activeTags, toggleTag],
   );
 
   /** A link handed over from the `＋` sheet, so the overlay opens with it already typed. `null`
@@ -1162,12 +1331,12 @@ export function MapPageClient({
     // list and fly the camera at pins that are filtered out. Starting an import is the user leaving
     // the current narrowing behind, so every dimension goes with it.
     setQuery('');
-    setActiveTag(null);
+    setActiveTags([]);
     // A fresh import always lands as not-been, so this one cannot hide what was just saved. It is
     // cleared anyway: starting an import is the user leaving the current narrowing behind, and
     // leaving one of three filters on after the other two go is the kind of half-state nobody can
     // explain from the screen.
-    setNotBeenOnly(false);
+    setVisitFilter('all');
     setShowImport(true);
   }
 
@@ -1188,12 +1357,12 @@ export function MapPageClient({
    */
   function revealSavedPlace(savedPlaceId: string) {
     setQuery('');
-    setActiveTag(null);
-    setNotBeenOnly(false);
+    setActiveTags([]);
+    setVisitFilter('all');
     setActiveCategory(null);
     setScope(scopeForAreaTap(savedPlaceId));
     camera.framePlaces([savedPlaceId]);
-    setSelectedId(savedPlaceId);
+    selectId(savedPlaceId);
   }
 
   /**
@@ -1327,15 +1496,12 @@ export function MapPageClient({
               // rests at `half` too. The same snapshot the shell was seeded with, deliberately:
               // see `restingStop` for what a live expression would do to the post-import flight.
               restingStop={restingStop}
-              // Selection only — tapping a pin must not move the camera under the finger that
-              // tapped it. `selectPlace` (camera mover 3) is for the list, where the pin may be
-              // off-screen. A collections view answers a pin differently; see `collections-scope`.
-              onPlaceClick={
-                collectionsScope?.onPlaceClick ??
-                ((place) => {
-                  setSelectedId(place.id);
-                })
-              }
+              // **Tapping a pin flies to it** — camera mover 9, `focusPin`, owner 2026-09-02. It
+              // recentres at the zoom already on screen; `selectPlace` (mover 3) stays the list's
+              // answer, because a row may name a place that is off-screen or in another band and
+              // that one does need a fit. A collections view answers a pin differently and moves no
+              // camera at all; see `collections-scope`.
+              onPlaceClick={collectionsScope?.onPlaceClick ?? focusPin}
               /* **No map-drawn detail on a collections view**, and it is not a flag: a collection's
                  pins are collection items carrying no `savedPlaceId`, so the surface's `lg+`
                  popover would render `PlaceDetail` with `savedPlace={null}` — losing the shared
@@ -1344,9 +1510,9 @@ export function MapPageClient({
                  is a link to the places view rather than a detail. Both details stay in the sheet
                  and the panel, where they are complete. */
               selectedPlace={inCollections ? null : selected}
-              onDeselect={() => {
-                setSelectedId(null);
-              }}
+              // Not `selectId(null)` directly: on a phone the hidden popover's `closeOnClick`
+              // fires this on the very click that selected a pin. See `deselect`.
+              onDeselect={deselect}
               // Selecting a place raises the sheet to `half`; without this the camera does not know
               // that and the pin the user just tapped can sit behind it. See camera mover 6.
               selectedOcclusionFraction={SHEET_HALF_FRACTION}
@@ -1445,20 +1611,25 @@ export function MapPageClient({
                       heading={heading}
                       otherPlaces={otherPlaces}
                       activeAreaId={activeAreaId}
+                      // The whole library, so the tag list's rows and their order hold still
+                      // while the user filters — `useLibraryTagFacets` carries the argument.
+                      libraryPlaces={places}
                       libraryIsEmpty={places.length === 0}
                       libraryHasVisited={libraryHasVisited}
                       query={query}
                       onQueryChange={setQuery}
-                      activeTag={activeTag}
+                      activeTags={activeTags}
                       onClearTag={clearTag}
-                      notBeenOnly={notBeenOnly}
-                      onToggleNotBeen={toggleNotBeen}
+                      onToggleTag={toggleTag}
+                      onClearTags={clearTags}
+                      visitFilter={visitFilter}
+                      onChangeVisitFilter={chooseVisitFilter}
                       categoryFacets={facets}
                       activeCategory={activeCategory}
                       onToggleCategory={toggleCategoryFilter}
                       selected={selected}
                       onDeselect={() => {
-                        setSelectedId(null);
+                        selectId(null);
                       }}
                       onAddTikTok={openImport}
                       onSelect={selectPlace}
@@ -1487,14 +1658,19 @@ export function MapPageClient({
                       heading={heading}
                       otherPlaces={otherPlaces}
                       activeAreaId={activeAreaId}
+                      // The whole library, so the tag list's rows and their order hold still
+                      // while the user filters — `useLibraryTagFacets` carries the argument.
+                      libraryPlaces={places}
                       libraryIsEmpty={places.length === 0}
                       libraryHasVisited={libraryHasVisited}
                       query={query}
                       onQueryChange={setQuery}
-                      activeTag={activeTag}
+                      activeTags={activeTags}
                       onClearTag={clearTag}
-                      notBeenOnly={notBeenOnly}
-                      onToggleNotBeen={toggleNotBeen}
+                      onToggleTag={toggleTag}
+                      onClearTags={clearTags}
+                      visitFilter={visitFilter}
+                      onChangeVisitFilter={chooseVisitFilter}
                       categoryFacets={facets}
                       activeCategory={activeCategory}
                       onToggleCategory={toggleCategoryFilter}
@@ -1627,8 +1803,8 @@ function useDrawerSwap(view: DrawerView): { key: string; direction: SwapDirectio
  */
 function useResultAnnouncement(
   query: string,
-  activeTag: string | null,
-  notBeenOnly: boolean,
+  activeTags: readonly string[],
+  visitFilter: VisitFilter,
   matchCount: number,
 ): string {
   // The query the stored sentence describes is kept with it, and the sentence is only returned
@@ -1640,18 +1816,18 @@ function useResultAnnouncement(
   // One key for all three dimensions, so a stale sentence about the previous *tag* or the previous
   // visit filter is discarded on the same rule that already discards a stale one about the previous
   // query. `\u0000` because it is the one character neither a query nor a stored tag can contain.
-  const filter = `${activeTag ?? ''}\u0000${notBeenOnly ? '1' : ''}\u0000${trimmed}`;
+  const filter = `${activeTags.join('\u0001')}\u0000${visitFilter}\u0000${trimmed}`;
 
   useEffect(() => {
-    if (activeTag === null && trimmed === '' && !notBeenOnly) return;
+    if (activeTags.length === 0 && trimmed === '' && visitFilter === 'all') return;
     const timer = setTimeout(() => {
       setAnnounced({
         filter,
-        message: filterSentence(trimmed, activeTag, notBeenOnly, matchCount),
+        message: filterSentence(trimmed, activeTags, visitFilter, matchCount),
       });
     }, ANNOUNCE_AFTER_MS);
     return () => clearTimeout(timer);
-  }, [filter, trimmed, activeTag, notBeenOnly, matchCount]);
+  }, [filter, trimmed, activeTags, visitFilter, matchCount]);
 
   return announced.filter === filter ? announced.message : '';
 }
@@ -1664,31 +1840,54 @@ function useResultAnnouncement(
  * read aloud as the sentence's own words would be indistinguishable from the rest of it, and the
  * user tapped something that said `Hidden Gem`.
  */
+/**
+ * The selected tags as one label, for the surfaces that take a single string: the area heading
+ * (`src/ui/place/active-area.ts`, another lane's file, whose `tagLabel` is `string | null`) and the
+ * spoken sentence below.
+ *
+ * `Wine + Brunch` rather than a list with commas, because the filter is an **AND** and `+` is the
+ * one separator that says so in a phrase a heading can carry. `null` for none, which is the value
+ * those helpers already treat as "no tag is narrowing this".
+ */
+function tagFilterLabel(tags: readonly string[]): string | null {
+  if (tags.length === 0) return null;
+  return tags.map((tag) => tagDisplayLabel(tag)).join(' + ');
+}
+
 function filterSentence(
   query: string,
-  activeTag: string | null,
-  notBeenOnly: boolean,
+  activeTags: readonly string[],
+  visitFilter: VisitFilter,
   count: number,
 ): string {
   const noun = count === 1 ? 'place' : 'places';
+  const notBeenOnly = visitFilter === 'not-been';
+
+  // `been` alone, which the three-state control newly makes reachable. Its own sentence for the
+  // same reason `not-been` has one: `3 places match` is true and useless when the question was
+  // "where have I already been", and with no query and no tag there is nothing for `match` to be
+  // about. The empty case is the string the sheet prints on screen, so the two agree.
+  if (visitFilter === 'been' && activeTags.length === 0 && query === '') {
+    return count === 0 ? NO_BEEN_PLACES_LINE : `${count} ${noun} you have been to.`;
+  }
 
   // The visit filter alone gets its own sentence for the same reason the heading does: `3 places
   // match` is true and useless when the user asked "what have I still got to do", and with no
   // query and no tag there is nothing for `match` to be about.
-  if (notBeenOnly && activeTag === null && query === '') {
+  if (notBeenOnly && activeTags.length === 0 && query === '') {
     return count === 0 ? "You've been to all of them." : `${count} ${noun} still to go.`;
   }
 
   // With another filter on, the visit filter becomes a qualifier on the sentence that filter
   // produces rather than a sentence of its own — one clause, appended once.
-  const still = notBeenOnly ? ' you have not been to' : '';
+  const still = notBeenOnly ? ' you have not been to' : visitFilter === 'been' ? ' you have been to' : '';
 
-  if (activeTag === null) {
+  if (activeTags.length === 0) {
     return count === 0
       ? `No places${still} match ${query}.`
       : `${count} ${noun}${still} ${count === 1 ? 'matches' : 'match'} ${query}.`;
   }
-  const label = tagDisplayLabel(activeTag);
+  const label = tagFilterLabel(activeTags) ?? '';
   if (query === '') {
     return count === 0
       ? `No places${still} tagged ${label}.`

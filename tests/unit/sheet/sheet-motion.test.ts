@@ -93,10 +93,12 @@ function render(overrides: Record<string, unknown> = {}): string {
       libraryHasVisited: false,
       query: '',
       onQueryChange: () => {},
-      activeTag: null,
+      activeTags: [],
       onClearTag: () => {},
-      notBeenOnly: false,
-      onToggleNotBeen: () => {},
+      onToggleTag: () => {},
+      onClearTags: () => {},
+      visitFilter: 'all' as const,
+      onChangeVisitFilter: () => {},
       categoryFacets: [],
       activeCategory: null,
       onToggleCategory: () => {},
@@ -139,38 +141,22 @@ describe('the area heading enters the way the design system says it enters', () 
 });
 
 /**
- * The visible result count (W5-5). The sheet has announced how much of the library is in play since
- * `filterSentence` shipped and announced it only to a screen reader; this is the same fact for the
- * people who cannot hear it.
+ * **The visible result count (W5-5) was deleted on 2026-09-02** —
+ * `ux-overwhelm-audit-2026-09-02.md` §7, on the owner's instruction that the UI must not feel
+ * overwhelming. It was `aria-hidden`, so it existed for sighted users only, and it restated what
+ * the heading above it and the list below it already say — in exactly the band the owner asked us
+ * to empty. This block replaces its six assertions with the one that matters now: the fact is
+ * still spoken, by the live region in `map-shell.tsx`, which is a different mechanism in a
+ * different file and was not touched.
  */
-describe('the result count beside the search field', () => {
-  it('says how many of how many while something is narrowing', () => {
-    expect(render({ query: 'momos', unfilteredCount: 32 })).toContain('2 of 32');
+describe('the result count is gone from the header band', () => {
+  it('draws no `N of M` anywhere, narrowing or not', () => {
+    expect(render({ query: 'momos' })).not.toMatch(/\d+ of \d+/);
+    expect(render({ activeTags: ['wine'] })).not.toMatch(/\d+ of \d+/);
+    expect(render({ visitFilter: 'not-been' as const })).not.toMatch(/\d+ of \d+/);
   });
 
-  it('stays away when nothing is narrowing', () => {
-    // `2 of 32` with an empty field is a number about nothing, competing with a heading that
-    // already carries a count.
-    expect(render({ unfilteredCount: 32 })).not.toContain('of 32');
-  });
-
-  it('renders nothing at all rather than guessing a denominator', () => {
-    // `places` and `otherPlaces` both arrive already narrowed, so their sum is the numerator. A
-    // denominator derived from them would be a confident wrong answer beside a control the user is
-    // actively driving. Absent `unfilteredCount`, the count does not render.
-    const markup = render({ query: 'momos' });
-    expect(markup).not.toMatch(/\d+ of \d+/);
-  });
-
-  it('is hidden from the accessibility tree, because the live region already says it', () => {
-    // The sheet has exactly one live region and `filterSentence` feeds it the same fact as a
-    // sentence. Two announcements of one change is a defect, not redundancy.
-    const markup = render({ query: 'momos', unfilteredCount: 32 });
-    expect(markup).toMatch(/<p aria-hidden="true"[^>]*>2 of 32<\/p>/);
-  });
-
-  it('appears for a tag and for the visit filter, not only for typed text', () => {
-    expect(render({ activeTag: 'wine', unfilteredCount: 32 })).toContain('2 of 32');
-    expect(render({ notBeenOnly: true, unfilteredCount: 32 })).toContain('2 of 32');
+  it('leaves the sheet with no aria-hidden paragraph standing in for an announcement', () => {
+    expect(render({ query: 'momos' })).not.toMatch(/<p aria-hidden="true"/);
   });
 });

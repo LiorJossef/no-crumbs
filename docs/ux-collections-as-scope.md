@@ -92,14 +92,15 @@ this forbids the depth version.
 | **Map tab** | bottom bar | your whole map, scope cleared | every route, every sheet stop |
 | ~~**Collections tab**~~ | ~~bottom bar~~ | superseded 2026-08-31 — see below | — |
 | **`Places` / `Collections` switch** | sheet header, leading, layer 0 | the two views of the drawer | at `half`/`full`; **not at `peek`**, where 128 px minus a 68 px floating bar leaves 46 against the switch's 56 |
-| **`Collections` up-link** | sheet header, leading, layer 0 in collection scope only | the collections index | when the sheet is at `half`/`full` — **still shipping; see the open proposal below** |
+| ~~**`Collections` up-link**~~ | ~~sheet header, leading, layer 0~~ | **deleted 2026-09-02 — see §5 item 3** | — |
 | **Pane back arrow** | sheet header, leading, layer 1 | dismiss this pane, return to the list under it | while a pane is open |
 | **OS / browser back** | — | the previous document | always |
 
-**One row was superseded on 2026-08-31 by the owner's instruction that *"the collection / places
-navigation should be inside the drawer"*, and it is struck rather than deleted so the reasoning
-survives. The up-link row is **not** superseded — it was removed at `cea513c` and restored at
-`1db0294`, because removing it is a change to this document and the document had not moved.**
+**Two rows are struck rather than deleted, so the reasoning survives.** The `Collections` tab went
+on 2026-08-31 on the owner's instruction that *"the collection / places navigation should be inside
+the drawer"*. **The up-link went on 2026-09-02, and this document moved first** — it was removed at
+`cea513c` and restored at `1db0294` precisely because the document had *not* moved then. §5 item 3
+carries the amendment and the measurement.
 
 **The `Collections` tab** left the bottom bar because the switch reaches the same view from inside
 the drawer, and two routes to one surface is how a nav becomes something nobody trusts. `BottomNav`
@@ -107,11 +108,10 @@ is `Map · Profile`. The cost, measured rather than assumed: **from a resting `/
 collections is now two taps** — the strip, then `Collections` — because the switch does not render at
 `peek`.
 
-**The `Collections` up-link is an open proposal, not a decision, and this is the measurement it
-needs.** It duplicates the switch ~700 px below it in the same column, and it predates the merge onto
-one route segment: while `/collections/<id>` was its own segment the up-link was the only way back
-that did not cost a document, and after the merge it is a second control to a view one search param
-away.
+**The `Collections` up-link was an open proposal and is now decided: it is deleted** (2026-09-02,
+§5 item 3). It duplicated the switch in the same column, and it predated the merge onto one route
+segment: while `/collections/<id>` was its own segment the up-link was the only way back that did not
+cost a document, and after the merge it was a second control to a view one search param away.
 
 **What removing it actually buys, measured at 390×844 inside a collection at `half`** — and the
 first figure corrects an estimate read off a screenshot:
@@ -127,11 +127,11 @@ first figure corrects an estimate read off a screenshot:
 **And the trap for whoever takes it: deleting the link alone recovers none of that.** The options
 button beside it is `size-11`, so the row keeps its height either way — the height only returns if
 that button moves onto the heading's row. **A one-line deletion will look like it did the job and
-will not have.**
+will not have.** That is why §5 item 3 specifies the move, not the deletion.
 
-Moving this row is the first step, not the last. Three records currently say the control exists on
-purpose — this table, §5 item 3, and a rendered assertion in
-`tests/unit/collections/collection-scope-chrome.test.ts` — and they move in that order.
+Three records said the control existed on purpose — this table, §5 item 3, and a rendered assertion
+in `tests/unit/collections/collection-scope-chrome.test.ts` — and they moved in that order on
+2026-09-02.
 
 **The invariant below is unchanged and is now easier to hold**, because the slot it governed has one
 occupant instead of two. The switch is not a back-shaped control — it is a destination pair, the same
@@ -183,18 +183,20 @@ and already responsible for saying what the list is.
 At `half` and `full`:
 
 ```
-‹ COLLECTION                                        ⋯      ← kicker row: up-link (leading) + options (trailing)
-Tel Aviv                                                   ← h2, the collection's name, <bdi>
+Tel Aviv                                            ⋯      ← heading row: name (leading) + options (trailing)
 7 places · You and Maya                                    ← existing meta button → share & members pane
 [ Search this collection ]
 ```
 
-- The kicker is the product's existing 11 px uppercase tracked mint label. **It is the up-link** —
-  a single control, ≥44 px tall, leading edge, in the exact position the deleted back arrow occupied,
-  so nothing has to be relearned. Its accessible name is `Collections`, never "Back".
-- **RTL:** logical properties only (R34); the chevron mirrors. The uppercase kicker has no Hebrew
-  equivalent (O11) — in an RTL chrome it carries by weight and mint colour, no uppercasing.
-- The `⋯` options menu is unchanged and stays inline (R32).
+- **There is no kicker row and no up-link** (amended 2026-09-02, §5 item 3). The drawer's
+  `Places / Collections` switch sits directly above this header at `half` and `full`, and inside a
+  collection its `Collections` segment is both current *and* the way up — its href is the index
+  (`map-page-client.tsx`). Leaving is that segment, or the Map tab, which is on screen at every stop.
+- The collection's name is the first thing in the header, which is what the scope is.
+- The `⋯` options menu is unchanged, stays inline (R32) and moves onto the heading's row, trailing,
+  `size-11`. It is the reason the deletion is a *move*: on its own row it kept the 44 px.
+- **RTL:** logical properties only (R34). The `⋯` is `ms-auto`, so it sits at the trailing edge in
+  both directions.
 
 At `peek` the single line reads the collection, not the area — the count emphasised exactly as the
 area heading is today:
@@ -255,9 +257,44 @@ Reduction is the point. Each line is a removal, in the order I would land it.
    `max-w-[560px]` page column. The list moves into the shell's sheet / desktop panel.
 2. **The lg-only `Back to the map` arrow** — `collections-index-client.tsx:60-70`. The shell is
    behind it; there is nothing to go back to.
-3. **The `Back to collections` arrow** — `collection-content.tsx:124-133`. Replaced by the labelled
-   `Collections` up-link in the kicker row. Net control count unchanged; the ambiguity is what is
-   deleted.
+3. **The `Back to collections` arrow** — `collection-content.tsx:124-133`. It was replaced by a
+   labelled `Collections` up-link in a kicker row of its own. **Amended 2026-09-02: that row is
+   deleted too, and the `⋯` options button moves onto the heading's row.** The header now opens with
+   the collection's name.
+
+   **Why, and it is a measurement rather than a preference.** At 390×844 inside a collection at
+   `half`, with the kicker row present versus removed: **0 list rows fully visible against 1**, 1
+   partly visible against 2, and the heading at y=500 against y=456. The row costs a full 44 px —
+   its own `min-h-11` — to draw a second control to a destination that is already one tap away and
+   *directly above it*: since 2026-08-31 all three drawer views are search params on `/map`, and the
+   drawer's `Places / Collections` switch renders above this header at `half` and `full` with its
+   `Collections` segment pointing at the index. Not one place was fully readable inside a collection
+   on a phone, and the thing costing that row was a duplicate.
+
+   **What replaces it, in full:** the switch's `Collections` segment (above the header, at `half`
+   and `full`), and the Map tab in the bottom bar (every stop, including `peek`, where the up-link
+   never rendered anyway). Both name their destination in words, which is what §2.2 requires of an
+   exit. Nothing is trapped and no capability is lost — the up-link and the switch segment resolved
+   to the same href, `/map?view=collections`.
+
+   **Consequences that are part of this amendment, not follow-on work:**
+   - §2.2's exit table strikes the up-link row; §3's header sketch drops the kicker row.
+   - **§2.2's invariant gets stronger, not weaker.** Layer 0 in collection scope now draws *zero*
+     back-shaped controls and layer 1 draws exactly one, so "at most one" holds by a wider margin.
+   - `tests/unit/collections/collection-scope-chrome.test.ts` asserts the up-link's `href` and
+     `aria-label`; those assertions invert to absences, and the options button's assertion stays.
+   - `tests/e2e/collection-one-back-control.spec.ts` expects `['Collections']` on the list and must
+     expect `[]`. **It is outside the amending change's write scope and is left failing-by-design
+     for the orchestrator to route.**
+   - The deletion is only worth its 44 px if the `⋯` moves. A one-line deletion of the `<Link>`
+     alone leaves a `size-11` button holding the row open and buys nothing.
+
+   **Measured after the build**, 390×844, at `half`, on a 15-place collection: the heading's top
+   moves **500 → 460**, the search field **558 → 522**, the first place row **614 → 578**. The net
+   is **36 px, not the 44 the audit estimated** — hosting a 44 px target on the heading's row costs
+   8 px even with the negative margins that let it contribute 32 px of layout instead of 44. Both
+   view-switch segments still hit-test on their centre and their bottom edge with the button in
+   place, and all five extremes of the button itself hit-test on the button.
 4. **`EmptyIndex`'s `Go to your map` button** — `collections-index-client.tsx:183-191`. The Map tab
    is on screen, and the map itself is now visible behind the sheet. The empty index keeps its two
    lines of copy and nothing else.
@@ -346,4 +383,5 @@ is untouched by this ruling and neither easier nor harder after it.
 
 | Date | Change |
 |---|---|
+| 2026-09-02 | **Amended §5 item 3, and §2.2 and §3 with it: the `Collections` up-link and its whole kicker row are deleted, and the `⋯` options button moves onto the collection heading's row.** Written before the code, which is the sequence this document's own §5 item 3 note demanded after the control was deleted at `cea513c` and restored at `1db0294`. The argument is the measurement already recorded in §2.2 — the row costs 44 px and takes the collection's only fully-visible list row at 390×844 at `half` — plus the fact that made the control redundant after it was specified: since 2026-08-31 the drawer's `Places / Collections` switch renders directly above this header and its `Collections` segment resolves to the same `/map?view=collections`. Exits after the amendment: that segment at `half`/`full`, and the Map tab at every stop. §2.2's one-back-control invariant is strengthened, not relaxed |
 | 2026-08-30 | Created for `NAV-2`. Ruled: one shell, a collection is a **scope** on it and the collections index is the sheet's list, not a page; **two layers maximum** (shell → one pushed pane) with **exactly one back-shaped control on screen at any moment**; every route-level back arrow deleted in favour of the Map tab (clear scope), the Collections tab (the index) and a **labelled `Collections` up-link** in the sheet's kicker row; scope displayed in the sheet header, never as a floating chip over the map, with `FLOATING_TOP_CHROME_PX` held at 0; `aria-current="true"` on `/collections/[id]`; the canonical `PlaceDetail` may only be **added to** by a collection, through its two existing slots, and `Already in your places` becomes the explicit door `Open in your places →`; and an eleven-item deletion list split into cheap chrome work and costly plumbing work. Superseded `ux-nav-collections-routes-2026-08-29.md` §1's "the back arrow stays" |

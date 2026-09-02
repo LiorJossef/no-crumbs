@@ -10,6 +10,7 @@
  * `ProbeSuccess` (the places, 7-34s), the second extending the first.
  */
 
+import type { PriorSave } from '@/domain/import/prior-saves';
 import type { StoredResolution } from '@/domain/import/resolution-record';
 import type { PlaceCandidate } from '@/domain/types';
 
@@ -82,6 +83,17 @@ export interface ProbeSuccess extends SourcePreview {
   /** The extraction's own city hint: the only thing we know about *where* when we know nothing
    *  about *what*. Null on a cache hit, where nothing persists it. */
   readonly cityHint?: string | null;
+  /**
+   * The places this user has **already added from this same source**, oldest first.
+   *
+   * The measured cause of round-3 feedback §6.1 is re-adding one video, not two candidates of one
+   * extraction — `domain/import/prior-saves.ts` carries the rows. Empty on the common path, and
+   * empty on any read failure: it is a notice, never a gate.
+   *
+   * Absent from a server that predates the field, which reads as "never added before" — the
+   * honest floor, the same one `emptyReason` takes.
+   */
+  readonly priorSaves?: readonly PriorSave[];
 }
 
 /** A probe candidate: what the model extracted, plus what the resolver made of it. Matches the

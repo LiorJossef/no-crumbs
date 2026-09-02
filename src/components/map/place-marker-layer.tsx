@@ -72,6 +72,7 @@ import {
   VISITED_LABEL_OPACITY,
   VISITED_PIN_OPACITY,
 } from './marker-style';
+import { highlightLayerAbove } from './layer-order';
 import type { PlaceFeatureCollection } from './place-features';
 import { styleTextFont } from './style-text-font';
 import { useStyleReady } from './use-style-ready';
@@ -279,6 +280,27 @@ export function PlaceMarkerLayer({
     selectedIdRef.current = selectedId;
   }, [selectedId]);
 
+  /** The features with their label tier stamped on. Memoised on `data`, so the grid scan costs
+   *  nothing on a selection, a re-render or a camera move — only on a library or filter change,
+   *  which is the same key the source is written on. */
+  const labelled = useMemo(() => withPinFeatureProps(data), [data]);
+
+  /**
+   * The current features, for the **creation** path — declared above the setup effect so React has
+   * already written it by the time that effect runs, on mount and on every later commit.
+   *
+   * The same shape `pin-highlight-layer.tsx` uses, and it is a fix for a measured defect rather
+   * than symmetry. The setup effect recreates the source whenever `theme` or `replacedBelowZoom`
+   * moves; the data effect below re-runs on `labelled` alone, so it cannot be relied on to refill
+   * what that effect just emptied. Measured at 123fdb0 on localhost:59420: 87 features in the
+   * source and 28 pins on screen before the first theme toggle, **0 and 0** after it, in both
+   * directions and at both breakpoints, for the rest of the session.
+   */
+  const labelledRef = useRef(labelled);
+  useEffect(() => {
+    labelledRef.current = labelled;
+  }, [labelled]);
+
   useEffect(() => {
     if (!map || !styleReady) return;
 
@@ -318,15 +340,16 @@ export function PlaceMarkerLayer({
       map.addImage(image.id, image.data, { pixelRatio: image.pixelRatio });
     }
 
-    // Created empty on purpose. Seeding it from a ref written during render is the obvious
-    // shape and it is the one that failed here: the source came up with no features and the map
-    // stayed blank. The data-sync effect below runs in the same commit, immediately after this
-    // one, so "empty then filled" is a single frame rather than a visible gap — and it is the
-    // only place `data` is read, which is what makes it correct on every later change too.
+    // **Seeded with the features that exist right now**, never with an empty collection. The data
+    // effect below is still the source's only *ongoing* writer, but it re-runs on `labelled` alone
+    // and so cannot refill a source this effect recreated for a reason of its own — a theme change
+    // or a floor change. An earlier attempt seeded from a ref written **during render**, which was
+    // empty at that point and left the map blank; `labelledRef` is written by an effect declared
+    // above this one, so React has already filled it by the time this runs.
     // No `cluster` options. Every saved place is its own feature at every zoom — see the header.
     map.addSource(sourceId, {
       type: 'geojson',
-      data: { type: 'FeatureCollection', features: [] },
+      data: labelledRef.current,
     });
 
     map.addLayer({
@@ -361,7 +384,13 @@ export function PlaceMarkerLayer({
       ...pinLayerZoomRange(replacedBelowZoom),
       layout: pinLayerLayout(styleTextFont(map), selectedIdRef.current) as never,
       paint: pinLayerPaint(theme) as never,
-    });
+    },
+    // **Beneath the hover lift, whenever that layer is already there.** At mount it is not — this
+    // effect runs before `pin-highlight-layer.tsx`'s — so the pins are appended, which is what puts
+    // the lift above them in the first place. On a rebuild the lift *is* there, and appending would
+    // bury it under the ordinary pins it exists to stand out from. Measured at 123fdb0: one theme
+    // toggle moved the pins from layer index 99 to 100 and the lift from 100 to 97.
+    highlightLayerAbove(map));
 
     const openPlace = (event: MapMouseEvent) => {
       const feature = map.queryRenderedFeatures(event.point, { layers: [pinLayerId] })[0];
@@ -388,12 +417,7 @@ export function PlaceMarkerLayer({
     };
   }, [map, styleReady, sourceId, pinLayerId, replacedBelowZoom, theme]);
 
-  /** The features with their label tier stamped on. Memoised on `data`, so the grid scan costs
-   *  nothing on a selection, a re-render or a camera move — only on a library or filter change,
-   *  which is the same key the source is written on. */
-  const labelled = useMemo(() => withPinFeatureProps(data), [data]);
-
-  // The source's only writer, and the selection effect below is the layer's. Both run after the
+  // The source's ongoing writer, and the selection effect below is the layer's. Both run after the
   // creation effect in the same commit, so the layers are never rendered from stale state.
   useEffect(() => {
     if (!map || !styleReady) return;

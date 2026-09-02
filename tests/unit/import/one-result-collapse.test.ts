@@ -179,11 +179,22 @@ describe('the review screen wires the collapse to that one band', () => {
   });
 
   it('keeps the save an explicit press', () => {
-    // Charter §3 invariant 2. Nothing in this component may call the save from an effect, and the
-    // reassurance under the button is unconditional — the collapsed state is the one most likely
-    // to read as "already done", so it is the state that needs the sentence most.
-    expect(CLIENT_SOURCE).toContain('Nothing is saved until you tap Save.');
+    // Charter §3 invariant 2, both halves of it.
+    //
+    // **The mechanical half:** nothing in this component may call the save from an effect. That is
+    // the assertion that actually guards the invariant, and it is unchanged.
     expect(/useEffect\([\s\S]{0,400}?onSave\(/.test(CLIENT_SOURCE)).toBe(false);
+
+    // **The visible half:** a person must be able to tell that nothing has been written yet, and
+    // the collapsed state is the one most likely to read as "already done", so the line is
+    // unconditional. The sentence shortened from `Nothing is saved until you tap Save.` to
+    // `Nothing is saved yet.` (`ux-overwhelm-audit-2026-09-02.md` §3c #11, §8.1): the old one
+    // explained the button by naming the button, on the densest screen in the product. The fact it
+    // carries is identical, which is why this assertion moved rather than went away.
+    expect(CLIENT_SOURCE).toContain('Nothing is saved yet.');
+    // Comment-stripped for the negative arm: the docblock beside the line quotes the sentence it
+    // replaced, and a scan that reads prose matches its own explanation.
+    expect(CLIENT_CODE).not.toContain('Nothing is saved until you tap Save.');
   });
 });
 

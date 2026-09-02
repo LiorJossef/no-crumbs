@@ -32,6 +32,7 @@ import { DomainError, internal, noCaption } from '../errors';
 import type { OpCtx, Ports } from '../ports';
 import { canonicaliseTikTokUrl } from '../source/canonicalise-tiktok-url';
 import type { ImportEvent, ImportOutcome } from './events';
+import { offerableOf } from './offerable-shortlist';
 import type {
   Candidate,
   CandidateResolution,
@@ -156,19 +157,25 @@ function dedupeVariants(text: string, raw: readonly (string | null)[]): readonly
  * under a `preselect` band cannot occur from a real resolver (there is nothing to preselect), but
  * a fake test port is not obliged to respect that invariant, so it is handled here rather than
  * asserted away.
+ *
+ * The band is still decided on the top row alone — that is the scorer's job, unchanged. What
+ * changed (E-T1) is *how many rows come with it*: the alternates and the options are the
+ * `offerableShortlist` cut, not the whole shortlist. The band said the top row might be right; it
+ * never said the fifth row was a plausible answer to the same question.
  */
 export function deriveResolution(result: ResolveResult): CandidateResolution {
-  const top: RankedPlace | undefined = result.shortlist[0];
+  const offerable = offerableOf(result);
+  const top: RankedPlace | undefined = offerable[0];
   if (result.confidence.band === 'preselect' && top !== undefined) {
     return {
       status: 'resolved',
       place: top.place,
-      alternates: result.shortlist.slice(1).map((r) => r.place),
+      alternates: offerable.slice(1).map((r) => r.place),
       confidence: result.confidence,
     };
   }
-  if (result.confidence.band === 'confirm' && result.shortlist.length > 0) {
-    return { status: 'ambiguous', options: result.shortlist.map((r) => r.place) };
+  if (result.confidence.band === 'confirm' && offerable.length > 0) {
+    return { status: 'ambiguous', options: offerable.map((r) => r.place) };
   }
   return { status: 'unresolved', reason: 'no_match' };
 }

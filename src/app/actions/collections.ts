@@ -260,6 +260,59 @@ export async function removeCollectionItem(
   return { ok: true };
 }
 
+/**
+ * The outcome of an unlink that names more than one item — the collection twin of
+ * `BulkDeleteResult` in `saved-places.ts`, and deliberately a separate type: the two actions are
+ * different removals (`docs/ux-two-removals-one-screen.md`) and sharing one result type is the
+ * first step towards sharing one control.
+ */
+export type BulkRemoveResult =
+  | { readonly ok: true; readonly removed: number; readonly requested: number }
+  | { readonly ok: false; readonly message: string };
+
+/**
+ * Takes several places out of one collection in one statement.
+ *
+ * **The reversible removal.** It deletes `collection_items` rows and nothing else: every place
+ * stays in `places`, and a viewer who had it in their own library still has their `saved_places`
+ * row, their note and their Been mark. Re-adding is the picker. This is not, and must never be
+ * wired to the same control as, `deleteSavedPlaces`.
+ *
+ * `collection_id` is in the filter as well as the ids. It is not the security boundary —
+ * `collection_items_delete` is a membership test and would refuse a foreign item on its own — but
+ * it makes the statement say what the screen means: take these out of *this* collection. Without
+ * it a stale id from another collection the caller also edits would be removed from that one,
+ * silently and correctly, which is the wrong kind of correct.
+ */
+export async function removeCollectionItems(
+  collectionId: string,
+  itemIds: readonly string[],
+): Promise<BulkRemoveResult> {
+  const ids = [...new Set(itemIds)];
+  if (ids.length === 0) return { ok: true, removed: 0, requested: 0 };
+
+  const supabase = await createClient();
+  if (!(await currentUserId())) return { ok: false, message: NOT_SIGNED_IN };
+
+  const { error, count } = await supabase
+    .from('collection_items')
+    .delete({ count: 'exact' })
+    .eq('collection_id', collectionId)
+    .in('id', ids);
+
+  if (error) {
+    console.error('removeCollectionItems failed', {
+      collectionId,
+      requested: ids.length,
+      code: error.code,
+    });
+    return { ok: false, message: "Couldn't take those out. Try again." };
+  }
+
+  revalidatePath('/map');
+  return { ok: true, removed: count ?? 0, requested: ids.length };
+}
+
 /** The shared note on one place in one collection — everybody in the collection sees it, and any
  *  editor may change it. Not to be confused with `saved_places.note`, which is private and stays
  *  that way. */

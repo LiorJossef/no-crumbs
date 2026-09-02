@@ -134,8 +134,25 @@ import {
  * **The model's accuracy at this classification is unmeasured.** No live call was made for this
  * change either; the parse, the absence handling and the unrecognised-value handling are tested,
  * and the classification itself needs a labelled set and a live run.
+ *
+ * `p16` -> `p17` (2026-09-02, E-T3): a tagged **business** stops being a handle. The caption
+ * `✨ Anwi Cafe ✨ Kro Bakery ✨ Kus Kolace ✨ @The Miners Coffee` names four venues and yielded
+ * three: `@The Miners Coffee` is a business the creator tagged, and both the old rule here
+ * ("handles (@username) and URLs — never a place, no exception") and the hard gate in
+ * `domain/extraction/plausibility.ts` dropped it. A prompt-only change would have been useless —
+ * the gate would have dropped it anyway — so the two moved together, and the written ruling they
+ * came from (`09` §5.2 category H) was revised on the record rather than quietly contradicted.
+ *
+ * The discriminator is spelling, because it is the only one caption text supports: a username
+ * cannot contain a space, so `@theminerscoffee` is still an account and `@The Miners Coffee` is a
+ * business written out. Prose only; the schema is unchanged, so only the `p` half moves — and the
+ * bump invalidates every cached extraction, which is the cost of the fix.
+ *
+ * **Unmeasured, deliberately.** No live call was made. What is tested is both directions of the
+ * gate (`plausibility.ts`), which is the half that holds regardless of what the model emits; the
+ * model's obedience to the new exception needs a labelled set and a live run.
  */
-export const PROMPT_VERSION = `p16-s${EXTRACTION_SCHEMA_VERSION}`;
+export const PROMPT_VERSION = `p17-s${EXTRACTION_SCHEMA_VERSION}`;
 
 /** Role, single task, and the negative-case framing that `09` §4.2 calls "the single most
  *  important line in the prompt": most captions name no venue, and an empty list is correct. */
@@ -146,7 +163,13 @@ generic "check out this city" post has no place to find. Returning an empty cand
 correct, expected answer for most captions, not a failure.
 
 What is NOT a place, and must never become a candidate:
-- handles (@username) and URLs — never a place, no exception.
+- URLs — never a place, no exception.
+- a bare @username handle, written as one run-together word ("@joelleuzyel", "@nom_life") — that
+  is an account, usually the creator's own or a friend's, not a venue.
+  ONE exception: a tagged BUSINESS, written out as separate words after the "@"
+  ("@The Miners Coffee", "@Kro Bakery"). A username cannot contain a space, so that spelling is a
+  business the caption tagged, and in a caption that is a list of venues it is one of them. Emit it
+  as a candidate, KEEP the "@" on the name, and quote the tag verbatim as the evidence.
 - a bare city, neighbourhood or country name with no venue ("Tokyo", "Shibuya"), including a
   hashtag that is only that ("#tokyo").
 - a cuisine or food word alone ("ramen", "coffee").

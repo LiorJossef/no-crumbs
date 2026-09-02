@@ -78,6 +78,7 @@
 
 import { llmGuessProviderPlaceId } from './llm-guess-place-id';
 import { toCountryCode } from '../places/country-code';
+import { resolvedCountryCode } from '../places/resolved-country';
 import type { PlaceCandidate, PlaceProvider, RankedPlace, RegionId, SourceDataset } from '../types';
 
 /**
@@ -221,11 +222,21 @@ export function derivePlaceSave(
         providerCategory: place.providerCategory,
         addressLine: place.addressLine,
         locality: place.locality,
-        // Still the caption's, because `ResolvedPlace` carries no country: `poi_index` scopes by
-        // region, and the region's country lives on `poi_regions`, which the resolver does not
-        // return per row. Reading it there is a later, separate improvement; guessing it from the
-        // locality string would be exactly the fabrication this file refuses.
-        countryCode,
+        // **The provider's country first, the caption's only as a fallback.**
+        //
+        // This used to be the caption's alone, and the comment here said why: `ResolvedPlace` is
+        // field-for-field `poi_index`, which has no country. That stopped being the whole truth on
+        // 2026-09-02 — the Google adapter reads the `country` address component, whose `shortText`
+        // *is* the alpha-2 code, and carries it on the seam
+        // `domain/places/resolved-country.ts` opened. `resolvedCountryCode` is total and validated,
+        // so a resolver that reports none, or reports rubbish, lands on the caption's guess exactly
+        // as before rather than on a value `places_country_code_check` would reject.
+        //
+        // It matters beyond tidiness: a NULL `country_code` is what puts `חיפה` in the map's
+        // countryless bucket beside `Israel` (round-3 feedback §3.1) and what makes `/profile`
+        // count countries wrongly. Guessing a country from the locality string is still the
+        // fabrication this file refuses — reading the one the provider stated is the opposite.
+        countryCode: resolvedCountryCode(place) ?? countryCode,
         lat: place.lat,
         lng: place.lng,
         regionId: place.regionId,

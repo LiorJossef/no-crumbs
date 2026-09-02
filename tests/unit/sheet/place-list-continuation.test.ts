@@ -87,7 +87,6 @@ function render(options: {
   otherPlaces?: readonly MapPlace[];
   heading?: AreaHeading;
   query?: string;
-  unfilteredCount?: number;
 }): string {
   return renderToStaticMarkup(
     createElement(PlaceDesktopPanel, {
@@ -106,12 +105,13 @@ function render(options: {
       libraryIsEmpty: false,
       libraryHasVisited: false,
       query: options.query ?? '',
-      ...(options.unfilteredCount === undefined ? {} : { unfilteredCount: options.unfilteredCount }),
       onQueryChange: () => {},
-      activeTag: null,
+      activeTags: [],
       onClearTag: () => {},
-      notBeenOnly: false,
-      onToggleNotBeen: () => {},
+      onToggleTag: () => {},
+      onClearTags: () => {},
+      visitFilter: 'all' as const,
+      onChangeVisitFilter: () => {},
       categoryFacets: [],
       activeCategory: null,
       onToggleCategory: () => {},
@@ -263,7 +263,7 @@ describe('the tag facet reaches the desktop panel too', () => {
     return renderToStaticMarkup(
       createElement(
         TagFilterContext,
-        { value: { activeTag: null, onToggleTag: () => {} } },
+        { value: { activeTags: [], onToggleTag: () => {} } },
         createElement(PlaceDesktopPanel, {
           places,
           otherPlaces: [],
@@ -279,10 +279,12 @@ describe('the tag facet reaches the desktop panel too', () => {
           libraryHasVisited: false,
           query: '',
           onQueryChange: () => {},
-          activeTag: null,
+          activeTags: [],
           onClearTag: () => {},
-          notBeenOnly: false,
-          onToggleNotBeen: () => {},
+          onToggleTag: () => {},
+          onClearTags: () => {},
+          visitFilter: 'all' as const,
+          onChangeVisitFilter: () => {},
           categoryFacets: [],
           activeCategory: null,
           onToggleCategory: () => {},
@@ -293,13 +295,25 @@ describe('the tag facet reaches the desktop panel too', () => {
     );
   }
 
-  it('draws the same chips the sheet does, with the same counts', () => {
+  it('offers the tags behind the same one trigger the sheet uses', () => {
+    // **Changed by the header collapse of 2026-09-02.** The tag chips are no longer a row at rest
+    // on either surface: they live inside `LibraryFilterBar`'s panel, which is closed until the
+    // user opens it. What desktop parity means now is that the panel is *reachable* here — the
+    // chips themselves are asserted against the panel directly in `library-filter-bar.test.ts`,
+    // because this repo's `react-dom/server` setup cannot press anything.
+    //
+    // **The trigger is `Tags`, not `Filter`.** This assertion was written against the single
+    // collapsed `Filter` trigger, which the owner reversed the same day: "maybe we should have a
+    // dropdown for each of the filters instead of having it in one place / cause they are not
+    // related" (`feedback-round-3-work-plan.md` §5.1). The claim is unchanged — the tags are
+    // behind one closed disclosure on the desktop panel, exactly as on the phone — and the name
+    // is the one the ruling produced.
     const markup = renderWithTags([['late night'], ['late night', 'wine'], ['wine'], ['wine']]);
-    expect(markup).toContain('aria-label="Filter by tag"');
-    // `wine` is on three places and `late night` on two, so the row is ordered by count and the
-    // singular/plural is exercised by neither — that is `tag-facet-bar.test.ts`'s job.
-    expect(markup).toContain('aria-label="⁨Wine⁩, 3 places"');
-    expect(markup).toContain('aria-label="⁨Late Night⁩, 2 places"');
+    expect(markup).toContain('aria-label="Tags, showing all"');
+    expect(markup).toContain('aria-expanded="false"');
+    // And the row it replaces is genuinely gone rather than merely restyled.
+    expect(markup).not.toContain('aria-label="Filter by tag"');
+    expect(markup).not.toContain('aria-label="⁨Wine⁩, 3 places"');
   });
 
   it('draws no facet row for a library with no tags', () => {
@@ -310,22 +324,14 @@ describe('the tag facet reaches the desktop panel too', () => {
 });
 
 /**
- * Desktop parity for the visible result count (W5-5). Same component as the sheet's, same three
- * conditions, and the same refusal to render without a denominator it can stand behind.
+ * **The visible result count was deleted on 2026-09-02**, on both surfaces at once
+ * (`ux-overwhelm-audit-2026-09-02.md` §7). It was `aria-hidden`, so it spoke to sighted users
+ * only, and it restated the heading and the list in the one band the owner asked us to empty.
+ * Desktop parity is now parity in its absence.
  */
-describe('the result count reaches the desktop panel too', () => {
-  it('says how many of how many while something is narrowing', () => {
-    expect(render({ query: 'momos', unfilteredCount: 32 })).toContain('5 of 32');
-  });
-
-  it('stays away when nothing is narrowing, and when there is no denominator', () => {
-    expect(render({ unfilteredCount: 32 })).not.toContain('of 32');
+describe('the result count is gone from the desktop panel too', () => {
+  it('draws no `N of M` anywhere', () => {
     expect(render({ query: 'momos' })).not.toMatch(/\d+ of \d+/);
-  });
-
-  it('is hidden from the accessibility tree, because the live region already says it', () => {
-    expect(render({ query: 'momos', unfilteredCount: 32 })).toMatch(
-      /<p aria-hidden="true"[^>]*>5 of 32<\/p>/,
-    );
+    expect(render({})).not.toMatch(/\d+ of \d+/);
   });
 });

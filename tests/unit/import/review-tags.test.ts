@@ -35,7 +35,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 import { SUB_TAG_KEYS, SUB_TAGS } from '@/domain/places/taxonomy';
-import { tagDisplayLabel } from '@/domain/extraction/tags';
+import { MAX_TAGS_PER_CANDIDATE, tagDisplayLabel } from '@/domain/extraction/tags';
 
 const CARD_PATH = 'src/app/import/screens/review/candidate-card.tsx';
 const ROUTE_PATH = 'src/app/api/imports/confirm/route.ts';
@@ -78,6 +78,36 @@ describe('the review card shows what the save will file the place under', () => 
     // `body` because the screen's own H1 carries the name. One occurrence means one layout saves
     // tags without showing them — and it would be the *confident* one.
     expect(card.match(/\{tagRow\}/g)).toHaveLength(2);
+  });
+
+  it('caps the row at three chips and counts the remainder rather than dropping it', () => {
+    const card = code(CARD_PATH);
+
+    // The cap itself (`ux-overwhelm-audit-2026-09-02.md` §7 item 13).
+    expect(card).toContain('const MAX_PROPOSED_TAGS_SHOWN = 3');
+    expect(card).toContain('proposedTags.slice(0, MAX_PROPOSED_TAGS_SHOWN)');
+
+    // **The consent argument is what makes the `+N` mandatory rather than decorative.** The stamp
+    // on `tags_confirmed_at` rests on this row having shown what the save will write; a silent
+    // truncation would file a word nobody was told about. The remainder is therefore counted on
+    // screen, inside the same tickbox, and never merely dropped.
+    expect(card).toContain('hiddenTagCount');
+    expect(card).toContain('+{hiddenTagCount}');
+    expect(card).not.toMatch(/slice\(0, \d\)/);
+  });
+
+  it('cannot be reached by any candidate the extractor can produce today', () => {
+    // **The audit that asked for the cap counted six pills per card. The data ceiling is two.**
+    // `normaliseTags` truncates to `MAX_TAGS_PER_CANDIDATE` before storage, so the slice above does
+    // not bind on anything the probe can return, and the `+N` branch is unreachable in production
+    // as the numbers stand.
+    //
+    // Pinned as a relationship rather than as two literals: the point is not that 3 > 2 today, it
+    // is that **the display cap must never fall below the data cap**, because the gap between them
+    // is exactly the set of tags that would be written without being shown. If someone raises the
+    // taxonomy's ceiling, this fails and sends them to the card.
+    expect(MAX_TAGS_PER_CANDIDATE).toBe(2);
+    expect(MAX_TAGS_PER_CANDIDATE).toBeLessThanOrEqual(3);
   });
 
   it('uses the library’s own render rule for a stored tag, not a local casing pass', () => {

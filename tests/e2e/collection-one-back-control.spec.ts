@@ -136,9 +136,13 @@ test.describe('one back control, at every step inside a collection', () => {
     await signIn(page);
     await openFirstCollection(page);
 
-    // 1. The list. No arrow at layer 0 — the kicker up-link, which says where it goes.
+    // 1. The list. Layer 0 now draws NO back control at all — the kicker up-link was deleted
+    // 2026-09-02 (see `ux-collections-as-scope.md` §5 item 3). The invariant it guarded got
+    // stronger rather than weaker: the drawer's `Places / Collections` switch renders directly
+    // above this header and its `Collections` segment resolves to the same `/map?view=collections`,
+    // so the escape route survives the row's deletion and layer 0 owes nothing.
     const onList = await backShaped(page);
-    expect(onList, 'the list header carries exactly the up-link').toEqual(['Collections']);
+    expect(onList, 'layer 0 carries no back control of its own').toEqual([]);
     // Scoped outside both navigation landmarks: the drawer's `Collections` segment shares this
     // name by design, and is a destination rather than a back control. (The bar carried a
     // `Collections` tab until 2026-08-31 and was excluded here for the same reason; it now holds

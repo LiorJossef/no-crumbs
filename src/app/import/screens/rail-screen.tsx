@@ -83,7 +83,7 @@ export function RailScreen({
   }, []);
 
   return (
-    <div className={cn('flex flex-1 flex-col', ENTER_SCREEN)}>
+    <div className={cn('my-auto flex flex-col', ENTER_SCREEN)}>
       <div className="flex flex-col gap-1">
         {/*
           **The kicker has no spinner any more, and that is the point of this change.**
@@ -130,42 +130,47 @@ export function RailScreen({
       </div>
 
       {/*
-        **Three flexible joints, so the slack is distributed instead of pooling above the pinned
-        action.**
+        **Fixed joints and a centred column, because the slack was never worth distributing.**
 
-        Measured at 390x844: the gap between the last step and `Cancel` was **174px, 20.6% of the
-        viewport** — one contiguous void on the longest-dwell screen in the product, which somebody
-        looks at for up to thirty-four seconds. `iteration-2-plan.md`'s `I2-5` criterion is *"no
-        screen carries a stretched gap above a pinned action"*; it was written about the landing
-        screens and this screen had the shape it forbids.
+        This screen has about 490px of content. On a 390x844 phone the column it sits in is 732px,
+        so 237px — **28.1% of the viewport** — has nowhere to be. The previous repair spread it over
+        three `flex-1` joints, which fixed the shape it replaced (one contiguous 174px void above a
+        pinned `Cancel`, `iteration-2-plan.md`'s `I2-5`) by turning one hole into three 79px ones.
+        Three gaps that size do not read as rhythm on a screen whose blocks are 24-90px tall; they
+        read as a column that has come apart, on the surface somebody looks at for up to
+        thirty-four seconds.
 
-        **Nothing was invented to fill it** — that rule holds, and there is nothing honest to put
-        here anyway: the rail may claim no stage the server did not send. What changed is where the
-        emptiness goes. Three `flex-1` joints share it — under the header, under the trail, above
-        `Cancel` — so 174 in one place becomes about 71 in three, and 71px of air between blocks is
-        rhythm rather than a hole.
+        So the joints are fixed — 20/32/32, exactly the `min-h-*` floors the flexible version fell
+        back to when there was no slack, so no viewport gets a *taller* column than it had — and
+        the column stops stretching. `my-auto` on a flex child absorbs the remaining space **into
+        margins**, which is the whole reason it is the right instrument here: the block sits as one
+        card in the middle of the viewport, and the emptiness is outside it rather than inside it.
+        It is also self-limiting — when the free space is negative, CSS resolves auto margins to
+        zero and the column falls back to the top, so a 667px viewport gets the top-anchored layout
+        rather than a heading pushed off the screen. That is the failure `justify-center` has here
+        and the reason the previous version could not use it.
 
-        The header stays top-anchored, because a title belongs where titles go, and the trail ends
-        up floating between two of the joints with air on both sides, which suits the one thing on
-        this screen a person is actually watching.
+        Nothing was invented to fill anything, and nothing may be: the rail claims no stage the
+        server did not send.
 
-        **They collapse to nothing when there is no slack**, which is the reason this is three
-        spacers rather than a centred block: at 667px tall the content already fills the column, and
-        `justify-center` on an overflowing flex column pushes content off *both* ends, including the
-        heading.
+        `Cancel` is no longer pinned to the bottom edge, and that is the trade. It is a ghost
+        secondary on a screen with no primary — the escape from a wait, not the thing the screen is
+        for — and it stays inside the thumb zone at 390x844 (measured at this commit: its bottom edge
+        sits 101px above the viewport bottom). Desktop is unchanged in
+        every practical sense: the card is content-height there, so the floors were already
+        what it rendered.
 
-        **The floors are why they are `min-h-*` and not bare `flex-1`.** Without them the first
-        version of this collapsed to nothing on desktop, where the shell card is sized to its
-        content and there is no slack at all — measured at 1440x900, the trail ended up wedged
-        between the wait line and the post card with no air. A joint that distributes slack must
-        still be a joint when there is none. 20/32/32 is roughly the fixed padding this screen
-        carried before, so the no-slack case is where it was and only the slack case changed.
+        **Not fixed here, and pre-existing:** the column needs 666px and `ImportShell` is
+        `overflow-hidden`, so anything shorter clips `Cancel` rather than scrolling to it. Measured
+        at this commit: 390x667 fits by one pixel, 320x568 does not. That is the no-slack case,
+        which these joints leave exactly where the floors had it, so this change neither causes it
+        nor makes it worse; the fix is the shell's, not this column's.
       */}
-      <div className="min-h-5 flex-1" />
+      <div className="h-5 shrink-0" />
 
       <CrumbTrail className="crumb-anim-wobble w-40" mood="reading" />
 
-      <div className="min-h-8 flex-1" />
+      <div className="h-8 shrink-0" />
 
       {/* The post, once the server has actually sent it (`RailState.post`, W6-2). Its visual
           language is the review screen's source row on purpose: the same 48px still, the same
@@ -237,7 +242,7 @@ export function RailScreen({
         ))}
       </ol>
 
-      <div className="min-h-8 flex-1" />
+      <div className="h-8 shrink-0" />
 
       <div className="flex flex-col gap-2">
         <Button type="button" variant="ghost" onClick={onCancel} className="h-11 w-full rounded-lg text-sm font-bold">

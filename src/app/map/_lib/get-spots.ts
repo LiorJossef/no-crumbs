@@ -144,18 +144,42 @@ interface SavedPlaceRow {
 }
 
 /**
- * Picks the source to show. `saved_place_sources` is many-to-many (`08 §3.6`); this slice renders
- * one, so it takes the earliest-linked one — the post that first justified the save — rather than
- * an arbitrary array order the join happens to return.
+ * Every source linked to this save, earliest-linked first.
+ *
+ * **This function used to return one and drop the rest.** `saved_place_sources` is many-to-many
+ * (`08 §3.6`) and `save_place` (migration `0034`) inserts a second link with
+ * `on conflict do nothing`, so saving the same place from a second TikTok link keeps *both* rows —
+ * nothing is ever lost in the database. What was lost was in this file: it took `linked[0]` and
+ * mapped it into `Spot.source`, so the card showed the post that *first* justified the save and
+ * every later one was invisible. Reported as "saving the same place from two TikToks keeps only
+ * the latest" (round 3 §5.1); the direction in that sentence is the opposite of the mechanism,
+ * which is why it is worth stating here.
+ *
+ * Earliest-first rather than newest-first because that order is a fact about the rows
+ * (`added_at`), and the first entry stays exactly what `Spot.source` has always been — so nothing
+ * that reads `source` changes meaning while `sources` grows a second reader.
+ *
+ * **The caller's own library only.** Showing this list to a collection peer would need a new
+ * `saved_place_sources` read policy, which migration `0024` refused on purpose; `getSpots` reads
+ * under `sps_select_own` and no other surface gets the array.
  */
-function earliestSource(row: SavedPlaceRow): SpotSource | undefined {
-  const linked = row.saved_place_sources
-    .filter((link) => link.source !== null)
+function linkedSources(row: SavedPlaceRow): readonly SpotSource[] {
+  return row.saved_place_sources
     .slice()
-    .sort((a, b) => a.added_at.localeCompare(b.added_at));
-  const source = linked[0]?.source;
-  if (!source) return undefined;
+    .sort((a, b) => a.added_at.localeCompare(b.added_at))
+    // `flatMap` rather than `filter().map()` so the null-source case narrows instead of needing a
+    // cast. A link whose `sources` row did not resolve is dropped, not rendered as a hole.
+    .flatMap((link) => (link.source === null ? [] : [toSpotSource(link.source)]));
+}
 
+function toSpotSource(source: {
+  readonly id: string;
+  readonly platform: 'tiktok';
+  readonly canonical_url: string;
+  readonly author_handle: string | null;
+  readonly author_name: string | null;
+  readonly thumbnail_url: string | null;
+}): SpotSource {
   return {
     id: source.id,
     platform: source.platform,
@@ -189,13 +213,40 @@ function provenanceFor(row: SavedPlaceRow): SpotProvenance | undefined {
   };
 }
 
-function toSpot(row: SavedPlaceRow): EnrichedSpot {
+/**
+ * Everything `getSpots` returns that `Spot` does not declare yet.
+ *
+ * **Separate interface rather than a field on `Spot`, and deliberately so** — the same pattern, and
+ * the same reason, as `ui/place/enrichment.ts`'s `SpotEnrichment`: `domain/places/spot.ts` is held
+ * by another lane in this wave, and two agents editing one type at once is how a merge conflict
+ * becomes a silently dropped field. When `Spot` grows `sources`, delete this and the intersection
+ * below; every call site already reads the same name.
+ *
+ * Exported as a **type only**. This module is `server-only`, so a client component may
+ * `import type { SpotSources }` (erased at compile time) but must never import a value from here.
+ */
+export interface SpotSources {
+  /**
+   * Every `sources` row linked to this save, earliest-linked first, and `sources[0]` is exactly
+   * `Spot.source`. Empty for a manual save, which has no linked source at all.
+   */
+  readonly sources: readonly SpotSource[];
+}
+
+/** What one row of `getSpots` actually is: an `EnrichedSpot` that also carries every linked
+ *  source, not only the earliest one. */
+export type SpotWithSources = EnrichedSpot & SpotSources;
+
+function toSpot(row: SavedPlaceRow): SpotWithSources {
   // The provenance invariant (`0006`) guarantees a place row exists for every saved place; `place`
   // is typed nullable above only because the join itself can't express that at the type level, not
   // because a null is expected here. Falling back to the row's own id keeps a broken row visible
   // (a blank pin) instead of throwing and blanking the whole map.
   const place = row.place;
-  const source = earliestSource(row);
+  const sources = linkedSources(row);
+  // `Spot.source` stays the earliest-linked one, unchanged, so every existing reader keeps the
+  // meaning it was written against. `sources` is the widened view beside it, not a replacement.
+  const source = sources[0];
   const provenance = provenanceFor(row);
 
   return {
@@ -221,6 +272,10 @@ function toSpot(row: SavedPlaceRow): EnrichedSpot {
     ...(place?.country_code ? { countryCode: place.country_code } : {}),
     ...(provenance ? { provenance } : {}),
     ...(source ? { source } : {}),
+    // Unconditional, unlike `source` above: `[]` is the honest answer for a manual save, and an
+    // absent key would make "this place has no linked source" indistinguishable from "this object
+    // came from somewhere that does not know about sources".
+    sources,
     ...(row.extracted_reason ? { reason: row.extracted_reason } : {}),
     ...(row.note ? { note: row.note } : {}),
     ...(row.source_url ? { sourceUrl: row.source_url } : {}),
@@ -240,7 +295,7 @@ function toSpot(row: SavedPlaceRow): EnrichedSpot {
 
 /** The current user's saved places, per `saved_places.created_at desc` (most recently saved
  *  first — the map's own camera-fit doesn't care about order, but the sheet/panel list does). */
-export async function getSpots(): Promise<readonly EnrichedSpot[]> {
+export async function getSpots(): Promise<readonly SpotWithSources[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('saved_places')

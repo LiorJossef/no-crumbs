@@ -5,7 +5,7 @@
  * `ux-library-at-scale.md` §1.3 is the surface this serves — a horizontally scrolling bar of chips
  * pinned under the search field, one category at a time, each chip carrying its count — and
  * `ux-navigation-structure-2026-08-29.md` §3 is the ruling that categories are *this* and not a
- * destination. `components/sheet/category-filter-bar.tsx` decides how it looks; this file decides
+ * destination. `components/sheet/library-filter-bar.tsx` decides how it looks; this file decides
  * what there is to look at.
  *
  * ## Why the facets are derived from the places and never from the vocabulary

@@ -203,7 +203,8 @@ dropped when any of these hold:
 
 | Rule | Why |
 |---|---|
-| `rawName` is a handle or URL fragment | `04` §5 category H — a `@handle` or `https?://` link is never a venue regardless of context |
+| `rawName` is a URL fragment | `04` §5 category H — a `https?://` link is never a venue regardless of context |
+| `rawName` is a bare `@handle` — one run-together word after the `@` | Still category H: a username cannot contain a space, so `@theminerscoffee` is an account, usually the creator's own. **Revised 2026-09-02, E-T3 — see below** |
 | `rawName` is a `#hashtag` that also fails one of the other rules below (city/country-only, generic-words-only) | Same phantom-place risk as above, but a hashtag-only name that passes the other checks (`#aroma`) is kept, not dropped — there is no way to tell it from a fake (`#tsukijifishmarket`) from caption text alone. It survives with `modelConfidence` capped at `HASHTAG_ONLY_CONFIDENCE_CEILING = 0.5`, never higher, regardless of what the model reported |
 | `rawName`, normalised, equals a known city / neighbourhood / country in the loaded region index | "Tokyo" is a scope, not a venue |
 | `rawName` consists solely of generic words (`cafe`, `coffee`, `bar`, `restaurant`, `food`, `spot`, `place`, `gem`) after the `06` §6.1 stop-word list is applied | Catches "this hidden gem", which `06` §6.3 shows scores dangerously high — 0.813–0.894 — against a naive 0.80 cut |
@@ -212,6 +213,51 @@ dropped when any of these hold:
 
 Dropped candidates are **counted and logged** (code + count only, never the text — `07` §7.1), because a
 rising drop rate is the earliest signal that the prompt or the model has drifted.
+
+#### 5.2.1 Revision, 2026-09-02 — a tagged business is not a handle (E-T3)
+
+**What this section used to say, and why it was wrong.** Category H read *"a `@handle` … is never a
+venue regardless of context"*, and `integrations/llm/prompt.ts` carried the matching line, *"handles
+(@username) and URLs — never a place, no exception"*. That ruling was written before **business
+tags** were considered. It costs real places: the caption
+
+> `✨ Anwi Cafe ✨ Kro Bakery ✨ Kus Kolace ✨ @The Miners Coffee`
+
+names four venues and the product found three. `@The Miners Coffee` is a coffee shop the creator
+tagged, dropped silently as `dropped.hashtag_or_handle`.
+
+**The revision.** An `@`-token is a candidate when the text after the `@` is **two or more
+whitespace-separated words**; a bare `@username` is not, and nothing else about category H changes.
+A TikTok username cannot contain a space, so that spelling is not a username — it is the account's
+display name, which is how a business is written into a caption. It is a shape test, deliberately,
+because caption text supports no other: this is the extraction gate, and "is this account a
+business" is world knowledge the gate does not have.
+
+**Both barriers had to move.** The prompt (`p16` → `p17`) and the gate
+(`domain/extraction/plausibility.ts`) each dropped the candidate independently, so changing either
+alone would have changed nothing observable.
+
+**What survives, and how it is presented.** The `@` is stripped, so everything downstream — the
+other rules in this table, the resolver, the card — reads a venue name and not a mention. The
+candidate is **capped at 0.5** and the card says *"Only mentioned as a tagged account"*, both
+decided from the caption (`isTaggedAccountOnlyEvidence`) rather than from whether the model kept the
+`@`, for the same reason `isHashtagOnlyEvidence` is: a guard that depends on the model formatting
+its answer correctly is not a guard. Where the prose names the venue too, it is not capped and not
+labelled — the prose corroborates it.
+
+**Rejected: the corroboration arm.** "A bare `@handle` whose words appear in the prose is a venue"
+was considered and refused. If the prose names it, the prose already produced a candidate, and
+admitting the handle as a second one is exactly the two-candidates-one-venue duplicate this import
+path has no merge step for.
+
+**Known false positive, left visible rather than guessed at.** A *person* tagged by display name
+(`@Sarah Cohen`) passes the shape test. It arrives capped, labelled, and resolves to nothing — an
+unresolved candidate the user rejects, which is the failure this product prefers over a confident
+wrong place.
+
+**Unmeasured.** No live call was made. The gate is tested in both directions
+(`tests/unit/extraction/plausibility.test.ts`), which holds whatever the model emits; whether the
+model obeys the new exception needs a labelled set and a live run.
 
 ### 5.3 Ordering and the cap
 

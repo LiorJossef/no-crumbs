@@ -109,19 +109,26 @@ function render(place: DetailPlace): string {
   );
 }
 
-/** The `<p …>text</p>` (or `<p …><bdi>text</bdi></p>`) that directly wraps `text` in `markup`, as
- *  its own opening tag's attribute string — `null` if `text` is not found inside a `<p>`. Scoped to
- *  the nearest enclosing `<p>` rather than the whole document, because `dir="auto"` legitimately
- *  appears elsewhere on this screen (the category/locality line) and a blanket search across the
- *  full markup would not tell one `<p>` from another. */
-function attributesOfParagraphContaining(markup: string, text: string): string | null {
+/** The `<tag …>text</tag>` (or `<tag …><bdi>text</bdi></tag>`) that directly wraps `text` in
+ *  `markup`, as its own opening tag's attribute string — `null` if `text` is not found inside one.
+ *  Scoped to the nearest enclosing element rather than the whole document, because `dir="auto"`
+ *  legitimately appears elsewhere on this screen (the category/locality line) and a blanket search
+ *  across the full markup would not tell one block from another.
+ *
+ *  `tag` is a parameter because the note's resting block became a `<span>` when it moved into the
+ *  card's field row (`ux-place-card-unification-2026-09-02.md` §4.2). The *invariant* this file
+ *  guards — the note carries its own reading direction — is about the attribute, not the element,
+ *  and a helper hard-wired to `<p>` would have reported the fix as a regression. */
+function attributesOfBlockContaining(markup: string, text: string, tag = 'p'): string | null {
   const escaped = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  // `<p(?=[\s>])` rather than `<p([^>]*)>`: the bare version also matches `<path …>`, the SVG
+  // `(?=[\s>])` rather than `<p([^>]*)>`: the bare version also matches `<path …>`, the SVG
   // element every icon in this markup uses, because "path" starts with "p" too and its `d`
   // attribute string contains no `>` to stop the class at. The lookahead requires the character
-  // right after `p` to be whitespace or the tag's own close, which `path` never satisfies.
+  // right after the name to be whitespace or the tag's own close, which `path` never satisfies.
   const match = markup.match(
-    new RegExp(`<p(?=[\\s>])([^>]*)>(?:(?!</p>)[\\s\\S])*?${escaped}(?:(?!</p>)[\\s\\S])*?</p>`),
+    new RegExp(
+      `<${tag}(?=[\\s>])([^>]*)>(?:(?!</${tag}>)[\\s\\S])*?${escaped}(?:(?!</${tag}>)[\\s\\S])*?</${tag}>`,
+    ),
   );
   return match ? match[1]! : null;
 }
@@ -144,9 +151,11 @@ const SAVED_PLACE_EDITS_SOURCE = withoutComments(
 );
 
 describe('the note carries its own reading direction (rtl audit finding 1)', () => {
-  it('sets dir="auto" on the read paragraph, reachable through a real render', () => {
+  it('sets dir="auto" on the resting note, reachable through a real render', () => {
     const markup = render(SAVED);
-    const attrs = attributesOfParagraphContaining(markup, NOTE_HE);
+    // A `<span>` since the note became a field row: the row is a `<button>`, so its value line
+    // cannot be a `<p>`. The direction still resolves on the block that holds the note text.
+    const attrs = attributesOfBlockContaining(markup, NOTE_HE, 'span');
     expect(attrs, markup).not.toBeNull();
     expect(attrs, markup).toContain('dir="auto"');
 
@@ -154,10 +163,10 @@ describe('the note carries its own reading direction (rtl audit finding 1)', () 
     // paragraph to plain `<p className="…">{note}</p>` — the exact pre-fix shape — is what this
     // test is written to catch, checked here by re-deriving the same match against that shape.
     const preFix = markup.replace(
-      new RegExp(`<p dir="auto"([^>]*)>((?:(?!</p>)[\\s\\S])*?${NOTE_HE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:(?!</p>)[\\s\\S])*?)</p>`),
-      '<p$1>$2</p>',
+      new RegExp(`<span dir="auto"([^>]*)>((?:(?!</span>)[\\s\\S])*?${NOTE_HE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:(?!</span>)[\\s\\S])*?)</span>`),
+      '<span$1>$2</span>',
     );
-    const preFixAttrs = attributesOfParagraphContaining(preFix, NOTE_HE);
+    const preFixAttrs = attributesOfBlockContaining(preFix, NOTE_HE, 'span');
     expect(preFixAttrs, preFix).not.toContain('dir="auto"');
   });
 
@@ -182,7 +191,7 @@ describe('the note carries its own reading direction (rtl audit finding 1)', () 
 describe('the address row keeps its icon fixed regardless of the address language (rtl audit finding 2)', () => {
   it('isolates the address text in <bdi>, and puts no dir on the row that holds the pin icon', () => {
     const markup = render(SAVED);
-    const attrs = attributesOfParagraphContaining(markup, ADDRESS_HE);
+    const attrs = attributesOfBlockContaining(markup, ADDRESS_HE);
     expect(attrs, markup).not.toBeNull();
 
     // The regression that matters most: the row must carry no `dir` attribute at all. It comes
@@ -203,11 +212,14 @@ describe('the address row keeps its icon fixed regardless of the address languag
     // the row — by adding it back to the rendered markup and re-running the same absence check.
     // `class`, not `className`: `renderToStaticMarkup` writes the DOM attribute name, not the JSX
     // prop name.
+    // Matched on the `<p>` that holds the `MapPin`, not on its exact class string: the row gained
+    // `flex-wrap` when the approximate mark moved onto it (lane B-T2), and a literal class match
+    // is a proof that quietly stops proving anything the next time the row is restyled.
     const regressed = markup.replace(
-      /(<p class="flex items-start gap-2 text-sm text-foreground")(>)/,
+      /(<p class="flex flex-wrap items-start[^"]*")(>)/,
       '$1 dir="auto"$2',
     );
-    const attrs = attributesOfParagraphContaining(regressed, ADDRESS_HE);
+    const attrs = attributesOfBlockContaining(regressed, ADDRESS_HE);
     expect(attrs, regressed).toMatch(/\bdir="auto"/);
   });
 });

@@ -56,12 +56,10 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import { Trash2, Pencil, Check } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   deleteSavedPlace,
   setSavedPlaceVisited,
   updateSavedPlaceCategory,
-  updateSavedPlaceName,
   updateSavedPlaceNote,
 } from '@/app/actions/saved-places';
 import { useAnnouncer } from '@/ui/place/announce';
@@ -73,11 +71,6 @@ import {
 } from '@/ui/place/visit-state';
 import { NOTE_MAX_LENGTH, isNoteUnchanged, validateNote } from '@/domain/places/note';
 import {
-  DISPLAY_NAME_MAX_LENGTH,
-  isDisplayNameUnchanged,
-  validateDisplayName,
-} from '@/domain/places/display-name';
-import {
   PRODUCT_CATEGORY_LABEL,
   PRODUCT_CATEGORY_ORDER,
   type ProductCategory,
@@ -85,10 +78,75 @@ import {
 import { SECTION_LABEL } from '@/ui/place/section-label';
 import { attemptWrite } from '@/ui/place/write-failure';
 import { cn } from '@/lib/utils';
-import { PRESS_BUTTON, PRESS_CHIP, TINT_BEAT } from '@/lib/interaction';
+import { PRESS_BUTTON, PRESS_CHIP, PRESS_ROW, TINT_BEAT } from '@/lib/interaction';
 
 /** Shown once the note gets close enough to the limit that the number is useful rather than noise. */
 const COUNTER_VISIBLE_FROM = NOTE_MAX_LENGTH - 200;
+
+/**
+ * **The field row — one shape for everything that edits one field of your record of a place.**
+ *
+ * `Add to a collection`, `Category`, `Your note` and the collection's `Shared note` were four
+ * different components until 2026-09-02: a boxed full-width row, an inline mint `Change` link, a
+ * dashed `+ Add a note` pill and a bordered panel. Four shapes for one job, on one card, is the
+ * whole of the owner's "inconsistent action components" complaint
+ * (`docs/ux-place-card-unification-2026-09-02.md` §4.2, which is the ruling this implements).
+ *
+ * The row is **label above value**: `SECTION_LABEL` at 11 px, the value at 14 px under it, and a
+ * 12 px trailing glyph that names what pressing will do — a chevron replaces the pane (only
+ * `Add to a collection` does that), a pencil opens the row in place. Empty is the *same row* with
+ * a muted value (`Not set`, `Add a note`), never a different component, so filling a field never
+ * swaps the thing you pressed.
+ *
+ * `min-h-12` is 48 px, above the 44 px touch floor, because these rows stack flush against each
+ * other and a run of them has to read as a list. **No border, no fill, no radius at rest** — the
+ * radius and the tint arrive on hover and focus only. That is what lets four of them sit together
+ * without the card turning into a form.
+ *
+ * This deliberately replaces `ADD_NOTE_PILL`, deleted here. That constant existed so the private
+ * note and the shared note would look like one object — a real goal it solved by inventing an
+ * eighth shape. This solves it, and the category row, and the collection row, with one.
+ */
+export const DETAIL_FIELD_ROW =
+  'flex min-h-12 w-full cursor-pointer items-center gap-2 rounded-lg px-1 text-start outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50';
+
+/** The same row with its editor open: same inset, same minimum height, still no border and no
+ *  fill. An open field must not become a panel — that is how the shared note ended up looking like
+ *  a different object from the private one. */
+export const DETAIL_FIELD_OPEN = 'flex min-h-12 w-full flex-col justify-center gap-1 px-1 py-1.5';
+
+/** The value line inside a field row. Muted when it is an offer, foreground when it is a value. */
+export const DETAIL_FIELD_VALUE = 'text-sm leading-snug';
+
+/** The 11 px mint text control that closes an open field row (`Done`). `min-h-11` with a negative
+ *  block margin: the touch target is 44 px, the paint is one small line. */
+export const DETAIL_FIELD_DONE =
+  '-my-2 inline-flex min-h-11 shrink-0 items-center rounded px-1 text-micro font-bold text-brand underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50';
+
+/**
+ * **The one shape the card's three primary actions share** — `Open on TikTok`, `Google Maps` and
+ * `Been here` — exported because the first two are anchors in `place-sheet.tsx` and only the third
+ * lives here. Two files drawing "the same pill" from two class strings is how the row comes to have
+ * two heights.
+ *
+ * Why a pill and not the full-width block this was: the block was 44 px tall and the width of the
+ * card, and there were two more like it underneath (the note, the remove). Three full-width blocks
+ * is a form, and a saved place is not a form — round 3 of the owner's feedback measured the primary
+ * actions *below the fold* on both viewports. Side by side they cost one 44 px band instead of
+ * three, which is what buys the card its zero-scroll shape.
+ *
+ * `min-h-11` is not negotiable and is why the row is pills rather than text links: 44 px is the
+ * touch floor, and this is the row a person presses on a phone. The height is spent once for all
+ * three.
+ *
+ * `px-3` is measured, not chosen: at `px-3.5` the three pills are 353 px against the 350 px a
+ * 390 px phone gives this card, so the row wrapped into two 44 px bands and gave back most of what
+ * it had just saved. At `px-3`, with no trailing arrow on the Google Maps pill, they are 333 px and
+ * the row is one band with 17 px of slack. The labels are fixed strings, so that number is the same
+ * on every place in the library rather than a lucky fixture.
+ */
+export const DETAIL_ACTION_PILL =
+  'inline-flex min-h-11 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-full border px-3 text-sm font-bold outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
 
 /**
  * "I've been here" — the one control that lets the library resolve rather than only grow.
@@ -166,7 +224,7 @@ export function BeenToggle({
   }
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col items-start gap-1.5">
       <button
         type="button"
         aria-pressed={visited}
@@ -185,7 +243,12 @@ export function BeenToggle({
           // and the two are ~200ms apart. `PRESS_BUTTON` rather than `PRESS_ROW`: it is a button,
           // full width or not. The bare `transition-colors` goes rather than gaining a prefix,
           // because `PRESS_BEAT`'s `motion-safe:transition` already carries colour.
-          'flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border text-sm font-bold outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+          //
+          // **The width is gone and the words are not.** This was `w-full rounded-lg`; it is now
+          // the shared pill, third in a row beside the two links. `voice-and-vocabulary.md` §3
+          // ratifies `Been here` / `Been`, so the size and the weight changed and the string did
+          // not — the complaint was never the wording.
+          DETAIL_ACTION_PILL,
           PRESS_BUTTON,
           pending && 'opacity-50',
           visited
@@ -271,9 +334,9 @@ export function CategoryEditor({
   /** Whether this place came from a TikTok at all.
    *
    *  Only the sentence under the value depends on it, and only so that it stops being false: a
-   *  manually added place has no video behind it, and the line read `Bar · worked out from the video` on the
-   *  first one ever saved. Its category came from the map listing's own type, which is a different
-   *  claim and a better one. */
+   *  manually added place has no TikTok video behind it, and the line read `Bar · from the TikTok
+   *  video` on the first one ever saved. Its category came from the map listing's own type, which
+   *  is a different claim and a better one. */
   fromAPost: boolean;
 }) {
   const [editing, setEditing] = useState(false);
@@ -295,238 +358,161 @@ export function CategoryEditor({
     });
   }
 
-  return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center justify-between gap-2">
-        <p className={SECTION_LABEL}>Category</p>
+  // The value line. Open, the row replaces it with the chip group rather than stacking both:
+  // the active chip already says what the category is, and repeating it under the editor is the
+  // "panel" shape this row exists to avoid.
+  const value = (
+    <>
+      {/* A place with no category says so in words rather than showing a blank line where a value
+          should be — the control is the answer to "what is this?", and silence there reads as a
+          rendering fault rather than as an honest "we could not tell". */}
+      {category === null ? (
+        <span className="text-muted-foreground">Not set</span>
+      ) : (
+        PRODUCT_CATEGORY_LABEL[category]
+      )}
+      {/* **Where the category came from, said as a place rather than as a process.**
+
+          This read `Restaurant · worked out from the video` until 2026-09-02. *Worked out from* is
+          our machinery narrated at the user — the same voice B-T2 retired from the location line.
+          `from the TikTok video` names an object the user already knows is there: the still at the
+          top of this card is a frame of it, and the pill above opens it. That makes it symmetric
+          with the other arm, `from the map listing`, which was already a thing rather than a
+          procedure — and the symmetry is the point, because the whole sentence exists to say *you
+          did not choose this, we did, and here is where we got it*.
+
+          `voice-and-vocabulary.md` §3.1 allows the bare `video` only as an anaphor, so the
+          adjective is written out: this card names TikTok nowhere else in words. */}
+      {category !== null && !isOverridden && (
+        <span className="text-muted-foreground">
+          {fromAPost ? ' · from the TikTok video' : ' · from the map listing'}
+        </span>
+      )}
+    </>
+  );
+
+  const errorLine = error ? (
+    <p role="alert" className="px-1 pt-1 text-micro font-medium text-destructive">
+      {error}
+    </p>
+  ) : null;
+
+  // Resting: the field row, identical in shape to `Your note` and `Add to a collection` below it.
+  // The pencil is the promise that pressing opens this row where it stands rather than replacing
+  // the pane — the chevron on the collections row is the other half of that contract.
+  if (!editing) {
+    return (
+      <div className="flex flex-col">
         <button
           type="button"
+          data-vaul-no-drag
+          aria-expanded={false}
           onClick={() => {
             setError(null);
-            setEditing(!editing);
+            setEditing(true);
           }}
-          aria-expanded={editing}
-          className="flex items-center gap-1 text-xs font-bold text-brand underline-offset-4 hover:underline"
+          className={cn(DETAIL_FIELD_ROW, PRESS_ROW)}
         >
-          <Pencil className="size-3" aria-hidden />
-          {editing ? 'Done' : 'Change'}
+          <span className="flex min-w-0 flex-1 flex-col gap-1">
+            <span className={SECTION_LABEL}>Category</span>
+            <span className={cn(DETAIL_FIELD_VALUE, 'text-foreground')}>{value}</span>
+          </span>
+          <Pencil className="size-3 shrink-0 text-muted-foreground" aria-hidden />
+        </button>
+        {errorLine}
+      </div>
+    );
+  }
+
+  return (
+    <div className={DETAIL_FIELD_OPEN}>
+      <div className="flex items-center justify-between gap-2">
+        <p className={SECTION_LABEL}>Category</p>
+        {/* The trailing glyph becomes a word once the row is open: there is nothing left to
+            promise, only a way out. 44 px of target under 11 px of paint. */}
+        <button
+          type="button"
+          data-vaul-no-drag
+          aria-expanded
+          onClick={() => {
+            setError(null);
+            setEditing(false);
+          }}
+          className={cn(DETAIL_FIELD_DONE, PRESS_CHIP)}
+        >
+          Done
         </button>
       </div>
 
-      {editing ? (
-        // `radiogroup` rather than a list of buttons: these are one mutually exclusive choice, and
-        // a screen reader should say "2 of 4" rather than announce four unrelated controls.
-        <div role="radiogroup" aria-label="Category" className="flex flex-wrap gap-1.5 pt-0.5">
-          {PRODUCT_CATEGORY_ORDER.map((value) => {
-            const active = value === category && isOverridden;
-            return (
-              <button
-                key={value}
-                type="button"
-                role="radio"
-                aria-checked={active}
-                disabled={pending}
-                onClick={() => {
-                  choose(value);
-                }}
-                className={cn(
-                  'rounded-full px-2.5 py-1 text-xs font-bold disabled:opacity-50',
-                  PRESS_CHIP,
-                  active
-                    ? 'bg-accent text-brand'
-                    : 'bg-muted text-foreground hover:bg-accent',
-                )}
-              >
-                {PRODUCT_CATEGORY_LABEL[value]}
-              </button>
-            );
-          })}
-          {isOverridden && (
+      {/* `radiogroup` rather than a list of buttons: these are one mutually exclusive choice, and
+          a screen reader should say "2 of 4" rather than announce four unrelated controls. */}
+      <div role="radiogroup" aria-label="Category" className="flex flex-wrap gap-1.5">
+        {PRODUCT_CATEGORY_ORDER.map((choice) => {
+          const active = choice === category && isOverridden;
+          return (
             <button
+              key={choice}
               type="button"
               role="radio"
-              aria-checked={false}
+              aria-checked={active}
               disabled={pending}
+              data-vaul-no-drag
               onClick={() => {
-                choose(null);
+                choose(choice);
               }}
-              className="rounded-full px-2.5 py-1 text-xs font-bold text-muted-foreground underline underline-offset-4 disabled:opacity-50"
+              className={cn(
+                'rounded-full px-2.5 py-1 text-xs font-bold disabled:opacity-50',
+                PRESS_CHIP,
+                active ? 'bg-accent text-brand' : 'bg-muted text-foreground hover:bg-accent',
+              )}
             >
-              Automatic
+              {PRODUCT_CATEGORY_LABEL[choice]}
             </button>
-          )}
-        </div>
-      ) : (
-        <p className="text-sm leading-relaxed text-foreground">
-          {/* A place with no category says so in words rather than showing a blank line where a
-              value should be — the control is the answer to "what is this?", and silence there
-              reads as a rendering fault rather than as an honest "we could not tell". */}
-          {category === null ? (
-            <span className="text-muted-foreground">Not set</span>
-          ) : (
-            PRODUCT_CATEGORY_LABEL[category]
-          )}
-          {category !== null && !isOverridden && (
-            <span className="text-muted-foreground">
-              {fromAPost ? ' · worked out from the video' : ' · from the map listing'}
-            </span>
-          )}
-        </p>
-      )}
+          );
+        })}
+        {isOverridden && (
+          // "Automatic" writes SQL NULL: *stop, use whatever you work out*, so a better provider
+          // category tomorrow still reaches this place.
+          <button
+            type="button"
+            role="radio"
+            aria-checked={false}
+            disabled={pending}
+            data-vaul-no-drag
+            onClick={() => {
+              choose(null);
+            }}
+            className="rounded-full px-2.5 py-1 text-xs font-bold text-muted-foreground underline underline-offset-4 disabled:opacity-50"
+          >
+            Automatic
+          </button>
+        )}
+      </div>
 
-      {error && (
-        <p role="alert" className="text-xs font-medium text-destructive">
-          {error}
-        </p>
-      )}
+      {errorLine}
     </div>
   );
 }
 
 /**
- * Renaming a saved place.
+ * **The rename control is gone from the UI, and `saved_places.display_name` is not.**
  *
- * A pencil beside the name rather than a row in the controls block below: this edits the *identity*
- * on the card, and a control that changes the biggest word on the screen belongs next to that word.
- * Everything else in this file is a fact about the place; this is what it is called.
+ * `RenameTrigger` (a pencil beside the name) and `NameEditor` (the inline field it opened) lived
+ * here until 2026-09-02. The owner's round-3 feedback removed them from the card: a control that
+ * one person in a hundred touches was permanent chrome next to the biggest word on the screen, on
+ * the surface whose whole complaint was that the things people *do* use had been pushed below the
+ * fold.
  *
- * Clearing the field restores the real name, and the reset control says that name out loud rather
- * than being an unlabelled "reset" — the user has to be able to see what they are going back to.
+ * **This is a UI removal, not a data change.** The column, `updateSavedPlaceName` in
+ * `app/actions/saved-places.ts`, `domain/places/display-name.ts` and `0018`'s column grant all
+ * stay exactly as they are, so every renamed row keeps its name, `detail.displayNameOverride`
+ * still reaches the card, and putting the control back is a component rather than a migration.
+ *
+ * One thing the pencil was carrying that the card still needs: it was the *fixed chrome* the RTL
+ * audit measured `<bdi>` against on the name heading (`docs/rtl-audit-2026-08-31.md` findings 2
+ * and 4). The heading keeps its `<bdi>` and its comment — the close × is chrome beside the same
+ * name, and a Hebrew name with no isolation would still drag the identity block's alignment.
  */
-export function RenameTrigger({ onStart }: { onStart: () => void }) {
-  return (
-    // A `<Button variant="ghost" size="icon-lg">` rather than a hand-rolled `<button>`: the hover,
-    // the focus ring and the disabled step were restated here in this component's own words, which
-    // is three chances to drift from the six columns `facelift-plan.md` §3a's matrix owes an icon
-    // button. The className now carries position and shape only. `size-icon-lg` is the same 36px
-    // this always was, and `data-vaul-no-drag` passes straight through.
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon-lg"
-      aria-label="Rename this place"
-      onClick={onStart}
-      data-vaul-no-drag
-      className="mt-1 shrink-0 rounded-full text-muted-foreground"
-    >
-      <Pencil className="size-3.5" aria-hidden />
-    </Button>
-  );
-}
-
-export function NameEditor({
-  savedPlaceId,
-  displayNameOverride,
-  canonicalName,
-  onDone,
-}: {
-  savedPlaceId: string;
-  displayNameOverride: string | null;
-  canonicalName: string;
-  onDone: () => void;
-}) {
-  const [draft, setDraft] = useState(displayNameOverride ?? '');
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
-
-  function save(value: string) {
-    setError(null);
-    startTransition(async () => {
-      // `keepsDraft`: the field holds a name the user typed, so the message says it is still there
-      // rather than asking for a retry they can see is possible. `onDone()` is not called on
-      // failure — closing the editor is what would throw the typed name away.
-      const outcome = await attemptWrite(() => updateSavedPlaceName(savedPlaceId, value), {
-        keepsDraft: true,
-      });
-      if (outcome.kind === 'ok') {
-        onDone();
-        return;
-      }
-      setError(outcome.message);
-    });
-  }
-
-  const validation = validateDisplayName(draft);
-  const unchanged = isDisplayNameUnchanged(draft, displayNameOverride);
-
-  return (
-    <form
-      className="flex w-full flex-col gap-2"
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (!unchanged && validation.ok) save(draft);
-      }}
-    >
-      <label htmlFor={`name-${savedPlaceId}`} className={SECTION_LABEL}>
-        Name
-      </label>
-      {/* `Input` rather than a hand-rolled `<input>` that restated its whole class string. The
-          invalid styling was the reason it was hand-rolled and is now the reason it does not need
-          to be: `aria-invalid` is already on the element, and `Input`'s own
-          `aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20`
-          reads it — so the `!validation.ok && '…'` string this used to assemble is gone (rule 6a),
-          and the field cannot look valid while announcing itself invalid. */}
-      <Input
-        id={`name-${savedPlaceId}`}
-        ref={inputRef}
-        dir="auto"
-        value={draft}
-        onChange={(event) => setDraft(event.target.value)}
-        onKeyDown={(event) => {
-          // Escape cancels. Unlike the note, Enter *does* submit — this is a single-line label, so
-          // there is no second line for Enter to be needed for.
-          if (event.key === 'Escape') {
-            event.stopPropagation();
-            onDone();
-          }
-        }}
-        disabled={pending}
-        maxLength={DISPLAY_NAME_MAX_LENGTH}
-        enterKeyHint="done"
-        placeholder={canonicalName}
-        aria-invalid={!validation.ok || undefined}
-        aria-describedby={error ? `name-error-${savedPlaceId}` : undefined}
-        data-vaul-no-drag
-        className="h-11"
-      />
-      {error && (
-        <p id={`name-error-${savedPlaceId}`} role="alert" className="text-xs font-medium text-destructive">
-          {error}
-        </p>
-      )}
-      <div className="flex flex-wrap items-center gap-2">
-        <Button type="submit" size="sm" disabled={pending || unchanged || !validation.ok}>
-          {pending ? 'Saving…' : 'Save'}
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          disabled={pending}
-          onClick={onDone}
-        >
-          Cancel
-        </Button>
-        {displayNameOverride !== null && (
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() => save('')}
-            className="text-xs font-bold text-brand underline-offset-4 hover:underline disabled:opacity-50"
-          >
-            Use{' '}
-            <bdi>{canonicalName}</bdi>
-          </button>
-        )}
-      </div>
-    </form>
-  );
-}
 
 export function NoteEditor({
   savedPlaceId,
@@ -545,41 +531,47 @@ export function NoteEditor({
     if (editing) textareaRef.current?.focus();
   }, [editing]);
 
+  function open() {
+    setDraft(note ?? '');
+    setError(null);
+    setEditing(true);
+  }
+
+  // **Empty and filled are the same row.** The empty state used to be a dashed `+ Add a note`
+  // pill and the filled one a label with a mint `Edit` link opposite it — two components for two
+  // states of one field, so writing your first note swapped the thing you had just pressed. Now
+  // only the value changes: the offer in muted ink, the note in foreground ink, one pencil either
+  // way. `whitespace-pre-wrap` because `validateNote` preserves the newlines the user typed, and
+  // rendering the note collapsed would lose the shape they gave it.
   if (!editing) {
     return (
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center justify-between gap-2">
-          <p className={SECTION_LABEL}>Your note</p>
-          <button
-            type="button"
-            onClick={() => {
-              setDraft(note ?? '');
-              setError(null);
-              setEditing(true);
-            }}
-            className="flex items-center gap-1 text-xs font-bold text-brand underline-offset-4 hover:underline"
-          >
-            <Pencil className="size-3" aria-hidden />
-            {note ? 'Edit' : 'Add a note'}
-          </button>
-        </div>
-        {note ? (
-          // `whitespace-pre-wrap`: the note is prose and `validateNote` deliberately preserves its
-          // newlines, so rendering it collapsed would lose the shape the user typed.
-          // `dir="auto"`: a note is free-form prose and Tel Aviv is a target city, so it is
-          // routinely Hebrew — matching the identical treatment of the shared collection note in
-          // `collection-place-detail.tsx`, the one sibling that already had this right (rtl audit,
-          // `docs/rtl-audit-2026-08-31.md` finding 1).
-          <p dir="auto" className="text-sm leading-relaxed whitespace-pre-wrap text-foreground">
-            {note}
-          </p>
-        ) : (
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            Nothing yet — why did you save this?
-          </p>
-        )}
+      <div className="flex flex-col">
+        <button
+          type="button"
+          onClick={open}
+          data-vaul-no-drag
+          aria-expanded={false}
+          className={cn(DETAIL_FIELD_ROW, PRESS_ROW)}
+        >
+          <span className="flex min-w-0 flex-1 flex-col gap-1">
+            <span className={SECTION_LABEL}>Your note</span>
+            {/* `dir="auto"`: a note is free-form prose and Tel Aviv is a target city, so it is
+                routinely Hebrew (rtl audit, `docs/rtl-audit-2026-08-31.md` finding 1). */}
+            <span
+              dir="auto"
+              className={cn(
+                DETAIL_FIELD_VALUE,
+                'whitespace-pre-wrap',
+                note ? 'text-foreground' : 'text-muted-foreground',
+              )}
+            >
+              {note ?? 'Add a note'}
+            </span>
+          </span>
+          <Pencil className="size-3 shrink-0 text-muted-foreground" aria-hidden />
+        </button>
         {error && (
-          <p role="alert" className="text-xs font-medium text-destructive">
+          <p role="alert" className="px-1 pt-1 text-micro font-medium text-destructive">
             {error}
           </p>
         )}
@@ -611,7 +603,9 @@ export function NoteEditor({
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    // Open, the row grows; it does not become a panel and it grows no border. The label above the
+    // field is the same label the resting row shows, in the same place, so nothing jumps.
+    <div className={cn(DETAIL_FIELD_OPEN, 'gap-2')}>
       <label htmlFor={`note-${savedPlaceId}`} className={SECTION_LABEL}>
         Your note
       </label>
@@ -681,7 +675,7 @@ export function NoteEditor({
       </div>
 
       {error && (
-        <p id={`note-error-${savedPlaceId}`} role="alert" className="text-xs font-medium text-destructive">
+        <p id={`note-error-${savedPlaceId}`} role="alert" className="text-micro font-medium text-destructive">
           {error}
         </p>
       )}
@@ -734,8 +728,11 @@ export function RemoveSavedPlace({
   }
 
   if (!confirming) {
+    // No rule of its own: band 3 already carries the only hairline above it, and a third divider
+    // on a card the spec gives exactly two is the "floating fragment" again. 12 px under the
+    // record lines is the band's own group-to-group step.
     return (
-      <div className="flex flex-col gap-1.5 border-t border-border/60 pt-4">
+      <div className="flex flex-col gap-1.5">
         <button
           type="button"
           onClick={() => {
@@ -757,7 +754,7 @@ export function RemoveSavedPlace({
   }
 
   return (
-    <div className="flex flex-col gap-2 border-t border-border/60 pt-4">
+    <div className="flex flex-col gap-2">
       {/* The name stays on screen while you decide — the whole reason this is inline rather than a
           modal that would cover the thing being removed. */}
       <p className="text-sm leading-relaxed text-foreground">
