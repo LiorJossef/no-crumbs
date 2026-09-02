@@ -65,6 +65,17 @@ export interface CountryDiscSpec {
   readonly countryCode: string | null;
   /** The active area's country. The mint ring is the only state colour on the marker. */
   readonly active?: boolean;
+  /**
+   * The pill's whole label — name and count together, already assembled — **drawn into the
+   * bitmap** rather than handed to a `text-field`.
+   *
+   * MapLibre paints a symbol layer's icons and its glyphs in two separate passes, so a lower
+   * pill's text floats above an upper pill's background and two pills sharing an anchor smear
+   * together. One icon carrying everything stacks as one opaque card (owner, 2026-09-02).
+   *
+   * Omitted for the area band's pill, which is still a stretchable surface fitted to live text.
+   */
+  readonly label?: string;
 }
 
 export interface CountryDiscImage {
@@ -150,9 +161,12 @@ function leadingInset(capped: boolean): number {
 
 const TRAILING_INSET = SUMMARY_PILL.padX + SUMMARY_PILL.shadowPad;
 
-/** Bitmap width in CSS pixels, per cap kind. */
-export function summaryPillWidth(capped: boolean): number {
-  return leadingInset(capped) + SUMMARY_PILL.textSlot + TRAILING_INSET;
+/** Bitmap width in CSS pixels: the label's own width where it is baked in, the stretchable slot
+ *  where the layer will fit the pill to live text. */
+export function summaryPillWidth(capped: boolean, label?: string): number {
+  const middle =
+    label === undefined || label === '' ? SUMMARY_PILL.textSlot : measureSummaryLabelPx(label);
+  return leadingInset(capped) + middle + TRAILING_INSET;
 }
 
 /** One marker's label, as the camera has to reason about it: the text the symbol layer will shape,
@@ -430,7 +444,8 @@ export function flagEmoji(code: string): string {
  */
 export function countryDiscImageId(spec: CountryDiscSpec, theme: DiscTheme): string {
   const code = normaliseCountryCode(spec.countryCode) ?? 'none';
-  return `summary-pill:${theme}:${code}${spec.active ? ':active' : ''}`;
+  const label = spec.label === undefined || spec.label === '' ? '' : `:${spec.label}`;
+  return `summary-pill:${theme}:${code}${spec.active ? ':active' : ''}${label}`;
 }
 
 /**
@@ -676,6 +691,25 @@ function drawCapRing(ctx: CanvasRenderingContext2D, tokens: DiscTokens): void {
   ctx.stroke();
 }
 
+/** The label, centred in the pill's middle — the span between the two insets `content` marks. */
+function drawLabel(
+  ctx: CanvasRenderingContext2D,
+  tokens: DiscTokens,
+  label: string,
+  capped: boolean,
+  widthCss: number
+): void {
+  ctx.save();
+  ctx.font = `${SUMMARY_LABEL_FONT_PX}px ${tokens.fontFamily}`;
+  ctx.fillStyle = tokens.ink;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const left = leadingInset(capped);
+  const right = widthCss - TRAILING_INSET;
+  ctx.fillText(label, (left + right) / 2, SUMMARY_PILL.shadowPad + SUMMARY_PILL.height / 2);
+  ctx.restore();
+}
+
 function build(
   spec: CountryDiscSpec,
   options: CountryDiscOptions,
@@ -688,7 +722,7 @@ function build(
 
   const code = normaliseCountryCode(spec.countryCode);
   const capped = code !== null;
-  const widthCss = summaryPillWidth(capped);
+  const widthCss = summaryPillWidth(capped, spec.label);
 
   canvas.width = Math.ceil(widthCss * options.pixelRatio);
   canvas.height = Math.ceil(SUMMARY_PILL_HEIGHT * options.pixelRatio);
@@ -703,6 +737,9 @@ function build(
     if (flags) drawFlag(ctx, code, createCanvas);
     else drawCode(ctx, tokens, code, createCanvas);
     drawCapRing(ctx, tokens);
+  }
+  if (spec.label !== undefined && spec.label !== '') {
+    drawLabel(ctx, tokens, spec.label, capped, widthCss);
   }
 
   // Raw bitmap pixels, and rounded to the same integers the canvas was allocated at — a fractional

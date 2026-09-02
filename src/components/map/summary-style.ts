@@ -27,7 +27,6 @@
 import {
   SUMMARY_PILL,
   summaryPillFitAllowance,
-  summaryPillWidth,
   type DiscTokens,
   type SummaryPillLabel,
 } from './country-flag-image';
@@ -52,33 +51,6 @@ const LABEL_COUNT_GAP = '  ';
 
 export const COUNTRY_LAYER_ID = 'country-pills';
 export const AREA_LAYER_ID = 'area-pills';
-
-/**
- * **The flag cap sits entirely on the leading edge, so a capped pill is not centred on its own
- * coordinate** — and `icon-text-fit` is what makes that a bug rather than a detail.
- *
- * With `icon-text-fit: 'width'` MapLibre fits the icon to the **text box**, not the other way
- * round (`shaping.ts` `fitIconToText`: "the icon will be centered on the text, then stretched"),
- * and lays the image's fixed regions outside that box as pixel offsets (`quads.ts` `getPxOffset`).
- * `text-anchor: 'center'` therefore puts the *text* on the country's coordinate, and the pill grows
- * asymmetrically around it: 45 CSS px of leading inset where the cap is, 25 px trailing. The drawn
- * marker's centre lands 10 px to the **left** of the mean of the user's own saved places, which at
- * world zoom is hundreds of kilometres and reads exactly as the owner reported it — the badge is
- * not over the places it counts. The capless pill (every area marker, and the countryless country
- * bucket) is symmetric and already correct.
- *
- * The offset below moves the text, and the pill follows it because the pill is fitted to the text.
- * It is **not** `icon-offset`: that shifts the icon alone and would slide the pill off its label.
- *
- * Derived from `summaryPillWidth` rather than re-adding the cap geometry here — the difference
- * between the two pill widths *is* the overhang, all of it leading, so there is no second copy of
- * `country-flag-image.ts`'s insets to drift from the first.
- */
-const CAP_OVERHANG_PX = summaryPillWidth(true) - summaryPillWidth(false);
-
-/** The same correction in ems, which is the unit `text-offset` is measured in — so it stays right
- *  if `SUMMARY_TEXT_PX` is ever tuned. */
-export const CAPPED_PILL_CENTRING_EM = CAP_OVERHANG_PX / 2 / SUMMARY_TEXT_PX;
 
 /**
  * The capless pill: no flag in it. It is the area band's marker **and** the country band's marker
@@ -160,39 +132,6 @@ function labelAndCount(): unknown[] {
   return ['concat', ['get', 'label'], LABEL_COUNT_GAP, ['to-string', ['get', 'count']]];
 }
 
-/** The count alone, still one text section for the same bidi reason. */
-function countAlone(): unknown[] {
-  return ['to-string', ['get', 'count']];
-}
-
-/**
- * **The country band's text field, per pill**: the name and the count where the container can
- * afford the name, the count alone where it cannot — and *only* on a pill that carries a flag.
- *
- * The flag is the country's name in image form. §2.1 and §2.2 of `ux-library-at-scale.md` specify
- * the country marker as exactly that — "flag + saved-place count", `\u{1F1EF}\u{1F1F5} 24` — and
- * the written name beside it is a later addition, made on a desktop, that a phone cannot pay for.
- * `United Kingdom  18` draws 206.6 CSS px; a 390 px viewport frames its anchors 48 px from the
- * edge, so 36.9 px of that pill was off the left edge of the map on arrival. The same pill without
- * its name is 88.7 px, which is whole with 3.6 px to spare.
- *
- * **The unflagged bucket keeps its label**, because it has no flag to carry the name and §2.5 says
- * so in as many words: an area whose members have no country renders at country zoom as "an
- * unflagged marker with its own area name". A pill reading `1` is not a summary of anything. That
- * bucket is therefore still wider than a phone edge affords — see the report for `W2-D`; nothing
- * here narrows it, and inventing a truncation of a proper noun is not a decision this file gets to
- * make.
- */
-function countryTextField(labelled: boolean): unknown[] {
-  if (labelled) return labelAndCount();
-  return [
-    'case',
-    ['==', ['get', 'countryCode'], ''],
-    labelAndCount(),
-    countAlone(),
-  ];
-}
-
 /**
  * **Whether the country band can afford to print country names in a container this wide.**
  *
@@ -232,24 +171,30 @@ export function countryPillsAffordLabels(
  * to recognise one of 250 — and where the platform ships no flag glyph the cap draws a two-letter
  * code, which asks something harder.
  */
-export function countryLayerLayout(
-  textFont: readonly string[],
-  labelled = true,
-): Record<string, unknown> {
+export function countryLayerLayout(labelled = true): Record<string, unknown> {
   return {
-    ...pillLayout(textFont),
-    // Per-feature, because the flag, the theme and the mint ring are all baked into the image.
-    'icon-image': ['get', 'icon'],
-    'text-field': countryTextField(labelled),
-    // Per-feature too, and for the same reason: only a *capped* pill is off-centre. The countryless
-    // bucket carries `countryCode: ''` and draws the capless pill, which is already symmetric — see
-    // `CAPPED_PILL_CENTRING_EM`.
-    'text-offset': [
-      'case',
-      ['==', ['get', 'countryCode'], ''],
-      ['literal', [0, 0]],
-      ['literal', [CAPPED_PILL_CENTRING_EM, 0]],
-    ],
+    // **The whole pill is one bitmap** — flag, name and count drawn into it by
+    // `country-flag-image.ts` — so there is no `text-field`, no `icon-text-fit` and no
+    // `text-offset` here. MapLibre paints a symbol layer's icons in one pass and its glyphs in
+    // another, so while the label was live text a *lower* pill's name floated above an *upper*
+    // pill's background, and two countries sharing an anchor smeared together instead of stacking.
+    // The countryless bucket sits at the mean of places we could not name a country for, which are
+    // inside the countries you already have — measured 2026-09-02, `Other  1` and `Israel  35` are
+    // 1.5 px apart in x and 7.2 px in y, and they do not separate at any zoom this band draws.
+    // One icon per pill occludes as one opaque card, which is what the owner asked for.
+    //
+    // The area band still uses live text: its labels are Hebrew, they shape through the RTL
+    // plugin, and `area-band-layout.ts` already guarantees nothing there overlaps.
+    'icon-image': labelled ? ['get', 'icon'] : ['get', 'iconShort'],
+    'icon-anchor': 'center',
+    // Never dropped: a country that vanishes at world zoom is a country's worth of saved places
+    // the user cannot see. `ignore-placement` stays false so the basemap's own labels can still
+    // step aside from us — see `pillLayout`.
+    'icon-allow-overlap': true,
+    'icon-ignore-placement': false,
+    // The country holding more places is drawn last, and therefore on top. `symbol_bucket.ts`
+    // sorts ascending and buffers in that order, so the count goes in as-is.
+    'symbol-sort-key': ['get', 'count'],
   };
 }
 

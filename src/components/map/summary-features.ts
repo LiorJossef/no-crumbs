@@ -18,7 +18,7 @@
  */
 
 import { UNNAMED_OTHER_AREA_LABEL } from '@/ui/place/active-area';
-import { countryDiscImageId, type DiscTheme } from './country-flag-image';
+import { countryDiscImageId, type CountryDiscSpec, type DiscTheme } from './country-flag-image';
 import type { MapAreaSummary, MapCountrySummary } from './types';
 
 export interface CountryFeatureProperties {
@@ -35,6 +35,10 @@ export interface CountryFeatureProperties {
    *  active-country arm would be a `['==', ['get', 'key'], null]` comparison, which is the exact
    *  shape `marker-style.ts` already documents as fatal in a MapLibre expression. */
   readonly icon: string;
+  /** The same pill with the country's **name** dropped — flag and count alone. What a container
+   *  too narrow for the names draws (`countryPillsAffordLabels`); identical to `icon` for the
+   *  unflagged bucket, which has no flag to carry its name. */
+  readonly iconShort: string;
 }
 
 export interface AreaFeatureProperties {
@@ -63,6 +67,43 @@ export type AreaFeatureCollection = GeoJSON.FeatureCollection<
  * `activeCountryKey` earns the mint ring: at world zoom the map still says *you are here* while
  * showing everything, and it is the only state colour on the marker.
  */
+/** Between the name and the count. The same two spaces `summary-style.ts` used while this was a
+ *  `text-field`; a middot has no glyph in some stacks and renders as nothing. */
+const LABEL_COUNT_GAP = '  ';
+
+/** The whole string drawn into the pill, in each of its two forms. */
+export function countryPillText(
+  country: Pick<MapCountrySummary, 'countryCode' | 'label' | 'count'>,
+  labelled: boolean,
+): string {
+  const named = labelled || country.countryCode === null;
+  return named ? `${country.label}${LABEL_COUNT_GAP}${country.count}` : `${country.count}`;
+}
+
+function specFor(
+  country: MapCountrySummary,
+  activeCountryKey: string | null,
+  labelled: boolean,
+): CountryDiscSpec {
+  return {
+    countryCode: country.countryCode,
+    label: countryPillText(country, labelled),
+    ...(country.key === activeCountryKey ? { active: true } : {}),
+  };
+}
+
+/** Every pill image the country band can reference, in both label states, so a resize never names
+ *  an image that was not offered to `addImage`. */
+export function countryPillSpecs(
+  countries: readonly MapCountrySummary[],
+  activeCountryKey: string | null,
+): CountryDiscSpec[] {
+  return countries.flatMap((country) => [
+    specFor(country, activeCountryKey, true),
+    specFor(country, activeCountryKey, false),
+  ]);
+}
+
 export function toCountryFeatures(
   countries: readonly MapCountrySummary[],
   activeCountryKey: string | null,
@@ -78,13 +119,8 @@ export function toCountryFeatures(
         countryCode: country.countryCode ?? '',
         count: country.count,
         label: country.label,
-        icon: countryDiscImageId(
-          {
-            countryCode: country.countryCode,
-            ...(country.key === activeCountryKey ? { active: true } : {}),
-          },
-          theme,
-        ),
+        icon: countryDiscImageId(specFor(country, activeCountryKey, true), theme),
+        iconShort: countryDiscImageId(specFor(country, activeCountryKey, false), theme),
       },
     })),
   };

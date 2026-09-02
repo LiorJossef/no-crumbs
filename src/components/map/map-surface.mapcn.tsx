@@ -64,7 +64,7 @@ import { PlaceDetail } from '@/components/sheet/place-sheet';
 import type { FocusBoundsRequest, LatLngBoundsHint, MapPlace, MapSurfaceProps } from './types';
 import { savedPlaceRef } from './saved-place-ref';
 import { SummaryMarkerLayer } from './summary-marker-layer';
-import { toAreaFeatures, toCountryFeatures } from './summary-features';
+import { countryPillSpecs, toAreaFeatures, toCountryFeatures } from './summary-features';
 import { AREA_DISC_SPEC } from './summary-style';
 import { useDiscTheme } from './use-disc-theme';
 import {
@@ -467,10 +467,9 @@ export function MapSurfaceMapcn({
   const discs = useMemo(
     () => [
       AREA_DISC_SPEC,
-      ...(summaries?.countries ?? []).map((country) => ({
-        countryCode: country.countryCode,
-        ...(country.key === summaries?.activeCountryKey ? { active: true } : {}),
-      })),
+      // Both label states, because a resize swaps `icon-image` between them and an id whose image
+      // was never added draws nothing at all.
+      ...countryPillSpecs(summaries?.countries ?? [], summaries?.activeCountryKey ?? null),
     ],
     [summaries]
   );

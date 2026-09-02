@@ -148,7 +148,7 @@ export function SummaryMarkerLayer({
       type: 'symbol',
       source: countrySourceId,
       ...COUNTRY_BAND_ZOOM,
-      layout: countryLayerLayout(font) as never,
+      layout: countryLayerLayout() as never,
       paint: summaryLayerPaint(tokens) as never,
     });
 
@@ -182,9 +182,7 @@ export function SummaryMarkerLayer({
 
     for (const id of areaLayerIds) map.on('click', id, openArea);
     map.on('click', countryLayerId, openCountry);
-    map.on('mouseenter', countryLayerId, pointer);
-    map.on('mouseleave', countryLayerId, resetPointer);
-    for (const id of areaLayerIds) {
+    for (const id of [...areaLayerIds, countryLayerId]) {
       map.on('mouseenter', id, pointer);
       map.on('mouseleave', id, resetPointer);
     }
@@ -192,9 +190,7 @@ export function SummaryMarkerLayer({
     return () => {
       for (const id of areaLayerIds) map.off('click', id, openArea);
       map.off('click', countryLayerId, openCountry);
-      map.off('mouseenter', countryLayerId, pointer);
-      map.off('mouseleave', countryLayerId, resetPointer);
-      for (const id of areaLayerIds) {
+      for (const id of [...areaLayerIds, countryLayerId]) {
         map.off('mouseenter', id, pointer);
         map.off('mouseleave', id, resetPointer);
       }
@@ -272,8 +268,8 @@ export function SummaryMarkerLayer({
       const labelled = countryPillsAffordLabels(countryPillLabels, width);
       map.setLayoutProperty(
         countryLayerId,
-        'text-field',
-        countryLayerLayout(styleTextFont(map), labelled)['text-field'] as never,
+        'icon-image',
+        countryLayerLayout(labelled)['icon-image'] as never,
       );
     };
     apply();
