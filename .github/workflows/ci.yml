@@ -55,16 +55,48 @@ jobs:
   e2e:
     name: playwright
     runs-on: ubuntu-latest
-    # Playwright's own image ships the browsers and their ~40 system libraries.
-    # `playwright install --with-deps` on a bare runner is dominated by apt-get and
-    # its latency is wildly unstable — measured 2026-08-18 across four runs of this
-    # repo: 24s, 203s, and one still going at 6min+. The image pull replaces it at a
-    # steady 35-38s, so this is a smaller median and a far tighter spread.
-    # `--user 1001` is Playwright's documented CI pattern — Chromium's sandbox
-    # refuses to run as root.
-    container:
-      image: mcr.microsoft.com/playwright:v1.62.1-noble
-      options: --user 1001
+    # ## Why this job no longer runs inside mcr.microsoft.com/playwright
+    #
+    # It used to, and the reason was measured: `playwright install --with-deps` on a bare runner is
+    # dominated by apt-get and its latency is wildly unstable — measured 2026-08-18 across four runs
+    # of this repo: 24s, 203s, and one still going at 6min+. The image pull replaced it at a steady
+    # 35-38s: a smaller median and a far tighter spread. Those numbers still stand; nothing below
+    # disproves them.
+    #
+    # What changed is the requirement. From 2026-09-01 this job has to stand up a local Supabase,
+    # because `tests/e2e/global-setup.ts` is now wired into playwright.config.ts and refuses to let
+    # the signed-in tier skip silently in CI — before that, 28 of 34 tests skipped on every run and
+    # the check still reported green. `npx supabase start` needs a Docker daemon, and a container
+    # job has none: the runner's socket is not mounted, the job container is not on the host's
+    # loopback, and the workspace is bind-mounted at a different path inside the container than the
+    # one the CLI would hand to Docker. Docker-in-Docker or a hand-rolled postgres+gotrue+postgrest
+    # `services:` stack would both replace supabase/config.toml with a second, silently diverging
+    # definition of the same stack.
+    #
+    # So the trade taken is deliberate: pay the unstable apt cost back, and buy down as much of it
+    # as is cacheable. Only Chromium is installed — all four Playwright projects are Chromium — and
+    # ~/.cache/ms-playwright is cached on the resolved @playwright/test version, so the browser
+    # download is paid once per version bump. The apt half is not cacheable and remains the variance
+    # this comment used to be about. `--user 1001` is gone with the container: a runner job already
+    # runs as a non-root user, which is all Chromium's sandbox asked for.
+    #
+    # The version-drift guard that lived here is gone too, and deliberately not replaced by another
+    # check: it existed because a hard-coded image tag could drift from the installed package. There
+    # is no tag any more — `npx playwright install` resolves the browser build from the installed
+    # package itself, so the two cannot disagree. The one way drift could come back is a stale cache,
+    # which is why the cache key below carries the resolved version and nothing else does.
+    env:
+      # supabase/seed.sql's demo user, in clear on purpose. It authenticates a database that exists
+      # for the length of this job inside this runner and is reachable from nowhere else; putting it
+      # in a repo secret would imply it guards something. tests/e2e/global-setup.ts fails the job if
+      # it is missing, which is the whole point of that file.
+      E2E_PASSWORD: local-dev-preview-1234
+      # Read by src/domain/build-info.ts, and by the place-resolver factory: 'test' is one of its
+      # non-production stages, so with no Google key configured here the factory selects the Overture
+      # resolver for the honest reason ("no Google Places API key configured") rather than by
+      # mistaking an unset stage for production. CI must never spend a billable place lookup.
+      NEXT_PUBLIC_STAGE: test
+      NEXT_PUBLIC_COMMIT_SHA: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -72,16 +104,64 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # The image tag above and the installed package must not drift apart:
-      # a silently mismatched browser build is exactly the flake nobody can reproduce.
-      - name: container image matches @playwright/test
+      - name: resolve the installed Playwright version
+        id: playwright
         run: |
-          image=1.62.1
-          installed=$(node -p "require('@playwright/test/package.json').version")
-          if [ "$image" != "$installed" ]; then
-            echo "::error::container image is v$image but @playwright/test is $installed — bump the image tag in this workflow" >&2
+          echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: cache the browser build for that version
+        id: browser-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      # Runs on a cache hit too: the download is what the cache saves, and the system libraries are
+      # apt state that no cache restores. On a hit the install itself is a no-op.
+      - run: npx playwright install --with-deps chromium
+
+      # ---- the database the signed-in tier needs -------------------------------------------------
+      # Same invocation as the `database` job below, and for the same reason: only the services the
+      # app actually talks to. Nothing in src/ calls .storage or .channel, so storage-api, imgproxy
+      # and realtime would add minutes and serve no request this suite makes.
+      - name: start local supabase (db + auth + rest)
+        run: npx supabase start -x realtime,storage-api,imgproxy,studio,edge-runtime,logflare,vector,supavisor,mailpit,postgres-meta
+      # WITH the seed, unlike the `database` job's --no-seed. supabase/seed.sql is exactly what this
+      # job needs and that one must not have: the demo user E2E_PASSWORD belongs to, plus the saved
+      # places the map, library-search and collections specs read.
+      - name: apply every migration and seed the demo user
+        run: npm run db:reset
+      # The keys are generated per stack, so they are read back rather than hard-coded. --override-name
+      # is the CLI's own documented mechanism (`supabase status --help`); the three names on the left
+      # are what `status -o env` emits, verified against the installed CLI 2.115.0.
+      - name: export the local Supabase credentials into the job env
+        run: |
+          npx supabase status -o env \
+            --override-name api.url=NEXT_PUBLIC_SUPABASE_URL \
+            --override-name auth.anon_key=NEXT_PUBLIC_SUPABASE_ANON_KEY \
+            --override-name auth.service_role_key=SUPABASE_SERVICE_ROLE_KEY \
+            | grep -E '^(NEXT_PUBLIC_SUPABASE_URL|NEXT_PUBLIC_SUPABASE_ANON_KEY|SUPABASE_SERVICE_ROLE_KEY)=' \
+            | sed 's/^\([A-Z_]*\)="\(.*\)"$/\1=\2/' >> "$GITHUB_ENV"
+      # A blank value here is the exact failure this job was written to end: the dev server would boot
+      # into "Your project's URL and Key are required to create a Supabase client!" and Playwright
+      # would spend its whole webServer timeout watching it loop. Fail in one second instead.
+      - name: the three variables are actually set
+        run: |
+          missing=
+          for v in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY; do
+            [ -n "${!v}" ] || missing="$missing $v"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::supabase status returned no value for:$missing — the local stack did not start, or the CLI renamed these keys" >&2
             exit 1
           fi
+          echo "NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL"
+          echo "anon key length: ${#NEXT_PUBLIC_SUPABASE_ANON_KEY}"
+
+      # playwright.config.ts's webServer runs `npm run build && npm run start` inside a 180s budget,
+      # and the `next build` job alone measured 1m21s cold. Building here first means the build's own
+      # failures are reported as a build failure rather than as a webServer timeout, and leaves
+      # .next/cache warm so the rebuild inside that budget is incremental.
+      - name: build against the local stack
+        run: npm run build
       - run: npm run test:e2e
       - uses: actions/upload-artifact@v4
         if: failure()
