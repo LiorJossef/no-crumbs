@@ -15,6 +15,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  affordableMarkerAllowance,
   clampFitPadding,
   LG_BREAKPOINT_PX,
   leftPanelWidthPx,
@@ -448,5 +449,38 @@ describe('safeAreaInsetBottomPx', () => {
     // to a DOM environment this fails loudly instead of quietly asserting nothing.
     expect(typeof document).toBe('undefined');
     expect(safeAreaInsetBottomPx()).toBe(0);
+  });
+});
+
+/**
+ * `W2-B`: the marker allowance that made the phone's home view a picture of the Earth.
+ *
+ * Measured on the owner's 58-place library at 390×844 (commit `a6e93f1`): a 206 px country pill
+ * charged half its width to both sides left an 87 px band for a UK-to-Israel box, and the fit came
+ * to rest at **z0.806** instead of **z2.556** — the whole globe, with all four country pills
+ * overlapping in the middle. The numbers below are that library's, so the regression has a shape a
+ * reader can recognise rather than an abstract threshold.
+ */
+describe('affordableMarkerAllowance — a marker may not eat the frame it is drawn in', () => {
+  const COUNTRY_PILL = { x: 103.31, y: 25 };
+
+  it('drops the horizontal allowance on a phone, where the pill is over half the width', () => {
+    expect(affordableMarkerAllowance(COUNTRY_PILL, 390, 844)).toEqual({ x: 0, y: 25 });
+  });
+
+  it('pays it in full on a desktop, where the same pill is 14% of the width', () => {
+    expect(affordableMarkerAllowance(COUNTRY_PILL, 1440, 900)).toEqual(COUNTRY_PILL);
+  });
+
+  it('is all or nothing per axis — a partial allowance clips the marker and pays for it too', () => {
+    // 2 x 100 is exactly a third of 600, which the rule admits; one pixel wider is refused whole
+    // rather than scaled down to what would fit.
+    expect(affordableMarkerAllowance({ x: 100, y: 0 }, 600, 600).x).toBe(100);
+    expect(affordableMarkerAllowance({ x: 101, y: 0 }, 600, 600).x).toBe(0);
+  });
+
+  it('collapses a non-finite or negative input to zero rather than passing it to the camera', () => {
+    expect(affordableMarkerAllowance({ x: Number.NaN, y: -10 }, 390, 844)).toEqual({ x: 0, y: 0 });
+    expect(affordableMarkerAllowance(COUNTRY_PILL, 0, Number.NaN)).toEqual({ x: 0, y: 0 });
   });
 });

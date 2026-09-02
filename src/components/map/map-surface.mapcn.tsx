@@ -67,7 +67,13 @@ import { SummaryMarkerLayer } from './summary-marker-layer';
 import { toAreaFeatures, toCountryFeatures } from './summary-features';
 import { AREA_DISC_SPEC } from './summary-style';
 import { useDiscTheme } from './use-disc-theme';
-import { clampFitPadding, LG_BREAKPOINT_PX, mapOcclusionInsets, queryRectFrom } from './query-rect';
+import {
+  affordableMarkerAllowance,
+  clampFitPadding,
+  LG_BREAKPOINT_PX,
+  mapOcclusionInsets,
+  queryRectFrom,
+} from './query-rect';
 import { LABEL_FIT_ALLOWANCE, pinGeometry } from './marker-style';
 import { nearbyPlaces } from '@/ui/place/nearby';
 import { BasemapTint } from './basemap-tint-layer';
@@ -254,12 +260,16 @@ function fitBoundsPadding(
   const topChrome =
     floatingTopChromePx ??
     (viewportWidth < LG_BREAKPOINT_PX ? FLOATING_TOP_CHROME_MOBILE_PX : FLOATING_TOP_CHROME_PX);
+  // Only the part of the allowance this container can afford. A phone cannot afford a 206 px
+  // country pill and pays none of it, which is the whole of `W2-B`'s root cause — see
+  // `affordableMarkerAllowance`.
+  const allowance = affordableMarkerAllowance(markerAllowance, containerWidth, containerHeight);
   return clampFitPadding(
     {
-      top: FIT_BOUNDS_PADDING + topChrome + occlusion.top + markerAllowance.y,
-      bottom: FIT_BOUNDS_PADDING + occlusion.bottom + markerAllowance.y,
-      left: FIT_BOUNDS_PADDING + occlusion.left + markerAllowance.x,
-      right: FIT_BOUNDS_PADDING + occlusion.right + markerAllowance.x,
+      top: FIT_BOUNDS_PADDING + topChrome + occlusion.top + allowance.y,
+      bottom: FIT_BOUNDS_PADDING + occlusion.bottom + allowance.y,
+      left: FIT_BOUNDS_PADDING + occlusion.left + allowance.x,
+      right: FIT_BOUNDS_PADDING + occlusion.right + allowance.x,
     },
     containerWidth,
     containerHeight

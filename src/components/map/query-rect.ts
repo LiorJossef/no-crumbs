@@ -130,6 +130,49 @@ export function mapOcclusionInsets(
 export const MIN_FIT_BAND_PX = 48;
 
 /**
+ * The largest share of one axis a **marker allowance** may spend on itself.
+ *
+ * The allowance is half a marker's width (or height), reserved on *both* sides of the fitted box,
+ * so a marker costs `2 × allowance` of the axis. That is cheap for a 206 px country pill on a
+ * 1440 px desktop — 14% — and ruinous for the same pill on a 390 px phone, where it is 53%.
+ *
+ * Measured on the owner's 58-place library at 390×844: the home fit is z2.556 without the
+ * allowance and z0.806 with it — the whole Earth, four country pills stacked on each other.
+ *
+ * So an allowance is **all or nothing per axis**. A partial one is the option that buys nothing:
+ * the marker is clipped either way and the fit has paid for it. Where the axis cannot afford the
+ * marker the honest frame is the box, and the pill gives way — the rule `LABEL_FIT_ALLOWANCE`
+ * already applies to a pin's label, stated for the axis instead of the band.
+ *
+ * A third is a judgement: loose enough that no desktop fit changes (206 px of pill against a
+ * 480 px budget at 1440 wide), tight enough that a phone never spends more.
+ */
+export const MAX_MARKER_ALLOWANCE_SHARE = 1 / 3;
+
+/**
+ * The part of a marker allowance the container can actually afford, per axis.
+ *
+ * `0` on an axis whose marker does not fit the share above — see `MAX_MARKER_ALLOWANCE_SHARE` for
+ * why dropping it entirely beats scaling it down. Non-finite and negative inputs collapse to zero
+ * here rather than travelling on into the camera.
+ */
+export function affordableMarkerAllowance(
+  allowance: { readonly x: number; readonly y: number },
+  containerWidth: number,
+  containerHeight: number
+): { readonly x: number; readonly y: number } {
+  const afford = (value: number, extent: number): number => {
+    if (!Number.isFinite(value) || value <= 0) return 0;
+    if (!Number.isFinite(extent) || extent <= 0) return 0;
+    return 2 * value <= extent * MAX_MARKER_ALLOWANCE_SHARE ? value : 0;
+  };
+  return {
+    x: afford(allowance.x, containerWidth),
+    y: afford(allowance.y, containerHeight),
+  };
+}
+
+/**
  * Shrink a `fitBounds` padding box until `MIN_FIT_BAND_PX` of map survives on both axes.
  *
  * The padding is the sum of three independent things — cosmetic breathing room, the floating top
