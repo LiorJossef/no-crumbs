@@ -68,6 +68,48 @@ export function joinLink(origin: string, token: string): string {
   return `${origin.replace(/\/+$/, '')}${JOIN_PATH_PREFIX}${token}`;
 }
 
+/**
+ * The sentence that goes with the link (§8.3).
+ *
+ * **Why it exists.** `navigator.share({ title, url })` puts the title in the sheet's own chrome
+ * and sends *only the URL* to WhatsApp, Signal or Messages. What the recipient receives is a bare
+ * `https://…/collections/join/<uuid>` from a person, with nothing saying what it opens — which is
+ * indistinguishable from the shape of every phishing link they have been taught not to press.
+ * `text` is the field that travels with the URL into the message body, so this is one field on a
+ * call that already exists, not a new mechanism.
+ *
+ * **What it may say, and the reason it says so little.** `preview_collection_invite` (migration
+ * `0026`) is the disclosure boundary: before joining, a recipient is entitled to the collection's
+ * **name**, the **inviter's display name** and the **role** the link carries, and nothing else. So
+ * the message carries the name and the role and stops. It deliberately does **not** carry the
+ * place count, the localities, or any place's name — all of them are in the read model and easy to
+ * interpolate, and all of them would put facts about the collection's *contents* into a message
+ * that gets forwarded to people who never open the link. The count is the tempting one; it is out
+ * for exactly that reason.
+ *
+ * The inviter's own name is not interpolated either, and that is a different reason: this string
+ * is sent *by* them, from their own account, in their own chat thread. A message that introduces
+ * the sender to their own contact reads as machine-written.
+ *
+ * **Voice** (`voice-and-vocabulary.md`): `collection`, never list/board/folder; each sentence
+ * states a fact and stops; **the product name is banned in invite copy** (§2), so it is not here
+ * and must not be added.
+ */
+export function shareMessage(args: {
+  readonly collectionName: string;
+  readonly role: InviteRole;
+}): string {
+  const can =
+    args.role === 'editor'
+      ? 'You can add places to it.'
+      : 'You can see the places in it.';
+  // The name in quotes rather than bare: collection names are user text and many of them are
+  // ordinary words ("Weekend", "Tel Aviv"), which read as part of the sentence without them. No
+  // trailing newline — the share sheet joins `text` and `url` itself, and platforms disagree about
+  // how much whitespace they keep.
+  return `“${args.collectionName}” — a collection of places, shared with you. ${can}`;
+}
+
 /** What the primary button says. Web Share is the better gesture on a phone (it reaches the chat
  *  app the link is actually going to), clipboard is the fallback, and `Copied` is the 2s
  *  acknowledgement — a copy affordance with no visible result is the usual failure in this
@@ -77,7 +119,12 @@ export function shareButtonLabel(args: {
   readonly copied: boolean;
 }): string {
   if (args.copied) return 'Copied';
-  return args.canShare ? 'Share link' : 'Copy link';
+  // `Copy invite` and not `Copy link` on the clipboard path, because since §8.3 that button no
+  // longer copies a link — it copies the sentence *and* the link, which is the whole point of the
+  // change. The link alone still has a control: the small icon button beside the field, whose
+  // label says exactly that. Two controls, two honest labels, rather than one button that copies
+  // more than it claims.
+  return args.canShare ? 'Share link' : 'Copy invite';
 }
 
 export function memberRoleLabel(role: CollectionRole): string {
@@ -322,13 +369,41 @@ function OwnerLinkSection({
     });
   }
 
-  async function shareOrCopy() {
+  /** The link on its own — the small icon button and the field itself. Deliberately *not* the
+   *  message: this control says `Copy the invite link` and copies exactly that, and somebody who
+   *  wants the bare URL (to put it in a document, a calendar entry, a slide) has a way to get it. */
+  async function copyLinkOnly() {
     if (!link) return;
     setError(null);
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(link);
+        setCopied(true);
+        onStatus('Link copied.');
+        return;
+      } catch {
+        // Clipboard refused — fall through to selecting the text, same as the primary path.
+      }
+    }
+    fieldRef.current?.select();
+    onStatus('Copy the link above.');
+  }
+
+  async function shareOrCopy() {
+    if (!link || !invite) return;
+    setError(null);
+    const message = shareMessage({ collectionName, role: invite.role });
 
     if (canShare) {
       try {
-        await navigator.share({ title: collectionName, url: link });
+        // `text` alongside `url`, not instead of it. Every major share target that accepts both
+        // concatenates them; the ones that accept only `url` (a few mail handlers) are unchanged
+        // by its presence. `title` stays because it is what the sheet's own header shows.
+        await navigator.share({
+          title: collectionName,
+          text: message,
+          url: link,
+        });
         return;
       } catch (shareError) {
         // A cancelled share sheet is not a failure and gets no message; anything else falls
@@ -339,16 +414,20 @@ function OwnerLinkSection({
 
     if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
       try {
-        await navigator.clipboard.writeText(link);
+        // The sentence and the link, one paste. A newline between them rather than a space, so
+        // every chat client that auto-links a URL still sees it at the start of its own line.
+        await navigator.clipboard.writeText(`${message}\n${link}`);
         setCopied(true);
-        onStatus('Link copied.');
+        onStatus('Invite copied.');
         return;
       } catch {
         // Clipboard permission refused — fall through to the manual path below.
       }
     }
 
-    // No Web Share, no clipboard: select the text so one keystroke finishes the job, and say so.
+    // No Web Share, no clipboard: select the link so one keystroke finishes the job, and say so.
+    // The message is lost on this path and is not worth a second field to rescue — the link is
+    // the part that cannot be retyped.
     fieldRef.current?.select();
     onStatus('Copy the link above.');
   }
@@ -429,7 +508,7 @@ function OwnerLinkSection({
               value={link}
               aria-label="Invite link"
               onFocus={(event) => event.currentTarget.select()}
-              onClick={() => void shareOrCopy()}
+              onClick={() => void copyLinkOnly()}
               className="h-12 flex-1 bg-card px-3 text-sm"
             />
             <Button
@@ -437,7 +516,7 @@ function OwnerLinkSection({
               variant="outline"
               aria-label="Copy the invite link"
               className="size-12 shrink-0 rounded-lg"
-              onClick={() => void shareOrCopy()}
+              onClick={() => void copyLinkOnly()}
             >
               <Copy className="size-4" aria-hidden />
             </Button>
