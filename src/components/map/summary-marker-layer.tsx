@@ -28,9 +28,12 @@
  * band, and a 32 px target. `summary-style.ts`'s `areaLayerLayout` records all three. Do not turn
  * it back into a circle to save a bitmap.
  *
- * **One layer per band, not two.** The area band used to carry a second symbol layer for the area's
- * name, drawn beneath the disc, where it landed on the basemap's own label for the same city. The
- * name now lives inside the pill's text field, which is the same field the country band uses.
+ * **One layer per band, not two, and one bitmap per marker.** The area band used to carry a second
+ * symbol layer for the area's name, drawn beneath the disc, where it landed on the basemap's own
+ * label for the same city; then the name was a `text-field` inside a stretchable pill. Since
+ * 2026-09-02 it is drawn into the pill's image, like the country band's — which is what puts a
+ * Hebrew city's count at the same end of the pill a Latin city's sits at. See `pillLayout` in
+ * `summary-style.ts` for why no bidi control character could do it instead.
  */
 
 import { useEffect, useId, useMemo, useRef } from 'react';
@@ -44,10 +47,8 @@ import {
   type CountryDiscSpec,
   type DiscTheme,
 } from './country-flag-image';
-import { styleTextFont } from './style-text-font';
 import { AREA_BAND_STEPS, layoutAreaBand } from './area-band-layout';
 import {
-  AREA_DISC_SPEC,
   AREA_LAYER_ID,
   areaLayerLayout,
   areaStepFilter,
@@ -57,7 +58,11 @@ import {
   countryPillsAffordLabels,
   summaryLayerPaint,
 } from './summary-style';
-import type { AreaFeatureCollection, CountryFeatureCollection } from './summary-features';
+import {
+  areaPillSpec,
+  type AreaFeatureCollection,
+  type CountryFeatureCollection,
+} from './summary-features';
 import type { SummaryPillLabel } from './country-flag-image';
 import { useStyleReady } from './use-style-ready';
 
@@ -85,7 +90,39 @@ export function SummaryMarkerLayer({
   /** The band's hierarchy, resolved once per library rather than per frame — see
    *  `area-band-layout.ts`. Memoised on `areas` alone, which is the same key the source is
    *  written on, so a pan, a tap or a re-render never recomputes a layout. */
-  const bandAreas = useMemo(() => layoutAreaBand(areas), [areas]);
+  const laidOut = useMemo(() => layoutAreaBand(areas), [areas]);
+  /**
+   * The area band's pills, one bitmap each — the same treatment the country band has had since
+   * `dedcf04`, and the whole of the Hebrew alignment fix.
+   *
+   * The spec is built from the **laid-out** feature rather than the source area, because
+   * `area-band-layout.ts` absorbs a pill that does not fit into the neighbour that displaced it and
+   * adds its places to that neighbour's count. The number on the pill is the step's number, so the
+   * image has to be keyed on it — a `תל אביב-יפו` drawing 33 at one step and 22 at another is two
+   * images, not one.
+   *
+   * Resolved into each feature's `icon` here rather than in a layer expression, for the reason
+   * `summary-features.ts` gives for the country band: an expression that assembled an id would have
+   * to concatenate the theme and the count, and `marker-style.ts` already documents why that shape
+   * is fatal in MapLibre.
+   */
+  const areaDiscs = useMemo(
+    () => laidOut.features.map((f) => areaPillSpec(f.properties.label, f.properties.count)),
+    [laidOut],
+  );
+  const bandAreas = useMemo(
+    () => ({
+      type: 'FeatureCollection' as const,
+      features: laidOut.features.map((feature, index) => ({
+        ...feature,
+        properties: {
+          ...feature.properties,
+          icon: countryDiscImageId(areaDiscs[index] as CountryDiscSpec, theme),
+        },
+      })),
+    }),
+    [laidOut, areaDiscs, theme],
+  );
   const instanceId = useId().replace(/:/g, '');
   const countrySourceId = `country-summary-${instanceId}`;
   const areaSourceId = `area-summary-${instanceId}`;
@@ -124,7 +161,6 @@ export function SummaryMarkerLayer({
     removeOurs();
 
     const tokens = resolveDiscTokens(theme);
-    const font = styleTextFont(map);
 
     map.addSource(countrySourceId, { type: 'geojson', data: emptyCollection() });
     map.addSource(areaSourceId, { type: 'geojson', data: emptyCollection() });
@@ -139,7 +175,7 @@ export function SummaryMarkerLayer({
         minzoom: step.minzoom,
         maxzoom: step.maxzoom,
         filter: areaStepFilter(index) as never,
-        layout: areaLayerLayout(font, countryDiscImageId(AREA_DISC_SPEC, theme)) as never,
+        layout: areaLayerLayout() as never,
         paint: summaryLayerPaint(tokens) as never,
       });
     });
@@ -219,7 +255,7 @@ export function SummaryMarkerLayer({
    */
   useEffect(() => {
     if (!map || !styleReady) return;
-    for (const image of buildCountryDiscImages(discs, {
+    for (const image of buildCountryDiscImages([...discs, ...areaDiscs], {
       pixelRatio: window.devicePixelRatio || 1,
       theme,
     })) {
@@ -233,7 +269,17 @@ export function SummaryMarkerLayer({
     }
     (map.getSource(countrySourceId) as GeoJSONSource | undefined)?.setData(countries);
     (map.getSource(areaSourceId) as GeoJSONSource | undefined)?.setData(bandAreas);
-  }, [map, styleReady, discs, theme, countries, bandAreas, countrySourceId, areaSourceId]);
+  }, [
+    map,
+    styleReady,
+    discs,
+    areaDiscs,
+    theme,
+    countries,
+    bandAreas,
+    countrySourceId,
+    areaSourceId,
+  ]);
 
   /**
    * The pills the country band is about to draw, as widths — the same string the symbol layer

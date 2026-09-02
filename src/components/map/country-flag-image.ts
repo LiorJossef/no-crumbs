@@ -66,16 +66,19 @@ export interface CountryDiscSpec {
   /** The active area's country. The mint ring is the only state colour on the marker. */
   readonly active?: boolean;
   /**
-   * The pill's whole label — name and count together, already assembled — **drawn into the
-   * bitmap** rather than handed to a `text-field`.
+   * The pill's name — a country's or an area's — **drawn into the bitmap** rather than handed to a
+   * `text-field`. Omitted or empty draws the count alone.
    *
-   * MapLibre paints a symbol layer's icons and its glyphs in two separate passes, so a lower
-   * pill's text floats above an upper pill's background and two pills sharing an anchor smear
-   * together. One icon carrying everything stacks as one opaque card (owner, 2026-09-02).
-   *
-   * Omitted for the area band's pill, which is still a stretchable surface fitted to live text.
+   * Two reasons the text is baked, one per band. MapLibre paints a symbol layer's icons and its
+   * glyphs in two separate passes, so a lower pill's text floats above an upper pill's background
+   * and two pills sharing an anchor smear together; one icon carrying everything stacks as one
+   * opaque card (owner, 2026-09-02). And a `text-field` cannot put a Latin count on the same side
+   * of a Hebrew name as it puts it on a Latin one — see `drawPillText`.
    */
-  readonly label?: string;
+  readonly name?: string;
+  /** The count, drawn at the pill's trailing edge. Omitted draws the stretchable slot instead,
+   *  which is what an image fitted to live text needs. */
+  readonly count?: string;
 }
 
 export interface CountryDiscImage {
@@ -161,11 +164,28 @@ function leadingInset(capped: boolean): number {
 
 const TRAILING_INSET = SUMMARY_PILL.padX + SUMMARY_PILL.shadowPad;
 
-/** Bitmap width in CSS pixels: the label's own width where it is baked in, the stretchable slot
- *  where the layer will fit the pill to live text. */
-export function summaryPillWidth(capped: boolean, label?: string): number {
+/** Between a pill's name and its count. The same two spaces the `text-field` used; a middot has no
+ *  glyph in some stacks and renders as nothing at all. */
+export const SUMMARY_LABEL_COUNT_GAP = '  ';
+
+/** The whole string a pill shapes, in the one place that assembles it. */
+export function summaryPillText(name: string, count: string): string {
+  return name === '' ? count : `${name}${SUMMARY_LABEL_COUNT_GAP}${count}`;
+}
+
+/**
+ * Bitmap width in CSS pixels: the baked text's own width, or the stretchable slot where the layer
+ * will fit the pill to live text.
+ *
+ * Measured from the **same assembled string** `summaryPillFitAllowance` measures, so the width the
+ * camera pads for, the width `area-band-layout.ts` de-collides with and the width actually drawn
+ * are one number rather than three that agree by hand.
+ */
+export function summaryPillWidth(capped: boolean, name?: string, count?: string): number {
   const middle =
-    label === undefined || label === '' ? SUMMARY_PILL.textSlot : measureSummaryLabelPx(label);
+    count === undefined || count === ''
+      ? SUMMARY_PILL.textSlot
+      : measureSummaryLabelPx(summaryPillText(name ?? '', count));
   return leadingInset(capped) + middle + TRAILING_INSET;
 }
 
@@ -444,8 +464,11 @@ export function flagEmoji(code: string): string {
  */
 export function countryDiscImageId(spec: CountryDiscSpec, theme: DiscTheme): string {
   const code = normaliseCountryCode(spec.countryCode) ?? 'none';
-  const label = spec.label === undefined || spec.label === '' ? '' : `:${spec.label}`;
-  return `summary-pill:${theme}:${code}${spec.active ? ':active' : ''}${label}`;
+  const text =
+    spec.count === undefined || spec.count === ''
+      ? ''
+      : `:${spec.name ?? ''}|${spec.count}`;
+  return `summary-pill:${theme}:${code}${spec.active ? ':active' : ''}${text}`;
 }
 
 /**
@@ -691,22 +714,50 @@ function drawCapRing(ctx: CanvasRenderingContext2D, tokens: DiscTokens): void {
   ctx.stroke();
 }
 
-/** The label, centred in the pill's middle — the span between the two insets `content` marks. */
-function drawLabel(
+/**
+ * The name and the count, drawn as **two positioned runs** — name against the leading inset, count
+ * against the trailing one.
+ *
+ * Two runs rather than one string, and that is the whole of the Hebrew fix (owner, 2026-09-02:
+ * *"the badge of countries and cities when it's hebrew — it's not aligned with the numbers"*).
+ * Unicode takes a run's base direction from its first strong character, so `תל אביב-יפו  33` is an
+ * RTL paragraph and its digits — European Numbers — are placed at the paragraph's *end*, on the
+ * left. `London  18` put the count on the right and `תל אביב-יפו  33` put it on the left, and the
+ * two pills disagreed about which side the number was on.
+ *
+ * Neither `U+2068`/`U+2069` nor a leading `U+200E` fixes it in the layer: both were tried against
+ * the running map on 2026-09-02 and the count stayed on the left, because the shaping runs through
+ * `@mapbox/mapbox-gl-rtl-text@0.4.0` in MapLibre's worker and that plugin resolves the direction
+ * from the label's own script rather than from the bidi control characters around it.
+ *
+ * Drawing the two runs at coordinates we choose sidesteps the question. Each run still gets the
+ * *browser's* bidi, so a Hebrew name shapes right-to-left correctly inside its own run — what it
+ * can no longer do is decide which end of the pill the number lives at.
+ */
+function drawPillText(
   ctx: CanvasRenderingContext2D,
   tokens: DiscTokens,
-  label: string,
+  name: string,
+  count: string,
   capped: boolean,
   widthCss: number
 ): void {
   ctx.save();
   ctx.font = `${SUMMARY_LABEL_FONT_PX}px ${tokens.fontFamily}`;
   ctx.fillStyle = tokens.ink;
-  ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   const left = leadingInset(capped);
   const right = widthCss - TRAILING_INSET;
-  ctx.fillText(label, (left + right) / 2, SUMMARY_PILL.shadowPad + SUMMARY_PILL.height / 2);
+  const midY = SUMMARY_PILL.shadowPad + SUMMARY_PILL.height / 2;
+  if (name === '') {
+    ctx.textAlign = 'center';
+    ctx.fillText(count, (left + right) / 2, midY);
+  } else {
+    ctx.textAlign = 'left';
+    ctx.fillText(name, left, midY);
+    ctx.textAlign = 'right';
+    ctx.fillText(count, right, midY);
+  }
   ctx.restore();
 }
 
@@ -722,7 +773,7 @@ function build(
 
   const code = normaliseCountryCode(spec.countryCode);
   const capped = code !== null;
-  const widthCss = summaryPillWidth(capped, spec.label);
+  const widthCss = summaryPillWidth(capped, spec.name, spec.count);
 
   canvas.width = Math.ceil(widthCss * options.pixelRatio);
   canvas.height = Math.ceil(SUMMARY_PILL_HEIGHT * options.pixelRatio);
@@ -738,8 +789,8 @@ function build(
     else drawCode(ctx, tokens, code, createCanvas);
     drawCapRing(ctx, tokens);
   }
-  if (spec.label !== undefined && spec.label !== '') {
-    drawLabel(ctx, tokens, spec.label, capped, widthCss);
+  if (spec.count !== undefined && spec.count !== '') {
+    drawPillText(ctx, tokens, spec.name ?? '', spec.count, capped, widthCss);
   }
 
   // Raw bitmap pixels, and rounded to the same integers the canvas was allocated at — a fractional

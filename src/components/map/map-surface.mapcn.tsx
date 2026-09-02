@@ -65,7 +65,6 @@ import type { FocusBoundsRequest, LatLngBoundsHint, MapPlace, MapSurfaceProps } 
 import { savedPlaceRef } from './saved-place-ref';
 import { SummaryMarkerLayer } from './summary-marker-layer';
 import { countryPillSpecs, toAreaFeatures, toCountryFeatures } from './summary-features';
-import { AREA_DISC_SPEC } from './summary-style';
 import { useDiscTheme } from './use-disc-theme';
 import {
   affordableMarkerAllowance,
@@ -459,18 +458,18 @@ export function MapSurfaceMapcn({
    * `minzoom` was applied unconditionally that second surface simply emptied as you zoomed out.
    */
   const hasSummaryBands = summaries !== undefined;
-  // Every disc either band's features can reference: one per country in the state it is drawn in,
-  // plus the plain flagless disc the *area* band draws on. Derived from the same list the features
-  // are, so an `icon-image` id can never be referenced without its image having been offered to
-  // `addImage` in the same commit — a symbol that names a missing image draws no icon, and with a
-  // count in the same layer it would degrade to a bare number floating on the map.
+  // Every disc the *country* band's features can reference, in the state each is drawn in. Derived
+  // from the same list the features are, so an `icon-image` id can never be referenced without its
+  // image having been offered to `addImage` in the same commit — a symbol that names a missing
+  // image draws no icon at all.
+  //
+  // The area band's pills are not here: they carry the area's name and its **laid-out** count, and
+  // that count is decided by `area-band-layout.ts` inside `SummaryMarkerLayer`, which builds and
+  // adds them there.
   const discs = useMemo(
-    () => [
-      AREA_DISC_SPEC,
-      // Both label states, because a resize swaps `icon-image` between them and an id whose image
-      // was never added draws nothing at all.
-      ...countryPillSpecs(summaries?.countries ?? [], summaries?.activeCountryKey ?? null),
-    ],
+    // Both label states, because a resize swaps `icon-image` between them and an id whose image
+    // was never added draws nothing at all.
+    () => countryPillSpecs(summaries?.countries ?? [], summaries?.activeCountryKey ?? null),
     [summaries]
   );
   /**

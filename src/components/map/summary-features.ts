@@ -18,7 +18,12 @@
  */
 
 import { UNNAMED_OTHER_AREA_LABEL } from '@/ui/place/active-area';
-import { countryDiscImageId, type CountryDiscSpec, type DiscTheme } from './country-flag-image';
+import {
+  countryDiscImageId,
+  summaryPillText,
+  type CountryDiscSpec,
+  type DiscTheme,
+} from './country-flag-image';
 import type { MapAreaSummary, MapCountrySummary } from './types';
 
 export interface CountryFeatureProperties {
@@ -67,17 +72,26 @@ export type AreaFeatureCollection = GeoJSON.FeatureCollection<
  * `activeCountryKey` earns the mint ring: at world zoom the map still says *you are here* while
  * showing everything, and it is the only state colour on the marker.
  */
-/** Between the name and the count. The same two spaces `summary-style.ts` used while this was a
- *  `text-field`; a middot has no glyph in some stacks and renders as nothing. */
-const LABEL_COUNT_GAP = '  ';
+/** Whether this pill prints the country's name. The unflagged bucket always does: a pill reading
+ *  `1` is not a summary of anything, and it has no flag to trade the name for (§2.5). */
+function isNamed(
+  country: Pick<MapCountrySummary, 'countryCode'>,
+  labelled: boolean,
+): boolean {
+  return labelled || country.countryCode === null;
+}
 
-/** The whole string drawn into the pill, in each of its two forms. */
+/** The whole string drawn into the pill, in each of its two forms. The pill draws the name and the
+ *  count as two positioned runs now (`drawPillText`), but this is still the string whose *width*
+ *  sizes it — so the camera, the de-collider and the bitmap keep measuring one thing. */
 export function countryPillText(
   country: Pick<MapCountrySummary, 'countryCode' | 'label' | 'count'>,
   labelled: boolean,
 ): string {
-  const named = labelled || country.countryCode === null;
-  return named ? `${country.label}${LABEL_COUNT_GAP}${country.count}` : `${country.count}`;
+  return summaryPillText(
+    isNamed(country, labelled) ? country.label : '',
+    String(country.count),
+  );
 }
 
 function specFor(
@@ -87,9 +101,27 @@ function specFor(
 ): CountryDiscSpec {
   return {
     countryCode: country.countryCode,
-    label: countryPillText(country, labelled),
+    name: isNamed(country, labelled) ? country.label : '',
+    count: String(country.count),
     ...(country.key === activeCountryKey ? { active: true } : {}),
   };
+}
+
+/**
+ * One area's pill: the capless spec, carrying the area's own name and its count.
+ *
+ * The area band draws a bitmap per area for the same reason the country band does — the name and
+ * the count are two positioned runs, so a Hebrew name puts its count at the pill's trailing edge
+ * exactly where a Latin one does (`country-flag-image.ts`'s `drawPillText`). While the count was a
+ * `text-field`, `תל אביב-יפו  33` shaped as one RTL paragraph and the digits landed on the left,
+ * on the other side of the name from where `London  18` put them.
+ *
+ * Taken from the **laid-out** feature, never from the source area: `area-band-layout.ts` absorbs a
+ * pill that does not fit into its neighbour and adds its places to that neighbour's count, so the
+ * number on the pill is the step's number and not the area's.
+ */
+export function areaPillSpec(label: string, count: number): CountryDiscSpec {
+  return { countryCode: null, name: label, count: String(count) };
 }
 
 /** Every pill image the country band can reference, in both label states, so a resize never names

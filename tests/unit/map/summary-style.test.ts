@@ -24,7 +24,6 @@ import { describe, expect, it } from 'vitest';
 
 import {
   AREA_BAND_ZOOM,
-  AREA_DISC_SPEC,
   COUNTRY_BAND_ZOOM,
   SUMMARY_TAP_TARGET_PX,
   areaLayerLayout,
@@ -33,22 +32,20 @@ import {
 } from '@/components/map/summary-style';
 import { AREA_BAND_MAX, AREA_BAND_MIN, COUNTRY_BAND_MAX } from '@/components/map/zoom-bands';
 import {
-  countryDiscImageId,
   resolveDiscTokens,
   summaryPillFitAllowance,
   summaryPillWidth,
   type SummaryPillLabel,
 } from '@/components/map/country-flag-image';
 import { countryPillsAffordLabels } from '@/components/map/summary-style';
-import { countryPillText } from '@/components/map/summary-features';
+import { areaPillSpec, countryPillText } from '@/components/map/summary-features';
 import { MAX_MARKER_ALLOWANCE_SHARE } from '@/components/map/query-rect';
 
 const COMPONENT_SOURCE = readFileSync('src/components/map/summary-marker-layer.tsx', 'utf8');
 const STYLE_SOURCE = readFileSync('src/components/map/summary-style.ts', 'utf8');
 
-const FONT = ['Open Sans Regular'];
 const country = () => countryLayerLayout();
-const area = () => areaLayerLayout(FONT, countryDiscImageId(AREA_DISC_SPEC, 'light'));
+const area = () => areaLayerLayout();
 
 /** Code, not prose: both files deliberately *discuss* the discs and the circle layer they replaced,
  *  so a naive whole-file grep would fail on their own explanations. */
@@ -57,12 +54,16 @@ function code(source: string): string {
 }
 
 describe('every summary marker is a pill, not text on the basemap', () => {
-  it('fits the area label into its own image', () => {
-    expect(area()['icon-text-fit']).toBe('width');
-    expect(area()['icon-image']).toBeDefined();
+  it('bakes the area label into its own image, one bitmap per pill', () => {
+    // The area band was the last live-text layer, and it lost that on 2026-09-02 — see the Hebrew
+    // alignment case below. Its icon is per feature because the name and the *laid-out* count are
+    // both in the bitmap.
+    expect(area()['icon-text-fit']).toBeUndefined();
+    expect(area()['text-field']).toBeUndefined();
+    expect(area()['icon-image']).toEqual(['get', 'icon']);
   });
 
-  it('bakes the country label into the image instead, so a pill stacks as one card', () => {
+  it('bakes the country label into the image too, so a pill stacks as one card', () => {
     // MapLibre paints a symbol layer's icons in one pass and its glyphs in another, so while the
     // country label was live text a lower pill's name floated above an upper pill's background and
     // two countries sharing an anchor smeared together. The band's markers are now one bitmap each
@@ -87,23 +88,32 @@ describe('every summary marker is a pill, not text on the basemap', () => {
     expect(code(STYLE_SOURCE)).not.toContain('countryLayerPaint');
   });
 
-  it('never sets an icon-anchor, which icon-text-fit ignores outright', () => {
-    // `maplibre-gl/src/symbol/shaping.ts:635-637`. An anchor here would read as configuration and
-    // do nothing.
-    expect(area()['icon-anchor']).toBeUndefined();
-    // The country band has no `icon-text-fit` to ignore it, so it anchors its bitmap explicitly.
+  it('anchors the bitmap in both bands, now that neither is fitted to text', () => {
+    // While a pill was `icon-text-fit: 'width'`, MapLibre ignored `icon-anchor` outright
+    // (`maplibre-gl/src/symbol/shaping.ts:635-637`) and centred the icon on the text, so setting
+    // one read as configuration and did nothing. Both bands are plain bitmaps now, so both anchor
+    // themselves — and the anchor is what puts the pill on the coordinate it marks.
+    expect(area()['icon-anchor']).toBe('center');
     expect(country()['icon-anchor']).toBe('center');
+    for (const layout of [country(), area()]) expect(layout['icon-text-fit']).toBeUndefined();
   });
 });
 
-describe('the count and the label stay live text', () => {
-  it('renders the area count from the feature, never from the bitmap', () => {
-    expect(area()['text-field']).toEqual([
-      'concat',
-      ['get', 'label'],
-      '  ',
-      ['to-string', ['get', 'count']],
-    ]);
+describe('the count is a number, not a picture of one', () => {
+  it('assembles the area pill from the feature, never from a constant', () => {
+    // §2.2's rule was "the count is plain digits in a symbol layer, never baked into the image",
+    // and the second half of it could not survive Hebrew: a `text-field` shapes as one bidi
+    // paragraph, so `תל אביב-יפו  33` put its digits at the paragraph's end — the left — while
+    // `London  18` put them on the right. What the rule was protecting is that the number comes
+    // from the data and nothing scales a pill by it, and that still holds: the spec carries the
+    // count as a string off the feature, and the image id changes with it.
+    expect(areaPillSpec('תל אביב-יפו', 33)).toEqual({
+      countryCode: null,
+      name: 'תל אביב-יפו',
+      count: '33',
+    });
+    // A different count is a different image, so an absorbed pill cannot draw a stale number.
+    expect(areaPillSpec('תל אביב-יפו', 22)).not.toEqual(areaPillSpec('תל אביב-יפו', 33));
   });
 
   it("keeps the country count a number rather than a picture of one, in the image's own text", () => {
@@ -123,11 +133,13 @@ describe('the count and the label stay live text', () => {
     expect(code(STYLE_SOURCE)).not.toContain('font-scale');
   });
 
-  it('never wraps, because a second line would overflow a width-fitted pill', () => {
-    for (const layout of [area()]) {
-      expect(layout['text-max-width']).toBeGreaterThanOrEqual(20);
-      // Zero is not how to say "never wrap": `determineAverageLineWidth` divides by it.
-      expect(layout['text-max-width']).not.toBe(0);
+  it('leaves no half of the old text arrangement in either band', () => {
+    // Nothing shapes live text any more, so a leftover `text-max-width` or `text-font` would read
+    // as configuration and do nothing.
+    for (const layout of [country(), area()]) {
+      for (const key of ['text-field', 'text-font', 'text-size', 'text-max-width']) {
+        expect(layout[key]).toBeUndefined();
+      }
     }
   });
 });
@@ -177,8 +189,6 @@ describe('the bands stay declarative and stay symbol layers', () => {
       expect(layout['icon-ignore-placement']).toBe(false);
       expect(layout['icon-allow-overlap']).toBe(true);
     }
-    expect(area()['text-ignore-placement']).toBe(false);
-    expect(area()['text-allow-overlap']).toBe(true);
   });
 
   it('never lets an area be dropped for colliding either — the hierarchy decides, not the index', () => {
@@ -194,7 +204,6 @@ describe('the bands stay declarative and stay symbol layers', () => {
     // for the collision index to resolve — and turning it off is what guarantees it can never again
     // delete a marker the layout intended to draw.
     expect(area()['icon-allow-overlap']).toBe(true);
-    expect(area()['text-allow-overlap']).toBe(true);
   });
 
   it('lets the busier marker draw on top, in both bands', () => {
@@ -208,8 +217,8 @@ describe('the bands stay declarative and stay symbol layers', () => {
 
 describe('the area band and the country band are one object', () => {
   it('draws every area on the capless pill the countryless country also uses', () => {
-    expect(AREA_DISC_SPEC.countryCode).toBeNull();
-    expect(area()['icon-image']).toBe(countryDiscImageId({ countryCode: null }, 'light'));
+    expect(areaPillSpec('רעננה', 4).countryCode).toBeNull();
+    expect(area()['icon-image']).toEqual(['get', 'icon']);
   });
 
   it('no longer draws the area name as a second layer under the marker', () => {
@@ -219,17 +228,20 @@ describe('the area band and the country band are one object', () => {
     expect(code(COMPONENT_SOURCE)).not.toContain("'text-offset'");
   });
 
-  it('still shares everything the two bands can share, now that only one draws live text', () => {
-    // The bands stopped being field-for-field identical on 2026-09-02, when the country band's
-    // label moved inside its bitmap so a pill would stack as one opaque card. What survives is the
-    // part that was ever really the same object: an undroppable symbol that does not blind the
-    // basemap's own labels, drawn biggest-last.
-    for (const key of ['icon-allow-overlap', 'icon-ignore-placement', 'symbol-sort-key']) {
-      expect(country()[key]).toEqual(area()[key]);
+  it('is field-for-field the same layer in both bands but the icon', () => {
+    // They came apart on 2026-09-02 when the country band's label moved into its bitmap, and came
+    // back together the same day when the area band's did — for the Hebrew count, not for
+    // symmetry. Both are now one undroppable bitmap that does not blind the basemap's own labels,
+    // drawn biggest-last.
+    const [a, c] = [area(), country()];
+    expect(Object.keys(a).sort()).toEqual(Object.keys(c).sort());
+    for (const key of Object.keys(a)) {
+      if (key === 'icon-image') continue;
+      expect(a[key]).toEqual(c[key]);
     }
-    // And the country band carries no half of the old arrangement: no text, no fit, no offset.
     for (const key of ['text-field', 'text-font', 'text-size', 'icon-text-fit', 'text-offset']) {
-      expect(country()[key]).toBeUndefined();
+      expect(c[key]).toBeUndefined();
+      expect(a[key]).toBeUndefined();
     }
   });
 });
@@ -247,19 +259,19 @@ describe('the country pill is centred on its own coordinate', () => {
   });
 
   it('measures a capped pill wider than a capless one carrying the same label', () => {
-    expect(summaryPillWidth(true, 'Israel  35')).toBeGreaterThan(
-      summaryPillWidth(false, 'Israel  35'),
+    expect(summaryPillWidth(true, 'Israel', '35')).toBeGreaterThan(
+      summaryPillWidth(false, 'Israel', '35'),
     );
     // And the label is what sizes it now, not a fixed atlas slot.
-    expect(summaryPillWidth(true, 'United Kingdom  18')).toBeGreaterThan(
-      summaryPillWidth(true, 'Israel  35'),
+    expect(summaryPillWidth(true, 'United Kingdom', '18')).toBeGreaterThan(
+      summaryPillWidth(true, 'Israel', '35'),
     );
   });
 
-  it('leaves the area band fitted to live text, which is where the RTL plugin still matters', () => {
-    expect(area()['icon-text-fit']).toBe('width');
+  it('anchors the area pill the same way, now that it is one bitmap too', () => {
+    expect(area()['icon-anchor']).toBe('center');
+    expect(area()['icon-offset']).toBeUndefined();
     expect(area()['text-offset']).toBeUndefined();
-    expect(areaLayerLayout(FONT, 'x')['text-offset']).toBeUndefined();
   });
 });
 
@@ -334,13 +346,10 @@ describe('the country band spends what the container can afford', () => {
 
   it('leaves the area band labels alone at every width', () => {
     // The area band's name is the only thing that makes it a *named* geography
-    // (`area-band-layout.ts`), and an area pill has no flag to trade it for.
-    expect(area()['text-field']).toEqual([
-      'concat',
-      ['get', 'label'],
-      '  ',
-      ['to-string', ['get', 'count']],
-    ]);
+    // (`area-band-layout.ts`), and an area pill has no flag to trade it for. The predicate only
+    // ever swaps the *country* layer's icon, and the area layer has no second state to swap to.
+    expect(code(COMPONENT_SOURCE)).not.toContain('areaPillsAffordLabels');
+    expect(areaPillSpec('תל אביב-יפו', 33).name).toBe('תל אביב-יפו');
   });
 
   it('swaps the field on the live layer instead of rebuilding it', () => {
