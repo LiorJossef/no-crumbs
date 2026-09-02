@@ -144,6 +144,12 @@ const DEV_PROBE: ProbeSuccess = {
   candidates: [
     // Matched — the settled card. Its pin is the venue's own coordinate.
     candidate({
+      // **Two tags, which is the real ceiling** — `normaliseTags` truncates every candidate to
+      // `MAX_TAGS_PER_CANDIDATE` (2) before anything is stored, so a fixture with more would be
+      // showing the gate a card the product cannot produce. Present at all because the row was
+      // invisible to the harness while every fixture candidate carried none, and the tags this
+      // card shows are the basis on which the confirm route stamps `tags_confirmed_at`.
+      tags: ['middle eastern', 'brunch'],
       resolution: {
         kind: 'answered',
         result: {

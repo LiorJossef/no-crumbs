@@ -74,6 +74,15 @@ export const STATUS_CHIP: Record<ItemStatus, { readonly label: string; readonly 
 const COUNTER_VISIBLE_FROM = NOTE_MAX_LENGTH - 200;
 
 /**
+ * How many proposed tags a card shows before the rest become a count.
+ *
+ * Three, matching the library row's own fold (`splitRowTags`), so the review screen and the place
+ * it becomes do not disagree about how many tags fit on one line. See `tagRow` for why the
+ * remainder is a `+N` and not a silent truncation.
+ */
+const MAX_PROPOSED_TAGS_SHOWN = 3;
+
+/**
  * One candidate, as a decision rather than a readout.
  *
  * Two zones separated by a hairline: above it, what we believe this place is; below it, how sure
@@ -213,19 +222,53 @@ export function ExtractedCandidateRow({
       : null;
 
   const proposedTags = deriveSavedPlaceEnrichment(candidate)?.tags ?? [];
+  /**
+   * **Three chips, then a count** (`ux-overwhelm-audit-2026-09-02.md` §7 item 13).
+   *
+   * **The audit's premise is wrong and the cap is kept anyway, which needs saying.** It counts
+   * "0-6 tag pills" per card and multiplies them by three cards; the real ceiling is **two**.
+   * `normaliseTags` truncates to `MAX_TAGS_PER_CANDIDATE` (= `MAX_SUB_TAGS_PER_PLACE` = 2) before
+   * anything is stored, so no candidate the probe returns can carry a third tag, and this slice
+   * does not bind on any data the product can currently produce. Verified by reading
+   * `domain/extraction/tags.ts:84,247`, not by watching a screen — the pills are simply not the
+   * density the audit measured, and the screen it photographed shows at most six across three
+   * cards, not eighteen.
+   *
+   * It stays because it costs one `slice` and it is the taxonomy cap's only downstream guard: that
+   * ceiling is a product decision that has already moved once (five to two), and the row it feeds
+   * is the one place where growing it silently would file words under someone's library that this
+   * card never showed them. `tests/unit/import/review-tags.test.ts` pins the two numbers against
+   * each other so a future raise has to look here.
+   *
+   * **The consent argument above survives, and the `+N` is why.** It requires the tags to be
+   * *shown* before the save writes them, not to be shown all at once, and a silent truncation
+   * would fail it — a word filed under someone's library that they were never told about is the
+   * assertion this card exists to refuse. `+2` is telling them: the count is exact, it is inside
+   * the same tickbox and therefore inside the control's accessible name, and the full list is on
+   * the place the moment it is saved. What is deliberately not here is a disclosure control —
+   * this block sits inside a `<button role="checkbox">`, so a nested button is invalid markup,
+   * and a second tap target per card is the density the audit is about.
+   */
+  const shownTags = proposedTags.slice(0, MAX_PROPOSED_TAGS_SHOWN);
+  const hiddenTagCount = proposedTags.length - shownTags.length;
   const tagRow = proposedTags.length > 0 && (
     <span className="mt-1 flex flex-wrap gap-1">
-      {proposedTags.map((tag) => (
+      {shownTags.map((tag) => (
         <span
           key={tag}
           // Read by the browser measurement in `docs/`-filed evidence and by nothing in the app.
           data-review-tag=""
           dir="auto"
-          className="inline-block max-w-full truncate rounded-full bg-tag px-2 py-0.5 text-micro leading-4 font-bold text-tag-foreground"
+          className="inline-block max-w-full truncate rounded-full bg-tag px-2 py-0.5 text-micro leading-4 font-medium text-tag-foreground"
         >
           {tagDisplayLabel(tag)}
         </span>
       ))}
+      {hiddenTagCount > 0 && (
+        <span className="inline-block px-1 py-0.5 text-micro leading-4 font-medium text-muted-foreground">
+          +{hiddenTagCount}
+        </span>
+      )}
     </span>
   );
 
@@ -281,7 +324,12 @@ export function ExtractedCandidateRow({
           badge !== null && (
             <span
               className={cn(
-                'shrink-0 rounded-full px-2 py-0.5 text-micro font-bold',
+                // **`font-medium`, not `font-bold`.** This is a label on the name beside it, and it
+                // was set heavier than the name it labels — `From the map data` in bold beside
+                // `HaKosem` in bold reads as two headings on one row. The three tones are
+                // untouched: mint stays exclusive to `settled` and the caption pin keeps its amber,
+                // because the tone is the claim and only the weight was the shouting.
+                'shrink-0 rounded-full px-2 py-0.5 text-micro font-medium',
                 badge.tone === 'settled' && 'bg-accent text-brand',
                 badge.tone === 'caption' && 'bg-warning/10 text-warning',
                 badge.tone === 'needs_pick' && 'bg-card-2 text-foreground',
@@ -306,7 +354,7 @@ export function ExtractedCandidateRow({
           unticked, so it sits where a reason sits. Warning-toned rather than grey because it is
           news, and grey is what made the rejected 2026-08-29 version invisible. */}
       {alreadyAdded && status === null && (
-        <p className="text-xs font-bold text-warning">{ALREADY_ADDED_LINE}</p>
+        <p className="text-xs font-medium text-warning">{ALREADY_ADDED_LINE}</p>
       )}
       {tagRow}
       {evidenceNote !== null && (
@@ -355,8 +403,13 @@ export function ExtractedCandidateRow({
             spacing is the loudest type this screen owns and it was spending it on a question that
             already has a radio group under it. Sentence case, one row, the explanation trailing in
             muted weight: the same two facts, one block instead of two. */}
+        {/* `font-semibold`, and the muted colour on the matched card: the heading half of this line
+            was heavier and darker than the option names it introduces, which are `text-caption
+            font-bold`. A label may not outweigh its content. The ambiguous card keeps
+            `text-foreground` — there the line is a question the user has to answer before the card
+            can be saved, and it is the only thing on the card that says so. */}
         <p id={`${optionsId}-label`} className="text-xs leading-5 font-medium text-muted-foreground">
-          <span className={cn('font-bold', view.kind === 'matched' ? 'text-brand' : 'text-foreground')}>
+          <span className={cn('font-semibold', view.kind === 'matched' ? 'text-brand' : 'text-foreground')}>
             {resolutionHeadline(view)}
           </span>{' '}
           {resolutionExplanation(view)}
