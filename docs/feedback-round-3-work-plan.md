@@ -264,36 +264,57 @@ on an answer.
 
 ## 5. Sequencing
 
-```
-        ┌──────────────────────────────────────────────────────────────┐
-Wave 1  │  B place card · C filter row · D map · E import · G sources   │  ← starts now
-        │  A geography (adapter + presentation; backfill held)          │
-        └───────────────────────────────┬──────────────────────────────┘
-                                        │  orchestrator commits each scope as it lands
-Wave 2  ────────────────────────────────►  F mobile fit · A's backfill · the deck
-Lane 0  ────────────── alongside, whenever a lane is between waves ──────►  #109 green and merged
-Post-submission ────────────────────────►  §1.6/§11.1 unification · §1.1 map glyphs · §6.5 · §9.1 · §10.1
-```
+> **Rewritten 2026-09-02, after wave 1 ran.** The first version of this section is preserved in the
+> history at `cbab6b5`. It described two waves and six lanes; what actually ran was six lanes, four
+> unplanned follow-up lanes, and one wave-2 lane pulled forward. Recording that here rather than
+> leaving the plan describing a sequence nobody followed — a plan that disagrees with the branch is
+> worse than no plan, because it is the document the next session trusts.
 
-**Wave 1 write scopes, pairwise disjoint:**
+### What changed against the first version
 
-| Lane | Owns, exclusively |
+| Change | Why |
 |---|---|
-| A | `src/integrations/google/**`, `src/domain/places/**`, `src/ui/place/library-summary.ts`, `src/app/profile/_lib/**` |
-| B | `src/components/sheet/place-sheet.tsx`, `saved-place-edits.tsx`, `visit-state.tsx`, `place-desktop-panel.tsx`, `src/ui/place/location-certainty.ts` |
-| C | `src/components/sheet/category-filter-bar.tsx`, `src/ui/place/visit-state.ts` |
-| D | `src/components/map/**`, `src/app/map/map-page-client.tsx` |
-| E | `src/domain/extraction/**`, `src/domain/import/**`, `src/integrations/llm/prompt.ts`, `src/app/import/**`, `src/ui/import/**` |
-| G | `src/app/map/_lib/get-spots.ts`, `src/app/actions/**`, `src/components/collections/**` |
+| **Lane 0 dropped** | Owner ruling: the product is verified on localhost, and CI is not being worked on |
+| **F pulled forward into wave 1** | B2 measured `BottomNav` as `position: fixed` over y 776–844 while the sheet's column runs to 846 — the last ~70 px of the place card is *behind* the nav and unreachable. That is §7.1, and it is most of the remaining zero-scroll deficit, so it stopped being polish |
+| **H added** (already-saved notice) | Lane E tested its own §6.1 hypothesis against the rows and **refuted it**. The cause is re-importing one link — one video holds 16 imports and 18 saved places — which is a different feature, not a fix inside E |
+| **B2, H2 added** | Both close what their parent lane left open, and both found a second defect by looking at a screen: the true fold under the nav, and a collapsed layout that renders no checkbox under a sentence naming one |
 
-Exclusive resources: **migration `0038` → Lane A, and A's backfill waits for wave 2** because the
-local container is behind the schema on disk and a backfill cannot be verified against the wrong
-schema; **the local database catch-up → orchestrator only, between waves** (world-stopping, and no
-lane may run `db:reset`, `supabase start|stop` or `npm install` while a peer is live); **provider
-quota → no lane spends it without a ruling on §6.5**.
+### Wave 1 — done, except two lanes
 
-**Held pending an owner decision, and the lane proceeds without them:** D-T3 (fly-to on pin tap) and
-C-T2's chosen shape. Neither blocks the rest of its lane.
+| Lane | State | What is left |
+|---|---|---|
+| A geography | **complete** | A-T2 backfill held to wave 2 by design; A-T4 refuted and no fix built for a mechanism that would not reproduce |
+| B place card | **complete** | the half-stop deficit passed to F, where it belongs |
+| D map | **complete** | D-T3 (fly-to) awaits an owner decision |
+| E import | **complete** | except the weight of `From the caption` / `From the map data` — escalated, because the shorter pair and the restyle each change something a test pins |
+| **C filter row** | **incomplete** | the tag floor shipped (`8fd2e27`, the larger half). **The category chip trigger and the Been filter are both unbuilt** |
+| **G sources** | **incomplete** | **all-sources on the place card**, and **multi-select in Places**. `deleteSavedPlaces` is written, tested and has zero callers |
+
+**Both incomplete lanes failed the same way, and it is the way `agent-guardrails.md` §8 rule 31
+predicts.** G's two gaps are not unfinished work — they are the render halves of features whose data
+halves shipped, blocked because Lane B held `place-sheet.tsx` for the whole wave. Disjoint write
+scopes bought concurrency and paid for it in completeness, exactly as that rule says. Both files are
+unowned now, so wave 2 closes them first.
+
+### Wave 2 — closes wave 1 before it adds anything
+
+```
+Wave 2a  the orphaned halves — every source on the place card · multi-select in Places
+         · the category trigger · the re-import notice's tint
+Wave 2b  A's backfill (migration 0038), after the local container is brought up to disk
+Wave 2c  §7.2 import loading screen, if F's measurement says the complaint survives
+Held     D-T3 fly-to · C-T2's chosen shape · E-T4's label weight — owner decisions, §4
+Post-submission   §1.6/§11.1 unification · §1.1 map glyphs · §6.5 · §9.1 · §10.1
+```
+
+**2a before 2b before 2c.** The orphaned halves are cheap, are already designed, and are the
+difference between a feature and a slice of one. The backfill cannot be verified until the local
+database matches the schema on disk, which is a world-stopping operation and therefore runs between
+waves, by the orchestrator, never inside one.
+
+**Exclusive resources, unchanged:** migration `0038` → the backfill and nothing else; the local
+database catch-up → orchestrator only, between waves; provider quota → unspent without a ruling
+on §6.5.
 
 ## 6. The bar for calling any of this done
 
