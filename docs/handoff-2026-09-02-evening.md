@@ -55,6 +55,19 @@ pill wider than a capless one carrying the same label`) and **one type error**
 changing is not applied everywhere yet). Finish it or discard it; do not assume it works. The last
 green commit is `93f9446`.
 
+## The locality gap, which is one bug wearing three faces
+
+`Other 1`, `Czechia 4` and the `1 in הרצליה` header defect are **the same missing datum**: rows whose
+`locality` is null. An area with no locality anywhere in it cannot be named, so it falls back — to
+its country (`Czechia 4`, which is really **Prague**), or to `Other` when there is not even a country.
+Nothing this session touched that; `Czechia 4`'s naming rule came from the wave-1 geography lane
+(`6c75b31`…`d785ddf`), and the pill work only changed how it is *drawn*.
+
+**The fix for all three is the geography backfill (migration `0038`)**, which is blocked behind the
+local database catch-up — 13 migrations behind, apply in place, never reset. Owner, 2026-09-02, on
+`Other`: *"this item is actually a city in Israel, so it should eventually resolve to the correct
+city/area name."* The same sentence is true of Prague. Do not paper over any of the three with copy.
+
 ## Two things the owner is owed
 
 1. **Country names are dropped on a phone** (`c78c787`) — flag + count only, because a 206 px pill
