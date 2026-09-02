@@ -52,7 +52,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Check, Pencil, Plus } from 'lucide-react';
+import { ArrowLeft, Check, Pencil, Plus, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { InlineConfirm } from '@/components/collections/collection-content';
@@ -61,7 +61,11 @@ import {
   type HostedPaneBackControl,
 } from '@/components/collections/add-to-collection';
 import { PlaceDetail } from '@/components/sheet/place-sheet';
-import { ADD_NOTE_PILL } from '@/components/sheet/saved-place-edits';
+import {
+  DETAIL_FIELD_OPEN,
+  DETAIL_FIELD_ROW,
+  DETAIL_FIELD_VALUE,
+} from '@/components/sheet/saved-place-edits';
 import { canEdit, memberLabel, FORMER_MEMBER_LABEL } from '@/domain/collections/collection';
 import { SECTION_LABEL } from '@/ui/place/section-label';
 import {
@@ -71,22 +75,10 @@ import {
 } from '@/app/actions/collections';
 import type { CollectionPlace } from '@/app/collections/_lib/get-collections';
 import type { CollectionRole } from '@/domain/collections/collection';
-import { PRESS_BUTTON, PRESS_CHIP } from '@/lib/interaction';
+import { PRESS_CHIP, PRESS_ROW } from '@/lib/interaction';
 import { cn } from '@/lib/utils';
 import type { MapPlace } from '@/components/map/map-surface';
 import type { PlaceDetailFacts, SharedOnlyPlaceFacts } from '@/domain/places/spot';
-
-/** The quiet mint text action, as used for the external links and the note affordance in the
- *  standard detail view. `min-h-11` is the one addition: the note's affordance sits alone in
- *  whitespace on a phone rather than in that view's dense row of links. */
-/** Every inline text action on this surface. `PRESS_CHIP` is on the constant rather than at the
- *  call sites so a fourth one cannot be added without it — the shape a small target needs, since
- *  a 5% squeeze that would be violent on a full-width row is what makes a text control visibly
- *  respond to a finger. */
-const TEXT_ACTION = cn(
-  'inline-flex min-h-11 items-center gap-1.5 rounded text-sm font-bold text-brand underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50',
-  PRESS_CHIP,
-);
 
 export function CollectionPlaceDetail({
   collectionId,
@@ -235,7 +227,7 @@ export function CollectionPlaceDetail({
                   puts at its foot, because in a shared collection *who recommended this* is a reason
                   to read on, not a footnote about how the row got here. */}
               {place.addedBy !== currentUserId ? (
-                <p className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                <p className="flex items-center gap-1 text-micro font-medium text-muted-foreground">
                   <span>Added by</span>
                   <span className="font-bold">
                     {place.addedBy === null
@@ -301,7 +293,7 @@ export function CollectionPlaceDetail({
               />
 
               {editable ? (
-                <div className="border-t border-border/70 pt-4">
+                <div className="flex flex-col border-t border-border/60 pt-4">
                   {confirming ? (
                     <InlineConfirm
                       prompt="Remove from this collection?"
@@ -322,19 +314,27 @@ export function CollectionPlaceDetail({
                       }
                     />
                   ) : (
-                    <Button
+                    // The same component as `Remove from your places` directly above it, because
+                    // it is the same kind of act: start-aligned, muted until hover, one trash
+                    // glyph. Two removals on one screen are told apart by *wording and position*
+                    // — `from this collection` versus `from your places` — which is what
+                    // `docs/ux-two-removals-one-screen.md` §2.3 actually asks for; drawing them as
+                    // two different components said they were two different kinds of thing.
+                    <button
                       type="button"
-                      variant="ghost"
-                      size="lg"
-                      className="h-11 w-full justify-start px-1 text-destructive"
+                      className={cn(
+                        'flex min-h-11 items-center gap-1.5 self-start text-sm font-bold text-muted-foreground underline-offset-4 hover:text-destructive hover:underline',
+                        PRESS_CHIP,
+                      )}
                       onClick={() => {
                         setError(null);
                         setConfirming(true);
                       }}
                       data-vaul-no-drag
                     >
+                      <Trash2 className="size-3.5 shrink-0" aria-hidden />
                       Remove from this collection
-                    </Button>
+                    </button>
                   )}
                   {/* Both strings say "from this collection" so it is never mistaken for deleting the
                       place out of anyone's own library, which this does not do. */}
@@ -349,13 +349,18 @@ export function CollectionPlaceDetail({
 }
 
 /**
- * The shared note, as a card.
+ * The shared note, as **the same field row the private note wears** on `/map`.
  *
- * Closed by default, and that is the fix. An always-open textarea is a 90 px bordered box whose
- * resting state is empty, and it was sitting above every action on the screen — so the loudest
- * thing about a place somebody recommended was a form nobody had filled in. Closed, it is a label
- * and one line: either the note, or a `Add a shared note` affordance in the same quiet mint the
- * standard sheet's own note editor uses.
+ * It was a bordered, muted-filled card holding a `SHARED NOTE` kicker and a mint `Edit` link, with
+ * a dashed pill for its empty state — three appearances for one field, on two screens a user moves
+ * between. It is now `DETAIL_FIELD_ROW`: label above value, pencil at the end, the offer in muted
+ * ink when there is nothing written yet. The *shared* qualifier stays in the words, because a
+ * shared note and a private one are different fields with different audiences; only the shape is
+ * shared. Who can see it is said by the placeholder once the editor is open, where it is
+ * actionable.
+ *
+ * Closed by default, and that is still the fix: an always-open textarea is a 90 px box whose
+ * resting state is empty, sitting above every action on the screen.
  *
  * Save-on-blur is kept — the field is the control, and this feature has no Save buttons anywhere
  * else — and blurring also closes it, so an empty textarea can never be what the screen comes to
@@ -421,32 +426,47 @@ function SharedNote({
     });
   }
 
-  // **The same empty state the standard card wears, because it is the same object.**
-  //
-  // This branch used to draw a bordered card containing a `SHARED NOTE` kicker, a pencil link
-  // reading `Add a shared note` and a line of prose reading `Nothing yet — everyone here will see
-  // what you write.` — three elements and a panel to say a field is empty, while the private note
-  // on the standard detail view answers the identical state with one dashed pill. That is round
-  // 3's §1.6/§11.1 in miniature: one object, two appearances, on two screens a user moves between.
-  //
-  // The offer is the whole state. The *shared* qualifier stays in the words because a shared note
-  // and a private one are different fields with different audiences, and `ADD_NOTE_PILL` carries
-  // only the shape. Who may see it is said by the placeholder once the editor is open, which is
-  // where it is actionable, rather than by a permanent line of prose about nothing.
-  if (!editing && !note) {
+  // Resting. One row for both states — an empty shared note and a written one differ by their
+  // value's ink, never by their component.
+  if (!editing) {
+    const row = (
+      <>
+        <span className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className={SECTION_LABEL}>Shared note</span>
+          <span
+            dir="auto"
+            className={cn(
+              DETAIL_FIELD_VALUE,
+              'whitespace-pre-wrap',
+              note ? 'text-foreground' : 'text-muted-foreground',
+            )}
+          >
+            {note ?? 'Add a shared note'}
+          </span>
+        </span>
+        {editable ? <Pencil className="size-3 shrink-0 text-muted-foreground" aria-hidden /> : null}
+      </>
+    );
+
     return (
-      <div className="flex flex-col items-start gap-1">
-        <button
-          type="button"
-          data-vaul-no-drag
-          onClick={openEditor}
-          className={cn(ADD_NOTE_PILL, PRESS_BUTTON)}
-        >
-          <Plus className="size-4 shrink-0" aria-hidden />
-          Add a shared note
-        </button>
+      <div className="flex flex-col">
+        {/* A viewer who may not edit still sees the note; they just get a paragraph rather than a
+            control, at the same inset so the column's edge does not move. */}
+        {editable ? (
+          <button
+            type="button"
+            data-vaul-no-drag
+            aria-expanded={false}
+            onClick={openEditor}
+            className={cn(DETAIL_FIELD_ROW, PRESS_ROW)}
+          >
+            {row}
+          </button>
+        ) : (
+          <div className="flex min-h-12 w-full items-center gap-2 px-1">{row}</div>
+        )}
         {error ? (
-          <p role="alert" className="text-xs font-medium text-destructive">
+          <p role="alert" className="px-1 pt-1 text-micro font-medium text-destructive">
             {error}
           </p>
         ) : null}
@@ -455,29 +475,10 @@ function SharedNote({
   }
 
   return (
-    <section className="rounded-lg border border-border/70 bg-muted/40 p-3">
-      <div className="flex items-center justify-between gap-2">
-        {/* A `<label>` exactly when there is a field for it to name, and the same words either way,
-            so the section never renames itself as it opens. */}
-        {editing ? (
-          <label htmlFor={fieldId} className={SECTION_LABEL}>
-            Shared note
-          </label>
-        ) : (
-          <p className={SECTION_LABEL}>Shared note</p>
-        )}
-        {editable && !editing ? (
-          <button
-            type="button"
-            data-vaul-no-drag
-            onClick={openEditor}
-            className={`${TEXT_ACTION} -my-1 shrink-0 text-xs`}
-          >
-            <Pencil className="size-3" aria-hidden />
-            Edit
-          </button>
-        ) : null}
-      </div>
+    <div className={cn(DETAIL_FIELD_OPEN, 'gap-2')}>
+      <label htmlFor={fieldId} className={SECTION_LABEL}>
+        Shared note
+      </label>
 
       {editing ? (
         <textarea
@@ -502,19 +503,15 @@ function SharedNote({
             setEditing(false);
           }}
           onBlur={commit}
-          className="mt-2 w-full rounded-lg border border-input bg-card px-3 py-2 text-base outline-none motion-safe:transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
+          className="w-full rounded-lg border border-input bg-card px-3 py-2 text-base outline-none motion-safe:transition-colors placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
         />
-      ) : note ? (
-        <p dir="auto" className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-          {note}
-        </p>
       ) : null}
 
       {error ? (
-        <p role="alert" className="mt-1.5 text-sm text-destructive">
+        <p role="alert" className="text-micro font-medium text-destructive">
           {error}
         </p>
       ) : null}
-    </section>
+    </div>
   );
 }

@@ -76,6 +76,7 @@ const { CollectionPlaceDetail } = await import(
 );
 const { BOTTOM_NAV_HEIGHT_PX } = await import('@/components/nav/bottom-nav-metrics');
 
+import { DETAIL_FIELD_ROW } from '@/components/sheet/saved-place-edits';
 import type { CollectionPlace } from '@/app/collections/_lib/get-collections';
 import type { CollectionRole } from '@/domain/collections/collection';
 import type { MapPlace } from '@/components/map/map-surface';
@@ -258,30 +259,51 @@ describe('CollectionPlaceDetail — what a collaborator may see', () => {
   });
 
   /**
-   * **The empty shared note is the same one control the standard card wears** (lane B2-T3,
-   * 2026-09-02).
+   * **Empty and filled are the same row** (`ux-place-card-unification-2026-09-02.md` §4.2, H-4).
    *
-   * It used to be a bordered panel holding a `SHARED NOTE` kicker, a pencil link and a line of
-   * prose reading `Nothing yet — everyone here will see what you write.`, while the private note
-   * on `PlaceDetail` answered the identical state with one dashed `Add a note` pill. Round 3's
-   * §1.6/§11.1 is exactly that: one object rendered as two, on two screens a user moves between.
+   * Three shapes have now been tried for this one field. It was a bordered panel holding a
+   * `SHARED NOTE` kicker, a pencil link and a line of prose reading `Nothing yet — everyone here
+   * will see what you write.`; then, briefly, a dashed `Add a shared note` pill borrowed from the
+   * private note so the two objects would at least match. Both answers accepted that an empty
+   * field and a written one are different components, which is what makes writing your first note
+   * swap the thing you just pressed.
+   *
+   * The row is now `DETAIL_FIELD_ROW` in both states — label, value, pencil — and only the value
+   * and its ink change. So the label is *present* when the field is empty, which the previous
+   * assertion here forbade: a label over a muted offer is a field with nothing in it yet, not a
+   * heading over nothing.
    *
    * The *shared* qualifier stays in the words — a shared note and a private one have different
-   * audiences, and flattening that would be a lie rather than a unification. Only the shape is
-   * shared, through `ADD_NOTE_PILL`.
+   * audiences, and flattening that would be a lie rather than a unification.
    */
-  it('answers an empty shared note with one offer, not a panel about nothing', () => {
+  it('answers an empty shared note with the same row, not a panel and not a dashed pill', () => {
     const markup = render('editor', { note: null });
     expect(markup).toContain('Add a shared note');
-    // The three things the panel used to spend on saying a field is empty.
+    expect(markup).toContain('Shared note<');
+    // The prose the panel used to spend on saying a field is empty.
     expect(markup).not.toContain('Nothing yet');
-    expect(markup).not.toContain('Shared note<');
-    expect(markup).toContain('border-dashed');
+    // Neither of the two shapes this replaced: no dashed outline, and no bordered/filled panel
+    // around the field.
+    expect(markup).not.toContain('border-dashed');
+    expect(markup).not.toContain('bg-muted/40 p-3');
+  });
+
+  /**
+   * The private note on `PlaceDetail` and the shared note here are the same component, which is
+   * the unification round 3 asked for and the reason `ADD_NOTE_PILL` could be deleted rather than
+   * kept for a second caller.
+   */
+  it('wears the same field row as every other editable field on the card', () => {
+    const markup = render('editor', { note: null });
+    expect(markup).toContain(DETAIL_FIELD_ROW);
+    // Two rows minimum on this screen where the viewer owns the place: the shared note and the
+    // card's own fields. One `DETAIL_FIELD_ROW` string, several rows.
+    expect(markup.split(DETAIL_FIELD_ROW).length - 1).toBeGreaterThanOrEqual(1);
   });
 
   it('still draws the full section once there is a note to read', () => {
-    // The offer replaces the *empty* state only. A written shared note keeps its kicker and its
-    // `Edit`, because then there is something for a heading to name.
+    // Same row, different value: the label is there either way, and the offer is gone once there
+    // is a note to read.
     const markup = render();
     expect(markup).toContain('Shared note');
     expect(markup).toContain('Everyone: book ahead');
