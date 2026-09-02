@@ -114,6 +114,30 @@ export type TagsOf<T> = (place: T) => readonly string[] | null | undefined;
 export const MAX_TAG_FACETS = 12;
 
 /**
+ * How many places a tag must cover before it earns a chip.
+ *
+ * The cap above bounds the row's length and nothing else, so a library whose tail is long enough
+ * fills all twelve slots with tags carried by **one place each**. Round 5 measured exactly that:
+ * fifteen chips, twelve of them singletons, 372 px — 41% of the phone viewport — of controls
+ * standing between the user and the first place. The owner's round-3 feedback photographed the same
+ * row (`Bakery`, `Asian`, `Italian`, `Brunch`, `Mediterranean`, `Middle Eastern`, `Desserts`,
+ * `Japanese`, `SpecialtyCoffee`) and called it what it is: the list is below the fold.
+ *
+ * A singleton chip is a filter whose entire result the user can already see. It costs a row of
+ * screen to save a glance — which is this file's own argument, one line up, against a chip "whose
+ * result the user could have reached by reading the list". The cap was the wrong instrument for it:
+ * a length bound cannot tell a useful tag from a unique one.
+ *
+ * Two is the smallest number that expresses "this groups something". It is deliberately not
+ * proportional to library size — a threshold that moves as places are saved makes chips vanish for
+ * reasons the user cannot see.
+ *
+ * The active tag is still pinned in regardless, by the same rule and for the same reason: a control
+ * that disappears when you use it is the defect this file already refuses.
+ */
+export const MIN_TAG_FACET_COUNT = 2;
+
+/**
  * The tags present in `places`, with counts, most-used first.
  *
  * ## Every rendered chip yields at least one place, and that is the whole rule
@@ -156,6 +180,11 @@ export function tagFacets<T>(
    *  chip here would be a second way out that says nothing true. */
   keepTag: string | null = null,
   limit: number = MAX_TAG_FACETS,
+  /** The floor a tag must clear to earn a chip — see `MIN_TAG_FACET_COUNT`. A parameter rather
+   *  than a constant read inline so a caller that genuinely wants every tag (and a test asserting
+   *  a property that has nothing to do with the floor) can say `1` out loud instead of shaping its
+   *  fixtures around a default. */
+  minCount: number = MIN_TAG_FACET_COUNT,
 ): readonly TagFacet[] {
   const counts = new Map<string, { tag: string; count: number }>();
 
@@ -173,6 +202,11 @@ export function tagFacets<T>(
   }
 
   const ordered = [...counts.entries()]
+    // A tag carried by one place is not a grouping — see `MIN_TAG_FACET_COUNT`. The active tag is
+    // exempt, because the row must never drop the chip the user is currently filtering by.
+    .filter(
+      ([, { tag, count }]) => count >= minCount || (keepTag !== null && isSameTag(tag, keepTag)),
+    )
     .sort(([keyA, a], [keyB, b]) => b.count - a.count || (keyA < keyB ? -1 : keyA > keyB ? 1 : 0))
     .map(([, { tag, count }]): TagFacet => ({ tag, label: tagDisplayLabel(tag), count }));
 
