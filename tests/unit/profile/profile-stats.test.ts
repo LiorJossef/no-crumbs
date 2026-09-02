@@ -23,6 +23,7 @@ import {
   joinedLabel,
   type ProfilePlace,
 } from '@/app/profile/_lib/profile-stats';
+import { UNNAMED_OTHER_AREA_LABEL } from '@/ui/place/active-area';
 import { REAL_LIBRARY } from './real-library';
 
 let seq = 0;
@@ -144,7 +145,7 @@ describe('countryBreakdown', () => {
     const rows = countryBreakdown([
       place(LONDON.lat, LONDON.lng, { countryCode: null, locality: 'London' }),
     ]);
-    expect(rows).toEqual([{ countryCode: null, label: 'Another area', count: 1 }]);
+    expect(rows).toEqual([{ countryCode: null, label: UNNAMED_OTHER_AREA_LABEL, count: 1 }]);
   });
 
   it('cannot contradict the numbers printed above it', () => {
