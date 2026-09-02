@@ -45,7 +45,15 @@ RTL CHANGE IS BAD CAN YOU REVERT ONLY THAT?"* Do not rebuild it from
 **Area-band pills, Hebrew alignment.** Owner: the count is misaligned on a Hebrew city pill. First
 attempt — a bidi isolate — **made it worse**: it reversed the order from `תל אביב 22` to `22 תל אביב`.
 The ORDER was always right; only alignment was wrong. The agent was redirected to bake the area pill
-into a bitmap, reusing `dedcf04`'s country renderer. **Check `git status` before trusting the tree.**
+into a bitmap, reusing `dedcf04`'s country renderer.
+
+**That second attempt is MID-EDIT AND RED in the working tree, uncommitted on purpose.** Measured at
+`93f9446`: `src/components/map/country-flag-image.ts`, `summary-style.ts` and
+`tests/unit/map/summary-style.test.ts` are modified, with **one failing test** (`measures a capped
+pill wider than a capless one carrying the same label`) and **one type error**
+(`summary-features.ts:90` — `label` is not on `CountryDiscSpec`, so the shape it is mid-way through
+changing is not applied everywhere yet). Finish it or discard it; do not assume it works. The last
+green commit is `93f9446`.
 
 ## Two things the owner is owed
 
