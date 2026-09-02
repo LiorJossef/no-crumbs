@@ -32,10 +32,23 @@
  *
  * ## What ships today, and why it is not TikTok's mark
  *
- * A **portrait video frame with a play triangle**: what a person pasted is a vertical short-form
- * video, which is a fact about the artefact rather than a claim about its publisher. It carries no
- * trademark, so it needs no ruling to ship, and it is a real improvement over a chain link while
- * the ruling is outstanding. `data-platform-mark="neutral"` records which arm rendered.
+ * A **play triangle in a circle**: what a person pasted is a short-form video, which is a fact
+ * about the artefact rather than a claim about its publisher. It carries no trademark, so it needs
+ * no ruling to ship. `data-platform-mark="neutral"` records which arm rendered.
+ *
+ * **Changed 2026-09-02, owner's choice, from a portrait video frame with a play triangle inside
+ * it.** The owner's report was that the frame "doesn't look good"; drawn beside the alternatives at
+ * 14px, 20px and on the live mint CTA, the reason is legible — the frame was two shapes competing
+ * inside a 13-unit-wide box, and at `size-3.5`, which is where this mark is used most, the triangle
+ * had roughly two units of air on either side and closed up. The disc gives the triangle the whole
+ * interior and matches Lucide's own circle glyphs, which is what the outline weight's construction
+ * rule was always aiming at.
+ *
+ * **What was NOT lost with the frame.** The portrait aspect was carrying one extra fact — *vertical*
+ * short-form video — and the disc drops it. That is an acceptable trade because no surface depends
+ * on it: every one of them names TikTok in words beside the mark, so the glyph never had to carry
+ * the platform, only the medium. What it must not become is a shape that says *press me* — see the
+ * note on the bare triangle below.
  *
  * **No TikTok geometry is in the tree, and a redraw would not have helped.** The prohibition reaches
  * *"icons, symbols, or designs"*, which the ruling reads as covering a stylised approximation drawn
@@ -115,6 +128,14 @@
  * toward implying the one thing the licence would have covered and we were never granted. That is
  * trade dress with deniability, which is a worse position than using the mark outright.
  *
+ * ## The candidate that was rejected, and why it is worth writing down
+ *
+ * A **bare play triangle** was drawn alongside and is the simplest mark available — it survives any
+ * size and needs no construction rule at all. It was rejected on meaning rather than on optics: a
+ * bare triangle is the universal *press to play* affordance, so beside a source link it names an
+ * action this product does not offer. We do not play the video; we point at it. The enclosing shape
+ * is what turns the triangle from a button into a noun.
+ *
  * The glyph, the weight and the placement are ours; the word is the permitted use.
  */
 
@@ -136,13 +157,13 @@ export function PlatformMark({
         data-platform-weight="solid"
         fill="currentColor"
       >
-        {/* One path, `evenodd`: the frame is the outer subpath and the play triangle is the inner
+        {/* One path, `evenodd`: the disc is the outer subpath and the play triangle is the inner
             one, so the triangle is a hole rather than a second shape in a second colour. That is
             what keeps this weight `currentColor`-only like the other, and it is why the triangle
             reads mint on the mint CTA without anything here knowing the button's ground. */}
         <path
           fillRule="evenodd"
-          d="M9 2h6a3.5 3.5 0 0 1 3.5 3.5v13A3.5 3.5 0 0 1 15 22H9a3.5 3.5 0 0 1-3.5-3.5v-13A3.5 3.5 0 0 1 9 2Zm1.4 6.6v6.8L16 12l-5.6-3.4Z"
+          d="M12 1.5a10.5 10.5 0 1 0 0 21 10.5 10.5 0 0 0 0-21Zm-2 7 6 3.5-6 3.5v-7Z"
         />
       </svg>
     );
@@ -167,16 +188,14 @@ function renderOutline(className: string | undefined) {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      {/* The portrait frame. 13 x 20 of a 24 box is a 0.65 aspect — portrait enough to read as a
-          phone-shaped video, wide enough to hold the triangle with air on both sides.
-
-          **Rendered and compared rather than picked.** 12, 13 and 14 units wide were drawn at 14px
-          and 16px, bare and inside the kicker's 28px disc: at 12 the mark is optically smaller than
-          the Lucide glyphs it sits beside (7px of ink against `Link2`'s 14), and at 14 it stops
-          reading as portrait. 13 at `size-4` matches the row's weight and keeps the aspect. */}
-      <rect x="5.5" y="2" width="13" height="20" rx="3.5" />
-      {/* The play shape, filled, inside the 11-unit interior the 2-unit walls leave. */}
-      <path d="M10.4 9 15.4 12l-5 3Z" fill="currentColor" strokeWidth={1.4} />
+      {/* A 9.5-radius disc, which is Lucide's own circle geometry (`circle-play`, `circle-check`)
+          rather than a size picked here — the point of matching it is that this mark sits inline
+          with Lucide glyphs and must not read as a logo dropped into a toolbar. */}
+      <circle cx="12" cy="12" r="9.5" />
+      {/* The play shape, filled, centred in the disc. Filled rather than stroked for the same
+          reason the frame's triangle was: at `size-3.5` a 2-unit stroke closes into a blob, and the
+          triangle is the half of the mark that has to survive at 14px. */}
+      <path d="M10 8.5 16 12l-6 3.5Z" fill="currentColor" strokeWidth={1.4} />
     </svg>
   );
 }
