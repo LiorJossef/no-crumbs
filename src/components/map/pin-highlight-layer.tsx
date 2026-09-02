@@ -45,6 +45,7 @@ import { useEffect, useId, useRef } from 'react';
 import type { GeoJSONSource } from 'maplibre-gl';
 import { useMap } from '@/components/ui/map';
 
+import { PIN_HIGHLIGHT_LAYER_PREFIX } from './layer-order';
 import { pinHighlightLayerLayout, pinHighlightLayerPaint } from './marker-style';
 import type { PlaceFeatureCollection } from './place-features';
 import { styleTextFont } from './style-text-font';
@@ -101,7 +102,7 @@ export function PinHighlightLayer({ data, hoveredId, replacedBelowZoom }: PinHig
   const styleReady = useStyleReady(map);
   const instanceId = useId().replace(/:/g, '');
   const sourceId = `pin-highlight-${instanceId}`;
-  const layerId = `pin-highlight-layer-${instanceId}`;
+  const layerId = `${PIN_HIGHLIGHT_LAYER_PREFIX}${instanceId}`;
 
   // Read at creation for the same reason `place-marker-layer.tsx` seeds its layout from a ref: the
   // creation effect can re-run (the floor changes), and a hover that is already live must survive
