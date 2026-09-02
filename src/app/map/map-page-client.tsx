@@ -483,13 +483,14 @@ export function MapPageClient({
    * state. `camera.framePlaces` and `camera.frameBounds` are the two ways to write it, and every
    * mover below goes through one of them.
    *
-   * **The authorised camera movers, and there are exactly eight.** `06` §9.2 listed four, this file
+   * **The authorised camera movers, and there are exactly nine.** `06` §9.2 listed four, this file
    * grew to seven, and `docs/ux-stable-area-list.md` cut it back — the reconciliation `06` §9.2 was
    * owed is this comment. It said *five* until 2026-08-29 while a sixth was already running and
-   * documented in `map-surface.mapcn.tsx`, and it said *six* until `L1-F11` while mover 7 was
-   * already written thirty lines below it — which is exactly the drift a list like this exists to
-   * stop: a list of who may move the camera is only worth having if it is complete, wherever the
-   * mover happens to live. In the order they run:
+   * documented in `map-surface.mapcn.tsx`, it said *six* until `L1-F11` while mover 7 was
+   * already written thirty lines below it, and it said *eight* until the owner reversed the pin-tap
+   * rule on 2026-09-02 — which is exactly the drift a list like this exists to stop: a list of who
+   * may move the camera is only worth having if it is complete, wherever the mover happens to live.
+   * In the order they run:
    *
    *  1. The initial framing — **the whole library**, come to rest wherever that box honestly fits
    *     and never inside the guard window around the band boundary (`settleZoom`), so a one-metro
@@ -511,14 +512,24 @@ export function MapPageClient({
    *     of the viewport the sheet is about to cover — otherwise the pin just tapped comes to rest
    *     behind it. It lives in the surface (`map-surface.mapcn.tsx`, `selectedOcclusionFraction`)
    *     because only the surface knows the projection, but it is a mover and belongs on this list.
-   *     It is the *pin-tap* case: when a framing request (2, 3, 4, 7) is issued in the same commit
-   *     that one wins, because the nudge can only measure where the pin is now.
+   *     When a framing request (2, 3, 4, 7, 9) is issued in the same commit that one wins, because
+   *     the nudge can only measure where the pin is now and cannot reason about where a flight is
+   *     going. It *was* the pin-tap case; since mover 9 a pin tap on this route issues a framing
+   *     request too, so 6 now only reaches the map where 9 declines — a collections view, whose
+   *     `onPlaceClick` moves no camera, and the defensive arm where no viewport has been reported
+   *     yet. Its docblock in `map-surface.mapcn.tsx` still describes the tap rule as it stood
+   *     before the reversal; that text is the surface owner's to correct.
    *  7. Revealing one saved place — a manual add, or a pick out of the `＋` sheet's search. See
    *     `revealSavedPlace`.
    *  8. Near me (`L1-F11`): an explicit tap on the map's locate control, once a position comes
    *     back, flies to the user's own point and sets an **area** scope. See `goToUserLocation`. A
    *     denial, a timeout or an unsupported browser moves nothing at all — there is no camera path
    *     out of this mover that does not start with a real position.
+   *  9. **Tapping a pin flies to it** (owner, 2026-09-02, reversing the rule this file stated at
+   *     `onPlaceClick`). It is a **recentre and not a re-frame**: the zoom the camera is already at
+   *     is held exactly, so the scale around the tapped pin never changes and the map cannot lurch
+   *     out from under the thumb that tapped it — the failure the old rule was protecting against,
+   *     which the reversal does not oblige us to accept. See `focusPin`.
    *
    * Three are gone, all of them for the same reason — narrowing must never navigate. A settled
    * search no longer flies to its matches, clearing the search no longer returns to a cluster, and
@@ -1124,12 +1135,29 @@ export function MapPageClient({
    */
   const pendingRevealId = useRef<string | null>(revealPlaceId ?? null);
 
+  /**
+   * **The zoom the camera last came to rest at**, and the only thing camera mover 9 needs that this
+   * page does not already hold.
+   *
+   * A ref rather than state because nothing renders from it: it is read once, inside a tap handler,
+   * and a re-render on every settled pan would cost the whole list a reconciliation to change a
+   * number nobody is looking at.
+   *
+   * It is written from the report the surface already sends, so it inherits that report's 120 ms
+   * trailing debounce (`VIEWPORT_DEBOUNCE_MS`). The staleness that buys is bounded by one camera
+   * rest: the worst case is a tap landing inside the debounce window of a pinch, and the zoom held
+   * is then the one the user had a tenth of a second earlier, which is not a zoom they can see the
+   * camera return to.
+   */
+  const lastZoomRef = useRef<number | null>(null);
+
   const handleViewportChange = useCallback(
     (bounds: LatLngBoundsHint, meta: ViewportChangeMeta) => {
       // The first report is also the only signal this page gets that the map instance exists — it
       // arrives through an imperative handle, on a commit that does not re-render the surface. See
       // `revealPlaceId`'s effect, which cannot fly the camera before it.
       setCameraAlive(true);
+      lastZoomRef.current = meta.zoom;
       setScope((current) =>
         scopeAfterCameraSettled({
           // The same default the render path fills in, never a second copy of it: with a one-area
@@ -1145,6 +1173,92 @@ export function MapPageClient({
       );
     },
     [areas, countries],
+  );
+
+  /**
+   * **A pin tap and the popover's own dismissal arrive on the same click, and the pin has to win.**
+   *
+   * Measured on 2026-09-02 at 390x844, instrumented: one tap on a pin produced `selectId(<id>)`
+   * from the pin layer and then `selectId(null)` — through `MapPopup`'s `onClose`, MapLibre's
+   * `Popup.remove`, MapLibre's own `closeOnClick`. React batches both into one commit, the second
+   * wins, and **the tap closes the place instead of opening it.**
+   *
+   * That is not new and it is not mover 9's: `map-surface.mapcn.tsx` hides the popover below `lg`
+   * with a Tailwind class on its shell, so on a phone the MapLibre `Popup` instance still exists,
+   * still listens, and still eats every map click while a place is open. It is why tapping pin B
+   * while place A is open used to leave nothing open at all — the case the owner named.
+   *
+   * A ref rather than a timer, and it is not a heuristic: MapLibre fires both listeners
+   * synchronously inside one `click` dispatch, so a microtask reset is exactly the scope "the same
+   * event". It is also order-robust — if the two ever fired the other way round the selection
+   * would simply land second and win on its own.
+   *
+   * The narrow fix on purpose. The alternative is `closeOnClick: false` on the popover, which is a
+   * file this task does not own *and* a behaviour change everywhere: click-empty-map-to-dismiss is
+   * wanted on desktop. This excludes exactly one click — the one that selected something.
+   */
+  const pinTapInFlight = useRef(false);
+  const deselect = useCallback(() => {
+    if (pinTapInFlight.current) return;
+    selectId(null);
+  }, [selectId]);
+
+  /**
+   * **Camera mover 9 — tapping a pin flies to it.** Owner ruling, 2026-09-02, reversing the rule
+   * this file stated at `onPlaceClick`: *"selection only — tapping a pin must not move the camera
+   * under the finger that tapped it."*
+   *
+   * **The concern that rule was protecting is still real, so this is not mover 3.** A list row may
+   * name a place that is off-screen, in another country, in another zoom band, so mover 3 fits it —
+   * `fitBounds` under a ceiling of 15, which changes the zoom and throws the surrounding context
+   * away. A *pin* is different in a way that is worth using: it can only be tapped when it is
+   * already drawn, and pins are only drawn in the pin band, so the place is on screen and at a
+   * scale the user chose. Re-fitting it would answer a question nobody asked and is exactly the
+   * lurch the old rule named.
+   *
+   * So mover 9 holds the zoom **exactly** — a zero-extent box at the pin with `minZoom` equal to
+   * `maxZoom`, which is `focusBounds`' `cameraForBounds` → clamp → `easeTo` path saying *"centre
+   * here, rest at exactly this zoom"*. The same request shape near me (mover 8) already uses; no
+   * new mechanism, and the surface's resize path replays it for free. What changes is the centre
+   * and nothing else, over a 600 ms ease rather than a flight's arc.
+   *
+   * **The sheet is handled by the request, not around it.** `frameBounds` pads with the surface's
+   * live occlusion (`sheetFractionRef`, written from an effect declared before every framing
+   * effect), so the pin comes to rest in the middle of the band the *raised* sheet leaves visible —
+   * the same padding rule movers 3 and 6 share, applied to a degenerate box.
+   *
+   * **It cannot race mover 6.** Both are answers to the same commit — `selectId` and this request
+   * are batched into one update — and the surface runs its effects in declaration order, with the
+   * reveal nudge declared first and `easeTo` calling `stop()` on whatever preceded it. A framing
+   * request therefore outranks the nudge, which is the rule already written on mover 6.
+   *
+   * **`prefers-reduced-motion` needs no branch**: `easeTo` sets its own duration to 0 under it
+   * unless a caller passes `essential`, and nothing on this path does. The camera arrives, it does
+   * not travel.
+   */
+  const focusPin = useCallback(
+    (place: MapPlace) => {
+      // See `deselect`: this is the whole guard, and it means "inside this event dispatch".
+      pinTapInFlight.current = true;
+      queueMicrotask(() => {
+        pinTapInFlight.current = false;
+      });
+      selectId(place.id);
+      const zoom = lastZoomRef.current;
+      // No settled report yet means no honest zoom to hold. It should be unreachable — a pin the
+      // user can tap is a pin the camera has already settled around — so it degrades to mover 3's
+      // fit rather than to silence, which keeps the ruling true on the path we cannot see.
+      if (zoom === null) {
+        camera.framePlaces([place.id]);
+        return;
+      }
+      camera.frameBounds({
+        bounds: { north: place.lat, south: place.lat, east: place.lng, west: place.lng },
+        minZoom: zoom,
+        maxZoom: zoom,
+      });
+    },
+    [camera, selectId],
   );
 
   /**
@@ -1376,15 +1490,12 @@ export function MapPageClient({
               // rests at `half` too. The same snapshot the shell was seeded with, deliberately:
               // see `restingStop` for what a live expression would do to the post-import flight.
               restingStop={restingStop}
-              // Selection only — tapping a pin must not move the camera under the finger that
-              // tapped it. `selectPlace` (camera mover 3) is for the list, where the pin may be
-              // off-screen. A collections view answers a pin differently; see `collections-scope`.
-              onPlaceClick={
-                collectionsScope?.onPlaceClick ??
-                ((place) => {
-                  selectId(place.id);
-                })
-              }
+              // **Tapping a pin flies to it** — camera mover 9, `focusPin`, owner 2026-09-02. It
+              // recentres at the zoom already on screen; `selectPlace` (mover 3) stays the list's
+              // answer, because a row may name a place that is off-screen or in another band and
+              // that one does need a fit. A collections view answers a pin differently and moves no
+              // camera at all; see `collections-scope`.
+              onPlaceClick={collectionsScope?.onPlaceClick ?? focusPin}
               /* **No map-drawn detail on a collections view**, and it is not a flag: a collection's
                  pins are collection items carrying no `savedPlaceId`, so the surface's `lg+`
                  popover would render `PlaceDetail` with `savedPlace={null}` — losing the shared
@@ -1393,9 +1504,9 @@ export function MapPageClient({
                  is a link to the places view rather than a detail. Both details stay in the sheet
                  and the panel, where they are complete. */
               selectedPlace={inCollections ? null : selected}
-              onDeselect={() => {
-                selectId(null);
-              }}
+              // Not `selectId(null)` directly: on a phone the hidden popover's `closeOnClick`
+              // fires this on the very click that selected a pin. See `deselect`.
+              onDeselect={deselect}
               // Selecting a place raises the sheet to `half`; without this the camera does not know
               // that and the pin the user just tapped can sit behind it. See camera mover 6.
               selectedOcclusionFraction={SHEET_HALF_FRACTION}
