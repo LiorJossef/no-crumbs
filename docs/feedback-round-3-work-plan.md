@@ -296,21 +296,61 @@ halves shipped, blocked because Lane B held `place-sheet.tsx` for the whole wave
 scopes bought concurrency and paid for it in completeness, exactly as that rule says. Both files are
 unowned now, so wave 2 closes them first.
 
-### Wave 2 — closes wave 1 before it adds anything
+### Wave 2 — UI first, on the owner's instruction
+
+> **Owner ruling, 2026-09-02: "change the planning to fix UI problems first, like the tags and
+> stuff like that."** The previous ordering put the orphaned halves first because they were cheap,
+> then the data backfill, then the mobile loading screen. That ordering was about *tidiness of the
+> engineering* — closing what wave 1 split — and it buried the things the owner actually looks at.
+> Every item below is reachable from the screen; the data and engine work moves behind it.
 
 ```
-Wave 2a  the orphaned halves — every source on the place card · multi-select in Places
-         · the category trigger · the re-import notice's tint
-Wave 2b  A's backfill (migration 0038), after the local container is brought up to disk
-Wave 2c  §7.2 import loading screen, if F's measurement says the complaint survives
+Wave 2a  THE FILTER AND TAG SURFACE — the sidebar the owner photographed
+         · the category chip trigger (§1.3's remaining half)
+         · the Been / Not been yet interaction (§1.4) — spec is written and costed
+         · anything else on that row that reads badly once those two land
+
+Wave 2b  THE SURFACES AROUND IT
+         · the peek row's spacing at the sheet's lowest stop  ← moved here 2026-09-02, owner
+         · every TikTok source on the place card (§5.1's render half)
+         · multi-select and bulk delete in Places (§8.2's render half)
+         · the re-import notice's tint — warning-coloured for news that is not a caution
+         · §7.2 the import loading screen: MEASURED at 237px of empty slack on an 844px
+           viewport, 28.1%, worst case being the first thing you see
+
+Wave 2c  DATA AND ENGINE, once the screen is right
+         · A's backfill (migration 0038), after the local container is brought up to disk
+         · wiring repoint_saved_place — it exists, is security-reviewed, has zero callers,
+           and is the honest fix for the llm_guess → Google upgrade (H-T3)
+
 Held     D-T3 fly-to · C-T2's chosen shape · E-T4's label weight — owner decisions, §4
 Post-submission   §1.6/§11.1 unification · §1.1 map glyphs · §6.5 · §9.1 · §10.1
 ```
 
-**2a before 2b before 2c.** The orphaned halves are cheap, are already designed, and are the
-difference between a feature and a slice of one. The backfill cannot be verified until the local
-database matches the schema on disk, which is a world-stopping operation and therefore runs between
-waves, by the orchestrator, never inside one.
+**The peek row, moved rather than dropped.** At the sheet's lowest stop the visible strip is
+`PEEK_PX` 128 minus the bar's 68 = **60 px holding 58 px of content** — handle 14 + a 44 px button —
+so there are 2 px of slack and all of it sits at the bottom edge. There is no rebalancing available
+inside 128: the button is already at the 44 px touch floor. `PEEK_PX` has to grow, and it is
+mirrored in **four** places that cannot import one another — `sheet-geometry.ts:31` (the drag stop),
+`query-rect.ts:47` (**the camera's bottom occlusion budget**, so it decides which pins the list
+counts as visible), `globals.css:1649` (attribution clearance, a **licence condition**), and the row
+itself. One lane must own all four, with `tests/unit/shell/sheet-geometry.test.ts` as its guard.
+
+The peek padding also carries **no `env(safe-area-inset-bottom)`** while the bar's height is
+`calc(68px + env(...))`, so on a notched phone the line sits under the bar by the whole inset. Fix
+both in one change.
+
+**Corrected while measuring this:** `current-state.md` open item 13 warns of a fifth, unmirrored
+`128px` hard-coded in a Tailwind arbitrary value. **It is gone** — no `[128px]` anywhere in `src/`.
+That item is stale, and it makes this change safer than the item implies: four mirrors, all named,
+already pinned by a test.
+
+**Why 2a is the filter row and not the orphaned halves.** The orphaned halves are still real and
+still cheap — `deleteSavedPlaces` is written, tested and has zero callers — but they are features
+the owner has not seen and therefore cannot be annoyed by. The chip row is 41% of the sidebar and is
+the thing three separate reviews and the owner's own feedback all landed on. `8fd2e27` took the
+larger half of it (the singleton tag floor); the category trigger and the visit filter are what is
+left, and the visit filter needs `filter-places.ts` and `map-page-client.tsx`, both free now.
 
 **Exclusive resources, unchanged:** migration `0038` → the backfill and nothing else; the local
 database catch-up → orchestrator only, between waves; provider quota → unspent without a ruling
