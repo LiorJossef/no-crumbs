@@ -364,9 +364,12 @@ describe('CollectionPlaceDetail — a place the viewer saved themselves', () => 
   it('spends the floating bar’s height on its scroll column', () => {
     const markup = renderMine();
     expect(markup).toContain(`--floating-bar:${BOTTOM_NAV_HEIGHT_PX}px`);
-    expect(markup).toContain(`scroll-padding-bottom:${BOTTOM_NAV_HEIGHT_PX}px`);
-    // And the padding actually consumes it, rather than the variable sitting in the style unread.
+    // And the height is actually consumed, rather than the variable sitting in the style unread.
     expect(markup).toContain('var(--floating-bar,0px)');
+    // `scroll-padding-bottom` is deliberately gone. It parked a scrollIntoView above a covered
+    // edge; the column's box now ends ABOVE the bar, so there is no covered edge left and 68px of
+    // scroll padding would over-scroll by its own height inside a 326px column.
+    expect(markup).not.toContain('scroll-padding-bottom');
   });
 
   it('still adds what the collection contributes, and nothing is reordered away', () => {

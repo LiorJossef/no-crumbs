@@ -600,15 +600,22 @@ function PlaceList({
               <div
                 ref={scrollRef}
                 data-vaul-no-drag
-                className="min-h-0 flex-1 overflow-y-auto"
-                // Exactly the bar's height, so the last row clears it instead of ending underneath
-                // it. This is what pays for `BottomNav` floating over the sheet at `half` and
-                // `full` — the ruling it reverses was right that a bar painted over a scrolling
-                // list steals the bottom of the list, and this is the price rather than a denial.
-                style={{
-                  scrollPaddingBottom: BOTTOM_NAV_HEIGHT_PX,
-                  paddingBottom: BOTTOM_NAV_HEIGHT_PX,
-                }}
+                // Exactly the bar's height **and the inset under it**, as a margin rather than as
+                // padding — the same correction round-3 §7.1 forced on the place card below, for
+                // the same reason. Padding only moves the *last* row clear once you have scrolled
+                // to the end; the column's box still ran to the bottom of the screen, so every row
+                // in between slid under a `bg-card/90 backdrop-blur-md` pill and was rendered
+                // blurred rather than clipped. A margin ends the box where the bar begins and the
+                // overflow clip does the work at every scroll position. It costs nothing: the
+                // 68 px comes off the box and stops being spent on padding, so the last row rests
+                // at the same y it always did.
+                //
+                // `env(safe-area-inset-bottom)` is new here and is a defect fix of its own. The
+                // bar's own height is `calc(68px + env(safe-area-inset-bottom))`; this column
+                // paid the 68 and not the inset, so on a notched phone the last row sat under the
+                // bar by the whole inset. Simulated at 34 px: the row's title was behind the pill.
+                className="mb-[calc(env(safe-area-inset-bottom)+var(--floating-bar,0px))] min-h-0 flex-1 overflow-y-auto"
+                style={{ '--floating-bar': `${BOTTOM_NAV_HEIGHT_PX}px` } as CSSProperties}
               >
                 {heading.escape === 'clear-search' && (
                   <ClearSearchEscape onClearSearch={() => onQueryChange('')} />
@@ -1951,28 +1958,43 @@ export function PlaceDetail({
   return (
     <div
       /*
-       * The floating bar's height, handed to the padding below as a custom property rather than as
-       * a `padding-bottom` of its own.
+       * The floating bar's height, handed to the **margin** below as a custom property.
+       *
+       * ## Padding was the wrong shape for this, and the owner is the one who caught it
+       *
+       * Round-3 feedback §7.1: *"text continues behind/under the navigation instead of ending
+       * cleanly above it."* Until 2026-09-02 this bar was paid for with `padding-bottom`, which
+       * buys exactly one thing — that the **last** control clears the bar once you have scrolled
+       * all the way down. It buys nothing at all for the other 90 % of the scroll, because the
+       * column's own box still ended at the bottom of the screen and `BottomNav`'s pill is
+       * `bg-card/90 backdrop-blur-md`: every line between the fold and the end of the card slid
+       * under a translucent bar and was rendered blurred and unreadable rather than clipped.
+       * Measured at 390×844, `half`, on `Bread - Lehi 2`: `Saved from @danielle___tal` sat at
+       * y 764–784 against a bar occupying 776–844.
+       *
+       * A margin ends the box where the bar begins, so the overflow clip does the work at every
+       * scroll position instead of only the last one. **It costs no readable pixels**: the column
+       * loses the 68 px it could never legibly use and stops spending them again on padding, so
+       * the last line comes to rest at the same y it did before (measured: 758 both ways).
+       *
+       * `scroll-padding-bottom` went with the padding. It existed so a scroll-into-view did not
+       * park its target under the bar; with the box ending above the bar there is no such edge
+       * left to park against.
        *
        * Inline because the number is `BOTTOM_NAV_HEIGHT_PX` arriving through the host, and
        * Tailwind's arbitrary values take a literal — a hand-written `68` here is exactly the drift
-       * `bottom-nav-metrics.ts` exists to prevent. A *variable* rather than the padding itself
-       * because the three variant classes below each own their own bottom spacing, and one inline
-       * `padding-bottom` would beat all three and flatten the difference between a phone sheet, a
-       * hosted column and a 288 px popover.
-       *
-       * `scroll-padding-bottom` goes with it: without it a scroll-into-view — the note editor
-       * opening, a focus move — parks its target flush against the container's bottom edge, which
-       * is the edge the bar is painted over.
+       * `bottom-nav-metrics.ts` exists to prevent. A *variable* rather than the margin itself
+       * because the three variant classes below each own their own bottom spacing, and the two
+       * hosts with no bar (`lg+` popover, `lg+` panel) pass `0` and correctly get no margin: the
+       * `env()` term is all that is left there, and it is 0 on a desktop too.
        */
       style={
         {
           '--floating-bar': `${floatingBarPx}px`,
-          scrollPaddingBottom: `${floatingBarPx}px`,
         } as CSSProperties
       }
       className={cn(
-        'flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 pb-[calc(env(safe-area-inset-bottom)+var(--floating-bar,0px)+1.25rem)] pt-3.5',
+        'mb-[calc(env(safe-area-inset-bottom)+var(--floating-bar,0px))] flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 pb-5 pt-3.5',
         // ## The popover's height is set by the *pin*, not by the viewport — measured, 2026-09-01
         //
         // `MapPopup` is a MapLibre `Popup` anchored to the selected place's lng/lat, and the map
@@ -2032,7 +2054,7 @@ export function PlaceDetail({
         // The host's gutter and its own top spacing — see the `variant` docblock for why 4 px
         // matters here and why the top padding belongs to the header row above this column.
         isHosted &&
-          'px-4 pb-[calc(env(safe-area-inset-bottom)+var(--floating-bar,0px)+2rem)] pt-1',
+          'px-4 pb-8 pt-1',
       )}
     >
       {thumb && (
