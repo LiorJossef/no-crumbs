@@ -79,6 +79,7 @@ import { SECTION_LABEL } from '@/ui/place/section-label';
 import { attemptWrite } from '@/ui/place/write-failure';
 import { cn } from '@/lib/utils';
 import { PRESS_BUTTON, PRESS_CHIP, PRESS_ROW, TINT_BEAT } from '@/lib/interaction';
+import { textDirection } from '@/ui/place/text-direction';
 
 /** Shown once the note gets close enough to the limit that the number is useful rather than noise. */
 const COUNTER_VISIBLE_FROM = NOTE_MAX_LENGTH - 200;
@@ -527,6 +528,17 @@ export function NoteEditor({
   const [pending, startTransition] = useTransition();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  /**
+   * **The note's own direction — the card's one exception, and it is deliberate.**
+   *
+   * Everything else on the card inherits one direction resolved from the place. The note is the
+   * one field the user authors, and a caret on the left of a Hebrew textarea is a defect rather
+   * than a matter of alignment. Resolved from the *saved* note rather than from the draft, so the
+   * block cannot flip under the cursor as the first character is typed, and applied to a wrapper
+   * both states share so nothing jumps when the editor opens.
+   */
+  const noteDirection = textDirection(note);
+
   useEffect(() => {
     if (editing) textareaRef.current?.focus();
   }, [editing]);
@@ -545,7 +557,7 @@ export function NoteEditor({
   // rendering the note collapsed would lose the shape they gave it.
   if (!editing) {
     return (
-      <div className="flex flex-col">
+      <div dir={noteDirection} className="flex flex-col">
         <button
           type="button"
           onClick={open}
@@ -555,10 +567,7 @@ export function NoteEditor({
         >
           <span className="flex min-w-0 flex-1 flex-col gap-1">
             <span className={SECTION_LABEL}>Your note</span>
-            {/* `dir="auto"`: a note is free-form prose and Tel Aviv is a target city, so it is
-                routinely Hebrew (rtl audit, `docs/rtl-audit-2026-08-31.md` finding 1). */}
             <span
-              dir="auto"
               className={cn(
                 DETAIL_FIELD_VALUE,
                 'whitespace-pre-wrap',
@@ -605,14 +614,13 @@ export function NoteEditor({
   return (
     // Open, the row grows; it does not become a panel and it grows no border. The label above the
     // field is the same label the resting row shows, in the same place, so nothing jumps.
-    <div className={cn(DETAIL_FIELD_OPEN, 'gap-2')}>
+    <div dir={noteDirection} className={cn(DETAIL_FIELD_OPEN, 'gap-2')}>
       <label htmlFor={`note-${savedPlaceId}`} className={SECTION_LABEL}>
         Your note
       </label>
       <textarea
         id={`note-${savedPlaceId}`}
         ref={textareaRef}
-        dir="auto"
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={(event) => {
@@ -728,8 +736,11 @@ export function RemoveSavedPlace({
   }
 
   if (!confirming) {
+    // No rule of its own: band 3 already carries the only hairline above it, and a third divider
+    // on a card the spec gives exactly two is the "floating fragment" again. 12 px under the
+    // record lines is the band's own group-to-group step.
     return (
-      <div className="flex flex-col gap-1.5 border-t border-border/60 pt-4">
+      <div className="flex flex-col gap-1.5">
         <button
           type="button"
           onClick={() => {
@@ -751,7 +762,7 @@ export function RemoveSavedPlace({
   }
 
   return (
-    <div className="flex flex-col gap-2 border-t border-border/60 pt-4">
+    <div className="flex flex-col gap-2">
       {/* The name stays on screen while you decide — the whole reason this is inline rather than a
           modal that would cover the thing being removed. */}
       <p className="text-sm leading-relaxed text-foreground">

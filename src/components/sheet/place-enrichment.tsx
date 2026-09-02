@@ -338,8 +338,10 @@ export function TagChipRow({ tags }: { tags: readonly string[] }) {
  * was written; it is now the difference between the two blocks on the same screen.
  *
  * Stored normalised and lowercase like tags (`0019`), so it renders through the same
- * `tagDisplayLabel`. Each item is its own `dir="auto"` span so a Hebrew dish beside a Latin one
- * cannot drag the separators around it.
+ * `tagDisplayLabel`. Each item is a `<bdi>` rather than a `dir="auto"` span: isolation is what
+ * keeps a Hebrew dish beside a Latin one from dragging the separators around it, and it does that
+ * without the item resolving an *alignment* of its own. Alignment is the card's, once, from the
+ * place (`ui/place/text-direction.ts`).
  */
 export function DishLine({ dishes }: { dishes: readonly string[] }) {
   if (dishes.length === 0) return null;
@@ -351,7 +353,7 @@ export function DishLine({ dishes }: { dishes: readonly string[] }) {
         {dishes.map((dish, index) => (
           <span key={dish}>
             {index > 0 && <span className="text-muted-foreground"> · </span>}
-            <span dir="auto">{tagDisplayLabel(dish)}</span>
+            <bdi>{tagDisplayLabel(dish)}</bdi>
           </span>
         ))}
       </p>
@@ -374,8 +376,6 @@ export function DishLine({ dishes }: { dishes: readonly string[] }) {
  */
 export function WhyGoLine({ whyGo }: { whyGo: string }) {
   return (
-    <p dir="auto" className="text-sm leading-relaxed text-muted-foreground">
-      {whyGo}
-    </p>
+    <p className="text-sm leading-relaxed text-muted-foreground">{whyGo}</p>
   );
 }

@@ -122,6 +122,8 @@ import {
 import { AddToCollection } from '@/components/collections/add-to-collection';
 
 import { formatCaptionQuote, quoteAddsSomething } from '@/ui/place/caption-quote';
+import { SECTION_LABEL } from '@/ui/place/section-label';
+import { textDirection } from '@/ui/place/text-direction';
 import {
   CLEAR_FILTERS_LABEL,
   NO_FILTER_MATCHES_HINT,
@@ -2027,6 +2029,7 @@ export function PlaceDetail({
   variant = 'sheet',
   floatingBarPx = 0,
   primaryAction,
+  fields,
   footer,
   onPlaySource,
   playSourceLabel = PLAY_SOURCE_LABEL,
@@ -2130,6 +2133,16 @@ export function PlaceDetail({
    * asked by somebody who has no row yet.
    */
   primaryAction?: ReactNode;
+  /**
+   * The host's own **field rows**, rendered flush at the end of band 3's field-row list — after
+   * `Your note` and before the record lines.
+   *
+   * A second slot rather than more `footer`, because position is what makes the field row read as
+   * one list: `/collections/[id]`'s `Shared note` is the same shape as the note directly above it
+   * and belongs in the same run, while `Remove from this collection` is a destructive action and
+   * belongs at the very bottom beside the other one. One slot could not put them in both places.
+   */
+  fields?: ReactNode;
   /** Rendered last, below the provenance block and the destructive action. The collection route
    *  puts the shared note and `Remove from this collection` here. */
   footer?: ReactNode;
@@ -2233,6 +2246,14 @@ export function PlaceDetail({
   // name, address and city above it do not. Measured on this database: `📍האחים, אבן גבירול 26` is
   // the name, a comma and the address — quoting it under a heading was a labelled block that
   // repeated the two lines directly above it.
+  /**
+   * Whether band 2 and band 3 have anything in them at all.
+   *
+   * Each band draws its own hairline as its top border, so an empty band takes its rule with it —
+   * which is the point. A manual add has no post, so it shows **one** hairline and no gap where
+   * band 2 would have been; a place you have not saved, seen inside a collection, shows no band 3.
+   * A rule with nothing under it is exactly the floating fragment this change exists to remove.
+   */
   const quote = formatCaptionQuote(reason);
   const shownQuote = quoteAddsSomething(quote, {
     name: place.name,
@@ -2241,6 +2262,34 @@ export function PlaceDetail({
   })
     ? quote
     : null;
+
+  /**
+   * **The card's one direction**, resolved from the place's own name and applied to the whole
+   * scroll column below — not per block.
+   *
+   * The owner's complaint is that a Hebrew place makes the eye jump back and forth instead of
+   * following a vertical scan, and that is exactly what six `dir="auto"` blocks in one column do:
+   * each picks its own start edge from its own first character. One `dir` here gives the column a
+   * single reading start that the heading, the category line, the address, the quote, the model's
+   * sentence and the dish line all share. `<bdi>` inside them is untouched — that is *ordering*,
+   * and the RTL audit already found it correct.
+   *
+   * The name first because it is what the card is about and it is the one field that is never
+   * empty; the address and then the locality behind it. The user's own note is the one block that
+   * opts out and resolves from what they typed (`NoteEditor`) — a caret on the wrong side of a
+   * Hebrew textarea is a defect, not a matter of alignment.
+   */
+  const cardDirection = textDirection(place.name || addressLine || locality);
+
+  const hasBand2 =
+    shownQuote !== null || shownWhyGo !== null || dishes.length > 0 || extra.length > 0;
+  const hasBand3 =
+    savedPlace !== null ||
+    fields !== undefined ||
+    footer !== undefined ||
+    (nearby !== undefined && nearby.length > 0) ||
+    (certainty !== null && !certainty.isApproximate) ||
+    detail?.savedAt !== undefined;
 
   return (
     <div
@@ -2280,8 +2329,9 @@ export function PlaceDetail({
           '--floating-bar': `${floatingBarPx}px`,
         } as CSSProperties
       }
+      dir={cardDirection}
       className={cn(
-        'mb-[calc(env(safe-area-inset-bottom)+var(--floating-bar,0px))] flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 pb-5 pt-3.5',
+        'mb-[calc(env(safe-area-inset-bottom)+var(--floating-bar,0px))] flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-5 pt-3.5',
         // ## The popover's height is set by the *pin*, not by the viewport — measured, 2026-09-01
         //
         // `MapPopup` is a MapLibre `Popup` anchored to the selected place's lng/lat, and the map
@@ -2337,7 +2387,7 @@ export function PlaceDetail({
         // the *preview versus detail* ruling the round-4 review names as `ux-interaction`'s call.
         // It is not more tuning of this constant, which is how the surface got here.
         isPopover &&
-          'max-h-[min(50vh,28rem)] w-80 gap-4 overscroll-contain px-0 pb-0 pt-0 scroll-fade-b scroll-fade-6 [scrollbar-width:thin]',
+          'max-h-[min(50vh,28rem)] w-80 overscroll-contain px-0 pb-0 pt-0 scroll-fade-b scroll-fade-6 [scrollbar-width:thin]',
         // The host's gutter and its own top spacing — see the `variant` docblock for why 4 px
         // matters here and why the top padding belongs to the header row above this column.
         isHosted &&
@@ -2363,7 +2413,16 @@ export function PlaceDetail({
         />
       )}
 
-      <div className={cn('flex items-start justify-between gap-3', isPopover && 'px-4 pt-3.5')}>
+      <div
+        className={cn(
+          'flex items-start justify-between gap-3',
+          // 12 px under the still, which is a group-to-group step like every other one in band 1.
+          // The popover's still is full-bleed against the card's top edge, so there the same 12 px
+          // is the column's own top padding rather than this block's margin.
+          thumb && !isPopover && 'mt-3',
+          isPopover && 'px-4 pt-3',
+        )}
+      >
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex min-w-0 items-start gap-1">
             {/* `<bdi>` rather than `dir="auto"` on the heading: a Hebrew name would otherwise
@@ -2392,7 +2451,9 @@ export function PlaceDetail({
               <bdi>{place.name}</bdi>
             </h2>
           </div>
-          <p dir="auto" className="text-sm font-medium text-muted-foreground">
+          {/* No `dir` of its own: it inherits the card's. This line resolving its own direction is
+              half of why a Hebrew place's heading and its subtitle sat on opposite edges. */}
+          <p className="text-sm font-medium text-muted-foreground">
             {categoryLocalityLine(place.category, locality)}
           </p>
           {/* Directly under the identity block, and above every prose block below — this is the
@@ -2426,399 +2487,457 @@ export function PlaceDetail({
         )}
       </div>
 
-      <div className={cn('flex flex-col gap-5', isPopover && 'gap-4 px-4 pb-4')}>
-        {/* The street address, which this view did not show at all until now. It was in the data
-            the whole time — `places.address_line`, already good enough to build the Google Maps
-            link out of — and it is the one fact that answers "can I actually find this place".
-            Above the caption quote, because it is checkable and the quote is not. */}
-        {/* `<bdi>` around the address text, not `dir="auto"` on this row: `dir="auto"` here
-            previously resolved the whole flex row's direction from the address, which for a
-            Hebrew address flipped the row to `rtl` and dragged the pin icon — fixed chrome — from
-            the left edge to the right. Same failure the heading's own comment above already names;
-            same fix (rtl audit, `docs/rtl-audit-2026-08-31.md` finding 2). */}
-        {/* **The approximate mark is a label beside the address, not a sentence under the card.**
-            It used to be `Approximate location — Worked out from the video rather than matched to a
-            map listing, so it can be a street or two off.`, two lines of our own machinery filed
-            with the provenance at the very bottom. It is a qualifier on one fact — *this address*
-            — so it belongs on that fact's line, where it is read at the moment it matters and
-            costs no vertical band of its own. The plain sentence survives as the `title` for a
-            pointer device; `location-certainty.ts` holds the wording.
+      <div className={cn('flex flex-col', isPopover && 'px-4 pb-4')}>
+        {/* **Band 1 — the place.** Identity, address, the action band, the collection host's
+            primary action: what this place *is*, and the one-press things you can do with it.
+            12 px between its groups, which is the whole vertical vocabulary inside a band. */}
+        <div className="mt-3 flex flex-col gap-3">
+          {/* The street address, which this view did not show at all until now. It was in the data
+              the whole time — `places.address_line`, already good enough to build the Google Maps
+              link out of — and it is the one fact that answers "can I actually find this place".
+              Above the caption quote, because it is checkable and the quote is not. */}
+          {/* `<bdi>` around the address text, not `dir="auto"` on this row: `dir="auto"` here
+              previously resolved the whole flex row's direction from the address, which for a
+              Hebrew address flipped the row to `rtl` and dragged the pin icon — fixed chrome — from
+              the left edge to the right. Same failure the heading's own comment above already names;
+              same fix (rtl audit, `docs/rtl-audit-2026-08-31.md` finding 2). */}
+          {/* **The approximate mark is a label beside the address, not a sentence under the card.**
+              It used to be `Approximate location — Worked out from the video rather than matched to a
+              map listing, so it can be a street or two off.`, two lines of our own machinery filed
+              with the provenance at the very bottom. It is a qualifier on one fact — *this address*
+              — so it belongs on that fact's line, where it is read at the moment it matters and
+              costs no vertical band of its own. The plain sentence survives as the `title` for a
+              pointer device; `location-certainty.ts` holds the wording.
 
-            `flex-wrap` because the mark is the one thing on this row that may not fit beside a
-            long address, and the row must wrap rather than squeeze the address it qualifies.
-            The mark is **not** inside the `<bdi>`: it is our word about the address, not part of
-            it, and putting it inside the isolate would let a Hebrew address reorder it. */}
-        {addressLine && (
-          <p className="flex flex-wrap items-start gap-x-2 gap-y-1 text-sm text-foreground">
-            <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
-            <bdi>{addressLine}</bdi>
-            {approximateMark}
-          </p>
-        )}
-        {/* A guessed pin with no address at all is a real row — `llm-guess` fills a coordinate and
-            often nothing else — and the mark is the *only* thing the card says about it, so it
-            cannot be a child of a block that does not render. */}
-        {!addressLine && approximateMark !== null && <p>{approximateMark}</p>}
-
-        {/* **The card's primary actions, in one 44 px band, above the source quote.**
-
-            This replaced two full-width blocks and a text-link pair spread over ~150 px and three
-            positions on the card — `Been here` up here, `Open on TikTok` / `Google Maps` five
-            blocks lower, past the note. Round 3 of the owner's feedback measured the result: on a
-            390x844 phone the things a person opens a saved place *to do* were all below the fold,
-            and the card scrolled. Round 5 had accepted that and softened it with a scroll mask on
-            the popover; this reverses that decision deliberately rather than by accident.
-
-            **Above the quote rather than below it, and that is a deviation from the suggestion in
-            the owner's §2.2, taken on purpose** (2026-09-02). The requirement in that item is that
-            primary actions are not buried; the suggested position was written while the complaint
-            was about full-width blocks, and the two came apart once the blocks became pills. The
-            quote costs 68 px plus a 20 px gap, and that is the single largest block still standing
-            between the identity and the actions. Measured on `The Laughing Yak` at 390x844: the
-            band's bottom edge moved from 933 to 846 against a scroll column ending at 846. At
-            1440x900 the popover's slack under the band went 39 px → 122 px, still one unwrapped
-            band at 288 px of column, and the quote stayed fully on screen below it.
-
-            **It does not reach zero-scroll at the sheet's `half` stop, and nothing available here
-            does.** `BottomNav` is `position: fixed`, `z-50`, and covers `y 776–844` at 390x844, so
-            the honest fold at `half` is 776 and not the column's own 846 — a 324 px budget, not
-            394. Across eight saved places the band clears 776 on one of them. Shrinking the still
-            to 112 px, the other lever on the table, buys 48 px against a 53–92 px deficit, so it
-            would spend a measured round-4 ruling and still not arrive. What is left deletes
-            something — the still, the tags, or the `half` stop itself — and each of those is a
-            product decision rather than a layout one.
-
-            The quote is deliberately not the thing that moved *down and out*: it is why the place
-            is in the library, it is still the first prose on the card, and it is fully visible at
-            every host except the one where nothing is. Controls before the reason is a real cost;
-            the reason being unreachable behind the controls was a bigger one.
-
-            Three pills, `flex-wrap`, all at the 44 px touch floor via `DETAIL_ACTION_PILL` — one
-            shape from one string in `saved-place-edits.tsx`, because the third of them is the
-            `Been` toggle and it lives in that file with the other Server-Action writes.
-
-            **The words did not change and are not the fix.** `voice-and-vocabulary.md` §3 ratifies
-            `Been` / `Not been yet`, and `Open on TikTok` survives as each link's accessible name —
-            the visible label is the destination alone because the pill's icon already says
-            *leaves the product*, and three verbs in one row is a row of sentences. */}
-        {/* Unconditional: `Google Maps` is the one action every host of this view offers, saved or
-            not — a place seen inside a collection is still a place you want directions to. */}
-        <div className="flex flex-col items-start gap-1.5">
-            {/* Only when the quote did not already carry it — the attribution belongs with the
-                words it attributes, and printing it twice on one card is the kind of repetition
-                that makes a detail view feel padded. */}
-            {authorLabel && shownQuote === null && (
-              <p className="text-xs font-medium text-muted-foreground">Saved from {authorLabel}</p>
-            )}
-            <div className="flex flex-wrap items-center gap-1.5">
-              {tiktokUrl && (
-                <a
-                  href={tiktokUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  data-vaul-no-drag
-                  // The ratified sentence, kept where it costs no pixels: `aria-label` replaces the
-                  // content, so a screen-reader user still hears `Open on TikTok` while the pill
-                  // shows the mark and the destination.
-                  aria-label="Open on TikTok"
-                  title="Open on TikTok"
-                  className={cn(DETAIL_ACTION_PILL, PRESS_BUTTON, 'border-input text-brand hover:bg-muted')}
-                >
-                  {/* **The one pill with no word on it, and the reason is the desktop popover.**
-                      The popover is `w-80` with a 16 px gutter, so this row gets 288 px; with
-                      `TikTok` written out the three pills are 333 px, they wrap, and `Been here`
-                      lands under the popover's own 50vh cap — which is the exact defect round 4
-                      filed and round 5 papered over with a scroll mask. Without the word they are
-                      281 px and the row is one 44 px band on both viewports.
-
-                      It is an honest icon-only control rather than a squeeze: the mark is TikTok's
-                      own, the card above it is a TikTok still with the creator's handle under it,
-                      and the ratified `Open on TikTok` is on both `aria-label` and `title`, so
-                      neither a screen reader nor a hovering pointer loses the sentence. */}
-                  <PlatformMark className="size-4" />
-                </a>
-              )}
-              <a
-                href={googleMapsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                data-vaul-no-drag
-                aria-label="Open in Google Maps"
-                className={cn(DETAIL_ACTION_PILL, PRESS_BUTTON, 'border-input text-brand hover:bg-muted')}
-              >
-                {/* Named in full, never `Maps`: the pill is a link into Google's product and the
-                    same attribution rule that keeps `Matched on Google Maps` in the provenance
-                    line applies to the button that goes there.
-
-                    **No trailing `ExternalLink`, and the reason is arithmetic rather than taste.**
-                    Measured at 390x844: with the arrow the three pills are 353 px against 350 px of
-                    card, so the row wrapped to two bands — 94 px for a row whose entire purpose is
-                    to cost one. Without it they are 333 px and the row is a single 44 px band. The
-                    arrow was saying *this leaves the product* on a pill that already says `Google
-                    Maps` beside one wearing TikTok's own mark. */}
-                Google Maps
-              </a>
-              {/* The one control the product wants the user to come back and use — see
-                  `saved-place-edits.tsx`. `key` on the saved place's id so a pending transition
-                  from the previously selected place can never land on this one. */}
-              {savedRow && (
-                <BeenToggle
-                  key={`been-${savedRow.id}`}
-                  savedPlaceId={savedRow.id}
-                  placeName={place.name}
-                  visited={savedRow.visited}
-                />
-              )}
-            </div>
-            {/* The one thing the database has always held about a been mark and no screen said.
-                Same 11px muted weight as `Saved on …` below, because it is the same kind of fact:
-                a quiet record of when, not something to act on. Absent — silently — when the row
-                carries no timestamp; `visitedOnLine` says why that is a real state. Start-aligned
-                now rather than centred: it sits under a row of pills, not under a full-width
-                button, so a centred line would point at nothing. */}
-            {visitedOn && (
-              <p className="text-micro font-medium text-muted-foreground">{visitedOn}</p>
-            )}
-            {/* The same position, for a host whose caller has no row to toggle: on
-                `/collections/[id]` this is `Added by …` and `Save to your places`. It keeps its own
-                full width — it is that card's single primary action, not one of three. */}
-          {primaryAction && <div className="w-full">{primaryAction}</div>}
-        </div>
-
-        {/* What the creator actually wrote, as a quotation rather than as a labelled field.
-            A rule and a pair of quote marks say "someone else's words" faster than the kicker
-            reading FROM THE POST did, and they leave the model's own sentence below free to be
-            plain text — which is the whole extracted-versus-inferred distinction, carried by shape
-            instead of by two competing labels.
-
-            `dir="auto"` because this is a verbatim caption substring: a Hebrew quote rendered
-            left-to-right puts its punctuation on the wrong end of the sentence.
-
-            `&ldquo;`/`&rdquo;`, not a plain `"`, and that choice is load-bearing, not decorative:
-            both are Unicode `Bidi_Mirrored` characters, so inside this `dir="auto"`-resolved RTL
-            run the browser swaps their *rendered shape* — the opening mark ends up looking like a
-            close-quote and vice versa — which is what lands the open mark on the visual right (the
-            RTL reading start) and the close mark on the visual left for a Hebrew quote. Nothing
-            here reasons about direction on purpose; it falls out of picking mirrored glyphs over
-            straight ones. Swap either entity for a plain `"` (not mirrored) and this silently goes
-            back to wrong with no visual signal in an LTR-only review (rtl audit,
-            `docs/rtl-audit-2026-08-31.md` finding 3). */}
-        {shownQuote !== null && (
-          <figure className="flex flex-col gap-1.5 border-l-2 border-brand-tint pl-3">
-            <blockquote dir="auto" className="text-sm leading-relaxed text-foreground">
-              &ldquo;{shownQuote}&rdquo;
-            </blockquote>
-            {authorLabel && (
-              <figcaption className="text-xs font-medium text-muted-foreground">
-                {authorLabel}
-              </figcaption>
-            )}
-          </figure>
-        )}
-
-        {/* And *then*, quieter, the model's own sentence — never above the quote, never at the same
-            weight, and only when it says something the quote and the tags do not.
-
-            This is a judgement call, and it is one `if` to remove. `why_go` is generated prose;
-            `extracted_reason` is a verbatim substring of the caption. Keeping that difference
-            legible is this codebase's central invariant, and printing a paraphrase directly beside
-            the thing it paraphrases is the fastest way to destroy it — the two read as one claim
-            made twice, and the user cannot tell which half the creator actually wrote. Measured on
-            the London caption: the model's "Discover a Nepalese kitchen tucked away in the market."
-            sat above tags reading `nepalese, market stall` and a quote reading "…Nepalese kitchen
-            tucked away in Market Peckham". It contributes exactly one word those two do not, so it
-            is not rendered. A sentence that carries something new — a dish that sells out, an
-            opening time, who it is for — clears the bar and is shown. See
-            `ui/place/enrichment.ts`'s `whyGoEarnsItsPlace` for the rule and the threshold. */}
-        {/* **Every other TikTok link behind this place**, which the card used to drop on the floor.
-            `saved_place_sources` is many-to-many and `save_place` keeps both rows on a second
-            paste, so nothing was ever lost in the database; what was lost was here — the still, the
-            quote, the credit and the pill above are all `sources[0]`, and until now that was the
-            whole card. Round 3 §5.1 reported it as "keeps only the latest", which is the opposite
-            of the mechanism: it keeps the *earliest*.
-
-            **One source draws nothing at all.** `extraSources` is `sources.slice(1)`, so the common
-            case is byte-identical to the card that shipped — a single source is not turned into a
-            list of one. Earliest-linked first, continuing the order the head is drawn from; see
-            `place-sources.ts` for why not newest-first.
-
-            **Attribution, not decoration.** Developer Terms III.3(n) forbids deleting author
-            attributions, so every row carries the creator *and* links back to the post
-            (`docs/evidence/tiktok/09-brand-mark-and-attribution-2026-08-31.md` §5). The third part
-            of TikTok's own definition, the description, is stored per *save* rather than per
-            source, so it stays on the headline quote above rather than being invented here.
-            `PlatformMark` is our own neutral glyph — §7.1: the word, the `@handle`, the link and a
-            glyph of our own drawing are the entire permitted palette, and no TikTok mark may enter
-            `src/`.
-
-            **Own library only.** A collection peer never receives this array — `getSpots` reads it
-            under `sps_select_own` and migration `0024` refused the read policy that would widen it
-            — so on `/collections/[id]` `sources` is absent and this renders nothing by
-            construction, not by a flag. */}
-        {extra.length > 0 && (
-          <div className="flex flex-col gap-1.5">
-            <p className="text-xs font-medium text-muted-foreground">
-              {moreSourcesLine(extra.length)}
+              `flex-wrap` because the mark is the one thing on this row that may not fit beside a
+              long address, and the row must wrap rather than squeeze the address it qualifies.
+              The mark is **not** inside the `<bdi>`: it is our word about the address, not part of
+              it, and putting it inside the isolate would let a Hebrew address reorder it. */}
+          {addressLine && (
+            <p className="flex flex-wrap items-start gap-x-2 gap-y-1 text-sm text-foreground">
+              <MapPin className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+              <bdi>{addressLine}</bdi>
+              {approximateMark}
             </p>
-            <ul className="flex flex-col">
-              {extra.map((extraSource) => (
-                <li key={extraSource.id}>
+          )}
+          {/* A guessed pin with no address at all is a real row — `llm-guess` fills a coordinate and
+              often nothing else — and the mark is the *only* thing the card says about it, so it
+              cannot be a child of a block that does not render. */}
+          {!addressLine && approximateMark !== null && <p>{approximateMark}</p>}
+
+          {/* **The card's primary actions, in one 44 px band, above the source quote.**
+
+              This replaced two full-width blocks and a text-link pair spread over ~150 px and three
+              positions on the card — `Been here` up here, `Open on TikTok` / `Google Maps` five
+              blocks lower, past the note. Round 3 of the owner's feedback measured the result: on a
+              390x844 phone the things a person opens a saved place *to do* were all below the fold,
+              and the card scrolled. Round 5 had accepted that and softened it with a scroll mask on
+              the popover; this reverses that decision deliberately rather than by accident.
+
+              **Above the quote rather than below it, and that is a deviation from the suggestion in
+              the owner's §2.2, taken on purpose** (2026-09-02). The requirement in that item is that
+              primary actions are not buried; the suggested position was written while the complaint
+              was about full-width blocks, and the two came apart once the blocks became pills. The
+              quote costs 68 px plus a 20 px gap, and that is the single largest block still standing
+              between the identity and the actions. Measured on `The Laughing Yak` at 390x844: the
+              band's bottom edge moved from 933 to 846 against a scroll column ending at 846. At
+              1440x900 the popover's slack under the band went 39 px → 122 px, still one unwrapped
+              band at 288 px of column, and the quote stayed fully on screen below it.
+
+              **It does not reach zero-scroll at the sheet's `half` stop, and nothing available here
+              does.** `BottomNav` is `position: fixed`, `z-50`, and covers `y 776–844` at 390x844, so
+              the honest fold at `half` is 776 and not the column's own 846 — a 324 px budget, not
+              394. Across eight saved places the band clears 776 on one of them. Shrinking the still
+              to 112 px, the other lever on the table, buys 48 px against a 53–92 px deficit, so it
+              would spend a measured round-4 ruling and still not arrive. What is left deletes
+              something — the still, the tags, or the `half` stop itself — and each of those is a
+              product decision rather than a layout one.
+
+              The quote is deliberately not the thing that moved *down and out*: it is why the place
+              is in the library, it is still the first prose on the card, and it is fully visible at
+              every host except the one where nothing is. Controls before the reason is a real cost;
+              the reason being unreachable behind the controls was a bigger one.
+
+              Three pills, `flex-wrap`, all at the 44 px touch floor via `DETAIL_ACTION_PILL` — one
+              shape from one string in `saved-place-edits.tsx`, because the third of them is the
+              `Been` toggle and it lives in that file with the other Server-Action writes.
+
+              **The words did not change and are not the fix.** `voice-and-vocabulary.md` §3 ratifies
+              `Been` / `Not been yet`, and `Open on TikTok` survives as each link's accessible name —
+              the visible label is the destination alone because the pill's icon already says
+              *leaves the product*, and three verbs in one row is a row of sentences. */}
+          {/* Unconditional: `Google Maps` is the one action every host of this view offers, saved or
+              not — a place seen inside a collection is still a place you want directions to. */}
+          <div className="flex flex-col items-start gap-2">
+              {/* Only when the quote did not already carry it — the attribution belongs with the
+                  words it attributes, and printing it twice on one card is the kind of repetition
+                  that makes a detail view feel padded. */}
+              {authorLabel && shownQuote === null && (
+                <p className="text-xs font-medium text-muted-foreground">Saved from {authorLabel}</p>
+              )}
+              <div className="flex flex-wrap items-center gap-1.5">
+                {tiktokUrl && (
                   <a
-                    href={extraSource.canonicalUrl}
+                    href={tiktokUrl}
                     target="_blank"
                     rel="noreferrer"
                     data-vaul-no-drag
-                    // The ratified sentence with the creator in it: three links all announced
-                    // `Open on TikTok` name no destination between them.
-                    aria-label={openSourceLabel(extraSource)}
-                    className={cn(
-                      'flex min-h-11 w-full items-center gap-2 rounded-lg px-1 text-sm font-medium text-brand outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50',
-                      PRESS_ROW,
-                    )}
+                    // The ratified sentence, kept where it costs no pixels: `aria-label` replaces the
+                    // content, so a screen-reader user still hears `Open on TikTok` while the pill
+                    // shows the mark and the destination.
+                    aria-label="Open on TikTok"
+                    title="Open on TikTok"
+                    className={cn(DETAIL_ACTION_PILL, PRESS_BUTTON, 'border-input text-brand hover:bg-muted')}
                   >
-                    <PlatformMark className="size-4 shrink-0" />
-                    {/* `<bdi>` because a handle sits inside a line this list renders in Hebrew as
-                        often as in English, and `line-clamp-1 break-words` for the same reason
-                        `PlaceRow`'s name carries them rather than `truncate`. */}
-                    <span className="line-clamp-1 break-words">
-                      <bdi>{sourceCreatorLabel(extraSource)}</bdi>
-                    </span>
-                    {/* `ms-auto`, never `ml-auto`: this row is rendered in an RTL column too. */}
-                    <ArrowUpRight className="ms-auto size-3.5 shrink-0 opacity-70" aria-hidden />
+                    {/* **The one pill with no word on it, and the reason is the desktop popover.**
+                        The popover is `w-80` with a 16 px gutter, so this row gets 288 px; with
+                        `TikTok` written out the three pills are 333 px, they wrap, and `Been here`
+                        lands under the popover's own 50vh cap — which is the exact defect round 4
+                        filed and round 5 papered over with a scroll mask. Without the word they are
+                        281 px and the row is one 44 px band on both viewports.
+
+                        It is an honest icon-only control rather than a squeeze: the mark is TikTok's
+                        own, the card above it is a TikTok still with the creator's handle under it,
+                        and the ratified `Open on TikTok` is on both `aria-label` and `title`, so
+                        neither a screen reader nor a hovering pointer loses the sentence. */}
+                    <PlatformMark className="size-4" />
                   </a>
-                </li>
-              ))}
-            </ul>
+                )}
+                <a
+                  href={googleMapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-vaul-no-drag
+                  aria-label="Open in Google Maps"
+                  className={cn(DETAIL_ACTION_PILL, PRESS_BUTTON, 'border-input text-brand hover:bg-muted')}
+                >
+                  {/* Named in full, never `Maps`: the pill is a link into Google's product and the
+                      same attribution rule that keeps `Matched on Google Maps` in the provenance
+                      line applies to the button that goes there.
+
+                      **No trailing `ExternalLink`, and the reason is arithmetic rather than taste.**
+                      Measured at 390x844: with the arrow the three pills are 353 px against 350 px of
+                      card, so the row wrapped to two bands — 94 px for a row whose entire purpose is
+                      to cost one. Without it they are 333 px and the row is a single 44 px band. The
+                      arrow was saying *this leaves the product* on a pill that already says `Google
+                      Maps` beside one wearing TikTok's own mark. */}
+                  Google Maps
+                </a>
+                {/* The one control the product wants the user to come back and use — see
+                    `saved-place-edits.tsx`. `key` on the saved place's id so a pending transition
+                    from the previously selected place can never land on this one. */}
+                {savedRow && (
+                  <BeenToggle
+                    key={`been-${savedRow.id}`}
+                    savedPlaceId={savedRow.id}
+                    placeName={place.name}
+                    visited={savedRow.visited}
+                  />
+                )}
+              </div>
+              {/* The one thing the database has always held about a been mark and no screen said.
+                  Same 11px muted weight as `Saved on …` below, because it is the same kind of fact:
+                  a quiet record of when, not something to act on. Absent — silently — when the row
+                  carries no timestamp; `visitedOnLine` says why that is a real state. Start-aligned
+                  now rather than centred: it sits under a row of pills, not under a full-width
+                  button, so a centred line would point at nothing. */}
+              {visitedOn && (
+                <p className="text-micro font-medium text-muted-foreground">{visitedOn}</p>
+              )}
+              {/* The same position, for a host whose caller has no row to toggle: on
+                  `/collections/[id]` this is `Added by …` and `Save to your places`. It keeps its own
+                  full width — it is that card's single primary action, not one of three. */}
+          </div>
+          {primaryAction && <div className="w-full">{primaryAction}</div>}
+        </div>
+
+        {/* **Band 2 — from the post**, and it disappears whole, hairline included, for a place
+            added by hand. A rule with nothing under it is the floating fragment this change
+            exists to remove. The rule is this band's own top border rather than a sibling
+            element, so 20 px above and 20 px below cannot drift apart (16 at the popover). */}
+        {hasBand2 && (
+          <div
+            className={cn(
+              'mt-5 flex flex-col gap-3 border-t border-border/60 pt-5',
+              isPopover && 'mt-4 pt-4',
+            )}
+          >
+            {/* What the creator actually wrote, as a quotation rather than as a labelled field.
+                A rule and a pair of quote marks say "someone else's words" faster than the kicker
+                reading FROM THE POST did, and they leave the model's own sentence below free to be
+                plain text — which is the whole extracted-versus-inferred distinction, carried by shape
+                instead of by two competing labels.
+
+                It carries no `dir` of its own since 2026-09-02: the card resolves one direction
+                from the place and this inherits it, so the quote starts on the same edge as the
+                name above it. A Hebrew quote on a Latin-named place is therefore LTR-aligned with
+                its ordering intact — the stated cost of one scan line instead of six.
+
+                `&ldquo;`/`&rdquo;`, not a plain `"`, and that choice is load-bearing, not decorative:
+                both are Unicode `Bidi_Mirrored` characters, so inside an RTL-resolved
+                run the browser swaps their *rendered shape* — the opening mark ends up looking like a
+                close-quote and vice versa — which is what lands the open mark on the visual right (the
+                RTL reading start) and the close mark on the visual left for a Hebrew quote. Nothing
+                here reasons about direction on purpose; it falls out of picking mirrored glyphs over
+                straight ones. Swap either entity for a plain `"` (not mirrored) and this silently goes
+                back to wrong with no visual signal in an LTR-only review (rtl audit,
+                `docs/rtl-audit-2026-08-31.md` finding 3). */}
+            {/* And *then*, quieter, the model's own sentence — never above the quote, never at the same
+                weight, and only when it says something the quote and the tags do not.
+
+                This is a judgement call, and it is one `if` to remove. `why_go` is generated prose;
+                `extracted_reason` is a verbatim substring of the caption. Keeping that difference
+                legible is this codebase's central invariant, and printing a paraphrase directly beside
+                the thing it paraphrases is the fastest way to destroy it — the two read as one claim
+                made twice, and the user cannot tell which half the creator actually wrote. Measured on
+                the London caption: the model's "Discover a Nepalese kitchen tucked away in the market."
+                sat above tags reading `nepalese, market stall` and a quote reading "…Nepalese kitchen
+                tucked away in Market Peckham". It contributes exactly one word those two do not, so it
+                is not rendered. A sentence that carries something new — a dish that sells out, an
+                opening time, who it is for — clears the bar and is shown. See
+                `ui/place/enrichment.ts`'s `whyGoEarnsItsPlace` for the rule and the threshold. */}
+            {shownQuote !== null ? (
+              <figure className="flex flex-col gap-2 border-s-2 border-brand-tint ps-3">
+                <blockquote className="text-sm leading-relaxed text-foreground">
+                  &ldquo;{shownQuote}&rdquo;
+                </blockquote>
+                {authorLabel && (
+                  <figcaption className="text-xs font-medium text-muted-foreground">
+                    {authorLabel}
+                  </figcaption>
+                )}
+                {/* The model's sentence is the quote's *sibling*, inside the same rule and at the same
+                    start inset — 8 px under the attribution rather than alone in 20 px of air. It reads
+                    as "and here is what that amounts to", which is what it is. Still unlabelled: the
+                    shape is the whole extracted-versus-inferred distinction, and a caption on the
+                    paraphrase would invite it to be read as another extracted claim. */}
+                {shownWhyGo !== null && <WhyGoLine whyGo={shownWhyGo} />}
+              </figure>
+            ) : (
+              // No quote to sit under: band 2's first block, no rule, no indent.
+              shownWhyGo !== null && <WhyGoLine whyGo={shownWhyGo} />
+            )}
+
+            {/* The dishes the post named. Last of the three content blocks because it is a list to
+                skim rather than something to read, and because it is the one most often empty. */}
+            <DishLine dishes={dishes} />
+
+            {/* **Every other TikTok link behind this place**, which the card used to drop on the floor.
+                `saved_place_sources` is many-to-many and `save_place` keeps both rows on a second
+                paste, so nothing was ever lost in the database; what was lost was here — the still, the
+                quote, the credit and the pill above are all `sources[0]`, and until now that was the
+                whole card. Round 3 §5.1 reported it as "keeps only the latest", which is the opposite
+                of the mechanism: it keeps the *earliest*.
+
+                **One source draws nothing at all.** `extraSources` is `sources.slice(1)`, so the common
+                case is byte-identical to the card that shipped — a single source is not turned into a
+                list of one. Earliest-linked first, continuing the order the head is drawn from; see
+                `place-sources.ts` for why not newest-first.
+
+                **Attribution, not decoration.** Developer Terms III.3(n) forbids deleting author
+                attributions, so every row carries the creator *and* links back to the post
+                (`docs/evidence/tiktok/09-brand-mark-and-attribution-2026-08-31.md` §5). The third part
+                of TikTok's own definition, the description, is stored per *save* rather than per
+                source, so it stays on the headline quote above rather than being invented here.
+                `PlatformMark` is our own neutral glyph — §7.1: the word, the `@handle`, the link and a
+                glyph of our own drawing are the entire permitted palette, and no TikTok mark may enter
+                `src/`.
+
+                **Own library only.** A collection peer never receives this array — `getSpots` reads it
+                under `sps_select_own` and migration `0024` refused the read policy that would widen it
+                — so on `/collections/[id]` `sources` is absent and this renders nothing by
+                construction, not by a flag. */}
+            {extra.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <p className={SECTION_LABEL}>{moreSourcesLine(extra.length)}</p>
+                <ul className="flex flex-col">
+                  {extra.map((extraSource) => (
+                    <li key={extraSource.id}>
+                      <a
+                        href={extraSource.canonicalUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        data-vaul-no-drag
+                        // The ratified sentence with the creator in it: three links all announced
+                        // `Open on TikTok` name no destination between them.
+                        aria-label={openSourceLabel(extraSource)}
+                        className={cn(
+                          'flex min-h-11 w-full items-center gap-2 rounded-lg px-1 text-sm font-medium text-brand outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50',
+                          PRESS_ROW,
+                        )}
+                      >
+                        <PlatformMark className="size-4 shrink-0" />
+                        {/* `<bdi>` because a handle sits inside a line this list renders in Hebrew as
+                            often as in English, and `line-clamp-1 break-words` for the same reason
+                            `PlaceRow`'s name carries them rather than `truncate`. */}
+                        <span className="line-clamp-1 break-words">
+                          <bdi>{sourceCreatorLabel(extraSource)}</bdi>
+                        </span>
+                        {/* `ms-auto`, never `ml-auto`: this row is rendered in an RTL column too. */}
+                        <ArrowUpRight className="ms-auto size-3.5 shrink-0 opacity-70" aria-hidden />
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
 
-        {shownWhyGo !== null && <WhyGoLine whyGo={shownWhyGo} />}
+        {/* **Band 3 — yours.** The fields you can edit, what is near it in your library, the two
+            record lines, and the way out. Same rule, same 20 px, same disappearing act: a place
+            you have not saved, seen inside a collection, shows no band 3 at all. */}
+        {hasBand3 && (
+          <div
+            className={cn(
+              'mt-5 flex flex-col gap-3 border-t border-border/60 pt-5',
+              isPopover && 'mt-4 pt-4',
+            )}
+          >
+            {/* **The field rows, flush.** `Add to a collection`, `Category`, `Your note` and the
+                host's own fields are one shape (`DETAIL_FIELD_ROW`) and they stack with no gap and
+                no separator: a run of 48 px rows reads as a structured list, where 20 px between
+                each is what made them read as floating fragments. Nothing else in this column is
+                spaced at 0. */}
+            <div className="flex flex-col">
+                {/* Directly under `BeenToggle` and above `CategoryEditor`: been/not-been and "which list is
+                  this in" are both statements about the user's *intent* with the place, while category
+                  and note are corrections to what we got wrong. Grouping the two intent controls keeps
+                  the correction block intact underneath. Renders nothing outside a `CollectionsContext`
+                  provider, so the desktop popover and any test host are unaffected. */}
+              {savedRow && (
+                <AddToCollection key={`collections-${savedRow.id}`} placeId={detail?.placeId} />
+              )}
 
-        {/* The dishes the post named. Last of the three content blocks because it is a list to
-            skim rather than something to read, and because it is the one most often empty. */}
-        <DishLine dishes={dishes} />
+              {/* The user's own word for what this place is. Below the prose blocks rather than beside
+                  the category line above, because that line is the most-read thing on the card and this
+                  is a control most people touch once — `saved-place-edits.tsx` has the argument. */}
+              {savedRow && (
+                <CategoryEditor
+                  key={`category-${savedRow.id}`}
+                  savedPlaceId={savedRow.id}
+                  category={place.category}
+                  isOverridden={detail?.categoryIsOverridden ?? false}
+                  // A place with no TikTok behind it was added by hand, so nothing was "worked out from
+                  // the post" — there is no post. `tiktokUrl` rather than a new field: the same value
+                  // already decides whether this card offers `Open on TikTok`, so the two cannot disagree.
+                  fromAPost={Boolean(tiktokUrl)}
+                />
+              )}
 
-        {/* Directly under `BeenToggle` and above `CategoryEditor`: been/not-been and "which list is
-            this in" are both statements about the user's *intent* with the place, while category
-            and note are corrections to what we got wrong. Grouping the two intent controls keeps
-            the correction block intact underneath. Renders nothing outside a `CollectionsContext`
-            provider, so the desktop popover and any test host are unaffected. */}
-        {savedRow && (
-          <AddToCollection key={`collections-${savedRow.id}`} placeId={detail?.placeId} />
-        )}
+              {/* `L1-F7-T2`. The note used to render read-only, and a place you saved was a place you
+                  were stuck with. `key` on the saved place's id is what resets a half-typed draft when
+                  the selection changes — the editor deliberately does not sync from props in an effect,
+                  which would discard typing every time the server revalidated. */}
+              {savedRow && <NoteEditor key={savedRow.id} savedPlaceId={savedRow.id} note={note} />}
 
-        {/* The user's own word for what this place is. Below the prose blocks rather than beside
-            the category line above, because that line is the most-read thing on the card and this
-            is a control most people touch once — `saved-place-edits.tsx` has the argument. */}
-        {savedRow && (
-          <CategoryEditor
-            key={`category-${savedRow.id}`}
-            savedPlaceId={savedRow.id}
-            category={place.category}
-            isOverridden={detail?.categoryIsOverridden ?? false}
-            // A place with no TikTok behind it was added by hand, so nothing was "worked out from
-            // the post" — there is no post. `tiktokUrl` rather than a new field: the same value
-            // already decides whether this card offers `Open on TikTok`, so the two cannot disagree.
-            fromAPost={Boolean(tiktokUrl)}
-          />
-        )}
+              {/* The host's own fields, in the same flush list rather than below the removal:
+                  `/collections/[id]` puts `Shared note` here, which is the same field as the note
+                  above it with a different audience, and it has to sit with the rest of the list
+                  for that to read. */}
+              {fields}
+            </div>
 
-        {/* `L1-F7-T2`. The note used to render read-only, and a place you saved was a place you
-            were stuck with. `key` on the saved place's id is what resets a half-typed draft when
-            the selection changes — the editor deliberately does not sync from props in an effect,
-            which would discard typing every time the server revalidated. */}
-        {savedRow && <NoteEditor key={savedRow.id} savedPlaceId={savedRow.id} note={note} />}
-
-        {/* What else of yours is around here — the library's own retrieval question, asked at the
-            scale of one place. Below the external links and above the provenance line: it is a
-            fact about the library rather than about this place, so it belongs after everything
-            this card is actually about. Renders nothing when there is nothing within a walk, which
-            is the point — a section that is always full stops carrying information. */}
-        {nearby !== undefined && nearby.length > 0 && (
-          <div className="flex flex-col gap-1.5">
-            <p className="text-micro font-bold uppercase tracking-[0.14em] text-muted-foreground">
-              {nearby.length === 1 ? 'Also nearby' : `${nearby.length} more nearby`}
-            </p>
-            <ul className="flex flex-col">
-              {nearby.map((neighbour) => (
-                <li key={neighbour.id}>
-                  {/* A button when the host can open it, plain text when it cannot — a row that
-                      looks pressable and does nothing is worse than one that never offered. */}
-                  {onSelectNearby ? (
-                    <button
-                      type="button"
-                      data-vaul-no-drag
-                      onClick={() => onSelectNearby(neighbour.id)}
-                      className={cn(
-                        'flex min-h-11 w-full items-center justify-between gap-3 rounded-lg text-left outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50',
-                        // The same row shape, so the same press. It swaps the whole detail view
-                        // under the finger, which is the one place a missing acknowledgement reads
-                        // as the app having lost the place you were looking at.
-                        PRESS_ROW,
+            {/* What else of yours is around here — the library's own retrieval question, asked at the
+                scale of one place. Below the external links and above the provenance line: it is a
+                fact about the library rather than about this place, so it belongs after everything
+                this card is actually about. Renders nothing when there is nothing within a walk, which
+                is the point — a section that is always full stops carrying information. */}
+            {nearby !== undefined && nearby.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <p className={SECTION_LABEL}>
+                  {nearby.length === 1 ? 'Also nearby' : `${nearby.length} more nearby`}
+                </p>
+                <ul className="flex flex-col">
+                  {nearby.map((neighbour) => (
+                    <li key={neighbour.id}>
+                      {/* A button when the host can open it, plain text when it cannot — a row that
+                          looks pressable and does nothing is worse than one that never offered. */}
+                      {onSelectNearby ? (
+                        <button
+                          type="button"
+                          data-vaul-no-drag
+                          onClick={() => onSelectNearby(neighbour.id)}
+                          className={cn(
+                            'flex min-h-11 w-full items-center justify-between gap-3 rounded-lg text-start outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50',
+                            // The same row shape, so the same press. It swaps the whole detail view
+                            // under the finger, which is the one place a missing acknowledgement reads
+                            // as the app having lost the place you were looking at.
+                            PRESS_ROW,
+                          )}
+                        >
+                          <span className="line-clamp-1 text-sm font-semibold text-foreground">
+                            <bdi>{neighbour.name}</bdi>
+                          </span>
+                          {/* Isolated: a Latin measurement in an RTL column reordered to `m 350`
+                              once the card took one direction. Alignment is the card's; ordering
+                              inside a run is still the run's. */}
+                          <span className="shrink-0 text-xs font-medium text-muted-foreground">
+                            <bdi>{nearbyDistanceLabel(neighbour.km)}</bdi>
+                          </span>
+                        </button>
+                      ) : (
+                        <p className="flex min-h-11 items-center justify-between gap-3 text-sm">
+                          <span className="line-clamp-1 font-semibold text-foreground">
+                            <bdi>{neighbour.name}</bdi>
+                          </span>
+                          {/* Isolated: a Latin measurement in an RTL column reordered to `m 350`
+                              once the card took one direction. Alignment is the card's; ordering
+                              inside a run is still the run's. */}
+                          <span className="shrink-0 text-xs font-medium text-muted-foreground">
+                            <bdi>{nearbyDistanceLabel(neighbour.km)}</bdi>
+                          </span>
+                        </p>
                       )}
-                    >
-                      <span className="line-clamp-1 text-sm font-semibold text-foreground">
-                        <bdi>{neighbour.name}</bdi>
-                      </span>
-                      <span className="shrink-0 text-xs font-medium text-muted-foreground">
-                        {nearbyDistanceLabel(neighbour.km)}
-                      </span>
-                    </button>
-                  ) : (
-                    <p className="flex min-h-11 items-center justify-between gap-3 text-sm">
-                      <span className="line-clamp-1 font-semibold text-foreground">
-                        <bdi>{neighbour.name}</bdi>
-                      </span>
-                      <span className="shrink-0 text-xs font-medium text-muted-foreground">
-                        {nearbyDistanceLabel(neighbour.km)}
-                      </span>
-                    </p>
-                  )}
-                </li>
-              ))}
-            </ul>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Where this pin came from, and when you saved it. Both were facts the database held and
+                no screen said: the first was a dataset slug at 11px (`Matched via llm-guess`) that
+                twenty-one of thirty-one places carried and nobody could read, and the second was in the
+                ORDER BY and nowhere else. `location-certainty.ts` has the argument for why the
+                confidence percentage that used to sit here is gone.
+
+                The wrapper itself is conditional because an empty one is invisible but not free: it is
+                a flex child in a `gap-5` column, so on a surface that has neither fact — a place seen
+                from inside a collection — it opens a 20 px hole above the footer. */}
+            {/* **The approximate half of this has moved up beside the address** (2026-09-02) and what
+                is left here is the attribution: `Matched on Google Maps`, which Google's terms require
+                and which is a claim about the pin's provenance rather than a warning about it. Printing
+                both here would have said `Approximate location` twice on one card. */}
+            {((certainty && !certainty.isApproximate) || detail?.savedAt) && (
+              <div className="flex flex-col gap-1">
+                {certainty && !certainty.isApproximate && (
+                  <p className="text-micro font-medium text-muted-foreground">
+                    {certainty.label}
+                  </p>
+                )}
+                {detail?.savedAt && (
+                  <p className="text-micro font-medium text-muted-foreground">
+                    {savedOnLine(detail.savedAt, new Date())}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Last, and quiet. The destructive action belongs below everything the user might have
+                opened this detail to read, not competing with it. `onClose` is the deselect the
+                caller already passes — the map page's own render-time guard would drop the selection
+                once the revalidated list arrives, but that would leave the detail open over a place
+                that is already gone for the length of the round trip. */}
+            {savedRow && (
+              <RemoveSavedPlace savedPlaceId={savedRow.id} placeName={place.name} onRemoved={onClose} />
+            )}
+
+            {/* Last of all, and the host's to fill: `/collections/[id]` puts the shared note and
+                `Remove from this collection` here — both statements about *this collection*, which is
+                why they sit below everything this view says about the place itself. */}
+            {footer}
           </div>
         )}
-
-        {/* Where this pin came from, and when you saved it. Both were facts the database held and
-            no screen said: the first was a dataset slug at 11px (`Matched via llm-guess`) that
-            twenty-one of thirty-one places carried and nobody could read, and the second was in the
-            ORDER BY and nowhere else. `location-certainty.ts` has the argument for why the
-            confidence percentage that used to sit here is gone.
-
-            The wrapper itself is conditional because an empty one is invisible but not free: it is
-            a flex child in a `gap-5` column, so on a surface that has neither fact — a place seen
-            from inside a collection — it opens a 20 px hole above the footer. */}
-        {/* **The approximate half of this has moved up beside the address** (2026-09-02) and what
-            is left here is the attribution: `Matched on Google Maps`, which Google's terms require
-            and which is a claim about the pin's provenance rather than a warning about it. Printing
-            both here would have said `Approximate location` twice on one card. */}
-        {((certainty && !certainty.isApproximate) || detail?.savedAt) && (
-          <div className="flex flex-col gap-1">
-            {certainty && !certainty.isApproximate && (
-              <p className="text-xs font-medium text-muted-foreground">{certainty.label}</p>
-            )}
-            {detail?.savedAt && (
-              <p className="text-micro font-medium text-muted-foreground">
-                {savedOnLine(detail.savedAt, new Date())}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Last, and quiet. The destructive action belongs below everything the user might have
-            opened this detail to read, not competing with it. `onClose` is the deselect the
-            caller already passes — the map page's own render-time guard would drop the selection
-            once the revalidated list arrives, but that would leave the detail open over a place
-            that is already gone for the length of the round trip. */}
-        {savedRow && (
-          <RemoveSavedPlace savedPlaceId={savedRow.id} placeName={place.name} onRemoved={onClose} />
-        )}
-
-        {/* Last of all, and the host's to fill: `/collections/[id]` puts the shared note and
-            `Remove from this collection` here — both statements about *this collection*, which is
-            why they sit below everything this view says about the place itself. */}
-        {footer}
       </div>
     </div>
   );

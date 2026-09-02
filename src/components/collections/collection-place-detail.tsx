@@ -77,6 +77,7 @@ import type { CollectionPlace } from '@/app/collections/_lib/get-collections';
 import type { CollectionRole } from '@/domain/collections/collection';
 import { PRESS_CHIP, PRESS_ROW } from '@/lib/interaction';
 import { cn } from '@/lib/utils';
+import { textDirection } from '@/ui/place/text-direction';
 import type { MapPlace } from '@/components/map/map-surface';
 import type { PlaceDetailFacts, SharedOnlyPlaceFacts } from '@/domain/places/spot';
 
@@ -283,17 +284,20 @@ export function CollectionPlaceDetail({
               ) : null}
             </div>
           }
+          /* The shared note is a field row, so it joins the card's field-row list flush under
+             `Your note` rather than sitting below the destructive action. */
+          fields={
+            <SharedNote
+              collectionId={collectionId}
+              itemId={place.itemId}
+              note={place.note}
+              editable={editable}
+            />
+          }
           footer={
             <>
-              <SharedNote
-                collectionId={collectionId}
-                itemId={place.itemId}
-                note={place.note}
-                editable={editable}
-              />
-
               {editable ? (
-                <div className="flex flex-col border-t border-border/60 pt-4">
+                <div className="flex flex-col">
                   {confirming ? (
                     <InlineConfirm
                       prompt="Remove from this collection?"
@@ -388,6 +392,11 @@ function SharedNote({
   /** Set by Escape so the blur that follows the unmount cannot write the draft it just discarded. */
   const cancelled = useRef(false);
 
+  /** The note scope, same rule as the private note on `/map`: this is the one text on the card the
+   *  user writes, so it resolves its direction from what they wrote rather than inheriting the
+   *  card's, and both states share it so the block does not jump when the editor opens. */
+  const noteDirection = textDirection(note);
+
   useEffect(() => {
     if (editing) textareaRef.current?.focus();
   }, [editing]);
@@ -434,7 +443,6 @@ function SharedNote({
         <span className="flex min-w-0 flex-1 flex-col gap-1">
           <span className={SECTION_LABEL}>Shared note</span>
           <span
-            dir="auto"
             className={cn(
               DETAIL_FIELD_VALUE,
               'whitespace-pre-wrap',
@@ -449,7 +457,7 @@ function SharedNote({
     );
 
     return (
-      <div className="flex flex-col">
+      <div dir={noteDirection} className="flex flex-col">
         {/* A viewer who may not edit still sees the note; they just get a paragraph rather than a
             control, at the same inset so the column's edge does not move. */}
         {editable ? (
@@ -475,7 +483,7 @@ function SharedNote({
   }
 
   return (
-    <div className={cn(DETAIL_FIELD_OPEN, 'gap-2')}>
+    <div dir={noteDirection} className={cn(DETAIL_FIELD_OPEN, 'gap-2')}>
       <label htmlFor={fieldId} className={SECTION_LABEL}>
         Shared note
       </label>
@@ -484,7 +492,6 @@ function SharedNote({
         <textarea
           id={fieldId}
           ref={textareaRef}
-          dir="auto"
           value={value}
           maxLength={500}
           rows={3}
