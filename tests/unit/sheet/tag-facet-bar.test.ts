@@ -31,9 +31,12 @@ function render(
   tagLists: readonly string[][],
   filter: TagFilter | null = { activeTag: null, onToggleTag: () => {} },
 ): string {
+  // The active tag is passed through the way `useLibraryTagFacets` passes it in production: it is
+  // what pins a chip that the count floor or the length cap would otherwise drop.
   const facets = tagFacets(
     tagLists.map((tags) => ({ tags })),
     tagsOf,
+    filter?.activeTag ?? null,
   );
   return renderToStaticMarkup(
     createElement(TagFilterContext, { value: filter }, createElement(TagFacetBar, { facets })),
@@ -48,13 +51,23 @@ describe('TagFacetBar — what it offers', () => {
   it('draws one chip per tag the library holds, with its count', () => {
     // The aggregate read the product had no surface for: until now a tag could only be filtered by
     // if you had already happened to see it on a place you opened.
-    const markup = render([['late night'], ['late night', 'wine'], ['wine'], ['brunch']]);
+    const markup = render([
+      ['late night'],
+      ['late night'],
+      ['late night', 'wine'],
+      ['wine'],
+      ['brunch'],
+      ['brunch'],
+    ]);
     const drawn = chips(markup);
     expect(drawn).toHaveLength(3);
     expect(drawn[0]).toContain('Late Night');
-    expect(drawn[0]).toContain('>2<');
-    expect(drawn[2]).toContain('Brunch');
-    expect(drawn[2]).toContain('>1<');
+    expect(drawn[0]).toContain('>3<');
+    // Count descending, then the stored key's code-unit order — so `brunch` and `wine`, tied at
+    // two, sit in that order behind `late night`'s three.
+    expect(drawn[1]).toContain('Brunch');
+    expect(drawn[2]).toContain('Wine');
+    expect(drawn[2]).toContain('>2<');
   });
 
   it('renders nothing at all for a library with no tags', () => {
@@ -68,12 +81,12 @@ describe('TagFacetBar — what it offers', () => {
   it('renders nothing without a filter context, because a chip there could not act', () => {
     // The same rule the detail's tag chips follow: with no provider they are inert labels rather
     // than controls that look pressable and do nothing.
-    expect(render([['wine']], null)).toBe('');
+    expect(render([['wine'], ['wine']], null)).toBe('');
   });
 
   it('never offers a tag no place carries', () => {
     // Every chip in the output names a tag from the rows, so tapping any of them yields ≥ 1 place.
-    const markup = render([['wine'], ['brunch']]);
+    const markup = render([['wine'], ['wine'], ['brunch'], ['brunch']]);
     expect(markup).toContain('Wine');
     expect(markup).toContain('Brunch');
     expect(markup).not.toContain('Late Night');
@@ -82,32 +95,35 @@ describe('TagFacetBar — what it offers', () => {
 
 describe('TagFacetBar — how it is announced and gestured', () => {
   it('is a named group rather than a row of loose toggle buttons', () => {
-    expect(render([['wine']])).toContain('aria-label="Filter by tag"');
+    expect(render([['wine'], ['wine']])).toContain('aria-label="Filter by tag"');
   });
 
   it('says the count in words, and contains the visible label', () => {
     // `Wine 1` read aloud is a loose number away from a sentence. Label-in-name: the accessible
     // name contains what the chip says rather than replacing it.
-    const markup = render([['wine']]);
-    expect(markup).toContain('aria-label="⁨Wine⁩, 1 place"');
+    // The singular only reaches the row now as the PINNED active tag: a tag one place carries no
+    // longer earns a chip on its own (`MIN_TAG_FACET_COUNT`), but the one you are filtering by is
+    // pinned in regardless, because a control that vanishes when you use it is the defect.
+    const pinned = render([['wine']], { activeTag: 'wine', onToggleTag: () => {} });
+    expect(pinned).toContain('aria-label="⁨Wine⁩, 1 place"');
     expect(render([['wine'], ['wine']])).toContain('aria-label="⁨Wine⁩, 2 places"');
   });
 
   it('carries the toggle state on the DOM, not in a class string', () => {
     // Rule 6a: `aria-pressed` is the state, and `CHIP_PRESSABLE` carries both arms as variants —
     // so a chip cannot look pressed while telling a screen reader it is not.
-    const markup = render([['wine']]);
+    const markup = render([['wine'], ['wine']]);
     expect(markup).toContain('aria-pressed="false"');
     expect(markup).toContain('aria-pressed:bg-tag-selected');
   });
 
   it('does not let a horizontal swipe become a sheet drag', () => {
     // Without `data-vaul-no-drag` a drag that starts on this row hauls the whole sheet.
-    expect(render([['wine']])).toContain('data-vaul-no-drag');
+    expect(render([['wine'], ['wine']])).toContain('data-vaul-no-drag');
   });
 
   it('gives every chip the 44px touch floor and a press', () => {
-    const chip = chips(render([['wine']]))[0] ?? '';
+    const chip = chips(render([['wine'], ['wine']]))[0] ?? '';
     expect(chip).toContain('min-h-11');
     expect(chip).toContain('motion-safe:active:scale-95');
   });
