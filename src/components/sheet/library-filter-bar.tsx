@@ -194,6 +194,9 @@ const MENU_ROW_PAINT =
   'flex h-10 w-full items-center gap-2 rounded-lg px-2 text-xs font-medium text-foreground ' +
   'group-data-highlighted/row:bg-card-2 motion-safe:transition-colors motion-safe:duration-press';
 
+/** One header row: wraps, never scrolls, and carries no vertical gap of its own. */
+const HEADER_ROW = 'flex flex-wrap items-center gap-x-1.5';
+
 /** The word, never an `x` — defect D3's fix. A real control with a real accessible name rather than
  *  a decorative glyph carrying a dismissal's affordance with no dismissal behind it. */
 const CLEAR_LABEL = 'Clear';
@@ -233,9 +236,17 @@ export interface LibraryFilterBarProps {
   readonly activeTags: readonly string[];
   readonly onToggleTag: (tag: string) => void;
   readonly onClearTags: () => void;
-  /** Rendered in the same wrapping row — the sort control, on both hosts. A slot rather than a
-   *  prop, so this file never learns what sorting is. */
-  readonly trailing?: ReactNode;
+  /**
+   * **The second row: the sort control, on both hosts.** A slot rather than a prop, so this file
+   * never learns what sorting is.
+   *
+   * It rides on a row of its own because the two rows mean two different things — row 1 narrows the
+   * library, row 2 reorders it — and that separation is what the whole redesign is about. Owner,
+   * 2026-09-02: *"leave the sort below the filters."* It used to ride inside row 1 as `trailing`,
+   * where four triggers plus `Clear` came to ~310 px against ~358 px of content width at 375, so an
+   * active value, a Hebrew category name or a three-digit count pushed it to wrap anyway.
+   */
+  readonly belowRow?: ReactNode;
   className?: string;
 }
 
@@ -250,7 +261,7 @@ export function LibraryFilterBar({
   activeTags,
   onToggleTag,
   onClearTags,
-  trailing,
+  belowRow,
   className,
 }: LibraryFilterBarProps) {
   // One category is not a choice: every place is a restaurant, so a `Restaurant 12` row is a
@@ -264,7 +275,7 @@ export function LibraryFilterBar({
   // `gap` child in the sheet's column, so it opens a hole under the search field. The gate is per
   // axis, deliberately not on `facets.length`: a library of one kind of place can still have tags
   // and been marks, and an earlier version of this line hid the tag list of exactly that library.
-  if (!showCategories && !showVisit && !showTags && trailing === undefined) return null;
+  if (!showCategories && !showVisit && !showTags && belowRow === undefined) return null;
 
   const categoryLabel = activeCategory === null ? null : categoryDisplay(activeCategory).label;
   const categoryCount =
@@ -273,109 +284,115 @@ export function LibraryFilterBar({
       : (facets.find((facet) => facet.category === activeCategory)?.count ?? 0);
 
   return (
-    // **Wraps, never scrolls.** Four triggers plus `Clear` is about 310 px before a single value is
-    // shown, against ~358 px of content width at 375 — so an active value, a Hebrew category name or
-    // a three-digit count will exceed it. A container whose job is to hide overflow cannot hold
-    // controls whose whole job is to be legible at rest; that is defect D1, and a second line is the
-    // honest cost of not reintroducing it. `gap-x-1.5` and no `gap-y`: the 44 px targets already
-    // carry 6 px of transparent band each, so a vertical gap would double-space the second line
-    // against a first line that looks single-spaced.
-    <div className={cn('flex flex-wrap items-center gap-x-1.5', className)}>
-      {showVisit && (
-        <MenuAxis
-          axis={VISIT_FILTER_GROUP_LABEL}
-          value={visitFilter === 'all' ? null : VISIT_FILTER_LABEL[visitFilter]}
-          active={visitFilter !== 'all'}
-        >
-          <Menu.RadioGroup
-            value={visitFilter}
-            onValueChange={(next) => onChangeVisitFilter(next as VisitFilter)}
+    // **Two rows, and they mean two different things.** Row 1 narrows the library; row 2 reorders
+    // it. Owner, 2026-09-02: *"leave the sort below the filters."*  No divider and no spacer
+    // between them — a border between two rows of a four-control header is card soup, and each 44 px
+    // target already carries 6 px of transparent band, which is the gap.
+    <div className={cn('flex flex-col', className)}>
+      {/* **Wraps, never scrolls.** Three triggers plus `Clear` is about 240 px before a single
+          value is shown, against ~358 px of content width at 375 — so an active value, a Hebrew
+          category name or a three-digit count will exceed it. A container whose job is to hide
+          overflow cannot hold controls whose whole job is to be legible at rest; that is defect D1.
+          `gap-x-1.5` and no `gap-y`: the transparent bands already space the wrapped line. */}
+      <div className={HEADER_ROW}>
+        {showVisit && (
+          <MenuAxis
+            axis={VISIT_FILTER_GROUP_LABEL}
+            value={visitFilter === 'all' ? null : VISIT_FILTER_LABEL[visitFilter]}
+            active={visitFilter !== 'all'}
           >
-            {VISIT_FILTERS.map((filter) => (
-              <MenuRadioRow
-                key={filter}
-                value={filter}
-                label={VISIT_FILTER_LABEL[filter]}
-                selected={filter === visitFilter}
-              />
-            ))}
-          </Menu.RadioGroup>
-        </MenuAxis>
-      )}
+            <Menu.RadioGroup
+              value={visitFilter}
+              onValueChange={(next) => onChangeVisitFilter(next as VisitFilter)}
+            >
+              {VISIT_FILTERS.map((filter) => (
+                <MenuRadioRow
+                  key={filter}
+                  value={filter}
+                  label={VISIT_FILTER_LABEL[filter]}
+                  selected={filter === visitFilter}
+                />
+              ))}
+            </Menu.RadioGroup>
+          </MenuAxis>
+        )}
 
-      {showCategories && (
-        <MenuAxis
-          axis="Category"
-          value={categoryLabel}
-          count={activeCategory === null ? null : categoryCount}
-          active={activeCategory !== null}
-          dot={activeCategory !== null}
-          {...(activeCategory === null
-            ? {}
-            : {
-                // A token reference, never a hex: an inline literal themes nothing, which is
-                // exactly how a rebuilt dark palette left every disc and dot light.
-                style: {
-                  '--tag-selected': categoryColorVar(activeCategory),
-                  '--tag-selected-foreground': 'var(--on-category)',
-                } as CSSProperties,
-              })}
-        >
-          <Menu.RadioGroup
-            value={activeCategory ?? 'all'}
-            onValueChange={(next) => {
-              if (next === 'all') {
-                if (activeCategory !== null) onToggleCategory(activeCategory);
-                return;
-              }
-              if (next !== activeCategory) onToggleCategory(next as ProductCategory);
+        {showCategories && (
+          <MenuAxis
+            axis="Category"
+            value={categoryLabel}
+            count={activeCategory === null ? null : categoryCount}
+            active={activeCategory !== null}
+            dot={activeCategory !== null}
+            {...(activeCategory === null
+              ? {}
+              : {
+                  // A token reference, never a hex: an inline literal themes nothing, which is
+                  // exactly how a rebuilt dark palette left every disc and dot light.
+                  style: {
+                    '--tag-selected': categoryColorVar(activeCategory),
+                    '--tag-selected-foreground': 'var(--on-category)',
+                  } as CSSProperties,
+                })}
+          >
+            <Menu.RadioGroup
+              value={activeCategory ?? 'all'}
+              onValueChange={(next) => {
+                if (next === 'all') {
+                  if (activeCategory !== null) onToggleCategory(activeCategory);
+                  return;
+                }
+                if (next !== activeCategory) onToggleCategory(next as ProductCategory);
+              }}
+            >
+              <MenuRadioRow
+                value="all"
+                label={ALL_CATEGORIES_LABEL}
+                selected={activeCategory === null}
+              />
+              {facets.map(({ category, count }) => (
+                <MenuRadioRow
+                  key={category}
+                  value={category}
+                  label={categoryDisplay(category).label ?? category}
+                  count={count}
+                  selected={category === activeCategory}
+                  // The chip was only ever the container; the colour is the load-bearing part, and it
+                  // survives the move to a list as this dot.
+                  dotVar={categoryColorVar(category)}
+                />
+              ))}
+            </Menu.RadioGroup>
+          </MenuAxis>
+        )}
+
+        {showTags && <TagsAxis facets={tagFacets} activeTags={activeTags} onToggle={onToggleTag} />}
+
+        {/* **Only while something is on.** A permanently visible `Clear` is a dead control eating the
+            width this row exists to save. It clears all three filter axes and deliberately does not
+            touch the sort — a sort is not a filter and has no cleared state. */}
+        {anythingActive && (
+          <button
+            type="button"
+            data-vaul-no-drag
+            aria-label={CLEAR_ALL_ACCESSIBLE_NAME}
+            onClick={() => {
+              if (activeCategory !== null) onToggleCategory(activeCategory);
+              if (visitFilter !== 'all') onChangeVisitFilter('all');
+              if (activeTags.length > 0) onClearTags();
             }}
+            className={cn(TRIGGER_TARGET, PRESS_CHIP)}
           >
-            <MenuRadioRow
-              value="all"
-              label={ALL_CATEGORIES_LABEL}
-              selected={activeCategory === null}
-            />
-            {facets.map(({ category, count }) => (
-              <MenuRadioRow
-                key={category}
-                value={category}
-                label={categoryDisplay(category).label ?? category}
-                count={count}
-                selected={category === activeCategory}
-                // The chip was only ever the container; the colour is the load-bearing part, and it
-                // survives the move to a list as this dot.
-                dotVar={categoryColorVar(category)}
-              />
-            ))}
-          </Menu.RadioGroup>
-        </MenuAxis>
-      )}
+            <span className="flex h-8 items-center rounded-full px-2 text-xs font-medium text-muted-foreground underline-offset-4 group-hover/trigger:text-foreground group-hover/trigger:underline group-focus-visible/trigger:ring-3 group-focus-visible/trigger:ring-ring/50">
+              {CLEAR_LABEL}
+            </span>
+          </button>
+        )}
+      </div>
 
-      {showTags && <TagsAxis facets={tagFacets} activeTags={activeTags} onToggle={onToggleTag} />}
-
-      {/* **Only while something is on.** A permanently visible `Clear` is a dead control eating the
-          width this row exists to save. It clears all three filter axes and deliberately does not
-          touch the sort — a sort is not a filter and has no cleared state. */}
-      {anythingActive && (
-        <button
-          type="button"
-          data-vaul-no-drag
-          aria-label={CLEAR_ALL_ACCESSIBLE_NAME}
-          onClick={() => {
-            if (activeCategory !== null) onToggleCategory(activeCategory);
-            if (visitFilter !== 'all') onChangeVisitFilter('all');
-            if (activeTags.length > 0) onClearTags();
-          }}
-          className={cn(TRIGGER_TARGET, PRESS_CHIP)}
-        >
-          <span className="flex h-8 items-center rounded-full px-2 text-xs font-medium text-muted-foreground underline-offset-4 group-hover/trigger:text-foreground group-hover/trigger:underline group-focus-visible/trigger:ring-3 group-focus-visible/trigger:ring-ring/50">
-            {CLEAR_LABEL}
-          </span>
-        </button>
-      )}
-
-      {trailing}
+      {/* Row 2. `SortControl` decides for itself whether it renders at all — below eight places, or
+          below two available orders, there is nothing here and the row collapses to nothing. */}
+      {belowRow !== undefined && <div className={HEADER_ROW}>{belowRow}</div>}
     </div>
   );
 }

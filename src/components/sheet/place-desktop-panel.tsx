@@ -216,9 +216,9 @@ export function PlaceDesktopPanel({
             the list already say. The screen-reader announcement is a separate live region in
             `map-shell.tsx` and is untouched. */}
         {!libraryIsEmpty && !selecting && <PlaceSearchField value={query} onChange={onQueryChange} />}
-        {/* **One row, not three**, exactly as on the phone — the same component, so the two
-            surfaces cannot offer different controls over one library. The sort control rides in
-            its `trailing` slot rather than on a line of its own. */}
+        {/* **Two rows, not three walls of chips**, exactly as on the phone — the same component,
+            so the two surfaces cannot offer different controls over one library. Row 1 narrows,
+            row 2 sorts; the sort control rides in `belowRow`. */}
         {!libraryIsEmpty && !selecting && (
           <LibraryFilterBar
             facets={categoryFacets}
@@ -231,7 +231,7 @@ export function PlaceDesktopPanel({
             activeTags={activeTags}
             onToggleTag={onToggleTag}
             onClearTags={onClearTags}
-            trailing={
+            belowRow={
               onChangeSort !== undefined ? (
                 <SortControl
                   order={sortOrder}

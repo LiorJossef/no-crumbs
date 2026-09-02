@@ -605,12 +605,11 @@ function PlaceList({
 
           {!libraryIsEmpty && !selecting && <PlaceSearchField value={query} onChange={onQueryChange} />}
 
-          {/* **One row, not three.** Measured at 375x812 on the owner's own library, the header
+          {/* **Two rows, not three.** Measured at 375x812 on the owner's own library, the header
               drew the visit chip and three category chips at y190, two sort chips at y248 and ten
               tag chips at y306, with the first place at y370 — 46 % of the viewport spent on
-              controls. Everything that narrows the library now lives behind one `Filter` trigger
-              and the order behind one compact trigger beside it; `library-filter-bar.tsx` carries
-              the argument.
+              controls. Each axis now lives behind its own named trigger on row 1, and the order
+              behind one ghost trigger on row 2; `library-filter-bar.tsx` carries the argument.
 
               Above the list *and* above the empty state, so the control that undoes a filter is on
               screen in the state where the filter has left nothing to look at. */}
@@ -626,7 +625,7 @@ function PlaceList({
               activeTags={activeTags}
               onToggleTag={onToggleTag}
               onClearTags={onClearTags}
-              trailing={
+              belowRow={
                 onChangeSort !== undefined ? (
                   <SortControl
                     order={sortOrder}
