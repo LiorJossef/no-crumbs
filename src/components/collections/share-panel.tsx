@@ -47,6 +47,7 @@ import {
   type InviteRole,
 } from '@/domain/collections/collection';
 import type { CollectionInvite, CollectionMember } from '@/app/collections/_lib/get-collections';
+import { SECTION_LABEL } from '@/ui/place/section-label';
 import { PRESS_CHIP, PRESS_ROW } from '@/lib/interaction';
 import { cn } from '@/lib/utils';
 
@@ -173,7 +174,6 @@ const readCannotShare = () => false;
 // ── the panel ─────────────────────────────────────────────────────────────────────────────────
 
 const ROW = 'flex min-h-11 w-full items-center gap-3';
-const SECTION_LABEL = 'text-[11px] font-bold tracking-[0.1em] text-muted-foreground uppercase';
 
 export function SharePanel({
   collectionId,

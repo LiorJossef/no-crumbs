@@ -59,6 +59,7 @@ import { X } from 'lucide-react';
 import { tagDisplayLabel } from '@/domain/extraction/tags';
 import { splitRowTags } from '@/ui/place/enrichment';
 import { isTagActive, useTagFilter } from '@/ui/place/tag-filter';
+import { SECTION_LABEL } from '@/ui/place/section-label';
 import { PRESS_CHIP } from '@/lib/interaction';
 import { cn } from '@/lib/utils';
 
@@ -328,23 +329,6 @@ export function TagChipRow({ tags }: { tags: readonly string[] }) {
 }
 
 /**
- * The one small label left on the detail screen.
- *
- * There used to be three of these stacked — FROM THE POST, NAMED IN THE POST, IN SHORT — over a
- * card that often held three lines of content between them, and the labels were the loudest thing
- * on it. The caption quote now says what it is by being a quotation, and the model's sentence says
- * what it is by being quiet and unquoted, which leaves exactly one block that genuinely needs
- * naming.
- */
-function Kicker({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="text-micro font-bold tracking-[0.1em] text-muted-foreground uppercase">
-      {children}
-    </p>
-  );
-}
-
-/**
  * The dishes the post named, as a text line rather than chips — and that difference is the point.
  *
  * A tag is an index entry: it is the vocabulary the library is organised by, and since tag chips
@@ -362,7 +346,7 @@ export function DishLine({ dishes }: { dishes: readonly string[] }) {
 
   return (
     <div className="flex flex-col gap-1">
-      <Kicker>Dishes mentioned</Kicker>
+      <p className={SECTION_LABEL}>Dishes mentioned</p>
       <p className="text-sm leading-relaxed text-foreground">
         {dishes.map((dish, index) => (
           <span key={dish}>
