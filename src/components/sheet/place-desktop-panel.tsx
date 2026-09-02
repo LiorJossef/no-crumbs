@@ -29,13 +29,13 @@ import {
   EverywhereElse,
   PlaceRow,
   PlaceSearchField,
-  ResultCount,
   SortControl,
   useLibraryTagFacets,
 } from './place-sheet';
 import { DEFAULT_PLACE_ORDER, type PlaceOrder } from './place-order';
-import { ActiveTagFilter, TagFacetBar } from './place-enrichment';
-import { CategoryFilterBar } from './category-filter-bar';
+import { ActiveTagFilter } from './place-enrichment';
+import { LibraryFilterBar } from './library-filter-bar';
+import { NO_BEEN_PLACES_LINE, type VisitFilter } from '@/ui/place/visit-state';
 import type { CategoryFacet } from '@/domain/places/category-filter';
 import type { ProductCategory } from '@/domain/places/product-category';
 import type { AreaHeading } from '@/ui/place/active-area';
@@ -55,23 +55,19 @@ export interface PlaceDesktopPanelProps {
   readonly libraryHasVisited: boolean;
   readonly query: string;
   readonly onQueryChange: (query: string) => void;
-  /** The tag currently narrowing the library, or `null`. Same prop, same pill and same behaviour as
-   *  the mobile sheet — the two surfaces present one filter, not two. */
-  readonly activeTag: string | null;
-  readonly onClearTag: () => void;
-  /** Whether the library is narrowed to places the user has not been to yet. Same prop, same chip
-   *  and same behaviour as the mobile sheet — the two surfaces present one filter, not two. */
-  readonly notBeenOnly: boolean;
-  readonly onToggleNotBeen: () => void;
+  /** The tags currently narrowing the library, composing as AND. Same props, same pills and same
+   *  behaviour as the mobile sheet — the two surfaces present one filter, not two. */
+  readonly activeTags: readonly string[];
+  readonly onClearTag: (tag: string) => void;
+  readonly onToggleTag: (tag: string) => void;
+  readonly onClearTags: () => void;
+  /** How the library is narrowed by the user's own visits. Same prop, same control and same
+   *  behaviour as the mobile sheet — the two surfaces present one filter, not two. */
+  readonly visitFilter: VisitFilter;
+  readonly onChangeVisitFilter: (filter: VisitFilter) => void;
   readonly categoryFacets: readonly CategoryFacet[];
   readonly activeCategory: ProductCategory | null;
   readonly onToggleCategory: (category: ProductCategory) => void;
-  /** How many places this list would show with the search and every filter cleared — the
-   *  denominator in `12 of 32`. Same prop, same meaning and same optionality as
-   *  `PlaceSheetProps.unfilteredCount`, which carries the reasoning: absent renders no count at
-   *  all, because a denominator derived from the already-narrowed props would be a confident wrong
-   *  answer about a number the user can check against the list in front of them. */
-  readonly unfilteredCount?: number;
   /** Opens the import overlay in `map-page-client.tsx` (client state) rather than navigating to
    *  the standalone `/import` route, so the map underneath this panel stays mounted. */
   readonly onAddTikTok: () => void;
@@ -108,14 +104,15 @@ export function PlaceDesktopPanel({
   libraryHasVisited,
   query,
   onQueryChange,
-  activeTag,
+  activeTags,
   onClearTag,
-  notBeenOnly,
-  onToggleNotBeen,
+  onToggleTag,
+  onClearTags,
+  visitFilter,
+  onChangeVisitFilter,
   categoryFacets,
   activeCategory,
   onToggleCategory,
-  unfilteredCount,
   onAddTikTok,
   onSelect,
   onHover,
@@ -128,7 +125,7 @@ export function PlaceDesktopPanel({
 
   /** The identical computation the sheet does, through the identical hook — see
    *  `useLibraryTagFacets` for why it is a hook rather than four lines in each host. */
-  const tagFacets = useLibraryTagFacets(places, otherPlaces, activeTag);
+  const tagFacets = useLibraryTagFacets(places, otherPlaces, activeTags);
 
   /** The same scroll reset the sheet does, for the same reason and with the same timing — see
    *  `PlaceList`. A panel is shorter than a sheet at `full` but the arithmetic is identical. */
@@ -172,56 +169,52 @@ export function PlaceDesktopPanel({
         </Button>
         {/* Hidden while the library is empty: there is nothing to search, and an inert field is a
               false affordance. The heading and the one line above it are the whole screen. */}
+        {/* **The `12 of 32` counter is gone**, on both surfaces at once
+            (`ux-overwhelm-audit-2026-09-02.md` §7) — it was `aria-hidden`, so it spoke only to
+            sighted users, in the band the owner asked us to empty, restating what the heading and
+            the list already say. The screen-reader announcement is a separate live region in
+            `map-shell.tsx` and is untouched. */}
+        {!libraryIsEmpty && <PlaceSearchField value={query} onChange={onQueryChange} />}
+        {/* **One row, not three**, exactly as on the phone — the same component, so the two
+            surfaces cannot offer different controls over one library. The sort control rides in
+            its `trailing` slot rather than on a line of its own. */}
         {!libraryIsEmpty && (
-          <div className="flex flex-col gap-1.5">
-            <PlaceSearchField value={query} onChange={onQueryChange} />
-            {/* The same count the sheet shows, from the same component. It is the one fact this
-                surface has only ever said out loud — `map-shell.tsx`'s live region — and a
-                sighted desktop user watching rows disappear had no number anywhere on screen. */}
-            <ResultCount
-              shown={places.length + otherPlaces.length}
-              {...(unfilteredCount === undefined ? {} : { of: unfilteredCount })}
-              narrowing={
-                query.trim() !== '' ||
-                activeTag !== null ||
-                notBeenOnly ||
-                activeCategory !== null
-              }
-            />
-          </div>
-        )}
-        {/* Inside the header block, under the field and above whatever the list turns out to be,
-              so the controls that undo a filter are present in the empty state too. */}
-        {/* The same bar the sheet renders. Two surfaces offering different filter controls over
-              one library is how the phone and the desktop come to disagree about what the product
-              can do — `PlaceRow` is shared for exactly this reason. */}
-        {!libraryIsEmpty && (
-          <CategoryFilterBar
+          <LibraryFilterBar
             facets={categoryFacets}
             activeCategory={activeCategory}
             onToggleCategory={onToggleCategory}
-            notBeenOnly={notBeenOnly}
-            onToggleNotBeen={onToggleNotBeen}
+            visitFilter={visitFilter}
+            onChangeVisitFilter={onChangeVisitFilter}
             anyVisited={libraryHasVisited}
+            tagFacets={tagFacets}
+            activeTags={activeTags}
+            onToggleTag={onToggleTag}
+            onClearTags={onClearTags}
+            trailing={
+              onChangeSort !== undefined ? (
+                <SortControl
+                  order={sortOrder}
+                  orders={sortOrders}
+                  onChange={onChangeSort}
+                  listLength={places.length + otherPlaces.length}
+                />
+              ) : undefined
+            }
           />
         )}
-        {/* Under the category bar, exactly as on the phone. 1440x900 is one of the two gate
-              viewports and a facet that exists on one of them is a half-finished surface — the
-              same argument that makes `PlaceRow` shared. Renders nothing when the library carries
-              no tags, which is most libraries. */}
-        {/* `W5-2`, and the same component the sheet renders rather than a second one. It shipped
-              into `PlaceSheet` alone and was therefore **invisible at 1440×900**, which is a gate
-              viewport — a control that exists on one of the two is a half-finished surface, the
-              same argument that makes `PlaceRow` and the filter bar shared. */}
-        {!libraryIsEmpty && onChangeSort !== undefined && sortOrders.length > 1 && (
-          <SortControl order={sortOrder} orders={sortOrders} onChange={onChangeSort} />
-        )}
-        {!libraryIsEmpty && <TagFacetBar facets={tagFacets} />}
-        {activeTag !== null && <ActiveTagFilter tag={activeTag} onClear={onClearTag} />}
+        {activeTags.length > 0 && <ActiveTagFilter tags={activeTags} onClear={onClearTag} />}
         {/* See `AreaHeading.note`: the one line an achievement heading needs and a failed query
               does not. */}
-        {!libraryIsEmpty && heading.note !== null && (
-          <p className="text-sm font-medium text-muted-foreground">{heading.note}</p>
+        {/* `Been` with nothing to show gets its own line — the same rule and the same string the
+            sheet uses, because that empty result only became reachable when the visit filter grew
+            a third state and the area heading is built from the old boolean. */}
+        {!libraryIsEmpty && places.length + otherPlaces.length === 0 && visitFilter === 'been' ? (
+          <p className="text-sm font-medium text-muted-foreground">{NO_BEEN_PLACES_LINE}</p>
+        ) : (
+          !libraryIsEmpty &&
+          heading.note !== null && (
+            <p className="text-sm font-medium text-muted-foreground">{heading.note}</p>
+          )
         )}
       </div>
 

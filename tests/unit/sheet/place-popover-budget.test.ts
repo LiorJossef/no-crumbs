@@ -134,7 +134,7 @@ describe('the popover asks for the height the pin leaves it, not the height the 
 describe('the popover says that it scrolls', () => {
   it('carries the bottom scroll fade', () => {
     // The review's complaint was "no fade, no shadow and no scrollbar" against a clip that landed
-    // mid-word. `scroll-fade-b` is the repo's own utility (`category-filter-bar.tsx` uses
+    // mid-word. `scroll-fade-b` is the repo's own utility (`library-filter-bar.tsx` uses
     // `scroll-fade-x` for the same job on the phone) and it is scroll-driven: measured
     // `--scroll-fade-b` is `24px` at `scrollTop 0` and `0px` at the end, so it never dims a last
     // line the reader has already reached.

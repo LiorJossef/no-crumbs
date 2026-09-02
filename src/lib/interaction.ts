@@ -202,7 +202,7 @@ export const COUPLE_BEAT =
  * row — not the line — is under the cursor.
  *
  * Separate from `COUPLE_BEAT` because the property list is deliberately narrow. `transition-colors`
- * touches nothing the compositor has to lay out, which is the note `category-filter-bar.tsx`
+ * touches nothing the compositor has to lay out, which is the note `library-filter-bar.tsx`
  * already carries, and a row whose ink and whose disc both animate wants one *timing* rather than
  * one *declaration* — the disc scales, the label does not.
  */

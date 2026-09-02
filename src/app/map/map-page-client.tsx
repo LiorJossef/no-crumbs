@@ -129,6 +129,7 @@ import {
 } from '@/components/sheet/place-order';
 import { PlaceDesktopPanel } from '@/components/sheet/place-desktop-panel';
 import { filterByTag, filterByVisit, filterPlaces } from '@/components/map/filter-places';
+import { NO_BEEN_PLACES_LINE, type VisitFilter } from '@/ui/place/visit-state';
 import { categoryFacets, filterByCategory, toggleCategory } from '@/domain/places/category-filter';
 import type { ProductCategory } from '@/domain/places/product-category';
 import { tagDisplayLabel } from '@/domain/extraction/tags';
@@ -416,7 +417,7 @@ export function MapPageClient({
   /** The one tag narrowing the library, as stored (lowercase, normalised), or `null`. Set by a chip
    *  in any place's detail view through `TagFilterContext`, cleared by the pill above the list, by
    *  tapping the same chip again, or by starting an import. */
-  const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [activeTags, setActiveTags] = useState<readonly string[]>([]);
   /**
    * The been / not-been narrowing (`L1-F12`): show only what is still outstanding.
    *
@@ -429,7 +430,14 @@ export function MapPageClient({
    * Not a camera mover. Turning it on can leave an area with nothing in it, and the answer to that
    * is a written heading (`ALL_BEEN_HEADING`), never a flight somewhere else.
    */
-  const [notBeenOnly, setNotBeenOnly] = useState(false);
+  const [visitFilter, setVisitFilter] = useState<VisitFilter>('all');
+  /** The old boolean, derived rather than stored, for the two pure helpers this page hands it to —
+   *  `areaHeading` and `scopeHeading` in `src/ui/place/*`, which speak `notBeenOnly` and belong to
+   *  another lane. `been` is deliberately *not* folded into it: those helpers' strings ("still to
+   *  go", "You've been to all of them") are about the outstanding half of the library and would be
+   *  false about the other one. In the `been` state the heading is the plain area heading and the
+   *  sheet prints its own line under it. */
+  const notBeenOnly = visitFilter === 'not-been';
   /**
    * What the last import saved. Two jobs, both of which the flow was missing entirely: it frames
    * the camera on the places that were just added (`camera.framePlaces`), and it is the only thing on
@@ -707,14 +715,14 @@ export function MapPageClient({
   /** The library narrowed by the active tag chip, before the search box sees it. Its own `useMemo`
    *  rather than one fused expression so that typing does not re-run the tag pass and tapping a
    *  chip does not re-run it per keystroke. */
-  const tagMatches = useMemo(() => filterByTag(places, activeTag), [places, activeTag]);
+  const tagMatches = useMemo(() => filterByTag(places, activeTags), [places, activeTags]);
 
   /** The tag-narrowed library, narrowed again to what is still outstanding. Before the search box
    *  and after the chip purely so each pass memoises on its own input; the three compose as AND and
    *  the order between them cannot change the result. */
   const visitMatches = useMemo(
-    () => filterByVisit(tagMatches, notBeenOnly),
-    [tagMatches, notBeenOnly],
+    () => filterByVisit(tagMatches, visitFilter),
+    [tagMatches, visitFilter],
   );
 
   /** The same library narrowed to one category. Its own pass for the same memoisation reason as
@@ -840,11 +848,11 @@ export function MapPageClient({
         scope: listScope,
         countInScope: inScope.length,
         searchQuery: query.trim(),
-        tagLabel: activeTag === null ? null : tagDisplayLabel(activeTag),
+        tagLabel: tagFilterLabel(activeTags),
         notBeenOnly,
         matchesAnywhere: matches.length,
       }),
-    [inScope, listScope, query, activeTag, notBeenOnly, matches],
+    [inScope, listScope, query, activeTags, notBeenOnly, matches],
   );
 
   // The canvas is unreachable to a screen reader, so the honest thing for it to say is what it is
@@ -880,7 +888,7 @@ export function MapPageClient({
   const selected: MapPlace | null =
     selectedId === null ? null : (matches.find((place) => place.id === selectedId) ?? null);
 
-  const filterAnnouncement = useResultAnnouncement(query, activeTag, notBeenOnly, matches.length);
+  const filterAnnouncement = useResultAnnouncement(query, activeTags, visitFilter, matches.length);
 
   /**
    * The page's one spoken line, and the ordering rule that lets two writers share it.
@@ -1135,8 +1143,9 @@ export function MapPageClient({
   );
 
   /**
-   * A chip tap. The active tag turns the filter off, any other tag replaces it — one tap either
-   * way, which is the whole interaction.
+   * A tag tap, from a chip in a place's detail or a row in the filter panel's list. An active tag
+   * comes off, any other goes on — one tap either way, and **several may be on at once**
+   * (owner, 2026-09-02), composing as AND downstream.
    *
    * **It deselects, and that is the point.** The chip lives in a place's detail view, so without
    * this the user taps `Hidden Gem` and keeps looking at the one place they already had open while
@@ -1146,13 +1155,22 @@ export function MapPageClient({
    */
   const toggleTag = useCallback(
     (tag: string) => {
-      setActiveTag((current) => (current !== null && isSameTag(current, tag) ? null : tag));
+      setActiveTags((current) =>
+        current.some((active) => isSameTag(active, tag))
+          ? current.filter((active) => !isSameTag(active, tag))
+          : [...current, tag],
+      );
       selectId(null);
     },
     [selectId],
   );
 
-  const clearTag = useCallback(() => setActiveTag(null), []);
+  const clearTag = useCallback(
+    (tag: string) =>
+      setActiveTags((current) => current.filter((active) => !isSameTag(active, tag))),
+    [],
+  );
+  const clearTags = useCallback(() => setActiveTags([]), []);
 
   /** A category chip. Pressing the pressed one clears, pressing any other replaces — the same one
    *  tap either way the tag chips give, so the product does not hold two state models for one
@@ -1162,17 +1180,17 @@ export function MapPageClient({
     setActiveCategory((current) => toggleCategory(current, category));
   }, []);
 
-  /** The been/not-been narrowing, on or off. Unlike a tag chip this does **not** deselect: the
-   *  control lives in the list's own header rather than inside a place's detail, so there is no
-   *  open place standing between the user and the answer they just asked for. */
-  const toggleNotBeen = useCallback(() => setNotBeenOnly((current) => !current), []);
+  /** The visit narrowing — `all`, `not-been` or `been`. Unlike a tag chip this does **not**
+   *  deselect: the control lives in the list's own header rather than inside a place's detail, so
+   *  there is no open place standing between the user and the answer they just asked for. */
+  const chooseVisitFilter = useCallback((filter: VisitFilter) => setVisitFilter(filter), []);
 
   /** Memoised so every chip in the tree does not re-render on an unrelated state change — the
    *  context value is the only thing standing between this page's state and a leaf in the map's
    *  own popover. */
   const tagFilter = useMemo<TagFilter>(
-    () => ({ activeTag, onToggleTag: toggleTag }),
-    [activeTag, toggleTag],
+    () => ({ activeTags, onToggleTag: toggleTag }),
+    [activeTags, toggleTag],
   );
 
   /** A link handed over from the `＋` sheet, so the overlay opens with it already typed. `null`
@@ -1188,12 +1206,12 @@ export function MapPageClient({
     // list and fly the camera at pins that are filtered out. Starting an import is the user leaving
     // the current narrowing behind, so every dimension goes with it.
     setQuery('');
-    setActiveTag(null);
+    setActiveTags([]);
     // A fresh import always lands as not-been, so this one cannot hide what was just saved. It is
     // cleared anyway: starting an import is the user leaving the current narrowing behind, and
     // leaving one of three filters on after the other two go is the kind of half-state nobody can
     // explain from the screen.
-    setNotBeenOnly(false);
+    setVisitFilter('all');
     setShowImport(true);
   }
 
@@ -1214,8 +1232,8 @@ export function MapPageClient({
    */
   function revealSavedPlace(savedPlaceId: string) {
     setQuery('');
-    setActiveTag(null);
-    setNotBeenOnly(false);
+    setActiveTags([]);
+    setVisitFilter('all');
     setActiveCategory(null);
     setScope(scopeForAreaTap(savedPlaceId));
     camera.framePlaces([savedPlaceId]);
@@ -1475,10 +1493,12 @@ export function MapPageClient({
                       libraryHasVisited={libraryHasVisited}
                       query={query}
                       onQueryChange={setQuery}
-                      activeTag={activeTag}
+                      activeTags={activeTags}
                       onClearTag={clearTag}
-                      notBeenOnly={notBeenOnly}
-                      onToggleNotBeen={toggleNotBeen}
+                      onToggleTag={toggleTag}
+                      onClearTags={clearTags}
+                      visitFilter={visitFilter}
+                      onChangeVisitFilter={chooseVisitFilter}
                       categoryFacets={facets}
                       activeCategory={activeCategory}
                       onToggleCategory={toggleCategoryFilter}
@@ -1517,10 +1537,12 @@ export function MapPageClient({
                       libraryHasVisited={libraryHasVisited}
                       query={query}
                       onQueryChange={setQuery}
-                      activeTag={activeTag}
+                      activeTags={activeTags}
                       onClearTag={clearTag}
-                      notBeenOnly={notBeenOnly}
-                      onToggleNotBeen={toggleNotBeen}
+                      onToggleTag={toggleTag}
+                      onClearTags={clearTags}
+                      visitFilter={visitFilter}
+                      onChangeVisitFilter={chooseVisitFilter}
                       categoryFacets={facets}
                       activeCategory={activeCategory}
                       onToggleCategory={toggleCategoryFilter}
@@ -1653,8 +1675,8 @@ function useDrawerSwap(view: DrawerView): { key: string; direction: SwapDirectio
  */
 function useResultAnnouncement(
   query: string,
-  activeTag: string | null,
-  notBeenOnly: boolean,
+  activeTags: readonly string[],
+  visitFilter: VisitFilter,
   matchCount: number,
 ): string {
   // The query the stored sentence describes is kept with it, and the sentence is only returned
@@ -1666,18 +1688,18 @@ function useResultAnnouncement(
   // One key for all three dimensions, so a stale sentence about the previous *tag* or the previous
   // visit filter is discarded on the same rule that already discards a stale one about the previous
   // query. `\u0000` because it is the one character neither a query nor a stored tag can contain.
-  const filter = `${activeTag ?? ''}\u0000${notBeenOnly ? '1' : ''}\u0000${trimmed}`;
+  const filter = `${activeTags.join('\u0001')}\u0000${visitFilter}\u0000${trimmed}`;
 
   useEffect(() => {
-    if (activeTag === null && trimmed === '' && !notBeenOnly) return;
+    if (activeTags.length === 0 && trimmed === '' && visitFilter === 'all') return;
     const timer = setTimeout(() => {
       setAnnounced({
         filter,
-        message: filterSentence(trimmed, activeTag, notBeenOnly, matchCount),
+        message: filterSentence(trimmed, activeTags, visitFilter, matchCount),
       });
     }, ANNOUNCE_AFTER_MS);
     return () => clearTimeout(timer);
-  }, [filter, trimmed, activeTag, notBeenOnly, matchCount]);
+  }, [filter, trimmed, activeTags, visitFilter, matchCount]);
 
   return announced.filter === filter ? announced.message : '';
 }
@@ -1690,31 +1712,54 @@ function useResultAnnouncement(
  * read aloud as the sentence's own words would be indistinguishable from the rest of it, and the
  * user tapped something that said `Hidden Gem`.
  */
+/**
+ * The selected tags as one label, for the surfaces that take a single string: the area heading
+ * (`src/ui/place/active-area.ts`, another lane's file, whose `tagLabel` is `string | null`) and the
+ * spoken sentence below.
+ *
+ * `Wine + Brunch` rather than a list with commas, because the filter is an **AND** and `+` is the
+ * one separator that says so in a phrase a heading can carry. `null` for none, which is the value
+ * those helpers already treat as "no tag is narrowing this".
+ */
+function tagFilterLabel(tags: readonly string[]): string | null {
+  if (tags.length === 0) return null;
+  return tags.map((tag) => tagDisplayLabel(tag)).join(' + ');
+}
+
 function filterSentence(
   query: string,
-  activeTag: string | null,
-  notBeenOnly: boolean,
+  activeTags: readonly string[],
+  visitFilter: VisitFilter,
   count: number,
 ): string {
   const noun = count === 1 ? 'place' : 'places';
+  const notBeenOnly = visitFilter === 'not-been';
+
+  // `been` alone, which the three-state control newly makes reachable. Its own sentence for the
+  // same reason `not-been` has one: `3 places match` is true and useless when the question was
+  // "where have I already been", and with no query and no tag there is nothing for `match` to be
+  // about. The empty case is the string the sheet prints on screen, so the two agree.
+  if (visitFilter === 'been' && activeTags.length === 0 && query === '') {
+    return count === 0 ? NO_BEEN_PLACES_LINE : `${count} ${noun} you have been to.`;
+  }
 
   // The visit filter alone gets its own sentence for the same reason the heading does: `3 places
   // match` is true and useless when the user asked "what have I still got to do", and with no
   // query and no tag there is nothing for `match` to be about.
-  if (notBeenOnly && activeTag === null && query === '') {
+  if (notBeenOnly && activeTags.length === 0 && query === '') {
     return count === 0 ? "You've been to all of them." : `${count} ${noun} still to go.`;
   }
 
   // With another filter on, the visit filter becomes a qualifier on the sentence that filter
   // produces rather than a sentence of its own — one clause, appended once.
-  const still = notBeenOnly ? ' you have not been to' : '';
+  const still = notBeenOnly ? ' you have not been to' : visitFilter === 'been' ? ' you have been to' : '';
 
-  if (activeTag === null) {
+  if (activeTags.length === 0) {
     return count === 0
       ? `No places${still} match ${query}.`
       : `${count} ${noun}${still} ${count === 1 ? 'matches' : 'match'} ${query}.`;
   }
-  const label = tagDisplayLabel(activeTag);
+  const label = tagFilterLabel(activeTags) ?? '';
   if (query === '') {
     return count === 0
       ? `No places${still} tagged ${label}.`

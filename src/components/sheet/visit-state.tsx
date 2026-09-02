@@ -3,7 +3,7 @@
 /**
  * How been / not-been looks on a list row: the badge that says a place is done. This file used to
  * hold the `Not been yet` filter chip as well; the nav ruling moved that into
- * `category-filter-bar.tsx`, which is also what lifted it to the 44 px touch floor, so only the
+ * `library-filter-bar.tsx`, which is also what lifted it to the 44 px touch floor, so only the
  * badge lives here. The write control lives in `saved-place-edits.tsx` with the other
  * Server-Action writes; `src/ui/place/visit-state.ts` owns every word any of them says.
  *

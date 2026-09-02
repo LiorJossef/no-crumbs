@@ -58,7 +58,7 @@ import { X } from 'lucide-react';
 
 import { tagDisplayLabel } from '@/domain/extraction/tags';
 import { splitRowTags } from '@/ui/place/enrichment';
-import { isTagActive, useTagFilter, type TagFacet } from '@/ui/place/tag-filter';
+import { isTagActive, useTagFilter } from '@/ui/place/tag-filter';
 import { PRESS_CHIP } from '@/lib/interaction';
 import { cn } from '@/lib/utils';
 
@@ -201,7 +201,7 @@ export function TagChipList({ tags }: { tags: readonly string[] }) {
               // `aria-pressed` is the whole state model for this control: the chip is a toggle, so
               // an assistive technology says "pressed"/"not pressed" without any extra live region,
               // and tapping the pressed one clears the filter.
-              aria-pressed={isTagActive(filter.activeTag, tag)}
+              aria-pressed={isTagActive(filter.activeTags, tag)}
               onClick={() => filter.onToggleTag(tag)}
               // No ternary: `aria-pressed` above is the state, and `CHIP_PRESSABLE` carries both
               // arms of it as variants.
@@ -225,198 +225,70 @@ export function TagChipList({ tags }: { tags: readonly string[] }) {
 }
 
 /**
- * **The tag facet: the library's own vocabulary, with counts, as a row of chips.**
+ * **`TagFacetBar` was deleted on 2026-09-02.** The library's tag control is now a searchable
+ * multi-select list inside the filter panel (`library-filter-bar.tsx`), on the owner's
+ * instruction — *"tags from a multi select list with a serch"*. The row it replaced was the larger
+ * half of the header overwhelm: ten chips in a horizontally scrolling row at 58 places, bounded by
+ * a cap that hid tags the user then had no way to reach.
  *
- * Tags are the only field that actually separates one saved place from another — `places.category`
- * holds four values across the twenty live rows, fourteen of them `restaurant` — and until now the
- * only way to filter by one was to already know it existed, open a place that happened to carry it,
- * and tap the chip inside its detail view. `growth-plan.md` §4 names that as the pattern: *"you can
- * filter by a tag only if you already happened to see it on a place"*. This is the aggregate read
- * the product had no surface for.
- *
- * ## Three rules, all of them `overnight-copy-deck.md` §9.1's and none of them negotiable
- *
- *  1. **Every chip yields at least one place.** The facets are counted over the user's own rows, so
- *     a tag no place carries cannot appear. `tagFacets` is where that is guaranteed.
- *  2. **No tags at all means nothing renders** — not a disabled row, not a "no tags yet" line, not
- *     a placeholder. The caller passes an empty array and this returns `null`. It is also the
- *     common case: nothing was backfilled, so every place saved before extraction v2 has none.
- *  3. **A control must not remove itself when you use it.** That is why this row is absent while a
- *     tag is filtering: `ActiveTagFilter` is on screen instead, holding the pressed tag and one tap
- *     to clear. The deck's own recommendation was to keep the pressed chip inside this row; the
- *     shape here satisfies the rule it exists for — the way out is always visible — and it avoids
- *     showing counts this surface cannot compute honestly. **The reason is a data seam, stated
- *     rather than dressed up:** the sheet is handed a list already narrowed by the active tag, so
- *     with a tag on, every other tag's count here would be its co-occurrence with that tag rather
- *     than its own. A wrong number in a chip is worse than a chip that steps aside for the pill.
- *     Wiring the un-narrowed set through the page — the seam `categoryFacets` already has — is what
- *     would let both live on screen together, and that is a change in a file this lane does not own.
- *
- * ## Why a second row rather than more chips in the category bar
- *
- * `category-filter-bar.tsx` argues against stacking bars, and it is right about the chip it was
- * written for: `Not been yet` and `Café 4` are the same kind of control asking the same kind of
- * question. A tag is a different question — *what is this place like* rather than *what kind of
- * thing is it* — and merging them would put two vocabularies in one row where a `Café 13` chip and
- * a `Late Night 5` chip look identical and mean different dimensions. What tells them apart on
- * screen is the category chip's coloured dot, which a tag chip does not have.
+ * The chips in a **place's detail** are untouched and live in `TagChipList` above: there they are
+ * that place's own vocabulary, five or six of them, not an index of the library.
  */
-export function TagFacetBar({
-  facets,
-  className,
-}: {
-  /** Already counted and ordered by `tagFacets`. Empty renders nothing at all. */
-  readonly facets: readonly TagFacet[];
-  className?: string;
-}) {
-  const filter = useTagFilter();
-  // No provider means no way to act on a tap, and a row of chips that cannot filter is the false
-  // affordance this whole file refuses elsewhere.
-  if (filter === null || facets.length === 0) return null;
-
-  return (
-    <div
-      // The same gestures the category bar takes, and for the same reasons: without
-      // `data-vaul-no-drag` a horizontal drag inside the sheet is read as a sheet drag, and
-      // `overscroll-x-contain` stops a swipe running off the end from chaining into the browser's
-      // back gesture. `-m-1 p-1` keeps the 3px focus ring inside the scroll box.
-      data-vaul-no-drag
-      role="group"
-      aria-label={TAG_BAR_LABEL}
-      className={cn(
-        // **Scrolls on a phone, wraps on a desktop**, and the split is a Q1 finding rather than a
-        // preference. Measured at 1440x900 with 300 places: this row overflowed the panel and cut
-        // `Restaurant 10` off mid-count with no affordance — and a clipped count is not a smaller
-        // truth, it is a false one (W2-4's exit criterion is that counts render). At 3 places
-        // everything fitted, which is why every small fixture passed: the defect only exists in the
-        // case the product is actually for.
-        //
-        // A horizontal scroll is right on a phone — it is the pattern, the gesture exists, and
-        // vertical space in a sheet is the scarcest thing there is. It is wrong in a 500px panel on
-        // a desktop, where vertical space is free and the gesture mostly is not: a mouse wheel
-        // scrolls a horizontal container in no browser by default, so the clipped chips were not
-        // merely unlabelled, they were unreachable.
-        //
-        // One `lg:` variant does both, because the two hosts are already breakpoint-exclusive —
-        // `PlaceSheet` is `lg:hidden` and `PlaceDesktopPanel` is `hidden lg:flex`, so each only
-        // ever renders on the side of the breakpoint it belongs to.
-        // On the phone the row genuinely scrolls, and `scroll-fade-x` is what says so. Measured at
-        // 390x844 with 300 places: the row's own docblock claims "what says there is more is the
-        // chip clipped at the trailing edge", and that turns out to be **incidental** — whether a
-        // partial chip shows depends on where the chip boundaries happen to fall, and at 300 places
-        // the tag row ends very nearly flush with two more chips off-screen and nothing saying so.
-        //
-        // `scroll-fade-x` comes from the pinned `shadcn/tailwind.css` already imported by
-        // `globals.css` — no new dependency — and it is **scroll-driven**
-        // (`animation-timeline: scroll(self inline)`), which is the property that makes it honest
-        // rather than decorative: the trailing edge fades only while there is actually more to
-        // reach, and a row that fits shows no fade at all. Browsers without scroll-driven
-        // animations fall back to a static edge fade, which over-promises slightly rather than
-        // under-promising, and that is the right direction to fail in.
-        //
-        // `lg:scroll-fade-none` because above `lg` the row wraps and there is nothing to scroll —
-        // a mask there would fade the last chip of a complete row for no reason.
-        //
-        // `scroll-fade-4` (16px) rather than the utility's default `min(12%, 40px)`, and this is
-        // the second thing the screenshot corrected. At the default the fade reached far enough
-        // into the trailing chip to dim its **count** — `Restaurant 100` and `Outdoor Seating 60`
-        // both went pale — which is most of the way back to the truncation this package exists to
-        // remove. 16px is a soft edge on the container rather than a wash over content: it still
-        // reads as "there is more", and the number stays a number.
-        '-m-1 flex gap-2 overflow-x-auto overscroll-x-contain p-1 scroll-fade-x scroll-fade-4 lg:flex-wrap lg:scroll-fade-none',
-        '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
-        className,
-      )}
-    >
-      {facets.map(({ tag, label, count }) => (
-        <button
-          key={tag}
-          type="button"
-          data-vaul-no-drag
-          aria-pressed={isTagActive(filter.activeTag, tag)}
-          // The visible text is `Late Night 5`, which read aloud is a loose number away from a
-          // sentence. The label names the same two facts in words and contains the visible label,
-          // so it satisfies label-in-name rather than replacing what the chip says. `isolate` on
-          // the tag: it is model output derived from an arbitrary caption, and a Hebrew tag would
-          // otherwise reorder the count and the noun around it.
-          aria-label={`${isolate(label)}, ${count} place${count === 1 ? '' : 's'}`}
-          onClick={() => filter.onToggleTag(tag)}
-          className={cn(CHIP_PRESSABLE, 'min-h-11 shrink-0 gap-2')}
-        >
-          {/* **`leading-5`, for the reason `bottom-nav.tsx` records at length.** `truncate` clips to
-              the content box, which is the line-height; `text-xs` sets that to 16px while the
-              inline box this font paints at 12px is **17px**, so 1px is shaved off the top.
-
-              Latin lowercase never reaches it — released and diffed at dsf 3, zero pixels change.
-              **Tall ink does**: substituting Hebrew with lower diacritics, an accented capital or a
-              brace removes **18 device pixels, worst channel delta 488**. That is not a hypothetical
-              here. These labels are model output from arbitrary captions, which is why this element
-              carries `dir="auto"` and why the accessible name isolates it. */}
-          <span dir="auto" className="max-w-40 truncate leading-5">
-            {label}
-          </span>
-          {/* **`font-normal` rather than `opacity-70`, and the swap is the point.** The count has to
-                    read as secondary to the label, and alpha is the wrong instrument for that: measured on
-                    painted pixels this chip's count was **3.32:1** at 12px bold, and the frontier is brutal —
-                    0.85 is still 4.45, only 0.88 clears the bar, and 0.88 is not visibly quieter than 1.0.
-                    So opacity here can be *failing* or it can be *invisible*; it cannot be the hierarchy it
-                    was reaching for. Weight can: 700 → 400 is a step you can see, at the full 6.19:1. */}
-          <span className="shrink-0 tabular-nums font-normal">{count}</span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-/** The group's accessible name. A row of toggle buttons with no grouping is a handful of loose
- *  words — the same reason `TagChipList` and the category bar each name themselves. */
-const TAG_BAR_LABEL = 'Filter by tag';
 
 /**
- * The active filter, said out loud above the list: which tag is narrowing the library, and one tap
- * to stop it.
+ * The active tag filter, said out loud above the list: which tags are narrowing the library, and
+ * one tap each to stop them.
  *
- * Deliberately **not** a filter bar. It renders only while a filter is on, it holds exactly the one
- * tag the user chose, and it offers no vocabulary to browse — a row of category chips to pick from
- * is L2 scope and was rejected. This is the dismiss affordance for a state the user is already in.
+ * Deliberately **not** a filter bar. It renders only while a filter is on, it holds exactly the
+ * tags the user chose, and it offers no vocabulary to browse — that is the searchable list inside
+ * the filter panel. This is the dismiss affordance for a state the user is already in, and it
+ * stays *outside* the panel on purpose: the way out of a filter must not be hidden behind a
+ * disclosure the user has to remember to open.
  *
- * The whole pill is the clear button, so there is no 20 px `×` to hit beside a label that does
- * something else: one target, 36 px tall, and its accessible name says what pressing it does rather
- * than naming the tag a second time.
+ * **One pill per tag since 2026-09-02**, because the filter became multi-select. Each whole pill is
+ * its own clear button, so there is no 20 px `×` to hit beside a label that does something else:
+ * one target per tag, and its accessible name says what pressing it does rather than naming the
+ * tag a second time.
  */
 export function ActiveTagFilter({
-  tag,
+  tags,
   onClear,
   className,
 }: {
-  tag: string;
-  onClear: () => void;
+  tags: readonly string[];
+  onClear: (tag: string) => void;
   className?: string;
 }) {
-  const label = tagDisplayLabel(tag);
+  if (tags.length === 0) return null;
 
   return (
-    <div data-vaul-no-drag className={cn('flex min-w-0 items-center gap-2', className)}>
+    <div data-vaul-no-drag className={cn('flex min-w-0 flex-wrap items-center gap-2', className)}>
       {/* The same uppercase micro-label the rest of the sheet uses for a kicker. Without it a lone
           filled pill under the heading is just a word — the user has to infer that it is the reason
           the list got shorter. */}
       <span className={FILTER_KICKER}>Tagged</span>
-      <button
-        type="button"
-        onClick={onClear}
-        aria-label={`Clear the ${isolate(label)} tag filter`}
-        className={cn(
-          'inline-flex min-h-9 min-w-0 cursor-pointer items-center gap-1.5 rounded-full bg-tag-selected px-3 text-xs font-bold text-tag-selected-foreground outline-none hover:bg-tag-selected-hover focus-visible:ring-3 focus-visible:ring-ring/50',
-          // It is chip-shaped, so it presses like one — and it is the only way out of a filter
-          // that has emptied the list, which is the state where a tap that looks ignored is worst.
-          PRESS_CHIP,
-        )}
-      >
-        <span dir="auto" className="truncate">
-          {label}
-        </span>
-        <X className="size-3.5 shrink-0" aria-hidden />
-      </button>
+      {tags.map((tag) => {
+        const label = tagDisplayLabel(tag);
+        return (
+          <button
+            key={tag}
+            type="button"
+            onClick={() => onClear(tag)}
+            aria-label={`Clear the ${isolate(label)} tag filter`}
+            className={cn(
+              'inline-flex min-h-9 min-w-0 cursor-pointer items-center gap-1.5 rounded-full bg-tag-selected px-3 text-xs font-semibold text-tag-selected-foreground outline-none hover:bg-tag-selected-hover focus-visible:ring-3 focus-visible:ring-ring/50',
+              // It is chip-shaped, so it presses like one — and it is the only way out of a filter
+              // that has emptied the list, the state where a tap that looks ignored is worst.
+              PRESS_CHIP,
+            )}
+          >
+            <span dir="auto" className="truncate">
+              {label}
+            </span>
+            <X className="size-3.5 shrink-0" aria-hidden />
+          </button>
+        );
+      })}
     </div>
   );
 }

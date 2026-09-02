@@ -68,11 +68,11 @@ const library = [anat, kiaans, jones, mber, untagged, bare];
 describe('filterByTag', () => {
   it('returns the library untouched when no chip is active', () => {
     // Identity, not equality: an untouched filter must not churn React memoisation upstream.
-    expect(filterByTag(library, null)).toBe(library);
+    expect(filterByTag(library, [])).toBe(library);
   });
 
   it('narrows to the places carrying the tag', () => {
-    expect(filterByTag(library, 'hidden gem').map((p) => p.id)).toEqual([
+    expect(filterByTag(library, ['hidden gem']).map((p) => p.id)).toEqual([
       'anat',
       'kiaans',
       'jones',
@@ -80,56 +80,56 @@ describe('filterByTag', () => {
   });
 
   it('filters on a Hebrew tag the extractor actually wrote', () => {
-    expect(filterByTag(library, 'בורקס').map((p) => p.id)).toEqual(['anat']);
-    expect(filterByTag(library, 'מאפייה').map((p) => p.id)).toEqual(['anat']);
+    expect(filterByTag(library, ['בורקס']).map((p) => p.id)).toEqual(['anat']);
+    expect(filterByTag(library, ['מאפייה']).map((p) => p.id)).toEqual(['anat']);
   });
 
   it('matches the whole tag, never a substring of one', () => {
     // `pan asian` is a tag; `asian` is not. A chip means the label printed on it — widening to a
     // substring would make the chip quietly do the search box's job and say so nowhere.
-    expect(filterByTag(library, 'asian')).toEqual([]);
-    expect(filterByTag(library, 'gem')).toEqual([]);
-    expect(filterByTag(library, 'pan asian').map((p) => p.id)).toEqual(['kiaans', 'mber']);
+    expect(filterByTag(library, ['asian'])).toEqual([]);
+    expect(filterByTag(library, ['gem'])).toEqual([]);
+    expect(filterByTag(library, ['pan asian']).map((p) => p.id)).toEqual(['kiaans', 'mber']);
   });
 
   it('is insensitive to case, accents and punctuation, because tag identity is', () => {
     // The database's own `normalize_tag()` lowercases but folds neither accents nor punctuation,
     // so a row can hold `Pan-Asian` where the application would have written `pan asian`. Both must
     // be the same tag or the vocabulary fragments.
-    expect(filterByTag(library, 'Pan-Asian').map((p) => p.id)).toEqual(['kiaans', 'mber']);
-    expect(filterByTag(library, 'HIDDEN GEM').map((p) => p.id)).toEqual(['anat', 'kiaans', 'jones']);
+    expect(filterByTag(library, ['Pan-Asian']).map((p) => p.id)).toEqual(['kiaans', 'mber']);
+    expect(filterByTag(library, ['HIDDEN GEM']).map((p) => p.id)).toEqual(['anat', 'kiaans', 'jones']);
   });
 
   it('drops places with no tags rather than keeping them as "unfiltered"', () => {
-    const ids = filterByTag(library, 'hidden gem').map((p) => p.id);
+    const ids = filterByTag(library, ['hidden gem']).map((p) => p.id);
     expect(ids).not.toContain('hakosem');
     expect(ids).not.toContain('bare');
   });
 
   it('returns nothing for a tag no place carries', () => {
-    expect(filterByTag(library, 'natural wine')).toEqual([]);
+    expect(filterByTag(library, ['natural wine'])).toEqual([]);
   });
 
   it('treats a blank tag as no filter at all', () => {
-    expect(filterByTag(library, '   ')).toBe(library);
+    expect(filterByTag(library, ['   '])).toBe(library);
   });
 });
 
 describe('filterByTag composed with filterPlaces', () => {
   it('applies as AND — the tag narrows the library, the search narrows within it', () => {
-    const tagged = filterByTag(library, 'hidden gem');
+    const tagged = filterByTag(library, ['hidden gem']);
     expect(filterPlaces(tagged, 'anat').map((p) => p.id)).toEqual(['anat']);
     expect(filterPlaces(tagged, 'kiaans').map((p) => p.id)).toEqual(['kiaans']);
   });
 
   it('can compose down to nothing, which is a real state and not a bug', () => {
     // The empty state the sheet renders for this offers `Show all matches` and `Clear search`.
-    expect(filterPlaces(filterByTag(library, 'hidden gem'), 'mber')).toEqual([]);
+    expect(filterPlaces(filterByTag(library, ['hidden gem']), 'mber')).toEqual([]);
   });
 
   it('composes in either order, so the page client is free to memoise the tag pass first', () => {
-    const tagThenSearch = filterPlaces(filterByTag(library, 'pan asian'), 'london');
-    const searchThenTag = filterByTag(filterPlaces(library, 'london'), 'pan asian');
+    const tagThenSearch = filterPlaces(filterByTag(library, ['pan asian']), 'london');
+    const searchThenTag = filterByTag(filterPlaces(library, 'london'), ['pan asian']);
     expect(tagThenSearch.map((p) => p.id)).toEqual(searchThenTag.map((p) => p.id));
     expect(tagThenSearch.map((p) => p.id)).toEqual(['mber']);
   });
@@ -153,37 +153,82 @@ const beenTo = place('been', 'Old North Espresso Bar', ['specialty coffee'], tru
 const stillToGo = place('togo', 'Nordoy Café', ['specialty coffee'], false);
 
 describe('filterByVisit', () => {
-  it('returns the library untouched when the filter is off', () => {
+  it('returns the library untouched in the `all` state', () => {
     // Identity, not equality — same memoisation guarantee the other two filters give.
-    expect(filterByVisit(library, false)).toBe(library);
+    expect(filterByVisit(library, 'all')).toBe(library);
   });
 
   it('keeps only the places still to go', () => {
-    const narrowed = filterByVisit([beenTo, stillToGo], true);
+    const narrowed = filterByVisit([beenTo, stillToGo], 'not-been');
     expect(narrowed.map((p) => p.id)).toEqual(['togo']);
   });
 
   it('keeps a pin with no `Spot` at all — absent is not "been"', () => {
-    expect(filterByVisit([bare], true)).toEqual([bare]);
+    expect(filterByVisit([bare], 'not-been')).toEqual([bare]);
   });
 
   it('reads the state, never the text', () => {
     const misleading: MapPlace = { ...stillToGo, note: 'been meaning to try this for months' };
-    expect(filterByVisit([misleading], true)).toEqual([misleading]);
+    expect(filterByVisit([misleading], 'not-been')).toEqual([misleading]);
   });
 
   it('composes with the tag chip and the search box as AND', () => {
     const shortlist = [beenTo, stillToGo, anat];
-    const notBeen = filterByVisit(shortlist, true);
-    const tagged = filterByTag(notBeen, 'specialty coffee');
+    const notBeen = filterByVisit(shortlist, 'not-been');
+    const tagged = filterByTag(notBeen, ['specialty coffee']);
     expect(tagged.map((p) => p.id)).toEqual(['togo']);
     expect(filterPlaces(tagged, 'nordoy').map((p) => p.id)).toEqual(['togo']);
     // Clearing the tag restores the other two narrowings rather than everything.
-    expect(filterPlaces(filterByTag(notBeen, null), 'nordoy').map((p) => p.id)).toEqual(['togo']);
+    expect(filterPlaces(filterByTag(notBeen, []), 'nordoy').map((p) => p.id)).toEqual(['togo']);
   });
 
-  it('never removes anything when the filter is off, however the library is marked', () => {
+  it('never removes anything in the `all` state, however the library is marked', () => {
     // Criterion 10: marking is not archiving. An unfiltered view keeps every place.
-    expect(filterByVisit([beenTo, stillToGo], false)).toHaveLength(2);
+    expect(filterByVisit([beenTo, stillToGo], 'all')).toHaveLength(2);
+  });
+
+  it('keeps only the places you have been to in the `been` state', () => {
+    // The third state, new on 2026-09-02. The boolean it replaces had two visual states for three
+    // meanings, which is what made the control unreadable at rest — and "been only" could not be
+    // expressed at all.
+    expect(filterByVisit([beenTo, stillToGo], 'been').map((p) => p.id)).toEqual(['been']);
+  });
+
+  it('reads the state in the `been` direction too, never the text', () => {
+    const misleading: MapPlace = { ...stillToGo, note: 'been there, done that' };
+    expect(filterByVisit([misleading], 'been')).toEqual([]);
+  });
+
+  it('is exhaustive: every place lands in exactly one of the two narrowed sets', () => {
+    const shortlist = [beenTo, stillToGo, anat];
+    expect(
+      filterByVisit(shortlist, 'been').length + filterByVisit(shortlist, 'not-been').length,
+    ).toBe(shortlist.length);
+  });
+});
+
+describe('filterByTag — several tags at once', () => {
+  it('narrows to the places carrying every selected tag, not any of them', () => {
+    // AND, deliberately. OR would *widen* the library as you select more, which is the opposite of
+    // what a filter panel says it does — and it would make each count in the tag list a claim
+    // about a set the next tap does not produce.
+    const both = filterByTag(library, ['hidden gem', 'pan asian']).map((p) => p.id);
+    const first = filterByTag(library, ['hidden gem']).map((p) => p.id);
+    expect(first.length).toBeGreaterThan(both.length);
+    for (const id of both) expect(first).toContain(id);
+  });
+
+  it('returns nothing when the combination is empty rather than falling back to one tag', () => {
+    expect(filterByTag(library, ['בורקס', 'pan asian'])).toEqual([]);
+  });
+
+  it('ignores blank entries instead of emptying the library', () => {
+    expect(filterByTag(library, ['   ', ''])).toBe(library);
+  });
+
+  it('is order-independent', () => {
+    expect(filterByTag(library, ['hidden gem', 'pan asian'])).toEqual(
+      filterByTag(library, ['pan asian', 'hidden gem']),
+    );
   });
 });

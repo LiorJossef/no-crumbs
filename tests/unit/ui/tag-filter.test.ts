@@ -33,17 +33,24 @@ describe('isSameTag', () => {
 
 describe('isTagActive', () => {
   it('is false when nothing is filtering', () => {
-    expect(isTagActive(null, 'hidden gem')).toBe(false);
+    expect(isTagActive([], 'hidden gem')).toBe(false);
   });
 
-  it('marks only the chip that is filtering', () => {
-    expect(isTagActive('hidden gem', 'hidden gem')).toBe(true);
-    expect(isTagActive('hidden gem', 'market stall')).toBe(false);
+  it('marks only the tags that are filtering', () => {
+    expect(isTagActive(['hidden gem'], 'hidden gem')).toBe(true);
+    expect(isTagActive(['hidden gem'], 'market stall')).toBe(false);
   });
 
-  it('marks a Hebrew chip the same way', () => {
-    expect(isTagActive('מאפייה', 'מאפייה')).toBe(true);
-    expect(isTagActive('מאפייה', 'בורקס')).toBe(false);
+  it('marks every selected tag, because the filter is multi-select', () => {
+    // Owner, 2026-09-02: tags are a multi-select list. `wine` and `brunch` on together compose as
+    // AND downstream, and both rows have to draw as chosen.
+    expect(isTagActive(['hidden gem', 'wine'], 'wine')).toBe(true);
+    expect(isTagActive(['hidden gem', 'wine'], 'brunch')).toBe(false);
+  });
+
+  it('marks a Hebrew tag the same way', () => {
+    expect(isTagActive(['מאפייה'], 'מאפייה')).toBe(true);
+    expect(isTagActive(['מאפייה'], 'בורקס')).toBe(false);
   });
 });
 
@@ -156,5 +163,29 @@ describe('tagFacets', () => {
     // true; `ActiveTagFilter` above the list is the one that exists for that.
     const facets = tagFacets(rows(['wine'], ['wine']), tagsOf, 'brunch');
     expect(facets.map((f) => f.tag)).toEqual(['wine']);
+  });
+});
+
+describe('tagFacets — pinning several selected tags at once', () => {
+  it('keeps every selected tag on screen, even below the cap', () => {
+    // The multi-select list opts out of the cap entirely, but the pinning rule still has to hold
+    // for any caller that is a capped row: a control that disappears when you use it is the
+    // defect this module refuses everywhere else.
+    const many = Array.from({ length: 20 }, (_, i) => ({
+      tags: [`tag${String(i).padStart(2, '0')}`, `tag${String(i).padStart(2, '0')}b`],
+    }));
+    const rare = ['tag19', 'tag18'];
+    const pinned = tagFacets(many, (row) => row.tags, rare, MAX_TAG_FACETS, 1);
+    expect(pinned).toHaveLength(MAX_TAG_FACETS);
+    for (const tag of rare) expect(pinned.some((facet) => facet.tag === tag)).toBe(true);
+  });
+
+  it('accepts a bare string, for the callers that predate multi-select', () => {
+    const facets = tagFacets(
+      [{ tags: ['wine'] }, { tags: ['wine'] }, { tags: ['brunch'] }],
+      (row) => row.tags,
+      'brunch',
+    );
+    expect(facets.map((facet) => facet.tag)).toContain('brunch');
   });
 });

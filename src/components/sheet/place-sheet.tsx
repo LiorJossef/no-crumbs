@@ -75,13 +75,13 @@ import {
   DishLine,
   TagChipList,
   TagChipRow,
-  TagFacetBar,
   WhyGoLine,
 } from './place-enrichment';
 import { BeenBadge } from './visit-state';
+import { NO_BEEN_PLACES_LINE, type VisitFilter } from '@/ui/place/visit-state';
 import { BOTTOM_NAV_HEIGHT_PX } from '@/components/nav/bottom-nav';
-import { CategoryFilterBar } from './category-filter-bar';
-import { CHIP_PRESSABLE } from './place-enrichment';
+import { LibraryFilterBar, MenuAxis, MenuRadioRow } from './library-filter-bar';
+import { Menu } from '@base-ui/react/menu';
 import { DEFAULT_PLACE_ORDER, type PlaceOrder } from './place-order';
 import type { CategoryFacet } from '@/domain/places/category-filter';
 import type { ProductCategory } from '@/domain/places/product-category';
@@ -146,40 +146,28 @@ export interface PlaceSheetProps {
   readonly libraryHasVisited: boolean;
   readonly query: string;
   readonly onQueryChange: (query: string) => void;
-  /** The tag currently narrowing the library, as stored — `null` when no chip is active. A second
-   *  filter dimension rather than text written into `query`; `src/ui/place/tag-filter.ts` says why.
-   *  Rendered here as the dismissible pill above the list, and applied upstream so the pins are
-   *  narrowed by the same predicate in the same frame. */
-  readonly activeTag: string | null;
-  /** One tap to clear, from the pill. Chips themselves toggle through the `TagFilterContext`. */
-  readonly onClearTag: () => void;
-  /** Whether the library is narrowed to places the user has not been to yet. A third filter
-   *  dimension beside the tag and the search box, applied upstream so the pins and the rows are
-   *  narrowed by the same predicate in the same frame. */
-  readonly notBeenOnly: boolean;
-  readonly onToggleNotBeen: () => void;
+  /** The tags currently narrowing the library, as stored — empty when nothing is selected. Several
+   *  at once since 2026-09-02, composing as AND. A filter dimension of its own rather than text
+   *  written into `query`; `src/ui/place/tag-filter.ts` says why. Rendered here as the dismissible
+   *  pills above the list, and applied upstream so the pins are narrowed by the same predicate in
+   *  the same frame. */
+  readonly activeTags: readonly string[];
+  /** One tap to clear one tag, from its pill. The list inside the filter panel toggles them. */
+  readonly onClearTag: (tag: string) => void;
+  /** Toggle one tag from the filter panel's list. */
+  readonly onToggleTag: (tag: string) => void;
+  /** Every tag off at once — `Clear all` inside the panel. */
+  readonly onClearTags: () => void;
+  /** How the library is narrowed by the user's own visits — `all`, `not-been` or `been`. A third
+   *  filter dimension beside the tag and the search box, applied upstream so the pins and the rows
+   *  are narrowed by the same predicate in the same frame. */
+  readonly visitFilter: VisitFilter;
+  readonly onChangeVisitFilter: (filter: VisitFilter) => void;
   /** The categories the library actually holds, with counts, already narrowed by every other
    *  filter. Computed on the page rather than here because the same filter narrows the pins. */
   readonly categoryFacets: readonly CategoryFacet[];
   readonly activeCategory: ProductCategory | null;
   readonly onToggleCategory: (category: ProductCategory) => void;
-  /**
-   * **How many places this list would show with the search and every filter cleared** — the
-   * denominator in `12 of 32`, ruled by `overnight-copy-deck.md` §4.3 condition 2.
-   *
-   * Not the library, not the viewport, and deliberately not anything this component can derive:
-   * `places` and `otherPlaces` both arrive already narrowed, so their sum is the *numerator*. The
-   * only honest source is the page, which holds the unfiltered list — and the check the deck gives
-   * a verifier is exactly that identity: clear the field, read the heading's count, it is the 32
-   * you just saw.
-   *
-   * **Optional, and absent means the count does not render.** A number beside a search field that
-   * was computed from a set this component only half has would be a confident wrong answer, which
-   * is the one thing this codebase will not ship. `map-page-client.tsx` is where it comes from and
-   * that file belongs to another lane tonight; until it passes this, the sighted count is not on
-   * screen and `map-shell.tsx`'s live region remains the only announcement of the same fact.
-   */
-  readonly unfilteredCount?: number;
   readonly selected: MapPlace | null;
   readonly onDeselect: () => void;
   /** Opens the import overlay in `map-page-client.tsx` (client state) rather than navigating to
@@ -218,14 +206,15 @@ export function PlaceSheet({
   libraryHasVisited,
   query,
   onQueryChange,
-  activeTag,
+  activeTags,
   onClearTag,
-  notBeenOnly,
-  onToggleNotBeen,
+  onToggleTag,
+  onClearTags,
+  visitFilter,
+  onChangeVisitFilter,
   categoryFacets,
   activeCategory,
   onToggleCategory,
-  unfilteredCount,
   selected,
   onDeselect,
   onAddTikTok,
@@ -301,14 +290,15 @@ export function PlaceSheet({
       libraryHasVisited={libraryHasVisited}
       query={query}
       onQueryChange={onQueryChange}
-      activeTag={activeTag}
+      activeTags={activeTags}
       onClearTag={onClearTag}
-      notBeenOnly={notBeenOnly}
-      onToggleNotBeen={onToggleNotBeen}
+      onToggleTag={onToggleTag}
+      onClearTags={onClearTags}
+      visitFilter={visitFilter}
+      onChangeVisitFilter={onChangeVisitFilter}
       categoryFacets={categoryFacets}
       activeCategory={activeCategory}
       onToggleCategory={onToggleCategory}
-      {...(unfilteredCount === undefined ? {} : { unfilteredCount })}
       stop={stop}
       // `half` for an empty library, `full` once there is a list. The empty state is a heading, a
       // line and one button — about 380 px — so opening it full gave a new user their first screen
@@ -336,14 +326,15 @@ function PlaceList({
   libraryHasVisited,
   query,
   onQueryChange,
-  activeTag,
+  activeTags,
   onClearTag,
-  notBeenOnly,
-  onToggleNotBeen,
+  onToggleTag,
+  onClearTags,
+  visitFilter,
+  onChangeVisitFilter,
   categoryFacets,
   activeCategory,
   onToggleCategory,
-  unfilteredCount,
   stop,
   onExpand,
   onAddTikTok,
@@ -362,14 +353,15 @@ function PlaceList({
   libraryHasVisited: boolean;
   query: string;
   onQueryChange: (query: string) => void;
-  activeTag: string | null;
-  onClearTag: () => void;
-  notBeenOnly: boolean;
-  onToggleNotBeen: () => void;
+  activeTags: readonly string[];
+  onClearTag: (tag: string) => void;
+  onToggleTag: (tag: string) => void;
+  onClearTags: () => void;
+  visitFilter: VisitFilter;
+  onChangeVisitFilter: (filter: VisitFilter) => void;
   categoryFacets: readonly CategoryFacet[];
   activeCategory: ProductCategory | null;
   onToggleCategory: (category: ProductCategory) => void;
-  unfilteredCount?: number;
   stop: SheetStop;
   onExpand: () => void;
   onAddTikTok: () => void;
@@ -409,7 +401,11 @@ function PlaceList({
   // An empty library is a different screen, not a different count.
   const headingText = libraryIsEmpty ? EMPTY_LIBRARY_HEADING : heading.text;
 
-  const facets = useLibraryTagFacets(places, otherPlaces, activeTag);
+  const facets = useLibraryTagFacets(places, otherPlaces, activeTags);
+
+  /** Nothing at all to show — the scope's places *and* the continuation under `Everywhere else`
+   *  are both empty, which is the only state in which a filter's own empty line is the truth. */
+  const listIsEmpty = places.length + otherPlaces.length === 0;
 
   /**
    * What the peek row promises above the count in the header: how many more rows are down there.
@@ -536,61 +532,65 @@ function PlaceList({
 
           {/* Hidden while the library is empty: there is nothing to search, and an inert field is a
               false affordance offering work that cannot produce a result. */}
-          {!libraryIsEmpty && (
-            <div className="flex flex-col gap-1.5">
-              <PlaceSearchField value={query} onChange={onQueryChange} />
-              <ResultCount
-                shown={places.length + otherPlaces.length}
-                {...(unfilteredCount === undefined ? {} : { of: unfilteredCount })}
-                narrowing={
-                  isSearchActive(query) ||
-                  activeTag !== null ||
-                  notBeenOnly ||
-                  activeCategory !== null
-                }
-              />
-            </div>
-          )}
+          {/* **The `12 of 32` counter is gone** (`ux-overwhelm-audit-2026-09-02.md` §7). It was
+              `aria-hidden`, so it existed for sighted users only, in exactly the band the owner
+              asked us to empty — and it restated what the heading above it (`58 places in 3
+              countries`) and the list under it already say. The live region that announces the
+              same fact to a screen reader is a different mechanism in a different file
+              (`map-shell.tsx`) and is untouched. */}
+          {!libraryIsEmpty && <PlaceSearchField value={query} onChange={onQueryChange} />}
 
-          {/* Above the list *and* above the empty state, so the one control that undoes a tag
-              filter is on screen in the state where the filter has left nothing to look at. The
-              same rule is what puts the `Not been yet` chip here: it is both the way in and the way
-              out of the filter, so it has to survive the state where the filter emptied the list. */}
-          {/* One horizontal-scroll row, not two stacked ones: the category chips and the visit
-              chip are the same kind of control asking the same kind of question, and the merge is
-              also what lifts `Not been yet` from the 36 px its own file names as a compromise to
-              the 44 px floor. Categories had nowhere to live before this — the only way to narrow
-              by kind was to open a place and tap a tag chip inside its detail view, which is a
-              retrieval control hidden inside a reading surface. */}
+          {/* **One row, not three.** Measured at 375x812 on the owner's own library, the header
+              drew the visit chip and three category chips at y190, two sort chips at y248 and ten
+              tag chips at y306, with the first place at y370 — 46 % of the viewport spent on
+              controls. Everything that narrows the library now lives behind one `Filter` trigger
+              and the order behind one compact trigger beside it; `library-filter-bar.tsx` carries
+              the argument.
+
+              Above the list *and* above the empty state, so the control that undoes a filter is on
+              screen in the state where the filter has left nothing to look at. */}
           {!libraryIsEmpty && (
-            <CategoryFilterBar
+            <LibraryFilterBar
               facets={categoryFacets}
               activeCategory={activeCategory}
               onToggleCategory={onToggleCategory}
-              notBeenOnly={notBeenOnly}
-              onToggleNotBeen={onToggleNotBeen}
+              visitFilter={visitFilter}
+              onChangeVisitFilter={onChangeVisitFilter}
               anyVisited={libraryHasVisited}
+              tagFacets={facets}
+              activeTags={activeTags}
+              onToggleTag={onToggleTag}
+              onClearTags={onClearTags}
+              trailing={
+                onChangeSort !== undefined ? (
+                  <SortControl
+                    order={sortOrder}
+                    orders={sortOrders}
+                    onChange={onChangeSort}
+                    listLength={places.length + otherPlaces.length}
+                  />
+                ) : undefined
+              }
             />
           )}
-          {/* Under the filters and above the list, because it shapes the *same* rows they narrow —
-              and a control that reorders a list belongs where the list starts, not in a menu
-              somewhere else. Hidden with the filters on an empty library for the same reason the
-              search field is: there is nothing to order. */}
-          {!libraryIsEmpty && onChangeSort !== undefined && sortOrders.length > 1 && (
-            <SortControl order={sortOrder} orders={sortOrders} onChange={onChangeSort} />
-          )}
-          {/* Under the category bar rather than merged into it: a tag asks *what is this place
-              like*, a category asks *what kind of thing is it*, and one row holding both would put
-              two vocabularies in identical chips. Renders nothing at all when the library carries
-              no tags, which is most libraries — see `TagFacetBar`. */}
-          {!libraryIsEmpty && <TagFacetBar facets={facets} />}
-          {activeTag !== null && <ActiveTagFilter tag={activeTag} onClear={onClearTag} />}
+          {activeTags.length > 0 && <ActiveTagFilter tags={activeTags} onClear={onClearTag} />}
 
           {/* The one line some empty headings need — see `AreaHeading.note`. Above the scroll area
               rather than inside it, so it sits with the heading it explains rather than where the
-              first row would have been. */}
-          {!libraryIsEmpty && heading.note !== null && (
-            <p className="text-sm font-medium text-muted-foreground">{heading.note}</p>
+              first row would have been.
+
+              **`Been` with nothing to show gets its own line**, because that empty result only
+              became reachable when the visit filter grew a third state: the area heading is built
+              from `notBeenOnly`, which `been` is not, so without this the screen would go quiet
+              about the one filter that emptied it. The control that undoes it is above this line,
+              which is the rule the whole header already holds itself to. */}
+          {!libraryIsEmpty && listIsEmpty && visitFilter === 'been' ? (
+            <p className="text-sm font-medium text-muted-foreground">{NO_BEEN_PLACES_LINE}</p>
+          ) : (
+            !libraryIsEmpty &&
+            heading.note !== null && (
+              <p className="text-sm font-medium text-muted-foreground">{heading.note}</p>
+            )
           )}
 
           {libraryIsEmpty ? (
@@ -665,24 +665,35 @@ function PlaceList({
  * include — the same disagreement `categoryFacets` records against scoping its own counts to the
  * active area.
  *
- * Empty while a tag is filtering, which is what makes every count it does return true: this list
- * is already narrowed by that tag, so any other tag's number here would be its co-occurrence with
- * the active one rather than its own. `ActiveTagFilter` is the control on screen in that state.
- * **This is the half that wants the page's un-narrowed set** — the seam `categoryFacets` already
- * has at `map-page-client.tsx`'s `facets` — and until that is threaded through, stepping aside is
- * the honest arrangement rather than the complete one.
+ * **Every tag, with no cap and no floor, and the counts are co-occurrence counts on purpose.**
+ * This used to return `[]` the moment a tag was filtering, because the list it counts over is
+ * already narrowed by that tag and every other tag's number would then be its co-occurrence with
+ * the active one rather than its own. With a *single* tag chip row that was the honest arrangement.
+ * With a **multi-select** list it is exactly the number the user needs: `Wine 3` beside a selected
+ * `Brunch` says "three of your brunch places are also wine", which is precisely what ticking it
+ * produces. So the list stays on screen and the counts stay true — of the set in front of you.
+ *
+ * The cap and the floor are both opted out of (`Number.POSITIVE_INFINITY`, `1`). A capped
+ * *searchable* list would hide tags the user can no longer reach by searching for them, which is
+ * the one thing the list exists to allow; and a singleton tag in a searchable list is findable
+ * rather than noisy. `MAX_TAG_FACETS` and `MIN_TAG_FACET_COUNT` survive for any caller that is
+ * still a row.
  */
 export function useLibraryTagFacets(
   places: readonly MapPlace[],
   otherPlaces: readonly MapPlace[],
-  activeTag: string | null,
+  activeTags: readonly string[],
 ): readonly TagFacet[] {
   return useMemo(
     () =>
-      activeTag !== null
-        ? []
-        : tagFacets([...places, ...otherPlaces], (place) => enrichmentOf(place.detail).tags),
-    [places, otherPlaces, activeTag],
+      tagFacets(
+        [...places, ...otherPlaces],
+        (place) => enrichmentOf(place.detail).tags,
+        activeTags,
+        Number.POSITIVE_INFINITY,
+        1,
+      ),
+    [places, otherPlaces, activeTags],
   );
 }
 
@@ -710,53 +721,81 @@ export function useLibraryTagFacets(
  * one; without it the row renders exactly as it did before, as a non-interactive `<li>`.
  */
 /**
- * **The sort control** — `W5-2`. Three orders, two of which always exist.
+ * **The sort control** — `W5-2`, rebuilt twice on 2026-09-02 and the second time for a reason worth
+ * writing down.
  *
- * A row of `aria-pressed` chips rather than a `<select>`, because that is the vocabulary this list
- * already speaks: the category bar and the visit chip above it are the same shape asking the same
- * kind of question, and a native picker here would be the only dropdown in the product. The state
- * lives on `aria-pressed`, so it is announced and styled from one fact — the rule
- * `category-filter-bar.tsx` already follows.
+ * It began as a row of `CHIP_PRESSABLE` chips at `min-h-11`, byte-identical to the category chips —
+ * and **one of them was always pressed**, because a sort always has a current value. So the header
+ * showed two filled pills meaning two unrelated things, while a pressed chip in this product means
+ * *this is narrowing your library*. It then became a native `<select>`, which fixed the shape and
+ * introduced three new defects the owner caught immediately: `appearance-none` does not stop a
+ * native select taking the platform's own focus chrome, it opens the **operating system's** menu
+ * rather than the app's, and — the regression — `h-8` on the select itself made it the smallest
+ * touch target in the product, 32 px flat, while every control beside it painted 32 inside a 44 px
+ * band.
  *
- * **`Nearest` is absent, not disabled, without a fix.** `availableOrders` decides; the reasoning is
- * there, and it is the same rule `near-me.ts` follows when it hides a distance it cannot stand
- * behind. A greyed-out `Nearest` invites the question the screen has no answer to.
+ * So it is now the **same component as the filter triggers** (`Dropdown`, `tone="sort"`): one
+ * `<button>` opening the app's own menu, the same 32-in-44 target, the same pill radius, the same
+ * surface hover — never a text-colour flick, which is what made the old one read as broken. The two
+ * meanings are told apart by the label and the fill, not by the mechanism: `Sort:` is printed on
+ * screen, and the trigger is a ghost where a filter trigger is a bordered pill.
  *
- * Every string is `overnight-copy-deck.md` §4.2 — `Sort`, `Recently saved`, `Nearest`, `A–Z`, the
- * last with an en dash. None is written here.
+ * **The axis word is visible at rest**, which it never was before today. Two bare values named
+ * nothing, and `A–Z` reads as a filter for names beginning with A as easily as it reads as an
+ * ordering.
+ *
+ * **Gated on the list being long enough to need it.** Sorting five rows you can see at once is a
+ * control that costs a permanent 44 px to answer a question nobody has.
+ *
+ * **`Nearest` is absent, not disabled, without a fix.** `availableOrders` decides; a greyed-out
+ * `Nearest` invites the question the screen has no answer to. Every string is
+ * `overnight-copy-deck.md` §4.2 and none is written here.
  */
 export function SortControl({
   order,
   orders,
   onChange,
+  listLength,
 }: {
   order: PlaceOrder;
   orders: readonly PlaceOrder[];
   onChange: (order: PlaceOrder) => void;
+  /** How many rows the list is actually rendering. Below `SORT_MIN_PLACES` the control is absent:
+   *  a list you can read in one screen is already in an order you can see. */
+  listLength: number;
 }) {
-  // One option is not a choice. A library with no fix and a control offering only `Recently saved`
-  // and `A-Z` still has two, so this only fires if the list of orders is ever narrowed further.
+  // One option is not a choice. A library with no fix still has two, so this only fires if the
+  // list of orders is ever narrowed further.
   if (orders.length < 2) return null;
+  if (listLength < SORT_MIN_PLACES) return null;
+
+  const current = orders.includes(order) ? order : (orders[0] as PlaceOrder);
+
   return (
-    <div
-      role="group"
-      aria-label={SORT_LABEL}
-      className="flex items-center gap-1.5 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+    <MenuAxis
+      tone="sort"
+      axis={SORT_LABEL}
+      accessibleAxis={SORT_BY_LABEL}
+      value={SORT_OPTION_LABEL[current]}
     >
-      {orders.map((candidate) => (
-        <button
-          key={candidate}
-          type="button"
-          aria-pressed={candidate === order}
-          onClick={() => onChange(candidate)}
-          className={cn(CHIP_PRESSABLE, 'min-h-11 shrink-0')}
-        >
-          {SORT_OPTION_LABEL[candidate]}
-        </button>
-      ))}
-    </div>
+      <Menu.RadioGroup value={current} onValueChange={(next) => onChange(next as PlaceOrder)}>
+        {orders.map((candidate) => (
+          <MenuRadioRow
+            key={candidate}
+            value={candidate}
+            label={SORT_OPTION_LABEL[candidate]}
+            selected={candidate === current}
+          />
+        ))}
+      </Menu.RadioGroup>
+    </MenuAxis>
   );
 }
+
+/** How long the list has to be before an order control earns its 44 px. Five rows fit on a phone
+ *  at `full`; eight is the first length where the thing you are looking for is plausibly below the
+ *  fold, which is the only state where re-ordering is faster than reading. */
+export const SORT_MIN_PLACES = 8;
 
 export function PlaceRow({
   place,
@@ -1502,52 +1541,6 @@ export function PlaceSearchField({
   );
 }
 
-/**
- * **`12 of 32`, beside the search field — the same fact the live region already says, for the
- * people who cannot hear it.**
- *
- * The sheet has announced how much of the library is in play since `filterSentence` shipped, and it
- * announced it *only* to a screen reader (`map-shell.tsx`'s one live region). A sighted user typing
- * into the field watched rows disappear with no number anywhere on screen.
- *
- * `overnight-copy-deck.md` §4.3 (C135) rules the string and three conditions, and each one is a
- * line below:
- *
- *  1. **It renders only while something is narrowing.** `32 of 32` says nothing and competes with
- *     the heading, which already carries a count. It appears at the moment the number means
- *     something, which is also what makes it self-explanatory.
- *  2. **The denominator is the post-clear count of the same list**, which this component cannot
- *     derive — see `unfilteredCount`. No denominator, no count: a number that guessed would be a
- *     confident wrong answer beside a control the user is actively driving.
- *  3. **`aria-hidden`.** The sheet has exactly one live region and `filterSentence` already feeds
- *     it the same fact as a sentence. Two announcements of one change is a defect, not redundancy.
- *
- * `N of M` is this product's existing way of saying how much of a set is in play —
- * `import-page-client.tsx` renders `{selectedCount} of {saveableIndices.length} selected` — so this
- * introduces a number, not a form. `0 of 32` needs no special string: the heading beside it already
- * reads `Nothing matches "momos"` and offers `Clear search`.
- */
-export function ResultCount({
-  shown,
-  of,
-  narrowing,
-}: {
-  /** What the list is rendering: the scope's places plus the ones under `Everywhere else`, which
-   *  together are every match in the library. */
-  shown: number;
-  /** The same list with nothing narrowing it. Absent renders nothing at all. */
-  of?: number;
-  narrowing: boolean;
-}) {
-  if (!narrowing || of === undefined) return null;
-
-  return (
-    <p aria-hidden className="text-micro font-medium tabular-nums text-muted-foreground">
-      {shown} of {of}
-    </p>
-  );
-}
-
 /** The one control that undoes a search matching nothing anywhere. A tag filter is undone by its
  *  own pill above the list, so it gets no second control here. */
 export function ClearSearchEscape({ onClearSearch }: { onClearSearch: () => void }) {
@@ -1652,9 +1645,14 @@ export function EverywhereElse({
  */
 export const PLAY_SOURCE_LABEL = 'Play this TikTok video';
 
-/** `C131`. The control's accessible name — it labels a group of chips, which have no visible
- *  heading of their own because a word above three short chips costs more room than it earns. */
+/** `C131`. **The visible axis word**, printed before the current value: `Sort: Recently saved`.
+ *  It used to be an `aria-label` on a group of chips and nothing else — so the word existed only
+ *  in the accessibility tree, and on screen the control was two unexplained values. */
 export const SORT_LABEL = 'Sort';
+
+/** The control's accessible name, and the visible `Sort` is contained in it — the axis stated as a
+ *  verb phrase, because "Sort" alone read out before a value announces as a command. */
+export const SORT_BY_LABEL = 'Sort by';
 
 /** `C132`–`C134`, `overnight-copy-deck.md` §4.2. `A–Z` takes an **en dash**, matching the
  *  product's typography elsewhere; it is not a hyphen and must not be normalised into one. */
@@ -2020,7 +2018,7 @@ export function PlaceDetail({
         // where before it was 5–85 px below it.
         //
         // `scroll-fade-b` is the sign that there is more, and it is the repo's own utility rather
-        // than a gradient invented here (`category-filter-bar.tsx` uses `scroll-fade-x` for the
+        // than a gradient invented here (`library-filter-bar.tsx` uses `scroll-fade-x` for the
         // same job on the phone). Bottom-only and scroll-driven: measured, `--scroll-fade-b` is
         // `24px` at `scrollTop 0` and **`0px`** at the end, so it never dims a last line the user
         // has already reached, and it never appears on a card that does not scroll. Bottom-only

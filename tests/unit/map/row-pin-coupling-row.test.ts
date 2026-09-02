@@ -171,7 +171,12 @@ describe('the hover crosses to the canvas', () => {
     const PANEL = readFileSync('src/components/sheet/place-desktop-panel.tsx', 'utf8');
     const SHEET_SRC = readFileSync('src/components/sheet/place-sheet.tsx', 'utf8');
     expect(SHEET_SRC).toContain('export function SortControl(');
-    expect(PANEL).toContain('<SortControl order={sortOrder} orders={sortOrders} onChange={onChangeSort} />');
+    // Both hosts now hand it to `LibraryFilterBar`'s `trailing` slot rather than drawing it on a
+    // line of its own — the collapse of 2026-09-02 — so parity is asserted on the props it is
+    // given rather than on a one-line element.
+    expect(PANEL).toContain('<SortControl');
+    expect(PANEL).toContain('listLength={places.length + otherPlaces.length}');
+    expect(SHEET_SRC).toContain('listLength={places.length + otherPlaces.length}');
     expect(PAGE.match(/onChangeSort=\{chooseOrder\}/g) ?? []).toHaveLength(2);
   });
 

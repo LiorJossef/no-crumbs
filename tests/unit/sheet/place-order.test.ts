@@ -189,8 +189,95 @@ describe('the choice survives a reload', () => {
   it('uses the copy deck strings, en dash included', () => {
     const SHEET = readFileSync('src/components/sheet/place-sheet.tsx', 'utf8');
     expect(SHEET).toContain("export const SORT_LABEL = 'Sort';");
+    expect(SHEET).toContain("export const SORT_BY_LABEL = 'Sort by';");
     expect(SHEET).toContain("recent: 'Recently saved',");
     expect(SHEET).toContain("nearest: 'Nearest',");
     expect(SHEET).toContain("alpha: 'A\\u2013Z',");
+  });
+});
+
+/**
+ * **The control says what it is, and it does not look like a filter** — owner feedback of
+ * 2026-09-02: *"the look of sorting doesnt look good, it doesnt even tells you its a sort by"*,
+ * and `ux-overwhelm-audit-2026-09-02.md` §6.
+ *
+ * Two defects in one control. It was two `CHIP_PRESSABLE` chips at `min-h-11`, byte-identical to
+ * the category chips beside them, **one of which is always pressed** — because a sort always has a
+ * current value. So the header showed two filled pills meaning two unrelated things, while a
+ * pressed chip in this product means *this is narrowing your library*. And nothing on screen said
+ * the word "sort" at all: the axis lived only in an `aria-label`.
+ *
+ * Asserted as source text because `place-sheet.tsx` cannot be imported from a unit test at all —
+ * it throws *"This module cannot be imported from a Client Component module"* — which is the same
+ * reason `place-order.ts` exists as a separate file.
+ */
+describe('the sort control is not a filter chip', () => {
+  const SHEET = readFileSync('src/components/sheet/place-sheet.tsx', 'utf8');
+  const CONTROL = SHEET.slice(
+    SHEET.indexOf('export function SortControl('),
+    SHEET.indexOf('export const SORT_MIN_PLACES'),
+  );
+
+  it('prints the axis word on screen, before the current value', () => {
+    // `Sort: Recently saved`. The word lived only in an `aria-label` until 2026-09-02, so on
+    // screen the control was two unexplained values — and `A–Z` reads as a filter for names
+    // beginning with A as easily as it reads as an ordering.
+    expect(CONTROL).toContain('axis={SORT_LABEL}');
+    const BAR = readFileSync('src/components/sheet/library-filter-bar.tsx', 'utf8');
+    expect(BAR).toContain('{axis}:');
+  });
+
+  it('is named `Sort by` for a screen reader, which contains the visible word', () => {
+    expect(CONTROL).toContain('accessibleAxis={SORT_BY_LABEL}');
+  });
+
+  it('is the same component as the filter triggers, told apart by label and fill', () => {
+    // Consistency of mechanism, difference of label: one `Dropdown` family, so the sort control
+    // cannot drift away from the 32-in-44 target, the pill radius or the surface hover. `tone`
+    // is the only difference, and it swaps a bordered pill for a ghost.
+    expect(CONTROL).toContain('<Dropdown');
+    expect(CONTROL).toContain('tone="sort"');
+  });
+
+  it('is not a native <select>, and this is the defect that made it look broken', () => {
+    // `appearance-none` does not stop a native select taking the platform's own focus chrome, and
+    // on macOS and iOS it opens the *operating system's* menu rather than the app's — so it could
+    // never match the control 8 px to its left, however it was restyled.
+    expect(CONTROL).not.toContain('<select');
+    expect(CONTROL).not.toContain('appearance-none');
+  });
+
+  it('borrows none of the chip vocabulary', () => {
+    expect(CONTROL).not.toContain('CHIP_PRESSABLE');
+    expect(CONTROL).not.toContain('aria-pressed');
+  });
+
+  it('hovers on a surface, never on the text colour', () => {
+    // `hover:text-brand` is a *link* hover on something that is not a link: the label flicked to
+    // mint and nothing else moved, which is why it read as broken rather than as pressable.
+    const BAR = readFileSync('src/components/sheet/library-filter-bar.tsx', 'utf8');
+    expect(BAR).toContain('group-hover/trigger:bg-muted');
+    expect(SHEET).not.toContain('hover:text-brand');
+  });
+
+  it('keeps the 32-in-44 target, which it lost as a select and must not lose again', () => {
+    // The regression: `h-8` on the select itself made it 32 px flat — the smallest touch target in
+    // the product — while every control beside it painted 32 inside a 44 px band. Measured with
+    // `elementFromPoint` at the top edge, the middle and the bottom edge of all four triggers.
+    const BAR = readFileSync('src/components/sheet/library-filter-bar.tsx', 'utf8');
+    expect(BAR).toContain('min-h-11');
+    expect(BAR).toContain('py-1.5');
+    expect(BAR).toMatch(/SORT_PAINT[\s\S]{0,200}h-8/);
+    expect(BAR).toMatch(/SORT_PAINT[\s\S]{0,200}rounded-full/);
+  });
+
+  it('offers its orders as menu rows rather than a second set of buttons', () => {
+    expect(CONTROL).toContain('<SortOptions');
+    expect(SHEET).toContain('type="radio"');
+  });
+
+  it('is absent from a list short enough to read at a glance', () => {
+    expect(SHEET).toContain('if (listLength < SORT_MIN_PLACES) return null;');
+    expect(SHEET).toContain('export const SORT_MIN_PLACES = 8;');
   });
 });

@@ -39,7 +39,7 @@
  *
  * The shell renders through a Radix portal, which produces **nothing at all** under
  * `react-dom/server`, and this repo's unit setup is `environment: 'node'` with no jsdom (see
- * `tests/unit/sheet/category-filter-bar.test.ts`'s header). Exporting the panes is what makes their
+ * `tests/unit/sheet/library-filter-bar.test.ts`'s header). Exporting the panes is what makes their
  * markup — labels, input attributes, which rows exist — assertable at any level at all.
  */
 
