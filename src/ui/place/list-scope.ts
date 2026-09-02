@@ -440,11 +440,20 @@ export function scopeLabel<T>(resolved: ResolvedScope<T>): string | null {
       // `3 Countries`. Both numbers were computed honestly from the same data and disagreed,
       // which is the defect round-3 feedback §3.1 reported from the other end.
       //
-      // So this counts what it names. A library with two or more real countries says how many;
-      // one real country beside a countryless bucket falls through to `your library`, because the
-      // single-country shortcut above is only sound when the label speaks for everything under it
-      // and here it plainly does not — and `1 countries` is not the repair.
+      // **Not counting it was only half the repair, and the other half is this** (2026-09-02).
+      // `3 countries` stopped counting the bucket and went on being read against a map drawing
+      // four capsules and a `/profile` listing four rows, so the header still said a number the
+      // screen contradicted — and it did it over `58 places`, which is *all* of them, including
+      // the one place no country on that list contains. The sentence claims every place is in one
+      // of N countries. With a countryless bucket on screen that claim is false however N is
+      // computed, so the count is the wrong shape of answer rather than a wrong number.
+      //
+      // So the shortcut needs the same precondition it already needed one line above: the label
+      // has to speak for everything under it. It does when every group is a named country, and it
+      // does not the moment one is not. `your library` is the honest global scope in that case —
+      // vaguer, true of all 58, and it un-vagues itself the instant the country is resolved.
       const named = countries.filter((country) => country.countryCode !== null);
+      if (named.length !== countries.length) return 'your library';
       return named.length >= 2 ? `${named.length} countries` : 'your library';
     }
   }

@@ -614,18 +614,21 @@ describe('scopeLabel', () => {
     );
   });
 
-  it('counts the countries under a global scope', () => {
-    // Two, not three. This fixture is Israel, the United Kingdom and `orphanPlaces` — two places
-    // with no country at all. The third "country" was the countryless bucket being counted as one;
-    // see the test below it for what that cost on screen.
-    expect(labelOf(GLOBAL_SCOPE)).toBe('2 countries');
+  it('counts the countries under a global scope when every group is one', () => {
+    const allNamed = areasOf([...londonPlaces, ...telAvivPlaces]);
+    expect(labelOf(GLOBAL_SCOPE, allNamed, countriesOf(allNamed))).toBe('2 countries');
   });
 
-  it('counts countries, not buckets, so the header cannot outrun the profile', () => {
-    // The map header said `58 places in 4 countries` over Israel, the United Kingdom, Czechia and
-    // one countryless row, while `/profile` said `3 Countries`. Both numbers were honest and they
-    // disagreed, which is round-3 feedback §3.1 seen from the other end. `Another area` is a
-    // bucket; it is not a country and is no longer counted as one.
+  it('gives up the count entirely once one group is not a country', () => {
+    // **Changed 2026-09-02, and it reverses the second half of the same day's fix.** That fix
+    // stopped the countryless bucket being *counted* — `2 countries`, not `3` — and an audit of
+    // the running product then found the sentence still contradicting the screen: `58 places in
+    // 3 countries` over a map drawing four capsules and a `/profile` listing four rows. Not
+    // counting the bucket was necessary and was not sufficient, because the sentence is about all
+    // 58 places and one of them is in none of the countries it names. No value of N makes it true.
+    //
+    // The fixture is the owner's library in miniature: two real countries and one place whose
+    // country the resolver never established.
     const mixed = areasOf([
       ...londonPlaces,
       ...telAvivPlaces,
@@ -633,7 +636,18 @@ describe('scopeLabel', () => {
     ]);
     const buckets = countriesOf(mixed);
     expect(buckets).toHaveLength(3);
-    expect(labelOf(GLOBAL_SCOPE, mixed, buckets)).toBe('2 countries');
+    expect(labelOf(GLOBAL_SCOPE, mixed, buckets)).toBe('your library');
+  });
+
+  it('says the number again as soon as every place has a country', () => {
+    // The fallback is a response to a data gap, not a permanent retreat: `A-T2`'s backfill closes
+    // it, and this asserts that the header comes back on its own rather than needing a second fix.
+    const resolved = areasOf([
+      ...londonPlaces,
+      ...telAvivPlaces,
+      ...city('kwn', 1, { lat: 22.31, lng: 114.17 }, 'Kowloon', 'HK'),
+    ]);
+    expect(labelOf(GLOBAL_SCOPE, resolved, countriesOf(resolved))).toBe('3 countries');
   });
 
   it('falls back to `your library` for one country beside a countryless bucket', () => {
@@ -693,8 +707,9 @@ describe('scopeHeading', () => {
 
   it('is `areaHeading` with a different `where`, not a second copy table', () => {
     expect(headingFor(scopeForCountryTap('GB'), 18).text).toBe('18 places in the United Kingdom');
-    // `2 countries` since 2026-09-02: the library's two orphan places are a bucket, not a country.
-    expect(headingFor(GLOBAL_SCOPE, library.length).text).toBe('29 places in 2 countries');
+    // `your library`, not `2 countries`: this fixture holds two orphan places, so a country count
+    // would be a sentence about 29 places that is only true of 27. See `scopeLabel`.
+    expect(headingFor(GLOBAL_SCOPE, library.length).text).toBe('29 places in your library');
     expect(headingFor(scopeForAreaTap(london.id), 12).text).toBe('12 places in London');
   });
 
