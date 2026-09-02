@@ -79,6 +79,23 @@ Everything else — two or more candidates, `ambiguous`, `unresolved`, `failed`,
 exactly as it does today. **The collapse never applies to a candidate whose pin came from the
 caption**, so it can never be the thing that hides a guess.
 
+**Amended 2026-09-02 — nor to a result already saved from this same link.** The collapsed branch
+renders **no checkbox at all** (measured: zero elements with `role="checkbox"`). That was correct
+while the collapsed state was always a place you were about to add — there is one thing on screen
+and the primary button acts on it, so a tick would be furniture.
+
+It stopped being correct when a re-import learned to say *"It's not selected below. Select it to add
+it again."* On a single-candidate re-paste, that sentence sat above a layout with nothing to select:
+the screen named a control it had removed. Found by putting it on a phone, not by a test.
+
+So a single result that is **already added from this video** does not collapse. The alternative was
+to make the sentence true by withdrawing the offer, which fixes the wording by taking away the
+user's ability to add the place deliberately — the wrong half to give up. The condition is keyed on
+the already-added count and never on selection, so the layout cannot change under the user's thumb
+as they tick.
+
+This narrows the rule in one state; the measured `preselect` boundary above is untouched.
+
 ### What the user sees
 
 ```
