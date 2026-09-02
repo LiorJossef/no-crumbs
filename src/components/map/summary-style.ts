@@ -24,7 +24,14 @@
  * lets `תל אביב-יפו` shape through the RTL plugin.
  */
 
-import { SUMMARY_PILL, summaryPillWidth, type DiscTokens } from './country-flag-image';
+import {
+  SUMMARY_PILL,
+  summaryPillFitAllowance,
+  summaryPillWidth,
+  type DiscTokens,
+  type SummaryPillLabel,
+} from './country-flag-image';
+import { MAX_MARKER_ALLOWANCE_SHARE } from './query-rect';
 import { AREA_BAND_MAX, AREA_BAND_MIN, COUNTRY_BAND_MAX } from './zoom-bands';
 
 /** The label's size, shared by both bands so one number is not two. */
@@ -153,6 +160,65 @@ function labelAndCount(): unknown[] {
   return ['concat', ['get', 'label'], LABEL_COUNT_GAP, ['to-string', ['get', 'count']]];
 }
 
+/** The count alone, still one text section for the same bidi reason. */
+function countAlone(): unknown[] {
+  return ['to-string', ['get', 'count']];
+}
+
+/**
+ * **The country band's text field, per pill**: the name and the count where the container can
+ * afford the name, the count alone where it cannot — and *only* on a pill that carries a flag.
+ *
+ * The flag is the country's name in image form. §2.1 and §2.2 of `ux-library-at-scale.md` specify
+ * the country marker as exactly that — "flag + saved-place count", `\u{1F1EF}\u{1F1F5} 24` — and
+ * the written name beside it is a later addition, made on a desktop, that a phone cannot pay for.
+ * `United Kingdom  18` draws 206.6 CSS px; a 390 px viewport frames its anchors 48 px from the
+ * edge, so 36.9 px of that pill was off the left edge of the map on arrival. The same pill without
+ * its name is 88.7 px, which is whole with 3.6 px to spare.
+ *
+ * **The unflagged bucket keeps its label**, because it has no flag to carry the name and §2.5 says
+ * so in as many words: an area whose members have no country renders at country zoom as "an
+ * unflagged marker with its own area name". A pill reading `1` is not a summary of anything. That
+ * bucket is therefore still wider than a phone edge affords — see the report for `W2-D`; nothing
+ * here narrows it, and inventing a truncation of a proper noun is not a decision this file gets to
+ * make.
+ */
+function countryTextField(labelled: boolean): unknown[] {
+  if (labelled) return labelAndCount();
+  return [
+    'case',
+    ['==', ['get', 'countryCode'], ''],
+    labelAndCount(),
+    countAlone(),
+  ];
+}
+
+/**
+ * **Whether the country band can afford to print country names in a container this wide.**
+ *
+ * The same test the camera applies to the same pill, deliberately: `affordableMarkerAllowance`
+ * refuses to pad a `fitBounds` for a marker costing more than `MAX_MARKER_ALLOWANCE_SHARE` of an
+ * axis, and this refuses to *draw* one. So the two flip together — **when the camera stops paying
+ * for the pill, the pill stops charging** — and a pill can never be both unpadded and too wide to
+ * survive the padding that is left. Before `fa96c1a` the camera paid whatever was asked and the map
+ * opened on a globe; after it the camera paid nothing and the pill hung off both edges. This is the
+ * third state, and it is the one where the numbers agree.
+ *
+ * Measured over the **capped** pills only, which are the ones this can shrink. The unflagged
+ * bucket's width is not this predicate's business: nothing here can make it narrower, so letting it
+ * force every flagged pill to drop its name would spend the names and buy nothing.
+ */
+export function countryPillsAffordLabels(
+  labels: readonly SummaryPillLabel[],
+  containerWidth: number,
+): boolean {
+  const capped = labels.filter((label) => label.capped);
+  if (capped.length === 0) return true;
+  if (!Number.isFinite(containerWidth) || containerWidth <= 0) return true;
+  const widest = 2 * summaryPillFitAllowance(capped).x;
+  return widest <= containerWidth * MAX_MARKER_ALLOWANCE_SHARE;
+}
+
 /**
  * The country band: `z < COUNTRY_BAND_MAX`.
  *
@@ -166,12 +232,15 @@ function labelAndCount(): unknown[] {
  * to recognise one of 250 — and where the platform ships no flag glyph the cap draws a two-letter
  * code, which asks something harder.
  */
-export function countryLayerLayout(textFont: readonly string[]): Record<string, unknown> {
+export function countryLayerLayout(
+  textFont: readonly string[],
+  labelled = true,
+): Record<string, unknown> {
   return {
     ...pillLayout(textFont),
     // Per-feature, because the flag, the theme and the mint ring are all baked into the image.
     'icon-image': ['get', 'icon'],
-    'text-field': labelAndCount(),
+    'text-field': countryTextField(labelled),
     // Per-feature too, and for the same reason: only a *capped* pill is off-centre. The countryless
     // bucket carries `countryCode: ''` and draws the capless pill, which is already symmetric — see
     // `CAPPED_PILL_CENTRING_EM`.

@@ -54,9 +54,11 @@ import {
   COUNTRY_BAND_ZOOM,
   COUNTRY_LAYER_ID,
   countryLayerLayout,
+  countryPillsAffordLabels,
   summaryLayerPaint,
 } from './summary-style';
 import type { AreaFeatureCollection, CountryFeatureCollection } from './summary-features';
+import type { SummaryPillLabel } from './country-flag-image';
 import { useStyleReady } from './use-style-ready';
 
 interface SummaryMarkerLayerProps {
@@ -236,6 +238,50 @@ export function SummaryMarkerLayer({
     (map.getSource(countrySourceId) as GeoJSONSource | undefined)?.setData(countries);
     (map.getSource(areaSourceId) as GeoJSONSource | undefined)?.setData(bandAreas);
   }, [map, styleReady, discs, theme, countries, bandAreas, countrySourceId, areaSourceId]);
+
+  /**
+   * The pills the country band is about to draw, as widths — the same string the symbol layer
+   * shapes, taken from the features rather than from a constant.
+   */
+  const countryPillLabels: SummaryPillLabel[] = useMemo(
+    () =>
+      countries.features.map((feature) => ({
+        text: `${feature.properties.label}  ${feature.properties.count}`,
+        capped: feature.properties.countryCode !== '',
+      })),
+    [countries],
+  );
+
+  /**
+   * **A narrow container drops the country names**, leaving the flag and the count
+   * (`countryPillsAffordLabels`).
+   *
+   * A `setLayoutProperty` rather than a dependency of the layer effect above, deliberately: a
+   * rebuild would drop the source with it, and the source is written by a *different* effect keyed
+   * on `countries` — so a rebuild triggered by a resize would empty the band until the next data
+   * change. One layout property is also what actually differs.
+   *
+   * `resize` and not a `ResizeObserver`: MapLibre already fires it for every container size change
+   * it acts on, including the orientation flip that is the only way a phone crosses this threshold.
+   */
+  useEffect(() => {
+    if (!map || !styleReady) return;
+    const apply = () => {
+      if (!map.getLayer(countryLayerId)) return;
+      const width = map.getContainer().clientWidth;
+      const labelled = countryPillsAffordLabels(countryPillLabels, width);
+      map.setLayoutProperty(
+        countryLayerId,
+        'text-field',
+        countryLayerLayout(styleTextFont(map), labelled)['text-field'] as never,
+      );
+    };
+    apply();
+    map.on('resize', apply);
+    return () => {
+      map.off('resize', apply);
+    };
+  }, [map, styleReady, countryLayerId, countryPillLabels]);
 
   return null;
 }

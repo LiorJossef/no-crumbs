@@ -37,8 +37,12 @@ import { AREA_BAND_MAX, AREA_BAND_MIN, COUNTRY_BAND_MAX } from '@/components/map
 import {
   countryDiscImageId,
   resolveDiscTokens,
+  summaryPillFitAllowance,
   summaryPillWidth,
+  type SummaryPillLabel,
 } from '@/components/map/country-flag-image';
+import { countryPillsAffordLabels } from '@/components/map/summary-style';
+import { MAX_MARKER_ALLOWANCE_SHARE } from '@/components/map/query-rect';
 
 const COMPONENT_SOURCE = readFileSync('src/components/map/summary-marker-layer.tsx', 'utf8');
 const STYLE_SOURCE = readFileSync('src/components/map/summary-style.ts', 'utf8');
@@ -263,5 +267,85 @@ describe('a capped pill is centred on its own coordinate', () => {
 describe('tap targets', () => {
   it('clears §6’s 44 px floor on the pill alone', () => {
     expect(SUMMARY_TAP_TARGET_PX).toBeGreaterThanOrEqual(44);
+  });
+});
+
+/**
+ * `W2-D` — a phone cannot draw a country's name, and the flag is what it draws instead.
+ *
+ * Measured on the owner's 58-place library at 390x844, arrival, against `fa96c1a`'s framing:
+ * `United Kingdom  18` drew 206.6 CSS px against anchors the camera frames 48 px from the edge, so
+ * 36.9 px of it was off the left edge; `Israel  35` (134.2 px) ran 19.6 px off the right. The
+ * numbers here are the *fallback* estimator's, not the browser canvas's — these run in Node — so
+ * they are deliberately wider than what shipped. The assertions are about the ordering and the
+ * threshold, never about a specific pixel count.
+ */
+describe('the country band spends what the container can afford', () => {
+  const library: SummaryPillLabel[] = [
+    { text: 'United Kingdom  18', capped: true },
+    { text: 'Czechia  4', capped: true },
+    { text: 'Israel  35', capped: true },
+    { text: 'Another area  1', capped: false },
+  ];
+
+  it('keeps the names on a desktop container and drops them on a phone', () => {
+    expect(countryPillsAffordLabels(library, 1440)).toBe(true);
+    expect(countryPillsAffordLabels(library, 390)).toBe(false);
+  });
+
+  it('flips at exactly the share the camera refuses to pad at', () => {
+    // The point of the predicate: the pill stops charging at the same width the camera stops
+    // paying (`affordableMarkerAllowance`). One number, two consumers, so a pill can never be both
+    // unpadded and too wide to survive the padding that is left.
+    const widest = 2 * summaryPillFitAllowance(library.filter((l) => l.capped)).x;
+    const boundary = widest / MAX_MARKER_ALLOWANCE_SHARE;
+    expect(countryPillsAffordLabels(library, boundary)).toBe(true);
+    expect(countryPillsAffordLabels(library, boundary - 1)).toBe(false);
+  });
+
+  it('ignores the unflagged bucket, which it cannot narrow', () => {
+    // `Another area  1` is wider than a phone edge affords and has no flag to trade the name for.
+    // Letting it force every *flagged* pill to drop its name would spend the names and buy nothing.
+    const flagged: SummaryPillLabel[] = [{ text: 'Israel  35', capped: true }];
+    const withBucket = [...flagged, { text: 'Another area  1', capped: false }];
+    expect(countryPillsAffordLabels(withBucket, 600)).toBe(
+      countryPillsAffordLabels(flagged, 600),
+    );
+  });
+
+  it('affords everything when there is no flagged pill, and when the width is unknown', () => {
+    expect(countryPillsAffordLabels([{ text: 'Another area  1', capped: false }], 320)).toBe(true);
+    expect(countryPillsAffordLabels(library, 0)).toBe(true);
+    expect(countryPillsAffordLabels(library, Number.NaN)).toBe(true);
+  });
+
+  it('draws the count alone on a flagged pill, and the name on the unflagged bucket', () => {
+    // §2.1 and §2.2 specify the country marker as flag + count. The name beside it is the later
+    // addition; the flag carries it. §2.5 requires the bucket with no flag to keep its own name,
+    // and a pill reading `1` is not a summary of anything.
+    expect(countryLayerLayout(FONT, false)['text-field']).toEqual([
+      'case',
+      ['==', ['get', 'countryCode'], ''],
+      ['concat', ['get', 'label'], '  ', ['to-string', ['get', 'count']]],
+      ['to-string', ['get', 'count']],
+    ]);
+  });
+
+  it('leaves the area band labels alone at every width', () => {
+    // The area band's name is the only thing that makes it a *named* geography
+    // (`area-band-layout.ts`), and an area pill has no flag to trade it for.
+    expect(area()['text-field']).toEqual([
+      'concat',
+      ['get', 'label'],
+      '  ',
+      ['to-string', ['get', 'count']],
+    ]);
+  });
+
+  it('swaps the field on the live layer instead of rebuilding it', () => {
+    // A rebuild would drop the source with the layer, and the source is written by a different
+    // effect keyed on `countries` — so a resize would empty the band until the next data change.
+    expect(code(COMPONENT_SOURCE)).toContain("setLayoutProperty");
+    expect(code(COMPONENT_SOURCE)).toContain("map.on('resize'");
   });
 });
