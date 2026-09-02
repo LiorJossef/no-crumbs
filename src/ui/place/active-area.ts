@@ -51,9 +51,25 @@ import {
   type GeoCluster,
   type GeoPoint,
 } from '@/domain/places/clusters';
+import { areaCountry } from '@/domain/places/country-bucket';
+import { toCountryName } from '@/domain/places/country-code';
 import { boundsCentre, withinBounds, type ViewportBounds } from './viewport';
 
-/** What the header says instead of a city name when the places in an area do not agree on one. */
+/**
+ * What the header says instead of a city name when an area cannot be named at all — neither a
+ * locality its members agree on nor a country (`buildAreas`).
+ *
+ * **It stays deictic, and the two cases behind it stay collapsed here.** `clusterLabel` returns
+ * `null` for two different reasons — no locality anywhere in the cluster, and a genuine tie between
+ * spellings — and it was worth asking whether the header should tell them apart. It should not: the
+ * header names the area the user is *looking at*, `this area` is true in both cases, and the
+ * difference between "we hold no name" and "we hold two and cannot choose" is a fact about our data
+ * that the user cannot act on. Spending a word on it would be narrating the pipeline.
+ *
+ * What must **not** collapse onto it is anywhere there is no *this*: a row for a different area
+ * (`UNNAMED_OTHER_AREA_LABEL`) and a marker on the map, which is a specific pin rather than a
+ * sentence about the current scope.
+ */
 export const UNNAMED_AREA_LABEL = 'this area';
 
 /**
@@ -99,7 +115,8 @@ export const UNNAMED_OTHER_AREA_LABEL = 'Another area';
 export interface Area<T> {
   /** Stable key: the lexicographically smallest member id. Never used for lookup — see the header. */
   readonly id: string;
-  /** The city name, or `null` when the members do not agree on one. */
+  /** The city name; failing that the country's, where the caller supplied `toCountryCode` and the
+   *  members agree on one; `null` only when neither is available. See `AreaProjections`. */
   readonly label: string | null;
   /** The area's places, in the caller's input order (which is `created_at desc`, i.e. most recently
    *  saved first — the list's order, and it never changes on pan, zoom or resize). */
@@ -118,6 +135,34 @@ export interface AreaProjections<T> {
   readonly toId: (item: T) => string;
   readonly toPoint: (item: T) => GeoPoint;
   readonly toLocality: (item: T) => string | null;
+  /**
+   * The place's ISO-3166 alpha-2, where the caller holds one. **Optional, and only ever a
+   * fallback** — it never groups anything and never overrides a locality.
+   *
+   * It exists because `places.locality` arrives NULL from the resolver for whole address shapes
+   * (every Czech row in the local library: Google returns Prague's city in a sublocality
+   * component). Those areas had no name at all, and an area with no name degrades into a lie or a
+   * blank everywhere it is rendered — `4 places in this area` in the header, and a marker showing
+   * the count with nothing beside it. `Czechia` is coarser than a city and is not a guess: every
+   * place in the area carries that code.
+   */
+  readonly toCountryCode?: (item: T) => string | null | undefined;
+}
+
+/**
+ * The area's name when its members do not agree on a locality — the country they *do* agree on, or
+ * `null` when there is no such agreement either.
+ *
+ * `areaCountry`'s plurality rule, not a second one, so the name an area falls back to is the same
+ * country the world-zoom band and `/profile` already file it under. A tie or an absence stays
+ * `null`; the fallback narrows the "we cannot name this" case, it does not abolish it.
+ */
+function countryFallbackLabel<T>(
+  cluster: GeoCluster<T>,
+  toCountryCode: ((item: T) => string | null | undefined) | undefined,
+): string | null {
+  if (toCountryCode === undefined) return null;
+  return toCountryName(areaCountry(cluster, toCountryCode));
 }
 
 /**
@@ -134,20 +179,30 @@ export interface AreaProjections<T> {
  * `תל אביב - יפו` — 67%, under the old bar, so the 70% rule would render `9 places in this area`
  * and an `Another area · 9 places` row that names nowhere. All nine rows are the same city; calling
  * it `Tel Aviv-Yafo` asserts nothing the data disputes. `clusterLabel` still returns `null` on a
- * genuine tie between spellings, and `null` still prints as `this area`.
+ * genuine tie between spellings.
+ *
+ * **When it does, the country is tried before the label is given up on** (2026-09-02). Four of the
+ * owner's saved places sit in Prague with `places.locality` NULL, so the whole area was nameless:
+ * the header read `4 places in this area` and the map's area marker drew the count with an empty
+ * string beside it — a bare `4` floating on the map, which reads as a defect rather than as a
+ * hedge. `Czechia` is what every one of those four rows actually says. The fallback is the
+ * *presentation* of a data gap; it changes no grouping, and `A-T2`'s backfill will make it
+ * unreachable for these rows rather than obsolete for the next NULL.
  */
 export function buildAreas<T>(
   clusters: readonly GeoCluster<T>[],
   projections: AreaProjections<T>,
 ): readonly Area<T>[] {
-  const { toId, toPoint, toLocality } = projections;
+  const { toId, toPoint, toLocality, toCountryCode } = projections;
   return clusters.map((cluster) => {
     const ids = cluster.members.map(toId);
     let smallest = ids[0] ?? '';
     for (const id of ids) if (id < smallest) smallest = id;
     return {
       id: smallest,
-      label: clusterLabel(cluster, toLocality),
+      // Locality first, always. The country is only reached for when there is no locality to
+      // print — see `AreaProjections.toCountryCode`.
+      label: clusterLabel(cluster, toLocality) ?? countryFallbackLabel(cluster, toCountryCode),
       members: cluster.members,
       count: cluster.members.length,
       memberIds: new Set(ids),

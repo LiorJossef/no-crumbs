@@ -58,6 +58,8 @@ function city(
 
 const LONDON = { lat: 51.5119, lng: -0.1276 };
 const TEL_AVIV = { lat: 32.0704, lng: 34.7796 };
+/** The four local rows whose `locality` is NULL — see `buildAreas`' country fallback below. */
+const PRAGUE = { lat: 50.0755, lng: 14.4378 };
 
 const londonPlaces = city('ldn', 12, LONDON, ['London']);
 const telAvivPlaces = city('tlv', 9, TEL_AVIV, [
@@ -116,6 +118,54 @@ describe('buildAreas', () => {
   it('leaves the label null when the members name nowhere', () => {
     const areas = areasOf(city('x', 3, LONDON, [null]));
     expect(areas[0]?.label).toBeNull();
+  });
+
+  /**
+   * The Prague case, and it is a live row rather than a hypothetical: four of the owner's saved
+   * places carry `places.locality` NULL, because Google returns Prague's city name in a
+   * sublocality component the adapter did not read. The whole area was nameless, so the header
+   * read `4 places in this area` and the map drew a pill with a bare `4` on it.
+   */
+  describe('an area with no locality falls back to its country', () => {
+    const withCountry = (code: string | null) => ({
+      ...projections,
+      toCountryCode: () => code,
+    });
+
+    it('names it after the country its members agree on', () => {
+      const areas = buildAreas(
+        clusterByProximity(city('cz', 4, PRAGUE, [null]), projections.toPoint),
+        withCountry('CZ'),
+      );
+      expect(areas[0]?.label).toBe('Czechia');
+    });
+
+    it('still prefers the locality wherever there is one', () => {
+      const areas = buildAreas(
+        clusterByProximity(londonPlaces, projections.toPoint),
+        withCountry('GB'),
+      );
+      expect(areas[0]?.label).toBe('London');
+    });
+
+    it('stays null when there is no country either, rather than inventing a word', () => {
+      const areas = buildAreas(
+        clusterByProximity(city('x', 3, PRAGUE, [null]), projections.toPoint),
+        withCountry(null),
+      );
+      expect(areas[0]?.label).toBeNull();
+    });
+
+    it('changes no grouping — the fallback is a label and nothing else', () => {
+      const places = city('cz', 4, PRAGUE, [null]);
+      const clusters = clusterByProximity(places, projections.toPoint);
+      const plain = buildAreas(clusters, projections);
+      const named = buildAreas(clusters, withCountry('CZ'));
+      expect(named.map((area) => area.memberIds.size)).toEqual(
+        plain.map((area) => area.memberIds.size),
+      );
+      expect(named.map((area) => area.id)).toEqual(plain.map((area) => area.id));
+    });
   });
 
   it('gives an area a stable id that does not depend on input order', () => {
