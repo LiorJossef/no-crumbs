@@ -801,8 +801,11 @@ export function PlaceRow({
    * qualifier rather than a warning, and its meaning is carried by shape, never by colour alone.
    *
    * Its cost, stated: a glyph is not self-describing. What makes it decodable is one tap away —
-   * the detail view's `Approximate location — worked out from the video…` — plus the tooltip on a
-   * pointer device and `APPROXIMATE_ROW_ANNOTATION` in the row's accessible name.
+   * the detail view's `~ Approximate location` mark beside the address, which carries
+   * `Could be a street or two off.` on its own `title` — plus the tooltip on a pointer device here
+   * and `APPROXIMATE_ROW_ANNOTATION` in the row's accessible name. (This paragraph named the
+   * retired sentence `Approximate location — worked out from the video…` until 2026-09-02; B-T2
+   * replaced the wording on the detail view without updating the comment that pointed at it.)
    */
   const certainty = locationCertainty(place.detail?.provenance?.sourceDataset);
   const approximateLabel = certainty?.isApproximate === true ? certainty.label : null;
@@ -2144,38 +2147,7 @@ export function PlaceDetail({
             cannot be a child of a block that does not render. */}
         {!addressLine && approximateMark !== null && <p>{approximateMark}</p>}
 
-        {/* What the creator actually wrote, as a quotation rather than as a labelled field.
-            A rule and a pair of quote marks say "someone else's words" faster than the kicker
-            reading FROM THE POST did, and they leave the model's own sentence below free to be
-            plain text — which is the whole extracted-versus-inferred distinction, carried by shape
-            instead of by two competing labels.
-
-            `dir="auto"` because this is a verbatim caption substring: a Hebrew quote rendered
-            left-to-right puts its punctuation on the wrong end of the sentence.
-
-            `&ldquo;`/`&rdquo;`, not a plain `"`, and that choice is load-bearing, not decorative:
-            both are Unicode `Bidi_Mirrored` characters, so inside this `dir="auto"`-resolved RTL
-            run the browser swaps their *rendered shape* — the opening mark ends up looking like a
-            close-quote and vice versa — which is what lands the open mark on the visual right (the
-            RTL reading start) and the close mark on the visual left for a Hebrew quote. Nothing
-            here reasons about direction on purpose; it falls out of picking mirrored glyphs over
-            straight ones. Swap either entity for a plain `"` (not mirrored) and this silently goes
-            back to wrong with no visual signal in an LTR-only review (rtl audit,
-            `docs/rtl-audit-2026-08-31.md` finding 3). */}
-        {shownQuote !== null && (
-          <figure className="flex flex-col gap-1.5 border-l-2 border-brand-tint pl-3">
-            <blockquote dir="auto" className="text-sm leading-relaxed text-foreground">
-              &ldquo;{shownQuote}&rdquo;
-            </blockquote>
-            {authorLabel && (
-              <figcaption className="text-xs font-medium text-muted-foreground">
-                {authorLabel}
-              </figcaption>
-            )}
-          </figure>
-        )}
-
-        {/* **The card's primary actions, in one 44 px band directly under the quote.**
+        {/* **The card's primary actions, in one 44 px band, above the source quote.**
 
             This replaced two full-width blocks and a text-link pair spread over ~150 px and three
             positions on the card — `Been here` up here, `Open on TikTok` / `Google Maps` five
@@ -2183,6 +2155,30 @@ export function PlaceDetail({
             390x844 phone the things a person opens a saved place *to do* were all below the fold,
             and the card scrolled. Round 5 had accepted that and softened it with a scroll mask on
             the popover; this reverses that decision deliberately rather than by accident.
+
+            **Above the quote rather than below it, and that is a deviation from the suggestion in
+            the owner's §2.2, taken on purpose** (2026-09-02). The requirement in that item is that
+            primary actions are not buried; the suggested position was written while the complaint
+            was about full-width blocks, and the two came apart once the blocks became pills. The
+            quote costs 68 px plus a 20 px gap, and that is the single largest block still standing
+            between the identity and the actions. Measured on `The Laughing Yak` at 390x844: the
+            band's bottom edge moved from 933 to 846 against a scroll column ending at 846. At
+            1440x900 the popover's slack under the band went 39 px → 122 px, still one unwrapped
+            band at 288 px of column, and the quote stayed fully on screen below it.
+
+            **It does not reach zero-scroll at the sheet's `half` stop, and nothing available here
+            does.** `BottomNav` is `position: fixed`, `z-50`, and covers `y 776–844` at 390x844, so
+            the honest fold at `half` is 776 and not the column's own 846 — a 324 px budget, not
+            394. Across eight saved places the band clears 776 on one of them. Shrinking the still
+            to 112 px, the other lever on the table, buys 48 px against a 53–92 px deficit, so it
+            would spend a measured round-4 ruling and still not arrive. What is left deletes
+            something — the still, the tags, or the `half` stop itself — and each of those is a
+            product decision rather than a layout one.
+
+            The quote is deliberately not the thing that moved *down and out*: it is why the place
+            is in the library, it is still the first prose on the card, and it is fully visible at
+            every host except the one where nothing is. Controls before the reason is a real cost;
+            the reason being unreachable behind the controls was a bigger one.
 
             Three pills, `flex-wrap`, all at the 44 px touch floor via `DETAIL_ACTION_PILL` — one
             shape from one string in `saved-place-edits.tsx`, because the third of them is the
@@ -2275,6 +2271,37 @@ export function PlaceDetail({
                 full width — it is that card's single primary action, not one of three. */}
           {primaryAction && <div className="w-full">{primaryAction}</div>}
         </div>
+
+        {/* What the creator actually wrote, as a quotation rather than as a labelled field.
+            A rule and a pair of quote marks say "someone else's words" faster than the kicker
+            reading FROM THE POST did, and they leave the model's own sentence below free to be
+            plain text — which is the whole extracted-versus-inferred distinction, carried by shape
+            instead of by two competing labels.
+
+            `dir="auto"` because this is a verbatim caption substring: a Hebrew quote rendered
+            left-to-right puts its punctuation on the wrong end of the sentence.
+
+            `&ldquo;`/`&rdquo;`, not a plain `"`, and that choice is load-bearing, not decorative:
+            both are Unicode `Bidi_Mirrored` characters, so inside this `dir="auto"`-resolved RTL
+            run the browser swaps their *rendered shape* — the opening mark ends up looking like a
+            close-quote and vice versa — which is what lands the open mark on the visual right (the
+            RTL reading start) and the close mark on the visual left for a Hebrew quote. Nothing
+            here reasons about direction on purpose; it falls out of picking mirrored glyphs over
+            straight ones. Swap either entity for a plain `"` (not mirrored) and this silently goes
+            back to wrong with no visual signal in an LTR-only review (rtl audit,
+            `docs/rtl-audit-2026-08-31.md` finding 3). */}
+        {shownQuote !== null && (
+          <figure className="flex flex-col gap-1.5 border-l-2 border-brand-tint pl-3">
+            <blockquote dir="auto" className="text-sm leading-relaxed text-foreground">
+              &ldquo;{shownQuote}&rdquo;
+            </blockquote>
+            {authorLabel && (
+              <figcaption className="text-xs font-medium text-muted-foreground">
+                {authorLabel}
+              </figcaption>
+            )}
+          </figure>
+        )}
 
         {/* And *then*, quieter, the model's own sentence — never above the quote, never at the same
             weight, and only when it says something the quote and the tags do not.

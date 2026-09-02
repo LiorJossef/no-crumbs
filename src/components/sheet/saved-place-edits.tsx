@@ -84,6 +84,22 @@ import { PRESS_BUTTON, PRESS_CHIP, TINT_BEAT } from '@/lib/interaction';
 const COUNTER_VISIBLE_FROM = NOTE_MAX_LENGTH - 200;
 
 /**
+ * **The empty-note offer, and there is exactly one of it.**
+ *
+ * A dashed outline says *a field that is not filled in yet* the way a solid one cannot, and the
+ * `Plus` says the verb. It is a constant rather than a class list in two components because this
+ * product has two note fields on two surfaces — the private one on a saved place and the shared
+ * one on a collection item — and round 3's §1.6/§11.1 complaint is precisely that the same object
+ * looks like two objects. The collection surface used to answer an empty note with a kicker, a
+ * pencil link and a line of placeholder prose; it now wears this.
+ *
+ * The words are not part of the constant: `Add a note` and `Add a shared note` name genuinely
+ * different fields, and flattening that would be a lie rather than a unification.
+ */
+export const ADD_NOTE_PILL =
+  'flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full border border-dashed border-input px-3.5 text-sm font-bold text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50';
+
+/**
  * **The one shape the card's three primary actions share** — `Open on TikTok`, `Google Maps` and
  * `Been here` — exported because the first two are anchors in `place-sheet.tsx` and only the third
  * lives here. Two files drawing "the same pill" from two class strings is how the row comes to have
@@ -294,9 +310,9 @@ export function CategoryEditor({
   /** Whether this place came from a TikTok at all.
    *
    *  Only the sentence under the value depends on it, and only so that it stops being false: a
-   *  manually added place has no video behind it, and the line read `Bar · worked out from the video` on the
-   *  first one ever saved. Its category came from the map listing's own type, which is a different
-   *  claim and a better one. */
+   *  manually added place has no TikTok video behind it, and the line read `Bar · from the TikTok
+   *  video` on the first one ever saved. Its category came from the map listing's own type, which
+   *  is a different claim and a better one. */
   fromAPost: boolean;
 }) {
   const [editing, setEditing] = useState(false);
@@ -389,9 +405,29 @@ export function CategoryEditor({
           ) : (
             PRODUCT_CATEGORY_LABEL[category]
           )}
+          {/* **Where the category came from, said as a place rather than as a process.**
+
+              This read `Restaurant · worked out from the video` until 2026-09-02. *Worked out
+              from* is our machinery narrated at the user — the same voice B-T2 retired from the
+              location line, which used to read `Approximate location — Worked out from the video
+              rather than matched to a map listing…` and is now a mark beside the address. The two
+              lines were siblings and only one of them had been fixed.
+
+              `from the TikTok video` names an object the user already knows is there: the still at
+              the top of this card is a frame of it, and the pill above opens it. That makes it
+              symmetric with the other arm, `from the map listing`, which was already a thing
+              rather than a procedure — and the symmetry is the point, because the whole sentence
+              exists to say *you did not choose this, we did, and here is where we got it*.
+
+              No `title` here, unlike the location mark. That mark demoted a sentence carrying a
+              real consequence (the pin can be a street or two off); this one had nothing left to
+              demote once the process verb was gone, and a tooltip that repeats the visible words
+              is padding. `voice-and-vocabulary.md` §3.1 allows the bare `video` only as an anaphor,
+              so the adjective is written out: this card names TikTok nowhere else in words — its
+              link pill is icon-only. */}
           {category !== null && !isOverridden && (
             <span className="text-muted-foreground">
-              {fromAPost ? ' · worked out from the video' : ' · from the map listing'}
+              {fromAPost ? ' · from the TikTok video' : ' · from the map listing'}
             </span>
           )}
         </p>
@@ -464,7 +500,7 @@ export function NoteEditor({
           onClick={open}
           data-vaul-no-drag
           className={cn(
-            'flex min-h-11 cursor-pointer items-center gap-1.5 rounded-full border border-dashed border-input px-3.5 text-sm font-bold text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50',
+            ADD_NOTE_PILL,
             PRESS_BUTTON,
           )}
         >
