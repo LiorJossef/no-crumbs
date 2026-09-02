@@ -57,6 +57,7 @@ what we never say, **including words the database happens to use**.
 | **link** | URL · address · permalink | What a person copies is a link |
 | **collection** | list · board · folder · album | Already shipped and already consistent. Do not introduce a second word |
 | **Been** / **Not been yet** | visited · want to go · wishlist · bucket list | Ratified in `ui/place/visit-state.ts`. *Visited* is a system fact about a record; *been* is what a person says |
+| **Been there** / **Not been yet** / **All places** | been (bare, as a filter option) · all (bare, as a control label) | The visit *filter's* three option labels, 2026-09-02. The axis is named `Been`, so an option also called `Been` made the group and its own answer the same word — the owner read it as unintuitive. `Been there` is the same ratified word with the subject a menu row needs. `All places` appears **only as a row**: the trigger shows the axis name until something is picked, because a filter button labelled `All` names the absence of itself |
 | **add** | import · ingest · sync · scrape | You add a place. Everything else describes our machinery |
 | **found** | extracted · detected · identified · parsed | Banned vocabulary, and *found* is shorter and truer |
 | **reading** | fetching · processing · analysing | Already the shipped rail copy |
