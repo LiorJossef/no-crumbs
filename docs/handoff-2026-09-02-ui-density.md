@@ -62,6 +62,44 @@ two orphans, `4bc04d0`.
    context and stopped converging. Give it §5.1's ten rulings and `abc1771`'s resume list, and
    nothing else.
 
+## Owner-reported, open, and first up next session
+
+**The `Select` control is in a really weird position.** Owner, 2026-09-02, at the end of the
+session: *"the select of the places is in really wierd position we will handle that next session."*
+It arrived with `4bc04d0` — multi-select for bulk delete — and it currently sits at the head of the
+filter row, ahead of `Been`, which puts a mode switch in a band that is otherwise all narrowing
+controls. **Nobody has designed where it goes.** It was never specified: the brief asked for
+multi-select and said the two removal semantics must stay distinct, and said nothing about placement.
+Deferred by the owner to the next session, deliberately — this is a note, not a defect report, and
+the control works.
+
+Worth pairing with §5.1's ruling that the header is two rows on purpose — the first narrows the
+library, the second reorders it. `Select` does neither: it changes what tapping a row *means*. That
+is a third kind of thing and it probably wants a third home, not a slot beside `Tags`.
+
+## The neutral source glyph — four candidates drawn, none chosen
+
+Owner: *"Try changing the current neutral TikTok/source glyph. I don't like how it looks right now."*
+
+`PlatformMark` draws a portrait video frame with a play triangle. Four alternatives were rendered
+at 14px, 20px and on the mint CTA, in a scratch file (not committed): the current mark, a play in a
+circle, a play in a rounded square, and a bare play triangle. **The owner has not picked one**, so
+nothing changed in `src/`.
+
+The constraints any replacement inherits, from `platform-mark.tsx`'s own docblock and E9: no TikTok
+geometry and no redraw of it, `currentColor` only — both TikTok pigments are fenced by value across
+`src/` and measured unusable anyway (cyan is 1.03:1 on the mint tile) — Lucide's construction for
+the outline weight so it does not outweigh the glyphs beside it, and the solid weight reserved for
+the three enumerated CTAs. `platform-mark.test.ts` enforces that the mark is drawn in exactly one
+file, which is what makes swapping it a one-file change.
+
+**The owner asked twice about using TikTok's real vector logo.** The answer is still no and it is not
+a design question: E9 judges all four placements and refuses the mark on every one, on TikTok's own
+published sentence. The downloadable developer logo pack is not a licence — it ships no terms, it is
+black-and-white only, and it is staged for Login Kit / Share Kit integrations we do not have. The
+route to the real mark is a written request to TikTok (E9 §7.1), which nobody may file without the
+owner's decision.
+
 ## Two things the owner reported that are NOT diagnosed
 
 - **Places seeming to disappear from the map under the category filter.** They then said it seemed
