@@ -62,6 +62,28 @@ two orphans, `4bc04d0`.
    context and stopped converging. Give it §5.1's ten rulings and `abc1771`'s resume list, and
    nothing else.
 
+## New owner feedback, raised at the close of the session — not started
+
+**Loading states are missing where data is fetched.** Owner, 2026-09-02: *"add loaders for when
+loading data i think it should happen between switching from map to collections, and maybe other
+places"* — then, immediately, *"not now"*. So this is **logged as feedback, deliberately not
+built**, and it is new scope rather than a defect from any lane.
+
+The named case is the **Places → Collections switch**, which fetches. The owner's "and maybe other
+places" is the real work: nobody has surveyed which transitions in this product fetch and which of
+those show nothing while they do. That survey is the first task, not the loaders — a skeleton added
+to the one screen that was mentioned would leave the rest of the pattern undecided, and this product
+has just paid a full day for building a control that had no written pattern behind it (see the
+closing section).
+
+Worth knowing before it is picked up: the session saw `/map` paint **blank with a loading indicator
+while the peek row already read `58 in 3 countries`** — which is the same family of problem from the
+other side, a surface that has its data and still shows nothing useful. Whoever takes this should
+treat the two together.
+
+There is no loading/skeleton pattern in `facelift-plan.md` or `no-crumbs-design-system.html`, so
+this needs a written pattern first, exactly like `ux-menus-and-dropdowns.md`.
+
 ## Owner-reported, open, and first up next session
 
 **The `Select` control is in a really weird position.** Owner, 2026-09-02, at the end of the
