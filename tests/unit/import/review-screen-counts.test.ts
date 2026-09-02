@@ -44,11 +44,21 @@ function screenState() {
 }
 
 describe('the two counts describe the same population', () => {
-  it('uses the headline’s number as the denominator', () => {
-    // `n` is `probe.candidates.length` — the number the H1 renders. One population, one
-    // denominator, and the two lines can no longer disagree about how many places there are.
-    expect(CODE).toContain('{selectedCount} of {n} selected');
+  it('renders no selected-count line at all, and never the wrong denominator', () => {
+    // **The line is gone** (`ux-overwhelm-audit-2026-09-02.md` §3c #7): `1 of 3 selected` sat
+    // beside a `Select all` / `Deselect all` toggle that already reports the state, over tickboxes
+    // the reader can see.
+    //
+    // The rule it was pinned for outlives it, and that is why this assertion is kept rather than
+    // deleted: **if this screen ever counts selections again, the denominator is `n`, the
+    // headline's number** — never `saveableIndices.length`, which produced `3 places found` above
+    // `1 of 2 selected`, two true counts over two silently different populations. The three tests
+    // below still hold the fixture that made that wrong, so the defect stays reproducible.
+    expect(CODE).not.toContain('{selectedCount} of {n} selected');
     expect(CODE).not.toContain('{selectedCount} of {saveableIndices.length} selected');
+    // Nothing else renders a count of selections either — `selectedCount` survives only as the
+    // Save button's own label and its disabled test.
+    expect(CODE).not.toMatch(/\{selectedCount\}\s*of/);
   });
 
   it('has a fixture where the old shape really did contradict itself', () => {

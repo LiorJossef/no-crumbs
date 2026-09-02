@@ -299,8 +299,8 @@ export function CaptionPreviewScreen({
    * Suppressed once a save has reported per-card outcomes: that state's whole job is a status chip
    * on a card, and the collapsed layout has no card.
    *
-   * What it does not touch is the decision. Save is still one explicit press and still says
-   * `Nothing is saved until you tap Save.` — the collapse removes the sub-decisions (Charter §3
+   * What it does not touch is the decision. Save is still one explicit press and the screen still
+   * says `Nothing is saved yet.` — the collapse removes the sub-decisions (Charter §3
    * invariant 2).
    */
   /**
@@ -341,13 +341,22 @@ export function CaptionPreviewScreen({
   return (
     <div className={cn('flex min-h-0 flex-1 flex-col', ENTER_SCREEN)}>
       <div className="flex shrink-0 flex-col gap-1 pb-4">
-        <ScreenKicker
-          icon={<SearchCheck className="size-3.5" aria-hidden />}
-          // The kicker carries the count and the H1 carries the name: at N = 1 the count is not
-          // information — the screen shows one place — and "Review & confirm" names a process
-          // rather than the result (`ux-import-flatten.md` §5).
-          label={collapsed ? '1 place found' : 'Review & confirm'}
-        />
+        {/*
+          **One kicker, and only on the collapsed card.**
+
+          At N = 1 the H1 is the place's own name, so the kicker is the only thing on screen that
+          says how many were found — it is information. At N >= 2 the H1 already reads `3 places
+          found` and the kicker read `Review & confirm` directly above it: a label naming the
+          process over a heading naming the result, two lines saying one thing on the densest
+          screen in the product (`ux-overwhelm-audit-2026-09-02.md` §3c #1). The file had already
+          made this call once, for the count, and kept the process word; this finishes it.
+        */}
+        {collapsed && (
+          <ScreenKicker
+            icon={<SearchCheck className="size-3.5" aria-hidden />}
+            label="1 place found"
+          />
+        )}
         <h1
           id={headingId}
           className={cn(
@@ -469,7 +478,15 @@ export function CaptionPreviewScreen({
         <div
           role="status"
           className={cn(
-            'mb-3 shrink-0 rounded-lg border border-warning/25 bg-warning/10 px-3 py-2.5 text-caption font-medium text-foreground',
+            // **Neutral, not warning-tinted.** Coming back to a video you have already added from
+            // is news, and H2-T1 measured what happens when it is made invisible — but it is not a
+            // caution, and `--warning` is the token this product spends on things that need care.
+            // At the top of the review screen it was the loudest block above the fold, louder than
+            // the H1 and the primary. `bg-card-2` is the same quiet surface the caption panel two
+            // rows up already uses, so the two pieces of context read as one tier.
+            //
+            // Tighter, too: `py-2` and `leading-snug`, which is where most of its height went.
+            'mb-3 shrink-0 rounded-lg bg-card-2 px-3 py-2 text-caption leading-snug font-medium text-foreground',
             ENTER_NEWS,
           )}
         >
@@ -500,35 +517,22 @@ export function CaptionPreviewScreen({
             anything that splits this request in two has to re-establish them before assuming
             `n >= 1` here. */}
         {n >= 2 && statusByIndex === null && (
-          <div className="flex shrink-0 items-center justify-between">
-            {/*
-              **The denominator is the headline's number, and that is the whole point of it.**
+          /*
+            **`Select all` alone, and the count it used to sit beside is gone.**
 
-              It used to be `saveableIndices.length`, which produced `3 places found` in the H1 and
-              `1 of 2 selected` in the line directly beneath it — two true statements whose
-              relationship the screen never accounted for. A reader is told there are three, then
-              that there are two, and cannot tell whether the product lost one, is hiding one, or
-              is broken. That is §8a's Q3 one layer up from a false claim: not a lie, but two counts
-              silently changing population between adjacent lines.
+            The line read `1 of 3 selected` next to a control whose own label already reports the
+            state — `Select all` when nothing is, `Deselect all` when everything is — over three
+            tickboxes the reader can see. It was the screen counting its own checkboxes out loud
+            (`ux-overwhelm-audit-2026-09-02.md` §3c #7).
 
-              The candidate that fell out was **not** the capped one — that is saveable and merely
-              arrives unticked (W1-4). It was an `ambiguous` card with a real shortlist and no model
-              pin: `willSave` is false for it until the user picks, so it was in the headline and
-              not in the denominator. Both populations are now the same one, and each card accounts
-              for itself in the badge slot W6-4 promoted — `Needs your pick` on that card, `Not
-              checked` on the capped one.
-
-              `Select all` therefore settles at `2 of 3` here rather than `2 of 2`, with the toggle
-              reading `Deselect all`. That is the honest reading: everything that *can* be selected
-              is, and the third card says on its face why it is not among them. Making the headline
-              say 2 instead would be the other way of squaring the numbers, and it is the one
-              `resolution-record.ts` forbids — a capped candidate is kept and visible rather than
-              silently dropped, and W1-4 was entirely about not letting the least-verified card
-              disappear into a default.
-            */}
-            <p className="text-caption font-medium text-muted-foreground">
-              {selectedCount} of {n} selected
-            </p>
+            **The denominator ruling it carried survives in the test, not here.** When this screen
+            renders a count of what is selected it must use `n`, the headline's number, never
+            `saveableIndices.length` — `3 places found` above `1 of 2 selected` is two true counts
+            over two silently different populations. That is pinned by
+            `tests/unit/import/review-screen-counts.test.ts`, which now guards the shape's absence
+            and the fixture that made it wrong.
+          */
+          <div className="flex shrink-0 items-center justify-end">
             <button
               type="button"
               disabled={frozen}
@@ -670,8 +674,22 @@ export function CaptionPreviewScreen({
                 {IMPORT_ERROR_ACTION_LABEL.back_to_map}
               </Button>
             )}
+            {/*
+              **Charter §3 invariant 2, in the fewest words that still carry it.**
+
+              It read `Nothing is saved until you tap Save.` directly under a 56px button reading
+              `Save 2 places` — a sentence explaining a button by naming the button
+              (`ux-overwhelm-audit-2026-09-02.md` §3c #11). What may not be deleted is the *fact*:
+              a person has to be able to tell that nothing has been written yet, and the collapsed
+              card is the state most likely to read as already done.
+
+              `Nothing is saved yet.` keeps the fact and drops the instruction the button above it
+              is already giving. It stays unconditional, and it stays the visible half of the
+              invariant `tests/unit/import/one-result-collapse.test.ts` guards — that test asserts
+              this literal *and* that no effect in this component can call the save.
+            */}
             <p className="text-center text-xs font-medium text-muted-foreground">
-              Nothing is saved until you tap Save.
+              Nothing is saved yet.
             </p>
           </>
         )}

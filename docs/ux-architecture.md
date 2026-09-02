@@ -412,8 +412,8 @@ all.
 │ ┌─────────────────────────┐ │
 │ │     Save 1 place        │ │  sticky, 56px, live count
 │ └─────────────────────────┘ │
-│  Nothing is saved until you │  one-line reassurance, 12px
-│  tap Save.                  │
+│  Nothing is saved yet.      │  one-line reassurance, 12px
+│                             │
 └─────────────────────────────┘
       ↑ safe-area inset bottom
 ```
@@ -1162,7 +1162,7 @@ words to it — two copies of one list is how a third gets written.
 | C37 | Primary, N≥2 selected | `Save {n} places` | |
 | C38 | Primary, 1 selected | `Save this place` | |
 | C39 | Primary, 0 selected | `Select a place to save` | Disabled. |
-| C40 | Footer reassurance | `Nothing is saved until you tap Save.` | Always present. |
+| C40 | Footer reassurance | `Nothing is saved yet.` | Always present. Shortened 2026-09-02: the 56px primary directly above it already reads `Save 1 place`, so the instruction half was the button's line, not the reassurance's. The fact — that nothing has been written — is Charter §3 invariant 2 and survives. |
 | C41 | Footer, unresolved present | `{n} place needs your help.` / `{n} places need your help.` | |
 | C42 | Header, N≥4 | `Select all` / `Deselect all` | |
 | C43 | Resume row on `/map` | `{n} places waiting from @{handle}` + `Review` | |
