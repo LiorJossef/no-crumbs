@@ -380,6 +380,18 @@ instructions this plan and its spec gave the builder.
 | **`Clear` clears filters only, never sort** | Owner, 2026-09-02: *"i think the clear should affect filters only."* `Clear` resets `Been`, `Category` and `Tags`, and does not touch the sort order. Sort has no cleared state — there is always an order, so "clearing" it would silently mean "go back to `Recently saved`", which is a change disguised as an undo. `Clear` renders only when at least one filter is active, and it lives on the filter row, not the sort row |
 | **Sort is a menu, not a toggle** | The orchestrator specified a two-state toggle after measuring only two options in the running app. **Wrong** — `place-order.ts` defines three: `recent` \| `nearest` \| `alpha`, and `Nearest` is offered only when a location fix is held, absent otherwise. Owner: *"Sort is not binary — there is also a Nearest option"*, then *"its ok as a select list / just should feel less goofy thats it."* The lesson: **the screen was showing a degraded state and it was read instead of the code** |
 
+### 5.1a Owner rulings taken on 2026-09-02, evening session
+
+| Decision | Ruling |
+|---|---|
+| **§4.1 / D-T3 — fly-to on pin tap** | **RULED FOR, and §4 item 1 is closed.** Owner: *"yes i think i want a fly to once you click on a pin"*, then the clarification that decides its shape: *"the fly to should work even if theres another place open and we click on another pin"*. So the trigger is a **change of selected place**, not selection from nothing. Built as camera mover 9, a recentre at the zoom already on screen rather than a re-frame (`5985d89`), with the dismissal path made explicit in `616ec93`. This uncovered the real blocker: MapLibre's `closeOnClick` meant one pin tap fired select-then-deselect, so **a pin tap was closing the open place instead of opening it** |
+| **The country band's unnameable pill** | `Another area` → **`Other`**, and **temporary on the owner's own framing**: *"this item is actually a city in Israel, so it should eventually resolve to the correct city/area name instead of falling back to a generic Other label."* The copy change is only what makes the pill fit a phone (105 px against a 112 px budget); the fix is the geography backfill. Recorded at the constant so it is not mistaken for an answer (`ed6960c`) |
+| **The TikTok player** | **Deferred to the end of the queue.** Owner: do not wire it up, do not remove it, no CSP changes, keep the external-TikTok behaviour unchanged. A partial wiring was reverted; the patch is kept rather than discarded. Note the CSP `frame-src` stays open in production for a frame nothing reaches — decide it *with* the player, not separately |
+| **The place card** | Spec approved unread — owner: *"I'd rather react to the live screen than read the spec."* Standing watch-item for the build: **the 44 px pill band must not read bulky beside the quieter rows.** Paint is separable from target; do not shrink `min-h-11`. `docs/ux-place-card-unification-2026-09-02.md` §10 OQ-2 is closed — `--muted-foreground` at 11 px measures 5.37:1 light / 6.51:1 dark, so no ink is forked |
+| **Process** | Owner, twice: deliver the lean implementation first, then fix. Evidence gathering was costing more than the fixes — land it, verify after |
+
+---
+
 ### 5.2 Two claims in this plan that measurement refuted
 
 - **"The re-import notice is ~230px."** It measured **120px** before any change, at both breakpoints. The tint was the loud part, not the size. Retinted to `bg-card-2`, 120 → 106px (`cede7b9`)
