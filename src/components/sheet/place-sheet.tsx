@@ -123,7 +123,6 @@ import { AddToCollection } from '@/components/collections/add-to-collection';
 
 import { formatCaptionQuote, quoteAddsSomething } from '@/ui/place/caption-quote';
 import { SECTION_LABEL } from '@/ui/place/section-label';
-import { textDirection } from '@/ui/place/text-direction';
 import {
   CLEAR_FILTERS_LABEL,
   NO_FILTER_MATCHES_HINT,
@@ -2263,24 +2262,6 @@ export function PlaceDetail({
     ? quote
     : null;
 
-  /**
-   * **The card's one direction**, resolved from the place's own name and applied to the whole
-   * scroll column below — not per block.
-   *
-   * The owner's complaint is that a Hebrew place makes the eye jump back and forth instead of
-   * following a vertical scan, and that is exactly what six `dir="auto"` blocks in one column do:
-   * each picks its own start edge from its own first character. One `dir` here gives the column a
-   * single reading start that the heading, the category line, the address, the quote, the model's
-   * sentence and the dish line all share. `<bdi>` inside them is untouched — that is *ordering*,
-   * and the RTL audit already found it correct.
-   *
-   * The name first because it is what the card is about and it is the one field that is never
-   * empty; the address and then the locality behind it. The user's own note is the one block that
-   * opts out and resolves from what they typed (`NoteEditor`) — a caret on the wrong side of a
-   * Hebrew textarea is a defect, not a matter of alignment.
-   */
-  const cardDirection = textDirection(place.name || addressLine || locality);
-
   const hasBand2 =
     shownQuote !== null || shownWhyGo !== null || dishes.length > 0 || extra.length > 0;
   const hasBand3 =
@@ -2329,7 +2310,6 @@ export function PlaceDetail({
           '--floating-bar': `${floatingBarPx}px`,
         } as CSSProperties
       }
-      dir={cardDirection}
       className={cn(
         'mb-[calc(env(safe-area-inset-bottom)+var(--floating-bar,0px))] flex min-h-0 flex-1 flex-col overflow-y-auto px-5 pb-5 pt-3.5',
         // ## The popover's height is set by the *pin*, not by the viewport — measured, 2026-09-01
@@ -2451,9 +2431,7 @@ export function PlaceDetail({
               <bdi>{place.name}</bdi>
             </h2>
           </div>
-          {/* No `dir` of its own: it inherits the card's. This line resolving its own direction is
-              half of why a Hebrew place's heading and its subtitle sat on opposite edges. */}
-          <p className="text-sm font-medium text-muted-foreground">
+          <p dir="auto" className="text-sm font-medium text-muted-foreground">
             {categoryLocalityLine(place.category, locality)}
           </p>
           {/* Directly under the identity block, and above every prose block below — this is the
@@ -2668,13 +2646,11 @@ export function PlaceDetail({
                 plain text — which is the whole extracted-versus-inferred distinction, carried by shape
                 instead of by two competing labels.
 
-                It carries no `dir` of its own since 2026-09-02: the card resolves one direction
-                from the place and this inherits it, so the quote starts on the same edge as the
-                name above it. A Hebrew quote on a Latin-named place is therefore LTR-aligned with
-                its ordering intact — the stated cost of one scan line instead of six.
+                `dir="auto"` because this is a verbatim caption substring: a Hebrew quote rendered
+                left-to-right puts its punctuation on the wrong end of the sentence.
 
                 `&ldquo;`/`&rdquo;`, not a plain `"`, and that choice is load-bearing, not decorative:
-                both are Unicode `Bidi_Mirrored` characters, so inside an RTL-resolved
+                both are Unicode `Bidi_Mirrored` characters, so inside this `dir="auto"`-resolved RTL
                 run the browser swaps their *rendered shape* — the opening mark ends up looking like a
                 close-quote and vice versa — which is what lands the open mark on the visual right (the
                 RTL reading start) and the close mark on the visual left for a Hebrew quote. Nothing
@@ -2697,8 +2673,8 @@ export function PlaceDetail({
                 opening time, who it is for — clears the bar and is shown. See
                 `ui/place/enrichment.ts`'s `whyGoEarnsItsPlace` for the rule and the threshold. */}
             {shownQuote !== null ? (
-              <figure className="flex flex-col gap-2 border-s-2 border-brand-tint ps-3">
-                <blockquote className="text-sm leading-relaxed text-foreground">
+              <figure className="flex flex-col gap-2 border-l-2 border-brand-tint pl-3">
+                <blockquote dir="auto" className="text-sm leading-relaxed text-foreground">
                   &ldquo;{shownQuote}&rdquo;
                 </blockquote>
                 {authorLabel && (
@@ -2859,7 +2835,7 @@ export function PlaceDetail({
                           data-vaul-no-drag
                           onClick={() => onSelectNearby(neighbour.id)}
                           className={cn(
-                            'flex min-h-11 w-full items-center justify-between gap-3 rounded-lg text-start outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50',
+                            'flex min-h-11 w-full items-center justify-between gap-3 rounded-lg text-left outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50',
                             // The same row shape, so the same press. It swaps the whole detail view
                             // under the finger, which is the one place a missing acknowledgement reads
                             // as the app having lost the place you were looking at.
@@ -2869,11 +2845,8 @@ export function PlaceDetail({
                           <span className="line-clamp-1 text-sm font-semibold text-foreground">
                             <bdi>{neighbour.name}</bdi>
                           </span>
-                          {/* Isolated: a Latin measurement in an RTL column reordered to `m 350`
-                              once the card took one direction. Alignment is the card's; ordering
-                              inside a run is still the run's. */}
                           <span className="shrink-0 text-xs font-medium text-muted-foreground">
-                            <bdi>{nearbyDistanceLabel(neighbour.km)}</bdi>
+                            {nearbyDistanceLabel(neighbour.km)}
                           </span>
                         </button>
                       ) : (
@@ -2881,11 +2854,8 @@ export function PlaceDetail({
                           <span className="line-clamp-1 font-semibold text-foreground">
                             <bdi>{neighbour.name}</bdi>
                           </span>
-                          {/* Isolated: a Latin measurement in an RTL column reordered to `m 350`
-                              once the card took one direction. Alignment is the card's; ordering
-                              inside a run is still the run's. */}
                           <span className="shrink-0 text-xs font-medium text-muted-foreground">
-                            <bdi>{nearbyDistanceLabel(neighbour.km)}</bdi>
+                            {nearbyDistanceLabel(neighbour.km)}
                           </span>
                         </p>
                       )}

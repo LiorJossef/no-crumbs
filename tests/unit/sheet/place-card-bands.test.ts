@@ -122,7 +122,7 @@ describe('the card is three bands and two hairlines', () => {
     const markup = render(FROM_A_POST, { id: 'saved-1', visited: false });
     const figure = markup.match(/<figure[\s\S]*?<\/figure>/)?.[0] ?? '';
     expect(figure).toContain('the queue moves fast');
-    // …and on the reading start of whichever direction the card resolved, never a hard left rule.
-    expect(figure).toContain('border-s-2');
+    // …behind the quote's own rule, rather than floating alone in the column.
+    expect(figure).toContain('border-l-2');
   });
 });

@@ -150,68 +150,41 @@ const SAVED_PLACE_EDITS_SOURCE = withoutComments(
   ),
 );
 
-/** The same place with a Latin name and a Hebrew note — the fixture that tells the card's
- *  direction scope apart from the note's. Everything on the card follows the place; the note is
- *  the one block that follows what the user typed. */
-const LATIN_WITH_HE_NOTE: DetailPlace = {
-  ...SAVED,
-  name: 'Abu Hassan',
-  detail: { ...OVERLAY, canonicalName: 'Abu Hassan', addressLine: 'Shivtei Israel 1' },
-};
-
-const PLACE_SHEET_SOURCE = withoutComments(
-  readFileSync(
-    fileURLToPath(new URL('../../../src/components/sheet/place-sheet.tsx', import.meta.url)),
-    'utf8',
-  ),
-);
-
-describe('the card resolves one reading direction, and the note resolves the other', () => {
-  it('puts the place\'s direction on the whole scroll column', () => {
-    expect(render(SAVED)).toMatch(/^<div[^>]*\bdir="rtl"/);
-    expect(render(LATIN_WITH_HE_NOTE)).toMatch(/^<div[^>]*\bdir="ltr"/);
-  });
-
-  it('leaves no block inside the card resolving a direction of its own', () => {
-    // The defect the owner reported: six blocks each running `dir="auto"` flipped one Hebrew
-    // card's start edge six times down a single column. `<bdi>` stays — that is ordering, which
-    // the audit found correct — but nothing inside the card may resolve its own *alignment*.
-    expect(PLACE_SHEET_SOURCE.slice(PLACE_SHEET_SOURCE.indexOf('export function PlaceDetail'))).not.toMatch(
-      /\bdir="auto"/,
-    );
-    expect(SAVED_PLACE_EDITS_SOURCE).not.toMatch(/\bdir="auto"/);
-  });
-});
-
 describe('the note carries its own reading direction (rtl audit finding 1)', () => {
-  it('resolves the note block from the note, not from the place, through a real render', () => {
-    // Latin place, Hebrew note: the column is `ltr` (asserted above) and the note must still be
-    // `rtl`, which is the whole reason the note is the one scope that opts out.
-    const markup = render(LATIN_WITH_HE_NOTE);
-    expect(markup, markup).toContain('dir="rtl"');
-
-    // …and the value line itself carries no direction — it inherits the wrapper's, which is what
-    // stops the block jumping when the editor opens over it.
+  it('sets dir="auto" on the resting note, reachable through a real render', () => {
+    const markup = render(SAVED);
+    // A `<span>` since the note became a field row: the row is a `<button>`, so its value line
+    // cannot be a `<p>`. The direction still resolves on the block that holds the note text.
     const attrs = attributesOfBlockContaining(markup, NOTE_HE, 'span');
     expect(attrs, markup).not.toBeNull();
-    expect(attrs, markup).not.toMatch(/\bdir=/);
+    expect(attrs, markup).toContain('dir="auto"');
 
-    // Proves the assertion above is not vacuous: with a Latin note there is no `rtl` anywhere.
-    const latinNote = render({
-      ...LATIN_WITH_HE_NOTE,
-      detail: { ...OVERLAY, canonicalName: 'Abu Hassan', note: 'best in town' },
-    });
-    expect(latinNote).not.toContain('dir="rtl"');
+    // Proves the assertion above is not vacuous: reverting `saved-place-edits.tsx`'s read
+    // paragraph to plain `<p className="…">{note}</p>` — the exact pre-fix shape — is what this
+    // test is written to catch, checked here by re-deriving the same match against that shape.
+    const preFix = markup.replace(
+      new RegExp(`<span dir="auto"([^>]*)>((?:(?!</span>)[\\s\\S])*?${NOTE_HE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:(?!</span>)[\\s\\S])*?)</span>`),
+      '<span$1>$2</span>',
+    );
+    const preFixAttrs = attributesOfBlockContaining(preFix, NOTE_HE, 'span');
+    expect(preFixAttrs, preFix).not.toContain('dir="auto"');
   });
 
-  it('gives the resting row and the open editor the same resolved value — source, not a render', () => {
+  it('sets dir="auto" on the edit textarea — checked against source, not a render', () => {
     // `NoteEditor`'s edit branch is gated on local `editing` state with no prop to force it, so no
-    // single `renderToStaticMarkup` pass ever paints the `<textarea>`. What matters there is that
-    // both states take *one* value: a note that re-resolved per state would jump sides the moment
-    // the editor opened.
-    const uses = SAVED_PLACE_EDITS_SOURCE.match(/dir=\{noteDirection\}/g) ?? [];
-    expect(uses.length, SAVED_PLACE_EDITS_SOURCE).toBe(2);
-    expect(SAVED_PLACE_EDITS_SOURCE).toMatch(/const noteDirection = textDirection\(note\)/);
+    // single `renderToStaticMarkup` pass ever paints the `<textarea>`. Narrowed to the one
+    // `<textarea id={`note-${savedPlaceId}`}` block this file owns, so the match cannot drift onto
+    // `NameEditor`'s `<Input>` a few dozen lines above it.
+    const textareaBlock = SAVED_PLACE_EDITS_SOURCE.match(
+      /<textarea\s+id=\{`note-\$\{savedPlaceId\}`\}[\s\S]*?\/?>/,
+    );
+    expect(textareaBlock, SAVED_PLACE_EDITS_SOURCE).not.toBeNull();
+    expect(textareaBlock![0]).toMatch(/\bdir="auto"/);
+
+    // Proved against the reintroduced defect: strip the attribute from the matched block alone —
+    // the pre-fix shape — and confirm the same check now fails it.
+    const reverted = textareaBlock![0].replace(/\s*dir="auto"\n?\s*/, '\n        ');
+    expect(reverted).not.toMatch(/\bdir="auto"/);
   });
 });
 
