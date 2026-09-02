@@ -177,9 +177,22 @@ const MENU_POPUP =
  * throughout — both swap edges under RTL, and half this library is Hebrew.
  */
 const MENU_ROW = 'group/row flex min-h-11 cursor-pointer select-none items-center outline-none';
+/**
+ * **The highlight is `bg-card-2`, and `bg-muted/60` was a real accessibility defect.** Base UI's
+ * `data-highlighted` is the pointer hover *and* the keyboard-active row. `--muted` is `#FAF9F6`
+ * light and `#201F1C` dark; the popup is painted `--card`, `#FFFFFF` / `#201F1C`. So the composite
+ * was `#FCFBFA` on white — about 1 %, effectively invisible — and in dark it was **identical to the
+ * ground**: a keyboard user arrowed through the menu with no visible position at all.
+ *
+ * `--card-2` is `#F3F1EB` / `#2A2825`, a real step on both, and it is the product's own documented
+ * neutral hover (`facelift-plan.md` §3a, row "Icon button": *surface → `card-2`*). It also keeps
+ * the count legible without a second ink — `globals.css:235-240` measures `--muted-foreground`
+ * at 4.76 on `--card-2` in light and 5.81 in dark. Not `bg-accent`: `--accent` is `--mint-100`,
+ * a 2 % step on white, which is the same defect wearing mint.
+ */
 const MENU_ROW_PAINT =
   'flex h-10 w-full items-center gap-2 rounded-lg px-2 text-xs font-medium text-foreground ' +
-  'group-data-highlighted/row:bg-muted/60 motion-safe:transition-colors motion-safe:duration-press';
+  'group-data-highlighted/row:bg-card-2 motion-safe:transition-colors motion-safe:duration-press';
 
 /** The word, never an `x` — defect D3's fix. A real control with a real accessible name rather than
  *  a decorative glyph carrying a dismissal's affordance with no dismissal behind it. */
