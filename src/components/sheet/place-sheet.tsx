@@ -476,7 +476,16 @@ function PlaceList({
 
   return (
     <div
-      style={{ height: STOP_TO_CONTENT_HEIGHT[stop] }}
+      style={
+        {
+          height: STOP_TO_CONTENT_HEIGHT[stop],
+          // The same number, published so anything inside the sheet can size itself against *this
+          // column* instead of against the viewport. `dvh` is a lie in here: at `half` the column
+          // is `55dvh - 70px`, so a child capped at `45dvh` claims 96 % of it and leaves the list
+          // nothing. `library-filter-bar.tsx`'s inline panel is the reader.
+          '--sheet-content-height': STOP_TO_CONTENT_HEIGHT[stop],
+        } as CSSProperties
+      }
       className="flex min-h-0 flex-col gap-3.5 px-5 pt-3.5"
     >
       {stop === 'peek' ? (
@@ -638,6 +647,10 @@ function PlaceList({
               // drawer, where a floating layer is a popup inside a popup and fights the drag
               // listener. A constant, never a `matchMedia` read: both hosts render on the server.
               surface="inline"
+              // Opening a panel at `half` would be dividing 83 px between a menu and the list it
+              // narrows. The sheet goes to `full` first, and only from a stop that is not already
+              // there — see `onPanelOpen`.
+              {...(stop === 'full' ? {} : { onPanelOpen: onExpand })}
               facets={categoryFacets}
               activeCategory={activeCategory}
               onToggleCategory={onToggleCategory}

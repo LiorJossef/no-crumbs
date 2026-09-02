@@ -14,6 +14,8 @@
  * by hand in a browser at 375x812, 390x844 and 1440x900 with `elementFromPoint`.
  */
 
+import { readFileSync } from 'node:fs';
+
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
@@ -215,5 +217,35 @@ describe('LibraryFilterBar — Clear is a word, and only when there is something
     expect(markup).toContain('aria-label="Clear all filters"');
     expect(markup).toMatch(/<button[^>]*aria-label="Clear all filters"[^>]*class="[^"]*min-h-11/);
     expect(markup).not.toContain('lucide-x');
+  });
+});
+
+/**
+ * The one thing a static render cannot see, and it is the regression this pair was written for:
+ * **how tall the inline panel is allowed to be, and what it measures that against.**
+ *
+ * Measured at 390x844 on 2026-09-02 with the tag panel open: a `max-h-[45dvh]` cap is 380 px, the
+ * sheet's own content column is `55dvh - 70px` = 394 px at `half` and 774 px at `full`, so the
+ * panel took 96 % of the column and the place list's scroll box came out **0 px tall at `half` and
+ * 82 px at `full`**. The list could not be scrolled by touch or by anything else. The cap now reads
+ * the column height `place-sheet.tsx` publishes, and the two halves of that live in different files
+ * with nothing but this test holding them together.
+ */
+describe('the inline panel is measured against the sheet, not the viewport', () => {
+  const BAR = readFileSync('src/components/sheet/library-filter-bar.tsx', 'utf8');
+  const SHEET = readFileSync('src/components/sheet/place-sheet.tsx', 'utf8');
+
+  it('caps the panel by the sheet column, with the list’s share reserved', () => {
+    expect(BAR).toContain(
+      'max-h-[min(calc(var(--sheet-content-height,100dvh)*0.4),calc(var(--sheet-content-height,100dvh)-21rem))]',
+    );
+    // The old cap, and the exact string that produced the 0 px list.
+    expect(BAR).not.toContain('max-h-[45dvh]');
+  });
+
+  it('is published by the same element that sets the column’s height', () => {
+    expect(SHEET).toMatch(
+      /height: STOP_TO_CONTENT_HEIGHT\[stop\],[\s\S]{0,600}'--sheet-content-height': STOP_TO_CONTENT_HEIGHT\[stop\]/,
+    );
   });
 });

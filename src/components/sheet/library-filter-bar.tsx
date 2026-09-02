@@ -254,14 +254,19 @@ const MENU_POPUP =
  * header: flex lays wrapped items out by `order` first, so the panel takes the line below the
  * triggers while `Clear` and the triggers after it stay where they were.
  *
- * The height cap is `dvh`, not `vh`, because the sheet already reasons in `100dvh` and the iOS URL
- * bar moves `vh` under it. 45 % leaves the first list row visible with the tag panel open. No
- * height animation, ever: layout thrash inside a scrolling sheet for no information.
+ * **The cap is measured against the sheet's column, not the viewport.** `dvh` in here is a lie:
+ * the column is `55dvh - 70px` at `half`, so the old `45dvh` cap claimed 96 % of it and the list's
+ * scroll box measured 0 px. A flex line never shrinks, so nothing downstream could take it back.
+ * The cap is now the smaller of two claims on the `--sheet-content-height` that `place-sheet.tsx`
+ * publishes: two fifths of the column, or all of it bar 21rem. `dvh` survives as the fallback.
+ *
+ * No height animation, ever: layout thrash inside a scrolling sheet for no information.
  */
 const INLINE_PANEL =
   cn(
     PANEL_SURFACE,
-    'order-last mt-1.5 w-full max-h-[45dvh] overflow-y-auto overscroll-contain ' +
+    'order-last mt-1.5 w-full overflow-y-auto overscroll-contain ' +
+      'max-h-[min(calc(var(--sheet-content-height,100dvh)*0.4),calc(var(--sheet-content-height,100dvh)-21rem))] ' +
       'animate-in fade-in-0 motion-safe:slide-in-from-top-1 duration-enter',
   );
 
@@ -340,6 +345,12 @@ export interface LibraryFilterBarProps {
   readonly onToggleTag: (tag: string) => void;
   readonly onClearTags: () => void;
   /**
+   * **Inline only: the host is told a panel is about to take room in it.** At `half` the column
+   * leaves 83 px for the list before a panel asks for anything, and no cap divides that into two
+   * usable halves — so `place-sheet.tsx` passes its own expander and the sheet finds the room.
+   */
+  readonly onPanelOpen?: () => void;
+  /**
    * **The second row: the sort control, on both hosts.** A slot rather than a prop, so this file
    * never learns what sorting is.
    *
@@ -366,6 +377,7 @@ export function LibraryFilterBar({
   activeTags,
   onToggleTag,
   onClearTags,
+  onPanelOpen,
   belowRow,
   surface = 'popover',
   className,
@@ -374,7 +386,16 @@ export function LibraryFilterBar({
   // would push the list off a phone screen entirely. On the popover surface this is unused — Base
   // UI's outside-press already closes one menu when another trigger is pressed.
   const [openPanel, setOpenPanel] = useState<string | null>(null);
-  const group = useMemo(() => ({ open: openPanel, setOpen: setOpenPanel }), [openPanel]);
+  const group = useMemo(
+    () => ({
+      open: openPanel,
+      setOpen: (key: string | null) => {
+        if (key !== null) onPanelOpen?.();
+        setOpenPanel(key);
+      },
+    }),
+    [openPanel, onPanelOpen],
+  );
   // One category is not a choice: every place is a restaurant, so a `Restaurant 12` row is a
   // control whose selected and unselected states show the same twelve places.
   //
@@ -648,7 +669,12 @@ export function MenuAxis({
           {face}
         </button>
         {open && (
-          <InlinePanel id={panelId} axis={axis} axisClear={axisClear ?? null} onEscape={close}>
+          <InlinePanel
+            id={panelId}
+            axis={axis}
+            axisClear={axisClear ?? null}
+            onEscape={close}
+          >
             <AxisCloseContext.Provider value={close}>{children}</AxisCloseContext.Provider>
           </InlinePanel>
         )}
