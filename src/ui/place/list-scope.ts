@@ -433,7 +433,19 @@ export function scopeLabel<T>(resolved: ResolvedScope<T>): string | null {
           ? countryLabel(only)
           : 'your library';
       }
-      return `${countries.length} countries`;
+      // Buckets are not countries. `library-summary.ts` puts every place whose country we could
+      // not resolve into one bucket labelled `Another area`, and counting that bucket here is what
+      // made the map header say `58 places in 4 countries` over a list of Israel, the United
+      // Kingdom, Czechia and one countryless row — while `/profile`, three lines away, said
+      // `3 Countries`. Both numbers were computed honestly from the same data and disagreed,
+      // which is the defect round-3 feedback §3.1 reported from the other end.
+      //
+      // So this counts what it names. A library with two or more real countries says how many;
+      // one real country beside a countryless bucket falls through to `your library`, because the
+      // single-country shortcut above is only sound when the label speaks for everything under it
+      // and here it plainly does not — and `1 countries` is not the repair.
+      const named = countries.filter((country) => country.countryCode !== null);
+      return named.length >= 2 ? `${named.length} countries` : 'your library';
     }
   }
 }

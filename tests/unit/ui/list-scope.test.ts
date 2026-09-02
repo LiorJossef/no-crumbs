@@ -615,7 +615,35 @@ describe('scopeLabel', () => {
   });
 
   it('counts the countries under a global scope', () => {
-    expect(labelOf(GLOBAL_SCOPE)).toBe('3 countries');
+    // Two, not three. This fixture is Israel, the United Kingdom and `orphanPlaces` — two places
+    // with no country at all. The third "country" was the countryless bucket being counted as one;
+    // see the test below it for what that cost on screen.
+    expect(labelOf(GLOBAL_SCOPE)).toBe('2 countries');
+  });
+
+  it('counts countries, not buckets, so the header cannot outrun the profile', () => {
+    // The map header said `58 places in 4 countries` over Israel, the United Kingdom, Czechia and
+    // one countryless row, while `/profile` said `3 Countries`. Both numbers were honest and they
+    // disagreed, which is round-3 feedback §3.1 seen from the other end. `Another area` is a
+    // bucket; it is not a country and is no longer counted as one.
+    const mixed = areasOf([
+      ...londonPlaces,
+      ...telAvivPlaces,
+      ...city('kwn', 1, { lat: 22.31, lng: 114.17 }, 'Kowloon', null),
+    ]);
+    const buckets = countriesOf(mixed);
+    expect(buckets).toHaveLength(3);
+    expect(labelOf(GLOBAL_SCOPE, mixed, buckets)).toBe('2 countries');
+  });
+
+  it('falls back to `your library` for one country beside a countryless bucket', () => {
+    // `1 countries` is not the repair, and the single-country shortcut is only sound when the
+    // label speaks for everything under it — here it does not, because the list also holds Kowloon.
+    const oneAndOther = areasOf([
+      ...londonPlaces,
+      ...city('kwn', 1, { lat: 22.31, lng: 114.17 }, 'Kowloon', null),
+    ]);
+    expect(labelOf(GLOBAL_SCOPE, oneAndOther, countriesOf(oneAndOther))).toBe('your library');
   });
 
   it('names the single country instead of saying `1 country`', () => {
@@ -665,7 +693,8 @@ describe('scopeHeading', () => {
 
   it('is `areaHeading` with a different `where`, not a second copy table', () => {
     expect(headingFor(scopeForCountryTap('GB'), 18).text).toBe('18 places in the United Kingdom');
-    expect(headingFor(GLOBAL_SCOPE, library.length).text).toBe('29 places in 3 countries');
+    // `2 countries` since 2026-09-02: the library's two orphan places are a bucket, not a country.
+    expect(headingFor(GLOBAL_SCOPE, library.length).text).toBe('29 places in 2 countries');
     expect(headingFor(scopeForAreaTap(london.id), 12).text).toBe('12 places in London');
   });
 
