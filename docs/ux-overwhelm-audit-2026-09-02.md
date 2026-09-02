@@ -425,9 +425,9 @@ Ranked on visible elements removed per hour, weighted toward the phone. Hours ar
 | 1 | `MAX_TAG_FACETS` 12 → 6 | `src/ui/place/tag-filter.ts:114` | up to 6 pills from **both** hosts, in the band r5 measured at 372 px | **0.5** | none |
 | 2 | Gate the sort row on list length (`>= 8`) | `place-sheet.tsx:579`, `place-desktop-panel.tsx:216` | a 44 px row + 2–3 pills, and the header's second always-filled pill, on every small library | **0.5** | none |
 | 3 | Delete `Nothing is saved until you tap Save.` | `review-screen.tsx:673-675` | 1 text block on the densest screen | **1.0** | pinned by `tests/unit/import/one-result-collapse.test.ts:185` — see §8.1 |
-| 4 | Delete `Been on …` and `Saved on …` | `place-sheet.tsx:2288-2290`, `:2448-2452` | 2 text blocks from the card that must reach zero-scroll | **0.5** | none — but keep `:2445-2447` |
+| ~~4~~ | ~~Delete `Been on …` and `Saved on …`~~ **WITHDRAWN — owner ruling 2026-09-02** | `place-sheet.tsx:2288-2290`, `:2448-2452` | — | — | **Owner: "DO NOT remove the saved date/time information. I want to keep seeing when I saved a place."** See §7.1 |
 | 5 | Delete the `12 of 32` result count | `place-sheet.tsx:542-551`, `place-desktop-panel.tsx:181-190` | 1 text block × 2 hosts | **0.5** | none (`aria-hidden`, live region unaffected) |
-| 6 | Delete `Saved 3 days ago` from the list row | `place-sheet.tsx:927-929` | 1 text line **per row** — the largest single text deletion in the product | **0.5** | soft: `savedElapsedLine` stays used by nothing; its 20 tests (`tests/unit/ui/location-certainty.test.ts:121-177`) become dead |
+| ~~6~~ | ~~Delete `Saved 3 days ago` from the list row~~ **WITHDRAWN — owner ruling 2026-09-02** | `place-sheet.tsx:927-929` | — | — | **Owner: this line stays.** It was this list's highest-ranked item; see §7.1 |
 | 7 | Delete the `DISHES MENTIONED`, `CATEGORY` and `YOUR NOTE` kickers | `place-enrichment.tsx:493`, `saved-place-edits.tsx:340`, `:523` | 3 uppercase labels from one card | **0.75** | none — `WhyGoLine` set the precedent (`place-enrichment.tsx:506-516`) |
 | 8 | Delete the ` · from the TikTok video` provenance clause | `saved-place-edits.tsx:428-432` | 1 text block; also deletes the `fromAPost` prop's only consumer (`:310-316`) | **0.75** | none |
 | 9 | Delete `1 of 3 selected` | `review-screen.tsx:529-531` | 1 text block; `Select all` keeps the state | **0.25** | none |
@@ -437,6 +437,32 @@ Ranked on visible elements removed per hour, weighted toward the phone. Hours ar
 | 13 | Cap the review card's proposed tag chips at 3 | `candidate-card.tsx:216-230` | up to 3 inert pills × N cards | **0.5** | soft: the consent argument at `:172-206` requires *shown*, not *all shown* |
 | 14 | Delete the collection description from the sheet header | `collection-content.tsx:528-532` | up to 3 text lines above the first row | **0.25** | none |
 | 15 | Delete `YOUR ACCOUNT` kicker and the header description duplicate on the index | `profile/page.tsx:292-293`, `collections-index-list.tsx:372-376` | 2 text blocks | **0.5** | none |
+
+### 7.1 Withdrawn by the owner, 2026-09-02 — the date lines stay
+
+**Owner, verbatim: _"Important correction: DO NOT remove the saved date/time information. I want to
+keep seeing when I saved a place."_**
+
+That withdraws items **4** and **6** above, and item 6 was the highest-ranked change in this entire
+document. Nobody may delete these, and this section exists so that a future density pass does not
+rediscover them and re-propose them:
+
+| Line | Where | Status |
+|---|---|---|
+| `Saved 3 days ago` on every list row | `place-sheet.tsx:927-929` | **KEEP** |
+| `Saved on 3 Aug` on the place card | `place-sheet.tsx:2448-2452` | **KEEP** |
+| `Been on 3 Aug` on the place card | `place-sheet.tsx:2288-2290` | **KEEP** — it is a date, and this ruling arrived as a correction about dates. Not deleted on a technicality that it records the visit rather than the save |
+
+`savedElapsedLine` and its 20 tests at `tests/unit/ui/location-certainty.test.ts:121-177` therefore
+remain live, not dead.
+
+**Why the audit got this wrong, recorded so the mistake is not repeated.** This document ranked
+purely on *visible elements removed per hour*, and by that measure a line repeated on every row is
+the best possible target. The metric could not see that the line carries information the owner
+actively uses — density is a cost, but the content was never noise. When a cut is ranked highly
+*because* it repeats, check whether the repetition is the value before proposing it.
+
+The remaining thirteen items are unaffected.
 
 **Total: ~9 hours for 15 changes**, removing on the order of **9 pills and 17 distinct text blocks**
 from the five surfaces, with **no capability lost**. Items 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 14, 15

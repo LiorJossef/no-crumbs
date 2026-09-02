@@ -312,9 +312,12 @@ Wave 2a  THE FILTER AND TAG SURFACE — the sidebar the owner photographed
 
 Wave 2b  THE SURFACES AROUND IT
          · the place card's text — HELD FROM 2a only because the filter lane holds those
-           files. `Saved 3 days ago` is one extra line on EVERY row and is the largest single
-           text deletion in the product; plus the DISHES MENTIONED / CATEGORY / YOUR NOTE
-           kickers, `Been on …` / `Saved on …`, and the ` · from the TikTok video` clause
+           files. The DISHES MENTIONED / CATEGORY / YOUR NOTE kickers and the
+           ` · from the TikTok video` clause.
+           *** THE DATE LINES ARE NOT ON THIS LIST. Owner ruling 2026-09-02: "DO NOT remove
+           the saved date/time information. I want to keep seeing when I saved a place."
+           `Saved 3 days ago` (per row), `Saved on …` and `Been on …` (the card) all STAY.
+           This withdrew the audit's own highest-ranked item; see ux-overwhelm-audit §7.1. ***
          · the peek row's spacing at the sheet's lowest stop  ← moved here 2026-09-02, owner
          · every TikTok source on the place card (§5.1's render half)
          · multi-select and bulk delete in Places (§8.2's render half)
