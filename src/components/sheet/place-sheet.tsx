@@ -482,7 +482,7 @@ function PlaceList({
           // The same number, published so anything inside the sheet can size itself against *this
           // column* instead of against the viewport. `dvh` is a lie in here: at `half` the column
           // is `55dvh - 70px`, so a child capped at `45dvh` claims 96 % of it and leaves the list
-          // nothing. `library-filter-bar.tsx`'s inline panel is the reader.
+          // nothing. The inline filter panel in `library-filter-bar.tsx` is the reader.
           '--sheet-content-height': STOP_TO_CONTENT_HEIGHT[stop],
         } as CSSProperties
       }
