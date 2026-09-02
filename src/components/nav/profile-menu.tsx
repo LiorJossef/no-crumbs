@@ -91,6 +91,9 @@ const COPY = {
   settingsHint: 'Your name',
   appearance: 'Appearance',
   signOut: 'Sign out',
+  /** The last stop in the focus trap, and the only way out for a touch screen reader. Never
+   *  visible: sighted users close this menu by pressing outside it or by pressing Escape. */
+  close: 'Close this menu',
   loading: 'Loading your account…',
   failed: 'Couldn’t load your account.',
 } as const;
@@ -217,7 +220,29 @@ export function ProfileMenu({
   }, [open]);
 
   return (
-    <Popover.Root open={open} onOpenChange={onOpenChange}>
+    <Popover.Root
+      open={open}
+      onOpenChange={onOpenChange}
+      /**
+       * Focus stays inside the menu; everything else about the page keeps working.
+       *
+       * Measured on 2026-09-01 at 1440×900: the popup announces `role="dialog"` and then lets you
+       * Tab straight out of it. Four tabs walk the menu and the fifth lands on `Map of your saved
+       * places`, `Toggle attribution`, `CARTO`, `OpenStreetMap` — the map underneath. `aria-modal`
+       * was `null`, so it was a dialog by name only.
+       *
+       * The scrim comment below argues, correctly, that a full-viewport wash at desktop widths
+       * would be a modal claim this menu does not make. That reasoning covers the *scrim*, and it
+       * was quietly taken to cover focus as well — but they are separate choices and only the first
+       * was ever made. `'trap-focus'` is exactly the difference: focus is contained, while page
+       * scroll stays unlocked and pointer interaction outside the menu keeps working, so nothing
+       * the scrim decision protects is given up.
+       *
+       * `true` is the wrong instrument here. It would lock document scroll and disable outside
+       * pointer interaction, which on a phone is most of the screen and on desktop is a live map.
+       */
+      modal="trap-focus"
+    >
       {/* **No `aria-label` from here, and that is a rule rather than an omission.** The trigger
           owns its own accessible name: the bar's tab is visibly labelled `Profile`, and overriding
           that with a name would break WCAG 2.5.3 — the accessible name has to contain the visible
@@ -300,6 +325,14 @@ export function ProfileMenu({
                 </div>
               )}
             </div>
+
+            {/* The way out, and it is required rather than decorative: with `modal="trap-focus"`
+                Base UI asks for a `Close` inside the popup so a touch screen reader — which has no
+                Escape key and cannot press "outside" a trap — is not sealed in. Visually hidden
+                because sighted users already have two doors, the scrim and Escape, and a third
+                visible button would be a control that says nothing the surface does not. It sits
+                last so it is the end of the tab cycle rather than something to tab past. */}
+            <Popover.Close className="sr-only">{COPY.close}</Popover.Close>
           </Popover.Popup>
         </Popover.Positioner>
       </Popover.Portal>
