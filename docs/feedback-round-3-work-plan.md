@@ -141,6 +141,22 @@ approximate location, every primary action is above the fold without scrolling.
 Covers **§1.3, §1.4**. Recorded twice already by independent reviews — 372 px, 41% of the viewport,
 73% of the desktop panel is controls before the first place.
 
+> **Correction, 2026-09-02 — this plan misread §1.3 and so did the lane's write scope.** The chips
+> the owner photographed are **tags, not categories**. `ProductCategory` aliases `PrimaryCategory`
+> — three values — so `CategoryFilterBar` can draw at most four controls, ever. `Bakery`, `Asian`,
+> `Italian`, `Brunch`, `Mediterranean`, `Middle Eastern`, `Desserts`, `Japanese`,
+> `SpecialtyCoffee` all come from `tagFacets`, capped at 12 with **no floor underneath**, and a
+> length cap cannot tell a useful tag from a unique one. Round 5's own evidence says so: 15 chips,
+> **12 of them singletons**.
+>
+> **Fixed directly, `8fd2e27`:** `MIN_TAG_FACET_COUNT = 2` in `src/ui/place/tag-filter.ts`, with the
+> active tag still pinned. Six existing tests were built on singleton fixtures while asserting
+> unrelated properties; they got real fixtures rather than weakened assertions. Not yet seen in a
+> browser — `place-sheet.tsx` is mid-flight in Lane B, so the row will be measured at wave close.
+>
+> Lane C's remaining half is therefore the **visit filter**, plus a compact trigger for the (small)
+> category row.
+
 | Task | Detail |
 |---|---|
 | C-T1 | Collapse the chip row behind one compact trigger that opens the existing chips in a popover/sheet. **Not a native `<select>`** — that would drop the pressed chip filling with its own category colour, which `facelift-plan.md:144` locks and which is load-bearing across pins, chips and counts |
