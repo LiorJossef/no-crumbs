@@ -32,8 +32,10 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ENTER_NEWS, ENTER_REVEAL, ENTER_SCREEN, LEAVE_REVEAL, REVEAL_BEAT } from '@/lib/interaction';
 import {
+  ALREADY_ADDED_ALL_LINE,
   candidateMeta,
   candidateTitle,
+  everyPlaceAlreadyAdded,
   isSaveable,
   saveButtonLabel,
   skippedNotice,
@@ -269,6 +271,27 @@ export function CaptionPreviewScreen({
     statusByIndex === null ? priorSaveNotice(probe.priorSaves ?? [], markedCount) : null;
 
   /**
+   * **Every place on this screen is already on the map from this same video, and nothing is
+   * ticked** — H2-T1, and the state lane H left with a dead button on it.
+   *
+   * `Select a place to save` is true only when the reason nothing is selected is that the user has
+   * not chosen. Here the reason is that *we* unticked everything, because they already have it, so
+   * the button was blaming the person for our own default and offering no way forward. That
+   * pairing — a dead primary and a false explanation — is precisely why the owner rejected a
+   * global duplicate check on 2026-08-29.
+   *
+   * The answer is not a better disabled label. There is nothing to save, the user's job here is
+   * done, and the honest primary is the way back to their map. Everything that made the previous
+   * behaviour information rather than a block survives untouched: the cards are still listed, the
+   * checkboxes still work, `Select all` still reaches them, and ticking one brings Save straight
+   * back as the primary — which is what makes this a statement rather than a refusal.
+   */
+  const nothingLeftToAdd =
+    statusByIndex === null &&
+    selectedCount === 0 &&
+    everyPlaceAlreadyAdded(n, markedCount);
+
+  /**
    * One candidate, and the resolver settled it — so the screen states the result instead of asking
    * a question with one legal answer (`ux-import-flatten.md` §3). The band is `collapsesToOneResult`'s
    * and therefore `deriveResolution`'s; this screen adds no threshold of its own.
@@ -280,7 +303,25 @@ export function CaptionPreviewScreen({
    * `Nothing is saved until you tap Save.` — the collapse removes the sub-decisions (Charter §3
    * invariant 2).
    */
-  const collapsed = statusByIndex === null && collapsesToOneResult(views);
+  /**
+   * …and **not when that one result is already on the map from this same video** (H2-T1).
+   *
+   * The collapsed layout deletes the card, and with it the checkbox: `candidate-card.tsx`'s
+   * `if (collapsed)` branch renders the pin line, the shortlist and the note row, and no selection
+   * control at all. That is right when the screen's job is "state the result, offer to save it" —
+   * there is one place and one button.
+   *
+   * It is wrong here, and it was wrong on a screen before it was wrong in the abstract: at
+   * `?state=review-added-one`, 390x844, the notice read *"It's not selected below. Select it to add
+   * it again"* above a layout with nothing to select. Two ways out of that, and only one of them
+   * keeps the 2026-08-29 ruling — rewriting the sentence would make the screen truthful by
+   * withdrawing the offer, while un-collapsing gives the sentence back the control it names. The
+   * card layout is the one that can say *this is already yours, add it anyway if you mean to*.
+   *
+   * Keyed on `markedCount`, which does not move when the user ticks the box, so the screen cannot
+   * change layout under their thumb.
+   */
+  const collapsed = statusByIndex === null && collapsesToOneResult(views) && markedCount === 0;
   /** The name the save will write, exactly as the card derives it — so the H1 and the request can
    *  never name different places, and picking another row re-titles the screen. */
   const soleTitle =
@@ -555,6 +596,24 @@ export function CaptionPreviewScreen({
           >
             Continue to map →
           </Button>
+        ) : nothingLeftToAdd ? (
+          <>
+            {/* The statement the button used to make badly, made as a sentence instead — and above
+                the control, so it reads as the reason rather than as a caption on it. Not
+                `role="status"`: it is on screen from the first paint, and a live region would
+                announce it a second time after the notice at the top of the screen already said
+                which places these are. */}
+            <p className="text-center text-sm font-semibold text-foreground">
+              {ALREADY_ADDED_ALL_LINE}
+            </p>
+            <Button
+              type="button"
+              onClick={onContinue}
+              className="h-14 w-full gap-1.5 rounded-lg text-base font-bold"
+            >
+              {IMPORT_ERROR_ACTION_LABEL.back_to_map} →
+            </Button>
+          </>
         ) : saveableIndices.length === 0 ? (
           <>
             <Button

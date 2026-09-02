@@ -1,9 +1,13 @@
+import { readFileSync } from 'node:fs';
+
 import { describe, expect, it } from 'vitest';
 
 import {
+  ALREADY_ADDED_ALL_LINE,
   candidateMeta,
   candidateProvenance,
   candidateTitle,
+  everyPlaceAlreadyAdded,
   isSaveable,
   isTaggedAccountOnly,
   locationLine,
@@ -135,6 +139,101 @@ describe('the primary action', () => {
 
   it('asks for a selection instead of showing a dead arrow', () => {
     expect(saveButtonLabel(0)).toBe('Select a place to save');
+  });
+});
+
+/**
+ * H2-T1 — the button that was dead *and* wrong about why.
+ *
+ * Lane H unticks a candidate this person already added from this same video. On a post whose every
+ * place is already on their map that leaves nothing selected, and `Select a place to save` then
+ * says the reason is that they have not chosen — when the reason is that we chose for them. A dead
+ * control paired with a false explanation is exactly what the owner rejected a global duplicate
+ * check for on 2026-08-29, and re-taking that decision means not re-taking that defect with it.
+ */
+describe('when every place found is already on the map from this video', () => {
+  it('recognises the state over every candidate, not just the saveable ones', () => {
+    expect(everyPlaceAlreadyAdded(3, 3)).toBe(true);
+    expect(everyPlaceAlreadyAdded(3, 2)).toBe(false);
+    // A card we could not place is still something we found. Excluding it would let
+    // "everything found here is already on your map" be printed over a place they have not got.
+    expect(everyPlaceAlreadyAdded(1, 0)).toBe(false);
+    // No candidates is the no-places screen's business, and this sentence must never appear there.
+    expect(everyPlaceAlreadyAdded(0, 0)).toBe(false);
+  });
+
+  it('states the true reason, in the ratified words', () => {
+    expect(ALREADY_ADDED_ALL_LINE).toBe('Everything found here is already on your map.');
+    // `voice-and-vocabulary.md` §3: `found`, `place`, `your map`, `add`. §2: the product name is
+    // banned on this surface. §4: no apology and no machinery.
+    for (const s of [ALREADY_ADDED_ALL_LINE]) {
+      expect(s.toLowerCase()).not.toMatch(
+        /\b(import|ingest|spot|venue|poi|duplicate|dedupe|extracted|detected|sorry|oops|failed|error|no crumbs)\b/,
+      );
+    }
+  });
+
+  it('leaves the way back in to the notice that is already saying it', () => {
+    /*
+     * Seen on a 390x844 screen rather than asserted: a footer line reading `Select a place above to
+     * add it again.` sat in the same viewport as the prior-saves notice's own
+     * `They're not selected below. Select one to add it again.`, and the two pointed at each other
+     * from opposite ends of the screen. The notice's is better placed — it is directly above the
+     * cards it describes — so the footer says only what the notice does not: why there is no Save.
+     */
+    expect(ALREADY_ADDED_ALL_LINE).not.toContain('Select');
+  });
+
+  describe('and the screen renders a live control rather than a dead one', () => {
+    const SCREEN = readFileSync('src/app/import/screens/review/review-screen.tsx', 'utf8');
+    const CODE = SCREEN.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+    it('branches before the Save button, so the dead label cannot be reached in this state', () => {
+      expect(CODE).toContain('const nothingLeftToAdd =');
+      expect(CODE).toContain('everyPlaceAlreadyAdded(n, markedCount)');
+      // The order matters: the `nothingLeftToAdd` arm has to come before the arm that renders
+      // `saveButtonLabel`, or the state falls through to the disabled button again.
+      expect(CODE.indexOf('nothingLeftToAdd ? (')).toBeLessThan(CODE.indexOf('saveButtonLabel('));
+    });
+
+    it('makes the primary the way back to the map, from the one shared label', () => {
+      expect(CODE).toContain('{IMPORT_ERROR_ACTION_LABEL.back_to_map} →');
+      expect(CODE).toContain('{ALREADY_ADDED_ALL_LINE}');
+    });
+
+    it('leaves every way of adding it anyway alone', () => {
+      // The cards, the checkboxes and `Select all` are untouched by this state: `saveableIndices`
+      // does not know about it, and ticking one card takes `selectedCount` above zero, which puts
+      // the Save button back. The 2026-08-29 ruling is that this is information, not a block.
+      const saveable = CODE.slice(
+        CODE.indexOf('const saveableIndices'),
+        CODE.indexOf('const [selected'),
+      );
+      expect(saveable).not.toContain('nothingLeftToAdd');
+      expect(CODE).toContain('selectedCount === 0 &&');
+    });
+
+    it('un-collapses the one-result layout, because that layout has no checkbox on it', () => {
+      /*
+       * Seen at `?state=review-added-one`, 390x844: the collapsed layout renders the pin line, the
+       * shortlist and the note row and **no selection control**, while the notice above it read
+       * "It's not selected below. Select it to add it again." The card layout gives that sentence
+       * back the control it names, which is the reading that keeps the 2026-08-29 ruling — the
+       * alternative, rewriting the sentence, would make the screen truthful by withdrawing the
+       * offer.
+       *
+       * On `markedCount`, which does not move when the box is ticked: the layout must not change
+       * under the user's thumb.
+       */
+      expect(CODE).toContain('collapsesToOneResult(views) && markedCount === 0');
+    });
+
+    it('does not show two ways out at once', () => {
+      // The ghost `Back to the map` under a dead Save is the old answer to this state. With the
+      // primary now being that same action, rendering both would be one action twice.
+      const arm = CODE.slice(CODE.indexOf('nothingLeftToAdd ? ('), CODE.indexOf('saveableIndices.length === 0 ? ('));
+      expect((arm.match(/onClick=\{onContinue\}/g) ?? []).length).toBe(1);
+    });
   });
 });
 
