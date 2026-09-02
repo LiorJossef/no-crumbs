@@ -201,6 +201,9 @@ export interface PlaceDetailFacts extends PlaceSharedFacts {
   readonly categoryIsOverridden?: boolean;
   readonly provenance?: SpotProvenance;
   readonly source?: SpotSource;
+  /** Every linked `sources` row, earliest first. `sources[0] === source`. Own library only —
+   *  a collection peer never receives this (`0024` refused the read policy). */
+  readonly sources?: readonly SpotSource[];
   readonly reason?: string;
   readonly note?: string;
   readonly sourceUrl?: string;
