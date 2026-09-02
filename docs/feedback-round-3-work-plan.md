@@ -311,21 +311,57 @@ Wave 2a  THE FILTER AND TAG SURFACE — the sidebar the owner photographed
          · anything else on that row that reads badly once those two land
 
 Wave 2b  THE SURFACES AROUND IT
+         · the place card's text — HELD FROM 2a only because the filter lane holds those
+           files. `Saved 3 days ago` is one extra line on EVERY row and is the largest single
+           text deletion in the product; plus the DISHES MENTIONED / CATEGORY / YOUR NOTE
+           kickers, `Been on …` / `Saved on …`, and the ` · from the TikTok video` clause
          · the peek row's spacing at the sheet's lowest stop  ← moved here 2026-09-02, owner
          · every TikTok source on the place card (§5.1's render half)
          · multi-select and bulk delete in Places (§8.2's render half)
-         · the re-import notice's tint — warning-coloured for news that is not a caution
-         · §7.2 the import loading screen: MEASURED at 237px of empty slack on an 844px
-           viewport, 28.1%, worst case being the first thing you see
+         · [DONE 2026-09-02, cede7b9] the re-import notice's tint
+         · [DONE 2026-09-02, edab786] §7.2 the import loading screen, 237px → 0
 
 Wave 2c  DATA AND ENGINE, once the screen is right
          · A's backfill (migration 0038), after the local container is brought up to disk
          · wiring repoint_saved_place — it exists, is security-reviewed, has zero callers,
            and is the honest fix for the llm_guess → Google upgrade (H-T3)
 
-Held     D-T3 fly-to · C-T2's chosen shape · E-T4's label weight — owner decisions, §4
+Held     D-T3 fly-to · the Category control's shape — owner decisions, §4
+         (C-T2's shape and E-T4's label weight are RESOLVED — see §5.1)
 Post-submission   §1.6/§11.1 unification · §1.1 map glyphs · §6.5 · §9.1 · §10.1
+
+NOT IN ANY LANE, AND THE HIGHEST-RISK OPEN ITEM ON THE BOARD
+         · the 10–15 minute presentation deck (M11, M12 item 10). Submission is
+           6 September. docs/presentation-outline.md is 207 lines of outline, not a deck.
+           Every other graded artefact now exists. The UI-first ordering keeps burying
+           this because it is not a UI problem; that is the ordering working as
+           instructed, not the item losing importance.
+         · the local container is 13 migrations behind the schema on disk. Any local
+           verification of saves, collections or tags is measured against the wrong
+           schema, and 2c's backfill cannot start until it is caught up. The clean
+           repair destroys the owner's local saves — orchestrator only, on a specific
+           instruction, never as a side effect.
 ```
+
+### 5.1 Owner decisions taken on 2026-09-02, during the session
+
+Recorded here because they close items §4 listed as open, and because two of them reverse
+instructions this plan and its spec gave the builder.
+
+| Decision | Ruling |
+|---|---|
+| **§1.3 / §1.4 — the filter row's shape** | **Neither Option A nor Option B of `ux-visit-filter-and-chip-density-2026-09-02.md`.** The owner chose the most aggressive of three costed options: **all three control rows collapse behind ONE `Filter` trigger** opening an inline panel. Measured cause: at 375×812 on the owner's own library the header drew **16 pills in three rows** and the first place row began at **y370 — 46% of the viewport**. Note the spec's §7 recommended Option B; it was not chosen |
+| **The panel's internals** | Three sections, each a **deliberately different control type**, because the audit's core finding is that one 44px pill serves six unrelated meanings. **Been** → segmented control (pick one). **Tags** → a **searchable multi-select list**, owner's words: "tags from a multi select list with a serch". **Category** → **UNDECIDED**, owner: "for catagory im not sure yet"; left as today's coloured chips, which is the zero-change option and preserves the colour lock at `facelift-plan.md:144`, and built as a swappable sibling component |
+| **`MAX_TAG_FACETS` 12 → 6** | **REVERSED before it shipped.** A capped chip row needed a cap; a searchable scrolling list does not, and a cap would hide tags the user can no longer reach by searching. `MIN_TAG_FACET_COUNT = 2` (shipped `8fd2e27`) is likewise pointless here and **cut zero chips on the owner's library** — all ten of its tags have a count ≥ 2. The length cap, not the count floor, was doing the work |
+| **The sort control** | Owner, twice: *"the look of sorting doesnt look good, it doesnt even tells you its a sort by"*, then *"I want to change the UI itself — the current Filter + Sort controls feel too large, heavy, and visually awkward."* Two defects: it **names no axis** (`A–Z` reads as a filter for names starting A–Z), and it is **byte-identical to a category chip with one chip always pressed**, because sort always has a current value — against the written rule at `category-filter-bar.tsx:37-44` that a pressed chip means *this is narrowing your library*. Resolved as: `Sort: Recently saved ▾`, and **not chip-shaped** |
+| **Visual weight of both triggers** | The resting control drops to **~32px painted inside a 44px hit area** — the touch floor argued at `category-filter-bar.tsx:16-23` is preserved by decoupling paint from target, **not** by shrinking `min-h-11`. `font-bold` → `font-medium`; the resting fill stops being mint. Active states stay clearly distinguishable. `document.elementFromPoint` verification is mandatory for this change |
+| **§2.7 / E-T4 — label weight** | **Resolved, shipped `78a4584`.** Style only, no renames |
+| **The sign-in page** | Owner, unprompted: *"dont change sign in page."* Out of scope for every lane |
+
+### 5.2 Two claims in this plan that measurement refuted
+
+- **"The re-import notice is ~230px."** It measured **120px** before any change, at both breakpoints. The tint was the loud part, not the size. Retinted to `bg-card-2`, 120 → 106px (`cede7b9`)
+- **"Shorten the re-import notice's text."** Instructed by the orchestrator, **correctly refused by the builder**: `ux-overwhelm-audit-2026-09-02.md` §3d #6 records that making this notice quiet was already measured and failed, and the strings live in `domain/import/prior-saves.ts`, outside that lane. The sentences stand
 
 **The peek row, moved rather than dropped.** At the sheet's lowest stop the visible strip is
 `PEEK_PX` 128 minus the bar's 68 = **60 px holding 58 px of content** — handle 14 + a 44 px button —
