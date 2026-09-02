@@ -71,7 +71,17 @@
  * component rather than a rewrite.
  */
 
-import { useCallback, useId, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useRef,
+  useContext,
+  useId,
+  useMemo,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import { Combobox as ComboboxPrimitive } from '@base-ui/react/combobox';
 import { Menu } from '@base-ui/react/menu';
 import { Radio } from '@base-ui/react/radio';
@@ -121,9 +131,23 @@ import {
  */
 export type FilterSurface = 'inline' | 'popover';
 
-/** Which axis has its inline panel open. Only one at a time: two open panels would push the list
- *  off a phone screen entirely. */
-type AxisKey = 'been' | 'category' | 'tags';
+/**
+ * **Which panel is open, across every axis in the header including the sort.**
+ *
+ * Only one at a time, and it has to be one register rather than one per control: measured at
+ * 390×844 with the tag panel open and the sort pressed, both panels stood at once and the first
+ * place row went from y308 to y824 — 30 px of list left on the screen. On the popover surface Base
+ * UI's outside-press already does this, so the context is consulted only when the surface is
+ * inline.
+ */
+const InlineMenuGroup = createContext<{
+  readonly open: string | null;
+  readonly setOpen: (key: string | null) => void;
+} | null>(null);
+
+/** How a row tells the axis it was chosen. Single-choice axes close on choose — RULED — and the
+ *  row should not have to know which surface it is on to do it. */
+const AxisCloseContext = createContext<() => void>(() => {});
 
 /**
  * **The 44 px hit area, painted at 32.** `min-h-11` is the documented touch floor and it stays on
@@ -349,11 +373,8 @@ export function LibraryFilterBar({
   // **Only one inline panel at a time**, and the bar is where that has to live: two open panels
   // would push the list off a phone screen entirely. On the popover surface this is unused — Base
   // UI's outside-press already closes one menu when another trigger is pressed.
-  const [openAxis, setOpenAxis] = useState<AxisKey | null>(null);
-  const openState = (key: AxisKey) => ({
-    open: openAxis === key,
-    onOpenChange: (next: boolean) => setOpenAxis(next ? key : null),
-  });
+  const [openPanel, setOpenPanel] = useState<string | null>(null);
+  const group = useMemo(() => ({ open: openPanel, setOpen: setOpenPanel }), [openPanel]);
   // One category is not a choice: every place is a restaurant, so a `Restaurant 12` row is a
   // control whose selected and unselected states show the same twelve places.
   const showCategories = facets.length > 1;
@@ -378,7 +399,8 @@ export function LibraryFilterBar({
     // it. Owner, 2026-09-02: *"leave the sort below the filters."*  No divider and no spacer
     // between them — a border between two rows of a four-control header is card soup, and each 44 px
     // target already carries 6 px of transparent band, which is the gap.
-    <div className={cn('flex flex-col', className)}>
+    <InlineMenuGroup.Provider value={group}>
+     <div className={cn('flex flex-col', className)}>
       {/* **Wraps, never scrolls.** Three triggers plus `Clear` is about 240 px before a single
           value is shown, against ~358 px of content width at 375 — so an active value, a Hebrew
           category name or a three-digit count will exceed it. A container whose job is to hide
@@ -392,7 +414,6 @@ export function LibraryFilterBar({
             active={visitFilter !== 'all'}
             surface={surface}
             axisClear={visitFilter === 'all' ? null : () => onChangeVisitFilter('all')}
-            {...openState('been')}
           >
             <AxisRows
               surface={surface}
@@ -402,12 +423,7 @@ export function LibraryFilterBar({
                 value: filter,
                 label: VISIT_FILTER_LABEL[filter],
               }))}
-              onChange={(next) => {
-                onChangeVisitFilter(next as VisitFilter);
-                // Single-select closes on choose — RULED. On the popover surface `closeOnClick`
-                // does it; inline there is no menu to close itself.
-                setOpenAxis(null);
-              }}
+              onChange={(next) => onChangeVisitFilter(next as VisitFilter)}
             />
           </MenuAxis>
         )}
@@ -421,7 +437,6 @@ export function LibraryFilterBar({
             dot={activeCategory !== null}
             surface={surface}
             axisClear={activeCategory === null ? null : () => onToggleCategory(activeCategory)}
-            {...openState('category')}
             {...(activeCategory === null
               ? {}
               : {
@@ -449,7 +464,6 @@ export function LibraryFilterBar({
                 })),
               ]}
               onChange={(next) => {
-                setOpenAxis(null);
                 if (next === 'all') {
                   if (activeCategory !== null) onToggleCategory(activeCategory);
                   return;
@@ -466,7 +480,6 @@ export function LibraryFilterBar({
             activeTags={activeTags}
             onToggle={onToggleTag}
             surface={surface}
-            {...openState('tags')}
           />
         )}
 
@@ -495,8 +508,23 @@ export function LibraryFilterBar({
       {/* Row 2. `SortControl` decides for itself whether it renders at all — below eight places, or
           below two available orders, there is nothing here and the row collapses to nothing. */}
       {belowRow !== undefined && <div className={HEADER_ROW}>{belowRow}</div>}
-    </div>
+     </div>
+    </InlineMenuGroup.Provider>
   );
+}
+
+/**
+ * **One panel open at a time, for whichever control asks.** Inline, the answer comes from the
+ * header's own register so that opening the sort closes the tags; on the popover surface Base UI's
+ * outside-press already does that and this is plain local state.
+ */
+function usePanelOpen(panelId: string, surface: FilterSurface): [boolean, (next: boolean) => void] {
+  const group = useContext(InlineMenuGroup);
+  const [local, setLocal] = useState(false);
+  if (surface === 'inline' && group !== null) {
+    return [group.open === panelId, (next) => group.setOpen(next ? panelId : null)];
+  }
+  return [local, setLocal];
 }
 
 /**
@@ -556,9 +584,18 @@ export function MenuAxis({
   children: ReactNode;
 }) {
   const panelId = useId();
-  const uncontrolled = useState(false);
-  const open = controlledOpen ?? uncontrolled[0];
-  const setOpen = onOpenChange ?? uncontrolled[1];
+  const [grouped, setGrouped] = usePanelOpen(panelId, surface);
+  const open = controlledOpen ?? grouped;
+  const setOpen = onOpenChange ?? setGrouped;
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  // **Focus goes back to the trigger, which has just changed to show what was picked.** Base UI
+  // returns it for the popover; the inline panel is plain DOM that unmounts under the user's focus,
+  // and measured at 390×844 that left `document.activeElement` on `<body>` — a keyboard user's
+  // next Tab restarted from the top of the sheet.
+  const close = useCallback(() => {
+    setOpen(false);
+    triggerRef.current?.focus();
+  }, [setOpen]);
 
   const label =
     tone === 'sort'
@@ -583,6 +620,7 @@ export function MenuAxis({
     return (
       <>
         <button
+          ref={triggerRef}
           type="button"
           data-vaul-no-drag
           {...(tone === 'filter' ? { 'aria-pressed': active } : {})}
@@ -590,19 +628,23 @@ export function MenuAxis({
           aria-controls={panelId}
           aria-label={label}
           onClick={() => setOpen(!open)}
+          // **Escape closes from the trigger as well as from inside the panel.** Measured at
+          // 390×844: opening by pointer leaves focus on the trigger, so a handler only on the panel
+          // never fires and Escape was a no-op on this surface. `product-review-2026-09-01-r5.md`
+          // G1 is the same defect on the profile popover; it is not optional on a second one.
+          onKeyDown={(event) => {
+            if (event.key !== 'Escape' || !open) return;
+            event.stopPropagation();
+            setOpen(false);
+          }}
           style={style}
           className={cn(TRIGGER_TARGET, PRESS_CHIP)}
         >
           {face}
         </button>
         {open && (
-          <InlinePanel
-            id={panelId}
-            axis={axis}
-            axisClear={axisClear ?? null}
-            onEscape={() => setOpen(false)}
-          >
-            {children}
+          <InlinePanel id={panelId} axis={axis} axisClear={axisClear ?? null} onEscape={close}>
+            <AxisCloseContext.Provider value={close}>{children}</AxisCloseContext.Provider>
           </InlinePanel>
         )}
       </>
@@ -634,7 +676,7 @@ export function MenuAxis({
             aria-label={accessibleAxis ?? axis}
             className={MENU_POPUP}
           >
-            {children}
+            <AxisCloseContext.Provider value={close}>{children}</AxisCloseContext.Provider>
           </Menu.Popup>
         </Menu.Positioner>
       </Menu.Portal>
@@ -727,9 +769,17 @@ export function AxisRows({
   onChange: (next: string) => void;
   groupLabel: string;
 }) {
+  const close = useContext(AxisCloseContext);
+  // **Single-select closes on choose and hands focus back to the trigger** — RULED, owner
+  // 2026-09-02. On the popover surface `closeOnClick` on the row does the focus return; the call
+  // here is what makes the inline panel behave the same way, and it is idempotent on both.
+  const choose = (next: string) => {
+    onChange(next);
+    close();
+  };
   if (surface === 'popover') {
     return (
-      <Menu.RadioGroup value={value} onValueChange={(next) => onChange(String(next))}>
+      <Menu.RadioGroup value={value} onValueChange={(next) => choose(String(next))}>
         {options.map((option) => (
           <MenuRadioRow key={option.value} {...option} selected={option.value === value} />
         ))}
@@ -740,7 +790,7 @@ export function AxisRows({
     <RadioGroup
       aria-label={groupLabel}
       value={value}
-      onValueChange={(next) => onChange(String(next))}
+      onValueChange={(next) => choose(String(next))}
       className="flex flex-col"
     >
       {options.map((option) => (
@@ -929,17 +979,19 @@ function TagsAxis({
   activeTags,
   onToggle,
   surface,
-  open,
-  onOpenChange,
 }: {
   facets: readonly TagFacet[];
   activeTags: readonly string[];
   onToggle: (tag: string) => void;
   surface: FilterSurface;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
 }) {
   const panelId = useId();
+  const [open, onOpenChange] = usePanelOpen(panelId, surface);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const closeToTrigger = useCallback(() => {
+    onOpenChange(false);
+    triggerRef.current?.focus();
+  }, [onOpenChange]);
   const byTag = useMemo(() => new Map(facets.map((facet) => [facet.tag, facet])), [facets]);
   const items = useMemo(() => facets.map((facet) => facet.tag), [facets]);
   const labelOf = useCallback(
@@ -1033,12 +1085,17 @@ function TagsAxis({
                 {/* **A check only when checked** — owner, 2026-09-02. The column is kept mounted so
                     the labels do not shift sideways the moment one is ticked, but nothing is drawn
                     in an unchecked row: reserved space, not an empty box. */}
-                <ComboboxPrimitive.ItemIndicator
-                  keepMounted
-                  className="flex size-3.5 shrink-0 items-center justify-center data-[unchecked]:invisible"
-                >
-                  <Check aria-hidden className="size-3.5 text-brand" />
-                </ComboboxPrimitive.ItemIndicator>
+                {/* **A check only when checked**, which is the one thing the owner asked for by
+                    name. `keepMounted` with `data-[unchecked]:invisible` — the menu's idiom — put a
+                    check on *every* tag row: the combobox's attribute is `data-selected`
+                    (`ComboboxItemDataAttributes`), and there is no unchecked one to hang the hide
+                    on. So the indicator is left unmounted until the row is selected, and this
+                    wrapper reserves its 14 px so the labels do not shift sideways when one is. */}
+                <span className="flex size-3.5 shrink-0 items-center justify-center">
+                  <ComboboxPrimitive.ItemIndicator>
+                    <Check aria-hidden className="size-3.5 text-brand" />
+                  </ComboboxPrimitive.ItemIndicator>
+                </span>
               </RowFace>
             </ComboboxItem>
           )}
@@ -1064,6 +1121,7 @@ function TagsAxis({
         itemToStringLabel={labelOf}
       >
         <button
+          ref={triggerRef}
           type="button"
           data-vaul-no-drag
           aria-pressed={activeTags.length > 0}
@@ -1071,6 +1129,13 @@ function TagsAxis({
           aria-controls={panelId}
           aria-label={label}
           onClick={() => onOpenChange(!open)}
+          // Escape from the trigger, exactly as the other three axes: opening by pointer leaves
+          // focus here, so a handler only on the panel never fires.
+          onKeyDown={(event) => {
+            if (event.key !== 'Escape' || !open) return;
+            event.stopPropagation();
+            closeToTrigger();
+          }}
           className={cn(TRIGGER_TARGET, PRESS_CHIP)}
         >
           {face}
@@ -1082,7 +1147,7 @@ function TagsAxis({
             // The axis's own clear is `Combobox.Clear` inside the chip rail; a second one on the
             // kicker line would be two controls for one action.
             axisClear={null}
-            onEscape={() => onOpenChange(false)}
+            onEscape={closeToTrigger}
           >
             {body}
           </InlinePanel>

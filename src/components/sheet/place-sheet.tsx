@@ -851,8 +851,6 @@ export function SortControl({
    *  that floated while the filters beside it disclosed inline would be a fifth mechanism. */
   surface?: FilterSurface;
 }) {
-  const [open, setOpen] = useState(false);
-
   // One option is not a choice. A library with no fix still has two, so this only fires if the
   // list of orders is ever narrowed further.
   if (orders.length < 2) return null;
@@ -867,18 +865,8 @@ export function SortControl({
       accessibleAxis={SORT_BY_LABEL}
       value={SORT_OPTION_LABEL[current]}
       surface={surface}
-      open={open}
-      onOpenChange={setOpen}
     >
-      <SortOptions
-        surface={surface}
-        current={current}
-        orders={orders}
-        onChange={(next) => {
-          setOpen(false);
-          onChange(next);
-        }}
-      />
+      <SortOptions surface={surface} current={current} orders={orders} onChange={onChange} />
     </MenuAxis>
   );
 }
