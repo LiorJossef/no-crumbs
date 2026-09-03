@@ -114,7 +114,12 @@ export function shareMessage(args: {
   // ordinary words ("Weekend", "Tel Aviv"), which read as part of the sentence without them. No
   // trailing newline — the share sheet joins `text` and `url` itself, and platforms disagree about
   // how much whitespace they keep.
-  return `“${args.collectionName}” — a collection of places, shared with you. ${can}`;
+  // **First person, because a person is sending it.** The previous sentence — `“X” — a
+  // collection of places, shared with you.` — was a caption, and it read as one: an em dash, a
+  // passive clause and no sender. Feedback 3.2 asked for something friendlier to send, and the
+  // cheapest honest way to get there is to write it the way the owner would type it into the chat
+  // themselves. It states two facts and stops, so §7 holds; no exclamation mark, §5.
+  return `I’m sharing my collection “${args.collectionName}” with you. ${can}`;
 }
 
 /** What the primary button says. Web Share is the better gesture on a phone (it reaches the chat

@@ -175,13 +175,21 @@ describe('emailLocalPart', () => {
  * the read model and one interpolation away — stays out.
  */
 describe('shareMessage', () => {
-  it('names the collection and what the link lets you do', () => {
+  it('names the collection and what the link lets you do, in the sender\u2019s own voice', () => {
+    // Feedback 3.2: the caption shape (`\u201cX\u201d \u2014 a collection of places, shared with you.`) had no
+    // sender in it and read as machine-written in a chat thread. First person, two facts, stop.
     expect(shareMessage({ collectionName: 'Weekend', role: 'viewer' })).toBe(
-      '\u201cWeekend\u201d \u2014 a collection of places, shared with you. You can see the places in it.',
+      'I\u2019m sharing my collection \u201cWeekend\u201d with you. You can see the places in it.',
     );
     expect(shareMessage({ collectionName: 'Weekend', role: 'editor' })).toBe(
-      '\u201cWeekend\u201d \u2014 a collection of places, shared with you. You can add places to it.',
+      'I\u2019m sharing my collection \u201cWeekend\u201d with you. You can add places to it.',
     );
+  });
+
+  it('states facts and stops \u2014 no exclamation mark, no adjective about the collection', () => {
+    for (const role of ['viewer', 'editor'] as const) {
+      expect(shareMessage({ collectionName: 'Weekend', role })).not.toContain('!');
+    }
   });
 
   it('carries no fact about the contents — not even the count', () => {
