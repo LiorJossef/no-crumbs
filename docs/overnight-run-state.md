@@ -17,10 +17,10 @@ is not running and you should take over.
 > so a heartbeat running fast eventually reads as stale and invites a second session in on top of a
 > live one. **Run `date` before writing a timestamp here. Never estimate one.**
 
-- **Last updated:** 2026-09-03 23:52 IDT
+- **Last updated:** 2026-09-03 23:54 IDT
 - **Run started:** 2026-09-03 22:30 IDT
 - **Hard stops:** 06:00 no new work · 06:30 tree clean · 07:00 handoff written and pushed
-- **Status:** WAVE 1 COMPLETE · WAVE 2 COMPLETE (5/5) · WAVE 3 DISPATCHING
+- **Status:** WAVE 1 COMPLETE · WAVE 2 COMPLETE · WAVE 3: 2 of 3 landed, verification still running
 
 ## The resume mechanism
 
@@ -74,6 +74,9 @@ of the sidebar, or it will wake up again tomorrow night.
 | `5afee2c` | `feat(profile)` — settings and the account menu start speaking one language (7.1/8.2/7.2) |
 | `aa2ae44` | `feat(collections)` — choosing a collection stops leaving the place (A2) |
 | `bd6f46a` | `feat(sheet)` — every row on the place card opens the same way (A1+A3+A4) |
+| `574b566` | `docs(run)` — this file and the work plan |
+| `c71d2fe` | `test` — eight dead guards start guarding again (11 red → 3) |
+| `9b0bb1e` | `fix(ui)` — a shared class constant stops vanishing inside a Server Component |
 
 ## Database rows this run touched
 
@@ -428,3 +431,67 @@ written with the wrong quote style for the file they read. Two consequences wort
 each one asserts nothing useful, and — worse — while eleven tests are red as a matter of course,
 **nobody can tell a real regression from the standing noise.** That is the thing to fix, and it is
 mechanical: make each assertion quote-agnostic without changing what it claims.
+
+---
+
+## Wave 3 — dispatched 23:45
+
+| Lane | Agent | Scope | Status |
+|---|---|---|---|
+| Adversarial verification of every claim | `qa-reliability` | read-only | RUNNING |
+| T — repair the dead guards | `qa-reliability` | `tests/unit/**` | **COMMITTED 23:50** |
+| C3 — the Server Component boundary | `nextjs-architect` | `src/ui/`, `ui/inline-menu.tsx`, `profile/page.tsx` | **COMMITTED 23:52** |
+
+### Lane T — **11 red → 3**, committed (`c71d2fe`).
+
+Eight were the single defect repeated: a single-quoted literal asserted against a double-quoted
+file. The agent proved the repairs are not weakenings **by mutation** rather than by re-running —
+each repaired pattern matches the real file today and **stops** matching when the property it guards
+is broken (en dash → hyphen, `"mouse"` → `"touch"`, named `group/row` → bare `group`, `aria-current`
+→ a data attribute). That is the right evidence: a guard that cannot fail is the bug being fixed, so
+a guard that passes without being able to fail would have been the same bug in a new coat.
+
+One repair is wider than quoting and was flagged rather than buried — the collection arm now
+tolerates one layout `<span>` between the branch and the exit, because `715a9aa` wrapped both arms.
+Any real control in that gap still fails it. That assertion was also **born red**: the commit that
+wrote it was a forward spec and the implementation took a different shape.
+
+**Three left red on purpose, and this follows the plan's own default** (§1.3: inherited failures are
+recorded, not "fixed"). They are not broken matches — they are claims the product **deliberately
+stopped satisfying**: the `· from the TikTok video` / `· from the map listing` provenance copy
+removed under spec §R5, and the `Collections` kicker removed under §A2, both with the ruling written
+at the call site. Retiring a claim is a different act from repairing a guard and is not one to
+perform while the owner is asleep. **Morning list, with the agent's recommendation: drop the label
+expectation and retire the two provenance blocks, each citing the ruling that superseded it.** Note
+the valuable halves of both tests already pass and must be kept — the banned-process-language guard,
+and the assertion that the three field rows share one shape.
+
+### Lane C3 — committed (`9b0bb1e`). The blocked profile item landed, and the boundary bug behind
+it is closed.
+
+The constants moved to a plain module and `inline-menu.tsx` re-exports them, so **all six existing
+consumers were untouched** — verified by grep and a clean typecheck. `MENU_POPUP` and `INLINE_PANEL`
+correctly stayed behind: they are `cn()` calls rather than strings, and moving them would have moved
+the boundary rather than stepped over it.
+
+I measured the row myself at both breakpoints in both themes: `display: flex`, `min-height: 44px`,
+**rendered height 44 — one line, not the two it was stacking into** — exactly one visible link, and
+it still navigates with JavaScript off, which matters because this row is the only door to
+`/account` without it. **No weight retreat was needed** (step 0 of the ladder); the popover's own
+`text-sm` override carries it.
+
+**A test now fails if that module ever gains a `'use client'` directive or an import**, and pins
+`/profile` to importing from it directly. This failure mode is silent by construction — no error, no
+warning, no type error, just missing styles — so the guard is the only thing standing between the
+next Server Component and the same bug. The agent proved the guard bites by running its regex
+against the file with the directive prepended.
+
+**One existing test was edited, for a real reason:** `collection-actions.test.ts`'s "one menu
+material, one file" loop greps `inline-menu.tsx` for `export const MENU_ROW_PAINT =`, which a
+re-export cannot satisfy. The loop was split so the two names that stayed are still checked there
+and the three that moved are checked in their new home. The claim is unchanged.
+
+**Pre-existing, not fixed, morning list:** at 390×844 the `Account settings` row sits at the very
+end of the document, so at scroll-top it is behind the floating nav; a 62 px scroll clears it. This
+change made the block 4 px shorter, so it is marginally better than before. Fixing it means touching
+the page's padding reserve, which nobody asked for.
