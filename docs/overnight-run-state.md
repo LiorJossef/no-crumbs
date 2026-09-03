@@ -17,10 +17,10 @@ is not running and you should take over.
 > so a heartbeat running fast eventually reads as stale and invites a second session in on top of a
 > live one. **Run `date` before writing a timestamp here. Never estimate one.**
 
-- **Last updated:** 2026-09-04 02:35 IDT
+- **Last updated:** 2026-09-04 03:05 IDT
 - **Run started:** 2026-09-03 22:30 IDT
 - **Hard stops:** 06:00 no new work · 06:30 tree clean · 07:00 handoff written and pushed
-- **Status:** owner asleep, full ownership · BUG-1, CLEAN and ERR landed · NLS-A still running
+- **Status:** owner asleep, full ownership · NLS Stage 1 **engine landed and gated** · the surface is the last lane running
 
 ## The resume mechanism
 
@@ -821,3 +821,52 @@ needs a live Supabase and `E2E_PASSWORD`, and the agent said so instead of calli
 
 **Morning list, found in passing:** `map-page-client.tsx` now documents **nine** camera movers;
 `06` §9.2 still says four.
+
+### NLS Stage 1, the engine — **landed in three commits, and it passed its gate on the third run.**
+
+`ae8357a` the schema and the clamp · `348394b` the adapter and the route · `fef6c9d` the benchmark,
+its runner and the evidence.
+
+**The gate, and the first two runs FAILED it:**
+
+| run | model | prompt | no-false-filter (≥90%) | exact (≥70%) |
+|---|---|---|---|---|
+| A | gemma-4-26b-a4b-it | q1 | **80.0%** FAIL | 74.3% |
+| B | gemini-3.5-flash-lite | q1 | **80.0%** FAIL | 77.1% |
+| C | gemma-4-26b-a4b-it | **q2** | **97.1% PASS** | **88.6% PASS** |
+
+Run C by language: **en 100% / 92.9%, he 100% / 85.7% — Hebrew is not the weak side.**
+
+**Both models failed q1 for one identical reason: they classify the dish, not the query.**
+`cheese danish` → cafe + desserts, `שניצל` → restaurant, `🍕` → restaurant. Thirteen of the fourteen
+false filters across A and B were that single mistake — **which also proves it was a prompt problem
+and not a model one, since the paid model was no better at it.** The q2 fix names the distinction
+and renders the taxonomy's own alias table into the prompt, *generated from the alias pairs* rather
+than retyped, so an admitted alias cannot drift out of the prompt later.
+
+Two integrity details worth keeping: the labels were written **before** any tuning and the failing
+runs were scored against them unchanged; and two of the dry-run file's six examples were **golden
+queries verbatim**, which the agent found and removed.
+
+**The schema bisection is measured and closes an open question.** `json-schema.ts` has carried "a
+15-value enum on a nested array's `items`" as the unmeasured risk since 2026-08-27, and the intent
+schema walks straight into it. **It returns 200 on the first probe.** One call.
+
+**Also measured, both ASSUMED in the plan:** latency p50 **1281 ms** (gemma) / **777 ms**
+(flash-lite) against the 6 s cap; cost **$0** and **$0.00036** per search; and a **free-tier
+per-minute ceiling that bites at ~19 calls/minute** — no consequence at one call per submit, but it
+would have quietly capped any speculative design. Spend: **107 requests, $0.012**, plus 17 refused by
+the route's own limiter before reaching the provider.
+
+**I verified the clamp myself through the running route: it fails closed.** With no vocabulary
+supplied it dropped every filter as `not-in-library` and kept nothing. My second probe was refused by
+the route's own rate limiter — the limiter working, and the reason I did not re-drive the injection
+case myself.
+
+**Not claimed, and correctly labelled:** flash-lite under q2 was never run (transfer is a prediction);
+free-tier requests-per-day is still unmeasured; and the preview-count and network-failure criteria
+belong to the surface.
+
+**My own slip, recorded:** two earlier `git add docs/` commits swept this lane's in-flight evidence
+JSONs into my documentation commits. Harmless — evidence belongs in the repo — but the commits were
+less tightly scoped than they claim to be.
