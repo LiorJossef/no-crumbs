@@ -403,7 +403,9 @@ export function pinHighlightLayerLayout(textFont: readonly string[]): Record<str
     'icon-size': 1.1,
     'icon-allow-overlap': true,
     'icon-ignore-placement': true,
-    'text-field': ['get', 'name'],
+    // `label`, not `name`: the pre-broken form. A mixed Hebrew/Latin name whose lines MapLibre
+    // chooses does not read in the order it is written — `label-lines.ts` has the measurement.
+    'text-field': ['get', 'label'],
     'text-font': [...textFont],
     'text-size': LABEL_TEXT_SIZE,
     'text-anchor': 'top',
@@ -592,7 +594,7 @@ export function pinTextFieldExpression(): unknown[] {
     expression.push(tier, [
       'case',
       ['<=', ['coalesce', ['get', 'labelZoom'], LABEL_ALL_ZOOM], tier],
-      ['get', 'name'],
+      ['get', 'label'],
       '',
     ]);
   }

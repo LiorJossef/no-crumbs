@@ -165,9 +165,13 @@ describe('two saved places 50 m apart are two pins', () => {
 
   it('carries no count property for anything to render as a number', () => {
     for (const feature of toPlaceFeatures(near).features) {
+      // The exact key set, still — the assertion is that nothing here is a count. `label` joined
+      // it in MAP-01: the name with a hard break at each direction boundary, which is what the
+      // `text-field` draws (`label-lines.ts`). Not a count, and not a merge of two places.
       expect(Object.keys(feature.properties).sort()).toEqual([
         'category',
         'id',
+        'label',
         'name',
         'visited',
       ]);

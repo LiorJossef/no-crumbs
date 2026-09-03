@@ -153,7 +153,10 @@ describe('the pointed-at pin lifts, and is named', () => {
    */
   it('names the pointed-at pin at every zoom', () => {
     const layout = pinHighlightLayerLayout(['Open Sans Regular']);
-    expect(layout['text-field']).toEqual(['get', 'name']);
+    // `label` rather than `name` since MAP-01: the same string for a single-script name, and the
+    // direction-broken form for a mixed one (`label-lines.ts`). The property that matters here is
+    // unchanged — one `get`, no gate.
+    expect(layout['text-field']).toEqual(['get', 'label']);
     expect(JSON.stringify(layout['text-field'])).not.toContain('step');
     expect(JSON.stringify(layout['text-field'])).not.toContain('zoom');
   });
