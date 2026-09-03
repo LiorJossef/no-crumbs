@@ -21,8 +21,18 @@
  * language. Same visual result, no blast radius on `/map`.
  */
 
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  type ReactNode,
+  type RefObject,
+} from 'react';
 import { useRouter } from 'next/navigation';
+import { Menu } from '@base-ui/react/menu';
 import {
   ArrowLeft,
   Check,
@@ -36,6 +46,22 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { PlaceRow, PlaceSearchField } from '@/components/sheet/place-sheet';
+import {
+  EnterSelectionButton,
+  LeaveSelectionButton,
+} from '@/components/sheet/library-selection';
+import {
+  AxisRows,
+  MenuAxis,
+  type AxisOption,
+  type FilterSurface,
+} from '@/components/sheet/library-filter-bar';
+import {
+  InlinePanel,
+  MENU_POPUP,
+  MENU_ROW,
+  MENU_ROW_PAINT,
+} from '@/components/ui/inline-menu';
 import { BOTTOM_NAV_HEIGHT_PX } from '@/components/nav/bottom-nav';
 import {
   STOP_TO_CONTENT_HEIGHT,
@@ -43,7 +69,7 @@ import {
   type SheetStop,
 } from '@/components/shell/sheet-geometry';
 import { SharePanel } from '@/components/collections/share-panel';
-import { addersIn, adderFilterIsUseful, type Adder } from '@/components/collections/added-by';
+import { addersIn, adderFilterIsUseful } from '@/components/collections/added-by';
 import {
   TAKE_OUT_CONFIRM_LABEL,
   TAKE_OUT_LABEL,
@@ -90,6 +116,38 @@ import { cn } from '@/lib/utils';
  * clamped onto the list.
  */
 const LIST_END_GAP_PX = 12;
+
+/**
+ * **Whether `Leave collection` is painted red at rest. OPEN OWNER DECISION as of 2026-09-03 —
+ * flipping this constant is the whole change, and there is nothing else to touch.**
+ *
+ * `true` is today's behaviour and the committed state. `false` is what
+ * `ux-collection-actions-2026-09-03.md` §6 argues for: red at rest is reserved for the
+ * irreversible, and leaving is reversible — its own prompt says *"You can rejoin with the link."*
+ * Either way the confirm button stays `variant="destructive"`, so the second step is red in both.
+ * `Delete collection` is not governed by this: it is irreversible and is always red.
+ */
+const LEAVE_IS_DESTRUCTIVE_AT_REST = true;
+
+/**
+ * The `Added by` row that narrows nothing, and the bucket for items with no recorded adder.
+ *
+ * Two sentinels because `AxisRows` speaks in strings and `collection_items.added_by` is nullable:
+ * `null` in the state means "everyone", so the unattributed bucket cannot also be `null` or the two
+ * are the same choice. Before this it *was* — the unattributed chip called `onChange(null)` and so
+ * selected `Everyone`, which is why that bucket has never been reachable. Neither sentinel can
+ * collide with a `uuid`.
+ */
+const EVERYONE_VALUE = 'everyone';
+const NO_ADDER_VALUE = 'no-adder';
+
+/** The axis word, on the trigger and as the group's accessible name. `Added by`, never `Saved by`:
+ *  the column is `collection_items.added_by` — who put the place *into this collection*, which is
+ *  not always who saved it. */
+const ADDED_BY_AXIS = 'Added by';
+
+/** The `⋯`'s accessible name, and the popup's. An unlabelled glyph names nothing. */
+const COLLECTION_OPTIONS_LABEL = 'Collection options';
 
 /* The `KICKER` class this file exported was the up-link's own styling and nothing else imported
    it. It goes with the row (`ux-collections-as-scope.md` §5 item 3, amended 2026-09-02); the
@@ -264,6 +322,7 @@ function CollectionList({
   onViewChange,
   onSelectItem,
   stop,
+  onExpand,
   claimHeadingFocus,
 }: CollectionContentProps) {
   const [query, setQuery] = useState('');
@@ -272,18 +331,47 @@ function CollectionList({
    *  everyone. Client-side over `collection.places`, which already carries the adder and their
    *  display name — see `added-by.ts`. */
   const [addedBy, setAddedBy] = useState<string | null>(null);
-  /** Whether the list is in selection mode. Off by default and entered from the options menu:
-   *  browsing is what this screen is for, and a checkbox on every row all the time would make
-   *  picking the loudest thing about a list you mostly read. */
+  /** Whether the list is in selection mode. Off by default and entered from `Select` on the
+   *  heading's own row — the same control and the same word the library uses: browsing is what
+   *  this screen is for, and a checkbox on every row all the time would make picking the loudest
+   *  thing about a list you mostly read. */
   const [selecting, setSelecting] = useState(false);
+  /**
+   * What the `⋯` menu was asked for, rendered in the header band rather than inside the menu.
+   *
+   * It lives here rather than inside the menu because the menu is closed by the time any of it is
+   * on screen: at `lg+` the menu is an anchored popup, and a confirm inside one is dismissed by an
+   * outside press mid-decision. One confirm surface on both breakpoints.
+   */
+  const [menuAction, setMenuAction] = useState<'edit' | 'delete' | 'leave' | null>(null);
+  const [adderOpen, setAdderOpen] = useState(false);
+  /** A refused write's reason. It outlives the confirm it collapses, which is why it is here and
+   *  not inside the panel that raised it. */
+  const [menuError, setMenuError] = useState<string | null>(null);
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
   const [confirmingTakeOut, setConfirmingTakeOut] = useState(false);
   const [takeOutError, setTakeOutError] = useState<string | null>(null);
   const [takeOutNotice, setTakeOutNotice] = useState<string | null>(null);
   const [takingOut, startTakeOut] = useTransition();
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
+  const menuPanelId = useId();
+  /** The `Select` control's slot, so `Cancel` can hand focus back to the thing that opened the
+   *  mode. `display: contents`, so the wrapper is not a box — the button is still the flex item
+   *  the heading row lays out. `EnterSelectionButton` is reused verbatim and takes no ref. */
+  const selectSlotRef = useRef<HTMLSpanElement>(null);
+  /** A ref rather than state: it is a one-shot instruction to the effect below, and putting it in
+   *  state would make `Cancel` render twice to move focus once. */
+  const restoreSelectFocus = useRef(false);
   // See the heading's own comment below for why this tracks `stop` rather than a breakpoint.
   const HeadingTag = stop === undefined ? 'h1' : 'h2';
+  /**
+   * Where the two menus on this screen are drawn — the same question `HeadingTag` and `barPx` ask,
+   * and answered from `stop` for the same reason. Both instances of this component are in the DOM
+   * at once behind CSS gates, so a render-time `matchMedia` emits different markup on the server
+   * and on the client; `library-filter-bar.tsx` records the hydration mismatch that shipped.
+   */
+  const surface: FilterSurface = stop === undefined ? 'popover' : 'inline';
 
   /**
    * The one focus move §6 asks for: entering a collection is a route-level scope change, and the
@@ -303,13 +391,45 @@ function CollectionList({
     heading.focus({ preventScroll: true });
   }, [claimHeadingFocus]);
 
+  /** The other half of `leaveSelection({ returnFocus: true })`. It has to wait for a render: the
+   *  `Select` control does not exist while `selecting` is true, so there is nothing to focus at the
+   *  moment `Cancel` is pressed. */
+  useEffect(() => {
+    if (selecting || !restoreSelectFocus.current) return;
+    restoreSelectFocus.current = false;
+    selectSlotRef.current?.querySelector('button')?.focus();
+  }, [selecting]);
+
   const editable = canEdit(collection.role);
 
   const adders = useMemo(
     () => addersIn(collection, currentUserId),
     [collection, currentUserId],
   );
-  const showAdderFilter = adderFilterIsUseful(adders);
+  /**
+   * Drawn when two or more people have put something here — one adder means every row returns the
+   * same list. The second clause is the one the library's header already carries on `Been` and
+   * `Category`: if a collaborator's places are taken out in another tab while their name is the
+   * filter, the trigger has to stay, or the control that undoes the narrowing disappears while the
+   * narrowing is still on.
+   */
+  const showAdderFilter = adderFilterIsUseful(adders) || addedBy !== null;
+
+  /** `Everyone`, then the adders in `added-by.ts`'s order. The unattributed bucket keys on
+   *  `NO_ADDER_VALUE` rather than on `null`, which is `Everyone`'s value. */
+  const adderOptions = useMemo<readonly AxisOption[]>(
+    () => [
+      { value: EVERYONE_VALUE, label: 'Everyone' },
+      ...adders.map((adder) => ({
+        value: adder.userId ?? NO_ADDER_VALUE,
+        label: adder.label,
+        count: adder.count,
+      })),
+    ],
+    [adders],
+  );
+  /** What the closed trigger says: the person, and how many of the list is theirs. */
+  const activeAdder = adderOptions.find((option) => option.value === addedBy) ?? null;
 
   /** `collection_items.id` → the item, so the two client-side filters below can ask about the row
    *  behind a pin. `pins` is a `MapPlace[]` whose `id` is the item id (`collections-scope.tsx`);
@@ -322,9 +442,10 @@ function CollectionList({
   const matches = useMemo(() => {
     const searched = filterPlaces(pins, query);
     if (addedBy === null) return searched;
-    // `=== addedBy` covers the no-adder bucket too: its key is the literal `null` that
-    // `collection_items.added_by` holds, not a sentinel string.
-    return searched.filter((place) => (itemsById.get(place.id)?.addedBy ?? null) === addedBy);
+    // The no-adder bucket is `NO_ADDER_VALUE` on both sides, because `null` here means `Everyone`.
+    return searched.filter(
+      (place) => (itemsById.get(place.id)?.addedBy ?? NO_ADDER_VALUE) === addedBy,
+    );
   }, [pins, query, addedBy, itemsById]);
 
   /** Only ever the items still in the collection, so a selection cannot outlive a row that has
@@ -363,11 +484,30 @@ function CollectionList({
   const allVisiblePicked =
     matches.length > 0 && matches.every((place) => picked.has(place.id));
 
-  function leaveSelection() {
+  /**
+   * `returnFocus` only for `Cancel`: it is the press that ended the mode, so focus goes back to
+   * the `Select` control that started it and has just come back on screen. A completed take-out
+   * passes nothing — the user's attention is the list that just changed, and there is no press to
+   * return to. Measured before this: `document.activeElement` landed on `<body>` either way.
+   */
+  function leaveSelection(options?: { readonly returnFocus?: boolean }) {
     setSelecting(false);
     setPicked(new Set());
     setConfirmingTakeOut(false);
     setTakeOutError(null);
+    if (options?.returnFocus === true) restoreSelectFocus.current = true;
+  }
+
+  /** Everything the mode needs dropped on the way in. Was the `Select places` menu row's body and
+   *  is unchanged: both narrowings go, because selection mode hides the controls that set them,
+   *  and a list still filtered by a search box that is no longer on screen is a list whose
+   *  `Select all` picks a number the user cannot see. */
+  function enterSelection() {
+    setMenuOpen(false);
+    setTakeOutNotice(null);
+    setQuery('');
+    setAddedBy(null);
+    setSelecting(true);
   }
 
   function togglePick(itemId: string) {
@@ -435,6 +575,21 @@ function CollectionList({
    * same question, and `map-page-client.tsx` forbids one outright.
    */
   const barPx = floatingBarClearancePx(stop);
+  /**
+   * **The sheet is told a panel is about to take room in it**, the same call `place-sheet.tsx:676`
+   * makes for the library's axes, and guarded the same way. Measured at 375×812 at `half`,
+   * `London 2026`: `Added by`'s trigger sits at y575 and its last row lands at y832 against a
+   * column that ends at y747 with a 68 px bar floating over it — three of the four rows are
+   * unreachable.
+   *
+   * **The guard is not decoration.** `onExpand` here is `shell.sheet.goTo('half')`, so calling it
+   * at `full` *lowers* the sheet out from under the menu that is opening — measured: the heading
+   * moved 76 → 441 on the press. And because it only ever reaches `half`, calling it *at* `half`
+   * moves nothing either: **the overflow above is still on screen and the other half of the fix is
+   * `collections-scope.tsx`, which is a different file's to make** — it passes an expander that
+   * stops at `half` where `place-sheet.tsx` passes one that goes to `full`.
+   */
+  const expandForPanel = stop === 'full' || stop === undefined ? undefined : onExpand;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -496,18 +651,63 @@ function CollectionList({
               bottom edge with the button in place. `-me-2` pulls the glyph's optical edge back to
               the column's padding while the target stays 44 px. `ms-auto` is left off deliberately
               — `flex-1` on the heading already decides the position, and one rule should. */}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-lg"
-            aria-label="Collection options"
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((open) => !open)}
-            data-vaul-no-drag
-            className="-me-2 -my-1.5 size-11 shrink-0 rounded-full text-muted-foreground"
-          >
-            <MoreHorizontal className="size-4" aria-hidden />
-          </Button>
+          {/* **`Select` is promoted out of the `⋯` menu onto this row**
+              (`ux-collection-actions-2026-09-03.md` §7.1). Two reasons, and they are the two
+              `library-selection.tsx` already gives for the identical control above the library: it
+              costs **zero vertical pixels** on a header the owner measured as too tall, and it
+              changes what a *row* does, which is not an action on the collection and so does not
+              belong in an object menu. The component is reused verbatim rather than re-styled, so
+              the library and the collection cannot drift into two words for one act.
+
+              The wrapper is `display: contents` — not a box, so the button is still the flex item
+              this row lays out and nothing sits between the heading and the `⋯` — and it exists
+              only to give `Cancel` something to hand focus back to. `EnterSelectionButton` takes no
+              ref. */}
+          {/* **One slot, two controls, one conditional** (`ux-select-control-2026-09-03.md` §3.1
+              and §5). `Cancel` stands exactly where `Select` was, at the same size and one ink
+              step darker; the exit used to be at the other end of a row below, two weights
+              heavier, which is the transition the owner called weird. `LeaveSelectionButton` also
+              moves focus onto itself on mount, which is why the `cancelSelectionRef` this file
+              used to carry is gone — the control that needs the focus now owns the move.
+
+              The word stays `Cancel` and not `Done`: `bulk-delete.ts` rules that the reversible
+              removal and the irreversible one do not share an exit word. §6 of the spec records
+              honestly that the divergence is now thin, and that unifying it is the owner's call. */}
+          {selecting ? (
+            <LeaveSelectionButton onLeave={() => leaveSelection({ returnFocus: true })} label="Cancel" />
+          ) : editable && collection.places.length > 0 ? (
+            <span ref={selectSlotRef} className="contents">
+              <EnterSelectionButton onEnter={enterSelection} />
+            </span>
+          ) : null}
+          {/* Hidden while selecting (§7.7): none of its rows is available or sensible mid-selection,
+              and an open options menu over a live selection is a state with no defined behaviour. */}
+          {selecting ? null : (
+            <CollectionOptionsTrigger
+              surface={surface}
+              open={menuOpen}
+              onOpenChange={(next) => {
+                if (next) expandForPanel?.();
+                setMenuOpen(next);
+              }}
+              triggerRef={menuTriggerRef}
+              panelId={menuPanelId}
+            >
+              <CollectionMenuRows
+                role={collection.role}
+                surface={surface}
+                onShare={() => {
+                  setMenuOpen(false);
+                  onViewChange('share');
+                }}
+                onAction={(action) => {
+                  setMenuOpen(false);
+                  setMenuError(null);
+                  setMenuAction(action);
+                }}
+              />
+            </CollectionOptionsTrigger>
+          )}
         </div>
         <button
           type="button"
@@ -538,35 +738,52 @@ function CollectionList({
             `line-clamp-1` copy, which is where a description does its work: choosing which
             collection to open. */}
 
-        {menuOpen ? (
-          <CollectionMenu
-            collection={collection}
-            currentUserId={currentUserId}
-            onShare={() => {
+        {/* **The inline half of the `⋯` menu, and it is here rather than beside its trigger on
+            purpose.** Under the header block — after the meta line, before the search field — so
+            the collection's identity stays visible above an open menu, and so the one thing that
+            can be on screen at a time (the menu, an edit form, a confirm, a refusal) is always in
+            the same band. At `lg+` the rows are in the anchored popup instead and this renders
+            nothing; the band below still carries every consequence. */}
+        {surface === 'inline' && menuOpen ? (
+          <InlinePanel
+            id={menuPanelId}
+            axisClear={null}
+            triggerRef={menuTriggerRef}
+            /* Escape returns focus to the `⋯`; an outside press does not, because the press has
+               already landed on whatever the user meant to touch. The library's filter panels make
+               the same split, and this is the same component making it. */
+            onEscape={() => {
               setMenuOpen(false);
-              onViewChange('share');
+              menuTriggerRef.current?.focus();
             }}
-            /* Absent unless there is something to select and the viewer may edit — an owner-only
-               menu section would hide it from editors, who are exactly the people whose items
-               these are. */
-            {...(editable && collection.places.length > 0
-              ? {
-                  onSelectPlaces: () => {
-                    setMenuOpen(false);
-                    setTakeOutNotice(null);
-                    // Both narrowings are dropped on the way in, because selection mode hides the
-                    // controls that set them: a list still filtered by a search box that is no
-                    // longer on screen is a list whose `Select all` picks a number the user cannot
-                    // see, which is the worst possible way to start a delete.
-                    setQuery('');
-                    setAddedBy(null);
-                    setSelecting(true);
-                  },
-                }
-              : {})}
-            onClose={() => setMenuOpen(false)}
-          />
+            onOutsidePress={() => setMenuOpen(false)}
+          >
+            <CollectionMenuRows
+              role={collection.role}
+              surface="inline"
+              onShare={() => {
+                setMenuOpen(false);
+                onViewChange('share');
+              }}
+              onAction={(action) => {
+                setMenuOpen(false);
+                setMenuError(null);
+                setMenuAction(action);
+              }}
+            />
+          </InlinePanel>
         ) : null}
+
+        {/* Every consequence of the menu, in the header band with the menu closed — the edit form,
+            both confirms, and the sentence a refused write leaves behind. */}
+        <CollectionActionPanel
+          collection={collection}
+          currentUserId={currentUserId}
+          action={menuAction}
+          error={menuError}
+          onError={setMenuError}
+          onActionChange={setMenuAction}
+        />
 
         {collection.places.length > 0 && !selecting ? (
           <div className="mt-2">
@@ -576,31 +793,75 @@ function CollectionList({
 
         {/* Who put it here (§8.1). Below the search rather than beside it: they narrow the same
             list and stacking them keeps each control full width on a 390 px phone. Drawn only when
-            two or more people have added something — see `adderFilterIsUseful`. */}
+            two or more people have added something — see `adderFilterIsUseful`.
+
+            **One `MenuAxis`, not a strip of chips** (`ux-collection-actions-2026-09-03.md` §7.2).
+            It was a horizontally scrolling, edge-bleeding row of 44 px mint-filled radio chips —
+            precisely the chip wall the library's header deleted on 2026-09-02, kept alive on one
+            screen. The logic underneath is untouched: `addersIn` still groups, orders and labels,
+            and `adderFilterIsUseful` is still the gate. What changes is the material, and with it
+            Escape, outside-press and focus-return-to-trigger, none of which the chips had.
+
+            The wrapper wraps because `INLINE_PANEL` is `order-last w-full`: it takes the line below
+            the trigger rather than displacing it. */}
         {showAdderFilter && !selecting ? (
-          <AddedByFilter adders={adders} value={addedBy} onChange={setAddedBy} />
+          <div className="mt-2 flex flex-wrap items-center gap-x-1.5">
+            <MenuAxis
+              axis={ADDED_BY_AXIS}
+              open={adderOpen}
+              onOpenChange={(next) => {
+                if (next) expandForPanel?.();
+                setAdderOpen(next);
+              }}
+              value={activeAdder?.label ?? null}
+              count={activeAdder?.count ?? null}
+              active={addedBy !== null}
+              surface={surface}
+              axisClear={addedBy === null ? null : () => setAddedBy(null)}
+            >
+              <AxisRows
+                surface={surface}
+                value={addedBy ?? EVERYONE_VALUE}
+                options={adderOptions}
+                onChange={(next) => setAddedBy(next === EVERYONE_VALUE ? null : next)}
+                groupLabel={ADDED_BY_AXIS}
+              />
+            </MenuAxis>
+          </div>
         ) : null}
 
         {/* The selection toolbar replaces the search and the filter while it is up. Two ways of
-            narrowing a list you are picking from is a way to lose track of what is picked. */}
+            narrowing a list you are picking from is a way to lose track of what is picked.
+
+            **The weight ladder is `ux-select-control-2026-09-03.md` §2, and it is the library's.**
+            Both buttons were `font-semibold` and near-black, which made the two lowest-stakes
+            controls in the band — leave the mode, toggle a checkbox set — the loudest things on
+            the screen, above the action they exist to serve. They are `font-medium` now: the exit
+            at `text-foreground`, the convenience at `text-muted-foreground`, and the count taking
+            its emphasis from its content rather than from chrome. `Cancel` at `font-medium` is
+            also what keeps `Select` → `Cancel` one step apart instead of three (§2, C3).
+
+            **This is a copy of `SelectionToolbar` and it stays a copy** — see that component in
+            `library-selection.tsx`, which carries the same four rules against the same
+            `bulk-delete.ts` divergence table. It is not imported because it is typed on
+            `LibrarySelection`, and satisfying that interface here would mean constructing an
+            object whose `openConfirm`, `run` and `notice` this screen does not have. Any edit to
+            the ladder is made in both places. */}
         {selecting ? (
-          <div className="mt-2 flex items-center gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              className="h-11 px-3 text-sm font-semibold"
-              onClick={leaveSelection}
-              data-vaul-no-drag
+          <div className="mt-2 flex animate-in items-center gap-2 fade-in-0 duration-enter motion-safe:slide-in-from-top-1">
+            <p
+              aria-live="polite"
+              className={cn(
+                'min-w-0 flex-1 text-sm font-medium',
+                selected.length === 0 ? 'text-muted-foreground' : 'text-foreground',
+              )}
             >
-              Cancel
-            </Button>
-            <p aria-live="polite" className="min-w-0 flex-1 text-sm font-medium text-muted-foreground">
               {selectionCountLabel(selected.length)}
             </p>
             <Button
               type="button"
               variant="ghost"
-              className="h-11 px-3 text-sm font-semibold"
+              className="-me-3 h-11 px-3 text-sm font-medium text-muted-foreground"
               onClick={() => {
                 setTakeOutNotice(null);
                 // Over `matches`, which in selection mode is the whole collection — see
@@ -766,91 +1027,6 @@ function CollectionList({
 }
 
 /**
- * Who put it here — a row of chips over `collection_items.added_by` (§8.1).
- *
- * A `radiogroup` and not a set of toggles: the list is narrowed to one person at a time, which is
- * what the question "who added this" actually asks. Multi-select would be a second filter language
- * on a screen that already has a search box.
- *
- * The count rides on each chip because it is the reason to press one — `Maya 11` says where the
- * places are before you tap. It is `aria-hidden` inside the label rather than in it: the chip's
- * accessible name is the person, and a screen reader reading "Maya 11" as a name is a worse
- * sentence than a sighted user's glance is a better one.
- */
-function AddedByFilter({
-  adders,
-  value,
-  onChange,
-}: {
-  adders: readonly Adder[];
-  value: string | null;
-  onChange: (userId: string | null) => void;
-}) {
-  return (
-    <div
-      role="radiogroup"
-      aria-label="Show places added by"
-      // `-mx-4 px-4` so the strip scrolls edge to edge on a phone while its first chip still lines
-      // up with the heading above it. `no-scrollbar` is not available here; the strip is short
-      // enough that the native bar is the honest affordance.
-      className="-mx-4 mt-2 flex gap-2 overflow-x-auto px-4 pb-1"
-    >
-      <AddedByChip
-        label="Everyone"
-        selected={value === null}
-        onSelect={() => onChange(null)}
-      />
-      {adders.map((adder) => (
-        <AddedByChip
-          key={adder.userId ?? 'unattributed'}
-          label={adder.label}
-          count={adder.count}
-          selected={value === adder.userId}
-          onSelect={() => onChange(adder.userId)}
-        />
-      ))}
-    </div>
-  );
-}
-
-function AddedByChip({
-  label,
-  count,
-  selected,
-  onSelect,
-}: {
-  label: string;
-  count?: number;
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={selected}
-      onClick={onSelect}
-      data-vaul-no-drag
-      className={cn(
-        'flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-sm font-semibold',
-        PRESS_CHIP,
-        'focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-        selected
-          ? 'border-transparent bg-primary text-primary-foreground'
-          : 'border-border bg-card text-muted-foreground hover:bg-muted',
-      )}
-    >
-      <bdi>{label}</bdi>
-      {count === undefined ? null : (
-        <span aria-hidden className="text-xs font-medium tabular-nums opacity-80">
-          {count}
-        </span>
-      )}
-    </button>
-  );
-}
-
-/**
  * One row while the list is picking rather than browsing.
  *
  * **Its own row and not `PlaceRow` with a checkbox bolted on**, for one reason that is about
@@ -944,262 +1120,391 @@ function EmptyCollection({
   );
 }
 
-/** Edit, share, leave and delete. Inline rather than a popover portal — the whole feature keeps
- *  every surface inside the sheet it was opened from.
+/**
+ * **The `⋯` trigger, and at `lg+` the popup it anchors.**
  *
- *  The row and its first label were both `Rename` until the description field existed. A control
- *  named for one of the two things it edits is mislabelled, and `Edit` bare rather than
- *  `Edit collection` because its siblings carry the noun only where they are destructive
- *  (`Delete collection`, `Leave collection`); `Share` beside them is already bare.
+ * Two surfaces, one control, and the split is the same one every menu in this product makes: an
+ * anchored popup where there is room for it, an inline panel in normal flow inside the sheet, where
+ * a floating layer competes with vaul's drag listener and strands a narrow menu mid-screen.
  *
- *  All three writes go through `attemptWrite` (`ui/place/write-failure.ts`) rather than awaiting an
- *  action directly. Before 2026-09-01 an offline `Save`, `Delete` or `Leave` rejected inside its
- *  transition and React replaced the whole segment with `app/error.tsx` — taking the collection,
- *  the list and, on the edit form, the name and description the user had just typed. */
-function CollectionMenu({
+ * On `inline` this renders the button alone — `children` is drawn by the caller, in the header band
+ * under the meta line, so the collection's name and members stay visible above an open menu and
+ * every consequence of a row lands in one place. On `popover` the rows go in the popup, where
+ * anchoring them to anything else would be a menu that opened somewhere other than the thing
+ * pressed.
+ *
+ * The `⋯` gets its open state free: `variant="ghost"` carries `aria-expanded:bg-card-2`.
+ */
+function CollectionOptionsTrigger({
+  surface,
+  open,
+  onOpenChange,
+  triggerRef,
+  panelId,
+  children,
+}: {
+  surface: FilterSurface;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  triggerRef: RefObject<HTMLButtonElement | null>;
+  panelId: string;
+  /** The rows. Used on `popover` only; `inline` draws them in the band — see above. */
+  children: ReactNode;
+}) {
+  /* **Both margins stay negative, and that is still the whole economy of this row.** A 44 px target
+     on a row whose text is 24 px tall would make the row 44 px, and deleting the `Collections`
+     up-link would have bought 24 px instead of the 36 it is worth. `-my-1.5` keeps the full hit
+     area while contributing 32 px of layout; `-me-2` pulls the glyph's optical edge back to the
+     column's padding. Measured at 390×844 at `half`, `London 2026`, 15 places. */
+  const face = <MoreHorizontal className="size-4" aria-hidden />;
+  const shape = '-me-2 -my-1.5 size-11 shrink-0 rounded-full text-muted-foreground';
+
+  if (surface === 'inline') {
+    return (
+      <Button
+        ref={triggerRef}
+        type="button"
+        variant="ghost"
+        size="icon-lg"
+        aria-label={COLLECTION_OPTIONS_LABEL}
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={() => onOpenChange(!open)}
+        // Escape closes from the trigger as well as from inside the panel: opening by pointer
+        // leaves focus here, so a handler only on the panel never fires. The library's inline axes
+        // carry the identical line for the identical reason.
+        onKeyDown={(event) => {
+          if (event.key !== 'Escape' || !open) return;
+          event.stopPropagation();
+          onOpenChange(false);
+        }}
+        data-vaul-no-drag
+        className={shape}
+      >
+        {face}
+      </Button>
+    );
+  }
+
+  return (
+    <Menu.Root open={open} onOpenChange={onOpenChange}>
+      <Menu.Trigger
+        render={<Button type="button" variant="ghost" size="icon-lg" className={shape} />}
+        aria-label={COLLECTION_OPTIONS_LABEL}
+        aria-expanded={open}
+        data-vaul-no-drag
+      >
+        {face}
+      </Menu.Trigger>
+      <Menu.Portal>
+        {/* `align="end"`, not `start`: the trigger is on the row's trailing edge, so a menu aligned
+            to its leading edge would hang off the panel. */}
+        <Menu.Positioner side="bottom" align="end" sideOffset={6} className="z-50 outline-none">
+          <Menu.Popup
+            id={panelId}
+            data-vaul-no-drag
+            aria-label={COLLECTION_OPTIONS_LABEL}
+            className={MENU_POPUP}
+          >
+            {children}
+          </Menu.Popup>
+        </Menu.Positioner>
+      </Menu.Portal>
+    </Menu.Root>
+  );
+}
+
+/**
+ * **What is in the menu, after `Select` left it: three rows for a manager, one for everyone else.**
+ *
+ * `Select places` is gone from here (`ux-collection-actions-2026-09-03.md` §7.1) — it is a mode
+ * switch on the *rows*, not an action on the collection, and it now sits on the heading. `Share`
+ * stays even though the meta line opens the same view: that line is caption-weight text with no
+ * control affordance a first-time user reads, and the menu exists anyway, so the duplicate is the
+ * collaboration feature's only labelled entry point.
+ */
+function CollectionMenuRows({
+  role,
+  surface,
+  onShare,
+  onAction,
+}: {
+  role: CollectionDetail['role'];
+  surface: FilterSurface;
+  onShare: () => void;
+  onAction: (action: 'edit' | 'delete' | 'leave') => void;
+}) {
+  // `flex-col` inline so a `<button>` fills the panel's width, which is what `Menu.Popup`'s block
+  // layout gives the floating rows for free. Same technique as `AxisRows`.
+  return (
+    <div className={surface === 'inline' ? 'flex flex-col' : undefined}>
+      {canManage(role) ? (
+        <>
+          <CollectionMenuRow surface={surface} label="Share" onClick={onShare} />
+          <CollectionMenuRow surface={surface} label="Edit" onClick={() => onAction('edit')} />
+          <CollectionMenuRow
+            surface={surface}
+            label="Delete collection"
+            /* Red at rest is reserved for the irreversible, and this is it: everyone loses the
+               collection, not just the person pressing. */
+            destructive
+            onClick={() => onAction('delete')}
+          />
+        </>
+      ) : (
+        <CollectionMenuRow
+          surface={surface}
+          label="Leave collection"
+          destructive={LEAVE_IS_DESTRUCTIVE_AT_REST}
+          onClick={() => onAction('leave')}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * **One row, on the shared menu material.** It was a bespoke container — `rounded-lg border
+ * bg-muted/40` with full-width 44 px bordered rows — that existed nowhere else in the product; the
+ * paint now comes from `ui/inline-menu.tsx`, which is the same 40-px row inside a 44-px target the
+ * library's filter menus draw.
+ *
+ * **One deviation from those rows, and it is deliberate: `text-sm`, not `text-xs`.** The library's
+ * 12 px is calibrated for a twelve-row options list with a count column. This is a three-row command
+ * list where one row is irreversible, and 12 px destructive text is a legibility problem the density
+ * argument does not pay for. Same height, same radius, same offsets, same highlight.
+ */
+function CollectionMenuRow({
+  surface,
+  label,
+  destructive,
+  onClick,
+}: {
+  surface: FilterSurface;
+  label: string;
+  destructive?: boolean;
+  onClick: () => void;
+}) {
+  const face = (
+    <span className={cn(MENU_ROW_PAINT, 'text-sm', destructive === true && 'text-destructive')}>
+      {label}
+    </span>
+  );
+  if (surface === 'popover') {
+    return (
+      <Menu.Item className={cn(MENU_ROW, PRESS_ROW)} onClick={onClick}>
+        {face}
+      </Menu.Item>
+    );
+  }
+  return (
+    <button type="button" onClick={onClick} data-vaul-no-drag className={cn(MENU_ROW, PRESS_ROW)}>
+      {face}
+    </button>
+  );
+}
+
+/**
+ * **Everything the menu leads to, drawn in the header band with the menu closed.**
+ *
+ * This is a rule rather than an implementation detail. It keeps one confirm surface across both
+ * breakpoints, and it avoids a confirm inside an `lg+` popup that an outside press would silently
+ * dismiss mid-decision. The band is also where a *refused* write's reason lands: that confirm has
+ * collapsed, so without a component that outlives it the server's answer would collapse too and the
+ * press would look ignored. An *unreachable* write keeps its confirm and its message inside it.
+ *
+ * All three writes go through `attemptWrite` (`ui/place/write-failure.ts`) rather than awaiting an
+ * action directly. Before 2026-09-01 an offline `Save`, `Delete` or `Leave` rejected inside its
+ * transition and React replaced the whole segment with `app/error.tsx` — taking the collection, the
+ * list and, on the edit form, the name and description the user had just typed.
+ */
+function CollectionActionPanel({
   collection,
   currentUserId,
-  onShare,
-  onSelectPlaces,
-  onClose,
+  action,
+  error,
+  onError,
+  onActionChange,
 }: {
   collection: CollectionDetail;
   currentUserId: string;
-  onShare: () => void;
-  /** Enters selection mode. Absent when there is nothing to select or the viewer may not edit —
-   *  the row is then not drawn at all rather than drawn disabled. */
-  onSelectPlaces?: () => void;
-  onClose: () => void;
+  action: 'edit' | 'delete' | 'leave' | null;
+  error: string | null;
+  onError: (message: string | null) => void;
+  onActionChange: (action: 'edit' | 'delete' | 'leave' | null) => void;
 }) {
   const router = useRouter();
-  const [editing, setEditing] = useState(false);
+  const [pending, startTransition] = useTransition();
+
+  if (action === 'edit') {
+    return (
+      <CollectionEditForm
+        // Remounted per opening, so the drafts start from the collection's current values rather
+        // than from whatever the last abandoned edit left in them.
+        key={collection.id}
+        collection={collection}
+        error={error}
+        onError={onError}
+        onDone={() => onActionChange(null)}
+      />
+    );
+  }
+
+  if (action === 'delete' || action === 'leave') {
+    /* The shallower of the product's two confirms, deliberately (`ux-two-removals-one-screen.md`
+       §2.4): one prompt line, no body, two buttons, no autofocus, confirm first. The deeper pattern
+       — a body enumerating what is lost, `Cancel` first and autofocused — belongs to the library's
+       `saved_places` delete, and that inequality is the safety mechanism. */
+    const isDelete = action === 'delete';
+    return (
+      <InlineConfirm
+        prompt={
+          isDelete
+            ? `Delete “${collection.name}”? Everyone loses it.`
+            : `Leave “${collection.name}”? You can rejoin with the link.`
+        }
+        confirmLabel={isDelete ? 'Delete' : 'Leave'}
+        pending={pending}
+        error={error}
+        onCancel={() => {
+          onActionChange(null);
+          onError(null);
+        }}
+        onConfirm={() =>
+          startTransition(async () => {
+            const outcome = await attemptWrite(() =>
+              isDelete
+                ? deleteCollection(collection.id)
+                : removeMember(collection.id, currentUserId),
+            );
+            if (outcome.kind === 'ok') {
+              router.push(drawerHref(INDEX_VIEW) as '/map');
+              return;
+            }
+            // The two failures diverge here and nowhere else, exactly as they do on the saved
+            // place's own delete. A **refusal** is settled — the collection is gone, or this caller
+            // may not do this — so there is nothing left to confirm and the step collapses, which
+            // is where the message then appears. **Silence** settles nothing: the collection is
+            // still there, still the one they meant, so the confirmation stays and the button is
+            // one press away.
+            if (outcome.kind === 'refused') onActionChange(null);
+            onError(outcome.message);
+          })
+        }
+      />
+    );
+  }
+
+  if (error === null) return null;
+  return (
+    <p role="alert" className="mt-1 text-sm text-destructive">
+      {error}
+    </p>
+  );
+}
+
+/**
+ * The name and the description, edited in place.
+ *
+ * The row and its label were both `Rename` until the description field existed. A control named for
+ * one of the two things it edits is mislabelled, and `Edit` is bare rather than `Edit collection`
+ * because its siblings carry the noun only where they are destructive.
+ */
+function CollectionEditForm({
+  collection,
+  error,
+  onError,
+  onDone,
+}: {
+  collection: CollectionDetail;
+  error: string | null;
+  onError: (message: string | null) => void;
+  onDone: () => void;
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
   const [name, setName] = useState(collection.name);
   // `?? ''` here and nowhere else. The form's value is a string because a `<textarea>`'s is;
   // `validateCollectionDescription` turns an empty one back into `null` on the way to the column,
   // so a cleared description is `NULL` and never `''` — the same empty-means-null rule a saved
   // place's note follows.
   const [description, setDescription] = useState(collection.description ?? '');
-  const [confirming, setConfirming] = useState<'delete' | 'leave' | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
-
-  if (editing) {
-    return (
-      <form
-        className="mt-2 flex flex-col gap-2 rounded-lg border border-border bg-muted/40 p-3"
-        onSubmit={(event) => {
-          event.preventDefault();
-          startTransition(async () => {
-            // `keepsDraft`: this form holds a name and a description somebody typed. Neither
-            // failure closes it — a refusal is usually about the words in the fields, and silence
-            // wrote nothing at all — so the draft is on screen either way and the message says so.
-            const outcome = await attemptWrite(
-              () => updateCollection(collection.id, name, description),
-              { keepsDraft: true },
-            );
-            if (outcome.kind !== 'ok') {
-              setError(outcome.message);
-              return;
-            }
-            setEditing(false);
-            onClose();
-            router.refresh();
-          });
-        }}
-      >
-        <label htmlFor="edit-collection-name" className="text-sm font-medium">
-          Name
-        </label>
-        <Input
-          id="edit-collection-name"
-          autoFocus
-          dir="auto"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          maxLength={COLLECTION_NAME_MAX_LENGTH}
-          className="h-11 text-base"
-          data-vaul-no-drag
-        />
-
-        <label htmlFor="edit-collection-description" className="mt-1 text-sm font-medium">
-          Description
-        </label>
-        {/* A `<textarea>`, not an `<Input>`, and that is the domain's decision rather than a
-            layout preference: `validateCollectionDescription`'s docblock says *"Newlines survive;
-            it is prose, not a label"*, and a single-line field silently forbids the newlines it
-            deliberately preserves.
-
-            No `(optional)` on the label. The name field carries no `(required)`, so qualifying one
-            and not the other only reads correctly to somebody who already knows the convention —
-            and the field saves blank, which teaches it for free.
-
-            The placeholder is an example rather than a restatement: the label already says what the
-            field is, so a placeholder saying it again is the field naming itself twice. What a
-            label cannot teach is the register, and one short concrete line does. */}
-        <Textarea
-          id="edit-collection-description"
-          dir="auto"
-          value={description}
-          onChange={(event) => setDescription(event.target.value)}
-          maxLength={COLLECTION_DESCRIPTION_MAX_LENGTH}
-          placeholder="Places from the Lisbon trip"
-          className="text-base"
-          data-vaul-no-drag
-        />
-        {error ? (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        ) : null}
-        <div className="flex gap-2">
-          <Button type="submit" size="lg" className="h-11 flex-1" disabled={pending}>
-            Save
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="lg"
-            className="h-11"
-            onClick={() => setEditing(false)}
-          >
-            Cancel
-          </Button>
-        </div>
-      </form>
-    );
-  }
-
-  if (confirming === 'delete') {
-    return (
-      <InlineConfirm
-        prompt={`Delete “${collection.name}”? Everyone loses it.`}
-        confirmLabel="Delete"
-        pending={pending}
-        error={error}
-        onCancel={() => setConfirming(null)}
-        onConfirm={() =>
-          startTransition(async () => {
-            const outcome = await attemptWrite(() => deleteCollection(collection.id));
-            if (outcome.kind === 'ok') {
-              router.push(drawerHref(INDEX_VIEW) as '/map');
-              return;
-            }
-            // The two failures diverge here and nowhere else in this menu, exactly as they do on
-            // the saved place's own delete. A **refusal** is settled — the collection is gone, or
-            // this caller may not delete it — so there is nothing left to confirm and the step
-            // collapses back to the menu, which is where the message then appears. **Silence**
-            // settles nothing: the collection is still there, still the one they meant, so the
-            // confirmation stays open and `Delete` is one press away.
-            if (outcome.kind === 'refused') setConfirming(null);
-            setError(outcome.message);
-          })
-        }
-      />
-    );
-  }
-
-  if (confirming === 'leave') {
-    return (
-      <InlineConfirm
-        prompt={`Leave “${collection.name}”? You can rejoin with the link.`}
-        confirmLabel="Leave"
-        pending={pending}
-        error={error}
-        onCancel={() => setConfirming(null)}
-        onConfirm={() =>
-          startTransition(async () => {
-            const outcome = await attemptWrite(() => removeMember(collection.id, currentUserId));
-            if (outcome.kind === 'ok') {
-              router.push(drawerHref(INDEX_VIEW) as '/map');
-              return;
-            }
-            // Same split as the delete above, for the same reason: leaving is the destructive
-            // gesture a non-owner has, and a dropped signal must not cost them the two steps.
-            if (outcome.kind === 'refused') setConfirming(null);
-            setError(outcome.message);
-          })
-        }
-      />
-    );
-  }
 
   return (
-    <>
-      <div className="mt-2 flex flex-col rounded-lg border border-border bg-muted/40">
-        {/* Above the owner-only block so an editor, who sees only `Leave collection` below,
-            still gets the one control that acts on the items they put here. `Select places` and
-            not `Remove places`: what it starts is a selection, and what the selection can do is
-            decided by the control it reveals. */}
-        {onSelectPlaces ? <MenuRow label="Select places" onClick={onSelectPlaces} /> : null}
-        {canManage(collection.role) ? (
-          <>
-            <MenuRow label="Share" onClick={onShare} />
-            {/* Each of these drops a stale message on the way: a sentence about the delete that
-                did not happen has no business sitting under an edit form. */}
-            <MenuRow
-              label="Edit"
-              onClick={() => {
-                setError(null);
-                setEditing(true);
-              }}
-            />
-            <MenuRow
-              label="Delete collection"
-              destructive
-              onClick={() => {
-                setError(null);
-                setConfirming('delete');
-              }}
-            />
-          </>
-        ) : (
-          <MenuRow
-            label="Leave collection"
-            destructive
-            onClick={() => {
-              setError(null);
-              setConfirming('leave');
-            }}
-          />
-        )}
-      </div>
-      {/* Where a *refused* delete or leave lands: the confirmation it was answering has collapsed,
-          so without this the server's reason would collapse with it and the press would look
-          ignored. An unreachable one keeps its confirmation and its message up there instead. */}
-      {error ? (
-        <p role="alert" className="mt-1 text-sm text-destructive">
+    <form
+      className="mt-2 flex flex-col gap-2 rounded-lg border border-border bg-muted/40 p-3"
+      onSubmit={(event) => {
+        event.preventDefault();
+        startTransition(async () => {
+          // `keepsDraft`: this form holds a name and a description somebody typed. Neither failure
+          // closes it — a refusal is usually about the words in the fields, and silence wrote
+          // nothing at all — so the draft is on screen either way and the message says so.
+          const outcome = await attemptWrite(
+            () => updateCollection(collection.id, name, description),
+            { keepsDraft: true },
+          );
+          if (outcome.kind !== 'ok') {
+            onError(outcome.message);
+            return;
+          }
+          onDone();
+          router.refresh();
+        });
+      }}
+    >
+      <label htmlFor="edit-collection-name" className="text-sm font-medium">
+        Name
+      </label>
+      <Input
+        id="edit-collection-name"
+        autoFocus
+        dir="auto"
+        value={name}
+        onChange={(event) => setName(event.target.value)}
+        maxLength={COLLECTION_NAME_MAX_LENGTH}
+        className="h-11 text-base"
+        data-vaul-no-drag
+      />
+
+      <label htmlFor="edit-collection-description" className="mt-1 text-sm font-medium">
+        Description
+      </label>
+      {/* A `<textarea>`, not an `<Input>`, and that is the domain's decision rather than a layout
+          preference: `validateCollectionDescription`'s docblock says *"Newlines survive; it is
+          prose, not a label"*, and a single-line field silently forbids the newlines it
+          deliberately preserves.
+
+          No `(optional)` on the label. The name field carries no `(required)`, so qualifying one
+          and not the other only reads correctly to somebody who already knows the convention — and
+          the field saves blank, which teaches it for free.
+
+          The placeholder is an example rather than a restatement: the label already says what the
+          field is, so a placeholder saying it again is the field naming itself twice. What a label
+          cannot teach is the register, and one short concrete line does. */}
+      <Textarea
+        id="edit-collection-description"
+        dir="auto"
+        value={description}
+        onChange={(event) => setDescription(event.target.value)}
+        maxLength={COLLECTION_DESCRIPTION_MAX_LENGTH}
+        placeholder="Places from the Lisbon trip"
+        className="text-base"
+        data-vaul-no-drag
+      />
+      {error !== null ? (
+        <p role="alert" className="text-sm text-destructive">
           {error}
         </p>
       ) : null}
-    </>
-  );
-}
-
-function MenuRow({
-  label,
-  destructive,
-  onClick,
-}: {
-  label: string;
-  destructive?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      data-vaul-no-drag
-      className={cn(
-        // The bare `transition-colors` goes rather than gaining a `motion-safe:` prefix:
-        // `PRESS_BEAT` already carries colour and transform together for everyone else, so an
-        // un-prefixed one beside it would be reachable *only* under `prefers-reduced-motion`.
-        'flex min-h-11 items-center px-3 text-left text-sm font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 not-last:border-b not-last:border-border/70',
-        PRESS_ROW,
-        destructive ? 'text-destructive' : 'text-foreground',
-      )}
-    >
-      {label}
-    </button>
+      <div className="flex gap-2">
+        <Button type="submit" size="lg" className="h-11 flex-1" disabled={pending}>
+          Save
+        </Button>
+        <Button type="button" variant="ghost" size="lg" className="h-11" onClick={onDone}>
+          Cancel
+        </Button>
+      </div>
+    </form>
   );
 }
 
