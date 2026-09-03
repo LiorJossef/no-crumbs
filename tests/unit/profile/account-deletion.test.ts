@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
@@ -103,12 +103,14 @@ describe('the refusal', () => {
   });
 
   it("carries the deck's strings and no others", () => {
+    // The deck's §5, as the **owner shortened it on 2026-09-03** — *"too much text"* — and as
+    // `docs/overnight-copy-deck.md` was updated to say in the same commit. It is still the one
+    // source: what changed is which strings it holds, not that the code may write its own.
     const source = readFileSync(UI, 'utf8');
     for (const string of [
       'Delete my data',
-      'This removes your places, anything you kept for later, your collections and your account.',
       'Delete your account?',
-      'Your places, anything you kept for later, your collections and your account are removed. This can’t be undone.',
+      'Your places, collections and account are removed. This can’t be undone.',
       'Delete my account',
       'Deleting…',
       'Couldn’t delete your account. Try again in a moment.',
@@ -120,6 +122,39 @@ describe('the refusal', () => {
     ]) {
       expect(source, `${string} is missing`).toContain(string);
     }
+  });
+
+  it('owes the mentions clause back when `keep for later` ships', () => {
+    // `entity-proposal.md` §10.4 wrote *"anything you kept for later"* into C145 as **condition 10**
+    // of the E1 security ruling, ahead of the feature, so the deletion copy could not be caught
+    // understating what it removes. The owner cut it on 2026-09-03 as part of shortening this
+    // screen, and it is honest *only while E1 is unbuilt*.
+    //
+    // This is the tripwire: the moment application code touches `place_mentions`, a user can create
+    // one, and C145 has to name it again. Failing here means restoring the clause — in the code,
+    // in the deck's C145 row and in its deferral note — not deleting this test.
+    const wired = readdirSync('src', { recursive: true, encoding: 'utf8' })
+      .filter((entry) => entry.endsWith('.ts') || entry.endsWith('.tsx'))
+      .filter((entry) => readFileSync(`src/${entry}`, 'utf8').includes("from('place_mentions')"));
+    expect(wired, 'E1 shipped: restore the `anything you kept for later` clause to C145').toEqual(
+      [],
+    );
+  });
+
+  it('still names the scope and the finality before the destructive press', () => {
+    // **The line the shortening may not cross.** `entryLine` (C143) is gone and C145 lost a clause,
+    // but the confirmation still has to say *what is removed* and *that it cannot come back*,
+    // above a button that acts. Opening the disclosure is not that button — it reveals and destroys
+    // nothing — so this is still scope first, destructive press second.
+    const source = readFileSync(UI, 'utf8');
+    const body = source.slice(source.indexOf('confirmBody:'), source.indexOf('confirm:'));
+    expect(body).toMatch(/places/);
+    expect(body).toMatch(/collections/);
+    expect(body).toMatch(/account/);
+    expect(body).toContain('can’t be undone');
+    // Said once. It was in `entryLine` and in `confirmBody`, one line apart in the same panel.
+    // `code`, not `source`: the header argues about the removal by name, which is not a string.
+    expect(code(UI)).not.toContain('entryLine');
   });
 
   it('claims nothing about what the user wrote elsewhere', () => {

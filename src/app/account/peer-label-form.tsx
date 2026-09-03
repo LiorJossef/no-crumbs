@@ -45,6 +45,12 @@
 import { useId, useState, useTransition } from 'react';
 
 import { updateDisplayName } from '@/app/actions/collections';
+import {
+  SETTINGS_FIELD,
+  SETTINGS_FIELD_COLUMN,
+  SETTINGS_ROW,
+  SETTINGS_SAVE,
+} from '@/app/account/_lib/field-style';
 import { MEMBER_NAME_MAX_LENGTH } from '@/domain/collections/collection';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,7 +58,15 @@ import { Label } from '@/components/ui/label';
 
 const COPY = {
   heading: 'What people call you',
-  blurb: 'Shown beside your name in a collection you share. Everything else about your account stays private.',
+  /** The mirror of `Your name`'s line, and the pair only works as a pair: one says *only you*, this
+   *  one names the audience. That contrast is `0035`'s security boundary drawn in seven words, and
+   *  it is why the owner's 2026-09-03 cut kept a line here rather than deleting both.
+   *
+   *  The clause that went — *"everything else about your account stays private"* — was reassurance
+   *  about the fields this form is not, which is a promise the other form already makes about
+   *  itself. `voice-and-vocabulary.md` §3 rules the noun: `collection`, and never *member* or
+   *  *collaborator* for the people in one. */
+  blurb: 'Shown to people you share a collection with.',
   field: 'Name in shared collections',
   /** What peers see with nothing stored. `memberLabel` returns exactly this string, so the page
    *  states the product's real behaviour rather than a paraphrase of it. */
@@ -104,55 +118,71 @@ export function PeerLabelForm({
   }
 
   return (
-    <section aria-labelledby={headingId} className="mt-8">
+    // The same card as `Your name` above it, and for the same reason — owner, 2026-09-03: *"I
+    // liked it when it was in the white wrapper."* The card is the section's edge, so there is no
+    // rule between the two: a border and a hairline draw the same line twice.
+    <section
+      aria-labelledby={headingId}
+      className="mt-4 rounded-xl border border-border bg-card p-4"
+    >
       <h2 id={headingId} className="font-heading text-base font-bold tracking-tight">
         {COPY.heading}
       </h2>
       <p className="mt-1 text-sm text-muted-foreground">{COPY.blurb}</p>
 
       <form
-        className="mt-3 flex flex-col gap-3"
+        className="mt-4 flex flex-col gap-2"
         onSubmit={(event) => {
           event.preventDefault();
           submit();
         }}
       >
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor={fieldId}>{COPY.field}</Label>
-          <Input
-            id={fieldId}
-            name="displayName"
-            value={value}
-            onChange={(event) => {
-              setValue(event.target.value);
-              setSaved(false);
-            }}
-            // `MEMBER_NAME_MAX_LENGTH`, imported rather than restated: `share-panel.test.ts` was
-            // asserting the domain's constant while `name-prompt.tsx` rendered a local copy of it,
-            // and this repo has recorded that trapdoor by name.
-            maxLength={MEMBER_NAME_MAX_LENGTH}
-            autoComplete="nickname"
-            dir="auto"
-            aria-describedby={hintId}
-            className="h-11 text-base"
-          />
-          <p id={hintId} className="text-xs text-muted-foreground">
-            {suggesting ? COPY.suggestion : stored === null ? COPY.current : ''}
-          </p>
-        </div>
+        <div className={SETTINGS_ROW}>
+          <div className={SETTINGS_FIELD_COLUMN}>
+            <Label htmlFor={fieldId}>{COPY.field}</Label>
+            <Input
+              id={fieldId}
+              name="displayName"
+              value={value}
+              onChange={(event) => {
+                setValue(event.target.value);
+                setSaved(false);
+              }}
+              // `MEMBER_NAME_MAX_LENGTH`, imported rather than restated: `share-panel.test.ts` was
+              // asserting the domain's constant while `name-prompt.tsx` rendered a local copy of
+              // it, and this repo has recorded that trapdoor by name.
+              maxLength={MEMBER_NAME_MAX_LENGTH}
+              autoComplete="nickname"
+              dir="auto"
+              aria-describedby={hintId}
+              className={SETTINGS_FIELD}
+            />
+          </div>
 
-        <div className="flex items-center gap-3">
-          <Button type="submit" variant="outline" size="lg" disabled={pending} className="h-11">
+          {/* The same shape as `Your name`'s save, from the same constant. Two buttons is the
+              security rule above; two *sizes* was an accident that read as two kinds of action. */}
+          <Button type="submit" size="lg" className={SETTINGS_SAVE} disabled={pending}>
             {pending ? COPY.saving : COPY.save}
           </Button>
-          <p
-            role="status"
-            aria-live="polite"
-            className={error === null ? 'text-sm text-muted-foreground' : 'text-sm text-destructive'}
-          >
-            {error ?? (saved ? COPY.saved : '')}
-          </p>
         </div>
+
+        {/* The hint and the outcome sit under the row, not inside the field's column: a two-line
+            hint inside the column would push the column's bottom edge down and take `Save` with
+            it, since the row aligns on `items-end`. */}
+        <p id={hintId} className="empty:hidden text-xs text-muted-foreground">
+          {suggesting ? COPY.suggestion : stored === null ? COPY.current : ''}
+        </p>
+        <p
+          role="status"
+          aria-live="polite"
+          className={
+            error === null
+              ? 'empty:hidden text-sm text-muted-foreground'
+              : 'empty:hidden text-sm text-destructive'
+          }
+        >
+          {error ?? (saved ? COPY.saved : '')}
+        </p>
       </form>
     </section>
   );

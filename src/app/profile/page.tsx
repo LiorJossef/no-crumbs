@@ -1,29 +1,29 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, LogOut, Settings, UserRound } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Settings, UserRound } from 'lucide-react';
 
 import { createClient } from '@/app/_lib/supabase/server';
-import { signOut } from '@/app/actions/sign-out';
 import { Button } from '@/components/ui/button';
 import { BottomNav } from '@/components/nav/bottom-nav';
 // From the metrics module, never from `bottom-nav` itself: this is a Server Component, and a
 // non-component export of a `'use client'` module arrives here as a client reference rather than
 // the number 68. See `bottom-nav-metrics.ts` — it silently produced `padding-bottom: 0`.
 import { BOTTOM_NAV_HEIGHT_PX } from '@/components/nav/bottom-nav-metrics';
+import { HEADER_BACK_CONTROL, PageHeader } from '@/components/nav/page-header';
 import { flagEmoji, normaliseCountryCode } from '@/components/map/country-flag-image';
 import { categoryColorVar, categoryDisplay } from '@/ui/place/category-display';
 import { getSpots } from '@/app/map/_lib/get-spots';
 import { toMapPlace } from '@/app/map/_lib/to-map-place';
-import { AccountActions } from './account-actions';
-import { ThemeChoice } from './theme-choice';
-import { checkDeletionBlocked } from './_lib/deletion-block';
+import { PRESS_ROW } from '@/lib/interaction';
+import { cn } from '@/lib/utils';
 import { getProfilePlaces } from './_lib/get-profile-places';
 import { accountIdentity, deriveProfileBreakdown, joinedLabel } from './_lib/profile-stats';
 
 export const metadata = { title: 'Profile' };
 
 /**
- * The account page: who you are signed in as, what your library adds up to, and the way out.
+ * The profile page: who you are signed in as, what your library adds up to, and the way through to
+ * everything you can change.
  *
  * **Its job is "what have I built here".** The map answers *where is that place*; nothing in the
  * product could answer *how much have I collected* — and a library that can say `32 places · 2
@@ -39,20 +39,19 @@ export const metadata = { title: 'Profile' };
  * The `Who you save from` section was removed on 2026-08-30 (owner). `creatorBreakdown` still
  * exists and is still tested; nothing renders it.
  *
- * **It now keeps exactly one setting, and the sentence that used to sit here was about to go
- * stale rather than wrong.** It read *"there are no settings to keep — no theme, no units, no
- * notifications, no export yet — so this must not grow into the front door of a settings section
- * before there is something to settle."* The owner ruled a theme control onto this page on
- * 2026-08-31, so there is now something to settle, and it is settled here rather than behind a new
- * route. The rest of the sentence stands and is the part worth keeping: **one setting is not a
- * settings section.** No units, no notifications, no export, and no `/settings` — the next one
- * arrives beside `Appearance` under `Your account`, or it argues for a page of its own on its own
- * merits.
+ * **It reads; it does not change.** Owner, 2026-09-03: the line between this page and `/account`
+ * is read versus change. Your names, the theme, sign out and delete-my-data are all things you
+ * *do*, and they live on `Account settings`. What is left here is what your library adds up to,
+ * which is the rewarding thing to land on from a bottom-bar tab.
  *
- * **A server component down to two islands, and the count is the point.** The page reads four
- * queries and renders text; `AccountActions` owns the delete confirmation and `ThemeChoice` owns a
- * `localStorage` preference, which are the only two things here that a server cannot answer. Sign
- * out is still a plain form posting to the `signOut` server action and needs no JavaScript at all.
+ * So the only control is the row that goes to `/account`, and it has to stay: the account menu is a
+ * popover and cannot open with scripting off, which makes this row the only door to that page
+ * without JavaScript.
+ *
+ * **A server component with no client islands at all.** The page reads four queries and renders
+ * text; `ThemeChoice`, `AccountActions` and the two name forms were the only things on it a server
+ * could not answer, and all four are on `/account`. The theme itself still applies here — the head
+ * script writes the class before first paint; it is the *control* that moved.
  */
 export default async function ProfilePage() {
   const supabase = await createClient();
@@ -71,11 +70,6 @@ export default async function ProfilePage() {
   // same library array `/map` draws, so a match in that menu is a pin on the map. Without it the
   // menu answers "nothing you've saved matches that" for places the user has, and offers to write
   // a duplicate.
-  // `checkDeletionBlocked` rides along with the other three rather than running when the control is
-  // tapped, so the delete flow opens the correct branch with no round trip. It is a courtesy, not
-  // the authority: `deleteAccount` re-runs the same check twice regardless
-  // (`overnight-deletion-review.md` §3.3), because between this render and that action a stranger
-  // holding an invite token can join a collection this answer just cleared.
   // `profile_names` is its own query rather than an embedded join, and that is not a style choice:
   // it has no foreign key *from* `profiles`, so PostgREST has no relationship to embed through —
   // the key points the other way, `profile_names.profile_id → profiles.id`.
@@ -89,17 +83,12 @@ export default async function ProfilePage() {
   // No row filter beyond `profile_id`: `profile_names_select_own` is the authority and it is keyed
   // on `auth.uid()`, so this can only ever return the caller's own name. The `eq` is there so the
   // planner has an index condition, not as the access control.
-  const [{ data: profile }, { data: names }, places, library, deletionBlock] = await Promise.all([
+  const [{ data: profile }, { data: names }, places, library] = await Promise.all([
     supabase.from('profiles').select('display_name, created_at').eq('id', user.id).maybeSingle(),
     supabase.from('profile_names').select('first_name').eq('profile_id', user.id).maybeSingle(),
     getProfilePlaces(),
     getSpots().then((spots) => spots.map(toMapPlace)),
-    checkDeletionBlocked(),
   ]);
-  // A check that could not run yields no blocking collections *here* and a refusal *there*: the
-  // action fails closed and says so. Offering the control and failing honestly beats hiding the
-  // one control on this page a user has a right to.
-  const blocking = deletionBlock.ok ? deletionBlock.blocking : [];
 
   const identity = accountIdentity({
     firstName: (names as { first_name: string | null } | null)?.first_name ?? null,
@@ -118,21 +107,29 @@ export default async function ProfilePage() {
     <main className="flex min-h-dvh w-full flex-col bg-background">
       <BottomNav places={library} />
 
-      {/* The same header as `/collections`: the back arrow exists only at `lg`, where the bar does
-          not render and there is otherwise no way back to the map. */}
-      <header className="flex items-center gap-1 px-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] pb-2">
-        <Button
-          render={<Link href="/map" />}
-          nativeButton={false}
-          variant="ghost"
-          size="icon-lg"
-          aria-label="Back to the map"
-          className="hidden size-11 rounded-full text-muted-foreground lg:flex"
-        >
-          <ArrowLeft className="size-4" aria-hidden />
-        </Button>
-        <h1 className="px-2 font-heading text-lg font-bold tracking-tight lg:px-0">Profile</h1>
-      </header>
+      {/* The shared header — `PageHeader` carries the column geometry and the argument for it.
+          What is local here is the control. It is `lg`-only, unlike `/account`'s: this page is a
+          bottom-bar tab, so below `lg` the bar is already the way back and a second one would be
+          noise. It points at the map, which genuinely is the level above a tab.
+
+          It uses the shared `HEADER_BACK_CONTROL` geometry — it was hand-rolled here and drifted,
+          landing on its own row *above* the title and indented to the right of the column the title
+          starts on, which read as a mistake rather than a choice. */}
+      <PageHeader
+        title="Profile"
+        back={
+          <Button
+            render={<Link href="/map" />}
+            nativeButton={false}
+            variant="ghost"
+            size="icon-lg"
+            aria-label="Back to the map"
+            className={cn(HEADER_BACK_CONTROL, 'hidden lg:inline-flex')}
+          >
+            <ArrowLeft className="size-4" aria-hidden />
+          </Button>
+        }
+      />
 
       <div
         className="mx-auto my-auto w-full max-w-140 px-4"
@@ -276,50 +273,23 @@ export default async function ProfilePage() {
           </section>
         ) : null}
 
-        {/* The one setting this page keeps (owner, 2026-08-31), above the account block rather
-            than below it: sign out and delete-my-data are the exits, and nothing belongs after the
-            way out. It is its own client island — the rest of this page is a server component all
-            the way down, and a `localStorage` preference is the only thing on it that cannot be. */}
-        <section aria-labelledby="appearance" className="mt-6" data-theme-choice>
-          <SectionHeading id="appearance">Appearance</SectionHeading>
-          <ThemeChoice labelledBy="appearance" />
-        </section>
-
-        {/* The account block. Sign out is not `destructive` — it destroys nothing, and the
-            palette's destructive role is reserved for the things that do. Neither is the delete
-            *entry point*, which opens a confirmation; the confirm button inside it gets the
-            destructive variant, and it is the only thing on this page that does. */}
-        {/* **Labelled, not headed.** The three controls under this are full-width buttons that
-            name themselves — `Account settings`, `Sign out`, `Delete my data` — so the kicker over
-            them was a heading that restated its own stack (overwhelm audit §5c). The section keeps
-            its accessible name so the landmark and the document outline are unchanged; only the
-            drawn label goes. */}
-        <section aria-label="Your account" className="mt-8">
-          {/* **The way to `/account`, and this page is the only one that has to carry it.** The
-              account menu links there too, and the menu is how almost everyone will arrive — but
-              the menu is a popover and cannot open with scripting off, so this page is the no-JS
-              door to the whole account surface and a dead end without this row. `Settings` is a
-              button-shaped link rather than a nav row because it sits in a stack with `Sign out`
-              and `Delete my data`, and three controls in one column should be one shape. */}
-          <Button
-            render={<Link href="/account" />}
-            nativeButton={false}
-            variant="outline"
-            size="lg"
-            className="mt-2 h-12 w-full text-base"
+        {/* The way through to everything you can change, and the only one that works without
+            JavaScript: the account menu is a popover, so with scripting off this row is the sole
+            door to `/account`. A row rather than the full-width button it used to be — it is no
+            longer one of three exits stacked at the bottom, it is a destination, so it takes the
+            card-and-chevron shape the menu already uses for `Your library`. */}
+        <section className="mt-8">
+          <Link
+            href="/account"
+            className={cn(
+              'flex min-h-14 items-center gap-3 rounded-xl border border-border bg-card px-4 hover:bg-muted/40 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
+              PRESS_ROW,
+            )}
           >
-            <Settings className="size-4" aria-hidden />
-            Account settings
-          </Button>
-          <form action={signOut} className="mt-2">
-            <Button type="submit" variant="outline" size="lg" className="h-12 w-full text-base">
-              <LogOut className="size-4" aria-hidden />
-              Sign out
-            </Button>
-          </form>
-          <div className="mt-2">
-            <AccountActions blocking={blocking} />
-          </div>
+            <Settings className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+            <span className="min-w-0 flex-1 text-sm font-bold">Account settings</span>
+            <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+          </Link>
         </section>
       </div>
     </main>

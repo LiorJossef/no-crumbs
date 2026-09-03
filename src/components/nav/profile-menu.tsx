@@ -30,9 +30,9 @@
  * ## What is in here, and where the line is drawn
  *
  * The menu takes the **account-shaped half** of `/profile`: who you are, the theme, the way to
- * account settings, the way out, and delete-my-data. It also takes the **three headline figures**,
- * because *"what have I built here"* is the one thing on that page a person wants at a glance and a
- * glance is exactly what a menu is for.
+ * account settings, and the way out. It also takes the **three headline figures**, because *"what
+ * have I built here"* is the one thing on that page a person wants at a glance and a glance is
+ * exactly what a menu is for.
  *
  * It does **not** take the breakdown lists — `Where you save` and `What you save`. Those are a
  * small piece of personal cartography, they are the nicest thing on that page, and they are a list
@@ -42,14 +42,15 @@
  * **Nothing is deleted and no URL breaks.** `/profile` is unchanged in content; what it loses is
  * its tab in `BottomNav`, which is now this menu's trigger.
  *
- * ## Two islands are imported from the route rather than copied
+ * ## One island is imported from the route rather than copied
  *
- * `ThemeChoice` and `AccountActions` live under `app/profile/`. Importing them from
- * `components/nav/` runs against the usual direction of travel, and the alternative was worse:
- * either two copies of a `localStorage` radio group and a two-branch deletion flow whose every
- * string is `overnight-copy-deck.md` §5 verbatim, or a move that would strand the path references
- * in `globals.css`, `lib/theme.ts` and two test files that other lanes are holding right now. One
- * definition each, imported. If `/profile` is ever retired, they move then.
+ * `ThemeChoice` lives under `app/profile/`. Importing it from `components/nav/` runs against the
+ * usual direction of travel, and the alternative was worse: a second copy of a `localStorage` radio
+ * group, or a move that would strand the path references in `globals.css`, `lib/theme.ts` and two
+ * test files. One definition, imported.
+ *
+ * `AccountActions` was imported here too until 2026-09-03, when the owner ruled delete-my-data off
+ * this surface — see the comment at the sign-out block.
  *
  * ## Without JavaScript
  *
@@ -67,7 +68,6 @@ import { ChevronRight, LogOut, Settings, UserRound } from 'lucide-react';
 
 import { signOut } from '@/app/actions/sign-out';
 import { loadProfileMenu, type ProfileMenuData } from '@/app/actions/profile';
-import { AccountActions } from '@/app/profile/account-actions';
 import { ThemeChoice } from '@/app/profile/theme-choice';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -78,9 +78,9 @@ import { ENTER_POPOVER, ENTER_SCRIM, PRESS_ROW } from '@/lib/interaction';
  *
  * `Your library` and `Account settings` are destinations and are named as such;
  * `voice-and-vocabulary.md` §4 puts the concrete word above the technical one, and *Settings* alone
- * would be a section this product does not have. The delete flow's strings are not here — they are
- * `AccountActions`' own, from the copy deck, and a second copy of them in this file is exactly how
- * the sentence that tells somebody their data is gone comes to differ between two screens.
+ * would be a section this product does not have. The delete flow's strings are not here — it is not
+ * on this surface at all (owner, 2026-09-03), and a copy of them in this file is exactly how the
+ * sentence that tells somebody their data is gone comes to differ between two screens.
  */
 const COPY = {
   /** The accessible name of the trigger when there is no name to use. See `triggerLabel`. */
@@ -160,9 +160,9 @@ export function ProfileMenu({
    * Not on paint: this bar renders on every route in the product and most visits never open the
    * menu, so four queries per page load would be paid for a surface nobody asked for. Not on every
    * open either — the figures move when you save a place, and a menu that re-queries on each press
-   * would spend a round trip to redraw the same three numbers. The identity block and the deletion
-   * pre-check are the parts that must be right, and neither changes within a session except through
-   * `/account`, which revalidates.
+   * would spend a round trip to redraw the same three numbers. The identity block is the part that
+   * must be right, and it changes within a session only through the name forms on `/account`, which
+   * revalidate.
    */
   function load() {
     if (data !== null || pending) return;
@@ -346,20 +346,10 @@ export function ProfileMenu({
                 </Button>
               </form>
 
-              {/* `L1-F8-T1`'s delete flow, on the surface its row names — *the account menu with
-                  delete-my-data*. It is the same component `/profile` renders, with the same
-                  server-side pre-check, so the two doors cannot drift into two behaviours.
-
-                  Withheld until the data arrives rather than rendered with an empty `blocking`: an
-                  empty list is what makes the control open the *confirmation* branch, so offering
-                  it early would show a user who owns a shared collection the wrong screen and let
-                  the action refuse afterwards. The action is the authority either way; this is
-                  about not asking the question wrongly first. */}
-              {data === null ? null : (
-                <div className="mt-1">
-                  <AccountActions blocking={data.blocking} align="start" />
-                </div>
-              )}
+              {/* **No delete-my-data here — owner, 2026-09-03.** Deleting your account is not a
+                  quick-menu action, and a menu that offers it beside `Sign out` invites the press
+                  it should be discouraging. It lives at the bottom of `Account settings`, behind a
+                  disclosure, and the row above is the way there. */}
             </div>
 
             {/* The way out, and it is required rather than decorative: with `modal="trap-focus"`

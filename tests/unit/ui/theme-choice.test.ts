@@ -30,7 +30,10 @@ import {
 } from '@/lib/theme';
 
 const CONTROL = readFileSync('src/app/profile/theme-choice.tsx', 'utf8');
-const PROFILE = readFileSync('src/app/profile/page.tsx', 'utf8');
+/** `/account`, not `/profile`: the control moved with the rest of the things you *change* when the
+ *  owner drew the read/change line between the two pages (2026-09-03). The theme still applies on
+ *  `/profile` — the head script writes the class — but the radio group is not rendered there. */
+const SETTINGS = readFileSync('src/app/account/page.tsx', 'utf8');
 
 /** Comments stripped, for every *negative* assertion — this file argues in prose about the switch
  *  it must not be, so a guard that cannot tell a comment from a call site fails on being explained.
@@ -116,7 +119,7 @@ describe('the control the owner ruled for', () => {
    */
   it('hides itself where it cannot work', () => {
     expect(CODE).toContain('<style>[data-theme-choice]{display:none}</style>');
-    expect(PROFILE).toContain('data-theme-choice');
+    expect(SETTINGS).toContain('data-theme-choice');
   });
 
   /**
@@ -124,9 +127,9 @@ describe('the control the owner ruled for', () => {
    * type — the `<section>` and the `<h2>` are server-rendered, so the heading ships in the HTML
    * even though the control does not.
    */
-  it('is mounted in profile settings, under the page heading', () => {
-    expect(PROFILE).toContain('<ThemeChoice labelledBy="appearance" />');
-    expect(PROFILE).toContain('<SectionHeading id="appearance">Appearance</SectionHeading>');
+  it('is mounted in account settings, under the page heading', () => {
+    expect(SETTINGS).toContain('<ThemeChoice labelledBy="appearance" />');
+    expect(SETTINGS).toContain('<SectionHeading id="appearance">Appearance</SectionHeading>');
     expect(CODE).toContain('aria-labelledby={labelledBy}');
   });
 });

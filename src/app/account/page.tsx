@@ -1,8 +1,8 @@
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 
 import { createClient } from '@/app/_lib/supabase/server';
+import { signOut } from '@/app/actions/sign-out';
 import { loadAccountName } from '@/app/actions/profile';
 import { Button } from '@/components/ui/button';
 import { BottomNav } from '@/components/nav/bottom-nav';
@@ -10,16 +10,31 @@ import { BottomNav } from '@/components/nav/bottom-nav';
 // non-component export of a `'use client'` module arrives here as a client reference rather than
 // the number 68. `/profile` records the same trap; it silently produced `padding-bottom: 0`.
 import { BOTTOM_NAV_HEIGHT_PX } from '@/components/nav/bottom-nav-metrics';
+import { HEADER_BACK_CONTROL, PageHeader } from '@/components/nav/page-header';
 import { getSpots } from '@/app/map/_lib/get-spots';
 import { toMapPlace } from '@/app/map/_lib/to-map-place';
+// Three modules that still live under `app/profile/`: `ThemeChoice` is imported by the account menu
+// as well and its path is written into `globals.css`, `lib/theme.ts` and two test files, and
+// `AccountActions` sits next to the `_lib` pair that computes its pre-check. Moving them would buy
+// a tidier path and cost every one of those references.
+import { AccountActions } from '@/app/profile/account-actions';
+import { ThemeChoice } from '@/app/profile/theme-choice';
+import { checkDeletionBlocked } from '@/app/profile/_lib/deletion-block';
+import { BackControl } from './back-control';
 import { AccountNameForm } from './name-form';
 import { PeerLabelForm } from './peer-label-form';
 
 export const metadata = { title: 'Account settings' };
 
 /**
- * **Account settings — where you change your name.** Reached from the account menu, and from
- * nowhere else.
+ * **Account settings — everything about your account that you *change*.** Owner, 2026-09-03: the
+ * line between this page and `/profile` is read versus change. `/profile` is the bottom-bar tab and
+ * it reports — who you are, what your library adds up to — with nothing to press on it but the way
+ * through to here. Everything that writes something lives on this page: your two names, the theme,
+ * sign out, and delete-my-data last.
+ *
+ * (An earlier pass folded this route into `/profile` and left it a redirect. That was reversed
+ * before it shipped; the URL is a real page again and the account menu points at it again.)
  *
  * ## Two names, two audiences, two forms, two submit buttons
  *
@@ -37,12 +52,6 @@ export const metadata = { title: 'Account settings' };
  * and `0035` quotes it back about the given name.
  *
  * ## What is deliberately not here
- *
- * **Not a settings section.** `/profile` has said for a while that one setting is not a settings
- * section, and that still holds: this page exists because a *name* is a thing a person changes and
- * there was nowhere to change it. No units, no notifications, no export. `Appearance` stays in the
- * account menu beside the identity block, where a person looking for "how this looks to me" already
- * is.
  *
  * **No email change and no password change.** Both are Supabase Auth flows with a confirmation
  * round trip each, neither is built, and a settings page that renders a field it cannot save is
@@ -66,32 +75,35 @@ export default async function AccountPage() {
   // searches the array `/map` draws, so a match in that menu is a pin on the map. Without it the
   // menu answers "nothing you've saved matches that" for places the user has, and offers to write
   // a duplicate. `/profile` and `/collections` load it for exactly the same reason.
-  const [name, library] = await Promise.all([
+  //
+  // `checkDeletionBlocked` rides along rather than running when the control is opened, so the
+  // delete flow shows the correct branch with no round trip. It is a courtesy, not the authority:
+  // `deleteAccount` re-runs the same check twice regardless (`overnight-deletion-review.md` §3.3),
+  // because between this render and that action a stranger holding an invite token can join a
+  // collection this answer just cleared.
+  const [name, library, deletionBlock] = await Promise.all([
     loadAccountName(),
     getSpots().then((spots) => spots.map(toMapPlace)),
+    checkDeletionBlocked(),
   ]);
+  // A check that could not run yields no blocking collections *here* and a refusal *there*: the
+  // action fails closed and says so. Offering the control and failing honestly beats hiding the one
+  // control on this page a user has a right to.
+  const blocking = deletionBlock.ok ? deletionBlock.blocking : [];
 
   return (
     <main className="flex min-h-dvh w-full flex-col bg-background">
       <BottomNav places={library} />
 
-      {/* The same header as `/profile` and `/collections`. The back arrow exists only at `lg`,
-          where the bar does not render and there is otherwise no way back to the map. */}
-      <header className="flex items-center gap-1 px-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] pb-2">
-        <Button
-          render={<Link href="/map" />}
-          nativeButton={false}
-          variant="ghost"
-          size="icon-lg"
-          aria-label="Back to the map"
-          className="hidden size-11 rounded-full text-muted-foreground lg:flex"
-        >
-          <ArrowLeft className="size-4" aria-hidden />
-        </Button>
-        <h1 className="px-2 font-heading text-lg font-bold tracking-tight lg:px-0">
-          Account settings
-        </h1>
-      </header>
+      {/* The shared header — `PageHeader` carries the column geometry and the argument for it.
+          What is local here is the control: it renders at **every** breakpoint, unlike
+          `/profile`'s. That page is a bottom-bar tab, so the bar is its way back; this one is not
+          on the bar, and a phone arriving from the account menu had no exit but the Map tab, which
+          throws away where you were. */}
+      <PageHeader
+        title="Account settings"
+        back={<BackControl className={HEADER_BACK_CONTROL} />}
+      />
 
       <div
         className="mx-auto w-full max-w-140 px-4"
@@ -99,18 +111,70 @@ export default async function AccountPage() {
           paddingBottom: `calc(${BOTTOM_NAV_HEIGHT_PX}px + env(safe-area-inset-bottom) + 1.5rem)`,
         }}
       >
-        <AccountNameForm
-          firstName={name?.firstName ?? null}
-          lastName={name?.lastName ?? null}
-        />
-
+        <AccountNameForm firstName={name?.firstName ?? null} lastName={name?.lastName ?? null} />
         <PeerLabelForm
           displayName={name?.displayName ?? null}
           // The suggestion, and only where there is nothing stored. Never the email: this page has
           // the address in `user.email` and deliberately does not pass it — see `PeerLabelForm`.
           suggestion={name?.firstName ?? null}
         />
+
+        {/* Its own client island — the rest of this page is a server component all the way down,
+            and a `localStorage` preference is the only thing on it that cannot be.
+
+            **The hairline stays here and only here.** Each name section is a card now, so a rule
+            between them would draw the same edge twice; this one is the boundary between the
+            carded region above and the un-carded controls below it. */}
+        <section
+          aria-labelledby="appearance"
+          className="mt-6 border-t border-border/60 pt-6"
+          data-theme-choice
+        >
+          <SectionHeading id="appearance">Appearance</SectionHeading>
+          <ThemeChoice labelledBy="appearance" />
+        </section>
+
+        {/* The exits, last, and ordered by what they cost. Neither is `destructive` — the
+            palette's destructive role is reserved for controls that destroy, and the only one on
+            this page is the confirm inside the delete disclosure.
+
+            **Both exits are now the same family** (owner, 2026-09-03: sign out *"doesn't match the
+            design"*). It was a bordered `outline` button sitting directly on top of a `text-xs`
+            muted disclosure row — two controls doing the same kind of job, drawn from two different
+            vocabularies, and the louder of the two was the one at the very bottom of a settings
+            page. `Sign out` came down to `ghost` rather than the delete row coming up: these are
+            exits, not the page's work — quiet text controls, one step apart in weight, in the order
+            they cost. The only bordered boxes on the page are the two name cards above, which is
+            the distinction being drawn. `-ms-2.5` cancels the button's own `px-2.5` so
+            its label starts on the same line as everything else in the column, including the delete
+            row under it, which has no padding of its own.
+
+            Still a plain `<form>` posting to the server action: this is the one control on the page
+            that has to work with JavaScript off. */}
+        {/* **Labelled, not headed** — the controls name themselves, so a kicker over them would
+            restate its own stack (overwhelm audit §5c). The section keeps its accessible name, so
+            the landmark and the document outline are unchanged. */}
+        {/* No rule of its own: `AccountActions` draws one above the delete row, and a second one
+            here put three hairlines in the bottom third of the page. Two is the hierarchy — one
+            under the fields, one separating the two exits. */}
+        <section aria-label="Your account" className="mt-6">
+          <form action={signOut}>
+            <Button type="submit" variant="ghost" className="-ms-2.5">
+              <LogOut className="size-4" aria-hidden />
+              Sign out
+            </Button>
+          </form>
+          <AccountActions blocking={blocking} />
+        </section>
       </div>
     </main>
+  );
+}
+
+function SectionHeading({ id, children }: { id: string; children: string }) {
+  return (
+    <h2 id={id} className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+      {children}
+    </h2>
   );
 }

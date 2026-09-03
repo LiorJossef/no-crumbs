@@ -36,8 +36,6 @@
 import { revalidatePath } from 'next/cache';
 
 import { createClient } from '@/app/_lib/supabase/server';
-import { checkDeletionBlocked } from '@/app/profile/_lib/deletion-block';
-import type { BlockingCollection } from '@/app/profile/_lib/blocking-collections';
 import { getProfilePlaces } from '@/app/profile/_lib/get-profile-places';
 import {
   accountIdentity,
@@ -60,12 +58,6 @@ export interface ProfileMenuData {
   /** The three headline figures plus the two visit counts. The breakdown lists stay on `/profile`;
    *  see `profile-menu.tsx` for where that line is drawn and why. */
   readonly stats: ProfileStats;
-  /**
-   * Collections this account owns that somebody else is in, which is what makes deletion refuse.
-   * Empty both when nothing blocks *and* when the check could not run — `AccountActions` offers the
-   * control either way and `deleteAccount` re-runs the same check as the authority.
-   */
-  readonly blocking: readonly BlockingCollection[];
 }
 
 export async function loadProfileMenu(): Promise<ProfileMenuData | null> {
@@ -78,19 +70,18 @@ export async function loadProfileMenu(): Promise<ProfileMenuData | null> {
   // visitor to `/sign-in`, and the menu renders its own quiet failure line.
   if (!user) return null;
 
-  // The same four reads `/profile` made in one `Promise.all`, for the same reason: they are
-  // independent, and the deletion pre-check riding along means the delete control opens its correct
-  // branch with no second round trip.
+  // Three independent reads in one `Promise.all`. The deletion pre-check used to ride along too;
+  // it went when the owner ruled delete-my-data off this surface (2026-09-03) — `/account` runs it
+  // for the disclosure that actually renders it.
   //
   // `profile_names` is its own query rather than an embedded join — there is no foreign key *from*
   // `profiles` to embed through, the key points the other way. It fails soft on `42P01` where
   // `0035` is not applied, which reads as "no name", the same state the pre-`0035` accounts are in
   // permanently.
-  const [{ data: profile }, { data: names }, places, deletionBlock] = await Promise.all([
+  const [{ data: profile }, { data: names }, places] = await Promise.all([
     supabase.from('profiles').select('display_name, created_at').eq('id', user.id).maybeSingle(),
     supabase.from('profile_names').select('first_name').eq('profile_id', user.id).maybeSingle(),
     getProfilePlaces(),
-    checkDeletionBlocked(),
   ]);
 
   const identity = accountIdentity({
@@ -104,7 +95,6 @@ export async function loadProfileMenu(): Promise<ProfileMenuData | null> {
     account: identity.account,
     joined: joinedLabel(profile?.created_at ? new Date(profile.created_at) : null),
     stats: deriveProfileStats(places),
-    blocking: deletionBlock.ok ? deletionBlock.blocking : [],
   };
 }
 
@@ -223,8 +213,10 @@ export async function updateAccountName(input: {
     }
   }
 
-  // `/account` renders the stored values, and the menu's identity block is read through
-  // `loadProfileMenu` on every open, so it needs no invalidation. `/profile` shows no name.
+  // Both pages, because both render what this just wrote: `/account` seeds the two forms from the
+  // stored values, and `/profile`'s identity block is built from `first_name` and `display_name`.
+  // The menu is read through `loadProfileMenu` on every open, so it needs no invalidation.
   revalidatePath('/account');
+  revalidatePath('/profile');
   return { ok: true, firstName: row.first_name, lastName: row.last_name };
 }

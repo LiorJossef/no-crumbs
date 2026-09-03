@@ -458,14 +458,23 @@ decision about what the code does — see §10.
 | id | Element | String |
 |---|---|---|
 | **C140** | Section heading | `Your account` |
-| **C141** | Sign-out button | `Sign out` — **already ships** (`profile/page.tsx:215`), unchanged |
+| **C141** | Sign-out button | `Sign out` — **already ships**, unchanged. Moved to `account/page.tsx` on 2026-09-03 when `/profile` became read-only |
 | **C142** | Delete entry point | `Delete my data` |
-| **C143** | Line under it | `This removes your places, anything you kept for later, your collections and your account.` |
+| ~~**C143**~~ | ~~Line under it~~ | **Withdrawn 2026-09-03.** Was `This removes your places, anything you kept for later, your collections and your account.` |
 
 `Delete my data` is `brand-and-product-foundation.md` §6's own phrase for this control and it is the
-right one: it describes what leaves, not what happens to a row. C143 states the scope in one clause
-before the user commits to a dialog, because a destructive control whose blast radius is only
-revealed inside the confirmation is a control people press to find out what it does.
+right one: it describes what leaves, not what happens to a row.
+
+**C143 is withdrawn — owner, 2026-09-03**, on the whole account page being *"too much text"*. It was
+written for a shape that no longer exists: a permanent caption under a full-width button, where it
+was the only statement of scope a person got before opening the dialog. The entry is a disclosure
+now (`account-actions.tsx`), so C143 rendered one line above C145 inside the same panel and said the
+same list twice in one viewport.
+
+**The principle it was protecting survives in C145 and is not negotiable**: a destructive control
+whose blast radius is only revealed after you commit is one people press to find out what it does.
+Opening a disclosure is not that commitment — it reveals and destroys nothing — so scope is still
+stated before the destructive press, one press earlier than the press that acts.
 
 **Not `destructive`-styled at the entry point.** `profile/page.tsx:210` already rules that the
 palette's destructive role is for things that destroy; the entry point opens a dialog and destroys
@@ -478,7 +487,7 @@ The user owns no collection that anyone else is in.
 | id | Element | String |
 |---|---|---|
 | **C144** | Dialog heading | `Delete your account?` |
-| **C145** | Dialog body | `Your places, anything you kept for later, your collections and your account are removed. This can’t be undone.` |
+| **C145** | Dialog body | `Your places, collections and account are removed. This can’t be undone.` |
 | **C146** | Confirm | `Delete my account` |
 | **C147** | Cancel | `Cancel` |
 | **C148** | In progress | `Deleting…` |
@@ -487,6 +496,25 @@ The user owns no collection that anyone else is in.
 C145 is two clauses in two sentences, which is what §5 asks for. `This can’t be undone.` is the one
 sentence that has to be there and it is not a warning label — it is the fact that decides the
 question.
+
+**Shortened 2026-09-03 (owner).** It read `Your places, anything you kept for later, your collections
+and your account are removed.` Nothing else moved — the string still names what is removed *and*
+says it cannot be undone, which is the bar the shortening was held to.
+
+> **The removed clause is owed back, and this is the note that owes it.**
+> *"anything you kept for later"* names `place_mentions`. It was written into C143 and C145 by
+> [`entity-proposal.md`](entity-proposal.md) §10.4 as **condition 10** of the E1 security ruling,
+> deliberately ahead of the feature so the deletion copy could never be caught understating what it
+> removes.
+>
+> It is being cut because **E1 has not shipped**: `0031` creates the table, no application code
+> writes or reads it, there is no *keep for later* control on any screen, and `0031` is not applied
+> to production (measured `0026`, 2026-08-30). A user cannot create a mention, so today the clause
+> names a data class that does not exist for them.
+>
+> **Condition 10 is deferred, not discharged.** Whoever builds *keep for later* restores the clause
+> to C145 in the same commit that ships the control, and C143 does not come back with it — the
+> disclosure already states the scope one press before the destructive one.
 
 **No "are you sure", no "permanently", no typing the word DELETE.** *Are you sure* is the dialog
 asking the question the dialog already is. *Permanently* is doing the job `can’t be undone` does, in
