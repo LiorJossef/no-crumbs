@@ -281,6 +281,19 @@ export interface MapShellProps {
    * prevent. Two components render this shell; both pass it.
    */
   readonly views: DrawerViews;
+  /**
+   * **The sheet is showing one place, so the switch is answering a question nobody asked.**
+   *
+   * `Places` / `Collections` costs 56 px — 12% of the whole sheet at `half` — and while a place
+   * detail is open it is the only thing between the card's one act and the fold: measured at
+   * 390x844, `Been here` rested at 798-842 in a column that clips at 778, which is not one pixel
+   * of it on screen. The host owns this because only the host knows what it drew above the
+   * drawer's content.
+   *
+   * Passed with `PlaceSheet`'s `hostShowsViewSwitch`, and the two must agree: hiding the switch
+   * without telling the sheet to stop subtracting it hangs 56 px of card off the bottom.
+   */
+  readonly sheetHidesViewSwitch?: boolean;
 
   // ---- chrome ----
   /** This scope's own create menu. Omitted lets `BottomNav` open the shared one itself. */
@@ -340,6 +353,7 @@ export function MapShell({
   sheetContent,
   panelContent,
   views,
+  sheetHidesViewSwitch = false,
   onAdd,
   createMenuPlaces,
   floatingSlot,
@@ -509,7 +523,9 @@ export function MapShell({
                       two stops it renders at. The peek band is 128 px with a 68 px `BottomNav`
                       floating over its lower half, so it holds one line; the switch there would be
                       that line, and the count the peek row exists to say would have nowhere to go. */}
-                  {shell.sheet.stop === 'peek' ? null : <DrawerViewSwitch views={views} />}
+                  {shell.sheet.stop === 'peek' || sheetHidesViewSwitch ? null : (
+                    <DrawerViewSwitch views={views} />
+                  )}
                   {sheetContent(shell.sheet.stop)}
                 </Drawer.Content>
               </Drawer.Portal>

@@ -158,10 +158,41 @@ export const SNAP_POINTS: Array<`${number}px` | number> = [SNAP_PEEK, HALF_FRACT
  * that function for the defect that came of a column spending neither.
  */
 export const STOP_TO_CONTENT_HEIGHT: Record<SheetStop, string> = {
-  peek: `calc(${PEEK_PX}px - ${HANDLE_PX}px)`,
-  half: `calc(${Math.round(HALF_FRACTION * 1000) / 10}dvh - ${HANDLE_PX + VIEW_SWITCH_PX}px)`,
-  full: `calc(100dvh - ${HANDLE_PX + VIEW_SWITCH_PX}px)`,
+  peek: contentHeightFor('peek'),
+  half: contentHeightFor('half'),
+  full: contentHeightFor('full'),
 };
+
+/**
+ * The same map as a function, for the one surface whose sheet does **not** draw the view switch
+ * above it: the place detail.
+ *
+ * **Measured, 2026-09-03, 390×844, a place opened from the list at `half`.** The switch rendered
+ * inside the detail — 396–452 — and the card's scroll column got what was left, 452–778, 326 px of
+ * a 699 px card. `Been here` came to rest at 798–842 with the column clipping at 778: **not one
+ * pixel of the card's only act was on screen at rest**, and neither were `Add to a collection`,
+ * `Category`, `Add a note`, the nearby row or `Remove from your places`. The switch is 56 px — 12%
+ * of the sheet — spent asking *Places or Collections?* of somebody who is looking at one place.
+ *
+ * So `viewSwitch: false` says the caller's host is not drawing it, and the 56 px go back to the
+ * column. Verified in the running app with the switch removed and this height applied: the column
+ * became 396–778 (382 px) and `Been here` moved to 742–786.
+ *
+ * **It is a claim about the host, not about the content**, which is why it is an option a caller
+ * passes rather than something this module infers — exactly the reasoning `floatingBarClearancePx`
+ * already carries for the `BottomNav`. A component cannot see what is drawn above it, and a
+ * component that guesses wrong here overhangs the bottom of the screen by 56 px.
+ */
+export function contentHeightFor(
+  stop: SheetStop,
+  options?: { readonly viewSwitch?: boolean },
+): string {
+  // At `peek` the switch is not drawn at any stop, so the option has nothing to say there.
+  if (stop === 'peek') return `calc(${PEEK_PX}px - ${HANDLE_PX}px)`;
+  const chrome = HANDLE_PX + (options?.viewSwitch === false ? 0 : VIEW_SWITCH_PX);
+  const height = stop === 'half' ? `${Math.round(HALF_FRACTION * 1000) / 10}dvh` : '100dvh';
+  return `calc(${height} - ${chrome}px)`;
+}
 
 /**
  * What the floating `BottomNav` costs the bottom of a scrolling column inside the sheet, in pixels.

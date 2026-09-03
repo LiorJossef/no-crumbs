@@ -284,9 +284,13 @@ describe("the inline panel is measured against the sheet, not the viewport", () 
   // the sheet hands its stop's height down, and the card writes it as the property — otherwise
   // every panel inside the card silently falls back to `100dvh`, which is a lie in that column.
   it("is published by the card too, from the stop its host hands it", () => {
+    // `detailHeight` since 2026-09-03, which is `contentHeightFor(stop, …)` — the same number
+    // whenever the host draws the view switch above the card, and 56 px taller when it does not.
+    // The property still comes from the stop; what changed is what the stop is worth here.
     expect(SHEET).toMatch(
-      /sheetContentHeight=\{STOP_TO_CONTENT_HEIGHT\[stop\]\}/,
+      /const detailHeight = contentHeightFor\(\s*stop,\s*\{\s*viewSwitch: hostShowsViewSwitch,?\s*\},?\s*\)/,
     );
+    expect(SHEET).toMatch(/sheetContentHeight=\{detailHeight\}/);
     expect(SHEET).toMatch(new RegExp(`${PUBLISHES}: sheetContentHeight`));
   });
 });

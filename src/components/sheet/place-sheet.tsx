@@ -45,6 +45,7 @@ import {
   HALF_FRACTION,
   PEEK_ROW_PADDING_BOTTOM,
   STOP_TO_CONTENT_HEIGHT,
+  contentHeightFor,
   floatingBarClearancePx,
   type SheetStop,
 } from "@/components/shell/sheet-geometry";
@@ -252,6 +253,21 @@ export interface PlaceSheetProps {
    *  and the rise-to-half-on-select rule all moved to `components/shell` when `/collections/[id]`
    *  stopped keeping a second copy of them (`ux-collections-as-scope.md` §5 item 9). */
   readonly stop: SheetStop;
+  /**
+   * **Whether the host draws the drawer's `Places` / `Collections` switch above this sheet's
+   * content.** Defaults to `true`, which is what every host did until 2026-09-03 and what they
+   * all still do while this sheet is showing the *list*.
+   *
+   * It exists because the switch costs the place detail 56 px of a 326 px window — measured at
+   * 390×844, `Been here` resting at 798–842 against a column clipping at 778, so the card's one
+   * act was not on screen at all at rest. A host that stops drawing the switch while a detail is
+   * open passes `false`, and the detail's column takes the 56 px back.
+   *
+   * Passed rather than inferred, for the same reason `floatingBarPx` is: this component cannot see
+   * what is drawn above it, and a component that guesses wrong here hangs 56 px of itself below the
+   * bottom of the screen. See `contentHeightFor` in `sheet-geometry.ts`.
+   */
+  readonly hostShowsViewSwitch?: boolean;
   /** Pull the sheet open from the peek row. */
   readonly onExpand: (stop: SheetStop) => void;
 }
@@ -287,6 +303,7 @@ export function PlaceSheet({
   sortOrders = [],
   onChangeSort,
   stop,
+  hostShowsViewSwitch = true,
   onExpand,
 }: PlaceSheetProps) {
   /** Your other places within a walk of the open one. Memoised on the pair rather than computed
@@ -295,6 +312,13 @@ export function PlaceSheet({
     () => (selected === null ? [] : nearbyPlaces(selected, places)),
     [selected, places],
   );
+
+  /* The box the detail gets, which is the sheet's column minus whatever chrome the host drew above
+     it. `hostShowsViewSwitch === false` is a host that hides the view switch while a detail is
+     open, and those 56 px belong to this card. */
+  const detailHeight = contentHeightFor(stop, {
+    viewSwitch: hostShowsViewSwitch,
+  });
 
   if (selected) {
     return (
@@ -315,10 +339,7 @@ export function PlaceSheet({
        * `map-shell.tsx` deliberately declines to impose the height on `sheetContent`, so the stop
        * has to be spent by whoever renders into it. Both arms of this branch now spend it.
        */
-      <div
-        style={{ height: STOP_TO_CONTENT_HEIGHT[stop] }}
-        className="flex min-h-0 flex-col"
-      >
+      <div style={{ height: detailHeight }} className="flex min-h-0 flex-col">
         <PlaceDetail
           place={selected}
           /* What `BottomNav` costs the bottom of this column. Passed rather than assumed inside
@@ -333,7 +354,7 @@ export function PlaceSheet({
              a lie in here, so a child reading the `100dvh` fallback claims more than the column
              has. Only the sheet hosts pass it; the `lg+` popover and `hosted` do not, and there
              the property is simply not written. */
-          sheetContentHeight={STOP_TO_CONTENT_HEIGHT[stop]}
+          sheetContentHeight={detailHeight}
           /* Opening a field row's panel at `peek` or `half` would divide a column that is already
              short between the panel and the card it belongs to. The sheet goes to `full` first,
              and only from a stop that is not already there — the rule `LibraryFilterBar` states at

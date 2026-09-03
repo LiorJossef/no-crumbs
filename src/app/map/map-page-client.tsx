@@ -1453,6 +1453,21 @@ export function MapPageClient({
     currentUserId,
   });
   const inCollections = collectionsScope !== null;
+
+  /**
+   * **The sheet is showing one place rather than the list.**
+   *
+   * `Places` / `Collections` is 56 px of the sheet — 12% of it at `half` — spent on a question
+   * nobody is asking while they look at one place, and it was the difference between the card's
+   * one act being on screen and being below the fold: at 390x844 `Been here` rested at 798-842 in
+   * a column clipping at 778. The collections view keeps its switch, because there the sheet is
+   * the collection's own list.
+   *
+   * Read by two components that must agree — the shell stops drawing it, the sheet stops
+   * subtracting its height. Telling one and not the other either hangs 56 px of card off the
+   * bottom or wastes the space it just freed.
+   */
+  const detailInSheet = !inCollections && selected !== null;
   /** The mount-time framing hint. A cold entry on a collection frames that collection; a *switch*
    *  is not a mount, and `useCollectionsScope`'s own re-fit is what moves the camera then. */
   const shellBounds = collectionsScope ? collectionsScope.initialBounds : initialBounds;
@@ -1484,6 +1499,7 @@ export function MapPageClient({
           <NearMeDistancesContext value={distances}>
             <MapShell
               shell={shell}
+              sheetHidesViewSwitch={detailInSheet}
               places={collectionsScope?.places ?? matches}
               {...(shellBounds ? { initialBounds: shellBounds } : {})}
               // The camera, the pins, the sheet and the desktop panel all read one clock from here.
@@ -1608,6 +1624,7 @@ export function MapPageClient({
                   ) : (
                     <PlaceSheet
                       places={listed}
+                      hostShowsViewSwitch={!detailInSheet}
                       heading={heading}
                       otherPlaces={otherPlaces}
                       activeAreaId={activeAreaId}

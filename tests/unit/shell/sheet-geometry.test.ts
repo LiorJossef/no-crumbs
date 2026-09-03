@@ -167,8 +167,12 @@ describe('the three stops', () => {
     );
     expect(shell).toContain('VIEW_SWITCH_HEIGHT_PX');
     expect(shell).toContain('height: `${VIEW_SWITCH_HEIGHT_PX}px`');
-    // And it is withheld at `peek`, which is the other half of the asymmetry above.
-    expect(shell).toContain("shell.sheet.stop === 'peek' ? null : <DrawerViewSwitch");
+    // And it is withheld at `peek`, which is the other half of the asymmetry above — and now also
+    // while the sheet holds a place detail, the other reader of the same 56 px. Matched as a
+    // condition rather than as a line, so wrapping the JSX cannot silently unpin it.
+    expect(shell).toMatch(
+      /shell\.sheet\.stop === ["']peek["']\s*\|\|\s*sheetHidesViewSwitch\s*\? null : \(?\s*<DrawerViewSwitch/,
+    );
   });
 });
 
@@ -253,7 +257,12 @@ describe('what the floating BottomNav costs a column inside the sheet', () => {
    */
   it('is spent by the place detail, together with the content height it sits in', () => {
     const sheet = repoFile('src/components/sheet/place-sheet.tsx');
-    expect(sheet).toContain('style={{ height: STOP_TO_CONTENT_HEIGHT[stop] }}');
+    // The list arm still spends the stop's own height; the detail arm spends `contentHeightFor`,
+    // because it is the arm that can be given back the view switch's 56 px. Both are asserted, so
+    // neither can quietly stop bounding its column — which is the failure the constant exists for.
+    expect(sheet).toMatch(/height: STOP_TO_CONTENT_HEIGHT\[stop\]/);
+    expect(sheet).toMatch(/contentHeightFor\(stop, \{\s*viewSwitch: hostShowsViewSwitch,?\s*\}\)/);
+    expect(sheet).toMatch(/height: detailHeight/);
     expect(sheet).toContain('floatingBarPx={floatingBarClearancePx(stop)}');
   });
 });
