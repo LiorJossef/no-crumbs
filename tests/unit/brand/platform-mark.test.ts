@@ -188,7 +188,10 @@ describe('one file, every surface', () => {
     expect(importers.length).toBeGreaterThan(1);
     for (const { path, source } of importers) {
       if (path === 'components/brand/platform-mark.tsx') continue;
-      expect(source, path).toContain("from '@/components/brand/platform-mark'");
+      // Quote-agnostic: the tree holds both quote styles, and `place-sheet.tsx` — one of the
+      // largest consumers — is double-quoted, so a single-quoted literal exempted it from the one
+      // guard that says the glyph is imported rather than redrawn (found 2026-09-03).
+      expect(source, path).toMatch(/from ["']@\/components\/brand\/platform-mark["']/);
       expect(source, path).not.toMatch(/data-platform-mark/);
     }
   });

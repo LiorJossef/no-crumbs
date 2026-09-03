@@ -183,11 +183,17 @@ describe('focus is handed forward and back across the mode change', () => {
   });
 
   it('returns focus to `Select` when the mode ends, in all three hosts', () => {
+    // Quote-agnostic. `place-sheet.tsx` is double-quoted and the other two hosts are single-quoted,
+    // so a `'button'` literal matched two files out of three and the sheet — the host this guard
+    // most exists for — went unchecked (found 2026-09-03). Same claim, same three hosts.
+    const QUERY_SELECT_SLOT = /selectSlotRef\.current\?\.querySelector\(["']button["']\)/;
     for (const host of [SHEET, PANEL]) {
       expect(host).toMatch(/wasSelecting/);
-      expect(host).toMatch(/selectSlotRef\.current\?\.querySelector\('button'\)/);
+      expect(host).toMatch(QUERY_SELECT_SLOT);
     }
-    expect(COLLECTION).toMatch(/selectSlotRef\.current\?\.querySelector\('button'\)\?\.focus\(\)/);
+    expect(COLLECTION).toMatch(
+      /selectSlotRef\.current\?\.querySelector\(["']button["']\)\?\.focus\(\)/,
+    );
   });
 });
 
@@ -196,7 +202,14 @@ describe('the exit stands in the slot `Select` vacates', () => {
     for (const host of [SHEET, PANEL]) {
       expect(host).toMatch(/\{selecting \? \(\s*<LeaveSelectionButton onLeave=\{selection\.leave\}/);
     }
-    expect(COLLECTION).toMatch(/\{selecting \? \(\s*<LeaveSelectionButton onLeave=/);
+    // The collection wraps both arms of the conditional in the same `-my-1.5 flex items-center`
+    // layout span (`715a9aa`), so the exit is one element deeper than in the two Places hosts. The
+    // slot is still one slot and the conditional still one conditional — this tolerates that one
+    // shared wrapper and nothing else: any *control* standing between the branch and the exit
+    // still drops this.
+    expect(COLLECTION).toMatch(
+      /\{selecting \? \(\s*(?:<span[^>]*>\s*)?<LeaveSelectionButton onLeave=/,
+    );
   });
 
   it('keeps the collection`s own word', () => {
@@ -207,12 +220,13 @@ describe('the exit stands in the slot `Select` vacates', () => {
 describe('§4 — the Places heading demotes while selecting, and the collection`s does not', () => {
   it('drops to the caption step in both Places hosts', () => {
     for (const host of [SHEET, PANEL]) {
+      // Quote-agnostic: `place-sheet.tsx` is double-quoted, `place-desktop-panel.tsx` single.
       expect(host).toMatch(
-        /selecting\s*\?\s*'text-caption font-medium text-muted-foreground'/,
+        /selecting\s*\?\s*["']text-caption font-medium text-muted-foreground["']/,
       );
       // It keeps its text and its `key`: the line is the only thing naming what `Select all` acts
       // on, so §4 demotes it rather than deleting it.
-      expect(host).toMatch(/key=\{activeAreaId \?\? 'no-area'\}/);
+      expect(host).toMatch(/key=\{activeAreaId \?\? ["']no-area["']\}/);
     }
   });
 

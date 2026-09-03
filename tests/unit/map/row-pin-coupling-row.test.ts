@@ -26,7 +26,12 @@ describe('a row reports where the pointer is', () => {
    * desktop, and ruinous on the device this product was designed for first.
    */
   it('only treats a mouse as a pointer that can rest somewhere', () => {
-    expect(SHEET).toContain("if (event.pointerType === 'mouse') onHover?.(place.id);");
+    // Quote-agnostic. `place-sheet.tsx` is double-quoted and this literal was single-quoted, so
+    // the guard on the single most likely defect in the package matched nothing from the day it
+    // was written (found 2026-09-03). Same claim: `mouse` only, and only on the hover call.
+    expect(SHEET).toMatch(
+      /if \(event\.pointerType === ["']mouse["']\) onHover\?\.\(place\.id\);/,
+    );
   });
 
   /**
@@ -51,7 +56,8 @@ describe('the row lights up as one object', () => {
   /** **A named group, never a bare `group`.** These rows nest inside other grouped containers on
    *  `/collections`, and an unnamed group would let a parent's hover light up every row inside it. */
   it('uses a named group so a parent cannot light the whole list', () => {
-    expect(SHEET).toContain("'group/row'");
+    // Quote-agnostic, for the same reason. The claim is unchanged: the group is *named*.
+    expect(SHEET).toMatch(/["']group\/row["']/);
     expect(SHEET.match(/group-hover\/row:/g)?.length).toBeGreaterThanOrEqual(3);
     // The bare form would match `group-hover:` too, so this is asserted as the *absence* of an
     // unnamed hover group in this file rather than as a count.
@@ -94,7 +100,10 @@ describe('the open place is drawn as the open place', () => {
   /** `aria-current` is the accessible fact **and** the hook the styling reads, so the state is
    *  announced and drawn from one source rather than two that can fall out of step. */
   it('says aria-current and styles from it, not from a second flag', () => {
-    expect(SHEET).toContain("{...(selected ? { 'aria-current': 'true' as const } : {})}");
+    // Quote-agnostic, for the same reason. Still the exact spread, still `as const`.
+    expect(SHEET).toMatch(
+      /\{\.\.\.\(selected \? \{ ["']aria-current["']: ["']true["'] as const \} : \{\}\)\}/,
+    );
     expect(SHEET).toContain('aria-[current=true]:bg-primary/8');
     expect(SHEET).not.toContain('selected &&');
   });

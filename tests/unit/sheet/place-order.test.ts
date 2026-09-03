@@ -188,11 +188,17 @@ describe('the choice survives a reload', () => {
    *  hyphen — `overnight-copy-deck.md` §4.2 calls that out by name. */
   it('uses the copy deck strings, en dash included', () => {
     const SHEET = readFileSync('src/components/sheet/place-sheet.tsx', 'utf8');
-    expect(SHEET).toContain("export const SORT_LABEL = 'Sort';");
-    expect(SHEET).toContain("export const SORT_BY_LABEL = 'Sort by';");
-    expect(SHEET).toContain("recent: 'Recently saved',");
-    expect(SHEET).toContain("nearest: 'Nearest',");
-    expect(SHEET).toContain("alpha: 'A\\u2013Z',");
+    // Quote-agnostic on purpose. Every one of these read a single-quoted literal against a
+    // double-quoted file, so the guard matched nothing and was dead for as long as it existed
+    // (found 2026-09-03). The claim is unchanged: these exact strings, from these exact names.
+    const q = (literal: string) => `["']${literal}["']`;
+    expect(SHEET).toMatch(new RegExp(`export const SORT_LABEL = ${q('Sort')};`));
+    expect(SHEET).toMatch(new RegExp(`export const SORT_BY_LABEL = ${q('Sort by')};`));
+    expect(SHEET).toMatch(new RegExp(`recent: ${q('Recently saved')},`));
+    expect(SHEET).toMatch(new RegExp(`nearest: ${q('Nearest')},`));
+    // The en dash, still as the escape and still not a hyphen — `\\u2013` is one backslash in the
+    // source being matched, so it needs escaping twice over: once for the string, once for the regex.
+    expect(SHEET).toMatch(new RegExp(`alpha: ${q('A\\\\u2013Z')},`));
   });
 });
 
