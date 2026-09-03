@@ -19,9 +19,10 @@
  * so the map underneath (and the floating account chip above it) stay reachable everywhere else.
  */
 
-import { useLayoutEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { PlatformMark } from '@/components/brand/platform-mark';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import {
   ClearFiltersEscape,
   ClearSearchEscape,
@@ -38,6 +39,7 @@ import {
   BulkDeleteControl,
   BulkDeleteNotice,
   EnterSelectionButton,
+  LeaveSelectionButton,
   SelectablePlaceRow,
   SelectionToolbar,
   useLibrarySelection,
@@ -152,6 +154,22 @@ export function PlaceDesktopPanel({
   const selection = useLibrarySelection(selectableIds);
   const selecting = selection.selecting;
 
+  /** **Focus comes back to `Select` when the mode ends**, the same mechanism `PlaceList` runs and
+   *  for the same reason: pressing `Done` unmounts the focused node, and without this focus falls
+   *  to `<body>`. Measured at 1280x900 before it existed, so this is a closed gap rather than a
+   *  precaution. Keyed on the transition and not on a mount, because `Select` is also on screen
+   *  before anyone has entered the mode. */
+  const selectSlotRef = useRef<HTMLSpanElement>(null);
+  const wasSelecting = useRef(false);
+  useEffect(() => {
+    const leftSelection = wasSelecting.current && !selecting;
+    wasSelecting.current = selecting;
+    if (!leftSelection) return;
+    const enter = selectSlotRef.current?.querySelector('button');
+    if (!enter?.checkVisibility()) return;
+    enter.focus({ preventScroll: true });
+  }, [selecting]);
+
   /** The identical computation the sheet does, through the identical hook — see
    *  `useLibraryTagFacets` for why it is a hook rather than four lines in each host. */
   const tagFacets = useLibraryTagFacets(places, otherPlaces, activeTags, libraryPlaces);
@@ -182,14 +200,31 @@ export function PlaceDesktopPanel({
         {/* The heading and the `Select` trigger share one line here too, so the two surfaces enter
             selection the same way. */}
         <div className="flex items-center gap-2">
+          {/* Demoted while selecting, exactly as the sheet's `h2` is and for the reasons
+              `PlaceList` states in full — the scope line has to survive, because it is the only
+              thing naming what `Select all` acts on, but it must stop being the heaviest element
+              on a screen that is now stating a different count 8 px below it. */}
           <h1
             key={activeAreaId ?? 'no-area'}
-            className="min-w-0 flex-1 animate-in fade-in-0 duration-enter motion-safe:slide-in-from-bottom-1 font-heading text-2xl font-extrabold tracking-tight text-foreground outline-none"
+            className={cn(
+              'min-w-0 flex-1 animate-in fade-in-0 duration-enter motion-safe:slide-in-from-bottom-1 outline-none',
+              selecting
+                ? 'text-caption font-medium text-muted-foreground'
+                : 'font-heading text-2xl font-extrabold tracking-tight text-foreground',
+            )}
           >
             {libraryIsEmpty ? EMPTY_LIBRARY_HEADING : heading.text}
           </h1>
-          {!libraryIsEmpty && !selecting && selectableIds.length > 0 && (
-            <EnterSelectionButton onEnter={selection.enter} />
+          {/* One slot, two controls — see `PlaceList`, whose copy of this row this is. */}
+          {selecting ? (
+            <LeaveSelectionButton onLeave={selection.leave} />
+          ) : (
+            !libraryIsEmpty &&
+            selectableIds.length > 0 && (
+              <span ref={selectSlotRef} className="contents">
+                <EnterSelectionButton onEnter={selection.enter} />
+              </span>
+            )
           )}
         </div>
         {libraryIsEmpty && <EmptyLibraryLine />}

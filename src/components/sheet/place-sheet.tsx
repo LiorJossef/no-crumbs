@@ -50,6 +50,7 @@ import {
 } from '@/components/shell/sheet-geometry';
 import { savedPlaceRef } from '@/components/map/saved-place-ref';
 import {
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -96,6 +97,7 @@ import {
   BulkDeleteControl,
   BulkDeleteNotice,
   EnterSelectionButton,
+  LeaveSelectionButton,
   SelectablePlaceRow,
   SelectionToolbar,
   useLibrarySelection,
@@ -477,6 +479,31 @@ function PlaceList({
   const selection = useLibrarySelection(selectableIds);
   const selecting = selection.selecting;
 
+  /**
+   * **Focus comes back to `Select` when the mode ends** — the other half of the move
+   * `SelectionToolbar` makes on the way in (`ux-select-control-2026-09-03.md` §5). Without it,
+   * pressing `Done` unmounts the focused node and focus falls to `<body>`, so a keyboard user
+   * restarts from the top of the sheet after every selection.
+   *
+   * Keyed on the *transition* rather than on a mount, because `Select` is also on screen before
+   * anyone has entered the mode and stealing focus on first paint would be a different bug. The
+   * slot is a `display: contents` span so the button is still the flex item this row lays out;
+   * `querySelector` rather than a ref on the button keeps `EnterSelectionButton` ref-free, exactly
+   * as `collection-content.tsx` does with the same control.
+   *
+   * `preventScroll` because the sheet may be mid-animation between stops.
+   */
+  const selectSlotRef = useRef<HTMLSpanElement>(null);
+  const wasSelecting = useRef(false);
+  useEffect(() => {
+    const leftSelection = wasSelecting.current && !selecting;
+    wasSelecting.current = selecting;
+    if (!leftSelection) return;
+    const enter = selectSlotRef.current?.querySelector('button');
+    if (!enter?.checkVisibility()) return;
+    enter.focus({ preventScroll: true });
+  }, [selecting]);
+
   return (
     <div
       style={
@@ -616,14 +643,45 @@ function PlaceList({
               375x812 viewport. Absent while selecting — the toolbar below replaces it — and absent
               when there is nothing whose `saved_places` row this list could delete. */}
           <div className="flex items-center gap-2">
+            {/* **It stays while selecting, demoted** (`ux-select-control-2026-09-03.md` §4). Not
+                deleted: it is the only thing on screen naming *what set `Select all` acts on*, and
+                in Places that set is area-scoped (`18 in London`, plus `+3 more`) — removing the
+                scope statement at the exact moment a bulk control appears is the wrong trade, and
+                `useLibrarySelection`'s own comment makes the argument.
+
+                Not left alone either: at `text-xl font-extrabold` it is the heaviest element on
+                the surface, and while selecting it sits 8 px above a band stating a **different**
+                count. Two counts, the loud one irrelevant — which is exactly what the owner
+                noticed. Demoting pays twice: the register change *is* the mode change, visible
+                without motion, and it gives the header back ~10 px.
+
+                One-off height snap accepted, with no height transition: layout thrash inside a
+                scrolling sheet for no information (same rule as
+                `ux-collection-actions-2026-09-03.md` §8). The collection's heading does **not**
+                demote — it is an identity rather than a status, and nothing competes with it. */}
             <h2
               key={activeAreaId ?? 'no-area'}
-              className="min-w-0 flex-1 animate-in fade-in-0 duration-enter motion-safe:slide-in-from-bottom-1 font-heading text-xl font-extrabold tracking-tight text-foreground outline-none"
+              className={cn(
+                'min-w-0 flex-1 animate-in fade-in-0 duration-enter motion-safe:slide-in-from-bottom-1 outline-none',
+                selecting
+                  ? 'text-caption font-medium text-muted-foreground'
+                  : 'font-heading text-xl font-extrabold tracking-tight text-foreground',
+              )}
             >
               {headingText}
             </h2>
-            {!libraryIsEmpty && !selecting && selectableIds.length > 0 && (
-              <EnterSelectionButton onEnter={selection.enter} />
+            {/* One slot, two controls, one conditional. `Select` presses and `Done` is standing in
+                the same place at the same size — the transition the owner called weird was the
+                exit appearing at the other end of the screen two weights heavier. */}
+            {selecting ? (
+              <LeaveSelectionButton onLeave={selection.leave} />
+            ) : (
+              !libraryIsEmpty &&
+              selectableIds.length > 0 && (
+                <span ref={selectSlotRef} className="contents">
+                  <EnterSelectionButton onEnter={selection.enter} />
+                </span>
+              )
             )}
           </div>
 

@@ -41,7 +41,7 @@
  * `deleted < requested` and no error. `bulkDeleteOutcomeMessage` is what that becomes on screen.
  */
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { Check, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -207,7 +207,15 @@ export function EnterSelectionButton({ onEnter }: { onEnter: () => void }) {
       onClick={onEnter}
       data-vaul-no-drag
       className={cn(
-        'ms-auto flex min-h-11 shrink-0 items-center rounded-lg px-2 text-sm font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50',
+        // **`-me-2`, and `ms-auto` is gone** (`ux-select-control-2026-09-03.md` §7). A trailing
+        // control cancels its trailing padding, so what you see is where the layout ends: the word
+        // now lands on the column's content edge instead of floating 8 px inside it — under the
+        // search field's border box in the library, and 8 px closer to the `⋯` in a collection.
+        // Logical, not `-mr-2`: half this library is Hebrew. The *leading* `px-2` deliberately
+        // stays — that side faces a truncating heading and the 8 px is room from an ellipsis.
+        // `ms-auto` was a no-op (`min-w-0 flex-1` on the heading already decides the position) and
+        // a hazard: it would silently become the positioning rule for a host that forgot `flex-1`.
+        '-me-2 flex min-h-11 shrink-0 items-center rounded-lg px-2 text-sm font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50',
         PRESS_ROW,
       )}
     >
@@ -217,32 +225,125 @@ export function EnterSelectionButton({ onEnter }: { onEnter: () => void }) {
 }
 
 /**
- * `Done · 3 selected · Select all`, in the band the search field and the filter bar vacate.
+ * The control that *ends* the selection, in the exact slot `Select` just vacated.
+ *
+ * **This is the answer to "when you click to get to the select mode, it's weird"**
+ * (`ux-select-control-2026-09-03.md` §3.1 and §5). The exit used to live at the far end of the
+ * screen, in a row below, two weights heavier than the control that opened the mode. Now the same
+ * position, the same box, the same size and the same weight come back with one ink step changed —
+ * so nothing jumps, the finger is already there, and the mode change is legible as a change of
+ * register rather than as a new screen.
+ *
+ * A second small component rather than a `variant` prop on `EnterSelectionButton`: the two are
+ * rendered into one slot by one conditional and must be trivially diffable. Everything below is
+ * identical to that component except `text-foreground` and the label — **keep it that way**, and
+ * `library-selection.test`'s C3 assertion is what notices if it drifts.
+ *
+ * `label` exists for exactly one caller. `bulk-delete.ts` rules that the library says `Done`
+ * (nothing is pending, so there is nothing to cancel) and the collection says `Cancel`; the
+ * divergence is thin — one word — and `ux-select-control-2026-09-03.md` §6 says so out loud, but it
+ * is carried by the four axes in that file's table rather than by this string, and unifying it is
+ * the owner's call and not this task's.
+ */
+export function LeaveSelectionButton({
+  onLeave,
+  label = LEAVE_SELECTION_LABEL,
+}: {
+  onLeave: () => void;
+  label?: string;
+}) {
+  const ref = useRef<HTMLButtonElement>(null);
+
+  /**
+   * **Focus lands here when the mode opens** (§5.5). The pressed `Select` node is unmounted by the
+   * state change that mounts this one, so without this focus falls to `<body>` and a keyboard user
+   * restarts from the top of the document. It is continuity rather than a jump: this button is
+   * standing where the one they just pressed was.
+   *
+   * On mount, because this component exists for exactly as long as `selecting` is true.
+   * `checkVisibility` because both libraries are in the document twice at once — the sheet
+   * (`lg:hidden`) and the desktop panel (`hidden lg:block`) — and `focus()` on the hidden copy is a
+   * silent no-op that would consume the move and leave nothing focused at all. `preventScroll`
+   * because the sheet may still be animating into its stop and a scroll-into-view here fights it.
+   */
+  useEffect(() => {
+    const exit = ref.current;
+    if (!exit?.checkVisibility()) return;
+    exit.focus({ preventScroll: true });
+  }, []);
+
+  return (
+    <button
+      type="button"
+      ref={ref}
+      onClick={onLeave}
+      data-vaul-no-drag
+      className={cn(
+        '-me-2 flex min-h-11 shrink-0 items-center rounded-lg px-2 text-sm font-medium text-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50',
+        PRESS_ROW,
+      )}
+    >
+      {label}
+    </button>
+  );
+}
+
+/**
+ * `3 selected · Select all`, in the band the search field and the filter bar vacate.
  *
  * They vacate it on purpose: two ways of narrowing a list you are picking from is a way to lose
  * track of what is picked, which is the argument `collection-content.tsx` makes for the same swap.
  * `aria-live="polite"` on the count so a screen-reader user hears the selection grow without
  * having to leave the row they are on.
+ *
+ * **`Done` is not in here.** It went to the heading row's trailing slot — see
+ * `LeaveSelectionButton` — which is why `flex-1` on the count is now doing real work (status
+ * leading, one control trailing) instead of padding the gap between two buttons.
  */
 export function SelectionToolbar({ selection }: { selection: LibrarySelection }) {
   return (
-    <div className="flex items-center gap-2">
-      <Button
-        type="button"
-        variant="ghost"
-        className="h-11 px-3 text-sm font-semibold"
-        onClick={selection.leave}
-        data-vaul-no-drag
+    /*
+     * **The weight ladder, and it used to be upside down**
+     * (`ux-select-control-2026-09-03.md` §2). `Done` and `Select all` were both `font-semibold`
+     * and near-black while the one irreversible thing on the screen was grey text — the two
+     * lowest-stakes controls in the band were the loudest elements on it. The band now has exactly
+     * one loud element and it is the action:
+     *
+     *  1. the bulk action — the only container, the only `font-semibold`, the only colour
+     *  2. the count — status, which gains weight from its *content* and never from chrome
+     *  3. the exit (`Done`) — `font-medium text-foreground`
+     *  4. the convenience (`Select all`) — `font-medium text-muted-foreground`
+     *
+     * `Done` at `font-medium` — up in the heading slot — is what keeps the *transition* honest:
+     * `Select` before and `Done` after are one step apart (muted → foreground, same size, same
+     * weight) rather than three. The same class of control must not change register across the
+     * mode change.
+     *
+     * **The row is new on screen, so it gets the product's `enter` beat and nothing else** (§5.3).
+     * Under `prefers-reduced-motion` this collapses to the opacity change alone rather than to
+     * nothing — `facelift-plan.md` §3a: the thing that just arrived still has to be findable, so
+     * opacity is everyone's and the 4 px rise is the pointer user's bonus.
+     */
+    <div className="flex animate-in items-center gap-2 fade-in-0 duration-enter motion-safe:slide-in-from-top-1">
+      {/* Never bold, never contained: at zero it is muted, and the moment something is picked it
+          goes `text-foreground` on its own. That is the whole of its emphasis. */}
+      <p
+        aria-live="polite"
+        className={cn(
+          'min-w-0 flex-1 text-sm font-medium',
+          selection.count === 0 ? 'text-muted-foreground' : 'text-foreground',
+        )}
       >
-        {LEAVE_SELECTION_LABEL}
-      </Button>
-      <p aria-live="polite" className="min-w-0 flex-1 text-sm font-medium text-muted-foreground">
         {selectionCountLabel(selection.count)}
       </p>
       <Button
         type="button"
         variant="ghost"
-        className="h-11 px-3 text-sm font-semibold"
+        // **`-me-3`, and the spec's `-me-2` was arithmetic against the wrong padding.** This is a
+        // ghost `Button` at `px-3`, so `-me-2` left its label 4 px inside the column edge while
+        // `Select`/`Done` (`px-2`, `-me-2`) landed flush — two controls in one corner missing each
+        // other by 4 px, which is the class of defect this whole change exists to remove.
+        className="-me-3 h-11 px-3 text-sm font-medium text-muted-foreground"
         onClick={selection.toggleAll}
         data-vaul-no-drag
       >
@@ -253,32 +354,58 @@ export function SelectionToolbar({ selection }: { selection: LibrarySelection })
 }
 
 /**
- * The delete itself: a quiet trigger that opens the product's **deeper** confirm.
+ * The delete itself: a contained, destructive-inked trigger that opens the product's **deeper**
+ * confirm.
  *
- * At rest it is `text-muted-foreground` with a `Trash2` glyph and goes `text-destructive` only on
- * hover — the same weight `RemoveSavedPlace` carries, and §2.3's rule that red appears on this
- * screen only inside an open confirm, on its confirm button. Disabled until something is picked,
- * because a delete control that is pressable over an empty selection promises an action it will
- * refuse.
+ * **Red at rest, and that reverses what this comment used to say.** It read §2.3 as *"red appears
+ * on this screen only inside an open confirm"*; `ux-collection-actions-2026-09-03.md` §6
+ * generalised the same ruling as *"red at rest is reserved for the irreversible; every other
+ * removal is neutral at rest"*, and this is the product's one irreversible removal. It qualifies —
+ * and the collection's `Take out` stays neutral under the same sentence. One reading in the tree,
+ * not two.
+ *
+ * **`outline`, not `destructive`.** `variant="destructive"` is the *confirm* button. Rendering the
+ * trigger and the confirm identically would flatten the escalation the confirm exists to provide,
+ * so the trigger is an outlined box with destructive ink and the confirm is the tinted fill.
+ *
+ * **The outline variant's mint hover is overridden — in both themes.** Its light arm is
+ * `hover:border-brand hover:bg-primary/5`, which is house mint on a delete button; its dark arm is
+ * a *separately modified* `dark:border-input dark:bg-input/30 dark:hover:bg-input/50`, and
+ * tailwind-merge does not treat `dark:hover:bg-*` and `hover:bg-*` as the same key, so a light-only
+ * override would leave dark hovering grey. Every one of the three has a `dark:` twin below.
+ *
+ * **The container is the fix for "it looks broken", not an opacity number.** `disabled:opacity-45`
+ * is the matrix's step and `button.tsx` fixes it deliberately; one call site is not the place to
+ * fork it. A *shape* at 45 % reads as a control waiting for a pick, where naked grey text at 45 %
+ * read as nothing at all.
+ *
+ * **Compact, auto width, `self-start` — not full width.** `bulk-delete.ts`'s divergence table
+ * needs this and the collection's bulk unlink not to look alike, and names *where the button is*
+ * as the first thing a thumb learns. Position already differs (band-top vs pinned-footer); keeping
+ * this compact and the collection's a full-width `h-12` slab keeps three axes of difference.
  */
 export function BulkDeleteControl({ selection }: { selection: LibrarySelection }) {
   if (!selection.confirming) {
     return (
-      <div className="flex flex-col gap-1.5">
-        <button
+      <div className="flex animate-in flex-col gap-1.5 fade-in-0 duration-enter motion-safe:slide-in-from-top-1">
+        <Button
           type="button"
+          variant="outline"
+          size="lg"
           onClick={selection.openConfirm}
           disabled={selection.count === 0}
           data-vaul-no-drag
           className={cn(
-            'flex min-h-11 items-center gap-1.5 self-start rounded-lg px-2 text-sm font-bold text-muted-foreground underline-offset-4 outline-none hover:text-destructive hover:underline focus-visible:ring-3 focus-visible:ring-ring/50',
-            'disabled:pointer-events-none disabled:opacity-50',
+            'h-11 gap-1.5 self-start px-3 text-sm font-semibold',
+            'border-destructive/30 text-destructive dark:border-destructive/40 dark:bg-transparent',
+            'hover:border-destructive/50 hover:bg-destructive/10 hover:text-destructive',
+            'dark:hover:border-destructive/60 dark:hover:bg-destructive/20',
             PRESS_ROW,
           )}
         >
-          <Trash2 className="size-3.5 shrink-0" aria-hidden />
+          <Trash2 className="size-4 shrink-0" aria-hidden />
           {BULK_DELETE_LABEL}
-        </button>
+        </Button>
         {selection.error && (
           <p role="alert" className="text-xs font-medium text-destructive">
             {selection.error}
