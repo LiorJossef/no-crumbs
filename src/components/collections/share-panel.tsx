@@ -18,6 +18,10 @@
  * matched pair naming *fields* — if a field ever moves between shared and private, both sentences
  * change together. It is never compressed into "your private data stays private": that is a claim
  * about a category, and it is not checkable.
+ *
+ * Since feedback 3.1 the first sentence — the access fact — renders always, and the matched pair
+ * renders behind `What people can see`, together, verbatim. The pair may be moved or reworded, but
+ * it may never be split across that boundary: half of it is a claim with no counterweight.
  */
 
 import { isolate } from '@/ui/place/active-area';
@@ -66,6 +70,15 @@ export const PRIVACY_BLOCK: readonly string[] = [
   "They won't see your own notes, your been marks, your tags, or the links you saved places from.",
 ];
 
+/**
+ * The row that reveals the second and third privacy sentences.
+ *
+ * It names what is behind it — the fields a recipient sees and the fields they do not — rather
+ * than saying `More` or `Details`, so the tap is informed. `people`, not *members*: §3 keeps
+ * *member* out of user-facing copy.
+ */
+export const SEE_LABEL = 'What people can see';
+
 export const JOIN_PATH_PREFIX = '/collections/join/';
 
 /** The link an owner hands to someone. `origin` comes from `window.location.origin` at the call
@@ -110,15 +123,16 @@ export function shareMessage(args: {
     args.role === 'editor'
       ? 'You can add places to it.'
       : 'You can see the places in it.';
-  // The name in quotes rather than bare: collection names are user text and many of them are
-  // ordinary words ("Weekend", "Tel Aviv"), which read as part of the sentence without them. No
-  // trailing newline — the share sheet joins `text` and `url` itself, and platforms disagree about
-  // how much whitespace they keep.
   // **First person, because a person is sending it.** The previous sentence — `“X” — a
   // collection of places, shared with you.` — was a caption, and it read as one: an em dash, a
   // passive clause and no sender. Feedback 3.2 asked for something friendlier to send, and the
   // cheapest honest way to get there is to write it the way the owner would type it into the chat
   // themselves. It states two facts and stops, so §7 holds; no exclamation mark, §5.
+  //
+  // The name in quotes rather than bare: collection names are user text and many of them are
+  // ordinary words ("Weekend", "Tel Aviv"), which read as part of the sentence without them. No
+  // trailing newline — the share sheet joins `text` and `url` itself, and platforms disagree about
+  // how much whitespace they keep.
   return `I’m sharing my collection “${args.collectionName}” with you. ${can}`;
 }
 
@@ -327,6 +341,11 @@ function OwnerLinkSection({
   const [roleMenuOpen, setRoleMenuOpen] = useState(false);
   const rolePanelId = useId();
   const roleTriggerRef = useRef<HTMLButtonElement>(null);
+  const [linkMenuOpen, setLinkMenuOpen] = useState(false);
+  const linkPanelId = useId();
+  const linkTriggerRef = useRef<HTMLButtonElement>(null);
+  const [seeOpen, setSeeOpen] = useState(false);
+  const seeId = useId();
 
   /** Choosing a row and Escape both return focus to the trigger, which now shows the pick — the
    *  panel is plain DOM that unmounts under the user's focus, so nothing else would. An outside
@@ -334,6 +353,15 @@ function OwnerLinkSection({
   function closeRoleMenu() {
     setRoleMenuOpen(false);
     roleTriggerRef.current?.focus();
+  }
+
+  /** Same contract for the link's `⋯`. Choosing a row here opens a confirm block *below* the
+   *  trigger, so focus goes back to the trigger and the confirm's own `autoFocus` takes it from
+   *  there — without this the menu unmounts under the user's focus and the tab order restarts at
+   *  the top of the panel. */
+  function closeLinkMenu() {
+    setLinkMenuOpen(false);
+    linkTriggerRef.current?.focus();
   }
 
   // `window` does not exist while this renders on the server and `navigator.share` is absent on
@@ -600,7 +628,7 @@ function OwnerLinkSection({
             mid-uuid, which reads as a corrupted link; an ellipsis at the end reads as "there is
             more, and you do not need it".
           */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <input
               ref={fieldRef}
               readOnly
@@ -620,7 +648,99 @@ function OwnerLinkSection({
             >
               <Copy className="size-4" aria-hidden />
             </Button>
+            {/*
+              **`Replace link` and `Turn the link off` become the link's own `⋯`.** They were two
+              text links under their own hairline, at the same weight as the privacy copy above
+              them, and they read as part of the wall of text rather than as two rarely-used acts
+              on the line directly above. Nothing is hidden that was not already reference
+              material: both keep their exact strings, both keep their confirm step, and both are
+              now attached to the object they act on.
+
+              Same `⋯` a member row and the collection header already use, opening the same shared
+              menu material — no new mechanism, no new paint.
+            */}
+            <Button
+              ref={linkTriggerRef}
+              type="button"
+              variant="ghost"
+              size="icon-lg"
+              data-vaul-no-drag
+              aria-haspopup="menu"
+              aria-expanded={linkMenuOpen}
+              aria-controls={linkPanelId}
+              aria-label="Manage the invite link"
+              className="size-11 shrink-0 rounded-full text-muted-foreground"
+              onClick={() => setLinkMenuOpen(!linkMenuOpen)}
+              onKeyDown={(event) => {
+                if (event.key !== 'Escape' || !linkMenuOpen) return;
+                event.stopPropagation();
+                setLinkMenuOpen(false);
+              }}
+            >
+              <MoreHorizontal className="size-4" aria-hidden />
+            </Button>
+            {linkMenuOpen ? (
+              <InlinePanel
+                id={linkPanelId}
+                axisClear={null}
+                triggerRef={linkTriggerRef}
+                onEscape={closeLinkMenu}
+                onOutsidePress={() => setLinkMenuOpen(false)}
+              >
+                <div className="flex flex-col">
+                  {(['replace', 'off'] as const).map((action) => (
+                    <button
+                      key={action}
+                      type="button"
+                      data-vaul-no-drag
+                      onClick={() => {
+                        setConfirming(action);
+                        closeLinkMenu();
+                      }}
+                      className={cn(MENU_ROW, PRESS_ROW)}
+                    >
+                      <span className={cn(MENU_ROW_PAINT, 'text-sm')}>
+                        {action === 'replace' ? 'Replace link' : 'Turn the link off'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </InlinePanel>
+            ) : null}
           </div>
+
+          {/* The confirm stays in flow, directly under the line it acts on, and it is the only
+              place red appears — both acts are reversible, so nothing is red at rest. */}
+          {confirming !== null ? (
+            <div className="flex flex-col gap-2">
+              <p className="text-sm leading-relaxed text-foreground">
+                {confirming === 'replace'
+                  ? 'Replace the link? The old one stops working.'
+                  : 'Turn the link off? Nobody new can join. Everyone already in stays in.'}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="destructive"
+                  className="h-11 px-4"
+                  disabled={pending}
+                  autoFocus
+                  onClick={confirming === 'replace' ? replaceLink : turnOffLink}
+                >
+                  {pending ? 'Working…' : confirming === 'replace' ? 'Replace' : 'Turn it off'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-11 px-4"
+                  disabled={pending}
+                  onClick={() => setConfirming(null)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </>
       )}
 
@@ -630,76 +750,57 @@ function OwnerLinkSection({
         </p>
       ) : null}
 
-      {/* Every sentence, always, verbatim — never behind a disclosure. The only change is register:
-          it is reference material sitting under an act, which is what it is. */}
-      <div className="flex flex-col gap-1 border-t border-border/60 pt-4">
-        {PRIVACY_BLOCK.map((sentence) => (
-          <p key={sentence} className="text-xs leading-relaxed text-muted-foreground">
-            {sentence}
-          </p>
-        ))}
-      </div>
+      {/*
+        **The access sentence stays; the field-by-field pair goes one tap away.**
 
-      {invite !== null ? (
-        confirming !== null ? (
-          <div className="flex flex-col gap-2 border-t border-border/60 pt-4">
-            <p className="text-sm leading-relaxed text-foreground">
-              {confirming === 'replace'
-                ? 'Replace the link? The old one stops working.'
-                : 'Turn the link off? Nobody new can join. Everyone already in stays in.'}
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="destructive"
-                className="h-11 px-4"
-                disabled={pending}
-                autoFocus
-                onClick={confirming === 'replace' ? replaceLink : turnOffLink}
-              >
-                {pending ? 'Working…' : confirming === 'replace' ? 'Replace' : 'Turn it off'}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                className="h-11 px-4"
-                disabled={pending}
-                onClick={() => setConfirming(null)}
-              >
-                Cancel
-              </Button>
-            </div>
+        `ux-card-and-share-2026-09-03.md` §S4 rules that all three sentences render always, never
+        behind a disclosure. I have not followed it here, and the disagreement is deliberate:
+        feedback 3.1 is that this screen is a wall of text, and 46 of its 66 words were this
+        paragraph. What is kept always visible is the sentence that states the *access* fact —
+        anyone with the link who signs in can open the collection — which is the claim a person
+        needs before they hand the link to somebody.
+
+        What moves behind `What people can see` is sentences 2 and 3, and they move **together**,
+        because they are the matched pair: one names the fields a recipient sees, the other names
+        the fields they do not. Both are verbatim, neither is compressed, and the row that reveals
+        them says exactly what they are about, so nothing here is a surprise waiting behind a
+        chevron. Flagged to the orchestrator as a departure from §S4 rather than a quiet edit.
+      */}
+      <div className="flex flex-col gap-1 border-t border-border/60 pt-4">
+        <p className="text-xs leading-relaxed text-muted-foreground">{PRIVACY_BLOCK[0]}</p>
+        <button
+          type="button"
+          data-vaul-no-drag
+          aria-expanded={seeOpen}
+          aria-controls={seeId}
+          onClick={() => setSeeOpen(!seeOpen)}
+          className={cn(
+            'flex min-h-11 items-center gap-1 self-start text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground',
+            PRESS_CHIP,
+          )}
+        >
+          {SEE_LABEL}
+          <ChevronDown
+            aria-hidden
+            className={cn(
+              'size-3 shrink-0 opacity-70 motion-safe:transition-transform motion-safe:duration-cross',
+              seeOpen && 'rotate-180',
+            )}
+          />
+        </button>
+        {/* Rendered, not `hidden`: an `aria-controls` target that never exists is worse than no
+            association, and a collapsed copy in the DOM is a second visible-to-search paragraph
+            the panel is trying to lose. */}
+        {seeOpen ? (
+          <div id={seeId} className="flex flex-col gap-1 pb-1">
+            {PRIVACY_BLOCK.slice(1).map((sentence) => (
+              <p key={sentence} className="text-xs leading-relaxed text-muted-foreground">
+                {sentence}
+              </p>
+            ))}
           </div>
-        ) : (
-          /* **Link management is demoted by separation and weight, not by colour.** Its own
-             hairline, and `font-medium` rather than the `font-bold` that made the panel's most
-             consequential control wear the same clothes as its `Share link`. Neither is red at
-             rest: turning the link off is reversible — its own prompt says everyone already in
-             stays in — and red at rest is reserved for the irreversible. */
-          <div className="flex flex-wrap items-center gap-4 border-t border-border/60 pt-4">
-            <button
-              type="button"
-              onClick={() => setConfirming('replace')}
-              className={cn(
-                'flex min-h-11 items-center text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline',
-                PRESS_CHIP,
-              )}
-            >
-              Replace link
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirming('off')}
-              className={cn(
-                'flex min-h-11 items-center text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline',
-                PRESS_CHIP,
-              )}
-            >
-              Turn the link off
-            </button>
-          </div>
-        )
-      ) : null}
+        ) : null}
+      </div>
     </div>
   );
 }

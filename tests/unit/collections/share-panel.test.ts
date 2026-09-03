@@ -23,6 +23,7 @@ vi.mock('@/app/actions/collections', () => ({
 const {
   JOIN_PATH_PREFIX,
   PRIVACY_BLOCK,
+  SEE_LABEL,
   inviteRoleLabel,
   joinLink,
   memberRoleLabel,
@@ -111,6 +112,21 @@ describe('roleSwitchNotice', () => {
     const notice = roleSwitchNotice('viewer', 'editor');
     expect(notice).toBe('Switching makes a new link. The one you shared before stops working.');
     expect(notice).not.toContain('still works');
+  });
+});
+
+describe('the privacy disclosure', () => {
+  it('names what is behind it, and does not say member', () => {
+    // The row is what the reader trades a tap for; `More` or `Details` would make the tap blind.
+    expect(SEE_LABEL).toBe('What people can see');
+    expect(SEE_LABEL.toLowerCase()).not.toContain('member');
+  });
+
+  it('keeps the matched pair on one side of the boundary', () => {
+    // Sentence 1 stays visible; 2 and 3 are the pair and travel together. A split would leave a
+    // claim about what is shared with nothing saying what is withheld.
+    expect(PRIVACY_BLOCK).toHaveLength(3);
+    expect(PRIVACY_BLOCK.slice(1)).toHaveLength(2);
   });
 });
 
