@@ -160,7 +160,8 @@ export function CollectionPlaceDetail({
           component agreeing to render no navigation of its own). */}
       {/* One back control on this screen, always this one. It used to be lendable: the
           add-to-a-collection picker replaced the whole pane and borrowed this slot for its own
-          dismissal (`HostedPaneBackContext`). Since 2026-09-03 the picker opens as a panel under
+          dismissal (`HostedPaneBackContext`, deleted once it had no consumers). Since 2026-09-03
+          the picker opens as a panel under
           its own row and replaces nothing, so there is no second pane to come back from and
           nothing ever borrows it. */}
       <div className="flex shrink-0 items-center gap-1 px-4 pb-1 pt-1">

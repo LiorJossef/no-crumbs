@@ -11,14 +11,18 @@ import { signInAsDemoUser } from './_lib/sign-in';
  * two exits apart. The tabs are excluded on purpose: the ruling says a tab is a destination that
  * names itself, not a back control.
  *
- * Two facts a unit test cannot reach, both of which this file exists for:
+ * The fact a unit test cannot reach, and the reason this file exists: a collection mounts its
+ * content **twice** — once in the vaul drawer, once in the `lg+` panel — so a
+ * `renderToStaticMarkup` count is double and a naive `getByRole` count is whatever the breakpoint
+ * happens to hide. Only a browser knows which copy is on screen.
  *
- *  1. a collection mounts its content **twice** — once in the vaul drawer, once in the `lg+`
- *     panel — so a `renderToStaticMarkup` count is double and a naive `getByRole` count is
- *     whatever the breakpoint happens to hide. Only a browser knows which copy is on screen.
- *  2. the picker's back control is drawn by a *different component* than the one that owns the
- *     picker (`HostedPaneBackContext`), so the invariant only exists once both are mounted and the
- *     effect that hands the control over has run.
+ * **A second fact is retired (2026-09-03, `aa2ae44`).** This file used to also exist because the
+ * picker's back control was drawn by a *different component* than the one that owned the picker,
+ * handed over through `HostedPaneBackContext`. The picker no longer replaces the detail pane: it
+ * opens as an `InlinePanel` under its own row, draws no back control of any kind, and is dismissed
+ * by pressing its trigger again. That context is deleted. §2.2 is unchanged and still worth
+ * holding — with nothing to borrow the slot, the count simply must never rise above the one
+ * control the host draws.
  */
 
 const EMAIL = process.env.E2E_EMAIL ?? 'demo@example.com';
@@ -101,6 +105,10 @@ async function openFirstCollection(page: Page): Promise<void> {
  * control that is present and working. Verified at `4ca68e6`, before that redesign: the same test
  * passes there, which is what pins the cause to the label rather than to the picker.
  *
+ * **The prefix went again on 2026-09-03 under spec §A2** — a row that is an offer carries no
+ * label, so the text is back to `Add to a collection` / `In <name>`. The optional group stays: it
+ * costs nothing and it is the only part of this regex with a history of breaking.
+ *
  * Still anchored, and `toHaveCount(1)` is still the assertion, so this cannot quietly widen into
  * matching some other button that happens to contain the word "In".
  */
@@ -162,7 +170,9 @@ test.describe('one back control, at every step inside a collection', () => {
     await page.waitForTimeout(1500);
     expect(await backShaped(page)).toEqual(['Back to the collection']);
 
-    // 3. The picker. It borrows the header's control rather than drawing a second one.
+    // 3. The picker. It opens under its own row and draws no back control at all, so the host's
+    // is still the only one on screen — the collision the borrowing existed to solve is gone
+    // because the navigation that caused it is gone.
     const trigger = pickerTrigger(page);
     await expect(trigger).toHaveCount(1);
     await press(page, PICKER_TRIGGER);
@@ -171,21 +181,23 @@ test.describe('one back control, at every step inside a collection', () => {
       page.getByRole('button', { name: 'New collection' }),
       'the picker is actually open',
     ).toBeVisible();
-    expect(await backShaped(page)).toEqual(['Back to the place']);
+    expect(await backShaped(page)).toEqual(['Back to the collection']);
 
-    // 4. And back. The borrowed control returns the pane, not the route.
-    await page.getByRole('button', { name: 'Back to the place' }).click();
+    // 4. And closed. Dismissal is the trigger again — there is no second pane to come back from,
+    // so pressing the row that opened the panel is what shuts it. The host's control is untouched
+    // throughout, which is the point: it never changed hands.
+    await press(page, PICKER_TRIGGER);
     await page.waitForTimeout(1200);
     expect(await backShaped(page)).toEqual(['Back to the collection']);
     await expect(page.getByRole('button', { name: 'New collection' })).toHaveCount(0);
   });
 });
 
-test.describe('the map is untouched by the borrowing', () => {
+test.describe('the map draws exactly one exit, and the picker adds none', () => {
   test.skip(PASSWORD === undefined, 'set E2E_PASSWORD to run the signed-in checks');
   test.describe.configure({ timeout: 180_000 });
 
-  test('the picker keeps its own arrow where the host affordance is an ×', async ({ page }) => {
+  test('the picker adds no back control where the host affordance is an ×', async ({ page }) => {
     await signIn(page);
     await page.goto('/map');
     await page.waitForTimeout(3000);
@@ -200,12 +212,13 @@ test.describe('the map is untouched by the borrowing', () => {
     await press(page, /^⁨?Open /, 'label');
     await page.waitForTimeout(2000);
 
-    // `/map` provides no host control, so the picker must draw one.
+    // `/map`'s host affordance is an ×, and the picker draws nothing back-shaped of its own —
+    // so opening it leaves the count at zero rather than at one.
     await expect(pickerTrigger(page)).toHaveCount(1);
     await press(page, PICKER_TRIGGER);
     await page.waitForTimeout(1500);
     await expect(page.getByRole('button', { name: 'New collection' })).toBeVisible();
-    expect(await backShaped(page)).toEqual(['Back to the place']);
+    expect(await backShaped(page)).toEqual([]);
     // The host's own exit is an ×, which is not back-shaped and stays alongside it.
     await expect(page.getByRole('button', { name: 'Close place detail' })).toBeVisible();
   });

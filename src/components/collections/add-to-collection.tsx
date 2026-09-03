@@ -41,7 +41,6 @@
  */
 
 import {
-  createContext,
   useCallback,
   useId,
   useMemo,
@@ -69,25 +68,6 @@ import {
 } from '@/components/sheet/saved-place-edits';
 import { PRESS_ROW } from '@/lib/interaction';
 import { cn } from '@/lib/utils';
-
-/** One pane's back control, drawn by whoever hosts the pane. */
-export interface HostedPaneBackControl {
-  readonly label: string;
-  readonly onBack: () => void;
-}
-
-/**
- * A host that already draws a back-shaped control in its own header, and will draw this pane's
- * instead of letting it draw a second one.
- *
- * `/collections/[id]` is the case: the place detail there is hosted under a `Back to the
- * collection` arrow, so a picker with its own arrow puts two of them on screen at once — which
- * `docs/ux-collections-as-scope.md` §2.2 forbids outright. `/map` provides nothing, its host
- * affordance is an `×`, and the picker keeps its own arrow there.
- */
-export const HostedPaneBackContext = createContext<{
-  readonly setBack: (back: HostedPaneBackControl | null) => void;
-} | null>(null);
 
 export function AddToCollection({ placeId }: { placeId: string | undefined }) {
   const [open, setOpen] = useState(false);
