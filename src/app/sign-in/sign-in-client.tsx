@@ -588,13 +588,20 @@ export function SignInScreen({
 
             <ChromeItem step={6} className="flex flex-col">
               {/*
-                * **`hover:shadow-cta-halo` — the one hover on this screen that was genuinely too
-                * quiet, and the fix is light rather than more colour.**
+                * **`hover:shadow-cta-halo` — light under the largest mint object on the page.**
                 *
-                * `Button`'s `default` variant answers a hover with `bg-primary/80`. On this card
-                * that is a 20% alpha step on a pale mint fill and most people will not see it, on
-                * the largest mint object on a page whose entire job is to be pressed. The halo adds
-                * light *under* the button, which is a thing the fill cannot say.
+                * It was added as the *whole* answer to a hover nobody could see, back when
+                * `Button`'s `default` variant stepped the fill to `bg-primary/80` — the same mint
+                * at 80% alpha, which measured 16/3/4 per channel and moved the control *lighter*.
+                * That was the wrong half to fix, and the colour is now fixed at its source:
+                * `--primary-hover` darkens the fill 23/27/27 on every primary button in the
+                * product (see `button.tsx`'s `default` variant).
+                *
+                * **The halo stays, and it is not now doubled up.** It says something the fill
+                * cannot — light *under* the object rather than a change of pigment — and it is the
+                * signature the three auth CTAs share (`auth/reset`, `auth/new-password`). With the
+                * colour carrying the state, this is the flourish it was always meant to be rather
+                * than the state itself.
                 *
                 * The token restates the resting `--shadow-raised` inside itself — `box-shadow` is
                 * not additive, so a hover naming only the glow would flatten the control at the

@@ -97,6 +97,23 @@ describe('what .dark deliberately does not restate', () => {
     expect(dark.has('--tag-selected-hover')).toBe(false);
   });
 
+  it('leaves `--primary-hover` alone too, but for the opposite reason', () => {
+    // The pair above recompute because `.dark` moves their operands. `--primary-hover` is single-
+    // theme because *nothing* under it moves: `--primary` is `--mint-400` and `--primary-foreground`
+    // is `--ink-on-mint` in both blocks — the mint button is the one surface that does not invert.
+    //
+    // Which is exactly why it mixes toward `--ink-on-mint` rather than toward `--foreground`. A
+    // `--foreground` mix would darken the same fill in light and *lighten* it in dark, putting the
+    // wrong-direction hover this token exists to remove back on the theme nobody checks.
+    expect(root.has('--primary-hover')).toBe(true);
+    expect(dark.has('--primary-hover')).toBe(false);
+    expect(root.get('--primary-hover')).toContain('var(--ink-on-mint)');
+    expect(root.get('--primary-hover')).not.toContain('var(--foreground)');
+    for (const invariant of ['--primary', '--primary-foreground']) {
+      expect(root.get(invariant), invariant).toBe(dark.get(invariant));
+    }
+  });
+
   it('leaves `--shadow-elevated` an alias rather than a fourth value', () => {
     // It is `var(--shadow-sheet)` in `:root`; restating it in `.dark` would make it a value that
     // can disagree with the thing it is named after. Browser-verified equal under `.dark`.

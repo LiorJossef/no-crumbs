@@ -79,6 +79,48 @@ describe('the state matrix, row by row, on the button (W3-4)', () => {
     expect(markup).not.toContain('hover:bg-primary/80');
   });
 
+  it('darkens a primary button on hover instead of fading its fill', () => {
+    // §3a, primary row: "mint darkens a step". `hover:bg-primary/80` was the same mint at 80% alpha
+    // over a near-white page — measured at `/sign-in` as `rgb(168,236,226)` → `rgb(184,239,230)`,
+    // about 16/3/4 per channel, and *lighter*, which is the opposite of an intensification.
+    // `--primary-hover` mixes toward `--ink-on-mint`, so it darkens in both themes rather than
+    // inverting with `--foreground` the way `--secondary-hover` correctly does.
+    const markup = renderToStaticMarkup(createElement(Button, {}, 'Sign in'));
+    expect(markup).toContain('hover:bg-primary-hover');
+    expect(markup).not.toContain('hover:bg-primary/80');
+  });
+
+  it('gives a ghost button a hover surface that is not the surface it sits on', () => {
+    // `hover:bg-muted` painted nothing. `--muted` *is* `--background` (`#FAF9F6`) in `:root`, so a
+    // ghost button on the page ground hovered to its own colour — ΔE00 0.00, which is what the
+    // owner reported on `Sign out`. Dark had the same defect on the other ground: there `--muted`
+    // is `#201F1C`, identical to `--card` and `--popover`, so `dark:hover:bg-muted/50` computed to
+    // 0.00 on every card and every menu.
+    //
+    // `--card-2` is the token whose own note in `globals.css` says it is "where a row or an icon
+    // button goes when you hover it". Measured ΔE00: light 2.19 on `--background`, 4.11 on
+    // `--card`; dark 6.79 on `--background`, 2.99 on `--card`.
+    const markup = renderToStaticMarkup(createElement(Button, { variant: 'ghost' }, 'Sign out'));
+    expect(markup).toContain('hover:bg-card-2');
+    expect(markup).not.toContain('hover:bg-muted');
+    // One declaration for both themes: `--card-2` is a step above `--card` in `.dark` exactly as
+    // it is a step below in light, so the hand-rolled alpha inversion is not needed and is gone.
+    expect(markup).not.toContain('dark:hover:bg-muted');
+  });
+
+  it('holds a popup trigger open in a colour, on both the shapes that carry one', () => {
+    // `aria-expanded:bg-muted` was the identical dead token on `ghost` and `outline` — the two
+    // variants menu triggers actually use — so a trigger whose menu was open looked exactly like a
+    // trigger at rest. `secondary` is untouched: its `aria-expanded:bg-secondary` is a real colour.
+    for (const variant of ['ghost', 'outline'] as const) {
+      const markup = renderToStaticMarkup(
+        createElement(Button, { variant, 'aria-expanded': true }, 'Sort'),
+      );
+      expect(markup, variant).toContain('aria-expanded:bg-card-2');
+      expect(markup, variant).not.toContain('aria-expanded:bg-muted');
+    }
+  });
+
   it('disables an icon button harder than a labelled one', () => {
     // 30% against the base's 45%. A disabled icon button is a glyph and nothing else — no label to
     // carry the meaning, no fill to sit in — so at 45% it still reads as live and gets tapped.

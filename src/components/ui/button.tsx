@@ -34,7 +34,14 @@ const buttonVariants = cva(
         // only shrinks reads as a rendering glitch; a press that shrinks *and* settles reads as a
         // press. The two are one beat: the base's `translate-y-px` rides the same transition and
         // there is deliberately no second duration.
-        default: `bg-primary text-primary-foreground shadow-raised hover:bg-primary/80 active:shadow-none ${PRESS_BUTTON}`,
+        //
+        // **`hover:bg-primary-hover`, not `hover:bg-primary/80`.** The alpha step was the same mint
+        // at 80% over a near-white page: measured at `/sign-in`, `rgb(168, 236, 226)` at rest and
+        // `rgb(184, 239, 230)` on hover — imperceptible, and *lighter*, when the matrix's row for a
+        // primary button reads "mint darkens a step". The token darkens toward the ink the button
+        // already carries and holds in both themes; its arithmetic is on `--primary-hover` in
+        // `globals.css`. Same call-site shape as `secondary` below, which had this all along.
+        default: `bg-primary text-primary-foreground shadow-raised hover:bg-primary-hover active:shadow-none ${PRESS_BUTTON}`,
         // The matrix's hover for an outline button is "border → mint, tint wash", and it was the
         // one hover in the table that this file answered with a grey. An outlined control's border
         // *is* its affordance, so warming that border is the cheapest true signal it has; the 5%
@@ -58,11 +65,35 @@ const buttonVariants = cva(
         // Check hover states at 1440x900 or with a real pointer; a screenshot of the phone proves
         // nothing either way.
         outline:
-          "border-border bg-background hover:border-brand hover:bg-primary/5 hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+          "border-border bg-background hover:border-brand hover:bg-primary/5 hover:text-foreground aria-expanded:bg-card-2 aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-secondary-hover aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
+        // **`bg-card-2`, not `bg-muted`, and `--muted` was painting nothing at all.** In `:root`
+        // `--muted` *is* `--background` (`#FAF9F6`), so a ghost button on the page ground answered
+        // a hover with its own colour — a zero-pixel change, ΔE00 **0.00**, which is what the
+        // owner hit on `Sign out`. Dark is the same defect wearing the other theme: there `--muted`
+        // is `#201F1C`, which is exactly `--card` and `--popover`, so `dark:hover:bg-muted/50` also
+        // computed to 0.00 on every card and every menu — including the sign-out row inside the
+        // profile menu. The alpha only rescued it on the bare ground (2.06), which is the one place
+        // in dark a ghost button rarely sits.
+        //
+        // `--card-2` is the token this variant should have been using since it was added: its own
+        // note in `globals.css` says it is *"where a row or an icon button goes when you hover it"*.
+        // Measured ΔE00 — light **2.19** on `--background` and **4.11** on `--card`/`--popover`;
+        // dark **6.79** on `--background` and **2.99** on `--card`/`--popover`. The floor case,
+        // 2.19, sits in the same register as `--secondary-hover`'s own signed-off step (2.60), so
+        // the quietest button in the set hovers about as hard as the second-quietest. Going darker
+        // means `--border` (3.08 further on), and `--card-2`'s note refuses that on purpose: a
+        // hovered row has to stay a surface rather than become a divider.
+        //
+        // One declaration for both themes, so the `dark:` override is gone — `--card-2` is defined
+        // in `.dark` as one step *above* `--card` exactly as it is one step below in light, which
+        // is the inversion the alpha was hand-rolling and getting wrong.
+        //
+        // `aria-expanded` carried the identical dead token here and on `outline` above, on the
+        // triggers whose whole job is to look held-open while a menu is out. Same fix, same reason.
         ghost:
-          "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
+          "hover:bg-card-2 hover:text-foreground aria-expanded:bg-card-2 aria-expanded:text-foreground",
         destructive:
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
         link: "text-primary underline-offset-4 hover:underline",

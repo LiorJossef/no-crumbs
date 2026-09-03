@@ -77,6 +77,7 @@
 
     /* Surfaces and roles that existed in `:root` but had no utility, so every call site reached
      * for `bg-[var(--tag)]`. Registering them is what makes W0-3's collapse a rename. */
+    --color-primary-hover: var(--primary-hover);
     --color-secondary-hover: var(--secondary-hover);
     --color-tag-selected-hover: var(--tag-selected-hover);
     --color-brand: var(--brand);
@@ -486,6 +487,37 @@
     --secondary-hover: color-mix(in oklch, var(--secondary), var(--foreground) 5%);
     --tag-selected-hover: color-mix(in oklch, var(--tag-selected), var(--foreground) 10%);
 
+    /*
+     * **The third one, added 2026-09-03, because primary was the one role that never got it** —
+     * `Button`'s `default` variant answered a hover with `bg-primary/80`, which is the same mint at
+     * 80% alpha over a near-white page. Measured in a real browser at `/sign-in`: rest
+     * `rgb(168, 236, 226)`, hover `rgb(184, 239, 230)`. That is about 16/3/4 per channel — under
+     * the perceptual floor — and it moves the wrong way, because dropping alpha over a light ground
+     * makes the control *lighter* when a hover is an intensification. `facelift-plan.md` §3a's
+     * matrix says "mint darkens a step", so this is the matrix's own answer rather than a new one.
+     *
+     * **14%, not the 5% `--secondary-hover` uses, and the number was measured rather than copied.**
+     * Secondary is a pale wash where 5% is already a step; `--primary` is a saturated mid-light
+     * fill where 5% moves ~10 per channel and disappears. 14% lands on `rgb(145, 209, 199)` — a
+     * delta of 23/27/27, plainly visible — while keeping `--primary-foreground` (`--ink-on-mint`)
+     * at **7.13:1** on the hovered fill, still above AAA. Past ~20% the fill leaves the mint-400
+     * neighbourhood and starts reading as `--mint-600`, which is a different colour rather than the
+     * same button lit differently.
+     *
+     * **Toward `--ink-on-mint`, not `--foreground`, and that is the whole dark-theme story.** The
+     * other two hovers are deliberately absent from the `.dark` block because they recompute from
+     * tokens that block redefines, and mixing in `--foreground` darkens on paper and lightens at
+     * night — correct, because those two surfaces invert with the theme. **`--primary` does not.**
+     * It is `--mint-400` in both themes (see the `.dark` block's own note: "the primary button is a
+     * mint fill with dark ink in both"), so a `--foreground` mix would darken it in light and
+     * lighten it in dark — reintroducing exactly the wrong-direction hover this token exists to
+     * remove, on the theme nobody would check. Mixing toward the ink the button already carries is
+     * theme-invariant *because the button is*: one declaration, no `.dark` restatement, and the
+     * same `rgb(145, 209, 199)` in both. No new pigment either — it is `--primary` and its own
+     * label colour, nothing else.
+     */
+    --primary-hover: color-mix(in oklch, var(--primary), var(--ink-on-mint) 14%);
+
     --wash-from: var(--mint-200);
     --wash-to: transparent;
     --row-selected-from: var(--mint-200);
@@ -819,11 +851,11 @@
     /*
      * **What the primary CTA does when a pointer arrives, as a shadow rather than as a colour.**
      *
-     * `Button`'s `default` variant already answers a hover with `bg-primary/80`, and on the sign-in
-     * card that is the one hover on the screen that is genuinely too quiet: the CTA is the largest
-     * mint object on a page whose whole job is to be pressed, and an 20% alpha step on a pale mint
-     * fill is a change most people will not see. This adds light *under* it instead, which is a
-     * property the fill cannot express.
+     * Written when `Button`'s `default` variant answered a hover with `bg-primary/80` and this was
+     * the only visible half of that hover. **That is no longer the arrangement** — `--primary-hover`
+     * now darkens the fill itself, above — so read this as the flourish it was meant to be rather
+     * than as the state: it adds light *under* the CTA, which is a property the fill cannot
+     * express, on the largest mint object on a page whose whole job is to be pressed.
      *
      * `--brand` (`--mint-700`) rather than `--primary` (`--mint-400`), and it is the same evidence
      * `button.tsx` records for the outline variant's border: a `#A8ECE2` glow under a `#A8ECE2`
