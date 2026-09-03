@@ -295,15 +295,17 @@
      * actually lands on, it FAILED AA for body text in two of them: `--card-2` at 4.22:1, and the
      * destructive button's own 10% tint at 3.99:1.
      *
-     * This is 53% less saturated and better everywhere: `--popover` 5.13:1, `--background` 4.87:1,
-     * `--card-2` 4.54:1, inside the tinted button 4.49:1. Three of those four clear AA where the
-     * old value cleared two.
+     * This is 27% less saturated and better on every surface: `--popover` 6.44:1, `--background`
+     * 6.12:1, `--card-2` 5.70:1, inside the tinted button 5.47:1 — all four clear AA where the old
+     * value cleared two. It gets there by going **deeper rather than paler**, which is the whole
+     * trick: the old red was hard to read because it was bright, not because it was saturated, so
+     * dropping lightness buys back more contrast than desaturating does and keeps the red bold.
      *
      * The token is never a solid background — 46 of its uses are `text-destructive`, the rest are
      * borders and 10–30% tints — so text contrast is the whole of its accessibility budget, which
      * is why the numbers above are the ones that were optimised against.
      */
-    --destructive: oklch(0.55 0.115 27.325);
+    --destructive: oklch(0.505 0.18 27.325);
 
     /*
      * The strong mint, as a role rather than a ramp step.
@@ -1171,8 +1173,11 @@
     --accent-foreground: #F4F2EC;
     --ring: var(--mint-400);
     /* Lighter than the light theme's, for the same reason `--brand` is: the light `--destructive`
-     * is chosen to be read on paper. */
-    --destructive: oklch(0.725 0.09 22.216);
+     * is chosen to be read on paper. `0.73` and not `0.71`: at `0.71` this cleared AA on every dark
+     * surface except the destructive button's own 20% tint (4.34:1), and the button is the one
+     * place the token has to carry a label. `0.73` puts it at 4.59:1 and every other dark surface
+     * above 5.7:1. */
+    --destructive: oklch(0.73 0.14 22.216);
 
     /* Rule 2, applied. `--brand-foreground` is the ink that sits *on* the brand, so it follows the
      * brand from white onto `--ink-on-mint`. `--brand-tint` is the soft rule — a quote's border, a
@@ -1480,7 +1485,7 @@
         --accent: #222A28;
         --accent-foreground: #F4F2EC;
         --ring: var(--mint-400);
-        --destructive: oklch(0.725 0.09 22.216);
+        --destructive: oklch(0.73 0.14 22.216);
         --brand: var(--mint-400);
         --brand-foreground: var(--ink-on-mint);
         --brand-tint: var(--mint-600);
