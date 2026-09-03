@@ -259,6 +259,7 @@ function CollectionPeekLine({
 function CollectionList({
   collection,
   currentUserId,
+  library,
   pins,
   onViewChange,
   onSelectItem,
@@ -336,6 +337,28 @@ function CollectionList({
   const allSelectedAreMine = selected.every(
     (itemId) => itemsById.get(itemId)?.savedByMe === true,
   );
+  /** The caller's own library, addressed by the place identity a collection item points at. Built
+   *  once per library rather than per row: the picker below already holds the same array. */
+  const mineByPlaceId = useMemo(() => savedByPlaceId(library), [library]);
+
+  /**
+   * The rows, which are the pins with the caller's **own** saved row folded back in where they
+   * have one — see `withMySavedDetail`. `matches` stays the pin list, because everything that
+   * addresses a row (selection, `Select all`, the adder filter) works in item ids and those are
+   * unchanged by the fold.
+   */
+  const rows = useMemo(
+    () =>
+      matches.map((pin) => {
+        const placeId = itemsById.get(pin.id)?.placeId;
+        return withMySavedDetail(
+          pin,
+          placeId === undefined ? undefined : mineByPlaceId.get(placeId),
+        );
+      }),
+    [matches, itemsById, mineByPlaceId],
+  );
+
   /** Whether every row currently on screen is picked — what turns `Select all` into `Clear`. */
   const allVisiblePicked =
     matches.length > 0 && matches.every((place) => picked.has(place.id));
@@ -640,7 +663,7 @@ function CollectionList({
           </p>
         ) : (
           <ul>
-            {matches.map((place) =>
+            {rows.map((place) =>
               selecting ? (
                 <SelectableRow
                   key={place.id}
@@ -1426,6 +1449,54 @@ function placeIdOf(place: MapPlace): string | null {
   return place.detail?.placeId ?? null;
 }
 
+/**
+ * The caller's own saved places, addressed by the place identity behind them.
+ *
+ * First wins where the same place is saved twice, which the schema forbids
+ * (`saved_places` is unique on `(user_id, place_id)`) — the guard is here so a duplicate would
+ * pick one row rather than making the list non-deterministic.
+ */
+function savedByPlaceId(library: readonly MapPlace[]): ReadonlyMap<string, MapPlace> {
+  const byPlaceId = new Map<string, MapPlace>();
+  for (const saved of library) {
+    const placeId = placeIdOf(saved);
+    if (placeId === null || byPlaceId.has(placeId)) continue;
+    byPlaceId.set(placeId, saved);
+  }
+  return byPlaceId;
+}
+
+/**
+ * One collection row, wearing the caller's **own** saved row for the same place when they have one.
+ *
+ * ## Why the rows were poorer than the library's
+ *
+ * A collection pin is built from a `places` row alone (`collections-scope.tsx`'s `toMapPlace`), so
+ * it carries no `detail` — and `detail` is where `PlaceRow` reads the photo, the tags, the
+ * saved-ago line and the locality from. Same component, thinner input: the row fell back to the
+ * category glyph, the name and a `secondLine`, and looked like a different design.
+ *
+ * ## What is folded in, and what is deliberately not
+ *
+ * **Only the caller's own row**, taken from the library array this screen already has — no new
+ * query, and no new read path. Where the caller has not saved the place (someone else added it),
+ * the row keeps exactly what it had: the shared identity and nothing more. That is not a gap to
+ * close later. Migration `0024` opens one read path into a shared collection and it returns
+ * `places` only; another member's tags, note, photo and `visit_state` have no policy that would
+ * return them, and asking for them would fail at the database rather than leak. A collection shows
+ * shared facts plus *your* overlay, never theirs.
+ *
+ * The pin's own `id`, `name`, `category` and `note` survive the fold, and all four are the
+ * collection's: `id` is the item id every control on this screen addresses a row by, and the other
+ * three are the shared facts the whole collection sees, not the caller's private renaming of them.
+ * `savedPlaceId` is likewise not copied across — these rows are not write targets, and the detail
+ * view reached from one gets its own (`collection-place-detail.tsx`).
+ */
+function withMySavedDetail(pin: MapPlace, mine: MapPlace | undefined): MapPlace {
+  if (mine?.detail === undefined) return pin;
+  return { ...pin, detail: mine.detail, visited: mine.visited };
+}
+
 /** `Category · Locality` for a collection row, built from the `places` row the item points at
  *  rather than from a `Spot` the caller may not have. */
 function secondLineFor(collection: CollectionDetail, itemId: string): string {
@@ -1453,4 +1524,4 @@ function membersLine(collection: CollectionDetail, currentUserId: string): strin
   return `You, ${others[0]} and ${others.length - 1} other${others.length - 1 === 1 ? '' : 's'}`;
 }
 
-export { placeIdOf };
+export { placeIdOf, savedByPlaceId, withMySavedDetail };
