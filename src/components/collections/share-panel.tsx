@@ -23,6 +23,7 @@
 import { isolate } from '@/ui/place/active-area';
 import {
   useEffect,
+  useId,
   useRef,
   useState,
   useSyncExternalStore,
@@ -30,10 +31,15 @@ import {
   type CSSProperties,
 } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Copy, MoreHorizontal } from 'lucide-react';
+import { ArrowLeft, Check, ChevronDown, Copy, MoreHorizontal } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import {
+  InlinePanel,
+  MENU_ROW,
+  MENU_ROW_PAINT,
+} from '@/components/ui/inline-menu';
+import { TRIGGER_PAINT, TRIGGER_TARGET } from '@/components/sheet/library-filter-bar';
 import {
   createInvite,
   removeMember,
@@ -139,8 +145,8 @@ export function memberRoleLabel(role: CollectionRole): string {
   }
 }
 
-/** The two words on the segmented control. Shorter than the member row's labels on purpose: the
- *  sentence above it already reads "People with the link can". */
+/** The two words on the access trigger and its two rows. Shorter than the member row's labels on
+ *  purpose: the sentence they complete already reads "People with the link can". */
 export function inviteRoleLabel(role: InviteRole): string {
   return role === 'editor' ? 'Edit' : 'View';
 }
@@ -313,6 +319,17 @@ function OwnerLinkSection({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const fieldRef = useRef<HTMLInputElement>(null);
+  const [roleMenuOpen, setRoleMenuOpen] = useState(false);
+  const rolePanelId = useId();
+  const roleTriggerRef = useRef<HTMLButtonElement>(null);
+
+  /** Choosing a row and Escape both return focus to the trigger, which now shows the pick — the
+   *  panel is plain DOM that unmounts under the user's focus, so nothing else would. An outside
+   *  press deliberately does not, because it has already landed on what the user meant to touch. */
+  function closeRoleMenu() {
+    setRoleMenuOpen(false);
+    roleTriggerRef.current?.focus();
+  }
 
   // `window` does not exist while this renders on the server and `navigator.share` is absent on
   // desktop, so both are read through `useSyncExternalStore`: the server snapshot is the honest
@@ -434,38 +451,93 @@ function OwnerLinkSection({
 
   return (
     <div className="flex flex-col gap-4">
-      <fieldset className="flex flex-col gap-2">
-        <legend className="mb-2 text-sm font-medium text-foreground">
-          People with the link can
-        </legend>
-        <div className="flex gap-2" role="radiogroup" aria-label="What people with the link can do">
-          {(['viewer', 'editor'] as const).map((option) => {
-            const selected = selectedRole === option;
-            return (
-              <button
-                key={option}
-                type="button"
-                role="radio"
-                aria-checked={selected}
-                onClick={() => setSelectedRole(option)}
-                className={cn(
-                  // `transition-colors` goes rather than gaining a prefix: `PRESS_BEAT` carries
-                  // colour and transform together for everyone else, so an un-prefixed one beside
-                  // it would be reachable only under `prefers-reduced-motion`.
-                  'h-12 flex-1 rounded-lg border text-sm font-bold',
-                  PRESS_CHIP,
-                  'focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-                  selected
-                    ? 'border-transparent bg-primary text-primary-foreground'
-                    : 'border-border bg-card text-muted-foreground hover:bg-muted',
-                )}
-              >
-                {inviteRoleLabel(option)}
-              </button>
-            );
-          })}
-        </div>
-      </fieldset>
+      {/*
+        **The access choice is a sentence with an inline value trigger, not a segmented control.**
+        Two 48 px pills opened the panel with a *setting* above the act, and they were an eighth
+        pill vocabulary in a product the overwhelm audit already caught running seven. The trigger
+        and the rows are the shared menu material — no new mechanism, no new paint.
+
+        `flex-wrap` is load-bearing: `InlinePanel` places itself with `order-last w-full`, which is
+        what puts the two rows on the line *below* the sentence rather than beside it.
+      */}
+      <div className="flex flex-wrap items-center gap-x-1.5">
+        <span className="text-sm text-foreground">People with the link can</span>
+        {/* `aria-label` is the string the deleted `role="radiogroup"` carried; the visible value
+            sits beside it, so the trigger reads as a question with an answer rather than a bare
+            word. Escape is handled here as well as inside the panel — opening by pointer leaves
+            focus on the trigger, so a handler only on the panel never fires, which is the defect
+            `library-filter-bar.tsx` measured on its own inline triggers. */}
+        <button
+          ref={roleTriggerRef}
+          type="button"
+          data-vaul-no-drag
+          aria-haspopup="menu"
+          aria-expanded={roleMenuOpen}
+          aria-controls={rolePanelId}
+          aria-label="What people with the link can do"
+          onClick={() => setRoleMenuOpen(!roleMenuOpen)}
+          onKeyDown={(event) => {
+            if (event.key !== 'Escape' || !roleMenuOpen) return;
+            event.stopPropagation();
+            setRoleMenuOpen(false);
+          }}
+          className={cn(TRIGGER_TARGET, PRESS_CHIP)}
+        >
+          <span className={TRIGGER_PAINT}>
+            <span className="truncate whitespace-nowrap">{inviteRoleLabel(selectedRole)}</span>
+            {/* Rotated from the state, not from a `data-` attribute: the inline panel has no popup
+                to carry one. Under reduced motion it still ends rotated — the transition drops,
+                never the state. */}
+            <ChevronDown
+              aria-hidden
+              className={cn(
+                'size-3 shrink-0 opacity-70 motion-safe:transition-transform motion-safe:duration-cross',
+                roleMenuOpen && 'rotate-180',
+              )}
+            />
+          </span>
+        </button>
+        {roleMenuOpen ? (
+          <InlinePanel
+            id={rolePanelId}
+            axisClear={null}
+            triggerRef={roleTriggerRef}
+            onEscape={closeRoleMenu}
+            onOutsidePress={() => setRoleMenuOpen(false)}
+          >
+            {/* `flex-col` so a `<button>` fills the panel's width, the same way the collection's
+                own action rows do. `text-sm` for the same reason they take it: a two-row command
+                list is not a twelve-row options list with a count column. */}
+            <div className="flex flex-col">
+              {(['viewer', 'editor'] as const).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  data-vaul-no-drag
+                  onClick={() => {
+                    setSelectedRole(option);
+                    closeRoleMenu();
+                  }}
+                  className={cn(MENU_ROW, PRESS_ROW)}
+                >
+                  <span className={cn(MENU_ROW_PAINT, 'text-sm')}>
+                    {/* `invisible`, not absent: the column exists in both rows, so the two labels
+                        sit at one inline offset. */}
+                    <Check
+                      aria-hidden
+                      className={cn(
+                        'size-3.5 shrink-0 text-brand',
+                        selectedRole !== option && 'invisible',
+                      )}
+                    />
+                    {inviteRoleLabel(option)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </InlinePanel>
+        ) : null}
+      </div>
 
       {notice ? (
         <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3">
@@ -501,27 +573,9 @@ function OwnerLinkSection({
         </Button>
       ) : (
         <>
-          <div className="flex items-center gap-2">
-            <Input
-              ref={fieldRef}
-              readOnly
-              value={link}
-              aria-label="Invite link"
-              onFocus={(event) => event.currentTarget.select()}
-              onClick={() => void copyLinkOnly()}
-              className="h-12 flex-1 bg-card px-3 text-sm"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              aria-label="Copy the invite link"
-              className="size-12 shrink-0 rounded-lg"
-              onClick={() => void copyLinkOnly()}
-            >
-              <Copy className="size-4" aria-hidden />
-            </Button>
-          </div>
-
+          {/* **The act, and it is the panel's only filled and only full-width control.** It used to
+              sit third, under a bordered field of the same width and nearly the same height, so the
+              two slabs had to be told apart by trial. */}
           <Button
             type="button"
             className="h-14 w-full text-base font-bold"
@@ -529,6 +583,39 @@ function OwnerLinkSection({
           >
             {shareButtonLabel({ canShare, copied })}
           </Button>
+
+          {/*
+            **The link is the fallback path, so it is quiet and it comes after the act.** Still the
+            same `<input readOnly>` with the same select-on-focus and select-on-click, so grabbing
+            the bare URL is untouched — but it stops being a box: no border, no fill, one muted
+            12 px line. It is a bare `<input>` rather than `ui/input.tsx` because every affordance
+            that component paints is the affordance this row is deleting.
+
+            `truncate` is the point of the change. Without `text-overflow` the field cut the token
+            mid-uuid, which reads as a corrupted link; an ellipsis at the end reads as "there is
+            more, and you do not need it".
+          */}
+          <div className="flex items-center gap-2">
+            <input
+              ref={fieldRef}
+              readOnly
+              value={link}
+              aria-label="Invite link"
+              onFocus={(event) => event.currentTarget.select()}
+              onClick={() => void copyLinkOnly()}
+              className="h-11 min-w-0 flex-1 truncate rounded-sm border-none bg-transparent p-0 text-xs text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-lg"
+              aria-label="Copy the invite link"
+              className="size-11 shrink-0 rounded-full text-muted-foreground"
+              onClick={() => void copyLinkOnly()}
+            >
+              <Copy className="size-4" aria-hidden />
+            </Button>
+          </div>
         </>
       )}
 
@@ -538,9 +625,11 @@ function OwnerLinkSection({
         </p>
       ) : null}
 
-      <div className="flex flex-col gap-2 border-t border-border/60 pt-4">
+      {/* Every sentence, always, verbatim — never behind a disclosure. The only change is register:
+          it is reference material sitting under an act, which is what it is. */}
+      <div className="flex flex-col gap-1 border-t border-border/60 pt-4">
         {PRIVACY_BLOCK.map((sentence) => (
-          <p key={sentence} className="text-sm leading-relaxed text-muted-foreground">
+          <p key={sentence} className="text-xs leading-relaxed text-muted-foreground">
             {sentence}
           </p>
         ))}
@@ -548,7 +637,7 @@ function OwnerLinkSection({
 
       {invite !== null ? (
         confirming !== null ? (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 border-t border-border/60 pt-4">
             <p className="text-sm leading-relaxed text-foreground">
               {confirming === 'replace'
                 ? 'Replace the link? The old one stops working.'
@@ -577,12 +666,17 @@ function OwnerLinkSection({
             </div>
           </div>
         ) : (
-          <div className="flex flex-wrap items-center gap-4">
+          /* **Link management is demoted by separation and weight, not by colour.** Its own
+             hairline, and `font-medium` rather than the `font-bold` that made the panel's most
+             consequential control wear the same clothes as its `Share link`. Neither is red at
+             rest: turning the link off is reversible — its own prompt says everyone already in
+             stays in — and red at rest is reserved for the irreversible. */
+          <div className="flex flex-wrap items-center gap-4 border-t border-border/60 pt-4">
             <button
               type="button"
               onClick={() => setConfirming('replace')}
               className={cn(
-                'flex min-h-11 items-center text-sm font-bold text-muted-foreground underline-offset-4 hover:underline',
+                'flex min-h-11 items-center text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline',
                 PRESS_CHIP,
               )}
             >
@@ -592,7 +686,7 @@ function OwnerLinkSection({
               type="button"
               onClick={() => setConfirming('off')}
               className={cn(
-                'flex min-h-11 items-center text-sm font-bold text-muted-foreground underline-offset-4 hover:underline',
+                'flex min-h-11 items-center text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline',
                 PRESS_CHIP,
               )}
             >
