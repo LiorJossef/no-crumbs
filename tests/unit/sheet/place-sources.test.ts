@@ -188,11 +188,21 @@ describe('the card', () => {
     expect(markup).toContain('Open on TikTok');
   });
 
-  it('draws our own neutral glyph and no TikTok mark', () => {
+  it('draws the platform glyph from the one module that is allowed to', () => {
     const markup = render([source(1), source(2)]);
-    // `platform-mark.tsx` is the one module allowed to draw a platform glyph, and what it draws is
-    // a portrait video frame of our own. Evidence `09` §7.1: no TikTok logo, icon or redraw in src/.
-    expect(markup).toContain('data-platform-mark="neutral"');
+    /*
+     * **What this asserts is the seam, not the artwork.** `platform-mark.tsx` is the single module
+     * permitted to draw a platform glyph, and this file's job is to prove the source list goes
+     * through it rather than inlining an SVG of its own.
+     *
+     * It used to pin `data-platform-mark="neutral"` and a comment describing a portrait video
+     * frame. Both had rotted: the frame became a disc on 2026-09-02, and on 2026-09-03 the owner
+     * overrode evidence `09` §3 and shipped TikTok's note — recorded in that document's new §11,
+     * on scale rather than on law, with the condition under which it expires. Pinning the *artwork*
+     * here meant this test failed for a decision it has no opinion about, which is what a
+     * brittle assertion looks like.
+     */
+    expect(markup).toMatch(/data-platform-mark="(?:neutral|tiktok)"/);
   });
 
   it('isolates a handle for bidi and lays the trailing glyph out logically', () => {

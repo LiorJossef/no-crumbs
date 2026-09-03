@@ -723,3 +723,57 @@ conditions under which a publish button must be disabled. TikTok is not reticent
 third-party interfaces. Its silence on branded-button design in the public developer docs, next to
 the one sentence it does publish there, is therefore not an omission. **The rule is "ask us", and
 that is the rule.**
+
+---
+
+# 11. Overridden by the owner on 2026-09-03 — the note ships
+
+**The analysis above is not withdrawn and not amended. It is overridden, on scale rather than on
+law, and this section records that so the repository does not hold a document its own code
+contradicts.**
+
+`src/components/brand/platform-mark.tsx` now draws TikTok's note. Everything §3 and §10.2 establish
+remains true: the licence in Developer Terms II.2 reaches only the cases a TikTok product *requires*
+the mark, we use neither Login Kit nor Share Kit, and the published sentence — *"You may not use
+TikTok logos, icons, symbols, or designs, without our prior written permission"* — reaches a
+stylised approximation as squarely as it reaches the mark itself. **We hold no permission. The mark
+ships without one.**
+
+## 11.1 Why the owner overrode it
+
+This is a university project with no users, deployed for coursework and due to be taken down within
+days of this date. Against that, every permitted alternative this document sanctioned under §7 item
+4 — a play triangle, a video card, a portrait frame, a bare triangle — carries only the fact *"this
+is a short-form video"*, beside text that already reads `Open on TikTok`. Three of those were drawn,
+shipped and rejected in turn (the frame on 2026-09-02, the disc on 2026-09-03, the remaining
+candidates on sight). The glyph was never carrying the platform; the words were. The owner judged
+that a mark carrying nothing is not worth its place, and that the exposure at this scale does not
+justify the alternative.
+
+That is a decision the owner is entitled to make. It is recorded, not re-argued.
+
+## 11.2 What did NOT change, and is now more load-bearing rather than less
+
+- **Neither brand pigment ships.** The note takes `currentColor`. §10.4's measurements stand on
+  their own — TikTok cyan is **1.03:1** on the house mint and **1.31:1** on the light ground, and
+  the red sits ΔE00 13.4 from the restaurant category — so the two-colour offset treatment is out on
+  contrast independently of the terms. `platform-mark.test.ts` still fences both hexes by value
+  across `src/`, and that fence must not be removed.
+- **§3's prohibitions on meaning are untouched.** The mark still may not imply endorsement,
+  verification, or a relationship with TikTok. *"Powered by TikTok"* and *"TikTok Partner"* remain
+  barred by III.3(o) and X. The mark is still only ever drawn beside a fact stated in words.
+- **III.3(n)'s creator credit remains an obligation.** The `@handle` and the link back ship and must
+  not be refactored away. Using the mark makes the attribution more necessary, not less.
+- **The mark still lives in exactly one file.** That seam is why this change was one file, and it is
+  why the reversal below would be one file.
+
+## 11.3 The condition on which this must be revisited
+
+**If this product acquires users, ships commercially, or outlives the coursework, this section
+expires and §3 governs again.** The two honest routes at that point are (a) request written
+permission — §10.2 and §11.2 are the analysis such a request would be built on — or (b) return to a
+neutral mark. The neutral disc's geometry and its full construction rationale are preserved in the
+git history of `platform-mark.tsx` at commit `5adb372` and earlier.
+
+The one thing that must not happen is this section being read as evidence the terms permit the mark.
+They do not. They permit asking.

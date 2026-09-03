@@ -3,176 +3,95 @@
  *
  * TikTok is not one integration among several — it is the whole import path, the only VERIFIED
  * access mechanism (`04`), and the reason an Instagram or YouTube link is a *recognised redirect*
- * rather than a failure. Until now it was represented on five surfaces by Lucide's `Link2`: a chain
- * link standing in for the single platform the product is built around.
+ * rather than a failure.
  *
- * ## Why this is a component and not five copies of an icon
+ * ## This draws TikTok's note, and that reverses a written ruling
  *
- * **Whether TikTok's own mark may be drawn here is a terms question, and the answer is no.** This
- * repository already enforces a third-party terms answer as *code* rather than as prose — `06` §3.1
- * gates Google Places content away from a non-Google renderer, and that gate is code on purpose. So
- * the mark is a seam: **every surface imports `PlatformMark` and nothing else knows what it draws.**
- * If written permission ever arrives, one file changes and no call site moves.
+ * **Owner decision, 2026-09-03.** `docs/evidence/tiktok/09-brand-mark-and-attribution-2026-08-31.md`
+ * ruled the mark out, VERIFIED against TikTok's own published sentence: *"You may not use TikTok
+ * logos, icons, symbols, or designs, without our prior written permission."* We hold no such
+ * permission, and the licence in Developer Terms II.2 covers only the cases a TikTok product
+ * *requires* the mark — the Login Kit / Share Kit buttons, neither of which we use. So the ruling
+ * was correct as written and it is still correct as written.
  *
- * `docs/evidence/tiktok/09-brand-mark-and-attribution-2026-08-31.md` is the ruling, and it is
- * VERIFIED against TikTok's own published sentence: *"You may not use TikTok logos, icons, symbols,
- * or designs, without our prior written permission."* We hold no such permission and no TikTok
- * product requires a mark here — we call the public oEmbed endpoint and use neither Login Kit nor
- * Share Kit, which are the documented *required-use* cases the logo licence is conditioned on. It
- * judges all four placements this component serves — the paste field, the import screens, the
- * source link and a list row — and refuses the mark on every one; §7 item 4 names *a play triangle
- * or a generic video card of our own drawing* as the permitted alternative, which is what is drawn
- * below. **What is permitted is the word, the `@handle` and the link back**, all three of which
- * ship, and III.3(n) makes the creator credit an obligation rather than a courtesy — so the
- * attribution lines beside these marks are not decoration and must not be refactored away.
+ * It is overridden on **scale, not on law**: this is a university project with no users, due to come
+ * down within days of this date. The owner weighed the exposure against the fact that every neutral
+ * alternative — a play triangle, a video card, a portrait frame, a bare triangle — carries only
+ * *"this is a video"* beside text that already says `Open on TikTok`, and judged the generic marks
+ * not worth their place. That is a call the owner is entitled to make and it is recorded here rather
+ * than argued again.
  *
- * `platform-mark.test.ts` is the half of that promise a comment cannot keep. It asserts that no
- * screen in the import flow, and no place surface, draws a platform glyph of its own — which is the
- * property that makes "one file changed" true rather than aspirational.
+ * **What that means for anyone picking this up later.** If this product ever acquires users, ships
+ * commercially, or outlives the coursework, this file is the first thing to revisit: either obtain
+ * written permission from TikTok, or return to the neutral mark, which is preserved in this file's
+ * history and whose reasoning is intact in the evidence document. **The evidence document is not
+ * wrong and must not be deleted** — §7 of it records this reversal; the ruling above it stands as
+ * the analysis that a permission request would be built on.
  *
- * ## What ships today, and why it is not TikTok's mark
+ * ## Monochrome, and that part is not a preference
  *
- * A **play triangle in a circle**: what a person pasted is a short-form video, which is a fact
- * about the artefact rather than a claim about its publisher. It carries no trademark, so it needs
- * no ruling to ship. `data-platform-mark="neutral"` records which arm rendered.
+ * The note takes `currentColor`. **Neither TikTok brand pigment enters this product's colour
+ * system**, measured at commit `8f8df84` with the repository's own instruments (CIEDE2000 as
+ * `palette-tokens.test.ts` writes it; Machado, Oliveira & Fernandes 2009 at severity 1.0 as
+ * `basemap-night.test.ts` writes it):
  *
- * **Changed 2026-09-02, owner's choice, from a portrait video frame with a play triangle inside
- * it.** The owner's report was that the frame "doesn't look good"; drawn beside the alternatives at
- * 14px, 20px and on the live mint CTA, the reason is legible — the frame was two shapes competing
- * inside a 13-unit-wide box, and at `size-3.5`, which is where this mark is used most, the triangle
- * had roughly two units of air on either side and closed up. The disc gives the triangle the whole
- * interior and matches Lucide's own circle glyphs, which is what the outline weight's construction
- * rule was always aiming at.
+ *  - **TikTok cyan against the house mint: ΔE00 10.0, deuteranopic 7.8, protanopic 5.1** — 8° of hue
+ *    and 1.2 L\* apart, against floors of 18 normal / 7 under CVD. On the mint tile it measures
+ *    **1.03:1**, invisible on the product's one saturated surface, and **1.31:1** on the light
+ *    ground, so it is not usable as ink in daylight either.
+ *  - **TikTok red against the restaurant category: ΔE00 13.4 night / 14.1 light, 3.2 under
+ *    deuteranopia** — below the pair the facelift rejected and retuned for being confusable. A
+ *    platform mark that reads as a category is worse than a generic icon.
  *
- * **What was NOT lost with the frame.** The portrait aspect was carrying one extra fact — *vertical*
- * short-form video — and the disc drops it. That is an acceptable trade because no surface depends
- * on it: every one of them names TikTok in words beside the mark, so the glyph never had to carry
- * the platform, only the medium. What it must not become is a shape that says *press me* — see the
- * note on the bare triangle below.
+ * So the two-colour offset treatment is out on measurement, independently of the trademark
+ * question, and `platform-mark.test.ts` fences both hexes by value across `src/`. That fence stays.
+ * The glyph inherits whatever role the surface assigns and is correct in both themes by not having
+ * an opinion.
  *
- * **No TikTok geometry is in the tree, and a redraw would not have helped.** The prohibition reaches
- * *"icons, symbols, or designs"*, which the ruling reads as covering a stylised approximation drawn
- * by us — and III.3(a) forbids alteration, so a note mark taking `currentColor` would be doubly
- * out. The mark below is not derived from TikTok's: it says *a vertical short-form video*, which is
- * a fact about the artefact the user pasted.
+ * ## Why this is still one component
+ *
+ * **Every surface imports `PlatformMark` and nothing else knows what it draws.** That seam is what
+ * made today's swap one file, and it is what makes the reversal above one file if it is ever taken.
+ * `platform-mark.test.ts` asserts no screen in the import flow and no place surface draws a platform
+ * glyph of its own, which is the property that makes "one file changed" true rather than
+ * aspirational.
  *
  * ## What it must never say
  *
- * The mark means *this came from a TikTok*. It may not imply that the place is endorsed or
- * verified, that TikTok checked anything, or that this product has a relationship with TikTok —
- * Developer Terms III.3(o) and X make that a rule rather than a preference, and *"Powered by
- * TikTok"* and *"TikTok Partner"* are barred by both. That is why the mark is only ever drawn
- * beside a fact the product already states in words: `Open on TikTok`, `@handle's TikTok video`,
- * `Add a TikTok link`.
+ * Unchanged by the swap, and more load-bearing now rather than less. The mark means *this came from
+ * a TikTok*. It may not imply the place is endorsed or verified, that TikTok checked anything, or
+ * that this product has a relationship with TikTok — Developer Terms III.3(o) and X make that a rule
+ * rather than a preference, and *"Powered by TikTok"* and *"TikTok Partner"* are barred by both. The
+ * mark is only ever drawn beside a fact the product already states in words: `Open on TikTok`,
+ * `@handle's TikTok video`, `Add a TikTok link`. III.3(n) makes the creator credit an obligation
+ * rather than a courtesy, so the attribution lines beside these marks must not be refactored away.
  *
  * **And never on a list row or over the creator's own still.** Attribution attaches to the surface
- * that displays the content — the detail card and the review screen, which carry it — and a row in
- * the library is our record of a place rather than a reproduction of a TikTok. A glyph on every row
- * would also be a mark on the ~100% of rows that came from one, which distinguishes nothing.
+ * that displays the content — the detail card and the review screen, which carry it. A row in the
+ * library is our record of a place, not a reproduction of a TikTok, and a glyph on every row would
+ * mark the ~100% of rows that came from one, distinguishing nothing.
  *
- * ## Colour: measured, and the answer is `currentColor`
+ * ## The weights collapsed
  *
- * Measured at commit `8f8df84` with the repository's own instruments (CIEDE2000 as
- * `palette-tokens.test.ts` writes it; Machado, Oliveira & Fernandes 2009 at severity 1.0 as
- * `basemap-night.test.ts` writes it). **Neither TikTok brand pigment may enter this product's
- * colour system**, and each fails for its own reason:
- *
- *  - **TikTok cyan against the house mint: ΔE00 10.0, deuteranopic 7.8, protanopic 5.1**, 8° of hue
- *    and 1.2 L\* apart. Every colour floor in this repository is 18 normal / 7 under CVD. On the
- *    mint tile it measures **1.03:1** — invisible on the product's one saturated surface — and
- *    **1.31:1** on the light ground, so it is not usable as ink in daylight either.
- *  - **TikTok red against the restaurant category: ΔE00 13.4 night / 14.1 light, and 3.2 under
- *    deuteranopia.** That is below the pair the facelift *rejected and retuned* for being
- *    confusable. A platform mark that reads as a category is worse than a generic icon.
- *
- * So the glyph takes `currentColor` and inherits whatever role the surface already assigns — and
- * `platform-mark.test.ts` fences both hexes by value across `src/`, the same shape as the mascot
- * gold fence in `chrome-tokens.test.ts`. The fence exists whether or not the pigment ever does,
- * because the next author to reach for a brand colour will reach for those two.
- *
- * ## Two weights, and the rule is one sentence
- *
- * **`solid` marks the action; `outline` marks everything else.** One role for the heavy weight —
- * **a primary mint button whose action is adding a TikTok link** — and every other surface takes
- * the light one: the flow's kickers, the two field affordances, the three thumbnail fallbacks, the
- * source link. A second weight earns its place by having a rule; without one it is two icons.
- *
- * There are **three** such buttons and `platform-mark.test.ts` enumerates them, so a fourth surface
- * reaching for the heavy weight fails rather than ships. It was written naming one and the third
- * arrived within the hour — `add-sheet.tsx`, which is the arm the map's `＋` actually routes
- * through and therefore the live one. The guard firing is the ratchet working; extending an
- * enumeration with the reason recorded is what it is for, and it is not the same thing as the
- * single-source rule above, which may not be extended at all.
- *
- * **`outline`** is Lucide's construction — a 24 unit box, `stroke-width: 2`, round caps and joins —
- * because it sits inline beside Lucide glyphs (`ArrowUpRight` on the source link, `ChevronDown` on
- * the caption disclosure) and a mark visibly heavier than its neighbours reads as a logo dropped
- * into a toolbar. Its triangle is filled rather than stroked: at `size-3.5` a 3-stroke outline
- * closes into a blob, and the play shape is the half of the mark that survives at 14px.
- *
- * **`solid`** is the same geometry filled, with the triangle knocked *out* through `evenodd` so the
- * button's own ground shows through it. Compared against the outline weight on a real
- * `#A8ECE2` / `#123B35` button at 16, 20 and 24px: the outline disappears into 14px bold text at
- * button scale, and 24 is heavier than the label it sits beside. **20px at `gap-2` is what ships.**
- *
- * ## What the CTA deliberately does not do
- *
- * It keeps the glyph **centred with the label**, not pinned left with the label centred. That
- * second composition is the social-sign-in button shape — and it is the shape of the one button
- * TikTok actually licenses, `Continue with TikTok`, measured in its own developer pack at 315×44.
- *
- * **And that licence is the stronger half of the argument, not the optics.** Developer Terms II.2
- * grants the logo licence only where a TikTok product *requires* the mark, and the documented
- * required-use case is the Login Kit / Share Kit button. **So the social-sign-in silhouette is
- * specifically the silhouette of an integration we do not have** — a button copying it moves us
- * toward implying the one thing the licence would have covered and we were never granted. That is
- * trade dress with deniability, which is a worse position than using the mark outright.
- *
- * ## The candidate that was rejected, and why it is worth writing down
- *
- * A **bare play triangle** was drawn alongside and is the simplest mark available — it survives any
- * size and needs no construction rule at all. It was rejected on meaning rather than on optics: a
- * bare triangle is the universal *press to play* affordance, so beside a source link it names an
- * action this product does not offer. We do not play the video; we point at it. The enclosing shape
- * is what turns the triangle from a button into a noun.
- *
- * The glyph, the weight and the placement are ours; the word is the permitted use.
+ * The old mark had an outline form and a filled form, and `solid` marked the primary CTA. **A note
+ * is a single filled silhouette — there is no outline of it** — so that distinction died with the
+ * disc. Both arms now render the same geometry; see the `variant` prop for the removal that owes.
  */
-
 export function PlatformMark({
   className,
   variant = 'outline',
 }: {
   className?: string;
-  /** `solid` is reserved for the primary call to action. See the weight rule above. */
+  /**
+   * **Vestigial as of 2026-09-03 and kept only so no call site had to move in the same change.**
+   * The two weights existed because the neutral disc had an outline form and a filled form. The
+   * note is a single filled silhouette — there is no outline of it — so both arms now render the
+   * same geometry and the prop selects nothing. Delete it and the `solid` call sites together, as
+   * one change, once `library-selection.tsx` and `place-sheet.tsx` are free; `platform-mark.test.ts`
+   * pins the current behaviour so the removal cannot go unnoticed.
+   */
   variant?: 'outline' | 'solid';
 }) {
-  if (variant === 'solid') {
-    return (
-      <svg
-        viewBox="0 0 24 24"
-        className={className}
-        aria-hidden="true"
-        data-platform-mark="neutral"
-        data-platform-weight="solid"
-        fill="currentColor"
-      >
-        {/* One path, `evenodd`: the disc is the outer subpath and the play triangle is the inner
-            one, so the triangle is a hole rather than a second shape in a second colour. That is
-            what keeps this weight `currentColor`-only like the other, and it is why the triangle
-            reads mint on the mint CTA without anything here knowing the button's ground. */}
-        <path
-          fillRule="evenodd"
-          d="M12 1.5a10.5 10.5 0 1 0 0 21 10.5 10.5 0 0 0 0-21Zm-2 7 6 3.5-6 3.5v-7Z"
-        />
-      </svg>
-    );
-  }
-
-  return renderOutline(className);
-}
-
-function renderOutline(className: string | undefined) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -180,22 +99,18 @@ function renderOutline(className: string | undefined) {
       // Decorative on every surface it appears on: each one already names TikTok in words beside
       // it, and a second announcement would be the mark making a claim of its own.
       aria-hidden="true"
-      data-platform-mark="neutral"
-      data-platform-weight="outline"
+      data-platform-mark="tiktok"
+      data-platform-weight={variant}
       fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
     >
-      {/* A 9.5-radius disc, which is Lucide's own circle geometry (`circle-play`, `circle-check`)
-          rather than a size picked here — the point of matching it is that this mark sits inline
-          with Lucide glyphs and must not read as a logo dropped into a toolbar. */}
-      <circle cx="12" cy="12" r="9.5" />
-      {/* The play shape, filled, centred in the disc. Filled rather than stroked for the same
-          reason the frame's triangle was: at `size-3.5` a 2-unit stroke closes into a blob, and the
-          triangle is the half of the mark that has to survive at 14px. */}
-      <path d="M10 8.5 16 12l-6 3.5Z" fill="currentColor" strokeWidth={1.4} />
+      {/* One filled subpath in `currentColor`. The note's counter is carved by the arc's own sweep
+          rather than by a second subpath, so there is no hole to lose and no second `fill` for a
+          pigment to sneak back in through — which is the invariant the evenodd disc was protecting
+          and the one `platform-mark.test.ts` actually asserts. */}
+      <path
+        d="M14.2 2.5h-2.9v12.4a2.25 2.25 0 1 1-2.25-2.25c.2 0 .39.03.57.08v-2.9a5.3 5.3 0 1 0 4.55 5.24V9.35a6.8 6.8 0 0 0 3.9 1.22V7.75c-2.16 0-3.87-1.72-3.87-3.9z"
+        fill="currentColor"
+      />
     </svg>
   );
 }

@@ -95,25 +95,37 @@ describe('the mark itself', () => {
     expect(markup).toMatch(/data-platform-mark="(?:neutral|tiktok)"/);
   });
 
-  it('draws the solid weight in currentColor too, with the triangle as a hole', () => {
+  it('draws both weights identically, in currentColor, so the dead variant cannot rot unnoticed', () => {
     /*
-     * The solid weight's whole trick is `fill-rule: evenodd` on one path: the frame is the outer
-     * subpath and the play triangle is the inner one, so the triangle is a *hole* rather than a
-     * second shape in a second colour. That is what keeps this weight `currentColor`-only — and
-     * what lets the triangle read mint on the mint CTA without the component knowing the ground.
+     * **This assertion changed shape on 2026-09-03 and did not lose its teeth.**
      *
-     * A second `fill` on a second path would be the obvious way to draw the same picture and would
-     * quietly reintroduce a pigment. This fails if anyone does it.
+     * It used to require `fill-rule="evenodd"` on the solid weight, because the old neutral disc
+     * drew the play triangle as a *hole* in one path rather than as a second shape in a second
+     * colour. That was never the property worth protecting on its own — it was the mechanism. The
+     * property is **one fill, `currentColor`, no pigment**, and that is asserted below exactly as
+     * it was before.
+     *
+     * What replaces the evenodd check is the fact the swap created: the mark is now a single filled
+     * silhouette with no outline form, so `outline` and `solid` render the same geometry and the
+     * `variant` prop selects nothing. Pinning that equality here means the vestigial prop cannot be
+     * quietly re-diverged, and its eventual removal has to come through this test rather than past
+     * it.
      */
-    const markup = renderToStaticMarkup(
+    const outline = renderToStaticMarkup(createElement(PlatformMark, { className: 'size-5' }));
+    const solid = renderToStaticMarkup(
       createElement(PlatformMark, { variant: 'solid', className: 'size-5' }),
     );
-    expect(markup).toContain('fill-rule="evenodd"');
-    for (const value of markup.matchAll(/(?:fill|stroke)="([^"]*)"/g)) {
-      expect(value[1], markup).toMatch(/^(?:currentColor|none)$/);
+    const geometry = (markup: string) => markup.match(/ d="([^"]*)"/g);
+    expect(geometry(solid)).toEqual(geometry(outline));
+    expect(geometry(solid)).toHaveLength(1);
+
+    for (const markup of [outline, solid]) {
+      for (const value of markup.matchAll(/(?:fill|stroke)="([^"]*)"/g)) {
+        expect(value[1], markup).toMatch(/^(?:currentColor|none)$/);
+      }
+      expect(markup).not.toMatch(/#[0-9A-Fa-f]{3,8}/);
+      expect(markup).toContain('aria-hidden="true"');
     }
-    expect(markup).not.toMatch(/#[0-9A-Fa-f]{3,8}/);
-    expect(markup).toContain('aria-hidden="true"');
   });
 
   it('keeps the solid weight for the primary call to action and nothing else', () => {
