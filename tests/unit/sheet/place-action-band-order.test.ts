@@ -158,10 +158,15 @@ describe('the primary actions come before the words that explain them', () => {
 });
 
 describe('the category line names where the value came from, not what we did to get it', () => {
-  it('says `from the TikTok video`, never `worked out from`', () => {
+  it('never says `worked out from`', () => {
     const markup = render();
-    expect(markup).toContain('from the TikTok video');
-    // The banned half. `worked out from` is process language on a user-facing surface
+    // RETIRED 2026-09-03 (spec §R5): this test used to also require `from the TikTok video` on the
+    // category line. The whole ` · from the TikTok video` / ` · from the map listing` suffix was
+    // deleted on purpose — `src/components/sheet/saved-place-edits.tsx` l. 433 records why: it was
+    // the fourth statement on one card that the place came from a video, and the card's complaint
+    // was repetition. The pin's provenance still lives on the record line at the bottom.
+    // The banned half below is the half that was worth having, and it still holds.
+    // `worked out from` is process language on a user-facing surface
     // (`voice-and-vocabulary.md` §4), and it survived B-T2's pass on the location line only
     // because that task was deliberately not widened.
     expect(markup).not.toContain('worked out from');
@@ -174,9 +179,10 @@ describe('the category line names where the value came from, not what we did to 
     expect(render()).not.toContain('· from the video');
   });
 
-  it('still says `from the map listing` for a place with no TikTok behind it', () => {
-    // The other arm is not process language and was never the defect. A manually added place has
-    // no video, and claiming one would be the confident-wrong answer this repo refuses.
+  it('names no source on the category line, for a video place or a manual one', () => {
+    // RETIRED 2026-09-03 (spec §R5): this test used to require `from the map listing` here. The
+    // suffix is gone from both arms, so what is left to protect is that it stays gone — putting a
+    // source back on the category line is the repetition §R5 removed.
     // Both copies of the URL: `tiktokUrl` reads `detail.sourceUrl` first and falls back to the
     // flat prop, so clearing one alone would leave the card believing there is a video.
     // The overlay's two source keys are *removed* rather than set to `undefined`:
@@ -186,8 +192,9 @@ describe('the category line names where the value came from, not what we did to 
     void _droppedUrl;
     void _droppedSource;
     const manual: DetailPlace = { ...PLACE, sourceUrl: undefined, detail: overlayWithoutAVideo };
-    const markup = render(manual);
-    expect(markup).toContain('from the map listing');
-    expect(markup).not.toContain('from the TikTok video');
+    for (const markup of [render(), render(manual)]) {
+      expect(markup).not.toContain('from the map listing');
+      expect(markup).not.toContain('from the TikTok video');
+    }
   });
 });

@@ -156,12 +156,18 @@ describe('the section label — one value, no shouting (H-1)', () => {
 });
 
 describe('the field row — one shape for every field of your own record (H-2)', () => {
-  it('draws Collections, Category and Your note as the same row', () => {
+  it('draws the collections, category and note rows as the same row', () => {
     const markup = render(SAVED);
-    for (const label of ['Collections', 'Category', 'Your note']) {
+    // RETIRED 2026-09-03 (spec §A2, "the label goes when the row is an offer"): this test used to
+    // also require a `>Collections</span>` label beside the other two. There is no such label in
+    // any state now — `src/ui/place/collections-context.ts` l. 45 returns `Add to a collection`,
+    // `In <name>` or `In N collections`, which is the whole row, label and value in one phrase.
+    // The two labels that survive are still checked in sentence case above.
+    for (const label of ['Category', 'Your note']) {
       expect(markup, label).toContain(`>${label}</span>`);
     }
-    // Three rows, one class string. If a fourth shape is introduced for one of them, this drops.
+    // Three rows, one class string — which is what H-2 is actually about. If a fourth shape is
+    // introduced for one of them, this drops.
     expect(markup.split(DETAIL_FIELD_ROW).length - 1).toBe(3);
   });
 
