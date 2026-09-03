@@ -113,6 +113,7 @@ import {
 import type { LatLngBoundsHint, ViewportChangeMeta } from '@/components/map/types';
 import { ImportConfirmation } from '@/components/map/import-confirmation';
 import { NearMeControl } from '@/components/map/near-me-control';
+import { NearMeOffer } from '@/components/map/near-me-offer';
 import { NearMeDistancesContext } from '@/components/map/near-me-context';
 import { distanceOrigin, nearMeCamera, nearMeNotice, type UserFix } from '@/components/map/near-me';
 import { useNearMe } from '@/components/map/use-near-me';
@@ -1570,12 +1571,20 @@ export function MapPageClient({
               // user looks for it; everything it means — the permission, the fix, the flight — is
               // owned here. See camera mover 8.
               controlSlot={
-                <NearMeControl
-                  status={nearMe.state.status}
-                  notice={nearMeNoticeText}
-                  onRequest={nearMe.request}
-                  onDismissNotice={nearMe.dismissNotice}
-                />
+                <>
+                  {/* The offer (feedback 7.3), directly above the control it is teaching. It calls
+                      the same `nearMe.request` the button does, from its own click handler — a
+                      second control on one path, not a second path. It renders only while near-me
+                      is `idle` and the permission is still askable, so it and the notice below can
+                      never be on screen together. */}
+                  <NearMeOffer status={nearMe.state.status} onAccept={nearMe.request} />
+                  <NearMeControl
+                    status={nearMe.state.status}
+                    notice={nearMeNoticeText}
+                    onRequest={nearMe.request}
+                    onDismissNotice={nearMe.dismissNotice}
+                  />
+                </>
               }
               // The search's result count, which is a fact about the places list. A collections
               // view is not showing it, and a live region that speaks about a list nobody can see
