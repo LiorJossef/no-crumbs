@@ -278,4 +278,15 @@ describe("the inline panel is measured against the sheet, not the viewport", () 
       ),
     );
   });
+
+  // The card publishes the same property from a prop rather than from `stop` directly, because
+  // `PlaceDetail` has three hosts and only the sheet ones know a stop. Both halves are asserted:
+  // the sheet hands its stop's height down, and the card writes it as the property — otherwise
+  // every panel inside the card silently falls back to `100dvh`, which is a lie in that column.
+  it("is published by the card too, from the stop its host hands it", () => {
+    expect(SHEET).toMatch(
+      /sheetContentHeight=\{STOP_TO_CONTENT_HEIGHT\[stop\]\}/,
+    );
+    expect(SHEET).toMatch(new RegExp(`${PUBLISHES}: sheetContentHeight`));
+  });
 });

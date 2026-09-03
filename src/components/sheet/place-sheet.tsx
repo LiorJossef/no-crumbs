@@ -49,6 +49,7 @@ import {
   type SheetStop,
 } from "@/components/shell/sheet-geometry";
 import { savedPlaceRef } from "@/components/map/saved-place-ref";
+import { DetailPanelOpenContext } from "@/ui/place/detail-panel-open";
 import {
   useEffect,
   useLayoutEffect,
@@ -326,6 +327,19 @@ export function PlaceSheet({
              Without it `Been here` rests underneath the nav pill and a real touch at its visual
              centre navigates to `/profile`, which was measured rather than imagined. */
           floatingBarPx={floatingBarClearancePx(stop)}
+          /* The same number the box above is sized with, handed on so anything *inside* the card
+             can cap itself against this column rather than against the viewport — the identical
+             mechanism `PlaceList` already spends below (l. 548–553), and the same reason: `dvh` is
+             a lie in here, so a child reading the `100dvh` fallback claims more than the column
+             has. Only the sheet hosts pass it; the `lg+` popover and `hosted` do not, and there
+             the property is simply not written. */
+          sheetContentHeight={STOP_TO_CONTENT_HEIGHT[stop]}
+          /* Opening a field row's panel at `peek` or `half` would divide a column that is already
+             short between the panel and the card it belongs to. The sheet goes to `full` first,
+             and only from a stop that is not already there — the rule `LibraryFilterBar` states at
+             l. 773–775, spread the same way so a host that passes nothing keeps today's behaviour
+             exactly. `onExpand` takes the stop to go to on this host — `full`, per that rule. */
+          {...(stop === "full" ? {} : { onPanelOpen: () => onExpand("full") })}
           /* The write target comes from `selected.savedPlaceId`, never from `selected.id` — the two
              differ on any surface whose pins are not saved rows, and `savedPlaceRef` is the one
              place that answers it. Every pin on this route carries one (`map/page.tsx`'s
@@ -2190,6 +2204,8 @@ export function PlaceDetail({
   onClose,
   variant = "sheet",
   floatingBarPx = 0,
+  sheetContentHeight,
+  onPanelOpen,
   primaryAction,
   fields,
   footer,
@@ -2286,6 +2302,31 @@ export function PlaceDetail({
    * own change.
    */
   floatingBarPx?: number;
+  /**
+   * The height of the sheet column this card is rendered into — `STOP_TO_CONTENT_HEIGHT[stop]`,
+   * published unchanged as the `--sheet-content-height` custom property on the scroll column below
+   * so anything inside the card can cap itself against **this column** instead of the viewport.
+   *
+   * Same shape and same reason as `floatingBarPx`: only the host knows. `PlaceList` already spends
+   * the identical number this way for `library-filter-bar.tsx`'s inline panel, and the note there
+   * is the whole argument — at `half` the column is `55dvh - 70px`, so a child that falls back to
+   * `100dvh` claims far more room than exists.
+   *
+   * Omitted by every host that is not a sheet — the `lg+` map popover, whose height comes from the
+   * pin anchor rather than a stop, and `hosted` on `/collections/[id]`. Where it is omitted the
+   * property is not written at all, so those hosts are byte-for-byte what they were.
+   */
+  sheetContentHeight?: string;
+  /**
+   * **The host is told a field row's panel is about to take room in the card.** Optional, spread
+   * by the caller exactly like `LibraryFilterBar`'s prop of the same name, and called *before* the
+   * panel opens so the sheet can reach `full` first.
+   *
+   * The card only ever calls it when the host chose to pass it, and `place-sheet.tsx`'s `selected`
+   * branch passes it only from a stop that is not already `full`. A host that passes nothing is
+   * unaffected: the context below carries `undefined` and the rows open in place as they do today.
+   */
+  onPanelOpen?: () => void;
   /**
    * Rendered where `BeenToggle` sits — the "what does this do to *your* library" position.
    *
@@ -2477,6 +2518,12 @@ export function PlaceDetail({
       style={
         {
           "--floating-bar": `${floatingBarPx}px`,
+          // Conditionally spread, not defaulted: a host that does not know its stop must leave the
+          // property alone rather than assert a height, so the fallback each reader already
+          // carries stays in charge. See the `sheetContentHeight` docblock.
+          ...(sheetContentHeight === undefined
+            ? {}
+            : { "--sheet-content-height": sheetContentHeight }),
         } as CSSProperties
       }
       className={cn(
@@ -2963,49 +3010,54 @@ export function PlaceDetail({
                 no separator: a run of 48 px rows reads as a structured list, where 20 px between
                 each is what made them read as floating fragments. Nothing else in this column is
                 spaced at 0. */}
-            <div className="flex flex-col">
-              {/* Directly under `BeenToggle` and above `CategoryEditor`: been/not-been and "which list is
-                  this in" are both statements about the user's *intent* with the place, while category
-                  and note are corrections to what we got wrong. Grouping the two intent controls keeps
-                  the correction block intact underneath. Renders nothing outside a `CollectionsContext`
-                  provider, so the desktop popover and any test host are unaffected. */}
-              {savedRow && (
-                <AddToCollection
-                  key={`collections-${savedRow.id}`}
-                  placeId={detail?.placeId}
-                />
-              )}
+            {/* The panel channel wraps exactly the rows that can open one — nothing above this
+                list has a disclosure. `undefined` for every host that passed no `onPanelOpen`,
+                which is the current behaviour spelled out rather than a new default. */}
+            <DetailPanelOpenContext value={onPanelOpen}>
+              <div className="flex flex-col">
+                {/* Directly under `BeenToggle` and above `CategoryEditor`: been/not-been and "which list is
+                    this in" are both statements about the user's *intent* with the place, while category
+                    and note are corrections to what we got wrong. Grouping the two intent controls keeps
+                    the correction block intact underneath. Renders nothing outside a `CollectionsContext`
+                    provider, so the desktop popover and any test host are unaffected. */}
+                {savedRow && (
+                  <AddToCollection
+                    key={`collections-${savedRow.id}`}
+                    placeId={detail?.placeId}
+                  />
+                )}
 
-              {/* The user's own word for what this place is. Below the prose blocks rather than beside
-                  the category line above, because that line is the most-read thing on the card and this
-                  is a control most people touch once — `saved-place-edits.tsx` has the argument. */}
-              {savedRow && (
-                <CategoryEditor
-                  key={`category-${savedRow.id}`}
-                  savedPlaceId={savedRow.id}
-                  category={place.category}
-                  isOverridden={detail?.categoryIsOverridden ?? false}
-                />
-              )}
+                {/* The user's own word for what this place is. Below the prose blocks rather than beside
+                    the category line above, because that line is the most-read thing on the card and this
+                    is a control most people touch once — `saved-place-edits.tsx` has the argument. */}
+                {savedRow && (
+                  <CategoryEditor
+                    key={`category-${savedRow.id}`}
+                    savedPlaceId={savedRow.id}
+                    category={place.category}
+                    isOverridden={detail?.categoryIsOverridden ?? false}
+                  />
+                )}
 
-              {/* `L1-F7-T2`. The note used to render read-only, and a place you saved was a place you
-                  were stuck with. `key` on the saved place's id is what resets a half-typed draft when
-                  the selection changes — the editor deliberately does not sync from props in an effect,
-                  which would discard typing every time the server revalidated. */}
-              {savedRow && (
-                <NoteEditor
-                  key={savedRow.id}
-                  savedPlaceId={savedRow.id}
-                  note={note}
-                />
-              )}
+                {/* `L1-F7-T2`. The note used to render read-only, and a place you saved was a place you
+                    were stuck with. `key` on the saved place's id is what resets a half-typed draft when
+                    the selection changes — the editor deliberately does not sync from props in an effect,
+                    which would discard typing every time the server revalidated. */}
+                {savedRow && (
+                  <NoteEditor
+                    key={savedRow.id}
+                    savedPlaceId={savedRow.id}
+                    note={note}
+                  />
+                )}
 
-              {/* The host's own fields, in the same flush list rather than below the removal:
-                  `/collections/[id]` puts `Shared note` here, which is the same field as the note
-                  above it with a different audience, and it has to sit with the rest of the list
-                  for that to read. */}
-              {fields}
-            </div>
+                {/* The host's own fields, in the same flush list rather than below the removal:
+                    `/collections/[id]` puts `Shared note` here, which is the same field as the note
+                    above it with a different audience, and it has to sit with the rest of the list
+                    for that to read. */}
+                {fields}
+              </div>
+            </DetailPanelOpenContext>
 
             {/* What else of yours is around here — the library's own retrieval question, asked at the
                 scale of one place. Below the external links and above the provenance line: it is a
