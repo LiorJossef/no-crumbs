@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { signInAsDemoUser } from './_lib/sign-in';
+
 /**
  * FIX-ERR-QA — adversarial guard on the `/import` paste gate.
  *
@@ -38,7 +40,10 @@ const HOSTILE: readonly { readonly name: string; readonly url: string; readonly 
   { name: 'IPv6 literal', url: 'https://[::1]/@a/video/7259010845558983978', expect: 'screen' },
   { name: 'instagram link', url: 'https://www.instagram.com/reel/Cabcdefghij/', expect: 'screen' },
   { name: 'tiktok profile', url: 'https://www.tiktok.com/@joelleuzyel', expect: 'screen' },
-  { name: 'tiktok photo post', url: 'https://www.tiktok.com/@joelleuzyel/photo/7259010845558983978', expect: 'screen' },
+  // `tiktok photo post` used to sit here, and it is not hostile any more — `PHOTO_POST` was
+  // deleted from the taxonomy on 2026-08-28 and `/photo/<id>` is rewritten to `/video/<id>`. It
+  // moved to its own test below rather than being deleted: one fewer entry in this list is, on its
+  // own, indistinguishable from having quietly dropped a case that regressed.
   { name: 'tiktok tag page', url: 'https://www.tiktok.com/tag/telaviv', expect: 'screen' },
   { name: 'overlong video id', url: `https://www.tiktok.com/@a/video/${'9'.repeat(20000)}`, expect: 'inline' },
 ];
@@ -50,21 +55,7 @@ const HOSTILE: readonly { readonly name: string; readonly url: string; readonly 
  * that makes a single-shot sign-in flaky.
  */
 async function signIn(page: Page): Promise<void> {
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    await page.goto('/sign-in');
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
-    await page.getByPlaceholder('you@example.com').fill(EMAIL);
-    await page.getByPlaceholder('At least 6 characters').fill(PASSWORD as string);
-    await page.getByRole('button', { name: /sign in/i }).click();
-    try {
-      await page.waitForURL('**/map', { timeout: 20_000 });
-      return;
-    } catch {
-      // fall through and try again
-    }
-  }
-  throw new Error('could not sign in after four attempts');
+  await signInAsDemoUser(page, EMAIL, PASSWORD as string);
 }
 
 test.describe('the paste gate refuses hostile input without touching the server', () => {
@@ -123,5 +114,46 @@ test.describe('the paste gate refuses hostile input without touching the server'
         expect(o.stillOnPaste, `${c.name}: must land on a failure screen`).toBe(false);
       }
     }
+  });
+
+  /**
+   * The counterpart to `HOSTILE`, and the reason `tiktok photo post` is no longer in it.
+   *
+   * A photo link is not hostile input slipping past the gate — it is *supported* input the gate is
+   * supposed to pass, since `canonicaliseTikTokUrl` rewrites `/photo/<id>` to `/video/<id>` (oEmbed
+   * 400s the first form and 200s the second for the same post; measured on a real carousel,
+   * 2026-08-28). The old placement made CI run 33661142026 fail the `probed` count with exactly one
+   * URL in it, which was this one, behaving correctly.
+   *
+   * The id is the known-missing one on purpose: this asserts that the URL was accepted and fetched,
+   * and a resolvable post would run the extractor to prove it.
+   */
+  test('a photo post is supported input, and reaches the server exactly once', async ({ page }) => {
+    const probed: string[] = [];
+    page.on('request', (r) => {
+      if (r.url().includes('/api/imports/probe')) probed.push(r.url());
+    });
+
+    await signIn(page);
+    await page.goto('/import');
+    const field = page.getByPlaceholder('Paste a TikTok link');
+    await expect(field).toBeVisible();
+    await page.waitForLoadState('networkidle');
+    await field.fill('https://www.tiktok.com/@joelleuzyel/photo/7259010845558983971');
+    await field.blur();
+
+    // C06 is the client-side "that is not a TikTok link" sentence. A photo link must not draw it.
+    await expect(
+      page.getByText('look like a TikTok link', { exact: false }),
+      'a photo link is not malformed',
+    ).toBeHidden();
+
+    await page.getByRole('button', { name: 'Add →' }).click();
+    // A *source* answer — the post does not exist — which is only reachable if the `/photo/` URL
+    // was accepted, canonicalised and actually fetched.
+    await expect(
+      page.getByRole('heading', { name: /couldn’t read this TikTok video yet/i }),
+    ).toBeVisible({ timeout: 60_000 });
+    expect(probed.length, 'one paste, one request').toBe(1);
   });
 });
