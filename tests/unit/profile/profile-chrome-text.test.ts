@@ -26,10 +26,14 @@ function body(source: string): string {
 }
 
 describe('the account menu', () => {
-  it('gives `Account settings` no subtitle', () => {
+  it('gives `Account settings` no subtitle and no leading glyph', () => {
     // `Your name` described the contents of the *next* screen. The row names its own destination.
     expect(MENU).not.toContain("'Your name'");
-    expect(MENU).toContain('<MenuLink href="/account" label={COPY.settings} icon />');
+    expect(MENU).toContain('<MenuLink href="/account" label={COPY.settings} />');
+    // Round 4, §4.5: `Account settings` carried a leading `Settings` glyph and `Your library` did
+    // not, so two labels in a two-row list started at two inline offsets. The trailing chevron is
+    // the glyph that means *this goes somewhere*, and it is on both.
+    expect(MENU).not.toMatch(/\bSettings\b.*from 'lucide-react'/);
   });
 
   it('keeps delete-my-data off a quick menu', () => {
@@ -40,10 +44,17 @@ describe('the account menu', () => {
     expect(body(MENU)).toContain('<form action={signOut}>');
   });
 
-  it('makes a menu row’s hint optional rather than passing an empty one', () => {
-    // An empty string would still render the `<span>` and its line box. The prop is absent.
+  it('reserves the hint line rather than filling it with a placeholder sentence', () => {
+    // Round 4, §4.1. `COPY.libraryHint` — `Where you save, and what` — described the next screen
+    // for ~300 ms and was then replaced by the counts, so the row said two different things on one
+    // open. An **empty string** now holds the line: `min-h-4 block` gives it its height, so nothing
+    // moves when the data lands. Omitting the prop is still how a one-line row is drawn
+    // (`Account settings`), which is why the two states are not the same value.
+    expect(MENU).not.toContain('libraryHint');
+    expect(MENU).toContain("hint={data === null ? '' : libraryLine(data)}");
     expect(MENU).toContain('hint?: string;');
     expect(MENU).toContain('{hint === undefined ? null : (');
+    expect(MENU).toContain('block min-h-4');
   });
 
   it('draws no `Joined …` line', () => {
@@ -51,12 +62,29 @@ describe('the account menu', () => {
     expect(body(MENU)).not.toContain('{data.joined}');
   });
 
-  it('keeps `Appearance` in the accessibility tree while dropping the drawn kicker', () => {
-    // `ThemeChoice` is a `radiogroup` pointing its `aria-labelledby` here — the name may not go
-    // with the label. Screen-reader-only, not deleted.
-    expect(MENU).toContain('<SectionHeading id="menu-appearance" visuallyHidden>');
-    expect(MENU).toContain('<ThemeChoice labelledBy="menu-appearance" />');
-    expect(MENU).toContain("? 'sr-only'");
+  it('draws the `Appearance` kicker and hides the caption instead', () => {
+    // Reversed on 2026-09-03, round 4 §4.3. The kicker was `sr-only`, so a sighted user met a
+    // bordered three-segment track between two link rows with nothing naming it, under a caption
+    // (`Follows your device.`) that was a sentence with no subject. One 11 px muted line costs far
+    // less than three unlabelled controls. The caption stays in the accessibility tree —
+    // `aria-describedby` points at it — via the one prop this pass added anywhere.
+    expect(MENU).toContain('<h2 id="menu-appearance"');
+    expect(MENU).toContain('<ThemeChoice labelledBy="menu-appearance" captionVisible={false} />');
+    expect(MENU).not.toContain('visuallyHidden');
+  });
+
+  it('labels every section with the product\u2019s one section label', () => {
+    // Four spellings of one kicker lived on these three surfaces — two byte-identical private
+    // `SectionHeading` components, a third with an `sr-only` branch, and an inline uppercase class
+    // in the delete flow. None of them was `SECTION_LABEL`, which is what the place card and the
+    // share panel converged on. `text-[11px]` was also an arbitrary bracket where `text-micro` is
+    // the registered token.
+    for (const source of [MENU, PAGE, SETTINGS, ACTIONS]) {
+      expect(source).not.toContain('function SectionHeading');
+      expect(source).not.toContain('text-[11px]');
+      expect(source).not.toContain('uppercase');
+      expect(source).toContain('SECTION_LABEL');
+    }
   });
 });
 
@@ -69,7 +97,10 @@ describe('the account settings page', () => {
   });
 
   it('keeps `Appearance` drawn on the page, where it separates two real sections', () => {
-    expect(SETTINGS).toContain('<SectionHeading id="appearance">Appearance</SectionHeading>');
+    expect(SETTINGS).toContain('<h2 id="appearance" className={SECTION_LABEL}>');
+    // The page keeps its caption: it has the room, and `captionVisible` defaults to `true` so the
+    // call site says nothing. Only the menu passes `false`.
+    expect(SETTINGS).toContain('<ThemeChoice labelledBy="appearance" />');
   });
 });
 
@@ -114,6 +145,52 @@ describe('the delete-my-data entry', () => {
     expect(ACTIONS).toContain("entry: 'Delete my data',");
     expect(ACTIONS).toContain("blocking.length > 0 ? 'blocked' : 'confirm'");
     expect(ACTIONS).toContain('<InlineConfirm');
+  });
+});
+
+describe('the account surfaces\u2019 materials', () => {
+  it('draws no hairline under a breakdown row', () => {
+    // Nine countries and four categories is eleven rules on one phone screen, under two lists
+    // whose rows already read as rows. The place card's field run and the account menu's rows draw
+    // none. If a long list ever stops parsing, the fallback is one `divide-y` on the `<ul>`.
+    expect(PAGE).not.toContain('border-b border-border/60');
+  });
+
+  it('gives the blocked-deletion panel the page\u2019s own box', () => {
+    // `rounded-lg border bg-muted/40 p-3` was the only tinted box anywhere in settings, which made
+    // a refusal read as an alert. It is a section of the page that happens to say no, so it takes
+    // the string the two name cards use. Its list is flush for the same reason `/profile`'s is.
+    expect(ACTIONS).toContain('rounded-xl border border-border bg-card p-4');
+    expect(ACTIONS).not.toContain('className="mt-2 rounded-lg border border-border bg-muted/40 p-3"');
+    expect(ACTIONS).not.toContain('border-b border-border/60');
+  });
+
+  it('shortens the peer-label form to one statement per line', () => {
+    const PEER = readFileSync('src/app/account/peer-label-form.tsx', 'utf8');
+    // The heading and the blurb already name the audience twice above the field.
+    expect(PEER).toContain("field: 'Name',");
+    // `Right now` states nothing that `People see` does not.
+    expect(PEER).toContain("current: 'People see \u201cA collaborator\u201d.',");
+    // One clause at a time, twice, rather than a 60-character compound.
+    expect(PEER).toContain("suggestion: 'From your first name. Save to keep it.',");
+  });
+
+  it('draws no generic avatar disc on either surface', () => {
+    // A `UserRound` in a grey circle carried no information and was the largest element in the
+    // menu's top row. This product's mark is the crumb mascot, and there is no upload path behind
+    // the circle to make it anybody's.
+    for (const source of [PAGE, MENU]) {
+      expect(source).not.toContain('<UserRound');
+      expect(source).not.toMatch(/\bUserRound\b.*from 'lucide-react'/);
+    }
+  });
+
+  it('reserves the identity block\u2019s settled height', () => {
+    // The data is fetched on the first open and the popup is anchored `side="top"`, so it grows
+    // upward — a block that gets taller when the fetch lands drags the card up under the thumb.
+    // Measured 2026-09-03 with the avatar removed: 20 px of height and 28 px of top edge without
+    // this, 0 px with it.
+    expect(MENU).toContain('flex min-h-11 min-w-0 flex-1 flex-col justify-center');
   });
 });
 
@@ -340,7 +417,15 @@ describe('the density of `Account settings`', () => {
     // directly on a `text-xs` muted disclosure row — two controls doing the same kind of job in two
     // visual vocabularies, the louder one at the bottom of a settings page. These are exits rather
     // than the page's work; the only bordered boxes on it are the two name cards.
-    expect(SETTINGS).toContain('<Button type="submit" variant="ghost" className="-ms-2.5">');
+    // **One sign-out, character for character.** It was `h-8 -ms-2.5` here and
+    // `h-11 w-full justify-start px-2` in the account menu — different size, different padding, one
+    // full width — for the single most consequential press on either surface. `h-11` is the 44 px
+    // floor; not `w-full`, because the popup grows upward from the bar and a full-width bar at its
+    // bottom edge is the easiest target in a menu people open to reach `Account settings`.
+    const SIGN_OUT = '<Button type="submit" variant="ghost" className="h-11 justify-start px-2 -ms-2 text-sm">';
+    expect(SETTINGS).toContain(SIGN_OUT);
+    expect(MENU).toContain(SIGN_OUT);
+    expect(MENU).not.toContain('w-full justify-start');
     expect(SETTINGS).not.toContain('variant="outline"');
     expect(SETTINGS).not.toContain('h-12 w-full text-base');
     // Still a plain form posting to the server action: the one control here that has to work with

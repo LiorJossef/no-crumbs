@@ -64,12 +64,14 @@
 import { useLayoutEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { Popover } from '@base-ui/react/popover';
-import { ChevronRight, LogOut, Settings, UserRound } from 'lucide-react';
+import { ChevronRight, LogOut } from 'lucide-react';
 
 import { signOut } from '@/app/actions/sign-out';
 import { loadProfileMenu, type ProfileMenuData } from '@/app/actions/profile';
 import { ThemeChoice } from '@/app/profile/theme-choice';
 import { Button } from '@/components/ui/button';
+import { MENU_ROW, MENU_ROW_PAINT } from '@/components/ui/inline-menu';
+import { SECTION_LABEL } from '@/ui/place/section-label';
 import { cn } from '@/lib/utils';
 import { ENTER_POPOVER, ENTER_SCRIM, PRESS_ROW } from '@/lib/interaction';
 
@@ -86,14 +88,16 @@ const COPY = {
   /** The accessible name of the trigger when there is no name to use. See `triggerLabel`. */
   triggerFallback: 'Your account',
   library: 'Your library',
-  libraryHint: 'Where you save, and what',
   settings: 'Account settings',
   appearance: 'Appearance',
   signOut: 'Sign out',
   /** The last stop in the focus trap, and the only way out for a touch screen reader. Never
    *  visible: sighted users close this menu by pressing outside it or by pressing Escape. */
   close: 'Close this menu',
-  loading: 'Loading your account…',
+  /** Not `Loading your account…`: the surface people opened is their account, so the noun was the
+   *  one word in the sentence carrying nothing. Short enough that the line it holds is the same
+   *  length as the address that replaces it. */
+  loading: 'Loading…',
   failed: 'Couldn’t load your account.',
 } as const;
 
@@ -305,19 +309,31 @@ export function ProfileMenu({
                * flow expands into its blocked branch.
                */
               'flex w-[calc(100vw-1.5rem)] max-h-[min(32rem,var(--available-height))] flex-col overflow-y-auto overscroll-contain lg:w-80',
-              'rounded-2xl border border-border/70 bg-card p-3 shadow-[var(--shadow-elevated)] outline-none',
+              /*
+       * `p-2`, not `p-3` — round-4 feedback §8.2, *"its mobile presentation is somewhat awkward"*.
+       * At `calc(100vw - 1.5rem)` the card is 94 % of a 390 px viewport, and a near-full-width card
+       * floating over a scrim with 12 px of inset reads as a bottom sheet that failed to land. The
+       * width and the offset are both measured and both stay; what comes down is the internal
+       * spend, so the surface is compact again at the width it now has. The radius, the scrim and
+       * the elevation stay: they are what makes it read as a surface at all.
+       */
+      'rounded-2xl border border-border/70 bg-card p-2 shadow-[var(--shadow-elevated)] outline-none',
               ENTER_POPOVER,
             )}
           >
             <Identity data={data} failed={failed} />
 
             <div className="mt-3 flex flex-col gap-1">
+              {/* The hint is an **empty string** while the data is in flight, never a placeholder
+                  sentence: `Where you save, and what` described the next screen and then vanished,
+                  so the row said one thing on paint and another 300 ms later. An empty line that
+                  holds its own height says nothing and moves nothing. */}
               <MenuLink
                 href="/profile"
                 label={COPY.library}
-                hint={data === null ? COPY.libraryHint : libraryLine(data)}
+                hint={data === null ? '' : libraryLine(data)}
               />
-              <MenuLink href="/account" label={COPY.settings} icon />
+              <MenuLink href="/account" label={COPY.settings} />
             </div>
 
             {/* The one setting the product keeps, in the same position it holds on `/profile` — the
@@ -325,14 +341,21 @@ export function ProfileMenu({
                 becoming two different accounts of one surface. `data-theme-choice` is not
                 decoration: `ThemeChoice` renders a `<noscript><style>` that hides every element
                 carrying it, because a `localStorage` control cannot work with scripting off. */}
-            {/* `mt-1` and not the sections' `mt-3`: `ThemeChoice`'s control brings its own
-                `mt-2`, and its heading is `sr-only` here so it does not absorb it. 4 + 8 is the
-                same 12 every other section gets. Moves if that component's margin does. */}
+            {/* **The kicker is drawn here now**, and the caption underneath it is not. A sighted
+                user used to meet a bordered three-segment track between two link rows with nothing
+                naming it, over a caption (`Follows your device.`) that was a sentence with no
+                subject. One 11 px muted line is a far smaller cost than three unlabelled controls;
+                the caption stays in the accessibility tree, where `aria-describedby` needs it.
+
+                `mt-1` and not the sections' `mt-3`: `ThemeChoice`'s control brings its own `mt-2`
+                under this heading. Moves if that component's margin does. */}
             <section aria-labelledby="menu-appearance" className="mt-1" data-theme-choice>
-              <SectionHeading id="menu-appearance" visuallyHidden>
+              {/* `px-2`, the paint's own inset, so the kicker starts on the same line as the two
+                  row labels above it rather than four pixels to their left. */}
+              <h2 id="menu-appearance" className={cn('px-2', SECTION_LABEL)}>
                 {COPY.appearance}
-              </SectionHeading>
-              <ThemeChoice labelledBy="menu-appearance" />
+              </h2>
+              <ThemeChoice labelledBy="menu-appearance" captionVisible={false} />
             </section>
 
             <div className="mt-3 border-t border-border/60 pt-3">
@@ -340,7 +363,12 @@ export function ProfileMenu({
                   none. Not `destructive` — it destroys nothing, and this product reserves that role
                   for the controls that do. */}
               <form action={signOut}>
-                <Button type="submit" variant="ghost" size="lg" className="h-11 w-full justify-start px-2 text-sm">
+                {/* Not `w-full`. The popup grows upward from the bar, so its bottom edge is the
+                    closest thing to the thumb — and a full-width bar there made the easiest target
+                    in a menu people open to reach `Account settings` the one press that ends the
+                    session. It keeps its position, its hairline and its 44 px of height; what it
+                    gives up is 250 px of width it was never using. */}
+                <Button type="submit" variant="ghost" className="h-11 justify-start px-2 -ms-2 text-sm">
                   <LogOut className="size-4" aria-hidden />
                   {COPY.signOut}
                 </Button>
@@ -392,14 +420,15 @@ export function libraryLine(data: ProfileMenuData): string {
  */
 function Identity({ data, failed }: { data: ProfileMenuData | null; failed: boolean }) {
   return (
-    <div className="flex items-center gap-3 px-2 py-1">
-      <span
-        aria-hidden
-        className="flex size-11 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"
-      >
-        <UserRound className="size-5" />
-      </span>
-      <div className="min-w-0 flex-1">
+    <div className="flex items-center gap-3 px-2 py-1.5">
+      {/*
+        * **The column reserves the height it will settle at.** The data is fetched on the first
+        * open, never on paint, and the popup is anchored `side="top"` — it grows *upward*, so a
+        * block that gets taller when the fetch lands drags the whole card up under the thumb that
+        * is already reaching for a row. One loading line and two settled lines now occupy the same
+        * 2.75 rem box, centred, so nothing moves.
+        */}
+      <div className="flex min-h-11 min-w-0 flex-1 flex-col justify-center">
         {data === null ? (
           <p role="status" className="truncate text-sm text-muted-foreground">
             {failed ? COPY.failed : COPY.loading}
@@ -439,70 +468,43 @@ function Identity({ data, failed }: { data: ProfileMenuData | null; failed: bool
  * A real `<a href>`, so both rows work with hydration killed and both are middle-clickable — the
  * same requirement `DrawerViewSwitch` states for the drawer's own two links, and this product has
  * shipped a blank screen by forgetting it twice.
+ *
+ * **`MENU_ROW` / `MENU_ROW_PAINT`, the product's one menu material.** These rows had their own
+ * borderless shape and `/profile`'s `Account settings` had a bordered card, so one destination was
+ * three different objects. The paint is overridden to `h-auto min-h-11 py-1.5` because this row is
+ * two lines where a menu row is one — the same override `share-panel.tsx` already makes for its own
+ * rows.
  */
 function MenuLink({
   href,
   label,
   hint,
-  icon = false,
 }: {
   href: '/profile' | '/account';
   label: string;
   /** Omitted where the label is the whole answer — `Account settings` names its own destination
-   *  and the subtitle under it only described the next screen's contents. */
+   *  and the subtitle under it only described the next screen's contents. An **empty string** is
+   *  not the same as omitting it: the line is drawn and holds its height, which is what stops the
+   *  row growing when the counts arrive. */
   hint?: string;
-  icon?: boolean;
 }) {
   return (
-    <Link
-      href={href}
-      className={cn(
-        'flex min-h-11 items-center gap-3 rounded-lg px-2 py-1.5 text-left',
-        'hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
-        PRESS_ROW,
-      )}
-    >
-      {icon ? <Settings className="size-4 shrink-0 text-muted-foreground" aria-hidden /> : null}
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-sm font-bold text-foreground">{label}</span>
-        {hint === undefined ? null : (
-          <span className="truncate text-xs text-muted-foreground tabular-nums">{hint}</span>
-        )}
+    <Link href={href} className={cn(MENU_ROW, PRESS_ROW)}>
+      {/* No leading glyph on either row. `Account settings` carried one and `Your library` did
+          not, so the two labels in a two-row list started at different inline offsets. The
+          trailing chevron is the glyph that means *this goes somewhere*, and it is on both. */}
+      <span className={cn(MENU_ROW_PAINT, 'h-auto min-h-11 py-1.5 text-sm')}>
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate font-bold text-foreground">{label}</span>
+          {hint === undefined ? null : (
+            <span className="block min-h-4 truncate text-xs text-muted-foreground tabular-nums">
+              {hint}
+            </span>
+          )}
+        </span>
+        <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
       </span>
-      <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
     </Link>
-  );
-}
-
-/**
- * The same heading `/profile` uses, so the two surfaces label one section one way.
- *
- * `visuallyHidden` is how the menu drops the kicker without dropping the name. Three theme
- * segments sitting under `Sign out` in a ten-row card do not need a section label drawn on the
- * screen — but `ThemeChoice` is a `radiogroup` and points its `aria-labelledby` here, so the
- * element has to stay in the accessibility tree. The page keeps it visible, where it separates two
- * real sections.
- */
-function SectionHeading({
-  id,
-  children,
-  visuallyHidden = false,
-}: {
-  id: string;
-  children: string;
-  visuallyHidden?: boolean;
-}) {
-  return (
-    <h2
-      id={id}
-      className={
-        visuallyHidden
-          ? 'sr-only'
-          : 'px-1 text-micro font-bold uppercase tracking-wide text-muted-foreground'
-      }
-    >
-      {children}
-    </h2>
   );
 }
 

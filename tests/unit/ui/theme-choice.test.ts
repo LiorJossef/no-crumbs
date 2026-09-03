@@ -129,7 +129,7 @@ describe('the control the owner ruled for', () => {
    */
   it('is mounted in account settings, under the page heading', () => {
     expect(SETTINGS).toContain('<ThemeChoice labelledBy="appearance" />');
-    expect(SETTINGS).toContain('<SectionHeading id="appearance">Appearance</SectionHeading>');
+    expect(SETTINGS).toContain('<h2 id="appearance" className={SECTION_LABEL}>');
     expect(CODE).toContain('aria-labelledby={labelledBy}');
   });
 });

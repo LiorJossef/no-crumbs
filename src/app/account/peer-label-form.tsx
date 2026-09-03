@@ -67,11 +67,18 @@ const COPY = {
    *  itself. `voice-and-vocabulary.md` §3 rules the noun: `collection`, and never *member* or
    *  *collaborator* for the people in one. */
   blurb: 'Shown to people you share a collection with.',
-  field: 'Name in shared collections',
+  /** `Name`, not `Name in shared collections`: the heading above it says `What people call you`
+   *  and the blurb under that says `Shown to people you share a collection with.`, so the label was
+   *  the third statement of one fact, on the field itself. The `<Label>` element stays — a bare box
+   *  is the failure mode this layout invites. */
+  field: 'Name',
   /** What peers see with nothing stored. `memberLabel` returns exactly this string, so the page
    *  states the product's real behaviour rather than a paraphrase of it. */
-  current: 'Right now people see “A collaborator”.',
-  suggestion: 'Suggested from your first name. It is only saved if you save it.',
+  current: 'People see “A collaborator”.',
+  /** One clause at a time, twice, rather than a 60-character compound — `voice-and-vocabulary.md`
+   *  §5. The consent argument in this file's header is unchanged: the field is seeded, and only the
+   *  press writes it. */
+  suggestion: 'From your first name. Save to keep it.',
   save: 'Save',
   saving: 'Saving…',
   saved: 'Saved.',

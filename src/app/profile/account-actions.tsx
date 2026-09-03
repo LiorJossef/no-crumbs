@@ -9,6 +9,7 @@ import type { BlockingCollection } from '@/app/profile/_lib/blocking-collections
 import { INDEX_VIEW, collectionHref, drawerHref } from '@/app/map/_lib/drawer-view';
 import { InlineConfirm } from '@/components/collections/collection-content';
 import { Button } from '@/components/ui/button';
+import { SECTION_LABEL } from '@/ui/place/section-label';
 import { ENTER_REVEAL, LEAVE_REVEAL, REVEAL_BEAT } from '@/lib/interaction';
 import { cn } from '@/lib/utils';
 
@@ -160,19 +161,23 @@ export function AccountActions({ blocking }: { blocking: readonly BlockingCollec
       {open ? (
         <div id={panelId} className={ENTER_REVEAL}>
           {view === 'blocked' ? (
-            <div className="mt-2 rounded-lg border border-border bg-muted/40 p-3">
+            /* The page's own box — `rounded-xl border border-border bg-card p-4`, the string the
+               two name cards above use. It was `rounded-lg … bg-muted/40 p-3`, the only tinted box
+               anywhere in settings, which made a refusal read as an alert; it is a section of the
+               page that happens to say no. */
+            <div className="mt-2 rounded-xl border border-border bg-card p-4">
               <p className="text-sm font-medium">
                 {blocked.length === 1 ? COPY.blockedOne : COPY.blockedMany(blocked.length)}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">{COPY.blockedWhy}</p>
               <p className="mt-1 text-sm text-muted-foreground">{COPY.blockedHow}</p>
 
-              <h3 className="mt-3 text-micro font-bold tracking-wide text-muted-foreground uppercase">
+              <h3 className={cn('mt-3', SECTION_LABEL)}>
                 {COPY.blockedList}
               </h3>
               <ul className="mt-1">
                 {blocked.map((collection) => (
-                  <li key={collection.id} className="border-b border-border/60 last:border-b-0">
+                  <li key={collection.id}>
                     <Link
                       // `collectionHref`, not the `/collections/<id>` path: that form is a redirect
                       // shim now, and going through it costs a segment change on each leg — the

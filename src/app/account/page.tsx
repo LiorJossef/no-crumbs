@@ -11,6 +11,7 @@ import { BottomNav } from '@/components/nav/bottom-nav';
 // the number 68. `/profile` records the same trap; it silently produced `padding-bottom: 0`.
 import { BOTTOM_NAV_HEIGHT_PX } from '@/components/nav/bottom-nav-metrics';
 import { HEADER_BACK_CONTROL, PageHeader } from '@/components/nav/page-header';
+import { SECTION_LABEL } from '@/ui/place/section-label';
 import { getSpots } from '@/app/map/_lib/get-spots';
 import { toMapPlace } from '@/app/map/_lib/to-map-place';
 // Three modules that still live under `app/profile/`: `ThemeChoice` is imported by the account menu
@@ -130,7 +131,9 @@ export default async function AccountPage() {
           className="mt-6 border-t border-border/60 pt-6"
           data-theme-choice
         >
-          <SectionHeading id="appearance">Appearance</SectionHeading>
+          <h2 id="appearance" className={SECTION_LABEL}>
+            Appearance
+          </h2>
           <ThemeChoice labelledBy="appearance" />
         </section>
 
@@ -145,9 +148,14 @@ export default async function AccountPage() {
             page. `Sign out` came down to `ghost` rather than the delete row coming up: these are
             exits, not the page's work — quiet text controls, one step apart in weight, in the order
             they cost. The only bordered boxes on the page are the two name cards above, which is
-            the distinction being drawn. `-ms-2.5` cancels the button's own `px-2.5` so
-            its label starts on the same line as everything else in the column, including the delete
-            row under it, which has no padding of its own.
+            the distinction being drawn.
+
+            **The class string is character-for-character the account menu's.** The two sign-outs
+            were an `h-8` `-ms-2.5` button here and an `h-11 w-full` one there — different size,
+            different padding, one full width — for the single most consequential press on either
+            surface. `h-11` is the 44 px floor every target in this product is built to; `-ms-2`
+            cancels the `px-2` so the label starts on the same line as everything else in the
+            column, including the delete row under it, which has no padding of its own.
 
             Still a plain `<form>` posting to the server action: this is the one control on the page
             that has to work with JavaScript off. */}
@@ -159,7 +167,7 @@ export default async function AccountPage() {
             under the fields, one separating the two exits. */}
         <section aria-label="Your account" className="mt-6">
           <form action={signOut}>
-            <Button type="submit" variant="ghost" className="-ms-2.5">
+            <Button type="submit" variant="ghost" className="h-11 justify-start px-2 -ms-2 text-sm">
               <LogOut className="size-4" aria-hidden />
               Sign out
             </Button>
@@ -168,13 +176,5 @@ export default async function AccountPage() {
         </section>
       </div>
     </main>
-  );
-}
-
-function SectionHeading({ id, children }: { id: string; children: string }) {
-  return (
-    <h2 id={id} className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-      {children}
-    </h2>
   );
 }

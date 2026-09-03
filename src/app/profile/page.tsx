@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, ChevronRight, Settings, UserRound } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Settings } from 'lucide-react';
 
 import { createClient } from '@/app/_lib/supabase/server';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import { flagEmoji, normaliseCountryCode } from '@/components/map/country-flag-i
 import { categoryColorVar, categoryDisplay } from '@/ui/place/category-display';
 import { getSpots } from '@/app/map/_lib/get-spots';
 import { toMapPlace } from '@/app/map/_lib/to-map-place';
+import { SECTION_LABEL } from '@/ui/place/section-label';
 import { PRESS_ROW } from '@/lib/interaction';
 import { cn } from '@/lib/utils';
 import { getProfilePlaces } from './_lib/get-profile-places';
@@ -137,13 +138,11 @@ export default async function ProfilePage() {
           paddingBottom: `calc(${BOTTOM_NAV_HEIGHT_PX}px + env(safe-area-inset-bottom) + 1.5rem)`,
         }}
       >
+        {/* **No avatar disc.** A generic `UserRound` in a grey circle carried no information, and it
+            was the largest element in this block and in the account menu's top row. This product's
+            mark is the crumb mascot; a stock person glyph is not it, and there is no upload path
+            behind the circle to make it anybody's. */}
         <section className="flex items-center gap-3 py-2">
-          <span
-            aria-hidden
-            className="flex size-12 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"
-          >
-            <UserRound className="size-5" />
-          </span>
           <div className="min-w-0">
             {/* `dir="auto"` on the text and never on the block, which is the pattern the rest of
                 the app already follows (`place-enrichment.tsx`, `add-to-collection.tsx`): the
@@ -185,7 +184,9 @@ export default async function ProfilePage() {
             §1.1's objection to a card each is the same objection here, and three figures divided by
             hairlines read as one summary instead of a dashboard. */}
         <section aria-labelledby="library-total" className="mt-4">
-          <SectionHeading id="library-total">Your library</SectionHeading>
+          <h2 id="library-total" className={SECTION_LABEL}>
+            Your library
+          </h2>
           <div className="mt-2 rounded-xl border border-border bg-card">
             <dl className="grid grid-cols-3 divide-x divide-border">
               <Figure label={stats.saved === 1 ? 'Place' : 'Places'} value={stats.saved} />
@@ -218,7 +219,9 @@ export default async function ProfilePage() {
             data cannot keep, which is the same rule the category filter bar follows. */}
         {countries.length > 0 ? (
           <section aria-labelledby="countries" className="mt-6">
-            <SectionHeading id="countries">Where you save</SectionHeading>
+            <h2 id="countries" className={SECTION_LABEL}>
+              Where you save
+            </h2>
             <ul className="mt-1">
               {countries.map((country) => {
                 const code = normaliseCountryCode(country.countryCode);
@@ -241,7 +244,9 @@ export default async function ProfilePage() {
 
         {categories.length > 0 ? (
           <section aria-labelledby="categories" className="mt-6">
-            <SectionHeading id="categories">What you save</SectionHeading>
+            <h2 id="categories" className={SECTION_LABEL}>
+              What you save
+            </h2>
             <ul className="mt-1">
               {categories.map((facet) => {
                 const display = categoryDisplay(facet.category);
@@ -275,9 +280,19 @@ export default async function ProfilePage() {
 
         {/* The way through to everything you can change, and the only one that works without
             JavaScript: the account menu is a popover, so with scripting off this row is the sole
-            door to `/account`. A row rather than the full-width button it used to be — it is no
-            longer one of three exits stacked at the bottom, it is a destination, so it takes the
-            card-and-chevron shape the menu already uses for `Your library`. */}
+            door to `/account`. It stays a real `<Link>` for exactly that reason.
+
+            A row rather than the full-width button it used to be — it is no longer one of three
+            exits stacked at the bottom, it is a destination.
+
+            **It is NOT `MENU_ROW`, and that is a blocker rather than a choice** (measured
+            2026-09-03). The account menu's identical row now draws the product's one menu material;
+            this one cannot, because `MENU_ROW` is exported from `components/ui/inline-menu.tsx`,
+            which is `'use client'`, and this page is a Server Component — a non-component export of
+            a client module arrives here as a **client reference**, so `cn()` silently drops it and
+            the row rendered with no class at all but `PRESS_ROW`. It is the same trap
+            `BOTTOM_NAV_HEIGHT_PX` records at the top of this file. The fix is to move the two
+            constants into a plain module; that file was outside this pass's write scope. */}
         <section className="mt-8">
           <Link
             href="/account"
@@ -293,14 +308,6 @@ export default async function ProfilePage() {
         </section>
       </div>
     </main>
-  );
-}
-
-function SectionHeading({ id, children }: { id: string; children: string }) {
-  return (
-    <h2 id={id} className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-      {children}
-    </h2>
   );
 }
 
@@ -322,9 +329,14 @@ function Figure({ label, value }: { label: string; value: number }) {
 }
 
 /**
- * One breakdown row: an optional mark, what it is, and how many. Hairline dividers rather than a
- * card each — `ux-collections.md` §1.1 rules a bordered box per row out as card soup, and this page
- * has three such lists.
+ * One breakdown row: an optional mark, what it is, and how many.
+ *
+ * **No rule under it.** A card each was ruled out as card soup (`ux-collections.md` §1.1) and a
+ * hairline each was the answer; at nine countries and four categories that is eleven rules on one
+ * phone screen, under two lists whose rows already read as rows — a leading mark, a label, a
+ * right-aligned count. The place card's field run and the account menu's rows both draw none. If a
+ * long list ever stops parsing, the fallback is one `divide-y` on the `<ul>`, never a border per
+ * row.
  */
 function Row({
   label,
@@ -336,7 +348,7 @@ function Row({
   children?: React.ReactNode;
 }) {
   return (
-    <li className="flex min-h-11 items-center gap-3 border-b border-border/60 py-2 last:border-b-0">
+    <li className="flex min-h-11 items-center justify-between gap-3 py-1">
       {children}
       <span dir="auto" className="min-w-0 flex-1 truncate text-sm">
         {label}
